@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#202020">
+<title>Solde</title>
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Solde">
+<style>
+  :root{--d:#202020;--d2:#333533;--m:#7a7a78;--l:#B3B3B1;--x:#D6D6D6;--y:#FFD100;--mu:#9d9d9b;--bd:#3d3e3c;--g:#86D39A;--r:#FF7A6B}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{min-height:100%;font-family:-apple-system,"Helvetica Neue",Arial,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:var(--x);background:var(--d)}
+  #bg{position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,#202020 0%,#202020 14%,#333533 32%,#7a7a78 58%,#B3B3B1 80%,#D6D6D6 100%)}
+  .app{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 24px) 20px 190px}
+  .lab{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mu);font-weight:700}
+  .top{display:flex;align-items:center;justify-content:space-between}
+  .arrows{display:flex;gap:8px}
+  .arrow{width:34px;height:34px;border-radius:50%;border:1px solid var(--bd);background:var(--d);color:var(--x);font:inherit;font-size:17px;cursor:pointer}
+  h1{font-size:30px;font-weight:800;letter-spacing:-.01em;margin-top:5px;color:var(--x)}
+  .seg{display:flex;background:var(--d);border:1px solid var(--bd);border-radius:999px;padding:4px;margin:14px 0}
+  .seg button{flex:1;border:0;background:none;text-align:center;padding:10px 0;font:inherit;font-size:13px;color:var(--mu);border-radius:999px;cursor:pointer}
+  .seg button.on{background:var(--y);color:var(--d);font-weight:700}
+  .card{background:var(--d);border:1px solid var(--bd);border-radius:28px;padding:16px;box-shadow:0 12px 26px rgba(0,0,0,.28)}
+  .card svg{display:block;width:100%;height:auto}
+  .sum{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+  .sum div{background:var(--d);border:1px solid var(--bd);border-radius:20px;padding:10px 12px}
+  .sum small{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--y);font-weight:700}
+  .sum b{font-size:15px;font-variant-numeric:tabular-nums}
+  .pos{color:var(--g)}.neg{color:var(--r)}
+  .hint{margin:12px 4px 0;font-size:12px;color:var(--mu)}
+  .mini{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .mini .card{padding:10px 12px;border-radius:22px;cursor:pointer;text-align:left;font:inherit;color:var(--x)}
+  .mini .card.dim{opacity:.55}
+  .mini small{font-size:10px;letter-spacing:.1em;text-transform:uppercase;display:flex;justify-content:space-between;font-weight:700}
+  .mini small b{color:var(--x);font-size:12px;letter-spacing:0}
+  .mini .wide{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:8px 14px}
+  .mini .wide small{display:block;width:92px;flex:none}
+  .mini .wide small b{display:block;margin-top:3px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .chip{padding:8px 13px;border-radius:999px;font:inherit;font-size:12px;white-space:nowrap;background:var(--d);color:var(--mu);border:1px solid var(--bd);cursor:pointer}
+  .chip.on{background:var(--y);color:var(--d);font-weight:700;border-color:var(--y)}
+  .day{margin:16px 6px 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--l);font-weight:800;display:flex;justify-content:space-between}
+  .row{background:var(--d);border:1px solid var(--bd);border-radius:999px;display:flex;align-items:center;gap:12px;padding:9px 10px 9px 10px;margin-bottom:7px}
+  .ic{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--d);flex:none}
+  .row .t{flex:1;min-width:0}.row .t b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.row .t span{font-size:11px;color:var(--mu)}
+  .row .a{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .del{background:none;border:0;color:var(--mu);font-size:20px;line-height:1;padding:0 8px 0 2px;cursor:pointer}
+  .row .t .tag,.tag{font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-left:6px;font-weight:700;vertical-align:1px;color:#202020 !important}
+  .fab{position:fixed;right:max(22px,calc(50% - 218px));bottom:calc(env(safe-area-inset-bottom) + 98px);width:58px;height:58px;border-radius:50%;background:var(--y);color:var(--d);border:0;font-size:32px;font-weight:300;box-shadow:0 10px 24px rgba(0,0,0,.4);z-index:6;cursor:pointer}
+  nav{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 20px);z-index:6;display:flex;justify-content:center;pointer-events:none}
+  nav .bar{pointer-events:auto;width:calc(100% - 40px);max-width:440px;background:var(--d);border:1px solid var(--bd);border-radius:999px;padding:6px;display:flex}
+  nav button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:13px;padding:12px 0;border-radius:999px;cursor:pointer}
+  nav button.on{background:var(--y);color:var(--d);font-weight:700}
+  .tog{display:flex;background:var(--d);border-radius:999px;padding:4px;border:1px solid var(--bd);margin-top:14px}
+  .tog button{flex:1;border:0;background:none;text-align:center;padding:12px 0;border-radius:999px;font:inherit;font-size:14px;color:var(--y);font-weight:700;cursor:pointer}
+  .tog button.on{background:#3a3300;box-shadow:inset 0 0 0 1.5px var(--y)}
+  .big{display:flex;align-items:baseline;justify-content:center;gap:4px;margin:10px 0 2px}
+  .big input{background:none;border:0;color:var(--x);font:inherit;font-size:44px;font-weight:800;text-align:center;width:210px;outline:none;letter-spacing:-.02em}
+  .big input::placeholder{color:var(--mu)}
+  .big span{font-size:20px;color:var(--mu)}
+  .sl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--x);margin:14px 4px 4px;font-weight:700}
+  input.f,textarea.f{background:var(--d);border:1px solid var(--bd);border-radius:999px;padding:14px 18px;font:inherit;font-size:15px;color:var(--x);width:100%;margin-bottom:8px;color-scheme:dark;-webkit-appearance:none;appearance:none;min-width:0;height:52px;display:block}
+  .btn{background:var(--y);color:var(--d);text-align:center;font-weight:800;padding:16px;border-radius:999px;margin-top:6px;border:0;width:100%;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+  .btn.ghost{background:var(--d);color:var(--x);border:1px solid var(--bd);font-weight:600}
+  .split{display:flex;height:22px;border-radius:999px;overflow:hidden;margin:10px 0 8px;background:var(--d2)}
+  .leg{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px}
+  .leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px}
+  .bar{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:13px}
+  .bar .n{width:104px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .tr{flex:1;height:14px;background:var(--d2);border-radius:999px;overflow:hidden}.bar .tr i{display:block;height:100%;border-radius:999px;background:var(--mu)}.bar .v{width:64px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
+  .months{display:flex;align-items:flex-end;gap:5px;height:90px;margin-top:10px}
+  .months div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;font-size:10px;color:var(--mu)}
+  .months i{display:block;width:100%;border-radius:6px;background:var(--mu);min-height:3px}
+  .pill{display:inline-block;margin-top:12px;border:1px solid var(--bd);border-radius:999px;padding:9px 14px;font-size:12px;background:var(--d);color:var(--x)}
+  textarea.f{height:80px;border-radius:22px;resize:none}
+  .empty{color:var(--mu);font-size:13px;padding:6px 4px}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div class="app" id="app"></div>
+<nav><div class="bar" id="tabs"></div></nav>
+
+<script>
+/* ---------- constantes ---------- */
+const NAT = {
+  obligatoire:{n:"Obligatoire",c:"#A8E6B0"},
+  utile:{n:"Utile",c:"#FFF1A0"},
+  plaisir:{n:"Plaisir",c:"#FFC38A"},
+  inutile:{n:"Inutile",c:"#FF9E9E"},
+  virement:{n:"Virement",c:"#A9D4F5"}
+};
+const NKEYS = ["obligatoire","utile","plaisir","inutile","virement"];
+const CATS_OUT = ["Nourriture","Transport","Abonnement","Divertissement","Sorties","Vêtements","Santé & sport","Études","Logement","Autre"];
+const CATS_IN = ["Job","Vente","Cadeau","Autre"];
+const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const DAYS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+const G = "#86D39A", R = "#FF7A6B";
+
+/* ---------- utilitaires ---------- */
+const pad = n => String(n).padStart(2,"0");
+const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+const addDays = (d,n) => new Date(d.getFullYear(), d.getMonth(), d.getDate()+n);
+const mondayOf = d => addDays(d, -((d.getDay()+6)%7));
+const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf = n => Math.abs(n).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtS = n => (n>0.004?"+":n<-0.004?"−":"")+nf(n)+" €";
+const short = n => fmtS(n).replace(",00","");
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------- état ---------- */
+let moves = store.get("solde_moves", []);
+let tab = "curves", period = "month", anchor = today();
+let delAsk = null, selNat = null, filter = "all", anaMode = "out", adding = false;
+let form = {kind:"out", nat:"utile", cat:"Nourriture", note:"", date:iso(today()), amt:""};
+const save = () => store.set("solde_moves", moves);
+const signed = m => m.kind==="in" ? m.amt : -m.amt;
+const isVir = m => m.nat==="virement";
+
+/* ---------- périodes ---------- */
+function buckets(){
+  if (period==="week"){
+    const s = mondayOf(anchor);
+    return [0,1,2,3,4,5,6].map(i => { const d=addDays(s,i); return {from:iso(d),to:iso(d),lab:"LMMJVSD"[i]}; });
+  }
+  if (period==="month"){
+    const y=anchor.getFullYear(), m=anchor.getMonth(), n=new Date(y,m+1,0).getDate();
+    return Array.from({length:n},(_,i)=>{ const d=iso(new Date(y,m,i+1)); return {from:d,to:d,lab:String(i+1)}; });
+  }
+  const y=anchor.getFullYear();
+  return Array.from({length:12},(_,m)=>({from:iso(new Date(y,m,1)),to:iso(new Date(y,m+1,0)),lab:"JFMAMJJASOND"[m]}));
+}
+function periodTitle(){
+  if (period==="week"){ const s=mondayOf(anchor), e=addDays(s,6); return s.getDate()+" – "+e.getDate()+" "+MONTHS[e.getMonth()].slice(0,4)+". "+e.getFullYear(); }
+  if (period==="month") return cap(MONTHS[anchor.getMonth()])+" "+anchor.getFullYear();
+  return String(anchor.getFullYear());
+}
+function shiftPeriod(n){
+  if (period==="week") anchor = addDays(anchor,7*n);
+  else if (period==="month") anchor = new Date(anchor.getFullYear(), anchor.getMonth()+n, 1);
+  else anchor = new Date(anchor.getFullYear()+n, anchor.getMonth(), 1);
+}
+const inRange = (m,a,b) => m.date>=a && m.date<=b;
+function periodRange(){ const b=buckets(); return [b[0].from, b[b.length-1].to]; }
+function periodMoves(){ const [a,b]=periodRange(); return moves.filter(m=>inRange(m,a,b)); }
+
+function series(filterFn){
+  const b = buckets(), ts = iso(today());
+  let limit = 0;
+  const idx = b.findIndex(x => x.from<=ts && ts<=x.to);
+  if (idx>=0) limit = idx+1; else if (b[b.length-1].to < ts) limit = b.length;
+  const pts=[{k:0,v:0}]; let v=0;
+  for (let k=0;k<limit;k++){
+    moves.forEach(m => { if (inRange(m,b[k].from,b[k].to) && filterFn(m)) v += signed(m); });
+    pts.push({k:k+1,v});
+  }
+  return {pts, n:b.length, labels:b.map(x=>x.lab)};
+}
+
+/* ---------- graphique ---------- */
+function chart(S, w, h, o={}){
+  const pts=S.pts, n=S.n, pad={l:6,r:6,t:10,b:o.small?6:20};
+  const vs=pts.map(p=>p.v).concat([0]); let mn=Math.min(...vs), mx=Math.max(...vs);
+  const sp=(mx-mn)||1; mn-=sp*.12; mx+=sp*.12;
+  const X=k=>pad.l+(k/n)*(w-pad.l-pad.r), Y=v=>pad.t+(1-(v-mn)/(mx-mn))*(h-pad.t-pad.b);
+  let s=`<line x1="${pad.l}" x2="${w-pad.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#9d9d9b" stroke-width="1" stroke-dasharray="4 4"/>`;
+  for (let i=1;i<pts.length;i++){
+    const a=pts[i-1], b=pts[i];
+    const c = o.color || (b.v>a.v+0.004?G : b.v<a.v-0.004?R : "#9d9d9b");
+    s+=`<line x1="${X(a.k)}" y1="${Y(a.v)}" x2="${X(b.k)}" y2="${Y(b.v)}" stroke="${c}" stroke-width="${o.sw||3}" stroke-linecap="round"/>`;
+  }
+  if (!o.small){
+    pts.forEach((p,i)=>{ if(i && Math.abs(p.v-pts[i-1].v)>0.004){
+      const c=o.color||(p.v>pts[i-1].v?G:R);
+      s+=`<circle cx="${X(p.k)}" cy="${Y(p.v)}" r="3.6" fill="${c}" stroke="#202020" stroke-width="1.5"/>`; } });
+    const every = n>14 ? 7 : 1;
+    S.labels.forEach((l,k)=>{ if (n<=14 || k%every===0 || (k===n-1 && (n-1)%every>=3)) s+=`<text x="${X(k+.5)}" y="${h-4}" font-size="10" fill="#9d9d9b" text-anchor="middle">${l}</text>`; });
+    s+=`<text x="${w-pad.r}" y="${Y(0)-5}" font-size="10" fill="#9d9d9b" text-anchor="end">0 €</text>`;
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+/* ---------- onglet Courbes ---------- */
+function renderCurves(){
+  const pm = periodMoves();
+  const counted = pm.filter(m=>!isVir(m));
+  const ins = counted.filter(m=>m.kind==="in").reduce((a,m)=>a+m.amt,0);
+  const outs = counted.filter(m=>m.kind==="out").reduce((a,m)=>a+m.amt,0);
+  const net = ins-outs;
+  let main, tiles;
+  if (selNat){
+    const nm = NAT[selNat], S = series(m=>m.nat===selNat);
+    const last = S.pts[S.pts.length-1].v;
+    const mine = pm.filter(m=>m.nat===selNat);
+    const totalOut = counted.filter(m=>m.kind==="out").reduce((a,m)=>a+m.amt,0);
+    const spent = mine.filter(m=>m.kind==="out").reduce((a,m)=>a+m.amt,0);
+    main = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lab" style="color:${nm.c}">${nm.n}</span><b class="${last>=0?"pos":"neg"}" style="font-size:22px">${fmtS(last)}</b></div>${chart(S,326,150,{color:nm.c,sw:3.5})}</div>`;
+    const part = selNat==="virement" ? "—" : (totalOut>0 ? Math.round(spent/totalOut*100)+" %" : "0 %");
+    tiles = `<div class="sum"><div><small>${selNat==="virement"?"Net":"Dépensé"}</small><b class="${last>=0?"pos":"neg"}">${selNat==="virement"?fmtS(last):fmtS(-spent)}</b></div><div><small>Part</small><b>${part}</b></div><div><small>Mouvements</small><b>${mine.length}</b></div></div>`;
+  } else {
+    const S = series(m=>!isVir(m));
+    const last = S.pts[S.pts.length-1].v;
+    main = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lab">Courbe générale</span><b class="${last>=0?"pos":"neg"}" style="font-size:22px">${fmtS(last)}</b></div>${chart(S,326,150)}</div>`;
+    tiles = `<div class="sum"><div><small>Entrées</small><b class="pos">${fmtS(ins)}</b></div><div><small>Sorties</small><b class="neg">${fmtS(-outs)}</b></div><div><small>Gardé</small><b class="${net>=0?"pos":"neg"}">${fmtS(net)}</b></div></div>`;
+  }
+  const minis = NKEYS.map(k => {
+    const S = series(m=>m.nat===k), last = S.pts[S.pts.length-1].v, nm=NAT[k], wide=k==="virement";
+    const cls = "card"+(wide?" wide":"")+((selNat && selNat!==k)?" dim":"");
+    const sel = selNat===k ? ` style="box-shadow:0 0 0 2px ${nm.c}"` : "";
+    return `<button class="${cls}" data-act="nat" data-k="${k}"${sel}><small style="color:${nm.c}">${nm.n}<b>${short(last)}</b></small>${chart(S,wide?190:140,wide?30:52,{small:true,sw:2.5,color:nm.c})}</button>`;
+  }).join("");
+  const sub = selNat ? `<div class="chips" style="margin:10px 0 0"><button class="chip" data-act="nat" data-k="">‹ Courbe générale</button></div>` : `<div class="hint">Touche une courbe pour l'agrandir</div>`;
+  return `
+    <div class="top"><div class="lab">${periodTitle()}</div><div class="arrows"><button class="arrow" data-act="prev">‹</button><button class="arrow" data-act="next">›</button></div></div>
+    <h1>Mon argent</h1>
+    <div class="seg">${[["week","Semaine"],["month","Mois"],["year","Année"]].map(([k,v])=>`<button data-act="period" data-k="${k}" class="${period===k?"on":""}">${v}</button>`).join("")}</div>
+    ${main}${tiles}${sub}<div class="mini">${minis}</div>`;
+}
+
+/* ---------- onglet Mouvements ---------- */
+const FILTERS = [["all","Tout"],["in","Entrées"],["out","Sorties"],["vir","Virements"],["obligatoire","Obligatoire"],["utile","Utile"],["plaisir","Plaisir"],["inutile","Inutile"]];
+function renderMoves(){
+  let list = moves.slice();
+  if (filter==="in") list=list.filter(m=>m.kind==="in");
+  else if (filter==="out") list=list.filter(m=>m.kind==="out");
+  else if (filter==="vir") list=list.filter(isVir);
+  else if (filter!=="all") list=list.filter(m=>m.nat===filter);
+  const y=anchor.getFullYear(), mo=anchor.getMonth();
+  list = list.filter(m=>{ const d=parse(m.date); return d.getFullYear()===y && d.getMonth()===mo; });
+  list.sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const groups = {}; list.forEach(m => (groups[m.date]=groups[m.date]||[]).push(m));
+  const html = Object.keys(groups).sort().reverse().map(d => {
+    const dt=parse(d), tot=groups[d].filter(m=>!isVir(m)).reduce((a,m)=>a+signed(m),0);
+    return `<div class="day"><span>${DAYS[dt.getDay()]} ${dt.getDate()}</span><span>${fmtS(tot)}</span></div>` + groups[d].map(m => {
+      const vir=isVir(m), isIn=m.kind==="in";
+      const ic = vir ? "VIR" : (m.cat||"").slice(0,3).toUpperCase();
+      const bg = vir ? "#B3B3B1" : isIn ? G : "#9d9d9b";
+      const tag = (m.nat && !vir) ? `<span class="tag" style="background:${NAT[m.nat].c}">${NAT[m.nat].n}</span>` : vir ? `<span class="tag" style="background:#9d9d9b">Virement</span>` : "";
+      const title = m.note ? esc(m.note) : esc(m.cat||"Virement");
+      return `<div class="row"><div class="ic" style="background:${bg}">${esc(ic)}</div><div class="t"><b>${title}${tag}</b><span>${vir?"Virement":esc(m.cat)}${isIn?" · entrée":""}</span></div><div class="a ${vir?"":isIn?"pos":"neg"}" ${vir?'style="color:#B3B3B1"':""}>${fmtS(signed(m))}</div>${delAsk===m.id?`<button class="chip on" data-act="del" data-id="${m.id}" style="margin-right:4px">Supprimer ?</button>`:`<button class="del" data-act="ask" data-id="${m.id}" aria-label="Supprimer">×</button>`}</div>`;
+    }).join("");
+  }).join("");
+  return `
+    <div class="top"><div class="lab">${cap(MONTHS[mo])} ${y}</div><div class="arrows"><button class="arrow" data-act="mprev">‹</button><button class="arrow" data-act="mnext">›</button></div></div>
+    <h1>Mouvements</h1>
+    <div class="chips">${FILTERS.map(([k,v])=>`<button class="chip ${filter===k?"on":""}" data-act="filter" data-k="${k}"${(NAT[k]&&filter!==k)?` style="color:${NAT[k].c};border-color:${NAT[k].c}55"`:""}>${v}</button>`).join("")}</div>
+    ${html || `<div class="empty">Aucun mouvement ce mois-ci. Appuie sur + pour en ajouter.</div>`}
+    <button class="fab" data-act="add" aria-label="Ajouter">+</button>`;
+}
+
+/* ---------- Ajouter ---------- */
+function renderAdd(){
+  const isOut = form.kind==="out";
+  const natList = isOut ? NKEYS : ["","virement"];
+  const natChips = natList.map(k => {
+    const on = form.nat===k;
+    const nm = k ? NAT[k] : {n:"Aucune",c:""};
+    const col = (!on && k) ? ` style="color:${nm.c};border-color:${nm.c}55"` : "";
+    return `<button type="button" class="chip ${on?"on":""}" data-act="fnat" data-k="${k}"${col}>${nm.n}</button>`;
+  }).join("");
+  const cats = (isOut?CATS_OUT:CATS_IN);
+  const catChips = form.nat==="virement" ? `<div class="empty">Un virement n'est pas compté dans la courbe générale. Précise de quel compte à quel compte dans la note.</div>` :
+    `<div class="chips" style="margin-top:2px">${cats.map(c=>`<button type="button" class="chip ${form.cat===c?"on":""}" data-act="fcat" data-k="${esc(c)}">${esc(c)}</button>`).join("")}</div>`;
+  return `
+    <div class="lab">Nouveau mouvement</div><h1>Ajouter</h1>
+    <div class="tog"><button data-act="fkind" data-k="in" class="${!isOut?"on":""}">Entrée</button><button data-act="fkind" data-k="out" class="${isOut?"on":""}">Sortie</button></div>
+    <div class="big"><input id="f-amt" inputmode="decimal" placeholder="0,00" value="${esc(form.amt)}" autocomplete="off"><span>€</span></div>
+    <div class="sl">${isOut?"Nature de la dépense":"Type"}</div>
+    <div class="chips" style="margin-top:0">${natChips}</div>
+    <div class="sl">Catégorie</div>${catChips}
+    <input class="f" id="f-note" placeholder="Note (facultatif)" value="${esc(form.note)}" autocomplete="off">
+    <input class="f" id="f-date" type="date" value="${form.date}">
+    <div id="f-err" class="empty" style="color:#FF9E9E"></div>
+    <button class="btn" data-act="save">Enregistrer</button>
+    <button class="btn ghost" data-act="cancel" style="margin-top:8px">Annuler</button>`;
+}
+
+/* ---------- onglet Analyse ---------- */
+function barsHtml(map, total, unit){
+  const rows = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  if (!rows.length) return `<div class="empty">Rien à afficher.</div>`;
+  const mx = rows[0][1];
+  return rows.map(([k,v])=>`<div class="bar"><span class="n">${esc(k)}</span><span class="tr"><i style="width:${Math.max(3,Math.round(v/mx*100))}%"></i></span><span class="v">${Math.round(v).toLocaleString("fr-FR")} €</span></div>`).join("");
+}
+function renderAnalyse(){
+  const y=anchor.getFullYear(), mo=anchor.getMonth();
+  const mm = moves.filter(m=>{ const d=parse(m.date); return d.getFullYear()===y && d.getMonth()===mo; });
+  const isOut = anaMode==="out";
+  const base = mm.filter(m=>!isVir(m) && m.kind===anaMode);
+  const total = base.reduce((a,m)=>a+m.amt,0);
+  const byCat = {}; base.forEach(m=>{ const c=m.cat||"Autre"; byCat[c]=(byCat[c]||0)+m.amt; });
+  let natCard = "";
+  if (isOut){
+    const byNat = {}; base.forEach(m=>{ const k=m.nat||"utile"; byNat[k]=(byNat[k]||0)+m.amt; });
+    const keys = ["obligatoire","utile","plaisir","inutile"];
+    const seg = keys.map(k=>`<i style="width:${total?byNat[k]/total*100||0:0}%;background:${NAT[k].c}"></i>`).join("");
+    const leg = keys.map(k=>`<span><i style="background:${NAT[k].c}"></i>${NAT[k].n} ${total?Math.round((byNat[k]||0)/total*100):0} %</span>`).join("");
+    const vir = mm.filter(isVir).reduce((a,m)=>a+signed(m),0), nv=mm.filter(isVir).length;
+    natCard = `<div class="card"><div class="lab">Par nature</div><div class="split">${seg}</div><div class="leg">${leg}</div>${nv?`<div class="pill" style="color:${NAT.virement.c}">Virements (non comptés) : ${fmtS(vir)}</div>`:""}</div>`;
+  }
+  const perMonth = Array.from({length:12},(_,i)=>moves.filter(m=>{ const d=parse(m.date); return d.getFullYear()===y && d.getMonth()===i && !isVir(m) && m.kind===anaMode; }).reduce((a,m)=>a+m.amt,0));
+  const mxm = Math.max(...perMonth), top = mxm>0 ? perMonth.indexOf(mxm) : -1;
+  const bars = perMonth.map((v,i)=>`<div><i style="height:${mxm?Math.max(3,v/mxm*70):3}px;${i===top?"background:var(--y)":""}"></i>${"JFMAMJJASOND"[i]}</div>`).join("");
+  const title = isOut ? "Le mois le plus dépensier" : "Le mois où tu as le plus reçu";
+  return `
+    <div class="top"><div class="lab">${cap(MONTHS[mo])} ${y}</div><div class="arrows"><button class="arrow" data-act="mprev">‹</button><button class="arrow" data-act="mnext">›</button></div></div>
+    <h1>Où va l'argent</h1>
+    <div class="seg"><button data-act="ana" data-k="out" class="${isOut?"on":""}">Dépenses</button><button data-act="ana" data-k="in" class="${!isOut?"on":""}">Entrées</button></div>
+    ${natCard}
+    <div class="card" style="margin-top:12px"><div class="lab">Par catégorie · ${Math.round(total).toLocaleString("fr-FR")} €</div>${barsHtml(byCat,total)}</div>
+    <div class="card" style="margin-top:12px"><div class="lab">${title}</div><div class="months">${bars}</div>${top>=0?`<div class="pill">${cap(MONTHS[top])} ${y} : ${Math.round(mxm).toLocaleString("fr-FR")} €</div>`:`<div class="empty">Pas encore de données.</div>`}</div>
+    <div class="card" style="margin-top:12px"><div class="lab">Sauvegarde</div><div class="empty" style="padding:6px 0">Tes données sont enregistrées dans ce navigateur. Copie-les de temps en temps pour ne rien perdre.</div>
+      <button class="btn ghost" data-act="copy">Copier mes données</button>
+      <textarea class="f" id="restore" placeholder="Colle ici une sauvegarde pour la restaurer" style="margin-top:8px"></textarea>
+      <button class="btn ghost" data-act="restore">Restaurer</button><div id="bk-msg" class="empty"></div></div>`;
+}
+
+/* ---------- rendu ---------- */
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = adding ? renderAdd() : tab==="curves" ? renderCurves() : tab==="moves" ? renderMoves() : renderAnalyse();
+  document.getElementById("tabs").innerHTML = [["curves","Courbes"],["moves","Mouvements"],["ana","Analyse"]]
+    .map(([k,v])=>`<button data-act="tab" data-k="${k}" class="${(adding?"moves":tab)===k?"on":""}">${v}</button>`).join("");
+}
+function readForm(){
+  const a=document.getElementById("f-amt"), n=document.getElementById("f-note"), d=document.getElementById("f-date");
+  if (a) form.amt=a.value; if (n) form.note=n.value; if (d && d.value) form.date=d.value;
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const a = b.dataset.act, k = b.dataset.k;
+  if (adding) readForm();
+  if (a!=="ask" && a!=="del") delAsk=null;
+  if (a==="tab"){ tab=k; adding=false; window.scrollTo(0,0); }
+  else if (a==="period"){ period=k; selNat=selNat; }
+  else if (a==="prev") shiftPeriod(-1);
+  else if (a==="next") shiftPeriod(1);
+  else if (a==="mprev") anchor = new Date(anchor.getFullYear(), anchor.getMonth()-1, 1);
+  else if (a==="mnext") anchor = new Date(anchor.getFullYear(), anchor.getMonth()+1, 1);
+  else if (a==="nat") selNat = k || null;
+  else if (a==="filter") filter=k;
+  else if (a==="ana") anaMode=k;
+  else if (a==="ask"){ delAsk=b.dataset.id; }
+  else if (a==="del"){ moves=moves.filter(m=>m.id!==b.dataset.id); save(); delAsk=null; }
+  else if (a==="add"){ adding=true; form={kind:"out",nat:"utile",cat:"Nourriture",note:"",date:iso(today()),amt:""}; window.scrollTo(0,0); }
+  else if (a==="cancel"){ adding=false; }
+  else if (a==="fkind"){ form.kind=k; form.nat = k==="out" ? "utile" : ""; form.cat = (k==="out"?CATS_OUT:CATS_IN)[0]; }
+  else if (a==="fnat"){ form.nat=k; }
+  else if (a==="fcat"){ form.cat=k; }
+  else if (a==="save"){
+    const amt = parseFloat(String(form.amt).replace(/\s/g,"").replace(",","."));
+    if (!(amt>0)){ render(); const er=document.getElementById("f-err"); if (er) er.textContent="Entre un montant supérieur à 0."; return; }
+    moves.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), kind:form.kind, amt:Math.round(amt*100)/100,
+      nat:form.nat, cat: form.nat==="virement" ? "" : form.cat, note:form.note.trim(), date:form.date});
+    save(); adding=false; tab="moves"; anchor=parse(form.date); window.scrollTo(0,0);
+  }
+  else if (a==="copy"){
+    const msg=document.getElementById("bk-msg");
+    try { navigator.clipboard.writeText(JSON.stringify(moves)).then(()=>{ msg.textContent="Données copiées. Colle-les dans une note pour les garder."; }).catch(()=>{ msg.textContent="Copie refusée par le navigateur."; }); }
+    catch(err){ msg.textContent="Copie impossible ici."; }
+    return;
+  }
+  else if (a==="restore"){
+    const msg=document.getElementById("bk-msg"), t=document.getElementById("restore").value.trim();
+    try { const arr=JSON.parse(t); if (!Array.isArray(arr)) throw 0; moves=arr.filter(m=>m && m.id && m.date && m.amt>0); save(); msg.textContent=moves.length+" mouvements restaurés."; }
+    catch(err){ msg.textContent="Sauvegarde illisible."; return; }
+  }
+  render();
+});
+document.addEventListener("input", e => { if (adding && e.target.id && e.target.id.startsWith("f-")) readForm(); });
+
+render();
+</script>
+</body>
+</html>
