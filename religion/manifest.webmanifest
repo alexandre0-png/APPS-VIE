@@ -1,0 +1,17 @@
+{
+ "name": "Religion",
+ "short_name": "Religion",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#0b1a16",
+ "theme_color": "#0b1a16",
+ "icons": [
+  {
+   "src": "icon.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  }
+ ]
+}

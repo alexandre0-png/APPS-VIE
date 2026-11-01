@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1a16">
+<title>Religion</title>
+<link rel="icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Religion">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1a16; --card:#11261f; --card2:#183229;
+    --line:rgba(217,178,92,.20); --gold:#d9b25c; --gold2:#f1d69a;
+    --text:#f4efe3; --mute:#9db5a9;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;background:
+      radial-gradient(900px 500px at 90% -10%, rgba(217,178,92,.10), transparent 60%),
+      radial-gradient(700px 500px at -10% 30%, rgba(40,120,95,.18), transparent 60%),
+      var(--bg);
+    padding-bottom:104px}
+  .app{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 22px) 18px 0}
+  h1{font-size:1.6rem;margin:0;letter-spacing:.02em;font-weight:700}
+  .sub{color:var(--mute);font-size:.9rem;margin-top:4px}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+  select{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:9px 12px;font:inherit;font-size:.9rem;outline:none}
+  .card{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:24px;padding:20px;margin-bottom:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--gold)}
+  .next-name{font-size:1.9rem;font-weight:600;margin:8px 0 2px}
+  .next-time{font-size:3.2rem;font-weight:300;letter-spacing:-.02em;color:var(--gold2);font-variant-numeric:tabular-nums;line-height:1.05}
+  .count{color:var(--mute);margin-top:8px;font-size:.95rem;font-variant-numeric:tabular-nums}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--mute)}
+  .row:last-child{border-bottom:0}
+  .row b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+  .row.hl{color:var(--gold2)}
+  .row.hl b{color:var(--gold2)}
+  .ar{font-family:Amiri,'Traditional Arabic',serif;direction:rtl;text-align:center;font-size:1.75rem;line-height:2.1;color:var(--gold2);margin:6px 0 10px}
+  .fr{font-size:1rem;line-height:1.6;color:var(--text);opacity:.92}
+  .ref{font-size:.78rem;color:var(--gold);margin-top:12px;letter-spacing:.08em}
+  .title{font-size:1.35rem;font-weight:600;margin:6px 0 12px}
+  .body p{margin:0 0 12px;line-height:1.7;color:var(--text);opacity:.93}
+  .btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:10px 16px;font:inherit;font-size:.88rem;cursor:pointer;margin-top:6px}
+  .btn:active{transform:scale(.97)}
+  .inv{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .cnt{min-width:74px;text-align:center;background:rgba(217,178,92,.12);color:var(--gold2);border-radius:16px;padding:10px 12px;font-weight:600;font-variant-numeric:tabular-nums;border:0;font-family:inherit;cursor:pointer}
+  .cnt.done{background:var(--gold);color:#1b1404}
+  .sec{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:24px 4px 10px}
+  .item{padding:16px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .item:last-child{border-bottom:0}
+  .item .ar{font-size:1.4rem;margin:0 0 6px}
+  .view{display:none}
+  .view.on{display:block}
+  nav{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(env(safe-area-inset-bottom) + 12px);background:rgba(11,26,22,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:480px;margin:0 auto}
+  nav button{background:none;border:0;color:var(--mute);font:inherit;font-size:.78rem;padding:8px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;border-radius:14px}
+  nav button .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;display:grid;place-items:center;font-size:.8rem}
+  nav button.on{color:var(--gold2)}
+  nav button.on .dot{background:var(--gold);border-color:var(--gold);color:#1b1404}
+  input[type=time]{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:7px 10px;font:inherit;font-size:.9rem;color-scheme:dark}
+  .foot{color:var(--mute);font-size:.75rem;text-align:center;margin:18px 8px 0;line-height:1.5;opacity:.8}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div>
+      <h1>Religion</h1>
+      <div class="sub" id="today"></div>
+    </div>
+  </div>
+
+  <!-- ACCUEIL -->
+  <section class="view on" id="v-home">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px">
+      <div class="label">Ville</div>
+      <select id="city" aria-label="Ville">
+        <option value="montelimar">Montélimar</option>
+        <option value="annonay">Annonay</option>
+        <option value="lyon">Lyon</option>
+      </select>
+    </div>
+    <div class="card">
+      <div class="label">Prochaine prière</div>
+      <div class="next-name" id="next-name"></div>
+      <div class="next-time" id="next-time"></div>
+      <div class="count" id="count"></div>
+    </div>
+    <div class="card" style="padding:8px 20px">
+      <div id="times"></div>
+    </div>
+    <div class="sec">Rappels</div>
+    <div class="card">
+      <div class="row"><span>Notifications des prières</span><button class="btn" id="notif-btn" style="margin:0">Activer</button></div>
+      <div class="row"><span>Rappel invocation</span><input type="time" id="t-dua"></div>
+      <div class="row"><span>Rappel histoire</span><input type="time" id="t-story"></div>
+      <div class="foot" id="notif-status" style="text-align:left;margin:8px 0 0"></div>
+    </div>
+    <div class="sec">Verset du jour</div>
+    <div class="card" id="home-verse"></div>
+    <div class="foot" id="source"></div>
+  </section>
+
+  <!-- CORAN -->
+  <section class="view" id="v-quran">
+    <div class="sec" style="margin-top:6px">Verset du jour</div>
+    <div class="card" id="quran-today"></div>
+    <div class="sec">Les 114 sourates</div>
+    <div class="card" id="quran-all"></div>
+    <div class="foot">Texte et notes : traduction française publiée par QuranEnc.com (Association for Multi-lingual Islamic Content, Riyadh, édition 2025). Les liens ouvrent le texte sur QuranEnc.com. Le texte n'est pas reproduit dans l'app.</div>
+  </section>
+
+  <!-- HISTOIRES -->
+  <section class="view" id="v-stories">
+    <div class="sec" style="margin-top:6px">Histoire du jour</div>
+    <div class="card" id="story"></div>
+  </section>
+
+  <!-- INVOCATIONS -->
+  <section class="view" id="v-dua">
+    <div class="sec" style="margin-top:6px">Invocations</div>
+    <div id="duas"></div>
+  </section>
+</div>
+
+<nav>
+  <button data-tab="home" class="on">Accueil</button>
+  <button data-tab="quran">Coran</button>
+  <button data-tab="stories">Histoires</button>
+  <button data-tab="dua">Invocations</button>
+</nav>
+
+<script>
+/* ---------- DONNÉES ---------- */
+const VERSES = [
+  {ar:"الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ", fr:"Louange à Allah, Seigneur de l'univers.", ref:"Al-Fatiha 1:2"},
+  {ar:"لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", fr:"Dieu n'impose à aucune âme une charge supérieure à sa capacité.", ref:"Al-Baqara 2:286"},
+  {ar:"فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", fr:"Car, avec la difficulté, vient une facilité.", ref:"Ash-Sharh 94:5"},
+  {ar:"أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ", fr:"N'est-ce pas par le rappel d'Allah que les cœurs trouvent la paix ?", ref:"Ar-Ra'd 13:28"},
+  {ar:"فَاذْكُرُونِي أَذْكُرْكُمْ", fr:"Souvenez-vous de Moi, Je Me souviendrai de vous.", ref:"Al-Baqara 2:152"},
+  {ar:"لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ", fr:"Ne désespérez pas de la miséricorde d'Allah.", ref:"Az-Zumar 39:53"},
+  {ar:"وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ", fr:"Quiconque s'en remet à Allah, Il lui suffit.", ref:"At-Talaq 65:3"},
+  {ar:"وَقُل رَّبِّ زِدْنِي عِلْمًا", fr:"Et dis : Seigneur, accrois mes connaissances.", ref:"Ta-Ha 20:114"},
+  {ar:"يَا أَيُّهَا الَّذِينَ آمَنُوا اسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ", fr:"Ô croyants, cherchez secours dans la patience et la prière : Allah est avec les endurants.", ref:"Al-Baqara 2:153"},
+  {ar:"وَلَا تَهِنُوا وَلَا تَحْزَنُوا وَأَنتُمُ الْأَعْلَوْنَ إِن كُنتُم مُّؤْمِنِينَ", fr:"Ne faiblissez pas, ne vous affligez pas : vous serez les plus élevés si vous êtes croyants.", ref:"Al-Imran 3:139"},
+  {ar:"ادْعُونِي أَسْتَجِبْ لَكُمْ", fr:"Invoquez-Moi, Je vous répondrai.", ref:"Ghafir 40:60"},
+  {ar:"إِنَّ الصَّلَاةَ تَنْهَىٰ عَنِ الْفَحْشَاءِ وَالْمُنكَرِ", fr:"La prière éloigne de la turpitude et du blâmable.", ref:"Al-Ankabut 29:45"},
+  {ar:"وَلَا تَيْئَسُوا مِن رَّوْحِ اللَّهِ", fr:"Ne désespérez pas de la grâce d'Allah.", ref:"Yusuf 12:87"},
+  {ar:"وَهُوَ مَعَكُمْ أَيْنَ مَا كُنتُمْ", fr:"Il est avec vous où que vous soyez.", ref:"Al-Hadid 57:4"},
+  {ar:"وَلَقَدْ يَسَّرْنَا الْقُرْآنَ لِلذِّكْرِ", fr:"Nous avons facilité le Coran pour le rappel : qui voudra s'en souvenir ?", ref:"Al-Qamar 54:17"}
+];
+
+const STORIES = [
+  {t:"Ibrahim et le feu", p:[
+    "Ibrahim refusa d'adorer les idoles de son peuple et brisa leurs statues. Irrité, le roi le fit jeter dans un grand feu.",
+    "Au moment où il était lancé, il dit : « Allah nous suffit, Il est le meilleur garant. » Allah ordonna alors au feu : « Ô feu, deviens fraîcheur et paix pour Ibrahim. » Le feu ne lui fit aucun mal."]},
+  {t:"Yusuf, la patience et le pardon", p:[
+    "Jaloux de la préférence de leur père, les frères de Yusuf le jetèrent au fond d'un puits. Il fut ensuite vendu comme esclave puis emprisonné à tort pendant plusieurs années.",
+    "Il resta patient et digne. Quand il retrouva le pouvoir en Égypte, ses frères vinrent demander de la nourriture. Il leur pardonna en leur disant qu'il n'y avait pas de reproche aujourd'hui."]},
+  {t:"Ayyub, la patience dans l'épreuve", p:[
+    "Ayyub était un prophète riche, reconnaissant et pieux. Allah l'éprouva par la maladie et la perte de ses biens et de ses proches.",
+    "Il ne se plaignit pas avec colère. Il invoqua son Seigneur avec humilité : « Le mal m'a touché, Toi qui es le plus miséricordieux des miséricordieux. » Allah le guérit et lui rendit sa famille."]},
+  {t:"Dans la grotte avec Abu Bakr", p:[
+    "Lors de l'émigration vers Médine, le Prophète ﷺ et Abu Bakr se réfugièrent dans la grotte de Thawr. Les poursuivants arrivèrent jusqu'à son entrée.",
+    "Abu Bakr s'inquiéta. Le Prophète ﷺ le rassura : « Ne t'afflige pas, Allah est avec nous. » La grotte fut protégée et les deux compagnons poursuivirent leur chemin."]},
+  {t:"Bilal, « Ahad, Ahad ! »", p:[
+    "Bilal ibn Rabah était un esclave affranchi par Abu Bakr. Son maître le faisait allonger au soleil brûlant avec une lourde pierre sur la poitrine pour le forcer à renier sa foi.",
+    "Même sous la torture, Bilal répétait : « Ahad, Ahad » (Il est Un, Il est Un). Sa constance est devenue un exemple de fidélité pour toute la communauté."]},
+  {t:"Sulaymân et la fourmi", p:[
+    "Sulaymân, à qui Allah avait donné la maîtrise des vents et le langage des animaux, marchait à la tête de ses armées. Il arriva dans une vallée de fourmis.",
+    "Une fourmi appela ses compagnes à se mettre à l'abri pour ne pas être écrasées. Sulaymân sourit de sa parole et remercia Allah de ses bienfaits, en demandant à agir de façon juste."]},
+  {t:"Hajar et la source de Zamzam", p:[
+    "Ibrahim laissa son épouse Hajar et leur fils Ismaïl dans une vallée désertique, sur ordre d'Allah. Leurs provisions s'épuisèrent et l'enfant eut soif.",
+    "Hajar courut sept fois entre les collines de Safa et Marwa pour chercher de l'eau. Allah fit jaillir la source de Zamzam sous les pieds de l'enfant, et des voyageurs s'installèrent auprès d'elle."]},
+  {t:"Les Gens de la caverne", p:[
+    "Un groupe de jeunes croyants fuit la persécution de leur peuple et se réfugia dans une grotte. Ils invoquèrent Allah : « Accorde-nous Ta miséricorde et guide-nous dans notre affaire. »",
+    "Allah les fit dormir longtemps. À leur réveil, ils crurent n'avoir dormi qu'une journée. Leur histoire montre que l'on peut tout quitter pour rester fidèle à Allah, car Il veille sur ceux qui s'en remettent à Lui."]},
+  {t:"Musa et la mer", p:[
+    "Musa quitta l'Égypte avec le peuple d'Israël, poursuivi par Pharaon et son armée. Acculés au bord de la mer, les gens s'affolèrent.",
+    "Musa répondit avec assurance : « Mon Seigneur est avec moi, Il me guidera. » Allah lui ordonna de frapper la mer de son bâton. Les eaux se fendirent en chemins secs, et le peuple traversa en sécurité."]},
+  {t:"La première révélation", p:[
+    "Dans la grotte de Hira, le Prophète ﷺ méditait. L'ange Jibril vint à lui et lui dit : « Lis ! » Il répondit qu'il ne savait pas lire.",
+    "Il revint à la maison tremblant. Khadija le rassura, l'écouta et l'emmena auprès de son cousin Waraqa. Ce premier message ouvrit une nouvelle ère : « Lis, au nom de ton Seigneur qui a créé. »"]},
+  {t:"Nuh et l'arche", p:[
+    "Nuh appela son peuple pendant plus de neuf cents ans à adorer Allah seul. Peu le suivirent, et beaucoup se moquèrent de lui pendant qu'il construisait l'arche.",
+    "Quand le déluge arriva, Nuh embarqua avec les croyants. Son fils refusa de monter. Nuh pria Allah pour lui, et Allah lui répondit que ce fils ne faisait pas partie de sa famille par la foi."]},
+  {t:"La femme qui jetait des ordures", p:[
+    "Le Prophète ﷺ avait pour voisine une femme qui jetait chaque jour des ordures sur son chemin. Il ne répondait jamais par la colère.",
+    "Un jour, elle ne jeta rien. Il demanda aux gens où elle était et apprit qu'elle était malade. Il alla lui rendre visite. Elle fut touchée par tant de bonté et embrassa l'islam."]},
+  {t:"Musa et Al-Khidr", p:[
+    "Musa voulut apprendre auprès d'un serviteur d'Allah, Al-Khidr, qui détenait une science venant directement d'Allah. Il lui demanda la patience, condition posée par Al-Khidr.",
+    "Musa s'étonna à trois reprises : Al-Khidr troua une barque, tua un jeune garçon, puis répara un mur sans demander de salaire. Chaque acte cachait une sagesse que Musa comprit ensuite. La leçon : la sagesse divine dépasse souvent notre compréhension."]},
+  {t:"Maryam sous le palmier", p:[
+    "Maryam, pieuse et dévouée, se retira à l'écart de sa famille. Un ange lui annonça la naissance d'un fils, Issa, par la permission d'Allah.",
+    "Au moment de l'accouchement, elle était épuisée. Allah lui fit faire tomber des dattes fraîches d'un palmier et la fit boire à une source. Elle reçut le réconfort de la confiance en son Seigneur."]}
+];
+
+const DUAS = [
+  {t:"Au réveil", ar:"الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ", fr:"Louange à Allah qui nous a rendu la vie après nous avoir fait mourir, et vers Lui est la résurrection.", n:1},
+  {t:"Avant de manger", ar:"بِسْمِ اللَّهِ", fr:"Au nom d'Allah.", n:1},
+  {t:"Après le repas", ar:"الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنِي هَذَا وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ", fr:"Louange à Allah qui m'a nourri de ceci et me l'a accordé, sans effort ni force de ma part.", n:1},
+  {t:"En sortant de la maison", ar:"بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ", fr:"Au nom d'Allah, je m'en remets à Allah ; il n'y a de force ni de puissance qu'en Allah.", n:1},
+  {t:"Après la prière · Tasbih", ar:"سُبْحَانَ اللَّهِ", fr:"Gloire à Allah.", n:33},
+  {t:"Après la prière · Tahmid", ar:"الْحَمْدُ لِلَّهِ", fr:"Louange à Allah.", n:33},
+  {t:"Après la prière · Takbir", ar:"اللَّهُ أَكْبَرُ", fr:"Allah est le plus grand.", n:34},
+  {t:"Demande de pardon", ar:"أَسْتَغْفِرُ اللَّهَ", fr:"Je demande pardon à Allah.", n:3},
+  {t:"Après la prière · Paix", ar:"اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ", fr:"Ô Allah, Tu es la Paix et de Toi vient la paix : béni sois-Tu, ô Détenteur de majesté et de générosité.", n:1},
+  {t:"Avant de dormir", ar:"بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", fr:"C'est en Ton nom, ô Allah, que je meurs et que je vis.", n:1},
+  {t:"Pour ce monde et l'au-delà", ar:"رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ", fr:"Seigneur, accorde-nous du bien ici-bas, du bien dans l'au-delà, et protège-nous du châtiment du Feu.", n:1},
+  {t:"Santé et pardon", ar:"اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ", fr:"Ô Allah, je Te demande le pardon et la santé.", n:1}
+];
+
+/* Sourates (nom et nombre de versets) et lien vers la traduction sur QuranEnc */
+const SURAHS = [
+  {n:1,name:"AL-FÂTIHAH",count:7},
+  {n:2,name:"AL-BAQARAH",count:286},
+  {n:3,name:"AL ‘IMRÂN",count:200},
+  {n:4,name:"AN-NISÂ’",count:176},
+  {n:5,name:"AL-MÂÏDAH",count:120},
+  {n:6,name:"AL-AN’ÂM",count:165},
+  {n:7,name:"AL-A’RÂF",count:206},
+  {n:8,name:"AL-ANFÂL",count:75},
+  {n:9,name:"AT-TAWBAH",count:129},
+  {n:10,name:"YOUNOUS",count:109},
+  {n:11,name:"HOUD ‫هـود‬",count:123},
+  {n:12,name:"YOUSOUF",count:111},
+  {n:13,name:"AR-RA’D",count:43},
+  {n:14,name:"IBRÂHÎM",count:52},
+  {n:15,name:"AL-HIJR",count:99},
+  {n:16,name:"AN-NAHL",count:128},
+  {n:17,name:"AL-ISRÂ’",count:111},
+  {n:18,name:"AL-KAHF",count:110},
+  {n:19,name:"MARIAM",count:98},
+  {n:20,name:"TÂ-HÂ ‫طـه‬",count:135},
+  {n:21,name:"AL-ANBIYÂ’",count:112},
+  {n:22,name:"AL-HAJJ",count:78},
+  {n:23,name:"AL-MOU’MINOUN",count:118},
+  {n:24,name:"AN-NOUR",count:64},
+  {n:25,name:"AL-FOURQÂN",count:77},
+  {n:26,name:"ACH-CHOU’ARÂ’",count:227},
+  {n:27,name:"AN-NAML",count:93},
+  {n:28,name:"AL-QASAS",count:88},
+  {n:29,name:"AL-‘ANKABOUT",count:69},
+  {n:30,name:"AR-ROUM",count:60},
+  {n:31,name:"LOUQMAN ‫لقمان‬",count:34},
+  {n:32,name:"AS-SAJDAH",count:30},
+  {n:33,name:"AL-AHZÂB",count:73},
+  {n:34,name:"SABA ‫سبإ‬",count:54},
+  {n:35,name:"FÂTIR",count:45},
+  {n:36,name:"YÂ-SÎN",count:83},
+  {n:37,name:"AS-SÂFFÂT",count:182},
+  {n:38,name:"SÂD‫ص‬",count:88},
+  {n:39,name:"AZ-ZOUMAR",count:75},
+  {n:40,name:"GHÂFIR",count:85},
+  {n:41,name:"FOUSSILAT",count:54},
+  {n:42,name:"ACH-CHOURÂ",count:53},
+  {n:43,name:"AZ-ZOUKHROUF",count:89},
+  {n:44,name:"AD-DOUKHÂN",count:59},
+  {n:45,name:"AL-JÂTHIYAH",count:37},
+  {n:46,name:"AL-AHQÂF",count:35},
+  {n:47,name:"MOUHAMMAD(1)",count:38},
+  {n:48,name:"AL-FAT’H",count:29},
+  {n:49,name:"AL-HOUJOURÂT",count:18},
+  {n:50,name:"QÂF",count:45},
+  {n:51,name:"ADH-DHÂRIYÂT",count:60},
+  {n:52,name:"AT-TOUR",count:49},
+  {n:53,name:"AN-NAJM",count:62},
+  {n:54,name:"AL-QAMAR",count:55},
+  {n:55,name:"AR-RAHMÂN",count:78},
+  {n:56,name:"AL-W",count:96},
+  {n:57,name:"AL-HADÎD",count:29},
+  {n:58,name:"AL-MOUJÂDALAH",count:22},
+  {n:59,name:"AL-HACHR",count:24},
+  {n:60,name:"AL-MOUMTAHANAH",count:13},
+  {n:61,name:"AS-SAFF",count:14},
+  {n:62,name:"AL-JOUMOU’AH",count:11},
+  {n:63,name:"AL-MOUNÂFIQOUN",count:11},
+  {n:64,name:"AT-TAGHÂBOUN",count:18},
+  {n:65,name:"AT-TALÂQ",count:12},
+  {n:66,name:"AT-TAHRÎM",count:12},
+  {n:67,name:"AL-MOULK",count:30},
+  {n:68,name:"AL-QALAM",count:52},
+  {n:69,name:"AL-HÂQQAH",count:52},
+  {n:70,name:"AL-MA’ÂRIJ",count:44},
+  {n:71,name:"NOUH",count:28},
+  {n:72,name:"AL-JINN",count:28},
+  {n:73,name:"AL-MOUZZAMMIL",count:20},
+  {n:74,name:"AL-MOUDDATHTHIR",count:56},
+  {n:75,name:"AL-QIYÂMAH",count:40},
+  {n:76,name:"AL-INSÂN",count:31},
+  {n:77,name:"AL-MOURSALÂT",count:50},
+  {n:78,name:"AN-NABA’",count:40},
+  {n:79,name:"AN-NÂZI’ÂT",count:46},
+  {n:80,name:"‘ABASA",count:42},
+  {n:81,name:"AT-TAKWÎR",count:29},
+  {n:82,name:"AL-INFITÂR",count:19},
+  {n:83,name:"AL-MOUTAFFIFOUN",count:36},
+  {n:84,name:"AL-INCHIQÂQ",count:25},
+  {n:85,name:"AL-BOUROUJ",count:22},
+  {n:86,name:"AT-TÂRIQ",count:17},
+  {n:87,name:"AL-A’LÂ",count:19},
+  {n:88,name:"AL-GHÂCHIYAH",count:26},
+  {n:89,name:"AL-FAJR",count:30},
+  {n:90,name:"AL-BALAD",count:20},
+  {n:91,name:"ACH-CHAMS",count:15},
+  {n:92,name:"AL-LAYL",count:21},
+  {n:93,name:"AD-DOUHÂ",count:11},
+  {n:94,name:"ACH-CHARH",count:8},
+  {n:95,name:"AT-TÎN",count:8},
+  {n:96,name:"AL-‘ALAQ",count:19},
+  {n:97,name:"AL-QADR",count:5},
+  {n:98,name:"AL-BAYYINAH",count:8},
+  {n:99,name:"AZ-ZALZALAH",count:8},
+  {n:100,name:"AL-‘ÂDIYÂT",count:11},
+  {n:101,name:"AL-QÂRI’AH",count:11},
+  {n:102,name:"AT-TAKÂTHOUR",count:8},
+  {n:103,name:"AL-‘ASR",count:3},
+  {n:104,name:"AL-HOUMAZAH",count:9},
+  {n:105,name:"AL-FÎL",count:5},
+  {n:106,name:"QOURAYCH ‫قريش‬",count:4},
+  {n:107,name:"AL-MÂ’OUN",count:7},
+  {n:108,name:"AL-KAWTHAR",count:3},
+  {n:109,name:"AL-KÂFIROUN",count:6},
+  {n:110,name:"AN-NASR",count:3},
+  {n:111,name:"AL-MASAD",count:5},
+  {n:112,name:"AL-IKHLÂS",count:4},
+  {n:113,name:"AL-FALAQ",count:5},
+  {n:114,name:"AN-NÂS",count:6}
+];
+const QE_URL = "https://quranenc.com/fr/browse/french_rashid/";
+const TOTAL_VERSES = 6236;
+/* Un verset par jour, dans l'ordre, à partir du 1er novembre 2026 (Al-Fatiha 1:1) */
+function dailyVerse(){
+  const now = new Date();
+  const off = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2026, 10, 1)) / 86400000);
+  let k = ((off % TOTAL_VERSES) + TOTAL_VERSES) % TOTAL_VERSES;
+  for (const s of SURAHS){
+    if (k < s.count) return {s:s, v:k + 1, url: QE_URL + s.n + "/" + (k + 1)};
+    k -= s.count;
+  }
+  return {s:SURAHS[0], v:1, url: QE_URL + "1/1"};
+}
+
+/* Translittérations (phonétique) des invocations, dans le même ordre que DUAS */
+const DUAS_TR = [
+  "Al-hamdu lillahi alladhi ahyana ba'da ma amatana wa ilayhi an-nushur",
+  "Bismillah",
+  "Al-hamdu lillahi alladhi at'amani hadha wa razaqanihi min ghayri hawlin minni wa la quwwah",
+  "Bismillah, tawakkaltu 'ala Allah, wa la hawla wa la quwwata illa billah",
+  "Subhana Allah",
+  "Al-hamdu lillah",
+  "Allahu akbar",
+  "Astaghfirullah",
+  "Allahumma antas-salam wa minkas-salam, tabarakta ya dhal-jalali wal-ikram",
+  "Bismika Allahumma amutu wa ahya",
+  "Rabbana atina fid-dunya hasanatan wa fil-akhirati hasanatan wa qina 'adhaban-nar",
+  "Allahumma inni as'aluka al-'afwa wal-'afiyah"
+];
+
+/* ---------- HORAIRES (calcul local, méthode MWL 18°/17°, Asr shafiite) ---------- */
+/* Horaires officiels (guidemusulman.com) : Mois-Jour → Subh|Shuruq|Zhur|Asr|Maghrib|Isha */
+const OFFICIAL = {
+  annonay: {
+    "11-01":"06:09|07:20|12:30|15:04|17:34|18:40",
+    "11-02":"06:11|07:21|12:30|15:03|17:33|18:38",
+    "11-03":"06:12|07:23|12:30|15:02|17:31|18:37",
+    "11-04":"06:13|07:24|12:30|15:01|17:30|18:36",
+    "11-05":"06:14|07:26|12:30|15:00|17:29|18:35",
+    "11-06":"06:16|07:27|12:30|14:59|17:27|18:34",
+    "11-07":"06:17|07:28|12:30|14:58|17:26|18:32",
+    "11-08":"06:18|07:30|12:30|14:57|17:25|18:31",
+    "11-09":"06:19|07:31|12:30|14:56|17:23|18:30",
+    "11-10":"06:21|07:33|12:30|14:55|17:22|18:29",
+    "11-11":"06:22|07:34|12:30|14:54|17:21|18:28",
+    "11-12":"06:23|07:35|12:30|14:53|17:20|18:27",
+    "11-13":"06:24|07:37|12:31|14:52|17:19|18:26",
+    "11-14":"06:26|07:38|12:31|14:51|17:18|18:25",
+    "11-15":"06:27|07:39|12:31|14:50|17:17|18:25",
+    "11-16":"06:28|07:41|12:31|14:50|17:16|18:24",
+    "11-17":"06:29|07:42|12:31|14:49|17:15|18:23",
+    "11-18":"06:30|07:43|12:31|14:48|17:14|18:22",
+    "11-19":"06:31|07:45|12:32|14:47|17:13|18:21",
+    "11-20":"06:33|07:46|12:32|14:47|17:12|18:21",
+    "11-21":"06:34|07:47|12:32|14:46|17:11|18:20",
+    "11-22":"06:35|07:49|12:32|14:46|17:11|18:19",
+    "11-23":"06:36|07:50|12:33|14:45|17:10|18:19",
+    "11-24":"06:37|07:51|12:33|14:44|17:09|18:18",
+    "11-25":"06:38|07:53|12:33|14:44|17:09|18:18",
+    "11-26":"06:39|07:54|12:34|14:44|17:08|18:17",
+    "11-27":"06:41|07:55|12:34|14:43|17:07|18:17",
+    "11-28":"06:42|07:56|12:34|14:43|17:07|18:16",
+    "11-29":"06:43|07:58|12:35|14:42|17:06|18:16",
+    "11-30":"06:44|07:59|12:35|14:42|17:06|18:16",
+    "12-01":"06:45|08:00|12:35|14:42|17:05|18:16"
+  },
+  montelimar: {
+    "10-31":"06:07|07:17|12:30|15:07|17:37|18:41",
+    "11-01":"06:09|07:18|12:30|15:05|17:35|18:40",
+    "11-02":"06:10|07:20|12:30|15:04|17:34|18:39",
+    "11-03":"06:11|07:21|12:30|15:03|17:32|18:38",
+    "11-04":"06:12|07:22|12:30|15:02|17:31|18:36",
+    "11-05":"06:13|07:24|12:30|15:01|17:30|18:35",
+    "11-06":"06:15|07:25|12:30|15:00|17:29|18:34",
+    "11-07":"06:16|07:26|12:30|14:59|17:27|18:33",
+    "11-08":"06:17|07:28|12:30|14:58|17:26|18:32",
+    "11-09":"06:18|07:29|12:30|14:57|17:25|18:31",
+    "11-10":"06:20|07:31|12:30|14:56|17:24|18:30",
+    "11-11":"06:21|07:32|12:30|14:55|17:23|18:29",
+    "11-12":"06:22|07:33|12:30|14:55|17:22|18:28",
+    "11-13":"06:23|07:35|12:30|14:54|17:20|18:27",
+    "11-14":"06:24|07:36|12:30|14:53|17:19|18:26",
+    "11-15":"06:25|07:37|12:31|14:52|17:18|18:25",
+    "11-16":"06:27|07:39|12:31|14:51|17:17|18:24",
+    "11-17":"06:28|07:40|12:31|14:51|17:17|18:24",
+    "11-18":"06:29|07:41|12:31|14:50|17:16|18:23",
+    "11-19":"06:30|07:43|12:31|14:49|17:15|18:22",
+    "11-20":"06:31|07:44|12:32|14:49|17:14|18:22",
+    "11-21":"06:32|07:45|12:32|14:48|17:13|18:21",
+    "11-22":"06:34|07:46|12:32|14:47|17:12|18:20",
+    "11-23":"06:35|07:48|12:32|14:47|17:12|18:20",
+    "11-24":"06:36|07:49|12:33|14:46|17:11|18:19",
+    "11-25":"06:37|07:50|12:33|14:46|17:10|18:19",
+    "11-26":"06:38|07:51|12:33|14:45|17:10|18:18",
+    "11-27":"06:39|07:53|12:34|14:45|17:09|18:18",
+    "11-28":"06:40|07:54|12:34|14:45|17:09|18:17",
+    "11-29":"06:41|07:55|12:34|14:44|17:08|18:17",
+    "11-30":"06:42|07:56|12:35|14:44|17:08|18:17"
+  },
+  lyon: {
+    "10-31":"06:08|07:19|12:29|15:03|17:34|18:40",
+    "11-01":"06:09|07:20|12:29|15:02|17:32|18:39",
+    "11-02":"06:11|07:22|12:29|15:01|17:31|18:37",
+    "11-03":"06:12|07:23|12:29|15:00|17:29|18:36",
+    "11-04":"06:13|07:25|12:29|14:59|17:28|18:35",
+    "11-05":"06:14|07:26|12:29|14:58|17:27|18:33",
+    "11-06":"06:16|07:28|12:29|14:57|17:25|18:32",
+    "11-07":"06:17|07:29|12:29|14:56|17:24|18:31",
+    "11-08":"06:18|07:30|12:29|14:55|17:23|18:30",
+    "11-09":"06:19|07:32|12:29|14:54|17:22|18:29",
+    "11-10":"06:21|07:33|12:30|14:53|17:20|18:28",
+    "11-11":"06:22|07:35|12:30|14:52|17:19|18:27",
+    "11-12":"06:23|07:36|12:30|14:51|17:18|18:26",
+    "11-13":"06:24|07:37|12:30|14:50|17:17|18:25",
+    "11-14":"06:26|07:39|12:30|14:49|17:16|18:24",
+    "11-15":"06:27|07:40|12:30|14:48|17:15|18:23",
+    "11-16":"06:28|07:42|12:30|14:47|17:14|18:22",
+    "11-17":"06:29|07:43|12:31|14:47|17:13|18:21",
+    "11-18":"06:30|07:44|12:31|14:46|17:12|18:21",
+    "11-19":"06:32|07:46|12:31|14:45|17:11|18:20",
+    "11-20":"06:33|07:47|12:31|14:44|17:10|18:19",
+    "11-21":"06:34|07:48|12:32|14:44|17:09|18:18",
+    "11-22":"06:35|07:50|12:32|14:43|17:08|18:18",
+    "11-23":"06:36|07:51|12:32|14:43|17:08|18:17",
+    "11-24":"06:38|07:52|12:32|14:42|17:07|18:17",
+    "11-25":"06:39|07:54|12:33|14:42|17:06|18:16",
+    "11-26":"06:40|07:55|12:33|14:41|17:06|18:16",
+    "11-27":"06:41|07:56|12:33|14:41|17:05|18:15",
+    "11-28":"06:42|07:57|12:34|14:40|17:04|18:15",
+    "11-29":"06:43|07:59|12:34|14:40|17:04|18:14",
+    "11-30":"06:44|08:00|12:34|14:40|17:03|"
+  }
+};
+/*PRAYER-START*/
+const RAD = Math.PI / 180;
+const CITIES = [
+  {id:"montelimar", name:"Montélimar", lat:44.5583, lng:4.7500},
+  {id:"annonay", name:"Annonay", lat:45.2431, lng:4.6716},
+  {id:"lyon", name:"Lyon", lat:45.7640, lng:4.8357}
+];
+const PRAYERS = [
+  {k:"fajr", n:"Fajr"}, {k:"dhuhr", n:"Dhuhr"}, {k:"asr", n:"Asr"}, {k:"maghrib", n:"Maghrib"}, {k:"isha", n:"Isha"}
+];
+const ROWS = [
+  {k:"fajr", n:"Fajr"}, {k:"lever", n:"Lever du soleil"}, {k:"dhuhr", n:"Dhuhr"},
+  {k:"asr", n:"Asr"}, {k:"maghrib", n:"Maghrib"}, {k:"isha", n:"Isha"}
+];
+function norm180(x){ return ((x + 180) % 360 + 360) % 360 - 180; }
+function prayerMinutes(date, city){
+  const y = date.getFullYear(), m = date.getMonth(), d = date.getDate();
+  const offset = -new Date(y, m, d, 12).getTimezoneOffset();
+  const D = (Date.UTC(y, m, d, 12) - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const g = 357.529 + 0.98560028 * D;
+  const q = 280.459 + 0.98564736 * D;
+  const L = q + 1.915 * Math.sin(g * RAD) + 0.020 * Math.sin(2 * g * RAD);
+  const e = 23.439 - 0.00000036 * D;
+  const ra = ((Math.atan2(Math.cos(e * RAD) * Math.sin(L * RAD), Math.cos(L * RAD)) / RAD) + 360) % 360;
+  const decl = Math.asin(Math.sin(e * RAD) * Math.sin(L * RAD));
+  const eqt = 4 * norm180(ra - (q % 360));
+  const noon = 720 - 4 * city.lng - eqt;
+  const phi = city.lat * RAD;
+  const H = alt => {
+    const c = (Math.sin(alt * RAD) - Math.sin(phi) * Math.sin(decl)) / (Math.cos(phi) * Math.cos(decl));
+    return Math.acos(Math.max(-1, Math.min(1, c))) / RAD * 4;
+  };
+  const asrAlt = Math.atan(1 / (1 + Math.abs(Math.tan(phi - decl)))) / RAD;
+  const f = t => ((Math.round(t + offset) % 1440) + 1440) % 1440;
+  return {
+    fajr: f(noon - H(-18)),
+    lever: f(noon - H(-0.833)),
+    dhuhr: f(noon),
+    asr: f(noon + H(asrAlt)),
+    maghrib: f(noon + H(-0.833)),
+    isha: f(noon + H(-17))
+  };
+}
+/*PRAYER-END*/
+
+/* ---------- OUTILS ---------- */
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, def){ try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch(e){ return def; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+const hm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+function dayIndex(){
+  const n = new Date();
+  return Math.floor((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - Date.UTC(n.getFullYear(), 0, 0)) / 86400000);
+}
+function cityObj(){ return CITIES.find(c => c.id === cityId) || CITIES[2]; }
+function nextPrayer(now){
+  const city = cityObj();
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const t = timesFor(now, city);
+  for (const p of PRAYERS){
+    if (t[p.k] > cur){
+      return {p, key:p.k, target:new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(t[p.k] / 60), t[p.k] % 60)};
+    }
+  }
+  const tm = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12);
+  const t2 = timesFor(tm, city);
+  return {p:PRAYERS[0], key:"fajr", target:new Date(tm.getFullYear(), tm.getMonth(), tm.getDate(), Math.floor(t2.fajr / 60), t2.fajr % 60)};
+}
+
+let cityId = store.get("city", "lyon");
+let storyShift = store.get("storyShift", 0);
+let renderedDay = -1;
+
+/* ---------- RENDU ---------- */
+function renderAll(){
+  const now = new Date();
+  renderedDay = dayIndex();
+  $("#city").value = cityId;
+  $("#today").textContent = now.toLocaleDateString("fr-FR", {weekday:"long", day:"numeric", month:"long"});
+
+  const city = cityObj();
+  const t = timesFor(now, city);
+  const nx = nextPrayer(now);
+  $("#source").textContent = t.official
+    ? "Horaires officiels de la mosquée (guidemusulman.com) pour " + city.name + "."
+    : "Calcul astronomique (pas de table officielle pour cette date ou cette ville). Compare avec ta mosquée.";
+  $("#next-name").textContent = nx.p.n + " · " + city.name;
+  $("#next-time").textContent = hm(Math.floor(nx.target.getHours()*60 + nx.target.getMinutes()));
+  $("#times").innerHTML = ROWS.map(r => `<div class="row${nx.key === r.k ? " hl" : ""}"><span>${r.n}</span><b>${hm(t[r.k])}</b></div>`).join("");
+
+  const dv = dailyVerse();
+  const verseHtml = `<div class="ref" style="margin-top:0">${dv.s.name} · verset ${dv.v}</div><div class="fr" style="margin:12px 0">Lis le verset dans la traduction française.</div><a class="btn" href="${dv.url}" style="display:inline-block;text-decoration:none">Ouvrir le verset</a>`;
+  $("#home-verse").innerHTML = verseHtml;
+  scheduleAll();
+  $("#quran-today").innerHTML = verseHtml;
+  $("#quran-all").innerHTML = SURAHS.map(s => `<a class="item" href="${QE_URL}${s.n}/1" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:var(--text)"><span>${s.n}. ${s.name}</span><span style="color:var(--mute);font-size:.85rem">${s.count} v.</span></a>`).join("");
+
+  const s = STORIES[(dayIndex() + storyShift) % STORIES.length];
+  $("#story").innerHTML = `<div class="label">Histoire</div><div class="title">${s.t}</div><div class="body">${s.p.map(p => `<p>${p}</p>`).join("")}</div><button class="btn" id="next-story">Histoire suivante</button>`;
+
+  $("#duas").innerHTML = DUAS.map((d, i) => `
+    <div class="card">
+      <div class="label">${d.t}</div>
+      <div class="ar">${d.ar}</div>
+      <div class="fr" style="font-style:italic;color:var(--gold2);opacity:.9;margin-bottom:8px">${DUAS_TR[i]}</div>
+      <div class="fr">${d.fr}</div>
+      <div class="inv">
+        <span class="fr" style="opacity:.6;font-size:.85rem">Objectif ${d.n}</span>
+        <button class="cnt" data-i="${i}" data-n="${d.n}">0 / ${d.n}</button>
+      </div>
+    </div>`).join("");
+}
+
+function tick(){
+  if (dayIndex() !== renderedDay){ renderAll(); return; }
+  const now = new Date();
+  const nx = nextPrayer(now);
+  const ms = nx.target - now;
+  const h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000), s = Math.floor(ms % 60000 / 1000);
+  $("#count").textContent = "Dans " + (h ? h + " h " : "") + String(m).padStart(2,"0") + " min " + String(s).padStart(2,"0") + " s";
+  if (nx.key !== (window._nk || "")){ window._nk = nx.key; renderAll(); }
+}
+
+/* ---------- ÉVÉNEMENTS ---------- */
+$("#city").addEventListener("change", e => { cityId = e.target.value; store.set("city", cityId); renderAll(); });
+
+document.querySelector("nav").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]");
+  if (!b) return;
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("on"));
+  const map = {home:"v-home", quran:"v-quran", stories:"v-stories", dua:"v-dua"};
+  document.getElementById(map[b.dataset.tab]).classList.add("on");
+  window.scrollTo({top:0});
+});
+
+document.addEventListener("click", e => {
+  if (e.target.id === "next-story"){
+    storyShift = storyShift + 1; store.set("storyShift", storyShift); renderAll(); return;
+  }
+  const c = e.target.closest(".cnt");
+  if (c){
+    const n = Number(c.dataset.n);
+    let v = (Number(c.dataset.v) || 0) + 1;
+    if (v > n){ v = 0; }
+    c.dataset.v = v;
+    c.textContent = v + " / " + n;
+    c.classList.toggle("done", v === n);
+  }
+});
+
+/* ---------- HORAIRES OFFICIELS / CALCUL ---------- */
+function hhmm(s){ const [h, m] = s.split(":").map(Number); return h * 60 + m; }
+function timesFor(date, city){
+  const key = String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  const row = OFFICIAL[city.id] && OFFICIAL[city.id][key];
+  if (row && date.getFullYear() === 2026){
+    const parts = row.split("|");
+    const calc = prayerMinutes(date, city);
+    const g = (i, k) => parts[i] ? hhmm(parts[i]) : calc[k];
+    return {fajr:g(0,"fajr"), lever:g(1,"lever"), dhuhr:g(2,"dhuhr"), asr:g(3,"asr"), maghrib:g(4,"maghrib"), isha:g(5,"isha"), official:true};
+  }
+  return Object.assign(prayerMinutes(date, city), {official:false});
+}
+
+/* ---------- RAPPELS (tant que la page est ouverte) ---------- */
+let notifOn = store.get("notif", false);
+let remind = store.get("remind", {dua:"08:00", story:"20:00"});
+let notifTimers = [];
+function notifAvailable(){ return typeof Notification !== "undefined"; }
+function fireNotif(title, body){
+  try { if (notifAvailable() && Notification.permission === "granted") new Notification(title, {body: body, icon: "icon.png"}); } catch(e){}
+}
+function scheduleAll(){
+  notifTimers.forEach(clearTimeout); notifTimers = [];
+  const now = new Date(), city = cityObj();
+  const at = (y, mo, d, hh, mm) => new Date(y, mo, d, hh, mm);
+  const queue = (date, title, body) => {
+    const ms = date - now;
+    if (ms > 0 && ms < 2 * 86400000) notifTimers.push(setTimeout(() => fireNotif(title, body), ms));
+  };
+  if (notifOn){
+    for (const off of [0, 1]){
+      const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate() + off;
+      const t = timesFor(new Date(y, mo, d, 12), city);
+      PRAYERS.forEach(p => {
+        const dt = at(y, mo, d, Math.floor(t[p.k] / 60), t[p.k] % 60);
+        queue(dt, "Prière de " + p.n, "C'est l'heure de la prière à " + city.name + ".");
+      });
+      const [dh, dm] = remind.dua.split(":").map(Number);
+      const dua = DUAS[(dayIndex() + off) % DUAS.length];
+      queue(at(y, mo, d, dh, dm), "Invocation : " + dua.t, dua.fr);
+      const [sh, sm] = remind.story.split(":").map(Number);
+      const st = STORIES[(dayIndex() + off + storyShift) % STORIES.length];
+      queue(at(y, mo, d, sh, sm), "Histoire : " + st.t, "Ouvre l'app pour lire l'histoire du jour.");
+    }
+  }
+  updateNotifUI();
+}
+function updateNotifUI(){
+  const st = $("#notif-status");
+  $("#notif-btn").textContent = notifOn ? "Désactiver" : "Activer";
+  $("#t-dua").value = remind.dua;
+  $("#t-story").value = remind.story;
+  if (!notifAvailable()) st.textContent = "Notifications non disponibles dans cet affichage. Elles fonctionnent peut-être depuis le navigateur de ton téléphone.";
+  else st.textContent = notifOn
+    ? "Actives. Elles arrivent seulement si l'app reste ouverte en arrière-plan : une app fermée ne peut pas en envoyer depuis cet affichage."
+    : "Désactivées.";
+}
+$("#notif-btn").addEventListener("click", async () => {
+  try {
+    if (!notifAvailable()){ updateNotifUI(); return; }
+    if (!notifOn && Notification.permission !== "granted"){
+      const r = await Notification.requestPermission();
+      if (r !== "granted"){ $("#notif-status").textContent = "Autorisation refusée par le navigateur."; return; }
+    }
+    notifOn = !notifOn; store.set("notif", notifOn); scheduleAll();
+  } catch(e){ $("#notif-status").textContent = "Notifications indisponibles dans cet affichage."; }
+});
+$("#t-dua").addEventListener("change", e => { remind.dua = e.target.value; store.set("remind", remind); scheduleAll(); });
+$("#t-story").addEventListener("change", e => { remind.story = e.target.value; store.set("remind", remind); scheduleAll(); });
+
+renderAll();
+setInterval(tick, 1000);
+tick();
+</script>
+</body>
+</html>
