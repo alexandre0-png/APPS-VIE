@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur de factures</title>
+<meta name="theme-color" content="#f5f2ea">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="conteneur">
+  <header class="entete no-print">
+    <a class="marque" href="index.html">Facturation simple</a>
+    <nav aria-label="Principal">
+      <a href="index.html">Accueil</a>
+      <a href="mentions.html">Mentions</a>
+    </nav>
+  </header>
+
+  <main class="appli">
+    <form class="panneau no-print" id="formulaire" novalidate aria-label="Saisie du document">
+
+      <div class="bloc-saisie">
+        <h2>Document</h2>
+        <div class="champs">
+          <label>Type
+            <select name="type" id="type">
+              <option value="facture">Facture</option>
+              <option value="devis">Devis</option>
+            </select>
+          </label>
+          <label>Préfixe de numérotation
+            <input name="prefixe" id="prefixe" maxlength="8" value="FA" autocomplete="off">
+          </label>
+          <label>Date d’émission
+            <input type="date" name="date" id="date" required>
+          </label>
+          <label>Date d’échéance
+            <input type="date" name="echeance" id="echeance">
+          </label>
+        </div>
+      </div>
+
+      <div class="bloc-saisie">
+        <h2>Votre activité</h2>
+        <div class="champs">
+          <label class="plein">Nom ou raison sociale
+            <input name="emetteurNom" id="emetteurNom" autocomplete="organization" required>
+          </label>
+          <label>SIRET
+            <input name="siret" id="siret" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="14 chiffres">
+          </label>
+          <label>E-mail
+            <input type="email" name="emetteurEmail" id="emetteurEmail" autocomplete="email">
+          </label>
+          <label class="plein">Adresse
+            <textarea name="emetteurAdresse" id="emetteurAdresse" autocomplete="street-address"></textarea>
+          </label>
+          <label class="coche plein">
+            <input type="checkbox" name="franchise" id="franchise">
+            Franchise en base de TVA (pas de TVA facturée)
+          </label>
+        </div>
+      </div>
+
+      <div class="bloc-saisie">
+        <h2>Client</h2>
+        <div class="champs">
+          <label class="plein">Nom ou raison sociale
+            <input name="clientNom" id="clientNom" autocomplete="off" required>
+          </label>
+          <label class="plein">Adresse
+            <textarea name="clientAdresse" id="clientAdresse"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="bloc-saisie">
+        <h2>Prestations</h2>
+        <div class="entete-lignes" aria-hidden="true">
+          <span>Description</span><span>Qté</span><span>Prix unit. HT</span><span>TVA</span><span></span>
+        </div>
+        <div class="lignes" id="lignes"></div>
+        <div class="ajout">
+          <button type="button" class="bouton secondaire" id="ajouter">Ajouter une ligne</button>
+        </div>
+      </div>
+
+      <div class="bloc-saisie">
+        <h2>Paiement et notes</h2>
+        <div class="champs">
+          <label class="plein">Mode de paiement et coordonnées bancaires
+            <textarea name="paiement" id="paiement" placeholder="Virement sur IBAN FR76 …"></textarea>
+          </label>
+          <label class="plein">Notes
+            <textarea name="notes" id="notes"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="avis" id="avis" role="status" aria-live="polite"></div>
+
+      <div class="barre-actions">
+        <button type="button" class="bouton" id="finaliser">Finaliser et imprimer</button>
+        <button type="button" class="bouton secondaire" id="reinitialiser">Nouveau document</button>
+      </div>
+      <p class="discret" style="font-size:.85rem;margin-top:12px">Le numéro n’est attribué qu’à la finalisation. Le brouillon est enregistré automatiquement dans ce navigateur.</p>
+    </form>
+
+    <div class="apercu-zone">
+      <article class="feuille" id="feuille" aria-label="Aperçu du document"></article>
+    </div>
+  </main>
+</div>
+
+<template id="tpl-ligne">
+  <div class="ligne">
+    <label class="ligne-desc"><span class="sr">Description</span>
+      <input data-champ="description" placeholder="Description de la prestation">
+    </label>
+    <label><span class="sr">Quantité</span>
+      <input data-champ="qty" inputmode="decimal" value="1">
+    </label>
+    <label><span class="sr">Prix unitaire HT</span>
+      <input data-champ="unitPrice" inputmode="decimal" placeholder="0,00">
+    </label>
+    <label><span class="sr">Taux de TVA</span>
+      <select data-champ="tvaRate">
+        <option value="20">20 %</option>
+        <option value="10">10 %</option>
+        <option value="5.5">5,5 %</option>
+        <option value="2.1">2,1 %</option>
+        <option value="0">0 %</option>
+      </select>
+    </label>
+    <button type="button" class="retirer" aria-label="Retirer cette ligne">×</button>
+  </div>
+</template>
+
+<script src="calcul.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
