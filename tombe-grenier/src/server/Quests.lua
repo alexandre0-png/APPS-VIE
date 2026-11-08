@@ -14,7 +14,7 @@
   Fins :
     fuite      : sortie par la porte d'entrée
     vérité     : libération de l'enfant
-    malédiction: tout le monde meurt (cycle suivant)
+    malédiction: texte présent, non déclenchée par la mort (les joueurs réapparaissent)
 
   Le code change à chaque partie (seed). Les indications arrivent seules après un long silence.
 ]]
@@ -501,6 +501,24 @@ openCave = function(door)
 end
 
 -- Démarre une partie : nouveau code, nouvel état, invites reconstruites
+-- Point de réapparition selon l'avancée : après la malle, on revient près de la malle ;
+-- après le coffret, près du coffret ; sinon nil (cercueil, point de spawn par défaut).
+function Quests.checkpoint()
+	if not state then
+		return nil
+	end
+	local tag = (state.chest and "Chest") or (state.coffret and "Coffret") or nil
+	if not tag then
+		return nil
+	end
+	for _, part in ipairs(CollectionService:GetTagged(tag)) do
+		if part:IsA("BasePart") then
+			return part.Position
+		end
+	end
+	return nil
+end
+
 function Quests.setup(seed, cycleNumber)
 	code = codeFromSeed(seed)
 	fuseOrder = fuseOrderFromSeed(seed)

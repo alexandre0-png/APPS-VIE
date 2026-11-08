@@ -37,6 +37,15 @@ Config.Player = {
 	Tick = 0.1,
 }
 
+Config.Respawn = {
+	Delay = 4,               -- secondes avant la réapparition après une mort (solo, ou duo sans partenaire vivant)
+}
+
+Config.Revive = {
+	Window = 40,             -- duo : secondes pendant lesquelles l'autre joueur peut réanimer le joueur au sol
+	Hold = 3,                -- secondes de maintien de l'invite pour réanimer
+}
+
 Config.Monster = {
 	WalkSpeed = 8,
 	ChaseSpeed = 15,

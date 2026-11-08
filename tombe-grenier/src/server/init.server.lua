@@ -22,6 +22,7 @@ local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 local Props = require(script.Props)
 local Hub = require(script.Hub)
+local Respawn = require(script.Respawn)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
 pcall(function()
@@ -30,18 +31,6 @@ end)
 
 local round = { seed = 0, ended = false, cycle = 1, active = false, mode = "solo", leaving = false }
 local restartRequested = false
-
-local function alivePlayers()
-	local count = 0
-	for _, player in ipairs(Players:GetPlayers()) do
-		local char = player.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hum and hum.Health > 0 then
-			count += 1
-		end
-	end
-	return count
-end
 
 local function startRound()
 	round.seed = Config.Debug.Seed or math.random(1, 2147483646)
@@ -152,6 +141,14 @@ PlayerState.init()
 Hiding.init()
 Quests.init(endRound)
 
+-- Réapparition : au point d'avancée atteint, ou réanimation par l'autre joueur en duo
+Respawn.init({
+	isRoundActive = function()
+		return round.active and not round.ended
+	end,
+	checkpoint = Quests.checkpoint,
+})
+
 -- Première apparition : la malle ouverte fait tout basculer
 Quests.onChestOpened = function(player)
 	Remotes.fire("Effect", player, { kind = "Cine", name = "apparition" })
@@ -192,22 +189,3 @@ if Hub.role() ~= "game" then
 	Hub.enter()
 end
 
--- Défaite : tout le monde est mort pendant plusieurs secondes
-task.spawn(function()
-	local deadTicks = 0
-	while true do
-		task.wait(1)
-		if round.active and not round.ended and #Players:GetPlayers() > 0 then
-			if alivePlayers() == 0 then
-				deadTicks += 1
-				if deadTicks >= 5 then
-					deadTicks = 0
-					round.cycle += 1
-					endRound("lose")
-				end
-			else
-				deadTicks = 0
-			end
-		end
-	end
-end)
