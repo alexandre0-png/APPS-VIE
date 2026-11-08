@@ -1,0 +1,119 @@
+--[[
+  Serveur principal : boucle de partie, branchement des systèmes, événements réseau.
+  Autorité serveur : toute décision (dégâts, objectifs, IA, sanité) se prend ici.
+]]
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Rng = require(Shared.Rng)
+local Remotes = require(Shared.Remotes)
+
+local PlayerState = require(script.PlayerState)
+local MonsterAI = require(script.MonsterAI)
+local Lights = require(script.Lights)
+local FallingObjects = require(script.FallingObjects)
+local Objectives = require(script.Objectives)
+local Hiding = require(script.Hiding)
+
+local round = { seed = 0, ended = false }
+
+local function alivePlayers()
+	local count = 0
+	for _, player in ipairs(Players:GetPlayers()) do
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health > 0 then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function startRound()
+	round.seed = Config.Debug.Seed or math.random(1, 2147483646)
+	round.ended = false
+	print(("[Round] début, seed=%d"):format(round.seed))
+
+	Objectives.reset()
+	Lights.start(round.seed)
+	FallingObjects.start(round.seed)
+
+	local delay = Config.Debug.SkipActivationDelay and 0 or Config.Round.ActivationDelay
+	MonsterAI.start(delay)
+end
+
+local function endRound(reason)
+	if round.ended then
+		return
+	end
+	round.ended = true
+	print(("[Round] fin : %s"):format(reason))
+
+	MonsterAI.stop()
+	Lights.stop()
+	FallingObjects.stop()
+	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason })
+
+	task.wait(Config.Round.EndScreenTime)
+
+	-- Retour au cercueil pour tous
+	for _, player in ipairs(Players:GetPlayers()) do
+		task.spawn(function()
+			player:LoadCharacter()
+		end)
+	end
+	task.wait(1)
+	startRound()
+end
+
+-- Réseau
+Remotes.init()
+
+Remotes.get("SetQuiet").OnServerEvent:Connect(function(player, on)
+	if typeof(on) == "boolean" then
+		PlayerState.setQuiet(player, on)
+	end
+end)
+
+Remotes.get("SetSprint").OnServerEvent:Connect(function(player, on)
+	if typeof(on) == "boolean" then
+		PlayerState.setSprint(player, on)
+	end
+end)
+
+Remotes.get("ToggleFlashlight").OnServerEvent:Connect(function(player)
+	local st = PlayerState.get(player)
+	if st then
+		PlayerState.setFlashlight(player, not st.flashlightOn)
+	end
+end)
+
+-- Systèmes
+PlayerState.init()
+Hiding.init()
+Objectives.init(function()
+	endRound("win")
+end)
+
+startRound()
+
+-- Défaite : tout le monde est mort pendant plusieurs secondes
+task.spawn(function()
+	local deadTicks = 0
+	while true do
+		task.wait(1)
+		if not round.ended and #Players:GetPlayers() > 0 then
+			if alivePlayers() == 0 then
+				deadTicks += 1
+				if deadTicks >= 5 then
+					deadTicks = 0
+					endRound("lose")
+				end
+			else
+				deadTicks = 0
+			end
+		end
+	end
+end)
