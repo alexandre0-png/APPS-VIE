@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Rng = require(Shared.Rng)
 local Remotes = require(Shared.Remotes)
+local Audio = require(Shared.Audio)
 local MonsterAI = require(script.Parent.MonsterAI)
 
 local CFG = Config.Lights
@@ -54,6 +55,9 @@ local function runLight(part, rng, gen)
 			setPart(part, false)
 			task.wait(rng:range(CFG.OffMin, CFG.OffMax))
 			setPart(part, true)
+			if rng:next() < 0.3 then
+				Audio.play("lumiere", part, { lifetime = 2 })
+			end
 			task.wait(rng:range(0.05, 0.25))
 			if generation ~= gen then
 				return
@@ -68,6 +72,10 @@ end
 -- Coupure totale : toutes les lampes éteintes, effet visuel côté client
 function Lights.blackout()
 	blackoutUntil = os.clock() + CFG.BlackoutDuration
+	Audio.play("interrupteur", workspace, { lifetime = 4 })
+	task.delay(CFG.BlackoutDuration, function()
+		Audio.play("courant", workspace, { lifetime = 4 })
+	end)
 	for _, part in ipairs(CollectionService:GetTagged("FlickerLight")) do
 		setPart(part, false)
 	end

@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local Audio = require(Shared.Audio)
 
 local CFG = Config.Player
 local FL = Config.Flashlight
@@ -90,6 +91,8 @@ function PlayerState.hide(player, spot)
 	st.savedCFrame = root.CFrame
 	root.CFrame = spot.CFrame
 	root.Anchored = true
+	player:SetAttribute("Hidden", true)
+	Audio.play("cachette", spot, { lifetime = 4 })
 	return true
 end
 
@@ -98,7 +101,10 @@ function PlayerState.unhide(player, scared)
 	if not st or not st.hiding then
 		return
 	end
+	local spot = st.hiding
 	st.hiding = nil
+	player:SetAttribute("Hidden", false)
+	Audio.play("cachette", spot, { lifetime = 4 })
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	if root then
@@ -109,6 +115,7 @@ function PlayerState.unhide(player, scared)
 	end
 	if scared then
 		st.sanity = math.clamp(st.sanity - CFG.SanityScare, 0, CFG.SanityMax)
+		Audio.play("porte", player.Character and player.Character:FindFirstChild("HumanoidRootPart") or workspace, { lifetime = 4 })
 		Remotes.fire("Effect", player, { kind = "Scare" })
 	end
 end
@@ -122,6 +129,10 @@ function PlayerState.setFlashlight(player, on)
 		on = false
 	end
 	st.flashlightOn = on
+	local head0 = player.Character and player.Character:FindFirstChild("Head")
+	if head0 then
+		Audio.play("lampe", head0, { lifetime = 2 })
+	end
 
 	local char = player.Character
 	local head = char and char:FindFirstChild("Head")

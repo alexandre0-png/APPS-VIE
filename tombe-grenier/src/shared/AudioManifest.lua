@@ -1,28 +1,37 @@
 --[[
-  AudioManifest : clés audio du jeu.
+  AudioManifest : clés audio du jeu, avec les IDs Roblox fournis.
 
-  asset : identifiant Roblox « rbxassetid://… » obtenu après upload du fichier
-          dans Roblox Studio (Avatar > Audio, ou Asset Manager).
-          Chaîne vide = fichier à fournir. Le jeu continue sans crash et logge un warning.
+  asset  : identifiant « rbxassetid://… ». Chaîne vide = à fournir (warning, pas de crash).
+  volume : volume de base (0 à 1).
 
-  file  : fichier source de référence (documentation, Roblox ne lit pas ce chemin).
+  Sons non retenus (inutiles à ce jeu) : chariot, telephone, generateur, chaise.
 ]]
 return {
-	-- Sons nommés
-	mirror_break        = { file = "assets/audio/mirror_break.wav",        asset = "", volume = 1 },
-	flashback_door_slam = { file = "assets/audio/flashback_door_slam.wav", asset = "", volume = 1 },
-	child_cry_distant   = { file = "assets/audio/child_cry_distant.wav",   asset = "", volume = 0.2 },
-	iron_bar_fall       = { file = "assets/audio/iron_bar_fall.wav",       asset = "", volume = 1 },
-	crow_outside        = { file = "assets/audio/crow_outside.wav",        asset = "", volume = 0.6 },
+	-- Monstre
+	cri_capture = { asset = "rbxassetid://72783633167253", volume = 1 },   -- cri quand le monstre attrape un joueur
+	pas         = { asset = "rbxassetid://127992015008072", volume = 0.6 }, -- pas du monstre
+	chaines     = { asset = "rbxassetid://97870330505207", volume = 0.7 },  -- poursuite
 
-	-- Sons à fournir (clés créées vides)
-	drip             = { file = "assets/audio/drip.wav",             asset = "", volume = 0.5 },
-	floor_creak      = { file = "assets/audio/floor_creak.wav",      asset = "", volume = 0.6 },
-	coffin_lid       = { file = "assets/audio/coffin_lid.wav",       asset = "", volume = 0.8 },
-	distant_voice    = { file = "assets/audio/distant_voice.wav",    asset = "", volume = 0.3 },
-	heartbeat        = { file = "assets/audio/heartbeat.wav",        asset = "", volume = 0.6 },
-	monster_chase    = { file = "assets/audio/monster_chase.wav",    asset = "", volume = 0.7 },
-	scare            = { file = "assets/audio/scare.wav",            asset = "", volume = 0.9 },
-	light_buzz       = { file = "assets/audio/light_buzz.wav",       asset = "", volume = 0.2 },
-	flashlight_click = { file = "assets/audio/flashlight_click.wav", asset = "", volume = 0.5 },
+	-- Ambiance
+	cri_loin     = { asset = "rbxassetid://83552831071508", volume = 0.25 }, -- cri lointain, au plus un toutes les 90 s
+	porte_grince = { asset = "rbxassetid://9126144505", volume = 0.6 },     -- bruit d'ambiance
+	chaise_grince = { asset = "rbxassetid://9113480360", volume = 0.6 },    -- bruit d'ambiance
+	ambiance     = { asset = "rbxassetid://9112797020", volume = 0.4, looped = true }, -- nappe continue
+
+	-- Joueur
+	battement  = { asset = "rbxassetid://139481207162657", volume = 0.7 },  -- battement de cœur (poursuite, sanité basse)
+	respiration = { asset = "rbxassetid://91913825089269", volume = 0.5, looped = true }, -- joueur caché
+	lampe      = { asset = "rbxassetid://116266785932124", volume = 0.5 },  -- lampe torche
+	cachette   = { asset = "rbxassetid://17122806607", volume = 0.7 },      -- placard qui se ferme
+
+	-- Objets, portes, objectifs
+	porte    = { asset = "rbxassetid://82228025681045", volume = 0.9 },     -- porte qui claque (débusquage)
+	verre    = { asset = "rbxassetid://138817960173178", volume = 0.8 },    -- objet qui tombe et casse
+	tiroir   = { asset = "rbxassetid://1910795334", volume = 0.6 },         -- clé trouvée
+	cadenas  = { asset = "rbxassetid://6652808984", volume = 0.8 },         -- sortie déverrouillée
+
+	-- Électricité
+	interrupteur = { asset = "rbxassetid://9126027642", volume = 0.7 },     -- début de coupure
+	courant      = { asset = "rbxassetid://17864166117", volume = 0.7 },    -- fin de coupure
+	lumiere      = { asset = "rbxassetid://136758740736300", volume = 0.4 }, -- lampe qui s'allume par rafale
 }

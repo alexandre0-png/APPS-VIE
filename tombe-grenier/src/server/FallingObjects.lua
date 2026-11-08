@@ -86,7 +86,7 @@ local function drop(spot, rng)
 			return
 		end
 		landed = true
-		Audio.play("iron_bar_fall", item, { lifetime = CFG.ItemLifetime })
+		Audio.play("verre", item, { lifetime = CFG.ItemLifetime })
 		Noise.emit(item.Position, CFG.NoiseStrength)
 		Debris:AddItem(item, CFG.ItemLifetime)
 	end)

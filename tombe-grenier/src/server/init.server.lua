@@ -13,6 +13,7 @@ local PlayerState = require(script.PlayerState)
 local MonsterAI = require(script.MonsterAI)
 local Lights = require(script.Lights)
 local FallingObjects = require(script.FallingObjects)
+local Ambience = require(script.Ambience)
 local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 
@@ -38,6 +39,7 @@ local function startRound()
 	Objectives.reset()
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
+	Ambience.start(round.seed)
 
 	local delay = Config.Debug.SkipActivationDelay and 0 or Config.Round.ActivationDelay
 	MonsterAI.start(delay)
@@ -53,6 +55,7 @@ local function endRound(reason)
 	MonsterAI.stop()
 	Lights.stop()
 	FallingObjects.stop()
+	Ambience.stop()
 	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason })
 
 	task.wait(Config.Round.EndScreenTime)

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local Audio = require(Shared.Audio)
 
 local Objectives = {}
 
@@ -43,7 +44,11 @@ local function broadcast()
 end
 
 local function refreshExit()
+	local wasReady = exitReady
 	exitReady = team.photos >= Config.Round.PhotosRequired and team.hasKey
+	if exitReady and not wasReady then
+		Audio.play("cadenas", workspace, { lifetime = 4 })
+	end
 	for _, prompt in ipairs(exitPrompts) do
 		prompt.Enabled = exitReady
 	end
@@ -82,6 +87,7 @@ function Objectives.init(winCallback)
 		if part:IsA("BasePart") then
 			pickable(part, "Clé", function()
 				team.hasKey = true
+				Audio.play("tiroir", workspace, { lifetime = 3 })
 			end)
 		end
 	end

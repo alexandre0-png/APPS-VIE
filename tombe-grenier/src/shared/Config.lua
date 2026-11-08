@@ -56,6 +56,7 @@ Config.Monster = {
 	PatrolRadius = 60,               -- rayon de patrouille si aucun tag Waypoint n'existe
 	PatrolPause = 1.5,
 	FreezeHold = 0.15,               -- durée de gel après un tick de faisceau lumineux
+	StepInterval = 0.6,              -- secondes entre deux pas audibles du monstre
 	Tick = 0.1,
 	DirectWalkTimeout = 3,
 	WaypointTimeout = 3,
@@ -81,6 +82,13 @@ Config.Lights = {
 	BlackoutIntervalMin = 90,
 	BlackoutIntervalMax = 180,
 	BlackoutDuration = 2.5,
+}
+
+Config.Ambience = {
+	CreakIntervalMin = 25,   -- secondes entre deux grincements (porte ou chaise)
+	CreakIntervalMax = 60,
+	ScreamInterval = 90,     -- cri lointain : au plus un par intervalle
+	ScreamChance = 0.5,      -- probabilité de déclenchement à chaque intervalle
 }
 
 Config.Falling = {

@@ -32,7 +32,7 @@ src/client/init.client.lua    StarterPlayerScripts.Client : HUD, effets, entrée
 4. Ajouter dans `ServerStorage` :
    - `Monster` : un modèle avec `Humanoid` et `HumanoidRootPart`, idéalement un rig R15. Sans lui, un rig de secours est utilisé.
    - `FallingItem` (optionnel) : une `BasePart` (barre de fer, bocal…).
-5. Uploader les sons (Avatar > Audio, ou Asset Manager) et coller `rbxassetid://…` dans `AudioManifest.lua`, champ `asset`.
+5. Les sons sont référencés dans `src/shared/AudioManifest.lua` avec leurs IDs Roblox. Pour un nouveau son, ajouter une entrée `rbxassetid://…`. Une clé avec `asset = ""` logue un warning une seule fois.
 
 ## Tags CollectionService à poser sur la carte
 

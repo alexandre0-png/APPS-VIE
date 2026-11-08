@@ -110,13 +110,28 @@ local function showMessage(text)
 	end)
 end
 
--- Battements de cœur à sanité basse
+-- Ambiance continue
+Audio.play("ambiance", gui)
+
+-- Respiration tant que le joueur est caché (attribut posé par le serveur)
+local breath = nil
+player:GetAttributeChangedSignal("Hidden"):Connect(function()
+	if player:GetAttribute("Hidden") then
+		breath = Audio.play("respiration", gui)
+	elseif breath then
+		breath:Destroy()
+		breath = nil
+	end
+end)
+
+-- Battements de cœur : pendant la poursuite ou à sanité basse
 task.spawn(function()
 	while true do
 		local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
-		if sanity < Config.Player.SanityLow then
-			Audio.play("heartbeat", gui, { volume = 0.6, lifetime = 3 })
-			task.wait(0.6 + sanity / 50)
+		local chasing = workspace:GetAttribute("MonsterChasing") == true
+		if chasing or sanity < Config.Player.SanityLow then
+			Audio.play("battement", gui, { lifetime = 3 })
+			task.wait(chasing and 0.8 or 0.6 + sanity / 50)
 		else
 			task.wait(0.5)
 		end
@@ -132,7 +147,7 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 		flash(Color3.fromRGB(140, 0, 0), 0.5, 0.5)
 	elseif data.kind == "Scare" then
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
-		Audio.play("scare", gui, { lifetime = 4 })
+		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
 	elseif data.kind == "Blackout" then
 		blackout(data.duration or 2)
 	elseif data.kind == "RoundEnd" then

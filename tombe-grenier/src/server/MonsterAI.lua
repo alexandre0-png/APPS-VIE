@@ -197,6 +197,16 @@ local function perceive(m)
 end
 
 -- Déplacement vers un point ; interrompu si pause, ou si un joueur est perçu hors chasse
+-- Pas audibles tant que le monstre se déplace
+local function footstep(m)
+	local v = m.root.AssemblyLinearVelocity
+	local horizontal = Vector3.new(v.X, 0, v.Z).Magnitude
+	if horizontal > 2 and clock() - m.lastStep >= CFG.StepInterval then
+		m.lastStep = clock()
+		Audio.play("pas", m.root, { lifetime = 2 })
+	end
+end
+
 local function moveAndWait(m, goal, speed, timeout)
 	local hum = m.hum
 	hum.WalkSpeed = speed
@@ -221,6 +231,7 @@ local function moveAndWait(m, goal, speed, timeout)
 		end
 		task.wait(CFG.Tick)
 		elapsed += CFG.Tick
+		footstep(m)
 	end
 
 	conn:Disconnect()
@@ -256,6 +267,8 @@ end
 local function setState(m, state)
 	if m.state ~= state then
 		m.state = state
+		-- Lu par le client pour le battement de cœur pendant la poursuite
+		Workspace:SetAttribute("MonsterChasing", state == "Chase")
 	end
 end
 
@@ -274,6 +287,7 @@ local function tryAttack(m, player)
 	end
 
 	m.lastAttack = clock()
+	Audio.play("cri_capture", m.root, { lifetime = 6, range = 80 })
 	hum:TakeDamage(CFG.AttackDamage)
 	PlayerState.addSanity(player, -CFG.SanityHit)
 	Remotes.fire("Effect", player, { kind = "Hit" })
@@ -374,7 +388,7 @@ local function run(m)
 			if player and kind == "seen" then
 				if m.state ~= "Chase" then
 					setState(m, "Chase")
-					Audio.play("monster_chase", m.root, { lifetime = 8 })
+					Audio.play("chaines", m.root, { lifetime = 8 })
 				end
 				m.target = player
 				m.lastSeenTime = clock()
@@ -434,6 +448,7 @@ function MonsterAI.start(activationDelay)
 		state = "Patrol",
 		pauseUntil = 0,
 		lastAttack = -math.huge,
+		lastStep = -math.huge,
 		lastSeenTime = now,
 		lastSeenPos = root.Position,
 		searchPos = nil,
@@ -450,6 +465,7 @@ end
 
 function MonsterAI.stop()
 	runId += 1
+	Workspace:SetAttribute("MonsterChasing", false)
 	if current then
 		current.alive = false
 		if current.model then

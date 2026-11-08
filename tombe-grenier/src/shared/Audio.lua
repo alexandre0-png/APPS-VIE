@@ -29,8 +29,12 @@ function Audio.play(key, parent, options)
 	sound.Volume = (options and options.volume) or entry.volume or 1
 	sound.RollOffMaxDistance = (options and options.range) or 60
 	sound.Parent = parent or workspace
+	sound.Looped = entry.looped == true
 	sound:Play()
-	Debris:AddItem(sound, (options and options.lifetime) or 15)
+	-- Un son en boucle reste en place jusqu'à destruction explicite par l'appelant
+	if not sound.Looped then
+		Debris:AddItem(sound, (options and options.lifetime) or 15)
+	end
 	return sound
 end
 
