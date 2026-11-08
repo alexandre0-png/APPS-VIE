@@ -28,6 +28,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Rng = require(Shared.Rng)
+local Audio = require(Shared.Audio)
 local Noise = require(script.Parent.Noise)
 local Objectives = require(script.Parent.Objectives)
 local PlayerState = require(script.Parent.PlayerState)
@@ -394,6 +395,7 @@ local function mannequinLoop()
 						if root and (root.Position - part.Position).Magnitude < 5 then
 							mannequinTurned[part] = true
 							part.CFrame = mannequinBase[part] * CFrame.Angles(0, math.pi, 0)
+							Audio.play("chaise_grince", part, { lifetime = 3 })
 							Remotes.fire("Effect", player, { kind = "Scare" })
 							break
 						end

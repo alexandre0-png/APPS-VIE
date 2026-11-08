@@ -238,7 +238,7 @@ Dans `Config.lua` :
 5. **Monstre, vue** : se placer dans son cône de vision sans obstacle : passage en Chase. Se cacher derrière un mur : il perd la trace et passe en Search.
 6. **Cachette** : entrer dans une armoire, le joueur est immobile. Le monstre peut le débusquer à moins de 7 studs (le joueur est alors éjecté, avec effet de sursaut).
 7. **Lampe** : éclairer le monstre : il se fige tant que le faisceau le touche, et reprend quand on tourne le dos.
-8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Ouvrir la trappe : fin 1, retour au cercueil après `EndScreenTime`.
+8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Sortir par la porte d'entrée : fin 1, puis retour au hub après `EndScreenTime`.
 8bis. **Fin 3** : lire les 4 documents, recouper la date (journal et plaque), puis libérer l'enfant au cercueil et saisir la date au clavier.
 8ter. **Statues et mur** : tourner les trois statues jusqu'à ce qu'elles regardent toutes dans la même direction ; la cave s'ouvre. Toucher le mur : une pile, une baisse de sanité.
 9. **Mort** : trois vies par joueur. Une mort coûte une vie ; réapparition au dernier point d'avancée. En duo, réanimer le joueur au sol (maintien de 3 s, 40 s de fenêtre). Sans vie, hors jeu. Si plus personne n'est debout, fin 2.
