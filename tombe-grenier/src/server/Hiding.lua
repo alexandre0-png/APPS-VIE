@@ -3,9 +3,6 @@
   Un ProximityPrompt fait entrer ou sortir le joueur.
 ]]
 local CollectionService = game:GetService("CollectionService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Shared = ReplicatedStorage:WaitForChild("Shared")
 local PlayerState = require(script.Parent.PlayerState)
 
 local Hiding = {}

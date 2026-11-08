@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local Rng = require(Shared.Rng)
 local Remotes = require(Shared.Remotes)
 
 local PlayerState = require(script.PlayerState)

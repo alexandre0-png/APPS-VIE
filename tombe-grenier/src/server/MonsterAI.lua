@@ -50,11 +50,17 @@ local function buildModel()
 	local template = ServerStorage:FindFirstChild("Monster")
 	if template then
 		local model = template:Clone()
-		model.PrimaryPart = model:FindFirstChild("HumanoidRootPart")
-		return model
+		local root = model:FindFirstChild("HumanoidRootPart")
+		if root and model:FindFirstChildOfClass("Humanoid") then
+			model.PrimaryPart = root
+			return model
+		end
+		model:Destroy()
+		warn("[MonsterAI] ServerStorage.Monster sans HumanoidRootPart ou Humanoid : rig de secours utilisé")
+	else
+		warn("[MonsterAI] ServerStorage.Monster absent : rig de secours utilisé")
 	end
 
-	warn("[MonsterAI] ServerStorage.Monster absent : rig de secours utilisé")
 	local model = Instance.new("Model")
 	model.Name = "Monster"
 
@@ -62,7 +68,7 @@ local function buildModel()
 	root.Name = "HumanoidRootPart"
 	root.Size = Vector3.new(2, 2, 1)
 	root.Transparency = 1
-	root.CanCollide = false
+	root.CanCollide = true -- sinon le monstre traverse le sol
 	root.Parent = model
 
 	local head = Instance.new("Part")
@@ -207,8 +213,11 @@ local function moveAndWait(m, goal, speed, timeout)
 		if paused(m) then
 			break
 		end
-		if m.state ~= "Chase" and perceive(m) then
-			break
+		if m.state ~= "Chase" then
+			local _, kind = perceive(m)
+			if kind == "seen" then
+				break
+			end
 		end
 		task.wait(CFG.Tick)
 		elapsed += CFG.Tick
