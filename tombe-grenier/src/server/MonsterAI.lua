@@ -26,6 +26,7 @@ local Remotes = require(Shared.Remotes)
 local Animations = require(Shared.Animations)
 local Noise = require(script.Parent.Noise)
 local PlayerState = require(script.Parent.PlayerState)
+local Props = require(script.Parent.Props)
 
 local CFG = Config.Monster
 local PATH_PARAMS = { AgentRadius = 2, AgentHeight = 5, AgentCanJump = true }
@@ -188,7 +189,7 @@ local function perceive(m)
 					and clearLine(m.head.Position, root.Position, { m.model, char })
 				then
 					kind = "seen"
-				elseif st.noise > 0 and dist <= CFG.HearRange * st.noise then
+				elseif st.noise > 0 and dist <= CFG.HearRange * st.noise and (dist < 12 or clearLine(m.head.Position, root.Position, { m.model, char })) then
 					kind = "heard"
 				end
 
@@ -206,6 +207,23 @@ local function perceive(m)
 end
 
 -- Déplacement vers un point ; interrompu si pause, ou si un joueur est perçu hors chasse
+-- Le monstre pousse les portes fermées qu'il touche : un bruit de bois, et la porte cède
+local function openNearbyDoor(m)
+	if clock() < (m.nextDoorAt or 0) then
+		return
+	end
+	for _, door in ipairs(CollectionService:GetTagged("Door")) do
+		if door:IsA("BasePart") and door:GetAttribute("Open") == false
+			and (door.Position - m.root.Position).Magnitude < 3.5 then
+			m.nextDoorAt = clock() + 2
+			Props.setDoor(door, true)
+			Noise.emit(door.Position, 0.6)
+			Audio.play("porte", door, { lifetime = 4 })
+			return
+		end
+	end
+end
+
 -- Pas audibles tant que le monstre se déplace
 local function footstep(m)
 	local v = m.root.AssemblyLinearVelocity
@@ -415,6 +433,7 @@ local function run(m)
 
 	while isRunning(m) do
 		updateLocomotion(m)
+		openNearbyDoor(m)
 		if paused(m) then
 			m.hum:MoveTo(m.root.Position)
 		else

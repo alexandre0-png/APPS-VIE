@@ -157,8 +157,9 @@ class TestFurniture(unittest.TestCase):
     def test_hiding_spots_inside_armoires(self):
         armoires = [it for rid, items in gm.FURNITURE.items() for it in items if it[0] == "armoire"]
         self.assertGreaterEqual(len(DATA["hiding"]), 4)
-        self.assertEqual(len(DATA["hiding"]), len(armoires))
-        for spot in DATA["hiding"]:
+        spots = [s for s in DATA["hiding"] if s.get("kind") == "armoire"]
+        self.assertEqual(len(spots), len(armoires))
+        for spot in spots:
             x, y, z = spot["pos"]
             hit = any(it[1] <= x <= it[3] and it[2] <= z <= it[4] for it in armoires)
             self.assertTrue(hit, f"cachette hors armoire : {spot['name']}")
@@ -400,6 +401,31 @@ class TestFinalAdditions(unittest.TestCase):
         for c in curtains:
             near_edge = (c["x0"] <= 2 or c["x1"] >= 118 or c["z0"] <= 2 or c["z1"] >= 88)
             self.assertTrue(near_edge, f"{c['name']} n'est pas contre un mur extérieur")
+
+
+class TestHidingVariety(unittest.TestCase):
+    def test_every_bed_has_space_underneath(self):
+        for rid, items in gm.FURNITURE.items():
+            for it in items:
+                if it[0].startswith("lit"):
+                    spots = [s for s in DATA["hiding"] if s["name"] == "sous le lit " + rid]
+                    self.assertTrue(spots, f"pas de cachette sous le lit de {rid}")
+                    self.assertEqual(spots[0]["posture"], "low")
+                    x, _, z = spots[0]["pos"]
+                    self.assertTrue(it[1] < x < it[3] and it[2] < z < it[4])
+
+    def test_cardboard_boxes_are_hiding_spots(self):
+        boxes = [it for rid, items in gm.FURNITURE.items() for it in items if it[0] == "boîte en carton"]
+        self.assertGreaterEqual(len(boxes), 2)
+        kinds = [s for s in DATA["hiding"] if s.get("kind") == "boîte"]
+        self.assertEqual(len(kinds), len(boxes))
+
+    def test_three_switches_for_the_fuse(self):
+        sw = [p for p in DATA["props"] if p["tag"] == "Switch"]
+        self.assertEqual(len(sw), 3)
+        for p in sw:
+            self.assertTrue(gm.room_at("basement" if p["pos"][1] < 0 else "ground", p["pos"][0], p["pos"][2]) is not None
+                            or p["pos"][0] >= 118 or p["pos"][2] <= 2)
 
 
 if __name__ == "__main__":

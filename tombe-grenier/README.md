@@ -74,6 +74,9 @@ Le spawn des joueurs est un `SpawnLocation` placé sur le cercueil du grenier.
 ## État de la maison : ce qui est codé et ce qui manque
 
 Codé (à tester en Play Test) :
+- Cachettes : armoires, dessous des lits (sommier sur quatre pieds, espace libre dessous), boîtes en carton (grenier et débarras).
+- Énigme du courant : trois interrupteurs (cellier, cave, passage sud) à actionner dans un ordre tiré à chaque partie. Le bon ordre rétablit toutes les lampes pendant une minute, avec une cinématique.
+- Monstre : il pousse les portes fermées qu'il touche (bruit, la porte cède) ; une porte fermée bloque sa vue ; un bruit derrière un mur n'est entendu que de près.
 - Réveil dans le cercueil : noir, 8 s sans déplacement, photo qui tombe.
 - Photo de l'introduction : lue, elle déclenche un flashback silencieux.
 - Quatre documents (journal, cahier, photo de famille, plaque), code, coffret, malle, clé, sortie.

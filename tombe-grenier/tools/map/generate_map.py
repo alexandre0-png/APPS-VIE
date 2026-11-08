@@ -214,6 +214,7 @@ FURNITURE = {
         ("caisses", 86, 70, 92, 76, 3, "bois"),
         ("carton", 110, 70, 116, 74, 2, "carton"),
         ("bidon", 86, 84, 90, 88, 3, "metal"),
+        ("boîte en carton", 100, 72, 104, 76, 3, "carton"),
     ],
     # Grenier
     "gro": [
@@ -225,6 +226,7 @@ FURNITURE = {
         ("table", 44, 70, 50, 76, 3, "bois"),
         ("caisses", 8, 60, 16, 68, 4, "bois"),
         ("armoire", 4, 82, 14, 89, 8, "bois"),
+        ("boîte en carton", 44, 30, 48, 34, 3, "carton"),
     ],
     "tombe": [
         ("cercueil", 86, 42, 94, 48, 2, "bois_sombre"),
@@ -444,25 +446,43 @@ def stair_steps():
 # ----------------------------------------------------------------------------
 # Meubles (boîtes) et cachettes
 # ----------------------------------------------------------------------------
+BED_CLEARANCE = 1.2   # espace libre sous le sommier (on peut s'y glisser)
+LEG = 0.6
+
+
 def furniture_boxes():
     out = []
     for rid, items in FURNITURE.items():
         lv = room_by_id(rid)[1]
         base = BASE[lv]
         for name, x0, z0, x1, z1, h, mat in items:
-            out.append(box(x0, x1, base, base + h, z0, z1, mat, name))
+            if name.startswith("lit"):
+                # Lit sur quatre pieds : le sommier flotte, l'espace dessous reste libre
+                out.append(box(x0, x1, base + BED_CLEARANCE, base + h, z0, z1, mat, name))
+                for lx in (x0, x1 - LEG):
+                    for lz in (z0, z1 - LEG):
+                        out.append(box(lx, lx + LEG, base, base + BED_CLEARANCE, lz, lz + LEG, mat, "pied de lit"))
+            else:
+                out.append(box(x0, x1, base, base + h, z0, z1, mat, name))
     return out
 
 
 def hiding_spots():
+    """Cachettes : armoires (debout), dessous des lits (posture basse), boîtes en carton."""
     spots = []
     for rid, items in FURNITURE.items():
         lv = room_by_id(rid)[1]
         base = BASE[lv]
         for name, x0, z0, x1, z1, h, mat in items:
+            cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
             if name == "armoire":
-                cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
-                spots.append(dict(tag="Hiding", name="armoire " + rid,
+                spots.append(dict(tag="Hiding", name="armoire " + rid, kind="armoire",
+                                  pos=(cx, base + 1.5, cz), size=(2, 2, 2)))
+            elif name.startswith("lit"):
+                spots.append(dict(tag="Hiding", name="sous le lit " + rid, kind="sous le lit",
+                                  posture="low", pos=(cx, base + 0.5, cz), size=(2, 0.8, 2)))
+            elif name == "boîte en carton":
+                spots.append(dict(tag="Hiding", name="boîte " + rid, kind="boîte",
                                   pos=(cx, base + 1.5, cz), size=(2, 2, 2)))
     return spots
 
@@ -625,6 +645,11 @@ def build_props():
     props.append(dict(tag="Interactable", kind="tasse de café", name="tasse de café", pos=(109, 2.7, 16), size=(0.6, 0.5, 0.6)))
 
     props.append(dict(tag="CaveDoor", name="porte métallique de la cave", pos=(80, -6.5, 45), size=(0.8, 11, 4)))
+
+    # Disjoncteurs : trois interrupteurs à actionner dans le bon ordre pour rétablir le courant
+    props.append(dict(tag="Switch", name="interrupteur cellier", pos=(1.2, -6, 70), size=(0.4, 1, 0.6)))
+    props.append(dict(tag="Switch", name="interrupteur cave", pos=(60, -6, 1.2), size=(0.6, 1, 0.4)))
+    props.append(dict(tag="Switch", name="interrupteur passage sud", pos=(118.8, -6, 80), size=(0.4, 1, 0.6)))
 
     # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
     props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))

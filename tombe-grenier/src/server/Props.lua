@@ -172,6 +172,7 @@ local function setDoor(panel, open)
 	panel:SetAttribute("Open", open)
 	TweenService:Create(panel, TweenInfo.new(0.6), { Transparency = open and 0.9 or 0 }):Play()
 	panel.CanCollide = not open
+	panel.CanQuery = not open -- une porte fermée bloque aussi la vue et les raycasts
 end
 
 local function setupDoors()

@@ -41,6 +41,13 @@ local SHOTS = {
 			},
 		},
 	},
+	-- Courant rétabli : la caméra balaie le rez-de-chaussée pendant que les lampes s'allument
+	courant = {
+		plans = {
+			{ from = { 60, 6, 20 }, look = { 60, 8, 42 }, t = 3 },
+			{ from = { 30, 8, 70 }, look = { 30, 6, 22 }, t = 3 },
+		},
+	},
 	-- Fin 1, la fuite : on quitte la maison, le jour se lève sur le grenier
 	win = {
 		plans = {

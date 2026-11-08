@@ -216,7 +216,11 @@ local function buildHouse(root)
 
 	-- Cachettes : une par armoire
 	for _, h in ipairs(Data.hiding) do
-		makeMarker(folders.Props, h.pos, h.size, h.name, "Hiding")
+		local spot = makeMarker(folders.Props, h.pos, h.size, h.name, "Hiding")
+		spot:SetAttribute("Kind", h.kind)
+		if h.posture then
+			spot:SetAttribute("Posture", h.posture)
+		end
 	end
 
 	-- Repères fixes et porte de sortie
@@ -250,6 +254,10 @@ local function buildHouse(root)
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(225, 215, 190), Enum.Material.SmoothPlastic, "IntroPhoto")
+		elseif p.tag == "Switch" then
+			local sw = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(200, 200, 195), Enum.Material.SmoothPlastic, "Switch")
+			sw:SetAttribute("Label", p.name)
 		elseif p.tag == "CaveDoor" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(70, 72, 78), Enum.Material.Metal, "CaveDoor")
@@ -442,6 +450,23 @@ function MapBuilder.startShadowLoop()
 			for _, lamp in ipairs(lamps) do
 				lamp.light.Shadows = want[lamp] == true
 			end
+		end
+	end)
+end
+
+-- Courant rétabli pendant duration secondes : toutes les lampes s'allument, même dans le noir
+function MapBuilder.powerOn(duration)
+	for _, lamp in ipairs(lamps) do
+		lamp.light.Enabled = true
+		lamp.light.Brightness = 1.4
+		lamp.part.Transparency = 0.2
+	end
+	task.delay(duration, function()
+		for _, lamp in ipairs(lamps) do
+			local lit = not darkRooms[lamp.room]
+			lamp.light.Enabled = lit
+			lamp.light.Brightness = 1.2
+			lamp.part.Transparency = lit and 0.2 or 0.9
 		end
 	end)
 end

@@ -30,6 +30,7 @@ local Rng = require(Shared.Rng)
 local Noise = require(script.Parent.Noise)
 local Objectives = require(script.Parent.Objectives)
 local PlayerState = require(script.Parent.PlayerState)
+local MapBuilder = require(script.Parent.MapBuilder)
 
 local CFG = Config.Quests
 local Quests = {}
@@ -104,6 +105,7 @@ local ENDING_TEXT = {
 local ENDING_TOTAL = 3
 
 local code = "0000"
+local fuseOrder = {} -- ordre des trois interrupteurs pour rétablir le courant
 local state = nil
 local cycle = 1
 local endFn = nil
@@ -131,6 +133,8 @@ local function freshState()
 		wrongCodes = 0,
 		lastProgress = os.clock(),
 		used = {},
+		fuseStep = 0,        -- interrupteurs bien actionnés, dans l'ordre
+		fuseDone = false,    -- courant rétabli
 		caveKey = false,     -- la vraie clé de la porte de la cave est prise
 		caveOpen = false,    -- la porte métallique est ouverte           -- objets interactifs déjà utilisés (une fois par partie)
 	}
@@ -326,6 +330,32 @@ local function wire()
 		end
 	end
 
+	-- Disjoncteurs : trois interrupteurs, dans l'ordre tiré pour la partie
+	for _, part in ipairs(CollectionService:GetTagged("Switch")) do
+		if part:IsA("BasePart") then
+			prompt(part, { action = "Actionner", object = "Interrupteur", hold = 0.2 }, function(player)
+				if state.fuseDone then
+					say(player, "Le courant est déjà revenu.")
+					return
+				end
+				if part.Name == fuseOrder[state.fuseStep + 1] then
+					state.fuseStep += 1
+					if state.fuseStep == #fuseOrder then
+						state.fuseDone = true
+						MapBuilder.powerOn(60)
+						Remotes.fire("Effect", player, { kind = "Cine", name = "courant" })
+						say(player, "Un claquement. Le courant revient, dans un grincement.")
+					else
+						say(player, "Un déclic.")
+					end
+				else
+					state.fuseStep = 0
+					say(player, "Rien ne se passe. Une étincelle, puis le noir.")
+				end
+			end)
+		end
+	end
+
 	-- Clé de la porte métallique : une des trois clés posées, les autres ne servent à rien
 	for _, part in ipairs(CollectionService:GetTagged("CaveKey")) do
 		if part:IsA("BasePart") then
@@ -402,6 +432,19 @@ function Quests.submitCode(player, text)
 	end
 end
 
+local SWITCHES = { "interrupteur cellier", "interrupteur cave", "interrupteur passage sud" }
+
+-- Ordre des interrupteurs, tiré à partir de la seed de partie
+local function fuseOrderFromSeed(seed)
+	local rng = Rng.new(seed * 5 + 29)
+	local list = table.clone(SWITCHES)
+	for i = #list, 2, -1 do
+		local j = rng:int(1, i)
+		list[i], list[j] = list[j], list[i]
+	end
+	return list
+end
+
 -- Porte de la cave : fermée au début de chaque partie
 local function resetCave()
 	for _, wall in ipairs(CollectionService:GetTagged("InvisibleWall")) do
@@ -430,6 +473,7 @@ end
 -- Démarre une partie : nouveau code, nouvel état, invites reconstruites
 function Quests.setup(seed, cycleNumber)
 	code = codeFromSeed(seed)
+	fuseOrder = fuseOrderFromSeed(seed)
 	cycle = cycleNumber or 1
 	state = freshState()
 	hintGiven = {}
