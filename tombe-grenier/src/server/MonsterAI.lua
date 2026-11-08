@@ -23,6 +23,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Audio = require(Shared.Audio)
 local Remotes = require(Shared.Remotes)
+local Animations = require(Shared.Animations)
 local Noise = require(script.Parent.Noise)
 local PlayerState = require(script.Parent.PlayerState)
 
@@ -286,7 +287,10 @@ local function tryAttack(m, player)
 		return
 	end
 
+	-- Surprise si le monstre n'a pas attaqué depuis un moment
+	local surprise = clock() - m.lastAttack > CFG.SurpriseGap
 	m.lastAttack = clock()
+	Animations.attack(m.anims, surprise)
 	Audio.play("cri_capture", m.root, { lifetime = 6, range = 80 })
 	hum:TakeDamage(CFG.AttackDamage)
 	PlayerState.addSanity(player, -CFG.SanityHit)
@@ -374,12 +378,31 @@ local function heardNoise(m)
 	return nil
 end
 
+-- Choisit l'animation de locomotion selon la vitesse réelle et l'état
+local function updateLocomotion(m)
+	if not m.anims then
+		return
+	end
+	local v = m.root.AssemblyLinearVelocity
+	local horizontal = Vector3.new(v.X, 0, v.Z).Magnitude
+	local key
+	if horizontal < 1 then
+		key = "immobile"
+	elseif m.state == "Chase" then
+		key = "course"
+	else
+		key = "marche"
+	end
+	Animations.setLocomotion(m.anims, key)
+end
+
 local function run(m)
 	while isRunning(m) and clock() < m.activeAt do
 		task.wait(0.5)
 	end
 
 	while isRunning(m) do
+		updateLocomotion(m)
 		if paused(m) then
 			m.hum:MoveTo(m.root.Position)
 		else
@@ -449,6 +472,7 @@ function MonsterAI.start(activationDelay)
 		pauseUntil = 0,
 		lastAttack = -math.huge,
 		lastStep = -math.huge,
+		anims = Animations.load(hum),
 		lastSeenTime = now,
 		lastSeenPos = root.Position,
 		searchPos = nil,

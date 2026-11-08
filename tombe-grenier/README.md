@@ -30,7 +30,7 @@ src/client/init.client.lua    StarterPlayerScripts.Client : HUD, effets, entrée
 2. Dans `tombe-grenier/` : `rojo serve`, puis dans Studio : *Connect*.
 3. Construire la carte (voir tags ci-dessous). Sans carte, le jeu tourne mais sans objectifs.
 4. Ajouter dans `ServerStorage` :
-   - `Monster` : un modèle avec `Humanoid` et `HumanoidRootPart`, idéalement un rig R15. Sans lui, un rig de secours est utilisé.
+   - `Monster` : un modèle avec `Humanoid` et `HumanoidRootPart`, un rig R15 est nécessaire pour que les animations (immobile, marche, course, attaques) s'affichent. Sans modèle, un rig de secours sans animation est utilisé.
    - `FallingItem` (optionnel) : une `BasePart` (barre de fer, bocal…).
 5. Les sons sont référencés dans `src/shared/AudioManifest.lua` avec leurs IDs Roblox. Pour un nouveau son, ajouter une entrée `rbxassetid://…`. Une clé avec `asset = ""` logue un warning une seule fois.
 
