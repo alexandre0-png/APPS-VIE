@@ -159,14 +159,17 @@ local function currentStep()
 	if snap.photos < Config.Round.PhotosRequired then
 		return "photos"
 	end
-	if not state.note then
-		return "note"
-	end
-	if not state.mirrorRead then
-		return "reflet"
-	end
-	if not state.coffret and not state.smallKey then
-		return "coffret"
+	-- Petite clé obtenue par la bibliothèque : le code et le coffret ne sont plus nécessaires
+	if not state.smallKey then
+		if not state.note then
+			return "note"
+		end
+		if not state.mirrorRead then
+			return "reflet"
+		end
+		if not state.coffret then
+			return "coffret"
+		end
 	end
 	if not state.chest then
 		return "chest"
