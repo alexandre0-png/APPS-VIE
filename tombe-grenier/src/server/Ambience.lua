@@ -44,6 +44,52 @@ local function screamLoop(rng, gen)
 	end
 end
 
+-- Une porte se ferme seule, puis se rouvre une dizaine de secondes plus tard
+local function doorLoop(rng, gen)
+	local Props = require(script.Parent.Props)
+	while generation == gen do
+		task.wait(rng:range(40, 70))
+		if generation ~= gen then
+			return
+		end
+		local doors = CollectionService:GetTagged("Door")
+		if #doors > 0 and rng:next() < 0.6 then
+			local door = doors[rng:int(1, #doors)]
+			if door:GetAttribute("Open") then
+				Props.setDoor(door, false)
+				Audio.play("porte_grince", door, { lifetime = 5 })
+				task.delay(10, function()
+					if door.Parent and door:GetAttribute("Open") == false then
+						Props.setDoor(door, true)
+					end
+				end)
+			end
+		end
+	end
+end
+
+-- Les rideaux bougent alors que les fenêtres sont fermées : un léger balancement
+local function curtainLoop(rng, gen)
+	local TweenService = game:GetService("TweenService")
+	while generation == gen do
+		task.wait(rng:range(20, 45))
+		if generation ~= gen then
+			return
+		end
+		local curtains = CollectionService:GetTagged("Curtain")
+		if #curtains > 0 and rng:next() < 0.7 then
+			local c = curtains[rng:int(1, #curtains)]
+			if c:IsA("BasePart") then
+				local origin = c.CFrame
+				local sway = origin * CFrame.Angles(0, math.rad(4), 0)
+				TweenService:Create(c, TweenInfo.new(2.5, Enum.EasingStyle.Sine), { CFrame = sway }):Play()
+				task.wait(2.5)
+				TweenService:Create(c, TweenInfo.new(2.5, Enum.EasingStyle.Sine), { CFrame = origin }):Play()
+			end
+		end
+	end
+end
+
 -- Événements ambiants au grenier : silhouette furtive (une fois sur deux) ou pas à l'étage
 local function sceneLoop(rng, gen)
 	while generation == gen do
@@ -84,6 +130,8 @@ function Ambience.start(seed)
 	local gen = generation
 	task.spawn(sceneLoop, Rng.new(seed + 9901), gen)
 	task.spawn(creakLoop, Rng.new(seed + 3571), gen)
+	task.spawn(doorLoop, Rng.new(seed + 4421), gen)
+	task.spawn(curtainLoop, Rng.new(seed + 5519), gen)
 	task.spawn(screamLoop, Rng.new(seed + 7717), gen)
 end
 

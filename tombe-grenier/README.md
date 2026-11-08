@@ -89,9 +89,10 @@ Codé (à tester en Play Test) :
 - Récit : les quatre documents, le flashback de la photo de famille, l'introduction et les trois fins portent l'histoire. Aucun texte d'explication n'est affiché, comme le demande le design.
 
 Non codé :
-- Portes qui se ferment seules : la carte n'a pas de portes mobiles.
-- Rideaux qui bougent : pas de fenêtres en mouvement dans la carte.
-- Porte métallique de la cave : la cave est un passage ouvert.
+- Portes intérieures : elles se ferment seules de temps en temps, et s'ouvrent à la demande (prompt).
+- Rideaux : ils bougent alors que les fenêtres sont fermées (il n'y a pas de fenêtres dans la carte).
+- Porte métallique de la cave : une des trois clés posées (les deux autres sont fausses) l'ouvre. Elle libère le passage sud, où se trouve un cahier.
+- Portail du jardin : c'est une limite visuelle et physique, sans énigme. Le jeu se termine dans la maison, donc le jardin n'est pas nécessaire à la progression.
 - Voix lointaine « Tu n'aurais jamais dû revenir ici… » : pas d'asset audio dans la banque.
 - Cri de corneille de la fin 1 : pas d'asset audio.
 - Dessins au mur de la chambre d'enfant : décor à ajouter dans Studio.

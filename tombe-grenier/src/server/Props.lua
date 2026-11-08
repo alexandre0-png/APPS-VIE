@@ -167,6 +167,29 @@ local function setupMusicBox()
 	end
 end
 
+-- Portes intérieures : ouvrir ou fermer (tween de transparence, collision suivie)
+local function setDoor(panel, open)
+	panel:SetAttribute("Open", open)
+	TweenService:Create(panel, TweenInfo.new(0.6), { Transparency = open and 0.9 or 0 }):Play()
+	panel.CanCollide = not open
+end
+
+local function setupDoors()
+	for _, panel in ipairs(CollectionService:GetTagged("Door")) do
+		if panel:IsA("BasePart") then
+			setDoor(panel, true) -- ouvertes au début de chaque partie
+			local p = prompt(panel, "Ouvrir", "Porte", function()
+				setDoor(panel, not panel:GetAttribute("Open"))
+			end)
+			-- Le texte suit l'état
+			panel:GetAttributeChangedSignal("Open"):Connect(function()
+				p.ActionText = panel:GetAttribute("Open") and "Fermer" or "Ouvrir"
+			end)
+			p.ActionText = "Fermer"
+		end
+	end
+end
+
 -- Remise à zéro pour une nouvelle partie
 function Props.setup()
 	used = {}
@@ -176,6 +199,7 @@ function Props.setup()
 	setupRocking()
 	setupIntroPhoto()
 	setupMusicBox()
+	setupDoors()
 	-- La photo tombe du cercueil au début de la partie
 	if introPart and introStart then
 		introPart.Transparency = 0
@@ -185,5 +209,7 @@ function Props.setup()
 			{ CFrame = CFrame.new(introStart - Vector3.new(0, 3.8, 0)) }):Play()
 	end
 end
+
+Props.setDoor = setDoor
 
 return Props

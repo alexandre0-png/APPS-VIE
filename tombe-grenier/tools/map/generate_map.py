@@ -560,6 +560,7 @@ INTERACTABLE_SLOTS["cahier"] = [
     _i("cahier d'écolier", "chambre d'enfant, bureau", (89, 15.1, 8), (0.8, 0.2, 1.1)),
     _i("cahier d'écolier", "chambre d'ami, bureau", (25, 14.6, 57), (0.8, 0.2, 1.1)),
     _i("cahier d'écolier", "couloir, console", (49, 15.1, 81.5), (0.8, 0.2, 1.1)),
+    _i("cahier d'écolier", "passage sud, table", (93, 2.6, 79), (0.8, 0.2, 1.1)),
 ]
 INTERACTABLE_SLOTS["photo_famille"] = [
     _i("photo de famille", "salon, cheminée", (34, 5.1, 4), (1.2, 0.1, 1.0)),
@@ -581,6 +582,11 @@ DECOR = [
     box(10, 16, 16, 20, 0.8, 1.2, "bois_sombre", "tableau chambre des parents", deco=True),
     box(62, 68, 16, 20, 0.8, 1.2, "bois_sombre", "tableau palier", deco=True),
     box(30, 36, 28, 32, 0.8, 1.2, "bois_sombre", "tableau grenier", deco=True),
+    box(0.5, 1.4, 1, 9, 8, 12, "tissu", "rideau salon", deco=True),
+    box(0.5, 1.4, 13, 21, 8, 12, "tissu", "rideau chambre des parents", deco=True),
+    box(118.6, 119.5, 13, 21, 8, 12, "tissu", "rideau chambre d'enfant", deco=True),
+    box(0.5, 1.4, 25, 33, 60, 64, "tissu", "rideau grenier", deco=True),
+    box(100, 104, 1, 9, 0.5, 1.4, "tissu", "rideau cuisine", deco=True),
 ]
 
 
@@ -617,6 +623,8 @@ def build_props():
 
     # Tasse de café pleine (cuisine) : objet de décor à examiner
     props.append(dict(tag="Interactable", kind="tasse de café", name="tasse de café", pos=(109, 2.7, 16), size=(0.6, 0.5, 0.6)))
+
+    props.append(dict(tag="CaveDoor", name="porte métallique de la cave", pos=(80, -6.5, 45), size=(0.8, 11, 4)))
 
     # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
     props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))
@@ -668,6 +676,8 @@ def build():
                    dark_eligible=DARK_ELIGIBLE, dark_count=DARK_COUNT),
         rooms=[dict(id=r[0], level=r[1], x0=r[2][0], z0=r[2][1], x1=r[2][2], z1=r[2][3], name=r[5])
                for r in ROOMS],
+        doors=[dict(level=d["level"], orient=d["orient"], line=d["line"], c=d["c"], w=d["w"],
+                    puzzle=d.get("puzzle"), front=bool(d.get("front"))) for d in DOORS],
         base=BASE, H=H, stair=STAIR,
     )
 
@@ -687,6 +697,8 @@ def to_lua(v):
     if isinstance(v, dict):
         parts = []
         for k, x in v.items():
+            if x is None:
+                continue  # clé absente plutôt que nil
             if not k.isidentifier():
                 raise ValueError(f"clé Lua invalide : {k}")
             parts.append(f"{k} = {to_lua(x)}")

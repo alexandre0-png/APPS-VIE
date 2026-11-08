@@ -110,6 +110,7 @@ local endFn = nil
 local hintGiven = {}
 local endingsSeen = {}
 local active = false
+local openCave -- défini plus bas (porte de la cave)
 
 local function codeFromSeed(seed)
 	local rng = Rng.new(seed * 3 + 17)
@@ -129,7 +130,9 @@ local function freshState()
 		lore = {},           -- documents lus, par type
 		wrongCodes = 0,
 		lastProgress = os.clock(),
-		used = {},           -- objets interactifs déjà utilisés (une fois par partie)
+		used = {},
+		caveKey = false,     -- la vraie clé de la porte de la cave est prise
+		caveOpen = false,    -- la porte métallique est ouverte           -- objets interactifs déjà utilisés (une fois par partie)
 	}
 end
 
@@ -323,6 +326,41 @@ local function wire()
 		end
 	end
 
+	-- Clé de la porte métallique : une des trois clés posées, les autres ne servent à rien
+	for _, part in ipairs(CollectionService:GetTagged("CaveKey")) do
+		if part:IsA("BasePart") then
+			prompt(part, { action = "Prendre", object = "Clé", hold = 0.3 }, function(player)
+				if state.caveKey then
+					return
+				end
+				state.caveKey = true
+				part:Destroy()
+				say(player, "Une clé lourde, marquée d'un trait. Elle doit ouvrir la porte de la cave.")
+				progressed()
+			end)
+		end
+	end
+
+	-- Porte métallique de la cave : s'ouvre avec la clé, et libère le passage sud
+	for _, part in ipairs(CollectionService:GetTagged("CaveDoor")) do
+		if part:IsA("BasePart") then
+			prompt(part, { action = "Ouvrir", object = "Porte métallique", hold = 1, distance = 6 }, function(player)
+				if state.caveOpen then
+					say(player, "La porte est ouverte. Le passage sud est libre.")
+					return
+				end
+				if not state.caveKey then
+					say(player, "Verrouillée. La clé doit se trouver quelque part dans la maison.")
+					return
+				end
+				state.caveOpen = true
+				openCave(part)
+				say(player, "Un grincement métallique. La porte cède.")
+				progressed()
+			end)
+		end
+	end
+
 	-- Tombe : libérer l'enfant, possible seulement après avoir lu les documents
 	for _, part in ipairs(CollectionService:GetTagged("Tombe")) do
 		if part:IsA("BasePart") then
@@ -364,6 +402,31 @@ function Quests.submitCode(player, text)
 	end
 end
 
+-- Porte de la cave : fermée au début de chaque partie
+local function resetCave()
+	for _, wall in ipairs(CollectionService:GetTagged("InvisibleWall")) do
+		if wall:GetAttribute("Puzzle") == "grille" then
+			wall.CanCollide = true
+		end
+	end
+	for _, door in ipairs(CollectionService:GetTagged("CaveDoor")) do
+		if door:IsA("BasePart") then
+			door.Transparency = 0
+		end
+	end
+end
+
+-- Porte de la cave : la grille invisible cesse de bloquer, la porte disparaît
+openCave = function(door)
+	for _, wall in ipairs(CollectionService:GetTagged("InvisibleWall")) do
+		if wall:GetAttribute("Puzzle") == "grille" then
+			wall.CanCollide = false
+		end
+	end
+	door.Transparency = 1
+	door.CanCollide = false
+end
+
 -- Démarre une partie : nouveau code, nouvel état, invites reconstruites
 function Quests.setup(seed, cycleNumber)
 	code = codeFromSeed(seed)
@@ -371,6 +434,7 @@ function Quests.setup(seed, cycleNumber)
 	state = freshState()
 	hintGiven = {}
 	active = true
+	resetCave()
 	wire()
 	pushObjective()
 	if cycle > 1 then

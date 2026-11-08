@@ -384,5 +384,23 @@ class TestOutput(unittest.TestCase):
             self.assertIn(f"{key} = ", text)
 
 
+class TestFinalAdditions(unittest.TestCase):
+    def test_cave_door_and_key(self):
+        self.assertEqual(sum(1 for p in DATA["props"] if p["tag"] == "CaveDoor"), 1)
+        self.assertGreaterEqual(len(DATA["slots"]["decoy"]), 3)
+
+    def test_interior_doors_exported_and_match_openings(self):
+        self.assertEqual(len(DATA["doors"]), len(gm.DOORS))
+        interior = [d for d in DATA["doors"] if not d["front"] and not d.get("puzzle")]
+        self.assertGreaterEqual(len(interior), 15)
+
+    def test_curtains_are_decor_on_outer_walls(self):
+        curtains = [d for d in DATA["decor"] if d["name"].startswith("rideau")]
+        self.assertGreaterEqual(len(curtains), 5)
+        for c in curtains:
+            near_edge = (c["x0"] <= 2 or c["x1"] >= 118 or c["z0"] <= 2 or c["z1"] >= 88)
+            self.assertTrue(near_edge, f"{c['name']} n'est pas contre un mur extérieur")
+
+
 if __name__ == "__main__":
     unittest.main()

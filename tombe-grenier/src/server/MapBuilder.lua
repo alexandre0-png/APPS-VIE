@@ -188,7 +188,27 @@ local function buildHouse(root)
 		end
 	end
 	for _, d in ipairs(Data.decor) do
-		makeBox(folders["Décor"], d, d.mat, d.name)
+		local deco = makeBox(folders["Décor"], d, d.mat, d.name)
+		if string.sub(d.name, 1, 6) == "rideau" then
+			CollectionService:AddTag(deco, "Curtain")
+		end
+	end
+
+	-- Portes intérieures : panneaux dans chaque ouverture (Props les ouvre et les ferme)
+	for _, d in ipairs(Data.doors) do
+		if not d.puzzle and not d.front then
+			local base = Data.base[d.level]
+			local b
+			if d.orient == "v" then
+				b = { x0 = d.line - 0.25, x1 = d.line + 0.25, z0 = d.c - d.w / 2, z1 = d.c + d.w / 2 }
+			else
+				b = { x0 = d.c - d.w / 2, x1 = d.c + d.w / 2, z0 = d.line - 0.25, z1 = d.line + 0.25 }
+			end
+			b.y0 = base
+			b.y1 = base + 7
+			local panel = makeBox(folders.Meubles, b, "bois", "Porte")
+			CollectionService:AddTag(panel, "Door")
+		end
 	end
 
 	-- Décor posé sur les meubles (ou modèles Studio de ServerStorage/Decor)
@@ -230,6 +250,9 @@ local function buildHouse(root)
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(225, 215, 190), Enum.Material.SmoothPlastic, "IntroPhoto")
+		elseif p.tag == "CaveDoor" then
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(70, 72, 78), Enum.Material.Metal, "CaveDoor")
 		elseif p.tag == "Coffret" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
@@ -493,9 +516,9 @@ function MapBuilder.placeRound(seed)
 			Color3.fromRGB(235, 225, 190), Enum.Material.SmoothPlastic, "CodeNote")
 	end
 	-- Fausses clés : elles ne servent à rien
-	for _, slot in ipairs(pick(rng, slots.decoy, 2)) do
+	for i, slot in ipairs(pick(rng, slots.decoy, 3)) do
 		makeVisible(round, slot.pos, slot.size, "Fausse clé " .. slot.name,
-			Color3.fromRGB(170, 150, 70), Enum.Material.Metal, "Decoy")
+			Color3.fromRGB(170, 150, 70), Enum.Material.Metal, (i == 1) and "CaveKey" or "Decoy")
 	end
 	for _, slot in ipairs(pick(rng, slots.battery, 3)) do
 		makeVisible(round, slot.pos, slot.size, "Pile " .. slot.name,
