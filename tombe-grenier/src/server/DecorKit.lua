@@ -12,6 +12,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Rng = require(Shared.Rng)
+local MapData = require(Shared.MapData)
+
+-- Pièces fermées par une énigme : les livres qui s'y trouvent ne sont pas des indices
+local LOCKED = { sdb = true, bureau = true, cha = true, cel = true }
+
+local function inLockedRoom(f)
+	local cx, cz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2
+	for _, r in ipairs(MapData.rooms) do
+		if LOCKED[r.id] and cx >= r.x0 and cx <= r.x1 and cz >= r.z0 and cz <= r.z1 then
+			local floor = MapData.base[r.level]
+			if f.y0 >= floor - 1 and f.y0 <= floor + MapData.H + 1 then
+				return true
+			end
+		end
+	end
+	return false
+end
 
 local DecorKit = {}
 
@@ -152,7 +169,7 @@ function DecorKit.dress(parent, furniture, furnParts)
 						placeModel(itemModel, parent, x, f.y1, z, nil)
 					else
 						local prop = makeProp(parent, kind, rng, x, f.y1, z)
-						if kind == "livre" then
+						if kind == "livre" and not inLockedRoom(f) then
 							-- Livres lisibles : les marque-pages sont tirés à chaque partie (Quests.setup)
 							CollectionService:AddTag(prop, "Livre")
 						end

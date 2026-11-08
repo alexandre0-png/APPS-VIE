@@ -767,6 +767,26 @@ def garden():
 # ----------------------------------------------------------------------------
 # Construction complète
 # ----------------------------------------------------------------------------
+# Pièces fermées par une énigme : aucun indice ni document indispensable ne s'y trouve
+LOCKED_ROOM_IDS = ("sdb", "bureau", "cha", "cel")
+
+
+def _in_locked_room(slot):
+    x, y, z = slot["pos"]
+    for r in ROOMS:
+        if r[0] not in LOCKED_ROOM_IDS:
+            continue
+        x0, z0, x1, z1 = r[2]
+        b = BASE[r[1]]
+        if x0 <= x <= x1 and z0 <= z <= z1 and b - 1 <= y <= b + H + 1:
+            return True
+    return False
+
+
+def _open_pool(slots):
+    return [s for s in slots if not _in_locked_room(s)]
+
+
 def build():
     walls, slabs = [], []
     for lv in LEVELS:
@@ -780,8 +800,8 @@ def build():
         decor=DECOR, hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),
-        slots=dict(photo=PHOTO_SLOTS, note=NOTE_SLOTS, decoy=DECOY_KEY_SLOTS, bathkey=BATH_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
-                   monster=SPAWN_SLOTS, interactable=INTERACTABLE_SLOTS,
+        slots=dict(photo=_open_pool(PHOTO_SLOTS), note=_open_pool(NOTE_SLOTS), decoy=DECOY_KEY_SLOTS, bathkey=BATH_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
+                   monster=SPAWN_SLOTS, interactable={k: _open_pool(v) for k, v in INTERACTABLE_SLOTS.items()},
                    dark_eligible=DARK_ELIGIBLE, dark_count=DARK_COUNT),
         rooms=[dict(id=r[0], level=r[1], x0=r[2][0], z0=r[2][1], x1=r[2][2], z1=r[2][3], name=r[5])
                for r in ROOMS],

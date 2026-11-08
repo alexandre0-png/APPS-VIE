@@ -290,6 +290,40 @@ class TestTags(unittest.TestCase):
             self.assertFalse(gm._near_door("ground", x, z), p["name"])
             self.assertTrue(gm._clear(x - 0.5, z - 0.5, x + 0.5, z + 0.5, 0, gm.STATUE_HEIGHT, margin=0.3), p["name"])
 
+    # Pièces dont l'accès dépend d'une énigme : rien d'indispensable ne doit s'y trouver
+    LOCKED_ROOMS = ("sdb", "bureau", "cha", "cel")
+
+    def _room_of_point(self, x, y, z):
+        for r in DATA["rooms"]:
+            b = gm.BASE[r["level"]]
+            if r["x0"] <= x <= r["x1"] and r["z0"] <= z <= r["z1"] and b - 1 <= y <= b + gm.H + 1:
+                return r["id"]
+        return None
+
+    def test_required_puzzle_props_outside_locked_rooms(self):
+        for tag in ("Coffret", "Plaque", "Key", "Statue", "Respire", "Mannequin"):
+            for p in self.props_with(tag):
+                self.assertNotIn(self._room_of_point(*p["pos"]), self.LOCKED_ROOMS, p["name"])
+        mirrors = [self._room_of_point(*p["pos"]) for p in self.props_with("Mirror")]
+        self.assertTrue(any(r not in self.LOCKED_ROOMS for r in mirrors), "aucun miroir accessible")
+
+    def test_music_box_outside_locked_rooms(self):
+        # Les livres lisibles sont tagués dans DecorKit (hors pièces fermées) : voir src/server/DecorKit.lua
+        for f in DATA["furniture"]:
+            if f["name"] == "coffre à jouets":
+                cx, cz = (f["x0"] + f["x1"]) / 2, (f["z0"] + f["z1"]) / 2
+                self.assertNotIn(self._room_of_point(cx, f["y0"] + 0.5, cz), self.LOCKED_ROOMS, f["name"])
+
+    def test_clue_slots_outside_locked_rooms(self):
+        for group in ("note", "photo", "interactable"):
+            for _, slot in self._all_slots():
+                pass
+        for group, slot in self._all_slots():
+            if group not in ("note", "photo", "interactable"):
+                continue
+            x, y, z = slot["pos"]
+            self.assertNotIn(self._room_of_point(x, y, z), self.LOCKED_ROOMS, f"{group} {slot['name']}")
+
     def test_one_lamp_per_room_at_room_centre(self):
         lamps = [p for p in DATA["props"] if p["tag"] == "Lamp"]
         for rid, lv, rect, *_ in gm.ROOMS:

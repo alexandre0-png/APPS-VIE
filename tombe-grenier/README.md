@@ -170,6 +170,8 @@ Tant que les identifiants valent 0, ou en Studio, tout se passe dans un seul lie
 
 Quatre pièces sont fermées tant que leur énigme n'est pas résolue. Chaque porte qui y donne est verrouillée (pas de contournement) :
 
+Aucun indice ni document indispensable ne se trouve dans une pièce fermée : le générateur écarte ces emplacements (papiers, photos, documents), et `DecorKit` ne marque pas comme livres à lire ceux qui sont dans ces pièces. Vérifié par `tools/map/test_map.py`.
+
 | Pièce | Ouverte par | Où trouver l'énigme |
 |---|---|---|
 | Chambre d'ami | Lire le cahier d'écolier | Chambre d'enfant, couloir ou passage sud |
