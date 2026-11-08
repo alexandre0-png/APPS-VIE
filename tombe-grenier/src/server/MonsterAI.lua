@@ -26,6 +26,8 @@ local Remotes = require(Shared.Remotes)
 local Animations = require(Shared.Animations)
 local Noise = require(script.Parent.Noise)
 local PlayerState = require(script.Parent.PlayerState)
+local Memory = require(script.Parent.Memory)
+local MapBuilder = require(script.Parent.MapBuilder)
 local Props = require(script.Parent.Props)
 
 local CFG = Config.Monster
@@ -106,7 +108,16 @@ end
 local function pickPatrolPoint(origin)
 	local waypoints = CollectionService:GetTagged("Waypoint")
 	if #waypoints > 0 then
-		return waypoints[math.random(#waypoints)].Position
+		-- Le monstre préfère les pièces où le joueur est souvent allé (3 tirages, le plus souvent visité)
+		local best, bestWeight = nil, -1
+		for _ = 1, 3 do
+			local wp = waypoints[math.random(#waypoints)]
+			local weight = Memory.roomWeight(MapBuilder.roomAt(wp.Position, true))
+			if weight > bestWeight then
+				best, bestWeight = wp, weight
+			end
+		end
+		return best.Position
 	end
 	local angle = math.random() * math.pi * 2
 	local dist = math.random(10, CFG.PatrolRadius)
@@ -364,7 +375,50 @@ local function stepChase(m)
 	end
 end
 
+-- Cachette proche que le monstre n'a pas encore inspectée, la plus utilisée par le joueur d'abord
+local function findSpotToInspect(m)
+	local best, bestWeight = nil, -1
+	for _, spot in ipairs(CollectionService:GetTagged("Hiding")) do
+		if spot:IsA("BasePart") and not m.inspected[spot] and (spot.Position - m.root.Position).Magnitude < 9 then
+			local weight = Memory.spotWeight(spot.Name)
+			if weight > bestWeight then
+				best, bestWeight = spot, weight
+			end
+		end
+	end
+	return best
+end
+
+-- Inspection : le monstre s'arrête devant la cachette, la regarde, puis découvre le joueur s'il y est
+local function inspectSpot(m, spot)
+	m.inspected[spot] = true
+	walkPath(m, spot.Position, CFG.WalkSpeed)
+	m.pauseUntil = clock() + 1.5
+	task.wait(1.5)
+	if not isRunning(m) then
+		return
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		local st = PlayerState.get(player)
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if st and st.hiding == spot and root then
+			PlayerState.unhide(player, true)
+			m.target = player
+			m.lastSeenTime = clock()
+			m.lastSeenPos = root.Position
+			setState(m, "Chase")
+			return
+		end
+	end
+end
+
 local function stepSearch(m)
+	local spot = findSpotToInspect(m)
+	if spot then
+		inspectSpot(m, spot)
+		return
+	end
 	if clock() >= m.searchUntil then
 		setState(m, "Patrol")
 		return
@@ -434,6 +488,7 @@ local function run(m)
 	while isRunning(m) do
 		updateLocomotion(m)
 		openNearbyDoor(m)
+		Workspace:SetAttribute("MonsterAt", m.root.Position)
 		if paused(m) then
 			m.hum:MoveTo(m.root.Position)
 		else
@@ -504,6 +559,7 @@ function MonsterAI.start(activationDelay)
 		lastAttack = -math.huge,
 		lastStep = -math.huge,
 		anims = Animations.load(hum),
+		inspected = {},
 		lastScream = -math.huge,
 		lastSeenTime = now,
 		lastSeenPos = root.Position,

@@ -11,6 +11,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
 local MapBuilder = require(script.Parent.MapBuilder)
+local Memory = require(script.Parent.Memory)
 
 local CFG = Config.Player
 local FL = Config.Flashlight
@@ -30,11 +31,21 @@ local function newState()
 		flashlightOn = false,
 		battery = FL.Battery,
 		threatTime = -math.huge, -- dernier instant où le monstre a perçu ce joueur
-		roomDark = false,        -- le joueur est dans une pièce plongée dans le noir
+		roomDark = false,
+		room = nil,              -- pièce où se trouve le joueur
+		log = {},                -- ce que le joueur a fait (pour le journal)        -- le joueur est dans une pièce plongée dans le noir
 		throws = Config.Throw.Charges,
 		frozenUntil = 0,         -- réveil scénarisé : pas de déplacement avant cet instant
 		lastThrow = -math.huge,
 	}
+end
+
+-- Garde les dernières actions du joueur (le journal intime les relit)
+local function pushLog(st, text)
+	table.insert(st.log, text)
+	if #st.log > 12 then
+		table.remove(st.log, 1)
+	end
 end
 
 -- Retourne character, humanoid, root si le joueur est vivant et prêt
@@ -94,6 +105,8 @@ function PlayerState.hide(player, spot)
 	end
 	st.hiding = spot
 	st.savedCFrame = root.CFrame
+	Memory.spotUsed(spot.name)
+	pushLog(st, "Tu t'es caché : " .. tostring(spot:GetAttribute("Kind") or "cachette") .. ".")
 	root.CFrame = spot.CFrame
 	root.Anchored = true
 	player:SetAttribute("Hidden", true)
@@ -245,6 +258,17 @@ local function update(dt)
 			-- Pièce plongée dans le noir sans lampe allumée : la sanité baisse lentement
 			local room = MapBuilder.roomAt(root.Position)
 			st.roomDark = MapBuilder.isDark(room)
+
+			-- Changement de pièce : la pièce quittée peut s'éteindre derrière le joueur
+			if room and room ~= st.room then
+				local left = st.room
+				st.room = room
+				Memory.visit(room)
+				pushLog(st, "Tu es entré dans " .. MapBuilder.roomName(room) .. ".")
+				if left and math.random() < 0.3 then
+					MapBuilder.lampOff(left, 15)
+				end
+			end
 			if st.roomDark and not st.flashlightOn then
 				st.sanity -= CFG.SanityLossDark * dt
 			end

@@ -30,5 +30,6 @@ return {
 	-- Électricité
 	interrupteur = { asset = "rbxassetid://9126027642", volume = 0.7 },                    -- début de coupure
 	courant      = { asset = "rbxassetid://17864166117", volume = 0.7 },                   -- fin de coupure
+	telephone    = { asset = "rbxassetid://138400380236325", volume = 0.8 }, -- téléphone qui sonne
 	lumiere      = { asset = "rbxassetid://136758740736300", volume = 0.4 },               -- rafale d'une lampe
 }

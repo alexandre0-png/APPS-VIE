@@ -306,6 +306,16 @@ local function wire()
 						progressed()
 					end
 					say(player, LORE[kind])
+					if kind == "journal intime" then
+						local st = PlayerState.get(player)
+						if st and #st.log > 0 then
+							local recent = {}
+							for i = math.max(1, #st.log - 1), #st.log do
+								table.insert(recent, st.log[i])
+							end
+							say(player, "Une ligne récente, de ta main : « " .. table.concat(recent, " ") .. " »")
+						end
+					end
 					if kind == "cahier d'écolier" then
 						Locks.open("cahier") -- lire le cahier ouvre la chambre d'ami
 					end

@@ -13,6 +13,8 @@ local Config = require(Shared.Config)
 local Rng = require(Shared.Rng)
 local Audio = require(Shared.Audio)
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
+local Remotes = require(Shared.Remotes)
 
 local CFG = Config.Ambience
 local Ambience = {}
@@ -90,6 +92,52 @@ local function curtainLoop(rng, gen)
 	end
 end
 
+-- Consignes du téléphone : elles se contredisent
+local PHONE_LINES = {
+	"« Reste dans la pièce. Ne bouge plus. »",
+	"« Sors immédiatement. Tu n'as plus le temps. »",
+	"« Ne fais confiance à aucune porte. »",
+	"« Ce n'est pas toi qui décides. »",
+}
+
+-- Téléphone qui sonne, portes qui s'ouvrent seules : des événements à intervalles irréguliers
+local function eventLoop(rng, gen)
+	local Props = require(script.Parent.Props)
+	while generation == gen do
+		task.wait(rng:range(25, 45))
+		if generation ~= gen then
+			return
+		end
+		local r = rng:next()
+		if r < 0.4 then
+			local phones = CollectionService:GetTagged("Phone")
+			for _, phone in ipairs(phones) do
+				if phone:IsA("BasePart") then
+					Audio.play("telephone", phone, { lifetime = 10 })
+				end
+			end
+			local line = PHONE_LINES[rng:int(1, #PHONE_LINES)]
+			task.delay(6, function()
+				if generation == gen then
+					Remotes.fireAll("Message", { text = line })
+				end
+			end)
+		elseif r < 0.7 then
+			local closed = {}
+			for _, door in ipairs(CollectionService:GetTagged("Door")) do
+				if door:GetAttribute("Open") == false and door:GetAttribute("Lock") == nil then
+					table.insert(closed, door)
+				end
+			end
+			if #closed > 0 then
+				local door = closed[rng:int(1, #closed)]
+				Props.setDoor(door, true)
+				Audio.play("porte_grince", door, { lifetime = 5 })
+			end
+		end
+	end
+end
+
 -- Événements ambiants au grenier : silhouette furtive (une fois sur deux) ou pas à l'étage
 local function sceneLoop(rng, gen)
 	while generation == gen do
@@ -97,7 +145,8 @@ local function sceneLoop(rng, gen)
 		if generation ~= gen then
 			return
 		end
-		if rng:next() < 0.5 then
+		local pick = rng:next()
+		if pick < 0.3 then
 			local silhouette = Instance.new("Part")
 			silhouette.Name = "Silhouette"
 			silhouette.Anchored = true
@@ -110,6 +159,22 @@ local function sceneLoop(rng, gen)
 			silhouette.Transparency = 0.15
 			silhouette.Parent = Workspace
 			Debris:AddItem(silhouette, 2.5)
+		elseif pick < 0.6 then
+			-- Une silhouette traverse le couloir en courant, du palier vers le couloir
+			local runner = Instance.new("Part")
+			runner.Name = "Silhouette courante"
+			runner.Anchored = true
+			runner.CanCollide = false
+			runner.CanTouch = false
+			runner.Size = Vector3.new(1.2, 5.5, 0.8)
+			runner.Color = Color3.fromRGB(10, 10, 12)
+			runner.Material = Enum.Material.SmoothPlastic
+			runner.Transparency = 0.2
+			runner.Position = Vector3.new(60, 14.75, 4)
+			runner.Parent = Workspace
+			TweenService:Create(runner, TweenInfo.new(3.5, Enum.EasingStyle.Linear),
+				{ Position = Vector3.new(60, 14.75, 84) }):Play()
+			Debris:AddItem(runner, 4)
 		else
 			local source = Instance.new("Part")
 			source.Name = "Pas à l'étage"
@@ -132,6 +197,7 @@ function Ambience.start(seed)
 	task.spawn(creakLoop, Rng.new(seed + 3571), gen)
 	task.spawn(doorLoop, Rng.new(seed + 4421), gen)
 	task.spawn(curtainLoop, Rng.new(seed + 5519), gen)
+	task.spawn(eventLoop, Rng.new(seed + 6607), gen)
 	task.spawn(screamLoop, Rng.new(seed + 7717), gen)
 end
 

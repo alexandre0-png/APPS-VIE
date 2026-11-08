@@ -263,6 +263,10 @@ local function buildHouse(root)
 			local sw = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(200, 200, 195), Enum.Material.SmoothPlastic, "Switch")
 			sw:SetAttribute("Label", p.name)
+		elseif p.tag == "Phone" then
+			local phone = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(30, 30, 32), Enum.Material.SmoothPlastic, "Phone")
+			phone:SetAttribute("Label", p.name)
 		elseif p.tag == "CaveDoor" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(70, 72, 78), Enum.Material.Metal, "CaveDoor")
@@ -587,8 +591,9 @@ function MapBuilder.placeRound(seed)
 end
 
 -- Identifiant de la pièce contenant pos, ou nil (escaliers et hors maison inclus)
-function MapBuilder.roomAt(pos)
-	local floorY = pos.Y - 2.5 -- la racine d'un personnage est environ 3 studs au-dessus du sol
+function MapBuilder.roomAt(pos, atFloor)
+	-- Un point de repère posé au sol (atFloor) ou la racine d'un personnage (~3 studs au-dessus)
+	local floorY = atFloor and pos.Y or pos.Y - 2.5
 	for _, r in ipairs(Data.rooms) do
 		local base = Data.base[r.level]
 		if floorY >= base and floorY < base + Data.H
@@ -599,6 +604,36 @@ function MapBuilder.roomAt(pos)
 		end
 	end
 	return nil
+end
+
+function MapBuilder.roomName(roomId)
+	for _, r in ipairs(Data.rooms) do
+		if r.id == roomId then
+			return r.name
+		end
+	end
+	return "une pièce"
+end
+
+-- Éteint les lampes d'une pièce pendant seconds secondes (une pièce noire le reste)
+function MapBuilder.lampOff(roomId, seconds)
+	if darkRooms[roomId] then
+		return
+	end
+	for _, lamp in ipairs(lamps) do
+		if lamp.room == roomId then
+			lamp.light.Enabled = false
+			lamp.part.Transparency = 0.9
+		end
+	end
+	task.delay(seconds, function()
+		for _, lamp in ipairs(lamps) do
+			if lamp.room == roomId then
+				lamp.light.Enabled = not darkRooms[roomId]
+				lamp.part.Transparency = 0.2
+			end
+		end
+	end)
 end
 
 function MapBuilder.isDark(roomId)

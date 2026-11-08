@@ -12,6 +12,7 @@ local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
 local Noise = require(script.Parent.Noise)
 local Locks = require(script.Parent.Locks)
+local MapBuilder = require(script.Parent.MapBuilder)
 local PlayerState = require(script.Parent.PlayerState)
 
 local Props = {}
@@ -76,6 +77,14 @@ local function setupMirrors()
 	end
 end
 
+-- Texte de la télévision : l'image montre la pièce vue de haut, et là où se trouve la créature
+local function tvText()
+	local at = workspace:GetAttribute("MonsterAt")
+	local rid = at and MapBuilder.roomAt(at, true)
+	local where = rid and MapBuilder.roomName(rid) or "une pièce vide"
+	return "Une image granuleuse : la pièce vue de haut. Tu y es, au milieu. La créature est dans " .. where .. "."
+end
+
 local function setupTV()
 	for _, part in ipairs(CollectionService:GetTagged("TV")) do
 		if part:IsA("BasePart") then
@@ -85,9 +94,7 @@ local function setupTV()
 				end
 				used[part] = true
 				tvRunning = true
-				Remotes.fire("Message", player, {
-					text = "Une image granuleuse : la pièce vue de haut. Tu y es, au milieu.",
-				})
+				Remotes.fire("Message", player, { text = tvText() })
 				task.spawn(function()
 					for _ = 1, 40 do
 						local g = math.random(20, 150)

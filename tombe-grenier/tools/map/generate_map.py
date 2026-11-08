@@ -661,6 +661,9 @@ def build_props():
     props.append(dict(tag="Switch", name="interrupteur cave", pos=(60, -6, 1.2), size=(0.6, 1, 0.4)))
     props.append(dict(tag="Switch", name="interrupteur passage sud", pos=(118.8, -6, 80), size=(0.4, 1, 0.6)))
 
+    # Téléphone du salon : il sonne parfois, avec des consignes contradictoires
+    props.append(dict(tag="Phone", name="téléphone du salon", pos=(17.2, 1.6, 17.8), size=(0.7, 0.4, 0.6)))
+
     # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
     props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))
 
