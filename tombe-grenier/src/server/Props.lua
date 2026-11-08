@@ -101,6 +101,22 @@ local function setupTV()
 	end
 end
 
+-- Modèle visuel posé par DecorKit sur ce meuble (même nom), sinon la partie elle-même
+local function visualOf(part)
+	local root = workspace:FindFirstChild("TombeMap")
+	local maison = root and root:FindFirstChild("Maison")
+	local decor = maison and maison:FindFirstChild("Décor")
+	return (decor and decor:FindFirstChild(part.Name)) or part
+end
+
+local function setPivot(visual, cf)
+	if visual:IsA("Model") then
+		visual:PivotTo(cf)
+	else
+		visual.CFrame = cf
+	end
+end
+
 local function setupRocking()
 	for _, part in ipairs(CollectionService:GetTagged("Rocking")) do
 		if part:IsA("BasePart") then
@@ -112,15 +128,18 @@ local function setupRocking()
 				Remotes.fire("Message", player, { text = "Le cheval se met à balancer, seul." })
 				Noise.emit(part.Position, 0.5)
 				Audio.play("chaise_grince", part, { lifetime = 4 })
-				local origin = part.CFrame
-				local tilt = origin * CFrame.Angles(0, 0, math.rad(6))
+				local visual = visualOf(part)
+				local origin = visual:IsA("Model") and visual:GetPivot() or visual.CFrame
 				task.spawn(function()
+					-- Trois balancements, angle maximal de 6 degrés, sans tween (le modèle est animé image par image)
 					for _ = 1, 3 do
-						TweenService:Create(part, TweenInfo.new(0.6, Enum.EasingStyle.Sine), { CFrame = tilt }):Play()
-						task.wait(0.6)
-						TweenService:Create(part, TweenInfo.new(0.6, Enum.EasingStyle.Sine), { CFrame = origin }):Play()
-						task.wait(0.6)
+						for k = 0, 40 do
+							local angle = math.rad(6) * math.sin(k / 40 * math.pi * 2)
+							setPivot(visual, origin * CFrame.Angles(0, 0, angle))
+							task.wait(0.05)
+						end
 					end
+					setPivot(visual, origin)
 				end)
 			end)
 		end

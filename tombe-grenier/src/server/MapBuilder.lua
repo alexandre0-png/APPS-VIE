@@ -171,8 +171,10 @@ local function buildHouse(root)
 	for _, s in ipairs(Data.steps) do
 		makeBox(folders.Escaliers, s, s.mat, "Marche")
 	end
-	for _, f in ipairs(Data.furniture) do
+	local furnParts = {}
+	for i, f in ipairs(Data.furniture) do
 		local part = makeBox(folders.Meubles, f, f.mat, f.name)
+		furnParts[i] = part
 		if f.name == "coffre à jouets" then
 			CollectionService:AddTag(part, "MusicBox")
 		end
@@ -212,7 +214,7 @@ local function buildHouse(root)
 	end
 
 	-- Décor posé sur les meubles (ou modèles Studio de ServerStorage/Decor)
-	DecorKit.dress(folders["Décor"], Data.furniture)
+	DecorKit.dress(folders["Décor"], Data.furniture, furnParts)
 
 	-- Cachettes : une par armoire
 	for _, h in ipairs(Data.hiding) do

@@ -87,18 +87,30 @@ local function makeProp(parent, kind, rng, x, y, z)
 	return part
 end
 
--- Modèle Studio de même nom que le meuble, s'il existe
+-- Modèle Studio de même nom (ServerStorage/Decor), ou nil
 local function studioModel(name)
 	local folder = ServerStorage:FindFirstChild("Decor")
-	local template = folder and folder:FindFirstChild(name)
-	return template
+	return folder and folder:FindFirstChild(name) or nil
 end
 
-local function placeModel(template, parent, x, y, z)
+-- Place un modèle, pivot au bas et au centre sur (x, y, z).
+-- target (taille cible en studs) : le modèle est mis à l'échelle pour l'occuper, proportions gardées.
+local function placeModel(template, parent, x, y, z, target)
 	local model = template:Clone()
 	if model:IsA("Model") then
-		model:PivotTo(CFrame.new(x, y + 0.5, z))
+		if target then
+			local _, size = model:GetBoundingBox()
+			local fit = math.min(target.X / math.max(size.X, 0.01),
+				target.Y / math.max(size.Y, 0.01), target.Z / math.max(size.Z, 0.01))
+			model:ScaleTo(model:GetScale() * fit)
+		end
+		local cf, size = model:GetBoundingBox()
+		local bottom = cf.Position - Vector3.new(0, size.Y / 2, 0)
+		model:TranslateBy(Vector3.new(x, y, z) - bottom)
 	elseif model:IsA("BasePart") then
+		if target then
+			model.Size = target
+		end
 		model.CFrame = CFrame.new(x, y + model.Size.Y / 2, z)
 	end
 	for _, d in ipairs(model:GetDescendants()) do
@@ -114,22 +126,32 @@ local function placeModel(template, parent, x, y, z)
 	model.Parent = parent
 end
 
--- Pose le décor sur chaque meuble listé
-function DecorKit.dress(parent, furniture)
+-- Pose le décor. furnParts[i] : partie créée pour furniture[i] ; cachée (collision gardée)
+-- quand un modèle la remplace.
+function DecorKit.dress(parent, furniture, furnParts)
 	local rng = Rng.new(SEED)
-	for _, f in ipairs(furniture) do
-		local recipe = RECIPES[f.name]
-		if recipe then
-			local top = f.y1
-			local template = studioModel(f.name)
-			if template then
-				placeModel(template, parent, (f.x0 + f.x1) / 2, top, (f.z0 + f.z1) / 2)
-			else
+	for i, f in ipairs(furniture) do
+		local template = studioModel(f.name)
+		if template then
+			local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
+			placeModel(template, parent, (f.x0 + f.x1) / 2, f.y0, (f.z0 + f.z1) / 2, target)
+			if furnParts and furnParts[i] then
+				furnParts[i].Transparency = 1
+				furnParts[i].CastShadow = false
+			end
+		else
+			local recipe = RECIPES[f.name]
+			if recipe then
 				for _, kind in ipairs(recipe) do
 					-- Position aléatoire sur la surface, en gardant 0,3 stud de marge
 					local x = rng:range(f.x0 + 0.3, f.x1 - 0.3)
 					local z = rng:range(f.z0 + 0.3, f.z1 - 0.3)
-					makeProp(parent, kind, rng, x, top, z)
+					local itemModel = studioModel(kind)
+					if itemModel then
+						placeModel(itemModel, parent, x, f.y1, z, nil)
+					else
+						makeProp(parent, kind, rng, x, f.y1, z)
+					end
 				end
 			end
 		end
