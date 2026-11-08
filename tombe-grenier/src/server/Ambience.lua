@@ -98,7 +98,107 @@ local PHONE_LINES = {
 	"« Sors immédiatement. Tu n'as plus le temps. »",
 	"« Ne fais confiance à aucune porte. »",
 	"« Ce n'est pas toi qui décides. »",
+	"« Je sais où tu te caches. »",
 }
+
+-- Point invisible où jouer un son, à une position donnée
+local function anchorAt(pos)
+	local part = Instance.new("Part")
+	part.Name = "Ambiance"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.Transparency = 1
+	part.Size = Vector3.new(1, 1, 1)
+	part.Position = pos
+	part.Parent = Workspace
+	Debris:AddItem(part, 10)
+	return part
+end
+
+-- Un grincement dans la cage d'escalier, personne n'y est
+local function stairCreak()
+	Audio.play("chaise_grince", anchorAt(Vector3.new(54, 14, 25)), { lifetime = 4 })
+end
+
+-- Lumière rouge au bout du couloir de l'étage, quelques secondes
+local function redLight()
+	local part = anchorAt(Vector3.new(79, 15, 22))
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 30, 20)
+	light.Range = 16
+	light.Brightness = 2
+	light.Parent = part
+	task.delay(4, function()
+		light:Destroy()
+	end)
+end
+
+-- Voix d'enfant qui appelle depuis la cave (son déjà fourni, sans identifiant nouveau)
+local function caveVoice()
+	local doors = CollectionService:GetTagged("CaveDoor")
+	local source = doors[1] or anchorAt(Vector3.new(80, -6, 45))
+	Audio.play("cri_loin", source, { lifetime = 6 })
+	Remotes.fireAll("Message", { text = "Une voix d'enfant demande de l'aide, quelque part sous tes pieds." })
+end
+
+-- Une armoire tremble quelques secondes quand on approche (une seule à la fois)
+local function armoireTremble()
+	local spots = {}
+	for _, part in ipairs(CollectionService:GetTagged("Hiding")) do
+		if part:IsA("BasePart") and part:GetAttribute("Kind") == "armoire" then
+			table.insert(spots, part)
+		end
+	end
+	if #spots == 0 then
+		return
+	end
+	local spot = spots[math.random(1, #spots)]
+	-- Le marqueur est invisible : on fait trembler le meuble réel le plus proche
+	local meubles = Workspace:FindFirstChild("TombeMap") and Workspace.TombeMap:FindFirstChild("Meubles")
+	local part, best = nil, math.huge
+	for _, f in ipairs(meubles and meubles:GetChildren() or {}) do
+		if f:IsA("BasePart") and f.Name == "armoire" then
+			local d = (f.Position - spot.Position).Magnitude
+			if d < best then
+				part, best = f, d
+			end
+		end
+	end
+	part = part or spot
+	local origin = part.Position
+	task.spawn(function()
+		for i = 1, 8 do
+			part.Position = origin + Vector3.new(i % 2 == 0 and 0.06 or -0.06, 0, 0)
+			task.wait(0.08)
+		end
+		part.Position = origin
+	end)
+end
+
+-- Événement d'ambiance tiré au hasard, parmi ceux qui n'exigent aucun asset nouveau
+local function pickScare(rng)
+	local choice = rng:int(1, 4)
+	if choice == 1 then
+		stairCreak()
+	elseif choice == 2 then
+		redLight()
+	elseif choice == 3 then
+		caveVoice()
+	else
+		armoireTremble()
+	end
+end
+
+-- Au réveil : trois coups venus du mur, à intervalles irréguliers
+function Ambience.knocks()
+	local origin = Vector3.new(90, 27.5, 45)
+	for i = 1, 3 do
+		task.delay(0.9 * i + 0.2 * i, function()
+			Audio.play("porte", anchorAt(origin + Vector3.new(-3, 0, 0)), { lifetime = 2 })
+		end)
+	end
+end
 
 -- Téléphone qui sonne, portes qui s'ouvrent seules : des événements à intervalles irréguliers
 local function eventLoop(rng, gen)
@@ -134,6 +234,8 @@ local function eventLoop(rng, gen)
 				Props.setDoor(door, true)
 				Audio.play("porte_grince", door, { lifetime = 5 })
 			end
+		else
+			pickScare(rng)
 		end
 	end
 end

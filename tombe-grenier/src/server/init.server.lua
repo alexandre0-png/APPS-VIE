@@ -53,6 +53,7 @@ local function startRound()
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
 	Ambience.start(round.seed)
+	Ambience.knocks()
 
 	local delay = Config.Debug.SkipActivationDelay and 0 or Config.Modes[round.mode].activationDelay
 	MonsterAI.start(delay)
