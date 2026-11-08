@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -356,6 +357,7 @@ end
 
 -- Statues : chacune tourne par quarts de tour. Les trois doivent regarder la même cible (tirée par la seed).
 -- Résolue, la cave s'ouvre (la vraie clé est inutile). Le mur qui respire donne alors une pile.
+local paintingBase = {}   -- [tableau] = position de départ
 local statueBase = {}     -- [statue] = CFrame de départ, restauré à chaque partie
 local statueTargets = {}  -- [statue] = orientation cible (0 à 3)
 
@@ -505,6 +507,26 @@ local function wire()
 		if part:IsA("BasePart") then
 			prompt(part, { name = "QuestPromptStatue", action = "Tourner la statue", object = "Statue ancienne", hold = 0.2, distance = 6 }, function(player)
 				turnStatue(player, part)
+			end)
+		end
+	end
+
+	-- Tableau : le décrocher révèle un cache dans le mur, avec une pile (une fois par partie)
+	for _, part in ipairs(CollectionService:GetTagged("Tableau")) do
+		if part:IsA("BasePart") then
+			if not paintingBase[part] then
+				paintingBase[part] = part.Position
+			end
+			prompt(part, { name = "QuestPromptTableau", action = "Décrocher le tableau", object = "Tableau", hold = 0.6, distance = 5 }, function(player)
+				if state.paintingDown then
+					say(player, "Le cadre est déjà à terre.")
+					return
+				end
+				state.paintingDown = true
+				TweenService:Create(part, TweenInfo.new(1.2, Enum.EasingStyle.Quad), { Position = paintingBase[part] + Vector3.new(0, -2.5, 0) }):Play()
+				PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
+				say(player, "Derrière le tableau, une fente dans le plâtre. Une pile y est rangée.")
+				progressed()
 			end)
 		end
 	end
@@ -918,6 +940,12 @@ function Quests.setup(seed)
 	chooseBookMarks(seed)
 	state.statuesDone = false
 	state.breathed = false
+	state.paintingDown = false
+	for part, base in pairs(paintingBase) do
+		if part.Parent then
+			part.Position = base
+		end
+	end
 	chooseStatues(seed)
 	resetMannequins()
 	melody = melodyFromSeed(seed)

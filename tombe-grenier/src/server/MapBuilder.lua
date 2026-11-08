@@ -194,6 +194,9 @@ local function buildHouse(root)
 		if string.sub(d.name, 1, 6) == "rideau" then
 			CollectionService:AddTag(deco, "Curtain")
 		end
+		if string.sub(d.name, 1, 7) == "tableau" then
+			CollectionService:AddTag(deco, "Tableau")
+		end
 	end
 
 	-- Portes intérieures : panneaux dans chaque ouverture (Props les ouvre et les ferme)

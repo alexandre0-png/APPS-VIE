@@ -123,6 +123,7 @@ Chaîne parallèle, vers la fin « vérité » :
 - Le gramophone donne une mélodie de trois notes (do, ré, mi, sol), tirée à chaque partie. La boîte à musique se joue note par note : une faute repart de zéro, la mélodie complète ouvre la salle de bain.
 - Bibliothèque (autre chemin vers la petite clé, donc vers la malle) : trois livres parmi ceux des bibliothèques portent un marque-page numéroté 1, 2, 3, tirés à chaque partie. Les feuilleter dans l'ordre 1, 2, 3 donne la petite clé. Une faute repart de zéro.
 - Statues (une dans chacune des trois pièces du rez-de-chaussée : salon, cuisine, salle à manger) : chacune se tourne par quarts de tour. Les trois doivent regarder la même direction, tirée à chaque partie. Résolues, elles ouvrent la cave, sans la vraie clé.
+- Tableau (grenier, palier, salon, chambre) : le décrocher fait tomber le cadre et révèle une fente dans le mur, avec une pile. Une fois par partie.
 - Mur qui respire (côté salon du hall) : une fois les statues résolues, le toucher donne une pile et fait perdre 15 de sanité. Avant, il ne se passe rien.
 - Mannequin (couloir, à l'étage) : buste de couturière construit en primitives, sans modèle. Quand un joueur s'approche à moins de 5 studs, il pivote vers lui une fois par partie, avec un sursaut à l'écran. L'examen donne un détail de décor.
 
