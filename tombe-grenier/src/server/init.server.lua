@@ -39,6 +39,7 @@ local function startRound()
 
 	-- État des joueurs remis à zéro, puis emplacements, lampes et pièces sombres tirés à chaque partie
 	PlayerState.newRound()
+	Respawn.resetRound()
 	MapBuilder.placeRound(round.seed)
 	Objectives.setup()
 	Quests.setup(round.seed, round.cycle)
@@ -151,6 +152,9 @@ Respawn.init({
 		return round.active and not round.ended
 	end,
 	checkpoint = Quests.checkpoint,
+	onCurse = function()
+		endRound("lose")
+	end,
 })
 
 -- Première apparition : la malle ouverte fait tout basculer

@@ -16,6 +16,11 @@ local Respawn = {}
 local hooks = nil        -- { isRoundActive = fn() -> bool, checkpoint = fn() -> Vector3|nil }
 local serial = {}        -- [player] = numéro du dernier arrêt ; invalide les minuteries plus anciennes
 local prompts = {}       -- [player] = invite de réanimation en cours
+local deaths = 0         -- décès de l'équipe pendant la partie en cours
+
+function Respawn.resetRound()
+	deaths = 0
+end
 
 local function isAlive(player)
 	local char = player.Character
@@ -94,6 +99,15 @@ local function onDeath(player)
 	clearPrompt(player)
 
 	local inRound = hooks.isRoundActive()
+	if inRound then
+		deaths += 1
+		if deaths >= Config.Respawn.MaxDeaths then
+			-- Trop de morts pour l'équipe : la malédiction ferme la partie, sans réapparition
+			clearPrompt(player)
+			hooks.onCurse()
+			return
+		end
+	end
 	local partner = inRound and otherAlive(player) or nil
 	if partner then
 		addRevivePrompt(player, mine)

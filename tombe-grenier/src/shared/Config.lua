@@ -39,6 +39,7 @@ Config.Player = {
 
 Config.Respawn = {
 	Delay = 4,               -- secondes avant la réapparition après une mort (solo, ou duo sans partenaire vivant)
+	MaxDeaths = 3,           -- décès de l'équipe pendant une partie : au-delà, la malédiction (fin 2)
 }
 
 Config.Revive = {
