@@ -147,6 +147,14 @@ local function paused(m)
 end
 
 -- Perception : retourne (joueur, "seen"|"heard", position) ou nil
+-- Portée de vue réduite quand le joueur est dans le noir sans lampe allumée
+local function sightRangeFor(st)
+	if st.roomDark and not st.flashlightOn then
+		return CFG.SightRange * CFG.DarkSightFactor
+	end
+	return CFG.SightRange
+end
+
 local function perceive(m)
 	local cosHalf = math.cos(math.rad(CFG.FOV / 2))
 	local searching = m.state ~= "Chase"
@@ -175,7 +183,7 @@ local function perceive(m)
 			else
 				local kind = nil
 				if dist > 0
-					and dist <= CFG.SightRange
+					and dist <= sightRangeFor(st)
 					and offset.Unit:Dot(m.root.CFrame.LookVector) >= cosHalf
 					and clearLine(m.head.Position, root.Position, { m.model, char })
 				then

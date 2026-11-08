@@ -470,6 +470,101 @@ def hiding_spots():
 # ----------------------------------------------------------------------------
 # Points de tag, lumières, repères du monstre, murs invisibles, jardin
 # ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# Emplacements variables : chaque partie en tire un sous-ensemble (voir Luau MapBuilder.placeRound).
+# Chaque emplacement = point posé sur un meuble (y = dessus) ou sur le sol.
+# ----------------------------------------------------------------------------
+def _s(name, pos, size=(1, 1, 1)):
+    return dict(name=name, pos=pos, size=size)
+
+
+def _i(kind, name, pos, size=(1, 1, 1)):
+    return dict(kind=kind, name=name, pos=pos, size=size)
+
+
+PHOTO_SLOTS = [
+    _s("salon, table basse", (13, 1.6, 19), (1.4, 0.1, 1.0)),
+    _s("grenier, table", (36, 27.1, 15), (1.4, 0.1, 1.0)),
+    _s("couloir, table ronde", (62, 14.6, 62), (1.4, 0.1, 1.0)),
+    _s("chambre d'ami, bureau", (29, 14.6, 54), (1.4, 0.1, 1.0)),
+    _s("chambre des parents, chevet", (2.5, 14.1, 7), (1.4, 0.1, 1.0)),
+    _s("chambre d'enfant, bureau", (90, 15.1, 9), (1.4, 0.1, 1.0)),
+    _s("salle à manger, table", (15, 2.6, 65), (1.4, 0.1, 1.0)),
+    _s("cuisine, îlot", (94, 3.1, 18), (1.4, 0.1, 1.0)),
+    _s("salle de la tombe, table ronde", (95, 27.1, 73), (1.4, 0.1, 1.0)),
+    _s("cave, barriques", (65, -8.9, 7), (1.4, 0.1, 1.0)),
+    _s("cave, établi", (69, -8.9, 62), (1.4, 0.1, 1.0)),
+    _s("cellier, tonneau", (28, -8.9, 72), (1.4, 0.1, 1.0)),
+]
+
+KEY_SLOTS = [
+    _s("grenier, tiroir de la commode", (19, 28.1, 4), (0.8, 0.1, 0.5)),
+    _s("chambre des parents, commode", (34, 15.1, 14), (0.8, 0.1, 0.5)),
+    _s("salle à manger, buffet", (3.5, 5.1, 84), (0.8, 0.1, 0.5)),
+    _s("cuisine, placards", (115.5, 7.1, 28), (0.8, 0.1, 0.5)),
+    _s("cave, caisses", (66, -8.9, 79), (0.8, 0.1, 0.5)),
+]
+
+BATTERY_SLOTS = [
+    _s("palier, console", (67, 15.2, 5.5), (0.6, 0.5, 0.4)),
+    _s("cuisine, plan de travail", (109, 2.6, 18), (0.6, 0.5, 0.4)),
+    _s("grenier, caisses", (12, 28.1, 64), (0.6, 0.5, 0.4)),
+    _s("chambre des parents, sol", (10, 0.1, 32), (0.6, 0.5, 0.4)),
+]
+
+FALL_SLOTS = [
+    _s("grenier, étagère ouest", (3, 32, 8)),
+    _s("grenier, étagère nord", (3, 32, 24)),
+    _s("palier, lampadaire", (45, 20, 5)),
+    _s("cave, étagère est", (46, -4, 60)),
+    _s("cave, étagère sud", (75, -4, 25)),
+    _s("cellier, étagère", (5, -4, 60)),
+]
+
+SPAWN_SLOTS = [
+    _s("grenier, bout sud", (30, 25.5, 85), (2, 1, 2)),
+    _s("grenier, centre ouest", (20, 25.5, 35), (2, 1, 2)),
+    _s("grenier, bord ouest", (8, 25.5, 50), (2, 1, 2)),
+]
+
+INTERACTABLE_SLOTS = {
+    "journal": [
+        _i("journal intime", "grenier, table", (34, 27.2, 11), (1, 0.2, 1.4)),
+        _i("journal intime", "salon, table basse", (14, 1.6, 20), (1, 0.2, 1.4)),
+    ],
+    "bougies": [
+        _i("bougies et lampe à pétrole", "grenier, table", (30, 27.6, 14), (0.6, 0.8, 0.6)),
+        _i("bougies et lampe à pétrole", "couloir, table ronde", (60, 14.6, 60), (0.6, 0.8, 0.6)),
+        _i("bougies et lampe à pétrole", "cave, établi", (72, -8.6, 61.5), (0.6, 0.8, 0.6)),
+    ],
+    "peluche": [
+        _i("peluche ancienne", "grenier, lit d'enfant", (25, 27.2, 71), (1, 1.4, 1)),
+        _i("peluche ancienne", "chambre d'enfant, lit", (102, 14.7, 8), (1, 1.4, 1)),
+        _i("peluche ancienne", "chambre d'ami, lit", (11, 14.7, 56), (1, 1.4, 1)),
+    ],
+    "gramophone": [
+        _i("gramophone ancien", "grenier, table", (47, 27.2, 73), (1.4, 1.2, 1.4)),
+        _i("gramophone ancien", "palier, console", (67, 15.2, 5.5), (1.4, 1.2, 1.4)),
+    ],
+}
+
+# Pièces qui peuvent être plongées dans le noir. Le hall, l'entrée, le palier, le grenier et la
+# tombe restent éclairés : ce sont les passages obligés.
+DARK_ELIGIBLE = ["pn", "cave", "ps", "cel", "salon", "cuis", "sam", "bureau",
+                 "chp", "che", "cha", "couloir", "sdb", "deb"]
+DARK_COUNT = 4
+
+# Décor : tapis et tableaux (non collisionnables)
+DECOR = [
+    box(10, 30, 0, 0.05, 24, 34, "tissu", "tapis salon", deco=True),
+    box(17, 23, 4, 8, 0.8, 1.2, "bois_sombre", "tableau salon", deco=True),
+    box(8, 30, 12, 12.05, 20, 34, "tissu", "tapis chambre des parents", deco=True),
+    box(10, 16, 16, 20, 0.8, 1.2, "bois_sombre", "tableau chambre des parents", deco=True),
+    box(62, 68, 16, 20, 0.8, 1.2, "bois_sombre", "tableau palier", deco=True),
+    box(30, 36, 28, 32, 0.8, 1.2, "bois_sombre", "tableau grenier", deco=True),
+]
+
+
 def build_props():
     props = []
     # Repères de patrouille : centre de chaque pièce et de chaque porte intérieure
@@ -483,49 +578,14 @@ def build_props():
         x, z = (d["line"], d["c"]) if d["orient"] == "v" else (d["c"], d["line"])
         props.append(dict(tag="Waypoint", name="wp porte", pos=(x, b + 0.5, z), size=(1, 1, 1)))
 
-    # Lumières : une par pièce, au plafond
+    # Une lampe par pièce ; l'allumage et la couleur sont tirés à chaque partie
     for rid, lv, rect, *_ in ROOMS:
         cx, cz = (rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2
-        props.append(dict(tag="FlickerLight", name="lampe " + rid,
+        props.append(dict(tag="Lamp", room=rid, name="lampe " + rid,
                           pos=(cx, BASE[lv] + H - 1.5, cz), size=(1, 1, 1)))
-
-    # Apparition du monstre : grenier ouest
-    props.append(dict(tag="MonsterSpawn", name="apparition", pos=(30, BASE["attic"] + 1.5, 85), size=(2, 1, 2)))
-
-    # Chutes d'objets : au-dessus des étagères
-    for name, lv, pos in [
-        ("chute gro 1", "attic", (3, BASE["attic"] + 8, 8)),
-        ("chute gro 2", "attic", (3, BASE["attic"] + 8, 24)),
-        ("chute palier", "first", (45, BASE["first"] + 8, 5)),
-        ("chute cave", "basement", (46, BASE["basement"] + 8, 60)),
-    ]:
-        props.append(dict(tag="FallSpot", name=name, pos=pos, size=(1, 1, 1)))
-
-    # Photos : trois requises, une finale dans la cave
-    props.append(dict(tag="Photo", name="photo salon", pos=(13, 1.6, 19), size=(1.4, 0.1, 1.0)))
-    props.append(dict(tag="Photo", name="photo grenier", pos=(36, BASE["attic"] + 3.1, 15), size=(1.4, 0.1, 1.0)))
-    props.append(dict(tag="Photo", name="photo couloir", pos=(62, BASE["first"] + 2.6, 62), size=(1.4, 0.1, 1.0)))
-    props.append(dict(tag="Photo", name="photo finale", pos=(66, BASE["basement"] + 3.1, 79), size=(1.4, 0.1, 1.0)))
-
-    # Clé dans le tiroir de la commode du grenier
-    props.append(dict(tag="Key", name="clé tiroir", pos=(19, BASE["attic"] + 4.1, 4), size=(0.8, 0.1, 0.5)))
 
     # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
     props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))
-
-    # Objets interactifs du grenier (sans logique pour l'instant : attribut Kind)
-    interactables = [
-        ("journal intime", "gro", (34, BASE["attic"] + 3.2, 11), (1, 0.2, 1.4)),
-        ("bougies et lampe à pétrole", "gro", (30, BASE["attic"] + 3.6, 14), (0.6, 0.8, 0.6)),
-        ("peluche ancienne", "gro", (25, BASE["attic"] + 3.2, 71), (1, 1.4, 1)),
-        ("gramophone ancien", "gro", (47, BASE["attic"] + 3.2, 73), (1.4, 1.2, 1.4)),
-        ("miroir inquiétant", "tombe", (119.3, BASE["attic"] + 6, 30), (0.4, 6, 4)),
-        ("coffre verrouillé", "tombe", (70, BASE["attic"] + 3.2, 64), (4, 1.2, 2)),
-        ("cheval à bascule", "tombe", (104, BASE["attic"] + 3.2, 13), (4, 2.5, 3)),
-        ("tombe", "tombe", (90, BASE["attic"] + 2.3, 45), (8, 2, 6)),
-    ]
-    for name, rid_or_lv, pos, size in interactables:
-        props.append(dict(tag="Interactable", name=name, pos=pos, size=size, kind=name))
 
     # Murs invisibles : périmètre du jardin, portail (énigme), grille du sous-sol (énigme)
     inv = []
@@ -557,23 +617,23 @@ def garden():
 # Construction complète
 # ----------------------------------------------------------------------------
 def build():
-    walls, slabs, furniture = [], [], []
+    walls, slabs = [], []
     for lv in LEVELS:
         walls += wall_pieces(lv)
         slabs += floor_slabs(lv)
     slabs += roof()
-    steps = stair_steps()
-    furniture = furniture_boxes()
-    spots = hiding_spots()
     props, inv = build_props()
     plates, path, trees = garden()
-
-    spawn = dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4))
     return dict(
-        walls=walls, slabs=slabs, steps=steps, furniture=furniture,
-        hiding=spots, props=props, invisible=inv,
+        walls=walls, slabs=slabs, steps=stair_steps(), furniture=furniture_boxes(),
+        decor=DECOR, hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees),
-        spawn=spawn,
+        spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),
+        slots=dict(photo=PHOTO_SLOTS, key=KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
+                   monster=SPAWN_SLOTS, interactable=INTERACTABLE_SLOTS,
+                   dark_eligible=DARK_ELIGIBLE, dark_count=DARK_COUNT),
+        rooms=[dict(id=r[0], level=r[1], x0=r[2][0], z0=r[2][1], x1=r[2][2], z1=r[2][3], name=r[5])
+               for r in ROOMS],
         base=BASE, H=H, stair=STAIR,
     )
 

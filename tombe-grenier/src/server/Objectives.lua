@@ -1,9 +1,11 @@
 --[[
-  Objectives : photos, clé, sortie. Progression partagée par l'équipe.
-  Tags :
-    Photo     : BasePart ramassable (ProximityPrompt)
-    Key       : BasePart ramassable (ProximityPrompt)
-    ExitDoor  : BasePart de sortie, s'ouvre quand photos >= PhotosRequired ET clé prise
+  Objectives : photos, clé, piles, sortie. Progression partagée par l'équipe.
+  Les objets sont tirés au sort à chaque partie par MapBuilder.placeRound : on reconstruit
+  les invites à chaque partie (setup), pas seulement au démarrage du serveur.
+    Photo      : objet ramassable (ProximityPrompt)
+    Key        : objet ramassable
+    Battery    : pile de lampe torche, recharge la lampe
+    ExitDoor   : porte de sortie, ouverte si photos >= PhotosRequired ET clé prise
 ]]
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,13 +13,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local PlayerState = require(script.Parent.PlayerState)
 
 local Objectives = {}
 
 local team = { photos = 0, hasKey = false }
 local exitReady = false
 local onWin = nil
-local originalParent = {} -- part -> parent d'origine (pour la réinitialisation)
 local exitPrompts = {}
 
 local function makePrompt(part, props)
@@ -50,30 +52,36 @@ local function refreshExit()
 	broadcast()
 end
 
-local function pickable(part, actionText, onPick)
-	originalParent[part] = part.Parent
+-- Invite de ramassage à usage unique ; onPick est appelé une seule fois
+local function pickable(part, objectText, onPick)
+	local taken = false
 	makePrompt(part, {
 		action = "Ramasser",
-		object = actionText,
+		object = objectText,
 		hold = 0.3,
-		onTriggered = function()
-			if part.Parent == nil then
-				return -- déjà ramassé
+		onTriggered = function(player)
+			if taken then
+				return
 			end
-			part.Parent = nil -- retiré du monde, restauré au reset
-			onPick()
-			refreshExit()
+			taken = true
+			part:Destroy()
+			onPick(player)
 		end,
 	})
 end
 
-function Objectives.init(winCallback)
-	onWin = winCallback
+-- Reconstruit toutes les invites de la partie en cours
+function Objectives.setup()
+	team.photos = 0
+	team.hasKey = false
+	exitReady = false
+	exitPrompts = {}
 
 	for _, part in ipairs(CollectionService:GetTagged("Photo")) do
 		if part:IsA("BasePart") then
 			pickable(part, "Photo", function()
 				team.photos += 1
+				refreshExit()
 			end)
 		end
 	end
@@ -82,12 +90,27 @@ function Objectives.init(winCallback)
 		if part:IsA("BasePart") then
 			pickable(part, "Clé", function()
 				team.hasKey = true
+				refreshExit()
 			end)
 		end
 	end
 
+	for _, part in ipairs(CollectionService:GetTagged("Battery")) do
+		if part:IsA("BasePart") then
+			pickable(part, "Pile", function(player)
+				PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
+			end)
+		end
+	end
+
+	-- La porte de sortie est statique : on retire les invites de la partie précédente
 	for _, part in ipairs(CollectionService:GetTagged("ExitDoor")) do
 		if part:IsA("BasePart") then
+			for _, child in ipairs(part:GetChildren()) do
+				if child:IsA("ProximityPrompt") then
+					child:Destroy()
+				end
+			end
 			local prompt = makePrompt(part, {
 				action = "Ouvrir la trappe",
 				object = "Sortie",
@@ -103,18 +126,14 @@ function Objectives.init(winCallback)
 			table.insert(exitPrompts, prompt)
 		end
 	end
+
+	broadcast()
 end
 
--- Remet la progression à zéro et réapparaître les objets ramassés
-function Objectives.reset()
-	team.photos = 0
-	team.hasKey = false
-	for part, parent in pairs(originalParent) do
-		if part.Parent == nil then
-			part.Parent = parent
-		end
-	end
-	refreshExit()
+-- Enregistre le callback de victoire et prépare la première partie
+function Objectives.init(winCallback)
+	onWin = winCallback
+	Objectives.setup()
 end
 
 return Objectives

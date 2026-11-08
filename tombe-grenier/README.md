@@ -43,24 +43,35 @@ La maison fait 120 × 90 studs, sur quatre niveaux : sous-sol (y = -12), rez-de-
 - Construit : `src/server/MapBuilder.lua`, appelé au démarrage du serveur avant les systèmes.
 - Tests : `python3 -m unittest discover -s tools/map -p "test_*.py"` depuis `tombe-grenier/`. Ils vérifient l'emprise, les recouvrements, la présence des portes sur un mur, les meubles hors porte et hors escalier, l'accessibilité de toutes les pièces, les tags minimums et les cachettes dans les armoires.
 
-Tags posés automatiquement :
+Éléments fixes (toujours aux mêmes endroits) :
 
 | Tag | Où | Rôle |
 |---|---|---|
-| `MonsterSpawn` | Grenier ouest | Point d'apparition du monstre |
 | `Waypoint` | Centre de chaque pièce et porte intérieure | Points de patrouille |
-| `FallSpot` | Au-dessus des étagères (grenier, palier, cave) | Chute d'objet |
-| `FlickerLight` | Une lampe par pièce | Lampe qui scintille |
-| `Photo` | Salon, grenier, couloir, cave | Photos (3 requises pour la sortie) |
-| `Key` | Tiroir de la commode du grenier | Clé de la sortie |
-| `ExitDoor` | Porte d'entrée | Sortie, ouverte si photos + clé |
+| `Lamp` | Une ampoule par pièce | Source de la pièce, allumée ou non selon la partie |
 | `Hiding` | Intérieur de chaque armoire | Cachette |
-| `Interactable` | Objets du grenier (journal, peluche, miroir, coffre…) | Attribut `Kind`, sans logique pour l'instant |
-| `InvisibleWall` | Clôture, portail et grille | Bloque le passage (attribut `Puzzle` pour les énigmes) |
+| `ExitDoor` | Porte d'entrée | Sortie, ouverte si photos + clé |
+| `InvisibleWall` | Clôture, portail, grille | Bloque le passage (attribut `Puzzle` pour les énigmes) |
+
+Éléments tirés au sort à chaque partie (`MapBuilder.placeRound`, à partir de la seed de partie) :
+
+| Tag | Tirage | Rôle |
+|---|---|---|
+| `Photo` | 3 parmi 12 emplacements | Photos (3 requises pour la sortie) |
+| `Key` | 1 parmi 5 emplacements | Clé de la sortie |
+| `Battery` | 3 parmi 4 emplacements | Pile de lampe torche (+45 de charge) |
+| `Interactable` | 1 emplacement par objet (journal, bougies, peluche, gramophone) | Attribut `Kind`, sans logique pour l'instant |
+| `FallSpot` | 4 parmi 6 emplacements | Chute d'objet au-dessus d'une étagère |
+| `MonsterSpawn` | 1 parmi 3 emplacements | Apparition du monstre |
+| `FlickerLight` | Lampes allumées : toutes sauf les pièces sombres | Lampe qui scintille |
+
+Chaque emplacement candidat est vérifié par les tests : il est dans une pièce, jamais à l'intérieur d'un meuble, et posé sur un meuble ou sur le sol.
+
+Pièces sombres : à chaque partie, 4 pièces parmi 10 sont plongées dans le noir (hall, entrée, palier, grenier et tombe restent éclairés). Dans le noir, sans lampe allumée, la sanité baisse et le monstre ne voit qu'à 35 % de sa portée. La lampe torche devient alors l'outil principal de ces pièces.
 
 Le spawn des joueurs est un `SpawnLocation` placé sur le cercueil du grenier.
 
-Limites connues : les textures ne s'affichent que si les IDs sont des images Roblox. Les objets interactifs n'ont pas encore de logique. Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu.
+Limites connues : les textures ne s'affichent que si les IDs sont des images Roblox. Le mode de rendu « Future » (ombres et éclairage réalistes) ne se règle que dans Studio : Lighting > Technology > Future. Les objets interactifs n'ont pas encore de logique. Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu.
 
 ## Contrôles
 

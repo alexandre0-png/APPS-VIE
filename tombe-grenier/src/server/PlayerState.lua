@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
+local MapBuilder = require(script.Parent.MapBuilder)
 
 local CFG = Config.Player
 local FL = Config.Flashlight
@@ -29,6 +30,7 @@ local function newState()
 		flashlightOn = false,
 		battery = FL.Battery,
 		threatTime = -math.huge, -- dernier instant où le monstre a perçu ce joueur
+		roomDark = false,        -- le joueur est dans une pièce plongée dans le noir
 	}
 end
 
@@ -120,6 +122,14 @@ function PlayerState.unhide(player, scared)
 	end
 end
 
+-- Recharge la lampe (pile ramassée), sans dépasser le maximum
+function PlayerState.addBattery(player, amount)
+	local st = states[player]
+	if st then
+		st.battery = math.min(Config.Flashlight.Battery, st.battery + amount)
+	end
+end
+
 function PlayerState.setFlashlight(player, on)
 	local st = states[player]
 	if not st then
@@ -189,6 +199,13 @@ local function update(dt)
 				end
 			end
 			st.noise = noise
+
+			-- Pièce plongée dans le noir sans lampe allumée : la sanité baisse lentement
+			local room = MapBuilder.roomAt(root.Position)
+			st.roomDark = MapBuilder.isDark(room)
+			if st.roomDark and not st.flashlightOn then
+				st.sanity -= CFG.SanityLossDark * dt
+			end
 
 			-- Sanité
 			if os.clock() - st.threatTime < 0.5 then

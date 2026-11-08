@@ -31,6 +31,7 @@ Config.Player = {
 	SanityRegenSafe = 3,
 	SanityRegenHidden = 6,
 	SanityLow = 25,           -- sous ce seuil : battements de cœur et ralentissement
+	SanityLossDark = 2,       -- perte par seconde dans une pièce noire sans lampe allumée
 	LowSanitySpeedFactor = 0.6,
 	SanityScare = 20,        -- perte quand le joueur est débusqué d'une cachette
 	Tick = 0.1,
@@ -58,6 +59,7 @@ Config.Monster = {
 	FreezeHold = 0.15,               -- durée de gel après un tick de faisceau lumineux
 	StepInterval = 0.6,              -- secondes entre deux pas audibles du monstre
 	SurpriseGap = 8,                 -- secondes sans attaque avant une attaque surprise
+	DarkSightFactor = 0.35,          -- portée de vue dans le noir, sans lampe allumée (x SightRange)
 	ScreamCooldown = 20,             -- secondes minimum entre deux cris de capture
 	Tick = 0.1,
 	DirectWalkTimeout = 3,
@@ -69,7 +71,8 @@ Config.Flashlight = {
 	Angle = 40,            -- angle total du faisceau en degrés
 	Brightness = 2,
 	Battery = 100,
-	DrainPerSecond = 4,
+	DrainPerSecond = 1.6,    -- environ une minute de lampe allumée à pleine charge
+	PickupAmount = 45,       -- charge rendue par une pile ramassée
 }
 
 Config.Lights = {

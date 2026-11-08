@@ -221,48 +221,108 @@ class TestTags(unittest.TestCase):
     def count(self, tag):
         return sum(1 for p in DATA["props"] if p["tag"] == tag)
 
-    def test_minimum_tag_counts(self):
+    def test_fixed_tags(self):
         self.assertGreaterEqual(self.count("Waypoint"), 8)
-        self.assertEqual(self.count("MonsterSpawn"), 1)
-        self.assertGreaterEqual(self.count("FallSpot"), 3)
-        self.assertGreaterEqual(self.count("Photo"), 3)
-        self.assertEqual(self.count("Key"), 1)
         self.assertEqual(self.count("ExitDoor"), 1)
-        self.assertGreaterEqual(self.count("Interactable"), 7)
-        self.assertEqual(self.count("FlickerLight"), len(gm.ROOMS))
+        self.assertEqual(self.count("Lamp"), len(gm.ROOMS))
 
-    def test_every_room_has_a_light(self):
-        lights = [p for p in DATA["props"] if p["tag"] == "FlickerLight"]
+    def test_one_lamp_per_room_at_room_centre(self):
+        lamps = [p for p in DATA["props"] if p["tag"] == "Lamp"]
         for rid, lv, rect, *_ in gm.ROOMS:
             cx, cz = (rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2
-            self.assertTrue(any(abs(p["pos"][0] - cx) < 0.01 and abs(p["pos"][2] - cz) < 0.01 for p in lights),
-                            f"pas de lampe dans {rid}")
+            hit = [p for p in lamps if p["room"] == rid]
+            self.assertEqual(len(hit), 1, f"{rid} doit avoir une lampe")
+            self.assertAlmostEqual(hit[0]["pos"][0], cx)
+            self.assertAlmostEqual(hit[0]["pos"][2], cz)
 
-    def test_props_inside_footprint(self):
-        for p in DATA["props"]:
-            x, y, z = p["pos"]
-            self.assertTrue(gm.FOOT[0] <= x <= gm.FOOT[2] and gm.FOOT[1] <= z <= gm.FOOT[3],
-                            f"{p['name']} hors de la maison")
+    def test_slot_pool_sizes(self):
+        s = DATA["slots"]
+        self.assertGreaterEqual(len(s["photo"]), 6)   # 3 photos tirées par partie
+        self.assertGreaterEqual(len(s["key"]), 3)
+        self.assertGreaterEqual(len(s["battery"]), 3)
+        self.assertGreaterEqual(len(s["fall"]), 4)
+        self.assertGreaterEqual(len(s["monster"]), 2)
+        self.assertEqual(set(s["interactable"]), {"journal", "bougies", "peluche", "gramophone"})
+        for key, options in s["interactable"].items():
+            self.assertGreaterEqual(len(options), 2, f"{key} : au moins 2 emplacements")
 
-    def test_props_have_valid_level_height(self):
-        for p in DATA["props"]:
-            x, y, z = p["pos"]
-            self.assertGreaterEqual(y, gm.BASE["basement"] - 1, f"{p['name']} sous le sous-sol")
-            self.assertLessEqual(y, gm.BASE["attic"] + gm.H + 1, f"{p['name']} au-dessus du toit")
+    def test_dark_pool_is_large_enough_and_excludes_passages(self):
+        s = DATA["slots"]
+        self.assertGreaterEqual(len(s["dark_eligible"]), s["dark_count"] + 2)
+        for forbidden in ("hall", "entree", "palier", "gro", "tombe"):
+            self.assertNotIn(forbidden, s["dark_eligible"])
 
-    def test_photos_and_key_not_inside_furniture(self):
-        # Un objet posé sur un meuble doit être au-dessus de sa hauteur, pas à l'intérieur
-        for p in DATA["props"]:
-            if p["tag"] not in ("Photo", "Key"):
-                continue
-            x, y, z = p["pos"]
+    def _level_of(self, y):
+        """Nom du niveau dont le sol est le plus haut sous y."""
+        best = None
+        for name, base in gm.BASE.items():
+            if base <= y + 1e-6 and (best is None or base > gm.BASE[best]):
+                best = name
+        return best
+
+    def _all_slots(self):
+        s = DATA["slots"]
+        out = []
+        for group in ("photo", "key", "battery", "fall", "monster"):
+            for slot in s[group]:
+                out.append((group, slot))
+        for key, options in s["interactable"].items():
+            for slot in options:
+                out.append((key, slot))
+        return out
+
+    def test_every_slot_is_inside_a_room(self):
+        for group, slot in self._all_slots():
+            x, y, z = slot["pos"]
+            level = self._level_of(y)
+            self.assertIsNotNone(level, f"{group} {slot['name']} : niveau inconnu")
+            self.assertIsNotNone(gm.room_at(level, x, z), f"{group} {slot['name']} hors pièce")
+
+    def test_slots_never_inside_furniture(self):
+        for group, slot in self._all_slots():
+            x, y, z = slot["pos"]
+            level = self._level_of(y)
             for rid, items in gm.FURNITURE.items():
-                base = gm.BASE[gm.room_by_id(rid)[1]]
+                if gm.room_by_id(rid)[1] != level:
+                    continue
                 for it in items:
-                    inside_xz = it[1] <= x <= it[3] and it[2] <= z <= it[4]
-                    if inside_xz:
-                        self.assertGreaterEqual(y, base + it[5] - 0.01,
-                                                f"{p['name']} sous le dessus de {it[0]} ({rid})")
+                    if it[1] <= x <= it[3] and it[2] <= z <= it[4]:
+                        top = gm.BASE[level] + it[5]
+                        self.assertGreaterEqual(y, top - 0.01,
+                                                f"{group} {slot['name']} sous {it[0]} ({rid})")
+
+    def test_surface_items_sit_on_a_surface(self):
+        for group in ("photo", "key", "battery"):
+            for slot in DATA["slots"][group]:
+                x, y, z = slot["pos"]
+                level = self._level_of(y)
+                if y - gm.BASE[level] < 0.5:
+                    continue  # posé au sol
+                tops = []
+                for rid, items in gm.FURNITURE.items():
+                    if gm.room_by_id(rid)[1] != level:
+                        continue
+                    for it in items:
+                        if it[1] <= x <= it[3] and it[2] <= z <= it[4]:
+                            tops.append(gm.BASE[level] + it[5])
+                self.assertTrue(any(0 <= y - t <= 0.5 for t in tops),
+                                f"{group} {slot['name']} ne repose sur aucun meuble")
+
+    def test_no_duplicate_positions_within_pool(self):
+        for group in ("photo", "key", "battery", "fall", "monster"):
+            pos = [tuple(s["pos"]) for s in DATA["slots"][group]]
+            self.assertEqual(len(pos), len(set(pos)), f"doublon dans {group}")
+
+
+class TestDecor(unittest.TestCase):
+    def test_decor_inside_footprint_and_marked(self):
+        for d in DATA["decor"]:
+            self.assertTrue(d.get("deco"), f"{d['name']} doit être décoratif")
+            self.assertTrue(gm.FOOT[0] <= d["x0"] and d["x1"] <= gm.FOOT[2])
+            self.assertTrue(gm.FOOT[1] <= d["z0"] and d["z1"] <= gm.FOOT[3])
+
+    def test_rooms_exported(self):
+        self.assertEqual(len(DATA["rooms"]), len(gm.ROOMS))
 
 
 class TestInvisibleWalls(unittest.TestCase):

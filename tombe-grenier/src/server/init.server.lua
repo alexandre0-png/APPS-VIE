@@ -37,7 +37,9 @@ local function startRound()
 	round.ended = false
 	print(("[Round] début, seed=%d"):format(round.seed))
 
-	Objectives.reset()
+	-- Emplacements, lampes et pièces sombres : tirés à chaque partie
+	MapBuilder.placeRound(round.seed)
+	Objectives.setup()
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
 	Ambience.start(round.seed)
