@@ -22,6 +22,11 @@ local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 local Props = require(script.Props)
 
+-- Taille du serveur : solo ou duo (voir Config.Game)
+pcall(function()
+	Players.MaxPlayers = Config.Game.MaxPlayers
+end)
+
 local round = { seed = 0, ended = false, cycle = 1 }
 local restartRequested = false
 

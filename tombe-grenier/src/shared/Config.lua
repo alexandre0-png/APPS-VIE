@@ -90,6 +90,12 @@ Config.Lights = {
 	BlackoutDuration = 2.5,
 }
 
+Config.Game = {
+	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.
+	-- Le jeu est conçu pour un joueur (solo) ou un duo. Au-delà, la carte devient trop vite encombrée.
+	MaxPlayers = 2,
+}
+
 Config.Intro = {
 	Duration = 8,            -- secondes de réveil : le joueur ne peut pas marcher avant la fin
 }
