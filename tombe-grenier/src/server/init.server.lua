@@ -141,7 +141,9 @@ end)
 -- Systèmes
 -- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
 MapBuilder.build()
-Hub.build()
+if Hub.role() ~= "game" then
+	Hub.build()
+end
 MapBuilder.startShadowLoop()
 PlayerState.init()
 Hiding.init()
@@ -167,14 +169,20 @@ task.spawn(function()
 			-- Le mode suit le nombre de joueurs : deux joueurs = duo, un seul = solo
 			round.mode = (#group >= 2) and "duo" or "solo"
 			round.active = true
-			Hub.startGame(group)
-			startRound()
+			if Hub.startGame(group) and Hub.role() == "hub" then
+				-- Les joueurs partent vers le serveur privé : rien à lancer ici
+				round.active = false
+			else
+				startRound()
+			end
 		end
 		task.wait(0.5)
 	end
 end)
 
-Hub.enter()
+if Hub.role() ~= "game" then
+	Hub.enter()
+end
 
 -- Défaite : tout le monde est mort pendant plusieurs secondes
 task.spawn(function()

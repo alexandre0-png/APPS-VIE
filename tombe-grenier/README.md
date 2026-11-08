@@ -142,6 +142,16 @@ Le mode suit le nombre de joueurs : un seul joueur = solo (première apparition 
 
 Après une fin, tout le monde est téléporté de nouveau au hub.
 
+### Deux lieux : hub et serveur privé
+
+Le hub peut être un lieu Roblox séparé, qui envoie les joueurs sur un serveur privé du lieu de jeu :
+1. Dans Studio, crée deux lieux dans la même expérience : le **lieu de jeu** (ce projet) et un **lieu hub** (un lieu vide avec le même `src/server/Hub.lua` et `src/shared/Config.lua`).
+2. Publie les deux lieux, puis renseigne leurs identifiants dans `Config.Game.Places` (`hub` et `game`).
+3. Au lancement, le lieu hub réserve un serveur privé du lieu de jeu (`ReserveServer`) et y téléporte tous les joueurs présents (`TeleportToPrivateServer`).
+4. Après une fin, le lieu de jeu renvoie les joueurs au lieu hub (`TeleportAsync`).
+
+Tant que les identifiants valent 0, ou en Studio, tout se passe dans un seul lieu. La téléportation ne fonctionne pas en Studio : il faut un test publié.
+
 ## Pièces verrouillées
 
 Quatre pièces sont fermées tant que leur énigme n'est pas résolue. Chaque porte qui y donne est verrouillée (pas de contournement) :

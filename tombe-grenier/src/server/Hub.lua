@@ -9,11 +9,35 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 
 local Hub = {}
+
+-- Rôle de ce lieu :
+--   "hub"    : lieu d'attente. Les joueurs y arrivent, puis Roblox les envoie sur un serveur privé du lieu de jeu.
+--   "game"   : lieu de jeu. Les joueurs y arrivent par téléportation, la partie démarre à l'arrivée.
+--   "single" : un seul lieu (test en Studio, ou identifiants non renseignés). Tout se passe ici.
+local function computeRole()
+	if RunService:IsStudio() or Config.Game.Places.hub == 0 or Config.Game.Places.game == 0 then
+		return "single"
+	end
+	if game.PlaceId == Config.Game.Places.hub then
+		return "hub"
+	elseif game.PlaceId == Config.Game.Places.game then
+		return "game"
+	end
+	return "single"
+end
+
+local role = computeRole()
+
+function Hub.role()
+	return role
+end
 
 local CENTER = Vector3.new(300, 0, 300) -- loin de la maison et de la clôture
 local folder = nil
@@ -118,9 +142,23 @@ function Hub.build()
 	setSpawns(true)
 end
 
--- Tous les joueurs au hub
+-- Renvoie les joueurs vers le lieu hub (après une fin, dans le lieu de jeu)
+local function sendToHubPlace(players)
+	local ok, err = pcall(function()
+		TeleportService:TeleportAsync(Config.Game.Places.hub, players)
+	end)
+	if not ok then
+		warn("[Hub] retour au hub impossible : " .. tostring(err))
+	end
+end
+
+-- Tous les joueurs au hub (ou retour au lieu hub, si ce lieu est le lieu de jeu)
 function Hub.enter()
 	launchRequested = false
+	if role == "game" then
+		sendToHubPlace(Players:GetPlayers())
+		return
+	end
 	setSpawns(true)
 	local spawnPart = folder and folder:FindFirstChild("HubSpawn")
 	local cf = spawnPart and (spawnPart.CFrame + Vector3.new(0, 3, 0)) or CFrame.new(CENTER + Vector3.new(0, 4, 0))
@@ -129,9 +167,16 @@ function Hub.enter()
 	end
 end
 
--- Bloque jusqu'au lancement : la borne, ou le délai après l'arrivée du premier joueur
--- Retourne la liste des joueurs présents au hub
+-- Bloque jusqu'au lancement. Lieu hub : la borne ou le délai. Lieu de jeu : 5 s après l'arrivée.
+-- Retourne la liste des joueurs présents
 function Hub.waitForStart()
+	if role == "game" then
+		while #Players:GetPlayers() == 0 do
+			task.wait(0.5)
+		end
+		task.wait(5) -- laisse arriver le second joueur s'il suit
+		return Players:GetPlayers()
+	end
 	local firstSeen = nil
 	while true do
 		local present = Players:GetPlayers()
@@ -148,15 +193,32 @@ function Hub.waitForStart()
 	end
 end
 
--- Téléporte le groupe dans le cercueil du grenier
+-- Lieu hub : réserve un serveur privé du lieu de jeu et y envoie le groupe.
+-- Retourne true si la téléportation est lancée (ce serveur n'a plus rien à faire pour ce groupe).
+local function sendToPrivateGame(group)
+	local ok, err = pcall(function()
+		local code = TeleportService:ReserveServer(Config.Game.Places.game)
+		TeleportService:TeleportToPrivateServer(Config.Game.Places.game, code, group)
+	end)
+	if not ok then
+		warn("[Hub] téléportation vers le serveur privé impossible : " .. tostring(err))
+	end
+	return ok
+end
+
+-- Lance la partie pour le groupe : serveur privé (lieu hub), ou cercueil du grenier (autres rôles)
 function Hub.startGame(group)
 	launchRequested = false
+	if role == "hub" then
+		return sendToPrivateGame(group)
+	end
 	setSpawns(false)
 	local cercueil = coffinSpawn()
 	local cf = cercueil and (cercueil.CFrame + Vector3.new(0, 3, 0)) or CFrame.new(90, 27, 45)
 	for _, player in ipairs(group) do
 		teleport(player, cf)
 	end
+	return true
 end
 
 return Hub
