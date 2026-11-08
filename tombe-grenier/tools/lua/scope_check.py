@@ -41,6 +41,15 @@ def problems(path):
                 declared_at.setdefault(name.strip(), i)
         for name in re.findall(r"\bfor\s+(\w+)", line):
             declared_at.setdefault(name, i)
+        # Paramètres des fonctions : déclarés sur la ligne de la fonction
+        for params in re.findall(r"\bfunction\s*[\w.:]*\s*\(([^)]*)\)", line):
+            for name in params.split(","):
+                name = name.strip()
+                if name:
+                    declared_at.setdefault(name, i)
+        # Déclaration sans valeur (« local x ») : forward declaration
+        for name in re.findall(r"\blocal\s+(\w+)\s*$", line):
+            declared_at.setdefault(name, i)
     found = []
     for i, line in enumerate(lines, 1):
         # Appels de fonctions simples (pas de méthode, pas de champ)

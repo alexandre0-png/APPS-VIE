@@ -308,7 +308,7 @@ class TestTags(unittest.TestCase):
     def _all_slots(self):
         s = DATA["slots"]
         out = []
-        for group in ("photo", "note", "decoy", "battery", "fall", "monster"):
+        for group in ("photo", "note", "decoy", "bathkey", "battery", "fall", "monster"):
             for slot in s[group]:
                 out.append((group, slot))
         for key, options in s["interactable"].items():
@@ -354,7 +354,7 @@ class TestTags(unittest.TestCase):
                                 f"{group} {slot['name']} ne repose sur aucun meuble")
 
     def test_no_duplicate_positions_within_pool(self):
-        for group in ("photo", "note", "decoy", "battery", "fall", "monster"):
+        for group in ("photo", "note", "decoy", "bathkey", "battery", "fall", "monster"):
             pos = [tuple(s["pos"]) for s in DATA["slots"][group]]
             self.assertEqual(len(pos), len(set(pos)), f"doublon dans {group}")
 

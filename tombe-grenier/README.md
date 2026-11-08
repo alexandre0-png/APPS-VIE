@@ -58,16 +58,19 @@ La maison fait 120 × 90 studs, sur quatre niveaux : sous-sol (y = -12), rez-de-
 | Tag | Tirage | Rôle |
 |---|---|---|
 | `Photo` | 3 parmi 12 emplacements | Photos (3 requises pour la sortie) |
-| `Key` | 1 parmi 5 emplacements | Clé de la sortie |
-| `Battery` | 3 parmi 4 emplacements | Pile de lampe torche (+45 de charge) |
-| `Interactable` | 1 emplacement par objet (journal, bougies, peluche, gramophone) | Attribut `Kind`, sans logique pour l'instant |
+| `CodeNote` | 1 parmi 5 emplacements | Papier qui donne le code du coffret |
+| `CaveKey` / `Decoy` | 1 vraie clé et 2 fausses, parmi 3 emplacements | Clé de la porte de la cave |
+| `BathKey` | 1 parmi 3 emplacements | Clé de la salle de bain |
+| `Battery` | 3 parmi 5 emplacements | Pile de lampe torche (+45 de charge) |
+| `Interactable` | 1 emplacement par objet (journal, bougies, peluche, gramophone, cahier, photo de famille, tasse) | Attribut `Kind`, effet propre à chaque objet |
 | `FallSpot` | 4 parmi 6 emplacements | Chute d'objet au-dessus d'une étagère |
+| `Key` (sortie) | Fixe : dans la malle du grenier | Clé de la sortie, prenable quand la malle est ouverte |
 | `MonsterSpawn` | 1 parmi 3 emplacements | Apparition du monstre |
 | `FlickerLight` | Lampes allumées : toutes sauf les pièces sombres | Lampe qui scintille |
 
 Chaque emplacement candidat est vérifié par les tests : il est dans une pièce, jamais à l'intérieur d'un meuble, et posé sur un meuble ou sur le sol.
 
-Pièces sombres : à chaque partie, 4 pièces parmi 10 sont plongées dans le noir (hall, entrée, palier, grenier et tombe restent éclairés). Dans le noir, sans lampe allumée, la sanité baisse et le monstre ne voit qu'à 35 % de sa portée. La lampe torche devient alors l'outil principal de ces pièces.
+Pièces sombres : à chaque partie, 4 pièces parmi 14 sont plongées dans le noir (hall, entrée, palier, grenier et tombe restent éclairés). Dans le noir, sans lampe allumée, la sanité baisse et le monstre ne voit qu'à 35 % de sa portée. La lampe torche devient alors l'outil principal de ces pièces.
 
 Le spawn des joueurs est un `SpawnLocation` placé sur le cercueil du grenier.
 
@@ -130,7 +133,7 @@ Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un ind
   - Peluche : une pierre lisse cachée dedans, deux jets de bruit en plus.
   - Gramophone : il joue une douzaine de secondes, et le son attire le monstre.
   - Journal, cahier, photo de famille, plaque : documents de l'histoire.
-- Pièces sombres : 4 pièces parmi 10 sont tirées dans le noir à chaque partie. Le hall, l'entrée, le palier, le grenier et la tombe restent éclairés.
+- Pièces sombres : 4 pièces parmi 14 sont tirées dans le noir à chaque partie. Le hall, l'entrée, le palier, le grenier et la tombe restent éclairés.
 
 Pas de sang : les coups se traduisent par un voile sombre, un son et une pause du joueur.
 
@@ -188,7 +191,7 @@ Limite : le mode « Future » ne se règle que dans Studio (Lighting > Technolog
 ## Tests
 
 Depuis `tombe-grenier/` :
-- Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (42 tests)
+- Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (47 tests)
 - Code Luau (modules, remotes, audio, tags, configuration, champs de la carte, syntaxe Lua 5.4 réelle) : `python3 -m unittest discover -s tools/lua -p "test_*.py" -v` (14 tests ; la syntaxe demande `pip install lupa`)
 - Portée des fonctions locales (appel avant déclaration) : `python3 tools/lua/scope_check.py`
 

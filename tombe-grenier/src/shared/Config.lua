@@ -10,9 +10,8 @@ Config.Debug = {
 }
 
 Config.Round = {
-	ActivationDelay = 45,  -- secondes avant que le monstre ne sorte de son point de départ
-	EndScreenTime = 8,
-	RestartTimeout = 30,   -- secondes d'attente du « Rejouer » avant nouvelle partie automatique     -- durée de l'écran de fin avant le retour au cercueil
+	EndScreenTime = 8,     -- durée de l'écran de fin avant le retour au hub
+	RestartTimeout = 30,   -- secondes d'attente du « Rejouer » avant nouvelle partie automatique
 	PhotosRequired = 3,    -- photos nécessaires (avec la clé) pour ouvrir la sortie
 }
 
