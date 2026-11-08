@@ -82,6 +82,7 @@ Codé (à tester en Play Test) :
 - Monstre : il pousse les portes fermées qu'il touche (bruit, la porte cède) ; une porte fermée bloque sa vue ; un bruit derrière un mur n'est entendu que de près.
 - Réveil dans le cercueil : noir, 8 s sans déplacement, photo qui tombe.
 - Photo de l'introduction : lue, elle déclenche un flashback silencieux.
+- Flashbacks courts (3 à 5 s, sans texte, avec un son existant) à la lecture de chaque document : cahier (chaise qui grince), journal (porte qui grince), plaque (cri lointain), photo de famille (quatre cadres). `Config.Debug.SkipFlashbacks` les coupe pour les tests.
 - Quatre documents (journal, cahier, photo de famille, plaque), code, coffret, malle, clé, sortie.
 - Première apparition : malle ouverte → coupure de courant, le monstre fixe le joueur 2 s, puis le poursuit.
 - Miroir inquiétant (tombe) et miroir fissuré (salle de bain) : sursaut, sanité en baisse.

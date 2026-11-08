@@ -17,7 +17,7 @@ local EVENTS = {
 	"Keypad",           -- serveur -> client : ouvre l'écran de saisie du code
 	"SubmitCode",       -- client -> serveur : texte du code saisi
 	"Throw",            -- client -> serveur : direction du lancer (vecteur unitaire)
-	"Flashback",        -- serveur -> client : { kind = "family" | "intro" } (séquence visuelle)
+	"Flashback",        -- serveur -> client : { kind = "family" | "intro" | "cahier" | "journal" | "plaque" } (séquence courte)
 	"Restart",          -- client -> serveur : « Rejouer » après une fin
 }
 

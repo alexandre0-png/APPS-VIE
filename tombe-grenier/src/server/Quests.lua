@@ -245,6 +245,14 @@ local function prompt(part, props, onTriggered)
 	return p
 end
 
+-- Flashback visuel et sonore lié à un document lu (séquence courte côté client)
+local function flashback(player, kind)
+	if Config.Debug.SkipFlashbacks then
+		return
+	end
+	Remotes.fire("Flashback", player, { kind = kind })
+end
+
 -- Mélodie du gramophone, date de la plaque et notes de la boîte à musique : tirées de la seed
 local NOTE_NAMES = { "do", "ré", "mi", "sol" }
 local melody = {}
@@ -596,7 +604,13 @@ local function wire()
 						Locks.open("cahier") -- lire le cahier ouvre la chambre d'ami
 					end
 					if kind == "photo de famille" then
-						Remotes.fire("Flashback", player, { kind = "family" })
+						flashback(player, "family")
+					elseif kind == "cahier d'écolier" then
+						flashback(player, "cahier")
+					elseif kind == "journal intime" then
+						flashback(player, "journal")
+					elseif kind == "plaque du cercueil" then
+						flashback(player, "plaque")
 					end
 				end)
 			elseif FLAVOUR[kind] then

@@ -224,16 +224,51 @@ local function introSequence(duration)
 	end)
 end
 
--- Flashbacks silencieux : quatre cadres (cadre de famille, enfant, nuit, lit vide), sans texte
-local function flashbackSequence()
-	local steps = {
-		{ Color3.fromRGB(120, 95, 60), 0.5, 1.6 },
-		{ Color3.fromRGB(90, 60, 40), 0.6, 1.2 },
-		{ Color3.fromRGB(20, 20, 35), 0.55, 1.4 },
-		{ Color3.fromRGB(10, 10, 10), 0.7, 1.2 },
-	}
+-- Flashbacks : séquences courtes (6 s au plus), sans texte, avec un son déjà fourni.
+-- Chaque étape : { couleur, opacité, durée }.
+local FLASHBACK_SEQUENCES = {
+	family = {
+		sound = nil,
+		steps = {
+			{ Color3.fromRGB(120, 95, 60), 0.5, 1.6 },
+			{ Color3.fromRGB(90, 60, 40), 0.6, 1.2 },
+			{ Color3.fromRGB(20, 20, 35), 0.55, 1.4 },
+			{ Color3.fromRGB(10, 10, 10), 0.7, 1.2 },
+		},
+	},
+	cahier = {
+		sound = "chaise_grince",
+		steps = {
+			{ Color3.fromRGB(230, 225, 205), 0.7, 1.2 },
+			{ Color3.fromRGB(40, 40, 50), 0.6, 1.0 },
+			{ Color3.fromRGB(230, 225, 205), 0.5, 0.9 },
+		},
+	},
+	journal = {
+		sound = "porte_grince",
+		steps = {
+			{ Color3.fromRGB(60, 40, 30), 0.4, 1.0 },
+			{ Color3.fromRGB(10, 10, 12), 0.8, 1.4 },
+			{ Color3.fromRGB(60, 40, 30), 0.5, 1.0 },
+		},
+	},
+	plaque = {
+		sound = "cri_loin",
+		steps = {
+			{ Color3.fromRGB(20, 20, 30), 0.7, 1.5 },
+			{ Color3.fromRGB(180, 40, 40), 0.6, 0.8 },
+			{ Color3.fromRGB(10, 10, 10), 0.9, 1.2 },
+		},
+	},
+}
+
+local function flashbackSequence(kind)
+	local seq = FLASHBACK_SEQUENCES[kind] or FLASHBACK_SEQUENCES.family
+	if seq.sound then
+		Audio.play(seq.sound, gui, { lifetime = 4 })
+	end
 	task.spawn(function()
-		for _, step in ipairs(steps) do
+		for _, step in ipairs(seq.steps) do
 			local frame = fullFrame(step[1], 1 - step[2], 35)
 			task.wait(step[3])
 			frame:Destroy()
@@ -315,8 +350,8 @@ Remotes.get("Message").OnClientEvent:Connect(function(data)
 	end
 end)
 
-Remotes.get("Flashback").OnClientEvent:Connect(function()
-	flashbackSequence()
+Remotes.get("Flashback").OnClientEvent:Connect(function(data)
+	flashbackSequence(typeof(data) == "table" and data.kind or "family")
 end)
 
 Remotes.get("Keypad").OnClientEvent:Connect(function()
