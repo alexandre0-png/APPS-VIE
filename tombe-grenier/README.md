@@ -119,6 +119,7 @@ Chaîne parallèle, vers la fin « vérité » :
 - Recouper les dates : le journal et la plaque donnent la vraie date (mois/jour), le cahier en donne une fausse en marge.
 - Libérer l'enfant au cercueil une fois les 4 documents lus. Un clavier demande la date de la plaque en quatre chiffres (mois puis jour, par exemple `0314`).
 - Le gramophone donne une mélodie de trois notes (do, ré, mi, sol), tirée à chaque partie. La boîte à musique se joue note par note : une faute repart de zéro, la mélodie complète ouvre la salle de bain.
+- Bibliothèque (autre chemin vers la petite clé, donc vers la malle) : trois livres parmi ceux des bibliothèques portent un marque-page numéroté 1, 2, 3, tirés à chaque partie. Les feuilleter dans l'ordre 1, 2, 3 donne la petite clé. Une faute repart de zéro.
 
 Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Fin 1, la fuite : sortie par la porte d'entrée.

@@ -164,7 +164,7 @@ local function currentStep()
 	if not state.mirrorRead then
 		return "reflet"
 	end
-	if not state.coffret then
+	if not state.coffret and not state.smallKey then
 		return "coffret"
 	end
 	if not state.chest then
@@ -273,6 +273,62 @@ local function writeLore(month, day)
 	LORE["plaque du cercueil"] = ("Plaque : un prénom délavé, sans nom de famille. Une date gravée dessous : %s."):format(shown)
 end
 
+-- Bibliothèque : trois livres portent un marque-page (1, 2, 3), tirés à chaque partie.
+-- Les lire dans l'ordre 1, 2, 3 donne la petite clé (autre chemin que le coffret).
+local bookReads = {}
+
+local function chooseBookMarks(seed)
+	local books = CollectionService:GetTagged("Livre")
+	table.sort(books, function(a, b)
+		if a.Position.X ~= b.Position.X then
+			return a.Position.X < b.Position.X
+		end
+		return a.Position.Z < b.Position.Z
+	end)
+	for _, book in ipairs(books) do
+		book:SetAttribute("Mark", nil)
+	end
+	local rng = Rng.new(seed * 19 + 5)
+	local chosen = {}
+	while #chosen < 3 and #chosen < #books do
+		local i = rng:int(1, #books)
+		if not table.find(chosen, i) then
+			table.insert(chosen, i)
+		end
+	end
+	for mark, i in ipairs(chosen) do
+		books[i]:SetAttribute("Mark", mark)
+	end
+end
+
+local function readBook(player, book)
+	if bookReads[book] then
+		say(player, "Tu as déjà feuilleté ce livre.")
+		return
+	end
+	bookReads[book] = true
+	local mark = book:GetAttribute("Mark")
+	if not mark then
+		say(player, "Des pages poussiéreuses, sans intérêt.")
+		return
+	end
+	if mark ~= state.nextMark then
+		-- Mauvais ordre : tout recommence
+		state.nextMark = 1
+		bookReads = {}
+		say(player, "Les marque-pages se mélangent. Il faut reprendre dans l'ordre, du 1 au 3.")
+		return
+	end
+	state.nextMark += 1
+	if state.nextMark > 3 then
+		state.smallKey = true
+		say(player, "Entre les pages du dernier marque-page, une petite clé.")
+	else
+		say(player, "Marque-page n°" .. mark .. ". Il en reste d'autres, dans l'ordre.")
+	end
+	progressed()
+end
+
 -- Boîte à musique : une note jouée. Une faute repart de zéro ; la mélodie complète ouvre la salle de bain.
 local function pressNote(player, index)
 	if state.boxDone then
@@ -322,6 +378,15 @@ local function wire()
 				state.mirrorRead = true
 				say(player, "Dans la glace, un texte écrit à l'envers : « " .. code:sub(3, 4):reverse() .. " ». Remets-le dans le bon sens.")
 				progressed()
+			end)
+		end
+	end
+
+	-- Bibliothèque : feuilleter les livres
+	for _, part in ipairs(CollectionService:GetTagged("Livre")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptLivre", action = "Feuilleter", object = "Livre", hold = 0.4, distance = 6 }, function(player)
+				readBook(player, part)
 			end)
 		end
 	end
@@ -649,6 +714,9 @@ function Quests.setup(seed, cycleNumber)
 	state.melodyIdx = 0
 	state.boxDone = false
 	state.tombePending = false
+	state.nextMark = 1
+	bookReads = {}
+	chooseBookMarks(seed)
 	melody = melodyFromSeed(seed)
 	local dateRng = Rng.new(seed * 17 + 3)
 	local month = dateRng:int(1, 12)

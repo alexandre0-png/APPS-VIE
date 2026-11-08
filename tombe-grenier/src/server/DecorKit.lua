@@ -6,6 +6,7 @@
   dont le nom est celui du meuble (ex. « table », « bibliothèque »), il est posé sur le meuble
   à la place des objets générés. C'est le point d'extension prévu pour les décors réalistes.
 ]]
+local CollectionService = game:GetService("CollectionService")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -150,7 +151,11 @@ function DecorKit.dress(parent, furniture, furnParts)
 					if itemModel then
 						placeModel(itemModel, parent, x, f.y1, z, nil)
 					else
-						makeProp(parent, kind, rng, x, f.y1, z)
+						local prop = makeProp(parent, kind, rng, x, f.y1, z)
+						if kind == "livre" then
+							-- Livres lisibles : les marque-pages sont tirés à chaque partie (Quests.setup)
+							CollectionService:AddTag(prop, "Livre")
+						end
 					end
 				end
 			end
