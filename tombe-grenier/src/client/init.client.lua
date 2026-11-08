@@ -80,6 +80,31 @@ local messageLabel = label({
 })
 messageLabel.TextTransparency = 1
 
+-- Indication demandée (touche H) : bas à gauche, reste affichée jusqu'à la suivante
+local hintLabel = label({
+	position = UDim2.new(0, 16, 1, -40),
+	sizeUDim = UDim2.fromOffset(640, 40),
+	size = 18,
+})
+
+-- Règles affichées au réveil : une fois, puis elles s'effacent
+local function showRules()
+	local rules = label({
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		sizeUDim = UDim2.fromOffset(760, 170),
+		align = Enum.TextXAlignment.Center,
+		size = 22,
+	})
+	rules.Text = "Tu as trois vies. Une mort t'en coûte une.\n"
+		.. "Ton coéquipier peut te réanimer s'il est près de toi.\n"
+		.. "Fouille la maison : papiers, livres, statues et objets répondent à une règle.\n"
+		.. "Touche H pour une indication. Ctrl ralentit tes pas, Maj court, F éclaire."
+	task.delay(12, function()
+		TweenService:Create(rules, TweenInfo.new(1.5), { TextTransparency = 1 }):Play()
+	end)
+end
+
 -- Sanité : effet visuel (voile sombre), sans chiffre à l'écran
 local function refreshSanity()
 	local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
@@ -323,6 +348,7 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 	elseif data.kind == "Intro" then
 		restartButton.Visible = false
 		introSequence(data.duration or 8)
+		showRules()
 	elseif data.kind == "Blackout" then
 		blackout(data.duration or 2)
 	elseif data.kind == "RoundEnd" then
@@ -335,6 +361,12 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 			endingVisual(data.reason)
 			restartButton.Visible = true
 		end)
+	end
+end)
+
+Remotes.get("Hint").OnClientEvent:Connect(function(data)
+	if typeof(data) == "table" and data.text then
+		hintLabel.Text = "Indice : " .. data.text
 	end
 end)
 
@@ -389,6 +421,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		sendSprint(true)
 	elseif input.KeyCode == Enum.KeyCode.F then
 		Remotes.get("ToggleFlashlight"):FireServer()
+	elseif input.KeyCode == Enum.KeyCode.H then
+		Remotes.get("AskHint"):FireServer()
 	elseif input.KeyCode == Enum.KeyCode.G then
 		throwNoise()
 	end

@@ -899,6 +899,20 @@ local function hintLoop()
 	end
 end
 
+-- Indication à la demande : l'indication de l'étape courante, au plus une fois toutes les HintCooldown secondes
+function Quests.hintFor(player)
+	if not active or not state then
+		return
+	end
+	local now = os.clock()
+	if state.hintAt and now - state.hintAt < CFG.HintCooldown then
+		say(player, "Attends un peu avant une nouvelle indication.")
+		return
+	end
+	state.hintAt = now
+	Remotes.fire("Hint", player, { text = HINTS[currentStep()] })
+end
+
 function Quests.init(endCallback)
 	endFn = endCallback
 	task.spawn(hintLoop)

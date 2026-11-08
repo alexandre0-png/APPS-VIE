@@ -39,6 +39,7 @@ local function startRound()
 
 	-- État des joueurs remis à zéro, puis emplacements, lampes et pièces sombres tirés à chaque partie
 	PlayerState.newRound()
+	Respawn.resetRound()
 	MapBuilder.placeRound(round.seed)
 	Objectives.setup()
 	Quests.setup(round.seed)
@@ -151,7 +152,15 @@ Respawn.init({
 		return round.active and not round.ended
 	end,
 	checkpoint = Quests.checkpoint,
+	onCurse = function()
+		endRound("lose")
+	end,
 })
+
+-- Indication demandée par le joueur (touche H), limitée par Config.Quests.HintCooldown
+Remotes.get("AskHint").OnServerEvent:Connect(function(player)
+	Quests.hintFor(player)
+end)
 
 -- Première apparition : la malle ouverte fait tout basculer
 Quests.onChestOpened = function(player)

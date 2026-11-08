@@ -19,6 +19,8 @@ local EVENTS = {
 	"Throw",            -- client -> serveur : direction du lancer (vecteur unitaire)
 	"Flashback",        -- serveur -> client : { kind = "family" | "intro" | "cahier" | "journal" | "plaque" } (séquence courte)
 	"Restart",          -- client -> serveur : « Rejouer » après une fin
+	"AskHint",          -- client -> serveur : demande l'indication de l'étape (touche H)
+	"Hint",             -- serveur -> client : { text = ... } indication affichée en bas à gauche
 }
 
 function Remotes.init()

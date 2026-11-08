@@ -1,10 +1,13 @@
 --[[
-  Respawn : réapparition après une mort, et réanimation par l'autre joueur (duo).
-  - Partie en cours : réapparition au dernier point d'avancée (Quests.checkpoint), ou au cercueil.
-  - Duo : si l'autre joueur est vivant, le joueur mort reste au sol et peut être réanimé
-    pendant Config.Revive.Window. Sans réanimation, il réapparaît au point d'avancée.
+  Respawn : vies, réapparition après une mort, et réanimation par l'autre joueur (duo).
+  - Chaque joueur a Config.Player.Lives vies par partie. Une mort en partie coûte une vie.
+  - Avec une vie restante : réapparition au dernier point d'avancée (Quests.checkpoint),
+    après Config.Respawn.Delay secondes ; en duo, si l'autre joueur est vivant, le joueur
+    reste au sol et peut être réanimé pendant Config.Revive.Window secondes.
+  - Sans vie : hors jeu. En duo, l'autre joueur peut encore le réanimer (il revient avec une vie).
+  - Plus personne de vivant en partie : la malédiction (fin 2) se déclenche.
   - Hors partie (hub, lieu de jeu avant le départ) : réapparition au point de spawn courant.
-  Le chargement automatique est désactivé : chaque réapparition passe par ce module.
+  Le chargement automatique des personnages est désactivé : chaque réapparition passe par ce module.
 ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,14 +16,28 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 
 local Respawn = {}
-local hooks = nil        -- { isRoundActive = fn() -> bool, checkpoint = fn() -> Vector3|nil }
+local hooks = nil        -- { isRoundActive, checkpoint, onCurse }
 local serial = {}        -- [player] = numéro du dernier arrêt ; invalide les minuteries plus anciennes
 local prompts = {}       -- [player] = invite de réanimation en cours
+local lives = {}         -- [player] = vies restantes cette partie
+
+local function livesOf(player)
+	return lives[player] or Config.Player.Lives
+end
 
 local function isAlive(player)
 	local char = player.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	return hum ~= nil and hum.Health > 0
+end
+
+local function anyAlive()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if isAlive(player) then
+			return true
+		end
+	end
+	return false
 end
 
 local function otherAlive(player)
@@ -82,6 +99,10 @@ local function addRevivePrompt(player, mine)
 		-- Annule la réapparition automatique prévue
 		serial[player] += 1
 		clearPrompt(player)
+		-- Un joueur hors jeu revient avec une vie
+		if livesOf(player) <= 0 then
+			lives[player] = 1
+		end
 		reload(player, rroot.Position)
 	end)
 	prompt.Parent = root
@@ -93,19 +114,48 @@ local function onDeath(player)
 	serial[player] = mine
 	clearPrompt(player)
 
-	local inRound = hooks.isRoundActive()
-	local partner = inRound and otherAlive(player) or nil
+	if not hooks.isRoundActive() then
+		task.delay(Config.Respawn.Delay, function()
+			if serial[player] ~= mine or isAlive(player) then
+				return
+			end
+			clearPrompt(player)
+			reload(player, nil)
+		end)
+		return
+	end
+
+	lives[player] = livesOf(player) - 1
+	if not anyAlive() then
+		-- Plus personne debout : aucune réanimation possible
+		hooks.onCurse()
+		return
+	end
+
+	local partner = otherAlive(player)
+	if livesOf(player) <= 0 then
+		-- Hors jeu : seule une réanimation par l'autre joueur le ramène
+		if partner then
+			addRevivePrompt(player, mine)
+		end
+		task.delay(Config.Revive.Window, function()
+			if serial[player] == mine then
+				clearPrompt(player)
+			end
+		end)
+		return
+	end
+
 	if partner then
 		addRevivePrompt(player, mine)
 	end
-
 	local wait = partner and Config.Revive.Window or Config.Respawn.Delay
 	task.delay(wait, function()
 		if serial[player] ~= mine or isAlive(player) then
 			return
 		end
 		clearPrompt(player)
-		reload(player, inRound and hooks.checkpoint() or nil)
+		reload(player, hooks.checkpoint())
 	end)
 end
 
@@ -114,6 +164,11 @@ local function bindCharacter(player, char)
 	hum.Died:Connect(function()
 		onDeath(player)
 	end)
+end
+
+-- Nouvelle partie : chacun repart avec ses vies
+function Respawn.resetRound()
+	lives = {}
 end
 
 function Respawn.init(h)
@@ -140,6 +195,7 @@ function Respawn.init(h)
 	Players.PlayerRemoving:Connect(function(player)
 		serial[player] = nil
 		prompts[player] = nil
+		lives[player] = nil
 	end)
 end
 

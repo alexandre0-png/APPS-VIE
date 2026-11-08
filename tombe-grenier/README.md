@@ -127,8 +127,11 @@ Chaîne parallèle, vers la fin « vérité » :
 
 Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Fin 1, la fuite : sortie par la porte d'entrée.
-- Fin 2, la malédiction : déclenchée par un choix au cercueil. Une fois la malle ouverte, l'invite « Refermer le cercueil » (maintien de 2 s) termine la partie. La mort ne la déclenche pas : les joueurs réapparaissent.
-- Mort : en solo, le joueur réapparaît après `Config.Respawn.Delay` secondes, au dernier point d'avancée (près de la malle ouverte, sinon du coffret ouvert, sinon du cercueil). En duo, si l'autre joueur est vivant, le joueur mort reste au sol et peut être réanimé en maintenant l'invite « Réanimer » (`Config.Revive.Hold`) pendant `Config.Revive.Window` secondes ; sans réanimation, il réapparaît au point d'avancée.
+- Fin 2, la malédiction : déclenchée par un choix au cercueil (une fois la malle ouverte, invite « Refermer le cercueil », maintien de 2 s), ou quand plus personne n'est debout après avoir épuisé ses vies.
+- Vies : chaque joueur en a trois par partie (`Config.Player.Lives`). Une mort en coûte une. Avec une vie restante, le joueur réapparaît après `Config.Respawn.Delay` secondes, au dernier point d'avancée (près de la malle ouverte, sinon du coffret ouvert, sinon du cercueil). En duo, si l'autre joueur est vivant, le joueur mort reste au sol et peut être réanimé en maintenant « Réanimer » (`Config.Revive.Hold`) pendant `Config.Revive.Window` secondes. Sans vie, le joueur est hors jeu ; l'autre peut encore le réanimer, et il revient avec une vie.
+- Indication : la touche H affiche en bas à gauche l'indication de l'étape courante. Un délai de `Config.Quests.HintCooldown` secondes s'applique entre deux demandes.
+- Au réveil, un court rappel des règles s'affiche pendant 12 secondes.
+- Vitesse : marche 8, course 13, silencieux 3 (`Config.Player`), pour que la maison prenne du temps.
 - Fin 3, la vérité : libération de l'enfant.
 
 Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un indice s'affiche, une seule fois par étape.
@@ -235,7 +238,8 @@ Dans `Config.lua` :
 8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Ouvrir la trappe : fin 1, retour au cercueil après `EndScreenTime`.
 8bis. **Fin 3** : lire les 4 documents, recouper la date (journal et plaque), puis libérer l'enfant au cercueil et saisir la date au clavier.
 8ter. **Statues et mur** : tourner les trois statues jusqu'à ce qu'elles regardent toutes dans la même direction ; la cave s'ouvre. Toucher le mur : une pile, une baisse de sanité.
-9. **Mort** : réapparition au dernier point d'avancée. En duo, réanimer le joueur au sol (maintien de 3 s, 40 s de fenêtre). La fin 2 se déclenche seulement par le choix au cercueil.
+9. **Mort** : trois vies par joueur. Une mort coûte une vie ; réapparition au dernier point d'avancée. En duo, réanimer le joueur au sol (maintien de 3 s, 40 s de fenêtre). Sans vie, hors jeu. Si plus personne n'est debout, fin 2.
+9bis. **Indication** : touche H, la première fois puis après le délai. Le texte apparaît en bas à gauche.
 10. **Coopération** : deux clients en test serveur (Test > Players = 2). Les photos ramassées par l'un disparaissent pour l'autre, la progression est commune.
 11. **Asset manquant** : ne pas renseigner un son. La sortie Output affiche un warning une seule fois, sans erreur.
 

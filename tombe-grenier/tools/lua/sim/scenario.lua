@@ -145,6 +145,19 @@ local mm, dd = string.match(plaqueDate, "(%d%d)/(%d%d)")
 Quests.submitCode(alice, mm .. dd)
 check(H.endReason == "truth", "bonne date : fin vérité")
 
+-- 7bis. Indication à la demande : une fois, puis limitée par le délai
+Quests.setup(12345)
+H.log = {}
+Quests.hintFor(alice)
+local hintSent = false
+for _, e in ipairs(H.log) do if e.name == "Hint" and e.payload.text then hintSent = true end end
+check(hintSent, "la touche H envoie une indication")
+H.log = {}
+Quests.hintFor(alice)
+local hintAgain = false
+for _, e in ipairs(H.log) do if e.name == "Hint" then hintAgain = true end end
+check(not hintAgain and find(H.msgs(alice), "(Attends)") ~= nil, "indication limitée par le délai")
+
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do Quests.setup(seed) end
 check(true, "60 graines sans erreur")

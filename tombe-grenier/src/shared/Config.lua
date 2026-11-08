@@ -18,9 +18,10 @@ Config.Round = {
 }
 
 Config.Player = {
-	WalkSpeed = 10,
-	SprintSpeed = 18,
-	QuietSpeed = 4,           -- vitesse en mode silencieux (Ctrl maintenu)
+	WalkSpeed = 8,            -- joueurs un peu plus lents : la maison prend du temps à parcourir
+	SprintSpeed = 13,
+	QuietSpeed = 3,           -- vitesse en mode silencieux (Ctrl maintenu)
+	Lives = 3,                -- vies par joueur et par partie (une mort en coûte une)
 	MovingThreshold = 1.5,    -- vitesse horizontale (studs/s) au-delà de laquelle on est « en mouvement »
 	MaxStamina = 100,
 	StaminaDrain = 25,        -- par seconde en sprint
@@ -122,6 +123,7 @@ Config.Intro = {
 
 Config.Quests = {
 	HintDelay = 180,         -- secondes sans progrès avant une indication automatique
+	HintCooldown = 30,       -- secondes entre deux indications demandées (touche H)
 }
 
 Config.Throw = {
