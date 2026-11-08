@@ -29,7 +29,7 @@ pcall(function()
 	Players.MaxPlayers = Config.Game.MaxPlayers
 end)
 
-local round = { seed = 0, ended = false, cycle = 1, active = false, mode = "solo", leaving = false }
+local round = { seed = 0, ended = false, active = false, mode = "solo", leaving = false }
 local restartRequested = false
 
 local function startRound()
@@ -41,7 +41,7 @@ local function startRound()
 	PlayerState.newRound()
 	MapBuilder.placeRound(round.seed)
 	Objectives.setup()
-	Quests.setup(round.seed, round.cycle)
+	Quests.setup(round.seed)
 	Props.setup()
 
 	-- Réveil dans le cercueil : noir, puis le joueur se redresse

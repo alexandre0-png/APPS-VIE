@@ -110,7 +110,6 @@ local ENDING_TOTAL = 3
 local code = "0000"
 local fuseOrder = {} -- ordre des trois interrupteurs pour rétablir le courant
 local state = nil
-local cycle = 1
 local endFn = nil
 local hintGiven = {}
 local endingsSeen = {}
@@ -829,11 +828,10 @@ function Quests.checkpoint()
 	return nil
 end
 
-function Quests.setup(seed, cycleNumber)
+function Quests.setup(seed)
 	code = codeFromSeed(seed)
 	fuseOrder = fuseOrderFromSeed(seed)
 	Locks.reset()
-	cycle = cycleNumber or 1
 	state = freshState()
 	state.mirrorRead = false
 	state.melodyIdx = 0
@@ -857,9 +855,6 @@ function Quests.setup(seed, cycleNumber)
 	resetCave()
 	wire()
 	pushObjective()
-	if cycle > 1 then
-		sayAll(("Cycle %d. La date gravée sur la plaque a changé."):format(cycle))
-	end
 end
 
 -- Fin de partie : texte affiché, et fins trouvées pendant la session serveur
