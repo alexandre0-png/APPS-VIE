@@ -134,6 +134,55 @@ Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un ind
 
 Pas de sang : les coups se traduisent par un voile sombre, un son et une pause du joueur.
 
+## Hub : salon commun
+
+Tous les joueurs arrivent dans un hub loin de la maison. La borne « Lancer la partie » démarre la partie. Sans borne, elle démarre 30 s après l'arrivée du premier joueur (`Config.Game.HubWait`). Tous les joueurs présents sont téléportés dans le cercueil du grenier.
+
+Le mode suit le nombre de joueurs : un seul joueur = solo (première apparition après 60 s), deux = duo (45 s).
+
+Après une fin, tout le monde est téléporté de nouveau au hub.
+
+## Pièces verrouillées
+
+Quatre pièces sont fermées tant que leur énigme n'est pas résolue. Chaque porte qui y donne est verrouillée (pas de contournement) :
+
+| Pièce | Ouverte par | Où trouver l'énigme |
+|---|---|---|
+| Chambre d'ami | Lire le cahier d'écolier | Chambre d'enfant, couloir ou passage sud |
+| Salle de bain | La clé de la salle de bain | Salon, chambre des parents ou bureau |
+| Bureau | Avoir les trois photos | Autres pièces |
+| Cellier | Rétablir le courant (interrupteurs) | Interrupteur côté cave |
+
+Le monstre ne pousse pas une porte verrouillée.
+
+## Maison qui réagit
+
+- **Mémoire du monstre** (`src/server/Memory.lua`) : il retient les pièces que tu visites souvent et les cachettes que tu utilises. Il patrouille davantage dans tes pièces habituelles et inspecte tes cachettes en premier. La mémoire dure tant que le serveur tourne.
+- **Inspection** : pendant une recherche, le monstre s'arrête devant une cachette proche, la regarde 1,5 s, puis te découvre si tu y es.
+- **Lumière qui s'éteint** : en quittant une pièce éclairée, ses lampes peuvent s'éteindre derrière toi pendant 15 s.
+- **Journal intime** : il relit tes dernières actions.
+- **Télévision** : l'image montre la pièce vue de haut, avec la pièce où se trouve le monstre.
+- **Téléphone du salon** : il sonne, avec des consignes qui se contredisent.
+- **Événements d'ambiance** : une porte s'ouvre seule, une silhouette traverse le couloir en courant.
+
+## Monstre : état d'animation
+
+Le code charge les animations (immobile, marche, course, attaques) sur `ServerStorage/Monster` si ce modèle existe. Sans modèle, un bloc de secours sans animation est utilisé. Il n'y a pas de modèle animé dans le dépôt : il faut fournir un rig R15.
+
+## Décor à compléter dans Studio
+
+`src/server/DecorKit.lua` pose des livres, bouteilles, boîtes, coussins et casseroles sur les meubles. Pour un décor réaliste, place dans `ServerStorage/Decor` un modèle nommé comme le meuble (par exemple `table`, `bibliothèque`, `lit double`) : il est mis à l'échelle sur l'emplacement du meuble, et sa boîte de collision reste active.
+
+Limite : le mode « Future » ne se règle que dans Studio (Lighting > Technology > Future).
+
+## Tests
+
+Depuis `tombe-grenier/` :
+- Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (42 tests)
+- Code Luau (modules, remotes, audio, tags, configuration, blocs) : `python3 -m unittest discover -s tools/lua -p "test_*.py" -v` (11 tests)
+
+Ces tests ne lancent pas Roblox : ils vérifient la cohérence du code et des données. Le comportement en jeu se valide en Play Test.
+
 ## Contrôles
 
 - ZQSD / WASD : déplacement (caméra première personne verrouillée)
