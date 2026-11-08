@@ -14,6 +14,7 @@ local MonsterAI = require(script.MonsterAI)
 local Lights = require(script.Lights)
 local FallingObjects = require(script.FallingObjects)
 local Ambience = require(script.Ambience)
+local MapBuilder = require(script.MapBuilder)
 local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 
@@ -93,6 +94,8 @@ Remotes.get("ToggleFlashlight").OnServerEvent:Connect(function(player)
 end)
 
 -- Systèmes
+-- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
+MapBuilder.build()
 PlayerState.init()
 Hiding.init()
 Objectives.init(function()

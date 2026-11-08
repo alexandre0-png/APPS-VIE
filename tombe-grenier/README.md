@@ -28,26 +28,39 @@ src/client/init.client.lua    StarterPlayerScripts.Client : HUD, effets, entrée
 
 1. Installer Rojo (`aftman` ou `cargo install rojo`) et son plugin dans Roblox Studio.
 2. Dans `tombe-grenier/` : `rojo serve`, puis dans Studio : *Connect*.
-3. Construire la carte (voir tags ci-dessous). Sans carte, le jeu tourne mais sans objectifs.
+3. Rien à placer à la main : la carte est construite au lancement par `MapBuilder` à partir de `src/shared/MapData.lua`. Pour modifier la maison, éditer `tools/map/generate_map.py` puis lancer `python3 tools/map/generate_map.py` (voir section Carte).
 4. Ajouter dans `ServerStorage` :
    - `Monster` : un modèle avec `Humanoid` et `HumanoidRootPart`, un rig R15 est nécessaire pour que les animations (immobile, marche, course, attaques) s'affichent. Sans modèle, un rig de secours sans animation est utilisé.
    - `FallingItem` (optionnel) : une `BasePart` (barre de fer, bocal…).
 5. Les sons sont référencés dans `src/shared/AudioManifest.lua` avec leurs IDs Roblox. Pour un nouveau son, ajouter une entrée `rbxassetid://…`. Une clé avec `asset = ""` logue un warning une seule fois.
 
-## Tags CollectionService à poser sur la carte
+## Carte
 
-| Tag | Sur quoi | Rôle |
+La maison fait 120 × 90 studs, sur quatre niveaux : sous-sol (y = -12), rez-de-chaussée (0), premier étage (12), grenier (24). Le jardin entoure la maison, clôturé par des murs invisibles.
+
+- Source unique : `tools/map/generate_map.py` (pièces, portes, meubles, escalier, points de tag, murs invisibles, jardin).
+- Généré : `src/shared/MapData.lua`. Ne pas l'éditer à la main.
+- Construit : `src/server/MapBuilder.lua`, appelé au démarrage du serveur avant les systèmes.
+- Tests : `python3 -m unittest discover -s tools/map -p "test_*.py"` depuis `tombe-grenier/`. Ils vérifient l'emprise, les recouvrements, la présence des portes sur un mur, les meubles hors porte et hors escalier, l'accessibilité de toutes les pièces, les tags minimums et les cachettes dans les armoires.
+
+Tags posés automatiquement :
+
+| Tag | Où | Rôle |
 |---|---|---|
-| `MonsterSpawn` | BasePart | Point d'apparition du monstre |
-| `Waypoint` | BasePart | Points de patrouille (sinon patrouille aléatoire) |
-| `FallSpot` | BasePart | Point de départ de chute, au-dessus d'une étagère |
-| `FlickerLight` | BasePart avec PointLight/SpotLight enfant | Lampe qui scintille |
-| `Photo` | BasePart | Photo ramassable (3 requises) |
-| `Key` | BasePart | Clé ramassable |
-| `ExitDoor` | BasePart | Sortie, ouverte si photos + clé |
-| `Hiding` | BasePart à l'intérieur d'une armoire | Cachette |
+| `MonsterSpawn` | Grenier ouest | Point d'apparition du monstre |
+| `Waypoint` | Centre de chaque pièce et porte intérieure | Points de patrouille |
+| `FallSpot` | Au-dessus des étagères (grenier, palier, cave) | Chute d'objet |
+| `FlickerLight` | Une lampe par pièce | Lampe qui scintille |
+| `Photo` | Salon, grenier, couloir, cave | Photos (3 requises pour la sortie) |
+| `Key` | Tiroir de la commode du grenier | Clé de la sortie |
+| `ExitDoor` | Porte d'entrée | Sortie, ouverte si photos + clé |
+| `Hiding` | Intérieur de chaque armoire | Cachette |
+| `Interactable` | Objets du grenier (journal, peluche, miroir, coffre…) | Attribut `Kind`, sans logique pour l'instant |
+| `InvisibleWall` | Clôture, portail et grille | Bloque le passage (attribut `Puzzle` pour les énigmes) |
 
-Le spawn des joueurs est le `SpawnLocation` de la carte : c'est là que se trouve le cercueil.
+Le spawn des joueurs est un `SpawnLocation` placé sur le cercueil du grenier.
+
+Limites connues : les textures ne s'affichent que si les IDs sont des images Roblox. Les objets interactifs n'ont pas encore de logique. Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu.
 
 ## Contrôles
 

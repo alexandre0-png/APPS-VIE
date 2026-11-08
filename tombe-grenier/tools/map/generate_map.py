@@ -1,0 +1,624 @@
+#!/usr/bin/env python3
+"""
+Génère src/shared/MapData.lua : source unique de la carte de La Tombe du Grenier.
+
+Tout ce qui décrit la maison (pièces, portes, murs, dalles, escaliers, meubles,
+lumières, points de tag, murs invisibles, jardin) est défini ici.
+Le serveur (src/server/MapBuilder.lua) construit la carte à partir du fichier généré.
+
+Usage (depuis tombe-grenier/) :
+    python3 tools/map/generate_map.py
+    python3 -m unittest discover -s tools/map -p "test_*.py"
+
+Unités : studs. Axes : x (ouest -> est), z (nord -> sud), y (hauteur).
+Le sud (z = 90) porte la porte d'entrée principale.
+"""
+import os
+from collections import defaultdict
+
+# ----------------------------------------------------------------------------
+# Constantes géométriques
+# ----------------------------------------------------------------------------
+H = 11                                   # hauteur des murs (studs)
+T = 1.0                                  # épaisseur des murs (studs)
+BASE = {"basement": -12, "ground": 0, "first": 12, "attic": 24}
+LEVELS = ["basement", "ground", "first", "attic"]
+FOOT = (0, 0, 120, 90)                   # emprise de la maison
+STAIR = (50, 10, 58, 40)                 # emprise des escaliers (identique à chaque étage)
+STAIR_HOLE = (50, 10, 58, 40)            # trémie dans chaque dalle traversée : toute l'emprise de l'escalier
+STAIR_STEPS = 12                         # marches par volée (1 stud de contremarche)
+DOOR_W = 4                               # largeur standard d'une porte intérieure
+FRONT_DOOR_W = 6                         # largeur de la porte d'entrée
+ZONE_MARGIN = 2.5                        # zone libre devant chaque porte
+
+# ----------------------------------------------------------------------------
+# Pièces : id, niveau, rectangle (x0, z0, x1, z1), sol, mur, nom
+# ----------------------------------------------------------------------------
+ROOMS = [
+    # Sous-sol
+    ("pn",     "basement", (0, 0, 40, 44),    "ardoise",   "brique", "Passage nord"),
+    ("cave",   "basement", (40, 0, 80, 90),   "ardoise",   "brique", "Cave centrale"),
+    ("ps",     "basement", (80, 0, 120, 90),  "ardoise",   "brique", "Passage sud"),
+    ("cel",    "basement", (0, 44, 40, 90),   "ardoise",   "brique", "Cellier"),
+    # Rez-de-chaussée
+    ("salon",  "ground",   (0, 0, 40, 44),    "carrelage", "mur",    "Salon"),
+    ("hall",   "ground",   (40, 0, 80, 44),   "carrelage", "brique", "Hall"),
+    ("cuis",   "ground",   (80, 0, 120, 44),  "carrelage", "mur",    "Cuisine"),
+    ("sam",    "ground",   (0, 44, 40, 90),   "carrelage", "mur",    "Salle à manger"),
+    ("entree", "ground",   (40, 44, 80, 90),  "carrelage", "brique", "Entrée"),
+    ("bureau", "ground",   (80, 44, 120, 90), "carrelage", "mur",    "Bureau"),
+    # Premier étage
+    ("chp",    "first",    (0, 0, 40, 44),    "carrelage", "mur",    "Chambre des parents"),
+    ("palier", "first",    (40, 0, 80, 44),   "carrelage", "brique", "Palier"),
+    ("che",    "first",    (80, 0, 120, 44),  "carrelage", "mur",    "Chambre d'enfant"),
+    ("cha",    "first",    (0, 44, 40, 90),   "carrelage", "mur",    "Chambre d'ami"),
+    ("couloir", "first",   (40, 44, 80, 90),  "carrelage", "brique", "Couloir"),
+    ("sdb",    "first",    (80, 44, 120, 68), "carrelage", "mur",    "Salle de bain"),
+    ("deb",    "first",    (80, 68, 120, 90), "carrelage", "mur",    "Débarras"),
+    # Grenier
+    ("gro",    "attic",    (0, 0, 60, 90),    "plancher",  "mur",    "Grenier ouest"),
+    ("tombe",  "attic",    (60, 0, 120, 90),  "plancher",  "mur",    "Salle de la tombe"),
+]
+
+# ----------------------------------------------------------------------------
+# Portes. orient 'v' : mur de ligne x = line, centre sur z = c.
+#         orient 'h' : mur de ligne z = line, centre sur x = c.
+# puzzle : nom de l'énigme qui ouvre le passage (mur invisible jusque-là).
+# front  : porte donnant sur l'extérieur.
+# ----------------------------------------------------------------------------
+DOORS = [
+    # Sous-sol
+    dict(level="basement", orient="v", line=40, c=22, w=DOOR_W),
+    dict(level="basement", orient="v", line=40, c=67, w=DOOR_W),
+    dict(level="basement", orient="h", line=44, c=20, w=DOOR_W),
+    dict(level="basement", orient="v", line=80, c=45, w=DOOR_W, puzzle="grille"),
+    # Rez-de-chaussée
+    dict(level="ground", orient="v", line=40, c=22, w=DOOR_W),
+    dict(level="ground", orient="v", line=80, c=22, w=DOOR_W),
+    dict(level="ground", orient="h", line=44, c=20, w=DOOR_W),
+    dict(level="ground", orient="h", line=44, c=60, w=DOOR_W),
+    dict(level="ground", orient="h", line=44, c=100, w=DOOR_W),
+    dict(level="ground", orient="v", line=40, c=67, w=DOOR_W),
+    dict(level="ground", orient="v", line=80, c=67, w=DOOR_W),
+    dict(level="ground", orient="h", line=90, c=60, w=FRONT_DOOR_W, front=True),
+    # Premier étage
+    dict(level="first", orient="v", line=40, c=22, w=DOOR_W),
+    dict(level="first", orient="v", line=80, c=22, w=DOOR_W),
+    dict(level="first", orient="h", line=44, c=60, w=DOOR_W),
+    dict(level="first", orient="h", line=44, c=20, w=DOOR_W),
+    dict(level="first", orient="v", line=40, c=67, w=DOOR_W),
+    dict(level="first", orient="v", line=80, c=56, w=DOOR_W),
+    dict(level="first", orient="h", line=68, c=100, w=DOOR_W),
+    dict(level="first", orient="v", line=80, c=79, w=DOOR_W),
+    # Grenier
+    dict(level="attic", orient="v", line=60, c=45, w=DOOR_W),
+]
+
+# Volées d'escalier : (niveau bas, niveau haut). Chaque volée monte de BASE[bas] à BASE[haut].
+FLIGHTS = [("basement", "ground"), ("ground", "first"), ("first", "attic")]
+# Liaison logique entre pièces par les escaliers (pour le contrôle d'accessibilité)
+STAIR_LINKS = [("cave", "hall"), ("hall", "palier"), ("palier", "gro")]
+
+# ----------------------------------------------------------------------------
+# Meubles : (nom, x0, z0, x1, z1, hauteur, matériau). Un « armoire » devient une cachette.
+# ----------------------------------------------------------------------------
+FURNITURE = {
+    # Sous-sol
+    "pn": [
+        ("caisses", 3, 3, 10, 9, 3, "bois"),
+        ("étagère", 30, 3, 38, 10, 7, "bois"),
+        ("barriques", 13, 28, 17, 32, 3, "bois"),
+    ],
+    "cave": [
+        ("barriques", 62, 4, 68, 10, 3, "bois"),
+        ("étagère", 44, 50, 48, 70, 7, "bois"),
+        ("établi", 64, 60, 74, 64, 3, "bois"),
+        ("caisses", 62, 76, 70, 82, 3, "bois"),
+        ("étagère", 72, 20, 78, 30, 7, "bois"),
+    ],
+    "ps": [
+        ("étagère", 84, 4, 90, 12, 6, "bois"),
+        ("coffre", 110, 10, 116, 16, 3, "metal"),
+        ("caisses", 100, 60, 108, 68, 3, "bois"),
+        ("table", 88, 76, 98, 82, 2.5, "bois"),
+    ],
+    "cel": [
+        ("étagère", 3, 50, 8, 70, 7, "bois"),
+        ("cuves", 12, 74, 20, 80, 4, "metal"),
+        ("caisses", 26, 50, 34, 56, 3, "bois"),
+        ("tonneau", 26, 70, 30, 74, 3, "bois"),
+    ],
+    # Rez-de-chaussée
+    "salon": [
+        ("canapé", 6, 6, 18, 11, 3, "tissu"),
+        ("fauteuil", 24, 8, 28, 12, 3, "tissu"),
+        ("table basse", 8, 16, 18, 22, 1.5, "bois"),
+        ("meuble TV", 6, 34, 20, 38, 2.5, "bois"),
+        ("cheminée", 30, 2, 38, 6, 5, "pierre"),
+        ("bibliothèque", 0.5, 18, 2.5, 30, 8, "bois"),
+    ],
+    "hall": [
+        ("console", 62, 2, 72, 4, 3, "bois"),
+        ("plante", 42, 2, 45, 5, 4, "vert"),
+        ("portemanteau", 72, 30, 74, 32, 6, "bois"),
+    ],
+    "cuis": [
+        ("cuisinière", 84, 2, 94, 6, 3, "metal"),
+        ("frigo", 106, 2, 110, 6, 6, "metal"),
+        ("îlot", 88, 14, 100, 22, 3, "bois"),
+        ("table", 104, 14, 114, 22, 2.5, "bois"),
+        ("placards", 112, 24, 119, 32, 7, "bois"),
+    ],
+    "sam": [
+        ("table", 8, 60, 22, 70, 2.5, "bois"),
+        ("chaise", 6, 57, 8, 59, 2, "bois"),
+        ("chaise", 16, 57, 18, 59, 2, "bois"),
+        ("chaise", 6, 71, 8, 73, 2, "bois"),
+        ("chaise", 16, 71, 18, 73, 2, "bois"),
+        ("buffet", 1, 80, 6, 88, 5, "bois"),
+    ],
+    "entree": [
+        ("console", 44, 50, 48, 54, 3, "bois"),
+        ("penderie", 72, 50, 74, 52, 7, "bois"),
+        ("guéridon", 60, 70, 64, 74, 1, "bois"),
+        ("banc", 48, 80, 56, 82, 1.5, "bois"),
+    ],
+    "bureau": [
+        ("bureau", 92, 56, 104, 62, 2.5, "bois"),
+        ("chaise", 94, 63, 96, 65, 2.5, "bois"),
+        ("bibliothèque", 113, 50, 119.5, 56, 8, "bois"),
+        ("coffre", 106, 76, 116, 82, 3, "metal"),
+        ("canapé", 86, 80, 96, 84, 3, "tissu"),
+    ],
+    # Premier étage
+    "chp": [
+        ("lit double", 6, 6, 18, 18, 3, "tissu"),
+        ("chevet", 1.5, 6, 3.5, 8, 2, "bois"),
+        ("chevet", 20.5, 6, 22.5, 8, 2, "bois"),
+        ("armoire", 28, 1, 39, 5, 8, "bois"),
+        ("commode", 30, 12, 38, 16, 3, "bois"),
+    ],
+    "palier": [
+        ("console", 62, 4, 72, 7, 3, "bois"),
+        ("lampadaire", 44, 4, 46, 6, 5, "metal"),
+        ("chaise", 66, 30, 68, 32, 3, "bois"),
+        ("vitrine", 74, 30, 78, 36, 7, "bois"),
+    ],
+    "che": [
+        ("lit", 96, 4, 108, 12, 2.5, "tissu"),
+        ("bureau", 86, 6, 94, 12, 3, "bois"),
+        ("coffre à jouets", 86, 36, 92, 42, 2.5, "bois"),
+        ("cheval à bascule", 100, 30, 108, 36, 3, "bois"),
+        ("armoire", 110, 2, 119, 8, 8, "bois"),
+    ],
+    "cha": [
+        ("lit", 6, 50, 16, 62, 2.5, "tissu"),
+        ("chevet", 17.5, 50, 19.5, 52, 2, "bois"),
+        ("bureau", 24, 50, 34, 58, 2.5, "bois"),
+        ("chaise", 26, 60, 30, 64, 2, "bois"),
+        ("armoire", 4, 80, 12, 88, 8, "bois"),
+    ],
+    "couloir": [
+        ("console", 44, 80, 54, 83, 3, "bois"),
+        ("table ronde", 60, 60, 64, 64, 2.5, "bois"),
+        ("étagère", 70, 46, 74, 50, 8, "bois"),
+    ],
+    "sdb": [
+        ("baignoire", 106, 45.5, 117, 52, 2.5, "porcelaine"),
+        ("lavabo", 86, 46, 92, 50, 3, "porcelaine"),
+        ("WC", 88, 58, 92, 62, 2.5, "porcelaine"),
+        ("armoire de toilette", 114, 58, 119, 64, 6, "bois"),
+    ],
+    "deb": [
+        ("étagères", 106, 80, 118, 88, 8, "bois"),
+        ("caisses", 86, 70, 92, 76, 3, "bois"),
+        ("carton", 110, 70, 116, 74, 2, "carton"),
+        ("bidon", 86, 84, 90, 88, 3, "metal"),
+    ],
+    # Grenier
+    "gro": [
+        ("étagère", 1, 4, 4, 12, 8, "bois"),
+        ("étagère", 1, 20, 4, 28, 8, "bois"),
+        ("commode", 14, 2, 24, 6, 4, "bois"),
+        ("table", 28, 10, 36, 16, 3, "bois"),
+        ("lit enfant", 20, 66, 30, 76, 3, "bois"),
+        ("table", 44, 70, 50, 76, 3, "bois"),
+        ("caisses", 8, 60, 16, 68, 4, "bois"),
+        ("armoire", 4, 82, 14, 89, 8, "bois"),
+    ],
+    "tombe": [
+        ("cercueil", 86, 42, 94, 48, 2, "bois_sombre"),
+        ("cheval à bascule", 100, 10, 108, 16, 3, "bois"),
+        ("coffre verrouillé", 66, 62, 74, 66, 3, "metal"),
+        ("table ronde", 92, 70, 98, 76, 3, "bois"),
+        ("armoire", 114, 70, 119, 80, 8, "bois"),
+    ],
+}
+
+# ----------------------------------------------------------------------------
+# Points de tag (serveur). Chaque point : tag, nom, position, taille, attributs.
+# Les positions sont calculées à partir des niveaux ci-dessous (voir build_props).
+# ----------------------------------------------------------------------------
+GARDEN_TREES = [(-35, -35), (-48, 20), (-30, 110), (-45, 140), (-12, -40), (140, -35),
+                (165, 20), (160, 110), (140, 140), (128, 130), (-20, 130), (150, 60)]
+
+
+# ----------------------------------------------------------------------------
+# Utilitaires géométriques
+# ----------------------------------------------------------------------------
+def room_list(level=None):
+    return [r for r in ROOMS if level is None or r[1] == level]
+
+
+def room_by_id(rid):
+    for r in ROOMS:
+        if r[0] == rid:
+            return r
+    raise KeyError(rid)
+
+
+def inside(rect, x, z):
+    x0, z0, x1, z1 = rect
+    return x0 <= x < x1 and z0 <= z < z1
+
+
+def room_at(level, x, z):
+    for rid, lv, rect, *_ in ROOMS:
+        if lv == level and inside(rect, x, z):
+            return rid
+    return None
+
+
+def overlaps(a, b):
+    """Recouvrement strict de deux rectangles (x0, z0, x1, z1)."""
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def subtract(rect, hole):
+    """Rectangle moins un trou : liste de rectangles couvrant rect \\ hole."""
+    x0, z0, x1, z1 = rect
+    hx0, hz0, hx1, hz1 = hole
+    ix0, ix1 = max(x0, hx0), min(x1, hx1)
+    iz0, iz1 = max(z0, hz0), min(z1, hz1)
+    if ix0 >= ix1 or iz0 >= iz1:
+        return [rect]
+    out = []
+    if z0 < iz0:
+        out.append((x0, z0, x1, iz0))
+    if iz1 < z1:
+        out.append((x0, iz1, x1, z1))
+    if x0 < ix0:
+        out.append((x0, iz0, ix0, iz1))
+    if ix1 < x1:
+        out.append((ix1, iz0, x1, iz1))
+    return out
+
+
+def door_zone(d):
+    """Zone libre devant une porte (pas de meuble dedans)."""
+    line, c = d["line"], d["c"]
+    if d["orient"] == "v":
+        return (line - ZONE_MARGIN, c - 3, line + ZONE_MARGIN, c + 3)
+    return (c - 3, line - ZONE_MARGIN, c + 3, line + ZONE_MARGIN)
+
+
+def box(x0, x1, y0, y1, z0, z1, mat, name=None, **extra):
+    d = dict(x0=x0, x1=x1, y0=y0, y1=y1, z0=z0, z1=z1, mat=mat)
+    if name:
+        d["name"] = name
+    d.update(extra)
+    return d
+
+
+# ----------------------------------------------------------------------------
+# Murs : lignes de murs = tronçons couverts par au moins une pièce
+# ----------------------------------------------------------------------------
+def wall_runs(level):
+    """Retourne [(orient, line, a, b)] : tronçons de mur continus du niveau."""
+    lines = defaultdict(list)  # (orient, coord) -> [(a, b)]
+    for _, lv, (x0, z0, x1, z1), *_ in room_list(level):
+        lines[("h", z0)].append((x0, x1))
+        lines[("h", z1)].append((x0, x1))
+        lines[("v", x0)].append((z0, z1))
+        lines[("v", x1)].append((z0, z1))
+
+    runs = []
+    for (orient, coord), segs in lines.items():
+        pts = sorted({p for s in segs for p in s})
+        covered = []
+        for p, q in zip(pts, pts[1:]):
+            if any(a <= p and q <= b for a, b in segs):
+                covered.append((p, q))
+        # fusion des intervalles contigus
+        cur = None
+        for p, q in covered:
+            if cur and cur[1] == p:
+                cur = (cur[0], q)
+            else:
+                if cur:
+                    runs.append((orient, coord, cur[0], cur[1]))
+                cur = (p, q)
+        if cur:
+            runs.append((orient, coord, cur[0], cur[1]))
+    return runs
+
+
+def doors_on(level, orient, line):
+    return [d for d in DOORS if d["level"] == level and d["orient"] == orient and d["line"] == line]
+
+
+def wall_material(level, orient, line, a, b):
+    """Brique pour les couloirs et le sous-sol, mur plâtré pour les pièces."""
+    if level == "basement":
+        return "brique"
+    mid = (a + b) / 2
+    for p in (line - 0.5, line + 0.5):
+        x, z = (p, mid) if orient == "v" else (mid, p)
+        rid = room_at(level, x, z)
+        if rid and room_by_id(rid)[4] == "brique":
+            return "brique"
+    return "mur"
+
+
+def wall_pieces(level):
+    """Pièces de mur (boîtes), portes percées, linteaux au-dessus des portes."""
+    base = BASE[level]
+    pieces = []
+    for orient, line, a, b in wall_runs(level):
+        mat = wall_material(level, orient, line, a, b)
+        doors = sorted(doors_on(level, orient, line), key=lambda d: d["c"])
+        # Segments à construire, en retirant les ouvertures de porte
+        segs = []
+        cur = a
+        for d in doors:
+            lo, hi = d["c"] - d["w"] / 2, d["c"] + d["w"] / 2
+            if not (a <= lo and hi <= b):
+                raise ValueError(f"porte hors mur : {level} {orient} {line} c={d['c']}")
+            segs.append((cur, lo, False))
+            pieces.append(_lintel(orient, line, lo, hi, base, mat))
+            cur = hi
+        segs.append((cur, b, True))
+        for s, e, is_last in segs:
+            if e <= s:
+                continue
+            start = s - 0.5 if s == a else s
+            end = e + 0.5 if (e == b) else e
+            pieces.append(_wall_box(orient, line, start, end, base, mat))
+    return pieces
+
+
+def _wall_box(orient, line, s, e, base, mat):
+    if orient == "v":
+        return box(line - T / 2, line + T / 2, base, base + H, s, e, mat, "mur")
+    return box(s, e, base, base + H, line - T / 2, line + T / 2, mat, "mur")
+
+
+def _lintel(orient, line, lo, hi, base, mat):
+    if orient == "v":
+        return box(line - T / 2, line + T / 2, base + 7, base + H, lo, hi, mat, "linteau")
+    return box(lo, hi, base + 7, base + H, line - T / 2, line + T / 2, mat, "linteau")
+
+
+# ----------------------------------------------------------------------------
+# Dalles et escaliers
+# ----------------------------------------------------------------------------
+def floor_slabs(level):
+    """Dalle de sol du niveau : y in [base-1, base], trémie d'escalier si besoin."""
+    base = BASE[level]
+    holes = []
+    if level in ("ground", "first", "attic"):
+        holes.append(STAIR_HOLE)            # arrivée de la volée qui monte jusqu'ici
+    out = []
+    for rid, lv, rect, floor, _, _ in room_list(level):
+        pieces = [rect]
+        for h in holes:
+            nxt = []
+            for p in pieces:
+                nxt.extend(subtract(p, h))
+            pieces = nxt
+        for x0, z0, x1, z1 in pieces:
+            out.append(box(x0, x1, base - 1, base, z0, z1, floor, "dalle"))
+    return out
+
+
+def roof():
+    x0, z0, x1, z1 = FOOT
+    return [box(x0, x1, BASE["attic"] + H, BASE["attic"] + H + 1, z0, z1, "ardoise", "toit")]
+
+
+def stair_steps():
+    """Volées d'escalier : marches pleines de 2,5 studs de long et 1 stud de haut."""
+    x0, z0, x1, z1 = STAIR
+    steps = []
+    run = (z1 - z0) / STAIR_STEPS      # 30 / 12 = 2,5 studs de marche
+    for lo, hi in FLIGHTS:
+        b0 = BASE[lo]
+        for i in range(STAIR_STEPS):
+            zs = z1 - i * run          # départ en bas de volée (z grand)
+            ze = zs - run              # arrivée vers le haut (z petit)
+            top = b0 + (i + 1)
+            steps.append(box(x0, x1, b0, top, ze, zs, "bois", "marche"))
+    return steps
+
+
+# ----------------------------------------------------------------------------
+# Meubles (boîtes) et cachettes
+# ----------------------------------------------------------------------------
+def furniture_boxes():
+    out = []
+    for rid, items in FURNITURE.items():
+        lv = room_by_id(rid)[1]
+        base = BASE[lv]
+        for name, x0, z0, x1, z1, h, mat in items:
+            out.append(box(x0, x1, base, base + h, z0, z1, mat, name))
+    return out
+
+
+def hiding_spots():
+    spots = []
+    for rid, items in FURNITURE.items():
+        lv = room_by_id(rid)[1]
+        base = BASE[lv]
+        for name, x0, z0, x1, z1, h, mat in items:
+            if name == "armoire":
+                cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+                spots.append(dict(tag="Hiding", name="armoire " + rid,
+                                  pos=(cx, base + 1.5, cz), size=(2, 2, 2)))
+    return spots
+
+
+# ----------------------------------------------------------------------------
+# Points de tag, lumières, repères du monstre, murs invisibles, jardin
+# ----------------------------------------------------------------------------
+def build_props():
+    props = []
+    # Repères de patrouille : centre de chaque pièce et de chaque porte intérieure
+    for rid, lv, rect, *_ in ROOMS:
+        cx, cz = (rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2
+        props.append(dict(tag="Waypoint", name="wp " + rid, pos=(cx, BASE[lv] + 0.5, cz), size=(1, 1, 1)))
+    for d in DOORS:
+        if d.get("front"):
+            continue
+        b = BASE[d["level"]]
+        x, z = (d["line"], d["c"]) if d["orient"] == "v" else (d["c"], d["line"])
+        props.append(dict(tag="Waypoint", name="wp porte", pos=(x, b + 0.5, z), size=(1, 1, 1)))
+
+    # Lumières : une par pièce, au plafond
+    for rid, lv, rect, *_ in ROOMS:
+        cx, cz = (rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2
+        props.append(dict(tag="FlickerLight", name="lampe " + rid,
+                          pos=(cx, BASE[lv] + H - 1.5, cz), size=(1, 1, 1)))
+
+    # Apparition du monstre : grenier ouest
+    props.append(dict(tag="MonsterSpawn", name="apparition", pos=(30, BASE["attic"] + 1.5, 85), size=(2, 1, 2)))
+
+    # Chutes d'objets : au-dessus des étagères
+    for name, lv, pos in [
+        ("chute gro 1", "attic", (3, BASE["attic"] + 8, 8)),
+        ("chute gro 2", "attic", (3, BASE["attic"] + 8, 24)),
+        ("chute palier", "first", (45, BASE["first"] + 8, 5)),
+        ("chute cave", "basement", (46, BASE["basement"] + 8, 60)),
+    ]:
+        props.append(dict(tag="FallSpot", name=name, pos=pos, size=(1, 1, 1)))
+
+    # Photos : trois requises, une finale dans la cave
+    props.append(dict(tag="Photo", name="photo salon", pos=(13, 1.6, 19), size=(1.4, 0.1, 1.0)))
+    props.append(dict(tag="Photo", name="photo grenier", pos=(36, BASE["attic"] + 3.1, 15), size=(1.4, 0.1, 1.0)))
+    props.append(dict(tag="Photo", name="photo couloir", pos=(62, BASE["first"] + 2.6, 62), size=(1.4, 0.1, 1.0)))
+    props.append(dict(tag="Photo", name="photo finale", pos=(66, BASE["basement"] + 3.1, 79), size=(1.4, 0.1, 1.0)))
+
+    # Clé dans le tiroir de la commode du grenier
+    props.append(dict(tag="Key", name="clé tiroir", pos=(19, BASE["attic"] + 4.1, 4), size=(0.8, 0.1, 0.5)))
+
+    # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
+    props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))
+
+    # Objets interactifs du grenier (sans logique pour l'instant : attribut Kind)
+    interactables = [
+        ("journal intime", "gro", (34, BASE["attic"] + 3.2, 11), (1, 0.2, 1.4)),
+        ("bougies et lampe à pétrole", "gro", (30, BASE["attic"] + 3.6, 14), (0.6, 0.8, 0.6)),
+        ("peluche ancienne", "gro", (25, BASE["attic"] + 3.2, 71), (1, 1.4, 1)),
+        ("gramophone ancien", "gro", (47, BASE["attic"] + 3.2, 73), (1.4, 1.2, 1.4)),
+        ("miroir inquiétant", "tombe", (119.3, BASE["attic"] + 6, 30), (0.4, 6, 4)),
+        ("coffre verrouillé", "tombe", (70, BASE["attic"] + 3.2, 64), (4, 1.2, 2)),
+        ("cheval à bascule", "tombe", (104, BASE["attic"] + 3.2, 13), (4, 2.5, 3)),
+        ("tombe", "tombe", (90, BASE["attic"] + 2.3, 45), (8, 2, 6)),
+    ]
+    for name, rid_or_lv, pos, size in interactables:
+        props.append(dict(tag="Interactable", name=name, pos=pos, size=size, kind=name))
+
+    # Murs invisibles : périmètre du jardin, portail (énigme), grille du sous-sol (énigme)
+    inv = []
+    inv.append(dict(name="clôture nord", x0=-60.5, x1=180.5, z0=-60.5, z1=-59.5, y0=-1, y1=30))
+    inv.append(dict(name="clôture sud ouest", x0=-60.5, x1=55, z0=149.5, z1=150.5, y0=-1, y1=30))
+    inv.append(dict(name="clôture sud est", x0=65, x1=180.5, z0=149.5, z1=150.5, y0=-1, y1=30))
+    inv.append(dict(name="clôture ouest", x0=-60.5, x1=-59.5, z0=-60, z1=150, y0=-1, y1=30))
+    inv.append(dict(name="clôture est", x0=179.5, x1=180.5, z0=-60, z1=150, y0=-1, y1=30))
+    inv.append(dict(name="portail", x0=55, x1=65, z0=149.5, z1=150.5, y0=-1, y1=30, puzzle="portail"))
+    inv.append(dict(name="grille sud", x0=79.5, x1=80.5, z0=43, z1=47, y0=-12, y1=-1, puzzle="grille"))
+    return props, inv
+
+
+def garden():
+    plates = [
+        box(-60, 180, -1, 0, -60, 0, "herbe", "pelouse nord"),
+        box(-60, 180, -1, 0, 90, 150, "herbe", "pelouse sud"),
+        box(-60, 0, -1, 0, 0, 90, "herbe", "pelouse ouest"),
+        box(120, 180, -1, 0, 0, 90, "herbe", "pelouse est"),
+    ]
+    path = [box(55, 65, -0.4, 0, 90, 150, "pierre", "allée")]
+    trees = []
+    for x, z in GARDEN_TREES:
+        trees.append(dict(x=x, z=z))
+    return plates, path, trees
+
+
+# ----------------------------------------------------------------------------
+# Construction complète
+# ----------------------------------------------------------------------------
+def build():
+    walls, slabs, furniture = [], [], []
+    for lv in LEVELS:
+        walls += wall_pieces(lv)
+        slabs += floor_slabs(lv)
+    slabs += roof()
+    steps = stair_steps()
+    furniture = furniture_boxes()
+    spots = hiding_spots()
+    props, inv = build_props()
+    plates, path, trees = garden()
+
+    spawn = dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4))
+    return dict(
+        walls=walls, slabs=slabs, steps=steps, furniture=furniture,
+        hiding=spots, props=props, invisible=inv,
+        garden=dict(plates=plates, path=path, trees=trees),
+        spawn=spawn,
+        base=BASE, H=H, stair=STAIR,
+    )
+
+
+# ----------------------------------------------------------------------------
+# Écriture du module Luau
+# ----------------------------------------------------------------------------
+def to_lua(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        if isinstance(v, float) and v.is_integer():
+            return str(int(v))
+        return repr(v)
+    if isinstance(v, str):
+        return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(v, dict):
+        parts = []
+        for k, x in v.items():
+            if not k.isidentifier():
+                raise ValueError(f"clé Lua invalide : {k}")
+            parts.append(f"{k} = {to_lua(x)}")
+        return "{" + ", ".join(parts) + "}"
+    if isinstance(v, (list, tuple)):
+        return "{" + ", ".join(to_lua(x) for x in v) + "}"
+    raise TypeError(type(v))
+
+
+def write_lua(data, path):
+    header = ("-- GÉNÉRÉ par tools/map/generate_map.py : ne pas éditer à la main.\n"
+              "-- Modifier le générateur, puis relancer : python3 tools/map/generate_map.py\n")
+    body = "return " + to_lua(data) + "\n"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(header + body)
+
+
+def main():
+    here = os.path.dirname(os.path.abspath(__file__))
+    out = os.path.normpath(os.path.join(here, "..", "..", "src", "shared", "MapData.lua"))
+    data = build()
+    write_lua(data, out)
+    print(f"écrit : {out}")
+    print(f"murs={len(data['walls'])} dalles={len(data['slabs'])} marches={len(data['steps'])} "
+          f"meubles={len(data['furniture'])} points={len(data['props'])}")
+
+
+if __name__ == "__main__":
+    main()
