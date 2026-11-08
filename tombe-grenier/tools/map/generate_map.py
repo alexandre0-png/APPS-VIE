@@ -536,6 +536,7 @@ BATTERY_SLOTS = [
     _s("cuisine, plan de travail", (109, 2.6, 18), (0.6, 0.5, 0.4)),
     _s("grenier, caisses", (12, 28.1, 64), (0.6, 0.5, 0.4)),
     _s("chambre des parents, sol", (10, 0.1, 32), (0.6, 0.5, 0.4)),
+    _s("cave, au sol derrière les caisses", (50, -11.9, 85), (0.6, 0.5, 0.4)),
 ]
 
 FALL_SLOTS = [
@@ -602,6 +603,10 @@ DECOR = [
     box(10, 16, 16, 20, 0.8, 1.2, "bois_sombre", "tableau chambre des parents", deco=True),
     box(62, 68, 16, 20, 0.8, 1.2, "bois_sombre", "tableau palier", deco=True),
     box(30, 36, 28, 32, 0.8, 1.2, "bois_sombre", "tableau grenier", deco=True),
+    # Dessins d'enfant au mur de la chambre (silhouette sans visage)
+    box(84, 88, 13, 17, 0.8, 1.0, "carton", "dessin d'enfant", deco=True),
+    box(92, 96, 13, 17, 0.8, 1.0, "carton", "dessin d'enfant", deco=True),
+    box(100, 104, 13, 17, 0.8, 1.0, "carton", "dessin d'enfant", deco=True),
     box(0.5, 1.4, 1, 9, 8, 12, "tissu", "rideau salon", deco=True),
     box(0.5, 1.4, 13, 21, 8, 12, "tissu", "rideau chambre des parents", deco=True),
     box(118.6, 119.5, 13, 21, 8, 12, "tissu", "rideau chambre d'enfant", deco=True),
