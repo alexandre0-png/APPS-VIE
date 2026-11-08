@@ -99,6 +99,7 @@ Non codé :
 - Portes intérieures : elles se ferment seules de temps en temps, et s'ouvrent à la demande (prompt).
 - Rideaux : ils bougent alors que les fenêtres sont fermées (il n'y a pas de fenêtres dans la carte).
 - Porte métallique de la cave : une des trois clés posées (les deux autres sont fausses) l'ouvre. Elle libère le passage sud, où se trouve un cahier.
+- Crise de la cave : à l'ouverture de la porte, le monstre se lance sur celui qui a ouvert, et une personne gémit au fond. Deux choix : fuir (si le monstre attrape le joueur, il meurt, perd une vie et revient au cercueil de départ, toute mort dans la cave ramenant au cercueil) ; ou rester près de la porte et maintenir « Sauver la personne » pendant 3 secondes, ce qui termine la partie (fin 3).
 - Portail du jardin : c'est une limite visuelle et physique, sans énigme. Le jeu se termine dans la maison, donc le jardin n'est pas nécessaire à la progression.
 - Voix lointaine « Tu n'aurais jamais dû revenir ici… » : pas d'asset audio dans la banque.
 - Cri de corneille de la fin 1 : pas d'asset audio.

@@ -707,7 +707,22 @@ local function wire()
 				state.caveOpen = true
 				openCave(part)
 				say(player, "Un grincement métallique. La porte cède.")
+				-- Le monstre se lance sur celui qui a ouvert : fuir, ou rester sauver la personne
+				if Quests.onCaveOpened then
+					Quests.onCaveOpened(player)
+				end
+				say(player, "Quelqu'un gémit au fond de la cave. Tu peux fuir, ou rester et le sauver.")
 				progressed()
+			end)
+			-- Sauver : rester près de la porte pendant trois secondes, une fois la cave ouverte
+			prompt(part, { name = "QuestPromptSauver", action = "Sauver la personne", object = "Cave", hold = 3, distance = 6 }, function(player)
+				if not state.caveOpen then
+					return
+				end
+				say(player, "Tu la tires vers la lumière. Elle murmure un prénom.")
+				if endFn then
+					endFn("truth")
+				end
 			end)
 		end
 	end
@@ -827,7 +842,8 @@ end
 -- Point de réapparition selon l'avancée : après la malle, on revient près de la malle ;
 -- après le coffret, près du coffret ; sinon nil (cercueil, point de spawn par défaut).
 function Quests.checkpoint()
-	if not state then
+	-- Dans la cave, en pleine poursuite : toute mort ramène au cercueil de départ
+	if not state or state.caveOpen then
 		return nil
 	end
 	local tag = (state.chest and "Chest") or (state.coffret and "Coffret") or nil

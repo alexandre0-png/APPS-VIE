@@ -163,6 +163,11 @@ Remotes.get("AskHint").OnServerEvent:Connect(function(player)
 end)
 
 -- Première apparition : la malle ouverte fait tout basculer
+-- Ouverture de la cave : le monstre poursuit celui qui a ouvert la porte
+Quests.onCaveOpened = function(player)
+	MonsterAI.forceChase(player)
+end
+
 Quests.onChestOpened = function(player)
 	Remotes.fire("Effect", player, { kind = "Cine", name = "apparition" })
 	Lights.blackout()
