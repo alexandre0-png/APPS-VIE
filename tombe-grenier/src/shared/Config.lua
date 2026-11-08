@@ -49,6 +49,10 @@ Config.Revive = {
 	Hold = 3,                -- secondes de maintien de l'invite pour réanimer
 }
 
+Config.Exit = {
+	CatchDelay = 20,         -- secondes entre le franchissement du portail et la capture par le monstre
+}
+
 Config.Monster = {
 	WalkSpeed = 8,
 	ChaseSpeed = 15,

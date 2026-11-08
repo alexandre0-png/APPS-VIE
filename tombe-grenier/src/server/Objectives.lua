@@ -126,14 +126,14 @@ function Objectives.setup()
 				end
 			end
 			local prompt = makePrompt(part, {
-				action = "Ouvrir la trappe",
+				action = "Ouvrir la porte",
 				object = "Sortie",
 				hold = 1.5,
 				distance = 6,
 				enabled = false,
-				onTriggered = function()
+				onTriggered = function(player)
 					if exitReady and onWin then
-						onWin()
+						onWin(player)
 					end
 				end,
 			})

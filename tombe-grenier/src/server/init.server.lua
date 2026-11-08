@@ -175,9 +175,24 @@ Quests.onChestOpened = function(player)
 		MonsterAI.forceChase(player)
 	end)
 end
-Objectives.init(function()
-	endRound("win")
+Objectives.init(function(player)
+	Quests.onFrontDoor(player)
 end)
+
+-- Portail franchi : la poursuite commence, et ce qui est rattrapé retourne au cercueil
+Quests.onGate = function(player)
+	for _, p in ipairs(Players:GetPlayers()) do
+		MonsterAI.forceChase(p)
+	end
+	task.delay(Config.Exit.CatchDelay, function()
+		for _, p in ipairs(Players:GetPlayers()) do
+			local hum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				hum.Health = 0
+			end
+		end
+	end)
+end
 
 -- Boucle de partie : attend le choix du mode au hub, puis lance la partie
 task.spawn(function()

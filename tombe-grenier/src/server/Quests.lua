@@ -36,6 +36,8 @@ local MapBuilder = require(script.Parent.MapBuilder)
 local Locks = require(script.Parent.Locks)
 
 local CFG = Config.Quests
+-- Point de réapparition dans le jardin, au sud de la maison (pelouse, hors allée)
+local GARDEN_SPAWN = Vector3.new(72, 0, 112)
 local Quests = {}
 
 local LORE_KINDS = { "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }
@@ -716,15 +718,38 @@ local function wire()
 				say(player, "Quelqu'un gémit au fond de la cave. Tu peux fuir, ou rester et le sauver.")
 				progressed()
 			end)
-			-- Sauver : rester près de la porte pendant trois secondes, une fois la cave ouverte
+			-- Sauver : rester près de la porte pendant trois secondes, une fois la cave ouverte.
+			-- Ça ne termine pas la partie : la personne est sauvée, et la progression continue.
 			prompt(part, { name = "QuestPromptSauver", action = "Sauver la personne", object = "Cave", hold = 3, distance = 6 }, function(player)
-				if not state.caveOpen then
+				if not state.caveOpen or state.saved then
 					return
 				end
+				state.saved = true
 				say(player, "Tu la tires vers la lumière. Elle murmure un prénom.")
-				if endFn then
-					endFn("truth")
+				progressed()
+			end)
+		end
+	end
+
+	-- Portail du jardin : le franchir lance la poursuite finale (Quests.onGate)
+	for _, wall in ipairs(CollectionService:GetTagged("InvisibleWall")) do
+		if wall:IsA("BasePart") and wall:GetAttribute("Puzzle") == "portail" then
+			prompt(wall, { name = "QuestPromptPortail", action = "Franchir le portail", object = "Portail", hold = 1, distance = 8 }, function(player)
+				if not state.outside then
+					say(player, "Le portail est fermé. Il faut d'abord sortir de la maison.")
+					return
 				end
+				if state.exitTaken then
+					return
+				end
+				state.exitTaken = true
+				wall.CanCollide = false
+				wall.Transparency = 1
+				say(player, "Le portail grince et s'ouvre. Tu peux partir. Ne traîne pas.")
+				if Quests.onGate then
+					Quests.onGate(player)
+				end
+				progressed()
 			end)
 		end
 	end
@@ -844,9 +869,16 @@ end
 -- Point de réapparition selon l'avancée : après la malle, on revient près de la malle ;
 -- après le coffret, près du coffret ; sinon nil (cercueil, point de spawn par défaut).
 function Quests.checkpoint()
-	-- Dans la cave, en pleine poursuite : toute mort ramène au cercueil de départ
-	if not state or state.caveOpen then
+	if not state then
 		return nil
+	end
+	-- Rattrapé après le portail : retour au cercueil de départ
+	if state.exitTaken then
+		return nil
+	end
+	-- Dans la cave : on repart du jardin
+	if state.caveOpen then
+		return GARDEN_SPAWN
 	end
 	local tag = (state.chest and "Chest") or (state.coffret and "Coffret") or nil
 	if not tag then
@@ -929,6 +961,16 @@ function Quests.hintFor(player)
 	end
 	state.hintAt = now
 	Remotes.fire("Hint", player, { text = HINTS[currentStep()] })
+end
+
+-- Porte d'entrée franchie : on est dans le jardin
+function Quests.onFrontDoor(player)
+	if not state then
+		return
+	end
+	state.outside = true
+	say(player, "Tu franchis la porte. Le jardin s'étend devant toi, silencieux. Le portail est au fond, dans l'allée.")
+	progressed()
 end
 
 function Quests.init(endCallback)
