@@ -361,7 +361,36 @@ local paintingBase = {}   -- [tableau] = position de départ
 local statueBase = {}     -- [statue] = CFrame de départ, restauré à chaque partie
 local statueTargets = {}  -- [statue] = orientation cible (0 à 3)
 
+-- Marques UV au sol, devant les deux premières statues : elles indiquent l'orientation cible
+local uvMarks = {}
+local DIRECTIONS = { "nord", "est", "sud", "ouest" }
+
+local function clearUvMarks()
+	for _, mark in ipairs(uvMarks) do
+		mark:Destroy()
+	end
+	uvMarks = {}
+end
+
+local function placeUvMark(statue, target)
+	local mark = Instance.new("Part")
+	mark.Name = "Marque UV"
+	mark.Anchored = true
+	mark.CanCollide = false
+	mark.CanTouch = false
+	mark.Size = Vector3.new(1.4, 0.05, 1.4)
+	mark.Position = Vector3.new(statue.Position.X, 0.03, statue.Position.Z + 1.5)
+	mark.Material = Enum.Material.Neon
+	mark.Color = Color3.fromRGB(150, 60, 255)
+	mark.Transparency = 1
+	mark:SetAttribute("Text", "Cette statue regarde vers le " .. DIRECTIONS[target + 1] .. ".")
+	mark.Parent = Workspace
+	CollectionService:AddTag(mark, "UVMark")
+	table.insert(uvMarks, mark)
+end
+
 local function chooseStatues(seed)
+	clearUvMarks()
 	local statues = CollectionService:GetTagged("Statue")
 	table.sort(statues, function(a, b)
 		if a.Position.X ~= b.Position.X then
@@ -378,6 +407,10 @@ local function chooseStatues(seed)
 		statue:SetAttribute("Facing", 0)
 		statue.CFrame = statueBase[statue]
 		statueTargets[statue] = rng:int(0, 3)
+	end
+	-- Les deux premières statues (par position) reçoivent une marque UV
+	for i = 1, math.min(2, #statues) do
+		placeUvMark(statues[i], statueTargets[statues[i]])
 	end
 end
 

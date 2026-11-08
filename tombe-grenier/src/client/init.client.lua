@@ -6,6 +6,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -232,6 +233,44 @@ task.spawn(function()
 		end
 	end
 end)
+
+-- Lampe UV : bascule le mode ; les marques UV (tag UVMark) apparaissent avec leur texte
+local uvOn = false
+local uvLabels = {}
+local function setUv(on)
+	uvOn = on
+	Audio.play("clic_lampe", gui, { lifetime = 2 })
+	for _, mark in ipairs(CollectionService:GetTagged("UVMark")) do
+		if mark:IsA("BasePart") then
+			mark.Transparency = on and 0.2 or 1
+			if on and not uvLabels[mark] then
+				local billboard = Instance.new("BillboardGui")
+				billboard.Size = UDim2.fromOffset(260, 60)
+				billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+				billboard.AlwaysOnTop = true
+				billboard.Parent = mark
+				local text = Instance.new("TextLabel")
+				text.Size = UDim2.fromScale(1, 1)
+				text.BackgroundTransparency = 0.4
+				text.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
+				text.TextColor3 = Color3.fromRGB(190, 140, 255)
+				text.Font = Enum.Font.GothamMedium
+				text.TextScaled = true
+				text.TextWrapped = true
+				text.Text = mark:GetAttribute("Text") or ""
+				text.Parent = billboard
+				uvLabels[mark] = billboard
+			end
+			if uvLabels[mark] then
+				uvLabels[mark].Enabled = on
+			end
+		end
+	end
+end
+
+local function toggleUv()
+	setUv(not uvOn)
+end
 
 -- Ambiance continue, baissée pendant une poursuite, et musique de poursuite tant que le monstre chasse
 local ambience = Audio.play("ambiance", gui)
@@ -512,6 +551,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		Remotes.get("AskHint"):FireServer()
 	elseif input.KeyCode == Enum.KeyCode.G or input.KeyCode == Enum.KeyCode.ButtonR1 then
 		throwNoise()
+	elseif input.KeyCode == Enum.KeyCode.U or input.KeyCode == Enum.KeyCode.ButtonR3 then
+		toggleUv()
 	end
 end)
 
@@ -554,3 +595,4 @@ touchButton("Course", 2, function() sendSprint(true) end, function() sendSprint(
 touchButton("Lampe", 3, function() Remotes.get("ToggleFlashlight"):FireServer() end)
 touchButton("Lancer", 4, throwNoise)
 touchButton("Indice", 5, function() Remotes.get("AskHint"):FireServer() end)
+touchButton("UV", 6, toggleUv)
