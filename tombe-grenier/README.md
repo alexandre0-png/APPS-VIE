@@ -194,7 +194,7 @@ Le monstre ne pousse pas une porte verrouillée.
 
 ## Monstre : état d'animation
 
-Le code charge les animations (immobile, marche, course, attaques) sur `ServerStorage/Monster` si ce modèle existe. Sans modèle, un bloc de secours sans animation est utilisé. Il n'y a pas de modèle animé dans le dépôt : il faut fournir un rig R15.
+Le code charge les animations (immobile, marche, course, attaques) sur `ServerStorage/Monster` si ce modèle existe. Si `ServerStorage/Monster` est absent, le serveur tente de charger un des modèles R15 fournis (`MonsterAI.ensureModel`), en retirant ses scripts. Si le chargement échoue (modèle non autorisé, hors ligne), un bloc de secours sans animation est utilisé. Il est recommandé d'insérer le modèle dans Studio pour ne pas dépendre du chargement à l'exécution.
 
 ## Décor à compléter dans Studio
 

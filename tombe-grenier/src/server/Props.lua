@@ -78,11 +78,14 @@ local function setupMirrors()
 end
 
 -- Texte de la télévision : l'image montre la pièce vue de haut, et là où se trouve la créature
-local function tvText()
+local function tvText(player)
 	local at = workspace:GetAttribute("MonsterAt")
 	local rid = at and MapBuilder.roomAt(at, true)
 	local where = rid and MapBuilder.roomName(rid) or "une pièce vide"
-	return "Une image granuleuse : la pièce vue de haut. Tu y es, au milieu. La créature est dans " .. where .. "."
+	local st = player and PlayerState.get(player)
+	local last = st and #st.log > 0 and st.log[#st.log] or nil
+	local detail = last and (" Il y a un instant, tu étais en train de : " .. last .. ".") or ""
+	return "Une image granuleuse : la pièce vue de haut. Tu y es, au milieu. La créature est dans " .. where .. "." .. detail
 end
 
 local function setupTV()
@@ -95,7 +98,7 @@ local function setupTV()
 				used[part] = true
 				tvRunning = true
 				Audio.play("statique_tv", part, { lifetime = 11 })
-				Remotes.fire("Message", player, { text = tvText() })
+				Remotes.fire("Message", player, { text = tvText(player) })
 				task.spawn(function()
 					for _ = 1, 40 do
 						local g = math.random(20, 150)

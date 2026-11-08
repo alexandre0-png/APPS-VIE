@@ -141,6 +141,11 @@ end)
 
 -- Systèmes
 -- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
+-- Modèle du monstre : chargé une fois si ServerStorage/Monster est absent (lieu de jeu ou lieu unique)
+if Hub.role() ~= "hub" then
+	MonsterAI.ensureModel()
+end
+
 -- Le lieu hub n'a pas de maison : il ne construit que l'accueil
 if Hub.role() ~= "hub" then
 	MapBuilder.build()
