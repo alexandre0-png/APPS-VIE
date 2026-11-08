@@ -22,6 +22,10 @@ local Hub = {}
 --   "game"   : lieu de jeu. Les joueurs y arrivent par téléportation, la partie démarre à l'arrivée.
 --   "single" : un seul lieu (test en Studio, ou identifiants non renseignés). Tout se passe ici.
 local function computeRole()
+	-- En Studio, chaque fichier de lieu indique son rôle (hub.rbxl ou game.rbxl)
+	if RunService:IsStudio() and (Config.Debug.PlaceRole == "hub" or Config.Debug.PlaceRole == "game") then
+		return Config.Debug.PlaceRole
+	end
 	if RunService:IsStudio() or Config.Game.Places.hub == 0 or Config.Game.Places.game == 0 then
 		return "single"
 	end

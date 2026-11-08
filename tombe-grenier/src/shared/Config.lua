@@ -7,6 +7,7 @@ local Config = {}
 Config.Debug = {
 	SkipActivationDelay = false, -- true : le monstre s'active immédiatement (tests)
 	Seed = nil,                  -- nombre fixe pour rejouer une partie à l'identique
+	PlaceRole = nil,             -- "hub" ou "game" : rôle forcé en Studio (un fichier de lieu par rôle)
 }
 
 Config.Round = {
