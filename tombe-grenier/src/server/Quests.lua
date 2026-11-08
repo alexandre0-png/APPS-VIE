@@ -14,7 +14,7 @@
   Fins :
     fuite      : sortie par la porte d'entrée
     vérité     : libération de l'enfant
-    malédiction: texte présent, non déclenchée par la mort (les joueurs réapparaissent)
+    malédiction: choix « Refermer le cercueil » après l'ouverture de la malle
 
   Le code change à chaque partie (seed). Les indications arrivent seules après un long silence.
 ]]
@@ -217,13 +217,14 @@ end
 
 -- Invite de proximité propre aux quêtes (remplacée à chaque partie)
 local function prompt(part, props, onTriggered)
+	local name = props.name or "QuestPrompt"
 	for _, child in ipairs(part:GetChildren()) do
-		if child:IsA("ProximityPrompt") and child.Name == "QuestPrompt" then
+		if child:IsA("ProximityPrompt") and child.Name == name then
 			child:Destroy()
 		end
 	end
 	local p = Instance.new("ProximityPrompt")
-	p.Name = "QuestPrompt"
+	p.Name = name
 	p.ActionText = props.action
 	p.ObjectText = props.object
 	p.HoldDuration = props.hold or 0.3
@@ -431,6 +432,15 @@ local function wire()
 				end
 				if endFn then
 					endFn("truth")
+				end
+			end)
+			-- Choix de la malédiction : refermer le cercueil, une fois la malle ouverte
+			prompt(part, { name = "QuestPromptCercueil", action = "Refermer le cercueil", object = "Tombe", hold = 2, distance = 6 }, function()
+				if not state or not state.chest then
+					return
+				end
+				if endFn then
+					endFn("lose")
 				end
 			end)
 		end

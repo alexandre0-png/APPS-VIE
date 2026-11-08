@@ -55,32 +55,10 @@ end
 
 local tint = fullFrame(Color3.fromRGB(40, 40, 44), 1, 1)
 
--- Vignette : bords de l'écran assombris, par quatre dégradés (sans image)
-local function vignetteEdge(size, position, rotation)
-	local frame = Instance.new("Frame")
-	frame.Size = size
-	frame.Position = position
-	frame.BackgroundColor3 = Color3.new(0, 0, 0)
-	frame.BorderSizePixel = 0
-	frame.ZIndex = 2
-	frame.Parent = gui
-	local grad = Instance.new("UIGradient")
-	grad.Rotation = rotation
-	grad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	grad.Parent = frame
-	return frame
-end
-vignetteEdge(UDim2.new(1, 0, 0.22, 0), UDim2.fromScale(0, 0), 90)
-vignetteEdge(UDim2.new(1, 0, 0.22, 0), UDim2.fromScale(0, 0.78), -90)
-vignetteEdge(UDim2.new(0.16, 0, 1, 0), UDim2.fromScale(0, 0), 0)
-vignetteEdge(UDim2.new(0.16, 0, 1, 0), UDim2.fromScale(0.84, 0), 180)
 local blackFrame = fullFrame(Color3.new(0, 0, 0), 1, 50)
 
+-- HUD minimal : seul l'objectif reste affiché en permanence
 local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.fromOffset(640, 26) })
-local statsLabel = label({ position = UDim2.new(0, 16, 1, -40) })
 
 -- Message contextuel (indice, lecture, retour d'action) : bas de l'écran
 local subtitleLabel = label({
@@ -102,21 +80,15 @@ local messageLabel = label({
 })
 messageLabel.TextTransparency = 1
 
--- Affichage des attributs serveur
-local function refreshStats()
+-- Sanité : effet visuel (voile sombre), sans chiffre à l'écran
+local function refreshSanity()
 	local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
 	-- Sanité haute : écran intact. Sanité basse : voile sombre qui couvre l'écran.
 	tint.BackgroundTransparency = 1 - (1 - sanity / Config.Player.SanityMax) * 0.6
-
-	local stamina = player:GetAttribute("Stamina") or 100
-	local battery = player:GetAttribute("Battery") or 100
-	statsLabel.Text = ("Endurance %d%%   ·   Lampe %d%%"):format(math.floor(stamina), math.floor(battery))
 end
 
-player:GetAttributeChangedSignal("Sanity"):Connect(refreshStats)
-player:GetAttributeChangedSignal("Stamina"):Connect(refreshStats)
-player:GetAttributeChangedSignal("Battery"):Connect(refreshStats)
-refreshStats()
+player:GetAttributeChangedSignal("Sanity"):Connect(refreshSanity)
+refreshSanity()
 
 local function flash(color, alpha, duration)
 	local frame = fullFrame(color, 1 - alpha, 30)

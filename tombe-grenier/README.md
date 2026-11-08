@@ -120,7 +120,7 @@ Chaîne parallèle, vers la fin « vérité » :
 
 Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Fin 1, la fuite : sortie par la porte d'entrée.
-- Fin 2, la malédiction : texte et scène présents, mais aucune mort ne la déclenche (les joueurs réapparaissent). Elle n'est plus atteignable en l'état.
+- Fin 2, la malédiction : déclenchée par un choix au cercueil. Une fois la malle ouverte, l'invite « Refermer le cercueil » (maintien de 2 s) termine la partie. La mort ne la déclenche pas : les joueurs réapparaissent.
 - Mort : en solo, le joueur réapparaît après `Config.Respawn.Delay` secondes, au dernier point d'avancée (près de la malle ouverte, sinon du coffret ouvert, sinon du cercueil). En duo, si l'autre joueur est vivant, le joueur mort reste au sol et peut être réanimé en maintenant l'invite « Réanimer » (`Config.Revive.Hold`) pendant `Config.Revive.Window` secondes ; sans réanimation, il réapparaît au point d'avancée.
 - Fin 3, la vérité : libération de l'enfant.
 
