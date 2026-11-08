@@ -31,6 +31,7 @@ local Noise = require(script.Parent.Noise)
 local Objectives = require(script.Parent.Objectives)
 local PlayerState = require(script.Parent.PlayerState)
 local MapBuilder = require(script.Parent.MapBuilder)
+local Locks = require(script.Parent.Locks)
 
 local CFG = Config.Quests
 local Quests = {}
@@ -305,6 +306,9 @@ local function wire()
 						progressed()
 					end
 					say(player, LORE[kind])
+					if kind == "cahier d'écolier" then
+						Locks.open("cahier") -- lire le cahier ouvre la chambre d'ami
+					end
 					if kind == "photo de famille" then
 						Remotes.fire("Flashback", player, { kind = "family" })
 					end
@@ -330,6 +334,21 @@ local function wire()
 		end
 	end
 
+	-- Clé de la salle de bain : ouvre la porte verrouillée de la salle de bain
+	for _, part in ipairs(CollectionService:GetTagged("BathKey")) do
+		if part:IsA("BasePart") then
+			prompt(part, { action = "Prendre", object = "Clé", hold = 0.3 }, function(player)
+				if Locks.isOpen("salle de bain") then
+					return
+				end
+				Locks.open("salle de bain")
+				part:Destroy()
+				say(player, "Une clé de laiton. Elle doit ouvrir la salle de bain.")
+				progressed()
+			end)
+		end
+	end
+
 	-- Disjoncteurs : trois interrupteurs, dans l'ordre tiré pour la partie
 	for _, part in ipairs(CollectionService:GetTagged("Switch")) do
 		if part:IsA("BasePart") then
@@ -343,6 +362,7 @@ local function wire()
 					if state.fuseStep == #fuseOrder then
 						state.fuseDone = true
 						MapBuilder.powerOn(60)
+						Locks.open("cellier")
 						Remotes.fire("Effect", player, { kind = "Cine", name = "courant" })
 						say(player, "Un claquement. Le courant revient, dans un grincement.")
 					else
@@ -474,6 +494,7 @@ end
 function Quests.setup(seed, cycleNumber)
 	code = codeFromSeed(seed)
 	fuseOrder = fuseOrderFromSeed(seed)
+	Locks.reset()
 	cycle = cycleNumber or 1
 	state = freshState()
 	hintGiven = {}

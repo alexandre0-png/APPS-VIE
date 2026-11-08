@@ -11,6 +11,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
 local Noise = require(script.Parent.Noise)
+local Locks = require(script.Parent.Locks)
 local PlayerState = require(script.Parent.PlayerState)
 
 local Props = {}
@@ -197,8 +198,15 @@ end
 local function setupDoors()
 	for _, panel in ipairs(CollectionService:GetTagged("Door")) do
 		if panel:IsA("BasePart") then
-			setDoor(panel, true) -- ouvertes au début de chaque partie
-			local p = prompt(panel, "Ouvrir", "Porte", function()
+			local lock = panel:GetAttribute("Lock")
+			-- Ouvertes au début de chaque partie, sauf celles dont le verrou n'est pas levé
+			setDoor(panel, lock == nil or Locks.isOpen(lock))
+			local p = prompt(panel, "Ouvrir", "Porte", function(player)
+				local name = panel:GetAttribute("Lock")
+				if name and not Locks.isOpen(name) then
+					Remotes.fire("Message", player, { text = Locks.hint(name) })
+					return
+				end
 				setDoor(panel, not panel:GetAttribute("Open"))
 			end)
 			-- Le texte suit l'état

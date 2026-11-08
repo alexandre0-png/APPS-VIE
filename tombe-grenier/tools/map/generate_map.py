@@ -69,26 +69,26 @@ ROOMS = [
 DOORS = [
     # Sous-sol
     dict(level="basement", orient="v", line=40, c=22, w=DOOR_W),
-    dict(level="basement", orient="v", line=40, c=67, w=DOOR_W),
-    dict(level="basement", orient="h", line=44, c=20, w=DOOR_W),
+    dict(level="basement", orient="v", line=40, c=67, w=DOOR_W, lock="cellier"),
+    dict(level="basement", orient="h", line=44, c=20, w=DOOR_W, lock="cellier"),
     dict(level="basement", orient="v", line=80, c=45, w=DOOR_W, puzzle="grille"),
     # Rez-de-chaussée
     dict(level="ground", orient="v", line=40, c=22, w=DOOR_W),
     dict(level="ground", orient="v", line=80, c=22, w=DOOR_W),
     dict(level="ground", orient="h", line=44, c=20, w=DOOR_W),
     dict(level="ground", orient="h", line=44, c=60, w=DOOR_W),
-    dict(level="ground", orient="h", line=44, c=100, w=DOOR_W),
+    dict(level="ground", orient="h", line=44, c=100, w=DOOR_W, lock="bureau"),
     dict(level="ground", orient="v", line=40, c=67, w=DOOR_W),
-    dict(level="ground", orient="v", line=80, c=67, w=DOOR_W),
+    dict(level="ground", orient="v", line=80, c=67, w=DOOR_W, lock="bureau"),
     dict(level="ground", orient="h", line=90, c=60, w=FRONT_DOOR_W, front=True),
     # Premier étage
     dict(level="first", orient="v", line=40, c=22, w=DOOR_W),
     dict(level="first", orient="v", line=80, c=22, w=DOOR_W),
     dict(level="first", orient="h", line=44, c=60, w=DOOR_W),
-    dict(level="first", orient="h", line=44, c=20, w=DOOR_W),
-    dict(level="first", orient="v", line=40, c=67, w=DOOR_W),
-    dict(level="first", orient="v", line=80, c=56, w=DOOR_W),
-    dict(level="first", orient="h", line=68, c=100, w=DOOR_W),
+    dict(level="first", orient="h", line=44, c=20, w=DOOR_W, lock="cahier"),
+    dict(level="first", orient="v", line=40, c=67, w=DOOR_W, lock="cahier"),
+    dict(level="first", orient="v", line=80, c=56, w=DOOR_W, lock="salle de bain"),
+    dict(level="first", orient="h", line=68, c=100, w=DOOR_W, lock="salle de bain"),
     dict(level="first", orient="v", line=80, c=79, w=DOOR_W),
     # Grenier
     dict(level="attic", orient="v", line=60, c=45, w=DOOR_W),
@@ -525,6 +525,12 @@ NOTE_SLOTS = [
     _s("chambre d'enfant, bureau", (88, 15.1, 11), (0.6, 0.1, 0.8)),
 ]
 
+BATH_KEY_SLOTS = [
+    _s("salon, bibliothèque", (1.5, 8.1, 24), (0.6, 0.1, 0.5)),
+    _s("chambre des parents, commode", (34, 15.1, 14), (0.6, 0.1, 0.5)),
+    _s("bureau, bibliothèque", (118, 8.1, 51.5), (0.6, 0.1, 0.5)),
+]
+
 DECOY_KEY_SLOTS = [
     _s("salle à manger, buffet", (3.5, 5.1, 84), (0.8, 0.1, 0.5)),
     _s("cuisine, placards", (115.5, 7.1, 28), (0.8, 0.1, 0.5)),
@@ -579,7 +585,6 @@ INTERACTABLE_SLOTS = {
 INTERACTABLE_SLOTS["journal"].append(_i("journal intime", "chambre des parents, commode", (36, 15.1, 15), (1, 0.2, 1.4)))
 INTERACTABLE_SLOTS["cahier"] = [
     _i("cahier d'écolier", "chambre d'enfant, bureau", (89, 15.1, 8), (0.8, 0.2, 1.1)),
-    _i("cahier d'écolier", "chambre d'ami, bureau", (25, 14.6, 57), (0.8, 0.2, 1.1)),
     _i("cahier d'écolier", "couloir, console", (49, 15.1, 81.5), (0.8, 0.2, 1.1)),
     _i("cahier d'écolier", "passage sud, table", (93, 2.6, 79), (0.8, 0.2, 1.1)),
 ]
@@ -652,7 +657,7 @@ def build_props():
     props.append(dict(tag="CaveDoor", name="porte métallique de la cave", pos=(80, -6.5, 45), size=(0.8, 11, 4)))
 
     # Disjoncteurs : trois interrupteurs à actionner dans le bon ordre pour rétablir le courant
-    props.append(dict(tag="Switch", name="interrupteur cellier", pos=(1.2, -6, 70), size=(0.4, 1, 0.6)))
+    props.append(dict(tag="Switch", name="interrupteur cellier", pos=(41.2, -6, 60), size=(0.4, 1, 0.6)))
     props.append(dict(tag="Switch", name="interrupteur cave", pos=(60, -6, 1.2), size=(0.6, 1, 0.4)))
     props.append(dict(tag="Switch", name="interrupteur passage sud", pos=(118.8, -6, 80), size=(0.4, 1, 0.6)))
 
@@ -701,13 +706,13 @@ def build():
         decor=DECOR, hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),
-        slots=dict(photo=PHOTO_SLOTS, note=NOTE_SLOTS, decoy=DECOY_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
+        slots=dict(photo=PHOTO_SLOTS, note=NOTE_SLOTS, decoy=DECOY_KEY_SLOTS, bathkey=BATH_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
                    monster=SPAWN_SLOTS, interactable=INTERACTABLE_SLOTS,
                    dark_eligible=DARK_ELIGIBLE, dark_count=DARK_COUNT),
         rooms=[dict(id=r[0], level=r[1], x0=r[2][0], z0=r[2][1], x1=r[2][2], z1=r[2][3], name=r[5])
                for r in ROOMS],
         doors=[dict(level=d["level"], orient=d["orient"], line=d["line"], c=d["c"], w=d["w"],
-                    puzzle=d.get("puzzle"), front=bool(d.get("front"))) for d in DOORS],
+                    puzzle=d.get("puzzle"), front=bool(d.get("front")), lock=d.get("lock")) for d in DOORS],
         base=BASE, H=H, stair=STAIR,
     )
 

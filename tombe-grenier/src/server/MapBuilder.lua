@@ -210,6 +210,9 @@ local function buildHouse(root)
 			b.y1 = base + 7
 			local panel = makeBox(folders.Meubles, b, "bois", "Porte")
 			CollectionService:AddTag(panel, "Door")
+			if d.lock then
+				panel:SetAttribute("Lock", d.lock)
+			end
 		end
 	end
 
@@ -541,6 +544,11 @@ function MapBuilder.placeRound(seed)
 	for _, slot in ipairs(pick(rng, slots.note, 1)) do
 		makeVisible(round, slot.pos, slot.size, "Papier " .. slot.name,
 			Color3.fromRGB(235, 225, 190), Enum.Material.SmoothPlastic, "CodeNote")
+	end
+	-- Clé de la salle de bain : ouvre la porte verrouillée de la salle de bain
+	for _, slot in ipairs(pick(rng, slots.bathkey, 1)) do
+		makeVisible(round, slot.pos, slot.size, "Clé salle de bain",
+			Color3.fromRGB(190, 160, 60), Enum.Material.Metal, "BathKey")
 	end
 	-- Fausses clés : elles ne servent à rien
 	for i, slot in ipairs(pick(rng, slots.decoy, 3)) do

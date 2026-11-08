@@ -213,7 +213,7 @@ local function openNearbyDoor(m)
 		return
 	end
 	for _, door in ipairs(CollectionService:GetTagged("Door")) do
-		if door:IsA("BasePart") and door:GetAttribute("Open") == false
+		if door:IsA("BasePart") and door:GetAttribute("Open") == false and door:GetAttribute("Lock") == nil
 			and (door.Position - m.root.Position).Magnitude < 3.5 then
 			m.nextDoorAt = clock() + 2
 			Props.setDoor(door, true)

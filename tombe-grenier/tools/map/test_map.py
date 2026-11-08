@@ -166,7 +166,7 @@ class TestFurniture(unittest.TestCase):
 
 
 class TestConnectivity(unittest.TestCase):
-    def graph(self, include_puzzles):
+    def graph(self, include_puzzles, include_locks=False):
         adj = {r[0]: set() for r in gm.ROOMS}
 
         def link(a, b):
@@ -178,6 +178,8 @@ class TestConnectivity(unittest.TestCase):
             if d.get("front"):
                 continue
             if d.get("puzzle") and not include_puzzles:
+                continue
+            if d.get("lock") and not include_locks:
                 continue
             lv = d["level"]
             if d["orient"] == "v":
@@ -199,11 +201,50 @@ class TestConnectivity(unittest.TestCase):
                     q.append(n)
         return seen
 
-    def test_all_rooms_reachable_from_spawn_without_puzzles(self):
+    def test_locked_rooms_are_closed_until_their_puzzle(self):
         adj = self.graph(include_puzzles=False)
         seen = self.reach(adj, "tombe")
         missing = {r[0] for r in gm.ROOMS} - seen
-        self.assertEqual(missing, {"ps"}, f"pièces inaccessibles : {missing}")
+        self.assertEqual(missing, {"ps", "bureau", "cel", "cha", "sdb"}, f"pièces fermées : {missing}")
+
+    def test_all_rooms_reachable_once_locks_are_open(self):
+        adj = self.graph(include_puzzles=True, include_locks=True)
+        seen = self.reach(adj, "tombe")
+        self.assertEqual({r[0] for r in gm.ROOMS} - seen, set())
+
+    def test_every_lock_has_an_unlock_source(self):
+        locks = {d["lock"] for d in gm.DOORS if d.get("lock")}
+        self.assertEqual(locks, {"cahier", "salle de bain", "bureau", "cellier"})
+        # Chaque pièce verrouillée a TOUTES ses portes verrouillées (pas de contournement)
+        for lock_name, rid in [("cahier", "cha"), ("salle de bain", "sdb"), ("bureau", "bureau"), ("cellier", "cel")]:
+            rect = gm.room_by_id(rid)[2]
+            lvl = gm.room_by_id(rid)[1]
+            for d in gm.DOORS:
+                if d["level"] != lvl or d.get("front"):
+                    continue
+                pts = ([(d["line"] - 0.5, d["c"]), (d["line"] + 0.5, d["c"])] if d["orient"] == "v"
+                       else [(d["c"], d["line"] - 0.5), (d["c"], d["line"] + 0.5)])
+                if any(gm.room_at(lvl, *p) == rid for p in pts):
+                    self.assertEqual(d.get("lock"), lock_name, f"porte de {rid} non verrouillée")
+        for d in gm.DOORS:
+            if d.get("lock"):
+                self.assertIsNone(d.get("puzzle"))
+
+    def test_bath_key_is_not_inside_the_bathroom(self):
+        for slot in gm.BATH_KEY_SLOTS:
+            x, y, z = slot["pos"]
+            level = "ground" if y < 12 else "first"
+            self.assertNotEqual(gm.room_at(level, x, z), "sdb")
+
+    def test_cahier_is_not_inside_the_room_it_opens(self):
+        for opts in [gm.INTERACTABLE_SLOTS["cahier"]]:
+            for slot in opts:
+                x, y, z = slot["pos"]
+                self.assertNotEqual(gm.room_at("first", x, z), "cha")
+
+    def test_switch_for_cellier_is_outside_the_cellier(self):
+        sw = [p for p in gm.build_props()[0] if p.get("name") == "interrupteur cellier"][0]
+        self.assertIsNone(gm.room_at("basement", sw["pos"][0], sw["pos"][2]) if sw["pos"][0] < 40 else None)
 
     def test_puzzle_wing_opens_with_puzzle(self):
         adj = self.graph(include_puzzles=True)

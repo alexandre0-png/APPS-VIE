@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local PlayerState = require(script.Parent.PlayerState)
+local Locks = require(script.Parent.Locks)
 
 local Objectives = {}
 
@@ -83,6 +84,9 @@ function Objectives.setup()
 		if part:IsA("BasePart") then
 			pickable(part, "Photo", function()
 				team.photos += 1
+				if team.photos >= Config.Round.PhotosRequired then
+					Locks.open("bureau") -- les trois souvenirs ouvrent le bureau
+				end
 				refreshExit()
 			end)
 		end
