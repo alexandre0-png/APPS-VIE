@@ -14,7 +14,7 @@
   Fins :
     fuite      : sortie par la porte d'entrée
     vérité     : libération de l'enfant
-    malédiction: troisième décès de l'équipe (Config.Respawn.MaxDeaths)
+    malédiction: texte présent, non déclenchée par la mort (les joueurs réapparaissent)
 
   Le code change à chaque partie (seed). Les indications arrivent seules après un long silence.
 ]]
