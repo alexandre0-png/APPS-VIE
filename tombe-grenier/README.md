@@ -109,14 +109,16 @@ Non codé :
 
 Chaîne principale, vers la sortie :
 1. Rassembler 3 photos (tirées parmi 12 emplacements).
-2. Trouver le papier du code (un des 5 emplacements). Le code change à chaque partie.
-3. Ouvrir le coffret à bijoux (table de la salle de la tombe) avec le code. Il contient une petite clé.
+2. Trouver le papier du code (un des 5 emplacements). Le papier ne donne que les deux premiers chiffres. Les deux derniers sont dans un miroir, écrits à l'envers : il faut les remettre dans le bon sens. Le code change à chaque partie.
+3. Ouvrir le coffret à bijoux (table de la salle de la tombe) avec le code complet. Il contient une petite clé.
 4. Ouvrir la malle (salle de la tombe) avec la petite clé. Elle contient la clé rouillée de la sortie.
 5. Sortir par la porte d'entrée, photos et clé en main.
 
 Chaîne parallèle, vers la fin « vérité » :
 - Lire les 4 documents (journal, cahier d'écolier, photo de famille, plaque du cercueil). Chacun a 2 à 3 emplacements.
-- Libérer l'enfant au cercueil une fois les 4 documents lus.
+- Recouper les dates : le journal et la plaque donnent la vraie date (mois/jour), le cahier en donne une fausse en marge.
+- Libérer l'enfant au cercueil une fois les 4 documents lus. Un clavier demande la date de la plaque en quatre chiffres (mois puis jour, par exemple `0314`).
+- Le gramophone donne une mélodie de trois notes (do, ré, mi, sol), tirée à chaque partie. La boîte à musique se joue note par note : une faute repart de zéro, la mélodie complète ouvre la salle de bain.
 
 Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Fin 1, la fuite : sortie par la porte d'entrée.

@@ -180,7 +180,7 @@ local OBJECTIVE = {
 		return "Trouve le code caché dans la maison"
 	end,
 	coffret = function()
-		return ("Ouvre le coffret à bijoux (code : %s)"):format(state.note and code or "????")
+		return ("Ouvre le coffret à bijoux (code : %s)"):format(state.note and (code:sub(1, 2) .. "??") or "????")
 	end,
 	chest = function()
 		return "Ouvre la malle du grenier"
@@ -235,19 +235,98 @@ local function prompt(part, props, onTriggered)
 	return p
 end
 
+-- Mélodie du gramophone, date de la plaque et notes de la boîte à musique : tirées de la seed
+local NOTE_NAMES = { "do", "ré", "mi", "sol" }
+local melody = {}
+local tombeDate = "0000"
+
+local function melodyFromSeed(seed)
+	local rng = Rng.new(seed * 13 + 7)
+	local notes = {}
+	for i = 1, 3 do
+		notes[i] = rng:int(1, #NOTE_NAMES)
+	end
+	return notes
+end
+
+local function melodyText()
+	local names = {}
+	for i, n in ipairs(melody) do
+		names[i] = NOTE_NAMES[n]
+	end
+	return table.concat(names, ", ")
+end
+
+-- Journal et plaque donnent la vraie date ; le cahier en donne une fausse, à recouper
+local function writeLore(month, day)
+	local shown = ("%02d/%02d"):format(month, day)
+	local wrong = ("%02d/%02d"):format(month, day % 28 + 1)
+	LORE["journal intime"] = ("Journal intime : « Il y a trente ans, une famille vivait ici. Le %s, notre enfant a disparu. Les voix venaient du grenier. »"):format(shown)
+	LORE["cahier d'écolier"] = ("Cahier d'écolier : le même prénom, écrit des dizaines de fois. En marge, une date : %s. Puis un nom de famille, barré."):format(wrong)
+	LORE["plaque du cercueil"] = ("Plaque : un prénom délavé, sans nom de famille. Une date gravée dessous : %s."):format(shown)
+end
+
+-- Boîte à musique : une note jouée. Une faute repart de zéro ; la mélodie complète ouvre la salle de bain.
+local function pressNote(player, index)
+	if state.boxDone then
+		say(player, "La boîte est silencieuse. Sa mélodie est finie.")
+		return
+	end
+	if index == melody[state.melodyIdx + 1] then
+		state.melodyIdx += 1
+		if state.melodyIdx >= #melody then
+			state.boxDone = true
+			Locks.open("salle de bain")
+			say(player, "La mélodie s'achève. Quelque part dans la maison, une serrure cède.")
+		else
+			say(player, "Juste. La suite, maintenant.")
+		end
+		progressed()
+	else
+		state.melodyIdx = 0
+		say(player, "La mélodie se brouille et repart de zéro.")
+	end
+end
+
 local function wire()
 	-- Papier du code : une lecture suffit pour connaître le code
 	for _, part in ipairs(CollectionService:GetTagged("CodeNote")) do
 		if part:IsA("BasePart") then
 			prompt(part, { action = "Lire", object = "Papier" }, function(player)
 				if state.note then
-					say(player, "Au verso, toujours le même code : " .. code .. ".")
+					say(player, "Au verso, toujours les deux premiers chiffres : " .. code:sub(1, 2) .. ". Les deux autres sont dans la glace.")
 					return
 				end
 				state.note = true
-				say(player, "Un papier froissé. Au verso, quatre chiffres : " .. code .. ".")
+				say(player, "Un papier froissé. Au verso, les deux premiers chiffres : " .. code:sub(1, 2) .. ". Les deux autres sont dans la glace, à l'envers.")
 				progressed()
 			end)
+		end
+	end
+
+	-- Miroirs : le texte y est écrit à l'envers. Les deux derniers chiffres du code s'y lisent.
+	for _, part in ipairs(CollectionService:GetTagged("Mirror")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptReflet", action = "Lire le reflet", object = "Miroir", distance = 6 }, function(player)
+				if state.mirrorRead then
+					say(player, "Le reflet ne t'apprend plus rien.")
+					return
+				end
+				state.mirrorRead = true
+				say(player, "Dans la glace, un texte écrit à l'envers : « " .. code:sub(3, 4):reverse() .. " ». Remets-le dans le bon sens.")
+				progressed()
+			end)
+		end
+	end
+
+	-- Boîte à musique : rejouer la mélodie du gramophone, note par note
+	for _, part in ipairs(CollectionService:GetTagged("MusicBox")) do
+		if part:IsA("BasePart") then
+			for index, noteName in ipairs(NOTE_NAMES) do
+				prompt(part, { name = "QuestPromptNote" .. index, action = "Jouer " .. noteName, object = "Boîte à musique", hold = 0.2, distance = 6 }, function(player)
+					pressNote(player, index)
+				end)
+			end
 		end
 	end
 
@@ -339,6 +418,7 @@ local function wire()
 						say(player, "Une pierre lisse, cachée dans la peluche. Tu peux la lancer avec G.")
 					elseif kind == "gramophone ancien" then
 						startGramophone(part.Position)
+						say(player, "Le gramophone joue trois notes : " .. melodyText() .. ".")
 					end
 				end)
 			end
@@ -430,9 +510,10 @@ local function wire()
 					say(player, "Il te manque des souvenirs. Tu ne sais pas encore qui repose ici.")
 					return
 				end
-				if endFn then
-					endFn("truth")
-				end
+				-- La date gravée sur la plaque ouvre la fin : on la saisit au clavier
+				state.tombePending = true
+				say(player, "La plaque porte une date. Entre-la au clavier, mois puis jour, en quatre chiffres.")
+				Remotes.fire("Keypad", player, { length = 4 })
 			end)
 			-- Choix de la malédiction : refermer le cercueil, une fois la malle ouverte
 			prompt(part, { name = "QuestPromptCercueil", action = "Refermer le cercueil", object = "Tombe", hold = 2, distance = 6 }, function()
@@ -447,8 +528,30 @@ local function wire()
 	end
 end
 
+-- Date de la plaque, saisie près du cercueil : ouvre la fin « vérité »
+local function submitDate(player, text)
+	local tomb = CollectionService:GetTagged("Tombe")[1]
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root or not tomb or (root.Position - tomb.Position).Magnitude > 10 then
+		return
+	end
+	if text == tombeDate then
+		state.tombePending = false
+		if endFn then
+			endFn("truth")
+		end
+	else
+		say(player, "Ce n'est pas la date gravée. Recoupe les documents.")
+	end
+end
+
 -- Saisie du code, envoyée par le client depuis le coffret
 function Quests.submitCode(player, text)
+	if state and state.tombePending and typeof(text) == "string" then
+		submitDate(player, text)
+		return
+	end
 	if not state or state.coffret or typeof(text) ~= "string" then
 		return
 	end
@@ -535,6 +638,16 @@ function Quests.setup(seed, cycleNumber)
 	Locks.reset()
 	cycle = cycleNumber or 1
 	state = freshState()
+	state.mirrorRead = false
+	state.melodyIdx = 0
+	state.boxDone = false
+	state.tombePending = false
+	melody = melodyFromSeed(seed)
+	local dateRng = Rng.new(seed * 17 + 3)
+	local month = dateRng:int(1, 12)
+	local day = dateRng:int(1, 28)
+	tombeDate = ("%02d%02d"):format(month, day)
+	writeLore(month, day)
 	hintGiven = {}
 	active = true
 	resetCave()
