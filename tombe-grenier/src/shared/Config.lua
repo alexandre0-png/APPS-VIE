@@ -22,6 +22,8 @@ Config.Player = {
 	SprintSpeed = 13,
 	QuietSpeed = 3,           -- vitesse en mode silencieux (Ctrl maintenu)
 	Lives = 3,                -- vies par joueur et par partie (une mort en coûte une)
+	CrouchSpeed = 2,         -- vitesse accroupi (C maintenu) : plus lent, mais silencieux
+	CrouchDrop = 1.2,        -- hauteur dont le personnage s'abaisse accroupi
 	MovingThreshold = 1.5,    -- vitesse horizontale (studs/s) au-delà de laquelle on est « en mouvement »
 	MaxStamina = 100,
 	StaminaDrain = 25,        -- par seconde en sprint
@@ -149,5 +151,16 @@ Config.Falling = {
 	NoiseStrength = 1,       -- bruit émis à l'impact, attire le monstre
 	ItemLifetime = 20,       -- secondes avant suppression de l'objet tombé
 }
+
+-- Niveaux de difficulté : valeurs du monstre. « normal » garde les réglages ci-dessus.
+Config.Difficulty = "normal"
+Config.DifficultyPresets = {
+	facile = { ChaseSpeed = 13, HearRange = 30, SightRange = 50 },
+	normal = { ChaseSpeed = 15, HearRange = 40, SightRange = 60 },
+	difficile = { ChaseSpeed = 17, HearRange = 48, SightRange = 70 },
+}
+for key, value in pairs(Config.DifficultyPresets[Config.Difficulty] or Config.DifficultyPresets.normal) do
+	Config.Monster[key] = value
+end
 
 return Config

@@ -5,6 +5,7 @@
   Reproductible par seed, comme les lampes.
 ]]
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -176,17 +177,73 @@ local function armoireTremble()
 	end)
 end
 
+-- Une porte ouverte se referme et se verrouille dix secondes : le joueur est piégé
+local function doorTrap()
+	local Props = require(script.Parent.Props)
+	local open = {}
+	for _, door in ipairs(CollectionService:GetTagged("Door")) do
+		if door:GetAttribute("Open") == true and door:GetAttribute("Lock") == nil then
+			table.insert(open, door)
+		end
+	end
+	if #open == 0 then
+		return
+	end
+	local door = open[math.random(1, #open)]
+	door:SetAttribute("Lock", "événement")
+	Props.setDoor(door, false)
+	Audio.play("porte_grince", door, { lifetime = 5 })
+	task.delay(10, function()
+		door:SetAttribute("Lock", nil)
+	end)
+end
+
 -- Événement d'ambiance tiré au hasard, parmi ceux qui n'exigent aucun asset nouveau
 local function pickScare(rng)
-	local choice = rng:int(1, 4)
+	local choice = rng:int(1, 5)
 	if choice == 1 then
 		stairCreak()
 	elseif choice == 2 then
 		redLight()
 	elseif choice == 3 then
 		caveVoice()
-	else
+	elseif choice == 4 then
 		armoireTremble()
+	else
+		doorTrap()
+	end
+end
+
+-- La peluche change de place quand le joueur s'éloigne (trois déplacements au plus par partie)
+local function dollLoop(rng, gen)
+	local doll = nil
+	for _, part in ipairs(CollectionService:GetTagged("Interactable")) do
+		if part:IsA("BasePart") and part:GetAttribute("Kind") == "peluche ancienne" then
+			doll = part
+			break
+		end
+	end
+	if not doll then
+		return
+	end
+	local moves = 0
+	while generation == gen do
+		task.wait(5)
+		if generation ~= gen then
+			return
+		end
+		local near = false
+		for _, player in ipairs(Players:GetPlayers()) do
+			local char = player.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if root and (root.Position - doll.Position).Magnitude < 12 then
+				near = true
+			end
+		end
+		if not near and moves < 3 and rng:next() < 0.5 then
+			moves += 1
+			TweenService:Create(doll, TweenInfo.new(1.5), { Position = doll.Position + Vector3.new(1.2, 0, 0.8) }):Play()
+		end
 	end
 end
 
@@ -302,6 +359,7 @@ function Ambience.start(seed)
 	task.spawn(curtainLoop, Rng.new(seed + 5519), gen)
 	task.spawn(eventLoop, Rng.new(seed + 6607), gen)
 	task.spawn(screamLoop, Rng.new(seed + 7717), gen)
+	task.spawn(dollLoop, Rng.new(seed + 8831), gen)
 end
 
 function Ambience.stop()

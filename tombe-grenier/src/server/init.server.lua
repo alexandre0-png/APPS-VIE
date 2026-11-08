@@ -100,6 +100,12 @@ Remotes.get("SetQuiet").OnServerEvent:Connect(function(player, on)
 	end
 end)
 
+Remotes.get("SetCrouch").OnServerEvent:Connect(function(player, on)
+	if typeof(on) == "boolean" then
+		PlayerState.setCrouch(player, on)
+	end
+end)
+
 Remotes.get("SetSprint").OnServerEvent:Connect(function(player, on)
 	if typeof(on) == "boolean" then
 		PlayerState.setSprint(player, on)

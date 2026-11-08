@@ -217,9 +217,14 @@ Ces tests ne lancent pas Roblox : ils vérifient la cohérence du code et des do
 - ZQSD / WASD : déplacement (caméra première personne verrouillée)
 - Shift maintenu : sprint (consomme l'endurance, très bruyant)
 - Ctrl maintenu : silencieux (lent, quasi silencieux)
+- C maintenu : accroupi (plus lent que la marche, s'abaisse, et quasi silencieux, comme Ctrl)
+- H : indication de l'étape courante (un délai de 30 s entre deux demandes)
 - F : lampe torche (se vide, et fige le monstre quand elle le touche). Une pile la recharge.
 - G : lancer de bruit. Un objet lancé attire le monstre au point d'impact. 3 jets par vie, 3 s de recharge.
 - Clic sur le coffret : saisie du code (4 chiffres, Échap pour refermer).
+- Difficulté : `Config.Difficulty` (« facile », « normal » ou « difficile ») règle la vitesse de poursuite, l'ouïe et la vue du monstre.
+- Musique : l'ambiance baisse pendant une poursuite, et la musique de poursuite joue tant que le monstre chase.
+- Événements d'ambiance : la peluche se déplace quand on s'éloigne, une porte ouverte peut se refermer et se verrouiller dix secondes.
 - Bouton d'interaction (ProximityPrompt) : ramasser, lire, examiner, se cacher, sortir, ouvrir la sortie
 
 ## Réglages de test

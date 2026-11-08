@@ -36,6 +36,7 @@ local function newState()
 		log = {},                -- ce que le joueur a fait (pour le journal)        -- le joueur est dans une pièce plongée dans le noir
 		throws = Config.Throw.Charges,
 		frozenUntil = 0,         -- réveil scénarisé : pas de déplacement avant cet instant
+		crouch = false,         -- accroupi : plus lent, plus silencieux
 		lastThrow = -math.huge,
 	}
 end
@@ -84,6 +85,20 @@ function PlayerState.setQuiet(player, on)
 	local st = states[player]
 	if st then
 		st.quiet = on
+	end
+end
+
+function PlayerState.setCrouch(player, on)
+	local st = states[player]
+	if not st then
+		return
+	end
+	st.crouch = on
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		st.baseHip = st.baseHip or hum.HipHeight
+		hum.HipHeight = on and (st.baseHip - CFG.CrouchDrop) or st.baseHip
 	end
 end
 
@@ -233,6 +248,8 @@ local function update(dt)
 			local speed = CFG.WalkSpeed
 			if st.hiding then
 				speed = 0
+			elseif st.crouch then
+				speed = CFG.CrouchSpeed
 			elseif st.quiet then
 				speed = CFG.QuietSpeed
 			elseif sprinting then
@@ -250,7 +267,7 @@ local function update(dt)
 			local noise = 0
 			if moving then
 				noise = sprinting and CFG.NoiseSprint or CFG.NoiseWalk
-				if st.quiet then
+				if st.quiet or st.crouch then
 					noise *= CFG.NoiseQuietFactor
 				end
 			end

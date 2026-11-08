@@ -227,8 +227,25 @@ task.spawn(function()
 	end
 end)
 
--- Ambiance continue
-Audio.play("ambiance", gui)
+-- Ambiance continue, baissée pendant une poursuite, et musique de poursuite tant que le monstre chasse
+local ambience = Audio.play("ambiance", gui)
+local chaseMusic = nil
+local function updateMusic()
+	local chasing = workspace:GetAttribute("MonsterChasing") == true
+	local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
+	if ambience then
+		ambience.Volume = chasing and 0.15 or (sanity < Config.Player.SanityLow and 0.55 or 0.4)
+	end
+	if chasing and not chaseMusic then
+		chaseMusic = Audio.play("poursuite", gui)
+	elseif not chasing and chaseMusic then
+		chaseMusic:Destroy()
+		chaseMusic = nil
+	end
+end
+workspace:GetAttributeChangedSignal("MonsterChasing"):Connect(updateMusic)
+player:GetAttributeChangedSignal("Sanity"):Connect(updateMusic)
+updateMusic()
 
 -- Respiration tant que le joueur est caché (attribut posé par le serveur)
 local breath = nil
@@ -401,6 +418,10 @@ local function sendSprint(on)
 	Remotes.get("SetSprint"):FireServer(on)
 end
 
+local function sendCrouch(on)
+	Remotes.get("SetCrouch"):FireServer(on)
+end
+
 local function throwNoise()
 	local camera = workspace.CurrentCamera
 	if camera then
@@ -422,6 +443,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		sendSprint(true)
 	elseif input.KeyCode == Enum.KeyCode.F then
 		Remotes.get("ToggleFlashlight"):FireServer()
+	elseif input.KeyCode == Enum.KeyCode.C then
+		sendCrouch(true)
 	elseif input.KeyCode == Enum.KeyCode.H then
 		Remotes.get("AskHint"):FireServer()
 	elseif input.KeyCode == Enum.KeyCode.G then
@@ -434,5 +457,7 @@ UserInputService.InputEnded:Connect(function(input)
 		sendQuiet(false)
 	elseif input.KeyCode == Enum.KeyCode.LeftShift then
 		sendSprint(false)
+	elseif input.KeyCode == Enum.KeyCode.C then
+		sendCrouch(false)
 	end
 end)

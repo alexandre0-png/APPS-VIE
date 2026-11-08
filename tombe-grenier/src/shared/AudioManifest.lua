@@ -46,7 +46,7 @@ return {
 	grognement   = { asset = "rbxassetid://9125859669", volume = 0.6 },    -- grognement lointain, silhouette
 	cri_monstre  = { asset = "rbxassetid://527970724", volume = 0.8 },     -- cri du monstre, apparition
 	cri_monstre2 = { asset = "rbxassetid://6305809364", volume = 0.8 },    -- autre cri (réservé)
-	poursuite    = { asset = "rbxassetid://9042664292", volume = 0.5 },    -- musique de poursuite (réservé)
+	poursuite    = { asset = "rbxassetid://9042664292", volume = 0.5, looped = true }, -- musique de poursuite, tant que le monstre chasse
 
 	-- Ambiance et peur
 	ambiance_longue  = { asset = "rbxassetid://125578417483849", volume = 0.3 }, -- nappe longue (réservé)
