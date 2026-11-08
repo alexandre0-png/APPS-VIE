@@ -118,7 +118,7 @@ end
 
 -- Un grincement dans la cage d'escalier, personne n'y est
 local function stairCreak()
-	Audio.play("chaise_grince", anchorAt(Vector3.new(54, 14, 25)), { lifetime = 4 })
+	Audio.play("grincement_escalier", anchorAt(Vector3.new(54, 14, 25)), { lifetime = 4 })
 end
 
 -- Lumière rouge au bout du couloir de l'étage, quelques secondes
@@ -195,7 +195,7 @@ function Ambience.knocks()
 	local origin = Vector3.new(90, 27.5, 45)
 	for i = 1, 3 do
 		task.delay(0.9 * i + 0.2 * i, function()
-			Audio.play("porte", anchorAt(origin + Vector3.new(-3, 0, 0)), { lifetime = 2 })
+			Audio.play("coups_mur", anchorAt(origin + Vector3.new(-3, 0, 0)), { lifetime = 2 })
 		end)
 	end
 end
@@ -260,6 +260,7 @@ local function sceneLoop(rng, gen)
 			silhouette.Material = Enum.Material.SmoothPlastic
 			silhouette.Transparency = 0.15
 			silhouette.Parent = Workspace
+			Audio.play("grognement", silhouette, { lifetime = 3 })
 			Debris:AddItem(silhouette, 2.5)
 		elseif pick < 0.6 then
 			-- Une silhouette traverse le couloir en courant, du palier vers le couloir

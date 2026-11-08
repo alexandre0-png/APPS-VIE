@@ -342,6 +342,7 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 		flash(Color3.fromRGB(10, 10, 12), 0.6, 0.6)
 	elseif data.kind == "Scare" then
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
+		Audio.play("stinger_peur", gui, { lifetime = 3 })
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
 	elseif data.kind == "Cine" then
 		Cinematic.play(data.name, gui)

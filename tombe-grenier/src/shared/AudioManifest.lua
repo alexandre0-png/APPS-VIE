@@ -32,4 +32,29 @@ return {
 	courant      = { asset = "rbxassetid://17864166117", volume = 0.7 },                   -- fin de coupure
 	telephone    = { asset = "rbxassetid://138400380236325", volume = 0.8 }, -- téléphone qui sonne
 	lumiere      = { asset = "rbxassetid://136758740736300", volume = 0.4 },               -- rafale d'une lampe
+
+	-- Lampe, clic (lampe torche ; activation et désactivation, sans boucle)
+	clic_lampe = { asset = "rbxassetid://6020984334", volume = 0.5 },
+
+	-- Coups et portes
+	coups_mur          = { asset = "rbxassetid://92270046821319", volume = 0.7 },   -- trois coups venus du mur au réveil
+	grincement_escalier = { asset = "rbxassetid://9126282061", volume = 0.5 },      -- escalier qui grince
+	porte_claque       = { asset = "rbxassetid://118084341448393", volume = 0.8 },  -- porte qui claque (réservé)
+	portail            = { asset = "rbxassetid://5930776613", volume = 0.7 },       -- grille du jardin qui s'ouvre
+
+	-- Monstre
+	grognement   = { asset = "rbxassetid://9125859669", volume = 0.6 },    -- grognement lointain, silhouette
+	cri_monstre  = { asset = "rbxassetid://527970724", volume = 0.8 },     -- cri du monstre, apparition
+	cri_monstre2 = { asset = "rbxassetid://6305809364", volume = 0.8 },    -- autre cri (réservé)
+	poursuite    = { asset = "rbxassetid://9042664292", volume = 0.5 },    -- musique de poursuite (réservé)
+
+	-- Ambiance et peur
+	ambiance_longue  = { asset = "rbxassetid://125578417483849", volume = 0.3 }, -- nappe longue (réservé)
+	ambiance_tension = { asset = "rbxassetid://2893921424", volume = 0.3 },     -- tension (réservé)
+	stinger_peur     = { asset = "rbxassetid://1835337231", volume = 0.7 },     -- coup de tension au sursaut
+
+	-- Statique (télévision, réservé)
+	statique_tv    = { asset = "rbxassetid://4903742660", volume = 0.5 },
+	statique_vhs   = { asset = "rbxassetid://81486637394198", volume = 0.5 },
+	statique_court = { asset = "rbxassetid://123255788767106", volume = 0.5 },
 }

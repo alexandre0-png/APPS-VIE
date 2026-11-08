@@ -191,6 +191,7 @@ function PlayerState.setFlashlight(player, on)
 		on = false
 	end
 	st.flashlightOn = on
+	Audio.play("clic_lampe", workspace, { lifetime = 2 })
 
 	local char = player.Character
 	local head = char and char:FindFirstChild("Head")

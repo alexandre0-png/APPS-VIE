@@ -170,6 +170,7 @@ Quests.onCaveOpened = function(player)
 end
 
 Quests.onChestOpened = function(player)
+	Audio.play("cri_monstre", workspace, { lifetime = 4 })
 	Remotes.fire("Effect", player, { kind = "Cine", name = "apparition" })
 	Lights.blackout()
 	task.delay(2.5, function()

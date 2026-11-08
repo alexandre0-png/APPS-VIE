@@ -745,6 +745,7 @@ local function wire()
 				state.exitTaken = true
 				wall.CanCollide = false
 				wall.Transparency = 1
+				Audio.play("portail", wall, { lifetime = 4 })
 				say(player, "Le portail grince et s'ouvre. Tu peux partir. Ne traîne pas.")
 				if Quests.onGate then
 					Quests.onGate(player)
