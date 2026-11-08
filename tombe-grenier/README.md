@@ -137,7 +137,7 @@ Dans `Config.lua` :
 
 ## Limites connues
 
-- Éclairage : le mode « Future » ne se sélectionne que dans Studio. Le code approxime le rendu (ombres douces, profondeur de champ légère, vignette, ombres de lampes dans 4 pièces : hall, palier, salon, cave). Des ombres dans toutes les pièces demandent plus de performance.
+- Éclairage : le mode « Future » ne se sélectionne que dans Studio. Le code approxime le rendu (ombres douces, profondeur de champ légère, vignette, ombres portées par les 4 lampes les plus proches des joueurs, recalculées chaque seconde). Le décor de base (livres, bouteilles, coussins) se remplace par des modèles Studio dans `ServerStorage/Decor`, nommés comme le meuble.
 - Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu. Le mode « Future » (ombres et éclairage réalistes) se règle dans Studio : Lighting > Technology > Future.
 - Les fins trouvées ne sont pas sauvegardées entre les sessions (remises à zéro au redémarrage du serveur). Une sauvegarde DataStore est à ajouter.
 - Les textures ne s'affichent que si les IDs sont des images Roblox.
