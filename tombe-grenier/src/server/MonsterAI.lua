@@ -512,6 +512,21 @@ function MonsterAI.stop()
 	current = nil
 end
 
+-- Séquence scénarisée : le monstre fixe le joueur deux secondes, puis court vers lui
+function MonsterAI.forceChase(player)
+	if not current or not current.alive then
+		return
+	end
+	local m = current
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	m.target = player
+	m.lastSeenTime = clock()
+	m.lastSeenPos = root and root.Position or m.root.Position
+	m.pauseUntil = clock() + 2
+	setState(m, "Chase")
+end
+
 function MonsterAI.getRootPosition()
 	if current and current.alive and current.root then
 		return current.root.Position

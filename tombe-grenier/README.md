@@ -71,6 +71,30 @@ Pièces sombres : à chaque partie, 4 pièces parmi 10 sont plongées dans le no
 
 Le spawn des joueurs est un `SpawnLocation` placé sur le cercueil du grenier.
 
+## État de la maison : ce qui est codé et ce qui manque
+
+Codé (à tester en Play Test) :
+- Réveil dans le cercueil : noir, 8 s sans déplacement, photo qui tombe.
+- Photo de l'introduction : lue, elle déclenche un flashback silencieux.
+- Quatre documents (journal, cahier, photo de famille, plaque), code, coffret, malle, clé, sortie.
+- Première apparition : malle ouverte → coupure de courant, le monstre fixe le joueur 2 s, puis le poursuit.
+- Miroir inquiétant (tombe) et miroir fissuré (salle de bain) : sursaut, sanité en baisse.
+- Télévision : image granuleuse qui montre la pièce vue de haut.
+- Cheval à bascule : il balance seul et attire le monstre.
+- Jouet musical (chambre d'enfant) : mélodie, bruit qui porte.
+- Tasse de café pleine (cuisine), bougies, peluche, gramophone.
+- Silhouette furtive au grenier (une fois sur deux) et pas à l'étage.
+- Trois fins, avec teinte propre à chaque fin et bouton « Rejouer » (30 s de repli).
+
+Non codé :
+- Portes qui se ferment seules : la carte n'a pas de portes mobiles.
+- Rideaux qui bougent : pas de fenêtres en mouvement dans la carte.
+- Porte métallique de la cave : la cave est un passage ouvert.
+- Voix lointaine « Tu n'aurais jamais dû revenir ici… » : pas d'asset audio dans la banque.
+- Cri de corneille de la fin 1 : pas d'asset audio.
+- Dessins au mur de la chambre d'enfant : décor à ajouter dans Studio.
+- Menu complet (Continuer, Options) : seul « Rejouer » est codé.
+
 ## Quêtes et fins
 
 Chaîne principale, vers la sortie :

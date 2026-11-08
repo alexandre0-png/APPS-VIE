@@ -47,6 +47,7 @@ local FLAVOUR = {
 	["bougies et lampe à pétrole"] = "La flamme vacille, comme si quelqu'un venait de souffler.",
 	["peluche ancienne"] = "Une peluche usée. Elle est plus lourde que prévu.",
 	["gramophone ancien"] = "Le gramophone grince, puis joue quelques notes. Le son porte très loin.",
+	["tasse de café"] = "Une tasse de café, pleine, encore tiède. Le liquide n'a pas coulé quand on l'a posée.",
 }
 
 -- Effets des objets interactifs (une fois par objet et par partie)
@@ -277,6 +278,9 @@ local function wire()
 				end
 				state.chest = true
 				Objectives.unlockKey()
+				if Quests.onChestOpened then
+					Quests.onChestOpened(player)
+				end
 				say(player, "Sous les chiffons, une clé rouillée.")
 				progressed()
 			end)
@@ -294,6 +298,9 @@ local function wire()
 						progressed()
 					end
 					say(player, LORE[kind])
+					if kind == "photo de famille" then
+						Remotes.fire("Flashback", player, { kind = "family" })
+					end
 				end)
 			elseif FLAVOUR[kind] then
 				prompt(part, { action = ACTION[kind] or "Examiner", object = kind }, function(player)

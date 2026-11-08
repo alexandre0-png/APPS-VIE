@@ -243,6 +243,63 @@ player:GetAttributeChangedSignal("Hidden"):Connect(function()
 	end
 end)
 
+-- Réveil : noir, puis la vue revient doucement
+local function introSequence(duration)
+	blackFrame.BackgroundTransparency = 0
+	task.delay(duration * 0.4, function()
+		TweenService:Create(blackFrame, TweenInfo.new(duration * 0.5), { BackgroundTransparency = 1 }):Play()
+	end)
+end
+
+-- Flashbacks silencieux : quatre cadres (cadre de famille, enfant, nuit, lit vide), sans texte
+local function flashbackSequence()
+	local steps = {
+		{ Color3.fromRGB(120, 95, 60), 0.5, 1.6 },
+		{ Color3.fromRGB(90, 60, 40), 0.6, 1.2 },
+		{ Color3.fromRGB(20, 20, 35), 0.55, 1.4 },
+		{ Color3.fromRGB(10, 10, 10), 0.7, 1.2 },
+	}
+	task.spawn(function()
+		for _, step in ipairs(steps) do
+			local frame = fullFrame(step[1], 1 - step[2], 35)
+			task.wait(step[3])
+			frame:Destroy()
+		end
+	end)
+end
+
+-- Teinte de fin : levée du jour pour la fuite, lumière douce pour la vérité, obscurité pour la malédiction
+local ENDING_TINT = {
+	win = { Color3.fromRGB(255, 150, 80), 0.25 },
+	truth = { Color3.fromRGB(255, 230, 180), 0.2 },
+	lose = { Color3.fromRGB(0, 0, 0), 0.5 },
+}
+local function endingVisual(reason)
+	local tint = ENDING_TINT[reason]
+	if tint then
+		local frame = fullFrame(tint[1], 1 - tint[2], 25)
+		frame.Name = "FinTeinte"
+	end
+end
+
+-- Bouton « Rejouer », visible après une fin
+local restartButton = Instance.new("TextButton")
+restartButton.Size = UDim2.fromOffset(220, 46)
+restartButton.Position = UDim2.new(0.5, 0, 0.66, 0)
+restartButton.AnchorPoint = Vector2.new(0.5, 0.5)
+restartButton.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+restartButton.TextColor3 = Color3.fromRGB(230, 220, 190)
+restartButton.Font = Enum.Font.GothamMedium
+restartButton.TextSize = 20
+restartButton.Text = "Rejouer"
+restartButton.Visible = false
+restartButton.ZIndex = 45
+restartButton.Parent = gui
+restartButton.Activated:Connect(function()
+	Remotes.get("Restart"):FireServer()
+	restartButton.Visible = false
+end)
+
 -- Événements serveur
 Remotes.get("Effect").OnClientEvent:Connect(function(data)
 	if typeof(data) ~= "table" then
@@ -253,10 +310,15 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 	elseif data.kind == "Scare" then
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
+	elseif data.kind == "Intro" then
+		restartButton.Visible = false
+		introSequence(data.duration or 8)
 	elseif data.kind == "Blackout" then
 		blackout(data.duration or 2)
 	elseif data.kind == "RoundEnd" then
 		showMessage(data.text or "")
+		endingVisual(data.reason)
+		restartButton.Visible = true
 	end
 end)
 
@@ -270,6 +332,10 @@ Remotes.get("Message").OnClientEvent:Connect(function(data)
 	if typeof(data) == "table" and data.text then
 		showSubtitle(data.text)
 	end
+end)
+
+Remotes.get("Flashback").OnClientEvent:Connect(function()
+	flashbackSequence()
 end)
 
 Remotes.get("Keypad").OnClientEvent:Connect(function()

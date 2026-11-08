@@ -173,6 +173,12 @@ local function buildHouse(root)
 	end
 	for _, f in ipairs(Data.furniture) do
 		local part = makeBox(folders.Meubles, f, f.mat, f.name)
+		if f.name == "coffre à jouets" then
+			CollectionService:AddTag(part, "MusicBox")
+		end
+		if f.name == "cheval à bascule" then
+			CollectionService:AddTag(part, "Rocking")
+		end
 		if f.name == "coffre verrouillé" then
 			CollectionService:AddTag(part, "Chest")
 		end
@@ -210,6 +216,20 @@ local function buildHouse(root)
 			light.Shadows = false
 			light.Parent = bulb
 			table.insert(lamps, { room = p.room, part = bulb, light = light })
+		elseif p.tag == "Interactable" then
+			local item = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(190, 170, 140), Enum.Material.SmoothPlastic, "Interactable")
+			item:SetAttribute("Kind", p.kind)
+		elseif p.tag == "Mirror" then
+			local glass = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(170, 190, 200), Enum.Material.Glass, "Mirror")
+			glass.Transparency = 0.45
+		elseif p.tag == "TV" then
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(25, 25, 28), Enum.Material.SmoothPlastic, "TV")
+		elseif p.tag == "IntroPhoto" then
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(225, 215, 190), Enum.Material.SmoothPlastic, "IntroPhoto")
 		elseif p.tag == "Coffret" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")

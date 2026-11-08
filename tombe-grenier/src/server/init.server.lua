@@ -20,8 +20,10 @@ local Noise = require(script.Noise)
 local Audio = require(Shared.Audio)
 local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
+local Props = require(script.Props)
 
 local round = { seed = 0, ended = false, cycle = 1 }
+local restartRequested = false
 
 local function alivePlayers()
 	local count = 0
@@ -44,6 +46,12 @@ local function startRound()
 	MapBuilder.placeRound(round.seed)
 	Objectives.setup()
 	Quests.setup(round.seed, round.cycle)
+	Props.setup()
+
+	-- Réveil dans le cercueil : noir, puis le joueur se redresse
+	local intro = Config.Intro.Duration
+	PlayerState.freezeAll(intro)
+	Remotes.fireAll("Effect", { kind = "Intro", duration = intro })
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
 	Ambience.start(round.seed)
@@ -66,6 +74,14 @@ local function endRound(reason)
 	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason, text = Quests.endingText(reason) })
 
 	task.wait(Config.Round.EndScreenTime)
+
+	-- Menu : on attend « Rejouer » (ou le délai de repli avant une nouvelle partie)
+	restartRequested = false
+	local waited = 0
+	while not restartRequested and waited < Config.Round.RestartTimeout do
+		task.wait(0.5)
+		waited += 0.5
+	end
 
 	-- Retour au cercueil pour tous
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -99,6 +115,12 @@ Remotes.get("ToggleFlashlight").OnServerEvent:Connect(function(player)
 	end
 end)
 
+Remotes.get("Restart").OnServerEvent:Connect(function()
+	if round.ended then
+		restartRequested = true
+	end
+end)
+
 -- Saisie du code au coffret, et lancer de bruit
 Remotes.get("SubmitCode").OnServerEvent:Connect(function(player, text)
 	Quests.submitCode(player, text)
@@ -120,6 +142,14 @@ MapBuilder.startShadowLoop()
 PlayerState.init()
 Hiding.init()
 Quests.init(endRound)
+
+-- Première apparition : la malle ouverte fait tout basculer
+Quests.onChestOpened = function(player)
+	Lights.blackout()
+	task.delay(2.5, function()
+		MonsterAI.forceChase(player)
+	end)
+end
 Objectives.init(function()
 	endRound("win")
 end)

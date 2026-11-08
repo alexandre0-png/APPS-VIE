@@ -32,6 +32,7 @@ local function newState()
 		threatTime = -math.huge, -- dernier instant où le monstre a perçu ce joueur
 		roomDark = false,        -- le joueur est dans une pièce plongée dans le noir
 		throws = Config.Throw.Charges,
+		frozenUntil = 0,         -- réveil scénarisé : pas de déplacement avant cet instant
 		lastThrow = -math.huge,
 	}
 end
@@ -145,6 +146,13 @@ function PlayerState.tryThrow(player, direction)
 	return impact
 end
 
+-- Fige tous les joueurs pendant duration secondes (réveil dans le cercueil)
+function PlayerState.freezeAll(duration)
+	for _, st in pairs(states) do
+		st.frozenUntil = os.clock() + duration
+	end
+end
+
 -- Ajoute des jets de bruit (objet trouvé), plafonné
 function PlayerState.addThrows(player, amount)
 	local st = states[player]
@@ -218,6 +226,9 @@ local function update(dt)
 			end
 			if st.sanity <= CFG.SanityLow and not st.hiding then
 				speed *= CFG.LowSanitySpeedFactor
+			end
+			if os.clock() < st.frozenUntil then
+				speed = 0
 			end
 			hum.WalkSpeed = speed
 

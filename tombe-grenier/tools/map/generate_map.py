@@ -608,6 +608,16 @@ def build_props():
     props.append(dict(tag="Plaque", name="plaque du cercueil", pos=(90, 26.1, 42.5), size=(2.2, 0.8, 0.2)))
     props.append(dict(tag="Key", name="clé rouillée (malle)", pos=(70, 27.3, 64), size=(0.8, 0.1, 0.5)))
 
+    # Éléments de scène fixes : miroir inquiétant (tombe), miroir fissuré (salle de bain),
+    # télévision (salon), photo d'introduction (au-dessus du cercueil)
+    props.append(dict(tag="Mirror", name="miroir inquiétant", pos=(119.2, 31, 30), size=(0.4, 6, 4)))
+    props.append(dict(tag="Mirror", name="miroir fissuré", pos=(119.2, 17.5, 56), size=(0.4, 3, 3)))
+    props.append(dict(tag="TV", name="télévision", pos=(13, 4.2, 33.4), size=(4, 2.4, 0.3)))
+    props.append(dict(tag="IntroPhoto", name="photo de l'introduction", pos=(90, 30, 45), size=(1, 0.1, 1.4)))
+
+    # Tasse de café pleine (cuisine) : objet de décor à examiner
+    props.append(dict(tag="Interactable", kind="tasse de café", name="tasse de café", pos=(109, 2.7, 16), size=(0.6, 0.5, 0.6)))
+
     # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
     props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))
 
