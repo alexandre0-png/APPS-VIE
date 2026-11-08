@@ -15,7 +15,7 @@ local Rng = require(Shared.Rng)
 local MapData = require(Shared.MapData)
 
 -- Pièces fermées par une énigme : les livres qui s'y trouvent ne sont pas des indices
-local LOCKED = { sdb = true, bureau = true, cha = true, cel = true }
+local LOCKED = { sdb = true, bureau = true, cha = true, sdb2 = true, cel = true }
 
 local function inLockedRoom(f)
 	local cx, cz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2

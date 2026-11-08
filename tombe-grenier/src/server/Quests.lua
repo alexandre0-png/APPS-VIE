@@ -471,6 +471,18 @@ local function turnStatue(player, statue)
 	state.caveKey = true
 	say(player, "Les trois statues se figent, face à la même direction. Un déclic, très loin en bas : la cave est accessible.")
 	progressed()
+	-- Le mur se met à respirer : une pulsation lente, tant qu'il n'a pas été touché
+	local wall = CollectionService:GetTagged("Respire")[1]
+	if wall and wall:IsA("BasePart") then
+		task.spawn(function()
+			while state and state.statuesDone and not state.breathed do
+				TweenService:Create(wall, TweenInfo.new(2, Enum.EasingStyle.Sine), { Transparency = 0.6 }):Play()
+				task.wait(2)
+				TweenService:Create(wall, TweenInfo.new(2, Enum.EasingStyle.Sine), { Transparency = 0.9 }):Play()
+				task.wait(2)
+			end
+		end)
+	end
 end
 
 -- Boîte à musique : une note jouée. Une faute repart de zéro ; la mélodie complète ouvre la salle de bain.

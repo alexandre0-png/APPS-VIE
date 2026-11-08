@@ -117,6 +117,15 @@ function Objectives.setup()
 		end
 	end
 
+	-- Cailloux : chaque caillou ramassé donne un lancer
+	for _, part in ipairs(CollectionService:GetTagged("Throwable")) do
+		if part:IsA("BasePart") then
+			pickable(part, "Caillou", function(player)
+				PlayerState.addThrows(player, 1)
+			end)
+		end
+	end
+
 	-- La porte de sortie est statique : on retire les invites de la partie précédente
 	for _, part in ipairs(CollectionService:GetTagged("ExitDoor")) do
 		if part:IsA("BasePart") then

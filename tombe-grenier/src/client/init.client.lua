@@ -566,33 +566,98 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
--- Boutons tactiles : colonne en bas à droite, visible seulement sur écran tactile
-local function touchButton(text, order, onDown, onUp)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0, 110, 0, 54)
-	b.Position = UDim2.new(1, -124, 1, -(70 + order * 62))
-	b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-	b.BackgroundTransparency = 0.3
-	b.TextColor3 = Color3.fromRGB(230, 226, 210)
-	b.Font = Enum.Font.GothamMedium
-	b.Text = text
-	b.TextScaled = true
-	b.ZIndex = 20
-	b.Visible = UserInputService.TouchEnabled
-	b.Parent = gui
-	if onDown then
-		b.MouseButton1Down:Connect(onDown)
+-- Actions de jeu : chaque bouton ne s'affiche que quand il sert (contexte), et la touche est rappelée à l'écran
+local lastObjectiveAt = os.clock()
+Remotes.get("Objective").OnClientEvent:Connect(function()
+	lastObjectiveAt = os.clock()
+end)
+
+local function nearUvMark(radius)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return false
 	end
-	if onUp then
-		b.MouseButton1Up:Connect(onUp)
+	for _, mark in ipairs(CollectionService:GetTagged("UVMark")) do
+		if mark:IsA("BasePart") and (mark.Position - root.Position).Magnitude < radius then
+			return true
+		end
 	end
-	return b
+	return false
 end
 
-touchButton("Accroupi", 0, function() sendCrouch(true) end, function() sendCrouch(false) end)
-touchButton("Silence", 1, function() sendQuiet(true) end, function() sendQuiet(false) end)
-touchButton("Course", 2, function() sendSprint(true) end, function() sendSprint(false) end)
-touchButton("Lampe", 3, function() Remotes.get("ToggleFlashlight"):FireServer() end)
-touchButton("Lancer", 4, throwNoise)
-touchButton("Indice", 5, function() Remotes.get("AskHint"):FireServer() end)
-touchButton("UV", 6, toggleUv)
+local ACTIONS = {
+	{ name = "Course", order = 0, always = true, touch = true, kb = "Maj", gp = "L2",
+	  down = function() sendSprint(true) end, up = function() sendSprint(false) end },
+	{ name = "Accroupi", order = 1, always = true, touch = true, kb = "C", gp = "B",
+	  down = function() sendCrouch(true) end, up = function() sendCrouch(false) end },
+	{ name = "Lampe", order = 2, touch = true, kb = "F", gp = "Y",
+	  visible = function() return player:GetAttribute("InDark") == true end,
+	  down = function() Remotes.get("ToggleFlashlight"):FireServer() end },
+	{ name = "Lancer", order = 3, touch = true, kb = "G", gp = "R1",
+	  visible = function() return (player:GetAttribute("Throws") or 0) > 0 end,
+	  down = throwNoise },
+	{ name = "UV", order = 4, touch = true, kb = "U", gp = "R3",
+	  visible = function() return uvOn or nearUvMark(22) end,
+	  down = toggleUv },
+	{ name = "Indice", order = 5, touch = true, kb = "H", gp = "Haut",
+	  visible = function() return os.clock() - lastObjectiveAt > 60 end,
+	  down = function() Remotes.get("AskHint"):FireServer() end },
+}
+
+local actionButtons = {}
+for _, action in ipairs(ACTIONS) do
+	if action.touch then
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(0, 110, 0, 54)
+		b.Position = UDim2.new(1, -124, 1, -(70 + action.order * 62))
+		b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+		b.BackgroundTransparency = 0.3
+		b.TextColor3 = Color3.fromRGB(230, 226, 210)
+		b.Font = Enum.Font.GothamMedium
+		b.Text = action.name
+		b.TextScaled = true
+		b.ZIndex = 20
+		b.Visible = false
+		b.Parent = gui
+		if action.down then
+			b.MouseButton1Down:Connect(action.down)
+		end
+		if action.up then
+			b.MouseButton1Up:Connect(action.up)
+		end
+		actionButtons[action] = b
+	end
+end
+
+-- Rappel des touches (clavier et manette) pour les actions disponibles
+local keyHint = label({
+	position = UDim2.new(0.5, 0, 1, -40),
+	anchor = Vector2.new(0.5, 1),
+	sizeUDim = UDim2.new(0.7, 0, 0, 30),
+	align = Enum.TextXAlignment.Center,
+	size = 16,
+})
+
+local function refreshActions()
+	local usesTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local usesGamepad = UserInputService.GamepadEnabled
+	local parts = {}
+	for _, action in ipairs(ACTIONS) do
+		local shown = action.always or (action.visible and action.visible()) == true
+		if action.touch and actionButtons[action] then
+			actionButtons[action].Visible = usesTouch and shown
+		end
+		if shown and not usesTouch and not action.always then
+			table.insert(parts, ("%s : %s"):format(usesGamepad and action.gp or action.kb, action.name))
+		end
+	end
+	keyHint.Text = table.concat(parts, "     ")
+end
+
+task.spawn(function()
+	while true do
+		refreshActions()
+		task.wait(0.25)
+	end
+end)

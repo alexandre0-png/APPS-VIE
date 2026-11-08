@@ -205,7 +205,7 @@ class TestConnectivity(unittest.TestCase):
         adj = self.graph(include_puzzles=False)
         seen = self.reach(adj, "tombe")
         missing = {r[0] for r in gm.ROOMS} - seen
-        self.assertEqual(missing, {"ps", "bureau", "cel", "cha", "sdb"}, f"pièces fermées : {missing}")
+        self.assertEqual(missing, {"ps", "bureau", "cel", "cha", "sdb2", "sdb"}, f"pièces fermées : {missing}")
 
     def test_all_rooms_reachable_once_locks_are_open(self):
         adj = self.graph(include_puzzles=True, include_locks=True)
@@ -291,7 +291,7 @@ class TestTags(unittest.TestCase):
             self.assertTrue(gm._clear(x - 0.5, z - 0.5, x + 0.5, z + 0.5, 0, gm.STATUE_HEIGHT, margin=0.3), p["name"])
 
     # Pièces dont l'accès dépend d'une énigme : rien d'indispensable ne doit s'y trouver
-    LOCKED_ROOMS = ("sdb", "bureau", "cha", "cel")
+    LOCKED_ROOMS = ("sdb", "bureau", "cha", "sdb2", "cel")
 
     def _room_of_point(self, x, y, z):
         for r in DATA["rooms"]:
@@ -301,7 +301,8 @@ class TestTags(unittest.TestCase):
         return None
 
     def test_required_puzzle_props_outside_locked_rooms(self):
-        for tag in ("Coffret", "Plaque", "Key", "Statue", "Respire", "Mannequin"):
+        # La statue du bureau : le bureau s'ouvre avec les photos, qui ne dépendent pas des statues
+        for tag in ("Coffret", "Plaque", "Key", "Respire", "Mannequin"):
             for p in self.props_with(tag):
                 self.assertNotIn(self._room_of_point(*p["pos"]), self.LOCKED_ROOMS, p["name"])
         mirrors = [self._room_of_point(*p["pos"]) for p in self.props_with("Mirror")]

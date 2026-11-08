@@ -51,7 +51,8 @@ ROOMS = [
     ("chp",    "first",    (0, 0, 40, 44),    "carrelage", "mur",    "Chambre des parents"),
     ("palier", "first",    (40, 0, 80, 44),   "carrelage", "brique", "Palier"),
     ("che",    "first",    (80, 0, 120, 44),  "carrelage", "mur",    "Chambre d'enfant"),
-    ("cha",    "first",    (0, 44, 40, 90),   "carrelage", "mur",    "Chambre d'ami"),
+    ("cha",    "first",    (12, 44, 40, 90),  "carrelage", "mur",    "Chambre d'ami"),
+    ("sdb2",   "first",    (0, 44, 12, 90),   "carrelage", "mur",    "Salle d'eau"),
     ("couloir", "first",   (40, 44, 80, 90),  "carrelage", "brique", "Couloir"),
     ("sdb",    "first",    (80, 44, 120, 68), "carrelage", "mur",    "Salle de bain"),
     ("deb",    "first",    (80, 68, 120, 90), "carrelage", "mur",    "Débarras"),
@@ -85,9 +86,9 @@ DOORS = [
     dict(level="first", orient="v", line=40, c=22, w=DOOR_W),
     dict(level="first", orient="v", line=80, c=22, w=DOOR_W),
     dict(level="first", orient="h", line=44, c=60, w=DOOR_W),
-    dict(level="first", orient="h", line=44, c=20, w=DOOR_W, lock="cahier"),
     dict(level="first", orient="v", line=40, c=67, w=DOOR_W, lock="cahier"),
     dict(level="first", orient="v", line=80, c=56, w=DOOR_W, lock="salle de bain"),
+    dict(level="first", orient="v", line=12, c=67, w=DOOR_W, lock="cahier"),   # chambre d'ami -> salle d'eau (même verrou)
     dict(level="first", orient="h", line=68, c=100, w=DOOR_W, lock="salle de bain"),
     dict(level="first", orient="v", line=80, c=79, w=DOOR_W),
     # Grenier
@@ -192,11 +193,17 @@ FURNITURE = {
         ("armoire", 110, 2, 119, 8, 8, "bois"),
     ],
     "cha": [
-        ("lit", 6, 50, 16, 62, 2.5, "tissu"),
-        ("chevet", 17.5, 50, 19.5, 52, 2, "bois"),
-        ("bureau", 24, 50, 34, 58, 2.5, "bois"),
-        ("chaise", 26, 60, 30, 64, 2, "bois"),
-        ("armoire", 4, 80, 12, 88, 8, "bois"),
+        ("lit", 14, 50, 24, 62, 2.5, "tissu"),
+        ("chevet", 26, 50, 28, 52, 2, "bois"),
+        ("bureau", 28, 52, 36, 58, 2.5, "bois"),
+        ("chaise", 32, 72, 34, 76, 2, "bois"),
+        ("armoire", 30, 80, 38, 88, 8, "bois"),
+    ],
+    "sdb2": [
+        ("baignoire", 1, 46, 8, 52, 2.5, "porcelaine"),
+        ("lavabo", 1, 60, 5, 64, 3, "porcelaine"),
+        ("WC", 8, 60, 11, 63, 2.5, "porcelaine"),
+        ("armoire de toilette", 1, 80, 4, 86, 6, "bois"),
     ],
     "couloir": [
         ("console", 44, 80, 54, 83, 3, "bois"),
@@ -227,6 +234,12 @@ FURNITURE = {
         ("caisses", 8, 60, 16, 68, 4, "bois"),
         ("armoire", 4, 82, 14, 89, 8, "bois"),
         ("boîte en carton", 44, 30, 48, 34, 3, "carton"),
+        ("chaise", 22, 40, 24, 42, 3, "bois"),
+        ("malle", 4, 36, 8, 42, 3, "bois"),
+        ("miroir sur pied", 2, 46, 4, 48, 6, "bois"),
+        ("berceau", 34, 46, 42, 54, 3, "bois"),
+        ("caisse de jouets", 14, 38, 20, 44, 2, "bois"),
+        ("pile de cartons", 36, 60, 42, 66, 3, "carton"),
     ],
     "tombe": [
         ("cercueil", 86, 42, 94, 48, 2, "bois_sombre"),
@@ -608,6 +621,12 @@ DECOR = [
     box(10, 16, 16, 20, 0.8, 1.2, "bois_sombre", "tableau chambre des parents", deco=True),
     box(62, 68, 16, 20, 0.8, 1.2, "bois_sombre", "tableau palier", deco=True),
     box(30, 36, 28, 32, 0.8, 1.2, "bois_sombre", "tableau grenier", deco=True),
+    box(44, 76, 12, 12.05, 62, 68, "tissu", "tapis couloir", deco=True),
+    box(56, 62, 15, 19, 44.6, 45.0, "bois_sombre", "tableau couloir", deco=True),
+    box(72, 78, 15, 19, 44.6, 45.0, "bois_sombre", "tableau couloir 2", deco=True),
+    box(49.5, 58.5, 24, 25, 9.4, 9.8, "bois", "garde-corps grenier", deco=True),
+    box(49.4, 49.8, 24, 25, 9.8, 40.5, "bois", "garde-corps grenier", deco=True),
+    box(58.2, 58.6, 24, 25, 9.8, 40.5, "bois", "garde-corps grenier", deco=True),
     # Dessins d'enfant au mur de la chambre (silhouette sans visage)
     box(84, 88, 13, 17, 0.8, 1.0, "carton", "dessin d'enfant", deco=True),
     box(92, 96, 13, 17, 0.8, 1.0, "carton", "dessin d'enfant", deco=True),
@@ -620,7 +639,7 @@ DECOR = [
 ]
 
 
-STATUE_ROOMS = ("salon", "cuis", "sam")   # trois statues, une par pièce du rez-de-chaussée
+STATUE_ROOMS = ("salon", "cuis", "bureau")   # trois statues : salon, cuisine, bureau
 STATUE_HEIGHT = 2.2
 MANNEQUIN_HEIGHT = 1.9
 BREATH_PANEL = (38.4, 34.5, 39.4, 37.5)   # panneau du mur qui respire (côté salon du mur du hall)
@@ -739,11 +758,12 @@ def build_props():
 
     # Murs invisibles : périmètre du jardin, portail (énigme), grille du sous-sol (énigme)
     inv = []
-    inv.append(dict(name="clôture nord", x0=-60.5, x1=180.5, z0=-60.5, z1=-59.5, y0=-1, y1=30))
-    inv.append(dict(name="clôture sud ouest", x0=-60.5, x1=55, z0=149.5, z1=150.5, y0=-1, y1=30))
-    inv.append(dict(name="clôture sud est", x0=65, x1=180.5, z0=149.5, z1=150.5, y0=-1, y1=30))
-    inv.append(dict(name="clôture ouest", x0=-60.5, x1=-59.5, z0=-60, z1=150, y0=-1, y1=30))
-    inv.append(dict(name="clôture est", x0=179.5, x1=180.5, z0=-60, z1=150, y0=-1, y1=30))
+    # Clôture resserrée : on tourne autour de la façade, on atteint le portail, on ne sort pas de la carte
+    inv.append(dict(name="clôture nord", x0=-8.5, x1=128.5, z0=-8.5, z1=-7.5, y0=-1, y1=30))
+    inv.append(dict(name="clôture sud ouest", x0=-8.5, x1=55, z0=149.5, z1=150.5, y0=-1, y1=30))
+    inv.append(dict(name="clôture sud est", x0=65, x1=128.5, z0=149.5, z1=150.5, y0=-1, y1=30))
+    inv.append(dict(name="clôture ouest", x0=-8.5, x1=-7.5, z0=-8, z1=150, y0=-1, y1=30))
+    inv.append(dict(name="clôture est", x0=127.5, x1=128.5, z0=-8, z1=150, y0=-1, y1=30))
     inv.append(dict(name="portail", x0=55, x1=65, z0=149.5, z1=150.5, y0=-1, y1=30, puzzle="portail"))
     inv.append(dict(name="grille sud", x0=79.5, x1=80.5, z0=43, z1=47, y0=-12, y1=-1, puzzle="grille"))
     props += puzzle_props()
@@ -752,10 +772,10 @@ def build_props():
 
 def garden():
     plates = [
-        box(-60, 180, -1, 0, -60, 0, "herbe", "pelouse nord"),
-        box(-60, 180, -1, 0, 90, 150, "herbe", "pelouse sud"),
-        box(-60, 0, -1, 0, 0, 90, "herbe", "pelouse ouest"),
-        box(120, 180, -1, 0, 0, 90, "herbe", "pelouse est"),
+        box(-8, 128, -1, 0, -8, 0, "herbe", "pelouse nord"),
+        box(-8, 128, -1, 0, 90, 150, "herbe", "pelouse sud"),
+        box(-8, 0, -1, 0, 0, 90, "herbe", "pelouse ouest"),
+        box(120, 128, -1, 0, 0, 90, "herbe", "pelouse est"),
     ]
     path = [box(55, 65, -0.4, 0, 90, 150, "pierre", "allée")]
     trees = []
@@ -768,7 +788,7 @@ def garden():
 # Construction complète
 # ----------------------------------------------------------------------------
 # Pièces fermées par une énigme : aucun indice ni document indispensable ne s'y trouve
-LOCKED_ROOM_IDS = ("sdb", "bureau", "cha", "cel")
+LOCKED_ROOM_IDS = ("sdb", "bureau", "cha", "sdb2", "cel")
 
 
 def _in_locked_room(slot):

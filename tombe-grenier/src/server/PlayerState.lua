@@ -312,6 +312,8 @@ local function update(dt)
 			player:SetAttribute("Sanity", math.floor(st.sanity))
 			player:SetAttribute("Stamina", math.floor(st.stamina))
 			player:SetAttribute("Battery", math.floor(st.battery))
+			player:SetAttribute("Throws", st.throws)
+			player:SetAttribute("InDark", st.roomDark and not st.flashlightOn)
 		end
 	end
 end

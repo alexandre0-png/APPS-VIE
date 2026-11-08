@@ -122,7 +122,7 @@ Chaîne parallèle, vers la fin « vérité » :
 - Libérer l'enfant au cercueil une fois les 4 documents lus. Un clavier demande la date de la plaque en quatre chiffres (mois puis jour, par exemple `0314`).
 - Le gramophone donne une mélodie de trois notes (do, ré, mi, sol), tirée à chaque partie. La boîte à musique se joue note par note : une faute repart de zéro, la mélodie complète ouvre la salle de bain.
 - Bibliothèque (autre chemin vers la petite clé, donc vers la malle) : trois livres parmi ceux des bibliothèques portent un marque-page numéroté 1, 2, 3, tirés à chaque partie. Les feuilleter dans l'ordre 1, 2, 3 donne la petite clé. Une faute repart de zéro.
-- Statues (une dans chacune des trois pièces du rez-de-chaussée : salon, cuisine, salle à manger) : chacune se tourne par quarts de tour. Les trois doivent regarder la même direction, tirée à chaque partie. Résolues, elles ouvrent la cave, sans la vraie clé.
+- Statues (une dans le salon, une dans la cuisine, une dans le bureau) : chacune se tourne par quarts de tour. Les trois doivent regarder la même direction, tirée à chaque partie. Résolues, elles ouvrent la cave, sans la vraie clé.
 - Tableau (grenier, palier, salon, chambre) : le décrocher fait tomber le cadre et révèle une fente dans le mur, avec une pile. Une fois par partie.
 - Mur qui respire (côté salon du hall) : une fois les statues résolues, le toucher donne une pile et fait perdre 15 de sanité. Avant, il ne se passe rien.
 - Mannequin (couloir, à l'étage) : buste de couturière construit en primitives, sans modèle. Quand un joueur s'approche à moins de 5 studs, il pivote vers lui une fois par partie, avec un sursaut à l'écran. L'examen donne un détail de décor.
@@ -221,9 +221,9 @@ Ces tests ne lancent pas Roblox : ils vérifient la cohérence du code et des do
 - C maintenu : accroupi (plus lent que la marche, s'abaisse, et quasi silencieux, comme Ctrl)
 - H : indication de l'étape courante (un délai de 30 s entre deux demandes)
 - F : lampe torche (se vide, et fige le monstre quand elle le touche). Une pile la recharge.
-- G : lancer de bruit. Un objet lancé attire le monstre au point d'impact. 3 jets par vie, 3 s de recharge.
+- G : lancer de bruit. Un objet lancé attire le monstre au point d'impact. Un lancer = un caillou ramassé au sol (4 cailloux par partie, dans les pièces ouvertes). 3 s de recharge.
 - Clic sur le coffret : saisie du code (4 chiffres, Échap pour refermer).
-- Téléphone et tablette : une colonne de six boutons tactiles en bas à droite (Accroupi, Silence, Course, Lampe, Lancer, Indice). Le déplacement se fait au joystick tactile intégré à Roblox.
+- Téléphone et tablette : deux boutons permanents en bas à droite (Course, Accroupi). Les autres n'apparaissent que quand ils servent : Lampe dans le noir, Lancer avec un caillou, UV près d'une marque, Indice après une minute sans progrès. Le déplacement se fait au joystick tactile intégré à Roblox. Sur clavier et manette, une ligne au bas de l'écran rappelle la touche de chaque action disponible.
 - U (manette : R3, tactile : bouton UV) : lampe UV, un mode de la lampe. Les marques écrites à l'encre invisible au sol, devant les deux premières statues, s'affichent avec leur texte : elles indiquent l'orientation cible de la statue. Un clic par bascule.
 - Manette : L1 silence, L2 course, B accroupi, Y lampe, R1 lancer, Haut indice. Le bouton d'interaction (X par défaut) est celui des invites.
 - Lisibilité : les textes se règlent à la taille de l'écran (bornes 13 à 22) et les largeurs sont relatives à l'écran. L'inventaire est en haut à droite : souvenirs, documents, petite clé, clé de la cave, clé rouillée.

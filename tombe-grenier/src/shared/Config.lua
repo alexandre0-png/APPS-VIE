@@ -133,7 +133,7 @@ Config.Quests = {
 }
 
 Config.Throw = {
-	Charges = 3,             -- jets de bruit par vie (un objet lancé fait du bruit au point d'impact)
+	Charges = 0,             -- lancers au départ : il faut ramasser des cailloux (un caillou = un lancer)
 	Cooldown = 3,            -- secondes entre deux jets
 	Range = 40,              -- portée maximale en studs
 }

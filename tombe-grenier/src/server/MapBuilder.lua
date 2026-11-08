@@ -33,6 +33,10 @@ local lamps = {}
 -- Pièces plongées dans le noir pour la partie en cours : { [roomId] = true }
 local darkRooms = {}
 
+-- Pièces fermées par une énigme : pas de cailloux dedans
+local CLOSED_ROOMS = { sdb = true, bureau = true, cha = true, sdb2 = true, cel = true }
+local PEBBLE_COUNT = 4
+
 local MATERIALS = {
 	carrelage   = { color = Color3.fromRGB(150, 150, 145), material = Enum.Material.Marble,
 	                tex = "17429425079", faces = { Enum.NormalId.Top }, tile = 6 },
@@ -578,6 +582,22 @@ function MapBuilder.placeRound(seed)
 	for _, slot in ipairs(pick(rng, slots.battery, 3)) do
 		makeVisible(round, slot.pos, slot.size, "Pile " .. slot.name,
 			Color3.fromRGB(70, 110, 170), Enum.Material.SmoothPlastic, "Battery")
+	end
+
+	-- Cailloux au sol, dans les pièces ouvertes : de quoi lancer (un caillou par lancer)
+	local open = {}
+	for _, r in ipairs(Data.rooms) do
+		if not CLOSED_ROOMS[r.id] and r.level ~= "basement" then
+			table.insert(open, r)
+		end
+	end
+	for _ = 1, PEBBLE_COUNT do
+		local r = open[rng:int(1, #open)]
+		local x, z = rng:range(r.x0 + 1.5, r.x1 - 1.5), rng:range(r.z0 + 1.5, r.z1 - 1.5)
+		if not (x > Data.stair[1] - 2 and x < Data.stair[3] + 2 and z > Data.stair[2] - 2 and z < Data.stair[4] + 2) then
+			makeVisible(round, { x, Data.base[r.level] + 0.2, z }, { 0.5, 0.4, 0.5 }, "Caillou",
+				Color3.fromRGB(105, 100, 96), Enum.Material.Slate, "Throwable")
+		end
 	end
 
 	-- Objets interactifs : un emplacement par objet
