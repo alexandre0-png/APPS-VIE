@@ -171,5 +171,45 @@ class TestStructure(unittest.TestCase):
         self.assertEqual(bad, [])
 
 
+class TestMapDataFields(unittest.TestCase):
+    def test_every_data_field_read_by_code_exists(self):
+        mapdata = read(os.path.join(SRC, "shared", "MapData.lua"))
+        missing = set()
+        for path in lua_files():
+            for field in re.findall(r"\bData\.(\w+)", read(path)):
+                if not re.search(rf"\b{field} = ", mapdata):
+                    missing.add(f"{os.path.basename(path)}: Data.{field}")
+        self.assertEqual(sorted(missing), [], "champs de MapData lus mais absents")
+
+    def test_every_slot_read_by_code_exists(self):
+        mapdata = read(os.path.join(SRC, "shared", "MapData.lua"))
+        missing = set()
+        for path in lua_files():
+            for field in re.findall(r"slots\.(\w+)", read(path)):
+                if not re.search(rf"\b{field} = ", mapdata):
+                    missing.add(f"{os.path.basename(path)}: slots.{field}")
+        self.assertEqual(sorted(missing), [], "emplacements lus mais absents")
+
+
+class TestSyntax(unittest.TestCase):
+    """Analyseur Lua 5.4 réel (lupa) : nécessite pip install lupa."""
+
+    def test_every_file_parses(self):
+        try:
+            import check_syntax
+        except ImportError:
+            self.skipTest("lupa non installé")
+        import lupa
+        rt = lupa.LuaRuntime(unpack_returned_tuples=True)
+        check_syntax._compile_check = rt.eval(
+            "function(src, name) local fn, err = load(src, name); return fn ~= nil, err or '' end")
+        errors = []
+        for path in lua_files():
+            err = check_syntax.check(path, rt)
+            if err:
+                errors.append(f"{os.path.basename(path)}: {err}")
+        self.assertEqual(errors, [], "erreurs de syntaxe")
+
+
 if __name__ == "__main__":
     unittest.main()

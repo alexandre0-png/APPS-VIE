@@ -33,39 +33,43 @@ local function nearMonster(part)
 	return pos ~= nil and (pos - part.Position).Magnitude < CFG.NearMonsterRange
 end
 
+-- Un cycle de scintillement : allumée, rafales, éteinte
+local function flickerCycle(part, rng, gen)
+	local onTime = rng:range(CFG.OnMin, CFG.OnMax)
+	if nearMonster(part) then
+		onTime = onTime * CFG.NearMonsterOnFactor
+	end
+	setPart(part, true)
+	task.wait(onTime)
+	if generation ~= gen then
+		return
+	end
+
+	for _ = 1, rng:int(CFG.BurstMin, CFG.BurstMax) do
+		setPart(part, false)
+		task.wait(rng:range(CFG.OffMin, CFG.OffMax))
+		setPart(part, true)
+		if rng:next() < 0.3 then
+			Audio.play("lumiere", part, { lifetime = 2 })
+		end
+		task.wait(rng:range(0.05, 0.25))
+		if generation ~= gen then
+			return
+		end
+	end
+
+	setPart(part, false)
+	task.wait(rng:range(CFG.OffMin * 2, CFG.OffMax * 2))
+end
+
 local function runLight(part, rng, gen)
 	while generation == gen and part.Parent do
 		if os.clock() < blackoutUntil then
 			setPart(part, false)
 			task.wait(0.1)
-			continue
+		else
+			flickerCycle(part, rng, gen)
 		end
-
-		local onTime = rng:range(CFG.OnMin, CFG.OnMax)
-		if nearMonster(part) then
-			onTime *= CFG.NearMonsterOnFactor
-		end
-		setPart(part, true)
-		task.wait(onTime)
-		if generation ~= gen then
-			return
-		end
-
-		for _ = 1, rng:int(CFG.BurstMin, CFG.BurstMax) do
-			setPart(part, false)
-			task.wait(rng:range(CFG.OffMin, CFG.OffMax))
-			setPart(part, true)
-			if rng:next() < 0.3 then
-				Audio.play("lumiere", part, { lifetime = 2 })
-			end
-			task.wait(rng:range(0.05, 0.25))
-			if generation ~= gen then
-				return
-			end
-		end
-
-		setPart(part, false)
-		task.wait(rng:range(CFG.OffMin * 2, CFG.OffMax * 2))
 	end
 end
 

@@ -189,7 +189,8 @@ Limite : le mode « Future » ne se règle que dans Studio (Lighting > Technolog
 
 Depuis `tombe-grenier/` :
 - Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (42 tests)
-- Code Luau (modules, remotes, audio, tags, configuration, blocs) : `python3 -m unittest discover -s tools/lua -p "test_*.py" -v` (11 tests)
+- Code Luau (modules, remotes, audio, tags, configuration, champs de la carte, syntaxe Lua 5.4 réelle) : `python3 -m unittest discover -s tools/lua -p "test_*.py" -v` (14 tests ; la syntaxe demande `pip install lupa`)
+- Portée des fonctions locales (appel avant déclaration) : `python3 tools/lua/scope_check.py`
 
 Ces tests ne lancent pas Roblox : ils vérifient la cohérence du code et des données. Le comportement en jeu se valide en Play Test.
 

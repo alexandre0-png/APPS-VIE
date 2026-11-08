@@ -42,7 +42,7 @@ local RECIPES = {
 -- Taille (x, y, z) et apparence de chaque objet générique
 local PROPS = {
 	livre = { size = Vector3.new(0.6, 0.15, 0.9), material = Enum.Material.Fabric, shape = nil },
-	boîte = { size = Vector3.new(1.0, 0.7, 0.8), material = Enum.Material.Cardboard, shape = nil },
+	["boîte"] = { size = Vector3.new(1.0, 0.7, 0.8), material = Enum.Material.Cardboard, shape = nil },
 	bouteille = { size = Vector3.new(1.4, 0.45, 0.45), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
 	assiette = { size = Vector3.new(0.12, 1.0, 1.0), material = Enum.Material.SmoothPlastic, shape = Enum.PartType.Cylinder },
 	vase = { size = Vector3.new(1.0, 0.6, 0.6), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
@@ -52,7 +52,7 @@ local PROPS = {
 
 local COLORS = {
 	livre = { Color3.fromRGB(90, 40, 35), Color3.fromRGB(40, 60, 45), Color3.fromRGB(60, 50, 35) },
-	boîte = { Color3.fromRGB(150, 120, 80), Color3.fromRGB(130, 100, 70) },
+	["boîte"] = { Color3.fromRGB(150, 120, 80), Color3.fromRGB(130, 100, 70) },
 	bouteille = { Color3.fromRGB(60, 80, 60), Color3.fromRGB(90, 60, 40) },
 	assiette = { Color3.fromRGB(230, 225, 215) },
 	vase = { Color3.fromRGB(120, 110, 100) },

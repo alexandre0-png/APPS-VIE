@@ -216,11 +216,17 @@ local function setupDoors()
 				end
 				setDoor(panel, not panel:GetAttribute("Open"))
 			end)
-			-- Le texte suit l'état
-			panel:GetAttributeChangedSignal("Open"):Connect(function()
-				p.ActionText = panel:GetAttribute("Open") and "Fermer" or "Ouvrir"
-			end)
-			p.ActionText = "Fermer"
+			-- Le texte suit l'état. Connexion unique par panneau (la carte peut être reconstruite)
+			if not panel:GetAttribute("TextWired") then
+				panel:SetAttribute("TextWired", true)
+				panel:GetAttributeChangedSignal("Open"):Connect(function()
+					local current = panel:FindFirstChild("PropPrompt")
+					if current then
+						current.ActionText = panel:GetAttribute("Open") and "Fermer" or "Ouvrir"
+					end
+				end)
+			end
+			p.ActionText = panel:GetAttribute("Open") and "Fermer" or "Ouvrir"
 		end
 	end
 end

@@ -28,7 +28,7 @@ pcall(function()
 	Players.MaxPlayers = Config.Game.MaxPlayers
 end)
 
-local round = { seed = 0, ended = false, cycle = 1, active = false, mode = "solo" }
+local round = { seed = 0, ended = false, cycle = 1, active = false, mode = "solo", leaving = false }
 local restartRequested = false
 
 local function alivePlayers()
@@ -91,9 +91,12 @@ local function endRound(reason)
 		waited += 0.5
 	end
 
-	-- Retour au hub : le joueur choisit à nouveau son mode
+	-- Retour au hub. Dans le lieu de jeu, les joueurs quittent ce serveur : rien ne redémarre ici.
 	round.active = false
 	Hub.enter()
+	if Hub.role() == "game" then
+		round.leaving = true
+	end
 end
 
 -- Réseau
@@ -164,15 +167,20 @@ end)
 -- Boucle de partie : attend le choix du mode au hub, puis lance la partie
 task.spawn(function()
 	while true do
-		if not round.active then
+		if not round.active and not round.leaving then
 			local group = Hub.waitForStart()
 			-- Le mode suit le nombre de joueurs : deux joueurs = duo, un seul = solo
 			round.mode = (#group >= 2) and "duo" or "solo"
-			round.active = true
-			if Hub.startGame(group) and Hub.role() == "hub" then
-				-- Les joueurs partent vers le serveur privé : rien à lancer ici
+			local launched = Hub.startGame(group)
+			if Hub.role() == "hub" then
+				-- Le lieu hub ne joue pas : les joueurs partent vers le serveur privé.
+				-- Si ça échoue, on attend avant de réessayer.
 				round.active = false
-			else
+				if not launched then
+					task.wait(5)
+				end
+			elseif launched then
+				round.active = true
 				startRound()
 			end
 		end

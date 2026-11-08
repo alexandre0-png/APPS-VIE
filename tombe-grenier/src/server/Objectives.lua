@@ -95,6 +95,12 @@ function Objectives.setup()
 	keyPrompt = nil
 	for _, part in ipairs(CollectionService:GetTagged("Key")) do
 		if part:IsA("BasePart") then
+			-- La clé est fixe dans la malle : on retire les invites de la partie précédente
+			for _, child in ipairs(part:GetChildren()) do
+				if child:IsA("ProximityPrompt") then
+					child:Destroy()
+				end
+			end
 			keyPrompt = pickable(part, "Clé", function()
 				team.hasKey = true
 				refreshExit()
