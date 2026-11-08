@@ -92,6 +92,7 @@ end
 local HINTS = {
 	photos = "Les souvenirs traînent sur les meubles. Une lampe aide à les voir dans le noir.",
 	note = "Un papier froissé se cache sur une surface plate, près d'un meuble.",
+	reflet = "Un miroir de la maison garde la fin du code. Le texte y est écrit à l'envers.",
 	coffret = "Le coffret à bijoux est posé sur la table de la salle de la tombe.",
 	chest = "La petite clé du coffret ouvre une serrure. Cherche la malle, dans la salle de la tombe.",
 	key = "La clé rouillée est au fond de la malle.",
@@ -160,6 +161,9 @@ local function currentStep()
 	if not state.note then
 		return "note"
 	end
+	if not state.mirrorRead then
+		return "reflet"
+	end
 	if not state.coffret then
 		return "coffret"
 	end
@@ -178,6 +182,9 @@ local OBJECTIVE = {
 	end,
 	note = function()
 		return "Trouve le code caché dans la maison"
+	end,
+	reflet = function()
+		return "Lis les deux derniers chiffres dans un miroir (le texte est à l'envers)"
 	end,
 	coffret = function()
 		return ("Ouvre le coffret à bijoux (code : %s)"):format(state.note and (code:sub(1, 2) .. "??") or "????")
