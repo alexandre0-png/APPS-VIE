@@ -58,6 +58,7 @@ Config.Monster = {
 	FreezeHold = 0.15,               -- durée de gel après un tick de faisceau lumineux
 	StepInterval = 0.6,              -- secondes entre deux pas audibles du monstre
 	SurpriseGap = 8,                 -- secondes sans attaque avant une attaque surprise
+	ScreamCooldown = 20,             -- secondes minimum entre deux cris de capture
 	Tick = 0.1,
 	DirectWalkTimeout = 3,
 	WaypointTimeout = 3,

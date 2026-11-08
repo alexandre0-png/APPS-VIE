@@ -15,7 +15,6 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Rng = require(Shared.Rng)
-local Audio = require(Shared.Audio)
 local Noise = require(script.Parent.Noise)
 
 local CFG = Config.Falling
@@ -86,7 +85,7 @@ local function drop(spot, rng)
 			return
 		end
 		landed = true
-		Audio.play("verre", item, { lifetime = CFG.ItemLifetime })
+		-- Impact silencieux : aucun son métallique retenu. Le bruit ci-dessous attire quand même le monstre.
 		Noise.emit(item.Position, CFG.NoiseStrength)
 		Debris:AddItem(item, CFG.ItemLifetime)
 	end)

@@ -291,7 +291,11 @@ local function tryAttack(m, player)
 	local surprise = clock() - m.lastAttack > CFG.SurpriseGap
 	m.lastAttack = clock()
 	Animations.attack(m.anims, surprise)
-	Audio.play("cri_capture", m.root, { lifetime = 6, range = 80 })
+	-- Cri de capture espacé : au plus un toutes les ScreamCooldown secondes
+	if clock() - m.lastScream >= CFG.ScreamCooldown then
+		m.lastScream = clock()
+		Audio.play("cri_capture", m.root, { lifetime = 6, range = 80 })
+	end
 	hum:TakeDamage(CFG.AttackDamage)
 	PlayerState.addSanity(player, -CFG.SanityHit)
 	Remotes.fire("Effect", player, { kind = "Hit" })
@@ -473,6 +477,7 @@ function MonsterAI.start(activationDelay)
 		lastAttack = -math.huge,
 		lastStep = -math.huge,
 		anims = Animations.load(hum),
+		lastScream = -math.huge,
 		lastSeenTime = now,
 		lastSeenPos = root.Position,
 		searchPos = nil,

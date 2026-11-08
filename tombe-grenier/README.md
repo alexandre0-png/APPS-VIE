@@ -68,7 +68,7 @@ Dans `Config.lua` :
 
 1. **Cercueil** : au spawn, le joueur est en première personne, sans menu ni HUD texte, les mains visibles.
 2. **Lampes** : les `FlickerLight` s'allument et s'éteignent par rafales. Avec la même seed, les séquences sont identiques.
-3. **Chute** : un objet tombe au `FallSpot` avec le son `iron_bar_fall` (si l'asset est renseigné). Jamais deux fois au même point d'affilée.
+3. **Chute** : un objet tombe au `FallSpot` sans son (aucun son métallique retenu). Il attire quand même le monstre. Jamais deux fois au même point d'affilée.
 4. **Monstre, ouïe** : marcher près du monstre, puis sprinter : il s'approche. Ctrl maintenu : il ne réagit qu'à très courte distance.
 5. **Monstre, vue** : se placer dans son cône de vision sans obstacle : passage en Chase. Se cacher derrière un mur : il perd la trace et passe en Search.
 6. **Cachette** : entrer dans une armoire, le joueur est immobile. Le monstre peut le débusquer à moins de 7 studs (le joueur est alors éjecté, avec effet de sursaut).

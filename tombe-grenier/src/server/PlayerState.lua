@@ -129,10 +129,6 @@ function PlayerState.setFlashlight(player, on)
 		on = false
 	end
 	st.flashlightOn = on
-	local head0 = player.Character and player.Character:FindFirstChild("Head")
-	if head0 then
-		Audio.play("lampe", head0, { lifetime = 2 })
-	end
 
 	local char = player.Character
 	local head = char and char:FindFirstChild("Head")
