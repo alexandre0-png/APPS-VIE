@@ -329,6 +329,50 @@ local function readBook(player, book)
 	progressed()
 end
 
+-- Statues : chacune tourne par quarts de tour. Les trois doivent regarder la même cible (tirée par la seed).
+-- Résolue, la cave s'ouvre (la vraie clé est inutile). Le mur qui respire donne alors une pile.
+local statueBase = {}     -- [statue] = CFrame de départ, restauré à chaque partie
+local statueTargets = {}  -- [statue] = orientation cible (0 à 3)
+
+local function chooseStatues(seed)
+	local statues = CollectionService:GetTagged("Statue")
+	table.sort(statues, function(a, b)
+		if a.Position.X ~= b.Position.X then
+			return a.Position.X < b.Position.X
+		end
+		return a.Position.Z < b.Position.Z
+	end)
+	local rng = Rng.new(seed * 23 + 11)
+	statueTargets = {}
+	for _, statue in ipairs(statues) do
+		if not statueBase[statue] then
+			statueBase[statue] = statue.CFrame
+		end
+		statue:SetAttribute("Facing", 0)
+		statue.CFrame = statueBase[statue]
+		statueTargets[statue] = rng:int(0, 3)
+	end
+end
+
+local function turnStatue(player, statue)
+	if state.statuesDone then
+		say(player, "Les statues sont immobiles, figées dans leur position.")
+		return
+	end
+	local facing = (statue:GetAttribute("Facing") + 1) % 4
+	statue:SetAttribute("Facing", facing)
+	statue.CFrame = statueBase[statue] * CFrame.Angles(0, facing * math.pi / 2, 0)
+	for s, target in pairs(statueTargets) do
+		if s:GetAttribute("Facing") ~= target then
+			return
+		end
+	end
+	state.statuesDone = true
+	state.caveKey = true
+	say(player, "Les trois statues se figent, face à la même direction. Un déclic, très loin en bas : la cave est accessible.")
+	progressed()
+end
+
 -- Boîte à musique : une note jouée. Une faute repart de zéro ; la mélodie complète ouvre la salle de bain.
 local function pressNote(player, index)
 	if state.boxDone then
@@ -378,6 +422,35 @@ local function wire()
 				state.mirrorRead = true
 				say(player, "Dans la glace, un texte écrit à l'envers : « " .. code:sub(3, 4):reverse() .. " ». Remets-le dans le bon sens.")
 				progressed()
+			end)
+		end
+	end
+
+	-- Statues : chaque tour compte, la solution est la même orientation pour les trois
+	for _, part in ipairs(CollectionService:GetTagged("Statue")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptStatue", action = "Tourner la statue", object = "Statue ancienne", hold = 0.2, distance = 6 }, function(player)
+				turnStatue(player, part)
+			end)
+		end
+	end
+
+	-- Mur qui respire : une fois les statues résolues, il livre une pile
+	for _, part in ipairs(CollectionService:GetTagged("Respire")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptRespire", action = "Poser la main sur le mur", object = "Mur", hold = 0.5, distance = 5 }, function(player)
+				if not state.statuesDone then
+					say(player, "Le mur est froid et immobile. Rien ne se passe.")
+					return
+				end
+				if state.breathed then
+					say(player, "Le mur ne respire plus.")
+					return
+				end
+				state.breathed = true
+				PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
+				PlayerState.addSanity(player, -15)
+				say(player, "Le mur respire, lentement. Une chaleur, puis un battement sous le plâtre. Une pile tombe d'une fente.")
 			end)
 		end
 	end
@@ -717,6 +790,9 @@ function Quests.setup(seed, cycleNumber)
 	state.nextMark = 1
 	bookReads = {}
 	chooseBookMarks(seed)
+	state.statuesDone = false
+	state.breathed = false
+	chooseStatues(seed)
 	melody = melodyFromSeed(seed)
 	local dateRng = Rng.new(seed * 17 + 3)
 	local month = dateRng:int(1, 12)

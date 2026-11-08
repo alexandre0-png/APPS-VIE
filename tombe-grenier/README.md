@@ -120,6 +120,8 @@ Chaîne parallèle, vers la fin « vérité » :
 - Libérer l'enfant au cercueil une fois les 4 documents lus. Un clavier demande la date de la plaque en quatre chiffres (mois puis jour, par exemple `0314`).
 - Le gramophone donne une mélodie de trois notes (do, ré, mi, sol), tirée à chaque partie. La boîte à musique se joue note par note : une faute repart de zéro, la mélodie complète ouvre la salle de bain.
 - Bibliothèque (autre chemin vers la petite clé, donc vers la malle) : trois livres parmi ceux des bibliothèques portent un marque-page numéroté 1, 2, 3, tirés à chaque partie. Les feuilleter dans l'ordre 1, 2, 3 donne la petite clé. Une faute repart de zéro.
+- Statues (une dans chacune des trois pièces du rez-de-chaussée : salon, cuisine, salle à manger) : chacune se tourne par quarts de tour. Les trois doivent regarder la même direction, tirée à chaque partie. Résolues, elles ouvrent la cave, sans la vraie clé.
+- Mur qui respire (côté salon du hall) : une fois les statues résolues, le toucher donne une pile et fait perdre 15 de sanité. Avant, il ne se passe rien.
 
 Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Fin 1, la fuite : sortie par la porte d'entrée.
@@ -195,7 +197,7 @@ Limite : le mode « Future » ne se règle que dans Studio (Lighting > Technolog
 ## Tests
 
 Depuis `tombe-grenier/` :
-- Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (47 tests)
+- Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (49 tests)
 - Code Luau (modules, remotes, audio, tags, configuration, champs de la carte, syntaxe Lua 5.4 réelle) : `python3 -m unittest discover -s tools/lua -p "test_*.py" -v` (14 tests ; la syntaxe demande `pip install lupa`)
 - Portée des fonctions locales (appel avant déclaration) : `python3 tools/lua/scope_check.py`
 
@@ -228,8 +230,9 @@ Dans `Config.lua` :
 6. **Cachette** : entrer dans une armoire, le joueur est immobile. Le monstre peut le débusquer à moins de 7 studs (le joueur est alors éjecté, avec effet de sursaut).
 7. **Lampe** : éclairer le monstre : il se fige tant que le faisceau le touche, et reprend quand on tourne le dos.
 8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Ouvrir la trappe : fin 1, retour au cercueil après `EndScreenTime`.
-8bis. **Fin 3** : lire les 4 documents, puis libérer l'enfant au cercueil.
-9. **Défaite** : tous les joueurs morts pendant 5 s : message de défaite, nouvelle partie.
+8bis. **Fin 3** : lire les 4 documents, recouper la date (journal et plaque), puis libérer l'enfant au cercueil et saisir la date au clavier.
+8ter. **Statues et mur** : tourner les trois statues jusqu'à ce qu'elles regardent toutes dans la même direction ; la cave s'ouvre. Toucher le mur : une pile, une baisse de sanité.
+9. **Mort** : réapparition au dernier point d'avancée. En duo, réanimer le joueur au sol (maintien de 3 s, 40 s de fenêtre). La fin 2 se déclenche seulement par le choix au cercueil.
 10. **Coopération** : deux clients en test serveur (Test > Players = 2). Les photos ramassées par l'un disparaissent pour l'autre, la progression est commune.
 11. **Asset manquant** : ne pas renseigner un son. La sortie Output affiche un warning une seule fois, sans erreur.
 

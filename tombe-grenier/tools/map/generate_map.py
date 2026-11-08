@@ -620,6 +620,70 @@ DECOR = [
 ]
 
 
+STATUE_ROOMS = ("salon", "cuis", "sam")   # trois statues, une par pièce du rez-de-chaussée
+STATUE_HEIGHT = 2.2
+BREATH_PANEL = (38.4, 34.5, 39.4, 37.5)   # panneau du mur qui respire (côté salon du mur du hall)
+
+
+def _clear(x0, z0, x1, z1, y0, y1, margin=0.8):
+    """Vrai si la boîte ne touche aucun meuble (y compris la marge)."""
+    for b in furniture_boxes():
+        if b["y1"] <= y0 or b["y0"] >= y1:
+            continue
+        if b["x1"] + margin <= x0 or b["x0"] - margin >= x1:
+            continue
+        if b["z1"] + margin <= z0 or b["z0"] - margin >= z1:
+            continue
+        return False
+    return True
+
+
+def _near_door(level, x, z, dist=3.0):
+    import math
+    for d in DOORS:
+        if d["level"] != level:
+            continue
+        cx, cz = (d["line"], d["c"]) if d["orient"] == "v" else (d["c"], d["line"])
+        if math.hypot(x - cx, z - cz) < dist + d["w"] / 2:
+            return True
+    return False
+
+
+def _in_stair(x, z, m=2.0):
+    x0, z0, x1, z1 = STAIR
+    return x0 - m < x < x1 + m and z0 - m < z < z1 + m
+
+
+def _ground_spot(rid, half, height):
+    """Premier emplacement libre au sol dans la pièce : sans meuble, sans porte, hors escalier."""
+    rect = next(r for r in ROOMS if r[0] == rid)[2]
+    rx0, rz0, rx1, rz1 = rect
+    x = rx0 + 2.0
+    while x <= rx1 - 2.0:
+        z = rz0 + 2.0
+        while z <= rz1 - 2.0:
+            if (not _in_stair(x, z) and not _near_door("ground", x, z)
+                    and _clear(x - half, z - half, x + half, z + half, 0, height)):
+                return (x, z)
+            z += 0.5
+        x += 0.5
+    raise RuntimeError(f"pas de place libre pour une statue dans {rid}")
+
+
+def puzzle_props():
+    """Statues (énigme de la pièce du rez-de-chaussée) et mur qui respire (sensation, récompense)."""
+    out = []
+    for rid in STATUE_ROOMS:
+        x, z = _ground_spot(rid, 0.5, STATUE_HEIGHT)
+        out.append(dict(tag="Statue", name="statue ancienne " + rid, pos=(x, STATUE_HEIGHT / 2, z), size=(1, STATUE_HEIGHT, 1)))
+    x0, z0, x1, z1 = BREATH_PANEL
+    if not _clear(x0, z0, x1, z1, 0, 3, margin=0.2):
+        raise RuntimeError("le panneau du mur qui respire touche un meuble")
+    out.append(dict(tag="Respire", name="mur qui respire", pos=((x0 + x1) / 2, 1.5, (z0 + z1) / 2),
+                    size=(x1 - x0, 3, z1 - z0)))
+    return out
+
+
 def build_props():
     props = []
     # Repères de patrouille : centre de chaque pièce et de chaque porte intérieure
@@ -676,6 +740,7 @@ def build_props():
     inv.append(dict(name="clôture est", x0=179.5, x1=180.5, z0=-60, z1=150, y0=-1, y1=30))
     inv.append(dict(name="portail", x0=55, x1=65, z0=149.5, z1=150.5, y0=-1, y1=30, puzzle="portail"))
     inv.append(dict(name="grille sud", x0=79.5, x1=80.5, z0=43, z1=47, y0=-12, y1=-1, puzzle="grille"))
+    props += puzzle_props()
     return props, inv
 
 

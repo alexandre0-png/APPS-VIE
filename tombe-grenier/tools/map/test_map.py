@@ -263,12 +263,25 @@ class TestTags(unittest.TestCase):
     def count(self, tag):
         return sum(1 for p in DATA["props"] if p["tag"] == tag)
 
+    def props_with(self, tag):
+        return [p for p in DATA["props"] if p["tag"] == tag]
+
     def test_fixed_tags(self):
         self.assertGreaterEqual(self.count("Waypoint"), 8)
         self.assertEqual(self.count("ExitDoor"), 1)
         for tag in ("Coffret", "Plaque", "Key"):
             self.assertEqual(self.count(tag), 1, tag)
         self.assertEqual(self.count("Lamp"), len(gm.ROOMS))
+
+    def test_three_statues_and_one_breathing_wall(self):
+        self.assertEqual(self.count("Statue"), 3)
+        self.assertEqual(self.count("Respire"), 1)
+
+    def test_statues_are_free_standing_and_clear_of_doors(self):
+        for p in self.props_with("Statue"):
+            x, _, z = p["pos"]
+            self.assertFalse(gm._near_door("ground", x, z), p["name"])
+            self.assertTrue(gm._clear(x - 0.5, z - 0.5, x + 0.5, z + 0.5, 0, gm.STATUE_HEIGHT, margin=0.3), p["name"])
 
     def test_one_lamp_per_room_at_room_centre(self):
         lamps = [p for p in DATA["props"] if p["tag"] == "Lamp"]

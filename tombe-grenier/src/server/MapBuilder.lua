@@ -273,6 +273,15 @@ local function buildHouse(root)
 		elseif p.tag == "Coffret" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
+		elseif p.tag == "Statue" then
+			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(190, 185, 175), Enum.Material.Marble, "Statue")
+		elseif p.tag == "Respire" then
+			-- Panneau du mur qui respire : presque invisible, sa zone sert à l'interaction
+			local panel = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(70, 60, 60), Enum.Material.Slate, "Respire")
+			panel.Transparency = 0.85
 		elseif p.tag == "Plaque" then
 			local plaque = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(150, 140, 120), Enum.Material.Metal, "Interactable")
