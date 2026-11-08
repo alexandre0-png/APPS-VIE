@@ -100,7 +100,8 @@ Non codé :
 - Rideaux : ils bougent alors que les fenêtres sont fermées (il n'y a pas de fenêtres dans la carte).
 - Porte métallique de la cave : une des trois clés posées (les deux autres sont fausses) l'ouvre. Elle libère le passage sud, où se trouve un cahier.
 - Crise de la cave : à l'ouverture de la porte, le monstre se lance sur celui qui a ouvert, et une personne gémit au fond. « Sauver la personne » (maintien de 3 s près de la porte) sauve la personne ; la partie continue normalement. Une mort dans la cave ramène au jardin.
-- Portail du jardin : c'est une limite visuelle et physique, sans énigme. Le jeu se termine dans la maison, donc le jardin n'est pas nécessaire à la progression.
+- Trappes : celle au pied de l'escalier du sous-sol, dans la maison, ne s'ouvre pas (« une porte est peut-être dehors »). Le sous-sol se visite par la porte extérieure, au pied du mur sud. Celle au sommet de l'escalier du grenier reste fermée jusqu'à l'ouverture de la malle.
+- Portail du jardin : il se franchit (voir fin 1). Hors de la maison, la clôture resserrée limite les déplacements.
 - Voix lointaine « Tu n'aurais jamais dû revenir ici… » : pas d'asset audio dans la banque.
 - Cri de corneille de la fin 1 : pas d'asset audio.
 - Dessins au mur de la chambre d'enfant : décor à ajouter dans Studio.
@@ -114,7 +115,7 @@ Chaîne principale, vers la sortie :
 2. Trouver le papier du code (un des 5 emplacements). Le papier ne donne que les deux premiers chiffres. Les deux derniers sont dans un miroir, écrits à l'envers : il faut les remettre dans le bon sens. Le code change à chaque partie.
 3. Ouvrir le coffret à bijoux (table de la salle de la tombe) avec le code complet. Il contient une petite clé.
 4. Ouvrir la malle (salle de la tombe) avec la petite clé. Elle contient la clé rouillée de la sortie.
-5. Sortir par la porte d'entrée (photos et clé en main) : on arrive dans le jardin. Le portail, au fond de l'allée, se franchit : la poursuite commence, et ce qui est rattrapé revient au cercueil de départ (`Config.Exit.CatchDelay` secondes après le portail).
+5. Sortir par la porte d'entrée (photos et clé en main) : on arrive dans le jardin, où une cinématique montre le monstre qui cogne à la porte. Deux choix : rester et descendre par la porte du sous-sol (au pied du mur sud, extérieure, avec l'escalier du jardin), où l'on entend les cris ; ou franchir le portail au fond de l'allée.
 
 Chaîne parallèle, vers la fin « vérité » :
 - Lire les 4 documents (journal, cahier d'écolier, photo de famille, plaque du cercueil). Chacun a 2 à 3 emplacements.
@@ -128,7 +129,7 @@ Chaîne parallèle, vers la fin « vérité » :
 - Mannequin (couloir, à l'étage) : buste de couturière construit en primitives, sans modèle. Quand un joueur s'approche à moins de 5 studs, il pivote vers lui une fois par partie, avec un sursaut à l'écran. L'examen donne un détail de décor.
 
 Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
-- Fin 1, la fuite : franchir le portail. Le monstre rattrape le joueur (cercueil de départ) ; la partie ne se termine pas sur la fuite.
+- Fin 1, la fuite : franchir le portail. Le monstre disparaît ; il réapparaît quand les joueurs atteignent la cave, et descend l'escalier extérieur vers eux. La partie ne se termine pas sur la fuite.
 - Fin 2, la malédiction : déclenchée par un choix au cercueil (une fois la malle ouverte, invite « Refermer le cercueil », maintien de 2 s), ou quand plus personne n'est debout après avoir épuisé ses vies.
 - Vies : chaque joueur en a trois par partie (`Config.Player.Lives`). Une mort en coûte une. Avec une vie restante, le joueur réapparaît après `Config.Respawn.Delay` secondes, au dernier point d'avancée (près de la malle ouverte, sinon du coffret ouvert, sinon du cercueil). En duo, si l'autre joueur est vivant, le joueur mort reste au sol et peut être réanimé en maintenant « Réanimer » (`Config.Revive.Hold`) pendant `Config.Revive.Window` secondes. Sans vie, le joueur est hors jeu ; l'autre peut encore le réanimer, et il revient avec une vie.
 - Indication : la touche H affiche en bas à gauche l'indication de l'étape courante. Un délai de `Config.Quests.HintCooldown` secondes s'applique entre deux demandes.
@@ -248,7 +249,7 @@ Dans `Config.lua` :
 5. **Monstre, vue** : se placer dans son cône de vision sans obstacle : passage en Chase. Se cacher derrière un mur : il perd la trace et passe en Search.
 6. **Cachette** : entrer dans une armoire, le joueur est immobile. Le monstre peut le débusquer à moins de 7 studs (le joueur est alors éjecté, avec effet de sursaut).
 7. **Lampe** : éclairer le monstre : il se fige tant que le faisceau le touche, et reprend quand on tourne le dos.
-8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Sortir par la porte d'entrée : on arrive dans le jardin. Franchir le portail lance la poursuite (fin 1 par la fuite, voir ci-dessus).
+8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Sortir par la porte d'entrée : on arrive dans le jardin. Rester (cave) ou franchir le portail (fin 1 par la fuite, voir ci-dessus).
 8bis. **Fin 3** : lire les 4 documents, recouper la date (journal et plaque), puis libérer l'enfant au cercueil et saisir la date au clavier.
 8ter. **Statues et mur** : tourner les trois statues jusqu'à ce qu'elles regardent toutes dans la même direction ; la cave s'ouvre. Toucher le mur : une pile, une baisse de sanité.
 9. **Mort** : trois vies par joueur. Une mort coûte une vie ; réapparition au dernier point d'avancée. En duo, réanimer le joueur au sol (maintien de 3 s, 40 s de fenêtre). Sans vie, hors jeu. Si plus personne n'est debout, fin 2.

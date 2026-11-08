@@ -72,6 +72,7 @@ DOORS = [
     dict(level="basement", orient="v", line=40, c=22, w=DOOR_W),
     dict(level="basement", orient="v", line=40, c=67, w=DOOR_W, lock="cellier"),
     dict(level="basement", orient="h", line=44, c=20, w=DOOR_W, lock="cellier"),
+    dict(level="basement", orient="h", line=90, c=103, w=DOOR_W),   # porte extérieure : accès par le jardin
     dict(level="basement", orient="v", line=80, c=45, w=DOOR_W, puzzle="grille"),
     # Rez-de-chaussée
     dict(level="ground", orient="v", line=40, c=22, w=DOOR_W),
@@ -767,21 +768,32 @@ def build_props():
     inv.append(dict(name="portail", x0=55, x1=65, z0=149.5, z1=150.5, y0=-1, y1=30, puzzle="portail"))
     inv.append(dict(name="grille sud", x0=79.5, x1=80.5, z0=43, z1=47, y0=-12, y1=-1, puzzle="grille"))
     props += puzzle_props()
+    # Trappe au pied de l'escalier du sous-sol, dans la maison : elle ne s'ouvre pas
+    props.append(dict(tag="Trappe", name="trappe de la cave (intérieur)", pos=(54, 1.25, 9.5), size=(8, 2.5, 2)))
+    # Trappe au sommet de l'escalier du grenier : fermée tant que la malle n'est pas ouverte
+    props.append(dict(tag="TrappeGrenier", name="trappe du grenier", pos=(54, 25.25, 9.5), size=(8, 2.5, 2)))
     return props, inv
 
 
 def garden():
     plates = [
         box(-8, 128, -1, 0, -8, 0, "herbe", "pelouse nord"),
-        box(-8, 128, -1, 0, 90, 150, "herbe", "pelouse sud"),
+        box(-8, 100, -1, 0, 90, 150, "herbe", "pelouse sud ouest"),
+        box(106, 128, -1, 0, 90, 150, "herbe", "pelouse sud est"),
+        box(100, 106, -1, 0, 104, 150, "herbe", "pelouse sud centre"),
         box(-8, 0, -1, 0, 0, 90, "herbe", "pelouse ouest"),
         box(120, 128, -1, 0, 0, 90, "herbe", "pelouse est"),
     ]
     path = [box(55, 65, -0.4, 0, 90, 150, "pierre", "allée")]
+    # Escalier extérieur qui descend au sous-sol par la porte du mur sud (x 100..106, z 90..104)
+    steps = []
+    for k in range(12):
+        steps.append(box(100, 106, -12, -(k + 1), 104 - (k + 1), 104 - k, "pierre", "marche extérieure"))
+    steps.append(box(100, 106, -13, -12, 90, 92, "pierre", "palier extérieur"))
     trees = []
     for x, z in GARDEN_TREES:
         trees.append(dict(x=x, z=z))
-    return plates, path, trees
+    return plates, path, trees, steps
 
 
 # ----------------------------------------------------------------------------
@@ -814,11 +826,11 @@ def build():
         slabs += floor_slabs(lv)
     slabs += roof()
     props, inv = build_props()
-    plates, path, trees = garden()
+    plates, path, trees, garden_steps = garden()
     return dict(
         walls=walls, slabs=slabs, steps=stair_steps(), furniture=furniture_boxes(),
         decor=DECOR, hiding=hiding_spots(), props=props, invisible=inv,
-        garden=dict(plates=plates, path=path, trees=trees),
+        garden=dict(plates=plates, path=path, trees=trees, steps=garden_steps),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),
         slots=dict(photo=_open_pool(PHOTO_SLOTS), note=_open_pool(NOTE_SLOTS), decoy=DECOY_KEY_SLOTS, bathkey=BATH_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
                    monster=SPAWN_SLOTS, interactable={k: _open_pool(v) for k, v in INTERACTABLE_SLOTS.items()},

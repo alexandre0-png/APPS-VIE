@@ -268,6 +268,27 @@ local function flashback(player, kind)
 	Remotes.fire("Flashback", player, { kind = kind })
 end
 
+-- Trappe du grenier : elle s'ouvre quand la malle l'est. Elle se referme au début de chaque partie.
+local atticHatchBase = {} -- [trappe] = CanCollide d'origine (toujours true)
+
+local function openAtticHatch()
+	for _, hatch in ipairs(CollectionService:GetTagged("TrappeGrenier")) do
+		if hatch:IsA("BasePart") then
+			hatch.CanCollide = false
+			TweenService:Create(hatch, TweenInfo.new(1), { Transparency = 1 }):Play()
+		end
+	end
+end
+
+local function closeAtticHatch()
+	for _, hatch in ipairs(CollectionService:GetTagged("TrappeGrenier")) do
+		if hatch:IsA("BasePart") then
+			hatch.CanCollide = true
+			hatch.Transparency = 0
+		end
+	end
+end
+
 -- Mélodie du gramophone, date de la plaque et notes de la boîte à musique : tirées de la seed
 local NOTE_NAMES = { "do", "ré", "mi", "sol" }
 local melody = {}
@@ -651,6 +672,7 @@ local function wire()
 					return
 				end
 				state.chest = true
+				openAtticHatch()
 				Objectives.unlockKey()
 				if Quests.onChestOpened then
 					Quests.onChestOpened(player)
@@ -805,6 +827,28 @@ local function wire()
 				state.saved = true
 				say(player, "Tu la tires vers la lumière. Elle murmure un prénom.")
 				progressed()
+			end)
+		end
+	end
+
+	-- Trappe au pied de l'escalier du sous-sol, côté maison : elle ne s'ouvre pas
+	for _, part in ipairs(CollectionService:GetTagged("Trappe")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptTrappe", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
+				say(player, "Une porte est peut-être dehors.")
+			end)
+		end
+	end
+
+	-- Trappe du grenier : fermée tant que la malle n'est pas ouverte
+	for _, part in ipairs(CollectionService:GetTagged("TrappeGrenier")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptTrappeGrenier", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
+				if state.chest then
+					say(player, "La trappe est ouverte. L'escalier descend vers le premier étage.")
+				else
+					say(player, "La trappe ne cède pas. Quelque chose la retient, de l'autre côté de la malle.")
+				end
 			end)
 		end
 	end
@@ -986,6 +1030,7 @@ function Quests.setup(seed)
 	state.statuesDone = false
 	state.breathed = false
 	state.paintingDown = false
+	closeAtticHatch()
 	for part, base in pairs(paintingBase) do
 		if part.Parent then
 			part.Position = base
@@ -1054,7 +1099,8 @@ function Quests.onFrontDoor(player)
 		return
 	end
 	state.outside = true
-	say(player, "Tu franchis la porte. Le jardin s'étend devant toi, silencieux. Le portail est au fond, dans l'allée.")
+	Remotes.fire("Effect", player, { kind = "Cine", name = "jardin" })
+	say(player, "Tu franchis la porte. Le jardin est silencieux. Des cris étouffés viennent d'en bas, du côté de la maison. Au fond de l'allée, le portail.")
 	progressed()
 end
 

@@ -193,16 +193,22 @@ Objectives.init(function(player)
 	Quests.onFrontDoor(player)
 end)
 
--- Portail franchi : la poursuite commence, et ce qui est rattrapé retourne au cercueil
-Quests.onGate = function(player)
-	for _, p in ipairs(Players:GetPlayers()) do
-		MonsterAI.forceChase(p)
-	end
-	task.delay(Config.Exit.CatchDelay, function()
-		for _, p in ipairs(Players:GetPlayers()) do
-			local hum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
-			if hum and hum.Health > 0 then
-				hum.Health = 0
+-- Portail franchi (fuite) : le monstre disparaît. Il réapparaît quand les joueurs atteignent la cave,
+-- et descend l'escalier extérieur vers eux.
+local monsterReturning = false
+Quests.onGate = function()
+	MonsterAI.vanish()
+	monsterReturning = true
+	task.spawn(function()
+		while monsterReturning and round.active and not round.ended do
+			task.wait(1)
+			for _, p in ipairs(Players:GetPlayers()) do
+				local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+				if root and root.Position.Y < -4 then
+					monsterReturning = false
+					MonsterAI.reappear(Vector3.new(103, 0, 106), p)
+					return
+				end
 			end
 		end
 	end)

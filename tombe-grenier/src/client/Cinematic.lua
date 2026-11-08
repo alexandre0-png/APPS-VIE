@@ -55,6 +55,22 @@ local SHOTS = {
 			{ from = { 105, 22, 170 }, look = { 60, 30, 30 }, t = 4 },
 		},
 	},
+	-- Dans le jardin : on se retourne vers la porte, le monstre cogne et sort de la maison
+	jardin = {
+		plans = {
+			{ from = { 60, 5, 128 }, look = { 60, 4, 90 }, t = 3 },
+			{
+				from = { 66, 4, 116 },
+				look = function()
+					local monster = workspace:FindFirstChild("Monster")
+					local root = monster and monster:FindFirstChild("HumanoidRootPart")
+					return root and root.Position or Vector3.new(60, 4, 90)
+				end,
+				t = 2.5,
+				shake = true,
+			},
+		},
+	},
 	-- Fin 3, la vérité : la lumière monte du cercueil vers le ciel
 	truth = {
 		plans = {

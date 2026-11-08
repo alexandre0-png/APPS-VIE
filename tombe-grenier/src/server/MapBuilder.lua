@@ -288,6 +288,12 @@ local function buildHouse(root)
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(190, 185, 175), Enum.Material.Marble, "Statue")
+		elseif p.tag == "Trappe" or p.tag == "TrappeGrenier" then
+			-- Trappe pleine : elle bloque le passage tant qu'elle n'est pas ouverte (Quests)
+			local hatch = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(78, 56, 38), Enum.Material.Wood, p.tag)
+			hatch.CanCollide = true
+			hatch.Transparency = 0
 		elseif p.tag == "Respire" then
 			-- Panneau du mur qui respire : presque invisible, sa zone sert à l'interaction
 			local panel = makeVisible(folders.Props, p.pos, p.size, p.name,
@@ -338,6 +344,10 @@ local function buildGarden(root)
 		makeBox(garden, p, p.mat, p.name)
 	end
 	for _, p in ipairs(Data.garden.path) do
+		makeBox(garden, p, p.mat, p.name)
+	end
+	-- Escalier extérieur qui descend au sous-sol
+	for _, p in ipairs(Data.garden.steps or {}) do
 		makeBox(garden, p, p.mat, p.name)
 	end
 	for _, t in ipairs(Data.garden.trees) do

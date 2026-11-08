@@ -555,7 +555,8 @@ local function run(m)
 		updateLocomotion(m)
 		openNearbyDoor(m)
 		Workspace:SetAttribute("MonsterAt", m.root.Position)
-		if paused(m) then
+		-- Hors de la carte (après une fuite par le portail) : il ne perçoit rien et ne bouge pas
+		if m.hidden or paused(m) then
 			m.hum:MoveTo(m.root.Position)
 		else
 			local player, kind, pos = perceive(m)
@@ -654,6 +655,39 @@ function MonsterAI.stop()
 end
 
 -- Séquence scénarisée : le monstre fixe le joueur deux secondes, puis court vers lui
+-- Le monstre disparaît : il quitte la carte (il reste en place, sans réagir, jusqu'à MonsterAI.reappear)
+function MonsterAI.vanish()
+	if not current or not current.alive then
+		return
+	end
+	local m = current
+	m.hidden = true
+	setState(m, "Patrol")
+	if m.model and m.model:IsA("Model") then
+		m.model:PivotTo(CFrame.new(0, -500, 0))
+	else
+		m.root.CFrame = CFrame.new(0, -500, 0)
+	end
+end
+
+-- Le monstre réapparaît à une position (par exemple en haut de l'escalier extérieur) et poursuit le joueur
+function MonsterAI.reappear(pos, player)
+	if not current or not current.alive then
+		return
+	end
+	local m = current
+	m.hidden = false
+	if m.model and m.model:IsA("Model") then
+		m.model:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
+	else
+		m.root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+	end
+	m.root.AssemblyLinearVelocity = Vector3.zero
+	if player then
+		MonsterAI.forceChase(player)
+	end
+end
+
 function MonsterAI.forceChase(player)
 	if not current or not current.alive then
 		return
