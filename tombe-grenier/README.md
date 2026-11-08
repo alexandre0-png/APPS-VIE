@@ -202,6 +202,7 @@ Depuis `tombe-grenier/` :
 - Carte (géométrie, accessibilité, emplacements, décor, verrous) : `python3 -m unittest discover -s tools/map -p "test_*.py" -v` (49 tests)
 - Code Luau (modules, remotes, audio, tags, configuration, champs de la carte, syntaxe Lua 5.4 réelle) : `python3 -m unittest discover -s tools/lua -p "test_*.py" -v` (14 tests ; la syntaxe demande `pip install lupa`)
 - Portée des fonctions locales (appel avant déclaration) : `python3 tools/lua/scope_check.py`
+- Énigmes exécutées dans un faux environnement Roblox (Lua 5.4 via lupa, `tools/lua/sim/`) : code et miroir, mélodie, bibliothèque, statues, mur, date de la plaque, fin vérité, 60 graines. Lancer : `python3 -m unittest discover -s tools/lua/sim -p "test_*.py" -v`. Ce n'est pas Roblox : les services et les invites sont simulés.
 
 Ces tests ne lancent pas Roblox : ils vérifient la cohérence du code et des données. Le comportement en jeu se valide en Play Test.
 
