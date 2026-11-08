@@ -1,9 +1,10 @@
 --[[
-  Hub : salon d'attente avant chaque partie, à l'écart de la maison.
-  Deux bornes : « Solo » lance la partie tout de suite ; « Duo » attend un second joueur
-  pendant Config.Game.DuoWait secondes, sinon la partie démarre en solo.
-  Les joueurs qui ne font pas partie de la partie restent dans le hub.
-  Le cercueil et le hub sont des points d'apparition : un seul est actif à la fois.
+  Hub : salon d'attente commun à tous les joueurs, à l'écart de la maison.
+  Une borne « Lancer la partie » démarre la partie ; sans borne, elle démarre après
+  Config.Game.HubWait secondes à partir de l'arrivée du premier joueur.
+  Tous les joueurs présents au hub sont téléportés dans le cercueil du grenier.
+  Après une fin, tout le monde est téléporté de nouveau au hub.
+  Le hub et le cercueil ne sont jamais des points d'apparition actifs en même temps.
 ]]
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -16,18 +17,37 @@ local Hub = {}
 
 local CENTER = Vector3.new(300, 0, 300) -- loin de la maison et de la clôture
 local folder = nil
-local soloChoice = {}  -- [player] = true
-local duoChoice = {}   -- [player] = instant du choix
+local launchRequested = false
+
+local function coffinSpawn()
+	local root = Workspace:FindFirstChild("TombeMap")
+	return root and root:FindFirstChild("CercueilSpawn")
+end
 
 local function setSpawns(hubOn)
-	local root = Workspace:FindFirstChild("TombeMap")
-	local cercueil = root and root:FindFirstChild("CercueilSpawn")
+	local cercueil = coffinSpawn()
 	local hubSpawn = folder and folder:FindFirstChild("HubSpawn")
 	if cercueil then
 		cercueil.Enabled = not hubOn
 	end
 	if hubSpawn then
 		hubSpawn.Enabled = hubOn
+	end
+end
+
+-- Téléporte un joueur à la position cf ; s'il n'a pas de personnage, il en reçoit un au bon endroit
+local function teleport(player, cf)
+	local char = player.Character
+	if char then
+		char:PivotTo(cf)
+	else
+		task.spawn(function()
+			player:LoadCharacter()
+			local newChar = player.Character
+			if newChar then
+				newChar:PivotTo(cf)
+			end
+		end)
 	end
 end
 
@@ -90,82 +110,52 @@ function Hub.build()
 	light.Color = Color3.fromRGB(255, 220, 160)
 	light.Parent = lamp
 
-	makePad("Borne Solo", CENTER + Vector3.new(-12, 0.5, 0), Color3.fromRGB(120, 180, 140), "Jouer en solo",
-		function(player)
-			soloChoice[player] = true
-		end)
-	makePad("Borne Duo", CENTER + Vector3.new(12, 0.5, 0), Color3.fromRGB(140, 120, 180), "Jouer en duo",
-		function(player)
-			duoChoice[player] = os.clock()
+	makePad("Borne Lancer", CENTER + Vector3.new(0, 0.5, 12), Color3.fromRGB(180, 140, 90), "Lancer la partie",
+		function()
+			launchRequested = true
 		end)
 
 	setSpawns(true)
 end
 
--- Renvoie tout le monde au hub, et remet les choix à zéro
+-- Tous les joueurs au hub
 function Hub.enter()
-	soloChoice = {}
-	duoChoice = {}
+	launchRequested = false
 	setSpawns(true)
+	local spawnPart = folder and folder:FindFirstChild("HubSpawn")
+	local cf = spawnPart and (spawnPart.CFrame + Vector3.new(0, 3, 0)) or CFrame.new(CENTER + Vector3.new(0, 4, 0))
 	for _, player in ipairs(Players:GetPlayers()) do
-		task.spawn(function()
-			player:LoadCharacter()
-		end)
+		teleport(player, cf)
 	end
 end
 
--- Bloque jusqu'au choix : retourne le mode ("solo" ou "duo") et les joueurs concernés
-function Hub.waitForMode()
+-- Bloque jusqu'au lancement : la borne, ou le délai après l'arrivée du premier joueur
+-- Retourne la liste des joueurs présents au hub
+function Hub.waitForStart()
+	local firstSeen = nil
 	while true do
-		for player in pairs(soloChoice) do
-			if player.Parent then
-				return "solo", { player }
+		local present = Players:GetPlayers()
+		if #present > 0 then
+			firstSeen = firstSeen or os.clock()
+			if launchRequested or os.clock() - firstSeen >= Config.Game.HubWait then
+				return present
 			end
+		else
+			firstSeen = nil
+			launchRequested = false
 		end
-
-		local first = nil
-		for player, instant in pairs(duoChoice) do
-			if player.Parent and (first == nil or instant < duoChoice[first]) then
-				first = player
-			end
-		end
-
-		if first then
-			local deadline = os.clock() + Config.Game.DuoWait
-			while os.clock() < deadline do
-				local group = {}
-				for player in pairs(duoChoice) do
-					if player.Parent then
-						table.insert(group, player)
-					end
-				end
-				if #group >= 2 then
-					return "duo", { group[1], group[2] }
-				end
-				for player in pairs(soloChoice) do
-					if player.Parent then
-						return "solo", { player }
-					end
-				end
-				task.wait(0.5)
-			end
-			-- Personne n'a répondu à la borne Duo : la partie démarre en solo
-			return "solo", { first }
-		end
-
 		task.wait(0.3)
 	end
 end
 
--- Lance la partie pour le groupe : le cercueil devient le point d'apparition
+-- Téléporte le groupe dans le cercueil du grenier
 function Hub.startGame(group)
+	launchRequested = false
 	setSpawns(false)
-	soloChoice = {}
-	duoChoice = {}
+	local cercueil = coffinSpawn()
+	local cf = cercueil and (cercueil.CFrame + Vector3.new(0, 3, 0)) or CFrame.new(90, 27, 45)
 	for _, player in ipairs(group) do
-		task.spawn(function()
-			player:LoadCharacter()
-		end)
+		teleport(player, cf)
 	end
 end
 

@@ -163,8 +163,9 @@ end)
 task.spawn(function()
 	while true do
 		if not round.active then
-			local mode, group = Hub.waitForMode()
-			round.mode = mode
+			local group = Hub.waitForStart()
+			-- Le mode suit le nombre de joueurs : deux joueurs = duo, un seul = solo
+			round.mode = (#group >= 2) and "duo" or "solo"
 			round.active = true
 			Hub.startGame(group)
 			startRound()

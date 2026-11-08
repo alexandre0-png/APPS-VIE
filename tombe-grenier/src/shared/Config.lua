@@ -91,7 +91,7 @@ Config.Lights = {
 }
 
 Config.Game = {
-	DuoWait = 60,            -- secondes d'attente d'un second joueur à la borne Duo, sinon solo
+	HubWait = 30,            -- secondes au hub après l'arrivée du premier joueur, puis la partie démarre
 	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.
 	-- Le jeu est conçu pour un joueur (solo) ou un duo. Au-delà, la carte devient trop vite encombrée.
 	MaxPlayers = 2,
