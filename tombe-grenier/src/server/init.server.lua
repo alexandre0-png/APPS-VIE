@@ -21,13 +21,14 @@ local Audio = require(Shared.Audio)
 local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 local Props = require(script.Props)
+local Hub = require(script.Hub)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
 pcall(function()
 	Players.MaxPlayers = Config.Game.MaxPlayers
 end)
 
-local round = { seed = 0, ended = false, cycle = 1 }
+local round = { seed = 0, ended = false, cycle = 1, active = false, mode = "solo" }
 local restartRequested = false
 
 local function alivePlayers()
@@ -62,7 +63,7 @@ local function startRound()
 	FallingObjects.start(round.seed)
 	Ambience.start(round.seed)
 
-	local delay = Config.Debug.SkipActivationDelay and 0 or Config.Round.ActivationDelay
+	local delay = Config.Debug.SkipActivationDelay and 0 or Config.Modes[round.mode].activationDelay
 	MonsterAI.start(delay)
 end
 
@@ -90,14 +91,9 @@ local function endRound(reason)
 		waited += 0.5
 	end
 
-	-- Retour au cercueil pour tous
-	for _, player in ipairs(Players:GetPlayers()) do
-		task.spawn(function()
-			player:LoadCharacter()
-		end)
-	end
-	task.wait(1)
-	startRound()
+	-- Retour au hub : le joueur choisit à nouveau son mode
+	round.active = false
+	Hub.enter()
 end
 
 -- Réseau
@@ -145,6 +141,7 @@ end)
 -- Systèmes
 -- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
 MapBuilder.build()
+Hub.build()
 MapBuilder.startShadowLoop()
 PlayerState.init()
 Hiding.init()
@@ -162,14 +159,28 @@ Objectives.init(function()
 	endRound("win")
 end)
 
-startRound()
+-- Boucle de partie : attend le choix du mode au hub, puis lance la partie
+task.spawn(function()
+	while true do
+		if not round.active then
+			local mode, group = Hub.waitForMode()
+			round.mode = mode
+			round.active = true
+			Hub.startGame(group)
+			startRound()
+		end
+		task.wait(0.5)
+	end
+end)
+
+Hub.enter()
 
 -- Défaite : tout le monde est mort pendant plusieurs secondes
 task.spawn(function()
 	local deadTicks = 0
 	while true do
 		task.wait(1)
-		if not round.ended and #Players:GetPlayers() > 0 then
+		if round.active and not round.ended and #Players:GetPlayers() > 0 then
 			if alivePlayers() == 0 then
 				deadTicks += 1
 				if deadTicks >= 5 then

@@ -91,9 +91,16 @@ Config.Lights = {
 }
 
 Config.Game = {
+	DuoWait = 60,            -- secondes d'attente d'un second joueur à la borne Duo, sinon solo
 	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.
 	-- Le jeu est conçu pour un joueur (solo) ou un duo. Au-delà, la carte devient trop vite encombrée.
 	MaxPlayers = 2,
+}
+
+-- Réglages par mode : en solo, plus de temps pour explorer seul avant la première apparition
+Config.Modes = {
+	solo = { activationDelay = 60 },
+	duo = { activationDelay = 45 },
 }
 
 Config.Intro = {
