@@ -207,11 +207,22 @@ local OBJECTIVE = {
 	end,
 }
 
+-- Inventaire visible : petites clés et documents (les photos et la clé de sortie viennent du HUD)
+local function pushInventory()
+	Remotes.fireAll("Inventory", {
+		smallKey = state.smallKey == true,
+		caveKey = state.caveKey == true,
+		docs = loreCount(),
+		docsTotal = #LORE_KINDS,
+	})
+end
+
 local function pushObjective()
 	if not state then
 		return
 	end
 	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()]() })
+	pushInventory()
 end
 
 local function sayAll(text)

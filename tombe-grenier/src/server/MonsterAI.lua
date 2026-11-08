@@ -413,6 +413,36 @@ local function inspectSpot(m, spot)
 	end
 end
 
+-- Le monstre disparaît et réapparaît à un point de patrouille loin de tout joueur
+local function relocate(m)
+	local far = {}
+	for _, point in ipairs(CollectionService:GetTagged("Waypoint")) do
+		if point:IsA("BasePart") then
+			local clear = true
+			for _, player in ipairs(Players:GetPlayers()) do
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if root and (root.Position - point.Position).Magnitude < 60 then
+					clear = false
+				end
+			end
+			if clear then
+				table.insert(far, point)
+			end
+		end
+	end
+	if #far == 0 then
+		return
+	end
+	local target = far[math.random(1, #far)].Position + Vector3.new(0, 3, 0)
+	if m.model and m.model:IsA("Model") then
+		m.model:PivotTo(CFrame.new(target))
+	else
+		m.root.CFrame = CFrame.new(target)
+	end
+	m.root.AssemblyLinearVelocity = Vector3.zero
+end
+
 local function stepSearch(m)
 	local spot = findSpotToInspect(m)
 	if spot then
@@ -420,6 +450,10 @@ local function stepSearch(m)
 		return
 	end
 	if clock() >= m.searchUntil then
+		-- Une fois sur deux, il disparaît et ressurgit ailleurs au lieu de simplement patrouiller
+		if math.random() < 0.5 then
+			relocate(m)
+		end
 		setState(m, "Patrol")
 		return
 	end

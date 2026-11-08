@@ -222,6 +222,9 @@ Ces tests ne lancent pas Roblox : ils vérifient la cohérence du code et des do
 - F : lampe torche (se vide, et fige le monstre quand elle le touche). Une pile la recharge.
 - G : lancer de bruit. Un objet lancé attire le monstre au point d'impact. 3 jets par vie, 3 s de recharge.
 - Clic sur le coffret : saisie du code (4 chiffres, Échap pour refermer).
+- Téléphone et tablette : une colonne de six boutons tactiles en bas à droite (Accroupi, Silence, Course, Lampe, Lancer, Indice). Le déplacement se fait au joystick tactile intégré à Roblox.
+- Manette : L1 silence, L2 course, B accroupi, Y lampe, R1 lancer, Haut indice. Le bouton d'interaction (X par défaut) est celui des invites.
+- Lisibilité : les textes se règlent à la taille de l'écran (bornes 13 à 22) et les largeurs sont relatives à l'écran. L'inventaire est en haut à droite : souvenirs, documents, petite clé, clé de la cave, clé rouillée.
 - Difficulté : `Config.Difficulty` (« facile », « normal » ou « difficile ») règle la vitesse de poursuite, l'ouïe et la vue du monstre.
 - Musique : l'ambiance baisse pendant une poursuite, et la musique de poursuite joue tant que le monstre chase.
 - Événements d'ambiance : la peluche se déplace quand on s'éloigne, une porte ouverte peut se refermer et se verrouiller dix secondes.

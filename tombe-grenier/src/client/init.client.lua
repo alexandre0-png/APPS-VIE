@@ -42,6 +42,12 @@ local function label(props)
 	l.Font = Enum.Font.GothamMedium
 	l.TextColor3 = Color3.fromRGB(218, 214, 200)
 	l.TextSize = props.size or 18
+	-- Lisible sur téléphone comme sur grand écran : le texte se règle, dans des bornes
+	l.TextScaled = true
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MinTextSize = 13
+	limit.MaxTextSize = props.size or 18
+	limit.Parent = l
 	l.TextXAlignment = props.align or Enum.TextXAlignment.Left
 	l.TextWrapped = true
 	l.Position = props.position
@@ -58,13 +64,13 @@ local tint = fullFrame(Color3.fromRGB(40, 40, 44), 1, 1)
 local blackFrame = fullFrame(Color3.new(0, 0, 0), 1, 50)
 
 -- HUD minimal : seul l'objectif reste affiché en permanence
-local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.fromOffset(640, 26) })
+local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.new(0.9, 0, 0, 30) })
 
 -- Message contextuel (indice, lecture, retour d'action) : bas de l'écran
 local subtitleLabel = label({
 	position = UDim2.new(0.5, 0, 1, -110),
 	anchor = Vector2.new(0.5, 1),
-	sizeUDim = UDim2.fromOffset(820, 70),
+	sizeUDim = UDim2.new(0.7, 0, 0, 70),
 	align = Enum.TextXAlignment.Center,
 	size = 20,
 })
@@ -74,7 +80,7 @@ subtitleLabel.TextTransparency = 1
 local messageLabel = label({
 	position = UDim2.fromScale(0.5, 0.5),
 	anchor = Vector2.new(0.5, 0.5),
-	sizeUDim = UDim2.fromOffset(760, 90),
+	sizeUDim = UDim2.new(0.9, 0, 0, 90),
 	align = Enum.TextXAlignment.Center,
 	size = 26,
 })
@@ -83,7 +89,7 @@ messageLabel.TextTransparency = 1
 -- Indication demandée (touche H) : bas à gauche, reste affichée jusqu'à la suivante
 local hintLabel = label({
 	position = UDim2.new(0, 16, 1, -40),
-	sizeUDim = UDim2.fromOffset(640, 40),
+	sizeUDim = UDim2.new(0.6, 0, 0, 40),
 	size = 18,
 })
 
@@ -92,7 +98,7 @@ local function showRules()
 	local rules = label({
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
-		sizeUDim = UDim2.fromOffset(760, 170),
+		sizeUDim = UDim2.new(0.9, 0, 0, 170),
 		align = Enum.TextXAlignment.Center,
 		size = 22,
 	})
@@ -230,17 +236,26 @@ end)
 -- Ambiance continue, baissée pendant une poursuite, et musique de poursuite tant que le monstre chasse
 local ambience = Audio.play("ambiance", gui)
 local chaseMusic = nil
+local tensionMusic = nil
 local function updateMusic()
 	local chasing = workspace:GetAttribute("MonsterChasing") == true
 	local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
+	local low = sanity < Config.Player.SanityLow
 	if ambience then
-		ambience.Volume = chasing and 0.15 or (sanity < Config.Player.SanityLow and 0.55 or 0.4)
+		ambience.Volume = chasing and 0.15 or (low and 0.55 or 0.4)
 	end
 	if chasing and not chaseMusic then
 		chaseMusic = Audio.play("poursuite", gui)
 	elseif not chasing and chaseMusic then
 		chaseMusic:Destroy()
 		chaseMusic = nil
+	end
+	-- Tension : sanité basse, hors poursuite
+	if low and not chasing and not tensionMusic then
+		tensionMusic = Audio.play("ambiance_tension", gui)
+	elseif (not low or chasing) and tensionMusic then
+		tensionMusic:Destroy()
+		tensionMusic = nil
 	end
 end
 workspace:GetAttributeChangedSignal("MonsterChasing"):Connect(updateMusic)
@@ -382,6 +397,53 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 	end
 end)
 
+-- Inventaire : en haut à droite, ce que le joueur a en main
+local inventoryLabel = label({
+	position = UDim2.new(1, -16, 0, 16),
+	anchor = Vector2.new(1, 0),
+	sizeUDim = UDim2.new(0.42, 0, 0, 120),
+	align = Enum.TextXAlignment.Right,
+	size = 18,
+})
+local inventory = { photos = 0, photosRequired = 3, hasKey = false, smallKey = false, caveKey = false, docs = 0, docsTotal = 4 }
+
+local function refreshInventory()
+	local lines = {
+		("Souvenirs %d/%d"):format(inventory.photos, inventory.photosRequired),
+		("Documents %d/%d"):format(inventory.docs, inventory.docsTotal),
+	}
+	if inventory.smallKey then
+		table.insert(lines, "Petite clé")
+	end
+	if inventory.caveKey then
+		table.insert(lines, "Clé de la cave")
+	end
+	if inventory.hasKey then
+		table.insert(lines, "Clé rouillée")
+	end
+	inventoryLabel.Text = table.concat(lines, "\n")
+end
+
+-- Progression de l'équipe (photos, clé de la sortie) : envoyée par le serveur, affichée ici
+Remotes.get("HUD").OnClientEvent:Connect(function(data)
+	if typeof(data) == "table" then
+		inventory.photos = data.photos or 0
+		inventory.photosRequired = data.photosRequired or 3
+		inventory.hasKey = data.hasKey == true
+		refreshInventory()
+	end
+end)
+
+Remotes.get("Inventory").OnClientEvent:Connect(function(data)
+	if typeof(data) == "table" then
+		inventory.smallKey = data.smallKey == true
+		inventory.caveKey = data.caveKey == true
+		inventory.docs = data.docs or inventory.docs
+		inventory.docsTotal = data.docsTotal or inventory.docsTotal
+		refreshInventory()
+	end
+end)
+
 Remotes.get("Hint").OnClientEvent:Connect(function(data)
 	if typeof(data) == "table" and data.text then
 		hintLabel.Text = "Indice : " .. data.text
@@ -437,27 +499,58 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or keypad.Visible then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.LeftControl then
+	-- Clavier, et manette (L1 silence, L2 course, B accroupi, Y lampe, R1 lancer, Haut indice)
+	if input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.ButtonL1 then
 		sendQuiet(true)
-	elseif input.KeyCode == Enum.KeyCode.LeftShift then
+	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
 		sendSprint(true)
-	elseif input.KeyCode == Enum.KeyCode.F then
+	elseif input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonY then
 		Remotes.get("ToggleFlashlight"):FireServer()
-	elseif input.KeyCode == Enum.KeyCode.C then
+	elseif input.KeyCode == Enum.KeyCode.C or input.KeyCode == Enum.KeyCode.ButtonB then
 		sendCrouch(true)
-	elseif input.KeyCode == Enum.KeyCode.H then
+	elseif input.KeyCode == Enum.KeyCode.H or input.KeyCode == Enum.KeyCode.DPadUp then
 		Remotes.get("AskHint"):FireServer()
-	elseif input.KeyCode == Enum.KeyCode.G then
+	elseif input.KeyCode == Enum.KeyCode.G or input.KeyCode == Enum.KeyCode.ButtonR1 then
 		throwNoise()
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.LeftControl then
+	if input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.ButtonL1 then
 		sendQuiet(false)
-	elseif input.KeyCode == Enum.KeyCode.LeftShift then
+	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
 		sendSprint(false)
-	elseif input.KeyCode == Enum.KeyCode.C then
+	elseif input.KeyCode == Enum.KeyCode.C or input.KeyCode == Enum.KeyCode.ButtonB then
 		sendCrouch(false)
 	end
 end)
+
+-- Boutons tactiles : colonne en bas à droite, visible seulement sur écran tactile
+local function touchButton(text, order, onDown, onUp)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0, 110, 0, 54)
+	b.Position = UDim2.new(1, -124, 1, -(70 + order * 62))
+	b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+	b.BackgroundTransparency = 0.3
+	b.TextColor3 = Color3.fromRGB(230, 226, 210)
+	b.Font = Enum.Font.GothamMedium
+	b.Text = text
+	b.TextScaled = true
+	b.ZIndex = 20
+	b.Visible = UserInputService.TouchEnabled
+	b.Parent = gui
+	if onDown then
+		b.MouseButton1Down:Connect(onDown)
+	end
+	if onUp then
+		b.MouseButton1Up:Connect(onUp)
+	end
+	return b
+end
+
+touchButton("Accroupi", 0, function() sendCrouch(true) end, function() sendCrouch(false) end)
+touchButton("Silence", 1, function() sendQuiet(true) end, function() sendQuiet(false) end)
+touchButton("Course", 2, function() sendSprint(true) end, function() sendSprint(false) end)
+touchButton("Lampe", 3, function() Remotes.get("ToggleFlashlight"):FireServer() end)
+touchButton("Lancer", 4, throwNoise)
+touchButton("Indice", 5, function() Remotes.get("AskHint"):FireServer() end)

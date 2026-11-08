@@ -192,6 +192,7 @@ local function doorTrap()
 	local door = open[math.random(1, #open)]
 	door:SetAttribute("Lock", "événement")
 	Props.setDoor(door, false)
+	Audio.play("porte_claque", door, { lifetime = 3 })
 	Audio.play("porte_grince", door, { lifetime = 5 })
 	task.delay(10, function()
 		door:SetAttribute("Lock", nil)
@@ -211,6 +212,37 @@ local function pickScare(rng)
 		armoireTremble()
 	else
 		doorTrap()
+	end
+end
+
+-- Empreintes sur le sol poussiéreux du grenier : une trace à chaque pas, effacée après 25 s
+local function footprintLoop(gen)
+	while generation == gen do
+		task.wait(0.7)
+		if generation ~= gen then
+			return
+		end
+		for _, player in ipairs(Players:GetPlayers()) do
+			local char = player.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if root and root.Position.Y > 23 and root.Position.Y < 30 then
+				local v = root.AssemblyLinearVelocity
+				if math.sqrt(v.X * v.X + v.Z * v.Z) > 2 then
+					local print_ = Instance.new("Part")
+					print_.Name = "Empreinte"
+					print_.Anchored = true
+					print_.CanCollide = false
+					print_.CanTouch = false
+					print_.Size = Vector3.new(0.9, 0.02, 1.3)
+					print_.Position = Vector3.new(root.Position.X, 24.12, root.Position.Z)
+					print_.Color = Color3.fromRGB(70, 65, 58)
+					print_.Material = Enum.Material.Fabric
+					print_.Transparency = 0.45
+					print_.Parent = Workspace
+					Debris:AddItem(print_, 25)
+				end
+			end
+		end
 	end
 end
 
@@ -360,6 +392,7 @@ function Ambience.start(seed)
 	task.spawn(eventLoop, Rng.new(seed + 6607), gen)
 	task.spawn(screamLoop, Rng.new(seed + 7717), gen)
 	task.spawn(dollLoop, Rng.new(seed + 8831), gen)
+	task.spawn(footprintLoop, gen)
 end
 
 function Ambience.stop()
