@@ -85,6 +85,8 @@ Codé (à tester en Play Test) :
 - Tasse de café pleine (cuisine), bougies, peluche, gramophone.
 - Silhouette furtive au grenier (une fois sur deux) et pas à l'étage.
 - Trois fins, avec teinte propre à chaque fin et bouton « Rejouer » (30 s de repli).
+- Cinématiques par mouvements de caméra, sans texte (`src/client/Cinematic.lua`) : réveil dans le cercueil, première apparition (caméra qui tremble face au monstre), fin 1 (sortie et maison vue du jardin), fin 2 (couvercle qui se referme, plaque), fin 3 (lumière qui monte du cercueil). Espace ou Échap passe une cinématique.
+- Récit : les quatre documents, le flashback de la photo de famille, l'introduction et les trois fins portent l'histoire. Aucun texte d'explication n'est affiché, comme le demande le design.
 
 Non codé :
 - Portes qui se ferment seules : la carte n'a pas de portes mobiles.
@@ -94,6 +96,7 @@ Non codé :
 - Cri de corneille de la fin 1 : pas d'asset audio.
 - Dessins au mur de la chambre d'enfant : décor à ajouter dans Studio.
 - Menu complet (Continuer, Options) : seul « Rejouer » est codé.
+- Cinématiques à affiner dans Studio : positions de caméra (réglées sur les coordonnées de la carte, à vérifier dans le moteur), et effet de lumière de la fin 3 (particules non ajoutées).
 
 ## Quêtes et fins
 

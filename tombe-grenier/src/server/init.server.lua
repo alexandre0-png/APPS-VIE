@@ -52,6 +52,7 @@ local function startRound()
 	local intro = Config.Intro.Duration
 	PlayerState.freezeAll(intro)
 	Remotes.fireAll("Effect", { kind = "Intro", duration = intro })
+	Remotes.fireAll("Effect", { kind = "Cine", name = "intro" })
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
 	Ambience.start(round.seed)
@@ -71,6 +72,7 @@ local function endRound(reason)
 	Lights.stop()
 	FallingObjects.stop()
 	Ambience.stop()
+	Remotes.fireAll("Effect", { kind = "Cine", name = reason })
 	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason, text = Quests.endingText(reason) })
 
 	task.wait(Config.Round.EndScreenTime)
@@ -145,6 +147,7 @@ Quests.init(endRound)
 
 -- Première apparition : la malle ouverte fait tout basculer
 Quests.onChestOpened = function(player)
+	Remotes.fire("Effect", player, { kind = "Cine", name = "apparition" })
 	Lights.blackout()
 	task.delay(2.5, function()
 		MonsterAI.forceChase(player)

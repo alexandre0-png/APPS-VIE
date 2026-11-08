@@ -12,6 +12,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
+local Cinematic = require(script.Cinematic)
 
 local player = Players.LocalPlayer
 player.CameraMode = Enum.CameraMode.LockFirstPerson
@@ -310,15 +311,23 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 	elseif data.kind == "Scare" then
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
+	elseif data.kind == "Cine" then
+		Cinematic.play(data.name, gui)
 	elseif data.kind == "Intro" then
 		restartButton.Visible = false
 		introSequence(data.duration or 8)
 	elseif data.kind == "Blackout" then
 		blackout(data.duration or 2)
 	elseif data.kind == "RoundEnd" then
-		showMessage(data.text or "")
-		endingVisual(data.reason)
-		restartButton.Visible = true
+		-- Le texte de fin et le bouton attendent la fin de la cinématique
+		task.spawn(function()
+			while Cinematic.isPlaying() do
+				task.wait(0.2)
+			end
+			showMessage(data.text or "")
+			endingVisual(data.reason)
+			restartButton.Visible = true
+		end)
 	end
 end)
 
