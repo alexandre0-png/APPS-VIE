@@ -622,6 +622,7 @@ DECOR = [
 
 STATUE_ROOMS = ("salon", "cuis", "sam")   # trois statues, une par pièce du rez-de-chaussée
 STATUE_HEIGHT = 2.2
+MANNEQUIN_HEIGHT = 1.9
 BREATH_PANEL = (38.4, 34.5, 39.4, 37.5)   # panneau du mur qui respire (côté salon du mur du hall)
 
 
@@ -654,28 +655,33 @@ def _in_stair(x, z, m=2.0):
     return x0 - m < x < x1 + m and z0 - m < z < z1 + m
 
 
-def _ground_spot(rid, half, height):
-    """Premier emplacement libre au sol dans la pièce : sans meuble, sans porte, hors escalier."""
-    rect = next(r for r in ROOMS if r[0] == rid)[2]
-    rx0, rz0, rx1, rz1 = rect
+def _floor_spot(rid, half, height):
+    """Premier emplacement libre au sol de la pièce (à son étage) : sans meuble, sans porte, hors escalier."""
+    room = next(r for r in ROOMS if r[0] == rid)
+    level, (rx0, rz0, rx1, rz1) = room[1], room[2]
+    base = BASE[level]
     x = rx0 + 2.0
     while x <= rx1 - 2.0:
         z = rz0 + 2.0
         while z <= rz1 - 2.0:
-            if (not _in_stair(x, z) and not _near_door("ground", x, z)
-                    and _clear(x - half, z - half, x + half, z + half, 0, height)):
+            if (not _in_stair(x, z) and not _near_door(level, x, z)
+                    and _clear(x - half, z - half, x + half, z + half, base, base + height)):
                 return (x, z)
             z += 0.5
         x += 0.5
-    raise RuntimeError(f"pas de place libre pour une statue dans {rid}")
+    raise RuntimeError(f"pas de place libre dans {rid}")
 
 
 def puzzle_props():
     """Statues (énigme de la pièce du rez-de-chaussée) et mur qui respire (sensation, récompense)."""
     out = []
     for rid in STATUE_ROOMS:
-        x, z = _ground_spot(rid, 0.5, STATUE_HEIGHT)
+        x, z = _floor_spot(rid, 0.5, STATUE_HEIGHT)
         out.append(dict(tag="Statue", name="statue ancienne " + rid, pos=(x, STATUE_HEIGHT / 2, z), size=(1, STATUE_HEIGHT, 1)))
+    # Mannequin du couloir (étage) : sa tête se retourne à l'approche
+    mx, mz = _floor_spot("couloir", 0.4, MANNEQUIN_HEIGHT)
+    out.append(dict(tag="Mannequin", name="mannequin du couloir", pos=(mx, BASE["first"] + MANNEQUIN_HEIGHT / 2, mz),
+                    size=(0.8, MANNEQUIN_HEIGHT, 0.6)))
     x0, z0, x1, z1 = BREATH_PANEL
     if not _clear(x0, z0, x1, z1, 0, 3, margin=0.2):
         raise RuntimeError("le panneau du mur qui respire touche un meuble")

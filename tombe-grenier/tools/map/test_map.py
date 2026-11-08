@@ -277,6 +277,13 @@ class TestTags(unittest.TestCase):
         self.assertEqual(self.count("Statue"), 3)
         self.assertEqual(self.count("Respire"), 1)
 
+    def test_one_mannequin_upstairs_clear_of_furniture(self):
+        ms = self.props_with("Mannequin")
+        self.assertEqual(len(ms), 1)
+        x, y, z = ms[0]["pos"]
+        self.assertFalse(gm._near_door("first", x, z))
+        self.assertTrue(gm._clear(x - 0.4, z - 0.3, x + 0.4, z + 0.3, gm.BASE["first"], gm.BASE["first"] + gm.MANNEQUIN_HEIGHT, margin=0.3))
+
     def test_statues_are_free_standing_and_clear_of_doors(self):
         for p in self.props_with("Statue"):
             x, _, z = p["pos"]

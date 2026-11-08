@@ -22,6 +22,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -354,6 +355,45 @@ local function chooseStatues(seed)
 	end
 end
 
+-- Mannequin : pivote face au joueur qui s'approche, une seule fois par partie
+local mannequinBase = {}   -- [part] = CFrame de départ
+local mannequinTurned = {} -- [part] = true une fois pivoté pendant la partie en cours
+
+local function resetMannequins()
+	mannequinTurned = {}
+	for _, part in ipairs(CollectionService:GetTagged("Mannequin")) do
+		if part:IsA("BasePart") then
+			if not mannequinBase[part] then
+				mannequinBase[part] = part.CFrame
+			end
+			part.CFrame = mannequinBase[part]
+		end
+	end
+end
+
+local function mannequinLoop()
+	while true do
+		task.wait(0.5)
+		if active and state then
+			for _, part in ipairs(CollectionService:GetTagged("Mannequin")) do
+				if part:IsA("BasePart") and not mannequinTurned[part] then
+					mannequinBase[part] = mannequinBase[part] or part.CFrame
+					for _, player in ipairs(Players:GetPlayers()) do
+						local char = player.Character
+						local root = char and char:FindFirstChild("HumanoidRootPart")
+						if root and (root.Position - part.Position).Magnitude < 5 then
+							mannequinTurned[part] = true
+							part.CFrame = mannequinBase[part] * CFrame.Angles(0, math.pi, 0)
+							Remotes.fire("Effect", player, { kind = "Scare" })
+							break
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 local function turnStatue(player, statue)
 	if state.statuesDone then
 		say(player, "Les statues sont immobiles, figées dans leur position.")
@@ -422,6 +462,15 @@ local function wire()
 				state.mirrorRead = true
 				say(player, "Dans la glace, un texte écrit à l'envers : « " .. code:sub(3, 4):reverse() .. " ». Remets-le dans le bon sens.")
 				progressed()
+			end)
+		end
+	end
+
+	-- Mannequin : examiner (le pivot se fait seul, à l'approche)
+	for _, part in ipairs(CollectionService:GetTagged("Mannequin")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptMannequin", action = "Examiner", object = "Mannequin", distance = 6 }, function(player)
+				say(player, "Un mannequin de couturière. On lui a mis une petite robe, et une épingle est restée plantée dans le buste.")
 			end)
 		end
 	end
@@ -793,6 +842,7 @@ function Quests.setup(seed, cycleNumber)
 	state.statuesDone = false
 	state.breathed = false
 	chooseStatues(seed)
+	resetMannequins()
 	melody = melodyFromSeed(seed)
 	local dateRng = Rng.new(seed * 17 + 3)
 	local month = dateRng:int(1, 12)
@@ -840,6 +890,7 @@ end
 function Quests.init(endCallback)
 	endFn = endCallback
 	task.spawn(hintLoop)
+	task.spawn(mannequinLoop)
 end
 
 return Quests

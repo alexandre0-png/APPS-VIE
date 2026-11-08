@@ -273,6 +273,10 @@ local function buildHouse(root)
 		elseif p.tag == "Coffret" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
+		elseif p.tag == "Mannequin" then
+			-- Mannequin de couturière (buste) : il pivote vers le joueur qui s'approche (Quests)
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(230, 225, 215), Enum.Material.SmoothPlastic, "Mannequin")
 		elseif p.tag == "Statue" then
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
 			makeVisible(folders.Props, p.pos, p.size, p.name,
