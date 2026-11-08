@@ -298,8 +298,30 @@ local function update(dt)
 	end
 end
 
+-- Nouvelle partie : tout repart de zéro (sanité, batterie, lancers, journal)
+function PlayerState.newRound()
+	for player, st in pairs(states) do
+		if st.hiding then
+			PlayerState.unhide(player, false)
+		end
+		if st.flashlightOn then
+			PlayerState.setFlashlight(player, false)
+		end
+		states[player] = newState()
+	end
+end
+
 local function onCharacter(player, char)
+	local previous = states[player]
 	local st = newState()
+	if previous then
+		-- Une réapparition garde l'état de la partie
+		st.battery = previous.battery
+		st.sanity = previous.sanity
+		st.throws = previous.throws
+		st.lastThrow = previous.lastThrow
+		st.log = previous.log
+	end
 	states[player] = st
 	local hum = char:WaitForChild("Humanoid")
 	char:WaitForChild("HumanoidRootPart")

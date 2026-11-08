@@ -37,7 +37,8 @@ local function startRound()
 	round.ended = false
 	print(("[Round] début, seed=%d"):format(round.seed))
 
-	-- Emplacements, lampes et pièces sombres : tirés à chaque partie
+	-- État des joueurs remis à zéro, puis emplacements, lampes et pièces sombres tirés à chaque partie
+	PlayerState.newRound()
 	MapBuilder.placeRound(round.seed)
 	Objectives.setup()
 	Quests.setup(round.seed, round.cycle)
@@ -132,11 +133,14 @@ end)
 
 -- Systèmes
 -- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
-MapBuilder.build()
+-- Le lieu hub n'a pas de maison : il ne construit que l'accueil
+if Hub.role() ~= "hub" then
+	MapBuilder.build()
+	MapBuilder.startShadowLoop()
+end
 if Hub.role() ~= "game" then
 	Hub.build()
 end
-MapBuilder.startShadowLoop()
 PlayerState.init()
 Hiding.init()
 Quests.init(endRound)
