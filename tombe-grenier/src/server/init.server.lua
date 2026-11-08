@@ -116,6 +116,7 @@ end)
 -- Systèmes
 -- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
 MapBuilder.build()
+MapBuilder.startShadowLoop()
 PlayerState.init()
 Hiding.init()
 Quests.init(endRound)

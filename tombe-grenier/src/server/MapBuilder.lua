@@ -14,6 +14,7 @@
   Matériaux : brique et mur partagent l'ID 9920482813 (confirmé).
 ]]
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -21,6 +22,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Data = require(Shared.MapData)
 local Rng = require(Shared.Rng)
+local DecorKit = require(script.Parent.DecorKit)
 
 local MapBuilder = {}
 
@@ -51,9 +53,6 @@ local MATERIALS = {
 	carton      = { color = Color3.fromRGB(150, 120, 80), material = Enum.Material.Cardboard },
 	herbe       = { color = Color3.fromRGB(46, 74, 40), material = Enum.Material.Grass },
 }
-
--- Pièces dont la lampe projette des ombres réelles (coût de rendu : quelques lampes seulement)
-local SHADOW_ROOMS = { hall = true, palier = true, salon = true, cave = true }
 
 local LAMP_PALETTE = {
 	Color3.fromRGB(255, 205, 140), -- chaude, ampoule à filament
@@ -185,6 +184,9 @@ local function buildHouse(root)
 	for _, d in ipairs(Data.decor) do
 		makeBox(folders["Décor"], d, d.mat, d.name)
 	end
+
+	-- Décor posé sur les meubles (ou modèles Studio de ServerStorage/Decor)
+	DecorKit.dress(folders["Décor"], Data.furniture)
 
 	-- Cachettes : une par armoire
 	for _, h in ipairs(Data.hiding) do
@@ -356,6 +358,51 @@ local function setLighting()
 	dof.FarIntensity = 0.15
 end
 
+-- Ombres des lampes : les 4 lampes allumées les plus proches d'un joueur projettent des ombres.
+-- Coût de rendu borné, et les ombres suivent les joueurs dans toute la maison.
+local MAX_SHADOW_LAMPS = 4
+local SHADOW_RANGE = 40
+
+function MapBuilder.startShadowLoop()
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local roots = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				local char = p.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if root then
+					table.insert(roots, root.Position)
+				end
+			end
+
+			local candidates = {}
+			for _, lamp in ipairs(lamps) do
+				if lamp.light.Enabled and #roots > 0 then
+					local best = math.huge
+					for _, pos in ipairs(roots) do
+						best = math.min(best, (pos - lamp.part.Position).Magnitude)
+					end
+					if best < SHADOW_RANGE then
+						table.insert(candidates, { lamp = lamp, d = best })
+					end
+				end
+			end
+			table.sort(candidates, function(a, b)
+				return a.d < b.d
+			end)
+
+			local want = {}
+			for i = 1, math.min(MAX_SHADOW_LAMPS, #candidates) do
+				want[candidates[i].lamp] = true
+			end
+			for _, lamp in ipairs(lamps) do
+				lamp.light.Shadows = want[lamp] == true
+			end
+		end
+	end)
+end
+
 -- Construit la carte fixe. Idempotent : reconstruit tout si la carte existe déjà.
 function MapBuilder.build()
 	local root = Workspace:FindFirstChild("TombeMap")
@@ -409,7 +456,6 @@ function MapBuilder.placeRound(seed)
 		lamp.light.Color = LAMP_PALETTE[rng:int(1, #LAMP_PALETTE)]
 		lamp.light.Brightness = rng:range(0.9, 1.5)
 		lamp.light.Range = rng:range(20, 28)
-		lamp.light.Shadows = lit and SHADOW_ROOMS[lamp.room] == true
 		lamp.part.Transparency = lit and 0.2 or 0.9
 		if lit then
 			CollectionService:AddTag(lamp.part, "FlickerLight")
