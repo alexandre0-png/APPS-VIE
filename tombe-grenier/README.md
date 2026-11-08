@@ -94,7 +94,11 @@ Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un ind
 Éléments qui font varier la partie :
 - Papier du code, photos, piles, objets, chutes et apparition du monstre : emplacements tirés.
 - Fausses clés : elles ne s'ajustent à rien (même sensation de fausse piste).
-- Gramophone : le son porte très loin et attire le monstre, une seule fois par partie.
+- Objets interactifs, une fois par partie :
+  - Bougies : une bougie allumée éclaire autour d'elle pendant une minute.
+  - Peluche : une pierre lisse cachée dedans, deux jets de bruit en plus.
+  - Gramophone : il joue une douzaine de secondes, et le son attire le monstre.
+  - Journal, cahier, photo de famille, plaque : documents de l'histoire.
 - Pièces sombres : 4 pièces parmi 10 sont tirées dans le noir à chaque partie. Le hall, l'entrée, le palier, le grenier et la tombe restent éclairés.
 
 Pas de sang : les coups se traduisent par un voile sombre, un son et une pause du joueur.
@@ -133,6 +137,7 @@ Dans `Config.lua` :
 
 ## Limites connues
 
+- Éclairage : le mode « Future » ne se sélectionne que dans Studio. Le code approxime le rendu (ombres douces, profondeur de champ légère, vignette, ombres de lampes dans 4 pièces : hall, palier, salon, cave). Des ombres dans toutes les pièces demandent plus de performance.
 - Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu. Le mode « Future » (ombres et éclairage réalistes) se règle dans Studio : Lighting > Technology > Future.
 - Les fins trouvées ne sont pas sauvegardées entre les sessions (remises à zéro au redémarrage du serveur). Une sauvegarde DataStore est à ajouter.
 - Les textures ne s'affichent que si les IDs sont des images Roblox.

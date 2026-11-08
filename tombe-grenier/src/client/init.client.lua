@@ -53,6 +53,29 @@ local function label(props)
 end
 
 local tint = fullFrame(Color3.fromRGB(40, 40, 44), 1, 1)
+
+-- Vignette : bords de l'écran assombris, par quatre dégradés (sans image)
+local function vignetteEdge(size, position, rotation)
+	local frame = Instance.new("Frame")
+	frame.Size = size
+	frame.Position = position
+	frame.BackgroundColor3 = Color3.new(0, 0, 0)
+	frame.BorderSizePixel = 0
+	frame.ZIndex = 2
+	frame.Parent = gui
+	local grad = Instance.new("UIGradient")
+	grad.Rotation = rotation
+	grad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	grad.Parent = frame
+	return frame
+end
+vignetteEdge(UDim2.new(1, 0, 0.22, 0), UDim2.fromScale(0, 0), 90)
+vignetteEdge(UDim2.new(1, 0, 0.22, 0), UDim2.fromScale(0, 0.78), -90)
+vignetteEdge(UDim2.new(0.16, 0, 1, 0), UDim2.fromScale(0, 0), 0)
+vignetteEdge(UDim2.new(0.16, 0, 1, 0), UDim2.fromScale(0.84, 0), 180)
 local blackFrame = fullFrame(Color3.new(0, 0, 0), 1, 50)
 
 local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.fromOffset(640, 26) })

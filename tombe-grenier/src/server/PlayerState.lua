@@ -145,6 +145,14 @@ function PlayerState.tryThrow(player, direction)
 	return impact
 end
 
+-- Ajoute des jets de bruit (objet trouvé), plafonné
+function PlayerState.addThrows(player, amount)
+	local st = states[player]
+	if st then
+		st.throws = math.min(Config.Throw.Charges + 2, st.throws + amount)
+	end
+end
+
 -- Recharge la lampe (pile ramassée), sans dépasser le maximum
 function PlayerState.addBattery(player, amount)
 	local st = states[player]

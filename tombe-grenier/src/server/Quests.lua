@@ -21,6 +21,7 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -47,6 +48,43 @@ local FLAVOUR = {
 	["peluche ancienne"] = "Une peluche usée. Elle est plus lourde que prévu.",
 	["gramophone ancien"] = "Le gramophone grince, puis joue quelques notes. Le son porte très loin.",
 }
+
+-- Effets des objets interactifs (une fois par objet et par partie)
+local ACTION = {
+	["bougies et lampe à pétrole"] = "Allumer",
+	["peluche ancienne"] = "Fouiller",
+	["gramophone ancien"] = "Mettre en marche",
+}
+
+-- Une bougie éclaire un peu autour d'elle, une minute
+local function lightCandle(position)
+	local folder = Workspace:FindFirstChild("TombeMap") or Workspace
+	local candle = Instance.new("Part")
+	candle.Name = "Bougie allumée"
+	candle.Anchored = true
+	candle.CanCollide = false
+	candle.Size = Vector3.new(0.4, 0.8, 0.4)
+	candle.Position = position + Vector3.new(0, 0.8, 0)
+	candle.Material = Enum.Material.Neon
+	candle.Color = Color3.fromRGB(255, 190, 110)
+	candle.Parent = folder
+	local light = Instance.new("PointLight")
+	light.Range = 10
+	light.Brightness = 0.9
+	light.Color = Color3.fromRGB(255, 180, 100)
+	light.Parent = candle
+	Debris:AddItem(candle, 60)
+end
+
+-- Le gramophone joue une douzaine de secondes : le son porte jusqu'au monstre
+local function startGramophone(position)
+	task.spawn(function()
+		for _ = 1, 6 do
+			Noise.emit(position, 0.9)
+			task.wait(2)
+		end
+	end)
+end
 
 local HINTS = {
 	photos = "Les souvenirs traînent sur les meubles. Une lampe aide à les voir dans le noir.",
@@ -90,7 +128,7 @@ local function freshState()
 		lore = {},           -- documents lus, par type
 		wrongCodes = 0,
 		lastProgress = os.clock(),
-		gramophoneUsed = {},
+		used = {},           -- objets interactifs déjà utilisés (une fois par partie)
 	}
 end
 
@@ -258,12 +296,20 @@ local function wire()
 					say(player, LORE[kind])
 				end)
 			elseif FLAVOUR[kind] then
-				prompt(part, { action = "Examiner", object = kind }, function(player)
+				prompt(part, { action = ACTION[kind] or "Examiner", object = kind }, function(player)
+					if state.used[part] then
+						say(player, "Déjà fait.")
+						return
+					end
+					state.used[part] = true
 					say(player, FLAVOUR[kind])
-					-- Le gramophone attire le monstre : une fois par partie
-					if kind == "gramophone ancien" and not state.gramophoneUsed[part] then
-						state.gramophoneUsed[part] = true
-						Noise.emit(part.Position, 0.9)
+					if kind == "bougies et lampe à pétrole" then
+						lightCandle(part.Position)
+					elseif kind == "peluche ancienne" then
+						PlayerState.addThrows(player, 2) -- une pierre lisse cachée dedans : un jet de bruit en plus
+						say(player, "Une pierre lisse, cachée dans la peluche. Tu peux la lancer avec G.")
+					elseif kind == "gramophone ancien" then
+						startGramophone(part.Position)
 					end
 				end)
 			end

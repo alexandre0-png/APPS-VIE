@@ -52,6 +52,9 @@ local MATERIALS = {
 	herbe       = { color = Color3.fromRGB(46, 74, 40), material = Enum.Material.Grass },
 }
 
+-- Pièces dont la lampe projette des ombres réelles (coût de rendu : quelques lampes seulement)
+local SHADOW_ROOMS = { hall = true, palier = true, salon = true, cave = true }
+
 local LAMP_PALETTE = {
 	Color3.fromRGB(255, 205, 140), -- chaude, ampoule à filament
 	Color3.fromRGB(190, 215, 255), -- froide, tube fluorescent
@@ -302,6 +305,13 @@ local function setLighting()
 	Lighting.EnvironmentSpecularScale = 0.3
 	Lighting.FogColor = Color3.fromRGB(10, 10, 12)
 	Lighting.FogEnd = 300
+	-- Ombres plus douces et éclairage indirect : le plus proche possible du mode Future,
+	-- qui ne se règle que dans Studio (Lighting.Technology n'est pas modifiable par code)
+	pcall(function()
+		Lighting.ShadowSoftness = 0.35
+	end)
+	Lighting.EnvironmentDiffuseScale = 0.5
+	Lighting.EnvironmentSpecularScale = 0.5
 
 	local function effect(class, name)
 		local e = Lighting:FindFirstChild(name)
@@ -337,6 +347,13 @@ local function setLighting()
 
 	local rays = effect("SunRaysEffect", "TombeSunRays")
 	rays.Intensity = 0
+
+	-- Profondeur de champ très légère : la lampe torche et les objets proches restent nets
+	local dof = effect("DepthOfFieldEffect", "TombeDepthOfField")
+	dof.FocusDistance = 6
+	dof.InFocusRadius = 12
+	dof.NearIntensity = 0
+	dof.FarIntensity = 0.15
 end
 
 -- Construit la carte fixe. Idempotent : reconstruit tout si la carte existe déjà.
@@ -392,6 +409,7 @@ function MapBuilder.placeRound(seed)
 		lamp.light.Color = LAMP_PALETTE[rng:int(1, #LAMP_PALETTE)]
 		lamp.light.Brightness = rng:range(0.9, 1.5)
 		lamp.light.Range = rng:range(20, 28)
+		lamp.light.Shadows = lit and SHADOW_ROOMS[lamp.room] == true
 		lamp.part.Transparency = lit and 0.2 or 0.9
 		if lit then
 			CollectionService:AddTag(lamp.part, "FlickerLight")
