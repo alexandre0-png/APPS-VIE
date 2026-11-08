@@ -171,8 +171,12 @@ local function buildHouse(root)
 	end
 	for _, f in ipairs(Data.furniture) do
 		local part = makeBox(folders.Meubles, f, f.mat, f.name)
+		if f.name == "coffre verrouillé" then
+			CollectionService:AddTag(part, "Chest")
+		end
 		if f.name == "cercueil" then
 			part.CanCollide = false -- décoratif : le point de spawn est juste dessous
+			CollectionService:AddTag(part, "Tombe")
 		end
 	end
 	for _, d in ipairs(Data.decor) do
@@ -201,6 +205,17 @@ local function buildHouse(root)
 			light.Shadows = false
 			light.Parent = bulb
 			table.insert(lamps, { room = p.room, part = bulb, light = light })
+		elseif p.tag == "Coffret" then
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
+		elseif p.tag == "Plaque" then
+			local plaque = makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(150, 140, 120), Enum.Material.Metal, "Interactable")
+			plaque:SetAttribute("Kind", "plaque du cercueil")
+		elseif p.tag == "Key" then
+			-- Clé de la sortie, dans la malle : son invite est activée par Objectives.unlockKey
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(200, 170, 60), Enum.Material.Metal, "Key")
 		elseif p.tag == "ExitDoor" then
 			local door = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(70, 45, 30), Enum.Material.Wood, "ExitDoor")
@@ -388,9 +403,15 @@ function MapBuilder.placeRound(seed)
 		makeVisible(round, slot.pos, slot.size, "Photo " .. slot.name,
 			Color3.fromRGB(235, 230, 215), Enum.Material.SmoothPlastic, "Photo")
 	end
-	for _, slot in ipairs(pick(rng, slots.key, 1)) do
-		makeVisible(round, slot.pos, slot.size, "Clé " .. slot.name,
-			Color3.fromRGB(200, 170, 60), Enum.Material.Metal, "Key")
+	-- Papier du code : un emplacement tiré, la valeur du code vient de la seed (voir Quests)
+	for _, slot in ipairs(pick(rng, slots.note, 1)) do
+		makeVisible(round, slot.pos, slot.size, "Papier " .. slot.name,
+			Color3.fromRGB(235, 225, 190), Enum.Material.SmoothPlastic, "CodeNote")
+	end
+	-- Fausses clés : elles ne servent à rien
+	for _, slot in ipairs(pick(rng, slots.decoy, 2)) do
+		makeVisible(round, slot.pos, slot.size, "Fausse clé " .. slot.name,
+			Color3.fromRGB(170, 150, 70), Enum.Material.Metal, "Decoy")
 	end
 	for _, slot in ipairs(pick(rng, slots.battery, 3)) do
 		makeVisible(round, slot.pos, slot.size, "Pile " .. slot.name,

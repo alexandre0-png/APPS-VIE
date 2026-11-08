@@ -497,9 +497,15 @@ PHOTO_SLOTS = [
     _s("cellier, tonneau", (28, -8.9, 72), (1.4, 0.1, 1.0)),
 ]
 
-KEY_SLOTS = [
-    _s("grenier, tiroir de la commode", (19, 28.1, 4), (0.8, 0.1, 0.5)),
-    _s("chambre des parents, commode", (34, 15.1, 14), (0.8, 0.1, 0.5)),
+NOTE_SLOTS = [
+    _s("grenier, étagère ouest", (2.5, 32.1, 6), (0.6, 0.1, 0.8)),
+    _s("chambre des parents, chevet", (2.5, 14.1, 6.5), (0.6, 0.1, 0.8)),
+    _s("cuisine, îlot", (92, 3.1, 16), (0.6, 0.1, 0.8)),
+    _s("cave, étagère", (45.5, -4.9, 63), (0.6, 0.1, 0.8)),
+    _s("chambre d'enfant, bureau", (88, 15.1, 11), (0.6, 0.1, 0.8)),
+]
+
+DECOY_KEY_SLOTS = [
     _s("salle à manger, buffet", (3.5, 5.1, 84), (0.8, 0.1, 0.5)),
     _s("cuisine, placards", (115.5, 7.1, 28), (0.8, 0.1, 0.5)),
     _s("cave, caisses", (66, -8.9, 79), (0.8, 0.1, 0.5)),
@@ -548,6 +554,19 @@ INTERACTABLE_SLOTS = {
     ],
 }
 
+# Documents de l'histoire (lecture seule, sans logique au-delà de la quête)
+INTERACTABLE_SLOTS["journal"].append(_i("journal intime", "chambre des parents, commode", (36, 15.1, 15), (1, 0.2, 1.4)))
+INTERACTABLE_SLOTS["cahier"] = [
+    _i("cahier d'écolier", "chambre d'enfant, bureau", (89, 15.1, 8), (0.8, 0.2, 1.1)),
+    _i("cahier d'écolier", "chambre d'ami, bureau", (25, 14.6, 57), (0.8, 0.2, 1.1)),
+    _i("cahier d'écolier", "couloir, console", (49, 15.1, 81.5), (0.8, 0.2, 1.1)),
+]
+INTERACTABLE_SLOTS["photo_famille"] = [
+    _i("photo de famille", "salon, cheminée", (34, 5.1, 4), (1.2, 0.1, 1.0)),
+    _i("photo de famille", "bibliothèque du bureau", (116, 8.1, 53), (1.2, 0.1, 1.0)),
+    _i("photo de famille", "palier, vitrine", (76, 19.1, 33), (1.2, 0.1, 1.0)),
+]
+
 # Pièces qui peuvent être plongées dans le noir. Le hall, l'entrée, le palier, le grenier et la
 # tombe restent éclairés : ce sont les passages obligés.
 DARK_ELIGIBLE = ["pn", "cave", "ps", "cel", "salon", "cuis", "sam", "bureau",
@@ -583,6 +602,11 @@ def build_props():
         cx, cz = (rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2
         props.append(dict(tag="Lamp", room=rid, name="lampe " + rid,
                           pos=(cx, BASE[lv] + H - 1.5, cz), size=(1, 1, 1)))
+
+    # Éléments fixes de l'histoire : coffret à code, plaque du cercueil, malle et sa clé
+    props.append(dict(tag="Coffret", name="coffret à bijoux", pos=(95, 27.1, 73), size=(1.6, 0.8, 1.2)))
+    props.append(dict(tag="Plaque", name="plaque du cercueil", pos=(90, 26.1, 42.5), size=(2.2, 0.8, 0.2)))
+    props.append(dict(tag="Key", name="clé rouillée (malle)", pos=(70, 27.3, 64), size=(0.8, 0.1, 0.5)))
 
     # Porte d'entrée (bloquante jusqu'à l'ouverture de la sortie)
     props.append(dict(tag="ExitDoor", name="porte principale", pos=(60, 5, 90), size=(FRONT_DOOR_W, 10, 0.6)))
@@ -629,7 +653,7 @@ def build():
         decor=DECOR, hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),
-        slots=dict(photo=PHOTO_SLOTS, key=KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
+        slots=dict(photo=PHOTO_SLOTS, note=NOTE_SLOTS, decoy=DECOY_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
                    monster=SPAWN_SLOTS, interactable=INTERACTABLE_SLOTS,
                    dark_eligible=DARK_ELIGIBLE, dark_count=DARK_COUNT),
         rooms=[dict(id=r[0], level=r[1], x0=r[2][0], z0=r[2][1], x1=r[2][2], z1=r[2][3], name=r[5])

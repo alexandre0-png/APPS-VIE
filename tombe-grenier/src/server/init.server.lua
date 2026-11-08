@@ -15,10 +15,13 @@ local Lights = require(script.Lights)
 local FallingObjects = require(script.FallingObjects)
 local Ambience = require(script.Ambience)
 local MapBuilder = require(script.MapBuilder)
+local Quests = require(script.Quests)
+local Noise = require(script.Noise)
+local Audio = require(Shared.Audio)
 local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 
-local round = { seed = 0, ended = false }
+local round = { seed = 0, ended = false, cycle = 1 }
 
 local function alivePlayers()
 	local count = 0
@@ -40,6 +43,7 @@ local function startRound()
 	-- Emplacements, lampes et pièces sombres : tirés à chaque partie
 	MapBuilder.placeRound(round.seed)
 	Objectives.setup()
+	Quests.setup(round.seed, round.cycle)
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
 	Ambience.start(round.seed)
@@ -59,7 +63,7 @@ local function endRound(reason)
 	Lights.stop()
 	FallingObjects.stop()
 	Ambience.stop()
-	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason })
+	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason, text = Quests.endingText(reason) })
 
 	task.wait(Config.Round.EndScreenTime)
 
@@ -95,11 +99,26 @@ Remotes.get("ToggleFlashlight").OnServerEvent:Connect(function(player)
 	end
 end)
 
+-- Saisie du code au coffret, et lancer de bruit
+Remotes.get("SubmitCode").OnServerEvent:Connect(function(player, text)
+	Quests.submitCode(player, text)
+end)
+
+Remotes.get("Throw").OnServerEvent:Connect(function(player, direction)
+	local impact = PlayerState.tryThrow(player, direction)
+	if impact then
+		Noise.emit(impact, 1)
+		Audio.play("chaise_grince", workspace, { lifetime = 4 })
+		Remotes.fire("Message", player, { text = "Tu lances un objet. Le bruit porte au loin." })
+	end
+end)
+
 -- Systèmes
 -- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
 MapBuilder.build()
 PlayerState.init()
 Hiding.init()
+Quests.init(endRound)
 Objectives.init(function()
 	endRound("win")
 end)
@@ -116,6 +135,7 @@ task.spawn(function()
 				deadTicks += 1
 				if deadTicks >= 5 then
 					deadTicks = 0
+					round.cycle += 1
 					endRound("lose")
 				end
 			else

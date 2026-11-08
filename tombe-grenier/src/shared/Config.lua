@@ -89,6 +89,16 @@ Config.Lights = {
 	BlackoutDuration = 2.5,
 }
 
+Config.Quests = {
+	HintDelay = 180,         -- secondes sans progrès avant une indication automatique
+}
+
+Config.Throw = {
+	Charges = 3,             -- jets de bruit par vie (un objet lancé fait du bruit au point d'impact)
+	Cooldown = 3,            -- secondes entre deux jets
+	Range = 40,              -- portée maximale en studs
+}
+
 Config.Ambience = {
 	CreakIntervalMin = 25,   -- secondes entre deux grincements (porte ou chaise)
 	CreakIntervalMax = 60,

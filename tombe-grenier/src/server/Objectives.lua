@@ -21,6 +21,7 @@ local team = { photos = 0, hasKey = false }
 local exitReady = false
 local onWin = nil
 local exitPrompts = {}
+local keyPrompt = nil -- invite de la clé : activée seulement quand la malle est ouverte
 
 local function makePrompt(part, props)
 	local prompt = Instance.new("ProximityPrompt")
@@ -55,7 +56,7 @@ end
 -- Invite de ramassage à usage unique ; onPick est appelé une seule fois
 local function pickable(part, objectText, onPick)
 	local taken = false
-	makePrompt(part, {
+	local prompt = makePrompt(part, {
 		action = "Ramasser",
 		object = objectText,
 		hold = 0.3,
@@ -68,6 +69,7 @@ local function pickable(part, objectText, onPick)
 			onPick(player)
 		end,
 	})
+	return prompt
 end
 
 -- Reconstruit toutes les invites de la partie en cours
@@ -86,12 +88,14 @@ function Objectives.setup()
 		end
 	end
 
+	keyPrompt = nil
 	for _, part in ipairs(CollectionService:GetTagged("Key")) do
 		if part:IsA("BasePart") then
-			pickable(part, "Clé", function()
+			keyPrompt = pickable(part, "Clé", function()
 				team.hasKey = true
 				refreshExit()
 			end)
+			keyPrompt.Enabled = false
 		end
 	end
 
@@ -128,6 +132,18 @@ function Objectives.setup()
 	end
 
 	broadcast()
+end
+
+-- La malle est ouverte : la clé de la sortie devient prenable
+function Objectives.unlockKey()
+	if keyPrompt then
+		keyPrompt.Enabled = true
+	end
+end
+
+-- État courant de la progression (lecture seule)
+function Objectives.snapshot()
+	return { photos = team.photos, hasKey = team.hasKey, exitReady = exitReady }
 end
 
 -- Enregistre le callback de victoire et prépare la première partie

@@ -12,6 +12,11 @@ local EVENTS = {
 	"ToggleFlashlight", -- client -> serveur : (aucun argument)
 	"Effect",           -- serveur -> client : { kind = ..., ... }
 	"HUD",              -- serveur -> client : progression de l'équipe
+	"Objective",        -- serveur -> client : texte de l'objectif courant
+	"Message",          -- serveur -> client : { text = ... } (indices, lecture, retours)
+	"Keypad",           -- serveur -> client : ouvre l'écran de saisie du code
+	"SubmitCode",       -- client -> serveur : texte du code saisi
+	"Throw",            -- client -> serveur : direction du lancer (vecteur unitaire)
 }
 
 function Remotes.init()

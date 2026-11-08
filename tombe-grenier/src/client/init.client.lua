@@ -1,7 +1,7 @@
 --[[
-  Client : vue première personne, HUD minimal, effets de sanité, entrées.
+  Client : vue première personne, HUD, effets de sanité, saisie du code, entrées.
   Aucune décision de gameplay ici : le client envoie des intentions, le serveur décide.
-  Pas de menu, pas de sous-titres, pas de texte explicatif.
+  Pas de sang : les coups se traduisent par un voile sombre et un son.
 ]]
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -42,6 +42,7 @@ local function label(props)
 	l.TextColor3 = Color3.fromRGB(218, 214, 200)
 	l.TextSize = props.size or 18
 	l.TextXAlignment = props.align or Enum.TextXAlignment.Left
+	l.TextWrapped = true
 	l.Position = props.position
 	l.AnchorPoint = props.anchor or Vector2.zero
 	l.Size = props.sizeUDim or UDim2.fromOffset(360, 26)
@@ -51,16 +52,27 @@ local function label(props)
 	return l
 end
 
-local tint = fullFrame(Color3.fromRGB(90, 0, 0), 1, 1)
+local tint = fullFrame(Color3.fromRGB(40, 40, 44), 1, 1)
 local blackFrame = fullFrame(Color3.new(0, 0, 0), 1, 50)
 
-local objectiveLabel = label({ position = UDim2.fromOffset(16, 16) })
+local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.fromOffset(640, 26) })
 local statsLabel = label({ position = UDim2.new(0, 16, 1, -40) })
 
+-- Message contextuel (indice, lecture, retour d'action) : bas de l'écran
+local subtitleLabel = label({
+	position = UDim2.new(0.5, 0, 1, -110),
+	anchor = Vector2.new(0.5, 1),
+	sizeUDim = UDim2.fromOffset(820, 70),
+	align = Enum.TextXAlignment.Center,
+	size = 20,
+})
+subtitleLabel.TextTransparency = 1
+
+-- Message de fin de partie : centre
 local messageLabel = label({
 	position = UDim2.fromScale(0.5, 0.5),
 	anchor = Vector2.new(0.5, 0.5),
-	sizeUDim = UDim2.fromOffset(700, 60),
+	sizeUDim = UDim2.fromOffset(760, 90),
 	align = Enum.TextXAlignment.Center,
 	size = 26,
 })
@@ -69,7 +81,7 @@ messageLabel.TextTransparency = 1
 -- Affichage des attributs serveur
 local function refreshStats()
 	local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
-	-- Sanité haute : écran intact. Sanité basse : teinte rouge sombre qui couvre l'écran.
+	-- Sanité haute : écran intact. Sanité basse : voile sombre qui couvre l'écran.
 	tint.BackgroundTransparency = 1 - (1 - sanity / Config.Player.SanityMax) * 0.6
 
 	local stamina = player:GetAttribute("Stamina") or 100
@@ -97,32 +109,88 @@ local function blackout(duration)
 	end)
 end
 
-local ROUND_MESSAGES = {
-	win = "Tu t'échappes de la tombe.",
-	lose = "La tombe te reprend.",
-}
+local function fadeOut(lbl, delay)
+	task.delay(delay, function()
+		TweenService:Create(lbl, TweenInfo.new(1.5), { TextTransparency = 1 }):Play()
+	end)
+end
+
+local function showSubtitle(text)
+	subtitleLabel.Text = text
+	subtitleLabel.TextTransparency = 0
+	fadeOut(subtitleLabel, 6)
+end
 
 local function showMessage(text)
 	messageLabel.Text = text
 	messageLabel.TextTransparency = 0
-	task.delay(4, function()
-		TweenService:Create(messageLabel, TweenInfo.new(1.5), { TextTransparency = 1 }):Play()
-	end)
+	fadeOut(messageLabel, 8)
 end
 
--- Ambiance continue
-Audio.play("ambiance", gui)
+-- Écran de saisie du code (coffret à bijoux)
+local keypad = Instance.new("Frame")
+keypad.Size = UDim2.fromOffset(300, 170)
+keypad.Position = UDim2.fromScale(0.5, 0.5)
+keypad.AnchorPoint = Vector2.new(0.5, 0.5)
+keypad.BackgroundColor3 = Color3.fromRGB(22, 22, 25)
+keypad.BorderSizePixel = 0
+keypad.Visible = false
+keypad.ZIndex = 40
+keypad.Parent = gui
 
--- Respiration tant que le joueur est caché (attribut posé par le serveur)
-local breath = nil
-player:GetAttributeChangedSignal("Hidden"):Connect(function()
-	if player:GetAttribute("Hidden") then
-		breath = Audio.play("respiration", gui)
-	elseif breath then
-		breath:Destroy()
-		breath = nil
+local keypadTitle = label({ position = UDim2.fromOffset(16, 12), sizeUDim = UDim2.fromOffset(268, 24), size = 18 })
+keypadTitle.Text = "Coffret à bijoux"
+keypadTitle.Parent = keypad
+keypadTitle.ZIndex = 41
+
+local codeBox = Instance.new("TextBox")
+codeBox.Size = UDim2.fromOffset(268, 48)
+codeBox.Position = UDim2.fromOffset(16, 48)
+codeBox.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+codeBox.TextColor3 = Color3.fromRGB(230, 220, 190)
+codeBox.Font = Enum.Font.Code
+codeBox.TextSize = 32
+codeBox.PlaceholderText = "????"
+codeBox.Text = ""
+codeBox.ClearTextOnFocus = false
+codeBox.ZIndex = 41
+codeBox.Parent = keypad
+
+local function closeKeypad()
+	keypad.Visible = false
+end
+
+local function submitCode()
+	local text = codeBox.Text
+	if #text == 4 then
+		Remotes.get("SubmitCode"):FireServer(text)
+		codeBox.Text = ""
+		closeKeypad()
+	end
+end
+
+-- Seuls les chiffres, quatre maximum
+codeBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local digits = codeBox.Text:gsub("%D", ""):sub(1, 4)
+	if digits ~= codeBox.Text then
+		codeBox.Text = digits
+	end
+	if #digits == 4 then
+		submitCode()
 	end
 end)
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.fromOffset(268, 40)
+closeButton.Position = UDim2.fromOffset(16, 110)
+closeButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+closeButton.TextColor3 = Color3.fromRGB(218, 214, 200)
+closeButton.Font = Enum.Font.GothamMedium
+closeButton.TextSize = 18
+closeButton.Text = "Refermer"
+closeButton.ZIndex = 41
+closeButton.Parent = keypad
+closeButton.Activated:Connect(closeKeypad)
 
 -- Battements de cœur : pendant la poursuite ou à sanité basse
 task.spawn(function()
@@ -138,36 +206,55 @@ task.spawn(function()
 	end
 end)
 
+-- Ambiance continue
+Audio.play("ambiance", gui)
+
+-- Respiration tant que le joueur est caché (attribut posé par le serveur)
+local breath = nil
+player:GetAttributeChangedSignal("Hidden"):Connect(function()
+	if player:GetAttribute("Hidden") then
+		breath = Audio.play("respiration", gui)
+	elseif breath then
+		breath:Destroy()
+		breath = nil
+	end
+end)
+
 -- Événements serveur
 Remotes.get("Effect").OnClientEvent:Connect(function(data)
 	if typeof(data) ~= "table" then
 		return
 	end
 	if data.kind == "Hit" then
-		flash(Color3.fromRGB(140, 0, 0), 0.5, 0.5)
+		flash(Color3.fromRGB(10, 10, 12), 0.6, 0.6)
 	elseif data.kind == "Scare" then
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
 	elseif data.kind == "Blackout" then
 		blackout(data.duration or 2)
 	elseif data.kind == "RoundEnd" then
-		showMessage(ROUND_MESSAGES[data.reason] or "")
+		showMessage(data.text or "")
 	end
 end)
 
-Remotes.get("HUD").OnClientEvent:Connect(function(data)
-	if typeof(data) ~= "table" then
-		return
-	end
-	local key = data.hasKey and "oui" or "non"
-	if data.exitReady then
-		objectiveLabel.Text = "Sortie ouverte"
-	else
-		objectiveLabel.Text = ("Photos %d/%d · Clé : %s"):format(data.photos or 0, data.photosRequired or 0, key)
+Remotes.get("Objective").OnClientEvent:Connect(function(data)
+	if typeof(data) == "table" and data.text then
+		objectiveLabel.Text = data.text
 	end
 end)
 
--- Entrées : Ctrl = silencieux (maintenu), Shift = sprint (maintenu), F = lampe
+Remotes.get("Message").OnClientEvent:Connect(function(data)
+	if typeof(data) == "table" and data.text then
+		showSubtitle(data.text)
+	end
+end)
+
+Remotes.get("Keypad").OnClientEvent:Connect(function()
+	keypad.Visible = true
+	codeBox:CaptureFocus()
+end)
+
+-- Entrées : Ctrl = silencieux, Shift = sprint, F = lampe, G = lancer de bruit, Échap = fermer
 local function sendQuiet(on)
 	Remotes.get("SetQuiet"):FireServer(on)
 end
@@ -176,8 +263,19 @@ local function sendSprint(on)
 	Remotes.get("SetSprint"):FireServer(on)
 end
 
+local function throwNoise()
+	local camera = workspace.CurrentCamera
+	if camera then
+		Remotes.get("Throw"):FireServer(camera.CFrame.LookVector)
+	end
+end
+
 UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
+	if input.KeyCode == Enum.KeyCode.Escape and keypad.Visible then
+		closeKeypad()
+		return
+	end
+	if processed or keypad.Visible then
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.LeftControl then
@@ -186,6 +284,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		sendSprint(true)
 	elseif input.KeyCode == Enum.KeyCode.F then
 		Remotes.get("ToggleFlashlight"):FireServer()
+	elseif input.KeyCode == Enum.KeyCode.G then
+		throwNoise()
 	end
 end)
 

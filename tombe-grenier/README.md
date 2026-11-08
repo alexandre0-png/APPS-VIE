@@ -71,15 +71,43 @@ Pièces sombres : à chaque partie, 4 pièces parmi 10 sont plongées dans le no
 
 Le spawn des joueurs est un `SpawnLocation` placé sur le cercueil du grenier.
 
-Limites connues : les textures ne s'affichent que si les IDs sont des images Roblox. Le mode de rendu « Future » (ombres et éclairage réalistes) ne se règle que dans Studio : Lighting > Technology > Future. Les objets interactifs n'ont pas encore de logique. Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu.
+## Quêtes et fins
+
+Chaîne principale, vers la sortie :
+1. Rassembler 3 photos (tirées parmi 12 emplacements).
+2. Trouver le papier du code (un des 5 emplacements). Le code change à chaque partie.
+3. Ouvrir le coffret à bijoux (table de la salle de la tombe) avec le code. Il contient une petite clé.
+4. Ouvrir la malle (salle de la tombe) avec la petite clé. Elle contient la clé rouillée de la sortie.
+5. Sortir par la porte d'entrée, photos et clé en main.
+
+Chaîne parallèle, vers la fin « vérité » :
+- Lire les 4 documents (journal, cahier d'écolier, photo de famille, plaque du cercueil). Chacun a 2 à 3 emplacements.
+- Libérer l'enfant au cercueil une fois les 4 documents lus.
+
+Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
+- Fin 1, la fuite : sortie par la porte d'entrée.
+- Fin 2, la malédiction : tout le monde meurt. Le cycle suivant commence, avec une date changée sur la plaque.
+- Fin 3, la vérité : libération de l'enfant.
+
+Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un indice s'affiche, une seule fois par étape.
+
+Éléments qui font varier la partie :
+- Papier du code, photos, piles, objets, chutes et apparition du monstre : emplacements tirés.
+- Fausses clés : elles ne s'ajustent à rien (même sensation de fausse piste).
+- Gramophone : le son porte très loin et attire le monstre, une seule fois par partie.
+- Pièces sombres : 4 pièces parmi 10 sont tirées dans le noir à chaque partie. Le hall, l'entrée, le palier, le grenier et la tombe restent éclairés.
+
+Pas de sang : les coups se traduisent par un voile sombre, un son et une pause du joueur.
 
 ## Contrôles
 
 - ZQSD / WASD : déplacement (caméra première personne verrouillée)
 - Shift maintenu : sprint (consomme l'endurance, très bruyant)
 - Ctrl maintenu : silencieux (lent, quasi silencieux)
-- F : lampe torche (se vide, et fige le monstre quand elle le touche)
-- Bouton d'interaction (ProximityPrompt) : ramasser, se cacher, sortir, ouvrir la sortie
+- F : lampe torche (se vide, et fige le monstre quand elle le touche). Une pile la recharge.
+- G : lancer de bruit. Un objet lancé attire le monstre au point d'impact. 3 jets par vie, 3 s de recharge.
+- Clic sur le coffret : saisie du code (4 chiffres, Échap pour refermer).
+- Bouton d'interaction (ProximityPrompt) : ramasser, lire, examiner, se cacher, sortir, ouvrir la sortie
 
 ## Réglages de test
 
@@ -97,13 +125,17 @@ Dans `Config.lua` :
 5. **Monstre, vue** : se placer dans son cône de vision sans obstacle : passage en Chase. Se cacher derrière un mur : il perd la trace et passe en Search.
 6. **Cachette** : entrer dans une armoire, le joueur est immobile. Le monstre peut le débusquer à moins de 7 studs (le joueur est alors éjecté, avec effet de sursaut).
 7. **Lampe** : éclairer le monstre : il se fige tant que le faisceau le touche, et reprend quand on tourne le dos.
-8. **Objectifs** : 3 photos + clé, puis le HUD affiche « Sortie ouverte ». Ouvrir la trappe : message de victoire, retour au cercueil après `EndScreenTime`.
+8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Ouvrir la trappe : fin 1, retour au cercueil après `EndScreenTime`.
+8bis. **Fin 3** : lire les 4 documents, puis libérer l'enfant au cercueil.
 9. **Défaite** : tous les joueurs morts pendant 5 s : message de défaite, nouvelle partie.
 10. **Coopération** : deux clients en test serveur (Test > Players = 2). Les photos ramassées par l'un disparaissent pour l'autre, la progression est commune.
 11. **Asset manquant** : ne pas renseigner un son. La sortie Output affiche un warning une seule fois, sans erreur.
 
 ## Limites connues
 
+- Le rendu 3D et le jeu réel n'ont pas été testés dans Studio : les tests vérifient la géométrie des données, pas le comportement en jeu. Le mode « Future » (ombres et éclairage réalistes) se règle dans Studio : Lighting > Technology > Future.
+- Les fins trouvées ne sont pas sauvegardées entre les sessions (remises à zéro au redémarrage du serveur). Une sauvegarde DataStore est à ajouter.
+- Les textures ne s'affichent que si les IDs sont des images Roblox.
 - Le code n'a pas été exécuté dans Roblox Studio. Il doit être validé en Play Test, en particulier le pathfinding et les `Touched` des objets tombés.
 - Les sons sont vides tant que les assets ne sont pas uploadés. Le fichier `.wav` n'est pas lu depuis le dépôt : Roblox ne charge que des assets hébergés.
 - Un seul monstre. Le modèle de secours n'a pas d'animations.

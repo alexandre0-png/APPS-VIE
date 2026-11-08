@@ -224,6 +224,8 @@ class TestTags(unittest.TestCase):
     def test_fixed_tags(self):
         self.assertGreaterEqual(self.count("Waypoint"), 8)
         self.assertEqual(self.count("ExitDoor"), 1)
+        for tag in ("Coffret", "Plaque", "Key"):
+            self.assertEqual(self.count(tag), 1, tag)
         self.assertEqual(self.count("Lamp"), len(gm.ROOMS))
 
     def test_one_lamp_per_room_at_room_centre(self):
@@ -238,11 +240,12 @@ class TestTags(unittest.TestCase):
     def test_slot_pool_sizes(self):
         s = DATA["slots"]
         self.assertGreaterEqual(len(s["photo"]), 6)   # 3 photos tirées par partie
-        self.assertGreaterEqual(len(s["key"]), 3)
+        self.assertGreaterEqual(len(s["note"]), 4)
+        self.assertGreaterEqual(len(s["decoy"]), 2)
         self.assertGreaterEqual(len(s["battery"]), 3)
         self.assertGreaterEqual(len(s["fall"]), 4)
         self.assertGreaterEqual(len(s["monster"]), 2)
-        self.assertEqual(set(s["interactable"]), {"journal", "bougies", "peluche", "gramophone"})
+        self.assertEqual(set(s["interactable"]), {"journal", "bougies", "peluche", "gramophone", "cahier", "photo_famille"})
         for key, options in s["interactable"].items():
             self.assertGreaterEqual(len(options), 2, f"{key} : au moins 2 emplacements")
 
@@ -263,7 +266,7 @@ class TestTags(unittest.TestCase):
     def _all_slots(self):
         s = DATA["slots"]
         out = []
-        for group in ("photo", "key", "battery", "fall", "monster"):
+        for group in ("photo", "note", "decoy", "battery", "fall", "monster"):
             for slot in s[group]:
                 out.append((group, slot))
         for key, options in s["interactable"].items():
@@ -292,7 +295,7 @@ class TestTags(unittest.TestCase):
                                                 f"{group} {slot['name']} sous {it[0]} ({rid})")
 
     def test_surface_items_sit_on_a_surface(self):
-        for group in ("photo", "key", "battery"):
+        for group in ("photo", "note", "decoy", "battery"):
             for slot in DATA["slots"][group]:
                 x, y, z = slot["pos"]
                 level = self._level_of(y)
@@ -309,9 +312,30 @@ class TestTags(unittest.TestCase):
                                 f"{group} {slot['name']} ne repose sur aucun meuble")
 
     def test_no_duplicate_positions_within_pool(self):
-        for group in ("photo", "key", "battery", "fall", "monster"):
+        for group in ("photo", "note", "decoy", "battery", "fall", "monster"):
             pos = [tuple(s["pos"]) for s in DATA["slots"][group]]
             self.assertEqual(len(pos), len(set(pos)), f"doublon dans {group}")
+
+
+class TestQuestItems(unittest.TestCase):
+    def test_code_note_and_lore_coverage(self):
+        # Les quatre documents de l'histoire doivent avoir au moins un emplacement chacun
+        for kind in ("journal", "cahier", "photo_famille"):
+            self.assertGreaterEqual(len(DATA["slots"]["interactable"][kind]), 2)
+        kinds = {s["kind"] for opts in DATA["slots"]["interactable"].values() for s in opts}
+        for kind in ("journal intime", "cahier d'écolier", "photo de famille"):
+            self.assertIn(kind, kinds)
+
+    def test_fixed_story_props_placed_in_attic(self):
+        for p in DATA["props"]:
+            if p["tag"] in ("Coffret", "Plaque", "Key"):
+                self.assertEqual(gm.room_at("attic", p["pos"][0], p["pos"][2]) if p["pos"][1] > 20 else None,
+                                 "tombe" if p["tag"] != "Key" else "tombe",
+                                 f"{p['name']} doit être dans la salle de la tombe")
+
+    def test_chest_exists_in_tomb_room(self):
+        chests = [it for it in gm.FURNITURE["tombe"] if it[0] == "coffre verrouillé"]
+        self.assertEqual(len(chests), 1)
 
 
 class TestDecor(unittest.TestCase):

@@ -31,6 +31,8 @@ local function newState()
 		battery = FL.Battery,
 		threatTime = -math.huge, -- dernier instant où le monstre a perçu ce joueur
 		roomDark = false,        -- le joueur est dans une pièce plongée dans le noir
+		throws = Config.Throw.Charges,
+		lastThrow = -math.huge,
 	}
 end
 
@@ -120,6 +122,27 @@ function PlayerState.unhide(player, scared)
 		Audio.play("porte", player.Character and player.Character:FindFirstChild("HumanoidRootPart") or workspace, { lifetime = 4 })
 		Remotes.fire("Effect", player, { kind = "Scare" })
 	end
+end
+
+-- Lancer : fait du bruit au point d'impact. Retourne le point d'impact, ou nil si refusé.
+function PlayerState.tryThrow(player, direction)
+	local st = states[player]
+	if not st or st.throws <= 0 or os.clock() - st.lastThrow < Config.Throw.Cooldown then
+		return nil
+	end
+	local char = player.Character
+	local head = char and char:FindFirstChild("Head")
+	if not head or typeof(direction) ~= "Vector3" or math.abs(direction.Magnitude - 1) > 0.05 then
+		return nil
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { char }
+	local hit = workspace:Raycast(head.Position, direction * Config.Throw.Range, params)
+	local impact = hit and hit.Position or (head.Position + direction * Config.Throw.Range)
+	st.throws -= 1
+	st.lastThrow = os.clock()
+	return impact
 end
 
 -- Recharge la lampe (pile ramassée), sans dépasser le maximum
