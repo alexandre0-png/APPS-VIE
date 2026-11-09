@@ -116,8 +116,10 @@ Chaîne principale, vers la sortie :
 1. Rassembler 3 photos (tirées parmi 12 emplacements).
 2. Trouver le papier du code (un des 5 emplacements). Le papier ne donne que les deux premiers chiffres. Les deux derniers sont dans un miroir, écrits à l'envers : il faut les remettre dans le bon sens. Le code change à chaque partie.
 3. Ouvrir le coffret à bijoux (table de la salle de la tombe) avec le code complet. Il contient une petite clé.
-4. Ouvrir la malle (salle de la tombe) avec la petite clé. Elle contient la clé rouillée de la sortie.
-5. Sortir par la porte d'entrée (photos et clé en main) : on arrive dans le jardin, où une cinématique montre le monstre qui cogne à la porte. Deux choix : rester et descendre par la porte du sous-sol (au pied du mur sud, extérieure, avec l'escalier du jardin), où l'on entend les cris ; ou franchir le portail au fond de l'allée.
+4. Ouvrir la malle (salle de la tombe) avec la petite clé. Elle contient la clé rouillée de la sortie, et elle ouvre la trappe de l'escalier vers le premier étage.
+5. Premier étage : rejouer la mélodie du gramophone sur la boîte à musique (le coffre à jouets). Elle ouvre la trappe de l'escalier vers le rez-de-chaussée.
+6. Rez-de-chaussée : orienter les trois statues (salon, cuisine, bureau) dans la même direction. Les statues sont nécessaires à la sortie.
+7. Sortir par la porte d'entrée (trois photos, clé rouillée, statues résolues) : on arrive dans le jardin, où une cinématique montre le monstre qui cogne à la porte. Deux choix : rester et descendre par la porte du sous-sol (au pied du mur sud, extérieure, avec l'escalier du jardin), où l'on entend les cris ; ou franchir le portail au fond de l'allée.
 
 Chaîne parallèle, vers la fin « vérité » :
 - Lire les 4 documents (journal, cahier d'écolier, photo de famille, plaque du cercueil). Chacun a 2 à 3 emplacements.

@@ -777,6 +777,8 @@ def build_props():
     props.append(dict(tag="Trappe", name="trappe de la cave (intérieur)", pos=(54, 1.25, 9.5), size=(8, 2.5, 2)))
     # Trappe au sommet de l'escalier du grenier : fermée tant que la malle n'est pas ouverte
     props.append(dict(tag="TrappeGrenier", name="trappe du grenier", pos=(54, 25.25, 9.5), size=(8, 2.5, 2)))
+    # Trappe au sommet de l'escalier du premier étage : fermée jusqu'à la mélodie de la boîte à musique
+    props.append(dict(tag="TrappePalier", name="trappe du premier étage", pos=(54, 13.25, 9.5), size=(8, 2.5, 2)))
     return props, inv
 
 

@@ -60,6 +60,7 @@ local MATERIALS = {
 	plancher    = { color = Color3.fromRGB(70, 50, 34), material = Enum.Material.Wood,
 	                tex = "3867164051", faces = { Enum.NormalId.Top }, tile = 6 },
 	bois        = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
+	asphalte    = { color = Color3.fromRGB(45, 45, 48), material = Enum.Material.Asphalt },
 	-- Plafond du grenier : ciel intérieur sur la face tournée vers les combles, ardoise dessus
 	plafond_grenier = { color = Color3.fromRGB(40, 40, 46), material = Enum.Material.Slate,
 	                tex = "1585871274", faces = { Enum.NormalId.Bottom }, tile = 12 },
@@ -400,7 +401,7 @@ local function buildHouse(root)
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(190, 185, 175), Enum.Material.Marble, "Statue")
-		elseif p.tag == "Trappe" or p.tag == "TrappeGrenier" then
+		elseif p.tag == "Trappe" or p.tag == "TrappeGrenier" or p.tag == "TrappePalier" then
 			-- Trappe pleine : elle bloque le passage tant qu'elle n'est pas ouverte (Quests)
 			local hatch = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(78, 56, 38), Enum.Material.Wood, p.tag)
@@ -458,6 +459,8 @@ local function buildGarden(root)
 	for _, p in ipairs(Data.garden.path) do
 		makeBox(garden, p, p.mat, p.name)
 	end
+	-- Route au-delà du portail, pour la voiture (cinématique de fuite)
+	makeBox(garden, { x0 = 50, x1 = 70, y0 = -0.2, y1 = 0, z0 = 150, z1 = 260 }, "asphalte", "route")
 	-- Escalier extérieur qui descend au sous-sol
 	for _, p in ipairs(Data.garden.steps or {}) do
 		makeBox(garden, p, p.mat, p.name)

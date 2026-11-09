@@ -46,12 +46,19 @@ local function broadcast()
 	})
 end
 
+local statuesDone = false -- les statues du rez-de-chaussée sont résolues (rend la sortie possible)
+
 local function refreshExit()
-	exitReady = team.photos >= Config.Round.PhotosRequired and team.hasKey
+	exitReady = team.photos >= Config.Round.PhotosRequired and team.hasKey and statuesDone
 	for _, prompt in ipairs(exitPrompts) do
 		prompt.Enabled = exitReady
 	end
 	broadcast()
+end
+
+function Objectives.setStatuesDone(done)
+	statuesDone = done == true
+	refreshExit()
 end
 
 -- Invite de ramassage à usage unique ; onPick est appelé une seule fois

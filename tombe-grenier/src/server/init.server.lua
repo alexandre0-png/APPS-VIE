@@ -179,6 +179,10 @@ end)
 
 -- Première apparition : la malle ouverte fait tout basculer
 -- Ouverture de la cave : le monstre poursuit celui qui a ouvert la porte
+Quests.onStatuesChanged = function(done)
+	Objectives.setStatuesDone(done)
+end
+
 Quests.onCaveOpened = function(player)
 	Audio.play("cri_monstre2", workspace, { lifetime = 4 })
 	MonsterAI.forceChase(player)

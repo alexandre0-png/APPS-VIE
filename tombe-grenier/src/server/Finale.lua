@@ -98,7 +98,8 @@ function Finale.escape(onDone)
 		vehicle.Parent = Workspace
 		local part = vehicle:FindFirstChildWhichIsA("BasePart", true)
 		if part then
-			TweenService:Create(part, TweenInfo.new(10, Enum.EasingStyle.Linear), { Position = part.Position + Vector3.new(0, 0, 40) }):Play()
+			-- La voiture roule sur la route, au-delà du portail
+			TweenService:Create(part, TweenInfo.new(10, Enum.EasingStyle.Linear), { Position = part.Position + Vector3.new(0, 0, 90) }):Play()
 		end
 	end
 	for _, player in ipairs(Players:GetPlayers()) do

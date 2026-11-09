@@ -100,7 +100,9 @@ local HINTS = {
 	reflet = "Un miroir de la maison garde la fin du code. Le texte y est écrit à l'envers.",
 	coffret = "Le coffret à bijoux est posé sur la table de la salle de la tombe.",
 	chest = "La petite clé du coffret ouvre une serrure. Cherche la malle, dans la salle de la tombe.",
+	melodie = "Le gramophone du premier étage joue trois notes. Rejoue-les sur la boîte à musique, dans le même ordre.",
 	key = "La clé rouillée est au fond de la malle.",
+	statues = "Les trois statues doivent regarder la même direction. La lampe UV montre la cible de deux d'entre elles.",
 	exit = "Deux chemins : la porte d'entrée, ou la tombe. Lis les documents avant de choisir.",
 }
 
@@ -177,8 +179,14 @@ local function currentStep()
 	if not state.chest then
 		return "chest"
 	end
+	if not state.boxDone then
+		return "melodie"
+	end
 	if not snap.hasKey then
 		return "key"
+	end
+	if not state.statuesDone then
+		return "statues"
 	end
 	return "exit"
 end
@@ -201,6 +209,12 @@ local OBJECTIVE = {
 	end,
 	key = function()
 		return "Prends la clé rouillée dans la malle"
+	end,
+	melodie = function()
+		return "Rejoue la mélodie du gramophone sur la boîte à musique (premier étage)"
+	end,
+	statues = function()
+		return "Oriente les trois statues du rez-de-chaussée, toutes dans la même direction"
 	end,
 	exit = function()
 		return ("Sors par la porte d'entrée, ou libère l'enfant (documents lus : %d/%d)")
@@ -269,10 +283,9 @@ local function flashback(player, kind)
 end
 
 -- Trappe du grenier : elle s'ouvre quand la malle l'est. Elle se referme au début de chaque partie.
-local atticHatchBase = {} -- [trappe] = CanCollide d'origine (toujours true)
 
-local function openAtticHatch()
-	for _, hatch in ipairs(CollectionService:GetTagged("TrappeGrenier")) do
+local function openHatch(tag)
+	for _, hatch in ipairs(CollectionService:GetTagged(tag)) do
 		if hatch:IsA("BasePart") then
 			hatch.CanCollide = false
 			TweenService:Create(hatch, TweenInfo.new(1), { Transparency = 1 }):Play()
@@ -280,8 +293,8 @@ local function openAtticHatch()
 	end
 end
 
-local function closeAtticHatch()
-	for _, hatch in ipairs(CollectionService:GetTagged("TrappeGrenier")) do
+local function closeHatch(tag)
+	for _, hatch in ipairs(CollectionService:GetTagged(tag)) do
 		if hatch:IsA("BasePart") then
 			hatch.CanCollide = true
 			hatch.Transparency = 0
@@ -490,6 +503,9 @@ local function turnStatue(player, statue)
 	end
 	state.statuesDone = true
 	state.caveKey = true
+	if Quests.onStatuesChanged then
+		Quests.onStatuesChanged(true)
+	end
 	say(player, "Les trois statues se figent, face à la même direction. Un déclic, très loin en bas : la cave est accessible.")
 	progressed()
 	-- Le mur se met à respirer : une pulsation lente, tant qu'il n'a pas été touché
@@ -517,7 +533,8 @@ local function pressNote(player, index)
 		if state.melodyIdx >= #melody then
 			state.boxDone = true
 			Locks.open("salle de bain")
-			say(player, "La mélodie s'achève. Quelque part dans la maison, une serrure cède.")
+			openHatch("TrappePalier")
+			say(player, "La mélodie s'achève. Une trappe grince, en bas de l'escalier.")
 		else
 			say(player, "Juste. La suite, maintenant.")
 		end
@@ -673,7 +690,7 @@ local function wire()
 					return
 				end
 				state.chest = true
-				openAtticHatch()
+				openHatch("TrappeGrenier")
 				Objectives.unlockKey()
 				if Quests.onChestOpened then
 					Quests.onChestOpened(player)
@@ -850,6 +867,19 @@ local function wire()
 					say(player, "La trappe est ouverte. L'escalier descend vers le premier étage.")
 				else
 					say(player, "La trappe ne cède pas. Quelque chose la retient, de l'autre côté de la malle.")
+				end
+			end)
+		end
+	end
+
+	-- Trappe du premier étage : fermée jusqu'à la mélodie de la boîte à musique
+	for _, part in ipairs(CollectionService:GetTagged("TrappePalier")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptTrappePalier", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
+				if state.boxDone then
+					say(player, "La trappe est ouverte. L'escalier descend vers le rez-de-chaussée.")
+				else
+					say(player, "La trappe ne cède pas. Une mélodie la retient : la boîte à musique la sait.")
 				end
 			end)
 		end
@@ -1040,7 +1070,11 @@ function Quests.setup(seed)
 	state.statuesDone = false
 	state.breathed = false
 	state.paintingDown = false
-	closeAtticHatch()
+	closeHatch("TrappeGrenier")
+	closeHatch("TrappePalier")
+	if Quests.onStatuesChanged then
+		Quests.onStatuesChanged(false)
+	end
 	for part, base in pairs(paintingBase) do
 		if part.Parent then
 			part.Position = base
