@@ -46,14 +46,19 @@ local function followLoop()
 				-- Trop loin : il rejoint le joueur, derrière lui
 				child:PivotTo(CFrame.new(root.Position - root.CFrame.LookVector * 4))
 			elseif dir.Magnitude > 4 then
-				local step = dir.Unit * math.min(dir.Magnitude - 3, 1.2)
-				-- Un mur entre l'enfant et le pas : il ne passe pas
 				local params = RaycastParams.new()
 				params.FilterType = Enum.RaycastFilterType.Exclude
 				params.FilterDescendantsInstances = { child }
-				local blocked = Workspace:Raycast(cur + Vector3.new(0, 1, 0), step, params)
-				if not blocked then
-					child:PivotTo(CFrame.new(cur + step))
+				-- Essaie la direction du joueur, puis des directions voisines : il contourne les murs
+				local len = math.min(dir.Magnitude - 3, 1.2)
+				for _, angle in ipairs({ 0, 45, -45, 90, -90 }) do
+					local rad = math.rad(angle)
+					local d = dir.Unit
+					local rotated = Vector3.new(d.X * math.cos(rad) - d.Z * math.sin(rad), 0, d.X * math.sin(rad) + d.Z * math.cos(rad))
+					if not Workspace:Raycast(cur + Vector3.new(0, 1, 0), rotated * len, params) then
+						child:PivotTo(CFrame.new(cur + rotated * len))
+						break
+					end
 				end
 			end
 		end

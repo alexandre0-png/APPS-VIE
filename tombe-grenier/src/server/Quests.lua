@@ -1134,7 +1134,11 @@ function Quests.hintFor(player)
 		return
 	end
 	state.hintAt = now
-	Remotes.fire("Hint", player, { text = HINTS[currentStep()] })
+	local text = HINTS[currentStep()]
+	if state.outside and not state.freed then
+		text = "Au fond de l'allée, le portail. Les cris viennent d'en bas, au pied du mur sud : la porte du sous-sol."
+	end
+	Remotes.fire("Hint", player, { text = text })
 end
 
 -- Porte d'entrée franchie : on est dans le jardin
@@ -1143,6 +1147,10 @@ function Quests.onFrontDoor(player)
 		return
 	end
 	state.outside = true
+	-- Le monstre cogne à la porte, de l'intérieur (cinématique « jardin »)
+	if Quests.onFrontDoorShown then
+		Quests.onFrontDoorShown()
+	end
 	Remotes.fire("Effect", player, { kind = "Cine", name = "jardin" })
 	say(player, "Tu franchis la porte. Le jardin est silencieux. Des cris étouffés viennent d'en bas, du côté de la maison. Au fond de l'allée, le portail.")
 	progressed()

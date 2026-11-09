@@ -670,6 +670,26 @@ function MonsterAI.vanish()
 	end
 end
 
+-- Mise en scène : le monstre se montre à une position (ex. derrière la porte d'entrée) pendant quelques secondes
+function MonsterAI.staged(pos, seconds)
+	if not current or not current.alive then
+		return
+	end
+	local m = current
+	m.hidden = true
+	if m.model and m.model:IsA("Model") then
+		m.model:PivotTo(CFrame.new(pos))
+	else
+		m.root.CFrame = CFrame.new(pos)
+	end
+	m.root.AssemblyLinearVelocity = Vector3.zero
+	task.delay(seconds, function()
+		if current == m and m.alive then
+			m.hidden = false
+		end
+	end)
+end
+
 -- Le monstre réapparaît à une position (par exemple en haut de l'escalier extérieur) et poursuit le joueur
 function MonsterAI.reappear(pos, player)
 	if not current or not current.alive then

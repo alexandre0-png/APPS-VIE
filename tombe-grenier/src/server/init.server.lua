@@ -179,6 +179,11 @@ end)
 
 -- Première apparition : la malle ouverte fait tout basculer
 -- Ouverture de la cave : le monstre poursuit celui qui a ouvert la porte
+-- Porte d'entrée franchie : le monstre est mis en scène derrière la porte, quelques secondes
+Quests.onFrontDoorShown = function()
+	MonsterAI.staged(Vector3.new(60, 0.5, 86), 6)
+end
+
 Quests.onStatuesChanged = function(done)
 	Objectives.setStatuesDone(done)
 end
