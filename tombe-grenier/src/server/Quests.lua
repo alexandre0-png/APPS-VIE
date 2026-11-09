@@ -590,6 +590,7 @@ local function wire()
 				end
 				state.paintingDown = true
 				TweenService:Create(part, TweenInfo.new(1.2, Enum.EasingStyle.Quad), { Position = paintingBase[part] + Vector3.new(0, -2.5, 0) }):Play()
+				Audio.play("tableau_tombe", part, { lifetime = 4 })
 				PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
 				say(player, "Derrière le tableau, une fente dans le plâtre. Une pile y est rangée.")
 				progressed()
@@ -835,6 +836,7 @@ local function wire()
 	for _, part in ipairs(CollectionService:GetTagged("Trappe")) do
 		if part:IsA("BasePart") then
 			prompt(part, { name = "QuestPromptTrappe", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
+				Audio.play("ventilation", part, { lifetime = 6 })
 				say(player, "Une porte est peut-être dehors.")
 			end)
 		end

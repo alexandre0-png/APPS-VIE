@@ -139,7 +139,7 @@ end
 local function caveVoice()
 	local doors = CollectionService:GetTagged("CaveDoor")
 	local source = doors[1] or anchorAt(Vector3.new(80, -6, 45))
-	Audio.play("cri_loin", source, { lifetime = 6 })
+	Audio.play("voix_enfant", source, { lifetime = 6 })
 	Remotes.fireAll("Message", { text = "Une voix d'enfant demande de l'aide, quelque part sous tes pieds." })
 end
 
@@ -275,6 +275,7 @@ local function dollLoop(rng, gen)
 		if not near and moves < 3 and rng:next() < 0.5 then
 			moves += 1
 			TweenService:Create(doll, TweenInfo.new(1.5), { Position = doll.Position + Vector3.new(1.2, 0, 0.8) }):Play()
+			Audio.play("poupee_bouge", doll, { lifetime = 3 })
 		end
 	end
 end
@@ -302,7 +303,7 @@ local function eventLoop(rng, gen)
 			local phones = CollectionService:GetTagged("Phone")
 			for _, phone in ipairs(phones) do
 				if phone:IsA("BasePart") then
-					Audio.play("telephone", phone, { lifetime = 10 })
+					Audio.play("telephone_ancien", phone, { lifetime = 10 })
 				end
 			end
 			local line = PHONE_LINES[rng:int(1, #PHONE_LINES)]

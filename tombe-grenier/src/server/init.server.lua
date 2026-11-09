@@ -22,6 +22,7 @@ local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 local Props = require(script.Props)
 local Hub = require(script.Hub)
+local ModelLoader = require(script.ModelLoader)
 local Respawn = require(script.Respawn)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
@@ -144,6 +145,7 @@ end)
 -- Modèle du monstre : chargé une fois si ServerStorage/Monster est absent (lieu de jeu ou lieu unique)
 if Hub.role() ~= "hub" then
 	MonsterAI.ensureModel()
+	ModelLoader.ensure()
 end
 
 -- Le lieu hub n'a pas de maison : il ne construit que l'accueil

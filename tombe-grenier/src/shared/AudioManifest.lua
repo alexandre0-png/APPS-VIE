@@ -53,6 +53,13 @@ return {
 	ambiance_tension = { asset = "rbxassetid://2893921424", volume = 0.3, looped = true }, -- tension : sanité basse, hors poursuite
 	stinger_peur     = { asset = "rbxassetid://1835337231", volume = 0.7 },     -- coup de tension au sursaut
 
+	-- Sons fournis (mai 2026) : voix, tableau, jouet, ventilation, téléphone ancien
+	voix_enfant     = { asset = "rbxassetid://9113787337", volume = 0.6 },    -- voix d'enfant qui appelle (cave)
+	tableau_tombe   = { asset = "rbxassetid://125306982616721", volume = 0.8 }, -- tableau qui tombe
+	poupee_bouge    = { asset = "rbxassetid://76611190936817", volume = 0.5 },  -- jouet qui bouge
+	ventilation     = { asset = "rbxassetid://11237231494", volume = 0.4 },     -- courant d'air de la trappe
+	telephone_ancien = { asset = "rbxassetid://1552930535", volume = 0.8 },    -- téléphone ancien qui sonne
+
 	-- Statique (télévision, réservé)
 	statique_tv    = { asset = "rbxassetid://4903742660", volume = 0.5 },
 	statique_vhs   = { asset = "rbxassetid://81486637394198", volume = 0.5 },
