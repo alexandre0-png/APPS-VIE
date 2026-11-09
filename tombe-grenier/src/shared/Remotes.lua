@@ -19,6 +19,7 @@ local EVENTS = {
 	"Throw",            -- client -> serveur : direction du lancer (vecteur unitaire)
 	"Flashback",        -- serveur -> client : { kind = "family" | "intro" | "cahier" | "journal" | "plaque" } (séquence courte)
 	"Restart",          -- client -> serveur : « Rejouer » après une fin
+	"Quit",             -- client -> serveur : « Quitter » après une fin (le joueur quitte la partie)
 	"Inventory",        -- serveur -> client : { smallKey, caveKey, docs, docsTotal } (objets visibles à l'écran)
 	"SetCrouch",        -- client -> serveur : boolean (accroupi, touche C)
 	"AskHint",          -- client -> serveur : demande l'indication de l'étape (touche H)

@@ -399,6 +399,25 @@ restartButton.Text = "Rejouer"
 restartButton.Visible = false
 restartButton.ZIndex = 45
 restartButton.Parent = gui
+
+-- « Quitter » : à côté de « Rejouer » sur l'écran de fin
+local quitButton = Instance.new("TextButton")
+quitButton.Size = UDim2.fromOffset(220, 46)
+quitButton.Position = UDim2.new(0.5, 0, 0.66, 56)
+quitButton.AnchorPoint = Vector2.new(0.5, 0.5)
+quitButton.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+quitButton.TextColor3 = Color3.fromRGB(230, 220, 190)
+quitButton.Font = Enum.Font.GothamMedium
+quitButton.TextSize = 20
+quitButton.Text = "Quitter"
+quitButton.Visible = false
+quitButton.ZIndex = 45
+quitButton.Parent = gui
+quitButton.Activated:Connect(function()
+	Remotes.get("Quit"):FireServer()
+	quitButton.Visible = false
+	restartButton.Visible = false
+end)
 restartButton.Activated:Connect(function()
 	Remotes.get("Restart"):FireServer()
 	restartButton.Visible = false
@@ -432,6 +451,7 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 			showMessage(data.text or "")
 			endingVisual(data.reason)
 			restartButton.Visible = true
+			quitButton.Visible = true
 		end)
 	end
 end)

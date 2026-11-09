@@ -127,6 +127,13 @@ Remotes.get("Restart").OnServerEvent:Connect(function()
 	end
 end)
 
+-- Quitter après une fin : le joueur sort de la partie avec un message
+Remotes.get("Quit").OnServerEvent:Connect(function(player)
+	if round.ended then
+		player:Kick("Merci d'avoir joué à La Tombe du Grenier.")
+	end
+end)
+
 -- Saisie du code au coffret, et lancer de bruit
 Remotes.get("SubmitCode").OnServerEvent:Connect(function(player, text)
 	Quests.submitCode(player, text)
