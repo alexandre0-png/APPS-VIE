@@ -230,7 +230,16 @@ Quests.onGate = function()
 				local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 				if root and root.Position.Y < -4 then
 					monsterReturning = false
-					MonsterAI.reappear(Vector3.new(103, 0, 106), p)
+					-- Le monstre descend l'escalier extérieur, puis avance dans le sous-sol vers le joueur
+					local points = { Vector3.new(103, 0, 110) }
+					for k = 0, 11 do
+						table.insert(points, Vector3.new(103, -(k + 1) + 0.5, 104 - k - 0.5))
+					end
+					table.insert(points, Vector3.new(103, -12, 84))
+					Remotes.fireAll("Effect", { kind = "Cine", name = "descente" })
+					MonsterAI.walkPoints(points, 9, function()
+						MonsterAI.resume(p)
+					end)
 					return
 				end
 			end

@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 local Remotes = require(game:GetService("ReplicatedStorage").Shared.Remotes)
+local MonsterAI = require(script.Parent.MonsterAI)
 
 local Finale = {}
 local child = nil
@@ -113,6 +114,10 @@ function Finale.escape(onDone)
 	for _, player in ipairs(Players:GetPlayers()) do
 		Remotes.fire("Effect", player, { kind = "Cine", name = "voiture" })
 	end
+	-- Le monstre suit la voiture de loin, sur la route, à mi-parcours
+	task.delay(5, function()
+		MonsterAI.walkPoints({ Vector3.new(60, 0.5, 150), Vector3.new(60, 0.5, 200), Vector3.new(60, 0.5, 225) }, 7)
+	end)
 	task.delay(12, function()
 		following = false
 		onDone()

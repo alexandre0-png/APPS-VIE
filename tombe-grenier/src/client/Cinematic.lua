@@ -86,6 +86,21 @@ local SHOTS = {
 			},
 		},
 	},
+	-- Le monstre descend l'escalier du sous-sol : la caméra le suit depuis le haut
+	descente = {
+		plans = {
+			{
+				from = { 103, 3, 112 },
+				look = function()
+					local monster = workspace:FindFirstChild("Monster")
+					local root = monster and monster:FindFirstChild("HumanoidRootPart")
+					return root and root.Position or Vector3.new(103, -6, 96)
+				end,
+				t = 6,
+				shake = true,
+			},
+		},
+	},
 	-- Fin 3, la vérité : la lumière monte du cercueil vers le ciel
 	truth = {
 		plans = {

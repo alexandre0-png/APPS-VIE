@@ -690,6 +690,50 @@ function MonsterAI.staged(pos, seconds)
 	end)
 end
 
+-- Le monstre suit une suite de points, en durée totale donnée (escaliers, route). Pendant le trajet, l'IA est suspendue.
+function MonsterAI.walkPoints(points, duration, onDone)
+	if not current or not current.alive or #points < 2 then
+		return
+	end
+	local m = current
+	m.hidden = true
+	task.spawn(function()
+		local segments = #points - 1
+		local perSegment = duration / segments
+		for i = 1, segments do
+			local a, b = points[i], points[i + 1]
+			local steps = 6
+			for k = 1, steps do
+				if not (current == m and m.alive) then
+					return
+				end
+				local p = a:Lerp(b, k / steps)
+				if m.model and m.model:IsA("Model") then
+					m.model:PivotTo(CFrame.new(p))
+				else
+					m.root.CFrame = CFrame.new(p)
+				end
+				task.wait(perSegment / steps)
+			end
+		end
+		m.root.AssemblyLinearVelocity = Vector3.zero
+		if onDone then
+			onDone()
+		end
+	end)
+end
+
+-- Reprise de l'IA après un trajet scénarisé ; poursuit le joueur si donné
+function MonsterAI.resume(player)
+	if not current or not current.alive then
+		return
+	end
+	current.hidden = false
+	if player then
+		MonsterAI.forceChase(player)
+	end
+end
+
 -- Le monstre réapparaît à une position (par exemple en haut de l'escalier extérieur) et poursuit le joueur
 function MonsterAI.reappear(pos, player)
 	if not current or not current.alive then
