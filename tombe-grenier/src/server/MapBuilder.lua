@@ -60,6 +60,9 @@ local MATERIALS = {
 	plancher    = { color = Color3.fromRGB(70, 50, 34), material = Enum.Material.Wood,
 	                tex = "3867164051", faces = { Enum.NormalId.Top }, tile = 6 },
 	bois        = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
+	-- Plafond du grenier : ciel intérieur sur la face tournée vers les combles, ardoise dessus
+	plafond_grenier = { color = Color3.fromRGB(40, 40, 46), material = Enum.Material.Slate,
+	                tex = "1585871274", faces = { Enum.NormalId.Bottom }, tile = 12 },
 	bois_sombre = { color = Color3.fromRGB(45, 30, 20), material = Enum.Material.Wood },
 	metal       = { color = Color3.fromRGB(60, 60, 66), material = Enum.Material.Metal },
 	tissu       = { color = Color3.fromRGB(90, 40, 40), material = Enum.Material.Fabric },
@@ -713,7 +716,10 @@ function MapBuilder.placeRound(seed)
 	for _ = 1, PEBBLE_COUNT do
 		local r = open[rng:int(1, #open)]
 		local x, z = rng:range(r.x0 + 1.5, r.x1 - 1.5), rng:range(r.z0 + 1.5, r.z1 - 1.5)
-		if not (x > Data.stair[1] - 2 and x < Data.stair[3] + 2 and z > Data.stair[2] - 2 and z < Data.stair[4] + 2) then
+		local base = Data.base[r.level]
+		local ray = Workspace:Raycast(Vector3.new(x, base + 4, z), Vector3.new(0, -6, 0))
+		local onFloor = ray and math.abs(ray.Position.Y - base) < 0.3
+		if onFloor and not (x > Data.stair[1] - 2 and x < Data.stair[3] + 2 and z > Data.stair[2] - 2 and z < Data.stair[4] + 2) then
 			makeVisible(round, { x, Data.base[r.level] + 0.2, z }, { 0.5, 0.4, 0.5 }, "Caillou",
 				Color3.fromRGB(105, 100, 96), Enum.Material.Slate, "Throwable")
 		end

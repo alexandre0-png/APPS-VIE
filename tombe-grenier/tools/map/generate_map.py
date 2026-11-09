@@ -444,7 +444,7 @@ def floor_slabs(level):
 
 def roof():
     x0, z0, x1, z1 = FOOT
-    return [box(x0, x1, BASE["attic"] + H, BASE["attic"] + H + 1, z0, z1, "ardoise", "toit")]
+    return [box(x0, x1, BASE["attic"] + H, BASE["attic"] + H + 1, z0, z1, "plafond_grenier", "toit")]
 
 
 def stair_steps():

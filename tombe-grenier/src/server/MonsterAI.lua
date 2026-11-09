@@ -51,7 +51,7 @@ end
 
 -- Construit le monstre : modèle ServerStorage.Monster, ou rig de secours
 -- Modèles R15 du monstre (identifiants Roblox fournis) : essayés dans l'ordre, à l'initialisation
-local REMOTE_MONSTERS = { 126828585469313, 139294979123405, 14801251042 }
+local REMOTE_MONSTERS = { 14801251042, 126828585469313, 139294979123405 }
 
 -- Charge un modèle R15 dans ServerStorage/Monster si rien n'y est déjà. Les scripts du modèle sont retirés.
 function MonsterAI.ensureModel()

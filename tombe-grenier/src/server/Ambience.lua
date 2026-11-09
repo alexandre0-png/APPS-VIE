@@ -351,6 +351,7 @@ local function sceneLoop(rng, gen)
 			silhouette.Transparency = 0.15
 			silhouette.Parent = Workspace
 			Audio.play("grognement", silhouette, { lifetime = 3 })
+			Audio.play("statique_court", silhouette, { lifetime = 2 })
 			Debris:AddItem(silhouette, 2.5)
 		elseif pick < 0.6 then
 			-- Une silhouette traverse le couloir en courant, du palier vers le couloir
@@ -383,9 +384,15 @@ local function sceneLoop(rng, gen)
 	end
 end
 
+local bed = nil -- musique longue de fond, arrêtée avec la partie
+
 function Ambience.start(seed)
 	generation += 1
 	local gen = generation
+	if bed then
+		bed:Destroy()
+	end
+	bed = Audio.play("ambiance_longue", Workspace)
 	task.spawn(sceneLoop, Rng.new(seed + 9901), gen)
 	task.spawn(creakLoop, Rng.new(seed + 3571), gen)
 	task.spawn(doorLoop, Rng.new(seed + 4421), gen)
@@ -398,6 +405,10 @@ end
 
 function Ambience.stop()
 	generation += 1
+	if bed then
+		bed:Destroy()
+		bed = nil
+	end
 end
 
 return Ambience

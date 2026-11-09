@@ -97,7 +97,7 @@ local function setupTV()
 				end
 				used[part] = true
 				tvRunning = true
-				Audio.play("statique_tv", part, { lifetime = 11 })
+				Audio.play("statique_vhs", part, { lifetime = 11 })
 				Remotes.fire("Message", player, { text = tvText(player) })
 				task.spawn(function()
 					for _ = 1, 40 do

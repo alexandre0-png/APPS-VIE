@@ -43,9 +43,19 @@ local function followLoop()
 		local root = nearestAliveRoot(cur)
 		if root then
 			local dir = Vector3.new(root.Position.X - cur.X, 0, root.Position.Z - cur.Z)
-			if dir.Magnitude > 4 then
+			if dir.Magnitude > 40 then
+				-- Trop loin : il rejoint le joueur, derrière lui
+				child:PivotTo(CFrame.new(root.Position - root.CFrame.LookVector * 4))
+			elseif dir.Magnitude > 4 then
 				local step = dir.Unit * math.min(dir.Magnitude - 3, 1.2)
-				child:PivotTo(CFrame.new(cur + step))
+				-- Un mur entre l'enfant et le pas : il ne passe pas
+				local params = RaycastParams.new()
+				params.FilterType = Enum.RaycastFilterType.Exclude
+				params.FilterDescendantsInstances = { child }
+				local blocked = Workspace:Raycast(cur + Vector3.new(0, 1, 0), step, params)
+				if not blocked then
+					child:PivotTo(CFrame.new(cur + step))
+				end
 			end
 		end
 	end
