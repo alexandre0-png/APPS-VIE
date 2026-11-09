@@ -15,6 +15,11 @@ local MODELS = {
 	["bibliothèque"] = 9904549498,
 	["téléphone"] = 1552930535,
 	["télévision"] = 52257438,
+	["tableau"] = 10728175427,
+	["tableau2"] = 14852009787,
+	["mannequin"] = 119619217119127,
+	["grande bibliothèque"] = 95255430761213,
+	["lampe plafond"] = 10810000263,
 }
 
 function ModelLoader.ensure()

@@ -54,7 +54,7 @@ return {
 	stinger_peur     = { asset = "rbxassetid://1835337231", volume = 0.7 },     -- coup de tension au sursaut
 
 	-- Sons fournis (mai 2026) : voix, tableau, jouet, ventilation, téléphone ancien
-	voix_enfant     = { asset = "rbxassetid://9113787337", volume = 0.6 },    -- voix d'enfant qui appelle (cave)
+	voix_enfant     = { asset = "rbxassetid://125258912434748", volume = 0.6 }, -- voix d'enfant qui appelle au secours (cave)
 	tableau_tombe   = { asset = "rbxassetid://125306982616721", volume = 0.8 }, -- tableau qui tombe
 	poupee_bouge    = { asset = "rbxassetid://76611190936817", volume = 0.5 },  -- jouet qui bouge
 	ventilation     = { asset = "rbxassetid://11237231494", volume = 0.4 },     -- courant d'air de la trappe

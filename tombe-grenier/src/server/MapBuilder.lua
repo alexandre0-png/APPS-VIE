@@ -172,6 +172,28 @@ local function placeDecorModel(name, pos, anchorPart)
 	model.Parent = anchorPart
 end
 
+-- Soude le modèle chargé à la pièce ancre : le modèle suit l'ancre quand elle tourne
+local function weldDecorModel(name, anchorPart)
+	local folder = ServerStorage:FindFirstChild("Decor")
+	local template = folder and folder:FindFirstChild(name)
+	if not template then
+		return
+	end
+	local model = template:Clone()
+	model:PivotTo(anchorPart.CFrame)
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = false
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = anchorPart
+			weld.Part1 = d
+			weld.Parent = d
+		end
+	end
+	model.Parent = anchorPart
+end
+
 local function buildHouse(root)
 	local house = Instance.new("Model")
 	house.Name = "Maison"
@@ -212,6 +234,7 @@ local function buildHouse(root)
 			CollectionService:AddTag(part, "Tombe")
 		end
 	end
+	local paintingCount = 0
 	for _, d in ipairs(Data.decor) do
 		local deco = makeBox(folders["Décor"], d, d.mat, d.name)
 		if string.sub(d.name, 1, 6) == "rideau" then
@@ -219,6 +242,21 @@ local function buildHouse(root)
 		end
 		if string.sub(d.name, 1, 7) == "tableau" then
 			CollectionService:AddTag(deco, "Tableau")
+			local picture = ServerStorage:FindFirstChild("Decor")
+			local template = picture and picture:FindFirstChild(paintingCount % 2 == 0 and "tableau" or "tableau2")
+			paintingCount += 1
+			if template then
+				local model = template:Clone()
+				model:PivotTo(deco.CFrame)
+				for _, part in ipairs(model:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.Anchored = true
+						part.CanCollide = false
+					end
+				end
+				deco.Transparency = 1
+				model.Parent = folders["Décor"]
+			end
 		end
 	end
 
@@ -263,6 +301,7 @@ local function buildHouse(root)
 			-- Une ampoule par pièce ; l'allumage et la couleur sont tirés à chaque partie
 			local bulb = makeVisible(folders.Props, p.pos, p.size, p.name,
 				LAMP_PALETTE[1], Enum.Material.Neon, "Lamp")
+			placeDecorModel("lampe plafond", p.pos, bulb)
 			bulb.Transparency = 0.2
 			local light = Instance.new("PointLight")
 			light.Range = 24
@@ -302,9 +341,11 @@ local function buildHouse(root)
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
 		elseif p.tag == "Mannequin" then
-			-- Mannequin de couturière (buste) : il pivote vers le joueur qui s'approche (Quests)
-			makeVisible(folders.Props, p.pos, p.size, p.name,
+			-- Mannequin : une pièce invisible porte l'invite et le pivot (Quests) ; le modèle y est soudé
+			local anchor = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(230, 225, 215), Enum.Material.SmoothPlastic, "Mannequin")
+			anchor.Transparency = 1
+			weldDecorModel("mannequin", anchor)
 		elseif p.tag == "Statue" then
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
 			makeVisible(folders.Props, p.pos, p.size, p.name,

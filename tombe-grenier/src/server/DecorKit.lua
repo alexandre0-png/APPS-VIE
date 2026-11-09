@@ -149,7 +149,9 @@ end
 function DecorKit.dress(parent, furniture, furnParts)
 	local rng = Rng.new(SEED)
 	for i, f in ipairs(furniture) do
-		local template = studioModel(f.name)
+		-- Une grande bibliothèque (plus de 8 studs de large) prend le modèle dédié
+		local modelName = (f.name == "bibliothèque" and f.x1 - f.x0 > 8) and "grande bibliothèque" or f.name
+		local template = studioModel(modelName)
 		if template then
 			local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
 			placeModel(template, parent, (f.x0 + f.x1) / 2, f.y0, (f.z0 + f.z1) / 2, target)
