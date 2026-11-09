@@ -58,7 +58,6 @@ return {
 	tableau_tombe   = { asset = "rbxassetid://125306982616721", volume = 0.8 }, -- tableau qui tombe
 	poupee_bouge    = { asset = "rbxassetid://76611190936817", volume = 0.5 },  -- jouet qui bouge
 	ventilation     = { asset = "rbxassetid://11237231494", volume = 0.4 },     -- courant d'air de la trappe
-	telephone_ancien = { asset = "rbxassetid://1552930535", volume = 0.8 },    -- téléphone ancien qui sonne
 
 	-- Statique (télévision, réservé)
 	statique_tv    = { asset = "rbxassetid://4903742660", volume = 0.5 },

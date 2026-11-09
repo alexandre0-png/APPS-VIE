@@ -13,6 +13,8 @@ local MODELS = {
 	["armoire"] = 11237264353,
 	["lit"] = 4962765494,
 	["bibliothèque"] = 9904549498,
+	["téléphone"] = 1552930535,
+	["télévision"] = 52257438,
 }
 
 function ModelLoader.ensure()

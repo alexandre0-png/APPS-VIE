@@ -303,7 +303,7 @@ local function eventLoop(rng, gen)
 			local phones = CollectionService:GetTagged("Phone")
 			for _, phone in ipairs(phones) do
 				if phone:IsA("BasePart") then
-					Audio.play("telephone_ancien", phone, { lifetime = 10 })
+					Audio.play("telephone", phone, { lifetime = 10 })
 				end
 			end
 			local line = PHONE_LINES[rng:int(1, #PHONE_LINES)]

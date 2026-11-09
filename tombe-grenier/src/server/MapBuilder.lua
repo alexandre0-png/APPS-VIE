@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Data = require(Shared.MapData)
@@ -153,6 +154,24 @@ local function sortedKeys(t)
 	return keys
 end
 
+-- Pose le modèle chargé (ServerStorage/Decor) sur la pièce invisible qui porte l'invite ; ne fait rien s'il manque
+local function placeDecorModel(name, pos, anchorPart)
+	local folder = ServerStorage:FindFirstChild("Decor")
+	local template = folder and folder:FindFirstChild(name)
+	if not template then
+		return
+	end
+	local model = template:Clone()
+	model:PivotTo(CFrame.new(pos[1], pos[2], pos[3]))
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+		end
+	end
+	model.Parent = anchorPart
+end
+
 local function buildHouse(root)
 	local house = Instance.new("Model")
 	house.Name = "Maison"
@@ -261,8 +280,9 @@ local function buildHouse(root)
 				Color3.fromRGB(170, 190, 200), Enum.Material.Glass, "Mirror")
 			glass.Transparency = 0.45
 		elseif p.tag == "TV" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
+			local tv = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(25, 25, 28), Enum.Material.SmoothPlastic, "TV")
+			placeDecorModel("télévision", p.pos, tv)
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(225, 215, 190), Enum.Material.SmoothPlastic, "IntroPhoto")
@@ -274,6 +294,7 @@ local function buildHouse(root)
 			local phone = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(30, 30, 32), Enum.Material.SmoothPlastic, "Phone")
 			phone:SetAttribute("Label", p.name)
+			placeDecorModel("téléphone", p.pos, phone)
 		elseif p.tag == "CaveDoor" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(70, 72, 78), Enum.Material.Metal, "CaveDoor")
