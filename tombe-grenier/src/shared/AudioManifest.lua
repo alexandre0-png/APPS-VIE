@@ -49,7 +49,7 @@ return {
 	poursuite    = { asset = "rbxassetid://9042664292", volume = 0.5, looped = true }, -- musique de poursuite, tant que le monstre chasse
 
 	-- Ambiance et peur
-	ambiance_longue  = { asset = "rbxassetid://125578417483849", volume = 0.3 }, -- nappe longue (réservé)
+	ambiance_longue  = { asset = "rbxassetid://125578417483849", volume = 0.3, looped = true }, -- nappe longue de fond, pendant la partie
 	ambiance_tension = { asset = "rbxassetid://2893921424", volume = 0.3, looped = true }, -- tension : sanité basse, hors poursuite
 	stinger_peur     = { asset = "rbxassetid://1835337231", volume = 0.7 },     -- coup de tension au sursaut
 

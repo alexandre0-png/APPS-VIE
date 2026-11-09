@@ -7,7 +7,6 @@
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 local Remotes = require(game:GetService("ReplicatedStorage").Shared.Remotes)
 
 local Finale = {}
@@ -96,11 +95,15 @@ function Finale.escape(onDone)
 		end
 		vehicle:PivotTo(CFrame.new(60, 0, 175))
 		vehicle.Parent = Workspace
-		local part = vehicle:FindFirstChildWhichIsA("BasePart", true)
-		if part then
-			-- La voiture roule sur la route, au-delà du portail
-			TweenService:Create(part, TweenInfo.new(10, Enum.EasingStyle.Linear), { Position = part.Position + Vector3.new(0, 0, 90) }):Play()
-		end
+		-- La voiture entière roule sur la route, au-delà du portail (on déplace le modèle, pas une seule pièce)
+		task.spawn(function()
+			local start = vehicle:GetPivot()
+			local steps = 50
+			for i = 1, steps do
+				vehicle:PivotTo(start * CFrame.new(0, 0, 90 * i / steps))
+				task.wait(10 / steps)
+			end
+		end)
 	end
 	for _, player in ipairs(Players:GetPlayers()) do
 		Remotes.fire("Effect", player, { kind = "Cine", name = "voiture" })
