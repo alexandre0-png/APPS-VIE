@@ -23,6 +23,7 @@ local Hiding = require(script.Hiding)
 local Props = require(script.Props)
 local Hub = require(script.Hub)
 local ModelLoader = require(script.ModelLoader)
+local Finale = require(script.Finale)
 local Respawn = require(script.Respawn)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
@@ -198,6 +199,18 @@ end)
 -- Portail franchi (fuite) : le monstre disparaît. Il réapparaît quand les joueurs atteignent la cave,
 -- et descend l'escalier extérieur vers eux.
 local monsterReturning = false
+-- Enfant libéré : il suit les joueurs ; la fuite par le portail mène à la voiture et à la fin
+Quests.onFreed = function(player)
+	Finale.freed()
+	Remotes.fireAll("Message", { text = "L'enfant est libre. Il vous suit. Rejoignez le portail, la voiture attend." })
+end
+
+Quests.onEscape = function()
+	Finale.escape(function()
+		endRound("truth")
+	end)
+end
+
 Quests.onGate = function()
 	MonsterAI.vanish()
 	monsterReturning = true

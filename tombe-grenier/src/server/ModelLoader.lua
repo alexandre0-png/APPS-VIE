@@ -20,6 +20,12 @@ local MODELS = {
 	["mannequin"] = 119619217119127,
 	["grande bibliothèque"] = 95255430761213,
 	["lampe plafond"] = 10810000263,
+	["tableau3"] = 158661179,
+	["tableau4"] = 130893645012904,
+	["tableau5"] = 111204431705606,
+	["tableau6"] = 16611095319,
+	["enfant"] = 5363005472,
+	["voiture"] = 78927333558155,
 }
 
 function ModelLoader.ensure()

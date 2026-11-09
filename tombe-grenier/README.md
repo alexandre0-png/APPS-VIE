@@ -135,7 +135,7 @@ Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Indication : la touche H affiche en bas à gauche l'indication de l'étape courante. Un délai de `Config.Quests.HintCooldown` secondes s'applique entre deux demandes.
 - Au réveil, un court rappel des règles s'affiche pendant 12 secondes.
 - Vitesse : marche 8, course 13, silencieux 3 (`Config.Player`), pour que la maison prenne du temps.
-- Fin 3, la vérité : libération de l'enfant.
+- Fin 3, la vérité : l'enfant est libéré au cercueil (date de la plaque). Il suit alors les joueurs (il ne peut pas être attrapé). Il faut fuir par le portail : une voiture attend au bout de l'allée, on monte à bord, et le monstre suit de loin ; la partie se termine ensuite.
 
 Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un indice s'affiche, une seule fois par étape.
 
@@ -250,7 +250,7 @@ Dans `Config.lua` :
 6. **Cachette** : entrer dans une armoire, le joueur est immobile. Le monstre peut le débusquer à moins de 7 studs (le joueur est alors éjecté, avec effet de sursaut).
 7. **Lampe** : éclairer le monstre : il se fige tant que le faisceau le touche, et reprend quand on tourne le dos.
 8. **Objectifs** : 3 photos, code, coffret, petite clé, malle, clé rouillée. Puis sortie ouverte. Sortir par la porte d'entrée : on arrive dans le jardin. Rester (cave) ou franchir le portail (fin 1 par la fuite, voir ci-dessus).
-8bis. **Fin 3** : lire les 4 documents, recouper la date (journal et plaque), puis libérer l'enfant au cercueil et saisir la date au clavier.
+8bis. **Fin 3** : lire les 4 documents, recouper la date (journal et plaque), puis libérer l'enfant au cercueil et saisir la date au clavier. Fuir ensuite par le portail vers la voiture termine la partie.
 8ter. **Statues et mur** : tourner les trois statues jusqu'à ce qu'elles regardent toutes dans la même direction ; la cave s'ouvre. Toucher le mur : une pile, une baisse de sanité.
 9. **Mort** : trois vies par joueur. Une mort coûte une vie ; réapparition au dernier point d'avancée. En duo, réanimer le joueur au sol (maintien de 3 s, 40 s de fenêtre). Sans vie, hors jeu. Si plus personne n'est debout, fin 2.
 9bis. **Indication** : touche H, la première fois puis après le délai. Le texte apparaît en bas à gauche.

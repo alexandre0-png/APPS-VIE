@@ -46,8 +46,9 @@ local MATERIALS = {
 	brique      = { color = Color3.fromRGB(95, 50, 40), material = Enum.Material.Brick,
 	                tex = "97381143864995", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
 	mur         = { color = Color3.fromRGB(120, 112, 100), material = Enum.Material.Concrete,
-	                tex = "7219531968", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	plancher    = { color = Color3.fromRGB(70, 50, 34), material = Enum.Material.Wood },
+	                tex = "65710031", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
+	plancher    = { color = Color3.fromRGB(70, 50, 34), material = Enum.Material.Wood,
+	                tex = "3867164051", faces = { Enum.NormalId.Top }, tile = 6 },
 	bois        = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
 	bois_sombre = { color = Color3.fromRGB(45, 30, 20), material = Enum.Material.Wood },
 	metal       = { color = Color3.fromRGB(60, 60, 66), material = Enum.Material.Metal },
@@ -243,7 +244,8 @@ local function buildHouse(root)
 		if string.sub(d.name, 1, 7) == "tableau" then
 			CollectionService:AddTag(deco, "Tableau")
 			local picture = ServerStorage:FindFirstChild("Decor")
-			local template = picture and picture:FindFirstChild(paintingCount % 2 == 0 and "tableau" or "tableau2")
+			local picNames = { "tableau", "tableau2", "tableau3", "tableau4", "tableau5", "tableau6" }
+			local template = picture and picture:FindFirstChild(picNames[paintingCount % #picNames + 1])
 			paintingCount += 1
 			if template then
 				local model = template:Clone()

@@ -863,6 +863,13 @@ local function wire()
 					say(player, "Le portail est fermé. Il faut d'abord sortir de la maison.")
 					return
 				end
+				-- Enfant libéré : la fuite vers la voiture termine la partie
+				if state.freed then
+					if Quests.onEscape then
+						Quests.onEscape(player)
+					end
+					return
+				end
 				if state.exitTaken then
 					return
 				end
@@ -915,8 +922,9 @@ local function submitDate(player, text)
 	end
 	if text == tombeDate then
 		state.tombePending = false
-		if endFn then
-			endFn("truth")
+		state.freed = true
+		if Quests.onFreed then
+			Quests.onFreed(player)
 		end
 	else
 		say(player, "Ce n'est pas la date gravée. Recoupe les documents.")

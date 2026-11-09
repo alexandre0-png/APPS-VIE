@@ -141,9 +141,10 @@ check(find(H.msgs(alice), "(Entre%-la au clavier)") ~= nil, "le cercueil demande
 H.log = {}
 Quests.submitCode(alice, "1111")
 check(find(H.msgs(alice), "(Ce n'est pas la date gravée)") ~= nil, "mauvaise date refusée")
+Quests.onFreed = function() H.freed = true end
 local mm, dd = string.match(plaqueDate, "(%d%d)/(%d%d)")
 Quests.submitCode(alice, mm .. dd)
-check(H.endReason == "truth", "bonne date : fin vérité")
+check(H.freed == true and H.endReason == nil, "bonne date : enfant libéré, la partie continue")
 
 -- 7bis. Indication à la demande : une fois, puis limitée par le délai
 Quests.setup(12345)

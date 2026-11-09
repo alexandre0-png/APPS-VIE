@@ -71,6 +71,21 @@ local SHOTS = {
 			},
 		},
 	},
+	-- Fuite en voiture : on monte à bord au bout de l'allée, le monstre suit de loin
+	voiture = {
+		plans = {
+			{ from = { 60, 6, 150 }, look = { 60, 3, 178 }, t = 4 },
+			{
+				from = { 66, 5, 200 },
+				look = function()
+					local monster = workspace:FindFirstChild("Monster")
+					local root = monster and monster:FindFirstChild("HumanoidRootPart")
+					return root and root.Position or Vector3.new(60, 3, 165)
+				end,
+				t = 6,
+			},
+		},
+	},
 	-- Fin 3, la vérité : la lumière monte du cercueil vers le ciel
 	truth = {
 		plans = {
