@@ -41,12 +41,12 @@ ROOMS = [
     ("ps",     "basement", (80, 0, 120, 90),  "ardoise",   "brique", "Passage sud"),
     ("cel",    "basement", (0, 44, 40, 90),   "ardoise",   "brique", "Cellier"),
     # Rez-de-chaussée
-    ("salon",  "ground",   (0, 0, 40, 44),    "carrelage", "mur",    "Salon"),
+    ("salon",  "ground",   (0, 0, 40, 44),    "carrelage", "papier", "Salon"),
     ("hall",   "ground",   (40, 0, 80, 44),   "carrelage", "brique", "Hall"),
     ("cuis",   "ground",   (80, 0, 120, 44),  "carrelage", "mur",    "Cuisine"),
-    ("sam",    "ground",   (0, 44, 40, 90),   "carrelage", "mur",    "Salle à manger"),
+    ("sam",    "ground",   (0, 44, 40, 90),   "carrelage", "papier", "Salle à manger"),
     ("entree", "ground",   (40, 44, 80, 90),  "carrelage", "brique", "Entrée"),
-    ("bureau", "ground",   (80, 44, 120, 90), "carrelage", "mur",    "Bureau"),
+    ("bureau", "ground",   (80, 44, 120, 90), "carrelage", "bureau", "Bureau"),
     # Premier étage
     ("chp",    "first",    (0, 0, 40, 44),    "carrelage", "mur",    "Chambre des parents"),
     ("palier", "first",    (40, 0, 80, 44),   "carrelage", "brique", "Palier"),
@@ -57,7 +57,7 @@ ROOMS = [
     ("sdb",    "first",    (80, 44, 120, 68), "carrelage", "mur",    "Salle de bain"),
     ("deb",    "first",    (80, 68, 120, 90), "carrelage", "mur",    "Débarras"),
     # Grenier
-    ("gro",    "attic",    (0, 0, 60, 90),    "plancher",  "mur",    "Grenier ouest"),
+    ("gro",    "attic",    (0, 0, 60, 90),    "plancher",  "bois_mur", "Grenier ouest"),
     ("tombe",  "attic",    (60, 0, 120, 90),  "plancher",  "mur",    "Salle de la tombe"),
 ]
 
@@ -364,15 +364,20 @@ def doors_on(level, orient, line):
 
 
 def wall_material(level, orient, line, a, b):
-    """Brique pour les couloirs et le sous-sol, mur plâtré pour les pièces."""
-    if level == "basement":
-        return "brique"
+    """Matière d'un tronçon de mur : celle de la pièce qu'il borde (brique prioritaire)."""
     mid = (a + b) / 2
+    sides = []
     for p in (line - 0.5, line + 0.5):
         x, z = (p, mid) if orient == "v" else (mid, p)
-        rid = room_at(level, x, z)
-        if rid and room_by_id(rid)[4] == "brique":
-            return "brique"
+        sides.append(room_at(level, x, z))
+    if level == "basement":
+        return "beton" if "cel" in sides else "rouille"
+    walls = [room_by_id(rid)[4] for rid in sides if rid]
+    if "brique" in walls:
+        return "brique"
+    for w in walls:
+        if w != "mur":
+            return w
     return "mur"
 
 

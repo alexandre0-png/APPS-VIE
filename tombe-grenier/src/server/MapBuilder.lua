@@ -46,6 +46,16 @@ local MATERIALS = {
 	brique      = { color = Color3.fromRGB(95, 50, 40), material = Enum.Material.Brick,
 	                tex = "97381143864995", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
 	mur         = { color = Color3.fromRGB(120, 112, 100), material = Enum.Material.Concrete,
+	                tex = "100280695301167", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
+	papier      = { color = Color3.fromRGB(150, 130, 110), material = Enum.Material.Fabric,
+	                tex = "11787663363", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
+	bureau      = { color = Color3.fromRGB(110, 100, 90), material = Enum.Material.Concrete,
+	                tex = "93902698", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
+	bois_mur    = { color = Color3.fromRGB(80, 55, 38), material = Enum.Material.Wood,
+	                tex = "539614542", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
+	rouille     = { color = Color3.fromRGB(90, 60, 40), material = Enum.Material.CorrodedMetal,
+	                tex = "889609059", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
+	beton       = { color = Color3.fromRGB(100, 100, 98), material = Enum.Material.Concrete,
 	                tex = "65710031", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
 	plancher    = { color = Color3.fromRGB(70, 50, 34), material = Enum.Material.Wood,
 	                tex = "3867164051", faces = { Enum.NormalId.Top }, tile = 6 },
@@ -173,6 +183,27 @@ local function placeDecorModel(name, pos, anchorPart)
 	model.Parent = anchorPart
 end
 
+-- Pose un modèle chargé à l'échelle d'une boîte cible (fenêtre, cheminée), sans collision
+local function placeFitted(name, cf, target, parent)
+	local folder = ServerStorage:FindFirstChild("Decor")
+	local template = folder and folder:FindFirstChild(name)
+	if not template then
+		return
+	end
+	local model = template:Clone()
+	local _, size = model:GetBoundingBox()
+	local fit = math.min(target.X / math.max(size.X, 0.01), target.Y / math.max(size.Y, 0.01), target.Z / math.max(size.Z, 0.01))
+	model:ScaleTo(model:GetScale() * fit)
+	model:PivotTo(cf)
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+		end
+	end
+	model.Parent = parent
+end
+
 -- Soude le modèle chargé à la pièce ancre : le modèle suit l'ancre quand elle tourne
 local function weldDecorModel(name, anchorPart)
 	local folder = ServerStorage:FindFirstChild("Decor")
@@ -209,8 +240,22 @@ local function buildHouse(root)
 	end
 
 	for _, w in ipairs(Data.walls) do
-		makeBox(folders.Murs, w, w.mat, w.name or "Mur")
+		-- Murs du pourtour : façade en brique
+		local outer = w.x0 <= -0.4 or w.z0 <= -0.4 or w.x1 >= 120.4 or w.z1 >= 90.4
+		makeBox(folders.Murs, w, outer and "brique" or w.mat, w.name or "Mur")
 	end
+	-- Fenêtres sur les façades nord et sud, et cheminée contre le mur ouest du salon
+	local windows = {
+		{ 20, 4.5, -0.4, "fenêtre bois", 0 }, { 100, 4.5, -0.4, "fenêtre bois", 0 },
+		{ 20, 4.5, 90.4, "fenêtre bois", 0 }, { 100, 4.5, 90.4, "fenêtre bois", 0 },
+		{ 20, 16.5, -0.4, "fenêtre bois", 0 }, { 100, 16.5, -0.4, "fenêtre bois", 0 },
+		{ 20, 16.5, 90.4, "fenêtre bois", 0 }, { 100, 16.5, 90.4, "fenêtre bois", 0 },
+		{ 20, 28.5, -0.4, "fenêtre rouille", 0 }, { 100, 28.5, -0.4, "fenêtre rouille", 0 },
+	}
+	for _, w in ipairs(windows) do
+		placeFitted(w[4], CFrame.new(w[1], w[2], w[3]), Vector3.new(3, 4, 0.5), folders["Décor"])
+	end
+	placeFitted("cheminée", CFrame.new(1.5, 1.5, 22) * CFrame.Angles(0, math.pi / 2, 0), Vector3.new(4, 3, 2.5), folders["Décor"])
 	for _, s in ipairs(Data.slabs) do
 		makeBox(folders.Dalles, s, s.mat, s.name or "Dalle")
 	end

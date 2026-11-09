@@ -38,6 +38,8 @@ src/client/init.client.lua    StarterPlayerScripts.Client : HUD, effets, entrée
 
 La maison fait 120 × 90 studs, sur quatre niveaux : sous-sol (y = -12), rez-de-chaussée (0), premier étage (12), grenier (24). Le jardin entoure la maison, clôturé par des murs invisibles.
 
+Matières des murs : façade extérieure en brique avec des fenêtres (bois aux étages, rouillées au grenier), papier peint au salon et à la salle à manger, mur du bureau, bois au grenier, plâtre ailleurs, rouille au sous-sol, béton humide au cellier. Les sols sont en bois (étages) et en carrelage (rez-de-chaussée). La cheminée est contre le mur ouest du salon. Le ciel intérieur du grenier n'est pas posé : c'est une texture de ciel, à placer dans Studio.
+
 - Source unique : `tools/map/generate_map.py` (pièces, portes, meubles, escalier, points de tag, murs invisibles, jardin).
 - Généré : `src/shared/MapData.lua`. Ne pas l'éditer à la main.
 - Construit : `src/server/MapBuilder.lua`, appelé au démarrage du serveur avant les systèmes.

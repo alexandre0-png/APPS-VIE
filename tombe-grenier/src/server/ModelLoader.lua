@@ -26,6 +26,9 @@ local MODELS = {
 	["tableau6"] = 16611095319,
 	["enfant"] = 5363005472,
 	["voiture"] = 78927333558155,
+	["fenêtre bois"] = 5875960491,
+	["fenêtre rouille"] = 2975574647,
+	["cheminée"] = 3554244943,
 }
 
 function ModelLoader.ensure()
