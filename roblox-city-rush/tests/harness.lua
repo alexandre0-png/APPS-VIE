@@ -131,7 +131,7 @@ local Enum = setmetatable({}, { __index = function(_, k) return setmetatable({},
 local Instance = {}
 local Obj = {}
 local EVENTS = { Triggered = 1, Touched = 1, Died = 1, Seated = 1, Running = 1, OnServerEvent = 1, OnClientEvent = 1, Changed = 1,
-	ChildAdded = 1, PlayerAdded = 1, PlayerRemoving = 1, CharacterAdded = 1, PromptGamePassPurchaseFinished = 1, MoveToFinished = 1, Activated = 1 }
+	ChildAdded = 1, PlayerAdded = 1, PlayerRemoving = 1, CharacterAdded = 1, PromptGamePassPurchaseFinished = 1, MoveToFinished = 1, Activated = 1, InputBegan = 1, InputEnded = 1, RenderStepped = 1, Heartbeat = 1 }
 local BASEPART = { Part = 1, WedgePart = 1, SpawnLocation = 1, VehicleSeat = 1, Seat = 1, MeshPart = 1 }
 function Obj.__index(t, k)
 	local raw = rawget(t, "_props")[k]
@@ -301,6 +301,9 @@ local RunService = service("RunService")
 RunService.IsStudioValue = false
 function RunService:IsStudio() return self.IsStudioValue end
 RunService._props.Heartbeat = newSignal()
+
+local TweenService = service("TweenService")
+function TweenService:Create() return { Play = function() end } end
 
 local MPS = service("MarketplaceService")
 MPS._props.PromptGamePassPurchaseFinished = newSignal()

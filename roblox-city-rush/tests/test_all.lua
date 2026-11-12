@@ -751,6 +751,60 @@ test("cinématiques : intro puis mini tutoriel au premier lancement (Main)", fun
 	eq(table.concat(ids, ","), "intro,tutorial"); H.advance(600)
 end)
 
+print("== Cinématiques côté client (le joueur reprend toujours le contrôle)")
+local function bootCinematic()
+	local M = boot()
+	local lp = H.addPlayer("Cine"); H.advance(0.1)
+	local ch, hrp, hum = H.spawnCharacter(lp, V3.new(0, 3, 0))
+	local pg = H.Instance.new("PlayerGui"); pg.Name = "PlayerGui"; pg.Parent = lp
+	H.Players.LocalPlayer = lp
+	local cam = H.Workspace.CurrentCamera; cam.CameraType = H.env.Enum.CameraType.Custom; cam.CFrame = H.env.CFrame.new(0, 10, 0)
+	local State = H.mod("State"); local Cin = H.mod("Cinematics")
+	local gui = H.Instance.new("ScreenGui"); gui.Enabled = true
+	Cin.init(gui)
+	return { M = M, lp = lp, pg = pg, cam = cam, gui = gui, Cin = Cin, hum = hum, State = State, C = M.Config }
+end
+local function restored(t, msg)
+	eq(t.Cin.isPlaying(), false, (msg or "") .. " : plus de cinématique active")
+	eq(t.cam.CameraType, "Enum.CameraType.Custom", (msg or "") .. " : caméra rendue au joueur")
+	eq(t.gui.Enabled, true, (msg or "") .. " : interface rétablie")
+	eq(t.pg:FindFirstChild("CityRushCinematic"), nil, (msg or "") .. " : écran de cinématique retiré")
+end
+test("cinématique client : lecture normale puis fin naturelle", function()
+	local t = bootCinematic(); t.Cin.play("intro")
+	eq(t.Cin.isPlaying(), true); eq(t.cam.CameraType, "Enum.CameraType.Scriptable"); eq(t.gui.Enabled, false, "HUD masqué")
+	local RS = H.services.RunService
+	for _ = 1, 400 do RS._props.RenderStepped:Fire(0.1) end
+	restored(t, "fin naturelle")
+end)
+test("cinématique client : erreur pendant la séquence => le joueur reprend le contrôle", function()
+	local t = bootCinematic()
+	t.C.Cinematics.Sequences.intro.shots[1].from = { 1 } -- données corrompues : plantera dans le calcul de pose
+	t.Cin.play("intro"); eq(t.Cin.isPlaying(), true)
+	H.services.RunService._props.RenderStepped:Fire(0.1)
+	restored(t, "après erreur"); truthy(#H.warnings > 0, "erreur journalisée")
+	H.services.RunService._props.RenderStepped:Fire(0.1) -- plus aucun traitement après nettoyage
+end)
+test("cinématique client : séquence invalide, skip, mort du joueur, filet de sécurité", function()
+	local t = bootCinematic()
+	t.C.Cinematics.Sequences.chase.shots = {}; t.Cin.play("chase"); eq(t.Cin.isPlaying(), false, "séquence invalide ignorée sans toucher la caméra"); eq(t.cam.CameraType, "Enum.CameraType.Custom")
+	t.Cin.play("tutorial"); H.services.RunService._props.RenderStepped:Fire(0.1); t.Cin.skip(); restored(t, "skip")
+	t.Cin.skip(); t.Cin.skip()  -- skips répétés sans effet ni erreur
+	t.Cin.play("tutorial"); H.services.RunService._props.RenderStepped:Fire(0.1); t.hum.Died:Fire(); restored(t, "mort")
+	t.Cin.play("tutorial"); H.advance(400); restored(t, "filet de sécurité (aucun RenderStepped)")
+	-- le personnage disparaît pendant une orbite autour du joueur : séquence interrompue proprement
+	t.C.Cinematics.Sequences.tutorial.shots[1].center = "player"; t.Cin.play("tutorial"); t.lp.Character.Parent = nil; t.lp.Character = nil
+	H.services.RunService._props.RenderStepped:Fire(0.1); restored(t, "personnage absent")
+end)
+test("cinématique client : file d'attente enchaînée, réglage global coupé", function()
+	local t = bootCinematic()
+	t.Cin.play("intro"); t.Cin.play("tutorial"); t.Cin.play("tutorial"); eq(t.Cin.isPlaying(), true)
+	t.Cin.skip(); H.advance(1); eq(t.Cin.isPlaying(), true, "la suivante démarre après la première")
+	t.Cin.skip(); H.advance(1); restored(t, "file vidée")
+	t.C.Cinematics.Enabled = false; t.Cin.play("intro"); eq(t.Cin.isPlaying(), false, "réglage global coupé"); t.C.Cinematics.Enabled = true
+	t.State.cinematicsReady = true
+end)
+
 print("== Client (chargement des modules)")
 test("modules client : syntaxe et chargement", function()
 	local spsC
