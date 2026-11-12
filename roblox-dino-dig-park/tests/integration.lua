@@ -102,6 +102,40 @@ local Hud = mod(Client, "Hud")
 check(Store.state ~= nil, "l'état serveur est reçu par le client")
 check(Store.state.fossils == Config.StartFossils and Store.state.cash == 0, "état initial côté client")
 check(Ui.root ~= nil, "interface racine créée")
+----------------------------------------------------------------------
+section("Cinématiques : intro, skip, mini tutoriel, jamais bloquant")
+----------------------------------------------------------------------
+local Cin = mod(Client, "Cinematics")
+local Reveal = mod(Client, "Reveal")
+local CamMod = M.Workspace.CurrentCamera
+check(not Cin.isPlaying(), "rien ne joue avant le délai d'attente")
+M.advance(2.5)
+check(Cin.isPlaying() and CamMod.CameraType == Enum.CameraType.Scriptable, "intro : séquence en cours, caméra scriptée")
+check(s.data.cinematics.intro == true, "intro mémorisée côté serveur dès le début")
+local camStart = CamMod.CFrame.Position
+M.advance(3)
+check((CamMod.CFrame.Position - camStart).Magnitude > 1, "la caméra se déplace pendant l'intro")
+check(alice.Character:FindFirstChildOfClass("Humanoid").WalkSpeed == 16, "les commandes du joueur ne sont pas verrouillées")
+check(M.boundActions.CinematicSkip ~= nil, "touche de skip liée pendant la lecture")
+Cin.skip()
+M.advance(0.5)
+check(not Cin.isPlaying() and CamMod.CameraType == Enum.CameraType.Custom, "skip : caméra rendue au joueur")
+check(M.boundActions.CinematicSkip == nil, "touche de skip libérée après la lecture")
+check(Ui.openName == "welcome" and s.data.cinematics.tutorial == true, "mini tutoriel proposé après l'intro")
+Ui.closePanels()
+-- une séquence invalide ou une erreur interne ne casse rien
+check(Cin.play("intro", {}) == false and CamMod.CameraType == Enum.CameraType.Custom, "plan invalide refusé sans toucher la caméra")
+do
+	local origNew = Ui.new
+	Ui.new = function() error("boum (test)") end
+	local shots = Cin.introShots(CFrame.new())
+	local ok = Cin.play("intro", shots)
+	Ui.new = origNew
+	check(ok == false and not Cin.isPlaying() and CamMod.CameraType == Enum.CameraType.Custom, "erreur pendant la lecture : caméra restaurée, joueur libre")
+	M.errors = {}
+end
+noErrors("cinématique d'intro")
+
 for _, name in ipairs({ "upgrades", "collection", "quests", "daily", "rebirth", "shop", "eggs", "welcome" }) do
 	check(Ui.panels[name] ~= nil, "panneau " .. name .. " construit")
 	Ui.openPanel(name)
@@ -260,6 +294,11 @@ for _, def in ipairs(Config.Buildables) do
 end
 M.advance(1.5)
 check(plot.dyn:FindFirstChild("Lock_pen3") == nil and plot.dyn:FindFirstChild("Lock_pen6") == nil, "animation : barrières ouvertes puis retirées")
+-- ouverture des grands enclos : cinématique une seule fois chacun
+Reveal.dismiss()
+M.advance(45)
+check(s.data.cinematics.zone_pen5 == true and s.data.cinematics.zone_pen6 == true, "cinématiques d'ouverture des enclos 5 et 6 jouées")
+check(not Cin.isPlaying() and CamMod.CameraType == Enum.CameraType.Custom, "caméra rendue après les cinématiques de zone")
 local allOwned = true
 for _, def in ipairs(Config.Buildables) do if not s.data.buildables[def.id] then allOwned = false; print("    non acheté : " .. def.id) end end
 check(allOwned, "tous les bâtiments achetables dans l'ordre")
@@ -565,6 +604,49 @@ do
 	World.digSwing = orig
 	M.errors = {}
 end
+
+----------------------------------------------------------------------
+section("Cinématiques : premier dino rare")
+----------------------------------------------------------------------
+Reveal.dismiss()
+M.advance(8)
+Cin.skip()
+M.advance(1)
+local function waitCinematic(maxSeconds)
+	local t = 0
+	while not Cin.isPlaying() and t < maxSeconds do
+		Reveal.dismiss()
+		M.advance(1)
+		t = t + 1
+	end
+	return Cin.isPlaying()
+end
+s.data.cinematics.firstRare = nil
+Cin.forget("firstRare")
+Remotes.Fx:FireClient(alice, { t = "hatch", key = "compy", new = false, egg = "basic" })
+check(not waitCinematic(12), "un dino commun ne déclenche pas de cinématique")
+Reveal.dismiss()
+M.advance(2)
+Remotes.Fx:FireClient(alice, { t = "hatch", key = "tricera", new = true, egg = "basic" })
+check(waitCinematic(45), "premier dino rare : la cinématique démarre après la révélation")
+check(CamMod.CameraType == Enum.CameraType.Scriptable and s.data.cinematics.firstRare == true, "caméra scriptée et mémorisation côté serveur")
+M.advance(14)
+check(not Cin.isPlaying() and CamMod.CameraType == Enum.CameraType.Custom, "fin de séquence (12 s) : caméra rendue")
+Remotes.Fx:FireClient(alice, { t = "hatch", key = "rex", new = true, egg = "basic" })
+Reveal.dismiss()
+check(not waitCinematic(12), "la cinématique du premier rare ne se rejoue pas")
+Reveal.dismiss()
+M.advance(2)
+-- réglage : Config.Cinematics.enabled = false coupe tout
+Config.Cinematics.enabled = false
+s.data.cinematics.firstRare = nil
+Cin.forget("firstRare")
+Remotes.Fx:FireClient(alice, { t = "hatch", key = "tricera", new = false, egg = "basic" })
+check(not waitCinematic(12), "Config.Cinematics.enabled = false : aucune cinématique")
+Config.Cinematics.enabled = true
+Reveal.dismiss()
+M.advance(2)
+noErrors("cinématiques du premier rare")
 
 ----------------------------------------------------------------------
 section("Sauvegarde / rechargement / verrou de session")

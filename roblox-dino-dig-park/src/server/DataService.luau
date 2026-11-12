@@ -33,6 +33,7 @@ function DataService.newData()
 		quests = { day = 0, list = {} },
 		secrets = { bones = {}, rewarded = false },
 		level = 1,
+		cinematics = {},
 		riddle = { day = 0, solved = false, tries = 0, total = 0, streak = 0, lastSolvedDay = 0 },
 		story = { claimed = 0 },
 		lastSeen = 0,
@@ -118,6 +119,13 @@ function DataService.sanitize(data)
 	rd.total = math.floor(sanitizeNumber(rd.total, 0, 0, 1e6))
 	rd.streak = math.floor(sanitizeNumber(rd.streak, 0, 0, 1e6))
 	rd.solved = rd.solved == true
+	local seen = {}
+	for id, v in pairs(data.cinematics) do
+		if v == true and Config.CinematicIds[id] then
+			seen[id] = true
+		end
+	end
+	data.cinematics = seen
 	data.level = math.floor(sanitizeNumber(data.level, 1, 1, Config.MaxLevel))
 	data.story.claimed = math.floor(sanitizeNumber(data.story.claimed, 0, 0, #Config.Story))
 	if type(data.receipts) ~= "table" then

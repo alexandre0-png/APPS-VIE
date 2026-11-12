@@ -177,6 +177,17 @@ local function play(item)
 	playing = false
 end
 
+function Reveal.isPlaying()
+	return playing or #queue > 0
+end
+
+-- ferme la révélation en cours (équivalent du bouton « Super ! »)
+function Reveal.dismiss()
+	if overlay then
+		overlay.Visible = false
+	end
+end
+
 function Reveal.show(key, isNew, eggId)
 	table.insert(queue, { key = key, new = isNew, egg = eggId })
 	if playing then

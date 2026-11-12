@@ -8,6 +8,7 @@ local Hud = require(script.Parent.Hud)
 local Panels = require(script.Parent.Panels)
 local Reveal = require(script.Parent.Reveal)
 local World = require(script.Parent.World)
+local Cinematics = require(script.Parent.Cinematics)
 
 pcall(function()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
@@ -18,6 +19,7 @@ Hud.build(root)
 Panels.build()
 Reveal.build()
 World.start()
+Cinematics.start()
 
 -- l'état initial a pu être envoyé avant que ce script ne soit prêt : on le redemande
 Store.act("RequestState")

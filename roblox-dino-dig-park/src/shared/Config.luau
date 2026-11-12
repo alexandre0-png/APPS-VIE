@@ -697,4 +697,20 @@ Config.Animations = {
 	counterTween = true, -- compteurs qui défilent
 }
 
+----------------------------------------------------------------------
+-- CINÉMATIQUES : seulement aux moments clés, toutes skippables, jamais bloquantes
+----------------------------------------------------------------------
+Config.Cinematics = {
+	enabled = true, -- interrupteur général
+	intro = true, -- l'expédition arrive sur le site (environ 22 s)
+	tutorial = true, -- mini tutoriel au premier lancement (fouiller, éclore, collecter)
+	firstRare = true, -- premier dino rare ou mieux (environ 12 s)
+	bigZone = true, -- ouverture d'un grand enclos (environ 12 s)
+	bigZonePens = { pen5 = true, pen6 = true },
+	minSeconds = 5,
+	maxSeconds = 40,
+}
+-- ids mémorisés dans la sauvegarde : une cinématique ne se rejoue pas
+Config.CinematicIds = { intro = true, tutorial = true, firstRare = true, zone_pen5 = true, zone_pen6 = true }
+
 return Config

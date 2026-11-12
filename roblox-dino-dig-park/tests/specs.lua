@@ -38,6 +38,7 @@ local DinoShapes = loadModule("DinoShapes")
 local Economy = loadModule("Economy")
 warn = function() end
 local Anim = loadModule("Anim")
+local CL = loadModule("CinematicLogic")
 
 -- Utilitaires de test
 local function newData()
@@ -221,6 +222,66 @@ do
 	local _, aMid = Anim.fossilRise(0.5)
 	check(math.abs(y0) < 1e-9 and a0 == 0 and y1 > 1.5 and a1 == 1 and aMid == 0, "fossile : sort de terre puis s'efface")
 end
+
+----------------------------------------------------------------------
+section("Cinématiques : séquencement (durée, état, skip, reprise)")
+----------------------------------------------------------------------
+do
+	local function mk(durs)
+		local shots = {}
+		for i, d in ipairs(durs) do
+			shots[i] = { dur = d, from = { i, 0, 0 }, to = { i + 1, 0, 0 }, look0 = { 0, 0, 0 }, look1 = { 0, 0, 1 }, caption = "plan " .. i }
+		end
+		return shots
+	end
+	local shots = mk({ 5, 6, 5, 6 })
+	check(CL.totalDuration(shots) == 22, "durée totale = somme des plans")
+	check(CL.validate(shots, 5, 40), "plan valide")
+	check(not CL.validate({}, 5, 40), "plan vide refusé")
+	check(not CL.validate(mk({ 1 }), 5, 40), "plan trop court refusé")
+	check(not CL.validate(mk({ 30, 30 }), 5, 40), "plan trop long refusé")
+	check(not CL.validate({ { dur = -1, from = { 0, 0, 0 }, to = { 0, 0, 0 }, look0 = { 0, 0, 0 }, look1 = { 0, 0, 0 } } }), "durée négative refusée")
+	check(not CL.validate({ { dur = 3, from = { 0, 0 }, to = { 0, 0, 0 }, look0 = { 0, 0, 0 }, look1 = { 0, 0, 0 } } }), "point invalide refusé")
+	local s0 = CL.sample(shots, 0)
+	check(s0.idx == 1 and s0.alpha == 0 and s0.pos[1] == 1 and not s0.finished, "début : premier plan, caméra au départ")
+	local s1 = CL.sample(shots, 5.0001)
+	check(s1.idx == 2 and s1.caption == "plan 2", "changement de plan à la bonne seconde")
+	local mid = CL.sample(shots, 2.5)
+	check(math.abs(mid.pos[1] - 1.5) < 1e-9 and math.abs(mid.alpha - 0.5) < 1e-9, "milieu d'un plan : interpolation à mi-chemin")
+	local fin = CL.sample(shots, 22)
+	check(fin.finished and fin.idx == 4 and fin.pos[1] == 5, "fin : dernier plan, caméra à l'arrivée")
+	check(CL.sample(shots, -3).idx == 1, "temps négatif ramené au début")
+	-- lecture pas à pas
+	local st = CL.new(shots)
+	local steps = 0
+	while not st.finished and steps < 10000 do
+		CL.step(st, 1 / 30)
+		steps = steps + 1
+	end
+	check(st.finished and not st.skipped and math.abs(st.t - 22) < 0.1, "lecture complète en environ 22 s (" .. string.format("%.2f", st.t) .. ")")
+	check(steps > 600 and steps < 700, "environ 660 images à 30 FPS")
+	-- à-coup d'image : un gros dt n'avale pas un plan
+	local st2 = CL.new(shots)
+	CL.step(st2, 100)
+	check(st2.t <= 0.25 and not st2.finished, "un à-coup de 100 s n'avance que de 0,25 s")
+	-- dt invalides
+	CL.step(st2, -5) CL.step(st2, 0 / 0) CL.step(st2, nil)
+	check(st2.t <= 0.25, "dt négatif, NaN ou nil ignorés")
+	-- skip puis reprise propre
+	local st3 = CL.new(shots)
+	CL.step(st3, 0.2)
+	CL.skip(st3)
+	local tAtSkip = st3.t
+	local after = CL.step(st3, 1)
+	check(st3.finished and st3.skipped and st3.t == tAtSkip and after ~= nil, "après skip : terminé, plus d'avance")
+	local again = CL.new(shots)
+	check(not again.finished and again.t == 0 and not again.skipped, "reprise : un nouvel état repart de zéro")
+	check(CL.new({}).finished, "plan vide : terminé immédiatement")
+end
+check(Config.Cinematics.enabled == true and Config.Cinematics.minSeconds <= Config.Cinematics.maxSeconds, "Config.Cinematics bien formé")
+for _, k in ipairs({ "intro", "tutorial", "firstRare", "bigZone" }) do check(type(Config.Cinematics[k]) == "boolean", "Config.Cinematics." .. k .. " est un booléen") end
+check(Config.CinematicIds.intro and Config.CinematicIds.tutorial and Config.CinematicIds.firstRare, "ids de cinématiques connus")
+for id in pairs(Config.Cinematics.bigZonePens) do check(Config.BuildableById[id] and Config.BuildableById[id].kind == "pen" and Config.CinematicIds["zone_" .. id], "grande zone " .. id .. " valide") end
 
 ----------------------------------------------------------------------
 section("Util")
@@ -441,6 +502,9 @@ do
 	check(s.upgrades.shovel == Config.Upgrades.shovel.max, "amélioration bornée au max")
 	check(s.upgrades.luck == 0 and s.upgrades.hatch == 0, "améliorations négatives/invalides -> 0")
 	check(s.upgrades.ticket == 2, "amélioration arrondie")
+	check(type(s.cinematics) == "table" and next(s.cinematics) == nil, "cinématiques : vide par défaut")
+	local dc = DS.sanitize({ cinematics = { intro = true, zone_pen5 = true, hack = true, firstRare = "oui" } })
+	check(dc.cinematics.intro and dc.cinematics.zone_pen5 and not dc.cinematics.hack and not dc.cinematics.firstRare, "cinématiques : ids inconnus ou invalides retirés")
 	check(type(s.riddle) == "table" and s.riddle.total == 0 and s.riddle.solved == false, "énigme : champs par défaut")
 	local d2 = DS.sanitize({ riddle = { total = -5, streak = 0 / 0, solved = "oui", tries = 1e99, day = "x" } })
 	check(d2.riddle.total == 0 and d2.riddle.streak == 0 and d2.riddle.solved == false and d2.riddle.day == 0 and d2.riddle.tries <= 1e6, "énigme : valeurs invalides nettoyées")

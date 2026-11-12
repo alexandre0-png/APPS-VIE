@@ -663,6 +663,7 @@ local function buildState(player, s)
 			streak = d.riddle.streak,
 			total = d.riddle.total,
 		},
+		seen = d.cinematics,
 		level = Economy.parkLevel(d),
 		levelHave = Economy.discoveredCount(d),
 		levelNeed = Config.LevelThresholds[Economy.parkLevel(d)],
@@ -831,6 +832,7 @@ local ACTION_COOLDOWN = {
 	ClaimQuest = 0.3,
 	ClaimStory = 0.5,
 	AnswerRiddle = 1.5,
+	CinematicSeen = 0.2,
 }
 
 local ACTIONS = {
@@ -856,6 +858,14 @@ local ACTIONS = {
 		claimStory(player)
 	end,
 	AnswerRiddle = answerRiddle,
+	CinematicSeen = function(player, payload)
+		local s = sessions[player]
+		local id = type(payload) == "table" and payload.id
+		if s and type(id) == "string" and Config.CinematicIds[id] then
+			s.data.cinematics[id] = true
+			markDirty(s)
+		end
+	end,
 	Dig = function(player)
 		GameService.dig(player, false)
 	end,

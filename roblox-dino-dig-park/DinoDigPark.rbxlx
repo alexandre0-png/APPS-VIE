@@ -104,6 +104,116 @@ return Anim
       </Item>
       <Item class="ModuleScript" referent="3">
         <Properties>
+          <string name="Name">CinematicLogic</string>
+          <string name="Source"><![CDATA[-- CinematicLogic.luau : séquencement pur des cinématiques (aucune API Roblox, entièrement testable).
+-- Un plan = liste de plans de caméra : { dur, from = {x,y,z}, to = {x,y,z}, look0 = {x,y,z}, look1 = {x,y,z}, caption }
+-- La caméra va de `from` à `to` en regardant de `look0` vers `look1` pendant `dur` secondes.
+
+local CinematicLogic = {}
+
+local function lerp3(a, b, t)
+	return { a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t }
+end
+
+local function ease(t)
+	return -(math.cos(math.pi * t) - 1) / 2
+end
+
+function CinematicLogic.totalDuration(shots)
+	local total = 0
+	for _, s in ipairs(shots) do
+		total = total + s.dur
+	end
+	return total
+end
+
+-- Valide un plan : retourne true ou false + raison
+function CinematicLogic.validate(shots, minSeconds, maxSeconds)
+	if type(shots) ~= "table" or #shots == 0 then
+		return false, "aucun plan"
+	end
+	for i, s in ipairs(shots) do
+		if type(s.dur) ~= "number" or s.dur <= 0 or s.dur ~= s.dur then
+			return false, "durée invalide au plan " .. i
+		end
+		for _, k in ipairs({ "from", "to", "look0", "look1" }) do
+			local v = s[k]
+			if type(v) ~= "table" or #v ~= 3 then
+				return false, "point " .. k .. " invalide au plan " .. i
+			end
+		end
+	end
+	local total = CinematicLogic.totalDuration(shots)
+	if minSeconds and total < minSeconds then
+		return false, "trop court"
+	end
+	if maxSeconds and total > maxSeconds then
+		return false, "trop long"
+	end
+	return true
+end
+
+-- Échantillon à l'instant t : { idx, alpha, pos, look, caption, finished }
+function CinematicLogic.sample(shots, t)
+	local total = CinematicLogic.totalDuration(shots)
+	if #shots == 0 then
+		return { idx = 0, alpha = 1, finished = true }
+	end
+	if t >= total then
+		local last = shots[#shots]
+		return { idx = #shots, alpha = 1, pos = last.to, look = last.look1, caption = last.caption, finished = true }
+	end
+	if t < 0 then
+		t = 0
+	end
+	local acc = 0
+	for i, s in ipairs(shots) do
+		if t < acc + s.dur then
+			local a = ease((t - acc) / s.dur)
+			return {
+				idx = i,
+				alpha = a,
+				pos = lerp3(s.from, s.to, a),
+				look = lerp3(s.look0, s.look1, a),
+				caption = s.caption,
+				finished = false,
+			}
+		end
+		acc = acc + s.dur
+	end
+	return { idx = #shots, alpha = 1, finished = true }
+end
+
+-- État de lecture : permet skip et reprise propre
+function CinematicLogic.new(shots)
+	return { shots = shots, t = 0, finished = #shots == 0, skipped = false }
+end
+
+function CinematicLogic.step(state, dt)
+	if state.finished then
+		return CinematicLogic.sample(state.shots, state.t)
+	end
+	if type(dt) == "number" and dt > 0 and dt == dt then
+		state.t = state.t + math.min(dt, 0.25) -- un gros à-coup d'image ne fait pas sauter de plan
+	end
+	local snap = CinematicLogic.sample(state.shots, state.t)
+	if snap.finished then
+		state.finished = true
+	end
+	return snap
+end
+
+function CinematicLogic.skip(state)
+	state.skipped = true
+	state.finished = true
+end
+
+return CinematicLogic
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[-- Config.luau : toutes les données d'équilibrage et de contenu du jeu.
 -- Partagé client/serveur. Aucune logique Roblox ici, seulement des données.
@@ -804,11 +914,27 @@ Config.Animations = {
 	counterTween = true, -- compteurs qui défilent
 }
 
+----------------------------------------------------------------------
+-- CINÉMATIQUES : seulement aux moments clés, toutes skippables, jamais bloquantes
+----------------------------------------------------------------------
+Config.Cinematics = {
+	enabled = true, -- interrupteur général
+	intro = true, -- l'expédition arrive sur le site (environ 22 s)
+	tutorial = true, -- mini tutoriel au premier lancement (fouiller, éclore, collecter)
+	firstRare = true, -- premier dino rare ou mieux (environ 12 s)
+	bigZone = true, -- ouverture d'un grand enclos (environ 12 s)
+	bigZonePens = { pen5 = true, pen6 = true },
+	minSeconds = 5,
+	maxSeconds = 40,
+}
+-- ids mémorisés dans la sauvegarde : une cinématique ne se rejoue pas
+Config.CinematicIds = { intro = true, tutorial = true, firstRare = true, zone_pen5 = true, zone_pen6 = true }
+
 return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="4">
+      <Item class="ModuleScript" referent="5">
         <Properties>
           <string name="Name">DinoFactory</string>
           <string name="Source"><![CDATA[-- DinoFactory.luau : construit un modèle de dinosaure à partir de blocs (serveur + client/Viewport).
@@ -927,7 +1053,7 @@ return DinoFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="5">
+      <Item class="ModuleScript" referent="6">
         <Properties>
           <string name="Name">DinoShapes</string>
           <string name="Source"><![CDATA[-- DinoShapes.luau : formes de blocs des dinosaures (données pures, sans API Roblox).
@@ -1108,7 +1234,7 @@ return S
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="6">
+      <Item class="ModuleScript" referent="7">
         <Properties>
           <string name="Name">Economy</string>
           <string name="Source"><![CDATA[-- Economy.luau : toute la logique d'équilibrage, pure et testable hors Roblox.
@@ -1426,7 +1552,7 @@ return Economy
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="7">
+      <Item class="ModuleScript" referent="8">
         <Properties>
           <string name="Name">HumanFactory</string>
           <string name="Source"><![CDATA[-- HumanFactory.luau : petit personnage "Roblox classique" fait de blocs (visiteurs, ouvriers).
@@ -1510,7 +1636,7 @@ return HumanFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="ModuleScript" referent="9">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Remotes.luau : crée (serveur) ou attend (client) les RemoteEvents du jeu.
@@ -1553,7 +1679,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="9">
+      <Item class="ModuleScript" referent="10">
         <Properties>
           <string name="Name">Util</string>
           <string name="Source"><![CDATA[-- Util.luau : fonctions utilitaires pures (partagées).
@@ -1688,15 +1814,15 @@ return Util
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="10">
+  <Item class="ServerScriptService" referent="11">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="11">
+    <Item class="Folder" referent="12">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">DataService</string>
           <string name="Source"><![CDATA[-- DataService.luau : chargement / sauvegarde DataStore avec verrou de session, réessais et validation.
@@ -1734,6 +1860,7 @@ function DataService.newData()
 		quests = { day = 0, list = {} },
 		secrets = { bones = {}, rewarded = false },
 		level = 1,
+		cinematics = {},
 		riddle = { day = 0, solved = false, tries = 0, total = 0, streak = 0, lastSolvedDay = 0 },
 		story = { claimed = 0 },
 		lastSeen = 0,
@@ -1819,6 +1946,13 @@ function DataService.sanitize(data)
 	rd.total = math.floor(sanitizeNumber(rd.total, 0, 0, 1e6))
 	rd.streak = math.floor(sanitizeNumber(rd.streak, 0, 0, 1e6))
 	rd.solved = rd.solved == true
+	local seen = {}
+	for id, v in pairs(data.cinematics) do
+		if v == true and Config.CinematicIds[id] then
+			seen[id] = true
+		end
+	end
+	data.cinematics = seen
 	data.level = math.floor(sanitizeNumber(data.level, 1, 1, Config.MaxLevel))
 	data.story.claimed = math.floor(sanitizeNumber(data.story.claimed, 0, 0, #Config.Story))
 	if type(data.receipts) ~= "table" then
@@ -1982,7 +2116,7 @@ return DataService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="13">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">EventService</string>
           <string name="Source"><![CDATA[-- EventService.luau : événement serveur "Pluie de météores" (récompense fossiles + boost de revenus).
@@ -2102,7 +2236,7 @@ return EventService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="14">
+      <Item class="ModuleScript" referent="15">
         <Properties>
           <string name="Name">GameService</string>
           <string name="Source"><![CDATA[-- GameService.luau : cœur du jeu côté serveur (autorité unique sur toutes les données du joueur).
@@ -2770,6 +2904,7 @@ local function buildState(player, s)
 			streak = d.riddle.streak,
 			total = d.riddle.total,
 		},
+		seen = d.cinematics,
 		level = Economy.parkLevel(d),
 		levelHave = Economy.discoveredCount(d),
 		levelNeed = Config.LevelThresholds[Economy.parkLevel(d)],
@@ -2938,6 +3073,7 @@ local ACTION_COOLDOWN = {
 	ClaimQuest = 0.3,
 	ClaimStory = 0.5,
 	AnswerRiddle = 1.5,
+	CinematicSeen = 0.2,
 }
 
 local ACTIONS = {
@@ -2963,6 +3099,14 @@ local ACTIONS = {
 		claimStory(player)
 	end,
 	AnswerRiddle = answerRiddle,
+	CinematicSeen = function(player, payload)
+		local s = sessions[player]
+		local id = type(payload) == "table" and payload.id
+		if s and type(id) == "string" and Config.CinematicIds[id] then
+			s.data.cinematics[id] = true
+			markDirty(s)
+		end
+	end,
 	Dig = function(player)
 		GameService.dig(player, false)
 	end,
@@ -3075,7 +3219,7 @@ return GameService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="15">
+      <Item class="ModuleScript" referent="16">
         <Properties>
           <string name="Name">Leaderboard</string>
           <string name="Source"><![CDATA[-- Leaderboard.luau : classement global (OrderedDataStore) des meilleurs parcs, affiché dans le lobby.
@@ -3181,7 +3325,7 @@ return Leaderboard
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="16">
+      <Item class="Script" referent="17">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -3211,7 +3355,7 @@ print("[Dino Dig Park] serveur prêt")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="17">
+      <Item class="ModuleScript" referent="18">
         <Properties>
           <string name="Name">Monetization</string>
           <string name="Source"><![CDATA[-- Monetization.luau : gamepasses et produits développeur (inactifs tant que les IDs valent 0 dans Config).
@@ -3341,7 +3485,7 @@ return Monetization
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="18">
+      <Item class="ModuleScript" referent="19">
         <Properties>
           <string name="Name">PlotService</string>
           <string name="Source"><![CDATA[-- PlotService.luau : attribution des parcelles et synchronisation du monde physique avec les données du joueur.
@@ -3695,7 +3839,7 @@ return PlotService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="19">
+      <Item class="ModuleScript" referent="20">
         <Properties>
           <string name="Name">WorldBuilder</string>
           <string name="Source"><![CDATA[-- WorldBuilder.luau : construit tout le monde en blocs Roblox classiques (lobby, parcelles, bâtiments).
@@ -4682,19 +4826,451 @@ return W
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="20">
+  <Item class="StarterPlayer" referent="21">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="21">
+    <Item class="StarterPlayerScripts" referent="22">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="22">
+      <Item class="Folder" referent="23">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="ModuleScript" referent="23">
+        <Item class="ModuleScript" referent="24">
+          <Properties>
+            <string name="Name">Cinematics</string>
+            <string name="Source"><![CDATA[-- Cinematics.luau : courtes séquences caméra aux moments clés. Skippables, réglables (Config.Cinematics),
+-- protégées par pcall, et qui ne verrouillent jamais les commandes du joueur.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
+local Workspace = game:GetService("Workspace")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Economy = require(Shared.Economy)
+local Remotes = require(Shared.Remotes)
+local CinematicLogic = require(Shared.CinematicLogic)
+
+local Ui = require(script.Parent.Ui)
+local Store = require(script.Parent.StateStore)
+local Reveal = require(script.Parent.Reveal)
+
+local Cinematics = {}
+local player = Players.LocalPlayer
+
+local playing = false
+local currentState = nil
+local localSeen = {}
+local queue = {}
+local runner = false
+
+function Cinematics.isPlaying()
+	return playing
+end
+
+function Cinematics.enabled(flag)
+	local c = Config.Cinematics
+	return c.enabled == true and (flag == nil or c[flag] == true)
+end
+
+local function seen(id)
+	return localSeen[id] == true or (Store.state ~= nil and Store.state.seen ~= nil and Store.state.seen[id] == true)
+end
+
+----------------------------------------------------------------------
+-- Plans de caméra (coordonnées locales de la parcelle -> monde)
+----------------------------------------------------------------------
+local function plotFrame()
+	local idx = player:GetAttribute("PlotIndex")
+	local plots = Workspace:FindFirstChild("Plots")
+	local model = idx and plots and plots:FindFirstChild("Plot" .. idx)
+	local static = model and model:FindFirstChild("Static")
+	local terrain = static and static:FindFirstChild("Terrain")
+	if not terrain then
+		return nil, nil
+	end
+	return terrain.CFrame * CFrame.new(0, -0.05, 0), model
+end
+
+local function world(frame, x, y, z)
+	local v = frame:PointToWorldSpace(Vector3.new(x, y, z))
+	return { v.X, v.Y, v.Z }
+end
+
+local function shot(frame, dur, from, to, look0, look1, caption)
+	return {
+		dur = dur,
+		from = world(frame, from[1], from[2], from[3]),
+		to = world(frame, to[1], to[2], to[3]),
+		look0 = world(frame, look0[1], look0[2], look0[3]),
+		look1 = world(frame, look1[1], look1[2], look1[3]),
+		caption = caption,
+	}
+end
+
+function Cinematics.introShots(frame)
+	return {
+		shot(
+			frame,
+			5.5,
+			{ 0, 70, -170 },
+			{ 0, 38, -120 },
+			{ 0, 10, -70 },
+			{ 0, 8, -40 },
+			"L'expédition du Professeur Rex arrive au Dino Dig Park !"
+		),
+		shot(
+			frame,
+			6,
+			{ 0, 18, -85 },
+			{ 0, 10, -20 },
+			{ 0, 4, -20 },
+			{ -20, 3, 30 },
+			"Un vieux terrain, des fossiles cachés… et un rêve fou !"
+		),
+		shot(
+			frame,
+			5.5,
+			{ -5, 14, 20 },
+			{ -18, 8, 40 },
+			{ -32, 2, 60 },
+			{ -32, 2, 62 },
+			"Creuse, fais éclore des œufs et bâtis le plus beau parc de dinos !"
+		),
+		shot(
+			frame,
+			5,
+			{ 28, 16, 30 },
+			{ 18, 10, 40 },
+			{ 32, 5, 59 },
+			{ 32, 5, 60 },
+			"Le laboratoire donnera vie à tes trouvailles. En route !"
+		),
+	}
+end
+
+-- orbite en 3 plans autour d'un point local (x, z)
+local function orbitShots(frame, cx, cz, radius, height, caption1, caption2, caption3)
+	local function p(angleDeg)
+		local a = math.rad(angleDeg)
+		return { cx + math.cos(a) * radius, height, cz + math.sin(a) * radius }
+	end
+	local look = { cx, 3, cz }
+	return {
+		shot(frame, 4, p(200), p(270), look, look, caption1),
+		shot(frame, 4, p(270), p(340), look, look, caption2),
+		shot(frame, 4, p(340), p(410), look, look, caption3),
+	}
+end
+
+function Cinematics.rareShots(frame, cx, cz)
+	return orbitShots(
+		frame,
+		cx,
+		cz,
+		16,
+		7,
+		"Un dino RARE ! Le Professeur n'en croit pas ses yeux !",
+		"Regarde-le : il rapporte bien plus de pièces.",
+		"Ta collection devient légendaire… continue !"
+	)
+end
+
+function Cinematics.zoneShots(frame, cx, cz, name)
+	return orbitShots(
+		frame,
+		cx,
+		cz,
+		26,
+		14,
+		"Un nouvel enclos s'ouvre : " .. name .. " !",
+		"Plus de place pour accueillir de nouveaux dinos.",
+		"Le parc grandit, les visiteurs adorent !"
+	)
+end
+
+----------------------------------------------------------------------
+-- Lecture
+----------------------------------------------------------------------
+local function buildOverlay()
+	local gui = Ui.new("ScreenGui", {
+		Name = "DinoCinematic",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 30,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	local topBar =
+		Ui.new("Frame", { Size = UDim2.fromScale(1, 0.1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, Parent = gui })
+	local bottomBar = Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 0.14),
+		Position = UDim2.fromScale(0, 0.86),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+		Parent = gui,
+	})
+	local caption = Ui.label(bottomBar, {
+		text = "",
+		size = 26,
+		wrap = true,
+		stroke = true,
+		color = Color3.fromRGB(255, 232, 150),
+		sizeUdim = UDim2.fromScale(0.7, 1),
+		pos = UDim2.fromScale(0.03, 0),
+		align = Enum.TextXAlignment.Left,
+	})
+	local skip = Ui.button(bottomBar, {
+		text = "Passer ⏭",
+		size = UDim2.fromOffset(150, 46),
+		pos = UDim2.new(1, -16, 0.5, 0),
+		anchor = Vector2.new(1, 0.5),
+		color = Ui.colors.blue,
+		textSize = 20,
+		onClick = function()
+			Cinematics.skip()
+		end,
+	})
+	return gui, caption, skip, topBar
+end
+
+-- oublie une cinématique déjà vue (utilisé par les tests)
+function Cinematics.forget(id)
+	localSeen[id] = nil
+end
+
+function Cinematics.skip()
+	if currentState then
+		CinematicLogic.skip(currentState)
+	end
+end
+
+local function restoreCamera(cam, previousType)
+	pcall(function()
+		cam.CameraType = previousType or Enum.CameraType.Custom
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			cam.CameraSubject = hum
+		end
+	end)
+end
+
+-- Joue un plan. Retourne true si lu jusqu'au bout ou skippé, false si impossible. Ne lève jamais d'erreur.
+function Cinematics.play(id, shots)
+	if playing or not Cinematics.enabled() then
+		return false
+	end
+	local okShots = CinematicLogic.validate(shots, Config.Cinematics.minSeconds, Config.Cinematics.maxSeconds)
+	if not okShots then
+		return false
+	end
+	local cam = Workspace.CurrentCamera
+	if not cam then
+		return false
+	end
+	playing = true
+	localSeen[id] = true
+	Remotes.Action:FireServer("CinematicSeen", { id = id })
+
+	local previousType = cam.CameraType
+	local gui, caption
+	local state = CinematicLogic.new(shots)
+	currentState = state
+	local ok, err = pcall(function()
+		gui, caption = buildOverlay()
+		ContextActionService:BindAction("CinematicSkip", function(_, inputState)
+			if inputState == Enum.UserInputState.Begin then
+				Cinematics.skip()
+			end
+			return Enum.ContextActionResult.Pass
+		end, false, Enum.KeyCode.Return, Enum.KeyCode.ButtonB)
+		cam.CameraType = Enum.CameraType.Scriptable
+		local startedAt = os.clock()
+		local charAtStart = player.Character
+		local limit = CinematicLogic.totalDuration(shots) + 5
+		while not state.finished do
+			local dt = RunService.RenderStepped:Wait()
+			local snap = CinematicLogic.step(state, dt)
+			if snap.pos then
+				cam.CFrame =
+					CFrame.lookAt(Vector3.new(snap.pos[1], snap.pos[2], snap.pos[3]), Vector3.new(snap.look[1], snap.look[2], snap.look[3]))
+				caption.Text = snap.caption or ""
+			end
+			-- garde-fous : réapparition du personnage ou durée dépassée => on rend la caméra
+			if player.Character ~= charAtStart or os.clock() - startedAt > limit then
+				CinematicLogic.skip(state)
+			end
+		end
+	end)
+	if not ok then
+		warn("[Cinematics] " .. id .. " : " .. tostring(err))
+	end
+	-- nettoyage systématique
+	pcall(function()
+		ContextActionService:UnbindAction("CinematicSkip")
+	end)
+	restoreCamera(cam, previousType)
+	if gui then
+		pcall(function()
+			gui:Destroy()
+		end)
+	end
+	currentState = nil
+	playing = false
+	return ok
+end
+
+----------------------------------------------------------------------
+-- Déclencheurs (moments clés uniquement)
+----------------------------------------------------------------------
+local function enqueue(job)
+	table.insert(queue, job)
+	if runner then
+		return
+	end
+	runner = true
+	task.spawn(function()
+		while #queue > 0 do
+			local j = table.remove(queue, 1)
+			local ok, err = pcall(j)
+			if not ok then
+				warn("[Cinematics] file : " .. tostring(err))
+			end
+		end
+		runner = false
+	end)
+end
+
+local function waitUntil(cond, timeout)
+	local t0 = os.clock()
+	while not cond() and os.clock() - t0 < timeout do
+		task.wait(0.2)
+	end
+	return cond()
+end
+
+local function nothingBlocking()
+	return not Reveal.isPlaying() and Ui.openName == nil
+end
+
+local function findDinoHome(key)
+	local _, model = plotFrame()
+	local dyn = model and model:FindFirstChild("Dynamic")
+	local folder = dyn and dyn:FindFirstChild("Dinos")
+	if folder then
+		for _, m in ipairs(folder:GetChildren()) do
+			if m:GetAttribute("DinoKey") == key then
+				return m:GetAttribute("Home")
+			end
+		end
+	end
+	return nil
+end
+
+local function openTutorial()
+	if Cinematics.enabled("tutorial") and not seen("tutorial") then
+		localSeen.tutorial = true
+		Remotes.Action:FireServer("CinematicSeen", { id = "tutorial" })
+		if Ui.openName == nil then
+			Ui.openPanel("welcome")
+		end
+	end
+end
+
+-- intro puis mini tutoriel, uniquement pour un tout nouveau joueur
+local introChecked = false
+local function checkIntro(st)
+	if introChecked then
+		return
+	end
+	introChecked = true
+	local brandNew = st.stats.digs == 0 and st.stats.hatched == 0 and next(st.dinos) == nil
+	if not brandNew then
+		return
+	end
+	enqueue(function()
+		if not waitUntil(function()
+			return (plotFrame()) ~= nil and player.Character ~= nil
+		end, 20) then
+			return
+		end
+		task.wait(1.5)
+		if Cinematics.enabled("intro") and not seen("intro") then
+			local frame = plotFrame()
+			if frame then
+				Cinematics.play("intro", Cinematics.introShots(frame))
+			end
+		end
+		openTutorial()
+	end)
+end
+
+local function onFx(fx)
+	if type(fx) ~= "table" then
+		return
+	end
+	if fx.t == "hatch" and Cinematics.enabled("firstRare") and not seen("firstRare") then
+		local dino = Config.DinoById[(Economy.parseKey(fx.key))]
+		if dino and Config.RarityById[dino.rarity].order >= 3 then
+			localSeen.firstRare = nil -- ne sera marqué qu'au moment de la lecture
+			enqueue(function()
+				if seen("firstRare") then
+					return
+				end
+				waitUntil(nothingBlocking, 40)
+				local frame = plotFrame()
+				if not frame then
+					return
+				end
+				local home = findDinoHome(fx.key)
+				local local_ = home and frame:Inverse():PointToWorldSpace(home)
+					or Vector3.new(Config.Pens[1].center.X - 9, 0, Config.Pens[1].center.Z - 6)
+				Cinematics.play("firstRare", Cinematics.rareShots(frame, local_.X, local_.Z))
+			end)
+		end
+	elseif fx.t == "buy" and Cinematics.enabled("bigZone") and Config.Cinematics.bigZonePens[fx.id] then
+		local cid = "zone_" .. fx.id
+		if not seen(cid) then
+			enqueue(function()
+				if seen(cid) then
+					return
+				end
+				task.wait(1.2) -- laisse l'enclos se construire
+				waitUntil(nothingBlocking, 10)
+				local frame = plotFrame()
+				local def = Config.BuildableById[fx.id]
+				if frame and def then
+					local c = Config.Pens[def.index].center
+					Cinematics.play(cid, Cinematics.zoneShots(frame, c.X, c.Z, def.name))
+				end
+			end)
+		end
+	end
+end
+
+function Cinematics.start()
+	Store.connect(function(st)
+		if st.seen then
+			checkIntro(st)
+		end
+	end)
+	Remotes.Fx.OnClientEvent:Connect(function(fx)
+		local ok, err = pcall(onFx, fx)
+		if not ok then
+			warn("[Cinematics] fx : " .. tostring(err))
+		end
+	end)
+end
+
+return Cinematics
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">Hud</string>
             <string name="Source"><![CDATA[-- Hud.luau : interface permanente (monnaies, boutons de menu, objectif, notifications, boutons contextuels).
@@ -5222,7 +5798,7 @@ return Hud
 ]]></string>
           </Properties>
         </Item>
-        <Item class="LocalScript" referent="24">
+        <Item class="LocalScript" referent="26">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Main.client.luau : point d'entrée client de Dino Dig Park.
@@ -5235,6 +5811,7 @@ local Hud = require(script.Parent.Hud)
 local Panels = require(script.Parent.Panels)
 local Reveal = require(script.Parent.Reveal)
 local World = require(script.Parent.World)
+local Cinematics = require(script.Parent.Cinematics)
 
 pcall(function()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
@@ -5245,13 +5822,14 @@ Hud.build(root)
 Panels.build()
 Reveal.build()
 World.start()
+Cinematics.start()
 
 -- l'état initial a pu être envoyé avant que ce script ne soit prêt : on le redemande
 Store.act("RequestState")
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">Panels</string>
             <string name="Source"><![CDATA[-- Panels.luau : fenêtres du jeu (améliorations, collection, quêtes, cadeau quotidien, renaissance, boutique, choix d'œuf).
@@ -6069,9 +6647,9 @@ local function buildRiddle()
 end
 
 local function buildWelcome()
-	local p = Ui.createPanel("welcome", "🦖 Bienvenue au Dino Dig Park !", UDim2.fromOffset(560, 400), { color = C.green })
+	local p = Ui.createPanel("welcome", "🦖 Mini tutoriel : bienvenue !", UDim2.fromOffset(560, 400), { color = C.green })
 	local text = Ui.label(p.body, {
-		text = "<b>1.</b> Va dans la zone de fouille et appuie sur ⛏ CREUSER pour trouver des fossiles.\n<b>2.</b> Au laboratoire, place un œuf dans un incubateur (E ou toucher).\n<b>3.</b> Les dinos exposés dans tes enclos rapportent des 💰 : marche sur le pad vert du kiosque pour les collecter.\n<b>4.</b> Marche sur les boutons colorés pour agrandir ton parc.\n\nSuis le rayon jaune : il montre toujours le prochain objectif.",
+		text = "<b>1.</b> Va dans la zone de fouille et appuie sur ⛏ CREUSER pour trouver des fossiles.\n<b>2.</b> Au laboratoire, place un œuf dans un incubateur (E ou toucher).\n<b>3.</b> Les dinos exposés dans tes enclos rapportent des 💰 : marche sur le pad vert du kiosque pour les collecter, et vends les dinos en trop depuis le bouton Dinos.\n<b>4.</b> Marche sur les boutons colorés pour agrandir ton parc.\n\nSuis le rayon jaune : il montre toujours le prochain objectif.",
 		size = 19,
 		wrap = true,
 		rich = true,
@@ -6090,19 +6668,6 @@ local function buildWelcome()
 		textSize = 24,
 		onClick = Ui.closePanels,
 	})
-	local shown = false
-	Store.connect(function(st)
-		if not shown and st.stats.digs == 0 and st.stats.hatched == 0 and next(st.dinos) == nil then
-			shown = true
-			task.delay(1.5, function()
-				if Ui.openName == nil then
-					Ui.openPanel("welcome")
-				end
-			end)
-		else
-			shown = true
-		end
-	end)
 end
 
 function Panels.openEggs(slot)
@@ -6135,7 +6700,7 @@ return Panels
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="28">
           <Properties>
             <string name="Name">Reveal</string>
             <string name="Source"><![CDATA[-- Reveal.luau : animation d'éclosion (œuf qui tremble -> flash -> dino en rotation avec sa rareté).
@@ -6317,6 +6882,17 @@ local function play(item)
 	playing = false
 end
 
+function Reveal.isPlaying()
+	return playing or #queue > 0
+end
+
+-- ferme la révélation en cours (équivalent du bouton « Super ! »)
+function Reveal.dismiss()
+	if overlay then
+		overlay.Visible = false
+	end
+end
+
 function Reveal.show(key, isNew, eggId)
 	table.insert(queue, { key = key, new = isNew, egg = eggId })
 	if playing then
@@ -6338,7 +6914,7 @@ return Reveal
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="27">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">StateStore</string>
             <string name="Source"><![CDATA[-- StateStore.luau : copie locale de l'état envoyé par le serveur + signaux de changement.
@@ -6382,7 +6958,7 @@ return Store
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">Ui</string>
             <string name="Source"><![CDATA[-- Ui.luau : thème et petits composants d'interface (tout est construit par code, sans asset externe).
@@ -6764,7 +7340,7 @@ return Ui
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">World</string>
             <string name="Source"><![CDATA[-- World.luau : animations locales (dinos qui se promènent, visiteurs, ouvriers, œufs), effets et rayon-guide.

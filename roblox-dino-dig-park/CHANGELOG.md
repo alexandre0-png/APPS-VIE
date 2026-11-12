@@ -32,3 +32,9 @@
 - Toutes derrière `Config.Animations` (interrupteur `master` et un par animation) et exécutées via `Anim.run` (pcall + avertissement en cas d'échec) : respiration et marche des dinos, sauts de joie à l'arrivée d'un dino et à l'éclosion, coup de pelle, poussière, fossile qui sort de terre, pièces jaillissant du kiosque, onde lumineuse à l'arrivée d'un bâtiment, barrières d'enclos qui s'enfoncent à l'ouverture, fondu des fenêtres, lignes de quêtes en cascade, pop des notifications, compteurs qui défilent, dinos qui tournent dans la collection.
 - Les fonctions mathématiques (`src/shared/Anim.luau`) sont pures et testées : bornes, monotonie, saut, respiration, porte, fossile, garde-fou.
 - Tout est cosmétique côté client (sauf les barrières, animées côté serveur pour quelques pièces seulement).
+
+## Cinématiques (moments clés seulement)
+- Décision : seulement 3 moments, le reste reste en gameplay. Intro de l'expédition (~22 s, 4 plans, nouveau joueur uniquement) puis mini tutoriel (fouiller, éclore, collecter et vendre), cinématique du premier dino rare (~12 s, orbite autour du dino), ouverture des grands enclos 5 et 6 (~12 s). Chacune ne se joue qu'une fois (mémorisée dans la sauvegarde, ids validés côté serveur).
+- Toujours skippables (bouton « Passer », Entrée, bouton B), jamais bloquantes (aucun verrouillage des commandes), protégées par pcall avec nettoyage systématique de la caméra, et arrêtées si le personnage réapparaît ou si la durée dépasse la limite.
+- Réglage : `Config.Cinematics` (interrupteur général et un par cinématique, durée mini et maxi).
+- Séquencement pur dans `src/shared/CinematicLogic.luau` : durée, interpolation, changement de plan, plafonnement des à-coups d'image, skip, reprise sur un état neuf. Testé unitairement et en intégration (état, durée, skip, reprise, erreur, désactivation).
