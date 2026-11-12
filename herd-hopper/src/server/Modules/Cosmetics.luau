@@ -48,10 +48,34 @@ local HATS = {
 	},
 	vip = {
 		{ s = V(2.2, 0.5, 2.2), o = V(0, 0.75, 0), c = C(255, 205, 60), mat = Enum.Material.Metal },
-		{ s = V(0.6, 1.8, 0.6), o = V(-1.3, 1.5, 0), c = C(255, 214, 90), mat = Enum.Material.Metal, rot = V(0, 0, 25) },
-		{ s = V(0.6, 1.8, 0.6), o = V(1.3, 1.5, 0), c = C(255, 214, 90), mat = Enum.Material.Metal, rot = V(0, 0, -25) },
-		{ s = V(0.5, 1.0, 0.5), o = V(-1.9, 2.5, 0), c = C(255, 245, 180), mat = Enum.Material.Neon, rot = V(0, 0, 45) },
-		{ s = V(0.5, 1.0, 0.5), o = V(1.9, 2.5, 0), c = C(255, 245, 180), mat = Enum.Material.Neon, rot = V(0, 0, -45) },
+		{
+			s = V(0.6, 1.8, 0.6),
+			o = V(-1.3, 1.5, 0),
+			c = C(255, 214, 90),
+			mat = Enum.Material.Metal,
+			rot = V(0, 0, 25),
+		},
+		{
+			s = V(0.6, 1.8, 0.6),
+			o = V(1.3, 1.5, 0),
+			c = C(255, 214, 90),
+			mat = Enum.Material.Metal,
+			rot = V(0, 0, -25),
+		},
+		{
+			s = V(0.5, 1.0, 0.5),
+			o = V(-1.9, 2.5, 0),
+			c = C(255, 245, 180),
+			mat = Enum.Material.Neon,
+			rot = V(0, 0, 45),
+		},
+		{
+			s = V(0.5, 1.0, 0.5),
+			o = V(1.9, 2.5, 0),
+			c = C(255, 245, 180),
+			mat = Enum.Material.Neon,
+			rot = V(0, 0, -45),
+		},
 	},
 	crown = {
 		{ s = V(2.2, 0.8, 2.2), o = V(0, 0.9, 0), c = C(255, 205, 60), mat = Enum.Material.Metal },
@@ -100,9 +124,7 @@ function Cosmetics.applyHat(character, hatId)
 			part.Shape = Enum.PartType.Cylinder
 		end
 		local rot = def.rot or Vector3.new(0, 0, 0)
-		part.CFrame = head.CFrame
-			* CFrame.new(def.o)
-			* CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+		part.CFrame = head.CFrame * CFrame.new(def.o) * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = head
 		weld.Part1 = part

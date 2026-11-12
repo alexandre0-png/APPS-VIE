@@ -29,4 +29,8 @@ Exécutées dans cet environnement :
 
 Lancer : `cd tools/sim && npm install && node run.js A` (puis B, C, CLIENT).
 
+Configurations fournies mais **non exécutées ici** (outils absents de l'environnement) : `stylua.toml`, `selene.toml`, `rojo build` (via `default.project.json`). Lance `tools/check.sh` sur ta machine : il signale chaque outil manquant. Aucun test Lune : la logique est couverte par la simulation fengari ci-dessus.
+
+Audio : les musiques de `Config.Audio.Music` sont vides (aucun morceau libre de droits fourni). Les effets utilisent les sons intégrés au client Roblox, non vérifiés.
+
 Non exécutées, faute de Roblox Studio ici : physique réelle (soudure du cavalier sur une bête ancrée, propriété réseau), rendu, tactile et manette, sons, DataStore et achats réels. Ce sont les points à regarder lors du premier test dans Studio.

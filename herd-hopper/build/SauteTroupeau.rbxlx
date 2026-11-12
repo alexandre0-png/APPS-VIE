@@ -116,9 +116,27 @@ Config.Events = {
 }
 
 Config.Upgrades = {
-	{ id = "range", name = "Corde longue", desc = "Portée du lasso +5 m par niveau.", max = 5, costs = { 150, 300, 550, 900, 1400 } },
-	{ id = "taming", name = "Dresseur rapide", desc = "Temps de dressage -8 % par niveau.", max = 5, costs = { 150, 300, 550, 900, 1400 } },
-	{ id = "combo", name = "Souffle de combo", desc = "Fenêtre de combo +0,6 s par niveau.", max = 5, costs = { 200, 400, 700, 1100, 1600 } },
+	{
+		id = "range",
+		name = "Corde longue",
+		desc = "Portée du lasso +5 m par niveau.",
+		max = 5,
+		costs = { 150, 300, 550, 900, 1400 },
+	},
+	{
+		id = "taming",
+		name = "Dresseur rapide",
+		desc = "Temps de dressage -8 % par niveau.",
+		max = 5,
+		costs = { 150, 300, 550, 900, 1400 },
+	},
+	{
+		id = "combo",
+		name = "Souffle de combo",
+		desc = "Fenêtre de combo +0,6 s par niveau.",
+		max = 5,
+		costs = { 200, 400, 700, 1100, 1600 },
+	},
 }
 
 Config.Hats = {
@@ -136,7 +154,12 @@ Config.Hats = {
 -- Tant qu'un id vaut 0, l'objet s'affiche « Bientôt » et ne peut pas être acheté.
 Config.Monetization = {
 	GamePasses = {
-		{ key = "double", id = 0, name = "Pièces x2", desc = "Double toutes les pièces gagnées en course, pour toujours." },
+		{
+			key = "double",
+			id = 0,
+			name = "Pièces x2",
+			desc = "Double toutes les pièces gagnées en course, pour toujours.",
+		},
 		{ key = "rope", id = 0, name = "Corde longue +8 m", desc = "Portée du lasso +8 m en permanence." },
 		{ key = "vip", id = 0, name = "VIP", desc = "Cornes dorées exclusives pour ton cavalier." },
 	},
@@ -355,12 +378,29 @@ do
 	}
 	addEyes(parts, 0.9, -7.35, 1.1)
 	add({
-		id = "boar", name = "Sanglier", desc = "Petit et nerveux. Il zigzague sans cesse.",
-		speed = 38, value = 1, weight = 26, tameTime = 5, buckAfter = 9, trait = "weave",
-		weaveAmp = 14, weaveFreq = 0.9, rootY = 4.4,
+		id = "boar",
+		name = "Sanglier",
+		desc = "Petit et nerveux. Il zigzague sans cesse.",
+		speed = 38,
+		value = 1,
+		weight = 26,
+		tameTime = 5,
+		buckAfter = 9,
+		trait = "weave",
+		weaveAmp = 14,
+		weaveFreq = 0.9,
+		rootY = 4.4,
 		body = { s = V(5, 4, 8), c = "body" },
-		palette = { body = C(139, 94, 60), dark = C(92, 60, 38), light = C(238, 226, 200), accent = C(255, 150, 170), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(1.3, 2.4, 1.3), -2, 1.7, 2.8), wings = {},
+		palette = {
+			body = C(139, 94, 60),
+			dark = C(92, 60, 38),
+			light = C(238, 226, 200),
+			accent = C(255, 150, 170),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.3, 2.4, 1.3), -2, 1.7, 2.8),
+		wings = {},
 	})
 end
 
@@ -378,11 +418,26 @@ do
 	}
 	addEyes(parts, 6.9, -4.1, 0.95)
 	add({
-		id = "ostrich", name = "Autruche des cimes", desc = "Foncière et rapide. Parfaite pour gagner du terrain.",
-		speed = 52, value = 1.2, weight = 16, tameTime = 5, buckAfter = 8, trait = "sprint",
-		weaveAmp = 2, weaveFreq = 0.6, rootY = 7,
+		id = "ostrich",
+		name = "Autruche des cimes",
+		desc = "Foncière et rapide. Parfaite pour gagner du terrain.",
+		speed = 52,
+		value = 1.2,
+		weight = 16,
+		tameTime = 5,
+		buckAfter = 8,
+		trait = "sprint",
+		weaveAmp = 2,
+		weaveFreq = 0.6,
+		rootY = 7,
 		body = { s = V(3.4, 4, 6), c = "body" },
-		palette = { body = C(176, 72, 56), dark = C(112, 44, 38), light = C(238, 214, 176), accent = C(255, 200, 50), eye = C(20, 20, 20) },
+		palette = {
+			body = C(176, 72, 56),
+			dark = C(112, 44, 38),
+			light = C(238, 214, 176),
+			accent = C(255, 200, 50),
+			eye = C(20, 20, 20),
+		},
 		parts = parts,
 		legs = {
 			{ n = "LegL", s = V(0.9, 5, 0.9), hip = V(-1.1, -2, 0.6), phase = 0, c = "accent" },
@@ -404,12 +459,29 @@ do
 	}
 	addEyes(parts, 0.7, -8.15, 1.6)
 	add({
-		id = "rhino", name = "Rhinocéros", desc = "Charge par rafales : +50 % de vitesse toutes les 6 s.",
-		speed = 33, value = 1.5, weight = 15, tameTime = 6, buckAfter = 11, trait = "charge",
-		weaveAmp = 0, weaveFreq = 1, rootY = 5.5,
+		id = "rhino",
+		name = "Rhinocéros",
+		desc = "Charge par rafales : +50 % de vitesse toutes les 6 s.",
+		speed = 33,
+		value = 1.5,
+		weight = 15,
+		tameTime = 6,
+		buckAfter = 11,
+		trait = "charge",
+		weaveAmp = 0,
+		weaveFreq = 1,
+		rootY = 5.5,
 		body = { s = V(6, 5, 9), c = "body" },
-		palette = { body = C(136, 138, 150), dark = C(96, 98, 110), light = C(236, 232, 218), accent = C(170, 120, 80), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(1.7, 3, 1.7), -2.5, 2.0, 3.2), wings = {},
+		palette = {
+			body = C(136, 138, 150),
+			dark = C(96, 98, 110),
+			light = C(236, 232, 218),
+			accent = C(170, 120, 80),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.7, 3, 1.7), -2.5, 2.0, 3.2),
+		wings = {},
 	})
 end
 
@@ -427,12 +499,29 @@ do
 	}
 	addEyes(parts, 1.4, -5.65, 0.8)
 	add({
-		id = "ram", name = "Bélier", desc = "Il bondit à chaque foulée : spectaculaire et rapide.",
-		speed = 42, value = 1.3, weight = 15, tameTime = 5, buckAfter = 9, trait = "hop",
-		weaveAmp = 5, weaveFreq = 0.8, rootY = 4.8,
+		id = "ram",
+		name = "Bélier",
+		desc = "Il bondit à chaque foulée : spectaculaire et rapide.",
+		speed = 42,
+		value = 1.3,
+		weight = 15,
+		tameTime = 5,
+		buckAfter = 9,
+		trait = "hop",
+		weaveAmp = 5,
+		weaveFreq = 0.8,
+		rootY = 4.8,
 		body = { s = V(4, 3.6, 6.4), c = "body" },
-		palette = { body = C(244, 240, 228), dark = C(70, 58, 56), light = C(255, 255, 255), accent = C(210, 180, 130), eye = C(255, 255, 255) },
-		parts = parts, legs = quadLegs(V(1, 3, 1), -1.8, 1.3, 2.2), wings = {},
+		palette = {
+			body = C(244, 240, 228),
+			dark = C(70, 58, 56),
+			light = C(255, 255, 255),
+			accent = C(210, 180, 130),
+			eye = C(255, 255, 255),
+		},
+		parts = parts,
+		legs = quadLegs(V(1, 3, 1), -1.8, 1.3, 2.2),
+		wings = {},
 	})
 end
 
@@ -451,12 +540,29 @@ do
 	}
 	addEyes(parts, 1.8, -10.45, 1.6)
 	add({
-		id = "mammoth", name = "Mammouth", desc = "Lent mais très rentable. Ne te désarçonne jamais.",
-		speed = 25, value = 2.5, weight = 9, tameTime = 8, buckAfter = nil, trait = "stable",
-		weaveAmp = 0, weaveFreq = 1, rootY = 7.5,
+		id = "mammoth",
+		name = "Mammouth",
+		desc = "Lent mais très rentable. Ne te désarçonne jamais.",
+		speed = 25,
+		value = 2.5,
+		weight = 9,
+		tameTime = 8,
+		buckAfter = nil,
+		trait = "stable",
+		weaveAmp = 0,
+		weaveFreq = 1,
+		rootY = 7.5,
 		body = { s = V(8, 7, 11), c = "body" },
-		palette = { body = C(118, 78, 50), dark = C(80, 52, 34), light = C(242, 232, 204), accent = C(200, 90, 60), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(2.4, 4, 2.4), -3.5, 2.6, 3.8), wings = {},
+		palette = {
+			body = C(118, 78, 50),
+			dark = C(80, 52, 34),
+			light = C(242, 232, 204),
+			accent = C(200, 90, 60),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(2.4, 4, 2.4), -3.5, 2.6, 3.8),
+		wings = {},
 	})
 end
 
@@ -472,12 +578,29 @@ do
 	}
 	addEyes(parts, 1.0, -8.05, 1.5)
 	add({
-		id = "trike", name = "Tricératops", desc = "Un bouclier vivant. Rentable et endurant.",
-		speed = 30, value = 2, weight = 12, tameTime = 7, buckAfter = 14, trait = "tank",
-		weaveAmp = 2, weaveFreq = 0.7, rootY = 4.85,
+		id = "trike",
+		name = "Tricératops",
+		desc = "Un bouclier vivant. Rentable et endurant.",
+		speed = 30,
+		value = 2,
+		weight = 12,
+		tameTime = 7,
+		buckAfter = 14,
+		trait = "tank",
+		weaveAmp = 2,
+		weaveFreq = 0.7,
+		rootY = 4.85,
 		body = { s = V(5.5, 4.5, 9), c = "body" },
-		palette = { body = C(96, 166, 98), dark = C(64, 120, 72), light = C(246, 240, 214), accent = C(230, 120, 60), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(1.6, 2.6, 1.6), -2.25, 1.9, 3.0), wings = {},
+		palette = {
+			body = C(96, 166, 98),
+			dark = C(64, 120, 72),
+			light = C(246, 240, 214),
+			accent = C(230, 120, 60),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.6, 2.6, 1.6), -2.25, 1.9, 3.0),
+		wings = {},
 	})
 end
 
@@ -494,12 +617,29 @@ do
 	}
 	addEyes(parts, 1.3, -6.45, 0.8)
 	add({
-		id = "wyvern", name = "Wyverne", desc = "Elle vole à 12 m du sol. Lasso-la en plein bond !",
-		speed = 56, value = 3.5, weight = 7, tameTime = 6, buckAfter = 10, trait = "fly",
-		weaveAmp = 8, weaveFreq = 0.5, rootY = 12, flying = true,
+		id = "wyvern",
+		name = "Wyverne",
+		desc = "Elle vole à 12 m du sol. Lasso-la en plein bond !",
+		speed = 56,
+		value = 3.5,
+		weight = 7,
+		tameTime = 6,
+		buckAfter = 10,
+		trait = "fly",
+		weaveAmp = 8,
+		weaveFreq = 0.5,
+		rootY = 12,
+		flying = true,
 		body = { s = V(3, 3, 7), c = "body" },
-		palette = { body = C(120, 70, 190), dark = C(70, 40, 120), light = C(240, 230, 255), accent = C(255, 110, 200), eye = C(255, 240, 80) },
-		parts = parts, legs = {},
+		palette = {
+			body = C(120, 70, 190),
+			dark = C(70, 40, 120),
+			light = C(240, 230, 255),
+			accent = C(255, 110, 200),
+			eye = C(255, 240, 80),
+		},
+		parts = parts,
+		legs = {},
 		wings = {
 			{ n = "WingL", s = V(7, 0.35, 3.6), hip = V(-1.5, 1.0, -0.4), side = -1, c = "accent" },
 			{ n = "WingR", s = V(7, 0.35, 3.6), hip = V(1.5, 1.0, -0.4), side = 1, c = "accent" },
@@ -773,10 +913,34 @@ local HATS = {
 	},
 	vip = {
 		{ s = V(2.2, 0.5, 2.2), o = V(0, 0.75, 0), c = C(255, 205, 60), mat = Enum.Material.Metal },
-		{ s = V(0.6, 1.8, 0.6), o = V(-1.3, 1.5, 0), c = C(255, 214, 90), mat = Enum.Material.Metal, rot = V(0, 0, 25) },
-		{ s = V(0.6, 1.8, 0.6), o = V(1.3, 1.5, 0), c = C(255, 214, 90), mat = Enum.Material.Metal, rot = V(0, 0, -25) },
-		{ s = V(0.5, 1.0, 0.5), o = V(-1.9, 2.5, 0), c = C(255, 245, 180), mat = Enum.Material.Neon, rot = V(0, 0, 45) },
-		{ s = V(0.5, 1.0, 0.5), o = V(1.9, 2.5, 0), c = C(255, 245, 180), mat = Enum.Material.Neon, rot = V(0, 0, -45) },
+		{
+			s = V(0.6, 1.8, 0.6),
+			o = V(-1.3, 1.5, 0),
+			c = C(255, 214, 90),
+			mat = Enum.Material.Metal,
+			rot = V(0, 0, 25),
+		},
+		{
+			s = V(0.6, 1.8, 0.6),
+			o = V(1.3, 1.5, 0),
+			c = C(255, 214, 90),
+			mat = Enum.Material.Metal,
+			rot = V(0, 0, -25),
+		},
+		{
+			s = V(0.5, 1.0, 0.5),
+			o = V(-1.9, 2.5, 0),
+			c = C(255, 245, 180),
+			mat = Enum.Material.Neon,
+			rot = V(0, 0, 45),
+		},
+		{
+			s = V(0.5, 1.0, 0.5),
+			o = V(1.9, 2.5, 0),
+			c = C(255, 245, 180),
+			mat = Enum.Material.Neon,
+			rot = V(0, 0, -45),
+		},
 	},
 	crown = {
 		{ s = V(2.2, 0.8, 2.2), o = V(0, 0.9, 0), c = C(255, 205, 60), mat = Enum.Material.Metal },
@@ -825,9 +989,7 @@ function Cosmetics.applyHat(character, hatId)
 			part.Shape = Enum.PartType.Cylinder
 		end
 		local rot = def.rot or Vector3.new(0, 0, 0)
-		part.CFrame = head.CFrame
-			* CFrame.new(def.o)
-			* CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+		part.CFrame = head.CFrame * CFrame.new(def.o) * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = head
 		weld.Part1 = part
@@ -910,9 +1072,16 @@ function CreatureService.BuildModel(def, variantIdx)
 	model.PrimaryPart = root
 
 	for _, spec in ipairs(def.parts) do
-		local part = newPart(spec.n, spec.s, color(spec.c), spec.c == "eye" and Enum.Material.SmoothPlastic or variantMaterial(variantIdx))
+		local part = newPart(
+			spec.n,
+			spec.s,
+			color(spec.c),
+			spec.c == "eye" and Enum.Material.SmoothPlastic or variantMaterial(variantIdx)
+		)
 		local rot = spec.rot or Vector3.new(0, 0, 0)
-		part.CFrame = root.CFrame * CFrame.new(spec.o) * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+		part.CFrame = root.CFrame
+			* CFrame.new(spec.o)
+			* CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
 		part.CastShadow = spec.s.Magnitude > 3
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = root
@@ -989,7 +1158,8 @@ local function addEmitters(def, variantIdx, root)
 		spark.SpreadAngle = Vector2.new(180, 180)
 		spark.LightEmission = 1
 		spark.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
-		spark.Color = ColorSequence.new(variantIdx == 3 and Color3.fromRGB(255, 220, 90) or Color3.fromRGB(150, 230, 255))
+		spark.Color =
+			ColorSequence.new(variantIdx == 3 and Color3.fromRGB(255, 220, 90) or Color3.fromRGB(150, 230, 255))
 		spark.Parent = root
 	end
 end
@@ -1182,8 +1352,7 @@ function CreatureService.Step(dt)
 		creature.y = y
 
 		local pos = Vector3.new(creature.x, y, creature.z)
-		creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1))
-			* CFrame.Angles(0, 0, -vx * 0.004)
+		creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1)) * CFrame.Angles(0, 0, -vx * 0.004)
 	end
 
 	-- Disparition : trop loin derrière / devant les joueurs actifs, ou après l'arrivée.
@@ -1520,7 +1689,10 @@ local function geyser(position, roundId)
 		for _, player in ipairs(playersInRadius(position, radius)) do
 			if player.Parent then
 				RideService.Boost(player, Vector3.new(0, 90, 70))
-				Remotes.Feedback:FireClient(player, { kind = "geyser", title = "GEYSER !", sub = "Super bond ! Lasso une bête en l'air !" })
+				Remotes.Feedback:FireClient(
+					player,
+					{ kind = "geyser", title = "GEYSER !", sub = "Super bond ! Lasso une bête en l'air !" }
+				)
 			end
 		end
 	end)
@@ -1850,7 +2022,8 @@ local function makeLabel(parent, text, size, position, textSize, color, font)
 end
 
 local function makeBoard(parent, size, cf, canvas, bg)
-	local board = P(parent, size, cf, bg or C(34, 40, 56), Enum.Material.SmoothPlastic, { name = "Board", shadow = true })
+	local board =
+		P(parent, size, cf, bg or C(34, 40, 56), Enum.Material.SmoothPlastic, { name = "Board", shadow = true })
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
@@ -1870,20 +2043,62 @@ local function buildLobby(map)
 	local top = center.Y + size.Y / 2
 	State.LobbyCFrame = CFrame.new(center.X, top + 3, center.Z)
 
-	P(map, size, CFrame.new(center), C(228, 222, 206), Enum.Material.Marble, { name = "LobbyFloor", collide = true, shadow = true })
+	P(
+		map,
+		size,
+		CFrame.new(center),
+		C(228, 222, 206),
+		Enum.Material.Marble,
+		{ name = "LobbyFloor", collide = true, shadow = true }
+	)
 
 	-- liserés néon
 	local trim = C(255, 200, 70)
 	local half = size.X / 2
-	P(map, V(size.X, 0.4, 2), CFrame.new(center.X, top + 0.2, center.Z - half + 1), trim, Enum.Material.Neon, { name = "Trim" })
-	P(map, V(size.X, 0.4, 2), CFrame.new(center.X, top + 0.2, center.Z + half - 1), trim, Enum.Material.Neon, { name = "Trim" })
-	P(map, V(2, 0.4, size.Z), CFrame.new(center.X - half + 1, top + 0.2, center.Z), trim, Enum.Material.Neon, { name = "Trim" })
-	P(map, V(2, 0.4, size.Z), CFrame.new(center.X + half - 1, top + 0.2, center.Z), trim, Enum.Material.Neon, { name = "Trim" })
+	P(
+		map,
+		V(size.X, 0.4, 2),
+		CFrame.new(center.X, top + 0.2, center.Z - half + 1),
+		trim,
+		Enum.Material.Neon,
+		{ name = "Trim" }
+	)
+	P(
+		map,
+		V(size.X, 0.4, 2),
+		CFrame.new(center.X, top + 0.2, center.Z + half - 1),
+		trim,
+		Enum.Material.Neon,
+		{ name = "Trim" }
+	)
+	P(
+		map,
+		V(2, 0.4, size.Z),
+		CFrame.new(center.X - half + 1, top + 0.2, center.Z),
+		trim,
+		Enum.Material.Neon,
+		{ name = "Trim" }
+	)
+	P(
+		map,
+		V(2, 0.4, size.Z),
+		CFrame.new(center.X + half - 1, top + 0.2, center.Z),
+		trim,
+		Enum.Material.Neon,
+		{ name = "Trim" }
+	)
 
 	-- murs invisibles
 	local wallH = 80
 	local function barrier(sz, pos)
-		P(map, sz, CFrame.new(pos), C(255, 255, 255), Enum.Material.SmoothPlastic, { name = "LobbyBarrier", collide = true, trans = 1 })
+		P(
+			map,
+			sz,
+			CFrame.new(pos),
+			C(255, 255, 255),
+			Enum.Material.SmoothPlastic,
+			{ name = "LobbyBarrier", collide = true, trans = 1 }
+		)
 	end
 	barrier(V(size.X + 4, wallH, 2), V(center.X, top + wallH / 2, center.Z - half))
 	barrier(V(size.X + 4, wallH, 2), V(center.X, top + wallH / 2, center.Z + half))
@@ -1909,14 +2124,30 @@ local function buildLobby(map)
 	end
 
 	-- panneau d'état de la manche
-	local _, infoGui = makeBoard(map, V(60, 26, 1), CFrame.new(center.X, top + 20, center.Z + half - 6), V(960, 416), C(28, 34, 52))
+	local _, infoGui =
+		makeBoard(map, V(60, 26, 1), CFrame.new(center.X, top + 20, center.Z + half - 6), V(960, 416), C(28, 34, 52))
 	makeLabel(infoGui, "SAUTE-TROUPEAU", UDim2.new(1, 0, 0, 120), UDim2.new(0, 0, 0, 20), 96, C(255, 214, 90))
-	statusLabel = makeLabel(infoGui, "Chargement...", UDim2.new(1, -40, 0, 140), UDim2.new(0, 20, 0, 160), 72, C(255, 255, 255))
-	makeLabel(infoGui, "Bondis de bête en bête. Fuis le mur de lave !", UDim2.new(1, -40, 0, 70), UDim2.new(0, 20, 0, 320), 44, C(190, 205, 235), Enum.Font.GothamMedium)
+	statusLabel =
+		makeLabel(infoGui, "Chargement...", UDim2.new(1, -40, 0, 140), UDim2.new(0, 20, 0, 160), 72, C(255, 255, 255))
+	makeLabel(
+		infoGui,
+		"Bondis de bête en bête. Fuis le mur de lave !",
+		UDim2.new(1, -40, 0, 70),
+		UDim2.new(0, 20, 0, 320),
+		44,
+		C(190, 205, 235),
+		Enum.Font.GothamMedium
+	)
 
 	-- panneau "comment jouer"
 	local howPos = Vector3.new(center.X + half - 8, top + 16, center.Z + 10)
-	local _, howGui = makeBoard(map, V(42, 30, 1), CFrame.lookAt(howPos, Vector3.new(center.X, top + 16, center.Z + 10)), V(672, 480), C(40, 46, 66))
+	local _, howGui = makeBoard(
+		map,
+		V(42, 30, 1),
+		CFrame.lookAt(howPos, Vector3.new(center.X, top + 16, center.Z + 10)),
+		V(672, 480),
+		C(40, 46, 66)
+	)
 	makeLabel(howGui, "COMMENT JOUER", UDim2.new(1, 0, 0, 60), UDim2.new(0, 0, 0, 12), 48, C(255, 214, 90))
 	local how = "ESPACE / bouton : sauter de ta bête\n"
 		.. "Maintiens en l'air : LASSO auto sur la bête dorée\n"
@@ -1924,16 +2155,38 @@ local function buildLobby(map)
 		.. "Reste dessus pour DOMPTER et marquer\n"
 		.. "Enchaîne les lassos pour le COMBO\n"
 		.. "Le mur de lave te rattrape : avance !"
-	local howLabel = makeLabel(howGui, how, UDim2.new(1, -40, 1, -90), UDim2.new(0, 20, 0, 80), 34, C(235, 240, 255), Enum.Font.GothamMedium)
+	local howLabel = makeLabel(
+		howGui,
+		how,
+		UDim2.new(1, -40, 1, -90),
+		UDim2.new(0, 20, 0, 80),
+		34,
+		C(235, 240, 255),
+		Enum.Font.GothamMedium
+	)
 	howLabel.TextXAlignment = Enum.TextXAlignment.Left
 	howLabel.TextYAlignment = Enum.TextYAlignment.Top
 
 	-- classement mondial
 	local lbPos = Vector3.new(center.X - half + 8, top + 16, center.Z + 10)
-	local _, lbGui = makeBoard(map, V(42, 30, 1), CFrame.lookAt(lbPos, Vector3.new(center.X, top + 16, center.Z + 10)), V(672, 480), C(40, 46, 66))
+	local _, lbGui = makeBoard(
+		map,
+		V(42, 30, 1),
+		CFrame.lookAt(lbPos, Vector3.new(center.X, top + 16, center.Z + 10)),
+		V(672, 480),
+		C(40, 46, 66)
+	)
 	makeLabel(lbGui, "TOP 10 · MEILLEUR SCORE", UDim2.new(1, 0, 0, 56), UDim2.new(0, 0, 0, 8), 40, C(255, 214, 90))
 	for i = 1, 10 do
-		local row = makeLabel(lbGui, "", UDim2.new(1, -40, 0, 36), UDim2.new(0, 20, 0, 64 + (i - 1) * 40), 28, C(235, 240, 255), Enum.Font.GothamMedium)
+		local row = makeLabel(
+			lbGui,
+			"",
+			UDim2.new(1, -40, 0, 36),
+			UDim2.new(0, 20, 0, 64 + (i - 1) * 40),
+			28,
+			C(235, 240, 255),
+			Enum.Font.GothamMedium
+		)
 		row.TextXAlignment = Enum.TextXAlignment.Left
 		boardRows[i] = row
 	end
@@ -1943,7 +2196,14 @@ local function buildLobby(map)
 	for index, def in ipairs(Species.List) do
 		local x = center.X + (index - 4) * 19
 		local z = center.Z - half + 14
-		P(map, V(15, 3, 15), CFrame.new(x, top + 1.5, z), C(70, 76, 98), Enum.Material.Slate, { name = "Pedestal", collide = true, shadow = true })
+		P(
+			map,
+			V(15, 3, 15),
+			CFrame.new(x, top + 1.5, z),
+			C(70, 76, 98),
+			Enum.Material.Slate,
+			{ name = "Pedestal", collide = true, shadow = true }
+		)
 		local model, root = CreatureService.BuildModel(def, 1)
 		model.Name = "Statue_" .. def.id
 		local y = top + 3 + (def.flying and 9 or def.rootY)
@@ -2004,7 +2264,14 @@ local function buildFloor(map)
 	local finishZ = Config.Track.FinishZ
 	for z = -400, finishZ + 400 - 100, 100 do
 		local biome = Config.biomeAt(z + 50)
-		P(map, V(200, 8, 100), CFrame.new(0, -4, z + 50), biome.ground, mat(biome.material), { name = "Floor", collide = true })
+		P(
+			map,
+			V(200, 8, 100),
+			CFrame.new(0, -4, z + 50),
+			biome.ground,
+			mat(biome.material),
+			{ name = "Floor", collide = true }
+		)
 	end
 
 	-- plaques de terrain pour casser l'uniformité
@@ -2054,7 +2321,8 @@ local function buildCliffs(map)
 				P(
 					map,
 					V(7, hs, 7),
-					CFrame.new(side * (Config.Track.WallX + 2 + rng:NextNumber() * 6), hs / 2, z + 13) * yaw(rng:NextNumber() * 90),
+					CFrame.new(side * (Config.Track.WallX + 2 + rng:NextNumber() * 6), hs / 2, z + 13)
+						* yaw(rng:NextNumber() * 90),
 					jitter(biome.cliff, 30),
 					mat(biome.cliffMaterial),
 					{ name = "Spire", collide = true, shadow = true }
@@ -2067,10 +2335,31 @@ local function buildCliffs(map)
 	local length = finishZ + 1000
 	local midZ = finishZ / 2 + 100
 	for _, side in ipairs({ -1, 1 }) do
-		P(map, V(4, 240, length), CFrame.new(side * (Config.Track.WallX + 2), 120, midZ), C(255, 255, 255), Enum.Material.SmoothPlastic, { name = "Barrier", collide = true, trans = 1 })
+		P(
+			map,
+			V(4, 240, length),
+			CFrame.new(side * (Config.Track.WallX + 2), 120, midZ),
+			C(255, 255, 255),
+			Enum.Material.SmoothPlastic,
+			{ name = "Barrier", collide = true, trans = 1 }
+		)
 	end
-	P(map, V(200, 240, 4), CFrame.new(0, 120, -420), C(255, 255, 255), Enum.Material.SmoothPlastic, { name = "BarrierBack", collide = true, trans = 1 })
-	P(map, V(200, 240, 4), CFrame.new(0, 120, finishZ + 380), C(255, 255, 255), Enum.Material.SmoothPlastic, { name = "BarrierFront", collide = true, trans = 1 })
+	P(
+		map,
+		V(200, 240, 4),
+		CFrame.new(0, 120, -420),
+		C(255, 255, 255),
+		Enum.Material.SmoothPlastic,
+		{ name = "BarrierBack", collide = true, trans = 1 }
+	)
+	P(
+		map,
+		V(200, 240, 4),
+		CFrame.new(0, 120, finishZ + 380),
+		C(255, 255, 255),
+		Enum.Material.SmoothPlastic,
+		{ name = "BarrierFront", collide = true, trans = 1 }
+	)
 end
 
 -- ---------------------------------------------------------------------------
@@ -2083,13 +2372,35 @@ local lightBudget = 8
 local function acacia(map, x, z)
 	local r = rng:NextNumber() * 360
 	P(map, V(2, 10, 2), CFrame.new(x, 5, z) * yaw(r), C(110, 80, 50), Enum.Material.Wood, { name = "Trunk" })
-	P(map, V(16, 3, 16), CFrame.new(x, 11.5, z) * yaw(r), jitter(C(94, 142, 62), 24), Enum.Material.Grass, { name = "Canopy", shadow = true })
-	P(map, V(10, 2.5, 10), CFrame.new(x, 14, z) * yaw(r + 20), jitter(C(104, 154, 70), 24), Enum.Material.Grass, { name = "Canopy" })
+	P(
+		map,
+		V(16, 3, 16),
+		CFrame.new(x, 11.5, z) * yaw(r),
+		jitter(C(94, 142, 62), 24),
+		Enum.Material.Grass,
+		{ name = "Canopy", shadow = true }
+	)
+	P(
+		map,
+		V(10, 2.5, 10),
+		CFrame.new(x, 14, z) * yaw(r + 20),
+		jitter(C(104, 154, 70), 24),
+		Enum.Material.Grass,
+		{ name = "Canopy" }
+	)
 end
 
 local function boulder(map, x, z, color, material)
 	local s = 4 + rng:NextNumber() * 5
-	P(map, V(s * 1.3, s, s), CFrame.new(x, s / 2 - 0.3, z) * CFrame.Angles(rng:NextNumber() * 0.4, rng:NextNumber() * 6, rng:NextNumber() * 0.4), jitter(color, 26), material, { name = "Boulder", shadow = true })
+	P(
+		map,
+		V(s * 1.3, s, s),
+		CFrame.new(x, s / 2 - 0.3, z)
+			* CFrame.Angles(rng:NextNumber() * 0.4, rng:NextNumber() * 6, rng:NextNumber() * 0.4),
+		jitter(color, 26),
+		material,
+		{ name = "Boulder", shadow = true }
+	)
 end
 
 local function bones(map, x, z)
@@ -2097,7 +2408,14 @@ local function bones(map, x, z)
 	local bone = C(238, 232, 214)
 	P(map, V(1.4, 1.4, 9), CFrame.new(x, 0.7, z) * yaw(r), bone, Enum.Material.SmoothPlastic, { name = "Bone" })
 	for i = -1, 1 do
-		P(map, V(0.9, 5, 0.9), CFrame.new(x, 2.4, z) * yaw(r) * CFrame.new(i * 2.4, 0, 0) * CFrame.Angles(0, 0, 0.35 * i), bone, Enum.Material.SmoothPlastic, { name = "Rib" })
+		P(
+			map,
+			V(0.9, 5, 0.9),
+			CFrame.new(x, 2.4, z) * yaw(r) * CFrame.new(i * 2.4, 0, 0) * CFrame.Angles(0, 0, 0.35 * i),
+			bone,
+			Enum.Material.SmoothPlastic,
+			{ name = "Rib" }
+		)
 	end
 end
 
@@ -2105,46 +2423,152 @@ local function cactus(map, x, z)
 	local green = jitter(C(80, 140, 70), 20)
 	local r = rng:NextNumber() * 360
 	P(map, V(3, 12, 3), CFrame.new(x, 6, z) * yaw(r), green, Enum.Material.Grass, { name = "Cactus", shadow = true })
-	P(map, V(5, 1.6, 1.6), CFrame.new(x, 6, z) * yaw(r) * CFrame.new(3.2, 0, 0), green, Enum.Material.Grass, { name = "Arm" })
-	P(map, V(1.6, 4, 1.6), CFrame.new(x, 8, z) * yaw(r) * CFrame.new(5.2, 0, 0), green, Enum.Material.Grass, { name = "Arm" })
+	P(
+		map,
+		V(5, 1.6, 1.6),
+		CFrame.new(x, 6, z) * yaw(r) * CFrame.new(3.2, 0, 0),
+		green,
+		Enum.Material.Grass,
+		{ name = "Arm" }
+	)
+	P(
+		map,
+		V(1.6, 4, 1.6),
+		CFrame.new(x, 8, z) * yaw(r) * CFrame.new(5.2, 0, 0),
+		green,
+		Enum.Material.Grass,
+		{ name = "Arm" }
+	)
 	if rng:NextNumber() < 0.5 then
-		P(map, V(5, 1.6, 1.6), CFrame.new(x, 4.4, z) * yaw(r) * CFrame.new(-3.2, 0, 0), green, Enum.Material.Grass, { name = "Arm" })
-		P(map, V(1.6, 3.4, 1.6), CFrame.new(x, 6.2, z) * yaw(r) * CFrame.new(-5.2, 0, 0), green, Enum.Material.Grass, { name = "Arm" })
+		P(
+			map,
+			V(5, 1.6, 1.6),
+			CFrame.new(x, 4.4, z) * yaw(r) * CFrame.new(-3.2, 0, 0),
+			green,
+			Enum.Material.Grass,
+			{ name = "Arm" }
+		)
+		P(
+			map,
+			V(1.6, 3.4, 1.6),
+			CFrame.new(x, 6.2, z) * yaw(r) * CFrame.new(-5.2, 0, 0),
+			green,
+			Enum.Material.Grass,
+			{ name = "Arm" }
+		)
 	end
 end
 
 local function mesa(map, x, z, color)
 	local h = 10 + rng:NextNumber() * 14
 	local w = 10 + rng:NextNumber() * 8
-	P(map, V(w, h, w * 0.9), CFrame.new(x, h / 2, z) * yaw(rng:NextNumber() * 90), jitter(color, 26), Enum.Material.Sandstone, { name = "Mesa", shadow = true })
-	P(map, V(w * 0.7, 2.5, w * 0.6), CFrame.new(x, h + 1.2, z) * yaw(rng:NextNumber() * 90), jitter(color, 30), Enum.Material.Sandstone, { name = "MesaTop" })
+	P(
+		map,
+		V(w, h, w * 0.9),
+		CFrame.new(x, h / 2, z) * yaw(rng:NextNumber() * 90),
+		jitter(color, 26),
+		Enum.Material.Sandstone,
+		{ name = "Mesa", shadow = true }
+	)
+	P(
+		map,
+		V(w * 0.7, 2.5, w * 0.6),
+		CFrame.new(x, h + 1.2, z) * yaw(rng:NextNumber() * 90),
+		jitter(color, 30),
+		Enum.Material.Sandstone,
+		{ name = "MesaTop" }
+	)
 end
 
 local function pine(map, x, z)
 	local r = rng:NextNumber() * 360
 	P(map, V(2.4, 12, 2.4), CFrame.new(x, 6, z), C(96, 70, 46), Enum.Material.Wood, { name = "Trunk" })
-	P(map, V(13, 3, 13), CFrame.new(x, 10, z) * yaw(r), jitter(C(40, 96, 54), 20), Enum.Material.Grass, { name = "Leaves", shadow = true })
-	P(map, V(9.5, 3, 9.5), CFrame.new(x, 13, z) * yaw(r + 25), jitter(C(46, 108, 60), 20), Enum.Material.Grass, { name = "Leaves" })
-	P(map, V(6, 3, 6), CFrame.new(x, 16, z) * yaw(r + 50), jitter(C(54, 120, 66), 20), Enum.Material.Grass, { name = "Leaves" })
-	P(map, V(3, 3, 3), CFrame.new(x, 18.5, z) * yaw(r), jitter(C(60, 130, 70), 20), Enum.Material.Grass, { name = "Leaves" })
+	P(
+		map,
+		V(13, 3, 13),
+		CFrame.new(x, 10, z) * yaw(r),
+		jitter(C(40, 96, 54), 20),
+		Enum.Material.Grass,
+		{ name = "Leaves", shadow = true }
+	)
+	P(
+		map,
+		V(9.5, 3, 9.5),
+		CFrame.new(x, 13, z) * yaw(r + 25),
+		jitter(C(46, 108, 60), 20),
+		Enum.Material.Grass,
+		{ name = "Leaves" }
+	)
+	P(
+		map,
+		V(6, 3, 6),
+		CFrame.new(x, 16, z) * yaw(r + 50),
+		jitter(C(54, 120, 66), 20),
+		Enum.Material.Grass,
+		{ name = "Leaves" }
+	)
+	P(
+		map,
+		V(3, 3, 3),
+		CFrame.new(x, 18.5, z) * yaw(r),
+		jitter(C(60, 130, 70), 20),
+		Enum.Material.Grass,
+		{ name = "Leaves" }
+	)
 end
 
 local function mushroom(map, x, z)
 	local s = 0.8 + rng:NextNumber() * 0.8
-	P(map, V(3 * s, 5 * s, 3 * s), CFrame.new(x, 2.5 * s, z), C(240, 232, 214), Enum.Material.SmoothPlastic, { name = "Stem" })
-	P(map, V(9 * s, 4.2 * s, 9 * s), CFrame.new(x, 6.2 * s, z), C(204, 60, 64), Enum.Material.SmoothPlastic, { name = "Cap", shape = "Ball", shadow = true })
-	P(map, V(1.6 * s, 0.6, 1.6 * s), CFrame.new(x + 1.5 * s, 8.2 * s, z + 0.5 * s), C(255, 255, 255), Enum.Material.SmoothPlastic, { name = "Dot" })
+	P(
+		map,
+		V(3 * s, 5 * s, 3 * s),
+		CFrame.new(x, 2.5 * s, z),
+		C(240, 232, 214),
+		Enum.Material.SmoothPlastic,
+		{ name = "Stem" }
+	)
+	P(
+		map,
+		V(9 * s, 4.2 * s, 9 * s),
+		CFrame.new(x, 6.2 * s, z),
+		C(204, 60, 64),
+		Enum.Material.SmoothPlastic,
+		{ name = "Cap", shape = "Ball", shadow = true }
+	)
+	P(
+		map,
+		V(1.6 * s, 0.6, 1.6 * s),
+		CFrame.new(x + 1.5 * s, 8.2 * s, z + 0.5 * s),
+		C(255, 255, 255),
+		Enum.Material.SmoothPlastic,
+		{ name = "Dot" }
+	)
 end
 
 local function obsidianSpike(map, x, z)
 	local h = 10 + rng:NextNumber() * 14
 	local w = 4 + rng:NextNumber() * 3
-	P(map, V(w, h, w), CFrame.new(x, h / 2 - 0.5, z) * CFrame.Angles((rng:NextNumber() - 0.5) * 0.3, rng:NextNumber() * 6, (rng:NextNumber() - 0.5) * 0.3), jitter(C(34, 30, 38), 16), Enum.Material.Basalt, { name = "Spike", shadow = true })
+	P(
+		map,
+		V(w, h, w),
+		CFrame.new(x, h / 2 - 0.5, z)
+			* CFrame.Angles((rng:NextNumber() - 0.5) * 0.3, rng:NextNumber() * 6, (rng:NextNumber() - 0.5) * 0.3),
+		jitter(C(34, 30, 38), 16),
+		Enum.Material.Basalt,
+		{ name = "Spike", shadow = true }
+	)
 end
 
 local function lavaPool(map, x, z)
 	local w = 8 + rng:NextNumber() * 8
-	local pool = P(map, V(w, 0.3, w * 0.8), CFrame.new(x, 0.18, z) * yaw(rng:NextNumber() * 180), C(255, 100, 20), Enum.Material.Neon, { name = "LavaPool" })
+	local pool = P(
+		map,
+		V(w, 0.3, w * 0.8),
+		CFrame.new(x, 0.18, z) * yaw(rng:NextNumber() * 180),
+		C(255, 100, 20),
+		Enum.Material.Neon,
+		{ name = "LavaPool" }
+	)
 	if emitterBudget > 0 and rng:NextNumber() < 0.25 then
 		emitterBudget = emitterBudget - 1
 		local att = Instance.new("Attachment")
@@ -2174,7 +2598,16 @@ local function crystals(map, x, z, color)
 	for i = 1, 3 + rng:NextInteger(0, 2) do
 		local h = 4 + rng:NextNumber() * 9
 		local ox, oz = (rng:NextNumber() - 0.5) * 6, (rng:NextNumber() - 0.5) * 6
-		P(map, V(1.6 + rng:NextNumber(), h, 1.6 + rng:NextNumber()), CFrame.new(x + ox, h / 2 - 0.3, z + oz) * yaw(r + i * 40) * CFrame.Angles((rng:NextNumber() - 0.5) * 0.5, 0, (rng:NextNumber() - 0.5) * 0.5), jitter(color, 30), Enum.Material.Glass, { name = "Crystal", shadow = true })
+		P(
+			map,
+			V(1.6 + rng:NextNumber(), h, 1.6 + rng:NextNumber()),
+			CFrame.new(x + ox, h / 2 - 0.3, z + oz)
+				* yaw(r + i * 40)
+				* CFrame.Angles((rng:NextNumber() - 0.5) * 0.5, 0, (rng:NextNumber() - 0.5) * 0.5),
+			jitter(color, 30),
+			Enum.Material.Glass,
+			{ name = "Crystal", shadow = true }
+		)
 	end
 end
 
@@ -2241,7 +2674,14 @@ end
 local function gate(map, z, text, color)
 	local height = 46
 	for _, side in ipairs({ -1, 1 }) do
-		P(map, V(9, height, 9), CFrame.new(side * 72, height / 2, z), C(86, 92, 112), Enum.Material.Slate, { name = "GatePillar", collide = true, shadow = true })
+		P(
+			map,
+			V(9, height, 9),
+			CFrame.new(side * 72, height / 2, z),
+			C(86, 92, 112),
+			Enum.Material.Slate,
+			{ name = "GatePillar", collide = true, shadow = true }
+		)
 	end
 	local beam, gui = makeBoard(map, V(153, 12, 8), CFrame.new(0, height + 2, z), V(1530, 120), color)
 	beam.Name = "GateBeam"
@@ -2279,7 +2719,14 @@ local function buildGates(map)
 
 	-- confettis à l'arrivée
 	for _, side in ipairs({ -1, 1 }) do
-		local anchor = P(map, V(1, 1, 1), CFrame.new(side * 72, 48, finishZ + 4), C(255, 255, 255), Enum.Material.SmoothPlastic, { name = "ConfettiAnchor", trans = 1 })
+		local anchor = P(
+			map,
+			V(1, 1, 1),
+			CFrame.new(side * 72, 48, finishZ + 4),
+			C(255, 255, 255),
+			Enum.Material.SmoothPlastic,
+			{ name = "ConfettiAnchor", trans = 1 }
+		)
 		local att = Instance.new("Attachment")
 		att.Parent = anchor
 		local em = Instance.new("ParticleEmitter")
@@ -2300,9 +2747,30 @@ local function buildGates(map)
 
 	-- podium
 	local podiumZ = finishZ + 120
-	P(map, V(18, 12, 18), CFrame.new(0, 6, podiumZ), C(255, 205, 60), Enum.Material.Metal, { name = "Podium1", collide = true, shadow = true })
-	P(map, V(18, 8, 18), CFrame.new(-20, 4, podiumZ), C(200, 204, 214), Enum.Material.Metal, { name = "Podium2", collide = true, shadow = true })
-	P(map, V(18, 5, 18), CFrame.new(20, 2.5, podiumZ), C(190, 120, 70), Enum.Material.Metal, { name = "Podium3", collide = true, shadow = true })
+	P(
+		map,
+		V(18, 12, 18),
+		CFrame.new(0, 6, podiumZ),
+		C(255, 205, 60),
+		Enum.Material.Metal,
+		{ name = "Podium1", collide = true, shadow = true }
+	)
+	P(
+		map,
+		V(18, 8, 18),
+		CFrame.new(-20, 4, podiumZ),
+		C(200, 204, 214),
+		Enum.Material.Metal,
+		{ name = "Podium2", collide = true, shadow = true }
+	)
+	P(
+		map,
+		V(18, 5, 18),
+		CFrame.new(20, 2.5, podiumZ),
+		C(190, 120, 70),
+		Enum.Material.Metal,
+		{ name = "Podium3", collide = true, shadow = true }
+	)
 end
 
 -- ---------------------------------------------------------------------------
@@ -2524,7 +2992,10 @@ local function processReceipt(info)
 
 	ProgressService.RefreshAttributes(player)
 	ProgressService.Push(player)
-	Remotes.Feedback:FireClient(player, { kind = "tame", title = "MERCI !", sub = ("+%d pièces"):format(product.coins) })
+	Remotes.Feedback:FireClient(
+		player,
+		{ kind = "tame", title = "MERCI !", sub = ("+%d pièces"):format(product.coins) }
+	)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -2941,7 +3412,10 @@ local function handleEquip(player, kind, id)
 		return result(false, "Profil en cours de chargement.")
 	end
 	local hatDef = kind == "hat" and Config.findById(Config.Hats, id) or nil
-	if kind == "hat" and (data.owned.hats[id] or (hatDef and hatDef.pass and ProgressService.HasPass(player, hatDef.pass))) then
+	if
+		kind == "hat"
+		and (data.owned.hats[id] or (hatDef and hatDef.pass and ProgressService.HasPass(player, hatDef.pass)))
+	then
 		data.equipped.hat = id
 	elseif kind == "rope" and data.owned.ropes[id] then
 		data.equipped.rope = id
@@ -3077,7 +3551,8 @@ local function comboMult(run)
 end
 
 local function comboWindow(player)
-	return Config.Ride.ComboWindowBase + Config.Ride.ComboWindowPerLevel * ProgressService.GetUpgradeLevel(player, "combo")
+	return Config.Ride.ComboWindowBase
+		+ Config.Ride.ComboWindowPerLevel * ProgressService.GetUpgradeLevel(player, "combo")
 end
 
 local function setDust(creature, enabled)
@@ -4185,7 +4660,10 @@ local function focusPart()
 	if (s == "Out" or s == "Finished") and workspace:GetAttribute("Phase") == "Running" then
 		-- spectateur : suivre le premier du classement encore en course
 		for _, entry in ipairs(ClientState.Scores) do
-			if entry.id ~= player.UserId and (entry.st == "Riding" or entry.st == "Air" or entry.st == "Hooking" or entry.st == "Down") then
+			if
+				entry.id ~= player.UserId
+				and (entry.st == "Riding" or entry.st == "Air" or entry.st == "Hooking" or entry.st == "Down")
+			then
 				local other = Players:GetPlayerByUserId(entry.id)
 				local part = hrpOf(other)
 				if part then
@@ -4244,7 +4722,8 @@ local function update(dt)
 	end
 
 	-- légère inclinaison dans les virages et regard décalé vers le côté où l'on va
-	local cf = CFrame.lookAt(pos, focus + Vector3.new(-lateralSmooth * 0.35, 3, 36)) * CFrame.Angles(0, 0, lateralSmooth * 0.004)
+	local cf = CFrame.lookAt(pos, focus + Vector3.new(-lateralSmooth * 0.35, 3, 36))
+		* CFrame.Angles(0, 0, lateralSmooth * 0.004)
 	if ClientState.Status ~= lastStatus then
 		if ClientState.Status == "Down" then
 			CameraRig.shake(1.4, 0.35)
@@ -4411,12 +4890,18 @@ end
 -- Branche un bouton d'interface (tactile / souris) sur l'action.
 function Controls.bindButton(button)
 	button.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			Controls.press("button")
 		end
 	end)
 	button.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			Controls.release("button")
 		end
 	end)
@@ -4595,7 +5080,10 @@ local function collectMotors(model)
 		if descendant:IsA("Motor6D") then
 			local name = descendant.Name
 			if name:sub(1, 3) == "Leg" then
-				table.insert(motors, { motor = descendant, kind = "leg", phase = descendant:GetAttribute("Phase") or 0 })
+				table.insert(
+					motors,
+					{ motor = descendant, kind = "leg", phase = descendant:GetAttribute("Phase") or 0 }
+				)
 			elseif name:sub(1, 4) == "Wing" then
 				table.insert(motors, { motor = descendant, kind = "wing", side = descendant:GetAttribute("Side") or 1 })
 			end
@@ -4781,7 +5269,8 @@ local function build(gui)
 	})
 	UI.corner(banner, 14)
 	UI.stroke(banner, C.Dark, 2)
-	refs.bannerText = UI.text(banner, { Size = UDim2.new(1, -16, 1, -8), Position = UDim2.new(0, 8, 0, 4), maxSize = 26 })
+	refs.bannerText =
+		UI.text(banner, { Size = UDim2.new(1, -16, 1, -8), Position = UDim2.new(0, 8, 0, 4), maxSize = 26 })
 
 	refs.hint = UI.text(gui, {
 		Name = "Hint",
@@ -4802,16 +5291,57 @@ local function build(gui)
 	})
 	UI.corner(score, 14)
 	UI.stroke(score, C.Dark, 2)
-	UI.text(score, { Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 4), Text = "SCORE", maxSize = 14, TextColor3 = C.Muted, TextXAlignment = Enum.TextXAlignment.Left })
-	refs.score = UI.text(score, { Size = UDim2.new(1, -16, 0, 40), Position = UDim2.new(0, 8, 0, 20), Text = "0", maxSize = 38, TextColor3 = C.Accent, TextXAlignment = Enum.TextXAlignment.Left })
-	refs.combo = UI.text(score, { Size = UDim2.new(1, -16, 0, 20), Position = UDim2.new(0, 8, 0, 62), Text = "", maxSize = 18, TextColor3 = C.Good, TextXAlignment = Enum.TextXAlignment.Left })
-	local comboBar = UI.frame(score, { Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark })
+	UI.text(
+		score,
+		{
+			Size = UDim2.new(1, -16, 0, 18),
+			Position = UDim2.new(0, 8, 0, 4),
+			Text = "SCORE",
+			maxSize = 14,
+			TextColor3 = C.Muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	)
+	refs.score = UI.text(
+		score,
+		{
+			Size = UDim2.new(1, -16, 0, 40),
+			Position = UDim2.new(0, 8, 0, 20),
+			Text = "0",
+			maxSize = 38,
+			TextColor3 = C.Accent,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	)
+	refs.combo = UI.text(
+		score,
+		{
+			Size = UDim2.new(1, -16, 0, 20),
+			Position = UDim2.new(0, 8, 0, 62),
+			Text = "",
+			maxSize = 18,
+			TextColor3 = C.Good,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	)
+	local comboBar = UI.frame(
+		score,
+		{ Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark }
+	)
 	UI.corner(comboBar, 3)
 	refs.comboFill = UI.frame(comboBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.comboFill, 3)
 	refs.scoreBox = score
-	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, score)
-	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, banner)
+	UI.make(
+		"UIGradient",
+		{ Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 },
+		score
+	)
+	UI.make(
+		"UIGradient",
+		{ Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 },
+		banner
+	)
 
 	-- Classement en direct (haut droite)
 	local board = UI.frame(gui, {
@@ -4823,7 +5353,16 @@ local function build(gui)
 	})
 	UI.corner(board, 14)
 	UI.stroke(board, C.Dark, 2)
-	UI.text(board, { Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 2), Text = "CLASSEMENT", maxSize = 14, TextColor3 = C.Muted })
+	UI.text(
+		board,
+		{
+			Size = UDim2.new(1, -16, 0, 18),
+			Position = UDim2.new(0, 8, 0, 2),
+			Text = "CLASSEMENT",
+			maxSize = 14,
+			TextColor3 = C.Muted,
+		}
+	)
 	refs.rows = {}
 	for i = 1, 6 do
 		refs.rows[i] = UI.text(board, {
@@ -4850,12 +5389,24 @@ local function build(gui)
 	UI.stroke(wallBox, C.Dark, 2)
 	refs.wallFill = UI.frame(wallBox, { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.wallFill, 13)
-	refs.wallText = UI.text(wallBox, { Size = UDim2.new(1, -10, 1, -4), Position = UDim2.new(0, 5, 0, 2), maxSize = 16 })
+	refs.wallText =
+		UI.text(wallBox, { Size = UDim2.new(1, -10, 1, -4), Position = UDim2.new(0, 5, 0, 2), maxSize = 16 })
 	refs.wallBox = wallBox
 
 	-- Danger : bordure rouge pulsante
-	refs.danger = UI.frame(gui, { Name = "Danger", Position = UDim2.new(0, 8, 0, 8), Size = UDim2.new(1, -16, 1, -16), BackgroundTransparency = 1, Visible = false, Active = false })
-	refs.dangerStroke = UI.make("UIStroke", { Color = Color3.fromRGB(255, 50, 30), Thickness = 16, Transparency = 1 }, refs.danger)
+	refs.danger = UI.frame(
+		gui,
+		{
+			Name = "Danger",
+			Position = UDim2.new(0, 8, 0, 8),
+			Size = UDim2.new(1, -16, 1, -16),
+			BackgroundTransparency = 1,
+			Visible = false,
+			Active = false,
+		}
+	)
+	refs.dangerStroke =
+		UI.make("UIStroke", { Color = Color3.fromRGB(255, 50, 30), Thickness = 16, Transparency = 1 }, refs.danger)
 
 	-- Monture / dressage (bas centre)
 	local ride = UI.frame(gui, {
@@ -4868,7 +5419,10 @@ local function build(gui)
 	UI.corner(ride, 14)
 	UI.stroke(ride, C.Dark, 2)
 	refs.rideName = UI.text(ride, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 4), maxSize = 22 })
-	local tameBar = UI.frame(ride, { Position = UDim2.new(0, 10, 0, 36), Size = UDim2.new(1, -20, 0, 16), BackgroundColor3 = C.Dark })
+	local tameBar = UI.frame(
+		ride,
+		{ Position = UDim2.new(0, 10, 0, 36), Size = UDim2.new(1, -20, 0, 16), BackgroundColor3 = C.Dark }
+	)
 	UI.corner(tameBar, 8)
 	refs.tameFill = UI.frame(tameBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.tameFill, 8)
@@ -4918,7 +5472,10 @@ local function build(gui)
 		Visible = false,
 	})
 	refs.toastTitle = UI.text(toast, { Size = UDim2.new(1, 0, 0, 56), maxSize = 52 })
-	refs.toastSub = UI.text(toast, { Size = UDim2.new(1, 0, 0, 34), Position = UDim2.new(0, 0, 0, 58), maxSize = 24, Font = UI.FontBody })
+	refs.toastSub = UI.text(
+		toast,
+		{ Size = UDim2.new(1, 0, 0, 34), Position = UDim2.new(0, 0, 0, 58), maxSize = 24, Font = UI.FontBody }
+	)
 	refs.toast = toast
 
 	-- Compte à rebours
@@ -4944,7 +5501,17 @@ local function build(gui)
 	UI.make("UISizeConstraint", { MaxSize = Vector2.new(560, 440) }, results)
 	UI.corner(results, 18)
 	UI.stroke(results, C.Accent, 3)
-	UI.text(results, { Size = UDim2.new(1, -20, 0, 44), Position = UDim2.new(0, 10, 0, 8), Text = "RÉSULTATS DE LA MANCHE", maxSize = 32, TextColor3 = C.Accent, ZIndex = 21 })
+	UI.text(
+		results,
+		{
+			Size = UDim2.new(1, -20, 0, 44),
+			Position = UDim2.new(0, 10, 0, 8),
+			Text = "RÉSULTATS DE LA MANCHE",
+			maxSize = 32,
+			TextColor3 = C.Accent,
+			ZIndex = 21,
+		}
+	)
 	refs.resultsList = UI.make("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -5012,7 +5579,8 @@ local function update()
 
 	-- bandeau
 	if phase == "Intermission" then
-		refs.bannerText.Text = waiting and "En attente de joueurs..." or ("Prochaine manche : " .. Util.formatTime(remaining))
+		refs.bannerText.Text = waiting and "En attente de joueurs..."
+			or ("Prochaine manche : " .. Util.formatTime(remaining))
 	elseif phase == "Countdown" then
 		refs.bannerText.Text = "Prépare-toi !"
 	elseif phase == "Running" then
@@ -5047,7 +5615,8 @@ local function update()
 	if running and status == "Lobby" then
 		refs.hint.Text = "Manche en cours : tu joues à la prochaine !"
 	elseif running and (status == "Out" or status == "Finished") then
-		refs.hint.Text = status == "Finished" and "Arrivé ! Tu regardes la fin de la manche." or "Éliminé : tu regardes la course."
+		refs.hint.Text = status == "Finished" and "Arrivé ! Tu regardes la fin de la manche."
+			or "Éliminé : tu regardes la course."
 	elseif phase == "Intermission" then
 		refs.hint.Text = "Ouvre la boutique ou le bestiaire en attendant."
 	else
@@ -5185,8 +5754,27 @@ function HUD.showResults(payload)
 		if you then
 			UI.stroke(row, UI.Colors.Accent, 2)
 		end
-		UI.text(row, { Size = UDim2.new(0, 44, 1, 0), Text = "#" .. entry.rank, maxSize = 24, TextColor3 = entry.rank == 1 and UI.Colors.Accent or UI.Colors.Text, ZIndex = 22 })
-		UI.text(row, { Size = UDim2.new(0.42, 0, 1, -8), Position = UDim2.new(0, 48, 0, 4), Text = entry.n, maxSize = 20, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22 })
+		UI.text(
+			row,
+			{
+				Size = UDim2.new(0, 44, 1, 0),
+				Text = "#" .. entry.rank,
+				maxSize = 24,
+				TextColor3 = entry.rank == 1 and UI.Colors.Accent or UI.Colors.Text,
+				ZIndex = 22,
+			}
+		)
+		UI.text(
+			row,
+			{
+				Size = UDim2.new(0.42, 0, 1, -8),
+				Position = UDim2.new(0, 48, 0, 4),
+				Text = entry.n,
+				maxSize = 20,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 22,
+			}
+		)
 		UI.text(row, {
 			Size = UDim2.new(0.3, 0, 1, -8),
 			Position = UDim2.new(0.5, 0, 0, 4),
@@ -5330,17 +5918,51 @@ local function listFrame(parent, position, size)
 end
 
 local function row(parent, order, title, desc, buttonText, buttonColor, onClick, swatch)
-	local frame = UI.frame(parent, { Size = UDim2.new(1, -8, 0, 62), BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = order, ZIndex = 32 })
+	local frame = UI.frame(
+		parent,
+		{ Size = UDim2.new(1, -8, 0, 62), BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = order, ZIndex = 32 }
+	)
 	UI.corner(frame, 12)
 	local left = 10
 	if swatch then
-		local dot = UI.frame(frame, { Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(0, 10, 0.5, -15), BackgroundColor3 = swatch, ZIndex = 33 })
+		local dot = UI.frame(
+			frame,
+			{
+				Size = UDim2.new(0, 30, 0, 30),
+				Position = UDim2.new(0, 10, 0.5, -15),
+				BackgroundColor3 = swatch,
+				ZIndex = 33,
+			}
+		)
 		UI.corner(dot, 15)
 		UI.stroke(dot, UI.Colors.Dark, 2)
 		left = 50
 	end
-	UI.text(frame, { Size = UDim2.new(1, -left - 150, 0, 26), Position = UDim2.new(0, left, 0, 6), Text = title, maxSize = 22, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 33 })
-	UI.text(frame, { Size = UDim2.new(1, -left - 150, 0, 22), Position = UDim2.new(0, left, 0, 34), Text = desc, maxSize = 15, Font = UI.FontBody, TextColor3 = UI.Colors.Muted, TextXAlignment = Enum.TextXAlignment.Left, outline = false, ZIndex = 33 })
+	UI.text(
+		frame,
+		{
+			Size = UDim2.new(1, -left - 150, 0, 26),
+			Position = UDim2.new(0, left, 0, 6),
+			Text = title,
+			maxSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 33,
+		}
+	)
+	UI.text(
+		frame,
+		{
+			Size = UDim2.new(1, -left - 150, 0, 22),
+			Position = UDim2.new(0, left, 0, 34),
+			Text = desc,
+			maxSize = 15,
+			Font = UI.FontBody,
+			TextColor3 = UI.Colors.Muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			outline = false,
+			ZIndex = 33,
+		}
+	)
 	local button = UI.button(frame, {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -10, 0.5, 0),
@@ -5366,7 +5988,10 @@ local function renderShop(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 
@@ -5394,7 +6019,17 @@ local function renderShop(content)
 	end
 
 	local list = listFrame(content, UDim2.new(0, 0, 0, 48), UDim2.new(1, 0, 1, -48 - 26))
-	refs.message = UI.text(content, { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -24), Text = lastMessage, maxSize = 18, Font = UI.FontBody, ZIndex = 32 })
+	refs.message = UI.text(
+		content,
+		{
+			Size = UDim2.new(1, 0, 0, 22),
+			Position = UDim2.new(0, 0, 1, -24),
+			Text = lastMessage,
+			maxSize = 18,
+			Font = UI.FontBody,
+			ZIndex = 32,
+		}
+	)
 
 	if shopTab == "upgrade" then
 		for index, def in ipairs(Config.Upgrades) do
@@ -5436,7 +6071,16 @@ local function renderShop(content)
 					invoke(Remotes.Buy, isHat and "hat" or "rope", def.id)
 				end
 			end
-			row(list, index, def.name, isHat and "Un look unique pour ton cavalier." or "Change la couleur de ton lasso.", text, color, handler, (not isHat) and def.color or nil)
+			row(
+				list,
+				index,
+				def.name,
+				isHat and "Un look unique pour ton cavalier." or "Change la couleur de ton lasso.",
+				text,
+				color,
+				handler,
+				(not isHat) and def.color or nil
+			)
 		end
 	end
 end
@@ -5449,7 +6093,10 @@ local function renderBestiary(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 
@@ -5463,7 +6110,11 @@ local function renderBestiary(content)
 	end
 	UI.text(content, {
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = ("Découvertes : %d / %d   ·   Dompter les 3 variantes d'une espèce rapporte %d pièces !"):format(found, total, Config.Rewards.SpeciesComplete),
+		Text = ("Découvertes : %d / %d   ·   Dompter les 3 variantes d'une espèce rapporte %d pièces !"):format(
+			found,
+			total,
+			Config.Rewards.SpeciesComplete
+		),
 		maxSize = 18,
 		Font = UI.FontBody,
 		ZIndex = 32,
@@ -5479,7 +6130,15 @@ local function renderBestiary(content)
 		ScrollBarThickness = 6,
 		ZIndex = 31,
 	}, content)
-	UI.make("UIGridLayout", { CellSize = UDim2.new(0, 178, 0, 168), CellPadding = UDim2.new(0, 8, 0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	UI.make(
+		"UIGridLayout",
+		{
+			CellSize = UDim2.new(0, 178, 0, 168),
+			CellPadding = UDim2.new(0, 8, 0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		},
+		grid
+	)
 
 	for index, def in ipairs(Species.List) do
 		local card = UI.frame(grid, { BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = index, ZIndex = 32 })
@@ -5487,8 +6146,29 @@ local function renderBestiary(content)
 		if data.completed[def.id] then
 			UI.stroke(card, UI.Colors.Accent, 3)
 		end
-		UI.text(card, { Size = UDim2.new(1, -12, 0, 24), Position = UDim2.new(0, 6, 0, 4), Text = def.name, maxSize = 20, ZIndex = 33 })
-		UI.text(card, { Size = UDim2.new(1, -12, 0, 44), Position = UDim2.new(0, 6, 0, 28), Text = def.desc, maxSize = 13, Font = UI.FontBody, TextColor3 = UI.Colors.Muted, outline = false, ZIndex = 33 })
+		UI.text(
+			card,
+			{
+				Size = UDim2.new(1, -12, 0, 24),
+				Position = UDim2.new(0, 6, 0, 4),
+				Text = def.name,
+				maxSize = 20,
+				ZIndex = 33,
+			}
+		)
+		UI.text(
+			card,
+			{
+				Size = UDim2.new(1, -12, 0, 44),
+				Position = UDim2.new(0, 6, 0, 28),
+				Text = def.desc,
+				maxSize = 13,
+				Font = UI.FontBody,
+				TextColor3 = UI.Colors.Muted,
+				outline = false,
+				ZIndex = 33,
+			}
+		)
 		for v, variant in ipairs(Config.Variants) do
 			local count = data.tamed[def.id .. "_" .. v] or 0
 			local swatch = UI.frame(card, {
@@ -5499,7 +6179,16 @@ local function renderBestiary(content)
 			})
 			UI.corner(swatch, 10)
 			UI.stroke(swatch, UI.Colors.Dark, 2)
-			UI.text(swatch, { Size = UDim2.new(1, 0, 1, 0), Text = count > 0 and "" or "?", maxSize = 26, TextColor3 = UI.Colors.Muted, ZIndex = 34 })
+			UI.text(
+				swatch,
+				{
+					Size = UDim2.new(1, 0, 1, 0),
+					Text = count > 0 and "" or "?",
+					maxSize = 26,
+					TextColor3 = UI.Colors.Muted,
+					ZIndex = 34,
+				}
+			)
 			UI.text(card, {
 				Size = UDim2.new(0, 50, 0, 16),
 				Position = UDim2.new(0, 8 + (v - 1) * 54, 0, 128),
@@ -5512,7 +6201,18 @@ local function renderBestiary(content)
 			})
 		end
 		if data.completed[def.id] then
-			UI.text(card, { Size = UDim2.new(1, -12, 0, 14), Position = UDim2.new(0, 6, 1, -16), Text = "ESPÈCE COMPLÈTE", maxSize = 12, TextColor3 = UI.Colors.Accent, outline = false, ZIndex = 33 })
+			UI.text(
+				card,
+				{
+					Size = UDim2.new(1, -12, 0, 14),
+					Position = UDim2.new(0, 6, 1, -16),
+					Text = "ESPÈCE COMPLÈTE",
+					maxSize = 12,
+					TextColor3 = UI.Colors.Accent,
+					outline = false,
+					ZIndex = 33,
+				}
+			)
 		end
 	end
 end
@@ -5525,19 +6225,33 @@ local function renderQuests(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 
 	local list = listFrame(content, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, -26))
-	refs.message = UI.text(content, { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -24), Text = lastMessage, maxSize = 18, Font = UI.FontBody, ZIndex = 32 })
+	refs.message = UI.text(
+		content,
+		{
+			Size = UDim2.new(1, 0, 0, 22),
+			Position = UDim2.new(0, 0, 1, -24),
+			Text = lastMessage,
+			maxSize = 18,
+			Font = UI.FontBody,
+			ZIndex = 32,
+		}
+	)
 
 	local daily = data.daily
 	row(
 		list,
 		1,
 		"Cadeau du jour",
-		daily.claimable and ("+%d pièces · série actuelle : %d jour(s)"):format(daily.reward, daily.streak) or "Déjà récupéré. Reviens demain pour prolonger ta série !",
+		daily.claimable and ("+%d pièces · série actuelle : %d jour(s)"):format(daily.reward, daily.streak)
+			or "Déjà récupéré. Reviens demain pour prolonger ta série !",
 		daily.claimable and "RÉCUPÉRER" or "REVIENS DEMAIN",
 		daily.claimable and UI.Colors.Good or UI.Colors.Muted,
 		daily.claimable and function()
@@ -5561,17 +6275,39 @@ local function renderQuests(content)
 		row(list, 1 + index, quest.label, ("Récompense : %d pièces"):format(quest.reward), text, color, handler)
 	end
 
-	local stats = UI.frame(list, { Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = UI.Colors.Panel, LayoutOrder = 10, ZIndex = 32 })
+	local stats = UI.frame(
+		list,
+		{ Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = UI.Colors.Panel, LayoutOrder = 10, ZIndex = 32 }
+	)
 	UI.corner(stats, 12)
 	UI.stroke(stats, UI.Colors.PanelLight, 2)
 	local lines = {
-		("Meilleur score : %s   ·   Victoires : %d   ·   Manches : %d"):format(Util.formatNumber(data.bestScore), data.wins, data.rounds),
-		("Bêtes dressées : %d   ·   Lassos : %d   ·   Distance : %s m"):format(data.tamedTotal, data.hooks, Util.formatNumber(data.distance)),
+		("Meilleur score : %s   ·   Victoires : %d   ·   Manches : %d"):format(
+			Util.formatNumber(data.bestScore),
+			data.wins,
+			data.rounds
+		),
+		("Bêtes dressées : %d   ·   Lassos : %d   ·   Distance : %s m"):format(
+			data.tamedTotal,
+			data.hooks,
+			Util.formatNumber(data.distance)
+		),
 	}
 	if data.persistent == false then
 		table.insert(lines, "Sauvegarde indisponible : ta progression ne sera pas enregistrée.")
 	end
-	UI.text(stats, { Size = UDim2.new(1, -16, 1, -12), Position = UDim2.new(0, 8, 0, 6), Text = table.concat(lines, "\n"), maxSize = 18, Font = UI.FontBody, outline = false, ZIndex = 33 })
+	UI.text(
+		stats,
+		{
+			Size = UDim2.new(1, -16, 1, -12),
+			Position = UDim2.new(0, 8, 0, 6),
+			Text = table.concat(lines, "\n"),
+			maxSize = 18,
+			Font = UI.FontBody,
+			outline = false,
+			ZIndex = 33,
+		}
+	)
 end
 
 -- ---------------------------------------------------------------------------
@@ -5582,7 +6318,10 @@ local function renderRobux(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 	local list = listFrame(content, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0))
@@ -5591,7 +6330,18 @@ local function renderRobux(content)
 
 	local function header(text)
 		order = order + 1
-		UI.text(list, { Size = UDim2.new(1, -8, 0, 30), Text = text, maxSize = 22, TextColor3 = UI.Colors.Accent, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, ZIndex = 32 })
+		UI.text(
+			list,
+			{
+				Size = UDim2.new(1, -8, 0, 30),
+				Text = text,
+				maxSize = 22,
+				TextColor3 = UI.Colors.Accent,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				LayoutOrder = order,
+				ZIndex = 32,
+			}
+		)
 	end
 	local function priceText(entry)
 		if not entry.available then
@@ -5611,7 +6361,15 @@ local function renderRobux(content)
 				Remotes.Prompt:FireServer("pass", entry.key)
 			end
 		end
-		row(list, order, entry.name, entry.desc, owned and "POSSÉDÉ" or priceText(entry), owned and UI.Colors.Muted or (entry.available and UI.Colors.Good or UI.Colors.PanelLight), handler)
+		row(
+			list,
+			order,
+			entry.name,
+			entry.desc,
+			owned and "POSSÉDÉ" or priceText(entry),
+			owned and UI.Colors.Muted or (entry.available and UI.Colors.Good or UI.Colors.PanelLight),
+			handler
+		)
 	end
 
 	header("PAQUETS DE PIÈCES")
@@ -5624,7 +6382,15 @@ local function renderRobux(content)
 				Remotes.Prompt:FireServer("product", entry.key)
 			end
 		end
-		row(list, order, entry.name, ("+%s pièces, utilisables dans la boutique"):format(Util.formatNumber(entry.coins)), priceText(entry), entry.available and UI.Colors.Good or UI.Colors.PanelLight, handler)
+		row(
+			list,
+			order,
+			entry.name,
+			("+%s pièces, utilisables dans la boutique"):format(Util.formatNumber(entry.coins)),
+			priceText(entry),
+			entry.available and UI.Colors.Good or UI.Colors.PanelLight,
+			handler
+		)
 	end
 end
 
@@ -5719,7 +6485,16 @@ function Menu.init()
 		{ id = "robux", label = "ROBUX", color = Color3.fromRGB(255, 120, 90) },
 	}
 	for index, def in ipairs(defs) do
-		local b = UI.button(refs.buttons, { Size = UDim2.new(1, 0, 0, 46), Text = def.label, BackgroundColor3 = def.color, LayoutOrder = index, maxSize = 22 })
+		local b = UI.button(
+			refs.buttons,
+			{
+				Size = UDim2.new(1, 0, 0, 46),
+				Text = def.label,
+				BackgroundColor3 = def.color,
+				LayoutOrder = index,
+				maxSize = 22,
+			}
+		)
 		b.Activated:Connect(function()
 			if openName == def.id then
 				close()
@@ -5728,7 +6503,17 @@ function Menu.init()
 			end
 		end)
 		if def.id == "quests" then
-			refs.badge = UI.frame(b, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 4, 0, -4), Size = UDim2.new(0, 16, 0, 16), BackgroundColor3 = UI.Colors.Bad, Visible = false, ZIndex = 5 })
+			refs.badge = UI.frame(
+				b,
+				{
+					AnchorPoint = Vector2.new(1, 0),
+					Position = UDim2.new(1, 4, 0, -4),
+					Size = UDim2.new(0, 16, 0, 16),
+					BackgroundColor3 = UI.Colors.Bad,
+					Visible = false,
+					ZIndex = 5,
+				}
+			)
 			UI.corner(refs.badge, 8)
 			UI.stroke(refs.badge, UI.Colors.Dark, 2)
 		end
@@ -5744,7 +6529,16 @@ function Menu.init()
 	})
 	UI.corner(refs.coinsBox, 12)
 	UI.stroke(refs.coinsBox, UI.Colors.Dark, 2)
-	refs.coins = UI.text(refs.coinsBox, { Size = UDim2.new(1, -12, 1, -8), Position = UDim2.new(0, 6, 0, 4), Text = "Chargement...", maxSize = 22, TextColor3 = UI.Colors.Accent })
+	refs.coins = UI.text(
+		refs.coinsBox,
+		{
+			Size = UDim2.new(1, -12, 1, -8),
+			Position = UDim2.new(0, 6, 0, 4),
+			Text = "Chargement...",
+			maxSize = 22,
+			TextColor3 = UI.Colors.Accent,
+		}
+	)
 
 	-- panneau modal
 	refs.panel = UI.frame(gui, {
@@ -5758,7 +6552,18 @@ function Menu.init()
 	UI.make("UISizeConstraint", { MaxSize = Vector2.new(780, 520), MinSize = Vector2.new(320, 240) }, refs.panel)
 	UI.corner(refs.panel, 18)
 	UI.stroke(refs.panel, UI.Colors.Accent, 3)
-	refs.title = UI.text(refs.panel, { Size = UDim2.new(1, -120, 0, 44), Position = UDim2.new(0, 16, 0, 8), Text = "", maxSize = 32, TextColor3 = UI.Colors.Accent, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31 })
+	refs.title = UI.text(
+		refs.panel,
+		{
+			Size = UDim2.new(1, -120, 0, 44),
+			Position = UDim2.new(0, 16, 0, 8),
+			Text = "",
+			maxSize = 32,
+			TextColor3 = UI.Colors.Accent,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 31,
+		}
+	)
 	local closeButton = UI.button(refs.panel, {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 10),
@@ -6009,7 +6814,8 @@ function UI.button(parent, props)
 
 	local base = button.BackgroundColor3
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.18) }):Play()
+		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.18) })
+			:Play()
 	end)
 	button.MouseLeave:Connect(function()
 		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base }):Play()
@@ -6018,7 +6824,11 @@ function UI.button(parent, props)
 end
 
 function UI.tween(inst, seconds, props, style)
-	local tween = TweenService:Create(inst, TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+	local tween = TweenService:Create(
+		inst,
+		TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		props
+	)
 	tween:Play()
 	return tween
 end

@@ -109,7 +109,8 @@ function UI.button(parent, props)
 
 	local base = button.BackgroundColor3
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.18) }):Play()
+		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.18) })
+			:Play()
 	end)
 	button.MouseLeave:Connect(function()
 		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base }):Play()
@@ -118,7 +119,11 @@ function UI.button(parent, props)
 end
 
 function UI.tween(inst, seconds, props, style)
-	local tween = TweenService:Create(inst, TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+	local tween = TweenService:Create(
+		inst,
+		TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		props
+	)
 	tween:Play()
 	return tween
 end

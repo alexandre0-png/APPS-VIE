@@ -18,7 +18,10 @@ local function collectMotors(model)
 		if descendant:IsA("Motor6D") then
 			local name = descendant.Name
 			if name:sub(1, 3) == "Leg" then
-				table.insert(motors, { motor = descendant, kind = "leg", phase = descendant:GetAttribute("Phase") or 0 })
+				table.insert(
+					motors,
+					{ motor = descendant, kind = "leg", phase = descendant:GetAttribute("Phase") or 0 }
+				)
 			elseif name:sub(1, 4) == "Wing" then
 				table.insert(motors, { motor = descendant, kind = "wing", side = descendant:GetAttribute("Side") or 1 })
 			end

@@ -48,12 +48,29 @@ do
 	}
 	addEyes(parts, 0.9, -7.35, 1.1)
 	add({
-		id = "boar", name = "Sanglier", desc = "Petit et nerveux. Il zigzague sans cesse.",
-		speed = 38, value = 1, weight = 26, tameTime = 5, buckAfter = 9, trait = "weave",
-		weaveAmp = 14, weaveFreq = 0.9, rootY = 4.4,
+		id = "boar",
+		name = "Sanglier",
+		desc = "Petit et nerveux. Il zigzague sans cesse.",
+		speed = 38,
+		value = 1,
+		weight = 26,
+		tameTime = 5,
+		buckAfter = 9,
+		trait = "weave",
+		weaveAmp = 14,
+		weaveFreq = 0.9,
+		rootY = 4.4,
 		body = { s = V(5, 4, 8), c = "body" },
-		palette = { body = C(139, 94, 60), dark = C(92, 60, 38), light = C(238, 226, 200), accent = C(255, 150, 170), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(1.3, 2.4, 1.3), -2, 1.7, 2.8), wings = {},
+		palette = {
+			body = C(139, 94, 60),
+			dark = C(92, 60, 38),
+			light = C(238, 226, 200),
+			accent = C(255, 150, 170),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.3, 2.4, 1.3), -2, 1.7, 2.8),
+		wings = {},
 	})
 end
 
@@ -71,11 +88,26 @@ do
 	}
 	addEyes(parts, 6.9, -4.1, 0.95)
 	add({
-		id = "ostrich", name = "Autruche des cimes", desc = "Foncière et rapide. Parfaite pour gagner du terrain.",
-		speed = 52, value = 1.2, weight = 16, tameTime = 5, buckAfter = 8, trait = "sprint",
-		weaveAmp = 2, weaveFreq = 0.6, rootY = 7,
+		id = "ostrich",
+		name = "Autruche des cimes",
+		desc = "Foncière et rapide. Parfaite pour gagner du terrain.",
+		speed = 52,
+		value = 1.2,
+		weight = 16,
+		tameTime = 5,
+		buckAfter = 8,
+		trait = "sprint",
+		weaveAmp = 2,
+		weaveFreq = 0.6,
+		rootY = 7,
 		body = { s = V(3.4, 4, 6), c = "body" },
-		palette = { body = C(176, 72, 56), dark = C(112, 44, 38), light = C(238, 214, 176), accent = C(255, 200, 50), eye = C(20, 20, 20) },
+		palette = {
+			body = C(176, 72, 56),
+			dark = C(112, 44, 38),
+			light = C(238, 214, 176),
+			accent = C(255, 200, 50),
+			eye = C(20, 20, 20),
+		},
 		parts = parts,
 		legs = {
 			{ n = "LegL", s = V(0.9, 5, 0.9), hip = V(-1.1, -2, 0.6), phase = 0, c = "accent" },
@@ -97,12 +129,29 @@ do
 	}
 	addEyes(parts, 0.7, -8.15, 1.6)
 	add({
-		id = "rhino", name = "Rhinocéros", desc = "Charge par rafales : +50 % de vitesse toutes les 6 s.",
-		speed = 33, value = 1.5, weight = 15, tameTime = 6, buckAfter = 11, trait = "charge",
-		weaveAmp = 0, weaveFreq = 1, rootY = 5.5,
+		id = "rhino",
+		name = "Rhinocéros",
+		desc = "Charge par rafales : +50 % de vitesse toutes les 6 s.",
+		speed = 33,
+		value = 1.5,
+		weight = 15,
+		tameTime = 6,
+		buckAfter = 11,
+		trait = "charge",
+		weaveAmp = 0,
+		weaveFreq = 1,
+		rootY = 5.5,
 		body = { s = V(6, 5, 9), c = "body" },
-		palette = { body = C(136, 138, 150), dark = C(96, 98, 110), light = C(236, 232, 218), accent = C(170, 120, 80), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(1.7, 3, 1.7), -2.5, 2.0, 3.2), wings = {},
+		palette = {
+			body = C(136, 138, 150),
+			dark = C(96, 98, 110),
+			light = C(236, 232, 218),
+			accent = C(170, 120, 80),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.7, 3, 1.7), -2.5, 2.0, 3.2),
+		wings = {},
 	})
 end
 
@@ -120,12 +169,29 @@ do
 	}
 	addEyes(parts, 1.4, -5.65, 0.8)
 	add({
-		id = "ram", name = "Bélier", desc = "Il bondit à chaque foulée : spectaculaire et rapide.",
-		speed = 42, value = 1.3, weight = 15, tameTime = 5, buckAfter = 9, trait = "hop",
-		weaveAmp = 5, weaveFreq = 0.8, rootY = 4.8,
+		id = "ram",
+		name = "Bélier",
+		desc = "Il bondit à chaque foulée : spectaculaire et rapide.",
+		speed = 42,
+		value = 1.3,
+		weight = 15,
+		tameTime = 5,
+		buckAfter = 9,
+		trait = "hop",
+		weaveAmp = 5,
+		weaveFreq = 0.8,
+		rootY = 4.8,
 		body = { s = V(4, 3.6, 6.4), c = "body" },
-		palette = { body = C(244, 240, 228), dark = C(70, 58, 56), light = C(255, 255, 255), accent = C(210, 180, 130), eye = C(255, 255, 255) },
-		parts = parts, legs = quadLegs(V(1, 3, 1), -1.8, 1.3, 2.2), wings = {},
+		palette = {
+			body = C(244, 240, 228),
+			dark = C(70, 58, 56),
+			light = C(255, 255, 255),
+			accent = C(210, 180, 130),
+			eye = C(255, 255, 255),
+		},
+		parts = parts,
+		legs = quadLegs(V(1, 3, 1), -1.8, 1.3, 2.2),
+		wings = {},
 	})
 end
 
@@ -144,12 +210,29 @@ do
 	}
 	addEyes(parts, 1.8, -10.45, 1.6)
 	add({
-		id = "mammoth", name = "Mammouth", desc = "Lent mais très rentable. Ne te désarçonne jamais.",
-		speed = 25, value = 2.5, weight = 9, tameTime = 8, buckAfter = nil, trait = "stable",
-		weaveAmp = 0, weaveFreq = 1, rootY = 7.5,
+		id = "mammoth",
+		name = "Mammouth",
+		desc = "Lent mais très rentable. Ne te désarçonne jamais.",
+		speed = 25,
+		value = 2.5,
+		weight = 9,
+		tameTime = 8,
+		buckAfter = nil,
+		trait = "stable",
+		weaveAmp = 0,
+		weaveFreq = 1,
+		rootY = 7.5,
 		body = { s = V(8, 7, 11), c = "body" },
-		palette = { body = C(118, 78, 50), dark = C(80, 52, 34), light = C(242, 232, 204), accent = C(200, 90, 60), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(2.4, 4, 2.4), -3.5, 2.6, 3.8), wings = {},
+		palette = {
+			body = C(118, 78, 50),
+			dark = C(80, 52, 34),
+			light = C(242, 232, 204),
+			accent = C(200, 90, 60),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(2.4, 4, 2.4), -3.5, 2.6, 3.8),
+		wings = {},
 	})
 end
 
@@ -165,12 +248,29 @@ do
 	}
 	addEyes(parts, 1.0, -8.05, 1.5)
 	add({
-		id = "trike", name = "Tricératops", desc = "Un bouclier vivant. Rentable et endurant.",
-		speed = 30, value = 2, weight = 12, tameTime = 7, buckAfter = 14, trait = "tank",
-		weaveAmp = 2, weaveFreq = 0.7, rootY = 4.85,
+		id = "trike",
+		name = "Tricératops",
+		desc = "Un bouclier vivant. Rentable et endurant.",
+		speed = 30,
+		value = 2,
+		weight = 12,
+		tameTime = 7,
+		buckAfter = 14,
+		trait = "tank",
+		weaveAmp = 2,
+		weaveFreq = 0.7,
+		rootY = 4.85,
 		body = { s = V(5.5, 4.5, 9), c = "body" },
-		palette = { body = C(96, 166, 98), dark = C(64, 120, 72), light = C(246, 240, 214), accent = C(230, 120, 60), eye = C(20, 20, 20) },
-		parts = parts, legs = quadLegs(V(1.6, 2.6, 1.6), -2.25, 1.9, 3.0), wings = {},
+		palette = {
+			body = C(96, 166, 98),
+			dark = C(64, 120, 72),
+			light = C(246, 240, 214),
+			accent = C(230, 120, 60),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.6, 2.6, 1.6), -2.25, 1.9, 3.0),
+		wings = {},
 	})
 end
 
@@ -187,12 +287,29 @@ do
 	}
 	addEyes(parts, 1.3, -6.45, 0.8)
 	add({
-		id = "wyvern", name = "Wyverne", desc = "Elle vole à 12 m du sol. Lasso-la en plein bond !",
-		speed = 56, value = 3.5, weight = 7, tameTime = 6, buckAfter = 10, trait = "fly",
-		weaveAmp = 8, weaveFreq = 0.5, rootY = 12, flying = true,
+		id = "wyvern",
+		name = "Wyverne",
+		desc = "Elle vole à 12 m du sol. Lasso-la en plein bond !",
+		speed = 56,
+		value = 3.5,
+		weight = 7,
+		tameTime = 6,
+		buckAfter = 10,
+		trait = "fly",
+		weaveAmp = 8,
+		weaveFreq = 0.5,
+		rootY = 12,
+		flying = true,
 		body = { s = V(3, 3, 7), c = "body" },
-		palette = { body = C(120, 70, 190), dark = C(70, 40, 120), light = C(240, 230, 255), accent = C(255, 110, 200), eye = C(255, 240, 80) },
-		parts = parts, legs = {},
+		palette = {
+			body = C(120, 70, 190),
+			dark = C(70, 40, 120),
+			light = C(240, 230, 255),
+			accent = C(255, 110, 200),
+			eye = C(255, 240, 80),
+		},
+		parts = parts,
+		legs = {},
 		wings = {
 			{ n = "WingL", s = V(7, 0.35, 3.6), hip = V(-1.5, 1.0, -0.4), side = -1, c = "accent" },
 			{ n = "WingR", s = V(7, 0.35, 3.6), hip = V(1.5, 1.0, -0.4), side = 1, c = "accent" },

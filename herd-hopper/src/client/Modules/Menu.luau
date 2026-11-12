@@ -81,17 +81,51 @@ local function listFrame(parent, position, size)
 end
 
 local function row(parent, order, title, desc, buttonText, buttonColor, onClick, swatch)
-	local frame = UI.frame(parent, { Size = UDim2.new(1, -8, 0, 62), BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = order, ZIndex = 32 })
+	local frame = UI.frame(
+		parent,
+		{ Size = UDim2.new(1, -8, 0, 62), BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = order, ZIndex = 32 }
+	)
 	UI.corner(frame, 12)
 	local left = 10
 	if swatch then
-		local dot = UI.frame(frame, { Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(0, 10, 0.5, -15), BackgroundColor3 = swatch, ZIndex = 33 })
+		local dot = UI.frame(
+			frame,
+			{
+				Size = UDim2.new(0, 30, 0, 30),
+				Position = UDim2.new(0, 10, 0.5, -15),
+				BackgroundColor3 = swatch,
+				ZIndex = 33,
+			}
+		)
 		UI.corner(dot, 15)
 		UI.stroke(dot, UI.Colors.Dark, 2)
 		left = 50
 	end
-	UI.text(frame, { Size = UDim2.new(1, -left - 150, 0, 26), Position = UDim2.new(0, left, 0, 6), Text = title, maxSize = 22, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 33 })
-	UI.text(frame, { Size = UDim2.new(1, -left - 150, 0, 22), Position = UDim2.new(0, left, 0, 34), Text = desc, maxSize = 15, Font = UI.FontBody, TextColor3 = UI.Colors.Muted, TextXAlignment = Enum.TextXAlignment.Left, outline = false, ZIndex = 33 })
+	UI.text(
+		frame,
+		{
+			Size = UDim2.new(1, -left - 150, 0, 26),
+			Position = UDim2.new(0, left, 0, 6),
+			Text = title,
+			maxSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 33,
+		}
+	)
+	UI.text(
+		frame,
+		{
+			Size = UDim2.new(1, -left - 150, 0, 22),
+			Position = UDim2.new(0, left, 0, 34),
+			Text = desc,
+			maxSize = 15,
+			Font = UI.FontBody,
+			TextColor3 = UI.Colors.Muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			outline = false,
+			ZIndex = 33,
+		}
+	)
 	local button = UI.button(frame, {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -10, 0.5, 0),
@@ -117,7 +151,10 @@ local function renderShop(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 
@@ -145,7 +182,17 @@ local function renderShop(content)
 	end
 
 	local list = listFrame(content, UDim2.new(0, 0, 0, 48), UDim2.new(1, 0, 1, -48 - 26))
-	refs.message = UI.text(content, { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -24), Text = lastMessage, maxSize = 18, Font = UI.FontBody, ZIndex = 32 })
+	refs.message = UI.text(
+		content,
+		{
+			Size = UDim2.new(1, 0, 0, 22),
+			Position = UDim2.new(0, 0, 1, -24),
+			Text = lastMessage,
+			maxSize = 18,
+			Font = UI.FontBody,
+			ZIndex = 32,
+		}
+	)
 
 	if shopTab == "upgrade" then
 		for index, def in ipairs(Config.Upgrades) do
@@ -187,7 +234,16 @@ local function renderShop(content)
 					invoke(Remotes.Buy, isHat and "hat" or "rope", def.id)
 				end
 			end
-			row(list, index, def.name, isHat and "Un look unique pour ton cavalier." or "Change la couleur de ton lasso.", text, color, handler, (not isHat) and def.color or nil)
+			row(
+				list,
+				index,
+				def.name,
+				isHat and "Un look unique pour ton cavalier." or "Change la couleur de ton lasso.",
+				text,
+				color,
+				handler,
+				(not isHat) and def.color or nil
+			)
 		end
 	end
 end
@@ -200,7 +256,10 @@ local function renderBestiary(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 
@@ -214,7 +273,11 @@ local function renderBestiary(content)
 	end
 	UI.text(content, {
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = ("Découvertes : %d / %d   ·   Dompter les 3 variantes d'une espèce rapporte %d pièces !"):format(found, total, Config.Rewards.SpeciesComplete),
+		Text = ("Découvertes : %d / %d   ·   Dompter les 3 variantes d'une espèce rapporte %d pièces !"):format(
+			found,
+			total,
+			Config.Rewards.SpeciesComplete
+		),
 		maxSize = 18,
 		Font = UI.FontBody,
 		ZIndex = 32,
@@ -230,7 +293,15 @@ local function renderBestiary(content)
 		ScrollBarThickness = 6,
 		ZIndex = 31,
 	}, content)
-	UI.make("UIGridLayout", { CellSize = UDim2.new(0, 178, 0, 168), CellPadding = UDim2.new(0, 8, 0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	UI.make(
+		"UIGridLayout",
+		{
+			CellSize = UDim2.new(0, 178, 0, 168),
+			CellPadding = UDim2.new(0, 8, 0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		},
+		grid
+	)
 
 	for index, def in ipairs(Species.List) do
 		local card = UI.frame(grid, { BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = index, ZIndex = 32 })
@@ -238,8 +309,29 @@ local function renderBestiary(content)
 		if data.completed[def.id] then
 			UI.stroke(card, UI.Colors.Accent, 3)
 		end
-		UI.text(card, { Size = UDim2.new(1, -12, 0, 24), Position = UDim2.new(0, 6, 0, 4), Text = def.name, maxSize = 20, ZIndex = 33 })
-		UI.text(card, { Size = UDim2.new(1, -12, 0, 44), Position = UDim2.new(0, 6, 0, 28), Text = def.desc, maxSize = 13, Font = UI.FontBody, TextColor3 = UI.Colors.Muted, outline = false, ZIndex = 33 })
+		UI.text(
+			card,
+			{
+				Size = UDim2.new(1, -12, 0, 24),
+				Position = UDim2.new(0, 6, 0, 4),
+				Text = def.name,
+				maxSize = 20,
+				ZIndex = 33,
+			}
+		)
+		UI.text(
+			card,
+			{
+				Size = UDim2.new(1, -12, 0, 44),
+				Position = UDim2.new(0, 6, 0, 28),
+				Text = def.desc,
+				maxSize = 13,
+				Font = UI.FontBody,
+				TextColor3 = UI.Colors.Muted,
+				outline = false,
+				ZIndex = 33,
+			}
+		)
 		for v, variant in ipairs(Config.Variants) do
 			local count = data.tamed[def.id .. "_" .. v] or 0
 			local swatch = UI.frame(card, {
@@ -250,7 +342,16 @@ local function renderBestiary(content)
 			})
 			UI.corner(swatch, 10)
 			UI.stroke(swatch, UI.Colors.Dark, 2)
-			UI.text(swatch, { Size = UDim2.new(1, 0, 1, 0), Text = count > 0 and "" or "?", maxSize = 26, TextColor3 = UI.Colors.Muted, ZIndex = 34 })
+			UI.text(
+				swatch,
+				{
+					Size = UDim2.new(1, 0, 1, 0),
+					Text = count > 0 and "" or "?",
+					maxSize = 26,
+					TextColor3 = UI.Colors.Muted,
+					ZIndex = 34,
+				}
+			)
 			UI.text(card, {
 				Size = UDim2.new(0, 50, 0, 16),
 				Position = UDim2.new(0, 8 + (v - 1) * 54, 0, 128),
@@ -263,7 +364,18 @@ local function renderBestiary(content)
 			})
 		end
 		if data.completed[def.id] then
-			UI.text(card, { Size = UDim2.new(1, -12, 0, 14), Position = UDim2.new(0, 6, 1, -16), Text = "ESPÈCE COMPLÈTE", maxSize = 12, TextColor3 = UI.Colors.Accent, outline = false, ZIndex = 33 })
+			UI.text(
+				card,
+				{
+					Size = UDim2.new(1, -12, 0, 14),
+					Position = UDim2.new(0, 6, 1, -16),
+					Text = "ESPÈCE COMPLÈTE",
+					maxSize = 12,
+					TextColor3 = UI.Colors.Accent,
+					outline = false,
+					ZIndex = 33,
+				}
+			)
 		end
 	end
 end
@@ -276,19 +388,33 @@ local function renderQuests(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 
 	local list = listFrame(content, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, -26))
-	refs.message = UI.text(content, { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -24), Text = lastMessage, maxSize = 18, Font = UI.FontBody, ZIndex = 32 })
+	refs.message = UI.text(
+		content,
+		{
+			Size = UDim2.new(1, 0, 0, 22),
+			Position = UDim2.new(0, 0, 1, -24),
+			Text = lastMessage,
+			maxSize = 18,
+			Font = UI.FontBody,
+			ZIndex = 32,
+		}
+	)
 
 	local daily = data.daily
 	row(
 		list,
 		1,
 		"Cadeau du jour",
-		daily.claimable and ("+%d pièces · série actuelle : %d jour(s)"):format(daily.reward, daily.streak) or "Déjà récupéré. Reviens demain pour prolonger ta série !",
+		daily.claimable and ("+%d pièces · série actuelle : %d jour(s)"):format(daily.reward, daily.streak)
+			or "Déjà récupéré. Reviens demain pour prolonger ta série !",
 		daily.claimable and "RÉCUPÉRER" or "REVIENS DEMAIN",
 		daily.claimable and UI.Colors.Good or UI.Colors.Muted,
 		daily.claimable and function()
@@ -312,17 +438,39 @@ local function renderQuests(content)
 		row(list, 1 + index, quest.label, ("Récompense : %d pièces"):format(quest.reward), text, color, handler)
 	end
 
-	local stats = UI.frame(list, { Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = UI.Colors.Panel, LayoutOrder = 10, ZIndex = 32 })
+	local stats = UI.frame(
+		list,
+		{ Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = UI.Colors.Panel, LayoutOrder = 10, ZIndex = 32 }
+	)
 	UI.corner(stats, 12)
 	UI.stroke(stats, UI.Colors.PanelLight, 2)
 	local lines = {
-		("Meilleur score : %s   ·   Victoires : %d   ·   Manches : %d"):format(Util.formatNumber(data.bestScore), data.wins, data.rounds),
-		("Bêtes dressées : %d   ·   Lassos : %d   ·   Distance : %s m"):format(data.tamedTotal, data.hooks, Util.formatNumber(data.distance)),
+		("Meilleur score : %s   ·   Victoires : %d   ·   Manches : %d"):format(
+			Util.formatNumber(data.bestScore),
+			data.wins,
+			data.rounds
+		),
+		("Bêtes dressées : %d   ·   Lassos : %d   ·   Distance : %s m"):format(
+			data.tamedTotal,
+			data.hooks,
+			Util.formatNumber(data.distance)
+		),
 	}
 	if data.persistent == false then
 		table.insert(lines, "Sauvegarde indisponible : ta progression ne sera pas enregistrée.")
 	end
-	UI.text(stats, { Size = UDim2.new(1, -16, 1, -12), Position = UDim2.new(0, 8, 0, 6), Text = table.concat(lines, "\n"), maxSize = 18, Font = UI.FontBody, outline = false, ZIndex = 33 })
+	UI.text(
+		stats,
+		{
+			Size = UDim2.new(1, -16, 1, -12),
+			Position = UDim2.new(0, 8, 0, 6),
+			Text = table.concat(lines, "\n"),
+			maxSize = 18,
+			Font = UI.FontBody,
+			outline = false,
+			ZIndex = 33,
+		}
+	)
 end
 
 -- ---------------------------------------------------------------------------
@@ -333,7 +481,10 @@ local function renderRobux(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+		UI.text(
+			content,
+			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
+		)
 		return
 	end
 	local list = listFrame(content, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0))
@@ -342,7 +493,18 @@ local function renderRobux(content)
 
 	local function header(text)
 		order = order + 1
-		UI.text(list, { Size = UDim2.new(1, -8, 0, 30), Text = text, maxSize = 22, TextColor3 = UI.Colors.Accent, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, ZIndex = 32 })
+		UI.text(
+			list,
+			{
+				Size = UDim2.new(1, -8, 0, 30),
+				Text = text,
+				maxSize = 22,
+				TextColor3 = UI.Colors.Accent,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				LayoutOrder = order,
+				ZIndex = 32,
+			}
+		)
 	end
 	local function priceText(entry)
 		if not entry.available then
@@ -362,7 +524,15 @@ local function renderRobux(content)
 				Remotes.Prompt:FireServer("pass", entry.key)
 			end
 		end
-		row(list, order, entry.name, entry.desc, owned and "POSSÉDÉ" or priceText(entry), owned and UI.Colors.Muted or (entry.available and UI.Colors.Good or UI.Colors.PanelLight), handler)
+		row(
+			list,
+			order,
+			entry.name,
+			entry.desc,
+			owned and "POSSÉDÉ" or priceText(entry),
+			owned and UI.Colors.Muted or (entry.available and UI.Colors.Good or UI.Colors.PanelLight),
+			handler
+		)
 	end
 
 	header("PAQUETS DE PIÈCES")
@@ -375,7 +545,15 @@ local function renderRobux(content)
 				Remotes.Prompt:FireServer("product", entry.key)
 			end
 		end
-		row(list, order, entry.name, ("+%s pièces, utilisables dans la boutique"):format(Util.formatNumber(entry.coins)), priceText(entry), entry.available and UI.Colors.Good or UI.Colors.PanelLight, handler)
+		row(
+			list,
+			order,
+			entry.name,
+			("+%s pièces, utilisables dans la boutique"):format(Util.formatNumber(entry.coins)),
+			priceText(entry),
+			entry.available and UI.Colors.Good or UI.Colors.PanelLight,
+			handler
+		)
 	end
 end
 
@@ -470,7 +648,16 @@ function Menu.init()
 		{ id = "robux", label = "ROBUX", color = Color3.fromRGB(255, 120, 90) },
 	}
 	for index, def in ipairs(defs) do
-		local b = UI.button(refs.buttons, { Size = UDim2.new(1, 0, 0, 46), Text = def.label, BackgroundColor3 = def.color, LayoutOrder = index, maxSize = 22 })
+		local b = UI.button(
+			refs.buttons,
+			{
+				Size = UDim2.new(1, 0, 0, 46),
+				Text = def.label,
+				BackgroundColor3 = def.color,
+				LayoutOrder = index,
+				maxSize = 22,
+			}
+		)
 		b.Activated:Connect(function()
 			if openName == def.id then
 				close()
@@ -479,7 +666,17 @@ function Menu.init()
 			end
 		end)
 		if def.id == "quests" then
-			refs.badge = UI.frame(b, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 4, 0, -4), Size = UDim2.new(0, 16, 0, 16), BackgroundColor3 = UI.Colors.Bad, Visible = false, ZIndex = 5 })
+			refs.badge = UI.frame(
+				b,
+				{
+					AnchorPoint = Vector2.new(1, 0),
+					Position = UDim2.new(1, 4, 0, -4),
+					Size = UDim2.new(0, 16, 0, 16),
+					BackgroundColor3 = UI.Colors.Bad,
+					Visible = false,
+					ZIndex = 5,
+				}
+			)
 			UI.corner(refs.badge, 8)
 			UI.stroke(refs.badge, UI.Colors.Dark, 2)
 		end
@@ -495,7 +692,16 @@ function Menu.init()
 	})
 	UI.corner(refs.coinsBox, 12)
 	UI.stroke(refs.coinsBox, UI.Colors.Dark, 2)
-	refs.coins = UI.text(refs.coinsBox, { Size = UDim2.new(1, -12, 1, -8), Position = UDim2.new(0, 6, 0, 4), Text = "Chargement...", maxSize = 22, TextColor3 = UI.Colors.Accent })
+	refs.coins = UI.text(
+		refs.coinsBox,
+		{
+			Size = UDim2.new(1, -12, 1, -8),
+			Position = UDim2.new(0, 6, 0, 4),
+			Text = "Chargement...",
+			maxSize = 22,
+			TextColor3 = UI.Colors.Accent,
+		}
+	)
 
 	-- panneau modal
 	refs.panel = UI.frame(gui, {
@@ -509,7 +715,18 @@ function Menu.init()
 	UI.make("UISizeConstraint", { MaxSize = Vector2.new(780, 520), MinSize = Vector2.new(320, 240) }, refs.panel)
 	UI.corner(refs.panel, 18)
 	UI.stroke(refs.panel, UI.Colors.Accent, 3)
-	refs.title = UI.text(refs.panel, { Size = UDim2.new(1, -120, 0, 44), Position = UDim2.new(0, 16, 0, 8), Text = "", maxSize = 32, TextColor3 = UI.Colors.Accent, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31 })
+	refs.title = UI.text(
+		refs.panel,
+		{
+			Size = UDim2.new(1, -120, 0, 44),
+			Position = UDim2.new(0, 16, 0, 8),
+			Text = "",
+			maxSize = 32,
+			TextColor3 = UI.Colors.Accent,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 31,
+		}
+	)
 	local closeButton = UI.button(refs.panel, {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 10),

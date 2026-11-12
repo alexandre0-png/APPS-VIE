@@ -52,7 +52,8 @@ local function build(gui)
 	})
 	UI.corner(banner, 14)
 	UI.stroke(banner, C.Dark, 2)
-	refs.bannerText = UI.text(banner, { Size = UDim2.new(1, -16, 1, -8), Position = UDim2.new(0, 8, 0, 4), maxSize = 26 })
+	refs.bannerText =
+		UI.text(banner, { Size = UDim2.new(1, -16, 1, -8), Position = UDim2.new(0, 8, 0, 4), maxSize = 26 })
 
 	refs.hint = UI.text(gui, {
 		Name = "Hint",
@@ -73,16 +74,57 @@ local function build(gui)
 	})
 	UI.corner(score, 14)
 	UI.stroke(score, C.Dark, 2)
-	UI.text(score, { Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 4), Text = "SCORE", maxSize = 14, TextColor3 = C.Muted, TextXAlignment = Enum.TextXAlignment.Left })
-	refs.score = UI.text(score, { Size = UDim2.new(1, -16, 0, 40), Position = UDim2.new(0, 8, 0, 20), Text = "0", maxSize = 38, TextColor3 = C.Accent, TextXAlignment = Enum.TextXAlignment.Left })
-	refs.combo = UI.text(score, { Size = UDim2.new(1, -16, 0, 20), Position = UDim2.new(0, 8, 0, 62), Text = "", maxSize = 18, TextColor3 = C.Good, TextXAlignment = Enum.TextXAlignment.Left })
-	local comboBar = UI.frame(score, { Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark })
+	UI.text(
+		score,
+		{
+			Size = UDim2.new(1, -16, 0, 18),
+			Position = UDim2.new(0, 8, 0, 4),
+			Text = "SCORE",
+			maxSize = 14,
+			TextColor3 = C.Muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	)
+	refs.score = UI.text(
+		score,
+		{
+			Size = UDim2.new(1, -16, 0, 40),
+			Position = UDim2.new(0, 8, 0, 20),
+			Text = "0",
+			maxSize = 38,
+			TextColor3 = C.Accent,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	)
+	refs.combo = UI.text(
+		score,
+		{
+			Size = UDim2.new(1, -16, 0, 20),
+			Position = UDim2.new(0, 8, 0, 62),
+			Text = "",
+			maxSize = 18,
+			TextColor3 = C.Good,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	)
+	local comboBar = UI.frame(
+		score,
+		{ Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark }
+	)
 	UI.corner(comboBar, 3)
 	refs.comboFill = UI.frame(comboBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.comboFill, 3)
 	refs.scoreBox = score
-	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, score)
-	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, banner)
+	UI.make(
+		"UIGradient",
+		{ Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 },
+		score
+	)
+	UI.make(
+		"UIGradient",
+		{ Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 },
+		banner
+	)
 
 	-- Classement en direct (haut droite)
 	local board = UI.frame(gui, {
@@ -94,7 +136,16 @@ local function build(gui)
 	})
 	UI.corner(board, 14)
 	UI.stroke(board, C.Dark, 2)
-	UI.text(board, { Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 2), Text = "CLASSEMENT", maxSize = 14, TextColor3 = C.Muted })
+	UI.text(
+		board,
+		{
+			Size = UDim2.new(1, -16, 0, 18),
+			Position = UDim2.new(0, 8, 0, 2),
+			Text = "CLASSEMENT",
+			maxSize = 14,
+			TextColor3 = C.Muted,
+		}
+	)
 	refs.rows = {}
 	for i = 1, 6 do
 		refs.rows[i] = UI.text(board, {
@@ -121,12 +172,24 @@ local function build(gui)
 	UI.stroke(wallBox, C.Dark, 2)
 	refs.wallFill = UI.frame(wallBox, { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.wallFill, 13)
-	refs.wallText = UI.text(wallBox, { Size = UDim2.new(1, -10, 1, -4), Position = UDim2.new(0, 5, 0, 2), maxSize = 16 })
+	refs.wallText =
+		UI.text(wallBox, { Size = UDim2.new(1, -10, 1, -4), Position = UDim2.new(0, 5, 0, 2), maxSize = 16 })
 	refs.wallBox = wallBox
 
 	-- Danger : bordure rouge pulsante
-	refs.danger = UI.frame(gui, { Name = "Danger", Position = UDim2.new(0, 8, 0, 8), Size = UDim2.new(1, -16, 1, -16), BackgroundTransparency = 1, Visible = false, Active = false })
-	refs.dangerStroke = UI.make("UIStroke", { Color = Color3.fromRGB(255, 50, 30), Thickness = 16, Transparency = 1 }, refs.danger)
+	refs.danger = UI.frame(
+		gui,
+		{
+			Name = "Danger",
+			Position = UDim2.new(0, 8, 0, 8),
+			Size = UDim2.new(1, -16, 1, -16),
+			BackgroundTransparency = 1,
+			Visible = false,
+			Active = false,
+		}
+	)
+	refs.dangerStroke =
+		UI.make("UIStroke", { Color = Color3.fromRGB(255, 50, 30), Thickness = 16, Transparency = 1 }, refs.danger)
 
 	-- Monture / dressage (bas centre)
 	local ride = UI.frame(gui, {
@@ -139,7 +202,10 @@ local function build(gui)
 	UI.corner(ride, 14)
 	UI.stroke(ride, C.Dark, 2)
 	refs.rideName = UI.text(ride, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 4), maxSize = 22 })
-	local tameBar = UI.frame(ride, { Position = UDim2.new(0, 10, 0, 36), Size = UDim2.new(1, -20, 0, 16), BackgroundColor3 = C.Dark })
+	local tameBar = UI.frame(
+		ride,
+		{ Position = UDim2.new(0, 10, 0, 36), Size = UDim2.new(1, -20, 0, 16), BackgroundColor3 = C.Dark }
+	)
 	UI.corner(tameBar, 8)
 	refs.tameFill = UI.frame(tameBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.tameFill, 8)
@@ -189,7 +255,10 @@ local function build(gui)
 		Visible = false,
 	})
 	refs.toastTitle = UI.text(toast, { Size = UDim2.new(1, 0, 0, 56), maxSize = 52 })
-	refs.toastSub = UI.text(toast, { Size = UDim2.new(1, 0, 0, 34), Position = UDim2.new(0, 0, 0, 58), maxSize = 24, Font = UI.FontBody })
+	refs.toastSub = UI.text(
+		toast,
+		{ Size = UDim2.new(1, 0, 0, 34), Position = UDim2.new(0, 0, 0, 58), maxSize = 24, Font = UI.FontBody }
+	)
 	refs.toast = toast
 
 	-- Compte à rebours
@@ -215,7 +284,17 @@ local function build(gui)
 	UI.make("UISizeConstraint", { MaxSize = Vector2.new(560, 440) }, results)
 	UI.corner(results, 18)
 	UI.stroke(results, C.Accent, 3)
-	UI.text(results, { Size = UDim2.new(1, -20, 0, 44), Position = UDim2.new(0, 10, 0, 8), Text = "RÉSULTATS DE LA MANCHE", maxSize = 32, TextColor3 = C.Accent, ZIndex = 21 })
+	UI.text(
+		results,
+		{
+			Size = UDim2.new(1, -20, 0, 44),
+			Position = UDim2.new(0, 10, 0, 8),
+			Text = "RÉSULTATS DE LA MANCHE",
+			maxSize = 32,
+			TextColor3 = C.Accent,
+			ZIndex = 21,
+		}
+	)
 	refs.resultsList = UI.make("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -283,7 +362,8 @@ local function update()
 
 	-- bandeau
 	if phase == "Intermission" then
-		refs.bannerText.Text = waiting and "En attente de joueurs..." or ("Prochaine manche : " .. Util.formatTime(remaining))
+		refs.bannerText.Text = waiting and "En attente de joueurs..."
+			or ("Prochaine manche : " .. Util.formatTime(remaining))
 	elseif phase == "Countdown" then
 		refs.bannerText.Text = "Prépare-toi !"
 	elseif phase == "Running" then
@@ -318,7 +398,8 @@ local function update()
 	if running and status == "Lobby" then
 		refs.hint.Text = "Manche en cours : tu joues à la prochaine !"
 	elseif running and (status == "Out" or status == "Finished") then
-		refs.hint.Text = status == "Finished" and "Arrivé ! Tu regardes la fin de la manche." or "Éliminé : tu regardes la course."
+		refs.hint.Text = status == "Finished" and "Arrivé ! Tu regardes la fin de la manche."
+			or "Éliminé : tu regardes la course."
 	elseif phase == "Intermission" then
 		refs.hint.Text = "Ouvre la boutique ou le bestiaire en attendant."
 	else
@@ -456,8 +537,27 @@ function HUD.showResults(payload)
 		if you then
 			UI.stroke(row, UI.Colors.Accent, 2)
 		end
-		UI.text(row, { Size = UDim2.new(0, 44, 1, 0), Text = "#" .. entry.rank, maxSize = 24, TextColor3 = entry.rank == 1 and UI.Colors.Accent or UI.Colors.Text, ZIndex = 22 })
-		UI.text(row, { Size = UDim2.new(0.42, 0, 1, -8), Position = UDim2.new(0, 48, 0, 4), Text = entry.n, maxSize = 20, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22 })
+		UI.text(
+			row,
+			{
+				Size = UDim2.new(0, 44, 1, 0),
+				Text = "#" .. entry.rank,
+				maxSize = 24,
+				TextColor3 = entry.rank == 1 and UI.Colors.Accent or UI.Colors.Text,
+				ZIndex = 22,
+			}
+		)
+		UI.text(
+			row,
+			{
+				Size = UDim2.new(0.42, 0, 1, -8),
+				Position = UDim2.new(0, 48, 0, 4),
+				Text = entry.n,
+				maxSize = 20,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 22,
+			}
+		)
 		UI.text(row, {
 			Size = UDim2.new(0.3, 0, 1, -8),
 			Position = UDim2.new(0.5, 0, 0, 4),

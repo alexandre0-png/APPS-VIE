@@ -108,7 +108,10 @@ local function processReceipt(info)
 
 	ProgressService.RefreshAttributes(player)
 	ProgressService.Push(player)
-	Remotes.Feedback:FireClient(player, { kind = "tame", title = "MERCI !", sub = ("+%d pièces"):format(product.coins) })
+	Remotes.Feedback:FireClient(
+		player,
+		{ kind = "tame", title = "MERCI !", sub = ("+%d pièces"):format(product.coins) }
+	)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

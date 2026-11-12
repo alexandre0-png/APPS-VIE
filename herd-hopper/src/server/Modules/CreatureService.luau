@@ -70,9 +70,16 @@ function CreatureService.BuildModel(def, variantIdx)
 	model.PrimaryPart = root
 
 	for _, spec in ipairs(def.parts) do
-		local part = newPart(spec.n, spec.s, color(spec.c), spec.c == "eye" and Enum.Material.SmoothPlastic or variantMaterial(variantIdx))
+		local part = newPart(
+			spec.n,
+			spec.s,
+			color(spec.c),
+			spec.c == "eye" and Enum.Material.SmoothPlastic or variantMaterial(variantIdx)
+		)
 		local rot = spec.rot or Vector3.new(0, 0, 0)
-		part.CFrame = root.CFrame * CFrame.new(spec.o) * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+		part.CFrame = root.CFrame
+			* CFrame.new(spec.o)
+			* CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
 		part.CastShadow = spec.s.Magnitude > 3
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = root
@@ -149,7 +156,8 @@ local function addEmitters(def, variantIdx, root)
 		spark.SpreadAngle = Vector2.new(180, 180)
 		spark.LightEmission = 1
 		spark.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
-		spark.Color = ColorSequence.new(variantIdx == 3 and Color3.fromRGB(255, 220, 90) or Color3.fromRGB(150, 230, 255))
+		spark.Color =
+			ColorSequence.new(variantIdx == 3 and Color3.fromRGB(255, 220, 90) or Color3.fromRGB(150, 230, 255))
 		spark.Parent = root
 	end
 end
@@ -342,8 +350,7 @@ function CreatureService.Step(dt)
 		creature.y = y
 
 		local pos = Vector3.new(creature.x, y, creature.z)
-		creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1))
-			* CFrame.Angles(0, 0, -vx * 0.004)
+		creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1)) * CFrame.Angles(0, 0, -vx * 0.004)
 	end
 
 	-- Disparition : trop loin derrière / devant les joueurs actifs, ou après l'arrivée.

@@ -111,9 +111,27 @@ Config.Events = {
 }
 
 Config.Upgrades = {
-	{ id = "range", name = "Corde longue", desc = "Portée du lasso +5 m par niveau.", max = 5, costs = { 150, 300, 550, 900, 1400 } },
-	{ id = "taming", name = "Dresseur rapide", desc = "Temps de dressage -8 % par niveau.", max = 5, costs = { 150, 300, 550, 900, 1400 } },
-	{ id = "combo", name = "Souffle de combo", desc = "Fenêtre de combo +0,6 s par niveau.", max = 5, costs = { 200, 400, 700, 1100, 1600 } },
+	{
+		id = "range",
+		name = "Corde longue",
+		desc = "Portée du lasso +5 m par niveau.",
+		max = 5,
+		costs = { 150, 300, 550, 900, 1400 },
+	},
+	{
+		id = "taming",
+		name = "Dresseur rapide",
+		desc = "Temps de dressage -8 % par niveau.",
+		max = 5,
+		costs = { 150, 300, 550, 900, 1400 },
+	},
+	{
+		id = "combo",
+		name = "Souffle de combo",
+		desc = "Fenêtre de combo +0,6 s par niveau.",
+		max = 5,
+		costs = { 200, 400, 700, 1100, 1600 },
+	},
 }
 
 Config.Hats = {
@@ -131,7 +149,12 @@ Config.Hats = {
 -- Tant qu'un id vaut 0, l'objet s'affiche « Bientôt » et ne peut pas être acheté.
 Config.Monetization = {
 	GamePasses = {
-		{ key = "double", id = 0, name = "Pièces x2", desc = "Double toutes les pièces gagnées en course, pour toujours." },
+		{
+			key = "double",
+			id = 0,
+			name = "Pièces x2",
+			desc = "Double toutes les pièces gagnées en course, pour toujours.",
+		},
 		{ key = "rope", id = 0, name = "Corde longue +8 m", desc = "Portée du lasso +8 m en permanence." },
 		{ key = "vip", id = 0, name = "VIP", desc = "Cornes dorées exclusives pour ton cavalier." },
 	},

@@ -348,7 +348,10 @@ local function handleEquip(player, kind, id)
 		return result(false, "Profil en cours de chargement.")
 	end
 	local hatDef = kind == "hat" and Config.findById(Config.Hats, id) or nil
-	if kind == "hat" and (data.owned.hats[id] or (hatDef and hatDef.pass and ProgressService.HasPass(player, hatDef.pass))) then
+	if
+		kind == "hat"
+		and (data.owned.hats[id] or (hatDef and hatDef.pass and ProgressService.HasPass(player, hatDef.pass)))
+	then
 		data.equipped.hat = id
 	elseif kind == "rope" and data.owned.ropes[id] then
 		data.equipped.rope = id

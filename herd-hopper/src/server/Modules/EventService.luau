@@ -67,7 +67,10 @@ local function geyser(position, roundId)
 		for _, player in ipairs(playersInRadius(position, radius)) do
 			if player.Parent then
 				RideService.Boost(player, Vector3.new(0, 90, 70))
-				Remotes.Feedback:FireClient(player, { kind = "geyser", title = "GEYSER !", sub = "Super bond ! Lasso une bête en l'air !" })
+				Remotes.Feedback:FireClient(
+					player,
+					{ kind = "geyser", title = "GEYSER !", sub = "Super bond ! Lasso une bête en l'air !" }
+				)
 			end
 		end
 	end)

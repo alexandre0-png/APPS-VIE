@@ -51,7 +51,8 @@ local function comboMult(run)
 end
 
 local function comboWindow(player)
-	return Config.Ride.ComboWindowBase + Config.Ride.ComboWindowPerLevel * ProgressService.GetUpgradeLevel(player, "combo")
+	return Config.Ride.ComboWindowBase
+		+ Config.Ride.ComboWindowPerLevel * ProgressService.GetUpgradeLevel(player, "combo")
 end
 
 local function setDust(creature, enabled)

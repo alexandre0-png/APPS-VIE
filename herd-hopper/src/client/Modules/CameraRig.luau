@@ -31,7 +31,10 @@ local function focusPart()
 	if (s == "Out" or s == "Finished") and workspace:GetAttribute("Phase") == "Running" then
 		-- spectateur : suivre le premier du classement encore en course
 		for _, entry in ipairs(ClientState.Scores) do
-			if entry.id ~= player.UserId and (entry.st == "Riding" or entry.st == "Air" or entry.st == "Hooking" or entry.st == "Down") then
+			if
+				entry.id ~= player.UserId
+				and (entry.st == "Riding" or entry.st == "Air" or entry.st == "Hooking" or entry.st == "Down")
+			then
 				local other = Players:GetPlayerByUserId(entry.id)
 				local part = hrpOf(other)
 				if part then
@@ -90,7 +93,8 @@ local function update(dt)
 	end
 
 	-- légère inclinaison dans les virages et regard décalé vers le côté où l'on va
-	local cf = CFrame.lookAt(pos, focus + Vector3.new(-lateralSmooth * 0.35, 3, 36)) * CFrame.Angles(0, 0, lateralSmooth * 0.004)
+	local cf = CFrame.lookAt(pos, focus + Vector3.new(-lateralSmooth * 0.35, 3, 36))
+		* CFrame.Angles(0, 0, lateralSmooth * 0.004)
 	if ClientState.Status ~= lastStatus then
 		if ClientState.Status == "Down" then
 			CameraRig.shake(1.4, 0.35)
