@@ -56,9 +56,10 @@ end
 local function validSlot(i)
 	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= 12
 end
-local function notify(player, msg)
+-- sfx (optionnel) : clé de Config.SOUNDS jouée par le client avec le message
+local function notify(player, msg, sfx)
 	if player and player.Parent then
-		RNotify:FireClient(player, msg)
+		RNotify:FireClient(player, msg, sfx)
 	end
 end
 
@@ -74,8 +75,8 @@ end
 local function carryCap(d)
 	return Rules.carryCapacity(d.up)
 end
-local function hatchTime(d, tier)
-	return Rules.hatchTime(tier, d.up.inc)
+local function hatchTime(s, tier)
+	return Rules.hatchTime(tier, s.data.up.inc, s.passes.Fast == true)
 end
 local function shieldTime(d)
 	return Rules.shieldTime(d.up.lock)
@@ -90,16 +91,16 @@ local function freeSlot(d)
 end
 
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true)
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0))
 end
 
 local function income(s)
 	return Rules.income(s.data.slots, cap(s.data), gmult(s))
 end
 
-local function rollPet(s, eggTier)
+local function rollPet(s, eggTier, guaranteed)
 	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil)
-	return Rules.rollPet(eggTier, up, evKey() == "alien", rnd)
+	return Rules.rollPet(eggTier, up, evKey() == "alien", rnd, guaranteed)
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
@@ -144,6 +145,68 @@ local function ensureQuests(s)
 	end
 end
 
+---------------------------------------------------------------- Histoire (chapitres), collection et rang
+local function speciesCount(d)
+	local n = 0
+	for _ in pairs(d.dex) do
+		n += 1
+	end
+	return n
+end
+
+local function chapter(s)
+	return Config.STORY[s.data.story.ch + 1]
+end
+
+local function storyReached(s, c)
+	notify(s.player, "📜 Chapitre « " .. c.title .. " » terminé ! Réclame ta récompense (Missions > Histoire).", "claim")
+end
+
+-- Fait avancer le chapitre en cours si son type correspond. info = { rival = n, tier = n } selon l'événement.
+local function sp(s, kind, n, info)
+	local c = chapter(s)
+	local st = s.data.story
+	if not c or c.type ~= kind or st.prog >= c.goal then
+		return
+	end
+	if c.rival and (not info or info.rival ~= c.rival) then
+		return
+	end
+	if c.tier and (not info or (info.tier or 0) < c.tier) then
+		return
+	end
+	st.prog = math.min(c.goal, st.prog + n)
+	if st.prog >= c.goal then
+		storyReached(s, c)
+	end
+end
+
+-- Chapitres fondés sur un état (espèces découvertes, renaissances).
+local function storyRefresh(s)
+	local c = chapter(s)
+	local st = s.data.story
+	if not c or st.prog >= c.goal then
+		return
+	end
+	local value
+	if c.type == "species" then
+		value = s.species
+	elseif c.type == "rebirth" then
+		value = s.data.rb
+	end
+	if value and value > st.prog then
+		st.prog = math.min(c.goal, value)
+		if st.prog >= c.goal then
+			storyReached(s, c)
+		end
+	end
+end
+
+local function updateSign(s)
+	local r = Config.rankFor(s.data.story.ch)
+	s.plot.nameLabel.Text = "🏠 Base de " .. s.player.DisplayName .. " · " .. r.emoji .. " " .. r.name
+end
+
 ---------------------------------------------------------------- Synchronisation client
 local function snapshot(s)
 	local d = s.data
@@ -178,6 +241,10 @@ local function snapshot(s)
 		quests = d.quests,
 		equip = d.equip,
 		luckLeft = math.max(0, d.luckUntil - os.time()),
+		story = { ch = d.story.ch, prog = d.story.prog },
+		pity = d.pity,
+		species = s.species,
+		collection = Config.collectionBonus(s.species),
 	}
 end
 
@@ -190,6 +257,7 @@ local function pushStats(s)
 	s.lsCoins.Value = math.floor(math.min(d.coins, 9e15))
 	s.lsSpeed.Value = math.floor(d.speed)
 	s.lsRb.Value = d.rb
+	s.lsRank.Value = Config.rankFor(d.story.ch).name
 end
 
 local function sync(s)
@@ -383,7 +451,7 @@ local function afterTake(s)
 	rebuildCarry(s)
 	applySpeed(s)
 	sync(s)
-	notify(s.player, "🥚 Œuf volé ! Rapporte-le vite à ta base.")
+	notify(s.player, "🥚 Œuf volé ! Rapporte-le vite à ta base.", "steal")
 end
 
 ---------------------------------------------------------------- Pets suiveurs (le déplacement est calculé côté client, le serveur ne fait que créer les modèles)
@@ -457,7 +525,13 @@ function hatch(s, i)
 	if not sl or sl.k ~= "e" then
 		return
 	end
-	local p = rollPet(s, sl.t)
+	local guaranteed = sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
+	local p = rollPet(s, sl.t, guaranteed)
+	if p.tier > sl.t then
+		d.pity = 0
+	elseif sl.t < #Config.TIERS then
+		d.pity += 1
+	end
 	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
 	d.hatched += 1
 	local key = tostring(p.p)
@@ -465,12 +539,19 @@ function hatch(s, i)
 	if not dx then
 		dx = { n = 0, b = 0 }
 		d.dex[key] = dx
+		s.species += 1
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
 	refreshPad(s, i, true)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
+	sp(s, "hatch", 1)
+	sp(s, "tier", 1, { tier = def.tier })
+	if p.m > 1 then
+		sp(s, "mut", 1)
+	end
+	storyRefresh(s)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
@@ -548,14 +629,20 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		if not n or not n.egg or (root.Position - n.pos).Magnitude > 18 then
 			return
 		end
+		local zone = Config.ZONES[n.rival]
+		if not Config.zoneUnlocked(s.data.story.ch, n.rival) then
+			notify(player, "🔒 " .. zone.name .. " : termine d'abord le chapitre " .. zone.chapter .. " de l'histoire.", "caught")
+			return
+		end
 		local t = n.egg
 		setNestEgg(n, nil)
 		Builder.flyEgg(t, n.pos, player.UserId)
 		Builder.burst(n.pos, Config.TIERS[t].color, 14, false)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
-		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s.data, t), rival = n.rival }
+		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival }
 		s.data.stolen += 1
 		qp(s, "steal", 1)
+		sp(s, "steal", 1, { rival = n.rival })
 		afterTake(s)
 	else
 		local vp = Players:GetPlayerByUserId(prompt:GetAttribute("Owner") or 0)
@@ -583,7 +670,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		qp(s, "pvp", 1)
-		notify(vp, "😡 " .. player.DisplayName .. " a volé ton œuf ! Rattrape-le !")
+		sp(s, "steal", 1, {})
+		notify(vp, "😡 " .. player.DisplayName .. " a volé ton œuf ! Rattrape-le !", "caught")
 		sync(vs)
 		afterTake(s)
 	end
@@ -607,7 +695,7 @@ local function catchPlayer(s, g)
 	end
 	g.state = "return"
 	g.cd = 2.5
-	notify(s.player, "🐕 Le gardien de " .. r.name .. " t'a attrapé !")
+	notify(s.player, "🐕 Le gardien de " .. r.name .. " t'a attrapé !", "caught")
 end
 
 local function nearestTarget(pos, maxDist)
@@ -704,7 +792,7 @@ local function setEvent(cfg)
 		workspace:SetAttribute("EventEnds", currentEvent.ends)
 		tint.TintColor = cfg.tint
 		for _, p in ipairs(Players:GetPlayers()) do
-			notify(p, cfg.emoji .. " " .. cfg.name .. " ! " .. cfg.desc)
+			notify(p, cfg.emoji .. " " .. cfg.name .. " ! " .. cfg.desc, "event")
 		end
 	else
 		currentEvent = nil
@@ -758,6 +846,7 @@ local function fastTick(dt)
 				local rate = 0.8 * (1 + 0.35 * d.up.tm) * (evKey() == "run" and 3 or 1)
 				d.speed += rate * dt
 				qp(s, "train", dt)
+				sp(s, "train", dt)
 			end
 			applySpeed(s)
 			-- contrôle de vitesse : si le joueur parcourt bien plus que sa vitesse autorisée, on le remet en place
@@ -826,6 +915,7 @@ local function slowTick(dt)
 			d.coins += inc * dt
 			qp(s, "earn", inc * dt)
 			ensureQuests(s)
+			storyRefresh(s)
 			s.syncT += dt
 			if s.syncT >= 10 then
 				s.syncT = 0
@@ -901,7 +991,7 @@ function actions.buyEgg(s, tier)
 		return notify(s.player, "Base pleine !")
 	end
 	d.coins -= price
-	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(d, tier), shield = os.time() + shieldTime(d) }
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
 	refreshPad(s, i)
 	sync(s)
 end
@@ -952,12 +1042,14 @@ function actions.rebirth(s)
 	fresh.speed, fresh.rb, fresh.dex = d.speed, d.rb + 1, d.dex
 	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
 	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
+	fresh.story, fresh.pity = d.story, d.pity
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
 	rebuildFollowers(s)
+	storyRefresh(s)
 	sync(s)
-	notify(s.player, string.format("♻️ Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb))
+	notify(s.player, string.format("♻️ Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb), "claim")
 end
 
 function actions.equip(s, i)
@@ -994,7 +1086,33 @@ function actions.claimQuest(s, i)
 	end
 	q.claimed = true
 	s.data.coins += q.rew
-	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙")
+	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙", "claim")
+	sync(s)
+end
+
+function actions.claimStory(s)
+	local st = s.data.story
+	local c = chapter(s)
+	if not c or st.prog < c.goal then
+		return
+	end
+	local rankBefore = Config.rankFor(st.ch).name
+	local reward = Config.storyReward(c, income(s))
+	s.data.coins += reward
+	st.ch += 1
+	st.prog = 0
+	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
+	updateSign(s)
+	notify(s.player, "📜 « " .. c.title .. " » accompli : +" .. Config.fmt(reward) .. " 🪙", "claim")
+	for _, z in ipairs(Config.ZONES) do
+		if z.chapter > 0 and z.chapter == st.ch then
+			notify(s.player, "🔓 " .. z.name .. " est ouvert ! Ses œufs sont plus rares.", "event")
+		end
+	end
+	local rank = Config.rankFor(st.ch)
+	if rank.name ~= rankBefore then
+		notify(s.player, "🎖 Nouveau rang : " .. rank.emoji .. " " .. rank.name .. " !", "event")
+	end
 	sync(s)
 end
 
@@ -1013,7 +1131,7 @@ function actions.daily(s)
 	local reward = math.floor(math.max(200, income(s) * 600) * math.min(streak, 7))
 	d.daily, d.streak = today, streak
 	d.coins += reward
-	notify(s.player, "🎁 Bonus quotidien : +" .. Config.fmt(reward) .. " 🪙 (série " .. streak .. ")")
+	notify(s.player, "🎁 Bonus quotidien : +" .. Config.fmt(reward) .. " 🪙 (série " .. streak .. ")", "claim")
 	sync(s)
 end
 
@@ -1070,6 +1188,8 @@ MarketplaceService.ProcessReceipt = function(info)
 				end
 			elseif name == "LuckPotion" then
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			elseif name == "CoinPack" then
+				s.data.coins += math.max(Config.COIN_PACK_MIN, income(s) * Config.COIN_PACK_MINUTES * 60)
 			end
 			granted = true
 		end
@@ -1144,7 +1264,11 @@ local function onJoin(player)
 		v.Parent = ls
 		return v
 	end
+	local rankStat = Instance.new("StringValue")
+	rankStat.Name = "Rang"
+	rankStat.Parent = ls
 	local s = {
+		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
@@ -1172,6 +1296,7 @@ local function onJoin(player)
 	end
 
 	ensureQuests(s)
+	updateSign(s)
 	refreshAllPads(s)
 	player.RespawnLocation = plot.spawn
 	player.CharacterAdded:Connect(function(char)
