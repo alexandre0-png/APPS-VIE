@@ -1,0 +1,86 @@
+<title>Arène des Légendes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Mise en page : une colonne de lecture, cartes en grille ; palette nuit de forteresse, braise pour l'accent. */
+:root{--bg:#12141b;--panel:#1b1f2a;--line:#2b3140;--fg:#e8eaf0;--dim:#9aa3b5;--ember:#ff8a3d;--gold:#ffc857;--good:#5fd68a;--bad:#ef5b5b;--blue:#5b9bff;
+--display:"Chakra Petch",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1000px;margin:0 auto;display:grid;gap:44px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+h1{font-size:clamp(34px,7vw,56px);line-height:1.05;letter-spacing:.01em}
+h1 em{font-style:normal;color:var(--ember)}
+h2{font-size:24px;margin-bottom:6px}
+.lead{color:var(--dim);max-width:62ch;margin:12px 0 0}
+.sub{color:var(--dim);max-width:65ch;margin:0 0 16px}
+.stats{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:22px;font-family:var(--display)}
+.stats b{display:block;font-size:26px;color:var(--gold)}.stats span{color:var(--dim);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:20px;align-items:start}
+.row>*{min-width:0}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+svg{width:100%;height:auto;display:block;border-radius:6px;background:#2a2622}
+.leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;padding:0;list-style:none;color:var(--dim);font-size:13px}
+.leg i{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;vertical-align:-1px}
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.wc{background:var(--panel);border:1px solid var(--r);border-radius:8px;padding:14px;position:relative;overflow:hidden}
+.wc i{position:absolute;inset:0 0 auto;height:4px;background:var(--r)}
+.wc h3{font-size:17px;margin-top:4px}.wc p{margin:6px 0;color:var(--dim);font-size:13px}
+.wc .rar{color:var(--r);font-weight:600;margin:2px 0 6px}.wc .k{color:var(--a);margin:8px 0 0;font-weight:600}
+dl{display:flex;gap:14px;margin:8px 0 0}dt{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
+.cols div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}.cols h3{font-size:16px;margin-bottom:6px;color:var(--gold)}
+.cols p,.cols li{color:var(--dim);font-size:13.5px;margin:0}.cols ul{margin:0;padding-left:18px;display:grid;gap:3px}
+/* Maquette HUD */
+.hud{position:relative;aspect-ratio:16/9;background:linear-gradient(#6d8fb8,#9db8d2 55%,#7a6a58 55%,#5b5047);border-radius:10px;overflow:hidden;border:1px solid var(--line);font-family:var(--display);color:#fff;container-type:inline-size}
+.hud *{position:absolute}.hud .t{font-size:2.3cqw;white-space:nowrap}
+.ban{left:50%;top:2%;transform:translateX(-50%);width:34%;padding:.8cqw;background:#161922cc;border:1px solid #2b3140;border-radius:1cqw;text-align:center}
+.ban *{position:static;display:block}.ban small{font-size:1.2cqw;color:#9aa3b5}.ban b{font-size:2.6cqw}
+.card{left:1.2%;bottom:2%;width:26%;height:15%;background:#161922cc;border:1px solid #2b3140;border-radius:1cqw;padding:1cqw}
+.card u{left:1cqw;top:1cqw;width:4.2cqw;height:4.2cqw;border-radius:50%;background:#588cff;text-align:center;line-height:4.2cqw;text-decoration:none;font-size:2cqw}
+.card s{left:6.4cqw;right:1cqw;bottom:2.4cqw;height:.9cqw;background:#10121a;border-radius:1cqw;text-decoration:none}.card s b{left:0;top:0;bottom:0;width:62%;background:#588cff;border-radius:1cqw}
+.hp{left:50%;bottom:2%;transform:translateX(-50%);width:34%;height:2.2cqw;background:#0e1016;border-radius:2cqw;border:1px solid #000;overflow:hidden}.hp b{left:0;top:0;bottom:0;width:82%;background:#5fd68a}
+.bar{left:50%;bottom:7%;transform:translateX(-50%);display:flex;gap:.8cqw}.bar span{position:static;width:9cqw;height:5.4cqw;background:#161922dd;border:.25cqw solid #2b3140;border-radius:.8cqw;font-size:1.2cqw;padding:.4cqw .6cqw}
+.bar span.on{border-color:#ffc857}
+.menu{right:1.2%;top:42%;display:grid;gap:.6cqw}.menu span{position:static;background:#588cff;border-radius:.8cqw;padding:.6cqw 1.2cqw;font-size:1.3cqw;text-align:center}.menu span:first-child{background:#e74c3c}.menu span.g{background:#ffc857;color:#000}
+.feed{right:1.2%;top:19%;display:grid;gap:.4cqw;font-size:1.15cqw}.feed span{position:static;background:#161922bb;padding:.3cqw .8cqw;border-radius:.5cqw;text-align:right}
+.kp{left:50%;top:52%;transform:translateX(-50%);text-align:center}.kp *{position:static;display:block}.kp b{font-size:2.8cqw;color:#ef5b5b;text-shadow:0 .2cqw .4cqw #000}.kp span{font-size:1.5cqw}
+.xh{left:50%;top:40%;width:2.4cqw;height:2.4cqw;border:.25cqw solid #fff;border-radius:50%;transform:translate(-50%,-50%)}
+.cap{font-size:12.5px;color:var(--dim);margin:8px 0 0}
+ul.ck{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--dim)}ul.ck b{color:var(--fg)}
+</style>
+<main>
+<header>
+<h1>Arène <em>des Légendes</em></h1>
+<p class="lead">Un jeu PVP Roblox en blocs classiques : un hub médiéval, une forteresse de lave, dix armes à débloquer et des manches de trois minutes sans file d'attente. Univers original, inspiré des mécaniques qui marchent dans la catégorie Combat.</p>
+<div class="stats"><div><b>10</b><span>armes</span></div><div><b>2</b><span>modes</span></div><div><b>50</b><span>niveaux</span></div><div><b>3&nbsp;min</b><span>par manche</span></div><div><b>5&nbsp;400</b><span>lignes de Luau</span></div></div>
+</header>
+
+<section><h2>L'arène</h2><p class="sub">Plan vu du dessus, tracé depuis les cotes réelles de <code>MapBuilder.luau</code> (156 × 156 studs). On entre et on sort quand on veut.</p>
+<div class="row"><div class="box">{{ARENA}}
+<ul class="leg"><li><i style="background:#68707c"></i>Tour centrale (4 rampes)</li><li><i style="background:#ff5c14"></i>Lave : mort</li><li><i style="background:#78706a"></i>Bunkers d'angle</li><li><i style="background:#28dcff"></i>Jump pads</li><li><i style="background:#ff4660"></i>Soins</li><li><i style="background:#ff2828"></i>Orbe de rage ×1,5</li><li><i style="background:#7dd87d"></i>16 points d'apparition</li></ul></div>
+<div class="cols" style="grid-template-columns:1fr"><div><h3>Pourquoi cette carte</h3><ul><li>La tour donne l'avantage de hauteur et l'orbe de rage : tout le monde la veut.</li><li>La lave coupe les diagonales et pousse à se battre aux bords.</li><li>Les couvertures sont identiques dans les 4 quadrants (symétrie par rotation de 90°) : aucune zone favorisée.</li><li>Apparition au point le plus éloigné des ennemis, protection de 3 s.</li></ul></div>
+<div><h3>Hub</h3><div class="box" style="padding:8px">{{HUB}}</div><p class="cap">Plaza pavée, monument central, portail violet vers l'arène, armurerie, tableau de quêtes, coffre quotidien, zone d'entraînement à 5 cibles, classement mondial.</p></div></div></div></section>
+
+<section><h2>Les 10 armes</h2><p class="sub">Données lues directement dans <code>Weapons.luau</code>. Les armes de départ sont gratuites ; les autres s'achètent avec les pièces gagnées au combat, selon le niveau.</p><div class="wgrid">{{WEAPONS}}</div></section>
+
+<section><h2>Interface en jeu</h2><p class="sub">Maquette de la disposition codée dans <code>HUD.luau</code> (bandeau de manche, carte joueur, vie, barre d'armes, kill-feed, menus). Ce n'est pas une capture de Studio.</p>
+<div class="hud" role="img" aria-label="Maquette de l'interface en jeu">
+<div class="ban"><small>GUERRE DES COULEURS</small><b>2:14</b><small>Rouges 12 — 9 Bleus</small></div>
+<div class="feed"><span>Nova [Katana] Orion</span><span>Lyra [Arc] 🎯 Kaz</span><span>Orion [Tonnerre] Nova</span></div>
+<div class="menu"><span>⚔ QUITTER</span><span>🛒 BOUTIQUE</span><span>🎒 ÉQUIPEMENT</span><span>📜 QUÊTES</span><span class="g">🎁 CADEAU</span><span>📊 STATS</span></div>
+<div class="xh"></div><div class="kp"><b>ÉLIMINATION</b><span>Orion · +21 🪙 +40 XP</span></div>
+<div class="card"><u>12</u><span class="t" style="left:6.4cqw;top:.9cqw;font-size:1.7cqw">Joueur</span><span class="t" style="left:6.4cqw;top:3cqw;font-size:1.2cqw;color:#9aa3b5">Gladiateur</span><s><b></b></s><span class="t" style="left:6.4cqw;bottom:.3cqw;font-size:1.5cqw;color:#ffc857">🪙 1 240</span></div>
+<div class="bar"><span>1<br>Katana</span><span class="on">2<br>Pistolet photon</span><span>3<br>Arc</span></div>
+<div class="hp"><b></b></div></div></section>
+
+<section><h2>Systèmes</h2><div class="cols">
+<div><h3>Combat</h3><ul><li>Mêlée en cône avec ligne de vue, impact de zone, hitscan, plombs, projectiles à gravité</li><li>Tir à la tête, coup dans le dos, vol de vie, explosion</li><li>Séries, primes dès 5, assistances, kill-feed, indicateur de direction des dégâts</li></ul></div>
+<div><h3>Progression</h3><ul><li>Niveaux 1→50, titres au-dessus des joueurs</li><li>Boutique avec niveau requis, 3 slots d'équipement</li><li>3 quêtes par jour sur 9 possibles, cadeau sur 7 jours</li><li>Classement mondial des éliminations</li></ul></div>
+<div><h3>Robustesse</h3><ul><li>Serveur seul juge : visée, cadence, dégâts, achats</li><li>Limitation de débit, validation de tous les arguments</li><li>Sauvegarde avec nouvelles tentatives, jamais d'écrasement si la lecture échoue</li><li>Anti-farm, protection d'apparition, équipes équilibrées</li></ul></div>
+<div><h3>Appareils</h3><ul><li>Interface à l'échelle de l'écran (téléphone → console)</li><li>Bouton d'attaque tactile, L1/R1 manette, touches 1-2-3</li><li>Décor léger : blocs natifs, aucun asset externe</li></ul></div></div></section>
+
+<section><h2>Vérifications réellement exécutées</h2>
+<ul class="ck"><li><b>luau-analyze</b> sur tous les scripts : 0 message (syntaxe, variables, types entre modules).</li><li><b>1 584 usages d'API Roblox</b> (classes, propriétés, enums, méthodes) contrôlés contre les définitions officielles.</li><li><b>439 tests unitaires</b> : progression, dégâts, cônes, quêtes, logique de manche, cohérence des armes.</li><li><b>73 tests de simulation serveur</b> : les vrais modules tournent dans un faux Roblox (éliminations, séries, primes, assistances, anti-farm, profils corrompus).</li></ul>
+<p class="cap" style="margin-top:14px">Non testé : aucune partie n'a été jouée dans Roblox Studio (rendu, physique, réseau, DataStore réel). À finaliser : premier playtest à deux clients, bots d'arène pour les parties à un joueur, sons et musique personnalisés.</p></section>
+</main>
