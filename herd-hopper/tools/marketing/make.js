@@ -4,14 +4,19 @@ const { chromium } = require('playwright');
 const jobs = [
   ['icon', 'icone-experience-512.png', 512, 512],
   ['hero', 'vignette-1-presentation-1920x1080.png', 1920, 1080],
-  ['combo', 'vignette-2-combo-1920x1080.png', 1920, 1080],
-  ['lava', 'vignette-3-mur-de-lave-1920x1080.png', 1920, 1080],
-  ['pass-double', 'pass-pieces-x2-512.png', 512, 512],
-  ['pass-rope', 'pass-corde-longue-512.png', 512, 512],
-  ['pass-vip', 'pass-vip-512.png', 512, 512],
-  ['coins-s', 'produit-500-pieces-512.png', 512, 512],
-  ['coins-m', 'produit-1500-pieces-512.png', 512, 512],
-  ['coins-l', 'produit-5000-pieces-512.png', 512, 512],
+  ['zoo', 'vignette-2-zoo-1920x1080.png', 1920, 1080],
+  ['boss', 'vignette-3-boss-1920x1080.png', 1920, 1080],
+  ['pass-zoo', 'pass-zoo-premium-512.png', 512, 512],
+  ['pass-gold', 'pass-or-x2-512.png', 512, 512],
+  ['pass-life', 'pass-vie-supplementaire-512.png', 512, 512],
+  ['pass-lasso', 'pass-lasso-dore-512.png', 512, 512],
+  ['gold-s', 'produit-or-2000-512.png', 512, 512],
+  ['gold-m', 'produit-or-7000-512.png', 512, 512],
+  ['gold-l', 'produit-or-25000-512.png', 512, 512],
+  ['bones-s', 'produit-os-40-512.png', 512, 512],
+  ['bones-m', 'produit-os-150-512.png', 512, 512],
+  ['boost', 'produit-boost-zoo-512.png', 512, 512],
+  ['revive', 'produit-continuer-512.png', 512, 512],
 ];
 (async () => {
   const browser = await chromium.launch();

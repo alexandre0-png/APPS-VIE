@@ -23,41 +23,52 @@ function coin(x,y,r){return `<g><circle cx="${x}" cy="${y}" r="${r}" fill="#ffc9
 const defs=`<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a4a"/><stop offset=".55" stop-color="#ffd58a"/><stop offset="1" stop-color="#9fd6ff"/></linearGradient><linearGradient id="lv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4f12"/><stop offset="1" stop-color="#ffa72e"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ac35a"/><stop offset="1" stop-color="#5c8f3c"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#fff6c0"/><stop offset="1" stop-color="#fff6c000"/></radialGradient></defs>`;
 function mountains(W,H){let s='';for(let i=0;i<7;i++){const x=i*W/6-100,h=H*(.18+.1*(i%3));s+=`<polygon points="${x},${H*.72} ${x+W/9},${H*.72-h} ${x+W/4.5},${H*.72}" fill="${i%2?'#b46a52':'#9c5a4a'}"/>`}return s}
 function title(W,y,size){return `<text x="${W/2}" y="${y}" text-anchor="middle" class="t" font-size="${size}" fill="#ffd23c" stroke-width="${size*.09}" style="font-family:Fredoka,sans-serif;letter-spacing:${size*.01}px">SAUTE-TROUPEAU</text>`}
+function heart(x,y,r,color){const c=color||'#ff60a0';return `<g transform="translate(${x},${y})"><rect x="${-r*.52}" y="${-r*.1}" width="${r*1.04}" height="${r*1.04}" fill="${c}" transform="rotate(45)"/><circle cx="${-r*.5}" cy="${-r*.2}" r="${r*.52}" fill="${c}"/><circle cx="${r*.5}" cy="${-r*.2}" r="${r*.52}" fill="${c}"/></g>`}
+function pen(x,y,w,h){let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#caa56a" opacity=".5"/>`;for(let i=0;i<=6;i++)s+=`<rect x="${x+i*w/6-4}" y="${y-30}" width="8" height="${h*.4+30}" fill="#7a5230"/>`;return s+`<rect x="${x}" y="${y-18}" width="${w}" height="8" fill="#8a6038"/>`}
+function visitor(x,y,s,c){return `<g transform="translate(${x},${y}) scale(${s})"><rect x="-8" y="-30" width="16" height="22" fill="${c}"/><rect x="-7" y="-44" width="14" height="14" fill="#f2c9a0"/><rect x="-7" y="-8" width="14" height="12" fill="#344"/></g>`}
+function bone(x,y,len,r,rot){return `<g transform="translate(${x},${y}) rotate(${rot})"><rect x="${-len/2}" y="${-r*.5}" width="${len}" height="${r}" fill="#f6f0dc" stroke="#cfc6a8" stroke-width="${r*.1}"/><circle cx="${-len/2}" cy="${-r*.6}" r="${r*.7}" fill="#f6f0dc"/><circle cx="${-len/2}" cy="${r*.6}" r="${r*.7}" fill="#f6f0dc"/><circle cx="${len/2}" cy="${-r*.6}" r="${r*.7}" fill="#f6f0dc"/><circle cx="${len/2}" cy="${r*.6}" r="${r*.7}" fill="#f6f0dc"/></g>`}
+const txt=(x,y,t,size,fill,sw)=>`<text x="${x}" y="${y}" text-anchor="middle" class="t" font-size="${size}" fill="${fill}" stroke-width="${sw||size*.09}" style="font-family:Fredoka,sans-serif">${t}</text>`;
 let W=1920,H=1080,body='';
+const bg2=`<rect width="${W}" height="${H}" fill="url(#sky)"/>${mountains(W,H)}<rect y="${H*.72}" width="${W}" height="${H*.28}" fill="url(#gr)"/>`;
 if(scene=='hero'){
- body=`<rect width="${W}" height="${H}" fill="url(#sky)"/><circle cx="1500" cy="260" r="260" fill="url(#glow)"/>${mountains(W,H)}
- <rect y="${H*.72}" width="${W}" height="${H*.28}" fill="url(#gr)"/>${lava(260,H,0,0)}
- ${beast('rhino',330,690,3.2)}${beast('ostrich',690,560,3.6)}${beast('mammoth',980,640,3.4,true)}${beast('trike',1360,700,3)}${beast('wyvern',1560,300,3.4)}${beast('boar',160,730,2.6)}
- <path d="M770,480 Q900,330 1090,520" stroke="#e8c37a" stroke-width="8" fill="none" stroke-dasharray="3 0"/>${rider(1090,520,4.2)}
- ${title(W,250,190)}<text x="${W/2}" y="340" text-anchor="middle" class="t" font-size="64" fill="#fff" stroke-width="7" style="font-family:Fredoka,sans-serif">Bondis de bête en bête. Fuis la lave !</text>`;
-}else if(scene=='combo'){
- body=`<rect width="${W}" height="${H}" fill="url(#sky)"/>${mountains(W,H)}<rect y="${H*.72}" width="${W}" height="${H*.28}" fill="url(#gr)"/>
- ${beast('boar',140,740,3)}${beast('ostrich',640,560,3.6)}${beast('ram'in P?'rhino':'rhino',1120,640,3.4)}${beast('mammoth',1500,560,3.2,true)}
- <path d="M250,610 Q430,330 700,430" stroke="#e8c37a" stroke-width="9" fill="none"/><path d="M740,380 Q930,200 1200,520" stroke="#6ec8ff" stroke-width="9" fill="none"/><path d="M1260,470 Q1380,300 1600,420" stroke="#ff9a2e" stroke-width="9" fill="none"/>
- ${rider(1600,420,4)}
- <text x="${W/2}" y="210" text-anchor="middle" class="t" font-size="170" fill="#5ac86e" stroke-width="16" style="font-family:Fredoka,sans-serif">COMBO x3.0</text>
- <text x="${W/2}" y="330" text-anchor="middle" class="t" font-size="70" fill="#fff" stroke-width="8" style="font-family:Fredoka,sans-serif">Lasso. Bondis. Domptes. Recommence.</text>`;
-}else if(scene=='lava'){
+ body=bg2+`${beast('zebra'in P?'rhino':'rhino',250,700,3.2)}${beast('ostrich',640,590,3.6)}${beast('mammoth',980,650,3.4,true)}${beast('trike',1380,700,3)}${beast('wyvern',1500,300,3.4)}
+ ${heart(700,520,46)}${heart(1130,540,52)}${heart(1480,640,40)}${heart(1620,250,40)}
+ <path d="M760,540 Q900,400 1090,585" stroke="#e8c37a" stroke-width="8" fill="none"/>${rider(1090,585,4.2)}
+ ${txt(W/2,250,'SAUTE-ZOO',200,'#ffd23c')}${txt(W/2,345,'Saute d\'animal en animal. Récupère les cœurs roses !',64,'#fff',7)}`;
+}else if(scene=='zoo'){
+ body=bg2+`${pen(140,600,400,200)}${pen(620,600,400,200)}${pen(1100,600,400,200)}
+ ${beast('rhino',210,640,2.2)}${beast('ostrich',690,560,2.4)}${beast('trike',1180,640,2.1,true)}${beast('boar',1620,760,1.6)}
+ ${[0,1,2,3,4,5,6].map(i=>visitor(200+i*230,950+(i%2)*20,3,['#e65a5a','#5a9fe6','#f0c850','#78c878','#c878dc','#f09650','#5ab4e6'][i])).join('')}
+ <rect x="1560" y="470" width="260" height="120" rx="14" fill="#ffd23c" stroke="#a86b00" stroke-width="8"/>${txt(1690,560,'+1 200 or',54,'#7a4a00',0)}
+ ${txt(W/2,200,'UN ZOO QUI GRANDIT',150,'#ffffff',16)}${txt(W/2,300,'Plus d\'animaux, plus de visiteurs, plus d\'or.',64,'#fff',7)}`;
+}else if(scene=='boss'){
  body=`<rect width="${W}" height="${H}" fill="#3b2230"/><rect width="${W}" height="${H*.55}" fill="url(#sky)" opacity=".85"/>${mountains(W,H)}<rect y="${H*.72}" width="${W}" height="${H*.28}" fill="#4a3d44"/>
- ${lava(560,H,0,0)}<rect x="560" width="120" height="${H}" fill="#ff7a1a" opacity=".35"/>
- ${beast('trike',720,700,3.3)}${beast('boar',1100,720,3.2)}${beast('wyvern',1420,330,3.6,true)}${rider(1180,690,4.4)}
- <text x="${W/2+200}" y="200" text-anchor="middle" class="t" font-size="150" fill="#ff6a3a" stroke-width="15" style="font-family:Fredoka,sans-serif">LE MUR DE LAVE</text>
- <text x="${W/2+200}" y="310" text-anchor="middle" class="t" font-size="100" fill="#fff" stroke-width="11" style="font-family:Fredoka,sans-serif">T'A RATTRAPÉ ?</text>`;
+ ${lava(W,H*.28,0,H*.72)}${beast('mammoth',1000,420,6.2)}${heart(1330,330,70)}${txt(1330,235,'BOSS',70,'#ffd23c')}
+ ${beast('ostrich',280,680,3.4)}${rider(480,520,4.4)}<path d="M500,490 Q760,260 1060,420" stroke="#ff9a2e" stroke-width="9" fill="none"/>
+ ${txt(520,210,'ATTRAPE LES BOSS',140,'#ff6a3a',14)}${txt(520,310,'Un seul faux pas et c\'est la chute !',64,'#fff',7)}`;
 }else if(scene=='icon'){
  W=H=512;body=`<rect width="512" height="512" fill="url(#sky)"/><circle cx="256" cy="170" r="210" fill="url(#glow)"/><polygon points="-20,380 120,200 260,380" fill="#9c5a4a"/><polygon points="200,380 360,170 530,380" fill="#b46a52"/>
- <rect y="360" width="512" height="152" fill="url(#gr)"/>${lava(512,48,0,464)}
- ${beast('ostrich',90,210,3.6,true)}<path d="M330,230 Q380,150 420,210" stroke="#e8c37a" stroke-width="6" fill="none"/>${rider(272,322,3)}${beast('rhino',280,330,1.8)}
- <text x="256" y="76" text-anchor="middle" class="t" font-size="64" fill="#ffd23c" stroke-width="7" style="font-family:Fredoka,sans-serif">SAUTE-</text><text x="256" y="132" text-anchor="middle" class="t" font-size="64" fill="#ffd23c" stroke-width="7" style="font-family:Fredoka,sans-serif">TROUPEAU</text>`;
-}else if(scene=='pass-double'){
- W=H=512;body=`<rect width="512" height="512" rx="60" fill="#27406b"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${coin(190,300,110)}${coin(320,250,110)}<text x="256" y="420" text-anchor="middle" class="t" font-size="150" fill="#fff" stroke-width="16" style="font-family:Fredoka,sans-serif">x2</text>`;
-}else if(scene=='pass-rope'){
- W=H=512;body=`<rect width="512" height="512" rx="60" fill="#2f5a3a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${[0,1,2,3,4].map(i=>`<ellipse cx="256" cy="${300-i*10}" rx="${150-i*6}" ry="${60-i*3}" fill="none" stroke="#e8c37a" stroke-width="22"/>`).join('')}<path d="M256,240 Q320,120 420,150" stroke="#e8c37a" stroke-width="18" fill="none"/><text x="256" y="450" text-anchor="middle" class="t" font-size="86" fill="#fff" stroke-width="10" style="font-family:Fredoka,sans-serif">+8 m</text>`;
-}else if(scene=='pass-vip'){
- W=H=512;body=`<rect width="512" height="512" rx="60" fill="#4a2a6a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/><rect x="156" y="300" width="200" height="50" fill="#ffc93c"/><polygon points="156,300 100,120 190,240" fill="#ffd966"/><polygon points="356,300 412,120 322,240" fill="#ffd966"/><polygon points="256,300 256,90 300,240 212,240" fill="#ffe28a"/><text x="256" y="450" text-anchor="middle" class="t" font-size="100" fill="#fff" stroke-width="11" style="font-family:Fredoka,sans-serif">VIP</text>`;
-}else if(scene.startsWith('coins-')){
- W=H=512;const n={s:3,m:7,l:14}[scene.slice(6)],lab={s:'500',m:'1 500',l:'5 000'}[scene.slice(6)];
+ <rect y="360" width="512" height="152" fill="url(#gr)"/>${beast('ostrich',90,220,3.6)}${heart(222,200,36)}${rider(272,330,3)}${beast('rhino',280,336,1.8)}${heart(400,330,22)}
+ ${txt(256,76,'SAUTE-',64,'#ffd23c',7)}${txt(256,132,'ZOO',64,'#ffd23c',7)}`;
+}else if(scene=='pass-zoo'){
+ W=H=512;body=`<rect width="512" height="512" rx="60" fill="#2f5a3a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${pen(90,240,330,150)}${beast('rhino',150,280,1.5)}${heart(300,210,34)}${txt(256,460,'ZOO+',100,'#fff',11)}`;
+}else if(scene=='pass-gold'){
+ W=H=512;body=`<rect width="512" height="512" rx="60" fill="#27406b"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${coin(190,300,110)}${coin(320,250,110)}${txt(256,430,'x2',150,'#fff',16)}`;
+}else if(scene=='pass-life'){
+ W=H=512;body=`<rect width="512" height="512" rx="60" fill="#5a2a4a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${heart(256,250,150)}${txt(256,440,'+1 VIE',90,'#fff',10)}`;
+}else if(scene=='pass-lasso'){
+ W=H=512;body=`<rect width="512" height="512" rx="60" fill="#4a3a1a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${[0,1,2,3,4].map(i=>`<ellipse cx="256" cy="${300-i*10}" rx="${150-i*6}" ry="${60-i*3}" fill="none" stroke="#ffd23c" stroke-width="22"/>`).join('')}<path d="M256,240 Q320,120 420,150" stroke="#ffd23c" stroke-width="18" fill="none"/>${heart(380,120,34)}${txt(256,450,'DORÉ',90,'#fff',10)}`;
+}else if(scene.startsWith('gold-')){
+ W=H=512;const n={s:3,m:7,l:14}[scene.slice(5)],lab={s:'2 000',m:'7 000',l:'25 000'}[scene.slice(5)];
  let c='';for(let i=0;i<n;i++){c+=coin(256+((i*83)%260)-130,330-Math.floor(i/3)*38+((i*17)%30),64)}
- body=`<rect width="512" height="512" rx="60" fill="#3a3a68"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${c}<text x="256" y="110" text-anchor="middle" class="t" font-size="110" fill="#ffd23c" stroke-width="12" style="font-family:Fredoka,sans-serif">${lab}</text>`;
+ body=`<rect width="512" height="512" rx="60" fill="#3a3a68"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${c}${txt(256,110,lab,100,'#ffd23c',11)}`;
+}else if(scene.startsWith('bones-')){
+ W=H=512;const big=scene.slice(6)=='m';
+ body=`<rect width="512" height="512" rx="60" fill="#3a5a68"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${bone(256,300,200,46,-25)}${big?bone(256,240,200,46,25)+bone(256,360,200,46,5):''}${txt(256,110,big?'150':'40',110,'#fff',12)}`;
+}else if(scene=='boost'){
+ W=H=512;body=`<rect width="512" height="512" rx="60" fill="#5a3a7a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/><circle cx="256" cy="270" r="140" fill="#fff" stroke="#1a1020" stroke-width="12"/><rect x="250" y="180" width="12" height="96" fill="#1a1020"/><rect x="256" y="264" width="70" height="12" fill="#1a1020"/>${txt(256,120,'x2',110,'#ffd23c',12)}${txt(256,468,'30 MIN',70,'#fff',8)}`;
+}else if(scene=='revive'){
+ W=H=512;body=`<rect width="512" height="512" rx="60" fill="#2a5a4a"/><circle cx="256" cy="256" r="230" fill="url(#glow)"/>${heart(256,260,150)}<rect x="236" y="190" width="40" height="130" fill="#fff"/><rect x="190" y="236" width="132" height="40" fill="#fff"/>${txt(256,456,'CONTINUER',70,'#fff',8)}`;
 }
 document.getElementById('root').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${defs}${body}</svg>`;
 document.title=scene+'|'+W+'x'+H;

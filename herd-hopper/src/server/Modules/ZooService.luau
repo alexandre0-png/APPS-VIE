@@ -199,9 +199,16 @@ end
 
 function ZooService.Refresh(player)
 	local plot = plots[player]
-	if plot and player.Parent then
-		buildPlotContent(player, plot)
+	if not plot or not player.Parent then
+		return
 	end
+	-- pendant une expédition le joueur est loin de son zoo : on reconstruit à son retour
+	if State.Participants[player] and State.Phase ~= "Results" and State.Phase ~= "Intermission" then
+		plot.dirty = true
+		return
+	end
+	plot.dirty = false
+	buildPlotContent(player, plot)
 end
 
 local function assign(player)

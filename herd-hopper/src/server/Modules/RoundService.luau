@@ -275,6 +275,7 @@ local function runRound()
 	for player in pairs(State.Participants) do
 		if player.Parent then
 			RideService.ToLobby(player)
+			ProgressService.OnZooChanged(player)
 			for _, name in ipairs({ "TameProgress", "RideHeart", "CanCollect", "RideBoss", "ReviveLeft" }) do
 				player:SetAttribute(name, nil)
 			end
