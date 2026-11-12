@@ -409,6 +409,30 @@ local function buildEggs()
 	Store.connect(render)
 end
 
+local function buildWelcome()
+	local p = Ui.createPanel("welcome", "🦖 Bienvenue au Dino Dig Park !", UDim2.fromOffset(560, 400), { color = C.green })
+	local text = Ui.label(p.body, {
+		text = "<b>1.</b> Va dans la zone de fouille et appuie sur ⛏ CREUSER pour trouver des fossiles.\n<b>2.</b> Au laboratoire, place un œuf dans un incubateur (E ou toucher).\n<b>3.</b> Les dinos exposés dans tes enclos rapportent des 💰 : marche sur le pad vert du kiosque pour les collecter.\n<b>4.</b> Marche sur les boutons colorés pour agrandir ton parc.\n\nSuis le rayon jaune : il montre toujours le prochain objectif.",
+		size = 19, wrap = true, rich = true, valign = Enum.TextYAlignment.Top, align = Enum.TextXAlignment.Left,
+		sizeUdim = UDim2.new(1, -16, 0, 240), pos = UDim2.fromOffset(8, 4),
+	})
+	text.Name = "Steps"
+	Ui.button(p.body, { text = "C'est parti !", size = UDim2.fromOffset(260, 54), pos = UDim2.new(0.5, 0, 0, 260), anchor = Vector2.new(0.5, 0), color = C.green, textSize = 24, onClick = Ui.closePanels })
+	local shown = false
+	Store.connect(function(st)
+		if not shown and st.stats.digs == 0 and st.stats.hatched == 0 and next(st.dinos) == nil then
+			shown = true
+			task.delay(1.5, function()
+				if Ui.openName == nil then
+					Ui.openPanel("welcome")
+				end
+			end)
+		else
+			shown = true
+		end
+	end)
+end
+
 function Panels.openEggs(slot)
 	eggSlot = slot
 	Ui.openPanel("eggs")
@@ -422,6 +446,7 @@ function Panels.build()
 	buildRebirth()
 	buildShop()
 	buildEggs()
+	buildWelcome()
 end
 
 return Panels

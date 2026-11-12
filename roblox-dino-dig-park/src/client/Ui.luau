@@ -35,7 +35,7 @@ local player = Players.LocalPlayer
 -- Sons
 ----------------------------------------------------------------------
 local soundCache = {}
-function Ui.playSound(name, volume)
+function Ui.playSound(name, volume, pitch)
 	if not Ui.settings.sfx then
 		return
 	end
@@ -53,6 +53,7 @@ function Ui.playSound(name, volume)
 		soundCache[name] = snd
 	end
 	snd.TimePosition = 0
+	snd.PlaybackSpeed = pitch or 1
 	snd:Play()
 end
 

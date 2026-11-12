@@ -238,6 +238,38 @@ local function updatePads(t)
 	end
 end
 
+-- grande roue : rotation des rayons et des nacelles (les nacelles restent à l'endroit)
+local wheelState = setmetatable({}, { __mode = "k" })
+local function updateWheel(t)
+	local dyn = plotModel:FindFirstChild("Dynamic")
+	local ride = dyn and dyn:FindFirstChild("ride")
+	local axle = ride and ride:FindFirstChild("Axe")
+	if not axle then
+		return
+	end
+	local inv = plotCF:Inverse()
+	local hub = (inv * axle.CFrame).Position
+	local angle = t * 0.25
+	local rot = CFrame.new(hub) * CFrame.Angles(angle, 0, 0) * CFrame.new(-hub.X, -hub.Y, -hub.Z)
+	for _, part in ipairs(ride:GetChildren()) do
+		local isSpoke = string.sub(part.Name, 1, 5) == "Rayon"
+		local isGondola = string.sub(part.Name, 1, 6) == "Nacelle"
+		if isSpoke or isGondola then
+			local base = wheelState[part]
+			if not base then
+				base = inv * part.CFrame
+				wheelState[part] = base
+			end
+			local moved = rot * base
+			if isGondola then
+				part.CFrame = plotCF * CFrame.new(moved.Position)
+			else
+				part.CFrame = plotCF * moved
+			end
+		end
+	end
+end
+
 local function updateEggs(t)
 	local dyn = plotModel:FindFirstChild("Dynamic")
 	if not dyn then
@@ -493,6 +525,7 @@ function World.start()
 		updateWorkers(t)
 		updateEggs(t)
 		updatePads(t)
+		updateWheel(t)
 		if Store.state and plotCF then
 			updateVisitors(step, t, Store.state)
 		end

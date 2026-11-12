@@ -102,7 +102,7 @@ local Hud = mod(Client, "Hud")
 check(Store.state ~= nil, "l'état serveur est reçu par le client")
 check(Store.state.fossils == Config.StartFossils and Store.state.cash == 0, "état initial côté client")
 check(Ui.root ~= nil, "interface racine créée")
-for _, name in ipairs({ "upgrades", "collection", "quests", "daily", "rebirth", "shop", "eggs" }) do
+for _, name in ipairs({ "upgrades", "collection", "quests", "daily", "rebirth", "shop", "eggs", "welcome" }) do
 	check(Ui.panels[name] ~= nil, "panneau " .. name .. " construit")
 	Ui.openPanel(name)
 	M.advance(0.5)
@@ -419,11 +419,19 @@ noErrors("événement")
 ----------------------------------------------------------------------
 section("Animations client (dinos, visiteurs, ouvriers, œufs)")
 ----------------------------------------------------------------------
-s.data.buildables = { digger1 = true, digger2 = true, cafe = true, pen2 = true }
+s.data.buildables = { digger1 = true, digger2 = true, cafe = true, pen2 = true, gift = true, hotel = true, ride = true }
 PlotService.refresh(alice, s.data)
 M.advance(30, 1 / 20)
 noErrors("animations")
 local visitorFolder = M.Workspace:FindFirstChild("LocalVisitors")
+local ridePart = plot.dyn:FindFirstChild("ride")
+check(ridePart ~= nil and ridePart:FindFirstChild("Nacelle1") ~= nil, "la grande roue est construite")
+if ridePart then
+	local g = ridePart:FindFirstChild("Nacelle1")
+	local p0 = g.CFrame.Position
+	M.advance(4, 1 / 20)
+	check((g.CFrame.Position - p0).Magnitude > 0.5, "la grande roue tourne")
+end
 check(visitorFolder ~= nil and #visitorFolder:GetChildren() >= 1, "des visiteurs apparaissent (" .. (visitorFolder and #visitorFolder:GetChildren() or 0) .. ")")
 -- le dino se déplace localement
 local dm = plot.dinoFolder:GetChildren()[1]

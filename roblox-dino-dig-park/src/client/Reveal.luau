@@ -56,7 +56,13 @@ local function play(item)
 	-- 2. flash
 	local flash = Ui.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 60, Parent = overlay })
 	TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
-	Ui.playSound("hatch", 0.6)
+	local order = rar.order
+	Ui.playSound("hatch", 0.5 + order * 0.07, 0.8 + order * 0.07)
+	if order >= 5 then
+		task.delay(0.35, function()
+			Ui.playSound("buy", 0.8, 1.4)
+		end)
+	end
 
 	-- 3. révélation
 	local rays = {}
