@@ -584,11 +584,96 @@ Config.Story = {
 		reward = { egg = "volcano" },
 	},
 	{
+		title = "Le premier mystère",
+		text = "Le Professeur laisse chaque jour une énigme. Résous-en 3 (bouton Énigme).",
+		cond = { type = "riddles", target = 3 },
+		reward = { fossils = 200 },
+	},
+	{
 		title = "Une nouvelle ère",
 		text = "Prends ta première renaissance : tout recommence, en plus puissant.",
 		cond = { type = "rebirths", target = 1 },
 		reward = { egg = "cosmic" },
 	},
 }
+
+----------------------------------------------------------------------
+-- ÉNIGMES : une énigme du Professeur par jour (choix multiple, réponse vérifiée côté serveur)
+----------------------------------------------------------------------
+Config.Riddles = {
+	{
+		q = "Quel dinosaure a trois cornes sur la face ?",
+		options = { "Tricératops", "Stégosaure", "Tyrannosaure" },
+		answer = 1,
+		hint = "Son nom veut dire « face à trois cornes ».",
+	},
+	{
+		q = "Quel dinosaure porte de grandes plaques osseuses sur le dos ?",
+		options = { "Brachiosaure", "Stégosaure", "Vélociraptor" },
+		answer = 2,
+		hint = "Il a aussi des piques au bout de la queue.",
+	},
+	{
+		q = "Lequel est un très grand carnivore, avec une voile sur le dos ?",
+		options = { "Compsognathus", "Parasaurolophus", "Spinosaure" },
+		answer = 3,
+		hint = "Il pêchait des poissons dans l'eau.",
+	},
+	{
+		q = "Quel reptile volait au temps des dinosaures ?",
+		options = { "Ankylosaure", "Ptéranodon", "Diplodocus" },
+		answer = 2,
+		hint = "Il n'était pas un dinosaure, mais il avait des ailes.",
+	},
+	{
+		q = "Que mange surtout le Brachiosaure ?",
+		options = { "De la viande", "Des poissons", "Des plantes" },
+		answer = 3,
+		hint = "Il attrape les feuilles tout en haut des arbres.",
+	},
+	{
+		q = "Quel dinosaure a une massue au bout de la queue ?",
+		options = { "Ankylosaure", "Tricératops", "Allosaure" },
+		answer = 1,
+		hint = "Il est couvert d'une armure de plaques.",
+	},
+	{
+		q = "Comment s'appelle la science qui étudie les fossiles ?",
+		options = { "Astronomie", "Paléontologie", "Météorologie" },
+		answer = 2,
+		hint = "Le mot commence par « paléo », ancien.",
+	},
+	{
+		q = "Sur combien de pattes marche le Tyrannosaure ?",
+		options = { "Deux", "Quatre", "Six" },
+		answer = 1,
+		hint = "Ses bras sont minuscules.",
+	},
+	{
+		q = "Un dinosaure qui ne mange que des plantes est un…",
+		options = { "Carnivore", "Omnivore", "Herbivore" },
+		answer = 3,
+		hint = "Pense aux « herbes ».",
+	},
+	{
+		q = "Combien d'os dorés faut-il trouver pour débloquer Aurore ?",
+		options = { "Trois", "Cinq", "Sept" },
+		answer = 2,
+		hint = "Regarde la section Aventure.",
+	},
+	{
+		q = "Que faut-il pour ouvrir un enclos fermé dans le parc ?",
+		options = { "Des Robux", "Un ami", "Un niveau de parc suffisant" },
+		answer = 3,
+		hint = "Découvre plus de dinos différents.",
+	},
+	{
+		q = "Quelle période est venue juste avant le Crétacé ?",
+		options = { "Le Quaternaire", "Le Jurassique", "Le Néogène" },
+		answer = 2,
+		hint = "C'est le nom d'un célèbre film de dinosaures.",
+	},
+}
+Config.RiddleReward = { fossilsPerLevel = 100, eggEvery = 3 } -- un œuf Jungle tous les 3 jours de série
 
 return Config

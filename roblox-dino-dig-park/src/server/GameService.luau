@@ -450,6 +450,53 @@ local function claimStory(player)
 	markDirty(s)
 end
 
+-- Énigme du jour : réinitialisée à chaque nouveau jour UTC
+local function refreshRiddle(player, s)
+	local rd = s.data.riddle
+	local today = Util.dayNumber(os.time())
+	if rd.day ~= today then
+		rd.day = today
+		rd.solved = false
+		rd.tries = 0
+	end
+	return Config.Riddles[Economy.riddleIndex(today, player.UserId)]
+end
+
+local function answerRiddle(player, payload)
+	local s = sessions[player]
+	local choice = type(payload) == "table" and payload.choice
+	if not s or type(choice) ~= "number" or choice % 1 ~= 0 or choice < 1 or choice > 3 then
+		return
+	end
+	local riddle = refreshRiddle(player, s)
+	local rd = s.data.riddle
+	if rd.solved then
+		notify(player, "Énigme déjà résolue aujourd'hui. Reviens demain !", "info")
+		return
+	end
+	if choice ~= riddle.answer then
+		rd.tries = rd.tries + 1
+		notify(player, "❌ Raté ! Réfléchis encore…", "bad")
+		markDirty(s)
+		return
+	end
+	local today = rd.day
+	rd.solved = true
+	rd.total = rd.total + 1
+	rd.streak = (rd.lastSolvedDay == today - 1) and (rd.streak + 1) or 1
+	rd.lastSolvedDay = today
+	local data = s.data
+	local fossils = Config.RiddleReward.fossilsPerLevel * Economy.parkLevel(data)
+	data.fossils = data.fossils + fossils
+	notify(player, "🧩 Bravo ! +" .. fossils .. " 🦴 (série : " .. rd.streak .. " jour(s))", "good")
+	fx(player, { t = "story" })
+	if rd.streak % Config.RiddleReward.eggEvery == 0 then
+		notify(player, "🥚 Série de " .. rd.streak .. " jours : un Œuf Jungle offert !", "good")
+		grantEgg(player, s, "jungle")
+	end
+	markDirty(s)
+end
+
 local function rebirth(player)
 	local s = sessions[player]
 	if not s then
@@ -576,6 +623,7 @@ local function buildState(player, s)
 	for k, p in pairs(Config.Passes) do
 		configuredPasses[k] = { id = p.id, owned = s.passes[k] == true }
 	end
+	local riddleData = refreshRiddle(player, s)
 	return {
 		now = os.time(),
 		cash = d.cash,
@@ -606,6 +654,15 @@ local function buildState(player, s)
 		autoDigRate = Economy.autoDigRate(d),
 		reserveValue = reserveValue,
 		bones = Util.count(d.secrets.bones),
+		riddle = {
+			q = riddleData.q,
+			options = riddleData.options,
+			hint = d.riddle.tries >= 2 and riddleData.hint or nil,
+			solved = d.riddle.solved,
+			tries = d.riddle.tries,
+			streak = d.riddle.streak,
+			total = d.riddle.total,
+		},
 		level = Economy.parkLevel(d),
 		levelHave = Economy.discoveredCount(d),
 		levelNeed = Config.LevelThresholds[Economy.parkLevel(d)],
@@ -773,6 +830,7 @@ local ACTION_COOLDOWN = {
 	Upgrade = 0.1,
 	ClaimQuest = 0.3,
 	ClaimStory = 0.5,
+	AnswerRiddle = 1.5,
 }
 
 local ACTIONS = {
@@ -797,6 +855,7 @@ local ACTIONS = {
 	ClaimStory = function(player)
 		claimStory(player)
 	end,
+	AnswerRiddle = answerRiddle,
 	Dig = function(player)
 		GameService.dig(player, false)
 	end,

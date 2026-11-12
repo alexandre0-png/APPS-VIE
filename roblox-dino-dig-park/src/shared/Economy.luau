@@ -262,6 +262,8 @@ function Economy.storyValue(data, cond)
 		return Economy.parkLevel(data)
 	elseif t == "bones" then
 		return Util.count(data.secrets.bones)
+	elseif t == "riddles" then
+		return data.riddle.total
 	elseif t == "rebirths" then
 		return data.rebirths
 	end
@@ -280,6 +282,11 @@ function Economy.storyCurrent(data)
 		return nil
 	end
 	return idx, Economy.storyValue(data, ch.cond), Economy.storyTarget(ch.cond)
+end
+
+-- Énigme du jour : indice dans Config.Riddles, stable pour un joueur et un jour donnés
+function Economy.riddleIndex(day, userId)
+	return ((day * 31 + userId) % #Config.Riddles) + 1
 end
 
 function Economy.canBuy(data, id)

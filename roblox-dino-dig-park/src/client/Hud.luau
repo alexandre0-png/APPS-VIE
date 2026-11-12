@@ -159,7 +159,7 @@ end
 local function buildMenu(parent)
 	local col = Ui.new("Frame", {
 		Name = "Menu",
-		Size = UDim2.fromOffset(84, 500),
+		Size = UDim2.fromOffset(84, 560),
 		Position = UDim2.new(1, -8, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
@@ -179,6 +179,7 @@ local function buildMenu(parent)
 		{ id = "daily", icon = "🎁", label = "Cadeau", panel = "daily", color = C.purple },
 		{ id = "rebirth", icon = "🌟", label = "Ère", panel = "rebirth", color = C.gold },
 		{ id = "story", icon = "📖", label = "Aventure", panel = "story", color = C.blue },
+		{ id = "riddle", icon = "🧩", label = "Énigme", panel = "riddle", color = C.orange },
 		{ id = "shop", icon = "🛒", label = "Boutique", panel = "shop", color = C.red },
 	}
 	for i, d in ipairs(defs) do
@@ -416,6 +417,7 @@ function Hud.onState(st)
 	else
 		setPill(pills.level, st.level, "Niv. " .. st.level .. " MAX")
 	end
+	menuButtons.riddle.dot.Visible = not st.riddle.solved
 	menuButtons.story.dot.Visible = st.storyTarget ~= nil and st.storyValue >= st.storyTarget
 	warnLabel.Visible = st.volatile == true
 

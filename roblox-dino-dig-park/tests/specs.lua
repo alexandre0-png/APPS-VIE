@@ -41,7 +41,7 @@ local Economy = loadModule("Economy")
 local function newData()
 	return {
 		cash = 0, fossils = Config.StartFossils, pending = 0, totalCash = 0, rebirths = 0,
-		dinos = {}, discovered = {}, buildables = {}, stats = { digs = 0, hatched = 0, collected = 0 }, secrets = { bones = {} }, story = { claimed = 0 }, level = 1,
+		dinos = {}, discovered = {}, buildables = {}, stats = { digs = 0, hatched = 0, collected = 0 }, secrets = { bones = {} }, story = { claimed = 0 }, level = 1, riddle = { total = 0 },
 		upgrades = { shovel = 0, luck = 0, hatch = 0, ticket = 0 },
 	}
 end
@@ -115,11 +115,28 @@ for id, e in pairs(Config.Eggs) do check(e.level >= 1 and e.level <= Config.MaxL
 check(Config.LevelThresholds[#Config.LevelThresholds] <= #Config.Dinos - 1, "le niveau max est atteignable sans le dino secret")
 for i, ch in ipairs(Config.Story) do
 	local t = ch.cond.type
-	check(t == "digs" or t == "hatched" or t == "collected" or t == "buildable" or t == "discovered" or t == "level" or t == "bones" or t == "rebirths", "chapitre " .. i .. " : condition inconnue")
+	check(t == "digs" or t == "hatched" or t == "collected" or t == "buildable" or t == "discovered" or t == "level" or t == "bones" or t == "rebirths" or t == "riddles", "chapitre " .. i .. " : condition inconnue")
 	if t == "buildable" then check(Config.BuildableById[ch.cond.id] ~= nil, "chapitre " .. i .. " : bâtiment inconnu") end
 	local r = ch.reward
 	check((r.fossils or r.cashMinutes or r.egg) ~= nil, "chapitre " .. i .. " : sans récompense")
 	if r.egg then check(Config.Eggs[r.egg] ~= nil, "chapitre " .. i .. " : œuf inconnu") end
+end
+do
+	local seen = {}
+	for i, r in ipairs(Config.Riddles) do
+		check(#r.options == 3 and r.answer >= 1 and r.answer <= 3 and r.q ~= "" and r.hint ~= "", "énigme " .. i .. " bien formée")
+		check(not seen[r.q], "énigme " .. i .. " : question dupliquée")
+		seen[r.q] = true
+		local opts = {}
+		for _, o in ipairs(r.options) do check(not opts[o], "énigme " .. i .. " : options dupliquées") opts[o] = true end
+	end
+	check(#Config.Riddles >= 7, "au moins une semaine d'énigmes différentes")
+	for u = 1, 3 do
+		local a, b = Economy.riddleIndex(100, u), Economy.riddleIndex(100, u)
+		check(a == b and a >= 1 and a <= #Config.Riddles, "énigme du jour stable et dans les bornes")
+	end
+	local first = Economy.riddleIndex(100, 5)
+	check(Economy.riddleIndex(101, 5) ~= first, "l'énigme change d'un jour à l'autre")
 end
 for k, p in pairs(Config.Passes) do check(p.id == 0 and p.price > 0 and p.name and p.desc, "pass " .. k .. " bien formé") end
 for k, p in pairs(Config.Products) do check(p.id == 0 and p.price > 0 and p.name and p.desc, "produit " .. k .. " bien formé") end
@@ -374,6 +391,9 @@ do
 	check(s.upgrades.shovel == Config.Upgrades.shovel.max, "amélioration bornée au max")
 	check(s.upgrades.luck == 0 and s.upgrades.hatch == 0, "améliorations négatives/invalides -> 0")
 	check(s.upgrades.ticket == 2, "amélioration arrondie")
+	check(type(s.riddle) == "table" and s.riddle.total == 0 and s.riddle.solved == false, "énigme : champs par défaut")
+	local d2 = DS.sanitize({ riddle = { total = -5, streak = 0 / 0, solved = "oui", tries = 1e99, day = "x" } })
+	check(d2.riddle.total == 0 and d2.riddle.streak == 0 and d2.riddle.solved == false and d2.riddle.day == 0 and d2.riddle.tries <= 1e6, "énigme : valeurs invalides nettoyées")
 	check(s.eggSlots["1"] and not s.eggSlots["9"] and not s.eggSlots["2"] and not s.eggSlots["3"], "œufs invalides supprimés")
 	check(s._lock == nil, "verrou retiré")
 	check(type(s.stats) == "table" and type(s.quests.list) == "table" and type(s.receipts) == "table", "champs manquants complétés")

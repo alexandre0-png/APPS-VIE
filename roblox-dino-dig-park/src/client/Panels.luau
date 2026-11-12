@@ -723,6 +723,67 @@ local function buildStory()
 	end)
 end
 
+----------------------------------------------------------------------
+-- Énigme du jour
+----------------------------------------------------------------------
+local function buildRiddle()
+	local p = Ui.createPanel("riddle", "🧩 L'énigme du Professeur", UDim2.fromOffset(560, 440), { color = C.orange })
+	local question = Ui.label(p.body, {
+		text = "",
+		size = 24,
+		wrap = true,
+		valign = Enum.TextYAlignment.Top,
+		sizeUdim = UDim2.new(1, -16, 0, 90),
+		pos = UDim2.fromOffset(8, 4),
+		stroke = true,
+	})
+	local buttons = {}
+	for i = 1, 3 do
+		buttons[i] = Ui.button(p.body, {
+			text = "",
+			size = UDim2.new(1, -40, 0, 56),
+			pos = UDim2.fromOffset(20, 100 + (i - 1) * 66),
+			color = C.blue,
+			textSize = 22,
+			onClick = function()
+				Store.act("AnswerRiddle", { choice = i })
+			end,
+		})
+	end
+	local info = Ui.label(p.body, {
+		text = "",
+		size = 16,
+		color = C.muted,
+		wrap = true,
+		valign = Enum.TextYAlignment.Top,
+		sizeUdim = UDim2.new(1, -16, 0, 80),
+		pos = UDim2.fromOffset(8, 304),
+	})
+	Store.connect(function(st)
+		local r = st.riddle
+		question.Text = r.q
+		for i, b in ipairs(buttons) do
+			b.Text = r.options[i]
+			Ui.setEnabled(b, not r.solved, C.blue)
+		end
+		local lines = {}
+		if r.solved then
+			table.insert(lines, "✓ Résolue aujourd'hui. Reviens demain pour une nouvelle énigme !")
+		elseif r.hint then
+			table.insert(lines, "💡 Indice : " .. r.hint)
+		else
+			table.insert(
+				lines,
+				"Récompense : fossiles selon ton niveau, et un Œuf Jungle tous les "
+					.. Config.RiddleReward.eggEvery
+					.. " jours de série."
+			)
+		end
+		table.insert(lines, "Série : " .. r.streak .. " jour(s)   •   Énigmes résolues : " .. r.total)
+		info.Text = table.concat(lines, "\n")
+	end)
+end
+
 local function buildWelcome()
 	local p = Ui.createPanel("welcome", "🦖 Bienvenue au Dino Dig Park !", UDim2.fromOffset(560, 400), { color = C.green })
 	local text = Ui.label(p.body, {
@@ -774,6 +835,7 @@ function Panels.build()
 	buildShop()
 	buildEggs()
 	buildStory()
+	buildRiddle()
 	buildWelcome()
 end
 

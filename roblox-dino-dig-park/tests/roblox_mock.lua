@@ -330,7 +330,10 @@ function Methods.GetBoundingBox(self)
 	if not mn then return CFrame.new(), v3(1, 1, 1) end
 	return CFrame.new((mn + mx) / 2), mx - mn
 end
-function Methods.FireClient(self, player, ...) self.OnClientEvent:Fire(...) end
+-- seul le client du joueur visé reçoit le message (le client simulé est celui de M.localPlayer)
+function Methods.FireClient(self, player, ...)
+	if player == M.localPlayer then self.OnClientEvent:Fire(...) end
+end
 function Methods.FireServer(self, ...) self.OnServerEvent:Fire(M.localPlayer, ...) end
 function Methods.Emit() end
 function Methods.BindAction(self, name, fn) M.boundActions = M.boundActions or {} M.boundActions[name] = fn end

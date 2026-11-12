@@ -22,3 +22,8 @@
 - Aventure du Professeur Rex : 9 chapitres dans l'ordre (creuser, éclore, collecter, enclos, ouvrier, collection, niveau 4, os dorés, renaissance), récompenses fossiles, pièces ou œufs. Panneau « Aventure » et objectif guidé.
 - Monétisation sans blocage : Mode turbo (vitesse de marche), Boost x2 10 min, Pack de départ, en plus des passes existantes. Les IDs restent à 0 tant que tu ne les renseignes pas.
 - Choix : le niveau dépend des découvertes (et non de l'argent) pour que les portes aient un vrai sens ; la simulation montre qu'un joueur actif atteint le niveau 3 en ~7 min et le niveau 6 en ~1 h 20, sans blocage.
+
+## Énigmes
+- Énigme du jour du Professeur : 12 questions sur les dinosaures et le jeu, choix multiple, indice après 2 erreurs, une récompense par jour (fossiles selon le niveau), série de jours, Œuf Jungle tous les 3 jours de série. La bonne réponse n'est jamais envoyée au client : la validation est côté serveur (type, bornes, délai de 1,5 s).
+- Chapitre d'aventure « Le premier mystère » lié aux énigmes résolues.
+- Correction du mini-moteur de test : FireClient n'atteint plus que le joueur visé (il diffusait à tous), ce qui rend les tests client plus fidèles.

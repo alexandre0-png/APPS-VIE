@@ -363,6 +363,41 @@ s.data.stats.hatched = 1
 act(alice, "ClaimStory")
 check(s.data.story.claimed == 2, "chapitre 2 (œuf offert) récupéré")
 
+-- énigme du jour
+check(Store.state.riddle ~= nil and #Store.state.riddle.options == 3, "l'énigme est envoyée au client")
+check(Store.state.riddle.answer == nil, "la bonne réponse n'est jamais envoyée au client")
+local riddleDay = Util.dayNumber(os.time())
+local riddle = Config.Riddles[Economy.riddleIndex(riddleDay, 101)]
+local wrong = riddle.answer % 3 + 1
+local fR = s.data.fossils
+M.advance(2)
+act(alice, "AnswerRiddle", { choice = wrong })
+check(not s.data.riddle.solved and s.data.riddle.tries == 1 and s.data.fossils - fR < 50, "mauvaise réponse : pas de récompense")
+M.advance(2)
+act(alice, "AnswerRiddle", { choice = wrong })
+M.advance(1)
+check(Store.state.riddle.hint ~= nil, "indice après 2 erreurs")
+for _, bad in ipairs({ 0, 4, 1.5, -1, 0 / 0, "2", true }) do
+	M.advance(2)
+	act(alice, "AnswerRiddle", { choice = bad })
+end
+act(alice, "AnswerRiddle", "x")
+check(s.data.riddle.tries == 2 and not s.data.riddle.solved, "réponses invalides ignorées")
+M.advance(2)
+act(alice, "AnswerRiddle", { choice = riddle.answer })
+check(s.data.riddle.solved and s.data.riddle.total == 1 and s.data.riddle.streak == 1 and s.data.fossils > fR, "bonne réponse : récompense")
+local fR2 = s.data.fossils
+M.advance(2)
+act(alice, "AnswerRiddle", { choice = riddle.answer })
+check(s.data.fossils - fR2 < 50 and s.data.riddle.total == 1, "une seule récompense par jour")
+M.baseTime = M.baseTime + 86400
+M.advance(2)
+check(Store.state.riddle.solved == false, "nouvelle énigme le lendemain")
+local riddle2 = Config.Riddles[Economy.riddleIndex(Util.dayNumber(os.time()), 101)]
+act(alice, "AnswerRiddle", { choice = riddle2.answer })
+check(s.data.riddle.streak == 2 and s.data.riddle.total == 2, "série de jours consécutifs")
+noErrors("énigmes")
+
 -- monétisation : produits, pass turbo, idempotence des reçus
 Config.Products.boostPack.id = 555
 Config.Products.starterPack.id = 556

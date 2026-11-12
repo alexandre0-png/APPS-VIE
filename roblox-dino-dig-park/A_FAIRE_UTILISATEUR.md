@@ -9,7 +9,8 @@ Mis à jour : tout le reste (code, visuels, textes, build) est fait. Détail pas
 - [ ] Test > Clients and Servers à 2 joueurs, et vérifie :
   - [ ] la fouille (bouton ⛏, touche F, bouton X de manette), l'éclosion, les achats, le kiosque
   - [ ] les enclos fermés « 🔒 Niveau N » qui s'ouvrent après découverte de dinos
-  - [ ] le panneau Aventure, les quêtes, le cadeau quotidien, la renaissance
+  - [ ] le panneau Aventure, l'énigme du jour (bouton 🧩), les quêtes, le cadeau quotidien, la renaissance
+  - [ ] l'énigme change bien le lendemain (ou change l'heure de ton PC pour tester) et la série se cumule
   - [ ] les dinos longs (Spino, Rex Cristal) restent dans leur enclos
   - [ ] la sauvegarde : quitte puis reviens, la progression est conservée
   - [ ] les sons (chemins `rbxasset://` non confirmés) ; remplace-les dans `Config.Sounds` si besoin

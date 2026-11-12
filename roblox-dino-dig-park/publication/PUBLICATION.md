@@ -42,6 +42,7 @@ Description française :
 > 🥚 4 types d'œufs : Fossile, Jungle, Volcan, Cosmique
 > 🦕 18 dinos à collectionner (Commun → Mythique), versions dorées et un dino secret
 > 🏗 6 enclos, café, boutique, hôtel, grande roue, hélipad
+> 🧩 Une énigme du Professeur chaque jour, avec série et récompenses
 > 🔒 Des portes fermées : monte de niveau en découvrant de nouveaux dinos
 > 📖 L'aventure du Professeur Rex : 9 chapitres avec récompenses
 > 🌟 Renaissance pour des bonus permanents, quêtes et cadeau quotidien

@@ -596,12 +596,97 @@ Config.Story = {
 		reward = { egg = "volcano" },
 	},
 	{
+		title = "Le premier mystère",
+		text = "Le Professeur laisse chaque jour une énigme. Résous-en 3 (bouton Énigme).",
+		cond = { type = "riddles", target = 3 },
+		reward = { fossils = 200 },
+	},
+	{
 		title = "Une nouvelle ère",
 		text = "Prends ta première renaissance : tout recommence, en plus puissant.",
 		cond = { type = "rebirths", target = 1 },
 		reward = { egg = "cosmic" },
 	},
 }
+
+----------------------------------------------------------------------
+-- ÉNIGMES : une énigme du Professeur par jour (choix multiple, réponse vérifiée côté serveur)
+----------------------------------------------------------------------
+Config.Riddles = {
+	{
+		q = "Quel dinosaure a trois cornes sur la face ?",
+		options = { "Tricératops", "Stégosaure", "Tyrannosaure" },
+		answer = 1,
+		hint = "Son nom veut dire « face à trois cornes ».",
+	},
+	{
+		q = "Quel dinosaure porte de grandes plaques osseuses sur le dos ?",
+		options = { "Brachiosaure", "Stégosaure", "Vélociraptor" },
+		answer = 2,
+		hint = "Il a aussi des piques au bout de la queue.",
+	},
+	{
+		q = "Lequel est un très grand carnivore, avec une voile sur le dos ?",
+		options = { "Compsognathus", "Parasaurolophus", "Spinosaure" },
+		answer = 3,
+		hint = "Il pêchait des poissons dans l'eau.",
+	},
+	{
+		q = "Quel reptile volait au temps des dinosaures ?",
+		options = { "Ankylosaure", "Ptéranodon", "Diplodocus" },
+		answer = 2,
+		hint = "Il n'était pas un dinosaure, mais il avait des ailes.",
+	},
+	{
+		q = "Que mange surtout le Brachiosaure ?",
+		options = { "De la viande", "Des poissons", "Des plantes" },
+		answer = 3,
+		hint = "Il attrape les feuilles tout en haut des arbres.",
+	},
+	{
+		q = "Quel dinosaure a une massue au bout de la queue ?",
+		options = { "Ankylosaure", "Tricératops", "Allosaure" },
+		answer = 1,
+		hint = "Il est couvert d'une armure de plaques.",
+	},
+	{
+		q = "Comment s'appelle la science qui étudie les fossiles ?",
+		options = { "Astronomie", "Paléontologie", "Météorologie" },
+		answer = 2,
+		hint = "Le mot commence par « paléo », ancien.",
+	},
+	{
+		q = "Sur combien de pattes marche le Tyrannosaure ?",
+		options = { "Deux", "Quatre", "Six" },
+		answer = 1,
+		hint = "Ses bras sont minuscules.",
+	},
+	{
+		q = "Un dinosaure qui ne mange que des plantes est un…",
+		options = { "Carnivore", "Omnivore", "Herbivore" },
+		answer = 3,
+		hint = "Pense aux « herbes ».",
+	},
+	{
+		q = "Combien d'os dorés faut-il trouver pour débloquer Aurore ?",
+		options = { "Trois", "Cinq", "Sept" },
+		answer = 2,
+		hint = "Regarde la section Aventure.",
+	},
+	{
+		q = "Que faut-il pour ouvrir un enclos fermé dans le parc ?",
+		options = { "Des Robux", "Un ami", "Un niveau de parc suffisant" },
+		answer = 3,
+		hint = "Découvre plus de dinos différents.",
+	},
+	{
+		q = "Quelle période est venue juste avant le Crétacé ?",
+		options = { "Le Quaternaire", "Le Jurassique", "Le Néogène" },
+		answer = 2,
+		hint = "C'est le nom d'un célèbre film de dinosaures.",
+	},
+}
+Config.RiddleReward = { fossilsPerLevel = 100, eggEvery = 3 } -- un œuf Jungle tous les 3 jours de série
 
 return Config
 ]]></string>
@@ -1174,6 +1259,8 @@ function Economy.storyValue(data, cond)
 		return Economy.parkLevel(data)
 	elseif t == "bones" then
 		return Util.count(data.secrets.bones)
+	elseif t == "riddles" then
+		return data.riddle.total
 	elseif t == "rebirths" then
 		return data.rebirths
 	end
@@ -1192,6 +1279,11 @@ function Economy.storyCurrent(data)
 		return nil
 	end
 	return idx, Economy.storyValue(data, ch.cond), Economy.storyTarget(ch.cond)
+end
+
+-- Énigme du jour : indice dans Config.Riddles, stable pour un joueur et un jour donnés
+function Economy.riddleIndex(day, userId)
+	return ((day * 31 + userId) % #Config.Riddles) + 1
 end
 
 function Economy.canBuy(data, id)
@@ -1526,6 +1618,7 @@ function DataService.newData()
 		quests = { day = 0, list = {} },
 		secrets = { bones = {}, rewarded = false },
 		level = 1,
+		riddle = { day = 0, solved = false, tries = 0, total = 0, streak = 0, lastSolvedDay = 0 },
 		story = { claimed = 0 },
 		lastSeen = 0,
 		receipts = {},
@@ -1603,6 +1696,13 @@ function DataService.sanitize(data)
 	if type(data.quests.list) ~= "table" then
 		data.quests.list = {}
 	end
+	local rd = data.riddle
+	rd.day = sanitizeNumber(rd.day, 0, 0, 1e7)
+	rd.lastSolvedDay = sanitizeNumber(rd.lastSolvedDay, 0, 0, 1e7)
+	rd.tries = math.floor(sanitizeNumber(rd.tries, 0, 0, 1e6))
+	rd.total = math.floor(sanitizeNumber(rd.total, 0, 0, 1e6))
+	rd.streak = math.floor(sanitizeNumber(rd.streak, 0, 0, 1e6))
+	rd.solved = rd.solved == true
 	data.level = math.floor(sanitizeNumber(data.level, 1, 1, Config.MaxLevel))
 	data.story.claimed = math.floor(sanitizeNumber(data.story.claimed, 0, 0, #Config.Story))
 	if type(data.receipts) ~= "table" then
@@ -2341,6 +2441,53 @@ local function claimStory(player)
 	markDirty(s)
 end
 
+-- Énigme du jour : réinitialisée à chaque nouveau jour UTC
+local function refreshRiddle(player, s)
+	local rd = s.data.riddle
+	local today = Util.dayNumber(os.time())
+	if rd.day ~= today then
+		rd.day = today
+		rd.solved = false
+		rd.tries = 0
+	end
+	return Config.Riddles[Economy.riddleIndex(today, player.UserId)]
+end
+
+local function answerRiddle(player, payload)
+	local s = sessions[player]
+	local choice = type(payload) == "table" and payload.choice
+	if not s or type(choice) ~= "number" or choice % 1 ~= 0 or choice < 1 or choice > 3 then
+		return
+	end
+	local riddle = refreshRiddle(player, s)
+	local rd = s.data.riddle
+	if rd.solved then
+		notify(player, "Énigme déjà résolue aujourd'hui. Reviens demain !", "info")
+		return
+	end
+	if choice ~= riddle.answer then
+		rd.tries = rd.tries + 1
+		notify(player, "❌ Raté ! Réfléchis encore…", "bad")
+		markDirty(s)
+		return
+	end
+	local today = rd.day
+	rd.solved = true
+	rd.total = rd.total + 1
+	rd.streak = (rd.lastSolvedDay == today - 1) and (rd.streak + 1) or 1
+	rd.lastSolvedDay = today
+	local data = s.data
+	local fossils = Config.RiddleReward.fossilsPerLevel * Economy.parkLevel(data)
+	data.fossils = data.fossils + fossils
+	notify(player, "🧩 Bravo ! +" .. fossils .. " 🦴 (série : " .. rd.streak .. " jour(s))", "good")
+	fx(player, { t = "story" })
+	if rd.streak % Config.RiddleReward.eggEvery == 0 then
+		notify(player, "🥚 Série de " .. rd.streak .. " jours : un Œuf Jungle offert !", "good")
+		grantEgg(player, s, "jungle")
+	end
+	markDirty(s)
+end
+
 local function rebirth(player)
 	local s = sessions[player]
 	if not s then
@@ -2467,6 +2614,7 @@ local function buildState(player, s)
 	for k, p in pairs(Config.Passes) do
 		configuredPasses[k] = { id = p.id, owned = s.passes[k] == true }
 	end
+	local riddleData = refreshRiddle(player, s)
 	return {
 		now = os.time(),
 		cash = d.cash,
@@ -2497,6 +2645,15 @@ local function buildState(player, s)
 		autoDigRate = Economy.autoDigRate(d),
 		reserveValue = reserveValue,
 		bones = Util.count(d.secrets.bones),
+		riddle = {
+			q = riddleData.q,
+			options = riddleData.options,
+			hint = d.riddle.tries >= 2 and riddleData.hint or nil,
+			solved = d.riddle.solved,
+			tries = d.riddle.tries,
+			streak = d.riddle.streak,
+			total = d.riddle.total,
+		},
 		level = Economy.parkLevel(d),
 		levelHave = Economy.discoveredCount(d),
 		levelNeed = Config.LevelThresholds[Economy.parkLevel(d)],
@@ -2664,6 +2821,7 @@ local ACTION_COOLDOWN = {
 	Upgrade = 0.1,
 	ClaimQuest = 0.3,
 	ClaimStory = 0.5,
+	AnswerRiddle = 1.5,
 }
 
 local ACTIONS = {
@@ -2688,6 +2846,7 @@ local ACTIONS = {
 	ClaimStory = function(player)
 		claimStory(player)
 	end,
+	AnswerRiddle = answerRiddle,
 	Dig = function(player)
 		GameService.dig(player, false)
 	end,
@@ -4563,7 +4722,7 @@ end
 local function buildMenu(parent)
 	local col = Ui.new("Frame", {
 		Name = "Menu",
-		Size = UDim2.fromOffset(84, 500),
+		Size = UDim2.fromOffset(84, 560),
 		Position = UDim2.new(1, -8, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
@@ -4583,6 +4742,7 @@ local function buildMenu(parent)
 		{ id = "daily", icon = "🎁", label = "Cadeau", panel = "daily", color = C.purple },
 		{ id = "rebirth", icon = "🌟", label = "Ère", panel = "rebirth", color = C.gold },
 		{ id = "story", icon = "📖", label = "Aventure", panel = "story", color = C.blue },
+		{ id = "riddle", icon = "🧩", label = "Énigme", panel = "riddle", color = C.orange },
 		{ id = "shop", icon = "🛒", label = "Boutique", panel = "shop", color = C.red },
 	}
 	for i, d in ipairs(defs) do
@@ -4820,6 +4980,7 @@ function Hud.onState(st)
 	else
 		setPill(pills.level, st.level, "Niv. " .. st.level .. " MAX")
 	end
+	menuButtons.riddle.dot.Visible = not st.riddle.solved
 	menuButtons.story.dot.Visible = st.storyTarget ~= nil and st.storyValue >= st.storyTarget
 	warnLabel.Visible = st.volatile == true
 
@@ -5639,6 +5800,67 @@ local function buildStory()
 	end)
 end
 
+----------------------------------------------------------------------
+-- Énigme du jour
+----------------------------------------------------------------------
+local function buildRiddle()
+	local p = Ui.createPanel("riddle", "🧩 L'énigme du Professeur", UDim2.fromOffset(560, 440), { color = C.orange })
+	local question = Ui.label(p.body, {
+		text = "",
+		size = 24,
+		wrap = true,
+		valign = Enum.TextYAlignment.Top,
+		sizeUdim = UDim2.new(1, -16, 0, 90),
+		pos = UDim2.fromOffset(8, 4),
+		stroke = true,
+	})
+	local buttons = {}
+	for i = 1, 3 do
+		buttons[i] = Ui.button(p.body, {
+			text = "",
+			size = UDim2.new(1, -40, 0, 56),
+			pos = UDim2.fromOffset(20, 100 + (i - 1) * 66),
+			color = C.blue,
+			textSize = 22,
+			onClick = function()
+				Store.act("AnswerRiddle", { choice = i })
+			end,
+		})
+	end
+	local info = Ui.label(p.body, {
+		text = "",
+		size = 16,
+		color = C.muted,
+		wrap = true,
+		valign = Enum.TextYAlignment.Top,
+		sizeUdim = UDim2.new(1, -16, 0, 80),
+		pos = UDim2.fromOffset(8, 304),
+	})
+	Store.connect(function(st)
+		local r = st.riddle
+		question.Text = r.q
+		for i, b in ipairs(buttons) do
+			b.Text = r.options[i]
+			Ui.setEnabled(b, not r.solved, C.blue)
+		end
+		local lines = {}
+		if r.solved then
+			table.insert(lines, "✓ Résolue aujourd'hui. Reviens demain pour une nouvelle énigme !")
+		elseif r.hint then
+			table.insert(lines, "💡 Indice : " .. r.hint)
+		else
+			table.insert(
+				lines,
+				"Récompense : fossiles selon ton niveau, et un Œuf Jungle tous les "
+					.. Config.RiddleReward.eggEvery
+					.. " jours de série."
+			)
+		end
+		table.insert(lines, "Série : " .. r.streak .. " jour(s)   •   Énigmes résolues : " .. r.total)
+		info.Text = table.concat(lines, "\n")
+	end)
+end
+
 local function buildWelcome()
 	local p = Ui.createPanel("welcome", "🦖 Bienvenue au Dino Dig Park !", UDim2.fromOffset(560, 400), { color = C.green })
 	local text = Ui.label(p.body, {
@@ -5690,6 +5912,7 @@ function Panels.build()
 	buildShop()
 	buildEggs()
 	buildStory()
+	buildRiddle()
 	buildWelcome()
 end
 
