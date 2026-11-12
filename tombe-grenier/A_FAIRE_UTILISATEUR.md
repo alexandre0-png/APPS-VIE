@@ -10,6 +10,12 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
 3. **Renseigner les identifiants** dans `src/shared/Config.lua` : `Config.Game.Places` (hub et partie) une fois publiés.
 4. **Tester à deux joueurs** dans Studio : réveil, énigmes, trappes, mort et réanimation, fin, retour au hub.
 5. **Achats Robux** (optionnels) : créer les Game Pass et produits sur Roblox, puis renseigner leurs identifiants dans `Config.Shop`. Tant qu'ils valent 0, les achats sont désactivés.
-6. **Images et textures** : vérifier que les textures fournies s'affichent correctement dans Studio.
-7. **Vérification d'identité** : si Roblox la demande pour publier ou pour les achats, c'est à toi de la faire.
-8. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.
+6. **Vérifier les nouveautés dans Studio** :
+   - horloge du hall (tag `Horloge`) : position, saisie de la date de la plaque ;
+   - compteur de la cuisine et étiquette « Réserve » (énigme optionnelle) ;
+   - fin 4 « le piège » : la date fausse du cahier scelle le cercueil. Décide si cette fin irréversible te convient, sinon retire-la dans `Quests.lua` (`submitDate`).
+7. **Régler les effets** dans `Config.Visual` : `Vignette`, `VignetteMax`, `CandleFlicker`, `Dust`, `DustRate`. Mettre `false` pour couper un effet.
+8. **Choisir la progression** : `Config.Design.ProgressionV2` (`true` = avec l'horloge, `false` = progression d'origine). Les deux sont couvertes par la simulation.
+9. **Images et textures** : vérifier que les textures fournies s'affichent correctement dans Studio.
+10. **Vérification d'identité** : si Roblox la demande pour publier ou pour les achats, c'est à toi de la faire.
+11. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.
