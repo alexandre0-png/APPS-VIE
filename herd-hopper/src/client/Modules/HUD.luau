@@ -21,6 +21,7 @@ local refs = {}
 local feedbackToken = 0
 local resultsToken = 0
 local lastCountdown = -1
+local lastWarnTick = 0
 
 local KIND_STYLE = {
 	hook = { color = UI.Colors.Accent },
@@ -157,6 +158,22 @@ local function build(gui)
 	end
 	Controls.bindButton(action)
 	refs.action = action
+
+	-- Bouton de son (tout / effets seuls / muet)
+	local soundButton = UI.button(gui, {
+		Name = "Sound",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 12, 1, -60),
+		Size = UDim2.new(0, 150, 0, 34),
+		Text = Sfx.modeLabel(),
+		BackgroundColor3 = C.PanelLight,
+		TextColor3 = C.Text,
+		maxSize = 16,
+	})
+	soundButton.Activated:Connect(function()
+		soundButton.Text = Sfx.cycleMode()
+		Sfx.play("click")
+	end)
 
 	-- Message central (lasso, dressage...)
 	local toast = UI.frame(gui, {
@@ -354,6 +371,10 @@ local function update()
 		refs.wallText.Text = ("MUR DE LAVE : %d m"):format(math.max(0, math.floor(dist)))
 		refs.danger.Visible = dist < 45
 		if dist < 45 then
+			if os.clock() - lastWarnTick > 0.9 - 0.5 * (1 - math.clamp(dist / 45, 0, 1)) then
+				lastWarnTick = os.clock()
+				Sfx.play("tick")
+			end
 			local pulse = (math.sin(os.clock() * 8) + 1) / 2
 			refs.dangerStroke.Transparency = 1 - (1 - math.clamp(dist / 45, 0, 1)) * (0.35 + 0.35 * pulse)
 		end

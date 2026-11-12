@@ -15,6 +15,7 @@ local Controls = require(Modules.Controls)
 local HUD = require(Modules.HUD)
 local Menu = require(Modules.Menu)
 local Ambience = require(Modules.Ambience)
+local Sfx = require(Modules.Sfx)
 
 -- Données serveur -> client
 Remotes.Data.OnClientEvent:Connect(function(snapshot)
@@ -55,6 +56,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- Modules
+Sfx.init()
 HUD.init()
 Menu.init()
 CreatureFx.init()

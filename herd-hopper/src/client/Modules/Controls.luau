@@ -184,6 +184,9 @@ function Controls.init()
 		if status ~= "Air" then
 			air.active = false
 		end
+		if status == "Down" then
+			Sfx.play("land")
+		end
 		if status == "Riding" or status == "Lobby" then
 			CreatureFx.setTarget(nil)
 			-- un nouvel appui est nécessaire pour bondir (évite un état "appuyé" resté coincé)

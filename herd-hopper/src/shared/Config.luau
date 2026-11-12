@@ -85,6 +85,23 @@ Config.Variants = {
 	{ id = 3, name = "Doré", mult = 4, weight = 5 },
 }
 
+-- Audio. Les musiques sont volontairement vides : aucun morceau libre de droits n'est fourni avec le jeu.
+-- Colle ici des identifiants "rbxassetid://..." de morceaux dont tu as les droits (bibliothèque audio Roblox,
+-- Creator Store ou fichiers à toi). Une chaîne vide = pas de musique pour ce lieu.
+Config.Audio = {
+	MusicVolume = 0.3,
+	SfxVolume = 0.8,
+	FadeSeconds = 2.5,
+	Music = {
+		lobby = "",
+		savane = "",
+		desert = "",
+		forest = "",
+		volcano = "",
+		results = "",
+	},
+}
+
 Config.Events = {
 	FirstDelay = 14,
 	MinGap = 11,
@@ -152,6 +169,7 @@ Config.DailyReward = { Base = 50, PerStreak = 25, MaxStreak = 7 }
 -- Biomes le long de la piste (utilisés par la carte, par l'ambiance côté client et par la boutique).
 Config.Biomes = {
 	{
+		key = "savane",
 		name = "SAVANE DORÉE",
 		from = -5000,
 		to = 900,
@@ -163,6 +181,7 @@ Config.Biomes = {
 		tint = Color3.fromRGB(255, 246, 228),
 	},
 	{
+		key = "desert",
 		name = "DÉSERT ROUGE",
 		from = 900,
 		to = 1700,
@@ -174,6 +193,7 @@ Config.Biomes = {
 		tint = Color3.fromRGB(255, 232, 205),
 	},
 	{
+		key = "forest",
 		name = "FORÊT GÉANTE",
 		from = 1700,
 		to = 2500,
@@ -185,6 +205,7 @@ Config.Biomes = {
 		tint = Color3.fromRGB(226, 255, 232),
 	},
 	{
+		key = "volcano",
 		name = "VOLCAN",
 		from = 2500,
 		to = 99999,

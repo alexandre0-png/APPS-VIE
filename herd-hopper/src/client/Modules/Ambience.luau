@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Sfx = require(script.Parent.Sfx)
 
 local Ambience = {}
 
@@ -33,8 +34,14 @@ function Ambience.init()
 			return
 		end
 		-- le salon (en hauteur) garde l'ambiance de la savane
-		local z = hrp.Position.Y > 150 and 0 or hrp.Position.Z
+		local inLobby = hrp.Position.Y > 150
+		local z = inLobby and 0 or hrp.Position.Z
 		local biome = Config.biomeAt(z)
+		if inLobby then
+			Sfx.setMusic(workspace:GetAttribute("Phase") == "Results" and "results" or "lobby")
+		else
+			Sfx.setMusic(biome.key)
+		end
 		if biome ~= currentBiome then
 			currentBiome = biome
 			local info = TweenInfo.new(3, Enum.EasingStyle.Sine)
