@@ -13,4 +13,5 @@ Prérequis : `npm i fengari luaparse`, puis `FENGARI_PATH=<chemin>/fengari`.
 - Syntaxe + globales inconnues (luaparse) : toutes les sources passent.
 - `node tests/run.js` : données, économie, sauvegardes, simulation de progression (VM Lua).
 - `node tests/run_integration.js` : code serveur et client réel sur un mini-moteur Roblox simulé (`tests/roblox_mock.lua`).
-Limite : ce n'est pas Roblox Studio. Rendu, physique, sons et signatures exactes de l'API restent à confirmer en Studio.
+- `rojo build -o DinoDigPark.rbxlx` (Rojo 7.7.1) : build réussi, fichier fourni (20 ModuleScripts, 1 Script, 1 LocalScript).
+Limite : ni Roblox Studio, ni stylua/selene/analyseur Luau n'ont pu être lancés. Rendu, physique, sons et signatures exactes de l'API restent à confirmer en Studio.
