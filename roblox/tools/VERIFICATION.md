@@ -10,12 +10,13 @@
 | Formatage stylua (`stylua.toml`) | `stylua roblox/src roblox/tests` | **Non exécuté** : binaire téléchargé mais son exécution est refusée par le contrôle d'autorisation de la session (nouvel essai le 2026-11-12 après consigne de l'utilisateur : refus identique). Le code n'est donc pas passé par stylua. |
 | Lint selene (`selene.toml`) | `selene generate-roblox-std` puis `selene roblox/src` | **Non exécuté** (même raison). |
 | Build Rojo | `rojo build roblox/default.project.json -o roblox/build/ChipeOeufs.rbxl` | **Non exécuté** (même raison). `default.project.json` n'a donc pas été validé par Rojo. |
-| Tests de logique pure (`roblox/tests/run.luau` : `Config` et `Rules`) **avec Lua 5.x via `lupa`** (Lune non disponible ici) | `python3 roblox/tools/run_tests.py` (aussi lancé par `check.py`) | **Exécuté : 950 réussis, 0 échoué** (454 avant l'ajout des énigmes et des succès, total identique à l'exécution Lune rapportée par l'autre environnement à ce moment-là). Le runner détecte bien un échec (testé en cassant 2 valeurs : 2 échecs signalés, code de sortie 1). Différences avec Lune : Lua 5.x et non Luau, `+=` converti, `luau.load` simulé. |
+| Tests de logique pure (`roblox/tests/run.luau` : `Config` et `Rules`) **avec Lua 5.x via `lupa`** (Lune non disponible ici) | `python3 roblox/tools/run_tests.py` (aussi lancé par `check.py`) | **Exécuté : 1104 réussis, 0 échoué** (454 avant l'ajout des énigmes et des succès, total identique à l'exécution Lune rapportée par l'autre environnement à ce moment-là). Le runner détecte bien un échec (testé en cassant 2 valeurs : 2 échecs signalés, code de sortie 1). Différences avec Lune : Lua 5.x et non Luau, `+=` converti, `luau.load` simulé. |
 | Les mêmes tests avec Lune | `lune run roblox/tests/run.luau` | Exécuté par l'autre environnement (454 réussis à l'époque, selon son rapport ; non relancé avec les nouveaux tests) ; non exécutable ici. |
 | Playtest Roblox Studio (2 joueurs) | voir `publication/LISTING.md` §5 | **Non fait.** Tout ce qui touche au rendu, au réseau, aux DataStore et aux achats n'a été que relu. |
 
 ## Relu seulement (à confirmer dans Studio)
 
+- Cinématiques : application des plans à la caméra, interface (barres, légende, boutons), restitution de la caméra en conditions réelles (mort, attaque, déconnexion), position des ancres dans le vrai monde ; seules la logique (`Cinema`), les définitions et la configuration sont testées.
 - Animations : application aux objets Roblox (œufs, visages des pets, barrières, confettis, FOV, menus) ; seules les courbes, le garde-fou et la configuration sont testées.
 - Énigme des runes : prompts, symboles locaux, panneau d'énoncé, validation et récompense (la logique de génération de l'énigme est testée, pas le câblage Roblox).
 - Rendu : éclairage, bloom, couleurs, matériaux, SurfaceGui des panneaux, Fire des torches, placement des modèles sur les pads.

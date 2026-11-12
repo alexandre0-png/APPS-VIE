@@ -122,6 +122,7 @@ Studio → **Test > Clients and Servers** (2 joueurs). Coche chaque ligne :
 - [ ] Succès : un palier atteint allume la pastille de l'onglet Pets, « Réclamer » donne la récompense, le palier suivant s'affiche.
 - [ ] Bonus de collection et pitié : valeurs cohérentes dans Pets, Boutique et Plus.
 - [ ] Sons : sons intégrés audibles (hatch, vol, capture) ; sinon coller des ID dans `Config.SOUNDS`.
+- [ ] Cinématiques : l'intro (Mère Poule, œufs, but) puis le tutoriel se lancent au premier lancement seulement ; « Passer ▶ », « Tout passer » et Entrée les arrêtent ; la caméra revient au personnage ; elles ne reviennent pas à la connexion suivante ; la première zone débloquée et le premier pet rare déclenchent leur plan ; se faire attraper par un gardien pendant une cinématique la coupe aussitôt ; « Revoir l'intro / le tutoriel » dans Plus.
 - [ ] Animations : les œufs sautillent et tremblent avant d'éclore, le pet apparaît en rebondissant avec confettis si rare, les pets clignent des yeux, regardent autour et « mâchent », les menus s'ouvrent en rebondissant, la barrière de Mara se dissout avec des étincelles à l'ouverture, aucun à-coup visible avec 10 joueurs. En cas de gêne, couper un drapeau de `Config.Animations`.
 - [ ] Monument du Grand Nid et décor : rendu correct, aucun obstacle gênant le tapis roulant.
 - [ ] Arrêter la partie puis relancer (API activée) : pièces, pets et améliorations sont restaurés.

@@ -17,6 +17,43 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Cinématiques (v6)
+
+Courtes, **aux moments clés seulement** (le reste reste en gameplay), toutes **skippables** (bouton « Passer ▶ », « Tout passer », Entrée, manette B), réglables dans **`Config.Cinematics`**, exécutées sous `pcall` et **jamais bloquantes** : le joueur garde le contrôle de son personnage, le jeu continue, et la caméra lui est toujours rendue (fin, skip, mort, attaque d'un gardien ou d'un voleur, erreur, délai de sécurité).
+
+| Clé | Quand | Contenu | Durée |
+|---|---|---|---|
+| `intro` | premier lancement | la ferme, **Mère Poule** (gardienne du Grand Nid), les œufs dispersés, le but | 16,5 s |
+| `tutorial` | enchaîné à l'intro | ① récolte ② éclosion ③ zones | 12 s |
+| `firstZone` | la première zone débloquée | plan sur le domaine qui s'ouvre, présentation du rival | 6 s |
+| `firstRare` | le premier pet rare | plan sur le pet qui vient d'éclore, sa rareté et son revenu | 6 s |
+
+Une cinématique vue ou passée est mémorisée dans la sauvegarde (`cine`) et ne se rejoue pas ; « Revoir l'intro » et « Revoir le tutoriel » sont dans le menu Plus. Une seule cinématique à la fois (jamais de superposition) : l'intro et le tutoriel s'enchaînent par une file, les autres demandes pendant une lecture sont ignorées. Les cinématiques de zone et de pet rare ne démarrent pas si le joueur porte un œuf.
+
+La logique (séquences, durées, skip, abandon, reprise, file, caméra interpolée) est dans le module pur `ReplicatedStorage/Cinema.lua`, testé ; `Cinematics.client.lua` ne fait qu'appliquer les positions à la caméra. Les plans sont définis dans `Config.CINE` (ancres : le Grand Nid, Mère Poule, les trois domaines, ta base, un emplacement).
+
+## Animations (v5)
+
+Toutes locales (aucun coût réseau), chacune activable dans **`Config.Animations`** (`enabled = false` coupe tout), exécutée sous `pcall` par `Easing.guard` et **désactivée automatiquement pour la session si elle lève une erreur** (alerte dans la console).
+
+| Drapeau | Effet |
+|---|---|
+| `eggShake` | l'œuf tremble puis blanchit juste avant d'éclore |
+| `eggBounce` | les œufs (nids, bases) font un petit saut avec étirement et écrasement ; les œufs portés rebondissent pendant la course |
+| `hatchSquash` | squash & stretch réel de l'œuf (mesh non uniforme) dans les 2 dernières secondes ; le pet apparaît en suivant la courbe de squash (échelle uniforme) |
+| `popIn`, `shockwave` | apparition du pet et anneau lumineux à l'éclosion |
+| `harvest` | l'œuf s'envole en arc vers le joueur à la récolte |
+| `petBlink`, `petLook`, `petMouth` | clignement (paupières), regard qui bouge et bouche qui mâche, désynchronisés entre pets, pets proches de la caméra seulement (24 par image au plus) |
+| `menuTransitions` | les menus s'ouvrent en rebondissant et se ferment en rétrécissant |
+| `reward` | confettis stylisés (chapitre, succès, énigme, mission, éclosion rare) |
+| `zones` | barrières de zone qui pulsent, se dissolvent avec des étincelles quand la zone s'ouvre |
+| `characterPop` | petite secousse du champ de vision quand on prend un œuf (vers l'avant) ou qu'on est attrapé (vers l'arrière) |
+| `hen` | Mère Poule picore |
+
+Les courbes (squash & stretch, rebond, clignement, regard, bouche, coups de bec, confettis, garde-fou) sont dans le module pur `ReplicatedStorage/Easing.lua`, testé avec les tests de logique ; `Animations.client.lua` ne fait que les appliquer aux objets.
+
+Limites assumées : les pets sont faits de plusieurs Parts, leur squash & stretch est donc approché par une échelle uniforme (le vrai squash non uniforme est appliqué aux œufs) ; le personnage du joueur n'est pas déformé (modifier les échelles d'un avatar R15 touche à la physique), la « secousse » du personnage est un mouvement de caméra.
+
 ## Énigmes et succès (v4)
 
 - **Énigme des runes** : quatre runes entourent le Grand Nid (Nord = côté des rivaux). Chaque jour, le Gardien énonce un indice par direction (panneau près du Nid et onglet Missions > Énigme) ; il faut régler chaque rune sur le bon symbole (🔥 🌊 🌿 ⭐) puis toucher le Nid pour valider. Récompense : un œuf Épique et des pièces, une fois par jour. Une mauvaise combinaison impose une pause de 6 s (pas d'essai au hasard en boucle). L'énigme (24 ordres × 3 formulations par indice) est la même pour tous les joueurs un jour donné, générée de façon déterministe dans `Config.riddleFor`, donc testable. L'état des runes est propre à chaque joueur (symboles affichés localement).
@@ -63,12 +100,14 @@ roblox/
 └─ src/
    ├─ ReplicatedStorage/Config.lua           → ReplicatedStorage > Shared > Config   (ModuleScript)
    ├─ ReplicatedStorage/Easing.lua           → ReplicatedStorage > Shared > Easing   (ModuleScript, courbes d'animation pures)
+   ├─ ReplicatedStorage/Cinema.lua           → ReplicatedStorage > Shared > Cinema   (ModuleScript, logique pure des cinématiques)
    ├─ ServerScriptService/Main.server.lua    → ServerScriptService > Main            (Script)
    ├─ ServerScriptService/Data.lua           → ServerScriptService > Data            (ModuleScript)
    ├─ ServerScriptService/Builder.lua        → ServerScriptService > Builder         (ModuleScript)
    ├─ ServerScriptService/Rules.lua          → ServerScriptService > Rules           (ModuleScript, règles pures testées avec Lune)
    ├─ StarterPlayerScripts/Client.client.lua → StarterPlayer > StarterPlayerScripts > Client (LocalScript)
-   └─ StarterPlayerScripts/Animations.client.lua → StarterPlayer > StarterPlayerScripts > Animations (LocalScript)
+   ├─ StarterPlayerScripts/Animations.client.lua → StarterPlayer > StarterPlayerScripts > Animations (LocalScript)
+   └─ StarterPlayerScripts/Cinematics.client.lua → StarterPlayer > StarterPlayerScripts > Cinematics (LocalScript)
 ```
 
 ## Installation
@@ -79,7 +118,7 @@ roblox/
 3. Lance **Play**.
 
 ### Option B : copier-coller dans Studio (sans outil)
-Crée les 8 scripts ci-dessus (Config, Easing, Main, Data, Builder, Rules, Client, Animations) **avec exactement ces noms et types**, puis colle le contenu de chaque fichier. Dans `ReplicatedStorage`, crée d'abord un `Folder` nommé `Shared` et mets-y les ModuleScripts `Config` et `Easing`.
+Crée les 10 scripts ci-dessus (Config, Easing, Cinema, Main, Data, Builder, Rules, Client, Animations, Cinematics) **avec exactement ces noms et types**, puis colle le contenu de chaque fichier. Dans `ReplicatedStorage`, crée d'abord un `Folder` nommé `Shared` et mets-y les ModuleScripts `Config`, `Easing` et `Cinema`.
 
 ## Publier
 
