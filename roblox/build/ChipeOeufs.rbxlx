@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX4"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX3"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX5"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX4"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -248,10 +248,70 @@ Config.Animations = {
 	reward = true, -- confettis lors d'une récompense (chapitre, succès, énigme, rare)
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
+	hen = true, -- Mère Poule picore
 }
 
 function Config.animEnabled(name)
 	return Config.Animations.enabled == true and Config.Animations[name] == true
+end
+
+---------------------------------------------------------------- Cinématiques (aux moments clés seulement)
+-- Toujours skippables (bouton « Passer », Entrée, manette B), jamais bloquantes (le joueur garde le contrôle de son personnage,
+-- la caméra est restituée quoi qu'il arrive), exécutées sous pcall. `enabled = false` coupe tout ; chaque clé coupe une cinématique.
+Config.Cinematics = {
+	enabled = true, -- interrupteur général
+	intro = true, -- courte intro : la ferme, Mère Poule, les œufs, le but (premier lancement)
+	tutorial = true, -- mini tutoriel : récolte, éclosion, zones (enchaîné à l'intro au premier lancement)
+	firstZone = true, -- la première zone débloquée
+	firstRare = true, -- le premier pet rare
+	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force
+}
+Config.CINE_IDS = { "intro", "tutorial", "firstZone", "firstRare" } -- identifiants mémorisés dans la sauvegarde une fois vus
+
+function Config.cineEnabled(name)
+	return Config.Cinematics.enabled == true and Config.Cinematics[name] == true
+end
+
+-- Ancres de caméra : arena (le Grand Nid), hen (Mère Poule), rival1..3 (domaines), base (ta base), pad (un emplacement de ta base).
+-- Les positions d'un plan sont { x, y, z } dans le repère de l'ancre ; `toPos` / `toLook` (facultatifs) animent le plan.
+Config.CINE_ANCHORS = { arena = true, hen = true, rival1 = true, rival2 = true, rival3 = true, base = true, pad = true }
+
+Config.CINE = {
+	intro = { id = "intro", shots = {
+		{ anchor = "arena", pos = { 0, 70, 100 }, look = { 0, 6, 0 }, toPos = { 0, 44, 72 }, dur = 4.5, text = "Il était une fois une ferme où la Grande Couvée donnait vie à tout le royaume…" },
+		{ anchor = "hen", pos = { 6, 4, -9 }, look = { 0, 3, 0 }, toPos = { 4, 4, -6 }, dur = 4, text = "Mère Poule veillait sur le Grand Nid, gardienne de tous les œufs." },
+		{ anchor = "rival1", pos = { 0, 20, 28 }, look = { 0, 2, -3 }, toPos = { 0, 15, 22 }, dur = 4, text = "Mais le Nid s'est brisé et ses œufs se sont dispersés. Les brigands les gardent !" },
+		{ anchor = "base", pos = { 0, 16, 36 }, look = { 0, 3, 0 }, toPos = { 0, 12, 28 }, dur = 4, text = "À toi, apprenti Chipeur : chipe les œufs, fais-les éclore et reconstruis le Grand Nid !" },
+	} },
+	tutorial = { id = "tutorial", shots = {
+		{ anchor = "rival1", pos = { 0, 12, 22 }, look = { 0, 3, -3 }, toPos = { 0, 9, 17 }, dur = 4, text = "① RÉCOLTE : maintiens le bouton devant un œuf pour le chiper. Attention au chien de garde !" },
+		{ anchor = "base", pos = { 0, 10, -22 }, look = { 0, 1, 6 }, toPos = { 0, 7, -14 }, dur = 4, text = "② ÉCLOSION : rapporte l'œuf ici. Touche-le pour l'aider à éclore !" },
+		{ anchor = "rival2", pos = { 0, 22, 48 }, look = { 0, 6, -2 }, toPos = { 0, 16, 36 }, dur = 4, text = "③ ZONES : réussis les chapitres de l'histoire pour ouvrir de nouveaux domaines." },
+	} },
+}
+
+-- Cinématique de la première zone débloquée (zoneIdx = 2 ou 3).
+function Config.cineFirstZone(zoneIdx)
+	local zone, rival = Config.ZONES[zoneIdx], Config.RIVALS[zoneIdx]
+	return { id = "firstZone", shots = {
+		{ anchor = "rival" .. zoneIdx, pos = { 0, 18, 46 }, look = { 0, 5, -2 }, toPos = { 0, 12, 34 }, dur = 3, text = "🔓 " .. zone.name .. " est ouvert !" },
+		{ anchor = "rival" .. zoneIdx, pos = { 18, 8, 24 }, look = { 0, 3, -3 }, toPos = { 10, 7, 18 }, dur = 3, text = "Ses œufs sont plus rares… et " .. rival.name .. " a un gardien plus rapide !" },
+	} }
+end
+
+-- Cinématique du premier pet rare ; ancre « pad » = l'emplacement où il vient d'éclore.
+function Config.cineFirstRare(petName, tierName, incText)
+	return { id = "firstRare", shots = {
+		{ anchor = "pad", pos = { 0, 4.5, -13 }, look = { 0, 2.5, 0 }, toPos = { 0, 3.5, -8 }, dur = 3.5, text = "✨ Un pet " .. tierName .. " : " .. petName .. " !" },
+		{ anchor = "pad", pos = { 6, 4, -8 }, look = { 0, 2.5, 0 }, toPos = { -6, 4, -8 }, dur = 2.5, text = incText .. " Les raretés supérieures rapportent bien plus." },
+	} }
+end
+
+-- Position locale (x, z) de l'emplacement `idx` (1..12) dans une base : source unique pour la construction et les caméras.
+function Config.padLocal(idx)
+	local col, row = (idx - 1) % 4, (idx - 1) // 4
+	return -15 + col * 10, -6 + row * 11
 end
 
 ---------------------------------------------------------------- Univers, histoire et progression
@@ -467,6 +527,11 @@ function Easing.lerp(a, b, t)
 end
 
 -- Courbes classiques (entrée et sortie dans [0, 1]) ---------------------------------------------------------------
+function Easing.inOutSine(x)
+	x = clamp01(x)
+	return -(cos(pi * x) - 1) / 2
+end
+
 function Easing.outQuad(x)
 	x = clamp01(x)
 	return 1 - (1 - x) * (1 - x)
@@ -571,6 +636,19 @@ function Easing.mouthOpen(time, seed)
 	return 0
 end
 
+-- Poule : coups de bec doubles à intervalle irrégulier. Retourne l'enfoncement de la tête dans [0, 1].
+function Easing.peck(time, seed)
+	seed = seed or 0
+	local period = 3.4 + (seed % 5) * 0.5
+	local ph = (time + seed * 0.7) % period
+	if ph < 0.25 then
+		return sin(ph / 0.25 * pi)
+	elseif ph < 0.5 then
+		return sin((ph - 0.25) / 0.25 * pi)
+	end
+	return 0
+end
+
 -- Pulsation d'une barrière de zone, dans [0, 1].
 function Easing.gatePulse(time, speed)
 	return 0.5 + 0.5 * sin(time * (speed or 2))
@@ -624,8 +702,188 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+-- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
+-- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
+-- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
+local Cinema = {}
+
+function Cinema.new(Easing)
+	local C = {}
+
+	-- Construit une séquence à partir de { id, shots = { { dur = secondes, ... }, ... } }.
+	-- Retourne nil et un message si la définition est invalide (aucun plan, durée <= 0).
+	function C.sequence(def)
+		if type(def) ~= "table" or type(def.shots) ~= "table" or #def.shots == 0 then
+			return nil, "aucun plan"
+		end
+		local starts, t = {}, 0
+		for i, shot in ipairs(def.shots) do
+			if type(shot.dur) ~= "number" or shot.dur <= 0 then
+				return nil, "durée invalide (plan " .. i .. ")"
+			end
+			starts[i] = t
+			t = t + shot.dur
+		end
+		return { id = def.id, shots = def.shots, starts = starts, total = t }
+	end
+
+	-- Plan actif à l'instant t (secondes depuis le début) : (index, progression dans [0, 1[), ou nil si la séquence est terminée.
+	-- Un temps négatif est ramené à 0.
+	function C.shotAt(seq, t)
+		if t < 0 then
+			t = 0
+		end
+		if t >= seq.total then
+			return nil
+		end
+		for i = #seq.shots, 1, -1 do
+			if t >= seq.starts[i] then
+				return i, (t - seq.starts[i]) / seq.shots[i].dur
+			end
+		end
+		return 1, 0
+	end
+
+	local function lerp3(a, b, e)
+		return { a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e, a[3] + (b[3] - a[3]) * e }
+	end
+
+	-- Position et point visé de la caméra pour la progression p du plan (repère de l'ancre), avec adoucissement.
+	function C.cameraAt(shot, p)
+		local e = Easing.inOutSine(Easing.clamp01(p))
+		return lerp3(shot.pos, shot.toPos or shot.pos, e), lerp3(shot.look, shot.toLook or shot.look, e)
+	end
+
+	-- Lecteur d'une séquence. États : idle -> playing -> done (raison : completed | skipped | aborted). play() redémarre à zéro (reprise).
+	function C.player(seq)
+		local P = { state = "idle", reason = nil, startedAt = 0, lastShot = 0 }
+		function P.play(now)
+			P.state, P.reason, P.startedAt, P.lastShot = "playing", nil, now, 0
+		end
+		function P.isPlaying()
+			return P.state == "playing"
+		end
+		-- À appeler à chaque image. nil si rien ne joue ; sinon { shot, progress, shotChanged, finished, reason }.
+		-- L'événement `finished` n'est renvoyé qu'une seule fois.
+		function P.update(now)
+			if P.state ~= "playing" then
+				return nil
+			end
+			local i, p = C.shotAt(seq, now - P.startedAt)
+			if not i then
+				P.state, P.reason = "done", "completed"
+				return { finished = true, reason = "completed" }
+			end
+			local changed = i ~= P.lastShot
+			P.lastShot = i
+			return { shot = i, progress = p, shotChanged = changed, finished = false }
+		end
+		function P.skip()
+			if P.state == "playing" then
+				P.state, P.reason = "done", "skipped"
+				return true
+			end
+			return false
+		end
+		function P.abort()
+			if P.state == "playing" then
+				P.state, P.reason = "done", "aborted"
+				return true
+			end
+			return false
+		end
+		return P
+	end
+
+	-- Directeur : une seule cinématique à la fois. Une demande « chain » pendant une lecture est mise en file (intro puis tutoriel) ;
+	-- une autre demande est refusée (jamais de cinématique superposée). Une cinématique ne démarre jamais seule en plein jeu.
+	function C.director()
+		local D = { current = nil, queue = {} }
+
+		local function startNext(now)
+			local nxt = table.remove(D.queue, 1)
+			if nxt then
+				D.current = { id = nxt.id, seq = nxt.seq, player = C.player(nxt.seq) }
+				D.current.player.play(now)
+			end
+		end
+
+		-- Retourne "playing", "queued" ou "refused".
+		function D.request(id, seq, now, chain)
+			if D.current and D.current.player.isPlaying() then
+				if chain then
+					D.queue[#D.queue + 1] = { id = id, seq = seq }
+					return "queued"
+				end
+				return "refused"
+			end
+			D.current = { id = id, seq = seq, player = C.player(seq) }
+			D.current.player.play(now)
+			return "playing"
+		end
+
+		-- Retourne (id, événement). À la fin d'une séquence, la suivante de la file démarre ; l'événement `finished` est renvoyé une fois.
+		function D.update(now)
+			local cur = D.current
+			if not cur then
+				return nil
+			end
+			local ev = cur.player.update(now)
+			if ev and ev.finished then
+				D.current = nil
+				startNext(now)
+			end
+			return cur.id, ev
+		end
+
+		-- Passe la séquence en cours (la file continue). Retourne l'id passé, ou nil si rien ne jouait.
+		function D.skip(now)
+			local cur = D.current
+			if cur and cur.player.skip() then
+				D.current = nil
+				startNext(now)
+				return cur.id
+			end
+			return nil
+		end
+
+		-- Passe tout : la séquence en cours et la file. Retourne la liste des identifiants passés.
+		function D.skipAll()
+			local ids = {}
+			local cur = D.current
+			if cur and cur.player.skip() then
+				ids[#ids + 1] = cur.id
+			end
+			for _, q in ipairs(D.queue) do
+				ids[#ids + 1] = q.id
+			end
+			D.current, D.queue = nil, {}
+			return ids
+		end
+
+		-- Abandon (mort, attaque, erreur) : tout s'arrête, la file est vidée, rien n'est considéré comme vu.
+		function D.abort()
+			local cur = D.current
+			if cur then
+				cur.player.abort()
+			end
+			D.current, D.queue = nil, {}
+		end
+
+		function D.isActive()
+			return D.current ~= nil
+		end
+
+		return D
+	end
+
+	return C
+end
+
+return Cinema
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX9"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX5"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX10"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX6"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2165,7 +2423,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -2515,7 +2773,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -3204,7 +3462,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -3349,7 +3607,7 @@ end
 
 return Rules
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX13"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX12"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX10"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX14"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX13"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX11"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4293,7 +4551,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX11"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX12"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.

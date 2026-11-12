@@ -25,6 +25,11 @@ function Easing.lerp(a, b, t)
 end
 
 -- Courbes classiques (entrée et sortie dans [0, 1]) ---------------------------------------------------------------
+function Easing.inOutSine(x)
+	x = clamp01(x)
+	return -(cos(pi * x) - 1) / 2
+end
+
 function Easing.outQuad(x)
 	x = clamp01(x)
 	return 1 - (1 - x) * (1 - x)
@@ -125,6 +130,19 @@ function Easing.mouthOpen(time, seed)
 	local ph = (time + seed * 0.9) % period
 	if ph < 0.7 then
 		return sin(ph / 0.7 * pi)
+	end
+	return 0
+end
+
+-- Poule : coups de bec doubles à intervalle irrégulier. Retourne l'enfoncement de la tête dans [0, 1].
+function Easing.peck(time, seed)
+	seed = seed or 0
+	local period = 3.4 + (seed % 5) * 0.5
+	local ph = (time + seed * 0.7) % period
+	if ph < 0.25 then
+		return sin(ph / 0.25 * pi)
+	elseif ph < 0.5 then
+		return sin((ph - 0.25) / 0.25 * pi)
 	end
 	return 0
 end

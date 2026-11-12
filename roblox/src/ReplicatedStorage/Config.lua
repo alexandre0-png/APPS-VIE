@@ -244,10 +244,70 @@ Config.Animations = {
 	reward = true, -- confettis lors d'une récompense (chapitre, succès, énigme, rare)
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
+	hen = true, -- Mère Poule picore
 }
 
 function Config.animEnabled(name)
 	return Config.Animations.enabled == true and Config.Animations[name] == true
+end
+
+---------------------------------------------------------------- Cinématiques (aux moments clés seulement)
+-- Toujours skippables (bouton « Passer », Entrée, manette B), jamais bloquantes (le joueur garde le contrôle de son personnage,
+-- la caméra est restituée quoi qu'il arrive), exécutées sous pcall. `enabled = false` coupe tout ; chaque clé coupe une cinématique.
+Config.Cinematics = {
+	enabled = true, -- interrupteur général
+	intro = true, -- courte intro : la ferme, Mère Poule, les œufs, le but (premier lancement)
+	tutorial = true, -- mini tutoriel : récolte, éclosion, zones (enchaîné à l'intro au premier lancement)
+	firstZone = true, -- la première zone débloquée
+	firstRare = true, -- le premier pet rare
+	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force
+}
+Config.CINE_IDS = { "intro", "tutorial", "firstZone", "firstRare" } -- identifiants mémorisés dans la sauvegarde une fois vus
+
+function Config.cineEnabled(name)
+	return Config.Cinematics.enabled == true and Config.Cinematics[name] == true
+end
+
+-- Ancres de caméra : arena (le Grand Nid), hen (Mère Poule), rival1..3 (domaines), base (ta base), pad (un emplacement de ta base).
+-- Les positions d'un plan sont { x, y, z } dans le repère de l'ancre ; `toPos` / `toLook` (facultatifs) animent le plan.
+Config.CINE_ANCHORS = { arena = true, hen = true, rival1 = true, rival2 = true, rival3 = true, base = true, pad = true }
+
+Config.CINE = {
+	intro = { id = "intro", shots = {
+		{ anchor = "arena", pos = { 0, 70, 100 }, look = { 0, 6, 0 }, toPos = { 0, 44, 72 }, dur = 4.5, text = "Il était une fois une ferme où la Grande Couvée donnait vie à tout le royaume…" },
+		{ anchor = "hen", pos = { 6, 4, -9 }, look = { 0, 3, 0 }, toPos = { 4, 4, -6 }, dur = 4, text = "Mère Poule veillait sur le Grand Nid, gardienne de tous les œufs." },
+		{ anchor = "rival1", pos = { 0, 20, 28 }, look = { 0, 2, -3 }, toPos = { 0, 15, 22 }, dur = 4, text = "Mais le Nid s'est brisé et ses œufs se sont dispersés. Les brigands les gardent !" },
+		{ anchor = "base", pos = { 0, 16, 36 }, look = { 0, 3, 0 }, toPos = { 0, 12, 28 }, dur = 4, text = "À toi, apprenti Chipeur : chipe les œufs, fais-les éclore et reconstruis le Grand Nid !" },
+	} },
+	tutorial = { id = "tutorial", shots = {
+		{ anchor = "rival1", pos = { 0, 12, 22 }, look = { 0, 3, -3 }, toPos = { 0, 9, 17 }, dur = 4, text = "① RÉCOLTE : maintiens le bouton devant un œuf pour le chiper. Attention au chien de garde !" },
+		{ anchor = "base", pos = { 0, 10, -22 }, look = { 0, 1, 6 }, toPos = { 0, 7, -14 }, dur = 4, text = "② ÉCLOSION : rapporte l'œuf ici. Touche-le pour l'aider à éclore !" },
+		{ anchor = "rival2", pos = { 0, 22, 48 }, look = { 0, 6, -2 }, toPos = { 0, 16, 36 }, dur = 4, text = "③ ZONES : réussis les chapitres de l'histoire pour ouvrir de nouveaux domaines." },
+	} },
+}
+
+-- Cinématique de la première zone débloquée (zoneIdx = 2 ou 3).
+function Config.cineFirstZone(zoneIdx)
+	local zone, rival = Config.ZONES[zoneIdx], Config.RIVALS[zoneIdx]
+	return { id = "firstZone", shots = {
+		{ anchor = "rival" .. zoneIdx, pos = { 0, 18, 46 }, look = { 0, 5, -2 }, toPos = { 0, 12, 34 }, dur = 3, text = "🔓 " .. zone.name .. " est ouvert !" },
+		{ anchor = "rival" .. zoneIdx, pos = { 18, 8, 24 }, look = { 0, 3, -3 }, toPos = { 10, 7, 18 }, dur = 3, text = "Ses œufs sont plus rares… et " .. rival.name .. " a un gardien plus rapide !" },
+	} }
+end
+
+-- Cinématique du premier pet rare ; ancre « pad » = l'emplacement où il vient d'éclore.
+function Config.cineFirstRare(petName, tierName, incText)
+	return { id = "firstRare", shots = {
+		{ anchor = "pad", pos = { 0, 4.5, -13 }, look = { 0, 2.5, 0 }, toPos = { 0, 3.5, -8 }, dur = 3.5, text = "✨ Un pet " .. tierName .. " : " .. petName .. " !" },
+		{ anchor = "pad", pos = { 6, 4, -8 }, look = { 0, 2.5, 0 }, toPos = { -6, 4, -8 }, dur = 2.5, text = incText .. " Les raretés supérieures rapportent bien plus." },
+	} }
+end
+
+-- Position locale (x, z) de l'emplacement `idx` (1..12) dans une base : source unique pour la construction et les caméras.
+function Config.padLocal(idx)
+	local col, row = (idx - 1) % 4, (idx - 1) // 4
+	return -15 + col * 10, -6 + row * 11
 end
 
 ---------------------------------------------------------------- Univers, histoire et progression

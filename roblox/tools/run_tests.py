@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Exécute roblox/tests/run.luau SANS Lune, avec un interpréteur Lua 5.4 (module Python `lupa`).
+"""Exécute roblox/tests/run.luau SANS Lune, avec un interpréteur Lua (module Python `lupa`, qui embarque Lua 5.5 dans sa version actuelle).
 Alternative pour les environnements où Lune n'est pas disponible. Adaptations (les tests ne portent que sur de la logique pure) :
   - les affectations composées de Luau (`x += 1`) sont converties en Lua 5.4 ;
   - `require("@lune/fs" | "@lune/luau" | "@lune/process")` et `luau.load` sont simulés.
-Limites : c'est Lua 5.4, pas Luau (les petites différences de sémantique, comme `math.floor` entier, sont sans effet ici).
+Limites : c'est du Lua 5.x, pas Luau (les petites différences de sémantique, comme `math.floor` entier, sont sans effet ici).
 Installation : pip install --only-binary :all: lupa     Usage : python3 roblox/tools/run_tests.py"""
 import os, re, sys
 try:
@@ -58,6 +58,11 @@ return function(src)
 end
 '''
 runner = lua.execute(prelude)
-code = runner(read_file("roblox/tests/run.luau"))
+try:
+    code = runner(read_file("roblox/tests/run.luau"))
+except Exception as e:  # erreur d'exécution Lua (ex. index sur nil dans un test) : pas de trace brute, échec explicite
+    print("ERREUR D'EXÉCUTION dans les tests :", str(e).split("\n")[0][:300])
+    print("code de sortie : 1")
+    sys.exit(1)
 print("code de sortie :", code)
 sys.exit(int(code or 0))

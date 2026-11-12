@@ -5,7 +5,7 @@
 3. vérifie la cohérence client/serveur des actions RemoteEvent ;
 4. repère les variables locales jamais utilisées ;
 5. vérifie que le fichier de place (.rbxlx) contient bien les sources à jour ;
-6. exécute les tests de logique pure (tests/run.luau) avec Lua 5.4 si `lupa` est installé.
+6. exécute les tests de logique pure (tests/run.luau) avec Lua 5.x si `lupa` est installé.
 Ne remplace PAS un playtest dans Roblox Studio. Usage : python3 roblox/tools/check.py"""
 import glob, json, os, re, subprocess, sys, urllib.request, zipfile
 
@@ -176,7 +176,7 @@ else:
         if body not in txt:
             fail(f"{os.path.relpath(f, ROOT)} a changé depuis le dernier build : relance build_place.py")
 
-print("[6/6] Tests de logique pure (Lua 5.4 via lupa, à défaut de Lune)")
+print("[6/6] Tests de logique pure (Lua 5.x via lupa, à défaut de Lune)")
 try:
     import lupa  # noqa: F401
     r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_tests.py")], capture_output=True, text=True)

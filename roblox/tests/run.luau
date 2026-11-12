@@ -327,7 +327,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop" }
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -542,6 +542,255 @@ do
 	check("guard : sans onError, pas de plantage", Easing.guard(yes, {}, "d", function()
 		error("x")
 	end) == false)
+end
+
+-- Easing : adoucissement et coups de bec ------------------------------------------------------------------
+check("inOutSine bornes et milieu", near(Easing.inOutSine(0), 0, 1e-9) and near(Easing.inOutSine(1), 1, 1e-9) and near(Easing.inOutSine(0.5), 0.5, 1e-9))
+check("inOutSine croissante", (function()
+	local prev = -1
+	for i = 0, 40 do
+		local v = Easing.inOutSine(i / 40)
+		if v < prev then
+			return false
+		end
+		prev = v
+	end
+	return true
+end)())
+do
+	local inRange, zeros, total, maxPeck = true, 0, 0, 0
+	for seed = 0, 5 do
+		for i = 0, 3000 do
+			local v = Easing.peck(i * 0.01, seed)
+			inRange = inRange and v >= 0 and v <= 1
+			total += 1
+			if v == 0 then
+				zeros += 1
+			end
+			maxPeck = math.max(maxPeck, v)
+		end
+	end
+	check("peck dans [0, 1]", inRange)
+	check("peck : la poule picore peu de temps (tête levée > 70 % du temps)", zeros / total > 0.7)
+	check("peck : coup de bec profond", maxPeck > 0.95)
+	check("peck : déterministe", Easing.peck(3.3, 2) == Easing.peck(3.3, 2))
+end
+
+-- Positions des emplacements -----------------------------------------------------------------------------
+do
+	local seen, ok = {}, true
+	for i = 1, 12 do
+		local x, z = Config.padLocal(i)
+		ok = ok and math.abs(x) <= 26 and math.abs(z) <= 26
+		seen[x .. "," .. z] = true
+	end
+	local n = 0
+	for _ in pairs(seen) do
+		n += 1
+	end
+	check("padLocal : 12 emplacements distincts dans la plateforme", ok and n == 12)
+	local x1, z1 = Config.padLocal(1)
+	local x12, z12 = Config.padLocal(12)
+	check("padLocal : coins de la grille", x1 == -15 and z1 == -6 and x12 == 15 and z12 == 16)
+end
+
+-- Cinématiques : configuration -----------------------------------------------------------------------------
+check("cineEnabled : actif par défaut", Config.cineEnabled("intro") and Config.cineEnabled("tutorial") and Config.cineEnabled("firstZone") and Config.cineEnabled("firstRare"))
+check("cineEnabled : clé inconnue = faux", not Config.cineEnabled("nimportequoi"))
+do
+	local saved = Config.Cinematics.enabled
+	Config.Cinematics.enabled = false
+	local any = false
+	for _, id in ipairs(Config.CINE_IDS) do
+		any = any or Config.cineEnabled(id)
+	end
+	check("cineEnabled : interrupteur général coupe tout", not any)
+	Config.Cinematics.enabled = saved
+	local one = Config.Cinematics.intro
+	Config.Cinematics.intro = false
+	check("cineEnabled : une cinématique peut être coupée seule", not Config.cineEnabled("intro") and Config.cineEnabled("tutorial"))
+	Config.Cinematics.intro = one
+end
+check("CINE_IDS : chaque identifiant est un réglage booléen", (function()
+	for _, id in ipairs(Config.CINE_IDS) do
+		if type(Config.Cinematics[id]) ~= "boolean" then
+			return false
+		end
+	end
+	return #Config.CINE_IDS == 4
+end)())
+check("Cinematics : watchdog positif", type(Config.Cinematics.watchdog) == "number" and Config.Cinematics.watchdog > 0)
+
+local Cinema = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Cinema.lua"), { debugName = "Cinema" })().new(Easing)
+
+local function checkDef(label, def, maxTotal, minTotal)
+	local seq, err = Cinema.sequence(def)
+	check(label .. " : séquence valide (" .. tostring(err) .. ")", seq ~= nil)
+	if not seq then
+		return
+	end
+	check(label .. " : durée totale " .. seq.total .. " s dans [" .. minTotal .. ", " .. maxTotal .. "]", seq.total >= minTotal and seq.total <= maxTotal)
+	for i, shot in ipairs(seq.shots) do
+		local pre = label .. " plan " .. i
+		check(pre .. " : ancre connue", Config.CINE_ANCHORS[shot.anchor] == true)
+		check(pre .. " : pos et look = 3 nombres", #shot.pos == 3 and #shot.look == 3 and type(shot.pos[1]) == "number" and type(shot.look[3]) == "number")
+		check(pre .. " : toPos / toLook valides si présents", (shot.toPos == nil or #shot.toPos == 3) and (shot.toLook == nil or #shot.toLook == 3))
+		check(pre .. " : durée dans ]0, 8]", shot.dur > 0 and shot.dur <= 8)
+		check(pre .. " : texte non vide et court", #shot.text > 0 and (utf8.len(shot.text) or 999) <= 140)
+		check(pre .. " : caméra au-dessus du sol", shot.pos[2] > 1 and (shot.toPos == nil or shot.toPos[2] > 1))
+	end
+end
+checkDef("intro", Config.CINE.intro, 20, 10)
+checkDef("tutoriel", Config.CINE.tutorial, 15, 6)
+for idx = 2, #Config.ZONES do
+	local def = Config.cineFirstZone(idx)
+	checkDef("première zone " .. idx, def, 10, 3)
+	check("première zone " .. idx .. " : ancre du bon domaine", def.shots[1].anchor == "rival" .. idx)
+	check("première zone " .. idx .. " : le nom de la zone est dans le texte", def.shots[1].text:find(Config.ZONES[idx].name, 1, true) ~= nil)
+end
+do
+	local def = Config.cineFirstRare("Dragon Doré", "Mythique", "+1.1K/s.")
+	checkDef("premier pet rare", def, 10, 3)
+	check("premier pet rare : ancre = emplacement, nom dans le texte", def.shots[1].anchor == "pad" and def.shots[1].text:find("Dragon Doré", 1, true) ~= nil)
+end
+check("l'intro explique le contexte : ferme, poule, œufs, but", (function()
+	local all = ""
+	for _, shot in ipairs(Config.CINE.intro.shots) do
+		all = all .. " " .. shot.text
+	end
+	return all:find("ferme", 1, true) and all:find("Poule", 1, true) and all:find("œufs", 1, true) and all:find("reconstruis", 1, true)
+end)() ~= nil)
+check("le tutoriel couvre récolte, éclosion, zones", (function()
+	local all = ""
+	for _, shot in ipairs(Config.CINE.tutorial.shots) do
+		all = all .. " " .. shot.text
+	end
+	return all:find("RÉCOLTE", 1, true) and all:find("ÉCLOSION", 1, true) and all:find("ZONES", 1, true)
+end)() ~= nil)
+
+-- Cinéma : séquences, lecteur (lecture, skip, abandon, reprise), caméra, directeur -------------------------
+do
+	check("sequence : refuse nil, vide et durées invalides", Cinema.sequence(nil) == nil and Cinema.sequence({}) == nil and Cinema.sequence({ shots = {} }) == nil
+		and Cinema.sequence({ shots = { { dur = 0 } } }) == nil and Cinema.sequence({ shots = { { dur = -1 } } }) == nil and Cinema.sequence({ shots = { { dur = "3" } } }) == nil)
+	local seq = Cinema.sequence({ id = "t", shots = { { dur = 2, pos = { 0, 0, 0 }, look = { 0, 0, 1 } }, { dur = 3, pos = { 0, 0, 0 }, look = { 0, 0, 1 }, toPos = { 10, 20, 30 } }, { dur = 1.5, pos = { 1, 1, 1 }, look = { 0, 0, 1 } } } })
+	check("sequence : durée totale et départs cumulés", seq.total == 6.5 and seq.starts[1] == 0 and seq.starts[2] == 2 and seq.starts[3] == 5)
+	local i, p = Cinema.shotAt(seq, 0)
+	check("shotAt(0) = plan 1, progression 0", i == 1 and p == 0)
+	i, p = Cinema.shotAt(seq, 1)
+	check("shotAt(1) = plan 1, progression 0.5", i == 1 and near(p, 0.5))
+	i, p = Cinema.shotAt(seq, 2)
+	check("shotAt(frontière) = plan suivant à 0", i == 2 and p == 0)
+	i, p = Cinema.shotAt(seq, 4.999)
+	check("shotAt(juste avant la fin du plan 2)", i == 2 and p > 0.99 and p < 1)
+	i, p = Cinema.shotAt(seq, 5)
+	check("shotAt(5) = plan 3 à 0", i == 3 and p == 0)
+	check("shotAt(fin) et au-delà = nil", Cinema.shotAt(seq, 6.5) == nil and Cinema.shotAt(seq, 100) == nil)
+	i, p = Cinema.shotAt(seq, -5)
+	check("shotAt(temps négatif) ramené au début", i == 1 and p == 0)
+
+	local shot = seq.shots[2]
+	local pos0 = Cinema.cameraAt(shot, 0)
+	local pos1 = Cinema.cameraAt(shot, 1)
+	local posMid, lookMid = Cinema.cameraAt(shot, 0.5)
+	check("cameraAt : début = pos, fin = toPos", pos0[1] == 0 and pos1[1] == 10 and pos1[2] == 20 and pos1[3] == 30)
+	check("cameraAt : milieu = milieu du trajet", near(posMid[1], 5) and near(posMid[2], 10) and near(posMid[3], 15))
+	check("cameraAt : sans toLook, le point visé reste fixe", lookMid[1] == 0 and lookMid[3] == 1)
+	local pa = Cinema.cameraAt(shot, -3)
+	local pb = Cinema.cameraAt(shot, 9)
+	check("cameraAt : progression bornée", pa[1] == 0 and pb[1] == 10)
+	local fixed = Cinema.cameraAt(seq.shots[1], 0.7)
+	check("cameraAt : sans toPos, position constante", fixed[1] == 0 and fixed[2] == 0 and fixed[3] == 0)
+
+	-- lecteur
+	local pl = Cinema.player(seq)
+	check("player : au repos, update = nil et skip / abort refusés", pl.update(0) == nil and pl.skip() == false and pl.abort() == false and pl.state == "idle")
+	pl.play(10)
+	local ev = pl.update(10)
+	check("player : premier plan signalé", ev.shot == 1 and ev.shotChanged == true and ev.finished == false)
+	ev = pl.update(10.5)
+	check("player : pas de nouveau signal dans le même plan", ev.shot == 1 and ev.shotChanged == false)
+	ev = pl.update(12)
+	check("player : changement de plan signalé une fois", ev.shot == 2 and ev.shotChanged == true)
+	ev = pl.update(12.1)
+	check("player : puis plus rien", ev.shotChanged == false)
+	ev = pl.update(16.5)
+	check("player : fin = completed, une seule fois", ev.finished == true and ev.reason == "completed" and pl.state == "done" and pl.reason == "completed")
+	check("player : après la fin, update = nil", pl.update(17) == nil and pl.update(99) == nil)
+
+	-- salve complète à 60 images/s : autant de signaux de plan que de plans, un seul signal de fin
+	local pf = Cinema.player(seq)
+	pf.play(0)
+	local changes, finishes, last = 0, 0, nil
+	for f = 0, math.ceil(seq.total * 60) + 5 do
+		local e = pf.update(f / 60)
+		if e then
+			if e.shotChanged then
+				changes += 1
+			end
+			if e.finished then
+				finishes += 1
+			end
+			last = e
+		end
+	end
+	check("lecture complète : un signal par plan et une seule fin", changes == 3 and finishes == 1 and last.reason == "completed")
+
+	-- skip / reprise
+	local ps = Cinema.player(seq)
+	ps.play(0)
+	ps.update(3)
+	check("skip en cours de lecture", ps.skip() == true and ps.state == "done" and ps.reason == "skipped")
+	check("après un skip : update = nil, second skip refusé", ps.update(4) == nil and ps.skip() == false)
+	ps.play(100)
+	ev = ps.update(100)
+	check("reprise après un skip : repart au plan 1", ps.state == "playing" and ps.reason == nil and ev.shot == 1 and ev.shotChanged == true)
+	check("abort : raison aborted", ps.abort() == true and ps.reason == "aborted" and ps.update(101) == nil)
+
+	-- horloge capricieuse
+	local pt = Cinema.player(seq)
+	pt.play(50)
+	ev = pt.update(40)
+	check("temps qui recule : plan 1 à 0 sans erreur", ev.shot == 1 and ev.progress == 0)
+	ev = pt.update(50 + 1000)
+	check("gros saut de temps : fin normale", ev.finished == true and ev.reason == "completed")
+
+	-- directeur : intro puis tutoriel en file, jamais de superposition
+	local seqA = Cinema.sequence({ id = "intro", shots = { { dur = 2, pos = { 0, 5, 0 }, look = { 0, 0, 0 } } } })
+	local seqB = Cinema.sequence({ id = "tutorial", shots = { { dur = 2, pos = { 0, 5, 0 }, look = { 0, 0, 0 } } } })
+	local seqC = Cinema.sequence({ id = "firstRare", shots = { { dur = 1, pos = { 0, 5, 0 }, look = { 0, 0, 0 } } } })
+	local d = Cinema.director()
+	check("director : au repos, rien à jouer", d.update(0) == nil and d.isActive() == false and d.skip(0) == nil)
+	check("director : demande acceptée", d.request("intro", seqA, 0, false) == "playing" and d.isActive())
+	check("director : demande chaînée mise en file", d.request("tutorial", seqB, 0.1, true) == "queued")
+	check("director : demande non chaînée refusée pendant une lecture", d.request("firstRare", seqC, 0.2, false) == "refused")
+	local id, e = d.update(0.5)
+	check("director : update renvoie l'identifiant et le plan", id == "intro" and e.shot == 1 and e.shotChanged == true)
+	id, e = d.update(2.1)
+	check("director : fin de l'intro signalée une fois", id == "intro" and e.finished == true and e.reason == "completed")
+	check("director : le tutoriel enchaîne tout seul", d.isActive() == true and d.current.id == "tutorial")
+	id, e = d.update(2.2)
+	check("director : le tutoriel démarre au plan 1", id == "tutorial" and e.shot == 1 and e.shotChanged == true)
+	id, e = d.update(4.3)
+	check("director : fin du tutoriel, plus rien ensuite", id == "tutorial" and e.finished == true and d.isActive() == false and d.update(5) == nil)
+	check("director : reprise possible une fois libre", d.request("firstRare", seqC, 6, false) == "playing")
+
+	-- skip : la file continue ; skipAll : tout s'arrête ; abort : rien n'est considéré comme vu
+	local d2 = Cinema.director()
+	d2.request("intro", seqA, 0, false)
+	d2.request("tutorial", seqB, 0, true)
+	check("director.skip : renvoie l'intro passée, le tutoriel démarre", d2.skip(1) == "intro" and d2.current.id == "tutorial")
+	check("director.skip : puis le tutoriel", d2.skip(1.1) == "tutorial" and d2.isActive() == false and d2.skip(1.2) == nil)
+	local d3 = Cinema.director()
+	d3.request("intro", seqA, 0, false)
+	d3.request("tutorial", seqB, 0, true)
+	local ids = d3.skipAll()
+	check("director.skipAll : intro et tutoriel marqués passés, plus rien ne joue", #ids == 2 and ids[1] == "intro" and ids[2] == "tutorial" and d3.isActive() == false and d3.update(1) == nil)
+	local d4 = Cinema.director()
+	d4.request("intro", seqA, 0, false)
+	d4.request("tutorial", seqB, 0, true)
+	d4.abort()
+	check("director.abort : tout s'arrête, file vidée", d4.isActive() == false and #d4.queue == 0 and d4.update(1) == nil)
+	check("director : nouvelle demande acceptée après un abort", d4.request("intro", seqA, 5, false) == "playing")
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
