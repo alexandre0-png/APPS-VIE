@@ -26,9 +26,10 @@ for m in re.finditer(r'^S\.(\w+) = \{(.*?)^\}', shapes_src, re.S | re.M):
 def get_shape(n): return (get_shape(extends[n]) if n in extends else []) + shapes[n]
 
 dinos = []
-for m in re.finditer(r'\{ id = "(\w+)", name = "([^"]+)", rarity = "(\w+)", archetype = "(\w+)", scale = ([\d.]+), body = Color3.fromRGB\((\d+), (\d+), (\d+)\), accent = Color3.fromRGB\((\d+), (\d+), (\d+)\)', cfg_src):
+cfg_norm = re.sub(r"\s+", " ", cfg_src)
+for m in re.finditer(r'\{ id = "(\w+)", name = "([^"]+)", rarity = "(\w+)", archetype = "(\w+)", scale = ([\d.]+), body = Color3.fromRGB\((\d+), (\d+), (\d+)\), accent = Color3.fromRGB\((\d+), (\d+), (\d+)\)', cfg_norm):
     g = m.groups()
-    dinos.append(dict(id=g[0], name=g[1], rarity=g[2], arch=g[3], scale=float(g[4]), body=tuple(map(int, g[5:8])), accent=tuple(map(int, g[8:11])), neon="Neon" in cfg_src[m.end():m.end()+120].split("}")[0]))
+    dinos.append(dict(id=g[0], name=g[1], rarity=g[2], arch=g[3], scale=float(g[4]), body=tuple(map(int, g[5:8])), accent=tuple(map(int, g[8:11])), neon="Neon" in cfg_norm[m.end():m.end()+120].split("}")[0]))
 RAR = {"commun": (190,190,190), "peucommun": (110,220,110), "rare": (80,160,255), "epique": (190,100,255), "legendaire": (255,170,40), "mythique": (255,80,120)}
 GOLD_BODY, GOLD_ACC = (255, 200, 40), (255, 140, 30)
 

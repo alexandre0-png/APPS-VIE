@@ -5564,41 +5564,32 @@ local function buildStory()
 	local rows = {}
 	for i, ch in ipairs(Config.Story) do
 		local r = row(p.body, i, 96)
-		local title = Ui.label(
-			r,
-			{
-				text = ch.title,
-				size = 20,
-				align = Enum.TextXAlignment.Left,
-				sizeUdim = UDim2.new(1, -190, 0, 26),
-				pos = UDim2.fromOffset(12, 6),
-				stroke = true,
-			}
-		)
-		local text = Ui.label(
-			r,
-			{
-				text = ch.text,
-				size = 14,
-				color = C.muted,
-				wrap = true,
-				align = Enum.TextXAlignment.Left,
-				valign = Enum.TextYAlignment.Top,
-				sizeUdim = UDim2.new(1, -190, 0, 40),
-				pos = UDim2.fromOffset(12, 34),
-			}
-		)
-		local prog = Ui.label(
-			r,
-			{
-				text = "",
-				size = 13,
-				color = C.gold,
-				align = Enum.TextXAlignment.Left,
-				sizeUdim = UDim2.new(1, -190, 0, 18),
-				pos = UDim2.fromOffset(12, 74),
-			}
-		)
+		local title = Ui.label(r, {
+			text = ch.title,
+			size = 20,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 26),
+			pos = UDim2.fromOffset(12, 6),
+			stroke = true,
+		})
+		local text = Ui.label(r, {
+			text = ch.text,
+			size = 14,
+			color = C.muted,
+			wrap = true,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			sizeUdim = UDim2.new(1, -190, 0, 40),
+			pos = UDim2.fromOffset(12, 34),
+		})
+		local prog = Ui.label(r, {
+			text = "",
+			size = 13,
+			color = C.gold,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 18),
+			pos = UDim2.fromOffset(12, 74),
+		})
 		local btn = Ui.button(r, {
 			text = "Récupérer",
 			size = UDim2.fromOffset(150, 52),
