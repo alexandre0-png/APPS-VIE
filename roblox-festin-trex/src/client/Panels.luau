@@ -56,6 +56,7 @@ local function createWindow(name: string, title: string)
 		Visible = false,
 	})
 	UIKit.corner(w, 16)
+	UIKit.gradient(w, 0.7)
 	UIKit.stroke(w, C.accent, 3)
 	local scale = Instance.new("UIScale")
 	scale.Parent = w

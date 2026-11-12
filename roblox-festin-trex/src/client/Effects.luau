@@ -97,6 +97,21 @@ local function swingArm(character: Model?)
 	end
 	swinging[shoulder] = true
 	local original = shoulder.C0
+	-- Rotation du buste (yaw) pour donner du poids au geste.
+	local root = character:FindFirstChild("Root", true) or character:FindFirstChild("RootJoint", true)
+	if root and root:IsA("Motor6D") then
+		local rootOriginal = root.C0
+		TweenService:Create(root, TweenInfo.new(0.1), { C0 = rootOriginal * CFrame.Angles(0, math.rad(-22), 0) }):Play()
+		task.delay(0.12, function()
+			if root.Parent then
+				local back = TweenService:Create(root, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { C0 = rootOriginal })
+				back.Completed:Connect(function()
+					root.C0 = rootOriginal
+				end)
+				back:Play()
+			end
+		end)
+	end
 	local up = TweenService:Create(shoulder, TweenInfo.new(0.1), { C0 = original * CFrame.Angles(math.rad(-140), 0, 0) })
 	local down = TweenService:Create(shoulder, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { C0 = original })
 	up:Play()
@@ -138,6 +153,22 @@ local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vec
 	p.CFrame = CFrame.new(origin)
 	p.Parent = workspace
 
+	-- Traînée colorée derrière l'aliment.
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, 0.4, 0)
+	a0.Parent = p
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, -0.4, 0)
+	a1.Parent = p
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.3
+	trail.Color = ColorSequence.new(c3(food.Color))
+	trail.Transparency = NumberSequence.new(0.2, 1)
+	trail.LightEmission = 0.3
+	trail.Parent = p
+
 	local g = workspace.Gravity
 	local t0 = os.clock()
 	local conn
@@ -156,6 +187,26 @@ local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vec
 	end)
 	-- Sécurité : si le client rame, la pièce est détruite quand même.
 	Debris:AddItem(p, tHit + 2)
+end
+
+local fovBusy = false
+local function fovKick(amount: number)
+	local cam = workspace.CurrentCamera
+	if not cam or fovBusy then
+		return
+	end
+	fovBusy = true
+	local base = cam.FieldOfView
+	local up = TweenService:Create(cam, TweenInfo.new(0.07), { FieldOfView = base + amount })
+	up:Play()
+	up.Completed:Connect(function()
+		local down = TweenService:Create(cam, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { FieldOfView = base })
+		down.Completed:Connect(function()
+			cam.FieldOfView = base
+			fovBusy = false
+		end)
+		down:Play()
+	end)
 end
 
 local function onFeedFx(hitPos: Vector3, coins: number, userId: number, kind: string, combo: number)
@@ -178,6 +229,7 @@ local function onFeedFx(hitPos: Vector3, coins: number, userId: number, kind: st
 		UIKit.sfx("Munch", 0.6, 0.95 + math.min(combo, 20) * 0.02)
 		UIKit.sfx("Coin", 0.4, 1 + math.min(combo, 20) * 0.03)
 		HUD.showCombo(combo)
+		fovKick(if combo >= 10 then 4 else 2)
 	elseif nearCamera(hitPos, 120) then
 		UIKit.sfx("Munch", 0.3)
 	end

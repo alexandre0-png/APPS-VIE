@@ -21,6 +21,8 @@ local HUD = {}
 local gui: ScreenGui
 local refs: any = {}
 local comboToken = 0
+local coinValue = Instance.new("NumberValue")
+local satTween: Tween? = nil
 
 local function scaled(group: Frame, baseWidth: number, baseHeight: number)
 	local s = Instance.new("UIScale")
@@ -61,6 +63,7 @@ local function buildTopLeft()
 	scaled(g, 1000, 560)
 	local pill = UIKit.frame(g, { Size = UDim2.fromOffset(250, 46), BackgroundColor3 = C.panel, BackgroundTransparency = 0.15 })
 	UIKit.corner(pill, 23)
+	UIKit.gradient(pill)
 	UIKit.stroke(pill, C.gold, 2)
 	refs.coins = UIKit.label(pill, { Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), Text = "🪙 0", TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne, TextColor3 = C.gold })
 
@@ -77,6 +80,7 @@ local function buildDino()
 	scaled(g, 1000, 560)
 	local p = UIKit.frame(g, { Size = UDim2.fromOffset(400, 84), BackgroundTransparency = 0.12 })
 	UIKit.corner(p, 14)
+	UIKit.gradient(p)
 	UIKit.stroke(p, Color3.fromRGB(88, 170, 80), 3)
 	refs.dinoName = UIKit.label(p, { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(190, 24), Text = "🦖 Bébé Rex", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
 	refs.fav = UIKit.label(p, { Position = UDim2.fromOffset(190, 6), Size = UDim2.fromOffset(200, 24), Text = "Envie : 🍎 x3", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C.gold })
@@ -233,6 +237,7 @@ function HUD.showCombo(n: number)
 	end
 	refs.combo.Visible = true
 	refs.combo.Text = string.format("COMBO x%d  (+%d%%)", n, math.floor(Economy.comboMult(n) * 100 - 100))
+	refs.combo.TextColor3 = if n >= 20 then Color3.fromRGB(255, 90, 220) elseif n >= 10 then Color3.fromRGB(255, 150, 50) else C.gold
 	refs.combo.TextSize = 52
 	TweenService:Create(refs.combo, TweenInfo.new(0.2, Enum.EasingStyle.Back), { TextSize = 40 }):Play()
 	task.delay(Config.Combo.Window, function()
@@ -248,7 +253,8 @@ function HUD.hideCombo()
 end
 
 local function refreshState(s: any)
-	refs.coins.Text = "🪙 " .. Util.formatNumber(s.coins)
+	-- Compteur de pièces : défilement fluide vers la nouvelle valeur.
+	TweenService:Create(coinValue, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = s.coins }):Play()
 	refs.level.Text = "Niv. " .. s.level
 	refs.levelFill.Size = UDim2.fromScale(s.levelProgress, 1)
 	refs.mult.Text = string.format("Pièces x%.2f  ·  Évolution %d", s.stats.coinMult, s.rebirths)
@@ -290,10 +296,23 @@ local function refreshDino(state: Instance)
 	local need = state:GetAttribute("Need") or 1
 	local fav = Economy.findFood(state:GetAttribute("Favorite") or "pomme")
 	refs.dinoName.Text = "🦖 " .. name
-	refs.satFill.Size = UDim2.fromScale(math.clamp(sat / need, 0, 1), 1)
+	local ratio = math.clamp(sat / need, 0, 1)
+	if satTween then
+		satTween:Cancel()
+	end
+	satTween = TweenService:Create(refs.satFill, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+		Size = UDim2.fromScale(ratio, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 140, 60):Lerp(Color3.fromRGB(110, 220, 90), ratio),
+	})
+	satTween:Play()
 	refs.satText.Text = string.format("Festin : %s / %s", Util.formatNumber(sat), Util.formatNumber(need))
 	if fav then
-		refs.fav.Text = string.format("Envie : %s %s x%d", fav.Emoji, fav.Name, Config.FavoriteMult)
+		local text = string.format("Envie : %s %s x%d", fav.Emoji, fav.Name, Config.FavoriteMult)
+		if refs.fav.Text ~= text then
+			refs.fav.Text = text
+			refs.fav.TextSize = 24
+			TweenService:Create(refs.fav, TweenInfo.new(0.4, Enum.EasingStyle.Back), { TextSize = 16 }):Play()
+		end
 	end
 	refs.hungry.Text = if state:GetAttribute("Hungry") then string.format("🍽️ Faim de loup ! Pièces x%.1f", Config.HungryMult) else ""
 end
@@ -345,6 +364,9 @@ function HUD.init(openPanel: (string) -> (), throwCenter: () -> ())
 	buildToasts()
 
 	local state = ReplicatedStorage:WaitForChild("GameState")
+	coinValue:GetPropertyChangedSignal("Value"):Connect(function()
+		refs.coins.Text = "🪙 " .. Util.formatNumber(math.floor(coinValue.Value + 0.5))
+	end)
 	Store.onChange(refreshState)
 	local function dino()
 		refreshDino(state)

@@ -51,6 +51,16 @@ function UIKit.stroke(inst: GuiObject, color: Color3?, thickness: number?)
 	return s
 end
 
+-- Dégradé vertical discret (à réserver aux cadres sans texte propre : UIGradient teinte aussi le texte).
+function UIKit.gradient(inst: GuiObject, bottomShade: number?)
+	local g = Instance.new("UIGradient")
+	local k = bottomShade or 0.78
+	g.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(k, k, k))
+	g.Rotation = 90
+	g.Parent = inst
+	return g
+end
+
 function UIKit.frame(parent: Instance, props: any): Frame
 	local f = Instance.new("Frame")
 	f.BackgroundColor3 = UIKit.Colors.panel
@@ -95,6 +105,17 @@ function UIKit.button(parent: Instance, props: any): TextButton
 		end
 	end
 	UIKit.corner(b, 10)
+	-- Reflet du haut du bouton (relief « plastique » façon Roblox).
+	local shine = Instance.new("Frame")
+	shine.Name = "Shine"
+	shine.BackgroundColor3 = Color3.new(1, 1, 1)
+	shine.BackgroundTransparency = 0.88
+	shine.BorderSizePixel = 0
+	shine.Size = UDim2.new(1, -8, 0.42, 0)
+	shine.Position = UDim2.fromOffset(4, 3)
+	shine.Active = false
+	shine.Parent = b
+	UIKit.corner(shine, 8)
 	if callback then
 		b.Activated:Connect(function()
 			UIKit.sfx("Click", 0.3)

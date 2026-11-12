@@ -60,16 +60,17 @@ tools/       build_rbxlx.py, check.sh (analyse luau-lsp avec les types Roblox)
 - Tirage des œufs côté serveur. Aucune donnée n'est écrite par le client.
 - Sauvegarde avec verrou de session (`UpdateAsync`, expiration 150 s) contre la duplication entre serveurs ; si le chargement échoue, le profil est temporaire et **n'écrase jamais** la sauvegarde.
 
-## Vérifications réalisées — état réel
-| Contrôle | Résultat |
+## Vérifications — état réel
+| Contrôle | Statut |
 |---|---|
-| Génération du `.rbxlx` : XML bien formé, 25 scripts dans l'arborescence attendue | ✅ exécuté |
-| Analyse Luau avec types Roblox (`tools/check.sh`) | ⚠️ **non exécutée** : le bac à sable a refusé de lancer le binaire `luau-lsp` téléchargé |
-| Tests unitaires (`tests/run.sh`) | ⚠️ **écrits mais non exécutés** (même raison, binaire `luau`) |
-| Partie jouée dans Roblox Studio | ❌ **jamais lancée** (aucun Studio dans l'environnement) |
-| Relecture manuelle ligne à ligne (références, signatures des remotes, ordre d'initialisation, identifiants Luau) | ✅ effectuée |
-
-Le code n'a donc **pas été prouvé fonctionnel** : premier réflexe attendu à l'ouverture, lancer `tools/check.sh`, `tests/run.sh`, puis Play en Studio et lire la fenêtre Output.
+| `python3 tools/blockcheck.py src` (équilibre `end`/`until`, parenthèses, guillemets, 27 fichiers) | ✅ **exécuté**, tout passe |
+| `python3 tools/build_rbxlx.py` (XML bien formé, 26 scripts dans l'arborescence attendue) | ✅ **exécuté** |
+| Rendu des visuels de page (`node tools/store_assets/render.js`) | ✅ exécuté, icône et miniature relues à l'œil |
+| `tools/check.sh` (luau-lsp, types Roblox) | ⚠️ **non exécuté** : binaire téléchargé refusé par le bac à sable |
+| `tests/run.sh` (CLI Luau ; tests rédigés pour Lune/Luau CLI, logique pure + verrou DataStore) | ⚠️ **écrit, non exécuté** (même raison) |
+| stylua, selene, `rojo build` | ⚠️ **non exécutés** (même raison) ; `default.project.json` n'a pas été validé par Rojo |
+| Relecture manuelle (références, signatures des remotes, ordre d'initialisation) | ✅ relu |
+| Partie jouée dans Roblox Studio (rendu, animations, achats, sauvegarde) | ❌ **à tester dans Studio** |
 
 ## Reste à finaliser / limites connues
 - Sons : chemins `rbxasset://sounds/...` intégrés à Roblox, non vérifiés ; remplaçables dans `Config.Sounds`.

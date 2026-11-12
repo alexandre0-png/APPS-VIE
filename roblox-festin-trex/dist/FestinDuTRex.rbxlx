@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBX4F7D80BE872D43349FB9904595BBB14D"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBXECD30ADA630D42B4815B21367B62B117"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX48467837DE8C4CC1B445699322ADEFCF"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX26135232574F4A9E98EB54E8A01BA498"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBX7BC7769A7FDE44F193330CD79136C619"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX4EB85395C85F4A188971C27906E3F096"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX0588ABC1A8D345919B5B14DFB3822AC1"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX4F3C9300C5DC4F088DE6B55768AAF1EA"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Balistique pure (nombres, pas de Vector3) : utilisée à l'identique par le serveur (validation)
 -- et par les clients (animation), donc l'arc affiché correspond exactement à l'arc calculé.
 
@@ -18,13 +18,15 @@ function Ballistics.position(ox: number, oy: number, oz: number, vx: number, vy:
 end
 
 return Ballistics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDF8093EF61674DEE8187D775C8F9F58B"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59386D54D0AF4829A4B8CF7730DB51FF"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Configuration centrale du jeu « Festin du T-Rex ».
 -- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
 
 local Config: any = {}
 
 Config.Name = "Festin du T-Rex"
+
+Config.DataVersion = 1 -- à incrémenter + ajouter une migration dans DataService.Migrations pour tout changement NON additif
 
 Config.Data = {
 	StoreName = "FestinTRex_v1",
@@ -232,7 +234,7 @@ Config.Defaults = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDF23B6F1AF1B4C43AC2226B2CC1267ED"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF491CB0CEB5C4461A40BE1A91BD7CD57"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Machine d'état du T-Rex (satiété, contributions, festin). Pure : testable hors Studio.
 
 local Config = require(script.Parent.Config)
@@ -285,7 +287,7 @@ function DinoCore.completeFeast(self: Core): ({ [number]: number }, number, numb
 end
 
 return DinoCore
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4DA5A79CA14F4C20AAD66C87D7DE88AF"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE7EA4EC656C7425FB302329C527BA7A8"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Calculs d'économie et de statistiques (purs, testables hors Studio).
 
 local Config = require(script.Parent.Config)
@@ -452,7 +454,7 @@ function Economy.rollPet(eggKind: string, rnd1: number, rnd2: number): string
 end
 
 return Economy
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCD780FE8C4814DF3B2ABDAB82B11B0D6"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9D237F47AF694B7D9AB5EF4DD73655FF"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique des quêtes quotidiennes et de la série de connexion (pure).
 
 local Config = require(script.Parent.Config)
@@ -569,7 +571,7 @@ function QuestLogic.claimDaily(data: any, today: number): (number?, number?, num
 end
 
 return QuestLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXBF72D1DF693D4E52A5A7FC127AD1CFA4"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91DA6C80AA254496B5D450E418296EBA"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Définition unique des RemoteEvents / RemoteFunction. Le serveur les crée, le client les attend.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -614,7 +616,7 @@ function Remotes.init()
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX877F1DBBEF134FB7AE1728C47E59AA29"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4DD31CA2F487445BBDF6AEA1639F066E"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Utilitaires purs (sans dépendance Roblox) : testables en dehors de Studio.
 
 local Util = {}
@@ -725,7 +727,7 @@ function Util.formatTime(seconds: number): string
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX6FD84CE009494B3588684FA2555F4CE0"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX320A143EED584B80B02DC24C920C0848"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX35891976BCE04BAA9C09100C5B0E4D62"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX516411ED1F144A3291194B135A7F139D"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX981E4023049043D88CC2787C98BB89EA"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX9AAE8D081D5445B1B1733266292EDAC5"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée serveur : initialise les services dans l'ordre des dépendances.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -739,7 +741,6 @@ local PlayerService = require(Services:WaitForChild("PlayerService"))
 local DinoService = require(Services:WaitForChild("DinoService"))
 local EventService = require(Services:WaitForChild("EventService"))
 local FoodService = require(Services:WaitForChild("FoodService"))
-local PetService = require(Services:WaitForChild("PetService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
 local ShopService = require(Services:WaitForChild("ShopService"))
@@ -761,7 +762,7 @@ MonetizationService.init()
 PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
 
 print("[FestinTRex] Serveur prêt.")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX74BAE86903564704BDB87AF5CEB26A53"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX4087B5D310D54A4BBDA6191C93185327"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBXBD2A4D09DF9C444FA0D8786D721CA3FC"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX476706EB9FFB4A29BAB69BA68BE46E5C"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Chargement / sauvegarde des profils avec verrou de session (anti-duplication entre serveurs).
 -- Le DataStore est injectable (_setStore) pour pouvoir tester la logique hors Studio.
 
@@ -799,6 +800,25 @@ function DataService._setStore(fakeStore: any, fakeClock: (() -> number)?, fakeJ
 	jobId = fakeJobId or "test"
 	if fakeSleep then
 		sleep = fakeSleep
+	end
+end
+
+-- Migrations : Migrations[n] convertit un profil de la version n vers n+1.
+-- Les ajouts de clés sont gérés par Util.reconcile (pas besoin de migration).
+DataService.Migrations = {} :: { [number]: (any) -> () }
+
+function DataService.migrate(data: any)
+	local current = Config.DataVersion
+	if type(data.version) ~= "number" then
+		data.version = 1
+	end
+	-- Un profil plus récent que ce serveur n'est jamais « rétrogradé ».
+	while data.version < current do
+		local step = DataService.Migrations[data.version]
+		if step then
+			step(data)
+		end
+		data.version += 1
 	end
 end
 
@@ -841,6 +861,7 @@ function DataService.load(userId: number): (any?, string?)
 		if ok and not blocked then
 			local data = if captured ~= nil then Util.deepCopy(captured) else {}
 			Util.reconcile(data, Config.Defaults)
+			DataService.migrate(data)
 			return data, nil
 		end
 		lastError = if blocked then "session déjà ouverte sur un autre serveur" else tostring(err)
@@ -852,27 +873,36 @@ function DataService.load(userId: number): (any?, string?)
 end
 
 -- Sauvegarde. release=true libère le verrou (départ du joueur). Retourne true si écrit.
+-- Réessaie jusqu'à 3 fois en cas d'erreur DataStore ; un verrou étranger n'est jamais écrasé (pas de réessai).
 function DataService.save(userId: number, data: any, release: boolean): boolean
 	local s = getStore()
-	local written = false
-	local ok = pcall(function()
-		s:UpdateAsync(keyFor(userId), function(old)
-			written = false
-			old = old or {}
-			if lockIsForeign(old) then
-				return nil -- un autre serveur détient le profil : on n'écrase rien
-			end
-			old.data = data
-			old.lock = if release then nil else { job = jobId, t = clock() }
-			written = true
-			return old
+	for attempt = 1, 3 do
+		local written = false
+		local ok = pcall(function()
+			s:UpdateAsync(keyFor(userId), function(old)
+				written = false
+				old = old or {}
+				if lockIsForeign(old) then
+					return nil -- un autre serveur détient le profil : on n'écrase rien
+				end
+				old.data = data
+				old.lock = if release then nil else { job = jobId, t = clock() }
+				written = true
+				return old
+			end)
 		end)
-	end)
-	return ok and written
+		if ok then
+			return written
+		end
+		if attempt < 3 then
+			sleep(attempt)
+		end
+	end
+	return false
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9543B7A11F124BD4AB0F4A05DB3278F0"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA782CAAE1D3A469D94ECB68275E4D161"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Le T-Rex central : construction du modèle (blocs Roblox), satiété, favori, festin et croissance.
 
 local Players = game:GetService("Players")
@@ -894,8 +924,16 @@ local core = DinoCore.new()
 local model: Model
 local mouthZone: BasePart
 local hitParts: { Instance } = {}
-local jawParts: { { part: BasePart, offset: Vector3 } } = {}
+-- Animation : chaque pièce mobile mémorise sa position/rotation à l'échelle 1 et son groupe.
+local animated: { { part: BasePart, pos: Vector3, rot: CFrame, group: string } } = {}
+local pupils: { BasePart } = {}
+local eyes: { BasePart } = {}
 local HINGE = Vector3.new(0, 20, 13.5)
+local HEAD_PIVOT = Vector3.new(0, 18, 4)
+local TAIL_PIVOTS = { Vector3.new(0, 13, -8), Vector3.new(0, 12.5, -18), Vector3.new(0, 12, -27) }
+local SHOULDER_L = Vector3.new(5.9, 16.5, 6)
+local SHOULDER_R = Vector3.new(-5.9, 16.5, 6)
+local roarStart = -10
 local favorite = "pomme"
 local state: Instance
 local chompStart = -10
@@ -906,10 +944,6 @@ local function setAttr(name: string, value: any)
 	if state:GetAttribute(name) ~= value then
 		state:SetAttribute(name, value)
 	end
-end
-
-local function c3(t: { number }): Color3
-	return Color3.fromRGB(t[1], t[2], t[3])
 end
 
 -- ---------------------------------------------------------------- construction
@@ -988,8 +1022,7 @@ local function buildModel()
 
 	-- Mâchoire (animée) : mâchoire, langue, dents du bas.
 	local function jaw(name: string, size: Vector3, pos: Vector3, color: Color3)
-		local p = addPart(name, size, pos, color, { collide = false })
-		table.insert(jawParts, { part = p, offset = pos - HINGE })
+		addPart(name, size, pos, color, { collide = false })
 	end
 	jaw("LowerJaw", Vector3.new(7, 2.2, 8), Vector3.new(0, 19.9, 17.5), Color3.fromRGB(100, 185, 90))
 	jaw("Tongue", Vector3.new(4, 0.6, 6), Vector3.new(0, 21.1, 17), Color3.fromRGB(240, 110, 130))
@@ -1002,6 +1035,38 @@ local function buildModel()
 	local head = addPart("HeadHit", Vector3.new(9, 8.5, 9), Vector3.new(0, 21.5, 8.5), white, { hidden = true, collide = false, query = true, shadow = false })
 	local body = addPart("BodyHit", Vector3.new(11, 20, 25), Vector3.new(0, 10, -5), white, { hidden = true, collide = false, query = true, shadow = false })
 	hitParts = { mouthZone, head, body }
+
+	-- Affectation des groupes d'animation (positions à l'échelle 1, avant ScaleTo).
+	for _, p in ipairs(model:GetChildren()) do
+		local group = nil
+		local n = p.Name
+		if n == "Head" or n == "Snout" or n == "MouthInside" or n == "Eye" or n == "Pupil" or n == "Tooth" then
+			group = "head"
+		elseif n == "LowerJaw" or n == "Tongue" or n == "LowerTooth" then
+			group = "jaw"
+		elseif n == "Tail1" then
+			group = "t1"
+		elseif n == "Tail2" then
+			group = "t2"
+		elseif n == "Tail3" then
+			group = "t3"
+		elseif n == "ArmL" then
+			group = "armL"
+		elseif n == "ArmR" then
+			group = "armR"
+		elseif n == "Spike" then
+			local z = p.Position.Z
+			group = if z < -20 then "t2" elseif z < -10 then "t1" else nil
+		end
+		if group then
+			table.insert(animated, { part = p, pos = p.Position, rot = p.CFrame.Rotation, group = group })
+		end
+		if n == "Pupil" then
+			table.insert(pupils, p)
+		elseif n == "Eye" then
+			table.insert(eyes, p)
+		end
+	end
 
 	model:PivotTo(CFrame.new(0, 0, 0))
 	model.Parent = workspace
@@ -1056,6 +1121,10 @@ function DinoService.getRayTargets(): { Instance }
 	return rayTargets
 end
 
+function DinoService.roar()
+	roarStart = os.clock()
+end
+
 function DinoService.chomp()
 	chompStart = os.clock()
 end
@@ -1077,6 +1146,7 @@ local function runFeast()
 		return
 	end
 	feastBusy = true
+	DinoService.roar()
 	local contrib, total, finishedStage = core:completeFeast()
 	local stageName = Config.Dino.Stages[finishedStage].Name
 
@@ -1172,8 +1242,12 @@ function DinoService.init(mapFolder: Instance)
 		end
 	end)
 
-	-- Animation de la mâchoire (~20 Hz).
+	-- Animation (~20 Hz) : respiration, tête, mâchoire, queue en chaîne, bras, clignement, rugissement.
+	local function around(pivot: Vector3, rot: CFrame, s: number): CFrame
+		return CFrame.new(pivot * s) * rot * CFrame.new(-pivot * s)
+	end
 	local acc = 0
+	local blinking = false
 	RunService.Heartbeat:Connect(function(dt)
 		acc += dt
 		if acc < 0.05 then
@@ -1181,23 +1255,47 @@ function DinoService.init(mapFolder: Instance)
 		end
 		acc = 0
 		local t = os.clock()
-		local open
-		local since = t - chompStart
-		if since < 0.4 then
-			open = 0.05 + 0.5 * math.sin((since / 0.4) * math.pi)
-		else
-			open = 0.12 + 0.08 * math.sin(t * 1.6)
-		end
 		local s = currentScale
-		local pivot = CFrame.new(HINGE * s) * CFrame.Angles(open, 0, 0)
-		for _, j in ipairs(jawParts) do
-			j.part.CFrame = pivot * CFrame.new(j.offset * s)
+		local since = t - chompStart
+		local chompOpen = if since < 0.4 then 0.05 + 0.5 * math.sin((since / 0.4) * math.pi) else 0
+		local rs = t - roarStart
+		local roar = if rs < 1.8 then math.sin(math.pi * rs / 1.8) else 0
+		local breathe = math.sin(t * 1.4)
+		local open = 0.12 + 0.08 * math.sin(t * 1.6) + chompOpen + 0.8 * roar
+
+		local headM = CFrame.new(0, 0.25 * breathe * s, 0) * around(HEAD_PIVOT, CFrame.Angles(0.03 * breathe - 0.38 * roar, 0, 0), s)
+		local m1 = around(TAIL_PIVOTS[1], CFrame.Angles(0, 0.08 * math.sin(t * 1.8), 0), s)
+		local m2 = m1 * around(TAIL_PIVOTS[2], CFrame.Angles(0, 0.14 * math.sin(t * 1.8 - 0.6), 0), s)
+		local m3 = m2 * around(TAIL_PIVOTS[3], CFrame.Angles(0, 0.2 * math.sin(t * 1.8 - 1.2), 0), s)
+		local groups = {
+			head = headM,
+			jaw = headM * around(HINGE, CFrame.Angles(open, 0, 0), s),
+			t1 = m1,
+			t2 = m2,
+			t3 = m3,
+			armL = around(SHOULDER_L, CFrame.Angles(0.2 * math.sin(t * 2), 0, 0), s),
+			armR = around(SHOULDER_R, CFrame.Angles(0.2 * math.sin(t * 2 + 1), 0, 0), s),
+		}
+		for _, a in ipairs(animated) do
+			a.part.CFrame = groups[a.group] * (CFrame.new(a.pos * s) * a.rot)
+		end
+
+		-- Clignement toutes les ~4,3 s.
+		local shouldBlink = (t % 4.3) < 0.12
+		if shouldBlink ~= blinking then
+			blinking = shouldBlink
+			for _, p in ipairs(pupils) do
+				p.Transparency = if blinking then 1 else 0
+			end
+			for _, e in ipairs(eyes) do
+				e.Color = if blinking then Color3.fromRGB(88, 170, 80) else Color3.fromRGB(250, 250, 250)
+			end
 		end
 	end)
 end
 
 return DinoService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91E2549D9ABD4BE89B0F38BD2E4B2674"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117BDC011D8E487F94731AAD9E984F4F"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Événements périodiques : Marée de sauce (survie), Pluie gourmande (collecte), Frénésie (x2 pièces).
 -- L'état est publié dans ReplicatedStorage.GameState : les clients dessinent les effets eux-mêmes.
 
@@ -1446,13 +1544,12 @@ function EventService.init()
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA45A0E0433914671A399A71E3272A1EF"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1199A25D9987422994E8920E70433979"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Lancers de nourriture : validation serveur complète, simulation balistique, récompenses.
 -- Le client n'envoie QUE la position visée ; origine, portée, cadence, munitions et résultat
 -- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
 
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -1770,7 +1867,7 @@ function FoodService.init()
 end
 
 return FoodService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXC99A206F77DA48A9A463DA861EE4D390"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87FE44BBF946466EA5847BCA5837DDA5"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Classement mondial « Plus gros nourrisseurs » (OrderedDataStore) + tableau dans le monde.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -1862,7 +1959,7 @@ function LeaderboardService.init(boardLabels: { TextLabel })
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96B19C6F70EA47C691EC10ACB08B2147"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2AA30FA8A2D3449BB305224B424040B4"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Construction procédurale du monde avec des Parts natives Roblox (aucun asset externe) :
 -- place du festin, stands, kiosques, tables de survie, arbres, secrets, éclairage.
 
@@ -2152,36 +2249,90 @@ local function buildSecrets()
 end
 
 local function buildLighting()
-	Lighting.ClockTime = 14.5
-	Lighting.Brightness = 2.2
-	Lighting.Ambient = Color3.fromRGB(120, 125, 135)
-	Lighting.OutdoorAmbient = Color3.fromRGB(135, 140, 150)
+	Lighting.ClockTime = 16.4 -- heure dorée : ombres longues, couleurs chaudes
+	Lighting.Brightness = 2.6
+	Lighting.Ambient = Color3.fromRGB(125, 122, 135)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 145, 150)
+	Lighting.ColorShift_Top = Color3.fromRGB(255, 236, 205)
+	Lighting.ExposureCompensation = 0.15
+	Lighting.EnvironmentDiffuseScale = 0.6
+	Lighting.EnvironmentSpecularScale = 0.35
+	Lighting.ShadowSoftness = 0.25
 	Lighting.GlobalShadows = true
-	for _, class in ipairs({ "Atmosphere", "BloomEffect", "ColorCorrectionEffect", "SunRaysEffect" }) do
+	for _, class in ipairs({ "Atmosphere", "BloomEffect", "ColorCorrectionEffect", "SunRaysEffect", "DepthOfFieldEffect" }) do
 		local old = Lighting:FindFirstChildOfClass(class)
 		if old then
 			old:Destroy()
 		end
 	end
 	local atmo = Instance.new("Atmosphere")
-	atmo.Density = 0.25
-	atmo.Offset = 0.2
-	atmo.Color = Color3.fromRGB(200, 215, 240)
-	atmo.Haze = 0.6
+	atmo.Density = 0.28
+	atmo.Offset = 0.25
+	atmo.Color = Color3.fromRGB(255, 220, 190)
+	atmo.Decay = Color3.fromRGB(255, 170, 120)
+	atmo.Glare = 0.2
+	atmo.Haze = 0.7
 	atmo.Parent = Lighting
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.25
-	bloom.Size = 20
-	bloom.Threshold = 1.5
+	bloom.Intensity = 0.3
+	bloom.Size = 22
+	bloom.Threshold = 1.4
 	bloom.Parent = Lighting
 	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Saturation = 0.15
-	cc.Contrast = 0.08
+	cc.Saturation = 0.2
+	cc.Contrast = 0.1
+	cc.TintColor = Color3.fromRGB(255, 247, 238)
 	cc.Parent = Lighting
 	local rays = Instance.new("SunRaysEffect")
-	rays.Intensity = 0.08
-	rays.Spread = 0.6
+	rays.Intensity = 0.12
+	rays.Spread = 0.7
 	rays.Parent = Lighting
+	local dof = Instance.new("DepthOfFieldEffect")
+	dof.FarIntensity = 0.12
+	dof.FocusDistance = 120
+	dof.InFocusRadius = 140
+	dof.NearIntensity = 0
+	dof.Parent = Lighting
+end
+
+-- Décor : assiette géante sous le T-Rex, lampadaires, fleurs, rochers (positions pseudo-aléatoires déterministes).
+local function buildDecor()
+	local plate = part(map, { Name = "DinoPlate", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 74, 74), CFrame = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(245, 245, 248), Material = Enum.Material.Marble, CanQuery = false })
+	part(plate.Parent, { Name = "DinoPlateRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 80, 80), CFrame = CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(215, 70, 70), Material = Enum.Material.SmoothPlastic, CanQuery = false })
+
+	-- 12 lampadaires entre les drapeaux.
+	for i = 1, 12 do
+		local a = ((i - 0.5) / 12) * math.pi * 2
+		local x, z = math.cos(a) * 66, math.sin(a) * 66
+		part(map, { Name = "LampPole", Size = Vector3.new(0.7, 11, 0.7), Position = Vector3.new(x, 5.5, z), Color = Color3.fromRGB(60, 60, 70), Material = Enum.Material.Metal, CanQuery = false })
+		local bulb = part(map, { Name = "LampBulb", Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 2.2, 2.2), Position = Vector3.new(x, 12, z), Color = Color3.fromRGB(255, 226, 140), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false })
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 214, 150)
+		light.Range = 26
+		light.Brightness = 1.1
+		light.Shadows = false
+		light.Parent = bulb
+	end
+
+	-- Fleurs et rochers hors de la place.
+	local flowerColors = { Color3.fromRGB(255, 90, 120), Color3.fromRGB(255, 220, 70), Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 110, 255) }
+	for i = 1, 140 do
+		local a = math.sin(i * 12.9898) * 43758.5453
+		local b = math.sin(i * 78.233) * 24634.6345
+		local angle = (a - math.floor(a)) * math.pi * 2
+		local radius = 90 + (b - math.floor(b)) * 90
+		local x, z = math.cos(angle) * radius, math.sin(angle) * radius
+		part(map, { Name = "Flower", Size = Vector3.new(0.7, 0.9, 0.7), Position = Vector3.new(x, 0.45, z), Color = flowerColors[(i % #flowerColors) + 1], CanCollide = false, CanQuery = false, CanTouch = false })
+	end
+	for i = 1, 24 do
+		local a = math.sin(i * 39.346) * 43758.5453
+		local b = math.sin(i * 11.135) * 24634.6345
+		local c = math.sin(i * 7.77) * 9123.1
+		local angle = (a - math.floor(a)) * math.pi * 2
+		local radius = 100 + (b - math.floor(b)) * 110
+		local size = 3 + (c - math.floor(c)) * 5
+		part(map, { Name = "Rock", Size = Vector3.new(size, size * 0.7, size * 0.9), CFrame = CFrame.new(math.cos(angle) * radius, size * 0.25, math.sin(angle) * radius) * CFrame.Angles(0, angle, math.rad(8)), Color = Color3.fromRGB(135, 135, 140), Material = Enum.Material.Slate, CanQuery = false })
+	end
 end
 
 -- Retourne (dossierCarte, étiquettesDuClassement)
@@ -2193,6 +2344,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 	buildLighting()
 	buildGround()
 	buildBunting()
+	buildDecor()
 	buildTrees()
 
 	-- Stands de nourriture en arc de cercle devant le T-Rex.
@@ -2219,7 +2371,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE8B785718CD3486CBF8E031A41866C61"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF28C3050C00A41FDB48128C3D44C2AB7"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Achats Robux : Game Passes (propriété vérifiée par Roblox) et produits développeur
 -- (ProcessReceipt idempotent : un reçu n'est jamais accordé deux fois, annulation si la sauvegarde échoue).
 
@@ -2357,7 +2509,7 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX04F1A4FA4EEC4AD7A3401F7E4F504B94"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA547C550054440CA83D2A2F5D2DF9FFC"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Œufs et compagnons : tirage serveur (aléatoire non manipulable par le client), équipement.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2441,7 +2593,7 @@ function PetService.equip(player: Player, petId: any, on: any): (boolean, string
 end
 
 return PetService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90968B0D91B647EA9A9FFEFC9158CC9F"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX420295DEE64B40508AD045AD0052E16C"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Profils joueurs : chargement, état de session, statistiques, monnaie, synchronisation client.
 -- Toutes les modifications de données passent par ici (le client ne peut jamais écrire).
 
@@ -2789,7 +2941,7 @@ function PlayerService.init()
 end
 
 return PlayerService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB0A845B513A44BC280E7AA8FA09B468F"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9152B27A37A14CEDA952A23F15F0223F"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Quêtes quotidiennes, série de connexion et secrets (fourchettes d'or).
 
 local CollectionService = game:GetService("CollectionService")
@@ -2888,7 +3040,7 @@ function QuestService.init()
 end
 
 return QuestService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2A85CE53F31343E79AE55619D51DF0B7"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5E100F1572E64A3499F4797FC5024007"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Routeur unique des requêtes client (RemoteFunction « Request ») + achats.
 -- Chaque action est validée : types, existence, propriété, prix, limites, cadence.
 
@@ -3055,7 +3207,7 @@ function ShopService.init()
 end
 
 return ShopService
-]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX7FB7DF96330F4EAAA2D614DB6E71891E"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX5F58AF94DCF74F3AA572BC96FAD338C7"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX3353355B35A249018851B5CBF6415B17"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBXE1C518A5C3E34AB9BB6A7C03CB1042C4"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX55C02E8BCFEC4FE496A530AA112A63C9"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBXBB8DE3E05E2D4D6D944380B3F59F946F"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX90301ABF0CC24E8E8259BA97632CB9E9"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX812D1959A009439CAD03BBE0ADCE28AC"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Effets visuels et sonores : arcs de lancer (rejoués depuis le calcul serveur), impacts,
 -- bonus flottants, festin, vague de sauce (calculée localement depuis l'heure serveur).
 
@@ -3154,6 +3306,21 @@ local function swingArm(character: Model?)
 	end
 	swinging[shoulder] = true
 	local original = shoulder.C0
+	-- Rotation du buste (yaw) pour donner du poids au geste.
+	local root = character:FindFirstChild("Root", true) or character:FindFirstChild("RootJoint", true)
+	if root and root:IsA("Motor6D") then
+		local rootOriginal = root.C0
+		TweenService:Create(root, TweenInfo.new(0.1), { C0 = rootOriginal * CFrame.Angles(0, math.rad(-22), 0) }):Play()
+		task.delay(0.12, function()
+			if root.Parent then
+				local back = TweenService:Create(root, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { C0 = rootOriginal })
+				back.Completed:Connect(function()
+					root.C0 = rootOriginal
+				end)
+				back:Play()
+			end
+		end)
+	end
 	local up = TweenService:Create(shoulder, TweenInfo.new(0.1), { C0 = original * CFrame.Angles(math.rad(-140), 0, 0) })
 	local down = TweenService:Create(shoulder, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { C0 = original })
 	up:Play()
@@ -3195,6 +3362,22 @@ local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vec
 	p.CFrame = CFrame.new(origin)
 	p.Parent = workspace
 
+	-- Traînée colorée derrière l'aliment.
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, 0.4, 0)
+	a0.Parent = p
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, -0.4, 0)
+	a1.Parent = p
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.3
+	trail.Color = ColorSequence.new(c3(food.Color))
+	trail.Transparency = NumberSequence.new(0.2, 1)
+	trail.LightEmission = 0.3
+	trail.Parent = p
+
 	local g = workspace.Gravity
 	local t0 = os.clock()
 	local conn
@@ -3213,6 +3396,26 @@ local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vec
 	end)
 	-- Sécurité : si le client rame, la pièce est détruite quand même.
 	Debris:AddItem(p, tHit + 2)
+end
+
+local fovBusy = false
+local function fovKick(amount: number)
+	local cam = workspace.CurrentCamera
+	if not cam or fovBusy then
+		return
+	end
+	fovBusy = true
+	local base = cam.FieldOfView
+	local up = TweenService:Create(cam, TweenInfo.new(0.07), { FieldOfView = base + amount })
+	up:Play()
+	up.Completed:Connect(function()
+		local down = TweenService:Create(cam, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { FieldOfView = base })
+		down.Completed:Connect(function()
+			cam.FieldOfView = base
+			fovBusy = false
+		end)
+		down:Play()
+	end)
 end
 
 local function onFeedFx(hitPos: Vector3, coins: number, userId: number, kind: string, combo: number)
@@ -3235,6 +3438,7 @@ local function onFeedFx(hitPos: Vector3, coins: number, userId: number, kind: st
 		UIKit.sfx("Munch", 0.6, 0.95 + math.min(combo, 20) * 0.02)
 		UIKit.sfx("Coin", 0.4, 1 + math.min(combo, 20) * 0.03)
 		HUD.showCombo(combo)
+		fovKick(if combo >= 10 then 4 else 2)
 	elseif nearCamera(hitPos, 120) then
 		UIKit.sfx("Munch", 0.3)
 	end
@@ -3413,7 +3617,7 @@ function Effects.init()
 end
 
 return Effects
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX00B628D6DFEB426DB5531A71E7D00E5C"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1C265F40A64A4AD9BEEA82BA37360251"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Interface permanente : pièces, niveau, état du T-Rex, événements, panier, combo, boutons, notifications.
 
 local Players = game:GetService("Players")
@@ -3436,6 +3640,8 @@ local HUD = {}
 local gui: ScreenGui
 local refs: any = {}
 local comboToken = 0
+local coinValue = Instance.new("NumberValue")
+local satTween: Tween? = nil
 
 local function scaled(group: Frame, baseWidth: number, baseHeight: number)
 	local s = Instance.new("UIScale")
@@ -3476,6 +3682,7 @@ local function buildTopLeft()
 	scaled(g, 1000, 560)
 	local pill = UIKit.frame(g, { Size = UDim2.fromOffset(250, 46), BackgroundColor3 = C.panel, BackgroundTransparency = 0.15 })
 	UIKit.corner(pill, 23)
+	UIKit.gradient(pill)
 	UIKit.stroke(pill, C.gold, 2)
 	refs.coins = UIKit.label(pill, { Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), Text = "🪙 0", TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne, TextColor3 = C.gold })
 
@@ -3492,6 +3699,7 @@ local function buildDino()
 	scaled(g, 1000, 560)
 	local p = UIKit.frame(g, { Size = UDim2.fromOffset(400, 84), BackgroundTransparency = 0.12 })
 	UIKit.corner(p, 14)
+	UIKit.gradient(p)
 	UIKit.stroke(p, Color3.fromRGB(88, 170, 80), 3)
 	refs.dinoName = UIKit.label(p, { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(190, 24), Text = "🦖 Bébé Rex", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
 	refs.fav = UIKit.label(p, { Position = UDim2.fromOffset(190, 6), Size = UDim2.fromOffset(200, 24), Text = "Envie : 🍎 x3", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C.gold })
@@ -3648,6 +3856,7 @@ function HUD.showCombo(n: number)
 	end
 	refs.combo.Visible = true
 	refs.combo.Text = string.format("COMBO x%d  (+%d%%)", n, math.floor(Economy.comboMult(n) * 100 - 100))
+	refs.combo.TextColor3 = if n >= 20 then Color3.fromRGB(255, 90, 220) elseif n >= 10 then Color3.fromRGB(255, 150, 50) else C.gold
 	refs.combo.TextSize = 52
 	TweenService:Create(refs.combo, TweenInfo.new(0.2, Enum.EasingStyle.Back), { TextSize = 40 }):Play()
 	task.delay(Config.Combo.Window, function()
@@ -3663,7 +3872,8 @@ function HUD.hideCombo()
 end
 
 local function refreshState(s: any)
-	refs.coins.Text = "🪙 " .. Util.formatNumber(s.coins)
+	-- Compteur de pièces : défilement fluide vers la nouvelle valeur.
+	TweenService:Create(coinValue, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = s.coins }):Play()
 	refs.level.Text = "Niv. " .. s.level
 	refs.levelFill.Size = UDim2.fromScale(s.levelProgress, 1)
 	refs.mult.Text = string.format("Pièces x%.2f  ·  Évolution %d", s.stats.coinMult, s.rebirths)
@@ -3705,10 +3915,23 @@ local function refreshDino(state: Instance)
 	local need = state:GetAttribute("Need") or 1
 	local fav = Economy.findFood(state:GetAttribute("Favorite") or "pomme")
 	refs.dinoName.Text = "🦖 " .. name
-	refs.satFill.Size = UDim2.fromScale(math.clamp(sat / need, 0, 1), 1)
+	local ratio = math.clamp(sat / need, 0, 1)
+	if satTween then
+		satTween:Cancel()
+	end
+	satTween = TweenService:Create(refs.satFill, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+		Size = UDim2.fromScale(ratio, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 140, 60):Lerp(Color3.fromRGB(110, 220, 90), ratio),
+	})
+	satTween:Play()
 	refs.satText.Text = string.format("Festin : %s / %s", Util.formatNumber(sat), Util.formatNumber(need))
 	if fav then
-		refs.fav.Text = string.format("Envie : %s %s x%d", fav.Emoji, fav.Name, Config.FavoriteMult)
+		local text = string.format("Envie : %s %s x%d", fav.Emoji, fav.Name, Config.FavoriteMult)
+		if refs.fav.Text ~= text then
+			refs.fav.Text = text
+			refs.fav.TextSize = 24
+			TweenService:Create(refs.fav, TweenInfo.new(0.4, Enum.EasingStyle.Back), { TextSize = 16 }):Play()
+		end
 	end
 	refs.hungry.Text = if state:GetAttribute("Hungry") then string.format("🍽️ Faim de loup ! Pièces x%.1f", Config.HungryMult) else ""
 end
@@ -3760,6 +3983,9 @@ function HUD.init(openPanel: (string) -> (), throwCenter: () -> ())
 	buildToasts()
 
 	local state = ReplicatedStorage:WaitForChild("GameState")
+	coinValue:GetPropertyChangedSignal("Value"):Connect(function()
+		refs.coins.Text = "🪙 " .. Util.formatNumber(math.floor(coinValue.Value + 0.5))
+	end)
 	Store.onChange(refreshState)
 	local function dino()
 		refreshDino(state)
@@ -3780,7 +4006,7 @@ function HUD.gui(): ScreenGui
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXEAAD6F98882E4E2F81D9CFF0F3FBC40B"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA65DA25A94DB47FFACAA3A211A204A06"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Entrées : clic souris, tap tactile (distingué d'un glissement de caméra), bouton LANCER, gâchette de manette.
 -- Le client n'envoie que le point visé ; le serveur décide de tout le reste.
 
@@ -3882,7 +4108,7 @@ function Input.init()
 end
 
 return Input
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXC59DDBB53BE54495A2D20C8B19BA6048"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXFB52C062A40140F8BD18B212739C76C8"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée client.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3925,7 +4151,7 @@ end)
 task.delay(2, function()
 	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX556EB58820F04CAAA48ABA361A54FF9C"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9A34CACEC21440BABEB6CD39BF2512C0"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Fenêtres : boutique, nid (compagnons), quêtes, classement, évolution + animation d'éclosion.
 
 local Players = game:GetService("Players")
@@ -3983,6 +4209,7 @@ local function createWindow(name: string, title: string)
 		Visible = false,
 	})
 	UIKit.corner(w, 16)
+	UIKit.gradient(w, 0.7)
 	UIKit.stroke(w, C.accent, 3)
 	local scale = Instance.new("UIScale")
 	scale.Parent = w
@@ -4209,8 +4436,11 @@ local function buildPets()
 		local stroke = UIKit.stroke(card, rarityColor(pet.Rarity), 2)
 		local nameL = UIKit.label(card, { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 22), Text = pet.Name, TextSize = 15, Font = Enum.Font.FredokaOne, TextColor3 = rarityColor(pet.Rarity) })
 		local detail = UIKit.label(card, { Position = UDim2.fromOffset(6, 28), Size = UDim2.new(1, -12, 0, 36), Text = "", TextSize = 13, TextColor3 = C.dim })
-		local btn = UIKit.button(card, { Position = UDim2.fromOffset(8, 68), Size = UDim2.new(1, -16, 0, 34), Text = "", TextSize = 15, Callback = function() end })
-		cards[pet.Id] = { name = nameL, detail = detail, btn = btn, pet = pet, conn = nil }
+		local entry = { name = nameL, detail = detail, pet = pet, equipped = false }
+		entry.btn = UIKit.button(card, { Position = UDim2.fromOffset(8, 68), Size = UDim2.new(1, -16, 0, 34), Text = "", TextSize = 15, Callback = function()
+			act("equipPet", { id = pet.Id, on = not entry.equipped })
+		end })
+		cards[pet.Id] = entry
 	end
 
 	win.refresh = function(s)
@@ -4232,12 +4462,7 @@ local function buildPets()
 				c.detail.Text = "???  ·  " .. rarityDef(c.pet.Rarity).Name
 				c.btn.Visible = false
 			end
-			if c.conn then
-				c.conn:Disconnect()
-			end
-			c.conn = c.btn.Activated:Connect(function()
-				act("equipPet", { id = id, on = not equipped })
-			end)
+			c.equipped = equipped
 		end
 	end
 end
@@ -4407,7 +4632,7 @@ function Panels.init()
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE719EE1F00BA4219A74708202C173E18"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB7318495A6034D8988F970CE7C577E41"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Rendu local des compagnons de tous les joueurs (le serveur ne publie que l'attribut « Pets »).
 
 local Players = game:GetService("Players")
@@ -4549,7 +4774,7 @@ function PetsRenderer.init()
 end
 
 return PetsRenderer
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD153AA2E9AF74FBEA2451CC674B64306"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8DA717D0BC97408CA43AEC440CC3AC8A"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Magasin d'état côté client : dernier instantané envoyé par le serveur + abonnements.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4588,7 +4813,7 @@ function Store.request(action: string, payload: any?): any
 end
 
 return Store
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFA1A723662164D7BAAA78132A196DF59"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXC134E1D16640439B82D319CB8F512555"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Petite boîte à outils d'interface (style Roblox : coins arrondis, polices Fredoka/Gotham).
 
 local SoundService = game:GetService("SoundService")
@@ -4641,6 +4866,16 @@ function UIKit.stroke(inst: GuiObject, color: Color3?, thickness: number?)
 	return s
 end
 
+-- Dégradé vertical discret (à réserver aux cadres sans texte propre : UIGradient teinte aussi le texte).
+function UIKit.gradient(inst: GuiObject, bottomShade: number?)
+	local g = Instance.new("UIGradient")
+	local k = bottomShade or 0.78
+	g.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(k, k, k))
+	g.Rotation = 90
+	g.Parent = inst
+	return g
+end
+
 function UIKit.frame(parent: Instance, props: any): Frame
 	local f = Instance.new("Frame")
 	f.BackgroundColor3 = UIKit.Colors.panel
@@ -4685,6 +4920,17 @@ function UIKit.button(parent: Instance, props: any): TextButton
 		end
 	end
 	UIKit.corner(b, 10)
+	-- Reflet du haut du bouton (relief « plastique » façon Roblox).
+	local shine = Instance.new("Frame")
+	shine.Name = "Shine"
+	shine.BackgroundColor3 = Color3.new(1, 1, 1)
+	shine.BackgroundTransparency = 0.88
+	shine.BorderSizePixel = 0
+	shine.Size = UDim2.new(1, -8, 0.42, 0)
+	shine.Position = UDim2.fromOffset(4, 3)
+	shine.Active = false
+	shine.Parent = b
+	UIKit.corner(shine, 8)
 	if callback then
 		b.Activated:Connect(function()
 			UIKit.sfx("Click", 0.3)
