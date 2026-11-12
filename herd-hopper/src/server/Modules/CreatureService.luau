@@ -162,8 +162,14 @@ local function addEmitters(def, variantIdx, root)
 	end
 end
 
-local function pickSpecies()
-	return Util.pickWeighted(Species.List, rng)
+-- Animal tiré dans la liste de la zone où se trouve `z`.
+local function pickSpecies(z)
+	local zone = Config.zoneAt(z or 0)
+	local list = {}
+	for _, id in ipairs(zone.animals) do
+		table.insert(list, Species.ById[id])
+	end
+	return Util.pickWeighted(list, rng)
 end
 
 local function pickVariant()
@@ -171,10 +177,17 @@ local function pickVariant()
 end
 
 -- Crée une bête et l'ajoute au monde. Renvoie le record `creature`.
+-- Un animal peut porter un cœur rose (récupérable) ; un boss en porte toujours un.
 function CreatureService.Spawn(x, z, speciesId, variantIdx, speedFactor)
-	local def = speciesId and Species.ById[speciesId] or pickSpecies()
-	variantIdx = variantIdx or pickVariant()
+	local def = speciesId and Species.ById[speciesId] or pickSpecies(z)
+	if def.boss then
+		variantIdx = 1
+	else
+		variantIdx = variantIdx or pickVariant()
+	end
 	local variant = Config.Variants[variantIdx]
+	local zone = Config.zoneAt(z)
+	local hearted = def.boss == true or rng:NextNumber() < zone.heartChance + State.HeartBonus
 
 	local id = State.NextCreatureId
 	State.NextCreatureId = id + 1
@@ -187,6 +200,9 @@ function CreatureService.Spawn(x, z, speciesId, variantIdx, speedFactor)
 	model:SetAttribute("BaseSpeed", def.speed)
 	model:SetAttribute("Ridden", false)
 	model:SetAttribute("Angry", false)
+	model:SetAttribute("Heart", hearted)
+	model:SetAttribute("Ready", false)
+	model:SetAttribute("Boss", def.boss == true)
 	addEmitters(def, variantIdx, root)
 
 	local baseSpeed = def.speed * (0.9 + rng:NextNumber() * 0.2) * (speedFactor or 1)
@@ -210,7 +226,12 @@ function CreatureService.Spawn(x, z, speciesId, variantIdx, speedFactor)
 		steer = 0,
 		vx = 0,
 		rider = nil,
+		hearted = hearted,
+		boss = def.boss == true,
+		progress = {}, -- [Player] = secondes passées en selle (boss)
 		tamed = false,
+		tamedBy = nil,
+		collectUntil = 0,
 		angry = false,
 		removed = false,
 		seat = CFrame.new(def.seat),
@@ -300,11 +321,11 @@ local function trySpawnNear(z0, ahead)
 	return nil
 end
 
--- Remplit le troupeau au début de la manche.
-function CreatureService.FillInitial()
+-- Remplit la zone de départ au début de l'expédition (autour de `startZ`).
+function CreatureService.FillInitial(startZ)
 	for _ = 1, 40 do
 		local x = (rng:NextNumber() * 2 - 1) * (Config.Track.HalfWidth - 8)
-		local z = 40 + rng:NextNumber() * 260
+		local z = startZ + 40 + rng:NextNumber() * 260
 		if not tooClose(x, z) then
 			CreatureService.Spawn(x, z)
 		end

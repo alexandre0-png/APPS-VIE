@@ -7,10 +7,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local Species = require(Shared.Species)
 
 local State = require(script.Parent.State)
-local CreatureService = require(script.Parent.CreatureService)
 local DataService = require(script.Parent.DataService)
 
 local MapBuilder = {}
@@ -169,58 +167,40 @@ end
 -- Salon (lobby)
 -- ---------------------------------------------------------------------------
 
+-- Le parc central : une grande esplanade en hauteur ; chaque joueur y reçoit une parcelle (voir ZooService).
 local function buildLobby(map)
-	local center = Config.Lobby.Center
-	local size = Config.Lobby.Size
-	local top = center.Y + size.Y / 2
-	State.LobbyCFrame = CFrame.new(center.X, top + 3, center.Z)
+	local hub = Config.Hub
+	local center = hub.Center
+	local width = hub.Columns * hub.PlotSpacing + 60
+	local depth = hub.Rows * hub.PlotSpacing + 60
+	local top = center.Y + 3
+	State.LobbyCFrame = CFrame.new(center.X, top + 4, center.Z - depth / 2 + 20)
 
 	P(
 		map,
-		size,
+		V(width, 6, depth),
 		CFrame.new(center),
-		C(228, 222, 206),
-		Enum.Material.Marble,
-		{ name = "LobbyFloor", collide = true, shadow = true }
+		C(196, 190, 176),
+		Enum.Material.Cobblestone,
+		{ name = "HubFloor", collide = true, shadow = true }
 	)
-
-	-- liserés néon
-	local trim = C(255, 200, 70)
-	local half = size.X / 2
 	P(
 		map,
-		V(size.X, 0.4, 2),
-		CFrame.new(center.X, top + 0.2, center.Z - half + 1),
-		trim,
+		V(width, 0.4, 3),
+		CFrame.new(center.X, top + 0.2, center.Z - depth / 2 + 1.5),
+		C(255, 200, 70),
 		Enum.Material.Neon,
 		{ name = "Trim" }
 	)
 	P(
 		map,
-		V(size.X, 0.4, 2),
-		CFrame.new(center.X, top + 0.2, center.Z + half - 1),
-		trim,
-		Enum.Material.Neon,
-		{ name = "Trim" }
-	)
-	P(
-		map,
-		V(2, 0.4, size.Z),
-		CFrame.new(center.X - half + 1, top + 0.2, center.Z),
-		trim,
-		Enum.Material.Neon,
-		{ name = "Trim" }
-	)
-	P(
-		map,
-		V(2, 0.4, size.Z),
-		CFrame.new(center.X + half - 1, top + 0.2, center.Z),
-		trim,
+		V(width, 0.4, 3),
+		CFrame.new(center.X, top + 0.2, center.Z + depth / 2 - 1.5),
+		C(255, 200, 70),
 		Enum.Material.Neon,
 		{ name = "Trim" }
 	)
 
-	-- murs invisibles
 	local wallH = 80
 	local function barrier(sz, pos)
 		P(
@@ -229,19 +209,18 @@ local function buildLobby(map)
 			CFrame.new(pos),
 			C(255, 255, 255),
 			Enum.Material.SmoothPlastic,
-			{ name = "LobbyBarrier", collide = true, trans = 1 }
+			{ name = "HubBarrier", collide = true, trans = 1 }
 		)
 	end
-	barrier(V(size.X + 4, wallH, 2), V(center.X, top + wallH / 2, center.Z - half))
-	barrier(V(size.X + 4, wallH, 2), V(center.X, top + wallH / 2, center.Z + half))
-	barrier(V(2, wallH, size.Z + 4), V(center.X - half, top + wallH / 2, center.Z))
-	barrier(V(2, wallH, size.Z + 4), V(center.X + half, top + wallH / 2, center.Z))
+	barrier(V(width + 4, wallH, 2), V(center.X, top + wallH / 2, center.Z - depth / 2))
+	barrier(V(width + 4, wallH, 2), V(center.X, top + wallH / 2, center.Z + depth / 2))
+	barrier(V(2, wallH, depth + 4), V(center.X - width / 2, top + wallH / 2, center.Z))
+	barrier(V(2, wallH, depth + 4), V(center.X + width / 2, top + wallH / 2, center.Z))
 
-	-- points d'apparition
-	local offsets = { V(-12, 0, 12), V(12, 0, 12), V(-12, 0, -4), V(12, 0, -4) }
-	for index, off in ipairs(offsets) do
+	-- points d'apparition à l'entrée du parc
+	for index = 1, 4 do
 		local spawn = Instance.new("SpawnLocation")
-		spawn.Name = "LobbySpawn" .. index
+		spawn.Name = "HubSpawn" .. index
 		spawn.Size = V(8, 1, 8)
 		spawn.Anchored = true
 		spawn.Neutral = true
@@ -251,60 +230,37 @@ local function buildLobby(map)
 		spawn.Material = Enum.Material.Neon
 		spawn.Transparency = 0.2
 		spawn.TopSurface = Enum.SurfaceType.Smooth
-		spawn.CFrame = CFrame.new(center.X + off.X, top + 0.5, center.Z + off.Z)
+		spawn.CFrame = CFrame.new(center.X + (index - 2.5) * 14, top + 0.5, center.Z - depth / 2 + 14)
 		spawn.Parent = map
 	end
 
-	-- panneau d'état de la manche
-	local _, infoGui =
-		makeBoard(map, V(60, 26, 1), CFrame.new(center.X, top + 20, center.Z + half - 6), V(960, 416), C(28, 34, 52))
-	makeLabel(infoGui, "SAUTE-TROUPEAU", UDim2.new(1, 0, 0, 120), UDim2.new(0, 0, 0, 20), 96, C(255, 214, 90))
+	-- panneau d'état de l'expédition
+	local _, infoGui = makeBoard(
+		map,
+		V(60, 26, 1),
+		CFrame.new(center.X, top + 22, center.Z - depth / 2 + 8),
+		V(960, 416),
+		C(28, 34, 52)
+	)
+	makeLabel(infoGui, "SAUTE-ZOO", UDim2.new(1, 0, 0, 120), UDim2.new(0, 0, 0, 20), 96, C(255, 214, 90))
 	statusLabel =
-		makeLabel(infoGui, "Chargement...", UDim2.new(1, -40, 0, 140), UDim2.new(0, 20, 0, 160), 72, C(255, 255, 255))
+		makeLabel(infoGui, "Chargement...", UDim2.new(1, -40, 0, 140), UDim2.new(0, 20, 0, 160), 60, C(255, 255, 255))
 	makeLabel(
 		infoGui,
-		"Bondis de bête en bête. Fuis le mur de lave !",
+		"Saute d'animal en animal, rapporte-les à ton zoo !",
 		UDim2.new(1, -40, 0, 70),
 		UDim2.new(0, 20, 0, 320),
-		44,
+		40,
 		C(190, 205, 235),
 		Enum.Font.GothamMedium
 	)
 
-	-- panneau "comment jouer"
-	local howPos = Vector3.new(center.X + half - 8, top + 16, center.Z + 10)
-	local _, howGui = makeBoard(
-		map,
-		V(42, 30, 1),
-		CFrame.lookAt(howPos, Vector3.new(center.X, top + 16, center.Z + 10)),
-		V(672, 480),
-		C(40, 46, 66)
-	)
-	makeLabel(howGui, "COMMENT JOUER", UDim2.new(1, 0, 0, 60), UDim2.new(0, 0, 0, 12), 48, C(255, 214, 90))
-	local how = "ESPACE / bouton : sauter de ta bête\n"
-		.. "Maintiens en l'air : LASSO auto sur la bête dorée\n"
-		.. "A / D ou joystick : diriger ta monture\n"
-		.. "Reste dessus pour DOMPTER et marquer\n"
-		.. "Enchaîne les lassos pour le COMBO\n"
-		.. "Le mur de lave te rattrape : avance !"
-	local howLabel = makeLabel(
-		howGui,
-		how,
-		UDim2.new(1, -40, 1, -90),
-		UDim2.new(0, 20, 0, 80),
-		34,
-		C(235, 240, 255),
-		Enum.Font.GothamMedium
-	)
-	howLabel.TextXAlignment = Enum.TextXAlignment.Left
-	howLabel.TextYAlignment = Enum.TextYAlignment.Top
-
 	-- classement mondial
-	local lbPos = Vector3.new(center.X - half + 8, top + 16, center.Z + 10)
+	local lbPos = Vector3.new(center.X - width / 2 + 8, top + 18, center.Z - depth / 2 + 40)
 	local _, lbGui = makeBoard(
 		map,
 		V(42, 30, 1),
-		CFrame.lookAt(lbPos, Vector3.new(center.X, top + 16, center.Z + 10)),
+		CFrame.lookAt(lbPos, Vector3.new(center.X, top + 18, center.Z - depth / 2 + 40)),
 		V(672, 480),
 		C(40, 46, 66)
 	)
@@ -324,32 +280,33 @@ local function buildLobby(map)
 	end
 	boardRows[1].Text = "Chargement du classement..."
 
-	-- statues du bestiaire sur piédestaux
-	for index, def in ipairs(Species.List) do
-		local x = center.X + (index - 4) * 19
-		local z = center.Z - half + 14
-		P(
-			map,
-			V(15, 3, 15),
-			CFrame.new(x, top + 1.5, z),
-			C(70, 76, 98),
-			Enum.Material.Slate,
-			{ name = "Pedestal", collide = true, shadow = true }
-		)
-		local model, root = CreatureService.BuildModel(def, 1)
-		model.Name = "Statue_" .. def.id
-		local y = top + 3 + (def.flying and 9 or def.rootY)
-		root.CFrame = CFrame.lookAt(V(x, y, z), V(x, y, z + 1))
-		model.Parent = map
-		local tag = Instance.new("BillboardGui")
-		tag.Size = UDim2.new(0, 160, 0, 36)
-		tag.StudsOffset = V(0, 14, 0)
-		tag.AlwaysOnTop = false
-		tag.MaxDistance = 140
-		tag.Adornee = root
-		tag.Parent = root
-		makeLabel(tag, def.name, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), 22, C(255, 255, 255))
-	end
+	-- panneau « comment jouer »
+	local howPos = Vector3.new(center.X + width / 2 - 8, top + 18, center.Z - depth / 2 + 40)
+	local _, howGui = makeBoard(
+		map,
+		V(42, 30, 1),
+		CFrame.lookAt(howPos, Vector3.new(center.X, top + 18, center.Z - depth / 2 + 40)),
+		V(672, 480),
+		C(40, 46, 66)
+	)
+	makeLabel(howGui, "COMMENT JOUER", UDim2.new(1, 0, 0, 60), UDim2.new(0, 0, 0, 12), 48, C(255, 214, 90))
+	local how = "Ouvre EXPÉDITION et pars avec les autres\n"
+		.. "Le sol est mortel : saute d'un animal à l'autre\n"
+		.. "Un cœur rose = tu peux le récupérer\n"
+		.. "Monte-le quelques secondes puis RÉCUPÉRER\n"
+		.. "Le lasso attrape les animaux à distance\n"
+		.. "Plus ton zoo est grand, plus il rapporte"
+	local howLabel = makeLabel(
+		howGui,
+		how,
+		UDim2.new(1, -40, 1, -90),
+		UDim2.new(0, 20, 0, 80),
+		32,
+		C(235, 240, 255),
+		Enum.Font.GothamMedium
+	)
+	howLabel.TextXAlignment = Enum.TextXAlignment.Left
+	howLabel.TextYAlignment = Enum.TextYAlignment.Top
 end
 
 function MapBuilder.SetStatus(text)
@@ -612,43 +569,6 @@ local function mesa(map, x, z, color)
 	)
 end
 
-local function pine(map, x, z)
-	local r = rng:NextNumber() * 360
-	P(map, V(2.4, 12, 2.4), CFrame.new(x, 6, z), C(96, 70, 46), Enum.Material.Wood, { name = "Trunk" })
-	P(
-		map,
-		V(13, 3, 13),
-		CFrame.new(x, 10, z) * yaw(r),
-		jitter(C(40, 96, 54), 20),
-		Enum.Material.Grass,
-		{ name = "Leaves", shadow = true }
-	)
-	P(
-		map,
-		V(9.5, 3, 9.5),
-		CFrame.new(x, 13, z) * yaw(r + 25),
-		jitter(C(46, 108, 60), 20),
-		Enum.Material.Grass,
-		{ name = "Leaves" }
-	)
-	P(
-		map,
-		V(6, 3, 6),
-		CFrame.new(x, 16, z) * yaw(r + 50),
-		jitter(C(54, 120, 66), 20),
-		Enum.Material.Grass,
-		{ name = "Leaves" }
-	)
-	P(
-		map,
-		V(3, 3, 3),
-		CFrame.new(x, 18.5, z) * yaw(r),
-		jitter(C(60, 130, 70), 20),
-		Enum.Material.Grass,
-		{ name = "Leaves" }
-	)
-end
-
 local function mushroom(map, x, z)
 	local s = 0.8 + rng:NextNumber() * 0.8
 	P(
@@ -743,10 +663,56 @@ local function crystals(map, x, z, color)
 	end
 end
 
+local function mangrove(map, x, z)
+	local r = rng:NextNumber() * 360
+	for i = -1, 1 do
+		P(
+			map,
+			V(0.9, 5, 0.9),
+			CFrame.new(x + i * 2.2, 2.2, z) * CFrame.Angles(0, 0, i * 0.25),
+			C(88, 64, 44),
+			Enum.Material.Wood,
+			{ name = "Root" }
+		)
+	end
+	P(map, V(2.4, 9, 2.4), CFrame.new(x, 8, z) * yaw(r), C(96, 70, 48), Enum.Material.Wood, { name = "Trunk" })
+	P(
+		map,
+		V(15, 3.2, 15),
+		CFrame.new(x, 13.5, z) * yaw(r),
+		jitter(C(60, 120, 70), 24),
+		Enum.Material.Grass,
+		{ name = "Canopy", shadow = true }
+	)
+	P(
+		map,
+		V(9, 2.4, 9),
+		CFrame.new(x, 15.8, z) * yaw(r + 30),
+		jitter(C(72, 136, 78), 24),
+		Enum.Material.Grass,
+		{ name = "Canopy" }
+	)
+end
+
+local function reeds(map, x, z)
+	for _ = 1, 5 do
+		local h = 5 + rng:NextNumber() * 4
+		P(
+			map,
+			V(0.5, h, 0.5),
+			CFrame.new(x + (rng:NextNumber() - 0.5) * 5, h / 2, z + (rng:NextNumber() - 0.5) * 5)
+				* CFrame.Angles(0, 0, (rng:NextNumber() - 0.5) * 0.3),
+			C(104, 150, 70),
+			Enum.Material.Grass,
+			{ name = "Reed" }
+		)
+	end
+end
+
 local function decorate(map, z, x)
-	local biome = Config.biomeAt(z)
+	local zone = Config.zoneAt(z)
 	local roll = rng:NextNumber()
-	if biome.name == "SAVANE DORÉE" then
+	if zone.key == "savane" then
 		if roll < 0.45 then
 			acacia(map, x, z)
 		elseif roll < 0.75 then
@@ -754,7 +720,17 @@ local function decorate(map, z, x)
 		else
 			bones(map, x, z)
 		end
-	elseif biome.name == "DÉSERT ROUGE" then
+	elseif zone.key == "marais" then
+		if roll < 0.4 then
+			mangrove(map, x, z)
+		elseif roll < 0.7 then
+			reeds(map, x, z)
+		elseif roll < 0.85 then
+			mushroom(map, x, z)
+		else
+			crystals(map, x, z, C(120, 220, 190))
+		end
+	elseif zone.key == "desert" then
 		if roll < 0.45 then
 			cactus(map, x, z)
 		elseif roll < 0.75 then
@@ -765,16 +741,6 @@ local function decorate(map, z, x)
 			crystals(map, x, z, C(255, 150, 110))
 		else
 			boulder(map, x, z, C(196, 150, 110), Enum.Material.Sandstone)
-		end
-	elseif biome.name == "FORÊT GÉANTE" then
-		if roll < 0.55 then
-			pine(map, x, z)
-		elseif roll < 0.85 then
-			mushroom(map, x, z)
-		elseif roll < 0.93 then
-			crystals(map, x, z, C(120, 220, 190))
-		else
-			boulder(map, x, z, C(96, 108, 96), Enum.Material.Slate)
 		end
 	else
 		if roll < 0.5 then
@@ -906,83 +872,9 @@ local function buildGates(map)
 end
 
 -- ---------------------------------------------------------------------------
--- Mur de lave
--- ---------------------------------------------------------------------------
-
-local function buildWall()
-	local model = Instance.new("Model")
-	model.Name = "LavaWall"
-
-	local root = Instance.new("Part")
-	root.Name = "Root"
-	root.Size = V(176, 70, 16)
-	root.Anchored = true
-	root.CanCollide = false
-	root.CanTouch = false
-	root.CanQuery = false
-	root.CastShadow = false
-	root.Material = Enum.Material.Neon
-	root.Color = C(255, 90, 20)
-	root.CFrame = CFrame.new(0, 35, Config.Wall.StartZ - 8)
-	root.Parent = model
-	model.PrimaryPart = root
-
-	for i = 1, 22 do
-		local s = 10 + rng:NextNumber() * 12
-		local ball = Instance.new("Part")
-		ball.Name = "Boulder"
-		ball.Shape = Enum.PartType.Ball
-		ball.Size = V(s, s, s)
-		ball.Anchored = false
-		ball.CanCollide = false
-		ball.CanTouch = false
-		ball.CanQuery = false
-		ball.Massless = true
-		ball.CastShadow = false
-		local hot = i % 3 == 0
-		ball.Material = hot and Enum.Material.Neon or Enum.Material.Basalt
-		ball.Color = hot and C(255, 150, 40) or C(46, 34, 34)
-		local lx = (rng:NextNumber() * 2 - 1) * 84
-		local ly = -28 + rng:NextNumber() * 66
-		ball.CFrame = root.CFrame * CFrame.new(lx, ly, -6 - rng:NextNumber() * 4)
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = root
-		weld.Part1 = ball
-		weld.Parent = ball
-		ball.Parent = model
-	end
-
-	local top = Instance.new("Attachment")
-	top.Position = V(0, 36, -8)
-	top.Parent = root
-	local fire = Instance.new("ParticleEmitter")
-	fire.Name = "Flames"
-	fire.Rate = 70
-	fire.Lifetime = NumberRange.new(0.8, 1.6)
-	fire.Speed = NumberRange.new(18, 30)
-	fire.SpreadAngle = Vector2.new(25, 25)
-	fire.LightEmission = 1
-	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 8), NumberSequenceKeypoint.new(1, 0) })
-	fire.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
-	fire.Color = ColorSequence.new(C(255, 170, 50), C(255, 60, 20))
-	fire.EmissionDirection = Enum.NormalId.Top
-	fire.Parent = top
-
-	local light = Instance.new("PointLight")
-	light.Color = C(255, 120, 40)
-	light.Range = 70
-	light.Brightness = 3
-	light.Parent = root
-
-	model.Parent = workspace
-	return root
-end
-
--- ---------------------------------------------------------------------------
 -- Point d'entrée
 -- ---------------------------------------------------------------------------
 
--- Renvoie la pièce racine du mur de lave.
 function MapBuilder.Build()
 	MapBuilder.SetupLighting()
 
@@ -1010,7 +902,6 @@ function MapBuilder.Build()
 	task.wait()
 	buildGates(map)
 	task.wait()
-	return buildWall()
 end
 
 return MapBuilder

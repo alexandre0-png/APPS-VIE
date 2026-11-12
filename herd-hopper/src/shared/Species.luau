@@ -30,8 +30,36 @@ local Species = {}
 Species.List = {}
 
 local function add(def)
-	def.seat = V(0, def.body.s.Y / 2 + 2.1, def.seatZ or 0.4)
+	def.seat = V(0, def.seatY or (def.body.s.Y / 2 + 2.1), def.seatZ or 0.4)
 	table.insert(Species.List, def)
+end
+
+-- Copie agrandie d'une espèce (pour les boss). Toutes les dimensions sont multipliées par k.
+local function scaled(base, k, patch)
+	local function sv(v)
+		return v * k
+	end
+	local def = table.clone(base)
+	def.body = { s = sv(base.body.s), c = base.body.c }
+	def.rootY = base.rootY * k
+	def.seat = nil
+	def.seatY = (base.seatY or (base.body.s.Y / 2 + 2.1)) * k
+	def.parts = {}
+	for _, part in ipairs(base.parts) do
+		table.insert(def.parts, { n = part.n, s = sv(part.s), o = sv(part.o), c = part.c, rot = part.rot })
+	end
+	def.legs = {}
+	for _, leg in ipairs(base.legs) do
+		table.insert(def.legs, { n = leg.n, s = sv(leg.s), hip = sv(leg.hip), phase = leg.phase, c = leg.c })
+	end
+	def.wings = {}
+	for _, wing in ipairs(base.wings) do
+		table.insert(def.wings, { n = wing.n, s = sv(wing.s), hip = sv(wing.hip), side = wing.side, c = wing.c })
+	end
+	for key, value in pairs(patch) do
+		def[key] = value
+	end
+	return def
 end
 
 -- 1. Sanglier : petit, zigzag.
@@ -317,9 +345,369 @@ do
 	})
 end
 
+-- 8. Zèbre : rapide, rayures.
+do
+	local parts = {
+		{ n = "Head", s = V(2.6, 2.8, 3.2), o = V(0, 1.2, -5.2), c = "light" },
+		{ n = "Muzzle", s = V(2, 1.6, 1.4), o = V(0, 0.4, -7.1), c = "dark" },
+		{ n = "EarL", s = V(0.5, 1.2, 0.5), o = V(-0.9, 3.2, -4.2), c = "dark" },
+		{ n = "EarR", s = V(0.5, 1.2, 0.5), o = V(0.9, 3.2, -4.2), c = "dark" },
+		{ n = "Mane", s = V(0.8, 1.2, 3), o = V(0, 2.5, -3), c = "dark" },
+		{ n = "Tail", s = V(0.5, 2.2, 0.5), o = V(0, 0.2, 4.1), c = "dark" },
+		{ n = "StripeA", s = V(4.6, 4.2, 0.7), o = V(0, 0, -2.4), c = "dark" },
+		{ n = "StripeB", s = V(4.6, 4.2, 0.7), o = V(0, 0, -0.8), c = "dark" },
+		{ n = "StripeC", s = V(4.6, 4.2, 0.7), o = V(0, 0, 0.8), c = "dark" },
+		{ n = "StripeD", s = V(4.6, 4.2, 0.7), o = V(0, 0, 2.4), c = "dark" },
+	}
+	addEyes(parts, 1.7, -6.75, 1.0)
+	add({
+		id = "zebra",
+		name = "Zèbre",
+		desc = "Rapide et élégant, on le repère de loin.",
+		speed = 46,
+		value = 1.2,
+		weight = 22,
+		tameTime = 5,
+		buckAfter = 9,
+		trait = "weave",
+		weaveAmp = 6,
+		weaveFreq = 0.8,
+		rootY = 5.2,
+		body = { s = V(4.4, 4, 7.6), c = "body" },
+		palette = {
+			body = C(246, 246, 246),
+			dark = C(34, 34, 40),
+			light = C(250, 250, 250),
+			accent = C(200, 170, 140),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1, 3.2, 1), -2, 1.4, 2.6),
+		wings = {},
+	})
+end
+
+-- 9. Lion : rare, rapide, très rentable.
+do
+	local parts = {
+		{ n = "Mane", s = V(4.6, 4.6, 3.4), o = V(0, 0.9, -5.4), c = "dark" },
+		{ n = "Face", s = V(2.8, 2.6, 2.4), o = V(0, 0.5, -7.0), c = "body" },
+		{ n = "Nose", s = V(0.9, 0.7, 0.5), o = V(0, 0.4, -8.3), c = "accent" },
+		{ n = "EarL", s = V(0.7, 0.7, 0.5), o = V(-1.5, 3.2, -5.4), c = "dark" },
+		{ n = "EarR", s = V(0.7, 0.7, 0.5), o = V(1.5, 3.2, -5.4), c = "dark" },
+		{ n = "Tail", s = V(0.5, 0.5, 3), o = V(0, 0.8, 5), c = "body" },
+		{ n = "TailTuft", s = V(1, 1, 1.2), o = V(0, 0.8, 6.8), c = "dark" },
+	}
+	addEyes(parts, 1.0, -8.0, 0.9)
+	add({
+		id = "lion",
+		name = "Lion",
+		desc = "Rare et rapide. Un vrai roi pour ton zoo.",
+		speed = 50,
+		value = 2.4,
+		weight = 7,
+		tameTime = 6,
+		buckAfter = 10,
+		trait = "sprint",
+		weaveAmp = 3,
+		weaveFreq = 0.6,
+		rootY = 4.7,
+		body = { s = V(4.4, 3.8, 7), c = "body" },
+		palette = {
+			body = C(214, 160, 80),
+			dark = C(140, 88, 40),
+			light = C(240, 215, 170),
+			accent = C(60, 40, 40),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.3, 2.8, 1.3), -1.9, 1.5, 2.4),
+		wings = {},
+	})
+end
+
+-- 10. Hippopotame : lent, costaud.
+do
+	local parts = {
+		{ n = "Head", s = V(4.4, 3.6, 4.6), o = V(0, 0.2, -6.6), c = "body" },
+		{ n = "Jaw", s = V(4.2, 1.6, 2.2), o = V(0, -1.6, -8.4), c = "dark" },
+		{ n = "NostrilL", s = V(0.7, 0.5, 0.5), o = V(-1.1, 1.2, -8.8), c = "dark" },
+		{ n = "NostrilR", s = V(0.7, 0.5, 0.5), o = V(1.1, 1.2, -8.8), c = "dark" },
+		{ n = "EarL", s = V(0.9, 0.9, 0.5), o = V(-1.7, 2.4, -5), c = "dark" },
+		{ n = "EarR", s = V(0.9, 0.9, 0.5), o = V(1.7, 2.4, -5), c = "dark" },
+		{ n = "Tail", s = V(0.6, 0.6, 1.4), o = V(0, 1.4, 5.2), c = "dark" },
+	}
+	addEyes(parts, 1.7, -8.8, 1.7)
+	add({
+		id = "hippo",
+		name = "Hippopotame",
+		desc = "Lent mais massif. Il adore la boue du marais.",
+		speed = 28,
+		value = 1.8,
+		weight = 24,
+		tameTime = 6,
+		buckAfter = 12,
+		trait = "stable",
+		weaveAmp = 2,
+		weaveFreq = 0.5,
+		rootY = 4.4,
+		body = { s = V(6.4, 4.8, 8.4), c = "body" },
+		palette = {
+			body = C(132, 120, 146),
+			dark = C(96, 84, 110),
+			light = C(230, 220, 236),
+			accent = C(220, 150, 160),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.8, 2, 1.8), -2.4, 2.2, 2.8),
+		wings = {},
+	})
+end
+
+-- 11. Crocodile : long et bas, ondule.
+do
+	local parts = {
+		{ n = "Head", s = V(2.6, 1.6, 5), o = V(0, 0, -8), c = "body" },
+		{ n = "Teeth", s = V(2.4, 0.4, 4.6), o = V(0, -0.9, -8), c = "light" },
+		{ n = "Tail", s = V(2.4, 1.6, 6), o = V(0, 0, 8), c = "dark" },
+		{ n = "TailTip", s = V(1.2, 1, 3), o = V(0, 0, 12), c = "dark" },
+		{ n = "PlateA", s = V(1.4, 0.7, 1.4), o = V(0, 1.4, -2), c = "dark" },
+		{ n = "PlateB", s = V(1.4, 0.7, 1.4), o = V(0, 1.4, 0.2), c = "dark" },
+		{ n = "PlateC", s = V(1.4, 0.7, 1.4), o = V(0, 1.4, 2.4), c = "dark" },
+	}
+	addEyes(parts, 1.1, -6.2, 1.0)
+	add({
+		id = "crocodile",
+		name = "Crocodile",
+		desc = "Il ondule dans le marais. Garde tes distances !",
+		speed = 40,
+		value = 1.9,
+		weight = 9,
+		tameTime = 6,
+		buckAfter = 9,
+		trait = "weave",
+		weaveAmp = 10,
+		weaveFreq = 1.1,
+		rootY = 2.5,
+		body = { s = V(3.8, 2.2, 10), c = "body" },
+		palette = {
+			body = C(86, 130, 70),
+			dark = C(52, 88, 48),
+			light = C(240, 236, 210),
+			accent = C(200, 160, 60),
+			eye = C(255, 240, 80),
+		},
+		parts = parts,
+		legs = quadLegs(V(1, 1.4, 1), -1.1, 1.8, 3.2),
+		wings = {},
+	})
+end
+
+-- 12. Flamant : ostrich-like, rose.
+do
+	local parts = {
+		{ n = "Neck", s = V(0.9, 4.5, 0.9), o = V(0, 3.9, -2.1), c = "light" },
+		{ n = "Head", s = V(1.7, 1.5, 2.4), o = V(0, 6.5, -3.0), c = "body" },
+		{ n = "Beak", s = V(1, 0.9, 2), o = V(0, 6.2, -4.8), c = "dark" },
+		{ n = "TailA", s = V(2.2, 2.2, 1.6), o = V(0, 1.4, 3.8), c = "light" },
+		{ n = "WingL", s = V(0.5, 2.4, 3.2), o = V(-1.9, 0.4, 0.3), c = "accent" },
+		{ n = "WingR", s = V(0.5, 2.4, 3.2), o = V(1.9, 0.4, 0.3), c = "accent" },
+	}
+	addEyes(parts, 6.8, -3.9, 0.85)
+	add({
+		id = "flamingo",
+		name = "Flamant rose",
+		desc = "Haut sur pattes et très rapide dans les marais.",
+		speed = 48,
+		value = 1.3,
+		weight = 20,
+		tameTime = 5,
+		buckAfter = 8,
+		trait = "sprint",
+		weaveAmp = 2,
+		weaveFreq = 0.6,
+		rootY = 7,
+		body = { s = V(3.2, 3.8, 5.6), c = "body" },
+		palette = {
+			body = C(255, 130, 168),
+			dark = C(220, 90, 130),
+			light = C(255, 200, 216),
+			accent = C(255, 90, 140),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = {
+			{ n = "LegL", s = V(0.7, 5, 0.7), hip = V(-1, -1.9, 0.4), phase = 0, c = "dark" },
+			{ n = "LegR", s = V(0.7, 5, 0.7), hip = V(1, -1.9, 0.4), phase = math.pi, c = "dark" },
+		},
+		wings = {},
+	})
+end
+
+-- 13. Chameau : bosse confortable, endurant.
+do
+	local parts = {
+		{ n = "Hump", s = V(2.6, 2.2, 2.6), o = V(0, 3.1, 0.4), c = "dark" },
+		{ n = "Neck", s = V(1.4, 3.4, 1.4), o = V(0, 2.8, -4.2), c = "body" },
+		{ n = "Head", s = V(2.2, 2, 3), o = V(0, 4.6, -5.2), c = "body" },
+		{ n = "Lip", s = V(1.6, 1, 1), o = V(0, 4.2, -6.9), c = "light" },
+		{ n = "Tail", s = V(0.5, 2, 0.5), o = V(0, 0.4, 4.1), c = "dark" },
+	}
+	addEyes(parts, 5.1, -6.2, 0.9)
+	add({
+		id = "camel",
+		name = "Chameau",
+		desc = "Une bosse confortable et une grande endurance.",
+		speed = 36,
+		value = 1.5,
+		weight = 26,
+		tameTime = 6,
+		buckAfter = 13,
+		trait = "stable",
+		weaveAmp = 3,
+		weaveFreq = 0.6,
+		rootY = 6.2,
+		seatY = 5.6,
+		body = { s = V(4.4, 4.2, 7.6), c = "body" },
+		palette = {
+			body = C(205, 165, 105),
+			dark = C(160, 120, 70),
+			light = C(240, 220, 180),
+			accent = C(180, 90, 60),
+			eye = C(20, 20, 20),
+		},
+		parts = parts,
+		legs = quadLegs(V(1.1, 4.2, 1.1), -2.1, 1.4, 2.8),
+		wings = {},
+	})
+end
+
+-- 14. Salamandre de lave : rapide, rentable.
+do
+	local parts = {
+		{ n = "Head", s = V(2.8, 1.6, 4), o = V(0, 0, -6.6), c = "body" },
+		{ n = "Tail", s = V(2.2, 1.4, 6), o = V(0, 0, 7), c = "dark" },
+		{ n = "SpotA", s = V(1.2, 0.5, 1.2), o = V(-0.8, 1.2, -1), c = "accent" },
+		{ n = "SpotB", s = V(1.2, 0.5, 1.2), o = V(0.8, 1.2, 1.2), c = "accent" },
+		{ n = "SpotC", s = V(1.2, 0.5, 1.2), o = V(-0.6, 1.2, 3), c = "accent" },
+	}
+	addEyes(parts, 0.9, -8.3, 1.0)
+	add({
+		id = "salamander",
+		name = "Salamandre de lave",
+		desc = "Sa peau brille comme la braise.",
+		speed = 44,
+		value = 2.2,
+		weight = 14,
+		tameTime = 6,
+		buckAfter = 9,
+		trait = "weave",
+		weaveAmp = 8,
+		weaveFreq = 1.0,
+		rootY = 2.4,
+		body = { s = V(3.4, 2, 9), c = "body" },
+		palette = {
+			body = C(96, 44, 34),
+			dark = C(60, 30, 26),
+			light = C(255, 200, 120),
+			accent = C(255, 120, 30),
+			eye = C(255, 230, 80),
+		},
+		parts = parts,
+		legs = quadLegs(V(1, 1.4, 1), -1, 1.6, 2.8),
+		wings = {},
+	})
+end
+
+-- Boss : versions géantes, rapportent beaucoup au zoo. Un seul exemplaire (variante unique).
+local boss = {}
+local function addBoss(base, k, patch)
+	local def = scaled(Species.ById_[base], k, patch)
+	def.boss = true
+	def.weight = 0
+	def.bossRide = 9
+	def.buckAfter = 3
+	add(def)
+end
+Species.ById_ = {}
+for _, def in ipairs(Species.List) do
+	Species.ById_[def.id] = def
+end
+boss.elephant = {
+	id = "elephant",
+	name = "Éléphant Alpha",
+	desc = "Le roi de la savane. Gris, immense, impossible à ignorer.",
+	speed = 34,
+	value = 9,
+	palette = {
+		body = C(150, 150, 160),
+		dark = C(110, 110, 124),
+		light = C(250, 244, 226),
+		accent = C(220, 100, 90),
+		eye = C(20, 20, 20),
+	},
+}
+boss.croc_king = {
+	id = "croc_king",
+	name = "Crocodile Roi",
+	desc = "Une couronne d'or, un sourire de dents. Il règne sur le marais.",
+	speed = 40,
+	value = 10,
+	palette = {
+		body = C(60, 110, 60),
+		dark = C(40, 70, 40),
+		light = C(250, 240, 200),
+		accent = C(255, 205, 60),
+		eye = C(255, 90, 60),
+	},
+}
+boss.sphinx = {
+	id = "sphinx",
+	name = "Sphinx des sables",
+	desc = "Un lion de légende au pelage d'or. Il garde le désert.",
+	speed = 46,
+	value = 11,
+	palette = {
+		body = C(236, 196, 96),
+		dark = C(190, 140, 50),
+		light = C(255, 240, 190),
+		accent = C(90, 60, 40),
+		eye = C(255, 255, 255),
+	},
+}
+boss.dragon = {
+	id = "dragon",
+	name = "Dragon Ancien",
+	desc = "Le maître du volcan. Il crache la braise.",
+	speed = 54,
+	value = 14,
+	palette = {
+		body = C(190, 40, 40),
+		dark = C(110, 20, 30),
+		light = C(255, 220, 160),
+		accent = C(255, 150, 30),
+		eye = C(255, 240, 80),
+	},
+}
+addBoss("mammoth", 1.5, boss.elephant)
+addBoss("crocodile", 1.9, boss.croc_king)
+addBoss("lion", 1.8, boss.sphinx)
+addBoss("wyvern", 1.9, boss.dragon)
+
 Species.ById = {}
 for _, def in ipairs(Species.List) do
 	Species.ById[def.id] = def
+end
+Species.ById_ = nil
+
+function Species.isBoss(def)
+	return def.boss == true
+end
+
+-- Nombre de variantes obtenables : 3 pour un animal normal, 1 pour un boss.
+function Species.variantCount(def, totalVariants)
+	return def.boss and 1 or totalVariants
 end
 
 return Species

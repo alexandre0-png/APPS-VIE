@@ -12,6 +12,7 @@ local Util = require(Shared.Util)
 
 local DataService = require(script.Parent.DataService)
 local ProgressService = require(script.Parent.ProgressService)
+local RideService = require(script.Parent.RideService)
 
 local MonetizationService = {}
 
@@ -82,7 +83,18 @@ local function processReceipt(info)
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
-	data.coins = data.coins + product.coins
+	-- état avant l'octroi, pour annuler si l'écriture échoue
+	local backup = {
+		coins = data.coins,
+		bones = data.bones,
+		boostUntil = data.boostUntil,
+		revives = data.revives,
+		pot = data.pot,
+		lastCollect = data.lastCollect,
+	}
+	if not ProgressService.GrantProduct(player, product) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 	data.receipts[rid] = os.time()
 	-- on ne garde que les 60 reçus les plus récents
 	local ids = {}
@@ -101,17 +113,22 @@ local function processReceipt(info)
 
 	if not DataService.Save(player) then
 		-- sauvegarde impossible : on annule et Roblox réessaiera plus tard
-		data.coins = data.coins - product.coins
+		for key, value in pairs(backup) do
+			data[key] = value
+		end
 		data.receipts[rid] = nil
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
+	-- « Continuer » : si le joueur est mort en expédition, on l'utilise tout de suite
+	if product.kind == "revive" and RideService.Revive(player) then
+		data.revives = math.max(0, data.revives - 1)
+		DataService.MarkDirty(player)
+	end
+
 	ProgressService.RefreshAttributes(player)
 	ProgressService.Push(player)
-	Remotes.Feedback:FireClient(
-		player,
-		{ kind = "tame", title = "MERCI !", sub = ("+%d pièces"):format(product.coins) }
-	)
+	Remotes.Feedback:FireClient(player, { kind = "tame", title = "MERCI !", sub = product.name })
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -131,7 +148,7 @@ local function loadPrices()
 		end
 	end
 	for _, def in ipairs(M.Products) do
-		local entry = { key = def.key, name = def.name, coins = def.coins, available = def.id ~= 0 }
+		local entry = { key = def.key, name = def.name, kind = def.kind, amount = def.amount, available = def.id ~= 0 }
 		table.insert(ProgressService.Store.products, entry)
 		if def.id ~= 0 then
 			task.spawn(function()

@@ -1,4 +1,4 @@
--- Cœur du gameplay : monter une bête, bondir, lasso, dressage, chute, élimination, arrivée.
+-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
 -- Le serveur est autoritaire : positions des bêtes, portée du lasso, score et états sont validés ici.
 
 local Debris = game:GetService("Debris")
@@ -10,6 +10,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Util = require(Shared.Util)
+
+local Zoo = require(Shared.Zoo)
 
 local State = require(script.Parent.State)
 local CreatureService = require(script.Parent.CreatureService)
@@ -67,8 +69,19 @@ local function addScore(run, amount)
 	run.score = run.score + amount
 end
 
-function RideService.NewRun()
+function RideService.NewRun(lives, lassoCharges)
 	return {
+		lives = lives or Config.Run.BaseLives,
+		maxLives = lives or Config.Run.BaseLives,
+		lasso = lassoCharges or Config.Run.BaseLasso,
+		lassoAt = 0,
+		captures = 0,
+		gold = 0,
+		bones = 0,
+		names = {},
+		zoneIdx = 1,
+		deadAt = 0,
+		revived = false,
 		status = "Riding",
 		score = 0,
 		combo = 0,
@@ -111,8 +124,8 @@ function RideService.ToLobby(player)
 	if hum then
 		hum.Sit = false
 	end
-	local offset = CFrame.new((rng:NextNumber() - 0.5) * 70, 4, (rng:NextNumber() - 0.5) * 70)
-	char:PivotTo(State.LobbyCFrame * offset)
+	local home = State.PlotCFrames[player] or State.LobbyCFrame
+	char:PivotTo(home * CFrame.new((rng:NextNumber() - 0.5) * 6, 0, (rng:NextNumber() - 0.5) * 6))
 end
 
 -- ---------------------------------------------------------------------------
@@ -244,7 +257,8 @@ function RideService.Boost(player, velocity)
 	return launch(player, run, velocity)
 end
 
-local function downPlayer(player, run, title, sub)
+-- Le joueur titube sans perdre de vie (animal disparu, accroche avortée) ; il est remonté sur un animal.
+local function stumble(player, run)
 	run.combo = 0
 	run.downUntil = os.clock() + Config.Ride.DownTime
 	local _, hrp = getParts(player)
@@ -252,11 +266,58 @@ local function downPlayer(player, run, title, sub)
 		hrp.Anchored = false
 	end
 	player:SetAttribute("TameProgress", 0)
-	if hrp then
-		Fx.burst(hrp.Position - Vector3.new(0, 2, 0), Color3.fromRGB(214, 190, 150), 18, 18)
-	end
 	setStatus(player, run, "Down")
-	feedback(player, "down", title or "RATÉ !", sub or "Rattrape une bête qui passe !")
+end
+
+-- Mort : plus de vie. Une fenêtre permet d'acheter « Continuer » avant le retour au zoo.
+local function die(player, run)
+	RideService.Detach(run)
+	local zone = Config.zoneAt(run.z)
+	run.deadAt = os.clock()
+	local _, hrp = getParts(player)
+	if hrp then
+		hrp.Anchored = true
+		Fx.burst(hrp.Position, zone.hazard.color, 40, 40)
+	end
+	player:SetAttribute("TameProgress", 0)
+	setStatus(player, run, "Dead")
+	feedback(player, "out", "TOMBÉ !", zone.hazard.death)
+end
+
+-- Le joueur touche le sol mortel : il perd une vie, ou meurt s'il n'en a plus.
+local function downPlayer(player, run, title)
+	run.combo = 0
+	run.lives = run.lives - 1
+	local _, hrp = getParts(player)
+	if hrp then
+		Fx.burst(hrp.Position - Vector3.new(0, 2, 0), Config.zoneAt(run.z).hazard.color, 24, 22)
+	end
+	if run.lives <= 0 then
+		die(player, run)
+		return
+	end
+	stumble(player, run)
+	feedback(player, "down", title or "VIE PERDUE !", ("Il te reste %d vie(s). Rattrape un animal !"):format(run.lives))
+end
+
+-- « Continuer » acheté pendant la fenêtre de mort : une vie de plus, retour sur un animal.
+function RideService.Revive(player)
+	local run = State.Participants[player]
+	if not run or run.status ~= "Dead" or State.Phase ~= "Running" then
+		return false
+	end
+	if os.clock() - run.deadAt > Config.Run.ReviveWindow then
+		return false
+	end
+	run.lives = 1
+	run.revived = true
+	local _, hrp = getParts(player)
+	if hrp then
+		hrp.Anchored = false
+	end
+	feedback(player, "tame", "ON REPART !", "Tu as une vie de plus.")
+	stumble(player, run)
+	return true
 end
 
 -- Projette un joueur au sol (météore).
@@ -280,7 +341,11 @@ function RideService.Knock(player)
 	pcall(function()
 		hrp:SetNetworkOwner(player)
 	end)
-	downPlayer(player, run, "TOUCHÉ !", "Un météore t'a éjecté !")
+	run.combo = 0
+	run.airStart = os.clock()
+	setStatus(player, run, "Air")
+	Remotes.Launched:FireClient(player, Vector3.new(0, 45, 20))
+	feedback(player, "down", "TOUCHÉ !", "Rattrape un animal avant de tomber !")
 	return true
 end
 
@@ -293,7 +358,7 @@ local function rescue(player, run)
 	local creature = CreatureService.FindRescue(pos.X, pos.Z)
 	if not creature then
 		local x = math.clamp(pos.X, -Config.Track.HalfWidth + 8, Config.Track.HalfWidth - 8)
-		creature = CreatureService.Spawn(x, math.max(pos.Z, State.WallZ + 30) + 14, "boar", 1, 1)
+		creature = CreatureService.Spawn(x, pos.Z + 14, nil, 1, 1)
 	end
 	RideService.Mount(player, run, creature)
 end
@@ -328,32 +393,84 @@ local function onHookSuccess(player, run, distance)
 	feedback(player, "hook", title, sub)
 end
 
+-- Secondes en selle pour gagner la confiance d'un animal à cœur.
 local function tameTimeNeeded(player, creature)
+	if creature.boss then
+		return creature.def.bossRide
+	end
 	local level = ProgressService.GetUpgradeLevel(player, "taming")
 	local factor = 1 - Config.Tame.PerLevel * level
 	return math.max(Config.Tame.MinTime, creature.def.tameTime * factor)
 end
 
-local function doTame(player, run, creature)
-	creature.tamed = true
-	run.tames = run.tames + 1
-	local points = Config.Score.TameBase * creature.def.value * creature.variant.mult
-	addScore(run, points)
-	local result = ProgressService.RecordTame(player, creature.def, creature.variantIdx)
-	run.coins = run.coins + result.coins
-
+local function creatureLabel(creature)
 	local name = creature.def.name
-	if creature.variantIdx > 1 then
+	if creature.variantIdx > 1 and not creature.boss then
 		name = name .. " " .. creature.variant.name
 	end
-	local sub = ("%s · +%d pts · +%d pièces"):format(name, math.floor(points), result.coins)
+	return name
+end
+
+-- La confiance est gagnée : le cœur bat, le joueur a quelques secondes pour récupérer l'animal.
+local function markReady(player, creature)
+	creature.tamed = true
+	creature.tamedBy = player
+	creature.collectUntil = os.clock() + Config.Run.CollectWindow
+	creature.model:SetAttribute("Ready", true)
+	feedback(player, "tame", "♥ RÉCUPÈRE-LE !", "Appuie sur RÉCUPÉRER avant qu'il ne t'échappe.")
+	Fx.burst(creature.root.Position + Vector3.new(0, 5, 0), Color3.fromRGB(255, 120, 170), 30, 26)
+end
+
+-- Le cœur disparaît : l'animal a repris sa liberté (désarçonnement avant la récupération).
+local function loseHeart(creature)
+	creature.hearted = false
+	creature.tamed = false
+	creature.tamedBy = nil
+	if not creature.removed then
+		creature.model:SetAttribute("Heart", false)
+		creature.model:SetAttribute("Ready", false)
+	end
+end
+
+-- L'animal rejoint le zoo : or, os, points, effets. `how` = "ride" ou "lasso".
+local function captureCreature(player, run, creature, how)
+	local result = ProgressService.RecordCapture(player, creature.def, creature.variantIdx)
+	run.captures = run.captures + 1
+	run.gold = run.gold + result.gold
+	run.bones = run.bones + result.bones
+	table.insert(run.names, creatureLabel(creature))
+	local points = Config.Score.CapturePoints * creature.def.value * Zoo.variantMult(creature.def, creature.variantIdx)
+	addScore(run, points)
+
+	local name = creatureLabel(creature)
+	local title = result.new and "NOUVEAU PENSIONNAIRE !" or "DÉJÀ AU ZOO !"
+	local sub = ("%s · +%d or"):format(name, result.gold)
+	if result.bones > 0 then
+		sub = sub .. (" · +%d os"):format(result.bones)
+	end
 	if result.complete then
 		sub = sub .. " · ESPÈCE COMPLÈTE !"
-	elseif result.first then
-		sub = sub .. " · NOUVELLE DÉCOUVERTE"
 	end
-	feedback(player, "tame", "DOMPTÉ !", sub)
-	Fx.burst(creature.root.Position + Vector3.new(0, 4, 0), Color3.fromRGB(255, 220, 90), 40, 30)
+	Fx.burst(creature.root.Position + Vector3.new(0, 5, 0), Color3.fromRGB(255, 120, 170), 50, 34)
+	if creature.boss then
+		Remotes.Feedback:FireAllClients({
+			kind = "event",
+			title = "BOSS CAPTURÉ !",
+			sub = player.DisplayName .. " a gagné " .. name,
+		})
+	else
+		feedback(player, "tame", title, sub)
+	end
+	if how == "ride" then
+		-- l'animal part au zoo en bondissant : le joueur est propulsé en avant
+		launch(
+			player,
+			run,
+			Vector3.new(creature.vx, Config.Ride.LaunchUp * 1.1, creature.speed + Config.Ride.LaunchBoost * 1.5)
+		)
+	end
+	CreatureService.Remove(creature)
+	return result
 end
 
 -- ---------------------------------------------------------------------------
@@ -490,9 +607,9 @@ function RideService.HandleHook(player, id)
 			if hrp.Parent then
 				hrp.Anchored = false
 			end
-			-- Si le joueur est toujours en jeu (la bête a disparu), il tombe.
+			-- Si le joueur est toujours en jeu (l'animal a disparu), il titube puis est remonté.
 			if run.status == "Hooking" and player.Parent then
-				downPlayer(player, run)
+				stumble(player, run)
 			end
 			return
 		end
@@ -501,9 +618,74 @@ function RideService.HandleHook(player, id)
 			onHookSuccess(player, run, distance)
 		else
 			creature.rider = nil
-			downPlayer(player, run)
+			stumble(player, run)
 		end
 	end)
+end
+
+-- Récupérer l'animal qu'on monte (confiance gagnée, cœur prêt).
+function RideService.HandleCollect(player)
+	if State.Phase ~= "Running" or not Util.allow(player, "Collect", 0.3) then
+		return
+	end
+	local run = State.Participants[player]
+	local c = run and run.creature
+	if not run or run.status ~= "Riding" or not c or c.removed or c.rider ~= player then
+		return
+	end
+	if not c.tamed or c.tamedBy ~= player or os.clock() > c.collectUntil then
+		return
+	end
+	captureCreature(player, run, c, "ride")
+end
+
+-- Lasso de capture : vise un animal à cœur à distance (visée assistée côté client, tout est revalidé ici).
+function RideService.HandleLasso(player, id)
+	if not Util.isFiniteNumber(id) or id % 1 ~= 0 or State.Phase ~= "Running" then
+		return
+	end
+	local run = State.Participants[player]
+	if not run or (run.status ~= "Riding" and run.status ~= "Air" and run.status ~= "Down") then
+		return
+	end
+	if run.lasso <= 0 or os.clock() - run.lassoAt < Config.Run.LassoCooldown then
+		return
+	end
+	if not Util.allow(player, "Lasso", 0.5) then
+		return
+	end
+	local creature = State.Creatures[id]
+	if not creature or creature.removed or creature.rider or not creature.hearted or creature.boss then
+		return
+	end
+	local _, hrp = getParts(player)
+	if not hrp then
+		return
+	end
+	local range = (player:GetAttribute("LassoRange") or Config.Run.LassoRange) + Config.Ride.HookTolerance
+	local distance = (creature.root.Position - hrp.Position).Magnitude
+	if distance > range then
+		return
+	end
+
+	run.lasso = run.lasso - 1
+	run.lassoAt = os.clock()
+	spawnRope(player, hrp, creature, 0.35)
+	local chance = Config.Run.LassoBaseChance - Config.Run.LassoVariantPenalty * (creature.variantIdx - 1)
+	if rng:NextNumber() <= chance then
+		task.delay(0.3, function()
+			if
+				not creature.removed
+				and creature.hearted
+				and not creature.rider
+				and State.Participants[player] == run
+			then
+				captureCreature(player, run, creature, "lasso")
+			end
+		end)
+	else
+		feedback(player, "warn", "RATÉ !", ("L'animal s'est débattu. Il te reste %d lasso(s)."):format(run.lasso))
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -518,7 +700,7 @@ function RideService.Eliminate(player, run, reason)
 	run.status = "Out"
 	Remotes.Status:FireClient(player, "Out")
 	player:SetAttribute("TameProgress", 0)
-	feedback(player, "out", "ÉLIMINÉ", reason or "Tu es hors course.")
+	feedback(player, "out", "FIN D'EXPÉDITION", reason or "Tu es hors course.")
 	RideService.ToLobby(player)
 end
 
@@ -532,7 +714,7 @@ local function finish(player, run)
 	run.status = "Finished"
 	Remotes.Status:FireClient(player, "Finished")
 	player:SetAttribute("TameProgress", 0)
-	feedback(player, "finish", "ARRIVÉE !", ("%de · +%d pts"):format(place, bonus))
+	feedback(player, "finish", "EXPÉDITION COMPLÈTE !", ("%de · +%d pts"):format(place, bonus))
 	local char, hrp, hum = getParts(player)
 	if char then
 		hrp.Anchored = false
@@ -554,54 +736,91 @@ local function publish(player, run, now)
 	end
 	player:SetAttribute("ComboLeft", math.floor(left * 20) / 20)
 	player:SetAttribute("ComboMult", math.floor(comboMult(run) * 10) / 10)
+	player:SetAttribute("Lives", run.lives)
+	player:SetAttribute("MaxLives", run.maxLives)
+	player:SetAttribute("Lasso", run.lasso)
+	player:SetAttribute("Captures", run.captures)
+	player:SetAttribute("RunGold", run.gold)
+	player:SetAttribute("ZoneIdx", run.zoneIdx)
 	local c = run.creature
-	if c and run.status == "Riding" and not c.tamed then
+	local hearted = c ~= nil and run.status == "Riding" and c.hearted
+	player:SetAttribute("RideHeart", hearted)
+	player:SetAttribute("CanCollect", hearted and c.tamed and c.tamedBy == player or false)
+	player:SetAttribute("RideBoss", c ~= nil and c.boss or false)
+	if hearted and not c.tamed then
 		local needed = tameTimeNeeded(player, c)
-		player:SetAttribute("TameProgress", math.floor(math.clamp(run.tameT / needed, 0, 1) * 20) / 20)
-	elseif c and c.tamed then
+		local got = c.boss and (c.progress[player] or 0) or run.tameT
+		player:SetAttribute("TameProgress", math.floor(math.clamp(got / needed, 0, 1) * 20) / 20)
+	elseif hearted then
 		player:SetAttribute("TameProgress", 1)
+	else
+		player:SetAttribute("TameProgress", 0)
+	end
+	if run.status == "Dead" then
+		player:SetAttribute("ReviveLeft", math.max(0, math.ceil(Config.Run.ReviveWindow - (now - run.deadAt))))
+	else
+		player:SetAttribute("ReviveLeft", 0)
 	end
 end
 
 local function stepRiding(player, run, hrp, dt, now)
 	local c = run.creature
 	if not c or c.removed or c.rider ~= player then
-		downPlayer(player, run)
+		stumble(player, run)
 		return
 	end
 	run.mountT = run.mountT + dt
 
-	-- filet de sécurité : si la soudure ne suit pas la bête (physique inattendue), on recale le cavalier
+	-- filet de sécurité : si la soudure ne suit pas l'animal (physique inattendue), on recale le cavalier
 	local seat = CreatureService.SeatWorldCFrame(c)
 	if (hrp.Position - seat.Position).Magnitude > 4 then
 		hrp.CFrame = seat
 	end
 
-	local rate = Config.Score.RidePerSecond * c.def.value * c.variant.mult * comboMult(run)
+	local rate = Config.Score.RidePerSecond * c.def.value * Zoo.variantMult(c.def, c.variantIdx) * comboMult(run)
 	addScore(run, rate * dt)
 
 	if run.combo > 0 and now - run.lastHookT > comboWindow(player) then
 		run.combo = 0
 	end
 
-	if not c.tamed then
-		run.tameT = run.tameT + dt
-		if run.tameT >= tameTimeNeeded(player, c) then
-			doTame(player, run, c)
+	-- confiance : seulement sur un animal à cœur
+	if c.hearted and not c.tamed then
+		if c.boss then
+			c.progress[player] = (c.progress[player] or 0) + dt
+			if c.progress[player] >= tameTimeNeeded(player, c) then
+				markReady(player, c)
+			end
+		else
+			run.tameT = run.tameT + dt
+			if run.tameT >= tameTimeNeeded(player, c) then
+				markReady(player, c)
+			end
 		end
 	end
 
-	local buckAfter = c.def.buckAfter
+	-- l'animal prêt s'échappe si on ne le récupère pas à temps
+	if c.tamed and now > c.collectUntil then
+		loseHeart(c)
+		feedback(player, "down", "IL T'A ÉCHAPPÉ !", "Le cœur a disparu. Rattrape un autre animal !")
+		launch(player, run, Vector3.new(c.vx, Config.Ride.LaunchUp * 1.12, c.speed * 1.2 + Config.Ride.LaunchBoost))
+		return
+	end
+
+	local buckAfter = c.boss and Config.Run.BossBuckAfter or c.def.buckAfter
 	if buckAfter then
 		if run.mountT >= buckAfter - Config.Ride.BuckWarning and not c.angry then
 			c.angry = true
 			c.model:SetAttribute("Angry", true)
-			feedback(player, "warn", "ATTENTION !", "La bête s'énerve : bondis avant qu'elle te désarçonne !")
+			feedback(player, "warn", "ATTENTION !", "L'animal s'énerve : bondis avant qu'il te désarçonne !")
 		end
 		if run.mountT >= buckAfter then
+			if c.tamed then
+				loseHeart(c)
+			end
 			local velocity = Vector3.new(c.vx, Config.Ride.LaunchUp * 1.12, c.speed * 1.2 + Config.Ride.LaunchBoost)
 			if launch(player, run, velocity) then
-				feedback(player, "buck", "DÉSARÇONNÉ !", "Bond bonus : rattrape une autre bête !")
+				feedback(player, "buck", "DÉSARÇONNÉ !", "Bond bonus : rattrape un autre animal !")
 			end
 		end
 	end
@@ -617,14 +836,49 @@ local function stepAir(player, run, hrp, now)
 	end
 end
 
+-- Zone atteinte : bannière, quête, boss de la zone.
+local function trackZones(player, run, pos)
+	local idx = Config.zoneIndex(pos.Z)
+	if idx > run.zoneIdx then
+		run.zoneIdx = idx
+		local zone = Config.Zones[idx]
+		ProgressService.NoteZone(player, idx)
+		feedback(player, "event", "ZONE " .. idx .. " : " .. zone.name, "Danger : " .. zone.hazard.name .. " !")
+	end
+	-- le boss d'une zone apparaît quand le premier joueur approche de sa fin
+	for index, zone in ipairs(Config.Zones) do
+		local limit = math.min(zone.to, Config.Track.FinishZ)
+		if not State.BossesSpawned[index] and index == idx and pos.Z >= limit - 330 then
+			State.BossesSpawned[index] = true
+			local x = (rng:NextNumber() * 2 - 1) * (Config.Track.HalfWidth - 14)
+			local boss = CreatureService.Spawn(x, pos.Z + 160, zone.boss, 1, 1)
+			Remotes.Feedback:FireAllClients({
+				kind = "danger",
+				title = "BOSS : " .. boss.def.name:upper(),
+				sub = "Monte-le 9 s pour le récupérer. Il se débat !",
+			})
+			workspace:SetAttribute("BossActive", true)
+		end
+	end
+end
+
 function RideService.Step(dt)
 	local now = os.clock()
 	for player, run in pairs(State.Participants) do
 		local status = run.status
-		if status ~= "Out" and status ~= "Finished" then
+		if status == "Dead" then
+			if now - run.deadAt > Config.Run.ReviveWindow then
+				RideService.Eliminate(player, run, "Ton expédition s'arrête ici.")
+			end
+			run.pubT = run.pubT + dt
+			if run.pubT >= 0.1 then
+				run.pubT = 0
+				publish(player, run, now)
+			end
+		elseif status ~= "Out" and status ~= "Finished" then
 			local _, hrp = getParts(player)
 			if not hrp then
-				RideService.Eliminate(player, run, "Tu as quitté la course.")
+				RideService.Eliminate(player, run, "Tu as quitté l'expédition.")
 			else
 				local pos = hrp.Position
 				run.z = pos.Z
@@ -635,10 +889,9 @@ function RideService.Step(dt)
 					run.distance = run.distance + gain
 					addScore(run, gain * Config.Score.DistanceFactor)
 				end
+				trackZones(player, run, pos)
 
-				if pos.Z < State.WallZ + 2 then
-					RideService.Eliminate(player, run, "Le mur de lave t'a rattrapé !")
-				elseif pos.Z >= Config.Track.FinishZ and status ~= "Hooking" then
+				if pos.Z >= Config.Track.FinishZ and status ~= "Hooking" then
 					finish(player, run)
 				else
 					if status == "Riding" then
@@ -666,6 +919,8 @@ function RideService.Init()
 	Remotes.Launch.OnServerEvent:Connect(RideService.HandleLaunch)
 	Remotes.Steer.OnServerEvent:Connect(RideService.HandleSteer)
 	Remotes.Hook.OnServerEvent:Connect(RideService.HandleHook)
+	Remotes.Collect.OnServerEvent:Connect(RideService.HandleCollect)
+	Remotes.Lasso.OnServerEvent:Connect(RideService.HandleLasso)
 
 	Players.PlayerRemoving:Connect(function(player)
 		local run = State.Participants[player]

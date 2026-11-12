@@ -56,34 +56,36 @@ local function randomPositionAhead(zMin, zMax)
 	return Vector3.new(x, 0, z)
 end
 
-local function geyser(position, roundId)
+-- Tourbillon : un cercle de couleur, puis une colonne qui propulse tout cavalier dedans (bonus de saut).
+local function geyser(position, roundId, color)
 	local radius = Config.Events.GeyserRadius
-	Fx.ring(position, radius, Color3.fromRGB(90, 200, 255), Config.Events.Telegraph)
+	Fx.ring(position, radius, color, Config.Events.Telegraph)
 	task.delay(Config.Events.Telegraph, function()
 		if State.RoundId ~= roundId or State.Phase ~= "Running" then
 			return
 		end
-		Fx.column(position, radius, 70, Color3.fromRGB(120, 220, 255), 0.9)
+		Fx.column(position, radius, 70, color, 0.9)
 		for _, player in ipairs(playersInRadius(position, radius)) do
 			if player.Parent then
 				RideService.Boost(player, Vector3.new(0, 90, 70))
 				Remotes.Feedback:FireClient(
 					player,
-					{ kind = "geyser", title = "GEYSER !", sub = "Super bond ! Lasso une bête en l'air !" }
+					{ kind = "geyser", title = "SUPER BOND !", sub = "Rattrape un animal en l'air !" }
 				)
 			end
 		end
 	end)
 end
 
-local function meteor(position, roundId)
-	local radius = Config.Events.MeteorRadius
+-- Surgissement / météore : un cercle rouge, puis une explosion qui éjecte les cavaliers.
+local function strike(position, roundId, color)
+	local radius = Config.Events.StrikeRadius
 	Fx.ring(position, radius, Color3.fromRGB(255, 70, 40), Config.Events.Telegraph)
 	task.delay(Config.Events.Telegraph, function()
 		if State.RoundId ~= roundId or State.Phase ~= "Running" then
 			return
 		end
-		Fx.explosion(Vector3.new(position.X, 6, position.Z), radius, Color3.fromRGB(255, 120, 40))
+		Fx.explosion(Vector3.new(position.X, 6, position.Z), radius, color)
 		for _, player in ipairs(playersInRadius(position, radius)) do
 			if player.Parent then
 				RideService.Knock(player)
@@ -97,6 +99,8 @@ function EventService.Reset()
 end
 
 -- Appelé à chaque Heartbeat pendant la manche ; `elapsed` = secondes écoulées depuis le départ.
+-- Chaque zone a son événement : tourbillons (bonus) dans la savane et le désert, surgissements dans le marais
+-- et météores dans le volcan (éjectent les cavaliers).
 function EventService.Step(elapsed)
 	if elapsed < nextEventAt then
 		return
@@ -112,16 +116,17 @@ function EventService.Step(elapsed)
 		leaderZ = math.max(leaderZ, entry.run.z or 0)
 	end
 	local roundId = State.RoundId
+	local event = Config.zoneAt(leaderZ).event
 
-	if rng:NextNumber() < 0.6 then
-		announce("event", "GEYSERS !", "Fonce dans les cercles bleus pour un super bond.")
+	if event.kind == "geyser" then
+		announce("event", event.name .. " !", "Fonce dans les cercles pour un super bond.")
 		for _ = 1, 2 do
-			geyser(randomPositionAhead(leaderZ + 70, leaderZ + 180), roundId)
+			geyser(randomPositionAhead(leaderZ + 70, leaderZ + 180), roundId, event.color)
 		end
 	else
-		announce("danger", "PLUIE DE MÉTÉORES !", "Évite les cercles rouges !")
+		announce("danger", event.name .. " !", "Évite les cercles rouges !")
 		for _ = 1, 3 do
-			meteor(randomPositionAhead(leaderZ + 40, leaderZ + 160), roundId)
+			strike(randomPositionAhead(leaderZ + 40, leaderZ + 160), roundId, event.color)
 		end
 	end
 end

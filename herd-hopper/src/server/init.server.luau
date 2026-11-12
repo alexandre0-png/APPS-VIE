@@ -22,7 +22,7 @@ local DataService = require(Modules.DataService)
 local ProgressService = require(Modules.ProgressService)
 local CreatureService = require(Modules.CreatureService)
 local RideService = require(Modules.RideService)
-local WallService = require(Modules.WallService)
+local ZooService = require(Modules.ZooService)
 local EventService = require(Modules.EventService)
 local MapBuilder = require(Modules.MapBuilder)
 local RoundService = require(Modules.RoundService)
@@ -49,12 +49,25 @@ local function setCollisionGroup(character)
 	end)
 end
 
+-- Ramène le joueur devant son zoo (sauf s'il est en expédition).
+local function goHome(player, character)
+	local home = State.PlotCFrames[player]
+	if not home or State.Participants[player] then
+		return
+	end
+	local hrp = character:WaitForChild("HumanoidRootPart", 5)
+	if hrp and character.Parent then
+		character:PivotTo(home)
+	end
+end
+
 local function onCharacterAdded(player, character)
 	setCollisionGroup(character)
 	task.spawn(function()
 		character:WaitForChild("Humanoid", 10)
 		character:WaitForChild("Head", 10)
 		ProgressService.ApplyCosmetics(player)
+		goHome(player, character)
 	end)
 	Remotes.Status:FireClient(player, "Lobby")
 end
@@ -79,6 +92,10 @@ local function onPlayerAdded(player)
 		end
 		ProgressService.EnsureDaily(player)
 		ProgressService.RefreshAttributes(player)
+		ZooService.OnPlayerReady(player)
+		if player.Character then
+			goHome(player, player.Character)
+		end
 		Remotes.Data:FireClient(player, ProgressService.Snapshot(player))
 		ProgressService.ApplyCosmetics(player)
 		if not DataService.IsPersistent(player) then
@@ -100,11 +117,11 @@ end)
 DataService.Init()
 ProgressService.Init()
 RideService.Init()
+ZooService.Init()
 MonetizationService.Init()
 
 -- Carte (peut durer quelques secondes ; les joueurs attendent sans apparaître)
-local wallRoot = MapBuilder.Build()
-WallService.Init(wallRoot)
+MapBuilder.Build()
 State.MapReady = true
 Players.CharacterAutoLoads = true
 
@@ -121,8 +138,8 @@ RunService.Heartbeat:Connect(function(dt)
 		return
 	end
 	dt = math.min(dt, 0.1)
+	State.RunElapsed = State.RunElapsed + dt
 	CreatureService.Step(dt)
-	WallService.Step(dt)
 	RideService.Step(dt)
 	EventService.Step(State.RunElapsed)
 end)

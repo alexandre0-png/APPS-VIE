@@ -6,8 +6,8 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 
-local STORE_NAME = "HerdHopper_Profiles_v1"
-local BOARD_NAME = "HerdHopper_BestScore_v1"
+local STORE_NAME = "SauteZoo_Profiles_v1"
+local BOARD_NAME = "SauteZoo_BestScore_v1"
 local AUTOSAVE_INTERVAL = 60
 
 local DataService = {}
@@ -19,15 +19,25 @@ local profiles = {} -- [Player] = { data, canSave, dirty, version }
 
 local function defaultData()
 	return {
-		coins = 0,
+		coins = 0, -- or
+		bones = 0,
 		bestScore = 0,
 		wins = 0,
 		rounds = 0,
 		hooks = 0,
-		tamedTotal = 0,
+		captures = 0,
 		distance = 0,
-		tamed = {},
+		bestZone = 1,
+		animals = {}, -- ["boar_1"] = { level = 1, copies = 1 }
 		completed = {},
+		bossCaptured = {},
+		zooUp = { slots = 0, visitors = 0, storage = 0, gift = 0, lasso = 0, hearts = 0 },
+		lastCollect = 0, -- instant (os.time) du dernier calcul de la caisse
+		pot = 0, -- or déjà en caisse (hors temps écoulé depuis lastCollect)
+		boostUntil = 0,
+		revives = 0,
+		zone = "savane",
+		story = { index = 1, claimed = {} },
 		upgrades = { range = 0, taming = 0, combo = 0 },
 		owned = { hats = { none = true }, ropes = { classic = true } },
 		equipped = { hat = "none", rope = "classic" },
@@ -86,6 +96,9 @@ function DataService.Load(player)
 		data = reconcile(data, defaultData())
 	end
 
+	if (data.lastCollect or 0) == 0 then
+		data.lastCollect = os.time()
+	end
 	local profile = { data = data, canSave = ok, dirty = false, version = 0 }
 	profiles[player] = profile
 	return profile

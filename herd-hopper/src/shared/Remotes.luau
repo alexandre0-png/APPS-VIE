@@ -8,9 +8,12 @@ local EVENTS = {
 	"Hook", -- C->S : id de la bête visée
 	"Launch", -- C->S : quitter la monture
 	"Steer", -- C->S : direction latérale [-1, 1]
+	"Collect", -- C->S : récupérer l'animal monté (une fois sa confiance gagnée)
+	"Lasso", -- C->S : lancer le lasso de capture sur un animal à cœur
+	"Ready", -- C->S : partir en expédition (zone choisie, prêt oui/non)
 	"Prompt", -- C->S : demande d'achat Robux (kind, key)
 	"Data", -- S->C : profil du joueur
-	"Status", -- S->C : état du joueur (Lobby, Riding, Air, Hooking, Down, Out, Finished)
+	"Status", -- S->C : état du joueur (Lobby, Riding, Air, Hooking, Down, Dead, Finished)
 	"Launched", -- S->C : vitesse initiale du bond
 	"Feedback", -- S->C : messages / effets
 	"Scores", -- S->C : classement en direct
@@ -22,6 +25,7 @@ local FUNCTIONS = {
 	"Equip",
 	"ClaimDaily",
 	"ClaimQuest",
+	"ZooAction", -- améliorations, caisse, histoire
 }
 
 local isServer = RunService:IsServer()

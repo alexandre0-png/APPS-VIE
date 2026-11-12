@@ -1,5 +1,5 @@
--- Boucle de manches : Intermission -> Compte à rebours -> Course -> Résultats.
--- Les manches durent 2 minutes. Les récompenses sont calculées et versées ici.
+-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
+-- Les joueurs prêts partent ensemble dans la zone choisie par la majorité. Les récompenses sont versées ici.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,7 +13,6 @@ local DataService = require(script.Parent.DataService)
 local ProgressService = require(script.Parent.ProgressService)
 local CreatureService = require(script.Parent.CreatureService)
 local RideService = require(script.Parent.RideService)
-local WallService = require(script.Parent.WallService)
 local EventService = require(script.Parent.EventService)
 local Fx = require(script.Parent.Fx)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -27,10 +26,11 @@ local function isReady(player)
 	return hum ~= nil and hrp ~= nil and hum.Health > 0 and DataService.Get(player) ~= nil
 end
 
+-- Joueurs qui ont choisi de partir (bouton « Partir en expédition »).
 local function readyPlayers()
 	local list = {}
 	for _, player in ipairs(Players:GetPlayers()) do
-		if isReady(player) then
+		if State.Ready[player] and isReady(player) then
 			table.insert(list, player)
 		end
 	end
@@ -61,6 +61,7 @@ local function intermission()
 
 	while true do
 		local ready = #readyPlayers()
+		workspace:SetAttribute("ReadyCount", ready)
 		if ready >= Config.Round.MinPlayers then
 			if waiting then
 				waiting = false
@@ -80,9 +81,11 @@ local function intermission()
 		if os.clock() - lastText >= 1 then
 			lastText = os.clock()
 			if waiting then
-				MapBuilder.SetStatus("En attente de joueurs...")
+				MapBuilder.SetStatus("Choisis ta zone et pars en expédition !")
 			else
-				MapBuilder.SetStatus(("Prochaine manche dans %d s"):format(math.max(0, math.ceil(endAt - os.clock()))))
+				MapBuilder.SetStatus(
+					("Départ dans %d s (%d prêt(s))"):format(math.max(0, math.ceil(endAt - os.clock())), ready)
+				)
 			end
 		end
 		task.wait(0.25)
@@ -95,7 +98,25 @@ local function startPositions(index)
 	return (col - 2.5) * 16, 8 + row * 16
 end
 
-local function computeResults()
+-- Zone de départ : celle que choisit la majorité des joueurs prêts (égalité : la moins avancée).
+local function chooseZone(participants)
+	local votes = {}
+	for _, player in ipairs(participants) do
+		local data = DataService.Get(player)
+		local _, index = Config.zoneByKey(data and data.zone or "savane")
+		index = index or 1
+		votes[index] = (votes[index] or 0) + 1
+	end
+	local best, bestVotes = 1, -1
+	for index = 1, #Config.Zones do
+		if (votes[index] or 0) > bestVotes then
+			best, bestVotes = index, votes[index] or 0
+		end
+	end
+	return best
+end
+
+local function computeResults(zoneIdx)
 	local ranking = {}
 	for player, run in pairs(State.Participants) do
 		table.insert(ranking, { player = player, run = run })
@@ -113,12 +134,12 @@ local function computeResults()
 	for rank, entry in ipairs(ranking) do
 		local player, run = entry.player, entry.run
 		run.rank = rank
-		local roundCoins = math.floor(run.score * Config.Rewards.ScoreToCoins) + Config.Rewards.Participation
-		if competitive then
-			roundCoins = roundCoins + (Config.Rewards.Place[rank] or 0)
-		end
+		local roundGold = Config.Rewards.Participation
 		if player.Parent then
-			roundCoins = math.floor(roundCoins * ProgressService.CoinMultiplier(player))
+			roundGold = roundGold + ProgressService.GoldForRun(player, run.score)
+		end
+		if competitive then
+			roundGold = roundGold + (Config.Rewards.Place[rank] or 0)
 		end
 
 		if player.Parent and DataService.Get(player) then
@@ -139,7 +160,7 @@ local function computeResults()
 			ProgressService.AddQuest(player, "distance", math.floor(run.distance))
 			ProgressService.AddQuest(player, "combo", run.maxCombo)
 			ProgressService.AddQuest(player, "score", math.floor(run.score))
-			ProgressService.AddCoins(player, roundCoins)
+			ProgressService.AddCoins(player, roundGold)
 		end
 
 		table.insert(payload, {
@@ -147,12 +168,15 @@ local function computeResults()
 			n = player.DisplayName,
 			score = math.floor(run.score),
 			rank = rank,
-			coins = roundCoins + run.coins,
-			tames = run.tames,
+			gold = roundGold + run.gold,
+			bones = run.bones,
+			captures = run.captures,
+			names = run.names,
 			hooks = run.hooks,
 			dist = math.floor(run.distance),
 			finish = run.finishPlace,
 			combo = run.maxCombo,
+			zone = math.max(zoneIdx, run.zoneIdx),
 		})
 	end
 	return payload
@@ -166,35 +190,55 @@ local function runRound()
 
 	State.RoundId = State.RoundId + 1
 	local roundId = State.RoundId
+	local zoneIdx = chooseZone(participants)
+	local zone = Config.Zones[zoneIdx]
+	local startZ = zone.start
 
 	State.Participants = {}
 	State.FinishCount = 0
 	State.Frozen = true
+	State.RunElapsed = 0
+	State.StartZone = zoneIdx
+	State.BossesSpawned = {}
+	workspace:SetAttribute("BossActive", false)
+	workspace:SetAttribute("StartZone", zoneIdx)
 	CreatureService.Clear()
 	Fx.clear()
-	WallService.Reset()
 	EventService.Reset()
 
+	local heartBonus = 0
+	for _, player in ipairs(participants) do
+		local data = DataService.Get(player)
+		heartBonus = math.max(heartBonus, Config.Zoo.HeartBonus * (data and data.zooUp.hearts or 0))
+	end
+	State.HeartBonus = heartBonus
+
 	for index, player in ipairs(participants) do
-		local run = RideService.NewRun()
+		State.Ready[player] = nil
+		local lives = ProgressService.Lives(player)
+		ProgressService.ConsumeStoredRevive(player)
+		local run = RideService.NewRun(lives, ProgressService.LassoCharges(player))
 		State.Participants[player] = run
 		local x, z = startPositions(index)
-		local starter = CreatureService.Spawn(x, z, "boar", 1, 1)
+		z = startZ + z
+		local starter = CreatureService.Spawn(x, z, zone.animals[1], 1, 1)
 		run.z = z
 		run.bestZ = z
+		run.zoneIdx = zoneIdx
+		ProgressService.NoteZone(player, zoneIdx)
 		if not RideService.Mount(player, run, starter) then
 			run.status = "Out"
 		end
 	end
-	CreatureService.FillInitial()
+	CreatureService.FillInitial(startZ)
 	broadcastScores()
 
 	-- Compte à rebours
 	State.SetPhase("Countdown", Config.Round.Countdown)
-	MapBuilder.SetStatus("Manche en cours...")
+	MapBuilder.SetStatus("Expédition en cours : " .. zone.name)
 	task.wait(Config.Round.Countdown)
 
-	-- Course
+	-- Expédition
 	State.Frozen = false
 	State.SetPhase("Running", Config.Round.Duration)
 	local endsAt = os.clock() + Config.Round.Duration
@@ -219,6 +263,7 @@ local function runRound()
 	-- Résultats
 	State.Frozen = true
 	State.SetPhase("Results", Config.Round.Results)
+	workspace:SetAttribute("BossActive", false)
 	broadcastScores()
 	for _, run in pairs(State.Participants) do
 		RideService.Detach(run)
@@ -226,24 +271,25 @@ local function runRound()
 			run.status = "Out"
 		end
 	end
-	local payload = computeResults()
+	local payload = computeResults(zoneIdx)
 	for player in pairs(State.Participants) do
 		if player.Parent then
 			RideService.ToLobby(player)
-			player:SetAttribute("TameProgress", 0)
+			for _, name in ipairs({ "TameProgress", "RideHeart", "CanCollect", "RideBoss", "ReviveLeft" }) do
+				player:SetAttribute(name, nil)
+			end
 			player:SetAttribute("RideName", nil)
 			Remotes.Status:FireClient(player, "Lobby")
 		end
 	end
 	Remotes.Results:FireAllClients({ list = payload, round = roundId })
-	MapBuilder.SetStatus("Résultats de la manche")
+	MapBuilder.SetStatus("Résultats de l'expédition")
 	task.wait(Config.Round.Results)
 
 	-- Nettoyage
 	State.Participants = {}
 	CreatureService.Clear()
 	Fx.clear()
-	WallService.Reset()
 end
 
 function RoundService.Run()
