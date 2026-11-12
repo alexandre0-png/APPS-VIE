@@ -65,6 +65,26 @@ class TestMotion(unittest.TestCase):
             for s in steps.values():
                 self.assertTrue(0 < s.seconds <= d)
 
+    def test_read_pose_rises_holds_then_fades(self):
+        total = self.m.readDuration()
+        self.assertAlmostEqual(total, 2.05, places=6)
+        y0, a0 = self.m.readPose(0, 0.45)
+        self.assertAlmostEqual(y0, 1)
+        self.assertAlmostEqual(a0, 1)
+        yh, ah = self.m.readPose(1.0, 0.45)
+        self.assertAlmostEqual(yh, 0.45)
+        self.assertAlmostEqual(ah, 1)
+        yend, aend = self.m.readPose(total, 0.45)
+        self.assertAlmostEqual(aend, 0)
+        # Le papier ne revient jamais vers le bas en cours de geste
+        prev = 1.0
+        for i in range(0, 206, 5):
+            y, a = self.m.readPose(i / 100, 0.45)
+            self.assertLessEqual(y, prev + 1e-9)
+            self.assertGreaterEqual(a, -1e-9)
+            self.assertLessEqual(a, 1 + 1e-9)
+            prev = y
+
     def test_lid_and_sway(self):
         self.assertAlmostEqual(self.m.lidAngle(1, 22), 22)
         self.assertLess(self.m.lidAngle(0.2, 22), self.m.lidAngle(0.9, 22))

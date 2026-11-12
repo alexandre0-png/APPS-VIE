@@ -175,6 +175,42 @@ end
 player:GetAttributeChangedSignal("Sanity"):Connect(refreshVignette)
 refreshVignette()
 
+local readDocument
+-- Geste de lecture : une feuille monte à hauteur des yeux, puis s'efface (Config.Animations.DocumentRead)
+local paper = Instance.new("Frame")
+paper.Name = "Document"
+paper.AnchorPoint = Vector2.new(0.5, 0.5)
+paper.Size = UDim2.new(0.42, 0, 0.6, 0)
+paper.Position = UDim2.new(0.5, 0, 1.2, 0)
+paper.BackgroundColor3 = Color3.fromRGB(226, 218, 196)
+paper.BackgroundTransparency = 1
+paper.BorderSizePixel = 0
+paper.ZIndex = 35
+paper.Visible = false
+paper.Parent = gui
+
+readDocument = function()
+	pcall(function()
+		if not (Config.Animations.Enabled and Config.Animations.DocumentRead) then
+			return
+		end
+		local r = Motion.READ
+		local levelY = 0.45
+		paper.Visible = true
+		paper.Position = UDim2.new(0.5, 0, 1.2, 0)
+		paper.BackgroundTransparency = 0.05
+		TweenService:Create(paper, TweenInfo.new(r.rise, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0.5, 0, levelY, 0),
+		}):Play()
+		task.delay(r.rise + r.hold, function()
+			TweenService:Create(paper, TweenInfo.new(r.fade), { BackgroundTransparency = 1 }):Play()
+			task.delay(r.fade, function()
+				paper.Visible = false
+			end)
+		end)
+	end)
+end
+
 reactToMonster = function()
 	pcall(function()
 		if not (Config.Animations.Enabled and Config.Animations.MonsterReaction) then
@@ -550,6 +586,8 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 		startShake()
 		Audio.play("stinger_peur", gui, { lifetime = 3 })
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
+	elseif data.kind == "Read" then
+		readDocument()
 	elseif data.kind == "Cine" then
 		Cinematic.play(data.name, gui)
 		if data.name == "apparition" then

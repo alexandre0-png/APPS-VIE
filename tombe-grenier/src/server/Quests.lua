@@ -783,6 +783,8 @@ local function wire()
 				end)
 			elseif LORE[kind] then
 				prompt(part, { action = "Lire", object = kind, hold = 0.4 }, function(player)
+					-- Geste de lecture : le papier monte à hauteur des yeux (client, Motion.readPose)
+					Remotes.fire("Effect", player, { kind = "Read" })
 					if not state.lore[kind] then
 						state.lore[kind] = true
 						progressed()

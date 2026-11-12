@@ -78,4 +78,31 @@ function Motion.swayAngle(time, maxAngle, period)
 	return maxAngle * math.sin(time * TAU / (period or 5))
 end
 
+-- Lecture d'un document : le papier monte jusqu'à hauteur des yeux, reste, puis s'efface
+Motion.READ = { rise = 0.35, hold = 1.2, fade = 0.5 }
+
+-- Position verticale (0 = centre de l'écran, 1 = hors champ en bas) et opacité (0 à 1) à l'instant t
+function Motion.readPose(t, levelY)
+	local r = Motion.READ
+	if t < 0 then
+		return 1, 0
+	end
+	if t < r.rise then
+		return 1 + (levelY - 1) * Motion.easeOut(t / r.rise), 1
+	end
+	if t < r.rise + r.hold then
+		return levelY, 1
+	end
+	local f = (t - r.rise - r.hold) / r.fade
+	if f >= 1 then
+		return levelY, 0
+	end
+	return levelY, 1 - f
+end
+
+-- Durée totale du geste de lecture
+function Motion.readDuration()
+	return Motion.READ.rise + Motion.READ.hold + Motion.READ.fade
+end
+
 return Motion
