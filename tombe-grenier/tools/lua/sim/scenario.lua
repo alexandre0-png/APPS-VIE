@@ -46,6 +46,8 @@ local function world()
   w.respire = add("Respire", 38, 1, 36, "mur")
   w.mannequin = add("Mannequin", 42, 13, 46, "mannequin")
   w.horloge = add("Horloge", 60, 4.5, 1.1, "horloge du hall")
+  w.etiquette = add("Interactable", 118, 3, 14, "étiquette de la réserve", { Kind = "étiquette de la réserve" })
+  w.compteur = add("Compteur", 118, 3, 30, "compteur de la cuisine")
   return w
 end
 local w = world()
@@ -200,6 +202,31 @@ for seed = 1, 60 do
   check(find(H.msgs(alice), "(ne bougent pas)") == nil, ("V1 : pas de saisie d'horloge, graine %d"):format(seed))
 end
 Config.Design.ProgressionV2 = true
+
+-- 7quinquies. Énigme optionnelle de la cuisine : l'étiquette donne le code, le compteur l'accepte, une pile à la clé
+local function solveCompteur(seed)
+  Quests.setup(seed)
+  H.log = {}
+  H.trigger(w.etiquette, "QuestPromptEtiquette", alice)
+  local digits = string.match(find(H.msgs(alice), "Réserve — (%d%d%d)") or "", "(%d%d%d)")
+  if not digits then return false, "étiquette illisible" end
+  H.log = {}
+  H.trigger(w.compteur, "QuestPromptCompteur", alice)
+  if find(H.msgs(alice), "(Trois chiffres)") == nil then return false, "compteur muet" end
+  H.log = {}
+  Quests.submitCode(alice, "9999" == digits and "1234" or "9999")
+  if find(H.msgs(alice), "(pile neuve)") ~= nil then return false, "mauvais code accepté" end
+  H.log = {}
+  Quests.submitCode(alice, digits)
+  if find(H.msgs(alice), "(pile neuve)") == nil then return false, "bon code refusé" end
+  return true
+end
+local okC, whyC = solveCompteur(12345)
+check(okC, "compteur de la cuisine résolu" .. (whyC and (" (" .. whyC .. ")") or ""))
+for seed = 1, 60 do
+  local ok, why = solveCompteur(seed)
+  check(ok, ("compteur solvable, graine %d%s"):format(seed, why and (" : " .. why) or ""))
+end
 
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do Quests.setup(seed) end

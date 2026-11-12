@@ -540,3 +540,17 @@ class TestProgressionV2(unittest.TestCase):
 
     def test_hall_is_not_locked(self):
         self.assertNotIn("hall", gm.LOCKED_ROOM_IDS)
+
+
+class TestExtraPuzzle(unittest.TestCase):
+    """Énigme optionnelle : étiquette et compteur dans la cuisine, pièce non verrouillée."""
+
+    def test_counter_and_label_in_kitchen(self):
+        props = gm.build_props()[0]
+        counters = [p for p in props if p.get("tag") == "Compteur"]
+        labels = [p for p in props if p.get("kind") == "étiquette de la réserve"]
+        self.assertEqual(len(counters), 1)
+        self.assertEqual(len(labels), 1)
+        for p in counters + labels:
+            x, y, z = p["pos"]
+            self.assertEqual(gm.room_at("ground", x, z), "cuis")

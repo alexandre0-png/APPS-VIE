@@ -115,6 +115,12 @@ local ENDING_TEXT = {
 local ENDING_TOTAL = 3
 
 local code = "0000"
+-- Énigme optionnelle de la cuisine : code à 3 chiffres, tiré de la seed, écrit sur l'étiquette
+local extraCode = "000"
+local function extraCodeFromSeed(seed)
+	local rng = Rng.new(seed * 31 + 11)
+	return ("%d%d%d"):format(rng:int(0, 9), rng:int(0, 9), rng:int(0, 9))
+end
 local fuseOrder = {} -- ordre des trois interrupteurs pour rétablir le courant
 local state = nil
 local endFn = nil
@@ -678,6 +684,20 @@ local function wire()
 		end
 	end
 
+	-- Énigme optionnelle de la cuisine : l'étiquette donne le code, le compteur le demande
+	for _, part in ipairs(CollectionService:GetTagged("Compteur")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptCompteur", action = "Saisir le code", object = "Compteur", hold = 0.4, distance = 6 }, function(player)
+				if not Config.Design.ExtraSafe or not state or state.compteurDone then
+					return
+				end
+				state.compteurOpen = true
+				Remotes.fire("Keypad", player, { length = 3 })
+				say(player, "Trois chiffres. L'étiquette de la réserve doit les donner.")
+			end)
+		end
+	end
+
 	-- Boîte à musique : rejouer la mélodie du gramophone, note par note
 	for _, part in ipairs(CollectionService:GetTagged("MusicBox")) do
 		if part:IsA("BasePart") then
@@ -739,7 +759,11 @@ local function wire()
 	for _, part in ipairs(CollectionService:GetTagged("Interactable")) do
 		if part:IsA("BasePart") then
 			local kind = part:GetAttribute("Kind")
-			if LORE[kind] then
+			if kind == "étiquette de la réserve" then
+				prompt(part, { name = "QuestPromptEtiquette", action = "Lire", object = "Étiquette", hold = 0.4 }, function(player)
+					say(player, ("Étiquette, au feutre : « Réserve — %s »."):format(Config.Design.ExtraSafe and extraCode or "???"))
+				end)
+			elseif LORE[kind] then
 				prompt(part, { action = "Lire", object = kind, hold = 0.4 }, function(player)
 					if not state.lore[kind] then
 						state.lore[kind] = true
@@ -1017,6 +1041,17 @@ function Quests.submitCode(player, text)
 		submitHorloge(player, text)
 		return
 	end
+	if state and state.compteurOpen and not state.compteurDone and typeof(text) == "string" then
+		if text == extraCode then
+			state.compteurDone = true
+			state.compteurOpen = false
+			PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
+			say(player, "Le compteur cliquette. Un tiroir s'entrouvre : une pile neuve.")
+		else
+			say(player, "Ce n'est pas le bon code.")
+		end
+		return
+	end
 	if not state or state.coffret or typeof(text) ~= "string" then
 		return
 	end
@@ -1115,6 +1150,8 @@ function Quests.setup(seed)
 	state.boxDone = false
 	state.horloge = false     -- progression V2 : horloge du hall réglée
 	state.horlogeOpen = false -- saisie de la date ouverte au hall
+	state.compteurOpen = false -- saisie du code au compteur de la cuisine
+	state.compteurDone = false
 	state.tombePending = false
 	state.nextMark = 1
 	bookReads = {}
@@ -1133,6 +1170,7 @@ function Quests.setup(seed)
 		end
 	end
 	chooseStatues(seed)
+	extraCode = extraCodeFromSeed(seed)
 	resetMannequins()
 	melody = melodyFromSeed(seed)
 	local dateRng = Rng.new(seed * 17 + 3)
