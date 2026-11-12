@@ -18,4 +18,5 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
 8. **Choisir la progression** : `Config.Design.ProgressionV2` (`true` = avec l'horloge, `false` = progression d'origine). Les deux sont couvertes par la simulation.
 9. **Images et textures** : vérifier que les textures fournies s'affichent correctement dans Studio.
 10. **Vérification d'identité** : si Roblox la demande pour publier ou pour les achats, c'est à toi de la faire.
-11. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.
+11. **Animations** : régler ou couper chaque geste dans `Config.Animations` (malle, coffret, ramassage, lampes, pas et respiration, réveil, secousse). Vérifier dans Studio que les tweens de couvercle et de lampe ne gênent pas la prise en main des objets.
+12. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.

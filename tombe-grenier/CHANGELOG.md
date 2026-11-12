@@ -28,6 +28,15 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Animations (Config.Animations, chaque geste désactivable ; Enabled = false coupe tout) :
+  - malle et coffret : le couvercle s'entrouvre (Gestures.lua) ;
+  - objets ramassés : ils s'élèvent et s'effacent ;
+  - lampes de plafond : quelques-unes se balancent doucement ;
+  - pas et respiration : léger balancement de caméra en marche, respiration à l'arrêt (client) ;
+  - réveil : battements de paupières (fondu en plusieurs temps) ;
+  - débusquage : secousse courte de la caméra.
+  - Calculs purs dans src/shared/Motion.lua, testés par tools/lua/test_motion.py.
+  - Non faits : animation de tiroir, geste de lecture de document, réaction à l'apparition du monstre.
 - Contrôle de portée (scope_check) : détecte une variable lue avant sa déclaration locale ; deux tests unitaires.
 - Audio : options de lecture (vitesse, réverbération, boucle) dans Audio.play ; souffle de ventilation en boucle très bas au centre de la maison.
 - Récit : quatre phrases de texture pour les livres sans marque-page (Quests.lua, BOOK_FLAVOUR).

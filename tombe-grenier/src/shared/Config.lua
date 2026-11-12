@@ -158,6 +158,22 @@ Config.Visual = {
 	CandleFlicker = true,    -- la lueur des bougies vacille (Quests.lua)
 }
 
+-- Animations : chaque geste peut être coupé seul. Enabled = false coupe tout.
+Config.Animations = {
+	Enabled = true,
+	ChestLid = true,         -- la malle s'entrouvre en basculant
+	CoffretLid = true,       -- le couvercle du coffret se soulève
+	PickupRise = true,       -- un objet ramassé s'élève puis disparaît
+	LampSway = true,         -- les lampes de plafond se balancent doucement
+	CameraBob = true,        -- pas : léger balancement de la caméra en marche
+	Breath = true,           -- respiration : légère montée et descente de la caméra à l'arrêt
+	WakeBlink = true,        -- réveil : battements de paupières (fondu en plusieurs temps)
+	ScareShake = true,       -- débusqué ou apparition : secousse courte de la caméra
+	BobAmplitude = 0.08,     -- amplitude du balancement de marche (studs)
+	BreathAmplitude = 0.04,  -- amplitude de la respiration (studs)
+	ShakeDuration = 0.6,     -- durée de la secousse (secondes)
+}
+
 Config.Ambience = {
 	CreakIntervalMin = 25,   -- secondes entre deux grincements (porte ou chaise)
 	CreakIntervalMax = 60,

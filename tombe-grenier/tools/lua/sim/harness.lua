@@ -127,6 +127,7 @@ end
 local STUBS = {}
 STUBS.Remotes = function() return Remotes end
 STUBS.Noise = function() return { emit = function() end } end
+STUBS.Gestures = function() return { tiltOpen = function() end, riseAndRemove = function() end, startLampSway = function() end } end
 STUBS.Objectives = function()
   return {
     snapshot = function() return { photos = 3, hasKey = false } end,
@@ -165,6 +166,7 @@ M.shared = {
 }
 script = { Parent = {
   Noise = { __path = "STUB:Noise" },
+  Gestures = { __path = "STUB:Gestures" },
   Objectives = { __path = "STUB:Objectives" },
   PlayerState = { __path = "STUB:PlayerState" },
   MapBuilder = { __path = "STUB:MapBuilder" },

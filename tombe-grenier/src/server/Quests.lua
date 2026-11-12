@@ -26,6 +26,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Gestures = require(script.Parent.Gestures)
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Rng = require(Shared.Rng)
@@ -760,6 +761,7 @@ local function wire()
 					return
 				end
 				state.chest = true
+				Gestures.tiltOpen(part, "ChestLid")
 				openHatch("TrappeGrenier")
 				Objectives.unlockKey()
 				if Quests.onChestOpened then
@@ -1095,6 +1097,7 @@ function Quests.submitCode(player, text)
 	end
 	if text == code then
 		state.coffret = true
+		Gestures.tiltOpen(coffret, "CoffretLid")
 		state.smallKey = true
 		say(player, "Le couvercle se soulève. Une petite clé est au fond.")
 		progressed()

@@ -13,6 +13,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
+local Motion = require(Shared.Motion)
+local RunService = game:GetService("RunService")
 local Cinematic = require(script.Cinematic)
 
 local player = Players.LocalPlayer
@@ -356,10 +358,64 @@ end)
 -- Réveil : noir, puis la vue revient doucement
 local function introSequence(duration)
 	blackFrame.BackgroundTransparency = 0
+	-- Réveil avec battements de paupières (Config.Animations.WakeBlink), sinon fondu simple
+	if Config.Animations.Enabled and Config.Animations.WakeBlink then
+		task.spawn(function()
+			pcall(function()
+				for _, step in ipairs(Motion.blinkSteps(duration * 0.8)) do
+					TweenService:Create(blackFrame, TweenInfo.new(step.seconds, Enum.EasingStyle.Sine), {
+						BackgroundTransparency = step.transparency,
+					}):Play()
+					task.wait(step.seconds)
+				end
+			end)
+			blackFrame.BackgroundTransparency = 1
+		end)
+		return
+	end
 	task.delay(duration * 0.4, function()
 		TweenService:Create(blackFrame, TweenInfo.new(duration * 0.5), { BackgroundTransparency = 1 }):Play()
 	end)
 end
+
+-- Secousse de caméra (débusquage, apparition) et mouvements du personnage : pas, respiration
+local shakeStart = nil
+local function startShake()
+	if Config.Animations.Enabled and Config.Animations.ScareShake then
+		shakeStart = os.clock()
+	end
+end
+
+RunService.RenderStepped:Connect(function()
+	pcall(function()
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not hum then
+			return
+		end
+		if not Config.Animations.Enabled or Cinematic.isPlaying() then
+			hum.CameraOffset = Vector3.zero
+			return
+		end
+		local now = os.clock()
+		local moving = hum.MoveDirection.Magnitude > 0.1
+		local offsetY = 0
+		if Config.Animations.CameraBob then
+			offsetY += Motion.bob(now, moving, Config.Animations.BobAmplitude)
+		end
+		if Config.Animations.Breath and not moving then
+			offsetY += Motion.breath(now, Config.Animations.BreathAmplitude)
+		end
+		local shake = 0
+		if shakeStart then
+			shake = Motion.shake(now - shakeStart, Config.Animations.ShakeDuration, 0.25)
+			if now - shakeStart >= Config.Animations.ShakeDuration then
+				shakeStart = nil
+			end
+		end
+		hum.CameraOffset = Vector3.new(shake * 0.5, offsetY + shake, 0)
+	end)
+end)
 
 -- Flashbacks : séquences courtes (6 s au plus), sans texte, avec un son déjà fourni.
 -- Chaque étape : { couleur, opacité, durée }.
@@ -473,6 +529,7 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 		flash(Color3.fromRGB(10, 10, 12), 0.6, 0.6)
 	elseif data.kind == "Scare" then
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
+		startShake()
 		Audio.play("stinger_peur", gui, { lifetime = 3 })
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
 	elseif data.kind == "Cine" then

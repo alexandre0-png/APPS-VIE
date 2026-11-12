@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local PlayerState = require(script.Parent.PlayerState)
+local Gestures = require(script.Parent.Gestures)
 local Locks = require(script.Parent.Locks)
 
 local Objectives = {}
@@ -73,7 +74,7 @@ local function pickable(part, objectText, onPick)
 				return
 			end
 			taken = true
-			part:Destroy()
+			Gestures.riseAndRemove(part)
 			onPick(player)
 		end,
 	})
