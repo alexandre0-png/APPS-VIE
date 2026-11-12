@@ -1545,8 +1545,14 @@ local STORE_NAME = "ChipeOeufs_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
 local SLOT_COUNT = 12
 local LOCK_TTL = 120 -- un verrou plus vieux que ça est considéré comme abandonné (crash serveur)
+local SAVE_RETRIES = 3
+
+-- Version du schéma des données sauvegardées. À incrémenter à chaque changement de structure, avec une étape dans migrate().
+-- v1 : première version (sans champ ver). v2 : + equip, quests, qday, receipts, luckUntil, ver.
+local VERSION = 2
 
 local Data = {}
+Data.VERSION = VERSION
 Data.SERVER_ID = HttpService:GenerateGUID(false)
 
 local store, board
@@ -1567,6 +1573,7 @@ end
 
 function Data.default()
 	local d = {
+		ver = VERSION,
 		coins = 50,
 		speed = 0,
 		rb = 0,
@@ -1594,20 +1601,51 @@ function Data.default()
 	return d
 end
 
+-- Garde-fou contre les valeurs corrompues (NaN, infini, négatif)
+local function sane(v, default)
+	if type(v) ~= "number" or v ~= v or v == math.huge or v == -math.huge or v < 0 then
+		return default
+	end
+	return v
+end
+
+-- Migrations successives : chaque étape fait passer les données de la version n à n+1.
+local MIGRATIONS = {
+	[1] = function(_saved)
+		-- v1 -> v2 : les nouveaux champs reçoivent leurs valeurs par défaut dans merge(), rien à convertir.
+	end,
+}
+
+local function migrate(saved)
+	local ver = tonumber(saved.ver) or 1
+	while ver < VERSION do
+		local step = MIGRATIONS[ver]
+		if step then
+			step(saved)
+		end
+		ver += 1
+	end
+	saved.ver = VERSION
+end
+
+-- Retourne (données, venantDUneVersionPlusRecente)
 local function merge(saved)
 	local d = Data.default()
 	if type(saved) ~= "table" then
-		return d
+		return d, false
+	end
+	local newer = (tonumber(saved.ver) or 1) > VERSION
+	if not newer then
+		migrate(saved)
 	end
 	for _, key in ipairs({ "coins", "speed", "rb", "daily", "streak", "stolen", "hatched", "last", "qday", "luckUntil" }) do
-		if type(saved[key]) == "number" then
-			d[key] = saved[key]
-		end
+		d[key] = sane(saved[key], d[key])
 	end
 	if type(saved.up) == "table" then
 		for k, v in pairs(saved.up) do
 			if d.up[k] ~= nil and type(v) == "number" then
-				d.up[k] = v
+				local u = Config.upgrade(k)
+			d.up[k] = math.min(u and u.max or 0, math.floor(sane(v, 0)))
 			end
 		end
 	end
@@ -1619,7 +1657,7 @@ local function merge(saved)
 	end
 	if type(saved.equip) == "table" then
 		for _, v in ipairs(saved.equip) do
-			if type(v) == "number" and #d.equip < Config.MAX_FOLLOWERS then
+			if type(v) == "number" and v >= 1 and v <= SLOT_COUNT and v % 1 == 0 and #d.equip < Config.MAX_FOLLOWERS then
 				d.equip[#d.equip + 1] = v
 			end
 		end
@@ -1641,7 +1679,7 @@ local function merge(saved)
 			end
 		end
 	end
-	return d
+	return d, newer
 end
 
 local function key(player)
@@ -1680,7 +1718,11 @@ function Data.load(player)
 			end)
 		end)
 		if ok and not lockedElsewhere then
-			return merge(unwrap(result)), false
+			local d, newer = merge(unwrap(result))
+			if newer then
+				warn("[Data] " .. player.Name .. " : données d'une version plus récente du jeu, sauvegarde désactivée pour ne rien écraser")
+			end
+			return d, newer
 		end
 		if ok then
 			warn("[Data] " .. player.Name .. " est encore verrouillé sur un autre serveur (" .. attempt .. "/8)")
@@ -1696,28 +1738,52 @@ function Data.load(player)
 	return nil, true
 end
 
+local saving = {} -- clé -> true tant qu'une sauvegarde de cette clé est en cours (évite les écritures concurrentes)
+
 -- release = true : libère le verrou (départ du joueur). Refuse d'écrire si un autre serveur a pris le verrou.
+-- Réessaie jusqu'à SAVE_RETRIES fois. Retourne true si la sauvegarde a réussi.
 function Data.save(player, d, release)
 	if not store or not d then
 		return false
 	end
-	d.last = os.time()
-	local ok, err = pcall(function()
-		store:UpdateAsync(key(player), function(old)
-			if lockedByOther(old) then
-				return nil
-			end
-			local rec = { v = d, t = os.time() }
-			if not release then
-				rec.lock = Data.SERVER_ID
-			end
-			return rec
-		end)
-	end)
-	if not ok then
-		warn("[Data] Sauvegarde échouée pour " .. player.Name .. " : " .. tostring(err))
+	local k = key(player)
+	local waited = 0
+	while saving[k] and waited < 8 do
+		task.wait(0.25)
+		waited += 0.25
 	end
-	return ok
+	saving[k] = true
+	d.last = os.time()
+	d.ver = VERSION
+	local success = false
+	for attempt = 1, SAVE_RETRIES do
+		local abort = false
+		local ok, err = pcall(function()
+			store:UpdateAsync(k, function(old)
+				if lockedByOther(old) then
+					abort = true
+					return nil
+				end
+				local rec = { v = d, t = os.time() }
+				if not release then
+					rec.lock = Data.SERVER_ID
+				end
+				return rec
+			end)
+		end)
+		if ok and not abort then
+			success = true
+			break
+		end
+		if abort then
+			warn("[Data] " .. player.Name .. " : verrou pris par un autre serveur, sauvegarde annulée")
+			break
+		end
+		warn("[Data] Sauvegarde échouée pour " .. player.Name .. " (" .. attempt .. "/" .. SAVE_RETRIES .. ") : " .. tostring(err))
+		task.wait(1.5 * attempt)
+	end
+	saving[k] = nil
+	return success
 end
 
 ---------------------------------------------------------------- Classement global
