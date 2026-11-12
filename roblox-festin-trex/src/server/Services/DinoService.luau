@@ -20,8 +20,16 @@ local core = DinoCore.new()
 local model: Model
 local mouthZone: BasePart
 local hitParts: { Instance } = {}
-local jawParts: { { part: BasePart, offset: Vector3 } } = {}
+-- Animation : chaque pièce mobile mémorise sa position/rotation à l'échelle 1 et son groupe.
+local animated: { { part: BasePart, pos: Vector3, rot: CFrame, group: string } } = {}
+local pupils: { BasePart } = {}
+local eyes: { BasePart } = {}
 local HINGE = Vector3.new(0, 20, 13.5)
+local HEAD_PIVOT = Vector3.new(0, 18, 4)
+local TAIL_PIVOTS = { Vector3.new(0, 13, -8), Vector3.new(0, 12.5, -18), Vector3.new(0, 12, -27) }
+local SHOULDER_L = Vector3.new(5.9, 16.5, 6)
+local SHOULDER_R = Vector3.new(-5.9, 16.5, 6)
+local roarStart = -10
 local favorite = "pomme"
 local state: Instance
 local chompStart = -10
@@ -110,8 +118,7 @@ local function buildModel()
 
 	-- Mâchoire (animée) : mâchoire, langue, dents du bas.
 	local function jaw(name: string, size: Vector3, pos: Vector3, color: Color3)
-		local p = addPart(name, size, pos, color, { collide = false })
-		table.insert(jawParts, { part = p, offset = pos - HINGE })
+		addPart(name, size, pos, color, { collide = false })
 	end
 	jaw("LowerJaw", Vector3.new(7, 2.2, 8), Vector3.new(0, 19.9, 17.5), Color3.fromRGB(100, 185, 90))
 	jaw("Tongue", Vector3.new(4, 0.6, 6), Vector3.new(0, 21.1, 17), Color3.fromRGB(240, 110, 130))
@@ -124,6 +131,38 @@ local function buildModel()
 	local head = addPart("HeadHit", Vector3.new(9, 8.5, 9), Vector3.new(0, 21.5, 8.5), white, { hidden = true, collide = false, query = true, shadow = false })
 	local body = addPart("BodyHit", Vector3.new(11, 20, 25), Vector3.new(0, 10, -5), white, { hidden = true, collide = false, query = true, shadow = false })
 	hitParts = { mouthZone, head, body }
+
+	-- Affectation des groupes d'animation (positions à l'échelle 1, avant ScaleTo).
+	for _, p in ipairs(model:GetChildren()) do
+		local group = nil
+		local n = p.Name
+		if n == "Head" or n == "Snout" or n == "MouthInside" or n == "Eye" or n == "Pupil" or n == "Tooth" then
+			group = "head"
+		elseif n == "LowerJaw" or n == "Tongue" or n == "LowerTooth" then
+			group = "jaw"
+		elseif n == "Tail1" then
+			group = "t1"
+		elseif n == "Tail2" then
+			group = "t2"
+		elseif n == "Tail3" then
+			group = "t3"
+		elseif n == "ArmL" then
+			group = "armL"
+		elseif n == "ArmR" then
+			group = "armR"
+		elseif n == "Spike" then
+			local z = p.Position.Z
+			group = if z < -20 then "t2" elseif z < -10 then "t1" else nil
+		end
+		if group then
+			table.insert(animated, { part = p, pos = p.Position, rot = p.CFrame.Rotation, group = group })
+		end
+		if n == "Pupil" then
+			table.insert(pupils, p)
+		elseif n == "Eye" then
+			table.insert(eyes, p)
+		end
+	end
 
 	model:PivotTo(CFrame.new(0, 0, 0))
 	model.Parent = workspace
@@ -178,6 +217,10 @@ function DinoService.getRayTargets(): { Instance }
 	return rayTargets
 end
 
+function DinoService.roar()
+	roarStart = os.clock()
+end
+
 function DinoService.chomp()
 	chompStart = os.clock()
 end
@@ -199,6 +242,7 @@ local function runFeast()
 		return
 	end
 	feastBusy = true
+	DinoService.roar()
 	local contrib, total, finishedStage = core:completeFeast()
 	local stageName = Config.Dino.Stages[finishedStage].Name
 
@@ -294,8 +338,12 @@ function DinoService.init(mapFolder: Instance)
 		end
 	end)
 
-	-- Animation de la mâchoire (~20 Hz).
+	-- Animation (~20 Hz) : respiration, tête, mâchoire, queue en chaîne, bras, clignement, rugissement.
+	local function around(pivot: Vector3, rot: CFrame, s: number): CFrame
+		return CFrame.new(pivot * s) * rot * CFrame.new(-pivot * s)
+	end
 	local acc = 0
+	local blinking = false
 	RunService.Heartbeat:Connect(function(dt)
 		acc += dt
 		if acc < 0.05 then
@@ -303,17 +351,41 @@ function DinoService.init(mapFolder: Instance)
 		end
 		acc = 0
 		local t = os.clock()
-		local open
-		local since = t - chompStart
-		if since < 0.4 then
-			open = 0.05 + 0.5 * math.sin((since / 0.4) * math.pi)
-		else
-			open = 0.12 + 0.08 * math.sin(t * 1.6)
-		end
 		local s = currentScale
-		local pivot = CFrame.new(HINGE * s) * CFrame.Angles(open, 0, 0)
-		for _, j in ipairs(jawParts) do
-			j.part.CFrame = pivot * CFrame.new(j.offset * s)
+		local since = t - chompStart
+		local chompOpen = if since < 0.4 then 0.05 + 0.5 * math.sin((since / 0.4) * math.pi) else 0
+		local rs = t - roarStart
+		local roar = if rs < 1.8 then math.sin(math.pi * rs / 1.8) else 0
+		local breathe = math.sin(t * 1.4)
+		local open = 0.12 + 0.08 * math.sin(t * 1.6) + chompOpen + 0.8 * roar
+
+		local headM = CFrame.new(0, 0.25 * breathe * s, 0) * around(HEAD_PIVOT, CFrame.Angles(0.03 * breathe - 0.38 * roar, 0, 0), s)
+		local m1 = around(TAIL_PIVOTS[1], CFrame.Angles(0, 0.08 * math.sin(t * 1.8), 0), s)
+		local m2 = m1 * around(TAIL_PIVOTS[2], CFrame.Angles(0, 0.14 * math.sin(t * 1.8 - 0.6), 0), s)
+		local m3 = m2 * around(TAIL_PIVOTS[3], CFrame.Angles(0, 0.2 * math.sin(t * 1.8 - 1.2), 0), s)
+		local groups = {
+			head = headM,
+			jaw = headM * around(HINGE, CFrame.Angles(open, 0, 0), s),
+			t1 = m1,
+			t2 = m2,
+			t3 = m3,
+			armL = around(SHOULDER_L, CFrame.Angles(0.2 * math.sin(t * 2), 0, 0), s),
+			armR = around(SHOULDER_R, CFrame.Angles(0.2 * math.sin(t * 2 + 1), 0, 0), s),
+		}
+		for _, a in ipairs(animated) do
+			a.part.CFrame = groups[a.group] * (CFrame.new(a.pos * s) * a.rot)
+		end
+
+		-- Clignement toutes les ~4,3 s.
+		local shouldBlink = (t % 4.3) < 0.12
+		if shouldBlink ~= blinking then
+			blinking = shouldBlink
+			for _, p in ipairs(pupils) do
+				p.Transparency = if blinking then 1 else 0
+			end
+			for _, e in ipairs(eyes) do
+				e.Color = if blinking then Color3.fromRGB(88, 170, 80) else Color3.fromRGB(250, 250, 250)
+			end
 		end
 	end)
 end

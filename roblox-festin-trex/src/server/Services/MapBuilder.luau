@@ -288,36 +288,90 @@ local function buildSecrets()
 end
 
 local function buildLighting()
-	Lighting.ClockTime = 14.5
-	Lighting.Brightness = 2.2
-	Lighting.Ambient = Color3.fromRGB(120, 125, 135)
-	Lighting.OutdoorAmbient = Color3.fromRGB(135, 140, 150)
+	Lighting.ClockTime = 16.4 -- heure dorée : ombres longues, couleurs chaudes
+	Lighting.Brightness = 2.6
+	Lighting.Ambient = Color3.fromRGB(125, 122, 135)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 145, 150)
+	Lighting.ColorShift_Top = Color3.fromRGB(255, 236, 205)
+	Lighting.ExposureCompensation = 0.15
+	Lighting.EnvironmentDiffuseScale = 0.6
+	Lighting.EnvironmentSpecularScale = 0.35
+	Lighting.ShadowSoftness = 0.25
 	Lighting.GlobalShadows = true
-	for _, class in ipairs({ "Atmosphere", "BloomEffect", "ColorCorrectionEffect", "SunRaysEffect" }) do
+	for _, class in ipairs({ "Atmosphere", "BloomEffect", "ColorCorrectionEffect", "SunRaysEffect", "DepthOfFieldEffect" }) do
 		local old = Lighting:FindFirstChildOfClass(class)
 		if old then
 			old:Destroy()
 		end
 	end
 	local atmo = Instance.new("Atmosphere")
-	atmo.Density = 0.25
-	atmo.Offset = 0.2
-	atmo.Color = Color3.fromRGB(200, 215, 240)
-	atmo.Haze = 0.6
+	atmo.Density = 0.28
+	atmo.Offset = 0.25
+	atmo.Color = Color3.fromRGB(255, 220, 190)
+	atmo.Decay = Color3.fromRGB(255, 170, 120)
+	atmo.Glare = 0.2
+	atmo.Haze = 0.7
 	atmo.Parent = Lighting
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.25
-	bloom.Size = 20
-	bloom.Threshold = 1.5
+	bloom.Intensity = 0.3
+	bloom.Size = 22
+	bloom.Threshold = 1.4
 	bloom.Parent = Lighting
 	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Saturation = 0.15
-	cc.Contrast = 0.08
+	cc.Saturation = 0.2
+	cc.Contrast = 0.1
+	cc.TintColor = Color3.fromRGB(255, 247, 238)
 	cc.Parent = Lighting
 	local rays = Instance.new("SunRaysEffect")
-	rays.Intensity = 0.08
-	rays.Spread = 0.6
+	rays.Intensity = 0.12
+	rays.Spread = 0.7
 	rays.Parent = Lighting
+	local dof = Instance.new("DepthOfFieldEffect")
+	dof.FarIntensity = 0.12
+	dof.FocusDistance = 120
+	dof.InFocusRadius = 140
+	dof.NearIntensity = 0
+	dof.Parent = Lighting
+end
+
+-- Décor : assiette géante sous le T-Rex, lampadaires, fleurs, rochers (positions pseudo-aléatoires déterministes).
+local function buildDecor()
+	local plate = part(map, { Name = "DinoPlate", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 74, 74), CFrame = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(245, 245, 248), Material = Enum.Material.Marble, CanQuery = false })
+	part(plate.Parent, { Name = "DinoPlateRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 80, 80), CFrame = CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(215, 70, 70), Material = Enum.Material.SmoothPlastic, CanQuery = false })
+
+	-- 12 lampadaires entre les drapeaux.
+	for i = 1, 12 do
+		local a = ((i - 0.5) / 12) * math.pi * 2
+		local x, z = math.cos(a) * 66, math.sin(a) * 66
+		part(map, { Name = "LampPole", Size = Vector3.new(0.7, 11, 0.7), Position = Vector3.new(x, 5.5, z), Color = Color3.fromRGB(60, 60, 70), Material = Enum.Material.Metal, CanQuery = false })
+		local bulb = part(map, { Name = "LampBulb", Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 2.2, 2.2), Position = Vector3.new(x, 12, z), Color = Color3.fromRGB(255, 226, 140), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false })
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 214, 150)
+		light.Range = 26
+		light.Brightness = 1.1
+		light.Shadows = false
+		light.Parent = bulb
+	end
+
+	-- Fleurs et rochers hors de la place.
+	local flowerColors = { Color3.fromRGB(255, 90, 120), Color3.fromRGB(255, 220, 70), Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 110, 255) }
+	for i = 1, 140 do
+		local a = math.sin(i * 12.9898) * 43758.5453
+		local b = math.sin(i * 78.233) * 24634.6345
+		local angle = (a - math.floor(a)) * math.pi * 2
+		local radius = 90 + (b - math.floor(b)) * 90
+		local x, z = math.cos(angle) * radius, math.sin(angle) * radius
+		part(map, { Name = "Flower", Size = Vector3.new(0.7, 0.9, 0.7), Position = Vector3.new(x, 0.45, z), Color = flowerColors[(i % #flowerColors) + 1], CanCollide = false, CanQuery = false, CanTouch = false })
+	end
+	for i = 1, 24 do
+		local a = math.sin(i * 39.346) * 43758.5453
+		local b = math.sin(i * 11.135) * 24634.6345
+		local c = math.sin(i * 7.77) * 9123.1
+		local angle = (a - math.floor(a)) * math.pi * 2
+		local radius = 100 + (b - math.floor(b)) * 110
+		local size = 3 + (c - math.floor(c)) * 5
+		part(map, { Name = "Rock", Size = Vector3.new(size, size * 0.7, size * 0.9), CFrame = CFrame.new(math.cos(angle) * radius, size * 0.25, math.sin(angle) * radius) * CFrame.Angles(0, angle, math.rad(8)), Color = Color3.fromRGB(135, 135, 140), Material = Enum.Material.Slate, CanQuery = false })
+	end
 end
 
 -- Retourne (dossierCarte, étiquettesDuClassement)
@@ -329,6 +383,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 	buildLighting()
 	buildGround()
 	buildBunting()
+	buildDecor()
 	buildTrees()
 
 	-- Stands de nourriture en arc de cercle devant le T-Rex.
