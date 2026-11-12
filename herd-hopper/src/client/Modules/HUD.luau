@@ -74,39 +74,30 @@ local function build(gui)
 	})
 	UI.corner(score, 14)
 	UI.stroke(score, C.Dark, 2)
-	UI.text(
-		score,
-		{
-			Size = UDim2.new(1, -16, 0, 18),
-			Position = UDim2.new(0, 8, 0, 4),
-			Text = "SCORE",
-			maxSize = 14,
-			TextColor3 = C.Muted,
-			TextXAlignment = Enum.TextXAlignment.Left,
-		}
-	)
-	refs.score = UI.text(
-		score,
-		{
-			Size = UDim2.new(1, -16, 0, 40),
-			Position = UDim2.new(0, 8, 0, 20),
-			Text = "0",
-			maxSize = 38,
-			TextColor3 = C.Accent,
-			TextXAlignment = Enum.TextXAlignment.Left,
-		}
-	)
-	refs.combo = UI.text(
-		score,
-		{
-			Size = UDim2.new(1, -16, 0, 20),
-			Position = UDim2.new(0, 8, 0, 62),
-			Text = "",
-			maxSize = 18,
-			TextColor3 = C.Good,
-			TextXAlignment = Enum.TextXAlignment.Left,
-		}
-	)
+	UI.text(score, {
+		Size = UDim2.new(1, -16, 0, 18),
+		Position = UDim2.new(0, 8, 0, 4),
+		Text = "SCORE",
+		maxSize = 14,
+		TextColor3 = C.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	refs.score = UI.text(score, {
+		Size = UDim2.new(1, -16, 0, 40),
+		Position = UDim2.new(0, 8, 0, 20),
+		Text = "0",
+		maxSize = 38,
+		TextColor3 = C.Accent,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	refs.combo = UI.text(score, {
+		Size = UDim2.new(1, -16, 0, 20),
+		Position = UDim2.new(0, 8, 0, 62),
+		Text = "",
+		maxSize = 18,
+		TextColor3 = C.Good,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
 	local comboBar = UI.frame(
 		score,
 		{ Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark }
@@ -136,16 +127,13 @@ local function build(gui)
 	})
 	UI.corner(board, 14)
 	UI.stroke(board, C.Dark, 2)
-	UI.text(
-		board,
-		{
-			Size = UDim2.new(1, -16, 0, 18),
-			Position = UDim2.new(0, 8, 0, 2),
-			Text = "CLASSEMENT",
-			maxSize = 14,
-			TextColor3 = C.Muted,
-		}
-	)
+	UI.text(board, {
+		Size = UDim2.new(1, -16, 0, 18),
+		Position = UDim2.new(0, 8, 0, 2),
+		Text = "CLASSEMENT",
+		maxSize = 14,
+		TextColor3 = C.Muted,
+	})
 	refs.rows = {}
 	for i = 1, 6 do
 		refs.rows[i] = UI.text(board, {
@@ -177,17 +165,14 @@ local function build(gui)
 	refs.wallBox = wallBox
 
 	-- Danger : bordure rouge pulsante
-	refs.danger = UI.frame(
-		gui,
-		{
-			Name = "Danger",
-			Position = UDim2.new(0, 8, 0, 8),
-			Size = UDim2.new(1, -16, 1, -16),
-			BackgroundTransparency = 1,
-			Visible = false,
-			Active = false,
-		}
-	)
+	refs.danger = UI.frame(gui, {
+		Name = "Danger",
+		Position = UDim2.new(0, 8, 0, 8),
+		Size = UDim2.new(1, -16, 1, -16),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Active = false,
+	})
 	refs.dangerStroke =
 		UI.make("UIStroke", { Color = Color3.fromRGB(255, 50, 30), Thickness = 16, Transparency = 1 }, refs.danger)
 
@@ -284,17 +269,14 @@ local function build(gui)
 	UI.make("UISizeConstraint", { MaxSize = Vector2.new(560, 440) }, results)
 	UI.corner(results, 18)
 	UI.stroke(results, C.Accent, 3)
-	UI.text(
-		results,
-		{
-			Size = UDim2.new(1, -20, 0, 44),
-			Position = UDim2.new(0, 10, 0, 8),
-			Text = "RÉSULTATS DE LA MANCHE",
-			maxSize = 32,
-			TextColor3 = C.Accent,
-			ZIndex = 21,
-		}
-	)
+	UI.text(results, {
+		Size = UDim2.new(1, -20, 0, 44),
+		Position = UDim2.new(0, 10, 0, 8),
+		Text = "RÉSULTATS DE LA MANCHE",
+		maxSize = 32,
+		TextColor3 = C.Accent,
+		ZIndex = 21,
+	})
 	refs.resultsList = UI.make("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -537,27 +519,21 @@ function HUD.showResults(payload)
 		if you then
 			UI.stroke(row, UI.Colors.Accent, 2)
 		end
-		UI.text(
-			row,
-			{
-				Size = UDim2.new(0, 44, 1, 0),
-				Text = "#" .. entry.rank,
-				maxSize = 24,
-				TextColor3 = entry.rank == 1 and UI.Colors.Accent or UI.Colors.Text,
-				ZIndex = 22,
-			}
-		)
-		UI.text(
-			row,
-			{
-				Size = UDim2.new(0.42, 0, 1, -8),
-				Position = UDim2.new(0, 48, 0, 4),
-				Text = entry.n,
-				maxSize = 20,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				ZIndex = 22,
-			}
-		)
+		UI.text(row, {
+			Size = UDim2.new(0, 44, 1, 0),
+			Text = "#" .. entry.rank,
+			maxSize = 24,
+			TextColor3 = entry.rank == 1 and UI.Colors.Accent or UI.Colors.Text,
+			ZIndex = 22,
+		})
+		UI.text(row, {
+			Size = UDim2.new(0.42, 0, 1, -8),
+			Position = UDim2.new(0, 48, 0, 4),
+			Text = entry.n,
+			maxSize = 20,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 22,
+		})
 		UI.text(row, {
 			Size = UDim2.new(0.3, 0, 1, -8),
 			Position = UDim2.new(0.5, 0, 0, 4),
