@@ -2,7 +2,7 @@
 -- Le fichier renvoie une fonction (Config, Species, Util, Zoo) -> échecs, réussites.
 -- Exécutable avec Lune (tools/lune/run.luau) ou avec la simulation fengari (node tools/sim/run.js UNIT).
 
-return function(Config, Species, Util, Zoo)
+return function(Config, Species, Util, Zoo, AnimMath)
 	local failures, passed = 0, 0
 
 	local function test(name, fn)
@@ -268,6 +268,116 @@ return function(Config, Species, Util, Zoo)
 			end
 		end
 		truthy(Config.RiddleReward.gold > 0 and Config.RiddleReward.bones > 0, "récompense")
+	end)
+
+	-- ---------------------------------------------------------------- Animations
+	test("Config.Animations : interrupteurs complets", function()
+		local expected =
+			{ "Walk", "Jump", "HeartReact", "Capture", "Joy", "Lasso", "ZoneIntro", "ZoneTransition", "Boss", "Death" }
+		eq(type(Config.Animations.Enabled), "boolean", "interrupteur général")
+		for _, key in ipairs(expected) do
+			eq(type(Config.Animations[key]), "boolean", "interrupteur " .. key)
+		end
+		local count = 0
+		for _ in pairs(Config.Animations) do
+			count = count + 1
+		end
+		eq(count, #expected + 1, "aucun interrupteur inconnu")
+	end)
+
+	test("AnimMath : bornes et courbes d'adoucissement", function()
+		eq(AnimMath.clamp01(-1), 0)
+		eq(AnimMath.clamp01(2), 1)
+		eq(AnimMath.easeOutQuad(0), 0)
+		eq(AnimMath.easeOutQuad(1), 1)
+		eq(AnimMath.easeInOut(0.5), 0.5)
+		eq(AnimMath.easeOutBack(0), 0)
+		eq(AnimMath.easeOutBack(1), 1)
+		truthy(AnimMath.easeOutBack(0.6) > 1, "dépassement du pop")
+		local previous = -1
+		for i = 0, 10 do
+			local v = AnimMath.easeInOut(i / 10)
+			truthy(v >= previous, "croissance")
+			previous = v
+		end
+	end)
+
+	test("AnimMath : marche, saut, ailes", function()
+		for t = 0, 3, 0.25 do
+			local walk = AnimMath.gait(t, 8, 0, 0, 0)
+			truthy(math.abs(walk) <= 0.7001, "amplitude au sol")
+			local joy = AnimMath.gait(t, 8, 0, 0, 1)
+			truthy(math.abs(joy) <= 1.0501, "amplitude joyeuse")
+		end
+		eq(AnimMath.tuck(0), 0)
+		eq(AnimMath.tuck(5), 1)
+		eq(AnimMath.gait(1, 8, 0, 5, 0), -0.9, "pattes repliées en l'air")
+		truthy(math.abs(AnimMath.flap(1, 60)) <= 0.5501, "amplitude d'aile")
+	end)
+
+	test("AnimMath : cœur, capture et joie", function()
+		eq(AnimMath.heartPop(0), 0)
+		eq(AnimMath.heartPop(1), 1)
+		local rise0, spin0 = AnimMath.capture(0)
+		eq(rise0, 0)
+		eq(spin0, 0)
+		local rise1, spin1, hop1 = AnimMath.capture(1)
+		eq(rise1, 16)
+		truthy(math.abs(spin1 - math.pi * 4) < 1e-9, "deux tours")
+		truthy(math.abs(hop1) < 1e-9, "rebond nul à la fin")
+		local midRise, _, midHop = AnimMath.capture(0.5)
+		truthy(midRise > 8 and midHop > 2.9, "à mi-parcours")
+		local y0 = AnimMath.joy(-1, 2.5)
+		eq(y0, 0, "avant le début")
+		local yEnd = AnimMath.joy(2.6, 2.5)
+		eq(yEnd, 0, "après la fin")
+		local maxY = 0
+		for t = 0.05, 2.4, 0.05 do
+			local y = AnimMath.joy(t, 2.5)
+			truthy(y >= 0 and y <= 2.2001, "rebond borné")
+			maxY = math.max(maxY, y)
+		end
+		truthy(maxY > 1, "la joie rebondit vraiment")
+	end)
+
+	test("AnimMath : lasso, bras, balayage, étoiles, fumée, boss, zoom", function()
+		local c0, w0 = AnimMath.lassoCurve(0)
+		local c1, w1 = AnimMath.lassoCurve(1)
+		truthy(c0 > c1 and c1 == 0, "la corde se tend")
+		truthy(w1 > w0, "la corde s'épaissit")
+		eq(AnimMath.loopRadius(0, 10, 4), 10)
+		eq(AnimMath.loopRadius(1, 10, 4), 4)
+		eq(AnimMath.throwArm(-0.1), 0)
+		eq(AnimMath.throwArm(0.5), 0)
+		truthy(AnimMath.throwArm(0.12) < -2.3, "bras armé")
+		truthy(AnimMath.throwArm(0.3) > 1.1, "bras lancé")
+		local x0, a0 = AnimMath.wipe(0)
+		local x1, a1 = AnimMath.wipe(1)
+		local _, aMid = AnimMath.wipe(0.5)
+		eq(x0, -1)
+		eq(x1, 1)
+		eq(a0, 0)
+		eq(a1, 0)
+		truthy(aMid > 0.5, "opacité maximale au milieu")
+		for i = 1, 4 do
+			local x, z = AnimMath.orbit(0.7, i, 4, 3)
+			truthy(math.abs(math.sqrt(x * x + z * z) - 3) < 1e-9, "étoile sur le cercle")
+		end
+		local s0, t0 = AnimMath.poof(0)
+		local s1, t1 = AnimMath.poof(1)
+		truthy(s1 > s0 and t1 > t0, "la fumée grossit et s'estompe")
+		for age = 0, 5, 0.1 do
+			local stomp = AnimMath.bossStomp(age)
+			truthy(stomp >= 0 and stomp <= 1.2001, "piétinement borné")
+		end
+		local e, h = AnimMath.flyover(1)
+		eq(e, 1)
+		eq(h, 14)
+		eq(select(2, AnimMath.flyover(0)), 60)
+		eq(AnimMath.fovPunch(-1, 1, 14), 0)
+		eq(AnimMath.fovPunch(2, 1, 14), 0)
+		truthy(math.abs(AnimMath.fovPunch(0.2, 1, 14) - 14) < 1e-9, "pic du zoom")
+		truthy(AnimMath.fovPunch(0.6, 1, 14) < 14, "retour progressif")
 	end)
 
 	-- ---------------------------------------------------------------- Zoo (économie)

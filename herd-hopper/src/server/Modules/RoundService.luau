@@ -13,6 +13,7 @@ local DataService = require(script.Parent.DataService)
 local ProgressService = require(script.Parent.ProgressService)
 local CreatureService = require(script.Parent.CreatureService)
 local RideService = require(script.Parent.RideService)
+local ZooService = require(script.Parent.ZooService)
 local EventService = require(script.Parent.EventService)
 local Fx = require(script.Parent.Fx)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -272,10 +273,11 @@ local function runRound()
 		end
 	end
 	local payload = computeResults(zoneIdx)
-	for player in pairs(State.Participants) do
+	for player, run in pairs(State.Participants) do
 		if player.Parent then
 			RideService.ToLobby(player)
 			ProgressService.OnZooChanged(player)
+			ZooService.Celebrate(player, run.keys)
 			for _, name in ipairs({ "TameProgress", "RideHeart", "CanCollect", "RideBoss", "ReviveLeft" }) do
 				player:SetAttribute(name, nil)
 			end

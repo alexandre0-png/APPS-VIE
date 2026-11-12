@@ -15,6 +15,7 @@ local Sfx = require(script.Parent.Sfx)
 local Controls = require(script.Parent.Controls)
 local CameraRig = require(script.Parent.CameraRig)
 local CreatureFx = require(script.Parent.CreatureFx)
+local Anim = require(script.Parent.Anim)
 
 local HUD = {}
 
@@ -518,6 +519,7 @@ local function update()
 				title = zone.name,
 				sub = "Danger : " .. zone.hazard.name .. ". Ne touche pas le sol !",
 			})
+			Anim.zoneIntro()
 		end
 	else
 		refs.countdown.Visible = false
@@ -658,6 +660,9 @@ function HUD.feedback(payload)
 	end
 	if style.shake then
 		CameraRig.shake(style.shake, 0.4)
+	end
+	if payload.kind == "danger" and tostring(payload.title):sub(1, 4) == "BOSS" then
+		Anim.bossPunch()
 	end
 
 	task.delay(payload.kind == "tame" and 2.6 or 1.8, function()

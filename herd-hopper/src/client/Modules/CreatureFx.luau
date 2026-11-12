@@ -3,7 +3,12 @@
 
 local RunService = game:GetService("RunService")
 
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+local AnimMath = require(Shared.AnimMath)
+
 local UI = require(script.Parent.UI)
+local Anim = require(script.Parent.Anim)
 
 local CreatureFx = {}
 
@@ -16,6 +21,7 @@ local lassoModel = nil
 
 local CULL_DISTANCE = 260
 local PINK = Color3.fromRGB(255, 96, 160)
+local walkBroken = false
 local GOLD = Color3.fromRGB(255, 205, 60)
 
 local function collectMotors(model)
@@ -86,6 +92,21 @@ local function updateHeart(model)
 			})
 		end
 		rec.heart = { gui = gui, scale = scale }
+		rec.heartAt = os.clock()
+		Anim.run("HeartReact", function()
+			rec.joyUntil = os.clock() + 1.2
+			local spark = Instance.new("ParticleEmitter")
+			spark.Color = ColorSequence.new(PINK)
+			spark.LightEmission = 1
+			spark.Lifetime = NumberRange.new(0.6, 1)
+			spark.Speed = NumberRange.new(8, 14)
+			spark.SpreadAngle = Vector2.new(180, 180)
+			spark.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+			spark.Enabled = false
+			spark.Parent = root
+			spark:Emit(10)
+			game:GetService("Debris"):AddItem(spark, 1.5)
+		end)
 	elseif not wants and rec.heart then
 		rec.heart.gui:Destroy()
 		rec.heart = nil
@@ -151,6 +172,8 @@ function CreatureFx.init()
 		end
 		local camPos = camera.CFrame.Position
 		local t = os.clock()
+		local cfg = Config.Animations
+		local walk = cfg.Enabled and cfg.Walk and not walkBroken
 		for model, rec in pairs(records) do
 			local root = model:FindFirstChild("Root")
 			if root and (root.Position - camPos).Magnitude < CULL_DISTANCE then
@@ -164,18 +187,42 @@ function CreatureFx.init()
 				end
 				if rec.motors then
 					local freq = 4 + rec.speed * 0.11
-					for _, m in ipairs(rec.motors) do
-						if m.kind == "leg" then
-							m.motor.Transform = CFrame.Angles(math.sin(t * freq + m.phase) * 0.7, 0, 0)
-						else
-							m.motor.Transform = CFrame.Angles(0, 0, m.side * math.sin(t * 8) * 0.55)
+					-- marche (pattes), saut (pattes repliées), joie (plus ample) ; tout est protégé par pcall
+					local lift = root.Position.Y - (model:GetAttribute("BaseY") or root.Position.Y)
+					local joy = 0
+					if
+						(cfg.HeartReact and t < (rec.joyUntil or 0)) or (cfg.Joy and model:GetAttribute("Joy") == true)
+					then
+						joy = 1
+					end
+					local ok = pcall(function()
+						for _, m in ipairs(rec.motors) do
+							if m.kind == "leg" then
+								local angle = walk and AnimMath.gait(t, freq, m.phase, cfg.Jump and lift or 0, joy)
+									or math.sin(t * freq + m.phase) * 0.7
+								m.motor.Transform = CFrame.Angles(angle, 0, 0)
+							else
+								local flap = walk and AnimMath.flap(t, rec.speed) or math.sin(t * 8) * 0.55
+								m.motor.Transform = CFrame.Angles(0, 0, m.side * flap)
+							end
 						end
+					end)
+					if not ok then
+						walkBroken = true
+						warn("[Animation Walk] désactivée après une erreur")
 					end
 				end
 				if rec.heart then
 					local ready = model:GetAttribute("Ready") == true
 					local pulse = ready and (1.25 + math.sin(t * 9) * 0.25) or (1 + math.sin(t * 3) * 0.08)
-					rec.heart.scale.Scale = pulse
+					local pop = 1
+					if cfg.Enabled and cfg.HeartReact and rec.heartAt then
+						local age = t - rec.heartAt
+						if age < 0.45 then
+							pop = AnimMath.heartPop(age)
+						end
+					end
+					rec.heart.scale.Scale = pulse * pop
 				end
 			end
 		end

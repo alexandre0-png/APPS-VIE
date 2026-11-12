@@ -26,8 +26,9 @@ local Zoo = load("src/shared/Zoo.luau", {
 		return module
 	end,
 })
+local AnimMath = load("src/shared/AnimMath.luau")
 local spec = load("tests/pure.spec.luau")
-local failures, passed = spec(Config, Species, Util, Zoo)
+local failures, passed = spec(Config, Species, Util, Zoo, AnimMath)
 print(("Lune : %d réussis, %d échecs"):format(passed, failures))
 if failures > 0 then
 	error("tests en échec")

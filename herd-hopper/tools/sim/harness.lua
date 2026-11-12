@@ -583,6 +583,24 @@ local function clientMain()
 	UserInputService.InputBegan:fire(space, false)
 	for _ = 1, 4 do advance(0.1) end
 	print(("CONTRÔLES  Launch=%s  Collect=%s  Lasso(id)=%s  Hook(id)=%s  Steer=%s"):format(tostring(fired.launch), tostring(fired.collect), tostring(fired.lasso), tostring(fired.hook), tostring(fired.steer)))
+	-- animations : intro de zone, transition, bras du lasso, coup de zoom de boss, grisé de l'échec
+	local Anim = require(M.__nodes("client/Modules/Anim"))
+	local Config = require(M.__nodes("shared/Config"))
+	Config.Animations.Walk = false
+	local skipped = Anim.run("Walk", function() error("ne doit pas être appelée") end) == false
+	Config.Animations.Walk = true
+	local before = Anim.failures
+	local swallowed = Anim.run("Walk", function() error("panne simulée") end) == false and Anim.failures == before + 1
+	Config.Animations.Enabled = false
+	local masterOff = Anim.run("Capture", function() error("jamais") end) == false
+	Config.Animations.Enabled = true
+	print(("ANIMATIONS flag coupé=%s  erreur avalée par pcall=%s  interrupteur général=%s  échecs comptés=%d"):format(tostring(skipped), tostring(swallowed), tostring(masterOff), Anim.failures))
+	me._attrs.ZoneIdx = 3
+	for _, name in ipairs({ "zoneIntro", "zoneTransition", "throw", "bossPunch" }) do
+		local ok = name == "zoneTransition" and Anim.zoneTransition(Config.Zones[3]) or (name ~= "zoneTransition" and Anim[name]())
+		print(("ANIMATIONS %s : %s"):format(name, tostring(ok)))
+		for _ = 1, 4 do advance(0.1) end
+	end
 	-- mort et « Continuer »
 	me._attrs.Lives = 0 me._attrs.ReviveLeft = 9
 	Remotes.Status.OnClientEvent:fire("Dead")
@@ -636,7 +654,7 @@ local function main()
 	local State = require(M.__nodes("server/Modules/State"))
 	local maxCreatures, rounds, seenPhases = 0, 0, {}
 	local lastPhase
-	local simEnd = SCENARIO == "B" and 260 or (SCENARIO == "C" and 120 or (SCENARIO == "D" and 200 or 330))
+	local simEnd = SCENARIO == "E" and 25 or SCENARIO == "B" and 260 or (SCENARIO == "C" and 120 or (SCENARIO == "D" and 200 or 330))
 	local removed = false
 	local dt = 1 / 30
 	local checkedShop = false
@@ -652,6 +670,40 @@ local function main()
 			pb._p.Character:Destroy()
 			pb.Parent = nil
 			print("(test) Bob quitte la partie en pleine course")
+		end
+		if SCENARIO == "E" and State.MapReady and not removed then
+			removed = true
+			local CS = require(M.__nodes("server/Modules/CreatureService"))
+			local Fx = require(M.__nodes("server/Modules/Fx"))
+			local Config = require(M.__nodes("shared/Config"))
+			State.Frozen = false
+			local c1 = CS.Spawn(0, 500, "boar", 1, 1)
+			CS.BeginCapture(c1)
+			local animated = c1.capture ~= nil and State.Creatures[c1.id] == c1 and c1.model._attrs.Captured == true and c1.hearted == false
+			local y0 = c1.root._p.CFrame.p.Y
+			vt = vt + 0.4
+			CS.Step(0.05)
+			local risen = c1.root._p.CFrame.p.Y > y0 + 3
+			vt = vt + 0.5
+			CS.Step(0.05)
+			local gone = State.Creatures[c1.id] == nil and c1.removed
+			Config.Animations.Capture = false
+			local c2 = CS.Spawn(0, 520, "boar", 1, 1)
+			CS.BeginCapture(c2)
+			local instant = c2.removed == true
+			Config.Animations.Capture = true
+			local c3 = CS.Spawn(0, 540, "elephant", 1, 1)
+			local base = c3.y or c3.def.rootY
+			local ys = {}
+			for _ = 1, 8 do vt = vt + 0.3 CS.Step(0.3) ys[#ys + 1] = c3.root._p.CFrame.p.Y end
+			local stomps = false
+			for _, y in ipairs(ys) do if math.abs(y - ys[1]) > 0.3 then stomps = true end end
+			local safeOff = Fx.safe("Death", function() error("x") end)
+			Config.Animations.Death = false
+			local off = Fx.poof(Vector3.new(0, 5, 0)) == false
+			Config.Animations.Death = true
+			local on = Fx.poof(Vector3.new(0, 5, 0)) == true and Fx.stars(Vector3.new(0, 5, 0)) == true and Fx.lassoLoop(Vector3.new(0, 5, 0), 4) == true and Fx.confetti(Vector3.new(0, 5, 0)) == true
+			print(("ANIMATIONS serveur  capture animée=%s  montée=%s  retirée à la fin=%s  flag coupé=retrait immédiat:%s  piétinement du boss=%s  erreur avalée=%s  Death coupé=%s  effets actifs=%s"):format(tostring(animated), tostring(risen), tostring(gone), tostring(instant), tostring(stomps), tostring(safeOff == false), tostring(off), tostring(on)))
 		end
 		local n = 0 for _ in pairs(State.Creatures) do n = n + 1 end
 		maxCreatures = math.max(maxCreatures, n)
@@ -787,8 +839,9 @@ local function unitMain()
 	local Species = require(M.__nodes("shared/Species"))
 	local Util = require(M.__nodes("shared/Util"))
 	local Zoo = require(M.__nodes("shared/Zoo"))
+	local AnimMath = require(M.__nodes("shared/AnimMath"))
 	local spec = load(sources["../tests/pure.spec"], "=tests/pure.spec", "t", setmetatable({}, { __index = _G }))()
-	local failures, passed = spec(Config, Species, Util, Zoo)
+	local failures, passed = spec(Config, Species, Util, Zoo, AnimMath)
 	print(("TESTS UNITAIRES : %d réussis, %d échecs"):format(passed, failures))
 	print("ERREURS LUA:", failures)
 end

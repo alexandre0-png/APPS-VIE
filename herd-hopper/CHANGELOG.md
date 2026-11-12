@@ -14,6 +14,11 @@ Décisions prises sans validation, pour combler un brief parfois flou :
 - **Histoire** : 11 chapitres (zoo hérité d'une tante) avec objectifs lus dans le profil. Quêtes quotidiennes adaptées au zoo.
 - **Robux** : 4 pass (Zoo Premium, Or x2, Vie supplémentaire, Lasso doré) et 7 produits (or, os, boost x2, Continuer). Le pass Zoo Premium inclut les cornes VIP. Rien d'indispensable : la partie de base reste gratuite.
 - **Énigme du jour** (accord reçu pour ajouter des énigmes) : une énigme par animal normal, la même pour tous ce jour-là ; la capturer (n'importe quelle version) donne 100 or et 10 os. La réponse n'est jamais envoyée au client.
+- **Animations** (demandées après la refonte) : chacune derrière `Config.Animations` (interrupteur général + un par animation) et encapsulée en pcall ; une animation qui échoue est signalée une fois puis ignorée. Ton joyeux, rien de sanglant.
+  - Animaux : cycle de marche, pattes repliées en saut, ailes ; trot joyeux et étincelles à l'apparition d'un cœur rose (le cœur « pop » avec rebond) ; capture : l'animal s'envole en tournoyant avec des confettis ; joie au zoo : rebonds, un tour sur eux-mêmes, confettis à l'arrivée en fin d'expédition.
+  - Lasso : la corde ondule puis se tend, la boucle se resserre autour de l'animal, le bras du joueur lance (visible par lui seul).
+  - Zones : survol de caméra au départ, balayage de couleur entre deux zones. Boss : nuage d'arrivée, piétinements, coup de zoom. Échec : étoiles d'étourdissement à la perte d'une vie ; à la mort, nuage de fumée, personnage estompé, écran grisé un instant.
+  - Les maths sont dans `AnimMath` (pures, 5 tests Lune) ; le serveur et le client ne font que les appliquer.
 - **Sauvegarde** : nouvelles clés (`SauteZoo_*`) pour ne pas mélanger avec l'ancien schéma.
 - Bugs trouvés par la simulation et corrigés : relance du boss impossible (le boss te projetait devant lui), fenêtre de re-lasso du boss trop courte, caisse du zoo recalculée rétroactivement lors d'une capture, d'une amélioration ou de l'achat d'un boost (l'or déjà gagné est maintenant figé dans une caisse avant tout changement de taux).
 

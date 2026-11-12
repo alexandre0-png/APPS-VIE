@@ -2,6 +2,7 @@
 -- Le serveur est autoritaire : positions des bêtes, portée du lasso, score et états sont validés ici.
 
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -12,6 +13,7 @@ local Remotes = require(Shared.Remotes)
 local Util = require(Shared.Util)
 
 local Zoo = require(Shared.Zoo)
+local AnimMath = require(Shared.AnimMath)
 
 local State = require(script.Parent.State)
 local CreatureService = require(script.Parent.CreatureService)
@@ -79,6 +81,7 @@ function RideService.NewRun(lives, lassoCharges)
 		gold = 0,
 		bones = 0,
 		names = {},
+		keys = {},
 		zoneIdx = 1,
 		deadAt = 0,
 		revived = false,
@@ -124,6 +127,7 @@ function RideService.ToLobby(player)
 	if hum then
 		hum.Sit = false
 	end
+	Fx.fadeCharacter(char, 0, 0.1)
 	local home = State.PlotCFrames[player] or State.LobbyCFrame
 	char:PivotTo(home * CFrame.new((rng:NextNumber() - 0.5) * 6, 0, (rng:NextNumber() - 0.5) * 6))
 end
@@ -274,10 +278,12 @@ local function die(player, run)
 	RideService.Detach(run)
 	local zone = Config.zoneAt(run.z)
 	run.deadAt = os.clock()
-	local _, hrp = getParts(player)
+	local char, hrp = getParts(player)
 	if hrp then
 		hrp.Anchored = true
 		Fx.burst(hrp.Position, zone.hazard.color, 40, 40)
+		Fx.poof(hrp.Position)
+		Fx.fadeCharacter(char, 1, 0.5)
 	end
 	player:SetAttribute("TameProgress", 0)
 	setStatus(player, run, "Dead")
@@ -291,6 +297,9 @@ local function downPlayer(player, run, title)
 	local _, hrp = getParts(player)
 	if hrp then
 		Fx.burst(hrp.Position - Vector3.new(0, 2, 0), Config.zoneAt(run.z).hazard.color, 24, 22)
+		if run.lives > 0 then
+			Fx.stars(hrp.Position, 1.4)
+		end
 	end
 	if run.lives <= 0 then
 		die(player, run)
@@ -311,9 +320,11 @@ function RideService.Revive(player)
 	end
 	run.lives = 1
 	run.revived = true
-	local _, hrp = getParts(player)
+	local char, hrp = getParts(player)
 	if hrp then
 		hrp.Anchored = false
+		Fx.fadeCharacter(char, 0, 0.3)
+		Fx.poof(hrp.Position, Color3.fromRGB(255, 220, 240))
 	end
 	feedback(player, "tame", "ON REPART !", "Tu as une vie de plus.")
 	stumble(player, run)
@@ -439,6 +450,7 @@ local function captureCreature(player, run, creature, how)
 	run.gold = run.gold + result.gold
 	run.bones = run.bones + result.bones
 	table.insert(run.names, creatureLabel(creature))
+	table.insert(run.keys, Zoo.key(creature.def.id, creature.variantIdx))
 	local points = Config.Score.CapturePoints * creature.def.value * Zoo.variantMult(creature.def, creature.variantIdx)
 	addScore(run, points)
 
@@ -452,6 +464,9 @@ local function captureCreature(player, run, creature, how)
 		sub = sub .. " · ESPÈCE COMPLÈTE !"
 	end
 	Fx.burst(creature.root.Position + Vector3.new(0, 5, 0), Color3.fromRGB(255, 120, 170), 50, 34)
+	if how == "lasso" then
+		Fx.lassoLoop(creature.root.Position, creature.root.Size.X, (ProgressService.GetRopeStyle(player)))
+	end
 	if creature.boss then
 		Remotes.Feedback:FireAllClients({
 			kind = "event",
@@ -469,7 +484,7 @@ local function captureCreature(player, run, creature, how)
 			Vector3.new(creature.vx, Config.Ride.LaunchUp * 1.1, creature.speed + Config.Ride.LaunchBoost * 1.5)
 		)
 	end
-	CreatureService.Remove(creature)
+	CreatureService.BeginCapture(creature)
 	return result
 end
 
@@ -526,6 +541,21 @@ local function spawnRope(player, hrp, creature, duration)
 	beam.LightEmission = neon and 1 or 0
 	beam.Parent = hand
 
+	-- la corde ondule puis se tend (animation du lasso)
+	Fx.safe("Lasso", function()
+		local curve, width = AnimMath.lassoCurve(0)
+		beam.CurveSize0 = curve
+		beam.CurveSize1 = -curve
+		beam.Width0 = width
+		beam.Width1 = width
+		local _, endWidth = AnimMath.lassoCurve(1)
+		TweenService:Create(
+			beam,
+			TweenInfo.new(duration, Enum.EasingStyle.Quad),
+			{ CurveSize0 = 0, CurveSize1 = 0, Width0 = endWidth, Width1 = endWidth }
+		):Play()
+	end)
+
 	local life = duration + 0.25
 	Debris:AddItem(beam, life)
 	Debris:AddItem(a0, life)
@@ -544,7 +574,7 @@ function RideService.HandleHook(player, id)
 		return
 	end
 	local creature = State.Creatures[id]
-	if not creature or creature.removed or creature.rider then
+	if not creature or creature.removed or creature.rider or creature.capture then
 		return
 	end
 	local _, hrp = getParts(player)
@@ -655,7 +685,14 @@ function RideService.HandleLasso(player, id)
 		return
 	end
 	local creature = State.Creatures[id]
-	if not creature or creature.removed or creature.rider or not creature.hearted or creature.boss then
+	if
+		not creature
+		or creature.removed
+		or creature.rider
+		or creature.capture
+		or not creature.hearted
+		or creature.boss
+	then
 		return
 	end
 	local _, hrp = getParts(player)
@@ -858,6 +895,10 @@ local function trackZones(player, run, pos)
 			State.BossesSpawned[index] = true
 			local x = (rng:NextNumber() * 2 - 1) * (Config.Track.HalfWidth - 14)
 			local boss = CreatureService.Spawn(x, pos.Z + 160, zone.boss, 1, 1)
+			Fx.safe("Boss", function()
+				Fx.poof(boss.root.Position, zone.hazard.color)
+				Fx.burst(boss.root.Position, Color3.fromRGB(255, 214, 70), 40, 36)
+			end)
 			Remotes.Feedback:FireAllClients({
 				kind = "danger",
 				title = "BOSS : " .. boss.def.name:upper(),

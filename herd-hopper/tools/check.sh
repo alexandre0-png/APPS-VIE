@@ -10,5 +10,5 @@ if command -v rojo >/dev/null; then run "rojo build" rojo build -o /tmp/SauteTro
 if command -v lune >/dev/null; then run "compilation Luau" lune run tools/lune/syntax.luau; run "tests Lune" lune run tools/lune/run.luau; else echo "== lune : NON INSTALLÉ (non exécuté)"; fi
 python3 tools/build_rbxlx.py || status=1
 (cd tools/sim && [ -d node_modules ] || npm install --silent) 
-for s in A B C D CLIENT UNIT; do run "simulation $s" bash -c "cd tools/sim && node run.js $s | tee /dev/stderr | grep -q 'ERREURS LUA:	0'"; done
+for s in A B C D E CLIENT UNIT; do run "simulation $s" bash -c "cd tools/sim && node run.js $s | tee /dev/stderr | grep -q 'ERREURS LUA:	0'"; done
 exit $status

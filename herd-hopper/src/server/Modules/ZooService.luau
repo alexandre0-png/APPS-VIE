@@ -8,11 +8,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Zoo = require(Shared.Zoo)
+local AnimMath = require(Shared.AnimMath)
 
 local State = require(script.Parent.State)
 local DataService = require(script.Parent.DataService)
 local ProgressService = require(script.Parent.ProgressService)
 local CreatureService = require(script.Parent.CreatureService)
+local Fx = require(script.Parent.Fx)
 
 local ZooService = {}
 
@@ -209,6 +211,41 @@ function ZooService.Refresh(player)
 	end
 	plot.dirty = false
 	buildPlotContent(player, plot)
+end
+
+-- Joie des nouveaux arrivants : ils rebondissent, tournent sur eux-mêmes, et des confettis éclatent.
+function ZooService.Celebrate(player, keys)
+	local plot = plots[player]
+	if not plot or not plot.folder or #keys == 0 then
+		return
+	end
+	local done = {}
+	for _, key in ipairs(keys) do
+		local model = not done[key] and plot.folder:FindFirstChild("Zoo_" .. key) or nil
+		done[key] = true
+		local root = model and model:FindFirstChild("Root")
+		if root then
+			Fx.safe("Joy", function()
+				model:SetAttribute("Joy", true)
+				local base = root.CFrame
+				Fx.confetti(root.Position + Vector3.new(0, 4, 0), 12)
+				task.spawn(function()
+					pcall(function()
+						local t0 = os.clock()
+						while model.Parent and os.clock() - t0 < 2.5 do
+							local offset, yaw = AnimMath.joy(os.clock() - t0, 2.5)
+							root.CFrame = base * CFrame.new(0, offset, 0) * CFrame.Angles(0, yaw, 0)
+							task.wait(0.03)
+						end
+						if model.Parent then
+							root.CFrame = base
+							model:SetAttribute("Joy", false)
+						end
+					end)
+				end)
+			end)
+		end
+	end
 end
 
 local function assign(player)

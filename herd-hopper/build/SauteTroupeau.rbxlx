@@ -1,9 +1,152 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX38"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="Lighting" referent="RBX39"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX7"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX6"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- Configuration centrale de Saute-Troupeau (Herd Hopper).
+<Item class="Workspace" referent="RBX40"><Properties><string name="Name">Workspace</string></Properties></Item>
+<Item class="Lighting" referent="RBX41"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX8"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[-- Mathématiques des animations (pures : testées avec Lune). Aucun appel à l'API Roblox ici.
+-- Les valeurs renvoyées sont appliquées par Fx (serveur), CreatureFx, Anim et HUD (client).
+
+local AnimMath = {}
+
+local TAU = math.pi * 2
+
+function AnimMath.clamp01(x)
+	if x < 0 then
+		return 0
+	elseif x > 1 then
+		return 1
+	end
+	return x
+end
+
+function AnimMath.lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+function AnimMath.easeOutQuad(t)
+	t = AnimMath.clamp01(t)
+	return 1 - (1 - t) * (1 - t)
+end
+
+function AnimMath.easeInOut(t)
+	t = AnimMath.clamp01(t)
+	return t * t * (3 - 2 * t)
+end
+
+-- Dépassement léger puis retour : sert aux « pop » joyeux.
+function AnimMath.easeOutBack(t)
+	if t <= 0 then
+		return 0
+	elseif t >= 1 then
+		return 1
+	end
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (t - 1) ^ 3 + c1 * (t - 1) ^ 2
+end
+
+-- Proportion d'animal « en l'air » (0 = au sol, 1 = pleinement replié) selon la hauteur au-dessus du sol (studs).
+function AnimMath.tuck(lift)
+	return AnimMath.clamp01((lift or 0) / 1.2)
+end
+
+-- Angle d'une patte : trot au sol, pattes repliées en l'air, plus ample quand l'animal est joyeux (joy 0..1).
+function AnimMath.gait(t, freq, phase, lift, joy)
+	local swing = math.sin(t * freq + phase) * 0.7 * (1 + 0.5 * (joy or 0))
+	return AnimMath.lerp(swing, -0.9, AnimMath.tuck(lift))
+end
+
+-- Battement d'aile : plus rapide en vitesse, amplitude constante.
+function AnimMath.flap(t, speed)
+	return math.sin(t * (6 + (speed or 40) * 0.05)) * 0.55
+end
+
+-- Échelle du cœur qui apparaît (0 -> 1 avec dépassement) sur `duration` secondes.
+function AnimMath.heartPop(t, duration)
+	return AnimMath.easeOutBack((t or 0) / (duration or 0.45))
+end
+
+-- Capture : p de 0 à 1. Renvoie montée (studs), rotation (rad) et petit rebond.
+function AnimMath.capture(p)
+	p = AnimMath.clamp01(p)
+	return AnimMath.easeOutQuad(p) * 16, TAU * 2 * p, math.sin(p * math.pi) * 3
+end
+
+-- Joie : décalage vertical (rebonds qui s'amortissent) et lacet (un tour complet) à t secondes sur `duration`.
+function AnimMath.joy(t, duration)
+	duration = duration or 2.5
+	if t < 0 or t > duration then
+		return 0, 0
+	end
+	local fade = 1 - t / duration
+	return math.abs(math.sin(t * 7)) * 2.2 * fade, TAU * AnimMath.easeInOut(t / 1.2)
+end
+
+-- Lasso : p de 0 à 1. La corde ondule (courbe) puis se tend (largeur) ; la boucle se resserre autour de l'animal.
+function AnimMath.lassoCurve(p)
+	p = AnimMath.clamp01(p)
+	return 12 * (1 - p), 0.25 + 0.3 * p
+end
+
+function AnimMath.loopRadius(p, startRadius, endRadius)
+	return AnimMath.lerp(startRadius, endRadius, AnimMath.easeOutQuad(p))
+end
+
+-- Bras du joueur qui lance : angle d'épaule à t secondes (0.3 s : armer puis lancer).
+function AnimMath.throwArm(t)
+	if t < 0 or t > 0.3 then
+		return 0
+	end
+	if t < 0.12 then
+		return -2.4 * (t / 0.12)
+	end
+	return -2.4 + 3.6 * ((t - 0.12) / 0.18)
+end
+
+-- Balayage de couleur entre zones : p de 0 à 1. Renvoie position de départ du bandeau (-1 à 1) et opacité.
+function AnimMath.wipe(p)
+	p = AnimMath.clamp01(p)
+	local alpha = 0.55 * (1 - math.abs(p * 2 - 1))
+	return AnimMath.lerp(-1, 1, AnimMath.easeInOut(p)), alpha
+end
+
+-- Étoiles qui tournent autour de la tête (étourdi) : décalage x, z de l'étoile i sur n à t secondes.
+function AnimMath.orbit(t, i, n, radius)
+	local angle = t * 5 + (i / n) * TAU
+	return math.cos(angle) * radius, math.sin(angle) * radius
+end
+
+-- Nuage de fumée : échelle et transparence à p de 0 à 1.
+function AnimMath.poof(p)
+	p = AnimMath.clamp01(p)
+	return 1 + 2.5 * AnimMath.easeOutQuad(p), p
+end
+
+-- Piétinement d'un boss : à-coups verticaux réguliers (age en secondes).
+function AnimMath.bossStomp(age)
+	return math.abs(math.sin(age * 3)) * 1.2
+end
+
+-- Vue d'ensemble d'une zone au départ : p de 0 à 1 ; renvoie progression adoucie et hauteur de caméra.
+function AnimMath.flyover(p)
+	p = AnimMath.clamp01(p)
+	local e = AnimMath.easeInOut(p)
+	return e, AnimMath.lerp(60, 14, e)
+end
+
+-- Coup de zoom : champ de vision ajouté à t secondes sur `duration` (monte vite, redescend doucement).
+function AnimMath.fovPunch(t, duration, amount)
+	if t < 0 or t > duration then
+		return 0
+	end
+	local p = t / duration
+	if p < 0.2 then
+		return amount * (p / 0.2)
+	end
+	return amount * (1 - (p - 0.2) / 0.8)
+end
+
+return AnimMath
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- Configuration centrale de Saute-Troupeau (Herd Hopper).
 -- Toutes les valeurs d'équilibrage sont ici : on peut régler le jeu sans toucher aux systèmes.
 
 local Config = {}
@@ -120,6 +263,22 @@ Config.Audio = {
 		boss = "",
 		results = "",
 	},
+}
+
+-- Animations : chaque animation se coupe ici (Enabled = interrupteur général). Toutes sont encapsulées en pcall :
+-- une animation qui échoue ne peut pas casser le jeu. Ton joyeux, aucun effet violent ni sanglant.
+Config.Animations = {
+	Enabled = true,
+	Walk = true, -- cycle de marche, pattes repliées en saut, ailes
+	Jump = true, -- bondissement des animaux joyeux (saut)
+	HeartReact = true, -- réaction à l'apparition du cœur (pop, étincelles, petit trot)
+	Capture = true, -- l'animal capturé s'envole en tournoyant
+	Joy = true, -- joie des animaux qui arrivent au zoo
+	Lasso = true, -- lancer, boucle qui se resserre, bras du joueur
+	ZoneIntro = true, -- survol de la zone au départ
+	ZoneTransition = true, -- balayage de couleur entre deux zones
+	Boss = true, -- piétinements, nuage d'arrivée, coup de zoom
+	Death = true, -- nuage de fumée, étoiles, estompage, écran grisé
 }
 
 Config.Events = {
@@ -534,7 +693,7 @@ function Config.findById(list, id)
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[-- Création / récupération des RemoteEvents et RemoteFunctions.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[-- Création / récupération des RemoteEvents et RemoteFunctions.
 -- Le serveur crée tout au démarrage ; le client attend leur réplication.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -602,7 +761,7 @@ for _, name in ipairs(FUNCTIONS) do
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Species</string><ProtectedString name="Source"><![CDATA[-- Les 7 espèces de bêtes. Chaque bête est construite en blocs Roblox (aucun asset externe).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Species</string><ProtectedString name="Source"><![CDATA[-- Les 7 espèces de bêtes. Chaque bête est construite en blocs Roblox (aucun asset externe).
 -- Repère local : l'avant est -Z, le dessus est +Y. Les offsets "o" sont relatifs au centre du corps.
 -- Palette : body / dark / light / accent / eye.
 
@@ -1315,7 +1474,7 @@ function Species.variantCount(def, totalVariants)
 end
 
 return Species
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[-- Petits utilitaires partagés (serveur + client).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[-- Petits utilitaires partagés (serveur + client).
 
 local Util = {}
 
@@ -1385,7 +1544,7 @@ function Util.isFiniteNumber(v)
 end
 
 return Util
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Zoo</string><ProtectedString name="Source"><![CDATA[-- Formules du zoo (pures, sans API Roblox : testées avec Lune).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Zoo</string><ProtectedString name="Source"><![CDATA[-- Formules du zoo (pures, sans API Roblox : testées avec Lune).
 -- Un animal du zoo est identifié par "<espèce>_<variante>" (ex. "boar_2" = Phacochère Cristal).
 
 local Config = require(script.Parent.Config)
@@ -1516,7 +1675,7 @@ end
 
 return Zoo
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX22"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX21"><Properties><string name="Name">Server</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée serveur de Saute-Troupeau.
+<Item class="ServerScriptService" referent="RBX23"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX22"><Properties><string name="Name">Server</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée serveur de Saute-Troupeau.
 -- Ordre : remotes -> services -> construction de la carte -> apparition des joueurs -> boucle de manches.
 
 local Players = game:GetService("Players")
@@ -1672,7 +1831,7 @@ task.spawn(function()
 end)
 
 task.spawn(RoundService.Run)
-]]></ProtectedString></Properties><Item class="Folder" referent="RBX20"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Cosmetics</string><ProtectedString name="Source"><![CDATA[-- Chapeaux : construits en blocs et soudés à la tête du personnage.
+]]></ProtectedString></Properties><Item class="Folder" referent="RBX21"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Cosmetics</string><ProtectedString name="Source"><![CDATA[-- Chapeaux : construits en blocs et soudés à la tête du personnage.
 
 local Cosmetics = {}
 
@@ -1809,7 +1968,7 @@ function Cosmetics.applyHat(character, hatId)
 end
 
 return Cosmetics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">CreatureService</string><ProtectedString name="Source"><![CDATA[-- Troupeau : construction des bêtes, déplacement, apparition / disparition.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">CreatureService</string><ProtectedString name="Source"><![CDATA[-- Troupeau : construction des bêtes, déplacement, apparition / disparition.
 -- Chaque bête = un Model dont seule la pièce "Root" est ancrée ; les autres pièces sont soudées.
 -- Déplacer Root (CFrame) déplace tout le monde et ne réplique qu'une pièce.
 
@@ -1820,7 +1979,10 @@ local Config = require(Shared.Config)
 local Species = require(Shared.Species)
 local Util = require(Shared.Util)
 
+local AnimMath = require(Shared.AnimMath)
+
 local State = require(script.Parent.State)
+local Fx = require(script.Parent.Fx)
 
 local CreatureService = {}
 
@@ -2009,6 +2171,7 @@ function CreatureService.Spawn(x, z, speciesId, variantIdx, speedFactor)
 	model:SetAttribute("Species", def.id)
 	model:SetAttribute("Variant", variantIdx)
 	model:SetAttribute("BaseSpeed", def.speed)
+	model:SetAttribute("BaseY", def.rootY)
 	model:SetAttribute("Ridden", false)
 	model:SetAttribute("Angry", false)
 	model:SetAttribute("Heart", hearted)
@@ -2080,7 +2243,7 @@ end
 function CreatureService.FindRescue(x, z)
 	local best, bestScore = nil, math.huge
 	for _, creature in pairs(State.Creatures) do
-		if not creature.rider and not creature.removed then
+		if not creature.rider and not creature.removed and not creature.capture then
 			local dz = creature.z - z
 			if dz > -25 and dz < 150 then
 				local score = math.abs(dz - 20) + math.abs(creature.x - x) * 0.5
@@ -2143,6 +2306,43 @@ function CreatureService.FillInitial(startZ)
 	end
 end
 
+-- Capture animée : l'animal s'envole en tournoyant puis disparaît (joyeux, sans violence).
+local function stepCapture(creature)
+	local c = creature.capture
+	local p = (os.clock() - c.t0) / c.duration
+	if p >= 1 then
+		CreatureService.Remove(creature)
+		return
+	end
+	local rise, spin, hop = AnimMath.capture(p)
+	creature.root.CFrame = CFrame.new(c.x, c.y + rise + hop, c.z) * CFrame.Angles(0, c.yaw + spin, 0)
+end
+
+function CreatureService.BeginCapture(creature)
+	if creature.removed or creature.capture then
+		return
+	end
+	creature.hearted = false
+	creature.tamed = false
+	creature.model:SetAttribute("Heart", false)
+	creature.model:SetAttribute("Ready", false)
+	creature.model:SetAttribute("Captured", true)
+	local cfg = Config.Animations
+	if not (cfg.Enabled and cfg.Capture) then
+		CreatureService.Remove(creature)
+		return
+	end
+	creature.capture = {
+		t0 = os.clock(),
+		duration = 0.8,
+		x = creature.x,
+		y = creature.y or creature.def.rootY,
+		z = creature.z,
+		yaw = math.pi,
+	}
+	Fx.confetti(creature.root.Position + Vector3.new(0, 4, 0), creature.boss and 30 or 14)
+end
+
 function CreatureService.Step(dt)
 	if State.Frozen then
 		return
@@ -2151,38 +2351,46 @@ function CreatureService.Step(dt)
 	local half = Config.Track.HalfWidth
 	local finishZ = Config.Track.FinishZ
 
+	local bossStomp = Config.Animations.Enabled and Config.Animations.Boss
 	for _, creature in pairs(State.Creatures) do
-		local def = creature.def
-		creature.age = creature.age + dt
-
-		local target = creature.baseSpeed
-		if def.trait == "charge" then
-			if (creature.age + creature.phase) % 6 < 1.2 then
-				target = target * 1.5
-			end
-		end
-		creature.speed = creature.speed + (target - creature.speed) * math.min(1, dt * 4)
-
-		local vx
-		if creature.rider then
-			vx = creature.steer * Config.Ride.SteerSpeed
+		if creature.capture then
+			stepCapture(creature)
 		else
-			vx = math.sin(creature.age * def.weaveFreq + creature.phase) * def.weaveAmp
-		end
-		creature.vx = vx
-		creature.x = math.clamp(creature.x + vx * dt, -half, half)
-		creature.z = creature.z + creature.speed * dt
+			local def = creature.def
+			creature.age = creature.age + dt
 
-		local y = def.rootY
-		if def.trait == "hop" then
-			y = y + math.abs(math.sin((creature.age + creature.phase) * 3.2)) * 2.2
-		elseif def.flying then
-			y = y + math.sin((creature.age + creature.phase) * 2) * 1.2
-		end
-		creature.y = y
+			local target = creature.baseSpeed
+			if def.trait == "charge" then
+				if (creature.age + creature.phase) % 6 < 1.2 then
+					target = target * 1.5
+				end
+			end
+			creature.speed = creature.speed + (target - creature.speed) * math.min(1, dt * 4)
 
-		local pos = Vector3.new(creature.x, y, creature.z)
-		creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1)) * CFrame.Angles(0, 0, -vx * 0.004)
+			local vx
+			if creature.rider then
+				vx = creature.steer * Config.Ride.SteerSpeed
+			else
+				vx = math.sin(creature.age * def.weaveFreq + creature.phase) * def.weaveAmp
+			end
+			creature.vx = vx
+			creature.x = math.clamp(creature.x + vx * dt, -half, half)
+			creature.z = creature.z + creature.speed * dt
+
+			local y = def.rootY
+			if def.trait == "hop" then
+				y = y + math.abs(math.sin((creature.age + creature.phase) * 3.2)) * 2.2
+			elseif def.flying then
+				y = y + math.sin((creature.age + creature.phase) * 2) * 1.2
+			elseif def.boss and bossStomp and not creature.rider then
+				y = y + AnimMath.bossStomp(creature.age)
+			end
+			creature.y = y
+
+			local pos = Vector3.new(creature.x, y, creature.z)
+			creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1))
+				* CFrame.Angles(0, 0, -vx * 0.004)
+		end
 	end
 
 	-- Disparition : trop loin derrière / devant les joueurs actifs, ou après l'arrivée.
@@ -2242,7 +2450,7 @@ function CreatureService.Step(dt)
 end
 
 return CreatureService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Sauvegarde des joueurs (DataStore) + classement mondial (OrderedDataStore).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Sauvegarde des joueurs (DataStore) + classement mondial (OrderedDataStore).
 -- Règles de sécurité :
 --  * si le chargement échoue, la sauvegarde est DÉSACTIVÉE pour ce joueur (on n'écrase jamais un vrai profil par un profil vide) ;
 --  * sauvegarde automatique toutes les 60 s, à la sortie du joueur et à l'arrêt du serveur.
@@ -2464,7 +2672,7 @@ function DataService.Init()
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[-- Événements de manche : Geysers (gros bonds gratuits) et Pluie de météores (éjecte les cavaliers).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[-- Événements de manche : Geysers (gros bonds gratuits) et Pluie de météores (éjecte les cavaliers).
 -- Chaque événement est annoncé par un anneau au sol ("télégraphie") avant d'agir.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2598,13 +2806,17 @@ function EventService.Step(elapsed)
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Fx</string><ProtectedString name="Source"><![CDATA[-- Effets visuels ponctuels côté serveur (anneaux d'avertissement, explosions, geysers, particules).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Fx</string><ProtectedString name="Source"><![CDATA[-- Effets visuels ponctuels côté serveur (anneaux d'avertissement, explosions, geysers, particules).
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
 
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+local AnimMath = require(Shared.AnimMath)
+local Util = require(Shared.Util)
+
 local State = require(script.Parent.State)
-local Util = require(game:GetService("ReplicatedStorage").Shared.Util)
 
 local Fx = {}
 
@@ -2708,6 +2920,131 @@ function Fx.column(position, radius, height, color, duration)
 	Fx.burst(Vector3.new(position.X, 3, position.Z), color, 50, 50)
 end
 
+-- Exécute une animation si elle est activée dans Config.Animations ; toute erreur est avalée (jamais bloquante).
+function Fx.safe(flag, fn, ...)
+	local cfg = Config.Animations
+	if not cfg.Enabled or not cfg[flag] then
+		return false
+	end
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		warn("[Animation " .. flag .. "] " .. tostring(err))
+	end
+	return ok
+end
+
+-- Nuage de fumée cartoon (échec, mort) : une boule douce qui grossit et s'estompe.
+function Fx.poof(position, color)
+	return Fx.safe("Death", function()
+		local cloud = Util.create("Part", {
+			Name = "Poof",
+			Shape = Enum.PartType.Ball,
+			Anchored = true,
+			CanCollide = false,
+			CanTouch = false,
+			CanQuery = false,
+			Material = Enum.Material.SmoothPlastic,
+			Color = color or Color3.fromRGB(245, 245, 250),
+			Transparency = 0.1,
+			Size = Vector3.new(3, 3, 3),
+			Position = position,
+		}, folder())
+		local scale, alpha = AnimMath.poof(1)
+		TweenService:Create(cloud, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = Vector3.new(3, 3, 3) * scale,
+			Transparency = math.max(alpha, 0.99),
+		}):Play()
+		Debris:AddItem(cloud, 0.8)
+		Fx.burst(position, color or Color3.fromRGB(245, 245, 250), 16, 14)
+	end)
+end
+
+-- Étoiles d'étourdissement qui tournent un instant au-dessus de la tête.
+function Fx.stars(position, seconds)
+	return Fx.safe("Death", function()
+		local duration = seconds or 1.4
+		local count = 4
+		local stars = {}
+		for i = 1, count do
+			stars[i] = Util.create("Part", {
+				Name = "Star",
+				Anchored = true,
+				CanCollide = false,
+				CanTouch = false,
+				CanQuery = false,
+				Material = Enum.Material.Neon,
+				Color = Color3.fromRGB(255, 220, 80),
+				Size = Vector3.new(0.9, 0.9, 0.9),
+				Position = position,
+			}, folder())
+			Debris:AddItem(stars[i], duration + 0.2)
+		end
+		task.spawn(function()
+			local t0 = os.clock()
+			while os.clock() - t0 < duration do
+				local t = os.clock() - t0
+				for i, star in ipairs(stars) do
+					if star.Parent then
+						local dx, dz = AnimMath.orbit(t, i, count, 3)
+						star.Position = position + Vector3.new(dx, 4.2 + math.sin(t * 6 + i) * 0.3, dz)
+					end
+				end
+				task.wait(0.03)
+			end
+		end)
+	end)
+end
+
+-- Boucle du lasso qui se resserre autour d'un animal capturé.
+function Fx.lassoLoop(position, radius, color)
+	return Fx.safe("Lasso", function()
+		local ring = Util.create("Part", {
+			Name = "LassoLoop",
+			Shape = Enum.PartType.Cylinder,
+			Anchored = true,
+			CanCollide = false,
+			CanTouch = false,
+			CanQuery = false,
+			Material = Enum.Material.Neon,
+			Color = color or Color3.fromRGB(255, 120, 170),
+			Transparency = 0.2,
+			Size = Vector3.new(0.5, radius * 2.6, radius * 2.6),
+			CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.pi / 2),
+		}, folder())
+		local finalRadius = AnimMath.loopRadius(1, radius * 1.3, radius * 0.55)
+		TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Size = Vector3.new(0.5, finalRadius * 2, finalRadius * 2),
+			Transparency = 0.8,
+		}):Play()
+		Debris:AddItem(ring, 0.5)
+	end)
+end
+
+-- Confettis joyeux (capture, arrivée au zoo, boss vaincu).
+function Fx.confetti(position, count)
+	return Fx.safe("Joy", function()
+		for _, color in ipairs({
+			Color3.fromRGB(255, 96, 160),
+			Color3.fromRGB(255, 214, 70),
+			Color3.fromRGB(110, 210, 255),
+		}) do
+			Fx.burst(position, color, count or 14, 30)
+		end
+	end)
+end
+
+-- Estompe (ou ramène) un personnage : le « disparu dans un nuage » de la mort.
+function Fx.fadeCharacter(character, transparency, seconds)
+	return Fx.safe("Death", function()
+		for _, descendant in ipairs(character:GetDescendants()) do
+			local keep = descendant.Name == "HumanoidRootPart"
+			if not keep and (descendant:IsA("BasePart") or descendant:IsA("Decal")) then
+				TweenService:Create(descendant, TweenInfo.new(seconds or 0.4), { Transparency = transparency }):Play()
+			end
+		end
+	end)
+end
+
 function Fx.clear()
 	if State.FxFolder then
 		State.FxFolder:ClearAllChildren()
@@ -2715,7 +3052,7 @@ function Fx.clear()
 end
 
 return Fx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[-- Construction procédurale de tout le monde : salon (lobby), piste en 4 biomes, falaises, décors,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[-- Construction procédurale de tout le monde : salon (lobby), piste en 4 biomes, falaises, décors,
 -- portiques, ligne d'arrivée, podium et mur de lave. Uniquement des blocs et matériaux Roblox standards.
 
 local Lighting = game:GetService("Lighting")
@@ -3622,7 +3959,7 @@ function MapBuilder.Build()
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Achats Robux : pass de jeu (permanents) et produits développeur (paquets de pièces).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Achats Robux : pass de jeu (permanents) et produits développeur (paquets de pièces).
 -- Aucun achat n'est accordé sans reçu valide ; chaque reçu est enregistré (idempotent) avant d'être validé.
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -3819,7 +4156,7 @@ function MonetizationService.Init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">ProgressService</string><ProtectedString name="Source"><![CDATA[-- Progression : or, os, zoo (animaux, niveaux, caisse), améliorations, histoire, quêtes, boutique.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">ProgressService</string><ProtectedString name="Source"><![CDATA[-- Progression : or, os, zoo (animaux, niveaux, caisse), améliorations, histoire, quêtes, boutique.
 -- Toutes les décisions sont prises ici (serveur) ; le client ne fait que demander.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4650,10 +4987,11 @@ function ProgressService.Init()
 end
 
 return ProgressService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">RideService</string><ProtectedString name="Source"><![CDATA[-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">RideService</string><ProtectedString name="Source"><![CDATA[-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
 -- Le serveur est autoritaire : positions des bêtes, portée du lasso, score et états sont validés ici.
 
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -4664,6 +5002,7 @@ local Remotes = require(Shared.Remotes)
 local Util = require(Shared.Util)
 
 local Zoo = require(Shared.Zoo)
+local AnimMath = require(Shared.AnimMath)
 
 local State = require(script.Parent.State)
 local CreatureService = require(script.Parent.CreatureService)
@@ -4731,6 +5070,7 @@ function RideService.NewRun(lives, lassoCharges)
 		gold = 0,
 		bones = 0,
 		names = {},
+		keys = {},
 		zoneIdx = 1,
 		deadAt = 0,
 		revived = false,
@@ -4776,6 +5116,7 @@ function RideService.ToLobby(player)
 	if hum then
 		hum.Sit = false
 	end
+	Fx.fadeCharacter(char, 0, 0.1)
 	local home = State.PlotCFrames[player] or State.LobbyCFrame
 	char:PivotTo(home * CFrame.new((rng:NextNumber() - 0.5) * 6, 0, (rng:NextNumber() - 0.5) * 6))
 end
@@ -4926,10 +5267,12 @@ local function die(player, run)
 	RideService.Detach(run)
 	local zone = Config.zoneAt(run.z)
 	run.deadAt = os.clock()
-	local _, hrp = getParts(player)
+	local char, hrp = getParts(player)
 	if hrp then
 		hrp.Anchored = true
 		Fx.burst(hrp.Position, zone.hazard.color, 40, 40)
+		Fx.poof(hrp.Position)
+		Fx.fadeCharacter(char, 1, 0.5)
 	end
 	player:SetAttribute("TameProgress", 0)
 	setStatus(player, run, "Dead")
@@ -4943,6 +5286,9 @@ local function downPlayer(player, run, title)
 	local _, hrp = getParts(player)
 	if hrp then
 		Fx.burst(hrp.Position - Vector3.new(0, 2, 0), Config.zoneAt(run.z).hazard.color, 24, 22)
+		if run.lives > 0 then
+			Fx.stars(hrp.Position, 1.4)
+		end
 	end
 	if run.lives <= 0 then
 		die(player, run)
@@ -4963,9 +5309,11 @@ function RideService.Revive(player)
 	end
 	run.lives = 1
 	run.revived = true
-	local _, hrp = getParts(player)
+	local char, hrp = getParts(player)
 	if hrp then
 		hrp.Anchored = false
+		Fx.fadeCharacter(char, 0, 0.3)
+		Fx.poof(hrp.Position, Color3.fromRGB(255, 220, 240))
 	end
 	feedback(player, "tame", "ON REPART !", "Tu as une vie de plus.")
 	stumble(player, run)
@@ -5091,6 +5439,7 @@ local function captureCreature(player, run, creature, how)
 	run.gold = run.gold + result.gold
 	run.bones = run.bones + result.bones
 	table.insert(run.names, creatureLabel(creature))
+	table.insert(run.keys, Zoo.key(creature.def.id, creature.variantIdx))
 	local points = Config.Score.CapturePoints * creature.def.value * Zoo.variantMult(creature.def, creature.variantIdx)
 	addScore(run, points)
 
@@ -5104,6 +5453,9 @@ local function captureCreature(player, run, creature, how)
 		sub = sub .. " · ESPÈCE COMPLÈTE !"
 	end
 	Fx.burst(creature.root.Position + Vector3.new(0, 5, 0), Color3.fromRGB(255, 120, 170), 50, 34)
+	if how == "lasso" then
+		Fx.lassoLoop(creature.root.Position, creature.root.Size.X, (ProgressService.GetRopeStyle(player)))
+	end
 	if creature.boss then
 		Remotes.Feedback:FireAllClients({
 			kind = "event",
@@ -5121,7 +5473,7 @@ local function captureCreature(player, run, creature, how)
 			Vector3.new(creature.vx, Config.Ride.LaunchUp * 1.1, creature.speed + Config.Ride.LaunchBoost * 1.5)
 		)
 	end
-	CreatureService.Remove(creature)
+	CreatureService.BeginCapture(creature)
 	return result
 end
 
@@ -5178,6 +5530,21 @@ local function spawnRope(player, hrp, creature, duration)
 	beam.LightEmission = neon and 1 or 0
 	beam.Parent = hand
 
+	-- la corde ondule puis se tend (animation du lasso)
+	Fx.safe("Lasso", function()
+		local curve, width = AnimMath.lassoCurve(0)
+		beam.CurveSize0 = curve
+		beam.CurveSize1 = -curve
+		beam.Width0 = width
+		beam.Width1 = width
+		local _, endWidth = AnimMath.lassoCurve(1)
+		TweenService:Create(
+			beam,
+			TweenInfo.new(duration, Enum.EasingStyle.Quad),
+			{ CurveSize0 = 0, CurveSize1 = 0, Width0 = endWidth, Width1 = endWidth }
+		):Play()
+	end)
+
 	local life = duration + 0.25
 	Debris:AddItem(beam, life)
 	Debris:AddItem(a0, life)
@@ -5196,7 +5563,7 @@ function RideService.HandleHook(player, id)
 		return
 	end
 	local creature = State.Creatures[id]
-	if not creature or creature.removed or creature.rider then
+	if not creature or creature.removed or creature.rider or creature.capture then
 		return
 	end
 	local _, hrp = getParts(player)
@@ -5307,7 +5674,14 @@ function RideService.HandleLasso(player, id)
 		return
 	end
 	local creature = State.Creatures[id]
-	if not creature or creature.removed or creature.rider or not creature.hearted or creature.boss then
+	if
+		not creature
+		or creature.removed
+		or creature.rider
+		or creature.capture
+		or not creature.hearted
+		or creature.boss
+	then
 		return
 	end
 	local _, hrp = getParts(player)
@@ -5510,6 +5884,10 @@ local function trackZones(player, run, pos)
 			State.BossesSpawned[index] = true
 			local x = (rng:NextNumber() * 2 - 1) * (Config.Track.HalfWidth - 14)
 			local boss = CreatureService.Spawn(x, pos.Z + 160, zone.boss, 1, 1)
+			Fx.safe("Boss", function()
+				Fx.poof(boss.root.Position, zone.hazard.color)
+				Fx.burst(boss.root.Position, Color3.fromRGB(255, 214, 70), 40, 36)
+			end)
 			Remotes.Feedback:FireAllClients({
 				kind = "danger",
 				title = "BOSS : " .. boss.def.name:upper(),
@@ -5590,7 +5968,7 @@ function RideService.Init()
 end
 
 return RideService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">RoundService</string><ProtectedString name="Source"><![CDATA[-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">RoundService</string><ProtectedString name="Source"><![CDATA[-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
 -- Les joueurs prêts partent ensemble dans la zone choisie par la majorité. Les récompenses sont versées ici.
 
 local Players = game:GetService("Players")
@@ -5605,6 +5983,7 @@ local DataService = require(script.Parent.DataService)
 local ProgressService = require(script.Parent.ProgressService)
 local CreatureService = require(script.Parent.CreatureService)
 local RideService = require(script.Parent.RideService)
+local ZooService = require(script.Parent.ZooService)
 local EventService = require(script.Parent.EventService)
 local Fx = require(script.Parent.Fx)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -5864,10 +6243,11 @@ local function runRound()
 		end
 	end
 	local payload = computeResults(zoneIdx)
-	for player in pairs(State.Participants) do
+	for player, run in pairs(State.Participants) do
 		if player.Parent then
 			RideService.ToLobby(player)
 			ProgressService.OnZooChanged(player)
+			ZooService.Celebrate(player, run.keys)
 			for _, name in ipairs({ "TameProgress", "RideHeart", "CanCollect", "RideBoss", "ReviveLeft" }) do
 				player:SetAttribute(name, nil)
 			end
@@ -5893,7 +6273,7 @@ function RoundService.Run()
 end
 
 return RoundService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[-- État partagé côté serveur (une seule source de vérité pour la manche en cours).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[-- État partagé côté serveur (une seule source de vérité pour la manche en cours).
 
 local State = {
 	Phase = "Intermission", -- Intermission | Countdown | Running | Results
@@ -5935,7 +6315,7 @@ function State.CountActive()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">ZooService</string><ProtectedString name="Source"><![CDATA[-- Le zoo de chaque joueur : une parcelle dans le parc central, des enclos qui se remplissent d'animaux,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">ZooService</string><ProtectedString name="Source"><![CDATA[-- Le zoo de chaque joueur : une parcelle dans le parc central, des enclos qui se remplissent d'animaux,
 -- une caisse qui accumule de l'or, des visiteurs (affichés côté client). Reconstruite quand le zoo change.
 
 local Players = game:GetService("Players")
@@ -5945,11 +6325,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Zoo = require(Shared.Zoo)
+local AnimMath = require(Shared.AnimMath)
 
 local State = require(script.Parent.State)
 local DataService = require(script.Parent.DataService)
 local ProgressService = require(script.Parent.ProgressService)
 local CreatureService = require(script.Parent.CreatureService)
+local Fx = require(script.Parent.Fx)
 
 local ZooService = {}
 
@@ -6148,6 +6530,41 @@ function ZooService.Refresh(player)
 	buildPlotContent(player, plot)
 end
 
+-- Joie des nouveaux arrivants : ils rebondissent, tournent sur eux-mêmes, et des confettis éclatent.
+function ZooService.Celebrate(player, keys)
+	local plot = plots[player]
+	if not plot or not plot.folder or #keys == 0 then
+		return
+	end
+	local done = {}
+	for _, key in ipairs(keys) do
+		local model = not done[key] and plot.folder:FindFirstChild("Zoo_" .. key) or nil
+		done[key] = true
+		local root = model and model:FindFirstChild("Root")
+		if root then
+			Fx.safe("Joy", function()
+				model:SetAttribute("Joy", true)
+				local base = root.CFrame
+				Fx.confetti(root.Position + Vector3.new(0, 4, 0), 12)
+				task.spawn(function()
+					pcall(function()
+						local t0 = os.clock()
+						while model.Parent and os.clock() - t0 < 2.5 do
+							local offset, yaw = AnimMath.joy(os.clock() - t0, 2.5)
+							root.CFrame = base * CFrame.new(0, offset, 0) * CFrame.Angles(0, yaw, 0)
+							task.wait(0.03)
+						end
+						if model.Parent then
+							root.CFrame = base
+							model:SetAttribute("Joy", false)
+						end
+					end)
+				end)
+			end)
+		end
+	end
+end
+
 local function assign(player)
 	for index = 1, H.Columns * H.Rows do
 		if not usedIndex[index] then
@@ -6211,7 +6628,7 @@ end
 
 return ZooService
 ]]></ProtectedString></Properties></Item></Item></Item></Item>
-<Item class="StarterPlayer" referent="RBX37"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX36"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée client de Saute-Troupeau.
+<Item class="StarterPlayer" referent="RBX39"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX38"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée client de Saute-Troupeau.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6231,6 +6648,7 @@ local Ambience = require(Modules.Ambience)
 local Sfx = require(Modules.Sfx)
 local Intro = require(Modules.Intro)
 local Visitors = require(Modules.Visitors)
+local Anim = require(Modules.Anim)
 
 -- Données serveur -> client
 Remotes.Data.OnClientEvent:Connect(function(snapshot)
@@ -6280,7 +6698,8 @@ Controls.init()
 Ambience.init()
 Visitors.init()
 Intro.init()
-]]></ProtectedString></Properties><Item class="Folder" referent="RBX34"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- Ambiance : la lumière et la brume changent progressivement selon le biome traversé (effet local au client).
+Anim.init()
+]]></ProtectedString></Properties><Item class="Folder" referent="RBX36"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- Ambiance : la lumière et la brume changent progressivement selon le biome traversé (effet local au client).
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -6336,11 +6755,170 @@ function Ambience.init()
 end
 
 return Ambience
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">CameraRig</string><ProtectedString name="Source"><![CDATA[-- Caméra de course : derrière et au-dessus du cavalier, regardant vers +Z (sens de la piste).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Anim</string><ProtectedString name="Source"><![CDATA[-- Animations côté client (caméra, écran, bras du joueur). Chacune est derrière Config.Animations et encapsulée
+-- en pcall via Anim.run : une animation qui échoue est signalée une fois puis ignorée, le jeu continue.
+
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+local AnimMath = require(Shared.AnimMath)
+
+local CameraRig = require(script.Parent.CameraRig)
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local Anim = {}
+
+local player = Players.LocalPlayer
+local warned = {}
+Anim.failures = 0
+
+-- Exécute fn si l'animation `flag` est activée. Renvoie true si elle s'est bien déroulée.
+function Anim.run(flag, fn, ...)
+	local cfg = Config.Animations
+	if not cfg.Enabled or not cfg[flag] then
+		return false
+	end
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		Anim.failures = Anim.failures + 1
+		if not warned[flag] then
+			warned[flag] = true
+			warn("[Animation " .. flag .. "] " .. tostring(err))
+		end
+	end
+	return ok
+end
+
+local function hrpOf()
+	local char = player.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- Survol de la zone au départ : la caméra arrive d'en avant et en hauteur, puis se place derrière le cavalier.
+function Anim.zoneIntro()
+	return Anim.run("ZoneIntro", function()
+		local hrp = hrpOf()
+		if not hrp or CameraRig.isCinematic() then
+			return
+		end
+		local origin = hrp.Position
+		CameraRig.cinematic(function(t)
+			local e, height = AnimMath.flyover(t / 3.2)
+			local start = origin + Vector3.new(60, 60, 230)
+			local goal = origin + Vector3.new(0, 14, -30)
+			local eye = start:Lerp(goal, e) + Vector3.new(0, height - AnimMath.lerp(60, 14, e), 0)
+			return CFrame.lookAt(eye, origin + Vector3.new(0, 4, 40 * (1 - e)))
+		end, 3.2)
+	end)
+end
+
+-- Balayage de couleur entre deux zones (la bannière de zone est affichée par le HUD).
+function Anim.zoneTransition(zone)
+	return Anim.run("ZoneTransition", function()
+		local gui = player:WaitForChild("PlayerGui"):FindFirstChild("HerdHopperWipe")
+		if not gui then
+			gui = UI.make(
+				"ScreenGui",
+				{ Name = "HerdHopperWipe", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 40 },
+				player.PlayerGui
+			)
+		end
+		local band = UI.frame(gui, {
+			Size = UDim2.new(0.6, 0, 1, 0),
+			BackgroundColor3 = zone.tint,
+			BackgroundTransparency = 1,
+			Active = false,
+		})
+		task.spawn(function()
+			local t0 = os.clock()
+			while os.clock() - t0 < 0.9 and band.Parent do
+				local p = (os.clock() - t0) / 0.9
+				local x, alpha = AnimMath.wipe(p)
+				band.Position = UDim2.new(x * 0.8 - 0.3, 0, 0, 0)
+				band.BackgroundTransparency = 1 - alpha
+				task.wait()
+			end
+			band:Destroy()
+		end)
+	end)
+end
+
+-- Bras du joueur qui lance le lasso (local : seul le joueur le voit).
+function Anim.throw()
+	return Anim.run("Lasso", function()
+		local char = player.Character
+		local shoulder = char
+			and (char:FindFirstChild("RightShoulder", true) or char:FindFirstChild("Right Shoulder", true))
+		if not shoulder or not shoulder:IsA("Motor6D") then
+			return
+		end
+		task.spawn(function()
+			local t0 = os.clock()
+			while os.clock() - t0 < 0.3 and shoulder.Parent do
+				shoulder.Transform = CFrame.Angles(0, 0, AnimMath.throwArm(os.clock() - t0))
+				RunService.Heartbeat:Wait()
+			end
+			if shoulder.Parent then
+				shoulder.Transform = CFrame.new()
+			end
+		end)
+	end)
+end
+
+-- Échec : l'écran se grise un instant (puis revient). `on` = true à la chute, false ensuite.
+function Anim.deathTint(on)
+	return Anim.run("Death", function()
+		local color = Lighting:FindFirstChild("HHColor")
+		if not color then
+			return
+		end
+		UI.tween(color, 0.6, { Saturation = on and -0.75 or 0.12 })
+	end)
+end
+
+-- Arrivée d'un boss : coup de zoom et secousse.
+function Anim.bossPunch()
+	return Anim.run("Boss", function()
+		CameraRig.fovPunch(14, 1.4)
+		CameraRig.shake(1.6, 0.6)
+	end)
+end
+
+-- Branchements sur l'état du jeu (statut du joueur, zone atteinte).
+function Anim.init()
+	local lastStatus = ClientState.Status
+	ClientState.connect("Status", function(status)
+		if status == "Dead" then
+			Anim.deathTint(true)
+		elseif lastStatus == "Dead" then
+			Anim.deathTint(false)
+		end
+		lastStatus = status
+	end)
+
+	local lastZone = player:GetAttribute("ZoneIdx") or 0
+	player:GetAttributeChangedSignal("ZoneIdx"):Connect(function()
+		local idx = player:GetAttribute("ZoneIdx") or 0
+		if idx > lastZone and lastZone > 0 and Config.Zones[idx] then
+			Anim.zoneTransition(Config.Zones[idx])
+		end
+		lastZone = idx
+	end)
+end
+
+return Anim
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">CameraRig</string><ProtectedString name="Source"><![CDATA[-- Caméra de course : derrière et au-dessus du cavalier, regardant vers +Z (sens de la piste).
 -- Actif pendant la course ; en spectateur, suit le leader. Sinon, caméra Roblox par défaut.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local AnimMath = require(Shared.AnimMath)
 
 local ClientState = require(script.Parent.ClientState)
 
@@ -6355,6 +6933,7 @@ local lateralSmooth = 0
 local lastStatus = nil
 local shakeUntil = 0
 local shakePower = 0
+local fovKick = { t0 = 0, duration = 0, amount = 0 }
 local cinematic = nil -- { fn, duration, t0, onDone }
 
 local function hrpOf(plr)
@@ -6384,6 +6963,11 @@ local function focusPart()
 		return hrpOf(player)
 	end
 	return nil
+end
+
+-- Coup de zoom : le champ de vision monte puis redescend.
+function CameraRig.fovPunch(amount, seconds)
+	fovKick = { t0 = os.clock(), duration = seconds, amount = amount }
 end
 
 function CameraRig.shake(power, seconds)
@@ -6489,7 +7073,9 @@ local function update(dt)
 		lateralSmooth = lateralSmooth + (lateral - lateralSmooth) * math.min(1, dt * 5)
 	end
 	lastFocus = focus
-	camera.FieldOfView = 70 + math.clamp(speedSmooth / 70, 0, 1) * 16
+	camera.FieldOfView = 70
+		+ math.clamp(speedSmooth / 70, 0, 1) * 16
+		+ AnimMath.fovPunch(os.clock() - fovKick.t0, fovKick.duration, fovKick.amount)
 end
 
 function CameraRig.init()
@@ -6497,7 +7083,7 @@ function CameraRig.init()
 end
 
 return CameraRig
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[-- État côté client + mini système d'abonnement.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[-- État côté client + mini système d'abonnement.
 
 local ClientState = {
 	Data = nil, -- profil envoyé par le serveur
@@ -6558,7 +7144,7 @@ function ClientState.inRun()
 end
 
 return ClientState
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Controls</string><ProtectedString name="Source"><![CDATA[-- Contrôles à une seule action, contextuelle (clavier, souris, tactile, manette) :
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Controls</string><ProtectedString name="Source"><![CDATA[-- Contrôles à une seule action, contextuelle (clavier, souris, tactile, manette) :
 --   * en selle   : SAUTER (quitte la monture avec un bond vers l'avant)
 --   * en l'air   : LASSO (maintenir = lasso automatique dès qu'une bête est à portée)
 -- Direction : A/D, flèches, joystick (pilote la monture, ou le vol en l'air).
@@ -6574,6 +7160,7 @@ local Remotes = require(Shared.Remotes)
 local ClientState = require(script.Parent.ClientState)
 local CreatureFx = require(script.Parent.CreatureFx)
 local Sfx = require(script.Parent.Sfx)
+local Anim = require(script.Parent.Anim)
 
 local Controls = {}
 
@@ -6643,6 +7230,7 @@ function Controls.lasso()
 	if model and charges > 0 and ClientState.isPlaying() then
 		Remotes.Lasso:FireServer(model:GetAttribute("Id"))
 		Sfx.play("lasso")
+		Anim.throw()
 	end
 end
 
@@ -6822,6 +7410,7 @@ function Controls.init()
 				armedUntil = 0
 				Remotes.Hook:FireServer(model:GetAttribute("Id"))
 				Sfx.play("hook")
+				Anim.throw()
 			end
 		elseif status == "Hooking" then
 			CreatureFx.setTarget(nil)
@@ -6838,12 +7427,17 @@ function Controls.init()
 end
 
 return Controls
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, cœurs roses sur les animaux récupérables, cibles du saut et du lasso.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, cœurs roses sur les animaux récupérables, cibles du saut et du lasso.
 -- Les animations ne sont jamais répliquées : le serveur ne déplace que la pièce Root.
 
 local RunService = game:GetService("RunService")
 
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+local AnimMath = require(Shared.AnimMath)
+
 local UI = require(script.Parent.UI)
+local Anim = require(script.Parent.Anim)
 
 local CreatureFx = {}
 
@@ -6856,6 +7450,7 @@ local lassoModel = nil
 
 local CULL_DISTANCE = 260
 local PINK = Color3.fromRGB(255, 96, 160)
+local walkBroken = false
 local GOLD = Color3.fromRGB(255, 205, 60)
 
 local function collectMotors(model)
@@ -6926,6 +7521,21 @@ local function updateHeart(model)
 			})
 		end
 		rec.heart = { gui = gui, scale = scale }
+		rec.heartAt = os.clock()
+		Anim.run("HeartReact", function()
+			rec.joyUntil = os.clock() + 1.2
+			local spark = Instance.new("ParticleEmitter")
+			spark.Color = ColorSequence.new(PINK)
+			spark.LightEmission = 1
+			spark.Lifetime = NumberRange.new(0.6, 1)
+			spark.Speed = NumberRange.new(8, 14)
+			spark.SpreadAngle = Vector2.new(180, 180)
+			spark.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+			spark.Enabled = false
+			spark.Parent = root
+			spark:Emit(10)
+			game:GetService("Debris"):AddItem(spark, 1.5)
+		end)
 	elseif not wants and rec.heart then
 		rec.heart.gui:Destroy()
 		rec.heart = nil
@@ -6991,6 +7601,8 @@ function CreatureFx.init()
 		end
 		local camPos = camera.CFrame.Position
 		local t = os.clock()
+		local cfg = Config.Animations
+		local walk = cfg.Enabled and cfg.Walk and not walkBroken
 		for model, rec in pairs(records) do
 			local root = model:FindFirstChild("Root")
 			if root and (root.Position - camPos).Magnitude < CULL_DISTANCE then
@@ -7004,18 +7616,42 @@ function CreatureFx.init()
 				end
 				if rec.motors then
 					local freq = 4 + rec.speed * 0.11
-					for _, m in ipairs(rec.motors) do
-						if m.kind == "leg" then
-							m.motor.Transform = CFrame.Angles(math.sin(t * freq + m.phase) * 0.7, 0, 0)
-						else
-							m.motor.Transform = CFrame.Angles(0, 0, m.side * math.sin(t * 8) * 0.55)
+					-- marche (pattes), saut (pattes repliées), joie (plus ample) ; tout est protégé par pcall
+					local lift = root.Position.Y - (model:GetAttribute("BaseY") or root.Position.Y)
+					local joy = 0
+					if
+						(cfg.HeartReact and t < (rec.joyUntil or 0)) or (cfg.Joy and model:GetAttribute("Joy") == true)
+					then
+						joy = 1
+					end
+					local ok = pcall(function()
+						for _, m in ipairs(rec.motors) do
+							if m.kind == "leg" then
+								local angle = walk and AnimMath.gait(t, freq, m.phase, cfg.Jump and lift or 0, joy)
+									or math.sin(t * freq + m.phase) * 0.7
+								m.motor.Transform = CFrame.Angles(angle, 0, 0)
+							else
+								local flap = walk and AnimMath.flap(t, rec.speed) or math.sin(t * 8) * 0.55
+								m.motor.Transform = CFrame.Angles(0, 0, m.side * flap)
+							end
 						end
+					end)
+					if not ok then
+						walkBroken = true
+						warn("[Animation Walk] désactivée après une erreur")
 					end
 				end
 				if rec.heart then
 					local ready = model:GetAttribute("Ready") == true
 					local pulse = ready and (1.25 + math.sin(t * 9) * 0.25) or (1 + math.sin(t * 3) * 0.08)
-					rec.heart.scale.Scale = pulse
+					local pop = 1
+					if cfg.Enabled and cfg.HeartReact and rec.heartAt then
+						local age = t - rec.heartAt
+						if age < 0.45 then
+							pop = AnimMath.heartPop(age)
+						end
+					end
+					rec.heart.scale.Scale = pulse * pop
 				end
 			end
 		end
@@ -7106,7 +7742,7 @@ function CreatureFx.lassoTarget()
 end
 
 return CreatureFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
 -- boutons (sauter / lasso, récupérer, lasso de capture), messages, écran « Continuer ? » et résultats.
 
 local Players = game:GetService("Players")
@@ -7123,6 +7759,7 @@ local Sfx = require(script.Parent.Sfx)
 local Controls = require(script.Parent.Controls)
 local CameraRig = require(script.Parent.CameraRig)
 local CreatureFx = require(script.Parent.CreatureFx)
+local Anim = require(script.Parent.Anim)
 
 local HUD = {}
 
@@ -7626,6 +8263,7 @@ local function update()
 				title = zone.name,
 				sub = "Danger : " .. zone.hazard.name .. ". Ne touche pas le sol !",
 			})
+			Anim.zoneIntro()
 		end
 	else
 		refs.countdown.Visible = false
@@ -7767,6 +8405,9 @@ function HUD.feedback(payload)
 	if style.shake then
 		CameraRig.shake(style.shake, 0.4)
 	end
+	if payload.kind == "danger" and tostring(payload.title):sub(1, 4) == "BOSS" then
+		Anim.bossPunch()
+	end
 
 	task.delay(payload.kind == "tame" and 2.6 or 1.8, function()
 		if token == feedbackToken then
@@ -7883,7 +8524,7 @@ function HUD.init()
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Intro</string><ProtectedString name="Source"><![CDATA[-- Animation d'introduction : survol du zoo avec le titre, puis la caméra revient derrière le joueur.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Intro</string><ProtectedString name="Source"><![CDATA[-- Animation d'introduction : survol du zoo avec le titre, puis la caméra revient derrière le joueur.
 -- Jouée une fois par session, dès que le profil est chargé. Un appui n'importe où la passe.
 
 local Players = game:GetService("Players")
@@ -8039,7 +8680,7 @@ function Intro.init()
 end
 
 return Intro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Menu</string><ProtectedString name="Source"><![CDATA[-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Menu</string><ProtectedString name="Source"><![CDATA[-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
 -- chapeaux, cordes), Quêtes & histoire, Boutique Robux. Le client ne fait que demander : le serveur valide tout.
 
 local Players = game:GetService("Players")
@@ -9006,7 +9647,7 @@ function Menu.init()
 end
 
 return Menu
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Sfx</string><ProtectedString name="Source"><![CDATA[-- Audio : effets sonores (fichiers fournis avec le client Roblox) et musique par lieu avec fondu enchaîné.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Sfx</string><ProtectedString name="Source"><![CDATA[-- Audio : effets sonores (fichiers fournis avec le client Roblox) et musique par lieu avec fondu enchaîné.
 -- Les musiques se règlent dans Config.Audio.Music ; vides par défaut. Deux SoundGroups (Musique / Effets)
 -- permettent le réglage du volume et le mode muet.
 
@@ -9119,7 +9760,7 @@ function Sfx.modeLabel()
 end
 
 return Sfx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Petite boîte à outils d'interface dans le style Roblox (coins arrondis, police Fredoka).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Petite boîte à outils d'interface dans le style Roblox (coins arrondis, police Fredoka).
 
 local TweenService = game:GetService("TweenService")
 
@@ -9276,7 +9917,7 @@ function UI.tween(inst, seconds, props, style)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Visitors</string><ProtectedString name="Source"><![CDATA[-- Visiteurs du zoo : de petits personnages en blocs qui se promènent devant les enclos du joueur.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Visitors</string><ProtectedString name="Source"><![CDATA[-- Visiteurs du zoo : de petits personnages en blocs qui se promènent devant les enclos du joueur.
 -- Purement visuels et locaux. Leur nombre grandit avec le zoo (attribut ZooVisitors, 2 à 30).
 
 local Players = game:GetService("Players")

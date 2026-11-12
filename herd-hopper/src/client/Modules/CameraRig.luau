@@ -4,6 +4,9 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local AnimMath = require(Shared.AnimMath)
+
 local ClientState = require(script.Parent.ClientState)
 
 local CameraRig = {}
@@ -17,6 +20,7 @@ local lateralSmooth = 0
 local lastStatus = nil
 local shakeUntil = 0
 local shakePower = 0
+local fovKick = { t0 = 0, duration = 0, amount = 0 }
 local cinematic = nil -- { fn, duration, t0, onDone }
 
 local function hrpOf(plr)
@@ -46,6 +50,11 @@ local function focusPart()
 		return hrpOf(player)
 	end
 	return nil
+end
+
+-- Coup de zoom : le champ de vision monte puis redescend.
+function CameraRig.fovPunch(amount, seconds)
+	fovKick = { t0 = os.clock(), duration = seconds, amount = amount }
 end
 
 function CameraRig.shake(power, seconds)
@@ -151,7 +160,9 @@ local function update(dt)
 		lateralSmooth = lateralSmooth + (lateral - lateralSmooth) * math.min(1, dt * 5)
 	end
 	lastFocus = focus
-	camera.FieldOfView = 70 + math.clamp(speedSmooth / 70, 0, 1) * 16
+	camera.FieldOfView = 70
+		+ math.clamp(speedSmooth / 70, 0, 1) * 16
+		+ AnimMath.fovPunch(os.clock() - fovKick.t0, fovKick.duration, fovKick.amount)
 end
 
 function CameraRig.init()

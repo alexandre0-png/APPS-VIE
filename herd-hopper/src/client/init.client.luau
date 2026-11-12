@@ -18,6 +18,7 @@ local Ambience = require(Modules.Ambience)
 local Sfx = require(Modules.Sfx)
 local Intro = require(Modules.Intro)
 local Visitors = require(Modules.Visitors)
+local Anim = require(Modules.Anim)
 
 -- Données serveur -> client
 Remotes.Data.OnClientEvent:Connect(function(snapshot)
@@ -67,3 +68,4 @@ Controls.init()
 Ambience.init()
 Visitors.init()
 Intro.init()
+Anim.init()

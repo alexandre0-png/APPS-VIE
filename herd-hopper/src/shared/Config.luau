@@ -117,6 +117,22 @@ Config.Audio = {
 	},
 }
 
+-- Animations : chaque animation se coupe ici (Enabled = interrupteur général). Toutes sont encapsulées en pcall :
+-- une animation qui échoue ne peut pas casser le jeu. Ton joyeux, aucun effet violent ni sanglant.
+Config.Animations = {
+	Enabled = true,
+	Walk = true, -- cycle de marche, pattes repliées en saut, ailes
+	Jump = true, -- bondissement des animaux joyeux (saut)
+	HeartReact = true, -- réaction à l'apparition du cœur (pop, étincelles, petit trot)
+	Capture = true, -- l'animal capturé s'envole en tournoyant
+	Joy = true, -- joie des animaux qui arrivent au zoo
+	Lasso = true, -- lancer, boucle qui se resserre, bras du joueur
+	ZoneIntro = true, -- survol de la zone au départ
+	ZoneTransition = true, -- balayage de couleur entre deux zones
+	Boss = true, -- piétinements, nuage d'arrivée, coup de zoom
+	Death = true, -- nuage de fumée, étoiles, estompage, écran grisé
+}
+
 Config.Events = {
 	FirstDelay = 14,
 	MinGap = 11,

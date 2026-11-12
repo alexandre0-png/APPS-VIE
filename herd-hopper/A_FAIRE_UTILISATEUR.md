@@ -17,7 +17,8 @@ Le jeu n'a jamais tourné dans Roblox : il est vérifié par simulation, compila
   6. Q lance le lasso de capture sur un animal à cœur ;
   7. un boss apparaît en fin de zone et te projette en arrière ;
   8. la mort affiche « Continuer » ; les résultats arrivent ; l'or et les animaux sont dans le zoo ;
-  9. tactile (émulateur de téléphone) et, si possible, manette.
+  9. les animations (désactivables dans `Config.Animations`) : marche et saut des animaux, pop du cœur, envol à la capture, joie des animaux au zoo après l'expédition, corde et boucle du lasso, survol de zone, balayage entre zones, nuage et étoiles à l'échec ;
+  10. tactile (émulateur de téléphone) et, si possible, manette.
 - [ ] Régler la sensation dans `ReplicatedStorage > Shared > Config` si besoin (portée, vitesses, prix, durées).
 
 ## 2. Créer le jeu et la page (Creator Dashboard)

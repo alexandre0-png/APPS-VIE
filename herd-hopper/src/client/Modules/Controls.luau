@@ -14,6 +14,7 @@ local Remotes = require(Shared.Remotes)
 local ClientState = require(script.Parent.ClientState)
 local CreatureFx = require(script.Parent.CreatureFx)
 local Sfx = require(script.Parent.Sfx)
+local Anim = require(script.Parent.Anim)
 
 local Controls = {}
 
@@ -83,6 +84,7 @@ function Controls.lasso()
 	if model and charges > 0 and ClientState.isPlaying() then
 		Remotes.Lasso:FireServer(model:GetAttribute("Id"))
 		Sfx.play("lasso")
+		Anim.throw()
 	end
 end
 
@@ -262,6 +264,7 @@ function Controls.init()
 				armedUntil = 0
 				Remotes.Hook:FireServer(model:GetAttribute("Id"))
 				Sfx.play("hook")
+				Anim.throw()
 			end
 		elseif status == "Hooking" then
 			CreatureFx.setTarget(nil)

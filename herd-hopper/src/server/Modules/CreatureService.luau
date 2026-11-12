@@ -9,7 +9,10 @@ local Config = require(Shared.Config)
 local Species = require(Shared.Species)
 local Util = require(Shared.Util)
 
+local AnimMath = require(Shared.AnimMath)
+
 local State = require(script.Parent.State)
+local Fx = require(script.Parent.Fx)
 
 local CreatureService = {}
 
@@ -198,6 +201,7 @@ function CreatureService.Spawn(x, z, speciesId, variantIdx, speedFactor)
 	model:SetAttribute("Species", def.id)
 	model:SetAttribute("Variant", variantIdx)
 	model:SetAttribute("BaseSpeed", def.speed)
+	model:SetAttribute("BaseY", def.rootY)
 	model:SetAttribute("Ridden", false)
 	model:SetAttribute("Angry", false)
 	model:SetAttribute("Heart", hearted)
@@ -269,7 +273,7 @@ end
 function CreatureService.FindRescue(x, z)
 	local best, bestScore = nil, math.huge
 	for _, creature in pairs(State.Creatures) do
-		if not creature.rider and not creature.removed then
+		if not creature.rider and not creature.removed and not creature.capture then
 			local dz = creature.z - z
 			if dz > -25 and dz < 150 then
 				local score = math.abs(dz - 20) + math.abs(creature.x - x) * 0.5
@@ -332,6 +336,43 @@ function CreatureService.FillInitial(startZ)
 	end
 end
 
+-- Capture animée : l'animal s'envole en tournoyant puis disparaît (joyeux, sans violence).
+local function stepCapture(creature)
+	local c = creature.capture
+	local p = (os.clock() - c.t0) / c.duration
+	if p >= 1 then
+		CreatureService.Remove(creature)
+		return
+	end
+	local rise, spin, hop = AnimMath.capture(p)
+	creature.root.CFrame = CFrame.new(c.x, c.y + rise + hop, c.z) * CFrame.Angles(0, c.yaw + spin, 0)
+end
+
+function CreatureService.BeginCapture(creature)
+	if creature.removed or creature.capture then
+		return
+	end
+	creature.hearted = false
+	creature.tamed = false
+	creature.model:SetAttribute("Heart", false)
+	creature.model:SetAttribute("Ready", false)
+	creature.model:SetAttribute("Captured", true)
+	local cfg = Config.Animations
+	if not (cfg.Enabled and cfg.Capture) then
+		CreatureService.Remove(creature)
+		return
+	end
+	creature.capture = {
+		t0 = os.clock(),
+		duration = 0.8,
+		x = creature.x,
+		y = creature.y or creature.def.rootY,
+		z = creature.z,
+		yaw = math.pi,
+	}
+	Fx.confetti(creature.root.Position + Vector3.new(0, 4, 0), creature.boss and 30 or 14)
+end
+
 function CreatureService.Step(dt)
 	if State.Frozen then
 		return
@@ -340,38 +381,46 @@ function CreatureService.Step(dt)
 	local half = Config.Track.HalfWidth
 	local finishZ = Config.Track.FinishZ
 
+	local bossStomp = Config.Animations.Enabled and Config.Animations.Boss
 	for _, creature in pairs(State.Creatures) do
-		local def = creature.def
-		creature.age = creature.age + dt
-
-		local target = creature.baseSpeed
-		if def.trait == "charge" then
-			if (creature.age + creature.phase) % 6 < 1.2 then
-				target = target * 1.5
-			end
-		end
-		creature.speed = creature.speed + (target - creature.speed) * math.min(1, dt * 4)
-
-		local vx
-		if creature.rider then
-			vx = creature.steer * Config.Ride.SteerSpeed
+		if creature.capture then
+			stepCapture(creature)
 		else
-			vx = math.sin(creature.age * def.weaveFreq + creature.phase) * def.weaveAmp
-		end
-		creature.vx = vx
-		creature.x = math.clamp(creature.x + vx * dt, -half, half)
-		creature.z = creature.z + creature.speed * dt
+			local def = creature.def
+			creature.age = creature.age + dt
 
-		local y = def.rootY
-		if def.trait == "hop" then
-			y = y + math.abs(math.sin((creature.age + creature.phase) * 3.2)) * 2.2
-		elseif def.flying then
-			y = y + math.sin((creature.age + creature.phase) * 2) * 1.2
-		end
-		creature.y = y
+			local target = creature.baseSpeed
+			if def.trait == "charge" then
+				if (creature.age + creature.phase) % 6 < 1.2 then
+					target = target * 1.5
+				end
+			end
+			creature.speed = creature.speed + (target - creature.speed) * math.min(1, dt * 4)
 
-		local pos = Vector3.new(creature.x, y, creature.z)
-		creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1)) * CFrame.Angles(0, 0, -vx * 0.004)
+			local vx
+			if creature.rider then
+				vx = creature.steer * Config.Ride.SteerSpeed
+			else
+				vx = math.sin(creature.age * def.weaveFreq + creature.phase) * def.weaveAmp
+			end
+			creature.vx = vx
+			creature.x = math.clamp(creature.x + vx * dt, -half, half)
+			creature.z = creature.z + creature.speed * dt
+
+			local y = def.rootY
+			if def.trait == "hop" then
+				y = y + math.abs(math.sin((creature.age + creature.phase) * 3.2)) * 2.2
+			elseif def.flying then
+				y = y + math.sin((creature.age + creature.phase) * 2) * 1.2
+			elseif def.boss and bossStomp and not creature.rider then
+				y = y + AnimMath.bossStomp(creature.age)
+			end
+			creature.y = y
+
+			local pos = Vector3.new(creature.x, y, creature.z)
+			creature.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(vx * 0.12, 0, 1))
+				* CFrame.Angles(0, 0, -vx * 0.004)
+		end
 	end
 
 	-- Disparition : trop loin derrière / devant les joueurs actifs, ou après l'arrivée.

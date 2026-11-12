@@ -21,6 +21,7 @@ La version précédente (course de troupeau avec mur de lave) est conservée : t
 | Pièces selon le nombre d'animaux, visiteurs | `shared/Zoo.luau`, `ProgressService`, `ZooService`, `client/Modules/Visitors.luau` |
 | Améliorations par animal (os) et du zoo (or) | `ProgressService` (`handleZoo`), `Config.ZooUpgrades` |
 | Boss et courses spéciales | `RideService` (`trackZones`), `Species` (4 boss), `Config.Run.Boss*` |
+| Animations (marche, saut, cœur, capture, joie, lasso, intro et transitions de zone, boss, échec) | `shared/AnimMath.luau` (maths pures testées), `Config.Animations` (interrupteurs), `Fx` et `CreatureService` (serveur), `Anim`, `CreatureFx`, `CameraRig` (client) |
 | Plusieurs zones | `Config.Zones`, `MapBuilder`, `EventService` |
 | Histoire, quêtes, énigme du jour | `Config.Story`, `Config.QuestPool`, `Config.Riddles`, `ProgressService` |
 | Achats Robux | `MonetizationService`, `Config.Monetization` |
@@ -39,11 +40,11 @@ tools/marketing  générateur d'images
 ## Vérifications
 
 **Exécutées dans cet environnement** (toutes à zéro erreur) :
-- **Lune 0.11.1** : compilation des 30 scripts par le vrai compilateur Luau (`lune run tools/lune/syntax.luau`) et 23 tests de logique pure sur du vrai Luau (`lune run tools/lune/run.luau`) : zones, rosters, animaux et boss, économie du zoo (revenus, coûts d'os, caisse hors ligne, boost, enclos, or d'expédition, déblocage des zones), prix et identifiants uniques ;
+- **Lune 0.11.1** : compilation des 30 scripts par le vrai compilateur Luau (`lune run tools/lune/syntax.luau`) et 28 tests de logique pure sur du vrai Luau (`lune run tools/lune/run.luau`) : zones, rosters, animaux et boss, économie du zoo (revenus, coûts d'os, caisse hors ligne, boost, enclos, or d'expédition, déblocage des zones), prix et identifiants uniques ;
 - **stylua 2.6** : `stylua --check src tests tools/lune` passe ;
 - **selene 0.31** : 0 erreur, 0 avertissement. La bibliothèque standard Roblox ne peut pas être téléchargée ici (réseau refusé) : `herd.yml` déclare les globales Roblox utilisées, moins complet que la vraie (les noms de méthodes Roblox ne sont pas vérifiés) ;
 - **rojo 7.7.1** : `rojo build` réussit ;
-- **Simulation du serveur et du client hors Roblox** (`cd tools/sim && npm install && node run.js A|B|C|D|CLIENT|UNIT`), avec des doublures de l'API Roblox et 3 joueurs-robots : expéditions complètes, zones, captures par la selle et au lasso, boss capturés, vies, mort et « Continuer » acheté, arrivée, départ d'un joueur, boutique, caisse du zoo, améliorations, histoire, achats et reçus rejoués, sauvegarde avec échecs simulés, interface (menus, HUD, contrôles, intro).
+- **Simulation du serveur et du client hors Roblox** (`cd tools/sim && npm install && node run.js A|B|C|D|E|CLIENT|UNIT`), avec des doublures de l'API Roblox et 3 joueurs-robots : expéditions complètes, zones, captures par la selle et au lasso, boss capturés, vies, mort et « Continuer » acheté, arrivée, départ d'un joueur, boutique, caisse du zoo, améliorations, histoire, achats et reçus rejoués, sauvegarde avec échecs simulés, interface (menus, HUD, contrôles, intro).
 
 `tools/check.sh` lance tout ce qui est disponible et signale chaque outil manquant.
 
