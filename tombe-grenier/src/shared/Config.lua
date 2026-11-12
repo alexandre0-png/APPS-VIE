@@ -181,6 +181,7 @@ Config.Animations = {
 	Breath = true,           -- respiration : légère montée et descente de la caméra à l'arrêt
 	WakeBlink = true,        -- réveil : battements de paupières (fondu en plusieurs temps)
 	ScareShake = true,       -- débusqué ou apparition : secousse courte de la caméra
+	MonsterReaction = true,  -- apparition du monstre : secousse et sursaut des bords (pendant et après la cinématique)
 	BobAmplitude = 0.08,     -- amplitude du balancement de marche (studs)
 	BreathAmplitude = 0.04,  -- amplitude de la respiration (studs)
 	ShakeDuration = 0.6,     -- durée de la secousse (secondes)

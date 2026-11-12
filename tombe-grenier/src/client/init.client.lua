@@ -124,6 +124,16 @@ end
 player:GetAttributeChangedSignal("Sanity"):Connect(refreshSanity)
 refreshSanity()
 
+-- Réaction à l'apparition du monstre : secousse, bords de l'écran qui s'éclaircissent et se ré-assombrissent.
+-- Elle se joue pendant la cinématique et une seconde fois à sa fin (voir Cinematic « apparition »).
+local shakeStart = nil
+local function startShake()
+	if Config.Animations.Enabled and Config.Animations.ScareShake then
+		shakeStart = os.clock()
+	end
+end
+
+local reactToMonster
 -- Vignette : les bords de l'écran s'assombrissent quand la sanité baisse (peur, sans effet de sursaut).
 -- Quatre bandes dégradées, sans image. Désactivable : Config.Visual.Vignette.
 local vignetteEdges = {}
@@ -164,6 +174,20 @@ local function refreshVignette()
 end
 player:GetAttributeChangedSignal("Sanity"):Connect(refreshVignette)
 refreshVignette()
+
+reactToMonster = function()
+	pcall(function()
+		if not (Config.Animations.Enabled and Config.Animations.MonsterReaction) then
+			return
+		end
+		startShake()
+		-- Les bords s'éclaircissent d'un coup, puis reviennent à la normale : un sursaut visuel
+		for _, f in ipairs(vignetteEdges) do
+			TweenService:Create(f, TweenInfo.new(0.15), { BackgroundTransparency = 0.1 }):Play()
+		end
+		task.delay(0.4, refreshVignette)
+	end)
+end
 
 local function flash(color, alpha, duration)
 	local frame = fullFrame(color, 1 - alpha, 30)
@@ -379,12 +403,6 @@ local function introSequence(duration)
 end
 
 -- Secousse de caméra (débusquage, apparition) et mouvements du personnage : pas, respiration
-local shakeStart = nil
-local function startShake()
-	if Config.Animations.Enabled and Config.Animations.ScareShake then
-		shakeStart = os.clock()
-	end
-end
 
 RunService.RenderStepped:Connect(function()
 	pcall(function()
@@ -534,6 +552,9 @@ Remotes.get("Effect").OnClientEvent:Connect(function(data)
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
 	elseif data.kind == "Cine" then
 		Cinematic.play(data.name, gui)
+		if data.name == "apparition" then
+			reactToMonster()
+		end
 	elseif data.kind == "Intro" then
 		restartButton.Visible = false
 		introSequence(data.duration or 8)
