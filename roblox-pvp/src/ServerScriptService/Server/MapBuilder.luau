@@ -103,6 +103,22 @@ local function setupLighting()
 	if not Lighting:FindFirstChildOfClass("Sky") then
 		Instance.new("Sky").Parent = Lighting
 	end
+	if not Lighting:FindFirstChildOfClass("BloomEffect") then
+		local bloom = Instance.new("BloomEffect")
+		bloom.Intensity = 0.35
+		bloom.Size = 24
+		bloom.Threshold = 1.6
+		bloom.Parent = Lighting
+		local cc = Instance.new("ColorCorrectionEffect")
+		cc.Saturation = 0.12
+		cc.Contrast = 0.08
+		cc.TintColor = rgb(255, 248, 240)
+		cc.Parent = Lighting
+		local rays = Instance.new("SunRaysEffect")
+		rays.Intensity = 0.08
+		rays.Spread = 0.6
+		rays.Parent = Lighting
+	end
 	if not Lighting:FindFirstChildOfClass("Atmosphere") then
 		local atm = Instance.new("Atmosphere")
 		atm.Density = 0.25
@@ -173,6 +189,22 @@ local function buildLobby(root, result)
 	local portalStep = mk(lobby, { Name = "PortalStep", Size = Vector3.new(16, 1, 6), Position = Vector3.new(0, 1, portalZ - 3), Color = rgb(70, 60, 90), Material = Enum.Material.Granite, CanCollide = true, Transparency = 0 })
 	local pp = prompt(portalStep, "Entrer dans l'arène", "Portail", nil)
 	pp:SetAttribute("JoinArena", true)
+
+	-- fanions violets le long du portail et lucioles sur la place
+	for i = -3, 3 do
+		mk(lobby, { Name = "Pennant", Size = Vector3.new(2, 3, 0.2), CFrame = CFrame.new(i * 3.2, 17.2 - math.abs(i) * 0.3, portalZ - 2.4) * CFrame.Angles(0, 0, math.rad(180)), Color = i % 2 == 0 and rgb(170, 90, 255) or rgb(255, 200, 60), Material = Enum.Material.Fabric, CanCollide = false })
+	end
+	local flies = mk(lobby, { Name = "Fireflies", Size = Vector3.new(110, 1, 110), Position = Vector3.new(0, 4, 0), Transparency = 1, CanCollide = false })
+	local ff = Instance.new("ParticleEmitter")
+	ff.Rate = 6
+	ff.Lifetime = NumberRange.new(4, 7)
+	ff.Speed = NumberRange.new(0.5, 1.5)
+	ff.SpreadAngle = Vector2.new(180, 180)
+	ff.Size = NumberSequence.new(0.2, 0.05)
+	ff.Color = ColorSequence.new(rgb(255, 240, 150))
+	ff.LightEmission = 1
+	ff.Transparency = NumberSequence.new(0.1, 1)
+	ff.Parent = flies
 
 	-- armurerie
 	local sx, sz = -40, 14
@@ -424,6 +456,33 @@ local function buildArena(root, result)
 			end
 		end
 	end
+
+	-- bannières d'équipe sur les murs (rouge à l'ouest/est, bleu au nord/sud)
+	for i = -2, 2 do
+		for _, def in ipairs({ { i * 28, -75, "E74C3C", 0 }, { i * 28, 75, "3498DB", 0 }, { -75, i * 28, "3498DB", 90 }, { 75, i * 28, "E74C3C", 90 } }) do
+			local cloth = mk(arena, { Name = "Banner", Size = Vector3.new(7, 16, 0.5), CFrame = CFrame.new(at(def[1], 20, def[2])) * CFrame.Angles(0, math.rad(def[4]), 0), Color = def[3], Material = Enum.Material.Fabric })
+			mk(arena, { Name = "BannerBar", Size = Vector3.new(9, 0.8, 0.9), CFrame = cloth.CFrame * CFrame.new(0, 8.4, 0), Color = rgb(255, 200, 60), Material = Enum.Material.Metal })
+		end
+	end
+	-- anneau runique lumineux au sol et braises flottantes
+	local ring = disc(arena, "RuneRing", at(0, 0, 0), 66, 0.3, 0.25, rgb(255, 150, 60), Enum.Material.Neon)
+	ring.Transparency = 0.8
+	ring.CanCollide = false
+	ring.CanQuery = false
+	local inner = disc(arena, "RuneRingInner", at(0, 0, 0), 62, 0.4, 0.3, rgb(74, 69, 64), Enum.Material.Cobblestone)
+	inner.CanCollide = false
+	inner.CanQuery = false
+	local embers = mk(arena, { Name = "EmberSource", Size = Vector3.new(140, 1, 140), Position = at(0, 2, 0), Transparency = 1, CanCollide = false })
+	local em = Instance.new("ParticleEmitter")
+	em.Rate = 14
+	em.Lifetime = NumberRange.new(5, 8)
+	em.Speed = NumberRange.new(2, 5)
+	em.EmissionDirection = Enum.NormalId.Top
+	em.Size = NumberSequence.new(0.25, 0)
+	em.Color = ColorSequence.new(rgb(255, 190, 90), rgb(255, 90, 30))
+	em.LightEmission = 1
+	em.Transparency = NumberSequence.new(0.2, 1)
+	em.Parent = embers
 
 	-- points d'apparition (16 sur un anneau)
 	result.ArenaSpawns = {}

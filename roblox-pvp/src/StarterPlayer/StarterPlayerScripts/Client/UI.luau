@@ -101,6 +101,21 @@ function UI.Button(parent, props)
 		end
 	end
 	UI.Corner(b, props and props.Radius or 8)
+	-- léger retour au survol / à l'appui (n'affecte pas la mise en page)
+	local pad = Instance.new("UIScale")
+	pad.Parent = b
+	b.MouseEnter:Connect(function()
+		UI.Tween(pad, 0.12, { Scale = 1.05 })
+	end)
+	b.MouseLeave:Connect(function()
+		UI.Tween(pad, 0.12, { Scale = 1 })
+	end)
+	b.MouseButton1Down:Connect(function()
+		UI.Tween(pad, 0.06, { Scale = 0.95 })
+	end)
+	b.MouseButton1Up:Connect(function()
+		UI.Tween(pad, 0.1, { Scale = 1.05 })
+	end)
 	b.Parent = parent
 	return b
 end

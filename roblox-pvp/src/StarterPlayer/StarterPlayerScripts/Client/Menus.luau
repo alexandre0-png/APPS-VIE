@@ -19,6 +19,7 @@ local player = Players.LocalPlayer
 local root, content, tabButtons
 local currentTab = nil
 local selectedSlot = 1
+local popScale = Instance.new("UIScale")
 local toast = function(_text, _color) end
 
 local TABS = {
@@ -337,6 +338,10 @@ end
 
 function Menus.Open(tab)
 	currentTab = builders[tab] and tab or "Shop"
+	if not root.Visible then
+		popScale.Scale = 0.92
+		UI.Tween(popScale, 0.18, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
 	root.Visible = true
 	Menus.Refresh()
 end
@@ -368,6 +373,8 @@ function Menus.Init(gui)
 		Stroke = C.PanelLight,
 	})
 	UI.New("UISizeConstraint", { Parent = root, MaxSize = Vector2.new(900, 520) })
+	popScale.Parent = root
+	UI.New("UIGradient", { Parent = root, Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)) })
 
 	local bar = UI.New("Frame", { Parent = root, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 10), Size = UDim2.new(1, -70, 0, 38) })
 	UI.New("UIListLayout", { Parent = bar, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) })

@@ -308,8 +308,24 @@ local function cameraShake(strength)
 	end)
 end
 
+local function sparks(position, killed, headshot)
+	local anchor = fxPart({ Size = Vector3.new(0.2, 0.2, 0.2), Position = position - Vector3.new(0, 1.5, 0), Transparency = 1 })
+	local e = Instance.new("ParticleEmitter")
+	e.Color = ColorSequence.new(killed and Color3.fromRGB(255, 80, 80) or (headshot and Color3.fromRGB(255, 220, 60) or Color3.fromRGB(255, 255, 255)))
+	e.LightEmission = 1
+	e.Size = NumberSequence.new(killed and 0.9 or 0.45, 0)
+	e.Lifetime = NumberRange.new(0.25, 0.5)
+	e.Speed = NumberRange.new(10, killed and 28 or 18)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Rate = 0
+	e.Parent = anchor
+	e:Emit(killed and 26 or 10)
+	transient(anchor, 0.7)
+end
+
 function Effects.OnHit(data)
 	if data.Kind == "Dealt" then
+		sparks(data.Pos, data.Killed, data.Headshot)
 		damageNumber(data.Pos, data.Amount, data.Headshot, data.Killed)
 		Effects.PlaySound(data.Killed and Config.Sounds.Kill or Config.Sounds.Hit, nil, data.Killed and 0.7 or 0.4, data.Headshot and 1.5 or 1)
 		if HUDRef then
