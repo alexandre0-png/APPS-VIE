@@ -186,6 +186,21 @@ for seed = 1, 60 do
   check(ok, ("horloge solvable, graine %d%s"):format(seed, why and (" : " .. why) or ""))
 end
 
+-- 7quater. Progression d'origine (ProgressionV2 = false) : l'horloge n'existe pas dans l'enchaînement
+local Config = require({ __path = "src/shared/Config.lua" })
+Config.Design.ProgressionV2 = false
+for seed = 1, 60 do
+  Quests.setup(seed)
+  H.log = {}
+  H.trigger(w.horloge, "QuestPromptHorloge", alice)
+  check(find(H.msgs(alice), "(Entre la date de la plaque)") == nil, ("V1 : horloge inerte, graine %d"):format(seed))
+  check(H.lastObjective() ~= "Règle l'horloge du hall sur la date gravée sur la plaque du cercueil", ("V1 : pas d'objectif horloge, graine %d"):format(seed))
+  H.log = {}
+  Quests.submitCode(alice, "0000")
+  check(find(H.msgs(alice), "(ne bougent pas)") == nil, ("V1 : pas de saisie d'horloge, graine %d"):format(seed))
+end
+Config.Design.ProgressionV2 = true
+
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do Quests.setup(seed) end
 check(true, "60 graines sans erreur")
