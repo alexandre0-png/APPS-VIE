@@ -54,6 +54,19 @@ Remotes.Match.OnClientEvent:Connect(HUD.OnMatch)
 Remotes.Hit.OnClientEvent:Connect(Effects.OnHit)
 Remotes.Fx.OnClientEvent:Connect(Effects.OnFx)
 
+-- Astuces d'accueil (une fois par session) adaptées à l'appareil.
+task.delay(4, function()
+	local UIS = game:GetService("UserInputService")
+	local touch = UIS.TouchEnabled and not UIS.KeyboardEnabled
+	local tips = touch
+		and { "Touche le portail violet pour entrer dans l'arène", "Maintiens le bouton ⚔ pour attaquer", "Touche une arme en bas pour l'équiper", "Ramasse les soins rouges et l'orbe de rage au centre" }
+		or { "Traverse le portail violet pour entrer dans l'arène", "Clic gauche : attaquer  ·  1 2 3 : changer d'arme", "Teste tes armes sur les cibles du hub", "Évite la lave et prends l'orbe de rage sur la tour" }
+	for _, tip in ipairs(tips) do
+		HUD.Toast("💡 " .. tip, UI.Colors.Accent)
+		task.wait(3.6)
+	end
+end)
+
 -- Le serveur a pu envoyer le profil avant la connexion des handlers : on le redemande.
 task.spawn(State.Request, "Sync")
 

@@ -47,6 +47,7 @@ ressource externe, aucun modèle à importer. Les sons utilisent les fichiers in
 | Quêtes | 3 quêtes/jour tirées d'un pool de 9 (déterministe par jour UTC), progression côté serveur |
 | Cadeau quotidien | Cycle de 7 jours (50 → 500 pièces), série cassée après un jour manqué |
 | Arène | Tour centrale à 4 rampes, 4 bunkers d'angle, 16 couvertures, 4 mares de lave (mort), 4 jump pads, 4 soins, orbe de rage (×1,5 dégâts 12 s) |
+| Bots | Jusqu'à 3 gladiateurs complètent l'arène quand il y a moins de 4 combattants (récompense réduite, aucune série) |
 | Classement | Top 10 mondial des éliminations (OrderedDataStore), repli « serveur » hors ligne |
 | Équilibrage | Prime sur les séries ≥ 5, protection d'apparition 3 s (annulée si on attaque), apparition la plus éloignée des ennemis, équipes équilibrées |
 | Appareils | UI mise à l'échelle (téléphone → console), bouton d'attaque tactile, L1/R1 manette, touches 1-2-3, viseur |
@@ -83,9 +84,9 @@ LUAU_ANALYZE=luau-analyze LUAU=luau ROBLOX_TYPES=globalTypes.d.luau tools/test.s
 
 1. **Analyse statique `luau-analyze`** de tous les scripts (syntaxe, variables non définies, types entre modules) : 0 message.
 2. **Résolution des `require`**, membres de modules, noms de Remotes et attributs lus/écrits : cohérents.
-3. **API Roblox** : 1 584 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
-4. **439 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
-5. **73 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
+3. **API Roblox** : 1 732 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
+4. **455 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
+5. **100 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
    tournent dans un faux environnement Roblox (règles de dégâts, élimination, séries, prime, assistance, tir à la tête,
    rage, vol de vie, anti-farm, cibles d'entraînement, profils corrompus, cadeau quotidien, niveaux).
 
