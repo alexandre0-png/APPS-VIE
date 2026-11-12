@@ -19,5 +19,6 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
 9. **Images et textures** : vérifier que les textures fournies s'affichent correctement dans Studio.
 10. **Vérification d'identité** : si Roblox la demande pour publier ou pour les achats, c'est à toi de la faire.
 11. **Animations** : régler ou couper chaque geste dans `Config.Animations` (malle, coffret, ramassage, lampes, pas et respiration, réveil, secousse). Vérifier dans Studio que les tweens de couvercle et de lampe ne gênent pas la prise en main des objets.
-12. **Cinématiques** : régler `Config.Cinematics` (une par séquence, ou `Enabled = false`). Vérifier dans Studio que les plans de caméra cadrent bien la maison, le sous-sol et le cercueil (coordonnées tirées de la carte, à contrôler), et que le bouton « Passer » est lisible sur téléphone.
-13. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.
+12. **Cinématiques** : régler `Config.Cinematics` (une par moment clé : intro, apparition, descente, fin 4, fin vérité ; ou `Enabled = false`). Vérifier dans Studio que les plans de caméra cadrent bien la maison, le sous-sol et le cercueil (coordonnées tirées de la carte, à contrôler), et que le bouton « Passer » est lisible sur téléphone.
+13. **Tiroir et lecture de document** : vérifier dans Studio que le tiroir de la cuisine (tag `Tiroir`) se place bien contre le meuble, et que la feuille de lecture ne gêne pas (`Config.Animations.DocumentRead`).
+14. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.
