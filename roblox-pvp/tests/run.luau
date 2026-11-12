@@ -27,6 +27,7 @@ local Config = require("../.emit/ReplicatedStorage/Shared/Config")
 local Lore = require("../.emit/ReplicatedStorage/Shared/Lore")
 local SeasonLogic = require("../.emit/ReplicatedStorage/Shared/SeasonLogic")
 local AnimLogic = require("../.emit/ReplicatedStorage/Shared/AnimLogic")
+local CL = require("../.emit/ReplicatedStorage/Shared/CinematicLogic")
 local BotLogic = require("../.emit/ReplicatedStorage/Shared/BotLogic")
 
 section("Progression")
@@ -263,6 +264,75 @@ do
 	check("confettis déterministes", same)
 	check("confettis valides", valid)
 	check("graines différentes", AnimLogic.ConfettiPlan(5, 5, 1)[1].X ~= AnimLogic.ConfettiPlan(5, 5, 2)[1].X)
+end
+
+section("CinematicLogic")
+do
+	for name, seq in pairs(CL.Sequences) do
+		local total = CL.TotalDuration(seq)
+		check("durée de " .. name .. " raisonnable", total >= 10 and total <= 40, total)
+		eq("clé de " .. name, seq.Key, name)
+		for i, shot in ipairs(seq.Shots) do
+			check(("plan %s#%d valide"):format(name, i), shot.Duration > 0 and #shot.Caption > 0 and #shot.Sub > 0)
+			if seq.Camera then check(("caméra %s#%d"):format(name, i), shot.From ~= nil and shot.To ~= nil and shot.Look ~= nil and #shot.From == 3)
+			else check(("pas de caméra %s#%d"):format(name, i), shot.From == nil) end
+			if shot.Hero then check("héros du plan connu", Lore.Hero(shot.Hero) ~= nil) end
+		end
+	end
+	check("intro 20-40 s", CL.TotalDuration(CL.Sequences.intro) >= 20 and CL.TotalDuration(CL.Sequences.intro) <= 40)
+	-- machine d'état
+	local st = CL.New(CL.Sequences.tutorial)
+	eq("départ plan 1", st.Index, 1)
+	CL.Step(st, 5.9); check("encore plan 1", st.Index == 1 and not st.Done)
+	CL.Step(st, 0.2); eq("plan 2", st.Index, 2)
+	check("progression ~0.3", math.abs(CL.Progress(st) - 6.1 / 20) < 1e-9)
+	CL.Step(st, 100)
+	check("terminée", st.Done and st.Reason == "completed" and st.Index == 3)
+	check("progression 1 à la fin", CL.Progress(st) == 1)
+	local before = st.Elapsed
+	CL.Step(st, 5); eq("figée après la fin", st.Elapsed, before)
+	-- skip
+	local sk = CL.New(CL.Sequences.intro)
+	CL.Step(sk, 7)
+	CL.Skip(sk)
+	check("skip", sk.Done and sk.Reason == "skipped")
+	CL.End(sk, "interrupted"); eq("raison conservée", sk.Reason, "skipped")
+	check("skip = vu", CL.ShouldMarkSeen(sk.Reason))
+	check("fin normale = vu", CL.ShouldMarkSeen("completed"))
+	check("interruption = rejouera", not CL.ShouldMarkSeen("interrupted") and not CL.ShouldMarkSeen(nil))
+	local it = CL.End(CL.New(CL.Sequences.hill), "interrupted")
+	check("interrompue non marquée", it.Reason == "interrupted" and not CL.ShouldMarkSeen(it.Reason))
+	-- plusieurs pas : même résultat qu'un grand pas
+	local a, b = CL.New(CL.Sequences.season), CL.New(CL.Sequences.season)
+	for _ = 1, 145 do CL.Step(a, 0.1) end
+	CL.Step(b, 14.5)
+	check("pas fins = grand pas", a.Done == b.Done and a.Index == b.Index)
+	local half = CL.New(CL.Sequences.season); CL.Step(half, 3)
+	check("alpha du plan", math.abs(CL.ShotAlpha(half) - 0.5) < 1e-9)
+	local p0 = CL.Lerp({ 0, 0, 0 }, { 10, 20, 30 }, 0)
+	local p1 = CL.Lerp({ 0, 0, 0 }, { 10, 20, 30 }, 1)
+	local pm = CL.Lerp({ 0, 0, 0 }, { 10, 20, 30 }, 0.5)
+	check("lerp bornes et milieu", p0[1] == 0 and p1[3] == 30 and pm[2] == 10)
+	-- planification
+	local cfg = { Enabled = true, Intro = true, Tutorial = true, Season = true, Hill = true }
+	local order = { "intro", "tutorial", "season" }
+	local ctx = { InArena = false, SeasonId = 1, NextMode = "FFA" }
+	eq("intro d'abord", CL.NextToPlay(cfg, {}, order, ctx), "intro")
+	eq("puis tutoriel", CL.NextToPlay(cfg, { intro = true }, order, ctx), "tutorial")
+	eq("puis saison", CL.NextToPlay(cfg, { intro = true, tutorial = true }, order, ctx), "season")
+	eq("tout vu", CL.NextToPlay(cfg, { intro = true, tutorial = true, season1 = true }, order, ctx), nil)
+	eq("saison 2 rejoue", CL.NextToPlay(cfg, { intro = true, tutorial = true, season1 = true }, order, { InArena = false, SeasonId = 2, NextMode = "FFA" }), "season")
+	eq("jamais en arène (intro)", CL.NextToPlay(cfg, {}, order, { InArena = true, SeasonId = 1, NextMode = "FFA" }), nil)
+	eq("interrupteur général", CL.NextToPlay({ Enabled = false }, {}, order, ctx), nil)
+	eq("intro désactivée", CL.NextToPlay({ Enabled = true, Intro = false }, {}, order, ctx), "tutorial")
+	eq("hill en arène avant roi de la tour", CL.NextToPlay(cfg, {}, { "hill" }, { InArena = true, SeasonId = 1, NextMode = "HILL" }), "hill")
+	eq("hill seulement si mode HILL", CL.NextToPlay(cfg, {}, { "hill" }, { InArena = true, SeasonId = 1, NextMode = "FFA" }), nil)
+	eq("hill vu", CL.NextToPlay(cfg, { hill = true }, { "hill" }, { InArena = true, SeasonId = 1, NextMode = "HILL" }), nil)
+	local keys = CL.SeenKeys(3)
+	check("liste blanche", keys.intro and keys.tutorial and keys.hill and keys.season3 and not keys.season1 and not keys["../x"])
+	for k, v in pairs(Config.Cinematics) do
+		if k ~= "FadeSeconds" then check("Config.Cinematics." .. k .. " booléen", type(v) == "boolean") end
+	end
 end
 
 section("BotLogic")

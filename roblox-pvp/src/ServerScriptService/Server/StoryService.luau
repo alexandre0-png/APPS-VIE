@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Server = script.Parent
 local Lore = require(Shared.Lore)
+local Config = require(Shared.Config)
+local CinematicLogic = require(Shared.CinematicLogic)
 local DataService = require(Server.DataService)
 local PlayerService = require(Server.PlayerService)
 
@@ -89,6 +91,17 @@ function StoryService.Init(map)
 			end
 		end)
 	end
+end
+
+-- Marque une cinématique comme vue (liste blanche : intro, tutoriel, saison courante, roi de la tour).
+function StoryService.MarkSeen(player, key)
+	local profile = DataService.Get(player)
+	if not profile or type(key) ~= "string" or not CinematicLogic.SeenKeys(Config.Season.Id)[key] then
+		return false, "Cinématique inconnue"
+	end
+	profile.Seen[key] = true
+	PlayerService.Sync(player)
+	return true, ""
 end
 
 function StoryService.SetHero(player, key)

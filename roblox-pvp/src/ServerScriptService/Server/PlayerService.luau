@@ -84,6 +84,7 @@ function PlayerService.BuildClientProfile(player)
 		Ephemeral = p.Ephemeral == true,
 		Hero = p.Hero,
 		Runes = p.Runes,
+		Seen = p.Seen,
 		Season = p.Season,
 		Chapters = p.Chapters,
 		Passes = {

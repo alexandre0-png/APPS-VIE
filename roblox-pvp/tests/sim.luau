@@ -333,6 +333,11 @@ do
 	local l1, k1 = pr.Level, pr.Coins
 	check("chapitre des runes", Story.ClaimChapter(R, "c6"))
 	check("c6 payé", pr.Coins - k1 >= 900)
+	-- cinématiques vues
+	check("MarkSeen intro", Story.MarkSeen(R, "intro") and pr.Seen.intro == true)
+	check("MarkSeen saison courante", Story.MarkSeen(R, "season" .. Config.Season.Id))
+	check("MarkSeen refuse une clé inconnue", not Story.MarkSeen(R, "hack") and not Story.MarkSeen(R, "season99") and not Story.MarkSeen(R, 5))
+	eq("Seen corrompu réinitialisé", next(DataService.Reconcile({ Seen = "x" }).Seen), nil)
 	local fixed = DataService.Reconcile({ Hero = "zyla", Chapters = {} })
 	eq("héros verrouillé corrigé au chargement", fixed.Hero, "kael")
 	local ok = DataService.Reconcile({ Hero = "orin", Chapters = { c2 = true } })

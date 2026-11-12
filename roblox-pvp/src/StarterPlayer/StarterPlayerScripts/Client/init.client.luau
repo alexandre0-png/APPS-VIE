@@ -18,6 +18,8 @@ local HUD = require(Client.HUD)
 local Menus = require(Client.Menus)
 local World = require(Client.World)
 local Animations = require(Client.Animations)
+local Cinematics = require(Client.Cinematics)
+local Config = require(Shared.Config)
 
 -- Interface Roblox par défaut remplacée par la nôtre (barre d'armes et vie).
 for _ = 1, 10 do
@@ -48,6 +50,7 @@ HUD.Init(gui, Menus)
 Menus.SetToast(HUD.Toast)
 World.Init()
 Animations.Init()
+Cinematics.Init(gui)
 
 Remotes.Sync.OnClientEvent:Connect(State.Set)
 Remotes.Notify.OnClientEvent:Connect(HUD.OnNotify)
@@ -56,24 +59,29 @@ Remotes.Match.OnClientEvent:Connect(HUD.OnMatch)
 Remotes.Hit.OnClientEvent:Connect(Effects.OnHit)
 Remotes.Fx.OnClientEvent:Connect(Effects.OnFx)
 
--- Prologue de l'histoire à la première connexion de la session.
-task.delay(1.5, function()
-	local Lore = require(Shared.Lore)
-	HUD.Banner(Lore.Intro.Title, Lore.Intro.Text, UI.Colors.Gold, 5)
-end)
+-- Première connexion : cinématiques (intro, tutoriel, saison). Repli : prologue + astuces si désactivées.
+if Config.Cinematics.Enabled and (Config.Cinematics.Intro or Config.Cinematics.Tutorial or Config.Cinematics.Season) then
+	Cinematics.Schedule()
+else
+	-- Prologue de l'histoire à la première connexion de la session.
+	task.delay(1.5, function()
+		local Lore = require(Shared.Lore)
+		HUD.Banner(Lore.Intro.Title, Lore.Intro.Text, UI.Colors.Gold, 5)
+	end)
 
--- Astuces d'accueil (une fois par session) adaptées à l'appareil.
-task.delay(8, function()
-	local UIS = game:GetService("UserInputService")
-	local touch = UIS.TouchEnabled and not UIS.KeyboardEnabled
-	local tips = touch
-		and { "Touche le portail violet pour entrer dans l'arène", "Maintiens le bouton ⚔ pour attaquer", "Touche une arme en bas pour l'équiper", "Ramasse les soins rouges et l'orbe de rage au centre" }
-		or { "Traverse le portail violet pour entrer dans l'arène", "Clic gauche : attaquer  ·  1 2 3 : changer d'arme", "Teste tes armes sur les cibles du hub", "Évite la lave et prends l'orbe de rage sur la tour" }
-	for _, tip in ipairs(tips) do
-		HUD.Toast("💡 " .. tip, UI.Colors.Accent)
-		task.wait(3.6)
-	end
-end)
+	-- Astuces d'accueil (une fois par session) adaptées à l'appareil.
+	task.delay(8, function()
+		local UIS = game:GetService("UserInputService")
+		local touch = UIS.TouchEnabled and not UIS.KeyboardEnabled
+		local tips = touch
+			and { "Touche le portail violet pour entrer dans l'arène", "Maintiens le bouton ⚔ pour attaquer", "Touche une arme en bas pour l'équiper", "Ramasse les soins rouges et l'orbe de rage au centre" }
+			or { "Traverse le portail violet pour entrer dans l'arène", "Clic gauche : attaquer  ·  1 2 3 : changer d'arme", "Teste tes armes sur les cibles du hub", "Évite la lave et prends l'orbe de rage sur la tour" }
+		for _, tip in ipairs(tips) do
+			HUD.Toast("💡 " .. tip, UI.Colors.Accent)
+			task.wait(3.6)
+		end
+	end)
+end
 
 -- Le serveur a pu envoyer le profil avant la connexion des handlers : on le redemande.
 task.spawn(State.Request, "Sync")

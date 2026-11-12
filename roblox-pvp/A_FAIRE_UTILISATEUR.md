@@ -7,7 +7,7 @@ Tout le reste est fait et vérifié (voir CHANGELOG.md). Cette liste ne contient
 - Optionnel : `stylua --check src` et `selene src` (configs fournies : `stylua.toml`, `selene.toml`).
 
 ## 2. Tester dans Roblox Studio (jamais fait : aucune partie n'a été jouée)
-- Test → Clients and Servers → 2 joueurs. Vérifier : apparition, portail, 3 modes, armes en main, rampes, jump pads, lave, bots, désintégration, interface mobile (émulateur), manette, animations (glissade C, esquive Q, garde F) : si l'une pose problème, mettre sa clé à `false` dans `Config.Animations`.
+- Test → Clients and Servers → 2 joueurs. Vérifier : apparition, portail, 3 modes, armes en main, rampes, jump pads, lave, bots, désintégration, interface mobile (émulateur), manette, cinématiques (intro, tutoriel, saison, Roi de la tour : vérifier caméra, lisibilité, bouton « Passer » ; désactivables dans `Config.Cinematics`), animations (glissade C, esquive Q, garde F) : si l'une pose problème, mettre sa clé à `false` dans `Config.Animations`.
 - Activer *Game Settings → Security → Enable Studio Access to API Services* pour tester la sauvegarde.
 
 ## 3. Créer les achats dans le Creator Hub, puis me donner / saisir les Id

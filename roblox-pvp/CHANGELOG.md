@@ -1,5 +1,9 @@
 # Journal des changements — Arène des Légendes
 
+## V1.10 — cinématiques
+- `CinematicLogic` (machine d'état, durées, skip/reprise, planification ; testé), `Cinematics` client (caméra scriptée, bandes noires, légendes, « Passer »), `Config.Cinematics`, marquage « vu » validé serveur.
+- Intro d'histoire, mini tutoriel, début de saison, présentation du Roi de la tour. Remplacent le prologue et les astuces quand activées.
+
 ## V1.9 — animations (sans sang)
 - `AnimLogic` (pur, testé), `AnimGuard` (commutateurs `Config.Animations` + `pcall` + auto-désactivation), `Animations` (course, saut, glissade, esquive, garde, matérialisation).
 - Armes : flash de tir, rechargement visuel ; manche : bandeau de transition, bannières animées, confettis et classement échelonné.

@@ -49,6 +49,10 @@ function handlers.ClaimTier(player, tier)
 	return SeasonService.ClaimTier(player, tier)
 end
 
+function handlers.MarkSeen(player, key)
+	return StoryService.MarkSeen(player, key)
+end
+
 function handlers.SetHero(player, key)
 	return StoryService.SetHero(player, key)
 end

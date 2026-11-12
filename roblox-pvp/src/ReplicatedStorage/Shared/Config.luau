@@ -103,6 +103,16 @@ Config.Animations = {
 	Victory = true, -- confettis et classement animé
 }
 
+-- Cinématiques courtes aux moments clés (toutes skippables). false = désactivée.
+Config.Cinematics = {
+	Enabled = true,
+	Intro = true, -- histoire et héros, première connexion
+	Tutorial = true, -- mini tutoriel, première connexion
+	Season = true, -- début de saison (une fois par saison)
+	Hill = true, -- présentation du Roi de la tour (première fois)
+	FadeSeconds = 0.4,
+}
+
 Config.HealthPack = { Heal = 45, Respawn = 15 }
 Config.RageOrb = { Duration = 12, Multiplier = 1.5, Respawn = 45 }
 
