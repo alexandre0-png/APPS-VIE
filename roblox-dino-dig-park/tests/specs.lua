@@ -41,7 +41,7 @@ local Economy = loadModule("Economy")
 local function newData()
 	return {
 		cash = 0, fossils = Config.StartFossils, pending = 0, totalCash = 0, rebirths = 0,
-		dinos = {}, discovered = {}, buildables = {},
+		dinos = {}, discovered = {}, buildables = {}, stats = { digs = 0, hatched = 0, collected = 0 }, secrets = { bones = {} }, story = { claimed = 0 }, level = 1,
 		upgrades = { shovel = 0, luck = 0, hatch = 0, ticket = 0 },
 	}
 end
@@ -104,6 +104,25 @@ for _, b in ipairs(Config.Buildables) do
 	end
 end
 check(Config.QuestCount <= #Config.QuestTypes, "assez de types de quêtes")
+-- niveaux : portes cohérentes
+for _, b in ipairs(Config.Buildables) do
+	check(b.level >= 1 and b.level <= Config.MaxLevel, b.id .. " : niveau requis hors bornes")
+	if b.requires then
+		check(b.level >= Config.BuildableById[b.requires].level, b.id .. " : niveau inférieur à celui de son prérequis")
+	end
+end
+for id, e in pairs(Config.Eggs) do check(e.level >= 1 and e.level <= Config.MaxLevel, id .. " : niveau d'œuf hors bornes") end
+check(Config.LevelThresholds[#Config.LevelThresholds] <= #Config.Dinos - 1, "le niveau max est atteignable sans le dino secret")
+for i, ch in ipairs(Config.Story) do
+	local t = ch.cond.type
+	check(t == "digs" or t == "hatched" or t == "collected" or t == "buildable" or t == "discovered" or t == "level" or t == "bones" or t == "rebirths", "chapitre " .. i .. " : condition inconnue")
+	if t == "buildable" then check(Config.BuildableById[ch.cond.id] ~= nil, "chapitre " .. i .. " : bâtiment inconnu") end
+	local r = ch.reward
+	check((r.fossils or r.cashMinutes or r.egg) ~= nil, "chapitre " .. i .. " : sans récompense")
+	if r.egg then check(Config.Eggs[r.egg] ~= nil, "chapitre " .. i .. " : œuf inconnu") end
+end
+for k, p in pairs(Config.Passes) do check(p.id == 0 and p.price > 0 and p.name and p.desc, "pass " .. k .. " bien formé") end
+for k, p in pairs(Config.Products) do check(p.id == 0 and p.price > 0 and p.name and p.desc, "produit " .. k .. " bien formé") end
 check(#Config.DailyRewards == 7, "7 jours de récompenses")
 
 ----------------------------------------------------------------------
@@ -279,6 +298,25 @@ end
 check(Economy.rebirthCost(0) == Config.RebirthBaseCost and Economy.rebirthCost(1) == Config.RebirthBaseCost * Config.RebirthGrowth, "coût de renaissance")
 check(Economy.sellValue("rex") == RI("epique") * 120, "valeur de vente")
 
+-- Niveau du parc et aventure
+d = newData()
+check(Economy.parkLevel(d) == 1, "niveau 1 au départ")
+d.discovered = { compy = true, velo = true, rex = true }
+check(Economy.parkLevel(d) == 2, "niveau 2 avec 3 dinos")
+local lv, have, need = Economy.levelProgress(d)
+check(lv == 2 and have == 3 and need == 6, "progression vers le niveau 3")
+for _, dn in ipairs(Config.Dinos) do d.discovered[dn.id] = true end
+check(Economy.parkLevel(d) == Config.MaxLevel and select(3, Economy.levelProgress(d)) == nil, "niveau max sans seuil suivant")
+d = newData()
+check(not Economy.eggUnlocked(d, "cosmic") and Economy.eggUnlocked(d, "basic"), "œuf cosmique verrouillé au niveau 1")
+local idx, val, tgt = Economy.storyCurrent(d)
+check(idx == 1 and val == 0 and tgt == 10, "aventure : chapitre 1")
+d.stats.digs = 25
+idx, val = Economy.storyCurrent(d)
+check(val == 25, "aventure : progression des fouilles")
+d.story.claimed = #Config.Story
+check(Economy.storyCurrent(d) == nil, "aventure terminée")
+
 -- canBuy
 d = newData(); d.cash = 100
 local ok, why = Economy.canBuy(d, "pen2")
@@ -291,6 +329,12 @@ check(not ok and why == "verrouillé", "pen3 verrouillé sans pen2")
 d.buildables.pen2 = true
 ok, why = Economy.canBuy(d, "pen2")
 check(not ok and why == "déjà acheté", "pen2 déjà acheté")
+d.cash = 1e9
+ok, why = Economy.canBuy(d, "pen3")
+check(not ok and why == "niveau", "pen3 verrouillé par le niveau")
+d.discovered = { compy = true, velo = true, rex = true }
+ok = Economy.canBuy(d, "pen3")
+check(ok, "pen3 achetable au niveau 2")
 ok, why = Economy.canBuy(d, "n_importe_quoi")
 check(not ok, "id inconnu refusé")
 
@@ -378,6 +422,7 @@ local function simulate(maxHours, clicksPerSec, activeRatio)
 				dd.discovered[did] = true
 				incubators[slot] = nil
 				mark("1er dino")
+				mark("niveau " .. Economy.parkLevel(dd))
 				local dn = Config.DinoById[did]
 				if dn.rarity == "rare" then mark("1er rare") end
 				if dn.rarity == "epique" then mark("1er épique") end
@@ -387,7 +432,7 @@ local function simulate(maxHours, clicksPerSec, activeRatio)
 			if not incubators[slot] then
 				local best
 				for _, eid in ipairs(Config.EggOrder) do
-					if dd.fossils >= Config.Eggs[eid].cost * 1.0 then best = eid end
+					if dd.fossils >= Config.Eggs[eid].cost * 1.0 and Economy.eggUnlocked(dd, eid) then best = eid end
 				end
 				-- garde une réserve pour les améliorations en fossiles : n'achète l'œuf cosmique que si fossiles >= 2x coût
 				if best then
@@ -399,7 +444,7 @@ local function simulate(maxHours, clicksPerSec, activeRatio)
 		-- achats : l'élément le moins cher (bâtiment ou amélioration)
 		local bestCost, bestAct = math.huge, nil
 		for _, b in ipairs(Config.Buildables) do
-			if not dd.buildables[b.id] and (not b.requires or dd.buildables[b.requires]) and b.cost < bestCost and dd.cash >= b.cost then
+			if b.cost < bestCost and Economy.canBuy(dd, b.id) then
 				bestCost, bestAct = b.cost, function() dd.cash = dd.cash - b.cost; dd.buildables[b.id] = true; mark("achat " .. b.id) end
 			end
 		end

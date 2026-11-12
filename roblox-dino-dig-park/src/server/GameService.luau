@@ -48,6 +48,14 @@ local function flagsFor(s)
 	}
 end
 
+local function applySpeed(player, s)
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.WalkSpeed = s.passes.turbo and Config.TurboWalkSpeed or 16
+	end
+end
+
 local function markDirty(s)
 	s.dirty = true
 end
@@ -108,10 +116,25 @@ local function addDino(data, key)
 	return isNew
 end
 
+-- Détecte une montée de niveau (portes qui s'ouvrent) et offre une récompense
+local function checkLevel(player, s)
+	local data = s.data
+	local level = Economy.parkLevel(data)
+	if level > data.level then
+		local reward = 100 * level
+		data.level = level
+		data.fossils = data.fossils + reward
+		PlotService.refresh(player, data)
+		notify(player, "⭐ Niveau " .. level .. " ! De nouvelles portes s'ouvrent (+" .. reward .. " 🦴)", "good")
+		fx(player, { t = "levelup", level = level })
+	end
+end
+
 local function grantEgg(player, s, eggId)
 	local key = Economy.rollEgg(eggId, s.data, rand)
 	local isNew = addDino(s.data, key)
 	s.data.stats.hatched = s.data.stats.hatched + 1
+	checkLevel(player, s)
 	PlotService.refresh(player, s.data)
 	fx(player, { t = "hatch", key = key, new = isNew, egg = eggId })
 	return key, isNew
@@ -184,9 +207,14 @@ function GameService.buy(player, id)
 	local data = s.data
 	local ok, why = Economy.canBuy(data, id)
 	if not ok then
-		if why == "pas assez de pièces" and now - s.lastPoor > 2.5 then
-			s.lastPoor = now
-			notify(player, "Pas assez de pièces !", "bad")
+		if now - s.lastPoor > 2.5 then
+			if why == "pas assez de pièces" then
+				s.lastPoor = now
+				notify(player, "Pas assez de pièces !", "bad")
+			elseif why == "niveau" then
+				s.lastPoor = now
+				notify(player, "🔒 Niveau " .. Config.BuildableById[id].level .. " requis : découvre plus de dinos !", "bad")
+			end
 		end
 		return
 	end
@@ -248,6 +276,10 @@ local function startHatch(player, payload)
 	local stand = plot and plot.stands[slot]
 	local pos = rootPosition(player)
 	if not stand or not pos or (stand.socle.Position - pos).Magnitude > 45 then
+		return
+	end
+	if not Economy.eggUnlocked(data, eggId) then
+		notify(player, "🔒 Cet œuf demande le niveau " .. egg.level .. ".", "bad")
 		return
 	end
 	if data.fossils < egg.cost then
@@ -389,6 +421,35 @@ local function claimQuest(player, payload)
 	markDirty(s)
 end
 
+local function claimStory(player)
+	local s = sessions[player]
+	if not s then
+		return
+	end
+	local data = s.data
+	local idx, value, target = Economy.storyCurrent(data)
+	if not idx or value < target then
+		return
+	end
+	local ch = Config.Story[idx]
+	data.story.claimed = idx
+	local r = ch.reward
+	if r.fossils then
+		data.fossils = data.fossils + r.fossils
+		notify(player, "📖 " .. ch.title .. " : +" .. r.fossils .. " 🦴", "good")
+	elseif r.cashMinutes then
+		local inc = Economy.incomePerSecond(data, flagsFor(s))
+		local amount = math.max(500, math.floor(inc * 60 * r.cashMinutes))
+		data.cash = data.cash + amount
+		notify(player, "📖 " .. ch.title .. " : +" .. Util.formatNumber(amount) .. " 💰", "good")
+	elseif r.egg then
+		notify(player, "📖 " .. ch.title .. " : un œuf offert !", "good")
+		grantEgg(player, s, r.egg)
+	end
+	fx(player, { t = "story" })
+	markDirty(s)
+end
+
 local function rebirth(player)
 	local s = sessions[player]
 	if not s then
@@ -443,14 +504,22 @@ local function findBone(player, id)
 end
 
 -- Boost temporaire (météores)
-function GameService.addBoost(player, seconds)
+function GameService.addBoost(player, seconds, cap)
 	local s = sessions[player]
 	if not s then
 		return
 	end
 	local now = os.time()
-	s.boostUntil = math.min(now + 300, math.max(s.boostUntil, now) + seconds)
+	s.boostUntil = math.min(now + (cap or 300), math.max(s.boostUntil, now) + seconds)
 	markDirty(s)
+end
+
+function GameService.giveEgg(player, eggId)
+	local s = sessions[player]
+	if s and Config.Eggs[eggId] then
+		grantEgg(player, s, eggId)
+		markDirty(s)
+	end
 end
 
 function GameService.addFossils(player, amount)
@@ -484,6 +553,7 @@ function GameService.setPass(player, key, value)
 	local s = sessions[player]
 	if s then
 		s.passes[key] = value
+		applySpeed(player, s)
 		markDirty(s)
 	end
 end
@@ -536,6 +606,12 @@ local function buildState(player, s)
 		autoDigRate = Economy.autoDigRate(d),
 		reserveValue = reserveValue,
 		bones = Util.count(d.secrets.bones),
+		level = Economy.parkLevel(d),
+		levelHave = Economy.discoveredCount(d),
+		levelNeed = Config.LevelThresholds[Economy.parkLevel(d)],
+		storyClaimed = d.story.claimed,
+		storyValue = (select(2, Economy.storyCurrent(d))),
+		storyTarget = (select(3, Economy.storyCurrent(d))),
 		stats = d.stats,
 		volatile = DataService.isVolatile(player),
 	}
@@ -629,6 +705,7 @@ local function onPlayerAdded(player)
 	player.CharacterAdded:Connect(function()
 		task.wait(0.15)
 		PlotService.teleport(player)
+		applySpeed(player, s)
 	end)
 	if player.Character then
 		task.spawn(PlotService.teleport, player)
@@ -680,6 +757,7 @@ local function tickPlayer(player, s, dt)
 		end
 	end
 
+	checkLevel(player, s)
 	PlotService.tick(player, data, now, data.pending, cap)
 	s.incValue.Value = math.floor(inc)
 	s.agesValue.Value = data.rebirths
@@ -694,6 +772,7 @@ local ACTION_COOLDOWN = {
 	StartHatch = 0.15,
 	Upgrade = 0.1,
 	ClaimQuest = 0.3,
+	ClaimStory = 0.5,
 }
 
 local ACTIONS = {
@@ -714,6 +793,9 @@ local ACTIONS = {
 	ClaimQuest = claimQuest,
 	Rebirth = function(player)
 		rebirth(player)
+	end,
+	ClaimStory = function(player)
+		claimStory(player)
 	end,
 	Dig = function(player)
 		GameService.dig(player, false)

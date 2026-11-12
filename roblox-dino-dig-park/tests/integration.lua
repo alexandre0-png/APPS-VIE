@@ -194,6 +194,11 @@ act(alice, "CollectHatch", { slot = 99 })
 act(alice, "BuyPass", { kind = "pass", key = 123 })
 noErrors("entrées malveillantes")
 check(s.data.eggSlots["2"] == nil, "slot 2 non débloqué refusé")
+-- œuf verrouillé par le niveau
+s.data.fossils = 1e6
+act(alice, "StartHatch", { slot = 1, egg = "cosmic" })
+check(s.data.eggSlots["1"] == nil and s.data.fossils == 1e6, "œuf cosmique refusé au niveau 1")
+s.data.fossils = 100
 
 ----------------------------------------------------------------------
 section("Achats (boutons au sol), revenus et collecte")
@@ -206,6 +211,12 @@ M.advance(0.3)
 check(s.data.buildables.pen2 == true and s.data.cash == 100, "enclos 2 acheté (cash=" .. s.data.cash .. ")")
 check(plot.built.pen2 ~= nil and plot.pads.pen2 == nil and plot.pads.pen3 ~= nil, "bâtiment construit, bouton remplacé par le suivant")
 check(Economy.slotCount(s.data) == 8, "8 emplacements")
+-- porte fermée : enclos 3 demande le niveau 2
+s.data.cash = 1e9
+check(plot.locks.pen3 ~= nil and plot.pads.pen3.Label.Cost.Text:find("Niveau") ~= nil, "enclos 3 fermé : barrières et bouton verrouillé")
+plot.pads.pen3.Touched:Fire(hit)
+M.advance(0.7)
+check(not s.data.buildables.pen3, "achat refusé tant que le niveau est insuffisant")
 -- achat par un autre joueur sur la parcelle d'Alice : ignoré
 s.data.cash = 1e9
 plot.pads.cafe.Touched:Fire(bob.Character.HumanoidRootPart)
@@ -226,6 +237,16 @@ s.data.cash = 1e9
 local p3 = plot.pads.cafe
 for _ = 1, 20 do p3.Touched:Fire(hit) end
 check(s.data.cash == 1e9 - Config.BuildableById.cafe.cost, "un seul achat malgré 20 contacts")
+-- montée de niveau : découvrir tous les dinos ouvre toutes les portes
+local fossilsBeforeLevel = s.data.fossils
+local levelFx = false
+local lconn = Remotes.Fx.OnClientEvent:Connect(function(fx) if fx.t == "levelup" then levelFx = true end end)
+for _, dn in ipairs(Config.Dinos) do s.data.discovered[dn.id] = true end
+M.advance(1.5)
+lconn:Disconnect()
+check(s.data.level == Config.MaxLevel and levelFx, "niveau maximal atteint avec effet")
+check(s.data.fossils > fossilsBeforeLevel, "récompense de niveau en fossiles")
+check(plot.locks.pen3 and plot.locks.pen3.label.Text:find("acheter") ~= nil, "enclos 3 prêt à l'achat")
 -- tous les types de bâtiments se construisent
 s.data.cash = 1e15
 for _, def in ipairs(Config.Buildables) do
@@ -329,6 +350,45 @@ M.advance(1)
 act(alice, "ClaimDaily")
 check(s.data.daily.streak == 1, "série remise à 1 après une pause")
 noErrors("améliorations/quêtes/cadeau")
+
+-- aventure
+s.data.story.claimed = 0
+s.data.stats.digs, s.data.stats.hatched = 10, 0
+local f0s = s.data.fossils
+act(alice, "ClaimStory")
+check(s.data.story.claimed == 1 and s.data.fossils == f0s + Config.Story[1].reward.fossils, "chapitre 1 récupéré")
+act(alice, "ClaimStory")
+check(s.data.story.claimed == 1, "chapitre 2 refusé tant que la condition n'est pas remplie")
+s.data.stats.hatched = 1
+act(alice, "ClaimStory")
+check(s.data.story.claimed == 2, "chapitre 2 (œuf offert) récupéré")
+
+-- monétisation : produits, pass turbo, idempotence des reçus
+Config.Products.boostPack.id = 555
+Config.Products.starterPack.id = 556
+local MS = M.services.MarketplaceService
+local GRANTED = Enum.ProductPurchaseDecision.PurchaseGranted
+local boost0 = s.boostUntil
+check(MS.ProcessReceipt({ PlayerId = 101, PurchaseId = "a1", ProductId = 555 }) == GRANTED, "reçu boost accordé")
+check(s.boostUntil >= os.time() + 590, "boost x2 de 10 minutes actif")
+local boost1 = s.boostUntil
+check(MS.ProcessReceipt({ PlayerId = 101, PurchaseId = "a1", ProductId = 555 }) == GRANTED and s.boostUntil == boost1, "même reçu : pas de double octroi")
+local fos0, dn0 = s.data.fossils, 0
+for _, c in pairs(s.data.dinos) do dn0 = dn0 + c end
+check(MS.ProcessReceipt({ PlayerId = 101, PurchaseId = "a2", ProductId = 556 }) == GRANTED, "reçu pack de départ accordé")
+local dn1 = 0
+for _, c in pairs(s.data.dinos) do dn1 = dn1 + c end
+check(s.data.fossils >= fos0 + 600 and dn1 == dn0 + 1, "pack de départ : fossiles + œuf")
+check(MS.ProcessReceipt({ PlayerId = 101, PurchaseId = "a3", ProductId = 999 }) == Enum.ProductPurchaseDecision.NotProcessedYet, "produit inconnu : non traité")
+check(MS.ProcessReceipt({ PlayerId = 9999, PurchaseId = "a4", ProductId = 555 }) == Enum.ProductPurchaseDecision.NotProcessedYet, "joueur absent : non traité")
+Config.Products.boostPack.id = 0
+Config.Products.starterPack.id = 0
+local hum = alice.Character:FindFirstChildOfClass("Humanoid")
+check(hum.WalkSpeed == 16, "vitesse normale sans pass")
+GameService.setPass(alice, "turbo", true)
+check(hum.WalkSpeed == Config.TurboWalkSpeed, "mode turbo : vitesse augmentée")
+GameService.setPass(alice, "turbo", false)
+noErrors("aventure et monétisation")
 
 ----------------------------------------------------------------------
 section("Collection : réserve et vente")

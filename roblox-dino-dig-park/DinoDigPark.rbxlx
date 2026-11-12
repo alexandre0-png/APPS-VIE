@@ -45,10 +45,14 @@ Config.Passes = {
 	doubleCash = { id = 0, name = "Revenus x2", desc = "Double tous les revenus du parc, pour toujours.", price = 399 },
 	autoDig = { id = 0, name = "Fouille automatique", desc = "Creuse tout seul quand tu es dans la zone de fouille.", price = 249 },
 	fastHatch = { id = 0, name = "Éclosion rapide", desc = "Les œufs éclosent 2 fois plus vite.", price = 299 },
+	turbo = { id = 0, name = "Mode turbo", desc = "Cours beaucoup plus vite dans ton parc.", price = 199 },
 }
+Config.TurboWalkSpeed = 26
 Config.Products = {
 	fossilPack = { id = 0, name = "Pack de fossiles", desc = "Reçois 10 minutes de fouille de pointe.", price = 49 },
 	cashPack = { id = 0, name = "Pack de pièces", desc = "Reçois 30 minutes de revenus du parc.", price = 99 },
+	boostPack = { id = 0, name = "Boost x2 (10 min)", desc = "Revenus doublés pendant 10 minutes.", price = 79 },
+	starterPack = { id = 0, name = "Pack de départ", desc = "600 fossiles et un Œuf Jungle offert pour démarrer vite.", price = 59 },
 }
 
 -- Sons : IDs rbxasset natifs du moteur Roblox (remplaçables par des rbxassetid://)
@@ -509,6 +513,94 @@ Config.Event = {
 	duration = 60,
 	spawnEvery = 2.5,
 	maxAlive = 4,
+}
+
+----------------------------------------------------------------------
+-- NIVEAU DU PARC : portes fermées tant que la collection n'est pas assez grande
+----------------------------------------------------------------------
+-- nombre de dinos différents découverts pour atteindre le niveau 2, 3, 4...
+Config.LevelThresholds = { 3, 6, 9, 12, 15 }
+Config.LevelReq = {
+	incub3 = 2,
+	digger3 = 2,
+	pen3 = 2,
+	pen4 = 3,
+	incub4 = 3,
+	digger4 = 3,
+	helipad = 3,
+	pen5 = 4,
+	hotel = 4,
+	pen6 = 5,
+	ride = 5,
+}
+Config.EggLevel = { volcano = 3, cosmic = 5 }
+for _, b in ipairs(Config.Buildables) do
+	b.level = Config.LevelReq[b.id] or 1
+end
+for id, e in pairs(Config.Eggs) do
+	e.level = Config.EggLevel[id] or 1
+end
+Config.MaxLevel = #Config.LevelThresholds + 1
+
+----------------------------------------------------------------------
+-- AVENTURE : l'histoire du Professeur Rex, chapitres à débloquer dans l'ordre
+-- cond.type : digs | hatched | collected | buildable | discovered | level | bones | rebirths
+----------------------------------------------------------------------
+Config.Story = {
+	{
+		title = "Le terrain du Professeur",
+		text = "Le Professeur Rex t'a légué un vieux terrain de fouille. Creuse pour trouver des fossiles !",
+		cond = { type = "digs", target = 10 },
+		reward = { fossils = 30 },
+	},
+	{
+		title = "L'œuf mystère",
+		text = "Au laboratoire, un fossile peut redonner vie à un dinosaure. Fais éclore ton premier œuf.",
+		cond = { type = "hatched", target = 1 },
+		reward = { egg = "basic" },
+	},
+	{
+		title = "Les portes s'ouvrent",
+		text = "Les visiteurs arrivent ! Collecte tes premières pièces au kiosque.",
+		cond = { type = "collected", target = 100 },
+		reward = { fossils = 60 },
+	},
+	{
+		title = "Un enclos de plus",
+		text = "Les dinos ont besoin de place. Ouvre l'enclos Forêt.",
+		cond = { type = "buildable", id = "pen2" },
+		reward = { cashMinutes = 5 },
+	},
+	{
+		title = "L'équipe de fouille",
+		text = "Embauche un premier ouvrier : il creuse même quand tu es ailleurs.",
+		cond = { type = "buildable", id = "digger1" },
+		reward = { fossils = 150 },
+	},
+	{
+		title = "Le collectionneur",
+		text = "Découvre 6 dinos différents pour passer au niveau 3 et ouvrir de nouvelles portes.",
+		cond = { type = "discovered", target = 6 },
+		reward = { egg = "jungle" },
+	},
+	{
+		title = "Directeur de parc",
+		text = "Atteins le niveau 4 : les enclos Glacier et l'hôtel t'attendent.",
+		cond = { type = "level", target = 4 },
+		reward = { cashMinutes = 20 },
+	},
+	{
+		title = "Le secret du Professeur",
+		text = "Cinq os dorés sont cachés autour du lobby. Trouve-les tous !",
+		cond = { type = "bones", target = 5 },
+		reward = { egg = "volcano" },
+	},
+	{
+		title = "Une nouvelle ère",
+		text = "Prends ta première renaissance : tout recommence, en plus puissant.",
+		cond = { type = "rebirths", target = 1 },
+		reward = { egg = "cosmic" },
+	},
 }
 
 return Config
@@ -1042,6 +1134,66 @@ function Economy.rebirthCost(rebirths)
 	return math.floor(Config.RebirthBaseCost * (Config.RebirthGrowth ^ rebirths))
 end
 
+-- Niveau du parc : dépend du nombre de dinos différents découverts (ne s'achète pas)
+function Economy.parkLevel(data)
+	local n = Economy.discoveredCount(data)
+	local level = 1
+	for _, t in ipairs(Config.LevelThresholds) do
+		if n >= t then
+			level = level + 1
+		end
+	end
+	return level
+end
+
+-- retourne niveau, dinos découverts, seuil du niveau suivant (nil au niveau max)
+function Economy.levelProgress(data)
+	local level = Economy.parkLevel(data)
+	return level, Economy.discoveredCount(data), Config.LevelThresholds[level]
+end
+
+function Economy.eggUnlocked(data, eggId)
+	local egg = Config.Eggs[eggId]
+	return egg ~= nil and Economy.parkLevel(data) >= egg.level
+end
+
+-- Valeur actuelle pour une condition d'aventure
+function Economy.storyValue(data, cond)
+	local t = cond.type
+	if t == "digs" then
+		return data.stats.digs
+	elseif t == "hatched" then
+		return data.stats.hatched
+	elseif t == "collected" then
+		return data.stats.collected
+	elseif t == "buildable" then
+		return data.buildables[cond.id] and 1 or 0
+	elseif t == "discovered" then
+		return Economy.discoveredCount(data)
+	elseif t == "level" then
+		return Economy.parkLevel(data)
+	elseif t == "bones" then
+		return Util.count(data.secrets.bones)
+	elseif t == "rebirths" then
+		return data.rebirths
+	end
+	return 0
+end
+
+function Economy.storyTarget(cond)
+	return cond.target or 1
+end
+
+-- Chapitre en cours : index, valeur, cible (nil si l'aventure est terminée)
+function Economy.storyCurrent(data)
+	local idx = data.story.claimed + 1
+	local ch = Config.Story[idx]
+	if not ch then
+		return nil
+	end
+	return idx, Economy.storyValue(data, ch.cond), Economy.storyTarget(ch.cond)
+end
+
 function Economy.canBuy(data, id)
 	local b = Config.BuildableById[id]
 	if not b then
@@ -1052,6 +1204,9 @@ function Economy.canBuy(data, id)
 	end
 	if b.requires and not data.buildables[b.requires] then
 		return false, "verrouillé"
+	end
+	if Economy.parkLevel(data) < b.level then
+		return false, "niveau"
 	end
 	if data.cash < b.cost then
 		return false, "pas assez de pièces"
@@ -1370,6 +1525,8 @@ function DataService.newData()
 		daily = { last = 0, streak = 0 },
 		quests = { day = 0, list = {} },
 		secrets = { bones = {}, rewarded = false },
+		level = 1,
+		story = { claimed = 0 },
 		lastSeen = 0,
 		receipts = {},
 	}
@@ -1446,6 +1603,8 @@ function DataService.sanitize(data)
 	if type(data.quests.list) ~= "table" then
 		data.quests.list = {}
 	end
+	data.level = math.floor(sanitizeNumber(data.level, 1, 1, Config.MaxLevel))
+	data.story.claimed = math.floor(sanitizeNumber(data.story.claimed, 0, 0, #Config.Story))
 	if type(data.receipts) ~= "table" then
 		data.receipts = {}
 	end
@@ -1780,6 +1939,14 @@ local function flagsFor(s)
 	}
 end
 
+local function applySpeed(player, s)
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.WalkSpeed = s.passes.turbo and Config.TurboWalkSpeed or 16
+	end
+end
+
 local function markDirty(s)
 	s.dirty = true
 end
@@ -1840,10 +2007,25 @@ local function addDino(data, key)
 	return isNew
 end
 
+-- Détecte une montée de niveau (portes qui s'ouvrent) et offre une récompense
+local function checkLevel(player, s)
+	local data = s.data
+	local level = Economy.parkLevel(data)
+	if level > data.level then
+		local reward = 100 * level
+		data.level = level
+		data.fossils = data.fossils + reward
+		PlotService.refresh(player, data)
+		notify(player, "⭐ Niveau " .. level .. " ! De nouvelles portes s'ouvrent (+" .. reward .. " 🦴)", "good")
+		fx(player, { t = "levelup", level = level })
+	end
+end
+
 local function grantEgg(player, s, eggId)
 	local key = Economy.rollEgg(eggId, s.data, rand)
 	local isNew = addDino(s.data, key)
 	s.data.stats.hatched = s.data.stats.hatched + 1
+	checkLevel(player, s)
 	PlotService.refresh(player, s.data)
 	fx(player, { t = "hatch", key = key, new = isNew, egg = eggId })
 	return key, isNew
@@ -1916,9 +2098,14 @@ function GameService.buy(player, id)
 	local data = s.data
 	local ok, why = Economy.canBuy(data, id)
 	if not ok then
-		if why == "pas assez de pièces" and now - s.lastPoor > 2.5 then
-			s.lastPoor = now
-			notify(player, "Pas assez de pièces !", "bad")
+		if now - s.lastPoor > 2.5 then
+			if why == "pas assez de pièces" then
+				s.lastPoor = now
+				notify(player, "Pas assez de pièces !", "bad")
+			elseif why == "niveau" then
+				s.lastPoor = now
+				notify(player, "🔒 Niveau " .. Config.BuildableById[id].level .. " requis : découvre plus de dinos !", "bad")
+			end
 		end
 		return
 	end
@@ -1980,6 +2167,10 @@ local function startHatch(player, payload)
 	local stand = plot and plot.stands[slot]
 	local pos = rootPosition(player)
 	if not stand or not pos or (stand.socle.Position - pos).Magnitude > 45 then
+		return
+	end
+	if not Economy.eggUnlocked(data, eggId) then
+		notify(player, "🔒 Cet œuf demande le niveau " .. egg.level .. ".", "bad")
 		return
 	end
 	if data.fossils < egg.cost then
@@ -2121,6 +2312,35 @@ local function claimQuest(player, payload)
 	markDirty(s)
 end
 
+local function claimStory(player)
+	local s = sessions[player]
+	if not s then
+		return
+	end
+	local data = s.data
+	local idx, value, target = Economy.storyCurrent(data)
+	if not idx or value < target then
+		return
+	end
+	local ch = Config.Story[idx]
+	data.story.claimed = idx
+	local r = ch.reward
+	if r.fossils then
+		data.fossils = data.fossils + r.fossils
+		notify(player, "📖 " .. ch.title .. " : +" .. r.fossils .. " 🦴", "good")
+	elseif r.cashMinutes then
+		local inc = Economy.incomePerSecond(data, flagsFor(s))
+		local amount = math.max(500, math.floor(inc * 60 * r.cashMinutes))
+		data.cash = data.cash + amount
+		notify(player, "📖 " .. ch.title .. " : +" .. Util.formatNumber(amount) .. " 💰", "good")
+	elseif r.egg then
+		notify(player, "📖 " .. ch.title .. " : un œuf offert !", "good")
+		grantEgg(player, s, r.egg)
+	end
+	fx(player, { t = "story" })
+	markDirty(s)
+end
+
 local function rebirth(player)
 	local s = sessions[player]
 	if not s then
@@ -2175,14 +2395,22 @@ local function findBone(player, id)
 end
 
 -- Boost temporaire (météores)
-function GameService.addBoost(player, seconds)
+function GameService.addBoost(player, seconds, cap)
 	local s = sessions[player]
 	if not s then
 		return
 	end
 	local now = os.time()
-	s.boostUntil = math.min(now + 300, math.max(s.boostUntil, now) + seconds)
+	s.boostUntil = math.min(now + (cap or 300), math.max(s.boostUntil, now) + seconds)
 	markDirty(s)
+end
+
+function GameService.giveEgg(player, eggId)
+	local s = sessions[player]
+	if s and Config.Eggs[eggId] then
+		grantEgg(player, s, eggId)
+		markDirty(s)
+	end
 end
 
 function GameService.addFossils(player, amount)
@@ -2216,6 +2444,7 @@ function GameService.setPass(player, key, value)
 	local s = sessions[player]
 	if s then
 		s.passes[key] = value
+		applySpeed(player, s)
 		markDirty(s)
 	end
 end
@@ -2268,6 +2497,12 @@ local function buildState(player, s)
 		autoDigRate = Economy.autoDigRate(d),
 		reserveValue = reserveValue,
 		bones = Util.count(d.secrets.bones),
+		level = Economy.parkLevel(d),
+		levelHave = Economy.discoveredCount(d),
+		levelNeed = Config.LevelThresholds[Economy.parkLevel(d)],
+		storyClaimed = d.story.claimed,
+		storyValue = (select(2, Economy.storyCurrent(d))),
+		storyTarget = (select(3, Economy.storyCurrent(d))),
 		stats = d.stats,
 		volatile = DataService.isVolatile(player),
 	}
@@ -2361,6 +2596,7 @@ local function onPlayerAdded(player)
 	player.CharacterAdded:Connect(function()
 		task.wait(0.15)
 		PlotService.teleport(player)
+		applySpeed(player, s)
 	end)
 	if player.Character then
 		task.spawn(PlotService.teleport, player)
@@ -2412,6 +2648,7 @@ local function tickPlayer(player, s, dt)
 		end
 	end
 
+	checkLevel(player, s)
 	PlotService.tick(player, data, now, data.pending, cap)
 	s.incValue.Value = math.floor(inc)
 	s.agesValue.Value = data.rebirths
@@ -2426,6 +2663,7 @@ local ACTION_COOLDOWN = {
 	StartHatch = 0.15,
 	Upgrade = 0.1,
 	ClaimQuest = 0.3,
+	ClaimStory = 0.5,
 }
 
 local ACTIONS = {
@@ -2446,6 +2684,9 @@ local ACTIONS = {
 	ClaimQuest = claimQuest,
 	Rebirth = function(player)
 		rebirth(player)
+	end,
+	ClaimStory = function(player)
+		claimStory(player)
 	end,
 	Dig = function(player)
 		GameService.dig(player, false)
@@ -2760,6 +3001,13 @@ local function grantProduct(player, key)
 		local amount = math.max(5000, math.floor(GameService.computeIncome(player) * 1800))
 		GameService.grantCash(player, amount)
 		GameService.notify(player, "+" .. Util.formatNumber(amount) .. " 💰 — merci !", "good")
+	elseif key == "boostPack" then
+		GameService.addBoost(player, 600, 3600)
+		GameService.notify(player, "⚡ Boost x2 pendant 10 minutes — merci !", "good")
+	elseif key == "starterPack" then
+		GameService.addFossils(player, 600)
+		GameService.giveEgg(player, "jungle")
+		GameService.notify(player, "🎁 Pack de départ reçu — merci !", "good")
 	else
 		return false
 	end
@@ -2871,6 +3119,7 @@ local function resetDynamic(plot)
 	plot.built = {}
 	plot.pads = {}
 	plot.stands = {}
+	plot.locks = {}
 	plot.dinoSlots = {}
 	plot.dinoFolder = Instance.new("Folder")
 	plot.dinoFolder.Name = "Dinos"
@@ -2985,6 +3234,32 @@ local function syncStructures(plot, data)
 	end
 end
 
+-- Enclos fermés : barrières rouges et panneau tant qu'ils ne sont pas achetés
+local function syncLocks(plot, data)
+	for _, def in ipairs(Config.Buildables) do
+		if def.kind == "pen" then
+			local owned = data.buildables[def.id] == true
+			local lock = plot.locks[def.id]
+			if not owned and not lock then
+				local folder, label = WorldBuilder.buildLockedPen(plot, def)
+				lock = { folder = folder, label = label }
+				plot.locks[def.id] = lock
+			elseif owned and lock then
+				lock.folder:Destroy()
+				plot.locks[def.id] = nil
+				lock = nil
+			end
+			if lock then
+				local unlocked = Economy.parkLevel(data) >= def.level
+				local text = def.name .. (unlocked and "\nÀ acheter !" or ("\n🔒 Niveau " .. def.level))
+				if lock.label.Text ~= text then
+					lock.label.Text = text
+				end
+			end
+		end
+	end
+end
+
 local function syncStands(plot, data)
 	local count = Economy.incubatorCount(data)
 	for slot = 1, 4 do
@@ -3026,10 +3301,20 @@ local function syncPads(plot, data)
 			pad = nil
 		end
 		if pad then
-			local can = data.cash >= def.cost
-			local color = can and Color3.fromRGB(110, 255, 130) or Color3.fromRGB(255, 120, 110)
-			if pad.Label.Cost.TextColor3 ~= color then
-				pad.Label.Cost.TextColor3 = color
+			local locked = Economy.parkLevel(data) < def.level
+			local text = locked and ("🔒 Niveau " .. def.level) or ("💰 " .. Util.formatNumber(def.cost))
+			local color = Color3.fromRGB(255, 120, 110)
+			if locked then
+				color = Color3.fromRGB(255, 190, 80)
+			elseif data.cash >= def.cost then
+				color = Color3.fromRGB(110, 255, 130)
+			end
+			local label = pad.Label.Cost
+			if label.Text ~= text then
+				label.Text = text
+			end
+			if label.TextColor3 ~= color then
+				label.TextColor3 = color
 			end
 		end
 	end
@@ -3075,6 +3360,7 @@ function PlotService.refresh(player, data)
 		return
 	end
 	syncStructures(plot, data)
+	syncLocks(plot, data)
 	syncStands(plot, data)
 	syncPads(plot, data)
 	local displayed = Economy.displayAndReserve(data)
@@ -3095,6 +3381,7 @@ function PlotService.tick(player, data, now, pending, cap)
 		plot.refs.boothLabel.Text = text
 	end
 	syncPads(plot, data)
+	syncLocks(plot, data)
 	for slot, st in pairs(plot.stands) do
 		local info = data.eggSlots[tostring(slot)]
 		local egg = st.egg
@@ -3444,6 +3731,49 @@ function W.buildPen(plot, index)
 		end
 	end
 	return folder
+end
+
+-- Enclos pas encore ouvert : sol gris, barrières rouges et blanches, panneau flottant
+function W.buildLockedPen(plot, def)
+	local folder = Instance.new("Folder")
+	folder.Name = "Lock_" .. def.id
+	folder.Parent = plot.dyn
+	local c = Config.Pens[def.index].center
+	local sx, sz = Config.PenSize.X, Config.PenSize.Z
+	local floor = W.decor(W.part(folder, "Sol", Vector3.new(sx, 0.3, sz), L(plot, c.X, 0.3, c.Z), Color3.fromRGB(110, 112, 120), M.Slate))
+	floor.CanCollide = true
+	local function rail(name, size, x, z)
+		local r1 = W.part(folder, name, size, L(plot, c.X + x, 1.6, c.Z + z), Color3.fromRGB(215, 60, 55), M.SmoothPlastic)
+		r1.CanQuery = false
+		local stripe = W.part(
+			folder,
+			name .. "B",
+			size + Vector3.new(0.1, -1.2, 0.1),
+			L(plot, c.X + x, 1.6, c.Z + z),
+			Color3.fromRGB(250, 250, 250),
+			M.SmoothPlastic
+		)
+		stripe.CanQuery = false
+	end
+	rail("BarriereN", Vector3.new(sx, 1.2, 0.6), 0, -sz / 2)
+	rail("BarriereS", Vector3.new(sx, 1.2, 0.6), 0, sz / 2)
+	rail("BarriereO", Vector3.new(0.6, 1.2, sz), -sx / 2, 0)
+	rail("BarriereE", Vector3.new(0.6, 1.2, sz), sx / 2, 0)
+	for _, o in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+		W.part(
+			folder,
+			"Poteau",
+			Vector3.new(1, 4, 1),
+			L(plot, c.X + o[1] * sx / 2, 2.2, c.Z + o[2] * sz / 2),
+			Color3.fromRGB(70, 70, 78),
+			M.Metal
+		)
+	end
+	local anchor = W.decor(W.part(folder, "Repere", Vector3.new(1, 1, 1), L(plot, c.X, 4, c.Z), Color3.new(1, 1, 1), M.SmoothPlastic))
+	anchor.Transparency = 1
+	anchor.CanCollide = false
+	local label = W.label(anchor, def.name, UDim2.fromOffset(340, 110), 2, Color3.fromRGB(255, 220, 120), 120)
+	return folder, label
 end
 
 function W.buildShop(plot, def)
@@ -4181,6 +4511,9 @@ local function computeObjective(st)
 	if ready then
 		return "Récupère ton œuf prêt dans le laboratoire ! 🥚", { kind = "stand", slot = ready }
 	end
+	if st.storyTarget and st.storyValue >= st.storyTarget then
+		return "📖 Chapitre terminé : récupère ta récompense (bouton Aventure)", nil
+	end
 	if not hasDino and not hatching then
 		if st.fossils < cheapestEgg().cost then
 			return string.format("Creuse des fossiles ⛏ (%d/%d)", math.floor(st.fossils), cheapestEgg().cost), { kind = "dig" }
@@ -4230,7 +4563,7 @@ end
 local function buildMenu(parent)
 	local col = Ui.new("Frame", {
 		Name = "Menu",
-		Size = UDim2.fromOffset(84, 440),
+		Size = UDim2.fromOffset(84, 500),
 		Position = UDim2.new(1, -8, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
@@ -4249,6 +4582,7 @@ local function buildMenu(parent)
 		{ id = "quests", icon = "📜", label = "Quêtes", panel = "quests", color = C.blue },
 		{ id = "daily", icon = "🎁", label = "Cadeau", panel = "daily", color = C.purple },
 		{ id = "rebirth", icon = "🌟", label = "Ère", panel = "rebirth", color = C.gold },
+		{ id = "story", icon = "📖", label = "Aventure", panel = "story", color = C.blue },
 		{ id = "shop", icon = "🛒", label = "Boutique", panel = "shop", color = C.red },
 	}
 	for i, d in ipairs(defs) do
@@ -4306,7 +4640,7 @@ function Hud.build(root)
 	-- monnaies (haut gauche)
 	local topLeft = Ui.new("Frame", {
 		Name = "Currencies",
-		Size = UDim2.fromOffset(230, 160),
+		Size = UDim2.fromOffset(230, 210),
 		Position = UDim2.fromOffset(8, 8),
 		BackgroundTransparency = 1,
 		Parent = root,
@@ -4315,6 +4649,7 @@ function Hud.build(root)
 	pills.cash = makePill(topLeft, "💰", 1, C.gold)
 	pills.fossils = makePill(topLeft, "🦴", 2, Color3.fromRGB(235, 225, 195))
 	pills.income = makePill(topLeft, "⚡", 3, C.green)
+	pills.level = makePill(topLeft, "⭐", 4, C.purple)
 
 	-- objectif + événement (haut centre)
 	local top = Ui.new("Frame", {
@@ -4480,6 +4815,12 @@ function Hud.onState(st)
 	setPill(pills.cash, st.cash, Util.formatNumber(st.cash))
 	setPill(pills.fossils, st.fossils, Util.formatNumber(math.floor(st.fossils)))
 	setPill(pills.income, st.income, Util.formatNumber(st.income) .. "/s")
+	if st.levelNeed then
+		setPill(pills.level, st.level, "Niv. " .. st.level .. "  (" .. st.levelHave .. "/" .. st.levelNeed .. ")")
+	else
+		setPill(pills.level, st.level, "Niv. " .. st.level .. " MAX")
+	end
+	menuButtons.story.dot.Visible = st.storyTarget ~= nil and st.storyValue >= st.storyTarget
 	warnLabel.Visible = st.volatile == true
 
 	local text, target = computeObjective(st)
@@ -5200,13 +5541,111 @@ local function buildEggs()
 	local function render(st)
 		for id, rr in pairs(rows) do
 			local def = Config.Eggs[id]
-			rr.btn.Text = "🦴 " .. Util.formatNumber(def.cost)
-			Ui.setEnabled(rr.btn, st.fossils >= def.cost, C.green)
+			if st.level < def.level then
+				rr.btn.Text = "🔒 Niveau " .. def.level
+				Ui.setEnabled(rr.btn, false)
+			else
+				rr.btn.Text = "🦴 " .. Util.formatNumber(def.cost)
+				Ui.setEnabled(rr.btn, st.fossils >= def.cost, C.green)
+			end
 			local t = Economy.hatchTime(id, { upgrades = st.upgrades }, st.flags)
 			rr.time.Text = "Éclosion : " .. Util.formatTime(t)
 		end
 	end
 	Store.connect(render)
+end
+
+----------------------------------------------------------------------
+-- Aventure : l'histoire du Professeur Rex
+----------------------------------------------------------------------
+local function buildStory()
+	local p = Ui.createPanel("story", "📖 L'aventure du Professeur Rex", UDim2.fromOffset(620, 480), { color = C.blue })
+	listLayout(p.body)
+	local rows = {}
+	for i, ch in ipairs(Config.Story) do
+		local r = row(p.body, i, 96)
+		local title = Ui.label(
+			r,
+			{
+				text = ch.title,
+				size = 20,
+				align = Enum.TextXAlignment.Left,
+				sizeUdim = UDim2.new(1, -190, 0, 26),
+				pos = UDim2.fromOffset(12, 6),
+				stroke = true,
+			}
+		)
+		local text = Ui.label(
+			r,
+			{
+				text = ch.text,
+				size = 14,
+				color = C.muted,
+				wrap = true,
+				align = Enum.TextXAlignment.Left,
+				valign = Enum.TextYAlignment.Top,
+				sizeUdim = UDim2.new(1, -190, 0, 40),
+				pos = UDim2.fromOffset(12, 34),
+			}
+		)
+		local prog = Ui.label(
+			r,
+			{
+				text = "",
+				size = 13,
+				color = C.gold,
+				align = Enum.TextXAlignment.Left,
+				sizeUdim = UDim2.new(1, -190, 0, 18),
+				pos = UDim2.fromOffset(12, 74),
+			}
+		)
+		local btn = Ui.button(r, {
+			text = "Récupérer",
+			size = UDim2.fromOffset(150, 52),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("ClaimStory")
+			end,
+		})
+		rows[i] = { row = r, title = title, text = text, prog = prog, btn = btn }
+	end
+	local function rewardText(r)
+		if r.fossils then
+			return r.fossils .. " 🦴"
+		elseif r.cashMinutes then
+			return r.cashMinutes .. " min de revenus"
+		end
+		return "un œuf " .. (Config.Eggs[r.egg] and Config.Eggs[r.egg].name or "")
+	end
+	Store.connect(function(st)
+		for i, rr in ipairs(rows) do
+			local ch = Config.Story[i]
+			if i <= st.storyClaimed then
+				rr.row.BackgroundColor3 = Color3.fromRGB(46, 84, 66)
+				rr.prog.Text = "✓ Terminé"
+				rr.btn.Text = "✓"
+				Ui.setEnabled(rr.btn, false)
+			elseif i == st.storyClaimed + 1 then
+				rr.row.BackgroundColor3 = C.row
+				local target = st.storyTarget or 1
+				rr.prog.Text = string.format(
+					"%s / %s   •   Récompense : %s",
+					Util.formatNumber(math.min(st.storyValue, target)),
+					Util.formatNumber(target),
+					rewardText(ch.reward)
+				)
+				rr.btn.Text = "Récupérer"
+				Ui.setEnabled(rr.btn, st.storyValue >= target, C.green)
+			else
+				rr.row.BackgroundColor3 = Color3.fromRGB(44, 50, 68)
+				rr.prog.Text = "🔒 Chapitre suivant"
+				rr.btn.Text = "…"
+				Ui.setEnabled(rr.btn, false)
+			end
+		end
+	end)
 end
 
 local function buildWelcome()
@@ -5259,6 +5698,7 @@ function Panels.build()
 	buildRebirth()
 	buildShop()
 	buildEggs()
+	buildStory()
 	buildWelcome()
 end
 
@@ -6036,6 +6476,13 @@ local function onFx(fx)
 	elseif t == "meteor" then
 		World.floatText("☄ +" .. Util.formatNumber(fx.amount) .. " 🦴", Ui.colors.orange, true)
 		Ui.playSound("buy", 0.6)
+	elseif t == "levelup" then
+		World.floatText("⭐ NIVEAU " .. fx.level .. " !", Ui.colors.gold, true)
+		Ui.playSound("hatch", 0.8, 1.2)
+		emitBurst(Color3.fromRGB(255, 220, 90), 40)
+	elseif t == "story" then
+		Ui.playSound("buy", 0.7, 1.3)
+		emitBurst(Color3.fromRGB(120, 180, 255), 24)
 	elseif t == "rebirth" then
 		Ui.playSound("hatch", 0.7)
 	end

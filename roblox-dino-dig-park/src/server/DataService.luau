@@ -32,6 +32,8 @@ function DataService.newData()
 		daily = { last = 0, streak = 0 },
 		quests = { day = 0, list = {} },
 		secrets = { bones = {}, rewarded = false },
+		level = 1,
+		story = { claimed = 0 },
 		lastSeen = 0,
 		receipts = {},
 	}
@@ -108,6 +110,8 @@ function DataService.sanitize(data)
 	if type(data.quests.list) ~= "table" then
 		data.quests.list = {}
 	end
+	data.level = math.floor(sanitizeNumber(data.level, 1, 1, Config.MaxLevel))
+	data.story.claimed = math.floor(sanitizeNumber(data.story.claimed, 0, 0, #Config.Story))
 	if type(data.receipts) ~= "table" then
 		data.receipts = {}
 	end

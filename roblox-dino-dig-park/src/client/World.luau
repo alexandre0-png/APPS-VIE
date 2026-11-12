@@ -161,6 +161,13 @@ local function onFx(fx)
 	elseif t == "meteor" then
 		World.floatText("☄ +" .. Util.formatNumber(fx.amount) .. " 🦴", Ui.colors.orange, true)
 		Ui.playSound("buy", 0.6)
+	elseif t == "levelup" then
+		World.floatText("⭐ NIVEAU " .. fx.level .. " !", Ui.colors.gold, true)
+		Ui.playSound("hatch", 0.8, 1.2)
+		emitBurst(Color3.fromRGB(255, 220, 90), 40)
+	elseif t == "story" then
+		Ui.playSound("buy", 0.7, 1.3)
+		emitBurst(Color3.fromRGB(120, 180, 255), 24)
 	elseif t == "rebirth" then
 		Ui.playSound("hatch", 0.7)
 	end

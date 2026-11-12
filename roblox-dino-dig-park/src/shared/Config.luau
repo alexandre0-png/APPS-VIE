@@ -33,10 +33,14 @@ Config.Passes = {
 	doubleCash = { id = 0, name = "Revenus x2", desc = "Double tous les revenus du parc, pour toujours.", price = 399 },
 	autoDig = { id = 0, name = "Fouille automatique", desc = "Creuse tout seul quand tu es dans la zone de fouille.", price = 249 },
 	fastHatch = { id = 0, name = "Éclosion rapide", desc = "Les œufs éclosent 2 fois plus vite.", price = 299 },
+	turbo = { id = 0, name = "Mode turbo", desc = "Cours beaucoup plus vite dans ton parc.", price = 199 },
 }
+Config.TurboWalkSpeed = 26
 Config.Products = {
 	fossilPack = { id = 0, name = "Pack de fossiles", desc = "Reçois 10 minutes de fouille de pointe.", price = 49 },
 	cashPack = { id = 0, name = "Pack de pièces", desc = "Reçois 30 minutes de revenus du parc.", price = 99 },
+	boostPack = { id = 0, name = "Boost x2 (10 min)", desc = "Revenus doublés pendant 10 minutes.", price = 79 },
+	starterPack = { id = 0, name = "Pack de départ", desc = "600 fossiles et un Œuf Jungle offert pour démarrer vite.", price = 59 },
 }
 
 -- Sons : IDs rbxasset natifs du moteur Roblox (remplaçables par des rbxassetid://)
@@ -497,6 +501,94 @@ Config.Event = {
 	duration = 60,
 	spawnEvery = 2.5,
 	maxAlive = 4,
+}
+
+----------------------------------------------------------------------
+-- NIVEAU DU PARC : portes fermées tant que la collection n'est pas assez grande
+----------------------------------------------------------------------
+-- nombre de dinos différents découverts pour atteindre le niveau 2, 3, 4...
+Config.LevelThresholds = { 3, 6, 9, 12, 15 }
+Config.LevelReq = {
+	incub3 = 2,
+	digger3 = 2,
+	pen3 = 2,
+	pen4 = 3,
+	incub4 = 3,
+	digger4 = 3,
+	helipad = 3,
+	pen5 = 4,
+	hotel = 4,
+	pen6 = 5,
+	ride = 5,
+}
+Config.EggLevel = { volcano = 3, cosmic = 5 }
+for _, b in ipairs(Config.Buildables) do
+	b.level = Config.LevelReq[b.id] or 1
+end
+for id, e in pairs(Config.Eggs) do
+	e.level = Config.EggLevel[id] or 1
+end
+Config.MaxLevel = #Config.LevelThresholds + 1
+
+----------------------------------------------------------------------
+-- AVENTURE : l'histoire du Professeur Rex, chapitres à débloquer dans l'ordre
+-- cond.type : digs | hatched | collected | buildable | discovered | level | bones | rebirths
+----------------------------------------------------------------------
+Config.Story = {
+	{
+		title = "Le terrain du Professeur",
+		text = "Le Professeur Rex t'a légué un vieux terrain de fouille. Creuse pour trouver des fossiles !",
+		cond = { type = "digs", target = 10 },
+		reward = { fossils = 30 },
+	},
+	{
+		title = "L'œuf mystère",
+		text = "Au laboratoire, un fossile peut redonner vie à un dinosaure. Fais éclore ton premier œuf.",
+		cond = { type = "hatched", target = 1 },
+		reward = { egg = "basic" },
+	},
+	{
+		title = "Les portes s'ouvrent",
+		text = "Les visiteurs arrivent ! Collecte tes premières pièces au kiosque.",
+		cond = { type = "collected", target = 100 },
+		reward = { fossils = 60 },
+	},
+	{
+		title = "Un enclos de plus",
+		text = "Les dinos ont besoin de place. Ouvre l'enclos Forêt.",
+		cond = { type = "buildable", id = "pen2" },
+		reward = { cashMinutes = 5 },
+	},
+	{
+		title = "L'équipe de fouille",
+		text = "Embauche un premier ouvrier : il creuse même quand tu es ailleurs.",
+		cond = { type = "buildable", id = "digger1" },
+		reward = { fossils = 150 },
+	},
+	{
+		title = "Le collectionneur",
+		text = "Découvre 6 dinos différents pour passer au niveau 3 et ouvrir de nouvelles portes.",
+		cond = { type = "discovered", target = 6 },
+		reward = { egg = "jungle" },
+	},
+	{
+		title = "Directeur de parc",
+		text = "Atteins le niveau 4 : les enclos Glacier et l'hôtel t'attendent.",
+		cond = { type = "level", target = 4 },
+		reward = { cashMinutes = 20 },
+	},
+	{
+		title = "Le secret du Professeur",
+		text = "Cinq os dorés sont cachés autour du lobby. Trouve-les tous !",
+		cond = { type = "bones", target = 5 },
+		reward = { egg = "volcano" },
+	},
+	{
+		title = "Une nouvelle ère",
+		text = "Prends ta première renaissance : tout recommence, en plus puissant.",
+		cond = { type = "rebirths", target = 1 },
+		reward = { egg = "cosmic" },
+	},
 }
 
 return Config

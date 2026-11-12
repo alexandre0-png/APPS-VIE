@@ -308,6 +308,49 @@ function W.buildPen(plot, index)
 	return folder
 end
 
+-- Enclos pas encore ouvert : sol gris, barrières rouges et blanches, panneau flottant
+function W.buildLockedPen(plot, def)
+	local folder = Instance.new("Folder")
+	folder.Name = "Lock_" .. def.id
+	folder.Parent = plot.dyn
+	local c = Config.Pens[def.index].center
+	local sx, sz = Config.PenSize.X, Config.PenSize.Z
+	local floor = W.decor(W.part(folder, "Sol", Vector3.new(sx, 0.3, sz), L(plot, c.X, 0.3, c.Z), Color3.fromRGB(110, 112, 120), M.Slate))
+	floor.CanCollide = true
+	local function rail(name, size, x, z)
+		local r1 = W.part(folder, name, size, L(plot, c.X + x, 1.6, c.Z + z), Color3.fromRGB(215, 60, 55), M.SmoothPlastic)
+		r1.CanQuery = false
+		local stripe = W.part(
+			folder,
+			name .. "B",
+			size + Vector3.new(0.1, -1.2, 0.1),
+			L(plot, c.X + x, 1.6, c.Z + z),
+			Color3.fromRGB(250, 250, 250),
+			M.SmoothPlastic
+		)
+		stripe.CanQuery = false
+	end
+	rail("BarriereN", Vector3.new(sx, 1.2, 0.6), 0, -sz / 2)
+	rail("BarriereS", Vector3.new(sx, 1.2, 0.6), 0, sz / 2)
+	rail("BarriereO", Vector3.new(0.6, 1.2, sz), -sx / 2, 0)
+	rail("BarriereE", Vector3.new(0.6, 1.2, sz), sx / 2, 0)
+	for _, o in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+		W.part(
+			folder,
+			"Poteau",
+			Vector3.new(1, 4, 1),
+			L(plot, c.X + o[1] * sx / 2, 2.2, c.Z + o[2] * sz / 2),
+			Color3.fromRGB(70, 70, 78),
+			M.Metal
+		)
+	end
+	local anchor = W.decor(W.part(folder, "Repere", Vector3.new(1, 1, 1), L(plot, c.X, 4, c.Z), Color3.new(1, 1, 1), M.SmoothPlastic))
+	anchor.Transparency = 1
+	anchor.CanCollide = false
+	local label = W.label(anchor, def.name, UDim2.fromOffset(340, 110), 2, Color3.fromRGB(255, 220, 120), 120)
+	return folder, label
+end
+
 function W.buildShop(plot, def)
 	local folder = Instance.new("Folder")
 	folder.Name = def.id

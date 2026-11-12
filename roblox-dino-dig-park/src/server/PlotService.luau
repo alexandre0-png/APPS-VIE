@@ -48,6 +48,7 @@ local function resetDynamic(plot)
 	plot.built = {}
 	plot.pads = {}
 	plot.stands = {}
+	plot.locks = {}
 	plot.dinoSlots = {}
 	plot.dinoFolder = Instance.new("Folder")
 	plot.dinoFolder.Name = "Dinos"
@@ -162,6 +163,32 @@ local function syncStructures(plot, data)
 	end
 end
 
+-- Enclos fermés : barrières rouges et panneau tant qu'ils ne sont pas achetés
+local function syncLocks(plot, data)
+	for _, def in ipairs(Config.Buildables) do
+		if def.kind == "pen" then
+			local owned = data.buildables[def.id] == true
+			local lock = plot.locks[def.id]
+			if not owned and not lock then
+				local folder, label = WorldBuilder.buildLockedPen(plot, def)
+				lock = { folder = folder, label = label }
+				plot.locks[def.id] = lock
+			elseif owned and lock then
+				lock.folder:Destroy()
+				plot.locks[def.id] = nil
+				lock = nil
+			end
+			if lock then
+				local unlocked = Economy.parkLevel(data) >= def.level
+				local text = def.name .. (unlocked and "\nÀ acheter !" or ("\n🔒 Niveau " .. def.level))
+				if lock.label.Text ~= text then
+					lock.label.Text = text
+				end
+			end
+		end
+	end
+end
+
 local function syncStands(plot, data)
 	local count = Economy.incubatorCount(data)
 	for slot = 1, 4 do
@@ -203,10 +230,20 @@ local function syncPads(plot, data)
 			pad = nil
 		end
 		if pad then
-			local can = data.cash >= def.cost
-			local color = can and Color3.fromRGB(110, 255, 130) or Color3.fromRGB(255, 120, 110)
-			if pad.Label.Cost.TextColor3 ~= color then
-				pad.Label.Cost.TextColor3 = color
+			local locked = Economy.parkLevel(data) < def.level
+			local text = locked and ("🔒 Niveau " .. def.level) or ("💰 " .. Util.formatNumber(def.cost))
+			local color = Color3.fromRGB(255, 120, 110)
+			if locked then
+				color = Color3.fromRGB(255, 190, 80)
+			elseif data.cash >= def.cost then
+				color = Color3.fromRGB(110, 255, 130)
+			end
+			local label = pad.Label.Cost
+			if label.Text ~= text then
+				label.Text = text
+			end
+			if label.TextColor3 ~= color then
+				label.TextColor3 = color
 			end
 		end
 	end
@@ -252,6 +289,7 @@ function PlotService.refresh(player, data)
 		return
 	end
 	syncStructures(plot, data)
+	syncLocks(plot, data)
 	syncStands(plot, data)
 	syncPads(plot, data)
 	local displayed = Economy.displayAndReserve(data)
@@ -272,6 +310,7 @@ function PlotService.tick(player, data, now, pending, cap)
 		plot.refs.boothLabel.Text = text
 	end
 	syncPads(plot, data)
+	syncLocks(plot, data)
 	for slot, st in pairs(plot.stands) do
 		local info = data.eggSlots[tostring(slot)]
 		local egg = st.egg

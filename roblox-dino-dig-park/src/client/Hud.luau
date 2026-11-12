@@ -107,6 +107,9 @@ local function computeObjective(st)
 	if ready then
 		return "Récupère ton œuf prêt dans le laboratoire ! 🥚", { kind = "stand", slot = ready }
 	end
+	if st.storyTarget and st.storyValue >= st.storyTarget then
+		return "📖 Chapitre terminé : récupère ta récompense (bouton Aventure)", nil
+	end
 	if not hasDino and not hatching then
 		if st.fossils < cheapestEgg().cost then
 			return string.format("Creuse des fossiles ⛏ (%d/%d)", math.floor(st.fossils), cheapestEgg().cost), { kind = "dig" }
@@ -156,7 +159,7 @@ end
 local function buildMenu(parent)
 	local col = Ui.new("Frame", {
 		Name = "Menu",
-		Size = UDim2.fromOffset(84, 440),
+		Size = UDim2.fromOffset(84, 500),
 		Position = UDim2.new(1, -8, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
@@ -175,6 +178,7 @@ local function buildMenu(parent)
 		{ id = "quests", icon = "📜", label = "Quêtes", panel = "quests", color = C.blue },
 		{ id = "daily", icon = "🎁", label = "Cadeau", panel = "daily", color = C.purple },
 		{ id = "rebirth", icon = "🌟", label = "Ère", panel = "rebirth", color = C.gold },
+		{ id = "story", icon = "📖", label = "Aventure", panel = "story", color = C.blue },
 		{ id = "shop", icon = "🛒", label = "Boutique", panel = "shop", color = C.red },
 	}
 	for i, d in ipairs(defs) do
@@ -232,7 +236,7 @@ function Hud.build(root)
 	-- monnaies (haut gauche)
 	local topLeft = Ui.new("Frame", {
 		Name = "Currencies",
-		Size = UDim2.fromOffset(230, 160),
+		Size = UDim2.fromOffset(230, 210),
 		Position = UDim2.fromOffset(8, 8),
 		BackgroundTransparency = 1,
 		Parent = root,
@@ -241,6 +245,7 @@ function Hud.build(root)
 	pills.cash = makePill(topLeft, "💰", 1, C.gold)
 	pills.fossils = makePill(topLeft, "🦴", 2, Color3.fromRGB(235, 225, 195))
 	pills.income = makePill(topLeft, "⚡", 3, C.green)
+	pills.level = makePill(topLeft, "⭐", 4, C.purple)
 
 	-- objectif + événement (haut centre)
 	local top = Ui.new("Frame", {
@@ -406,6 +411,12 @@ function Hud.onState(st)
 	setPill(pills.cash, st.cash, Util.formatNumber(st.cash))
 	setPill(pills.fossils, st.fossils, Util.formatNumber(math.floor(st.fossils)))
 	setPill(pills.income, st.income, Util.formatNumber(st.income) .. "/s")
+	if st.levelNeed then
+		setPill(pills.level, st.level, "Niv. " .. st.level .. "  (" .. st.levelHave .. "/" .. st.levelNeed .. ")")
+	else
+		setPill(pills.level, st.level, "Niv. " .. st.level .. " MAX")
+	end
+	menuButtons.story.dot.Visible = st.storyTarget ~= nil and st.storyValue >= st.storyTarget
 	warnLabel.Visible = st.volatile == true
 
 	local text, target = computeObjective(st)

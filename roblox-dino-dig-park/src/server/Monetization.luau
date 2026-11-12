@@ -60,6 +60,13 @@ local function grantProduct(player, key)
 		local amount = math.max(5000, math.floor(GameService.computeIncome(player) * 1800))
 		GameService.grantCash(player, amount)
 		GameService.notify(player, "+" .. Util.formatNumber(amount) .. " 💰 — merci !", "good")
+	elseif key == "boostPack" then
+		GameService.addBoost(player, 600, 3600)
+		GameService.notify(player, "⚡ Boost x2 pendant 10 minutes — merci !", "good")
+	elseif key == "starterPack" then
+		GameService.addFossils(player, 600)
+		GameService.giveEgg(player, "jungle")
+		GameService.notify(player, "🎁 Pack de départ reçu — merci !", "good")
 	else
 		return false
 	end

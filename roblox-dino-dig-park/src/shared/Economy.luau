@@ -222,6 +222,66 @@ function Economy.rebirthCost(rebirths)
 	return math.floor(Config.RebirthBaseCost * (Config.RebirthGrowth ^ rebirths))
 end
 
+-- Niveau du parc : dépend du nombre de dinos différents découverts (ne s'achète pas)
+function Economy.parkLevel(data)
+	local n = Economy.discoveredCount(data)
+	local level = 1
+	for _, t in ipairs(Config.LevelThresholds) do
+		if n >= t then
+			level = level + 1
+		end
+	end
+	return level
+end
+
+-- retourne niveau, dinos découverts, seuil du niveau suivant (nil au niveau max)
+function Economy.levelProgress(data)
+	local level = Economy.parkLevel(data)
+	return level, Economy.discoveredCount(data), Config.LevelThresholds[level]
+end
+
+function Economy.eggUnlocked(data, eggId)
+	local egg = Config.Eggs[eggId]
+	return egg ~= nil and Economy.parkLevel(data) >= egg.level
+end
+
+-- Valeur actuelle pour une condition d'aventure
+function Economy.storyValue(data, cond)
+	local t = cond.type
+	if t == "digs" then
+		return data.stats.digs
+	elseif t == "hatched" then
+		return data.stats.hatched
+	elseif t == "collected" then
+		return data.stats.collected
+	elseif t == "buildable" then
+		return data.buildables[cond.id] and 1 or 0
+	elseif t == "discovered" then
+		return Economy.discoveredCount(data)
+	elseif t == "level" then
+		return Economy.parkLevel(data)
+	elseif t == "bones" then
+		return Util.count(data.secrets.bones)
+	elseif t == "rebirths" then
+		return data.rebirths
+	end
+	return 0
+end
+
+function Economy.storyTarget(cond)
+	return cond.target or 1
+end
+
+-- Chapitre en cours : index, valeur, cible (nil si l'aventure est terminée)
+function Economy.storyCurrent(data)
+	local idx = data.story.claimed + 1
+	local ch = Config.Story[idx]
+	if not ch then
+		return nil
+	end
+	return idx, Economy.storyValue(data, ch.cond), Economy.storyTarget(ch.cond)
+end
+
 function Economy.canBuy(data, id)
 	local b = Config.BuildableById[id]
 	if not b then
@@ -232,6 +292,9 @@ function Economy.canBuy(data, id)
 	end
 	if b.requires and not data.buildables[b.requires] then
 		return false, "verrouillé"
+	end
+	if Economy.parkLevel(data) < b.level then
+		return false, "niveau"
 	end
 	if data.cash < b.cost then
 		return false, "pas assez de pièces"

@@ -625,13 +625,111 @@ local function buildEggs()
 	local function render(st)
 		for id, rr in pairs(rows) do
 			local def = Config.Eggs[id]
-			rr.btn.Text = "🦴 " .. Util.formatNumber(def.cost)
-			Ui.setEnabled(rr.btn, st.fossils >= def.cost, C.green)
+			if st.level < def.level then
+				rr.btn.Text = "🔒 Niveau " .. def.level
+				Ui.setEnabled(rr.btn, false)
+			else
+				rr.btn.Text = "🦴 " .. Util.formatNumber(def.cost)
+				Ui.setEnabled(rr.btn, st.fossils >= def.cost, C.green)
+			end
 			local t = Economy.hatchTime(id, { upgrades = st.upgrades }, st.flags)
 			rr.time.Text = "Éclosion : " .. Util.formatTime(t)
 		end
 	end
 	Store.connect(render)
+end
+
+----------------------------------------------------------------------
+-- Aventure : l'histoire du Professeur Rex
+----------------------------------------------------------------------
+local function buildStory()
+	local p = Ui.createPanel("story", "📖 L'aventure du Professeur Rex", UDim2.fromOffset(620, 480), { color = C.blue })
+	listLayout(p.body)
+	local rows = {}
+	for i, ch in ipairs(Config.Story) do
+		local r = row(p.body, i, 96)
+		local title = Ui.label(
+			r,
+			{
+				text = ch.title,
+				size = 20,
+				align = Enum.TextXAlignment.Left,
+				sizeUdim = UDim2.new(1, -190, 0, 26),
+				pos = UDim2.fromOffset(12, 6),
+				stroke = true,
+			}
+		)
+		local text = Ui.label(
+			r,
+			{
+				text = ch.text,
+				size = 14,
+				color = C.muted,
+				wrap = true,
+				align = Enum.TextXAlignment.Left,
+				valign = Enum.TextYAlignment.Top,
+				sizeUdim = UDim2.new(1, -190, 0, 40),
+				pos = UDim2.fromOffset(12, 34),
+			}
+		)
+		local prog = Ui.label(
+			r,
+			{
+				text = "",
+				size = 13,
+				color = C.gold,
+				align = Enum.TextXAlignment.Left,
+				sizeUdim = UDim2.new(1, -190, 0, 18),
+				pos = UDim2.fromOffset(12, 74),
+			}
+		)
+		local btn = Ui.button(r, {
+			text = "Récupérer",
+			size = UDim2.fromOffset(150, 52),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("ClaimStory")
+			end,
+		})
+		rows[i] = { row = r, title = title, text = text, prog = prog, btn = btn }
+	end
+	local function rewardText(r)
+		if r.fossils then
+			return r.fossils .. " 🦴"
+		elseif r.cashMinutes then
+			return r.cashMinutes .. " min de revenus"
+		end
+		return "un œuf " .. (Config.Eggs[r.egg] and Config.Eggs[r.egg].name or "")
+	end
+	Store.connect(function(st)
+		for i, rr in ipairs(rows) do
+			local ch = Config.Story[i]
+			if i <= st.storyClaimed then
+				rr.row.BackgroundColor3 = Color3.fromRGB(46, 84, 66)
+				rr.prog.Text = "✓ Terminé"
+				rr.btn.Text = "✓"
+				Ui.setEnabled(rr.btn, false)
+			elseif i == st.storyClaimed + 1 then
+				rr.row.BackgroundColor3 = C.row
+				local target = st.storyTarget or 1
+				rr.prog.Text = string.format(
+					"%s / %s   •   Récompense : %s",
+					Util.formatNumber(math.min(st.storyValue, target)),
+					Util.formatNumber(target),
+					rewardText(ch.reward)
+				)
+				rr.btn.Text = "Récupérer"
+				Ui.setEnabled(rr.btn, st.storyValue >= target, C.green)
+			else
+				rr.row.BackgroundColor3 = Color3.fromRGB(44, 50, 68)
+				rr.prog.Text = "🔒 Chapitre suivant"
+				rr.btn.Text = "…"
+				Ui.setEnabled(rr.btn, false)
+			end
+		end
+	end)
 end
 
 local function buildWelcome()
@@ -684,6 +782,7 @@ function Panels.build()
 	buildRebirth()
 	buildShop()
 	buildEggs()
+	buildStory()
 	buildWelcome()
 end
 

@@ -18,17 +18,20 @@ Option B (sans Rojo) : dans un place vide, crée à la main `ReplicatedStorage >
 - Publie : File > Publish to Roblox.
 
 ## 3. Monétisation (Creator Hub > ton expérience > Monetization)
-Crée les 3 passes (Passes > Create a Pass) et les 2 produits (Developer Products), avec les images de `images/` :
+Crée les 4 passes (Passes > Create a Pass) et les 4 produits (Developer Products), avec les images de `images/` :
 
 | Élément | Nom | Prix conseillé | Image | Clé dans Config.luau |
 |---|---|---|---|---|
 | Pass | Revenus x2 | 399 R$ | pass_revenus_x2.png | `Config.Passes.doubleCash.id` |
 | Pass | Fouille automatique | 249 R$ | pass_fouille_auto.png | `Config.Passes.autoDig.id` |
 | Pass | Éclosion rapide | 299 R$ | pass_eclosion_rapide.png | `Config.Passes.fastHatch.id` |
+| Pass | Mode turbo | 199 R$ | pass_turbo.png | `Config.Passes.turbo.id` |
 | Produit | Pack de fossiles | 49 R$ | produit_pack_fossiles.png | `Config.Products.fossilPack.id` |
 | Produit | Pack de pièces | 99 R$ | produit_pack_pieces.png | `Config.Products.cashPack.id` |
+| Produit | Boost x2 (10 min) | 79 R$ | produit_boost_x2.png | `Config.Products.boostPack.id` |
+| Produit | Pack de départ | 59 R$ | produit_pack_depart.png | `Config.Products.starterPack.id` |
 
-Copie chaque ID numérique dans `src/shared/Config.luau` (champ `id = 0`), puis republie. Tant qu'un ID vaut 0, l'article est caché dans le jeu et le bouton Boutique n'apparaît pas. Les achats sont validés côté serveur (reçus idempotents, sauvegarde avant confirmation).
+Copie chaque ID numérique dans `src/shared/Config.luau` (champ `id = 0`), puis republie. Tant qu'un ID vaut 0, l'article est caché dans le jeu et le bouton Boutique n'apparaît pas. Aucun pass ne bloque la progression gratuite : ils accélèrent seulement (revenus, fouille, éclosion, déplacement, packs). Les achats sont validés côté serveur (reçus idempotents, sauvegarde avant confirmation).
 
 ## 4. Page du jeu
 Titre : **Dino Dig Park**
@@ -39,6 +42,8 @@ Description française :
 > 🥚 4 types d'œufs : Fossile, Jungle, Volcan, Cosmique
 > 🦕 18 dinos à collectionner (Commun → Mythique), versions dorées et un dino secret
 > 🏗 6 enclos, café, boutique, hôtel, grande roue, hélipad
+> 🔒 Des portes fermées : monte de niveau en découvrant de nouveaux dinos
+> 📖 L'aventure du Professeur Rex : 9 chapitres avec récompenses
 > 🌟 Renaissance pour des bonus permanents, quêtes et cadeau quotidien
 > ☄ Pluies de météores toutes les 10 minutes
 > Cherche les 5 os dorés cachés pour débloquer Aurore !

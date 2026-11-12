@@ -498,6 +498,9 @@ function M.spawnCharacter(p, pos)
 	hrp.Name = "HumanoidRootPart"
 	hrp.CFrame = CFrame.new(pos or v3(0, 5, 60))
 	hrp.Parent = m
+	local hum = Instance.new("Humanoid")
+	hum.WalkSpeed = 16
+	hum.Parent = m
 	m.Parent = Workspace
 	p.Character = m
 	p.CharacterAdded:Fire(m)
