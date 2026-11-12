@@ -5169,7 +5169,7 @@ local function updateWheel(t)
 	local rot = CFrame.new(hub) * CFrame.Angles(angle, 0, 0) * CFrame.new(-hub.X, -hub.Y, -hub.Z)
 	for _, part in ipairs(ride:GetChildren()) do
 		local isSpoke = string.sub(part.Name, 1, 5) == "Rayon"
-		local isGondola = string.sub(part.Name, 1, 6) == "Nacelle"
+		local isGondola = string.sub(part.Name, 1, 7) == "Nacelle"
 		if isSpoke or isGondola then
 			local base = wheelState[part]
 			if not base then
