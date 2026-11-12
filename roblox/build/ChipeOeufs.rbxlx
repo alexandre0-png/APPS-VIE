@@ -1,0 +1,2843 @@
+<?xml version="1.0" encoding="utf-8"?>
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+<Meta name="ExplicitAutoJoints">true</Meta>
+<Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX3"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX2"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+-- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
+local Config = {}
+
+Config.PLOT_COUNT = 10 -- nombre de bases (= joueurs max conseillé dans Game Settings > MaxPlayers)
+
+Config.TIERS = {
+	{ name = "Commun", color = Color3.fromRGB(170, 180, 191) },
+	{ name = "Rare", color = Color3.fromRGB(74, 163, 255) },
+	{ name = "Épique", color = Color3.fromRGB(184, 120, 255) },
+	{ name = "Légendaire", color = Color3.fromRGB(255, 176, 32) },
+	{ name = "Mythique", color = Color3.fromRGB(255, 77, 109) },
+	{ name = "Cosmique", color = Color3.fromRGB(61, 255, 208) },
+}
+Config.EGG_PRICE = { 25, 300, 3500, 45000, 650000, 7000000 }
+Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
+
+-- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
+Config.PETS = {
+	{ tier = 1, emoji = "🐥", name = "Poussin", inc = 1, color = Color3.fromRGB(255, 221, 87), ears = "none", extra = "beak" },
+	{ tier = 1, emoji = "🐹", name = "Hamster", inc = 1.5, color = Color3.fromRGB(222, 184, 135), ears = "round", extra = "none" },
+	{ tier = 1, emoji = "🐰", name = "Lapin", inc = 2, color = Color3.fromRGB(245, 245, 245), ears = "long", extra = "tail" },
+	{ tier = 2, emoji = "🐱", name = "Chat", inc = 6, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
+	{ tier = 2, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
+	{ tier = 2, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
+	{ tier = 3, emoji = "🐼", name = "Panda", inc = 32, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
+	{ tier = 3, emoji = "🦉", name = "Hibou", inc = 45, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
+	{ tier = 3, emoji = "🐧", name = "Manchot", inc = 60, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
+	{ tier = 4, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
+	{ tier = 4, emoji = "🐯", name = "Tigre", inc = 230, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
+	{ tier = 4, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
+	{ tier = 5, emoji = "🐲", name = "Dragon", inc = 1100, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
+	{ tier = 5, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
+	{ tier = 5, emoji = "🐙", name = "Kraken", inc = 2300, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
+	{ tier = 6, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
+}
+
+Config.SIZES = {
+	{ name = "Mini", mult = 0.8, weight = 20, scale = 0.8 },
+	{ name = "Normal", mult = 1, weight = 62, scale = 1 },
+	{ name = "Grand", mult = 1.5, weight = 14, scale = 1.25 },
+	{ name = "Géant", mult = 2.5, weight = 3.5, scale = 1.6 },
+	{ name = "Colossal", mult = 5, weight = 0.5, scale = 2.1 },
+}
+
+Config.MUTS = {
+	{ name = "", mult = 1, weight = 82 },
+	{ name = "Doré", mult = 2, weight = 9, color = Color3.fromRGB(255, 208, 0) },
+	{ name = "Néon", mult = 3, weight = 5, color = Color3.fromRGB(0, 229, 255) },
+	{ name = "Arc-en-ciel", mult = 5, weight = 2.6, rainbow = true },
+	{ name = "Alien", mult = 10, weight = 1.4, color = Color3.fromRGB(57, 255, 20) },
+}
+
+-- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
+-- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
+Config.RIVALS = {
+	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, color = Color3.fromRGB(224, 87, 90) },
+}
+
+-- Événements serveur (tous les joueurs en profitent)
+Config.EVENTS = {
+	{ key = "alien", name = "Biome Alien", emoji = "👽", desc = "Mutation Alien x5", tint = Color3.fromRGB(205, 160, 255) },
+	{ key = "gold", name = "Ruée vers l'or", emoji = "💰", desc = "Revenus x2", tint = Color3.fromRGB(255, 232, 160) },
+	{ key = "luck", name = "Pluie de chance", emoji = "🍀", desc = "Pets supérieurs +10%", tint = Color3.fromRGB(175, 255, 195) },
+	{ key = "run", name = "Marathon", emoji = "🏃", desc = "Entraînement x3", tint = Color3.fromRGB(175, 215, 255) },
+}
+Config.EVENT_DURATION = 60
+Config.EVENT_GAP = { 120, 200 } -- délai aléatoire entre deux événements
+
+-- Game Passes : crée-les sur create.roblox.com puis colle les ID ici (0 = désactivé)
+Config.PASSES = {
+	Coins2x = { id = 0, name = "Revenus x2", emoji = "💰", desc = "Double tous tes revenus, pour toujours." },
+	Lucky = { id = 0, name = "Chance +10%", emoji = "🍀", desc = "Plus de pets supérieurs à l'éclosion." },
+}
+
+Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
+Config.SHIELD_PER_LEVEL = 10
+
+function Config.stealTime(level)
+	return 1.3 * 0.85 ^ level
+end
+
+function Config.walkSpeed(speedStat)
+	return 16 + 44 * (1 - math.exp(-speedStat / 150))
+end
+
+function Config.rebirthCost(rb)
+	return 2e6 * 6 ^ rb
+end
+
+Config.UPGRADES = {
+	{ key = "slots", name = "Emplacements", emoji = "🏠", max = 8, cost = function(l) return 400 * 5 ^ l end,
+		desc = function(l) return (4 + l) .. " → " .. (5 + l) .. " emplacements" end },
+	{ key = "tm", name = "Tapis puissant", emoji = "🏃", max = 15, cost = function(l) return 100 * 2.4 ^ l end,
+		desc = function(l) return string.format("Entraînement x%.2f → x%.2f", 1 + 0.35 * l, 1 + 0.35 * (l + 1)) end },
+	{ key = "fing", name = "Doigts agiles", emoji = "🧤", max = 8, cost = function(l) return 200 * 3 ^ l end,
+		desc = function(l) return string.format("Vol en %.2fs → %.2fs", Config.stealTime(l), Config.stealTime(l + 1)) end },
+	{ key = "bag", name = "Grand sac", emoji = "🎒", max = 3, cost = function(l) return 1500 * 8 ^ l end,
+		desc = function(l) return "Porter " .. (1 + l) .. " → " .. (2 + l) .. " œufs" end },
+	{ key = "inc", name = "Incubateur", emoji = "🔥", max = 10, cost = function(l) return 150 * 3.2 ^ l end,
+		desc = function(l) return string.format("Éclosion -%d%% → -%d%%", math.floor((1 - 0.9 ^ l) * 100 + 0.5), math.floor((1 - 0.9 ^ (l + 1)) * 100 + 0.5)) end },
+	{ key = "luck", name = "Trèfle", emoji = "🍀", max = 10, cost = function(l) return 500 * 3.4 ^ l end,
+		desc = function(l) return "Pet supérieur " .. (3 * l) .. "% → " .. (3 * (l + 1)) .. "%" end },
+	{ key = "food", name = "Festin", emoji = "🍖", max = 20, cost = function(l) return 250 * 2.2 ^ l end,
+		desc = function(l) return "Revenus +" .. (20 * l) .. "% → +" .. (20 * (l + 1)) .. "%" end },
+	{ key = "lock", name = "Verrou", emoji = "🔒", max = 6, cost = function(l) return 300 * 3.5 ^ l end,
+		desc = function(l) return "Œufs protégés " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * l) .. "s → " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * (l + 1)) .. "s" end },
+}
+
+function Config.upgrade(key)
+	for _, u in ipairs(Config.UPGRADES) do
+		if u.key == key then
+			return u
+		end
+	end
+	return nil
+end
+
+function Config.fmt(n)
+	if n ~= n then
+		return "0"
+	end
+	if n == math.huge then
+		return "∞"
+	end
+	if n < 1000 then
+		if n < 10 and n % 1 ~= 0 then
+			return string.format("%.1f", n)
+		end
+		return tostring(math.floor(n))
+	end
+	local u = { "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc" }
+	local i = 0
+	while n >= 1000 and i < #u do
+		n = n / 1000
+		i += 1
+	end
+	if n < 10 then
+		return string.format("%.2f%s", n, u[i])
+	elseif n < 100 then
+		return string.format("%.1f%s", n, u[i])
+	end
+	return string.format("%d%s", math.floor(n), u[i])
+end
+
+function Config.fmtTime(s)
+	s = math.max(0, math.ceil(s))
+	if s < 60 then
+		return s .. "s"
+	end
+	return string.format("%dm%02d", s // 60, s % 60)
+end
+
+function Config.petIncome(p, s, m)
+	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
+end
+
+function Config.sellValue(p, s, m)
+	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+end
+
+function Config.petName(p, s, m)
+	local n = Config.PETS[p].name
+	if m > 1 then
+		n = n .. " " .. Config.MUTS[m].name
+	end
+	if s ~= 2 then
+		n = n .. " " .. Config.SIZES[s].name
+	end
+	return n
+end
+
+-- Sons : colle des ID du Creator Store ("rbxassetid://123456"). Vide = pas de son.
+Config.SOUNDS = { hatch = "", rare = "", steal = "", coin = "" }
+
+-- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
+Config.PRODUCTS = {
+	InstantHatch = { id = 0, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
+	LuckPotion = { id = 0, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
+}
+Config.LUCK_POTION_BONUS = 25
+Config.LUCK_POTION_SECONDS = 900
+
+Config.MAX_FOLLOWERS = 3 -- pets qui suivent le joueur
+Config.SCORE_UNIT = 100000 -- classement : score = renaissances * SCORE_UNIT + œufs éclos
+
+function Config.questText(t, n)
+	if t == "steal" then
+		return "Voler " .. n .. " œufs aux rivaux"
+	elseif t == "hatch" then
+		return "Faire éclore " .. n .. " œufs"
+	elseif t == "earn" then
+		return "Gagner " .. Config.fmt(n) .. " pièces"
+	elseif t == "train" then
+		return "Courir " .. n .. "s sur le tapis"
+	elseif t == "pvp" then
+		return "Voler " .. n .. " œuf(s) à d'autres joueurs"
+	end
+	return t
+end
+
+-- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)
+function Config.oddsText()
+	local function pct(list, none)
+		local total = 0
+		for _, x in ipairs(list) do
+			total += x.weight
+		end
+		local out = {}
+		for _, x in ipairs(list) do
+			out[#out + 1] = string.format("%s %.1f%%", x.name == "" and none or x.name, x.weight / total * 100)
+		end
+		return table.concat(out, " · ")
+	end
+	return "🎲 Probabilités de base. Rareté du pet : 12% une rareté au-dessus de l'œuf, 22% en dessous, le reste de la même rareté (Trèfle, événements, Pass Chance et Potion augmentent la part « au-dessus »). Mutations : "
+		.. pct(Config.MUTS, "Aucune") .. " (le Biome Alien multiplie la mutation Alien par 5). Tailles : " .. pct(Config.SIZES, "Normal") .. "."
+end
+
+return Config
+]]></ProtectedString></Properties></Item></Item></Item>
+<Item class="ServerScriptService" referent="RBX7"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX4"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+-- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local CollectionService = game:GetService("CollectionService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local MessagingService = game:GetService("MessagingService")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Data = require(script.Parent:WaitForChild("Data"))
+local Builder = require(script.Parent:WaitForChild("Builder"))
+
+Players.CharacterAutoLoads = false
+
+---------------------------------------------------------------- Remotes
+local Remotes = Instance.new("Folder")
+Remotes.Name = "Remotes"
+Remotes.Parent = ReplicatedStorage
+local function newRemote(name)
+	local r = Instance.new("RemoteEvent")
+	r.Name = name
+	r.Parent = Remotes
+	return r
+end
+local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
+local RTop = newRemote("Top")
+
+---------------------------------------------------------------- Monde
+local world = Builder.build()
+local rng = Random.new()
+local sessions = {} -- [Player] = session
+
+local function wpick(ws)
+	local total = 0
+	for _, w in ipairs(ws) do
+		total += w
+	end
+	local r = rng:NextNumber() * total
+	for i, w in ipairs(ws) do
+		r -= w
+		if r < 0 then
+			return i
+		end
+	end
+	return #ws
+end
+
+local function getRoot(player)
+	local c = player.Character
+	return c and c:FindFirstChild("HumanoidRootPart")
+end
+local function getHum(player)
+	local c = player.Character
+	return c and c:FindFirstChildOfClass("Humanoid")
+end
+local function alive(player)
+	local h = getHum(player)
+	return h ~= nil and h.Health > 0
+end
+local function validSlot(i)
+	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= 12
+end
+local function notify(player, msg)
+	if player and player.Parent then
+		RNotify:FireClient(player, msg)
+	end
+end
+
+---------------------------------------------------------------- Règles
+local currentEvent = nil -- { cfg, ends }
+local function evKey()
+	return currentEvent and currentEvent.cfg.key or nil
+end
+
+local function cap(d)
+	return 4 + d.up.slots
+end
+local function carryCap(d)
+	return 1 + d.up.bag
+end
+local function hatchTime(d, tier)
+	return Config.HATCH[tier] * 0.9 ^ d.up.inc
+end
+local function shieldTime(d)
+	return Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * d.up.lock
+end
+local function freeSlot(d)
+	for i = 1, cap(d) do
+		if not d.slots[i] then
+			return i
+		end
+	end
+	return nil
+end
+
+local function gmult(s)
+	local d = s.data
+	local m = (1 + 0.5 * d.rb) * (1 + 0.2 * d.up.food)
+	if evKey() == "gold" then
+		m *= 2
+	end
+	if s.passes.Coins2x then
+		m *= 2
+	end
+	return m
+end
+
+local function income(s)
+	local d = s.data
+	local total = 0
+	for i = 1, cap(d) do
+		local sl = d.slots[i]
+		if sl and sl.k == "p" then
+			total += Config.petIncome(sl.p, sl.s, sl.m)
+		end
+	end
+	return total * gmult(s)
+end
+
+local function pickTier(s, tier)
+	local up = 0
+	if tier < #Config.TIERS then
+		up = 12 + 3 * s.data.up.luck
+		if evKey() == "luck" then
+			up += 10
+		end
+		if s.passes.Lucky then
+			up += 10
+		end
+		if os.time() < s.data.luckUntil then
+			up += Config.LUCK_POTION_BONUS
+		end
+	end
+	local down = tier > 1 and 22 or 0
+	local i = wpick({ down, 100 - up - down, up })
+	return tier + i - 2
+end
+
+local sizeWeights = {}
+for i, z in ipairs(Config.SIZES) do
+	sizeWeights[i] = z.weight
+end
+
+local function rollPet(s, eggTier)
+	local tier = pickTier(s, eggTier)
+	local ids = {}
+	for i, p in ipairs(Config.PETS) do
+		if p.tier == tier then
+			ids[#ids + 1] = i
+		end
+	end
+	local mw = {}
+	for i, m in ipairs(Config.MUTS) do
+		mw[i] = m.weight
+	end
+	if evKey() == "alien" then
+		mw[5] *= 5
+	end
+	return { p = ids[rng:NextInteger(1, #ids)], s = wpick(sizeWeights), m = wpick(mw) }
+end
+
+---------------------------------------------------------------- Missions quotidiennes
+local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp" }
+
+local function newQuests(s)
+	local inc = math.max(income(s), 1)
+	local pool = table.clone(QUEST_TYPES)
+	local out = {}
+	for _ = 1, 3 do
+		local t = table.remove(pool, rng:NextInteger(1, #pool))
+		local goal
+		if t == "steal" then
+			goal = rng:NextInteger(3, 7)
+		elseif t == "hatch" then
+			goal = rng:NextInteger(4, 9)
+		elseif t == "earn" then
+			goal = math.floor(math.max(1000, inc * 240))
+		elseif t == "train" then
+			goal = rng:NextInteger(3, 6) * 20
+		else
+			goal = rng:NextInteger(1, 2)
+		end
+		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), claimed = false }
+	end
+	return out
+end
+
+local function qp(s, t, n)
+	for _, q in ipairs(s.data.quests) do
+		if q.t == t and q.prog < q.goal then
+			q.prog = math.min(q.goal, q.prog + n)
+		end
+	end
+end
+
+local function ensureQuests(s)
+	local today = os.time() // 86400
+	if s.data.qday ~= today or #s.data.quests == 0 then
+		s.data.quests = newQuests(s)
+		s.data.qday = today
+	end
+end
+
+---------------------------------------------------------------- Synchronisation client
+local function snapshot(s)
+	local d = s.data
+	local slots = {}
+	for i = 1, 12 do
+		local sl = d.slots[i]
+		if sl and sl.k == "e" then
+			slots[i] = { k = "e", t = sl.t, ends = sl.ends }
+		elseif sl then
+			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m }
+		else
+			slots[i] = false
+		end
+	end
+	local today = os.time() // 86400
+	local nextStreak = (d.daily == today - 1) and d.streak + 1 or 1
+	return {
+		up = d.up,
+		slots = slots,
+		rb = d.rb,
+		dex = d.dex,
+		mult = gmult(s),
+		cap = cap(d),
+		carry = #s.carry,
+		carryCap = carryCap(d),
+		passes = s.passes,
+		dailyReady = d.daily ~= today,
+		dailyReward = math.floor(math.max(200, income(s) * 600) * math.min(nextStreak, 7)),
+		streak = nextStreak,
+		stolen = d.stolen,
+		hatched = d.hatched,
+		quests = d.quests,
+		equip = d.equip,
+		luckLeft = math.max(0, d.luckUntil - os.time()),
+	}
+end
+
+local function pushStats(s)
+	local d = s.data
+	local p = s.player
+	p:SetAttribute("Coins", d.coins)
+	p:SetAttribute("Speed", d.speed)
+	p:SetAttribute("Income", income(s))
+	s.lsCoins.Value = math.floor(math.min(d.coins, 9e15))
+	s.lsSpeed.Value = math.floor(d.speed)
+	s.lsRb.Value = d.rb
+end
+
+local function sync(s)
+	pushStats(s)
+	RState:FireClient(s.player, snapshot(s))
+end
+
+---------------------------------------------------------------- Vitesse / étourdissement
+local function applySpeed(s)
+	local hum = getHum(s.player)
+	if hum and s.stun <= 0 then
+		local ws = Config.walkSpeed(s.data.speed) * 0.93 ^ #s.carry
+		if math.abs(hum.WalkSpeed - ws) > 0.05 then
+			hum.WalkSpeed = ws
+		end
+	end
+end
+
+---------------------------------------------------------------- Œufs portés
+local function rebuildCarry(s)
+	for _, p in ipairs(s.carryParts) do
+		p:Destroy()
+	end
+	s.carryParts = {}
+	local char = s.player.Character
+	local root = getRoot(s.player)
+	if not (char and root) then
+		return
+	end
+	for i, e in ipairs(s.carry) do
+		local egg = Builder.egg(e.t, false)
+		egg.Massless = true
+		local off = CFrame.new(0, 3.4 + (i - 1) * 1.8, 0)
+		egg.CFrame = root.CFrame * off
+		local w = Instance.new("Weld")
+		w.Part0 = root
+		w.Part1 = egg
+		w.C0 = off
+		w.Parent = egg
+		egg.Parent = char
+		s.carryParts[i] = egg
+	end
+end
+
+---------------------------------------------------------------- Nids des rivaux
+local function setNestEgg(n, tier)
+	n.egg = tier
+	if n.eggPart then
+		n.eggPart:Destroy()
+		n.eggPart = nil
+	end
+	if not tier then
+		return
+	end
+	local egg = Builder.egg(tier, true)
+	egg.CFrame = CFrame.new(n.pos)
+	egg.Parent = n.folder
+	n.eggPart = egg
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Voler l'œuf"
+	pr.ObjectText = "Œuf " .. Config.TIERS[tier].name
+	pr.HoldDuration = Config.stealTime(0)
+	pr.MaxActivationDistance = 10
+	pr.RequiresLineOfSight = false
+	pr:SetAttribute("Kind", "Nest")
+	pr:SetAttribute("Nest", n.index)
+	pr.Parent = egg
+	CollectionService:AddTag(pr, "StealPrompt")
+	Builder.sign(egg, Config.TIERS[tier].name, Config.TIERS[tier].color, 3, 160)
+end
+
+for i, n in ipairs(world.nests) do
+	n.index = i
+	setNestEgg(n, wpick(Config.RIVALS[n.rival].weights))
+end
+
+---------------------------------------------------------------- Pads d'une base
+local hatch, speedUpEgg -- déclarations anticipées
+
+local function clearPad(s, i)
+	local pad = s.plot.pads[i]
+	if pad.content then
+		pad.content:Destroy()
+		pad.content = nil
+	end
+	s.labels[i] = nil
+end
+
+local function refreshPad(s, i)
+	clearPad(s, i)
+	local d = s.data
+	local pad = s.plot.pads[i]
+	local locked = i > cap(d)
+	pad.lock.Enabled = locked
+	pad.part.Transparency = locked and 0.25 or 0.7
+	pad.part.Color = locked and Color3.fromRGB(40, 40, 45) or Color3.new(1, 1, 1)
+	local sl = d.slots[i]
+	if locked or not sl then
+		return
+	end
+	local content = Instance.new("Model")
+	content.Name = "Content"
+	content.Parent = pad.part
+	pad.content = content
+
+	if sl.k == "e" then
+		local egg = Builder.egg(sl.t, true)
+		egg.CFrame = pad.part.CFrame * CFrame.new(0, 1.9, 0)
+		egg:SetAttribute("Ends", sl.ends)
+		CollectionService:AddTag(egg, "EggShake")
+		egg.Parent = content
+		local pr = Instance.new("ProximityPrompt")
+		pr.ActionText = "Voler l'œuf"
+		pr.ObjectText = "Œuf de " .. s.player.DisplayName
+		pr.HoldDuration = Config.stealTime(0)
+		pr.MaxActivationDistance = 10
+		pr.RequiresLineOfSight = false
+		pr:SetAttribute("Kind", "Pad")
+		pr:SetAttribute("Owner", s.player.UserId)
+		pr:SetAttribute("Slot", i)
+		pr.Parent = egg
+		CollectionService:AddTag(pr, "StealPrompt")
+		local cd = Instance.new("ClickDetector")
+		cd.MaxActivationDistance = 40
+		cd.Parent = egg
+		cd.MouseClick:Connect(function(who)
+			speedUpEgg(s, i, who)
+		end)
+		s.labels[i] = Builder.sign(egg, "", Config.TIERS[sl.t].color, 3, 200)
+	else
+		local model, lift, labelY = Builder.pet(sl.p, sl.s, sl.m)
+		model.Parent = content
+		model:PivotTo(pad.part.CFrame * CFrame.new(0, 0.2 + lift, 0))
+		CollectionService:AddTag(model, "Bob")
+		s.labels[i] = Builder.sign(model.PrimaryPart, "", Config.TIERS[Config.PETS[sl.p].tier].color, labelY, 220)
+	end
+end
+
+local function refreshAllPads(s)
+	for i = 1, 12 do
+		refreshPad(s, i)
+	end
+end
+
+---------------------------------------------------------------- Retour / chute des œufs portés
+local function returnEgg(e)
+	if e.rival then
+		for _, n in ipairs(world.nests) do
+			if n.rival == e.rival and not n.egg then
+				setNestEgg(n, e.t)
+				return
+			end
+		end
+	elseif e.from then
+		local vp = Players:GetPlayerByUserId(e.from)
+		local vs = vp and sessions[vp]
+		if vs then
+			local i = freeSlot(vs.data)
+			if i then
+				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = 0 }
+				refreshPad(vs, i)
+				notify(vs.player, "🥚 Ton œuf t'a été rendu !")
+				sync(vs)
+			end
+		end
+	end
+end
+
+local function dropCarry(s)
+	if #s.carry == 0 then
+		return
+	end
+	for _, e in ipairs(s.carry) do
+		returnEgg(e)
+	end
+	s.carry = {}
+	rebuildCarry(s)
+	applySpeed(s)
+	if s.player.Parent then
+		sync(s)
+	end
+end
+
+local function afterTake(s)
+	rebuildCarry(s)
+	applySpeed(s)
+	sync(s)
+	notify(s.player, "🥚 Œuf volé ! Rapporte-le vite à ta base.")
+end
+
+---------------------------------------------------------------- Pets suiveurs (le déplacement est calculé côté client, le serveur ne fait que créer les modèles)
+local followersFolder = Instance.new("Folder")
+followersFolder.Name = "Followers"
+followersFolder.Parent = workspace
+
+local function clearFollowers(s)
+	for _, m in ipairs(s.followers) do
+		m:Destroy()
+	end
+	s.followers = {}
+end
+
+local function rebuildFollowers(s)
+	clearFollowers(s)
+	local d = s.data
+	local clean = {}
+	for _, i in ipairs(d.equip) do
+		local sl = validSlot(i) and d.slots[i]
+		if sl and sl.k == "p" then
+			clean[#clean + 1] = i
+		end
+	end
+	d.equip = clean
+	local root = getRoot(s.player)
+	if not root or not alive(s.player) then
+		return
+	end
+	for n, i in ipairs(d.equip) do
+		local sl = d.slots[i]
+		local m = Builder.follower(sl.p, sl.s, sl.m)
+		m.Name = "Follower"
+		m:SetAttribute("OwnerId", s.player.UserId)
+		m:SetAttribute("Idx", n)
+		m:PivotTo(root.CFrame * CFrame.new((n - 2) * 3, -2, 4))
+		m.Parent = followersFolder
+		CollectionService:AddTag(m, "Follower")
+		s.followers[#s.followers + 1] = m
+	end
+end
+
+---------------------------------------------------------------- Annonces (ce serveur + tous les serveurs)
+local function announce(text)
+	for _, pl in ipairs(Players:GetPlayers()) do
+		notify(pl, text)
+	end
+	task.spawn(function()
+		pcall(function()
+			MessagingService:PublishAsync("ChipeAnnounce", { sid = Data.SERVER_ID, text = text })
+		end)
+	end)
+end
+pcall(function()
+	MessagingService:SubscribeAsync("ChipeAnnounce", function(msg)
+		local m = msg.Data
+		if type(m) == "table" and m.sid ~= Data.SERVER_ID and type(m.text) == "string" then
+			for _, pl in ipairs(Players:GetPlayers()) do
+				notify(pl, m.text)
+			end
+		end
+	end)
+end)
+
+---------------------------------------------------------------- Éclosion
+function hatch(s, i)
+	local d = s.data
+	local sl = d.slots[i]
+	if not sl or sl.k ~= "e" then
+		return
+	end
+	local p = rollPet(s, sl.t)
+	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
+	d.hatched += 1
+	local key = tostring(p.p)
+	local dx = d.dex[key]
+	if not dx then
+		dx = { n = 0, b = 0 }
+		d.dex[key] = dx
+	end
+	dx.n += 1
+	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
+	refreshPad(s, i)
+	qp(s, "hatch", 1)
+	local def = Config.PETS[p.p]
+	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
+	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
+	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
+	if def.tier >= 6 or p.m == 5 or p.s == 5 then
+		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
+	end
+	sync(s)
+end
+
+function speedUpEgg(s, i, who)
+	if who ~= s.player then
+		return
+	end
+	local sl = s.data.slots[i]
+	if not sl or sl.k ~= "e" then
+		return
+	end
+	local now = os.clock()
+	if now - s.lastTap < 0.12 then
+		return
+	end
+	s.lastTap = now
+	sl.ends -= 1
+	local content = s.plot.pads[i].content
+	local eggPart = content and content:FindFirstChild("Egg")
+	if eggPart then
+		eggPart:SetAttribute("Ends", sl.ends)
+	end
+	if os.time() >= sl.ends then
+		hatch(s, i)
+	end
+end
+
+---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
+-- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
+local holds = {}
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+	holds[player] = { prompt = prompt, t = os.clock() }
+	local s = sessions[player]
+	if s then
+		s.holdSeen = true
+	end
+end)
+
+ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	local kind = prompt:GetAttribute("Kind")
+	if kind ~= "Nest" and kind ~= "Pad" then
+		return
+	end
+	local s = sessions[player]
+	local root = getRoot(player)
+	if not s or not root or not alive(player) or s.stun > 0 then
+		return
+	end
+	local now = os.clock()
+	if now - s.lastSteal < 0.3 then
+		return
+	end
+	s.lastSteal = now
+	if s.holdSeen then
+		local h = holds[player]
+		holds[player] = nil
+		if not h or h.prompt ~= prompt or os.clock() - h.t < Config.stealTime(s.data.up.fing) * 0.7 then
+			return
+		end
+	end
+	if #s.carry >= carryCap(s.data) then
+		notify(player, "Sac plein ! Rapporte tes œufs à ta base.")
+		return
+	end
+
+	if kind == "Nest" then
+		local n = world.nests[prompt:GetAttribute("Nest")]
+		if not n or not n.egg or (root.Position - n.pos).Magnitude > 18 then
+			return
+		end
+		local t = n.egg
+		setNestEgg(n, nil)
+		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
+		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s.data, t), rival = n.rival }
+		s.data.stolen += 1
+		qp(s, "steal", 1)
+		afterTake(s)
+	else
+		local vp = Players:GetPlayerByUserId(prompt:GetAttribute("Owner") or 0)
+		local vs = vp and sessions[vp]
+		local i = prompt:GetAttribute("Slot")
+		if not vs or vs == s or type(i) ~= "number" then
+			return
+		end
+		local sl = vs.data.slots[i]
+		if not sl or sl.k ~= "e" then
+			return
+		end
+		if (sl.shield or 0) > os.time() then
+			notify(player, "🛡 Cet œuf est encore protégé !")
+			return
+		end
+		local pad = vs.plot.pads[i].part
+		if (root.Position - pad.Position).Magnitude > 20 then
+			return
+		end
+		vs.data.slots[i] = false
+		refreshPad(vs, i)
+		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId }
+		s.data.stolen += 1
+		qp(s, "steal", 1)
+		qp(s, "pvp", 1)
+		notify(vp, "😡 " .. player.DisplayName .. " a volé ton œuf ! Rattrape-le !")
+		sync(vs)
+		afterTake(s)
+	end
+end)
+
+---------------------------------------------------------------- Gardiens PNJ
+local function catchPlayer(s, g)
+	local r = Config.RIVALS[g.rival]
+	local root = getRoot(s.player)
+	local hum = getHum(s.player)
+	dropCarry(s)
+	s.stun = 1.3
+	s.noCheckUntil = os.clock() + 2
+	if hum then
+		hum.PlatformStand = true
+	end
+	if root then
+		local away = (root.Position - g.pos) * Vector3.new(1, 0, 1)
+		away = away.Magnitude > 0.01 and away.Unit or Vector3.new(0, 0, 1)
+		root.AssemblyLinearVelocity = away * 45 + Vector3.new(0, 35, 0)
+	end
+	g.state = "return"
+	g.cd = 2.5
+	notify(s.player, "🐕 Le gardien de " .. r.name .. " t'a attrapé !")
+end
+
+local function nearestTarget(pos, maxDist)
+	local best, bd = nil, maxDist
+	for player, s in pairs(sessions) do
+		if s.stun <= 0 and alive(player) then
+			local root = getRoot(player)
+			if root then
+				local dv = root.Position - pos
+				local dd = Vector3.new(dv.X, 0, dv.Z).Magnitude
+				if dd < bd then
+					best, bd = player, dd
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function guardsStep(dt)
+	for _, g in ipairs(world.guards) do
+		local r = Config.RIVALS[g.rival]
+		g.cd -= dt
+		local look
+		if g.state == "patrol" then
+			g.pos += Vector3.new(g.dir * r.patrolSpeed * dt, 0, 0)
+			if g.pos.X > g.cx + 12 then
+				g.dir = -1
+			elseif g.pos.X < g.cx - 12 then
+				g.dir = 1
+			end
+			look = Vector3.new(g.dir, 0, 0)
+			if g.cd <= 0 then
+				local t = nearestTarget(g.pos, 16)
+				if t then
+					g.state, g.target, g.lost = "chase", t, 0
+				end
+			end
+		elseif g.state == "chase" then
+			local t = g.target
+			local s = t and sessions[t]
+			local root = t and getRoot(t)
+			if not (s and root and s.stun <= 0 and alive(t)) then
+				g.lost = 2
+			else
+				local dv = root.Position - g.pos
+				local flat = Vector3.new(dv.X, 0, dv.Z)
+				local dd = flat.Magnitude
+				local fromHome = Vector3.new(root.Position.X - g.cx, 0, root.Position.Z - (g.patrolZ - 12)).Magnitude
+				if fromHome > 55 or dd > 40 then
+					g.lost += dt
+				else
+					g.lost = 0
+				end
+				if dd > 0.01 then
+					look = flat.Unit
+					g.pos += look * math.min(dd, r.guardSpeed * dt)
+				end
+				if dd < 4.5 and g.cd <= 0 then
+					catchPlayer(s, g)
+				end
+			end
+			if g.lost > 1.2 then
+				g.state, g.target = "return", nil
+			end
+		else
+			local home = Vector3.new(math.clamp(g.pos.X, g.cx - 12, g.cx + 12), g.pos.Y, g.patrolZ)
+			local dv = home - g.pos
+			if dv.Magnitude < 1 then
+				g.state = "patrol"
+			else
+				look = dv.Unit
+				g.pos += look * math.min(dv.Magnitude, r.patrolSpeed * 1.6 * dt)
+			end
+		end
+		if look and look.Magnitude > 0.01 then
+			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + look))
+		end
+	end
+end
+
+---------------------------------------------------------------- Événements serveur
+local tint = Instance.new("ColorCorrectionEffect")
+tint.Name = "EventTint"
+tint.Parent = Lighting
+local evTimer = rng:NextNumber(25, 40)
+
+local function setEvent(cfg)
+	if cfg then
+		currentEvent = { cfg = cfg, ends = os.time() + Config.EVENT_DURATION }
+		workspace:SetAttribute("EventKey", cfg.key)
+		workspace:SetAttribute("EventEnds", currentEvent.ends)
+		tint.TintColor = cfg.tint
+		for _, p in ipairs(Players:GetPlayers()) do
+			notify(p, cfg.emoji .. " " .. cfg.name .. " ! " .. cfg.desc)
+		end
+	else
+		currentEvent = nil
+		workspace:SetAttribute("EventKey", nil)
+		workspace:SetAttribute("EventEnds", nil)
+		tint.TintColor = Color3.new(1, 1, 1)
+	end
+	for _, s in pairs(sessions) do
+		sync(s)
+	end
+end
+
+local function eventStep(dt)
+	if currentEvent then
+		if os.time() >= currentEvent.ends then
+			setEvent(nil)
+			evTimer = rng:NextNumber(Config.EVENT_GAP[1], Config.EVENT_GAP[2])
+		end
+	else
+		evTimer -= dt
+		if evTimer <= 0 then
+			setEvent(Config.EVENTS[rng:NextInteger(1, #Config.EVENTS)])
+		end
+	end
+end
+
+---------------------------------------------------------------- Boucles de jeu
+local function inPlot(s, root)
+	local rel = s.plot.cf:PointToObjectSpace(root.Position)
+	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
+end
+
+local function fastTick(dt)
+	for player, s in pairs(sessions) do
+		local ok, err = pcall(function()
+			local d = s.data
+			local root = getRoot(player)
+			local hum = getHum(player)
+			if s.stun > 0 then
+				s.stun -= dt
+				if s.stun <= 0 and hum then
+					hum.PlatformStand = false
+					hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+				end
+			end
+			if not (root and hum and hum.Health > 0) then
+				return
+			end
+			-- tapis roulant : il faut courir dessus
+			if s.stun <= 0 and world.treadmillContains(root.Position) and hum.MoveDirection.Magnitude > 0.1 then
+				local rate = 0.8 * (1 + 0.35 * d.up.tm) * (evKey() == "run" and 3 or 1)
+				d.speed += rate * dt
+				qp(s, "train", dt)
+			end
+			applySpeed(s)
+			-- contrôle de vitesse : si le joueur parcourt bien plus que sa vitesse autorisée, on le remet en place
+			local pos = root.Position
+			if s.lastPos and s.stun <= 0 and os.clock() > s.noCheckUntil then
+				local moved = Vector3.new(pos.X - s.lastPos.X, 0, pos.Z - s.lastPos.Z).Magnitude
+				local allowed = (hum.WalkSpeed + 16) * dt * 1.4 + 3
+				if moved > allowed then
+					s.flags += 1
+					if s.flags >= 3 then
+						root.CFrame = CFrame.new(s.lastPos) * root.CFrame.Rotation
+						s.flags = 0
+						warn("[AntiCheat] " .. player.Name .. " remis en place (vitesse anormale)")
+						pos = s.lastPos
+					end
+				else
+					s.flags = 0
+				end
+			end
+			s.lastPos = pos
+			-- dépôt des œufs dans sa base
+			if #s.carry > 0 and inPlot(s, root) then
+				local i = freeSlot(d)
+				if not i then
+					if os.clock() - s.lastFull > 4 then
+						s.lastFull = os.clock()
+						notify(player, "Base pleine ! Vends un pet ou agrandis-la.")
+					end
+				else
+					local e = table.remove(s.carry, 1)
+					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(d) }
+					refreshPad(s, i)
+					rebuildCarry(s)
+					applySpeed(s)
+					sync(s)
+				end
+			end
+		end)
+		if not ok then
+			warn("[fastTick] " .. tostring(err))
+		end
+	end
+end
+
+local function petLabel(s, sl)
+	local def = Config.PETS[sl.p]
+	return string.format("%s %s\n+%s/s", def.emoji, Config.petName(sl.p, sl.s, sl.m), Config.fmt(Config.petIncome(sl.p, sl.s, sl.m) * gmult(s)))
+end
+
+local function slowTick(dt)
+	eventStep(dt)
+	for _, n in ipairs(world.nests) do
+		if not n.egg then
+			n.rt -= dt
+			if n.rt <= 0 then
+				setNestEgg(n, wpick(Config.RIVALS[n.rival].weights))
+			end
+		end
+	end
+	local now = os.time()
+	for player, s in pairs(sessions) do
+		local ok, err = pcall(function()
+			local d = s.data
+			local inc = income(s)
+			d.coins += inc * dt
+			qp(s, "earn", inc * dt)
+			ensureQuests(s)
+			s.syncT += dt
+			if s.syncT >= 10 then
+				s.syncT = 0
+				RState:FireClient(player, snapshot(s))
+			end
+			for i = 1, cap(d) do
+				local sl = d.slots[i]
+				if sl and sl.k == "e" then
+					if now >= sl.ends then
+						hatch(s, i)
+					else
+						local lbl = s.labels[i]
+						if lbl then
+							local txt = "🥚 " .. Config.fmtTime(sl.ends - now) .. ((sl.shield or 0) > now and "  🛡" or "")
+							if lbl.Text ~= txt then
+								lbl.Text = txt
+							end
+						end
+					end
+				elseif sl and sl.k == "p" then
+					local lbl = s.labels[i]
+					if lbl then
+						local txt = petLabel(s, sl)
+						if lbl.Text ~= txt then
+							lbl.Text = txt
+						end
+					end
+				end
+			end
+			pushStats(s)
+		end)
+		if not ok then
+			warn("[slowTick] " .. tostring(err))
+		end
+	end
+end
+
+local acc1, acc2 = 0, 0
+RunService.Heartbeat:Connect(function(dt)
+	guardsStep(dt)
+	acc2 += dt
+	if acc2 >= 0.25 then
+		local d2 = acc2
+		acc2 = 0
+		fastTick(d2)
+	end
+	acc1 += dt
+	if acc1 >= 1 then
+		local d1 = acc1
+		acc1 = 0
+		slowTick(d1)
+	end
+end)
+
+---------------------------------------------------------------- Actions du client
+local actions = {}
+
+function actions.sync(s)
+	sync(s)
+end
+
+function actions.buyEgg(s, tier)
+	if type(tier) ~= "number" or tier % 1 ~= 0 or tier < 1 or tier > #Config.TIERS then
+		return
+	end
+	local d = s.data
+	local price = Config.EGG_PRICE[tier]
+	if d.coins < price then
+		return notify(s.player, "Pas assez de pièces !")
+	end
+	local i = freeSlot(d)
+	if not i then
+		return notify(s.player, "Base pleine !")
+	end
+	d.coins -= price
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(d, tier), shield = os.time() + shieldTime(d) }
+	refreshPad(s, i)
+	sync(s)
+end
+
+function actions.buyUp(s, key)
+	local u = type(key) == "string" and Config.upgrade(key)
+	if not u then
+		return
+	end
+	local d = s.data
+	local l = d.up[key]
+	if l >= u.max then
+		return
+	end
+	local cost = u.cost(l)
+	if d.coins < cost then
+		return notify(s.player, "Pas assez de pièces !")
+	end
+	d.coins -= cost
+	d.up[key] = l + 1
+	if key == "slots" then
+		refreshAllPads(s)
+	end
+	sync(s)
+end
+
+function actions.sell(s, i)
+	if not validSlot(i) then
+		return
+	end
+	local sl = s.data.slots[i]
+	if not sl or sl.k ~= "p" then
+		return
+	end
+	s.data.coins += Config.sellValue(sl.p, sl.s, sl.m)
+	s.data.slots[i] = false
+	refreshPad(s, i)
+	rebuildFollowers(s)
+	sync(s)
+end
+
+function actions.rebirth(s)
+	local d = s.data
+	if d.coins < Config.rebirthCost(d.rb) then
+		return notify(s.player, "Pas assez de pièces pour renaître.")
+	end
+	local fresh = Data.default()
+	fresh.speed, fresh.rb, fresh.dex = d.speed, d.rb + 1, d.dex
+	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
+	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
+	dropCarry(s)
+	s.data = fresh
+	refreshAllPads(s)
+	rebuildFollowers(s)
+	sync(s)
+	notify(s.player, string.format("♻️ Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb))
+end
+
+function actions.equip(s, i)
+	if not validSlot(i) then
+		return
+	end
+	local d = s.data
+	local sl = d.slots[i]
+	if not sl or sl.k ~= "p" then
+		return
+	end
+	local at
+	for n, v in ipairs(d.equip) do
+		if v == i then
+			at = n
+		end
+	end
+	if at then
+		table.remove(d.equip, at)
+	else
+		if #d.equip >= Config.MAX_FOLLOWERS then
+			return notify(s.player, "Maximum " .. Config.MAX_FOLLOWERS .. " pets qui te suivent.")
+		end
+		d.equip[#d.equip + 1] = i
+	end
+	rebuildFollowers(s)
+	sync(s)
+end
+
+function actions.claimQuest(s, i)
+	local q = type(i) == "number" and s.data.quests[i]
+	if not q or q.claimed or q.prog < q.goal then
+		return
+	end
+	q.claimed = true
+	s.data.coins += q.rew
+	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙")
+	sync(s)
+end
+
+local topCache = {}
+function actions.top(s)
+	RTop:FireClient(s.player, topCache)
+end
+
+function actions.daily(s)
+	local d = s.data
+	local today = os.time() // 86400
+	if d.daily == today then
+		return notify(s.player, "Bonus déjà récupéré aujourd'hui !")
+	end
+	local streak = (d.daily == today - 1) and d.streak + 1 or 1
+	local reward = math.floor(math.max(200, income(s) * 600) * math.min(streak, 7))
+	d.daily, d.streak = today, streak
+	d.coins += reward
+	notify(s.player, "🎁 Bonus quotidien : +" .. Config.fmt(reward) .. " 🪙 (série " .. streak .. ")")
+	sync(s)
+end
+
+RAction.OnServerEvent:Connect(function(player, action, arg)
+	local s = sessions[player]
+	if not s or type(action) ~= "string" then
+		return
+	end
+	local now = os.clock()
+	if now - s.lastAct < 0.08 then
+		return
+	end
+	s.lastAct = now
+	local fn = actions[action]
+	if fn then
+		fn(s, arg)
+	end
+end)
+
+---------------------------------------------------------------- Game Passes
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+	local s = sessions[player]
+	if not (s and purchased) then
+		return
+	end
+	for name, def in pairs(Config.PASSES) do
+		if def.id > 0 and def.id == passId then
+			s.passes[name] = true
+		end
+	end
+	sync(s)
+end)
+
+---------------------------------------------------------------- Produits développeur (achats Robux ponctuels)
+MarketplaceService.ProcessReceipt = function(info)
+	local player = Players:GetPlayerByUserId(info.PlayerId)
+	local s = player and sessions[player]
+	if not s then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local rid = tostring(info.PurchaseId)
+	if s.data.receipts[rid] then
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+	local granted = false
+	for name, def in pairs(Config.PRODUCTS) do
+		if def.id > 0 and def.id == info.ProductId then
+			if name == "InstantHatch" then
+				for i = 1, cap(s.data) do
+					hatch(s, i)
+				end
+			elseif name == "LuckPotion" then
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			end
+			granted = true
+		end
+	end
+	if not granted then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local now = os.time()
+	for k, t in pairs(s.data.receipts) do
+		if type(t) ~= "number" or now - t > 30 * 86400 then
+			s.data.receipts[k] = nil
+		end
+	end
+	s.data.receipts[rid] = now
+	sync(s)
+	if not s.noSave and not Data.save(player, s.data) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+---------------------------------------------------------------- Cycle de vie des joueurs
+local function claimPlot(player)
+	for _, pl in ipairs(world.plots) do
+		if not pl.owner then
+			pl.owner = player
+			pl.nameLabel.Text = "🏠 Base de " .. player.DisplayName
+			return pl
+		end
+	end
+	return nil
+end
+
+local function releasePlot(s)
+	for i = 1, 12 do
+		clearPad(s, i)
+		s.plot.pads[i].lock.Enabled = true
+		s.plot.pads[i].part.Transparency = 0.7
+	end
+	s.plot.owner = nil
+	s.plot.nameLabel.Text = "Base libre"
+end
+
+local function onJoin(player)
+	local d, noSave = Data.load(player)
+	if not d then
+		player:Kick("Impossible de charger tes données. Reconnecte-toi dans un instant.")
+		return
+	end
+	if not player.Parent then
+		if not noSave then
+			Data.save(player, d, true) -- libère le verrou de session
+		end
+		return
+	end
+	local plot = claimPlot(player)
+	if not plot then
+		player:Kick("Serveur plein. Réessaie dans un autre serveur.")
+		return
+	end
+
+	local ls = Instance.new("Folder")
+	ls.Name = "leaderstats"
+	local function stat(name)
+		local v = Instance.new("IntValue")
+		v.Name = name
+		v.Parent = ls
+		return v
+	end
+	local s = {
+		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
+		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0,
+		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
+	}
+	ls.Parent = player
+	sessions[player] = s
+
+	for name, def in pairs(Config.PASSES) do
+		s.passes[name] = false
+		if def.id > 0 then
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, def.id)
+			end)
+			s.passes[name] = ok and owns == true
+		end
+	end
+
+	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
+	local away = math.clamp(os.time() - d.last, 0, 4 * 3600)
+	if away > 30 then
+		local gain = income(s) * away * 0.4
+		d.coins += gain
+		notify(player, "Pendant ton absence : +" .. Config.fmt(gain) .. " 🪙")
+	end
+
+	ensureQuests(s)
+	refreshAllPads(s)
+	player.RespawnLocation = plot.spawn
+	player.CharacterAdded:Connect(function(char)
+		local hum = char:WaitForChild("Humanoid")
+		s.stun = 0
+		s.carry = {}
+		s.carryParts = {}
+		s.lastPos = nil
+		s.followers = {}
+		applySpeed(s)
+		task.spawn(function()
+			char:WaitForChild("HumanoidRootPart", 10)
+			if player.Parent and sessions[player] == s then
+				rebuildFollowers(s)
+			end
+		end)
+		hum.Died:Connect(function()
+			dropCarry(s)
+			clearFollowers(s)
+			task.delay(3, function()
+				if player.Parent and sessions[player] == s then
+					player:LoadCharacter()
+				end
+			end)
+		end)
+	end)
+	player:LoadCharacter()
+	sync(s)
+end
+
+Players.PlayerAdded:Connect(onJoin)
+for _, p in ipairs(Players:GetPlayers()) do
+	task.spawn(onJoin, p)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	local s = sessions[player]
+	if not s then
+		return
+	end
+	dropCarry(s)
+	clearFollowers(s)
+	holds[player] = nil
+	if not s.noSave then
+		Data.save(player, s.data, true) -- libère le verrou
+		Data.submit(player, s.data)
+	end
+	releasePlot(s)
+	sessions[player] = nil
+end)
+
+-- sauvegarde automatique toutes les 60 s
+task.spawn(function()
+	while true do
+		task.wait(60)
+		for player, s in pairs(sessions) do
+			if not s.noSave then
+				task.spawn(function()
+					Data.save(player, s.data)
+					Data.submit(player, s.data)
+				end)
+			end
+		end
+	end
+end)
+
+game:BindToClose(function()
+	local pending = 0
+	for player, s in pairs(sessions) do
+		if not s.noSave then
+			pending += 1
+			task.spawn(function()
+				Data.save(player, s.data, true)
+				pending -= 1
+			end)
+		end
+	end
+	local t0 = os.clock()
+	while pending > 0 and os.clock() - t0 < 25 do
+		task.wait()
+	end
+end)
+
+-- classement global : rafraîchi toutes les 2 minutes
+task.spawn(function()
+	while true do
+		topCache = Data.top(10)
+		task.wait(120)
+	end
+end)
+
+print("[Chipe-Œufs] serveur prêt")
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+-- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
+-- empêche les pertes et duplications quand on change de serveur vite) + classement global.
+-- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
+local DataStoreService = game:GetService("DataStoreService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+
+local STORE_NAME = "ChipeOeufs_v1"
+local BOARD_NAME = "ChipeOeufs_Board_v1"
+local SLOT_COUNT = 12
+local LOCK_TTL = 120 -- un verrou plus vieux que ça est considéré comme abandonné (crash serveur)
+
+local Data = {}
+Data.SERVER_ID = HttpService:GenerateGUID(false)
+
+local store, board
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore(STORE_NAME)
+	end)
+	if ok then
+		store = result
+	end
+	local ok2, result2 = pcall(function()
+		return DataStoreService:GetOrderedDataStore(BOARD_NAME)
+	end)
+	if ok2 then
+		board = result2
+	end
+end
+
+function Data.default()
+	local d = {
+		coins = 50,
+		speed = 0,
+		rb = 0,
+		up = {},
+		slots = {},
+		dex = {}, -- clé = tostring(index d'espèce)
+		daily = 0, -- dernier jour réclamé (os.time() // 86400)
+		streak = 0,
+		stolen = 0,
+		hatched = 0,
+		last = os.time(),
+		equip = {}, -- indices d'emplacements dont le pet suit le joueur
+		quests = {}, -- missions du jour
+		qday = 0,
+		receipts = {}, -- achats Robux déjà traités (anti-double crédit)
+		luckUntil = 0,
+	}
+	for _, u in ipairs(Config.UPGRADES) do
+		d.up[u.key] = 0
+	end
+	for i = 1, SLOT_COUNT do
+		d.slots[i] = false
+	end
+	d.slots[1] = { k = "e", t = 1, ends = os.time() + 6, shield = 0 } -- œuf de départ
+	return d
+end
+
+local function merge(saved)
+	local d = Data.default()
+	if type(saved) ~= "table" then
+		return d
+	end
+	for _, key in ipairs({ "coins", "speed", "rb", "daily", "streak", "stolen", "hatched", "last", "qday", "luckUntil" }) do
+		if type(saved[key]) == "number" then
+			d[key] = saved[key]
+		end
+	end
+	if type(saved.up) == "table" then
+		for k, v in pairs(saved.up) do
+			if d.up[k] ~= nil and type(v) == "number" then
+				d.up[k] = v
+			end
+		end
+	end
+	if type(saved.dex) == "table" then
+		d.dex = saved.dex
+	end
+	if type(saved.receipts) == "table" then
+		d.receipts = saved.receipts
+	end
+	if type(saved.equip) == "table" then
+		for _, v in ipairs(saved.equip) do
+			if type(v) == "number" and #d.equip < Config.MAX_FOLLOWERS then
+				d.equip[#d.equip + 1] = v
+			end
+		end
+	end
+	if type(saved.quests) == "table" then
+		for _, q in ipairs(saved.quests) do
+			if type(q) == "table" and type(q.t) == "string" and type(q.goal) == "number" then
+				d.quests[#d.quests + 1] = { t = q.t, goal = q.goal, prog = tonumber(q.prog) or 0, rew = tonumber(q.rew) or 0, claimed = q.claimed == true }
+			end
+		end
+	end
+	if type(saved.slots) == "table" then
+		for i = 1, SLOT_COUNT do
+			local sl = saved.slots[i]
+			if type(sl) == "table" and (sl.k == "e" or sl.k == "p") then
+				d.slots[i] = sl
+			else
+				d.slots[i] = false
+			end
+		end
+	end
+	return d
+end
+
+local function key(player)
+	return "P_" .. player.UserId
+end
+
+-- Enregistrement stocké : { v = données, lock = idServeur, t = horodatage }. Les anciennes sauvegardes (données brutes) sont migrées.
+local function unwrap(rec)
+	if type(rec) ~= "table" then
+		return nil
+	end
+	if rec.v ~= nil then
+		return rec.v
+	end
+	return rec
+end
+
+local function lockedByOther(rec)
+	return type(rec) == "table" and rec.lock ~= nil and rec.lock ~= Data.SERVER_ID and os.time() - (tonumber(rec.t) or 0) < LOCK_TTL
+end
+
+-- Retourne (données, nePasSauvegarder). Données = nil si impossible de charger sans risque.
+function Data.load(player)
+	if not store then
+		return Data.default(), true
+	end
+	for attempt = 1, 8 do
+		local lockedElsewhere = false
+		local ok, result = pcall(function()
+			return store:UpdateAsync(key(player), function(old)
+				if lockedByOther(old) then
+					lockedElsewhere = true
+					return nil -- annule l'écriture
+				end
+				return { v = unwrap(old), lock = Data.SERVER_ID, t = os.time() }
+			end)
+		end)
+		if ok and not lockedElsewhere then
+			return merge(unwrap(result)), false
+		end
+		if ok then
+			warn("[Data] " .. player.Name .. " est encore verrouillé sur un autre serveur (" .. attempt .. "/8)")
+			task.wait(4)
+		else
+			warn("[Data] Chargement échoué (" .. attempt .. "/8) : " .. tostring(result))
+			task.wait(1.5)
+		end
+	end
+	if RunService:IsStudio() then
+		return Data.default(), true -- Studio sans accès API : on joue sans sauvegarder
+	end
+	return nil, true
+end
+
+-- release = true : libère le verrou (départ du joueur). Refuse d'écrire si un autre serveur a pris le verrou.
+function Data.save(player, d, release)
+	if not store or not d then
+		return false
+	end
+	d.last = os.time()
+	local ok, err = pcall(function()
+		store:UpdateAsync(key(player), function(old)
+			if lockedByOther(old) then
+				return nil
+			end
+			local rec = { v = d, t = os.time() }
+			if not release then
+				rec.lock = Data.SERVER_ID
+			end
+			return rec
+		end)
+	end)
+	if not ok then
+		warn("[Data] Sauvegarde échouée pour " .. player.Name .. " : " .. tostring(err))
+	end
+	return ok
+end
+
+---------------------------------------------------------------- Classement global
+function Data.score(d)
+	return d.rb * Config.SCORE_UNIT + math.min(d.hatched, Config.SCORE_UNIT - 1)
+end
+
+function Data.submit(player, d)
+	if not board then
+		return
+	end
+	pcall(function()
+		board:SetAsync(tostring(player.UserId), math.floor(Data.score(d)))
+	end)
+end
+
+local nameCache = {}
+local function nameOf(userId)
+	if nameCache[userId] then
+		return nameCache[userId]
+	end
+	local ok, n = pcall(function()
+		return Players:GetNameFromUserIdAsync(userId)
+	end)
+	nameCache[userId] = ok and n or ("Joueur " .. userId)
+	return nameCache[userId]
+end
+
+-- Retourne une liste { {name=, rb=, hatched=}, ... } (peut être vide)
+function Data.top(count)
+	local out = {}
+	if not board then
+		return out
+	end
+	local ok, page = pcall(function()
+		return board:GetSortedAsync(false, count):GetCurrentPage()
+	end)
+	if not ok then
+		return out
+	end
+	for _, e in ipairs(page) do
+		local score = tonumber(e.value) or 0
+		out[#out + 1] = {
+			name = nameOf(tonumber(e.key) or 0),
+			rb = score // Config.SCORE_UNIT,
+			hatched = score % Config.SCORE_UNIT,
+		}
+	end
+	return out
+end
+
+return Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+-- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
+local CollectionService = game:GetService("CollectionService")
+local Lighting = game:GetService("Lighting")
+
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+
+local Builder = {}
+
+local FONT = Enum.Font.GothamBold
+local SPARK = "rbxasset://textures/particles/sparkles_main.dds"
+
+local function part(props, parent)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = Enum.Material.SmoothPlastic
+	for k, v in pairs(props) do
+		p[k] = v
+	end
+	p.Parent = parent
+	return p
+end
+
+local function ball(props, parent)
+	props.Shape = Enum.PartType.Ball
+	props.CanCollide = false
+	return part(props, parent)
+end
+
+local function sign(adornee, text, color, offsetY, width)
+	local g = Instance.new("BillboardGui")
+	g.Name = "Label"
+	g.Adornee = adornee
+	g.Size = UDim2.fromOffset(width or 200, 56)
+	g.StudsOffsetWorldSpace = Vector3.new(0, offsetY, 0)
+	g.MaxDistance = 70
+	g.AlwaysOnTop = false
+	local t = Instance.new("TextLabel")
+	t.Name = "Text"
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.fromScale(1, 1)
+	t.Font = FONT
+	t.TextSize = 18
+	t.TextColor3 = color or Color3.new(1, 1, 1)
+	t.TextStrokeTransparency = 0.2
+	t.TextStrokeColor3 = Color3.new(0, 0, 0)
+	t.Text = text
+	t.Parent = g
+	g.Parent = adornee
+	return t
+end
+Builder.sign = sign
+
+---------------------------------------------------------------- Œuf
+function Builder.egg(tier, anchored)
+	local c = Config.TIERS[tier].color
+	local p = Instance.new("Part")
+	p.Name = "Egg"
+	p.Size = Vector3.new(2.4, 3.2, 2.4)
+	p.Color = Color3.fromRGB(255, 244, 222):Lerp(c, 0.35)
+	p.Material = Enum.Material.SmoothPlastic
+	p.Anchored = anchored ~= false
+	p.CanCollide = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	local m = Instance.new("SpecialMesh")
+	m.MeshType = Enum.MeshType.Sphere
+	m.Parent = p
+	local l = Instance.new("PointLight")
+	l.Color = c
+	l.Range = 7
+	l.Brightness = 1.2
+	l.Parent = p
+	return p
+end
+
+---------------------------------------------------------------- Pet (modèle 3D en Parts)
+-- Retourne (modèle, hauteur de levage). Le modèle regarde vers -Z.
+function Builder.pet(petIdx, sizeIdx, mutIdx)
+	local def = Config.PETS[petIdx]
+	local size = Config.SIZES[sizeIdx]
+	local mut = Config.MUTS[mutIdx]
+	local R = 1.5 * size.scale
+	local model = Instance.new("Model")
+	model.Name = "Pet"
+
+	local bodyColor = def.color
+	local bodyMat = Enum.Material.SmoothPlastic
+	if mut.color then
+		bodyColor = mut.color
+		bodyMat = Enum.Material.Neon
+	elseif mut.rainbow then
+		bodyColor = Color3.fromRGB(255, 120, 220)
+		bodyMat = Enum.Material.Neon
+	end
+
+	local body = ball({ Name = "Body", Size = Vector3.new(2 * R, 2 * R, 2 * R), CFrame = CFrame.new(0, 0, 0), Color = bodyColor, Material = bodyMat }, model)
+	model.PrimaryPart = body
+	local dark = Color3.fromRGB(25, 25, 30)
+
+	local function addBall(name, off, sz, col, mat)
+		return ball({ Name = name, Size = Vector3.new(sz, sz, sz), CFrame = CFrame.new(off), Color = col, Material = mat or Enum.Material.SmoothPlastic }, model)
+	end
+	local function addBlock(name, off, sz, col, rotZ, mat)
+		return part({ Name = name, CanCollide = false, Size = sz, CFrame = CFrame.new(off) * CFrame.Angles(0, 0, rotZ or 0), Color = col, Material = mat or Enum.Material.SmoothPlastic }, model)
+	end
+
+	-- yeux
+	addBall("EyeL", Vector3.new(-0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
+	addBall("EyeR", Vector3.new(0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
+
+	-- oreilles
+	local ears = def.ears
+	if ears == "round" then
+		addBall("EarL", Vector3.new(-0.62 * R, 0.95 * R, -0.05 * R), 0.62 * R, bodyColor)
+		addBall("EarR", Vector3.new(0.62 * R, 0.95 * R, -0.05 * R), 0.62 * R, bodyColor)
+	elseif ears == "long" then
+		addBlock("EarL", Vector3.new(-0.4 * R, 1.5 * R, 0), Vector3.new(0.36 * R, 1.3 * R, 0.3 * R), bodyColor, 0.15)
+		addBlock("EarR", Vector3.new(0.4 * R, 1.5 * R, 0), Vector3.new(0.36 * R, 1.3 * R, 0.3 * R), bodyColor, -0.15)
+	elseif ears == "point" then
+		addBlock("EarL", Vector3.new(-0.6 * R, 1.05 * R, 0), Vector3.new(0.4 * R, 0.8 * R, 0.3 * R), bodyColor, 0.5)
+		addBlock("EarR", Vector3.new(0.6 * R, 1.05 * R, 0), Vector3.new(0.4 * R, 0.8 * R, 0.3 * R), bodyColor, -0.5)
+	elseif ears == "floppy" then
+		addBlock("EarL", Vector3.new(-1.0 * R, 0.35 * R, 0), Vector3.new(0.35 * R, 0.9 * R, 0.5 * R), Color3.fromRGB(110, 70, 40), 0.2)
+		addBlock("EarR", Vector3.new(1.0 * R, 0.35 * R, 0), Vector3.new(0.35 * R, 0.9 * R, 0.5 * R), Color3.fromRGB(110, 70, 40), -0.2)
+	end
+
+	-- extras
+	local lift = R
+	local extra = def.extra
+	if extra == "beak" then
+		addBlock("Beak", Vector3.new(0, -0.05 * R, -1.0 * R), Vector3.new(0.5 * R, 0.3 * R, 0.5 * R), Color3.fromRGB(255, 150, 30))
+	elseif extra == "tail" then
+		addBall("Tail", Vector3.new(0, -0.1 * R, 1.05 * R), 0.55 * R, bodyColor)
+	elseif extra == "mane" then
+		addBall("Mane", Vector3.new(0, 0, 0.3 * R), 2.5 * R, Color3.fromRGB(150, 90, 30))
+		body.Size = Vector3.new(1.9 * R, 1.9 * R, 1.9 * R)
+	elseif extra == "horn" then
+		addBlock("Horn", Vector3.new(0, 1.2 * R, -0.45 * R), Vector3.new(0.25 * R, 0.9 * R, 0.25 * R), Color3.fromRGB(255, 215, 90), 0, Enum.Material.Neon)
+	elseif extra == "wings" then
+		addBlock("WingL", Vector3.new(-1.1 * R, 0.35 * R, 0.3 * R), Vector3.new(0.15 * R, 1.1 * R, 1.3 * R), bodyColor:Lerp(Color3.new(0, 0, 0), 0.25), 0.6)
+		addBlock("WingR", Vector3.new(1.1 * R, 0.35 * R, 0.3 * R), Vector3.new(0.15 * R, 1.1 * R, 1.3 * R), bodyColor:Lerp(Color3.new(0, 0, 0), 0.25), -0.6)
+		addBlock("Horn", Vector3.new(0, 1.05 * R, -0.5 * R), Vector3.new(0.22 * R, 0.6 * R, 0.22 * R), Color3.fromRGB(255, 240, 200))
+	elseif extra == "tentacles" then
+		for i, o in ipairs({ { -0.5, -0.5 }, { 0.5, -0.5 }, { -0.5, 0.5 }, { 0.5, 0.5 } }) do
+			addBlock("Tent" .. i, Vector3.new(o[1] * R, -1.25 * R, o[2] * R), Vector3.new(0.3 * R, 1.1 * R, 0.3 * R), bodyColor)
+		end
+		lift = 1.8 * R
+	elseif extra == "antenna" then
+		addBlock("Ant", Vector3.new(0, 1.3 * R, 0), Vector3.new(0.12 * R, 0.8 * R, 0.12 * R), bodyColor)
+		addBall("AntTip", Vector3.new(0, 1.8 * R, 0), 0.35 * R, Color3.fromRGB(255, 80, 200), Enum.Material.Neon)
+	end
+
+	-- mutation : particules
+	if mut.color or mut.rainbow then
+		local e = Instance.new("ParticleEmitter")
+		e.Texture = SPARK
+		e.Rate = 8
+		e.Lifetime = NumberRange.new(1, 2)
+		e.Speed = NumberRange.new(1, 3)
+		e.SpreadAngle = Vector2.new(180, 180)
+		e.LightEmission = 1
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5 * R), NumberSequenceKeypoint.new(1, 0) })
+		if mut.rainbow then
+			e.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 60)),
+				ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 240, 60)),
+				ColorSequenceKeypoint.new(0.66, Color3.fromRGB(60, 255, 120)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 120, 255)),
+			})
+		else
+			e.Color = ColorSequence.new(mut.color)
+		end
+		e.Parent = body
+	end
+
+	-- étiquette
+	model:SetAttribute("Height", lift)
+	return model, lift, 2.3 * R + 1.5
+end
+
+---------------------------------------------------------------- Gardien
+function Builder.guard(rivalIdx)
+	local r = Config.RIVALS[rivalIdx]
+	local col = r.color:Lerp(Color3.fromRGB(60, 40, 30), 0.6)
+	local model = Instance.new("Model")
+	model.Name = "Guard" .. rivalIdx
+	local body = part({ Name = "Body", CanCollide = false, Size = Vector3.new(3, 2.4, 4.4), CFrame = CFrame.new(0, 0, 0), Color = col }, model)
+	model.PrimaryPart = body
+	ball({ Name = "Head", Size = Vector3.new(2.4, 2.4, 2.4), CFrame = CFrame.new(0, 0.7, -2.7), Color = col }, model)
+	part({ Name = "Snout", CanCollide = false, Size = Vector3.new(1.2, 0.9, 1.2), CFrame = CFrame.new(0, 0.3, -3.7), Color = Color3.fromRGB(35, 30, 30) }, model)
+	ball({ Name = "EyeL", Size = Vector3.new(0.45, 0.45, 0.45), CFrame = CFrame.new(-0.7, 1.2, -3.5), Color = Color3.fromRGB(255, 40, 40), Material = Enum.Material.Neon }, model)
+	ball({ Name = "EyeR", Size = Vector3.new(0.45, 0.45, 0.45), CFrame = CFrame.new(0.7, 1.2, -3.5), Color = Color3.fromRGB(255, 40, 40), Material = Enum.Material.Neon }, model)
+	part({ Name = "EarL", CanCollide = false, Size = Vector3.new(0.5, 1.1, 0.6), CFrame = CFrame.new(-1.0, 1.9, -2.5) * CFrame.Angles(0, 0, 0.3), Color = col }, model)
+	part({ Name = "EarR", CanCollide = false, Size = Vector3.new(0.5, 1.1, 0.6), CFrame = CFrame.new(1.0, 1.9, -2.5) * CFrame.Angles(0, 0, -0.3), Color = col }, model)
+	part({ Name = "Tail", CanCollide = false, Size = Vector3.new(0.6, 0.6, 2), CFrame = CFrame.new(0, 0.8, 3.0) * CFrame.Angles(0.5, 0, 0), Color = col }, model)
+	for i, o in ipairs({ { -1, -1.4 }, { 1, -1.4 }, { -1, 1.4 }, { 1, 1.4 } }) do
+		part({ Name = "Leg" .. i, CanCollide = false, Size = Vector3.new(0.7, 1.6, 0.7), CFrame = CFrame.new(o[1], -1.8, o[2]), Color = col }, model)
+	end
+	local s = sign(body, "🐕 Gardien de " .. r.name, Color3.fromRGB(255, 120, 120), 4, 220)
+	s.TextSize = 14
+	return model
+end
+
+---------------------------------------------------------------- Monde
+local function tree(pos, parent)
+	part({ Name = "Trunk", Size = Vector3.new(2, 8, 2), Position = pos + Vector3.new(0, 4, 0), Color = Color3.fromRGB(110, 78, 50), Material = Enum.Material.Wood }, parent)
+	ball({ Name = "Leaves", Anchored = true, Size = Vector3.new(11, 11, 11), Position = pos + Vector3.new(0, 11, 0), Color = Color3.fromRGB(70, 150, 70), Material = Enum.Material.Grass, CanCollide = false }, parent)
+end
+
+-- Retourne { plots, nests, treadmill, guards, center }
+function Builder.build()
+	local world = Instance.new("Folder")
+	world.Name = "World"
+	world.Parent = workspace
+
+	local old = workspace:FindFirstChild("Baseplate")
+	if old then
+		old:Destroy()
+	end
+	for _, c in ipairs(workspace:GetChildren()) do
+		if c:IsA("SpawnLocation") then
+			c:Destroy()
+		end
+	end
+
+	Lighting.ClockTime = 14
+	Lighting.Brightness = 2.2
+	Lighting.Ambient = Color3.fromRGB(110, 120, 130)
+	if not Lighting:FindFirstChildOfClass("Atmosphere") then
+		local a = Instance.new("Atmosphere")
+		a.Density = 0.25
+		a.Haze = 1
+		a.Parent = Lighting
+	end
+
+	part({ Name = "Ground", Size = Vector3.new(620, 2, 620), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(96, 158, 84), Material = Enum.Material.Grass }, world)
+	part({ Name = "Arena", Size = Vector3.new(1, 150, 150), CFrame = CFrame.new(0, 0.06, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(205, 180, 130), Material = Enum.Material.Sand, CanCollide = false }, world)
+
+	local result = { plots = {}, nests = {}, guards = {} }
+
+	-- Arbres
+	local rng = Random.new(7)
+	for _ = 1, 36 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local r = rng:NextNumber(90, 122)
+		tree(Vector3.new(math.sin(a) * r, 0, math.cos(a) * r), world)
+	end
+
+	-- Rivaux PNJ (au nord, z négatif) ------------------------------------------------
+	for i, riv in ipairs(Config.RIVALS) do
+		local cx, cz = (i - 2) * 55, -70
+		local folder = Instance.new("Folder")
+		folder.Name = "Rival_" .. riv.name
+		folder.Parent = world
+		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
+		local pole = part({ Name = "Sign", Size = Vector3.new(1, 9, 1), Position = Vector3.new(cx, 4.5, cz - 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
+		local t = sign(pole, riv.emoji .. " " .. riv.name .. "  " .. string.rep("★", riv.stars), Color3.fromRGB(255, 220, 90), 7, 260)
+		t.TextSize = 22
+		for j = 1, 3 do
+			local nx = cx + (j - 2) * 8
+			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(110, 78, 50), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			result.nests[#result.nests + 1] = { rival = i, pos = Vector3.new(nx, 3.2, cz - 3), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
+		end
+		local g = Builder.guard(i)
+		g.Parent = folder
+		result.guards[#result.guards + 1] = {
+			model = g, rival = i, cx = cx, patrolZ = cz + 12, pos = Vector3.new(cx, 2.4, cz + 12),
+			dir = (i % 2 == 0) and -1 or 1, state = "patrol", cd = 0, lost = 0,
+		}
+		g:PivotTo(CFrame.new(cx, 2.4, cz + 12))
+	end
+
+	-- Tapis roulant ------------------------------------------------------------------
+	do
+		local belt = part({ Name = "Treadmill", Size = Vector3.new(16, 1, 40), Position = Vector3.new(0, 0.6, 38), Color = Color3.fromRGB(45, 48, 56), Material = Enum.Material.Metal }, world)
+		belt.AssemblyLinearVelocity = Vector3.new(0, 0, -14) -- tapis : pousse vers -Z, il faut courir vers +Z
+		for k = 0, 7 do
+			part({ Name = "Stripe", Size = Vector3.new(14, 0.1, 1.2), Position = Vector3.new(0, 1.16, 38 - 17.5 + k * 5), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon, CanCollide = false }, belt)
+		end
+		local pole = part({ Name = "TreadSign", Size = Vector3.new(1, 8, 1), Position = Vector3.new(-10, 4, 38), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+		sign(pole, "🏃 TAPIS ROULANT\nCours dessus pour gagner en vitesse !", Color3.fromRGB(255, 220, 90), 6, 300)
+		result.treadmill = { cf = belt.CFrame, size = belt.Size }
+	end
+
+	-- Bases des joueurs ---------------------------------------------------------------
+	local N = Config.PLOT_COUNT
+	local radius = 170
+	for i = 1, N do
+		local a = (i - 1) / N * math.pi * 2
+		local pos = Vector3.new(math.sin(a) * radius, 0, math.cos(a) * radius)
+		local cf = CFrame.lookAt(pos, Vector3.new(0, 0, 0)) -- l'avant (-Z) regarde le centre
+		local model = Instance.new("Model")
+		model.Name = "Plot" .. i
+		model.Parent = world
+		local plat = part({ Name = "Platform", Size = Vector3.new(52, 1, 52), CFrame = cf * CFrame.new(0, 0.5, 0), Color = Color3.fromRGB(70, 130, 95) }, model)
+		part({ Name = "Border", Size = Vector3.new(54, 0.4, 54), CFrame = cf * CFrame.new(0, 0.15, 0), Color = Color3.fromRGB(140, 217, 160), CanCollide = false }, model)
+
+		local spawn = Instance.new("SpawnLocation")
+		spawn.Name = "Spawn"
+		spawn.Anchored = true
+		spawn.Neutral = true
+		spawn.Duration = 0
+		spawn.Size = Vector3.new(6, 0.4, 6)
+		spawn.CFrame = cf * CFrame.new(0, 1.2, -20)
+		spawn.Color = Color3.fromRGB(255, 210, 63)
+		spawn.Material = Enum.Material.Neon
+		spawn.Transparency = 0.4
+		spawn.Parent = model
+
+		local pads = {}
+		for idx = 1, 12 do
+			local col, row = (idx - 1) % 4, (idx - 1) // 4
+			local lx, lz = -15 + col * 10, -6 + row * 11
+			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
+			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
+			pads[idx] = { part = pad, lock = lockText.Parent, content = nil }
+		end
+
+		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
+		local nameLabel = sign(board, "Base libre", Color3.fromRGB(140, 217, 160), 6, 320)
+		nameLabel.TextSize = 24
+
+		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat }
+	end
+
+	result.treadmillContains = function(p)
+		local rel = result.treadmill.cf:PointToObjectSpace(p)
+		local s = result.treadmill.size
+		return math.abs(rel.X) <= s.X / 2 and math.abs(rel.Z) <= s.Z / 2 and rel.Y > 0 and rel.Y < 8
+	end
+
+	return result
+end
+
+---------------------------------------------------------------- Effets
+-- Explosion de particules + flash lumineux à l'éclosion (disparaît seule).
+function Builder.burst(position, color, count, big)
+	local anchor = Instance.new("Part")
+	anchor.Name = "Burst"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(1, 1, 1)
+	anchor.Position = position
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SPARK
+	e.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
+	e.LightEmission = 1
+	e.Lifetime = NumberRange.new(0.8, 1.6)
+	e.Speed = NumberRange.new(big and 14 or 8, big and 32 or 18)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, big and 1.8 or 1), NumberSequenceKeypoint.new(1, 0) })
+	e.Rate = 0
+	e.Parent = anchor
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Range = big and 26 or 14
+	l.Brightness = big and 6 or 3
+	l.Parent = anchor
+	anchor.Parent = workspace
+	e:Emit(count)
+	game:GetService("TweenService"):Create(l, TweenInfo.new(0.7), { Brightness = 0 }):Play()
+	game:GetService("Debris"):AddItem(anchor, 2.5)
+end
+
+-- Pet suiveur : version miniature d'un pet, sans étiquette.
+function Builder.follower(petIdx, sizeIdx, mutIdx)
+	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
+	model:ScaleTo(0.45)
+	return model
+end
+
+return Builder
+]]></ProtectedString></Properties></Item></Item>
+<Item class="StarterPlayer" referent="RBX10"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX9"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX8"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+-- Interface 100 % générée par code (aucune image à importer).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
+local RTop = Remotes:WaitForChild("Top")
+local fmt = Config.fmt
+
+local COL = {
+	bg = Color3.fromRGB(15, 42, 27),
+	panel = Color3.fromRGB(29, 77, 51),
+	pill = Color3.fromRGB(10, 30, 20),
+	yellow = Color3.fromRGB(255, 210, 63),
+	text = Color3.fromRGB(244, 255, 246),
+	muted = Color3.fromRGB(159, 199, 173),
+	red = Color3.fromRGB(255, 107, 107),
+	green = Color3.fromRGB(91, 227, 125),
+	dis = Color3.fromRGB(75, 91, 81),
+	dark = Color3.fromRGB(43, 34, 0),
+}
+local FONT = Enum.Font.GothamBold
+
+local compact = workspace.CurrentCamera ~= nil and workspace.CurrentCamera.ViewportSize.X < 560
+local NAV_Y = compact and -88 or -10
+local state = nil
+local topData = nil
+local panel = nil -- { name, tab, confirm }
+local costBtns = {}
+
+---------------------------------------------------------------- Helpers UI
+local function make(class, props, parent)
+	local o = Instance.new(class)
+	for k, v in pairs(props) do
+		o[k] = v
+	end
+	o.Parent = parent
+	return o
+end
+local function corner(o, r)
+	make("UICorner", { CornerRadius = UDim.new(0, r or 12) }, o)
+end
+local function text(parent, props)
+	if props.BackgroundTransparency == nil then
+		props.BackgroundTransparency = 1
+	end
+	props.Font = props.Font or FONT
+	props.TextColor3 = props.TextColor3 or COL.text
+	return make("TextLabel", props, parent)
+end
+
+local gui = make("ScreenGui", { Name = "ChipeUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, player:WaitForChild("PlayerGui"))
+
+local function pill(y, icon)
+	local f = make("Frame", { Position = UDim2.fromOffset(10, y), Size = UDim2.fromOffset(176, 50), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.12 }, gui)
+	corner(f, 25)
+	text(f, { Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(36, 50), Text = icon, TextSize = 26 })
+	local big = text(f, { Position = UDim2.fromOffset(48, 4), Size = UDim2.new(1, -54, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 20, Text = "0" })
+	local small = text(f, { Position = UDim2.fromOffset(48, 28), Size = UDim2.new(1, -54, 0, 16), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = COL.muted, Text = "" })
+	return big, small
+end
+local coinsBig, coinsSmall = pill(8, "🪙")
+local speedBig, speedSmall = pill(64, "⚡")
+speedSmall.Text = "VITESSE"
+
+local carryLbl = text(gui, { Position = UDim2.fromOffset(14, 118), Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
+corner(carryLbl, 13)
+carryLbl.Visible = false
+
+local banner = text(gui, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8), Size = UDim2.fromOffset(330, 30), TextSize = 14, TextColor3 = COL.yellow, BackgroundTransparency = 0.12, BackgroundColor3 = COL.pill, Text = "", Visible = false })
+corner(banner, 15)
+make("UIStroke", { Color = COL.yellow, Thickness = 2 }, banner)
+
+local toasts = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 46), Size = UDim2.fromOffset(360, 200), BackgroundTransparency = 1 }, gui)
+make("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, toasts)
+
+local hint = text(gui, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y - 62), Size = UDim2.fromOffset(340, 40), TextSize = 14, TextColor3 = COL.dark, BackgroundColor3 = COL.yellow, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
+corner(hint, 12)
+
+local function toast(msg)
+	for _, c in ipairs(toasts:GetChildren()) do
+		if c:IsA("TextLabel") and #toasts:GetChildren() > 3 then
+			c:Destroy()
+			break
+		end
+	end
+	local t = text(toasts, { Size = UDim2.fromOffset(340, 30), TextSize = 14, Text = msg, BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y })
+	corner(t, 10)
+	make("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, t)
+	Debris:AddItem(t, 3.2)
+end
+
+---------------------------------------------------------------- Pop d'éclosion
+local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(300, 200), BackgroundTransparency = 1, Visible = false }, gui)
+local popScale = make("UIScale", { Scale = 1 }, pop)
+local popEmoji = text(pop, { Size = UDim2.new(1, 0, 0, 110), TextSize = 96, Text = "" })
+local popName = text(pop, { Position = UDim2.fromOffset(0, 112), Size = UDim2.new(1, 0, 0, 34), TextSize = 26, Text = "", TextStrokeTransparency = 0 })
+local popInfo = text(pop, { Position = UDim2.fromOffset(0, 148), Size = UDim2.new(1, 0, 0, 26), TextSize = 18, Text = "", TextStrokeTransparency = 0 })
+local popToken = 0
+local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
+
+local function playSound(id)
+	if id and id ~= "" then
+		local snd = Instance.new("Sound")
+		snd.SoundId = id
+		snd.Volume = 0.6
+		snd.Parent = workspace
+		snd:Play()
+		Debris:AddItem(snd, 6)
+	end
+end
+
+local function hatchPop(info)
+	local def = Config.PETS[info.p]
+	local tier = Config.TIERS[def.tier]
+	popToken += 1
+	local token = popToken
+	popEmoji.Text = def.emoji
+	popName.Text = Config.petName(info.p, info.s, info.m)
+	popName.TextColor3 = tier.color
+	popInfo.Text = tier.name .. "  ·  +" .. fmt(info.inc) .. "/s"
+	pop.Visible = true
+	popScale.Scale = 0.2
+	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
+	if big then
+		flash.BackgroundColor3 = Config.MUTS[info.m].color or tier.color
+		flash.BackgroundTransparency = 0.55
+		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
+		playSound(Config.SOUNDS.rare)
+	else
+		playSound(Config.SOUNDS.hatch)
+	end
+	if def.tier >= 5 then
+		task.spawn(function()
+			local char = player.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if not hum then
+				return
+			end
+			for _ = 1, 14 do
+				hum.CameraOffset = Vector3.new((math.random() - 0.5) * 0.7, (math.random() - 0.5) * 0.7, 0)
+				task.wait(0.03)
+			end
+			hum.CameraOffset = Vector3.zero
+		end)
+	end
+	TweenService:Create(popScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(2.6, function()
+		if token == popToken then
+			pop.Visible = false
+		end
+	end)
+end
+
+---------------------------------------------------------------- Panneaux
+local panelFrame = make("Frame", { Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.92, 0.8), BackgroundColor3 = COL.bg, Visible = false }, gui)
+corner(panelFrame, 18)
+make("UISizeConstraint", { MaxSize = Vector2.new(560, 470) }, panelFrame)
+make("UIStroke", { Color = COL.panel, Thickness = 2 }, panelFrame)
+local titleLbl = text(panelFrame, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -70, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, Text = "" })
+local closeBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = COL.panel, Text = "✕", Font = FONT, TextSize = 16, TextColor3 = COL.text }, panelFrame)
+corner(closeBtn, 17)
+local tabsFrame = make("Frame", { Position = UDim2.fromOffset(12, 46), Size = UDim2.new(1, -24, 0, 34), BackgroundTransparency = 1 }, panelFrame)
+make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }, tabsFrame)
+local scroll = make("ScrollingFrame", {
+	Position = UDim2.fromOffset(10, 86), Size = UDim2.new(1, -20, 1, -96), BackgroundTransparency = 1, BorderSizePixel = 0,
+	ScrollBarThickness = 5, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, panelFrame)
+make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
+
+local function coins()
+	return player:GetAttribute("Coins") or 0
+end
+
+local function paintCost(btn, cost)
+	local ok = coins() >= cost
+	btn.BackgroundColor3 = ok and COL.yellow or COL.dis
+	btn.TextColor3 = ok and COL.dark or Color3.fromRGB(152, 168, 158)
+end
+
+local function addRow(o)
+	local f = make("Frame", { Size = UDim2.new(1, -8, 0, 64), BackgroundColor3 = COL.panel }, scroll)
+	corner(f, 14)
+	local ic = text(f, { Position = UDim2.fromOffset(8, 9), Size = UDim2.fromOffset(46, 46), BackgroundTransparency = 0.7, BackgroundColor3 = Color3.new(0, 0, 0), Text = o.icon or "", TextSize = 28 })
+	corner(ic, 12)
+	if o.iconColor then
+		make("UIStroke", { Color = o.iconColor, Thickness = 2 }, ic)
+	end
+	local rightPad = (o.btn and 130 or 20) + (o.btn2 and 50 or 0)
+	text(f, { Position = UDim2.fromOffset(62, 5), Size = UDim2.new(1, -62 - rightPad, 0, 24), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 15, Text = o.title or "", TextColor3 = o.titleColor or COL.text, TextTruncate = Enum.TextTruncate.AtEnd })
+	text(f, { Position = UDim2.fromOffset(62, 29), Size = UDim2.new(1, -62 - rightPad, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 12, Text = o.desc or "", TextColor3 = COL.muted, TextWrapped = true, Font = Enum.Font.Gotham })
+	if o.btn2 then
+		local b2 = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -126, 0.5, 0), Size = UDim2.fromOffset(42, 40), Text = o.btn2, Font = FONT, TextSize = 18, BackgroundColor3 = o.btn2Color or COL.dis, TextColor3 = COL.dark }, f)
+		corner(b2, 10)
+		if o.onClick2 then
+			b2.Activated:Connect(o.onClick2)
+		end
+	end
+	if o.btn then
+		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(112, 40), Text = o.btn, Font = FONT, TextSize = 14, AutoButtonColor = true, BackgroundColor3 = o.btnColor or COL.yellow, TextColor3 = o.btnText or COL.dark }, f)
+		corner(b, 10)
+		if o.cost then
+			costBtns[b] = o.cost
+			paintCost(b, o.cost)
+		end
+		if o.onClick then
+			b.Activated:Connect(o.onClick)
+		end
+	end
+	return f
+end
+
+local function addNote(msg)
+	local l = text(scroll, { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 13, TextWrapped = true, Text = msg, TextColor3 = COL.muted, Font = Enum.Font.Gotham })
+	return l
+end
+
+local function avgInc(tier)
+	local sum, n = 0, 0
+	for _, p in ipairs(Config.PETS) do
+		if p.tier == tier then
+			sum += p.inc
+			n += 1
+		end
+	end
+	return sum / n
+end
+
+local tabsDef = {
+	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
+	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" } },
+}
+local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
+
+local render
+local function setTab(t)
+	panel.tab = t
+	panel.confirm = false
+	render()
+	scroll.CanvasPosition = Vector2.new(0, 0)
+end
+
+function render()
+	if not panel or not state then
+		return
+	end
+	local keep = scroll.CanvasPosition
+	for _, c in ipairs(scroll:GetChildren()) do
+		if not c:IsA("UIListLayout") then
+			c:Destroy()
+		end
+	end
+	for _, c in ipairs(tabsFrame:GetChildren()) do
+		if not c:IsA("UIListLayout") then
+			c:Destroy()
+		end
+	end
+	costBtns = {}
+	titleLbl.Text = titles[panel.name]
+
+	local tabs = tabsDef[panel.name]
+	tabsFrame.Visible = tabs ~= nil
+	scroll.Position = tabs and UDim2.fromOffset(10, 86) or UDim2.fromOffset(10, 50)
+	scroll.Size = tabs and UDim2.new(1, -20, 1, -96) or UDim2.new(1, -20, 1, -60)
+	if tabs then
+		for _, t in ipairs(tabs) do
+			local on = panel.tab == t[1]
+			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
+			corner(b, 17)
+			b.Activated:Connect(function()
+				setTab(t[1])
+			end)
+		end
+	end
+
+	if panel.name == "shop" and panel.tab == "eggs" then
+		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.")
+		for i, t in ipairs(Config.TIERS) do
+			addRow({
+				icon = "🥚", iconColor = t.color, title = "Œuf " .. t.name, titleColor = t.color,
+				desc = "Éclot en " .. Config.fmtTime(Config.HATCH[i] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(i) * state.mult) .. "/s en moyenne",
+				btn = "🪙 " .. fmt(Config.EGG_PRICE[i]), cost = Config.EGG_PRICE[i],
+				onClick = function()
+					RAction:FireServer("buyEgg", i)
+				end,
+			})
+		end
+	elseif panel.name == "shop" then
+		for _, u in ipairs(Config.UPGRADES) do
+			local l = state.up[u.key] or 0
+			local maxed = l >= u.max
+			addRow({
+				icon = u.emoji, title = u.name .. "  (niv. " .. l .. "/" .. u.max .. ")",
+				desc = maxed and "Niveau maximum" or u.desc(l),
+				btn = maxed and "MAX" or ("🪙 " .. fmt(u.cost(l))), cost = (not maxed) and u.cost(l) or nil,
+				btnColor = maxed and COL.dis or nil,
+				onClick = (not maxed) and function()
+					RAction:FireServer("buyUp", u.key)
+				end or nil,
+			})
+		end
+	elseif panel.name == "dex" and panel.tab == "col" then
+		local got = 0
+		for k in pairs(state.dex) do
+			got += 1
+		end
+		addNote(got .. "/" .. #Config.PETS .. " espèces découvertes. Tailles et mutations rares multiplient les revenus.")
+		for i, p in ipairs(Config.PETS) do
+			local d = state.dex[tostring(i)]
+			local tier = Config.TIERS[p.tier]
+			addRow({
+				icon = d and p.emoji or "❓", iconColor = d and tier.color or nil,
+				title = d and p.name or "???", titleColor = d and tier.color or COL.muted,
+				desc = tier.name .. (d and (" · obtenu x" .. d.n .. " · record x" .. fmt(d.b)) or ""),
+			})
+		end
+	elseif panel.name == "dex" then
+		local n = 0
+		for i = 1, state.cap do
+			local sl = state.slots[i]
+			if sl and sl.k == "p" then
+				n += 1
+				local p = Config.PETS[sl.p]
+				local equipped = false
+				for _, v in ipairs(state.equip) do
+					if v == i then
+						equipped = true
+					end
+				end
+				addRow({
+					icon = p.emoji, iconColor = Config.TIERS[p.tier].color, title = Config.petName(sl.p, sl.s, sl.m),
+					desc = "+" .. fmt(Config.petIncome(sl.p, sl.s, sl.m) * state.mult) .. "/s" .. (equipped and " · te suit 🐾" or ""),
+					btn2 = "🐾", btn2Color = equipped and COL.green or COL.dis,
+					onClick2 = function()
+						RAction:FireServer("equip", i)
+					end,
+					btn = "Vendre " .. fmt(Config.sellValue(sl.p, sl.s, sl.m)), btnColor = COL.red, btnText = COL.text,
+					onClick = function()
+						RAction:FireServer("sell", i)
+					end,
+				})
+			end
+		end
+		if n == 0 then
+			addNote("Aucun pet pour l'instant. Fais éclore des œufs !")
+		else
+			addNote("🐾 = fais-le te suivre (3 maximum). Il continue de produire dans ta base.")
+		end
+	elseif panel.name == "quests" then
+		addNote("Les missions se renouvellent chaque jour.")
+		for i, q in ipairs(state.quests) do
+			local done = q.prog >= q.goal
+			addRow({
+				icon = q.claimed and "✅" or "🎯", title = Config.questText(q.t, q.goal),
+				desc = fmt(math.floor(q.prog)) .. "/" .. fmt(q.goal) .. " · récompense 🪙 " .. fmt(q.rew),
+				btn = q.claimed and "Fait" or (done and "Réclamer" or "…"),
+				btnColor = (done and not q.claimed) and COL.green or COL.dis,
+				onClick = (done and not q.claimed) and function()
+					RAction:FireServer("claimQuest", i)
+				end or nil,
+			})
+		end
+	elseif panel.name == "top" then
+		if not topData then
+			addNote("Chargement du classement…")
+		elseif #topData == 0 then
+			addNote("Le classement est vide pour l'instant (ou indisponible dans Studio). Renaître et faire éclore des œufs te fait monter.")
+		else
+			addNote("Classé par renaissances puis par œufs éclos.")
+			for i, e in ipairs(topData) do
+				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "♻️ " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
+			end
+		end
+	elseif panel.name == "bonus" then
+		addRow({
+			icon = "🎁", title = "Bonus quotidien",
+			desc = state.dailyReady and ("Série " .. state.streak .. " jour(s) → 🪙 " .. fmt(state.dailyReward)) or "Reviens demain !",
+			btn = state.dailyReady and "Récupérer" or "Pris", btnColor = state.dailyReady and COL.green or COL.dis,
+			onClick = state.dailyReady and function()
+				RAction:FireServer("daily")
+			end or nil,
+		})
+		local passNames = {}
+		for name in pairs(Config.PASSES) do
+			passNames[#passNames + 1] = name
+		end
+		table.sort(passNames)
+		for _, name in ipairs(passNames) do
+			local def = Config.PASSES[name]
+			local owned = state.passes[name]
+			addRow({
+				icon = def.emoji, title = def.name, desc = def.desc,
+				btn = owned and "✅ Actif" or (def.id > 0 and "Acheter" or "Bientôt"),
+				btnColor = (owned or def.id == 0) and COL.dis or COL.green,
+				onClick = (not owned and def.id > 0) and function()
+					MarketplaceService:PromptGamePassPurchase(player, def.id)
+				end or nil,
+			})
+		end
+		if state.luckLeft and state.luckLeft > 0 then
+			addNote("🧪 Potion de chance active : " .. Config.fmtTime(state.luckLeft) .. " restantes.")
+		end
+		local prodNames = {}
+		for name in pairs(Config.PRODUCTS) do
+			prodNames[#prodNames + 1] = name
+		end
+		table.sort(prodNames)
+		for _, name in ipairs(prodNames) do
+			local def = Config.PRODUCTS[name]
+			addRow({
+				icon = def.emoji, title = def.name, desc = def.desc,
+				btn = def.id > 0 and "Acheter" or "Bientôt", btnColor = def.id > 0 and COL.green or COL.dis,
+				onClick = def.id > 0 and function()
+					MarketplaceService:PromptProductPurchase(player, def.id)
+				end or nil,
+			})
+		end
+	elseif panel.name == "more" then
+		local cost = Config.rebirthCost(state.rb)
+		addRow({
+			icon = "♻️", title = "Renaissance" .. (state.rb > 0 and (" (x" .. state.rb .. ")") or ""),
+			desc = "Remet pièces, pets et améliorations à zéro. Garde vitesse et collection. Revenus +50% définitif.",
+			btn = panel.confirm and "Confirmer ?" or ("🪙 " .. fmt(cost)),
+			btnColor = panel.confirm and COL.red or nil, btnText = panel.confirm and COL.text or nil, cost = (not panel.confirm) and cost or nil,
+			onClick = function()
+				if coins() < cost then
+					return toast("Il te faut 🪙 " .. fmt(cost) .. " pour renaître.")
+				end
+				if panel.confirm then
+					RAction:FireServer("rebirth")
+					panel.confirm = false
+					render()
+				else
+					panel.confirm = true
+					render()
+				end
+			end,
+		})
+		addNote(string.format("Œufs volés : %d · Œufs éclos : %d · Vitesse : %s", state.stolen, state.hatched, fmt(player:GetAttribute("Speed") or 0)))
+		addNote(Config.oddsText())
+		addNote("Comment jouer : maintiens le bouton de vol devant un œuf pour le prendre (évite le gardien 🐕), rapporte-le dans ta base, touche-le pour accélérer l'éclosion. Cours sur le tapis pour gagner en vitesse. Les autres joueurs peuvent voler tes œufs non protégés 🛡 !")
+	end
+	task.defer(function()
+		scroll.CanvasPosition = keep
+	end)
+end
+
+local function openPanel(name)
+	if panel and panel.name == name then
+		panel = nil
+		panelFrame.Visible = false
+		return
+	end
+	panel = { name = name, tab = tabsDef[name] and tabsDef[name][1][1] or "", confirm = false }
+	panelFrame.Visible = true
+	if name == "top" then
+		RAction:FireServer("top")
+	end
+	render()
+end
+closeBtn.Activated:Connect(function()
+	panel = nil
+	panelFrame.Visible = false
+end)
+
+---------------------------------------------------------------- Boutons de navigation (colonne gauche)
+local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }
+local navBar = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y), Size = UDim2.fromOffset(#navDefs * 56, 52), BackgroundTransparency = 1 }, gui)
+make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center }, navBar)
+for _, n in ipairs(navDefs) do
+	local b = make("TextButton", { Size = UDim2.fromOffset(52, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, navBar)
+	corner(b, 14)
+	make("UIStroke", { Color = COL.panel, Thickness = 2 }, b)
+	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22 })
+	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10 })
+	b.Activated:Connect(function()
+		openPanel(n[1])
+	end)
+end
+
+---------------------------------------------------------------- Réseau
+RState.OnClientEvent:Connect(function(snap)
+	state = snap
+	if panel then
+		render()
+	end
+end)
+RNotify.OnClientEvent:Connect(toast)
+RHatch.OnClientEvent:Connect(hatchPop)
+RTop.OnClientEvent:Connect(function(list)
+	topData = list
+	if panel and panel.name == "top" then
+		render()
+	end
+end)
+
+local function refreshStats()
+	coinsBig.Text = fmt(coins())
+	coinsSmall.Text = "+" .. fmt(player:GetAttribute("Income") or 0) .. "/s"
+	speedBig.Text = fmt(math.floor(player:GetAttribute("Speed") or 0))
+	for b, cost in pairs(costBtns) do
+		if b.Parent then
+			paintCost(b, cost)
+		else
+			costBtns[b] = nil
+		end
+	end
+end
+for _, a in ipairs({ "Coins", "Income", "Speed" }) do
+	player:GetAttributeChangedSignal(a):Connect(refreshStats)
+end
+refreshStats()
+
+task.spawn(function()
+	repeat
+		RAction:FireServer("sync")
+		task.wait(1.5)
+	until state
+end)
+
+---------------------------------------------------------------- Bannière d'événement, compteur de sac, conseils
+task.spawn(function()
+	while true do
+		local key = workspace:GetAttribute("EventKey")
+		local ends = workspace:GetAttribute("EventEnds")
+		banner.Visible = false
+		if key and ends then
+			for _, e in ipairs(Config.EVENTS) do
+				if e.key == key then
+					banner.Text = e.emoji .. " " .. e.name .. " · " .. e.desc .. " · " .. math.max(0, ends - os.time()) .. "s"
+					banner.Visible = true
+				end
+			end
+		end
+		if state then
+			carryLbl.Visible = state.carry > 0
+			carryLbl.Text = "🥚 " .. state.carry .. "/" .. state.carryCap
+			local msg
+			if state.hatched == 0 then
+				msg = "Touche ton œuf 🥚 pour accélérer l'éclosion !"
+			elseif state.stolen == 0 then
+				msg = "Va chez un rival (au nord) et maintiens le bouton pour voler un œuf… évite son gardien 🐕"
+			elseif (player:GetAttribute("Speed") or 0) < 8 then
+				msg = "Cours sur le tapis roulant 🏃 au centre pour devenir plus rapide !"
+			end
+			hint.Visible = msg ~= nil and not panelFrame.Visible
+			hint.Text = msg or ""
+		end
+		task.wait(0.5)
+	end
+end)
+
+---------------------------------------------------------------- Prompts de vol : durée selon ton niveau, cachés pour ton propre œuf
+-- (propriétés modifiées côté client uniquement : elles ne se répliquent pas au serveur)
+task.spawn(function()
+	while true do
+		local lvl = state and state.up.fing or 0
+		for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
+			pr.HoldDuration = Config.stealTime(lvl)
+			pr.Enabled = pr:GetAttribute("Owner") ~= player.UserId
+		end
+		task.wait(0.5)
+	end
+end)
+
+---------------------------------------------------------------- Pets qui "respirent" (animation locale)
+local bobBase = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	local t = os.clock()
+	for _, m in ipairs(CollectionService:GetTagged("Bob")) do
+		local base = bobBase[m]
+		if not base and m.PrimaryPart then
+			base = m:GetPivot()
+			bobBase[m] = base
+		end
+		if base then
+			m:PivotTo(base * CFrame.new(0, math.sin(t * 3 + base.X + base.Z) * 0.25, 0))
+		end
+	end
+end)
+
+---------------------------------------------------------------- Flèche de guidage (faisceau jaune vers le prochain objectif)
+local guideBeam, guideA0, guideA1, guideTarget
+local function setGuide(target)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not (target and root and target.Parent) then
+		if guideBeam then
+			guideBeam.Enabled = false
+		end
+		guideTarget = nil
+		return
+	end
+	if not guideBeam then
+		guideA0 = Instance.new("Attachment")
+		guideA1 = Instance.new("Attachment")
+		guideBeam = Instance.new("Beam")
+		guideBeam.Attachment0 = guideA0
+		guideBeam.Attachment1 = guideA1
+		guideBeam.Width0 = 0.6
+		guideBeam.Width1 = 0.6
+		guideBeam.Color = ColorSequence.new(COL.yellow)
+		guideBeam.Transparency = NumberSequence.new(0.25)
+		guideBeam.LightEmission = 1
+		guideBeam.FaceCamera = true
+		guideBeam.Parent = workspace
+	end
+	if guideA0.Parent ~= root then
+		guideA0.Parent = root
+	end
+	if guideTarget ~= target then
+		guideA1.Parent = target
+		guideTarget = target
+	end
+	guideBeam.Enabled = true
+end
+
+task.spawn(function()
+	while true do
+		local target = nil
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if state and root then
+			if state.carry > 0 then
+				local spawnPad = player.RespawnLocation
+				target = spawnPad
+			elseif state.hatched > 0 and state.stolen == 0 then
+				local best, bd = nil, math.huge
+				for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
+					if pr:GetAttribute("Owner") == nil and pr.Parent and pr.Parent:IsA("BasePart") then
+						local dd = (pr.Parent.Position - root.Position).Magnitude
+						if dd < bd then
+							best, bd = pr.Parent, dd
+						end
+					end
+				end
+				target = best
+			elseif (player:GetAttribute("Speed") or 0) < 8 and state.stolen > 0 then
+				local w = workspace:FindFirstChild("World")
+				target = w and w:FindFirstChild("Treadmill")
+			end
+		end
+		setGuide(target)
+		task.wait(0.5)
+	end
+end)
+
+---------------------------------------------------------------- Œufs qui tremblent avant d'éclore
+local eggBase = setmetatable({}, { __mode = "k" })
+local eggShaking = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	local now, t = os.time(), os.clock()
+	for _, egg in ipairs(CollectionService:GetTagged("EggShake")) do
+		if not eggBase[egg] then
+			eggBase[egg] = egg.CFrame
+		end
+		local ends = egg:GetAttribute("Ends")
+		local left = ends and (ends - now) or 99
+		if left < 4 then
+			local a = (4 - left) / 4
+			egg.CFrame = eggBase[egg] * CFrame.Angles(math.sin(t * 29) * 0.08 * a, 0, math.sin(t * 35) * 0.12 * a)
+			eggShaking[egg] = true
+		elseif eggShaking[egg] then
+			egg.CFrame = eggBase[egg]
+			eggShaking[egg] = nil
+		end
+	end
+end)
+
+---------------------------------------------------------------- Pets suiveurs (mouvement fluide calculé localement)
+RunService.RenderStepped:Connect(function(dt)
+	for _, m in ipairs(CollectionService:GetTagged("Follower")) do
+		local owner = Players:GetPlayerByUserId(m:GetAttribute("OwnerId") or 0)
+		local char = owner and owner.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if root and m.PrimaryPart then
+			local n = m:GetAttribute("Idx") or 1
+			local target = CFrame.new(root.Position) * root.CFrame.Rotation * CFrame.new((n - 2) * 3, -2.2 + math.sin(os.clock() * 4 + n) * 0.15, 4)
+			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
+		end
+	end
+end)
+]]></ProtectedString></Properties></Item></Item></Item>
+</roblox>

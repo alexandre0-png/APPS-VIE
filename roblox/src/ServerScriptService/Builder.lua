@@ -178,7 +178,6 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	end
 
 	-- étiquette
-	local tier = Config.TIERS[def.tier]
 	model:SetAttribute("Height", lift)
 	return model, lift, 2.3 * R + 1.5
 end
@@ -257,7 +256,7 @@ function Builder.build()
 		local folder = Instance.new("Folder")
 		folder.Name = "Rival_" .. riv.name
 		folder.Parent = world
-		local disc = part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
+		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
 		local pole = part({ Name = "Sign", Size = Vector3.new(1, 9, 1), Position = Vector3.new(cx, 4.5, cz - 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
 		local t = sign(pole, riv.emoji .. " " .. riv.name .. "  " .. string.rep("★", riv.stars), Color3.fromRGB(255, 220, 90), 7, 260)
 		t.TextSize = 22

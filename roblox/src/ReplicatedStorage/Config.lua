@@ -203,4 +203,21 @@ function Config.questText(t, n)
 	return t
 end
 
+-- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)
+function Config.oddsText()
+	local function pct(list, none)
+		local total = 0
+		for _, x in ipairs(list) do
+			total += x.weight
+		end
+		local out = {}
+		for _, x in ipairs(list) do
+			out[#out + 1] = string.format("%s %.1f%%", x.name == "" and none or x.name, x.weight / total * 100)
+		end
+		return table.concat(out, " · ")
+	end
+	return "🎲 Probabilités de base. Rareté du pet : 12% une rareté au-dessus de l'œuf, 22% en dessous, le reste de la même rareté (Trèfle, événements, Pass Chance et Potion augmentent la part « au-dessus »). Mutations : "
+		.. pct(Config.MUTS, "Aucune") .. " (le Biome Alien multiplie la mutation Alien par 5). Tailles : " .. pct(Config.SIZES, "Normal") .. "."
+end
+
 return Config

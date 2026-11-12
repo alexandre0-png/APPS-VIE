@@ -17,6 +17,12 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Publication
+
+Tout est prêt dans **`publication/LISTING.md`** : fiche du jeu FR/EN à copier-coller, étapes Studio / Creator Hub, tableau des achats intégrés, liste de playtest. Visuels dans `publication/art/` (icône, 3 miniatures, 4 icônes d'achats). Le fichier de place à ouvrir dans Studio est `build/ChipeOeufs.rbxlx`.
+
+Outils : `python3 tools/check.py` (contrôle automatique à lancer après chaque modification), `python3 tools/build_place.py` (régénère la place), `python3 tools/make_art.py` (régénère les visuels).
+
 ## Structure
 
 ```
