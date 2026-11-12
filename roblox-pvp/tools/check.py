@@ -146,7 +146,7 @@ def main():
             inject = []
             if os.environ.get("INJECT_MOCK"):
                 up = "/".join([".."] * (rel.count(os.sep) + 1))
-                inject = [f'local __M = require("{up}/tests/mock"); local game, workspace, script, Instance, Vector3, Color3, task, warn = __M.game, __M.workspace, __M.script, __M.Instance, __M.Vector3, __M.Color3, __M.task, __M.warn']
+                inject = [f'local __M = require("{up}/tests/mock"); local game, workspace, script, Instance, Vector3, Color3, task, warn, ColorSequence, NumberRange, NumberSequence, Vector2 = __M.game, __M.workspace, __M.script, __M.Instance, __M.Vector3, __M.Color3, __M.task, __M.warn, __M.ColorSequence, __M.NumberRange, __M.NumberSequence, __M.Vector2']
             open(dest, "w", encoding="utf-8").write("\n".join(([header] if header else []) + inject + new_body))
         mode = "--!strict" if args.mode == "strict" else (header or "--!nonstrict")
         # ligne 1 : directive, ligne 2 : stubs (les numéros d'origine = numéro analysé - 1)

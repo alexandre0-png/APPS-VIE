@@ -107,6 +107,9 @@ local task = {
 local function warn(...) print("[warn]", ...) end
 
 
+local function ctor() return { new = function() return {} end } end
+local ColorSequence, NumberRange, NumberSequence, Vector2 = ctor(), ctor(), ctor(), ctor()
+M.ColorSequence, M.NumberRange, M.NumberSequence, M.Vector2 = ColorSequence, NumberRange, NumberSequence, Vector2
 M.Signal, M.newInstance, M.remoteLog = Signal, newInstance, remoteLog
 M.game, M.workspace, M.script, M.Instance, M.Vector3, M.Color3, M.task, M.warn = game, workspace, script, Instance, Vector3, Color3, task, warn
 M.PlayersService, M.allPlayers = PlayersService, allPlayers

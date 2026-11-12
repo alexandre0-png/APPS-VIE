@@ -255,6 +255,46 @@ local function onSlam(center, radius, color)
 	Effects.PlaySound(Config.Sounds.Heavy, ring, 0.9, 0.5)
 end
 
+-- Désintégration colorée d'un personnage éliminé : fondu des pièces, éclats et fumée (aucun sang).
+local function onDisintegrate(model, color)
+	if typeof(model) ~= "Instance" or not model.Parent then
+		return
+	end
+	local c = Color3.fromHex(color or "FFFFFF")
+	local root = model:FindFirstChild("HumanoidRootPart")
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+			TweenService:Create(d, TweenInfo.new(0.7, Enum.EasingStyle.Quad), { Transparency = 1 }):Play()
+		elseif d:IsA("BillboardGui") then
+			d.Enabled = false
+		end
+	end
+	if root then
+		local anchor = fxPart({ Size = Vector3.new(0.2, 0.2, 0.2), Position = root.Position, Transparency = 1 })
+		local shards = Instance.new("ParticleEmitter")
+		shards.Color = ColorSequence.new(c)
+		shards.LightEmission = 1
+		shards.Size = NumberSequence.new(0.7, 0)
+		shards.Lifetime = NumberRange.new(0.5, 1.1)
+		shards.Speed = NumberRange.new(8, 22)
+		shards.SpreadAngle = Vector2.new(180, 180)
+		shards.Rate = 0
+		shards.Parent = anchor
+		shards:Emit(34)
+		local smoke = Instance.new("ParticleEmitter")
+		smoke.Color = ColorSequence.new(c:Lerp(Color3.new(1, 1, 1), 0.5))
+		smoke.Size = NumberSequence.new(1.5, 4)
+		smoke.Transparency = NumberSequence.new(0.5, 1)
+		smoke.Lifetime = NumberRange.new(0.8, 1.4)
+		smoke.Speed = NumberRange.new(1, 4)
+		smoke.SpreadAngle = Vector2.new(180, 180)
+		smoke.Rate = 0
+		smoke.Parent = anchor
+		smoke:Emit(10)
+		transient(anchor, 1.6)
+	end
+end
+
 local function onKnockback(velocity)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -271,6 +311,7 @@ function Effects.OnFx(kind, ...)
 		Explosion = onExplosion,
 		Slam = onSlam,
 		Knockback = onKnockback,
+		Disintegrate = onDisintegrate,
 	}
 	local fn = handlers[kind]
 	if fn then

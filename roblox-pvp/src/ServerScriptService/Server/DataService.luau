@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Weapons = require(Shared.Weapons)
+local Lore = require(Shared.Lore)
 
 local DataService = {}
 
@@ -49,6 +50,8 @@ function DataService.DefaultProfile()
 		LastDaily = 0, -- numéro du jour UTC de la dernière récompense
 		Quests = nil,
 		FirstJoin = os.time(),
+		Hero = "kael",
+		Chapters = {}, -- chapitres de la Chronique déjà lus
 		Receipts = {}, -- identifiants d'achats déjà traités (idempotence)
 	}
 end
@@ -71,6 +74,12 @@ function DataService.Reconcile(data)
 	end
 	if type(data.Receipts) ~= "table" then
 		data.Receipts = {}
+	end
+	if type(data.Chapters) ~= "table" then
+		data.Chapters = {}
+	end
+	if not Lore.IsHeroUnlocked(tostring(data.Hero), data.Chapters) or not Lore.Hero(tostring(data.Hero)) then
+		data.Hero = "kael"
 	end
 	data.Level = math.clamp(math.floor(data.Level), 1, Config.MaxLevel)
 	data.Coins = math.max(0, math.floor(data.Coins))

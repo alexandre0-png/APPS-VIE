@@ -9,6 +9,7 @@ local Client = script.Parent
 local Config = require(Shared.Config)
 local Weapons = require(Shared.Weapons)
 local QuestLogic = require(Shared.QuestLogic)
+local Lore = require(Shared.Lore)
 local UI = require(Client.UI)
 local State = require(Client.State)
 
@@ -28,6 +29,7 @@ local TABS = {
 	{ Id = "Quests", Text = "📜 Quêtes" },
 	{ Id = "Daily", Text = "🎁 Cadeau" },
 	{ Id = "Stats", Text = "📊 Stats" },
+	{ Id = "Hero", Text = "📖 Héros" },
 	{ Id = "Robux", Text = "💎 Robux" },
 }
 
@@ -308,7 +310,64 @@ local function buildRobux(profile)
 	end
 end
 
+-- ===================================================================
+-- Héros et Chronique
+-- ===================================================================
+local function buildHero(profile)
+	local scroll = UI.New("ScrollingFrame", { Parent = content, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6 })
+	UI.New("UIListLayout", { Parent = scroll, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 22), Text = Lore.Intro.Title, TextSize = 18, TextColor3 = C.Gold, LayoutOrder = 1 })
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 34), Text = Lore.Intro.Text, TextSize = 13, Font = Enum.Font.Gotham, TextColor3 = C.Dim, TextWrapped = true, LayoutOrder = 2 })
+	local heroRow = UI.New("Frame", { Parent = scroll, BackgroundTransparency = 1, Size = UDim2.new(1, -10, 0, 128), LayoutOrder = 3 })
+	UI.New("UIListLayout", { Parent = heroRow, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) })
+	for _, hero in ipairs(Lore.Heroes) do
+		local unlocked = Lore.IsHeroUnlocked(hero.Key, profile.Chapters)
+		local selected = profile.Hero == hero.Key
+		local color = Color3.fromHex(hero.Color)
+		local card = UI.Frame(heroRow, { Size = UDim2.fromOffset(168, 124), BackgroundColor3 = C.Panel, Stroke = selected and C.Gold or color })
+		UI.Frame(card, { Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = color, Radius = false })
+		UI.Label(card, { Position = UDim2.fromOffset(8, 10), Size = UDim2.new(1, -16, 0, 20), Text = hero.Name .. " " .. hero.Epithet, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left })
+		UI.Label(card, { Position = UDim2.fromOffset(8, 32), Size = UDim2.new(1, -16, 0, 44), Text = hero.Story, TextSize = 11, Font = Enum.Font.Gotham, TextColor3 = C.Dim, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
+		local b = UI.Button(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 28), TextSize = 13 })
+		if selected then
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "✔ Héros actuel", C.PanelLight, false
+		elseif not unlocked then
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "🔒 Via la Chronique", C.PanelLight, false
+		else
+			b.Text, b.BackgroundColor3 = "Choisir", color
+			b.TextColor3 = Color3.new(0, 0, 0)
+			b.Activated:Connect(function()
+				act("SetHero", hero.Key)
+			end)
+		end
+	end
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 22), Text = "CHRONIQUE", TextSize = 16, TextColor3 = C.Gold, LayoutOrder = 4 })
+	local stats = { Level = profile.Level, Kills = profile.Kills, Wins = profile.Wins, BestStreak = profile.BestStreak, Headshots = profile.Headshots }
+	for i, chapter in ipairs(Lore.Chapters) do
+		local progress = Lore.Progress(chapter, stats)
+		local done = progress >= chapter.Target
+		local claimed = profile.Chapters[chapter.Id] == true
+		local row = UI.Frame(scroll, { Size = UDim2.new(1, -10, 0, 74), BackgroundColor3 = C.Panel, LayoutOrder = 4 + i, Stroke = claimed and C.Good or (done and C.Gold or C.PanelLight) })
+		UI.Label(row, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -190, 0, 20), Text = ("Chapitre %d · %s"):format(i, chapter.Title), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left })
+		UI.Label(row, { Position = UDim2.fromOffset(12, 26), Size = UDim2.new(1, -190, 0, 30), Text = chapter.Text, TextSize = 11, Font = Enum.Font.Gotham, TextColor3 = C.Dim, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
+		local bg = UI.Frame(row, { Position = UDim2.new(0, 12, 1, -14), Size = UDim2.new(1, -190, 0, 8), BackgroundColor3 = Color3.fromRGB(16, 18, 26), Radius = 4 })
+		UI.Frame(bg, { Size = UDim2.fromScale(progress / chapter.Target, 1), BackgroundColor3 = done and C.Good or C.Accent, Radius = 4 })
+		local b = UI.Button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(160, 34), TextSize = 13 })
+		if claimed then
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "✔ Lu", C.PanelLight, false
+		elseif done then
+			b.Text, b.BackgroundColor3 = ("Lire  +%d 🪙"):format(chapter.Coins), C.Good
+			b.Activated:Connect(function()
+				act("ClaimChapter", chapter.Id)
+			end)
+		else
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = ("%d / %d"):format(progress, chapter.Target), C.PanelLight, false
+		end
+	end
+end
+
 local builders = {
+	Hero = buildHero,
 	Robux = buildRobux,
 	Shop = buildShop,
 	Loadout = buildLoadout,

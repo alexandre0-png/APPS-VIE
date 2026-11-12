@@ -304,6 +304,31 @@ do
 	check("cadeau VIP +50%", ok and ph.DailyStreak == 1)
 end
 
+print("• Histoire (StoryService)")
+do
+	local Story = require(E .. "StoryService")
+	local R = makePlayer("Rhea")
+	local pr = DataService.Get(R)
+	check("chapitre verrouillé refusé", not Story.ClaimChapter(R, "c2"))
+	check("chapitre inconnu refusé", not Story.ClaimChapter(R, "zzz") and not Story.ClaimChapter(R, 5))
+	pr.Kills = 10
+	local c0, lv0 = pr.Coins, pr.Level
+	check("chapitre c2 récupéré", Story.ClaimChapter(R, "c2"))
+	local levelBonus = 0
+	for l = lv0 + 1, pr.Level do levelBonus += Progression.LevelUpReward(l) end
+	eq("récompense c2 (hors bonus de niveau)", pr.Coins - c0 - levelBonus, 200)
+	check("pas de double lecture", not Story.ClaimChapter(R, "c2"))
+	check("orin débloqué", Story.SetHero(R, "orin"))
+	eq("héros enregistré", pr.Hero, "orin")
+	eq("attribut héros", R:GetAttribute("Hero"), "orin")
+	check("zyla verrouillée", not Story.SetHero(R, "zyla"))
+	check("héros inconnu refusé", not Story.SetHero(R, "hack") and not Story.SetHero(R, 3))
+	local fixed = DataService.Reconcile({ Hero = "zyla", Chapters = {} })
+	eq("héros verrouillé corrigé au chargement", fixed.Hero, "kael")
+	local ok = DataService.Reconcile({ Hero = "orin", Chapters = { c2 = true } })
+	eq("héros débloqué conservé", ok.Hero, "orin")
+end
+
 print("• Bots")
 do
 	local P, Q = makePlayer("Pia"), makePlayer("Quin")

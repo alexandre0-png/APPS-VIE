@@ -9,6 +9,7 @@ local Server = script.Parent
 local Config = require(Shared.Config)
 local Combat = require(Shared.Combat)
 local MatchLogic = require(Shared.MatchLogic)
+local Lore = require(Shared.Lore)
 local Remotes = require(Shared.Remotes)
 local PlayerService = require(Server.PlayerService)
 local QuestService = require(Server.QuestService)
@@ -193,6 +194,9 @@ local function onDied(humanoid)
 	local entry = logs[humanoid]
 	logs[humanoid] = nil
 	if not victim then
+		if model and (model:GetAttribute("Bot") or model:GetAttribute("Dummy")) then
+			Remotes.Fx:FireAllClients("Disintegrate", model, "7DA8FF")
+		end
 		if model and model:GetAttribute("Bot") then
 			onBotDied(entry, model)
 		end
@@ -217,6 +221,10 @@ local function onDied(humanoid)
 	local victimStreak = victim:GetAttribute("Streak") or 0
 	victim:SetAttribute("Streak", 0)
 	PlayerService.Increment(victim, "Deaths", 1)
+
+	-- désintégration colorée (aucun sang) aux couleurs du héros
+	local hero = Lore.Hero(tostring(victim:GetAttribute("Hero")))
+	Remotes.Fx:FireAllClients("Disintegrate", model, hero and hero.Color or "FFFFFF")
 
 	local weaponName = last and last.Weapon and last.Weapon.Name or (botName and "Griffes" or nil)
 	PlayerService.Notify(victim, "Death", killer and killer.DisplayName or botName or "", {

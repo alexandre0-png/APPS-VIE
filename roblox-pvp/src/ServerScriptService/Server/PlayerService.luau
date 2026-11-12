@@ -9,6 +9,7 @@ local Server = script.Parent
 local Config = require(Shared.Config)
 local Progression = require(Shared.Progression)
 local QuestLogic = require(Shared.QuestLogic)
+local Lore = require(Shared.Lore)
 local Remotes = require(Shared.Remotes)
 local DataService = require(Server.DataService)
 
@@ -81,6 +82,8 @@ function PlayerService.BuildClientProfile(player)
 		DailyAvailable = p.LastDaily < today,
 		DailyNext = nextDay,
 		Ephemeral = p.Ephemeral == true,
+		Hero = p.Hero,
+		Chapters = p.Chapters,
 		Passes = {
 			DoubleXP = player:GetAttribute("HasDoubleXP") == true,
 			DoubleCoins = player:GetAttribute("HasDoubleCoins") == true,
@@ -179,6 +182,37 @@ function PlayerService.Increment(player, field, amount)
 	refreshAttributes(player)
 end
 
+-- Aura et teinte du héros choisi (purement visuel, aucun effet sur les dégâts).
+function PlayerService.ApplyHero(player, character)
+	local profile = DataService.Get(player)
+	local hero = profile and Lore.Hero(profile.Hero)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not hero or not root then
+		return
+	end
+	local color = hex(hero.Color)
+	local colors = character:FindFirstChildOfClass("BodyColors")
+	if colors then
+		colors.TorsoColor3 = color
+	end
+	local old = root:FindFirstChild("HeroAura")
+	if old then
+		old:Destroy()
+	end
+	local aura = Instance.new("ParticleEmitter")
+	aura.Name = "HeroAura"
+	aura.Color = ColorSequence.new(color)
+	aura.LightEmission = 0.8
+	aura.Rate = 8
+	aura.Lifetime = NumberRange.new(0.8, 1.4)
+	aura.Speed = NumberRange.new(0.5, 1.5)
+	aura.Size = NumberSequence.new(0.35, 0)
+	aura.Transparency = NumberSequence.new(0.3, 1)
+	aura.SpreadAngle = Vector2.new(180, 180)
+	aura.Parent = root
+	player:SetAttribute("Hero", profile.Hero)
+end
+
 -- ===== Plaque de nom =====
 local function buildNameTag(player, character)
 	local head = character:WaitForChild("Head", 5)
@@ -245,7 +279,8 @@ local function buildNameTag(player, character)
 		else
 			name.TextColor3 = Color3.new(1, 1, 1)
 		end
-		sub.Text = ("Niv. %d · %s%s"):format(player:GetAttribute("Level") or 1, player:GetAttribute("Title") or "", player:GetAttribute("HasVIP") and "  ★ VIP" or "")
+		local hero = Lore.Hero(tostring(player:GetAttribute("Hero")))
+		sub.Text = ("Niv. %d · %s%s%s"):format(player:GetAttribute("Level") or 1, player:GetAttribute("Title") or "", hero and (" · " .. hero.Name) or "", player:GetAttribute("HasVIP") and "  ★ VIP" or "")
 	end
 	local function refreshHealth()
 		local ratio = math.clamp(humanoid.Health / math.max(1, humanoid.MaxHealth), 0, 1)
@@ -256,7 +291,7 @@ local function buildNameTag(player, character)
 	refreshHealth()
 	-- les connexions sur le joueur survivent au personnage : on les coupe à sa disparition
 	local connections = { humanoid.HealthChanged:Connect(refreshHealth) }
-	for _, attr in ipairs({ "Team", "Level", "Title", "HasVIP" }) do
+	for _, attr in ipairs({ "Team", "Level", "Title", "HasVIP", "Hero" }) do
 		table.insert(connections, player:GetAttributeChangedSignal(attr):Connect(refresh))
 	end
 	gui.Destroying:Connect(function()
@@ -278,6 +313,7 @@ local function onCharacter(player, character)
 	humanoid.UseJumpPower = true
 	humanoid.JumpPower = Config.Player.JumpPower
 	task.spawn(buildNameTag, player, character)
+	PlayerService.ApplyHero(player, character)
 
 	for _, fn in ipairs(PlayerService.CharacterCallbacks) do
 		task.spawn(fn, player, character)
@@ -310,6 +346,7 @@ function PlayerService.Setup(player, profile)
 	player:SetAttribute("HasDoubleXP", false)
 	player:SetAttribute("HasDoubleCoins", false)
 	player:SetAttribute("HasVIP", false)
+	player:SetAttribute("Hero", profile.Hero)
 	refreshAttributes(player)
 
 	player.CharacterAdded:Connect(function(character)

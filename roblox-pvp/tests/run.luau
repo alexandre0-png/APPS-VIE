@@ -24,6 +24,7 @@ local QuestLogic = require("../.emit/ReplicatedStorage/Shared/QuestLogic")
 local MatchLogic = require("../.emit/ReplicatedStorage/Shared/MatchLogic")
 local Weapons = require("../.emit/ReplicatedStorage/Shared/Weapons")
 local Config = require("../.emit/ReplicatedStorage/Shared/Config")
+local Lore = require("../.emit/ReplicatedStorage/Shared/Lore")
 local BotLogic = require("../.emit/ReplicatedStorage/Shared/BotLogic")
 
 section("Progression")
@@ -178,6 +179,29 @@ do
 	for i = 2, 7 do check("récompense croissante " .. i, Config.DailyRewards[i] > Config.DailyRewards[i - 1]) end
 	check("rail tue en un tir à la tête", Combat.ComputeDamage(Weapons.Get("rail").Damage, { Headshot = true, HeadshotMult = Weapons.Get("rail").HeadshotMult }) >= Config.Player.MaxHealth)
 	check("modes de rotation connus", Config.ModeNames[Config.Match.Modes[1]] ~= nil and Config.ModeNames[Config.Match.Modes[2]] ~= nil)
+end
+
+section("Lore")
+do
+	eq("4 héros", #Lore.Heroes, 4)
+	eq("5 chapitres", #Lore.Chapters, 5)
+	local ids, unlocks = {}, {}
+	for _, c in ipairs(Lore.Chapters) do
+		check("chapitre unique " .. c.Id, not ids[c.Id]); ids[c.Id] = true
+		check("stat connue " .. c.Id, ({ Level = 1, Kills = 1, Wins = 1, BestStreak = 1, Headshots = 1 })[c.Stat] == 1)
+		check("cible > 0 " .. c.Id, c.Target > 0 and c.Coins > 0)
+		if c.Unlock then check("héros débloqué existe", Lore.Hero(c.Unlock) ~= nil); unlocks[c.Unlock] = true end
+	end
+	for _, h in ipairs(Lore.Heroes) do
+		check("couleur héros " .. h.Key, #h.Color == 6 and tonumber(h.Color, 16) ~= nil)
+	end
+	check("kael et mira libres", Lore.IsHeroUnlocked("kael", {}) and Lore.IsHeroUnlocked("mira", {}))
+	check("orin verrouillé", not Lore.IsHeroUnlocked("orin", {}))
+	check("orin après c2", Lore.IsHeroUnlocked("orin", { c2 = true }))
+	check("héros inconnu refusé", not Lore.IsHeroUnlocked("nope", {}))
+	eq("progression plafonnée", Lore.Progress(Lore.Chapter("c2"), { Kills = 99 }), 10)
+	eq("progression partielle", Lore.Progress(Lore.Chapter("c2"), { Kills = 4 }), 4)
+	eq("stat absente", Lore.Progress(Lore.Chapter("c3"), {}), 0)
 end
 
 section("BotLogic")

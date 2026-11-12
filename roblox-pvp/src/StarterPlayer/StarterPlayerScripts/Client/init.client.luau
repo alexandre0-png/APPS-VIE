@@ -54,8 +54,14 @@ Remotes.Match.OnClientEvent:Connect(HUD.OnMatch)
 Remotes.Hit.OnClientEvent:Connect(Effects.OnHit)
 Remotes.Fx.OnClientEvent:Connect(Effects.OnFx)
 
+-- Prologue de l'histoire à la première connexion de la session.
+task.delay(1.5, function()
+	local Lore = require(Shared.Lore)
+	HUD.Banner(Lore.Intro.Title, Lore.Intro.Text, UI.Colors.Gold, 5)
+end)
+
 -- Astuces d'accueil (une fois par session) adaptées à l'appareil.
-task.delay(4, function()
+task.delay(8, function()
 	local UIS = game:GetService("UserInputService")
 	local touch = UIS.TouchEnabled and not UIS.KeyboardEnabled
 	local tips = touch
