@@ -92,16 +92,13 @@ local function sortedAnimals(data)
 	for key, entry in pairs(data.animals) do
 		local def, variant = Zoo.parseKey(key)
 		if def then
-			table.insert(
-				list,
-				{
-					key = key,
-					def = def,
-					variant = variant,
-					level = entry.level or 1,
-					income = Zoo.animalIncome(def, variant, entry.level or 1),
-				}
-			)
+			table.insert(list, {
+				key = key,
+				def = def,
+				variant = variant,
+				level = entry.level or 1,
+				income = Zoo.animalIncome(def, variant, entry.level or 1),
+			})
 		end
 	end
 	table.sort(list, function(a, b)

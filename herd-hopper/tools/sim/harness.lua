@@ -203,6 +203,7 @@ function M.PivotTo(self, c)
 end
 function M.SetNetworkOwner() end
 function M.Play() end
+function M.ScaleTo() end
 function M.Emit() end
 function M.GetServerTimeNow() return vt end
 function M.GetPlayers(self) return M.__players end
@@ -289,7 +290,7 @@ local TweenService = { Create = function() return { Play = function() end } end 
 local closeHandlers = {}
 local purchasesLog = {}
 local MarketplaceService = new("MarketplaceService")
-function MarketplaceService.UserOwnsGamePassAsync(self, uid, id) return id == 112 end
+function MarketplaceService.UserOwnsGamePassAsync(self, uid, id) return id == 114 end
 function MarketplaceService.GetProductInfo(self, id) return { PriceInRobux = 99 } end
 function MarketplaceService.PromptGamePassPurchase(self, p, id) purchasesLog[#purchasesLog + 1] = "pass:" .. id end
 function MarketplaceService.PromptProductPurchase(self, p, id) purchasesLog[#purchasesLog + 1] = "product:" .. id end
@@ -374,21 +375,72 @@ local function physics(dt)
 end
 
 -- ---------------------------------------------------------------- cerveau des robots
+local function fire(remote, ...)
+	local sig = remote._sig.OnServerEvent
+	for _, h in ipairs(sig and sig.handlers or {}) do h(...) end
+end
+
 local function bot_think(state)
-	if SCENARIO == "C" then return end
+	if SCENARIO == "C" then
+		-- joueurs passifs : ils se déclarent prêts mais ne font rien en course
+		for _, p in ipairs(M.__players) do
+			local bot = bots[p]
+			if bot.status == "Lobby" and state.Phase == "Intermission" and not bot.readySent then
+				fire(require(M.__nodes("shared/Remotes")).Ready, p, "savane", true)
+				bot.readySent = state.Ready[p] == true
+			elseif state.Phase == "Results" then
+				bot.readySent = false
+			end
+		end
+		return
+	end
+	local Remotes = require(M.__nodes("shared/Remotes"))
 	for _, p in ipairs(M.__players) do
 		local bot = bots[p]
 		local char = p._p.Character
 		local hrp = char and M.FindFirstChild(char, "HumanoidRootPart")
 		local run = state.Participants[p]
+		-- partir en expédition dès l'attente
+		if bot.status == "Lobby" and state.Phase == "Intermission" and not bot.readySent then
+			fire(Remotes.Ready, p, ZONE_PICK or "savane", true)
+			bot.readySent = state.Ready[p] == true
+		elseif state.Phase == "Results" then
+			bot.readySent = false
+		end
+		if SCENARIO == "D" and bot.style == 2 and run and state.Phase == "Running" and not bot.bossForced and bot.status == "Riding" then
+			for _, cr in pairs(state.Creatures) do
+				if cr.boss and not cr.rider then
+					bot.bossForced = true
+					print(("(test) %s est placé sur le boss %s"):format(p._p.Name, cr.def.name))
+					require(M.__nodes("server/Modules/RideService")).Mount(p, run, cr)
+					bot.status = "Riding"
+					break
+				end
+			end
+		end
 		if hrp and run and state.Phase == "Running" then
-			local Remotes = require(M.__nodes("shared/Remotes"))
 			if bot.status == "Riding" then
-				if not bot.rideStart or bot.rideStart.creature ~= run.creature then bot.rideStart = { creature = run.creature, t = vt, wait = ({ 1.2, 3, 7 })[bot.style + 1] + math.random() } end
-				if vt - bot.rideStart.t > bot.rideStart.wait then
-					for _, h in ipairs(Remotes.Launch._sig.OnServerEvent and Remotes.Launch._sig.OnServerEvent.handlers or {}) do h(p) end
+				local c = run.creature
+				if not bot.rideStart or bot.rideStart.creature ~= c then bot.rideStart = { creature = c, t = vt, wait = ({ 1.2, 3, 7 })[bot.style + 1] + math.random() } end
+				if SCENARIO == "D" and c and c.boss and (not bot.dbg or vt - bot.dbg > 1) then bot.dbg = vt print(string.format("  boss#%d t=%.1f progress=%.1f tamed=%s mountT=%.1f canCollect=%s", c.id, vt, c.progress[p] or 0, tostring(c.tamed), run.mountT, tostring(p._attrs.CanCollect))) end
+				if p._attrs.CanCollect then
+					fire(Remotes.Collect, p)
+				elseif c and c.hearted and not c.tamed and not c.boss and vt - bot.rideStart.t < 8 and bot.style ~= 0 then
+					-- attend de gagner la confiance de l'animal à cœur
+				elseif c and c.boss and vt - bot.rideStart.t < 40 then
+					-- le boss désarçonne : le robot le relasse quand il peut (voir plus bas)
+					if vt - bot.rideStart.t > 3.4 then fire(Remotes.Launch, p) end
+				elseif vt - bot.rideStart.t > bot.rideStart.wait then
+					fire(Remotes.Launch, p)
 				elseif math.random() < 0.05 then
-					for _, h in ipairs(Remotes.Steer._sig.OnServerEvent and Remotes.Steer._sig.OnServerEvent.handlers or {}) do h(p, math.random() * 2 - 1) end
+					fire(Remotes.Steer, p, math.random() * 2 - 1)
+				end
+				-- lasso de capture sur un animal à cœur proche
+				if math.random() < 0.02 and run.lasso > 0 then
+					local pos = hrp._p.CFrame.p
+					for id, cr in pairs(state.Creatures) do
+						if cr.hearted and not cr.rider and not cr.boss and (cr.root._p.CFrame.p - pos).Magnitude < 60 then fire(Remotes.Lasso, p, id) break end
+					end
 				end
 			elseif bot.status == "Air" or bot.status == "Down" then
 				local pos = hrp._p.CFrame.p
@@ -397,13 +449,25 @@ local function bot_think(state)
 					if not c.rider then
 						local d = c.root._p.CFrame.p + Vector3.new(0, 3, 0) - pos
 						if d.Magnitude <= 58 and d.Z >= (bot.status == "Air" and 5 or -25) then
-							local s = d.Magnitude - 0.3 * math.max(d.Z, 0)
-							if s < bs then best, bs = id, s end
+							local sc = d.Magnitude - 0.3 * math.max(d.Z, 0) - (c.boss and (SCENARIO == "D" and bot.style == 2 and 1000 or 40) or 0) - (c.hearted and 10 or 0)
+							if sc < bs then best, bs = id, sc end
 						end
 					end
 				end
-				if best and bot.status ~= "Hooking" then
-					for _, h in ipairs(Remotes.Hook._sig.OnServerEvent and Remotes.Hook._sig.OnServerEvent.handlers or {}) do h(p, best) end
+				local waitBoss = false
+				if SCENARIO == "D" and bot.style == 2 then
+					for _, cc in pairs(state.Creatures) do if cc.boss and not cc.rider and (cc.root._p.CFrame.p - pos).Magnitude < 90 and not (best and state.Creatures[best] == cc) then waitBoss = true end end
+				end
+				if best and not waitBoss then
+					if SCENARIO == "D" and bot.style == 2 and (not bot.dbg2 or vt - bot.dbg2 > 0.25) then bot.dbg2 = vt local cc = state.Creatures[best] print(string.format("  hook t=%.2f cible=#%d boss=%s st=%s dist=%.0f", vt, best, tostring(cc.boss), bot.status, (cc.root._p.CFrame.p - hrp._p.CFrame.p).Magnitude)) end
+					fire(Remotes.Hook, p, best)
+				end
+			elseif bot.status == "Dead" then
+				-- un joueur sur deux « achète Continuer »
+				if bot.style == 1 and not bot.revived and p._attrs.ReviveLeft and p._attrs.ReviveLeft > 0 then
+					bot.revived = true
+					local MS = services.MarketplaceService
+					MS._p.ProcessReceipt({ PlayerId = p._p.UserId, PurchaseId = "rev-" .. vt, ProductId = 217 })
 				end
 			end
 		end
@@ -511,21 +575,29 @@ local function main()
 	if SCENARIO == "B" then
 		Config.Track.FinishZ = 700
 		Config.Round.Duration = 70
-		Config.Wall.Speed0 = 4
-		Config.Wall.Accel = 0.05
 		Config.Round.Intermission = 4
 	end
 	if SCENARIO == "C" then
-		-- joueurs passifs + mur rapide : teste l'élimination, la sortie d'un joueur en pleine course, la fin anticipée
-		Config.Wall.Speed0 = 45
-		Config.Wall.Accel = 0
-		Config.Wall.MaxSpeed = 45
+		-- joueurs passifs : désarçonnés puis tombés dans le sol mortel ; teste vies, mort, sortie d'un joueur, fin anticipée
 		Config.Round.Intermission = 4
+	end
+	if SCENARIO == "D" then
+		-- boss très tôt : teste son apparition, le désarçonnement répété, la progression de confiance, la capture
+		Config.Zones[1].to = 400
+		Config.Zones[2].from = 400
+		Config.Zones[2].start = 400
+		Config.Zones[2].to = 900
+		Config.Zones[3].from = 900
+		Config.Zones[3].start = 900
+		Config.Round.Intermission = 4
+		Config.Round.Duration = 120
+		Config.Run.BossBuckAfter = 100
+		for _, id in ipairs({ "elephant", "croc_king", "sphinx", "dragon" }) do require(M.__nodes("shared/Species")).ById[id].bossRide = 3 end
 	end
 	if SCENARIO == "A" then
 		local m = Config.Monetization
-		m.GamePasses[1].id = 111 m.GamePasses[2].id = 112 m.GamePasses[3].id = 113
-		m.Products[1].id = 211 m.Products[2].id = 212 m.Products[3].id = 213
+		for i, pass in ipairs(m.GamePasses) do pass.id = 110 + i end
+		for i, product in ipairs(m.Products) do product.id = 210 + i end
 	end
 	-- 3 joueurs présents pendant la construction de la carte
 	local pa, pb, pc = makePlayer("Alice"), makePlayer("Bob"), makePlayer("Chloe")
@@ -538,7 +610,7 @@ local function main()
 	local State = require(M.__nodes("server/Modules/State"))
 	local maxCreatures, rounds, seenPhases = 0, 0, {}
 	local lastPhase
-	local simEnd = SCENARIO == "B" and 260 or (SCENARIO == "C" and 120 or 330)
+	local simEnd = SCENARIO == "B" and 260 or (SCENARIO == "C" and 120 or (SCENARIO == "D" and 200 or 330))
 	local removed = false
 	local dt = 1 / 30
 	local checkedShop = false
@@ -580,7 +652,7 @@ local function main()
 			print(("BOUTIQUE  amélioration:%s chapeau:%s corde:%s inconnu:%s type-invalide:%s | équiper:%s corde-non-possédée:%s"):format(tostring(r1.ok), tostring(r2.ok), tostring(r3.ok), tostring(r4.ok), tostring(r5.ok), tostring(eq.ok), tostring(eq2.ok)))
 			print(("CADEAU     1er:%s (%s) 2e:%s (%s)"):format(tostring(daily.ok), daily.msg, tostring(daily2.ok), daily2.msg))
 			print(("PIÈCES     après achats = %d (attendu 2000-150-800-300+bonus = %d)"):format(d.coins, 2000 - 150 - 800 - 300 + 50))
-			print("HookRange joueur A =", pa._attrs.HookRange, "(attendu 71 : 58+5 amélioration +8 pass corde possédé)")
+			print("HookRange joueur A =", pa._attrs.HookRange, "(attendu 63 : 58 + 5 niveau d'équipement) | LassoRange =", pa._attrs.LassoRange, "(attendu 85 : pass lasso possédé)")
 			-- sauvegarde : 2 échecs puis succès -> les réessais doivent aboutir
 			FAIL_SAVES = 2
 			d.coins = d.coins + 1
@@ -599,12 +671,44 @@ local function main()
 			local r2 = MS._p.ProcessReceipt(receipt)
 			local r3 = MS._p.ProcessReceipt({ PlayerId = pa._p.UserId, PurchaseId = "abc-2", ProductId = 999 })
 			local r4 = MS._p.ProcessReceipt({ PlayerId = 424242, PurchaseId = "abc-3", ProductId = 212 })
-			print(("ROBUX      reçu valide=%s  même reçu rejoué=%s (pièces +%d, attendu +500)  produit inconnu=%s  joueur absent=%s"):format(tostring(r1), tostring(r2), d.coins - before, tostring(r3), tostring(r4)))
+			print(("ROBUX      reçu valide=%s  même reçu rejoué=%s (or +%d, attendu +2000)  produit inconnu=%s  joueur absent=%s"):format(tostring(r1), tostring(r2), d.coins - before, tostring(r3), tostring(r4)))
 			vt = vt + 2
 			local Remotes2 = require(M.__nodes("shared/Remotes"))
-			for _, h in ipairs(Remotes2.Prompt._sig.OnServerEvent.handlers) do h(pa, "product", "coins_m") h(pa, "pass", "double") h(pa, "pass", "rope") h(pa, "hack", "x") end
-			print("ROBUX      invites d'achat envoyées:", table.concat(purchasesLog, ","), "(le pass « rope » déjà possédé n'est pas reproposé)")
-			print("PASS       x2 pièces actif:", pa._attrs.Pass_double, "| rope:", pa._attrs.Pass_rope)
+			for _, args in ipairs({ { "product", "gold_m" }, { "pass", "gold" }, { "pass", "lasso" }, { "hack", "x" } }) do
+				vt = vt + 1.1
+				for _, h in ipairs(Remotes2.Prompt._sig.OnServerEvent.handlers) do h(pa, args[1], args[2]) end
+			end
+			print("ROBUX      invites d'achat envoyées:", table.concat(purchasesLog, ","), "(attendu product:212,pass:112 ; le pass « lasso » déjà possédé n'est pas reproposé)")
+			print("PASS       lasso possédé:", pa._attrs.Pass_lasso, "| or x2:", pa._attrs.Pass_gold)
+			-- zoo : caisse, amélioration d'animal, amélioration du zoo, histoire
+			local Zoo = require(M.__nodes("shared/Zoo"))
+			local Progress = require(M.__nodes("server/Modules/ProgressService"))
+			local za = Remotes2.ZooAction._p.OnServerInvoke
+			d.animals["boar_1"] = d.animals["boar_1"] or { level = 1, copies = 1 }
+			d.bones = 50
+			d.coins = 5000
+			d.lastCollect = os.time() - 600
+			d.pot = 0
+			local pending = Progress.PendingGold(pa)
+			vt = vt + 1
+			local c1 = za(pa, "collect")
+			vt = vt + 1
+			local c2 = za(pa, "collect")
+			vt = vt + 1
+			local u1 = za(pa, "animal", "boar_1")
+			vt = vt + 1
+			local u2 = za(pa, "zoo", "slots")
+			vt = vt + 1
+			local u3 = za(pa, "zoo", "inconnu")
+			vt = vt + 1
+			local u4 = za(pa, "animal", "dragon_9")
+			vt = vt + 1
+			local u5 = za(pa, "zone", "volcan")
+			print(("ZOO        caisse en attente=%d  collecte=%s (%s)  2e collecte=%s  animal niv+1=%s  zoo enclos=%s  amélioration inconnue=%s  animal inconnu=%s  zone verrouillée=%s"):format(pending, tostring(c1.ok), c1.msg, tostring(c2.ok), tostring(u1.ok), tostring(u2.ok), tostring(u3.ok), tostring(u4.ok), tostring(u5.ok)))
+			print(("ZOO        animal boar_1 niveau=%s os=%d enclos=%d"):format(tostring(d.animals["boar_1"].level), d.bones, Zoo.slots(d.zooUp.slots, false)))
+			vt = vt + 1
+			local st = za(pa, "story")
+			print("HISTOIRE   chapitre 1 réclamé:", tostring(st.ok), st.msg, "| index:", d.story.index)
 		end
 	end
 
@@ -623,13 +727,13 @@ local function main()
 	if remoteLog.__results then
 		print("RÉSULTATS dernière manche :")
 		for _, e in ipairs(remoteLog.__results.list) do
-			print(("  #%d %s score=%d pièces=%d lassos=%d dressés=%d dist=%d arrivée=%s"):format(e.rank, e.n, e.score, e.coins, e.hooks, e.tames, e.dist, tostring(e.finish)))
+			print(("  #%d %s score=%d or=%d os=%d captures=%d (%s) lassos=%d dist=%d zone=%d arrivée=%s"):format(e.rank, e.n, e.score, e.gold, e.bones, e.captures, table.concat(e.names, ","), e.hooks, e.dist, e.zone, tostring(e.finish)))
 		end
 	end
 	local Data = require(M.__nodes("server/Modules/DataService"))
 	for _, p in ipairs({ pa, pb, pc }) do
 		local d = Data.Get(p)
-		if d then print(("PROFIL %s : pièces=%d manches=%d lassos=%d dressés=%d meilleur=%d"):format(p._p.Name, d.coins, d.rounds, d.hooks, d.tamedTotal, d.bestScore)) end
+		if d then print(("PROFIL %s : boss=%s or=%d os=%d manches=%d lassos=%d captures=%d animaux=%d meilleur=%d zoneMax=%d"):format(p._p.Name, (function() local t = {} for k in pairs(d.bossCaptured) do t[#t + 1] = k end return table.concat(t, "+") end)(), d.coins, d.bones, d.rounds, d.hooks, d.captures, require(M.__nodes("shared/Zoo")).countOwned(d.animals), d.bestScore, d.bestZone)) end
 	end
 	-- sauvegarde à l'arrêt
 	for _, fn in ipairs(closeHandlers) do task.spawn(fn) end

@@ -229,7 +229,7 @@ local function launch(player, run, velocity)
 	end
 	-- la bête qu'on vient de quitter ne peut pas être relassoée aussitôt (sinon le bond ne sert à rien)
 	run.lastCreature = run.creature
-	run.lastCreatureUntil = os.clock() + 1.0
+	run.lastCreatureUntil = os.clock() + (run.creature and run.creature.boss and 0.4 or 1.0)
 	RideService.Detach(run)
 	hum.Sit = false
 	hrp.Anchored = false
@@ -818,9 +818,15 @@ local function stepRiding(player, run, hrp, dt, now)
 			if c.tamed then
 				loseHeart(c)
 			end
-			local velocity = Vector3.new(c.vx, Config.Ride.LaunchUp * 1.12, c.speed * 1.2 + Config.Ride.LaunchBoost)
+			-- un boss te projette en arrière : il file devant et tu peux le relasser pour continuer
+			local forward = c.boss and c.speed * 0.55 or c.speed * 1.2 + Config.Ride.LaunchBoost
+			local velocity = Vector3.new(c.vx, Config.Ride.LaunchUp * 1.12, forward)
 			if launch(player, run, velocity) then
-				feedback(player, "buck", "DÉSARÇONNÉ !", "Bond bonus : rattrape un autre animal !")
+				if c.boss then
+					feedback(player, "buck", "IL T'A PROJETÉ !", "Relance-toi sur le boss : ta confiance est gardée.")
+				else
+					feedback(player, "buck", "DÉSARÇONNÉ !", "Bond bonus : rattrape un autre animal !")
+				end
 			end
 		end
 	end

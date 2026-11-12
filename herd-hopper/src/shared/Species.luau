@@ -77,7 +77,7 @@ do
 	addEyes(parts, 0.9, -7.35, 1.1)
 	add({
 		id = "boar",
-		name = "Sanglier",
+		name = "Phacochère",
 		desc = "Petit et nerveux. Il zigzague sans cesse.",
 		speed = 38,
 		value = 1,
@@ -123,7 +123,7 @@ do
 		value = 1.2,
 		weight = 16,
 		tameTime = 5,
-		buckAfter = 8,
+		buckAfter = 10,
 		trait = "sprint",
 		weaveAmp = 2,
 		weaveFreq = 0.6,
@@ -198,7 +198,7 @@ do
 	addEyes(parts, 1.4, -5.65, 0.8)
 	add({
 		id = "ram",
-		name = "Bélier",
+		name = "Bouquetin",
 		desc = "Il bondit à chaque foulée : spectaculaire et rapide.",
 		speed = 42,
 		value = 1.3,
@@ -485,7 +485,7 @@ do
 		value = 1.9,
 		weight = 9,
 		tameTime = 6,
-		buckAfter = 9,
+		buckAfter = 10,
 		trait = "weave",
 		weaveAmp = 10,
 		weaveFreq = 1.1,
@@ -523,7 +523,7 @@ do
 		value = 1.3,
 		weight = 20,
 		tameTime = 5,
-		buckAfter = 8,
+		buckAfter = 10,
 		trait = "sprint",
 		weaveAmp = 2,
 		weaveFreq = 0.6,
@@ -601,7 +601,7 @@ do
 		value = 2.2,
 		weight = 14,
 		tameTime = 6,
-		buckAfter = 9,
+		buckAfter = 10,
 		trait = "weave",
 		weaveAmp = 8,
 		weaveFreq = 1.0,
