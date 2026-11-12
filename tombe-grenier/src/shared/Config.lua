@@ -153,6 +153,9 @@ Config.Design = {
 Config.Visual = {
 	Dust = true,             -- poussière en suspension dans les pièces (Atmosphere.lua)
 	DustRate = 3,            -- particules par seconde et par pièce : faible, pour rester léger
+	Vignette = true,         -- bords de l'écran assombris, d'autant plus que la sanité baisse (client)
+	VignetteMax = 0.6,       -- opacité maximale de la vignette (0 à 1)
+	CandleFlicker = true,    -- la lueur des bougies vacille (Quests.lua)
 }
 
 Config.Ambience = {

@@ -82,6 +82,20 @@ local function lightCandle(position)
 	light.Color = Color3.fromRGB(255, 180, 100)
 	light.Parent = candle
 	Debris:AddItem(candle, 60)
+	-- Vacillement de la flamme, pendant la minute où la bougie existe
+	if Config.Visual.CandleFlicker then
+		task.spawn(function()
+			pcall(function()
+				for _ = 1, 60 do
+					if not candle.Parent then
+						return
+					end
+					light.Brightness = 0.6 + math.random() * 0.6
+					task.wait(0.15 + math.random() * 0.15)
+				end
+			end)
+		end)
+	end
 end
 
 -- Le gramophone joue une douzaine de secondes : le son porte jusqu'au monstre

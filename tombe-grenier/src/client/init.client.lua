@@ -122,6 +122,47 @@ end
 player:GetAttributeChangedSignal("Sanity"):Connect(refreshSanity)
 refreshSanity()
 
+-- Vignette : les bords de l'écran s'assombrissent quand la sanité baisse (peur, sans effet de sursaut).
+-- Quatre bandes dégradées, sans image. Désactivable : Config.Visual.Vignette.
+local vignetteEdges = {}
+pcall(function()
+	if not Config.Visual.Vignette then
+		return
+	end
+	local function edge(position, size, rotation)
+		local f = Instance.new("Frame")
+		f.Name = "Vignette"
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = Color3.new(0, 0, 0)
+		f.Position = position
+		f.Size = size
+		f.BackgroundTransparency = 1
+		f.Parent = gui
+		local g = Instance.new("UIGradient")
+		g.Rotation = rotation
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		g.Parent = f
+		table.insert(vignetteEdges, f)
+	end
+	edge(UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0.25, 0), 90)
+	edge(UDim2.new(0, 0, 0.75, 0), UDim2.new(1, 0, 0.25, 0), -90)
+	edge(UDim2.new(0, 0, 0, 0), UDim2.new(0.15, 0, 1, 0), 0)
+	edge(UDim2.new(0.85, 0, 0, 0), UDim2.new(0.15, 0, 1, 0), 180)
+end)
+
+local function refreshVignette()
+	local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
+	local fear = 1 - sanity / Config.Player.SanityMax
+	for _, f in ipairs(vignetteEdges) do
+		f.BackgroundTransparency = 1 - math.clamp(fear * Config.Visual.VignetteMax * 1.6, 0, Config.Visual.VignetteMax)
+	end
+end
+player:GetAttributeChangedSignal("Sanity"):Connect(refreshVignette)
+refreshVignette()
+
 local function flash(color, alpha, duration)
 	local frame = fullFrame(color, 1 - alpha, 30)
 	TweenService:Create(frame, TweenInfo.new(duration), { BackgroundTransparency = 1 }):Play()

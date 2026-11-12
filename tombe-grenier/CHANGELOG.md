@@ -2,6 +2,11 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Effets de peur (Config.Visual : Vignette, VignetteMax, CandleFlicker)
+- Vignette : bords de l'écran assombris selon la sanité (client, sans image).
+- Bougies : la lueur vacille pendant une minute (pcall).
+- Non fait : déformation de l'image (demanderait un shader ou un asset, non fourni).
+
 ### Fin 4 « le piège » (choix du joueur)
 - Au cercueil, saisir la date du cahier (fausse, barrée) scelle l'enfant : fin 4. Le total des fins passe à 4. La fin vérité reste la date de la plaque.
 
