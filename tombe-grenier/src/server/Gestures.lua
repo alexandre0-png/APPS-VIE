@@ -56,6 +56,22 @@ function Gestures.riseAndRemove(part)
 	end)
 end
 
+-- Tiroir : il coulisse hors du meuble, puis rentre. La position d'origine est mémorisée.
+local drawerOrigin = {}
+
+function Gestures.pullDrawer(part, open)
+	if not enabled("Drawer") or not part or not part:IsA("BasePart") then
+		return
+	end
+	pcall(function()
+		drawerOrigin[part] = drawerOrigin[part] or part.Position
+		local target = drawerOrigin[part] + (open and Vector3.new(0, 0, 1.0) or Vector3.zero)
+		TweenService:Create(part, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = target,
+		}):Play()
+	end)
+end
+
 -- Lampes de plafond : quelques-unes se balancent doucement, en boucle, pendant la partie
 function Gestures.startLampSway()
 	if not enabled("LampSway") then

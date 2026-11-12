@@ -28,6 +28,8 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Animations de suite : tiroir de la cuisine (coulisse hors du meuble, Config.Animations.Drawer) ; geste de lecture (la feuille monte à hauteur des yeux à chaque document, Config.Animations.DocumentRead) ; réaction à l'apparition du monstre (secousse et sursaut des bords, pendant et après la cinématique, Config.Animations.MonsterReaction).
+- Cinématiques réduites aux moments clés : intro courte (arrivée de nuit), première apparition (avec la caméra qui se tourne), descente, fin 4, fin vérité. Le réveil dans le grenier n'est plus une cinématique (le battement de paupières le remplace).
 - Cinématiques (Config.Cinematics) : arrivée devant la maison de nuit, enchaînée sur le réveil dans le grenier (33 à 34 s chacune) ; réveil plus long avec gros plans (plaque, malle, trappe, miroir) ; descente du monstre au sous-sol (30 s) ; fin 4 « le piège » (32 s) ; fin « vérité » (33 s).
   - Chacune se passe par Espace, Échap ou le bouton « Passer ». Pendant une cinématique, le personnage est immobilisé côté client (PlatformStand).
   - Logique de durée et de passage : src/shared/CinematicTimeline.lua, testée par tools/lua/test_cinematic.py (durées de 30 à 60 s lues dans Cinematic.lua).

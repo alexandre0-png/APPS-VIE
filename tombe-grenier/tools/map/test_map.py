@@ -542,6 +542,15 @@ class TestProgressionV2(unittest.TestCase):
         self.assertNotIn("hall", gm.LOCKED_ROOM_IDS)
 
 
+class TestDrawer(unittest.TestCase):
+    def test_one_drawer_in_kitchen(self):
+        props = gm.build_props()[0]
+        drawers = [p for p in props if p.get("tag") == "Tiroir"]
+        self.assertEqual(len(drawers), 1)
+        x, y, z = drawers[0]["pos"]
+        self.assertEqual(gm.room_at("ground", x, z), "cuis")
+
+
 class TestExtraPuzzle(unittest.TestCase):
     """Énigme optionnelle : étiquette et compteur dans la cuisine, pièce non verrouillée."""
 

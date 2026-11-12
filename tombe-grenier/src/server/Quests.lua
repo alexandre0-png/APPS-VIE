@@ -687,6 +687,25 @@ local function wire()
 		end
 	end
 
+	-- Tiroir de la cuisine : ouvrir ou refermer (le premier ouvrage donne une petite note)
+	for _, part in ipairs(CollectionService:GetTagged("Tiroir")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptTiroir", action = "Ouvrir le tiroir", object = "Tiroir", hold = 0.3, distance = 5 }, function(player)
+				state.drawerOpen = not state.drawerOpen
+				-- L'invite change de libellé : même invite, texte mis à jour
+				local invite = part:FindFirstChild("QuestPromptTiroir")
+				if invite then
+					invite.ActionText = state.drawerOpen and "Refermer le tiroir" or "Ouvrir le tiroir"
+				end
+				Gestures.pullDrawer(part, state.drawerOpen)
+				if state.drawerOpen and not state.drawerSeen then
+					state.drawerSeen = true
+					say(player, "Des couverts, et un vieux carnet de recettes. Rien d'utile ici.")
+				end
+			end)
+		end
+	end
+
 	-- Horloge du hall (progression V2) : saisie de la date de la plaque
 	for _, part in ipairs(CollectionService:GetTagged("Horloge")) do
 		if part:IsA("BasePart") then
@@ -1208,6 +1227,14 @@ function Quests.setup(seed)
 		end
 	end
 	chooseStatues(seed)
+	-- Tiroirs : refermés à chaque partie (position et libellé)
+	for _, part in ipairs(CollectionService:GetTagged("Tiroir")) do
+		Gestures.pullDrawer(part, false)
+		local invite = part:IsA("BasePart") and part:FindFirstChild("QuestPromptTiroir")
+		if invite then
+			invite.ActionText = "Ouvrir le tiroir"
+		end
+	end
 	extraCode = extraCodeFromSeed(seed)
 	resetMannequins()
 	melody = melodyFromSeed(seed)

@@ -748,6 +748,7 @@ def build_props():
     props.append(dict(tag="Horloge", name="horloge du hall", pos=(60, 4.5, 1.1), size=(1.0, 1.6, 0.3)))
     # Énigme optionnelle (cuisine) : une étiquette donne un code, le compteur du mur l'attend
     props.append(dict(tag="Interactable", kind="étiquette de la réserve", name="étiquette de la réserve", pos=(118.6, 3.2, 14), size=(0.2, 0.5, 0.6)))
+    props.append(dict(tag="Tiroir", name="tiroir de la cuisine", pos=(96, 2.8, 2.6), size=(1.4, 0.6, 0.5)))
     props.append(dict(tag="Compteur", name="compteur de la cuisine", pos=(118.6, 2.8, 30), size=(0.4, 1.0, 1.0)))
     props.append(dict(tag="IntroPhoto", name="photo de l'introduction", pos=(90, 30, 45), size=(1, 0.1, 1.4)))
 
