@@ -45,6 +45,7 @@ local DataService = require("./DataService")
 local RiddleLogic = require("./RiddleLogic")
 local AnimLogic = require("./AnimLogic")
 local CinematicLogic = require("./CinematicLogic")
+local TutorialLogic = require("./TutorialLogic")
 
 -- ------------------------------------------------------------ Util
 check(Util.formatNumber(0) == "0", "format 0")
@@ -353,7 +354,18 @@ for id in pairs(Config.Chests) do
 end
 check(CinematicLogic.totalDuration({ { Dur = 100 } }, 40) == 40, "durée plafonnée à MaxSeconds")
 
-local cin = CinematicLogic.new(CC)
+-- Réglages par défaut : seulement les moments clés
+check(CC.Flags.intro and CC.Flags.tutorial and CC.Flags.ending and CC.Flags.stageUp, "moments clés actifs par défaut")
+check(not CC.Flags.sauce and not CC.Flags.victory and not CC.Flags.Zone, "cinématiques secondaires désactivées par défaut")
+check(CC.StageUpFrom == #Config.Dino.Stages, "croissance : cinématique seulement pour le dernier stade")
+check(table.find(CC.Once, "tutorial") ~= nil, "tutoriel mémorisable")
+check(CinematicLogic.new(CC):canPlay("sauce", 0, {}) == false and CinematicLogic.new(CC):canPlay("victory", 0, {}) == false, "sauce et victoire désactivées")
+-- Pour tester la logique de toutes les séquences, on active tous les drapeaux sur une copie.
+local CCall = Util.deepCopy(CC)
+for k in pairs(CCall.Flags) do
+	CCall.Flags[k] = true
+end
+local cin = CinematicLogic.new(CCall)
 local okc2, dur = cin:start("intro", 0, {}, CC.Sequences.intro)
 check(okc2 == true and dur == 24, "démarrage de l'intro")
 check(cin:start("sauce", 1, {}, CC.Sequences.sauce) == false, "une seule cinématique à la fois")
@@ -366,14 +378,14 @@ check(cin:canPlay("intro", 40, { intro = true }) == false, "intro jouée une seu
 check(cin:canPlay("intro", 40, {}) == true, "intro rejouable si non vue")
 
 -- Reprise après « Passer »
-local c2 = CinematicLogic.new(CC)
+local c2 = CinematicLogic.new(CCall)
 check(c2:start("sauce", 0, {}, CC.Sequences.sauce) == true, "démarrage de la sauce")
 check(c2:skip() == true and c2.playing == nil, "Passer libère immédiatement")
 check(c2:skip() == false, "Passer sans lecture : sans effet")
 check(c2:start("stageUp", 1, {}, CC.Sequences.stageUp) == true, "une autre cinématique peut suivre un « Passer »")
 
 -- Repos de la victoire, réglages
-local c3 = CinematicLogic.new(CC)
+local c3 = CinematicLogic.new(CCall)
 check(c3:start("victory", 0, {}, CC.Sequences.victory) == true, "victoire")
 c3:finish()
 check(c3:canPlay("victory", 100, {}) == false, "victoire : repos")
@@ -383,7 +395,7 @@ check(CinematicLogic.new(off):canPlay("intro", 0, {}) == false, "cinématiques d
 local noFlag = { Enabled = true, MaxSeconds = 40, Flags = { intro = false, Zone = true }, Once = { "zone_chef" }, Cooldowns = {} }
 check(CinematicLogic.new(noFlag):canPlay("intro", 0, {}) == false, "cinématique désactivée individuellement")
 check(CinematicLogic.new(noFlag):canPlay("zone_chef", 0, {}) == true and CinematicLogic.new(noFlag):canPlay("zone_chef", 0, { zone_chef = true }) == false, "zone : drapeau commun et une seule fois")
-check(CinematicLogic.new(CC):start("intro", 0, {}, {}) == false, "séquence vide refusée")
+check(CinematicLogic.new(CCall):start("intro", 0, {}, {}) == false, "séquence vide refusée")
 
 -- Plans et caméra
 local seqI = CC.Sequences.intro
@@ -398,6 +410,23 @@ local pB, lB = CinematicLogic.camera(shotA, 1)
 check(near(pA[1], 0) and near(pB[1], 10) and near(pB[2], 20) and near(pB[3], 30) and near(lA[1], 1) and near(lB[3], 1), "interpolation caméra aux extrémités")
 local pM = CinematicLogic.camera(shotA, 0.5)
 check(near(pM[1], 5) and near(pM[2], 10), "interpolation douce symétrique au milieu")
+
+-- Tutoriel
+local tut = TutorialLogic.new()
+check(tut:update({ ammo = 6, totalFed = 0 }) == 1, "tutoriel : première observation sans changement d'étape")
+check(tut:update({ ammo = 6, totalFed = 0 }) == 1, "tutoriel : rien ne se passe, étape 1")
+check(tut:update({ ammo = 5, totalFed = 0 }) == 2, "tutoriel : lancer -> étape 2")
+check(tut:update({ ammo = 4, totalFed = 0 }) == 2, "tutoriel : lancer à côté ne valide pas l'étape 2")
+check(tut:update({ ammo = 3, totalFed = 1 }) == 3, "tutoriel : toucher la bouche -> étape 3")
+check(tut:update({ ammo = 2, totalFed = 1 }) == 3, "tutoriel : continuer à lancer ne termine pas")
+check(tut:update({ ammo = 6, totalFed = 1 }) == TutorialLogic.DONE and tut:isDone(), "tutoriel : recharge au stand -> terminé")
+check(tut:update({ ammo = 1, totalFed = 5 }) == TutorialLogic.DONE, "tutoriel terminé reste terminé")
+local tut2 = TutorialLogic.new()
+tut2:update({ ammo = 6, totalFed = 0 })
+tut2:skip()
+check(tut2:isDone(), "tutoriel : Passer termine immédiatement")
+local tut3 = TutorialLogic.new()
+check(tut3:update(nil) == 1 and tut3:update({ ammo = "x", totalFed = 0 }) == 1, "tutoriel : données invalides ignorées")
 
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then

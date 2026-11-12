@@ -242,7 +242,7 @@ function Cinematics.init()
 		end
 		local Economy = require(Shared:WaitForChild("Economy"))
 		local level = Economy.level(s.totalFed)
-		for id, def in pairs(Config.Chests) do
+		for id, def in pairs(Config.Cinematics.Flags.Zone and Config.Chests or {}) do
 			if level >= def.MinLevel and s.rebirths >= def.MinRebirths and not (s.seen and s.seen["zone_" .. id]) and not localSeen["zone_" .. id] then
 				pcall(function()
 					Cinematics.play("zone_" .. id, zoneSequence(def))
@@ -256,6 +256,9 @@ function Cinematics.init()
 		local stage = state:GetAttribute("Stage") or 1
 		if stage > lastStage then
 			lastStage = stage
+			if stage < Config.Cinematics.StageUpFrom then
+				return
+			end
 			pcall(function()
 				Cinematics.play("stageUp", dynamicSequence("stageUp", { story = Config.Story[stage] or "" }))
 			end)

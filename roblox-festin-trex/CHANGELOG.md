@@ -16,6 +16,7 @@
 - Animations (`AnimLogic`, `Config.Animations`) : chaque animation est désactivable et exécutée via `AnimLogic.run` (pcall) ;
   courbes, angle de visée et levée de pattes testés en logique pure (non exécutés ici, voir plus bas).
 
+- Décision (consigne : seulement des moments clés) : intro explicative + tutoriel `TutorialLogic` + stade Titan + fin ; sauce/victoire/zones désactivées par défaut.
 - Cinématiques (`CinematicLogic`, `Cinematics.luau`, `Config.Cinematics`) : 6 séquences (intro, sauce, victoire, stade, zone, fin), toujours
   skippables et non bloquantes ; état/durée/reprise après « Passer » testés en logique pure (non exécutés ici).
 

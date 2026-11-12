@@ -29,7 +29,7 @@ Rien n'est copié : concept, noms, carte et systèmes sont originaux.
 - Évolution (renaissance) : x1,5 / x2 / x2,5… permanent.
 - Histoire en 5 chapitres (un par stade du T-Rex) et 2 zones à débloquer (Cuisine du Chef niv. 10, Terrasse du Titan niv. 25 + évolution) avec coffre quotidien.
 - Les achats Robux restent un confort (x1,5 pièces, +1 emplacement, visée) : aucune zone ni progression gratuite n'est bloquée par un paiement.
-- Cinématiques skippables (20-30 s, `Config.Cinematics`) : intro (Rex se réveille), première marée de sauce, nouveau stade, victoire, zones débloquées, fin de l'histoire. Bouton « Passer », arrêt si le joueur bouge, pcall partout, mémorisation « vue » côté serveur.
+- Moments clés seulement (`Config.Cinematics`) : courte intro qui explique le contexte et le but (24 s), mini tutoriel interactif au premier lancement (lancer, viser, récolter), cinématique du passage au Titan Rex et de la fin de l'histoire. Tout est skippable (bouton « Passer », arrêt si le joueur bouge), en pcall, mémorisé côté serveur. Les séquences sauce/victoire/zones existent mais sont désactivées (le reste se joue en gameplay).
 - Animations (toutes activables dans `Config.Animations`, protégées par pcall) : T-Rex qui piétine/danse (festin, sauce, frénésie), tête tournée vers le lanceur, rebond des aliments, éclaboussures sur la vague, coffres qui s'ouvrent, œuf qui tremble, fenêtres qui glissent, salut de bienvenue.
 - Énigme du jour (QCM, 3 essais, réponses uniquement côté serveur) : 12 questions qui tournent, œuf + pièces à la clé.
 - 5 fourchettes d'or cachées sur la carte (+ bonus si toutes trouvées).

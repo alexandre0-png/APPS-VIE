@@ -16,7 +16,7 @@ Claude Code qui autorise `luau-lsp`, `luau`, `stylua`, `selene`, `rojo`, puis pr
 - Regarder les animations en jeu (T-Rex, rebonds, coffres, œuf, menus). Si l'une gêne ou ralentit un téléphone,
   mettre son interrupteur à `false` dans `Config.Animations` (ou `Enabled = false` pour tout couper).
 
-- Regarder les cinématiques (intro au premier lancement, sauce, nouveau stade, zones, fin) : vérifier que la caméra
+- Regarder l'intro, le mini tutoriel (premier lancement), la cinématique du Titan Rex et la fin : vérifier que la caméra
   cadre bien le T-Rex ; ajuster `Config.Cinematics.Sequences` (positions From/To/Look) ou couper avec `Enabled = false`.
 
 ## 3. Identifiants Roblox (pour la publication)

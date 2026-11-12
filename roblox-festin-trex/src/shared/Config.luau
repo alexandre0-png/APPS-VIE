@@ -208,15 +208,19 @@ Config.Cinematics = {
 	MaxSeconds = 40,
 	SkipOnMove = true, -- bouger le personnage coupe la cinématique (après 1,5 s)
 	SkipGrace = 1.5,
-	Flags = { intro = true, sauce = true, victory = true, stageUp = true, ending = true, Zone = true },
-	Once = { "intro", "sauce", "ending", "zone_chef", "zone_titan" },
+	-- Seulement des moments clés : intro, tutoriel, passage au Titan Rex, fin. Les autres séquences existent mais
+	-- restent désactivées (mettre true pour les activer) ; le reste se joue en gameplay.
+	Flags = { intro = true, tutorial = true, ending = true, stageUp = true, sauce = false, victory = false, Zone = false },
+	StageUpFrom = 5, -- la cinématique de croissance ne joue que pour le stade Titan Rex
+	TutorialDelay = 26, -- délai avant l'encart du tutoriel (après l'intro de 24 s)
+	Once = { "intro", "tutorial", "sauce", "ending", "zone_chef", "zone_titan" },
 	Cooldowns = { victory = 600 },
 	Sequences = {
 		intro = {
-			{ Dur = 6, From = { 0, 18, 110 }, To = { 0, 14, 72 }, Look = { 0, 12, 0 }, Fov = 60, Text = "Zzz… Rex fait la sieste sur sa grosse assiette. 💤" },
-			{ Dur = 6, From = { 25, 24, 46 }, To = { 12, 25, 36 }, Look = { 0, 21, 14 }, Fov = 55, Text = "Gloups ! Son ventre gargouille… 🍽️" },
-			{ Dur = 6, From = { 6, 22, 52 }, To = { 4, 22, 42 }, Look = { 0, 21, 17 }, Fov = 50, Text = "« J'AI FAIM ! » 🦖💥", Sfx = "Roar" },
-			{ Dur = 6, From = { -45, 12, 85 }, To = { 45, 12, 85 }, Look = { 0, 8, 50 }, Fov = 65, Text = "Prends un plat au stand, puis lance-le dans sa bouche !" },
+			{ Dur = 6, From = { 0, 18, 110 }, To = { 0, 14, 72 }, Look = { 0, 12, 0 }, Fov = 60, Text = "Voici Rex, le T-Rex gourmand de l'île Miam. Il fait la sieste sur sa grosse assiette. 💤" },
+			{ Dur = 6, From = { 25, 24, 46 }, To = { 12, 25, 36 }, Look = { 0, 21, 14 }, Fov = 55, Text = "Aujourd'hui, c'est FESTIN : tout le monde se réunit pour le rassasier ! 🍽️" },
+			{ Dur = 6, From = { 6, 22, 52 }, To = { 4, 22, 42 }, Look = { 0, 21, 17 }, Fov = 50, Text = "Le but : lancer de la nourriture dans sa bouche pour remplir sa jauge ! 🦖💥", Sfx = "Roar" },
+			{ Dur = 6, From = { -45, 12, 85 }, To = { 45, 12, 85 }, Look = { 0, 8, 50 }, Fov = 65, Text = "Gagne des pièces, des œufs et des compagnons. Bon appétit ! 🪙🥚" },
 		},
 		sauce = {
 			{ Dur = 6, From = { -60, 25, 60 }, To = { -30, 25, 50 }, Look = { 0, 20, 10 }, Fov = 55, Text = "Rex a senti quelque chose…" },
