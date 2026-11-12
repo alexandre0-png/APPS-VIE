@@ -11,6 +11,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local QuestLogic = require(Shared:WaitForChild("QuestLogic"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local RiddleLogic = require(Shared:WaitForChild("RiddleLogic"))
 
 local DataService = require(script.Parent.DataService)
 
@@ -147,6 +148,11 @@ end
 
 -- ---------------------------------------------------------------- état public
 
+local function riddleState(data: any): any
+	local index, solved, triesLeft = RiddleLogic.status(data, Util.dayIndex(os.time()))
+	return { index = index, solved = solved, triesLeft = triesLeft }
+end
+
 local function snapshot(player: Player): any
 	local data, s = profiles[player], sessions[player]
 	local stats = Economy.stats(data)
@@ -167,6 +173,7 @@ local function snapshot(player: Player): any
 		pets = data.pets,
 		equipped = data.equipped,
 		eggs = data.eggs,
+		riddle = riddleState(data),
 		passes = data.passes,
 		secrets = Util.count(data.secrets),
 		quests = data.quests.list,

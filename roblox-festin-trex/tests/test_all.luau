@@ -42,6 +42,7 @@ local QuestLogic = require("./QuestLogic")
 local DinoCore = require("./DinoCore")
 local Ballistics = require("./Ballistics")
 local DataService = require("./DataService")
+local RiddleLogic = require("./RiddleLogic")
 
 -- ------------------------------------------------------------ Util
 check(Util.formatNumber(0) == "0", "format 0")
@@ -288,6 +289,24 @@ check(Economy.chestStatus(cd, titan, "titan", 100) == false, "coffre du Titan : 
 cd.rebirths = 1
 check(Economy.chestStatus(cd, titan, "titan", 100) == true, "coffre du Titan : ouvert après évolution")
 check(#Config.Story == #Config.Dino.Stages, "un chapitre d'histoire par stade")
+
+-- Énigme du jour
+local answers = {}
+for i = 1, #Config.Riddles do
+	answers[i] = 1
+end
+check(RiddleLogic.index(0) == 1 and RiddleLogic.index(#Config.Riddles) == 1 and RiddleLogic.index(5) == 6, "index d'énigme cyclique")
+local rd = newData()
+local ri, rsolved, rtries = RiddleLogic.status(rd, 50)
+check(rsolved == false and rtries == Config.RiddleTries, "énigme neuve")
+check(RiddleLogic.answer(rd, 50, 0, answers) == "error" and RiddleLogic.answer(rd, 50, 5, answers) == "error" and RiddleLogic.answer(rd, 50, 1.5, answers) == "error" and RiddleLogic.answer(rd, 50, "1", answers) == "error", "choix invalides refusés")
+check(RiddleLogic.answer(rd, 50, 2, answers) == "wrong" and rd.riddle.tries == 1, "mauvaise réponse décompte un essai")
+check(RiddleLogic.answer(rd, 50, 3, answers) == "wrong" and RiddleLogic.answer(rd, 50, 3, answers) == "wrong", "3 mauvaises réponses")
+check(RiddleLogic.answer(rd, 50, 1, answers) == "error", "plus d'essais")
+check(RiddleLogic.answer(rd, 51, 1, answers) == "correct" and rd.riddle.solved, "nouveau jour : réponse correcte")
+check(RiddleLogic.answer(rd, 51, 1, answers) == "error", "énigme déjà résolue")
+local _, s2, t2 = RiddleLogic.status(rd, 51)
+check(s2 == true and t2 == Config.RiddleTries, "statut résolu")
 
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then

@@ -29,6 +29,7 @@ Rien n'est copié : concept, noms, carte et systèmes sont originaux.
 - Évolution (renaissance) : x1,5 / x2 / x2,5… permanent.
 - Histoire en 5 chapitres (un par stade du T-Rex) et 2 zones à débloquer (Cuisine du Chef niv. 10, Terrasse du Titan niv. 25 + évolution) avec coffre quotidien.
 - Les achats Robux restent un confort (x1,5 pièces, +1 emplacement, visée) : aucune zone ni progression gratuite n'est bloquée par un paiement.
+- Énigme du jour (QCM, 3 essais, réponses uniquement côté serveur) : 12 questions qui tournent, œuf + pièces à la clé.
 - 5 fourchettes d'or cachées sur la carte (+ bonus si toutes trouvées).
 - Étiquette de niveau (et couronne VIP) au-dessus des joueurs, rayon doré vers le stand le plus proche quand le panier est vide.
 - Niveau gourmet, classement mondial (OrderedDataStore) affiché sur un panneau dans le monde et dans l'interface.

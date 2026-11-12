@@ -182,6 +182,24 @@ Config.Chests = {
 	titan = { Name = "Coffre du Titan", Emoji = "👑", Zone = "Terrasse du Titan", MinLevel = 25, MinRebirths = 1, Coins = 25000, Eggs = 2, Pos = { 150, 0, -130 }, Color = { 190, 110, 255 } },
 }
 
+-- Énigme du jour : une question par jour (QCM à 4 choix). Les bonnes réponses sont côté serveur (QuestService).
+Config.RiddleTries = 3
+Config.RiddleReward = { Coins = 1500, Eggs = 1 }
+Config.Riddles = {
+	{ Q = "Je suis rond, rouge et croquant, Rex m'adore en premier. Qui suis-je ?", Choices = { "Une pomme", "Une pierre", "Un ballon", "Une tomate" } },
+	{ Q = "Combien de stades de croissance compte Rex ?", Choices = { "3", "4", "5", "6" } },
+	{ Q = "Quelle marée envahit l'île par vagues ?", Choices = { "De sauce tomate", "De chocolat", "D'eau salée", "De lave" } },
+	{ Q = "Combien de fourchettes d'or sont cachées sur l'île ?", Choices = { "3", "5", "7", "10" } },
+	{ Q = "Que faut-il viser pour nourrir Rex ?", Choices = { "Ses yeux", "Sa queue", "Sa bouche", "Ses pieds" } },
+	{ Q = "Où se réfugier pendant la marée de sauce ?", Choices = { "Sous un arbre", "Sur une table", "Près du dino", "Sur la place" } },
+	{ Q = "Qu'est-ce qui augmente tes gains quand tu enchaînes les lancers ?", Choices = { "Le combo", "Le sommeil", "La pluie", "Le vent" } },
+	{ Q = "Quelle rareté de compagnon est la plus puissante ?", Choices = { "Commun", "Rare", "Épique", "Mythique" } },
+	{ Q = "Par combien la nourriture préférée de Rex multiplie-t-elle tes gains ?", Choices = { "x2", "x3", "x5", "x10" } },
+	{ Q = "Que se passe-t-il quand la jauge de Rex est pleine ?", Choices = { "Il dort", "Un festin", "La nuit tombe", "Il s'en va" } },
+	{ Q = "Comment s'appelle la renaissance dans le jeu ?", Choices = { "Évolution", "Reset", "Retour", "Fusion" } },
+	{ Q = "Où se trouve le Coffre du Chef ?", Choices = { "Derrière Rex", "Au point d'arrivée", "Dans une table", "Sous la place" } },
+}
+
 -- Sons intégrés au client Roblox (rbxasset://). Remplaçables par vos propres ids.
 Config.Sounds = {
 	Throw = "rbxasset://sounds/swoosh.wav",
@@ -224,9 +242,10 @@ Config.Defaults = {
 	eggs = 1,
 	secrets = {},
 	chests = {},
+	riddle = { day = 0, solved = false, tries = 0 },
 	quests = { day = 0, list = {} },
 	streak = { last = 0, count = 0 },
-	stats = { bestCombo = 0, feasts = 0, survived = 0, hits = 0 },
+	stats = { bestCombo = 0, feasts = 0, survived = 0, hits = 0, riddles = 0 },
 }
 
 return Config

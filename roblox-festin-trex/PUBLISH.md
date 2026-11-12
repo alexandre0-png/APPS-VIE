@@ -24,6 +24,7 @@ Prends de la nourriture aux stands, vise sa bouche et lance ! Plus tu enchaînes
 🥚 Œufs et 11 compagnons, du commun au MYTHIQUE
 📜 Quêtes du jour et récompenses de connexion
 🍴 5 fourchettes d'or cachées sur la carte
+🧩 Une énigme chaque jour pour gagner des œufs
 📖 Une histoire en 5 chapitres : Rex grandit avec toi
 🧰 Zones à débloquer : Cuisine du Chef (niveau 10) et Terrasse du Titan (niveau 25 + évolution), coffres quotidiens
 ✨ Évolution : repars de zéro avec des gains permanents

@@ -380,6 +380,45 @@ local function buildQuests()
 	end
 end
 
+-- ---------------------------------------------------------------- énigme du jour
+
+local function buildRiddle()
+	local win = createWindow("riddle", "🧩 Énigme du jour")
+	local content = win.content
+	local question = UIKit.label(content, { Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -20, 0, 80), Text = "", TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
+	local buttons = {}
+	for i = 1, 4 do
+		buttons[i] = UIKit.button(content, {
+			Position = UDim2.fromOffset(10, 92 + (i - 1) * 56),
+			Size = UDim2.new(1, -20, 0, 48),
+			Text = "",
+			TextSize = 18,
+			BackgroundColor3 = C.blue,
+			Callback = function()
+				act("answerRiddle", { choice = i })
+			end,
+		})
+	end
+	local status = UIKit.label(content, { Position = UDim2.fromOffset(10, 320), Size = UDim2.new(1, -20, 0, 30), Text = "", TextSize = 16, TextColor3 = C.gold })
+	win.refresh = function(s)
+		local riddle = Config.Riddles[s.riddle.index]
+		question.Text = riddle.Q
+		local open = not s.riddle.solved and s.riddle.triesLeft > 0
+		for i, b in ipairs(buttons) do
+			b.Text = string.format("%d.  %s", i, riddle.Choices[i])
+			b.Active = open
+			b.BackgroundColor3 = if open then C.blue else C.panel
+		end
+		if s.riddle.solved then
+			status.Text = "✔ Résolue ! Une nouvelle énigme demain."
+		elseif s.riddle.triesLeft <= 0 then
+			status.Text = "Plus d'essais aujourd'hui. Reviens demain !"
+		else
+			status.Text = string.format("Récompense : %s 🪙 + %d 🥚  ·  Essais restants : %d", Util.formatNumber(Config.RiddleReward.Coins), Config.RiddleReward.Eggs, s.riddle.triesLeft)
+		end
+	end
+end
+
 -- ---------------------------------------------------------------- classement
 
 local function buildLeaderboard()
@@ -471,6 +510,7 @@ function Panels.init()
 	buildShop()
 	buildPets()
 	buildQuests()
+	buildRiddle()
 	buildLeaderboard()
 	buildRebirth()
 

@@ -98,13 +98,14 @@ local function buildDino()
 end
 
 local function buildSideButtons(openPanel: (string) -> ())
-	local g = group("Side", Vector2.new(1, 0.5), UDim2.new(1, -10, 0.5, 0), UDim2.fromOffset(78, 380))
+	local g = group("Side", Vector2.new(1, 0.5), UDim2.new(1, -10, 0.5, 0), UDim2.fromOffset(78, 470))
 	scaled(g, 1000, 560)
 	local layout = UIKit.list(g, 8)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	local defs = {
 		{ "shop", "🛒", "Boutique" },
 		{ "quests", "📜", "Quêtes" },
+		{ "riddle", "🧩", "Énigme" },
 		{ "pets", "🥚", "Nid" },
 		{ "leaderboard", "🏆", "Top" },
 		{ "rebirth", "✨", "Évolution" },
@@ -288,6 +289,7 @@ local function refreshState(s: any)
 	end
 	refs.sideButtons.quests.Visible = claimable
 	refs.sideButtons.pets.Visible = s.eggs > 0
+	refs.sideButtons.riddle.Visible = not s.riddle.solved and s.riddle.triesLeft > 0
 end
 
 local function refreshDino(state: Instance)

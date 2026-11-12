@@ -14,6 +14,29 @@ local PlayerService = require(script.Parent.PlayerService)
 
 local QuestService = {}
 
+local RiddleLogic = require(Shared:WaitForChild("RiddleLogic"))
+
+-- Bonnes réponses (index du bon choix), même ordre que Config.Riddles. Jamais envoyées aux clients.
+local RIDDLE_ANSWERS = { 1, 3, 1, 2, 3, 2, 1, 4, 2, 2, 1, 1 }
+
+function QuestService.answerRiddle(player: Player, choice: any): (boolean, string)
+	local data = PlayerService.get(player)
+	if not data then
+		return false, "Données non chargées"
+	end
+	local result, msg = RiddleLogic.answer(data, Util.dayIndex(os.time()), choice, RIDDLE_ANSWERS)
+	PlayerService.markDirty(player)
+	if result == "correct" then
+		local r = Config.RiddleReward
+		local coins = math.floor(r.Coins * (1 + data.rebirths * Config.RebirthBonus))
+		PlayerService.addCoins(player, coins)
+		PlayerService.addEggs(player, r.Eggs)
+		data.stats.riddles += 1
+		return true, string.format("🧩 Bonne réponse ! +%s 🪙 + %d œuf 🥚", Util.formatNumber(coins), r.Eggs)
+	end
+	return false, msg
+end
+
 function QuestService.claimQuest(player: Player, index: any): (boolean, string)
 	local data = PlayerService.get(player)
 	if not data or type(index) ~= "number" or index % 1 ~= 0 then
@@ -108,6 +131,9 @@ local function bindSecret(inst: Instance)
 end
 
 function QuestService.init()
+	if #RIDDLE_ANSWERS ~= #Config.Riddles then
+		warn("[FestinTRex] Énigmes : nombre de réponses différent du nombre de questions")
+	end
 	-- Régénère les quêtes si la journée change pendant que le joueur est connecté.
 	task.spawn(function()
 		while true do

@@ -11,6 +11,8 @@
 - Histoire (Config.Story), zones à débloquer (Config.Chests, coffre quotidien par zone, condition niveau/évolution),
   éligibilité testable dans `Economy.chestStatus`.
 
+- Énigme du jour (`RiddleLogic`, panneau 🧩) : 12 QCM, 3 essais/jour, réponses gardées côté serveur (anti-triche), tests ajoutés.
+
 ## Décisions techniques notables
 - **Outils externes** : `luau-lsp`/`luau`/stylua/selene/rojo téléchargés mais leur exécution a été refusée par le
   bac à sable ; **pas de contournement**. Remplacés par `tools/blockcheck.py` et `tools/undefcheck.py`

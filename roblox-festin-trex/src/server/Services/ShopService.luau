@@ -90,6 +90,11 @@ function handlers.claimQuest(player, data, payload)
 	return { ok = success, msg = msg }
 end
 
+function handlers.answerRiddle(player, data, payload)
+	local success, msg = QuestService.answerRiddle(player, payload.choice)
+	return { ok = success, msg = msg }
+end
+
 function handlers.claimDaily(player, data, payload)
 	local success, msg = QuestService.claimDaily(player)
 	return { ok = success, msg = msg }
