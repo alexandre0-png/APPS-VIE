@@ -196,6 +196,59 @@ check("shieldTime", Rules.shieldTime(2) == Config.SHIELD_BASE + 2 * Config.SHIEL
 local slots = { { k = "p", p = 1, s = 2, m = 1 }, { k = "e", t = 1, ends = 0 }, false, { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }
 check("income : ignore œufs, vides et emplacements au-delà de la capacité", near(Rules.income(slots, 4, 2), 2 * 2))
 
+-- Rules : pitié, pass d'éclosion, bonus de collection -------------------------------------------
+check("rollPet garanti : toujours une rareté au-dessus", (function()
+	for tier = 1, 5 do
+		for _ = 1, 50 do
+			if Config.PETS[Rules.rollPet(tier, 12, false, math.random, true).p].tier ~= tier + 1 then
+				return false
+			end
+		end
+	end
+	return true
+end)())
+check("rollPet garanti : rareté max inchangée", Rules.rollPet(6, 12, false, math.random, true).tier <= 6)
+check("hatchTime pass rapide x0.75", near(Rules.hatchTime(2, 0, true), Config.HATCH[2] * 0.75))
+check("hatchTime sans pass inchangé", Rules.hatchTime(2, 0, false) == Config.HATCH[2])
+check("multiplier avec bonus de collection", near(Rules.multiplier(0, 0, false, false, 1.3), 1.3))
+
+-- Univers : histoire, zones, rangs, collection ---------------------------------------------------
+check("histoire non vide", #Config.STORY >= 5)
+local validTypes = { hatch = true, steal = true, train = true, species = true, tier = true, mut = true, rebirth = true }
+for i, c in ipairs(Config.STORY) do
+	check("chapitre " .. i .. " : type valide", validTypes[c.type] == true)
+	check("chapitre " .. i .. " : objectif > 0 et titre / texte non vides", c.goal > 0 and #c.title > 0 and #c.text > 0)
+	check("chapitre " .. i .. " : récompense > 0", Config.storyReward(c, 0) > 0)
+	check("chapitre " .. i .. " : type tier a une rareté valide", c.type ~= "tier" or (c.tier ~= nil and c.tier >= 1 and c.tier <= 6))
+	check("chapitre " .. i .. " : rival valide", c.rival == nil or Config.RIVALS[c.rival] ~= nil)
+	check("chapitre " .. i .. " : les espèces demandées existent", c.type ~= "species" or c.goal <= #Config.PETS)
+end
+check("récompense proportionnelle au revenu", Config.storyReward({ coins = 100, mins = 10 }, 1000) == 600000)
+check("une zone par rival", #Config.ZONES == #Config.RIVALS)
+check("premier domaine toujours ouvert", Config.zoneUnlocked(0, 1))
+for i, z in ipairs(Config.ZONES) do
+	check("zone " .. i .. " : chapitre requis atteignable", z.chapter >= 0 and z.chapter <= #Config.STORY)
+	check("zone " .. i .. " : ouverte une fois le chapitre réussi", Config.zoneUnlocked(z.chapter, i))
+	check("zone " .. i .. " : fermée avant", z.chapter == 0 or not Config.zoneUnlocked(z.chapter - 1, i))
+end
+check("zone inconnue fermée", not Config.zoneUnlocked(99, 99))
+check("rang 0 = Apprenti", Config.rankFor(0).name == "Apprenti")
+check("dernier rang à la fin de l'histoire", Config.rankFor(#Config.STORY).name == "Roi des Couvées")
+for i = 2, #Config.RANKS do
+	check("rangs croissants (" .. i .. ")", Config.RANKS[i].chapter > Config.RANKS[i - 1].chapter)
+end
+check("bonus de collection neutre", Config.collectionBonus(0) == 1 and Config.collectionBonus(2) == 1)
+check("bonus de collection par paliers", near(Config.collectionBonus(3), 1.05) and near(Config.collectionBonus(18), 1.30))
+check("pitié définie", Config.PITY_EVERY >= 2)
+check("sons : chaque clé a id, speed, vol", (function()
+	for _, def in pairs(Config.SOUNDS) do
+		if type(def.id) ~= "string" or type(def.speed) ~= "number" or type(def.vol) ~= "number" then
+			return false
+		end
+	end
+	return true
+end)())
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

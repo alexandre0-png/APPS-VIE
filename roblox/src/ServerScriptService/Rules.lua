@@ -81,8 +81,14 @@ function Rules.new(Config)
 	end
 
 	-- Tire un pet : { p = index d'espèce, s = index de taille, m = index de mutation }.
-	function R.rollPet(eggTier, upPoints, alienBoost, rnd)
-		local tier = R.pickTier(eggTier, upPoints, rnd)
+	-- `guaranteed` : tirage de pitié, le pet est forcément d'une rareté au-dessus de l'œuf (sauf œuf de rareté maximale).
+	function R.rollPet(eggTier, upPoints, alienBoost, rnd, guaranteed)
+		local tier
+		if guaranteed and eggTier < #Config.TIERS then
+			tier = eggTier + 1
+		else
+			tier = R.pickTier(eggTier, upPoints, rnd)
+		end
 		local ids = {}
 		for i, p in ipairs(Config.PETS) do
 			if p.tier == tier then
@@ -90,11 +96,11 @@ function Rules.new(Config)
 			end
 		end
 		local pick = ids[math.min(#ids, math.floor(rnd() * #ids) + 1)]
-		return { p = pick, s = R.wpick(R.sizeWeights(), rnd), m = R.wpick(R.mutWeights(alienBoost), rnd) }
+		return { p = pick, s = R.wpick(R.sizeWeights(), rnd), m = R.wpick(R.mutWeights(alienBoost), rnd), tier = tier }
 	end
 
-	function R.multiplier(rebirths, foodLevel, goldEvent, pass2x)
-		local m = (1 + 0.5 * rebirths) * (1 + 0.2 * foodLevel)
+	function R.multiplier(rebirths, foodLevel, goldEvent, pass2x, collectionBonus)
+		local m = (1 + 0.5 * rebirths) * (1 + 0.2 * foodLevel) * (collectionBonus or 1)
 		if goldEvent then
 			m *= 2
 		end
@@ -112,8 +118,8 @@ function Rules.new(Config)
 		return 1 + up.bag
 	end
 
-	function R.hatchTime(tier, incLevel)
-		return Config.HATCH[tier] * 0.9 ^ incLevel
+	function R.hatchTime(tier, incLevel, fastPass)
+		return Config.HATCH[tier] * 0.9 ^ incLevel * (fastPass and 0.75 or 1)
 	end
 
 	function R.shieldTime(lockLevel)

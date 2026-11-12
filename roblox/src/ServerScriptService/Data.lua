@@ -17,7 +17,8 @@ local SAVE_RETRIES = 3
 
 -- Version du schéma des données sauvegardées. À incrémenter à chaque changement de structure, avec une étape dans migrate().
 -- v1 : première version (sans champ ver). v2 : + equip, quests, qday, receipts, luckUntil, ver.
-local VERSION = 2
+-- v3 : + story { ch, prog } (histoire) et pity (compteur de pitié).
+local VERSION = 3
 
 local Data = {}
 Data.VERSION = VERSION
@@ -58,6 +59,8 @@ function Data.default()
 		qday = 0,
 		receipts = {}, -- achats Robux déjà traités (anti-double crédit)
 		luckUntil = 0,
+		story = { ch = 0, prog = 0 }, -- ch = chapitres réussis, prog = progression du chapitre en cours
+		pity = 0,
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -81,6 +84,9 @@ end
 local MIGRATIONS = {
 	[1] = function(_saved)
 		-- v1 -> v2 : les nouveaux champs reçoivent leurs valeurs par défaut dans merge(), rien à convertir.
+	end,
+	[2] = function(_saved)
+		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
 	end,
 }
 
@@ -125,6 +131,11 @@ local function merge(saved)
 			end
 		end
 	end
+	if type(saved.story) == "table" then
+		d.story.ch = math.min(#Config.STORY, math.floor(sane(saved.story.ch, 0)))
+		d.story.prog = sane(saved.story.prog, 0)
+	end
+	d.pity = math.min(Config.PITY_EVERY, math.floor(sane(saved.pity, 0)))
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end

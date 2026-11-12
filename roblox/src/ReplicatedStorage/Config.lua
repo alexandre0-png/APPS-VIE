@@ -75,6 +75,7 @@ Config.EVENT_GAP = { 120, 200 } -- délai aléatoire entre deux événements
 Config.PASSES = {
 	Coins2x = { id = 0, name = "Revenus x2", emoji = "💰", desc = "Double tous tes revenus, pour toujours." },
 	Lucky = { id = 0, name = "Chance +10%", emoji = "🍀", desc = "Plus de pets supérieurs à l'éclosion." },
+	Fast = { id = 0, name = "Éclosion rapide", emoji = "⚡", desc = "Les œufs éclosent 25% plus vite." },
 }
 
 Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
@@ -174,14 +175,26 @@ function Config.petName(p, s, m)
 	return n
 end
 
--- Sons : colle des ID du Creator Store ("rbxassetid://123456"). Vide = pas de son.
-Config.SOUNDS = { hatch = "", rare = "", steal = "", coin = "" }
+-- Sons : par défaut, sons intégrés au client Roblox (non vérifiés ici : si l'un manque, il reste simplement silencieux).
+-- Remplace "id" par un ID du Creator Store ("rbxassetid://123456") pour de vrais sons ; id = "" désactive le son. speed = hauteur, vol = volume.
+Config.SOUNDS = {
+	hatch = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.0, vol = 0.5 },
+	rare = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.6, vol = 0.8 },
+	steal = { id = "rbxasset://sounds/action_jump.mp3", speed = 1.5, vol = 0.5 },
+	caught = { id = "rbxasset://sounds/uuhhh.mp3", speed = 1.0, vol = 0.6 },
+	claim = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.3, vol = 0.6 },
+	click = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 2.0, vol = 0.25 },
+	event = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 0.8, vol = 0.7 },
+}
 
 -- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
 Config.PRODUCTS = {
 	InstantHatch = { id = 0, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
 	LuckPotion = { id = 0, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
+	CoinPack = { id = 0, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
+Config.COIN_PACK_MINUTES = 20
+Config.COIN_PACK_MIN = 5000
 Config.LUCK_POTION_BONUS = 25
 Config.LUCK_POTION_SECONDS = 900
 
@@ -201,6 +214,73 @@ function Config.questText(t, n)
 		return "Voler " .. n .. " œuf(s) à d'autres joueurs"
 	end
 	return t
+end
+
+---------------------------------------------------------------- Univers, histoire et progression
+Config.TITLE = "Chipe-Œufs"
+Config.TAGLINE = "Chipe, couve, collectionne : deviens Roi des Couvées !"
+Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaume. Puis le Grand Nid a volé en éclats, et ses œufs se sont dispersés. "
+	.. "Les brigands Gus, Mara et Zed les gardent jalousement. Toi, apprenti Chipeur, tu peux les reprendre, les faire éclore et reconstruire le Nid. "
+	.. "Mais méfie-toi : les autres Chipeurs convoitent aussi tes œufs !"
+
+-- Domaines des rivaux : verrouillés tant que le chapitre `chapter` de l'histoire n'est pas réussi.
+Config.ZONES = {
+	{ name = "Domaine de Gus", chapter = 0 },
+	{ name = "Domaine de Mara", chapter = 3 },
+	{ name = "Citadelle de Zed", chapter = 6 },
+}
+
+-- Rangs selon le nombre de chapitres réussis.
+Config.RANKS = {
+	{ chapter = 0, name = "Apprenti", emoji = "🥚" },
+	{ chapter = 3, name = "Chipeur", emoji = "🧤" },
+	{ chapter = 6, name = "Maître Chipeur", emoji = "🥷" },
+	{ chapter = 9, name = "Seigneur des Couvées", emoji = "👑" },
+	{ chapter = 11, name = "Roi des Couvées", emoji = "🐉" },
+}
+
+-- Histoire : suite de chapitres. type = hatch | steal | train (secondes) | species (espèces découvertes) | tier (pet de rareté >= `tier` obtenu)
+-- | mut (pet muté obtenu) | rebirth. `rival` : ne compte que les vols chez ce rival. Récompense = max(coins, revenus de `mins` minutes).
+Config.STORY = {
+	{ title = "L'œuf d'argent", text = "Le Grand Nid s'est brisé, mais un dernier œuf dort dans ta base. Fais-le éclore : touche-le pour l'aider !", type = "hatch", goal = 1, coins = 100, mins = 0 },
+	{ title = "Premier larcin", text = "Les brigands de Gus gardent des œufs au nord. Maintiens le bouton devant un nid pour en chiper un, puis rapporte-le chez toi.", type = "steal", goal = 1, coins = 250, mins = 0 },
+	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur le tapis roulant du centre : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
+	{ title = "Le petit cabinet", text = "Un vrai Chipeur collectionne. Découvre 3 espèces différentes : chaque série de 3 augmente tes revenus pour toujours.", type = "species", goal = 3, coins = 800, mins = 2 },
+	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
+	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
+	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
+	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
+	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
+	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
+	{ title = "Le Grand Nid s'éveille", text = "Le Nid est prêt à renaître. Renais une fois pour le reconstruire, plus fort, et deviens Roi des Couvées !", type = "rebirth", goal = 1, coins = 300000, mins = 45 },
+}
+
+Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
+Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
+Config.PITY_EVERY = 12 -- tous les 12 éclosions sans pet de rareté supérieure, la suivante l'est garantie
+
+function Config.rankFor(chaptersDone)
+	local best = Config.RANKS[1]
+	for _, r in ipairs(Config.RANKS) do
+		if chaptersDone >= r.chapter then
+			best = r
+		end
+	end
+	return best
+end
+
+function Config.collectionBonus(speciesCount)
+	return 1 + Config.COLLECTION_BONUS * math.floor(speciesCount / Config.COLLECTION_STEP)
+end
+
+function Config.zoneUnlocked(chaptersDone, rival)
+	local z = Config.ZONES[rival]
+	return z ~= nil and chaptersDone >= z.chapter
+end
+
+-- Récompense de pièces d'un chapitre pour un revenu donné (par seconde).
+function Config.storyReward(chapter, income)
+	return math.floor(math.max(chapter.coins, income * chapter.mins * 60))
 end
 
 -- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)

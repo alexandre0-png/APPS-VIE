@@ -90,6 +90,7 @@ MEMBER_CHECKS = {
     "RemoteEvent": ["FireClient", "FireAllClients", "OnServerEvent", "OnClientEvent", "FireServer"],
     "CollectionService": ["GetTagged", "AddTag", "GetInstanceAddedSignal"],
     "TweenService": ["Create"],
+    "Sound": ["SoundId", "Volume", "PlaybackSpeed", "Play"],
 }
 
 def _members(cn, by_name):

@@ -49,6 +49,21 @@ local function corner(o, r)
 	make("UICorner", { CornerRadius = UDim.new(0, r or 12) }, o)
 end
 -- Retour tactile : le bouton se rétrécit légèrement quand on appuie.
+-- Sons : voir Config.SOUNDS (clé -> { id, speed, vol }). Un id vide ou introuvable reste silencieux.
+local function playSound(key)
+	local def = Config.SOUNDS[key]
+	if not def or def.id == "" then
+		return
+	end
+	local snd = Instance.new("Sound")
+	snd.SoundId = def.id
+	snd.Volume = def.vol or 0.5
+	snd.PlaybackSpeed = def.speed or 1
+	snd.Parent = workspace
+	snd:Play()
+	Debris:AddItem(snd, 6)
+end
+
 local lastPress = 0 -- horodatage du dernier appui : sert à ne pas reconstruire un panneau sous le doigt du joueur
 local function pressFx(btn)
 	local sc = Instance.new("UIScale")
@@ -58,6 +73,7 @@ local function pressFx(btn)
 	end
 	btn.MouseButton1Down:Connect(function()
 		lastPress = os.clock()
+		playSound("click")
 		to(0.93)
 	end)
 	btn.MouseButton1Up:Connect(function()
@@ -142,17 +158,6 @@ local popInfo = text(pop, { Position = UDim2.fromOffset(0, 180), Size = UDim2.ne
 local popToken = 0
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
 
-local function playSound(id)
-	if id and id ~= "" then
-		local snd = Instance.new("Sound")
-		snd.SoundId = id
-		snd.Volume = 0.6
-		snd.Parent = workspace
-		snd:Play()
-		Debris:AddItem(snd, 6)
-	end
-end
-
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
 	local tier = Config.TIERS[def.tier]
@@ -174,9 +179,9 @@ local function hatchPop(info)
 		flash.BackgroundColor3 = Config.MUTS[info.m].color or tier.color
 		flash.BackgroundTransparency = 0.55
 		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
-		playSound(Config.SOUNDS.rare)
+		playSound("rare")
 	else
-		playSound(Config.SOUNDS.hatch)
+		playSound("hatch")
 	end
 	if def.tier >= 5 then
 		task.spawn(function()
