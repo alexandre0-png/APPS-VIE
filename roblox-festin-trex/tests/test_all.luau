@@ -270,6 +270,25 @@ check(DataService.save(3, fdata, true) == true, "sauvegarde réussie au 3e essai
 failuresLeft = 5
 check(DataService.save(3, fdata, true) == false, "sauvegarde abandonnée après 3 essais")
 
+-- Coffres de zones
+local cd = newData()
+local chef = Config.Chests.chef
+local okc, why = Economy.chestStatus(cd, chef, "chef", 100)
+check(okc == false and why ~= nil, "coffre fermé sous le niveau requis")
+cd.totalFed = 12 * 9 ^ 2 + 1 -- niveau 10
+okc = Economy.chestStatus(cd, chef, "chef", 100)
+check(okc == true, "coffre ouvert au niveau requis")
+cd.chests.chef = 100
+okc, why = Economy.chestStatus(cd, chef, "chef", 100)
+check(okc == false and string.find(why, "demain", 1, true) ~= nil, "un coffre par jour")
+check(Economy.chestStatus(cd, chef, "chef", 101) == true, "coffre disponible le lendemain")
+local titan = Config.Chests.titan
+cd.totalFed = 12 * 24 ^ 2 + 1 -- niveau 25
+check(Economy.chestStatus(cd, titan, "titan", 100) == false, "coffre du Titan : évolution requise")
+cd.rebirths = 1
+check(Economy.chestStatus(cd, titan, "titan", 100) == true, "coffre du Titan : ouvert après évolution")
+check(#Config.Story == #Config.Dino.Stages, "un chapitre d'histoire par stade")
+
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then
 	error("des tests ont échoué")

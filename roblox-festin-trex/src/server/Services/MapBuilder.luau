@@ -287,6 +287,34 @@ local function buildSecrets()
 	end
 end
 
+-- Zones à débloquer : plateforme + coffre doré + panneau indiquant la condition.
+local function buildChests()
+	for id, def in pairs(Config.Chests) do
+		local pos = Vector3.new(def.Pos[1], 0, def.Pos[3])
+		local color = c3(def.Color)
+		local m = Instance.new("Model")
+		m.Name = "Zone_" .. id
+		m.Parent = map
+		part(m, { Name = "Platform", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 30, 30), CFrame = CFrame.new(pos.X, 0.5, pos.Z) * CFrame.Angles(0, 0, math.pi / 2), Color = color:Lerp(Color3.new(1, 1, 1), 0.5), Material = Enum.Material.Marble })
+		for _, a in ipairs({ 0, 90, 180, 270 }) do
+			local r = math.rad(a)
+			part(m, { Name = "Pillar", Size = Vector3.new(2, 12, 2), Position = pos + Vector3.new(math.cos(r) * 13, 6, math.sin(r) * 13), Color = color, Material = Enum.Material.Marble })
+		end
+		local body = part(m, { Name = "ChestBody", Size = Vector3.new(6, 3.5, 4), Position = pos + Vector3.new(0, 2.75, 0), Color = Color3.fromRGB(140, 90, 50), Material = Enum.Material.Wood })
+		part(m, { Name = "ChestLid", Size = Vector3.new(6.2, 1.2, 4.2), Position = pos + Vector3.new(0, 5.1, 0), Color = color, Material = Enum.Material.Metal })
+		local glow = part(m, { Name = "Glow", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), Position = pos + Vector3.new(0, 7.5, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false })
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Range = 24
+		light.Parent = glow
+		local cond = string.format("Niveau %d%s", def.MinLevel, if def.MinRebirths > 0 then (" + " .. def.MinRebirths .. " évolution") else "")
+		billboard(glow, string.format("%s %s\n🔒 %s", def.Emoji, def.Zone, cond), Vector3.new(0, 4, 0), 300, 90, 200)
+		local pp = prompt(body, "Ouvrir", def.Name, 0.6, 12)
+		pp:SetAttribute("ChestId", id)
+		CollectionService:AddTag(pp, "Chest")
+	end
+end
+
 local function buildLighting()
 	Lighting.ClockTime = 16.4 -- heure dorée : ombres longues, couleurs chaudes
 	Lighting.Brightness = 2.6
@@ -406,6 +434,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 	end
 
 	buildSecrets()
+	buildChests()
 	return map, labels
 end
 

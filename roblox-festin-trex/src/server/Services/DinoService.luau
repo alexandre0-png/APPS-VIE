@@ -281,6 +281,14 @@ local function runFeast()
 	pickFavorite()
 	publish()
 
+	if core.stage > finishedStage then
+		local chapter = Config.Story[core.stage]
+		if chapter then
+			for _, p in ipairs(Players:GetPlayers()) do
+				PlayerService.notify(p, "📖 " .. chapter, "info")
+			end
+		end
+	end
 	local newScale = Config.Dino.Stages[core.stage].Scale
 	if math.abs(newScale - currentScale) > 0.001 then
 		task.wait(1.2)

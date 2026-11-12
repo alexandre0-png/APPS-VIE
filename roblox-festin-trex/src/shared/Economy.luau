@@ -129,6 +129,21 @@ function Economy.level(totalFed: number): (number, number, number)
 	return level, math.clamp(progress, 0, 1), math.floor(nxt)
 end
 
+-- Un coffre de zone est-il ouvrable ? Retourne (ok, raison). today = jour courant (Util.dayIndex).
+function Economy.chestStatus(data: any, def: any, id: string, today: number): (boolean, string?)
+	local level = Economy.level(data.totalFed)
+	if level < def.MinLevel then
+		return false, string.format("%s : niveau %d requis (tu es niveau %d)", def.Zone, def.MinLevel, level)
+	end
+	if data.rebirths < def.MinRebirths then
+		return false, string.format("%s : %d évolution(s) requise(s)", def.Zone, def.MinRebirths)
+	end
+	if data.chests and data.chests[id] == today then
+		return false, "Déjà ouvert aujourd'hui, reviens demain !"
+	end
+	return true, nil
+end
+
 function Economy.feastCoins(stageIndex: number, share: number, rebirths: number): number
 	local base = Config.Feast.BaseCoins * stageIndex
 	return math.floor(base * (0.4 + 1.6 * share) * Economy.rebirthMult(rebirths))

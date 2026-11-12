@@ -8,6 +8,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Util = require(Shared:WaitForChild("Util"))
 local QuestLogic = require(Shared:WaitForChild("QuestLogic"))
+local Economy = require(Shared:WaitForChild("Economy"))
 
 local PlayerService = require(script.Parent.PlayerService)
 
@@ -69,6 +70,35 @@ local function onSecret(prompt: ProximityPrompt, player: Player)
 	PlayerService.markDirty(player)
 end
 
+local function onChest(prompt: ProximityPrompt, player: Player)
+	local data = PlayerService.get(player)
+	local id = prompt:GetAttribute("ChestId")
+	local def = type(id) == "string" and Config.Chests[id]
+	if not data or not def then
+		return
+	end
+	local today = Util.dayIndex(os.time())
+	local ok, reason = Economy.chestStatus(data, def, id, today)
+	if not ok then
+		PlayerService.notify(player, "🔒 " .. (reason or "Fermé"), "bad")
+		return
+	end
+	data.chests[id] = today
+	local coins = math.floor(def.Coins * Economy.rebirthMult(data.rebirths))
+	PlayerService.addCoins(player, coins)
+	PlayerService.addEggs(player, def.Eggs)
+	PlayerService.notify(player, string.format("%s %s ouvert ! +%s 🪙 + %d œuf(s) 🥚", def.Emoji, def.Name, Util.formatNumber(coins), def.Eggs), "gold")
+	PlayerService.markDirty(player)
+end
+
+local function bindChest(inst: Instance)
+	if inst:IsA("ProximityPrompt") then
+		inst.Triggered:Connect(function(player)
+			onChest(inst, player)
+		end)
+	end
+end
+
 local function bindSecret(inst: Instance)
 	if inst:IsA("ProximityPrompt") then
 		inst.Triggered:Connect(function(player)
@@ -90,6 +120,10 @@ function QuestService.init()
 			end
 		end
 	end)
+	CollectionService:GetInstanceAddedSignal("Chest"):Connect(bindChest)
+	for _, inst in ipairs(CollectionService:GetTagged("Chest")) do
+		bindChest(inst)
+	end
 	CollectionService:GetInstanceAddedSignal("Secret"):Connect(bindSecret)
 	for _, inst in ipairs(CollectionService:GetTagged("Secret")) do
 		bindSecret(inst)

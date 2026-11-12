@@ -336,6 +336,7 @@ local function buildQuests()
 		rows[i] = { row = row, text = text, fill = fill, progress = progress, btn = btn }
 	end
 
+	local story = UIKit.label(content, { Position = UDim2.fromOffset(0, 80 + Config.QuestsPerDay * 78 + 40), Size = UDim2.new(1, 0, 0, 64), Text = "", TextSize = 13, TextColor3 = C.dim, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
 	local secrets = UIKit.label(content, { Position = UDim2.fromOffset(0, 80 + Config.QuestsPerDay * 78), Size = UDim2.new(1, 0, 0, 40), Text = "", TextSize = 15, TextColor3 = C.gold })
 
 	win.refresh = function(s)
@@ -373,6 +374,8 @@ local function buildQuests()
 				end
 			end
 		end
+		local stage = ReplicatedStorage:WaitForChild("GameState"):GetAttribute("Stage") or 1
+		story.Text = "📖 " .. (Config.Story[stage] or "")
 		secrets.Text = string.format("🍴 Fourchettes d'or cachées trouvées : %d/%d — explore la carte !", s.secrets, Config.SecretCount)
 	end
 end

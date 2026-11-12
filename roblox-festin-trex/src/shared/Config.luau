@@ -167,6 +167,21 @@ Config.SecretCount = 5
 Config.SecretReward = { Coins = 1500, Eggs = 1 }
 Config.SecretAllBonus = { Coins = 25000, Eggs = 2 }
 
+-- Histoire : un chapitre par stade du T-Rex (affiché à chaque croissance et dans le panneau des quêtes).
+Config.Story = {
+	"Chapitre 1 — L'œuf tombé du ciel : un tout petit dino, Rex, a éclos sur la place du festin. Il a une faim de loup, et il a choisi TOI pour le nourrir.",
+	"Chapitre 2 — Les premières dents : Rex grandit et réclame son plat préféré. Les habitants de l'île Miam découvrent qu'il est capable de rugir très fort.",
+	"Chapitre 3 — La grande tablée : Rex est devenu un vrai T-Rex. La tablée entière se rassemble, mais une sauce tomate mystérieuse envahit l'île par vagues…",
+	"Chapitre 4 — Le secret des fourchettes d'or : on raconte que cinq fourchettes dorées, cachées sur l'île, ouvrent la cuisine du Chef. Rex les cherche depuis toujours.",
+	"Chapitre 5 — Titan Rex : Rex est le plus grand gourmand de l'île. Chaque festin est désormais une légende. Évolue encore pour le rendre inoubliable !",
+}
+
+-- Zones à débloquer : un coffre quotidien par zone. Niveau = niveau gourmet, Evolutions = renaissances.
+Config.Chests = {
+	chef = { Name = "Coffre du Chef", Emoji = "🧰", Zone = "Cuisine du Chef", MinLevel = 10, MinRebirths = 0, Coins = 3000, Eggs = 1, Pos = { 0, 0, -110 }, Color = { 255, 170, 60 } },
+	titan = { Name = "Coffre du Titan", Emoji = "👑", Zone = "Terrasse du Titan", MinLevel = 25, MinRebirths = 1, Coins = 25000, Eggs = 2, Pos = { 150, 0, -130 }, Color = { 190, 110, 255 } },
+}
+
 -- Sons intégrés au client Roblox (rbxasset://). Remplaçables par vos propres ids.
 Config.Sounds = {
 	Throw = "rbxasset://sounds/swoosh.wav",
@@ -208,6 +223,7 @@ Config.Defaults = {
 	equipped = {},
 	eggs = 1,
 	secrets = {},
+	chests = {},
 	quests = { day = 0, list = {} },
 	streak = { last = 0, count = 0 },
 	stats = { bestCombo = 0, feasts = 0, survived = 0, hits = 0 },

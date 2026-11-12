@@ -8,6 +8,9 @@
 - Graphisme : heure dorée, brume, lampadaires, assiette du T-Rex, interface avec dégradés/animations, traînées.
 - Page du jeu : textes, icône, 3 miniatures, icônes de passes/produits (`PUBLISH.md`, `dist/store/`).
 
+- Histoire (Config.Story), zones à débloquer (Config.Chests, coffre quotidien par zone, condition niveau/évolution),
+  éligibilité testable dans `Economy.chestStatus`.
+
 ## Décisions techniques notables
 - **Outils externes** : `luau-lsp`/`luau`/stylua/selene/rojo téléchargés mais leur exécution a été refusée par le
   bac à sable ; **pas de contournement**. Remplacés par `tools/blockcheck.py` et `tools/undefcheck.py`
