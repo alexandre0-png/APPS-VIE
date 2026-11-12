@@ -50,9 +50,14 @@ def check(path):
         if src.count(a) != src.count(b): errs.append(f'{a}{b} : {src.count(a)} / {src.count(b)}')
     return errs
 
-bad = 0
-for p in sorted(pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'src').rglob('*.luau')):
-    e = check(p)
-    print(('KO ' if e else 'ok ') + str(p), '; '.join(e))
-    bad += bool(e)
-sys.exit(1 if bad else 0)
+def main():
+    bad = 0
+    for p in sorted(pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'src').rglob('*.luau')):
+        e = check(p)
+        print(('KO ' if e else 'ok ') + str(p), '; '.join(e))
+        bad += bool(e)
+    sys.exit(1 if bad else 0)
+
+
+if __name__ == "__main__":
+    main()

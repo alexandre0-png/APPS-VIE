@@ -65,6 +65,7 @@ tools/       build_rbxlx.py, check.sh (analyse luau-lsp avec les types Roblox)
 | Contrôle | Statut |
 |---|---|
 | `python3 tools/blockcheck.py src` (équilibre `end`/`until`, parenthèses, guillemets, 27 fichiers) | ✅ **exécuté**, tout passe |
+| `python3 tools/undefcheck.py src` (identifiants non déclarés ; 7 candidats, tous des champs de types ou paramètres typés = faux positifs)  | ✅ **exécuté** |
 | `python3 tools/build_rbxlx.py` (XML bien formé, 26 scripts dans l'arborescence attendue) | ✅ **exécuté** |
 | Rendu des visuels de page (`node tools/store_assets/render.js`) | ✅ exécuté, icône et miniature relues à l'œil |
 | `tools/check.sh` (luau-lsp, types Roblox) | ⚠️ **non exécuté** : binaire téléchargé refusé par le bac à sable |
