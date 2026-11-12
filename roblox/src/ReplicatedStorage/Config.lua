@@ -174,4 +174,33 @@ function Config.petName(p, s, m)
 	return n
 end
 
+-- Sons : colle des ID du Creator Store ("rbxassetid://123456"). Vide = pas de son.
+Config.SOUNDS = { hatch = "", rare = "", steal = "", coin = "" }
+
+-- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
+Config.PRODUCTS = {
+	InstantHatch = { id = 0, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
+	LuckPotion = { id = 0, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
+}
+Config.LUCK_POTION_BONUS = 25
+Config.LUCK_POTION_SECONDS = 900
+
+Config.MAX_FOLLOWERS = 3 -- pets qui suivent le joueur
+Config.SCORE_UNIT = 100000 -- classement : score = renaissances * SCORE_UNIT + œufs éclos
+
+function Config.questText(t, n)
+	if t == "steal" then
+		return "Voler " .. n .. " œufs aux rivaux"
+	elseif t == "hatch" then
+		return "Faire éclore " .. n .. " œufs"
+	elseif t == "earn" then
+		return "Gagner " .. Config.fmt(n) .. " pièces"
+	elseif t == "train" then
+		return "Courir " .. n .. "s sur le tapis"
+	elseif t == "pvp" then
+		return "Voler " .. n .. " œuf(s) à d'autres joueurs"
+	end
+	return t
+end
+
 return Config

@@ -337,4 +337,43 @@ function Builder.build()
 	return result
 end
 
+---------------------------------------------------------------- Effets
+-- Explosion de particules + flash lumineux à l'éclosion (disparaît seule).
+function Builder.burst(position, color, count, big)
+	local anchor = Instance.new("Part")
+	anchor.Name = "Burst"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(1, 1, 1)
+	anchor.Position = position
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SPARK
+	e.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
+	e.LightEmission = 1
+	e.Lifetime = NumberRange.new(0.8, 1.6)
+	e.Speed = NumberRange.new(big and 14 or 8, big and 32 or 18)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, big and 1.8 or 1), NumberSequenceKeypoint.new(1, 0) })
+	e.Rate = 0
+	e.Parent = anchor
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Range = big and 26 or 14
+	l.Brightness = big and 6 or 3
+	l.Parent = anchor
+	anchor.Parent = workspace
+	e:Emit(count)
+	game:GetService("TweenService"):Create(l, TweenInfo.new(0.7), { Brightness = 0 }):Play()
+	game:GetService("Debris"):AddItem(anchor, 2.5)
+end
+
+-- Pet suiveur : version miniature d'un pet, sans étiquette.
+function Builder.follower(petIdx, sizeIdx, mutIdx)
+	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
+	model:ScaleTo(0.45)
+	return model
+end
+
 return Builder

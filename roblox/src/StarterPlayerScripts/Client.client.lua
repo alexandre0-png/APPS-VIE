@@ -12,6 +12,7 @@ local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
+local RTop = Remotes:WaitForChild("Top")
 local fmt = Config.fmt
 
 local COL = {
@@ -28,7 +29,10 @@ local COL = {
 }
 local FONT = Enum.Font.GothamBold
 
+local compact = workspace.CurrentCamera ~= nil and workspace.CurrentCamera.ViewportSize.X < 560
+local NAV_Y = compact and -88 or -10
 local state = nil
+local topData = nil
 local panel = nil -- { name, tab, confirm }
 local costBtns = {}
 
@@ -78,7 +82,7 @@ make("UIStroke", { Color = COL.yellow, Thickness = 2 }, banner)
 local toasts = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 46), Size = UDim2.fromOffset(360, 200), BackgroundTransparency = 1 }, gui)
 make("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, toasts)
 
-local hint = text(gui, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -96), Size = UDim2.fromOffset(340, 40), TextSize = 14, TextColor3 = COL.dark, BackgroundColor3 = COL.yellow, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
+local hint = text(gui, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y - 62), Size = UDim2.fromOffset(340, 40), TextSize = 14, TextColor3 = COL.dark, BackgroundColor3 = COL.yellow, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
 corner(hint, 12)
 
 local function toast(msg)
@@ -101,6 +105,18 @@ local popEmoji = text(pop, { Size = UDim2.new(1, 0, 0, 110), TextSize = 96, Text
 local popName = text(pop, { Position = UDim2.fromOffset(0, 112), Size = UDim2.new(1, 0, 0, 34), TextSize = 26, Text = "", TextStrokeTransparency = 0 })
 local popInfo = text(pop, { Position = UDim2.fromOffset(0, 148), Size = UDim2.new(1, 0, 0, 26), TextSize = 18, Text = "", TextStrokeTransparency = 0 })
 local popToken = 0
+local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
+
+local function playSound(id)
+	if id and id ~= "" then
+		local snd = Instance.new("Sound")
+		snd.SoundId = id
+		snd.Volume = 0.6
+		snd.Parent = workspace
+		snd:Play()
+		Debris:AddItem(snd, 6)
+	end
+end
 
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
@@ -113,6 +129,29 @@ local function hatchPop(info)
 	popInfo.Text = tier.name .. "  ·  +" .. fmt(info.inc) .. "/s"
 	pop.Visible = true
 	popScale.Scale = 0.2
+	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
+	if big then
+		flash.BackgroundColor3 = Config.MUTS[info.m].color or tier.color
+		flash.BackgroundTransparency = 0.55
+		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
+		playSound(Config.SOUNDS.rare)
+	else
+		playSound(Config.SOUNDS.hatch)
+	end
+	if def.tier >= 5 then
+		task.spawn(function()
+			local char = player.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if not hum then
+				return
+			end
+			for _ = 1, 14 do
+				hum.CameraOffset = Vector3.new((math.random() - 0.5) * 0.7, (math.random() - 0.5) * 0.7, 0)
+				task.wait(0.03)
+			end
+			hum.CameraOffset = Vector3.zero
+		end)
+	end
 	TweenService:Create(popScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	task.delay(2.6, function()
 		if token == popToken then
@@ -155,9 +194,16 @@ local function addRow(o)
 	if o.iconColor then
 		make("UIStroke", { Color = o.iconColor, Thickness = 2 }, ic)
 	end
-	local rightPad = o.btn and 130 or 20
+	local rightPad = (o.btn and 130 or 20) + (o.btn2 and 50 or 0)
 	text(f, { Position = UDim2.fromOffset(62, 5), Size = UDim2.new(1, -62 - rightPad, 0, 24), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 15, Text = o.title or "", TextColor3 = o.titleColor or COL.text, TextTruncate = Enum.TextTruncate.AtEnd })
 	text(f, { Position = UDim2.fromOffset(62, 29), Size = UDim2.new(1, -62 - rightPad, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 12, Text = o.desc or "", TextColor3 = COL.muted, TextWrapped = true, Font = Enum.Font.Gotham })
+	if o.btn2 then
+		local b2 = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -126, 0.5, 0), Size = UDim2.fromOffset(42, 40), Text = o.btn2, Font = FONT, TextSize = 18, BackgroundColor3 = o.btn2Color or COL.dis, TextColor3 = COL.dark }, f)
+		corner(b2, 10)
+		if o.onClick2 then
+			b2.Activated:Connect(o.onClick2)
+		end
+	end
 	if o.btn then
 		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(112, 40), Text = o.btn, Font = FONT, TextSize = 14, AutoButtonColor = true, BackgroundColor3 = o.btnColor or COL.yellow, TextColor3 = o.btnText or COL.dark }, f)
 		corner(b, 10)
@@ -192,7 +238,7 @@ local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
 	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" } },
 }
-local titles = { shop = "Boutique", dex = "Collection", bonus = "Bonus", more = "Plus" }
+local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
 
 local render
 local function setTab(t)
@@ -283,9 +329,19 @@ function render()
 			if sl and sl.k == "p" then
 				n += 1
 				local p = Config.PETS[sl.p]
+				local equipped = false
+				for _, v in ipairs(state.equip) do
+					if v == i then
+						equipped = true
+					end
+				end
 				addRow({
 					icon = p.emoji, iconColor = Config.TIERS[p.tier].color, title = Config.petName(sl.p, sl.s, sl.m),
-					desc = "+" .. fmt(Config.petIncome(sl.p, sl.s, sl.m) * state.mult) .. "/s",
+					desc = "+" .. fmt(Config.petIncome(sl.p, sl.s, sl.m) * state.mult) .. "/s" .. (equipped and " · te suit 🐾" or ""),
+					btn2 = "🐾", btn2Color = equipped and COL.green or COL.dis,
+					onClick2 = function()
+						RAction:FireServer("equip", i)
+					end,
 					btn = "Vendre " .. fmt(Config.sellValue(sl.p, sl.s, sl.m)), btnColor = COL.red, btnText = COL.text,
 					onClick = function()
 						RAction:FireServer("sell", i)
@@ -295,6 +351,33 @@ function render()
 		end
 		if n == 0 then
 			addNote("Aucun pet pour l'instant. Fais éclore des œufs !")
+		else
+			addNote("🐾 = fais-le te suivre (3 maximum). Il continue de produire dans ta base.")
+		end
+	elseif panel.name == "quests" then
+		addNote("Les missions se renouvellent chaque jour.")
+		for i, q in ipairs(state.quests) do
+			local done = q.prog >= q.goal
+			addRow({
+				icon = q.claimed and "✅" or "🎯", title = Config.questText(q.t, q.goal),
+				desc = fmt(math.floor(q.prog)) .. "/" .. fmt(q.goal) .. " · récompense 🪙 " .. fmt(q.rew),
+				btn = q.claimed and "Fait" or (done and "Réclamer" or "…"),
+				btnColor = (done and not q.claimed) and COL.green or COL.dis,
+				onClick = (done and not q.claimed) and function()
+					RAction:FireServer("claimQuest", i)
+				end or nil,
+			})
+		end
+	elseif panel.name == "top" then
+		if not topData then
+			addNote("Chargement du classement…")
+		elseif #topData == 0 then
+			addNote("Le classement est vide pour l'instant (ou indisponible dans Studio). Renaître et faire éclore des œufs te fait monter.")
+		else
+			addNote("Classé par renaissances puis par œufs éclos.")
+			for i, e in ipairs(topData) do
+				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "♻️ " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
+			end
 		end
 	elseif panel.name == "bonus" then
 		addRow({
@@ -319,6 +402,24 @@ function render()
 				btnColor = (owned or def.id == 0) and COL.dis or COL.green,
 				onClick = (not owned and def.id > 0) and function()
 					MarketplaceService:PromptGamePassPurchase(player, def.id)
+				end or nil,
+			})
+		end
+		if state.luckLeft and state.luckLeft > 0 then
+			addNote("🧪 Potion de chance active : " .. Config.fmtTime(state.luckLeft) .. " restantes.")
+		end
+		local prodNames = {}
+		for name in pairs(Config.PRODUCTS) do
+			prodNames[#prodNames + 1] = name
+		end
+		table.sort(prodNames)
+		for _, name in ipairs(prodNames) do
+			local def = Config.PRODUCTS[name]
+			addRow({
+				icon = def.emoji, title = def.name, desc = def.desc,
+				btn = def.id > 0 and "Acheter" or "Bientôt", btnColor = def.id > 0 and COL.green or COL.dis,
+				onClick = def.id > 0 and function()
+					MarketplaceService:PromptProductPurchase(player, def.id)
 				end or nil,
 			})
 		end
@@ -359,6 +460,9 @@ local function openPanel(name)
 	end
 	panel = { name = name, tab = tabsDef[name] and tabsDef[name][1][1] or "", confirm = false }
 	panelFrame.Visible = true
+	if name == "top" then
+		RAction:FireServer("top")
+	end
 	render()
 end
 closeBtn.Activated:Connect(function()
@@ -367,13 +471,15 @@ closeBtn.Activated:Connect(function()
 end)
 
 ---------------------------------------------------------------- Boutons de navigation (colonne gauche)
-local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Collection" }, { "bonus", "🎁", "Bonus" }, { "more", "♻️", "Plus" } }
-for i, n in ipairs(navDefs) do
-	local b = make("TextButton", { Position = UDim2.fromOffset(10, 152 + (i - 1) * 68), Size = UDim2.fromOffset(62, 62), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, gui)
-	corner(b, 16)
+local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }
+local navBar = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y), Size = UDim2.fromOffset(#navDefs * 56, 52), BackgroundTransparency = 1 }, gui)
+make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center }, navBar)
+for _, n in ipairs(navDefs) do
+	local b = make("TextButton", { Size = UDim2.fromOffset(52, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, navBar)
+	corner(b, 14)
 	make("UIStroke", { Color = COL.panel, Thickness = 2 }, b)
-	text(b, { Size = UDim2.new(1, 0, 0, 38), Position = UDim2.fromOffset(0, 3), Text = n[2], TextSize = 26 })
-	text(b, { Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, 42), Text = n[3], TextSize = 11 })
+	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22 })
+	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10 })
 	b.Activated:Connect(function()
 		openPanel(n[1])
 	end)
@@ -388,6 +494,12 @@ RState.OnClientEvent:Connect(function(snap)
 end)
 RNotify.OnClientEvent:Connect(toast)
 RHatch.OnClientEvent:Connect(hatchPop)
+RTop.OnClientEvent:Connect(function(list)
+	topData = list
+	if panel and panel.name == "top" then
+		render()
+	end
+end)
 
 local function refreshStats()
 	coinsBig.Text = fmt(coins())
@@ -470,6 +582,108 @@ RunService.RenderStepped:Connect(function()
 		end
 		if base then
 			m:PivotTo(base * CFrame.new(0, math.sin(t * 3 + base.X + base.Z) * 0.25, 0))
+		end
+	end
+end)
+
+---------------------------------------------------------------- Flèche de guidage (faisceau jaune vers le prochain objectif)
+local guideBeam, guideA0, guideA1, guideTarget
+local function setGuide(target)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not (target and root and target.Parent) then
+		if guideBeam then
+			guideBeam.Enabled = false
+		end
+		guideTarget = nil
+		return
+	end
+	if not guideBeam then
+		guideA0 = Instance.new("Attachment")
+		guideA1 = Instance.new("Attachment")
+		guideBeam = Instance.new("Beam")
+		guideBeam.Attachment0 = guideA0
+		guideBeam.Attachment1 = guideA1
+		guideBeam.Width0 = 0.6
+		guideBeam.Width1 = 0.6
+		guideBeam.Color = ColorSequence.new(COL.yellow)
+		guideBeam.Transparency = NumberSequence.new(0.25)
+		guideBeam.LightEmission = 1
+		guideBeam.FaceCamera = true
+		guideBeam.Parent = workspace
+	end
+	if guideA0.Parent ~= root then
+		guideA0.Parent = root
+	end
+	if guideTarget ~= target then
+		guideA1.Parent = target
+		guideTarget = target
+	end
+	guideBeam.Enabled = true
+end
+
+task.spawn(function()
+	while true do
+		local target = nil
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if state and root then
+			if state.carry > 0 then
+				local spawnPad = player.RespawnLocation
+				target = spawnPad
+			elseif state.hatched > 0 and state.stolen == 0 then
+				local best, bd = nil, math.huge
+				for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
+					if pr:GetAttribute("Owner") == nil and pr.Parent and pr.Parent:IsA("BasePart") then
+						local dd = (pr.Parent.Position - root.Position).Magnitude
+						if dd < bd then
+							best, bd = pr.Parent, dd
+						end
+					end
+				end
+				target = best
+			elseif (player:GetAttribute("Speed") or 0) < 8 and state.stolen > 0 then
+				local w = workspace:FindFirstChild("World")
+				target = w and w:FindFirstChild("Treadmill")
+			end
+		end
+		setGuide(target)
+		task.wait(0.5)
+	end
+end)
+
+---------------------------------------------------------------- Œufs qui tremblent avant d'éclore
+local eggBase = setmetatable({}, { __mode = "k" })
+local eggShaking = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	local now, t = os.time(), os.clock()
+	for _, egg in ipairs(CollectionService:GetTagged("EggShake")) do
+		if not eggBase[egg] then
+			eggBase[egg] = egg.CFrame
+		end
+		local ends = egg:GetAttribute("Ends")
+		local left = ends and (ends - now) or 99
+		if left < 4 then
+			local a = (4 - left) / 4
+			egg.CFrame = eggBase[egg] * CFrame.Angles(math.sin(t * 29) * 0.08 * a, 0, math.sin(t * 35) * 0.12 * a)
+			eggShaking[egg] = true
+		elseif eggShaking[egg] then
+			egg.CFrame = eggBase[egg]
+			eggShaking[egg] = nil
+		end
+	end
+end)
+
+---------------------------------------------------------------- Pets suiveurs (mouvement fluide calculé localement)
+RunService.RenderStepped:Connect(function(dt)
+	for _, m in ipairs(CollectionService:GetTagged("Follower")) do
+		local owner = Players:GetPlayerByUserId(m:GetAttribute("OwnerId") or 0)
+		local char = owner and owner.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if root and m.PrimaryPart then
+			local n = m:GetAttribute("Idx") or 1
+			local target = CFrame.new(root.Position) * root.CFrame.Rotation * CFrame.new((n - 2) * 3, -2.2 + math.sin(os.clock() * 4 + n) * 0.15, 4)
+			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
 		end
 	end
 end)

@@ -7,6 +7,7 @@ local Lighting = game:GetService("Lighting")
 local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local MessagingService = game:GetService("MessagingService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Data = require(script.Parent:WaitForChild("Data"))
@@ -25,6 +26,7 @@ local function newRemote(name)
 	return r
 end
 local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
+local RTop = newRemote("Top")
 
 ---------------------------------------------------------------- Monde
 local world = Builder.build()
@@ -57,6 +59,9 @@ end
 local function alive(player)
 	local h = getHum(player)
 	return h ~= nil and h.Health > 0
+end
+local function validSlot(i)
+	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= 12
 end
 local function notify(player, msg)
 	if player and player.Parent then
@@ -125,6 +130,9 @@ local function pickTier(s, tier)
 		if s.passes.Lucky then
 			up += 10
 		end
+		if os.time() < s.data.luckUntil then
+			up += Config.LUCK_POTION_BONUS
+		end
 	end
 	local down = tier > 1 and 22 or 0
 	local i = wpick({ down, 100 - up - down, up })
@@ -152,6 +160,48 @@ local function rollPet(s, eggTier)
 		mw[5] *= 5
 	end
 	return { p = ids[rng:NextInteger(1, #ids)], s = wpick(sizeWeights), m = wpick(mw) }
+end
+
+---------------------------------------------------------------- Missions quotidiennes
+local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp" }
+
+local function newQuests(s)
+	local inc = math.max(income(s), 1)
+	local pool = table.clone(QUEST_TYPES)
+	local out = {}
+	for _ = 1, 3 do
+		local t = table.remove(pool, rng:NextInteger(1, #pool))
+		local goal
+		if t == "steal" then
+			goal = rng:NextInteger(3, 7)
+		elseif t == "hatch" then
+			goal = rng:NextInteger(4, 9)
+		elseif t == "earn" then
+			goal = math.floor(math.max(1000, inc * 240))
+		elseif t == "train" then
+			goal = rng:NextInteger(3, 6) * 20
+		else
+			goal = rng:NextInteger(1, 2)
+		end
+		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), claimed = false }
+	end
+	return out
+end
+
+local function qp(s, t, n)
+	for _, q in ipairs(s.data.quests) do
+		if q.t == t and q.prog < q.goal then
+			q.prog = math.min(q.goal, q.prog + n)
+		end
+	end
+end
+
+local function ensureQuests(s)
+	local today = os.time() // 86400
+	if s.data.qday ~= today or #s.data.quests == 0 then
+		s.data.quests = newQuests(s)
+		s.data.qday = today
+	end
 end
 
 ---------------------------------------------------------------- Synchronisation client
@@ -185,6 +235,9 @@ local function snapshot(s)
 		streak = nextStreak,
 		stolen = d.stolen,
 		hatched = d.hatched,
+		quests = d.quests,
+		equip = d.equip,
+		luckLeft = math.max(0, d.luckUntil - os.time()),
 	}
 end
 
@@ -305,6 +358,8 @@ local function refreshPad(s, i)
 	if sl.k == "e" then
 		local egg = Builder.egg(sl.t, true)
 		egg.CFrame = pad.part.CFrame * CFrame.new(0, 1.9, 0)
+		egg:SetAttribute("Ends", sl.ends)
+		CollectionService:AddTag(egg, "EggShake")
 		egg.Parent = content
 		local pr = Instance.new("ProximityPrompt")
 		pr.ActionText = "Voler l'œuf"
@@ -385,6 +440,68 @@ local function afterTake(s)
 	notify(s.player, "🥚 Œuf volé ! Rapporte-le vite à ta base.")
 end
 
+---------------------------------------------------------------- Pets suiveurs (le déplacement est calculé côté client, le serveur ne fait que créer les modèles)
+local followersFolder = Instance.new("Folder")
+followersFolder.Name = "Followers"
+followersFolder.Parent = workspace
+
+local function clearFollowers(s)
+	for _, m in ipairs(s.followers) do
+		m:Destroy()
+	end
+	s.followers = {}
+end
+
+local function rebuildFollowers(s)
+	clearFollowers(s)
+	local d = s.data
+	local clean = {}
+	for _, i in ipairs(d.equip) do
+		local sl = validSlot(i) and d.slots[i]
+		if sl and sl.k == "p" then
+			clean[#clean + 1] = i
+		end
+	end
+	d.equip = clean
+	local root = getRoot(s.player)
+	if not root or not alive(s.player) then
+		return
+	end
+	for n, i in ipairs(d.equip) do
+		local sl = d.slots[i]
+		local m = Builder.follower(sl.p, sl.s, sl.m)
+		m.Name = "Follower"
+		m:SetAttribute("OwnerId", s.player.UserId)
+		m:SetAttribute("Idx", n)
+		m:PivotTo(root.CFrame * CFrame.new((n - 2) * 3, -2, 4))
+		m.Parent = followersFolder
+		CollectionService:AddTag(m, "Follower")
+		s.followers[#s.followers + 1] = m
+	end
+end
+
+---------------------------------------------------------------- Annonces (ce serveur + tous les serveurs)
+local function announce(text)
+	for _, pl in ipairs(Players:GetPlayers()) do
+		notify(pl, text)
+	end
+	task.spawn(function()
+		pcall(function()
+			MessagingService:PublishAsync("ChipeAnnounce", { sid = Data.SERVER_ID, text = text })
+		end)
+	end)
+end
+pcall(function()
+	MessagingService:SubscribeAsync("ChipeAnnounce", function(msg)
+		local m = msg.Data
+		if type(m) == "table" and m.sid ~= Data.SERVER_ID and type(m.text) == "string" then
+			for _, pl in ipairs(Players:GetPlayers()) do
+				notify(pl, m.text)
+			end
+		end
+	end)
+end)
+
 ---------------------------------------------------------------- Éclosion
 function hatch(s, i)
 	local d = s.data
@@ -404,7 +521,15 @@ function hatch(s, i)
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
 	refreshPad(s, i)
+	qp(s, "hatch", 1)
+	local def = Config.PETS[p.p]
+	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
+	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
+	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
 	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
+	if def.tier >= 6 or p.m == 5 or p.s == 5 then
+		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
+	end
 	sync(s)
 end
 
@@ -422,12 +547,27 @@ function speedUpEgg(s, i, who)
 	end
 	s.lastTap = now
 	sl.ends -= 1
+	local content = s.plot.pads[i].content
+	local eggPart = content and content:FindFirstChild("Egg")
+	if eggPart then
+		eggPart:SetAttribute("Ends", sl.ends)
+	end
 	if os.time() >= sl.ends then
 		hatch(s, i)
 	end
 end
 
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
+-- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
+local holds = {}
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+	holds[player] = { prompt = prompt, t = os.clock() }
+	local s = sessions[player]
+	if s then
+		s.holdSeen = true
+	end
+end)
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	local kind = prompt:GetAttribute("Kind")
 	if kind ~= "Nest" and kind ~= "Pad" then
@@ -443,6 +583,13 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		return
 	end
 	s.lastSteal = now
+	if s.holdSeen then
+		local h = holds[player]
+		holds[player] = nil
+		if not h or h.prompt ~= prompt or os.clock() - h.t < Config.stealTime(s.data.up.fing) * 0.7 then
+			return
+		end
+	end
 	if #s.carry >= carryCap(s.data) then
 		notify(player, "Sac plein ! Rapporte tes œufs à ta base.")
 		return
@@ -458,6 +605,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
 		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s.data, t), rival = n.rival }
 		s.data.stolen += 1
+		qp(s, "steal", 1)
 		afterTake(s)
 	else
 		local vp = Players:GetPlayerByUserId(prompt:GetAttribute("Owner") or 0)
@@ -482,6 +630,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		refreshPad(vs, i)
 		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId }
 		s.data.stolen += 1
+		qp(s, "steal", 1)
+		qp(s, "pvp", 1)
 		notify(vp, "😡 " .. player.DisplayName .. " a volé ton œuf ! Rattrape-le !")
 		sync(vs)
 		afterTake(s)
@@ -495,6 +645,7 @@ local function catchPlayer(s, g)
 	local hum = getHum(s.player)
 	dropCarry(s)
 	s.stun = 1.3
+	s.noCheckUntil = os.clock() + 2
 	if hum then
 		hum.PlatformStand = true
 	end
@@ -653,8 +804,27 @@ local function fastTick(dt)
 			if s.stun <= 0 and world.treadmillContains(root.Position) and hum.MoveDirection.Magnitude > 0.1 then
 				local rate = 0.8 * (1 + 0.35 * d.up.tm) * (evKey() == "run" and 3 or 1)
 				d.speed += rate * dt
+				qp(s, "train", dt)
 			end
 			applySpeed(s)
+			-- contrôle de vitesse : si le joueur parcourt bien plus que sa vitesse autorisée, on le remet en place
+			local pos = root.Position
+			if s.lastPos and s.stun <= 0 and os.clock() > s.noCheckUntil then
+				local moved = Vector3.new(pos.X - s.lastPos.X, 0, pos.Z - s.lastPos.Z).Magnitude
+				local allowed = (hum.WalkSpeed + 16) * dt * 1.4 + 3
+				if moved > allowed then
+					s.flags += 1
+					if s.flags >= 3 then
+						root.CFrame = CFrame.new(s.lastPos) * root.CFrame.Rotation
+						s.flags = 0
+						warn("[AntiCheat] " .. player.Name .. " remis en place (vitesse anormale)")
+						pos = s.lastPos
+					end
+				else
+					s.flags = 0
+				end
+			end
+			s.lastPos = pos
 			-- dépôt des œufs dans sa base
 			if #s.carry > 0 and inPlot(s, root) then
 				local i = freeSlot(d)
@@ -695,10 +865,18 @@ local function slowTick(dt)
 		end
 	end
 	local now = os.time()
-	for _, s in pairs(sessions) do
+	for player, s in pairs(sessions) do
 		local ok, err = pcall(function()
 			local d = s.data
-			d.coins += income(s) * dt
+			local inc = income(s)
+			d.coins += inc * dt
+			qp(s, "earn", inc * dt)
+			ensureQuests(s)
+			s.syncT += dt
+			if s.syncT >= 10 then
+				s.syncT = 0
+				RState:FireClient(player, snapshot(s))
+			end
 			for i = 1, cap(d) do
 				local sl = d.slots[i]
 				if sl and sl.k == "e" then
@@ -749,10 +927,6 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 ---------------------------------------------------------------- Actions du client
-local function validSlot(i)
-	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= 12
-end
-
 local actions = {}
 
 function actions.sync(s)
@@ -811,6 +985,7 @@ function actions.sell(s, i)
 	s.data.coins += Config.sellValue(sl.p, sl.s, sl.m)
 	s.data.slots[i] = false
 	refreshPad(s, i)
+	rebuildFollowers(s)
 	sync(s)
 end
 
@@ -822,11 +997,56 @@ function actions.rebirth(s)
 	local fresh = Data.default()
 	fresh.speed, fresh.rb, fresh.dex = d.speed, d.rb + 1, d.dex
 	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
+	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
+	rebuildFollowers(s)
 	sync(s)
 	notify(s.player, string.format("♻️ Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb))
+end
+
+function actions.equip(s, i)
+	if not validSlot(i) then
+		return
+	end
+	local d = s.data
+	local sl = d.slots[i]
+	if not sl or sl.k ~= "p" then
+		return
+	end
+	local at
+	for n, v in ipairs(d.equip) do
+		if v == i then
+			at = n
+		end
+	end
+	if at then
+		table.remove(d.equip, at)
+	else
+		if #d.equip >= Config.MAX_FOLLOWERS then
+			return notify(s.player, "Maximum " .. Config.MAX_FOLLOWERS .. " pets qui te suivent.")
+		end
+		d.equip[#d.equip + 1] = i
+	end
+	rebuildFollowers(s)
+	sync(s)
+end
+
+function actions.claimQuest(s, i)
+	local q = type(i) == "number" and s.data.quests[i]
+	if not q or q.claimed or q.prog < q.goal then
+		return
+	end
+	q.claimed = true
+	s.data.coins += q.rew
+	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙")
+	sync(s)
+end
+
+local topCache = {}
+function actions.top(s)
+	RTop:FireClient(s.player, topCache)
 end
 
 function actions.daily(s)
@@ -873,6 +1093,47 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 	sync(s)
 end)
 
+---------------------------------------------------------------- Produits développeur (achats Robux ponctuels)
+MarketplaceService.ProcessReceipt = function(info)
+	local player = Players:GetPlayerByUserId(info.PlayerId)
+	local s = player and sessions[player]
+	if not s then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local rid = tostring(info.PurchaseId)
+	if s.data.receipts[rid] then
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+	local granted = false
+	for name, def in pairs(Config.PRODUCTS) do
+		if def.id > 0 and def.id == info.ProductId then
+			if name == "InstantHatch" then
+				for i = 1, cap(s.data) do
+					hatch(s, i)
+				end
+			elseif name == "LuckPotion" then
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			end
+			granted = true
+		end
+	end
+	if not granted then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local now = os.time()
+	for k, t in pairs(s.data.receipts) do
+		if type(t) ~= "number" or now - t > 30 * 86400 then
+			s.data.receipts[k] = nil
+		end
+	end
+	s.data.receipts[rid] = now
+	sync(s)
+	if not s.noSave and not Data.save(player, s.data) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
 ---------------------------------------------------------------- Cycle de vie des joueurs
 local function claimPlot(player)
 	for _, pl in ipairs(world.plots) do
@@ -902,6 +1163,9 @@ local function onJoin(player)
 		return
 	end
 	if not player.Parent then
+		if not noSave then
+			Data.save(player, d, true) -- libère le verrou de session
+		end
 		return
 	end
 	local plot = claimPlot(player)
@@ -921,6 +1185,7 @@ local function onJoin(player)
 	local s = {
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
@@ -944,6 +1209,7 @@ local function onJoin(player)
 		notify(player, "Pendant ton absence : +" .. Config.fmt(gain) .. " 🪙")
 	end
 
+	ensureQuests(s)
 	refreshAllPads(s)
 	player.RespawnLocation = plot.spawn
 	player.CharacterAdded:Connect(function(char)
@@ -951,9 +1217,18 @@ local function onJoin(player)
 		s.stun = 0
 		s.carry = {}
 		s.carryParts = {}
+		s.lastPos = nil
+		s.followers = {}
 		applySpeed(s)
+		task.spawn(function()
+			char:WaitForChild("HumanoidRootPart", 10)
+			if player.Parent and sessions[player] == s then
+				rebuildFollowers(s)
+			end
+		end)
 		hum.Died:Connect(function()
 			dropCarry(s)
+			clearFollowers(s)
 			task.delay(3, function()
 				if player.Parent and sessions[player] == s then
 					player:LoadCharacter()
@@ -976,8 +1251,11 @@ Players.PlayerRemoving:Connect(function(player)
 		return
 	end
 	dropCarry(s)
+	clearFollowers(s)
+	holds[player] = nil
 	if not s.noSave then
-		Data.save(player, s.data)
+		Data.save(player, s.data, true) -- libère le verrou
+		Data.submit(player, s.data)
 	end
 	releasePlot(s)
 	sessions[player] = nil
@@ -989,7 +1267,10 @@ task.spawn(function()
 		task.wait(60)
 		for player, s in pairs(sessions) do
 			if not s.noSave then
-				task.spawn(Data.save, player, s.data)
+				task.spawn(function()
+					Data.save(player, s.data)
+					Data.submit(player, s.data)
+				end)
 			end
 		end
 	end
@@ -1001,7 +1282,7 @@ game:BindToClose(function()
 		if not s.noSave then
 			pending += 1
 			task.spawn(function()
-				Data.save(player, s.data)
+				Data.save(player, s.data, true)
 				pending -= 1
 			end)
 		end
@@ -1009,6 +1290,14 @@ game:BindToClose(function()
 	local t0 = os.clock()
 	while pending > 0 and os.clock() - t0 < 25 do
 		task.wait()
+	end
+end)
+
+-- classement global : rafraîchi toutes les 2 minutes
+task.spawn(function()
+	while true do
+		topCache = Data.top(10)
+		task.wait(120)
 	end
 end)
 
