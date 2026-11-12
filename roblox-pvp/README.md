@@ -48,6 +48,7 @@ ressource externe, aucun modèle à importer. Les sons utilisent les fichiers in
 | Arène | Tour centrale à 4 rampes, 4 bunkers d'angle, 16 couvertures, 4 mares de lave (mort), 4 jump pads, 4 soins, orbe de rage (×1,5 dégâts 12 s) |
 | Bots | Jusqu'à 3 gladiateurs complètent l'arène quand il y a moins de 4 combattants (récompense réduite, aucune série) |
 | Histoire | Prologue « Les Royaumes du Brasier », 4 héros jouables (aura et teinte, 2 à débloquer), Chronique de 6 chapitres avec récompenses |
+| Animations | Inclinaison à la course, poussière de saut, **glissade** (C / X), **esquive** à image rémanente (Q / B), **garde** (maintenir F / Y), matérialisation à la réapparition, flash de tir, rechargement visuel, transitions de manche, confettis et classement animé. Chacune est activable dans `Config.Animations`, protégée par `pcall` et désactivée seule en cas d'erreur. Glissade, esquive et garde sont visuelles : aucun avantage de combat côté serveur. Pas de boutons tactiles dédiés (clavier/manette) ; l'inclinaison suppose un avatar R15 |
 | Énigmes | 6 runes cachées (hub et arène) avec indices dans l'onglet Héros ; chapitre « Les Six Runes » à la clé |
 | Mode « Roi de la tour » | 3e mode : +1 point/s sur le plateau central, 60 points ou fin du temps |
 | Règle de contenu | **Aucun sang** : impacts en étincelles, éliminations en désintégration colorée (éclats, fumée) aux couleurs du héros |
@@ -88,9 +89,9 @@ LUAU_ANALYZE=luau-analyze LUAU=luau ROBLOX_TYPES=globalTypes.d.luau tools/test.s
 
 1. **Analyse statique `luau-analyze`** de tous les scripts (syntaxe, variables non définies, types entre modules) : 0 message.
 2. **Résolution des `require`**, membres de modules, noms de Remotes et attributs lus/écrits : cohérents.
-3. **API Roblox** : 1 953 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
-4. **505 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
-5. **130 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
+3. **API Roblox** : 2 054 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
+4. **546 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
+5. **137 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
    tournent dans un faux environnement Roblox (règles de dégâts, élimination, séries, prime, assistance, tir à la tête,
    rage, vol de vie, anti-farm, cibles d'entraînement, profils corrompus, cadeau quotidien, niveaux).
 

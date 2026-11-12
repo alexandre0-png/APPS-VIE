@@ -9,6 +9,8 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
+local AnimGuard = require(script.Parent.AnimGuard)
+local TweenService = game:GetService("TweenService")
 
 local WeaponClient = {}
 
@@ -67,6 +69,19 @@ local function computeAim()
 	return dir.Unit
 end
 
+-- Rechargement visuel : l'arme bascule puis revient pendant le délai de recharge.
+function WeaponClient.ReloadAnim(tool, cooldown)
+	local base = tool.Grip
+	local half = math.max(0.1, cooldown * 0.45)
+	local down = TweenService:Create(tool, TweenInfo.new(half, Enum.EasingStyle.Quad), { Grip = base * CFrame.Angles(0.7, 0, 0) })
+	down:Play()
+	down.Completed:Once(function()
+		if tool.Parent then
+			TweenService:Create(tool, TweenInfo.new(half, Enum.EasingStyle.Back), { Grip = base }):Play()
+		end
+	end)
+end
+
 local function tryAttack()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -83,6 +98,9 @@ local function tryAttack()
 	end
 	lastFire[currentDef.Id] = os.clock()
 	Remotes.Attack:FireServer(aim)
+	if currentDef.Class == "Ranged" and currentDef.Cooldown >= 0.8 then
+		AnimGuard.Run("Reload", WeaponClient.ReloadAnim, currentTool, currentDef.Cooldown)
+	end
 end
 
 local function ensureLoop()

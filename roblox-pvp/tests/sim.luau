@@ -368,6 +368,28 @@ do
 	eq("points de saison pour une élimination", DataService.Get(U).Season.Points, Config.Season.Points.Kill)
 end
 
+print("• Garde-fou des animations (AnimGuard)")
+do
+	local AnimGuard = require("../.emit/StarterPlayer/StarterPlayerScripts/Client/AnimGuard")
+	local called = 0
+	local ok, value = AnimGuard.Run("Run", function(a, b) called += 1 return a + b end, 2, 3)
+	check("animation active exécutée", ok and value == 5 and called == 1)
+	local ok2 = AnimGuard.Run("Jump", function() error("boum") end)
+	check("erreur capturée, pas de propagation", ok2 == false)
+	check("animation en erreur désactivée", AnimGuard.IsBroken("Jump") and not AnimGuard.Enabled("Jump"))
+	local before = called
+	AnimGuard.Run("Jump", function() called += 1 end)
+	eq("animation cassée non rejouée", called, before)
+	Config.Animations.Slide = false
+	AnimGuard.Run("Slide", function() called += 1 end)
+	eq("animation désactivée par config", called, before)
+	Config.Animations.Slide = true
+	Config.Animations.Enabled = false
+	check("interrupteur général", not AnimGuard.Enabled("Run"))
+	Config.Animations.Enabled = true
+	check("clés indépendantes", AnimGuard.Enabled("Run") and not AnimGuard.IsBroken("Run"))
+end
+
 print("• Bots")
 do
 	local P, Q = makePlayer("Pia"), makePlayer("Quin")

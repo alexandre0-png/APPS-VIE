@@ -1,5 +1,9 @@
 # Journal des changements — Arène des Légendes
 
+## V1.9 — animations (sans sang)
+- `AnimLogic` (pur, testé), `AnimGuard` (commutateurs `Config.Animations` + `pcall` + auto-désactivation), `Animations` (course, saut, glissade, esquive, garde, matérialisation).
+- Armes : flash de tir, rechargement visuel ; manche : bandeau de transition, bannières animées, confettis et classement échelonné.
+
 ## V1.8 — énigmes
 - 6 runes cachées (3 hub, 3 arène) avec indices, collecte validée serveur (une fois par joueur), chapitre « Les Six Runes ».
 

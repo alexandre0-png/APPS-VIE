@@ -17,6 +17,7 @@ local WeaponClient = require(Client.WeaponClient)
 local HUD = require(Client.HUD)
 local Menus = require(Client.Menus)
 local World = require(Client.World)
+local Animations = require(Client.Animations)
 
 -- Interface Roblox par défaut remplacée par la nôtre (barre d'armes et vie).
 for _ = 1, 10 do
@@ -46,6 +47,7 @@ Menus.Init(gui)
 HUD.Init(gui, Menus)
 Menus.SetToast(HUD.Toast)
 World.Init()
+Animations.Init()
 
 Remotes.Sync.OnClientEvent:Connect(State.Set)
 Remotes.Notify.OnClientEvent:Connect(HUD.OnNotify)

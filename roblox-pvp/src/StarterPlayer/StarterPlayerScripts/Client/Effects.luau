@@ -10,6 +10,7 @@ local SoundService = game:GetService("SoundService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local AnimGuard = require(script.Parent.AnimGuard)
 
 local Effects = {}
 
@@ -124,10 +125,18 @@ local function onSwing(who, kind, color, weaponId)
 	end
 	local heavy = kind == "Slam"
 	local style = weaponId and SWING_STYLES[weaponId]
-	swingArm(character, heavy, style)
+	AnimGuard.Run("WeaponSwing", swingArm, character, heavy, style)
 	slashArc(character, color or "FFFFFF", heavy)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	Effects.PlaySound(heavy and Config.Sounds.Heavy or Config.Sounds.Swing, root, 0.6, (style and style.Pitch or 1) * (0.95 + math.random() * 0.1))
+end
+
+-- Flash de bouche : petite boule lumineuse qui s'évanouit (aucune fumée sombre).
+function Effects.MuzzleFlash(position, color, big)
+	local size = big and 2.6 or 1.5
+	local flash = fxPart({ Shape = Enum.PartType.Ball, Size = Vector3.new(size, size, size), Position = position, Color = color, Transparency = 0.1 })
+	TweenService:Create(flash, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { Size = Vector3.new(size * 1.8, size * 1.8, size * 1.8), Transparency = 1 }):Play()
+	transient(flash, 0.2)
 end
 
 -- ===== Tirs instantanés =====
@@ -150,6 +159,7 @@ local function onTracer(starts, ends, color, thick)
 	end
 	if starts[1] then
 		Effects.PlaySound(Config.Sounds.Shot, nil, 0.35, thick and 0.6 or 1.1)
+		AnimGuard.Run("Muzzle", Effects.MuzzleFlash, starts[1], c, thick)
 	end
 end
 
@@ -315,7 +325,10 @@ function Effects.OnFx(kind, ...)
 	}
 	local fn = handlers[kind]
 	if fn then
-		fn(...)
+		local ok, err = pcall(fn, ...)
+		if not ok then
+			warn(("[Effects] %s : %s"):format(tostring(kind), tostring(err)))
+		end
 	end
 end
 
@@ -377,7 +390,7 @@ end
 
 function Effects.OnHit(data)
 	if data.Kind == "Dealt" then
-		sparks(data.Pos, data.Killed, data.Headshot)
+		AnimGuard.Run("Impact", sparks, data.Pos, data.Killed, data.Headshot)
 		damageNumber(data.Pos, data.Amount, data.Headshot, data.Killed)
 		Effects.PlaySound(data.Killed and Config.Sounds.Kill or Config.Sounds.Hit, nil, data.Killed and 0.7 or 0.4, data.Headshot and 1.5 or 1)
 		if HUDRef then

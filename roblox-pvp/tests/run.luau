@@ -26,6 +26,7 @@ local Weapons = require("../.emit/ReplicatedStorage/Shared/Weapons")
 local Config = require("../.emit/ReplicatedStorage/Shared/Config")
 local Lore = require("../.emit/ReplicatedStorage/Shared/Lore")
 local SeasonLogic = require("../.emit/ReplicatedStorage/Shared/SeasonLogic")
+local AnimLogic = require("../.emit/ReplicatedStorage/Shared/AnimLogic")
 local BotLogic = require("../.emit/ReplicatedStorage/Shared/BotLogic")
 
 section("Progression")
@@ -221,6 +222,47 @@ do
 	check("nouvelle saison : remise à zéro", SeasonLogic.Rollover(st, 2) and st.Points == 0 and st.Id == 2 and next(st.Claimed) == nil)
 	local S = Config.Season
 	check("config saison cohérente", S.Tiers > 0 and S.TierPoints > 0 and S.Points.Kill > 0 and S.Points.Win > S.Points.Kill)
+end
+
+section("AnimLogic")
+do
+	check("tout actif", AnimLogic.Enabled({ Enabled = true, Run = true }, "Run"))
+	check("clé désactivée", not AnimLogic.Enabled({ Enabled = true, Run = false }, "Run"))
+	check("interrupteur général", not AnimLogic.Enabled({ Enabled = false, Run = true }, "Run"))
+	check("clé absente = active", AnimLogic.Enabled({ Enabled = true }, "Autre"))
+	for key, value in pairs(Config.Animations) do
+		check("Config.Animations." .. key .. " booléen", type(value) == "boolean")
+	end
+	eq("repos", AnimLogic.MoveState(0, true, false, false, false), "Idle")
+	eq("course", AnimLogic.MoveState(16, true, false, false, false), "Run")
+	eq("air", AnimLogic.MoveState(16, false, false, false, false), "Air")
+	eq("garde", AnimLogic.MoveState(16, true, false, false, true), "Guard")
+	eq("glissade > garde", AnimLogic.MoveState(16, true, true, false, true), "Slide")
+	eq("esquive prioritaire", AnimLogic.MoveState(16, true, true, true, true), "Dodge")
+	check("inclinaison nulle à l'arrêt", AnimLogic.LeanAngle(0, 16, 12) == 0)
+	check("inclinaison max bornée", math.abs(AnimLogic.LeanAngle(99, 16, 12) - math.rad(12)) < 1e-9)
+	check("inclinaison demi-vitesse", math.abs(AnimLogic.LeanAngle(8, 16, 12) - math.rad(6)) < 1e-9)
+	eq("maxSpeed 0 sûr", AnimLogic.LeanAngle(5, 0, 12), 0)
+	check("déclenchement possible", AnimLogic.CanTrigger(10, 8, 1.2, true, 12, 8))
+	check("recharge non écoulée", not AnimLogic.CanTrigger(10, 9.5, 1.2, true, 12, 8))
+	check("en l'air refusé", not AnimLogic.CanTrigger(10, 0, 1.2, false, 12, 8))
+	check("trop lent refusé", not AnimLogic.CanTrigger(10, 0, 1.2, true, 3, 8))
+	check("cloche 0 aux bords", AnimLogic.Bell(0) < 1e-9 and AnimLogic.Bell(1) < 1e-9)
+	check("cloche 1 au milieu", math.abs(AnimLogic.Bell(0.5) - 1) < 1e-9)
+	check("cloche bornée", AnimLogic.Bell(-3) < 1e-9 and AnimLogic.Bell(7) < 1e-9)
+	eq("délai 1re ligne", AnimLogic.Stagger(1, 0.08, 0.5), 0)
+	check("délai 3e ligne", math.abs(AnimLogic.Stagger(3, 0.08, 0.5) - 0.16) < 1e-9)
+	eq("délai plafonné", AnimLogic.Stagger(50, 0.08, 0.5), 0.5)
+	local a, b = AnimLogic.ConfettiPlan(30, 5, 42), AnimLogic.ConfettiPlan(30, 5, 42)
+	eq("30 confettis", #a, 30)
+	local same, valid = true, true
+	for i, c in ipairs(a) do
+		same = same and c.X == b[i].X and c.Delay == b[i].Delay
+		valid = valid and c.X >= 0 and c.X <= 1 and c.Color >= 1 and c.Color <= 5 and c.Duration >= 1.4 and c.Size >= 6
+	end
+	check("confettis déterministes", same)
+	check("confettis valides", valid)
+	check("graines différentes", AnimLogic.ConfettiPlan(5, 5, 1)[1].X ~= AnimLogic.ConfettiPlan(5, 5, 2)[1].X)
 end
 
 section("BotLogic")

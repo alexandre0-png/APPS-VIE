@@ -86,6 +86,23 @@ Config.Season = {
 	Points = { Kill = 5, Assist = 2, Match = 8, Win = 30 },
 }
 
+-- Commutateurs d'animations (false = désactivée). Enabled = interrupteur général.
+Config.Animations = {
+	Enabled = true,
+	Run = true, -- inclinaison à la course
+	Jump = true, -- poussière au saut / à la réception
+	Slide = true, -- glissade (touche C / bouton X)
+	Dodge = true, -- esquive avec image rémanente (touche Q / bouton B)
+	Guard = true, -- posture de garde (maintenir F / bouton Y)
+	Respawn = true, -- matérialisation à la réapparition
+	WeaponSwing = true, -- balancement d'arme
+	Muzzle = true, -- flash de tir
+	Reload = true, -- rechargement visuel des armes lentes
+	Impact = true, -- étincelles d'impact
+	Transitions = true, -- annonces et transitions de manche
+	Victory = true, -- confettis et classement animé
+}
+
 Config.HealthPack = { Heal = 45, Respawn = 15 }
 Config.RageOrb = { Duration = 12, Multiplier = 1.5, Respawn = 45 }
 

@@ -13,6 +13,8 @@ local Weapons = require(Shared.Weapons)
 local UI = require(Client.UI)
 local State = require(Client.State)
 local WeaponClient = require(Client.WeaponClient)
+local AnimGuard = require(Client.AnimGuard)
+local AnimLogic = require(Shared.AnimLogic)
 
 local HUD = {}
 
@@ -61,8 +63,38 @@ function HUD.Toast(text, color)
 	end)
 end
 
+-- Transition de manche : un bandeau coloré traverse l'écran.
+function HUD.Wipe(color)
+	AnimGuard.Run("Transitions", function()
+		local bar = UI.New("Frame", { Parent = gui, BackgroundColor3 = color or C.Gold, BackgroundTransparency = 0.35, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0.16, 0), Position = UDim2.new(-1, 0, 0.42, 0), ZIndex = 20 })
+		UI.Tween(bar, 0.35, { Position = UDim2.new(0, 0, 0.42, 0) }, Enum.EasingStyle.Quad)
+		task.delay(0.55, function()
+			UI.Tween(bar, 0.35, { Position = UDim2.new(1, 0, 0.42, 0), BackgroundTransparency = 1 })
+			task.wait(0.4)
+			bar:Destroy()
+		end)
+	end)
+end
+
+-- Confettis colorés (tombent depuis le haut) pour une victoire.
+local function confetti()
+	local palette = { C.Gold, C.Red, C.Blue, C.Good, Color3.fromRGB(176, 92, 255) }
+	for _, c in ipairs(AnimLogic.ConfettiPlan(36, #palette, os.time() % 1000)) do
+		local f = UI.New("Frame", { Parent = gui, BackgroundColor3 = palette[c.Color], BorderSizePixel = 0, Size = UDim2.fromOffset(c.Size, c.Size * 0.6), Position = UDim2.new(c.X, 0, -0.05, 0), Rotation = math.random(0, 360), ZIndex = 12 })
+		task.delay(c.Delay, function()
+			UI.Tween(f, c.Duration, { Position = UDim2.new(c.X, math.random(-60, 60), 1.05, 0), Rotation = f.Rotation + math.random(-360, 360) }, Enum.EasingStyle.Quad)
+			task.wait(c.Duration)
+			f:Destroy()
+		end)
+	end
+end
+
 function HUD.Banner(title, subtitle, color, seconds)
 	local b = components.BigBanner
+	AnimGuard.Run("Transitions", function()
+		b.Pop.Scale = 0.6
+		UI.Tween(b.Pop, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	end)
 	b.Title.Text = title
 	b.Title.TextColor3 = color or C.Gold
 	b.Sub.Text = subtitle or ""
@@ -485,7 +517,7 @@ local function buildBigBanner()
 	title.TextStrokeTransparency = 0.3
 	local sub = UI.Label(f, { Position = UDim2.fromOffset(0, 52), Size = UDim2.new(1, 0, 0, 28), TextSize = 20, Text = "" })
 	sub.TextStrokeTransparency = 0.4
-	components.BigBanner = { Frame = f, Title = title, Sub = sub, Token = 0 }
+	components.BigBanner = { Frame = f, Title = title, Sub = sub, Token = 0, Pop = UI.New("UIScale", { Parent = f }) }
 end
 
 local function buildKillPopup()
@@ -607,12 +639,23 @@ local function showResults(data)
 		local mine = row.UserId == player.UserId
 		local line = UI.Frame(r.List, { Size = UDim2.new(1, 0, 0, 26), BackgroundColor3 = mine and C.Accent or C.Panel, BackgroundTransparency = mine and 0.3 or 0.2, ZIndex = 9, Radius = 5 })
 		local teamColor = (row.Team ~= "" and Config.TeamColors[row.Team]) and hex(Config.TeamColors[row.Team]) or C.Text
+		AnimGuard.Run("Victory", function()
+			line.Visible = false
+			task.delay(AnimLogic.Stagger(i, 0.09, 0.8), function()
+				line.BackgroundTransparency = 1
+				line.Visible = true
+				UI.Tween(line, 0.25, { BackgroundTransparency = mine and 0.3 or 0.2 })
+			end)
+		end)
 		UI.Label(line, { Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(30, 26), Text = "#" .. i, TextSize = 14, TextColor3 = C.Dim, ZIndex = 10 })
 		UI.Label(line, { Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -200, 1, 0), Text = row.Name, TextSize = 15, TextColor3 = teamColor, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10 })
 		UI.Label(line, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.fromOffset(150, 26), Text = data.Mode == "HILL" and ("%d points  ·  %d éliminations"):format(row.Points or 0, row.Kills) or ("%d éliminations  ·  %d morts"):format(row.Kills, row.Deaths), TextSize = 13, TextColor3 = C.Dim, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 10 })
 	end
 	r.Reward.Text = ("Récompenses : +%d 🪙  +%d XP%s"):format(data.Coins, data.XP, data.Won and "  (bonus de victoire)" or "")
 	r.Frame.Visible = true
+	if data.Won then
+		AnimGuard.Run("Victory", confetti)
+	end
 	r.Token += 1
 	local token = r.Token
 	task.delay(Config.Match.ResultsSeconds - 1, function()
@@ -811,8 +854,10 @@ function HUD.Init(screenGui, menusModule)
 			return
 		end
 		if state == "Playing" then
+			HUD.Wipe(C.Good)
 			HUD.Banner("C'EST PARTI !", Config.ModeNames[workspace:GetAttribute("MatchMode")] or "", C.Good, 2.4)
 		elseif state == "Intermission" then
+			HUD.Wipe(C.Accent)
 			HUD.Banner("PROCHAINE MANCHE", Config.ModeNames[workspace:GetAttribute("NextMode")] or "", C.Accent, 2.4)
 		end
 	end)
