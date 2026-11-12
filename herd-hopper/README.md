@@ -29,7 +29,12 @@ Exécutées dans cet environnement :
 
 Lancer : `cd tools/sim && npm install && node run.js A` (puis B, C, CLIENT).
 
-Configurations fournies mais **non exécutées ici** (outils absents de l'environnement) : `stylua.toml`, `selene.toml`, `rojo build` (via `default.project.json`). Lance `tools/check.sh` sur ta machine : il signale chaque outil manquant. Aucun test Lune : la logique est couverte par la simulation fengari ci-dessus.
+Outils installés ici avec `cargo install` et exécutés :
+- **stylua 2.6** : `stylua --check src` passe (code formaté, commit dédié) ;
+- **rojo 7.7.1** : `rojo build` produit un place avec la même hiérarchie que `build/SauteTroupeau.rbxlx` ;
+- **selene 0.31** : installé mais inutilisable ici, il doit télécharger la bibliothèque standard Roblox et l'accès réseau lui est refusé (`selene.toml` fourni, à lancer sur ta machine).
+
+Aucun test Lune : la logique est couverte par la simulation fengari ci-dessus. `tools/check.sh` lance tout ce qui est disponible et signale chaque outil manquant.
 
 Audio : les musiques de `Config.Audio.Music` sont vides (aucun morceau libre de droits fourni). Les effets utilisent les sons intégrés au client Roblox, non vérifiés.
 
