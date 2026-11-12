@@ -278,6 +278,27 @@ function Config.zoneUnlocked(chaptersDone, rival)
 	return z ~= nil and chaptersDone >= z.chapter
 end
 
+-- Texte de l'objectif d'un chapitre.
+function Config.storyGoalText(c)
+	local rival = c.rival and (" chez " .. Config.RIVALS[c.rival].name) or ""
+	if c.type == "hatch" then
+		return "Faire éclore " .. c.goal .. " œuf(s)"
+	elseif c.type == "steal" then
+		return "Chiper " .. c.goal .. " œuf(s)" .. rival
+	elseif c.type == "train" then
+		return "Courir " .. c.goal .. " secondes sur le tapis roulant"
+	elseif c.type == "species" then
+		return "Découvrir " .. c.goal .. " espèces différentes"
+	elseif c.type == "tier" then
+		return "Obtenir un pet " .. Config.TIERS[c.tier].name .. " ou mieux"
+	elseif c.type == "mut" then
+		return "Obtenir un pet muté"
+	elseif c.type == "rebirth" then
+		return "Renaître " .. c.goal .. " fois"
+	end
+	return c.type
+end
+
 -- Récompense de pièces d'un chapitre pour un revenu donné (par seconde).
 function Config.storyReward(chapter, income)
 	return math.floor(math.max(chapter.coins, income * chapter.mins * 60))

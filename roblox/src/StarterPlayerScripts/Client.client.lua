@@ -205,6 +205,24 @@ local function hatchPop(info)
 	end)
 end
 
+---------------------------------------------------------------- Introduction (nouveaux joueurs uniquement)
+local introChecked = false
+local function showIntro()
+	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 22, 15), BackgroundTransparency = 0.04, ZIndex = 50 }, gui)
+	make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(30, 80, 55), Color3.fromRGB(6, 16, 11)), Rotation = 90 }, f)
+	local box = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(420, 340), BackgroundTransparency = 1, ZIndex = 51 }, f)
+	text(box, { Size = UDim2.new(1, 0, 0, 70), Text = "🥚 " .. Config.TITLE, TextSize = 44, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, ZIndex = 52 })
+	text(box, { Position = UDim2.fromOffset(0, 72), Size = UDim2.new(1, 0, 0, 44), Text = Config.TAGLINE, TextSize = 18, TextWrapped = true, ZIndex = 52 })
+	text(box, { Position = UDim2.fromOffset(0, 122), Size = UDim2.new(1, 0, 0, 140), Text = Config.LORE, TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 52 })
+	local go = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(260, 54), BackgroundColor3 = COL.yellow, Text = "Commencer l'aventure", Font = FONT, TextSize = 20, TextColor3 = COL.dark, ZIndex = 52 }, box)
+	corner(go, 14)
+	pressFx(go)
+	go.Activated:Connect(function()
+		playSound("claim")
+		f:Destroy()
+	end)
+end
+
 ---------------------------------------------------------------- Panneaux
 local panelFrame = make("Frame", { Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.92, 0.8), BackgroundColor3 = COL.bg, Visible = false }, gui)
 corner(panelFrame, 18)
@@ -285,6 +303,7 @@ end
 local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
 	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" } },
+	quests = { { "story", "📜 Histoire" }, { "daily", "🎯 Quotidiennes" } },
 }
 local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
 
@@ -331,7 +350,7 @@ function render()
 	end
 
 	if panel.name == "shop" and panel.tab == "eggs" then
-		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.")
+		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n🎁 Pitié : un pet de rareté supérieure est garanti dans " .. math.max(1, Config.PITY_EVERY - state.pity) .. " éclosion(s) si aucun n'est tombé d'ici là.")
 		for i, t in ipairs(Config.TIERS) do
 			addRow({
 				icon = "🥚", iconColor = t.color, title = "Œuf " .. t.name, titleColor = t.color,
@@ -361,7 +380,7 @@ function render()
 		for k in pairs(state.dex) do
 			got += 1
 		end
-		addNote(got .. "/" .. #Config.PETS .. " espèces découvertes. Tailles et mutations rares multiplient les revenus.")
+		addNote("📚 Bonus de collection : +" .. math.floor((state.collection - 1) * 100 + 0.5) .. "% de revenus définitifs (" .. got .. "/" .. #Config.PETS .. " espèces ; +" .. math.floor(Config.COLLECTION_BONUS * 100 + 0.5) .. "% tous les " .. Config.COLLECTION_STEP .. " espèces découvertes). Tailles et mutations rares multiplient aussi les revenus.")
 		for i, p in ipairs(Config.PETS) do
 			local d = state.dex[tostring(i)]
 			local tier = Config.TIERS[p.tier]
@@ -402,6 +421,47 @@ function render()
 			addNote("Aucun pet pour l'instant. Fais éclore des œufs !")
 		else
 			addNote("🐾 = fais-le te suivre (3 maximum). Il continue de produire dans ta base.")
+		end
+	elseif panel.name == "quests" and panel.tab == "story" then
+		local ch = state.story.ch
+		local total = #Config.STORY
+		local rank = Config.rankFor(ch)
+		local nextRank
+		for _, r in ipairs(Config.RANKS) do
+			if r.chapter > ch and not nextRank then
+				nextRank = r
+			end
+		end
+		addRow({
+			icon = rank.emoji, iconColor = COL.yellow, title = "Rang : " .. rank.name,
+			desc = "Chapitres réussis : " .. ch .. "/" .. total .. (nextRank and (" · prochain rang (" .. nextRank.name .. ") au chapitre " .. nextRank.chapter) or " · rang suprême !"),
+		})
+		local c = Config.STORY[ch + 1]
+		if c then
+			addNote("📜 Chapitre " .. (ch + 1) .. " : " .. c.title .. "\n" .. c.text)
+			local ready = state.story.prog >= c.goal
+			addRow({
+				icon = "🎯", title = Config.storyGoalText(c),
+				desc = fmt(math.floor(state.story.prog)) .. "/" .. fmt(c.goal) .. " · récompense 🪙 " .. fmt(Config.storyReward(c, player:GetAttribute("Income") or 0)),
+				btn = ready and "Réclamer" or "…", btnColor = ready and COL.green or COL.dis,
+				onClick = ready and function()
+					RAction:FireServer("claimStory")
+				end or nil,
+			})
+		else
+			addNote("👑 Histoire terminée : tu es Roi des Couvées ! Les missions quotidiennes et les événements continuent.")
+		end
+		for _, z in ipairs(Config.ZONES) do
+			if z.chapter > ch then
+				addRow({ icon = "🔒", title = z.name, desc = "S'ouvre au chapitre " .. z.chapter .. " de l'histoire (ses œufs sont plus rares)." })
+			end
+		end
+		if ch > 0 then
+			local done = {}
+			for i = 1, ch do
+				done[#done + 1] = "✅ " .. i .. ". " .. Config.STORY[i].title
+			end
+			addNote(table.concat(done, "\n"))
 		end
 	elseif panel.name == "quests" then
 		addNote("Les missions se renouvellent chaque jour.")
@@ -495,6 +555,7 @@ function render()
 		})
 		addNote(string.format("Œufs volés : %d · Œufs éclos : %d · Vitesse : %s", state.stolen, state.hatched, fmt(player:GetAttribute("Speed") or 0)))
 		addNote(Config.oddsText())
+		addNote("📖 " .. Config.LORE)
 		addNote("Comment jouer : maintiens le bouton de vol devant un œuf pour le prendre (évite le gardien 🐕), rapporte-le dans ta base, touche-le pour accélérer l'éclosion. Cours sur le tapis pour gagner en vitesse. Les autres joueurs peuvent voler tes œufs non protégés 🛡 !")
 	end
 	task.defer(function()
@@ -524,6 +585,7 @@ end)
 local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }
 local navBar = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y), Size = UDim2.fromOffset(#navDefs * 56, 52), BackgroundTransparency = 1 }, gui)
 make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center }, navBar)
+local navDots = {}
 for _, n in ipairs(navDefs) do
 	local b = make("TextButton", { Size = UDim2.fromOffset(52, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, navBar)
 	corner(b, 14)
@@ -531,6 +593,9 @@ for _, n in ipairs(navDefs) do
 	make("UIStroke", { Color = COL.panel, Thickness = 2 }, b)
 	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22 })
 	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10 })
+	local dot = make("Frame", { Size = UDim2.fromOffset(13, 13), Position = UDim2.new(1, -14, 0, 1), BackgroundColor3 = COL.red, Visible = false, ZIndex = 5 }, b)
+	corner(dot, 7)
+	navDots[n[1]] = dot
 	b.Activated:Connect(function()
 		openPanel(n[1])
 	end)
@@ -556,11 +621,22 @@ end
 
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	if not introChecked then
+		introChecked = true
+		if snap.story.ch == 0 and snap.hatched == 0 then
+			showIntro()
+		end
+	end
 	if panel then
 		renderSoon()
 	end
 end)
-RNotify.OnClientEvent:Connect(toast)
+RNotify.OnClientEvent:Connect(function(msg, sfx)
+	toast(msg)
+	if sfx then
+		playSound(sfx)
+	end
+end)
 RHatch.OnClientEvent:Connect(hatchPop)
 RTop.OnClientEvent:Connect(function(list)
 	topData = list
@@ -621,6 +697,14 @@ task.spawn(function()
 			end
 		end
 		if state then
+			local claimable = state.story.prog >= (Config.STORY[state.story.ch + 1] and Config.STORY[state.story.ch + 1].goal or math.huge)
+			for _, q in ipairs(state.quests) do
+				if q.prog >= q.goal and not q.claimed then
+					claimable = true
+				end
+			end
+			navDots.quests.Visible = claimable
+			navDots.bonus.Visible = state.dailyReady
 			carryLbl.Visible = state.carry > 0
 			carryLbl.Text = "🥚 " .. state.carry .. "/" .. state.carryCap
 			local msg
@@ -645,7 +729,19 @@ task.spawn(function()
 		local lvl = state and state.up.fing or 0
 		for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
 			pr.HoldDuration = Config.stealTime(lvl)
-			pr.Enabled = pr:GetAttribute("Owner") ~= player.UserId
+			local rival = pr:GetAttribute("Rival")
+			local open = rival == nil or (state ~= nil and Config.zoneUnlocked(state.story.ch, rival))
+			pr.Enabled = pr:GetAttribute("Owner") ~= player.UserId and open
+		end
+		-- barrières des domaines verrouillés : traversables (localement) dès que le chapitre requis est réussi
+		for _, gate in ipairs(CollectionService:GetTagged("ZoneGate")) do
+			local open = state ~= nil and Config.zoneUnlocked(state.story.ch, gate:GetAttribute("Rival") or 0)
+			gate.CanCollide = not open
+			gate.Transparency = open and 1 or 0.6
+			local lbl = gate:FindFirstChild("Label")
+			if lbl then
+				lbl.Enabled = not open
+			end
 		end
 		task.wait(0.5)
 	end

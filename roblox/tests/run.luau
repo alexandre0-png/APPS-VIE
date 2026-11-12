@@ -221,6 +221,7 @@ for i, c in ipairs(Config.STORY) do
 	check("chapitre " .. i .. " : récompense > 0", Config.storyReward(c, 0) > 0)
 	check("chapitre " .. i .. " : type tier a une rareté valide", c.type ~= "tier" or (c.tier ~= nil and c.tier >= 1 and c.tier <= 6))
 	check("chapitre " .. i .. " : rival valide", c.rival == nil or Config.RIVALS[c.rival] ~= nil)
+	check("chapitre " .. i .. " : texte d'objectif non vide", #Config.storyGoalText(c) > 0)
 	check("chapitre " .. i .. " : les espèces demandées existent", c.type ~= "species" or c.goal <= #Config.PETS)
 end
 check("récompense proportionnelle au revenu", Config.storyReward({ coins = 100, mins = 10 }, 1000) == 600000)

@@ -324,6 +324,7 @@ local function setNestEgg(n, tier)
 	pr.RequiresLineOfSight = false
 	pr:SetAttribute("Kind", "Nest")
 	pr:SetAttribute("Nest", n.index)
+	pr:SetAttribute("Rival", n.rival) -- le client masque le prompt tant que la zone est verrouillée
 	pr.Parent = egg
 	CollectionService:AddTag(pr, "StealPrompt")
 	Builder.sign(egg, Config.TIERS[tier].name, Config.TIERS[tier].color, 3, 160)

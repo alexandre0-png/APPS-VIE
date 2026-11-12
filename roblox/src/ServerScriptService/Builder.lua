@@ -274,6 +274,51 @@ function Builder.setupLighting()
 	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.18, Contrast = 0.1, Brightness = 0.02 })
 end
 
+---------------------------------------------------------------- Monument du Grand Nid (identité du jeu, au centre de l'arène)
+function Builder.monument(parent)
+	local gold = Color3.fromRGB(255, 214, 120)
+	part({ Name = "MonumentBase", Size = Vector3.new(1.4, 17, 17), CFrame = CFrame.new(0, 0.8, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(176, 160, 128), Material = Enum.Material.Slate }, parent)
+	part({ Name = "MonumentStep", Size = Vector3.new(0.8, 12, 12), CFrame = CFrame.new(0, 1.7, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(130, 116, 92), Material = Enum.Material.Slate }, parent)
+	local egg = Instance.new("Part")
+	egg.Name = "GrandNid"
+	egg.Anchored = true
+	egg.Size = Vector3.new(8, 11, 8)
+	egg.CFrame = CFrame.new(0, 8.1, 0)
+	egg.Color = gold
+	egg.Material = Enum.Material.Metal
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = egg
+	local glow = Instance.new("PointLight")
+	glow.Color = gold
+	glow.Range = 28
+	glow.Brightness = 1.5
+	glow.Parent = egg
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Texture = SPARK
+	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 235, 160))
+	sparks.Rate = 8
+	sparks.Lifetime = NumberRange.new(2, 3.5)
+	sparks.Speed = NumberRange.new(1, 3)
+	sparks.Acceleration = Vector3.new(0, 2, 0)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	sparks.Parent = egg
+	egg.Parent = parent
+	for k, c in ipairs({ { 0, 9.5, -3.7, 0.3 }, { 1.2, 6.6, -3.75, -0.5 }, { -1.1, 4.2, -3.6, 0.6 } }) do -- fissures lumineuses
+		part({ Name = "Crack" .. k, Size = Vector3.new(0.35, 3.2, 0.35), CFrame = CFrame.new(c[1], c[2], c[3]) * CFrame.Angles(0, 0, c[4]), Color = Color3.fromRGB(255, 248, 200), Material = Enum.Material.Neon, CanCollide = false }, parent)
+	end
+	for k = 0, 3 do -- pierres runiques
+		local a = k * math.pi / 2 + math.pi / 4
+		local x, z = math.sin(a) * 9.5, math.cos(a) * 9.5
+		part({ Name = "Rune", Size = Vector3.new(2, 5, 1), CFrame = CFrame.new(x, 3.2, z) * CFrame.Angles(0, a, 0), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
+		part({ Name = "RuneGlow", Size = Vector3.new(0.9, 3, 0.2), CFrame = CFrame.new(x, 3.4, z) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -0.55), Color = gold, Material = Enum.Material.Neon, CanCollide = false }, parent)
+	end
+	local t = sign(egg, "✨ Le Grand Nid ✨\nReconstruis la Couvée, Chipeur !", gold, 9, 340)
+	t.TextSize = 20
+end
+
 ---------------------------------------------------------------- Monde
 local PLOT_COLORS = {
 	Color3.fromRGB(255, 120, 120), Color3.fromRGB(255, 180, 80), Color3.fromRGB(255, 230, 90), Color3.fromRGB(140, 230, 110),
@@ -347,6 +392,8 @@ function Builder.build()
 	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
 	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
 
+	Builder.monument(world)
+
 	for _ = 1, 38 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
 		tree(Vector3.new(math.sin(a) * r, 0, math.cos(a) * r), world, rng)
@@ -379,6 +426,16 @@ function Builder.build()
 		end
 		torch(Vector3.new(cx - 15, 0.5, cz + 9), folder)
 		torch(Vector3.new(cx + 15, 0.5, cz + 9), folder)
+		local zone = Config.ZONES[i]
+		if zone and zone.chapter > 0 then
+			-- Barrière du domaine verrouillé. Elle est solide pour tous ; le client la rend traversable (localement) dès que le
+			-- joueur a réussi le chapitre requis. Le serveur refuse de toute façon tout vol dans une zone verrouillée.
+			local gate = part({ Name = "ZoneGate", Size = Vector3.new(12, 40, 40), CFrame = CFrame.new(cx, 6, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(255, 70, 90), Material = Enum.Material.Neon, Transparency = 0.6 }, folder)
+			gate:SetAttribute("Rival", i)
+			gate:SetAttribute("Chapter", zone.chapter)
+			CollectionService:AddTag(gate, "ZoneGate")
+			sign(gate, "🔒 " .. zone.name .. "\nHistoire : chapitre " .. zone.chapter, Color3.fromRGB(255, 210, 210), 10, 300)
+		end
 		local pole = part({ Name = "Sign", Size = Vector3.new(1, 9, 1), Position = Vector3.new(cx, 4.5, cz - 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
 		part({ Name = "Flag", Size = Vector3.new(0.2, 3, 5), Position = Vector3.new(cx + 0.2, 8, cz - 11.5), Color = riv.color, Material = Enum.Material.Fabric, CanCollide = false }, folder)
 		local t = sign(pole, riv.emoji .. " " .. riv.name .. "  " .. string.rep("★", riv.stars), Color3.fromRGB(255, 220, 90), 7, 260)
