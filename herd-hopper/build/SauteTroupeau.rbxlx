@@ -4071,6 +4071,12 @@ local function stepRiding(player, run, hum, hrp, dt, now)
 	end
 	run.mountT = run.mountT + dt
 
+	-- filet de sécurité : si la soudure ne suit pas la bête (physique inattendue), on recale le cavalier
+	local seat = CreatureService.SeatWorldCFrame(c)
+	if (hrp.Position - seat.Position).Magnitude > 4 then
+		hrp.CFrame = seat
+	end
+
 	local rate = Config.Score.RidePerSecond * c.def.value * c.variant.mult * comboMult(run)
 	addScore(run, rate * dt)
 
