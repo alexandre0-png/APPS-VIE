@@ -27,7 +27,8 @@ Régénérer le fichier de place après une modification du code : `python3 robl
 La Grande Couvée s'est brisée : reprends ses œufs, fais-les éclore et deviens Roi des Couvées !
 
 🥚 Chipe des œufs gardés par des chiens... ou à d'autres joueurs
-📜 11 chapitres d'histoire, 3 domaines à débloquer, des rangs à gagner
+📜 12 chapitres d'histoire, 3 domaines à débloquer, des rangs à gagner
+🔮 Une énigme des runes chaque jour, des succès à paliers
 🐣 18 pets, 6 raretés, tailles et mutations (Doré, Néon, Arc-en-ciel, Alien)
 📚 Chaque série de 3 espèces découvertes = bonus de revenus définitif
 🎁 Pitié : une rareté supérieure garantie à intervalle régulier
@@ -50,7 +51,8 @@ Probabilités affichées dans le jeu (menu Plus).
 The Great Clutch is shattered: take back its eggs, hatch them and become King of Clutches!
 
 🥚 Steal eggs guarded by dogs... or from other players
-📜 11 story chapters, 3 domains to unlock, ranks to earn
+📜 12 story chapters, 3 domains to unlock, ranks to earn
+🔮 A new rune riddle every day, tiered achievements
 🐣 18 pets, 6 rarities, sizes and mutations (Gold, Neon, Rainbow, Alien)
 📚 Every 3 species discovered = permanent income bonus
 🎁 Pity: a higher rarity is guaranteed at regular intervals
@@ -116,6 +118,8 @@ Studio → **Test > Clients and Servers** (2 joueurs). Coche chaque ligne :
 - [ ] Histoire : éclosion du 1er œuf, chapitre « terminé » signalé, récompense réclamée dans Missions > Histoire, chapitre suivant affiché.
 - [ ] Zones : la barrière rouge de Mara bloque avant le chapitre 3 et devient traversable ensuite ; aucun vol possible avant (même en forçant le passage) ; idem pour Zed au chapitre 6.
 - [ ] Introduction : visible pour un nouveau joueur seulement, fermée par le bouton.
+- [ ] Énigme des runes : le panneau près du Nid affiche l'énoncé (même texte dans Missions > Énigme) ; tourner les 4 runes change leur symbole (chez soi seulement) ; la bonne combinaison + toucher le Nid donne un œuf Épique et des pièces ; une mauvaise donne la pause de 6 s ; une 2e résolution le même jour est refusée ; le panneau change à minuit UTC.
+- [ ] Succès : un palier atteint allume la pastille de l'onglet Pets, « Réclamer » donne la récompense, le palier suivant s'affiche.
 - [ ] Bonus de collection et pitié : valeurs cohérentes dans Pets, Boutique et Plus.
 - [ ] Sons : sons intégrés audibles (hatch, vol, capture) ; sinon coller des ID dans `Config.SOUNDS`.
 - [ ] Monument du Grand Nid et décor : rendu correct, aucun obstacle gênant le tapis roulant.

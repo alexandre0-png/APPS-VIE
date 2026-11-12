@@ -17,17 +17,24 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Énigmes et succès (v4)
+
+- **Énigme des runes** : quatre runes entourent le Grand Nid (Nord = côté des rivaux). Chaque jour, le Gardien énonce un indice par direction (panneau près du Nid et onglet Missions > Énigme) ; il faut régler chaque rune sur le bon symbole (🔥 🌊 🌿 ⭐) puis toucher le Nid pour valider. Récompense : un œuf Épique et des pièces, une fois par jour. Une mauvaise combinaison impose une pause de 6 s (pas d'essai au hasard en boucle). L'énigme (24 ordres × 3 formulations par indice) est la même pour tous les joueurs un jour donné, générée de façon déterministe dans `Config.riddleFor`, donc testable. L'état des runes est propre à chaque joueur (symboles affichés localement).
+- **Succès à paliers** (Collection > Succès) : Éleveur, Chipeur, Collectionneur, Renaissant, Déchiffreur, 4 paliers chacun, récompense en pièces (au moins un plancher fixe, ou des minutes de revenus). Pastille de notification quand un palier est prêt.
+- **Histoire** : un 12e chapitre (« Le murmure des runes ») est inséré en position 8.
+- **Données** : version 4 du schéma (migration depuis v1, v2, v3 : qui avait déjà réussi 8 chapitres ou plus est décalé d'un cran pour ne rien refaire).
+
 ## Univers et progression (v3)
 
 - **Identité** : le Royaume des Couvées. La Grande Couvée s'est brisée ; tu es un apprenti Chipeur qui reconstruit le **Grand Nid** (monument doré au centre de l'arène). Texte dans `Config.LORE`, introduction affichée aux nouveaux joueurs.
-- **Histoire** : 11 chapitres (`Config.STORY`), de « L'œuf d'argent » à « Le Grand Nid s'éveille ». Chaque chapitre a un objectif, un texte et une récompense (proportionnelle à ton revenu). Onglet Missions > Histoire.
+- **Histoire** : 12 chapitres (`Config.STORY`), de « L'œuf d'argent » à « Le Grand Nid s'éveille ». Chaque chapitre a un objectif, un texte et une récompense (proportionnelle à ton revenu). Onglet Missions > Histoire.
 - **Zones à débloquer** : le domaine de Mara s'ouvre au chapitre 3, la citadelle de Zed au chapitre 6 (`Config.ZONES`). Barrière rouge visible, traversable localement une fois la zone ouverte ; le **serveur refuse tout vol** dans une zone verrouillée, et leurs gardiens ignorent les joueurs qui n'y ont pas accès.
 - **Rangs** : Apprenti, Chipeur, Maître Chipeur, Seigneur des Couvées, Roi des Couvées (affichés sur la base et dans le classement).
 - **Collection** : +5 % de revenus définitifs tous les 3 espèces découvertes (max +30 %).
 - **Pitié** : après 12 éclosions sans rareté supérieure, la suivante l'est garantie.
 - **Sons** : sons intégrés au client Roblox par défaut (vol, éclosion, capture, récompense, clic), remplaçables dans `Config.SOUNDS`.
 - **Achats Robux** : Game Passes Revenus x2, Chance +10 %, Éclosion rapide (-25 % de temps) ; produits Éclosion instantanée, Potion de chance, Sac de pièces. Aucun n'est nécessaire pour progresser (l'histoire, les zones et les rangs sont gratuits).
-- **Données** : version 3 du schéma (migrations automatiques depuis les versions 1 et 2).
+- **Données** : version 3 du schéma (devenue la version 4, voir plus haut).
 
 ## Passe graphique et robustesse (v2)
 

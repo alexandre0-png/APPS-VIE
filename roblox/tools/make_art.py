@@ -154,7 +154,7 @@ def story():
     w, h = 1920, 1080
     im = gradient(w, h, (24, 52, 40), (8, 22, 16))
     rays(im, w // 2, 600, (255, 220, 120), 20, 26)
-    outlined(im, "11 CHAPITRES · 3 DOMAINES · 1 LÉGENDE", w // 2, 120, 84, fill=(255, 218, 70), sw=10)
+    outlined(im, "12 CHAPITRES · 3 DOMAINES · ÉNIGMES", w // 2, 120, 84, fill=(255, 218, 70), sw=10)
     cards = [("Domaine de Gus", "🤠", "🐕", (111, 191, 115), False), ("Domaine de Mara", "🧛", "🐺", (224, 164, 59), True), ("Citadelle de Zed", "🤖", "🐻", (224, 87, 90), True)]
     for i, (name, boss, guard, col, locked) in enumerate(cards):
         x = 130 + i * 570

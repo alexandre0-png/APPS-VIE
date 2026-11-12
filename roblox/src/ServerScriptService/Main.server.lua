@@ -209,6 +209,26 @@ local function updateSign(s)
 	s.plot.nameLabel.Text = "🏠 Base de " .. s.player.DisplayName .. " · " .. r.emoji .. " " .. r.name
 end
 
+---------------------------------------------------------------- Énigme du jour (identique pour tous) et statistiques de succès
+local riddleCache = { day = -1, riddle = nil }
+local function currentRiddle()
+	local day = os.time() // 86400
+	if riddleCache.day ~= day then
+		riddleCache.day = day
+		riddleCache.riddle = Config.riddleFor(day)
+		for _, lbl in ipairs(world.riddleLabels) do
+			lbl.Text = riddleCache.riddle.text
+		end
+	end
+	return riddleCache.riddle
+end
+currentRiddle() -- écrit l'énoncé sur les panneaux dès le démarrage
+
+local function statValues(s)
+	local d = s.data
+	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved }
+end
+
 ---------------------------------------------------------------- Synchronisation client
 local function snapshot(s)
 	local d = s.data
@@ -247,6 +267,12 @@ local function snapshot(s)
 		pity = d.pity,
 		species = s.species,
 		collection = Config.collectionBonus(s.species),
+		runes = s.runes,
+		riddle = currentRiddle().text,
+		puzzleDone = d.puzzle.day == today,
+		puzzleSolved = d.puzzle.solved,
+		ach = d.ach,
+		stats = statValues(s),
 	}
 end
 
@@ -590,6 +616,71 @@ function speedUpEgg(s, i, who)
 	end
 end
 
+---------------------------------------------------------------- Énigme des runes
+-- Récompense : un œuf (ou son prix en pièces si la base est pleine) + des pièces. Une résolution par jour et par joueur.
+local function solvePuzzle(s)
+	local d = s.data
+	d.puzzle.day = os.time() // 86400
+	d.puzzle.solved += 1
+	local tier = Config.PUZZLE_EGG_TIER
+	local i = freeSlot(d)
+	local coins = Config.puzzleCoins(income(s))
+	if i then
+		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+		refreshPad(s, i)
+	else
+		coins += Config.EGG_PRICE[tier]
+	end
+	d.coins += coins
+	s.runes = { 1, 1, 1, 1 }
+	Builder.burst(world.monumentCenter, Color3.fromRGB(255, 214, 120), 140, true)
+	notify(s.player, "🔮 Énigme résolue ! +" .. Config.fmt(coins) .. " 🪙" .. (i and (" et un œuf " .. Config.TIERS[tier].name .. " dans ta base") or " (base pleine : l'œuf est converti en pièces)"), "rare")
+	sp(s, "puzzle", 1)
+	sync(s)
+end
+
+local function rotateRune(s, root, prompt)
+	local idx = prompt:GetAttribute("Idx")
+	if type(idx) ~= "number" or idx % 1 ~= 0 or idx < 1 or idx > #Config.RUNES then
+		return
+	end
+	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 16 then
+		return
+	end
+	local now = os.clock()
+	if now - s.lastRune < 0.12 then
+		return
+	end
+	s.lastRune = now
+	s.runes[idx] = s.runes[idx] % #Config.RUNES + 1
+	sync(s)
+end
+
+local function confirmRunes(s, root, prompt)
+	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 20 then
+		return
+	end
+	local d = s.data
+	if d.puzzle.day == os.time() // 86400 then
+		notify(s.player, "🔮 Tu as déjà résolu l'énigme du jour. Reviens demain !")
+		return
+	end
+	local now = os.clock()
+	if now < s.runeLock then
+		notify(s.player, "🔮 Les runes se reposent… patiente quelques secondes.")
+		return
+	end
+	local answer = currentRiddle().answer
+	for i = 1, #answer do
+		if s.runes[i] ~= answer[i] then
+			s.runeLock = now + Config.RUNE_LOCK_SECONDS
+			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme du Gardien.", "caught")
+			return
+		end
+	end
+	solvePuzzle(s)
+end
+
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
@@ -603,12 +694,19 @@ end)
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	local kind = prompt:GetAttribute("Kind")
-	if kind ~= "Nest" and kind ~= "Pad" then
+	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" then
 		return
 	end
 	local s = sessions[player]
 	local root = getRoot(player)
 	if not s or not root or not alive(player) or s.stun > 0 then
+		return
+	end
+	if kind == "Rune" then
+		rotateRune(s, root, prompt)
+		return
+	elseif kind == "RuneConfirm" then
+		confirmRunes(s, root, prompt)
 		return
 	end
 	local now = os.clock()
@@ -904,6 +1002,7 @@ end
 
 local function slowTick(dt)
 	eventStep(dt)
+	currentRiddle() -- change l'énoncé à minuit (UTC)
 	for _, n in ipairs(world.nests) do
 		if not n.egg then
 			n.rt -= dt
@@ -1049,6 +1148,7 @@ function actions.rebirth(s)
 	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
 	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
 	fresh.story, fresh.pity = d.story, d.pity
+	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
@@ -1125,6 +1225,27 @@ function actions.claimStory(s)
 		notify(s.player, "🎖 Nouveau rang : " .. rank.emoji .. " " .. rank.name .. " !", "event")
 	end
 	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
+	sync(s)
+end
+
+function actions.claimAch(s, id)
+	local a = type(id) == "string" and Config.achievement(id)
+	if not a then
+		return
+	end
+	local d = s.data
+	local tier = d.ach[a.id] or 0
+	if tier >= #a.goals then
+		return
+	end
+	local value = statValues(s)[a.stat]
+	if not value or value < a.goals[tier + 1] then
+		return
+	end
+	local reward = Config.achReward(tier + 1, income(s))
+	d.ach[a.id] = tier + 1
+	d.coins += reward
+	notify(s.player, "🏅 Succès « " .. a.name .. " » (palier " .. (tier + 1) .. ") : +" .. Config.fmt(reward) .. " 🪙", "claim")
 	sync(s)
 end
 
@@ -1284,6 +1405,7 @@ local function onJoin(player)
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
+		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player

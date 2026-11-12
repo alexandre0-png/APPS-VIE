@@ -628,6 +628,26 @@ local function updateSign(s)
 	s.plot.nameLabel.Text = "🏠 Base de " .. s.player.DisplayName .. " · " .. r.emoji .. " " .. r.name
 end
 
+---------------------------------------------------------------- Énigme du jour (identique pour tous) et statistiques de succès
+local riddleCache = { day = -1, riddle = nil }
+local function currentRiddle()
+	local day = os.time() // 86400
+	if riddleCache.day ~= day then
+		riddleCache.day = day
+		riddleCache.riddle = Config.riddleFor(day)
+		for _, lbl in ipairs(world.riddleLabels) do
+			lbl.Text = riddleCache.riddle.text
+		end
+	end
+	return riddleCache.riddle
+end
+currentRiddle() -- écrit l'énoncé sur les panneaux dès le démarrage
+
+local function statValues(s)
+	local d = s.data
+	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved }
+end
+
 ---------------------------------------------------------------- Synchronisation client
 local function snapshot(s)
 	local d = s.data
@@ -666,6 +686,12 @@ local function snapshot(s)
 		pity = d.pity,
 		species = s.species,
 		collection = Config.collectionBonus(s.species),
+		runes = s.runes,
+		riddle = currentRiddle().text,
+		puzzleDone = d.puzzle.day == today,
+		puzzleSolved = d.puzzle.solved,
+		ach = d.ach,
+		stats = statValues(s),
 	}
 end
 
@@ -1009,6 +1035,71 @@ function speedUpEgg(s, i, who)
 	end
 end
 
+---------------------------------------------------------------- Énigme des runes
+-- Récompense : un œuf (ou son prix en pièces si la base est pleine) + des pièces. Une résolution par jour et par joueur.
+local function solvePuzzle(s)
+	local d = s.data
+	d.puzzle.day = os.time() // 86400
+	d.puzzle.solved += 1
+	local tier = Config.PUZZLE_EGG_TIER
+	local i = freeSlot(d)
+	local coins = Config.puzzleCoins(income(s))
+	if i then
+		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+		refreshPad(s, i)
+	else
+		coins += Config.EGG_PRICE[tier]
+	end
+	d.coins += coins
+	s.runes = { 1, 1, 1, 1 }
+	Builder.burst(world.monumentCenter, Color3.fromRGB(255, 214, 120), 140, true)
+	notify(s.player, "🔮 Énigme résolue ! +" .. Config.fmt(coins) .. " 🪙" .. (i and (" et un œuf " .. Config.TIERS[tier].name .. " dans ta base") or " (base pleine : l'œuf est converti en pièces)"), "rare")
+	sp(s, "puzzle", 1)
+	sync(s)
+end
+
+local function rotateRune(s, root, prompt)
+	local idx = prompt:GetAttribute("Idx")
+	if type(idx) ~= "number" or idx % 1 ~= 0 or idx < 1 or idx > #Config.RUNES then
+		return
+	end
+	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 16 then
+		return
+	end
+	local now = os.clock()
+	if now - s.lastRune < 0.12 then
+		return
+	end
+	s.lastRune = now
+	s.runes[idx] = s.runes[idx] % #Config.RUNES + 1
+	sync(s)
+end
+
+local function confirmRunes(s, root, prompt)
+	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 20 then
+		return
+	end
+	local d = s.data
+	if d.puzzle.day == os.time() // 86400 then
+		notify(s.player, "🔮 Tu as déjà résolu l'énigme du jour. Reviens demain !")
+		return
+	end
+	local now = os.clock()
+	if now < s.runeLock then
+		notify(s.player, "🔮 Les runes se reposent… patiente quelques secondes.")
+		return
+	end
+	local answer = currentRiddle().answer
+	for i = 1, #answer do
+		if s.runes[i] ~= answer[i] then
+			s.runeLock = now + Config.RUNE_LOCK_SECONDS
+			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme du Gardien.", "caught")
+			return
+		end
+	end
+	solvePuzzle(s)
+end
+
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
@@ -1022,12 +1113,19 @@ end)
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	local kind = prompt:GetAttribute("Kind")
-	if kind ~= "Nest" and kind ~= "Pad" then
+	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" then
 		return
 	end
 	local s = sessions[player]
 	local root = getRoot(player)
 	if not s or not root or not alive(player) or s.stun > 0 then
+		return
+	end
+	if kind == "Rune" then
+		rotateRune(s, root, prompt)
+		return
+	elseif kind == "RuneConfirm" then
+		confirmRunes(s, root, prompt)
 		return
 	end
 	local now = os.clock()
@@ -1323,6 +1421,7 @@ end
 
 local function slowTick(dt)
 	eventStep(dt)
+	currentRiddle() -- change l'énoncé à minuit (UTC)
 	for _, n in ipairs(world.nests) do
 		if not n.egg then
 			n.rt -= dt
@@ -1468,6 +1567,7 @@ function actions.rebirth(s)
 	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
 	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
 	fresh.story, fresh.pity = d.story, d.pity
+	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
@@ -1544,6 +1644,27 @@ function actions.claimStory(s)
 		notify(s.player, "🎖 Nouveau rang : " .. rank.emoji .. " " .. rank.name .. " !", "event")
 	end
 	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
+	sync(s)
+end
+
+function actions.claimAch(s, id)
+	local a = type(id) == "string" and Config.achievement(id)
+	if not a then
+		return
+	end
+	local d = s.data
+	local tier = d.ach[a.id] or 0
+	if tier >= #a.goals then
+		return
+	end
+	local value = statValues(s)[a.stat]
+	if not value or value < a.goals[tier + 1] then
+		return
+	end
+	local reward = Config.achReward(tier + 1, income(s))
+	d.ach[a.id] = tier + 1
+	d.coins += reward
+	notify(s.player, "🏅 Succès « " .. a.name .. " » (palier " .. (tier + 1) .. ") : +" .. Config.fmt(reward) .. " 🪙", "claim")
 	sync(s)
 end
 
@@ -1703,6 +1824,7 @@ local function onJoin(player)
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
+		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
@@ -2493,14 +2615,73 @@ function Builder.monument(parent)
 	for k, c in ipairs({ { 0, 9.5, -3.7, 0.3 }, { 1.2, 6.6, -3.75, -0.5 }, { -1.1, 4.2, -3.6, 0.6 } }) do -- fissures lumineuses
 		part({ Name = "Crack" .. k, Size = Vector3.new(0.35, 3.2, 0.35), CFrame = CFrame.new(c[1], c[2], c[3]) * CFrame.Angles(0, 0, c[4]), Color = Color3.fromRGB(255, 248, 200), Material = Enum.Material.Neon, CanCollide = false }, parent)
 	end
-	for k = 0, 3 do -- pierres runiques
-		local a = k * math.pi / 2 + math.pi / 4
-		local x, z = math.sin(a) * 9.5, math.cos(a) * 9.5
-		part({ Name = "Rune", Size = Vector3.new(2, 5, 1), CFrame = CFrame.new(x, 3.2, z) * CFrame.Angles(0, a, 0), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
-		part({ Name = "RuneGlow", Size = Vector3.new(0.9, 3, 0.2), CFrame = CFrame.new(x, 3.4, z) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -0.55), Color = gold, Material = Enum.Material.Neon, CanCollide = false }, parent)
+	-- Quatre runes cardinales (Nord = côté des rivaux). Chaque joueur règle ses propres runes : le symbole affiché est local au client
+	-- (étiquette « Label » modifiée côté client), l'état est tenu par le serveur.
+	local dirs = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } }
+	for k, dv in ipairs(dirs) do
+		local x, z = dv[1] * 9.5, dv[2] * 9.5
+		local stone = part({ Name = "RuneStone", Size = Vector3.new(2.4, 5, 1.2), CFrame = CFrame.lookAt(Vector3.new(x, 3.2, z), Vector3.new(0, 3.2, 0)), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
+		stone:SetAttribute("Idx", k)
+		CollectionService:AddTag(stone, "RuneStone")
+		part({ Name = "RuneGlow", Size = Vector3.new(1.1, 3.4, 0.2), CFrame = stone.CFrame * CFrame.new(0, 0.2, -0.65), Color = gold, Material = Enum.Material.Neon, CanCollide = false }, parent)
+		local lbl = sign(stone, "?", Color3.fromRGB(255, 240, 190), 4.4, 120)
+		lbl.TextSize = 44
+		local pr = Instance.new("ProximityPrompt")
+		pr.ActionText = "Tourner la rune"
+		pr.ObjectText = "Rune du " .. Config.RUNE_DIRECTIONS[k]
+		pr.HoldDuration = 0
+		pr.MaxActivationDistance = 9
+		pr.RequiresLineOfSight = false
+		pr:SetAttribute("Kind", "Rune")
+		pr:SetAttribute("Idx", k)
+		pr.Parent = stone
 	end
+	-- Valider la combinaison en touchant le Grand Nid
+	local confirm = Instance.new("ProximityPrompt")
+	confirm.ActionText = "Poser la combinaison"
+	confirm.ObjectText = "Grand Nid"
+	confirm.HoldDuration = 0.5
+	confirm.MaxActivationDistance = 14
+	confirm.RequiresLineOfSight = false
+	confirm:SetAttribute("Kind", "RuneConfirm")
+	confirm.Parent = egg
+	-- Panneau de l'énigme du Gardien (texte mis à jour chaque jour par le serveur), lisible des deux côtés
+	local board = part({ Name = "RiddleBoard", Size = Vector3.new(12, 4.6, 0.5), Position = Vector3.new(0, 3.8, 14), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, parent)
+	part({ Name = "RiddlePostL", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(-5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	part({ Name = "RiddlePostR", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	local labels = {}
+	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+		local sg = Instance.new("SurfaceGui")
+		sg.Face = face
+		sg.CanvasSize = Vector2.new(720, 300)
+		sg.LightInfluence = 0
+		sg.Adornee = board
+		sg.Parent = board
+		local title = Instance.new("TextLabel")
+		title.BackgroundTransparency = 1
+		title.Size = UDim2.new(1, 0, 0, 56)
+		title.Font = FONT
+		title.TextSize = 40
+		title.TextColor3 = gold
+		title.Text = "📜 Énigme du Gardien"
+		title.Parent = sg
+		local body = Instance.new("TextLabel")
+		body.BackgroundTransparency = 1
+		body.Position = UDim2.fromOffset(16, 60)
+		body.Size = UDim2.new(1, -32, 1, -64)
+		body.Font = Enum.Font.GothamMedium
+		body.TextSize = 29
+		body.TextWrapped = true
+		body.TextColor3 = Color3.fromRGB(255, 244, 220)
+		body.TextYAlignment = Enum.TextYAlignment.Top
+		body.Text = "…"
+		body.Parent = sg
+		labels[#labels + 1] = body
+	end
+	local result = { labels = labels, center = Vector3.new(0, 8.1, 0) }
 	local t = sign(egg, "✨ Le Grand Nid ✨\nReconstruis la Couvée, Chipeur !", gold, 9, 340)
 	t.TextSize = 20
+	return result
 end
 
 ---------------------------------------------------------------- Monde
@@ -2576,7 +2757,7 @@ function Builder.build()
 	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
 	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
 
-	Builder.monument(world)
+	local monument = Builder.monument(world)
 
 	for _ = 1, 38 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
@@ -2592,7 +2773,7 @@ function Builder.build()
 		ball({ Name = "Rock", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * r, sz * 0.15, math.cos(a) * r), Color = Color3.fromRGB(130, 134, 140), Material = Enum.Material.Slate }, world)
 	end
 
-	local result = { plots = {}, nests = {}, guards = {} }
+	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center }
 
 	-- Rivaux PNJ (au nord, z négatif) ------------------------------------------------
 	for i, riv in ipairs(Config.RIVALS) do
@@ -3252,8 +3433,8 @@ end
 
 local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
-	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" } },
-	quests = { { "story", "📜 Histoire" }, { "daily", "🎯 Quotidiennes" } },
+	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" }, { "ach", "🏅 Succès" } },
+	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 }
 local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
 
@@ -3340,6 +3521,23 @@ function render()
 				desc = tier.name .. (d and (" · obtenu x" .. d.n .. " · record x" .. fmt(d.b)) or ""),
 			})
 		end
+	elseif panel.name == "dex" and panel.tab == "ach" then
+		addNote("🏅 Chaque succès a 4 paliers. Réclame ta récompense à chaque palier atteint.")
+		for _, a in ipairs(Config.ACHIEVEMENTS) do
+			local tier = state.ach[a.id] or 0
+			local maxed = tier >= #a.goals
+			local goal = a.goals[math.min(tier + 1, #a.goals)]
+			local value = state.stats[a.stat] or 0
+			local ready = (not maxed) and value >= goal
+			addRow({
+				icon = a.emoji, title = a.name .. "  (palier " .. tier .. "/" .. #a.goals .. ")",
+				desc = maxed and "Tous les paliers sont réclamés !" or (fmt(math.floor(value)) .. "/" .. fmt(goal) .. " " .. a.unit .. " · récompense 🪙 " .. fmt(Config.achReward(tier + 1, player:GetAttribute("Income") or 0))),
+				btn = maxed and "MAX" or (ready and "Réclamer" or "…"), btnColor = ready and COL.green or COL.dis,
+				onClick = ready and function()
+					RAction:FireServer("claimAch", a.id)
+				end or nil,
+			})
+		end
 	elseif panel.name == "dex" then
 		local n = 0
 		for i = 1, state.cap do
@@ -3413,6 +3611,18 @@ function render()
 			end
 			addNote(table.concat(done, "\n"))
 		end
+	elseif panel.name == "quests" and panel.tab == "puzzle" then
+		addNote("📜 Énigme du Gardien (elle change chaque jour) :\n" .. state.riddle)
+		local cur = {}
+		for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
+			cur[#cur + 1] = dir .. " " .. Config.RUNES[state.runes[i]]
+		end
+		addRow({
+			icon = state.puzzleDone and "✅" or "🔮",
+			title = state.puzzleDone and "Énigme résolue aujourd'hui !" or ("Tes runes : " .. table.concat(cur, " · ")),
+			desc = state.puzzleDone and "Reviens demain pour une nouvelle énigme." or "Tourne chaque rune autour du Grand Nid, puis touche le Nid pour valider.",
+		})
+		addNote("Le Nord est du côté des rivaux. Chaque rune a 4 symboles : " .. table.concat(Config.RUNES, " ") .. ". Récompense : un œuf " .. Config.TIERS[Config.PUZZLE_EGG_TIER].name .. " et des pièces. Une résolution par jour (une pause de quelques secondes suit chaque erreur). Énigmes résolues : " .. state.puzzleSolved .. ".")
 	elseif panel.name == "quests" then
 		addNote("Les missions se renouvellent chaque jour.")
 		for i, q in ipairs(state.quests) do
@@ -3560,6 +3770,21 @@ for _, n in ipairs(navDefs) do
 end
 
 ---------------------------------------------------------------- Réseau
+-- Symboles des runes : l'état est propre à chaque joueur, on affiche donc le sien sur les pierres (modification locale uniquement).
+local function updateRuneLabels()
+	if not state then
+		return
+	end
+	for _, stone in ipairs(CollectionService:GetTagged("RuneStone")) do
+		local lbl = stone:FindFirstChild("Label")
+		local txt = lbl and lbl:FindFirstChild("Text")
+		local idx = stone:GetAttribute("Idx")
+		if txt and idx then
+			txt.Text = Config.RUNES[state.runes[idx]] or "?"
+		end
+	end
+end
+
 -- Reconstruire le panneau détruit ses boutons : si le joueur vient d'appuyer, on attend que le clic soit terminé.
 local renderToken = 0
 local function renderSoon()
@@ -3579,6 +3804,7 @@ end
 
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	updateRuneLabels()
 	if not introChecked then
 		introChecked = true
 		if snap.story.ch == 0 and snap.hatched == 0 then
@@ -3663,6 +3889,15 @@ task.spawn(function()
 			end
 			navDots.quests.Visible = claimable
 			navDots.bonus.Visible = state.dailyReady
+			local achReady = false
+			for _, a in ipairs(Config.ACHIEVEMENTS) do
+				local tier = state.ach[a.id] or 0
+				if tier < #a.goals and (state.stats[a.stat] or 0) >= a.goals[tier + 1] then
+					achReady = true
+				end
+			end
+			navDots.dex.Visible = achReady
+			updateRuneLabels()
 			carryLbl.Visible = state.carry > 0
 			carryLbl.Text = "🥚 " .. state.carry .. "/" .. state.carryCap
 			local msg

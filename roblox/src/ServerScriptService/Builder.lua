@@ -309,14 +309,73 @@ function Builder.monument(parent)
 	for k, c in ipairs({ { 0, 9.5, -3.7, 0.3 }, { 1.2, 6.6, -3.75, -0.5 }, { -1.1, 4.2, -3.6, 0.6 } }) do -- fissures lumineuses
 		part({ Name = "Crack" .. k, Size = Vector3.new(0.35, 3.2, 0.35), CFrame = CFrame.new(c[1], c[2], c[3]) * CFrame.Angles(0, 0, c[4]), Color = Color3.fromRGB(255, 248, 200), Material = Enum.Material.Neon, CanCollide = false }, parent)
 	end
-	for k = 0, 3 do -- pierres runiques
-		local a = k * math.pi / 2 + math.pi / 4
-		local x, z = math.sin(a) * 9.5, math.cos(a) * 9.5
-		part({ Name = "Rune", Size = Vector3.new(2, 5, 1), CFrame = CFrame.new(x, 3.2, z) * CFrame.Angles(0, a, 0), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
-		part({ Name = "RuneGlow", Size = Vector3.new(0.9, 3, 0.2), CFrame = CFrame.new(x, 3.4, z) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -0.55), Color = gold, Material = Enum.Material.Neon, CanCollide = false }, parent)
+	-- Quatre runes cardinales (Nord = côté des rivaux). Chaque joueur règle ses propres runes : le symbole affiché est local au client
+	-- (étiquette « Label » modifiée côté client), l'état est tenu par le serveur.
+	local dirs = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } }
+	for k, dv in ipairs(dirs) do
+		local x, z = dv[1] * 9.5, dv[2] * 9.5
+		local stone = part({ Name = "RuneStone", Size = Vector3.new(2.4, 5, 1.2), CFrame = CFrame.lookAt(Vector3.new(x, 3.2, z), Vector3.new(0, 3.2, 0)), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
+		stone:SetAttribute("Idx", k)
+		CollectionService:AddTag(stone, "RuneStone")
+		part({ Name = "RuneGlow", Size = Vector3.new(1.1, 3.4, 0.2), CFrame = stone.CFrame * CFrame.new(0, 0.2, -0.65), Color = gold, Material = Enum.Material.Neon, CanCollide = false }, parent)
+		local lbl = sign(stone, "?", Color3.fromRGB(255, 240, 190), 4.4, 120)
+		lbl.TextSize = 44
+		local pr = Instance.new("ProximityPrompt")
+		pr.ActionText = "Tourner la rune"
+		pr.ObjectText = "Rune du " .. Config.RUNE_DIRECTIONS[k]
+		pr.HoldDuration = 0
+		pr.MaxActivationDistance = 9
+		pr.RequiresLineOfSight = false
+		pr:SetAttribute("Kind", "Rune")
+		pr:SetAttribute("Idx", k)
+		pr.Parent = stone
 	end
+	-- Valider la combinaison en touchant le Grand Nid
+	local confirm = Instance.new("ProximityPrompt")
+	confirm.ActionText = "Poser la combinaison"
+	confirm.ObjectText = "Grand Nid"
+	confirm.HoldDuration = 0.5
+	confirm.MaxActivationDistance = 14
+	confirm.RequiresLineOfSight = false
+	confirm:SetAttribute("Kind", "RuneConfirm")
+	confirm.Parent = egg
+	-- Panneau de l'énigme du Gardien (texte mis à jour chaque jour par le serveur), lisible des deux côtés
+	local board = part({ Name = "RiddleBoard", Size = Vector3.new(12, 4.6, 0.5), Position = Vector3.new(0, 3.8, 14), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, parent)
+	part({ Name = "RiddlePostL", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(-5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	part({ Name = "RiddlePostR", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	local labels = {}
+	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+		local sg = Instance.new("SurfaceGui")
+		sg.Face = face
+		sg.CanvasSize = Vector2.new(720, 300)
+		sg.LightInfluence = 0
+		sg.Adornee = board
+		sg.Parent = board
+		local title = Instance.new("TextLabel")
+		title.BackgroundTransparency = 1
+		title.Size = UDim2.new(1, 0, 0, 56)
+		title.Font = FONT
+		title.TextSize = 40
+		title.TextColor3 = gold
+		title.Text = "📜 Énigme du Gardien"
+		title.Parent = sg
+		local body = Instance.new("TextLabel")
+		body.BackgroundTransparency = 1
+		body.Position = UDim2.fromOffset(16, 60)
+		body.Size = UDim2.new(1, -32, 1, -64)
+		body.Font = Enum.Font.GothamMedium
+		body.TextSize = 29
+		body.TextWrapped = true
+		body.TextColor3 = Color3.fromRGB(255, 244, 220)
+		body.TextYAlignment = Enum.TextYAlignment.Top
+		body.Text = "…"
+		body.Parent = sg
+		labels[#labels + 1] = body
+	end
+	local result = { labels = labels, center = Vector3.new(0, 8.1, 0) }
 	local t = sign(egg, "✨ Le Grand Nid ✨\nReconstruis la Couvée, Chipeur !", gold, 9, 340)
 	t.TextSize = 20
+	return result
 end
 
 ---------------------------------------------------------------- Monde
@@ -392,7 +451,7 @@ function Builder.build()
 	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
 	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
 
-	Builder.monument(world)
+	local monument = Builder.monument(world)
 
 	for _ = 1, 38 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
@@ -408,7 +467,7 @@ function Builder.build()
 		ball({ Name = "Rock", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * r, sz * 0.15, math.cos(a) * r), Color = Color3.fromRGB(130, 134, 140), Material = Enum.Material.Slate }, world)
 	end
 
-	local result = { plots = {}, nests = {}, guards = {} }
+	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center }
 
 	-- Rivaux PNJ (au nord, z négatif) ------------------------------------------------
 	for i, riv in ipairs(Config.RIVALS) do

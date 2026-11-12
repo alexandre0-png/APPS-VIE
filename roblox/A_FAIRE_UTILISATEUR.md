@@ -20,6 +20,7 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 ## 3. Playtest dans Studio (indispensable avant de passer en public)
 
 - [ ] **Test > Clients and Servers**, 2 joueurs. Parcourir la liste de `roblox/publication/LISTING.md` §5 (histoire, zones, vol entre joueurs, achats, sauvegarde, téléphone).
+- [ ] Vérifier à l'œil le monument du Grand Nid (runes, panneau d'énigme lisible des deux côtés) et la résolution de l'énigme du jour.
 - [ ] Me dire ce qui ne va pas (erreurs rouges de la fenêtre Output, comportements étranges, équilibrage trop dur ou trop facile) : je corrige.
 
 ## 4. Créer les achats sur le Creator Hub et me donner les ID

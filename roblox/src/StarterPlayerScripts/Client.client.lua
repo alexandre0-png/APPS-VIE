@@ -302,8 +302,8 @@ end
 
 local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
-	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" } },
-	quests = { { "story", "📜 Histoire" }, { "daily", "🎯 Quotidiennes" } },
+	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" }, { "ach", "🏅 Succès" } },
+	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 }
 local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
 
@@ -390,6 +390,23 @@ function render()
 				desc = tier.name .. (d and (" · obtenu x" .. d.n .. " · record x" .. fmt(d.b)) or ""),
 			})
 		end
+	elseif panel.name == "dex" and panel.tab == "ach" then
+		addNote("🏅 Chaque succès a 4 paliers. Réclame ta récompense à chaque palier atteint.")
+		for _, a in ipairs(Config.ACHIEVEMENTS) do
+			local tier = state.ach[a.id] or 0
+			local maxed = tier >= #a.goals
+			local goal = a.goals[math.min(tier + 1, #a.goals)]
+			local value = state.stats[a.stat] or 0
+			local ready = (not maxed) and value >= goal
+			addRow({
+				icon = a.emoji, title = a.name .. "  (palier " .. tier .. "/" .. #a.goals .. ")",
+				desc = maxed and "Tous les paliers sont réclamés !" or (fmt(math.floor(value)) .. "/" .. fmt(goal) .. " " .. a.unit .. " · récompense 🪙 " .. fmt(Config.achReward(tier + 1, player:GetAttribute("Income") or 0))),
+				btn = maxed and "MAX" or (ready and "Réclamer" or "…"), btnColor = ready and COL.green or COL.dis,
+				onClick = ready and function()
+					RAction:FireServer("claimAch", a.id)
+				end or nil,
+			})
+		end
 	elseif panel.name == "dex" then
 		local n = 0
 		for i = 1, state.cap do
@@ -463,6 +480,18 @@ function render()
 			end
 			addNote(table.concat(done, "\n"))
 		end
+	elseif panel.name == "quests" and panel.tab == "puzzle" then
+		addNote("📜 Énigme du Gardien (elle change chaque jour) :\n" .. state.riddle)
+		local cur = {}
+		for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
+			cur[#cur + 1] = dir .. " " .. Config.RUNES[state.runes[i]]
+		end
+		addRow({
+			icon = state.puzzleDone and "✅" or "🔮",
+			title = state.puzzleDone and "Énigme résolue aujourd'hui !" or ("Tes runes : " .. table.concat(cur, " · ")),
+			desc = state.puzzleDone and "Reviens demain pour une nouvelle énigme." or "Tourne chaque rune autour du Grand Nid, puis touche le Nid pour valider.",
+		})
+		addNote("Le Nord est du côté des rivaux. Chaque rune a 4 symboles : " .. table.concat(Config.RUNES, " ") .. ". Récompense : un œuf " .. Config.TIERS[Config.PUZZLE_EGG_TIER].name .. " et des pièces. Une résolution par jour (une pause de quelques secondes suit chaque erreur). Énigmes résolues : " .. state.puzzleSolved .. ".")
 	elseif panel.name == "quests" then
 		addNote("Les missions se renouvellent chaque jour.")
 		for i, q in ipairs(state.quests) do
@@ -610,6 +639,21 @@ for _, n in ipairs(navDefs) do
 end
 
 ---------------------------------------------------------------- Réseau
+-- Symboles des runes : l'état est propre à chaque joueur, on affiche donc le sien sur les pierres (modification locale uniquement).
+local function updateRuneLabels()
+	if not state then
+		return
+	end
+	for _, stone in ipairs(CollectionService:GetTagged("RuneStone")) do
+		local lbl = stone:FindFirstChild("Label")
+		local txt = lbl and lbl:FindFirstChild("Text")
+		local idx = stone:GetAttribute("Idx")
+		if txt and idx then
+			txt.Text = Config.RUNES[state.runes[idx]] or "?"
+		end
+	end
+end
+
 -- Reconstruire le panneau détruit ses boutons : si le joueur vient d'appuyer, on attend que le clic soit terminé.
 local renderToken = 0
 local function renderSoon()
@@ -629,6 +673,7 @@ end
 
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	updateRuneLabels()
 	if not introChecked then
 		introChecked = true
 		if snap.story.ch == 0 and snap.hatched == 0 then
@@ -713,6 +758,15 @@ task.spawn(function()
 			end
 			navDots.quests.Visible = claimable
 			navDots.bonus.Visible = state.dailyReady
+			local achReady = false
+			for _, a in ipairs(Config.ACHIEVEMENTS) do
+				local tier = state.ach[a.id] or 0
+				if tier < #a.goals and (state.stats[a.stat] or 0) >= a.goals[tier + 1] then
+					achReady = true
+				end
+			end
+			navDots.dex.Visible = achReady
+			updateRuneLabels()
 			carryLbl.Visible = state.carry > 0
 			carryLbl.Text = "🥚 " .. state.carry .. "/" .. state.carryCap
 			local msg

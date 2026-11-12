@@ -92,6 +92,7 @@ MEMBER_CHECKS = {
     "CollectionService": ["GetTagged", "AddTag", "GetInstanceAddedSignal"],
     "TweenService": ["Create"],
     "Sound": ["SoundId", "Volume", "PlaybackSpeed", "Play"],
+    "SurfaceGui": ["Face", "CanvasSize", "LightInfluence", "Adornee"],
 }
 
 def _members(cn, by_name):
