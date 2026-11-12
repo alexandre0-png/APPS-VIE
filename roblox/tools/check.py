@@ -72,7 +72,6 @@ MEMBER_CHECKS = {
     "Workspace": ["GetServerTimeNow", "SetAttribute"],
     "Humanoid": ["PlatformStand", "WalkSpeed", "MoveDirection", "ChangeState", "Died", "Health", "CameraOffset"],
     "Part": ["AssemblyLinearVelocity", "Massless", "Shape", "CanCollide", "CanQuery", "Material", "Transparency"],
-    "Model": ["PrimaryPart", "PivotTo", "GetPivot", "ScaleTo"],
     "Player": ["RespawnLocation", "LoadCharacterAsync", "DisplayName", "Character", "CharacterAdded", "UserId", "Kick"],
     "Players": ["CharacterAutoLoads", "GetPlayerByUserId", "PlayerAdded", "PlayerRemoving", "GetPlayers", "GetNameFromUserIdAsync"],
     "MarketplaceService": ["PromptGamePassPurchaseFinished", "UserOwnsGamePassAsync", "PromptGamePassPurchase", "ProcessReceipt", "PromptProductPurchase"],
@@ -92,6 +91,14 @@ MEMBER_CHECKS = {
     "CollectionService": ["GetTagged", "AddTag", "GetInstanceAddedSignal"],
     "TweenService": ["Create"],
     "Sound": ["SoundId", "Volume", "PlaybackSpeed", "Play"],
+    "Camera": ["FieldOfView", "CFrame", "ViewportSize"],
+    "ScreenGui": ["DisplayOrder", "IgnoreGuiInset", "ResetOnSpawn", "ZIndexBehavior"],
+    "SpecialMesh": ["Scale", "MeshType"],
+    "Weld": ["Part0", "Part1", "C0"],
+    "Frame": ["Rotation", "AnchorPoint", "BorderSizePixel", "BackgroundTransparency"],
+    "Tween": ["Completed", "Play"],
+    "BasePart": ["CFrame", "Size", "Transparency", "CanCollide", "Position"],
+    "Model": ["ScaleTo", "PivotTo", "GetPivot", "PrimaryPart"],
     "SurfaceGui": ["Face", "CanvasSize", "LightInfluence", "Adornee"],
 }
 

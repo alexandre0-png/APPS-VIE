@@ -326,6 +326,7 @@ local function rebuildCarry(s)
 		w.C0 = off
 		w.Parent = egg
 		egg.Parent = char
+		CollectionService:AddTag(egg, "CarryEgg") -- balancement pendant la course (client)
 		s.carryParts[i] = egg
 	end
 end
@@ -344,6 +345,7 @@ local function setNestEgg(n, tier)
 	egg.CFrame = CFrame.new(n.pos)
 	egg.Parent = n.folder
 	n.eggPart = egg
+	CollectionService:AddTag(egg, "EggShake") -- animé côté client (rebond ; pas d'attribut Ends = pas de tremblement)
 	local pr = Instance.new("ProximityPrompt")
 	pr.ActionText = "Voler l'œuf"
 	pr.ObjectText = "Œuf " .. Config.TIERS[tier].name
@@ -423,6 +425,7 @@ local function refreshPad(s, i, animate)
 		model.Parent = content
 		model:PivotTo(pad.part.CFrame * CFrame.new(0, 0.2 + lift, 0))
 		CollectionService:AddTag(model, "Bob")
+		model:SetAttribute("Seed", i * 17 + sl.p) -- désynchronise les clignements et les regards entre pets
 		if animate then
 			model:SetAttribute("Born", workspace:GetServerTimeNow())
 			CollectionService:AddTag(model, "PopIn")

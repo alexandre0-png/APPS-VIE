@@ -122,6 +122,7 @@ Studio → **Test > Clients and Servers** (2 joueurs). Coche chaque ligne :
 - [ ] Succès : un palier atteint allume la pastille de l'onglet Pets, « Réclamer » donne la récompense, le palier suivant s'affiche.
 - [ ] Bonus de collection et pitié : valeurs cohérentes dans Pets, Boutique et Plus.
 - [ ] Sons : sons intégrés audibles (hatch, vol, capture) ; sinon coller des ID dans `Config.SOUNDS`.
+- [ ] Animations : les œufs sautillent et tremblent avant d'éclore, le pet apparaît en rebondissant avec confettis si rare, les pets clignent des yeux, regardent autour et « mâchent », les menus s'ouvrent en rebondissant, la barrière de Mara se dissout avec des étincelles à l'ouverture, aucun à-coup visible avec 10 joueurs. En cas de gêne, couper un drapeau de `Config.Animations`.
 - [ ] Monument du Grand Nid et décor : rendu correct, aucun obstacle gênant le tapis roulant.
 - [ ] Arrêter la partie puis relancer (API activée) : pièces, pets et améliorations sont restaurés.
 - [ ] Achats Robux : **test purchase** de Studio pour chaque produit après avoir collé les ID.

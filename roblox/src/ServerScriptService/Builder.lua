@@ -112,6 +112,13 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	addBall("EyeL", Vector3.new(-0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
 	addBall("EyeR", Vector3.new(0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
 
+	-- paupières (invisibles, le client les affiche à chaque clignement) et bouche (animée côté client)
+	for _, side in ipairs({ { "LidL", -0.42 }, { "LidR", 0.42 } }) do
+		local lid = addBall(side[1], Vector3.new(side[2] * R, 0.25 * R, -0.88 * R), 0.42 * R, bodyColor)
+		lid.Transparency = 1
+	end
+	addBlock("Mouth", Vector3.new(0, -0.18 * R, -0.93 * R), Vector3.new(0.34 * R, 0.06 * R, 0.1 * R), dark)
+
 	-- reflets dans les yeux, joues et pieds
 	addBall("ShineL", Vector3.new(-0.46 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
 	addBall("ShineR", Vector3.new(0.38 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
@@ -205,6 +212,7 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 
 	-- étiquette
 	model:SetAttribute("Height", lift)
+	CollectionService:AddTag(model, "PetFace") -- visage animé côté client (clignement, regard, bouche)
 	return model, lift, 2.3 * R + 1.5
 end
 
@@ -674,6 +682,7 @@ end
 function Builder.follower(petIdx, sizeIdx, mutIdx)
 	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
 	model:ScaleTo(0.45)
+	model:SetAttribute("Seed", petIdx * 31 + sizeIdx * 7 + mutIdx)
 	return model
 end
 

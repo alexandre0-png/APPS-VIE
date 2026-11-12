@@ -600,23 +600,54 @@ function render()
 	end)
 end
 
+-- Transitions : le menu s'ouvre en rebondissant légèrement et se referme en rétrécissant (Config.Animations.menuTransitions).
+local panelScale = make("UIScale", { Scale = 1 }, panelFrame)
+local hideToken = 0
+local function showPanel()
+	hideToken += 1 -- annule une fermeture en cours
+	panelFrame.Visible = true
+	panelScale.Scale = 1
+	if Config.animEnabled("menuTransitions") then
+		pcall(function()
+			panelScale.Scale = 0.88
+			TweenService:Create(panelScale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end)
+	end
+end
+local function hidePanel()
+	panel = nil
+	if Config.animEnabled("menuTransitions") then
+		local ok = pcall(function()
+			hideToken += 1
+			local token = hideToken
+			TweenService:Create(panelScale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.92 }):Play()
+			task.delay(0.1, function()
+				if token == hideToken and not panel then
+					panelFrame.Visible = false
+					panelScale.Scale = 1
+				end
+			end)
+		end)
+		if ok then
+			return
+		end
+	end
+	panelFrame.Visible = false
+end
+
 local function openPanel(name)
 	if panel and panel.name == name then
-		panel = nil
-		panelFrame.Visible = false
+		hidePanel()
 		return
 	end
 	panel = { name = name, tab = tabsDef[name] and tabsDef[name][1][1] or "", confirm = false }
-	panelFrame.Visible = true
+	showPanel()
 	if name == "top" then
 		RAction:FireServer("top")
 	end
 	render()
 end
-closeBtn.Activated:Connect(function()
-	panel = nil
-	panelFrame.Visible = false
-end)
+closeBtn.Activated:Connect(hidePanel)
 
 ---------------------------------------------------------------- Boutons de navigation (colonne gauche)
 local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }
@@ -795,16 +826,7 @@ task.spawn(function()
 			local open = rival == nil or (state ~= nil and Config.zoneUnlocked(state.story.ch, rival))
 			pr.Enabled = pr:GetAttribute("Owner") ~= player.UserId and open
 		end
-		-- barrières des domaines verrouillés : traversables (localement) dès que le chapitre requis est réussi
-		for _, gate in ipairs(CollectionService:GetTagged("ZoneGate")) do
-			local open = state ~= nil and Config.zoneUnlocked(state.story.ch, gate:GetAttribute("Rival") or 0)
-			gate.CanCollide = not open
-			gate.Transparency = open and 1 or 0.6
-			local lbl = gate:FindFirstChild("Label")
-			if lbl then
-				lbl.Enabled = not open
-			end
-		end
+		-- (les barrières de zone sont gérées par Animations.client.lua)
 		task.wait(0.5)
 	end
 end)
@@ -891,33 +913,6 @@ task.spawn(function()
 	end
 end)
 
----------------------------------------------------------------- Œufs qui tremblent, puis blanchissent juste avant d'éclore
-local eggBase = setmetatable({}, { __mode = "k" })
-local eggColor = setmetatable({}, { __mode = "k" })
-local eggShaking = setmetatable({}, { __mode = "k" })
-RunService.RenderStepped:Connect(function()
-	local now, t = os.time(), os.clock()
-	for _, egg in ipairs(CollectionService:GetTagged("EggShake")) do
-		if not eggBase[egg] then
-			eggBase[egg] = egg.CFrame
-			eggColor[egg] = egg.Color
-		end
-		local ends = egg:GetAttribute("Ends")
-		local left = ends and (ends - now) or 99
-		if left < 4 then
-			local a = (4 - left) / 4
-			egg.CFrame = eggBase[egg] * CFrame.Angles(math.sin(t * 29) * 0.08 * a, 0, math.sin(t * 35) * 0.12 * a)
-			local glow = left < 1.5 and (1.5 - left) / 1.5 * (0.5 + 0.5 * math.sin(t * 22)) or 0
-			egg.Color = eggColor[egg]:Lerp(Color3.new(1, 1, 1), glow)
-			eggShaking[egg] = true
-		elseif eggShaking[egg] then
-			egg.CFrame = eggBase[egg]
-			egg.Color = eggColor[egg]
-			eggShaking[egg] = nil
-		end
-	end
-end)
-
 ---------------------------------------------------------------- Pets suiveurs (mouvement fluide calculé localement)
 RunService.RenderStepped:Connect(function(dt)
 	for _, m in ipairs(CollectionService:GetTagged("Follower")) do
@@ -932,70 +927,8 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
----------------------------------------------------------------- Effets déclenchés par les tags posés par le serveur
--- Les objets sont créés par le serveur ; l'animation se joue localement (aucun coût réseau par image).
-
--- Pet qui apparaît à l'éclosion : il grossit avec un petit rebond.
-local function easeOutBack(x)
-	local c1, c3 = 1.70158, 2.70158
-	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
-end
-local function onPopIn(model)
-	local born = model:GetAttribute("Born")
-	if not born or workspace:GetServerTimeNow() - born > 2 then
-		return
-	end
-	task.spawn(function()
-		local t0 = os.clock()
-		while model.Parent do
-			local a = math.min(1, (os.clock() - t0) / 0.55)
-			model:ScaleTo(math.max(0.05, 0.25 + 0.75 * easeOutBack(a)))
-			if a >= 1 then
-				break
-			end
-			RunService.RenderStepped:Wait()
-		end
-	end)
-end
-CollectionService:GetInstanceAddedSignal("PopIn"):Connect(onPopIn)
-
--- Onde de choc : un anneau néon qui s'élargit et disparaît.
-CollectionService:GetInstanceAddedSignal("Shockwave"):Connect(function(ring)
-	local big = ring:GetAttribute("Big")
-	local d = big and 40 or 22
-	TweenService:Create(ring, TweenInfo.new(big and 0.7 or 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.3, d, d), Transparency = 1 }):Play()
-end)
-
--- Récolte : l'œuf s'envole en arc vers le joueur qui vient de le prendre.
-CollectionService:GetInstanceAddedSignal("FlyEgg"):Connect(function(egg)
-	local target = Players:GetPlayerByUserId(egg:GetAttribute("Target") or 0)
-	local start = egg:GetAttribute("Start")
-	if not (target and start) then
-		return
-	end
-	local baseSize = egg.Size
-	task.spawn(function()
-		local t0 = os.clock()
-		while egg.Parent do
-			local a = math.min(1, (os.clock() - t0) / 0.4)
-			local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-			if not root then
-				break
-			end
-			local e = a * a * (3 - 2 * a)
-			local pos = start:Lerp(root.Position + Vector3.new(0, 4, 0), e) + Vector3.new(0, math.sin(a * math.pi) * 4, 0)
-			egg.CFrame = CFrame.new(pos)
-			egg.Size = baseSize * (1 - 0.6 * a)
-			if a >= 1 then
-				break
-			end
-			RunService.RenderStepped:Wait()
-		end
-		if egg.Parent then
-			egg.Transparency = 1
-		end
-	end)
-end)
+---------------------------------------------------------------- Effets du monde
+-- Apparition des pets, onde de choc, récolte, œufs, visages, barrières de zone, confettis : voir Animations.client.lua (activables dans Config.Animations).
 
 -- Tapis roulant : les rayures défilent à la vitesse du tapis (-14 studs/s).
 RunService.RenderStepped:Connect(function()

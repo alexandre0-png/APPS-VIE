@@ -62,11 +62,13 @@ roblox/
 ├─ default.project.json                      ← projet Rojo
 └─ src/
    ├─ ReplicatedStorage/Config.lua           → ReplicatedStorage > Shared > Config   (ModuleScript)
+   ├─ ReplicatedStorage/Easing.lua           → ReplicatedStorage > Shared > Easing   (ModuleScript, courbes d'animation pures)
    ├─ ServerScriptService/Main.server.lua    → ServerScriptService > Main            (Script)
    ├─ ServerScriptService/Data.lua           → ServerScriptService > Data            (ModuleScript)
    ├─ ServerScriptService/Builder.lua        → ServerScriptService > Builder         (ModuleScript)
    ├─ ServerScriptService/Rules.lua          → ServerScriptService > Rules           (ModuleScript, règles pures testées avec Lune)
-   └─ StarterPlayerScripts/Client.client.lua → StarterPlayer > StarterPlayerScripts > Client (LocalScript)
+   ├─ StarterPlayerScripts/Client.client.lua → StarterPlayer > StarterPlayerScripts > Client (LocalScript)
+   └─ StarterPlayerScripts/Animations.client.lua → StarterPlayer > StarterPlayerScripts > Animations (LocalScript)
 ```
 
 ## Installation
@@ -77,7 +79,7 @@ roblox/
 3. Lance **Play**.
 
 ### Option B : copier-coller dans Studio (sans outil)
-Crée les 5 scripts ci-dessus **avec exactement ces noms et types**, puis colle le contenu de chaque fichier. Dans `ReplicatedStorage`, crée d'abord un `Folder` nommé `Shared` et mets-y le ModuleScript `Config`.
+Crée les 7 scripts ci-dessus **avec exactement ces noms et types**, puis colle le contenu de chaque fichier. Dans `ReplicatedStorage`, crée d'abord un `Folder` nommé `Shared` et mets-y le ModuleScript `Config`.
 
 ## Publier
 

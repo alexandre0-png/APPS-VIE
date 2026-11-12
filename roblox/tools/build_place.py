@@ -34,7 +34,8 @@ tree = [
         item("ModuleScript", "Rules", read("ServerScriptService/Rules.lua"))]),
     item("StarterPlayer", "StarterPlayer", children=[
         item("StarterPlayerScripts", "StarterPlayerScripts", children=[
-            item("LocalScript", "Client", read("StarterPlayerScripts/Client.client.lua"))])]),
+            item("LocalScript", "Client", read("StarterPlayerScripts/Client.client.lua")),
+            item("LocalScript", "Animations", read("StarterPlayerScripts/Animations.client.lua"))])]),
 ]
 xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
        '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
