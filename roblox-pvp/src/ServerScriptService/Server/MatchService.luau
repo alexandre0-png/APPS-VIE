@@ -52,7 +52,7 @@ local function setScores(red, blue)
 end
 
 local function newStats(player)
-	stats[player.UserId] = { Name = player.DisplayName, Kills = 0, Deaths = 0, Team = player:GetAttribute("Team") or "" }
+	stats[player.UserId] = { Name = player.DisplayName, Kills = 0, Deaths = 0, Points = 0, Team = player:GetAttribute("Team") or "" }
 end
 
 local function teamCounts()
@@ -181,7 +181,7 @@ local function onKill(killer, victim)
 		if math.max(scores.Red, scores.Blue) >= Config.Match.TeamScoreLimit then
 			earlyEnd = true
 		end
-	elseif ks and ks.Kills >= Config.Match.FFAScoreLimit then
+	elseif workspace:GetAttribute("MatchMode") == "FFA" and ks and ks.Kills >= Config.Match.FFAScoreLimit then
 		earlyEnd = true
 	end
 end
@@ -210,7 +210,8 @@ local function finishMatch(mode)
 	else
 		local entries = {}
 		for userId in pairs(present) do
-			table.insert(entries, { Id = userId, Score = stats[userId] and stats[userId].Kills or 0 })
+			local s = stats[userId]
+			table.insert(entries, { Id = userId, Score = s and (mode == "HILL" and s.Points or s.Kills) or 0 })
 		end
 		local winners = MatchLogic.FFAWinners(entries)
 		local names = {}
@@ -224,10 +225,13 @@ local function finishMatch(mode)
 	local board = {}
 	for userId, s in pairs(stats) do
 		if present[userId] then
-			table.insert(board, { Name = s.Name, Kills = s.Kills, Deaths = s.Deaths, Team = s.Team, UserId = userId })
+			table.insert(board, { Name = s.Name, Kills = s.Kills, Deaths = s.Deaths, Points = s.Points, Team = s.Team, UserId = userId })
 		end
 	end
 	table.sort(board, function(a, b)
+		if mode == "HILL" and a.Points ~= b.Points then
+			return a.Points > b.Points
+		end
 		if a.Kills ~= b.Kills then
 			return a.Kills > b.Kills
 		end
@@ -266,6 +270,24 @@ local function finishMatch(mode)
 	end
 end
 
+-- Roi de la tour : +1 point par seconde pour chaque joueur vivant sur le plateau.
+function MatchService.TickHill()
+	local center = map.ArenaCenter
+	for _, p in ipairs(arenaPlayers()) do
+		local char = p.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local s = stats[p.UserId]
+		if root and hum and hum.Health > 0 and s and MatchLogic.OnHill(root.Position.X, root.Position.Y, root.Position.Z, center.X, center.Z, Config.Match.HillRadius, Config.Match.HillMinHeight) then
+			s.Points += 1
+			p:SetAttribute("HillPoints", s.Points)
+			if s.Points >= Config.Match.HillScoreLimit then
+				earlyEnd = true
+			end
+		end
+	end
+end
+
 local function runLoop()
 	while true do
 		setState("Waiting")
@@ -300,6 +322,7 @@ local function runLoop()
 			for i, p in ipairs(list) do
 				p:SetAttribute("Streak", 0)
 				p:SetAttribute("MatchKills", 0)
+				p:SetAttribute("HillPoints", 0)
 				p:SetAttribute("Team", nextMode == "TEAM" and (i % 2 == 0 and "Red" or "Blue") or "")
 				newStats(p)
 			end
@@ -309,8 +332,16 @@ local function runLoop()
 			end
 
 			local endAt = os.clock() + Config.Match.MatchSeconds
+			local hillClock = 0
 			while os.clock() < endAt and not earlyEnd and #arenaPlayers() > 0 do
 				task.wait(0.25)
+				if nextMode == "HILL" then
+					hillClock += 0.25
+					if hillClock >= 1 then
+						hillClock = 0
+						MatchService.TickHill()
+					end
+				end
 			end
 
 			-- résultats

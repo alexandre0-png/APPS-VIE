@@ -1,5 +1,9 @@
 # Journal des changements — Arène des Légendes
 
+## V1.6 — histoire, héros, mode
+- `Lore` + `StoryService` : prologue, 4 héros (aura, teinte, nom sur la plaque), Chronique de 5 chapitres, onglet « Héros ».
+- Éliminations en désintégration colorée (aucun sang) ; mode « Roi de la tour ».
+
 ## V1.5 — préparation de publication
 - `tools/publish.sh` + `tools/apply_ids.py` (testé) : Id d'achats injectés depuis `publication/ids.json`, puis `rojo build`.
 - Nouvelle quête quotidienne « Pris de rage » (10 quêtes au total).

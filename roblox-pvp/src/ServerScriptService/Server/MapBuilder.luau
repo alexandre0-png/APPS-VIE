@@ -438,6 +438,7 @@ local function buildArena(root, result)
 	orbLight.Brightness = 2
 	orbLight.Parent = orb
 	result.RageOrb = orb
+	result.ArenaCenter = C
 
 	-- torches
 	for i = -3, 3 do

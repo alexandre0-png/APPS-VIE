@@ -80,6 +80,12 @@ function MatchLogic.NextMode(modes: { string }, index: number): (string, number)
 	return modes[nextIndex], nextIndex
 end
 
+-- Vrai si la position est sur le plateau de la tour (Roi de la tour).
+function MatchLogic.OnHill(px: number, py: number, pz: number, cx: number, cz: number, radius: number, minY: number): boolean
+	local dx, dz = px - cx, pz - cz
+	return dx * dx + dz * dz <= radius * radius and py >= minY
+end
+
 function MatchLogic.StreakLabel(streak: number): string?
 	if streak == 2 then
 		return "Double élimination !"

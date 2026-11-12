@@ -21,12 +21,16 @@ Config.Match = {
 	TeamScoreLimit = 30,
 	SpawnProtection = 3,
 	RespawnSeconds = 3,
-	Modes = { "FFA", "TEAM", "FFA", "TEAM" }, -- rotation
+	Modes = { "FFA", "TEAM", "HILL", "FFA", "TEAM", "HILL" }, -- rotation
+	HillScoreLimit = 60,
+	HillRadius = 17,
+	HillMinHeight = 7.5,
 }
 
 Config.ModeNames = {
 	FFA = "Mêlée générale",
 	TEAM = "Guerre des couleurs",
+	HILL = "Roi de la tour",
 }
 
 Config.TeamNames = { Red = "Rouges", Blue = "Bleus" }

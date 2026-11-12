@@ -134,6 +134,9 @@ do
 	eq("mode 1", m, "FFA"); eq("idx 1", i, 1)
 	m, i = MatchLogic.NextMode({ "FFA", "TEAM" }, 2)
 	eq("rotation", m, "FFA"); eq("idx", i, 1)
+	check("sur le plateau", MatchLogic.OnHill(5, 8, 5, 0, 0, 17, 7.5))
+	check("au sol : pas de point", not MatchLogic.OnHill(5, 1, 5, 0, 0, 17, 7.5))
+	check("hors du rayon", not MatchLogic.OnHill(30, 8, 0, 0, 0, 17, 7.5))
 	eq("prime sous le seuil", MatchLogic.Bounty(4, 5, 10, 200), 0)
 	eq("prime série 5", MatchLogic.Bounty(5, 5, 10, 200), 50)
 	eq("prime plafonnée", MatchLogic.Bounty(50, 5, 10, 200), 200)
@@ -178,7 +181,7 @@ do
 	eq("7 récompenses quotidiennes", #Config.DailyRewards, 7)
 	for i = 2, 7 do check("récompense croissante " .. i, Config.DailyRewards[i] > Config.DailyRewards[i - 1]) end
 	check("rail tue en un tir à la tête", Combat.ComputeDamage(Weapons.Get("rail").Damage, { Headshot = true, HeadshotMult = Weapons.Get("rail").HeadshotMult }) >= Config.Player.MaxHealth)
-	check("modes de rotation connus", Config.ModeNames[Config.Match.Modes[1]] ~= nil and Config.ModeNames[Config.Match.Modes[2]] ~= nil)
+	for _, mode in ipairs(Config.Match.Modes) do check("mode connu " .. mode, Config.ModeNames[mode] ~= nil) end
 end
 
 section("Lore")

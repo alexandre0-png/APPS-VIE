@@ -130,6 +130,8 @@ local function updateMatchBanner()
 				workspace:GetAttribute("BlueScore") or 0,
 				mine
 			)
+		elseif currentMode == "HILL" then
+			m.Score.Text = inArena and ("Points de tour : %d / %d  ·  montez sur la tour !"):format(attr("HillPoints", 0), Config.Match.HillScoreLimit) or "Tenez le plateau central pour marquer"
 		else
 			m.Score.Text = inArena and ("Vos éliminations : %d / %d"):format(attr("MatchKills", 0), Config.Match.FFAScoreLimit) or ("Premier à %d éliminations"):format(Config.Match.FFAScoreLimit)
 		end
@@ -607,7 +609,7 @@ local function showResults(data)
 		local teamColor = (row.Team ~= "" and Config.TeamColors[row.Team]) and hex(Config.TeamColors[row.Team]) or C.Text
 		UI.Label(line, { Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(30, 26), Text = "#" .. i, TextSize = 14, TextColor3 = C.Dim, ZIndex = 10 })
 		UI.Label(line, { Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -200, 1, 0), Text = row.Name, TextSize = 15, TextColor3 = teamColor, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10 })
-		UI.Label(line, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.fromOffset(150, 26), Text = ("%d éliminations  ·  %d morts"):format(row.Kills, row.Deaths), TextSize = 13, TextColor3 = C.Dim, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 10 })
+		UI.Label(line, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.fromOffset(150, 26), Text = data.Mode == "HILL" and ("%d points  ·  %d éliminations"):format(row.Points or 0, row.Kills) or ("%d éliminations  ·  %d morts"):format(row.Kills, row.Deaths), TextSize = 13, TextColor3 = C.Dim, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 10 })
 	end
 	r.Reward.Text = ("Récompenses : +%d 🪙  +%d XP%s"):format(data.Coins, data.XP, data.Won and "  (bonus de victoire)" or "")
 	r.Frame.Visible = true
@@ -854,6 +856,7 @@ function HUD.Init(screenGui, menusModule)
 		task.spawn(watchTools)
 	end
 	player:GetAttributeChangedSignal("MatchKills"):Connect(updateMatchBanner)
+	player:GetAttributeChangedSignal("HillPoints"):Connect(updateMatchBanner)
 	updateMatchBanner()
 end
 
