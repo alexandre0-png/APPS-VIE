@@ -642,6 +642,16 @@ local function main()
 
 end
 
-local co = coroutine.create(SCENARIO == "CLIENT" and clientMain or main)
+local function unitMain()
+	local Config = require(M.__nodes("shared/Config"))
+	local Species = require(M.__nodes("shared/Species"))
+	local Util = require(M.__nodes("shared/Util"))
+	local spec = load(sources["../tests/pure.spec"], "=tests/pure.spec", "t", setmetatable({}, { __index = _G }))()
+	local failures, passed = spec(Config, Species, Util)
+	print(("TESTS UNITAIRES : %d réussis, %d échecs"):format(passed, failures))
+	print("ERREURS LUA:", failures)
+end
+
+local co = coroutine.create(SCENARIO == "CLIENT" and clientMain or (SCENARIO == "UNIT" and unitMain or main))
 local ok, err = coroutine.resume(co)
 if not ok then print("ERREUR HARNAIS: " .. tostring(err)) print(debug.traceback(co)) end

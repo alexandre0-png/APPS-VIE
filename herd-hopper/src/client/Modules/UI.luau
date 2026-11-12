@@ -107,13 +107,15 @@ function UI.button(parent, props)
 	UI.stroke(button, UI.Colors.Dark, 2)
 	UI.make("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = 8 }, button)
 
-	local base = button.BackgroundColor3
+	-- survol : on éclaircit la couleur COURANTE (le code peut la changer) et on la restaure ensuite
+	local resting = button.BackgroundColor3
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.18) })
+		resting = button.BackgroundColor3
+		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = resting:Lerp(Color3.new(1, 1, 1), 0.18) })
 			:Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = base }):Play()
+		TweenService:Create(button, TweenInfo.new(0.1), { BackgroundColor3 = resting }):Play()
 	end)
 	return button
 end

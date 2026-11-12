@@ -23,6 +23,15 @@ local feedbackToken = 0
 local resultsToken = 0
 local lastCountdown = -1
 local lastWarnTick = 0
+local TIPS = {
+	"Ouvre la boutique ou le bestiaire en attendant.",
+	"Astuce : maintiens ESPACE en l'air pour lasser automatiquement.",
+	"Astuce : reste sur une bête pour la dompter et gagner des pièces.",
+	"Astuce : une bête dorée vaut 4 fois plus de points.",
+	"Astuce : fonce dans les cercles bleus pour un super bond.",
+	"Astuce : le mammouth est lent mais ne te désarçonne jamais.",
+	"Astuce : enchaîne les lassos vite pour garder ton combo.",
+}
 local lastCombo = 0
 
 local KIND_STYLE = {
@@ -98,6 +107,7 @@ local function build(gui)
 		TextColor3 = C.Good,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
+	refs.comboScale = UI.make("UIScale", { Scale = 1 }, refs.combo)
 	local comboBar = UI.frame(
 		score,
 		{ Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark }
@@ -383,7 +393,7 @@ local function update()
 		refs.hint.Text = status == "Finished" and "Arrivé ! Tu regardes la fin de la manche."
 			or "Éliminé : tu regardes la course."
 	elseif phase == "Intermission" then
-		refs.hint.Text = "Ouvre la boutique ou le bestiaire en attendant."
+		refs.hint.Text = TIPS[math.floor(os.clock() / 6) % #TIPS + 1]
 	else
 		refs.hint.Text = ""
 	end
@@ -402,9 +412,9 @@ local function update()
 		if combo ~= lastCombo then
 			lastCombo = combo
 			if combo >= 2 then
-				-- petit "pop" à chaque palier de combo
-				refs.combo.TextSize = 30
-				UI.tween(refs.combo, 0.25, { TextSize = 20 }, Enum.EasingStyle.Back)
+				-- petit "pop" à chaque palier de combo (UIScale : TextSize est ignoré avec TextScaled)
+				refs.comboScale.Scale = 1.4
+				UI.tween(refs.comboScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
 			end
 		end
 		if combo >= 2 then

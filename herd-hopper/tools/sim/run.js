@@ -11,6 +11,7 @@ for (const f of walk(root).filter(f => f.endsWith('.luau'))) {
   if (src.includes(']==]')) throw new Error('séparateur interdit dans ' + f);
   defs += `SOURCES[${JSON.stringify(key)}] = [==[${src}]==]\n`;
 }
+defs += `SOURCES["../tests/pure.spec"] = [==[${fs.readFileSync(path.join(__dirname, '..', '..', 'tests', 'pure.spec.luau'), 'utf8')}]==]\n`;
 defs += `SCENARIO = ${JSON.stringify(scenario)}\n`;
 const L = lauxlib.luaL_newstate();
 lualib.luaL_openlibs(L);

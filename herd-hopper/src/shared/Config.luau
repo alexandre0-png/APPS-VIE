@@ -31,7 +31,7 @@ Config.Round = {
 Config.Wall = {
 	StartZ = -70,
 	Speed0 = 12,
-	Accel = 0.28,
+	Accel = 0.3,
 	MaxSpeed = 46,
 }
 
