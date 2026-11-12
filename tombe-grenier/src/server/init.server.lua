@@ -24,6 +24,7 @@ local Props = require(script.Props)
 local Hub = require(script.Hub)
 local ModelLoader = require(script.ModelLoader)
 local Finale = require(script.Finale)
+local Shop = require(script.Shop)
 local Respawn = require(script.Respawn)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
@@ -190,6 +191,8 @@ end)
 Quests.onFrontDoorShown = function()
 	MonsterAI.staged(Vector3.new(60, 0.5, 86), 6)
 end
+
+Shop.init()
 
 Quests.onStatuesChanged = function(done)
 	Objectives.setStatuesDone(done)

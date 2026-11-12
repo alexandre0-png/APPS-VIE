@@ -80,6 +80,14 @@ Config.Monster = {
 	WaypointTimeout = 3,
 }
 
+-- Boutique Robux. Un identifiant à 0 = article désactivé : le jeu reste entièrement jouable gratuitement.
+Config.Shop = {
+	GamePasses = { LampeRenforcee = 0 },    -- Game Pass : la lampe se vide deux fois moins vite
+	Products = { Pile = 0, Cailloux = 0 }, -- produits : une pile, ou des cailloux à lancer
+	PileAmount = 45,
+	CaillouxAmount = 5,
+}
+
 Config.Flashlight = {
 	Range = 40,
 	Angle = 40,            -- angle total du faisceau en degrés
@@ -130,6 +138,7 @@ Config.Quests = {
 
 Config.Throw = {
 	Charges = 0,             -- lancers au départ : il faut ramasser des cailloux (un caillou = un lancer)
+	MaxCarry = 6,            -- nombre maximum de lancers gardés sur soi
 	Cooldown = 3,            -- secondes entre deux jets
 	Range = 40,              -- portée maximale en studs
 }

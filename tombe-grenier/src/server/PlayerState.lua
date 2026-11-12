@@ -185,7 +185,7 @@ end
 function PlayerState.addThrows(player, amount)
 	local st = states[player]
 	if st then
-		st.throws = math.min(Config.Throw.Charges + 2, st.throws + amount)
+		st.throws = math.min(Config.Throw.MaxCarry, st.throws + amount)
 	end
 end
 
@@ -303,7 +303,8 @@ local function update(dt)
 
 			-- Lampe torche
 			if st.flashlightOn then
-				st.battery = math.max(0, st.battery - FL.DrainPerSecond * dt)
+				local drain = player:GetAttribute("LampPass") == true and 0.5 or 1
+				st.battery = math.max(0, st.battery - FL.DrainPerSecond * drain * dt)
 				if st.battery <= 0 then
 					PlayerState.setFlashlight(player, false)
 				end
