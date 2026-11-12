@@ -149,6 +149,22 @@ local mm, dd = string.match(plaqueDate, "(%d%d)/(%d%d)")
 Quests.submitCode(alice, mm .. dd)
 check(H.freed == true and H.endReason == nil, "bonne date : enfant libéré, la partie continue")
 
+-- 7sexies. Fin 4 (piège) : la date du cahier, fausse, scelle le cercueil
+Quests.setup(12345)
+H.endReason = nil
+for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
+  H.trigger(w.docs[kind], "QuestPrompt", alice)
+end
+H.log = {}
+H.trigger(w.docs["cahier d'écolier"], "QuestPrompt", alice)
+local wrongMM, wrongDD = string.match(find(H.msgs(alice), "En marge, une date : (%d%d/%d%d)") or "", "(%d%d)/(%d%d)")
+check(wrongMM ~= nil, "le cahier donne une date fausse")
+moveTo(alice, 90, 26, 43)
+H.trigger(w.tomb, "QuestPrompt", alice)
+Quests.submitCode(alice, wrongMM .. wrongDD)
+check(H.endReason == "sealed", "la date du cahier scelle le cercueil (fin 4)")
+check(string.find(Quests.endingText("sealed"), "/4%.") ~= nil, "le total des fins compte 4")
+
 -- 7bis. Indication à la demande : une fois, puis limitée par le délai
 Quests.setup(12345)
 H.log = {}

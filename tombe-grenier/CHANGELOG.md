@@ -2,6 +2,9 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Fin 4 « le piège » (choix du joueur)
+- Au cercueil, saisir la date du cahier (fausse, barrée) scelle l'enfant : fin 4. Le total des fins passe à 4. La fin vérité reste la date de la plaque.
+
 ### Énigme optionnelle (cuisine, Config.Design.ExtraSafe)
 - Une étiquette « Réserve » donne un code à 3 chiffres (tiré de la seed) ; le compteur de la cuisine le demande. Bonne réponse : une pile. Ne bloque aucune étape.
 

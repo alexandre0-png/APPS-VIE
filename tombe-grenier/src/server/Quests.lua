@@ -111,8 +111,9 @@ local ENDING_TEXT = {
 	win = "Fin 1 : la fuite. Tu sors de la maison.",
 	truth = "Fin 3 : la vérité. L'enfant peut enfin partir.",
 	lose = "Fin 2 : la malédiction. Le cercueil se referme.",
+	sealed = "Fin 4 : le piège. Tu as pris la date du cahier, barrée d'un trait. Le couvercle se referme sur l'enfant.",
 }
-local ENDING_TOTAL = 3
+local ENDING_TOTAL = 4
 
 local code = "0000"
 -- Énigme optionnelle de la cuisine : code à 3 chiffres, tiré de la seed, écrit sur l'étiquette
@@ -319,6 +320,7 @@ end
 local NOTE_NAMES = { "do", "ré", "mi", "sol" }
 local melody = {}
 local tombeDate = "0000"
+local wrongDate = "0000" -- date fausse du cahier : la saisir scelle le cercueil (fin 4)
 
 local function melodyFromSeed(seed)
 	local rng = Rng.new(seed * 13 + 7)
@@ -1008,6 +1010,15 @@ local function submitDate(player, text)
 	if not root or not tomb or (root.Position - tomb.Position).Magnitude > 10 then
 		return
 	end
+	if text == wrongDate then
+		-- Fin 4 (piège) : la date du cahier est fausse, et saisie, elle scelle le cercueil
+		state.tombePending = false
+		say(player, "Le couvercle se referme sur la date barrée du cahier.")
+		if endFn then
+			endFn("sealed")
+		end
+		return
+	end
 	if text == tombeDate then
 		state.tombePending = false
 		state.freed = true
@@ -1177,6 +1188,7 @@ function Quests.setup(seed)
 	local month = dateRng:int(1, 12)
 	local day = dateRng:int(1, 28)
 	tombeDate = ("%02d%02d"):format(month, day)
+	wrongDate = ("%02d%02d"):format(month, day % 28 + 1)
 	writeLore(month, day)
 	hintGiven = {}
 	active = true
