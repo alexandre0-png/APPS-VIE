@@ -85,6 +85,9 @@ local function loadData(player)
 		else
 			if not ok then
 				warn("[DataService] Chargement échoué:", result)
+				if RunService:IsStudio() then
+					break -- Studio sans accès API : mode temporaire immédiat
+				end
 			end
 			task.wait(2 + attempts)
 		end
