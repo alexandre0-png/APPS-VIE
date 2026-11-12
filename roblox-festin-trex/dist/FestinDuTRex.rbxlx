@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBXEF3DF9D9D5794DC7BE81CC4A6FFD7910"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX17E1B6817FB0494DA932F51547A9D371"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX8FF6641DA58041889012CD90EA7A4C61"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX47EC5A1B59C74810ADF84DFCCC4B82A1"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBX4F7D80BE872D43349FB9904595BBB14D"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBXECD30ADA630D42B4815B21367B62B117"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX48467837DE8C4CC1B445699322ADEFCF"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX26135232574F4A9E98EB54E8A01BA498"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Balistique pure (nombres, pas de Vector3) : utilisée à l'identique par le serveur (validation)
 -- et par les clients (animation), donc l'arc affiché correspond exactement à l'arc calculé.
 
@@ -18,7 +18,7 @@ function Ballistics.position(ox: number, oy: number, oz: number, vx: number, vy:
 end
 
 return Ballistics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5AD66D2E384A43BAA74434D520E89746"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDF8093EF61674DEE8187D775C8F9F58B"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Configuration centrale du jeu « Festin du T-Rex ».
 -- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
 
@@ -197,7 +197,24 @@ Config.Sounds = {
 	Success = "rbxasset://sounds/bass.wav",
 }
 
+-- Monétisation. Id = 0 : désactivé (affiché « Bientôt »). Renseigner les ids créés sur le Creator Dashboard.
+Config.Monetization = {
+	Passes = {
+		vip = { Id = 0, Name = "VIP Gourmet", Emoji = "👑", Desc = "+50% de pièces, pour toujours", Price = 399 },
+		nest = { Id = 0, Name = "Nid agrandi", Emoji = "🪺", Desc = "+1 emplacement de compagnon", Price = 199 },
+		aim = { Id = 0, Name = "Super visée", Emoji = "🎯", Desc = "Assistance de visée x2", Price = 149 },
+	},
+	Products = {
+		coins_s = { Id = 0, Name = "Sac de pièces", Emoji = "💰", Desc = "5 000 pièces (x bonus d'évolution)", Price = 49, Coins = 5000 },
+		coins_l = { Id = 0, Name = "Coffre de pièces", Emoji = "🧰", Desc = "75 000 pièces (x bonus d'évolution)", Price = 449, Coins = 75000 },
+		eggs = { Id = 0, Name = "Pack de 5 œufs", Emoji = "🥚", Desc = "5 œufs du T-Rex", Price = 99, Eggs = 5 },
+	},
+	MaxReceipts = 200,
+}
+
 Config.Defaults = {
+	passes = {},
+	receipts = {},
 	version = 1,
 	coins = 0,
 	totalFed = 0,
@@ -215,7 +232,7 @@ Config.Defaults = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB55D02A45EED497BA36F99DCE859546D"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDF23B6F1AF1B4C43AC2226B2CC1267ED"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Machine d'état du T-Rex (satiété, contributions, festin). Pure : testable hors Studio.
 
 local Config = require(script.Parent.Config)
@@ -268,7 +285,7 @@ function DinoCore.completeFeast(self: Core): ({ [number]: number }, number, numb
 end
 
 return DinoCore
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17734AB0C9DA4211B2D2AF5D5259237E"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4DA5A79CA14F4C20AAD66C87D7DE88AF"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Calculs d'économie et de statistiques (purs, testables hors Studio).
 
 local Config = require(script.Parent.Config)
@@ -335,7 +352,7 @@ function Economy.rebirthMult(rebirths: number): number
 end
 
 function Economy.petSlots(data: any): number
-	return Config.PetSlots + (if data.rebirths >= 5 then 1 else 0)
+	return Config.PetSlots + (if data.rebirths >= 5 then 1 else 0) + (if data.passes and data.passes.nest then 1 else 0)
 end
 
 -- Somme des bonus des compagnons équipés (ignore les ids invalides ou non possédés).
@@ -371,9 +388,9 @@ function Economy.stats(data: any): Stats
 		range = T.BaseRange + T.RangePerLevel * power,
 		cooldown = math.max(T.MinCooldown, T.BaseCooldown - T.CooldownPerLevel * rate),
 		capacity = T.BaseCapacity + T.CapacityPerLevel * basket,
-		assist = T.BaseAssist + T.AssistPerLevel * aim,
+		assist = (T.BaseAssist + T.AssistPerLevel * aim) * (if data.passes and data.passes.aim then 2 else 1),
 		walkSpeed = T.BaseWalkSpeed + T.WalkPerLevel * boots,
-		coinMult = (1 + 0.1 * greed + petMult) * Economy.rebirthMult(data.rebirths),
+		coinMult = (1 + 0.1 * greed + petMult) * Economy.rebirthMult(data.rebirths) * (if data.passes and data.passes.vip then 1.5 else 1),
 		petMult = petMult,
 		petSlots = Economy.petSlots(data),
 	}
@@ -435,7 +452,7 @@ function Economy.rollPet(eggKind: string, rnd1: number, rnd2: number): string
 end
 
 return Economy
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1051F564C12D48BCA44BBDC6CA471B9D"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCD780FE8C4814DF3B2ABDAB82B11B0D6"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique des quêtes quotidiennes et de la série de connexion (pure).
 
 local Config = require(script.Parent.Config)
@@ -552,7 +569,7 @@ function QuestLogic.claimDaily(data: any, today: number): (number?, number?, num
 end
 
 return QuestLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90B73F400B18494786AB44FB47A04D40"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXBF72D1DF693D4E52A5A7FC127AD1CFA4"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Définition unique des RemoteEvents / RemoteFunction. Le serveur les crée, le client les attend.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -597,7 +614,7 @@ function Remotes.init()
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDD2A70203F48413090482E18A946E693"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX877F1DBBEF134FB7AE1728C47E59AA29"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Utilitaires purs (sans dépendance Roblox) : testables en dehors de Studio.
 
 local Util = {}
@@ -708,7 +725,7 @@ function Util.formatTime(seconds: number): string
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBXF37C32B03EEA4825875C04CC998E93FE"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBXDCD3B9DF611649509EDDAD7AAC64B291"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBXBCD5FC6C025548E9857E05CBBF24684C"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX6FD84CE009494B3588684FA2555F4CE0"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX320A143EED584B80B02DC24C920C0848"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX35891976BCE04BAA9C09100C5B0E4D62"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée serveur : initialise les services dans l'ordre des dépendances.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -726,6 +743,7 @@ local PetService = require(Services:WaitForChild("PetService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
 local ShopService = require(Services:WaitForChild("ShopService"))
+local MonetizationService = require(Services:WaitForChild("MonetizationService"))
 
 local state = Instance.new("Configuration")
 state.Name = "GameState"
@@ -739,10 +757,11 @@ FoodService.init()
 QuestService.init()
 LeaderboardService.init(boardLabels)
 ShopService.init()
+MonetizationService.init()
 PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
 
 print("[FestinTRex] Serveur prêt.")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX70F59F81BF5D40F2BDC3F938B73D7528"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBXFFAFA7F9E0DF40AAA9F00CE4F857A428"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX74BAE86903564704BDB87AF5CEB26A53"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX4087B5D310D54A4BBDA6191C93185327"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Chargement / sauvegarde des profils avec verrou de session (anti-duplication entre serveurs).
 -- Le DataStore est injectable (_setStore) pour pouvoir tester la logique hors Studio.
 
@@ -853,7 +872,7 @@ function DataService.save(userId: number, data: any, release: boolean): boolean
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX970A87342353472EB539FCDE85C1E81E"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9543B7A11F124BD4AB0F4A05DB3278F0"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Le T-Rex central : construction du modèle (blocs Roblox), satiété, favori, festin et croissance.
 
 local Players = game:GetService("Players")
@@ -1178,7 +1197,7 @@ function DinoService.init(mapFolder: Instance)
 end
 
 return DinoService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX705E69DD0B894B25988EAF8154478756"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91E2549D9ABD4BE89B0F38BD2E4B2674"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Événements périodiques : Marée de sauce (survie), Pluie gourmande (collecte), Frénésie (x2 pièces).
 -- L'état est publié dans ReplicatedStorage.GameState : les clients dessinent les effets eux-mêmes.
 
@@ -1427,7 +1446,7 @@ function EventService.init()
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1D1C8A69275348AF857C249FB38D9650"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA45A0E0433914671A399A71E3272A1EF"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Lancers de nourriture : validation serveur complète, simulation balistique, récompenses.
 -- Le client n'envoie QUE la position visée ; origine, portée, cadence, munitions et résultat
 -- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
@@ -1751,7 +1770,7 @@ function FoodService.init()
 end
 
 return FoodService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA87605A2E8F5450D98A46F760EC99D32"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXC99A206F77DA48A9A463DA861EE4D390"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Classement mondial « Plus gros nourrisseurs » (OrderedDataStore) + tableau dans le monde.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -1843,7 +1862,7 @@ function LeaderboardService.init(boardLabels: { TextLabel })
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2B059CC23C9A4E42BA79E4B0C42F9EB3"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96B19C6F70EA47C691EC10ACB08B2147"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Construction procédurale du monde avec des Parts natives Roblox (aucun asset externe) :
 -- place du festin, stands, kiosques, tables de survie, arbres, secrets, éclairage.
 
@@ -2200,7 +2219,145 @@ function MapBuilder.build(): (Folder, { TextLabel })
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3BD1C90D637440B5A81E6CA59C415540"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE8B785718CD3486CBF8E031A41866C61"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Achats Robux : Game Passes (propriété vérifiée par Roblox) et produits développeur
+-- (ProcessReceipt idempotent : un reçu n'est jamais accordé deux fois, annulation si la sauvegarde échoue).
+
+local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+
+local PlayerService = require(script.Parent.PlayerService)
+
+local MonetizationService = {}
+
+local M = Config.Monetization
+
+local function passKeyForId(passId: number): string?
+	for key, def in pairs(M.Passes) do
+		if def.Id ~= 0 and def.Id == passId then
+			return key
+		end
+	end
+	return nil
+end
+
+local function grantPass(player: Player, key: string)
+	local data = PlayerService.get(player)
+	if data and not data.passes[key] then
+		data.passes[key] = true
+		PlayerService.applyCharacter(player)
+		PlayerService.markDirty(player)
+		PlayerService.notify(player, "✔ " .. M.Passes[key].Emoji .. " " .. M.Passes[key].Name .. " activé !", "gold")
+	end
+end
+
+-- Vérifie la propriété des passes à l'arrivée (couvre les achats faits hors du jeu).
+local function syncOwnership(player: Player)
+	for key, def in pairs(M.Passes) do
+		if def.Id ~= 0 then
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, def.Id)
+			end)
+			if ok and owns then
+				grantPass(player, key)
+			end
+		end
+	end
+end
+
+local function productForId(productId: number): (string?, any?)
+	for key, def in pairs(M.Products) do
+		if def.Id ~= 0 and def.Id == productId then
+			return key, def
+		end
+	end
+	return nil, nil
+end
+
+local function processReceipt(info: any): Enum.ProductPurchaseDecision
+	local player = Players:GetPlayerByUserId(info.PlayerId)
+	if not player then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local data = PlayerService.get(player)
+	if not data then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local receiptKey = tostring(info.PurchaseId)
+	if data.receipts[receiptKey] then
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+	local _, def = productForId(info.ProductId)
+	if not def then
+		warn("[FestinTRex] Produit inconnu : " .. tostring(info.ProductId))
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	-- Octroi (mémorisé pour pouvoir annuler si la sauvegarde échoue).
+	local coins = if def.Coins then math.floor(def.Coins * Economy.rebirthMult(data.rebirths)) else 0
+	local eggs = def.Eggs or 0
+	local coinsBefore, eggsBefore = data.coins, data.eggs
+	if coins > 0 then
+		PlayerService.addCoins(player, coins)
+	end
+	if eggs > 0 then
+		PlayerService.addEggs(player, eggs)
+	end
+	data.receipts[receiptKey] = os.time()
+
+	local saved = PlayerService.save(player, false)
+	if not saved then
+		data.receipts[receiptKey] = nil
+		data.coins, data.eggs = coinsBefore, eggsBefore
+		PlayerService.markDirty(player)
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	-- Purge des plus anciens reçus.
+	local list = {}
+	for k, t in pairs(data.receipts) do
+		table.insert(list, { k = k, t = t })
+	end
+	if #list > M.MaxReceipts then
+		table.sort(list, function(a, b)
+			return a.t < b.t
+		end)
+		for i = 1, #list - M.MaxReceipts do
+			data.receipts[list[i].k] = nil
+		end
+	end
+
+	PlayerService.markDirty(player)
+	PlayerService.notify(player, string.format("Merci ! %s %s reçu%s", def.Emoji, def.Name, if coins > 0 then (" : +" .. Util.formatNumber(coins) .. " 🪙") else ""), "gold")
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+function MonetizationService.init()
+	MarketplaceService.ProcessReceipt = processReceipt
+
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+		if purchased then
+			local key = passKeyForId(passId)
+			if key then
+				grantPass(player, key)
+				PlayerService.save(player, false)
+			end
+		end
+	end)
+
+	PlayerService.onLoaded(function(player)
+		task.spawn(syncOwnership, player)
+	end)
+end
+
+return MonetizationService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX04F1A4FA4EEC4AD7A3401F7E4F504B94"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Œufs et compagnons : tirage serveur (aléatoire non manipulable par le client), équipement.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2284,7 +2441,7 @@ function PetService.equip(player: Player, petId: any, on: any): (boolean, string
 end
 
 return PetService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4A07C240733445A7AC537F34FBA866E8"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90968B0D91B647EA9A9FFEFC9158CC9F"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Profils joueurs : chargement, état de session, statistiques, monnaie, synchronisation client.
 -- Toutes les modifications de données passent par ici (le client ne peut jamais écrire).
 
@@ -2453,6 +2610,7 @@ local function snapshot(player: Player): any
 		pets = data.pets,
 		equipped = data.equipped,
 		eggs = data.eggs,
+		passes = data.passes,
 		secrets = Util.count(data.secrets),
 		quests = data.quests.list,
 		canDaily = canDaily,
@@ -2631,7 +2789,7 @@ function PlayerService.init()
 end
 
 return PlayerService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94B3E2B2327442B1B7A44561E0D48D2C"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB0A845B513A44BC280E7AA8FA09B468F"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Quêtes quotidiennes, série de connexion et secrets (fourchettes d'or).
 
 local CollectionService = game:GetService("CollectionService")
@@ -2730,7 +2888,7 @@ function QuestService.init()
 end
 
 return QuestService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6BEE5D30BD0F4351800B35AEAF733638"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2A85CE53F31343E79AE55619D51DF0B7"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Routeur unique des requêtes client (RemoteFunction « Request ») + achats.
 -- Chaque action est validée : types, existence, propriété, prix, limites, cadence.
 
@@ -2897,7 +3055,7 @@ function ShopService.init()
 end
 
 return ShopService
-]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX81435D08ED5D41A8A35AC4FAF10BAABC"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX45BDB6DA49CA4062BE126B4C33DE3B74"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX21BBA74AD30146388192DE1EE095681D"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX7E4A1155AA894986BE247129C205FE81"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX7FB7DF96330F4EAAA2D614DB6E71891E"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX5F58AF94DCF74F3AA572BC96FAD338C7"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX3353355B35A249018851B5CBF6415B17"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBXE1C518A5C3E34AB9BB6A7C03CB1042C4"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Effets visuels et sonores : arcs de lancer (rejoués depuis le calcul serveur), impacts,
 -- bonus flottants, festin, vague de sauce (calculée localement depuis l'heure serveur).
 
@@ -3255,7 +3413,7 @@ function Effects.init()
 end
 
 return Effects
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0A070B02209D4C8BBA372FE2032DB526"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX00B628D6DFEB426DB5531A71E7D00E5C"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Interface permanente : pièces, niveau, état du T-Rex, événements, panier, combo, boutons, notifications.
 
 local Players = game:GetService("Players")
@@ -3622,7 +3780,7 @@ function HUD.gui(): ScreenGui
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6FD28649E47D45378DF21A6BADE40D90"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXEAAD6F98882E4E2F81D9CFF0F3FBC40B"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Entrées : clic souris, tap tactile (distingué d'un glissement de caméra), bouton LANCER, gâchette de manette.
 -- Le client n'envoie que le point visé ; le serveur décide de tout le reste.
 
@@ -3724,7 +3882,7 @@ function Input.init()
 end
 
 return Input
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXCFE543FBA952419F8ED3E847AA363958"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXC59DDBB53BE54495A2D20C8B19BA6048"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée client.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3767,12 +3925,13 @@ end)
 task.delay(2, function()
 	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFC995F0B3F10401E965BAB1F8785130E"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX556EB58820F04CAAA48ABA361A54FF9C"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Fenêtres : boutique, nid (compagnons), quêtes, classement, évolution + animation d'éclosion.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -3903,7 +4062,11 @@ local function buildShop()
 		UIKit.list(pages[id], 8)
 	end
 	makeTab("upgrades", "💪 Améliorations", 0)
-	makeTab("foods", "🍔 Nourritures", 208)
+	makeTab("foods", "🍔 Nourritures", 150)
+	makeTab("robux", "💎 Robux", 300)
+	tabs.upgrades.Size = UDim2.fromOffset(142, 36)
+	tabs.foods.Size = UDim2.fromOffset(142, 36)
+	tabs.robux.Size = UDim2.fromOffset(142, 36)
 
 	local upgradeRows = {}
 	for i, def in ipairs(Config.Upgrades) do
@@ -3945,7 +4108,57 @@ local function buildShop()
 		foodRows[food.Id] = { btn = btn, food = food }
 	end
 
+	-- Achats Robux : l'invite d'achat est ouverte par Roblox ; le serveur valide et octroie.
+	local robuxRows = {}
+	local order = 0
+	local function robuxRow(kind: string, key: string, def: any)
+		order += 1
+		local row = UIKit.frame(pages.robux, { Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = C.panel2, LayoutOrder = order })
+		UIKit.corner(row, 12)
+		UIKit.label(row, { Position = UDim2.fromOffset(10, 4), Size = UDim2.fromOffset(46, 56), Text = def.Emoji, TextSize = 34 })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 6), Size = UDim2.fromOffset(280, 24), Text = def.Name, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 32), Size = UDim2.fromOffset(280, 26), Text = def.Desc, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.dim })
+		local btn = UIKit.button(row, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -8, 0.5, 0),
+			Size = UDim2.fromOffset(150, 46),
+			Text = "",
+			TextSize = 16,
+			Callback = function()
+				if def.Id == 0 then
+					HUD.toast("Bientôt disponible !", "info")
+					return
+				end
+				local player = Players.LocalPlayer
+				if kind == "pass" then
+					MarketplaceService:PromptGamePassPurchase(player, def.Id)
+				else
+					MarketplaceService:PromptProductPurchase(player, def.Id)
+				end
+			end,
+		})
+		robuxRows[key] = { btn = btn, def = def, kind = kind, key = key }
+	end
+	for _, key in ipairs({ "vip", "nest", "aim" }) do
+		robuxRow("pass", key, Config.Monetization.Passes[key])
+	end
+	for _, key in ipairs({ "coins_s", "coins_l", "eggs" }) do
+		robuxRow("product", key, Config.Monetization.Products[key])
+	end
+
 	win.refresh = function(s)
+		for _, r in pairs(robuxRows) do
+			if r.kind == "pass" and s.passes and s.passes[r.key] then
+				r.btn.Text = "✔ Possédé"
+				r.btn.BackgroundColor3 = C.panel
+			elseif r.def.Id == 0 then
+				r.btn.Text = "Bientôt"
+				r.btn.BackgroundColor3 = C.panel
+			else
+				r.btn.Text = "R$ " .. r.def.Price
+				r.btn.BackgroundColor3 = C.good
+			end
+		end
 		for id, r in pairs(upgradeRows) do
 			local lvl = s.upgrades[id] or 0
 			r.title.Text = string.format("%s  (niv. %d/%d)", r.def.Name, lvl, r.def.Max)
@@ -4194,7 +4407,7 @@ function Panels.init()
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6AF1EBF1A3C8474F8FEB49FEA1289BD3"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE719EE1F00BA4219A74708202C173E18"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Rendu local des compagnons de tous les joueurs (le serveur ne publie que l'attribut « Pets »).
 
 local Players = game:GetService("Players")
@@ -4336,7 +4549,7 @@ function PetsRenderer.init()
 end
 
 return PetsRenderer
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB9C0EE9D2477493EA5B8E562545FF9B2"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD153AA2E9AF74FBEA2451CC674B64306"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Magasin d'état côté client : dernier instantané envoyé par le serveur + abonnements.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4375,7 +4588,7 @@ function Store.request(action: string, payload: any?): any
 end
 
 return Store
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA5CE3115FDA34E048370782D9C22B13F"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFA1A723662164D7BAAA78132A196DF59"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Petite boîte à outils d'interface (style Roblox : coins arrondis, polices Fredoka/Gotham).
 
 local SoundService = game:GetService("SoundService")

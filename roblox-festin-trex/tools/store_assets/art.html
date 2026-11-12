@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:"Arial Black",Impact,sans-serif}
+.scene{position:relative;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0}
+.sky{position:absolute;inset:0;background:linear-gradient(#5db8ff 0%,#bfe7ff 62%,#fff4cf 100%)}
+.sun{position:absolute;right:160px;top:90px;width:170px;height:170px;background:#ffe45c;border:10px solid #ffc933;border-radius:20px;box-shadow:0 0 120px #fff3a0}
+.cloud{position:absolute;background:#fff;border-radius:16px;box-shadow:0 12px 0 #dbeaff}
+.ground{position:absolute;left:0;right:0;bottom:0;height:300px;background:linear-gradient(#6cc04a,#4a9a35);border-top:14px solid #86d85e}
+.plaza{position:absolute;left:200px;right:200px;bottom:0;height:200px;background:#c9ab78;border-top:12px solid #e3c994;border-radius:200px 200px 0 0}
+.b{position:absolute;border:6px solid rgba(0,0,0,.28);border-radius:8px}
+.title{position:absolute;left:0;right:0;text-align:center;color:#ffd21f;-webkit-text-stroke:14px #3a1a00;paint-order:stroke fill;text-shadow:0 14px 0 #3a1a00;letter-spacing:4px}
+.sub{position:absolute;left:0;right:0;text-align:center;color:#fff;-webkit-text-stroke:8px #1b2a41;paint-order:stroke fill;font-size:64px}
+.food{position:absolute;border:6px solid rgba(0,0,0,.3)}
+.noob{position:absolute;width:120px;height:260px}
+.noob div{position:absolute;border:5px solid rgba(0,0,0,.3);border-radius:6px}
+.emoji{position:absolute;font-family:"Noto Color Emoji",sans-serif;line-height:1}
+.wave{position:absolute;bottom:90px;left:0;width:760px;height:430px;background:linear-gradient(90deg,#c2281c,#e6473a);border-right:30px solid #ffd9d0;border-radius:0 80px 0 0;opacity:.92}
+.table{position:absolute}
+.panelbg{position:absolute;inset:0}
+</style></head><body><div id="root"></div>
+<script>
+const $=(h)=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstChild};
+function dino(x,y,s,open=0.5){ // x,y = coin bas gauche des pieds ; s = échelle
+ const G='#58aa50',D='#428a3e';
+ const parts=[
+  ['legL',70,0,60,150,D],['legR',210,0,60,150,D],['footL',60,0,100,26,D],['footR',200,0,100,26,D],
+  ['body',20,140,310,190,G],['belly',30,126,280,60,'#f0e696'],
+  ['tail1',-110,200,140,110,G],['tail2',-230,215,130,80,G],['tail3',-320,225,100,50,G],
+  ['neck',250,250,130,130,G],['head',290,300,190,160,G],['snout',420,350,170,60,'#64b95a'],
+  ['arm',250,225,80,34,G]];
+ let h=`<div style="position:absolute;left:${x}px;bottom:${y}px;width:0;height:0;transform:scale(${s});transform-origin:0 100%">`;
+ for(const [n,l,b,w,hh,c] of parts) h+=`<div class="b" style="left:${l}px;bottom:${b}px;width:${w}px;height:${hh}px;background:${c}"></div>`;
+ for(let i=0;i<5;i++) h+=`<div class="b" style="left:${60+i*55}px;bottom:${322-(i>3?0:0)}px;width:44px;height:50px;background:#ff963c;transform:rotate(45deg)"></div>`;
+ // yeux
+ h+=`<div class="b" style="left:395px;bottom:405px;width:40px;height:56px;background:#fff"></div><div class="b" style="left:412px;bottom:410px;width:22px;height:30px;background:#111"></div>`;
+ // intérieur bouche + mâchoire inférieure
+ h+=`<div class="b" style="left:430px;bottom:${352-open*60}px;width:150px;height:${34+open*50}px;background:#a02832"></div>`;
+ h+=`<div class="b" style="left:425px;bottom:${300-open*95}px;width:160px;height:50px;background:#64b95a;transform:rotate(${open*-14}deg);transform-origin:0 100%"></div>`;
+ for(let i=0;i<4;i++) h+=`<div style="position:absolute;left:${450+i*34}px;bottom:${334+ -open*0}px;width:20px;height:28px;background:#fff;border:3px solid #ccc"></div>`;
+ h+='</div>'; return h}
+function noob(x,y,c1,c2,arm=false,s=1){return `<div class="noob" style="left:${x}px;bottom:${y}px;transform:scale(${s});transform-origin:0 100%">
+ <div style="left:30px;top:0;width:60px;height:60px;background:#f6d04d"></div>
+ <div style="left:44px;top:18px;width:8px;height:8px;background:#222;border:0"></div><div style="left:66px;top:18px;width:8px;height:8px;background:#222;border:0"></div>
+ <div style="left:20px;top:64px;width:80px;height:100px;background:${c1}"></div>
+ <div style="left:${arm?96:-10}px;top:${arm?20:64}px;width:30px;height:${arm?100:90}px;background:#f6d04d;${arm?'transform:rotate(140deg);transform-origin:50% 0':''}"></div>
+ <div style="left:-4px;top:64px;width:26px;height:90px;background:#f6d04d"></div>
+ <div style="left:20px;top:168px;width:38px;height:90px;background:${c2}"></div><div style="left:62px;top:168px;width:38px;height:90px;background:${c2}"></div></div>`}
+function apple(x,y,s=1){return `<div class="food" style="left:${x}px;bottom:${y}px;width:${70*s}px;height:${70*s}px;background:#e02828;border-radius:50%"></div>`}
+function burger(x,y,s=1){return `<div class="food" style="left:${x}px;bottom:${y}px;width:${90*s}px;height:${64*s}px;background:linear-gradient(#d2862e 0 30%,#5ec24a 30% 45%,#7a3a1a 45% 70%,#d2862e 70%);border-radius:30px 30px 10px 10px"></div>`}
+function pizza(x,y,s=1){return `<div class="food" style="left:${x}px;bottom:${y}px;width:${100*s}px;height:${100*s}px;background:radial-gradient(circle at 30% 35%,#d33 0 8%,transparent 9%),radial-gradient(circle at 65% 60%,#d33 0 8%,transparent 9%),#ffbe3c;border-radius:50%"></div>`}
+function arc(points){return points.map(([x,y,s,k])=>[apple,burger,pizza][k||0](x,y,s||1)).join('')}
+function base(){return `<div class="sky"></div><div class="sun"></div>
+ <div class="cloud" style="left:120px;top:110px;width:300px;height:80px"></div><div class="cloud" style="left:700px;top:60px;width:240px;height:70px"></div><div class="cloud" style="left:1300px;top:170px;width:280px;height:76px"></div>
+ <div class="ground"></div><div class="plaza"></div>`}
+const scenes={
+ thumb1:()=>base()+dino(960,160,1.15,.75)+noob(250,150,'#2a6bd6','#3a8f3a',true,1.1)+noob(470,110,'#d6402a','#2a2a6a',true,1.0)+noob(1650,130,'#8a3ad6','#444',false,1.0)
+  +arc([[430,420,1,0],[590,560,1,2],[760,640,1,1],[900,570,1,0]])
+  +`<div class="title" style="top:40px;font-size:190px">FESTIN DU T-REX</div><div class="sub" style="top:250px">Nourris le dino géant !</div>`,
+ thumb2:()=>base()+`<div class="wave"></div>`+dino(1160,150,.8,.2)
+  +`<div class="table" style="left:1500px;bottom:230px;width:300px;height:30px;background:#f3f3f3;border:6px solid #999"></div>`+[0,1,2,3,4,5,6].map(i=>`<div class="b" style="left:${1380+i*30}px;bottom:${150+i*10}px;width:40px;height:${10+i*10}px;background:#c8a070"></div>`).join('')
+  +noob(1560,250,'#2a6bd6','#3a8f3a',true,.8)+noob(1700,250,'#d6402a','#2a2a6a',true,.8)+noob(800,160,'#d6a02a','#2a2a6a',false,.9)
+  +`<div class="title" style="top:40px;font-size:170px;color:#ff6a4a">MARÉE DE SAUCE !</div><div class="sub" style="top:240px">Grimpe sur les tables pour survivre</div>`,
+ thumb3:()=>base()+['🥚','🦖','🐣','🦕','🐉','🥚','🦖'].map((e,i)=>`<div class="emoji" style="left:${160+i*240}px;top:${520+(i%2)*90}px;font-size:200px">${e}</div>`).join('')
+  +`<div class="title" style="top:40px;font-size:170px">ŒUFS &amp; COMPAGNONS</div><div class="sub" style="top:240px">Collectionne 11 compagnons, du commun au mythique</div>`,
+ icon:()=>`<div class="sky" style="background:linear-gradient(#5db8ff,#bfe7ff)"></div><div class="ground" style="height:150px"></div>`
+  +dino(390,90,.95,.9)+arc([[90,560,1.6,0],[250,700,1.2,2]])+`<div class="title" style="top:50px;font-size:120px;-webkit-text-stroke:10px #3a1a00">T-REX</div>`,
+ pass_vip:()=>`<div class="sky" style="background:radial-gradient(#ffe680,#d98a00)"></div><div class="emoji" style="left:0;right:0;top:300px;text-align:center;font-size:560px">👑</div><div class="title" style="top:60px;font-size:140px;-webkit-text-stroke:10px #3a1a00">VIP</div>`,
+ pass_nest:()=>`<div class="sky" style="background:radial-gradient(#d7ffd0,#3a9a4a)"></div><div class="emoji" style="left:0;right:0;top:280px;text-align:center;font-size:560px">🪺</div><div class="title" style="top:60px;font-size:110px;-webkit-text-stroke:10px #1a3a00">+1 NID</div>`,
+ pass_aim:()=>`<div class="sky" style="background:radial-gradient(#ffd0d0,#c23a3a)"></div><div class="emoji" style="left:0;right:0;top:280px;text-align:center;font-size:560px">🎯</div><div class="title" style="top:60px;font-size:110px;-webkit-text-stroke:10px #3a0000">VISÉE x2</div>`,
+ prod_coins_s:()=>`<div class="sky" style="background:radial-gradient(#fff3a0,#e0a800)"></div><div class="emoji" style="left:0;right:0;top:240px;text-align:center;font-size:520px">💰</div><div class="title" style="bottom:50px;font-size:110px;-webkit-text-stroke:10px #3a1a00">5 000</div>`,
+ prod_coins_l:()=>`<div class="sky" style="background:radial-gradient(#fff3a0,#c07a00)"></div><div class="emoji" style="left:0;right:0;top:240px;text-align:center;font-size:520px">🧰</div><div class="title" style="bottom:50px;font-size:110px;-webkit-text-stroke:10px #3a1a00">75 000</div>`,
+ prod_eggs:()=>`<div class="sky" style="background:radial-gradient(#e6f3ff,#4a7ad6)"></div><div class="emoji" style="left:0;right:0;top:240px;text-align:center;font-size:520px">🥚</div><div class="title" style="bottom:50px;font-size:120px;-webkit-text-stroke:10px #0a1a4a">x5</div>`
+};
+const name=location.hash.slice(1);
+document.getElementById('root').innerHTML=`<div class="scene" id="s">${scenes[name]()}</div>`;
+</script></body></html>

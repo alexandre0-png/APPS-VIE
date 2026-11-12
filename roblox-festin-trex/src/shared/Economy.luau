@@ -65,7 +65,7 @@ function Economy.rebirthMult(rebirths: number): number
 end
 
 function Economy.petSlots(data: any): number
-	return Config.PetSlots + (if data.rebirths >= 5 then 1 else 0)
+	return Config.PetSlots + (if data.rebirths >= 5 then 1 else 0) + (if data.passes and data.passes.nest then 1 else 0)
 end
 
 -- Somme des bonus des compagnons équipés (ignore les ids invalides ou non possédés).
@@ -101,9 +101,9 @@ function Economy.stats(data: any): Stats
 		range = T.BaseRange + T.RangePerLevel * power,
 		cooldown = math.max(T.MinCooldown, T.BaseCooldown - T.CooldownPerLevel * rate),
 		capacity = T.BaseCapacity + T.CapacityPerLevel * basket,
-		assist = T.BaseAssist + T.AssistPerLevel * aim,
+		assist = (T.BaseAssist + T.AssistPerLevel * aim) * (if data.passes and data.passes.aim then 2 else 1),
 		walkSpeed = T.BaseWalkSpeed + T.WalkPerLevel * boots,
-		coinMult = (1 + 0.1 * greed + petMult) * Economy.rebirthMult(data.rebirths),
+		coinMult = (1 + 0.1 * greed + petMult) * Economy.rebirthMult(data.rebirths) * (if data.passes and data.passes.vip then 1.5 else 1),
 		petMult = petMult,
 		petSlots = Economy.petSlots(data),
 	}

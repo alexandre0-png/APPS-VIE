@@ -177,7 +177,24 @@ Config.Sounds = {
 	Success = "rbxasset://sounds/bass.wav",
 }
 
+-- Monétisation. Id = 0 : désactivé (affiché « Bientôt »). Renseigner les ids créés sur le Creator Dashboard.
+Config.Monetization = {
+	Passes = {
+		vip = { Id = 0, Name = "VIP Gourmet", Emoji = "👑", Desc = "+50% de pièces, pour toujours", Price = 399 },
+		nest = { Id = 0, Name = "Nid agrandi", Emoji = "🪺", Desc = "+1 emplacement de compagnon", Price = 199 },
+		aim = { Id = 0, Name = "Super visée", Emoji = "🎯", Desc = "Assistance de visée x2", Price = 149 },
+	},
+	Products = {
+		coins_s = { Id = 0, Name = "Sac de pièces", Emoji = "💰", Desc = "5 000 pièces (x bonus d'évolution)", Price = 49, Coins = 5000 },
+		coins_l = { Id = 0, Name = "Coffre de pièces", Emoji = "🧰", Desc = "75 000 pièces (x bonus d'évolution)", Price = 449, Coins = 75000 },
+		eggs = { Id = 0, Name = "Pack de 5 œufs", Emoji = "🥚", Desc = "5 œufs du T-Rex", Price = 99, Eggs = 5 },
+	},
+	MaxReceipts = 200,
+}
+
 Config.Defaults = {
+	passes = {},
+	receipts = {},
 	version = 1,
 	coins = 0,
 	totalFed = 0,

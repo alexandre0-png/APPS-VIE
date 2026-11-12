@@ -167,6 +167,7 @@ local function snapshot(player: Player): any
 		pets = data.pets,
 		equipped = data.equipped,
 		eggs = data.eggs,
+		passes = data.passes,
 		secrets = Util.count(data.secrets),
 		quests = data.quests.list,
 		canDaily = canDaily,

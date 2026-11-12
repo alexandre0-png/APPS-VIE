@@ -226,6 +226,13 @@ local failed, ferr = DataService.load(2)
 check(failed == nil and ferr ~= nil, "erreur DataStore : pas de profil")
 check(DataService.save(2, newData(), false) == false, "erreur DataStore : sauvegarde échoue proprement")
 
+-- ------------------------------------------------------------ Game Passes
+local dpass = newData()
+dpass.passes = { vip = true, nest = true, aim = true }
+local sp = Economy.stats(dpass)
+check(near(sp.coinMult, 1.5) and sp.petSlots == 4 and near(sp.assist, 8), "effets des Game Passes")
+check(Economy.petSlots(newData()) == 3, "emplacements sans pass")
+
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then
 	error("des tests ont échoué")

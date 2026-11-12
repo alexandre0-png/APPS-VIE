@@ -16,6 +16,7 @@ local PetService = require(Services:WaitForChild("PetService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
 local ShopService = require(Services:WaitForChild("ShopService"))
+local MonetizationService = require(Services:WaitForChild("MonetizationService"))
 
 local state = Instance.new("Configuration")
 state.Name = "GameState"
@@ -29,6 +30,7 @@ FoodService.init()
 QuestService.init()
 LeaderboardService.init(boardLabels)
 ShopService.init()
+MonetizationService.init()
 PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
 
 print("[FestinTRex] Serveur prêt.")

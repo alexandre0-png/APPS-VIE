@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -134,7 +135,11 @@ local function buildShop()
 		UIKit.list(pages[id], 8)
 	end
 	makeTab("upgrades", "💪 Améliorations", 0)
-	makeTab("foods", "🍔 Nourritures", 208)
+	makeTab("foods", "🍔 Nourritures", 150)
+	makeTab("robux", "💎 Robux", 300)
+	tabs.upgrades.Size = UDim2.fromOffset(142, 36)
+	tabs.foods.Size = UDim2.fromOffset(142, 36)
+	tabs.robux.Size = UDim2.fromOffset(142, 36)
 
 	local upgradeRows = {}
 	for i, def in ipairs(Config.Upgrades) do
@@ -176,7 +181,57 @@ local function buildShop()
 		foodRows[food.Id] = { btn = btn, food = food }
 	end
 
+	-- Achats Robux : l'invite d'achat est ouverte par Roblox ; le serveur valide et octroie.
+	local robuxRows = {}
+	local order = 0
+	local function robuxRow(kind: string, key: string, def: any)
+		order += 1
+		local row = UIKit.frame(pages.robux, { Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = C.panel2, LayoutOrder = order })
+		UIKit.corner(row, 12)
+		UIKit.label(row, { Position = UDim2.fromOffset(10, 4), Size = UDim2.fromOffset(46, 56), Text = def.Emoji, TextSize = 34 })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 6), Size = UDim2.fromOffset(280, 24), Text = def.Name, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 32), Size = UDim2.fromOffset(280, 26), Text = def.Desc, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.dim })
+		local btn = UIKit.button(row, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -8, 0.5, 0),
+			Size = UDim2.fromOffset(150, 46),
+			Text = "",
+			TextSize = 16,
+			Callback = function()
+				if def.Id == 0 then
+					HUD.toast("Bientôt disponible !", "info")
+					return
+				end
+				local player = Players.LocalPlayer
+				if kind == "pass" then
+					MarketplaceService:PromptGamePassPurchase(player, def.Id)
+				else
+					MarketplaceService:PromptProductPurchase(player, def.Id)
+				end
+			end,
+		})
+		robuxRows[key] = { btn = btn, def = def, kind = kind, key = key }
+	end
+	for _, key in ipairs({ "vip", "nest", "aim" }) do
+		robuxRow("pass", key, Config.Monetization.Passes[key])
+	end
+	for _, key in ipairs({ "coins_s", "coins_l", "eggs" }) do
+		robuxRow("product", key, Config.Monetization.Products[key])
+	end
+
 	win.refresh = function(s)
+		for _, r in pairs(robuxRows) do
+			if r.kind == "pass" and s.passes and s.passes[r.key] then
+				r.btn.Text = "✔ Possédé"
+				r.btn.BackgroundColor3 = C.panel
+			elseif r.def.Id == 0 then
+				r.btn.Text = "Bientôt"
+				r.btn.BackgroundColor3 = C.panel
+			else
+				r.btn.Text = "R$ " .. r.def.Price
+				r.btn.BackgroundColor3 = C.good
+			end
+		end
 		for id, r in pairs(upgradeRows) do
 			local lvl = s.upgrades[id] or 0
 			r.title.Text = string.format("%s  (niv. %d/%d)", r.def.Name, lvl, r.def.Max)

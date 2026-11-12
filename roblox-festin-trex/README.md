@@ -30,6 +30,9 @@ Rien n'est copié : concept, noms, carte et systèmes sont originaux.
 - 5 fourchettes d'or cachées sur la carte (+ bonus si toutes trouvées).
 - Niveau gourmet, classement mondial (OrderedDataStore) affiché sur un panneau dans le monde et dans l'interface.
 
+## Publication
+Voir **[PUBLISH.md](PUBLISH.md)** : textes, images (`dist/store/`), Game Passes et produits développeur, check-list.
+
 ## Installation
 **Sans outil** : ouvrir `dist/FestinDuTRex.rbxlx` dans Roblox Studio → Play. Le monde est construit par script au démarrage.
 Régénérer le fichier après modification : `python3 tools/build_rbxlx.py`.
@@ -70,7 +73,8 @@ Le code n'a donc **pas été prouvé fonctionnel** : premier réflexe attendu à
 
 ## Reste à finaliser / limites connues
 - Sons : chemins `rbxasset://sounds/...` intégrés à Roblox, non vérifiés ; remplaçables dans `Config.Sounds`.
-- Pas de Game Pass ni de produit développeur (aucun ID à inventer) : à ajouter avec vos propres IDs.
+- Game Passes et produits développeur codés (`MonetizationService`) mais désactivés tant que leurs IDs (créés sur ton compte) ne sont pas saisis dans `Config.Monetization` ; ce code n'a jamais été exécuté non plus.
+- Les visuels de `dist/store/` sont des illustrations, pas des captures du jeu.
 - Les animations de lancer sont un simple mouvement d'épaule (aucun ID d'animation externe).
 - Équilibrage (prix, durées, récompenses) calculé sur papier, non éprouvé en jeu : tout est dans `Config.luau`.
 - Pas de test de charge ; budget visé : < 700 Parts statiques, aucun objet réseau par projectile (arcs rejoués côté client).
