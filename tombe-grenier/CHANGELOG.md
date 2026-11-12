@@ -9,6 +9,7 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Audio : options de lecture (vitesse, réverbération, boucle) dans Audio.play ; souffle de ventilation en boucle très bas au centre de la maison.
 - Récit : quatre phrases de texture pour les livres sans marque-page (Quests.lua, BOOK_FLAVOUR).
 - Audio : statique de coupure (statique_tv) quand la télévision s'éteint.
 - Graphisme : poussière en suspension dans chaque pièce (Atmosphere.lua, Config.Visual.Dust / DustRate).

@@ -9,6 +9,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Data = require(Shared.MapData)
+local Audio = require(Shared.Audio)
 
 local Atmosphere = {}
 
@@ -52,6 +53,21 @@ function Atmosphere.build()
 	local folder = Instance.new("Folder")
 	folder.Name = FOLDER_NAME
 	folder.Parent = Workspace
+
+	-- Souffle de ventilation en boucle, très bas, au centre de la maison (couche sonore continue)
+	if Config.Visual.Dust then
+		local hum = Instance.new("Part")
+		hum.Name = "SoufflePiece"
+		hum.Anchored = true
+		hum.CanCollide = false
+		hum.CanQuery = false
+		hum.CanTouch = false
+		hum.Transparency = 1
+		hum.Size = Vector3.new(1, 1, 1)
+		hum.Position = Vector3.new(60, 6, 45)
+		hum.Parent = folder
+		pcall(Audio.play, "ventilation", hum, { volume = 0.06, range = 30, speed = 0.85, reverb = 2, looped = true })
+	end
 
 	for _, r in ipairs(Data.rooms) do
 		local base = Data.base[r.level] or 0

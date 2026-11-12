@@ -29,7 +29,17 @@ function Audio.play(key, parent, options)
 	sound.Volume = (options and options.volume) or entry.volume or 1
 	sound.RollOffMaxDistance = (options and options.range) or 60
 	sound.Parent = parent or workspace
-	sound.Looped = entry.looped == true
+	sound.Looped = entry.looped == true or (options ~= nil and options.looped == true)
+	-- Hauteur de lecture légèrement variable : un même son ne sonne pas deux fois pareil
+	local speed = (options and options.speed) or 1
+	sound.PlaybackSpeed = speed
+	-- Réverbération optionnelle (pièces vides, grandes salles)
+	if options and options.reverb then
+		local rev = Instance.new("ReverbSoundEffect")
+		rev.DecayTime = options.reverb
+		rev.Mix = 0.35
+		rev.Parent = sound
+	end
 	sound:Play()
 	-- Un son en boucle reste en place jusqu'à destruction explicite par l'appelant
 	if not sound.Looped then
