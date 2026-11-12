@@ -1,0 +1,6 @@
+# Analyse statique (selene). Première utilisation : selene generate-roblox-std (crée roblox.yml), puis : selene roblox/src
+std = "roblox"
+
+[lints]
+# Les scripts de ce projet déclarent volontairement quelques fonctions anticipées (forward declarations).
+shadowing = "warn"

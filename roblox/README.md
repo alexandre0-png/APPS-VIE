@@ -17,6 +17,18 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Passe graphique et robustesse (v2)
+
+- **Ambiance** : soleil chaud, brume, bloom, rayons de soleil, étalonnage plus vif ; collines à l'horizon, murs invisibles, fleurs, rochers, arbres à trois feuillages.
+- **Monde** : palissades et torches aux couleurs des rivaux, drapeaux, nids garnis de paille, tapis avec rails néon et **rayures animées**, bases de joueurs à couleur propre avec lampadaires, liseré néon et **pads encadrés**, panneau de nom en bois.
+- **Pets** : reflets dans les yeux, joues, pieds, étincelles dorées de production.
+- **Animations** : œuf qui tremble puis blanchit avant d'éclore, onde de choc + particules, pet qui apparaît en grossissant, œuf qui s'envole vers le joueur à la récolte, effets au dépôt.
+- **HUD** : pastilles dégradées avec contour, « +X » flottant et pulsation lors d'un gros gain, toasts colorés par type, fenêtre d'éclosion avec rareté en étoiles, retour tactile des boutons.
+- **Données** : champ de version `ver` avec migrations, valeurs assainies, niveaux bornés, sauvegarde sans chevauchement avec 3 tentatives, verrou libéré sur toutes les sorties.
+- **Serveur** : actions protégées par `pcall`, vitesse attendue calculée côté serveur, balayage des gardiens limité.
+
+Voir `tools/VERIFICATION.md` pour ce qui est exécuté, relu ou à tester.
+
 ## Publication
 
 Tout est prêt dans **`publication/LISTING.md`** : fiche du jeu FR/EN à copier-coller, étapes Studio / Creator Hub, tableau des achats intégrés, liste de playtest. Visuels dans `publication/art/` (icône, 3 miniatures, 4 icônes d'achats). Le fichier de place à ouvrir dans Studio est `build/ChipeOeufs.rbxlx`.

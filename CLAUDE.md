@@ -8,7 +8,7 @@ Chaque jeu a son dossier. Ne jamais modifier le dossier d'un autre jeu.
 
 | Jeu | Dossier | État |
 |---|---|---|
-| Jeu 3 : Chipe-Œufs (Roblox) | `roblox/` | Complet, non testé dans Studio, prêt à publier |
+| Jeu 3 : Chipe-Œufs (Roblox) | `roblox/` | Complet (passe graphique v2 faite), non testé dans Studio, prêt à publier |
 | Prototype web de Chipe-Œufs | `jeu/` | PWA HTML (même principe, hors Roblox) |
 | Jeux 1, 2, 4 | (aucun dossier) | Pas encore créés : créer `roblox-jeuN/` pour chacun, sans réutiliser les fichiers de `roblox/` |
 
@@ -20,6 +20,7 @@ Les dossiers `religion/`, `calendrier/`, `solde/` sont des apps web sans rapport
 2. Lire l'architecture existante, repérer les conflits, choisir l'intégration, puis développer la fonctionnalité en entier, avec ce qui la rend agréable (animations, retours visuels, cohérence avec le jeu) sans surcharger.
 3. **Sauvegarde avant intervention** : `git tag backup/<jeu>-<date>` (ou commit préalable) avant toute modification importante ; ne jamais supprimer un système fonctionnel sans nécessité ; si un changement risque d'en casser un, trouver une autre solution.
 4. **Contrôle obligatoire après chaque modification** : `python3 roblox/tools/check.py` (syntaxe Luau, classes et enums Roblox, cohérence des RemoteEvents, variables inutilisées, fichier de place à jour), puis relecture manuelle de ce que l'outil ne voit pas : validation serveur de chaque action client, fuites mémoire, comportement après plusieurs minutes et à plusieurs joueurs, sauvegardes, performances.
+4bis. Outils supplémentaires (stylua, selene, rojo, Lune) : configs et tests dans `roblox/` ; leur état d'exécution est suivi dans `roblox/tools/VERIFICATION.md`. Ne pas déclarer « exécuté » sans l'avoir réellement lancé.
 5. Après un changement de code : `python3 roblox/tools/build_place.py` pour régénérer `roblox/build/ChipeOeufs.rbxlx`.
 6. Une erreur trouvée se corrige puis tous les contrôles se relancent.
 
