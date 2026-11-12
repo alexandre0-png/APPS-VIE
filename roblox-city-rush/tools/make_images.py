@@ -90,3 +90,35 @@ scene(1920, 1080, 3, False, [(0.08, 0.9, 1.5, (60, 120, 220), False), (0.4, 0.84
 ic = scene(512, 512, 4, True, [(0.14, 0.85, 1.9, (255, 200, 50), False)], "CITY", "RUSH")
 ic.save(OUT / "icon_512.png")
 print("images générées dans", OUT)
+
+# ---- plan de la ville (aperçu de la carte du jeu) ----
+def city_map():
+    S, H = 1000, 700
+    img = Image.new("RGB", (S, S), (30, 100, 150))
+    d = ImageDraw.Draw(img)
+    k = S / (H * 2)
+    def R(x, z, w, h, col):
+        d.rectangle([(x - w / 2 + H) * k, (z - h / 2 + H) * k, (x + w / 2 + H) * k, (z + h / 2 + H) * k], fill=col)
+    R(0, 0, H * 2, H * 2, (96, 150, 78))
+    dist = [["residential", "industrial", "industrial", "industrial", "harbor"],
+            ["residential", "downtown", "downtown", "downtown", "beach"],
+            ["residential", "downtown", "plaza", "downtown", "stadium"],
+            ["residential", "downtown", "downtown", "downtown", "beach"],
+            ["residential", "payspray", "police", "dealer", "park"]]
+    cols = {"residential": (190, 200, 170), "industrial": (140, 140, 145), "downtown": (120, 135, 160), "plaza": (215, 200, 170),
+            "harbor": (150, 150, 160), "beach": (231, 208, 150), "stadium": (110, 170, 110), "park": (80, 150, 70),
+            "payspray": (200, 195, 160), "police": (120, 140, 190), "dealer": (150, 190, 215)}
+    for n in range(6):
+        c = -500 + 200 * n
+        R(c, 0, 40, 1040, (70, 72, 80)); R(0, c, 1040, 40, (70, 72, 80))
+    for j in range(5):
+        for i in range(5):
+            R((i - 2) * 200, (j - 2) * 200, 160, 160, cols[dist[j][i]])
+    pois = [("Pizzeria", -352, -30), ("Taxi", -40, -10), ("Banque", 0, -170), ("Course", 322, 0), ("Concession", 200, 375), ("Pay'n'Spray", -200, 386), ("Police", 0, 420), ("Planque", -30, -345)]
+    f = font(18)
+    for name, x, z in pois:
+        px, py = (x + H) * k, (z + H) * k
+        d.ellipse([px - 9, py - 9, px + 9, py + 9], fill=(255, 196, 0), outline=(0, 0, 0))
+        d.text((px + 12, py - 10), name, font=f, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
+    img.save(OUT / "carte_ville.png")
+city_map()
