@@ -18,7 +18,8 @@ local SAVE_RETRIES = 3
 -- Version du schéma des données sauvegardées. À incrémenter à chaque changement de structure, avec une étape dans migrate().
 -- v1 : première version (sans champ ver). v2 : + equip, quests, qday, receipts, luckUntil, ver.
 -- v3 : + story { ch, prog } (histoire) et pity (compteur de pitié).
-local VERSION = 3
+-- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
+local VERSION = 4
 
 local Data = {}
 Data.VERSION = VERSION
@@ -61,6 +62,8 @@ function Data.default()
 		luckUntil = 0,
 		story = { ch = 0, prog = 0 }, -- ch = chapitres réussis, prog = progression du chapitre en cours
 		pity = 0,
+		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
+		ach = {}, -- id de succès -> palier déjà réclamé
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -87,6 +90,13 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[3] = function(saved)
+		-- v3 -> v4 : un nouveau chapitre (énigme) est inséré en position 8. Qui avait déjà réussi 8 chapitres ou plus
+		-- garde ses acquis : on décale d'un cran pour ne pas lui faire refaire les chapitres suivants.
+		if type(saved.story) == "table" and type(saved.story.ch) == "number" and saved.story.ch >= 8 then
+			saved.story.ch += 1
+		end
 	end,
 }
 
@@ -136,6 +146,15 @@ local function merge(saved)
 		d.story.prog = sane(saved.story.prog, 0)
 	end
 	d.pity = math.min(Config.PITY_EVERY, math.floor(sane(saved.pity, 0)))
+	if type(saved.puzzle) == "table" then
+		d.puzzle.day = math.floor(sane(saved.puzzle.day, 0))
+		d.puzzle.solved = math.floor(sane(saved.puzzle.solved, 0))
+	end
+	if type(saved.ach) == "table" then
+		for _, a in ipairs(Config.ACHIEVEMENTS) do
+			d.ach[a.id] = math.min(#a.goals, math.floor(sane(saved.ach[a.id], 0)))
+		end
+	end
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end

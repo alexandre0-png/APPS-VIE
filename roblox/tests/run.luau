@@ -214,7 +214,7 @@ check("multiplier avec bonus de collection", near(Rules.multiplier(0, 0, false, 
 
 -- Univers : histoire, zones, rangs, collection ---------------------------------------------------
 check("histoire non vide", #Config.STORY >= 5)
-local validTypes = { hatch = true, steal = true, train = true, species = true, tier = true, mut = true, rebirth = true }
+local validTypes = { hatch = true, steal = true, train = true, species = true, tier = true, mut = true, puzzle = true, rebirth = true }
 for i, c in ipairs(Config.STORY) do
 	check("chapitre " .. i .. " : type valide", validTypes[c.type] == true)
 	check("chapitre " .. i .. " : objectif > 0 et titre / texte non vides", c.goal > 0 and #c.title > 0 and #c.text > 0)
@@ -263,6 +263,67 @@ for name, def in pairs(Config.PASSES) do
 end
 for name, def in pairs(Config.PRODUCTS) do
 	check("produit " .. name .. " : id numérique, nom et description", type(def.id) == "number" and #def.name > 0 and #def.desc > 0)
+end
+
+-- Énigmes des runes -----------------------------------------------------------------------------
+check("4 runes et 4 directions", #Config.RUNES == 4 and #Config.RUNE_DIRECTIONS == 4)
+local seen, texts = {}, {}
+for day = 20000, 20119 do
+	local r = Config.riddleFor(day)
+	local used, ok = {}, #r.answer == 4
+	for _, v in ipairs(r.answer) do
+		ok = ok and v >= 1 and v <= 4 and not used[v]
+		used[v] = true
+	end
+	check("énigme jour " .. day .. " : réponse = permutation de 1..4", ok)
+	check("énigme jour " .. day .. " : énoncé complet (4 indices)", select(2, r.text:gsub("%.", "")) == 4 and r.text:find("Nord", 1, true) ~= nil and r.text:find("Ouest", 1, true) ~= nil)
+	local again = Config.riddleFor(day)
+	check("énigme jour " .. day .. " : déterministe", again.text == r.text and table.concat(again.answer, ",") == table.concat(r.answer, ","))
+	seen[table.concat(r.answer, ",")] = true
+	texts[r.text] = true
+end
+local distinctAnswers, distinctTexts = 0, 0
+for _ in pairs(seen) do
+	distinctAnswers += 1
+end
+for _ in pairs(texts) do
+	distinctTexts += 1
+end
+check("les énigmes varient (>= 12 combinaisons sur 120 jours)", distinctAnswers >= 12)
+check("les énoncés varient (>= 60 textes sur 120 jours)", distinctTexts >= 60)
+check("puzzleCoins : plancher 2000", Config.puzzleCoins(0) == 2000)
+check("puzzleCoins : proportionnel au revenu", Config.puzzleCoins(1000) == 600000)
+check("récompense d'énigme : rareté valide", Config.PUZZLE_EGG_TIER >= 1 and Config.PUZZLE_EGG_TIER <= 6)
+check("un chapitre d'histoire porte sur l'énigme", (function()
+	for _, c in ipairs(Config.STORY) do
+		if c.type == "puzzle" then
+			return true
+		end
+	end
+	return false
+end)())
+
+-- Succès à paliers -----------------------------------------------------------------------------------
+check("succès définis", #Config.ACHIEVEMENTS >= 4)
+local statNames = { hatched = true, stolen = true, species = true, rb = true, puzzles = true }
+for _, a in ipairs(Config.ACHIEVEMENTS) do
+	check("succès " .. a.id .. " : statistique connue", statNames[a.stat] == true)
+	check("succès " .. a.id .. " : 4 paliers", #a.goals == #Config.ACH_REWARD.coins and #a.goals == #Config.ACH_REWARD.mins)
+	for i = 2, #a.goals do
+		check("succès " .. a.id .. " : paliers croissants (" .. i .. ")", a.goals[i] > a.goals[i - 1])
+	end
+	check("succès " .. a.id .. " : Config.achievement retrouve l'id", Config.achievement(a.id) == a)
+	if a.stat == "species" then
+		check("succès espèces : dernier palier atteignable", a.goals[#a.goals] <= #Config.PETS)
+	end
+end
+check("Config.achievement(inconnu) = nil", Config.achievement("nimportequoi") == nil)
+for tier = 1, 4 do
+	check("achReward palier " .. tier .. " : plancher", Config.achReward(tier, 0) == Config.ACH_REWARD.coins[tier])
+	check("achReward palier " .. tier .. " : proportionnel au revenu", Config.achReward(tier, 1e6) == 1e6 * Config.ACH_REWARD.mins[tier] * 60)
+end
+for tier = 2, 4 do
+	check("récompenses de succès croissantes (" .. tier .. ")", Config.ACH_REWARD.coins[tier] > Config.ACH_REWARD.coins[tier - 1])
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

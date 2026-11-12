@@ -246,11 +246,11 @@ Config.RANKS = {
 	{ chapter = 3, name = "Chipeur", emoji = "🧤" },
 	{ chapter = 6, name = "Maître Chipeur", emoji = "🥷" },
 	{ chapter = 9, name = "Seigneur des Couvées", emoji = "👑" },
-	{ chapter = 11, name = "Roi des Couvées", emoji = "🐉" },
+	{ chapter = 12, name = "Roi des Couvées", emoji = "🐉" },
 }
 
 -- Histoire : suite de chapitres. type = hatch | steal | train (secondes) | species (espèces découvertes) | tier (pet de rareté >= `tier` obtenu)
--- | mut (pet muté obtenu) | rebirth. `rival` : ne compte que les vols chez ce rival. Récompense = max(coins, revenus de `mins` minutes).
+-- | mut (pet muté obtenu) | puzzle (énigme du jour résolue) | rebirth. `rival` : ne compte que les vols chez ce rival. Récompense = max(coins, revenus de `mins` minutes).
 Config.STORY = {
 	{ title = "L'œuf d'argent", text = "Le Grand Nid s'est brisé, mais un dernier œuf dort dans ta base. Fais-le éclore : touche-le pour l'aider !", type = "hatch", goal = 1, coins = 100, mins = 0 },
 	{ title = "Premier larcin", text = "Les brigands de Gus gardent des œufs au nord. Maintiens le bouton devant un nid pour en chiper un, puis rapporte-le chez toi.", type = "steal", goal = 1, coins = 250, mins = 0 },
@@ -259,6 +259,7 @@ Config.STORY = {
 	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
 	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
 	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
+	{ title = "Le murmure des runes", text = "Les runes du Grand Nid s'éveillent chaque jour. Lis l'énigme du Gardien (Missions > Énigme), tourne les 4 runes autour du Nid, puis touche le Nid pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
 	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
 	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
 	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
@@ -303,6 +304,8 @@ function Config.storyGoalText(c)
 		return "Obtenir un pet " .. Config.TIERS[c.tier].name .. " ou mieux"
 	elseif c.type == "mut" then
 		return "Obtenir un pet muté"
+	elseif c.type == "puzzle" then
+		return "Résoudre l'énigme des runes"
 	elseif c.type == "rebirth" then
 		return "Renaître " .. c.goal .. " fois"
 	end
@@ -312,6 +315,83 @@ end
 -- Récompense de pièces d'un chapitre pour un revenu donné (par seconde).
 function Config.storyReward(chapter, income)
 	return math.floor(math.max(chapter.coins, income * chapter.mins * 60))
+end
+
+---------------------------------------------------------------- Énigmes des runes (Grand Nid)
+-- Quatre runes autour du monument (Nord, Est, Sud, Ouest). Chaque jour, le Gardien énonce un indice par direction ; le joueur doit
+-- régler chaque rune sur le bon symbole puis valider en touchant le Grand Nid. L'énigme est la même pour tous les joueurs un jour donné.
+Config.RUNES = { "🔥", "🌊", "🌿", "⭐" }
+Config.RUNE_DIRECTIONS = { "Nord", "Est", "Sud", "Ouest" }
+Config.RUNE_LOCK_SECONDS = 6 -- pause après une mauvaise combinaison (empêche d'essayer au hasard en boucle)
+Config.PUZZLE_EGG_TIER = 3 -- récompense : un œuf Épique (ou son prix en pièces si la base est pleine)
+Config.PUZZLE_MINS = 10 -- + pièces : max(2000, 10 minutes de revenus)
+
+local RUNE_CLUES = {
+	{ "ce qui danse et brûle", "la flamme qui crépite", "ce qui réchauffe et consume" },
+	{ "ce qui coule et berce", "la vague qui murmure", "ce qui désaltère les rivières" },
+	{ "ce qui pousse vers la lumière", "la feuille qui respire", "ce qui plonge ses racines" },
+	{ "ce qui brille quand tout dort", "la lumière lointaine", "ce qui guide les voyageurs" },
+}
+local DIR_PREFIX = { "Au Nord", "À l'Est", "Au Sud", "À l'Ouest" }
+
+-- Générateur pseudo-aléatoire déterministe (Park-Miller : les produits restent exacts en double précision).
+local function dayRng(seed)
+	local x = (seed * 7919 + 104729) % 2147483646 + 1
+	local function raw()
+		x = (x * 16807) % 2147483647
+		return x
+	end
+	raw()
+	raw()
+	raw()
+	return function(n)
+		return raw() % n + 1
+	end
+end
+
+-- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé }.
+function Config.riddleFor(day)
+	local r = dayRng(day)
+	local order = { 1, 2, 3, 4 }
+	for i = 4, 2, -1 do
+		local j = r(i)
+		order[i], order[j] = order[j], order[i]
+	end
+	local parts = {}
+	for dir = 1, 4 do
+		local clues = RUNE_CLUES[order[dir]]
+		parts[dir] = DIR_PREFIX[dir] .. " : " .. clues[r(#clues)] .. "."
+	end
+	return { answer = order, text = table.concat(parts, " ") }
+end
+
+function Config.puzzleCoins(income)
+	return math.floor(math.max(2000, income * Config.PUZZLE_MINS * 60))
+end
+
+---------------------------------------------------------------- Succès à paliers (récompenses permanentes de progression)
+-- stat : hatched | stolen | species | rb | puzzles. goals : seuils des paliers successifs.
+Config.ACHIEVEMENTS = {
+	{ id = "hatched", name = "Éleveur", emoji = "🐣", stat = "hatched", unit = "œufs éclos", goals = { 10, 50, 250, 1000 } },
+	{ id = "stolen", name = "Chipeur", emoji = "🧤", stat = "stolen", unit = "œufs chipés", goals = { 10, 50, 200, 800 } },
+	{ id = "species", name = "Collectionneur", emoji = "📚", stat = "species", unit = "espèces découvertes", goals = { 3, 6, 12, 18 } },
+	{ id = "rebirth", name = "Renaissant", emoji = "♻️", stat = "rb", unit = "renaissances", goals = { 1, 2, 4, 8 } },
+	{ id = "puzzle", name = "Déchiffreur", emoji = "🔮", stat = "puzzles", unit = "énigmes résolues", goals = { 1, 5, 15, 40 } },
+}
+Config.ACH_REWARD = { coins = { 500, 5000, 50000, 500000 }, mins = { 1, 5, 20, 60 } }
+
+function Config.achievement(id)
+	for _, a in ipairs(Config.ACHIEVEMENTS) do
+		if a.id == id then
+			return a
+		end
+	end
+	return nil
+end
+
+-- Récompense du palier `tier` (1..4) : max(pièces fixes, revenus de `mins` minutes).
+function Config.achReward(tier, income)
+	return math.floor(math.max(Config.ACH_REWARD.coins[tier], income * Config.ACH_REWARD.mins[tier] * 60))
 end
 
 -- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)
