@@ -143,6 +143,12 @@ Config.Throw = {
 	Range = 40,              -- portée maximale en studs
 }
 
+-- Conception du jeu. ProgressionV2 : une horloge dans le hall, à régler sur la date de la plaque,
+-- entre la mélodie et la clé de la malle. false : retour à la progression d'origine.
+Config.Design = {
+	ProgressionV2 = true,
+}
+
 Config.Visual = {
 	Dust = true,             -- poussière en suspension dans les pièces (Atmosphere.lua)
 	DustRate = 3,            -- particules par seconde et par pièce : faible, pour rester léger

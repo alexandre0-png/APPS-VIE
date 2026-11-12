@@ -744,6 +744,8 @@ def build_props():
     props.append(dict(tag="Mirror", name="miroir inquiétant", pos=(119.2, 31, 30), size=(0.4, 6, 4)))
     props.append(dict(tag="Mirror", name="miroir fissuré", pos=(119.2, 17.5, 56), size=(0.4, 3, 3)))
     props.append(dict(tag="TV", name="télévision", pos=(13, 4.2, 33.4), size=(4, 2.4, 0.3)))
+    # Horloge du hall (progression V2) : à régler sur la date de la plaque, côté mur nord
+    props.append(dict(tag="Horloge", name="horloge du hall", pos=(60, 4.5, 1.1), size=(1.0, 1.6, 0.3)))
     props.append(dict(tag="IntroPhoto", name="photo de l'introduction", pos=(90, 30, 45), size=(1, 0.1, 1.4)))
 
     # Tasse de café pleine (cuisine) : objet de décor à examiner

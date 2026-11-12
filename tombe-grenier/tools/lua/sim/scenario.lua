@@ -45,6 +45,7 @@ local function world()
   w.gramophone = add("Interactable", 25, 1, 25, "gramophone", { Kind = "gramophone ancien" })
   w.respire = add("Respire", 38, 1, 36, "mur")
   w.mannequin = add("Mannequin", 42, 13, 46, "mannequin")
+  w.horloge = add("Horloge", 60, 4.5, 1.1, "horloge du hall")
   return w
 end
 local w = world()
@@ -158,6 +159,32 @@ Quests.hintFor(alice)
 local hintAgain = false
 for _, e in ipairs(H.log) do if e.name == "Hint" then hintAgain = true end end
 check(not hintAgain and find(H.msgs(alice), "(Attends)") ~= nil, "indication limitée par le délai")
+
+-- 7ter. Progression V2 : l'horloge du hall se règle avec la date de la plaque, pour chaque graine
+local function solveHorloge(seed)
+  Quests.setup(seed)
+  H.log = {}
+  H.trigger(w.docs["plaque du cercueil"], "QuestPrompt", alice)
+  local mm, dd = string.match(find(H.msgs(alice), "gravée dessous : (%d%d/%d%d)") or "", "(%d%d)/(%d%d)")
+  if not mm then return false, "plaque illisible" end
+  H.log = {}
+  H.trigger(w.horloge, "QuestPromptHorloge", alice)
+  if find(H.msgs(alice), "(Entre la date de la plaque)") == nil then return false, "horloge muette" end
+  H.log = {}
+  Quests.submitCode(alice, "1111")
+  if find(H.msgs(alice), "(ne bougent pas)") == nil then return false, "mauvaise date acceptée" end
+  H.log = {}
+  Quests.submitCode(alice, mm .. dd)
+  if find(H.msgs(alice), "(se remet en marche)") == nil then return false, "bonne date refusée" end
+  if H.lastObjective() == "Règle l'horloge du hall sur la date gravée sur la plaque du cercueil" then return false, "objectif non avancé" end
+  return true
+end
+local okH, whyH = solveHorloge(12345)
+check(okH, "horloge résolue avec la date de la plaque" .. (whyH and (" (" .. whyH .. ")") or ""))
+for seed = 1, 60 do
+  local ok, why = solveHorloge(seed)
+  check(ok, ("horloge solvable, graine %d%s"):format(seed, why and (" : " .. why) or ""))
+end
 
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do Quests.setup(seed) end

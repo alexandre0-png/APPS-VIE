@@ -374,6 +374,9 @@ local function buildHouse(root)
 			local tv = makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(25, 25, 28), Enum.Material.SmoothPlastic, "TV")
 			placeDecorModel("télévision", p.pos, tv)
+		elseif p.tag == "Horloge" then
+			makeVisible(folders.Props, p.pos, p.size, p.name,
+				Color3.fromRGB(120, 95, 60), Enum.Material.Wood, "Horloge")
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(folders.Props, p.pos, p.size, p.name,
 				Color3.fromRGB(225, 215, 190), Enum.Material.SmoothPlastic, "IntroPhoto")

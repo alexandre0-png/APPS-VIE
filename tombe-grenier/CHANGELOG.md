@@ -2,6 +2,11 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Progression V2 (Config.Design.ProgressionV2 = true ; false rétablit l'ancienne progression)
+- Nouvelle étape « horloge » entre la mélodie et la clé de la malle : régler l'horloge du hall (saisie de la date de la plaque, MMJJ).
+- Génération : horloge du hall (tag Horloge) dans tools/map/generate_map.py ; rendu dans MapBuilder.
+- Tests : solvabilité de l'horloge sur 60 graines (sim), position de l'horloge dans le hall (cartographie).
+
 ### Corrigé
 - Achats Robux : un achat n'est plus accordé au lieu hub (l'effet y serait perdu) ; il reste en attente jusqu'au lieu de jeu.
 - Mort fatale (plus personne debout) : les minuteries de réapparition et les invites de réanimation en attente sont annulées avant la fin de partie.

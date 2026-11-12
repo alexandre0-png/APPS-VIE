@@ -101,6 +101,7 @@ local HINTS = {
 	coffret = "Le coffret à bijoux est posé sur la table de la salle de la tombe.",
 	chest = "La petite clé du coffret ouvre une serrure. Cherche la malle, dans la salle de la tombe.",
 	melodie = "Le gramophone du premier étage joue trois notes. Rejoue-les sur la boîte à musique, dans le même ordre.",
+	horloge = "Une date est gravée sur la plaque du cercueil. L'horloge du hall attend cette date, mois puis jour.",
 	key = "La clé rouillée est au fond de la malle.",
 	statues = "Les trois statues doivent regarder la même direction. La lampe UV montre la cible de deux d'entre elles.",
 	exit = "Deux chemins : la porte d'entrée, ou la tombe. Lis les documents avant de choisir.",
@@ -182,6 +183,9 @@ local function currentStep()
 	if not state.boxDone then
 		return "melodie"
 	end
+	if Config.Design.ProgressionV2 and not state.horloge then
+		return "horloge"
+	end
 	if not snap.hasKey then
 		return "key"
 	end
@@ -206,6 +210,9 @@ local OBJECTIVE = {
 	end,
 	chest = function()
 		return "Ouvre la malle du grenier"
+	end,
+	horloge = function()
+		return "Règle l'horloge du hall sur la date gravée sur la plaque du cercueil"
 	end,
 	key = function()
 		return "Prends la clé rouillée dans la malle"
@@ -657,6 +664,20 @@ local function wire()
 		end
 	end
 
+	-- Horloge du hall (progression V2) : saisie de la date de la plaque
+	for _, part in ipairs(CollectionService:GetTagged("Horloge")) do
+		if part:IsA("BasePart") then
+			prompt(part, { name = "QuestPromptHorloge", action = "Régler", object = "Horloge", hold = 0.4, distance = 6 }, function(player)
+				if not Config.Design.ProgressionV2 or not state or state.horloge then
+					return
+				end
+				state.horlogeOpen = true
+				Remotes.fire("Keypad", player, { length = 4 })
+				say(player, "Entre la date de la plaque : mois puis jour, deux chiffres chacun.")
+			end)
+		end
+	end
+
 	-- Boîte à musique : rejouer la mélodie du gramophone, note par note
 	for _, part in ipairs(CollectionService:GetTagged("MusicBox")) do
 		if part:IsA("BasePart") then
@@ -975,9 +996,25 @@ local function submitDate(player, text)
 end
 
 -- Saisie du code, envoyée par le client depuis le coffret
+-- Horloge du hall (progression V2) : la date de la plaque, MMJJ
+local function submitHorloge(player, text)
+	if text == tombeDate then
+		state.horloge = true
+		state.horlogeOpen = false
+		say(player, "Un déclic. Les aiguilles s'arrêtent sur la date, et le mécanisme se remet en marche.")
+		progressed()
+	else
+		say(player, "Les aiguilles ne bougent pas. Ce n'est pas la date de la plaque.")
+	end
+end
+
 function Quests.submitCode(player, text)
 	if state and state.tombePending and typeof(text) == "string" then
 		submitDate(player, text)
+		return
+	end
+	if state and state.horlogeOpen and not state.horloge and typeof(text) == "string" then
+		submitHorloge(player, text)
 		return
 	end
 	if not state or state.coffret or typeof(text) ~= "string" then
@@ -1076,6 +1113,8 @@ function Quests.setup(seed)
 	state.mirrorRead = false
 	state.melodyIdx = 0
 	state.boxDone = false
+	state.horloge = false     -- progression V2 : horloge du hall réglée
+	state.horlogeOpen = false -- saisie de la date ouverte au hall
 	state.tombePending = false
 	state.nextMark = 1
 	bookReads = {}

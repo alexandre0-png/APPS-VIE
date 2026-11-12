@@ -526,3 +526,17 @@ class TestHidingVariety(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestProgressionV2(unittest.TestCase):
+    """Progression V2 : l'horloge du hall doit exister, être dans le hall et accessible."""
+
+    def test_hall_clock_exists_once_in_hall(self):
+        props = gm.build_props()[0]
+        clocks = [p for p in props if p.get("tag") == "Horloge"]
+        self.assertEqual(len(clocks), 1)
+        x, y, z = clocks[0]["pos"]
+        self.assertEqual(gm.room_at("ground", x, z), "hall")
+
+    def test_hall_is_not_locked(self):
+        self.assertNotIn("hall", gm.LOCKED_ROOM_IDS)
