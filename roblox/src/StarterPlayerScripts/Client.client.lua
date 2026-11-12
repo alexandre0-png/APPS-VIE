@@ -49,6 +49,7 @@ local function corner(o, r)
 	make("UICorner", { CornerRadius = UDim.new(0, r or 12) }, o)
 end
 -- Retour tactile : le bouton se rétrécit légèrement quand on appuie.
+local lastPress = 0 -- horodatage du dernier appui : sert à ne pas reconstruire un panneau sous le doigt du joueur
 local function pressFx(btn)
 	local sc = Instance.new("UIScale")
 	sc.Parent = btn
@@ -56,6 +57,7 @@ local function pressFx(btn)
 		TweenService:Create(sc, TweenInfo.new(0.08), { Scale = v }):Play()
 	end
 	btn.MouseButton1Down:Connect(function()
+		lastPress = os.clock()
 		to(0.93)
 	end)
 	btn.MouseButton1Up:Connect(function()
@@ -530,10 +532,27 @@ for _, n in ipairs(navDefs) do
 end
 
 ---------------------------------------------------------------- Réseau
+-- Reconstruire le panneau détruit ses boutons : si le joueur vient d'appuyer, on attend que le clic soit terminé.
+local renderToken = 0
+local function renderSoon()
+	local waitTime = 0.6 - (os.clock() - lastPress)
+	if waitTime <= 0 then
+		render()
+		return
+	end
+	renderToken += 1
+	local token = renderToken
+	task.delay(waitTime, function()
+		if token == renderToken then
+			render()
+		end
+	end)
+end
+
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
 	if panel then
-		render()
+		renderSoon()
 	end
 end)
 RNotify.OnClientEvent:Connect(toast)
@@ -541,7 +560,7 @@ RHatch.OnClientEvent:Connect(hatchPop)
 RTop.OnClientEvent:Connect(function(list)
 	topData = list
 	if panel and panel.name == "top" then
-		render()
+		renderSoon()
 	end
 end)
 

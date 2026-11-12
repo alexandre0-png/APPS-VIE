@@ -113,12 +113,17 @@ local function merge(saved)
 		for k, v in pairs(saved.up) do
 			if d.up[k] ~= nil and type(v) == "number" then
 				local u = Config.upgrade(k)
-			d.up[k] = math.min(u and u.max or 0, math.floor(sane(v, 0)))
+				d.up[k] = math.min(u and u.max or 0, math.floor(sane(v, 0)))
 			end
 		end
 	end
 	if type(saved.dex) == "table" then
-		d.dex = saved.dex
+		for k, e in pairs(saved.dex) do
+			local idx = tonumber(k)
+			if idx and Config.PETS[idx] and type(e) == "table" then
+				d.dex[tostring(idx)] = { n = math.floor(sane(e.n, 0)), b = sane(e.b, 0) }
+			end
+		end
 	end
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
@@ -223,6 +228,15 @@ function Data.save(player, d, release)
 	saving[k] = true
 	d.last = os.time()
 	d.ver = VERSION
+	-- Le JSON ne supporte ni NaN ni l'infini : une seule valeur invalide rendrait la sauvegarde impossible pour toujours.
+	for _, f in ipairs({ "coins", "speed" }) do
+		local v = d[f]
+		if type(v) ~= "number" or v ~= v or v < 0 then
+			d[f] = 0
+		elseif v > 1e300 then
+			d[f] = 1e300
+		end
+	end
 	local success = false
 	for attempt = 1, SAVE_RETRIES do
 		local abort = false
