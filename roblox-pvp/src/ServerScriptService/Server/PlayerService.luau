@@ -254,10 +254,16 @@ local function buildNameTag(player, character)
 	end
 	refresh()
 	refreshHealth()
-	humanoid.HealthChanged:Connect(refreshHealth)
+	-- les connexions sur le joueur survivent au personnage : on les coupe à sa disparition
+	local connections = { humanoid.HealthChanged:Connect(refreshHealth) }
 	for _, attr in ipairs({ "Team", "Level", "Title", "HasVIP" }) do
-		player:GetAttributeChangedSignal(attr):Connect(refresh)
+		table.insert(connections, player:GetAttributeChangedSignal(attr):Connect(refresh))
 	end
+	gui.Destroying:Connect(function()
+		for _, c in ipairs(connections) do
+			c:Disconnect()
+		end
+	end)
 	gui.Parent = head
 end
 
