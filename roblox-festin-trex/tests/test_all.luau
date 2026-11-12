@@ -94,7 +94,15 @@ dp.pets.poussin = 1
 dp.equipped = { "poussin", "poussin", "inconnu", "raptor" }
 check(near(Economy.petBonus(dp), 0.05), "bonus compagnon : doublons, inconnus et non possédés ignorés")
 dp.pets.raptor = 1
-check(near(Economy.petBonus(dp), 0.05 + 0.06), "bonus compagnon cumulé")
+check(near(Economy.petBonus(dp), 0.05), "raptor en 4e position ignoré (3 emplacements)")
+dp.equipped = { "poussin", "poussin", "raptor" }
+check(near(Economy.petBonus(dp), 0.05 + 0.06), "bonus compagnon cumulé (doublon ignoré)")
+dp.equipped = { "poussin", "raptor", "gluant", "stego" }
+dp.pets.gluant = 1
+dp.pets.stego = 1
+check(near(Economy.petBonus(dp), 0.05 + 0.06 + 0.07), "au plus 3 compagnons comptés")
+dp.rebirths = 5
+check(near(Economy.petBonus(dp), 0.05 + 0.06 + 0.07 + 0.12), "4e emplacement dès l'évolution 5")
 check(Economy.rollPet("classic", 0, 0) == "poussin", "tirage commun")
 local top = Economy.rollPet("classic", 0.9999, 0)
 check(Economy.findPet(top).Rarity == "mythique", "tirage mythique")
