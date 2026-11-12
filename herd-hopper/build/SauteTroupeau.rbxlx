@@ -2157,6 +2157,15 @@ local function lavaPool(map, x, z)
 	end
 end
 
+local function crystals(map, x, z, color)
+	local r = rng:NextNumber() * 360
+	for i = 1, 3 + rng:NextInteger(0, 2) do
+		local h = 4 + rng:NextNumber() * 9
+		local ox, oz = (rng:NextNumber() - 0.5) * 6, (rng:NextNumber() - 0.5) * 6
+		P(map, V(1.6 + rng:NextNumber(), h, 1.6 + rng:NextNumber()), CFrame.new(x + ox, h / 2 - 0.3, z + oz) * yaw(r + i * 40) * CFrame.Angles((rng:NextNumber() - 0.5) * 0.5, 0, (rng:NextNumber() - 0.5) * 0.5), jitter(color, 30), Enum.Material.Glass, { name = "Crystal", shadow = true })
+	end
+end
+
 local function decorate(map, z, x)
 	local biome = Config.biomeAt(z)
 	local roll = rng:NextNumber()
@@ -2173,8 +2182,10 @@ local function decorate(map, z, x)
 			cactus(map, x, z)
 		elseif roll < 0.75 then
 			mesa(map, x, z, C(200, 112, 70))
-		elseif roll < 0.9 then
+		elseif roll < 0.88 then
 			bones(map, x, z)
+		elseif roll < 0.94 then
+			crystals(map, x, z, C(255, 150, 110))
 		else
 			boulder(map, x, z, C(196, 150, 110), Enum.Material.Sandstone)
 		end
@@ -2183,6 +2194,8 @@ local function decorate(map, z, x)
 			pine(map, x, z)
 		elseif roll < 0.85 then
 			mushroom(map, x, z)
+		elseif roll < 0.93 then
+			crystals(map, x, z, C(120, 220, 190))
 		else
 			boulder(map, x, z, C(96, 108, 96), Enum.Material.Slate)
 		end
@@ -3180,6 +3193,35 @@ function RideService.Mount(player, run, creature)
 end
 
 -- Quitte la monture avec une vitesse donnée (bond, geyser, désarçonnement).
+-- Traînée colorée derrière le cavalier pendant le vol (couleur de sa corde).
+function RideService.AddTrail(player, hrp)
+	local old = hrp:FindFirstChild("FlightTrail")
+	if old then
+		old:Destroy()
+	end
+	local color = ProgressService.GetRopeStyle(player)
+	local a0 = Instance.new("Attachment")
+	a0.Name = "TrailA0"
+	a0.Position = Vector3.new(0, 1, 0)
+	a0.Parent = hrp
+	local a1 = Instance.new("Attachment")
+	a1.Name = "TrailA1"
+	a1.Position = Vector3.new(0, -1, 0)
+	a1.Parent = hrp
+	local trail = Instance.new("Trail")
+	trail.Name = "FlightTrail"
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Color = ColorSequence.new(color)
+	trail.Lifetime = 0.45
+	trail.LightEmission = 0.6
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	trail.Parent = hrp
+	Debris:AddItem(trail, 2.2)
+	Debris:AddItem(a0, 2.2)
+	Debris:AddItem(a1, 2.2)
+end
+
 local function launch(player, run, velocity)
 	local _, hrp, hum = getParts(player)
 	if not hrp then
@@ -3197,6 +3239,7 @@ local function launch(player, run, velocity)
 	end)
 	run.airStart = os.clock()
 	player:SetAttribute("TameProgress", 0)
+	RideService.AddTrail(player, hrp)
 	setStatus(player, run, "Air")
 	Remotes.Launched:FireClient(player, velocity)
 	return true
@@ -3222,6 +3265,9 @@ local function downPlayer(player, run, title, sub)
 		hrp.Anchored = false
 	end
 	player:SetAttribute("TameProgress", 0)
+	if hrp then
+		Fx.burst(hrp.Position - Vector3.new(0, 2, 0), Color3.fromRGB(214, 190, 150), 18, 18)
+	end
 	setStatus(player, run, "Down")
 	feedback(player, "down", title or "RATÉ !", sub or "Rattrape une bête qui passe !")
 end
@@ -4110,6 +4156,8 @@ local active = false
 local pos = Vector3.new(0, 0, 0)
 local lastFocus = nil
 local speedSmooth = 0
+local lateralSmooth = 0
+local lastStatus = nil
 local shakeUntil = 0
 local shakePower = 0
 
@@ -4184,7 +4232,16 @@ local function update(dt)
 		pos = pos:Lerp(desired, 1 - math.exp(-dt * 9))
 	end
 
-	local cf = CFrame.lookAt(pos, focus + Vector3.new(0, 3, 36))
+	-- légère inclinaison dans les virages et regard décalé vers le côté où l'on va
+	local cf = CFrame.lookAt(pos, focus + Vector3.new(-lateralSmooth * 0.35, 3, 36)) * CFrame.Angles(0, 0, lateralSmooth * 0.004)
+	if ClientState.Status ~= lastStatus then
+		if ClientState.Status == "Down" then
+			CameraRig.shake(1.4, 0.35)
+		elseif ClientState.Status == "Riding" and lastStatus == "Hooking" then
+			CameraRig.shake(0.5, 0.2)
+		end
+		lastStatus = ClientState.Status
+	end
 	if os.clock() < shakeUntil then
 		local k = shakePower * (shakeUntil - os.clock())
 		cf = cf * CFrame.new((math.random() - 0.5) * k, (math.random() - 0.5) * k, 0)
@@ -4195,6 +4252,8 @@ local function update(dt)
 	if lastFocus and dt > 0 then
 		local speed = (focus - lastFocus).Magnitude / dt
 		speedSmooth = speedSmooth + (math.min(speed, 120) - speedSmooth) * math.min(1, dt * 3)
+		local lateral = math.clamp((focus.X - lastFocus.X) / dt, -40, 40)
+		lateralSmooth = lateralSmooth + (lateral - lateralSmooth) * math.min(1, dt * 5)
 	end
 	lastFocus = focus
 	camera.FieldOfView = 70 + math.clamp(speedSmooth / 70, 0, 1) * 16
@@ -4641,6 +4700,10 @@ function CreatureFx.bestTarget(origin, range, minDz)
 	return best
 end
 
+function CreatureFx.hasTarget()
+	return targetModel ~= nil
+end
+
 function CreatureFx.setTarget(model)
 	if model == targetModel then
 		return
@@ -4669,6 +4732,7 @@ local UI = require(script.Parent.UI)
 local Sfx = require(script.Parent.Sfx)
 local Controls = require(script.Parent.Controls)
 local CameraRig = require(script.Parent.CameraRig)
+local CreatureFx = require(script.Parent.CreatureFx)
 
 local HUD = {}
 
@@ -4678,6 +4742,7 @@ local feedbackToken = 0
 local resultsToken = 0
 local lastCountdown = -1
 local lastWarnTick = 0
+local lastCombo = 0
 
 local KIND_STYLE = {
 	hook = { color = UI.Colors.Accent },
@@ -4735,6 +4800,8 @@ local function build(gui)
 	refs.comboFill = UI.frame(comboBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.comboFill, 3)
 	refs.scoreBox = score
+	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, score)
+	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, banner)
 
 	-- Classement en direct (haut droite)
 	local board = UI.frame(gui, {
@@ -4988,6 +5055,14 @@ local function update()
 	if refs.scoreBox.Visible then
 		refs.score.Text = Util.formatNumber(player:GetAttribute("RunScore") or 0)
 		local combo = player:GetAttribute("Combo") or 0
+		if combo ~= lastCombo then
+			lastCombo = combo
+			if combo >= 2 then
+				-- petit "pop" à chaque palier de combo
+				refs.combo.TextSize = 30
+				UI.tween(refs.combo, 0.25, { TextSize = 20 }, Enum.EasingStyle.Back)
+			end
+		end
 		if combo >= 2 then
 			refs.combo.Text = ("COMBO x%.1f"):format(player:GetAttribute("ComboMult") or 1)
 		else
@@ -5011,7 +5086,9 @@ local function update()
 			refs.action.BackgroundColor3 = UI.Colors.Accent
 		elseif status == "Air" or status == "Down" then
 			refs.action.Text = "LASSO"
-			refs.action.BackgroundColor3 = UI.Colors.Info
+			-- le bouton brille quand une bête est à portée
+			local ready = CreatureFx.hasTarget()
+			refs.action.BackgroundColor3 = ready and UI.Colors.Accent or UI.Colors.Info
 		else
 			refs.action.Text = "..."
 			refs.action.BackgroundColor3 = UI.Colors.Muted

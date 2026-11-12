@@ -13,6 +13,7 @@ local UI = require(script.Parent.UI)
 local Sfx = require(script.Parent.Sfx)
 local Controls = require(script.Parent.Controls)
 local CameraRig = require(script.Parent.CameraRig)
+local CreatureFx = require(script.Parent.CreatureFx)
 
 local HUD = {}
 
@@ -22,6 +23,7 @@ local feedbackToken = 0
 local resultsToken = 0
 local lastCountdown = -1
 local lastWarnTick = 0
+local lastCombo = 0
 
 local KIND_STYLE = {
 	hook = { color = UI.Colors.Accent },
@@ -79,6 +81,8 @@ local function build(gui)
 	refs.comboFill = UI.frame(comboBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.comboFill, 3)
 	refs.scoreBox = score
+	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, score)
+	UI.make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 }, banner)
 
 	-- Classement en direct (haut droite)
 	local board = UI.frame(gui, {
@@ -332,6 +336,14 @@ local function update()
 	if refs.scoreBox.Visible then
 		refs.score.Text = Util.formatNumber(player:GetAttribute("RunScore") or 0)
 		local combo = player:GetAttribute("Combo") or 0
+		if combo ~= lastCombo then
+			lastCombo = combo
+			if combo >= 2 then
+				-- petit "pop" à chaque palier de combo
+				refs.combo.TextSize = 30
+				UI.tween(refs.combo, 0.25, { TextSize = 20 }, Enum.EasingStyle.Back)
+			end
+		end
 		if combo >= 2 then
 			refs.combo.Text = ("COMBO x%.1f"):format(player:GetAttribute("ComboMult") or 1)
 		else
@@ -355,7 +367,9 @@ local function update()
 			refs.action.BackgroundColor3 = UI.Colors.Accent
 		elseif status == "Air" or status == "Down" then
 			refs.action.Text = "LASSO"
-			refs.action.BackgroundColor3 = UI.Colors.Info
+			-- le bouton brille quand une bête est à portée
+			local ready = CreatureFx.hasTarget()
+			refs.action.BackgroundColor3 = ready and UI.Colors.Accent or UI.Colors.Info
 		else
 			refs.action.Text = "..."
 			refs.action.BackgroundColor3 = UI.Colors.Muted

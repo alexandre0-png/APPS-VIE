@@ -13,6 +13,8 @@ local active = false
 local pos = Vector3.new(0, 0, 0)
 local lastFocus = nil
 local speedSmooth = 0
+local lateralSmooth = 0
+local lastStatus = nil
 local shakeUntil = 0
 local shakePower = 0
 
@@ -87,7 +89,16 @@ local function update(dt)
 		pos = pos:Lerp(desired, 1 - math.exp(-dt * 9))
 	end
 
-	local cf = CFrame.lookAt(pos, focus + Vector3.new(0, 3, 36))
+	-- légère inclinaison dans les virages et regard décalé vers le côté où l'on va
+	local cf = CFrame.lookAt(pos, focus + Vector3.new(-lateralSmooth * 0.35, 3, 36)) * CFrame.Angles(0, 0, lateralSmooth * 0.004)
+	if ClientState.Status ~= lastStatus then
+		if ClientState.Status == "Down" then
+			CameraRig.shake(1.4, 0.35)
+		elseif ClientState.Status == "Riding" and lastStatus == "Hooking" then
+			CameraRig.shake(0.5, 0.2)
+		end
+		lastStatus = ClientState.Status
+	end
 	if os.clock() < shakeUntil then
 		local k = shakePower * (shakeUntil - os.clock())
 		cf = cf * CFrame.new((math.random() - 0.5) * k, (math.random() - 0.5) * k, 0)
@@ -98,6 +109,8 @@ local function update(dt)
 	if lastFocus and dt > 0 then
 		local speed = (focus - lastFocus).Magnitude / dt
 		speedSmooth = speedSmooth + (math.min(speed, 120) - speedSmooth) * math.min(1, dt * 3)
+		local lateral = math.clamp((focus.X - lastFocus.X) / dt, -40, 40)
+		lateralSmooth = lateralSmooth + (lateral - lateralSmooth) * math.min(1, dt * 5)
 	end
 	lastFocus = focus
 	camera.FieldOfView = 70 + math.clamp(speedSmooth / 70, 0, 1) * 16

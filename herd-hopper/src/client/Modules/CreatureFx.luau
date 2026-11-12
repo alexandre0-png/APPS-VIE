@@ -134,6 +134,10 @@ function CreatureFx.bestTarget(origin, range, minDz)
 	return best
 end
 
+function CreatureFx.hasTarget()
+	return targetModel ~= nil
+end
+
 function CreatureFx.setTarget(model)
 	if model == targetModel then
 		return

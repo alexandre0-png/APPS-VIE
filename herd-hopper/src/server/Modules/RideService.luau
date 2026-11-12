@@ -179,6 +179,35 @@ function RideService.Mount(player, run, creature)
 end
 
 -- Quitte la monture avec une vitesse donnée (bond, geyser, désarçonnement).
+-- Traînée colorée derrière le cavalier pendant le vol (couleur de sa corde).
+function RideService.AddTrail(player, hrp)
+	local old = hrp:FindFirstChild("FlightTrail")
+	if old then
+		old:Destroy()
+	end
+	local color = ProgressService.GetRopeStyle(player)
+	local a0 = Instance.new("Attachment")
+	a0.Name = "TrailA0"
+	a0.Position = Vector3.new(0, 1, 0)
+	a0.Parent = hrp
+	local a1 = Instance.new("Attachment")
+	a1.Name = "TrailA1"
+	a1.Position = Vector3.new(0, -1, 0)
+	a1.Parent = hrp
+	local trail = Instance.new("Trail")
+	trail.Name = "FlightTrail"
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Color = ColorSequence.new(color)
+	trail.Lifetime = 0.45
+	trail.LightEmission = 0.6
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	trail.Parent = hrp
+	Debris:AddItem(trail, 2.2)
+	Debris:AddItem(a0, 2.2)
+	Debris:AddItem(a1, 2.2)
+end
+
 local function launch(player, run, velocity)
 	local _, hrp, hum = getParts(player)
 	if not hrp then
@@ -196,6 +225,7 @@ local function launch(player, run, velocity)
 	end)
 	run.airStart = os.clock()
 	player:SetAttribute("TameProgress", 0)
+	RideService.AddTrail(player, hrp)
 	setStatus(player, run, "Air")
 	Remotes.Launched:FireClient(player, velocity)
 	return true
@@ -221,6 +251,9 @@ local function downPlayer(player, run, title, sub)
 		hrp.Anchored = false
 	end
 	player:SetAttribute("TameProgress", 0)
+	if hrp then
+		Fx.burst(hrp.Position - Vector3.new(0, 2, 0), Color3.fromRGB(214, 190, 150), 18, 18)
+	end
 	setStatus(player, run, "Down")
 	feedback(player, "down", title or "RATÉ !", sub or "Rattrape une bête qui passe !")
 end

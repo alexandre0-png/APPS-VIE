@@ -473,6 +473,15 @@ local function lavaPool(map, x, z)
 	end
 end
 
+local function crystals(map, x, z, color)
+	local r = rng:NextNumber() * 360
+	for i = 1, 3 + rng:NextInteger(0, 2) do
+		local h = 4 + rng:NextNumber() * 9
+		local ox, oz = (rng:NextNumber() - 0.5) * 6, (rng:NextNumber() - 0.5) * 6
+		P(map, V(1.6 + rng:NextNumber(), h, 1.6 + rng:NextNumber()), CFrame.new(x + ox, h / 2 - 0.3, z + oz) * yaw(r + i * 40) * CFrame.Angles((rng:NextNumber() - 0.5) * 0.5, 0, (rng:NextNumber() - 0.5) * 0.5), jitter(color, 30), Enum.Material.Glass, { name = "Crystal", shadow = true })
+	end
+end
+
 local function decorate(map, z, x)
 	local biome = Config.biomeAt(z)
 	local roll = rng:NextNumber()
@@ -489,8 +498,10 @@ local function decorate(map, z, x)
 			cactus(map, x, z)
 		elseif roll < 0.75 then
 			mesa(map, x, z, C(200, 112, 70))
-		elseif roll < 0.9 then
+		elseif roll < 0.88 then
 			bones(map, x, z)
+		elseif roll < 0.94 then
+			crystals(map, x, z, C(255, 150, 110))
 		else
 			boulder(map, x, z, C(196, 150, 110), Enum.Material.Sandstone)
 		end
@@ -499,6 +510,8 @@ local function decorate(map, z, x)
 			pine(map, x, z)
 		elseif roll < 0.85 then
 			mushroom(map, x, z)
+		elseif roll < 0.93 then
+			crystals(map, x, z, C(120, 220, 190))
 		else
 			boulder(map, x, z, C(96, 108, 96), Enum.Material.Slate)
 		end

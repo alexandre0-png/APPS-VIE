@@ -179,6 +179,7 @@ function M.FindFirstChild(self, name, rec)
 	if rec then for _, c in ipairs(self._children) do local r = M.FindFirstChild(c, name, true) if r then return r end end end
 	return nil
 end
+function M.FindFirstChildWhichIsA(self, cls, rec) for _, c in ipairs(self._children) do if c._class == cls then return c end if rec then local r = M.FindFirstChildWhichIsA(c, cls, true) if r then return r end end end return nil end
 function M.FindFirstChildOfClass(self, cls) for _, c in ipairs(self._children) do if c._class == cls then return c end end return nil end
 function M.WaitForChild(self, name)
 	if self._class == "ReplicatedStorage" and name == "Shared" then return M.__nodes("shared") end
