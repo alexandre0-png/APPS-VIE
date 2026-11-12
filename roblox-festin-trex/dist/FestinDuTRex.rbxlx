@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBXF0EA19E9F96B4E12AC68519A32FB3B96"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX8629CD5BB1974B13A23DDB4F58A644C4"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX167956C313104D799FFCFAB8F62331B7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX8F1DE9E8EBD245659B85D40E096C571E"><Properties><string name="Name">AnimLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBXB368736F7C2A49908757AEDC1DD77758"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBXB0C67D308FDD48B090F9AB840BE09A99"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBXDF66D2AF0A9340D0BD7102AD6E0D19D4"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2EBCEEA7F9634753A0862BCD26E19948"><Properties><string name="Name">AnimLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique pure des animations (testable hors Studio) : activation par Config.Animations,
 -- exécution protégée (pcall) et fonctions de courbes/angles.
 
@@ -65,7 +65,7 @@ function AnimLogic.stompLift(t: number, amplitude: number, speed: number, phase:
 end
 
 return AnimLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55C84CF8576E47959A475DA5863266F1"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDBAA2D1B86F44B64A49525DD27152D5F"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Balistique pure (nombres, pas de Vector3) : utilisée à l'identique par le serveur (validation)
 -- et par les clients (animation), donc l'arc affiché correspond exactement à l'arc calculé.
 
@@ -85,7 +85,132 @@ function Ballistics.position(ox: number, oy: number, oz: number, vx: number, vy:
 end
 
 return Ballistics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5F7DC9059848482F9E60B9EA2103703E"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDCDA63FEC7A7458584A44F22427123AA"><Properties><string name="Name">CinematicLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Logique pure des cinématiques (testable hors Studio) : règles de lancement (réglages, « une seule fois »,
+-- délai de repos), état de lecture, durée maximale, reprise après « Passer », choix du plan et interpolation caméra.
+-- Aucune dépendance Roblox : le client applique le résultat à la caméra.
+
+local CinematicLogic = {}
+CinematicLogic.__index = CinematicLogic
+
+function CinematicLogic.new(cfg: any)
+	return setmetatable({ cfg = cfg, playing = nil, startedAt = 0, duration = 0, last = {}, skipped = 0 }, CinematicLogic)
+end
+
+-- Durée totale d'une séquence (somme des plans), plafonnée à cfg.MaxSeconds.
+function CinematicLogic.totalDuration(seq: any, maxSeconds: number): number
+	local total = 0
+	for _, shot in ipairs(seq) do
+		total += shot.Dur
+	end
+	return math.min(total, maxSeconds)
+end
+
+local function isOnce(cfg: any, id: string): boolean
+	for _, v in ipairs(cfg.Once) do
+		if v == id then
+			return true
+		end
+	end
+	return false
+end
+
+-- Peut-on lancer la cinématique `id` ? Retourne (ok, raison).
+-- `seen` : table des cinématiques déjà vues (persistée côté serveur).
+function CinematicLogic.canPlay(self: any, id: string, now: number, seen: any): (boolean, string?)
+	local cfg = self.cfg
+	if type(cfg) ~= "table" or cfg.Enabled ~= true then
+		return false, "désactivées"
+	end
+	local flagKey = if string.sub(id, 1, 5) == "zone_" then "Zone" else id
+	if cfg.Flags[flagKey] ~= true then
+		return false, "désactivée"
+	end
+	if self.playing then
+		return false, "déjà en cours"
+	end
+	if isOnce(cfg, id) and seen and seen[id] then
+		return false, "déjà vue"
+	end
+	local cooldown = cfg.Cooldowns[id]
+	if cooldown and self.last[id] and now - self.last[id] < cooldown then
+		return false, "repos"
+	end
+	return true, nil
+end
+
+-- Démarre. `seq` = liste de plans. Retourne (ok, durée).
+function CinematicLogic.start(self: any, id: string, now: number, seen: any, seq: any): (boolean, number)
+	local ok = CinematicLogic.canPlay(self, id, now, seen)
+	if not ok or type(seq) ~= "table" or #seq == 0 then
+		return false, 0
+	end
+	self.playing = id
+	self.startedAt = now
+	self.duration = CinematicLogic.totalDuration(seq, self.cfg.MaxSeconds)
+	self.last[id] = now
+	return true, self.duration
+end
+
+-- « Passer » : revient immédiatement à l'état libre (le joueur reprend la main), les autres cinématiques restent possibles.
+function CinematicLogic.skip(self: any): boolean
+	if not self.playing then
+		return false
+	end
+	self.playing = nil
+	self.skipped += 1
+	return true
+end
+
+-- Fin normale ou erreur : même retour à l'état libre.
+function CinematicLogic.finish(self: any)
+	self.playing = nil
+end
+
+-- État à l'instant `now` : ("idle" | "playing" | "done", écoulé). Passe à "done" (et libère) à la fin de la durée.
+function CinematicLogic.update(self: any, now: number): (string, number)
+	if not self.playing then
+		return "idle", 0
+	end
+	local elapsed = now - self.startedAt
+	if elapsed >= self.duration then
+		self.playing = nil
+		return "done", self.duration
+	end
+	return "playing", elapsed
+end
+
+-- Plan courant : (index, avancement 0..1 dans le plan).
+function CinematicLogic.shotAt(seq: any, elapsed: number): (number, number)
+	local acc = 0
+	for i, shot in ipairs(seq) do
+		if elapsed < acc + shot.Dur then
+			return i, math.clamp((elapsed - acc) / shot.Dur, 0, 1)
+		end
+		acc += shot.Dur
+	end
+	return #seq, 1
+end
+
+local function smooth(t: number): number
+	return t * t * (3 - 2 * t)
+end
+
+-- Position caméra et point visé pour un plan à l'avancement t (interpolation douce).
+function CinematicLogic.camera(shot: any, t: number): ({ number }, { number })
+	local k = smooth(math.clamp(t, 0, 1))
+	local from, to = shot.From, shot.To or shot.From
+	local lookFrom, lookTo = shot.Look, shot.LookTo or shot.Look
+	local pos, look = {}, {}
+	for i = 1, 3 do
+		pos[i] = from[i] + (to[i] - from[i]) * k
+		look[i] = lookFrom[i] + (lookTo[i] - lookFrom[i]) * k
+	end
+	return pos, look
+end
+
+return CinematicLogic
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46B6F9C0E1F240D38D0B73EDE039A896"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Configuration centrale du jeu « Festin du T-Rex ».
 -- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
 
@@ -287,6 +412,54 @@ Config.Riddles = {
 	{ Q = "Où se trouve le Coffre du Chef ?", Choices = { "Derrière Rex", "Au point d'arrivée", "Dans une table", "Sous la place" } },
 }
 
+-- Cinématiques : séquences de caméra courtes (20-30 s), toujours skippables, jamais bloquantes.
+-- Plan : Dur (s), From/To = position caméra, Look/LookTo = point visé, Fov, Text (sous-titre), Sfx (clé de Config.Sounds).
+-- Once : jouées une seule fois par joueur (mémorisé côté serveur). {story} / {zone} sont remplacés à l'exécution.
+Config.Cinematics = {
+	Enabled = true,
+	MaxSeconds = 40,
+	SkipOnMove = true, -- bouger le personnage coupe la cinématique (après 1,5 s)
+	SkipGrace = 1.5,
+	Flags = { intro = true, sauce = true, victory = true, stageUp = true, ending = true, Zone = true },
+	Once = { "intro", "sauce", "ending", "zone_chef", "zone_titan" },
+	Cooldowns = { victory = 600 },
+	Sequences = {
+		intro = {
+			{ Dur = 6, From = { 0, 18, 110 }, To = { 0, 14, 72 }, Look = { 0, 12, 0 }, Fov = 60, Text = "Zzz… Rex fait la sieste sur sa grosse assiette. 💤" },
+			{ Dur = 6, From = { 25, 24, 46 }, To = { 12, 25, 36 }, Look = { 0, 21, 14 }, Fov = 55, Text = "Gloups ! Son ventre gargouille… 🍽️" },
+			{ Dur = 6, From = { 6, 22, 52 }, To = { 4, 22, 42 }, Look = { 0, 21, 17 }, Fov = 50, Text = "« J'AI FAIM ! » 🦖💥", Sfx = "Roar" },
+			{ Dur = 6, From = { -45, 12, 85 }, To = { 45, 12, 85 }, Look = { 0, 8, 50 }, Fov = 65, Text = "Prends un plat au stand, puis lance-le dans sa bouche !" },
+		},
+		sauce = {
+			{ Dur = 6, From = { -60, 25, 60 }, To = { -30, 25, 50 }, Look = { 0, 20, 10 }, Fov = 55, Text = "Rex a senti quelque chose…" },
+			{ Dur = 8, From = { -150, 30, 90 }, To = { -100, 35, 60 }, Look = { -80, 3, 0 }, Fov = 65, Text = "Oh non… une marée de SAUCE TOMATE ! 🍅", Sfx = "Wave" },
+			{ Dur = 8, From = { 80, 40, 90 }, To = { 60, 45, 70 }, Look = { 80, 12, 40 }, Fov = 65, Text = "Vite, grimpe sur une table ! 🛟" },
+		},
+		victory = {
+			{ Dur = 7, From = { 50, 25, 50 }, To = { -50, 25, 50 }, Look = { 0, 20, 10 }, Fov = 60, Text = "FESTIN ! Rex est le roi du buffet ! 👑", Sfx = "Success" },
+			{ Dur = 7, From = { 0, 30, 80 }, To = { 0, 12, 48 }, Look = { 0, 20, 16 }, Fov = 55, Text = "Il rote… Pardon, ça veut dire « merci » en dino." },
+			{ Dur = 6, From = { -30, 10, 40 }, To = { 30, 10, 40 }, Look = { 0, 14, 10 }, Fov = 60, Text = "Tout le monde a gagné des pièces ! 🪙" },
+		},
+		stageUp = {
+			{ Dur = 6, From = { 40, 12, 50 }, To = { 30, 22, 40 }, Look = { 0, 14, 10 }, Fov = 60, Text = "Rex GRANDIT ! 🌱➡️🦖", Sfx = "Success" },
+			{ Dur = 8, From = { -35, 18, 55 }, To = { 35, 18, 55 }, Look = { 0, 20, 8 }, Fov = 55, Text = "{story}" },
+			{ Dur = 6, From = { 0, 8, 70 }, To = { 0, 30, 45 }, Look = { 0, 20, 10 }, Fov = 60, Text = "Plus gros, plus affamé… et toujours aussi poli. 😄" },
+		},
+		zone = {
+			{ Dur = 6, From = { 0, 60, 60 }, To = { 0, 35, 40 }, Look = { 0, 4, 0 }, Fov = 60, Text = "Une nouvelle zone s'ouvre : {zone} !", Sfx = "Success" },
+			{ Dur = 7, From = { 30, 20, 30 }, To = { -30, 20, 30 }, Look = { 0, 4, 0 }, Fov = 55, Text = "Un coffre t'y attend chaque jour. 🧰" },
+			{ Dur = 7, From = { 0, 10, 40 }, To = { 0, 6, 18 }, Look = { 0, 3, 0 }, Fov = 50, Text = "Ouvre-le, il ne mord pas (lui)." },
+		},
+		ending = {
+			{ Dur = 6, From = { 70, 30, 70 }, To = { 0, 30, 90 }, Look = { 0, 18, 10 }, Fov = 60, Text = "Rex est rassasié… enfin presque. 😋" },
+			{ Dur = 6, From = { 0, 14, 100 }, To = { 0, 18, 60 }, Look = { 0, 20, 10 }, Fov = 55, Text = "Merci d'avoir nourri notre T-Rex, héros du festin !" },
+			{ Dur = 6, From = { -70, 20, -20 }, To = { -70, 20, 60 }, Look = { 0, 12, 10 }, Fov = 60, Text = "Les fourchettes d'or brillent encore quelque part… 🍴" },
+			{ Dur = 6, From = { 40, 8, 90 }, To = { -40, 8, 90 }, Look = { 0, 8, 60 }, Fov = 65, Text = "Chaque jour, une nouvelle énigme t'attend. 🧩" },
+			{ Dur = 6, From = { 0, 50, 120 }, To = { 0, 25, 70 }, Look = { 0, 20, 10 }, Fov = 60, Text = "FIN… mais le festin continue ! 🎉", Sfx = "Success" },
+		},
+	},
+}
+
 -- Animations : interrupteur général + un interrupteur par animation (chacune est protégée par pcall).
 Config.Animations = {
 	Enabled = true,
@@ -343,6 +516,7 @@ Config.Defaults = {
 	eggs = 1,
 	secrets = {},
 	chests = {},
+	seen = {},
 	riddle = { day = 0, solved = false, tries = 0 },
 	quests = { day = 0, list = {} },
 	streak = { last = 0, count = 0 },
@@ -350,7 +524,7 @@ Config.Defaults = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90353C6D9001434B98D37C049767EB09"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD88DC2A7EA2841ADA5E8A9CFA6C08205"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Machine d'état du T-Rex (satiété, contributions, festin). Pure : testable hors Studio.
 
 local Config = require(script.Parent.Config)
@@ -403,7 +577,7 @@ function DinoCore.completeFeast(self: Core): ({ [number]: number }, number, numb
 end
 
 return DinoCore
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA2A2E385823749A19DEDB9D1FE241B60"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6157282DE7AE458691C768E322245E40"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Calculs d'économie et de statistiques (purs, testables hors Studio).
 
 local Config = require(script.Parent.Config)
@@ -585,7 +759,7 @@ function Economy.rollPet(eggKind: string, rnd1: number, rnd2: number): string
 end
 
 return Economy
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2DC5A62A948C4E49B09A3EE080C56756"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1E4C1FFBAD8D4E3693170CBC65878CA1"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique des quêtes quotidiennes et de la série de connexion (pure).
 
 local Config = require(script.Parent.Config)
@@ -702,7 +876,7 @@ function QuestLogic.claimDaily(data: any, today: number): (number?, number?, num
 end
 
 return QuestLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6E485CC055C6406D859DA61E06C16605"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84E8912E30EB49AEBFA0FD353DA7895D"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Définition unique des RemoteEvents / RemoteFunction. Le serveur les crée, le client les attend.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -747,7 +921,7 @@ function Remotes.init()
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCD9541DA76D949CA8504C2E276F9CA82"><Properties><string name="Name">RiddleLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDBF2ECB7326648F18CED1C0E49FC25D7"><Properties><string name="Name">RiddleLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Énigme du jour (QCM) : logique pure. Les bonnes réponses ne sont PAS dans le code partagé
 -- (elles restent côté serveur, passées en paramètre) pour qu'un client ne puisse pas les lire.
 
@@ -793,7 +967,7 @@ function RiddleLogic.answer(data: any, day: number, choice: any, answers: { numb
 end
 
 return RiddleLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74C38D9EB97B4DA29E659113C032D47D"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73ED44535AAE4F5581FEA815E5D017C6"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Utilitaires purs (sans dépendance Roblox) : testables en dehors de Studio.
 
 local Util = {}
@@ -904,7 +1078,7 @@ function Util.formatTime(seconds: number): string
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX68F85107BF0B4883B2FC054A45063C88"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBXF41D3F0F6CBD4217A19CBAC5071A5597"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX8037072703354569A030E9FE83C5416A"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX1F06B7A6626245DA80BE0BEF34B55D8B"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBXF5059BB039304D6B8C5F45B128FE2427"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBXD5516E5D5B0647758F2185993C58A89B"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée serveur : initialise les services dans l'ordre des dépendances.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -941,7 +1115,7 @@ MonetizationService.init()
 PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
 
 print("[FestinTRex] Serveur prêt.")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBXBC518892DE774930B4D0C2557D45A0D0"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX7995DC254EDF420982ED20CE2AB7FA18"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBXCD09CA84D2EF44839DF9E98B2C709927"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX33FDCDAD7E7244A3A65C26803123BF62"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Chargement / sauvegarde des profils avec verrou de session (anti-duplication entre serveurs).
 -- Le DataStore est injectable (_setStore) pour pouvoir tester la logique hors Studio.
 
@@ -1081,7 +1255,7 @@ function DataService.save(userId: number, data: any, release: boolean): boolean
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX474C00C2A2A14F0F981E528E4D90DECA"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7298223596304A88A7FECB7AD1C63299"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Le T-Rex central : construction du modèle (blocs Roblox), satiété, favori, festin et croissance.
 
 local Players = game:GetService("Players")
@@ -1529,7 +1703,7 @@ function DinoService.init(mapFolder: Instance)
 end
 
 return DinoService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFA13772A2183469C99975AF46F77A892"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4E66D13722BE4AB6A94D8EEADFD92D76"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Événements périodiques : Marée de sauce (survie), Pluie gourmande (collecte), Frénésie (x2 pièces).
 -- L'état est publié dans ReplicatedStorage.GameState : les clients dessinent les effets eux-mêmes.
 
@@ -1778,7 +1952,7 @@ function EventService.init()
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF315191DCE414F7197AE721060C58D98"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8039715C4F0845F2B1AED30D4844DD48"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Lancers de nourriture : validation serveur complète, simulation balistique, récompenses.
 -- Le client n'envoie QUE la position visée ; origine, portée, cadence, munitions et résultat
 -- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
@@ -2102,7 +2276,7 @@ function FoodService.init()
 end
 
 return FoodService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45EC9F653BE540EBBEDC2EF75CAFCB49"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX01CB8565772542AC8FED976A380900C2"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Classement mondial « Plus gros nourrisseurs » (OrderedDataStore) + tableau dans le monde.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -2194,7 +2368,7 @@ function LeaderboardService.init(boardLabels: { TextLabel })
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX928C01A23D5542D6AD22C8B473699A5E"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF5F28A10181345CE93EF49D416AC2340"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Construction procédurale du monde avec des Parts natives Roblox (aucun asset externe) :
 -- place du festin, stands, kiosques, tables de survie, arbres, secrets, éclairage.
 
@@ -2635,7 +2809,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXEF187D4896F149A998392FF17D89297F"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1A45E178AB2C425DBA8333F20EDF7830"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Achats Robux : Game Passes (propriété vérifiée par Roblox) et produits développeur
 -- (ProcessReceipt idempotent : un reçu n'est jamais accordé deux fois, annulation si la sauvegarde échoue).
 
@@ -2773,7 +2947,7 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0BBC50D0B9A4442CBD6D855AE0A1C69D"><Properties><string name="Name">NameTagService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX459605F650F742AEB3A158ECA0824EE2"><Properties><string name="Name">NameTagService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Étiquette au-dessus des joueurs : niveau gourmet + couronne VIP (progression visible, statut social).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2831,7 +3005,7 @@ function NameTagService.init()
 end
 
 return NameTagService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100195760BDD4AE2AB3C8CDCA0129FBB"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73748B62CFCB4C60A17D7CAA734DBD59"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Œufs et compagnons : tirage serveur (aléatoire non manipulable par le client), équipement.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2915,7 +3089,7 @@ function PetService.equip(player: Player, petId: any, on: any): (boolean, string
 end
 
 return PetService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0F43CC87AA5F4B6CB5F4C7D4B5B0D2BD"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXC56E6B45A2534808A4BB0A586199B2CC"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Profils joueurs : chargement, état de session, statistiques, monnaie, synchronisation client.
 -- Toutes les modifications de données passent par ici (le client ne peut jamais écrire).
 
@@ -3091,6 +3265,7 @@ local function snapshot(player: Player): any
 		equipped = data.equipped,
 		eggs = data.eggs,
 		riddle = riddleState(data),
+		seen = data.seen,
 		passes = data.passes,
 		secrets = Util.count(data.secrets),
 		quests = data.quests.list,
@@ -3271,7 +3446,7 @@ function PlayerService.init()
 end
 
 return PlayerService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4B9F664A3F674A6B81BEA085819389FE"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA7AF3791E2BB44E29BFCB144F35D2994"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Quêtes quotidiennes, série de connexion et secrets (fourchettes d'or).
 
 local CollectionService = game:GetService("CollectionService")
@@ -3434,7 +3609,7 @@ function QuestService.init()
 end
 
 return QuestService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA535C33C697D48BBBF4FB691F47EB0C7"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXBD258201EBA94B5FA62A8EF200915DF3"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Routeur unique des requêtes client (RemoteFunction « Request ») + achats.
 -- Chaque action est validée : types, existence, propriété, prix, limites, cadence.
 
@@ -3526,6 +3701,17 @@ function handlers.claimQuest(player, data, payload)
 	return { ok = success, msg = msg }
 end
 
+-- Mémorise qu'une cinématique « une seule fois » a été vue (liste blanche, jamais une clé libre).
+function handlers.cinematicSeen(player, data, payload)
+	local id = payload.id
+	if type(id) ~= "string" or not table.find(Config.Cinematics.Once, id) then
+		return fail("Cinématique inconnue")
+	end
+	data.seen[id] = true
+	PlayerService.markDirty(player)
+	return ok("")
+end
+
 function handlers.answerRiddle(player, data, payload)
 	local success, msg = QuestService.answerRiddle(player, payload.choice)
 	return { ok = success, msg = msg }
@@ -3606,7 +3792,297 @@ function ShopService.init()
 end
 
 return ShopService
-]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBXCB176518396B42EF96DA260172DD2BBB"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX7E83A5C13D0D453E956347DBBC68EFE3"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBXFF7015D6D3CD4BA3B8F2B135F1B4EC24"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX840CD0582AAF4FF5970DF0B7F89CECD2"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX84CAEA2A772246759B6954C346169796"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBXB0E1FE4CE39340A3B36BD754FD73488E"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBXC639C7EC076C47A0963D60C21D403B9C"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX746F0C4B81D34E6DB82B29ADA2112C50"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Cinématiques : séquences de caméra courtes, skippables, jamais bloquantes.
+-- Sécurités : pcall autour de chaque lecture, durée maximale, bouton « Passer », arrêt si le joueur se déplace,
+-- et restauration systématique de la caméra (même en cas d'erreur).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local CinematicLogic = require(Shared:WaitForChild("CinematicLogic"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local Store = require(script.Parent.Store)
+local UIKit = require(script.Parent.UIKit)
+
+local Cinematics = {}
+
+local logic = CinematicLogic.new(Config.Cinematics)
+local localSeen: { [string]: boolean } = {}
+local gui: ScreenGui? = nil
+local cleanup: (() -> ())? = nil
+
+local function restoreCamera()
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+	cam.CameraType = Enum.CameraType.Custom
+	cam.FieldOfView = 70
+	local char = Players.LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		cam.CameraSubject = hum
+	end
+end
+
+local function buildUi(onSkip: () -> ()): (Frame, TextLabel)
+	gui = Instance.new("ScreenGui")
+	gui.Name = "FestinCinematic"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 50
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+	local root = UIKit.frame(gui, { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 })
+	local top = UIKit.frame(root, { Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Color3.new(0, 0, 0) })
+	local bottom = UIKit.frame(root, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Color3.new(0, 0, 0) })
+	-- Bandes noires « cinéma ».
+	TweenService:Create(top, TweenInfo.new(0.5), { Size = UDim2.new(1, 0, 0.12, 0) }):Play()
+	TweenService:Create(bottom, TweenInfo.new(0.5), { Size = UDim2.new(1, 0, 0.12, 0) }):Play()
+
+	local caption = UIKit.label(root, {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0.88, -10),
+		Size = UDim2.new(0.8, 0, 0, 60),
+		Text = "",
+		TextSize = 26,
+		Font = Enum.Font.FredokaOne,
+		TextStrokeTransparency = 0,
+		ZIndex = 5,
+	})
+	local skip = UIKit.button(root, {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -16, 1, -14),
+		Size = UDim2.fromOffset(150, 46),
+		Text = "Passer ⏭",
+		TextSize = 18,
+		BackgroundColor3 = Color3.fromRGB(60, 60, 75),
+		ZIndex = 6,
+		Callback = onSkip,
+	})
+	skip.Active = true
+	return root, caption
+end
+
+local function markSeen(id: string)
+	localSeen[id] = true
+	-- Seules les cinématiques « une fois » sont mémorisées (le serveur valide aussi l'identifiant).
+	if table.find(Config.Cinematics.Once, id) then
+		task.spawn(function()
+			Store.request("cinematicSeen", { id = id })
+		end)
+	end
+end
+
+-- Lance la cinématique `id` (séquence optionnelle fournie pour les plans dynamiques). Retourne true si lancée.
+function Cinematics.play(id: string, sequence: any?): boolean
+	local seq = sequence or Config.Cinematics.Sequences[id]
+	if not seq then
+		return false
+	end
+	local seen = {}
+	if Store.state and Store.state.seen then
+		for k, v in pairs(Store.state.seen) do
+			seen[k] = v
+		end
+	end
+	for k in pairs(localSeen) do
+		seen[k] = true
+	end
+	local ok, duration = logic:start(id, os.clock(), seen, seq)
+	if not ok then
+		return false
+	end
+	markSeen(id)
+
+	local started = pcall(function()
+		local cam = workspace.CurrentCamera
+		local stopped = false
+		local conn: RBXScriptConnection? = nil
+		local lastShot = 0
+
+		local function stop()
+			if stopped then
+				return
+			end
+			stopped = true
+			if conn then
+				conn:Disconnect()
+			end
+			if gui then
+				gui:Destroy()
+				gui = nil
+			end
+			restoreCamera()
+			logic:finish()
+			cleanup = nil
+		end
+		cleanup = stop
+
+		local _, caption = buildUi(function()
+			logic:skip()
+			stop()
+		end)
+		cam.CameraType = Enum.CameraType.Scriptable
+
+		local char = Players.LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		conn = RunService.RenderStepped:Connect(function()
+			local okFrame = pcall(function()
+				local state, elapsed = logic:update(os.clock())
+				if state ~= "playing" then
+					stop()
+					return
+				end
+				-- Bouger le personnage coupe la cinématique : le joueur n'est jamais bloqué.
+				if Config.Cinematics.SkipOnMove and hum and elapsed > Config.Cinematics.SkipGrace and hum.MoveDirection.Magnitude > 0.1 then
+					logic:skip()
+					stop()
+					return
+				end
+				local index, t = CinematicLogic.shotAt(seq, elapsed)
+				local shot = seq[index]
+				local pos, look = CinematicLogic.camera(shot, t)
+				cam.CFrame = CFrame.lookAt(Vector3.new(pos[1], pos[2], pos[3]), Vector3.new(look[1], look[2], look[3]))
+				cam.FieldOfView = shot.Fov or 60
+				if index ~= lastShot then
+					lastShot = index
+					caption.Text = shot.Text or ""
+					if shot.Sfx then
+						UIKit.sfx(shot.Sfx, 0.7)
+					end
+				end
+			end)
+			if not okFrame then
+				logic:finish()
+				stop()
+			end
+		end)
+		-- Filet de sécurité : fin forcée même si l'image ne se met plus à jour.
+		task.delay(duration + 1, stop)
+	end)
+	if not started then
+		logic:finish()
+		if cleanup then
+			cleanup()
+		end
+		restoreCamera()
+		return false
+	end
+	return true
+end
+
+function Cinematics.skip()
+	if logic:skip() and cleanup then
+		cleanup()
+	end
+end
+
+-- ---------------------------------------------------------------- déclencheurs
+
+local function dynamicSequence(id: string, replacements: { [string]: string }): any
+	local base = Config.Cinematics.Sequences[id]
+	local seq = {}
+	for i, shot in ipairs(base) do
+		local copy = table.clone(shot)
+		local text = copy.Text or ""
+		for key, value in pairs(replacements) do
+			text = string.gsub(text, "{" .. key .. "}", function()
+				return value
+			end)
+		end
+		copy.Text = text
+		seq[i] = copy
+	end
+	return seq
+end
+
+local function zoneSequence(def: any): any
+	local P = def.Pos
+	local seq = dynamicSequence("zone", { zone = def.Zone })
+	local shifts = {
+		{ from = { 0, 60, 60 }, to = { 0, 35, 40 }, look = { 0, 4, 0 } },
+		{ from = { 30, 20, 30 }, to = { -30, 20, 30 }, look = { 0, 4, 0 } },
+		{ from = { 0, 10, 40 }, to = { 0, 6, 18 }, look = { 0, 3, 0 } },
+	}
+	for i, shot in ipairs(seq) do
+		local s = shifts[i]
+		shot.From = { P[1] + s.from[1], P[2] + s.from[2], P[3] + s.from[3] }
+		shot.To = { P[1] + s.to[1], P[2] + s.to[2], P[3] + s.to[3] }
+		shot.Look = { P[1] + s.look[1], P[2] + s.look[2], P[3] + s.look[3] }
+	end
+	return seq
+end
+
+function Cinematics.init()
+	local state = ReplicatedStorage:WaitForChild("GameState")
+	local lastStage = state:GetAttribute("Stage") or 1
+	local stages = Config.Dino.Stages
+
+	-- Introduction (première visite) et zones débloquées.
+	local introScheduled = false
+	Store.onChange(function(s)
+		if not introScheduled then
+			introScheduled = true
+			task.delay(4, function()
+				pcall(Cinematics.play, "intro")
+			end)
+		end
+		local Economy = require(Shared:WaitForChild("Economy"))
+		local level = Economy.level(s.totalFed)
+		for id, def in pairs(Config.Chests) do
+			if level >= def.MinLevel and s.rebirths >= def.MinRebirths and not (s.seen and s.seen["zone_" .. id]) and not localSeen["zone_" .. id] then
+				pcall(function()
+					Cinematics.play("zone_" .. id, zoneSequence(def))
+				end)
+			end
+		end
+	end)
+
+	-- Nouveau stade du T-Rex.
+	state:GetAttributeChangedSignal("Stage"):Connect(function()
+		local stage = state:GetAttribute("Stage") or 1
+		if stage > lastStage then
+			lastStage = stage
+			pcall(function()
+				Cinematics.play("stageUp", dynamicSequence("stageUp", { story = Config.Story[stage] or "" }))
+			end)
+		end
+	end)
+
+	-- Première marée de sauce.
+	state:GetAttributeChangedSignal("EventPhase"):Connect(function()
+		if state:GetAttribute("EventId") == "sauce" and state:GetAttribute("EventPhase") == "warning" then
+			pcall(Cinematics.play, "sauce")
+		end
+	end)
+
+	-- Fin du festin : conclusion de l'histoire au festin du dernier stade, sinon victoire (avec repos).
+	Remotes.get("FeastFx").OnClientEvent:Connect(function(finishedStageName)
+		task.delay(0.6, function()
+			local finalName = stages[#stages].Name
+			if finishedStageName == finalName then
+				if not pcall(Cinematics.play, "ending") then
+					return
+				end
+				if not logic.playing then
+					pcall(Cinematics.play, "victory")
+				end
+			else
+				pcall(Cinematics.play, "victory")
+			end
+		end)
+	end)
+end
+
+return Cinematics
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE549B26529B04CB7967D0FCFA7C8BAEE"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Effets visuels et sonores : arcs de lancer (rejoués depuis le calcul serveur), impacts,
 -- bonus flottants, festin, vague de sauce (calculée localement depuis l'heure serveur).
 
@@ -4103,7 +4579,7 @@ function Effects.init()
 end
 
 return Effects
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA1856A733D58445DBB03FD6B53EA0B0B"><Properties><string name="Name">Guide</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD1F401629F7E46099FD8838768769605"><Properties><string name="Name">Guide</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Aide à l'orientation : quand le panier est vide, un rayon doré mène au stand débloqué le plus proche.
 
 local CollectionService = game:GetService("CollectionService")
@@ -4198,7 +4674,7 @@ function Guide.init()
 end
 
 return Guide
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3920D426C9F64680ADA245015A9EB537"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76958D040DA748CC9B2607F24BE394F5"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Interface permanente : pièces, niveau, état du T-Rex, événements, panier, combo, boutons, notifications.
 
 local Players = game:GetService("Players")
@@ -4589,7 +5065,7 @@ function HUD.gui(): ScreenGui
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX845C454C27DE4BFCA5428233318C885D"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXBDE46803FC224690B7EB0D116CE0C5B7"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Entrées : clic souris, tap tactile (distingué d'un glissement de caméra), bouton LANCER, gâchette de manette.
 -- Le client n'envoie que le point visé ; le serveur décide de tout le reste.
 
@@ -4691,7 +5167,7 @@ function Input.init()
 end
 
 return Input
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXE05CE15686604C2E9E144B63654C8CEF"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX66A092FF29D34F1490968CA9EBB210B7"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée client.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4705,6 +5181,7 @@ local Effects = require(script.Parent:WaitForChild("Effects"))
 local PetsRenderer = require(script.Parent:WaitForChild("Pets"))
 local Input = require(script.Parent:WaitForChild("Input"))
 local Guide = require(script.Parent:WaitForChild("Guide"))
+local Cinematics = require(script.Parent:WaitForChild("Cinematics"))
 
 Store.init()
 HUD.init(function(name)
@@ -4715,6 +5192,7 @@ Effects.init()
 PetsRenderer.init()
 Input.init()
 Guide.init()
+pcall(Cinematics.init)
 
 Remotes.get("Notify").OnClientEvent:Connect(function(text, kind)
 	if type(text) == "string" then
@@ -4743,7 +5221,7 @@ end)
 task.delay(2, function()
 	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3B41F0C2D82A42FEA5AFF92498215152"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDCEA5EFB0E2645808E44C6CB38D34EC3"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Fenêtres : boutique, nid (compagnons), quêtes, classement, évolution + animation d'éclosion.
 
 local Players = game:GetService("Players")
@@ -5288,7 +5766,7 @@ function Panels.init()
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3A8B4174DA5347CBA11CBAEE98F66D10"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA487D9F339934F4798231F7F754B9D6E"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Rendu local des compagnons de tous les joueurs (le serveur ne publie que l'attribut « Pets »).
 
 local Players = game:GetService("Players")
@@ -5430,7 +5908,7 @@ function PetsRenderer.init()
 end
 
 return PetsRenderer
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE02AEC0F8DBA4C5ABCF349FCFE78DEA5"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6D5F332CD5BD4431B7FC78F45C386892"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Magasin d'état côté client : dernier instantané envoyé par le serveur + abonnements.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5469,7 +5947,7 @@ function Store.request(action: string, payload: any?): any
 end
 
 return Store
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29E9B04CE0724B66AB7D19A7AC8606FB"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1DCE31CD54FA4C2EA26FCBDDD21FC167"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Petite boîte à outils d'interface (style Roblox : coins arrondis, polices Fredoka/Gotham).
 
 local SoundService = game:GetService("SoundService")

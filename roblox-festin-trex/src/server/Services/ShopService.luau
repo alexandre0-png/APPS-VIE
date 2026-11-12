@@ -90,6 +90,17 @@ function handlers.claimQuest(player, data, payload)
 	return { ok = success, msg = msg }
 end
 
+-- Mémorise qu'une cinématique « une seule fois » a été vue (liste blanche, jamais une clé libre).
+function handlers.cinematicSeen(player, data, payload)
+	local id = payload.id
+	if type(id) ~= "string" or not table.find(Config.Cinematics.Once, id) then
+		return fail("Cinématique inconnue")
+	end
+	data.seen[id] = true
+	PlayerService.markDirty(player)
+	return ok("")
+end
+
 function handlers.answerRiddle(player, data, payload)
 	local success, msg = QuestService.answerRiddle(player, payload.choice)
 	return { ok = success, msg = msg }

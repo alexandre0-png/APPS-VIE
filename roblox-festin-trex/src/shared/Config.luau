@@ -200,6 +200,54 @@ Config.Riddles = {
 	{ Q = "Où se trouve le Coffre du Chef ?", Choices = { "Derrière Rex", "Au point d'arrivée", "Dans une table", "Sous la place" } },
 }
 
+-- Cinématiques : séquences de caméra courtes (20-30 s), toujours skippables, jamais bloquantes.
+-- Plan : Dur (s), From/To = position caméra, Look/LookTo = point visé, Fov, Text (sous-titre), Sfx (clé de Config.Sounds).
+-- Once : jouées une seule fois par joueur (mémorisé côté serveur). {story} / {zone} sont remplacés à l'exécution.
+Config.Cinematics = {
+	Enabled = true,
+	MaxSeconds = 40,
+	SkipOnMove = true, -- bouger le personnage coupe la cinématique (après 1,5 s)
+	SkipGrace = 1.5,
+	Flags = { intro = true, sauce = true, victory = true, stageUp = true, ending = true, Zone = true },
+	Once = { "intro", "sauce", "ending", "zone_chef", "zone_titan" },
+	Cooldowns = { victory = 600 },
+	Sequences = {
+		intro = {
+			{ Dur = 6, From = { 0, 18, 110 }, To = { 0, 14, 72 }, Look = { 0, 12, 0 }, Fov = 60, Text = "Zzz… Rex fait la sieste sur sa grosse assiette. 💤" },
+			{ Dur = 6, From = { 25, 24, 46 }, To = { 12, 25, 36 }, Look = { 0, 21, 14 }, Fov = 55, Text = "Gloups ! Son ventre gargouille… 🍽️" },
+			{ Dur = 6, From = { 6, 22, 52 }, To = { 4, 22, 42 }, Look = { 0, 21, 17 }, Fov = 50, Text = "« J'AI FAIM ! » 🦖💥", Sfx = "Roar" },
+			{ Dur = 6, From = { -45, 12, 85 }, To = { 45, 12, 85 }, Look = { 0, 8, 50 }, Fov = 65, Text = "Prends un plat au stand, puis lance-le dans sa bouche !" },
+		},
+		sauce = {
+			{ Dur = 6, From = { -60, 25, 60 }, To = { -30, 25, 50 }, Look = { 0, 20, 10 }, Fov = 55, Text = "Rex a senti quelque chose…" },
+			{ Dur = 8, From = { -150, 30, 90 }, To = { -100, 35, 60 }, Look = { -80, 3, 0 }, Fov = 65, Text = "Oh non… une marée de SAUCE TOMATE ! 🍅", Sfx = "Wave" },
+			{ Dur = 8, From = { 80, 40, 90 }, To = { 60, 45, 70 }, Look = { 80, 12, 40 }, Fov = 65, Text = "Vite, grimpe sur une table ! 🛟" },
+		},
+		victory = {
+			{ Dur = 7, From = { 50, 25, 50 }, To = { -50, 25, 50 }, Look = { 0, 20, 10 }, Fov = 60, Text = "FESTIN ! Rex est le roi du buffet ! 👑", Sfx = "Success" },
+			{ Dur = 7, From = { 0, 30, 80 }, To = { 0, 12, 48 }, Look = { 0, 20, 16 }, Fov = 55, Text = "Il rote… Pardon, ça veut dire « merci » en dino." },
+			{ Dur = 6, From = { -30, 10, 40 }, To = { 30, 10, 40 }, Look = { 0, 14, 10 }, Fov = 60, Text = "Tout le monde a gagné des pièces ! 🪙" },
+		},
+		stageUp = {
+			{ Dur = 6, From = { 40, 12, 50 }, To = { 30, 22, 40 }, Look = { 0, 14, 10 }, Fov = 60, Text = "Rex GRANDIT ! 🌱➡️🦖", Sfx = "Success" },
+			{ Dur = 8, From = { -35, 18, 55 }, To = { 35, 18, 55 }, Look = { 0, 20, 8 }, Fov = 55, Text = "{story}" },
+			{ Dur = 6, From = { 0, 8, 70 }, To = { 0, 30, 45 }, Look = { 0, 20, 10 }, Fov = 60, Text = "Plus gros, plus affamé… et toujours aussi poli. 😄" },
+		},
+		zone = {
+			{ Dur = 6, From = { 0, 60, 60 }, To = { 0, 35, 40 }, Look = { 0, 4, 0 }, Fov = 60, Text = "Une nouvelle zone s'ouvre : {zone} !", Sfx = "Success" },
+			{ Dur = 7, From = { 30, 20, 30 }, To = { -30, 20, 30 }, Look = { 0, 4, 0 }, Fov = 55, Text = "Un coffre t'y attend chaque jour. 🧰" },
+			{ Dur = 7, From = { 0, 10, 40 }, To = { 0, 6, 18 }, Look = { 0, 3, 0 }, Fov = 50, Text = "Ouvre-le, il ne mord pas (lui)." },
+		},
+		ending = {
+			{ Dur = 6, From = { 70, 30, 70 }, To = { 0, 30, 90 }, Look = { 0, 18, 10 }, Fov = 60, Text = "Rex est rassasié… enfin presque. 😋" },
+			{ Dur = 6, From = { 0, 14, 100 }, To = { 0, 18, 60 }, Look = { 0, 20, 10 }, Fov = 55, Text = "Merci d'avoir nourri notre T-Rex, héros du festin !" },
+			{ Dur = 6, From = { -70, 20, -20 }, To = { -70, 20, 60 }, Look = { 0, 12, 10 }, Fov = 60, Text = "Les fourchettes d'or brillent encore quelque part… 🍴" },
+			{ Dur = 6, From = { 40, 8, 90 }, To = { -40, 8, 90 }, Look = { 0, 8, 60 }, Fov = 65, Text = "Chaque jour, une nouvelle énigme t'attend. 🧩" },
+			{ Dur = 6, From = { 0, 50, 120 }, To = { 0, 25, 70 }, Look = { 0, 20, 10 }, Fov = 60, Text = "FIN… mais le festin continue ! 🎉", Sfx = "Success" },
+		},
+	},
+}
+
 -- Animations : interrupteur général + un interrupteur par animation (chacune est protégée par pcall).
 Config.Animations = {
 	Enabled = true,
@@ -256,6 +304,7 @@ Config.Defaults = {
 	eggs = 1,
 	secrets = {},
 	chests = {},
+	seen = {},
 	riddle = { day = 0, solved = false, tries = 0 },
 	quests = { day = 0, list = {} },
 	streak = { last = 0, count = 0 },

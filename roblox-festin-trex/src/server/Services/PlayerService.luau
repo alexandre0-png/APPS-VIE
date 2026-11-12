@@ -174,6 +174,7 @@ local function snapshot(player: Player): any
 		equipped = data.equipped,
 		eggs = data.eggs,
 		riddle = riddleState(data),
+		seen = data.seen,
 		passes = data.passes,
 		secrets = Util.count(data.secrets),
 		quests = data.quests.list,

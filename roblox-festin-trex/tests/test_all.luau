@@ -44,6 +44,7 @@ local Ballistics = require("./Ballistics")
 local DataService = require("./DataService")
 local RiddleLogic = require("./RiddleLogic")
 local AnimLogic = require("./AnimLogic")
+local CinematicLogic = require("./CinematicLogic")
 
 -- ------------------------------------------------------------ Util
 check(Util.formatNumber(0) == "0", "format 0")
@@ -337,6 +338,66 @@ for i = 0, 200 do
 end
 check(near(AnimLogic.stompLift(0.2, 1, 5, 0) * AnimLogic.stompLift(0.2, 1, 5, math.pi), 0), "pattes en alternance (jamais levées ensemble)")
 check(Config.Animations.Enabled == true, "animations activées par défaut")
+
+-- Cinématiques (logique pure)
+local CC = Config.Cinematics
+for id, seq in pairs(CC.Sequences) do
+	local d = CinematicLogic.totalDuration(seq, 1000)
+	check(d >= 20 and d <= 40, "durée de la cinématique " .. id .. " entre 20 et 40 s")
+	for _, shot in ipairs(seq) do
+		check(shot.Dur > 0 and #shot.From == 3 and #shot.Look == 3 and type(shot.Text) == "string", "plan complet dans " .. id)
+	end
+end
+for id in pairs(Config.Chests) do
+	check(table.find(CC.Once, "zone_" .. id) ~= nil, "cinématique de zone mémorisable : " .. id)
+end
+check(CinematicLogic.totalDuration({ { Dur = 100 } }, 40) == 40, "durée plafonnée à MaxSeconds")
+
+local cin = CinematicLogic.new(CC)
+local okc2, dur = cin:start("intro", 0, {}, CC.Sequences.intro)
+check(okc2 == true and dur == 24, "démarrage de l'intro")
+check(cin:start("sauce", 1, {}, CC.Sequences.sauce) == false, "une seule cinématique à la fois")
+local st, el = cin:update(10)
+check(st == "playing" and near(el, 10), "lecture en cours")
+st = cin:update(24)
+check(st == "done" and cin.playing == nil, "fin automatique et libération")
+check(cin:update(30) == "idle", "retour à l'état libre")
+check(cin:canPlay("intro", 40, { intro = true }) == false, "intro jouée une seule fois")
+check(cin:canPlay("intro", 40, {}) == true, "intro rejouable si non vue")
+
+-- Reprise après « Passer »
+local c2 = CinematicLogic.new(CC)
+check(c2:start("sauce", 0, {}, CC.Sequences.sauce) == true, "démarrage de la sauce")
+check(c2:skip() == true and c2.playing == nil, "Passer libère immédiatement")
+check(c2:skip() == false, "Passer sans lecture : sans effet")
+check(c2:start("stageUp", 1, {}, CC.Sequences.stageUp) == true, "une autre cinématique peut suivre un « Passer »")
+
+-- Repos de la victoire, réglages
+local c3 = CinematicLogic.new(CC)
+check(c3:start("victory", 0, {}, CC.Sequences.victory) == true, "victoire")
+c3:finish()
+check(c3:canPlay("victory", 100, {}) == false, "victoire : repos")
+check(c3:canPlay("victory", CC.Cooldowns.victory + 1, {}) == true, "victoire : repos terminé")
+local off = { Enabled = false, MaxSeconds = 40, Flags = { intro = true }, Once = {}, Cooldowns = {} }
+check(CinematicLogic.new(off):canPlay("intro", 0, {}) == false, "cinématiques désactivées")
+local noFlag = { Enabled = true, MaxSeconds = 40, Flags = { intro = false, Zone = true }, Once = { "zone_chef" }, Cooldowns = {} }
+check(CinematicLogic.new(noFlag):canPlay("intro", 0, {}) == false, "cinématique désactivée individuellement")
+check(CinematicLogic.new(noFlag):canPlay("zone_chef", 0, {}) == true and CinematicLogic.new(noFlag):canPlay("zone_chef", 0, { zone_chef = true }) == false, "zone : drapeau commun et une seule fois")
+check(CinematicLogic.new(CC):start("intro", 0, {}, {}) == false, "séquence vide refusée")
+
+-- Plans et caméra
+local seqI = CC.Sequences.intro
+local i0, t0p = CinematicLogic.shotAt(seqI, 0)
+local i1, t1p = CinematicLogic.shotAt(seqI, 6)
+local i4, t4p = CinematicLogic.shotAt(seqI, 23.99)
+local iEnd, tEnd = CinematicLogic.shotAt(seqI, 500)
+check(i0 == 1 and near(t0p, 0) and i1 == 2 and near(t1p, 0) and i4 == 4 and t4p > 0.99 and iEnd == #seqI and tEnd == 1, "choix du plan par le temps")
+local shotA = { From = { 0, 0, 0 }, To = { 10, 20, 30 }, Look = { 1, 1, 1 } }
+local pA, lA = CinematicLogic.camera(shotA, 0)
+local pB, lB = CinematicLogic.camera(shotA, 1)
+check(near(pA[1], 0) and near(pB[1], 10) and near(pB[2], 20) and near(pB[3], 30) and near(lA[1], 1) and near(lB[3], 1), "interpolation caméra aux extrémités")
+local pM = CinematicLogic.camera(shotA, 0.5)
+check(near(pM[1], 5) and near(pM[2], 10), "interpolation douce symétrique au milieu")
 
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then

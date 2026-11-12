@@ -16,6 +16,9 @@
 - Animations (`AnimLogic`, `Config.Animations`) : chaque animation est désactivable et exécutée via `AnimLogic.run` (pcall) ;
   courbes, angle de visée et levée de pattes testés en logique pure (non exécutés ici, voir plus bas).
 
+- Cinématiques (`CinematicLogic`, `Cinematics.luau`, `Config.Cinematics`) : 6 séquences (intro, sauce, victoire, stade, zone, fin), toujours
+  skippables et non bloquantes ; état/durée/reprise après « Passer » testés en logique pure (non exécutés ici).
+
 ## Décisions techniques notables
 - **Outils externes** : `luau-lsp`/`luau`/stylua/selene/rojo téléchargés mais leur exécution a été refusée par le
   bac à sable ; **pas de contournement**. Remplacés par `tools/blockcheck.py` et `tools/undefcheck.py`

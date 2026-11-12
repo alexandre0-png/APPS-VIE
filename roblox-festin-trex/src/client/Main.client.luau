@@ -12,6 +12,7 @@ local Effects = require(script.Parent:WaitForChild("Effects"))
 local PetsRenderer = require(script.Parent:WaitForChild("Pets"))
 local Input = require(script.Parent:WaitForChild("Input"))
 local Guide = require(script.Parent:WaitForChild("Guide"))
+local Cinematics = require(script.Parent:WaitForChild("Cinematics"))
 
 Store.init()
 HUD.init(function(name)
@@ -22,6 +23,7 @@ Effects.init()
 PetsRenderer.init()
 Input.init()
 Guide.init()
+pcall(Cinematics.init)
 
 Remotes.get("Notify").OnClientEvent:Connect(function(text, kind)
 	if type(text) == "string" then
