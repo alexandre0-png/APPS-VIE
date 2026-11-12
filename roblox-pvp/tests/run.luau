@@ -188,11 +188,12 @@ end
 section("Lore")
 do
 	eq("4 héros", #Lore.Heroes, 4)
-	eq("5 chapitres", #Lore.Chapters, 5)
+	eq("6 chapitres", #Lore.Chapters, 6)
+	eq("6 runes", #Lore.Runes, 6)
 	local ids, unlocks = {}, {}
 	for _, c in ipairs(Lore.Chapters) do
 		check("chapitre unique " .. c.Id, not ids[c.Id]); ids[c.Id] = true
-		check("stat connue " .. c.Id, ({ Level = 1, Kills = 1, Wins = 1, BestStreak = 1, Headshots = 1 })[c.Stat] == 1)
+		check("stat connue " .. c.Id, ({ Level = 1, Kills = 1, Wins = 1, BestStreak = 1, Headshots = 1, Runes = 1 })[c.Stat] == 1)
 		check("cible > 0 " .. c.Id, c.Target > 0 and c.Coins > 0)
 		if c.Unlock then check("héros débloqué existe", Lore.Hero(c.Unlock) ~= nil); unlocks[c.Unlock] = true end
 	end

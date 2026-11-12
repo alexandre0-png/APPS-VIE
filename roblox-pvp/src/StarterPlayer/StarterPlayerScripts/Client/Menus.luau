@@ -343,13 +343,21 @@ local function buildHero(profile)
 			end)
 		end
 	end
-	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 22), Text = "CHRONIQUE", TextSize = 16, TextColor3 = C.Gold, LayoutOrder = 4 })
-	local stats = { Level = profile.Level, Kills = profile.Kills, Wins = profile.Wins, BestStreak = profile.BestStreak, Headshots = profile.Headshots }
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 22), Text = "ÉNIGMES — six runes à retrouver", TextSize = 16, TextColor3 = C.Gold, LayoutOrder = 4 })
+	local found = 0
+	for i, rune in ipairs(Lore.Runes) do
+		local got = profile.Runes[rune.Id] == true
+		found += got and 1 or 0
+		local r = UI.Frame(scroll, { Size = UDim2.new(1, -10, 0, 34), BackgroundColor3 = C.Panel, LayoutOrder = 4 + i * 0.01 })
+		UI.Label(r, { Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -20, 1, 0), Text = (got and "✔ " or "❓ ") .. rune.Clue, TextSize = 12, Font = Enum.Font.Gotham, TextColor3 = got and C.Good or C.Text, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left })
+	end
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 22), Text = "CHRONIQUE", TextSize = 16, TextColor3 = C.Gold, LayoutOrder = 5 })
+	local stats = { Runes = found, Level = profile.Level, Kills = profile.Kills, Wins = profile.Wins, BestStreak = profile.BestStreak, Headshots = profile.Headshots }
 	for i, chapter in ipairs(Lore.Chapters) do
 		local progress = Lore.Progress(chapter, stats)
 		local done = progress >= chapter.Target
 		local claimed = profile.Chapters[chapter.Id] == true
-		local row = UI.Frame(scroll, { Size = UDim2.new(1, -10, 0, 74), BackgroundColor3 = C.Panel, LayoutOrder = 4 + i, Stroke = claimed and C.Good or (done and C.Gold or C.PanelLight) })
+		local row = UI.Frame(scroll, { Size = UDim2.new(1, -10, 0, 74), BackgroundColor3 = C.Panel, LayoutOrder = 5 + i, Stroke = claimed and C.Good or (done and C.Gold or C.PanelLight) })
 		UI.Label(row, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -190, 0, 20), Text = ("Chapitre %d · %s"):format(i, chapter.Title), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left })
 		UI.Label(row, { Position = UDim2.fromOffset(12, 26), Size = UDim2.new(1, -190, 0, 30), Text = chapter.Text, TextSize = 11, Font = Enum.Font.Gotham, TextColor3 = C.Dim, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
 		local bg = UI.Frame(row, { Position = UDim2.new(0, 12, 1, -14), Size = UDim2.new(1, -190, 0, 8), BackgroundColor3 = Color3.fromRGB(16, 18, 26), Radius = 4 })

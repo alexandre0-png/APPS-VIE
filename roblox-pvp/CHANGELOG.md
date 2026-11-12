@@ -1,5 +1,8 @@
 # Journal des changements — Arène des Légendes
 
+## V1.8 — énigmes
+- 6 runes cachées (3 hub, 3 arène) avec indices, collecte validée serveur (une fois par joueur), chapitre « Les Six Runes ».
+
 ## V1.7 — saisons
 - `SeasonLogic` + `SeasonService` : points de saison, 10 paliers, titre de champion, remise à zéro au changement de saison ; onglet « Saison ».
 - Barre d'onglets défilante (8 onglets). `A_FAIRE_UTILISATEUR.md` : ce qui reste à votre charge.

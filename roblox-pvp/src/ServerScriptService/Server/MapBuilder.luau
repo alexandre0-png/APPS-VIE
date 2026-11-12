@@ -285,6 +285,13 @@ local function buildLobby(root, result)
 		result.LeaderboardRows[i] = row
 	end
 
+	-- runes du hub (énigme) : r1 derrière un pilier du portail, r2 derrière l'armurerie, r3 au fond de la cour, r4 derrière le classement
+	for _, def in ipairs({ { "r1", 10, 2.2, portalZ + 4.5 }, { "r2", -40, 2.2, 28 }, { "r3", -68, 2.2, -34 }, { "r4", 0, 2.2, -69 } }) do
+		local p = mk(lobby, { Name = "Rune_" .. def[1], Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), Position = Vector3.new(def[2], def[3], def[4]), Color = rgb(255, 215, 90), Material = Enum.Material.Neon, CanCollide = false })
+		CollectionService:AddTag(p, "Spin")
+		table.insert(result.Runes, { Id = def[1], Part = p })
+	end
+
 	-- murs d'enceinte, arbres et lampadaires
 	local R = 98
 	for _, def in ipairs({ { 0, -R, 2 * R, 2 }, { 0, R, 2 * R, 2 }, { -R, 0, 2, 2 * R }, { R, 0, 2, 2 * R } }) do
@@ -485,6 +492,13 @@ local function buildArena(root, result)
 	em.Transparency = NumberSequence.new(0.2, 1)
 	em.Parent = embers
 
+	-- runes de l'énigme (3 dans l'arène : r4 est dans le hub, voir buildLobby)
+	for _, def in ipairs({ { "r5", 60, 9.4, 60 }, { "r6", -14, 9.6, 0 } }) do
+		local p = mk(arena, { Name = "Rune_" .. def[1], Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), Position = at(def[2], def[3], def[4]), Color = rgb(255, 215, 90), Material = Enum.Material.Neon, CanCollide = false })
+		CollectionService:AddTag(p, "Spin")
+		table.insert(result.Runes, { Id = def[1], Part = p })
+	end
+
 	-- points d'apparition (16 sur un anneau)
 	result.ArenaSpawns = {}
 	for k = 0, 15 do
@@ -515,7 +529,7 @@ function MapBuilder.Build()
 	local root = Instance.new("Folder")
 	root.Name = "Map"
 	root.Parent = workspace
-	local result = {}
+	local result = { Runes = {} }
 	buildLobby(root, result)
 	buildArena(root, result)
 	return result

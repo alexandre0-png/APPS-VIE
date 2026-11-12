@@ -323,6 +323,16 @@ do
 	eq("attribut héros", R:GetAttribute("Hero"), "orin")
 	check("zyla verrouillée", not Story.SetHero(R, "zyla"))
 	check("héros inconnu refusé", not Story.SetHero(R, "hack") and not Story.SetHero(R, 3))
+	-- énigmes
+	check("rune inconnue refusée", not Story.CollectRune(R, "zz") and not Story.CollectRune(R, 4))
+	local rc = pr.Coins
+	check("rune r1 ramassée", Story.CollectRune(R, "r1"))
+	eq("pièces de rune", pr.Coins - rc, 25)
+	check("rune une seule fois", not Story.CollectRune(R, "r1"))
+	for _, id in ipairs({ "r2", "r3", "r4", "r5", "r6" }) do Story.CollectRune(R, id) end
+	local l1, k1 = pr.Level, pr.Coins
+	check("chapitre des runes", Story.ClaimChapter(R, "c6"))
+	check("c6 payé", pr.Coins - k1 >= 900)
 	local fixed = DataService.Reconcile({ Hero = "zyla", Chapters = {} })
 	eq("héros verrouillé corrigé au chargement", fixed.Hero, "kael")
 	local ok = DataService.Reconcile({ Hero = "orin", Chapters = { c2 = true } })

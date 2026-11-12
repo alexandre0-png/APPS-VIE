@@ -27,7 +27,18 @@ Lore.Chapters = {
 	{ Id = "c3", Title = "La Tour Silencieuse", Text = "Au centre, la tour garde l'orbe de rage. Gagne trois manches pour y entrer.", Stat = "Wins", Target = 3, Coins = 350, XP = 200 },
 	{ Id = "c4", Title = "L'Orbe Éclatée", Text = "Un éclat de l'orbe s'attache à ton nom. Une héroïne s'éveille.", Stat = "Level", Target = 12, Coins = 500, XP = 300, Unlock = "zyla" },
 	{ Id = "c5", Title = "Légende de l'Arène", Text = "Le Brasier brûle de nouveau. Les bardes chanteront tes 150 victoires.", Stat = "Kills", Target = 150, Coins = 1500, XP = 800 },
+	{ Id = "c6", Title = "Les Six Runes", Text = "Six runes dorment dans les Royaumes. Réunis-les pour sceller le Brasier.", Stat = "Runes", Target = 6, Coins = 900, XP = 450 },
 } :: { Chapter }
+
+-- Énigmes : six runes cachées (3 dans le hub, 3 dans l'arène). Un indice par rune.
+Lore.Runes = {
+	{ Id = "r1", Clue = "Derrière un pilier du portail violet, une flamme attend celui qui contourne." },
+	{ Id = "r2", Clue = "Derrière l'armurerie, le fer garde un secret que personne ne vend." },
+	{ Id = "r3", Clue = "Au bout de la cour d'entraînement, loin des cibles, la braise se repose." },
+	{ Id = "r4", Clue = "Le tableau des légendes tourne le dos à un éclat." },
+	{ Id = "r5", Clue = "Sur le toit d'un bunker, l'orbe a laissé tomber un fragment." },
+	{ Id = "r6", Clue = "À l'ouest de la tour, près des piliers, le dernier éclat te regarde." },
+}
 
 local heroByKey: { [string]: Hero } = {}
 for _, h in ipairs(Lore.Heroes) do

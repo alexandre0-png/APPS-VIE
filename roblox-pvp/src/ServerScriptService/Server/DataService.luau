@@ -51,6 +51,7 @@ function DataService.DefaultProfile()
 		Quests = nil,
 		FirstJoin = os.time(),
 		Season = { Id = 0, Points = 0, Claimed = {} },
+		Runes = {},
 		Hero = "kael",
 		Chapters = {}, -- chapitres de la Chronique déjà lus
 		Receipts = {}, -- identifiants d'achats déjà traités (idempotence)
@@ -78,6 +79,9 @@ function DataService.Reconcile(data)
 	end
 	if type(data.Season) ~= "table" or type(data.Season.Claimed) ~= "table" or type(data.Season.Points) ~= "number" or type(data.Season.Id) ~= "number" then
 		data.Season = { Id = 0, Points = 0, Claimed = {} }
+	end
+	if type(data.Runes) ~= "table" then
+		data.Runes = {}
 	end
 	if type(data.Chapters) ~= "table" then
 		data.Chapters = {}
