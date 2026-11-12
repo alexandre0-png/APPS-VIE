@@ -158,11 +158,21 @@ end
 H.log = {}
 H.trigger(w.docs["cahier d'écolier"], "QuestPrompt", alice)
 local wrongMM, wrongDD = string.match(find(H.msgs(alice), "En marge, une date : (%d%d/%d%d)") or "", "(%d%d)/(%d%d)")
+H.log = {}
+H.trigger(w.docs["plaque du cercueil"], "QuestPrompt", alice)
+local plaqueMM, plaqueDD = string.match(find(H.msgs(alice), "gravée dessous : (%d%d/%d%d)") or "", "(%d%d)/(%d%d)")
+check(plaqueMM ~= nil and (plaqueMM .. plaqueDD) ~= (wrongMM or "") .. (wrongDD or ""), "la plaque donne la date juste, lisible avant le cercueil")
 check(wrongMM ~= nil, "le cahier donne une date fausse")
 moveTo(alice, 90, 26, 43)
 H.trigger(w.tomb, "QuestPrompt", alice)
 Quests.submitCode(alice, wrongMM .. wrongDD)
-check(H.endReason == "sealed", "la date du cahier scelle le cercueil (fin 4)")
+check(H.endReason == nil, "une seule saisie de la date du cahier ne scelle pas (avertissement)")
+check(find(H.msgs(alice), "(Tu ne pourras pas revenir en arrière)") ~= nil, "avertissement affiché avant confirmation")
+Quests.submitCode(alice, "1111")
+Quests.submitCode(alice, wrongMM .. wrongDD)
+check(H.endReason == nil, "une saisie différente entre-temps annule l'armement")
+Quests.submitCode(alice, wrongMM .. wrongDD)
+check(H.endReason == "sealed", "la date du cahier confirmée scelle le cercueil (fin 4)")
 check(string.find(Quests.endingText("sealed"), "/4%.") ~= nil, "le total des fins compte 4")
 
 -- 7bis. Indication à la demande : une fois, puis limitée par le délai

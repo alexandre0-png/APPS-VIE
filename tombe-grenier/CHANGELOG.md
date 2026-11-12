@@ -8,6 +8,9 @@
 - Non fait : déformation de l'image (demanderait un shader ou un asset, non fourni).
 
 ### Fin 4 « le piège » (choix du joueur)
+- Confirmation : la première saisie de la date du cahier affiche un avertissement (« Tu ne pourras pas revenir en arrière ») ; il faut la ressaisir pour sceller. Toute autre saisie annule l'armement.
+- Portée : la fin ne concerne que la partie en cours ; rien n'est sauvegardé.
+- La date juste est sur la plaque, lue avant le cercueil.
 - Au cercueil, saisir la date du cahier (fausse, barrée) scelle l'enfant : fin 4. Le total des fins passe à 4. La fin vérité reste la date de la plaque.
 
 ### Énigme optionnelle (cuisine, Config.Design.ExtraSafe)
@@ -25,6 +28,7 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Contrôle de portée (scope_check) : détecte une variable lue avant sa déclaration locale ; deux tests unitaires.
 - Audio : options de lecture (vitesse, réverbération, boucle) dans Audio.play ; souffle de ventilation en boucle très bas au centre de la maison.
 - Récit : quatre phrases de texture pour les livres sans marque-page (Quests.lua, BOOK_FLAVOUR).
 - Audio : statique de coupure (statique_tv) quand la télévision s'éteint.

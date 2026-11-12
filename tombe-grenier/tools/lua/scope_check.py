@@ -39,8 +39,12 @@ def problems(path):
         for group in re.findall(r"\blocal\s+([\w\s,]+?)\s*=", line):
             for name in group.split(","):
                 declared_at.setdefault(name.strip(), i)
-        for name in re.findall(r"\bfor\s+(\w+)", line):
-            declared_at.setdefault(name, i)
+        # Variables de boucle : « for a, b in ... » et « for i = ... »
+        for group in re.findall(r"\bfor\s+([\w\s,]+?)\s+(?:in\b|=)", line):
+            for name in group.split(","):
+                name = name.strip()
+                if name:
+                    declared_at.setdefault(name, i)
         # Paramètres des fonctions : déclarés sur la ligne de la fonction
         for params in re.findall(r"\bfunction\s*[\w.:]*\s*\(([^)]*)\)", line):
             for name in params.split(","):
@@ -66,6 +70,23 @@ def problems(path):
                     found.append((i, name, "jamais déclaré"))
             elif decl > i:
                 found.append((i, name, f"déclaré seulement ligne {decl}"))
+    # Variables lues avant leur déclaration locale (ex. « extraCode » utilisée puis déclarée plus bas)
+    for i, line in enumerate(lines, 1):
+        for m in re.finditer(r"(?<![\w.:])([A-Za-z_]\w*)\b", line):
+            name = m.group(1)
+            if name in KEYWORDS or name in GLOBALS or name in ("nil", "true", "false", "self"):
+                continue
+            decl = declared_at.get(name)
+            if decl is None or decl <= i:
+                continue
+            rest = line[m.end():]
+            before = line[:m.start()]
+            # Déclarations, paramètres, clés de table (« nom = ») et appels : traités ailleurs ou ignorés
+            if re.match(r"\s*=(?!=)", rest) or re.search(r"\blocal\s+[\w\s,]*$", before):
+                continue
+            if re.match(r"\s*\(", rest):
+                continue
+            found.append((i, name, f"variable lue avant sa déclaration ligne {decl}"))
     return found
 
 

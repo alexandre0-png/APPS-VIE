@@ -15,10 +15,12 @@ Lancer depuis tombe-grenier/ :
 import glob
 import os
 import re
+import sys
 import unittest
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SRC = os.path.join(ROOT, "src")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def read(path):
@@ -209,6 +211,36 @@ class TestSyntax(unittest.TestCase):
             if err:
                 errors.append(f"{os.path.basename(path)}: {err}")
         self.assertEqual(errors, [], "erreurs de syntaxe")
+
+
+class TestScopeChecker(unittest.TestCase):
+    """Le contrôle de portée détecte une variable lue avant sa déclaration locale."""
+
+    def test_flags_variable_read_before_declaration(self):
+        import tempfile
+        import scope_check
+        src = "local M = {}\nfunction M.a()\n\tprint(zeta)\nend\nlocal zeta = 1\nreturn M\n"
+        with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False, encoding="utf-8") as f:
+            f.write(src)
+            path = f.name
+        try:
+            found = [name for _, name, _ in scope_check.problems(path)]
+        finally:
+            os.unlink(path)
+        self.assertIn("zeta", found)
+
+    def test_accepts_declaration_before_use(self):
+        import tempfile
+        import scope_check
+        src = "local zeta = 1\nlocal function f(x)\n\treturn zeta + x\nend\nreturn f\n"
+        with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False, encoding="utf-8") as f:
+            f.write(src)
+            path = f.name
+        try:
+            found = scope_check.problems(path)
+        finally:
+            os.unlink(path)
+        self.assertEqual(found, [])
 
 
 if __name__ == "__main__":

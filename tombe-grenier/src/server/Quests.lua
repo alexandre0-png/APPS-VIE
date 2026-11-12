@@ -1025,7 +1025,13 @@ local function submitDate(player, text)
 		return
 	end
 	if text == wrongDate then
-		-- Fin 4 (piège) : la date du cahier est fausse, et saisie, elle scelle le cercueil
+		-- Fin 4 (piège) : la date du cahier est fausse. Elle ne scelle qu'après une confirmation,
+		-- pour éviter une erreur de saisie. Fin de la partie en cours seulement (rien n'est sauvegardé).
+		if not state.sealArmed then
+			state.sealArmed = true
+			say(player, "Cette date n'est pas celle de la plaque. Tu ne pourras pas revenir en arrière : ressaisis-la pour confirmer.")
+			return
+		end
 		state.tombePending = false
 		say(player, "Le couvercle se referme sur la date barrée du cahier.")
 		if endFn then
@@ -1033,6 +1039,7 @@ local function submitDate(player, text)
 		end
 		return
 	end
+	state.sealArmed = false
 	if text == tombeDate then
 		state.tombePending = false
 		state.freed = true
@@ -1176,6 +1183,7 @@ function Quests.setup(seed)
 	state.horloge = false     -- progression V2 : horloge du hall réglée
 	state.horlogeOpen = false -- saisie de la date ouverte au hall
 	state.compteurOpen = false -- saisie du code au compteur de la cuisine
+	state.sealArmed = false    -- date du cahier saisie une fois : une confirmation scellerait le cercueil
 	state.compteurDone = false
 	state.tombePending = false
 	state.nextMark = 1
