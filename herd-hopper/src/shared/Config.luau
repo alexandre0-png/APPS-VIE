@@ -3,7 +3,6 @@
 
 local Config = {}
 
-Config.GameName = "Saute-Troupeau"
 Config.Gravity = 90
 
 -- Piste : axe +Z = sens de la course. Le sol est à Y = 0.

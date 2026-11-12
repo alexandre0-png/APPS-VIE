@@ -257,10 +257,11 @@ function PhysicsService.RegisterCollisionGroup() end
 function PhysicsService.CollisionGroupSetCollidable() end
 
 local datastore = {}
+FAIL_SAVES = 0
 local ordered = {}
 local function dataStore() return {
 	GetAsync = function(_, key) return datastore[key] end,
-	UpdateAsync = function(_, key, fn) datastore[key] = fn(datastore[key]) end,
+	UpdateAsync = function(_, key, fn) if FAIL_SAVES and FAIL_SAVES > 0 then FAIL_SAVES = FAIL_SAVES - 1 error("DataStore indisponible (simulé)") end datastore[key] = fn(datastore[key]) end,
 	SetAsync = function(_, key, v) ordered[key] = v end,
 } end
 local DataStoreService = {
@@ -580,6 +581,16 @@ local function main()
 			print(("CADEAU     1er:%s (%s) 2e:%s (%s)"):format(tostring(daily.ok), daily.msg, tostring(daily2.ok), daily2.msg))
 			print(("PIÈCES     après achats = %d (attendu 2000-150-800-300+bonus = %d)"):format(d.coins, 2000 - 150 - 800 - 300 + 50))
 			print("HookRange joueur A =", pa._attrs.HookRange, "(attendu 71 : 58+5 amélioration +8 pass corde possédé)")
+			-- sauvegarde : 2 échecs puis succès -> les réessais doivent aboutir
+			FAIL_SAVES = 2
+			d.coins = d.coins + 1
+			Data.MarkDirty(pa)
+			local saveOk
+			local co2 = coroutine.create(function() saveOk = Data.Save(pa) end)
+			local okr, e = coroutine.resume(co2)
+			local waited = 0
+			while coroutine.status(co2) ~= "dead" and waited < 10 do vt = vt + 0.5 waited = waited + 0.5 coroutine.resume(co2) end
+			print(("SAUVEGARDE 2 échecs simulés puis succès : %s (essais restants à échouer=%d)"):format(tostring(saveOk), FAIL_SAVES))
 			-- achats Robux simulés
 			local MS = services.MarketplaceService
 			local before = d.coins

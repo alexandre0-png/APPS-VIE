@@ -1,7 +1,6 @@
 -- Côté client : animation des pattes/ailes, bête ciblée (surbrillance dorée), bêtes énervées (rouge).
 -- Les animations ne sont jamais répliquées : le serveur ne déplace que la pièce Root.
 
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local CreatureFx = {}

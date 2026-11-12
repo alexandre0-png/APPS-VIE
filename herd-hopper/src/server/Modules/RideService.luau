@@ -415,7 +415,7 @@ local function spawnRope(player, hrp, creature, duration)
 end
 
 function RideService.HandleHook(player, id)
-	if type(id) ~= "number" or State.Phase ~= "Running" then
+	if not Util.isFiniteNumber(id) or id % 1 ~= 0 or State.Phase ~= "Running" then
 		return
 	end
 	local run = State.Participants[player]

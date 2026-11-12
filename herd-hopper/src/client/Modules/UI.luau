@@ -48,15 +48,6 @@ function UI.stroke(parent, color, thickness, transparency)
 	}, parent)
 end
 
-function UI.padding(parent, px)
-	return UI.make("UIPadding", {
-		PaddingTop = UDim.new(0, px),
-		PaddingBottom = UDim.new(0, px),
-		PaddingLeft = UDim.new(0, px),
-		PaddingRight = UDim.new(0, px),
-	}, parent)
-end
-
 function UI.frame(parent, props)
 	local p = { BackgroundColor3 = UI.Colors.Panel, BorderSizePixel = 0 }
 	for k, v in pairs(props or {}) do

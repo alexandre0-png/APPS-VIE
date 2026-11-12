@@ -2,7 +2,6 @@
 -- Chaque événement est annoncé par un anneau au sol ("télégraphie") avant d'agir.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)

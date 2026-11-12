@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
-local Util = require(Shared.Util)
 
 local State = require(script.Parent.State)
 local DataService = require(script.Parent.DataService)

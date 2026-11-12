@@ -116,18 +116,25 @@ function DataService.Save(player)
 	end
 	local version = profile.version
 	local snapshot = deepCopy(profile.data)
-	local ok, err = pcall(function()
-		store:UpdateAsync("P_" .. player.UserId, function()
-			return snapshot
+	local err
+	for attempt = 1, 3 do
+		local ok
+		ok, err = pcall(function()
+			store:UpdateAsync("P_" .. player.UserId, function()
+				return snapshot
+			end)
 		end)
-	end)
-	if ok then
-		if profile.version == version then
-			profile.dirty = false
+		if ok then
+			if profile.version == version then
+				profile.dirty = false
+			end
+			return true
 		end
-		return true
+		if attempt < 3 then
+			task.wait(attempt * 1.5)
+		end
 	end
-	warn("[Data] Sauvegarde échouée : " .. tostring(err))
+	warn("[Data] Sauvegarde échouée après 3 essais : " .. tostring(err))
 	return false
 end
 
@@ -138,13 +145,20 @@ end
 
 function DataService.SubmitBest(player, score)
 	local value = math.floor(score)
+	local userId = tostring(player.UserId)
 	task.spawn(function()
-		local ok, err = pcall(function()
-			board:SetAsync(tostring(player.UserId), value)
-		end)
-		if not ok then
-			warn("[Data] Classement mondial indisponible : " .. tostring(err))
+		local err
+		for attempt = 1, 3 do
+			local ok
+			ok, err = pcall(function()
+				board:SetAsync(userId, value)
+			end)
+			if ok then
+				return
+			end
+			task.wait(attempt * 2)
 		end
+		warn("[Data] Classement mondial indisponible : " .. tostring(err))
 	end)
 end
 

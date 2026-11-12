@@ -8,7 +8,6 @@
 
 local Config = {}
 
-Config.GameName = "Saute-Troupeau"
 Config.Gravity = 90
 
 -- Piste : axe +Z = sens de la course. Le sol est à Y = 0.
@@ -1362,18 +1361,25 @@ function DataService.Save(player)
 	end
 	local version = profile.version
 	local snapshot = deepCopy(profile.data)
-	local ok, err = pcall(function()
-		store:UpdateAsync("P_" .. player.UserId, function()
-			return snapshot
+	local err
+	for attempt = 1, 3 do
+		local ok
+		ok, err = pcall(function()
+			store:UpdateAsync("P_" .. player.UserId, function()
+				return snapshot
+			end)
 		end)
-	end)
-	if ok then
-		if profile.version == version then
-			profile.dirty = false
+		if ok then
+			if profile.version == version then
+				profile.dirty = false
+			end
+			return true
 		end
-		return true
+		if attempt < 3 then
+			task.wait(attempt * 1.5)
+		end
 	end
-	warn("[Data] Sauvegarde échouée : " .. tostring(err))
+	warn("[Data] Sauvegarde échouée après 3 essais : " .. tostring(err))
 	return false
 end
 
@@ -1384,13 +1390,20 @@ end
 
 function DataService.SubmitBest(player, score)
 	local value = math.floor(score)
+	local userId = tostring(player.UserId)
 	task.spawn(function()
-		local ok, err = pcall(function()
-			board:SetAsync(tostring(player.UserId), value)
-		end)
-		if not ok then
-			warn("[Data] Classement mondial indisponible : " .. tostring(err))
+		local err
+		for attempt = 1, 3 do
+			local ok
+			ok, err = pcall(function()
+				board:SetAsync(userId, value)
+			end)
+			if ok then
+				return
+			end
+			task.wait(attempt * 2)
 		end
+		warn("[Data] Classement mondial indisponible : " .. tostring(err))
 	end)
 end
 
@@ -1442,7 +1455,6 @@ return DataService
 -- Chaque événement est annoncé par un anneau au sol ("télégraphie") avant d'agir.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -3429,7 +3441,7 @@ local function spawnRope(player, hrp, creature, duration)
 end
 
 function RideService.HandleHook(player, id)
-	if type(id) ~= "number" or State.Phase ~= "Running" then
+	if not Util.isFiniteNumber(id) or id % 1 ~= 0 or State.Phase ~= "Running" then
 		return
 	end
 	local run = State.Participants[player]
@@ -3694,7 +3706,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
-local Util = require(Shared.Util)
 
 local State = require(script.Parent.State)
 local DataService = require(script.Parent.DataService)
@@ -4567,7 +4578,6 @@ return Controls
 ]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, bête ciblée (surbrillance dorée), bêtes énervées (rouge).
 -- Les animations ne sont jamais répliquées : le serveur ne déplace que la pièce Root.
 
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local CreatureFx = {}
@@ -5935,15 +5945,6 @@ function UI.stroke(parent, color, thickness, transparency)
 		Thickness = thickness or 2,
 		Transparency = transparency or 0,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}, parent)
-end
-
-function UI.padding(parent, px)
-	return UI.make("UIPadding", {
-		PaddingTop = UDim.new(0, px),
-		PaddingBottom = UDim.new(0, px),
-		PaddingLeft = UDim.new(0, px),
-		PaddingRight = UDim.new(0, px),
 	}, parent)
 end
 
