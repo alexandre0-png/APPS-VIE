@@ -282,8 +282,11 @@ local function buildPets()
 		local stroke = UIKit.stroke(card, rarityColor(pet.Rarity), 2)
 		local nameL = UIKit.label(card, { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 22), Text = pet.Name, TextSize = 15, Font = Enum.Font.FredokaOne, TextColor3 = rarityColor(pet.Rarity) })
 		local detail = UIKit.label(card, { Position = UDim2.fromOffset(6, 28), Size = UDim2.new(1, -12, 0, 36), Text = "", TextSize = 13, TextColor3 = C.dim })
-		local btn = UIKit.button(card, { Position = UDim2.fromOffset(8, 68), Size = UDim2.new(1, -16, 0, 34), Text = "", TextSize = 15, Callback = function() end })
-		cards[pet.Id] = { name = nameL, detail = detail, btn = btn, pet = pet, conn = nil }
+		local entry = { name = nameL, detail = detail, pet = pet, equipped = false }
+		entry.btn = UIKit.button(card, { Position = UDim2.fromOffset(8, 68), Size = UDim2.new(1, -16, 0, 34), Text = "", TextSize = 15, Callback = function()
+			act("equipPet", { id = pet.Id, on = not entry.equipped })
+		end })
+		cards[pet.Id] = entry
 	end
 
 	win.refresh = function(s)
@@ -305,12 +308,7 @@ local function buildPets()
 				c.detail.Text = "???  ·  " .. rarityDef(c.pet.Rarity).Name
 				c.btn.Visible = false
 			end
-			if c.conn then
-				c.conn:Disconnect()
-			end
-			c.conn = c.btn.Activated:Connect(function()
-				act("equipPet", { id = id, on = not equipped })
-			end)
+			c.equipped = equipped
 		end
 	end
 end

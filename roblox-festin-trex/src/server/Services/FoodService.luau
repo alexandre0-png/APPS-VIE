@@ -4,7 +4,6 @@
 -- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
 
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")

@@ -6,6 +6,8 @@ local Config: any = {}
 
 Config.Name = "Festin du T-Rex"
 
+Config.DataVersion = 1 -- à incrémenter + ajouter une migration dans DataService.Migrations pour tout changement NON additif
+
 Config.Data = {
 	StoreName = "FestinTRex_v1",
 	FedBoardName = "FestinTRex_Fed_v1",

@@ -233,6 +233,35 @@ local sp = Economy.stats(dpass)
 check(near(sp.coinMult, 1.5) and sp.petSlots == 4 and near(sp.assist, 8), "effets des Game Passes")
 check(Economy.petSlots(newData()) == 3, "emplacements sans pass")
 
+-- Migration de version et réessais de sauvegarde
+local mig = { version = 1 }
+Config.DataVersion = 3
+DataService.Migrations[1] = function(d) d.migratedFrom1 = true end
+DataService.Migrations[2] = function(d) d.migratedFrom2 = true end
+DataService.migrate(mig)
+check(mig.version == 3 and mig.migratedFrom1 and mig.migratedFrom2, "migrations enchaînées")
+local newer = { version = 9 }
+DataService.migrate(newer)
+check(newer.version == 9, "profil plus récent non rétrogradé")
+Config.DataVersion = 1
+DataService.Migrations = {}
+
+local flaky = newFakeStore()
+DataService._setStore(flaky, clock, "serveurA", sleep)
+local fdata = DataService.load(3)
+local failuresLeft = 2
+local realUpdate = flaky.UpdateAsync
+function flaky:UpdateAsync(key, fn)
+	if failuresLeft > 0 then
+		failuresLeft -= 1
+		error("temporaire")
+	end
+	return realUpdate(self, key, fn)
+end
+check(DataService.save(3, fdata, true) == true, "sauvegarde réussie au 3e essai")
+failuresLeft = 5
+check(DataService.save(3, fdata, true) == false, "sauvegarde abandonnée après 3 essais")
+
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then
 	error("des tests ont échoué")

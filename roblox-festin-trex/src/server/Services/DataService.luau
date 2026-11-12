@@ -39,6 +39,25 @@ function DataService._setStore(fakeStore: any, fakeClock: (() -> number)?, fakeJ
 	end
 end
 
+-- Migrations : Migrations[n] convertit un profil de la version n vers n+1.
+-- Les ajouts de clés sont gérés par Util.reconcile (pas besoin de migration).
+DataService.Migrations = {} :: { [number]: (any) -> () }
+
+function DataService.migrate(data: any)
+	local current = Config.DataVersion
+	if type(data.version) ~= "number" then
+		data.version = 1
+	end
+	-- Un profil plus récent que ce serveur n'est jamais « rétrogradé ».
+	while data.version < current do
+		local step = DataService.Migrations[data.version]
+		if step then
+			step(data)
+		end
+		data.version += 1
+	end
+end
+
 local function keyFor(userId: number): string
 	return "P_" .. tostring(userId)
 end
@@ -78,6 +97,7 @@ function DataService.load(userId: number): (any?, string?)
 		if ok and not blocked then
 			local data = if captured ~= nil then Util.deepCopy(captured) else {}
 			Util.reconcile(data, Config.Defaults)
+			DataService.migrate(data)
 			return data, nil
 		end
 		lastError = if blocked then "session déjà ouverte sur un autre serveur" else tostring(err)
@@ -89,23 +109,32 @@ function DataService.load(userId: number): (any?, string?)
 end
 
 -- Sauvegarde. release=true libère le verrou (départ du joueur). Retourne true si écrit.
+-- Réessaie jusqu'à 3 fois en cas d'erreur DataStore ; un verrou étranger n'est jamais écrasé (pas de réessai).
 function DataService.save(userId: number, data: any, release: boolean): boolean
 	local s = getStore()
-	local written = false
-	local ok = pcall(function()
-		s:UpdateAsync(keyFor(userId), function(old)
-			written = false
-			old = old or {}
-			if lockIsForeign(old) then
-				return nil -- un autre serveur détient le profil : on n'écrase rien
-			end
-			old.data = data
-			old.lock = if release then nil else { job = jobId, t = clock() }
-			written = true
-			return old
+	for attempt = 1, 3 do
+		local written = false
+		local ok = pcall(function()
+			s:UpdateAsync(keyFor(userId), function(old)
+				written = false
+				old = old or {}
+				if lockIsForeign(old) then
+					return nil -- un autre serveur détient le profil : on n'écrase rien
+				end
+				old.data = data
+				old.lock = if release then nil else { job = jobId, t = clock() }
+				written = true
+				return old
+			end)
 		end)
-	end)
-	return ok and written
+		if ok then
+			return written
+		end
+		if attempt < 3 then
+			sleep(attempt)
+		end
+	end
+	return false
 end
 
 return DataService

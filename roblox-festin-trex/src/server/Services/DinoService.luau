@@ -34,10 +34,6 @@ local function setAttr(name: string, value: any)
 	end
 end
 
-local function c3(t: { number }): Color3
-	return Color3.fromRGB(t[1], t[2], t[3])
-end
-
 -- ---------------------------------------------------------------- construction
 
 local function addPart(name: string, size: Vector3, pos: Vector3, color: Color3, opts: any?): Part
