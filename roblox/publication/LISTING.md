@@ -8,8 +8,8 @@ Fichiers prêts :
 |---|---|
 | Place à ouvrir dans Studio | `roblox/build/ChipeOeufs.rbxlx` |
 | Icône 512×512 | `roblox/publication/art/icon_512.png` |
-| Miniatures 1920×1080 (3) | `art/thumb_1_hero_1920x1080.png`, `thumb_2_vol_1920x1080.png`, `thumb_3_pets_1920x1080.png` |
-| Icônes d'achats 512×512 (4) | `art/pass_coins2x_512.png`, `pass_lucky_512.png`, `product_instanthatch_512.png`, `product_luckpotion_512.png` |
+| Miniatures 1920×1080 (4) | `art/thumb_1_hero_1920x1080.png`, `thumb_2_vol_1920x1080.png`, `thumb_3_pets_1920x1080.png`, `thumb_4_histoire_1920x1080.png` |
+| Icônes d'achats 512×512 (6) | `art/pass_coins2x_512.png`, `pass_lucky_512.png`, `pass_fast_512.png`, `product_instanthatch_512.png`, `product_luckpotion_512.png`, `product_coinpack_512.png` |
 
 Régénérer le fichier de place après une modification du code : `python3 roblox/tools/build_place.py`. Régénérer les visuels : `python3 roblox/tools/make_art.py`.
 
@@ -24,20 +24,22 @@ Régénérer le fichier de place après une modification du code : `python3 robl
 ```
 🥚 Bienvenue dans Chipe-Œufs !
 
-Vole des œufs aux rivaux, fais-les éclore et deviens le roi des pets !
+La Grande Couvée s'est brisée : reprends ses œufs, fais-les éclore et deviens Roi des Couvées !
 
-COMMENT JOUER
-🥚 Vole des œufs gardés par des chiens... ou à d'autres joueurs
-🐣 Fais-les éclore : 18 pets, 6 raretés, tailles et mutations (Doré, Néon, Arc-en-ciel, Alien)
-💰 Tes pets rapportent des pièces en continu, même quand tu es absent
-🏃 Cours sur le tapis roulant pour gagner en vitesse
-⬆️ Améliore ta base, renais pour des bonus permanents
+🥚 Chipe des œufs gardés par des chiens... ou à d'autres joueurs
+📜 11 chapitres d'histoire, 3 domaines à débloquer, des rangs à gagner
+🐣 18 pets, 6 raretés, tailles et mutations (Doré, Néon, Arc-en-ciel, Alien)
+📚 Chaque série de 3 espèces découvertes = bonus de revenus définitif
+🎁 Pitié : une rareté supérieure garantie à intervalle régulier
+💰 Tes pets rapportent des pièces, même quand tu es absent
+🏃 Cours sur le tapis pour devenir plus rapide
+♻️ Renais pour des bonus permanents
 🎯 Missions quotidiennes, classement, événements (Biome Alien, Ruée vers l'or...)
 🐾 Fais-toi suivre par tes pets préférés
 
 Attention : un œuf posé dans ta base est protégé quelques secondes, puis les autres joueurs peuvent te le voler !
 
-Les probabilités de tirage sont affichées dans le jeu (menu Plus).
+Probabilités affichées dans le jeu (menu Plus).
 ```
 
 **Description EN** :
@@ -45,14 +47,16 @@ Les probabilités de tirage sont affichées dans le jeu (menu Plus).
 ```
 🥚 Welcome to Chipe-Œufs!
 
-Steal eggs from rivals, hatch them and become the pet king!
+The Great Clutch is shattered: take back its eggs, hatch them and become King of Clutches!
 
-HOW TO PLAY
 🥚 Steal eggs guarded by dogs... or from other players
-🐣 Hatch them: 18 pets, 6 rarities, sizes and mutations (Gold, Neon, Rainbow, Alien)
-💰 Your pets earn coins nonstop, even while you're away
+📜 11 story chapters, 3 domains to unlock, ranks to earn
+🐣 18 pets, 6 rarities, sizes and mutations (Gold, Neon, Rainbow, Alien)
+📚 Every 3 species discovered = permanent income bonus
+🎁 Pity: a higher rarity is guaranteed at regular intervals
+💰 Your pets earn coins, even while you're away
 🏃 Run on the treadmill to get faster
-⬆️ Upgrade your base, rebirth for permanent bonuses
+♻️ Rebirth for permanent bonuses
 🎯 Daily missions, leaderboard, events (Alien Biome, Gold Rush...)
 🐾 Take your favorite pets along with you
 
@@ -76,7 +80,7 @@ Drop rates are shown in-game (Plus menu).
 
 Creator Hub → ton expérience → **Media** (ou *Basic Settings > Icon / Thumbnails*) :
 - **Icône** : `icon_512.png`.
-- **Miniatures** : les 3 fichiers `thumb_*`. L'ordre de la première compte le plus (`thumb_1`).
+- **Miniatures** : les 4 fichiers `thumb_*`. L'ordre de la première compte le plus (`thumb_1`).
 - Roblox modère les images : elles doivent représenter le jeu. Mes visuels sont des illustrations de marque ; après ton playtest, **remplace ou ajoute** 2 à 3 captures d'écran réelles du jeu (les jeux avec de vraies captures sont mieux reçus et évitent un refus).
 
 ## 4. Achats intégrés 🖱️
@@ -87,12 +91,14 @@ Creator Hub → ton expérience → **Monetization**. Prix = suggestions, à aju
 |---|---|---|---|---|
 | Game Pass | Revenus x2 | 199 R$ | Double tous tes revenus de pièces, pour toujours. | `pass_coins2x_512.png` |
 | Game Pass | Chance +10% | 149 R$ | Augmente de 10 points tes chances d'obtenir un pet de rareté supérieure. | `pass_lucky_512.png` |
+| Game Pass | Éclosion rapide | 149 R$ | Les œufs éclosent 25 % plus vite, pour toujours. | `pass_fast_512.png` |
 | Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `product_instanthatch_512.png` |
 | Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `product_luckpotion_512.png` |
+| Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de tes revenus (minimum 5 000 pièces). | `product_coinpack_512.png` |
 
 Après chaque création, copie l'**ID** dans `roblox/src/ReplicatedStorage/Config.lua` (`Config.PASSES` et `Config.PRODUCTS`, champ `id`), puis relance `python3 roblox/tools/build_place.py` (ou colle la valeur directement dans le script Config dans Studio) et republie. Tant qu'un ID vaut `0`, l'achat s'affiche « Bientôt » dans le jeu.
 
-**Conformité (important)** : le Pass Chance, la Potion de chance et l'Éclosion instantanée touchent à des tirages aléatoires payés en Robux. Roblox encadre les « Paid Random Items » : il faut afficher les probabilités (c'est fait : menu **Plus** du jeu, texte calculé depuis `Config.lua`) et certaines régions les restreignent. Avant d'activer ces trois achats, lis la politique Roblox sur les objets aléatoires payants. Le pass « Revenus x2 » n'est pas concerné. Si tu as un doute, publie d'abord uniquement « Revenus x2 » (laisse les autres ID à 0).
+**Conformité (important)** : le Pass Chance, la Potion de chance et l'Éclosion instantanée touchent à des tirages aléatoires payés en Robux. Roblox encadre les « Paid Random Items » : il faut afficher les probabilités (c'est fait : menu **Plus** du jeu, texte calculé depuis `Config.lua`) et certaines régions les restreignent. Avant d'activer ces trois achats, lis la politique Roblox sur les objets aléatoires payants. Les passes « Revenus x2 » et « Éclosion rapide » et le « Sac de pièces » ne touchent pas au hasard et ne sont pas concernés. Si tu as un doute, publie d'abord uniquement « Revenus x2 » (laisse les autres ID à 0).
 
 ## 5. Liste de playtest avant passage en public
 
@@ -107,6 +113,12 @@ Studio → **Test > Clients and Servers** (2 joueurs). Coche chaque ligne :
 - [ ] Achat d'un œuf et d'une amélioration ; l'emplacement supplémentaire se débloque.
 - [ ] Vente d'un pet, bouton 🐾 : le pet miniature suit le joueur (et chez l'autre joueur aussi).
 - [ ] Missions : progression puis récompense.
+- [ ] Histoire : éclosion du 1er œuf, chapitre « terminé » signalé, récompense réclamée dans Missions > Histoire, chapitre suivant affiché.
+- [ ] Zones : la barrière rouge de Mara bloque avant le chapitre 3 et devient traversable ensuite ; aucun vol possible avant (même en forçant le passage) ; idem pour Zed au chapitre 6.
+- [ ] Introduction : visible pour un nouveau joueur seulement, fermée par le bouton.
+- [ ] Bonus de collection et pitié : valeurs cohérentes dans Pets, Boutique et Plus.
+- [ ] Sons : sons intégrés audibles (hatch, vol, capture) ; sinon coller des ID dans `Config.SOUNDS`.
+- [ ] Monument du Grand Nid et décor : rendu correct, aucun obstacle gênant le tapis roulant.
 - [ ] Arrêter la partie puis relancer (API activée) : pièces, pets et améliorations sont restaurés.
 - [ ] Achats Robux : **test purchase** de Studio pour chaque produit après avoir collé les ID.
 - [ ] Téléphone : émulateur Studio (Test > Device) ; l'UI tient à l'écran, le bouton de vol se touche.

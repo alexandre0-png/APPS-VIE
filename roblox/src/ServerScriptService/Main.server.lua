@@ -699,10 +699,11 @@ local function catchPlayer(s, g)
 	notify(s.player, "🐕 Le gardien de " .. r.name .. " t'a attrapé !", "caught")
 end
 
-local function nearestTarget(pos, maxDist)
+-- rival : seuls les joueurs dont ce domaine est ouvert peuvent être ciblés (un joueur qui longe la barrière est ignoré)
+local function nearestTarget(pos, maxDist, rival)
 	local best, bd = nil, maxDist
 	for player, s in pairs(sessions) do
-		if s.stun <= 0 and alive(player) then
+		if s.stun <= 0 and Config.zoneUnlocked(s.data.story.ch, rival) and alive(player) then
 			local root = getRoot(player)
 			if root then
 				local dv = root.Position - pos
@@ -732,7 +733,7 @@ local function guardsStep(dt)
 			g.scan = (g.scan or 0) - dt
 			if g.cd <= 0 and g.scan <= 0 then
 				g.scan = 0.15
-				local t = nearestTarget(g.pos, 16)
+				local t = nearestTarget(g.pos, 16, g.rival)
 				if t then
 					g.state, g.target, g.lost = "chase", t, 0
 				end

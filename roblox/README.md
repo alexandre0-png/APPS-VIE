@@ -17,6 +17,18 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Univers et progression (v3)
+
+- **Identité** : le Royaume des Couvées. La Grande Couvée s'est brisée ; tu es un apprenti Chipeur qui reconstruit le **Grand Nid** (monument doré au centre de l'arène). Texte dans `Config.LORE`, introduction affichée aux nouveaux joueurs.
+- **Histoire** : 11 chapitres (`Config.STORY`), de « L'œuf d'argent » à « Le Grand Nid s'éveille ». Chaque chapitre a un objectif, un texte et une récompense (proportionnelle à ton revenu). Onglet Missions > Histoire.
+- **Zones à débloquer** : le domaine de Mara s'ouvre au chapitre 3, la citadelle de Zed au chapitre 6 (`Config.ZONES`). Barrière rouge visible, traversable localement une fois la zone ouverte ; le **serveur refuse tout vol** dans une zone verrouillée, et leurs gardiens ignorent les joueurs qui n'y ont pas accès.
+- **Rangs** : Apprenti, Chipeur, Maître Chipeur, Seigneur des Couvées, Roi des Couvées (affichés sur la base et dans le classement).
+- **Collection** : +5 % de revenus définitifs tous les 3 espèces découvertes (max +30 %).
+- **Pitié** : après 12 éclosions sans rareté supérieure, la suivante l'est garantie.
+- **Sons** : sons intégrés au client Roblox par défaut (vol, éclosion, capture, récompense, clic), remplaçables dans `Config.SOUNDS`.
+- **Achats Robux** : Game Passes Revenus x2, Chance +10 %, Éclosion rapide (-25 % de temps) ; produits Éclosion instantanée, Potion de chance, Sac de pièces. Aucun n'est nécessaire pour progresser (l'histoire, les zones et les rangs sont gratuits).
+- **Données** : version 3 du schéma (migrations automatiques depuis les versions 1 et 2).
+
 ## Passe graphique et robustesse (v2)
 
 - **Ambiance** : soleil chaud, brume, bloom, rayons de soleil, étalonnage plus vif ; collines à l'horizon, murs invisibles, fleurs, rochers, arbres à trois feuillages.

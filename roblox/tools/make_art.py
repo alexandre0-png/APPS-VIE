@@ -150,8 +150,31 @@ def product(fname, top, bottom, big, small, label):
     outlined(im, label, 256, 440, 78, sw=9)
     im.convert("RGB").save(os.path.join(OUT, fname))
 
+def story():
+    w, h = 1920, 1080
+    im = gradient(w, h, (24, 52, 40), (8, 22, 16))
+    rays(im, w // 2, 600, (255, 220, 120), 20, 26)
+    outlined(im, "11 CHAPITRES · 3 DOMAINES · 1 LÉGENDE", w // 2, 120, 84, fill=(255, 218, 70), sw=10)
+    cards = [("Domaine de Gus", "🤠", "🐕", (111, 191, 115), False), ("Domaine de Mara", "🧛", "🐺", (224, 164, 59), True), ("Citadelle de Zed", "🤖", "🐻", (224, 87, 90), True)]
+    for i, (name, boss, guard, col, locked) in enumerate(cards):
+        x = 130 + i * 570
+        rounded(im, (x, 270, x + 520, 840), 46, (14, 30, 22, 240), col + (255,), 12)
+        put(im, boss, x + 260, 440, 190)
+        put(im, guard, x + 260, 650, 130)
+        outlined(im, name, x + 260, 770, 52, sw=7)
+        if locked:
+            ov = Image.new("RGBA", im.size, (0, 0, 0, 0))
+            ImageDraw.Draw(ov).rounded_rectangle((x, 270, x + 520, 840), 46, fill=(120, 20, 40, 110))
+            im.alpha_composite(ov)
+            put(im, "🔒", x + 440, 340, 110)
+    outlined(im, "Réussis l'histoire pour ouvrir chaque domaine", w // 2, 940, 66, fill=(120, 255, 190), sw=8)
+    outlined(im, "Collectionne · Récolte des bonus · Deviens Roi des Couvées", w // 2, 1020, 44, sw=6)
+    im.convert("RGB").save(os.path.join(OUT, "thumb_4_histoire_1920x1080.png"))
+
 if __name__ == "__main__":
-    icon(); hero(); steal(); pets()
+    icon(); hero(); steal(); pets(); story()
+    product("pass_fast_512.png", (255, 230, 90), (255, 140, 30), "⚡", "🥚", "-25%")
+    product("product_coinpack_512.png", (110, 220, 140), (30, 130, 90), "👛", "🪙", "PIÈCES")
     product("pass_coins2x_512.png", (255, 200, 60), (230, 120, 30), "💰", "✨", "x2")
     product("pass_lucky_512.png", (90, 220, 120), (30, 140, 80), "🍀", "✨", "+10%")
     product("product_instanthatch_512.png", (120, 190, 255), (70, 90, 220), "🥚", "⚡", "VITE !")
