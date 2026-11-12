@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Data = require(Shared.MapData)
 local Rng = require(Shared.Rng)
 local DecorKit = require(script.Parent.DecorKit)
+local Atmosphere = require(script.Parent.Atmosphere)
 
 local MapBuilder = {}
 
@@ -640,6 +641,7 @@ function MapBuilder.build()
 	buildGarden(root)
 	buildSpawn(root)
 	setLighting()
+	pcall(Atmosphere.build)
 	print(("[MapBuilder] carte fixe construite : %d murs, %d meubles, %d lampes")
 		:format(#Data.walls, #Data.furniture, #lamps))
 	return root

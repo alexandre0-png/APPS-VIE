@@ -143,6 +143,11 @@ Config.Throw = {
 	Range = 40,              -- portée maximale en studs
 }
 
+Config.Visual = {
+	Dust = true,             -- poussière en suspension dans les pièces (Atmosphere.lua)
+	DustRate = 3,            -- particules par seconde et par pièce : faible, pour rester léger
+}
+
 Config.Ambience = {
 	CreakIntervalMin = 25,   -- secondes entre deux grincements (porte ou chaise)
 	CreakIntervalMax = 60,
