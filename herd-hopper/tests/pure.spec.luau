@@ -253,6 +253,23 @@ return function(Config, Species, Util, Zoo)
 		eq(#dragon.wings, 2, "le dragon garde ses ailes")
 	end)
 
+	test("Config : énigmes (une par animal normal, réponses valides)", function()
+		local answers = {}
+		for _, riddle in ipairs(Config.Riddles) do
+			local def = Species.ById[riddle.answer]
+			truthy(def ~= nil and not def.boss, "réponse valide : " .. tostring(riddle.answer))
+			truthy(#riddle.text > 20, "texte de l'énigme " .. riddle.answer)
+			truthy(not answers[riddle.answer], "réponse en double " .. riddle.answer)
+			answers[riddle.answer] = true
+		end
+		for _, def in ipairs(Species.List) do
+			if not def.boss then
+				truthy(answers[def.id], "pas d'énigme pour " .. def.id)
+			end
+		end
+		truthy(Config.RiddleReward.gold > 0 and Config.RiddleReward.bones > 0, "récompense")
+	end)
+
 	-- ---------------------------------------------------------------- Zoo (économie)
 	test("Zoo : clés d'animaux", function()
 		eq(Zoo.key("boar", 2), "boar_2")

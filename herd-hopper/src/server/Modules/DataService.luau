@@ -44,6 +44,7 @@ local function defaultData()
 		daily = { last = 0, streak = 0 },
 		quests = { day = 0, list = {} },
 		receipts = {},
+		riddle = { day = 0, solved = false, claimed = false },
 	}
 end
 

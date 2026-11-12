@@ -532,6 +532,7 @@ local function clientMain()
 		upgrades = { range = 1, taming = 0, combo = 5 },
 		owned = { hats = { none = true, crown = true }, ropes = { classic = true } }, equipped = { hat = "crown", rope = "classic" },
 		revives = 1,
+		riddle = { text = "Je suis rose et sur une patte. Qui suis-je ?", solved = true, claimed = false, gold = 100, bones = 10 },
 		daily = { claimable = true, streak = 2, reward = 75 },
 		quests = { { id = "capture", label = "Récupérer 3 animaux", progress = 3, target = 3, reward = 60, claimed = false },
 			{ id = "hooks", label = "Réussir 25 sauts", progress = 3, target = 25, reward = 60, claimed = false },
@@ -731,6 +732,16 @@ local function main()
 			local u5 = za(pa, "zone", "volcan")
 			print(("ZOO        caisse en attente=%d  collecte=%s (%s)  2e collecte=%s  animal niv+1=%s  zoo enclos=%s  amélioration inconnue=%s  animal inconnu=%s  zone verrouillée=%s"):format(pending, tostring(c1.ok), c1.msg, tostring(c2.ok), tostring(u1.ok), tostring(u2.ok), tostring(u3.ok), tostring(u4.ok), tostring(u5.ok)))
 			print(("ZOO        animal boar_1 niveau=%s os=%d enclos=%d"):format(tostring(d.animals["boar_1"].level), d.bones, Zoo.slots(d.zooUp.slots, false)))
+			vt = vt + 1
+			local r0 = za(pa, "riddle")
+			local day = math.floor(os.time() / 86400)
+			local answer = Config.Riddles[day % #Config.Riddles + 1].answer
+			Progress.RecordCapture(pa, require(M.__nodes("shared/Species")).ById[answer], 1)
+			vt = vt + 1
+			local r1 = za(pa, "riddle")
+			vt = vt + 1
+			local r2 = za(pa, "riddle")
+			print(("ÉNIGME     avant capture=%s  après (%s)=%s  rejouée=%s  snapshot sans réponse=%s"):format(tostring(r0.ok), answer, tostring(r1.ok), tostring(r2.ok), tostring(Progress.Snapshot(pa).riddle.answer == nil)))
 			vt = vt + 1
 			local st = za(pa, "story")
 			print("HISTOIRE   chapitre 1 réclamé:", tostring(st.ok), st.msg, "| index:", d.story.index)

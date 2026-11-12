@@ -27,6 +27,15 @@ local function today()
 	return math.floor(os.time() / 86400)
 end
 
+-- Énigme du jour (la même pour tous les joueurs ce jour-là) ; remise à zéro quand le jour change.
+local function dailyRiddle(data)
+	local day = today()
+	if data.riddle.day ~= day then
+		data.riddle = { day = day, solved = false, claimed = false }
+	end
+	return Config.Riddles[day % #Config.Riddles + 1]
+end
+
 local function questDef(id)
 	return Config.findById(Config.QuestPool, id)
 end
@@ -257,9 +266,17 @@ function ProgressService.Snapshot(player)
 		}
 	end
 
+	local riddle = dailyRiddle(data)
 	local hasZoo = ProgressService.HasPass(player, "zoo")
 	return {
 		loaded = true,
+		riddle = {
+			text = riddle.text,
+			solved = data.riddle.solved,
+			claimed = data.riddle.claimed,
+			gold = Config.RiddleReward.gold,
+			bones = Config.RiddleReward.bones,
+		},
 		passes = passes,
 		store = ProgressService.Store,
 		persistent = DataService.IsPersistent(player),
@@ -435,6 +452,9 @@ function ProgressService.RecordCapture(player, def, variantIdx)
 
 	if def.boss then
 		data.bossCaptured[def.id] = true
+	end
+	if dailyRiddle(data).answer == def.id then
+		data.riddle.solved = true
 	end
 
 	if result.new and not data.completed[def.id] and not def.boss then
@@ -770,6 +790,21 @@ local function handleZoo(player, action, key)
 		ProgressService.RefreshAttributes(player)
 		ProgressService.Push(player)
 		return result(true, ("Chapitre terminé : +%d or, +%d os"):format(chapter.reward.gold, chapter.reward.bones))
+	elseif action == "riddle" then
+		dailyRiddle(data)
+		if not data.riddle.solved then
+			return result(false, "Récupère d'abord l'animal de l'énigme.")
+		end
+		if data.riddle.claimed then
+			return result(false, "Déjà récupérée aujourd'hui.")
+		end
+		data.riddle.claimed = true
+		data.coins = data.coins + Config.RiddleReward.gold
+		data.bones = data.bones + Config.RiddleReward.bones
+		DataService.MarkDirty(player)
+		ProgressService.RefreshAttributes(player)
+		ProgressService.Push(player)
+		return result(true, ("Bravo ! +%d or, +%d os"):format(Config.RiddleReward.gold, Config.RiddleReward.bones))
 	elseif action == "zone" then
 		if ProgressService.SetZone(player, key) then
 			ProgressService.Push(player)

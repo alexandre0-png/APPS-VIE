@@ -13,6 +13,7 @@ Décisions prises sans validation, pour combler un brief parfois flou :
 - **Zoo** : une parcelle par joueur dans un parc central ; revenu par minute = 6 × valeur × variante × (1 + 0,4 par niveau), multiplié par les visiteurs ; la caisse se remplit même hors ligne (20 min de stockage de base). Les visiteurs sont affichés côté client, uniquement chez le propriétaire.
 - **Histoire** : 11 chapitres (zoo hérité d'une tante) avec objectifs lus dans le profil. Quêtes quotidiennes adaptées au zoo.
 - **Robux** : 4 pass (Zoo Premium, Or x2, Vie supplémentaire, Lasso doré) et 7 produits (or, os, boost x2, Continuer). Le pass Zoo Premium inclut les cornes VIP. Rien d'indispensable : la partie de base reste gratuite.
+- **Énigme du jour** (accord reçu pour ajouter des énigmes) : une énigme par animal normal, la même pour tous ce jour-là ; la capturer (n'importe quelle version) donne 100 or et 10 os. La réponse n'est jamais envoyée au client.
 - **Sauvegarde** : nouvelles clés (`SauteZoo_*`) pour ne pas mélanger avec l'ancien schéma.
 - Bugs trouvés par la simulation et corrigés : relance du boss impossible (le boss te projetait devant lui), fenêtre de re-lasso du boss trop courte, caisse du zoo recalculée rétroactivement lors d'une capture, d'une amélioration ou de l'achat d'un boost (l'or déjà gagné est maintenant figé dans une caisse avant tout changement de taux).
 

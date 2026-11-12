@@ -284,6 +284,44 @@ Config.QuestPool = {
 	{ id = "zone", label = "Atteindre la zone %d", target = 2, reward = 90, mode = "max" },
 }
 
+-- Énigme du jour : on devine l'animal, puis on le récupère (n'importe quelle version) pour toucher la récompense.
+-- La réponse n'est jamais envoyée au client.
+Config.RiddleReward = { gold = 100, bones = 10 }
+Config.Riddles = {
+	{ answer = "boar", text = "Je fouille la savane avec mes défenses et je ne vais jamais droit. Qui suis-je ?" },
+	{
+		answer = "zebra",
+		text = "Mon pelage est un code-barres vivant, et je cours plus vite que la plupart. Qui suis-je ?",
+	},
+	{ answer = "ostrich", text = "Mes pattes sont longues, mon cou aussi, et je ne sais pas voler. Qui suis-je ?" },
+	{
+		answer = "rhino",
+		text = "Ma corne vaut de l'or pour les braconniers, et ma charge fait trembler la plaine. Qui suis-je ?",
+	},
+	{
+		answer = "lion",
+		text = "Une crinière, une couronne et un rugissement : je règne sur la savane. Qui suis-je ?",
+	},
+	{
+		answer = "hippo",
+		text = "Je passe mes journées dans la boue du marais, et ma bouche est immense. Qui suis-je ?",
+	},
+	{
+		answer = "flamingo",
+		text = "Je dors sur une patte et je suis rose à force de manger des crevettes. Qui suis-je ?",
+	},
+	{ answer = "crocodile", text = "Je flotte comme un tronc, puis je referme mes mâchoires. Qui suis-je ?" },
+	{ answer = "camel", text = "Ma bosse est une réserve et je traverse le désert sans boire. Qui suis-je ?" },
+	{ answer = "ram", text = "Je bondis de rocher en rocher avec mes cornes en spirale. Qui suis-je ?" },
+	{ answer = "trike", text = "Trois cornes, une collerette, et je viens d'un temps très ancien. Qui suis-je ?" },
+	{ answer = "salamander", text = "Ma peau brille comme la braise et je me baigne dans la lave. Qui suis-je ?" },
+	{ answer = "wyvern", text = "Je vole au-dessus du sol mortel, et il faut sauter pour m'attraper. Qui suis-je ?" },
+	{
+		answer = "mammoth",
+		text = "Mon pelage est épais, mes défenses sont longues, et je ne désarçonne jamais. Qui suis-je ?",
+	},
+}
+
 Config.DailyReward = { Base = 50, PerStreak = 25, MaxStreak = 7 }
 
 -- Histoire : une chaîne de chapitres. Chaque chapitre a un objectif lu dans le profil du joueur.
@@ -2250,6 +2288,7 @@ local function defaultData()
 		daily = { last = 0, streak = 0 },
 		quests = { day = 0, list = {} },
 		receipts = {},
+		riddle = { day = 0, solved = false, claimed = false },
 	}
 end
 
@@ -3809,6 +3848,15 @@ local function today()
 	return math.floor(os.time() / 86400)
 end
 
+-- Énigme du jour (la même pour tous les joueurs ce jour-là) ; remise à zéro quand le jour change.
+local function dailyRiddle(data)
+	local day = today()
+	if data.riddle.day ~= day then
+		data.riddle = { day = day, solved = false, claimed = false }
+	end
+	return Config.Riddles[day % #Config.Riddles + 1]
+end
+
 local function questDef(id)
 	return Config.findById(Config.QuestPool, id)
 end
@@ -4039,9 +4087,17 @@ function ProgressService.Snapshot(player)
 		}
 	end
 
+	local riddle = dailyRiddle(data)
 	local hasZoo = ProgressService.HasPass(player, "zoo")
 	return {
 		loaded = true,
+		riddle = {
+			text = riddle.text,
+			solved = data.riddle.solved,
+			claimed = data.riddle.claimed,
+			gold = Config.RiddleReward.gold,
+			bones = Config.RiddleReward.bones,
+		},
 		passes = passes,
 		store = ProgressService.Store,
 		persistent = DataService.IsPersistent(player),
@@ -4217,6 +4273,9 @@ function ProgressService.RecordCapture(player, def, variantIdx)
 
 	if def.boss then
 		data.bossCaptured[def.id] = true
+	end
+	if dailyRiddle(data).answer == def.id then
+		data.riddle.solved = true
 	end
 
 	if result.new and not data.completed[def.id] and not def.boss then
@@ -4552,6 +4611,21 @@ local function handleZoo(player, action, key)
 		ProgressService.RefreshAttributes(player)
 		ProgressService.Push(player)
 		return result(true, ("Chapitre terminé : +%d or, +%d os"):format(chapter.reward.gold, chapter.reward.bones))
+	elseif action == "riddle" then
+		dailyRiddle(data)
+		if not data.riddle.solved then
+			return result(false, "Récupère d'abord l'animal de l'énigme.")
+		end
+		if data.riddle.claimed then
+			return result(false, "Déjà récupérée aujourd'hui.")
+		end
+		data.riddle.claimed = true
+		data.coins = data.coins + Config.RiddleReward.gold
+		data.bones = data.bones + Config.RiddleReward.bones
+		DataService.MarkDirty(player)
+		ProgressService.RefreshAttributes(player)
+		ProgressService.Push(player)
+		return result(true, ("Bravo ! +%d or, +%d os"):format(Config.RiddleReward.gold, Config.RiddleReward.bones))
 	elseif action == "zone" then
 		if ProgressService.SetZone(player, key) then
 			ProgressService.Push(player)
@@ -8522,6 +8596,33 @@ local function renderQuests(content)
 		})
 	end
 
+	local riddle = data.riddle
+	if riddle then
+		order = order + 1
+		local text, color, handler
+		if riddle.claimed then
+			text, color = "RÉSOLUE", UI.Colors.Muted
+		elseif riddle.solved then
+			text, color = "RÉCUPÉRER", UI.Colors.Good
+			handler = function()
+				invoke(Remotes.ZooAction, "riddle")
+			end
+		else
+			text, color = "À RÉSOUDRE", UI.Colors.PanelLight
+		end
+		row(
+			list,
+			order,
+			"Énigme du jour",
+			riddle.text .. (" Récupère-le : +%d or, +%d os."):format(riddle.gold, riddle.bones),
+			text,
+			color,
+			handler,
+			nil,
+			88
+		)
+	end
+
 	local daily = data.daily
 	order = order + 1
 	row(
@@ -8727,7 +8828,11 @@ local function questBadge()
 	if not data or not data.loaded then
 		return false
 	end
-	if data.daily.claimable or (data.story and data.story.ready) then
+	if
+		data.daily.claimable
+		or (data.story and data.story.ready)
+		or (data.riddle and data.riddle.solved and not data.riddle.claimed)
+	then
 		return true
 	end
 	for _, quest in ipairs(data.quests) do

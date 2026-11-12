@@ -279,6 +279,44 @@ Config.QuestPool = {
 	{ id = "zone", label = "Atteindre la zone %d", target = 2, reward = 90, mode = "max" },
 }
 
+-- Énigme du jour : on devine l'animal, puis on le récupère (n'importe quelle version) pour toucher la récompense.
+-- La réponse n'est jamais envoyée au client.
+Config.RiddleReward = { gold = 100, bones = 10 }
+Config.Riddles = {
+	{ answer = "boar", text = "Je fouille la savane avec mes défenses et je ne vais jamais droit. Qui suis-je ?" },
+	{
+		answer = "zebra",
+		text = "Mon pelage est un code-barres vivant, et je cours plus vite que la plupart. Qui suis-je ?",
+	},
+	{ answer = "ostrich", text = "Mes pattes sont longues, mon cou aussi, et je ne sais pas voler. Qui suis-je ?" },
+	{
+		answer = "rhino",
+		text = "Ma corne vaut de l'or pour les braconniers, et ma charge fait trembler la plaine. Qui suis-je ?",
+	},
+	{
+		answer = "lion",
+		text = "Une crinière, une couronne et un rugissement : je règne sur la savane. Qui suis-je ?",
+	},
+	{
+		answer = "hippo",
+		text = "Je passe mes journées dans la boue du marais, et ma bouche est immense. Qui suis-je ?",
+	},
+	{
+		answer = "flamingo",
+		text = "Je dors sur une patte et je suis rose à force de manger des crevettes. Qui suis-je ?",
+	},
+	{ answer = "crocodile", text = "Je flotte comme un tronc, puis je referme mes mâchoires. Qui suis-je ?" },
+	{ answer = "camel", text = "Ma bosse est une réserve et je traverse le désert sans boire. Qui suis-je ?" },
+	{ answer = "ram", text = "Je bondis de rocher en rocher avec mes cornes en spirale. Qui suis-je ?" },
+	{ answer = "trike", text = "Trois cornes, une collerette, et je viens d'un temps très ancien. Qui suis-je ?" },
+	{ answer = "salamander", text = "Ma peau brille comme la braise et je me baigne dans la lave. Qui suis-je ?" },
+	{ answer = "wyvern", text = "Je vole au-dessus du sol mortel, et il faut sauter pour m'attraper. Qui suis-je ?" },
+	{
+		answer = "mammoth",
+		text = "Mon pelage est épais, mes défenses sont longues, et je ne désarçonne jamais. Qui suis-je ?",
+	},
+}
+
 Config.DailyReward = { Base = 50, PerStreak = 25, MaxStreak = 7 }
 
 -- Histoire : une chaîne de chapitres. Chaque chapitre a un objectif lu dans le profil du joueur.

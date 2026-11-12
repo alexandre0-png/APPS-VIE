@@ -555,6 +555,33 @@ local function renderQuests(content)
 		})
 	end
 
+	local riddle = data.riddle
+	if riddle then
+		order = order + 1
+		local text, color, handler
+		if riddle.claimed then
+			text, color = "RÉSOLUE", UI.Colors.Muted
+		elseif riddle.solved then
+			text, color = "RÉCUPÉRER", UI.Colors.Good
+			handler = function()
+				invoke(Remotes.ZooAction, "riddle")
+			end
+		else
+			text, color = "À RÉSOUDRE", UI.Colors.PanelLight
+		end
+		row(
+			list,
+			order,
+			"Énigme du jour",
+			riddle.text .. (" Récupère-le : +%d or, +%d os."):format(riddle.gold, riddle.bones),
+			text,
+			color,
+			handler,
+			nil,
+			88
+		)
+	end
+
 	local daily = data.daily
 	order = order + 1
 	row(
@@ -760,7 +787,11 @@ local function questBadge()
 	if not data or not data.loaded then
 		return false
 	end
-	if data.daily.claimable or (data.story and data.story.ready) then
+	if
+		data.daily.claimable
+		or (data.story and data.story.ready)
+		or (data.riddle and data.riddle.solved and not data.riddle.claimed)
+	then
 		return true
 	end
 	for _, quest in ipairs(data.quests) do
