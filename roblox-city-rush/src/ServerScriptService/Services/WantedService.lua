@@ -15,6 +15,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
 local PedestrianService = require(script.Parent.PedestrianService)
 local VehicleService = require(script.Parent.VehicleService)
+local CinematicService = require(script.Parent.CinematicService)
 
 local WantedService = {}
 WantedService.Busted = Util.newSignal() -- (player)
@@ -78,6 +79,9 @@ function WantedService.addHeat(player, amount, reason)
 	s.lastNear = os.clock()
 	if s.stars > before then
 		RemoteService.notify(player, string.format("%s ! Niveau de recherche : %d", reason or "Recherché", s.stars), "bad")
+		if before == 0 then
+			CinematicService.play(player, "chase")
+		end
 		if s.stars >= 5 then
 			EconomyService.addStat(player, "fiveStars", 1)
 		end

@@ -663,6 +663,84 @@ test("Animations.on : interrupteur général et par animation", function()
 	C.Animations.Enabled = true
 end)
 
+print("== Cinématiques")
+test("CinematicLogic : toutes les séquences valides, 20 à 40 s, skippables", function()
+	local C = H.mod("Config"); local L = H.mod("CinematicLogic"); local n = 0
+	for id, seq in pairs(C.Cinematics.Sequences) do
+		local ok, msg = L.validate(seq); truthy(ok, id .. ": " .. tostring(msg))
+		local d = L.totalDuration(seq); truthy(d >= 20 and d <= 40, id .. " dure " .. d .. " s"); n = n + 1
+	end
+	for _, id in ipairs({ "intro", "arrival", "chase", "story1", "story2", "story3", "story4", "heist", "finale" }) do truthy(C.Cinematics.Sequences[id], "séquence " .. id) end
+	eq(n, 9)
+end)
+test("CinematicLogic : validation rejette les séquences invalides", function()
+	local L = H.mod("CinematicLogic")
+	eq((L.validate(nil)), false); eq((L.validate({})), false); eq((L.validate({ shots = {} })), false)
+	local base = function(over) local shot = { dur = 25, kind = "orbit", radius = 10, a0 = 0, a1 = 1, caption = "x" }; for k, v in pairs(over or {}) do shot[k] = v end; return { shots = { shot } } end
+	eq((L.validate(base())), true)
+	eq((L.validate(base({ dur = 0 }))), false); eq((L.validate(base({ dur = -5 }))), false); eq((L.validate(base({ kind = "zoom" }))), false)
+	eq((L.validate(base({ radius = 0 }))), false); eq((L.validate(base({ caption = "" }))), false); eq((L.validate(base({ dur = 5 }))), false, "trop court")
+	eq((L.validate(base({ dur = 41 }))), false, "trop long"); eq((L.validate(base({ kind = "fly" }))), false, "fly sans from/to")
+end)
+test("CinematicLogic : lecteur (temps, plans, skip, fin, reprise)", function()
+	local L = H.mod("CinematicLogic")
+	local seq = { shots = { { dur = 10, kind = "orbit", radius = 5, a0 = 0, a1 = 1, caption = "A" }, { dur = 12, kind = "orbit", radius = 5, a0 = 0, a1 = 1, caption = "B" } } }
+	local p = L.newPlayer(seq); eq(p.total, 22); eq(p.finished, false); eq(p:caption(), "A")
+	p:step(4); local shot, prog, idx = p:current(); eq(idx, 1); near(prog, 0.4, 1e-9)
+	p:step(7); shot, prog, idx = p:current(); eq(idx, 2); eq(p:caption(), "B"); near(prog, 1 / 12, 1e-9)
+	p:step(-5); near(p.time, 11, 1e-9, "dt négatif ignoré")
+	p:step(100); eq(p.finished, true); eq(p.skipped, false); eq(p.time, 22)
+	eq(p:skip(), false, "skip après la fin sans effet"); local before = p.time; p:step(5); eq(p.time, before, "plus d'avancement une fois fini")
+	local q = L.newPlayer(seq); q:step(3); eq(q:skip(), true); eq(q.finished, true); eq(q.skipped, true); eq(q:skip(), false, "double skip")
+	local r = L.newPlayer(seq); r:step(1e9); local s2, p2, i2 = r:current(); eq(i2, 2); eq(p2, 1, "avancement borné")
+end)
+test("CinematicLogic : poses caméra (orbite, survol) et file d'attente", function()
+	local L = H.mod("CinematicLogic")
+	local orbit = { kind = "orbit", radius = 10, height = 5, a0 = 0, a1 = math.pi, lookY = 2 }
+	local pos, look = L.pose(orbit, 0, { 100, 0, 50 }); near(pos.x, 110, 1e-9); near(pos.y, 5, 1e-9); near(pos.z, 50, 1e-9); eq(look.y, 2); eq(look.x, 100)
+	pos = L.pose(orbit, 1, { 100, 0, 50 }); near(pos.x, 90, 1e-9); near(pos.z, 50, 1e-6)
+	pos = L.pose(orbit, 2, { 0, 0, 0 }); near(pos.x, -10, 1e-9, "avancement borné à 1"); 
+	local fly = { kind = "fly", from = { 0, 10, 0 }, to = { 100, 10, 0 } }
+	pos = L.pose(fly, 0, { 0, 0, 0 }); eq(pos.x, 0); pos = L.pose(fly, 1, { 0, 0, 0 }); eq(pos.x, 100)
+	local rel = { kind = "fly", relative = true, from = { 0, 10, 0 }, to = { 100, 10, 0 } }
+	pos = L.pose(rel, 0, { 500, 0, 500 }); eq(pos.x, 500); eq(pos.z, 500)
+	local q = {}
+	eq(L.enqueue(q, "a", 2), true); eq(L.enqueue(q, "a", 2), false, "pas de doublon"); eq(L.enqueue(q, "b", 2), true); eq(L.enqueue(q, "c", 2), false, "file bornée"); eq(#q, 2)
+end)
+test("CinematicService : une seule fois, réglages, inconnues, sans profil", function()
+	local M = boot(); local Cin = H.mod("CinematicService"); local p = join(M, "CI1"); local C = M.Config
+	eq(Cin.play(p, "intro"), true); eq(lastFired("Cinematic", p).args[1], "intro"); eq(M.Data.get(p).Seen.intro, true)
+	eq(Cin.play(p, "intro"), false, "déjà vue")
+	eq(#H.remote("Cinematic")._fired, 1)
+	for _, bad in ipairs({ "inconnue", "", "__index" }) do eq(Cin.play(p, bad), false) end
+	C.Cinematics.Sequences.arrival.enabled = false; eq(Cin.play(p, "arrival"), false, "séquence désactivée"); C.Cinematics.Sequences.arrival.enabled = true
+	C.Cinematics.Enabled = false; eq(Cin.play(p, "chase"), false, "coupure générale"); eq(M.Data.get(p).Seen.chase, nil, "non marquée vue si désactivée"); C.Cinematics.Enabled = true
+	C.Cinematics.PlayOnce = false; eq(Cin.play(p, "intro"), true, "rejouable si PlayOnce = false"); C.Cinematics.PlayOnce = true
+	local ghost = join(M, "CI2", false); H.ds.failLoad = true; local nop = H.addPlayer("CI3"); H.advance(0.2); eq(Cin.play(nop, "intro"), false, "sans profil")
+end)
+test("cinématiques : déclenchées par la première poursuite, l'histoire et le braquage", function()
+	local M = bootGame(); local Cin = H.mod("CinematicService"); M.Story = H.mod("StoryService"); M.Story.init(); M.Story.start()
+	M.Mission = H.mod("MissionService"); local pad = H.Instance.new("Part"); pad:SetAttribute("Mission", "heist"); H.services.CollectionService:AddTag(pad, "MissionHub"); M.Mission.init(M.World); M.Mission.start()
+	local p = join(M, "CI4"); local d = M.Data.get(p); local ids = function() local out = {}; for _, f in ipairs(H.remote("Cinematic")._fired) do out[#out + 1] = f.args[1] end; return table.concat(out, ",") end
+	M.Wanted.addHeat(p, 25); eq(ids(), "chase", "première poursuite")
+	M.Wanted.clear(p); M.Wanted.addHeat(p, 25); eq(ids(), "chase", "une seule fois")
+	local ch = M.Config.Story.Chapters
+	for i = 1, 4 do H.move(p, V3.new(ch[i].x, 3, ch[i].z)); H.advance(1) end
+	eq(ids(), "chase,story1,story2,story3,story4")
+	H.advance(3); client(p, "SubmitCode", "7391"); truthy(ids():find("finale"), "fin de l'histoire")
+	d.Level = 6; M.Wanted.clear(p); pad:FindFirstChildOfClass("ProximityPrompt").Triggered:Fire(p)
+	H.move(p, M.World.Hideout + V3.new(0, 2.5, 0)); H.advance(0.6); truthy(ids():find("heist"), "braquage réussi")
+end)
+test("cinématiques : intro puis arrivée au premier lancement (Main)", function()
+	H.rayHit = true
+	local MainInst
+	for _, c in ipairs(H.SSS:GetChildren()) do if c.Name == "Main" then MainInst = c end end
+	local p = H.addPlayer("Main2"); p.LoadCharacter = function(self) H.spawnCharacter(self, V3.new(0, 3, 0)) end
+	H.env.task.spawn(function() H.require(MainInst) end); H.advance(3000)
+	local ids = {}; for _, f in ipairs(H.remote("Cinematic")._fired) do ids[#ids + 1] = f.args[1] end
+	eq(table.concat(ids, ","), "intro,arrival"); H.advance(600)
+end)
+
 print("== Client (chargement des modules)")
 test("modules client : syntaxe et chargement", function()
 	local spsC

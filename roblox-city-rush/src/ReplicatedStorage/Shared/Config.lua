@@ -263,6 +263,87 @@ Config.Animations = {
 	DriftSpeedRatio = 0.55,
 }
 
+-- Cinématiques (20-40 s, skippables, jouées une seule fois par joueur). Positions en studs (monde) ; center = "player" ou {x,y,z}.
+-- kinds : "orbit" (autour du centre) | "fly" (survol de from vers to, positions monde ou relatives au centre)
+Config.Cinematics = {
+	Enabled = true,
+	PlayOnce = true,
+	Letterbox = true,
+	HideHud = true,
+	MaxQueue = 3,
+	Sequences = {
+		intro = {
+			enabled = true, title = "Bienvenue à CITY RUSH",
+			shots = {
+				{ dur = 8, kind = "fly", center = { 0, 0, 0 }, from = { -620, 260, 620 }, to = { 320, 200, 320 }, lookY = 30, caption = "Bienvenue à CITY RUSH : une ville, mille occasions." },
+				{ dur = 8, kind = "orbit", center = { 0, 60, -200 }, radius = 230, height = 120, a0 = 0.2, a1 = 1.9, lookY = 0, caption = "Vole des voitures, accepte des contrats, remplis ton garage." },
+				{ dur = 7, kind = "fly", center = { 0, 0, 0 }, from = { -500, 14, -300 }, to = { -500, 14, 300 }, lookY = 6, caption = "Mais la police veille : chaque bêtise a un prix." },
+				{ dur = 7, kind = "orbit", center = { 0, 6, 0 }, radius = 70, height = 28, a0 = 3.2, a1 = 5.2, lookY = 4, caption = "Deviens la légende de la ville. À toi de jouer !" },
+			},
+		},
+		arrival = {
+			enabled = true, title = "Ta première voiture",
+			shots = {
+				{ dur = 8, kind = "orbit", center = "player", radius = 24, height = 7, a0 = 0.5, a1 = 2.6, lookY = 3, caption = "Ta première voiture : une Citadine, rien que pour toi." },
+				{ dur = 7, kind = "orbit", center = "player", radius = 14, height = 4, a0 = 3.4, a1 = 4.6, lookY = 2.5, caption = "Touche G : garage. Shift : nitro. Espace : sortir." },
+				{ dur = 7, kind = "orbit", center = "player", radius = 40, height = 30, a0 = 5.0, a1 = 6.6, lookY = 0, caption = "Vole d'autres voitures dans la rue, c'est permis (ici)." },
+			},
+		},
+		chase = {
+			enabled = true, title = "Première poursuite",
+			shots = {
+				{ dur = 8, kind = "orbit", center = "player", radius = 36, height = 18, a0 = 0, a1 = 2.0, lookY = 2, caption = "Niveau de recherche : la police t'a repéré !" },
+				{ dur = 8, kind = "orbit", center = "player", radius = 20, height = 6, a0 = 2.4, a1 = 4.2, lookY = 2, caption = "Sème-les : sors de leur champ de vision et tiens bon." },
+				{ dur = 8, kind = "orbit", center = "player", radius = 55, height = 40, a0 = 4.6, a1 = 6.2, lookY = 0, caption = "Ou file au Pay'n'Spray pour te faire oublier." },
+			},
+		},
+		story1 = {
+			enabled = true, title = "Énigme 1 : la banque",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { 0, 12, -170 }, radius = 60, height = 30, a0 = 0.5, a1 = 2.4, lookY = 0, caption = "Sous le marbre de la banque, un premier chiffre sommeillait." },
+				{ dur = 10, kind = "fly", center = { 0, 12, -170 }, from = { -70, 40, -240 }, to = { 70, 12, -150 }, lookY = 0, relative = false, caption = "Le journal du maire dit vrai. Trois chiffres restent à trouver." },
+			},
+		},
+		story2 = {
+			enabled = true, title = "Énigme 2 : le taxi",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { -40, 6, -10 }, radius = 45, height = 22, a0 = 1.0, a1 = 3.0, lookY = 0, caption = "Jaune comme un taxi : le deuxième chiffre est à toi." },
+				{ dur = 10, kind = "orbit", center = { -40, 6, -10 }, radius = 25, height = 8, a0 = 3.0, a1 = 4.6, lookY = 2, caption = "Le mystère s'épaissit... qui a caché ce journal ?" },
+			},
+		},
+		story3 = {
+			enabled = true, title = "Énigme 3 : la pizzeria",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { -352, 8, -30 }, radius = 50, height = 24, a0 = 0, a1 = 2.2, lookY = 0, caption = "Ça sent la pâte chaude, et un troisième chiffre." },
+				{ dur = 10, kind = "orbit", center = { -352, 8, -30 }, radius = 28, height = 10, a0 = 2.2, a1 = 4.4, lookY = 3, caption = "Plus qu'un seul chiffre avant le coffre du maire." },
+			},
+		},
+		story4 = {
+			enabled = true, title = "Énigme 4 : le Pay'n'Spray",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { -200, 8, 386 }, radius = 55, height = 26, a0 = 4.0, a1 = 6.0, lookY = 0, caption = "Là où l'on efface les traces, le dernier chiffre..." },
+				{ dur = 10, kind = "fly", center = { -200, 8, 386 }, from = { -260, 30, 330 }, to = { -140, 12, 420 }, lookY = 0, caption = "Quatre chiffres ! Ouvre ton journal (J) et entre le code." },
+			},
+		},
+		heist = {
+			enabled = true, title = "Casse réussi",
+			shots = {
+				{ dur = 9, kind = "orbit", center = { -30, 6, -345 }, radius = 50, height = 20, a0 = 0, a1 = 2.4, lookY = 0, caption = "Planque atteinte : la police a perdu ta trace." },
+				{ dur = 10, kind = "orbit", center = { -30, 6, -345 }, radius = 90, height = 60, a0 = 2.4, a1 = 4.8, lookY = 0, caption = "Un beau butin, une réputation en or. Ne te fais pas prendre !" },
+				{ dur = 7, kind = "fly", center = { 0, 0, 0 }, from = { -200, 80, -500 }, to = { 100, 50, -250 }, lookY = 10, caption = "La ville parle déjà de toi." },
+			},
+		},
+		finale = {
+			enabled = true, title = "Fin de saison : l'Affaire du Coffre",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { 0, 10, 0 }, radius = 80, height = 45, a0 = 0, a1 = 2.5, lookY = 0, caption = "Le coffre s'ouvre : l'Affaire du Coffre est classée !" },
+				{ dur = 10, kind = "fly", center = { 0, 0, 0 }, from = { -420, 120, 420 }, to = { 420, 120, -420 }, lookY = 20, caption = "Tu es le Détective de la ville. Bravo !" },
+				{ dur = 10, kind = "orbit", center = { 0, 6, 0 }, radius = 60, height = 20, a0 = 2.5, a1 = 5.0, lookY = 3, caption = "Fin de saison 1. D'autres mystères t'attendent bientôt..." },
+			},
+		},
+	},
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },

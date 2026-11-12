@@ -11,7 +11,7 @@ local RemoteService = {}
 local FOLDER_NAME = "CityRushRemotes"
 
 -- Serveur -> Client
-local SERVER_TO_CLIENT = { "State", "Notify", "Wanted", "Mission", "Banner", "OpenPanel", "Busted", "Leaderboard", "Collected" }
+local SERVER_TO_CLIENT = { "State", "Notify", "Wanted", "Mission", "Banner", "OpenPanel", "Busted", "Leaderboard", "Collected", "Cinematic" }
 -- Client -> Serveur
 local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "AbandonMission", "ClaimDaily", "RequestState", "SubmitCode" }
 

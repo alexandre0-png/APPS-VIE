@@ -69,6 +69,9 @@ local function start()
 	end)
 	require(Controllers:WaitForChild("Hud")).init(gui)
 	require(Controllers:WaitForChild("Panels")).init(gui)
+	pcall(function()
+		require(Controllers:WaitForChild("Cinematics")).init(gui)
+	end)
 end
 
 task.spawn(function()

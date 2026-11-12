@@ -15,6 +15,11 @@ Si les performances mobiles sont insuffisantes : `Quality = "low"`, `Details = f
 `Config.Animations` (activer/couper chaque animation) : roulis et suspension de caméra, dérapage (fumée), démarrage, porte conducteur, éclair de phares au klaxon (H), menottes à l'arrestation, ouverture des menus, pop des gains, arrivée des missions, journal (chiffres + texte tapé).
 Les animations sont locales (visibles par le joueur concerné). Si la caméra paraît trop penchée : réduire `MaxLeanDegrees`.
 
+### Cinématiques à valider visuellement
+9 séquences de 20 à 40 s (`Config.Cinematics`) : intro de la ville, arrivée dans la première voiture, première poursuite, une par énigme (story1 à story4), casse réussi, fin de saison.
+Chacune est skippable (bouton, Espace, Entrée, B manette), jouée une seule fois par joueur, jamais bloquante (la caméra est toujours restaurée, même en cas d'erreur ou de mort).
+À vérifier : cadrages (positions en studs dans `Config.Cinematics.Sequences.*.shots`), lisibilité des légendes sur mobile. Pour les revoir pendant les tests : `PlayOnce = false`, ou couper une séquence avec `enabled = false`.
+
 ## 2. Publication (Open Cloud / Creator Hub)
 - [ ] Créer une expérience vide dans le Creator Hub -> noter **universeId** et **placeId**.
 - [ ] Fournir une clé API Open Cloud (jamais dans le dépôt) : variable `ROBLOX_API_KEY`, permissions `universe-places:write`, `universe.developer-product:write`, `universe.game-pass:write`.

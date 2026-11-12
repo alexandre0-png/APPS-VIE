@@ -32,6 +32,7 @@ local DEFAULT = {
 	Achv = {},
 	Daily = { day = 0, streak = 0 },
 	Story = { chapter = 0, done = false },
+	Seen = {}, -- cinématiques déjà vues
 	PeakCash = 0,
 }
 

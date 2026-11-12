@@ -21,6 +21,7 @@ local CollectibleService = require(Services.CollectibleService)
 local StoryService = require(Services.StoryService)
 local EventService = require(Services.EventService)
 local LeaderboardService = require(Services.LeaderboardService)
+local CinematicService = require(Services.CinematicService)
 local MonetizationService = require(Services.MonetizationService)
 
 -- Les joueurs peuvent arriver pendant la génération : on gère leur apparition dès maintenant.
@@ -49,10 +50,18 @@ local function onPlayer(player)
 		end
 		loadCharacter(player)
 		local profile = DataService.get(player)
+		if profile then
+			task.delay(1.5, function()
+				if player.Parent then
+					CinematicService.play(player, "intro")
+				end
+			end)
+		end
 		if profile and profile.Stats.joins == 1 then
 			-- premier lancement : la Citadine apparaît automatiquement
 			task.wait(2.5)
 			VehicleService.spawnFor(player, "citadine")
+			CinematicService.play(player, "arrival")
 			RemoteService.notify(player, "Bienvenue à CITY RUSH ! Ta Citadine t'attend. Touche G = garage.", "good")
 		end
 	end)

@@ -16,8 +16,11 @@ State.PanelRequested = Util.newSignal() -- (name)
 State.BustedSignal = Util.newSignal() -- (lost)
 State.LeaderboardChanged = Util.newSignal() -- (rows)
 State.CollectedChanged = Util.newSignal() -- (list, total)
+State.CinematicRequested = Util.newSignal() -- (id)
 
 State.data = nil
+State.cinematicsReady = false
+State.pendingCinematics = {}
 State.mission = nil
 State.stars = 0
 State.evading = false
@@ -70,6 +73,15 @@ function State.init()
 	State.remote("Leaderboard").OnClientEvent:Connect(function(rows)
 		State.leaderboard = rows
 		State.LeaderboardChanged:Fire(rows)
+	end)
+	State.remote("Cinematic").OnClientEvent:Connect(function(id)
+		if type(id) == "string" then
+			if State.cinematicsReady then
+				State.CinematicRequested:Fire(id)
+			else
+				table.insert(State.pendingCinematics, id) -- reçue avant l'initialisation du lecteur
+			end
+		end
 	end)
 	State.remote("Collected").OnClientEvent:Connect(function(list, total)
 		State.collected = {}

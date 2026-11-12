@@ -14,6 +14,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local RemoteService = require(script.Parent.RemoteService)
 local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
+local CinematicService = require(script.Parent.CinematicService)
 
 local StoryService = {}
 
@@ -36,6 +37,7 @@ local function step()
 				RemoteService.notify(player, msg, "star")
 				DataService.markDirty(player)
 				EconomyService.pushState(player)
+				CinematicService.play(player, "story" .. profile.Story.chapter)
 			end
 		end
 	end
@@ -58,6 +60,7 @@ local function onSubmit(player, code)
 		RemoteService.notify(player, string.format("COFFRE OUVERT ! +%s - Tu es le Détective de la ville !", Util.formatCash(paid)), "levelup")
 		DataService.markDirty(player)
 		EconomyService.pushState(player)
+		CinematicService.play(player, "finale")
 	else
 		RemoteService.notify(player, "Code erroné. Relis les chiffres de ton journal.", "bad")
 	end

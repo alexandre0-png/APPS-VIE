@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">640</int><float name="Gravity">196.2</float></Properties></Item><Item class="Lighting" referent="RBX1"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><float name="ClockTime">14</float><float name="Brightness">2.5</float><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX7"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX6"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[--[[
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">640</int><float name="Gravity">196.2</float></Properties></Item><Item class="Lighting" referent="RBX1"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><float name="ClockTime">14</float><float name="Brightness">2.5</float><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX8"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[--[[
 	AnimMath : fonctions pures des animations (testables sans Roblox).
 ]]
 
@@ -84,7 +84,142 @@ function AnimMath.doorAngle(t, duration, openDeg)
 end
 
 return AnimMath
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">CinematicLogic</string><ProtectedString name="Source"><![CDATA[--[[
+	CinematicLogic : logique pure des cinématiques (testable sans Roblox).
+	- validation des séquences (durées 20 à 40 s)
+	- lecteur : temps, plan courant, légende, skip, reprise (finished/skipped, une seule fois)
+	- pose caméra d'un plan (position + point visé) sous forme de tables {x,y,z}
+]]
+
+local CinematicLogic = {}
+
+CinematicLogic.MIN_DURATION = 20
+CinematicLogic.MAX_DURATION = 40
+
+local function smooth(t)
+	t = math.max(0, math.min(1, t))
+	return t * t * (3 - 2 * t)
+end
+
+function CinematicLogic.totalDuration(seq)
+	local d = 0
+	for _, shot in ipairs(seq.shots) do
+		d += shot.dur
+	end
+	return d
+end
+
+-- Retourne (ok, message)
+function CinematicLogic.validate(seq)
+	if type(seq) ~= "table" or type(seq.shots) ~= "table" or #seq.shots == 0 then
+		return false, "séquence vide"
+	end
+	for i, shot in ipairs(seq.shots) do
+		if type(shot.dur) ~= "number" or shot.dur <= 0 then
+			return false, "durée invalide du plan " .. i
+		end
+		if shot.kind ~= "orbit" and shot.kind ~= "fly" then
+			return false, "type de plan inconnu " .. tostring(shot.kind)
+		end
+		if shot.kind == "orbit" and (type(shot.radius) ~= "number" or shot.radius <= 0) then
+			return false, "rayon invalide du plan " .. i
+		end
+		if shot.kind == "fly" and (type(shot.from) ~= "table" or type(shot.to) ~= "table") then
+			return false, "from/to manquants du plan " .. i
+		end
+		if type(shot.caption) ~= "string" or shot.caption == "" then
+			return false, "légende manquante du plan " .. i
+		end
+	end
+	local total = CinematicLogic.totalDuration(seq)
+	if total < CinematicLogic.MIN_DURATION or total > CinematicLogic.MAX_DURATION then
+		return false, string.format("durée totale %ds hors de 20-40 s", total)
+	end
+	return true, "ok"
+end
+
+-- Lecteur ------------------------------------------------------------
+local Player = {}
+Player.__index = Player
+
+function CinematicLogic.newPlayer(seq)
+	return setmetatable({ seq = seq, time = 0, finished = false, skipped = false, total = CinematicLogic.totalDuration(seq) }, Player)
+end
+
+function Player:step(dt)
+	if self.finished then
+		return
+	end
+	self.time += math.max(0, dt)
+	if self.time >= self.total then
+		self.time = self.total
+		self.finished = true
+	end
+end
+
+function Player:skip()
+	if self.finished then
+		return false
+	end
+	self.skipped = true
+	self.finished = true
+	return true
+end
+
+-- Retourne (plan, avancement 0..1 dans ce plan, index)
+function Player:current()
+	local t = self.time
+	for i, shot in ipairs(self.seq.shots) do
+		if t < shot.dur or i == #self.seq.shots then
+			return shot, math.min(1, t / shot.dur), i
+		end
+		t -= shot.dur
+	end
+end
+
+function Player:caption()
+	local shot = self:current()
+	return shot and shot.caption or ""
+end
+
+-- Pose caméra : center = {x,y,z} (monde). Retourne pos, look (tables)
+function CinematicLogic.pose(shot, progress, center)
+	local p = smooth(progress)
+	local cx, cy, cz = center[1], center[2], center[3]
+	local lookY = shot.lookY or 0
+	if shot.kind == "orbit" then
+		local a = shot.a0 + (shot.a1 - shot.a0) * p
+		return { x = cx + math.cos(a) * shot.radius, y = cy + (shot.height or 20), z = cz + math.sin(a) * shot.radius },
+			{ x = cx, y = cy + lookY, z = cz }
+	end
+	local f, t = shot.from, shot.to
+	local ox, oy, oz = 0, 0, 0
+	if shot.relative then
+		ox, oy, oz = cx, cy, cz
+	end
+	return {
+		x = ox + f[1] + (t[1] - f[1]) * p,
+		y = oy + f[2] + (t[2] - f[2]) * p,
+		z = oz + f[3] + (t[3] - f[3]) * p,
+	}, { x = cx, y = cy + lookY, z = cz }
+end
+
+-- File d'attente : évite les doublons et borne la taille. Retourne true si ajouté.
+function CinematicLogic.enqueue(queue, id, maxSize)
+	if #queue >= maxSize then
+		return false
+	end
+	for _, q in ipairs(queue) do
+		if q == id then
+			return false
+		end
+	end
+	table.insert(queue, id)
+	return true
+end
+
+return CinematicLogic
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--[[
 	Config.lua : toutes les données d'équilibrage et de design du jeu CITY RUSH.
 	Module partagé serveur + client. Aucune logique de jeu ici, uniquement des données et des helpers purs.
 ]]
@@ -349,6 +484,87 @@ Config.Animations = {
 	DriftSpeedRatio = 0.55,
 }
 
+-- Cinématiques (20-40 s, skippables, jouées une seule fois par joueur). Positions en studs (monde) ; center = "player" ou {x,y,z}.
+-- kinds : "orbit" (autour du centre) | "fly" (survol de from vers to, positions monde ou relatives au centre)
+Config.Cinematics = {
+	Enabled = true,
+	PlayOnce = true,
+	Letterbox = true,
+	HideHud = true,
+	MaxQueue = 3,
+	Sequences = {
+		intro = {
+			enabled = true, title = "Bienvenue à CITY RUSH",
+			shots = {
+				{ dur = 8, kind = "fly", center = { 0, 0, 0 }, from = { -620, 260, 620 }, to = { 320, 200, 320 }, lookY = 30, caption = "Bienvenue à CITY RUSH : une ville, mille occasions." },
+				{ dur = 8, kind = "orbit", center = { 0, 60, -200 }, radius = 230, height = 120, a0 = 0.2, a1 = 1.9, lookY = 0, caption = "Vole des voitures, accepte des contrats, remplis ton garage." },
+				{ dur = 7, kind = "fly", center = { 0, 0, 0 }, from = { -500, 14, -300 }, to = { -500, 14, 300 }, lookY = 6, caption = "Mais la police veille : chaque bêtise a un prix." },
+				{ dur = 7, kind = "orbit", center = { 0, 6, 0 }, radius = 70, height = 28, a0 = 3.2, a1 = 5.2, lookY = 4, caption = "Deviens la légende de la ville. À toi de jouer !" },
+			},
+		},
+		arrival = {
+			enabled = true, title = "Ta première voiture",
+			shots = {
+				{ dur = 8, kind = "orbit", center = "player", radius = 24, height = 7, a0 = 0.5, a1 = 2.6, lookY = 3, caption = "Ta première voiture : une Citadine, rien que pour toi." },
+				{ dur = 7, kind = "orbit", center = "player", radius = 14, height = 4, a0 = 3.4, a1 = 4.6, lookY = 2.5, caption = "Touche G : garage. Shift : nitro. Espace : sortir." },
+				{ dur = 7, kind = "orbit", center = "player", radius = 40, height = 30, a0 = 5.0, a1 = 6.6, lookY = 0, caption = "Vole d'autres voitures dans la rue, c'est permis (ici)." },
+			},
+		},
+		chase = {
+			enabled = true, title = "Première poursuite",
+			shots = {
+				{ dur = 8, kind = "orbit", center = "player", radius = 36, height = 18, a0 = 0, a1 = 2.0, lookY = 2, caption = "Niveau de recherche : la police t'a repéré !" },
+				{ dur = 8, kind = "orbit", center = "player", radius = 20, height = 6, a0 = 2.4, a1 = 4.2, lookY = 2, caption = "Sème-les : sors de leur champ de vision et tiens bon." },
+				{ dur = 8, kind = "orbit", center = "player", radius = 55, height = 40, a0 = 4.6, a1 = 6.2, lookY = 0, caption = "Ou file au Pay'n'Spray pour te faire oublier." },
+			},
+		},
+		story1 = {
+			enabled = true, title = "Énigme 1 : la banque",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { 0, 12, -170 }, radius = 60, height = 30, a0 = 0.5, a1 = 2.4, lookY = 0, caption = "Sous le marbre de la banque, un premier chiffre sommeillait." },
+				{ dur = 10, kind = "fly", center = { 0, 12, -170 }, from = { -70, 40, -240 }, to = { 70, 12, -150 }, lookY = 0, relative = false, caption = "Le journal du maire dit vrai. Trois chiffres restent à trouver." },
+			},
+		},
+		story2 = {
+			enabled = true, title = "Énigme 2 : le taxi",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { -40, 6, -10 }, radius = 45, height = 22, a0 = 1.0, a1 = 3.0, lookY = 0, caption = "Jaune comme un taxi : le deuxième chiffre est à toi." },
+				{ dur = 10, kind = "orbit", center = { -40, 6, -10 }, radius = 25, height = 8, a0 = 3.0, a1 = 4.6, lookY = 2, caption = "Le mystère s'épaissit... qui a caché ce journal ?" },
+			},
+		},
+		story3 = {
+			enabled = true, title = "Énigme 3 : la pizzeria",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { -352, 8, -30 }, radius = 50, height = 24, a0 = 0, a1 = 2.2, lookY = 0, caption = "Ça sent la pâte chaude, et un troisième chiffre." },
+				{ dur = 10, kind = "orbit", center = { -352, 8, -30 }, radius = 28, height = 10, a0 = 2.2, a1 = 4.4, lookY = 3, caption = "Plus qu'un seul chiffre avant le coffre du maire." },
+			},
+		},
+		story4 = {
+			enabled = true, title = "Énigme 4 : le Pay'n'Spray",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { -200, 8, 386 }, radius = 55, height = 26, a0 = 4.0, a1 = 6.0, lookY = 0, caption = "Là où l'on efface les traces, le dernier chiffre..." },
+				{ dur = 10, kind = "fly", center = { -200, 8, 386 }, from = { -260, 30, 330 }, to = { -140, 12, 420 }, lookY = 0, caption = "Quatre chiffres ! Ouvre ton journal (J) et entre le code." },
+			},
+		},
+		heist = {
+			enabled = true, title = "Casse réussi",
+			shots = {
+				{ dur = 9, kind = "orbit", center = { -30, 6, -345 }, radius = 50, height = 20, a0 = 0, a1 = 2.4, lookY = 0, caption = "Planque atteinte : la police a perdu ta trace." },
+				{ dur = 10, kind = "orbit", center = { -30, 6, -345 }, radius = 90, height = 60, a0 = 2.4, a1 = 4.8, lookY = 0, caption = "Un beau butin, une réputation en or. Ne te fais pas prendre !" },
+				{ dur = 7, kind = "fly", center = { 0, 0, 0 }, from = { -200, 80, -500 }, to = { 100, 50, -250 }, lookY = 10, caption = "La ville parle déjà de toi." },
+			},
+		},
+		finale = {
+			enabled = true, title = "Fin de saison : l'Affaire du Coffre",
+			shots = {
+				{ dur = 10, kind = "orbit", center = { 0, 10, 0 }, radius = 80, height = 45, a0 = 0, a1 = 2.5, lookY = 0, caption = "Le coffre s'ouvre : l'Affaire du Coffre est classée !" },
+				{ dur = 10, kind = "fly", center = { 0, 0, 0 }, from = { -420, 120, 420 }, to = { 420, 120, -420 }, lookY = 20, caption = "Tu es le Détective de la ville. Bravo !" },
+				{ dur = 10, kind = "orbit", center = { 0, 6, 0 }, radius = 60, height = 20, a0 = 2.5, a1 = 5.0, lookY = 3, caption = "Fin de saison 1. D'autres mystères t'attendent bientôt..." },
+			},
+		},
+	},
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },
@@ -376,7 +592,7 @@ Config.Theme = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">MonetizationIds</string><ProtectedString name="Source"><![CDATA[-- Rempli automatiquement par tools/publish.py (setup-monetization). 0 = non configuré.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">MonetizationIds</string><ProtectedString name="Source"><![CDATA[-- Rempli automatiquement par tools/publish.py (setup-monetization). 0 = non configuré.
 return {
 	Products = {
 		cash_s = 0,
@@ -388,7 +604,7 @@ return {
 		BOOST = 0,
 	},
 }
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
 	Util.lua : petites fonctions pures partagées.
 ]]
 
@@ -503,7 +719,7 @@ function Util.reconcile(t, defaults)
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX24"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX8"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX26"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX9"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
 	Main.server.lua : point d'entrée serveur de CITY RUSH.
 	Ordre : remotes -> données -> économie -> monde -> services dépendants -> boucles -> apparition des joueurs.
 ]]
@@ -526,6 +742,7 @@ local CollectibleService = require(Services.CollectibleService)
 local StoryService = require(Services.StoryService)
 local EventService = require(Services.EventService)
 local LeaderboardService = require(Services.LeaderboardService)
+local CinematicService = require(Services.CinematicService)
 local MonetizationService = require(Services.MonetizationService)
 
 -- Les joueurs peuvent arriver pendant la génération : on gère leur apparition dès maintenant.
@@ -554,10 +771,18 @@ local function onPlayer(player)
 		end
 		loadCharacter(player)
 		local profile = DataService.get(player)
+		if profile then
+			task.delay(1.5, function()
+				if player.Parent then
+					CinematicService.play(player, "intro")
+				end
+			end)
+		end
 		if profile and profile.Stats.joins == 1 then
 			-- premier lancement : la Citadine apparaît automatiquement
 			task.wait(2.5)
 			VehicleService.spawnFor(player, "citadine")
+			CinematicService.play(player, "arrival")
 			RemoteService.notify(player, "Bienvenue à CITY RUSH ! Ta Citadine t'attend. Touche G = garage.", "good")
 		end
 	end)
@@ -592,7 +817,46 @@ LeaderboardService.start(World)
 
 workspace:SetAttribute("WorldReady", true)
 print("[CityRush] Serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX23"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX25"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">CinematicService</string><ProtectedString name="Source"><![CDATA[--[[
+	CinematicService : décide quand une cinématique est jouée (une seule fois par joueur) et prévient le client.
+	Le client ne peut pas déclencher de cinématique ; il peut seulement la passer.
+	Aucun effet sur le gameplay : une cinématique n'attribue rien et ne bloque rien.
+]]
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+
+local DataService = require(script.Parent.DataService)
+local RemoteService = require(script.Parent.RemoteService)
+
+local CinematicService = {}
+
+-- Retourne true si la cinématique a été envoyée
+function CinematicService.play(player, id)
+	local cfg = Config.Cinematics
+	if not cfg.Enabled then
+		return false
+	end
+	local seq = cfg.Sequences[id]
+	if not seq or not seq.enabled then
+		return false
+	end
+	local profile = DataService.get(player)
+	if not profile then
+		return false
+	end
+	profile.Seen = profile.Seen or {}
+	if cfg.PlayOnce and profile.Seen[id] then
+		return false
+	end
+	profile.Seen[id] = true
+	DataService.markDirty(player)
+	RemoteService.fire("Cinematic", player, id)
+	return true
+end
+
+return CinematicService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
 	CollectibleService : 30 étoiles dorées cachées dans la ville (stockées par joueur).
 	Détection par proximité côté serveur (aucune confiance accordée au client).
 ]]
@@ -704,7 +968,7 @@ function CollectibleService.start()
 end
 
 return CollectibleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
 	DataService : chargement / sauvegarde des profils joueurs (DataStore).
 	- Verrou de session (JobId) pour éviter la duplication entre serveurs
 	- Réessais avec pcall, sauvegarde automatique, sauvegarde à la fermeture
@@ -738,6 +1002,7 @@ local DEFAULT = {
 	Achv = {},
 	Daily = { day = 0, streak = 0 },
 	Story = { chapter = 0, done = false },
+	Seen = {}, -- cinématiques déjà vues
 	PeakCash = 0,
 }
 
@@ -940,7 +1205,7 @@ function DataService.getBoard()
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source"><![CDATA[--[[
 	EconomyService : argent, XP/niveaux, statistiques, succès, récompense quotidienne,
 	achat de véhicules, état envoyé au client.
 	Toutes les modifications d'état passent par ici (autorité serveur).
@@ -1323,7 +1588,7 @@ function EconomyService.init()
 end
 
 return EconomyService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--[[
 	EventService : événements mondiaux récurrents
 	- Largage de caisses : des caisses d'argent apparaissent dans la ville, premier arrivé premier servi
 	- Heure double XP
@@ -1456,7 +1721,7 @@ function EventService.start(world)
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--[[
 	LeaderboardService : classement mondial de l'argent (OrderedDataStore)
 	affiché sur le panneau de la place centrale et dans le menu Profil.
 ]]
@@ -1584,7 +1849,7 @@ function LeaderboardService.start(world)
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">MissionService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">MissionService</string><ProtectedString name="Source"><![CDATA[--[[
 	MissionService : livraison, taxi, course de rue, braquage.
 	Tout est validé côté serveur : positions des objectifs, temps, récompenses.
 	Le client ne reçoit que l'état d'affichage (titre, objectif, position, échéance).
@@ -1603,6 +1868,7 @@ local DataService = require(script.Parent.DataService)
 local VehicleService = require(script.Parent.VehicleService)
 local WantedService = require(script.Parent.WantedService)
 local PedestrianService = require(script.Parent.PedestrianService)
+local CinematicService = require(script.Parent.CinematicService)
 
 local MissionService = {}
 
@@ -1865,6 +2131,7 @@ local function completeMission(player, m)
 	elseif m.type == "heist" then
 		local paid = reward(player, m.reward, cfg.xp, "heists")
 		finish(player, true, string.format("Casse réussi ! +%s", Util.formatCash(paid)))
+		CinematicService.play(player, "heist")
 	end
 end
 
@@ -1997,7 +2264,7 @@ function MissionService.start()
 end
 
 return MissionService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--[[
 	MonetizationService : achats intégrés (Developer Products) et Game Passes.
 	- ProcessReceipt idempotent (reçus déjà traités mémorisés dans le profil)
 	- Les IDs sont dans MonetizationIds (remplis par tools/publish.py)
@@ -2108,7 +2375,7 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">PedestrianService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">PedestrianService</string><ProtectedString name="Source"><![CDATA[--[[
 	PedestrianService : piétons qui se promènent sur les trottoirs, rigs R15 classiques Roblox,
 	renversements (étourdis, sans violence), billets lâchés ; fabrique aussi les rigs de policiers.
 ]]
@@ -2411,7 +2678,7 @@ function Pedestrians.start()
 end
 
 return Pedestrians
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">RemoteService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">RemoteService</string><ProtectedString name="Source"><![CDATA[--[[
 	RemoteService : crée tous les RemoteEvents et fournit une connexion sécurisée
 	(limite de fréquence par joueur + validation du type des arguments).
 ]]
@@ -2424,7 +2691,7 @@ local RemoteService = {}
 local FOLDER_NAME = "CityRushRemotes"
 
 -- Serveur -> Client
-local SERVER_TO_CLIENT = { "State", "Notify", "Wanted", "Mission", "Banner", "OpenPanel", "Busted", "Leaderboard", "Collected" }
+local SERVER_TO_CLIENT = { "State", "Notify", "Wanted", "Mission", "Banner", "OpenPanel", "Busted", "Leaderboard", "Collected", "Cinematic" }
 -- Client -> Serveur
 local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "AbandonMission", "ClaimDaily", "RequestState", "SubmitCode" }
 
@@ -2499,7 +2766,7 @@ function RemoteService.on(name, cooldown, validator, handler)
 end
 
 return RemoteService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
 	StoryService : "L'Affaire du Coffre". Quatre énigmes à résoudre dans l'ordre en se rendant sur place
 	(détection côté serveur), chacune révèle un chiffre ; le code à 4 chiffres ouvre le coffre final.
 	Le client ne peut ni sauter de chapitre ni deviner le code sans les chiffres : 2 s entre deux essais,
@@ -2515,6 +2782,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local RemoteService = require(script.Parent.RemoteService)
 local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
+local CinematicService = require(script.Parent.CinematicService)
 
 local StoryService = {}
 
@@ -2537,6 +2805,7 @@ local function step()
 				RemoteService.notify(player, msg, "star")
 				DataService.markDirty(player)
 				EconomyService.pushState(player)
+				CinematicService.play(player, "story" .. profile.Story.chapter)
 			end
 		end
 	end
@@ -2559,6 +2828,7 @@ local function onSubmit(player, code)
 		RemoteService.notify(player, string.format("COFFRE OUVERT ! +%s - Tu es le Détective de la ville !", Util.formatCash(paid)), "levelup")
 		DataService.markDirty(player)
 		EconomyService.pushState(player)
+		CinematicService.play(player, "finale")
 	else
 		RemoteService.notify(player, "Code erroné. Relis les chiffres de ton journal.", "bad")
 	end
@@ -2580,7 +2850,7 @@ function StoryService.start()
 end
 
 return StoryService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleBuilder : construit les modèles de voitures (blocs Roblox) et leur physique "arcade".
 
 	Physique : 1 LinearVelocity en mode Plan (vitesse avant + adhérence latérale nulle)
@@ -2865,7 +3135,7 @@ end
 VehicleBuilder.RideHeight = 2.2
 
 return VehicleBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleService : apparition / suppression des véhicules, voitures publiques garées dans la rue,
 	verrouillage du siège conducteur, détection des collisions avec piétons et mobilier,
 	distance parcourue.
@@ -3227,7 +3497,7 @@ function VehicleService.start()
 end
 
 return VehicleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
 	WantedService : niveau de recherche (0-5 étoiles), policiers à pied et voitures de police (IA),
 	arrestations, Pay'n'Spray. Toute la logique est côté serveur.
 ]]
@@ -3244,6 +3514,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
 local PedestrianService = require(script.Parent.PedestrianService)
 local VehicleService = require(script.Parent.VehicleService)
+local CinematicService = require(script.Parent.CinematicService)
 
 local WantedService = {}
 WantedService.Busted = Util.newSignal() -- (player)
@@ -3307,6 +3578,9 @@ function WantedService.addHeat(player, amount, reason)
 	s.lastNear = os.clock()
 	if s.stars > before then
 		RemoteService.notify(player, string.format("%s ! Niveau de recherche : %d", reason or "Recherché", s.stars), "bad")
+		if before == 0 then
+			CinematicService.play(player, "chase")
+		end
 		if s.stars >= 5 then
 			EconomyService.addStat(player, "fiveStars", 1)
 		end
@@ -3806,7 +4080,7 @@ function WantedService.start()
 end
 
 return WantedService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
 	WorldService : génère toute la ville avec des Parts natives Roblox (aucun asset externe).
 	Grille 5x5 de blocs, routes, bâtiments par quartier, props destructibles, lampadaires,
 	points d'intérêt (missions, concession, police...), éclairage et cycle jour/nuit.
@@ -4732,7 +5006,7 @@ function World.build()
 end
 
 return World
-]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX38"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX37"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX25"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX41"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX40"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX27"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
 	Client.client.lua : point d'entrée client de CITY RUSH.
 	Écran de chargement, mise à l'échelle de l'interface (téléphone / tablette / PC / console),
 	puis initialisation des contrôleurs.
@@ -4803,6 +5077,9 @@ local function start()
 	end)
 	require(Controllers:WaitForChild("Hud")).init(gui)
 	require(Controllers:WaitForChild("Panels")).init(gui)
+	pcall(function()
+		require(Controllers:WaitForChild("Cinematics")).init(gui)
+	end)
 end
 
 task.spawn(function()
@@ -4831,7 +5108,7 @@ task.spawn(function()
 	end
 	loading:Destroy()
 end)
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX36"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX39"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[--[[
 	Animations : animations arcade (visuelles, locales, sans effet sur la physique ni sur le serveur).
 	Chaque animation est activable dans Config.Animations et protégée par pcall.
 	Véhicule : roulis dans les virages, plongée/cabrage de suspension, effet de démarrage, dérapage stylisé
@@ -5147,7 +5424,7 @@ function Animations.init()
 end
 
 return Animations
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
 	Atmosphere.lua : effets visuels côté client
 	- fenêtres et lampadaires allumés la nuit (tag "Lit")
 	- phares des véhicules occupés la nuit
@@ -5288,7 +5565,198 @@ function Atmosphere.init()
 end
 
 return Atmosphere
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[--[[
+	Cinematics : séquences caméra courtes (20-40 s), skippables, jamais bloquantes.
+	- déclenchées uniquement par le serveur (Remote "Cinematic"), une fois par joueur
+	- bandes noires, légendes, bouton "Passer" (+ Espace / Entrée / B manette)
+	- se terminent seules en cas de mort, d'erreur ou de dépassement de durée ; la caméra est toujours restaurée
+	Réglages : Config.Cinematics (global) et Config.Cinematics.Sequences.<id>.enabled
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Logic = require(Shared:WaitForChild("CinematicLogic"))
+
+local UI = require(script.Parent.UI)
+local State = require(script.Parent.State)
+
+local Cinematics = {}
+local player = Players.LocalPlayer
+local cfg = Config.Cinematics
+
+local mainGui
+local queue = {}
+local current -- { lp = lecteur, cleanup = fn }
+
+function Cinematics.isPlaying()
+	return current ~= nil
+end
+
+function Cinematics.skip()
+	if current and current.lp:skip() then
+		current.cleanup()
+	end
+end
+
+local function center(shot)
+	if shot.center == "player" then
+		local c = player.Character
+		local hrp = c and c:FindFirstChild("HumanoidRootPart")
+		if not hrp then
+			return nil
+		end
+		local p = hrp.Position
+		return { p.X, p.Y, p.Z }
+	end
+	return shot.center
+end
+
+local function run(id)
+	local seq = cfg.Sequences[id]
+	local ok, msg = Logic.validate(seq)
+	if not ok then
+		warn("[Cinematics] " .. id .. " invalide: " .. tostring(msg))
+		return false
+	end
+	local cam = workspace.CurrentCamera
+	local lp = Logic.newPlayer(seq)
+
+	local gui = UI.new("ScreenGui", { Name = "CityRushCinematic", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 50, Parent = player:WaitForChild("PlayerGui") })
+	local top, bottom
+	if cfg.Letterbox then
+		top = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, Parent = gui })
+		bottom = UI.new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, Parent = gui })
+		local info = TweenInfo.new(0.6, Enum.EasingStyle.Quad)
+		TweenService:Create(top, info, { Size = UDim2.new(1, 0, 0.12, 0) }):Play()
+		TweenService:Create(bottom, info, { Size = UDim2.new(1, 0, 0.12, 0) }):Play()
+	end
+	UI.label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.13, 0), Size = UDim2.fromOffset(600, 34), Text = seq.title or "", TextSize = 24, Font = Enum.Font.GothamBlack, TextColor3 = UI.Theme.Accent, Parent = gui })
+	local caption = UI.label({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0.87, 0), Size = UDim2.new(0.8, 0, 0, 60), Text = "", TextSize = 26, TextWrapped = true, TextColor3 = Color3.new(1, 1, 1), Parent = gui })
+	UI.new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, Parent = caption })
+	local skipBtn = UI.button({
+		AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 0.95, 0), Size = UDim2.fromOffset(190, 46),
+		Text = "Passer ▶  (Espace)", TextSize = 18, BackgroundColor3 = Color3.fromRGB(30, 32, 40), Parent = gui,
+	}, function()
+		Cinematics.skip()
+	end)
+	UI.stroke(skipBtn, UI.Theme.Accent, 2)
+
+	local hudWasEnabled = mainGui and mainGui.Enabled
+	if cfg.HideHud and mainGui then
+		mainGui.Enabled = false
+	end
+	local prevType, prevSubject = cam.CameraType, cam.CameraSubject
+	cam.CameraType = Enum.CameraType.Scriptable
+
+	local conns = {}
+	local done = false
+	local function cleanup()
+		if done then
+			return
+		end
+		done = true
+		for _, c in ipairs(conns) do
+			c:Disconnect()
+		end
+		pcall(function()
+			cam.CameraType = prevType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or prevType
+			local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			cam.CameraSubject = hum or prevSubject
+		end)
+		if mainGui and hudWasEnabled ~= nil then
+			mainGui.Enabled = hudWasEnabled
+		end
+		gui:Destroy()
+		current = nil
+		-- cinématique suivante de la file
+		task.delay(0.6, function()
+			local nextId = table.remove(queue, 1)
+			if nextId then
+				Cinematics.play(nextId)
+			end
+		end)
+	end
+	current = { lp = lp, cleanup = cleanup }
+
+	table.insert(conns, RunService.RenderStepped:Connect(function(dt)
+		local ok2, err = pcall(function()
+			lp:step(math.min(dt, 0.1))
+			if lp.finished then
+				cleanup()
+				return
+			end
+			local shot, progress = lp:current()
+			local c = center(shot)
+			if not c then
+				lp:skip()
+				cleanup()
+				return
+			end
+			local pos, look = Logic.pose(shot, progress, c)
+			cam.CFrame = CFrame.lookAt(Vector3.new(pos.x, pos.y, pos.z), Vector3.new(look.x, look.y, look.z))
+			caption.Text = shot.caption
+		end)
+		if not ok2 then
+			warn("[Cinematics] erreur, cinématique interrompue: " .. tostring(err))
+			cleanup()
+		end
+	end))
+	table.insert(conns, UserInputService.InputBegan:Connect(function(input)
+		local k = input.KeyCode
+		if k == Enum.KeyCode.Space or k == Enum.KeyCode.Return or k == Enum.KeyCode.ButtonB then
+			Cinematics.skip()
+		end
+	end))
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		table.insert(conns, hum.Died:Connect(Cinematics.skip))
+	end
+	-- filet de sécurité : jamais plus long que prévu
+	task.delay(lp.total + 5, function()
+		if current and current.lp == lp then
+			Cinematics.skip()
+			cleanup()
+		end
+	end)
+	return true
+end
+
+function Cinematics.play(id)
+	if not cfg.Enabled then
+		return
+	end
+	if current then
+		Logic.enqueue(queue, id, cfg.MaxQueue)
+		return
+	end
+	local ok, err = pcall(run, id)
+	if not ok then
+		warn("[Cinematics] " .. id .. ": " .. tostring(err))
+		if current then
+			current.cleanup()
+		end
+	end
+end
+
+function Cinematics.init(gui)
+	mainGui = gui
+	State.CinematicRequested:Connect(function(id)
+		Cinematics.play(id)
+	end)
+	State.cinematicsReady = true
+	for _, id in ipairs(State.pendingCinematics) do
+		Cinematics.play(id)
+	end
+	State.pendingCinematics = {}
+end
+
+return Cinematics
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
 	Hud.lua : interface de jeu permanente (niveau, argent, radar, étoiles de recherche,
 	mission, notifications, compteur de vitesse, bannières d'événements, écran d'arrestation).
 ]]
@@ -5685,7 +6153,7 @@ function Hud.init(screenGui)
 end
 
 return Hud
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
 	MapView : carte nord en haut (nord = -Z). Utilisée pour le mini-radar et la grande carte.
 	Le décor de la carte est dessiné à partir de Config (grille, quartiers, POI).
 ]]
@@ -5829,7 +6297,7 @@ function MapView:update(centerPos, heading)
 end
 
 return MapView
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
 	Panels.lua : fenêtres modales (garage / concessionnaire, boutique Robux, profil + succès + classement,
 	grande carte, récompense quotidienne). Raccourcis clavier : G, B, P, M.
 ]]
@@ -6233,7 +6701,7 @@ function Panels.init(screenGui)
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
 	SoundController : sons du véhicule piloté. Chaque son est désactivé proprement tant que
 	Config.Sounds.<nom> est vide (voir A_FAIRE_UTILISATEUR.md pour brancher des audios).
 	- moteur : boucle dont la hauteur suit la vitesse
@@ -6293,7 +6761,7 @@ function SoundController.init()
 end
 
 return SoundController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
 	State.lua : état client synchronisé avec le serveur (lecture seule côté UI).
 ]]
 
@@ -6311,8 +6779,11 @@ State.PanelRequested = Util.newSignal() -- (name)
 State.BustedSignal = Util.newSignal() -- (lost)
 State.LeaderboardChanged = Util.newSignal() -- (rows)
 State.CollectedChanged = Util.newSignal() -- (list, total)
+State.CinematicRequested = Util.newSignal() -- (id)
 
 State.data = nil
+State.cinematicsReady = false
+State.pendingCinematics = {}
 State.mission = nil
 State.stars = 0
 State.evading = false
@@ -6366,6 +6837,15 @@ function State.init()
 		State.leaderboard = rows
 		State.LeaderboardChanged:Fire(rows)
 	end)
+	State.remote("Cinematic").OnClientEvent:Connect(function(id)
+		if type(id) == "string" then
+			if State.cinematicsReady then
+				State.CinematicRequested:Fire(id)
+			else
+				table.insert(State.pendingCinematics, id) -- reçue avant l'initialisation du lecteur
+			end
+		end
+	end)
 	State.remote("Collected").OnClientEvent:Connect(function(list, total)
 		State.collected = {}
 		for _, id in ipairs(list) do
@@ -6379,7 +6859,7 @@ function State.init()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
 	UI.lua : petites fabriques d'interface au style Roblox (Gotham, coins arrondis).
 ]]
 
@@ -6472,7 +6952,7 @@ function UI.tween(inst, info, goal)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleController : pilotage arcade du véhicule par le client du conducteur.
 	Lit les entrées du VehicleSeat (clavier, manette, joystick tactile gérés par Roblox),
 	écrit la vitesse cible dans les contraintes créées par le serveur.
@@ -6645,7 +7125,7 @@ function VehicleController.init()
 end
 
 return VehicleController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">VisualFX</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">VisualFX</string><ProtectedString name="Source"><![CDATA[--[[
 	VisualFX : effets visuels client, tous réglables dans Config.Visual et protégés par pcall.
 	- qualité auto (tactile = low) : bloom / rayons / ombres
 	- lampadaires qui éclairent la nuit (budget de lumières par qualité)
