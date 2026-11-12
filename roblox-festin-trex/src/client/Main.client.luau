@@ -39,6 +39,14 @@ Remotes.get("Reveal").OnClientEvent:Connect(function(petId, isDup, refund, eggKi
 	Panels.reveal(petId, isDup, refund, eggKind)
 end)
 
+local welcomed = false
+Store.onChange(function()
+	if not welcomed then
+		welcomed = true
+		task.spawn(Effects.welcome)
+	end
+end)
+
 task.delay(2, function()
 	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
 end)

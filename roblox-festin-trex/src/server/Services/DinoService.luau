@@ -11,6 +11,7 @@ local Util = require(Shared:WaitForChild("Util"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local DinoCore = require(Shared:WaitForChild("DinoCore"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local AnimLogic = require(Shared:WaitForChild("AnimLogic"))
 
 local PlayerService = require(script.Parent.PlayerService)
 
@@ -30,6 +31,10 @@ local TAIL_PIVOTS = { Vector3.new(0, 13, -8), Vector3.new(0, 12.5, -18), Vector3
 local SHOULDER_L = Vector3.new(5.9, 16.5, 6)
 local SHOULDER_R = Vector3.new(-5.9, 16.5, 6)
 local roarStart = -10
+local aimTarget: Vector3? = nil
+local aimUntil = 0
+local aimYaw = 0
+local reaction = 0
 local favorite = "pomme"
 local state: Instance
 local chompStart = -10
@@ -146,6 +151,10 @@ local function buildModel()
 			group = "t2"
 		elseif n == "Tail3" then
 			group = "t3"
+		elseif n == "LegL" or n == "FootL" then
+			group = "legL"
+		elseif n == "LegR" or n == "FootR" then
+			group = "legR"
 		elseif n == "ArmL" then
 			group = "armL"
 		elseif n == "ArmR" then
@@ -215,6 +224,12 @@ end
 local rayTargets: { Instance } = {}
 function DinoService.getRayTargets(): { Instance }
 	return rayTargets
+end
+
+-- Fait regarder la tête vers un point (le lanceur) pendant ~2,5 s.
+function DinoService.lookAt(pos: Vector3)
+	aimTarget = pos
+	aimUntil = os.clock() + 2.5
 end
 
 function DinoService.roar()
@@ -367,7 +382,37 @@ function DinoService.init(mapFolder: Instance)
 		local breathe = math.sin(t * 1.4)
 		local open = 0.12 + 0.08 * math.sin(t * 1.6) + chompOpen + 0.8 * roar
 
-		local headM = CFrame.new(0, 0.25 * breathe * s, 0) * around(HEAD_PIVOT, CFrame.Angles(0.03 * breathe - 0.38 * roar, 0, 0), s)
+		-- Cible de réaction : sauce active = sursaut, frénésie = danse joyeuse.
+		local targetReaction = 0
+		AnimLogic.run(Config.Animations, "DinoReact", function()
+			local id, phase = state:GetAttribute("EventId"), state:GetAttribute("EventPhase")
+			if id == "sauce" and (phase == "warning" or phase == "active") then
+				targetReaction = 1
+			elseif id == "frenzy" and phase == "active" then
+				targetReaction = 0.6
+			end
+		end)
+		reaction += (targetReaction - reaction) * 0.2
+
+		-- Tête tournée vers le dernier lanceur (lissée).
+		local targetYaw = 0
+		AnimLogic.run(Config.Animations, "DinoHeadAim", function()
+			if aimTarget and t < aimUntil then
+				targetYaw = AnimLogic.aimYaw(0, 0, aimTarget.X, aimTarget.Z, 0.35)
+			end
+		end)
+		aimYaw += (targetYaw - aimYaw) * 0.25
+
+		local headM = CFrame.new(0, 0.25 * breathe * s, 0) * around(HEAD_PIVOT, CFrame.Angles(0.03 * breathe - 0.38 * roar - 0.2 * reaction, aimYaw, 0), s)
+
+		-- Cycle de marche sur place : les pattes se lèvent en alternance.
+		local liftL, liftR = 0, 0
+		AnimLogic.run(Config.Animations, "DinoWalk", function()
+			local amp = 0.2 + 1.2 * roar + 0.9 * reaction
+			local speed = 4 + 5 * math.max(roar, reaction)
+			liftL = AnimLogic.stompLift(t, amp, speed, 0)
+			liftR = AnimLogic.stompLift(t, amp, speed, math.pi)
+		end)
 		local m1 = around(TAIL_PIVOTS[1], CFrame.Angles(0, 0.08 * math.sin(t * 1.8), 0), s)
 		local m2 = m1 * around(TAIL_PIVOTS[2], CFrame.Angles(0, 0.14 * math.sin(t * 1.8 - 0.6), 0), s)
 		local m3 = m2 * around(TAIL_PIVOTS[3], CFrame.Angles(0, 0.2 * math.sin(t * 1.8 - 1.2), 0), s)
@@ -377,6 +422,8 @@ function DinoService.init(mapFolder: Instance)
 			t1 = m1,
 			t2 = m2,
 			t3 = m3,
+			legL = CFrame.new(0, liftL * s, 0),
+			legR = CFrame.new(0, liftR * s, 0),
 			armL = around(SHOULDER_L, CFrame.Angles(0.2 * math.sin(t * 2), 0, 0), s),
 			armR = around(SHOULDER_R, CFrame.Angles(0.2 * math.sin(t * 2 + 1), 0, 0), s),
 		}

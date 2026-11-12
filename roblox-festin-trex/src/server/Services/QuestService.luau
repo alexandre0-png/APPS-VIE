@@ -9,6 +9,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Util = require(Shared:WaitForChild("Util"))
 local QuestLogic = require(Shared:WaitForChild("QuestLogic"))
 local Economy = require(Shared:WaitForChild("Economy"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local PlayerService = require(script.Parent.PlayerService)
 
@@ -112,6 +113,9 @@ local function onChest(prompt: ProximityPrompt, player: Player)
 	PlayerService.addEggs(player, def.Eggs)
 	PlayerService.notify(player, string.format("%s %s ouvert ! +%s 🪙 + %d œuf(s) 🥚", def.Emoji, def.Name, Util.formatNumber(coins), def.Eggs), "gold")
 	PlayerService.markDirty(player)
+	pcall(function()
+		Remotes.get("Fx"):FireClient(player, "chest", id)
+	end)
 end
 
 local function bindChest(inst: Instance)

@@ -43,6 +43,7 @@ local DinoCore = require("./DinoCore")
 local Ballistics = require("./Ballistics")
 local DataService = require("./DataService")
 local RiddleLogic = require("./RiddleLogic")
+local AnimLogic = require("./AnimLogic")
 
 -- ------------------------------------------------------------ Util
 check(Util.formatNumber(0) == "0", "format 0")
@@ -307,6 +308,35 @@ check(RiddleLogic.answer(rd, 51, 1, answers) == "correct" and rd.riddle.solved, 
 check(RiddleLogic.answer(rd, 51, 1, answers) == "error", "énigme déjà résolue")
 local _, s2, t2 = RiddleLogic.status(rd, 51)
 check(s2 == true and t2 == Config.RiddleTries, "statut résolu")
+
+-- Animations (logique pure)
+local cfgOn = { Enabled = true, Foo = true, Bar = false }
+check(AnimLogic.enabled(cfgOn, "Foo") and not AnimLogic.enabled(cfgOn, "Bar") and not AnimLogic.enabled(cfgOn, "Absent"), "interrupteurs d'animation")
+check(not AnimLogic.enabled({ Enabled = false, Foo = true }, "Foo"), "interrupteur général")
+check(not AnimLogic.enabled(nil, "Foo"), "config absente = désactivé")
+local called = 0
+check(AnimLogic.run(cfgOn, "Foo", function(a) called += a end, 5) == true and called == 5, "run exécute avec arguments")
+check(AnimLogic.run(cfgOn, "Bar", function() called += 100 end) == false and called == 5, "run n'exécute pas si désactivé")
+check(AnimLogic.run(cfgOn, "Foo", function() error("boum") end) == false, "run capture les erreurs")
+check(near(AnimLogic.bounceOut(0), 0) and near(AnimLogic.bounceOut(1), 1) and AnimLogic.bounceOut(0.5) > 0.5, "rebond 0 -> 1")
+check(near(AnimLogic.easeOutBack(0), 0) and near(AnimLogic.easeOutBack(1), 1), "easeOutBack bornes")
+check(near(AnimLogic.bounceHeight(0, 3, 4), 0) and near(AnimLogic.bounceHeight(1, 3, 4), 0), "hauteur de rebond nulle aux extrémités")
+local maxH = 0
+for i = 0, 100 do
+	local h = AnimLogic.bounceHeight(i / 100, 3, 4)
+	check(h >= 0 and h <= 4 + 1e-9, "hauteur de rebond bornée")
+	maxH = math.max(maxH, h)
+end
+check(maxH > 1, "le rebond monte vraiment")
+check(near(AnimLogic.aimYaw(0, 0, 0, 10, 0.35), 0), "cible devant : pas de rotation")
+check(near(AnimLogic.aimYaw(0, 0, 100, 1, 0.35), 0.35) and near(AnimLogic.aimYaw(0, 0, -100, 1, 0.35), -0.35), "rotation de tête bornée")
+check(near(AnimLogic.aimYaw(0, 0, 5, 5, 1), math.pi / 4), "angle de visée à 45°")
+check(near(AnimLogic.aimYaw(0, 0, 3, -10, 0.35), 0), "cible derrière : pas de rotation")
+for i = 0, 200 do
+	check(AnimLogic.stompLift(i * 0.05, 1.5, 6, 0) >= 0 and AnimLogic.stompLift(i * 0.05, 1.5, 6, math.pi) <= 1.5, "levée de patte entre 0 et l'amplitude")
+end
+check(near(AnimLogic.stompLift(0.2, 1, 5, 0) * AnimLogic.stompLift(0.2, 1, 5, math.pi), 0), "pattes en alternance (jamais levées ensemble)")
+check(Config.Animations.Enabled == true, "animations activées par défaut")
 
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then

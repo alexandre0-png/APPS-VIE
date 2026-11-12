@@ -13,6 +13,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Util = require(Shared:WaitForChild("Util"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Ballistics = require(Shared:WaitForChild("Ballistics"))
+local AnimLogic = require(Shared:WaitForChild("AnimLogic"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local UIKit = require(script.Parent.UIKit)
@@ -124,6 +125,37 @@ local function swingArm(character: Model?)
 	end)
 end
 
+-- Rebond joyeux d'un aliment qui touche le sol (copie locale, disparaît en fondu).
+local function bounceFood(food: any, pos: Vector3)
+	local ghost = Instance.new("Part")
+	ghost.Shape = Enum.PartType[food.Shape]
+	ghost.Size = Vector3.new(food.Size[1], food.Size[2], food.Size[3])
+	ghost.Color = c3(food.Color)
+	ghost.Material = Enum.Material[food.Material]
+	ghost.Anchored = true
+	ghost.CanCollide = false
+	ghost.CanQuery = false
+	ghost.CanTouch = false
+	ghost.CFrame = CFrame.new(pos + Vector3.new(0, ghost.Size.Y / 2, 0))
+	ghost.Parent = workspace
+	local duration = 0.9
+	local t0 = os.clock()
+	local base = pos + Vector3.new(0, ghost.Size.Y / 2, 0)
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = (os.clock() - t0) / duration
+		if t >= 1 or not ghost.Parent then
+			conn:Disconnect()
+			ghost:Destroy()
+			return
+		end
+		local h = AnimLogic.bounceHeight(t, 3, 4)
+		ghost.CFrame = CFrame.new(base + Vector3.new(0, h, 0)) * CFrame.Angles(t * 6, t * 4, 0)
+		ghost.Transparency = math.max(0, (t - 0.7) / 0.3)
+	end)
+	Debris:AddItem(ghost, duration + 1)
+end
+
 -- ---------------------------------------------------------------- lancers
 
 local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vector3, tHit: number, kind: string, hitPos: Vector3)
@@ -179,6 +211,7 @@ local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vec
 			p:Destroy()
 			if kind == "ground" or kind == "none" then
 				burst(hitPos, c3(food.Color), 8, 14)
+				AnimLogic.run(Config.Animations, "FoodBounce", bounceFood, food, hitPos)
 			end
 			return
 		end
@@ -359,6 +392,18 @@ local function startWave(state: Instance)
 	foam.Color = Color3.fromRGB(255, 230, 220)
 	foam.Transparency = 0.1
 	foam.Parent = w
+	AnimLogic.run(Config.Animations, "SauceTrail", function()
+		local drops = Instance.new("ParticleEmitter")
+		drops.Rate = 90
+		drops.Color = ColorSequence.new(Color3.fromRGB(225, 55, 40))
+		drops.Lifetime = NumberRange.new(0.6, 1.1)
+		drops.Speed = NumberRange.new(8, 18)
+		drops.EmissionDirection = Enum.NormalId.Top
+		drops.SpreadAngle = Vector2.new(35, 35)
+		drops.Acceleration = Vector3.new(0, -40, 0)
+		drops.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.1), NumberSequenceKeypoint.new(1, 0) })
+		drops.Parent = foam
+	end)
 	wave = w
 	UIKit.sfx("Wave", 0.8)
 	waveConn = RunService.RenderStepped:Connect(function()
@@ -370,12 +415,54 @@ local function startWave(state: Instance)
 	end)
 end
 
+-- Ouverture du couvercle d'un coffre (local) + pluie d'étincelles dorées.
+local function openChest(chestId: any)
+	local map = workspace:FindFirstChild("Map")
+	local zone = map and map:FindFirstChild("Zone_" .. tostring(chestId))
+	local lid = zone and zone:FindFirstChild("ChestLid")
+	if not lid then
+		return
+	end
+	local closed = lid.CFrame
+	local open = closed * CFrame.new(0, 1.4, -1.9) * CFrame.Angles(math.rad(-68), 0, 0)
+	TweenService:Create(lid, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = open }):Play()
+	burst(lid.Position + Vector3.new(0, 2, 0), Color3.fromRGB(255, 215, 60), 40, 30)
+	UIKit.sfx("Success", 0.6, 1.1)
+	task.delay(2, function()
+		if lid.Parent then
+			TweenService:Create(lid, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { CFrame = closed }):Play()
+		end
+	end)
+end
+
+-- Salut de bienvenue : couronne d'étincelles autour du joueur à son arrivée.
+function Effects.welcome()
+	AnimLogic.run(Config.Animations, "ReconnectFx", function()
+		local char = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+		local hrp = char:WaitForChild("HumanoidRootPart", 5)
+		if not hrp then
+			return
+		end
+		for i = 1, 8 do
+			local a = (i / 8) * math.pi * 2
+			burst(hrp.Position + Vector3.new(math.cos(a) * 4, 1, math.sin(a) * 4), Color3.fromRGB(255, 225, 120), 6, 12)
+		end
+		UIKit.sfx("Success", 0.4, 1.2)
+		HUD.toast("👋 Content de te revoir au festin !", "good")
+	end)
+end
+
 local frenzyTint: ColorCorrectionEffect? = nil
 
 function Effects.init()
 	Remotes.get("ThrowFx").OnClientEvent:Connect(onThrowFx)
 	Remotes.get("FeedFx").OnClientEvent:Connect(onFeedFx)
 	Remotes.get("FeastFx").OnClientEvent:Connect(onFeastFx)
+	Remotes.get("Fx").OnClientEvent:Connect(function(kind, a)
+		if kind == "chest" then
+			AnimLogic.run(Config.Animations, "ChestOpen", openChest, a)
+		end
+	end)
 
 	local state = ReplicatedStorage:WaitForChild("GameState")
 	local lastKey = ""

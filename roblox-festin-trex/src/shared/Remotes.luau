@@ -6,7 +6,7 @@ local RunService = game:GetService("RunService")
 
 local Remotes = {}
 
-Remotes.Events = { "Throw", "State", "Notify", "ThrowFx", "FeedFx", "OpenPanel", "Reveal", "FeastFx" }
+Remotes.Events = { "Throw", "State", "Notify", "ThrowFx", "FeedFx", "OpenPanel", "Reveal", "FeastFx", "Fx" }
 Remotes.Functions = { "Request" }
 
 local function folder(): Instance

@@ -255,6 +255,7 @@ local function onThrow(player: Player, aim: any)
 	local v = Vector3.new(vx, vy, vz)
 
 	local kind, hitPos, tHit = simulate(origin, v, T, g)
+	DinoService.lookAt(origin)
 
 	ThrowFx:FireAllClients(player.UserId, foodId, origin, v, tHit, kind, hitPos)
 	refreshHeldFood(player)

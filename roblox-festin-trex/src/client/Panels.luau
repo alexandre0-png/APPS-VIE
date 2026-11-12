@@ -11,6 +11,8 @@ local Config = require(Shared:WaitForChild("Config"))
 local Util = require(Shared:WaitForChild("Util"))
 local Economy = require(Shared:WaitForChild("Economy"))
 
+local AnimLogic = require(Shared:WaitForChild("AnimLogic"))
+
 local Store = require(script.Parent.Store)
 local UIKit = require(script.Parent.UIKit)
 local HUD = require(script.Parent.HUD)
@@ -110,6 +112,12 @@ function Panels.open(name: string)
 	Panels.close()
 	current = name
 	win.frame.Visible = true
+	-- Transition : la fenêtre glisse vers le haut avec un léger rebond.
+	AnimLogic.run(Config.Animations, "MenuTransitions", function()
+		local f = win.frame
+		f.Position = UDim2.new(0.5, 0, 0.5, 40)
+		TweenService:Create(f, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.fromScale(0.5, 0.5) }):Play()
+	end)
 	if Store.state then
 		win.refresh(Store.state)
 	end
@@ -473,6 +481,19 @@ function Panels.reveal(petId: string, isDup: boolean, refund: number, eggKind: s
 		return
 	end
 	local overlay = UIKit.frame(gui, { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, ZIndex = 20 })
+	-- L'œuf tremble avant d'éclore.
+	AnimLogic.run(Config.Animations, "EggHatch", function()
+		local egg = UIKit.label(overlay, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(200, 200), Text = "🥚", TextSize = 140, ZIndex = 21 })
+		for i = 1, 6 do
+			local tw = TweenService:Create(egg, TweenInfo.new(0.18, Enum.EasingStyle.Sine), { Rotation = if i % 2 == 0 then 16 else -16 })
+			tw:Play()
+			tw.Completed:Wait()
+		end
+		UIKit.sfx("Thud", 0.5, 1.3)
+		TweenService:Create(egg, TweenInfo.new(0.15), { TextSize = 230, TextTransparency = 1 }):Play()
+		task.wait(0.15)
+		egg:Destroy()
+	end)
 	local card = UIKit.frame(overlay, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(0, 0), ZIndex = 21 })
 	UIKit.corner(card, 20)
 	UIKit.stroke(card, rarityColor(pet.Rarity), 5)

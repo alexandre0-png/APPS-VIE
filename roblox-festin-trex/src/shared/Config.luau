@@ -200,6 +200,20 @@ Config.Riddles = {
 	{ Q = "Où se trouve le Coffre du Chef ?", Choices = { "Derrière Rex", "Au point d'arrivée", "Dans une table", "Sous la place" } },
 }
 
+-- Animations : interrupteur général + un interrupteur par animation (chacune est protégée par pcall).
+Config.Animations = {
+	Enabled = true,
+	DinoWalk = true, -- cycle de marche sur place (pattes) : léger au repos, marqué au festin / à la sauce
+	DinoHeadAim = true, -- la tête du T-Rex se tourne vers le dernier lanceur
+	DinoReact = true, -- réaction à la marée de sauce et à la frénésie
+	FoodBounce = true, -- rebond des aliments qui touchent le sol
+	SauceTrail = true, -- éclaboussures de sauce sur la vague
+	ChestOpen = true, -- ouverture du couvercle des coffres
+	EggHatch = true, -- œuf qui tremble avant l'éclosion
+	MenuTransitions = true, -- glissement des fenêtres
+	ReconnectFx = true, -- salut de bienvenue à l'arrivée
+}
+
 -- Sons intégrés au client Roblox (rbxasset://). Remplaçables par vos propres ids.
 Config.Sounds = {
 	Throw = "rbxasset://sounds/swoosh.wav",

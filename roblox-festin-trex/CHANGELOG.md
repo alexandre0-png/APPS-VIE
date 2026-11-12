@@ -13,6 +13,9 @@
 
 - Énigme du jour (`RiddleLogic`, panneau 🧩) : 12 QCM, 3 essais/jour, réponses gardées côté serveur (anti-triche), tests ajoutés.
 
+- Animations (`AnimLogic`, `Config.Animations`) : chaque animation est désactivable et exécutée via `AnimLogic.run` (pcall) ;
+  courbes, angle de visée et levée de pattes testés en logique pure (non exécutés ici, voir plus bas).
+
 ## Décisions techniques notables
 - **Outils externes** : `luau-lsp`/`luau`/stylua/selene/rojo téléchargés mais leur exécution a été refusée par le
   bac à sable ; **pas de contournement**. Remplacés par `tools/blockcheck.py` et `tools/undefcheck.py`

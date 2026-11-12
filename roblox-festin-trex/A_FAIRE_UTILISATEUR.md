@@ -13,6 +13,9 @@ Claude Code qui autorise `luau-lsp`, `luau`, `stylua`, `selene`, `rojo`, puis pr
 - Activer *Game Settings → Security → Enable Studio Access to API Services* pour tester la sauvegarde.
 - Tester à 2 joueurs (Test → Local Server) : lancers, festin, marée de sauce, œuf, coffres, reconnexion.
 
+- Regarder les animations en jeu (T-Rex, rebonds, coffres, œuf, menus). Si l'une gêne ou ralentit un téléphone,
+  mettre son interrupteur à `false` dans `Config.Animations` (ou `Enabled = false` pour tout couper).
+
 ## 3. Identifiants Roblox (pour la publication)
 - Créer l'expérience sur create.roblox.com (Creations → Create experience).
 - Me donner **Universe ID** et **Place ID**. Je lance ensuite `tools/publish_place.py --go`.
