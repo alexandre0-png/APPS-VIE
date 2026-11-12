@@ -121,7 +121,7 @@ local function fireMelee(player, def, char, root, head, aim)
 	if aimFlat.Magnitude < 0.05 then
 		aimFlat = flat(root.CFrame.LookVector)
 	end
-	Remotes.Fx:FireAllClients("Swing", player, def.Kind, def.Accent)
+	Remotes.Fx:FireAllClients("Swing", player, def.Kind, def.Accent, def.Id)
 
 	for _, t in ipairs(listTargets(char)) do
 		local delta = t.Root.Position - root.Position
@@ -149,7 +149,7 @@ local function fireSlam(player, def, char, root, aim)
 	end
 	aimFlat = aimFlat.Unit
 	local center = root.Position + aimFlat * (def.Range * 0.7) - Vector3.new(0, 2.5, 0)
-	Remotes.Fx:FireAllClients("Swing", player, def.Kind, def.Accent)
+	Remotes.Fx:FireAllClients("Swing", player, def.Kind, def.Accent, def.Id)
 	Remotes.Fx:FireAllClients("Slam", center, def.Radius, def.Accent)
 
 	for _, t in ipairs(listTargets(char)) do

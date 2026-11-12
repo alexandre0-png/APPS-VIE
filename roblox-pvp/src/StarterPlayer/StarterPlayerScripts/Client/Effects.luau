@@ -69,19 +69,29 @@ local function shoulderOf(character)
 	return torso and torso:FindFirstChild("Right Shoulder")
 end
 
-local function swingArm(character, heavy)
+-- Style de balancement par arme : angle d'épaule, durées montée/retour, pitch du son.
+local SWING_STYLES = {
+	dagger = { Raise = -1.0, Up = 0.05, Down = 0.1, Pitch = 1.35 },
+	katana = { Raise = -1.9, Up = 0.05, Down = 0.12, Pitch = 1.2 },
+	sovereign = { Raise = -2.3, Up = 0.1, Down = 0.25, Pitch = 0.8 },
+	hammer = { Raise = -2.8, Up = 0.18, Down = 0.35, Pitch = 0.6 },
+}
+
+local function swingArm(character, heavy, style)
 	local motor = shoulderOf(character)
 	if not motor then
 		return
 	end
 	local base = originalC0[motor] or motor.C0
 	originalC0[motor] = base
-	local raise = heavy and -2.6 or -1.5
-	local up = TweenService:Create(motor, TweenInfo.new(heavy and 0.14 or 0.07, Enum.EasingStyle.Quad), { C0 = base * CFrame.Angles(raise, 0, 0) })
+	local raise = style and style.Raise or (heavy and -2.6 or -1.5)
+	local upTime = style and style.Up or (heavy and 0.14 or 0.07)
+	local downTime = style and style.Down or (heavy and 0.3 or 0.16)
+	local up = TweenService:Create(motor, TweenInfo.new(upTime, Enum.EasingStyle.Quad), { C0 = base * CFrame.Angles(raise, 0, 0) })
 	up:Play()
 	up.Completed:Once(function()
 		if motor.Parent then
-			TweenService:Create(motor, TweenInfo.new(heavy and 0.3 or 0.16, Enum.EasingStyle.Quad), { C0 = base }):Play()
+			TweenService:Create(motor, TweenInfo.new(downTime, Enum.EasingStyle.Quad), { C0 = base }):Play()
 		end
 	end)
 end
@@ -107,16 +117,17 @@ local function slashArc(character, color, heavy)
 	transient(disc, 0.3)
 end
 
-local function onSwing(who, kind, color)
+local function onSwing(who, kind, color, weaponId)
 	local character = who and who.Character
 	if not character then
 		return
 	end
 	local heavy = kind == "Slam"
-	swingArm(character, heavy)
+	local style = weaponId and SWING_STYLES[weaponId]
+	swingArm(character, heavy, style)
 	slashArc(character, color or "FFFFFF", heavy)
 	local root = character:FindFirstChild("HumanoidRootPart")
-	Effects.PlaySound(heavy and Config.Sounds.Heavy or Config.Sounds.Swing, root, 0.6, 0.9 + math.random() * 0.2)
+	Effects.PlaySound(heavy and Config.Sounds.Heavy or Config.Sounds.Swing, root, 0.6, (style and style.Pitch or 1) * (0.95 + math.random() * 0.1))
 end
 
 -- ===== Tirs instantanés =====
