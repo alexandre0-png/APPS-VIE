@@ -89,6 +89,12 @@ LUAU_ANALYZE=luau-analyze LUAU=luau ROBLOX_TYPES=globalTypes.d.luau tools/test.s
    tournent dans un faux environnement Roblox (règles de dégâts, élimination, séries, prime, assistance, tir à la tête,
    rage, vol de vie, anti-farm, cibles d'entraînement, profils corrompus, cadeau quotidien, niveaux).
 
+6. **Durcissement serveur** : sauvegarde sans perte (attente de l'autosave, profil abandonné si le joueur part pendant le chargement),
+   limites strictes Join/Leave, arguments typés, intervalle global entre deux tirs, anti-farm, reçus Robux idempotents.
+
+Outils de style prévus mais **non exécutés ici** (téléchargement refusé dans cet environnement) : `stylua.toml`, `selene.toml` et
+`rojo build` sont configurés ; les tests de logique pure tournent sur l'interpréteur `luau` (équivalent de Lune pour ces fichiers).
+
 ### Limites de ces vérifications
 Ce dépôt a été produit **sans Roblox Studio** : aucune partie n'a été jouée. Non vérifié en conditions réelles :
 rendu visuel (proportions des armes tenues, éclairage), physique (rampes, jump pads, knockback), réseau/latence,
