@@ -30,6 +30,10 @@ Les dossiers `religion/`, `calendrier/`, `solde/` sont des apps web sans rapport
 - Aucun accès au compte Roblox : publier le jeu, créer passes et produits, téléverser icône et miniatures se fait par l'utilisateur dans Studio / Creator Hub (kit prêt : `roblox/publication/LISTING.md`). Ne pas prétendre l'avoir fait. Une clé Open Cloud (portée minimale, révocable) permettrait d'automatiser une partie de la publication de la place ; elle n'est pas fournie.
 - Ne jamais copier le nom, les assets ou les modèles d'un jeu existant.
 
+## Suivi des tâches réservées à l'utilisateur
+
+`roblox/A_FAIRE_UTILISATEUR.md` liste UNIQUEMENT ce que seul l'utilisateur peut faire (ID Roblox, tests Studio, création des achats avec noms et prix, téléversement d'images, vérification d'identité, autorisation des outils). Le tenir à jour à la fin de chaque mission : ajouter ce qui apparaît, retirer ou cocher ce qui est résolu, ne jamais y mettre ce que l'agent peut faire lui-même.
+
 ## Rapport de fin de mission (format imposé)
 
 JEU CONCERNÉ · MODIFICATIONS EFFECTUÉES · SCRIPTS MODIFIÉS · VÉRIFICATIONS (syntaxe, erreurs, corrections, tests réalisés, compatibilité) · ÉTAT DU PROJET (ce qui marche, ce qui reste à tester, problèmes non résolus) · PROCHAINES AMÉLIORATIONS (les 3 plus intéressantes).
