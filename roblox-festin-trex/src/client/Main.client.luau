@@ -11,7 +11,7 @@ local Panels = require(script.Parent:WaitForChild("Panels"))
 local Effects = require(script.Parent:WaitForChild("Effects"))
 local PetsRenderer = require(script.Parent:WaitForChild("Pets"))
 local Input = require(script.Parent:WaitForChild("Input"))
-local UIKit = require(script.Parent:WaitForChild("UIKit"))
+local Guide = require(script.Parent:WaitForChild("Guide"))
 
 Store.init()
 HUD.init(function(name)
@@ -21,6 +21,7 @@ Panels.init()
 Effects.init()
 PetsRenderer.init()
 Input.init()
+Guide.init()
 
 Remotes.get("Notify").OnClientEvent:Connect(function(text, kind)
 	if type(text) == "string" then

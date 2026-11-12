@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBX7BC7769A7FDE44F193330CD79136C619"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX4EB85395C85F4A188971C27906E3F096"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX0588ABC1A8D345919B5B14DFB3822AC1"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX4F3C9300C5DC4F088DE6B55768AAF1EA"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBX96F6C80D24884ADD9DCA6FAD1203044A"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBXF407C066CFC1488BB841E1F6ED8E4B88"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX680ED5653C534A8B98292C94099A9DF2"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBXA8B40AE2FD3248C0A90C99C6E64FCDA2"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Balistique pure (nombres, pas de Vector3) : utilisée à l'identique par le serveur (validation)
 -- et par les clients (animation), donc l'arc affiché correspond exactement à l'arc calculé.
 
@@ -18,7 +18,7 @@ function Ballistics.position(ox: number, oy: number, oz: number, vx: number, vy:
 end
 
 return Ballistics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59386D54D0AF4829A4B8CF7730DB51FF"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX915D72FED6A547D298962852A9A7A13E"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Configuration centrale du jeu « Festin du T-Rex ».
 -- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
 
@@ -234,7 +234,7 @@ Config.Defaults = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF491CB0CEB5C4461A40BE1A91BD7CD57"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45A4014282E7431DAFA917B7A7E88E26"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Machine d'état du T-Rex (satiété, contributions, festin). Pure : testable hors Studio.
 
 local Config = require(script.Parent.Config)
@@ -287,7 +287,7 @@ function DinoCore.completeFeast(self: Core): ({ [number]: number }, number, numb
 end
 
 return DinoCore
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE7EA4EC656C7425FB302329C527BA7A8"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA6443BC12912468B8222179B147C246E"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Calculs d'économie et de statistiques (purs, testables hors Studio).
 
 local Config = require(script.Parent.Config)
@@ -454,7 +454,7 @@ function Economy.rollPet(eggKind: string, rnd1: number, rnd2: number): string
 end
 
 return Economy
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9D237F47AF694B7D9AB5EF4DD73655FF"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDCECF6B5E0E04B78BC0FB578E4BA90F5"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique des quêtes quotidiennes et de la série de connexion (pure).
 
 local Config = require(script.Parent.Config)
@@ -571,7 +571,7 @@ function QuestLogic.claimDaily(data: any, today: number): (number?, number?, num
 end
 
 return QuestLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91DA6C80AA254496B5D450E418296EBA"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD8D5EBA5E9EB4677909753AB88AB797E"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Définition unique des RemoteEvents / RemoteFunction. Le serveur les crée, le client les attend.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -616,7 +616,7 @@ function Remotes.init()
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4DD31CA2F487445BBDF6AEA1639F066E"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDCE935D77B6D47DFBA835AC1D871A68D"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Utilitaires purs (sans dépendance Roblox) : testables en dehors de Studio.
 
 local Util = {}
@@ -727,7 +727,7 @@ function Util.formatTime(seconds: number): string
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX516411ED1F144A3291194B135A7F139D"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX981E4023049043D88CC2787C98BB89EA"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX9AAE8D081D5445B1B1733266292EDAC5"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX5F706989A9D842C59D8257EBC103258D"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX69034881D48C4EDB89435441AEB88617"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX8F603A74A4F6499F914FB6F01A1D5ED2"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée serveur : initialise les services dans l'ordre des dépendances.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -741,6 +741,7 @@ local PlayerService = require(Services:WaitForChild("PlayerService"))
 local DinoService = require(Services:WaitForChild("DinoService"))
 local EventService = require(Services:WaitForChild("EventService"))
 local FoodService = require(Services:WaitForChild("FoodService"))
+local NameTagService = require(Services:WaitForChild("NameTagService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
 local ShopService = require(Services:WaitForChild("ShopService"))
@@ -756,13 +757,14 @@ DinoService.init(mapFolder)
 EventService.init()
 FoodService.init()
 QuestService.init()
+NameTagService.init()
 LeaderboardService.init(boardLabels)
 ShopService.init()
 MonetizationService.init()
 PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
 
 print("[FestinTRex] Serveur prêt.")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBXBD2A4D09DF9C444FA0D8786D721CA3FC"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX476706EB9FFB4A29BAB69BA68BE46E5C"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBXF3E2ED0840CD4F5F91498161A4058437"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX55237BACF2934375991EBDB5012A7D5F"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Chargement / sauvegarde des profils avec verrou de session (anti-duplication entre serveurs).
 -- Le DataStore est injectable (_setStore) pour pouvoir tester la logique hors Studio.
 
@@ -902,7 +904,7 @@ function DataService.save(userId: number, data: any, release: boolean): boolean
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA782CAAE1D3A469D94ECB68275E4D161"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3ADA9B9590604E0E81383521040FAAE6"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Le T-Rex central : construction du modèle (blocs Roblox), satiété, favori, festin et croissance.
 
 local Players = game:GetService("Players")
@@ -1295,7 +1297,7 @@ function DinoService.init(mapFolder: Instance)
 end
 
 return DinoService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117BDC011D8E487F94731AAD9E984F4F"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8105DFB8190245248E0430A2BD688A52"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Événements périodiques : Marée de sauce (survie), Pluie gourmande (collecte), Frénésie (x2 pièces).
 -- L'état est publié dans ReplicatedStorage.GameState : les clients dessinent les effets eux-mêmes.
 
@@ -1544,7 +1546,7 @@ function EventService.init()
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1199A25D9987422994E8920E70433979"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFDFE2683D1C84C6FB5C63846AF6C21A0"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Lancers de nourriture : validation serveur complète, simulation balistique, récompenses.
 -- Le client n'envoie QUE la position visée ; origine, portée, cadence, munitions et résultat
 -- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
@@ -1867,7 +1869,7 @@ function FoodService.init()
 end
 
 return FoodService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87FE44BBF946466EA5847BCA5837DDA5"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6EE415E0725F421DA308592E0868F632"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Classement mondial « Plus gros nourrisseurs » (OrderedDataStore) + tableau dans le monde.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -1959,7 +1961,7 @@ function LeaderboardService.init(boardLabels: { TextLabel })
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2AA30FA8A2D3449BB305224B424040B4"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2DF9A0CB81F4451BA46905D03632BA67"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Construction procédurale du monde avec des Parts natives Roblox (aucun asset externe) :
 -- place du festin, stands, kiosques, tables de survie, arbres, secrets, éclairage.
 
@@ -2371,7 +2373,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF28C3050C00A41FDB48128C3D44C2AB7"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX874BE549D0AF48F5854BE84C30A2789A"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Achats Robux : Game Passes (propriété vérifiée par Roblox) et produits développeur
 -- (ProcessReceipt idempotent : un reçu n'est jamais accordé deux fois, annulation si la sauvegarde échoue).
 
@@ -2509,7 +2511,65 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA547C550054440CA83D2A2F5D2DF9FFC"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67DF8AF924EE43C0894F12EF742DB27F"><Properties><string name="Name">NameTagService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Étiquette au-dessus des joueurs : niveau gourmet + couronne VIP (progression visible, statut social).
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local PlayerService = require(script.Parent.PlayerService)
+
+local NameTagService = {}
+
+local function render(label: TextLabel, player: Player)
+	local level = player:GetAttribute("Level") or 1
+	local vip = player:GetAttribute("Vip") == true
+	label.Text = (if vip then "👑 " else "") .. "Niv. " .. tostring(level)
+	label.TextColor3 = if vip then Color3.fromRGB(255, 210, 60) else Color3.new(1, 1, 1)
+end
+
+local function attach(player: Player, char: Model)
+	local head = char:WaitForChild("Head", 5)
+	if not head then
+		return
+	end
+	local old = head:FindFirstChild("NameTag")
+	if old then
+		old:Destroy()
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "NameTag"
+	gui.Adornee = head
+	gui.Size = UDim2.fromOffset(150, 30)
+	gui.StudsOffset = Vector3.new(0, 3.4, 0)
+	gui.MaxDistance = 70
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextStrokeTransparency = 0.2
+	label.Parent = gui
+	render(label, player)
+	gui.Parent = head
+
+	local c1 = player:GetAttributeChangedSignal("Level"):Connect(function()
+		render(label, player)
+	end)
+	local c2 = player:GetAttributeChangedSignal("Vip"):Connect(function()
+		render(label, player)
+	end)
+	gui.Destroying:Connect(function()
+		c1:Disconnect()
+		c2:Disconnect()
+	end)
+end
+
+function NameTagService.init()
+	PlayerService.onCharacter(attach)
+end
+
+return NameTagService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0E6C306CA42C4D1B8F50CBCD0C9F9E6D"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Œufs et compagnons : tirage serveur (aléatoire non manipulable par le client), équipement.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2593,7 +2653,7 @@ function PetService.equip(player: Player, petId: any, on: any): (boolean, string
 end
 
 return PetService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX420295DEE64B40508AD045AD0052E16C"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX870D03108D8B44D4A111A4189077F21D"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Profils joueurs : chargement, état de session, statistiques, monnaie, synchronisation client.
 -- Toutes les modifications de données passent par ici (le client ne peut jamais écrire).
 
@@ -2792,6 +2852,7 @@ local function syncPublic(player: Player)
 	player:SetAttribute("Level", level)
 	player:SetAttribute("Pets", table.concat(data.equipped, ","))
 	player:SetAttribute("PetMult", Economy.petBonus(data))
+	player:SetAttribute("Vip", data.passes ~= nil and data.passes.vip == true)
 end
 
 function PlayerService.pushState(player: Player)
@@ -2941,7 +3002,7 @@ function PlayerService.init()
 end
 
 return PlayerService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9152B27A37A14CEDA952A23F15F0223F"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6419EFC0FDB14307AFD9001E32D2B75A"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Quêtes quotidiennes, série de connexion et secrets (fourchettes d'or).
 
 local CollectionService = game:GetService("CollectionService")
@@ -3040,7 +3101,7 @@ function QuestService.init()
 end
 
 return QuestService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5E100F1572E64A3499F4797FC5024007"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCE3DA461F76E4AC891046015D8E6D37D"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Routeur unique des requêtes client (RemoteFunction « Request ») + achats.
 -- Chaque action est validée : types, existence, propriété, prix, limites, cadence.
 
@@ -3207,7 +3268,7 @@ function ShopService.init()
 end
 
 return ShopService
-]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX55C02E8BCFEC4FE496A530AA112A63C9"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBXBB8DE3E05E2D4D6D944380B3F59F946F"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX90301ABF0CC24E8E8259BA97632CB9E9"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX812D1959A009439CAD03BBE0ADCE28AC"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX850BB1B5542142B09754D7CCE7B8670D"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBXE30B252DE2CE4E32A7CFC22C20A78800"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX86F2083141C04CB097E3028D753FEAD8"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBXFF8F198DE2F346069754D79757781A10"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Effets visuels et sonores : arcs de lancer (rejoués depuis le calcul serveur), impacts,
 -- bonus flottants, festin, vague de sauce (calculée localement depuis l'heure serveur).
 
@@ -3617,7 +3678,102 @@ function Effects.init()
 end
 
 return Effects
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1C265F40A64A4AD9BEEA82BA37360251"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8B8EF390F1674F42AFB439B5B35351F1"><Properties><string name="Name">Guide</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Aide à l'orientation : quand le panier est vide, un rayon doré mène au stand débloqué le plus proche.
+
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+
+local Store = require(script.Parent.Store)
+
+local Guide = {}
+
+local localPlayer = Players.LocalPlayer
+local beam: Beam? = nil
+local startAttachment: Attachment? = nil
+local endAttachment: Attachment? = nil
+
+local function hide()
+	if beam then
+		beam.Enabled = false
+	end
+end
+
+local function ensure(hrp: BasePart)
+	if beam and beam.Parent and startAttachment and startAttachment.Parent == hrp then
+		return
+	end
+	if beam then
+		beam:Destroy()
+	end
+	startAttachment = Instance.new("Attachment")
+	startAttachment.Name = "GuideStart"
+	startAttachment.Parent = hrp
+	endAttachment = nil
+	beam = Instance.new("Beam")
+	beam.Name = "GuideBeam"
+	beam.Attachment0 = startAttachment
+	beam.Width0 = 0.5
+	beam.Width1 = 0.5
+	beam.Color = ColorSequence.new(Color3.fromRGB(255, 210, 60))
+	beam.Transparency = NumberSequence.new(0.35)
+	beam.LightEmission = 1
+	beam.FaceCamera = true
+	beam.Segments = 12
+	beam.Enabled = false
+	beam.Parent = hrp
+end
+
+local function nearestStand(hrp: BasePart, foods: any): BasePart?
+	local best, bestDist = nil, math.huge
+	for _, prompt in ipairs(CollectionService:GetTagged("FoodStand")) do
+		local counter = prompt.Parent
+		local foodId = prompt:GetAttribute("FoodId")
+		if counter and counter:IsA("BasePart") and foods[foodId] then
+			local d = (counter.Position - hrp.Position).Magnitude
+			if d < bestDist then
+				best, bestDist = counter, d
+			end
+		end
+	end
+	return best
+end
+
+function Guide.init()
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			local state = Store.state
+			local char = localPlayer.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			if not state or not hrp or state.ammo > 0 then
+				hide()
+			else
+				ensure(hrp)
+				local stand = nearestStand(hrp, state.foods)
+				-- Pas de rayon quand on est déjà tout près du stand.
+				if stand and (stand.Position - hrp.Position).Magnitude > 14 then
+					if not endAttachment or endAttachment.Parent ~= stand then
+						if endAttachment then
+							endAttachment:Destroy()
+						end
+						endAttachment = Instance.new("Attachment")
+						endAttachment.Name = "GuideEnd"
+						endAttachment.Position = Vector3.new(0, 3, 0)
+						endAttachment.Parent = stand
+						beam.Attachment1 = endAttachment
+					end
+					beam.Enabled = true
+				else
+					hide()
+				end
+			end
+		end
+	end)
+end
+
+return Guide
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56A53F9C685A4B1A9495979715201E2D"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Interface permanente : pièces, niveau, état du T-Rex, événements, panier, combo, boutons, notifications.
 
 local Players = game:GetService("Players")
@@ -4006,7 +4162,7 @@ function HUD.gui(): ScreenGui
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA65DA25A94DB47FFACAA3A211A204A06"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD986F6AA10054226B7619E23470E4226"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Entrées : clic souris, tap tactile (distingué d'un glissement de caméra), bouton LANCER, gâchette de manette.
 -- Le client n'envoie que le point visé ; le serveur décide de tout le reste.
 
@@ -4108,7 +4264,7 @@ function Input.init()
 end
 
 return Input
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXFB52C062A40140F8BD18B212739C76C8"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX1EB74D884CB44E519616EB72FB089649"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée client.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4121,7 +4277,7 @@ local Panels = require(script.Parent:WaitForChild("Panels"))
 local Effects = require(script.Parent:WaitForChild("Effects"))
 local PetsRenderer = require(script.Parent:WaitForChild("Pets"))
 local Input = require(script.Parent:WaitForChild("Input"))
-local UIKit = require(script.Parent:WaitForChild("UIKit"))
+local Guide = require(script.Parent:WaitForChild("Guide"))
 
 Store.init()
 HUD.init(function(name)
@@ -4131,6 +4287,7 @@ Panels.init()
 Effects.init()
 PetsRenderer.init()
 Input.init()
+Guide.init()
 
 Remotes.get("Notify").OnClientEvent:Connect(function(text, kind)
 	if type(text) == "string" then
@@ -4151,7 +4308,7 @@ end)
 task.delay(2, function()
 	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9A34CACEC21440BABEB6CD39BF2512C0"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5621877D4BBB48829A28C81D301056E7"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Fenêtres : boutique, nid (compagnons), quêtes, classement, évolution + animation d'éclosion.
 
 local Players = game:GetService("Players")
@@ -4632,7 +4789,7 @@ function Panels.init()
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB7318495A6034D8988F970CE7C577E41"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13341D61CBB749B29EEB40CC3DDC0F37"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Rendu local des compagnons de tous les joueurs (le serveur ne publie que l'attribut « Pets »).
 
 local Players = game:GetService("Players")
@@ -4774,7 +4931,7 @@ function PetsRenderer.init()
 end
 
 return PetsRenderer
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8DA717D0BC97408CA43AEC440CC3AC8A"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDA0A957CF024474C99BF71C12B00962E"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Magasin d'état côté client : dernier instantané envoyé par le serveur + abonnements.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4813,7 +4970,7 @@ function Store.request(action: string, payload: any?): any
 end
 
 return Store
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXC134E1D16640439B82D319CB8F512555"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA465BEB4CEF44E4BAC4A9A375DC0C177"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Petite boîte à outils d'interface (style Roblox : coins arrondis, polices Fredoka/Gotham).
 
 local SoundService = game:GetService("SoundService")

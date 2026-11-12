@@ -197,6 +197,7 @@ local function syncPublic(player: Player)
 	player:SetAttribute("Level", level)
 	player:SetAttribute("Pets", table.concat(data.equipped, ","))
 	player:SetAttribute("PetMult", Economy.petBonus(data))
+	player:SetAttribute("Vip", data.passes ~= nil and data.passes.vip == true)
 end
 
 function PlayerService.pushState(player: Player)

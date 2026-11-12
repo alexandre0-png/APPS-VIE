@@ -28,6 +28,7 @@ Rien n'est copié : concept, noms, carte et systèmes sont originaux.
 - Quêtes du jour (3 tirées parmi 6 types) et série de connexion sur 7 jours.
 - Évolution (renaissance) : x1,5 / x2 / x2,5… permanent.
 - 5 fourchettes d'or cachées sur la carte (+ bonus si toutes trouvées).
+- Étiquette de niveau (et couronne VIP) au-dessus des joueurs, rayon doré vers le stand le plus proche quand le panier est vide.
 - Niveau gourmet, classement mondial (OrderedDataStore) affiché sur un panneau dans le monde et dans l'interface.
 
 ## Publication
