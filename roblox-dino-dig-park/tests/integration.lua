@@ -111,6 +111,7 @@ for _, name in ipairs({ "upgrades", "collection", "quests", "daily", "rebirth", 
 end
 noErrors("ouverture des panneaux")
 check(Hud.objectiveTarget ~= nil and Hud.objectiveTarget.kind == "dig", "objectif initial : creuser")
+check(M.boundActions and M.boundActions.DinoDig ~= nil, "touche F / bouton X de manette liés à la fouille")
 
 ----------------------------------------------------------------------
 section("Fouille")

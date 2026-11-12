@@ -333,6 +333,7 @@ end
 function Methods.FireClient(self, player, ...) self.OnClientEvent:Fire(...) end
 function Methods.FireServer(self, ...) self.OnServerEvent:Fire(M.localPlayer, ...) end
 function Methods.Emit() end
+function Methods.BindAction(self, name, fn) M.boundActions = M.boundActions or {} M.boundActions[name] = fn end
 function Methods.Play() end
 
 Instance = { new = function(class)

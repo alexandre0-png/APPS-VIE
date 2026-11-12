@@ -1,6 +1,7 @@
 -- Hud.luau : interface permanente (monnaies, boutons de menu, objectif, notifications, boutons contextuels).
 
 local TweenService = game:GetService("TweenService")
+local ContextActionService = game:GetService("ContextActionService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -306,7 +307,7 @@ function Hud.build(root)
 	-- bouton creuser
 	digButton = Ui.button(root, {
 		name = "Dig",
-		text = "⛏ CREUSER",
+		text = "⛏ CREUSER (F)",
 		size = UDim2.fromOffset(210, 74),
 		pos = UDim2.new(0.5, 0, 1, -16),
 		anchor = Vector2.new(0.5, 1),
@@ -337,6 +338,23 @@ function Hud.build(root)
 			stop()
 		end
 	end)
+
+	-- clavier / manette : F, ou bouton X de la manette, maintenu = creuser (actif uniquement dans la zone de fouille)
+	ContextActionService:BindAction("DinoDig", function(_, state)
+		if state == Enum.UserInputState.Begin and digButton.Visible then
+			holding = true
+			task.spawn(function()
+				while holding and digButton.Visible do
+					Store.act("Dig")
+					task.wait(Config.DigCooldown + 0.03)
+				end
+				holding = false
+			end)
+		elseif state == Enum.UserInputState.End then
+			holding = false
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.F, Enum.KeyCode.ButtonX)
 
 	-- bouton collecter
 	collectButton = Ui.button(root, {

@@ -11,3 +11,7 @@
 - Graphisme : éclairage, correction de couleur, rayons de soleil, lumières des lampadaires, pulsation des boutons, particules, dégradés d'interface.
 - Grande roue animée, sons selon la rareté, panneau de bienvenue.
 - Scripts : délais par action, débounce d'achat corrigé, double sauvegarde évitée.
+
+## Accessibilité
+- Fouille au clavier (touche F) et à la manette (bouton X), maintenable, active seulement dans la zone de fouille. Le bouton à l'écran reste pour le tactile.
+- Note : `tests/run_integration.js` dure environ 2 minutes (VM Lua interprétée en JS).
