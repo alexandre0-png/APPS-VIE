@@ -9,7 +9,7 @@ Le jeu n'a jamais tourné dans Roblox : il est vérifié par simulation, compila
 - [ ] Paramètres du jeu > Sécurité : activer « Autoriser l'accès de Studio aux services API » (sauvegarde en test).
 - [ ] Paramètres du jeu > Avatar : R15.
 - [ ] Test > Clients et serveurs : 2 joueurs. Vérifier dans l'ordre :
-  1. l'intro (survol du zoo, touche pour passer) ;
+  1. les cinématiques (`Config.Cinematics`) : au premier lancement l'intro (4 plans autour de ton zoo, touche/clic pour passer après 0,4 s) puis le mini tutoriel (4 écrans de texte) ; vérifier que le texte est lisible sur téléphone, que PARTIR EN EXPÉDITION les interrompt aussitôt, qu'elles ne reviennent pas après un passage (flag `seen` sauvegardé), puis l'aperçu d'une zone à son déblocage et la cinématique d'un boss capturé (la caméra tourne autour de l'animal exposé dans ton zoo) ; MENU > HISTOIRE > « Revoir » les rejoue ;
   2. ton zoo devant ta parcelle, la caisse, EXPÉDITION > PARTIR ;
   3. ton cavalier suit bien l'animal, la caméra reste derrière lui (point le plus risqué : soudure sur pièce ancrée) ;
   4. ESPACE saute, le lasso de saut accroche l'animal suivant, le sol est mortel ;

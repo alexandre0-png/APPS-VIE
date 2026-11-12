@@ -45,6 +45,7 @@ local function defaultData()
 		quests = { day = 0, list = {} },
 		receipts = {},
 		riddle = { day = 0, solved = false, claimed = false },
+		seen = {}, -- cinématiques déjà vues
 	}
 end
 

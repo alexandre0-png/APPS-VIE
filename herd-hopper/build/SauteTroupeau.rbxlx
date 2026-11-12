@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX40"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="Lighting" referent="RBX41"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX8"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[-- Mathématiques des animations (pures : testées avec Lune). Aucun appel à l'API Roblox ici.
+<Item class="Workspace" referent="RBX41"><Properties><string name="Name">Workspace</string></Properties></Item>
+<Item class="Lighting" referent="RBX42"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX9"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX8"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[-- Mathématiques des animations (pures : testées avec Lune). Aucun appel à l'API Roblox ici.
 -- Les valeurs renvoyées sont appliquées par Fx (serveur), CreatureFx, Anim et HUD (client).
 
 local AnimMath = {}
@@ -146,7 +146,224 @@ function AnimMath.fovPunch(t, duration, amount)
 end
 
 return AnimMath
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- Configuration centrale de Saute-Troupeau (Herd Hopper).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">CinematicPlan</string><ProtectedString name="Source"><![CDATA[-- Plans des cinématiques (purs : testés avec Lune). Décrit les séquences, leur état (durée, passage, reprise)
+-- et décide lesquelles jouer. L'application (caméra, textes) est faite côté client par Cinematics.
+
+local Config = require(script.Parent.Config)
+local Species = require(script.Parent.Species)
+
+local Plan = {}
+
+-- Séquences : liste de plans { dur = secondes, cam = "orbit" | "flyover" | "none", caption, sub }.
+Plan.sequences = {
+	intro = {
+		{ dur = 4, cam = "orbit", caption = "Un zoo, ça se remplit !", sub = "Bienvenue, gardienne ou gardien." },
+		{ dur = 4, cam = "orbit", caption = "Ta tante t'a laissé ce zoo.", sub = "Il est vide... pour l'instant." },
+		{
+			dur = 4,
+			cam = "orbit",
+			caption = "Pars en expédition !",
+			sub = "Saute d'animal en animal. Le sol est mortel !",
+		},
+		{
+			dur = 4,
+			cam = "orbit",
+			caption = "Un cœur rose ?",
+			sub = "Récupère l'animal : il rejoint ton zoo et rapporte de l'or.",
+			heart = true,
+		},
+	},
+	tutorial = {
+		{
+			dur = 5,
+			cam = "none",
+			caption = "SAUTER",
+			sub = "Appuie sur ESPACE (ou le bouton SAUTER) pour quitter ton animal.",
+		},
+		{
+			dur = 5,
+			cam = "none",
+			caption = "LASSO DE SAUT",
+			sub = "En l'air, maintiens ESPACE : tu t'accroches à l'animal suivant.",
+		},
+		{
+			dur = 5,
+			cam = "none",
+			caption = "CŒUR ROSE",
+			sub = "Reste en selle jusqu'à la barre pleine, puis appuie sur RÉCUPÉRER (E).",
+			heart = true,
+		},
+		{
+			dur = 5,
+			cam = "none",
+			caption = "LASSO DE CAPTURE",
+			sub = "Appuie sur Q (ou LASSO) pour attraper de loin un animal à cœur.",
+		},
+	},
+}
+
+-- Séquence d'aperçu d'une zone (index 2 à 4) et de capture d'un boss : construites à partir de la config.
+function Plan.zoneSequence(zoneIndex)
+	local zone = Config.Zones[zoneIndex]
+	if not zone then
+		return nil
+	end
+	local names = {}
+	for _, id in ipairs(zone.animals) do
+		table.insert(names, Species.ById[id].name)
+	end
+	local boss = Species.ById[zone.boss]
+	return {
+		{
+			dur = 4,
+			cam = "flyover",
+			caption = "NOUVELLE ZONE : " .. zone.name,
+			sub = "Tu peux maintenant y partir en expédition !",
+		},
+		{
+			dur = 4,
+			cam = "flyover",
+			caption = "Danger : " .. zone.hazard.name,
+			sub = "Animaux : " .. table.concat(names, ", ") .. ".",
+		},
+		{ dur = 4, cam = "flyover", caption = "Un boss rôde", sub = boss.name .. " t'attend au bout de la zone." },
+	}
+end
+
+function Plan.bossSequence(bossId)
+	local def = Species.ById[bossId]
+	if not def or not def.boss then
+		return nil
+	end
+	return {
+		{ dur = 4, cam = "orbit", caption = "BOSS CAPTURÉ !", sub = def.name .. " rejoint ton zoo !", heart = true },
+		{ dur = 4, cam = "orbit", caption = "Quelle prise !", sub = "Un boss rapporte énormément d'or à ton zoo." },
+		{ dur = 3, cam = "orbit", caption = "Et ce n'est que le début...", sub = "Continue d'explorer les zones." },
+	}
+end
+
+-- Renvoie la séquence d'une clé ("intro", "tutorial", "zone_2", "boss_elephant") ou nil si la clé est invalide.
+function Plan.sequenceFor(key)
+	if type(key) ~= "string" then
+		return nil
+	end
+	if Plan.sequences[key] then
+		return Plan.sequences[key]
+	end
+	local zoneIndex = key:match("^zone_(%d+)$")
+	if zoneIndex then
+		local index = tonumber(zoneIndex)
+		if index and index >= 2 then
+			return Plan.zoneSequence(index)
+		end
+		return nil
+	end
+	local bossId = key:match("^boss_(.+)$")
+	if bossId then
+		return Plan.bossSequence(bossId)
+	end
+	return nil
+end
+
+function Plan.validKey(key)
+	return Plan.sequenceFor(key) ~= nil
+end
+
+function Plan.total(shots)
+	local total = 0
+	for _, shot in ipairs(shots) do
+		total = total + shot.dur
+	end
+	return total
+end
+
+-- Plan en cours à t secondes : renvoie index, progression (0..1) dans le plan, ou nil une fois la séquence finie.
+function Plan.shotAt(shots, t)
+	local acc = 0
+	for index, shot in ipairs(shots) do
+		if t < acc + shot.dur then
+			return index, (t - acc) / shot.dur
+		end
+		acc = acc + shot.dur
+	end
+	return nil, 1
+end
+
+-- ---------------------------------------------------------------- état (passage et reprise)
+
+function Plan.newState(shots, maxSeconds)
+	return {
+		shots = shots,
+		t = 0,
+		total = math.min(Plan.total(shots), maxSeconds or math.huge),
+		skipped = false,
+		done = false,
+	}
+end
+
+function Plan.step(state, dt)
+	if state.done then
+		return state
+	end
+	state.t = state.t + dt
+	if state.t >= state.total then
+		state.t = state.total
+		state.done = true
+	end
+	return state
+end
+
+function Plan.skip(state)
+	if not state.done then
+		state.skipped = true
+		state.done = true
+	end
+	return state
+end
+
+-- Faut-il considérer la cinématique comme vue ? Oui si elle est allée au bout, a été passée, ou a duré assez
+-- longtemps ; sinon (interrompue tout de suite, par exemple par un départ en expédition) elle sera reproposée.
+function Plan.completed(state)
+	return state.done or state.t >= math.min(3, state.total * 0.25)
+end
+
+-- ---------------------------------------------------------------- décision
+
+-- Cinématiques à jouer, dans l'ordre. data = instantané du profil (seen, zones, bossCaptured).
+function Plan.pending(data, cfg)
+	local list = {}
+	if not cfg.Enabled or type(data) ~= "table" then
+		return list
+	end
+	local seen = data.seen or {}
+	if cfg.Intro and not seen.intro then
+		table.insert(list, "intro")
+	end
+	if cfg.Tutorial and not seen.tutorial then
+		table.insert(list, "tutorial")
+	end
+	if cfg.ZoneOpening and data.zones then
+		for index = 2, #Config.Zones do
+			local key = "zone_" .. index
+			if data.zones[Config.Zones[index].key] and not seen[key] then
+				table.insert(list, key)
+			end
+		end
+	end
+	if cfg.BossCaptured and data.bossCaptured then
+		for index = 1, #Config.Zones do
+			local bossId = Config.Zones[index].boss
+			local key = "boss_" .. bossId
+			if data.bossCaptured[bossId] and not seen[key] then
+				table.insert(list, key)
+			end
+		end
+	end
+	return list
+end
+
+return Plan
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- Configuration centrale de Saute-Troupeau (Herd Hopper).
 -- Toutes les valeurs d'équilibrage sont ici : on peut régler le jeu sans toucher aux systèmes.
 
 local Config = {}
@@ -279,6 +496,20 @@ Config.Animations = {
 	ZoneTransition = true, -- balayage de couleur entre deux zones
 	Boss = true, -- piétinements, nuage d'arrivée, coup de zoom
 	Death = true, -- nuage de fumée, étoiles, estompage, écran grisé
+}
+
+-- Cinématiques : seulement aux moments clés (jamais en pleine action). Toutes sont passables d'un appui,
+-- rejouables depuis le menu Histoire, protégées par pcall, et ne bloquent jamais le joueur.
+Config.Cinematics = {
+	Enabled = true,
+	Intro = true, -- courte intro : le zoo, le cœur rose, le but (première connexion)
+	Tutorial = true, -- mini tutoriel : sauter, lasso, cœur, capture (première connexion)
+	ZoneOpening = true, -- aperçu d'une nouvelle zone, la première fois qu'elle est débloquée
+	BossCaptured = true, -- mise en scène de la première capture de chaque boss
+	Replayable = true, -- boutons « Revoir » dans le menu Histoire
+	MaxSeconds = 45, -- plafond de sécurité d'une cinématique
+	IdleDelay = 1.5, -- attente au calme avant de lancer la suivante
+	GraceSeconds = 0.4, -- délai avant que l'appui « passer » soit pris en compte
 }
 
 Config.Events = {
@@ -693,7 +924,7 @@ function Config.findById(list, id)
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[-- Création / récupération des RemoteEvents et RemoteFunctions.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[-- Création / récupération des RemoteEvents et RemoteFunctions.
 -- Le serveur crée tout au démarrage ; le client attend leur réplication.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -761,7 +992,7 @@ for _, name in ipairs(FUNCTIONS) do
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Species</string><ProtectedString name="Source"><![CDATA[-- Les 7 espèces de bêtes. Chaque bête est construite en blocs Roblox (aucun asset externe).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Species</string><ProtectedString name="Source"><![CDATA[-- Les 7 espèces de bêtes. Chaque bête est construite en blocs Roblox (aucun asset externe).
 -- Repère local : l'avant est -Z, le dessus est +Y. Les offsets "o" sont relatifs au centre du corps.
 -- Palette : body / dark / light / accent / eye.
 
@@ -1474,7 +1705,7 @@ function Species.variantCount(def, totalVariants)
 end
 
 return Species
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[-- Petits utilitaires partagés (serveur + client).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[-- Petits utilitaires partagés (serveur + client).
 
 local Util = {}
 
@@ -1544,7 +1775,7 @@ function Util.isFiniteNumber(v)
 end
 
 return Util
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Zoo</string><ProtectedString name="Source"><![CDATA[-- Formules du zoo (pures, sans API Roblox : testées avec Lune).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Zoo</string><ProtectedString name="Source"><![CDATA[-- Formules du zoo (pures, sans API Roblox : testées avec Lune).
 -- Un animal du zoo est identifié par "<espèce>_<variante>" (ex. "boar_2" = Phacochère Cristal).
 
 local Config = require(script.Parent.Config)
@@ -1675,7 +1906,7 @@ end
 
 return Zoo
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX23"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX22"><Properties><string name="Name">Server</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée serveur de Saute-Troupeau.
+<Item class="ServerScriptService" referent="RBX24"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX23"><Properties><string name="Name">Server</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée serveur de Saute-Troupeau.
 -- Ordre : remotes -> services -> construction de la carte -> apparition des joueurs -> boucle de manches.
 
 local Players = game:GetService("Players")
@@ -1831,7 +2062,7 @@ task.spawn(function()
 end)
 
 task.spawn(RoundService.Run)
-]]></ProtectedString></Properties><Item class="Folder" referent="RBX21"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Cosmetics</string><ProtectedString name="Source"><![CDATA[-- Chapeaux : construits en blocs et soudés à la tête du personnage.
+]]></ProtectedString></Properties><Item class="Folder" referent="RBX22"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Cosmetics</string><ProtectedString name="Source"><![CDATA[-- Chapeaux : construits en blocs et soudés à la tête du personnage.
 
 local Cosmetics = {}
 
@@ -1968,7 +2199,7 @@ function Cosmetics.applyHat(character, hatId)
 end
 
 return Cosmetics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">CreatureService</string><ProtectedString name="Source"><![CDATA[-- Troupeau : construction des bêtes, déplacement, apparition / disparition.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CreatureService</string><ProtectedString name="Source"><![CDATA[-- Troupeau : construction des bêtes, déplacement, apparition / disparition.
 -- Chaque bête = un Model dont seule la pièce "Root" est ancrée ; les autres pièces sont soudées.
 -- Déplacer Root (CFrame) déplace tout le monde et ne réplique qu'une pièce.
 
@@ -2450,7 +2681,7 @@ function CreatureService.Step(dt)
 end
 
 return CreatureService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Sauvegarde des joueurs (DataStore) + classement mondial (OrderedDataStore).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Sauvegarde des joueurs (DataStore) + classement mondial (OrderedDataStore).
 -- Règles de sécurité :
 --  * si le chargement échoue, la sauvegarde est DÉSACTIVÉE pour ce joueur (on n'écrase jamais un vrai profil par un profil vide) ;
 --  * sauvegarde automatique toutes les 60 s, à la sortie du joueur et à l'arrêt du serveur.
@@ -2497,6 +2728,7 @@ local function defaultData()
 		quests = { day = 0, list = {} },
 		receipts = {},
 		riddle = { day = 0, solved = false, claimed = false },
+		seen = {}, -- cinématiques déjà vues
 	}
 end
 
@@ -2672,7 +2904,7 @@ function DataService.Init()
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[-- Événements de manche : Geysers (gros bonds gratuits) et Pluie de météores (éjecte les cavaliers).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[-- Événements de manche : Geysers (gros bonds gratuits) et Pluie de météores (éjecte les cavaliers).
 -- Chaque événement est annoncé par un anneau au sol ("télégraphie") avant d'agir.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2806,7 +3038,7 @@ function EventService.Step(elapsed)
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Fx</string><ProtectedString name="Source"><![CDATA[-- Effets visuels ponctuels côté serveur (anneaux d'avertissement, explosions, geysers, particules).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Fx</string><ProtectedString name="Source"><![CDATA[-- Effets visuels ponctuels côté serveur (anneaux d'avertissement, explosions, geysers, particules).
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
@@ -3052,7 +3284,7 @@ function Fx.clear()
 end
 
 return Fx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[-- Construction procédurale de tout le monde : salon (lobby), piste en 4 biomes, falaises, décors,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[-- Construction procédurale de tout le monde : salon (lobby), piste en 4 biomes, falaises, décors,
 -- portiques, ligne d'arrivée, podium et mur de lave. Uniquement des blocs et matériaux Roblox standards.
 
 local Lighting = game:GetService("Lighting")
@@ -3959,7 +4191,7 @@ function MapBuilder.Build()
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Achats Robux : pass de jeu (permanents) et produits développeur (paquets de pièces).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Achats Robux : pass de jeu (permanents) et produits développeur (paquets de pièces).
 -- Aucun achat n'est accordé sans reçu valide ; chaque reçu est enregistré (idempotent) avant d'être validé.
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -4156,7 +4388,7 @@ function MonetizationService.Init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">ProgressService</string><ProtectedString name="Source"><![CDATA[-- Progression : or, os, zoo (animaux, niveaux, caisse), améliorations, histoire, quêtes, boutique.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">ProgressService</string><ProtectedString name="Source"><![CDATA[-- Progression : or, os, zoo (animaux, niveaux, caisse), améliorations, histoire, quêtes, boutique.
 -- Toutes les décisions sont prises ici (serveur) ; le client ne fait que demander.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4167,6 +4399,7 @@ local Config = require(Shared.Config)
 local Util = require(Shared.Util)
 local Remotes = require(Shared.Remotes)
 local Zoo = require(Shared.Zoo)
+local CinematicPlan = require(Shared.CinematicPlan)
 
 local DataService = require(script.Parent.DataService)
 local Cosmetics = require(script.Parent.Cosmetics)
@@ -4428,6 +4661,8 @@ function ProgressService.Snapshot(player)
 	local hasZoo = ProgressService.HasPass(player, "zoo")
 	return {
 		loaded = true,
+		seen = data.seen,
+		bossCaptured = data.bossCaptured,
 		riddle = {
 			text = riddle.text,
 			solved = data.riddle.solved,
@@ -4948,6 +5183,17 @@ local function handleZoo(player, action, key)
 		ProgressService.RefreshAttributes(player)
 		ProgressService.Push(player)
 		return result(true, ("Chapitre terminé : +%d or, +%d os"):format(chapter.reward.gold, chapter.reward.bones))
+	elseif action == "seen" then
+		-- cinématique vue ou passée : on ne retient que des clés connues (aucune donnée libre du client)
+		if not CinematicPlan.validKey(key) then
+			return result(false, "Cinématique inconnue.")
+		end
+		if not data.seen[key] then
+			data.seen[key] = true
+			DataService.MarkDirty(player)
+			ProgressService.Push(player)
+		end
+		return result(true, "Vue.")
 	elseif action == "riddle" then
 		dailyRiddle(data)
 		if not data.riddle.solved then
@@ -4987,7 +5233,7 @@ function ProgressService.Init()
 end
 
 return ProgressService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">RideService</string><ProtectedString name="Source"><![CDATA[-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">RideService</string><ProtectedString name="Source"><![CDATA[-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
 -- Le serveur est autoritaire : positions des bêtes, portée du lasso, score et états sont validés ici.
 
 local Debris = game:GetService("Debris")
@@ -5968,7 +6214,7 @@ function RideService.Init()
 end
 
 return RideService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">RoundService</string><ProtectedString name="Source"><![CDATA[-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">RoundService</string><ProtectedString name="Source"><![CDATA[-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
 -- Les joueurs prêts partent ensemble dans la zone choisie par la majorité. Les récompenses sont versées ici.
 
 local Players = game:GetService("Players")
@@ -6273,7 +6519,7 @@ function RoundService.Run()
 end
 
 return RoundService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[-- État partagé côté serveur (une seule source de vérité pour la manche en cours).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[-- État partagé côté serveur (une seule source de vérité pour la manche en cours).
 
 local State = {
 	Phase = "Intermission", -- Intermission | Countdown | Running | Results
@@ -6315,7 +6561,7 @@ function State.CountActive()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">ZooService</string><ProtectedString name="Source"><![CDATA[-- Le zoo de chaque joueur : une parcelle dans le parc central, des enclos qui se remplissent d'animaux,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">ZooService</string><ProtectedString name="Source"><![CDATA[-- Le zoo de chaque joueur : une parcelle dans le parc central, des enclos qui se remplissent d'animaux,
 -- une caisse qui accumule de l'or, des visiteurs (affichés côté client). Reconstruite quand le zoo change.
 
 local Players = game:GetService("Players")
@@ -6628,7 +6874,7 @@ end
 
 return ZooService
 ]]></ProtectedString></Properties></Item></Item></Item></Item>
-<Item class="StarterPlayer" referent="RBX39"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX38"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée client de Saute-Troupeau.
+<Item class="StarterPlayer" referent="RBX40"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX39"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX38"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée client de Saute-Troupeau.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6646,7 +6892,7 @@ local HUD = require(Modules.HUD)
 local Menu = require(Modules.Menu)
 local Ambience = require(Modules.Ambience)
 local Sfx = require(Modules.Sfx)
-local Intro = require(Modules.Intro)
+local Cinematics = require(Modules.Cinematics)
 local Visitors = require(Modules.Visitors)
 local Anim = require(Modules.Anim)
 
@@ -6697,9 +6943,9 @@ CameraRig.init()
 Controls.init()
 Ambience.init()
 Visitors.init()
-Intro.init()
+Cinematics.init()
 Anim.init()
-]]></ProtectedString></Properties><Item class="Folder" referent="RBX36"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- Ambiance : la lumière et la brume changent progressivement selon le biome traversé (effet local au client).
+]]></ProtectedString></Properties><Item class="Folder" referent="RBX37"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- Ambiance : la lumière et la brume changent progressivement selon le biome traversé (effet local au client).
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -6755,7 +7001,7 @@ function Ambience.init()
 end
 
 return Ambience
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Anim</string><ProtectedString name="Source"><![CDATA[-- Animations côté client (caméra, écran, bras du joueur). Chacune est derrière Config.Animations et encapsulée
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Anim</string><ProtectedString name="Source"><![CDATA[-- Animations côté client (caméra, écran, bras du joueur). Chacune est derrière Config.Animations et encapsulée
 -- en pcall via Anim.run : une animation qui échoue est signalée une fois puis ignorée, le jeu continue.
 
 local Lighting = game:GetService("Lighting")
@@ -6911,7 +7157,7 @@ function Anim.init()
 end
 
 return Anim
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">CameraRig</string><ProtectedString name="Source"><![CDATA[-- Caméra de course : derrière et au-dessus du cavalier, regardant vers +Z (sens de la piste).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CameraRig</string><ProtectedString name="Source"><![CDATA[-- Caméra de course : derrière et au-dessus du cavalier, regardant vers +Z (sens de la piste).
 -- Actif pendant la course ; en spectateur, suit le leader. Sinon, caméra Roblox par défaut.
 
 local Players = game:GetService("Players")
@@ -7083,7 +7329,367 @@ function CameraRig.init()
 end
 
 return CameraRig
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[-- État côté client + mini système d'abonnement.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- Cinématiques : intro, mini tutoriel, aperçu d'une nouvelle zone, capture d'un boss. Seulement aux moments clés,
+-- jamais pendant l'action. Passables d'un appui, rejouables (menu Histoire), protégées par pcall, jamais bloquantes :
+-- la caméra seule est scénarisée, le joueur garde toujours le contrôle, et un départ en expédition l'interrompt.
+-- La logique (séquences, durée, passage, reprise, choix de la prochaine) est dans shared/CinematicPlan.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Plan = require(Shared.CinematicPlan)
+local Remotes = require(Shared.Remotes)
+
+local CameraRig = require(script.Parent.CameraRig)
+local ClientState = require(script.Parent.ClientState)
+local Sfx = require(script.Parent.Sfx)
+local UI = require(script.Parent.UI)
+
+local Cinematics = {}
+
+local player = Players.LocalPlayer
+local PINK = Color3.fromRGB(255, 96, 160)
+
+local current = nil -- { key, state, gui, refs, connection, shotIndex }
+local started = 0
+Cinematics.failures = 0
+Cinematics.lastKey = nil
+
+local function warnOnce(where, err)
+	Cinematics.failures = Cinematics.failures + 1
+	warn("[Cinématique " .. where .. "] " .. tostring(err))
+end
+
+-- ---------------------------------------------------------------- caméra par plan
+
+local function plotCenter()
+	local center = player:GetAttribute("PlotCenter")
+	if typeof(center) == "Vector3" then
+		return center
+	end
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	return hrp and hrp.Position or Vector3.new(0, 330, 0)
+end
+
+local function bossCenter(key)
+	local id = key:match("^boss_(.+)$")
+	local folder = workspace:FindFirstChild("ZooAnimals")
+	local model = folder and id and folder:FindFirstChild("Zoo_" .. id .. "_1", true)
+	local root = model and model:FindFirstChild("Root")
+	return root and root.Position or plotCenter()
+end
+
+-- Renvoie une fonction t -> CFrame pour toute la séquence (ou nil si aucun plan n'a de caméra).
+local function cameraFor(key, shots)
+	local cameraShots = false
+	for _, shot in ipairs(shots) do
+		if shot.cam ~= "none" then
+			cameraShots = true
+		end
+	end
+	if not cameraShots then
+		return nil
+	end
+	local total = Plan.total(shots)
+	local center = key:match("^boss_") and bossCenter(key) or plotCenter()
+	local zoneIndex = tonumber(key:match("^zone_(%d+)$") or "")
+	local zone = zoneIndex and Config.Zones[zoneIndex]
+	return function(t)
+		local overall = math.clamp(t / total, 0, 1)
+		if zone then
+			-- survol de la zone : de son départ vers le fond, en légère hauteur, regard légèrement devant
+			local z = zone.start + overall * 260
+			local eye = Vector3.new(30 - overall * 60, 42 - overall * 10, z - 60)
+			return CFrame.lookAt(eye, Vector3.new(0, 6, z + 50))
+		end
+		local boss = key:match("^boss_")
+		local angle = t * (boss and 0.5 or 0.3) + 0.6
+		local radius = boss and 34 - overall * 8 or 95 - overall * 25
+		local height = boss and 16 or 70 - overall * 40
+		local eye = center + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+		return CFrame.lookAt(eye, center + Vector3.new(0, 4, 0))
+	end
+end
+
+-- ---------------------------------------------------------------- affichage
+
+local function buildOverlay(shots)
+	local gui = UI.make("ScreenGui", {
+		Name = "HerdHopperCinematic",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 50,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	}, player:WaitForChild("PlayerGui"))
+	local refs = {}
+	for _, top in ipairs({ true, false }) do
+		UI.frame(gui, {
+			AnchorPoint = Vector2.new(0, top and 0 or 1),
+			Position = UDim2.new(0, 0, top and 0 or 1, 0),
+			Size = UDim2.new(1, 0, 0.11, 0),
+			BackgroundColor3 = Color3.fromRGB(10, 12, 20),
+			Active = false,
+		})
+	end
+	refs.caption = UI.text(gui, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.7, 0),
+		Size = UDim2.new(0.86, 0, 0.1, 0),
+		Text = "",
+		maxSize = 56,
+		TextColor3 = UI.Colors.Accent,
+	})
+	refs.sub = UI.text(gui, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.79, 0),
+		Size = UDim2.new(0.8, 0, 0.07, 0),
+		Text = "",
+		maxSize = 28,
+		Font = UI.FontBody,
+	})
+	refs.heartHolder = UI.frame(gui, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 120, 0, 120),
+		BackgroundTransparency = 1,
+		Visible = false,
+	})
+	UI.heart(refs.heartHolder, 120, PINK)
+	refs.heartScale = UI.make("UIScale", { Scale = 1 }, refs.heartHolder)
+	refs.hint = UI.text(gui, {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0.985, 0),
+		Size = UDim2.new(0.6, 0, 0.04, 0),
+		Text = "Touche l'écran ou une touche pour passer",
+		maxSize = 18,
+		Font = UI.FontBody,
+		TextColor3 = UI.Colors.Muted,
+	})
+	-- points de progression (un par plan)
+	refs.dots = {}
+	local row = UI.frame(gui, {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.12, 0),
+		Size = UDim2.new(0, #shots * 22, 0, 12),
+		BackgroundTransparency = 1,
+	})
+	UI.make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	}, row)
+	for i = 1, #shots do
+		local dot = UI.frame(row, { Size = UDim2.new(0, 14, 0, 6), BackgroundColor3 = UI.Colors.Muted })
+		UI.corner(dot, 3)
+		refs.dots[i] = dot
+	end
+	return gui, refs
+end
+
+local function showShot(refs, shots, index, p)
+	local shot = shots[index]
+	refs.caption.Text = shot.caption
+	refs.sub.Text = shot.sub or ""
+	refs.heartHolder.Visible = shot.heart == true
+	if shot.heart then
+		refs.heartScale.Scale = 1 + math.sin(os.clock() * 6) * 0.1
+	end
+	for i, dot in ipairs(refs.dots) do
+		dot.BackgroundColor3 = i <= index and UI.Colors.Accent or UI.Colors.Muted
+	end
+	-- fondu d'entrée / sortie du texte
+	local alpha = 1 - math.clamp(math.min(p / 0.12, (1 - p) / 0.12), 0, 1)
+	refs.caption.TextTransparency = alpha
+	refs.sub.TextTransparency = alpha
+end
+
+-- ---------------------------------------------------------------- cycle de vie
+
+local function markSeen(key)
+	task.spawn(function()
+		pcall(function()
+			Remotes.ZooAction:InvokeServer("seen", key)
+		end)
+	end)
+end
+
+local function finish(reason)
+	local run = current
+	if not run then
+		return
+	end
+	current = nil
+	local completed = Plan.completed(run.state)
+	pcall(function()
+		if run.connection then
+			run.connection:Disconnect()
+		end
+		if run.render then
+			run.render:Disconnect()
+		end
+		CameraRig.stopCinematic()
+		run.gui:Destroy()
+	end)
+	if completed and reason ~= "failed" then
+		markSeen(run.key)
+	end
+	Cinematics.lastKey = run.key
+	started = os.clock()
+end
+
+function Cinematics.isPlaying()
+	return current ~= nil
+end
+
+-- Passe la cinématique en cours (appui, bouton, ou interruption).
+function Cinematics.skip()
+	if current then
+		Plan.skip(current.state)
+		finish("skipped")
+	end
+end
+
+-- Lance la cinématique `key` si elle existe et est autorisée. Renvoie true si elle démarre.
+function Cinematics.play(key, force)
+	local cfg = Config.Cinematics
+	if current or not cfg.Enabled then
+		return false
+	end
+	local shots = Plan.sequenceFor(key)
+	if not shots then
+		return false
+	end
+	local ok, err = pcall(function()
+		local state = Plan.newState(shots, cfg.MaxSeconds)
+		local gui, refs = buildOverlay(shots)
+		local run = { key = key, state = state, gui = gui, refs = refs, t0 = os.clock(), forced = force == true }
+		current = run
+
+		local camFn = cameraFor(key, shots)
+		if camFn then
+			CameraRig.cinematic(camFn, state.total, function()
+				-- fin de la caméra : la séquence suit
+			end)
+		end
+		Sfx.play("go")
+
+		-- appui = passer (après un court délai pour ne pas sauter par accident)
+		run.connection = UserInputService.InputBegan:Connect(function(input)
+			local kind = input.UserInputType
+			if current ~= run or os.clock() - run.t0 < cfg.GraceSeconds then
+				return
+			end
+			if
+				kind == Enum.UserInputType.Keyboard
+				or kind == Enum.UserInputType.MouseButton1
+				or kind == Enum.UserInputType.Touch
+				or kind == Enum.UserInputType.Gamepad1
+			then
+				Cinematics.skip()
+			end
+		end)
+
+		local last = os.clock()
+		run.render = RunService.RenderStepped:Connect(function()
+			if current ~= run then
+				return
+			end
+			local now = os.clock()
+			local dt = math.min(now - last, 0.1)
+			last = now
+			local stepOk, stepErr = pcall(function()
+				Plan.step(run.state, dt)
+				local index, p = Plan.shotAt(shots, run.state.t)
+				if index then
+					showShot(run.refs, shots, index, p)
+				end
+			end)
+			if not stepOk then
+				warnOnce(key, stepErr)
+				finish("failed")
+				return
+			end
+			if run.state.done then
+				finish("done")
+			end
+		end)
+	end)
+	if not ok then
+		warnOnce(key, err)
+		current = nil
+		pcall(function()
+			CameraRig.stopCinematic()
+		end)
+		return false
+	end
+	return true
+end
+
+-- Rejoue une cinématique depuis le menu (intro, tutoriel).
+function Cinematics.replay(key)
+	if Config.Cinematics.Replayable then
+		return Cinematics.play(key, true)
+	end
+	return false
+end
+
+-- ---------------------------------------------------------------- déclenchement automatique
+
+local function calm()
+	local phase = workspace:GetAttribute("Phase")
+	return ClientState.Status == "Lobby"
+		and phase ~= "Countdown"
+		and phase ~= "Running"
+		and phase ~= "Results"
+		and player.Character ~= nil
+		and player:GetAttribute("PlotCenter") ~= nil
+end
+
+function Cinematics.init()
+	-- un départ en expédition interrompt tout : le jeu reprend aussitôt
+	ClientState.connect("Status", function(status)
+		if status ~= "Lobby" and current then
+			finish("interrupted")
+		end
+	end)
+	workspace:GetAttributeChangedSignal("Phase"):Connect(function()
+		local phase = workspace:GetAttribute("Phase")
+		if current and (phase == "Countdown" or phase == "Running") then
+			finish("interrupted")
+		end
+	end)
+
+	task.spawn(function()
+		started = os.clock()
+		while true do
+			task.wait(0.5)
+			local data = ClientState.Data
+			if
+				not current
+				and data
+				and data.loaded
+				and calm()
+				and os.clock() - started > Config.Cinematics.IdleDelay
+			then
+				local ok, list = pcall(Plan.pending, data, Config.Cinematics)
+				if ok and #list > 0 then
+					local playedOk = Cinematics.play(list[1])
+					if not playedOk then
+						-- une cinématique qui ne démarre pas ne doit pas boucler : on la marque vue
+						markSeen(list[1])
+						started = os.clock()
+					end
+				end
+			end
+		end
+	end)
+end
+
+return Cinematics
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[-- État côté client + mini système d'abonnement.
 
 local ClientState = {
 	Data = nil, -- profil envoyé par le serveur
@@ -7144,7 +7750,7 @@ function ClientState.inRun()
 end
 
 return ClientState
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Controls</string><ProtectedString name="Source"><![CDATA[-- Contrôles à une seule action, contextuelle (clavier, souris, tactile, manette) :
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Controls</string><ProtectedString name="Source"><![CDATA[-- Contrôles à une seule action, contextuelle (clavier, souris, tactile, manette) :
 --   * en selle   : SAUTER (quitte la monture avec un bond vers l'avant)
 --   * en l'air   : LASSO (maintenir = lasso automatique dès qu'une bête est à portée)
 -- Direction : A/D, flèches, joystick (pilote la monture, ou le vol en l'air).
@@ -7427,7 +8033,7 @@ function Controls.init()
 end
 
 return Controls
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, cœurs roses sur les animaux récupérables, cibles du saut et du lasso.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, cœurs roses sur les animaux récupérables, cibles du saut et du lasso.
 -- Les animations ne sont jamais répliquées : le serveur ne déplace que la pièce Root.
 
 local RunService = game:GetService("RunService")
@@ -7742,7 +8348,7 @@ function CreatureFx.lassoTarget()
 end
 
 return CreatureFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
 -- boutons (sauter / lasso, récupérer, lasso de capture), messages, écran « Continuer ? » et résultats.
 
 local Players = game:GetService("Players")
@@ -8524,163 +9130,7 @@ function HUD.init()
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Intro</string><ProtectedString name="Source"><![CDATA[-- Animation d'introduction : survol du zoo avec le titre, puis la caméra revient derrière le joueur.
--- Jouée une fois par session, dès que le profil est chargé. Un appui n'importe où la passe.
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-
-local ClientState = require(script.Parent.ClientState)
-local UI = require(script.Parent.UI)
-local CameraRig = require(script.Parent.CameraRig)
-local Sfx = require(script.Parent.Sfx)
-
-local Intro = {}
-
-local player = Players.LocalPlayer
-local played = false
-
-local DURATION = 8
-
-local function plotCenter()
-	local center = player:GetAttribute("PlotCenter")
-	if typeof(center) == "Vector3" then
-		return center
-	end
-	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	return hrp and hrp.Position or Vector3.new(0, 330, 0)
-end
-
-local function play()
-	if played or ClientState.Status ~= "Lobby" then
-		return
-	end
-	played = true
-
-	local center = plotCenter()
-	local gui = UI.make("ScreenGui", {
-		Name = "HerdHopperIntro",
-		ResetOnSpawn = false,
-		IgnoreGuiInset = true,
-		DisplayOrder = 50,
-	}, player:WaitForChild("PlayerGui"))
-
-	local bars = {}
-	for _, top in ipairs({ true, false }) do
-		bars[#bars + 1] = UI.frame(gui, {
-			AnchorPoint = Vector2.new(0, top and 0 or 1),
-			Position = UDim2.new(0, 0, top and 0 or 1, 0),
-			Size = UDim2.new(1, 0, 0.12, 0),
-			BackgroundColor3 = Color3.fromRGB(10, 12, 20),
-		})
-	end
-
-	local title = UI.text(gui, {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.4, 0),
-		Size = UDim2.new(0.8, 0, 0.18, 0),
-		Text = "SAUTE-ZOO",
-		maxSize = 110,
-		TextColor3 = UI.Colors.Accent,
-		TextTransparency = 1,
-	})
-	local lines = {
-		"Ta tante t'a laissé un zoo. Il est vide.",
-		"Pars en expédition : saute d'animal en animal.",
-		"Un cœur rose ? Récupère-le : il rejoint ton zoo !",
-	}
-	local sub = UI.text(gui, {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.55, 0),
-		Size = UDim2.new(0.8, 0, 0.07, 0),
-		Text = lines[1],
-		maxSize = 34,
-		Font = UI.FontBody,
-		TextTransparency = 1,
-	})
-	local hint = UI.text(gui, {
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 0.97, 0),
-		Size = UDim2.new(0.5, 0, 0.04, 0),
-		Text = "Touche l'écran pour passer",
-		maxSize = 20,
-		Font = UI.FontBody,
-		TextColor3 = UI.Colors.Muted,
-	})
-
-	local finished = false
-	local function finish()
-		if finished then
-			return
-		end
-		finished = true
-		CameraRig.stopCinematic()
-		gui:Destroy()
-	end
-
-	CameraRig.cinematic(function(t)
-		-- survol circulaire au-dessus du zoo, qui descend lentement
-		local angle = t * 0.32 + 0.6
-		local radius = 95 - t * 5
-		local height = 70 - t * 4.5
-		local eye = center + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
-		return CFrame.lookAt(eye, center + Vector3.new(0, 4, 0))
-	end, DURATION, finish)
-
-	-- titre et phrases en fondu
-	task.spawn(function()
-		UI.tween(title, 1.2, { TextTransparency = 0 })
-		Sfx.play("go")
-		task.wait(1.6)
-		for index, line in ipairs(lines) do
-			if finished then
-				return
-			end
-			sub.Text = line
-			UI.tween(sub, 0.5, { TextTransparency = 0 })
-			task.wait(1.8)
-			UI.tween(sub, 0.4, { TextTransparency = 1 })
-			task.wait(0.45)
-			if index == #lines then
-				break
-			end
-		end
-	end)
-
-	local connection
-	connection = UserInputService.InputBegan:Connect(function(input)
-		if
-			input.UserInputType == Enum.UserInputType.Keyboard
-			or input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
-			connection:Disconnect()
-			finish()
-		end
-	end)
-	task.delay(DURATION + 0.5, function()
-		if connection.Connected then
-			connection:Disconnect()
-		end
-		finish()
-	end)
-	hint.Visible = true
-	bars[1].Visible = true
-end
-
-function Intro.init()
-	local function try()
-		if ClientState.Data and ClientState.Data.loaded and player.Character and player:GetAttribute("PlotCenter") then
-			task.delay(1.2, play)
-		end
-	end
-	ClientState.connect("Data", try)
-	player:GetAttributeChangedSignal("PlotCenter"):Connect(try)
-	try()
-end
-
-return Intro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Menu</string><ProtectedString name="Source"><![CDATA[-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Menu</string><ProtectedString name="Source"><![CDATA[-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
 -- chapeaux, cordes), Quêtes & histoire, Boutique Robux. Le client ne fait que demander : le serveur valide tout.
 
 local Players = game:GetService("Players")
@@ -8695,6 +9145,7 @@ local Zoo = require(Shared.Zoo)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local Sfx = require(script.Parent.Sfx)
+local Cinematics = require(script.Parent.Cinematics)
 
 local Menu = {}
 
@@ -9237,6 +9688,27 @@ local function renderQuests(content)
 		})
 	end
 
+	if Config.Cinematics.Replayable and Config.Cinematics.Enabled then
+		for _, replay in ipairs({ { "intro", "Revoir l'introduction" }, { "tutorial", "Revoir le tutoriel" } }) do
+			order = order + 1
+			row(
+				list,
+				order,
+				replay[2],
+				"Rejoue la présentation du zoo et des commandes.",
+				"REVOIR",
+				UI.Colors.Info,
+				function()
+					openName = nil
+					refs.panel.Visible = false
+					Cinematics.replay(replay[1])
+				end,
+				nil,
+				56
+			)
+		end
+	end
+
 	local riddle = data.riddle
 	if riddle then
 		order = order + 1
@@ -9647,7 +10119,7 @@ function Menu.init()
 end
 
 return Menu
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Sfx</string><ProtectedString name="Source"><![CDATA[-- Audio : effets sonores (fichiers fournis avec le client Roblox) et musique par lieu avec fondu enchaîné.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Sfx</string><ProtectedString name="Source"><![CDATA[-- Audio : effets sonores (fichiers fournis avec le client Roblox) et musique par lieu avec fondu enchaîné.
 -- Les musiques se règlent dans Config.Audio.Music ; vides par défaut. Deux SoundGroups (Musique / Effets)
 -- permettent le réglage du volume et le mode muet.
 
@@ -9760,7 +10232,7 @@ function Sfx.modeLabel()
 end
 
 return Sfx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Petite boîte à outils d'interface dans le style Roblox (coins arrondis, police Fredoka).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Petite boîte à outils d'interface dans le style Roblox (coins arrondis, police Fredoka).
 
 local TweenService = game:GetService("TweenService")
 
@@ -9917,7 +10389,7 @@ function UI.tween(inst, seconds, props, style)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Visitors</string><ProtectedString name="Source"><![CDATA[-- Visiteurs du zoo : de petits personnages en blocs qui se promènent devant les enclos du joueur.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Visitors</string><ProtectedString name="Source"><![CDATA[-- Visiteurs du zoo : de petits personnages en blocs qui se promènent devant les enclos du joueur.
 -- Purement visuels et locaux. Leur nombre grandit avec le zoo (attribut ZooVisitors, 2 à 30).
 
 local Players = game:GetService("Players")

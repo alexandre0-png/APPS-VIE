@@ -213,7 +213,8 @@ function M.FireClient(self, player, ...) M.__remote(self, player, ...) end
 function M.FireAllClients(self, ...) for _, p in ipairs(M.__players) do M.__remote(self, p, ...) end end
 function M.FireServer(self, ...) local h = self._p._onFire if h then h(self, ...) end end
 function M.GetPlayerByUserId(self, id) for _, p in ipairs(M.__players) do if p._p.UserId == id then return p end end return nil end
-function M.InvokeServer() return { ok = true, msg = "ok (simulé)" } end
+M.invokeLog = {}
+function M.InvokeServer(self, ...) M.invokeLog[#M.invokeLog + 1] = table.concat({ ... }, ":") return { ok = true, msg = "ok (simulé)" } end
 function M.BindToRenderStep() end
 function M.Cross() end
 Instance = { new = function(class) return new(class) end }
@@ -610,6 +611,60 @@ local function clientMain()
 	Remotes.Results.OnClientEvent:fire({ round = 1, list = { { id = 1, n = "Moi", score = 3000, rank = 1, gold = 250, bones = 8, captures = 2, names = { "Zèbre", "Lion Doré" }, hooks = 10, dist = 3000, finish = 1, combo = 5, zone = 3 }, { id = 2, n = "Bob", score = 2000, rank = 2, gold = 120, bones = 0, captures = 0, names = {}, hooks = 5, dist = 2500, finish = 0, combo = 3, zone = 2 } } })
 	Remotes.Status.OnClientEvent:fire("Lobby")
 	for _ = 1, 8 do advance(0.1) end
+	-- cinématiques : lecture, passage, marquage « vue », reprise, interrupteurs, erreur avalée
+	do
+		local Cin = require(M.__nodes("client/Modules/Cinematics"))
+		local CPlan = require(M.__nodes("shared/CinematicPlan"))
+		local cfgC = Config.Cinematics
+		local function waitFor(cond, maxSteps) for _ = 1, maxSteps do if cond() then return true end advance(0.1) end return cond() end
+		local function skipByKey() UserInputService.InputBegan:fire({ KeyCode = Enum.KeyCode.Return, UserInputType = Enum.UserInputType.Keyboard }, false) end
+		if Cin.isPlaying() then Cin.skip() end
+		for _ = 1, 10 do advance(0.1) end
+		M.invokeLog = {}
+		Remotes.Status.OnClientEvent:fire("Lobby")
+		workspace._attrs.Phase = "Lobby"
+		data.seen = {}
+		Remotes.Data.OnClientEvent:fire(data)
+		local started = waitFor(function() return Cin.isPlaying() end, 80)
+		local overlayUp = false
+		for _, d in ipairs(M.GetDescendants(gui)) do if d._p.Name == "HerdHopperCinematic" then overlayUp = true end end
+		Cin.skip()
+		M.invokeLog = {}
+		Cin.play("intro", true)
+		skipByKey()
+		local stillPlaying = Cin.isPlaying()
+		for _ = 1, 10 do advance(0.1) end
+		skipByKey()
+		for _ = 1, 3 do advance(0.1) end
+		local skippedOk = not Cin.isPlaying()
+		local seenCall = table.concat(M.invokeLog, ",")
+		print(("CINÉMATIQUE démarre seule=%s  overlay=%s  appui immédiat ignoré=%s  passée=%s  appel serveur=%s (attendu seen:intro)"):format(tostring(started), tostring(overlayUp), tostring(stillPlaying), tostring(skippedOk), seenCall))
+		-- interruption immédiate par un départ en expédition : jamais bloquant, et non marquée vue
+		M.invokeLog = {}
+		data.seen = { intro = true }
+		Remotes.Data.OnClientEvent:fire(data)
+		waitFor(function() return Cin.isPlaying() end, 80)
+		local tutorialPlays = Cin.isPlaying()
+		Remotes.Status.OnClientEvent:fire("Riding")
+		for _ = 1, 3 do advance(0.1) end
+		print(("CINÉMATIQUE tutoriel lancé=%s  interrompu par l'expédition=%s  marqué vu à tort=%s"):format(tostring(tutorialPlays), tostring(not Cin.isPlaying()), tostring(#M.invokeLog > 0)))
+		Remotes.Status.OnClientEvent:fire("Lobby")
+		for _ = 1, 3 do advance(0.1) end
+		-- interrupteurs et erreur avalée
+		if Cin.isPlaying() then Cin.skip() end
+		cfgC.Enabled = false
+		local offBlocked = Cin.play("tutorial") == false
+		cfgC.Enabled = true
+		local badKey = Cin.play("zone_1") == false and Cin.play("n'importe quoi") == false
+		local origShots = CPlan.sequences.tutorial
+		CPlan.sequences.tutorial = { { dur = "x", cam = "none", caption = "x" } }
+		local before = Cin.failures
+		local started2 = Cin.play("tutorial")
+		for _ = 1, 3 do advance(0.1) end
+		CPlan.sequences.tutorial = origShots
+		print(("CINÉMATIQUE flag coupé=%s  clé invalide refusée=%s  erreur avalée (échecs +%d, jeu non bloqué=%s)"):format(tostring(offBlocked), tostring(badKey), Cin.failures - before, tostring(not Cin.isPlaying())))
+		if Cin.isPlaying() then Cin.skip() end
+	end
 	print("ERREURS LUA:", errors)
 end
 
@@ -796,6 +851,13 @@ local function main()
 			print(("ÉNIGME     avant capture=%s  après (%s)=%s  rejouée=%s  snapshot sans réponse=%s"):format(tostring(r0.ok), answer, tostring(r1.ok), tostring(r2.ok), tostring(Progress.Snapshot(pa).riddle.answer == nil)))
 			vt = vt + 1
 			local st = za(pa, "story")
+			vt = vt + 1
+			local sv1 = za(pa, "seen", "intro")
+			vt = vt + 1
+			local sv2 = za(pa, "seen", "zone_1")
+			vt = vt + 1
+			local sv3 = za(pa, "seen", "boss_boar")
+			print(("CINÉMATIQUE serveur : intro=%s (vue=%s)  zone_1=%s  boss_boar=%s  snapshot.seen.intro=%s"):format(tostring(sv1.ok), tostring(d.seen.intro), tostring(sv2.ok), tostring(sv3.ok), tostring(Progress.Snapshot(pa).seen.intro)))
 			print("HISTOIRE   chapitre 1 réclamé:", tostring(st.ok), st.msg, "| index:", d.story.index)
 		end
 	end
@@ -840,8 +902,9 @@ local function unitMain()
 	local Util = require(M.__nodes("shared/Util"))
 	local Zoo = require(M.__nodes("shared/Zoo"))
 	local AnimMath = require(M.__nodes("shared/AnimMath"))
+	local Plan = require(M.__nodes("shared/CinematicPlan"))
 	local spec = load(sources["../tests/pure.spec"], "=tests/pure.spec", "t", setmetatable({}, { __index = _G }))()
-	local failures, passed = spec(Config, Species, Util, Zoo, AnimMath)
+	local failures, passed = spec(Config, Species, Util, Zoo, AnimMath, Plan)
 	print(("TESTS UNITAIRES : %d réussis, %d échecs"):format(passed, failures))
 	print("ERREURS LUA:", failures)
 end

@@ -14,7 +14,7 @@ La version précédente (course de troupeau avec mur de lave) est conservée : t
 ## Brief : où c'est dans le code
 | Brief | Où |
 |---|---|
-| Intro animée | `client/Modules/Intro.luau` |
+| Cinématiques (intro, tutoriel, zone, boss) | `shared/CinematicPlan.luau`, `client/Modules/Cinematics.luau` |
 | Sauter d'animal en animal, lasso de saut | `RideService` (serveur), `Controls` (client) |
 | Cœur rose, récupérer, lasso de capture avec visée assistée | `RideService` (`markReady`, `HandleCollect`, `HandleLasso`), `CreatureFx` (cœurs, cibles) |
 | Mort si saut raté, vies, « Continuer » | `RideService` (`downPlayer`, `die`, `Revive`) |
@@ -32,7 +32,7 @@ La version précédente (course de troupeau avec mur de lave) est conservée : t
 src/shared   Config (tout l'équilibrage), Species, Zoo (formules), Util, Remotes
 src/server   init.server + Modules : State, DataService, ProgressService, MonetizationService,
              CreatureService, RideService, ZooService, EventService, MapBuilder, RoundService, Fx, Cosmetics
-src/client   init.client + Modules : HUD, Menu, Controls, CameraRig, CreatureFx, Intro, Visitors, Ambience, UI, Sfx, ClientState
+src/client   init.client + Modules : HUD, Menu, Controls, CameraRig, CreatureFx, Cinematics, Visitors, Ambience, UI, Sfx, ClientState
 tools/sim    simulation serveur + interface hors Roblox (fengari)
 tools/marketing  générateur d'images
 ```
@@ -40,7 +40,7 @@ tools/marketing  générateur d'images
 ## Vérifications
 
 **Exécutées dans cet environnement** (toutes à zéro erreur) :
-- **Lune 0.11.1** : compilation des 30 scripts par le vrai compilateur Luau (`lune run tools/lune/syntax.luau`) et 28 tests de logique pure sur du vrai Luau (`lune run tools/lune/run.luau`) : zones, rosters, animaux et boss, économie du zoo (revenus, coûts d'os, caisse hors ligne, boost, enclos, or d'expédition, déblocage des zones), prix et identifiants uniques ;
+- **Lune 0.11.1** : compilation des 33 scripts par le vrai compilateur Luau (`lune run tools/lune/syntax.luau`) et 33 tests de logique pure sur du vrai Luau (`lune run tools/lune/run.luau`) : zones, rosters, animaux et boss, économie du zoo (revenus, coûts d'os, caisse hors ligne, boost, enclos, or d'expédition, déblocage des zones), prix et identifiants uniques ;
 - **stylua 2.6** : `stylua --check src tests tools/lune` passe ;
 - **selene 0.31** : 0 erreur, 0 avertissement. La bibliothèque standard Roblox ne peut pas être téléchargée ici (réseau refusé) : `herd.yml` déclare les globales Roblox utilisées, moins complet que la vraie (les noms de méthodes Roblox ne sont pas vérifiés) ;
 - **rojo 7.7.1** : `rojo build` réussit ;

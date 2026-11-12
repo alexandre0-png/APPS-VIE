@@ -133,6 +133,20 @@ Config.Animations = {
 	Death = true, -- nuage de fumée, étoiles, estompage, écran grisé
 }
 
+-- Cinématiques : seulement aux moments clés (jamais en pleine action). Toutes sont passables d'un appui,
+-- rejouables depuis le menu Histoire, protégées par pcall, et ne bloquent jamais le joueur.
+Config.Cinematics = {
+	Enabled = true,
+	Intro = true, -- courte intro : le zoo, le cœur rose, le but (première connexion)
+	Tutorial = true, -- mini tutoriel : sauter, lasso, cœur, capture (première connexion)
+	ZoneOpening = true, -- aperçu d'une nouvelle zone, la première fois qu'elle est débloquée
+	BossCaptured = true, -- mise en scène de la première capture de chaque boss
+	Replayable = true, -- boutons « Revoir » dans le menu Histoire
+	MaxSeconds = 45, -- plafond de sécurité d'une cinématique
+	IdleDelay = 1.5, -- attente au calme avant de lancer la suivante
+	GraceSeconds = 0.4, -- délai avant que l'appui « passer » soit pris en compte
+}
+
 Config.Events = {
 	FirstDelay = 14,
 	MinGap = 11,

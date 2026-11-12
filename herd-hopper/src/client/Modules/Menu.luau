@@ -13,6 +13,7 @@ local Zoo = require(Shared.Zoo)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local Sfx = require(script.Parent.Sfx)
+local Cinematics = require(script.Parent.Cinematics)
 
 local Menu = {}
 
@@ -553,6 +554,27 @@ local function renderQuests(content)
 			LayoutOrder = order,
 			ZIndex = 32,
 		})
+	end
+
+	if Config.Cinematics.Replayable and Config.Cinematics.Enabled then
+		for _, replay in ipairs({ { "intro", "Revoir l'introduction" }, { "tutorial", "Revoir le tutoriel" } }) do
+			order = order + 1
+			row(
+				list,
+				order,
+				replay[2],
+				"Rejoue la présentation du zoo et des commandes.",
+				"REVOIR",
+				UI.Colors.Info,
+				function()
+					openName = nil
+					refs.panel.Visible = false
+					Cinematics.replay(replay[1])
+				end,
+				nil,
+				56
+			)
+		end
 	end
 
 	local riddle = data.riddle

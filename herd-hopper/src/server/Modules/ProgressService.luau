@@ -9,6 +9,7 @@ local Config = require(Shared.Config)
 local Util = require(Shared.Util)
 local Remotes = require(Shared.Remotes)
 local Zoo = require(Shared.Zoo)
+local CinematicPlan = require(Shared.CinematicPlan)
 
 local DataService = require(script.Parent.DataService)
 local Cosmetics = require(script.Parent.Cosmetics)
@@ -270,6 +271,8 @@ function ProgressService.Snapshot(player)
 	local hasZoo = ProgressService.HasPass(player, "zoo")
 	return {
 		loaded = true,
+		seen = data.seen,
+		bossCaptured = data.bossCaptured,
 		riddle = {
 			text = riddle.text,
 			solved = data.riddle.solved,
@@ -790,6 +793,17 @@ local function handleZoo(player, action, key)
 		ProgressService.RefreshAttributes(player)
 		ProgressService.Push(player)
 		return result(true, ("Chapitre terminé : +%d or, +%d os"):format(chapter.reward.gold, chapter.reward.bones))
+	elseif action == "seen" then
+		-- cinématique vue ou passée : on ne retient que des clés connues (aucune donnée libre du client)
+		if not CinematicPlan.validKey(key) then
+			return result(false, "Cinématique inconnue.")
+		end
+		if not data.seen[key] then
+			data.seen[key] = true
+			DataService.MarkDirty(player)
+			ProgressService.Push(player)
+		end
+		return result(true, "Vue.")
 	elseif action == "riddle" then
 		dailyRiddle(data)
 		if not data.riddle.solved then

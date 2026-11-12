@@ -27,8 +27,14 @@ local Zoo = load("src/shared/Zoo.luau", {
 	end,
 })
 local AnimMath = load("src/shared/AnimMath.luau")
+local Plan = load("src/shared/CinematicPlan.luau", {
+	script = { Parent = { Config = Config, Species = Species } },
+	require = function(module)
+		return module
+	end,
+})
 local spec = load("tests/pure.spec.luau")
-local failures, passed = spec(Config, Species, Util, Zoo, AnimMath)
+local failures, passed = spec(Config, Species, Util, Zoo, AnimMath, Plan)
 print(("Lune : %d réussis, %d échecs"):format(passed, failures))
 if failures > 0 then
 	error("tests en échec")

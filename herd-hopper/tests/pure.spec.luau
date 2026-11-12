@@ -2,7 +2,7 @@
 -- Le fichier renvoie une fonction (Config, Species, Util, Zoo) -> échecs, réussites.
 -- Exécutable avec Lune (tools/lune/run.luau) ou avec la simulation fengari (node tools/sim/run.js UNIT).
 
-return function(Config, Species, Util, Zoo, AnimMath)
+return function(Config, Species, Util, Zoo, AnimMath, Plan)
 	local failures, passed = 0, 0
 
 	local function test(name, fn)
@@ -465,6 +465,110 @@ return function(Config, Species, Util, Zoo, AnimMath)
 		truthy(not Zoo.zoneUnlocked(Config.Zones[3], animals), "désert verrouillé")
 		animals.fake_9 = {}
 		eq(Zoo.countOwned(animals), 4, "les clés invalides ne comptent pas")
+	end)
+
+	test("Cinématiques : config et durées", function()
+		local cfg = Config.Cinematics
+		truthy(cfg.Enabled ~= nil and cfg.MaxSeconds > 0 and cfg.GraceSeconds >= 0)
+		local keys = { "intro", "tutorial", "zone_2", "zone_3", "zone_4" }
+		for _, zone in ipairs(Config.Zones) do
+			table.insert(keys, "boss_" .. zone.boss)
+		end
+		for _, key in ipairs(keys) do
+			local shots = Plan.sequenceFor(key)
+			truthy(shots ~= nil, key)
+			truthy(Plan.total(shots) <= cfg.MaxSeconds, key .. " dépasse MaxSeconds")
+			truthy(Plan.total(shots) >= 8, key .. " trop courte")
+			for _, shot in ipairs(shots) do
+				truthy(shot.dur > 0 and #shot.caption > 0, key)
+			end
+		end
+	end)
+
+	test("Cinématiques : clés valides / invalides", function()
+		truthy(Plan.validKey("intro"))
+		truthy(Plan.validKey("zone_2"))
+		truthy(not Plan.validKey("zone_1"), "la première zone n'a pas de cinématique")
+		truthy(not Plan.validKey("zone_99"))
+		truthy(not Plan.validKey("boss_boar"), "un animal normal n'est pas un boss")
+		truthy(not Plan.validKey("boss_"))
+		truthy(not Plan.validKey(""))
+		truthy(not Plan.validKey(nil))
+		truthy(not Plan.validKey(42))
+		truthy(not Plan.validKey("intro; drop"))
+	end)
+
+	test("Cinématiques : shotAt aux frontières", function()
+		local shots = Plan.sequenceFor("intro")
+		local i, p = Plan.shotAt(shots, 0)
+		eq(i, 1)
+		eq(p, 0)
+		i = Plan.shotAt(shots, shots[1].dur)
+		eq(i, 2, "bascule exacte au plan suivant")
+		i = Plan.shotAt(shots, Plan.total(shots) - 0.01)
+		eq(i, #shots)
+		i = Plan.shotAt(shots, Plan.total(shots))
+		eq(i, nil, "fin de séquence")
+	end)
+
+	test("Cinématiques : état, durée, passage et reprise", function()
+		local shots = Plan.sequenceFor("tutorial")
+		local state = Plan.newState(shots, 45)
+		eq(state.total, 20)
+		for _ = 1, 100 do
+			Plan.step(state, 0.1)
+		end
+		truthy(not state.done, "10 s sur 20 : pas finie")
+		for _ = 1, 150 do
+			Plan.step(state, 0.1)
+		end
+		truthy(state.done and state.t == 20, "finie et bornée")
+		truthy(Plan.completed(state))
+		-- passage : fige l'état, plus aucun avancement
+		local s2 = Plan.newState(shots, 45)
+		Plan.step(s2, 1)
+		Plan.skip(s2)
+		truthy(s2.skipped and s2.done and Plan.completed(s2))
+		local before = s2.t
+		Plan.step(s2, 5)
+		eq(s2.t, before, "aucun avancement après passage")
+		-- interruption immédiate : non considérée comme vue, donc reproposée
+		local s3 = Plan.newState(shots, 45)
+		Plan.step(s3, 0.5)
+		truthy(not Plan.completed(s3), "interrompue à 0,5 s : sera reproposée")
+		Plan.step(s3, 3)
+		truthy(Plan.completed(s3), "assez regardée")
+		-- plafond MaxSeconds
+		eq(Plan.newState(shots, 7).total, 7)
+	end)
+
+	test("Cinématiques : choix des cinématiques à jouer", function()
+		local cfg = Config.Cinematics
+		local fresh = { seen = {}, zones = { savane = true }, bossCaptured = {} }
+		local list = Plan.pending(fresh, cfg)
+		eq(#list, 2)
+		eq(list[1], "intro", "l'intro d'abord")
+		eq(list[2], "tutorial")
+		local data = {
+			seen = { intro = true, tutorial = true },
+			zones = { savane = true, [Config.Zones[2].key] = true },
+			bossCaptured = { [Config.Zones[1].boss] = true },
+		}
+		list = Plan.pending(data, cfg)
+		eq(#list, 2)
+		eq(list[1], "zone_2")
+		eq(list[2], "boss_" .. Config.Zones[1].boss)
+		data.seen.zone_2 = true
+		data.seen["boss_" .. Config.Zones[1].boss] = true
+		eq(#Plan.pending(data, cfg), 0, "tout est vu")
+		-- interrupteurs
+		local off = { Enabled = false, Intro = true, Tutorial = true, ZoneOpening = true, BossCaptured = true }
+		eq(#Plan.pending(fresh, off), 0, "désactivé globalement")
+		local noIntro = { Enabled = true, Intro = false, Tutorial = true, ZoneOpening = false, BossCaptured = false }
+		local only = Plan.pending(fresh, noIntro)
+		eq(#only, 1)
+		eq(only[1], "tutorial")
+		eq(#Plan.pending(nil, cfg), 0, "données absentes")
 	end)
 
 	return failures, passed
