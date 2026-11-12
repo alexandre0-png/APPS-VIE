@@ -53,6 +53,30 @@ local function boostMultiplier(player)
 	return nil
 end
 
+-- Coup d'un bot sur un joueur (même règles : manche en cours, joueur dans l'arène, pas de ForceField).
+function CombatService.BotDamage(botModel, victimPlayer, amount)
+	local character = victimPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or workspace:GetAttribute("MatchState") ~= "Playing" then
+		return 0
+	end
+	if not victimPlayer:GetAttribute("InArena") or character:FindFirstChildOfClass("ForceField") then
+		return 0
+	end
+	CombatService.Track(humanoid)
+	local entry = logs[humanoid]
+	if not entry then
+		entry = { Entries = {} }
+		logs[humanoid] = entry
+	end
+	entry.Last = { BotName = botModel:GetAttribute("BotName") or "Bot", Time = os.clock() }
+	local dealt = math.min(amount, humanoid.Health)
+	humanoid:TakeDamage(amount)
+	local root = botModel:FindFirstChild("HumanoidRootPart")
+	Remotes.Hit:FireClient(victimPlayer, { Kind = "Taken", Amount = dealt, From = root and root.Position or nil })
+	return dealt
+end
+
 function CombatService.Heal(humanoid, amount)
 	if humanoid.Health > 0 then
 		humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + amount)
@@ -74,6 +98,8 @@ function CombatService.DealDamage(attacker, targetModel, baseDamage, opts)
 		end
 	elseif not targetModel:GetAttribute("Dummy") then
 		return 0, false
+	elseif targetModel:GetAttribute("Bot") and workspace:GetAttribute("MatchState") ~= "Playing" then
+		return 0, false -- les bots ne sont blessables que pendant une manche
 	end
 	if targetModel:FindFirstChildOfClass("ForceField") then
 		return 0, false
@@ -140,20 +166,49 @@ local function teamOf(player)
 	return ""
 end
 
+-- Un joueur élimine un bot : petite récompense, pas de série ni de quête (anti-farm).
+local function onBotDied(entry, model)
+	local last = entry and entry.Last
+	local killer = last and last.Player
+	if not killer or killer.Parent ~= Players or os.clock() - last.Time > Config.Rewards.AssistWindow or not killer:GetAttribute("InArena") then
+		return
+	end
+	local B = Config.Bots
+	PlayerService.AddCoins(killer, B.RewardCoins)
+	PlayerService.AddXP(killer, B.RewardXP)
+	PlayerService.Notify(killer, "Kill", model:GetAttribute("BotName") or "Bot", { Coins = B.RewardCoins, XP = B.RewardXP })
+	Remotes.Feed:FireAllClients({
+		Killer = killer.DisplayName,
+		Victim = model:GetAttribute("BotName") or "Bot",
+		Weapon = last.Weapon and last.Weapon.Name or nil,
+		Headshot = last.Headshot,
+		KillerTeam = teamOf(killer),
+		VictimTeam = "",
+	})
+end
+
 local function onDied(humanoid)
 	local model = humanoid.Parent
 	local victim = model and Players:GetPlayerFromCharacter(model)
 	local entry = logs[humanoid]
 	logs[humanoid] = nil
 	if not victim then
+		if model and model:GetAttribute("Bot") then
+			onBotDied(entry, model)
+		end
 		return
 	end
 
 	local window = Config.Rewards.AssistWindow
 	local now = os.clock()
 	local killer, last
-	if entry and entry.Last and now - entry.Last.Time <= window and entry.Last.Player.Parent == Players then
-		killer, last = entry.Last.Player, entry.Last
+	local botName
+	if entry and entry.Last and now - entry.Last.Time <= window then
+		if entry.Last.BotName then
+			botName = entry.Last.BotName
+		elseif entry.Last.Player.Parent == Players then
+			killer, last = entry.Last.Player, entry.Last
+		end
 	end
 	if killer == victim then
 		killer = nil
@@ -163,15 +218,15 @@ local function onDied(humanoid)
 	victim:SetAttribute("Streak", 0)
 	PlayerService.Increment(victim, "Deaths", 1)
 
-	local weaponName = last and last.Weapon and last.Weapon.Name or nil
-	PlayerService.Notify(victim, "Death", killer and killer.DisplayName or "", {
+	local weaponName = last and last.Weapon and last.Weapon.Name or (botName and "Griffes" or nil)
+	PlayerService.Notify(victim, "Death", killer and killer.DisplayName or botName or "", {
 		Weapon = weaponName,
 		Seconds = Config.Match.RespawnSeconds,
 		Headshot = last and last.Headshot or false,
 	})
 
 	Remotes.Feed:FireAllClients({
-		Killer = killer and killer.DisplayName or nil,
+		Killer = killer and killer.DisplayName or botName,
 		Victim = victim.DisplayName,
 		Weapon = weaponName,
 		Headshot = last and last.Headshot or false,

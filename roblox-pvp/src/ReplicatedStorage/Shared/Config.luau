@@ -55,6 +55,22 @@ Config.Rewards = {
 	FarmMultiplier = 0.25,
 }
 
+-- Bots d'arène : complètent la partie quand il y a peu de joueurs (récompense faible : pas de farm).
+Config.Bots = {
+	MinCombatants = 4,
+	MaxBots = 3,
+	Health = 80,
+	Speed = 13,
+	Damage = 9,
+	Cooldown = 1.1,
+	Range = 6,
+	Sight = 120,
+	RespawnSeconds = 5,
+	RewardCoins = 6,
+	RewardXP = 15,
+	Names = { "Gladiateur", "Mercenaire", "Berserker", "Sentinelle", "Spectre" },
+}
+
 Config.HealthPack = { Heal = 45, Respawn = 15 }
 Config.RageOrb = { Duration = 12, Multiplier = 1.5, Respawn = 45 }
 

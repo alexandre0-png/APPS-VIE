@@ -18,6 +18,7 @@ local RequestService = require(Server.RequestService)
 local LeaderboardService = require(Server.LeaderboardService)
 local DummyService = require(Server.DummyService)
 local MonetizationService = require(Server.MonetizationService)
+local BotService = require(Server.BotService)
 
 -- Les personnages sont chargés manuellement une fois le profil prêt.
 Players.CharacterAutoLoads = false
@@ -31,6 +32,7 @@ WeaponService.Init()
 MatchService.Init(map)
 RequestService.Init()
 MonetizationService.Init()
+BotService.Init(map)
 LeaderboardService.Init(map)
 DummyService.Init(map.DummySpots)
 

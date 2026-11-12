@@ -4,7 +4,9 @@ local CollectionService = game:GetService("CollectionService")
 
 local DummyService = {}
 
-local function build(cf)
+-- opts : Label, Health, TorsoColor. Renvoie (modèle, humanoïde) ; cf = niveau du sol.
+local function build(cf, opts)
+	opts = opts or {}
 	local model = Instance.new("Model")
 	model.Name = "Cible"
 	model:SetAttribute("Dummy", true)
@@ -25,7 +27,7 @@ local function build(cf)
 
 	local root = part("HumanoidRootPart", Vector3.new(2, 2, 1), Vector3.new(0, 3, 0), Color3.new(1, 1, 1), false)
 	root.Transparency = 1
-	part("Torso", Vector3.new(2, 2, 1), Vector3.new(0, 3, 0), Color3.fromRGB(214, 64, 64), true)
+	part("Torso", Vector3.new(2, 2, 1), Vector3.new(0, 3, 0), opts.TorsoColor or Color3.fromRGB(214, 64, 64), true)
 	part("Head", Vector3.new(2, 1, 1), Vector3.new(0, 4.5, 0), Color3.fromRGB(240, 190, 120), true)
 	part("Left Arm", Vector3.new(1, 2, 1), Vector3.new(-1.5, 3, 0), Color3.fromRGB(240, 240, 240), true)
 	part("Right Arm", Vector3.new(1, 2, 1), Vector3.new(1.5, 3, 0), Color3.fromRGB(240, 240, 240), true)
@@ -36,8 +38,8 @@ local function build(cf)
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
-	humanoid.MaxHealth = 150
-	humanoid.Health = 150
+	humanoid.MaxHealth = opts.Health or 150
+	humanoid.Health = opts.Health or 150
 	humanoid.BreakJointsOnDeath = false
 	humanoid.RequiresNeck = false
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
@@ -57,7 +59,7 @@ local function build(cf)
 	label.TextSize = 14
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.4
-	label.Text = "Cible d'entraînement"
+	label.Text = opts.Label or "Cible d'entraînement"
 	label.Parent = gui
 	local bg = Instance.new("Frame")
 	bg.Position = UDim2.new(0.5, -45, 0, 22)
@@ -77,6 +79,8 @@ local function build(cf)
 
 	return model, humanoid
 end
+
+DummyService.Build = build
 
 local function spawnDummy(cf)
 	local model, humanoid = build(cf)

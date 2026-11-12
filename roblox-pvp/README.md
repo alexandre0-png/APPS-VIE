@@ -102,6 +102,6 @@ DataStore réel, ressenti du combat. Ces points demandent un premier playtest da
 
 ## À finaliser / pistes
 - **Playtest Studio** (2 clients) : régler prises d'armes (`Tool.Grip`), cadence, hauteur des rampes, volume des sons.
-- **Bots d'arène** pour les parties à 1 joueur (non implémentés : l'IA/pathfinding doit être réglée en jeu).
+- Réglage en jeu des **bots d'arène** (déplacement par modèle ancré, sans animation de marche).
 - **Sons / musique** personnalisés (assets à uploader) et animations d'attaque (le balancement est procédural).
 - **Monétisation** optionnelle (Game Passes : double XP, effets d'élimination) — volontairement absente de cette V1.

@@ -304,6 +304,49 @@ do
 	check("cadeau VIP +50%", ok and ph.DailyStreak == 1)
 end
 
+print("• Bots")
+do
+	local P, Q = makePlayer("Pia"), makePlayer("Quin")
+	local bot = newInstance("Model")
+	bot:SetAttribute("Dummy", true); bot:SetAttribute("Bot", true); bot:SetAttribute("BotName", "Gladiateur 1")
+	local bh = newInstance("Humanoid"); bh.Health, bh.MaxHealth = 80, 80; bh.Died = Signal()
+	function bh:TakeDamage(d) self.Health = math.max(0, self.Health - d) if self.Health <= 0 then self.Died:Fire() end end
+	bh.Parent = bot
+	local broot = newInstance("Part"); broot.Name = "HumanoidRootPart"; broot.Position = Vector3.new(0, 0, 0); broot.Parent = bot
+	CombatService.Track(bh)
+	workspace:SetAttribute("MatchState", "Intermission")
+	eq("bot invulnérable hors manche", (CombatService.DealDamage(P, bot, 26, { Weapon = sword })), 0)
+	eq("bot ne frappe pas hors manche", CombatService.BotDamage(bot, P, 9), 0)
+	workspace:SetAttribute("MatchState", "Playing")
+	revive(P)
+	eq("bot frappe un joueur", CombatService.BotDamage(bot, P, 9), 9)
+	eq("PV du joueur", P._hum.Health, 91)
+	P:SetAttribute("InArena", false)
+	eq("pas de coup sur un joueur du hub", CombatService.BotDamage(bot, P, 9), 0)
+	P:SetAttribute("InArena", true)
+	local ff = newInstance("ForceField"); ff.Parent = P.Character
+	eq("ForceField protège du bot", CombatService.BotDamage(bot, P, 9), 0)
+	ff:Destroy()
+	-- mort d'un joueur causée par un bot
+	local feedBefore = feed()
+	P._hum.Health = 5
+	CombatService.BotDamage(bot, P, 9)
+	eq("joueur mort", P._hum.Health, 0)
+	eq("mort comptée", DataService.Get(P).Deaths, 1)
+	eq("feed pour mort par bot", feed(), feedBefore + 1)
+	local lastFeed
+for i = #remoteLog, 1, -1 do if remoteLog[i].remote == "Feed" then lastFeed = remoteLog[i] break end end
+check("feed nomme le bot", lastFeed ~= nil and lastFeed.data.Killer == "Gladiateur 1")
+	-- un joueur tue un bot : petite récompense, pas de série ni kill
+	local pq = DataService.Get(Q)
+	local c0, k0 = pq.Coins, pq.Kills
+	for _ = 1, 4 do CombatService.DealDamage(Q, bot, 26, { Weapon = sword }) end
+	eq("bot mort", bh.Health, 0)
+	eq("récompense bot", pq.Coins - c0, Config.Bots.RewardCoins)
+	eq("pas de kill ni série pour un bot", pq.Kills - k0, 0)
+	eq("série intacte", Q:GetAttribute("Streak") or 0, 0)
+end
+
 print("• Profils (DataService.Reconcile)")
 do
 	local d = DataService.Reconcile({ Coins = 0 / 0, Level = 999, Owned = { sword = true, hack = true }, Loadout = { "hack", "sword", "sword", "bow", "katana" } })

@@ -24,6 +24,7 @@ local QuestLogic = require("../.emit/ReplicatedStorage/Shared/QuestLogic")
 local MatchLogic = require("../.emit/ReplicatedStorage/Shared/MatchLogic")
 local Weapons = require("../.emit/ReplicatedStorage/Shared/Weapons")
 local Config = require("../.emit/ReplicatedStorage/Shared/Config")
+local BotLogic = require("../.emit/ReplicatedStorage/Shared/BotLogic")
 
 section("Progression")
 eq("XpToNext(1)", Progression.XpToNext(1), 120)
@@ -177,6 +178,28 @@ do
 	for i = 2, 7 do check("récompense croissante " .. i, Config.DailyRewards[i] > Config.DailyRewards[i - 1]) end
 	check("rail tue en un tir à la tête", Combat.ComputeDamage(Weapons.Get("rail").Damage, { Headshot = true, HeadshotMult = Weapons.Get("rail").HeadshotMult }) >= Config.Player.MaxHealth)
 	check("modes de rotation connus", Config.ModeNames[Config.Match.Modes[1]] ~= nil and Config.ModeNames[Config.Match.Modes[2]] ~= nil)
+end
+
+section("BotLogic")
+do
+	eq("aucun humain : aucun bot", BotLogic.DesiredCount(0, 4, 3), 0)
+	eq("1 humain : 3 bots", BotLogic.DesiredCount(1, 4, 3), 3)
+	eq("2 humains : 2 bots", BotLogic.DesiredCount(2, 4, 3), 2)
+	eq("4 humains : 0 bot", BotLogic.DesiredCount(4, 4, 3), 0)
+	eq("bots plafonnés", BotLogic.DesiredCount(1, 10, 3), 3)
+	local i, d = BotLogic.NearestTarget(0, 0, { { Id = 1, X = 30, Z = 0 }, { Id = 2, X = 5, Z = 5 }, { Id = 3, X = 200, Z = 0 } }, 100)
+	eq("cible la plus proche", i, 2); check("distance", math.abs(d - math.sqrt(50)) < 1e-9)
+	eq("hors vision", (BotLogic.NearestTarget(0, 0, { { Id = 1, X = 300, Z = 0 } }, 100)), nil)
+	local ux, uz = BotLogic.Steer(10, 0, function() return false end, 1)
+	check("tout droit", math.abs(ux - 1) < 1e-9 and math.abs(uz) < 1e-9)
+	ux, uz = BotLogic.Steer(10, 0, function(x, z) return x > 0.9 end, 1)
+	check("contourne un obstacle devant", ux ~= nil and ux < 0.9 and ux > 0)
+	eq("entouré : pas de direction", (BotLogic.Steer(10, 0, function() return true end, 1)), nil)
+	eq("sur la cible : rien", (BotLogic.Steer(0, 0, function() return false end, 1)), nil)
+	check("attaque à portée et prête", BotLogic.CanAttack(5, 6, 10, 8, 1.1))
+	check("pas d'attaque en recharge", not BotLogic.CanAttack(5, 6, 10, 9.5, 1.1))
+	check("pas d'attaque hors portée", not BotLogic.CanAttack(9, 6, 10, 0, 1.1))
+	eq("config bots : noms", #Config.Bots.Names >= 3, true)
 end
 
 print(("\nRésultat : %d tests réussis, %d échecs"):format(passed, failed))
