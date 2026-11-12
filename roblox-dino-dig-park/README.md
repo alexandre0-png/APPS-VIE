@@ -1,7 +1,7 @@
 # Dino Dig Park (Roblox)
 
 Tycoon original : fouille de fossiles, éclosion d'œufs, 18 dinos en blocs Roblox, parc à agrandir, renaissance, quêtes, cadeau quotidien, événement de météores, classement, dino secret.
-Tout est généré par code (aucun asset externe). Projet Rojo : `default.project.json`. Publication : `publication/PUBLICATION.md`.
+Tout est généré par code (aucun asset externe). Projet Rojo : `default.project.json`. Publication : `publication/PUBLICATION.md`. Ce qui reste à ta charge : `A_FAIRE_UTILISATEUR.md`.
 
 ## Structure
 - `src/shared` : Config (données), Economy (équilibrage pur), DinoShapes/DinoFactory, HumanFactory, Util, Remotes
