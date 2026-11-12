@@ -21,7 +21,7 @@ ville 5x5 blocs, voitures volables, missions, niveau de recherche policier, éco
 | `Services/EconomyService`, `DataService` | argent/XP/succès/quotidien, DataStore avec verrou de session |
 | `Services/StoryService` | histoire "L'Affaire du Coffre" : 4 énigmes géographiques, 4 chiffres, code final validé serveur |
 | `Services/PedestrianService`, `CollectibleService`, `EventService`, `LeaderboardService`, `MonetizationService` | piétons, 30 étoiles, événements, classement, achats |
-| `StarterPlayerScripts` | `Client`, `Controllers/{Hud,Panels,MapView,VehicleController,Atmosphere,State,UI}` |
+| `StarterPlayerScripts` | `Client`, `Controllers/{Hud,Panels,MapView,VehicleController,Atmosphere,VisualFX,SoundController,State,UI}` (effets réglables dans `Config.Visual`) |
 
 ## Sécurité
 Aucune récompense, achat, mission ou collecte ne dépend d'une valeur envoyée par le client : les RemoteEvents client->serveur

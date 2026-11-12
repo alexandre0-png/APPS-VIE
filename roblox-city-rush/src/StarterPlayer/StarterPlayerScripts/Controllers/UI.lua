@@ -51,6 +51,12 @@ function UI.panel(props)
 	props.BorderSizePixel = 0
 	local f = UI.new("Frame", props)
 	UI.corner(f, 12)
+	-- léger dégradé vertical pour donner du relief (style Roblox classique)
+	UI.new("UIGradient", {
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 205, 215)),
+		Rotation = 90,
+		Parent = f,
+	})
 	return f
 end
 
