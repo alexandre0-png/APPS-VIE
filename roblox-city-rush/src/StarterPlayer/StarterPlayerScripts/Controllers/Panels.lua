@@ -227,7 +227,55 @@ local function dailyPanel()
 	end
 end
 
+local journalDraft = ""
+
+local function journalPanel()
+	local list = scroll(content)
+	local d = State.data
+	if not d or not d.Story then
+		return
+	end
+	local st = d.Story
+	local function text(order, str, size, color, h)
+		UI.label({ Size = UDim2.new(1, 0, 0, h or 24), Text = str, TextSize = size or 16, TextColor3 = color or T.Text, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = order, Parent = list })
+	end
+	text(1, st.title, 24, T.Accent, 32)
+	text(2, st.intro, 15, T.Muted, 56)
+	local shown = {}
+	for i = 1, st.total do
+		shown[i] = st.digits[i] or "_"
+	end
+	text(3, "Code : " .. table.concat(shown, "  "), 30, T.Good, 40)
+	for i, r in ipairs(st.riddles) do
+		text(10 + i, string.format("✔ Énigme %d (%s) : %s", i, r.name, r.riddle), 14, T.Muted, 44)
+	end
+	if st.done then
+		text(30, "Affaire classée : tu as ouvert le coffre !", 20, T.Good, 30)
+	elseif st.riddle then
+		text(30, string.format("Énigme %d/%d", st.chapter + 1, st.total), 18, T.Accent, 24)
+		text(31, st.riddle, 18, T.Text, 70)
+		text(32, "Rends-toi sur place (à pied ou en voiture) : le chiffre apparaîtra tout seul.", 13, T.Muted, 36)
+	else
+		text(30, "Les 4 chiffres sont réunis. Entre le code pour ouvrir le coffre !", 18, T.Accent, 44)
+		local box = UI.new("TextBox", {
+			Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = T.PanelLight, TextColor3 = T.Text, Font = Enum.Font.GothamBlack,
+			TextSize = 28, PlaceholderText = "0000", Text = journalDraft, ClearTextOnFocus = false, LayoutOrder = 31, Parent = list,
+		})
+		UI.corner(box, 10)
+		box:GetPropertyChangedSignal("Text"):Connect(function()
+			journalDraft = box.Text:gsub("%D", ""):sub(1, 4)
+			if box.Text ~= journalDraft then
+				box.Text = journalDraft
+			end
+		end)
+		UI.button({ Size = UDim2.new(1, 0, 0, 46), Text = "OUVRIR LE COFFRE", TextSize = 20, BackgroundColor3 = T.Accent, TextColor3 = Color3.new(0, 0, 0), LayoutOrder = 32, Parent = list }, function()
+			State.send("SubmitCode", journalDraft)
+		end)
+	end
+end
+
 local BUILDERS = {
+	journal = { "Journal d'enquête", journalPanel },
 	garage = { "Garage", function() vehiclePanel("garage") end },
 	dealer = { "Concessionnaire", function() vehiclePanel("dealer") end },
 	shop = { "Boutique", shopPanel },
@@ -276,13 +324,23 @@ function Panels.init(screenGui)
 	content = UI.new("Frame", { Position = UDim2.fromOffset(12, 52), Size = UDim2.new(1, -24, 1, -64), BackgroundTransparency = 1, Parent = window })
 
 	State.Changed:Connect(function()
-		if current and current ~= "map" then
+		if current and current ~= "map" and current ~= "journal" then
 			rebuild()
 		end
 	end)
 	State.LeaderboardChanged:Connect(function()
 		if current == "profile" then
 			rebuild()
+		end
+	end)
+	local lastStoryKey
+	State.Changed:Connect(function(d)
+		if current == "journal" and d.Story then
+			local key = d.Story.chapter .. tostring(d.Story.done)
+			if key ~= lastStoryKey then
+				lastStoryKey = key
+				rebuild()
+			end
 		end
 	end)
 	State.PanelRequested:Connect(function(name)
@@ -305,6 +363,8 @@ function Panels.init(screenGui)
 			Panels.open("profile")
 		elseif k == Enum.KeyCode.M then
 			Panels.open("map")
+		elseif k == Enum.KeyCode.J then
+			Panels.open("journal")
 		end
 	end)
 

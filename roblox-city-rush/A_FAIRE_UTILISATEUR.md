@@ -5,7 +5,7 @@
 2. Home > Game Settings > Security : activer **Enable Studio Access to API Services** (sinon sauvegarde en mode temporaire).
 3. Play (F5). Attendre la fin du chargement (~5-15 s, la ville est générée par script).
 4. Vérifier dans l'Output : aucune erreur rouge. Me transmettre les erreurs éventuelles.
-5. Points à regarder en priorité : voiture qui avance/tourne (conduite arcade), police qui poursuit (3 étoiles : casse de la banque), missions, menus G/B/P/M, mobile (émulateur de téléphone).
+5. Points à regarder en priorité : voiture qui avance/tourne (conduite arcade), police qui poursuit (3 étoiles : casse de la banque), missions, menus G/B/P/M/J (journal d'enquête : énigmes puis saisie du code 7391), mobile (émulateur de téléphone).
 
 ## 2. Publication (Open Cloud / Creator Hub)
 - [ ] Créer une expérience vide dans le Creator Hub -> noter **universeId** et **placeId**.

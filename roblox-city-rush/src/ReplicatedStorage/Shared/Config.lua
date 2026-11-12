@@ -174,6 +174,23 @@ Config.Missions = {
 }
 
 -- ====================================================================
+-- Histoire : "L'Affaire du Coffre" (énigmes à résoudre dans l'ordre, puis code à 4 chiffres)
+-- ====================================================================
+Config.Story = {
+	Title = "L'Affaire du Coffre",
+	Intro = "Un vieux journal du maire a été retrouvé : il cache le code d'un coffre oublié. Quatre énigmes mènent à quatre chiffres.",
+	Code = "7391",
+	FinalReward = 8000,
+	FinalXP = 300,
+	Chapters = {
+		{ riddle = "« Là où l'argent dort sous des colonnes de marbre, le premier chiffre veille. »", name = "La Banque", x = 0, z = -170, radius = 30, digit = "7", reward = 300, xp = 30 },
+		{ riddle = "« Les roues attendent, les clients patientent : le deuxième chiffre est jaune comme un taxi. »", name = "La station de taxi", x = -40, z = -10, radius = 30, digit = "3", reward = 300, xp = 30 },
+		{ riddle = "« On y cuit la pâte avant de la livrer : le troisième chiffre sent bon. »", name = "La pizzeria", x = -352, z = -30, radius = 30, digit = "9", reward = 400, xp = 40 },
+		{ riddle = "« Là où l'on efface les traces à coups de peinture, le dernier chiffre se cache. »", name = "Le Pay'n'Spray", x = -200, z = 386, radius = 30, digit = "1", reward = 500, xp = 50 },
+	},
+}
+
+-- ====================================================================
 -- Collectibles / événements / quotidien
 -- ====================================================================
 Config.Collectibles = { Count = 30, Reward = 400, Milestones = { [10] = 2500, [20] = 6000, [30] = 15000 } }
@@ -193,6 +210,7 @@ Config.Achievements = {
 	{ id = "wanted", name = "Ennemi public", desc = "Atteins 5 étoiles de recherche", stat = "fiveStars", goal = 1, reward = 2500 },
 	{ id = "stars", name = "Chasseur d'étoiles", desc = "Récupère 15 étoiles dorées", stat = "collected", goal = 15, reward = 4000 },
 	{ id = "km", name = "Grand voyageur", desc = "Parcours 20 km", stat = "km", goal = 20, reward = 3000 },
+	{ id = "detective", name = "Détective de la ville", desc = "Résous l'Affaire du Coffre", stat = "storyDone", goal = 1, reward = 5000 },
 	{ id = "busted", name = "Pris la main dans le sac", desc = "Fais-toi arrêter une fois", stat = "busted", goal = 1, reward = 250 },
 }
 

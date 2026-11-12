@@ -175,6 +175,23 @@ Config.Missions = {
 }
 
 -- ====================================================================
+-- Histoire : "L'Affaire du Coffre" (énigmes à résoudre dans l'ordre, puis code à 4 chiffres)
+-- ====================================================================
+Config.Story = {
+	Title = "L'Affaire du Coffre",
+	Intro = "Un vieux journal du maire a été retrouvé : il cache le code d'un coffre oublié. Quatre énigmes mènent à quatre chiffres.",
+	Code = "7391",
+	FinalReward = 8000,
+	FinalXP = 300,
+	Chapters = {
+		{ riddle = "« Là où l'argent dort sous des colonnes de marbre, le premier chiffre veille. »", name = "La Banque", x = 0, z = -170, radius = 30, digit = "7", reward = 300, xp = 30 },
+		{ riddle = "« Les roues attendent, les clients patientent : le deuxième chiffre est jaune comme un taxi. »", name = "La station de taxi", x = -40, z = -10, radius = 30, digit = "3", reward = 300, xp = 30 },
+		{ riddle = "« On y cuit la pâte avant de la livrer : le troisième chiffre sent bon. »", name = "La pizzeria", x = -352, z = -30, radius = 30, digit = "9", reward = 400, xp = 40 },
+		{ riddle = "« Là où l'on efface les traces à coups de peinture, le dernier chiffre se cache. »", name = "Le Pay'n'Spray", x = -200, z = 386, radius = 30, digit = "1", reward = 500, xp = 50 },
+	},
+}
+
+-- ====================================================================
 -- Collectibles / événements / quotidien
 -- ====================================================================
 Config.Collectibles = { Count = 30, Reward = 400, Milestones = { [10] = 2500, [20] = 6000, [30] = 15000 } }
@@ -194,6 +211,7 @@ Config.Achievements = {
 	{ id = "wanted", name = "Ennemi public", desc = "Atteins 5 étoiles de recherche", stat = "fiveStars", goal = 1, reward = 2500 },
 	{ id = "stars", name = "Chasseur d'étoiles", desc = "Récupère 15 étoiles dorées", stat = "collected", goal = 15, reward = 4000 },
 	{ id = "km", name = "Grand voyageur", desc = "Parcours 20 km", stat = "km", goal = 20, reward = 3000 },
+	{ id = "detective", name = "Détective de la ville", desc = "Résous l'Affaire du Coffre", stat = "storyDone", goal = 1, reward = 5000 },
 	{ id = "busted", name = "Pris la main dans le sac", desc = "Fais-toi arrêter une fois", stat = "busted", goal = 1, reward = 250 },
 }
 
@@ -375,7 +393,7 @@ function Util.reconcile(t, defaults)
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX22"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX7"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX23"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX7"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
 	Main.server.lua : point d'entrée serveur de CITY RUSH.
 	Ordre : remotes -> données -> économie -> monde -> services dépendants -> boucles -> apparition des joueurs.
 ]]
@@ -395,6 +413,7 @@ local VehicleService = require(Services.VehicleService)
 local WantedService = require(Services.WantedService)
 local MissionService = require(Services.MissionService)
 local CollectibleService = require(Services.CollectibleService)
+local StoryService = require(Services.StoryService)
 local EventService = require(Services.EventService)
 local LeaderboardService = require(Services.LeaderboardService)
 local MonetizationService = require(Services.MonetizationService)
@@ -449,6 +468,7 @@ VehicleService.setDependencies(World, Pedestrians, WantedService)
 WantedService.init(World)
 MissionService.init(World)
 CollectibleService.init(World)
+StoryService.init()
 MonetizationService.init()
 
 VehicleService.start()
@@ -456,12 +476,13 @@ Pedestrians.start()
 WantedService.start()
 MissionService.start()
 CollectibleService.start()
+StoryService.start()
 EventService.start(World)
 LeaderboardService.start(World)
 
 workspace:SetAttribute("WorldReady", true)
 print("[CityRush] Serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX21"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX22"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
 	CollectibleService : 30 étoiles dorées cachées dans la ville (stockées par joueur).
 	Détection par proximité côté serveur (aucune confiance accordée au client).
 ]]
@@ -601,11 +622,12 @@ local DEFAULT = {
 	Colors = {}, -- [vehicleId] = {r,g,b}
 	Stats = {
 		missions = 0, deliveries = 0, taxis = 0, races = 0, heists = 0,
-		fiveStars = 0, busted = 0, collected = 0, studs = 0, km = 0, joins = 0, bestRace = 0,
+		fiveStars = 0, busted = 0, storyDone = 0, collected = 0, studs = 0, km = 0, joins = 0, bestRace = 0,
 	},
 	Collected = {}, -- [tostring(id)] = true
 	Achv = {},
 	Daily = { day = 0, streak = 0 },
+	Story = { chapter = 0, done = false },
 	PeakCash = 0,
 }
 
@@ -867,6 +889,22 @@ function EconomyService.canUseVehicle(player, id)
 	return profile.Owned[id] == true
 end
 
+-- Vue d'histoire : seuls le chapitre en cours et les chiffres déjà trouvés sont révélés au client
+local function storyView(profile)
+	local story = Config.Story
+	local ch = profile.Story.chapter
+	local digits, riddles = {}, {}
+	for i = 1, ch do
+		digits[i] = story.Chapters[i].digit
+		riddles[i] = { riddle = story.Chapters[i].riddle, name = story.Chapters[i].name }
+	end
+	local current = story.Chapters[ch + 1]
+	return {
+		title = story.Title, intro = story.Intro, chapter = ch, total = #story.Chapters, done = profile.Story.done,
+		riddle = current and current.riddle or nil, digits = digits, riddles = riddles,
+	}
+end
+
 local function buildState(player, profile)
 	local daily, streak, reward = dailyInfo(profile)
 	local owned = {}
@@ -884,6 +922,7 @@ local function buildState(player, profile)
 		Colors = profile.Colors,
 		Stats = profile.Stats,
 		Achv = profile.Achv,
+		Story = storyView(profile),
 		Vip = EconomyService.hasPass(player, "VIP"),
 		Boost = EconomyService.hasPass(player, "BOOST"),
 		DailyAvailable = daily,
@@ -2277,7 +2316,7 @@ local FOLDER_NAME = "CityRushRemotes"
 -- Serveur -> Client
 local SERVER_TO_CLIENT = { "State", "Notify", "Wanted", "Mission", "Banner", "OpenPanel", "Busted", "Leaderboard", "Collected" }
 -- Client -> Serveur
-local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "AbandonMission", "ClaimDaily", "RequestState" }
+local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "AbandonMission", "ClaimDaily", "RequestState", "SubmitCode" }
 
 local folder
 local events = {}
@@ -2350,7 +2389,88 @@ function RemoteService.on(name, cooldown, validator, handler)
 end
 
 return RemoteService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
+	StoryService : "L'Affaire du Coffre". Quatre énigmes à résoudre dans l'ordre en se rendant sur place
+	(détection côté serveur), chacune révèle un chiffre ; le code à 4 chiffres ouvre le coffre final.
+	Le client ne peut ni sauter de chapitre ni deviner le code sans les chiffres : 2 s entre deux essais,
+	et seuls les chaînes de 4 chiffres sont acceptées.
+]]
+
+local Players = game:GetService("Players")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local RemoteService = require(script.Parent.RemoteService)
+local EconomyService = require(script.Parent.EconomyService)
+local DataService = require(script.Parent.DataService)
+
+local StoryService = {}
+
+local story = Config.Story
+
+local function step()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local profile = DataService.get(player)
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if profile and hrp and not profile.Story.done then
+			local nextCh = story.Chapters[profile.Story.chapter + 1]
+			if nextCh and Util.flatDistance(hrp.Position, Vector3.new(nextCh.x, 0, nextCh.z)) <= nextCh.radius then
+				profile.Story.chapter += 1
+				local paid = EconomyService.addCash(player, nextCh.reward, "story")
+				EconomyService.addXP(player, nextCh.xp)
+				local msg = string.format("Énigme %d/%d résolue : %s. Chiffre trouvé : %s  (+%s)", profile.Story.chapter, #story.Chapters, nextCh.name, nextCh.digit, Util.formatCash(paid))
+				if profile.Story.chapter >= #story.Chapters then
+					msg ..= " - Ouvre ton journal (J) pour entrer le code !"
+				end
+				RemoteService.notify(player, msg, "star")
+				DataService.markDirty(player)
+				EconomyService.pushState(player)
+			end
+		end
+	end
+end
+
+local function onSubmit(player, code)
+	local profile = DataService.get(player)
+	if not profile or profile.Story.done then
+		return
+	end
+	if profile.Story.chapter < #story.Chapters then
+		RemoteService.notify(player, "Le coffre reste hors de portée : résous d'abord toutes les énigmes.", "bad")
+		return
+	end
+	if code == story.Code then
+		profile.Story.done = true
+		local paid = EconomyService.addCash(player, story.FinalReward, "story")
+		EconomyService.addXP(player, story.FinalXP)
+		EconomyService.addStat(player, "storyDone", 1)
+		RemoteService.notify(player, string.format("COFFRE OUVERT ! +%s - Tu es le Détective de la ville !", Util.formatCash(paid)), "levelup")
+		DataService.markDirty(player)
+		EconomyService.pushState(player)
+	else
+		RemoteService.notify(player, "Code erroné. Relis les chiffres de ton journal.", "bad")
+	end
+end
+
+function StoryService.init()
+	RemoteService.on("SubmitCode", 2, function(code)
+		return type(code) == "string" and #code == 4 and code:match("^%d%d%d%d$") ~= nil
+	end, onSubmit)
+end
+
+function StoryService.start()
+	Util.supervise("StoryService", function()
+		while true do
+			task.wait(0.5)
+			step()
+		end
+	end)
+end
+
+return StoryService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleBuilder : construit les modèles de voitures (blocs Roblox) et leur physique "arcade".
 
 	Physique : 1 LinearVelocity en mode Plan (vitesse avant + adhérence latérale nulle)
@@ -2614,7 +2734,7 @@ end
 VehicleBuilder.RideHeight = 2.2
 
 return VehicleBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleService : apparition / suppression des véhicules, voitures publiques garées dans la rue,
 	verrouillage du siège conducteur, détection des collisions avec piétons et mobilier,
 	distance parcourue.
@@ -2976,7 +3096,7 @@ function VehicleService.start()
 end
 
 return VehicleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
 	WantedService : niveau de recherche (0-5 étoiles), policiers à pied et voitures de police (IA),
 	arrestations, Pay'n'Spray. Toute la logique est côté serveur.
 ]]
@@ -3555,7 +3675,7 @@ function WantedService.start()
 end
 
 return WantedService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
 	WorldService : génère toute la ville avec des Parts natives Roblox (aucun asset externe).
 	Grille 5x5 de blocs, routes, bâtiments par quartier, props destructibles, lampadaires,
 	points d'intérêt (missions, concession, police...), éclairage et cycle jour/nuit.
@@ -4414,7 +4534,7 @@ function World.build()
 end
 
 return World
-]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX34"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX33"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX35"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX34"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
 	Client.client.lua : point d'entrée client de CITY RUSH.
 	Écran de chargement, mise à l'échelle de l'interface (téléphone / tablette / PC / console),
 	puis initialisation des contrôleurs.
@@ -4507,7 +4627,7 @@ task.spawn(function()
 	end
 	loading:Destroy()
 end)
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX32"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX33"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
 	Atmosphere.lua : effets visuels côté client
 	- fenêtres et lampadaires allumés la nuit (tag "Lit")
 	- phares des véhicules occupés la nuit
@@ -4648,7 +4768,7 @@ function Atmosphere.init()
 end
 
 return Atmosphere
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
 	Hud.lua : interface de jeu permanente (niveau, argent, radar, étoiles de recherche,
 	mission, notifications, compteur de vitesse, bannières d'événements, écran d'arrestation).
 ]]
@@ -4744,13 +4864,13 @@ end
 
 local function buildMenuButtons()
 	local row = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 60), Size = UDim2.fromOffset(238, 46),
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 60), Size = UDim2.fromOffset(288, 46),
 		BackgroundTransparency = 1, Parent = root,
 	})
 	UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 6), Parent = row })
 	local defs = {
 		{ "garage", "🚗", "Garage (G)" }, { "shop", "💎", "Boutique (B)" }, { "profile", "🏆", "Profil (P)" },
-		{ "map", "🗺", "Carte (M)" }, { "daily", "🎁", "Cadeau" },
+		{ "journal", "📖", "Journal (J)" }, { "map", "🗺", "Carte (M)" }, { "daily", "🎁", "Cadeau" },
 	}
 	refs.menuButtons = {}
 	for _, d in ipairs(defs) do
@@ -4846,7 +4966,7 @@ local function buildHints()
 	end
 	UI.label({
 		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -8), Size = UDim2.fromOffset(520, 18),
-		Text = "G Garage · B Boutique · M Carte · P Profil · Shift Nitro · R Redresser · Saut = sortir", TextSize = 13,
+		Text = "G Garage · B Boutique · J Journal · M Carte · P Profil · Shift Nitro · R Redresser · Saut = sortir", TextSize = 13,
 		TextColor3 = T.Muted, TextXAlignment = Enum.TextXAlignment.Left, Parent = root,
 	})
 end
@@ -5027,7 +5147,7 @@ function Hud.init(screenGui)
 end
 
 return Hud
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
 	MapView : carte nord en haut (nord = -Z). Utilisée pour le mini-radar et la grande carte.
 	Le décor de la carte est dessiné à partir de Config (grille, quartiers, POI).
 ]]
@@ -5171,7 +5291,7 @@ function MapView:update(centerPos, heading)
 end
 
 return MapView
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
 	Panels.lua : fenêtres modales (garage / concessionnaire, boutique Robux, profil + succès + classement,
 	grande carte, récompense quotidienne). Raccourcis clavier : G, B, P, M.
 ]]
@@ -5400,7 +5520,55 @@ local function dailyPanel()
 	end
 end
 
+local journalDraft = ""
+
+local function journalPanel()
+	local list = scroll(content)
+	local d = State.data
+	if not d or not d.Story then
+		return
+	end
+	local st = d.Story
+	local function text(order, str, size, color, h)
+		UI.label({ Size = UDim2.new(1, 0, 0, h or 24), Text = str, TextSize = size or 16, TextColor3 = color or T.Text, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = order, Parent = list })
+	end
+	text(1, st.title, 24, T.Accent, 32)
+	text(2, st.intro, 15, T.Muted, 56)
+	local shown = {}
+	for i = 1, st.total do
+		shown[i] = st.digits[i] or "_"
+	end
+	text(3, "Code : " .. table.concat(shown, "  "), 30, T.Good, 40)
+	for i, r in ipairs(st.riddles) do
+		text(10 + i, string.format("✔ Énigme %d (%s) : %s", i, r.name, r.riddle), 14, T.Muted, 44)
+	end
+	if st.done then
+		text(30, "Affaire classée : tu as ouvert le coffre !", 20, T.Good, 30)
+	elseif st.riddle then
+		text(30, string.format("Énigme %d/%d", st.chapter + 1, st.total), 18, T.Accent, 24)
+		text(31, st.riddle, 18, T.Text, 70)
+		text(32, "Rends-toi sur place (à pied ou en voiture) : le chiffre apparaîtra tout seul.", 13, T.Muted, 36)
+	else
+		text(30, "Les 4 chiffres sont réunis. Entre le code pour ouvrir le coffre !", 18, T.Accent, 44)
+		local box = UI.new("TextBox", {
+			Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = T.PanelLight, TextColor3 = T.Text, Font = Enum.Font.GothamBlack,
+			TextSize = 28, PlaceholderText = "0000", Text = journalDraft, ClearTextOnFocus = false, LayoutOrder = 31, Parent = list,
+		})
+		UI.corner(box, 10)
+		box:GetPropertyChangedSignal("Text"):Connect(function()
+			journalDraft = box.Text:gsub("%D", ""):sub(1, 4)
+			if box.Text ~= journalDraft then
+				box.Text = journalDraft
+			end
+		end)
+		UI.button({ Size = UDim2.new(1, 0, 0, 46), Text = "OUVRIR LE COFFRE", TextSize = 20, BackgroundColor3 = T.Accent, TextColor3 = Color3.new(0, 0, 0), LayoutOrder = 32, Parent = list }, function()
+			State.send("SubmitCode", journalDraft)
+		end)
+	end
+end
+
 local BUILDERS = {
+	journal = { "Journal d'enquête", journalPanel },
 	garage = { "Garage", function() vehiclePanel("garage") end },
 	dealer = { "Concessionnaire", function() vehiclePanel("dealer") end },
 	shop = { "Boutique", shopPanel },
@@ -5449,13 +5617,23 @@ function Panels.init(screenGui)
 	content = UI.new("Frame", { Position = UDim2.fromOffset(12, 52), Size = UDim2.new(1, -24, 1, -64), BackgroundTransparency = 1, Parent = window })
 
 	State.Changed:Connect(function()
-		if current and current ~= "map" then
+		if current and current ~= "map" and current ~= "journal" then
 			rebuild()
 		end
 	end)
 	State.LeaderboardChanged:Connect(function()
 		if current == "profile" then
 			rebuild()
+		end
+	end)
+	local lastStoryKey
+	State.Changed:Connect(function(d)
+		if current == "journal" and d.Story then
+			local key = d.Story.chapter .. tostring(d.Story.done)
+			if key ~= lastStoryKey then
+				lastStoryKey = key
+				rebuild()
+			end
 		end
 	end)
 	State.PanelRequested:Connect(function(name)
@@ -5478,6 +5656,8 @@ function Panels.init(screenGui)
 			Panels.open("profile")
 		elseif k == Enum.KeyCode.M then
 			Panels.open("map")
+		elseif k == Enum.KeyCode.J then
+			Panels.open("journal")
 		end
 	end)
 
@@ -5496,7 +5676,7 @@ function Panels.init(screenGui)
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
 	SoundController : sons du véhicule piloté. Chaque son est désactivé proprement tant que
 	Config.Sounds.<nom> est vide (voir A_FAIRE_UTILISATEUR.md pour brancher des audios).
 	- moteur : boucle dont la hauteur suit la vitesse
@@ -5556,7 +5736,7 @@ function SoundController.init()
 end
 
 return SoundController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
 	State.lua : état client synchronisé avec le serveur (lecture seule côté UI).
 ]]
 
@@ -5642,7 +5822,7 @@ function State.init()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
 	UI.lua : petites fabriques d'interface au style Roblox (Gotham, coins arrondis).
 ]]
 
@@ -5729,7 +5909,7 @@ function UI.tween(inst, info, goal)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleController : pilotage arcade du véhicule par le client du conducteur.
 	Lit les entrées du VehicleSeat (clavier, manette, joystick tactile gérés par Roblox),
 	écrit la vitesse cible dans les contraintes créées par le serveur.

@@ -473,6 +473,51 @@ test("étoiles : jalon de 10 étoiles", function()
 	eq(d.Stats.collected, 10); eq(d.Cash - c0, 10 * 400 + 2500 + 100 * d.Level, "10 x 400 + palier 2500 + bonus de niveau (150 XP => niveau 2)"); eq(d.Level, 2)
 end)
 
+print("== StoryService")
+local function bootStory()
+	local M = bootGame(); M.Story = H.mod("StoryService"); M.Story.init(); M.Story.start(); return M
+end
+test("histoire : Config cohérente (chiffres = code)", function()
+	local C = boot().Config
+	local digits = {}
+	for _, ch in ipairs(C.Story.Chapters) do digits[#digits + 1] = ch.digit; truthy(ch.radius > 0 and ch.reward > 0) end
+	eq(table.concat(digits), C.Story.Code, "les chiffres des chapitres forment le code")
+	eq(#C.Story.Code, 4)
+end)
+test("histoire : énigmes dans l'ordre, pas de saut, récompense unique", function()
+	local M = bootStory(); local p = join(M, "S1"); local d = M.Data.get(p); local ch = M.Config.Story.Chapters
+	eq(d.Story.chapter, 0)
+	H.move(p, V3.new(ch[2].x, 3, ch[2].z)); H.advance(1); eq(d.Story.chapter, 0, "chapitre 2 ne compte pas avant le 1")
+	local c0 = d.Cash
+	H.move(p, V3.new(ch[1].x, 3, ch[1].z)); H.advance(1); eq(d.Story.chapter, 1); eq(d.Cash, c0 + ch[1].reward)
+	H.advance(3); eq(d.Cash, c0 + ch[1].reward, "pas de double récompense")
+	local st = lastFired("State", p).args[1].Story
+	eq(st.chapter, 1); eq(st.digits[1], "7"); eq(st.digits[2], nil, "les chiffres suivants ne fuitent pas"); truthy(st.riddle:find("taxi"), "énigme suivante")
+	for i = 2, 4 do H.move(p, V3.new(ch[i].x, 3, ch[i].z)); H.advance(1) end
+	eq(d.Story.chapter, 4); eq(lastFired("State", p).args[1].Story.riddle, nil)
+end)
+test("histoire : code validé côté serveur (types, longueur, essais, unique)", function()
+	local M = bootStory(); local p = join(M, "S2"); local d = M.Data.get(p); local ch = M.Config.Story.Chapters
+	client(p, "SubmitCode", "7391"); eq(d.Story.done, false, "refusé tant que les énigmes ne sont pas résolues")
+	for i = 1, 4 do H.move(p, V3.new(ch[i].x, 3, ch[i].z)); H.advance(1) end
+	for _, bad in ipairs({ 7391, "abcd", "739", "73910", "7 91", "", "7391\n" }) do H.advance(3); client(p, "SubmitCode", bad) end
+	H.advance(3); client(p, "SubmitCode", nil); client(p, "SubmitCode", {}); client(p, "SubmitCode", 0 / 0)
+	eq(d.Story.done, false, "entrées invalides rejetées")
+	H.advance(3); client(p, "SubmitCode", "0000"); eq(d.Story.done, false, "mauvais code")
+	local n = notifications(p); truthy(n[#n]:find("erroné"))
+	client(p, "SubmitCode", "7391"); eq(d.Story.done, false, "2 s entre deux essais")
+	local c0 = d.Cash; H.advance(3); client(p, "SubmitCode", "7391")
+	eq(d.Story.done, true); eq(d.Stats.storyDone, 1); truthy(d.Achv.detective)
+	truthy(d.Cash >= c0 + M.Config.Story.FinalReward, "récompense finale")
+	local c1 = d.Cash; H.advance(3); client(p, "SubmitCode", "7391"); eq(d.Cash, c1, "une seule fois")
+end)
+test("histoire : progression sauvegardée", function()
+	local M = bootStory(); local p = join(M, "S3"); local ch = M.Config.Story.Chapters
+	H.move(p, V3.new(ch[1].x, 3, ch[1].z)); H.advance(1)
+	local uid = p.UserId; H.removePlayer(p); H.advance(0.1)
+	H.nextUserId = uid - 1; local q = join(M, "S3"); eq(M.Data.get(q).Story.chapter, 1)
+end)
+
 print("== VehicleService")
 test("sortie de véhicule : propriété, cooldown, remplacement, arguments aberrants", function()
 	local M = bootGame(); M.Veh.start()

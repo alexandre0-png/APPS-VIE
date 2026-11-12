@@ -26,11 +26,12 @@ local DEFAULT = {
 	Colors = {}, -- [vehicleId] = {r,g,b}
 	Stats = {
 		missions = 0, deliveries = 0, taxis = 0, races = 0, heists = 0,
-		fiveStars = 0, busted = 0, collected = 0, studs = 0, km = 0, joins = 0, bestRace = 0,
+		fiveStars = 0, busted = 0, storyDone = 0, collected = 0, studs = 0, km = 0, joins = 0, bestRace = 0,
 	},
 	Collected = {}, -- [tostring(id)] = true
 	Achv = {},
 	Daily = { day = 0, streak = 0 },
+	Story = { chapter = 0, done = false },
 	PeakCash = 0,
 }
 

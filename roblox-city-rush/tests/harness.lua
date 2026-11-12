@@ -364,7 +364,11 @@ local function preprocess(src)
 	for rawline in (src .. "\n"):gmatch("(.-)\n") do
 		local line = rawline
 		local ind, lhs, op, rhs = line:match("^(%s*)([%w_%.%[%]\"']+)%s*([%+%-%*/])=%s*(.-)%s*$")
-		if ind then line = ind .. lhs .. " = " .. lhs .. " " .. op .. " (" .. rhs .. ")" end
+		if ind then line = ind .. lhs .. " = " .. lhs .. " " .. op .. " (" .. rhs .. ")"
+		else
+			local i2, l2, r2 = line:match("^(%s*)([%w_%.%[%]\"']+)%s*%.%.=%s*(.-)%s*$")
+			if i2 then line = i2 .. l2 .. " = " .. l2 .. " .. (" .. r2 .. ")" end
+		end
 		out[#out + 1] = line
 	end
 	return table.concat(out, "\n")

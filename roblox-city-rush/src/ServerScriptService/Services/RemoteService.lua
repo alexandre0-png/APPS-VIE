@@ -13,7 +13,7 @@ local FOLDER_NAME = "CityRushRemotes"
 -- Serveur -> Client
 local SERVER_TO_CLIENT = { "State", "Notify", "Wanted", "Mission", "Banner", "OpenPanel", "Busted", "Leaderboard", "Collected" }
 -- Client -> Serveur
-local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "AbandonMission", "ClaimDaily", "RequestState" }
+local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "AbandonMission", "ClaimDaily", "RequestState", "SubmitCode" }
 
 local folder
 local events = {}

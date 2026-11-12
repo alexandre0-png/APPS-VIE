@@ -94,13 +94,13 @@ end
 
 local function buildMenuButtons()
 	local row = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 60), Size = UDim2.fromOffset(238, 46),
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 60), Size = UDim2.fromOffset(288, 46),
 		BackgroundTransparency = 1, Parent = root,
 	})
 	UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 6), Parent = row })
 	local defs = {
 		{ "garage", "🚗", "Garage (G)" }, { "shop", "💎", "Boutique (B)" }, { "profile", "🏆", "Profil (P)" },
-		{ "map", "🗺", "Carte (M)" }, { "daily", "🎁", "Cadeau" },
+		{ "journal", "📖", "Journal (J)" }, { "map", "🗺", "Carte (M)" }, { "daily", "🎁", "Cadeau" },
 	}
 	refs.menuButtons = {}
 	for _, d in ipairs(defs) do
@@ -196,7 +196,7 @@ local function buildHints()
 	end
 	UI.label({
 		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -8), Size = UDim2.fromOffset(520, 18),
-		Text = "G Garage · B Boutique · M Carte · P Profil · Shift Nitro · R Redresser · Saut = sortir", TextSize = 13,
+		Text = "G Garage · B Boutique · J Journal · M Carte · P Profil · Shift Nitro · R Redresser · Saut = sortir", TextSize = 13,
 		TextColor3 = T.Muted, TextXAlignment = Enum.TextXAlignment.Left, Parent = root,
 	})
 end

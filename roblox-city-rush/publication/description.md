@@ -19,6 +19,9 @@ CITY RUSH, c'est un mini-monde ouvert au style blocs Roblox : prends n'importe q
 🚔 POLICE DYNAMIQUE
 Plus tu fais de dégâts, plus le niveau de recherche monte : policiers à pied, puis voitures de patrouille. Sème-les ou paie le Pay'n'Spray.
 
+🔎 HISTOIRE & ÉNIGMES
+L'Affaire du Coffre : suis les énigmes du journal du maire à travers la ville, trouve les 4 chiffres et ouvre le coffre (touche J).
+
 🏁 PROGRESSION
 • 7 véhicules à débloquer (Citadine → Hyper Phantom)
 • Niveaux, argent, succès, étoiles dorées cachées (certaines dans les airs !)

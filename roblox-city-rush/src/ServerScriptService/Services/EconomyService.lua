@@ -57,6 +57,22 @@ function EconomyService.canUseVehicle(player, id)
 	return profile.Owned[id] == true
 end
 
+-- Vue d'histoire : seuls le chapitre en cours et les chiffres déjà trouvés sont révélés au client
+local function storyView(profile)
+	local story = Config.Story
+	local ch = profile.Story.chapter
+	local digits, riddles = {}, {}
+	for i = 1, ch do
+		digits[i] = story.Chapters[i].digit
+		riddles[i] = { riddle = story.Chapters[i].riddle, name = story.Chapters[i].name }
+	end
+	local current = story.Chapters[ch + 1]
+	return {
+		title = story.Title, intro = story.Intro, chapter = ch, total = #story.Chapters, done = profile.Story.done,
+		riddle = current and current.riddle or nil, digits = digits, riddles = riddles,
+	}
+end
+
 local function buildState(player, profile)
 	local daily, streak, reward = dailyInfo(profile)
 	local owned = {}
@@ -74,6 +90,7 @@ local function buildState(player, profile)
 		Colors = profile.Colors,
 		Stats = profile.Stats,
 		Achv = profile.Achv,
+		Story = storyView(profile),
 		Vip = EconomyService.hasPass(player, "VIP"),
 		Boost = EconomyService.hasPass(player, "BOOST"),
 		DailyAvailable = daily,
