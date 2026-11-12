@@ -195,6 +195,12 @@ Config.PRODUCTS = {
 }
 Config.COIN_PACK_MINUTES = 20
 Config.COIN_PACK_MIN = 5000
+-- Un achat n'est proposé que si son ID Roblox a été renseigné (entier > 0). Sinon il reste désactivé, avec un message clair.
+function Config.purchasable(def)
+	return type(def.id) == "number" and def.id > 0 and def.id % 1 == 0
+end
+Config.UNAVAILABLE_MESSAGE = "🛒 Cet achat n'est pas encore disponible. Reviens bientôt !"
+
 Config.LUCK_POTION_BONUS = 25
 Config.LUCK_POTION_SECONDS = 900
 
@@ -212,6 +218,10 @@ function Config.questText(t, n)
 		return "Courir " .. n .. "s sur le tapis"
 	elseif t == "pvp" then
 		return "Voler " .. n .. " œuf(s) à d'autres joueurs"
+	elseif t == "discover" then
+		return "Découvrir " .. n .. " nouvelle(s) espèce(s)"
+	elseif t == "sell" then
+		return "Vendre " .. n .. " pet(s)"
 	end
 	return t
 end

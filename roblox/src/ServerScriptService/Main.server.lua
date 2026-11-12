@@ -104,7 +104,7 @@ local function rollPet(s, eggTier, guaranteed)
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
-local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp" }
+local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell" }
 
 local function newQuests(s)
 	local inc = math.max(income(s), 1)
@@ -121,7 +121,9 @@ local function newQuests(s)
 			goal = math.floor(math.max(1000, inc * 240))
 		elseif t == "train" then
 			goal = rng:NextInteger(3, 6) * 20
-		else
+		elseif t == "sell" then
+			goal = rng:NextInteger(2, 4)
+		else -- pvp, discover
 			goal = rng:NextInteger(1, 2)
 		end
 		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), claimed = false }
@@ -541,6 +543,7 @@ function hatch(s, i)
 		dx = { n = 0, b = 0 }
 		d.dex[key] = dx
 		s.species += 1
+		qp(s, "discover", 1)
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
@@ -1030,6 +1033,7 @@ function actions.sell(s, i)
 	end
 	s.data.coins += Config.sellValue(sl.p, sl.s, sl.m)
 	s.data.slots[i] = false
+	qp(s, "sell", 1)
 	refreshPad(s, i)
 	rebuildFollowers(s)
 	sync(s)
@@ -1103,9 +1107,14 @@ function actions.claimStory(s)
 	s.data.coins += reward
 	st.ch += 1
 	st.prog = 0
-	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
 	updateSign(s)
 	notify(s.player, "📜 « " .. c.title .. " » accompli : +" .. Config.fmt(reward) .. " 🪙", "claim")
+	local nextChapter = chapter(s)
+	if nextChapter then
+		notify(s.player, "📖 Chapitre " .. (st.ch + 1) .. " : " .. nextChapter.title .. " (Missions > Histoire)")
+	else
+		notify(s.player, "👑 Histoire terminée : tu es Roi des Couvées !", "event")
+	end
 	for _, z in ipairs(Config.ZONES) do
 		if z.chapter > 0 and z.chapter == st.ch then
 			notify(s.player, "🔓 " .. z.name .. " est ouvert ! Ses œufs sont plus rares.", "event")
@@ -1115,6 +1124,7 @@ function actions.claimStory(s)
 	if rank.name ~= rankBefore then
 		notify(s.player, "🎖 Nouveau rang : " .. rank.emoji .. " " .. rank.name .. " !", "event")
 	end
+	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
 	sync(s)
 end
 
@@ -1163,7 +1173,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 		return
 	end
 	for name, def in pairs(Config.PASSES) do
-		if def.id > 0 and def.id == passId then
+		if Config.purchasable(def) and def.id == passId then
 			s.passes[name] = true
 		end
 	end
@@ -1183,7 +1193,7 @@ MarketplaceService.ProcessReceipt = function(info)
 	end
 	local granted = false
 	for name, def in pairs(Config.PRODUCTS) do
-		if def.id > 0 and def.id == info.ProductId then
+		if Config.purchasable(def) and def.id == info.ProductId then
 			if name == "InstantHatch" then
 				for i = 1, cap(s.data) do
 					hatch(s, i)
@@ -1281,7 +1291,7 @@ local function onJoin(player)
 
 	for name, def in pairs(Config.PASSES) do
 		s.passes[name] = false
-		if def.id > 0 then
+		if Config.purchasable(def) then
 			local ok, owns = pcall(function()
 				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, def.id)
 			end)

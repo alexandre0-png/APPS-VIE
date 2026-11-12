@@ -507,10 +507,14 @@ function render()
 			local owned = state.passes[name]
 			addRow({
 				icon = def.emoji, title = def.name, desc = def.desc,
-				btn = owned and "✅ Actif" or (def.id > 0 and "Acheter" or "Bientôt"),
-				btnColor = (owned or def.id == 0) and COL.dis or COL.green,
-				onClick = (not owned and def.id > 0) and function()
-					MarketplaceService:PromptGamePassPurchase(player, def.id)
+				btn = owned and "✅ Actif" or (Config.purchasable(def) and "Acheter" or "Bientôt"),
+				btnColor = (owned or not Config.purchasable(def)) and COL.dis or COL.green,
+				onClick = (not owned) and function()
+					if Config.purchasable(def) then
+						MarketplaceService:PromptGamePassPurchase(player, def.id)
+					else
+						toast(Config.UNAVAILABLE_MESSAGE)
+					end
 				end or nil,
 			})
 		end
@@ -526,10 +530,14 @@ function render()
 			local def = Config.PRODUCTS[name]
 			addRow({
 				icon = def.emoji, title = def.name, desc = def.desc,
-				btn = def.id > 0 and "Acheter" or "Bientôt", btnColor = def.id > 0 and COL.green or COL.dis,
-				onClick = def.id > 0 and function()
-					MarketplaceService:PromptProductPurchase(player, def.id)
-				end or nil,
+				btn = Config.purchasable(def) and "Acheter" or "Bientôt", btnColor = Config.purchasable(def) and COL.green or COL.dis,
+				onClick = function()
+					if Config.purchasable(def) then
+						MarketplaceService:PromptProductPurchase(player, def.id)
+					else
+						toast(Config.UNAVAILABLE_MESSAGE)
+					end
+				end,
 			})
 		end
 	elseif panel.name == "more" then

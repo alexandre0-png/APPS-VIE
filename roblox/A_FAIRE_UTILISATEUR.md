@@ -1,6 +1,6 @@
 # À faire par toi (Chipe-Œufs, Roblox)
 
-Seulement ce que je ne peux pas faire à ta place : il faut ton compte Roblox, Studio, un navigateur connecté, ou ton autorisation. Tout le reste est fait ou suivi dans `CHANGELOG.md`. Dernière mise à jour : 2026-11-12.
+Seulement ce que je ne peux pas faire à ta place : il faut ton compte Roblox, Studio, un navigateur connecté, ou ton autorisation. Tout le reste est fait ou suivi dans `CHANGELOG.md`. Dernière mise à jour : 2026-11-12 (achats : tant que les ID valent 0, ils restent désactivés dans le jeu avec un message clair, rien à faire de plus côté code).
 
 Les cases sont à cocher au fur et à mesure.
 

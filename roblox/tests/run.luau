@@ -111,7 +111,7 @@ for _, u in ipairs(Config.UPGRADES) do
 end
 
 -- missions et probabilités affichées -------------------------------------------------------------
-for _, t in ipairs({ "steal", "hatch", "earn", "train", "pvp" }) do
+for _, t in ipairs({ "steal", "hatch", "earn", "train", "pvp", "discover", "sell" }) do
 	check("questText " .. t, #Config.questText(t, 3) > 0)
 end
 local odds = Config.oddsText()
@@ -249,6 +249,21 @@ check("sons : chaque clé a id, speed, vol", (function()
 	end
 	return true
 end)())
+
+-- Achats : un ID à 0 (ou invalide) désactive proprement l'achat --------------------------------------
+check("purchasable(0) = faux", not Config.purchasable({ id = 0 }))
+check("purchasable(négatif) = faux", not Config.purchasable({ id = -5 }))
+check("purchasable(décimal) = faux", not Config.purchasable({ id = 12.5 }))
+check("purchasable(texte) = faux", not Config.purchasable({ id = "123" }))
+check("purchasable(nil) = faux", not Config.purchasable({}))
+check("purchasable(ID valide) = vrai", Config.purchasable({ id = 123456789 }))
+check("message d'indisponibilité défini", #Config.UNAVAILABLE_MESSAGE > 0)
+for name, def in pairs(Config.PASSES) do
+	check("pass " .. name .. " : id numérique, nom et description", type(def.id) == "number" and #def.name > 0 and #def.desc > 0)
+end
+for name, def in pairs(Config.PRODUCTS) do
+	check("produit " .. name .. " : id numérique, nom et description", type(def.id) == "number" and #def.name > 0 and #def.desc > 0)
+end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
