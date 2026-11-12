@@ -355,7 +355,7 @@ local function returnEgg(e)
 		if vs then
 			local i = freeSlot(vs.data)
 			if i then
-				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = 0 }
+				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs.data) }
 				refreshPad(vs, i)
 				notify(vs.player, "🥚 Ton œuf t'a été rendu !")
 				sync(vs)
@@ -437,14 +437,16 @@ local function announce(text)
 		end)
 	end)
 end
-pcall(function()
-	MessagingService:SubscribeAsync("ChipeAnnounce", function(msg)
-		local m = msg.Data
-		if type(m) == "table" and m.sid ~= Data.SERVER_ID and type(m.text) == "string" then
-			for _, pl in ipairs(Players:GetPlayers()) do
-				notify(pl, m.text)
+task.spawn(function() -- SubscribeAsync attend le réseau : ne pas bloquer le démarrage du serveur
+	pcall(function()
+		MessagingService:SubscribeAsync("ChipeAnnounce", function(msg)
+			local m = msg.Data
+			if type(m) == "table" and m.sid ~= Data.SERVER_ID and type(m.text) == "string" then
+				for _, pl in ipairs(Players:GetPlayers()) do
+					notify(pl, m.text)
+				end
 			end
-		end
+		end)
 	end)
 end)
 
@@ -1145,7 +1147,7 @@ local function onJoin(player)
 	local s = {
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
-		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0,
+		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
@@ -1191,14 +1193,23 @@ local function onJoin(player)
 			clearFollowers(s)
 			task.delay(3, function()
 				if player.Parent and sessions[player] == s then
-					player:LoadCharacter()
+					pcall(function()
+						player:LoadCharacterAsync()
+					end)
 				end
 			end)
 		end)
 	end)
 	if player.Parent then
-		player:LoadCharacter()
-		sync(s)
+		local ok, err = pcall(function()
+			player:LoadCharacterAsync()
+		end)
+		if not ok then
+			warn("[onJoin] LoadCharacterAsync : " .. tostring(err))
+		end
+		if player.Parent then
+			sync(s)
+		end
 	end
 end
 
@@ -1212,6 +1223,7 @@ Players.PlayerRemoving:Connect(function(player)
 	if not s then
 		return
 	end
+	s.leaving = true -- l'autosave ne doit plus reprendre le verrou de session après ce point
 	dropCarry(s)
 	clearFollowers(s)
 	holds[player] = nil
@@ -1228,7 +1240,7 @@ task.spawn(function()
 	while true do
 		task.wait(60)
 		for player, s in pairs(sessions) do
-			if not s.noSave then
+			if not s.noSave and not s.leaving then
 				task.spawn(function()
 					Data.save(player, s.data)
 					Data.submit(player, s.data)

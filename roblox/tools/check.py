@@ -72,7 +72,7 @@ MEMBER_CHECKS = {
     "Humanoid": ["PlatformStand", "WalkSpeed", "MoveDirection", "ChangeState", "Died", "Health", "CameraOffset"],
     "Part": ["AssemblyLinearVelocity", "Massless", "Shape", "CanCollide", "CanQuery", "Material", "Transparency"],
     "Model": ["PrimaryPart", "PivotTo", "GetPivot", "ScaleTo"],
-    "Player": ["RespawnLocation", "LoadCharacter", "DisplayName", "Character", "CharacterAdded", "UserId", "Kick"],
+    "Player": ["RespawnLocation", "LoadCharacterAsync", "DisplayName", "Character", "CharacterAdded", "UserId", "Kick"],
     "Players": ["CharacterAutoLoads", "GetPlayerByUserId", "PlayerAdded", "PlayerRemoving", "GetPlayers", "GetNameFromUserIdAsync"],
     "MarketplaceService": ["PromptGamePassPurchaseFinished", "UserOwnsGamePassAsync", "PromptGamePassPurchase", "ProcessReceipt", "PromptProductPurchase"],
     "MessagingService": ["PublishAsync", "SubscribeAsync"],
@@ -100,14 +100,40 @@ def _members(cn, by_name):
     return out
 
 by_name = {c["Name"]: c for c in api["Classes"]}
+def _member_tags(cn, name):
+    while cn and cn in by_name:
+        for m in by_name[cn]["Members"]:
+            if m["Name"] == name:
+                return m.get("Tags", [])
+        cn = by_name[cn]["Superclass"]
+    return []
+
 for cls, mems in MEMBER_CHECKS.items():
     if cls not in by_name:
         fail(f"MEMBER_CHECKS : classe inconnue {cls}")
         continue
+    if "Deprecated" in by_name[cls].get("Tags", []):
+        fail(f"classe dépréciée : {cls}")
     have = _members(cls, by_name)
     for m in mems:
         if m not in have:
             fail(f"{cls}.{m} n'existe pas dans l'API Roblox")
+        elif "Deprecated" in _member_tags(cls, m):
+            fail(f"{cls}.{m} est déprécié dans l'API Roblox")
+
+# Classes réellement instanciées / services utilisés : aucune ne doit être dépréciée
+for f in files:
+    txt = open(f, encoding="utf-8").read()
+    for c in set(re.findall(r'Instance\.new\("(\w+)"\)', txt)) | set(re.findall(r'GetService\("(\w+)"\)', txt)):
+        if c in by_name and "Deprecated" in by_name[c].get("Tags", []):
+            fail(f"{os.path.basename(f)} : classe dépréciée {c}")
+# Appels de méthodes dépréciées connues (liste à compléter quand l'API évolue)
+DEPRECATED_CALLS = [r":LoadCharacter\(", r"(?<![\w.:])wait\(", r"(?<![\w.:])spawn\(", r"(?<![\w.:])delay\("]
+for f in files:
+    txt = open(f, encoding="utf-8").read()
+    for pat in DEPRECATED_CALLS:
+        if re.search(pat, txt):
+            fail(f"{os.path.basename(f)} : usage déprécié {pat}")
 
 print("[3/5] Remotes client/serveur")
 srv = open(os.path.join(SRC, "ServerScriptService", "Main.server.lua"), encoding="utf-8").read()
