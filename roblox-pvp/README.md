@@ -44,7 +44,7 @@ ressource externe, aucun modèle à importer. Les sons utilisent les fichiers in
 | Types d'attaque | Mêlée en cône, impact de zone, hitscan, plombs, projectiles balistiques (gravité) avec explosion |
 | Progression | Niveau 1→50, 6 titres (Recrue → Mythe) affichés au-dessus des joueurs, récompense à chaque niveau |
 | Économie | Pièces : éliminations, série, tir à la tête, prime, assistance, victoire, quêtes, cadeaux |
-| Quêtes | 3 quêtes/jour tirées d'un pool de 9 (déterministe par jour UTC), progression côté serveur |
+| Quêtes | 3 quêtes/jour tirées d'un pool de 10 (déterministe par jour UTC), progression côté serveur |
 | Cadeau quotidien | Cycle de 7 jours (50 → 500 pièces), série cassée après un jour manqué |
 | Arène | Tour centrale à 4 rampes, 4 bunkers d'angle, 16 couvertures, 4 mares de lave (mort), 4 jump pads, 4 soins, orbe de rage (×1,5 dégâts 12 s) |
 | Bots | Jusqu'à 3 gladiateurs complètent l'arène quand il y a moins de 4 combattants (récompense réduite, aucune série) |

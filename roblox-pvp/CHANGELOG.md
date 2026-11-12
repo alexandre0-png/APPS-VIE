@@ -1,5 +1,9 @@
 # Journal des changements — Arène des Légendes
 
+## V1.5 — préparation de publication
+- `tools/publish.sh` + `tools/apply_ids.py` (testé) : Id d'achats injectés depuis `publication/ids.json`, puis `rojo build`.
+- Nouvelle quête quotidienne « Pris de rage » (10 quêtes au total).
+
 ## V1.4 — audit
 - Plaque de nom : connexions coupées à la disparition du personnage (fuite corrigée).
 

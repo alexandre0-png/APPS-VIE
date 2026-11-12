@@ -371,6 +371,7 @@ local function setupPickups()
 			return
 		end
 		orb:SetAttribute("Cooling", true)
+		QuestService.Notify(player, "Orb", 1)
 		local duration = Config.RageOrb.Duration
 		player:SetAttribute("BoostUntil", now() + duration)
 		PlayerService.Notify(player, "Boost", "RAGE ! Dégâts ×" .. tostring(Config.RageOrb.Multiplier), { Duration = duration })

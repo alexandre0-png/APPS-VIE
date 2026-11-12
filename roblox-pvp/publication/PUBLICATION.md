@@ -44,6 +44,11 @@ Créer ces objets, puis coller leurs Id dans `src/ReplicatedStorage/Shared/Confi
 Image de chaque pass : réutiliser `icone-512.png` au départ. Garde-fous déjà en place : aucun achat n'augmente les dégâts,
 les reçus sont idempotents (jamais crédités deux fois) et sauvegardés avant validation, et l'achat est refusé si le profil n'a pas pu être chargé.
 
+### Raccourci : script de préparation
+Copiez `publication/ids.example.json` en `publication/ids.json`, remplissez les Id créés au point 3, puis lancez `tools/publish.sh`
+(vérifications → injection des Id dans `Config.luau` → `rojo build`). Il produit `ArenaDesLegendes.rbxl` et ne publie rien :
+ouvrez-le dans Studio puis *File → Publish to Roblox*. Un Id laissé à 0 reste désactivé.
+
 ## 4. Après publication
 - Surveiller *Analytics* (rétention J1/J7) et les erreurs serveur (*Developer Console → F9*).
 - Premier lot de correctifs prévu : prise des armes en main, hauteur des rampes, sons (voir README).

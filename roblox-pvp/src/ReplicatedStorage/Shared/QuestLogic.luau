@@ -6,7 +6,7 @@ export type QuestDef = {
 	Id: string,
 	Title: string,
 	Desc: string,
-	Event: string, -- Kill | Headshot | Streak | Win | MatchPlayed | Damage
+	Event: string, -- Kill | Headshot | Streak | Win | MatchPlayed | Damage | Orb
 	Class: string?, -- filtre pour Kill : "Melee" | "Ranged"
 	Target: number,
 	Coins: number,
@@ -26,6 +26,7 @@ QuestLogic.Pool = {
 	{ Id = "streak4", Title = "Implacable", Desc = "Série de 4 éliminations sans mourir", Event = "Streak", Target = 4, Coins = 160, XP = 110, Max = true },
 	{ Id = "win1", Title = "Victoire !", Desc = "Gagner une partie", Event = "Win", Target = 1, Coins = 200, XP = 150 },
 	{ Id = "play3", Title = "Gladiateur assidu", Desc = "Terminer 3 parties", Event = "MatchPlayed", Target = 3, Coins = 150, XP = 100 },
+	{ Id = "orb2", Title = "Pris de rage", Desc = "Prendre l'orbe de rage 2 fois", Event = "Orb", Target = 2, Coins = 130, XP = 90 },
 	{ Id = "dmg1000", Title = "Dévastateur", Desc = "Infliger 1000 dégâts", Event = "Damage", Target = 1000, Coins = 140, XP = 100 },
 } :: { QuestDef }
 
