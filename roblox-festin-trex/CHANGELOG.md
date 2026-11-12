@@ -21,7 +21,15 @@
 - **Données** : ajouts de clés gérés par `Util.reconcile` (sans changement de version) ; tout changement non additif
   doit incrémenter `Config.DataVersion` et ajouter une migration.
 
+## Non exécuté (bloqué par la permission du bac à sable)
+`luau-lsp` (types Roblox), `luau` (tests `tests/run.sh`), `stylua`, `selene`, `rojo build`.
+Aucun contournement. Remplacés par `tools/blockcheck.py` et `tools/undefcheck.py` (exécutés). Les tests Luau ne sont pas
+portés en Python : un port ne testerait pas le vrai code.
+
 ## Reste à faire par le propriétaire
+Voir **A_FAIRE_UTILISATEUR.md** (liste tenue à jour).
+
+## Ancienne liste
 1. Lancer le jeu dans Roblox Studio (jamais exécuté) et corriger d'après la fenêtre Output.
 2. Lancer `tests/run.sh` (CLI Luau) et `tools/check.sh` (luau-lsp) ; stylua signale du style à reformater.
 3. Fournir Universe ID et Place ID, puis `python3 tools/publish_place.py --universe <ID> --place <ID> --go`.
