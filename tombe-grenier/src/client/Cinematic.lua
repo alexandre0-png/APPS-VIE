@@ -9,17 +9,40 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Timeline = require(Shared.CinematicTimeline)
 
 local Cinematic = {}
 
+-- Séquences longues (30 à 60 s) : chacune peut être passée (Espace, Échap, bouton « Passer »).
+-- next : cinématique jouée ensuite (chaînage). Les plans de documents sont des gros plans fixes.
 local SHOTS = {
-	-- Réveil dans le cercueil : on fixe le couvercle, puis on se redresse et on regarde le grenier
+	-- Arrivée devant la maison, de nuit : la route, la porte, puis l'entrée
+	arrival = {
+		next = "intro",
+		fadeIn = true,
+		plans = {
+			{ from = { 60, 7, 215 }, look = { 60, 6, 150 }, t = 10 },
+			{ from = { 72, 6, 172 }, look = { 60, 5, 128 }, t = 10 },
+			{ from = { 54, 9, 140 }, look = { 60, 8, 92 }, t = 8 },
+			{ from = { 60, 20, 70 }, look = { 60, 12, 40 }, t = 6 },
+		},
+	},
+	-- Réveil dans le cercueil, dans le grenier : on fixe le couvercle, on regarde le grenier,
+	-- puis les objets de la pièce (plaque, malle, trappe, miroir)
 	intro = {
 		fadeIn = true,
 		plans = {
 			{ from = { 90, 25.4, 45 }, look = { 90, 34, 45 }, t = 3 },
 			{ from = { 90, 26.3, 45 }, look = { 78, 25.5, 26 }, t = 3.5 },
 			{ from = { 88, 26.8, 30 }, look = { 60, 26, 12 }, t = 3 },
+			{ from = { 90, 27, 36 }, look = { 90, 26.1, 42.5 }, t = 6 },
+			{ from = { 70, 26, 58 }, look = { 70, 27, 62 }, t = 6 },
+			{ from = { 54, 26, 14 }, look = { 54, 25.5, 9.5 }, t = 6 },
+			{ from = { 100, 27, 60 }, look = { 119, 31, 30 }, t = 6 },
 		},
 	},
 	-- Première apparition : la caméra du joueur tremble, face au monstre
@@ -99,6 +122,9 @@ local SHOTS = {
 				t = 6,
 				shake = true,
 			},
+			{ from = { 100, -4, 84 }, look = { 103, -10, 84 }, t = 8 },
+			{ from = { 112, -2, 70 }, look = { 103, -6, 90 }, t = 8 },
+			{ from = { 80, -2, 50 }, look = { 90, -6, 90 }, t = 8 },
 		},
 	},
 	-- Fin 3, la vérité : la lumière monte du cercueil vers le ciel
@@ -106,6 +132,19 @@ local SHOTS = {
 		plans = {
 			{ from = { 90, 26, 45 }, look = { 90, 30, 44 }, t = 3 },
 			{ from = { 90, 60, 45 }, look = { 90, 90, 45 }, t = 4 },
+			{ from = { 90, 40, 45 }, look = { 90, 60, 45 }, t = 8 },
+			{ from = { 60, 95, -20 }, look = { 60, 60, 45 }, t = 10 },
+			{ from = { 60, 140, -60 }, look = { 60, 80, 45 }, t = 8 },
+		},
+	},
+	-- Fin 4, le piège : l'enfant reste dans le cercueil, le couvercle se referme
+	sealed = {
+		fadeOut = true,
+		plans = {
+			{ from = { 90, 25.5, 45 }, look = { 90, 26, 43 }, t = 8 },
+			{ from = { 90, 28, 36 }, look = { 90, 26.1, 42.5 }, t = 8 },
+			{ from = { 90, 25.6, 45 }, look = { 90, 25.4, 44 }, t = 8 },
+			{ from = { 90, 27, 36 }, look = { 90, 26, 42.5 }, t = 8 },
 		},
 	},
 	-- Fin 2, la malédiction : le couvercle se referme, puis la plaque gravée
@@ -119,6 +158,35 @@ local SHOTS = {
 }
 
 local current = nil
+
+-- Réglage par cinématique (Config.Cinematics). Une cinématique désactivée est simplement sautée.
+local FLAG = {
+	arrival = "Arrival",
+	intro = "Intro",
+	descente = "Descent",
+	sealed = "Sealed",
+	truth = "Truth",
+}
+
+local function enabledShot(name)
+	local cfg = Config.Cinematics
+	if not cfg or cfg.Enabled ~= true then
+		return false
+	end
+	local flag = FLAG[name]
+	return flag == nil or cfg[flag] == true
+end
+
+-- Pendant une cinématique, le joueur ne bouge pas (caméra et personnage restent cohérents)
+local function setFrozen(on)
+	pcall(function()
+		local char = Players.LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.PlatformStand = on
+		end
+	end)
+end
 
 local function resolve(v)
 	if typeof(v) == "function" then
@@ -152,10 +220,22 @@ local function makeBars(gui)
 	return top, bottom, cover
 end
 
--- Joue une cinématique. onDone est appelé à la fin (ou au passage).
+-- Joue une cinématique. onDone est appelé à la fin (ou au passage), après la suite chaînée.
 function Cinematic.play(name, gui, onDone)
 	local spec = SHOTS[name]
-	if not spec then
+	if not spec or not enabledShot(name) then
+		-- Désactivée : on enchaîne directement avec la suite éventuelle
+		if spec and spec.next then
+			return Cinematic.play(spec.next, gui, onDone)
+		end
+		if onDone then
+			onDone()
+		end
+		return
+	end
+	local okTotal, total = pcall(Timeline.total, spec.plans)
+	if not okTotal then
+		warn("[Cinematic] durée illisible pour " .. name)
 		if onDone then
 			onDone()
 		end
@@ -180,17 +260,42 @@ function Cinematic.play(name, gui, onDone)
 		cover.BackgroundTransparency = 0
 	end
 
+	local function passShot()
+		token.done = true
+		if token.tween then
+			token.tween:Cancel()
+		end
+	end
+
 	local skip = UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.Escape then
-			token.done = true
-			if token.tween then
-				token.tween:Cancel()
-			end
+			passShot()
 		end
 	end)
+
+	-- Bouton « Passer », visible pendant toute la séquence (utile sur téléphone)
+	local passButton = nil
+	pcall(function()
+		passButton = Instance.new("TextButton")
+		passButton.Name = "PasserCinematique"
+		passButton.Size = UDim2.fromOffset(120, 36)
+		passButton.Position = UDim2.new(1, -20, 1, -20)
+		passButton.AnchorPoint = Vector2.new(1, 1)
+		passButton.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+		passButton.BackgroundTransparency = 0.3
+		passButton.TextColor3 = Color3.fromRGB(230, 220, 190)
+		passButton.Font = Enum.Font.GothamMedium
+		passButton.TextSize = 16
+		passButton.Text = "Passer"
+		passButton.ZIndex = 70
+		passButton.Visible = Config.Cinematics.SkipButton == true
+		passButton.Parent = gui
+		passButton.Activated:Connect(passShot)
+	end)
+	setFrozen(true)
 
 	cam.CameraType = Enum.CameraType.Scriptable
 	local firstLook = nil
@@ -247,6 +352,10 @@ function Cinematic.play(name, gui, onDone)
 		TweenService:Create(top, info, { Position = UDim2.new(0, 0, -0.12, 0) }):Play()
 		TweenService:Create(bottom, info, { Position = UDim2.new(0, 0, 1, 0) }):Play()
 		cam.CameraType = Enum.CameraType.Custom
+		setFrozen(false)
+		if passButton then
+			passButton:Destroy()
+		end
 		task.wait(0.8)
 		top:Destroy()
 		bottom:Destroy()
@@ -261,7 +370,9 @@ function Cinematic.play(name, gui, onDone)
 		if current == token then
 			current = nil
 		end
-		if onDone then
+		if spec.next then
+			Cinematic.play(spec.next, gui, onDone)
+		elseif onDone then
 			onDone()
 		end
 	end)
