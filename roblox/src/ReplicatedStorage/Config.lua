@@ -226,6 +226,30 @@ function Config.questText(t, n)
 	return t
 end
 
+---------------------------------------------------------------- Animations (client)
+-- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
+-- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.
+Config.Animations = {
+	enabled = true, -- interrupteur général
+	eggShake = true, -- l'œuf tremble puis blanchit juste avant d'éclore
+	eggBounce = true, -- les œufs (nids, bases, portés) rebondissent légèrement
+	hatchSquash = true, -- squash & stretch de l'œuf avant l'éclosion et du pet à son apparition
+	popIn = true, -- le pet apparaît en grossissant
+	shockwave = true, -- anneau lumineux à l'éclosion
+	harvest = true, -- l'œuf s'envole vers le joueur à la récolte
+	petBlink = true, -- clignement des yeux des pets
+	petLook = true, -- les yeux des pets regardent autour
+	petMouth = true, -- la bouche des pets s'anime
+	menuTransitions = true, -- ouverture et fermeture animées des menus
+	reward = true, -- confettis lors d'une récompense (chapitre, succès, énigme, rare)
+	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
+	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
+}
+
+function Config.animEnabled(name)
+	return Config.Animations.enabled == true and Config.Animations[name] == true
+end
+
 ---------------------------------------------------------------- Univers, histoire et progression
 Config.TITLE = "Chipe-Œufs"
 Config.TAGLINE = "Chipe, couve, collectionne : deviens Roi des Couvées !"

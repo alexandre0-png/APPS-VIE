@@ -326,6 +326,224 @@ for tier = 2, 4 do
 	check("récompenses de succès croissantes (" .. tier .. ")", Config.ACH_REWARD.coins[tier] > Config.ACH_REWARD.coins[tier - 1])
 end
 
+-- Animations : configuration et garde-fou ---------------------------------------------------------------
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop" }
+for _, k in ipairs(animKeys) do
+	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
+end
+local expectedAnim = {}
+for _, k in ipairs(animKeys) do
+	expectedAnim[k] = true
+end
+for k, v in pairs(Config.Animations) do
+	check("Config.Animations." .. k .. " est une clé attendue (pas de faute de frappe)", expectedAnim[k] == true and type(v) == "boolean")
+end
+check("animEnabled : actif par défaut", Config.animEnabled("eggShake") and Config.animEnabled("zones"))
+check("animEnabled : clé inconnue = faux", not Config.animEnabled("nimportequoi"))
+do
+	local saved = Config.Animations.enabled
+	Config.Animations.enabled = false
+	local anyOn = false
+	for _, k in ipairs(animKeys) do
+		anyOn = anyOn or Config.animEnabled(k)
+	end
+	check("animEnabled : interrupteur général coupe tout", not anyOn)
+	Config.Animations.enabled = saved
+	local one = Config.Animations.petBlink
+	Config.Animations.petBlink = false
+	check("animEnabled : une animation peut être coupée seule", not Config.animEnabled("petBlink") and Config.animEnabled("petLook"))
+	Config.Animations.petBlink = one
+end
+
+local Easing = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+local pi = math.pi
+
+-- courbes
+check("outBack(0) = 0 et outBack(1) = 1", near(Easing.outBack(0), 0, 1e-9) and near(Easing.outBack(1), 1, 1e-9))
+check("outBack dépasse 1 (rebond)", (function()
+	local m = 0
+	for i = 0, 100 do
+		m = math.max(m, Easing.outBack(i / 100))
+	end
+	return m > 1.05
+end)())
+check("outElastic bornes", Easing.outElastic(0) == 0 and Easing.outElastic(1) == 1)
+check("outBounce bornes", near(Easing.outBounce(0), 0, 1e-9) and near(Easing.outBounce(1), 1, 1e-6))
+check("outQuad croissante", (function()
+	local prev = -1
+	for i = 0, 20 do
+		local v = Easing.outQuad(i / 20)
+		if v < prev then
+			return false
+		end
+		prev = v
+	end
+	return true
+end)())
+check("courbes : entrées hors [0,1] bornées", Easing.outQuad(-3) == 0 and Easing.outQuad(5) == 1 and Easing.clamp01(2) == 1 and Easing.clamp01(-1) == 0)
+
+-- squash & stretch
+do
+	local sx0, sy0 = Easing.squashStretch(0, 0.4)
+	check("squashStretch(0) : écrasé en hauteur, élargi", sy0 < 1 and sx0 > 1)
+	local sx1, sy1 = Easing.squashStretch(1, 0.4)
+	check("squashStretch(1) = (1, 1)", sx1 == 1 and sy1 == 1)
+	local sx2, sy2 = Easing.squashStretch(5, 0.4)
+	check("squashStretch(>1) = (1, 1)", sx2 == 1 and sy2 == 1)
+	local positive = true
+	for i = 0, 100 do
+		local sx, sy = Easing.squashStretch(i / 100, 0.9)
+		positive = positive and sx >= 0.2 and sy >= 0.2
+	end
+	check("squashStretch : toujours positif, même fort", positive)
+	local _, syEarly = Easing.squashStretch(0.05, 0.4)
+	local _, syLate = Easing.squashStretch(0.9, 0.4)
+	check("squashStretch : l'amplitude décroît", math.abs(syLate - 1) < math.abs(syEarly - 1))
+end
+
+-- rebond des œufs
+do
+	local ok, hopped = true, false
+	for i = 0, 640 do
+		local y, sx, sy = Easing.eggHop(i * 0.01, 0.7, 0.6)
+		ok = ok and y >= 0 and y <= 0.6 + 1e-9 and sx > 0 and sy > 0
+		hopped = hopped or y > 0.3
+	end
+	check("eggHop : décalage dans [0, hauteur], échelles positives", ok)
+	check("eggHop : il y a bien un saut", hopped)
+	local y, sx, sy = Easing.eggHop(1.0, 0, 0.6)
+	check("eggHop : au repos = (0, 1, 1)", y == 0 and sx == 1 and sy == 1)
+	check("eggHop : sommet = hauteur", near(Easing.eggHop(0.3, 0, 0.6), 0.6, 1e-9))
+	local _, _, sl = Easing.eggHop(0.52, 0, 0.6)
+	check("eggHop : écrasement à l'atterrissage", sl < 1)
+	check("eggHop : périodique", near(Easing.eggHop(0.3, 0, 0.6, 3.2), Easing.eggHop(0.3 + 3.2, 0, 0.6, 3.2), 1e-9))
+	check("runBounce immobile = 0", Easing.runBounce(1.234, false) == 0)
+	local rb = true
+	for i = 0, 200 do
+		local v = Easing.runBounce(i * 0.05, true)
+		rb = rb and v >= 0 and v <= 0.25 + 1e-9
+	end
+	check("runBounce en mouvement dans [0, 0.25]", rb)
+end
+
+-- yeux et bouche
+do
+	local inRange, minOpen, openCount, total = true, 1, 0, 0
+	for seed = 0, 9 do
+		for i = 0, 3000 do
+			local o = Easing.blinkOpenness(i * 0.01, seed)
+			inRange = inRange and o >= 0 and o <= 1
+			minOpen = math.min(minOpen, o)
+			total += 1
+			if o == 1 then
+				openCount += 1
+			end
+		end
+	end
+	check("blinkOpenness dans [0, 1]", inRange)
+	check("blinkOpenness : l'œil se ferme presque entièrement", minOpen <= 0.05)
+	check("blinkOpenness : œil ouvert plus de 80 % du temps", openCount / total > 0.8)
+	check("blinkOpenness : déterministe", Easing.blinkOpenness(1.7, 3) == Easing.blinkOpenness(1.7, 3))
+	local differs = false
+	for i = 0, 500 do
+		differs = differs or Easing.blinkOpenness(i * 0.01, 0) ~= Easing.blinkOpenness(i * 0.01, 1)
+	end
+	check("blinkOpenness : deux pets clignent à des moments différents", differs)
+
+	local lookOk, varies, lastDx = true, false, nil
+	for i = 0, 2000 do
+		local dx, dy = Easing.look(i * 0.05, 2)
+		lookOk = lookOk and math.abs(dx) <= 0.85 + 1e-9 and math.abs(dy) <= 0.3 + 1e-9
+		if lastDx and dx ~= lastDx then
+			varies = true
+		end
+		lastDx = dx
+	end
+	check("look : décalages bornés", lookOk)
+	check("look : le regard bouge", varies)
+
+	local mOk, zero, wide = true, false, false
+	for i = 0, 3000 do
+		local m = Easing.mouthOpen(i * 0.01, 4)
+		mOk = mOk and m >= 0 and m <= 1
+		zero = zero or m == 0
+		wide = wide or m > 0.9
+	end
+	check("mouthOpen dans [0, 1]", mOk)
+	check("mouthOpen : tantôt fermée, tantôt grande ouverte", zero and wide)
+end
+
+-- barrières de zone
+do
+	local g = true
+	for i = 0, 200 do
+		local p = Easing.gatePulse(i * 0.1, 2)
+		g = g and p >= 0 and p <= 1
+	end
+	check("gatePulse dans [0, 1]", g)
+end
+
+-- récompenses et secousses de caméra
+check("rewardBurst : claim, event, rare définis", Easing.rewardBurst("claim") ~= nil and Easing.rewardBurst("event") ~= nil and Easing.rewardBurst("rare") ~= nil)
+check("rewardBurst : pas de confettis pour steal / caught / nil", Easing.rewardBurst("steal") == nil and Easing.rewardBurst("caught") == nil and Easing.rewardBurst(nil) == nil)
+check("rewardBurst : intensité croissante claim < event < rare", Easing.REWARD.claim.count < Easing.REWARD.event.count and Easing.REWARD.event.count < Easing.REWARD.rare.count)
+for name, b in pairs(Easing.REWARD) do
+	check("rewardBurst " .. name .. " : paramètres valides", b.count > 0 and b.minSpeed > 0 and b.maxSpeed > b.minSpeed and b.life > 0)
+end
+check("FOV_KICK : steal vers l'avant, caught vers l'arrière", Easing.FOV_KICK.steal.delta > 0 and Easing.FOV_KICK.caught.delta < 0 and Easing.FOV_KICK.steal.time > 0 and Easing.FOV_KICK.caught.time > 0)
+do
+	local b = Easing.REWARD.rare
+	local ok, angles = true, {}
+	for i = 1, b.count do
+		local p = Easing.confettiParticle(i, b.count, b)
+		ok = ok and p.angle >= -pi / 2 - 0.9 - 1e-9 and p.angle <= -pi / 2 + 0.9 + 1e-9
+		ok = ok and p.speed >= b.minSpeed and p.speed <= b.maxSpeed
+		ok = ok and p.hue >= 0 and p.hue < 1 and p.w >= 6 and p.h >= 10
+		angles[string.format("%.4f", p.angle)] = true
+	end
+	check("confettiParticle : éventail vers le haut, vitesses et couleurs valides", ok)
+	local distinct = 0
+	for _ in pairs(angles) do
+		distinct += 1
+	end
+	check("confettiParticle : angles bien répartis", distinct >= 60)
+	check("confettiParticle : déterministe", Easing.confettiParticle(7, b.count, b).angle == Easing.confettiParticle(7, b.count, b).angle)
+end
+
+-- garde-fou : désactivée = non exécutée ; erreur = désactivée pour la session, une seule alerte
+do
+	local failed, calls, errors = {}, 0, 0
+	local function yes()
+		return true
+	end
+	local function no()
+		return false
+	end
+	local function onError()
+		errors += 1
+	end
+	check("guard : animation désactivée non exécutée", Easing.guard(no, failed, "a", function()
+		calls += 1
+	end, onError) == false and calls == 0)
+	check("guard : animation active exécutée", Easing.guard(yes, failed, "a", function()
+		calls += 1
+	end, onError) == true and calls == 1)
+	check("guard : l'erreur est capturée (pas de propagation)", Easing.guard(yes, failed, "b", function()
+		error("boom")
+	end, onError) == false)
+	check("guard : l'erreur est signalée une seule fois et l'animation désactivée", errors == 1 and failed.b == true)
+	local again = Easing.guard(yes, failed, "b", function()
+		calls += 1
+	end, onError)
+	check("guard : une animation en erreur n'est plus exécutée", again == false and calls == 1 and errors == 1)
+	check("guard : les autres animations ne sont pas touchées", Easing.guard(yes, failed, "c", function()
+		calls += 1
+	end, onError) == true and calls == 2)
+	check("guard : sans onError, pas de plantage", Easing.guard(yes, {}, "d", function()
+		error("x")
+	end) == false)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

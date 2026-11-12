@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX3"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX2"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX4"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX3"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -230,6 +230,30 @@ function Config.questText(t, n)
 	return t
 end
 
+---------------------------------------------------------------- Animations (client)
+-- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
+-- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.
+Config.Animations = {
+	enabled = true, -- interrupteur général
+	eggShake = true, -- l'œuf tremble puis blanchit juste avant d'éclore
+	eggBounce = true, -- les œufs (nids, bases, portés) rebondissent légèrement
+	hatchSquash = true, -- squash & stretch de l'œuf avant l'éclosion et du pet à son apparition
+	popIn = true, -- le pet apparaît en grossissant
+	shockwave = true, -- anneau lumineux à l'éclosion
+	harvest = true, -- l'œuf s'envole vers le joueur à la récolte
+	petBlink = true, -- clignement des yeux des pets
+	petLook = true, -- les yeux des pets regardent autour
+	petMouth = true, -- la bouche des pets s'anime
+	menuTransitions = true, -- ouverture et fermeture animées des menus
+	reward = true, -- confettis lors d'une récompense (chapitre, succès, énigme, rare)
+	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
+	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
+}
+
+function Config.animEnabled(name)
+	return Config.Animations.enabled == true and Config.Animations[name] == true
+end
+
 ---------------------------------------------------------------- Univers, histoire et progression
 Config.TITLE = "Chipe-Œufs"
 Config.TAGLINE = "Chipe, couve, collectionne : deviens Roi des Couvées !"
@@ -416,8 +440,192 @@ function Config.oddsText()
 end
 
 return Config
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+-- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
+-- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
+-- ne fait qu'appliquer ces valeurs aux objets.
+local Easing = {}
+
+local pi, sin, cos, exp, abs, floor, sqrt = math.pi, math.sin, math.cos, math.exp, math.abs, math.floor, math.sqrt
+
+local function clamp01(x)
+	if x < 0 then
+		return 0
+	elseif x > 1 then
+		return 1
+	end
+	return x
+end
+Easing.clamp01 = clamp01
+
+local function frac(x)
+	return x - floor(x)
+end
+
+function Easing.lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+-- Courbes classiques (entrée et sortie dans [0, 1]) ---------------------------------------------------------------
+function Easing.outQuad(x)
+	x = clamp01(x)
+	return 1 - (1 - x) * (1 - x)
+end
+
+function Easing.outBack(x)
+	x = clamp01(x)
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
+
+function Easing.outElastic(x)
+	x = clamp01(x)
+	if x == 0 or x == 1 then
+		return x
+	end
+	return 2 ^ (-10 * x) * sin((x * 10 - 0.75) * (2 * pi) / 3) + 1
+end
+
+function Easing.outBounce(x)
+	x = clamp01(x)
+	local n1, d1 = 7.5625, 2.75
+	if x < 1 / d1 then
+		return n1 * x * x
+	elseif x < 2 / d1 then
+		x = x - 1.5 / d1
+		return n1 * x * x + 0.75
+	elseif x < 2.5 / d1 then
+		x = x - 2.25 / d1
+		return n1 * x * x + 0.9375
+	end
+	x = x - 2.625 / d1
+	return n1 * x * x + 0.984375
+end
+
+-- Squash & stretch : au temps t (0 -> 1), retourne (sx, sy) à appliquer en largeur et en hauteur.
+-- Part écrasé (sy < 1, sx > 1), puis s'étire, puis oscille de moins en moins jusqu'à (1, 1). Toujours strictement positif.
+function Easing.squashStretch(t, strength)
+	if t >= 1 then
+		return 1, 1
+	end
+	if t < 0 then
+		t = 0
+	end
+	local amp = (strength or 0.4) * exp(-5 * t) * cos(14 * t)
+	return math.max(0.2, 1 + amp * 0.6), math.max(0.2, 1 - amp)
+end
+
+-- Petit saut d'un œuf toutes les `period` secondes. Retourne (décalage vertical >= 0, sx, sy).
+-- Étirement en l'air, écrasement à l'atterrissage ; hors du saut : (0, 1, 1).
+function Easing.eggHop(time, phase, height, period)
+	period = period or 3.2
+	height = height or 0.6
+	local u = ((time + (phase or 0)) % period) / 0.6 -- le saut dure 0,6 s
+	if u >= 1 then
+		return 0, 1, 1
+	end
+	local y = height * sin(u * pi)
+	local sy = 1 + 0.15 * sin(u * pi)
+	if u > 0.85 then
+		sy = 1 - 0.12 * sin((u - 0.85) / 0.15 * pi)
+	end
+	return y, 1 / sqrt(sy), sy
+end
+
+-- Balancement d'un œuf porté pendant la course (décalage vertical >= 0).
+function Easing.runBounce(time, moving)
+	if not moving then
+		return 0
+	end
+	return 0.25 * abs(sin(time * 8))
+end
+
+-- Clignement : 1 = œil ouvert, 0 = fermé. Bref (0,16 s) à intervalle irrégulier propre à chaque `seed`.
+function Easing.blinkOpenness(time, seed)
+	seed = seed or 0
+	local period = 2.6 + (seed % 7) * 0.37
+	local ph = (time + seed * 0.53) % period
+	local d = 0.16
+	if ph < d then
+		return 1 - sin(ph / d * pi)
+	end
+	return 1
+end
+
+-- Regard : décalage (dx, dy) des yeux, dx dans [-0.85, 0.85], dy dans [-0.3, 0.3].
+function Easing.look(time, seed)
+	seed = seed or 0
+	local dx = sin(time * 0.7 + seed) * 0.6 + sin(time * 1.9 + seed * 2) * 0.25
+	local dy = sin(time * 0.5 + seed * 3) * 0.3
+	return dx, dy
+end
+
+-- Bouche : ouverture dans [0, 1] ; elle « mâche » brièvement de temps en temps.
+function Easing.mouthOpen(time, seed)
+	seed = seed or 0
+	local period = 4 + (seed % 5) * 0.6
+	local ph = (time + seed * 0.9) % period
+	if ph < 0.7 then
+		return sin(ph / 0.7 * pi)
+	end
+	return 0
+end
+
+-- Pulsation d'une barrière de zone, dans [0, 1].
+function Easing.gatePulse(time, speed)
+	return 0.5 + 0.5 * sin(time * (speed or 2))
+end
+
+-- Récompenses : effets de confettis selon la clé de son envoyée avec la notification serveur. nil = pas de confettis.
+Easing.REWARD = {
+	claim = { count = 24, minSpeed = 160, maxSpeed = 340, life = 1.3 },
+	event = { count = 40, minSpeed = 180, maxSpeed = 380, life = 1.5 },
+	rare = { count = 70, minSpeed = 200, maxSpeed = 440, life = 1.7 },
+}
+function Easing.rewardBurst(sfx)
+	return Easing.REWARD[sfx]
+end
+
+-- Secousse de caméra (champ de vision) selon la clé de son : delta en degrés, durée d'un aller en secondes.
+Easing.FOV_KICK = {
+	steal = { delta = 5, time = 0.14 },
+	caught = { delta = -8, time = 0.2 },
+}
+
+-- Particule `i` d'une salve de `count` confettis : éventail vers le haut, déterministe (suite de la section d'or).
+-- Retourne { angle (radians, 0 = droite, -pi/2 = haut), speed, spin (degrés/s), hue [0,1), w, h (pixels) }.
+function Easing.confettiParticle(i, count, burst)
+	local minSpeed, maxSpeed = burst.minSpeed, burst.maxSpeed
+	return {
+		angle = -pi / 2 + (frac(i * 0.6180339887) - 0.5) * 1.8,
+		speed = minSpeed + frac(i * 0.7548776662) * (maxSpeed - minSpeed),
+		spin = (frac(i * 0.5698402910) - 0.5) * 720,
+		hue = frac(i * 0.3819660113 + count * 0.01),
+		w = 6 + floor(frac(i * 0.2599) * 7),
+		h = 10 + floor(frac(i * 0.4143) * 9),
+	}
+end
+
+-- Garde-fou d'une animation. isEnabled(name) -> bool ; failed : table partagée name -> true ; fn : l'animation (appelée sous pcall).
+-- Une animation désactivée n'est pas exécutée. Une animation qui lève une erreur est désactivée pour le reste de la session
+-- (onError(name, err) est appelé une seule fois). Retourne true si fn s'est exécutée sans erreur.
+function Easing.guard(isEnabled, failed, name, fn, onError)
+	if failed[name] or not isEnabled(name) then
+		return false
+	end
+	local ok, err = pcall(fn)
+	if not ok then
+		failed[name] = true
+		if onError then
+			onError(name, err)
+		end
+	end
+	return ok
+end
+
+return Easing
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX8"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX4"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX9"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX5"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1954,7 +2162,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -2304,7 +2512,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -2984,7 +3192,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -3129,7 +3337,7 @@ end
 
 return Rules
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX11"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX10"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX9"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX12"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX11"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX10"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

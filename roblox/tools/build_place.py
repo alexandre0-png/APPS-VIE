@@ -24,7 +24,9 @@ def item(cls, name, source=None, children=()):
 tree = [
     item("Workspace", "Workspace"),
     item("ReplicatedStorage", "ReplicatedStorage", children=[
-        item("Folder", "Shared", children=[item("ModuleScript", "Config", read("ReplicatedStorage/Config.lua"))])]),
+        item("Folder", "Shared", children=[
+            item("ModuleScript", "Config", read("ReplicatedStorage/Config.lua")),
+            item("ModuleScript", "Easing", read("ReplicatedStorage/Easing.lua"))])]),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Main", read("ServerScriptService/Main.server.lua")),
         item("ModuleScript", "Data", read("ServerScriptService/Data.lua")),
