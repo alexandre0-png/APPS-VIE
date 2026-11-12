@@ -127,6 +127,75 @@ for _, z in ipairs(Config.SIZES) do
 end
 check("poids des tailles = 100", near(w, 100, 0.0001))
 
+-- Rules (règles pures du serveur) ---------------------------------------------------------------
+local Rules = luau.load(fs.readFile("roblox/src/ServerScriptService/Rules.lua"), { debugName = "Rules" })().new(Config)
+local function const(v)
+	return function()
+		return v
+	end
+end
+
+-- wpick
+check("wpick rnd=0 -> premier poids positif", Rules.wpick({ 0, 5, 5 }, const(0)) == 2)
+check("wpick rnd~1 -> dernier poids positif", Rules.wpick({ 5, 5, 0 }, const(0.999999)) == 2)
+check("wpick ignore un poids à 0", Rules.wpick({ 0, 0, 5 }, const(0.3)) == 3)
+check("wpick traite un poids négatif comme 0", Rules.wpick({ 22, -9, 87 }, const(0.21)) == 3)
+check("wpick poids tous nuls -> dernier index", Rules.wpick({ 0, 0, 0 }, const(0.5)) == 3)
+
+-- tierWeights / upPoints / pickTier
+check("upPoints de base = 12", Rules.upPoints(0, false, false, false) == 12)
+check("upPoints cumulés = 87", Rules.upPoints(10, true, true, true) == 87)
+for tier = 1, 6 do
+	for _, up in ipairs({ -5, 0, 12, 42, 87, 500 }) do
+		local w = Rules.tierWeights(tier, up)
+		check("tierWeights(" .. tier .. "," .. up .. ") : poids >= 0 et somme 100", w[1] >= 0 and w[2] >= 0 and w[3] >= 0 and near(w[1] + w[2] + w[3], 100))
+	end
+end
+check("rareté 1 : jamais de rareté inférieure", Rules.tierWeights(1, 12)[1] == 0)
+check("rareté 6 : jamais de rareté supérieure", Rules.tierWeights(6, 87)[3] == 0)
+check("part supérieure plafonnée", Rules.tierWeights(3, 500)[3] == Rules.MAX_UP)
+check("pickTier rnd=0 -> inférieure", Rules.pickTier(3, 12, const(0)) == 2)
+check("pickTier rnd=0.5 -> identique", Rules.pickTier(3, 12, const(0.5)) == 3)
+check("pickTier rnd=0.99 -> supérieure", Rules.pickTier(3, 12, const(0.99)) == 4)
+check("pickTier rareté 1 jamais < 1", Rules.pickTier(1, 12, const(0)) >= 1)
+check("pickTier rareté 6 jamais > 6", Rules.pickTier(6, 87, const(0.9999)) <= 6)
+
+-- rollPet : résultat toujours valide + distributions
+math.randomseed(42)
+local nUp, nAlien, nAlienBoost, N = 0, 0, 0, 20000
+local valid = true
+for _ = 1, N do
+	local r = Rules.rollPet(3, 12, false, math.random)
+	local def = Config.PETS[r.p]
+	if not def or def.tier < 2 or def.tier > 4 or r.s < 1 or r.s > #Config.SIZES or r.m < 1 or r.m > #Config.MUTS then
+		valid = false
+	end
+	if def and def.tier == 4 then
+		nUp += 1
+	end
+	if r.m == 5 then
+		nAlien += 1
+	end
+	if Rules.rollPet(3, 12, true, math.random).m == 5 then
+		nAlienBoost += 1
+	end
+end
+check("rollPet : espèce, taille et mutation toujours valides", valid)
+check("rollPet : ~12% de rareté supérieure", near(nUp / N, 0.12, 0.02))
+check("rollPet : ~1.4% d'Alien sans événement", near(nAlien / N, 0.014, 0.006))
+check("rollPet : Alien ~6.8% avec le Biome Alien", near(nAlienBoost / N, 7 / 105 * 1.0, 0.012))
+
+-- revenus, capacités, durées
+check("multiplier neutre = 1", Rules.multiplier(0, 0, false, false) == 1)
+check("multiplier cumulé = 8.4", near(Rules.multiplier(1, 2, true, true), 1.5 * 1.4 * 2 * 2))
+check("capacity", Rules.capacity({ slots = 3 }) == 7)
+check("carryCapacity", Rules.carryCapacity({ bag = 2 }) == 3)
+check("hatchTime niveau 0", Rules.hatchTime(1, 0) == 8)
+check("hatchTime niveau 10", near(Rules.hatchTime(1, 10), 8 * 0.9 ^ 10))
+check("shieldTime", Rules.shieldTime(2) == Config.SHIELD_BASE + 2 * Config.SHIELD_PER_LEVEL)
+local slots = { { k = "p", p = 1, s = 2, m = 1 }, { k = "e", t = 1, ends = 0 }, false, { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }
+check("income : ignore œufs, vides et emplacements au-delà de la capacité", near(Rules.income(slots, 4, 2), 2 * 2))
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

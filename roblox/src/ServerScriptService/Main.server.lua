@@ -12,6 +12,7 @@ local MessagingService = game:GetService("MessagingService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
+local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
 
 Players.CharacterAutoLoads = false
 
@@ -33,19 +34,11 @@ local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
 
+local function rnd()
+	return rng:NextNumber()
+end
 local function wpick(ws)
-	local total = 0
-	for _, w in ipairs(ws) do
-		total += w
-	end
-	local r = rng:NextNumber() * total
-	for i, w in ipairs(ws) do
-		r -= w
-		if r < 0 then
-			return i
-		end
-	end
-	return #ws
+	return Rules.wpick(ws, rnd)
 end
 
 local function getRoot(player)
@@ -76,16 +69,16 @@ local function evKey()
 end
 
 local function cap(d)
-	return 4 + d.up.slots
+	return Rules.capacity(d.up)
 end
 local function carryCap(d)
-	return 1 + d.up.bag
+	return Rules.carryCapacity(d.up)
 end
 local function hatchTime(d, tier)
-	return Config.HATCH[tier] * 0.9 ^ d.up.inc
+	return Rules.hatchTime(tier, d.up.inc)
 end
 local function shieldTime(d)
-	return Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * d.up.lock
+	return Rules.shieldTime(d.up.lock)
 end
 local function freeSlot(d)
 	for i = 1, cap(d) do
@@ -97,69 +90,16 @@ local function freeSlot(d)
 end
 
 local function gmult(s)
-	local d = s.data
-	local m = (1 + 0.5 * d.rb) * (1 + 0.2 * d.up.food)
-	if evKey() == "gold" then
-		m *= 2
-	end
-	if s.passes.Coins2x then
-		m *= 2
-	end
-	return m
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true)
 end
 
 local function income(s)
-	local d = s.data
-	local total = 0
-	for i = 1, cap(d) do
-		local sl = d.slots[i]
-		if sl and sl.k == "p" then
-			total += Config.petIncome(sl.p, sl.s, sl.m)
-		end
-	end
-	return total * gmult(s)
-end
-
-local function pickTier(s, tier)
-	local up = 0
-	if tier < #Config.TIERS then
-		up = 12 + 3 * s.data.up.luck
-		if evKey() == "luck" then
-			up += 10
-		end
-		if s.passes.Lucky then
-			up += 10
-		end
-		if os.time() < s.data.luckUntil then
-			up += Config.LUCK_POTION_BONUS
-		end
-	end
-	local down = tier > 1 and 22 or 0
-	local i = wpick({ down, 100 - up - down, up })
-	return tier + i - 2
-end
-
-local sizeWeights = {}
-for i, z in ipairs(Config.SIZES) do
-	sizeWeights[i] = z.weight
+	return Rules.income(s.data.slots, cap(s.data), gmult(s))
 end
 
 local function rollPet(s, eggTier)
-	local tier = pickTier(s, eggTier)
-	local ids = {}
-	for i, p in ipairs(Config.PETS) do
-		if p.tier == tier then
-			ids[#ids + 1] = i
-		end
-	end
-	local mw = {}
-	for i, m in ipairs(Config.MUTS) do
-		mw[i] = m.weight
-	end
-	if evKey() == "alien" then
-		mw[5] *= 5
-	end
-	return { p = ids[rng:NextInteger(1, #ids)], s = wpick(sizeWeights), m = wpick(mw) }
+	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil)
+	return Rules.rollPet(eggTier, up, evKey() == "alien", rnd)
 end
 
 ---------------------------------------------------------------- Missions quotidiennes

@@ -25,6 +25,7 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 - **Animations** : œuf qui tremble puis blanchit avant d'éclore, onde de choc + particules, pet qui apparaît en grossissant, œuf qui s'envole vers le joueur à la récolte, effets au dépôt.
 - **HUD** : pastilles dégradées avec contour, « +X » flottant et pulsation lors d'un gros gain, toasts colorés par type, fenêtre d'éclosion avec rareté en étoiles, retour tactile des boutons.
 - **Données** : champ de version `ver` avec migrations, valeurs assainies, niveaux bornés, sauvegarde sans chevauchement avec 3 tentatives, verrou libéré sur toutes les sorties.
+- **Règles pures** (`Rules.lua`) : tirages, revenus, capacités, durées. Correctif : la part « rareté supérieure » est plafonnée à 70 % (avec Trèfle 10 + événement + Pass + Potion elle atteignait 87 % et rendait le poids « identique » négatif).
 - **Serveur** : actions protégées par `pcall`, vitesse attendue calculée côté serveur, balayage des gardiens limité.
 
 Voir `tools/VERIFICATION.md` pour ce qui est exécuté, relu ou à tester.
@@ -45,6 +46,7 @@ roblox/
    ├─ ServerScriptService/Main.server.lua    → ServerScriptService > Main            (Script)
    ├─ ServerScriptService/Data.lua           → ServerScriptService > Data            (ModuleScript)
    ├─ ServerScriptService/Builder.lua        → ServerScriptService > Builder         (ModuleScript)
+   ├─ ServerScriptService/Rules.lua          → ServerScriptService > Rules           (ModuleScript, règles pures testées avec Lune)
    └─ StarterPlayerScripts/Client.client.lua → StarterPlayer > StarterPlayerScripts > Client (LocalScript)
 ```
 
