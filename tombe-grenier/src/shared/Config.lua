@@ -158,12 +158,12 @@ Config.Visual = {
 	CandleFlicker = true,    -- la lueur des bougies vacille (Quests.lua)
 }
 
--- Cinématiques longues (30 à 60 s) : chacune se coupe seule ; Enabled = false coupe toutes les cinématiques
--- scénarisées (les gros plans restent simples caméra fixe). SkipButton : bouton « Passer » à l'écran.
+-- Cinématiques aux moments clés seulement (intro, première apparition, descente, fins) : chacune se coupe seule.
+-- Enabled = false coupe toutes les cinématiques. SkipButton : bouton « Passer » à l'écran.
 Config.Cinematics = {
 	Enabled = true,
-	Arrival = true,          -- arrivée devant la maison, de nuit, puis réveil dans le grenier
-	Intro = true,            -- réveil dans le grenier (suite de l'arrivée)
+	Arrival = true,          -- intro courte : arrivée devant la maison, de nuit
+	Apparition = true,       -- première apparition du monstre (cri, caméra qui se tourne)
 	Descent = true,          -- le monstre descend au sous-sol
 	Sealed = true,           -- fin 4, « le piège »
 	Truth = true,            -- fin 3, « la vérité »

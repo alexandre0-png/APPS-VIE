@@ -17,32 +17,16 @@ local Timeline = require(Shared.CinematicTimeline)
 
 local Cinematic = {}
 
--- Séquences longues (30 à 60 s) : chacune peut être passée (Espace, Échap, bouton « Passer »).
--- next : cinématique jouée ensuite (chaînage). Les plans de documents sont des gros plans fixes.
+-- Moments clés seulement (le reste reste du gameplay) : chacun peut être passé (Espace, Échap, bouton « Passer »).
 local SHOTS = {
-	-- Arrivée devant la maison, de nuit : la route, la porte, puis l'entrée
+	-- Intro courte : arrivée devant la maison, de nuit, jusqu'à l'entrée
 	arrival = {
-		next = "intro",
 		fadeIn = true,
 		plans = {
 			{ from = { 60, 7, 215 }, look = { 60, 6, 150 }, t = 10 },
 			{ from = { 72, 6, 172 }, look = { 60, 5, 128 }, t = 10 },
 			{ from = { 54, 9, 140 }, look = { 60, 8, 92 }, t = 8 },
 			{ from = { 60, 20, 70 }, look = { 60, 12, 40 }, t = 6 },
-		},
-	},
-	-- Réveil dans le cercueil, dans le grenier : on fixe le couvercle, on regarde le grenier,
-	-- puis les objets de la pièce (plaque, malle, trappe, miroir)
-	intro = {
-		fadeIn = true,
-		plans = {
-			{ from = { 90, 25.4, 45 }, look = { 90, 34, 45 }, t = 3 },
-			{ from = { 90, 26.3, 45 }, look = { 78, 25.5, 26 }, t = 3.5 },
-			{ from = { 88, 26.8, 30 }, look = { 60, 26, 12 }, t = 3 },
-			{ from = { 90, 27, 36 }, look = { 90, 26.1, 42.5 }, t = 6 },
-			{ from = { 70, 26, 58 }, look = { 70, 27, 62 }, t = 6 },
-			{ from = { 54, 26, 14 }, look = { 54, 25.5, 9.5 }, t = 6 },
-			{ from = { 100, 27, 60 }, look = { 119, 31, 30 }, t = 6 },
 		},
 	},
 	-- Première apparition : la caméra du joueur tremble, face au monstre
@@ -60,6 +44,22 @@ local SHOTS = {
 					return root and root.Position or Vector3.new(30, 26, 40)
 				end,
 				t = 2.5,
+				shake = true,
+			},
+			-- La caméra se tourne brusquement, comme si quelque chose bougeait derrière
+			{
+				from = function()
+					local char = Players.LocalPlayer.Character
+					local head = char and char:FindFirstChild("Head")
+					return head and head.Position or Vector3.new(60, 26, 40)
+				end,
+				look = function()
+					local char = Players.LocalPlayer.Character
+					local head = char and char:FindFirstChild("Head")
+					local p = head and head.Position or Vector3.new(60, 26, 40)
+					return p + Vector3.new(-8, -0.5, 4)
+				end,
+				t = 2,
 				shake = true,
 			},
 		},
@@ -162,7 +162,7 @@ local current = nil
 -- Réglage par cinématique (Config.Cinematics). Une cinématique désactivée est simplement sautée.
 local FLAG = {
 	arrival = "Arrival",
-	intro = "Intro",
+	apparition = "Apparition",
 	descente = "Descent",
 	sealed = "Sealed",
 	truth = "Truth",

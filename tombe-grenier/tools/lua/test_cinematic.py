@@ -15,7 +15,7 @@ TIMELINE = os.path.join(ROOT, "src", "shared", "CinematicTimeline.lua")
 CINEMATIC = os.path.join(ROOT, "src", "client", "Cinematic.lua")
 
 # Cinématiques de 30 à 60 secondes demandées
-LONG = ["arrival", "intro", "descente", "sealed", "truth"]
+LONG = ["arrival", "descente", "sealed", "truth"]
 
 
 def load_timeline():

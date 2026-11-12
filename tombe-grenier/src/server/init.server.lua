@@ -54,7 +54,7 @@ local function startRound()
 	local intro = Config.Intro.Duration
 	PlayerState.freezeAll(intro)
 	Remotes.fireAll("Effect", { kind = "Intro", duration = intro })
-	-- Arrivée puis réveil dans le grenier : la cinématique « arrival » enchaîne sur « intro »
+	-- Intro courte : arrivée devant la maison (le réveil reste un noir et un battement de paupières)
 	Remotes.fireAll("Effect", { kind = "Cine", name = "arrival" })
 	Lights.start(round.seed)
 	FallingObjects.start(round.seed)
