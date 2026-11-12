@@ -329,6 +329,35 @@ do
 	eq("héros débloqué conservé", ok.Hero, "orin")
 end
 
+print("• Saison")
+do
+	local Season = require(E .. "SeasonService")
+	local T = makePlayer("Tess")
+	local pt = DataService.Get(T)
+	check("palier non atteint refusé", not Season.ClaimTier(T, 1))
+	for _ = 1, 20 do Season.Add(T, "Kill") end -- 100 points
+	eq("points de saison", pt.Season.Points, 100)
+	local c0 = pt.Coins
+	check("palier 1 récupéré", Season.ClaimTier(T, 1))
+	eq("pièces du palier 1", pt.Coins - c0, 60)
+	check("pas de double récupération", not Season.ClaimTier(T, 1))
+	check("palier 2 non atteint", not Season.ClaimTier(T, 2))
+	check("paliers invalides refusés", not Season.ClaimTier(T, 0) and not Season.ClaimTier(T, 11) and not Season.ClaimTier(T, 1.5) and not Season.ClaimTier(T, "1"))
+	pt.Season.Id = 0 -- ancienne saison
+	Season.Add(T, "Win")
+	eq("nouvelle saison : remise à zéro puis +victoire", pt.Season.Points, Config.Season.Points.Win)
+	eq("palier effacé", pt.Season.Claimed["1"], nil)
+	pt.Season.Points = 100000
+	for i = 1, 10 do Season.ClaimTier(T, i) end
+	eq("titre de champion", T:GetAttribute("SeasonChampion"), true)
+	local bad = DataService.Reconcile({ Season = "x" })
+	eq("saison corrompue réinitialisée", bad.Season.Points, 0)
+	-- un kill ajoute des points via CombatService
+	local U, V = makePlayer("Uma"), makePlayer("Vic")
+	for _ = 1, 4 do CombatService.DealDamage(U, V.Character, 26, { Weapon = sword }) end
+	eq("points de saison pour une élimination", DataService.Get(U).Season.Points, Config.Season.Points.Kill)
+end
+
 print("• Bots")
 do
 	local P, Q = makePlayer("Pia"), makePlayer("Quin")

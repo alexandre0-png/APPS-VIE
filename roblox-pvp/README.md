@@ -50,6 +50,7 @@ ressource externe, aucun modèle à importer. Les sons utilisent les fichiers in
 | Histoire | Prologue « Les Royaumes du Brasier », 4 héros jouables (aura et teinte, 2 à débloquer), Chronique de 5 chapitres avec récompenses |
 | Mode « Roi de la tour » | 3e mode : +1 point/s sur le plateau central, 60 points ou fin du temps |
 | Règle de contenu | **Aucun sang** : impacts en étincelles, éliminations en désintégration colorée (éclats, fumée) aux couleurs du héros |
+| Saisons | « Saison du Brasier » : points (éliminations, assistances, parties, victoires), 10 paliers à récupérer, titre 🏆 de champion ; changer `Config.Season.Id` lance une nouvelle saison |
 | Classement | Top 10 mondial des éliminations (OrderedDataStore), repli « serveur » hors ligne |
 | Équilibrage | Prime sur les séries ≥ 5, protection d'apparition 3 s (annulée si on attaque), apparition la plus éloignée des ennemis, équipes équilibrées |
 | Appareils | UI mise à l'échelle (téléphone → console), bouton d'attaque tactile, L1/R1 manette, touches 1-2-3, viseur |
@@ -86,9 +87,9 @@ LUAU_ANALYZE=luau-analyze LUAU=luau ROBLOX_TYPES=globalTypes.d.luau tools/test.s
 
 1. **Analyse statique `luau-analyze`** de tous les scripts (syntaxe, variables non définies, types entre modules) : 0 message.
 2. **Résolution des `require`**, membres de modules, noms de Remotes et attributs lus/écrits : cohérents.
-3. **API Roblox** : 1 866 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
-4. **493 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
-5. **112 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
+3. **API Roblox** : 1 914 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
+4. **501 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
+5. **124 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
    tournent dans un faux environnement Roblox (règles de dégâts, élimination, séries, prime, assistance, tir à la tête,
    rage, vol de vie, anti-farm, cibles d'entraînement, profils corrompus, cadeau quotidien, niveaux).
 

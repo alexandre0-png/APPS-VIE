@@ -19,6 +19,7 @@ local LeaderboardService = require(Server.LeaderboardService)
 local DummyService = require(Server.DummyService)
 local MonetizationService = require(Server.MonetizationService)
 local BotService = require(Server.BotService)
+local SeasonService = require(Server.SeasonService)
 
 -- Les personnages sont chargés manuellement une fois le profil prêt.
 Players.CharacterAutoLoads = false
@@ -45,6 +46,7 @@ local function onPlayerAdded(player)
 	QuestService.Ensure(player)
 	PlayerService.Setup(player, profile)
 	task.spawn(MonetizationService.CheckPasses, player)
+	SeasonService.Refresh(player)
 	PlayerService.Respawn(player)
 end
 

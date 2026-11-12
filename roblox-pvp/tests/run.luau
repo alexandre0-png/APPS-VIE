@@ -25,6 +25,7 @@ local MatchLogic = require("../.emit/ReplicatedStorage/Shared/MatchLogic")
 local Weapons = require("../.emit/ReplicatedStorage/Shared/Weapons")
 local Config = require("../.emit/ReplicatedStorage/Shared/Config")
 local Lore = require("../.emit/ReplicatedStorage/Shared/Lore")
+local SeasonLogic = require("../.emit/ReplicatedStorage/Shared/SeasonLogic")
 local BotLogic = require("../.emit/ReplicatedStorage/Shared/BotLogic")
 
 section("Progression")
@@ -205,6 +206,20 @@ do
 	eq("progression plafonnée", Lore.Progress(Lore.Chapter("c2"), { Kills = 99 }), 10)
 	eq("progression partielle", Lore.Progress(Lore.Chapter("c2"), { Kills = 4 }), 4)
 	eq("stat absente", Lore.Progress(Lore.Chapter("c3"), {}), 0)
+end
+
+section("SeasonLogic")
+do
+	eq("palier 0", SeasonLogic.Tier(99, 100, 10), 0)
+	eq("palier 1", SeasonLogic.Tier(100, 100, 10), 1)
+	eq("palier plafonné", SeasonLogic.Tier(99999, 100, 10), 10)
+	eq("points négatifs", SeasonLogic.Tier(-5, 100, 10), 0)
+	eq("pièces du palier", SeasonLogic.TierCoins(4, 60), 240)
+	local st = { Id = 1, Points = 250, Claimed = { ["1"] = true } }
+	check("même saison : conservé", not SeasonLogic.Rollover(st, 1) and st.Points == 250)
+	check("nouvelle saison : remise à zéro", SeasonLogic.Rollover(st, 2) and st.Points == 0 and st.Id == 2 and next(st.Claimed) == nil)
+	local S = Config.Season
+	check("config saison cohérente", S.Tiers > 0 and S.TierPoints > 0 and S.Points.Kill > 0 and S.Points.Win > S.Points.Kill)
 end
 
 section("BotLogic")

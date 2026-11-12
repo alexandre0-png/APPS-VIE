@@ -1,5 +1,9 @@
 # Journal des changements — Arène des Légendes
 
+## V1.7 — saisons
+- `SeasonLogic` + `SeasonService` : points de saison, 10 paliers, titre de champion, remise à zéro au changement de saison ; onglet « Saison ».
+- Barre d'onglets défilante (8 onglets). `A_FAIRE_UTILISATEUR.md` : ce qui reste à votre charge.
+
 ## V1.6 — histoire, héros, mode
 - `Lore` + `StoryService` : prologue, 4 héros (aura, teinte, nom sur la plaque), Chronique de 5 chapitres, onglet « Héros ».
 - Éliminations en désintégration colorée (aucun sang) ; mode « Roi de la tour ».

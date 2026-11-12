@@ -83,6 +83,7 @@ function PlayerService.BuildClientProfile(player)
 		DailyNext = nextDay,
 		Ephemeral = p.Ephemeral == true,
 		Hero = p.Hero,
+		Season = p.Season,
 		Chapters = p.Chapters,
 		Passes = {
 			DoubleXP = player:GetAttribute("HasDoubleXP") == true,
@@ -211,6 +212,7 @@ function PlayerService.ApplyHero(player, character)
 	aura.SpreadAngle = Vector2.new(180, 180)
 	aura.Parent = root
 	player:SetAttribute("Hero", profile.Hero)
+	player:SetAttribute("SeasonChampion", false)
 end
 
 -- ===== Plaque de nom =====
@@ -280,7 +282,7 @@ local function buildNameTag(player, character)
 			name.TextColor3 = Color3.new(1, 1, 1)
 		end
 		local hero = Lore.Hero(tostring(player:GetAttribute("Hero")))
-		sub.Text = ("Niv. %d · %s%s%s"):format(player:GetAttribute("Level") or 1, player:GetAttribute("Title") or "", hero and (" · " .. hero.Name) or "", player:GetAttribute("HasVIP") and "  ★ VIP" or "")
+		sub.Text = ("Niv. %d · %s%s%s%s"):format(player:GetAttribute("Level") or 1, player:GetAttribute("Title") or "", hero and (" · " .. hero.Name) or "", player:GetAttribute("HasVIP") and "  ★ VIP" or "", player:GetAttribute("SeasonChampion") and "  🏆" or "")
 	end
 	local function refreshHealth()
 		local ratio = math.clamp(humanoid.Health / math.max(1, humanoid.MaxHealth), 0, 1)
@@ -291,7 +293,7 @@ local function buildNameTag(player, character)
 	refreshHealth()
 	-- les connexions sur le joueur survivent au personnage : on les coupe à sa disparition
 	local connections = { humanoid.HealthChanged:Connect(refreshHealth) }
-	for _, attr in ipairs({ "Team", "Level", "Title", "HasVIP", "Hero" }) do
+	for _, attr in ipairs({ "Team", "Level", "Title", "HasVIP", "Hero", "SeasonChampion" }) do
 		table.insert(connections, player:GetAttributeChangedSignal(attr):Connect(refresh))
 	end
 	gui.Destroying:Connect(function()

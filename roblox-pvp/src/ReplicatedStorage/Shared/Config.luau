@@ -75,6 +75,17 @@ Config.Bots = {
 	Names = { "Gladiateur", "Mercenaire", "Berserker", "Sentinelle", "Spectre" },
 }
 
+-- Saison : changer Id remet tout le monde à zéro (nouvelle saison, nouvelles récompenses).
+Config.Season = {
+	Id = 1,
+	Name = "Saison du Brasier",
+	Tiers = 10,
+	TierPoints = 100,
+	CoinsPerTier = 60,
+	ChampionTitle = "Champion de la Saison",
+	Points = { Kill = 5, Assist = 2, Match = 8, Win = 30 },
+}
+
 Config.HealthPack = { Heal = 45, Respawn = 15 }
 Config.RageOrb = { Duration = 12, Multiplier = 1.5, Respawn = 45 }
 

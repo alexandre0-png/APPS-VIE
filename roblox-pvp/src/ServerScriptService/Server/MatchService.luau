@@ -15,6 +15,7 @@ local DataService = require(Server.DataService)
 local PlayerService = require(Server.PlayerService)
 local QuestService = require(Server.QuestService)
 local CombatService = require(Server.CombatService)
+local SeasonService = require(Server.SeasonService)
 
 local MatchService = {}
 
@@ -251,9 +252,11 @@ local function finishMatch(mode)
 		PlayerService.AddXP(player, xp)
 		PlayerService.Increment(player, "MatchesPlayed", 1)
 		QuestService.Notify(player, "MatchPlayed", 1)
+		SeasonService.Add(player, "Match")
 		if won then
 			PlayerService.Increment(player, "Wins", 1)
 			QuestService.Notify(player, "Win", 1)
+			SeasonService.Add(player, "Win")
 		end
 		Remotes.Match:FireClient(player, {
 			Type = "Results",

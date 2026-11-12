@@ -14,6 +14,7 @@ local Remotes = require(Shared.Remotes)
 local PlayerService = require(Server.PlayerService)
 local QuestService = require(Server.QuestService)
 local DataService = require(Server.DataService)
+local SeasonService = require(Server.SeasonService)
 
 local CombatService = {}
 
@@ -284,6 +285,7 @@ local function onDied(humanoid)
 	PlayerService.AddCoins(killer, coins)
 	PlayerService.AddXP(killer, xp)
 	QuestService.Notify(killer, "Kill", 1, last.Weapon and last.Weapon.Class or nil)
+	SeasonService.Add(killer, "Kill")
 	QuestService.Notify(killer, "Streak", streak)
 
 	PlayerService.Notify(killer, "Kill", victim.DisplayName, {
@@ -301,6 +303,7 @@ local function onDied(humanoid)
 			if a.Player ~= killer and a.Player ~= victim and a.Player.Parent == Players and now - a.Time <= window then
 				PlayerService.AddCoins(a.Player, R.AssistCoins)
 				PlayerService.AddXP(a.Player, R.AssistXP)
+				SeasonService.Add(a.Player, "Assist")
 				PlayerService.Notify(a.Player, "Assist", victim.DisplayName, { Coins = R.AssistCoins })
 			end
 		end

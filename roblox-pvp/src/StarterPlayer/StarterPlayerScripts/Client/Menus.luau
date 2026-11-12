@@ -10,6 +10,7 @@ local Config = require(Shared.Config)
 local Weapons = require(Shared.Weapons)
 local QuestLogic = require(Shared.QuestLogic)
 local Lore = require(Shared.Lore)
+local SeasonLogic = require(Shared.SeasonLogic)
 local UI = require(Client.UI)
 local State = require(Client.State)
 
@@ -30,6 +31,7 @@ local TABS = {
 	{ Id = "Daily", Text = "🎁 Cadeau" },
 	{ Id = "Stats", Text = "📊 Stats" },
 	{ Id = "Hero", Text = "📖 Héros" },
+	{ Id = "Season", Text = "🏆 Saison" },
 	{ Id = "Robux", Text = "💎 Robux" },
 }
 
@@ -366,7 +368,36 @@ local function buildHero(profile)
 	end
 end
 
+local function buildSeason(profile)
+	local S = Config.Season
+	local points = profile.Season.Points
+	local tier = SeasonLogic.Tier(points, S.TierPoints, S.Tiers)
+	local scroll = UI.New("ScrollingFrame", { Parent = content, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6 })
+	UI.New("UIListLayout", { Parent = scroll, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder })
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 26), Text = ("%s · %d points · palier %d / %d"):format(S.Name, points, tier, S.Tiers), TextSize = 16, TextColor3 = C.Gold, LayoutOrder = 0 })
+	UI.Label(scroll, { Size = UDim2.new(1, -10, 0, 18), Text = ("Éliminations +%d · Assistances +%d · Partie +%d · Victoire +%d"):format(S.Points.Kill, S.Points.Assist, S.Points.Match, S.Points.Win), TextSize = 12, Font = Enum.Font.Gotham, TextColor3 = C.Dim, LayoutOrder = 1 })
+	for i = 1, S.Tiers do
+		local reached = tier >= i
+		local claimed = profile.Season.Claimed[tostring(i)] == true
+		local row = UI.Frame(scroll, { Size = UDim2.new(1, -10, 0, 40), BackgroundColor3 = C.Panel, LayoutOrder = 1 + i, Stroke = claimed and C.Good or (reached and C.Gold or C.PanelLight) })
+		local reward = ("+%d 🪙"):format(SeasonLogic.TierCoins(i, S.CoinsPerTier)) .. (i == S.Tiers and ("  ·  titre 🏆 " .. S.ChampionTitle) or "")
+		UI.Label(row, { Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -190, 1, 0), Text = ("Palier %d  ·  %d pts  ·  %s"):format(i, i * S.TierPoints, reward), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left })
+		local b = UI.Button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(150, 28), TextSize = 13 })
+		if claimed then
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "✔ Récupéré", C.PanelLight, false
+		elseif reached then
+			b.Text, b.BackgroundColor3 = "Récupérer", C.Good
+			b.Activated:Connect(function()
+				act("ClaimTier", i)
+			end)
+		else
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "🔒", C.PanelLight, false
+		end
+	end
+end
+
 local builders = {
+	Season = buildSeason,
 	Hero = buildHero,
 	Robux = buildRobux,
 	Shop = buildShop,
@@ -435,11 +466,11 @@ function Menus.Init(gui)
 	popScale.Parent = root
 	UI.New("UIGradient", { Parent = root, Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)) })
 
-	local bar = UI.New("Frame", { Parent = root, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 10), Size = UDim2.new(1, -70, 0, 38) })
+	local bar = UI.New("ScrollingFrame", { Parent = root, BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(12, 10), Size = UDim2.new(1, -70, 0, 38), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollingDirection = Enum.ScrollingDirection.X, ScrollBarThickness = 0 })
 	UI.New("UIListLayout", { Parent = bar, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) })
 	tabButtons = {}
 	for _, tab in ipairs(TABS) do
-		local b = UI.Button(bar, { Size = UDim2.fromOffset(132, 36), BackgroundColor3 = C.PanelLight, Text = tab.Text, TextSize = 14 })
+		local b = UI.Button(bar, { Size = UDim2.fromOffset(112, 36), BackgroundColor3 = C.PanelLight, Text = tab.Text, TextSize = 13 })
 		tabButtons[tab.Id] = b
 		b.Activated:Connect(function()
 			currentTab = tab.Id

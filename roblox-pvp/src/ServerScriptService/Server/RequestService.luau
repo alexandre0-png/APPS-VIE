@@ -16,6 +16,7 @@ local MatchService = require(Server.MatchService)
 local WeaponService = require(Server.WeaponService)
 local MonetizationService = require(Server.MonetizationService)
 local StoryService = require(Server.StoryService)
+local SeasonService = require(Server.SeasonService)
 local RateLimiter = require(Server.RateLimiter)
 
 local RequestService = {}
@@ -42,6 +43,10 @@ end
 
 function handlers.BuyProduct(player, key)
 	return MonetizationService.Prompt(player, "Product", key)
+end
+
+function handlers.ClaimTier(player, tier)
+	return SeasonService.ClaimTier(player, tier)
 end
 
 function handlers.SetHero(player, key)
