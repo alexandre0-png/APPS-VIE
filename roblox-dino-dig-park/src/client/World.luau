@@ -93,7 +93,11 @@ function World.floatText(text, color, big)
 	bb.AlwaysOnTop = true
 	bb.Parent = player:WaitForChild("PlayerGui")
 	local l = Ui.label(bb, { text = text, size = big and 30 or 22, color = color or Color3.new(1, 1, 1), stroke = true })
-	TweenService:Create(bb, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffset = bb.StudsOffset + Vector3.new(0, 4, 0) }):Play()
+	TweenService:Create(
+		bb,
+		TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ StudsOffset = bb.StudsOffset + Vector3.new(0, 4, 0) }
+	):Play()
 	local tw = TweenService:Create(l, TweenInfo.new(0.9), { TextTransparency = 1, TextStrokeTransparency = 1 })
 	tw:Play()
 	tw.Completed:Connect(function()
@@ -176,7 +180,13 @@ local function updateDinos(dt, t, camPos)
 		if home then
 			local st = dinoState[m]
 			if not st then
-				st = { pos = home, yaw = rng:NextNumber(0, 6.28), target = home, wait = rng:NextNumber(0, 3), phase = rng:NextNumber(0, 6.28) }
+				st = {
+					pos = home,
+					yaw = rng:NextNumber(0, 6.28),
+					target = home,
+					wait = rng:NextNumber(0, 3),
+					phase = rng:NextNumber(0, 6.28),
+				}
 				dinoState[m] = st
 			end
 			if (home - camPos).Magnitude < 220 then
@@ -352,7 +362,16 @@ local function spawnVisitor(st)
 	local model = HumanFactory.build({ name = "Visiteur" })
 	model.Parent = visitorFolder
 	local route = buildRoute(st)
-	table.insert(visitors, { model = model, route = route, idx = 2, pos = route[1].pos, yaw = math.pi, wait = 0, speed = rng:NextNumber(8, 11), phase = rng:NextNumber(0, 6) })
+	table.insert(visitors, {
+		model = model,
+		route = route,
+		idx = 2,
+		pos = route[1].pos,
+		yaw = math.pi,
+		wait = 0,
+		speed = rng:NextNumber(8, 11),
+		phase = rng:NextNumber(0, 6),
+	})
 end
 
 local function updateVisitors(dt, t, st)

@@ -4,8 +4,11 @@
 local HumanFactory = {}
 
 local SKIN = {
-	Color3.fromRGB(245, 205, 48), Color3.fromRGB(255, 204, 153), Color3.fromRGB(234, 184, 146),
-	Color3.fromRGB(190, 130, 90), Color3.fromRGB(120, 80, 55),
+	Color3.fromRGB(245, 205, 48),
+	Color3.fromRGB(255, 204, 153),
+	Color3.fromRGB(234, 184, 146),
+	Color3.fromRGB(190, 130, 90),
+	Color3.fromRGB(120, 80, 55),
 }
 
 local function block(model, name, size, color)

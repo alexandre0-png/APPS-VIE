@@ -1,0 +1,65 @@
+base: lua51
+name: roblox
+globals:
+  game:
+    any: true
+  workspace:
+    any: true
+  script:
+    any: true
+  Instance:
+    any: true
+  Vector3:
+    any: true
+  Vector2:
+    any: true
+  CFrame:
+    any: true
+  Color3:
+    any: true
+  UDim:
+    any: true
+  UDim2:
+    any: true
+  Enum:
+    any: true
+  Random:
+    any: true
+  NumberRange:
+    any: true
+  NumberSequence:
+    any: true
+  NumberSequenceKeypoint:
+    any: true
+  ColorSequence:
+    any: true
+  TweenInfo:
+    any: true
+  Font:
+    any: true
+  task:
+    any: true
+  warn:
+    args:
+      - type: "..."
+  typeof:
+    args:
+      - type: any
+  require:
+    args:
+      - type: any
+  math.clamp:
+    args:
+      - type: number
+      - type: number
+      - type: number
+  math.atan2:
+    args:
+      - type: number
+      - type: number
+  table.find:
+    args:
+      - type: any
+      - type: any
+  os.clock:
+    args: []

@@ -37,16 +37,54 @@ local function buildUpgrades()
 		local def = Config.Upgrades[id]
 		local r = row(p.body, i, 84)
 		Ui.label(r, { text = def.icon, size = 34, sizeUdim = UDim2.fromOffset(56, 84) })
-		Ui.label(r, { text = def.name, size = 22, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -240, 0, 30), pos = UDim2.fromOffset(60, 8), stroke = true, name = "Name" })
-		Ui.label(r, { text = def.desc, size = 14, color = C.muted, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, sizeUdim = UDim2.new(1, -240, 0, 40), pos = UDim2.fromOffset(60, 38), name = "Desc" })
-		local btn = Ui.button(r, { text = "", size = UDim2.fromOffset(150, 60), pos = UDim2.new(1, -8, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("Upgrade", { id = id })
-		end })
-		local lvl = Ui.label(btn, { text = "", size = 14, sizeUdim = UDim2.new(1, 0, 0.4, 0), name = "Level" })
-		local cost = Ui.label(btn, { text = "", size = 20, sizeUdim = UDim2.new(1, 0, 0.6, 0), pos = UDim2.fromScale(0, 0.4), stroke = true, name = "Cost" })
+		Ui.label(r, {
+			text = def.name,
+			size = 22,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -240, 0, 30),
+			pos = UDim2.fromOffset(60, 8),
+			stroke = true,
+			name = "Name",
+		})
+		Ui.label(r, {
+			text = def.desc,
+			size = 14,
+			color = C.muted,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			wrap = true,
+			sizeUdim = UDim2.new(1, -240, 0, 40),
+			pos = UDim2.fromOffset(60, 38),
+			name = "Desc",
+		})
+		local btn = Ui.button(r, {
+			text = "",
+			size = UDim2.fromOffset(150, 60),
+			pos = UDim2.new(1, -8, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("Upgrade", { id = id })
+			end,
+		})
+		local lvl = Ui.label(btn, { text = "", size = 14, sizeUdim = UDim2.fromScale(1, 0.4), name = "Level" })
+		local cost = Ui.label(
+			btn,
+			{ text = "", size = 20, sizeUdim = UDim2.fromScale(1, 0.6), pos = UDim2.fromScale(0, 0.4), stroke = true, name = "Cost" }
+		)
 		rows[id] = { button = btn, level = lvl, cost = cost }
 	end
-	local info = Ui.label(p.body, { text = "", size = 16, color = C.muted, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, rich = true, sizeUdim = UDim2.new(1, -8, 0, 120), name = "Info" })
+	local info = Ui.label(p.body, {
+		text = "",
+		size = 16,
+		color = C.muted,
+		align = Enum.TextXAlignment.Left,
+		valign = Enum.TextYAlignment.Top,
+		wrap = true,
+		rich = true,
+		sizeUdim = UDim2.new(1, -8, 0, 120),
+		name = "Info",
+	})
 	info.LayoutOrder = 10
 	Store.connect(function(st)
 		for id, rr in pairs(rows) do
@@ -67,8 +105,19 @@ local function buildUpgrades()
 		local m = st.mult
 		info.Text = string.format(
 			"<b>Revenus du parc</b> : %s/s\nBase dinos : %s  ×  collection %.2f  ×  renaissance %.2f  ×  billet %.2f  ×  bâtiments %.2f  ×  pass %.0f  ×  boost %.0f\nPelle : %d 🦴/coup (critique %.0f%% ×%d)  •  ouvriers : %.1f 🦴/s",
-			Util.formatNumber(st.income), Util.formatNumber(st.baseIncome), m.collection, m.rebirth, m.ticket, m.buildings, m.pass, m.boost,
-			st.digAmount, st.critChance * 100, Config.CritMultiplier, st.autoDigRate)
+			Util.formatNumber(st.income),
+			Util.formatNumber(st.baseIncome),
+			m.collection,
+			m.rebirth,
+			m.ticket,
+			m.buildings,
+			m.pass,
+			m.boost,
+			st.digAmount,
+			st.critChance * 100,
+			Config.CritMultiplier,
+			st.autoDigRate
+		)
 	end)
 end
 
@@ -77,12 +126,34 @@ end
 ----------------------------------------------------------------------
 local function buildCollection()
 	local p = Ui.createPanel("collection", "🦖 Collection de dinos", UDim2.fromOffset(700, 520), { color = C.green })
-	local header = Ui.label(p.body, { text = "", size = 18, color = C.gold, rich = false, sizeUdim = UDim2.new(1, -8, 0, 28), name = "Header" })
-	local grid = Ui.new("Frame", { Name = "Grid", Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = p.body })
-	Ui.new("UIGridLayout", { CellSize = UDim2.fromOffset(150, 190), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = grid })
-	local sellBtn = Ui.button(p.frame, { text = "", size = UDim2.fromOffset(300, 44), pos = UDim2.new(0.5, 0, 1, -8), anchor = Vector2.new(0.5, 1), color = C.red, z = 30, onClick = function()
-		Store.act("SellReserve")
-	end })
+	local header =
+		Ui.label(p.body, { text = "", size = 18, color = C.gold, rich = false, sizeUdim = UDim2.new(1, -8, 0, 28), name = "Header" })
+	local grid = Ui.new("Frame", {
+		Name = "Grid",
+		Position = UDim2.fromOffset(0, 32),
+		Size = UDim2.new(1, -8, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Parent = p.body,
+	})
+	Ui.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(150, 190),
+		CellPadding = UDim2.fromOffset(8, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		Parent = grid,
+	})
+	local sellBtn = Ui.button(p.frame, {
+		text = "",
+		size = UDim2.fromOffset(300, 44),
+		pos = UDim2.new(0.5, 0, 1, -8),
+		anchor = Vector2.new(0.5, 1),
+		color = C.red,
+		z = 30,
+		onClick = function()
+			Store.act("SellReserve")
+		end,
+	})
 	p.body.Size = UDim2.new(1, -20, 1, -132)
 
 	local cards = {}
@@ -107,17 +178,37 @@ local function buildCollection()
 		Ui.corner(f, 12)
 		Ui.stroke(f, rar.color, 3)
 		local vpHolder = Ui.new("Frame", { Name = "VP", Size = UDim2.new(1, 0, 0, 112), BackgroundTransparency = 1, Parent = f })
-		local name = Ui.label(f, { text = "???", size = 18, sizeUdim = UDim2.new(1, -6, 0, 24), pos = UDim2.fromOffset(3, 114), stroke = true, name = "Name" })
-		Ui.label(f, { text = rar.name, size = 14, color = rar.color, sizeUdim = UDim2.new(1, 0, 0, 18), pos = UDim2.fromOffset(0, 136), stroke = true, name = "Rarity" })
-		local inc = Ui.label(f, { text = "", size = 14, color = C.gold, sizeUdim = UDim2.new(1, 0, 0, 18), pos = UDim2.fromOffset(0, 154), name = "Income" })
-		local cnt = Ui.label(f, { text = "", size = 15, sizeUdim = UDim2.new(1, -6, 0, 18), pos = UDim2.fromOffset(0, 170), name = "Count" })
+		local name = Ui.label(
+			f,
+			{ text = "???", size = 18, sizeUdim = UDim2.new(1, -6, 0, 24), pos = UDim2.fromOffset(3, 114), stroke = true, name = "Name" }
+		)
+		Ui.label(f, {
+			text = rar.name,
+			size = 14,
+			color = rar.color,
+			sizeUdim = UDim2.new(1, 0, 0, 18),
+			pos = UDim2.fromOffset(0, 136),
+			stroke = true,
+			name = "Rarity",
+		})
+		local inc = Ui.label(
+			f,
+			{ text = "", size = 14, color = C.gold, sizeUdim = UDim2.new(1, 0, 0, 18), pos = UDim2.fromOffset(0, 154), name = "Income" }
+		)
+		local cnt =
+			Ui.label(f, { text = "", size = 15, sizeUdim = UDim2.new(1, -6, 0, 18), pos = UDim2.fromOffset(0, 170), name = "Count" })
 		cards[d.id] = { def = d, frame = f, holder = vpHolder, name = name, inc = inc, cnt = cnt, shown = nil }
 	end
 
 	local function render(st)
 		local discovered = Economy.discoveredCount({ discovered = st.discovered })
 		local total = #Config.Dinos
-		header.Text = string.format("Découverts : %d/%d   •   bonus de collection : +%d%% revenus", discovered, total, math.floor(discovered * Config.CollectionBonus * 100 + 0.5))
+		header.Text = string.format(
+			"Découverts : %d/%d   •   bonus de collection : +%d%% revenus",
+			discovered,
+			total,
+			math.floor(discovered * Config.CollectionBonus * 100 + 0.5)
+		)
 		for id, card in pairs(cards) do
 			local known = st.discovered[id] == true
 			local normal = st.dinos[id] or 0
@@ -151,7 +242,8 @@ local function buildCollection()
 		for _, v in pairs(st.reserve) do
 			n = n + v
 		end
-		sellBtn.Text = n > 0 and ("Vendre la réserve (" .. n .. ") : +" .. Util.formatNumber(st.reserveValue) .. " 💰") or "Réserve vide (" .. st.displayedCount .. "/" .. st.slots .. " exposés)"
+		sellBtn.Text = n > 0 and ("Vendre la réserve (" .. n .. ") : +" .. Util.formatNumber(st.reserveValue) .. " 💰")
+			or "Réserve vide (" .. st.displayedCount .. "/" .. st.slots .. " exposés)"
 		Ui.setEnabled(sellBtn, n > 0, C.red)
 	end
 	-- les viewports ne sont construits qu'à l'ouverture (économie de ressources)
@@ -185,19 +277,46 @@ local function buildQuests()
 	local rows = {}
 	for i = 1, Config.QuestCount do
 		local r = row(p.body, i, 92)
-		local text = Ui.label(r, { text = "", size = 20, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -190, 0, 28), pos = UDim2.fromOffset(12, 8), stroke = true, name = "Text" })
-		local reward = Ui.label(r, { text = "", size = 14, color = C.gold, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -190, 0, 18), pos = UDim2.fromOffset(12, 38), name = "Reward" })
-		local barBg = Ui.new("Frame", { Size = UDim2.new(1, -190, 0, 16), Position = UDim2.fromOffset(12, 62), BackgroundColor3 = C.bg, Parent = r })
+		local text = Ui.label(r, {
+			text = "",
+			size = 20,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 28),
+			pos = UDim2.fromOffset(12, 8),
+			stroke = true,
+			name = "Text",
+		})
+		local reward = Ui.label(r, {
+			text = "",
+			size = 14,
+			color = C.gold,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 18),
+			pos = UDim2.fromOffset(12, 38),
+			name = "Reward",
+		})
+		local barBg =
+			Ui.new("Frame", { Size = UDim2.new(1, -190, 0, 16), Position = UDim2.fromOffset(12, 62), BackgroundColor3 = C.bg, Parent = r })
 		Ui.corner(barBg, 8)
 		local fill = Ui.new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.green, Parent = barBg })
 		Ui.corner(fill, 8)
 		local prog = Ui.label(barBg, { text = "", size = 12, stroke = true, z = 3 })
-		local btn = Ui.button(r, { text = "Récupérer", size = UDim2.fromOffset(150, 52), pos = UDim2.new(1, -10, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("ClaimQuest", { index = i })
-		end })
+		local btn = Ui.button(r, {
+			text = "Récupérer",
+			size = UDim2.fromOffset(150, 52),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("ClaimQuest", { index = i })
+			end,
+		})
 		rows[i] = { row = r, text = text, reward = reward, fill = fill, prog = prog, btn = btn }
 	end
-	local foot = Ui.label(p.body, { text = "Les quêtes se renouvellent chaque jour (minuit UTC).", size = 14, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24) })
+	local foot = Ui.label(
+		p.body,
+		{ text = "Les quêtes se renouvellent chaque jour (minuit UTC).", size = 14, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24) }
+	)
 	foot.LayoutOrder = 10
 	Store.connect(function(st)
 		for i, rr in ipairs(rows) do
@@ -207,7 +326,9 @@ local function buildQuests()
 				local txt, qt = questText(q)
 				rr.text.Text = txt
 				if qt.reward.fossils then
-					local f = math.floor(qt.reward.fossils * q.tier * (1 + st.upgrades.shovel * 0.5) * Economy.fossilMultiplier({ rebirths = st.rebirths }))
+					local f = math.floor(
+						qt.reward.fossils * q.tier * (1 + st.upgrades.shovel * 0.5) * Economy.fossilMultiplier({ rebirths = st.rebirths })
+					)
 					rr.reward.Text = "Récompense : " .. Util.formatNumber(f) .. " 🦴"
 				else
 					local c = math.max(300 * q.tier, math.floor(st.income * 60 * qt.reward.minutes * q.tier / 2))
@@ -234,7 +355,13 @@ end
 local function buildDaily()
 	local p = Ui.createPanel("daily", "🎁 Cadeau quotidien", UDim2.fromOffset(640, 340), { color = C.purple })
 	local grid = Ui.new("Frame", { Size = UDim2.new(1, -8, 0, 150), BackgroundTransparency = 1, Parent = p.body })
-	Ui.new("UIGridLayout", { CellSize = UDim2.fromOffset(80, 140), CellPadding = UDim2.fromOffset(6, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
+	Ui.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(80, 140),
+		CellPadding = UDim2.fromOffset(6, 6),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = grid,
+	})
 	local tiles = {}
 	for i, r in ipairs(Config.DailyRewards) do
 		local f = Ui.new("Frame", { LayoutOrder = i, BackgroundColor3 = C.row, Parent = grid })
@@ -243,13 +370,26 @@ local function buildDaily()
 		Ui.label(f, { text = "Jour " .. i, size = 15, sizeUdim = UDim2.new(1, 0, 0, 24), pos = UDim2.fromOffset(0, 4), stroke = true })
 		local icon = r.kind == "egg" and "🥚" or (r.kind == "fossils" and "🦴" or "💰")
 		Ui.label(f, { text = icon, size = 36, sizeUdim = UDim2.new(1, 0, 0, 50), pos = UDim2.fromOffset(0, 30) })
-		Ui.label(f, { text = r.label, size = 13, wrap = true, sizeUdim = UDim2.new(1, -4, 0, 50), pos = UDim2.fromOffset(2, 84), color = C.muted })
+		Ui.label(
+			f,
+			{ text = r.label, size = 13, wrap = true, sizeUdim = UDim2.new(1, -4, 0, 50), pos = UDim2.fromOffset(2, 84), color = C.muted }
+		)
 		tiles[i] = { frame = f, stroke = st }
 	end
-	local msg = Ui.label(p.body, { text = "", size = 16, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24), pos = UDim2.fromOffset(0, 156), name = "Msg" })
-	local btn = Ui.button(p.body, { text = "Récupérer", size = UDim2.fromOffset(260, 50), pos = UDim2.new(0.5, 0, 0, 186), anchor = Vector2.new(0.5, 0), color = C.purple, onClick = function()
-		Store.act("ClaimDaily")
-	end })
+	local msg = Ui.label(
+		p.body,
+		{ text = "", size = 16, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24), pos = UDim2.fromOffset(0, 156), name = "Msg" }
+	)
+	local btn = Ui.button(p.body, {
+		text = "Récupérer",
+		size = UDim2.fromOffset(260, 50),
+		pos = UDim2.new(0.5, 0, 0, 186),
+		anchor = Vector2.new(0.5, 0),
+		color = C.purple,
+		onClick = function()
+			Store.act("ClaimDaily")
+		end,
+	})
 	Store.connect(function(st)
 		local today = Util.dayNumber(Store.serverNow())
 		local nextStreak = st.daily.streak
@@ -276,7 +416,11 @@ local function buildDaily()
 			task.wait(1)
 			if Ui.openName == "daily" and Store.state and not Store.state.daily.canClaim then
 				local today = Util.dayNumber(Store.serverNow())
-				msg.Text = "Prochain cadeau dans " .. Util.formatTime((today + 1) * 86400 - Store.serverNow()) .. " (série : " .. Store.state.daily.streak .. ")"
+				msg.Text = "Prochain cadeau dans "
+					.. Util.formatTime((today + 1) * 86400 - Store.serverNow())
+					.. " (série : "
+					.. Store.state.daily.streak
+					.. ")"
 			end
 		end
 	end)
@@ -287,8 +431,24 @@ end
 ----------------------------------------------------------------------
 local function buildRebirth()
 	local p = Ui.createPanel("rebirth", "🌟 Nouvelle ère", UDim2.fromOffset(560, 420), { color = C.gold })
-	local text = Ui.label(p.body, { text = "", size = 19, wrap = true, rich = true, valign = Enum.TextYAlignment.Top, sizeUdim = UDim2.new(1, -16, 0, 230), pos = UDim2.fromOffset(8, 4), name = "Text" })
-	local btn = Ui.button(p.body, { text = "Renaître", size = UDim2.fromOffset(300, 56), pos = UDim2.new(0.5, 0, 0, 250), anchor = Vector2.new(0.5, 0), color = C.gold, textSize = 26 })
+	local text = Ui.label(p.body, {
+		text = "",
+		size = 19,
+		wrap = true,
+		rich = true,
+		valign = Enum.TextYAlignment.Top,
+		sizeUdim = UDim2.new(1, -16, 0, 230),
+		pos = UDim2.fromOffset(8, 4),
+		name = "Text",
+	})
+	local btn = Ui.button(p.body, {
+		text = "Renaître",
+		size = UDim2.fromOffset(300, 56),
+		pos = UDim2.new(0.5, 0, 0, 250),
+		anchor = Vector2.new(0.5, 0),
+		color = C.gold,
+		textSize = 26,
+	})
 	local armedAt = 0
 	btn.Activated:Connect(function()
 		if btn:GetAttribute("Disabled") then
@@ -315,8 +475,14 @@ local function buildRebirth()
 		local maxed = st.rebirths >= Config.RebirthMax
 		local can = st.cash >= st.rebirthCost and not maxed
 		text.Text = string.format(
-			"<b>Ère actuelle : %d</b>\n\nRenaître remet à zéro tes pièces, fossiles, bâtiments, améliorations et œufs en cours.\n<b>Tu gardes</b> tous tes dinos, ta collection et tes quêtes.\n\n<b>Bonus par ère</b> : +%d%% de revenus et +%d%% de fossiles, définitivement. Tu reçois aussi un <b>Œuf Cosmique</b> gratuit.\n\nCoût : <font color=\"%s\">%s 💰</font> (tu as %s)",
-			st.rebirths, Config.RebirthIncomeBonus * 100, Config.RebirthFossilBonus * 100, can and "#6ee87c" or "#ff7a70", Util.formatNumber(st.rebirthCost), Util.formatNumber(st.cash))
+			'<b>Ère actuelle : %d</b>\n\nRenaître remet à zéro tes pièces, fossiles, bâtiments, améliorations et œufs en cours.\n<b>Tu gardes</b> tous tes dinos, ta collection et tes quêtes.\n\n<b>Bonus par ère</b> : +%d%% de revenus et +%d%% de fossiles, définitivement. Tu reçois aussi un <b>Œuf Cosmique</b> gratuit.\n\nCoût : <font color="%s">%s 💰</font> (tu as %s)',
+			st.rebirths,
+			Config.RebirthIncomeBonus * 100,
+			Config.RebirthFossilBonus * 100,
+			can and "#6ee87c" or "#ff7a70",
+			Util.formatNumber(st.rebirthCost),
+			Util.formatNumber(st.cash)
+		)
 		Ui.setEnabled(btn, can, C.gold)
 		if not can then
 			btn.Text = maxed and "Ère maximale" or "Pas assez de pièces"
@@ -337,11 +503,34 @@ local function buildShop()
 	local function add(kind, key, def)
 		order = order + 1
 		local r = row(p.body, order, 84)
-		Ui.label(r, { text = def.name, size = 22, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -190, 0, 30), pos = UDim2.fromOffset(12, 8), stroke = true })
-		Ui.label(r, { text = def.desc, size = 14, color = C.muted, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, sizeUdim = UDim2.new(1, -190, 0, 40), pos = UDim2.fromOffset(12, 38) })
-		local btn = Ui.button(r, { text = "R$ " .. def.price, size = UDim2.fromOffset(150, 52), pos = UDim2.new(1, -10, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("BuyPass", { kind = kind, key = key })
-		end })
+		Ui.label(r, {
+			text = def.name,
+			size = 22,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 30),
+			pos = UDim2.fromOffset(12, 8),
+			stroke = true,
+		})
+		Ui.label(r, {
+			text = def.desc,
+			size = 14,
+			color = C.muted,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			wrap = true,
+			sizeUdim = UDim2.new(1, -190, 0, 40),
+			pos = UDim2.fromOffset(12, 38),
+		})
+		local btn = Ui.button(r, {
+			text = "R$ " .. def.price,
+			size = UDim2.fromOffset(150, 52),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("BuyPass", { kind = kind, key = key })
+			end,
+		})
 		r.Visible = def.id > 0
 		rows[#rows + 1] = { kind = kind, key = key, btn = btn, def = def }
 	end
@@ -373,10 +562,20 @@ local function buildEggs()
 	for i, id in ipairs(Config.EggOrder) do
 		local def = Config.Eggs[id]
 		local r = row(p.body, i, 92)
-		local icon = Ui.new("Frame", { Size = UDim2.fromOffset(48, 62), Position = UDim2.fromOffset(12, 15), BackgroundColor3 = def.color, Parent = r })
+		local icon = Ui.new(
+			"Frame",
+			{ Size = UDim2.fromOffset(48, 62), Position = UDim2.fromOffset(12, 15), BackgroundColor3 = def.color, Parent = r }
+		)
 		Ui.corner(icon, 24)
 		Ui.stroke(icon, def.spot, 3)
-		Ui.label(r, { text = def.name, size = 22, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -250, 0, 28), pos = UDim2.fromOffset(74, 6), stroke = true })
+		Ui.label(r, {
+			text = def.name,
+			size = 22,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -250, 0, 28),
+			pos = UDim2.fromOffset(74, 6),
+			stroke = true,
+		})
 		local chances = {}
 		local total = 0
 		for _, w in pairs(def.weights) do
@@ -386,15 +585,41 @@ local function buildEggs()
 			local w = def.weights[rid]
 			if w then
 				local rar = Config.RarityById[rid]
-				table.insert(chances, string.format('<font color="%s">%s %d%%</font>', hex(rar.color), rar.name, math.floor(w / total * 100 + 0.5)))
+				table.insert(
+					chances,
+					string.format('<font color="%s">%s %d%%</font>', hex(rar.color), rar.name, math.floor(w / total * 100 + 0.5))
+				)
 			end
 		end
-		Ui.label(r, { text = table.concat(chances, "  "), size = 13, rich = true, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, sizeUdim = UDim2.new(1, -250, 0, 40), pos = UDim2.fromOffset(74, 36) })
-		local timeLbl = Ui.label(r, { text = "", size = 13, color = C.muted, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -250, 0, 16), pos = UDim2.fromOffset(74, 72) })
-		local btn = Ui.button(r, { text = "", size = UDim2.fromOffset(150, 56), pos = UDim2.new(1, -10, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("StartHatch", { slot = eggSlot, egg = id })
-			Ui.closePanels()
-		end })
+		Ui.label(r, {
+			text = table.concat(chances, "  "),
+			size = 13,
+			rich = true,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			wrap = true,
+			sizeUdim = UDim2.new(1, -250, 0, 40),
+			pos = UDim2.fromOffset(74, 36),
+		})
+		local timeLbl = Ui.label(r, {
+			text = "",
+			size = 13,
+			color = C.muted,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -250, 0, 16),
+			pos = UDim2.fromOffset(74, 72),
+		})
+		local btn = Ui.button(r, {
+			text = "",
+			size = UDim2.fromOffset(150, 56),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("StartHatch", { slot = eggSlot, egg = id })
+				Ui.closePanels()
+			end,
+		})
 		rows[id] = { btn = btn, time = timeLbl }
 	end
 	local function render(st)
@@ -413,11 +638,24 @@ local function buildWelcome()
 	local p = Ui.createPanel("welcome", "🦖 Bienvenue au Dino Dig Park !", UDim2.fromOffset(560, 400), { color = C.green })
 	local text = Ui.label(p.body, {
 		text = "<b>1.</b> Va dans la zone de fouille et appuie sur ⛏ CREUSER pour trouver des fossiles.\n<b>2.</b> Au laboratoire, place un œuf dans un incubateur (E ou toucher).\n<b>3.</b> Les dinos exposés dans tes enclos rapportent des 💰 : marche sur le pad vert du kiosque pour les collecter.\n<b>4.</b> Marche sur les boutons colorés pour agrandir ton parc.\n\nSuis le rayon jaune : il montre toujours le prochain objectif.",
-		size = 19, wrap = true, rich = true, valign = Enum.TextYAlignment.Top, align = Enum.TextXAlignment.Left,
-		sizeUdim = UDim2.new(1, -16, 0, 240), pos = UDim2.fromOffset(8, 4),
+		size = 19,
+		wrap = true,
+		rich = true,
+		valign = Enum.TextYAlignment.Top,
+		align = Enum.TextXAlignment.Left,
+		sizeUdim = UDim2.new(1, -16, 0, 240),
+		pos = UDim2.fromOffset(8, 4),
 	})
 	text.Name = "Steps"
-	Ui.button(p.body, { text = "C'est parti !", size = UDim2.fromOffset(260, 54), pos = UDim2.new(0.5, 0, 0, 260), anchor = Vector2.new(0.5, 0), color = C.green, textSize = 24, onClick = Ui.closePanels })
+	Ui.button(p.body, {
+		text = "C'est parti !",
+		size = UDim2.fromOffset(260, 54),
+		pos = UDim2.new(0.5, 0, 0, 260),
+		anchor = Vector2.new(0.5, 0),
+		color = C.green,
+		textSize = 24,
+		onClick = Ui.closePanels,
+	})
 	local shown = false
 	Store.connect(function(st)
 		if not shown and st.stats.digs == 0 and st.stats.hatched == 0 and next(st.dinos) == nil then

@@ -18,7 +18,16 @@ local playing = false
 local overlay
 
 local function build()
-	overlay = Ui.new("Frame", { Name = "RevealOverlay", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.25, Visible = false, ZIndex = 50, Active = true, Parent = Ui.root })
+	overlay = Ui.new("Frame", {
+		Name = "RevealOverlay",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.25,
+		Visible = false,
+		ZIndex = 50,
+		Active = true,
+		Parent = Ui.root,
+	})
 end
 
 local function play(item)
@@ -35,11 +44,24 @@ local function play(item)
 	local egg = Config.Eggs[item.egg] or Config.Eggs.basic
 
 	-- 1. œuf qui tremble
-	local eggFrame = Ui.new("Frame", { Size = UDim2.fromOffset(150, 200), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = egg.color, ZIndex = 51, Parent = overlay })
+	local eggFrame = Ui.new("Frame", {
+		Size = UDim2.fromOffset(150, 200),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = egg.color,
+		ZIndex = 51,
+		Parent = overlay,
+	})
 	Ui.corner(eggFrame, 75)
 	Ui.stroke(eggFrame, egg.spot, 5)
 	for i = 1, 5 do
-		local s = Ui.new("Frame", { Size = UDim2.fromOffset(22 + i * 3, 22 + i * 3), Position = UDim2.fromScale(0.15 + (i * 0.37) % 0.6, 0.15 + (i * 0.23) % 0.65), BackgroundColor3 = egg.spot, ZIndex = 52, Parent = eggFrame })
+		local s = Ui.new("Frame", {
+			Size = UDim2.fromOffset(22 + i * 3, 22 + i * 3),
+			Position = UDim2.fromScale(0.15 + (i * 0.37) % 0.6, 0.15 + (i * 0.23) % 0.65),
+			BackgroundColor3 = egg.spot,
+			ZIndex = 52,
+			Parent = eggFrame,
+		})
 		Ui.corner(s, 20)
 	end
 	Ui.playSound("click", 0.5)
@@ -67,7 +89,16 @@ local function play(item)
 	-- 3. révélation
 	local rays = {}
 	for i = 1, 2 do
-		local r = Ui.new("Frame", { Size = UDim2.fromOffset(380, 380), Position = UDim2.fromScale(0.5, 0.44), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = i * 45, BackgroundColor3 = rar.color, BackgroundTransparency = 0.6, ZIndex = 51, Parent = overlay })
+		local r = Ui.new("Frame", {
+			Size = UDim2.fromOffset(380, 380),
+			Position = UDim2.fromScale(0.5, 0.44),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = i * 45,
+			BackgroundColor3 = rar.color,
+			BackgroundTransparency = 0.6,
+			ZIndex = 51,
+			Parent = overlay,
+		})
 		Ui.corner(r, 30)
 		rays[i] = r
 	end
@@ -77,19 +108,56 @@ local function play(item)
 	if golden then
 		nameText = "✨ " .. nameText .. " DORÉ ✨"
 	end
-	Ui.label(overlay, { text = nameText, size = 44, color = rar.color, sizeUdim = UDim2.fromOffset(640, 56), pos = UDim2.fromScale(0.5, 0.72), anchor = Vector2.new(0.5, 0.5), stroke = true, z = 55, name = "Name" })
-	Ui.label(overlay, { text = rar.name:upper() .. "   •   💰 " .. Util.formatNumber(Economy.dinoIncome(item.key)) .. "/s", size = 24, sizeUdim = UDim2.fromOffset(640, 34), pos = UDim2.fromScale(0.5, 0.78), anchor = Vector2.new(0.5, 0.5), stroke = true, z = 55 })
+	Ui.label(overlay, {
+		text = nameText,
+		size = 44,
+		color = rar.color,
+		sizeUdim = UDim2.fromOffset(640, 56),
+		pos = UDim2.fromScale(0.5, 0.72),
+		anchor = Vector2.new(0.5, 0.5),
+		stroke = true,
+		z = 55,
+		name = "Name",
+	})
+	Ui.label(overlay, {
+		text = rar.name:upper() .. "   •   💰 " .. Util.formatNumber(Economy.dinoIncome(item.key)) .. "/s",
+		size = 24,
+		sizeUdim = UDim2.fromOffset(640, 34),
+		pos = UDim2.fromScale(0.5, 0.78),
+		anchor = Vector2.new(0.5, 0.5),
+		stroke = true,
+		z = 55,
+	})
 	if item.new then
-		Ui.label(overlay, { text = "NOUVEAU DINO !", size = 28, color = C.gold, sizeUdim = UDim2.fromOffset(400, 40), pos = UDim2.fromScale(0.5, 0.2), anchor = Vector2.new(0.5, 0.5), stroke = true, z = 55 })
+		Ui.label(overlay, {
+			text = "NOUVEAU DINO !",
+			size = 28,
+			color = C.gold,
+			sizeUdim = UDim2.fromOffset(400, 40),
+			pos = UDim2.fromScale(0.5, 0.2),
+			anchor = Vector2.new(0.5, 0.5),
+			stroke = true,
+			z = 55,
+		})
 	end
 	local done = false
-	local ok = Ui.button(overlay, { text = "Super !", size = UDim2.fromOffset(220, 56), pos = UDim2.fromScale(0.5, 0.88), anchor = Vector2.new(0.5, 0.5), color = C.green, z = 56, textSize = 26, onClick = function()
-		done = true
-	end })
+	Ui.button(overlay, {
+		text = "Super !",
+		size = UDim2.fromOffset(220, 56),
+		pos = UDim2.fromScale(0.5, 0.88),
+		anchor = Vector2.new(0.5, 0.5),
+		color = C.green,
+		z = 56,
+		textSize = 26,
+		onClick = function()
+			done = true
+		end,
+	})
 
 	-- apparition + rotation
 	vp.Size = UDim2.fromOffset(10, 8)
-	TweenService:Create(vp, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(440, 330) }):Play()
+	TweenService:Create(vp, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(440, 330) })
+		:Play()
 	local conn = RunService.RenderStepped:Connect(function(dt)
 		for i, r in ipairs(rays) do
 			r.Rotation = r.Rotation + dt * (i == 1 and 25 or -18)

@@ -13,14 +13,14 @@ Config.SaveInterval = 60
 Config.LockTimeout = 150 -- secondes avant qu'un verrou de session soit considéré périmé
 
 -- Économie générale
-Config.BaseSlots = 4          -- emplacements de dinos dans l'enclos 1
+Config.BaseSlots = 4 -- emplacements de dinos dans l'enclos 1
 Config.SlotsPerPen = 4
-Config.GoldenChance = 0.02    -- chance d'un dino doré à l'éclosion
+Config.GoldenChance = 0.02 -- chance d'un dino doré à l'éclosion
 Config.GoldenMultiplier = 3
 Config.CollectionBonus = 0.02 -- +2% de revenus par dino découvert
 Config.RebirthIncomeBonus = 0.5
 Config.RebirthFossilBonus = 0.25
-Config.BoothSeconds = 900     -- le kiosque stocke 15 minutes de revenus
+Config.BoothSeconds = 900 -- le kiosque stocke 15 minutes de revenus
 Config.OfflineMaxSeconds = 7200
 Config.OfflineEfficiency = 0.5
 Config.CritMultiplier = 5
@@ -66,29 +66,178 @@ Config.RarityById = {
 ----------------------------------------------------------------------
 -- archetype : forme de blocs définie dans DinoShapes
 Config.Dinos = {
-	{ id = "compy", name = "Compy", rarity = "commun", archetype = "raptor", scale = 0.55, body = Color3.fromRGB(120, 190, 90), accent = Color3.fromRGB(240, 220, 120) },
-	{ id = "psitta", name = "Psitta", rarity = "commun", archetype = "tricera", scale = 0.5, body = Color3.fromRGB(210, 180, 120), accent = Color3.fromRGB(150, 110, 70) },
-	{ id = "dryo", name = "Dryo", rarity = "commun", archetype = "stego", scale = 0.45, body = Color3.fromRGB(150, 120, 90), accent = Color3.fromRGB(230, 200, 100) },
+	{
+		id = "compy",
+		name = "Compy",
+		rarity = "commun",
+		archetype = "raptor",
+		scale = 0.55,
+		body = Color3.fromRGB(120, 190, 90),
+		accent = Color3.fromRGB(240, 220, 120),
+	},
+	{
+		id = "psitta",
+		name = "Psitta",
+		rarity = "commun",
+		archetype = "tricera",
+		scale = 0.5,
+		body = Color3.fromRGB(210, 180, 120),
+		accent = Color3.fromRGB(150, 110, 70),
+	},
+	{
+		id = "dryo",
+		name = "Dryo",
+		rarity = "commun",
+		archetype = "stego",
+		scale = 0.45,
+		body = Color3.fromRGB(150, 120, 90),
+		accent = Color3.fromRGB(230, 200, 100),
+	},
 
-	{ id = "velo", name = "Vélo", rarity = "peucommun", archetype = "raptor", scale = 0.8, body = Color3.fromRGB(230, 130, 50), accent = Color3.fromRGB(60, 40, 30) },
-	{ id = "kentro", name = "Kentro", rarity = "peucommun", archetype = "stego", scale = 0.6, body = Color3.fromRGB(60, 170, 170), accent = Color3.fromRGB(250, 240, 200) },
-	{ id = "para", name = "Para", rarity = "peucommun", archetype = "bronto", scale = 0.45, body = Color3.fromRGB(140, 160, 70), accent = Color3.fromRGB(220, 220, 130) },
+	{
+		id = "velo",
+		name = "Vélo",
+		rarity = "peucommun",
+		archetype = "raptor",
+		scale = 0.8,
+		body = Color3.fromRGB(230, 130, 50),
+		accent = Color3.fromRGB(60, 40, 30),
+	},
+	{
+		id = "kentro",
+		name = "Kentro",
+		rarity = "peucommun",
+		archetype = "stego",
+		scale = 0.6,
+		body = Color3.fromRGB(60, 170, 170),
+		accent = Color3.fromRGB(250, 240, 200),
+	},
+	{
+		id = "para",
+		name = "Para",
+		rarity = "peucommun",
+		archetype = "bronto",
+		scale = 0.45,
+		body = Color3.fromRGB(140, 160, 70),
+		accent = Color3.fromRGB(220, 220, 130),
+	},
 
-	{ id = "tricera", name = "Tricéra", rarity = "rare", archetype = "tricera", scale = 0.9, body = Color3.fromRGB(110, 140, 170), accent = Color3.fromRGB(240, 230, 200) },
-	{ id = "stego", name = "Stégo", rarity = "rare", archetype = "stego", scale = 0.95, body = Color3.fromRGB(120, 90, 160), accent = Color3.fromRGB(130, 220, 120) },
-	{ id = "anky", name = "Ankylo", rarity = "rare", archetype = "ankylo", scale = 0.9, body = Color3.fromRGB(150, 100, 60), accent = Color3.fromRGB(230, 160, 70) },
+	{
+		id = "tricera",
+		name = "Tricéra",
+		rarity = "rare",
+		archetype = "tricera",
+		scale = 0.9,
+		body = Color3.fromRGB(110, 140, 170),
+		accent = Color3.fromRGB(240, 230, 200),
+	},
+	{
+		id = "stego",
+		name = "Stégo",
+		rarity = "rare",
+		archetype = "stego",
+		scale = 0.95,
+		body = Color3.fromRGB(120, 90, 160),
+		accent = Color3.fromRGB(130, 220, 120),
+	},
+	{
+		id = "anky",
+		name = "Ankylo",
+		rarity = "rare",
+		archetype = "ankylo",
+		scale = 0.9,
+		body = Color3.fromRGB(150, 100, 60),
+		accent = Color3.fromRGB(230, 160, 70),
+	},
 
-	{ id = "rex", name = "T-Rex", rarity = "epique", archetype = "trex", scale = 1.0, body = Color3.fromRGB(70, 130, 70), accent = Color3.fromRGB(200, 220, 110) },
-	{ id = "brachio", name = "Brachio", rarity = "epique", archetype = "bronto", scale = 1.0, body = Color3.fromRGB(100, 170, 220), accent = Color3.fromRGB(240, 240, 255) },
-	{ id = "ptera", name = "Ptéra", rarity = "epique", archetype = "ptero", scale = 1.0, body = Color3.fromRGB(230, 130, 120), accent = Color3.fromRGB(255, 220, 160) },
+	{
+		id = "rex",
+		name = "T-Rex",
+		rarity = "epique",
+		archetype = "trex",
+		scale = 1.0,
+		body = Color3.fromRGB(70, 130, 70),
+		accent = Color3.fromRGB(200, 220, 110),
+	},
+	{
+		id = "brachio",
+		name = "Brachio",
+		rarity = "epique",
+		archetype = "bronto",
+		scale = 1.0,
+		body = Color3.fromRGB(100, 170, 220),
+		accent = Color3.fromRGB(240, 240, 255),
+	},
+	{
+		id = "ptera",
+		name = "Ptéra",
+		rarity = "epique",
+		archetype = "ptero",
+		scale = 1.0,
+		body = Color3.fromRGB(230, 130, 120),
+		accent = Color3.fromRGB(255, 220, 160),
+	},
 
-	{ id = "spino", name = "Spino", rarity = "legendaire", archetype = "spino", scale = 0.95, body = Color3.fromRGB(40, 150, 150), accent = Color3.fromRGB(255, 140, 40) },
-	{ id = "dilopho", name = "Dilopho", rarity = "legendaire", archetype = "dilopho", scale = 1.0, body = Color3.fromRGB(190, 60, 60), accent = Color3.fromRGB(255, 200, 60) },
-	{ id = "carno", name = "Carno", rarity = "legendaire", archetype = "carno", scale = 1.0, body = Color3.fromRGB(170, 50, 40), accent = Color3.fromRGB(240, 230, 210) },
+	{
+		id = "spino",
+		name = "Spino",
+		rarity = "legendaire",
+		archetype = "spino",
+		scale = 0.95,
+		body = Color3.fromRGB(40, 150, 150),
+		accent = Color3.fromRGB(255, 140, 40),
+	},
+	{
+		id = "dilopho",
+		name = "Dilopho",
+		rarity = "legendaire",
+		archetype = "dilopho",
+		scale = 1.0,
+		body = Color3.fromRGB(190, 60, 60),
+		accent = Color3.fromRGB(255, 200, 60),
+	},
+	{
+		id = "carno",
+		name = "Carno",
+		rarity = "legendaire",
+		archetype = "carno",
+		scale = 1.0,
+		body = Color3.fromRGB(170, 50, 40),
+		accent = Color3.fromRGB(240, 230, 210),
+	},
 
-	{ id = "crystal", name = "Rex Cristal", rarity = "mythique", archetype = "trex", scale = 1.1, body = Color3.fromRGB(120, 230, 255), accent = Color3.fromRGB(255, 255, 255), material = "Glass", neon = true },
-	{ id = "galaxy", name = "Brachio Galaxie", rarity = "mythique", archetype = "bronto", scale = 1.1, body = Color3.fromRGB(90, 60, 200), accent = Color3.fromRGB(255, 120, 255), material = "Neon" },
-	{ id = "aurore", name = "Aurore", rarity = "mythique", archetype = "ptero", scale = 1.2, body = Color3.fromRGB(255, 130, 190), accent = Color3.fromRGB(255, 240, 150), material = "Neon", secret = true },
+	{
+		id = "crystal",
+		name = "Rex Cristal",
+		rarity = "mythique",
+		archetype = "trex",
+		scale = 1.1,
+		body = Color3.fromRGB(120, 230, 255),
+		accent = Color3.fromRGB(255, 255, 255),
+		material = "Glass",
+		neon = true,
+	},
+	{
+		id = "galaxy",
+		name = "Brachio Galaxie",
+		rarity = "mythique",
+		archetype = "bronto",
+		scale = 1.1,
+		body = Color3.fromRGB(90, 60, 200),
+		accent = Color3.fromRGB(255, 120, 255),
+		material = "Neon",
+	},
+	{
+		id = "aurore",
+		name = "Aurore",
+		rarity = "mythique",
+		archetype = "ptero",
+		scale = 1.2,
+		body = Color3.fromRGB(255, 130, 190),
+		accent = Color3.fromRGB(255, 240, 150),
+		material = "Neon",
+		secret = true,
+	},
 }
 Config.DinoById = {}
 Config.DinosByRarity = {}
@@ -109,14 +258,42 @@ Config.SecretDinoId = "aurore"
 ----------------------------------------------------------------------
 Config.EggOrder = { "basic", "jungle", "volcano", "cosmic" }
 Config.Eggs = {
-	basic = { id = "basic", name = "Œuf Fossile", cost = 30, time = 10, color = Color3.fromRGB(235, 225, 195), spot = Color3.fromRGB(160, 130, 90),
-		weights = { commun = 75, peucommun = 22, rare = 3 } },
-	jungle = { id = "jungle", name = "Œuf Jungle", cost = 300, time = 90, color = Color3.fromRGB(120, 200, 110), spot = Color3.fromRGB(40, 110, 50),
-		weights = { commun = 20, peucommun = 50, rare = 27, epique = 3 } },
-	volcano = { id = "volcano", name = "Œuf Volcan", cost = 3000, time = 600, color = Color3.fromRGB(230, 90, 50), spot = Color3.fromRGB(60, 30, 30),
-		weights = { peucommun = 15, rare = 55, epique = 28, legendaire = 2 } },
-	cosmic = { id = "cosmic", name = "Œuf Cosmique", cost = 30000, time = 1800, color = Color3.fromRGB(110, 70, 230), spot = Color3.fromRGB(255, 230, 120),
-		weights = { rare = 10, epique = 62, legendaire = 25, mythique = 3 } },
+	basic = {
+		id = "basic",
+		name = "Œuf Fossile",
+		cost = 30,
+		time = 10,
+		color = Color3.fromRGB(235, 225, 195),
+		spot = Color3.fromRGB(160, 130, 90),
+		weights = { commun = 75, peucommun = 22, rare = 3 },
+	},
+	jungle = {
+		id = "jungle",
+		name = "Œuf Jungle",
+		cost = 300,
+		time = 90,
+		color = Color3.fromRGB(120, 200, 110),
+		spot = Color3.fromRGB(40, 110, 50),
+		weights = { commun = 20, peucommun = 50, rare = 27, epique = 3 },
+	},
+	volcano = {
+		id = "volcano",
+		name = "Œuf Volcan",
+		cost = 3000,
+		time = 600,
+		color = Color3.fromRGB(230, 90, 50),
+		spot = Color3.fromRGB(60, 30, 30),
+		weights = { peucommun = 15, rare = 55, epique = 28, legendaire = 2 },
+	},
+	cosmic = {
+		id = "cosmic",
+		name = "Œuf Cosmique",
+		cost = 30000,
+		time = 1800,
+		color = Color3.fromRGB(110, 70, 230),
+		spot = Color3.fromRGB(255, 230, 120),
+		weights = { rare = 10, epique = 62, legendaire = 25, mythique = 3 },
+	},
 }
 
 ----------------------------------------------------------------------
@@ -124,14 +301,46 @@ Config.Eggs = {
 ----------------------------------------------------------------------
 Config.UpgradeOrder = { "shovel", "luck", "hatch", "ticket" }
 Config.Upgrades = {
-	shovel = { id = "shovel", name = "Pelle en or", icon = "⛏", currency = "cash", base = 50, growth = 1.55, max = 25,
-		desc = "+1 fossile par coup de pelle et fouille auto plus rapide." },
-	luck = { id = "luck", name = "Radar à fossiles", icon = "📡", currency = "cash", base = 200, growth = 1.7, max = 15,
-		desc = "+2% de trouvailles x5 et plus de chance de dinos rares." },
-	hatch = { id = "hatch", name = "Incubateur turbo", icon = "🔥", currency = "fossils", base = 40, growth = 1.6, max = 15,
-		desc = "-4% de temps d'éclosion par niveau (max -60%)." },
-	ticket = { id = "ticket", name = "Prix du billet", icon = "🎟", currency = "fossils", base = 60, growth = 1.75, max = 20,
-		desc = "+10% de revenus du parc par niveau." },
+	shovel = {
+		id = "shovel",
+		name = "Pelle en or",
+		icon = "⛏",
+		currency = "cash",
+		base = 50,
+		growth = 1.55,
+		max = 25,
+		desc = "+1 fossile par coup de pelle et fouille auto plus rapide.",
+	},
+	luck = {
+		id = "luck",
+		name = "Radar à fossiles",
+		icon = "📡",
+		currency = "cash",
+		base = 200,
+		growth = 1.7,
+		max = 15,
+		desc = "+2% de trouvailles x5 et plus de chance de dinos rares.",
+	},
+	hatch = {
+		id = "hatch",
+		name = "Incubateur turbo",
+		icon = "🔥",
+		currency = "fossils",
+		base = 40,
+		growth = 1.6,
+		max = 15,
+		desc = "-4% de temps d'éclosion par niveau (max -60%).",
+	},
+	ticket = {
+		id = "ticket",
+		name = "Prix du billet",
+		icon = "🎟",
+		currency = "fossils",
+		base = 60,
+		growth = 1.75,
+		max = 20,
+		desc = "+10% de revenus du parc par niveau.",
+	},
 }
 
 ----------------------------------------------------------------------
@@ -157,7 +366,10 @@ Config.DigCenter = Vector3.new(-32, 0, 60)
 Config.DigRadius = 24
 Config.LabCenter = Vector3.new(32, 0, 59)
 Config.Stands = {
-	Vector3.new(21, 0, 60), Vector3.new(29, 0, 60), Vector3.new(37, 0, 60), Vector3.new(45, 0, 60),
+	Vector3.new(21, 0, 60),
+	Vector3.new(29, 0, 60),
+	Vector3.new(37, 0, 60),
+	Vector3.new(45, 0, 60),
 }
 Config.HelipadCenter = Vector3.new(2, 0, 68)
 
@@ -170,18 +382,73 @@ Config.Buildables = {
 	{ id = "pen6", kind = "pen", name = "Enclos Royal", cost = 3000000, requires = "pen5", pad = Vector3.new(9, 0, 4), index = 6 },
 
 	{ id = "incub2", kind = "incubator", name = "Incubateur 2", cost = 1000, pad = Vector3.new(29, 0, 40), index = 2 },
-	{ id = "incub3", kind = "incubator", name = "Incubateur 3", cost = 12000, requires = "incub2", pad = Vector3.new(37, 0, 40), index = 3 },
-	{ id = "incub4", kind = "incubator", name = "Incubateur 4", cost = 90000, requires = "incub3", pad = Vector3.new(45, 0, 40), index = 4 },
+	{
+		id = "incub3",
+		kind = "incubator",
+		name = "Incubateur 3",
+		cost = 12000,
+		requires = "incub2",
+		pad = Vector3.new(37, 0, 40),
+		index = 3,
+	},
+	{
+		id = "incub4",
+		kind = "incubator",
+		name = "Incubateur 4",
+		cost = 90000,
+		requires = "incub3",
+		pad = Vector3.new(45, 0, 40),
+		index = 4,
+	},
 
 	{ id = "digger1", kind = "digger", name = "Ouvrier 1", cost = 300, pad = Vector3.new(-45, 0, 40), index = 1 },
 	{ id = "digger2", kind = "digger", name = "Ouvrier 2", cost = 2500, requires = "digger1", pad = Vector3.new(-37, 0, 40), index = 2 },
 	{ id = "digger3", kind = "digger", name = "Ouvrier 3", cost = 20000, requires = "digger2", pad = Vector3.new(-29, 0, 40), index = 3 },
 	{ id = "digger4", kind = "digger", name = "Ouvrier 4", cost = 150000, requires = "digger3", pad = Vector3.new(-21, 0, 40), index = 4 },
 
-	{ id = "cafe", kind = "shop", name = "Café du parc", cost = 2000, bonus = 0.20, center = Vector3.new(-24, 0, 30), pad = Vector3.new(-24, 0, 21.5), color = Color3.fromRGB(200, 130, 80) },
-	{ id = "gift", kind = "shop", name = "Boutique cadeaux", cost = 10000, requires = "cafe", bonus = 0.20, center = Vector3.new(24, 0, 30), pad = Vector3.new(24, 0, 21.5), color = Color3.fromRGB(90, 150, 220) },
-	{ id = "hotel", kind = "shop", name = "Hôtel safari", cost = 120000, requires = "gift", bonus = 0.30, center = Vector3.new(-46, 0, 30), pad = Vector3.new(-46, 0, 21.5), color = Color3.fromRGB(230, 200, 120) },
-	{ id = "ride", kind = "shop", name = "Grande roue", cost = 900000, requires = "hotel", bonus = 0.40, center = Vector3.new(46, 0, 28), pad = Vector3.new(46, 0, 21.5), color = Color3.fromRGB(220, 90, 110) },
+	{
+		id = "cafe",
+		kind = "shop",
+		name = "Café du parc",
+		cost = 2000,
+		bonus = 0.20,
+		center = Vector3.new(-24, 0, 30),
+		pad = Vector3.new(-24, 0, 21.5),
+		color = Color3.fromRGB(200, 130, 80),
+	},
+	{
+		id = "gift",
+		kind = "shop",
+		name = "Boutique cadeaux",
+		cost = 10000,
+		requires = "cafe",
+		bonus = 0.20,
+		center = Vector3.new(24, 0, 30),
+		pad = Vector3.new(24, 0, 21.5),
+		color = Color3.fromRGB(90, 150, 220),
+	},
+	{
+		id = "hotel",
+		kind = "shop",
+		name = "Hôtel safari",
+		cost = 120000,
+		requires = "gift",
+		bonus = 0.30,
+		center = Vector3.new(-46, 0, 30),
+		pad = Vector3.new(-46, 0, 21.5),
+		color = Color3.fromRGB(230, 200, 120),
+	},
+	{
+		id = "ride",
+		kind = "shop",
+		name = "Grande roue",
+		cost = 900000,
+		requires = "hotel",
+		bonus = 0.40,
+		center = Vector3.new(46, 0, 28),
+		pad = Vector3.new(46, 0, 21.5),
+		color = Color3.fromRGB(220, 90, 110),
+	},
 
 	{ id = "helipad", kind = "helipad", name = "Hélipad (collecte auto)", cost = 50000, requires = "cafe", pad = Vector3.new(2, 0, 58) },
 }
@@ -226,7 +493,7 @@ Config.QuestCount = 3
 
 -- Événement serveur : pluie de météores
 Config.Event = {
-	interval = 600,   -- toutes les 10 minutes
+	interval = 600, -- toutes les 10 minutes
 	duration = 60,
 	spawnEvery = 2.5,
 	maxAlive = 4,

@@ -25,14 +25,14 @@ Config.SaveInterval = 60
 Config.LockTimeout = 150 -- secondes avant qu'un verrou de session soit considéré périmé
 
 -- Économie générale
-Config.BaseSlots = 4          -- emplacements de dinos dans l'enclos 1
+Config.BaseSlots = 4 -- emplacements de dinos dans l'enclos 1
 Config.SlotsPerPen = 4
-Config.GoldenChance = 0.02    -- chance d'un dino doré à l'éclosion
+Config.GoldenChance = 0.02 -- chance d'un dino doré à l'éclosion
 Config.GoldenMultiplier = 3
 Config.CollectionBonus = 0.02 -- +2% de revenus par dino découvert
 Config.RebirthIncomeBonus = 0.5
 Config.RebirthFossilBonus = 0.25
-Config.BoothSeconds = 900     -- le kiosque stocke 15 minutes de revenus
+Config.BoothSeconds = 900 -- le kiosque stocke 15 minutes de revenus
 Config.OfflineMaxSeconds = 7200
 Config.OfflineEfficiency = 0.5
 Config.CritMultiplier = 5
@@ -78,29 +78,178 @@ Config.RarityById = {
 ----------------------------------------------------------------------
 -- archetype : forme de blocs définie dans DinoShapes
 Config.Dinos = {
-	{ id = "compy", name = "Compy", rarity = "commun", archetype = "raptor", scale = 0.55, body = Color3.fromRGB(120, 190, 90), accent = Color3.fromRGB(240, 220, 120) },
-	{ id = "psitta", name = "Psitta", rarity = "commun", archetype = "tricera", scale = 0.5, body = Color3.fromRGB(210, 180, 120), accent = Color3.fromRGB(150, 110, 70) },
-	{ id = "dryo", name = "Dryo", rarity = "commun", archetype = "stego", scale = 0.45, body = Color3.fromRGB(150, 120, 90), accent = Color3.fromRGB(230, 200, 100) },
+	{
+		id = "compy",
+		name = "Compy",
+		rarity = "commun",
+		archetype = "raptor",
+		scale = 0.55,
+		body = Color3.fromRGB(120, 190, 90),
+		accent = Color3.fromRGB(240, 220, 120),
+	},
+	{
+		id = "psitta",
+		name = "Psitta",
+		rarity = "commun",
+		archetype = "tricera",
+		scale = 0.5,
+		body = Color3.fromRGB(210, 180, 120),
+		accent = Color3.fromRGB(150, 110, 70),
+	},
+	{
+		id = "dryo",
+		name = "Dryo",
+		rarity = "commun",
+		archetype = "stego",
+		scale = 0.45,
+		body = Color3.fromRGB(150, 120, 90),
+		accent = Color3.fromRGB(230, 200, 100),
+	},
 
-	{ id = "velo", name = "Vélo", rarity = "peucommun", archetype = "raptor", scale = 0.8, body = Color3.fromRGB(230, 130, 50), accent = Color3.fromRGB(60, 40, 30) },
-	{ id = "kentro", name = "Kentro", rarity = "peucommun", archetype = "stego", scale = 0.6, body = Color3.fromRGB(60, 170, 170), accent = Color3.fromRGB(250, 240, 200) },
-	{ id = "para", name = "Para", rarity = "peucommun", archetype = "bronto", scale = 0.45, body = Color3.fromRGB(140, 160, 70), accent = Color3.fromRGB(220, 220, 130) },
+	{
+		id = "velo",
+		name = "Vélo",
+		rarity = "peucommun",
+		archetype = "raptor",
+		scale = 0.8,
+		body = Color3.fromRGB(230, 130, 50),
+		accent = Color3.fromRGB(60, 40, 30),
+	},
+	{
+		id = "kentro",
+		name = "Kentro",
+		rarity = "peucommun",
+		archetype = "stego",
+		scale = 0.6,
+		body = Color3.fromRGB(60, 170, 170),
+		accent = Color3.fromRGB(250, 240, 200),
+	},
+	{
+		id = "para",
+		name = "Para",
+		rarity = "peucommun",
+		archetype = "bronto",
+		scale = 0.45,
+		body = Color3.fromRGB(140, 160, 70),
+		accent = Color3.fromRGB(220, 220, 130),
+	},
 
-	{ id = "tricera", name = "Tricéra", rarity = "rare", archetype = "tricera", scale = 0.9, body = Color3.fromRGB(110, 140, 170), accent = Color3.fromRGB(240, 230, 200) },
-	{ id = "stego", name = "Stégo", rarity = "rare", archetype = "stego", scale = 0.95, body = Color3.fromRGB(120, 90, 160), accent = Color3.fromRGB(130, 220, 120) },
-	{ id = "anky", name = "Ankylo", rarity = "rare", archetype = "ankylo", scale = 0.9, body = Color3.fromRGB(150, 100, 60), accent = Color3.fromRGB(230, 160, 70) },
+	{
+		id = "tricera",
+		name = "Tricéra",
+		rarity = "rare",
+		archetype = "tricera",
+		scale = 0.9,
+		body = Color3.fromRGB(110, 140, 170),
+		accent = Color3.fromRGB(240, 230, 200),
+	},
+	{
+		id = "stego",
+		name = "Stégo",
+		rarity = "rare",
+		archetype = "stego",
+		scale = 0.95,
+		body = Color3.fromRGB(120, 90, 160),
+		accent = Color3.fromRGB(130, 220, 120),
+	},
+	{
+		id = "anky",
+		name = "Ankylo",
+		rarity = "rare",
+		archetype = "ankylo",
+		scale = 0.9,
+		body = Color3.fromRGB(150, 100, 60),
+		accent = Color3.fromRGB(230, 160, 70),
+	},
 
-	{ id = "rex", name = "T-Rex", rarity = "epique", archetype = "trex", scale = 1.0, body = Color3.fromRGB(70, 130, 70), accent = Color3.fromRGB(200, 220, 110) },
-	{ id = "brachio", name = "Brachio", rarity = "epique", archetype = "bronto", scale = 1.0, body = Color3.fromRGB(100, 170, 220), accent = Color3.fromRGB(240, 240, 255) },
-	{ id = "ptera", name = "Ptéra", rarity = "epique", archetype = "ptero", scale = 1.0, body = Color3.fromRGB(230, 130, 120), accent = Color3.fromRGB(255, 220, 160) },
+	{
+		id = "rex",
+		name = "T-Rex",
+		rarity = "epique",
+		archetype = "trex",
+		scale = 1.0,
+		body = Color3.fromRGB(70, 130, 70),
+		accent = Color3.fromRGB(200, 220, 110),
+	},
+	{
+		id = "brachio",
+		name = "Brachio",
+		rarity = "epique",
+		archetype = "bronto",
+		scale = 1.0,
+		body = Color3.fromRGB(100, 170, 220),
+		accent = Color3.fromRGB(240, 240, 255),
+	},
+	{
+		id = "ptera",
+		name = "Ptéra",
+		rarity = "epique",
+		archetype = "ptero",
+		scale = 1.0,
+		body = Color3.fromRGB(230, 130, 120),
+		accent = Color3.fromRGB(255, 220, 160),
+	},
 
-	{ id = "spino", name = "Spino", rarity = "legendaire", archetype = "spino", scale = 0.95, body = Color3.fromRGB(40, 150, 150), accent = Color3.fromRGB(255, 140, 40) },
-	{ id = "dilopho", name = "Dilopho", rarity = "legendaire", archetype = "dilopho", scale = 1.0, body = Color3.fromRGB(190, 60, 60), accent = Color3.fromRGB(255, 200, 60) },
-	{ id = "carno", name = "Carno", rarity = "legendaire", archetype = "carno", scale = 1.0, body = Color3.fromRGB(170, 50, 40), accent = Color3.fromRGB(240, 230, 210) },
+	{
+		id = "spino",
+		name = "Spino",
+		rarity = "legendaire",
+		archetype = "spino",
+		scale = 0.95,
+		body = Color3.fromRGB(40, 150, 150),
+		accent = Color3.fromRGB(255, 140, 40),
+	},
+	{
+		id = "dilopho",
+		name = "Dilopho",
+		rarity = "legendaire",
+		archetype = "dilopho",
+		scale = 1.0,
+		body = Color3.fromRGB(190, 60, 60),
+		accent = Color3.fromRGB(255, 200, 60),
+	},
+	{
+		id = "carno",
+		name = "Carno",
+		rarity = "legendaire",
+		archetype = "carno",
+		scale = 1.0,
+		body = Color3.fromRGB(170, 50, 40),
+		accent = Color3.fromRGB(240, 230, 210),
+	},
 
-	{ id = "crystal", name = "Rex Cristal", rarity = "mythique", archetype = "trex", scale = 1.1, body = Color3.fromRGB(120, 230, 255), accent = Color3.fromRGB(255, 255, 255), material = "Glass", neon = true },
-	{ id = "galaxy", name = "Brachio Galaxie", rarity = "mythique", archetype = "bronto", scale = 1.1, body = Color3.fromRGB(90, 60, 200), accent = Color3.fromRGB(255, 120, 255), material = "Neon" },
-	{ id = "aurore", name = "Aurore", rarity = "mythique", archetype = "ptero", scale = 1.2, body = Color3.fromRGB(255, 130, 190), accent = Color3.fromRGB(255, 240, 150), material = "Neon", secret = true },
+	{
+		id = "crystal",
+		name = "Rex Cristal",
+		rarity = "mythique",
+		archetype = "trex",
+		scale = 1.1,
+		body = Color3.fromRGB(120, 230, 255),
+		accent = Color3.fromRGB(255, 255, 255),
+		material = "Glass",
+		neon = true,
+	},
+	{
+		id = "galaxy",
+		name = "Brachio Galaxie",
+		rarity = "mythique",
+		archetype = "bronto",
+		scale = 1.1,
+		body = Color3.fromRGB(90, 60, 200),
+		accent = Color3.fromRGB(255, 120, 255),
+		material = "Neon",
+	},
+	{
+		id = "aurore",
+		name = "Aurore",
+		rarity = "mythique",
+		archetype = "ptero",
+		scale = 1.2,
+		body = Color3.fromRGB(255, 130, 190),
+		accent = Color3.fromRGB(255, 240, 150),
+		material = "Neon",
+		secret = true,
+	},
 }
 Config.DinoById = {}
 Config.DinosByRarity = {}
@@ -121,14 +270,42 @@ Config.SecretDinoId = "aurore"
 ----------------------------------------------------------------------
 Config.EggOrder = { "basic", "jungle", "volcano", "cosmic" }
 Config.Eggs = {
-	basic = { id = "basic", name = "Œuf Fossile", cost = 30, time = 10, color = Color3.fromRGB(235, 225, 195), spot = Color3.fromRGB(160, 130, 90),
-		weights = { commun = 75, peucommun = 22, rare = 3 } },
-	jungle = { id = "jungle", name = "Œuf Jungle", cost = 300, time = 90, color = Color3.fromRGB(120, 200, 110), spot = Color3.fromRGB(40, 110, 50),
-		weights = { commun = 20, peucommun = 50, rare = 27, epique = 3 } },
-	volcano = { id = "volcano", name = "Œuf Volcan", cost = 3000, time = 600, color = Color3.fromRGB(230, 90, 50), spot = Color3.fromRGB(60, 30, 30),
-		weights = { peucommun = 15, rare = 55, epique = 28, legendaire = 2 } },
-	cosmic = { id = "cosmic", name = "Œuf Cosmique", cost = 30000, time = 1800, color = Color3.fromRGB(110, 70, 230), spot = Color3.fromRGB(255, 230, 120),
-		weights = { rare = 10, epique = 62, legendaire = 25, mythique = 3 } },
+	basic = {
+		id = "basic",
+		name = "Œuf Fossile",
+		cost = 30,
+		time = 10,
+		color = Color3.fromRGB(235, 225, 195),
+		spot = Color3.fromRGB(160, 130, 90),
+		weights = { commun = 75, peucommun = 22, rare = 3 },
+	},
+	jungle = {
+		id = "jungle",
+		name = "Œuf Jungle",
+		cost = 300,
+		time = 90,
+		color = Color3.fromRGB(120, 200, 110),
+		spot = Color3.fromRGB(40, 110, 50),
+		weights = { commun = 20, peucommun = 50, rare = 27, epique = 3 },
+	},
+	volcano = {
+		id = "volcano",
+		name = "Œuf Volcan",
+		cost = 3000,
+		time = 600,
+		color = Color3.fromRGB(230, 90, 50),
+		spot = Color3.fromRGB(60, 30, 30),
+		weights = { peucommun = 15, rare = 55, epique = 28, legendaire = 2 },
+	},
+	cosmic = {
+		id = "cosmic",
+		name = "Œuf Cosmique",
+		cost = 30000,
+		time = 1800,
+		color = Color3.fromRGB(110, 70, 230),
+		spot = Color3.fromRGB(255, 230, 120),
+		weights = { rare = 10, epique = 62, legendaire = 25, mythique = 3 },
+	},
 }
 
 ----------------------------------------------------------------------
@@ -136,14 +313,46 @@ Config.Eggs = {
 ----------------------------------------------------------------------
 Config.UpgradeOrder = { "shovel", "luck", "hatch", "ticket" }
 Config.Upgrades = {
-	shovel = { id = "shovel", name = "Pelle en or", icon = "⛏", currency = "cash", base = 50, growth = 1.55, max = 25,
-		desc = "+1 fossile par coup de pelle et fouille auto plus rapide." },
-	luck = { id = "luck", name = "Radar à fossiles", icon = "📡", currency = "cash", base = 200, growth = 1.7, max = 15,
-		desc = "+2% de trouvailles x5 et plus de chance de dinos rares." },
-	hatch = { id = "hatch", name = "Incubateur turbo", icon = "🔥", currency = "fossils", base = 40, growth = 1.6, max = 15,
-		desc = "-4% de temps d'éclosion par niveau (max -60%)." },
-	ticket = { id = "ticket", name = "Prix du billet", icon = "🎟", currency = "fossils", base = 60, growth = 1.75, max = 20,
-		desc = "+10% de revenus du parc par niveau." },
+	shovel = {
+		id = "shovel",
+		name = "Pelle en or",
+		icon = "⛏",
+		currency = "cash",
+		base = 50,
+		growth = 1.55,
+		max = 25,
+		desc = "+1 fossile par coup de pelle et fouille auto plus rapide.",
+	},
+	luck = {
+		id = "luck",
+		name = "Radar à fossiles",
+		icon = "📡",
+		currency = "cash",
+		base = 200,
+		growth = 1.7,
+		max = 15,
+		desc = "+2% de trouvailles x5 et plus de chance de dinos rares.",
+	},
+	hatch = {
+		id = "hatch",
+		name = "Incubateur turbo",
+		icon = "🔥",
+		currency = "fossils",
+		base = 40,
+		growth = 1.6,
+		max = 15,
+		desc = "-4% de temps d'éclosion par niveau (max -60%).",
+	},
+	ticket = {
+		id = "ticket",
+		name = "Prix du billet",
+		icon = "🎟",
+		currency = "fossils",
+		base = 60,
+		growth = 1.75,
+		max = 20,
+		desc = "+10% de revenus du parc par niveau.",
+	},
 }
 
 ----------------------------------------------------------------------
@@ -169,7 +378,10 @@ Config.DigCenter = Vector3.new(-32, 0, 60)
 Config.DigRadius = 24
 Config.LabCenter = Vector3.new(32, 0, 59)
 Config.Stands = {
-	Vector3.new(21, 0, 60), Vector3.new(29, 0, 60), Vector3.new(37, 0, 60), Vector3.new(45, 0, 60),
+	Vector3.new(21, 0, 60),
+	Vector3.new(29, 0, 60),
+	Vector3.new(37, 0, 60),
+	Vector3.new(45, 0, 60),
 }
 Config.HelipadCenter = Vector3.new(2, 0, 68)
 
@@ -182,18 +394,73 @@ Config.Buildables = {
 	{ id = "pen6", kind = "pen", name = "Enclos Royal", cost = 3000000, requires = "pen5", pad = Vector3.new(9, 0, 4), index = 6 },
 
 	{ id = "incub2", kind = "incubator", name = "Incubateur 2", cost = 1000, pad = Vector3.new(29, 0, 40), index = 2 },
-	{ id = "incub3", kind = "incubator", name = "Incubateur 3", cost = 12000, requires = "incub2", pad = Vector3.new(37, 0, 40), index = 3 },
-	{ id = "incub4", kind = "incubator", name = "Incubateur 4", cost = 90000, requires = "incub3", pad = Vector3.new(45, 0, 40), index = 4 },
+	{
+		id = "incub3",
+		kind = "incubator",
+		name = "Incubateur 3",
+		cost = 12000,
+		requires = "incub2",
+		pad = Vector3.new(37, 0, 40),
+		index = 3,
+	},
+	{
+		id = "incub4",
+		kind = "incubator",
+		name = "Incubateur 4",
+		cost = 90000,
+		requires = "incub3",
+		pad = Vector3.new(45, 0, 40),
+		index = 4,
+	},
 
 	{ id = "digger1", kind = "digger", name = "Ouvrier 1", cost = 300, pad = Vector3.new(-45, 0, 40), index = 1 },
 	{ id = "digger2", kind = "digger", name = "Ouvrier 2", cost = 2500, requires = "digger1", pad = Vector3.new(-37, 0, 40), index = 2 },
 	{ id = "digger3", kind = "digger", name = "Ouvrier 3", cost = 20000, requires = "digger2", pad = Vector3.new(-29, 0, 40), index = 3 },
 	{ id = "digger4", kind = "digger", name = "Ouvrier 4", cost = 150000, requires = "digger3", pad = Vector3.new(-21, 0, 40), index = 4 },
 
-	{ id = "cafe", kind = "shop", name = "Café du parc", cost = 2000, bonus = 0.20, center = Vector3.new(-24, 0, 30), pad = Vector3.new(-24, 0, 21.5), color = Color3.fromRGB(200, 130, 80) },
-	{ id = "gift", kind = "shop", name = "Boutique cadeaux", cost = 10000, requires = "cafe", bonus = 0.20, center = Vector3.new(24, 0, 30), pad = Vector3.new(24, 0, 21.5), color = Color3.fromRGB(90, 150, 220) },
-	{ id = "hotel", kind = "shop", name = "Hôtel safari", cost = 120000, requires = "gift", bonus = 0.30, center = Vector3.new(-46, 0, 30), pad = Vector3.new(-46, 0, 21.5), color = Color3.fromRGB(230, 200, 120) },
-	{ id = "ride", kind = "shop", name = "Grande roue", cost = 900000, requires = "hotel", bonus = 0.40, center = Vector3.new(46, 0, 28), pad = Vector3.new(46, 0, 21.5), color = Color3.fromRGB(220, 90, 110) },
+	{
+		id = "cafe",
+		kind = "shop",
+		name = "Café du parc",
+		cost = 2000,
+		bonus = 0.20,
+		center = Vector3.new(-24, 0, 30),
+		pad = Vector3.new(-24, 0, 21.5),
+		color = Color3.fromRGB(200, 130, 80),
+	},
+	{
+		id = "gift",
+		kind = "shop",
+		name = "Boutique cadeaux",
+		cost = 10000,
+		requires = "cafe",
+		bonus = 0.20,
+		center = Vector3.new(24, 0, 30),
+		pad = Vector3.new(24, 0, 21.5),
+		color = Color3.fromRGB(90, 150, 220),
+	},
+	{
+		id = "hotel",
+		kind = "shop",
+		name = "Hôtel safari",
+		cost = 120000,
+		requires = "gift",
+		bonus = 0.30,
+		center = Vector3.new(-46, 0, 30),
+		pad = Vector3.new(-46, 0, 21.5),
+		color = Color3.fromRGB(230, 200, 120),
+	},
+	{
+		id = "ride",
+		kind = "shop",
+		name = "Grande roue",
+		cost = 900000,
+		requires = "hotel",
+		bonus = 0.40,
+		center = Vector3.new(46, 0, 28),
+		pad = Vector3.new(46, 0, 21.5),
+		color = Color3.fromRGB(220, 90, 110),
+	},
 
 	{ id = "helipad", kind = "helipad", name = "Hélipad (collecte auto)", cost = 50000, requires = "cafe", pad = Vector3.new(2, 0, 58) },
 }
@@ -238,7 +505,7 @@ Config.QuestCount = 3
 
 -- Événement serveur : pluie de météores
 Config.Event = {
-	interval = 600,   -- toutes les 10 minutes
+	interval = 600, -- toutes les 10 minutes
 	duration = 60,
 	spawnEvery = 2.5,
 	maxAlive = 4,
@@ -805,8 +1072,11 @@ return Economy
 local HumanFactory = {}
 
 local SKIN = {
-	Color3.fromRGB(245, 205, 48), Color3.fromRGB(255, 204, 153), Color3.fromRGB(234, 184, 146),
-	Color3.fromRGB(190, 130, 90), Color3.fromRGB(120, 80, 55),
+	Color3.fromRGB(245, 205, 48),
+	Color3.fromRGB(255, 204, 153),
+	Color3.fromRGB(234, 184, 146),
+	Color3.fromRGB(190, 130, 90),
+	Color3.fromRGB(120, 80, 55),
 }
 
 local function block(model, name, size, color)
@@ -1571,7 +1841,7 @@ local function addDino(data, key)
 end
 
 local function grantEgg(player, s, eggId)
-	local key, dino, golden = Economy.rollEgg(eggId, s.data, rand)
+	local key = Economy.rollEgg(eggId, s.data, rand)
 	local isNew = addDino(s.data, key)
 	s.data.stats.hatched = s.data.stats.hatched + 1
 	PlotService.refresh(player, s.data)
@@ -1738,7 +2008,7 @@ local function collectHatch(player, slot)
 	end
 	data.eggSlots[tostring(slot)] = nil
 	questProgress(s, "hatch", 1)
-	local key, isNew = grantEgg(player, s, info.egg)
+	local key = grantEgg(player, s, info.egg)
 	local id = Economy.parseKey(key)
 	local d = Config.DinoById[id]
 	if Config.RarityById[d.rarity].order >= 5 then
@@ -2986,17 +3256,45 @@ end
 
 local function tree(parent, pos, scale, leaf)
 	scale = scale or 1
-	local trunk = W.decor(W.part(parent, "Tronc", Vector3.new(1.6 * scale, 6 * scale, 1.6 * scale), CFrame.new(pos + Vector3.new(0, 3 * scale, 0)), Color3.fromRGB(110, 75, 45), M.Wood))
+	local trunk = W.decor(
+		W.part(
+			parent,
+			"Tronc",
+			Vector3.new(1.6 * scale, 6 * scale, 1.6 * scale),
+			CFrame.new(pos + Vector3.new(0, 3 * scale, 0)),
+			Color3.fromRGB(110, 75, 45),
+			M.Wood
+		)
+	)
 	trunk.CanCollide = false
-	local f1 = W.decor(W.ball(parent, "Feuilles", 7 * scale, pos + Vector3.new(0, 8 * scale, 0), leaf or Color3.fromRGB(60, 150, 60), M.Grass))
-	local f2 = W.decor(W.ball(parent, "Feuilles2", 5 * scale, pos + Vector3.new(1.5 * scale, 10.5 * scale, 0.5 * scale), leaf or Color3.fromRGB(70, 165, 70), M.Grass))
+	local f1 =
+		W.decor(W.ball(parent, "Feuilles", 7 * scale, pos + Vector3.new(0, 8 * scale, 0), leaf or Color3.fromRGB(60, 150, 60), M.Grass))
+	local f2 = W.decor(
+		W.ball(
+			parent,
+			"Feuilles2",
+			5 * scale,
+			pos + Vector3.new(1.5 * scale, 10.5 * scale, 0.5 * scale),
+			leaf or Color3.fromRGB(70, 165, 70),
+			M.Grass
+		)
+	)
 	f1.CanCollide = false
 	f2.CanCollide = false
 end
 W.tree = tree
 
 local function rock(parent, pos, scale, color)
-	local r = W.decor(W.part(parent, "Rocher", Vector3.new(3 * scale, 2 * scale, 2.6 * scale), CFrame.new(pos + Vector3.new(0, scale, 0)) * CFrame.Angles(0, math.rad(pos.X * 13 % 180), 0), color or Color3.fromRGB(125, 125, 130), M.Slate))
+	local r = W.decor(
+		W.part(
+			parent,
+			"Rocher",
+			Vector3.new(3 * scale, 2 * scale, 2.6 * scale),
+			CFrame.new(pos + Vector3.new(0, scale, 0)) * CFrame.Angles(0, math.rad(pos.X * 13 % 180), 0),
+			color or Color3.fromRGB(125, 125, 130),
+			M.Slate
+		)
+	)
 	return r
 end
 W.rock = rock
@@ -3097,20 +3395,47 @@ function W.buildPen(plot, index)
 		rock(folder, at(0, 0), 0.8)
 	elseif index == 3 then
 		for _, o in ipairs({ { -14, -9 }, { 13, 9 }, { 0, 0 } }) do
-			local lava = W.decor(W.part(folder, "Lave", Vector3.new(5, 0.2, 5), CFrame.new(at(o[1], o[2]) + Vector3.new(0, 0.15, 0)), Color3.fromRGB(255, 110, 20), M.Neon))
+			local lava = W.decor(
+				W.part(
+					folder,
+					"Lave",
+					Vector3.new(5, 0.2, 5),
+					CFrame.new(at(o[1], o[2]) + Vector3.new(0, 0.15, 0)),
+					Color3.fromRGB(255, 110, 20),
+					M.Neon
+				)
+			)
 			lava.CanCollide = false
 		end
 		rock(folder, at(-6, 8), 1.2, Color3.fromRGB(60, 50, 50))
 		rock(folder, at(8, -8), 1.4, Color3.fromRGB(60, 50, 50))
 	elseif index == 4 then
-		local w = W.decor(W.part(folder, "Lac", Vector3.new(12, 0.2, 9), CFrame.new(at(0, 0) + Vector3.new(0, 0.2, 0)), Color3.fromRGB(70, 160, 230), M.Glass))
+		local w = W.decor(
+			W.part(
+				folder,
+				"Lac",
+				Vector3.new(12, 0.2, 9),
+				CFrame.new(at(0, 0) + Vector3.new(0, 0.2, 0)),
+				Color3.fromRGB(70, 160, 230),
+				M.Glass
+			)
+		)
 		w.Transparency = 0.35
 		w.CanCollide = false
 		tree(folder, at(-15, 10), 0.8, Color3.fromRGB(90, 170, 90))
 		rock(folder, at(14, -9), 0.9)
 	elseif index == 5 then
 		for _, o in ipairs({ { -14, -9 }, { 14, 9 }, { 0, 10 } }) do
-			local spike = W.decor(W.part(folder, "Glacon", Vector3.new(2, 5, 2), CFrame.new(at(o[1], o[2]) + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0.5, 0.1), Color3.fromRGB(190, 230, 255), M.Ice))
+			local spike = W.decor(
+				W.part(
+					folder,
+					"Glacon",
+					Vector3.new(2, 5, 2),
+					CFrame.new(at(o[1], o[2]) + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0.5, 0.1),
+					Color3.fromRGB(190, 230, 255),
+					M.Ice
+				)
+			)
 			spike.Transparency = 0.2
 		end
 	else
@@ -3131,9 +3456,37 @@ function W.buildShop(plot, def)
 		-- grande roue : roue dans le plan YZ, axe le long de X
 		local r = 11
 		local hubY = 15
-		W.decor(W.part(folder, "Pied1", Vector3.new(2, 15, 2), L(plot, c.X - 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(15)), Color3.fromRGB(230, 230, 235), M.Metal))
-		W.decor(W.part(folder, "Pied2", Vector3.new(2, 15, 2), L(plot, c.X + 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(-15)), Color3.fromRGB(230, 230, 235), M.Metal))
-		W.decor(W.part(folder, "Axe", Vector3.new(10, 2.5, 2.5), L(plot, c.X, hubY, c.Z), Color3.fromRGB(255, 220, 90), M.Metal, Enum.PartType.Cylinder))
+		W.decor(
+			W.part(
+				folder,
+				"Pied1",
+				Vector3.new(2, 15, 2),
+				L(plot, c.X - 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(15)),
+				Color3.fromRGB(230, 230, 235),
+				M.Metal
+			)
+		)
+		W.decor(
+			W.part(
+				folder,
+				"Pied2",
+				Vector3.new(2, 15, 2),
+				L(plot, c.X + 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(-15)),
+				Color3.fromRGB(230, 230, 235),
+				M.Metal
+			)
+		)
+		W.decor(
+			W.part(
+				folder,
+				"Axe",
+				Vector3.new(10, 2.5, 2.5),
+				L(plot, c.X, hubY, c.Z),
+				Color3.fromRGB(255, 220, 90),
+				M.Metal,
+				Enum.PartType.Cylinder
+			)
+		)
 		local n = 10
 		local hub = W.toWorld(plot, Vector3.new(c.X, hubY, c.Z))
 		for i = 1, n do
@@ -3141,9 +3494,13 @@ function W.buildShop(plot, def)
 			local py, pz = math.sin(a) * r, math.cos(a) * r
 			local rim = W.toWorld(plot, Vector3.new(c.X, hubY + py, c.Z + pz))
 			local mid = (hub + rim) / 2
-			local spoke = W.decor(W.part(folder, "Rayon" .. i, Vector3.new(0.4, 0.4, r), CFrame.lookAt(mid, rim), Color3.fromRGB(240, 240, 245), M.Metal))
+			local spoke = W.decor(
+				W.part(folder, "Rayon" .. i, Vector3.new(0.4, 0.4, r), CFrame.lookAt(mid, rim), Color3.fromRGB(240, 240, 245), M.Metal)
+			)
 			spoke.CanCollide = false
-			local gondola = W.decor(W.part(folder, "Nacelle" .. i, Vector3.new(2.4, 2.4, 2.4), CFrame.new(rim), Color3.fromHSV(i / n, 0.6, 1), M.SmoothPlastic))
+			local gondola = W.decor(
+				W.part(folder, "Nacelle" .. i, Vector3.new(2.4, 2.4, 2.4), CFrame.new(rim), Color3.fromHSV(i / n, 0.6, 1), M.SmoothPlastic)
+			)
 			gondola.CanCollide = false
 		end
 		W.sign(folder, "Enseigne", Vector3.new(9, 2.4, 0.4), L(plot, c.X, 3, c.Z - 7), "GRANDE ROUE", Color3.fromRGB(200, 60, 80))
@@ -3156,13 +3513,46 @@ function W.buildShop(plot, def)
 	end
 	W.part(folder, "Murs", Vector3.new(w, h, d), L(plot, c.X, h / 2, c.Z), col, M.Brick)
 	W.part(folder, "Toit", Vector3.new(w + 2, 1, d + 2), L(plot, c.X, h + 0.5, c.Z), Color3.fromRGB(150, 60, 50), M.Slate)
-	local door = W.decor(W.part(folder, "Porte", Vector3.new(3, 4, 0.4), L(plot, c.X, 2, c.Z - d / 2 - 0.1), Color3.fromRGB(80, 55, 40), M.Wood))
-	W.decor(W.part(folder, "Vitre", Vector3.new(4, 2.4, 0.3), L(plot, c.X + w / 3, 3, c.Z - d / 2 - 0.1), Color3.fromRGB(170, 220, 255), M.Glass))
+	local door =
+		W.decor(W.part(folder, "Porte", Vector3.new(3, 4, 0.4), L(plot, c.X, 2, c.Z - d / 2 - 0.1), Color3.fromRGB(80, 55, 40), M.Wood))
+	W.decor(
+		W.part(
+			folder,
+			"Vitre",
+			Vector3.new(4, 2.4, 0.3),
+			L(plot, c.X + w / 3, 3, c.Z - d / 2 - 0.1),
+			Color3.fromRGB(170, 220, 255),
+			M.Glass
+		)
+	)
 	door.CanCollide = false
-	W.sign(folder, "Enseigne", Vector3.new(w - 2, 2.2, 0.4), L(plot, c.X, h + 2.4, c.Z - d / 2 - 0.4), string.upper(def.name), Color3.fromRGB(60, 40, 30))
+	W.sign(
+		folder,
+		"Enseigne",
+		Vector3.new(w - 2, 2.2, 0.4),
+		L(plot, c.X, h + 2.4, c.Z - d / 2 - 0.4),
+		string.upper(def.name),
+		Color3.fromRGB(60, 40, 30)
+	)
 	if def.id == "cafe" then
-		W.cylinder(folder, "Table", 0.4, 3, W.toWorld(plot, Vector3.new(c.X - 5, 2.4, c.Z - d / 2 - 3)), Color3.fromRGB(240, 240, 240), M.SmoothPlastic)
-		W.cylinder(folder, "Pied", 2.2, 0.6, W.toWorld(plot, Vector3.new(c.X - 5, 1.2, c.Z - d / 2 - 3)), Color3.fromRGB(60, 60, 60), M.Metal)
+		W.cylinder(
+			folder,
+			"Table",
+			0.4,
+			3,
+			W.toWorld(plot, Vector3.new(c.X - 5, 2.4, c.Z - d / 2 - 3)),
+			Color3.fromRGB(240, 240, 240),
+			M.SmoothPlastic
+		)
+		W.cylinder(
+			folder,
+			"Pied",
+			2.2,
+			0.6,
+			W.toWorld(plot, Vector3.new(c.X - 5, 1.2, c.Z - d / 2 - 3)),
+			Color3.fromRGB(60, 60, 60),
+			M.Metal
+		)
 	end
 	return folder
 end
@@ -3174,7 +3564,16 @@ function W.buildStand(plot, slot)
 	local c = Config.Stands[slot]
 	W.cylinder(folder, "Socle", 2.2, 5, W.toWorld(plot, Vector3.new(c.X, 1.1, c.Z)), Color3.fromRGB(190, 190, 200), M.Concrete)
 	W.cylinder(folder, "Plaque", 0.3, 4, W.toWorld(plot, Vector3.new(c.X, 2.35, c.Z)), Color3.fromRGB(70, 200, 255), M.Neon)
-	local egg = W.decor(W.ellipsoid(folder, "Oeuf", Vector3.new(2.6, 3.4, 2.6), CFrame.new(W.toWorld(plot, Vector3.new(c.X, 4.2, c.Z))), Color3.fromRGB(235, 225, 195), M.SmoothPlastic))
+	local egg = W.decor(
+		W.ellipsoid(
+			folder,
+			"Oeuf",
+			Vector3.new(2.6, 3.4, 2.6),
+			CFrame.new(W.toWorld(plot, Vector3.new(c.X, 4.2, c.Z))),
+			Color3.fromRGB(235, 225, 195),
+			M.SmoothPlastic
+		)
+	)
 	egg.CanCollide = false
 	egg.Transparency = 1
 	local pp = W.prompt(folder.Socle, "Placer un œuf", "Incubateur " .. slot, 11)
@@ -3187,7 +3586,12 @@ function W.buildDigger(plot, index)
 	folder.Parent = plot.dyn
 	local offs = { Vector3.new(-9, 0, -8), Vector3.new(9, 0, -8), Vector3.new(-9, 0, 9), Vector3.new(9, 0, 9) }
 	local o = Config.DigCenter + offs[index]
-	local human = HumanFactory.build({ name = "Ouvrier", hat = Color3.fromRGB(255, 200, 30), shirt = Color3.fromRGB(240, 120, 30), skin = Color3.fromRGB(255, 204, 153) })
+	local human = HumanFactory.build({
+		name = "Ouvrier",
+		hat = Color3.fromRGB(255, 200, 30),
+		shirt = Color3.fromRGB(240, 120, 30),
+		skin = Color3.fromRGB(255, 204, 153),
+	})
 	local face = Config.DigCenter
 	local cf = CFrame.lookAt(W.toWorld(plot, o), W.toWorld(plot, Vector3.new(face.X, 0, face.Z)))
 	HumanFactory.pose(human, cf, 0, 0.4)
@@ -3222,8 +3626,22 @@ end
 
 -- Bouton d'achat au sol. Retourne la Part (avec BillboardGui).
 function W.buildPad(plot, def)
-	local colors = { pen = Color3.fromRGB(80, 200, 100), incubator = Color3.fromRGB(80, 190, 255), digger = Color3.fromRGB(255, 170, 60), shop = Color3.fromRGB(255, 110, 150), helipad = Color3.fromRGB(200, 120, 255) }
-	local p = W.cylinder(plot.padFolder, "Pad_" .. def.id, 0.6, 6, W.toWorld(plot, Vector3.new(def.pad.X, 0.55, def.pad.Z)), colors[def.kind] or Color3.fromRGB(255, 255, 255), M.Neon)
+	local colors = {
+		pen = Color3.fromRGB(80, 200, 100),
+		incubator = Color3.fromRGB(80, 190, 255),
+		digger = Color3.fromRGB(255, 170, 60),
+		shop = Color3.fromRGB(255, 110, 150),
+		helipad = Color3.fromRGB(200, 120, 255),
+	}
+	local p = W.cylinder(
+		plot.padFolder,
+		"Pad_" .. def.id,
+		0.6,
+		6,
+		W.toWorld(plot, Vector3.new(def.pad.X, 0.55, def.pad.Z)),
+		colors[def.kind] or Color3.fromRGB(255, 255, 255),
+		M.Neon
+	)
 	p.CanCollide = false
 	p.CanQuery = false
 	p:SetAttribute("BuildableId", def.id)
@@ -3287,7 +3705,15 @@ local function buildPlotStatic(index, cf)
 	-- portail
 	W.part(static, "PilierG", Vector3.new(3, 12, 3), L(plot, -8, 6, -pd / 2), Color3.fromRGB(200, 190, 170), M.Brick)
 	W.part(static, "PilierD", Vector3.new(3, 12, 3), L(plot, 8, 6, -pd / 2), Color3.fromRGB(200, 190, 170), M.Brick)
-	local _, gateText = W.sign(static, "EnseignePortail", Vector3.new(19, 4, 1.2), L(plot, 0, 11, -pd / 2), "PARC LIBRE", Color3.fromRGB(70, 110, 60), Color3.fromRGB(255, 245, 200))
+	local _, gateText = W.sign(
+		static,
+		"EnseignePortail",
+		Vector3.new(19, 4, 1.2),
+		L(plot, 0, 11, -pd / 2),
+		"PARC LIBRE",
+		Color3.fromRGB(70, 110, 60),
+		Color3.fromRGB(255, 245, 200)
+	)
 	plot.refs.gateText = gateText
 
 	-- point d'apparition
@@ -3298,12 +3724,20 @@ local function buildPlotStatic(index, cf)
 
 	-- zone de fouille
 	local dc = Config.DigCenter
-	local dirt = W.decor(W.part(static, "ZoneFouille", Vector3.new(44, 0.3, 36), L(plot, dc.X, 0.35, dc.Z), Color3.fromRGB(135, 95, 60), M.Ground))
+	local dirt =
+		W.decor(W.part(static, "ZoneFouille", Vector3.new(44, 0.3, 36), L(plot, dc.X, 0.35, dc.Z), Color3.fromRGB(135, 95, 60), M.Ground))
 	dirt.CanCollide = true
 	local mounds = {}
 	local moundSpots = { { -12, -8 }, { 0, -11 }, { 12, -8 }, { -13, 7 }, { 0, 10 }, { 13, 7 } }
 	for i, o in ipairs(moundSpots) do
-		local m = W.ellipsoid(static, "Monticule" .. i, Vector3.new(7, 4.2, 7), L(plot, dc.X + o[1], 0.9, dc.Z + o[2]), Color3.fromRGB(150, 105, 65), M.Ground)
+		local m = W.ellipsoid(
+			static,
+			"Monticule" .. i,
+			Vector3.new(7, 4.2, 7),
+			L(plot, dc.X + o[1], 0.9, dc.Z + o[2]),
+			Color3.fromRGB(150, 105, 65),
+			M.Ground
+		)
 		local cd = Instance.new("ClickDetector")
 		cd.MaxActivationDistance = 28
 		cd.Parent = m
@@ -3312,7 +3746,8 @@ local function buildPlotStatic(index, cf)
 	end
 	plot.refs.mounds = mounds
 	W.sign(static, "PanneauFouille", Vector3.new(12, 3, 0.5), L(plot, dc.X, 3.5, dc.Z - 20), "ZONE DE FOUILLE", Color3.fromRGB(110, 70, 40))
-	local digMarker = W.decor(W.part(static, "RepereFouille", Vector3.new(1, 1, 1), L(plot, dc.X, 3, dc.Z), Color3.new(1, 1, 1), M.SmoothPlastic))
+	local digMarker =
+		W.decor(W.part(static, "RepereFouille", Vector3.new(1, 1, 1), L(plot, dc.X, 3, dc.Z), Color3.new(1, 1, 1), M.SmoothPlastic))
 	digMarker.Transparency = 1
 	digMarker.CanCollide = false
 	plot.refs.digCenter = digMarker
@@ -3338,7 +3773,8 @@ local function buildPlotStatic(index, cf)
 	W.part(static, "KiosquePilD", Vector3.new(1, 3, 1), L(plot, bc.X + 6, 6.5, bc.Z - 2), Color3.fromRGB(110, 75, 45), M.Wood)
 	W.sign(static, "EnseigneKiosque", Vector3.new(11, 2, 0.4), L(plot, bc.X, 6.5, bc.Z - 2.6), "BILLETTERIE", Color3.fromRGB(150, 40, 40))
 	local bp = Config.BoothPad
-	local boothPad = W.cylinder(static, "PadCollecte", 0.6, 8, W.toWorld(plot, Vector3.new(bp.X, 0.6, bp.Z)), Color3.fromRGB(60, 230, 110), M.Neon)
+	local boothPad =
+		W.cylinder(static, "PadCollecte", 0.6, 8, W.toWorld(plot, Vector3.new(bp.X, 0.6, bp.Z)), Color3.fromRGB(60, 230, 110), M.Neon)
 	boothPad.CanCollide = false
 	local lbl = W.label(boothPad, "💰 0", UDim2.fromOffset(240, 70), 5, Color3.fromRGB(255, 240, 120), 80)
 	plot.refs.boothPad = boothPad
@@ -3392,17 +3828,45 @@ local function buildLobby(root)
 		end
 		statue.Parent = folder
 	end
-	W.sign(folder, "Titre", Vector3.new(34, 7, 1), CFrame.new(0, 21, 70) * CFrame.Angles(0, math.rad(180), 0), "🦖 DINO DIG PARK", Color3.fromRGB(40, 90, 50), Color3.fromRGB(255, 240, 160))
+	W.sign(
+		folder,
+		"Titre",
+		Vector3.new(34, 7, 1),
+		CFrame.new(0, 21, 70) * CFrame.Angles(0, math.rad(180), 0),
+		"🦖 DINO DIG PARK",
+		Color3.fromRGB(40, 90, 50),
+		Color3.fromRGB(255, 240, 160)
+	)
 	W.part(folder, "TitrePoteauG", Vector3.new(2, 18, 2), CFrame.new(-16, 9, 70.2), Color3.fromRGB(110, 75, 45), M.Wood)
 	W.part(folder, "TitrePoteauD", Vector3.new(2, 18, 2), CFrame.new(16, 9, 70.2), Color3.fromRGB(110, 75, 45), M.Wood)
 
 	-- panneau d'aide
-	W.sign(folder, "Aide", Vector3.new(22, 9, 0.8), CFrame.new(-46, 6, 34) * CFrame.Angles(0, math.rad(150), 0),
-		"1. Creuse des fossiles ⛏\n2. Fais éclore des œufs 🥚\n3. Les dinos rapportent des 💰\n4. Agrandis ton parc !", Color3.fromRGB(70, 50, 35))
+	W.sign(
+		folder,
+		"Aide",
+		Vector3.new(22, 9, 0.8),
+		CFrame.new(-46, 6, 34) * CFrame.Angles(0, math.rad(150), 0),
+		"1. Creuse des fossiles ⛏\n2. Fais éclore des œufs 🥚\n3. Les dinos rapportent des 💰\n4. Agrandis ton parc !",
+		Color3.fromRGB(70, 50, 35)
+	)
 
 	-- tableau des scores
-	local board = W.part(folder, "TableauScores", Vector3.new(26, 18, 1), CFrame.new(60, 11, -10) * CFrame.Angles(0, math.rad(-75), 0), Color3.fromRGB(30, 35, 45), M.SmoothPlastic)
-	W.part(folder, "PoteauScore1", Vector3.new(2, 11, 2), CFrame.new(60, 5.5, -10) * CFrame.new(-9, 0, 0), Color3.fromRGB(80, 80, 90), M.Metal)
+	local board = W.part(
+		folder,
+		"TableauScores",
+		Vector3.new(26, 18, 1),
+		CFrame.new(60, 11, -10) * CFrame.Angles(0, math.rad(-75), 0),
+		Color3.fromRGB(30, 35, 45),
+		M.SmoothPlastic
+	)
+	W.part(
+		folder,
+		"PoteauScore1",
+		Vector3.new(2, 11, 2),
+		CFrame.new(60, 5.5, -10) * CFrame.new(-9, 0, 0),
+		Color3.fromRGB(80, 80, 90),
+		M.Metal
+	)
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
 	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -3410,7 +3874,7 @@ local function buildLobby(root)
 	sg.Parent = board
 	local title = Instance.new("TextLabel")
 	title.BackgroundTransparency = 1
-	title.Size = UDim2.new(1, 0, 0.12, 0)
+	title.Size = UDim2.fromScale(1, 0.12)
 	title.Font = FONT
 	title.TextScaled = true
 	title.Text = "🏆 MEILLEURS PARCS"
@@ -3420,8 +3884,8 @@ local function buildLobby(root)
 	for i = 1, 10 do
 		local t = Instance.new("TextLabel")
 		t.BackgroundTransparency = 1
-		t.Size = UDim2.new(0.92, 0, 0.075, 0)
-		t.Position = UDim2.new(0.04, 0, 0.13 + (i - 1) * 0.086, 0)
+		t.Size = UDim2.fromScale(0.92, 0.075)
+		t.Position = UDim2.fromScale(0.04, 0.13 + (i - 1) * 0.086)
 		t.Font = FONT
 		t.TextScaled = true
 		t.TextXAlignment = Enum.TextXAlignment.Left
@@ -3453,7 +3917,16 @@ local function buildLobby(root)
 	for i = 1, 8 do
 		local a = (i / 8) * math.pi * 2 + 0.3
 		local pos = Vector3.new(math.cos(a) * 46, 0, math.sin(a) * 46)
-		W.decor(W.part(folder, "LampadairePied", Vector3.new(0.8, 12, 0.8), CFrame.new(pos + Vector3.new(0, 6, 0)), Color3.fromRGB(50, 50, 55), M.Metal))
+		W.decor(
+			W.part(
+				folder,
+				"LampadairePied",
+				Vector3.new(0.8, 12, 0.8),
+				CFrame.new(pos + Vector3.new(0, 6, 0)),
+				Color3.fromRGB(50, 50, 55),
+				M.Metal
+			)
+		)
 		local lamp = W.decor(W.ball(folder, "LampadaireLampe", 2.4, pos + Vector3.new(0, 12.5, 0), Color3.fromRGB(255, 235, 170), M.Neon))
 		local light = Instance.new("PointLight")
 		light.Range = 26
@@ -3483,11 +3956,20 @@ local function buildGoldBones(root)
 		local bone = Instance.new("Model")
 		bone.Name = "OsDore" .. j
 		local gold = Color3.fromRGB(255, 210, 60)
-		local shaft = W.part(bone, "Os", Vector3.new(0.7, 0.7, 3), CFrame.new(pos) * CFrame.Angles(0, math.rad(j * 40), math.rad(20)), gold, M.Metal)
+		local shaft =
+			W.part(bone, "Os", Vector3.new(0.7, 0.7, 3), CFrame.new(pos) * CFrame.Angles(0, math.rad(j * 40), math.rad(20)), gold, M.Metal)
 		shaft.CanCollide = false
 		for _, dz in ipairs({ -1.5, 1.5 }) do
 			for _, dx in ipairs({ -0.35, 0.35 }) do
-				local k = W.part(bone, "Bout", Vector3.new(0.8, 0.8, 0.8), shaft.CFrame * CFrame.new(dx, 0, dz), gold, M.Metal, Enum.PartType.Ball)
+				local k = W.part(
+					bone,
+					"Bout",
+					Vector3.new(0.8, 0.8, 0.8),
+					shaft.CFrame * CFrame.new(dx, 0, dz),
+					gold,
+					M.Metal,
+					Enum.PartType.Ball
+				)
 				k.CanCollide = false
 			end
 		end
@@ -3554,7 +4036,16 @@ function W.build()
 		local from = Vector3.new(math.cos(a) * 110, 0.3, math.sin(a) * 110)
 		local to = Vector3.new(math.cos(a) * 200, 0.3, math.sin(a) * 200)
 		local mid = (from + to) / 2
-		local road = W.decor(W.part(root, "Route" .. i, Vector3.new(14, 0.2, (to - from).Magnitude), CFrame.lookAt(mid, to), Color3.fromRGB(170, 170, 175), M.Concrete))
+		local road = W.decor(
+			W.part(
+				root,
+				"Route" .. i,
+				Vector3.new(14, 0.2, (to - from).Magnitude),
+				CFrame.lookAt(mid, to),
+				Color3.fromRGB(170, 170, 175),
+				M.Concrete
+			)
+		)
 		road.CanCollide = true
 	end
 	return plots
@@ -3608,11 +4099,22 @@ local toastHolder, objectiveLabel, eventLabel, boostLabel, digButton, collectBut
 -- Monnaies
 ----------------------------------------------------------------------
 local function makePill(parent, icon, order, color)
-	local f = Ui.new("Frame", { Size = UDim2.fromOffset(230, 44), BackgroundColor3 = C.bg, BackgroundTransparency = 0.15, LayoutOrder = order, Parent = parent })
+	local f = Ui.new(
+		"Frame",
+		{ Size = UDim2.fromOffset(230, 44), BackgroundColor3 = C.bg, BackgroundTransparency = 0.15, LayoutOrder = order, Parent = parent }
+	)
 	Ui.corner(f, 22)
 	Ui.stroke(f, color, 3)
 	Ui.label(f, { text = icon, size = 26, sizeUdim = UDim2.fromOffset(44, 44), name = "Icon" })
-	local v = Ui.label(f, { text = "0", size = 24, align = Enum.TextXAlignment.Left, pos = UDim2.fromOffset(46, 0), sizeUdim = UDim2.new(1, -56, 1, 0), stroke = true, name = "Value" })
+	local v = Ui.label(f, {
+		text = "0",
+		size = 24,
+		align = Enum.TextXAlignment.Left,
+		pos = UDim2.fromOffset(46, 0),
+		sizeUdim = UDim2.new(1, -56, 1, 0),
+		stroke = true,
+		name = "Value",
+	})
 	local sc = Ui.new("UIScale", { Parent = v })
 	return { frame = f, value = v, scale = sc, last = 0 }
 end
@@ -3636,7 +4138,8 @@ function Hud.toast(text, kind)
 	elseif kind == "bad" then
 		color = C.red
 	end
-	local t = Ui.new("Frame", { Size = UDim2.fromOffset(380, 42), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, Parent = toastHolder })
+	local t =
+		Ui.new("Frame", { Size = UDim2.fromOffset(380, 42), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, Parent = toastHolder })
 	Ui.corner(t, 14)
 	Ui.stroke(t, color, 3)
 	local l = Ui.label(t, { text = text, size = 18, wrap = true, stroke = true })
@@ -3724,8 +4227,21 @@ end
 -- Construction
 ----------------------------------------------------------------------
 local function buildMenu(parent)
-	local col = Ui.new("Frame", { Name = "Menu", Size = UDim2.fromOffset(84, 440), Position = UDim2.new(1, -8, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), BackgroundTransparency = 1, Parent = parent })
-	Ui.new("UIListLayout", { Padding = UDim.new(0, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = col })
+	local col = Ui.new("Frame", {
+		Name = "Menu",
+		Size = UDim2.fromOffset(84, 440),
+		Position = UDim2.new(1, -8, 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+	Ui.new("UIListLayout", {
+		Padding = UDim.new(0, 8),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = col,
+	})
 	local defs = {
 		{ id = "collection", icon = "🦖", label = "Dinos", panel = "collection", color = C.green },
 		{ id = "upgrades", icon = "⛏", label = "Boost", panel = "upgrades", color = C.orange },
@@ -3735,19 +4251,50 @@ local function buildMenu(parent)
 		{ id = "shop", icon = "🛒", label = "Boutique", panel = "shop", color = C.red },
 	}
 	for i, d in ipairs(defs) do
-		local b = Ui.button(col, { name = d.id, text = "", size = UDim2.fromOffset(74, 62), color = d.color, radius = 14, onClick = function()
-			Ui.togglePanel(d.panel)
-		end })
+		local b = Ui.button(col, {
+			name = d.id,
+			text = "",
+			size = UDim2.fromOffset(74, 62),
+			color = d.color,
+			radius = 14,
+			onClick = function()
+				Ui.togglePanel(d.panel)
+			end,
+		})
 		b.LayoutOrder = i
-		Ui.label(b, { text = d.icon, size = 28, sizeUdim = UDim2.new(1, 0, 0.62, 0), z = 2, name = "Icon" })
-		Ui.label(b, { text = d.label, size = 14, sizeUdim = UDim2.new(1, 0, 0.36, 0), pos = UDim2.fromScale(0, 0.62), stroke = true, z = 2, name = "Caption" })
-		local dot = Ui.new("Frame", { Name = "Dot", Size = UDim2.fromOffset(20, 20), Position = UDim2.new(1, -6, 0, 6), AnchorPoint = Vector2.new(1, 0), BackgroundColor3 = C.red, Visible = false, ZIndex = 5, Parent = b })
+		Ui.label(b, { text = d.icon, size = 28, sizeUdim = UDim2.fromScale(1, 0.62), z = 2, name = "Icon" })
+		Ui.label(b, {
+			text = d.label,
+			size = 14,
+			sizeUdim = UDim2.fromScale(1, 0.36),
+			pos = UDim2.fromScale(0, 0.62),
+			stroke = true,
+			z = 2,
+			name = "Caption",
+		})
+		local dot = Ui.new("Frame", {
+			Name = "Dot",
+			Size = UDim2.fromOffset(20, 20),
+			Position = UDim2.new(1, -6, 0, 6),
+			AnchorPoint = Vector2.new(1, 0),
+			BackgroundColor3 = C.red,
+			Visible = false,
+			ZIndex = 5,
+			Parent = b,
+		})
 		Ui.corner(dot, 10)
 		Ui.stroke(dot, Color3.new(1, 1, 1), 2)
 		menuButtons[d.id] = { button = b, dot = dot }
 	end
 	-- bouton son
-	local snd = Ui.button(parent, { text = "🔊", size = UDim2.fromOffset(44, 44), pos = UDim2.new(0, 8, 1, -8), anchor = Vector2.new(0, 1), color = C.bg, textSize = 22 })
+	local snd = Ui.button(parent, {
+		text = "🔊",
+		size = UDim2.fromOffset(44, 44),
+		pos = UDim2.new(0, 8, 1, -8),
+		anchor = Vector2.new(0, 1),
+		color = C.bg,
+		textSize = 22,
+	})
 	snd.Activated:Connect(function()
 		Ui.settings.sfx = not Ui.settings.sfx
 		snd.Text = Ui.settings.sfx and "🔊" or "🔇"
@@ -3756,38 +4303,90 @@ end
 
 function Hud.build(root)
 	-- monnaies (haut gauche)
-	local topLeft = Ui.new("Frame", { Name = "Currencies", Size = UDim2.fromOffset(230, 160), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Parent = root })
+	local topLeft = Ui.new("Frame", {
+		Name = "Currencies",
+		Size = UDim2.fromOffset(230, 160),
+		Position = UDim2.fromOffset(8, 8),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
 	Ui.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = topLeft })
 	pills.cash = makePill(topLeft, "💰", 1, C.gold)
 	pills.fossils = makePill(topLeft, "🦴", 2, Color3.fromRGB(235, 225, 195))
 	pills.income = makePill(topLeft, "⚡", 3, C.green)
 
 	-- objectif + événement (haut centre)
-	local top = Ui.new("Frame", { Name = "Top", Size = UDim2.fromOffset(440, 110), Position = UDim2.new(0.5, 0, 0, 8), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Parent = root })
-	Ui.new("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = top })
-	local obj = Ui.new("Frame", { Size = UDim2.fromOffset(420, 40), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, LayoutOrder = 1, Parent = top })
+	local top = Ui.new("Frame", {
+		Name = "Top",
+		Size = UDim2.fromOffset(440, 110),
+		Position = UDim2.new(0.5, 0, 0, 8),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
+	Ui.new("UIListLayout", {
+		Padding = UDim.new(0, 4),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = top,
+	})
+	local obj = Ui.new(
+		"Frame",
+		{ Size = UDim2.fromOffset(420, 40), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, LayoutOrder = 1, Parent = top }
+	)
 	Ui.corner(obj, 20)
 	Ui.stroke(obj, C.blue, 3)
 	objectiveLabel = Ui.label(obj, { text = "", size = 17, stroke = true, wrap = true })
-	local ev = Ui.new("Frame", { Name = "Event", Size = UDim2.fromOffset(300, 32), BackgroundColor3 = Color3.fromRGB(120, 40, 30), LayoutOrder = 2, Visible = false, Parent = top })
+	local ev = Ui.new("Frame", {
+		Name = "Event",
+		Size = UDim2.fromOffset(300, 32),
+		BackgroundColor3 = Color3.fromRGB(120, 40, 30),
+		LayoutOrder = 2,
+		Visible = false,
+		Parent = top,
+	})
 	Ui.corner(ev, 16)
 	Ui.stroke(ev, C.orange, 3)
 	eventLabel = Ui.label(ev, { text = "", size = 16, stroke = true })
 	Hud.eventFrame = ev
 
 	-- toasts
-	toastHolder = Ui.new("Frame", { Name = "Toasts", Size = UDim2.fromOffset(400, 200), Position = UDim2.new(0.5, 0, 0, 130), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Parent = root })
+	toastHolder = Ui.new("Frame", {
+		Name = "Toasts",
+		Size = UDim2.fromOffset(400, 200),
+		Position = UDim2.new(0.5, 0, 0, 130),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
 	Ui.new("UIListLayout", { Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = toastHolder })
 
 	-- boost
-	local boost = Ui.new("Frame", { Name = "Boost", Size = UDim2.fromOffset(200, 36), Position = UDim2.new(0, 8, 1, -64), AnchorPoint = Vector2.new(0, 1), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, Visible = false, Parent = root })
+	local boost = Ui.new("Frame", {
+		Name = "Boost",
+		Size = UDim2.fromOffset(200, 36),
+		Position = UDim2.new(0, 8, 1, -64),
+		AnchorPoint = Vector2.new(0, 1),
+		BackgroundColor3 = C.bg,
+		BackgroundTransparency = 0.1,
+		Visible = false,
+		Parent = root,
+	})
 	Ui.corner(boost, 18)
 	Ui.stroke(boost, C.gold, 3)
 	boostLabel = Ui.label(boost, { text = "", size = 17, stroke = true })
 	Hud.boostFrame = boost
 
 	-- bouton creuser
-	digButton = Ui.button(root, { name = "Dig", text = "⛏ CREUSER", size = UDim2.fromOffset(210, 74), pos = UDim2.new(0.5, 0, 1, -16), anchor = Vector2.new(0.5, 1), color = C.orange, textSize = 30 })
+	digButton = Ui.button(root, {
+		name = "Dig",
+		text = "⛏ CREUSER",
+		size = UDim2.fromOffset(210, 74),
+		pos = UDim2.new(0.5, 0, 1, -16),
+		anchor = Vector2.new(0.5, 1),
+		color = C.orange,
+		textSize = 30,
+	})
 	digButton.Visible = false
 	local holding = false
 	digButton.MouseButton1Down:Connect(function()
@@ -3814,13 +4413,30 @@ function Hud.build(root)
 	end)
 
 	-- bouton collecter
-	collectButton = Ui.button(root, { name = "Collect", text = "💰 COLLECTER", size = UDim2.fromOffset(210, 64), pos = UDim2.new(0.5, 0, 1, -16), anchor = Vector2.new(0.5, 1), color = C.green, textSize = 26, onClick = function()
-		Store.act("Collect")
-	end })
+	collectButton = Ui.button(root, {
+		name = "Collect",
+		text = "💰 COLLECTER",
+		size = UDim2.fromOffset(210, 64),
+		pos = UDim2.new(0.5, 0, 1, -16),
+		anchor = Vector2.new(0.5, 1),
+		color = C.green,
+		textSize = 26,
+		onClick = function()
+			Store.act("Collect")
+		end,
+	})
 	collectButton.Visible = false
 
 	-- avertissement données volatiles (Studio)
-	warnLabel = Ui.label(root, { text = "Mode test : progression non sauvegardée", size = 14, color = C.red, sizeUdim = UDim2.fromOffset(320, 20), pos = UDim2.new(0.5, 0, 1, -2), anchor = Vector2.new(0.5, 1), stroke = true })
+	warnLabel = Ui.label(root, {
+		text = "Mode test : progression non sauvegardée",
+		size = 14,
+		color = C.red,
+		sizeUdim = UDim2.fromOffset(320, 20),
+		pos = UDim2.new(0.5, 0, 1, -2),
+		anchor = Vector2.new(0.5, 1),
+		stroke = true,
+	})
 	warnLabel.Visible = false
 
 	buildMenu(root)
@@ -3978,16 +4594,54 @@ local function buildUpgrades()
 		local def = Config.Upgrades[id]
 		local r = row(p.body, i, 84)
 		Ui.label(r, { text = def.icon, size = 34, sizeUdim = UDim2.fromOffset(56, 84) })
-		Ui.label(r, { text = def.name, size = 22, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -240, 0, 30), pos = UDim2.fromOffset(60, 8), stroke = true, name = "Name" })
-		Ui.label(r, { text = def.desc, size = 14, color = C.muted, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, sizeUdim = UDim2.new(1, -240, 0, 40), pos = UDim2.fromOffset(60, 38), name = "Desc" })
-		local btn = Ui.button(r, { text = "", size = UDim2.fromOffset(150, 60), pos = UDim2.new(1, -8, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("Upgrade", { id = id })
-		end })
-		local lvl = Ui.label(btn, { text = "", size = 14, sizeUdim = UDim2.new(1, 0, 0.4, 0), name = "Level" })
-		local cost = Ui.label(btn, { text = "", size = 20, sizeUdim = UDim2.new(1, 0, 0.6, 0), pos = UDim2.fromScale(0, 0.4), stroke = true, name = "Cost" })
+		Ui.label(r, {
+			text = def.name,
+			size = 22,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -240, 0, 30),
+			pos = UDim2.fromOffset(60, 8),
+			stroke = true,
+			name = "Name",
+		})
+		Ui.label(r, {
+			text = def.desc,
+			size = 14,
+			color = C.muted,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			wrap = true,
+			sizeUdim = UDim2.new(1, -240, 0, 40),
+			pos = UDim2.fromOffset(60, 38),
+			name = "Desc",
+		})
+		local btn = Ui.button(r, {
+			text = "",
+			size = UDim2.fromOffset(150, 60),
+			pos = UDim2.new(1, -8, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("Upgrade", { id = id })
+			end,
+		})
+		local lvl = Ui.label(btn, { text = "", size = 14, sizeUdim = UDim2.fromScale(1, 0.4), name = "Level" })
+		local cost = Ui.label(
+			btn,
+			{ text = "", size = 20, sizeUdim = UDim2.fromScale(1, 0.6), pos = UDim2.fromScale(0, 0.4), stroke = true, name = "Cost" }
+		)
 		rows[id] = { button = btn, level = lvl, cost = cost }
 	end
-	local info = Ui.label(p.body, { text = "", size = 16, color = C.muted, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, rich = true, sizeUdim = UDim2.new(1, -8, 0, 120), name = "Info" })
+	local info = Ui.label(p.body, {
+		text = "",
+		size = 16,
+		color = C.muted,
+		align = Enum.TextXAlignment.Left,
+		valign = Enum.TextYAlignment.Top,
+		wrap = true,
+		rich = true,
+		sizeUdim = UDim2.new(1, -8, 0, 120),
+		name = "Info",
+	})
 	info.LayoutOrder = 10
 	Store.connect(function(st)
 		for id, rr in pairs(rows) do
@@ -4008,8 +4662,19 @@ local function buildUpgrades()
 		local m = st.mult
 		info.Text = string.format(
 			"<b>Revenus du parc</b> : %s/s\nBase dinos : %s  ×  collection %.2f  ×  renaissance %.2f  ×  billet %.2f  ×  bâtiments %.2f  ×  pass %.0f  ×  boost %.0f\nPelle : %d 🦴/coup (critique %.0f%% ×%d)  •  ouvriers : %.1f 🦴/s",
-			Util.formatNumber(st.income), Util.formatNumber(st.baseIncome), m.collection, m.rebirth, m.ticket, m.buildings, m.pass, m.boost,
-			st.digAmount, st.critChance * 100, Config.CritMultiplier, st.autoDigRate)
+			Util.formatNumber(st.income),
+			Util.formatNumber(st.baseIncome),
+			m.collection,
+			m.rebirth,
+			m.ticket,
+			m.buildings,
+			m.pass,
+			m.boost,
+			st.digAmount,
+			st.critChance * 100,
+			Config.CritMultiplier,
+			st.autoDigRate
+		)
 	end)
 end
 
@@ -4018,12 +4683,34 @@ end
 ----------------------------------------------------------------------
 local function buildCollection()
 	local p = Ui.createPanel("collection", "🦖 Collection de dinos", UDim2.fromOffset(700, 520), { color = C.green })
-	local header = Ui.label(p.body, { text = "", size = 18, color = C.gold, rich = false, sizeUdim = UDim2.new(1, -8, 0, 28), name = "Header" })
-	local grid = Ui.new("Frame", { Name = "Grid", Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = p.body })
-	Ui.new("UIGridLayout", { CellSize = UDim2.fromOffset(150, 190), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = grid })
-	local sellBtn = Ui.button(p.frame, { text = "", size = UDim2.fromOffset(300, 44), pos = UDim2.new(0.5, 0, 1, -8), anchor = Vector2.new(0.5, 1), color = C.red, z = 30, onClick = function()
-		Store.act("SellReserve")
-	end })
+	local header =
+		Ui.label(p.body, { text = "", size = 18, color = C.gold, rich = false, sizeUdim = UDim2.new(1, -8, 0, 28), name = "Header" })
+	local grid = Ui.new("Frame", {
+		Name = "Grid",
+		Position = UDim2.fromOffset(0, 32),
+		Size = UDim2.new(1, -8, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Parent = p.body,
+	})
+	Ui.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(150, 190),
+		CellPadding = UDim2.fromOffset(8, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		Parent = grid,
+	})
+	local sellBtn = Ui.button(p.frame, {
+		text = "",
+		size = UDim2.fromOffset(300, 44),
+		pos = UDim2.new(0.5, 0, 1, -8),
+		anchor = Vector2.new(0.5, 1),
+		color = C.red,
+		z = 30,
+		onClick = function()
+			Store.act("SellReserve")
+		end,
+	})
 	p.body.Size = UDim2.new(1, -20, 1, -132)
 
 	local cards = {}
@@ -4048,17 +4735,37 @@ local function buildCollection()
 		Ui.corner(f, 12)
 		Ui.stroke(f, rar.color, 3)
 		local vpHolder = Ui.new("Frame", { Name = "VP", Size = UDim2.new(1, 0, 0, 112), BackgroundTransparency = 1, Parent = f })
-		local name = Ui.label(f, { text = "???", size = 18, sizeUdim = UDim2.new(1, -6, 0, 24), pos = UDim2.fromOffset(3, 114), stroke = true, name = "Name" })
-		Ui.label(f, { text = rar.name, size = 14, color = rar.color, sizeUdim = UDim2.new(1, 0, 0, 18), pos = UDim2.fromOffset(0, 136), stroke = true, name = "Rarity" })
-		local inc = Ui.label(f, { text = "", size = 14, color = C.gold, sizeUdim = UDim2.new(1, 0, 0, 18), pos = UDim2.fromOffset(0, 154), name = "Income" })
-		local cnt = Ui.label(f, { text = "", size = 15, sizeUdim = UDim2.new(1, -6, 0, 18), pos = UDim2.fromOffset(0, 170), name = "Count" })
+		local name = Ui.label(
+			f,
+			{ text = "???", size = 18, sizeUdim = UDim2.new(1, -6, 0, 24), pos = UDim2.fromOffset(3, 114), stroke = true, name = "Name" }
+		)
+		Ui.label(f, {
+			text = rar.name,
+			size = 14,
+			color = rar.color,
+			sizeUdim = UDim2.new(1, 0, 0, 18),
+			pos = UDim2.fromOffset(0, 136),
+			stroke = true,
+			name = "Rarity",
+		})
+		local inc = Ui.label(
+			f,
+			{ text = "", size = 14, color = C.gold, sizeUdim = UDim2.new(1, 0, 0, 18), pos = UDim2.fromOffset(0, 154), name = "Income" }
+		)
+		local cnt =
+			Ui.label(f, { text = "", size = 15, sizeUdim = UDim2.new(1, -6, 0, 18), pos = UDim2.fromOffset(0, 170), name = "Count" })
 		cards[d.id] = { def = d, frame = f, holder = vpHolder, name = name, inc = inc, cnt = cnt, shown = nil }
 	end
 
 	local function render(st)
 		local discovered = Economy.discoveredCount({ discovered = st.discovered })
 		local total = #Config.Dinos
-		header.Text = string.format("Découverts : %d/%d   •   bonus de collection : +%d%% revenus", discovered, total, math.floor(discovered * Config.CollectionBonus * 100 + 0.5))
+		header.Text = string.format(
+			"Découverts : %d/%d   •   bonus de collection : +%d%% revenus",
+			discovered,
+			total,
+			math.floor(discovered * Config.CollectionBonus * 100 + 0.5)
+		)
 		for id, card in pairs(cards) do
 			local known = st.discovered[id] == true
 			local normal = st.dinos[id] or 0
@@ -4092,7 +4799,8 @@ local function buildCollection()
 		for _, v in pairs(st.reserve) do
 			n = n + v
 		end
-		sellBtn.Text = n > 0 and ("Vendre la réserve (" .. n .. ") : +" .. Util.formatNumber(st.reserveValue) .. " 💰") or "Réserve vide (" .. st.displayedCount .. "/" .. st.slots .. " exposés)"
+		sellBtn.Text = n > 0 and ("Vendre la réserve (" .. n .. ") : +" .. Util.formatNumber(st.reserveValue) .. " 💰")
+			or "Réserve vide (" .. st.displayedCount .. "/" .. st.slots .. " exposés)"
 		Ui.setEnabled(sellBtn, n > 0, C.red)
 	end
 	-- les viewports ne sont construits qu'à l'ouverture (économie de ressources)
@@ -4126,19 +4834,46 @@ local function buildQuests()
 	local rows = {}
 	for i = 1, Config.QuestCount do
 		local r = row(p.body, i, 92)
-		local text = Ui.label(r, { text = "", size = 20, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -190, 0, 28), pos = UDim2.fromOffset(12, 8), stroke = true, name = "Text" })
-		local reward = Ui.label(r, { text = "", size = 14, color = C.gold, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -190, 0, 18), pos = UDim2.fromOffset(12, 38), name = "Reward" })
-		local barBg = Ui.new("Frame", { Size = UDim2.new(1, -190, 0, 16), Position = UDim2.fromOffset(12, 62), BackgroundColor3 = C.bg, Parent = r })
+		local text = Ui.label(r, {
+			text = "",
+			size = 20,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 28),
+			pos = UDim2.fromOffset(12, 8),
+			stroke = true,
+			name = "Text",
+		})
+		local reward = Ui.label(r, {
+			text = "",
+			size = 14,
+			color = C.gold,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 18),
+			pos = UDim2.fromOffset(12, 38),
+			name = "Reward",
+		})
+		local barBg =
+			Ui.new("Frame", { Size = UDim2.new(1, -190, 0, 16), Position = UDim2.fromOffset(12, 62), BackgroundColor3 = C.bg, Parent = r })
 		Ui.corner(barBg, 8)
 		local fill = Ui.new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.green, Parent = barBg })
 		Ui.corner(fill, 8)
 		local prog = Ui.label(barBg, { text = "", size = 12, stroke = true, z = 3 })
-		local btn = Ui.button(r, { text = "Récupérer", size = UDim2.fromOffset(150, 52), pos = UDim2.new(1, -10, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("ClaimQuest", { index = i })
-		end })
+		local btn = Ui.button(r, {
+			text = "Récupérer",
+			size = UDim2.fromOffset(150, 52),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("ClaimQuest", { index = i })
+			end,
+		})
 		rows[i] = { row = r, text = text, reward = reward, fill = fill, prog = prog, btn = btn }
 	end
-	local foot = Ui.label(p.body, { text = "Les quêtes se renouvellent chaque jour (minuit UTC).", size = 14, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24) })
+	local foot = Ui.label(
+		p.body,
+		{ text = "Les quêtes se renouvellent chaque jour (minuit UTC).", size = 14, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24) }
+	)
 	foot.LayoutOrder = 10
 	Store.connect(function(st)
 		for i, rr in ipairs(rows) do
@@ -4148,7 +4883,9 @@ local function buildQuests()
 				local txt, qt = questText(q)
 				rr.text.Text = txt
 				if qt.reward.fossils then
-					local f = math.floor(qt.reward.fossils * q.tier * (1 + st.upgrades.shovel * 0.5) * Economy.fossilMultiplier({ rebirths = st.rebirths }))
+					local f = math.floor(
+						qt.reward.fossils * q.tier * (1 + st.upgrades.shovel * 0.5) * Economy.fossilMultiplier({ rebirths = st.rebirths })
+					)
 					rr.reward.Text = "Récompense : " .. Util.formatNumber(f) .. " 🦴"
 				else
 					local c = math.max(300 * q.tier, math.floor(st.income * 60 * qt.reward.minutes * q.tier / 2))
@@ -4175,7 +4912,13 @@ end
 local function buildDaily()
 	local p = Ui.createPanel("daily", "🎁 Cadeau quotidien", UDim2.fromOffset(640, 340), { color = C.purple })
 	local grid = Ui.new("Frame", { Size = UDim2.new(1, -8, 0, 150), BackgroundTransparency = 1, Parent = p.body })
-	Ui.new("UIGridLayout", { CellSize = UDim2.fromOffset(80, 140), CellPadding = UDim2.fromOffset(6, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
+	Ui.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(80, 140),
+		CellPadding = UDim2.fromOffset(6, 6),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = grid,
+	})
 	local tiles = {}
 	for i, r in ipairs(Config.DailyRewards) do
 		local f = Ui.new("Frame", { LayoutOrder = i, BackgroundColor3 = C.row, Parent = grid })
@@ -4184,13 +4927,26 @@ local function buildDaily()
 		Ui.label(f, { text = "Jour " .. i, size = 15, sizeUdim = UDim2.new(1, 0, 0, 24), pos = UDim2.fromOffset(0, 4), stroke = true })
 		local icon = r.kind == "egg" and "🥚" or (r.kind == "fossils" and "🦴" or "💰")
 		Ui.label(f, { text = icon, size = 36, sizeUdim = UDim2.new(1, 0, 0, 50), pos = UDim2.fromOffset(0, 30) })
-		Ui.label(f, { text = r.label, size = 13, wrap = true, sizeUdim = UDim2.new(1, -4, 0, 50), pos = UDim2.fromOffset(2, 84), color = C.muted })
+		Ui.label(
+			f,
+			{ text = r.label, size = 13, wrap = true, sizeUdim = UDim2.new(1, -4, 0, 50), pos = UDim2.fromOffset(2, 84), color = C.muted }
+		)
 		tiles[i] = { frame = f, stroke = st }
 	end
-	local msg = Ui.label(p.body, { text = "", size = 16, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24), pos = UDim2.fromOffset(0, 156), name = "Msg" })
-	local btn = Ui.button(p.body, { text = "Récupérer", size = UDim2.fromOffset(260, 50), pos = UDim2.new(0.5, 0, 0, 186), anchor = Vector2.new(0.5, 0), color = C.purple, onClick = function()
-		Store.act("ClaimDaily")
-	end })
+	local msg = Ui.label(
+		p.body,
+		{ text = "", size = 16, color = C.muted, sizeUdim = UDim2.new(1, -8, 0, 24), pos = UDim2.fromOffset(0, 156), name = "Msg" }
+	)
+	local btn = Ui.button(p.body, {
+		text = "Récupérer",
+		size = UDim2.fromOffset(260, 50),
+		pos = UDim2.new(0.5, 0, 0, 186),
+		anchor = Vector2.new(0.5, 0),
+		color = C.purple,
+		onClick = function()
+			Store.act("ClaimDaily")
+		end,
+	})
 	Store.connect(function(st)
 		local today = Util.dayNumber(Store.serverNow())
 		local nextStreak = st.daily.streak
@@ -4217,7 +4973,11 @@ local function buildDaily()
 			task.wait(1)
 			if Ui.openName == "daily" and Store.state and not Store.state.daily.canClaim then
 				local today = Util.dayNumber(Store.serverNow())
-				msg.Text = "Prochain cadeau dans " .. Util.formatTime((today + 1) * 86400 - Store.serverNow()) .. " (série : " .. Store.state.daily.streak .. ")"
+				msg.Text = "Prochain cadeau dans "
+					.. Util.formatTime((today + 1) * 86400 - Store.serverNow())
+					.. " (série : "
+					.. Store.state.daily.streak
+					.. ")"
 			end
 		end
 	end)
@@ -4228,8 +4988,24 @@ end
 ----------------------------------------------------------------------
 local function buildRebirth()
 	local p = Ui.createPanel("rebirth", "🌟 Nouvelle ère", UDim2.fromOffset(560, 420), { color = C.gold })
-	local text = Ui.label(p.body, { text = "", size = 19, wrap = true, rich = true, valign = Enum.TextYAlignment.Top, sizeUdim = UDim2.new(1, -16, 0, 230), pos = UDim2.fromOffset(8, 4), name = "Text" })
-	local btn = Ui.button(p.body, { text = "Renaître", size = UDim2.fromOffset(300, 56), pos = UDim2.new(0.5, 0, 0, 250), anchor = Vector2.new(0.5, 0), color = C.gold, textSize = 26 })
+	local text = Ui.label(p.body, {
+		text = "",
+		size = 19,
+		wrap = true,
+		rich = true,
+		valign = Enum.TextYAlignment.Top,
+		sizeUdim = UDim2.new(1, -16, 0, 230),
+		pos = UDim2.fromOffset(8, 4),
+		name = "Text",
+	})
+	local btn = Ui.button(p.body, {
+		text = "Renaître",
+		size = UDim2.fromOffset(300, 56),
+		pos = UDim2.new(0.5, 0, 0, 250),
+		anchor = Vector2.new(0.5, 0),
+		color = C.gold,
+		textSize = 26,
+	})
 	local armedAt = 0
 	btn.Activated:Connect(function()
 		if btn:GetAttribute("Disabled") then
@@ -4256,8 +5032,14 @@ local function buildRebirth()
 		local maxed = st.rebirths >= Config.RebirthMax
 		local can = st.cash >= st.rebirthCost and not maxed
 		text.Text = string.format(
-			"<b>Ère actuelle : %d</b>\n\nRenaître remet à zéro tes pièces, fossiles, bâtiments, améliorations et œufs en cours.\n<b>Tu gardes</b> tous tes dinos, ta collection et tes quêtes.\n\n<b>Bonus par ère</b> : +%d%% de revenus et +%d%% de fossiles, définitivement. Tu reçois aussi un <b>Œuf Cosmique</b> gratuit.\n\nCoût : <font color=\"%s\">%s 💰</font> (tu as %s)",
-			st.rebirths, Config.RebirthIncomeBonus * 100, Config.RebirthFossilBonus * 100, can and "#6ee87c" or "#ff7a70", Util.formatNumber(st.rebirthCost), Util.formatNumber(st.cash))
+			'<b>Ère actuelle : %d</b>\n\nRenaître remet à zéro tes pièces, fossiles, bâtiments, améliorations et œufs en cours.\n<b>Tu gardes</b> tous tes dinos, ta collection et tes quêtes.\n\n<b>Bonus par ère</b> : +%d%% de revenus et +%d%% de fossiles, définitivement. Tu reçois aussi un <b>Œuf Cosmique</b> gratuit.\n\nCoût : <font color="%s">%s 💰</font> (tu as %s)',
+			st.rebirths,
+			Config.RebirthIncomeBonus * 100,
+			Config.RebirthFossilBonus * 100,
+			can and "#6ee87c" or "#ff7a70",
+			Util.formatNumber(st.rebirthCost),
+			Util.formatNumber(st.cash)
+		)
 		Ui.setEnabled(btn, can, C.gold)
 		if not can then
 			btn.Text = maxed and "Ère maximale" or "Pas assez de pièces"
@@ -4278,11 +5060,34 @@ local function buildShop()
 	local function add(kind, key, def)
 		order = order + 1
 		local r = row(p.body, order, 84)
-		Ui.label(r, { text = def.name, size = 22, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -190, 0, 30), pos = UDim2.fromOffset(12, 8), stroke = true })
-		Ui.label(r, { text = def.desc, size = 14, color = C.muted, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, sizeUdim = UDim2.new(1, -190, 0, 40), pos = UDim2.fromOffset(12, 38) })
-		local btn = Ui.button(r, { text = "R$ " .. def.price, size = UDim2.fromOffset(150, 52), pos = UDim2.new(1, -10, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("BuyPass", { kind = kind, key = key })
-		end })
+		Ui.label(r, {
+			text = def.name,
+			size = 22,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -190, 0, 30),
+			pos = UDim2.fromOffset(12, 8),
+			stroke = true,
+		})
+		Ui.label(r, {
+			text = def.desc,
+			size = 14,
+			color = C.muted,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			wrap = true,
+			sizeUdim = UDim2.new(1, -190, 0, 40),
+			pos = UDim2.fromOffset(12, 38),
+		})
+		local btn = Ui.button(r, {
+			text = "R$ " .. def.price,
+			size = UDim2.fromOffset(150, 52),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("BuyPass", { kind = kind, key = key })
+			end,
+		})
 		r.Visible = def.id > 0
 		rows[#rows + 1] = { kind = kind, key = key, btn = btn, def = def }
 	end
@@ -4314,10 +5119,20 @@ local function buildEggs()
 	for i, id in ipairs(Config.EggOrder) do
 		local def = Config.Eggs[id]
 		local r = row(p.body, i, 92)
-		local icon = Ui.new("Frame", { Size = UDim2.fromOffset(48, 62), Position = UDim2.fromOffset(12, 15), BackgroundColor3 = def.color, Parent = r })
+		local icon = Ui.new(
+			"Frame",
+			{ Size = UDim2.fromOffset(48, 62), Position = UDim2.fromOffset(12, 15), BackgroundColor3 = def.color, Parent = r }
+		)
 		Ui.corner(icon, 24)
 		Ui.stroke(icon, def.spot, 3)
-		Ui.label(r, { text = def.name, size = 22, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -250, 0, 28), pos = UDim2.fromOffset(74, 6), stroke = true })
+		Ui.label(r, {
+			text = def.name,
+			size = 22,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -250, 0, 28),
+			pos = UDim2.fromOffset(74, 6),
+			stroke = true,
+		})
 		local chances = {}
 		local total = 0
 		for _, w in pairs(def.weights) do
@@ -4327,15 +5142,41 @@ local function buildEggs()
 			local w = def.weights[rid]
 			if w then
 				local rar = Config.RarityById[rid]
-				table.insert(chances, string.format('<font color="%s">%s %d%%</font>', hex(rar.color), rar.name, math.floor(w / total * 100 + 0.5)))
+				table.insert(
+					chances,
+					string.format('<font color="%s">%s %d%%</font>', hex(rar.color), rar.name, math.floor(w / total * 100 + 0.5))
+				)
 			end
 		end
-		Ui.label(r, { text = table.concat(chances, "  "), size = 13, rich = true, align = Enum.TextXAlignment.Left, valign = Enum.TextYAlignment.Top, wrap = true, sizeUdim = UDim2.new(1, -250, 0, 40), pos = UDim2.fromOffset(74, 36) })
-		local timeLbl = Ui.label(r, { text = "", size = 13, color = C.muted, align = Enum.TextXAlignment.Left, sizeUdim = UDim2.new(1, -250, 0, 16), pos = UDim2.fromOffset(74, 72) })
-		local btn = Ui.button(r, { text = "", size = UDim2.fromOffset(150, 56), pos = UDim2.new(1, -10, 0.5, 0), anchor = Vector2.new(1, 0.5), color = C.green, onClick = function()
-			Store.act("StartHatch", { slot = eggSlot, egg = id })
-			Ui.closePanels()
-		end })
+		Ui.label(r, {
+			text = table.concat(chances, "  "),
+			size = 13,
+			rich = true,
+			align = Enum.TextXAlignment.Left,
+			valign = Enum.TextYAlignment.Top,
+			wrap = true,
+			sizeUdim = UDim2.new(1, -250, 0, 40),
+			pos = UDim2.fromOffset(74, 36),
+		})
+		local timeLbl = Ui.label(r, {
+			text = "",
+			size = 13,
+			color = C.muted,
+			align = Enum.TextXAlignment.Left,
+			sizeUdim = UDim2.new(1, -250, 0, 16),
+			pos = UDim2.fromOffset(74, 72),
+		})
+		local btn = Ui.button(r, {
+			text = "",
+			size = UDim2.fromOffset(150, 56),
+			pos = UDim2.new(1, -10, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			color = C.green,
+			onClick = function()
+				Store.act("StartHatch", { slot = eggSlot, egg = id })
+				Ui.closePanels()
+			end,
+		})
 		rows[id] = { btn = btn, time = timeLbl }
 	end
 	local function render(st)
@@ -4354,11 +5195,24 @@ local function buildWelcome()
 	local p = Ui.createPanel("welcome", "🦖 Bienvenue au Dino Dig Park !", UDim2.fromOffset(560, 400), { color = C.green })
 	local text = Ui.label(p.body, {
 		text = "<b>1.</b> Va dans la zone de fouille et appuie sur ⛏ CREUSER pour trouver des fossiles.\n<b>2.</b> Au laboratoire, place un œuf dans un incubateur (E ou toucher).\n<b>3.</b> Les dinos exposés dans tes enclos rapportent des 💰 : marche sur le pad vert du kiosque pour les collecter.\n<b>4.</b> Marche sur les boutons colorés pour agrandir ton parc.\n\nSuis le rayon jaune : il montre toujours le prochain objectif.",
-		size = 19, wrap = true, rich = true, valign = Enum.TextYAlignment.Top, align = Enum.TextXAlignment.Left,
-		sizeUdim = UDim2.new(1, -16, 0, 240), pos = UDim2.fromOffset(8, 4),
+		size = 19,
+		wrap = true,
+		rich = true,
+		valign = Enum.TextYAlignment.Top,
+		align = Enum.TextXAlignment.Left,
+		sizeUdim = UDim2.new(1, -16, 0, 240),
+		pos = UDim2.fromOffset(8, 4),
 	})
 	text.Name = "Steps"
-	Ui.button(p.body, { text = "C'est parti !", size = UDim2.fromOffset(260, 54), pos = UDim2.new(0.5, 0, 0, 260), anchor = Vector2.new(0.5, 0), color = C.green, textSize = 24, onClick = Ui.closePanels })
+	Ui.button(p.body, {
+		text = "C'est parti !",
+		size = UDim2.fromOffset(260, 54),
+		pos = UDim2.new(0.5, 0, 0, 260),
+		anchor = Vector2.new(0.5, 0),
+		color = C.green,
+		textSize = 24,
+		onClick = Ui.closePanels,
+	})
 	local shown = false
 	Store.connect(function(st)
 		if not shown and st.stats.digs == 0 and st.stats.hatched == 0 and next(st.dinos) == nil then
@@ -4417,7 +5271,16 @@ local playing = false
 local overlay
 
 local function build()
-	overlay = Ui.new("Frame", { Name = "RevealOverlay", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.25, Visible = false, ZIndex = 50, Active = true, Parent = Ui.root })
+	overlay = Ui.new("Frame", {
+		Name = "RevealOverlay",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.25,
+		Visible = false,
+		ZIndex = 50,
+		Active = true,
+		Parent = Ui.root,
+	})
 end
 
 local function play(item)
@@ -4434,11 +5297,24 @@ local function play(item)
 	local egg = Config.Eggs[item.egg] or Config.Eggs.basic
 
 	-- 1. œuf qui tremble
-	local eggFrame = Ui.new("Frame", { Size = UDim2.fromOffset(150, 200), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = egg.color, ZIndex = 51, Parent = overlay })
+	local eggFrame = Ui.new("Frame", {
+		Size = UDim2.fromOffset(150, 200),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = egg.color,
+		ZIndex = 51,
+		Parent = overlay,
+	})
 	Ui.corner(eggFrame, 75)
 	Ui.stroke(eggFrame, egg.spot, 5)
 	for i = 1, 5 do
-		local s = Ui.new("Frame", { Size = UDim2.fromOffset(22 + i * 3, 22 + i * 3), Position = UDim2.fromScale(0.15 + (i * 0.37) % 0.6, 0.15 + (i * 0.23) % 0.65), BackgroundColor3 = egg.spot, ZIndex = 52, Parent = eggFrame })
+		local s = Ui.new("Frame", {
+			Size = UDim2.fromOffset(22 + i * 3, 22 + i * 3),
+			Position = UDim2.fromScale(0.15 + (i * 0.37) % 0.6, 0.15 + (i * 0.23) % 0.65),
+			BackgroundColor3 = egg.spot,
+			ZIndex = 52,
+			Parent = eggFrame,
+		})
 		Ui.corner(s, 20)
 	end
 	Ui.playSound("click", 0.5)
@@ -4466,7 +5342,16 @@ local function play(item)
 	-- 3. révélation
 	local rays = {}
 	for i = 1, 2 do
-		local r = Ui.new("Frame", { Size = UDim2.fromOffset(380, 380), Position = UDim2.fromScale(0.5, 0.44), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = i * 45, BackgroundColor3 = rar.color, BackgroundTransparency = 0.6, ZIndex = 51, Parent = overlay })
+		local r = Ui.new("Frame", {
+			Size = UDim2.fromOffset(380, 380),
+			Position = UDim2.fromScale(0.5, 0.44),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = i * 45,
+			BackgroundColor3 = rar.color,
+			BackgroundTransparency = 0.6,
+			ZIndex = 51,
+			Parent = overlay,
+		})
 		Ui.corner(r, 30)
 		rays[i] = r
 	end
@@ -4476,19 +5361,56 @@ local function play(item)
 	if golden then
 		nameText = "✨ " .. nameText .. " DORÉ ✨"
 	end
-	Ui.label(overlay, { text = nameText, size = 44, color = rar.color, sizeUdim = UDim2.fromOffset(640, 56), pos = UDim2.fromScale(0.5, 0.72), anchor = Vector2.new(0.5, 0.5), stroke = true, z = 55, name = "Name" })
-	Ui.label(overlay, { text = rar.name:upper() .. "   •   💰 " .. Util.formatNumber(Economy.dinoIncome(item.key)) .. "/s", size = 24, sizeUdim = UDim2.fromOffset(640, 34), pos = UDim2.fromScale(0.5, 0.78), anchor = Vector2.new(0.5, 0.5), stroke = true, z = 55 })
+	Ui.label(overlay, {
+		text = nameText,
+		size = 44,
+		color = rar.color,
+		sizeUdim = UDim2.fromOffset(640, 56),
+		pos = UDim2.fromScale(0.5, 0.72),
+		anchor = Vector2.new(0.5, 0.5),
+		stroke = true,
+		z = 55,
+		name = "Name",
+	})
+	Ui.label(overlay, {
+		text = rar.name:upper() .. "   •   💰 " .. Util.formatNumber(Economy.dinoIncome(item.key)) .. "/s",
+		size = 24,
+		sizeUdim = UDim2.fromOffset(640, 34),
+		pos = UDim2.fromScale(0.5, 0.78),
+		anchor = Vector2.new(0.5, 0.5),
+		stroke = true,
+		z = 55,
+	})
 	if item.new then
-		Ui.label(overlay, { text = "NOUVEAU DINO !", size = 28, color = C.gold, sizeUdim = UDim2.fromOffset(400, 40), pos = UDim2.fromScale(0.5, 0.2), anchor = Vector2.new(0.5, 0.5), stroke = true, z = 55 })
+		Ui.label(overlay, {
+			text = "NOUVEAU DINO !",
+			size = 28,
+			color = C.gold,
+			sizeUdim = UDim2.fromOffset(400, 40),
+			pos = UDim2.fromScale(0.5, 0.2),
+			anchor = Vector2.new(0.5, 0.5),
+			stroke = true,
+			z = 55,
+		})
 	end
 	local done = false
-	local ok = Ui.button(overlay, { text = "Super !", size = UDim2.fromOffset(220, 56), pos = UDim2.fromScale(0.5, 0.88), anchor = Vector2.new(0.5, 0.5), color = C.green, z = 56, textSize = 26, onClick = function()
-		done = true
-	end })
+	Ui.button(overlay, {
+		text = "Super !",
+		size = UDim2.fromOffset(220, 56),
+		pos = UDim2.fromScale(0.5, 0.88),
+		anchor = Vector2.new(0.5, 0.5),
+		color = C.green,
+		z = 56,
+		textSize = 26,
+		onClick = function()
+			done = true
+		end,
+	})
 
 	-- apparition + rotation
 	vp.Size = UDim2.fromOffset(10, 8)
-	TweenService:Create(vp, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(440, 330) }):Play()
+	TweenService:Create(vp, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(440, 330) })
+		:Play()
 	local conn = RunService.RenderStepped:Connect(function(dt)
 		for i, r in ipairs(rays) do
 			r.Rotation = r.Rotation + dt * (i == 1 and 25 or -18)
@@ -4659,7 +5581,10 @@ function Ui.corner(parent, radius)
 end
 
 function Ui.stroke(parent, color, thickness)
-	return Ui.new("UIStroke", { Color = color or Color3.new(0, 0, 0), Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent })
+	return Ui.new(
+		"UIStroke",
+		{ Color = color or Color3.new(0, 0, 0), Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent }
+	)
 end
 
 function Ui.label(parent, props)
@@ -4775,7 +5700,7 @@ Ui.panels = {}
 Ui.openName = nil
 
 function Ui.closePanels()
-	for name, p in pairs(Ui.panels) do
+	for _, p in pairs(Ui.panels) do
 		p.frame.Visible = false
 		p.dim.Visible = false
 	end
@@ -4838,7 +5763,10 @@ function Ui.createPanel(name, title, size, opts)
 	})
 	Ui.corner(frame, 18)
 	Ui.stroke(frame, Color3.fromRGB(12, 14, 24), 3)
-	Ui.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)), Rotation = 90, Parent = frame })
+	Ui.new(
+		"UIGradient",
+		{ Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)), Rotation = 90, Parent = frame }
+	)
 	Ui.new("UIScale", { Name = "PopScale", Parent = frame })
 
 	local header = Ui.new("Frame", {
@@ -4849,16 +5777,29 @@ function Ui.createPanel(name, title, size, opts)
 	})
 	Ui.corner(header, 18)
 	-- masque l'arrondi du bas de l'en-tête
-	Ui.new("Frame", { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 1, -14), BackgroundColor3 = header.BackgroundColor3, BorderSizePixel = 0, ZIndex = 22, Parent = header })
+	Ui.new("Frame", {
+		Size = UDim2.new(1, 0, 0, 14),
+		Position = UDim2.new(0, 0, 1, -14),
+		BackgroundColor3 = header.BackgroundColor3,
+		BorderSizePixel = 0,
+		ZIndex = 22,
+		Parent = header,
+	})
 	Ui.label(header, { text = title, size = 28, stroke = true, z = 23, name = "Title" })
 	local close = Ui.button(header, {
-		text = "✕", size = UDim2.fromOffset(40, 40), pos = UDim2.new(1, -8, 0.5, 0), anchor = Vector2.new(1, 0.5),
-		color = Ui.colors.red, z = 24, textSize = 22, onClick = Ui.closePanels,
+		text = "✕",
+		size = UDim2.fromOffset(40, 40),
+		pos = UDim2.new(1, -8, 0.5, 0),
+		anchor = Vector2.new(1, 0.5),
+		color = Ui.colors.red,
+		z = 24,
+		textSize = 22,
+		onClick = Ui.closePanels,
 	})
 
 	local body = Ui.new("ScrollingFrame", {
 		Name = "Body",
-		Position = UDim2.new(0, 10, 0, 62),
+		Position = UDim2.fromOffset(10, 62),
 		Size = UDim2.new(1, -20, 1, -72),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -5009,7 +5950,11 @@ function World.floatText(text, color, big)
 	bb.AlwaysOnTop = true
 	bb.Parent = player:WaitForChild("PlayerGui")
 	local l = Ui.label(bb, { text = text, size = big and 30 or 22, color = color or Color3.new(1, 1, 1), stroke = true })
-	TweenService:Create(bb, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffset = bb.StudsOffset + Vector3.new(0, 4, 0) }):Play()
+	TweenService:Create(
+		bb,
+		TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ StudsOffset = bb.StudsOffset + Vector3.new(0, 4, 0) }
+	):Play()
 	local tw = TweenService:Create(l, TweenInfo.new(0.9), { TextTransparency = 1, TextStrokeTransparency = 1 })
 	tw:Play()
 	tw.Completed:Connect(function()
@@ -5092,7 +6037,13 @@ local function updateDinos(dt, t, camPos)
 		if home then
 			local st = dinoState[m]
 			if not st then
-				st = { pos = home, yaw = rng:NextNumber(0, 6.28), target = home, wait = rng:NextNumber(0, 3), phase = rng:NextNumber(0, 6.28) }
+				st = {
+					pos = home,
+					yaw = rng:NextNumber(0, 6.28),
+					target = home,
+					wait = rng:NextNumber(0, 3),
+					phase = rng:NextNumber(0, 6.28),
+				}
 				dinoState[m] = st
 			end
 			if (home - camPos).Magnitude < 220 then
@@ -5268,7 +6219,16 @@ local function spawnVisitor(st)
 	local model = HumanFactory.build({ name = "Visiteur" })
 	model.Parent = visitorFolder
 	local route = buildRoute(st)
-	table.insert(visitors, { model = model, route = route, idx = 2, pos = route[1].pos, yaw = math.pi, wait = 0, speed = rng:NextNumber(8, 11), phase = rng:NextNumber(0, 6) })
+	table.insert(visitors, {
+		model = model,
+		route = route,
+		idx = 2,
+		pos = route[1].pos,
+		yaw = math.pi,
+		wait = 0,
+		speed = rng:NextNumber(8, 11),
+		phase = rng:NextNumber(0, 6),
+	})
 end
 
 local function updateVisitors(dt, t, st)

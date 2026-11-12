@@ -81,7 +81,10 @@ function Ui.corner(parent, radius)
 end
 
 function Ui.stroke(parent, color, thickness)
-	return Ui.new("UIStroke", { Color = color or Color3.new(0, 0, 0), Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent })
+	return Ui.new(
+		"UIStroke",
+		{ Color = color or Color3.new(0, 0, 0), Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent }
+	)
 end
 
 function Ui.label(parent, props)
@@ -197,7 +200,7 @@ Ui.panels = {}
 Ui.openName = nil
 
 function Ui.closePanels()
-	for name, p in pairs(Ui.panels) do
+	for _, p in pairs(Ui.panels) do
 		p.frame.Visible = false
 		p.dim.Visible = false
 	end
@@ -260,7 +263,10 @@ function Ui.createPanel(name, title, size, opts)
 	})
 	Ui.corner(frame, 18)
 	Ui.stroke(frame, Color3.fromRGB(12, 14, 24), 3)
-	Ui.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)), Rotation = 90, Parent = frame })
+	Ui.new(
+		"UIGradient",
+		{ Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)), Rotation = 90, Parent = frame }
+	)
 	Ui.new("UIScale", { Name = "PopScale", Parent = frame })
 
 	local header = Ui.new("Frame", {
@@ -271,16 +277,29 @@ function Ui.createPanel(name, title, size, opts)
 	})
 	Ui.corner(header, 18)
 	-- masque l'arrondi du bas de l'en-tête
-	Ui.new("Frame", { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 1, -14), BackgroundColor3 = header.BackgroundColor3, BorderSizePixel = 0, ZIndex = 22, Parent = header })
+	Ui.new("Frame", {
+		Size = UDim2.new(1, 0, 0, 14),
+		Position = UDim2.new(0, 0, 1, -14),
+		BackgroundColor3 = header.BackgroundColor3,
+		BorderSizePixel = 0,
+		ZIndex = 22,
+		Parent = header,
+	})
 	Ui.label(header, { text = title, size = 28, stroke = true, z = 23, name = "Title" })
 	local close = Ui.button(header, {
-		text = "✕", size = UDim2.fromOffset(40, 40), pos = UDim2.new(1, -8, 0.5, 0), anchor = Vector2.new(1, 0.5),
-		color = Ui.colors.red, z = 24, textSize = 22, onClick = Ui.closePanels,
+		text = "✕",
+		size = UDim2.fromOffset(40, 40),
+		pos = UDim2.new(1, -8, 0.5, 0),
+		anchor = Vector2.new(1, 0.5),
+		color = Ui.colors.red,
+		z = 24,
+		textSize = 22,
+		onClick = Ui.closePanels,
 	})
 
 	local body = Ui.new("ScrollingFrame", {
 		Name = "Body",
-		Position = UDim2.new(0, 10, 0, 62),
+		Position = UDim2.fromOffset(10, 62),
 		Size = UDim2.new(1, -20, 1, -72),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,

@@ -118,17 +118,45 @@ end
 
 local function tree(parent, pos, scale, leaf)
 	scale = scale or 1
-	local trunk = W.decor(W.part(parent, "Tronc", Vector3.new(1.6 * scale, 6 * scale, 1.6 * scale), CFrame.new(pos + Vector3.new(0, 3 * scale, 0)), Color3.fromRGB(110, 75, 45), M.Wood))
+	local trunk = W.decor(
+		W.part(
+			parent,
+			"Tronc",
+			Vector3.new(1.6 * scale, 6 * scale, 1.6 * scale),
+			CFrame.new(pos + Vector3.new(0, 3 * scale, 0)),
+			Color3.fromRGB(110, 75, 45),
+			M.Wood
+		)
+	)
 	trunk.CanCollide = false
-	local f1 = W.decor(W.ball(parent, "Feuilles", 7 * scale, pos + Vector3.new(0, 8 * scale, 0), leaf or Color3.fromRGB(60, 150, 60), M.Grass))
-	local f2 = W.decor(W.ball(parent, "Feuilles2", 5 * scale, pos + Vector3.new(1.5 * scale, 10.5 * scale, 0.5 * scale), leaf or Color3.fromRGB(70, 165, 70), M.Grass))
+	local f1 =
+		W.decor(W.ball(parent, "Feuilles", 7 * scale, pos + Vector3.new(0, 8 * scale, 0), leaf or Color3.fromRGB(60, 150, 60), M.Grass))
+	local f2 = W.decor(
+		W.ball(
+			parent,
+			"Feuilles2",
+			5 * scale,
+			pos + Vector3.new(1.5 * scale, 10.5 * scale, 0.5 * scale),
+			leaf or Color3.fromRGB(70, 165, 70),
+			M.Grass
+		)
+	)
 	f1.CanCollide = false
 	f2.CanCollide = false
 end
 W.tree = tree
 
 local function rock(parent, pos, scale, color)
-	local r = W.decor(W.part(parent, "Rocher", Vector3.new(3 * scale, 2 * scale, 2.6 * scale), CFrame.new(pos + Vector3.new(0, scale, 0)) * CFrame.Angles(0, math.rad(pos.X * 13 % 180), 0), color or Color3.fromRGB(125, 125, 130), M.Slate))
+	local r = W.decor(
+		W.part(
+			parent,
+			"Rocher",
+			Vector3.new(3 * scale, 2 * scale, 2.6 * scale),
+			CFrame.new(pos + Vector3.new(0, scale, 0)) * CFrame.Angles(0, math.rad(pos.X * 13 % 180), 0),
+			color or Color3.fromRGB(125, 125, 130),
+			M.Slate
+		)
+	)
 	return r
 end
 W.rock = rock
@@ -229,20 +257,47 @@ function W.buildPen(plot, index)
 		rock(folder, at(0, 0), 0.8)
 	elseif index == 3 then
 		for _, o in ipairs({ { -14, -9 }, { 13, 9 }, { 0, 0 } }) do
-			local lava = W.decor(W.part(folder, "Lave", Vector3.new(5, 0.2, 5), CFrame.new(at(o[1], o[2]) + Vector3.new(0, 0.15, 0)), Color3.fromRGB(255, 110, 20), M.Neon))
+			local lava = W.decor(
+				W.part(
+					folder,
+					"Lave",
+					Vector3.new(5, 0.2, 5),
+					CFrame.new(at(o[1], o[2]) + Vector3.new(0, 0.15, 0)),
+					Color3.fromRGB(255, 110, 20),
+					M.Neon
+				)
+			)
 			lava.CanCollide = false
 		end
 		rock(folder, at(-6, 8), 1.2, Color3.fromRGB(60, 50, 50))
 		rock(folder, at(8, -8), 1.4, Color3.fromRGB(60, 50, 50))
 	elseif index == 4 then
-		local w = W.decor(W.part(folder, "Lac", Vector3.new(12, 0.2, 9), CFrame.new(at(0, 0) + Vector3.new(0, 0.2, 0)), Color3.fromRGB(70, 160, 230), M.Glass))
+		local w = W.decor(
+			W.part(
+				folder,
+				"Lac",
+				Vector3.new(12, 0.2, 9),
+				CFrame.new(at(0, 0) + Vector3.new(0, 0.2, 0)),
+				Color3.fromRGB(70, 160, 230),
+				M.Glass
+			)
+		)
 		w.Transparency = 0.35
 		w.CanCollide = false
 		tree(folder, at(-15, 10), 0.8, Color3.fromRGB(90, 170, 90))
 		rock(folder, at(14, -9), 0.9)
 	elseif index == 5 then
 		for _, o in ipairs({ { -14, -9 }, { 14, 9 }, { 0, 10 } }) do
-			local spike = W.decor(W.part(folder, "Glacon", Vector3.new(2, 5, 2), CFrame.new(at(o[1], o[2]) + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0.5, 0.1), Color3.fromRGB(190, 230, 255), M.Ice))
+			local spike = W.decor(
+				W.part(
+					folder,
+					"Glacon",
+					Vector3.new(2, 5, 2),
+					CFrame.new(at(o[1], o[2]) + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0.5, 0.1),
+					Color3.fromRGB(190, 230, 255),
+					M.Ice
+				)
+			)
 			spike.Transparency = 0.2
 		end
 	else
@@ -263,9 +318,37 @@ function W.buildShop(plot, def)
 		-- grande roue : roue dans le plan YZ, axe le long de X
 		local r = 11
 		local hubY = 15
-		W.decor(W.part(folder, "Pied1", Vector3.new(2, 15, 2), L(plot, c.X - 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(15)), Color3.fromRGB(230, 230, 235), M.Metal))
-		W.decor(W.part(folder, "Pied2", Vector3.new(2, 15, 2), L(plot, c.X + 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(-15)), Color3.fromRGB(230, 230, 235), M.Metal))
-		W.decor(W.part(folder, "Axe", Vector3.new(10, 2.5, 2.5), L(plot, c.X, hubY, c.Z), Color3.fromRGB(255, 220, 90), M.Metal, Enum.PartType.Cylinder))
+		W.decor(
+			W.part(
+				folder,
+				"Pied1",
+				Vector3.new(2, 15, 2),
+				L(plot, c.X - 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(15)),
+				Color3.fromRGB(230, 230, 235),
+				M.Metal
+			)
+		)
+		W.decor(
+			W.part(
+				folder,
+				"Pied2",
+				Vector3.new(2, 15, 2),
+				L(plot, c.X + 4, 7, c.Z) * CFrame.Angles(0, 0, math.rad(-15)),
+				Color3.fromRGB(230, 230, 235),
+				M.Metal
+			)
+		)
+		W.decor(
+			W.part(
+				folder,
+				"Axe",
+				Vector3.new(10, 2.5, 2.5),
+				L(plot, c.X, hubY, c.Z),
+				Color3.fromRGB(255, 220, 90),
+				M.Metal,
+				Enum.PartType.Cylinder
+			)
+		)
 		local n = 10
 		local hub = W.toWorld(plot, Vector3.new(c.X, hubY, c.Z))
 		for i = 1, n do
@@ -273,9 +356,13 @@ function W.buildShop(plot, def)
 			local py, pz = math.sin(a) * r, math.cos(a) * r
 			local rim = W.toWorld(plot, Vector3.new(c.X, hubY + py, c.Z + pz))
 			local mid = (hub + rim) / 2
-			local spoke = W.decor(W.part(folder, "Rayon" .. i, Vector3.new(0.4, 0.4, r), CFrame.lookAt(mid, rim), Color3.fromRGB(240, 240, 245), M.Metal))
+			local spoke = W.decor(
+				W.part(folder, "Rayon" .. i, Vector3.new(0.4, 0.4, r), CFrame.lookAt(mid, rim), Color3.fromRGB(240, 240, 245), M.Metal)
+			)
 			spoke.CanCollide = false
-			local gondola = W.decor(W.part(folder, "Nacelle" .. i, Vector3.new(2.4, 2.4, 2.4), CFrame.new(rim), Color3.fromHSV(i / n, 0.6, 1), M.SmoothPlastic))
+			local gondola = W.decor(
+				W.part(folder, "Nacelle" .. i, Vector3.new(2.4, 2.4, 2.4), CFrame.new(rim), Color3.fromHSV(i / n, 0.6, 1), M.SmoothPlastic)
+			)
 			gondola.CanCollide = false
 		end
 		W.sign(folder, "Enseigne", Vector3.new(9, 2.4, 0.4), L(plot, c.X, 3, c.Z - 7), "GRANDE ROUE", Color3.fromRGB(200, 60, 80))
@@ -288,13 +375,46 @@ function W.buildShop(plot, def)
 	end
 	W.part(folder, "Murs", Vector3.new(w, h, d), L(plot, c.X, h / 2, c.Z), col, M.Brick)
 	W.part(folder, "Toit", Vector3.new(w + 2, 1, d + 2), L(plot, c.X, h + 0.5, c.Z), Color3.fromRGB(150, 60, 50), M.Slate)
-	local door = W.decor(W.part(folder, "Porte", Vector3.new(3, 4, 0.4), L(plot, c.X, 2, c.Z - d / 2 - 0.1), Color3.fromRGB(80, 55, 40), M.Wood))
-	W.decor(W.part(folder, "Vitre", Vector3.new(4, 2.4, 0.3), L(plot, c.X + w / 3, 3, c.Z - d / 2 - 0.1), Color3.fromRGB(170, 220, 255), M.Glass))
+	local door =
+		W.decor(W.part(folder, "Porte", Vector3.new(3, 4, 0.4), L(plot, c.X, 2, c.Z - d / 2 - 0.1), Color3.fromRGB(80, 55, 40), M.Wood))
+	W.decor(
+		W.part(
+			folder,
+			"Vitre",
+			Vector3.new(4, 2.4, 0.3),
+			L(plot, c.X + w / 3, 3, c.Z - d / 2 - 0.1),
+			Color3.fromRGB(170, 220, 255),
+			M.Glass
+		)
+	)
 	door.CanCollide = false
-	W.sign(folder, "Enseigne", Vector3.new(w - 2, 2.2, 0.4), L(plot, c.X, h + 2.4, c.Z - d / 2 - 0.4), string.upper(def.name), Color3.fromRGB(60, 40, 30))
+	W.sign(
+		folder,
+		"Enseigne",
+		Vector3.new(w - 2, 2.2, 0.4),
+		L(plot, c.X, h + 2.4, c.Z - d / 2 - 0.4),
+		string.upper(def.name),
+		Color3.fromRGB(60, 40, 30)
+	)
 	if def.id == "cafe" then
-		W.cylinder(folder, "Table", 0.4, 3, W.toWorld(plot, Vector3.new(c.X - 5, 2.4, c.Z - d / 2 - 3)), Color3.fromRGB(240, 240, 240), M.SmoothPlastic)
-		W.cylinder(folder, "Pied", 2.2, 0.6, W.toWorld(plot, Vector3.new(c.X - 5, 1.2, c.Z - d / 2 - 3)), Color3.fromRGB(60, 60, 60), M.Metal)
+		W.cylinder(
+			folder,
+			"Table",
+			0.4,
+			3,
+			W.toWorld(plot, Vector3.new(c.X - 5, 2.4, c.Z - d / 2 - 3)),
+			Color3.fromRGB(240, 240, 240),
+			M.SmoothPlastic
+		)
+		W.cylinder(
+			folder,
+			"Pied",
+			2.2,
+			0.6,
+			W.toWorld(plot, Vector3.new(c.X - 5, 1.2, c.Z - d / 2 - 3)),
+			Color3.fromRGB(60, 60, 60),
+			M.Metal
+		)
 	end
 	return folder
 end
@@ -306,7 +426,16 @@ function W.buildStand(plot, slot)
 	local c = Config.Stands[slot]
 	W.cylinder(folder, "Socle", 2.2, 5, W.toWorld(plot, Vector3.new(c.X, 1.1, c.Z)), Color3.fromRGB(190, 190, 200), M.Concrete)
 	W.cylinder(folder, "Plaque", 0.3, 4, W.toWorld(plot, Vector3.new(c.X, 2.35, c.Z)), Color3.fromRGB(70, 200, 255), M.Neon)
-	local egg = W.decor(W.ellipsoid(folder, "Oeuf", Vector3.new(2.6, 3.4, 2.6), CFrame.new(W.toWorld(plot, Vector3.new(c.X, 4.2, c.Z))), Color3.fromRGB(235, 225, 195), M.SmoothPlastic))
+	local egg = W.decor(
+		W.ellipsoid(
+			folder,
+			"Oeuf",
+			Vector3.new(2.6, 3.4, 2.6),
+			CFrame.new(W.toWorld(plot, Vector3.new(c.X, 4.2, c.Z))),
+			Color3.fromRGB(235, 225, 195),
+			M.SmoothPlastic
+		)
+	)
 	egg.CanCollide = false
 	egg.Transparency = 1
 	local pp = W.prompt(folder.Socle, "Placer un œuf", "Incubateur " .. slot, 11)
@@ -319,7 +448,12 @@ function W.buildDigger(plot, index)
 	folder.Parent = plot.dyn
 	local offs = { Vector3.new(-9, 0, -8), Vector3.new(9, 0, -8), Vector3.new(-9, 0, 9), Vector3.new(9, 0, 9) }
 	local o = Config.DigCenter + offs[index]
-	local human = HumanFactory.build({ name = "Ouvrier", hat = Color3.fromRGB(255, 200, 30), shirt = Color3.fromRGB(240, 120, 30), skin = Color3.fromRGB(255, 204, 153) })
+	local human = HumanFactory.build({
+		name = "Ouvrier",
+		hat = Color3.fromRGB(255, 200, 30),
+		shirt = Color3.fromRGB(240, 120, 30),
+		skin = Color3.fromRGB(255, 204, 153),
+	})
 	local face = Config.DigCenter
 	local cf = CFrame.lookAt(W.toWorld(plot, o), W.toWorld(plot, Vector3.new(face.X, 0, face.Z)))
 	HumanFactory.pose(human, cf, 0, 0.4)
@@ -354,8 +488,22 @@ end
 
 -- Bouton d'achat au sol. Retourne la Part (avec BillboardGui).
 function W.buildPad(plot, def)
-	local colors = { pen = Color3.fromRGB(80, 200, 100), incubator = Color3.fromRGB(80, 190, 255), digger = Color3.fromRGB(255, 170, 60), shop = Color3.fromRGB(255, 110, 150), helipad = Color3.fromRGB(200, 120, 255) }
-	local p = W.cylinder(plot.padFolder, "Pad_" .. def.id, 0.6, 6, W.toWorld(plot, Vector3.new(def.pad.X, 0.55, def.pad.Z)), colors[def.kind] or Color3.fromRGB(255, 255, 255), M.Neon)
+	local colors = {
+		pen = Color3.fromRGB(80, 200, 100),
+		incubator = Color3.fromRGB(80, 190, 255),
+		digger = Color3.fromRGB(255, 170, 60),
+		shop = Color3.fromRGB(255, 110, 150),
+		helipad = Color3.fromRGB(200, 120, 255),
+	}
+	local p = W.cylinder(
+		plot.padFolder,
+		"Pad_" .. def.id,
+		0.6,
+		6,
+		W.toWorld(plot, Vector3.new(def.pad.X, 0.55, def.pad.Z)),
+		colors[def.kind] or Color3.fromRGB(255, 255, 255),
+		M.Neon
+	)
 	p.CanCollide = false
 	p.CanQuery = false
 	p:SetAttribute("BuildableId", def.id)
@@ -419,7 +567,15 @@ local function buildPlotStatic(index, cf)
 	-- portail
 	W.part(static, "PilierG", Vector3.new(3, 12, 3), L(plot, -8, 6, -pd / 2), Color3.fromRGB(200, 190, 170), M.Brick)
 	W.part(static, "PilierD", Vector3.new(3, 12, 3), L(plot, 8, 6, -pd / 2), Color3.fromRGB(200, 190, 170), M.Brick)
-	local _, gateText = W.sign(static, "EnseignePortail", Vector3.new(19, 4, 1.2), L(plot, 0, 11, -pd / 2), "PARC LIBRE", Color3.fromRGB(70, 110, 60), Color3.fromRGB(255, 245, 200))
+	local _, gateText = W.sign(
+		static,
+		"EnseignePortail",
+		Vector3.new(19, 4, 1.2),
+		L(plot, 0, 11, -pd / 2),
+		"PARC LIBRE",
+		Color3.fromRGB(70, 110, 60),
+		Color3.fromRGB(255, 245, 200)
+	)
 	plot.refs.gateText = gateText
 
 	-- point d'apparition
@@ -430,12 +586,20 @@ local function buildPlotStatic(index, cf)
 
 	-- zone de fouille
 	local dc = Config.DigCenter
-	local dirt = W.decor(W.part(static, "ZoneFouille", Vector3.new(44, 0.3, 36), L(plot, dc.X, 0.35, dc.Z), Color3.fromRGB(135, 95, 60), M.Ground))
+	local dirt =
+		W.decor(W.part(static, "ZoneFouille", Vector3.new(44, 0.3, 36), L(plot, dc.X, 0.35, dc.Z), Color3.fromRGB(135, 95, 60), M.Ground))
 	dirt.CanCollide = true
 	local mounds = {}
 	local moundSpots = { { -12, -8 }, { 0, -11 }, { 12, -8 }, { -13, 7 }, { 0, 10 }, { 13, 7 } }
 	for i, o in ipairs(moundSpots) do
-		local m = W.ellipsoid(static, "Monticule" .. i, Vector3.new(7, 4.2, 7), L(plot, dc.X + o[1], 0.9, dc.Z + o[2]), Color3.fromRGB(150, 105, 65), M.Ground)
+		local m = W.ellipsoid(
+			static,
+			"Monticule" .. i,
+			Vector3.new(7, 4.2, 7),
+			L(plot, dc.X + o[1], 0.9, dc.Z + o[2]),
+			Color3.fromRGB(150, 105, 65),
+			M.Ground
+		)
 		local cd = Instance.new("ClickDetector")
 		cd.MaxActivationDistance = 28
 		cd.Parent = m
@@ -444,7 +608,8 @@ local function buildPlotStatic(index, cf)
 	end
 	plot.refs.mounds = mounds
 	W.sign(static, "PanneauFouille", Vector3.new(12, 3, 0.5), L(plot, dc.X, 3.5, dc.Z - 20), "ZONE DE FOUILLE", Color3.fromRGB(110, 70, 40))
-	local digMarker = W.decor(W.part(static, "RepereFouille", Vector3.new(1, 1, 1), L(plot, dc.X, 3, dc.Z), Color3.new(1, 1, 1), M.SmoothPlastic))
+	local digMarker =
+		W.decor(W.part(static, "RepereFouille", Vector3.new(1, 1, 1), L(plot, dc.X, 3, dc.Z), Color3.new(1, 1, 1), M.SmoothPlastic))
 	digMarker.Transparency = 1
 	digMarker.CanCollide = false
 	plot.refs.digCenter = digMarker
@@ -470,7 +635,8 @@ local function buildPlotStatic(index, cf)
 	W.part(static, "KiosquePilD", Vector3.new(1, 3, 1), L(plot, bc.X + 6, 6.5, bc.Z - 2), Color3.fromRGB(110, 75, 45), M.Wood)
 	W.sign(static, "EnseigneKiosque", Vector3.new(11, 2, 0.4), L(plot, bc.X, 6.5, bc.Z - 2.6), "BILLETTERIE", Color3.fromRGB(150, 40, 40))
 	local bp = Config.BoothPad
-	local boothPad = W.cylinder(static, "PadCollecte", 0.6, 8, W.toWorld(plot, Vector3.new(bp.X, 0.6, bp.Z)), Color3.fromRGB(60, 230, 110), M.Neon)
+	local boothPad =
+		W.cylinder(static, "PadCollecte", 0.6, 8, W.toWorld(plot, Vector3.new(bp.X, 0.6, bp.Z)), Color3.fromRGB(60, 230, 110), M.Neon)
 	boothPad.CanCollide = false
 	local lbl = W.label(boothPad, "💰 0", UDim2.fromOffset(240, 70), 5, Color3.fromRGB(255, 240, 120), 80)
 	plot.refs.boothPad = boothPad
@@ -524,17 +690,45 @@ local function buildLobby(root)
 		end
 		statue.Parent = folder
 	end
-	W.sign(folder, "Titre", Vector3.new(34, 7, 1), CFrame.new(0, 21, 70) * CFrame.Angles(0, math.rad(180), 0), "🦖 DINO DIG PARK", Color3.fromRGB(40, 90, 50), Color3.fromRGB(255, 240, 160))
+	W.sign(
+		folder,
+		"Titre",
+		Vector3.new(34, 7, 1),
+		CFrame.new(0, 21, 70) * CFrame.Angles(0, math.rad(180), 0),
+		"🦖 DINO DIG PARK",
+		Color3.fromRGB(40, 90, 50),
+		Color3.fromRGB(255, 240, 160)
+	)
 	W.part(folder, "TitrePoteauG", Vector3.new(2, 18, 2), CFrame.new(-16, 9, 70.2), Color3.fromRGB(110, 75, 45), M.Wood)
 	W.part(folder, "TitrePoteauD", Vector3.new(2, 18, 2), CFrame.new(16, 9, 70.2), Color3.fromRGB(110, 75, 45), M.Wood)
 
 	-- panneau d'aide
-	W.sign(folder, "Aide", Vector3.new(22, 9, 0.8), CFrame.new(-46, 6, 34) * CFrame.Angles(0, math.rad(150), 0),
-		"1. Creuse des fossiles ⛏\n2. Fais éclore des œufs 🥚\n3. Les dinos rapportent des 💰\n4. Agrandis ton parc !", Color3.fromRGB(70, 50, 35))
+	W.sign(
+		folder,
+		"Aide",
+		Vector3.new(22, 9, 0.8),
+		CFrame.new(-46, 6, 34) * CFrame.Angles(0, math.rad(150), 0),
+		"1. Creuse des fossiles ⛏\n2. Fais éclore des œufs 🥚\n3. Les dinos rapportent des 💰\n4. Agrandis ton parc !",
+		Color3.fromRGB(70, 50, 35)
+	)
 
 	-- tableau des scores
-	local board = W.part(folder, "TableauScores", Vector3.new(26, 18, 1), CFrame.new(60, 11, -10) * CFrame.Angles(0, math.rad(-75), 0), Color3.fromRGB(30, 35, 45), M.SmoothPlastic)
-	W.part(folder, "PoteauScore1", Vector3.new(2, 11, 2), CFrame.new(60, 5.5, -10) * CFrame.new(-9, 0, 0), Color3.fromRGB(80, 80, 90), M.Metal)
+	local board = W.part(
+		folder,
+		"TableauScores",
+		Vector3.new(26, 18, 1),
+		CFrame.new(60, 11, -10) * CFrame.Angles(0, math.rad(-75), 0),
+		Color3.fromRGB(30, 35, 45),
+		M.SmoothPlastic
+	)
+	W.part(
+		folder,
+		"PoteauScore1",
+		Vector3.new(2, 11, 2),
+		CFrame.new(60, 5.5, -10) * CFrame.new(-9, 0, 0),
+		Color3.fromRGB(80, 80, 90),
+		M.Metal
+	)
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
 	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -542,7 +736,7 @@ local function buildLobby(root)
 	sg.Parent = board
 	local title = Instance.new("TextLabel")
 	title.BackgroundTransparency = 1
-	title.Size = UDim2.new(1, 0, 0.12, 0)
+	title.Size = UDim2.fromScale(1, 0.12)
 	title.Font = FONT
 	title.TextScaled = true
 	title.Text = "🏆 MEILLEURS PARCS"
@@ -552,8 +746,8 @@ local function buildLobby(root)
 	for i = 1, 10 do
 		local t = Instance.new("TextLabel")
 		t.BackgroundTransparency = 1
-		t.Size = UDim2.new(0.92, 0, 0.075, 0)
-		t.Position = UDim2.new(0.04, 0, 0.13 + (i - 1) * 0.086, 0)
+		t.Size = UDim2.fromScale(0.92, 0.075)
+		t.Position = UDim2.fromScale(0.04, 0.13 + (i - 1) * 0.086)
 		t.Font = FONT
 		t.TextScaled = true
 		t.TextXAlignment = Enum.TextXAlignment.Left
@@ -585,7 +779,16 @@ local function buildLobby(root)
 	for i = 1, 8 do
 		local a = (i / 8) * math.pi * 2 + 0.3
 		local pos = Vector3.new(math.cos(a) * 46, 0, math.sin(a) * 46)
-		W.decor(W.part(folder, "LampadairePied", Vector3.new(0.8, 12, 0.8), CFrame.new(pos + Vector3.new(0, 6, 0)), Color3.fromRGB(50, 50, 55), M.Metal))
+		W.decor(
+			W.part(
+				folder,
+				"LampadairePied",
+				Vector3.new(0.8, 12, 0.8),
+				CFrame.new(pos + Vector3.new(0, 6, 0)),
+				Color3.fromRGB(50, 50, 55),
+				M.Metal
+			)
+		)
 		local lamp = W.decor(W.ball(folder, "LampadaireLampe", 2.4, pos + Vector3.new(0, 12.5, 0), Color3.fromRGB(255, 235, 170), M.Neon))
 		local light = Instance.new("PointLight")
 		light.Range = 26
@@ -615,11 +818,20 @@ local function buildGoldBones(root)
 		local bone = Instance.new("Model")
 		bone.Name = "OsDore" .. j
 		local gold = Color3.fromRGB(255, 210, 60)
-		local shaft = W.part(bone, "Os", Vector3.new(0.7, 0.7, 3), CFrame.new(pos) * CFrame.Angles(0, math.rad(j * 40), math.rad(20)), gold, M.Metal)
+		local shaft =
+			W.part(bone, "Os", Vector3.new(0.7, 0.7, 3), CFrame.new(pos) * CFrame.Angles(0, math.rad(j * 40), math.rad(20)), gold, M.Metal)
 		shaft.CanCollide = false
 		for _, dz in ipairs({ -1.5, 1.5 }) do
 			for _, dx in ipairs({ -0.35, 0.35 }) do
-				local k = W.part(bone, "Bout", Vector3.new(0.8, 0.8, 0.8), shaft.CFrame * CFrame.new(dx, 0, dz), gold, M.Metal, Enum.PartType.Ball)
+				local k = W.part(
+					bone,
+					"Bout",
+					Vector3.new(0.8, 0.8, 0.8),
+					shaft.CFrame * CFrame.new(dx, 0, dz),
+					gold,
+					M.Metal,
+					Enum.PartType.Ball
+				)
 				k.CanCollide = false
 			end
 		end
@@ -686,7 +898,16 @@ function W.build()
 		local from = Vector3.new(math.cos(a) * 110, 0.3, math.sin(a) * 110)
 		local to = Vector3.new(math.cos(a) * 200, 0.3, math.sin(a) * 200)
 		local mid = (from + to) / 2
-		local road = W.decor(W.part(root, "Route" .. i, Vector3.new(14, 0.2, (to - from).Magnitude), CFrame.lookAt(mid, to), Color3.fromRGB(170, 170, 175), M.Concrete))
+		local road = W.decor(
+			W.part(
+				root,
+				"Route" .. i,
+				Vector3.new(14, 0.2, (to - from).Magnitude),
+				CFrame.lookAt(mid, to),
+				Color3.fromRGB(170, 170, 175),
+				M.Concrete
+			)
+		)
 		road.CanCollide = true
 	end
 	return plots

@@ -109,7 +109,7 @@ local function addDino(data, key)
 end
 
 local function grantEgg(player, s, eggId)
-	local key, dino, golden = Economy.rollEgg(eggId, s.data, rand)
+	local key = Economy.rollEgg(eggId, s.data, rand)
 	local isNew = addDino(s.data, key)
 	s.data.stats.hatched = s.data.stats.hatched + 1
 	PlotService.refresh(player, s.data)
@@ -276,7 +276,7 @@ local function collectHatch(player, slot)
 	end
 	data.eggSlots[tostring(slot)] = nil
 	questProgress(s, "hatch", 1)
-	local key, isNew = grantEgg(player, s, info.egg)
+	local key = grantEgg(player, s, info.egg)
 	local id = Economy.parseKey(key)
 	local d = Config.DinoById[id]
 	if Config.RarityById[d.rarity].order >= 5 then

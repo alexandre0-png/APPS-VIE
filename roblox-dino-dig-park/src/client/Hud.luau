@@ -25,11 +25,22 @@ local toastHolder, objectiveLabel, eventLabel, boostLabel, digButton, collectBut
 -- Monnaies
 ----------------------------------------------------------------------
 local function makePill(parent, icon, order, color)
-	local f = Ui.new("Frame", { Size = UDim2.fromOffset(230, 44), BackgroundColor3 = C.bg, BackgroundTransparency = 0.15, LayoutOrder = order, Parent = parent })
+	local f = Ui.new(
+		"Frame",
+		{ Size = UDim2.fromOffset(230, 44), BackgroundColor3 = C.bg, BackgroundTransparency = 0.15, LayoutOrder = order, Parent = parent }
+	)
 	Ui.corner(f, 22)
 	Ui.stroke(f, color, 3)
 	Ui.label(f, { text = icon, size = 26, sizeUdim = UDim2.fromOffset(44, 44), name = "Icon" })
-	local v = Ui.label(f, { text = "0", size = 24, align = Enum.TextXAlignment.Left, pos = UDim2.fromOffset(46, 0), sizeUdim = UDim2.new(1, -56, 1, 0), stroke = true, name = "Value" })
+	local v = Ui.label(f, {
+		text = "0",
+		size = 24,
+		align = Enum.TextXAlignment.Left,
+		pos = UDim2.fromOffset(46, 0),
+		sizeUdim = UDim2.new(1, -56, 1, 0),
+		stroke = true,
+		name = "Value",
+	})
 	local sc = Ui.new("UIScale", { Parent = v })
 	return { frame = f, value = v, scale = sc, last = 0 }
 end
@@ -53,7 +64,8 @@ function Hud.toast(text, kind)
 	elseif kind == "bad" then
 		color = C.red
 	end
-	local t = Ui.new("Frame", { Size = UDim2.fromOffset(380, 42), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, Parent = toastHolder })
+	local t =
+		Ui.new("Frame", { Size = UDim2.fromOffset(380, 42), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, Parent = toastHolder })
 	Ui.corner(t, 14)
 	Ui.stroke(t, color, 3)
 	local l = Ui.label(t, { text = text, size = 18, wrap = true, stroke = true })
@@ -141,8 +153,21 @@ end
 -- Construction
 ----------------------------------------------------------------------
 local function buildMenu(parent)
-	local col = Ui.new("Frame", { Name = "Menu", Size = UDim2.fromOffset(84, 440), Position = UDim2.new(1, -8, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), BackgroundTransparency = 1, Parent = parent })
-	Ui.new("UIListLayout", { Padding = UDim.new(0, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = col })
+	local col = Ui.new("Frame", {
+		Name = "Menu",
+		Size = UDim2.fromOffset(84, 440),
+		Position = UDim2.new(1, -8, 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+	Ui.new("UIListLayout", {
+		Padding = UDim.new(0, 8),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = col,
+	})
 	local defs = {
 		{ id = "collection", icon = "🦖", label = "Dinos", panel = "collection", color = C.green },
 		{ id = "upgrades", icon = "⛏", label = "Boost", panel = "upgrades", color = C.orange },
@@ -152,19 +177,50 @@ local function buildMenu(parent)
 		{ id = "shop", icon = "🛒", label = "Boutique", panel = "shop", color = C.red },
 	}
 	for i, d in ipairs(defs) do
-		local b = Ui.button(col, { name = d.id, text = "", size = UDim2.fromOffset(74, 62), color = d.color, radius = 14, onClick = function()
-			Ui.togglePanel(d.panel)
-		end })
+		local b = Ui.button(col, {
+			name = d.id,
+			text = "",
+			size = UDim2.fromOffset(74, 62),
+			color = d.color,
+			radius = 14,
+			onClick = function()
+				Ui.togglePanel(d.panel)
+			end,
+		})
 		b.LayoutOrder = i
-		Ui.label(b, { text = d.icon, size = 28, sizeUdim = UDim2.new(1, 0, 0.62, 0), z = 2, name = "Icon" })
-		Ui.label(b, { text = d.label, size = 14, sizeUdim = UDim2.new(1, 0, 0.36, 0), pos = UDim2.fromScale(0, 0.62), stroke = true, z = 2, name = "Caption" })
-		local dot = Ui.new("Frame", { Name = "Dot", Size = UDim2.fromOffset(20, 20), Position = UDim2.new(1, -6, 0, 6), AnchorPoint = Vector2.new(1, 0), BackgroundColor3 = C.red, Visible = false, ZIndex = 5, Parent = b })
+		Ui.label(b, { text = d.icon, size = 28, sizeUdim = UDim2.fromScale(1, 0.62), z = 2, name = "Icon" })
+		Ui.label(b, {
+			text = d.label,
+			size = 14,
+			sizeUdim = UDim2.fromScale(1, 0.36),
+			pos = UDim2.fromScale(0, 0.62),
+			stroke = true,
+			z = 2,
+			name = "Caption",
+		})
+		local dot = Ui.new("Frame", {
+			Name = "Dot",
+			Size = UDim2.fromOffset(20, 20),
+			Position = UDim2.new(1, -6, 0, 6),
+			AnchorPoint = Vector2.new(1, 0),
+			BackgroundColor3 = C.red,
+			Visible = false,
+			ZIndex = 5,
+			Parent = b,
+		})
 		Ui.corner(dot, 10)
 		Ui.stroke(dot, Color3.new(1, 1, 1), 2)
 		menuButtons[d.id] = { button = b, dot = dot }
 	end
 	-- bouton son
-	local snd = Ui.button(parent, { text = "🔊", size = UDim2.fromOffset(44, 44), pos = UDim2.new(0, 8, 1, -8), anchor = Vector2.new(0, 1), color = C.bg, textSize = 22 })
+	local snd = Ui.button(parent, {
+		text = "🔊",
+		size = UDim2.fromOffset(44, 44),
+		pos = UDim2.new(0, 8, 1, -8),
+		anchor = Vector2.new(0, 1),
+		color = C.bg,
+		textSize = 22,
+	})
 	snd.Activated:Connect(function()
 		Ui.settings.sfx = not Ui.settings.sfx
 		snd.Text = Ui.settings.sfx and "🔊" or "🔇"
@@ -173,38 +229,90 @@ end
 
 function Hud.build(root)
 	-- monnaies (haut gauche)
-	local topLeft = Ui.new("Frame", { Name = "Currencies", Size = UDim2.fromOffset(230, 160), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Parent = root })
+	local topLeft = Ui.new("Frame", {
+		Name = "Currencies",
+		Size = UDim2.fromOffset(230, 160),
+		Position = UDim2.fromOffset(8, 8),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
 	Ui.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = topLeft })
 	pills.cash = makePill(topLeft, "💰", 1, C.gold)
 	pills.fossils = makePill(topLeft, "🦴", 2, Color3.fromRGB(235, 225, 195))
 	pills.income = makePill(topLeft, "⚡", 3, C.green)
 
 	-- objectif + événement (haut centre)
-	local top = Ui.new("Frame", { Name = "Top", Size = UDim2.fromOffset(440, 110), Position = UDim2.new(0.5, 0, 0, 8), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Parent = root })
-	Ui.new("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = top })
-	local obj = Ui.new("Frame", { Size = UDim2.fromOffset(420, 40), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, LayoutOrder = 1, Parent = top })
+	local top = Ui.new("Frame", {
+		Name = "Top",
+		Size = UDim2.fromOffset(440, 110),
+		Position = UDim2.new(0.5, 0, 0, 8),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
+	Ui.new("UIListLayout", {
+		Padding = UDim.new(0, 4),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = top,
+	})
+	local obj = Ui.new(
+		"Frame",
+		{ Size = UDim2.fromOffset(420, 40), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, LayoutOrder = 1, Parent = top }
+	)
 	Ui.corner(obj, 20)
 	Ui.stroke(obj, C.blue, 3)
 	objectiveLabel = Ui.label(obj, { text = "", size = 17, stroke = true, wrap = true })
-	local ev = Ui.new("Frame", { Name = "Event", Size = UDim2.fromOffset(300, 32), BackgroundColor3 = Color3.fromRGB(120, 40, 30), LayoutOrder = 2, Visible = false, Parent = top })
+	local ev = Ui.new("Frame", {
+		Name = "Event",
+		Size = UDim2.fromOffset(300, 32),
+		BackgroundColor3 = Color3.fromRGB(120, 40, 30),
+		LayoutOrder = 2,
+		Visible = false,
+		Parent = top,
+	})
 	Ui.corner(ev, 16)
 	Ui.stroke(ev, C.orange, 3)
 	eventLabel = Ui.label(ev, { text = "", size = 16, stroke = true })
 	Hud.eventFrame = ev
 
 	-- toasts
-	toastHolder = Ui.new("Frame", { Name = "Toasts", Size = UDim2.fromOffset(400, 200), Position = UDim2.new(0.5, 0, 0, 130), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Parent = root })
+	toastHolder = Ui.new("Frame", {
+		Name = "Toasts",
+		Size = UDim2.fromOffset(400, 200),
+		Position = UDim2.new(0.5, 0, 0, 130),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
 	Ui.new("UIListLayout", { Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = toastHolder })
 
 	-- boost
-	local boost = Ui.new("Frame", { Name = "Boost", Size = UDim2.fromOffset(200, 36), Position = UDim2.new(0, 8, 1, -64), AnchorPoint = Vector2.new(0, 1), BackgroundColor3 = C.bg, BackgroundTransparency = 0.1, Visible = false, Parent = root })
+	local boost = Ui.new("Frame", {
+		Name = "Boost",
+		Size = UDim2.fromOffset(200, 36),
+		Position = UDim2.new(0, 8, 1, -64),
+		AnchorPoint = Vector2.new(0, 1),
+		BackgroundColor3 = C.bg,
+		BackgroundTransparency = 0.1,
+		Visible = false,
+		Parent = root,
+	})
 	Ui.corner(boost, 18)
 	Ui.stroke(boost, C.gold, 3)
 	boostLabel = Ui.label(boost, { text = "", size = 17, stroke = true })
 	Hud.boostFrame = boost
 
 	-- bouton creuser
-	digButton = Ui.button(root, { name = "Dig", text = "⛏ CREUSER", size = UDim2.fromOffset(210, 74), pos = UDim2.new(0.5, 0, 1, -16), anchor = Vector2.new(0.5, 1), color = C.orange, textSize = 30 })
+	digButton = Ui.button(root, {
+		name = "Dig",
+		text = "⛏ CREUSER",
+		size = UDim2.fromOffset(210, 74),
+		pos = UDim2.new(0.5, 0, 1, -16),
+		anchor = Vector2.new(0.5, 1),
+		color = C.orange,
+		textSize = 30,
+	})
 	digButton.Visible = false
 	local holding = false
 	digButton.MouseButton1Down:Connect(function()
@@ -231,13 +339,30 @@ function Hud.build(root)
 	end)
 
 	-- bouton collecter
-	collectButton = Ui.button(root, { name = "Collect", text = "💰 COLLECTER", size = UDim2.fromOffset(210, 64), pos = UDim2.new(0.5, 0, 1, -16), anchor = Vector2.new(0.5, 1), color = C.green, textSize = 26, onClick = function()
-		Store.act("Collect")
-	end })
+	collectButton = Ui.button(root, {
+		name = "Collect",
+		text = "💰 COLLECTER",
+		size = UDim2.fromOffset(210, 64),
+		pos = UDim2.new(0.5, 0, 1, -16),
+		anchor = Vector2.new(0.5, 1),
+		color = C.green,
+		textSize = 26,
+		onClick = function()
+			Store.act("Collect")
+		end,
+	})
 	collectButton.Visible = false
 
 	-- avertissement données volatiles (Studio)
-	warnLabel = Ui.label(root, { text = "Mode test : progression non sauvegardée", size = 14, color = C.red, sizeUdim = UDim2.fromOffset(320, 20), pos = UDim2.new(0.5, 0, 1, -2), anchor = Vector2.new(0.5, 1), stroke = true })
+	warnLabel = Ui.label(root, {
+		text = "Mode test : progression non sauvegardée",
+		size = 14,
+		color = C.red,
+		sizeUdim = UDim2.fromOffset(320, 20),
+		pos = UDim2.new(0.5, 0, 1, -2),
+		anchor = Vector2.new(0.5, 1),
+		stroke = true,
+	})
 	warnLabel.Visible = false
 
 	buildMenu(root)
