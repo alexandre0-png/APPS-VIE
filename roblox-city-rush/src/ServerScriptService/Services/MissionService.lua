@@ -17,7 +17,6 @@ local DataService = require(script.Parent.DataService)
 local VehicleService = require(script.Parent.VehicleService)
 local WantedService = require(script.Parent.WantedService)
 local PedestrianService = require(script.Parent.PedestrianService)
-local CinematicService = require(script.Parent.CinematicService)
 
 local MissionService = {}
 
@@ -280,7 +279,6 @@ local function completeMission(player, m)
 	elseif m.type == "heist" then
 		local paid = reward(player, m.reward, cfg.xp, "heists")
 		finish(player, true, string.format("Casse réussi ! +%s", Util.formatCash(paid)))
-		CinematicService.play(player, "heist")
 	end
 end
 

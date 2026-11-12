@@ -61,7 +61,7 @@ local function onPlayer(player)
 			-- premier lancement : la Citadine apparaît automatiquement
 			task.wait(2.5)
 			VehicleService.spawnFor(player, "citadine")
-			CinematicService.play(player, "arrival")
+			CinematicService.play(player, "tutorial")
 			RemoteService.notify(player, "Bienvenue à CITY RUSH ! Ta Citadine t'attend. Touche G = garage.", "good")
 		end
 	end)

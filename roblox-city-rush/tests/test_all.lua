@@ -670,8 +670,8 @@ test("CinematicLogic : toutes les séquences valides, 20 à 40 s, skippables", f
 		local ok, msg = L.validate(seq); truthy(ok, id .. ": " .. tostring(msg))
 		local d = L.totalDuration(seq); truthy(d >= 20 and d <= 40, id .. " dure " .. d .. " s"); n = n + 1
 	end
-	for _, id in ipairs({ "intro", "arrival", "chase", "story1", "story2", "story3", "story4", "heist", "finale" }) do truthy(C.Cinematics.Sequences[id], "séquence " .. id) end
-	eq(n, 9)
+	for _, id in ipairs({ "intro", "tutorial", "chase" }) do truthy(C.Cinematics.Sequences[id], "séquence " .. id) end
+	eq(n, 3, "3 moments clés seulement")
 end)
 test("CinematicLogic : validation rejette les séquences invalides", function()
 	local L = H.mod("CinematicLogic")
@@ -713,32 +713,29 @@ test("CinematicService : une seule fois, réglages, inconnues, sans profil", fun
 	eq(Cin.play(p, "intro"), false, "déjà vue")
 	eq(#H.remote("Cinematic")._fired, 1)
 	for _, bad in ipairs({ "inconnue", "", "__index" }) do eq(Cin.play(p, bad), false) end
-	C.Cinematics.Sequences.arrival.enabled = false; eq(Cin.play(p, "arrival"), false, "séquence désactivée"); C.Cinematics.Sequences.arrival.enabled = true
+	C.Cinematics.Sequences.tutorial.enabled = false; eq(Cin.play(p, "tutorial"), false, "séquence désactivée"); C.Cinematics.Sequences.tutorial.enabled = true
 	C.Cinematics.Enabled = false; eq(Cin.play(p, "chase"), false, "coupure générale"); eq(M.Data.get(p).Seen.chase, nil, "non marquée vue si désactivée"); C.Cinematics.Enabled = true
 	C.Cinematics.PlayOnce = false; eq(Cin.play(p, "intro"), true, "rejouable si PlayOnce = false"); C.Cinematics.PlayOnce = true
 	local ghost = join(M, "CI2", false); H.ds.failLoad = true; local nop = H.addPlayer("CI3"); H.advance(0.2); eq(Cin.play(nop, "intro"), false, "sans profil")
 end)
-test("cinématiques : déclenchées par la première poursuite, l'histoire et le braquage", function()
-	local M = bootGame(); local Cin = H.mod("CinematicService"); M.Story = H.mod("StoryService"); M.Story.init(); M.Story.start()
-	M.Mission = H.mod("MissionService"); local pad = H.Instance.new("Part"); pad:SetAttribute("Mission", "heist"); H.services.CollectionService:AddTag(pad, "MissionHub"); M.Mission.init(M.World); M.Mission.start()
-	local p = join(M, "CI4"); local d = M.Data.get(p); local ids = function() local out = {}; for _, f in ipairs(H.remote("Cinematic")._fired) do out[#out + 1] = f.args[1] end; return table.concat(out, ",") end
+test("cinématiques : seule la première poursuite déclenche une cinématique en jeu", function()
+	local M = bootGame(); M.Story = H.mod("StoryService"); M.Story.init(); M.Story.start()
+	local p = join(M, "CI4"); local ids = function() local out = {}; for _, f in ipairs(H.remote("Cinematic")._fired) do out[#out + 1] = f.args[1] end; return table.concat(out, ",") end
 	M.Wanted.addHeat(p, 25); eq(ids(), "chase", "première poursuite")
 	M.Wanted.clear(p); M.Wanted.addHeat(p, 25); eq(ids(), "chase", "une seule fois")
 	local ch = M.Config.Story.Chapters
 	for i = 1, 4 do H.move(p, V3.new(ch[i].x, 3, ch[i].z)); H.advance(1) end
-	eq(ids(), "chase,story1,story2,story3,story4")
-	H.advance(3); client(p, "SubmitCode", "7391"); truthy(ids():find("finale"), "fin de l'histoire")
-	d.Level = 6; M.Wanted.clear(p); pad:FindFirstChildOfClass("ProximityPrompt").Triggered:Fire(p)
-	H.move(p, M.World.Hideout + V3.new(0, 2.5, 0)); H.advance(0.6); truthy(ids():find("heist"), "braquage réussi")
+	H.advance(3); client(p, "SubmitCode", "7391"); eq(M.Data.get(p).Story.done, true)
+	eq(ids(), "chase", "l'histoire se joue en gameplay, sans cinématique")
 end)
-test("cinématiques : intro puis arrivée au premier lancement (Main)", function()
+test("cinématiques : intro puis mini tutoriel au premier lancement (Main)", function()
 	H.rayHit = true
 	local MainInst
 	for _, c in ipairs(H.SSS:GetChildren()) do if c.Name == "Main" then MainInst = c end end
 	local p = H.addPlayer("Main2"); p.LoadCharacter = function(self) H.spawnCharacter(self, V3.new(0, 3, 0)) end
 	H.env.task.spawn(function() H.require(MainInst) end); H.advance(3000)
 	local ids = {}; for _, f in ipairs(H.remote("Cinematic")._fired) do ids[#ids + 1] = f.args[1] end
-	eq(table.concat(ids, ","), "intro,arrival"); H.advance(600)
+	eq(table.concat(ids, ","), "intro,tutorial"); H.advance(600)
 end)
 
 print("== Client (chargement des modules)")

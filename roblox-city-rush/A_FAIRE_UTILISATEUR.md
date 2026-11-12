@@ -16,9 +16,9 @@ Si les performances mobiles sont insuffisantes : `Quality = "low"`, `Details = f
 Les animations sont locales (visibles par le joueur concerné). Si la caméra paraît trop penchée : réduire `MaxLeanDegrees`.
 
 ### Cinématiques à valider visuellement
-9 séquences de 20 à 40 s (`Config.Cinematics`) : intro de la ville, arrivée dans la première voiture, première poursuite, une par énigme (story1 à story4), casse réussi, fin de saison.
-Chacune est skippable (bouton, Espace, Entrée, B manette), jouée une seule fois par joueur, jamais bloquante (la caméra est toujours restaurée, même en cas d'erreur ou de mort).
-À vérifier : cadrages (positions en studs dans `Config.Cinematics.Sequences.*.shots`), lisibilité des légendes sur mobile. Pour les revoir pendant les tests : `PlayOnce = false`, ou couper une séquence avec `enabled = false`.
+3 moments clés seulement (`Config.Cinematics`, 20 à 40 s) : intro de la ville (contexte, principe, but), mini tutoriel au premier lancement (conduire, missions, police), première poursuite de police. Le reste (énigmes, braquage...) reste en gameplay.
+Skippables (bouton, Espace, Entrée, B manette), jouées une seule fois par joueur, jamais bloquantes (caméra toujours restaurée).
+À vérifier : cadrages (positions en studs dans `Sequences.*.shots`), lisibilité des légendes sur mobile. Pour les revoir : `PlayOnce = false` ou couper une séquence avec `enabled = false`.
 
 ## 2. Publication (Open Cloud / Creator Hub)
 - [ ] Créer une expérience vide dans le Creator Hub -> noter **universeId** et **placeId**.
