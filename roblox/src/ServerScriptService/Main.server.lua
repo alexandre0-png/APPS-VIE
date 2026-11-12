@@ -689,7 +689,9 @@ local function guardsStep(dt)
 				g.dir = 1
 			end
 			look = Vector3.new(g.dir, 0, 0)
-			if g.cd <= 0 then
+			g.scan = (g.scan or 0) - dt
+			if g.cd <= 0 and g.scan <= 0 then
+				g.scan = 0.15
 				local t = nearestTarget(g.pos, 16)
 				if t then
 					g.state, g.target, g.lost = "chase", t, 0
@@ -811,7 +813,7 @@ local function fastTick(dt)
 			local pos = root.Position
 			if s.lastPos and s.stun <= 0 and os.clock() > s.noCheckUntil then
 				local moved = Vector3.new(pos.X - s.lastPos.X, 0, pos.Z - s.lastPos.Z).Magnitude
-				local allowed = (hum.WalkSpeed + 16) * dt * 1.4 + 3
+				local allowed = (Config.walkSpeed(d.speed) + 16) * dt * 1.4 + 3
 				if moved > allowed then
 					s.flags += 1
 					if s.flags >= 3 then
@@ -1075,7 +1077,10 @@ RAction.OnServerEvent:Connect(function(player, action, arg)
 	s.lastAct = now
 	local fn = actions[action]
 	if fn then
-		fn(s, arg)
+		local ok, err = pcall(fn, s, arg)
+		if not ok then
+			warn("[Action " .. action .. "] " .. tostring(err))
+		end
 	end
 end)
 
@@ -1170,6 +1175,9 @@ local function onJoin(player)
 	end
 	local plot = claimPlot(player)
 	if not plot then
+		if not noSave then
+			Data.save(player, d, true) -- libère le verrou de session avant de refuser
+		end
 		player:Kick("Serveur plein. Réessaie dans un autre serveur.")
 		return
 	end
@@ -1236,8 +1244,10 @@ local function onJoin(player)
 			end)
 		end)
 	end)
-	player:LoadCharacter()
-	sync(s)
+	if player.Parent then
+		player:LoadCharacter()
+		sync(s)
+	end
 end
 
 Players.PlayerAdded:Connect(onJoin)
