@@ -1,0 +1,7 @@
+{
+  "name": "herd-hopper-sim",
+  "private": true,
+  "description": "Simulation serveur de Saute-Troupeau hors Roblox (fengari)",
+  "scripts": { "sim": "node run.js A && node run.js B" },
+  "dependencies": { "fengari": "^0.1.4" }
+}

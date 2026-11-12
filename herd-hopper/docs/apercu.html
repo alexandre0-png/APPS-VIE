@@ -1,0 +1,310 @@
+<title>Saute-Troupeau</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout : une page éditoriale à colonne unique, des bandes plein écran, un seul moment animé (la boucle de jeu). */
+:root{
+  --bg:#f4f5f2; --surface:#ffffff; --surface2:#eaece6; --fg:#1b2230; --muted:#59627a;
+  --line:#d6d9d0; --lava:#e8530f; --grass:#3f8f4f; --sky:#2b7fd1; --gold:#d99a00;
+  --good:#1f8a4c; --bad:#c43a2b;
+  --display:'Fredoka','Trebuchet MS',system-ui,sans-serif; --body:'Inter',system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a26; --surface:#1d2535; --surface2:#263049; --fg:#eef1f8; --muted:#9aa5c0;
+  --line:#33405c; --lava:#ff7a3a; --grass:#6cc47c; --sky:#6db3ff; --gold:#ffc83d;
+  --good:#5fd08c; --bad:#ff7a6b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a26; --surface:#1d2535; --surface2:#263049; --fg:#eef1f8; --muted:#9aa5c0;
+  --line:#33405c; --lava:#ff7a3a; --grass:#6cc47c; --sky:#6db3ff; --gold:#ffc83d;
+  --good:#5fd08c; --bad:#ff7a6b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55;
+  padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;padding-block:36px}
+h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.12;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.6rem,8vw,4.6rem);letter-spacing:.01em}
+h2{font-size:clamp(1.6rem,4.5vw,2.2rem);margin-bottom:6px}
+h3{font-size:1.15rem}
+p{margin:0 0 .8em;max-width:68ch}
+.kicker{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lead{font-size:1.15rem;max-width:60ch}
+section{padding-block:34px;border-top:1px solid var(--line)}
+section:first-of-type{border-top:0}
+.pill{display:inline-block;font-size:.78rem;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--fg)}
+.ok{color:var(--good)} .ko{color:var(--bad)}
+.grid{display:grid;gap:14px}
+.g3{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.card p{margin:0;color:var(--muted);font-size:.95rem}
+.card h3{margin-bottom:4px}
+canvas{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line);background:#8fd0ff}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.93rem}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* bestiaire */
+.beast svg{width:100%;height:auto;display:block;background:var(--surface2);border-radius:10px;margin-bottom:10px}
+.beast dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:8px 0 0;font-size:.85rem}
+.beast dt{color:var(--muted)} .beast dd{margin:0;font-variant-numeric:tabular-nums}
+/* piste */
+.track{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.track svg{width:100%;height:auto;display:block}
+.track text{font-family:var(--display);fill:var(--fg)}
+/* HUD */
+.hud{position:relative;background:linear-gradient(#8fd0ff,#c9e9a8 62%,#7aa84e);border-radius:14px;border:1px solid var(--line);aspect-ratio:16/9;min-height:300px;overflow:hidden;font-family:var(--display);color:#fff}
+.hud .box{position:absolute;background:rgba(30,36,56,.85);border:2px solid #121624;border-radius:14px;padding:8px 12px}
+.hud .small{font-size:.7rem;color:#aab4d2;letter-spacing:.08em}
+.hud .big{font-size:1.7rem;color:#ffc846;line-height:1}
+.hud .bar{height:8px;border-radius:4px;background:#121624;margin-top:6px;overflow:hidden}
+.hud .bar i{display:block;height:100%;background:#5ac86e}
+.hud .toast{position:absolute;left:50%;top:26%;transform:translateX(-50%);text-align:center;white-space:nowrap;text-shadow:0 2px 0 #121624,0 0 8px #121624}
+.hud .toast b{display:block;font-size:clamp(1.4rem,5vw,2.6rem);color:#5ac86e;font-weight:600}
+.hud .toast span{font-family:var(--body);font-size:clamp(.75rem,2vw,1rem)}
+.hud .btn{position:absolute;right:14px;bottom:14px;width:84px;height:84px;border-radius:50%;background:#6ec8ff;border:3px solid #121624;color:#121624;display:grid;place-items:center;font-size:1.05rem}
+.hud .lava{position:absolute;left:0;top:0;bottom:0;width:7%;background:repeating-linear-gradient(0deg,#ff6a1a,#ff9a2e 18px,#e8450f 36px);box-shadow:8px 0 30px #ff5a1a}
+.hud .row{display:flex;justify-content:space-between;gap:10px;font-family:var(--body);font-size:.78rem}
+.cols{display:grid;gap:24px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+.legend{font-size:.85rem;color:var(--muted);margin-top:8px}
+@media (prefers-reduced-motion:reduce){canvas{animation:none}}
+</style>
+
+<div class="wrap">
+
+<header style="padding-block:18px 8px">
+  <div class="kicker">Roblox · multijoueur · manches de 2 minutes</div>
+  <h1>Saute-Troupeau</h1>
+  <p class="lead" style="margin-top:12px">Un troupeau de bêtes géantes fonce vers un volcan. Tu bondis de l'une à l'autre au lasso, tu en domptes un maximum et tu gardes une longueur d'avance sur le mur de lave qui avance dans ton dos.</p>
+  <p><span class="pill">26 scripts Luau · 5 500 lignes</span> <span class="pill">0 asset externe</span> <span class="pill">PC · mobile · tablette · console</span></p>
+</header>
+
+<section>
+  <div class="kicker">La boucle de jeu</div>
+  <h2>Selle, bond, lasso</h2>
+  <p>Une seule touche pilote tout (espace, clic, tap ou bouton A). En selle, elle te propulse vers l'avant. En l'air, elle lance le lasso, et le maintenir lasse automatiquement la première bête à portée. Chaque lasso enchaîné fait monter le combo.</p>
+  <canvas id="loop" width="960" height="320" aria-label="Animation schématique : un cavalier saute de bête en bête"></canvas>
+  <p class="legend">Animation schématique de la mécanique, dessinée à partir des vraies vitesses et portées du jeu.</p>
+</section>
+
+<section>
+  <div class="kicker">La carte</div>
+  <h2>3 200 mètres en 4 biomes</h2>
+  <p>Un couloir de falaises, un sol à 0 et un mur de lave qui accélère de 12 à 46 m/s. Les biomes changent le décor, les matériaux et la lumière du client. L'arrivée est un podium avec confettis.</p>
+  <div class="track">
+    <svg viewBox="0 0 1000 190" role="img" aria-label="Frise de la piste avec les quatre biomes">
+      <defs><linearGradient id="lv" x1="0" x2="1"><stop offset="0" stop-color="#ff5a1a"/><stop offset="1" stop-color="#ff9a2e"/></linearGradient></defs>
+      <rect x="20" y="40" width="253" height="64" fill="#7caa4a"/>
+      <rect x="273" y="40" width="225" height="64" fill="#e2b674"/>
+      <rect x="498" y="40" width="225" height="64" fill="#3f7a46"/>
+      <rect x="723" y="40" width="257" height="64" fill="#3a3438"/>
+      <rect x="723" y="92" width="257" height="6" fill="url(#lv)"/>
+      <rect x="20" y="40" width="18" height="64" fill="url(#lv)"/>
+      <g font-size="17" font-weight="600" text-anchor="middle">
+        <text x="146" y="78" style="fill:#fff">SAVANE DORÉE</text>
+        <text x="385" y="78" style="fill:#3a2a12">DÉSERT ROUGE</text>
+        <text x="610" y="78" style="fill:#fff">FORÊT GÉANTE</text>
+        <text x="851" y="78" style="fill:#fff">VOLCAN</text>
+      </g>
+      <g font-size="14" text-anchor="middle">
+        <text x="20" y="128" text-anchor="start">0 m · DÉPART</text>
+        <text x="273" y="128">900</text><text x="498" y="128">1 700</text><text x="723" y="128">2 500</text>
+        <text x="980" y="128" text-anchor="end">3 200 · ARRIVÉE</text>
+      </g>
+      <text x="20" y="28" font-size="14" style="fill:var(--lava)">▶ mur de lave : 12 m/s au départ, +0,28 m/s chaque seconde, plafond 46 m/s</text>
+      <g font-size="13" style="fill:var(--muted)"><text x="20" y="160">Décors : acacias, os géants, cactus, mesas, pins, champignons, pics d'obsidienne, mares de lave</text>
+      <text x="20" y="180">Portiques de transition à 900, 1 700 et 2 500 m · damier d'arrivée · podium</text></g>
+    </svg>
+  </div>
+</section>
+
+<section>
+  <div class="kicker">Le bestiaire</div>
+  <h2>7 espèces, 3 variantes chacune</h2>
+  <p>Chaque bête est construite en blocs Roblox, avec des pattes et des ailes animées côté client. Une bête est <b>Normale</b>, <b>Cristal</b> (×2 points) ou <b>Dorée</b> (×4 points, plus rapide). Dompter les 3 variantes d'une espèce rapporte 250 pièces.</p>
+  <div class="grid g4" id="beasts"></div>
+</section>
+
+<section>
+  <div class="kicker">Les interfaces</div>
+  <h2>Ce que voit le joueur</h2>
+  <div class="cols">
+    <div>
+      <div class="hud" aria-label="Maquette de l'interface en course">
+        <div class="lava"></div>
+        <div class="box" style="left:10px;top:10px;width:170px"><div class="small">SCORE</div><div class="big">2 840</div><div style="color:#5ac86e;font-size:.85rem;margin-top:2px">COMBO x2.6</div><div class="bar"><i style="width:60%"></i></div></div>
+        <div class="box" style="left:50%;top:8px;transform:translateX(-50%);padding:6px 18px;font-size:1.05rem">Temps restant : 1:23</div>
+        <div class="box" style="left:50%;top:50px;transform:translateX(-50%);width:210px;padding:4px 12px;font-size:.8rem;text-align:center;background:rgba(196,58,43,.9)">MUR DE LAVE : 31 m</div>
+        <div class="box" style="right:10px;top:10px;width:150px;padding:6px 10px"><div class="small">CLASSEMENT</div><div class="row"><span style="color:#ffc846">1. Toi</span><span>2 840</span></div><div class="row"><span>2. Nolwenn</span><span>2 515</span></div><div class="row"><span>3. Kaito</span><span>1 960</span></div></div>
+        <div class="toast"><b>LONG LASSO !</b><span>+58 · COMBO x2.6</span></div>
+        <div class="box" style="left:50%;bottom:10px;transform:translateX(-50%);width:210px"><div style="font-size:.95rem;text-align:center">Mammouth Doré</div><div class="bar" style="height:12px"><i style="width:55%"></i></div></div>
+        <div class="btn">SAUTER</div>
+      </div>
+      <p class="legend">Maquette HTML fidèle à la disposition du HUD (minuteur, score, combo, classement, mur de lave, dressage, bouton d'action contextuel).</p>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>Salon</h3><p>Plateforme en hauteur avec statues du bestiaire, panneau d'état de la manche, « comment jouer » et classement mondial des 10 meilleurs scores.</p></div>
+      <div class="card"><h3>Boutique</h3><p>3 onglets : améliorations (corde longue, dresseur rapide, souffle de combo, 5 niveaux), 7 chapeaux, 6 cordes de lasso colorées.</p></div>
+      <div class="card"><h3>Bestiaire</h3><p>21 cases à remplir. Les variantes dompetées se colorent, avec leur compteur.</p></div>
+      <div class="card"><h3>Quêtes et cadeau du jour</h3><p>3 quêtes tirées chaque jour, série de connexion jusqu'à 7 jours, pastille rouge quand une récompense attend.</p></div>
+      <div class="card"><h3>Résultats</h3><p>Classement de la manche, points, pièces gagnées, place d'arrivée. Ton rang est surligné.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="kicker">Les systèmes</div>
+  <h2>Tout est calculé côté serveur</h2>
+  <div class="grid g3">
+    <div class="card"><h3>Manches</h3><p>Attente, compte à rebours de 4 s, course de 120 s max, résultats de 11 s. La manche s'arrête plus tôt quand tout le monde est arrivé ou éliminé.</p></div>
+    <div class="card"><h3>Score</h3><p>4 points/s en selle × valeur de la bête × combo, 15 points par lasso (+25 au-delà de 40 m), 0,1 par mètre, bonus de dressage et d'arrivée (500, 300, 200).</p></div>
+    <div class="card"><h3>Combo</h3><p>Chaque lasso réussi dans la fenêtre de 6 s (jusqu'à 9,0 s avec l'amélioration) ajoute 0,2 au multiplicateur, plafonné à ×3.</p></div>
+    <div class="card"><h3>Dressage</h3><p>Reste assez longtemps sur une bête pour la dompter. Les bêtes énervées t'éjectent après un délai propre à chaque espèce, avec un bond bonus. Le mammouth ne désarçonne jamais.</p></div>
+    <div class="card"><h3>Événements</h3><p>Geysers (cercles bleus : un gros bond gratuit) et pluie de météores (cercles rouges : éjecte les cavaliers). Chaque événement s'annonce 2 s avant.</p></div>
+    <div class="card"><h3>Chute et sauvetage</h3><p>Rater un lasso te met à terre 1,8 s, combo perdu. Tu peux encore lasser une bête qui passe, sinon tu es remonté sur la plus proche.</p></div>
+    <div class="card"><h3>Sauvegarde</h3><p>Profil complet dans un DataStore (pièces, bestiaire, achats, quêtes, améliorations), sauvegarde toutes les 60 s et à la sortie. Un échec de chargement coupe l'écriture pour ne jamais écraser un vrai profil.</p></div>
+    <div class="card"><h3>Sécurité</h3><p>Chaque RemoteEvent est limité en fréquence et validé : portée du lasso recalculée sur la position serveur, état du joueur, bête déjà montée, vitesse anormale, achats et récompenses.</p></div>
+    <div class="card"><h3>Performances</h3><p>Une seule pièce ancrée répliquée par bête, ≤ 64 bêtes, particules actives seulement sur la monture, animations coupées au-delà de 260 m, décors sans collision ni ombre.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="kicker">Originalité</div>
+  <h2>Ce qui change par rapport à l'inspiration</h2>
+  <p>La référence est un jeu mobile de course où l'on lasse des animaux en chaîne. Saute-Troupeau garde ce principe de mouvement, qui appartient au genre, et modifie tout le reste.</p>
+  <div class="scroll"><table>
+    <tr><th>Élément</th><th>Jeu de référence</th><th>Saute-Troupeau</th></tr>
+    <tr><td>Cadre</td><td>Savane, zoo à bâtir, course sans fin</td><td>Couloir préhistorique en 4 biomes, manches de 2 min, arrivée</td></tr>
+    <tr><td>Pression</td><td>Obstacles et chutes</td><td>Mur de lave qui accélère, météores, geysers</td></tr>
+    <tr><td>Mode</td><td>Surtout solo</td><td>Multijoueur compétitif, mêmes bêtes pour tous, une bête = un cavalier</td></tr>
+    <tr><td>Pilotage</td><td>Saut et lasso</td><td>Monture dirigeable, bond en arc, lasso automatique en maintenant</td></tr>
+    <tr><td>Bêtes</td><td>Animaux réels</td><td>Espèces à traits propres (zigzag, charge, bond, vol) et variantes Cristal / Doré</td></tr>
+    <tr><td>Progression</td><td>Zoo et habitats</td><td>Bestiaire 21 cases, améliorations, cosmétiques, quêtes quotidiennes, classement mondial</td></tr>
+    <tr><td>Direction artistique</td><td>Voxel stylisé</td><td>Blocs et matériaux Roblox standards, aucun asset copié</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="kicker">Vérifications</div>
+  <h2>Ce qui a été exécuté, et ce qui ne l'a pas été</h2>
+  <div class="scroll"><table>
+    <tr><th>Contrôle</th><th>Résultat</th><th>Détail</th></tr>
+    <tr><td>Syntaxe des 26 scripts</td><td class="ok">Réussi</td><td>Analyse complète avec un parseur Lua 5.1 (le code évite la syntaxe propre à Luau pour le permettre). 0 erreur. Ce n'est pas l'analyseur Luau de Roblox.</td></tr>
+    <tr><td>Variables non déclarées</td><td class="ok">Réussi</td><td>Aucun identifiant global inconnu, aucune fonction de module appelée sans exister.</td></tr>
+    <tr><td>Simulation serveur, 3 joueurs-robots</td><td class="ok">Réussi</td><td>4 scénarios, plusieurs manches complètes : montée, bond, lasso, dressage, désarçonnement, chute, sauvetage, mur de lave, arrivée, événements, résultats, récompenses, sauvegarde, départ d'un joueur en pleine course. 0 erreur Lua.</td></tr>
+    <tr><td>Simulation de l'interface</td><td class="ok">Réussi</td><td>HUD, menus (boutique, bestiaire, quêtes), messages, résultats, contrôles et lasso automatique exécutés avec des doublures de l'API Roblox. 0 erreur.</td></tr>
+    <tr><td>Boutique et récompenses</td><td class="ok">Réussi</td><td>Achats, équipement, refus d'achats invalides, cadeau quotidien (second appel refusé), soldes de pièces exacts.</td></tr>
+    <tr><td>Bug trouvé et corrigé</td><td class="ok">Corrigé</td><td>Un joueur pouvait relasser instantanément la bête qu'il venait de quitter. Interdit 1 s côté serveur, et le client ne cible plus une bête à moins de 5 m devant lui en l'air.</td></tr>
+    <tr><td>Exécution dans Roblox Studio</td><td class="ko">Non fait</td><td>Aucun Studio dans cet environnement. Physique réelle, rendu, soudures sur pièce ancrée, propriété réseau, tactile, manette et sons n'ont pas été vus tournant.</td></tr>
+    <tr><td>DataStore réel</td><td class="ko">Non fait</td><td>Simulé en mémoire. À tester avec l'accès API activé dans Studio.</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="kicker">Reste à finaliser</div>
+  <h2>Premier passage dans Studio</h2>
+  <div class="grid g3">
+    <div class="card"><h3>1. Ouvrir et jouer</h3><p>Ouvre <code>build/SauteTroupeau.rbxlx</code> dans Studio, active l'accès API aux services dans les paramètres du jeu, puis Play. Teste à 2 joueurs avec l'onglet Test.</p></div>
+    <div class="card"><h3>2. Régler le ressenti</h3><p>Tout l'équilibrage est dans <code>Config.luau</code> : bond, portée, mur de lave, scores, récompenses, prix.</p></div>
+    <div class="card"><h3>3. Habiller</h3><p>Les sons sont ceux du client Roblox et la musique manque. Ajoute tes propres identifiants dans <code>Sfx.luau</code>. Icône, miniature et description du jeu restent à créer.</p></div>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ---- Bestiaire : silhouettes en blocs, vues de côté, dessinées depuis les palettes du jeu ---- */
+(function(){
+  var V=[[1,'Normal',0],[2,'Cristal',.55],[3,'Doré',.65]];
+  function mix(c,t,a){return c.map(function(v,i){return Math.round(v+(t[i]-v)*a)})}
+  function css(c){return 'rgb('+c.join(',')+')'}
+  var S=[
+   {n:'Sanglier',v:'38 m/s',val:'×1',tame:'5 s',buck:'9 s',trait:'Zigzague',p:{b:[139,94,60],d:[92,60,38],l:[238,226,200],a:[255,150,170]},
+    r:[['b',24,34,56,28],['d',30,62,8,16],['d',40,62,8,16],['d',62,62,8,16],['d',72,62,8,16],['d',80,36,22,22],['a',100,44,10,10],['l',98,53,10,3],['d',86,31,6,6],['d',32,30,44,5],['e',92,42,3,3]]},
+   {n:'Autruche des cimes',v:'52 m/s',val:'×1,2',tame:'5 s',buck:'8 s',trait:'La plus rapide',p:{b:[176,72,56],d:[112,44,38],l:[238,214,176],a:[255,200,50]},
+    r:[['b',30,28,40,24],['a',40,52,5,32],['a',56,52,5,32],['l',66,8,7,24],['b',64,2,20,10],['a',82,4,14,5],['d',22,28,10,16],['d',32,30,10,10],['e',78,5,3,3]]},
+   {n:'Rhinocéros',v:'33 m/s',val:'×1,5',tame:'6 s',buck:'11 s',trait:'Charge +50 %',p:{b:[136,138,150],d:[96,98,110],l:[236,232,218],a:[170,120,80]},
+    r:[['b',16,32,64,30],['d',22,62,12,18],['d',38,62,12,18],['d',58,62,12,18],['d',72,62,12,18],['d',78,36,28,26],['l',98,24,7,16],['a',20,30,42,5],['d',84,32,6,7],['e',96,42,3,3]]},
+   {n:'Bélier',v:'42 m/s',val:'×1,3',tame:'5 s',buck:'9 s',trait:'Bondit',p:{b:[244,240,228],d:[70,58,56],l:[255,255,255],a:[210,180,130]},
+    r:[['b',24,34,52,28],['d',30,62,7,18],['d',40,62,7,18],['d',58,62,7,18],['d',68,62,7,18],['d',76,36,22,20],['a',78,28,12,9],['a',92,40,6,6],['e',90,42,3,3]]},
+   {n:'Mammouth',v:'25 m/s',val:'×2,5',tame:'8 s',buck:'jamais',trait:'Stable',p:{b:[118,78,50],d:[80,52,34],l:[242,232,204],a:[200,90,60]},
+    r:[['b',12,20,72,46],['d',18,66,16,20],['d',40,66,16,20],['d',58,66,16,20],['d',72,66,16,20],['b',82,24,28,32],['d',104,50,8,26],['l',92,56,18,4],['d',86,28,10,18],['d',84,18,26,6],['e',100,34,3,3]]},
+   {n:'Tricératops',v:'30 m/s',val:'×2',tame:'7 s',buck:'14 s',trait:'Bouclier vivant',p:{b:[96,166,98],d:[64,120,72],l:[246,240,214],a:[230,120,60]},
+    r:[['b',18,36,60,28],['d',24,64,10,16],['d',38,64,10,16],['d',58,64,10,16],['d',70,64,10,16],['d',10,46,12,8],['a',68,20,14,36],['b',78,40,26,22],['l',100,36,10,4],['l',92,30,4,10],['e',92,46,3,3]]},
+   {n:'Wyverne',v:'56 m/s',val:'×3,5',tame:'6 s',buck:'10 s',trait:'Vole à 12 m',p:{b:[120,70,190],d:[70,40,120],l:[240,230,255],a:[255,110,200]},
+    r:[['b',30,40,46,18],['d',10,44,22,6],['a',6,42,8,10],['b',74,36,20,16],['d',92,42,10,8],['l',80,30,4,7],['a',34,18,34,8],['a',40,26,28,8],['e',88,40,3,3]]}
+  ];
+  var host=document.getElementById('beasts');
+  S.forEach(function(s){
+    var shapes=s.r.map(function(r){
+      var c=r[0]==='e'?[20,20,20]:s.p[r[0]];
+      return '<rect x="'+r[1]+'" y="'+r[2]+'" width="'+r[3]+'" height="'+r[4]+'" rx="1.5" fill="'+css(c)+'"/>';
+    }).join('');
+    var dots=V.map(function(v,i){
+      var c=v[2]?mix(s.p.b,v[0]===2?[110,210,255]:[255,205,60],v[2]):s.p.b;
+      return '<circle cx="'+(14+i*14)+'" cy="10" r="5" fill="'+css(c)+'" stroke="rgba(0,0,0,.35)"/>';
+    }).join('');
+    var ground=s.n==='Wyverne'?'':'<rect x="0" y="86" width="120" height="4" fill="rgba(0,0,0,.18)"/>';
+    host.insertAdjacentHTML('beforeend','<div class="card beast"><svg viewBox="0 0 120 90" role="img" aria-label="'+s.n+'">'+ground+shapes+dots+'</svg><h3>'+s.n+'</h3><p>'+s.trait+'</p><dl><dt>Vitesse</dt><dd>'+s.v+'</dd><dt>Valeur</dt><dd>'+s.val+'</dd><dt>Dressage</dt><dd>'+s.tame+'</dd><dt>Désarçonne</dt><dd>'+s.buck+'</dd></dl></div>');
+  });
+})();
+
+/* ---- Boucle de jeu animée : vue de côté, échelle 1 m = 3 px ---- */
+(function(){
+  var cv=document.getElementById('loop'),g=cv.getContext('2d'),W=cv.width,H=cv.height,GY=H-48;
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var cols=['#8b5e3c','#b04838','#888a96','#f4f0e4','#76e4e0','#60a662'];
+  var beasts=[];
+  function spawn(x){var s=26+Math.random()*30,c=Math.floor(Math.random()*cols.length);return{x:x,s:s,w:50+Math.random()*30,h:28+Math.random()*14,c:c,ph:Math.random()*6}}
+  for(var i=0;i<9;i++)beasts.push(spawn(i*110+40));
+  var P={mode:'ride',b:beasts[0],x:0,y:0,vx:0,vy:0,t:0,combo:0,msg:'',msgT:0};
+  var cam=0,time=0,last=0;
+  function rideY(b){return GY-b.h-14}
+  function step(dt){
+    time+=dt;
+    beasts.forEach(function(b){b.x+=b.s*dt*1.2});
+    var lead=P.b?P.b.x:P.x;
+    cam+=(lead-W*0.3-cam)*Math.min(1,dt*4);
+    for(var i=beasts.length-1;i>=0;i--)if(beasts[i].x<cam-140&&beasts[i]!==P.b)beasts.splice(i,1);
+    var far=0;beasts.forEach(function(b){far=Math.max(far,b.x)});
+    while(far<cam+W+200){far+=70+Math.random()*60;beasts.push(spawn(far))}
+    if(P.mode==='ride'){
+      P.t+=dt;P.x=P.b.x+P.b.w*0.5;P.y=rideY(P.b);
+      if(P.t>1.5){P.mode='air';P.vx=P.b.s*1.2+30;P.vy=-215;P.t=0;P.from=P.b;P.b=null}
+    }else{
+      P.t+=dt;P.vy+=290*dt;P.x+=P.vx*dt;P.y+=P.vy*dt;
+      var tgt=null,bd=1e9;
+      beasts.forEach(function(b){if(b===P.from)return;var dx=b.x+b.w*.5-P.x,dy=rideY(b)-P.y;var d=Math.hypot(dx,dy);if(dx>8&&d<150&&d<bd){bd=d;tgt=b}});
+      P.tgt=tgt;
+      if(tgt&&P.t>0.35){P.mode='ride';P.b=tgt;P.t=0;P.combo=Math.min(P.combo+1,10);P.msg='LASSO ! combo x'+(1+P.combo*0.2).toFixed(1);P.msgT=1.1;P.hook=0.18}
+      else if(P.y>GY-14){P.mode='ride';P.b=beasts.find(function(b){return b.x>P.x-30})||beasts[0];P.combo=0;P.msg='RATÉ';P.msgT=1}
+    }
+    if(P.msgT>0)P.msgT-=dt;if(P.hook>0)P.hook-=dt;
+  }
+  function draw(){
+    var sky=g.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#7cc4ff');sky.addColorStop(1,'#d8efff');g.fillStyle=sky;g.fillRect(0,0,W,H);
+    g.fillStyle='#8a9bb0';for(var k=0;k<6;k++){var mx=((k*260-cam*0.2)%(W+260)+W+260)%(W+260)-130;g.beginPath();g.moveTo(mx-120,GY);g.lineTo(mx,GY-90-k%3*20);g.lineTo(mx+120,GY);g.fill()}
+    g.fillStyle='#7caa4a';g.fillRect(0,GY,W,H-GY);g.fillStyle='#648c3a';g.fillRect(0,GY,W,5);
+    g.fillStyle='rgba(255,90,20,.9)';var wx=-cam*0+0;g.fillRect(0,0,12,H);
+    beasts.forEach(function(b){
+      var x=b.x-cam,y=GY-b.h-14,bob=Math.sin(time*b.s*.3+b.ph)*1.5;
+      g.fillStyle=cols[b.c];g.fillRect(x,y+bob,b.w,b.h);
+      g.fillRect(x+b.w-6,y-8+bob,16,b.h*.6);
+      g.fillStyle='rgba(0,0,0,.35)';var sw=Math.sin(time*b.s*.35+b.ph)*5;
+      g.fillRect(x+6+sw,y+b.h,7,14);g.fillRect(x+b.w-16-sw,y+b.h,7,14);
+      if(b===P.tgt){g.strokeStyle='#ffd23c';g.lineWidth=3;g.strokeRect(x-4,y-12+bob,b.w+22,b.h+30)}
+    });
+    var px=P.x-cam,py=P.y;
+    if(P.hook>0&&P.tgt!==undefined){g.strokeStyle='#b8873c';g.lineWidth=3;g.beginPath();g.moveTo(px,py-16);g.lineTo(px+30*P.hook*5,py-16);g.stroke()}
+    g.fillStyle='#2d7be0';g.fillRect(px-7,py-26,14,18);g.fillStyle='#f2c9a0';g.fillRect(px-6,py-38,12,12);g.fillStyle='#233';g.fillRect(px-7,py-8,14,10);
+    if(P.mode==='air'&&P.tgt){g.strokeStyle='rgba(255,210,60,.9)';g.setLineDash([6,6]);g.lineWidth=2;g.beginPath();g.moveTo(px,py-16);g.lineTo(P.tgt.x-cam+P.tgt.w*.5,rideY(P.tgt)-6);g.stroke();g.setLineDash([])}
+    g.font='600 20px Fredoka, sans-serif';g.fillStyle='#fff';g.strokeStyle='#121624';g.lineWidth=4;
+    var label=P.mode==='ride'?'EN SELLE : SAUTER':'EN L\'AIR : LASSO';
+    g.strokeText(label,22,34);g.fillText(label,22,34);
+    if(P.msgT>0){g.font='600 28px Fredoka, sans-serif';g.textAlign='center';g.strokeText(P.msg,W/2,86);g.fillStyle='#ffd23c';g.fillText(P.msg,W/2,86);g.textAlign='left'}
+  }
+  function frame(t){var dt=Math.min(.05,(t-last)/1000||0);last=t;step(dt);draw();if(!reduce)requestAnimationFrame(frame)}
+  if(reduce){for(var i=0;i<90;i++)step(1/30);draw()}else requestAnimationFrame(frame);
+})();
+</script>
