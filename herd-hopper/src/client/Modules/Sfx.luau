@@ -24,6 +24,10 @@ local SOUNDS = {
 	boom = { id = "rbxasset://sounds/impact_explosion_03.mp3", volume = 0.8, pitch = 1 },
 	win = { id = "rbxasset://sounds/victory.wav", volume = 0.8, pitch = 1 },
 	coin = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.6, pitch = 1.2 },
+	heart = { id = "rbxasset://sounds/electronicpingshort.wav", volume = 0.7, pitch = 1.7 },
+	collect = { id = "rbxasset://sounds/victory.wav", volume = 0.7, pitch = 1.1 },
+	lasso = { id = "rbxasset://sounds/snap.mp3", volume = 0.7, pitch = 0.8 },
+	boss = { id = "rbxasset://sounds/impact_explosion_03.mp3", volume = 0.9, pitch = 0.6 },
 	click = { id = "rbxasset://sounds/button.wav", volume = 0.4, pitch = 1.4 },
 }
 

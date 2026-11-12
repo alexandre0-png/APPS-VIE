@@ -36,9 +36,11 @@ function Ambience.init()
 		-- le salon (en hauteur) garde l'ambiance de la savane
 		local inLobby = hrp.Position.Y > 150
 		local z = inLobby and 0 or hrp.Position.Z
-		local biome = Config.biomeAt(z)
+		local biome = Config.zoneAt(z)
 		if inLobby then
 			Sfx.setMusic(workspace:GetAttribute("Phase") == "Results" and "results" or "lobby")
+		elseif workspace:GetAttribute("BossActive") == true then
+			Sfx.setMusic("boss")
 		else
 			Sfx.setMusic(biome.key)
 		end

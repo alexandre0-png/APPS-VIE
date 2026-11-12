@@ -53,4 +53,9 @@ function ClientState.isPlaying()
 	return s == "Riding" or s == "Air" or s == "Hooking" or s == "Down"
 end
 
+-- Présent dans une expédition (y compris mort, en attente de « Continuer »).
+function ClientState.inRun()
+	return ClientState.isPlaying() or ClientState.Status == "Dead"
+end
+
 return ClientState

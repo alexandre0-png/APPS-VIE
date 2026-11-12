@@ -17,6 +17,7 @@ local lateralSmooth = 0
 local lastStatus = nil
 local shakeUntil = 0
 local shakePower = 0
+local cinematic = nil -- { fn, duration, t0, onDone }
 
 local function hrpOf(plr)
 	local char = plr and plr.Character
@@ -65,10 +66,43 @@ local function release(camera)
 	end
 end
 
+-- Plan de caméra scénarisé : fn(t) renvoie le CFrame de la caméra à t secondes.
+function CameraRig.cinematic(fn, duration, onDone)
+	cinematic = { fn = fn, duration = duration, t0 = os.clock(), onDone = onDone }
+end
+
+function CameraRig.stopCinematic()
+	local current = cinematic
+	cinematic = nil
+	if current and current.onDone then
+		current.onDone()
+	end
+end
+
+function CameraRig.isCinematic()
+	return cinematic ~= nil
+end
+
 local function update(dt)
 	local camera = workspace.CurrentCamera
 	if not camera then
 		return
+	end
+	if cinematic then
+		local t = os.clock() - cinematic.t0
+		if t >= cinematic.duration then
+			CameraRig.stopCinematic()
+			release(camera)
+		else
+			if not active then
+				active = true
+				camera.CameraType = Enum.CameraType.Scriptable
+			end
+			camera.CFrame = cinematic.fn(t)
+			camera.FieldOfView = 62
+			lastFocus = nil
+			return
+		end
 	end
 	local part = focusPart()
 	if not part then

@@ -51,6 +51,7 @@ local V3 = {}
 local function vec(x, y, z) return setmetatable({ X = x, Y = y, Z = z }, V3) end
 V3.__index = function(t, k)
 	if k == "Magnitude" then return math.sqrt(t.X * t.X + t.Y * t.Y + t.Z * t.Z) end
+	if k == "Unit" then local m = math.sqrt(t.X * t.X + t.Y * t.Y + t.Z * t.Z) if m == 0 then return vec(0, 0, 0) end return vec(t.X / m, t.Y / m, t.Z / m) end
 	if k == "Dot" then return function(a, b) return a.X * b.X + a.Y * b.Y + a.Z * b.Z end end
 	if k == "Lerp" then return function(a, b, f) return vec(a.X + (b.X - a.X) * f, a.Y + (b.Y - a.Y) * f, a.Z + (b.Z - a.Z) * f) end end
 	return nil
@@ -476,33 +477,34 @@ end
 
 -- ---------------------------------------------------------------- scénario CLIENT (interface, contrôles, caméra)
 local function clientMain()
-	local Remotes
 	local folder = new("Folder") folder._p.Name = "Remotes" folder.Parent = ReplicatedStorage
-	for _, n in ipairs({ "Hook", "Launch", "Steer", "Data", "Status", "Launched", "Feedback", "Scores", "Results" }) do local r = new("RemoteEvent") r._p.Name = n r.Parent = folder end
-	for _, n in ipairs({ "Buy", "Equip", "ClaimDaily", "ClaimQuest" }) do local r = new("RemoteFunction") r._p.Name = n r.Parent = folder end
+	for _, n in ipairs({ "Hook", "Launch", "Steer", "Collect", "Lasso", "Ready", "Prompt", "Data", "Status", "Launched", "Feedback", "Scores", "Results" }) do local r = new("RemoteEvent") r._p.Name = n r.Parent = folder end
+	for _, n in ipairs({ "Buy", "Equip", "ClaimDaily", "ClaimQuest", "ZooAction" }) do local r = new("RemoteFunction") r._p.Name = n r.Parent = folder end
 	local me = new("Player") me._p.Name = "Moi" me._p.UserId = 1 me._p.DisplayName = "Moi"
 	local gui = new("PlayerGui") gui._p.Name = "PlayerGui" gui.Parent = me
 	local char = new("Model")
-	local hrp = new("Part") hrp._p.Name = "HumanoidRootPart" hrp._p.CFrame = CFrame.new(0, 9, 20) hrp._p.AssemblyLinearVelocity = Vector3.zero hrp.Parent = char
+	local hrp = new("Part") hrp._p.Name = "HumanoidRootPart" hrp._p.CFrame = CFrame.new(0, 330, -720) hrp._p.AssemblyLinearVelocity = Vector3.zero hrp.Parent = char
 	local hum = new("Humanoid") hum._p.Name = "Humanoid" hum._p.MoveDirection = Vector3.new(1, 0, 0) hum.Parent = char
 	function hum.ChangeState() end
 	function hum.SetStateEnabled() end
 	char.Parent = workspace
 	me._p.Character = char
+	me._attrs.PlotCenter = Vector3.new(0, 324, -700)
+	me._attrs.ZooVisitors = 12
 	Players._p.LocalPlayer = me
 	local camera = new("Camera") camera._p.CFrame = CFrame.new(0, 20, -10) camera._p.ViewportSize = Vector2.new(1280, 720)
 	workspace._p.CurrentCamera = camera
 	local creatures = new("Folder") creatures._p.Name = "Creatures" creatures.Parent = workspace
-	local function beast(id, z, ridden)
-		local m = new("Model") m._p.Name = "Beast" .. id m._attrs = { Id = id, Ridden = ridden, BaseSpeed = 40 }
-		local root = new("Part") root._p.Name = "Root" root._p.CFrame = CFrame.new(0, 5, z) root.Parent = m
+	local zooFolder = new("Folder") zooFolder._p.Name = "ZooAnimals" zooFolder.Parent = workspace
+	local function beast(id, z, ridden, heart, boss)
+		local m = new("Model") m._p.Name = "Beast" .. id m._attrs = { Id = id, Ridden = ridden, BaseSpeed = 40, Heart = heart, Boss = boss or false }
+		local root = new("Part") root._p.Name = "Root" root._p.Size = Vector3.new(4, 4, 8) root._p.CFrame = CFrame.new(0, 5, z) root.Parent = m
 		local leg = new("Motor6D") leg._p.Name = "LegFL" leg._attrs = { Phase = 0 } leg.Parent = root
 		local wing = new("Motor6D") wing._p.Name = "WingL" wing._attrs = { Side = -1 } wing.Parent = root
 		m.Parent = creatures
 		return m
 	end
-	beast(1, 40, false) beast(2, 80, true)
-	local wall = new("Model") wall._p.Name = "LavaWall" local wr = new("Part") wr._p.Name = "Root" wr._p.CFrame = CFrame.new(0, 35, -30) wr.Parent = wall wall.Parent = workspace
+	beast(1, 40, false, true) beast(2, 80, true, false) beast(3, 30, false, true, true)
 	local lighting = services.Lighting
 	for _, n in ipairs({ "HHAtmosphere", "HHColor" }) do local o = new("Atmosphere") o._p.Name = n o.Parent = lighting end
 
@@ -518,31 +520,43 @@ local function clientMain()
 	local function press(text) local b = findButton(gui, text) if not b then error("bouton introuvable : " .. text) end b.Activated:fire() for _ = 1, 3 do advance(0.1) end end
 
 	local data = {
-		loaded = true, persistent = true, passes = { double = true, rope = false, vip = false },
-		store = { passes = { { key = "double", name = "Pièces x2", desc = "d", available = true, price = 199 }, { key = "rope", name = "Corde", desc = "d", available = true }, { key = "vip", name = "VIP", desc = "d", available = false } },
-			products = { { key = "coins_s", name = "Sac", coins = 500, available = true, price = 49 }, { key = "coins_l", name = "Trésor", coins = 5000, available = false } } },
-		coins = 1234, bestScore = 5000, wins = 3, rounds = 12, hooks = 99, tamedTotal = 7, distance = 12345,
-		tamed = { boar_1 = 3, boar_2 = 1, boar_3 = 1, mammoth_1 = 2 }, completed = { boar = true },
+		loaded = true, persistent = true, coins = 1234, bones = 31,
+		passes = { zoo = false, gold = true, life = false, lasso = false },
+		store = { passes = { { key = "zoo", name = "Zoo Premium", desc = "d", available = true, price = 399 }, { key = "gold", name = "Or x2", desc = "d", available = true }, { key = "life", name = "Vie", desc = "d", available = false }, { key = "lasso", name = "Lasso", desc = "d", available = true } },
+			products = { { key = "gold_s", name = "Bourse", kind = "gold", amount = 2000, available = true, price = 49 }, { key = "bones_s", name = "Os", kind = "bones", amount = 40, available = true }, { key = "boost", name = "Boost", kind = "boost", amount = 30, available = true }, { key = "revive", name = "Continuer", kind = "revive", amount = 1, available = false } } },
+		bestScore = 5000, wins = 3, rounds = 12, hooks = 99, captures = 7, distance = 12345,
+		animals = { boar_1 = { level = 2, copies = 3, income = 8.4, cost = 5 }, zebra_3 = { level = 1, copies = 1, income = 28.8, cost = 8 }, elephant_1 = { level = 10, copies = 1, income = 300, cost = nil } },
+		completed = {}, zooUp = { slots = 1, visitors = 2, storage = 0, gift = 0, lasso = 1, hearts = 0 },
+		zoo = { slots = 8, rate = 40, pending = 120, capMinutes = 20, boostLeft = 600, serverTime = os.time(), owned = 3 },
+		zones = { savane = true, marais = false, desert = false, volcan = false }, zone = "savane",
 		upgrades = { range = 1, taming = 0, combo = 5 },
 		owned = { hats = { none = true, crown = true }, ropes = { classic = true } }, equipped = { hat = "crown", rope = "classic" },
+		revives = 1,
 		daily = { claimable = true, streak = 2, reward = 75 },
-		quests = { { id = "tame", label = "Dompter 4 créatures", progress = 4, target = 4, reward = 60, claimed = false },
-			{ id = "hooks", label = "Réussir 25 lassos", progress = 3, target = 25, reward = 60, claimed = false },
+		quests = { { id = "capture", label = "Récupérer 3 animaux", progress = 3, target = 3, reward = 60, claimed = false },
+			{ id = "hooks", label = "Réussir 25 sauts", progress = 3, target = 25, reward = 60, claimed = false },
 			{ id = "combo", label = "Atteindre un combo de 6", progress = 6, target = 6, reward = 80, claimed = true } },
+		story = { index = 3, total = 11, title = "Plus de place", text = "Ton zoo est trop petit.", progress = 1, target = 1, ready = true, gold = 100, bones = 5 },
 	}
 	local Remotes = require(M.__nodes("shared/Remotes"))
 	Remotes.Data.OnClientEvent:fire(data)
-	for _ = 1, 3 do advance(0.1) end
-	for _, label in ipairs({ "BOUTIQUE", "CHAPEAUX", "CORDES", "AMÉLIORATIONS", "BESTIAIRE", "QUÊTES", "RÉCUPÉRER", "ROBUX", "FERMER" }) do press(label) end
-	print("MENUS      boutique (3 onglets), bestiaire, quêtes+cadeau, achats : OK, aucune erreur")
+	for _ = 1, 15 do advance(0.1) end
+	for _, label in ipairs({ "EXPÉDITION", "PARTIR EN EXPÉDITION", "MON ZOO", "COLLECTER", "BOUTIQUE", "CHAPEAUX", "CORDES", "ÉQUIPEMENT", "HISTOIRE", "RÉCUPÉRER", "ROBUX", "FERMER" }) do press(label) end
+	for _ = 1, 20 do advance(0.1) end
+	print("MENUS      expédition, zoo (caisse, animaux, améliorations), boutique (3 onglets), histoire/quêtes, Robux : OK, aucune erreur")
 
-	-- manche en cours côté client
+	-- expédition côté client
 	local fired = {}
 	Remotes.Launch._onFire = function() fired.launch = (fired.launch or 0) + 1 end
 	Remotes.Hook._onFire = function(_, id) fired.hook = id end
 	Remotes.Steer._onFire = function(_, x) fired.steer = x end
-	workspace._attrs.Phase = "Running" workspace._attrs.PhaseEnd = vt + 100
-	me._attrs.RunScore = 1250 me._attrs.Combo = 3 me._attrs.ComboMult = 1.6 me._attrs.ComboLeft = 0.6 me._attrs.TameProgress = 0.5 me._attrs.RideName = "Sanglier Doré" me._attrs.HookRange = 63
+	Remotes.Collect._onFire = function() fired.collect = (fired.collect or 0) + 1 end
+	Remotes.Lasso._onFire = function(_, id) fired.lasso = id end
+	Remotes.Ready._onFire = function(_, zone, wants) fired.ready = tostring(zone) .. ":" .. tostring(wants) end
+	workspace._attrs.Phase = "Running" workspace._attrs.PhaseEnd = vt + 100 workspace._attrs.Round = 1 workspace._attrs.StartZone = 2
+	hrp._p.CFrame = CFrame.new(0, 9, 20)
+	me._attrs.RunScore = 1250 me._attrs.Combo = 3 me._attrs.ComboMult = 1.6 me._attrs.ComboLeft = 0.6 me._attrs.TameProgress = 0.5 me._attrs.RideName = "Zèbre Doré" me._attrs.HookRange = 63 me._attrs.LassoRange = 70
+	me._attrs.Lives = 2 me._attrs.MaxLives = 2 me._attrs.Lasso = 3 me._attrs.Captures = 1 me._attrs.RunGold = 120 me._attrs.ZoneIdx = 2 me._attrs.RideHeart = true me._attrs.CanCollect = false
 	Remotes.Status.OnClientEvent:fire("Riding")
 	Remotes.Scores.OnClientEvent:fire({ { n = "Moi", s = 1250, st = "Riding", id = 1 }, { n = "Bob", s = 900, st = "Air", id = 2 } })
 	for _ = 1, 5 do advance(0.1) end
@@ -550,22 +564,33 @@ local function clientMain()
 		Remotes.Feedback.OnClientEvent:fire({ kind = kind, title = "TEST " .. kind, sub = "sous-titre" })
 		advance(0.1)
 	end
-	-- contrôles : appui sur ESPACE en selle -> Launch ; en l'air -> lasso auto
+	-- contrôles : ESPACE en selle -> Launch ; E -> Collect si prêt ; Q -> Lasso sur l'animal à cœur ; en l'air -> lasso de saut
 	local space = { KeyCode = Enum.KeyCode.Space, UserInputType = Enum.UserInputType.Keyboard }
 	UserInputService.InputBegan:fire(space, false)
 	advance(0.1)
 	UserInputService.InputEnded:fire(space)
+	UserInputService.InputBegan:fire({ KeyCode = Enum.KeyCode.E, UserInputType = Enum.UserInputType.Keyboard }, false)
+	advance(0.1)
+	me._attrs.CanCollect = true
+	for _ = 1, 3 do advance(0.1) end
+	UserInputService.InputBegan:fire({ KeyCode = Enum.KeyCode.E, UserInputType = Enum.UserInputType.Keyboard }, false)
+	UserInputService.InputBegan:fire({ KeyCode = Enum.KeyCode.Q, UserInputType = Enum.UserInputType.Keyboard }, false)
+	for _ = 1, 3 do advance(0.1) end
 	Remotes.Status.OnClientEvent:fire("Air")
 	Remotes.Launched.OnClientEvent:fire(Vector3.new(0, 58, 60))
 	for _ = 1, 3 do advance(0.1) end
 	UserInputService.InputBegan:fire(space, false)
 	for _ = 1, 4 do advance(0.1) end
-	print(("CONTRÔLES  Launch=%s  Hook(id cible)=%s  Steer=%s"):format(tostring(fired.launch), tostring(fired.hook), tostring(fired.steer)))
-	Remotes.Results.OnClientEvent:fire({ round = 1, list = { { id = 1, n = "Moi", score = 3000, rank = 1, coins = 250, tames = 2, hooks = 10, dist = 3000, finish = 1, combo = 5 }, { id = 2, n = "Bob", score = 2000, rank = 2, coins = 120, tames = 1, hooks = 5, dist = 2500, finish = 0, combo = 3 } } })
-	Remotes.Status.OnClientEvent:fire("Out")
+	print(("CONTRÔLES  Launch=%s  Collect=%s  Lasso(id)=%s  Hook(id)=%s  Steer=%s"):format(tostring(fired.launch), tostring(fired.collect), tostring(fired.lasso), tostring(fired.hook), tostring(fired.steer)))
+	-- mort et « Continuer »
+	me._attrs.Lives = 0 me._attrs.ReviveLeft = 9
+	Remotes.Status.OnClientEvent:fire("Dead")
 	for _ = 1, 5 do advance(0.1) end
+	local cont = findButton(gui, "CONTINUER (Robux)")
+	print("CONTINUER  bouton présent après la mort :", tostring(cont ~= nil))
+	Remotes.Results.OnClientEvent:fire({ round = 1, list = { { id = 1, n = "Moi", score = 3000, rank = 1, gold = 250, bones = 8, captures = 2, names = { "Zèbre", "Lion Doré" }, hooks = 10, dist = 3000, finish = 1, combo = 5, zone = 3 }, { id = 2, n = "Bob", score = 2000, rank = 2, gold = 120, bones = 0, captures = 0, names = {}, hooks = 5, dist = 2500, finish = 0, combo = 3, zone = 2 } } })
 	Remotes.Status.OnClientEvent:fire("Lobby")
-	for _ = 1, 5 do advance(0.1) end
+	for _ = 1, 8 do advance(0.1) end
 	print("ERREURS LUA:", errors)
 end
 
@@ -750,8 +775,9 @@ local function unitMain()
 	local Config = require(M.__nodes("shared/Config"))
 	local Species = require(M.__nodes("shared/Species"))
 	local Util = require(M.__nodes("shared/Util"))
+	local Zoo = require(M.__nodes("shared/Zoo"))
 	local spec = load(sources["../tests/pure.spec"], "=tests/pure.spec", "t", setmetatable({}, { __index = _G }))()
-	local failures, passed = spec(Config, Species, Util)
+	local failures, passed = spec(Config, Species, Util, Zoo)
 	print(("TESTS UNITAIRES : %d réussis, %d échecs"):format(passed, failures))
 	print("ERREURS LUA:", failures)
 end

@@ -417,7 +417,7 @@ local function markReady(player, creature)
 	creature.tamedBy = player
 	creature.collectUntil = os.clock() + Config.Run.CollectWindow
 	creature.model:SetAttribute("Ready", true)
-	feedback(player, "tame", "♥ RÉCUPÈRE-LE !", "Appuie sur RÉCUPÉRER avant qu'il ne t'échappe.")
+	feedback(player, "tame", "CŒUR PRÊT !", "Appuie sur RÉCUPÉRER avant qu'il ne t'échappe.")
 	Fx.burst(creature.root.Position + Vector3.new(0, 5, 0), Color3.fromRGB(255, 120, 170), 30, 26)
 end
 

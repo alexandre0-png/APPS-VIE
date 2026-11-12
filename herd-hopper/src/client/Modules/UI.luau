@@ -120,6 +120,30 @@ function UI.button(parent, props)
 	return button
 end
 
+-- Cœur dessiné avec des cadres (aucune image, aucune police) : un losange et deux disques.
+function UI.heart(parent, px, color)
+	local root = UI.make("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, px, 0, px) }, parent)
+	UI.make("Frame", {
+		BackgroundColor3 = color,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.58, 0),
+		Size = UDim2.new(0.52, 0, 0.52, 0),
+		Rotation = 45,
+	}, root)
+	for _, x in ipairs({ 0.3, 0.7 }) do
+		local lobe = UI.make("Frame", {
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(x, 0, 0.36, 0),
+			Size = UDim2.new(0.52, 0, 0.52, 0),
+		}, root)
+		UI.corner(lobe, px)
+	end
+	return root
+end
+
 function UI.tween(inst, seconds, props, style)
 	local tween = TweenService:Create(
 		inst,

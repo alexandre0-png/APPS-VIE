@@ -527,7 +527,7 @@ do
 		trait = "sprint",
 		weaveAmp = 2,
 		weaveFreq = 0.6,
-		rootY = 7,
+		rootY = 6.9,
 		body = { s = V(3.2, 3.8, 5.6), c = "body" },
 		palette = {
 			body = C(255, 130, 168),
@@ -567,7 +567,7 @@ do
 		trait = "stable",
 		weaveAmp = 3,
 		weaveFreq = 0.6,
-		rootY = 6.2,
+		rootY = 6.3,
 		seatY = 5.6,
 		body = { s = V(4.4, 4.2, 7.6), c = "body" },
 		palette = {

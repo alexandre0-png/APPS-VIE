@@ -1,5 +1,5 @@
--- Menus du salon : Boutique (améliorations, chapeaux, cordes), Bestiaire, Quêtes + cadeau du jour.
--- Le client ne fait que demander : le serveur valide chaque achat / récompense.
+-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
+-- chapeaux, cordes), Quêtes & histoire, Boutique Robux. Le client ne fait que demander : le serveur valide tout.
 
 local Players = game:GetService("Players")
 
@@ -8,6 +8,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Species = require(Shared.Species)
 local Util = require(Shared.Util)
+local Zoo = require(Shared.Zoo)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -20,6 +21,8 @@ local refs = {}
 local openName = nil
 local shopTab = "upgrade"
 local lastMessage = ""
+local readyState = false
+local PINK = Color3.fromRGB(255, 96, 160)
 
 local function clear(container)
 	for _, child in ipairs(container:GetChildren()) do
@@ -27,15 +30,6 @@ local function clear(container)
 			child:Destroy()
 		end
 	end
-end
-
-local function variantColor(base, variantIdx)
-	if variantIdx == 2 then
-		return base:Lerp(Color3.fromRGB(110, 210, 255), 0.55)
-	elseif variantIdx == 3 then
-		return base:Lerp(Color3.fromRGB(255, 205, 60), 0.65)
-	end
-	return base
 end
 
 local function setMessage(text, good)
@@ -61,6 +55,10 @@ local function invoke(remote, ...)
 	end)
 end
 
+local function loading(content)
+	UI.text(content, { Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 })
+end
+
 -- ---------------------------------------------------------------------------
 -- Lignes génériques
 -- ---------------------------------------------------------------------------
@@ -80,11 +78,13 @@ local function listFrame(parent, position, size)
 	return scroll
 end
 
-local function row(parent, order, title, desc, buttonText, buttonColor, onClick, swatch)
-	local frame = UI.frame(
-		parent,
-		{ Size = UDim2.new(1, -8, 0, 62), BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = order, ZIndex = 32 }
-	)
+local function row(parent, order, title, desc, buttonText, buttonColor, onClick, swatch, height)
+	local frame = UI.frame(parent, {
+		Size = UDim2.new(1, -8, 0, height or 62),
+		BackgroundColor3 = UI.Colors.PanelLight,
+		LayoutOrder = order,
+		ZIndex = 32,
+	})
 	UI.corner(frame, 12)
 	local left = 10
 	if swatch then
@@ -107,13 +107,14 @@ local function row(parent, order, title, desc, buttonText, buttonColor, onClick,
 		ZIndex = 33,
 	})
 	UI.text(frame, {
-		Size = UDim2.new(1, -left - 150, 0, 22),
-		Position = UDim2.new(0, left, 0, 34),
+		Size = UDim2.new(1, -left - 150, 0, (height or 62) - 38),
+		Position = UDim2.new(0, left, 0, 32),
 		Text = desc,
 		maxSize = 15,
 		Font = UI.FontBody,
 		TextColor3 = UI.Colors.Muted,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
 		outline = false,
 		ZIndex = 33,
 	})
@@ -128,29 +129,251 @@ local function row(parent, order, title, desc, buttonText, buttonColor, onClick,
 	})
 	if onClick then
 		button.Activated:Connect(onClick)
-	else
-		button.AutoButtonColor = false
 	end
-	return frame
+	return frame, button
+end
+
+local function animalLabel(key)
+	local def, variant = Zoo.parseKey(key)
+	if not def then
+		return key
+	end
+	if def.boss then
+		return def.name
+	end
+	return variant == 1 and def.name or (def.name .. " " .. Config.Variants[variant].name)
 end
 
 -- ---------------------------------------------------------------------------
--- Boutique
+-- Expédition
+-- ---------------------------------------------------------------------------
+
+local function renderExpedition(content)
+	clear(content)
+	local data = ClientState.Data
+	if not data or not data.loaded then
+		loading(content)
+		return
+	end
+
+	local lives = Config.Run.BaseLives + ((data.passes.life and Config.Monetization.LifePassBonus) or 0) + data.revives
+	local lasso = Config.Run.BaseLasso
+		+ data.zooUp.lasso
+		+ ((data.passes.lasso and Config.Monetization.LassoPassBonus) or 0)
+	UI.text(content, {
+		Size = UDim2.new(1, 0, 0, 40),
+		Text = ("Tu pars avec %d vie(s) et %d lasso(s) de capture. Le sol est mortel : saute d'animal en animal !"):format(
+			lives,
+			lasso
+		),
+		maxSize = 17,
+		Font = UI.FontBody,
+		ZIndex = 32,
+	})
+
+	local list = listFrame(content, UDim2.new(0, 0, 0, 44), UDim2.new(1, 0, 1, -44 - 70))
+	for index, zone in ipairs(Config.Zones) do
+		local unlocked = data.zones[zone.key]
+		local selected = data.zone == zone.key
+		local boss = Species.ById[zone.boss]
+		local desc = ("Danger : %s · boss : %s"):format(zone.hazard.name, boss and boss.name or "?")
+		if not unlocked then
+			desc = ("Verrouillée : %d animaux différents requis (tu en as %d)."):format(zone.unlock, data.zoo.owned)
+		end
+		local text, color, handler
+		if not unlocked then
+			text, color = "VERROUILLÉE", UI.Colors.Muted
+		elseif selected then
+			text, color = "CHOISIE", UI.Colors.Good
+		else
+			text, color = "CHOISIR", UI.Colors.Info
+			handler = function()
+				invoke(Remotes.ZooAction, "zone", zone.key)
+			end
+		end
+		row(list, index, ("ZONE %d · %s"):format(index, zone.name), desc, text, color, handler, zone.hazard.color)
+	end
+
+	local readyCount = workspace:GetAttribute("ReadyCount") or 0
+	local go = UI.button(content, {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -4),
+		Size = UDim2.new(0.8, 0, 0, 56),
+		Text = readyState and ("ANNULER · %d prêt(s)"):format(readyCount) or "PARTIR EN EXPÉDITION",
+		BackgroundColor3 = readyState and UI.Colors.Warn or UI.Colors.Good,
+		maxSize = 26,
+		ZIndex = 33,
+	})
+	go.Activated:Connect(function()
+		readyState = not readyState
+		Remotes.Ready:FireServer(data.zone, readyState)
+		Sfx.play(readyState and "go" or "click")
+		if openName == "expedition" then
+			renderExpedition(content)
+		end
+	end)
+end
+
+-- ---------------------------------------------------------------------------
+-- Zoo
+-- ---------------------------------------------------------------------------
+
+local function pendingEstimate(data)
+	local zoo = data.zoo
+	local elapsed = math.max(0, os.time() - zoo.serverTime)
+	local estimate = zoo.pending + zoo.rate / 60 * elapsed
+	local cap = math.max(zoo.pending, zoo.rate * zoo.capMinutes)
+	return math.floor(math.min(estimate, cap))
+end
+
+local function renderZoo(content)
+	clear(content)
+	local data = ClientState.Data
+	if not data or not data.loaded then
+		loading(content)
+		return
+	end
+	local zoo = data.zoo
+
+	local cash =
+		UI.frame(content, { Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = UI.Colors.PanelLight, ZIndex = 32 })
+	UI.corner(cash, 12)
+	refs.cashLabel = UI.text(cash, {
+		Size = UDim2.new(1, -170, 0, 30),
+		Position = UDim2.new(0, 12, 0, 6),
+		Text = "",
+		maxSize = 26,
+		TextColor3 = UI.Colors.Accent,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 33,
+	})
+	refs.cashLabel.Text = ("Caisse : %s or"):format(Util.formatNumber(pendingEstimate(data)))
+	local boost = zoo.boostLeft > 0 and (" · BOOST x2 (%d min)"):format(math.ceil(zoo.boostLeft / 60)) or ""
+	UI.text(cash, {
+		Size = UDim2.new(1, -170, 0, 26),
+		Position = UDim2.new(0, 12, 0, 38),
+		Text = ("%d animaux · %d enclos · %s or/min%s"):format(
+			zoo.owned,
+			zoo.slots,
+			Util.formatNumber(zoo.rate),
+			boost
+		),
+		maxSize = 15,
+		Font = UI.FontBody,
+		TextColor3 = UI.Colors.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		outline = false,
+		ZIndex = 33,
+	})
+	local collect = UI.button(cash, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.new(0, 140, 0, 46),
+		Text = "COLLECTER",
+		BackgroundColor3 = UI.Colors.Good,
+		maxSize = 20,
+		ZIndex = 33,
+	})
+	collect.Activated:Connect(function()
+		invoke(Remotes.ZooAction, "collect")
+	end)
+
+	local list = listFrame(content, UDim2.new(0, 0, 0, 78), UDim2.new(1, 0, 1, -78 - 26))
+	refs.message = UI.text(content, {
+		Size = UDim2.new(1, 0, 0, 22),
+		Position = UDim2.new(0, 0, 1, -24),
+		Text = lastMessage,
+		maxSize = 18,
+		Font = UI.FontBody,
+		ZIndex = 32,
+	})
+	local order = 0
+	local function header(text)
+		order = order + 1
+		UI.text(list, {
+			Size = UDim2.new(1, -8, 0, 28),
+			Text = text,
+			maxSize = 20,
+			TextColor3 = UI.Colors.Accent,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			LayoutOrder = order,
+			ZIndex = 32,
+		})
+	end
+
+	header("AMÉLIORATIONS DU ZOO (or)")
+	for _, def in ipairs(Config.ZooUpgrades) do
+		order = order + 1
+		local level = data.zooUp[def.id] or 0
+		local maxed = level >= def.max
+		local price = def.costs[level + 1]
+		row(
+			list,
+			order,
+			("%s (niv. %d/%d)"):format(def.name, level, def.max),
+			def.desc,
+			maxed and "MAX" or (Util.formatNumber(price) .. " or"),
+			maxed and UI.Colors.Muted or (data.coins >= price and UI.Colors.Good or UI.Colors.Warn),
+			(not maxed) and function()
+				invoke(Remotes.ZooAction, "zoo", def.id)
+			end or nil
+		)
+	end
+
+	header("TES ANIMAUX (os : " .. data.bones .. ")")
+	local owned = {}
+	for key, entry in pairs(data.animals) do
+		table.insert(owned, { key = key, entry = entry })
+	end
+	table.sort(owned, function(a, b)
+		if a.entry.income ~= b.entry.income then
+			return a.entry.income > b.entry.income
+		end
+		return a.key < b.key
+	end)
+	if #owned == 0 then
+		order = order + 1
+		UI.text(list, {
+			Size = UDim2.new(1, -8, 0, 40),
+			Text = "Ton zoo est vide. Pars en expédition et récupère un animal à cœur rose !",
+			maxSize = 16,
+			Font = UI.FontBody,
+			LayoutOrder = order,
+			ZIndex = 32,
+		})
+	end
+	for _, item in ipairs(owned) do
+		order = order + 1
+		local e = item.entry
+		local maxed = e.cost == nil
+		row(
+			list,
+			order,
+			("%s · niv. %d"):format(animalLabel(item.key), e.level),
+			("Rapporte %s or/min · %d exemplaire(s)"):format(Util.formatNumber(e.income), e.copies),
+			maxed and "MAX" or (e.cost .. " os"),
+			maxed and UI.Colors.Muted or (data.bones >= e.cost and UI.Colors.Good or UI.Colors.Warn),
+			(not maxed) and function()
+				invoke(Remotes.ZooAction, "animal", item.key)
+			end or nil
+		)
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Boutique (équipement, chapeaux, cordes)
 -- ---------------------------------------------------------------------------
 
 local function renderShop(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(
-			content,
-			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
-		)
+		loading(content)
 		return
 	end
 
 	local tabs = {
-		{ id = "upgrade", label = "AMÉLIORATIONS" },
+		{ id = "upgrade", label = "ÉQUIPEMENT" },
 		{ id = "hat", label = "CHAPEAUX" },
 		{ id = "rope", label = "CORDES" },
 	}
@@ -192,7 +415,7 @@ local function renderShop(content)
 				index,
 				("%s  (niv. %d/%d)"):format(def.name, level, def.max),
 				def.desc,
-				maxed and "MAX" or (Util.formatNumber(price) .. " pièces"),
+				maxed and "MAX" or (Util.formatNumber(price) .. " or"),
 				maxed and UI.Colors.Muted or (data.coins >= price and UI.Colors.Good or UI.Colors.Warn),
 				(not maxed) and function()
 					invoke(Remotes.Buy, "upgrade", def.id)
@@ -214,9 +437,9 @@ local function renderShop(content)
 					invoke(Remotes.Equip, isHat and "hat" or "rope", def.id)
 				end
 			elseif def.pass then
-				text, color = "PASS " .. def.pass:upper(), UI.Colors.Muted
+				text, color = "ZOO PREMIUM", UI.Colors.Muted
 			else
-				text = Util.formatNumber(def.price) .. " pièces"
+				text = Util.formatNumber(def.price) .. " or"
 				color = data.coins >= def.price and UI.Colors.Good or UI.Colors.Warn
 				handler = function()
 					invoke(Remotes.Buy, isHat and "hat" or "rope", def.id)
@@ -226,7 +449,7 @@ local function renderShop(content)
 				list,
 				index,
 				def.name,
-				isHat and "Un look unique pour ton cavalier." or "Change la couleur de ton lasso.",
+				isHat and "Un look unique pour ton gardien de zoo." or "Change la couleur de ton lasso.",
 				text,
 				color,
 				handler,
@@ -237,133 +460,14 @@ local function renderShop(content)
 end
 
 -- ---------------------------------------------------------------------------
--- Bestiaire
--- ---------------------------------------------------------------------------
-
-local function renderBestiary(content)
-	clear(content)
-	local data = ClientState.Data
-	if not data or not data.loaded then
-		UI.text(
-			content,
-			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
-		)
-		return
-	end
-
-	local found, total = 0, #Species.List * #Config.Variants
-	for _, def in ipairs(Species.List) do
-		for v = 1, #Config.Variants do
-			if (data.tamed[def.id .. "_" .. v] or 0) > 0 then
-				found = found + 1
-			end
-		end
-	end
-	UI.text(content, {
-		Size = UDim2.new(1, 0, 0, 30),
-		Text = ("Découvertes : %d / %d   ·   Dompter les 3 variantes d'une espèce rapporte %d pièces !"):format(
-			found,
-			total,
-			Config.Rewards.SpeciesComplete
-		),
-		maxSize = 18,
-		Font = UI.FontBody,
-		ZIndex = 32,
-	})
-
-	local grid = UI.make("ScrollingFrame", {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 36),
-		Size = UDim2.new(1, 0, 1, -36),
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollBarThickness = 6,
-		ZIndex = 31,
-	}, content)
-	UI.make("UIGridLayout", {
-		CellSize = UDim2.new(0, 178, 0, 168),
-		CellPadding = UDim2.new(0, 8, 0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, grid)
-
-	for index, def in ipairs(Species.List) do
-		local card = UI.frame(grid, { BackgroundColor3 = UI.Colors.PanelLight, LayoutOrder = index, ZIndex = 32 })
-		UI.corner(card, 12)
-		if data.completed[def.id] then
-			UI.stroke(card, UI.Colors.Accent, 3)
-		end
-		UI.text(card, {
-			Size = UDim2.new(1, -12, 0, 24),
-			Position = UDim2.new(0, 6, 0, 4),
-			Text = def.name,
-			maxSize = 20,
-			ZIndex = 33,
-		})
-		UI.text(card, {
-			Size = UDim2.new(1, -12, 0, 44),
-			Position = UDim2.new(0, 6, 0, 28),
-			Text = def.desc,
-			maxSize = 13,
-			Font = UI.FontBody,
-			TextColor3 = UI.Colors.Muted,
-			outline = false,
-			ZIndex = 33,
-		})
-		for v, variant in ipairs(Config.Variants) do
-			local count = data.tamed[def.id .. "_" .. v] or 0
-			local swatch = UI.frame(card, {
-				Position = UDim2.new(0, 10 + (v - 1) * 54, 0, 78),
-				Size = UDim2.new(0, 46, 0, 46),
-				BackgroundColor3 = count > 0 and variantColor(def.palette.body, v) or Color3.fromRGB(40, 44, 58),
-				ZIndex = 33,
-			})
-			UI.corner(swatch, 10)
-			UI.stroke(swatch, UI.Colors.Dark, 2)
-			UI.text(swatch, {
-				Size = UDim2.new(1, 0, 1, 0),
-				Text = count > 0 and "" or "?",
-				maxSize = 26,
-				TextColor3 = UI.Colors.Muted,
-				ZIndex = 34,
-			})
-			UI.text(card, {
-				Size = UDim2.new(0, 50, 0, 16),
-				Position = UDim2.new(0, 8 + (v - 1) * 54, 0, 128),
-				Text = count > 0 and ("x" .. count) or variant.name,
-				maxSize = 13,
-				Font = UI.FontBody,
-				TextColor3 = count > 0 and UI.Colors.Good or UI.Colors.Muted,
-				outline = false,
-				ZIndex = 33,
-			})
-		end
-		if data.completed[def.id] then
-			UI.text(card, {
-				Size = UDim2.new(1, -12, 0, 14),
-				Position = UDim2.new(0, 6, 1, -16),
-				Text = "ESPÈCE COMPLÈTE",
-				maxSize = 12,
-				TextColor3 = UI.Colors.Accent,
-				outline = false,
-				ZIndex = 33,
-			})
-		end
-	end
-end
-
--- ---------------------------------------------------------------------------
--- Quêtes et cadeau du jour
+-- Quêtes et histoire
 -- ---------------------------------------------------------------------------
 
 local function renderQuests(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(
-			content,
-			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
-		)
+		loading(content)
 		return
 	end
 
@@ -377,12 +481,87 @@ local function renderQuests(content)
 		ZIndex = 32,
 	})
 
+	local order = 0
+	local story = data.story
+	if story then
+		order = order + 1
+		local card = UI.frame(list, {
+			Size = UDim2.new(1, -8, 0, 122),
+			BackgroundColor3 = UI.Colors.PanelLight,
+			LayoutOrder = order,
+			ZIndex = 32,
+		})
+		UI.corner(card, 12)
+		UI.stroke(card, PINK, 2)
+		UI.text(card, {
+			Size = UDim2.new(1, -170, 0, 26),
+			Position = UDim2.new(0, 12, 0, 6),
+			Text = ("HISTOIRE %d/%d · %s"):format(story.index, story.total, story.title),
+			maxSize = 20,
+			TextColor3 = PINK,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 33,
+		})
+		UI.text(card, {
+			Size = UDim2.new(1, -170, 0, 56),
+			Position = UDim2.new(0, 12, 0, 34),
+			Text = story.text,
+			maxSize = 15,
+			Font = UI.FontBody,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			outline = false,
+			ZIndex = 33,
+		})
+		UI.text(card, {
+			Size = UDim2.new(1, -170, 0, 22),
+			Position = UDim2.new(0, 12, 1, -28),
+			Text = ("Objectif : %d/%d · récompense : %d or, %d os"):format(
+				story.progress,
+				story.target,
+				story.gold,
+				story.bones
+			),
+			maxSize = 14,
+			Font = UI.FontBody,
+			TextColor3 = UI.Colors.Muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			outline = false,
+			ZIndex = 33,
+		})
+		local claim = UI.button(card, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -10, 0.5, 0),
+			Size = UDim2.new(0, 140, 0, 46),
+			Text = story.ready and "RÉCUPÉRER" or "EN COURS",
+			BackgroundColor3 = story.ready and UI.Colors.Good or UI.Colors.Panel,
+			maxSize = 18,
+			ZIndex = 33,
+		})
+		if story.ready then
+			claim.Activated:Connect(function()
+				invoke(Remotes.ZooAction, "story")
+			end)
+		end
+	else
+		order = order + 1
+		UI.text(list, {
+			Size = UDim2.new(1, -8, 0, 40),
+			Text = "Histoire terminée : tu as le plus beau zoo du monde !",
+			maxSize = 18,
+			TextColor3 = PINK,
+			LayoutOrder = order,
+			ZIndex = 32,
+		})
+	end
+
 	local daily = data.daily
+	order = order + 1
 	row(
 		list,
-		1,
+		order,
 		"Cadeau du jour",
-		daily.claimable and ("+%d pièces · série actuelle : %d jour(s)"):format(daily.reward, daily.streak)
+		daily.claimable and ("+%d or · série actuelle : %d jour(s)"):format(daily.reward, daily.streak)
 			or "Déjà récupéré. Reviens demain pour prolonger ta série !",
 		daily.claimable and "RÉCUPÉRER" or "REVIENS DEMAIN",
 		daily.claimable and UI.Colors.Good or UI.Colors.Muted,
@@ -392,36 +571,38 @@ local function renderQuests(content)
 	)
 
 	for index, quest in ipairs(data.quests) do
+		order = order + 1
 		local done = quest.progress >= quest.target
 		local text, color, handler
 		if quest.claimed then
 			text, color = "FAIT", UI.Colors.Muted
 		elseif done then
-			text, color = ("+%d pièces"):format(quest.reward), UI.Colors.Good
+			text, color = ("+%d or"):format(quest.reward), UI.Colors.Good
 			handler = function()
 				invoke(Remotes.ClaimQuest, index)
 			end
 		else
 			text, color = ("%d/%d"):format(quest.progress, quest.target), UI.Colors.PanelLight
 		end
-		row(list, 1 + index, quest.label, ("Récompense : %d pièces"):format(quest.reward), text, color, handler)
+		row(list, order, quest.label, ("Récompense : %d or"):format(quest.reward), text, color, handler)
 	end
 
+	order = order + 1
 	local stats = UI.frame(
 		list,
-		{ Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = UI.Colors.Panel, LayoutOrder = 10, ZIndex = 32 }
+		{ Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = UI.Colors.Panel, LayoutOrder = order, ZIndex = 32 }
 	)
 	UI.corner(stats, 12)
 	UI.stroke(stats, UI.Colors.PanelLight, 2)
 	local lines = {
-		("Meilleur score : %s   ·   Victoires : %d   ·   Manches : %d"):format(
+		("Meilleur score : %s · Victoires : %d · Expéditions : %d"):format(
 			Util.formatNumber(data.bestScore),
 			data.wins,
 			data.rounds
 		),
-		("Bêtes dressées : %d   ·   Lassos : %d   ·   Distance : %s m"):format(
-			data.tamedTotal,
-			data.hooks,
+		("Animaux récupérés : %d · Animaux différents : %d · Distance : %s m"):format(
+			data.captures,
+			data.zoo.owned,
 			Util.formatNumber(data.distance)
 		),
 	}
@@ -432,7 +613,7 @@ local function renderQuests(content)
 		Size = UDim2.new(1, -16, 1, -12),
 		Position = UDim2.new(0, 8, 0, 6),
 		Text = table.concat(lines, "\n"),
-		maxSize = 18,
+		maxSize = 17,
 		Font = UI.FontBody,
 		outline = false,
 		ZIndex = 33,
@@ -443,14 +624,26 @@ end
 -- Boutique Robux
 -- ---------------------------------------------------------------------------
 
+local PRODUCT_DESC = {
+	gold = function(p)
+		return ("+%s or, utilisables partout"):format(Util.formatNumber(p.amount))
+	end,
+	bones = function(p)
+		return ("+%d os pour améliorer tes animaux"):format(p.amount)
+	end,
+	boost = function(p)
+		return ("Revenus du zoo x2 pendant %d minutes"):format(p.amount)
+	end,
+	revive = function()
+		return "Une vie de plus en pleine expédition (ou gardée pour la prochaine)"
+	end,
+}
+
 local function renderRobux(content)
 	clear(content)
 	local data = ClientState.Data
 	if not data or not data.loaded then
-		UI.text(
-			content,
-			{ Size = UDim2.new(1, 0, 0, 40), Text = "Chargement de ton profil...", maxSize = 24, ZIndex = 32 }
-		)
+		loading(content)
 		return
 	end
 	local list = listFrame(content, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0))
@@ -476,6 +669,15 @@ local function renderRobux(content)
 		return entry.price and ("R$ " .. entry.price) or "ACHETER"
 	end
 
+	UI.text(list, {
+		Size = UDim2.new(1, -8, 0, 22),
+		Text = "La partie de base reste gratuite : ces achats sont facultatifs.",
+		maxSize = 15,
+		Font = UI.FontBody,
+		TextColor3 = UI.Colors.Muted,
+		LayoutOrder = 0,
+		ZIndex = 32,
+	})
 	header("PASS PERMANENTS")
 	for _, entry in ipairs(store.passes) do
 		order = order + 1
@@ -498,7 +700,7 @@ local function renderRobux(content)
 		)
 	end
 
-	header("PAQUETS DE PIÈCES")
+	header("OR, OS ET AUTRES")
 	for _, entry in ipairs(store.products) do
 		order = order + 1
 		local handler = nil
@@ -508,11 +710,12 @@ local function renderRobux(content)
 				Remotes.Prompt:FireServer("product", entry.key)
 			end
 		end
+		local describe = PRODUCT_DESC[entry.kind]
 		row(
 			list,
 			order,
 			entry.name,
-			("+%s pièces, utilisables dans la boutique"):format(Util.formatNumber(entry.coins)),
+			describe and describe(entry) or "",
 			priceText(entry),
 			entry.available and UI.Colors.Good or UI.Colors.PanelLight,
 			handler
@@ -525,9 +728,10 @@ end
 -- ---------------------------------------------------------------------------
 
 local RENDERERS = {
+	expedition = { title = "EXPÉDITION", fn = renderExpedition },
+	zoo = { title = "TON ZOO", fn = renderZoo },
 	shop = { title = "BOUTIQUE", fn = renderShop },
-	bestiary = { title = "BESTIAIRE", fn = renderBestiary },
-	quests = { title = "QUÊTES & CADEAU", fn = renderQuests },
+	quests = { title = "HISTOIRE & QUÊTES", fn = renderQuests },
 	robux = { title = "BOUTIQUE ROBUX", fn = renderRobux },
 }
 
@@ -556,7 +760,7 @@ local function questBadge()
 	if not data or not data.loaded then
 		return false
 	end
-	if data.daily.claimable then
+	if data.daily.claimable or (data.story and data.story.ready) then
 		return true
 	end
 	for _, quest in ipairs(data.quests) do
@@ -570,7 +774,7 @@ end
 local function refreshChrome()
 	local data = ClientState.Data
 	if data and data.loaded then
-		refs.coins.Text = "Pièces : " .. Util.formatNumber(data.coins)
+		refs.coins.Text = ("Or : %s · Os : %d"):format(Util.formatNumber(data.coins), data.bones)
 	else
 		refs.coins.Text = "Chargement..."
 	end
@@ -578,7 +782,7 @@ local function refreshChrome()
 end
 
 local function refreshVisibility()
-	local visible = not ClientState.isPlaying()
+	local visible = not ClientState.inRun()
 	refs.buttons.Visible = visible
 	refs.coinsBox.Visible = visible
 	if not visible and openName then
@@ -600,14 +804,15 @@ function Menu.init()
 		Name = "Buttons",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.5, 0),
-		Size = UDim2.new(0, 150, 0, 4 * 52),
+		Size = UDim2.new(0, 160, 0, 5 * 52),
 		BackgroundTransparency = 1,
 	})
 	UI.make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, refs.buttons)
 	local defs = {
+		{ id = "expedition", label = "EXPÉDITION", color = UI.Colors.Good },
+		{ id = "zoo", label = "MON ZOO", color = PINK },
 		{ id = "shop", label = "BOUTIQUE", color = UI.Colors.Accent },
-		{ id = "bestiary", label = "BESTIAIRE", color = UI.Colors.Info },
-		{ id = "quests", label = "QUÊTES", color = UI.Colors.Good },
+		{ id = "quests", label = "HISTOIRE", color = UI.Colors.Info },
 		{ id = "robux", label = "ROBUX", color = Color3.fromRGB(255, 120, 90) },
 	}
 	for index, def in ipairs(defs) do
@@ -639,12 +844,12 @@ function Menu.init()
 		end
 	end
 
-	-- pièces
+	-- or et os
 	refs.coinsBox = UI.frame(gui, {
 		Name = "Coins",
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 12, 1, -12),
-		Size = UDim2.new(0, 190, 0, 40),
+		Size = UDim2.new(0, 230, 0, 40),
 		BackgroundTransparency = 0.15,
 	})
 	UI.corner(refs.coinsBox, 12)
@@ -653,7 +858,7 @@ function Menu.init()
 		Size = UDim2.new(1, -12, 1, -8),
 		Position = UDim2.new(0, 6, 0, 4),
 		Text = "Chargement...",
-		maxSize = 22,
+		maxSize = 20,
 		TextColor3 = UI.Colors.Accent,
 	})
 
@@ -666,7 +871,7 @@ function Menu.init()
 		Visible = false,
 		ZIndex = 30,
 	})
-	UI.make("UISizeConstraint", { MaxSize = Vector2.new(780, 520), MinSize = Vector2.new(320, 240) }, refs.panel)
+	UI.make("UISizeConstraint", { MaxSize = Vector2.new(780, 540), MinSize = Vector2.new(320, 240) }, refs.panel)
 	UI.corner(refs.panel, 18)
 	UI.stroke(refs.panel, UI.Colors.Accent, 3)
 	refs.title = UI.text(refs.panel, {
@@ -703,6 +908,27 @@ function Menu.init()
 		end
 	end)
 	ClientState.connect("Status", refreshVisibility)
+
+	-- le départ efface l'état « prêt » ; la caisse du zoo s'actualise chaque seconde
+	workspace:GetAttributeChangedSignal("Phase"):Connect(function()
+		local phase = workspace:GetAttribute("Phase")
+		if phase == "Countdown" or phase == "Running" then
+			readyState = false
+		end
+		if openName == "expedition" then
+			render()
+		end
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local data = ClientState.Data
+			if openName == "zoo" and refs.cashLabel and refs.cashLabel.Parent and data and data.loaded then
+				refs.cashLabel.Text = ("Caisse : %s or"):format(Util.formatNumber(pendingEstimate(data)))
+			end
+		end
+	end)
+
 	refreshChrome()
 	refreshVisibility()
 end

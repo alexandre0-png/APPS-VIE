@@ -68,6 +68,24 @@ function Controls.press(source)
 	end
 end
 
+-- Récupérer l'animal monté quand son cœur bat (bouton RÉCUPÉRER ou touche E).
+function Controls.collect()
+	if player:GetAttribute("CanCollect") == true then
+		Remotes.Collect:FireServer()
+		Sfx.play("collect")
+	end
+end
+
+-- Lasso de capture : vise l'animal à cœur choisi par la visée assistée (touche Q ou bouton LASSO).
+function Controls.lasso()
+	local model = CreatureFx.lassoTarget()
+	local charges = player:GetAttribute("Lasso") or 0
+	if model and charges > 0 and ClientState.isPlaying() then
+		Remotes.Lasso:FireServer(model:GetAttribute("Id"))
+		Sfx.play("lasso")
+	end
+end
+
 function Controls.release(source)
 	if pressed and pressedSource == source then
 		pressed = false
@@ -160,6 +178,10 @@ function Controls.init()
 		local t = input.UserInputType
 		if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
 			Controls.press("key")
+		elseif input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.ButtonY then
+			Controls.collect()
+		elseif input.KeyCode == Enum.KeyCode.Q or input.KeyCode == Enum.KeyCode.ButtonX then
+			Controls.lasso()
 		elseif t == Enum.UserInputType.MouseButton1 then
 			Controls.press("mouse")
 		elseif t == Enum.UserInputType.Touch then
@@ -243,6 +265,14 @@ function Controls.init()
 			end
 		elseif status == "Hooking" then
 			CreatureFx.setTarget(nil)
+		end
+
+		-- visée assistée du lasso de capture
+		if status == "Riding" or status == "Air" or status == "Down" then
+			local range = player:GetAttribute("LassoRange") or Config.Run.LassoRange
+			CreatureFx.setLassoTarget(CreatureFx.bestLassoTarget(hrp.Position, range))
+		else
+			CreatureFx.setLassoTarget(nil)
 		end
 	end)
 end

@@ -1,11 +1,12 @@
--- Interface de jeu : minuteur, score, combo, classement, mur de lave, dressage, bouton d'action,
--- messages (lasso, dressage, événements) et tableau des résultats.
+-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
+-- boutons (sauter / lasso, récupérer, lasso de capture), messages, écran « Continuer ? » et résultats.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Remotes = require(Shared.Remotes)
 local Util = require(Shared.Util)
 
 local ClientState = require(script.Parent.ClientState)
@@ -23,20 +24,24 @@ local feedbackToken = 0
 local resultsToken = 0
 local lastCountdown = -1
 local lastWarnTick = 0
-local TIPS = {
-	"Ouvre la boutique ou le bestiaire en attendant.",
-	"Astuce : maintiens ESPACE en l'air pour lasser automatiquement.",
-	"Astuce : reste sur une bête pour la dompter et gagner des pièces.",
-	"Astuce : une bête dorée vaut 4 fois plus de points.",
-	"Astuce : fonce dans les cercles bleus pour un super bond.",
-	"Astuce : le mammouth est lent mais ne te désarçonne jamais.",
-	"Astuce : enchaîne les lassos vite pour garder ton combo.",
-}
 local lastCombo = 0
+local lastRound = -1
+local builtLives = 0
+local PINK = Color3.fromRGB(255, 96, 160)
+
+local TIPS = {
+	"Ouvre EXPÉDITION pour partir. Le zoo travaille pendant ce temps.",
+	"Astuce : un cœur rose au-dessus d'un animal = tu peux le récupérer.",
+	"Astuce : monte l'animal quelques secondes, puis appuie sur RÉCUPÉRER.",
+	"Astuce : le lasso de capture attrape un animal à cœur à distance.",
+	"Astuce : maintiens ESPACE en l'air pour lasser le prochain animal.",
+	"Astuce : un doublon rapporte des os pour améliorer tes animaux.",
+	"Astuce : le sol est mortel. Ne rate pas ton saut !",
+}
 
 local KIND_STYLE = {
 	hook = { color = UI.Colors.Accent },
-	tame = { color = UI.Colors.Good, sound = "tame" },
+	tame = { color = PINK, sound = "heart" },
 	down = { color = UI.Colors.Bad, sound = "down", shake = 1.2 },
 	out = { color = UI.Colors.Bad, sound = "down" },
 	finish = { color = UI.Colors.Accent, sound = "win" },
@@ -44,11 +49,21 @@ local KIND_STYLE = {
 	buck = { color = UI.Colors.Warn, sound = "boom", shake = 1.0 },
 	geyser = { color = UI.Colors.Info, sound = "geyser", shake = 0.8 },
 	event = { color = UI.Colors.Info, sound = "go" },
-	danger = { color = UI.Colors.Bad, sound = "boom", shake = 1.5 },
+	danger = { color = UI.Colors.Bad, sound = "boss", shake = 1.5 },
 }
+
+local function roundButton(gui, props)
+	local b = UI.button(gui, props)
+	local corner = b:FindFirstChildOfClass("UICorner")
+	if corner then
+		corner.CornerRadius = UDim.new(1, 0)
+	end
+	return b
+end
 
 local function build(gui)
 	local C = UI.Colors
+	local panelGradient = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50))
 
 	-- Bandeau du haut (phase / minuteur)
 	local banner = UI.frame(gui, {
@@ -56,11 +71,11 @@ local function build(gui)
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 10),
 		Size = UDim2.new(0, 330, 0, 46),
-		BackgroundColor3 = C.Panel,
 		BackgroundTransparency = 0.15,
 	})
 	UI.corner(banner, 14)
 	UI.stroke(banner, C.Dark, 2)
+	UI.make("UIGradient", { Color = panelGradient, Rotation = 90 }, banner)
 	refs.bannerText =
 		UI.text(banner, { Size = UDim2.new(1, -16, 1, -8), Position = UDim2.new(0, 8, 0, 4), maxSize = 26 })
 
@@ -68,64 +83,97 @@ local function build(gui)
 		Name = "Hint",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 62),
-		Size = UDim2.new(0, 420, 0, 26),
+		Size = UDim2.new(0, 480, 0, 26),
 		maxSize = 18,
 		TextColor3 = C.Muted,
 		Font = UI.FontBody,
 	})
 
-	-- Score + combo (haut gauche)
+	refs.zone = UI.text(gui, {
+		Name = "Zone",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 90),
+		Size = UDim2.new(0, 360, 0, 24),
+		maxSize = 20,
+		TextColor3 = C.Info,
+	})
+
+	-- Score, or, vies et lassos (haut gauche)
 	local score = UI.frame(gui, {
 		Name = "ScoreBox",
 		Position = UDim2.new(0, 12, 0, 10),
-		Size = UDim2.new(0, 220, 0, 98),
+		Size = UDim2.new(0, 230, 0, 150),
 		BackgroundTransparency = 0.15,
 	})
 	UI.corner(score, 14)
 	UI.stroke(score, C.Dark, 2)
+	UI.make("UIGradient", { Color = panelGradient, Rotation = 90 }, score)
 	UI.text(score, {
-		Size = UDim2.new(1, -16, 0, 18),
+		Size = UDim2.new(1, -16, 0, 16),
 		Position = UDim2.new(0, 8, 0, 4),
 		Text = "SCORE",
-		maxSize = 14,
+		maxSize = 13,
 		TextColor3 = C.Muted,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	refs.score = UI.text(score, {
-		Size = UDim2.new(1, -16, 0, 40),
-		Position = UDim2.new(0, 8, 0, 20),
+		Size = UDim2.new(1, -16, 0, 36),
+		Position = UDim2.new(0, 8, 0, 18),
 		Text = "0",
-		maxSize = 38,
+		maxSize = 34,
 		TextColor3 = C.Accent,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	refs.combo = UI.text(score, {
-		Size = UDim2.new(1, -16, 0, 20),
-		Position = UDim2.new(0, 8, 0, 62),
+		Size = UDim2.new(1, -16, 0, 18),
+		Position = UDim2.new(0, 8, 0, 56),
 		Text = "",
-		maxSize = 18,
+		maxSize = 16,
 		TextColor3 = C.Good,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	refs.comboScale = UI.make("UIScale", { Scale = 1 }, refs.combo)
 	local comboBar = UI.frame(
 		score,
-		{ Position = UDim2.new(0, 8, 1, -12), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark }
+		{ Position = UDim2.new(0, 8, 0, 76), Size = UDim2.new(1, -16, 0, 6), BackgroundColor3 = C.Dark }
 	)
 	UI.corner(comboBar, 3)
 	refs.comboFill = UI.frame(comboBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
 	UI.corner(refs.comboFill, 3)
+	refs.runGold = UI.text(score, {
+		Size = UDim2.new(1, -16, 0, 18),
+		Position = UDim2.new(0, 8, 0, 86),
+		Text = "",
+		maxSize = 16,
+		TextColor3 = C.Accent,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	refs.livesLabel = UI.text(score, {
+		Size = UDim2.new(0, 52, 0, 18),
+		Position = UDim2.new(0, 8, 0, 110),
+		Text = "VIES",
+		maxSize = 14,
+		TextColor3 = C.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	refs.livesRow = UI.frame(
+		score,
+		{ Position = UDim2.new(0, 62, 0, 104), Size = UDim2.new(1, -70, 0, 28), BackgroundTransparency = 1 }
+	)
+	UI.make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 4),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, refs.livesRow)
+	refs.lassoText = UI.text(score, {
+		Size = UDim2.new(1, -16, 0, 16),
+		Position = UDim2.new(0, 8, 1, -20),
+		Text = "",
+		maxSize = 14,
+		TextColor3 = C.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
 	refs.scoreBox = score
-	UI.make(
-		"UIGradient",
-		{ Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 },
-		score
-	)
-	UI.make(
-		"UIGradient",
-		{ Color = ColorSequence.new(Color3.fromRGB(52, 62, 96), Color3.fromRGB(26, 31, 50)), Rotation = 90 },
-		banner
-	)
 
 	-- Classement en direct (haut droite)
 	local board = UI.frame(gui, {
@@ -157,24 +205,7 @@ local function build(gui)
 	end
 	refs.board = board
 
-	-- Mur de lave
-	local wallBox = UI.frame(gui, {
-		Name = "WallBox",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 92),
-		Size = UDim2.new(0, 300, 0, 26),
-		BackgroundColor3 = C.Dark,
-		BackgroundTransparency = 0.2,
-	})
-	UI.corner(wallBox, 13)
-	UI.stroke(wallBox, C.Dark, 2)
-	refs.wallFill = UI.frame(wallBox, { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = C.Good })
-	UI.corner(refs.wallFill, 13)
-	refs.wallText =
-		UI.text(wallBox, { Size = UDim2.new(1, -10, 1, -4), Position = UDim2.new(0, 5, 0, 2), maxSize = 16 })
-	refs.wallBox = wallBox
-
-	-- Danger : bordure rouge pulsante
+	-- Danger : bordure rouge quand on est en l'air près du sol mortel
 	refs.danger = UI.frame(gui, {
 		Name = "Danger",
 		Position = UDim2.new(0, 8, 0, 8),
@@ -186,29 +217,34 @@ local function build(gui)
 	refs.dangerStroke =
 		UI.make("UIStroke", { Color = Color3.fromRGB(255, 50, 30), Thickness = 16, Transparency = 1 }, refs.danger)
 
-	-- Monture / dressage (bas centre)
+	-- Animal monté (bas centre) : confiance et cœur
 	local ride = UI.frame(gui, {
 		Name = "RideBox",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -16),
-		Size = UDim2.new(0, 300, 0, 62),
+		Size = UDim2.new(0, 320, 0, 70),
 		BackgroundTransparency = 0.15,
 	})
 	UI.corner(ride, 14)
 	UI.stroke(ride, C.Dark, 2)
+	UI.make("UIGradient", { Color = panelGradient, Rotation = 90 }, ride)
 	refs.rideName = UI.text(ride, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 4), maxSize = 22 })
 	local tameBar = UI.frame(
 		ride,
-		{ Position = UDim2.new(0, 10, 0, 36), Size = UDim2.new(1, -20, 0, 16), BackgroundColor3 = C.Dark }
+		{ Position = UDim2.new(0, 10, 0, 38), Size = UDim2.new(1, -20, 0, 20), BackgroundColor3 = C.Dark }
 	)
-	UI.corner(tameBar, 8)
-	refs.tameFill = UI.frame(tameBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.Good })
-	UI.corner(refs.tameFill, 8)
-	refs.tameText = UI.text(tameBar, { Size = UDim2.new(1, 0, 1, 0), maxSize = 12, Text = "DRESSAGE", outline = true })
+	UI.corner(tameBar, 10)
+	refs.tameFill = UI.frame(tameBar, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = PINK })
+	UI.corner(refs.tameFill, 10)
+	refs.tameText =
+		UI.text(tameBar, { Size = UDim2.new(1, -24, 1, 0), Position = UDim2.new(0, 22, 0, 0), maxSize = 13, Text = "" })
+	local barHeart = UI.heart(tameBar, 16, Color3.fromRGB(255, 255, 255))
+	barHeart.Position = UDim2.new(0, 3, 0.5, -8)
+	refs.tameBar = tameBar
 	refs.rideBox = ride
 
 	-- Bouton d'action (bas droite)
-	local action = UI.button(gui, {
+	local action = roundButton(gui, {
 		Name = "Action",
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -24),
@@ -217,14 +253,40 @@ local function build(gui)
 		Text = "SAUTER",
 		maxSize = 24,
 	})
-	local corner = action:FindFirstChildOfClass("UICorner")
-	if corner then
-		corner.CornerRadius = UDim.new(1, 0)
-	end
 	Controls.bindButton(action)
 	refs.action = action
 
-	-- Bouton de son (tout / effets seuls / muet)
+	-- Récupérer (au-dessus de l'action)
+	local collect = roundButton(gui, {
+		Name = "Collect",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -24, 1, -160),
+		Size = UDim2.new(0, 112, 0, 112),
+		BackgroundColor3 = PINK,
+		Text = "RÉCUPÉRER",
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		maxSize = 18,
+		Visible = false,
+	})
+	refs.collectScale = UI.make("UIScale", { Scale = 1 }, collect)
+	collect.Activated:Connect(Controls.collect)
+	refs.collect = collect
+
+	-- Lasso de capture (à gauche de l'action)
+	local lasso = roundButton(gui, {
+		Name = "Lasso",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -164, 1, -30),
+		Size = UDim2.new(0, 92, 0, 92),
+		BackgroundColor3 = C.PanelLight,
+		TextColor3 = C.Text,
+		Text = "LASSO",
+		maxSize = 18,
+	})
+	lasso.Activated:Connect(Controls.lasso)
+	refs.lasso = lasso
+
+	-- Bouton de son
 	local soundButton = UI.button(gui, {
 		Name = "Sound",
 		AnchorPoint = Vector2.new(0, 1),
@@ -240,12 +302,12 @@ local function build(gui)
 		Sfx.play("click")
 	end)
 
-	-- Message central (lasso, dressage...)
+	-- Message central
 	local toast = UI.frame(gui, {
 		Name = "Toast",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.3, 0),
-		Size = UDim2.new(0, 560, 0, 96),
+		Size = UDim2.new(0, 600, 0, 96),
 		BackgroundTransparency = 1,
 		Visible = false,
 	})
@@ -267,37 +329,89 @@ local function build(gui)
 		Visible = false,
 	})
 
+	-- Écran « Continuer ? » après une mort
+	local revive = UI.frame(gui, {
+		Name = "Revive",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 380, 0, 190),
+		Visible = false,
+		ZIndex = 15,
+	})
+	UI.corner(revive, 18)
+	UI.stroke(revive, C.Bad, 3)
+	UI.text(revive, {
+		Size = UDim2.new(1, -20, 0, 44),
+		Position = UDim2.new(0, 10, 0, 10),
+		Text = "TOMBÉ !",
+		maxSize = 38,
+		TextColor3 = C.Bad,
+		ZIndex = 16,
+	})
+	refs.reviveText = UI.text(revive, {
+		Size = UDim2.new(1, -20, 0, 30),
+		Position = UDim2.new(0, 10, 0, 56),
+		Text = "",
+		maxSize = 20,
+		Font = UI.FontBody,
+		ZIndex = 16,
+	})
+	local reviveButton = UI.button(revive, {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -16),
+		Size = UDim2.new(0, 280, 0, 54),
+		Text = "CONTINUER (Robux)",
+		BackgroundColor3 = C.Good,
+		maxSize = 22,
+		ZIndex = 16,
+	})
+	reviveButton.Activated:Connect(function()
+		Remotes.Prompt:FireServer("product", "revive")
+		Sfx.play("click")
+	end)
+	refs.revive = revive
+
 	-- Résultats
 	local results = UI.frame(gui, {
 		Name = "Results",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(0.92, 0, 0.8, 0),
+		Size = UDim2.new(0.94, 0, 0.84, 0),
 		Visible = false,
 		ZIndex = 20,
 	})
-	UI.make("UISizeConstraint", { MaxSize = Vector2.new(560, 440) }, results)
+	UI.make("UISizeConstraint", { MaxSize = Vector2.new(620, 470) }, results)
 	UI.corner(results, 18)
 	UI.stroke(results, C.Accent, 3)
 	UI.text(results, {
-		Size = UDim2.new(1, -20, 0, 44),
+		Size = UDim2.new(1, -20, 0, 40),
 		Position = UDim2.new(0, 10, 0, 8),
-		Text = "RÉSULTATS DE LA MANCHE",
-		maxSize = 32,
+		Text = "BILAN DE L'EXPÉDITION",
+		maxSize = 30,
 		TextColor3 = C.Accent,
 		ZIndex = 21,
 	})
 	refs.resultsList = UI.make("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 10, 0, 58),
-		Size = UDim2.new(1, -20, 1, -118),
+		Position = UDim2.new(0, 10, 0, 52),
+		Size = UDim2.new(1, -20, 1, -150),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ZIndex = 21,
 	}, results)
 	UI.make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, refs.resultsList)
+	refs.resultsCaptures = UI.text(results, {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 14, 1, -58),
+		Size = UDim2.new(1, -28, 0, 44),
+		Text = "",
+		maxSize = 16,
+		Font = UI.FontBody,
+		TextColor3 = PINK,
+		ZIndex = 21,
+	})
 	local close = UI.button(results, {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -10),
@@ -317,15 +431,29 @@ end
 -- Mise à jour périodique
 -- ---------------------------------------------------------------------------
 
-local function wallDistance()
-	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	local wall = workspace:FindFirstChild("LavaWall")
-	local root = wall and wall:FindFirstChild("Root")
-	if hrp and root then
-		return hrp.Position.Z - (root.Position.Z + 8)
+local function rebuildLives(maxLives, lives)
+	if builtLives ~= maxLives then
+		builtLives = maxLives
+		for _, child in ipairs(refs.livesRow:GetChildren()) do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		refs.hearts = {}
+		for i = 1, maxLives do
+			local heart = UI.heart(refs.livesRow, 24, PINK)
+			heart.LayoutOrder = i
+			refs.hearts[i] = heart
+		end
 	end
-	return nil
+	for i, heart in ipairs(refs.hearts or {}) do
+		local color = i <= lives and PINK or Color3.fromRGB(70, 74, 90)
+		for _, part in ipairs(heart:GetChildren()) do
+			if part:IsA("Frame") then
+				part.BackgroundColor3 = color
+			end
+		end
+	end
 end
 
 local function updateScores()
@@ -349,22 +477,22 @@ local function update()
 	local waiting = workspace:GetAttribute("Waiting")
 	local remaining = (workspace:GetAttribute("PhaseEnd") or 0) - workspace:GetServerTimeNow()
 	local status = ClientState.Status
-	local playing = ClientState.isPlaying()
+	local playing = ClientState.isPlaying() or status == "Dead"
 	local running = phase == "Running"
+	local ready = workspace:GetAttribute("ReadyCount") or 0
 
 	-- bandeau
 	if phase == "Intermission" then
-		refs.bannerText.Text = waiting and "En attente de joueurs..."
-			or ("Prochaine manche : " .. Util.formatTime(remaining))
+		refs.bannerText.Text = waiting and "Personne n'est parti" or ("Départ dans " .. Util.formatTime(remaining))
 	elseif phase == "Countdown" then
 		refs.bannerText.Text = "Prépare-toi !"
 	elseif phase == "Running" then
 		refs.bannerText.Text = "Temps restant : " .. Util.formatTime(remaining)
 	else
-		refs.bannerText.Text = "Résultats"
+		refs.bannerText.Text = "Bilan"
 	end
 
-	-- compte à rebours géant
+	-- compte à rebours géant + nom de la zone
 	if phase == "Countdown" then
 		local n = math.ceil(remaining)
 		refs.countdown.Visible = true
@@ -381,6 +509,16 @@ local function update()
 				Sfx.play("go")
 			end
 		end
+		local round = workspace:GetAttribute("Round") or 0
+		if round ~= lastRound and ClientState.isPlaying() then
+			lastRound = round
+			local zone = Config.Zones[workspace:GetAttribute("StartZone") or 1]
+			HUD.feedback({
+				kind = "event",
+				title = zone.name,
+				sub = "Danger : " .. zone.hazard.name .. ". Ne touche pas le sol !",
+			})
+		end
 	else
 		refs.countdown.Visible = false
 		lastCountdown = -1
@@ -388,12 +526,15 @@ local function update()
 
 	-- indications
 	if running and status == "Lobby" then
-		refs.hint.Text = "Manche en cours : tu joues à la prochaine !"
+		refs.hint.Text = "Une expédition est en cours : ton zoo travaille, rejoins la suivante."
 	elseif running and (status == "Out" or status == "Finished") then
-		refs.hint.Text = status == "Finished" and "Arrivé ! Tu regardes la fin de la manche."
-			or "Éliminé : tu regardes la course."
+		refs.hint.Text = status == "Finished" and "Expédition terminée !" or "Tu regardes la suite de l'expédition."
 	elseif phase == "Intermission" then
-		refs.hint.Text = TIPS[math.floor(os.clock() / 6) % #TIPS + 1]
+		refs.hint.Text = waiting and "Choisis une zone dans EXPÉDITION et appuie sur PARTIR."
+			or ("%d prêt(s). Tu peux encore te préparer."):format(ready)
+		if not waiting then
+			refs.hint.Text = TIPS[math.floor(os.clock() / 6) % #TIPS + 1]
+		end
 	else
 		refs.hint.Text = ""
 	end
@@ -403,8 +544,9 @@ local function update()
 	refs.scoreBox.Visible = showScore and (running or phase == "Countdown")
 	refs.board.Visible = (running or phase == "Countdown") and #ClientState.Scores > 0
 	refs.rideBox.Visible = status == "Riding"
-	refs.action.Visible = playing
-	refs.wallBox.Visible = playing and running
+	refs.action.Visible = ClientState.isPlaying()
+	refs.lasso.Visible = ClientState.isPlaying()
+	refs.zone.Visible = playing and running
 
 	if refs.scoreBox.Visible then
 		refs.score.Text = Util.formatNumber(player:GetAttribute("RunScore") or 0)
@@ -412,25 +554,36 @@ local function update()
 		if combo ~= lastCombo then
 			lastCombo = combo
 			if combo >= 2 then
-				-- petit "pop" à chaque palier de combo (UIScale : TextSize est ignoré avec TextScaled)
 				refs.comboScale.Scale = 1.4
 				UI.tween(refs.comboScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
 			end
 		end
-		if combo >= 2 then
-			refs.combo.Text = ("COMBO x%.1f"):format(player:GetAttribute("ComboMult") or 1)
-		else
-			refs.combo.Text = ""
-		end
-		local left = player:GetAttribute("ComboLeft") or 0
-		UI.tween(refs.comboFill, 0.1, { Size = UDim2.new(left, 0, 1, 0) })
+		refs.combo.Text = combo >= 2 and ("COMBO x%.1f"):format(player:GetAttribute("ComboMult") or 1) or ""
+		UI.tween(refs.comboFill, 0.1, { Size = UDim2.new(player:GetAttribute("ComboLeft") or 0, 0, 1, 0) })
+		refs.runGold.Text = ("Or gagné : %s · animaux : %d"):format(
+			Util.formatNumber(player:GetAttribute("RunGold") or 0),
+			player:GetAttribute("Captures") or 0
+		)
+		rebuildLives(player:GetAttribute("MaxLives") or 1, player:GetAttribute("Lives") or 1)
+		refs.lassoText.Text = ("Lassos de capture : %d  (Q)"):format(player:GetAttribute("Lasso") or 0)
+		local zoneIdx = player:GetAttribute("ZoneIdx") or 1
+		refs.zone.Text = ("ZONE %d · %s"):format(zoneIdx, Config.Zones[zoneIdx].name)
 	end
 
+	-- animal monté
 	if refs.rideBox.Visible then
-		refs.rideName.Text = player:GetAttribute("RideName") or ""
-		local progress = player:GetAttribute("TameProgress") or 0
-		UI.tween(refs.tameFill, 0.1, { Size = UDim2.new(progress, 0, 1, 0) })
-		refs.tameText.Text = progress >= 1 and "DOMPTÉ !" or "DRESSAGE"
+		local name = player:GetAttribute("RideName") or ""
+		local hearted = player:GetAttribute("RideHeart") == true
+		local boss = player:GetAttribute("RideBoss") == true
+		refs.rideName.Text = boss and ("BOSS · " .. name) or name
+		refs.tameBar.Visible = hearted
+		if hearted then
+			local progress = player:GetAttribute("TameProgress") or 0
+			UI.tween(refs.tameFill, 0.1, { Size = UDim2.new(progress, 0, 1, 0) })
+			refs.tameText.Text = player:GetAttribute("CanCollect") and "RÉCUPÈRE-LE !" or "CONFIANCE"
+		else
+			refs.rideName.Text = refs.rideName.Text .. " (pas de cœur)"
+		end
 	end
 
 	-- bouton d'action contextuel
@@ -439,34 +592,45 @@ local function update()
 			refs.action.Text = "SAUTER"
 			refs.action.BackgroundColor3 = UI.Colors.Accent
 		elseif status == "Air" or status == "Down" then
-			refs.action.Text = "LASSO"
-			-- le bouton brille quand une bête est à portée
-			local ready = CreatureFx.hasTarget()
-			refs.action.BackgroundColor3 = ready and UI.Colors.Accent or UI.Colors.Info
+			refs.action.Text = "LASSO DE SAUT"
+			refs.action.BackgroundColor3 = CreatureFx.hasTarget() and UI.Colors.Accent or UI.Colors.Info
 		else
 			refs.action.Text = "..."
 			refs.action.BackgroundColor3 = UI.Colors.Muted
 		end
 	end
 
-	-- mur de lave
-	local dist = wallDistance()
-	if refs.wallBox.Visible and dist then
-		local fraction = math.clamp(dist / 160, 0, 1)
-		refs.wallFill.Size = UDim2.new(fraction, 0, 1, 0)
-		refs.wallFill.BackgroundColor3 = dist < 35 and UI.Colors.Bad or (dist < 80 and UI.Colors.Warn or UI.Colors.Good)
-		refs.wallText.Text = ("MUR DE LAVE : %d m"):format(math.max(0, math.floor(dist)))
-		refs.danger.Visible = dist < 45
-		if dist < 45 then
-			if os.clock() - lastWarnTick > 0.9 - 0.5 * (1 - math.clamp(dist / 45, 0, 1)) then
-				lastWarnTick = os.clock()
-				Sfx.play("tick")
-			end
-			local pulse = (math.sin(os.clock() * 8) + 1) / 2
-			refs.dangerStroke.Transparency = 1 - (1 - math.clamp(dist / 45, 0, 1)) * (0.35 + 0.35 * pulse)
+	-- récupérer / lasso de capture
+	local canCollect = player:GetAttribute("CanCollect") == true and status == "Riding"
+	refs.collect.Visible = canCollect
+	if canCollect then
+		refs.collectScale.Scale = 1 + math.sin(os.clock() * 9) * 0.07
+	end
+	if refs.lasso.Visible then
+		local charges = player:GetAttribute("Lasso") or 0
+		local aimed = CreatureFx.lassoTarget() ~= nil
+		refs.lasso.Text = ("LASSO\nx%d"):format(charges)
+		refs.lasso.BackgroundColor3 = (aimed and charges > 0) and PINK or UI.Colors.PanelLight
+	end
+
+	-- sol mortel : bordure rouge quand on est bas en l'air
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local low = hrp ~= nil and (status == "Air") and hrp.Position.Y < 11 and hrp.Position.Y < 150
+	refs.danger.Visible = low
+	if low then
+		refs.dangerStroke.Transparency = 0.45 + 0.2 * math.sin(os.clock() * 14)
+		if os.clock() - lastWarnTick > 0.35 then
+			lastWarnTick = os.clock()
+			Sfx.play("tick")
 		end
-	else
-		refs.danger.Visible = false
+	end
+
+	-- continuer après une mort
+	local reviveLeft = player:GetAttribute("ReviveLeft") or 0
+	refs.revive.Visible = status == "Dead" and reviveLeft > 0
+	if refs.revive.Visible then
+		refs.reviveText.Text = ("Continuer avec une vie de plus ? (%d s)"):format(reviveLeft)
 	end
 end
 
@@ -496,7 +660,7 @@ function HUD.feedback(payload)
 		CameraRig.shake(style.shake, 0.4)
 	end
 
-	task.delay(payload.kind == "tame" and 2.4 or 1.6, function()
+	task.delay(payload.kind == "tame" and 2.6 or 1.8, function()
 		if token == feedbackToken then
 			refs.toast.Visible = false
 		end
@@ -514,10 +678,12 @@ function HUD.showResults(payload)
 	end
 
 	local myRank = nil
+	local mine = nil
 	for index, entry in ipairs(payload.list) do
 		local you = entry.id == player.UserId
 		if you then
 			myRank = entry.rank
+			mine = entry
 		end
 		local row = UI.frame(refs.resultsList, {
 			Size = UDim2.new(1, -8, 0, 46),
@@ -537,7 +703,7 @@ function HUD.showResults(payload)
 			ZIndex = 22,
 		})
 		UI.text(row, {
-			Size = UDim2.new(0.42, 0, 1, -8),
+			Size = UDim2.new(0.36, 0, 1, -8),
 			Position = UDim2.new(0, 48, 0, 4),
 			Text = entry.n,
 			maxSize = 20,
@@ -545,31 +711,36 @@ function HUD.showResults(payload)
 			ZIndex = 22,
 		})
 		UI.text(row, {
-			Size = UDim2.new(0.3, 0, 1, -8),
-			Position = UDim2.new(0.5, 0, 0, 4),
+			Size = UDim2.new(0.24, 0, 1, -8),
+			Position = UDim2.new(0.42, 0, 0, 4),
 			Text = Util.formatNumber(entry.score) .. " pts",
-			maxSize = 20,
+			maxSize = 18,
 			TextColor3 = UI.Colors.Accent,
 			TextXAlignment = Enum.TextXAlignment.Right,
 			ZIndex = 22,
 		})
 		UI.text(row, {
-			Size = UDim2.new(0.2, -8, 1, -8),
-			Position = UDim2.new(0.8, 0, 0, 4),
-			Text = "+" .. entry.coins,
-			maxSize = 18,
+			Size = UDim2.new(0.3, -8, 1, -8),
+			Position = UDim2.new(0.68, 0, 0, 4),
+			Text = ("+%s or  ·  %d animaux"):format(Util.formatNumber(entry.gold), entry.captures),
+			maxSize = 16,
 			TextColor3 = UI.Colors.Good,
 			TextXAlignment = Enum.TextXAlignment.Right,
 			ZIndex = 22,
 		})
 	end
 
-	refs.results.Visible = true
-	if myRank == 1 then
-		Sfx.play("win")
+	if mine and #mine.names > 0 then
+		refs.resultsCaptures.Text = ("Nouveaux pensionnaires : %s. Os gagnés : %d."):format(
+			table.concat(mine.names, ", "),
+			mine.bones
+		)
 	else
-		Sfx.play("coin")
+		refs.resultsCaptures.Text = "Aucun animal récupéré cette fois. Cherche les cœurs roses !"
 	end
+
+	refs.results.Visible = true
+	Sfx.play(myRank == 1 and "win" or "coin")
 
 	resultsToken = resultsToken + 1
 	local token = resultsToken
