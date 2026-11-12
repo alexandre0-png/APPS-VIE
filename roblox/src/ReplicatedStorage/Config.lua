@@ -1,0 +1,177 @@
+-- ModuleScript : ReplicatedStorage/Shared/Config
+-- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
+local Config = {}
+
+Config.PLOT_COUNT = 10 -- nombre de bases (= joueurs max conseillé dans Game Settings > MaxPlayers)
+
+Config.TIERS = {
+	{ name = "Commun", color = Color3.fromRGB(170, 180, 191) },
+	{ name = "Rare", color = Color3.fromRGB(74, 163, 255) },
+	{ name = "Épique", color = Color3.fromRGB(184, 120, 255) },
+	{ name = "Légendaire", color = Color3.fromRGB(255, 176, 32) },
+	{ name = "Mythique", color = Color3.fromRGB(255, 77, 109) },
+	{ name = "Cosmique", color = Color3.fromRGB(61, 255, 208) },
+}
+Config.EGG_PRICE = { 25, 300, 3500, 45000, 650000, 7000000 }
+Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
+
+-- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
+Config.PETS = {
+	{ tier = 1, emoji = "🐥", name = "Poussin", inc = 1, color = Color3.fromRGB(255, 221, 87), ears = "none", extra = "beak" },
+	{ tier = 1, emoji = "🐹", name = "Hamster", inc = 1.5, color = Color3.fromRGB(222, 184, 135), ears = "round", extra = "none" },
+	{ tier = 1, emoji = "🐰", name = "Lapin", inc = 2, color = Color3.fromRGB(245, 245, 245), ears = "long", extra = "tail" },
+	{ tier = 2, emoji = "🐱", name = "Chat", inc = 6, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
+	{ tier = 2, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
+	{ tier = 2, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
+	{ tier = 3, emoji = "🐼", name = "Panda", inc = 32, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
+	{ tier = 3, emoji = "🦉", name = "Hibou", inc = 45, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
+	{ tier = 3, emoji = "🐧", name = "Manchot", inc = 60, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
+	{ tier = 4, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
+	{ tier = 4, emoji = "🐯", name = "Tigre", inc = 230, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
+	{ tier = 4, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
+	{ tier = 5, emoji = "🐲", name = "Dragon", inc = 1100, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
+	{ tier = 5, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
+	{ tier = 5, emoji = "🐙", name = "Kraken", inc = 2300, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
+	{ tier = 6, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
+}
+
+Config.SIZES = {
+	{ name = "Mini", mult = 0.8, weight = 20, scale = 0.8 },
+	{ name = "Normal", mult = 1, weight = 62, scale = 1 },
+	{ name = "Grand", mult = 1.5, weight = 14, scale = 1.25 },
+	{ name = "Géant", mult = 2.5, weight = 3.5, scale = 1.6 },
+	{ name = "Colossal", mult = 5, weight = 0.5, scale = 2.1 },
+}
+
+Config.MUTS = {
+	{ name = "", mult = 1, weight = 82 },
+	{ name = "Doré", mult = 2, weight = 9, color = Color3.fromRGB(255, 208, 0) },
+	{ name = "Néon", mult = 3, weight = 5, color = Color3.fromRGB(0, 229, 255) },
+	{ name = "Arc-en-ciel", mult = 5, weight = 2.6, rainbow = true },
+	{ name = "Alien", mult = 10, weight = 1.4, color = Color3.fromRGB(57, 255, 20) },
+}
+
+-- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
+-- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
+Config.RIVALS = {
+	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, color = Color3.fromRGB(224, 87, 90) },
+}
+
+-- Événements serveur (tous les joueurs en profitent)
+Config.EVENTS = {
+	{ key = "alien", name = "Biome Alien", emoji = "👽", desc = "Mutation Alien x5", tint = Color3.fromRGB(205, 160, 255) },
+	{ key = "gold", name = "Ruée vers l'or", emoji = "💰", desc = "Revenus x2", tint = Color3.fromRGB(255, 232, 160) },
+	{ key = "luck", name = "Pluie de chance", emoji = "🍀", desc = "Pets supérieurs +10%", tint = Color3.fromRGB(175, 255, 195) },
+	{ key = "run", name = "Marathon", emoji = "🏃", desc = "Entraînement x3", tint = Color3.fromRGB(175, 215, 255) },
+}
+Config.EVENT_DURATION = 60
+Config.EVENT_GAP = { 120, 200 } -- délai aléatoire entre deux événements
+
+-- Game Passes : crée-les sur create.roblox.com puis colle les ID ici (0 = désactivé)
+Config.PASSES = {
+	Coins2x = { id = 0, name = "Revenus x2", emoji = "💰", desc = "Double tous tes revenus, pour toujours." },
+	Lucky = { id = 0, name = "Chance +10%", emoji = "🍀", desc = "Plus de pets supérieurs à l'éclosion." },
+}
+
+Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
+Config.SHIELD_PER_LEVEL = 10
+
+function Config.stealTime(level)
+	return 1.3 * 0.85 ^ level
+end
+
+function Config.walkSpeed(speedStat)
+	return 16 + 44 * (1 - math.exp(-speedStat / 150))
+end
+
+function Config.rebirthCost(rb)
+	return 2e6 * 6 ^ rb
+end
+
+Config.UPGRADES = {
+	{ key = "slots", name = "Emplacements", emoji = "🏠", max = 8, cost = function(l) return 400 * 5 ^ l end,
+		desc = function(l) return (4 + l) .. " → " .. (5 + l) .. " emplacements" end },
+	{ key = "tm", name = "Tapis puissant", emoji = "🏃", max = 15, cost = function(l) return 100 * 2.4 ^ l end,
+		desc = function(l) return string.format("Entraînement x%.2f → x%.2f", 1 + 0.35 * l, 1 + 0.35 * (l + 1)) end },
+	{ key = "fing", name = "Doigts agiles", emoji = "🧤", max = 8, cost = function(l) return 200 * 3 ^ l end,
+		desc = function(l) return string.format("Vol en %.2fs → %.2fs", Config.stealTime(l), Config.stealTime(l + 1)) end },
+	{ key = "bag", name = "Grand sac", emoji = "🎒", max = 3, cost = function(l) return 1500 * 8 ^ l end,
+		desc = function(l) return "Porter " .. (1 + l) .. " → " .. (2 + l) .. " œufs" end },
+	{ key = "inc", name = "Incubateur", emoji = "🔥", max = 10, cost = function(l) return 150 * 3.2 ^ l end,
+		desc = function(l) return string.format("Éclosion -%d%% → -%d%%", math.floor((1 - 0.9 ^ l) * 100 + 0.5), math.floor((1 - 0.9 ^ (l + 1)) * 100 + 0.5)) end },
+	{ key = "luck", name = "Trèfle", emoji = "🍀", max = 10, cost = function(l) return 500 * 3.4 ^ l end,
+		desc = function(l) return "Pet supérieur " .. (3 * l) .. "% → " .. (3 * (l + 1)) .. "%" end },
+	{ key = "food", name = "Festin", emoji = "🍖", max = 20, cost = function(l) return 250 * 2.2 ^ l end,
+		desc = function(l) return "Revenus +" .. (20 * l) .. "% → +" .. (20 * (l + 1)) .. "%" end },
+	{ key = "lock", name = "Verrou", emoji = "🔒", max = 6, cost = function(l) return 300 * 3.5 ^ l end,
+		desc = function(l) return "Œufs protégés " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * l) .. "s → " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * (l + 1)) .. "s" end },
+}
+
+function Config.upgrade(key)
+	for _, u in ipairs(Config.UPGRADES) do
+		if u.key == key then
+			return u
+		end
+	end
+	return nil
+end
+
+function Config.fmt(n)
+	if n ~= n then
+		return "0"
+	end
+	if n == math.huge then
+		return "∞"
+	end
+	if n < 1000 then
+		if n < 10 and n % 1 ~= 0 then
+			return string.format("%.1f", n)
+		end
+		return tostring(math.floor(n))
+	end
+	local u = { "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc" }
+	local i = 0
+	while n >= 1000 and i < #u do
+		n = n / 1000
+		i += 1
+	end
+	if n < 10 then
+		return string.format("%.2f%s", n, u[i])
+	elseif n < 100 then
+		return string.format("%.1f%s", n, u[i])
+	end
+	return string.format("%d%s", math.floor(n), u[i])
+end
+
+function Config.fmtTime(s)
+	s = math.max(0, math.ceil(s))
+	if s < 60 then
+		return s .. "s"
+	end
+	return string.format("%dm%02d", s // 60, s % 60)
+end
+
+function Config.petIncome(p, s, m)
+	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
+end
+
+function Config.sellValue(p, s, m)
+	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+end
+
+function Config.petName(p, s, m)
+	local n = Config.PETS[p].name
+	if m > 1 then
+		n = n .. " " .. Config.MUTS[m].name
+	end
+	if s ~= 2 then
+		n = n .. " " .. Config.SIZES[s].name
+	end
+	return n
+end
+
+return Config
