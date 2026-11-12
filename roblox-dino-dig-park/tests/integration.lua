@@ -115,7 +115,7 @@ check(Hud.objectiveTarget ~= nil and Hud.objectiveTarget.kind == "dig", "objecti
 ----------------------------------------------------------------------
 section("Fouille")
 ----------------------------------------------------------------------
-local function act(player, name, payload) Remotes.Action.OnServerEvent:Fire(player, name, payload); M.advance(0.05) end
+local function act(player, name, payload) Remotes.Action.OnServerEvent:Fire(player, name, payload); M.advance(0.35) end
 local function rawAct(player, name, payload) Remotes.Action.OnServerEvent:Fire(player, name, payload) end
 local function standAt(player, pos) player.Character.HumanoidRootPart.CFrame = CFrame.new(pos) end
 local digPos = plot.refs.digCenter.Position
@@ -213,6 +213,12 @@ check(not s.data.buildables.cafe, "Bob ne peut pas acheter dans le parc d'Alice"
 s.data.cash = 10
 plot.pads.cafe.Touched:Fire(hit)
 check(not s.data.buildables.cafe and s.data.cash == 10, "achat refusé sans argent")
+-- un achat refusé faute d'argent ne bloque pas l'achat suivant dès que l'argent arrive
+s.data.cash = 1e9
+plot.pads.cafe.Touched:Fire(hit)
+check(s.data.buildables.cafe == true, "achat possible immédiatement après un refus")
+s.data.buildables.cafe = nil
+PlotService.refresh(alice, s.data)
 -- spam de touches : un seul achat
 M.advance(1)
 s.data.cash = 1e9
@@ -364,6 +370,7 @@ section("Renaissance")
 ----------------------------------------------------------------------
 s.data.cash = 5
 act(alice, "Rebirth")
+M.advance(2.5)
 check(s.data.rebirths == 0, "renaissance refusée sans pièces")
 s.data.cash = Economy.rebirthCost(0) + 1
 s.data.buildables = { pen2 = true, cafe = true }

@@ -181,7 +181,6 @@ function GameService.buy(player, id)
 	if now - (s.lastBuy[id] or 0) < 0.6 then
 		return
 	end
-	s.lastBuy[id] = now
 	local data = s.data
 	local ok, why = Economy.canBuy(data, id)
 	if not ok then
@@ -191,6 +190,7 @@ function GameService.buy(player, id)
 		end
 		return
 	end
+	s.lastBuy[id] = now
 	local def = Config.BuildableById[id]
 	data.cash = data.cash - def.cost
 	data.buildables[id] = true
@@ -588,11 +588,10 @@ local function onPlayerAdded(player)
 		lastDig = 0,
 		lastPoor = 0,
 		lastBuy = {},
+		lastAction = {},
 		dirty = true,
 		actionWindow = os.clock(),
 		actionCount = 0,
-		fracFossils = 0,
-		autoDigAcc = 0,
 		lastQuestCheck = 0,
 	}
 	s.incValue, s.agesValue = setupLeaderstats(player)
@@ -688,6 +687,15 @@ local function tickPlayer(player, s, dt)
 	markDirty(s)
 end
 
+local ACTION_COOLDOWN = {
+	Rebirth = 2,
+	SellReserve = 0.5,
+	ClaimDaily = 1,
+	StartHatch = 0.15,
+	Upgrade = 0.1,
+	ClaimQuest = 0.3,
+}
+
 local ACTIONS = {
 	Upgrade = buyUpgrade,
 	StartHatch = startHatch,
@@ -755,6 +763,14 @@ function GameService.init()
 			return
 		end
 		local handler = ACTIONS[name]
+		-- actions lourdes : un délai minimal par action et par joueur
+		local minGap = ACTION_COOLDOWN[name]
+		if minGap then
+			if now - (s.lastAction[name] or -1e9) < minGap then
+				return
+			end
+			s.lastAction[name] = now
+		end
 		if handler then
 			local ok, err = pcall(handler, player, payload)
 			if not ok then

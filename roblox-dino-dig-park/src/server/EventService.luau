@@ -76,7 +76,6 @@ local function runEvent()
 	for _, p in ipairs(Players:GetPlayers()) do
 		GameService.notify(p, "☄ Pluie de météores ! Cours sur le chemin de ton parc pour les récupérer.", "good")
 	end
-	local alive = {}
 	while os.time() < endsAt do
 		for _, player in ipairs(Players:GetPlayers()) do
 			local plot = PlotService.getPlot(player)

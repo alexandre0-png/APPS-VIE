@@ -221,7 +221,9 @@ function DataService.save(player, release)
 end
 
 function DataService.release(player)
-	if sessions[player] then
+	local s = sessions[player]
+	if s and not s.releasing then
+		s.releasing = true -- évite une double sauvegarde (départ + arrêt du serveur)
 		DataService.save(player, true)
 		sessions[player] = nil
 	end
