@@ -188,7 +188,10 @@ local function breakable(kind, x, z)
 	return p
 end
 
+local towerTops = {}
+
 local function bandedTower(cx, cz, w, d, h, color, glass)
+	table.insert(towerTops, { x = cx, z = cz, h = h })
 	mk(fBuild, Vector3.new(w, h, d), Vector3.new(cx, SW_H + h / 2, cz), color, Enum.Material.Concrete)
 	local n = math.floor((h - 4) / 6)
 	for k = 0, n - 1 do
@@ -731,8 +734,8 @@ local function hedge(x, z, w, d)
 end
 
 local function roofSign(cx, cz, h, text, color)
-	mk(fProps, Vector3.new(26, 0.6, 3), Vector3.new(cx, SW_H + h + 3, cz), rgb(40, 42, 50), Enum.Material.Metal, { CanCollide = false })
-	local sg = mk(fDecor, Vector3.new(1, 1, 1), Vector3.new(cx, SW_H + h + 7, cz), rgb(255, 255, 255), Enum.Material.SmoothPlastic, NOCOLLIDE)
+	mk(fProps, Vector3.new(20, 0.6, 3), Vector3.new(cx, SW_H + h + 2.4, cz), rgb(40, 42, 50), Enum.Material.Metal, { CanCollide = false })
+	local sg = mk(fDecor, Vector3.new(1, 1, 1), Vector3.new(cx, SW_H + h + 6, cz), rgb(255, 255, 255), Enum.Material.SmoothPlastic, NOCOLLIDE)
 	sg.Transparency = 1
 	sign(sg, text, 0, 220, color)
 end
@@ -758,17 +761,12 @@ local function addDetails()
 			end
 		end
 	end
-	-- enseignes lumineuses sur les toits du centre-ville
+	-- enseignes lumineuses sur le toit d'une tour sur trois
 	local names = { "HOTEL", "CAFE", "CINEMA", "BAR", "NEON CITY", "SHOP", "HOTEL RUSH", "GARAGE" }
 	local colors = { rgb(255, 80, 160), rgb(80, 220, 255), rgb(255, 200, 60), rgb(120, 255, 140) }
-	local n = 0
-	for j = 1, M.Grid do
-		for i = 1, M.Grid do
-			if Config.Districts[j][i] == "downtown" and not (i == 3 and j == 2) then
-				n += 1
-				local c = Config.blockCenter(i, j)
-				roofSign(c.X, c.Z - 8, 30, names[(n % #names) + 1], colors[(n % #colors) + 1])
-			end
+	for k, t in ipairs(towerTops) do
+		if k % 3 == 0 then
+			roofSign(t.x, t.z, t.h, names[(k % #names) + 1], colors[(k % #colors) + 1])
 		end
 	end
 end
