@@ -14,6 +14,7 @@ local PlayerService = require(Server.PlayerService)
 local QuestService = require(Server.QuestService)
 local MatchService = require(Server.MatchService)
 local WeaponService = require(Server.WeaponService)
+local MonetizationService = require(Server.MonetizationService)
 local RateLimiter = require(Server.RateLimiter)
 
 local RequestService = {}
@@ -32,6 +33,14 @@ local handlers = {}
 function handlers.Sync(player)
 	PlayerService.Sync(player)
 	return true, ""
+end
+
+function handlers.BuyPass(player, key)
+	return MonetizationService.Prompt(player, "Pass", key)
+end
+
+function handlers.BuyProduct(player, key)
+	return MonetizationService.Prompt(player, "Product", key)
 end
 
 function handlers.Join(player)

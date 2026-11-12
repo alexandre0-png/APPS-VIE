@@ -27,6 +27,7 @@ local TABS = {
 	{ Id = "Quests", Text = "📜 Quêtes" },
 	{ Id = "Daily", Text = "🎁 Cadeau" },
 	{ Id = "Stats", Text = "📊 Stats" },
+	{ Id = "Robux", Text = "💎 Robux" },
 }
 
 local function hex(h)
@@ -267,7 +268,47 @@ local function buildStats(profile)
 	end
 end
 
+-- ===================================================================
+-- Robux : passes et packs (les Id à 0 sont affichés « Bientôt »)
+-- ===================================================================
+local function buildRobux(profile)
+	local M = Config.Monetization
+	local scroll = UI.New("ScrollingFrame", { Parent = content, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6 })
+	UI.New("UIListLayout", { Parent = scroll, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder })
+	local function row(order, title, desc, price, state, onClick)
+		local r = UI.Frame(scroll, { Size = UDim2.new(1, -10, 0, 58), BackgroundColor3 = C.Panel, LayoutOrder = order })
+		UI.Label(r, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -200, 0, 22), Text = title, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left })
+		UI.Label(r, { Position = UDim2.fromOffset(12, 28), Size = UDim2.new(1, -200, 0, 22), Text = desc, TextSize = 12, Font = Enum.Font.Gotham, TextColor3 = C.Dim, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true })
+		local b = UI.Button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(150, 36), TextSize = 15 })
+		if state == "owned" then
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "✔ Possédé", C.PanelLight, false
+		elseif state == "soon" then
+			b.Text, b.BackgroundColor3, b.AutoButtonColor = "Bientôt", C.PanelLight, false
+		else
+			b.Text, b.BackgroundColor3 = ("R$ %d"):format(price), C.Good
+			b.Activated:Connect(onClick)
+		end
+	end
+	local order = 0
+	for _, pass in ipairs(M.Passes) do
+		order += 1
+		local state = profile.Passes[pass.Key] and "owned" or (pass.Id <= 0 and "soon" or "buy")
+		row(order, pass.Name, pass.Desc, pass.Price, state, function()
+			local ok, msg = State.Request("BuyPass", pass.Key)
+			if not ok then toast(msg, C.Bad) end
+		end)
+	end
+	for _, product in ipairs(M.Products) do
+		order += 1
+		row(order, product.Name, "Pièces à dépenser dans la boutique d'armes.", product.Price, product.Id <= 0 and "soon" or "buy", function()
+			local ok, msg = State.Request("BuyProduct", product.Key)
+			if not ok then toast(msg, C.Bad) end
+		end)
+	end
+end
+
 local builders = {
+	Robux = buildRobux,
 	Shop = buildShop,
 	Loadout = buildLoadout,
 	Quests = buildQuests,

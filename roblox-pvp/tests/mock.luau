@@ -76,6 +76,12 @@ local PlayersService = newInstance("Players")
 PlayersService.PlayerRemoving = Signal()
 local allPlayers = {}
 function PlayersService:GetPlayers() return allPlayers end
+function PlayersService:GetPlayerByUserId(id)
+	for _, p in ipairs(allPlayers) do
+		if p.UserId == id then return p end
+	end
+	return nil
+end
 function PlayersService:GetPlayerFromCharacter(model)
 	for _, p in ipairs(allPlayers) do
 		if p.Character == model then return p end

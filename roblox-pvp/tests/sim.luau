@@ -271,6 +271,39 @@ do
 	check("nouvelle victime : gain plein", pd.Coins - before - bonus >= R.KillCoins)
 end
 
+print("• Achats intégrés")
+do
+	local Enum = nil
+	local Monetization = require(E .. "MonetizationService")
+	Config.Monetization.Products[1].Id = 777
+	local H = makePlayer("Hana")
+	local ph = DataService.Get(H)
+	local before = ph.Coins
+	eq("reçu crédité", Monetization.HandleReceipt({ PlayerId = H.UserId, PurchaseId = "abc", ProductId = 777 }), "Granted")
+	eq("pièces du pack", ph.Coins - before, 500)
+	eq("reçu rejoué : pas de double crédit", Monetization.HandleReceipt({ PlayerId = H.UserId, PurchaseId = "abc", ProductId = 777 }), "Granted")
+	eq("solde inchangé", ph.Coins - before, 500)
+	eq("produit inconnu refusé", Monetization.HandleReceipt({ PlayerId = H.UserId, PurchaseId = "x", ProductId = 1 }), "NotYet")
+	eq("joueur absent : réessayer", Monetization.HandleReceipt({ PlayerId = 424242, PurchaseId = "y", ProductId = 777 }), "NotYet")
+	ph.Ephemeral = true
+	eq("profil éphémère : réessayer", Monetization.HandleReceipt({ PlayerId = H.UserId, PurchaseId = "z", ProductId = 777 }), "NotYet")
+	ph.Ephemeral = nil
+	check("achat bloqué si Id = 0", not Monetization.Prompt(H, "Pass", "VIP"))
+	check("clé inconnue refusée", not Monetization.Prompt(H, "Pass", "hack"))
+	-- multiplicateurs
+	H:SetAttribute("HasDoubleCoins", true); H:SetAttribute("HasDoubleXP", true)
+	local c0, x0, l0 = ph.Coins, ph.XP, ph.Level
+	PlayerService.AddCoins(H, 10)
+	eq("pièces x2", ph.Coins - c0, 20)
+	PlayerService.AddCoins(H, 10, true)
+	eq("montant brut sans multiplicateur", ph.Coins - c0, 30)
+	PlayerService.AddXP(H, 10)
+	eq("XP x2", ph.XP - x0 + (ph.Level - l0) * 120, 20)
+	H:SetAttribute("HasVIP", true)
+	local ok = QuestService.ClaimDaily(H)
+	check("cadeau VIP +50%", ok and ph.DailyStreak == 1)
+end
+
 print("• Profils (DataService.Reconcile)")
 do
 	local d = DataService.Reconcile({ Coins = 0 / 0, Level = 999, Owned = { sword = true, hack = true }, Loadout = { "hack", "sword", "sword", "bow", "katana" } })

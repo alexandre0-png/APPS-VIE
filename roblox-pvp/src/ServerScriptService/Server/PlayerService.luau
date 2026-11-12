@@ -81,6 +81,11 @@ function PlayerService.BuildClientProfile(player)
 		DailyAvailable = p.LastDaily < today,
 		DailyNext = nextDay,
 		Ephemeral = p.Ephemeral == true,
+		Passes = {
+			DoubleXP = player:GetAttribute("HasDoubleXP") == true,
+			DoubleCoins = player:GetAttribute("HasDoubleCoins") == true,
+			VIP = player:GetAttribute("HasVIP") == true,
+		},
 	}
 end
 
@@ -120,10 +125,14 @@ local function refreshAttributes(player)
 end
 PlayerService.Refresh = refreshAttributes
 
-function PlayerService.AddCoins(player, amount)
+-- raw = true : montant exact (achats, remboursements) sans multiplicateur de pass.
+function PlayerService.AddCoins(player, amount, raw)
 	local p = DataService.Get(player)
 	if not p or amount == 0 then
 		return
+	end
+	if not raw and amount > 0 and player:GetAttribute("HasDoubleCoins") then
+		amount *= 2
 	end
 	p.Coins = math.max(0, p.Coins + math.floor(amount))
 	refreshAttributes(player)
@@ -143,6 +152,9 @@ function PlayerService.AddXP(player, amount)
 	local p = DataService.Get(player)
 	if not p or amount <= 0 then
 		return
+	end
+	if player:GetAttribute("HasDoubleXP") then
+		amount *= 2
 	end
 	local level, xp, gained = Progression.AddXp(p.Level, p.XP, amount, Config.MaxLevel)
 	p.Level, p.XP = level, xp
@@ -233,7 +245,7 @@ local function buildNameTag(player, character)
 		else
 			name.TextColor3 = Color3.new(1, 1, 1)
 		end
-		sub.Text = ("Niv. %d · %s"):format(player:GetAttribute("Level") or 1, player:GetAttribute("Title") or "")
+		sub.Text = ("Niv. %d · %s%s"):format(player:GetAttribute("Level") or 1, player:GetAttribute("Title") or "", player:GetAttribute("HasVIP") and "  ★ VIP" or "")
 	end
 	local function refreshHealth()
 		local ratio = math.clamp(humanoid.Health / math.max(1, humanoid.MaxHealth), 0, 1)
@@ -243,7 +255,7 @@ local function buildNameTag(player, character)
 	refresh()
 	refreshHealth()
 	humanoid.HealthChanged:Connect(refreshHealth)
-	for _, attr in ipairs({ "Team", "Level", "Title" }) do
+	for _, attr in ipairs({ "Team", "Level", "Title", "HasVIP" }) do
 		player:GetAttributeChangedSignal(attr):Connect(refresh)
 	end
 	gui.Parent = head
@@ -289,6 +301,9 @@ function PlayerService.Setup(player, profile)
 	player:SetAttribute("Team", "")
 	player:SetAttribute("Streak", 0)
 	player:SetAttribute("BoostUntil", 0)
+	player:SetAttribute("HasDoubleXP", false)
+	player:SetAttribute("HasDoubleCoins", false)
+	player:SetAttribute("HasVIP", false)
 	refreshAttributes(player)
 
 	player.CharacterAdded:Connect(function(character)

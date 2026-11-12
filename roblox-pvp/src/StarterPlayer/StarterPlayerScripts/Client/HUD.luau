@@ -675,8 +675,8 @@ local function buildMenuButtons()
 		Parent = gui,
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.64, 0),
-		Size = UDim2.fromOffset(150, 6 * 42),
+		Position = UDim2.new(1, -12, 0.68, 0),
+		Size = UDim2.fromOffset(150, 7 * 42),
 	})
 	UI.New("UIListLayout", { Parent = column, Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Right })
 	local defs = {
@@ -686,6 +686,7 @@ local function buildMenuButtons()
 		{ Id = "Quests", Text = "📜  QUÊTES", Color = C.Accent },
 		{ Id = "Daily", Text = "🎁  CADEAU", Color = C.Gold },
 		{ Id = "Stats", Text = "📊  STATS", Color = C.Accent },
+		{ Id = "Robux", Text = "💎  ROBUX", Color = C.Blue },
 	}
 	local buttons = {}
 	for i, def in ipairs(defs) do

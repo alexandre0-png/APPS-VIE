@@ -58,6 +58,22 @@ Config.Rewards = {
 Config.HealthPack = { Heal = 45, Respawn = 15 }
 Config.RageOrb = { Duration = 12, Multiplier = 1.5, Respawn = 45 }
 
+-- Achats intégrés. Id = 0 : désactivé (bouton « Bientôt »). Renseigner les Id créés dans le Creator Hub.
+-- Aucun achat ne donne de dégâts supplémentaires : seulement du confort et de la progression.
+Config.Monetization = {
+	Passes = {
+		{ Key = "DoubleXP", Id = 0, Name = "XP x2", Desc = "Double l'expérience gagnée, à vie.", Price = 199 },
+		{ Key = "DoubleCoins", Id = 0, Name = "Pièces x2", Desc = "Double les pièces gagnées au combat, à vie.", Price = 299 },
+		{ Key = "VIP", Id = 0, Name = "VIP", Desc = "Étiquette ★ VIP au-dessus de la tête, +50% au cadeau quotidien.", Price = 399 },
+	},
+	Products = {
+		{ Key = "Coins500", Id = 0, Name = "500 pièces", Coins = 500, Price = 49 },
+		{ Key = "Coins1500", Id = 0, Name = "1 500 pièces", Coins = 1500, Price = 129 },
+		{ Key = "Coins5000", Id = 0, Name = "5 000 pièces", Coins = 5000, Price = 349 },
+	},
+	MaxReceipts = 200,
+}
+
 Config.DailyRewards = { 50, 75, 100, 150, 200, 300, 500 }
 
 Config.Titles = {

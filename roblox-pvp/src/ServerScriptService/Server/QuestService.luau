@@ -81,7 +81,10 @@ function QuestService.ClaimDaily(player)
 	local index = ((p.DailyStreak - 1) % #Config.DailyRewards) + 1
 	local coins = Config.DailyRewards[index]
 	p.LastDaily = today
-	PlayerService.AddCoins(player, coins)
+	if player:GetAttribute("HasVIP") then
+		coins = math.floor(coins * 1.5)
+	end
+	PlayerService.AddCoins(player, coins, true)
 	PlayerService.Notify(player, "Reward", ("Cadeau quotidien : +%d pièces (jour %d)"):format(coins, index))
 	PlayerService.Sync(player)
 	return true, ("+%d pièces"):format(coins)

@@ -49,6 +49,7 @@ function DataService.DefaultProfile()
 		LastDaily = 0, -- numéro du jour UTC de la dernière récompense
 		Quests = nil,
 		FirstJoin = os.time(),
+		Receipts = {}, -- identifiants d'achats déjà traités (idempotence)
 	}
 end
 
@@ -67,6 +68,9 @@ function DataService.Reconcile(data)
 		if type(data[key]) ~= "number" or data[key] ~= data[key] then
 			data[key] = default[key]
 		end
+	end
+	if type(data.Receipts) ~= "table" then
+		data.Receipts = {}
 	end
 	data.Level = math.clamp(math.floor(data.Level), 1, Config.MaxLevel)
 	data.Coins = math.max(0, math.floor(data.Coins))
