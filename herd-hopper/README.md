@@ -29,12 +29,13 @@ Exécutées dans cet environnement :
 
 Lancer : `cd tools/sim && npm install && node run.js A` (puis B, C, CLIENT).
 
-Outils installés ici avec `cargo install` et exécutés :
-- **stylua 2.6** : `stylua --check src` passe (code formaté, commit dédié) ;
-- **rojo 7.7.1** : `rojo build` produit un place avec la même hiérarchie que `build/SauteTroupeau.rbxlx` ;
-- **selene 0.31** : installé mais inutilisable ici, il doit télécharger la bibliothèque standard Roblox et l'accès réseau lui est refusé (`selene.toml` fourni, à lancer sur ta machine).
+Outils installés ici avec `cargo install` et **exécutés** (tous à zéro erreur) :
+- **Lune 0.11.1** : compilation de chacun des 27 scripts par le vrai compilateur Luau (`lune run tools/lune/syntax.luau`) et 14 tests de logique pure sur du vrai Luau avec de vrais `Vector3`/`Color3` (`lune run tools/lune/run.luau`) ;
+- **stylua 2.6** : `stylua --check src` passe ;
+- **selene 0.31** : 0 erreur, 0 avertissement. La bibliothèque standard Roblox ne peut pas être téléchargée ici (réseau refusé), donc `herd.yml` déclare les globales Roblox utilisées. Moins complet que la vraie : il ne vérifie pas les noms de méthodes Roblox ;
+- **rojo 7.7.1** : `rojo build` réussit.
 
-Aucun test Lune : la logique est couverte par la simulation fengari ci-dessus. `tools/check.sh` lance tout ce qui est disponible et signale chaque outil manquant.
+`tools/check.sh` lance tout ce qui est disponible et signale chaque outil manquant.
 
 Audio : les musiques de `Config.Audio.Music` sont vides (aucun morceau libre de droits fourni). Les effets utilisent les sons intégrés au client Roblox, non vérifiés.
 

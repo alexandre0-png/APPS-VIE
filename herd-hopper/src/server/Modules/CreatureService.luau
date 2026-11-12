@@ -264,7 +264,7 @@ end
 local function activeBounds()
 	local minZ, maxZ = math.huge, -math.huge
 	local positions = {}
-	for player, run in pairs(State.Participants) do
+	for _, run in pairs(State.Participants) do
 		local s = run.status
 		if s == "Riding" or s == "Air" or s == "Hooking" or s == "Down" then
 			local z = run.z or 0

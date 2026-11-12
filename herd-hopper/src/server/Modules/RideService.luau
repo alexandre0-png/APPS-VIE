@@ -302,7 +302,7 @@ end
 -- Combo, dressage
 -- ---------------------------------------------------------------------------
 
-local function onHookSuccess(player, run, creature, distance)
+local function onHookSuccess(player, run, distance)
 	local now = os.clock()
 	if run.combo > 0 and now - run.lastHookT > comboWindow(player) then
 		run.combo = 0
@@ -498,7 +498,7 @@ function RideService.HandleHook(player, id)
 		end
 
 		if RideService.Mount(player, run, creature) then
-			onHookSuccess(player, run, creature, distance)
+			onHookSuccess(player, run, distance)
 		else
 			creature.rider = nil
 			downPlayer(player, run)
@@ -563,7 +563,7 @@ local function publish(player, run, now)
 	end
 end
 
-local function stepRiding(player, run, hum, hrp, dt, now)
+local function stepRiding(player, run, hrp, dt, now)
 	local c = run.creature
 	if not c or c.removed or c.rider ~= player then
 		downPlayer(player, run)
@@ -611,9 +611,8 @@ local function stepAir(player, run, hrp, now)
 	local elapsed = now - run.airStart
 	local pos = hrp.Position
 	local tooFast = hrp.AssemblyLinearVelocity.Magnitude > 260
-	if elapsed > Config.Ride.AirMax or tooFast or pos.Y < -30 then
-		downPlayer(player, run)
-	elseif elapsed > 0.2 and pos.Y < Config.Track.FloorTop + 5.5 then
+	local touchedGround = elapsed > 0.2 and pos.Y < Config.Track.FloorTop + 5.5
+	if elapsed > Config.Ride.AirMax or tooFast or pos.Y < -30 or touchedGround then
 		downPlayer(player, run)
 	end
 end
@@ -623,7 +622,7 @@ function RideService.Step(dt)
 	for player, run in pairs(State.Participants) do
 		local status = run.status
 		if status ~= "Out" and status ~= "Finished" then
-			local _, hrp, hum = getParts(player)
+			local _, hrp = getParts(player)
 			if not hrp then
 				RideService.Eliminate(player, run, "Tu as quitté la course.")
 			else
@@ -643,7 +642,7 @@ function RideService.Step(dt)
 					finish(player, run)
 				else
 					if status == "Riding" then
-						stepRiding(player, run, hum, hrp, dt, now)
+						stepRiding(player, run, hrp, dt, now)
 					elseif status == "Air" then
 						stepAir(player, run, hrp, now)
 					elseif status == "Down" then

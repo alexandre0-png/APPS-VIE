@@ -1,4 +1,4 @@
-std = "roblox"
+std = "herd"
 
 [lints]
 shadowing = "allow"

@@ -220,7 +220,7 @@ local function runRound()
 	State.Frozen = true
 	State.SetPhase("Results", Config.Round.Results)
 	broadcastScores()
-	for player, run in pairs(State.Participants) do
+	for _, run in pairs(State.Participants) do
 		RideService.Detach(run)
 		if run.status ~= "Out" and run.status ~= "Finished" then
 			run.status = "Out"

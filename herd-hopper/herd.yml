@@ -1,0 +1,69 @@
+base: lua51
+name: herd
+globals:
+  game:
+    any: true
+  workspace:
+    any: true
+  script:
+    any: true
+  Instance:
+    any: true
+  Vector3:
+    any: true
+  Vector2:
+    any: true
+  CFrame:
+    any: true
+  Color3:
+    any: true
+  UDim:
+    any: true
+  UDim2:
+    any: true
+  Enum:
+    any: true
+  TweenInfo:
+    any: true
+  NumberRange:
+    any: true
+  NumberSequence:
+    any: true
+  NumberSequenceKeypoint:
+    any: true
+  ColorSequence:
+    any: true
+  ColorSequenceKeypoint:
+    any: true
+  Random:
+    any: true
+  task:
+    any: true
+  typeof:
+    any: true
+  warn:
+    any: true
+  os:
+    any: true
+  math:
+    any: true
+  string:
+    any: true
+  table:
+    any: true
+  Rect:
+    any: true
+  Ray:
+    any: true
+  math.clamp:
+    args:
+      - type: number
+      - type: number
+      - type: number
+  table.find:
+    args:
+      - type: table
+      - type: any
+  table.clone:
+    args:
+      - type: table
