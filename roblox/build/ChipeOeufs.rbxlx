@@ -574,6 +574,8 @@ local function refreshPad(s, i)
 	pad.lock.Enabled = locked
 	pad.part.Transparency = locked and 0.25 or 0.7
 	pad.part.Color = locked and Color3.fromRGB(40, 40, 45) or Color3.new(1, 1, 1)
+	pad.frame.Color = locked and Color3.fromRGB(50, 52, 58) or s.plot.color
+	pad.frame.Material = locked and Enum.Material.SmoothPlastic or Enum.Material.Neon
 	local sl = d.slots[i]
 	if locked or not sl then
 		return
@@ -1384,6 +1386,8 @@ local function releasePlot(s)
 		clearPad(s, i)
 		s.plot.pads[i].lock.Enabled = true
 		s.plot.pads[i].part.Transparency = 0.7
+		s.plot.pads[i].frame.Color = Color3.fromRGB(50, 52, 58)
+		s.plot.pads[i].frame.Material = Enum.Material.SmoothPlastic
 	end
 	s.plot.owner = nil
 	s.plot.nameLabel.Text = "Base libre"
@@ -2053,13 +2057,86 @@ function Builder.guard(rivalIdx)
 	return model
 end
 
----------------------------------------------------------------- Monde
-local function tree(pos, parent)
-	part({ Name = "Trunk", Size = Vector3.new(2, 8, 2), Position = pos + Vector3.new(0, 4, 0), Color = Color3.fromRGB(110, 78, 50), Material = Enum.Material.Wood }, parent)
-	ball({ Name = "Leaves", Anchored = true, Size = Vector3.new(11, 11, 11), Position = pos + Vector3.new(0, 11, 0), Color = Color3.fromRGB(70, 150, 70), Material = Enum.Material.Grass, CanCollide = false }, parent)
+---------------------------------------------------------------- Éclairage
+-- Ambiance « jour doré » : soleil chaud, brume légère, bloom discret, étalonnage plus vif.
+function Builder.setupLighting()
+	Lighting.ClockTime = 15.3
+	Lighting.Brightness = 2.6
+	Lighting.Ambient = Color3.fromRGB(95, 105, 120)
+	Lighting.OutdoorAmbient = Color3.fromRGB(125, 135, 155)
+	Lighting.ColorShift_Top = Color3.fromRGB(255, 238, 205)
+	Lighting.EnvironmentDiffuseScale = 0.6
+	Lighting.EnvironmentSpecularScale = 0.4
+	Lighting.ShadowSoftness = 0.25
+	Lighting.GlobalShadows = true
+
+	local function effect(class, name, props)
+		local e = Lighting:FindFirstChild(name)
+		if not e then
+			e = Instance.new(class)
+			e.Name = name
+			e.Parent = Lighting
+		end
+		for k, v in pairs(props) do
+			e[k] = v
+		end
+		return e
+	end
+
+	local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+	if not atm then
+		atm = Instance.new("Atmosphere")
+		atm.Parent = Lighting
+	end
+	atm.Density = 0.28
+	atm.Offset = 0.2
+	atm.Color = Color3.fromRGB(199, 220, 255)
+	atm.Decay = Color3.fromRGB(255, 214, 170)
+	atm.Glare = 0.25
+	atm.Haze = 1.4
+
+	effect("BloomEffect", "ChipeBloom", { Intensity = 0.4, Size = 28, Threshold = 0.95 })
+	effect("SunRaysEffect", "ChipeSunRays", { Intensity = 0.15, Spread = 0.8 })
+	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.18, Contrast = 0.1, Brightness = 0.02 })
 end
 
--- Retourne { plots, nests, treadmill, guards, center }
+---------------------------------------------------------------- Monde
+local PLOT_COLORS = {
+	Color3.fromRGB(255, 120, 120), Color3.fromRGB(255, 180, 80), Color3.fromRGB(255, 230, 90), Color3.fromRGB(140, 230, 110),
+	Color3.fromRGB(80, 220, 200), Color3.fromRGB(90, 170, 255), Color3.fromRGB(170, 130, 255), Color3.fromRGB(255, 130, 220),
+	Color3.fromRGB(235, 235, 235), Color3.fromRGB(170, 190, 160),
+}
+Builder.PLOT_COLORS = PLOT_COLORS
+local FLOWER_COLORS = {
+	Color3.fromRGB(255, 120, 150), Color3.fromRGB(255, 220, 90), Color3.fromRGB(255, 255, 255), Color3.fromRGB(160, 130, 255), Color3.fromRGB(255, 150, 70),
+}
+
+local function tree(pos, parent, rng)
+	local s = rng:NextNumber(0.85, 1.3)
+	part({ Name = "Trunk", Size = Vector3.new(2 * s, 8 * s, 2 * s), Position = pos + Vector3.new(0, 4 * s, 0), Color = Color3.fromRGB(110, 78, 50), Material = Enum.Material.Wood }, parent)
+	local dark, light = Color3.fromRGB(62, 142, 68), Color3.fromRGB(92, 178, 86)
+	ball({ Name = "Leaves", Size = Vector3.new(11 * s, 11 * s, 11 * s), Position = pos + Vector3.new(0, 11 * s, 0), Color = dark, Material = Enum.Material.Grass }, parent)
+	ball({ Name = "Leaves", Size = Vector3.new(7 * s, 7 * s, 7 * s), Position = pos + Vector3.new(3.2 * s, 9.2 * s, 1.5 * s), Color = light, Material = Enum.Material.Grass }, parent)
+	ball({ Name = "Leaves", Size = Vector3.new(6 * s, 6 * s, 6 * s), Position = pos + Vector3.new(-2.8 * s, 14 * s, -1 * s), Color = light, Material = Enum.Material.Grass }, parent)
+end
+
+local function torch(pos, parent)
+	part({ Name = "TorchPost", Size = Vector3.new(0.8, 5, 0.8), Position = pos + Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	local head = ball({ Name = "TorchHead", Size = Vector3.new(1.3, 1.3, 1.3), Position = pos + Vector3.new(0, 5.4, 0), Color = Color3.fromRGB(255, 150, 60), Material = Enum.Material.Neon }, parent)
+	local fire = Instance.new("Fire")
+	fire.Size = 3
+	fire.Heat = 6
+	fire.Color = Color3.fromRGB(255, 170, 70)
+	fire.SecondaryColor = Color3.fromRGB(255, 90, 30)
+	fire.Parent = head
+	local l = Instance.new("PointLight")
+	l.Color = Color3.fromRGB(255, 170, 90)
+	l.Range = 18
+	l.Brightness = 1.2
+	l.Parent = head
+end
+
+-- Retourne { plots, nests, treadmill, guards, treadmillContains }
 function Builder.build()
 	local world = Instance.new("Folder")
 	world.Name = "World"
@@ -2075,28 +2152,42 @@ function Builder.build()
 		end
 	end
 
-	Lighting.ClockTime = 14
-	Lighting.Brightness = 2.2
-	Lighting.Ambient = Color3.fromRGB(110, 120, 130)
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local a = Instance.new("Atmosphere")
-		a.Density = 0.25
-		a.Haze = 1
-		a.Parent = Lighting
-	end
+	Builder.setupLighting()
 
-	part({ Name = "Ground", Size = Vector3.new(620, 2, 620), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(96, 158, 84), Material = Enum.Material.Grass }, world)
-	part({ Name = "Arena", Size = Vector3.new(1, 150, 150), CFrame = CFrame.new(0, 0.06, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(205, 180, 130), Material = Enum.Material.Sand, CanCollide = false }, world)
+	-- Sol, relief et décor ----------------------------------------------------------
+	part({ Name = "Ground", Size = Vector3.new(620, 2, 620), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
+	local rng = Random.new(7)
+	for _ = 1, 14 do -- taches d'herbe plus claires / plus sombres
+		local d = rng:NextNumber(40, 100)
+		local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
+		part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(rng:NextNumber(-280, 280), 0.03, rng:NextNumber(-280, 280)) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
+	end
+	for k = 0, 15 do -- collines à l'horizon
+		local a = k / 16 * math.pi * 2
+		local sz = rng:NextNumber(200, 320)
+		ball({ Name = "Hill", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 400, -sz * 0.36, math.cos(a) * 400), Color = Color3.fromRGB(78 + (k % 3) * 8, 150 + (k % 2) * 10, 80), Material = Enum.Material.Grass }, world)
+	end
+	for _, w in ipairs({ { 0, 312, 640, 4 }, { 0, -312, 640, 4 }, { 312, 0, 4, 640 }, { -312, 0, 4, 640 } }) do -- murs invisibles : on ne tombe plus dans le vide
+		part({ Name = "Wall", Size = Vector3.new(w[3], 100, w[4]), Position = Vector3.new(w[1], 50, w[2]), Transparency = 1 }, world).CanQuery = false
+	end
+	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
+	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
+
+	for _ = 1, 38 do
+		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
+		tree(Vector3.new(math.sin(a) * r, 0, math.cos(a) * r), world, rng)
+	end
+	for _ = 1, 110 do
+		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 136)
+		ball({ Name = "Flower", Size = Vector3.new(0.9, 0.9, 0.9), Position = Vector3.new(math.sin(a) * r, 0.45, math.cos(a) * r), Color = FLOWER_COLORS[rng:NextInteger(1, #FLOWER_COLORS)] }, world)
+	end
+	for _ = 1, 22 do
+		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 138)
+		local sz = rng:NextNumber(2.5, 5)
+		ball({ Name = "Rock", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * r, sz * 0.15, math.cos(a) * r), Color = Color3.fromRGB(130, 134, 140), Material = Enum.Material.Slate }, world)
+	end
 
 	local result = { plots = {}, nests = {}, guards = {} }
-
-	-- Arbres
-	local rng = Random.new(7)
-	for _ = 1, 36 do
-		local a = rng:NextNumber(0, math.pi * 2)
-		local r = rng:NextNumber(90, 122)
-		tree(Vector3.new(math.sin(a) * r, 0, math.cos(a) * r), world)
-	end
 
 	-- Rivaux PNJ (au nord, z négatif) ------------------------------------------------
 	for i, riv in ipairs(Config.RIVALS) do
@@ -2104,13 +2195,24 @@ function Builder.build()
 		local folder = Instance.new("Folder")
 		folder.Name = "Rival_" .. riv.name
 		folder.Parent = world
+		part({ Name = "GlowRing", Size = Vector3.new(0.4, 38, 38), CFrame = CFrame.new(cx, 0.3, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color, Material = Enum.Material.Neon, CanCollide = false }, folder)
 		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
+		for k = 0, 13 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
+			local t = -0.15 * math.pi + k * (1.3 * math.pi / 13)
+			local pp = Vector3.new(cx + 17.5 * math.cos(t), 0, cz - 17.5 * math.sin(t))
+			part({ Name = "Post", Size = Vector3.new(1, 4, 1), Position = pp + Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(100, 70, 46), Material = Enum.Material.Wood }, folder)
+			ball({ Name = "PostCap", Size = Vector3.new(0.9, 0.9, 0.9), Position = pp + Vector3.new(0, 4.9, 0), Color = riv.color, Material = Enum.Material.Neon }, folder)
+		end
+		torch(Vector3.new(cx - 15, 0.5, cz + 9), folder)
+		torch(Vector3.new(cx + 15, 0.5, cz + 9), folder)
 		local pole = part({ Name = "Sign", Size = Vector3.new(1, 9, 1), Position = Vector3.new(cx, 4.5, cz - 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
+		part({ Name = "Flag", Size = Vector3.new(0.2, 3, 5), Position = Vector3.new(cx + 0.2, 8, cz - 11.5), Color = riv.color, Material = Enum.Material.Fabric, CanCollide = false }, folder)
 		local t = sign(pole, riv.emoji .. " " .. riv.name .. "  " .. string.rep("★", riv.stars), Color3.fromRGB(255, 220, 90), 7, 260)
 		t.TextSize = 22
 		for j = 1, 3 do
 			local nx = cx + (j - 2) * 8
-			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(110, 78, 50), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			part({ Name = "NestStraw", Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(nx, 1.25, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(226, 196, 120), Material = Enum.Material.Fabric, CanCollide = false }, folder)
 			result.nests[#result.nests + 1] = { rival = i, pos = Vector3.new(nx, 3.2, cz - 3), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
 		end
 		local g = Builder.guard(i)
@@ -2122,14 +2224,20 @@ function Builder.build()
 		g:PivotTo(CFrame.new(cx, 2.4, cz + 12))
 	end
 
-	-- Tapis roulant ------------------------------------------------------------------
+	-- Tapis roulant (les rayures sont animées côté client grâce au tag BeltStripe) -----
 	do
 		local belt = part({ Name = "Treadmill", Size = Vector3.new(16, 1, 40), Position = Vector3.new(0, 0.6, 38), Color = Color3.fromRGB(45, 48, 56), Material = Enum.Material.Metal }, world)
-		belt.AssemblyLinearVelocity = Vector3.new(0, 0, -14) -- tapis : pousse vers -Z, il faut courir vers +Z
+		belt.AssemblyLinearVelocity = Vector3.new(0, 0, -14) -- le tapis pousse vers -Z : il faut courir vers +Z
 		for k = 0, 7 do
-			part({ Name = "Stripe", Size = Vector3.new(14, 0.1, 1.2), Position = Vector3.new(0, 1.16, 38 - 17.5 + k * 5), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon, CanCollide = false }, belt)
+			local stripe = part({ Name = "Stripe", Size = Vector3.new(14, 0.1, 1.2), Position = Vector3.new(0, 1.16, 38 - 17.5 + k * 5), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon, CanCollide = false }, belt)
+			stripe:SetAttribute("Z0", -17.5 + k * 5)
+			stripe:SetAttribute("CenterZ", 38)
+			CollectionService:AddTag(stripe, "BeltStripe")
 		end
-		local pole = part({ Name = "TreadSign", Size = Vector3.new(1, 8, 1), Position = Vector3.new(-10, 4, 38), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+		for _, sx in ipairs({ -8.6, 8.6 }) do
+			part({ Name = "Rail", Size = Vector3.new(0.8, 1.6, 40), Position = Vector3.new(sx, 1.1, 38), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon }, world)
+		end
+		local pole = part({ Name = "TreadSign", Size = Vector3.new(1, 8, 1), Position = Vector3.new(-11, 4, 38), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
 		sign(pole, "🏃 TAPIS ROULANT\nCours dessus pour gagner en vitesse !", Color3.fromRGB(255, 220, 90), 6, 300)
 		result.treadmill = { cf = belt.CFrame, size = belt.Size }
 	end
@@ -2138,14 +2246,26 @@ function Builder.build()
 	local N = Config.PLOT_COUNT
 	local radius = 170
 	for i = 1, N do
+		local pc = PLOT_COLORS[(i - 1) % #PLOT_COLORS + 1]
 		local a = (i - 1) / N * math.pi * 2
 		local pos = Vector3.new(math.sin(a) * radius, 0, math.cos(a) * radius)
 		local cf = CFrame.lookAt(pos, Vector3.new(0, 0, 0)) -- l'avant (-Z) regarde le centre
 		local model = Instance.new("Model")
 		model.Name = "Plot" .. i
 		model.Parent = world
-		local plat = part({ Name = "Platform", Size = Vector3.new(52, 1, 52), CFrame = cf * CFrame.new(0, 0.5, 0), Color = Color3.fromRGB(70, 130, 95) }, model)
-		part({ Name = "Border", Size = Vector3.new(54, 0.4, 54), CFrame = cf * CFrame.new(0, 0.15, 0), Color = Color3.fromRGB(140, 217, 160), CanCollide = false }, model)
+		local plat = part({ Name = "Platform", Size = Vector3.new(52, 1, 52), CFrame = cf * CFrame.new(0, 0.5, 0), Color = Color3.fromRGB(62, 112, 88):Lerp(pc, 0.15), Material = Enum.Material.Concrete }, model)
+		for _, e in ipairs({ { 0, -25.5, 52, 1 }, { 0, 25.5, 52, 1 }, { -25.5, 0, 1, 52 }, { 25.5, 0, 1, 52 } }) do -- liseré néon aux couleurs de la base
+			part({ Name = "Edge", Size = Vector3.new(e[3], 0.25, e[4]), CFrame = cf * CFrame.new(e[1], 1.1, e[2]), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
+		end
+		for _, c in ipairs({ { -25, -25 }, { 25, -25 }, { -25, 25 }, { 25, 25 } }) do -- lampadaires
+			part({ Name = "LampPost", Size = Vector3.new(0.9, 7, 0.9), CFrame = cf * CFrame.new(c[1], 4.5, c[2]), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, model)
+			ball({ Name = "Lamp", Size = Vector3.new(1.8, 1.8, 1.8), CFrame = cf * CFrame.new(c[1], 8.4, c[2]), Color = Color3.fromRGB(255, 235, 170), Material = Enum.Material.Neon }, model)
+		end
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(255, 235, 190)
+		glow.Range = 45
+		glow.Brightness = 0.7
+		glow.Parent = plat
 
 		local spawn = Instance.new("SpawnLocation")
 		spawn.Name = "Spawn"
@@ -2154,7 +2274,7 @@ function Builder.build()
 		spawn.Duration = 0
 		spawn.Size = Vector3.new(6, 0.4, 6)
 		spawn.CFrame = cf * CFrame.new(0, 1.2, -20)
-		spawn.Color = Color3.fromRGB(255, 210, 63)
+		spawn.Color = pc
 		spawn.Material = Enum.Material.Neon
 		spawn.Transparency = 0.4
 		spawn.Parent = model
@@ -2163,16 +2283,32 @@ function Builder.build()
 		for idx = 1, 12 do
 			local col, row = (idx - 1) % 4, (idx - 1) // 4
 			local lx, lz = -15 + col * 10, -6 + row * 11
+			local frame = part({ Name = "PadFrame" .. idx, Size = Vector3.new(8.8, 0.3, 8.8), CFrame = cf * CFrame.new(lx, 1.12, lz), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
-			pads[idx] = { part = pad, lock = lockText.Parent, content = nil }
+			pads[idx] = { part = pad, lock = lockText.Parent, frame = frame, content = nil }
 		end
 
 		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
-		local nameLabel = sign(board, "Base libre", Color3.fromRGB(140, 217, 160), 6, 320)
-		nameLabel.TextSize = 24
+		local plank = part({ Name = "Plank", Size = Vector3.new(18, 4.2, 0.7), CFrame = cf * CFrame.new(0, 8.6, 23.6), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, model)
+		local sg = Instance.new("SurfaceGui")
+		sg.Face = Enum.NormalId.Front -- face -Z de la planche = côté arène
+		sg.CanvasSize = Vector2.new(720, 168)
+		sg.LightInfluence = 0
+		sg.Adornee = plank
+		sg.Parent = plank
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Size = UDim2.fromScale(1, 1)
+		nameLabel.Font = FONT
+		nameLabel.TextScaled = true
+		nameLabel.TextColor3 = pc
+		nameLabel.TextStrokeTransparency = 0.3
+		nameLabel.Text = "Base libre"
+		nameLabel.Parent = sg
+		board.Name = "BoardPole"
 
-		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat }
+		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat, color = pc }
 	end
 
 	result.treadmillContains = function(p)

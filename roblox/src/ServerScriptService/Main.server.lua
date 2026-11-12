@@ -346,6 +346,8 @@ local function refreshPad(s, i)
 	pad.lock.Enabled = locked
 	pad.part.Transparency = locked and 0.25 or 0.7
 	pad.part.Color = locked and Color3.fromRGB(40, 40, 45) or Color3.new(1, 1, 1)
+	pad.frame.Color = locked and Color3.fromRGB(50, 52, 58) or s.plot.color
+	pad.frame.Material = locked and Enum.Material.SmoothPlastic or Enum.Material.Neon
 	local sl = d.slots[i]
 	if locked or not sl then
 		return
@@ -1156,6 +1158,8 @@ local function releasePlot(s)
 		clearPad(s, i)
 		s.plot.pads[i].lock.Enabled = true
 		s.plot.pads[i].part.Transparency = 0.7
+		s.plot.pads[i].frame.Color = Color3.fromRGB(50, 52, 58)
+		s.plot.pads[i].frame.Material = Enum.Material.SmoothPlastic
 	end
 	s.plot.owner = nil
 	s.plot.nameLabel.Text = "Base libre"

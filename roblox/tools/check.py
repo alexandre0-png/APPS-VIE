@@ -52,6 +52,62 @@ for f in files:
         if e not in enums or i not in enums[e]:
             fail(f"{os.path.basename(f)} : enum inconnu Enum.{e}.{i}")
 
+
+# Propriétés / méthodes / événements utilisés par les scripts, à vérifier dans le dump officiel (classe -> membres).
+# Ajoute ici tout nouveau membre Roblox utilisé dans le code.
+MEMBER_CHECKS = {
+    "Lighting": ["ClockTime", "Brightness", "Ambient", "OutdoorAmbient", "ColorShift_Top", "EnvironmentDiffuseScale", "EnvironmentSpecularScale", "ShadowSoftness", "GlobalShadows"],
+    "Atmosphere": ["Density", "Offset", "Color", "Decay", "Glare", "Haze"],
+    "BloomEffect": ["Intensity", "Size", "Threshold"],
+    "SunRaysEffect": ["Intensity", "Spread"],
+    "ColorCorrectionEffect": ["Saturation", "Contrast", "Brightness", "TintColor"],
+    "Fire": ["Size", "Heat", "Color", "SecondaryColor"],
+    "SurfaceGui": ["Face", "CanvasSize", "LightInfluence", "Adornee"],
+    "BillboardGui": ["Adornee", "Size", "StudsOffsetWorldSpace", "MaxDistance", "AlwaysOnTop", "Enabled"],
+    "ProximityPrompt": ["ActionText", "ObjectText", "HoldDuration", "MaxActivationDistance", "RequiresLineOfSight", "Enabled"],
+    "ProximityPromptService": ["PromptTriggered", "PromptButtonHoldBegan"],
+    "ClickDetector": ["MaxActivationDistance", "MouseClick"],
+    "ParticleEmitter": ["Texture", "Rate", "Lifetime", "Speed", "SpreadAngle", "LightEmission", "Size", "Color", "Emit"],
+    "Humanoid": ["PlatformStand", "WalkSpeed", "MoveDirection", "ChangeState", "Died", "Health", "CameraOffset"],
+    "Part": ["AssemblyLinearVelocity", "Massless", "Shape", "CanCollide", "CanQuery", "Material", "Transparency"],
+    "Model": ["PrimaryPart", "PivotTo", "GetPivot", "ScaleTo"],
+    "Player": ["RespawnLocation", "LoadCharacter", "DisplayName", "Character", "CharacterAdded", "UserId", "Kick"],
+    "Players": ["CharacterAutoLoads", "GetPlayerByUserId", "PlayerAdded", "PlayerRemoving", "GetPlayers", "GetNameFromUserIdAsync"],
+    "MarketplaceService": ["PromptGamePassPurchaseFinished", "UserOwnsGamePassAsync", "PromptGamePassPurchase", "ProcessReceipt", "PromptProductPurchase"],
+    "MessagingService": ["PublishAsync", "SubscribeAsync"],
+    "OrderedDataStore": ["GetSortedAsync", "SetAsync"],
+    "GlobalDataStore": ["UpdateAsync"],
+    "DataStoreService": ["GetOrderedDataStore", "GetDataStore"],
+    "HttpService": ["GenerateGUID"],
+    "Beam": ["Attachment0", "Attachment1", "Width0", "Width1", "Color", "Transparency", "LightEmission", "FaceCamera", "Enabled"],
+    "ScrollingFrame": ["ScrollBarThickness", "AutomaticCanvasSize", "CanvasPosition", "CanvasSize"],
+    "TextLabel": ["TextTruncate", "TextWrapped", "AutomaticSize", "TextStrokeTransparency", "TextStrokeColor3", "TextYAlignment", "TextXAlignment", "TextScaled"],
+    "TextButton": ["AutoButtonColor", "Activated"],
+    "UIStroke": ["Color", "Thickness"],
+    "UIScale": ["Scale"],
+    "UIGradient": ["Color", "Rotation", "Transparency"],
+    "RemoteEvent": ["FireClient", "FireAllClients", "OnServerEvent", "OnClientEvent", "FireServer"],
+    "CollectionService": ["GetTagged", "AddTag", "GetInstanceAddedSignal"],
+    "TweenService": ["Create"],
+}
+
+def _members(cn, by_name):
+    out = set()
+    while cn and cn in by_name:
+        out |= {m["Name"] for m in by_name[cn]["Members"]}
+        cn = by_name[cn]["Superclass"]
+    return out
+
+by_name = {c["Name"]: c for c in api["Classes"]}
+for cls, mems in MEMBER_CHECKS.items():
+    if cls not in by_name:
+        fail(f"MEMBER_CHECKS : classe inconnue {cls}")
+        continue
+    have = _members(cls, by_name)
+    for m in mems:
+        if m not in have:
+            fail(f"{cls}.{m} n'existe pas dans l'API Roblox")
+
 print("[3/5] Remotes client/serveur")
 srv = open(os.path.join(SRC, "ServerScriptService", "Main.server.lua"), encoding="utf-8").read()
 cli = open(os.path.join(SRC, "StarterPlayerScripts", "Client.client.lua"), encoding="utf-8").read()
