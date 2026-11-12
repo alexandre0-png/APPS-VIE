@@ -79,7 +79,7 @@ roblox/
 3. Lance **Play**.
 
 ### Option B : copier-coller dans Studio (sans outil)
-Crée les 7 scripts ci-dessus **avec exactement ces noms et types**, puis colle le contenu de chaque fichier. Dans `ReplicatedStorage`, crée d'abord un `Folder` nommé `Shared` et mets-y le ModuleScript `Config`.
+Crée les 8 scripts ci-dessus (Config, Easing, Main, Data, Builder, Rules, Client, Animations) **avec exactement ces noms et types**, puis colle le contenu de chaque fichier. Dans `ReplicatedStorage`, crée d'abord un `Folder` nommé `Shared` et mets-y les ModuleScripts `Config` et `Easing`.
 
 ## Publier
 
