@@ -128,6 +128,12 @@ function Ui.button(parent, props)
 	})
 	Ui.corner(b, props.radius or 12)
 	Ui.stroke(b, Color3.fromRGB(15, 18, 30), 2)
+	-- léger dégradé vertical : relief "bouton Roblox"
+	Ui.new("UIGradient", {
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 190, 190)),
+		Rotation = 90,
+		Parent = b,
+	})
 	local base = b.BackgroundColor3
 	b:SetAttribute("BaseColor", base)
 	local scale = Ui.new("UIScale", { Scale = 1, Parent = b })
@@ -253,6 +259,7 @@ function Ui.createPanel(name, title, size, opts)
 	})
 	Ui.corner(frame, 18)
 	Ui.stroke(frame, Color3.fromRGB(12, 14, 24), 3)
+	Ui.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 225)), Rotation = 90, Parent = frame })
 	Ui.new("UIScale", { Name = "PopScale", Parent = frame })
 
 	local header = Ui.new("Frame", {

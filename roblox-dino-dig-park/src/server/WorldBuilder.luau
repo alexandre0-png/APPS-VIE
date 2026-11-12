@@ -150,6 +150,21 @@ local function setupLighting()
 		a.Haze = 0.6
 		a.Parent = Lighting
 	end
+	Lighting.ShadowSoftness = 0.25
+	Lighting.ColorShift_Top = Color3.fromRGB(255, 244, 220)
+	if not Lighting:FindFirstChildOfClass("ColorCorrectionEffect") then
+		local cc = Instance.new("ColorCorrectionEffect")
+		cc.Contrast = 0.08
+		cc.Saturation = 0.18
+		cc.TintColor = Color3.fromRGB(255, 250, 240)
+		cc.Parent = Lighting
+	end
+	if not Lighting:FindFirstChildOfClass("SunRaysEffect") then
+		local sr = Instance.new("SunRaysEffect")
+		sr.Intensity = 0.06
+		sr.Spread = 0.6
+		sr.Parent = Lighting
+	end
 	if not Lighting:FindFirstChildOfClass("BloomEffect") then
 		local b = Instance.new("BloomEffect")
 		b.Intensity = 0.25
@@ -571,12 +586,17 @@ local function buildLobby(root)
 		local a = (i / 8) * math.pi * 2 + 0.3
 		local pos = Vector3.new(math.cos(a) * 46, 0, math.sin(a) * 46)
 		W.decor(W.part(folder, "LampadairePied", Vector3.new(0.8, 12, 0.8), CFrame.new(pos + Vector3.new(0, 6, 0)), Color3.fromRGB(50, 50, 55), M.Metal))
-		W.decor(W.ball(folder, "LampadaireLampe", 2.4, pos + Vector3.new(0, 12.5, 0), Color3.fromRGB(255, 235, 170), M.Neon))
+		local lamp = W.decor(W.ball(folder, "LampadaireLampe", 2.4, pos + Vector3.new(0, 12.5, 0), Color3.fromRGB(255, 235, 170), M.Neon))
+		local light = Instance.new("PointLight")
+		light.Range = 26
+		light.Brightness = 0.8
+		light.Color = Color3.fromRGB(255, 225, 160)
+		light.Parent = lamp
 	end
 	return folder
 end
 
-local function buildGoldBones(root, lobbyFolder)
+local function buildGoldBones(root)
 	local spots = {
 		Vector3.new(13, 8.2, 12), -- derrière la statue
 		Vector3.new(-92, 2, -48),
@@ -647,8 +667,8 @@ function W.build()
 	plotsFolder.Name = "Plots"
 	plotsFolder.Parent = Workspace
 
-	local lobby = buildLobby(root)
-	buildGoldBones(root, lobby)
+	buildLobby(root)
+	buildGoldBones(root)
 
 	local plots = {}
 	local n = Config.PlotCount

@@ -101,6 +101,31 @@ function World.floatText(text, color, big)
 	end)
 end
 
+local burst
+local function emitBurst(color, count)
+	local hrp = rootPart()
+	if not hrp then
+		return
+	end
+	if not burst or not burst.Parent then
+		local att = Instance.new("Attachment")
+		att.Name = "BurstAtt"
+		att.Position = Vector3.new(0, 1, 0)
+		att.Parent = hrp
+		burst = Instance.new("ParticleEmitter")
+		burst.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		burst.Lifetime = NumberRange.new(0.6, 1.1)
+		burst.Speed = NumberRange.new(10, 20)
+		burst.SpreadAngle = Vector2.new(180, 180)
+		burst.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0) })
+		burst.LightEmission = 1
+		burst.Rate = 0
+		burst.Parent = att
+	end
+	burst.Color = ColorSequence.new(color)
+	burst:Emit(count)
+end
+
 local function onFx(fx)
 	if type(fx) ~= "table" then
 		return
@@ -121,8 +146,10 @@ local function onFx(fx)
 	elseif t == "collect" then
 		World.floatText("+" .. Util.formatNumber(fx.amount) .. " 💰", Ui.colors.green, true)
 		Ui.playSound("buy", 0.5)
+		emitBurst(Color3.fromRGB(255, 225, 90), 10)
 	elseif t == "buy" or t == "upgrade" then
 		Ui.playSound("buy", 0.6)
+		emitBurst(t == "buy" and Color3.fromRGB(120, 255, 150) or Color3.fromRGB(255, 170, 60), 18)
 	elseif t == "hatch" then
 		Reveal.show(fx.key, fx.new, fx.egg)
 	elseif t == "openEggs" then
@@ -193,6 +220,21 @@ local function updateWorkers(t)
 				HumanFactory.pose(model, base, 0, lift)
 			end
 		end
+	end
+end
+
+-- boutons d'achat : pulsation douce (cosmétique)
+local function updatePads(t)
+	local pads = plotModel:FindFirstChild("Pads")
+	if not pads then
+		return
+	end
+	for _, pad in ipairs(pads:GetChildren()) do
+		pad.Transparency = 0.15 + (math.sin(t * 3 + pad.Position.X) + 1) * 0.12
+	end
+	local booth = plotModel.Static:FindFirstChild("PadCollecte")
+	if booth then
+		booth.Transparency = 0.1 + (math.sin(t * 4) + 1) * 0.1
 	end
 end
 
@@ -450,6 +492,7 @@ function World.start()
 		updateDinos(step, t, camPos)
 		updateWorkers(t)
 		updateEggs(t)
+		updatePads(t)
 		if Store.state and plotCF then
 			updateVisitors(step, t, Store.state)
 		end

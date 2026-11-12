@@ -36,7 +36,7 @@ end
 
 local function setPill(p, value, text)
 	p.value.Text = text
-	if value > p.last then
+	if value > p.last + 0.5 then
 		p.scale.Scale = 1.18
 		TweenService:Create(p.scale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 	end
@@ -190,7 +190,6 @@ function Hud.build(root)
 	Ui.corner(ev, 16)
 	Ui.stroke(ev, C.orange, 3)
 	eventLabel = Ui.label(ev, { text = "", size = 16, stroke = true })
-	eventLabel.Parent.Visible = false
 	Hud.eventFrame = ev
 
 	-- toasts
