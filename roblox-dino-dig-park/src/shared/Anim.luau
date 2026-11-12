@@ -77,7 +77,7 @@ end
 function Anim.fossilRise(t)
 	t = Anim.clamp01(t)
 	local y = Anim.easeOutBack(math.min(1, t * 1.6)) * 2.2
-	local alpha = t < 0.7 and 0 or (t - 0.7) / 0.3
+	local alpha = t < 0.7 and 0 or Anim.clamp01((t - 0.7) / 0.3)
 	return y, alpha
 end
 
