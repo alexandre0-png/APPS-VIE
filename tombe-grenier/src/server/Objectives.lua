@@ -129,6 +129,9 @@ function Objectives.setup()
 		if part:IsA("BasePart") then
 			pickable(part, "Caillou", function(player)
 				PlayerState.addThrows(player, 1)
+				local st = PlayerState.get(player)
+				local count = st and st.throws or 0
+				Remotes.fire("Message", player, { text = ("Caillou ramassé (%d lancer(s) en main). Touche G pour lancer."):format(count) })
 			end)
 		end
 	end
