@@ -101,7 +101,7 @@ do
 	eq("série = maximum", state.List[3].Progress, 2)
 	QuestLogic.Apply(state, "Streak", 9)
 	eq("série plafonnée à la cible", state.List[3].Progress, 4)
-	check("streak4 terminée", QuestLogic.IsComplete(state.List[3]))
+	check("streak4 terminée", state.List[3].Progress >= QuestLogic.Get("streak4").Target)
 	check("pas de changement après complétion", not QuestLogic.Apply(state, "Streak", 9))
 	check("évènement sans quête", not QuestLogic.Apply(state, "Win", 1))
 	eq("DayKey", QuestLogic.DayKey(86400 * 3 + 5), 3)

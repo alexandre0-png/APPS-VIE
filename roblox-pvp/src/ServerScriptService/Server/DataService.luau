@@ -162,6 +162,12 @@ local function serialize(profile)
 end
 
 function DataService.Save(player)
+	-- une sauvegarde déjà en cours (autosave) : on attend sa fin puis on sauvegarde l'état le plus récent
+	local waited = 0
+	while saving[player] and waited < 10 do
+		task.wait(0.25)
+		waited += 0.25
+	end
 	local profile = profiles[player]
 	if not profile or profile.Ephemeral or saving[player] then
 		return false
@@ -189,6 +195,11 @@ function DataService.Save(player)
 		warn(("[DataService] Sauvegarde échouée pour %s : %s"):format(player.Name, tostring(err)))
 	end
 	return ok
+end
+
+-- Oublie un profil sans l'écrire (joueur parti pendant le chargement).
+function DataService.Discard(player)
+	profiles[player] = nil
 end
 
 function DataService.Release(player)

@@ -44,6 +44,9 @@ end
 
 -- Demande d'achat (le client choisit seulement une clé de la liste blanche).
 function MonetizationService.Prompt(player, kind, key)
+	if type(key) ~= "string" then
+		return false, "Achat inconnu"
+	end
 	if kind == "Pass" then
 		local pass = passByKey(key)
 		if not pass or pass.Id <= 0 then

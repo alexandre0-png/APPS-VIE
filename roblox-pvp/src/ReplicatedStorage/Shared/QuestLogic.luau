@@ -89,9 +89,4 @@ function QuestLogic.Apply(state: QuestState, event: string, amount: number, clas
 	return changed
 end
 
-function QuestLogic.IsComplete(entry: QuestEntry): boolean
-	local def = byId[entry.Id]
-	return def ~= nil and entry.Progress >= def.Target
-end
-
 return QuestLogic

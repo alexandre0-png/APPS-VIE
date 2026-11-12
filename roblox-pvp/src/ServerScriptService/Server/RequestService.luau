@@ -139,6 +139,12 @@ function RequestService.Init()
 		if not handler then
 			return reply(false, "Action inconnue")
 		end
+		if (action == "Join" or action == "Leave") and not RateLimiter.Check(player, "Respawn", 0.5, 2) then
+			return reply(false, "Doucement !")
+		end
+		if (a ~= nil and type(a) ~= "string" and type(a) ~= "number") or (b ~= nil and type(b) ~= "number") then
+			return reply(false, "Arguments invalides")
+		end
 		local ok, success, msg = pcall(handler, player, a, b)
 		if not ok then
 			warn("[RequestService] " .. action .. " : " .. tostring(success))

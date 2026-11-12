@@ -37,6 +37,7 @@ DummyService.Init(map.DummySpots)
 local function onPlayerAdded(player)
 	local profile = DataService.Load(player)
 	if player.Parent ~= Players then
+		DataService.Discard(player)
 		return
 	end
 	QuestService.Ensure(player)

@@ -21,6 +21,7 @@ local WeaponFactory = require(Server.WeaponFactory)
 local WeaponService = {}
 
 local lastUse = setmetatable({}, { __mode = "k" })
+local lastAny = setmetatable({}, { __mode = "k" }) -- dernier tir de n'importe quelle arme, par joueur
 local projectiles = {}
 local nextProjectileId = 0
 
@@ -310,10 +311,11 @@ local function onAttack(player, rawAim)
 		return
 	end
 	local now = os.clock()
-	if now - (lastUse[tool] or 0) < def.Cooldown * 0.85 then
-		return
+	if now - (lastUse[tool] or 0) < def.Cooldown * 0.85 or now - (lastAny[player] or 0) < 0.12 then
+		return -- cadence de l'arme, et pas d'enchaînement par changement d'arme
 	end
 	lastUse[tool] = now
+	lastAny[player] = now
 
 	-- attaquer met fin à la protection d'apparition
 	local shield = char:FindFirstChildOfClass("ForceField")
