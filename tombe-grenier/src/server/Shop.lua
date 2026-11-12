@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local PlayerState = require(script.Parent.PlayerState)
+local Hub = require(script.Parent.Hub)
 
 local Shop = {}
 
@@ -38,7 +39,9 @@ function Shop.init()
 
 	MarketplaceService.ProcessReceipt = function(receipt)
 		local player = Players:GetPlayerByUserId(receipt.PlayerId)
-		if not player then
+		-- Au lieu hub, la partie n'existe pas : l'achat n'est pas accordé ici (l'effet serait perdu).
+		-- Roblox le repropose quand le joueur est dans le lieu de jeu.
+		if not player or Hub.role() == "hub" then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		if Config.Shop.Products.Pile ~= 0 and receipt.ProductId == Config.Shop.Products.Pile then

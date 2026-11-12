@@ -3,6 +3,7 @@
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
 ### Corrigé
+- Achats Robux : un achat n'est plus accordé au lieu hub (l'effet y serait perdu) ; il reste en attente jusqu'au lieu de jeu.
 - Mort fatale (plus personne debout) : les minuteries de réapparition et les invites de réanimation en attente sont annulées avant la fin de partie.
 - Nouvelle partie : les invites et minuteries de la partie précédente sont annulées.
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
