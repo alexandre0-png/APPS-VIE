@@ -260,6 +260,7 @@ local function snapshot(s)
 		streak = nextStreak,
 		stolen = d.stolen,
 		hatched = d.hatched,
+		cine = d.cine,
 		quests = d.quests,
 		equip = d.equip,
 		luckLeft = math.max(0, d.luckUntil - os.time()),
@@ -588,7 +589,7 @@ function hatch(s, i)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end
@@ -677,7 +678,7 @@ local function confirmRunes(s, root, prompt)
 	for i = 1, #answer do
 		if s.runes[i] ~= answer[i] then
 			s.runeLock = now + Config.RUNE_LOCK_SECONDS
-			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme du Gardien.", "caught")
+			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme de Mère Poule.", "caught")
 			return
 		end
 	end
@@ -1152,6 +1153,7 @@ function actions.rebirth(s)
 	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
 	fresh.story, fresh.pity = d.story, d.pity
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
+	fresh.cine = d.cine
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
@@ -1229,6 +1231,22 @@ function actions.claimStory(s)
 	end
 	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
 	sync(s)
+end
+
+-- Mémorise qu'une cinématique a été vue (ou passée) : elle ne se rejouera pas à la prochaine connexion.
+function actions.cineSeen(s, id)
+	if type(id) ~= "string" then
+		return
+	end
+	for _, known in ipairs(Config.CINE_IDS) do
+		if known == id then
+			if not s.data.cine[id] then
+				s.data.cine[id] = true
+				sync(s)
+			end
+			return
+		end
+	end
 end
 
 function actions.claimAch(s, id)
@@ -1435,6 +1453,7 @@ local function onJoin(player)
 	ensureQuests(s)
 	updateSign(s)
 	refreshAllPads(s)
+	player:SetAttribute("PlotCF", plot.cf) -- position de la base : sert aux caméras des cinématiques (réplication sûre)
 	player.RespawnLocation = plot.spawn
 	player.CharacterAdded:Connect(function(char)
 		local hum = char:WaitForChild("Humanoid")

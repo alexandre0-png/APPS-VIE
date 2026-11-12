@@ -274,14 +274,14 @@ function Config.cineEnabled(name)
 end
 
 -- Ancres de caméra : arena (le Grand Nid), hen (Mère Poule), rival1..3 (domaines), base (ta base), pad (un emplacement de ta base).
--- Les positions d'un plan sont { x, y, z } dans le repère de l'ancre ; `toPos` / `toLook` (facultatifs) animent le plan.
+-- Les positions d'un plan sont { x, y, z } dans le repère de l'ancre ; `toPos` / `toLook` (facultatifs) animent le plan ; `fx = "sparkle"` (facultatif) lance des étincelles au point visé.
 Config.CINE_ANCHORS = { arena = true, hen = true, rival1 = true, rival2 = true, rival3 = true, base = true, pad = true }
 
 Config.CINE = {
 	intro = { id = "intro", shots = {
 		{ anchor = "arena", pos = { 0, 70, 100 }, look = { 0, 6, 0 }, toPos = { 0, 44, 72 }, dur = 4.5, text = "Il était une fois une ferme où la Grande Couvée donnait vie à tout le royaume…" },
-		{ anchor = "hen", pos = { 6, 4, -9 }, look = { 0, 3, 0 }, toPos = { 4, 4, -6 }, dur = 4, text = "Mère Poule veillait sur le Grand Nid, gardienne de tous les œufs." },
-		{ anchor = "rival1", pos = { 0, 20, 28 }, look = { 0, 2, -3 }, toPos = { 0, 15, 22 }, dur = 4, text = "Mais le Nid s'est brisé et ses œufs se sont dispersés. Les brigands les gardent !" },
+		{ anchor = "hen", pos = { 6, 4, -9 }, look = { 0, 3, 0 }, toPos = { 4, 4, -6 }, dur = 4, fx = "sparkle", text = "Mère Poule veillait sur le Grand Nid, gardienne de tous les œufs." },
+		{ anchor = "rival1", pos = { 0, 20, 28 }, look = { 0, 2, -3 }, toPos = { 0, 15, 22 }, dur = 4, fx = "sparkle", text = "Mais le Nid s'est brisé et ses œufs se sont dispersés. Les brigands les gardent !" },
 		{ anchor = "base", pos = { 0, 16, 36 }, look = { 0, 3, 0 }, toPos = { 0, 12, 28 }, dur = 4, text = "À toi, apprenti Chipeur : chipe les œufs, fais-les éclore et reconstruis le Grand Nid !" },
 	} },
 	tutorial = { id = "tutorial", shots = {
@@ -347,7 +347,7 @@ Config.STORY = {
 	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
 	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
 	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
-	{ title = "Le murmure des runes", text = "Les runes du Grand Nid s'éveillent chaque jour. Lis l'énigme du Gardien (Missions > Énigme), tourne les 4 runes autour du Nid, puis touche le Nid pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
+	{ title = "Le murmure des runes", text = "Les runes du Grand Nid s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Nid, puis touche le Nid pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
 	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
 	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
 	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
@@ -406,7 +406,7 @@ function Config.storyReward(chapter, income)
 end
 
 ---------------------------------------------------------------- Énigmes des runes (Grand Nid)
--- Quatre runes autour du monument (Nord, Est, Sud, Ouest). Chaque jour, le Gardien énonce un indice par direction ; le joueur doit
+-- Quatre runes autour du monument (Nord, Est, Sud, Ouest). Chaque jour, Mère Poule énonce un indice par direction ; le joueur doit
 -- régler chaque rune sur le bon symbole puis valider en touchant le Grand Nid. L'énigme est la même pour tous les joueurs un jour donné.
 Config.RUNES = { "🔥", "🌊", "🌿", "⭐" }
 Config.RUNE_DIRECTIONS = { "Nord", "Est", "Sud", "Ouest" }
@@ -1145,6 +1145,7 @@ local function snapshot(s)
 		streak = nextStreak,
 		stolen = d.stolen,
 		hatched = d.hatched,
+		cine = d.cine,
 		quests = d.quests,
 		equip = d.equip,
 		luckLeft = math.max(0, d.luckUntil - os.time()),
@@ -1473,7 +1474,7 @@ function hatch(s, i)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end
@@ -1562,7 +1563,7 @@ local function confirmRunes(s, root, prompt)
 	for i = 1, #answer do
 		if s.runes[i] ~= answer[i] then
 			s.runeLock = now + Config.RUNE_LOCK_SECONDS
-			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme du Gardien.", "caught")
+			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme de Mère Poule.", "caught")
 			return
 		end
 	end
@@ -2037,6 +2038,7 @@ function actions.rebirth(s)
 	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
 	fresh.story, fresh.pity = d.story, d.pity
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
+	fresh.cine = d.cine
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
@@ -2114,6 +2116,22 @@ function actions.claimStory(s)
 	end
 	storyRefresh(s) -- le chapitre suivant peut être déjà accompli (espèces déjà découvertes...)
 	sync(s)
+end
+
+-- Mémorise qu'une cinématique a été vue (ou passée) : elle ne se rejouera pas à la prochaine connexion.
+function actions.cineSeen(s, id)
+	if type(id) ~= "string" then
+		return
+	end
+	for _, known in ipairs(Config.CINE_IDS) do
+		if known == id then
+			if not s.data.cine[id] then
+				s.data.cine[id] = true
+				sync(s)
+			end
+			return
+		end
+	end
 end
 
 function actions.claimAch(s, id)
@@ -2320,6 +2338,7 @@ local function onJoin(player)
 	ensureQuests(s)
 	updateSign(s)
 	refreshAllPads(s)
+	player:SetAttribute("PlotCF", plot.cf) -- position de la base : sert aux caméras des cinématiques (réplication sûre)
 	player.RespawnLocation = plot.spawn
 	player.CharacterAdded:Connect(function(char)
 		local hum = char:WaitForChild("Humanoid")
@@ -2444,7 +2463,8 @@ local SAVE_RETRIES = 3
 -- v1 : première version (sans champ ver). v2 : + equip, quests, qday, receipts, luckUntil, ver.
 -- v3 : + story { ch, prog } (histoire) et pity (compteur de pitié).
 -- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
-local VERSION = 4
+-- v5 : + cine (cinématiques déjà vues).
+local VERSION = 5
 
 local Data = {}
 Data.VERSION = VERSION
@@ -2489,6 +2509,7 @@ function Data.default()
 		pity = 0,
 		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
 		ach = {}, -- id de succès -> palier déjà réclamé
+		cine = {}, -- id de cinématique -> true une fois vue ou passée
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -2515,6 +2536,9 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[4] = function(_saved)
+		-- v4 -> v5 : cine reçoit sa valeur par défaut (aucune cinématique vue : l'intro se jouera une fois).
 	end,
 	[3] = function(saved)
 		-- v3 -> v4 : un nouveau chapitre (énigme) est inséré en position 8. Qui avait déjà réussi 8 chapitres ou plus
@@ -2574,6 +2598,11 @@ local function merge(saved)
 	if type(saved.puzzle) == "table" then
 		d.puzzle.day = math.floor(sane(saved.puzzle.day, 0))
 		d.puzzle.solved = math.floor(sane(saved.puzzle.solved, 0))
+	end
+	if type(saved.cine) == "table" then
+		for _, id in ipairs(Config.CINE_IDS) do
+			d.cine[id] = saved.cine[id] == true
+		end
 	end
 	if type(saved.ach) == "table" then
 		for _, a in ipairs(Config.ACHIEVEMENTS) do
@@ -3122,7 +3151,7 @@ function Builder.monument(parent)
 	confirm.RequiresLineOfSight = false
 	confirm:SetAttribute("Kind", "RuneConfirm")
 	confirm.Parent = egg
-	-- Panneau de l'énigme du Gardien (texte mis à jour chaque jour par le serveur), lisible des deux côtés
+	-- Panneau de l'énigme de Mère Poule (texte mis à jour chaque jour par le serveur), lisible des deux côtés
 	local board = part({ Name = "RiddleBoard", Size = Vector3.new(12, 4.6, 0.5), Position = Vector3.new(0, 3.8, 14), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, parent)
 	part({ Name = "RiddlePostL", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(-5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
 	part({ Name = "RiddlePostR", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
@@ -3140,7 +3169,7 @@ function Builder.monument(parent)
 		title.Font = FONT
 		title.TextSize = 40
 		title.TextColor3 = gold
-		title.Text = "📜 Énigme du Gardien"
+		title.Text = "📜 Énigme de Mère Poule"
 		title.Parent = sg
 		local body = Instance.new("TextLabel")
 		body.BackgroundTransparency = 1
@@ -3159,6 +3188,35 @@ function Builder.monument(parent)
 	local t = sign(egg, "✨ Le Grand Nid ✨\nReconstruis la Couvée, Chipeur !", gold, 9, 340)
 	t.TextSize = 20
 	return result
+end
+
+---------------------------------------------------------------- Mère Poule (gardienne du Grand Nid, guide de l'histoire)
+-- Les parties de la tête portent un nom préfixé « Hen » : le client les fait picorer (Animations.client.lua) et la cinématique
+-- d'introduction la met en scène (ancre « hen » = tag Hen).
+function Builder.hen(parent)
+	local white, red, orange, dark = Color3.fromRGB(250, 248, 240), Color3.fromRGB(235, 60, 60), Color3.fromRGB(255, 170, 40), Color3.fromRGB(30, 28, 32)
+	local model = Instance.new("Model")
+	model.Name = "MerePoule"
+	local body = ball({ Name = "Body", Size = Vector3.new(4, 4, 4), CFrame = CFrame.new(0, 0, 0), Color = white }, model)
+	model.PrimaryPart = body
+	part({ Name = "Tail", Size = Vector3.new(1.2, 2.2, 0.6), CFrame = CFrame.new(0, 0.8, 2.1) * CFrame.Angles(-0.5, 0, 0), Color = white, CanCollide = false }, model)
+	for _, side in ipairs({ -1, 1 }) do
+		part({ Name = "Wing", Size = Vector3.new(0.3, 2, 2.2), CFrame = CFrame.new(side * 2.05, 0, 0.2) * CFrame.Angles(0, 0, side * 0.15), Color = Color3.fromRGB(238, 232, 220), CanCollide = false }, model)
+		part({ Name = "Leg", Size = Vector3.new(0.3, 1.3, 0.3), CFrame = CFrame.new(side * 0.8, -2.5, 0), Color = orange, CanCollide = false }, model)
+		part({ Name = "Foot", Size = Vector3.new(0.9, 0.2, 1.1), CFrame = CFrame.new(side * 0.8, -3.15, -0.3), Color = orange, CanCollide = false }, model)
+		ball({ Name = "HenEye" .. (side < 0 and "L" or "R"), Size = Vector3.new(0.38, 0.38, 0.38), CFrame = CFrame.new(side * 0.6, 2.55, -2.6), Color = dark }, model)
+	end
+	ball({ Name = "HenHead", Size = Vector3.new(2.3, 2.3, 2.3), CFrame = CFrame.new(0, 2.3, -1.7), Color = white }, model)
+	part({ Name = "HenComb", Size = Vector3.new(0.5, 0.9, 1.2), CFrame = CFrame.new(0, 3.6, -1.7), Color = red, CanCollide = false }, model)
+	part({ Name = "HenBeak", Size = Vector3.new(0.8, 0.5, 0.9), CFrame = CFrame.new(0, 2.15, -3.0), Color = orange, CanCollide = false }, model)
+	ball({ Name = "HenWattle", Size = Vector3.new(0.6, 0.8, 0.5), CFrame = CFrame.new(0, 1.6, -2.8), Color = red }, model)
+	local label = sign(body, "🐔 Mère Poule\nGardienne du Grand Nid", Color3.fromRGB(255, 220, 140), 5.5, 260)
+	label.TextSize = 17
+	model:SetAttribute("Seed", 3)
+	CollectionService:AddTag(model, "Hen")
+	model:PivotTo(CFrame.lookAt(Vector3.new(-9, 3.2, 13), Vector3.new(0, 3.2, 0))) -- regarde le Grand Nid
+	model.Parent = parent
+	return model
 end
 
 ---------------------------------------------------------------- Monde
@@ -3235,6 +3293,7 @@ function Builder.build()
 	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
 
 	local monument = Builder.monument(world)
+	Builder.hen(world)
 
 	for _ = 1, 38 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
@@ -3354,8 +3413,7 @@ function Builder.build()
 
 		local pads = {}
 		for idx = 1, 12 do
-			local col, row = (idx - 1) % 4, (idx - 1) // 4
-			local lx, lz = -15 + col * 10, -6 + row * 11
+			local lx, lz = Config.padLocal(idx)
 			local frame = part({ Name = "PadFrame" .. idx, Size = Vector3.new(8.8, 0.3, 8.8), CFrame = cf * CFrame.new(lx, 1.12, lz), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
@@ -3607,7 +3665,7 @@ end
 
 return Rules
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX14"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX13"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX11"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX15"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX14"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX11"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4090,7 +4148,7 @@ function render()
 			addNote(table.concat(done, "\n"))
 		end
 	elseif panel.name == "quests" and panel.tab == "puzzle" then
-		addNote("📜 Énigme du Gardien (elle change chaque jour) :\n" .. state.riddle)
+		addNote("📜 Énigme de Mère Poule (elle change chaque jour) :\n" .. state.riddle)
 		local cur = {}
 		for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
 			cur[#cur + 1] = dir .. " " .. Config.RUNES[state.runes[i]]
@@ -4199,6 +4257,23 @@ function render()
 				end
 			end,
 		})
+		local function replay(kind)
+			return function()
+				local ev = ReplicatedStorage:FindFirstChild("ReplayCinematic")
+				if ev then
+					hidePanel()
+					ev:Fire(kind)
+				else
+					toast("🎬 La cinématique n'est pas disponible pour l'instant.")
+				end
+			end
+		end
+		if Config.Cinematics.replay and Config.cineEnabled("intro") then
+			addRow({ icon = "🎬", title = "Revoir l'intro", desc = "La ferme, Mère Poule et le but du jeu (tu peux la passer).", btn = "Lancer", btnColor = COL.green, onClick = replay("intro") })
+		end
+		if Config.Cinematics.replay and Config.cineEnabled("tutorial") then
+			addRow({ icon = "🎓", title = "Revoir le tutoriel", desc = "Récolte, éclosion et zones en quelques secondes.", btn = "Lancer", btnColor = COL.green, onClick = replay("tutorial") })
+		end
 		addNote(string.format("Œufs volés : %d · Œufs éclos : %d · Vitesse : %s", state.stolen, state.hatched, fmt(player:GetAttribute("Speed") or 0)))
 		addNote(Config.oddsText())
 		addNote("📖 " .. Config.LORE)
@@ -4316,8 +4391,8 @@ RState.OnClientEvent:Connect(function(snap)
 	updateRuneLabels()
 	if not introChecked then
 		introChecked = true
-		if snap.story.ch == 0 and snap.hatched == 0 then
-			showIntro()
+		if snap.story.ch == 0 and snap.hatched == 0 and not Config.cineEnabled("intro") then
+			showIntro() -- version texte, seulement si la cinématique d'intro est coupée
 		end
 	end
 	if panel then
@@ -4865,6 +4940,36 @@ RunService.RenderStepped:Connect(function()
 	end)
 end)
 
+---------------------------------------------------------------- Mère Poule : elle picore (la tête pivote autour du cou)
+local henCache = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	run("hen", function()
+		local t = os.clock()
+		for _, model in ipairs(CollectionService:GetTagged("Hen")) do
+			local body = model.PrimaryPart
+			if body then
+				local c = henCache[model]
+				if not c then
+					c = { parts = {}, seed = model:GetAttribute("Seed") or 0 }
+					for _, name in ipairs({ "HenHead", "HenComb", "HenBeak", "HenWattle", "HenEyeL", "HenEyeR" }) do
+						local p = model:FindFirstChild(name)
+						if p then
+							c.parts[#c.parts + 1] = { part = p, rel = body.CFrame:ToObjectSpace(p.CFrame) }
+						end
+					end
+					henCache[model] = c
+				end
+				local neck = CFrame.new(0, 1.3, -1.2) -- pivot du cou (repère du corps)
+				local rot = neck * CFrame.Angles(-Easing.peck(t, c.seed) * 0.7, 0, 0) * neck:Inverse()
+				local base = body.CFrame
+				for _, e in ipairs(c.parts) do
+					e.part.CFrame = base * rot * e.rel
+				end
+			end
+		end
+	end)
+end)
+
 ---------------------------------------------------------------- Barrières de zone (portails) : pulsation et dissolution à l'ouverture
 local gateState = setmetatable({}, { __mode = "k" })
 
@@ -5011,6 +5116,461 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		run("reward", function()
 			uiConfetti(Easing.REWARD.rare)
 		end)
+	end
+end)
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX13"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+-- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
+-- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
+-- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
+-- restituée quoi qu'il arrive (fin, skip, mort, attaque, erreur, délai de sécurité). La logique (séquences, durées, skip, reprise, file)
+-- est dans le module pur Cinema, testé hors de Roblox.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Easing = require(Shared:WaitForChild("Easing"))
+local Cinema = require(Shared:WaitForChild("Cinema")).new(Easing)
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local RAction = Remotes:WaitForChild("Action")
+
+local BIND_NAME = "ChipeCine"
+local director = Cinema.director()
+local plans = {} -- id -> { seq, resolved = { CFrame par plan }, startedAt }
+local activeId = nil
+local saved = nil -- caméra du joueur avant la cinématique
+local bound = false
+local state = nil
+local lastCh = nil
+local failed = {}
+
+---------------------------------------------------------------- Interface : barres de cinéma, légende, bouton Passer
+local gui = Instance.new("ScreenGui")
+gui.Name = "ChipeCine"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 60
+gui.Enabled = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local function bar(anchorY, height)
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0, anchorY)
+	f.Position = UDim2.fromScale(0, anchorY)
+	f.Size = UDim2.fromScale(1, height)
+	f.BackgroundColor3 = Color3.new(0, 0, 0)
+	f.BackgroundTransparency = 0.1
+	f.BorderSizePixel = 0
+	f.Parent = gui
+	return f
+end
+local topBar, bottomBar = bar(0, 0.09), bar(1, 0.2)
+
+local caption = Instance.new("TextLabel")
+caption.BackgroundTransparency = 1
+caption.Size = UDim2.new(0.84, 0, 0.8, 0)
+caption.AnchorPoint = Vector2.new(0.5, 0.5)
+caption.Position = UDim2.fromScale(0.5, 0.5)
+caption.Font = Enum.Font.GothamBold
+caption.TextColor3 = Color3.fromRGB(255, 244, 220)
+caption.TextStrokeTransparency = 0.5
+caption.TextWrapped = true
+caption.TextScaled = true
+caption.Text = ""
+caption.Parent = bottomBar
+local limit = Instance.new("UITextSizeConstraint")
+limit.MaxTextSize = 28
+limit.MinTextSize = 12
+limit.Parent = caption
+
+local header = Instance.new("TextLabel")
+header.BackgroundTransparency = 1
+header.Position = UDim2.fromOffset(16, 0)
+header.Size = UDim2.new(0.5, 0, 1, 0)
+header.Font = Enum.Font.GothamBold
+header.TextSize = 18
+header.TextXAlignment = Enum.TextXAlignment.Left
+header.TextColor3 = Color3.fromRGB(255, 214, 120)
+header.Text = ""
+header.Parent = topBar
+
+local function button(text, xOffset, width)
+	local b = Instance.new("TextButton")
+	b.AnchorPoint = Vector2.new(1, 0.5)
+	b.Position = UDim2.new(1, xOffset, 0.5, 0)
+	b.Size = UDim2.fromOffset(width, 34)
+	b.BackgroundColor3 = Color3.fromRGB(255, 210, 63)
+	b.TextColor3 = Color3.fromRGB(43, 34, 0)
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 15
+	b.Text = text
+	b.Parent = topBar
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 10)
+	c.Parent = b
+	return b
+end
+local skipBtn = button("Passer ▶", -12, 110)
+local skipAllBtn = button("Tout passer", -132, 120)
+skipAllBtn.BackgroundColor3 = Color3.fromRGB(75, 91, 81)
+skipAllBtn.TextColor3 = Color3.fromRGB(244, 255, 246)
+
+local TITLES = { intro = "🎬 Il était une fois…", tutorial = "🎓 Comment jouer", firstZone = "🔓 Nouveau domaine", firstRare = "✨ Pet rare !" }
+
+---------------------------------------------------------------- Caméra : toujours restituée
+local function takeCamera()
+	local cam = workspace.CurrentCamera
+	if cam and not saved then
+		saved = { cameraType = cam.CameraType, subject = cam.CameraSubject }
+		cam.CameraType = Enum.CameraType.Scriptable
+	end
+end
+
+local function giveCameraBack()
+	local cam = workspace.CurrentCamera
+	if cam and saved then
+		cam.CameraType = (saved.cameraType == Enum.CameraType.Scriptable) and Enum.CameraType.Custom or saved.cameraType
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		cam.CameraSubject = hum or saved.subject
+	end
+	saved = nil
+end
+
+local function exitCinematic()
+	if bound then
+		bound = false
+		pcall(function()
+			RunService:UnbindFromRenderStep(BIND_NAME)
+		end)
+	end
+	pcall(giveCameraBack)
+	gui.Enabled = false
+	activeId = nil
+	plans = {}
+end
+
+-- Sortie de secours : quoi qu'il arrive, tout s'arrête et la caméra revient au joueur. Rien n'est considéré comme vu.
+local function emergency(reason)
+	director.abort()
+	exitCinematic()
+	if reason then
+		warn("[Cinematics] arrêt : " .. tostring(reason))
+	end
+end
+
+local function markSeen(id)
+	pcall(function()
+		RAction:FireServer("cineSeen", id)
+	end)
+end
+
+---------------------------------------------------------------- Ancres de caméra
+local function plotCFrame()
+	local attr = player:GetAttribute("PlotCF")
+	if typeof(attr) == "CFrame" then
+		return attr
+	end
+	local spawn = player.RespawnLocation
+	if spawn and spawn:IsA("BasePart") then
+		return spawn.CFrame * CFrame.new(0, -1.2, 20) -- le spawn est à (0, 1.2, -20) dans le repère de la base
+	end
+	return nil
+end
+
+local function rivalCF(i)
+	return CFrame.new((i - 2) * 55, 0, -70)
+end
+
+local anchors = {
+	arena = function()
+		return CFrame.new(0, 0, 0)
+	end,
+	hen = function()
+		local m = CollectionService:GetTagged("Hen")[1]
+		local body = m and m.PrimaryPart
+		return body and CFrame.new(body.Position.X, 0, body.Position.Z) or nil
+	end,
+	rival1 = function()
+		return rivalCF(1)
+	end,
+	rival2 = function()
+		return rivalCF(2)
+	end,
+	rival3 = function()
+		return rivalCF(3)
+	end,
+	base = plotCFrame,
+	pad = function(ctx)
+		local pc = plotCFrame()
+		if not pc or not ctx or not ctx.slot then
+			return nil
+		end
+		local lx, lz = Config.padLocal(ctx.slot)
+		return pc * CFrame.new(lx, 1.4, lz)
+	end,
+}
+
+local function toWorld(acf, v)
+	return acf:PointToWorldSpace(Vector3.new(v[1], v[2], v[3]))
+end
+
+---------------------------------------------------------------- Mise en scène
+local function sparkleAt(position)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.Transparency = 1
+	p.Size = Vector3.new(1, 1, 1)
+	p.Position = position
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	e.Color = ColorSequence.new(Color3.fromRGB(255, 232, 150), Color3.fromRGB(255, 255, 255))
+	e.Rate = 0
+	e.Lifetime = NumberRange.new(1, 2)
+	e.Speed = NumberRange.new(6, 18)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.LightEmission = 1
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) })
+	e.Parent = p
+	p.Parent = workspace
+	e:Emit(50)
+	Debris:AddItem(p, 3)
+end
+
+local function onShot(id, index)
+	local plan = plans[id]
+	local shot = plan.seq.shots[index]
+	caption.Text = shot.text
+	caption.TextTransparency = 1
+	TweenService:Create(caption, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
+	header.Text = (TITLES[id] or "🎬") .. "   " .. index .. "/" .. #plan.seq.shots
+	if shot.fx == "sparkle" then
+		pcall(sparkleAt, toWorld(plan.resolved[index], shot.look) + Vector3.new(0, 2, 0))
+	end
+end
+
+local function step()
+	local now = os.clock()
+	local id, ev = director.update(now)
+	if not id then
+		exitCinematic()
+		return
+	end
+	if not ev then
+		return
+	end
+	if ev.finished then
+		markSeen(id)
+		if not director.current then
+			exitCinematic()
+		end
+		return
+	end
+	local plan = plans[id]
+	if not plan then
+		return emergency("plan inconnu : " .. tostring(id))
+	end
+	if activeId ~= id then
+		activeId = id
+		plan.startedAt = now
+	end
+	if now - plan.startedAt > plan.seq.total + Config.Cinematics.watchdog then
+		return emergency("délai de sécurité dépassé")
+	end
+	if ev.shotChanged then
+		onShot(id, ev.shot)
+	end
+	local pos, look = Cinema.cameraAt(plan.seq.shots[ev.shot], ev.progress)
+	local cam = workspace.CurrentCamera
+	local acf = plan.resolved[ev.shot]
+	cam.CFrame = CFrame.lookAt(toWorld(acf, pos), toWorld(acf, look))
+	skipAllBtn.Visible = #director.queue > 0
+end
+
+local function safeStep()
+	local ok, err = pcall(step)
+	if not ok then
+		local id = activeId
+		if id then
+			failed[id] = true
+		end
+		emergency(err)
+	end
+end
+
+local function enter()
+	gui.Enabled = true
+	skipAllBtn.Visible = false
+	takeCamera()
+	if not bound then
+		bound = true
+		RunService:BindToRenderStep(BIND_NAME, Enum.RenderPriority.Camera.Value + 1, safeStep)
+	end
+end
+
+---------------------------------------------------------------- Lancer, passer
+local function warnOnce(name, err)
+	warn("[Cinematics] « " .. name .. " » désactivée pour cette session après une erreur : " .. tostring(err))
+	emergency()
+end
+
+-- Retourne true si la cinématique a démarré ou été mise en file. Ne lève jamais d'erreur.
+local function begin(id, def, ctx, chain)
+	if failed[id] or not Config.cineEnabled(id) then
+		return false
+	end
+	local ok, seq = pcall(Cinema.sequence, def)
+	if not ok or not seq then
+		return false
+	end
+	local resolved = {}
+	for i, shot in ipairs(seq.shots) do
+		local f = anchors[shot.anchor]
+		local okAnchor, cf = pcall(function()
+			return f and f(ctx)
+		end)
+		if not (okAnchor and cf) then
+			return false -- ancre pas encore prête (monde non chargé) : pas de cinématique plutôt qu'un plan cassé
+		end
+		resolved[i] = cf
+	end
+	local started = false
+	Easing.guard(Config.cineEnabled, failed, id, function()
+		local result = director.request(id, seq, os.clock(), chain)
+		if result == "refused" then
+			return
+		end
+		plans[id] = { seq = seq, resolved = resolved, startedAt = nil }
+		started = true
+		if result == "playing" then
+			enter()
+		end
+	end, warnOnce)
+	return started
+end
+
+local function skipCurrent()
+	local id = director.skip(os.clock())
+	if id then
+		markSeen(id)
+	end
+	if not director.current then
+		exitCinematic()
+	end
+end
+
+local function skipEverything()
+	for _, id in ipairs(director.skipAll()) do
+		markSeen(id)
+	end
+	exitCinematic()
+end
+
+skipBtn.Activated:Connect(skipCurrent)
+skipAllBtn.Activated:Connect(skipEverything)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or not director.isActive() then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonB then
+		skipCurrent()
+	end
+end)
+
+---------------------------------------------------------------- Abandon : le joueur est attaqué ou meurt
+Remotes:WaitForChild("Notify").OnClientEvent:Connect(function(_msg, sfx)
+	if sfx == "caught" and director.isActive() then
+		emergency() -- un gardien ou un voleur s'en prend à lui : retour immédiat au jeu
+	end
+end)
+local function watchCharacter(char)
+	local hum = char:WaitForChild("Humanoid", 10)
+	if hum then
+		hum.Died:Connect(function()
+			emergency()
+		end)
+	end
+end
+player.CharacterAdded:Connect(watchCharacter)
+if player.Character then
+	task.spawn(watchCharacter, player.Character)
+end
+
+---------------------------------------------------------------- Déclencheurs (moments clés uniquement)
+-- Premier lancement : intro puis mini tutoriel (le tutoriel est mis en file derrière l'intro). Nouveaux joueurs seulement.
+local function onFirstState()
+	local t0 = os.clock()
+	while os.clock() - t0 < 20 and not (player.Character and player.Character:FindFirstChild("HumanoidRootPart") and plotCFrame()) do
+		task.wait(0.25)
+	end
+	task.wait(1.5) -- laisse le jeu s'afficher
+	if not state or state.story.ch ~= 0 or state.hatched ~= 0 then
+		return
+	end
+	local playIntro = Config.cineEnabled("intro") and not state.cine.intro
+	local playTutorial = Config.cineEnabled("tutorial") and not state.cine.tutorial
+	if playIntro then
+		begin("intro", Config.CINE.intro, {}, false)
+		if playTutorial then
+			begin("tutorial", Config.CINE.tutorial, {}, true)
+		end
+	elseif playTutorial then
+		begin("tutorial", Config.CINE.tutorial, {}, false)
+	end
+end
+
+Remotes:WaitForChild("State").OnClientEvent:Connect(function(snap)
+	local first = state == nil
+	state = snap
+	if first then
+		lastCh = snap.story.ch
+		task.spawn(onFirstState)
+		return
+	end
+	-- première zone débloquée : le chapitre vient d'atteindre le seuil d'un domaine
+	if snap.story.ch > lastCh and not snap.cine.firstZone and snap.carry == 0 then
+		for idx, zone in ipairs(Config.ZONES) do
+			if zone.chapter > 0 and zone.chapter == snap.story.ch then
+				begin("firstZone", Config.cineFirstZone(idx), {}, false)
+			end
+		end
+	end
+	lastCh = snap.story.ch
+end)
+
+-- Premier pet rare (même critère que les confettis) ; l'emplacement vient du serveur.
+Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
+	if not state or state.cine.firstRare or state.carry > 0 then
+		return
+	end
+	local def = Config.PETS[info.p]
+	if not def or not (def.tier >= 4 or info.m > 1 or info.s >= 4) then
+		return
+	end
+	begin("firstRare", Config.cineFirstRare(Config.petName(info.p, info.s, info.m), Config.TIERS[def.tier].name, "+" .. Config.fmt(info.inc) .. "/s."), { slot = info.slot }, false)
+end)
+
+-- Revoir (menu Plus) : événement local déclenché par l'interface.
+local replay = Instance.new("BindableEvent")
+replay.Name = "ReplayCinematic"
+replay.Parent = ReplicatedStorage
+replay.Event:Connect(function(kind)
+	if not Config.Cinematics.replay then
+		return
+	end
+	if kind == "intro" then
+		if begin("intro", Config.CINE.intro, {}, false) then
+			begin("tutorial", Config.CINE.tutorial, {}, true)
+		end
+	elseif kind == "tutorial" then
+		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
 ]]></ProtectedString></Properties></Item></Item></Item>

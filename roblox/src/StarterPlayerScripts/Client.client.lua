@@ -481,7 +481,7 @@ function render()
 			addNote(table.concat(done, "\n"))
 		end
 	elseif panel.name == "quests" and panel.tab == "puzzle" then
-		addNote("📜 Énigme du Gardien (elle change chaque jour) :\n" .. state.riddle)
+		addNote("📜 Énigme de Mère Poule (elle change chaque jour) :\n" .. state.riddle)
 		local cur = {}
 		for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
 			cur[#cur + 1] = dir .. " " .. Config.RUNES[state.runes[i]]
@@ -590,6 +590,23 @@ function render()
 				end
 			end,
 		})
+		local function replay(kind)
+			return function()
+				local ev = ReplicatedStorage:FindFirstChild("ReplayCinematic")
+				if ev then
+					hidePanel()
+					ev:Fire(kind)
+				else
+					toast("🎬 La cinématique n'est pas disponible pour l'instant.")
+				end
+			end
+		end
+		if Config.Cinematics.replay and Config.cineEnabled("intro") then
+			addRow({ icon = "🎬", title = "Revoir l'intro", desc = "La ferme, Mère Poule et le but du jeu (tu peux la passer).", btn = "Lancer", btnColor = COL.green, onClick = replay("intro") })
+		end
+		if Config.Cinematics.replay and Config.cineEnabled("tutorial") then
+			addRow({ icon = "🎓", title = "Revoir le tutoriel", desc = "Récolte, éclosion et zones en quelques secondes.", btn = "Lancer", btnColor = COL.green, onClick = replay("tutorial") })
+		end
 		addNote(string.format("Œufs volés : %d · Œufs éclos : %d · Vitesse : %s", state.stolen, state.hatched, fmt(player:GetAttribute("Speed") or 0)))
 		addNote(Config.oddsText())
 		addNote("📖 " .. Config.LORE)
@@ -707,8 +724,8 @@ RState.OnClientEvent:Connect(function(snap)
 	updateRuneLabels()
 	if not introChecked then
 		introChecked = true
-		if snap.story.ch == 0 and snap.hatched == 0 then
-			showIntro()
+		if snap.story.ch == 0 and snap.hatched == 0 and not Config.cineEnabled("intro") then
+			showIntro() -- version texte, seulement si la cinématique d'intro est coupée
 		end
 	end
 	if panel then

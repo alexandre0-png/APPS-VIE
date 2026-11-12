@@ -312,6 +312,36 @@ RunService.RenderStepped:Connect(function()
 	end)
 end)
 
+---------------------------------------------------------------- Mère Poule : elle picore (la tête pivote autour du cou)
+local henCache = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	run("hen", function()
+		local t = os.clock()
+		for _, model in ipairs(CollectionService:GetTagged("Hen")) do
+			local body = model.PrimaryPart
+			if body then
+				local c = henCache[model]
+				if not c then
+					c = { parts = {}, seed = model:GetAttribute("Seed") or 0 }
+					for _, name in ipairs({ "HenHead", "HenComb", "HenBeak", "HenWattle", "HenEyeL", "HenEyeR" }) do
+						local p = model:FindFirstChild(name)
+						if p then
+							c.parts[#c.parts + 1] = { part = p, rel = body.CFrame:ToObjectSpace(p.CFrame) }
+						end
+					end
+					henCache[model] = c
+				end
+				local neck = CFrame.new(0, 1.3, -1.2) -- pivot du cou (repère du corps)
+				local rot = neck * CFrame.Angles(-Easing.peck(t, c.seed) * 0.7, 0, 0) * neck:Inverse()
+				local base = body.CFrame
+				for _, e in ipairs(c.parts) do
+					e.part.CFrame = base * rot * e.rel
+				end
+			end
+		end
+	end)
+end)
+
 ---------------------------------------------------------------- Barrières de zone (portails) : pulsation et dissolution à l'ouverture
 local gateState = setmetatable({}, { __mode = "k" })
 

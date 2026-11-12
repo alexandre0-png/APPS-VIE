@@ -19,7 +19,8 @@ local SAVE_RETRIES = 3
 -- v1 : première version (sans champ ver). v2 : + equip, quests, qday, receipts, luckUntil, ver.
 -- v3 : + story { ch, prog } (histoire) et pity (compteur de pitié).
 -- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
-local VERSION = 4
+-- v5 : + cine (cinématiques déjà vues).
+local VERSION = 5
 
 local Data = {}
 Data.VERSION = VERSION
@@ -64,6 +65,7 @@ function Data.default()
 		pity = 0,
 		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
 		ach = {}, -- id de succès -> palier déjà réclamé
+		cine = {}, -- id de cinématique -> true une fois vue ou passée
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -90,6 +92,9 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[4] = function(_saved)
+		-- v4 -> v5 : cine reçoit sa valeur par défaut (aucune cinématique vue : l'intro se jouera une fois).
 	end,
 	[3] = function(saved)
 		-- v3 -> v4 : un nouveau chapitre (énigme) est inséré en position 8. Qui avait déjà réussi 8 chapitres ou plus
@@ -149,6 +154,11 @@ local function merge(saved)
 	if type(saved.puzzle) == "table" then
 		d.puzzle.day = math.floor(sane(saved.puzzle.day, 0))
 		d.puzzle.solved = math.floor(sane(saved.puzzle.solved, 0))
+	end
+	if type(saved.cine) == "table" then
+		for _, id in ipairs(Config.CINE_IDS) do
+			d.cine[id] = saved.cine[id] == true
+		end
 	end
 	if type(saved.ach) == "table" then
 		for _, a in ipairs(Config.ACHIEVEMENTS) do

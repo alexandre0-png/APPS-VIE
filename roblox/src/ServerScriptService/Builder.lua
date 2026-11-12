@@ -347,7 +347,7 @@ function Builder.monument(parent)
 	confirm.RequiresLineOfSight = false
 	confirm:SetAttribute("Kind", "RuneConfirm")
 	confirm.Parent = egg
-	-- Panneau de l'énigme du Gardien (texte mis à jour chaque jour par le serveur), lisible des deux côtés
+	-- Panneau de l'énigme de Mère Poule (texte mis à jour chaque jour par le serveur), lisible des deux côtés
 	local board = part({ Name = "RiddleBoard", Size = Vector3.new(12, 4.6, 0.5), Position = Vector3.new(0, 3.8, 14), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, parent)
 	part({ Name = "RiddlePostL", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(-5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
 	part({ Name = "RiddlePostR", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
@@ -365,7 +365,7 @@ function Builder.monument(parent)
 		title.Font = FONT
 		title.TextSize = 40
 		title.TextColor3 = gold
-		title.Text = "📜 Énigme du Gardien"
+		title.Text = "📜 Énigme de Mère Poule"
 		title.Parent = sg
 		local body = Instance.new("TextLabel")
 		body.BackgroundTransparency = 1
@@ -384,6 +384,35 @@ function Builder.monument(parent)
 	local t = sign(egg, "✨ Le Grand Nid ✨\nReconstruis la Couvée, Chipeur !", gold, 9, 340)
 	t.TextSize = 20
 	return result
+end
+
+---------------------------------------------------------------- Mère Poule (gardienne du Grand Nid, guide de l'histoire)
+-- Les parties de la tête portent un nom préfixé « Hen » : le client les fait picorer (Animations.client.lua) et la cinématique
+-- d'introduction la met en scène (ancre « hen » = tag Hen).
+function Builder.hen(parent)
+	local white, red, orange, dark = Color3.fromRGB(250, 248, 240), Color3.fromRGB(235, 60, 60), Color3.fromRGB(255, 170, 40), Color3.fromRGB(30, 28, 32)
+	local model = Instance.new("Model")
+	model.Name = "MerePoule"
+	local body = ball({ Name = "Body", Size = Vector3.new(4, 4, 4), CFrame = CFrame.new(0, 0, 0), Color = white }, model)
+	model.PrimaryPart = body
+	part({ Name = "Tail", Size = Vector3.new(1.2, 2.2, 0.6), CFrame = CFrame.new(0, 0.8, 2.1) * CFrame.Angles(-0.5, 0, 0), Color = white, CanCollide = false }, model)
+	for _, side in ipairs({ -1, 1 }) do
+		part({ Name = "Wing", Size = Vector3.new(0.3, 2, 2.2), CFrame = CFrame.new(side * 2.05, 0, 0.2) * CFrame.Angles(0, 0, side * 0.15), Color = Color3.fromRGB(238, 232, 220), CanCollide = false }, model)
+		part({ Name = "Leg", Size = Vector3.new(0.3, 1.3, 0.3), CFrame = CFrame.new(side * 0.8, -2.5, 0), Color = orange, CanCollide = false }, model)
+		part({ Name = "Foot", Size = Vector3.new(0.9, 0.2, 1.1), CFrame = CFrame.new(side * 0.8, -3.15, -0.3), Color = orange, CanCollide = false }, model)
+		ball({ Name = "HenEye" .. (side < 0 and "L" or "R"), Size = Vector3.new(0.38, 0.38, 0.38), CFrame = CFrame.new(side * 0.6, 2.55, -2.6), Color = dark }, model)
+	end
+	ball({ Name = "HenHead", Size = Vector3.new(2.3, 2.3, 2.3), CFrame = CFrame.new(0, 2.3, -1.7), Color = white }, model)
+	part({ Name = "HenComb", Size = Vector3.new(0.5, 0.9, 1.2), CFrame = CFrame.new(0, 3.6, -1.7), Color = red, CanCollide = false }, model)
+	part({ Name = "HenBeak", Size = Vector3.new(0.8, 0.5, 0.9), CFrame = CFrame.new(0, 2.15, -3.0), Color = orange, CanCollide = false }, model)
+	ball({ Name = "HenWattle", Size = Vector3.new(0.6, 0.8, 0.5), CFrame = CFrame.new(0, 1.6, -2.8), Color = red }, model)
+	local label = sign(body, "🐔 Mère Poule\nGardienne du Grand Nid", Color3.fromRGB(255, 220, 140), 5.5, 260)
+	label.TextSize = 17
+	model:SetAttribute("Seed", 3)
+	CollectionService:AddTag(model, "Hen")
+	model:PivotTo(CFrame.lookAt(Vector3.new(-9, 3.2, 13), Vector3.new(0, 3.2, 0))) -- regarde le Grand Nid
+	model.Parent = parent
+	return model
 end
 
 ---------------------------------------------------------------- Monde
@@ -460,6 +489,7 @@ function Builder.build()
 	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
 
 	local monument = Builder.monument(world)
+	Builder.hen(world)
 
 	for _ = 1, 38 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
@@ -579,8 +609,7 @@ function Builder.build()
 
 		local pads = {}
 		for idx = 1, 12 do
-			local col, row = (idx - 1) % 4, (idx - 1) // 4
-			local lx, lz = -15 + col * 10, -6 + row * 11
+			local lx, lz = Config.padLocal(idx)
 			local frame = part({ Name = "PadFrame" .. idx, Size = Vector3.new(8.8, 0.3, 8.8), CFrame = cf * CFrame.new(lx, 1.12, lz), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)

@@ -91,6 +91,11 @@ MEMBER_CHECKS = {
     "CollectionService": ["GetTagged", "AddTag", "GetInstanceAddedSignal"],
     "TweenService": ["Create"],
     "Sound": ["SoundId", "Volume", "PlaybackSpeed", "Play"],
+    "UITextSizeConstraint": ["MaxTextSize", "MinTextSize"],
+    "RunService": ["BindToRenderStep", "UnbindFromRenderStep", "IsStudio", "Heartbeat", "RenderStepped"],
+    "UserInputService": ["InputBegan"],
+    "BindableEvent": ["Fire", "Event"],
+    "Instance": ["SetAttribute", "GetAttribute", "GetAttributeChangedSignal", "FindFirstChildOfClass", "FindFirstChild", "Destroy"],
     "Camera": ["FieldOfView", "CFrame", "ViewportSize"],
     "ScreenGui": ["DisplayOrder", "IgnoreGuiInset", "ResetOnSpawn", "ZIndexBehavior"],
     "SpecialMesh": ["Scale", "MeshType"],
@@ -147,7 +152,7 @@ for f in files:
 
 print("[3/5] Remotes client/serveur")
 srv = open(os.path.join(SRC, "ServerScriptService", "Main.server.lua"), encoding="utf-8").read()
-cli = open(os.path.join(SRC, "StarterPlayerScripts", "Client.client.lua"), encoding="utf-8").read()
+cli = "\n".join(open(f, encoding="utf-8").read() for f in sorted(glob.glob(os.path.join(SRC, "StarterPlayerScripts", "*.lua"))))  # tous les scripts client
 handlers = set(re.findall(r"^function actions\.(\w+)", srv, re.M))
 calls = set(re.findall(r'FireServer\("(\w+)"', cli))
 for a in calls - handlers:
