@@ -105,6 +105,8 @@ local function setupTV()
 						part.Color = Color3.fromRGB(g, g, g)
 						task.wait(0.25)
 					end
+					-- Coupure : bref claquement de statique, puis l'écran s'éteint
+					Audio.play("statique_tv", part, { lifetime = 3 })
 					part.Color = Color3.fromRGB(25, 25, 28)
 					tvRunning = false
 				end)

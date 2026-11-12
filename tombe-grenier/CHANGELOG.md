@@ -8,5 +8,6 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Audio : statique de coupure (statique_tv) quand la télévision s'éteint.
 - Graphisme : poussière en suspension dans chaque pièce (Atmosphere.lua, Config.Visual.Dust / DustRate).
 - A_FAIRE_UTILISATEUR.md : liste des seules actions réservées à l'utilisateur.
