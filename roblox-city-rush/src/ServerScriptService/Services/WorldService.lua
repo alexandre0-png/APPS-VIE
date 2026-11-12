@@ -162,7 +162,7 @@ end
 local function lamp(x, z, rotY)
 	mk(fProps, Vector3.new(0.7, 14, 0.7), Vector3.new(x, SW_H + 7, z), rgb(60, 62, 70), Enum.Material.Metal)
 	mk(fProps, Vector3.new(2.4, 0.6, 1.4), CFrame.new(x, SW_H + 14, z) * CFrame.Angles(0, rotY, 0), rgb(255, 235, 170), Enum.Material.Neon, {
-		Tag = "Lit",
+		Tag = "LampHead",
 		CanCollide = false,
 		CastShadow = false,
 	})
@@ -711,6 +711,69 @@ local function computeTaxiStops()
 end
 
 -- ====================================================================
+-- Détails visuels (budget : ~500 parts) : feux tricolores, haies, enseignes de toit, panneaux
+-- ====================================================================
+local function trafficLight(x, z, rotY)
+	local base = CFrame.new(x, 0, z) * CFrame.Angles(0, rotY, 0)
+	mk(fProps, Vector3.new(0.6, 12, 0.6), base * CFrame.new(0, SW_H + 6, 0), rgb(50, 52, 58), Enum.Material.Metal)
+	mk(fProps, Vector3.new(2.2, 5.6, 1.4), base * CFrame.new(0, SW_H + 12.5, 0), rgb(30, 30, 34), Enum.Material.Metal)
+	local colors = { rgb(235, 60, 60), rgb(240, 190, 40), rgb(70, 210, 100) }
+	for i, c in ipairs(colors) do
+		mk(fProps, Vector3.new(1.2, 1.2, 0.3), base * CFrame.new(0, SW_H + 14.2 - (i - 1) * 1.7, -0.75), c, Enum.Material.Neon, { CanCollide = false, CastShadow = false })
+	end
+end
+
+local function hedge(x, z, w, d)
+	mk(fProps, Vector3.new(w, 2.4, d), Vector3.new(x, SW_H + 1.2, z), rgb(52, 120, 56), Enum.Material.Grass)
+	for _ = 1, 2 do
+		mk(fProps, Vector3.new(1.4, 1.4, 1.4), Vector3.new(x + rng:NextNumber(-w / 2, w / 2), SW_H + 2.9, z + rng:NextNumber(-d / 2, d / 2)), rng:NextInteger(0, 1) == 1 and rgb(240, 120, 150) or rgb(250, 220, 90), Enum.Material.SmoothPlastic, { Shape = Enum.PartType.Ball, CanCollide = false, CastShadow = false })
+	end
+end
+
+local function roofSign(cx, cz, h, text, color)
+	mk(fProps, Vector3.new(26, 0.6, 3), Vector3.new(cx, SW_H + h + 3, cz), rgb(40, 42, 50), Enum.Material.Metal, { CanCollide = false })
+	local sg = mk(fDecor, Vector3.new(1, 1, 1), Vector3.new(cx, SW_H + h + 7, cz), rgb(255, 255, 255), Enum.Material.SmoothPlastic, NOCOLLIDE)
+	sg.Transparency = 1
+	sign(sg, text, 0, 220, color)
+end
+
+local function addDetails()
+	-- feux tricolores aux 36 carrefours (un seul poteau par carrefour, coin nord-ouest)
+	for ix = 0, 5 do
+		for iz = 0, 5 do
+			local p = World.RoadNodes[ix][iz]
+			trafficLight(p.X + 24, p.Z + 24, rng:NextInteger(0, 1) * math.pi)
+		end
+	end
+	-- haies et massifs devant les maisons des blocs résidentiels
+	for j = 1, M.Grid do
+		for i = 1, M.Grid do
+			if Config.Districts[j][i] == "residential" then
+				local c = Config.blockCenter(i, j)
+				for _, row in ipairs({ -1, 1 }) do
+					for col = -1, 1 do
+						hedge(c.X + col * 50 - 14, c.Z + row * 38 + row * 15, 8, 2)
+					end
+				end
+			end
+		end
+	end
+	-- enseignes lumineuses sur les toits du centre-ville
+	local names = { "HOTEL", "CAFE", "CINEMA", "BAR", "NEON CITY", "SHOP", "HOTEL RUSH", "GARAGE" }
+	local colors = { rgb(255, 80, 160), rgb(80, 220, 255), rgb(255, 200, 60), rgb(120, 255, 140) }
+	local n = 0
+	for j = 1, M.Grid do
+		for i = 1, M.Grid do
+			if Config.Districts[j][i] == "downtown" and not (i == 3 and j == 2) then
+				n += 1
+				local c = Config.blockCenter(i, j)
+				roofSign(c.X, c.Z - 8, 30, names[(n % #names) + 1], colors[(n % #colors) + 1])
+			end
+		end
+	end
+end
+
+-- ====================================================================
 -- Lumière & jour/nuit
 -- ====================================================================
 local function setupLighting()
@@ -846,6 +909,12 @@ function World.build()
 	addPizzeria(1, 3)
 	addTaxiStand(3, 3)
 	addHideout()
+	if Config.Visual and Config.Visual.Details then
+		local ok, err = pcall(addDetails)
+		if not ok then
+			warn("[World] détails visuels ignorés: " .. tostring(err))
+		end
+	end
 	placeStars()
 	computeParking()
 	computeTaxiStops()

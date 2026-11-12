@@ -238,6 +238,20 @@ Config.Sounds = {
 	crash = "",
 }
 
+-- Réglages visuels (tout peut être coupé après test dans Studio). Quality : "auto" | "low" | "medium" | "high"
+-- "auto" = low sur appareil tactile, high sinon.
+Config.Visual = {
+	Enabled = true, -- coupe tout l'effet client (VisualFX)
+	Details = true, -- détails construits par le serveur (feux, haies, enseignes de toit)
+	Quality = "auto",
+	LampLights = { low = 4, medium = 8, high = 14 }, -- nb max de lampadaires qui éclairent réellement la nuit
+	SirenGlow = true,
+	CrashSparks = true,
+	SpeedTrail = true,
+	CameraShake = true,
+	Grade = true, -- étalonnage couleur selon l'heure
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },
