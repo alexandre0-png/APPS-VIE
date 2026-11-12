@@ -9,6 +9,101 @@
       </Properties>
       <Item class="ModuleScript" referent="2">
         <Properties>
+          <string name="Name">Anim</string>
+          <string name="Source"><![CDATA[-- Anim.luau : fonctions d'animation pures (testables hors Roblox) et garde-fous.
+-- Chaque animation est activable dans Config.Animations et exécutée dans un pcall :
+-- une animation qui échoue ne casse jamais le jeu.
+
+local Config = require(script.Parent.Config)
+
+local Anim = {}
+
+function Anim.enabled(name)
+	local a = Config.Animations
+	return a.master ~= false and a[name] == true
+end
+
+-- Exécute fn(...) seulement si l'animation est active ; capture toute erreur. Retourne true si fn a réussi.
+function Anim.run(name, fn, ...)
+	if not Anim.enabled(name) then
+		return false
+	end
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		warn("[Anim] " .. name .. " : " .. tostring(err))
+	end
+	return ok
+end
+
+function Anim.clamp01(t)
+	if t < 0 then
+		return 0
+	elseif t > 1 then
+		return 1
+	end
+	return t
+end
+
+function Anim.easeOutCubic(t)
+	t = Anim.clamp01(t)
+	return 1 - (1 - t) ^ 3
+end
+
+function Anim.easeOutBack(t)
+	t = Anim.clamp01(t)
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (t - 1) ^ 3 + c1 * (t - 1) ^ 2
+end
+
+function Anim.easeInOutSine(t)
+	t = Anim.clamp01(t)
+	return -(math.cos(math.pi * t) - 1) / 2
+end
+
+-- Respiration : oscillation lente autour de 0, amplitude amp
+function Anim.breath(t, phase, amp)
+	return math.sin(t * 1.6 + phase) * amp
+end
+
+-- Saut : t dans [0,1] -> hauteur (0 au début et à la fin)
+function Anim.hop(t, height)
+	t = Anim.clamp01(t)
+	return math.sin(math.pi * t) * height
+end
+
+-- Série de n sauts sur la durée totale : hauteur à l'instant elapsed (0 hors fenêtre)
+function Anim.hops(elapsed, total, n, height)
+	if elapsed < 0 or elapsed >= total then
+		return 0
+	end
+	local per = total / n
+	return Anim.hop((elapsed % per) / per, height)
+end
+
+-- Compteur animé : valeur affichée entre from et to à la progression t
+function Anim.counter(from, to, t)
+	return from + (to - from) * Anim.easeOutCubic(t)
+end
+
+-- Fossile qui apparaît : retourne décalage vertical et transparence (t dans [0,1])
+function Anim.fossilRise(t)
+	t = Anim.clamp01(t)
+	local y = Anim.easeOutBack(math.min(1, t * 1.6)) * 2.2
+	local alpha = t < 0.7 and 0 or (t - 0.7) / 0.3
+	return y, alpha
+end
+
+-- Porte qui s'ouvre : fraction d'ouverture (0 fermée, 1 ouverte)
+function Anim.door(t)
+	return Anim.easeInOutSine(t)
+end
+
+return Anim
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[-- Config.luau : toutes les données d'équilibrage et de contenu du jeu.
 -- Partagé client/serveur. Aucune logique Roblox ici, seulement des données.
@@ -688,11 +783,32 @@ Config.Riddles = {
 }
 Config.RiddleReward = { fossilsPerLevel = 100, eggEvery = 3 } -- un œuf Jungle tous les 3 jours de série
 
+----------------------------------------------------------------------
+-- ANIMATIONS : chacune peut être désactivée ici (master = false coupe tout)
+----------------------------------------------------------------------
+Config.Animations = {
+	master = true,
+	dinoWalk = true, -- promenade des dinos dans leur enclos
+	dinoBreath = true, -- respiration au repos
+	hatchReaction = true, -- les dinos sautent de joie à l'éclosion
+	digSwing = true, -- coup de pelle
+	digDust = true, -- poussière de fouille
+	fossilReveal = true, -- fossile qui apparaît
+	collectionSpin = true, -- dinos qui tournent dans la collection
+	coinBurst = true, -- pièces qui jaillissent du kiosque
+	arrivalFx = true, -- onde d'arrivée d'un nouveau bâtiment
+	doorOpen = true, -- barrières qui s'ouvrent sur un enclos débloqué
+	panelFade = true, -- fondu des fenêtres
+	staggerIn = true, -- lignes de quêtes qui apparaissent en cascade
+	rewardPop = true, -- notifications qui "popent"
+	counterTween = true, -- compteurs qui défilent
+}
+
 return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="3">
+      <Item class="ModuleScript" referent="4">
         <Properties>
           <string name="Name">DinoFactory</string>
           <string name="Source"><![CDATA[-- DinoFactory.luau : construit un modèle de dinosaure à partir de blocs (serveur + client/Viewport).
@@ -811,7 +927,7 @@ return DinoFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="4">
+      <Item class="ModuleScript" referent="5">
         <Properties>
           <string name="Name">DinoShapes</string>
           <string name="Source"><![CDATA[-- DinoShapes.luau : formes de blocs des dinosaures (données pures, sans API Roblox).
@@ -992,7 +1108,7 @@ return S
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="5">
+      <Item class="ModuleScript" referent="6">
         <Properties>
           <string name="Name">Economy</string>
           <string name="Source"><![CDATA[-- Economy.luau : toute la logique d'équilibrage, pure et testable hors Roblox.
@@ -1310,7 +1426,7 @@ return Economy
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="6">
+      <Item class="ModuleScript" referent="7">
         <Properties>
           <string name="Name">HumanFactory</string>
           <string name="Source"><![CDATA[-- HumanFactory.luau : petit personnage "Roblox classique" fait de blocs (visiteurs, ouvriers).
@@ -1394,7 +1510,7 @@ return HumanFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="7">
+      <Item class="ModuleScript" referent="8">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Remotes.luau : crée (serveur) ou attend (client) les RemoteEvents du jeu.
@@ -1437,7 +1553,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="ModuleScript" referent="9">
         <Properties>
           <string name="Name">Util</string>
           <string name="Source"><![CDATA[-- Util.luau : fonctions utilitaires pures (partagées).
@@ -1572,15 +1688,15 @@ return Util
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="9">
+  <Item class="ServerScriptService" referent="10">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="10">
+    <Item class="Folder" referent="11">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">DataService</string>
           <string name="Source"><![CDATA[-- DataService.luau : chargement / sauvegarde DataStore avec verrou de session, réessais et validation.
@@ -1866,7 +1982,7 @@ return DataService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">EventService</string>
           <string name="Source"><![CDATA[-- EventService.luau : événement serveur "Pluie de météores" (récompense fossiles + boost de revenus).
@@ -1986,7 +2102,7 @@ return EventService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="13">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">GameService</string>
           <string name="Source"><![CDATA[-- GameService.luau : cœur du jeu côté serveur (autorité unique sur toutes les données du joueur).
@@ -2959,7 +3075,7 @@ return GameService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="14">
+      <Item class="ModuleScript" referent="15">
         <Properties>
           <string name="Name">Leaderboard</string>
           <string name="Source"><![CDATA[-- Leaderboard.luau : classement global (OrderedDataStore) des meilleurs parcs, affiché dans le lobby.
@@ -3065,7 +3181,7 @@ return Leaderboard
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="15">
+      <Item class="Script" referent="16">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -3095,7 +3211,7 @@ print("[Dino Dig Park] serveur prêt")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="16">
+      <Item class="ModuleScript" referent="17">
         <Properties>
           <string name="Name">Monetization</string>
           <string name="Source"><![CDATA[-- Monetization.luau : gamepasses et produits développeur (inactifs tant que les IDs valent 0 dans Config).
@@ -3225,7 +3341,7 @@ return Monetization
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="17">
+      <Item class="ModuleScript" referent="18">
         <Properties>
           <string name="Name">PlotService</string>
           <string name="Source"><![CDATA[-- PlotService.luau : attribution des parcelles et synchronisation du monde physique avec les données du joueur.
@@ -3404,7 +3520,7 @@ local function syncLocks(plot, data)
 				lock = { folder = folder, label = label }
 				plot.locks[def.id] = lock
 			elseif owned and lock then
-				lock.folder:Destroy()
+				WorldBuilder.openLock(lock.folder)
 				plot.locks[def.id] = nil
 				lock = nil
 			end
@@ -3579,7 +3695,7 @@ return PlotService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="18">
+      <Item class="ModuleScript" referent="19">
         <Properties>
           <string name="Name">WorldBuilder</string>
           <string name="Source"><![CDATA[-- WorldBuilder.luau : construit tout le monde en blocs Roblox classiques (lobby, parcelles, bâtiments).
@@ -3587,11 +3703,13 @@ return PlotService
 
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local DinoFactory = require(Shared.DinoFactory)
+local Anim = require(Shared.Anim)
 local HumanFactory = require(Shared.HumanFactory)
 
 local W = {}
@@ -3933,6 +4051,24 @@ function W.buildLockedPen(plot, def)
 	anchor.CanCollide = false
 	local label = W.label(anchor, def.name, UDim2.fromOffset(340, 110), 2, Color3.fromRGB(255, 220, 120), 120)
 	return folder, label
+end
+
+-- Barrières qui s'ouvrent (elles s'enfoncent dans le sol) puis disparaissent
+function W.openLock(folder)
+	local opened = Anim.run("doorOpen", function()
+		local info = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		for _, d in ipairs(folder:GetDescendants()) do
+			if d:IsA("BasePart") then
+				TweenService:Create(d, info, { Position = d.Position - Vector3.new(0, 4, 0), Transparency = 1 }):Play()
+			end
+		end
+		task.delay(1, function()
+			folder:Destroy()
+		end)
+	end)
+	if not opened then
+		folder:Destroy()
+	end
 end
 
 function W.buildShop(plot, def)
@@ -4546,29 +4682,31 @@ return W
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="19">
+  <Item class="StarterPlayer" referent="20">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="20">
+    <Item class="StarterPlayerScripts" referent="21">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="21">
+      <Item class="Folder" referent="22">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">Hud</string>
             <string name="Source"><![CDATA[-- Hud.luau : interface permanente (monnaies, boutons de menu, objectif, notifications, boutons contextuels).
 
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Anim = require(Shared.Anim)
 local Util = require(Shared.Util)
 local Remotes = require(Shared.Remotes)
 
@@ -4609,8 +4747,18 @@ local function makePill(parent, icon, order, color)
 	return { frame = f, value = v, scale = sc, last = 0 }
 end
 
-local function setPill(p, value, text)
-	p.value.Text = text
+-- fmt (optionnel) : active le compteur qui défile jusqu'à la nouvelle valeur
+local function setPill(p, value, text, fmt)
+	p.fmt = fmt
+	p.final = text
+	if fmt and Anim.enabled("counterTween") and math.abs(value - p.last) > 0.5 then
+		p.from = p.shown or p.last
+		p.to = value
+		p.t0 = os.clock()
+		p.animating = true
+	elseif not p.animating then
+		p.value.Text = text
+	end
 	if value > p.last + 0.5 then
 		p.scale.Scale = 1.18
 		TweenService:Create(p.scale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
@@ -4635,6 +4783,10 @@ function Hud.toast(text, kind)
 	local l = Ui.label(t, { text = text, size = 18, wrap = true, stroke = true })
 	l.TextTransparency = 1
 	t.BackgroundTransparency = 1
+	Anim.run("rewardPop", function()
+		local sc = Ui.new("UIScale", { Scale = 0.6, Parent = t })
+		TweenService:Create(sc, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end)
 	TweenService:Create(t, TweenInfo.new(0.2), { BackgroundTransparency = 0.1 }):Play()
 	TweenService:Create(l, TweenInfo.new(0.2), { TextTransparency = 0 }):Play()
 	if kind == "bad" then
@@ -4962,6 +5114,29 @@ function Hud.build(root)
 
 	Store.connect(Hud.onState)
 
+	-- compteurs qui défilent
+	RunService.Heartbeat:Connect(function()
+		for _, p in pairs(pills) do
+			if p.animating then
+				Anim.run("counterTween", function()
+					local t = (os.clock() - p.t0) / 0.45
+					if t >= 1 then
+						p.animating = false
+						p.shown = p.to
+						p.value.Text = p.final
+					else
+						p.shown = Anim.counter(p.from, p.to, t)
+						p.value.Text = p.fmt(p.shown)
+					end
+				end)
+				if not Anim.enabled("counterTween") then
+					p.animating = false
+					p.value.Text = p.final
+				end
+			end
+		end
+	end)
+
 	-- rafraîchissement contextuel (5 Hz) : boutons de zone, événement, boost
 	task.spawn(function()
 		while true do
@@ -4972,9 +5147,13 @@ function Hud.build(root)
 end
 
 function Hud.onState(st)
-	setPill(pills.cash, st.cash, Util.formatNumber(st.cash))
-	setPill(pills.fossils, st.fossils, Util.formatNumber(math.floor(st.fossils)))
-	setPill(pills.income, st.income, Util.formatNumber(st.income) .. "/s")
+	setPill(pills.cash, st.cash, Util.formatNumber(st.cash), Util.formatNumber)
+	setPill(pills.fossils, st.fossils, Util.formatNumber(math.floor(st.fossils)), function(v)
+		return Util.formatNumber(math.floor(v))
+	end)
+	setPill(pills.income, st.income, Util.formatNumber(st.income) .. "/s", function(v)
+		return Util.formatNumber(v) .. "/s"
+	end)
 	if st.levelNeed then
 		setPill(pills.level, st.level, "Niv. " .. st.level .. "  (" .. st.levelHave .. "/" .. st.levelNeed .. ")")
 	else
@@ -5043,7 +5222,7 @@ return Hud
 ]]></string>
           </Properties>
         </Item>
-        <Item class="LocalScript" referent="23">
+        <Item class="LocalScript" referent="24">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Main.client.luau : point d'entrée client de Dino Dig Park.
@@ -5072,13 +5251,15 @@ Store.act("RequestState")
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="24">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">Panels</string>
             <string name="Source"><![CDATA[-- Panels.luau : fenêtres du jeu (améliorations, collection, quêtes, cadeau quotidien, renaissance, boutique, choix d'œuf).
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local RunService = game:GetService("RunService")
 local Config = require(Shared.Config)
+local Anim = require(Shared.Anim)
 local Util = require(Shared.Util)
 local Economy = require(Shared.Economy)
 
@@ -5275,6 +5456,12 @@ local function buildCollection()
 		local cnt =
 			Ui.label(f, { text = "", size = 15, sizeUdim = UDim2.new(1, -6, 0, 18), pos = UDim2.fromOffset(0, 170), name = "Count" })
 		cards[d.id] = { def = d, frame = f, holder = vpHolder, name = name, inc = inc, cnt = cnt, shown = nil }
+		f.MouseEnter:Connect(function()
+			cards[d.id].spin = true
+		end)
+		f.MouseLeave:Connect(function()
+			cards[d.id].spin = false
+		end)
 	end
 
 	local function render(st)
@@ -5296,7 +5483,8 @@ local function buildCollection()
 					c:Destroy()
 				end
 				if known or not card.def.secret then
-					Ui.dinoViewport(card.holder, id, { silhouette = not known })
+					local vp, model = Ui.dinoViewport(card.holder, id, { silhouette = not known })
+					card.vp, card.model, card.angle = vp, model, 0
 				else
 					Ui.label(card.holder, { text = "🌌", size = 48 })
 				end
@@ -5323,6 +5511,25 @@ local function buildCollection()
 			or "Réserve vide (" .. st.displayedCount .. "/" .. st.slots .. " exposés)"
 		Ui.setEnabled(sellBtn, n > 0, C.red)
 	end
+	-- les dinos de la collection tournent quand on les survole
+	RunService.Heartbeat:Connect(function(dt)
+		if Ui.openName ~= "collection" then
+			return
+		end
+		Anim.run("collectionSpin", function()
+			for _, card in pairs(cards) do
+				if card.spin and card.model and card.vp then
+					local center = card.vp:GetAttribute("Center")
+					if center then
+						card.angle = card.angle + dt * 2.2
+						card.model:PivotTo(
+							CFrame.new(center) * CFrame.Angles(0, card.angle, 0) * CFrame.new(-center.X, -center.Y, -center.Z)
+						)
+					end
+				end
+			end
+		end)
+	end)
 	-- les viewports ne sont construits qu'à l'ouverture (économie de ressources)
 	p.onOpen = function()
 		if Store.state then
@@ -5912,6 +6119,14 @@ function Panels.build()
 	buildShop()
 	buildEggs()
 	buildStory()
+	for _, name in ipairs({ "quests", "story", "upgrades", "eggs" }) do
+		local panel = Ui.panels[name]
+		if panel then
+			panel.onOpen = function()
+				Ui.staggerIn(panel.body)
+			end
+		end
+	end
 	buildRiddle()
 	buildWelcome()
 end
@@ -5920,7 +6135,7 @@ return Panels
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">Reveal</string>
             <string name="Source"><![CDATA[-- Reveal.luau : animation d'éclosion (œuf qui tremble -> flash -> dino en rotation avec sa rareté).
@@ -6123,7 +6338,7 @@ return Reveal
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">StateStore</string>
             <string name="Source"><![CDATA[-- StateStore.luau : copie locale de l'état envoyé par le serveur + signaux de changement.
@@ -6167,7 +6382,7 @@ return Store
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="27">
+        <Item class="ModuleScript" referent="28">
           <Properties>
             <string name="Name">Ui</string>
             <string name="Source"><![CDATA[-- Ui.luau : thème et petits composants d'interface (tout est construit par code, sans asset externe).
@@ -6180,6 +6395,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local DinoFactory = require(Shared.DinoFactory)
+local Anim = require(Shared.Anim)
 
 local Ui = {}
 
@@ -6387,6 +6603,10 @@ function Ui.openPanel(name)
 	Ui.closePanels()
 	p.dim.Visible = true
 	p.frame.Visible = true
+	Anim.run("panelFade", function()
+		p.dim.BackgroundTransparency = 1
+		TweenService:Create(p.dim, TweenInfo.new(0.2), { BackgroundTransparency = 0.5 }):Play()
+	end)
 	Ui.openName = name
 	if p.onOpen then
 		p.onOpen()
@@ -6397,6 +6617,26 @@ function Ui.openPanel(name)
 		TweenService:Create(sc, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	end
 	Ui.playSound("click", 0.3)
+end
+
+-- Fait apparaître les lignes d'un panneau en cascade (petit "pop" décalé)
+function Ui.staggerIn(container)
+	Anim.run("staggerIn", function()
+		local i = 0
+		for _, row in ipairs(container:GetChildren()) do
+			if row:IsA("Frame") then
+				i = i + 1
+				local sc = row:FindFirstChild("StaggerScale")
+				if not sc then
+					sc = Ui.new("UIScale", { Name = "StaggerScale", Parent = row })
+				end
+				sc.Scale = 0.85
+				task.delay(math.min(i, 8) * 0.05, function()
+					TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				end)
+			end
+		end
+	end)
 end
 
 function Ui.togglePanel(name)
@@ -6524,7 +6764,7 @@ return Ui
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">World</string>
             <string name="Source"><![CDATA[-- World.luau : animations locales (dinos qui se promènent, visiteurs, ouvriers, œufs), effets et rayon-guide.
@@ -6540,6 +6780,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Util = require(Shared.Util)
 local HumanFactory = require(Shared.HumanFactory)
+local Anim = require(Shared.Anim)
 
 local Ui = require(script.Parent.Ui)
 local Store = require(script.Parent.StateStore)
@@ -6659,6 +6900,169 @@ local function emitBurst(color, count)
 	burst:Emit(count)
 end
 
+----------------------------------------------------------------------
+-- Animations ponctuelles (chacune derrière Config.Animations et un pcall)
+----------------------------------------------------------------------
+local cheerAt = nil
+local dinosSeeded = false
+
+function World.cheerAll()
+	cheerAt = os.clock()
+end
+
+local function tweenPart(part, seconds, goal, style, direction)
+	local info = TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out)
+	TweenService:Create(part, info, goal):Play()
+end
+
+local function localPart(name, size, cf, color, material, shape)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanTouch = false
+	p.CanQuery = false
+	p.CastShadow = false
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.Parent = Workspace
+	return p
+end
+
+-- coup de pelle : manche + lame qui s'abattent devant le joueur
+function World.digSwing()
+	local hrp = rootPart()
+	if not hrp then
+		return
+	end
+	local up = hrp.CFrame * CFrame.new(1.6, 1.5, -3) * CFrame.Angles(-1.3, 0, 0)
+	local down = hrp.CFrame * CFrame.new(1.6, -0.6, -3.4) * CFrame.Angles(0.35, 0, 0)
+	local handleOff = CFrame.new(0, 0, 0)
+	local bladeOff = CFrame.new(0, -2.2, 0)
+	local handle = localPart("PelleManche", Vector3.new(0.35, 4.4, 0.35), up * handleOff, Color3.fromRGB(140, 100, 60), Enum.Material.Wood)
+	local blade = localPart("PelleLame", Vector3.new(1.6, 0.4, 1.1), up * bladeOff, Color3.fromRGB(190, 195, 205), Enum.Material.Metal)
+	tweenPart(handle, 0.12, { CFrame = down * handleOff }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	tweenPart(blade, 0.12, { CFrame = down * bladeOff }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	task.delay(0.2, function()
+		tweenPart(handle, 0.15, { Transparency = 1 })
+		tweenPart(blade, 0.15, { Transparency = 1 })
+		task.delay(0.2, function()
+			handle:Destroy()
+			blade:Destroy()
+		end)
+	end)
+end
+
+-- fossile qui sort de terre, tourne puis s'efface
+function World.fossilReveal(crit)
+	local hrp = rootPart()
+	if not hrp then
+		return
+	end
+	local ground = hrp.Position + hrp.CFrame.LookVector * 4 - Vector3.new(0, 2.6, 0)
+	local y = Anim.fossilRise(1)
+	local color = crit and Color3.fromRGB(255, 225, 110) or Color3.fromRGB(240, 232, 205)
+	local bone = localPart("FossileDecouvert", Vector3.new(0.6, 0.6, 2.4), CFrame.new(ground), color, Enum.Material.SmoothPlastic)
+	local knob = localPart(
+		"FossileBout",
+		Vector3.new(1, 1, 1),
+		CFrame.new(ground + Vector3.new(0, 0, 1.2)),
+		color,
+		Enum.Material.SmoothPlastic,
+		Enum.PartType.Ball
+	)
+	local target = CFrame.new(ground + Vector3.new(0, y, 0)) * CFrame.Angles(0, 2.6, 0.5)
+	tweenPart(bone, 0.5, { CFrame = target }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	tweenPart(knob, 0.5, { CFrame = target * CFrame.new(0, 0, 1.2) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	task.delay(0.7, function()
+		tweenPart(bone, 0.3, { Transparency = 1 })
+		tweenPart(knob, 0.3, { Transparency = 1 })
+		task.delay(0.35, function()
+			bone:Destroy()
+			knob:Destroy()
+		end)
+	end)
+end
+
+-- pièces qui jaillissent du kiosque
+function World.coinBurst()
+	if not plotModel then
+		return
+	end
+	local pad = plotModel.Static:FindFirstChild("PadCollecte")
+	if not pad then
+		return
+	end
+	for _ = 1, 7 do
+		local start = pad.Position + Vector3.new(0, 1, 0)
+		local coin = localPart(
+			"PieceKiosque",
+			Vector3.new(0.3, 1.4, 1.4),
+			CFrame.new(start) * CFrame.Angles(0, 0, math.rad(90)),
+			Color3.fromRGB(255, 215, 70),
+			Enum.Material.Neon,
+			Enum.PartType.Cylinder
+		)
+		local apex = start + Vector3.new(rng:NextNumber(-5, 5), rng:NextNumber(6, 10), rng:NextNumber(-5, 5))
+		tweenPart(coin, 0.45, { Position = apex })
+		task.delay(0.45, function()
+			tweenPart(
+				coin,
+				0.35,
+				{ Position = apex - Vector3.new(0, 4, 0), Transparency = 1 },
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.In
+			)
+			task.delay(0.4, function()
+				coin:Destroy()
+			end)
+		end)
+	end
+end
+
+-- onde d'arrivée : anneau lumineux qui s'élargit autour d'un nouveau bâtiment
+function World.arrivalFx(position)
+	local ring = localPart(
+		"OndeArrivee",
+		Vector3.new(0.4, 4, 4),
+		CFrame.new(position + Vector3.new(0, 0.8, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color3.fromRGB(120, 255, 170),
+		Enum.Material.Neon,
+		Enum.PartType.Cylinder
+	)
+	ring.Transparency = 0.2
+	tweenPart(ring, 0.9, { Size = Vector3.new(0.4, 46, 46), Transparency = 1 })
+	task.delay(1, function()
+		ring:Destroy()
+	end)
+	emitBurst(Color3.fromRGB(150, 255, 190), 22)
+end
+
+local watchedDyn = nil
+local function watchArrivals()
+	local dyn = plotModel and plotModel:FindFirstChild("Dynamic")
+	if not dyn or dyn == watchedDyn then
+		return
+	end
+	watchedDyn = dyn
+	dyn.ChildAdded:Connect(function(child)
+		if not dinosSeeded or child.Name == "Dinos" or string.sub(child.Name, 1, 5) == "Lock_" then
+			return
+		end
+		task.delay(0.3, function()
+			local part = child:FindFirstChildWhichIsA("BasePart", true) or child:FindFirstChildWhichIsA("BasePart")
+			if part then
+				Anim.run("arrivalFx", World.arrivalFx, part.Position)
+			end
+		end)
+	end)
+end
+
 local function onFx(fx)
 	if type(fx) ~= "table" then
 		return
@@ -6672,19 +7076,27 @@ local function onFx(fx)
 			World.floatText(text, Color3.fromRGB(250, 240, 210), false)
 		end
 		Ui.playSound("dig", fx.crit and 0.7 or 0.4)
-		local hrp = rootPart()
-		if hrp then
-			ensureEmitter(hrp):Emit(fx.crit and 14 or 6)
+		Anim.run("digDust", function()
+			local hrp = rootPart()
+			if hrp then
+				ensureEmitter(hrp):Emit(fx.crit and 14 or 6)
+			end
+		end)
+		Anim.run("digSwing", World.digSwing)
+		if fx.crit or rng:NextNumber() < 0.25 then
+			Anim.run("fossilReveal", World.fossilReveal, fx.crit)
 		end
 	elseif t == "collect" then
 		World.floatText("+" .. Util.formatNumber(fx.amount) .. " 💰", Ui.colors.green, true)
 		Ui.playSound("buy", 0.5)
 		emitBurst(Color3.fromRGB(255, 225, 90), 10)
+		Anim.run("coinBurst", World.coinBurst)
 	elseif t == "buy" or t == "upgrade" then
 		Ui.playSound("buy", 0.6)
 		emitBurst(t == "buy" and Color3.fromRGB(120, 255, 150) or Color3.fromRGB(255, 170, 60), 18)
 	elseif t == "hatch" then
 		Reveal.show(fx.key, fx.new, fx.egg)
+		Anim.run("hatchReaction", World.cheerAll)
 	elseif t == "openEggs" then
 		Panels.openEggs(fx.slot)
 	elseif t == "meteor" then
@@ -6723,10 +7135,16 @@ local function updateDinos(dt, t, camPos)
 					wait = rng:NextNumber(0, 3),
 					phase = rng:NextNumber(0, 6.28),
 				}
+				if dinosSeeded then
+					st.hopStart = t -- nouveau dino : il saute de joie en arrivant
+				end
 				dinoState[m] = st
 			end
 			if (home - camPos).Magnitude < 220 then
 				local moving = false
+				if not Anim.enabled("dinoWalk") then
+					st.wait = 1e9
+				end
 				if st.wait > 0 then
 					st.wait = st.wait - dt
 				else
@@ -6745,7 +7163,22 @@ local function updateDinos(dt, t, camPos)
 					end
 				end
 				local bob = moving and math.abs(math.sin(t * 7 + st.phase)) * 0.22 or math.sin(t * 1.5 + st.phase) * 0.05
-				m:PivotTo(CFrame.new(st.pos + Vector3.new(0, bob, 0)) * CFrame.Angles(0, st.yaw, 0))
+				local pitch = 0
+				if Anim.enabled("dinoBreath") and not moving then
+					pitch = Anim.breath(t, st.phase, 0.025)
+					bob = bob + Anim.breath(t, st.phase + 1.2, 0.05)
+				end
+				local hop = 0
+				if st.hopStart then
+					hop = Anim.hops(t - st.hopStart, 1.2, 3, 2.2)
+					if t - st.hopStart > 1.3 then
+						st.hopStart = nil
+					end
+				end
+				if cheerAt and Anim.enabled("hatchReaction") then
+					hop = math.max(hop, Anim.hops(t - cheerAt - (st.phase % 0.5), 1.2, 2, 1.6))
+				end
+				m:PivotTo(CFrame.new(st.pos + Vector3.new(0, bob + hop, 0)) * CFrame.Angles(pitch, st.yaw, 0))
 			end
 		end
 	end
@@ -7076,7 +7509,9 @@ function World.start()
 		local t = os.clock()
 		local cam = Workspace.CurrentCamera
 		local camPos = cam and cam.CFrame.Position or Vector3.zero
+		watchArrivals()
 		updateDinos(step, t, camPos)
+		dinosSeeded = true
 		updateWorkers(t)
 		updateEggs(t)
 		updatePads(t)

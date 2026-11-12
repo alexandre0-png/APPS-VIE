@@ -140,6 +140,7 @@ local mound = plot.refs.mounds[1]
 local d0 = s.data.stats.digs
 mound.click.MouseClick:Fire(alice)
 check(s.data.stats.digs == d0 + 1, "clic sur monticule creuse")
+check(M.Workspace:FindFirstChild("PelleManche") ~= nil, "animation : coup de pelle")
 mound.click.MouseClick:Fire(bob) -- un autre joueur n'est pas propriétaire
 check(s.data.stats.digs == d0 + 1, "un autre joueur ne peut pas creuser ici")
 noErrors("fouille")
@@ -237,6 +238,8 @@ s.data.cash = 1e9
 local p3 = plot.pads.cafe
 for _ = 1, 20 do p3.Touched:Fire(hit) end
 check(s.data.cash == 1e9 - Config.BuildableById.cafe.cost, "un seul achat malgré 20 contacts")
+M.advance(0.6)
+check(M.Workspace:FindFirstChild("OndeArrivee") ~= nil, "animation : onde d'arrivée du nouveau bâtiment")
 -- montée de niveau : découvrir tous les dinos ouvre toutes les portes
 local fossilsBeforeLevel = s.data.fossils
 local levelFx = false
@@ -255,6 +258,8 @@ for _, def in ipairs(Config.Buildables) do
 		if pd then pd.Touched:Fire(hit); M.advance(0.7) end
 	end
 end
+M.advance(1.5)
+check(plot.dyn:FindFirstChild("Lock_pen3") == nil and plot.dyn:FindFirstChild("Lock_pen6") == nil, "animation : barrières ouvertes puis retirées")
 local allOwned = true
 for _, def in ipairs(Config.Buildables) do if not s.data.buildables[def.id] then allOwned = false; print("    non acheté : " .. def.id) end end
 check(allOwned, "tous les bâtiments achetables dans l'ordre")
@@ -281,6 +286,7 @@ check(plot.refs.boothLabel.Text:find("💰") ~= nil, "affichage du kiosque")
 local pend = s.data.pending
 plot.refs.boothPad.Touched:Fire(hit)
 check(s.data.cash >= pend - 1 and s.data.pending < 1, "collecte au kiosque")
+check(M.Workspace:FindFirstChild("PieceKiosque") ~= nil, "animation : pièces qui jaillissent du kiosque")
 check(s.data.totalCash >= pend - 1, "total gagné mis à jour")
 -- plafond du kiosque
 s.data.pending = 0
@@ -532,6 +538,33 @@ check(visitorFolder ~= nil and #visitorFolder:GetChildren() >= 1, "des visiteurs
 -- le dino se déplace localement
 local dm = plot.dinoFolder:GetChildren()[1]
 check(dm ~= nil and dm.__pivot ~= nil, "les dinos sont animés")
+
+-- toutes les animations coupées : le jeu fonctionne pareil, sans objets d'animation
+do
+	Config.Animations.master = false
+	M.advance(3)
+	local before = #M.Workspace:GetChildren()
+	Remotes.Fx:FireClient(alice, { t = "dig", amount = 3, crit = true })
+	Remotes.Fx:FireClient(alice, { t = "collect", amount = 5 })
+	Remotes.Fx:FireClient(alice, { t = "hatch", key = "rex", new = false, egg = "basic" })
+	M.advance(1)
+	check(M.Workspace:FindFirstChild("PelleManche") == nil and M.Workspace:FindFirstChild("PieceKiosque") == nil, "master = false : aucun objet d'animation créé")
+	noErrors("animations désactivées")
+	Config.Animations.master = true
+	M.advance(5)
+end
+-- une animation qui plante n'interrompt pas le jeu (pcall)
+do
+	local World = mod(Client, "World")
+	local orig = World.digSwing
+	World.digSwing = function() error("animation cassée (test)") end
+	Remotes.Fx:FireClient(alice, { t = "dig", amount = 1, crit = false })
+	M.advance(1)
+	check(#M.errors == 0, "une animation qui échoue est absorbée par le garde-fou")
+	check(M.warnings ~= nil, "l'échec est signalé par un avertissement")
+	World.digSwing = orig
+	M.errors = {}
+end
 
 ----------------------------------------------------------------------
 section("Sauvegarde / rechargement / verrou de session")

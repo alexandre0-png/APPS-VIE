@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path');
 const fengari = require(process.env.FENGARI_PATH || 'fengari');
 const { lua, lauxlib, lualib, to_luastring } = fengari;
 const src = path.join(__dirname, '..', 'src');
-const files = { Config: 'shared/Config.luau', Util: 'shared/Util.luau', DinoShapes: 'shared/DinoShapes.luau', Economy: 'shared/Economy.luau', DataService: 'server/DataService.luau' };
+const files = { Config: 'shared/Config.luau', Util: 'shared/Util.luau', DinoShapes: 'shared/DinoShapes.luau', Economy: 'shared/Economy.luau', Anim: 'shared/Anim.luau', DataService: 'server/DataService.luau' };
 const L = lauxlib.luaL_newstate();
 lualib.luaL_openlibs(L);
 lua.lua_newtable(L);

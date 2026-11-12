@@ -8,6 +8,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local DinoFactory = require(Shared.DinoFactory)
+local Anim = require(Shared.Anim)
 
 local Ui = {}
 
@@ -215,6 +216,10 @@ function Ui.openPanel(name)
 	Ui.closePanels()
 	p.dim.Visible = true
 	p.frame.Visible = true
+	Anim.run("panelFade", function()
+		p.dim.BackgroundTransparency = 1
+		TweenService:Create(p.dim, TweenInfo.new(0.2), { BackgroundTransparency = 0.5 }):Play()
+	end)
 	Ui.openName = name
 	if p.onOpen then
 		p.onOpen()
@@ -225,6 +230,26 @@ function Ui.openPanel(name)
 		TweenService:Create(sc, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	end
 	Ui.playSound("click", 0.3)
+end
+
+-- Fait apparaître les lignes d'un panneau en cascade (petit "pop" décalé)
+function Ui.staggerIn(container)
+	Anim.run("staggerIn", function()
+		local i = 0
+		for _, row in ipairs(container:GetChildren()) do
+			if row:IsA("Frame") then
+				i = i + 1
+				local sc = row:FindFirstChild("StaggerScale")
+				if not sc then
+					sc = Ui.new("UIScale", { Name = "StaggerScale", Parent = row })
+				end
+				sc.Scale = 0.85
+				task.delay(math.min(i, 8) * 0.05, function()
+					TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				end)
+			end
+		end
+	end)
 end
 
 function Ui.togglePanel(name)

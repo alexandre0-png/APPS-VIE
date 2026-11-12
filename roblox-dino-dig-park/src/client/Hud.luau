@@ -1,11 +1,13 @@
 -- Hud.luau : interface permanente (monnaies, boutons de menu, objectif, notifications, boutons contextuels).
 
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Anim = require(Shared.Anim)
 local Util = require(Shared.Util)
 local Remotes = require(Shared.Remotes)
 
@@ -46,8 +48,18 @@ local function makePill(parent, icon, order, color)
 	return { frame = f, value = v, scale = sc, last = 0 }
 end
 
-local function setPill(p, value, text)
-	p.value.Text = text
+-- fmt (optionnel) : active le compteur qui défile jusqu'à la nouvelle valeur
+local function setPill(p, value, text, fmt)
+	p.fmt = fmt
+	p.final = text
+	if fmt and Anim.enabled("counterTween") and math.abs(value - p.last) > 0.5 then
+		p.from = p.shown or p.last
+		p.to = value
+		p.t0 = os.clock()
+		p.animating = true
+	elseif not p.animating then
+		p.value.Text = text
+	end
 	if value > p.last + 0.5 then
 		p.scale.Scale = 1.18
 		TweenService:Create(p.scale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
@@ -72,6 +84,10 @@ function Hud.toast(text, kind)
 	local l = Ui.label(t, { text = text, size = 18, wrap = true, stroke = true })
 	l.TextTransparency = 1
 	t.BackgroundTransparency = 1
+	Anim.run("rewardPop", function()
+		local sc = Ui.new("UIScale", { Scale = 0.6, Parent = t })
+		TweenService:Create(sc, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end)
 	TweenService:Create(t, TweenInfo.new(0.2), { BackgroundTransparency = 0.1 }):Play()
 	TweenService:Create(l, TweenInfo.new(0.2), { TextTransparency = 0 }):Play()
 	if kind == "bad" then
@@ -399,6 +415,29 @@ function Hud.build(root)
 
 	Store.connect(Hud.onState)
 
+	-- compteurs qui défilent
+	RunService.Heartbeat:Connect(function()
+		for _, p in pairs(pills) do
+			if p.animating then
+				Anim.run("counterTween", function()
+					local t = (os.clock() - p.t0) / 0.45
+					if t >= 1 then
+						p.animating = false
+						p.shown = p.to
+						p.value.Text = p.final
+					else
+						p.shown = Anim.counter(p.from, p.to, t)
+						p.value.Text = p.fmt(p.shown)
+					end
+				end)
+				if not Anim.enabled("counterTween") then
+					p.animating = false
+					p.value.Text = p.final
+				end
+			end
+		end
+	end)
+
 	-- rafraîchissement contextuel (5 Hz) : boutons de zone, événement, boost
 	task.spawn(function()
 		while true do
@@ -409,9 +448,13 @@ function Hud.build(root)
 end
 
 function Hud.onState(st)
-	setPill(pills.cash, st.cash, Util.formatNumber(st.cash))
-	setPill(pills.fossils, st.fossils, Util.formatNumber(math.floor(st.fossils)))
-	setPill(pills.income, st.income, Util.formatNumber(st.income) .. "/s")
+	setPill(pills.cash, st.cash, Util.formatNumber(st.cash), Util.formatNumber)
+	setPill(pills.fossils, st.fossils, Util.formatNumber(math.floor(st.fossils)), function(v)
+		return Util.formatNumber(math.floor(v))
+	end)
+	setPill(pills.income, st.income, Util.formatNumber(st.income) .. "/s", function(v)
+		return Util.formatNumber(v) .. "/s"
+	end)
 	if st.levelNeed then
 		setPill(pills.level, st.level, "Niv. " .. st.level .. "  (" .. st.levelHave .. "/" .. st.levelNeed .. ")")
 	else

@@ -3,11 +3,13 @@
 
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local DinoFactory = require(Shared.DinoFactory)
+local Anim = require(Shared.Anim)
 local HumanFactory = require(Shared.HumanFactory)
 
 local W = {}
@@ -349,6 +351,24 @@ function W.buildLockedPen(plot, def)
 	anchor.CanCollide = false
 	local label = W.label(anchor, def.name, UDim2.fromOffset(340, 110), 2, Color3.fromRGB(255, 220, 120), 120)
 	return folder, label
+end
+
+-- Barrières qui s'ouvrent (elles s'enfoncent dans le sol) puis disparaissent
+function W.openLock(folder)
+	local opened = Anim.run("doorOpen", function()
+		local info = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		for _, d in ipairs(folder:GetDescendants()) do
+			if d:IsA("BasePart") then
+				TweenService:Create(d, info, { Position = d.Position - Vector3.new(0, 4, 0), Transparency = 1 }):Play()
+			end
+		end
+		task.delay(1, function()
+			folder:Destroy()
+		end)
+	end)
+	if not opened then
+		folder:Destroy()
+	end
 end
 
 function W.buildShop(plot, def)

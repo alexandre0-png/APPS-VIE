@@ -174,7 +174,7 @@ local function syncLocks(plot, data)
 				lock = { folder = folder, label = label }
 				plot.locks[def.id] = lock
 			elseif owned and lock then
-				lock.folder:Destroy()
+				WorldBuilder.openLock(lock.folder)
 				plot.locks[def.id] = nil
 				lock = nil
 			end

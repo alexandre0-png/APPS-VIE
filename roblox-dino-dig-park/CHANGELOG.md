@@ -27,3 +27,8 @@
 - Énigme du jour du Professeur : 12 questions sur les dinosaures et le jeu, choix multiple, indice après 2 erreurs, une récompense par jour (fossiles selon le niveau), série de jours, Œuf Jungle tous les 3 jours de série. La bonne réponse n'est jamais envoyée au client : la validation est côté serveur (type, bornes, délai de 1,5 s).
 - Chapitre d'aventure « Le premier mystère » lié aux énigmes résolues.
 - Correction du mini-moteur de test : FireClient n'atteint plus que le joueur visé (il diffusait à tous), ce qui rend les tests client plus fidèles.
+
+## Animations
+- Toutes derrière `Config.Animations` (interrupteur `master` et un par animation) et exécutées via `Anim.run` (pcall + avertissement en cas d'échec) : respiration et marche des dinos, sauts de joie à l'arrivée d'un dino et à l'éclosion, coup de pelle, poussière, fossile qui sort de terre, pièces jaillissant du kiosque, onde lumineuse à l'arrivée d'un bâtiment, barrières d'enclos qui s'enfoncent à l'ouverture, fondu des fenêtres, lignes de quêtes en cascade, pop des notifications, compteurs qui défilent, dinos qui tournent dans la collection.
+- Les fonctions mathématiques (`src/shared/Anim.luau`) sont pures et testées : bornes, monotonie, saut, respiration, porte, fossile, garde-fou.
+- Tout est cosmétique côté client (sauf les barrières, animées côté serveur pour quelques pièces seulement).

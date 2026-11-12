@@ -676,4 +676,25 @@ Config.Riddles = {
 }
 Config.RiddleReward = { fossilsPerLevel = 100, eggEvery = 3 } -- un œuf Jungle tous les 3 jours de série
 
+----------------------------------------------------------------------
+-- ANIMATIONS : chacune peut être désactivée ici (master = false coupe tout)
+----------------------------------------------------------------------
+Config.Animations = {
+	master = true,
+	dinoWalk = true, -- promenade des dinos dans leur enclos
+	dinoBreath = true, -- respiration au repos
+	hatchReaction = true, -- les dinos sautent de joie à l'éclosion
+	digSwing = true, -- coup de pelle
+	digDust = true, -- poussière de fouille
+	fossilReveal = true, -- fossile qui apparaît
+	collectionSpin = true, -- dinos qui tournent dans la collection
+	coinBurst = true, -- pièces qui jaillissent du kiosque
+	arrivalFx = true, -- onde d'arrivée d'un nouveau bâtiment
+	doorOpen = true, -- barrières qui s'ouvrent sur un enclos débloqué
+	panelFade = true, -- fondu des fenêtres
+	staggerIn = true, -- lignes de quêtes qui apparaissent en cascade
+	rewardPop = true, -- notifications qui "popent"
+	counterTween = true, -- compteurs qui défilent
+}
+
 return Config

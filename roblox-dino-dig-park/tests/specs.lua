@@ -36,6 +36,8 @@ local Config = loadModule("Config")
 local Util = loadModule("Util")
 local DinoShapes = loadModule("DinoShapes")
 local Economy = loadModule("Economy")
+warn = function() end
+local Anim = loadModule("Anim")
 
 -- Utilitaires de test
 local function newData()
@@ -171,6 +173,54 @@ for _, d in ipairs(Config.Dinos) do
 	check(wide <= 16.5 or isFlyer, d.id .. " : trop large pour l'emplacement")
 end
 print(string.format("  plus long dino : %.1f studs, plus large : %.1f studs", maxLen, maxWide))
+
+----------------------------------------------------------------------
+section("Animations : logique pure et garde-fous")
+----------------------------------------------------------------------
+for k, v in pairs(Config.Animations) do check(type(v) == "boolean", "Config.Animations." .. k .. " est un booléen") end
+check(Anim.enabled("dinoBreath") and not Anim.enabled("inconnue"), "enabled : vrai si activé, faux si inconnu")
+do
+	local calls = 0
+	check(Anim.run("digSwing", function(a, b) calls = calls + a + b end, 1, 2) == true and calls == 3, "run exécute et transmet les arguments")
+	check(Anim.run("digSwing", function() error("boum") end) == false, "run capture une erreur sans la propager")
+	Config.Animations.digSwing = false
+	check(Anim.run("digSwing", function() calls = 99 end) == false and calls == 3, "animation désactivée : fonction non appelée")
+	Config.Animations.digSwing = true
+	Config.Animations.master = false
+	check(not Anim.enabled("dinoBreath") and Anim.run("dinoBreath", function() calls = 99 end) == false and calls == 3, "master = false coupe tout")
+	Config.Animations.master = true
+end
+check(Anim.easeOutCubic(0) == 0 and Anim.easeOutCubic(1) == 1 and Anim.easeOutCubic(-5) == 0 and Anim.easeOutCubic(9) == 1, "easeOutCubic : bornes")
+check(math.abs(Anim.easeOutBack(0)) < 1e-9 and math.abs(Anim.easeOutBack(1) - 1) < 1e-9, "easeOutBack : bornes")
+do
+	local overshoot, prev = false, -1
+	for i = 0, 100 do
+		local v = Anim.easeOutBack(i / 100)
+		if v > 1.0001 then overshoot = true end
+		local c = Anim.easeOutCubic(i / 100)
+		check(c >= prev, "easeOutCubic croissante")
+		prev = c
+	end
+	check(overshoot, "easeOutBack dépasse 1 (effet de rebond)")
+	local last = -1
+	for i = 0, 100 do local d = Anim.door(i / 100); check(d >= last and d >= 0 and d <= 1, "porte : ouverture monotone entre 0 et 1"); last = d end
+	check(Anim.door(0) == 0 and math.abs(Anim.door(1) - 1) < 1e-9, "porte : fermée puis ouverte")
+end
+check(Anim.hop(0, 3) == 0 and math.abs(Anim.hop(1, 3)) < 1e-9 and math.abs(Anim.hop(0.5, 3) - 3) < 1e-9, "saut : 0 aux extrémités, hauteur au milieu")
+check(Anim.hops(-1, 1, 3, 2) == 0 and Anim.hops(1.5, 1, 3, 2) == 0, "sauts : rien hors de la fenêtre")
+check(Anim.hops(1 / 6, 1, 3, 2) > 1.9 and Anim.hops(1 / 3, 1, 3, 2) < 0.05, "sauts : 3 bonds distincts")
+for i = 0, 200 do check(math.abs(Anim.breath(i / 10, 1.3, 0.05)) <= 0.05 + 1e-9, "respiration bornée par l'amplitude") end
+check(Anim.counter(10, 500, 0) == 10 and Anim.counter(10, 500, 1) == 500 and Anim.counter(500, 10, 1) == 10, "compteur : départ et arrivée")
+do
+	local prev = 0
+	for i = 0, 20 do local v = Anim.counter(0, 100, i / 20); check(v >= prev, "compteur croissant"); prev = v end
+end
+do
+	local y0, a0 = Anim.fossilRise(0)
+	local y1, a1 = Anim.fossilRise(1)
+	local _, aMid = Anim.fossilRise(0.5)
+	check(math.abs(y0) < 1e-9 and a0 == 0 and y1 > 1.5 and a1 == 1 and aMid == 0, "fossile : sort de terre puis s'efface")
+end
 
 ----------------------------------------------------------------------
 section("Util")

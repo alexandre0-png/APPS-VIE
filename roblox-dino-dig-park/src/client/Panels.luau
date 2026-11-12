@@ -1,7 +1,9 @@
 -- Panels.luau : fenêtres du jeu (améliorations, collection, quêtes, cadeau quotidien, renaissance, boutique, choix d'œuf).
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local RunService = game:GetService("RunService")
 local Config = require(Shared.Config)
+local Anim = require(Shared.Anim)
 local Util = require(Shared.Util)
 local Economy = require(Shared.Economy)
 
@@ -198,6 +200,12 @@ local function buildCollection()
 		local cnt =
 			Ui.label(f, { text = "", size = 15, sizeUdim = UDim2.new(1, -6, 0, 18), pos = UDim2.fromOffset(0, 170), name = "Count" })
 		cards[d.id] = { def = d, frame = f, holder = vpHolder, name = name, inc = inc, cnt = cnt, shown = nil }
+		f.MouseEnter:Connect(function()
+			cards[d.id].spin = true
+		end)
+		f.MouseLeave:Connect(function()
+			cards[d.id].spin = false
+		end)
 	end
 
 	local function render(st)
@@ -219,7 +227,8 @@ local function buildCollection()
 					c:Destroy()
 				end
 				if known or not card.def.secret then
-					Ui.dinoViewport(card.holder, id, { silhouette = not known })
+					local vp, model = Ui.dinoViewport(card.holder, id, { silhouette = not known })
+					card.vp, card.model, card.angle = vp, model, 0
 				else
 					Ui.label(card.holder, { text = "🌌", size = 48 })
 				end
@@ -246,6 +255,25 @@ local function buildCollection()
 			or "Réserve vide (" .. st.displayedCount .. "/" .. st.slots .. " exposés)"
 		Ui.setEnabled(sellBtn, n > 0, C.red)
 	end
+	-- les dinos de la collection tournent quand on les survole
+	RunService.Heartbeat:Connect(function(dt)
+		if Ui.openName ~= "collection" then
+			return
+		end
+		Anim.run("collectionSpin", function()
+			for _, card in pairs(cards) do
+				if card.spin and card.model and card.vp then
+					local center = card.vp:GetAttribute("Center")
+					if center then
+						card.angle = card.angle + dt * 2.2
+						card.model:PivotTo(
+							CFrame.new(center) * CFrame.Angles(0, card.angle, 0) * CFrame.new(-center.X, -center.Y, -center.Z)
+						)
+					end
+				end
+			end
+		end)
+	end)
 	-- les viewports ne sont construits qu'à l'ouverture (économie de ressources)
 	p.onOpen = function()
 		if Store.state then
@@ -835,6 +863,14 @@ function Panels.build()
 	buildShop()
 	buildEggs()
 	buildStory()
+	for _, name in ipairs({ "quests", "story", "upgrades", "eggs" }) do
+		local panel = Ui.panels[name]
+		if panel then
+			panel.onOpen = function()
+				Ui.staggerIn(panel.body)
+			end
+		end
+	end
 	buildRiddle()
 	buildWelcome()
 end

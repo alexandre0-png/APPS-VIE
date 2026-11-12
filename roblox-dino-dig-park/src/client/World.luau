@@ -11,6 +11,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Util = require(Shared.Util)
 local HumanFactory = require(Shared.HumanFactory)
+local Anim = require(Shared.Anim)
 
 local Ui = require(script.Parent.Ui)
 local Store = require(script.Parent.StateStore)
@@ -130,6 +131,169 @@ local function emitBurst(color, count)
 	burst:Emit(count)
 end
 
+----------------------------------------------------------------------
+-- Animations ponctuelles (chacune derrière Config.Animations et un pcall)
+----------------------------------------------------------------------
+local cheerAt = nil
+local dinosSeeded = false
+
+function World.cheerAll()
+	cheerAt = os.clock()
+end
+
+local function tweenPart(part, seconds, goal, style, direction)
+	local info = TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out)
+	TweenService:Create(part, info, goal):Play()
+end
+
+local function localPart(name, size, cf, color, material, shape)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanTouch = false
+	p.CanQuery = false
+	p.CastShadow = false
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.Parent = Workspace
+	return p
+end
+
+-- coup de pelle : manche + lame qui s'abattent devant le joueur
+function World.digSwing()
+	local hrp = rootPart()
+	if not hrp then
+		return
+	end
+	local up = hrp.CFrame * CFrame.new(1.6, 1.5, -3) * CFrame.Angles(-1.3, 0, 0)
+	local down = hrp.CFrame * CFrame.new(1.6, -0.6, -3.4) * CFrame.Angles(0.35, 0, 0)
+	local handleOff = CFrame.new(0, 0, 0)
+	local bladeOff = CFrame.new(0, -2.2, 0)
+	local handle = localPart("PelleManche", Vector3.new(0.35, 4.4, 0.35), up * handleOff, Color3.fromRGB(140, 100, 60), Enum.Material.Wood)
+	local blade = localPart("PelleLame", Vector3.new(1.6, 0.4, 1.1), up * bladeOff, Color3.fromRGB(190, 195, 205), Enum.Material.Metal)
+	tweenPart(handle, 0.12, { CFrame = down * handleOff }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	tweenPart(blade, 0.12, { CFrame = down * bladeOff }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	task.delay(0.2, function()
+		tweenPart(handle, 0.15, { Transparency = 1 })
+		tweenPart(blade, 0.15, { Transparency = 1 })
+		task.delay(0.2, function()
+			handle:Destroy()
+			blade:Destroy()
+		end)
+	end)
+end
+
+-- fossile qui sort de terre, tourne puis s'efface
+function World.fossilReveal(crit)
+	local hrp = rootPart()
+	if not hrp then
+		return
+	end
+	local ground = hrp.Position + hrp.CFrame.LookVector * 4 - Vector3.new(0, 2.6, 0)
+	local y = Anim.fossilRise(1)
+	local color = crit and Color3.fromRGB(255, 225, 110) or Color3.fromRGB(240, 232, 205)
+	local bone = localPart("FossileDecouvert", Vector3.new(0.6, 0.6, 2.4), CFrame.new(ground), color, Enum.Material.SmoothPlastic)
+	local knob = localPart(
+		"FossileBout",
+		Vector3.new(1, 1, 1),
+		CFrame.new(ground + Vector3.new(0, 0, 1.2)),
+		color,
+		Enum.Material.SmoothPlastic,
+		Enum.PartType.Ball
+	)
+	local target = CFrame.new(ground + Vector3.new(0, y, 0)) * CFrame.Angles(0, 2.6, 0.5)
+	tweenPart(bone, 0.5, { CFrame = target }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	tweenPart(knob, 0.5, { CFrame = target * CFrame.new(0, 0, 1.2) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	task.delay(0.7, function()
+		tweenPart(bone, 0.3, { Transparency = 1 })
+		tweenPart(knob, 0.3, { Transparency = 1 })
+		task.delay(0.35, function()
+			bone:Destroy()
+			knob:Destroy()
+		end)
+	end)
+end
+
+-- pièces qui jaillissent du kiosque
+function World.coinBurst()
+	if not plotModel then
+		return
+	end
+	local pad = plotModel.Static:FindFirstChild("PadCollecte")
+	if not pad then
+		return
+	end
+	for _ = 1, 7 do
+		local start = pad.Position + Vector3.new(0, 1, 0)
+		local coin = localPart(
+			"PieceKiosque",
+			Vector3.new(0.3, 1.4, 1.4),
+			CFrame.new(start) * CFrame.Angles(0, 0, math.rad(90)),
+			Color3.fromRGB(255, 215, 70),
+			Enum.Material.Neon,
+			Enum.PartType.Cylinder
+		)
+		local apex = start + Vector3.new(rng:NextNumber(-5, 5), rng:NextNumber(6, 10), rng:NextNumber(-5, 5))
+		tweenPart(coin, 0.45, { Position = apex })
+		task.delay(0.45, function()
+			tweenPart(
+				coin,
+				0.35,
+				{ Position = apex - Vector3.new(0, 4, 0), Transparency = 1 },
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.In
+			)
+			task.delay(0.4, function()
+				coin:Destroy()
+			end)
+		end)
+	end
+end
+
+-- onde d'arrivée : anneau lumineux qui s'élargit autour d'un nouveau bâtiment
+function World.arrivalFx(position)
+	local ring = localPart(
+		"OndeArrivee",
+		Vector3.new(0.4, 4, 4),
+		CFrame.new(position + Vector3.new(0, 0.8, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color3.fromRGB(120, 255, 170),
+		Enum.Material.Neon,
+		Enum.PartType.Cylinder
+	)
+	ring.Transparency = 0.2
+	tweenPart(ring, 0.9, { Size = Vector3.new(0.4, 46, 46), Transparency = 1 })
+	task.delay(1, function()
+		ring:Destroy()
+	end)
+	emitBurst(Color3.fromRGB(150, 255, 190), 22)
+end
+
+local watchedDyn = nil
+local function watchArrivals()
+	local dyn = plotModel and plotModel:FindFirstChild("Dynamic")
+	if not dyn or dyn == watchedDyn then
+		return
+	end
+	watchedDyn = dyn
+	dyn.ChildAdded:Connect(function(child)
+		if not dinosSeeded or child.Name == "Dinos" or string.sub(child.Name, 1, 5) == "Lock_" then
+			return
+		end
+		task.delay(0.3, function()
+			local part = child:FindFirstChildWhichIsA("BasePart", true) or child:FindFirstChildWhichIsA("BasePart")
+			if part then
+				Anim.run("arrivalFx", World.arrivalFx, part.Position)
+			end
+		end)
+	end)
+end
+
 local function onFx(fx)
 	if type(fx) ~= "table" then
 		return
@@ -143,19 +307,27 @@ local function onFx(fx)
 			World.floatText(text, Color3.fromRGB(250, 240, 210), false)
 		end
 		Ui.playSound("dig", fx.crit and 0.7 or 0.4)
-		local hrp = rootPart()
-		if hrp then
-			ensureEmitter(hrp):Emit(fx.crit and 14 or 6)
+		Anim.run("digDust", function()
+			local hrp = rootPart()
+			if hrp then
+				ensureEmitter(hrp):Emit(fx.crit and 14 or 6)
+			end
+		end)
+		Anim.run("digSwing", World.digSwing)
+		if fx.crit or rng:NextNumber() < 0.25 then
+			Anim.run("fossilReveal", World.fossilReveal, fx.crit)
 		end
 	elseif t == "collect" then
 		World.floatText("+" .. Util.formatNumber(fx.amount) .. " 💰", Ui.colors.green, true)
 		Ui.playSound("buy", 0.5)
 		emitBurst(Color3.fromRGB(255, 225, 90), 10)
+		Anim.run("coinBurst", World.coinBurst)
 	elseif t == "buy" or t == "upgrade" then
 		Ui.playSound("buy", 0.6)
 		emitBurst(t == "buy" and Color3.fromRGB(120, 255, 150) or Color3.fromRGB(255, 170, 60), 18)
 	elseif t == "hatch" then
 		Reveal.show(fx.key, fx.new, fx.egg)
+		Anim.run("hatchReaction", World.cheerAll)
 	elseif t == "openEggs" then
 		Panels.openEggs(fx.slot)
 	elseif t == "meteor" then
@@ -194,10 +366,16 @@ local function updateDinos(dt, t, camPos)
 					wait = rng:NextNumber(0, 3),
 					phase = rng:NextNumber(0, 6.28),
 				}
+				if dinosSeeded then
+					st.hopStart = t -- nouveau dino : il saute de joie en arrivant
+				end
 				dinoState[m] = st
 			end
 			if (home - camPos).Magnitude < 220 then
 				local moving = false
+				if not Anim.enabled("dinoWalk") then
+					st.wait = 1e9
+				end
 				if st.wait > 0 then
 					st.wait = st.wait - dt
 				else
@@ -216,7 +394,22 @@ local function updateDinos(dt, t, camPos)
 					end
 				end
 				local bob = moving and math.abs(math.sin(t * 7 + st.phase)) * 0.22 or math.sin(t * 1.5 + st.phase) * 0.05
-				m:PivotTo(CFrame.new(st.pos + Vector3.new(0, bob, 0)) * CFrame.Angles(0, st.yaw, 0))
+				local pitch = 0
+				if Anim.enabled("dinoBreath") and not moving then
+					pitch = Anim.breath(t, st.phase, 0.025)
+					bob = bob + Anim.breath(t, st.phase + 1.2, 0.05)
+				end
+				local hop = 0
+				if st.hopStart then
+					hop = Anim.hops(t - st.hopStart, 1.2, 3, 2.2)
+					if t - st.hopStart > 1.3 then
+						st.hopStart = nil
+					end
+				end
+				if cheerAt and Anim.enabled("hatchReaction") then
+					hop = math.max(hop, Anim.hops(t - cheerAt - (st.phase % 0.5), 1.2, 2, 1.6))
+				end
+				m:PivotTo(CFrame.new(st.pos + Vector3.new(0, bob + hop, 0)) * CFrame.Angles(pitch, st.yaw, 0))
 			end
 		end
 	end
@@ -547,7 +740,9 @@ function World.start()
 		local t = os.clock()
 		local cam = Workspace.CurrentCamera
 		local camPos = cam and cam.CFrame.Position or Vector3.zero
+		watchArrivals()
 		updateDinos(step, t, camPos)
+		dinosSeeded = true
 		updateWorkers(t)
 		updateEggs(t)
 		updatePads(t)

@@ -10,6 +10,7 @@ Mis à jour : tout le reste (code, visuels, textes, build) est fait. Détail pas
   - [ ] la fouille (bouton ⛏, touche F, bouton X de manette), l'éclosion, les achats, le kiosque
   - [ ] les enclos fermés « 🔒 Niveau N » qui s'ouvrent après découverte de dinos
   - [ ] le panneau Aventure, l'énigme du jour (bouton 🧩), les quêtes, le cadeau quotidien, la renaissance
+  - [ ] les animations (dans `Config.Animations`, chacune désactivable) : respiration et sauts des dinos, coup de pelle, fossile qui sort de terre, pièces du kiosque, onde d'arrivée d'un bâtiment, barrières qui s'ouvrent, fondu des fenêtres, compteurs qui défilent ; vérifie la fluidité sur téléphone et coupe celles qui ralentissent
   - [ ] l'énigme change bien le lendemain (ou change l'heure de ton PC pour tester) et la série se cumule
   - [ ] les dinos longs (Spino, Rex Cristal) restent dans leur enclos
   - [ ] la sauvegarde : quitte puis reviens, la progression est conservée
