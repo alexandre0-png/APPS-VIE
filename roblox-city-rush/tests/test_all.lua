@@ -718,6 +718,19 @@ test("CinematicService : une seule fois, réglages, inconnues, sans profil", fun
 	C.Cinematics.PlayOnce = false; eq(Cin.play(p, "intro"), true, "rejouable si PlayOnce = false"); C.Cinematics.PlayOnce = true
 	local ghost = join(M, "CI2", false); H.ds.failLoad = true; local nop = H.addPlayer("CI3"); H.advance(0.2); eq(Cin.play(nop, "intro"), false, "sans profil")
 end)
+test("CinematicService : une erreur interne ne remonte jamais au gameplay", function()
+	local M = bootGame(); local Cin = H.mod("CinematicService"); local p = join(M, "CI5"); local C = M.Config
+	local saved = C.Cinematics.Sequences
+	C.Cinematics.Sequences = nil
+	local ok, res = pcall(Cin.play, p, "intro"); eq(ok, true, "pas d'erreur propagée"); eq(res, false); truthy(#H.warnings > 0, "avertissement émis")
+	C.Cinematics.Sequences = saved
+	M.Data.get(p).Seen = "corrompu"
+	ok, res = pcall(Cin.play, p, "intro"); eq(ok, true); eq(res, false, "profil corrompu : refus propre")
+	M.Data.get(p).Seen = {}
+	-- l'appelant (première poursuite) continue normalement même si la cinématique échoue
+	C.Cinematics.Sequences = nil; M.Wanted.addHeat(p, 25); eq(M.Wanted.getStars(p), 2, "la recherche monte malgré l'échec"); C.Cinematics.Sequences = saved
+	eq(Cin.play(p, "intro"), true, "fonctionne de nouveau ensuite"); eq(M.Data.get(p).Seen.intro, true)
+end)
 test("cinématiques : seule la première poursuite déclenche une cinématique en jeu", function()
 	local M = bootGame(); M.Story = H.mod("StoryService"); M.Story.init(); M.Story.start()
 	local p = join(M, "CI4"); local ids = function() local out = {}; for _, f in ipairs(H.remote("Cinematic")._fired) do out[#out + 1] = f.args[1] end; return table.concat(out, ",") end

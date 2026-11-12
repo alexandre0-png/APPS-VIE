@@ -788,8 +788,7 @@ local RemoteService = require(script.Parent.RemoteService)
 
 local CinematicService = {}
 
--- Retourne true si la cinématique a été envoyée
-function CinematicService.play(player, id)
+local function tryPlay(player, id)
 	local cfg = Config.Cinematics
 	if not cfg.Enabled then
 		return false
@@ -806,10 +805,21 @@ function CinematicService.play(player, id)
 	if cfg.PlayOnce and profile.Seen[id] then
 		return false
 	end
+	RemoteService.fire("Cinematic", player, id)
 	profile.Seen[id] = true
 	DataService.markDirty(player)
-	RemoteService.fire("Cinematic", player, id)
 	return true
+end
+
+-- Retourne true si la cinématique a été envoyée. Ne lève jamais d'erreur : une cinématique ne doit
+-- jamais bloquer ou casser le gameplay (poursuite, mission, connexion...).
+function CinematicService.play(player, id)
+	local ok, result = pcall(tryPlay, player, id)
+	if not ok then
+		warn("[CinematicService] " .. tostring(id) .. " ignorée: " .. tostring(result))
+		return false
+	end
+	return result
 end
 
 return CinematicService
