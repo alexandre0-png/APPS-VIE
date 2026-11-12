@@ -252,6 +252,17 @@ Config.Visual = {
 	Grade = true, -- étalonnage couleur selon l'heure
 }
 
+-- Animations (chacune activable ; tout est visuel et local, protégé par pcall)
+Config.Animations = {
+	Enabled = true,
+	Vehicle = { Lean = true, Suspension = true, Launch = true, Drift = true, Door = true, Horn = true },
+	Police = { Cuffs = true },
+	UI = { MenuTransitions = true, RewardPop = true, MissionSlide = true, Journal = true },
+	MaxLeanDegrees = 4.5,
+	DriftSteerThreshold = 0.6,
+	DriftSpeedRatio = 0.55,
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },

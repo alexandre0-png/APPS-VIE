@@ -17,6 +17,7 @@ local UI = require(script.Parent.UI)
 local State = require(script.Parent.State)
 local MapView = require(script.Parent.MapView)
 local VehicleController = require(script.Parent.VehicleController)
+local Animations = require(script.Parent.Animations)
 
 local Hud = {}
 local T = UI.Theme
@@ -57,6 +58,9 @@ local function toast(text, kind)
 	})
 	f.BackgroundTransparency = 1
 	UI.tween(f, TweenInfo.new(0.2), { BackgroundTransparency = 0.1 })
+	if Animations.on("UI", "RewardPop") then
+		Animations.pop(f, kind == "levelup" and 0.4 or 0.7, 0.4)
+	end
 	if kind == "levelup" or kind == "star" or kind == "good" or kind == "achv" then
 		ping()
 	end
@@ -208,6 +212,14 @@ local function onState(d)
 	refs.level.Text = "Niv. " .. d.Level
 	refs.xpFill.Size = UDim2.fromScale(math.clamp(d.XP / d.XPNeed, 0, 1), 1)
 	refs.xpText.Text = string.format("%d / %d XP", d.XP, d.XPNeed)
+	if refs.lastCash and d.Cash > refs.lastCash and Animations.on("UI", "RewardPop") then
+		Animations.pop(refs.cash, 1.25, 0.35)
+		refs.cash.TextColor3 = Color3.fromRGB(180, 255, 200)
+		task.delay(0.4, function()
+			refs.cash.TextColor3 = T.Good
+		end)
+	end
+	refs.lastCash = d.Cash
 	refs.cash.Text = Util.formatCash(d.Cash)
 	refs.vip.Text = d.Vip and "VIP" or ""
 	refs.xp2.Text = d.DoubleXP and "XP x2 !" or ""
@@ -238,7 +250,12 @@ local function onMission(m)
 		refs.missionPanel.Visible = false
 		return
 	end
+	local wasVisible = refs.missionPanel.Visible
 	refs.missionPanel.Visible = true
+	if not wasVisible and Animations.on("UI", "MissionSlide") then
+		refs.missionPanel.Position = UDim2.new(1, 300, 0, 114)
+		UI.tween(refs.missionPanel, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(1, -10, 0, 114) })
+	end
 	refs.mTitle.Text = m.title
 	refs.mText.Text = m.text
 	refs.mReward.Text = "Gain : " .. Util.formatCash(m.reward) .. (m.steps > 1 and m.type == "race" and string.format("  (point %d/%d)", m.step, m.steps) or "")
@@ -287,6 +304,7 @@ end
 
 local function onBusted(lost)
 	refs.busted.Visible = true
+	Animations.playCuffs(refs.busted)
 	refs.bustedSub.Text = lost > 0 and ("Amende : " .. Util.formatCash(lost)) or "Tu t'en sors sans amende."
 	refs.busted.BackgroundTransparency = 0.2
 	UI.tween(refs.busted, TweenInfo.new(2.6), { BackgroundTransparency = 1 })

@@ -11,6 +11,10 @@
 Tout est dans `Config.Visual` (`src/ReplicatedStorage/Shared/Config.lua`) : `Enabled`, `Details`, `Quality` (auto/low/medium/high), `LampLights`, `SirenGlow`, `CrashSparks`, `SpeedTrail`, `CameraShake`, `Grade`.
 Si les performances mobiles sont insuffisantes : `Quality = "low"`, `Details = false`, ou `Enabled = false`.
 
+### Animations à valider visuellement
+`Config.Animations` (activer/couper chaque animation) : roulis et suspension de caméra, dérapage (fumée), démarrage, porte conducteur, éclair de phares au klaxon (H), menottes à l'arrestation, ouverture des menus, pop des gains, arrivée des missions, journal (chiffres + texte tapé).
+Les animations sont locales (visibles par le joueur concerné). Si la caméra paraît trop penchée : réduire `MaxLeanDegrees`.
+
 ## 2. Publication (Open Cloud / Creator Hub)
 - [ ] Créer une expérience vide dans le Creator Hub -> noter **universeId** et **placeId**.
 - [ ] Fournir une clé API Open Cloud (jamais dans le dépôt) : variable `ROBLOX_API_KEY`, permissions `universe-places:write`, `universe.developer-product:write`, `universe.game-pass:write`.

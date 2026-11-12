@@ -132,7 +132,7 @@ local function startDriving(hum, seat)
 		end
 
 		camera.FieldOfView = camera.FieldOfView + ((70 + math.clamp(math.abs(fwd) / maxSpeed, 0, 1.3) * 16 + (boosting and 6 or 0)) - camera.FieldOfView) * math.min(1, dt * 4)
-		VehicleController.Updated:Fire(math.abs(fwd), boost / Config.BoostMax, true)
+		VehicleController.Updated:Fire(math.abs(fwd), boost / Config.BoostMax, true, steer, throttle, maxSpeed, fwd)
 	end)
 end
 

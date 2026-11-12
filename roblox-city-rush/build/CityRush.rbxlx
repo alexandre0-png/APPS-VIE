@@ -1,5 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">640</int><float name="Gravity">196.2</float></Properties></Item><Item class="Lighting" referent="RBX1"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><float name="ClockTime">14</float><float name="Brightness">2.5</float><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX6"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX5"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--[[
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">640</int><float name="Gravity">196.2</float></Properties></Item><Item class="Lighting" referent="RBX1"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><float name="ClockTime">14</float><float name="Brightness">2.5</float><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX7"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX6"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[--[[
+	AnimMath : fonctions pures des animations (testables sans Roblox).
+]]
+
+local AnimMath = {}
+
+local function clamp(x, a, b)
+	return math.max(a, math.min(b, x))
+end
+
+-- Roulis de caméra en degrés selon le braquage (-1..1) et la vitesse ; 0 à l'arrêt ; vers l'intérieur du virage
+function AnimMath.leanDegrees(steer, speed, maxSpeed, maxDeg)
+	if maxSpeed <= 0 then
+		return 0
+	end
+	local ratio = clamp(math.abs(speed) / maxSpeed, 0, 1.3)
+	local speedFactor = clamp((math.abs(speed) - 8) / 30, 0, 1) * ratio
+	return clamp(steer, -1, 1) * maxDeg * speedFactor
+end
+
+-- Tangage de suspension en degrés : la caméra plonge au freinage, se cabre à l'accélération (accel en studs/s²)
+function AnimMath.pitchDegrees(accel, maxDeg)
+	return clamp(-accel / 90, -1, 1) * maxDeg * -1
+end
+
+-- Dérapage stylisé : fort braquage à grande vitesse. Retourne (actif, intensité 0..1)
+function AnimMath.drift(steer, speed, maxSpeed, steerThreshold, speedRatio)
+	if maxSpeed <= 0 then
+		return false, 0
+	end
+	local s = math.abs(steer)
+	local r = math.abs(speed) / maxSpeed
+	if s >= steerThreshold and r >= speedRatio then
+		local intensity = clamp(((s - steerThreshold) / (1 - steerThreshold + 1e-6)) * 0.5 + (r - speedRatio) * 1.2, 0.15, 1)
+		return true, intensity
+	end
+	return false, 0
+end
+
+-- Effet de démarrage : accélération franche depuis (presque) l'arrêt
+function AnimMath.launch(prevSpeed, speed, throttle)
+	return throttle > 0.6 and prevSpeed < 6 and speed - prevSpeed > 1.5
+end
+
+-- Rebond "pop" (easeOutBack) de 0 à 1 : t dans [0,1]
+function AnimMath.popScale(t)
+	t = clamp(t, 0, 1)
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (t - 1) ^ 3 + c1 * (t - 1) ^ 2
+end
+
+-- Machine à écrire (UTF-8 sûr) : texte visible à l'instant t pour cps caractères/s
+function AnimMath.typewriter(text, t, cps)
+	local n = utf8.len(text) or #text
+	local shown = clamp(math.floor(t * cps), 0, n)
+	if shown >= n then
+		return text
+	end
+	if shown <= 0 then
+		return ""
+	end
+	local byte = utf8.offset(text, shown + 1)
+	return text:sub(1, (byte or #text + 1) - 1)
+end
+
+-- Lissage exponentiel indépendant du framerate
+function AnimMath.smooth(current, target, dt, rate)
+	return current + (target - current) * (1 - math.exp(-rate * dt))
+end
+
+-- Angle de la porte (degrés) à l'instant t pour une ouverture puis fermeture sur `duration` secondes
+function AnimMath.doorAngle(t, duration, openDeg)
+	if duration <= 0 then
+		return 0
+	end
+	local p = clamp(t / duration, 0, 1)
+	if p < 0.4 then
+		return openDeg * (p / 0.4)
+	elseif p < 0.6 then
+		return openDeg
+	end
+	return openDeg * (1 - (p - 0.6) / 0.4)
+end
+
+return AnimMath
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--[[
 	Config.lua : toutes les données d'équilibrage et de design du jeu CITY RUSH.
 	Module partagé serveur + client. Aucune logique de jeu ici, uniquement des données et des helpers purs.
 ]]
@@ -253,6 +338,17 @@ Config.Visual = {
 	Grade = true, -- étalonnage couleur selon l'heure
 }
 
+-- Animations (chacune activable ; tout est visuel et local, protégé par pcall)
+Config.Animations = {
+	Enabled = true,
+	Vehicle = { Lean = true, Suspension = true, Launch = true, Drift = true, Door = true, Horn = true },
+	Police = { Cuffs = true },
+	UI = { MenuTransitions = true, RewardPop = true, MissionSlide = true, Journal = true },
+	MaxLeanDegrees = 4.5,
+	DriftSteerThreshold = 0.6,
+	DriftSpeedRatio = 0.55,
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },
@@ -280,7 +376,7 @@ Config.Theme = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">MonetizationIds</string><ProtectedString name="Source"><![CDATA[-- Rempli automatiquement par tools/publish.py (setup-monetization). 0 = non configuré.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">MonetizationIds</string><ProtectedString name="Source"><![CDATA[-- Rempli automatiquement par tools/publish.py (setup-monetization). 0 = non configuré.
 return {
 	Products = {
 		cash_s = 0,
@@ -292,7 +388,7 @@ return {
 		BOOST = 0,
 	},
 }
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
 	Util.lua : petites fonctions pures partagées.
 ]]
 
@@ -407,7 +503,7 @@ function Util.reconcile(t, defaults)
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX23"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX7"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX24"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX8"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
 	Main.server.lua : point d'entrée serveur de CITY RUSH.
 	Ordre : remotes -> données -> économie -> monde -> services dépendants -> boucles -> apparition des joueurs.
 ]]
@@ -496,7 +592,7 @@ LeaderboardService.start(World)
 
 workspace:SetAttribute("WorldReady", true)
 print("[CityRush] Serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX22"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX23"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
 	CollectibleService : 30 étoiles dorées cachées dans la ville (stockées par joueur).
 	Détection par proximité côté serveur (aucune confiance accordée au client).
 ]]
@@ -608,7 +704,7 @@ function CollectibleService.start()
 end
 
 return CollectibleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
 	DataService : chargement / sauvegarde des profils joueurs (DataStore).
 	- Verrou de session (JobId) pour éviter la duplication entre serveurs
 	- Réessais avec pcall, sauvegarde automatique, sauvegarde à la fermeture
@@ -844,7 +940,7 @@ function DataService.getBoard()
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source"><![CDATA[--[[
 	EconomyService : argent, XP/niveaux, statistiques, succès, récompense quotidienne,
 	achat de véhicules, état envoyé au client.
 	Toutes les modifications d'état passent par ici (autorité serveur).
@@ -1227,7 +1323,7 @@ function EconomyService.init()
 end
 
 return EconomyService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--[[
 	EventService : événements mondiaux récurrents
 	- Largage de caisses : des caisses d'argent apparaissent dans la ville, premier arrivé premier servi
 	- Heure double XP
@@ -1360,7 +1456,7 @@ function EventService.start(world)
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--[[
 	LeaderboardService : classement mondial de l'argent (OrderedDataStore)
 	affiché sur le panneau de la place centrale et dans le menu Profil.
 ]]
@@ -1488,7 +1584,7 @@ function LeaderboardService.start(world)
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">MissionService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">MissionService</string><ProtectedString name="Source"><![CDATA[--[[
 	MissionService : livraison, taxi, course de rue, braquage.
 	Tout est validé côté serveur : positions des objectifs, temps, récompenses.
 	Le client ne reçoit que l'état d'affichage (titre, objectif, position, échéance).
@@ -1901,7 +1997,7 @@ function MissionService.start()
 end
 
 return MissionService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--[[
 	MonetizationService : achats intégrés (Developer Products) et Game Passes.
 	- ProcessReceipt idempotent (reçus déjà traités mémorisés dans le profil)
 	- Les IDs sont dans MonetizationIds (remplis par tools/publish.py)
@@ -2012,7 +2108,7 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">PedestrianService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">PedestrianService</string><ProtectedString name="Source"><![CDATA[--[[
 	PedestrianService : piétons qui se promènent sur les trottoirs, rigs R15 classiques Roblox,
 	renversements (étourdis, sans violence), billets lâchés ; fabrique aussi les rigs de policiers.
 ]]
@@ -2315,7 +2411,7 @@ function Pedestrians.start()
 end
 
 return Pedestrians
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">RemoteService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">RemoteService</string><ProtectedString name="Source"><![CDATA[--[[
 	RemoteService : crée tous les RemoteEvents et fournit une connexion sécurisée
 	(limite de fréquence par joueur + validation du type des arguments).
 ]]
@@ -2403,7 +2499,7 @@ function RemoteService.on(name, cooldown, validator, handler)
 end
 
 return RemoteService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
 	StoryService : "L'Affaire du Coffre". Quatre énigmes à résoudre dans l'ordre en se rendant sur place
 	(détection côté serveur), chacune révèle un chiffre ; le code à 4 chiffres ouvre le coffre final.
 	Le client ne peut ni sauter de chapitre ni deviner le code sans les chiffres : 2 s entre deux essais,
@@ -2484,7 +2580,7 @@ function StoryService.start()
 end
 
 return StoryService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleBuilder : construit les modèles de voitures (blocs Roblox) et leur physique "arcade".
 
 	Physique : 1 LinearVelocity en mode Plan (vitesse avant + adhérence latérale nulle)
@@ -2730,6 +2826,27 @@ function VehicleBuilder.build(spec, color, opts)
 		av.ReactionTorqueEnabled = false
 		av.Parent = chassis
 
+		-- porte conducteur : panneau fixé par un Weld (hinge animé côté client, purement visuel)
+		local door = Instance.new("Part")
+		door.Name = "DoorL"
+		door.Size = Vector3.new(0.25, 2.2, 3.2)
+		door.CFrame = CFrame.new(-(W / 2 + 0.1), 1.2, seatZ)
+		door.Color = color
+		door.Material = Enum.Material.SmoothPlastic
+		door.CanCollide = false
+		door.CanQuery = false
+		door.Massless = true
+		door.TopSurface = Enum.SurfaceType.Smooth
+		door.BottomSurface = Enum.SurfaceType.Smooth
+		door.Parent = model
+		local hinge = Instance.new("Weld")
+		hinge.Name = "DoorHinge"
+		hinge.Part0 = chassis
+		hinge.Part1 = door
+		hinge.C0 = CFrame.new(-(W / 2 + 0.1), 1.2, seatZ - 1.6)
+		hinge.C1 = CFrame.new(0, 0, -1.6)
+		hinge.Parent = door
+
 		model:SetAttribute("CRVehicle", true)
 		model:SetAttribute("VehicleId", spec.id)
 		model:SetAttribute("MaxSpeed", spec.maxSpeed)
@@ -2748,7 +2865,7 @@ end
 VehicleBuilder.RideHeight = 2.2
 
 return VehicleBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleService : apparition / suppression des véhicules, voitures publiques garées dans la rue,
 	verrouillage du siège conducteur, détection des collisions avec piétons et mobilier,
 	distance parcourue.
@@ -3110,7 +3227,7 @@ function VehicleService.start()
 end
 
 return VehicleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
 	WantedService : niveau de recherche (0-5 étoiles), policiers à pied et voitures de police (IA),
 	arrestations, Pay'n'Spray. Toute la logique est côté serveur.
 ]]
@@ -3689,7 +3806,7 @@ function WantedService.start()
 end
 
 return WantedService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
 	WorldService : génère toute la ville avec des Parts natives Roblox (aucun asset externe).
 	Grille 5x5 de blocs, routes, bâtiments par quartier, props destructibles, lampadaires,
 	points d'intérêt (missions, concession, police...), éclairage et cycle jour/nuit.
@@ -4615,7 +4732,7 @@ function World.build()
 end
 
 return World
-]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX36"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX35"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX38"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX37"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX25"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
 	Client.client.lua : point d'entrée client de CITY RUSH.
 	Écran de chargement, mise à l'échelle de l'interface (téléphone / tablette / PC / console),
 	puis initialisation des contrôleurs.
@@ -4681,6 +4798,9 @@ local function start()
 	pcall(function()
 		require(Controllers:WaitForChild("VisualFX")).init()
 	end)
+	pcall(function()
+		require(Controllers:WaitForChild("Animations")).init()
+	end)
 	require(Controllers:WaitForChild("Hud")).init(gui)
 	require(Controllers:WaitForChild("Panels")).init(gui)
 end
@@ -4711,7 +4831,323 @@ task.spawn(function()
 	end
 	loading:Destroy()
 end)
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX34"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX36"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[--[[
+	Animations : animations arcade (visuelles, locales, sans effet sur la physique ni sur le serveur).
+	Chaque animation est activable dans Config.Animations et protégée par pcall.
+	Véhicule : roulis dans les virages, plongée/cabrage de suspension, effet de démarrage, dérapage stylisé
+	(fumée), porte conducteur, éclair de phares au klaxon. Police : menottes à l'arrestation.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local AnimMath = require(Shared:WaitForChild("AnimMath"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local VehicleController = require(script.Parent.VehicleController)
+local State = require(script.Parent.State)
+
+local Animations = {}
+local A = Config.Animations
+local player = Players.LocalPlayer
+
+-- Interrupteur : Animations.on("UI", "RewardPop")
+function Animations.on(group, key)
+	if not A.Enabled then
+		return false
+	end
+	local g = A[group]
+	return type(g) == "table" and g[key] == true
+end
+
+local function safe(name, fn, ...)
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		warn("[Animations] " .. name .. ": " .. tostring(err))
+	end
+	return ok
+end
+
+-- ---------------------------------------------------------------- caméra : roulis + suspension
+local lean, pitch = 0, 0
+local lastFwd, lastAccel = 0, 0
+local driving = false
+local cur = { steer = 0, speed = 0, maxSpeed = 80, throttle = 0, fwd = 0 }
+local drift = { model = nil, emitters = {} }
+local lastSpeedForLaunch = 0
+
+local function ensureDrift(chassis)
+	if drift.model == chassis and drift.emitters[1] and drift.emitters[1].Parent then
+		return
+	end
+	for _, e in ipairs(drift.emitters) do
+		e:Destroy()
+	end
+	drift.emitters = {}
+	drift.model = chassis
+	for _, sx in ipairs({ -1, 1 }) do
+		local att = Instance.new("Attachment")
+		att.Position = Vector3.new(sx * 3, -2, chassis.Size.Z / 2 - 2.8)
+		att.Parent = chassis
+		local e = Instance.new("ParticleEmitter")
+		e.Rate = 0
+		e.Lifetime = NumberRange.new(0.5, 0.9)
+		e.Speed = NumberRange.new(2, 6)
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 4) })
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1) })
+		e.Color = ColorSequence.new(Color3.fromRGB(225, 225, 230))
+		e.Parent = att
+		table.insert(drift.emitters, e)
+	end
+end
+
+local function onVehicle(speed, boost, isDriving, steer, throttle, maxSpeed, fwd)
+	driving = isDriving
+	if not isDriving then
+		for _, e in ipairs(drift.emitters) do
+			e.Rate = 0
+		end
+		return
+	end
+	cur.steer, cur.speed, cur.maxSpeed, cur.throttle, cur.fwd = steer or 0, speed, maxSpeed or 80, throttle or 0, fwd or speed
+	local c = player.Character
+	local hum = c and c:FindFirstChildOfClass("Humanoid")
+	local seat = hum and hum.SeatPart
+	local chassis = seat and seat.Parent and seat.Parent.PrimaryPart
+	if not chassis then
+		return
+	end
+	if Animations.on("Vehicle", "Drift") then
+		local active, intensity = AnimMath.drift(cur.steer, speed, cur.maxSpeed, A.DriftSteerThreshold, A.DriftSpeedRatio)
+		ensureDrift(chassis)
+		for _, e in ipairs(drift.emitters) do
+			e.Rate = active and (10 + 40 * intensity) or 0
+		end
+	end
+	if Animations.on("Vehicle", "Launch") and AnimMath.launch(lastSpeedForLaunch, speed, cur.throttle) then
+		ensureDrift(chassis)
+		for _, e in ipairs(drift.emitters) do
+			e:Emit(10)
+		end
+	end
+	lastSpeedForLaunch = speed
+end
+
+local function cameraStep(dt)
+	local targetLean, targetPitch = 0, 0
+	if driving then
+		if Animations.on("Vehicle", "Lean") then
+			targetLean = AnimMath.leanDegrees(cur.steer, cur.speed, cur.maxSpeed, A.MaxLeanDegrees)
+		end
+		if Animations.on("Vehicle", "Suspension") then
+			local accel = (cur.fwd - lastFwd) / math.max(dt, 1e-3)
+			lastAccel = AnimMath.smooth(lastAccel, accel, dt, 6)
+			targetPitch = AnimMath.pitchDegrees(lastAccel, 2.5)
+		end
+		lastFwd = cur.fwd
+	end
+	lean = AnimMath.smooth(lean, targetLean, dt, 5)
+	pitch = AnimMath.smooth(pitch, targetPitch, dt, 5)
+	if math.abs(lean) > 0.01 or math.abs(pitch) > 0.01 then
+		local cam = workspace.CurrentCamera
+		-- roulis vers l'intérieur du virage, légère inclinaison avant/arrière
+		cam.CFrame = cam.CFrame * CFrame.Angles(math.rad(pitch), 0, math.rad(-lean))
+	end
+end
+
+-- ---------------------------------------------------------------- porte conducteur
+local function swingDoor(model)
+	local door = model and model:FindFirstChild("DoorL")
+	local hinge = door and door:FindFirstChild("DoorHinge")
+	if not hinge then
+		return
+	end
+	local c0 = hinge.C0
+	local duration, openDeg = 0.9, 62
+	local t0 = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - t0
+		if t >= duration or not hinge.Parent then
+			if hinge.Parent then
+				hinge.C0 = c0
+			end
+			conn:Disconnect()
+			return
+		end
+		hinge.C0 = c0 * CFrame.Angles(0, math.rad(-AnimMath.doorAngle(t, duration, openDeg)), 0)
+	end)
+end
+
+local function onCharacter(char)
+	local hum = char:WaitForChild("Humanoid", 10)
+	if not hum then
+		return
+	end
+	local lastModel
+	hum.Seated:Connect(function(active, seat)
+		if not Animations.on("Vehicle", "Door") then
+			return
+		end
+		local model = active and seat and seat.Parent or lastModel
+		if active then
+			lastModel = model
+		end
+		if model and model:GetAttribute("CRVehicle") then
+			safe("porte", swingDoor, model)
+		end
+	end)
+end
+
+-- ---------------------------------------------------------------- klaxon : éclair de phares
+local function flashHeadlights()
+	local c = player.Character
+	local hum = c and c:FindFirstChildOfClass("Humanoid")
+	local seat = hum and hum.SeatPart
+	local model = seat and seat.Parent
+	if not model then
+		return
+	end
+	task.spawn(function()
+		for _ = 1, 2 do
+			for _, d in ipairs(model:GetChildren()) do
+				if d.Name == "Headlight" then
+					d.Color = Color3.new(1, 1, 1)
+					d.Material = Enum.Material.Neon
+					local l = d:FindFirstChildOfClass("SpotLight")
+					if l then
+						l.Enabled = true
+					end
+				end
+			end
+			task.wait(0.12)
+			for _, d in ipairs(model:GetChildren()) do
+				if d.Name == "Headlight" then
+					d.Color = Color3.fromRGB(255, 244, 200)
+					local l = d:FindFirstChildOfClass("SpotLight")
+					if l then
+						l.Enabled = false
+					end
+				end
+			end
+			task.wait(0.1)
+		end
+	end)
+end
+
+-- ---------------------------------------------------------------- menottes (arrestation)
+function Animations.playCuffs(parentGui)
+	if not Animations.on("Police", "Cuffs") then
+		return
+	end
+	safe("menottes", function()
+		local function cuff(fromLeft)
+			local l = Instance.new("TextLabel")
+			l.BackgroundTransparency = 1
+			l.Text = "⛓"
+			l.TextSize = 110
+			l.Font = Enum.Font.GothamBlack
+			l.TextColor3 = Color3.fromRGB(215, 220, 235)
+			l.AnchorPoint = Vector2.new(0.5, 0.5)
+			l.Size = UDim2.fromOffset(160, 160)
+			l.Position = UDim2.new(fromLeft and -0.1 or 1.1, 0, 0.35, 0)
+			l.ZIndex = 60
+			l.Parent = parentGui
+			TweenService:Create(l, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(fromLeft and 0.44 or 0.56, 0, 0.35, 0) }):Play()
+			task.delay(2.3, function()
+				TweenService:Create(l, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+				task.wait(0.35)
+				l:Destroy()
+			end)
+		end
+		cuff(true)
+		cuff(false)
+		-- "clic" : petite secousse
+		task.delay(0.45, function()
+			local cam = workspace.CurrentCamera
+			local t0 = os.clock()
+			local conn
+			conn = RunService.RenderStepped:Connect(function()
+				local t = os.clock() - t0
+				if t > 0.25 then
+					conn:Disconnect()
+					return
+				end
+				cam.CFrame = cam.CFrame * CFrame.new((math.random() - 0.5) * 0.4, (math.random() - 0.5) * 0.4, 0)
+			end)
+		end)
+	end)
+end
+
+-- ---------------------------------------------------------------- animations d'interface réutilisables
+-- Pop d'un élément (échelle 0.6 -> 1 avec rebond) via un UIScale
+function Animations.pop(guiObject, from, duration)
+	if not guiObject then
+		return
+	end
+	safe("pop", function()
+		local scale = guiObject:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
+		scale.Parent = guiObject
+		local t0 = os.clock()
+		duration = duration or 0.35
+		from = from or 0.6
+		local conn
+		conn = RunService.RenderStepped:Connect(function()
+			local t = (os.clock() - t0) / duration
+			if t >= 1 or not guiObject.Parent then
+				scale.Scale = 1
+				conn:Disconnect()
+				return
+			end
+			scale.Scale = from + (1 - from) * AnimMath.popScale(t)
+		end)
+	end)
+end
+
+-- Texte qui se tape tout seul
+function Animations.typewrite(label, text, cps)
+	cps = cps or 55
+	label.Text = ""
+	task.spawn(function()
+		local t0 = os.clock()
+		while label.Parent do
+			local t = os.clock() - t0
+			label.Text = AnimMath.typewriter(text, t, cps)
+			if label.Text == text then
+				return
+			end
+			task.wait(0.03)
+		end
+	end)
+end
+
+function Animations.init()
+	if not A.Enabled then
+		return
+	end
+	VehicleController.Updated:Connect(function(...)
+		safe("véhicule", onVehicle, ...)
+	end)
+	RunService:BindToRenderStep("CRAnimations", Enum.RenderPriority.Camera.Value + 2, function(dt)
+		safe("caméra", cameraStep, dt)
+	end)
+	if player.Character then
+		task.spawn(onCharacter, player.Character)
+	end
+	player.CharacterAdded:Connect(onCharacter)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not processed and input.KeyCode == Enum.KeyCode.H and VehicleController.Driving and Animations.on("Vehicle", "Horn") then
+			safe("klaxon", flashHeadlights)
+		end
+	end)
+end
+
+return Animations
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
 	Atmosphere.lua : effets visuels côté client
 	- fenêtres et lampadaires allumés la nuit (tag "Lit")
 	- phares des véhicules occupés la nuit
@@ -4852,7 +5288,7 @@ function Atmosphere.init()
 end
 
 return Atmosphere
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
 	Hud.lua : interface de jeu permanente (niveau, argent, radar, étoiles de recherche,
 	mission, notifications, compteur de vitesse, bannières d'événements, écran d'arrestation).
 ]]
@@ -4871,6 +5307,7 @@ local UI = require(script.Parent.UI)
 local State = require(script.Parent.State)
 local MapView = require(script.Parent.MapView)
 local VehicleController = require(script.Parent.VehicleController)
+local Animations = require(script.Parent.Animations)
 
 local Hud = {}
 local T = UI.Theme
@@ -4911,6 +5348,9 @@ local function toast(text, kind)
 	})
 	f.BackgroundTransparency = 1
 	UI.tween(f, TweenInfo.new(0.2), { BackgroundTransparency = 0.1 })
+	if Animations.on("UI", "RewardPop") then
+		Animations.pop(f, kind == "levelup" and 0.4 or 0.7, 0.4)
+	end
 	if kind == "levelup" or kind == "star" or kind == "good" or kind == "achv" then
 		ping()
 	end
@@ -5062,6 +5502,14 @@ local function onState(d)
 	refs.level.Text = "Niv. " .. d.Level
 	refs.xpFill.Size = UDim2.fromScale(math.clamp(d.XP / d.XPNeed, 0, 1), 1)
 	refs.xpText.Text = string.format("%d / %d XP", d.XP, d.XPNeed)
+	if refs.lastCash and d.Cash > refs.lastCash and Animations.on("UI", "RewardPop") then
+		Animations.pop(refs.cash, 1.25, 0.35)
+		refs.cash.TextColor3 = Color3.fromRGB(180, 255, 200)
+		task.delay(0.4, function()
+			refs.cash.TextColor3 = T.Good
+		end)
+	end
+	refs.lastCash = d.Cash
 	refs.cash.Text = Util.formatCash(d.Cash)
 	refs.vip.Text = d.Vip and "VIP" or ""
 	refs.xp2.Text = d.DoubleXP and "XP x2 !" or ""
@@ -5092,7 +5540,12 @@ local function onMission(m)
 		refs.missionPanel.Visible = false
 		return
 	end
+	local wasVisible = refs.missionPanel.Visible
 	refs.missionPanel.Visible = true
+	if not wasVisible and Animations.on("UI", "MissionSlide") then
+		refs.missionPanel.Position = UDim2.new(1, 300, 0, 114)
+		UI.tween(refs.missionPanel, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(1, -10, 0, 114) })
+	end
 	refs.mTitle.Text = m.title
 	refs.mText.Text = m.text
 	refs.mReward.Text = "Gain : " .. Util.formatCash(m.reward) .. (m.steps > 1 and m.type == "race" and string.format("  (point %d/%d)", m.step, m.steps) or "")
@@ -5141,6 +5594,7 @@ end
 
 local function onBusted(lost)
 	refs.busted.Visible = true
+	Animations.playCuffs(refs.busted)
 	refs.bustedSub.Text = lost > 0 and ("Amende : " .. Util.formatCash(lost)) or "Tu t'en sors sans amende."
 	refs.busted.BackgroundTransparency = 0.2
 	UI.tween(refs.busted, TweenInfo.new(2.6), { BackgroundTransparency = 1 })
@@ -5231,7 +5685,7 @@ function Hud.init(screenGui)
 end
 
 return Hud
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
 	MapView : carte nord en haut (nord = -Z). Utilisée pour le mini-radar et la grande carte.
 	Le décor de la carte est dessiné à partir de Config (grille, quartiers, POI).
 ]]
@@ -5375,7 +5829,7 @@ function MapView:update(centerPos, heading)
 end
 
 return MapView
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
 	Panels.lua : fenêtres modales (garage / concessionnaire, boutique Robux, profil + succès + classement,
 	grande carte, récompense quotidienne). Raccourcis clavier : G, B, P, M.
 ]]
@@ -5392,6 +5846,8 @@ local Ids = require(Shared:WaitForChild("MonetizationIds"))
 local UI = require(script.Parent.UI)
 local State = require(script.Parent.State)
 local MapView = require(script.Parent.MapView)
+local Animations = require(script.Parent.Animations)
+local AnimMath = require(Shared:WaitForChild("AnimMath"))
 
 local Panels = {}
 local T = UI.Theme
@@ -5605,6 +6061,7 @@ local function dailyPanel()
 end
 
 local journalDraft = ""
+local journalSeen = 0
 
 local function journalPanel()
 	local list = scroll(content)
@@ -5618,11 +6075,17 @@ local function journalPanel()
 	end
 	text(1, st.title, 24, T.Accent, 32)
 	text(2, st.intro, 15, T.Muted, 56)
-	local shown = {}
+	local row = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, LayoutOrder = 3, Parent = list })
+	UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), Parent = row })
 	for i = 1, st.total do
-		shown[i] = st.digits[i] or "_"
+		local digit = st.digits[i]
+		local cell = UI.panel({ Size = UDim2.fromOffset(46, 50), BackgroundColor3 = digit and T.Good or T.PanelLight, Parent = row })
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = digit or "?", TextSize = 32, Font = Enum.Font.GothamBlack, TextColor3 = digit and Color3.new(0, 0, 0) or T.Muted, Parent = cell })
+		if digit and i > journalSeen and Animations.on("UI", "Journal") then
+			Animations.pop(cell, 2.2, 0.6) -- le nouveau chiffre "tombe" en place
+		end
 	end
-	text(3, "Code : " .. table.concat(shown, "  "), 30, T.Good, 40)
+	journalSeen = st.chapter
 	for i, r in ipairs(st.riddles) do
 		text(10 + i, string.format("✔ Énigme %d (%s) : %s", i, r.name, r.riddle), 14, T.Muted, 44)
 	end
@@ -5631,6 +6094,13 @@ local function journalPanel()
 	elseif st.riddle then
 		text(30, string.format("Énigme %d/%d", st.chapter + 1, st.total), 18, T.Accent, 24)
 		text(31, st.riddle, 18, T.Text, 70)
+		if Animations.on("UI", "Journal") then
+			for _, c in ipairs(list:GetChildren()) do
+				if c:IsA("TextLabel") and c.LayoutOrder == 31 then
+					Animations.typewrite(c, st.riddle, 55)
+				end
+			end
+		end
 		text(32, "Rends-toi sur place (à pied ou en voiture) : le chiffre apparaîtra tout seul.", 13, T.Muted, 36)
 	else
 		text(30, "Les 4 chiffres sont réunis. Entre le code pour ouvrir le coffre !", 18, T.Accent, 44)
@@ -5686,6 +6156,9 @@ function Panels.open(name)
 	current = name
 	window.Visible = true
 	rebuild()
+	if Animations.on("UI", "MenuTransitions") then
+		Animations.pop(window, 0.88, 0.3)
+	end
 end
 
 function Panels.init(screenGui)
@@ -5760,7 +6233,7 @@ function Panels.init(screenGui)
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
 	SoundController : sons du véhicule piloté. Chaque son est désactivé proprement tant que
 	Config.Sounds.<nom> est vide (voir A_FAIRE_UTILISATEUR.md pour brancher des audios).
 	- moteur : boucle dont la hauteur suit la vitesse
@@ -5820,7 +6293,7 @@ function SoundController.init()
 end
 
 return SoundController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
 	State.lua : état client synchronisé avec le serveur (lecture seule côté UI).
 ]]
 
@@ -5906,7 +6379,7 @@ function State.init()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
 	UI.lua : petites fabriques d'interface au style Roblox (Gotham, coins arrondis).
 ]]
 
@@ -5999,7 +6472,7 @@ function UI.tween(inst, info, goal)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleController : pilotage arcade du véhicule par le client du conducteur.
 	Lit les entrées du VehicleSeat (clavier, manette, joystick tactile gérés par Roblox),
 	écrit la vitesse cible dans les contraintes créées par le serveur.
@@ -6133,7 +6606,7 @@ local function startDriving(hum, seat)
 		end
 
 		camera.FieldOfView = camera.FieldOfView + ((70 + math.clamp(math.abs(fwd) / maxSpeed, 0, 1.3) * 16 + (boosting and 6 or 0)) - camera.FieldOfView) * math.min(1, dt * 4)
-		VehicleController.Updated:Fire(math.abs(fwd), boost / Config.BoostMax, true)
+		VehicleController.Updated:Fire(math.abs(fwd), boost / Config.BoostMax, true, steer, throttle, maxSpeed, fwd)
 	end)
 end
 
@@ -6172,7 +6645,7 @@ function VehicleController.init()
 end
 
 return VehicleController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">VisualFX</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">VisualFX</string><ProtectedString name="Source"><![CDATA[--[[
 	VisualFX : effets visuels client, tous réglables dans Config.Visual et protégés par pcall.
 	- qualité auto (tactile = low) : bloom / rayons / ombres
 	- lampadaires qui éclairent la nuit (budget de lumières par qualité)

@@ -21,7 +21,7 @@ ville 5x5 blocs, voitures volables, missions, niveau de recherche policier, éco
 | `Services/EconomyService`, `DataService` | argent/XP/succès/quotidien, DataStore avec verrou de session |
 | `Services/StoryService` | histoire "L'Affaire du Coffre" : 4 énigmes géographiques, 4 chiffres, code final validé serveur |
 | `Services/PedestrianService`, `CollectibleService`, `EventService`, `LeaderboardService`, `MonetizationService` | piétons, 30 étoiles, événements, classement, achats |
-| `StarterPlayerScripts` | `Client`, `Controllers/{Hud,Panels,MapView,VehicleController,Atmosphere,VisualFX,SoundController,State,UI}` (effets réglables dans `Config.Visual`) |
+| `StarterPlayerScripts` | `Client`, `Controllers/{Hud,Panels,MapView,VehicleController,Atmosphere,VisualFX,Animations,SoundController,State,UI}` (effets dans `Config.Visual`, animations dans `Config.Animations`, maths pures dans `Shared/AnimMath`) |
 
 ## Sécurité
 Aucune récompense, achat, mission ou collecte ne dépend d'une valeur envoyée par le client : les RemoteEvents client->serveur
@@ -29,13 +29,13 @@ Aucune récompense, achat, mission ou collecte ne dépend d'une valeur envoyée 
 Limite connue : la conduite est simulée par le client du conducteur (standard Roblox), donc la vitesse d'un véhicule est falsifiable ; aucun gain n'en dépend directement.
 
 ## Tests
-`pip install lupa && python3 tests/run.py` : 52 tests exécutés sous Lua 5.5 dans un faux environnement Roblox (`tests/harness.lua` : Instance, signaux, scheduler de tâches, DataStore avec pannes injectables).
+`pip install lupa && python3 tests/run.py` : 56 tests exécutés sous Lua 5.5 dans un faux environnement Roblox (`tests/harness.lua` : Instance, signaux, scheduler de tâches, DataStore avec pannes injectables).
 Couvrent : économie (gains, plafonds, valeurs aberrantes), achats, succès, quotidien, sauvegarde (chargement raté, verrou de session, Studio, sortie du joueur), reçus Robux idempotents,
 niveaux de recherche et arrestations, missions (progression validée serveur, ordre des points, annulation, braquage), étoiles, voitures, piétons, événements, génération complète de la ville et démarrage de `Main`,
 validateurs de chaque Remote (nil, mauvais types, NaN, très grands, chaînes longues, spam).
 `ONLY="mot|autre" python3 tests/run.py` filtre par nom.
 
 ## Statut des vérifications
-- **Exécuté** : les 52 tests ci-dessus (Lua 5.5, pas Luau), `tools/check_luau.py`, construction + validation XML du `.rbxlx`.
+- **Exécuté** : les 56 tests ci-dessus (Lua 5.5, pas Luau), `tools/check_luau.py`, construction + validation XML du `.rbxlx`.
 - **Analysé seulement** : physique des véhicules (contraintes), IA des voitures de patrouille (déplacement réel), rendu, UI (le faux environnement ne simule ni GUI ni physique), compatibilité exacte Luau (types/APIs).
 - **À tester dans Studio** : tout ce qui touche au rendu, à la physique et à l'interface (cf. `A_FAIRE_UTILISATEUR.md`).

@@ -15,6 +15,8 @@ local Ids = require(Shared:WaitForChild("MonetizationIds"))
 local UI = require(script.Parent.UI)
 local State = require(script.Parent.State)
 local MapView = require(script.Parent.MapView)
+local Animations = require(script.Parent.Animations)
+local AnimMath = require(Shared:WaitForChild("AnimMath"))
 
 local Panels = {}
 local T = UI.Theme
@@ -228,6 +230,7 @@ local function dailyPanel()
 end
 
 local journalDraft = ""
+local journalSeen = 0
 
 local function journalPanel()
 	local list = scroll(content)
@@ -241,11 +244,17 @@ local function journalPanel()
 	end
 	text(1, st.title, 24, T.Accent, 32)
 	text(2, st.intro, 15, T.Muted, 56)
-	local shown = {}
+	local row = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, LayoutOrder = 3, Parent = list })
+	UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), Parent = row })
 	for i = 1, st.total do
-		shown[i] = st.digits[i] or "_"
+		local digit = st.digits[i]
+		local cell = UI.panel({ Size = UDim2.fromOffset(46, 50), BackgroundColor3 = digit and T.Good or T.PanelLight, Parent = row })
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = digit or "?", TextSize = 32, Font = Enum.Font.GothamBlack, TextColor3 = digit and Color3.new(0, 0, 0) or T.Muted, Parent = cell })
+		if digit and i > journalSeen and Animations.on("UI", "Journal") then
+			Animations.pop(cell, 2.2, 0.6) -- le nouveau chiffre "tombe" en place
+		end
 	end
-	text(3, "Code : " .. table.concat(shown, "  "), 30, T.Good, 40)
+	journalSeen = st.chapter
 	for i, r in ipairs(st.riddles) do
 		text(10 + i, string.format("✔ Énigme %d (%s) : %s", i, r.name, r.riddle), 14, T.Muted, 44)
 	end
@@ -254,6 +263,13 @@ local function journalPanel()
 	elseif st.riddle then
 		text(30, string.format("Énigme %d/%d", st.chapter + 1, st.total), 18, T.Accent, 24)
 		text(31, st.riddle, 18, T.Text, 70)
+		if Animations.on("UI", "Journal") then
+			for _, c in ipairs(list:GetChildren()) do
+				if c:IsA("TextLabel") and c.LayoutOrder == 31 then
+					Animations.typewrite(c, st.riddle, 55)
+				end
+			end
+		end
 		text(32, "Rends-toi sur place (à pied ou en voiture) : le chiffre apparaîtra tout seul.", 13, T.Muted, 36)
 	else
 		text(30, "Les 4 chiffres sont réunis. Entre le code pour ouvrir le coffre !", 18, T.Accent, 44)
@@ -309,6 +325,9 @@ function Panels.open(name)
 	current = name
 	window.Visible = true
 	rebuild()
+	if Animations.on("UI", "MenuTransitions") then
+		Animations.pop(window, 0.88, 0.3)
+	end
 end
 
 function Panels.init(screenGui)

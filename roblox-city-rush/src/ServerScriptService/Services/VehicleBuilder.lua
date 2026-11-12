@@ -244,6 +244,27 @@ function VehicleBuilder.build(spec, color, opts)
 		av.ReactionTorqueEnabled = false
 		av.Parent = chassis
 
+		-- porte conducteur : panneau fixé par un Weld (hinge animé côté client, purement visuel)
+		local door = Instance.new("Part")
+		door.Name = "DoorL"
+		door.Size = Vector3.new(0.25, 2.2, 3.2)
+		door.CFrame = CFrame.new(-(W / 2 + 0.1), 1.2, seatZ)
+		door.Color = color
+		door.Material = Enum.Material.SmoothPlastic
+		door.CanCollide = false
+		door.CanQuery = false
+		door.Massless = true
+		door.TopSurface = Enum.SurfaceType.Smooth
+		door.BottomSurface = Enum.SurfaceType.Smooth
+		door.Parent = model
+		local hinge = Instance.new("Weld")
+		hinge.Name = "DoorHinge"
+		hinge.Part0 = chassis
+		hinge.Part1 = door
+		hinge.C0 = CFrame.new(-(W / 2 + 0.1), 1.2, seatZ - 1.6)
+		hinge.C1 = CFrame.new(0, 0, -1.6)
+		hinge.Parent = door
+
 		model:SetAttribute("CRVehicle", true)
 		model:SetAttribute("VehicleId", spec.id)
 		model:SetAttribute("MaxSpeed", spec.maxSpeed)

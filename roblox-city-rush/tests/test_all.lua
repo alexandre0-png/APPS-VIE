@@ -624,6 +624,45 @@ test("démarrage complet (Main) sans erreur, joueur apparu avec sa Citadine", fu
 	H.advance(600)
 end)
 
+print("== Animations (logique pure)")
+test("AnimMath : roulis, suspension, dérapage, démarrage", function()
+	local A = H.mod("AnimMath")
+	eq(A.leanDegrees(1, 0, 100, 4.5), 0, "pas de roulis à l'arrêt"); eq(A.leanDegrees(1, 5, 100, 4.5), 0, "pas de roulis à très basse vitesse")
+	truthy(A.leanDegrees(1, 90, 100, 4.5) > 3 and A.leanDegrees(1, 90, 100, 4.5) <= 4.5, "roulis borné")
+	eq(A.leanDegrees(-1, 90, 100, 4.5), -A.leanDegrees(1, 90, 100, 4.5), "symétrique")
+	eq(A.leanDegrees(5, 90, 100, 4.5), A.leanDegrees(1, 90, 100, 4.5), "braquage borné à 1"); eq(A.leanDegrees(1, 50, 0, 4), 0, "maxSpeed nul sans division par 0")
+	truthy(A.pitchDegrees(-200, 2.5) ~= A.pitchDegrees(200, 2.5), "freinage et accélération différents"); truthy(math.abs(A.pitchDegrees(1e9, 2.5)) <= 2.5, "tangage borné")
+	local ok, i = A.drift(1, 90, 100, 0.6, 0.55); eq(ok, true); truthy(i > 0 and i <= 1)
+	eq((A.drift(0.2, 90, 100, 0.6, 0.55)), false, "pas de dérapage sans braquage"); eq((A.drift(1, 20, 100, 0.6, 0.55)), false, "pas de dérapage trop lent"); eq((A.drift(1, 50, 0, 0.6, 0.55)), false)
+	eq(A.launch(0, 5, 1), true); eq(A.launch(40, 50, 1), false, "pas un démarrage si déjà en mouvement"); eq(A.launch(0, 5, 0), false, "sans accélérateur")
+end)
+test("AnimMath : pop, machine à écrire UTF-8, lissage, porte", function()
+	local A = H.mod("AnimMath")
+	near(A.popScale(0), 0, 1e-6); near(A.popScale(1), 1, 1e-6); truthy(A.popScale(0.7) > 1, "dépassement (rebond)"); near(A.popScale(5), 1, 1e-6, "borné")
+	eq(A.typewriter("Bonjour", 0, 10), ""); eq(A.typewriter("Bonjour", 0.3, 10), "Bon"); eq(A.typewriter("Bonjour", 99, 10), "Bonjour")
+	eq(A.typewriter("é à", 0.2, 10), "é ", "UTF-8 : jamais de caractère coupé"); eq(A.typewriter("", 1, 10), "")
+	local v = A.smooth(0, 10, 0.1, 5); truthy(v > 0 and v < 10); near(A.smooth(0, 10, 1000, 5), 10, 1e-6); eq(A.smooth(3, 3, 0.1, 5), 3)
+	eq(A.doorAngle(0, 1, 60), 0); eq(A.doorAngle(0.5, 1, 60), 60, "porte ouverte au milieu"); near(A.doorAngle(1, 1, 60), 0, 1e-6); eq(A.doorAngle(0.5, 0, 60), 0, "durée nulle sûre")
+end)
+test("Config.Animations : interrupteurs complets et voiture avec porte animable", function()
+	local M = boot(); local C = M.Config
+	truthy(C.Animations.Enabled ~= nil)
+	for _, k in ipairs({ "Lean", "Suspension", "Launch", "Drift", "Door", "Horn" }) do eq(type(C.Animations.Vehicle[k]), "boolean", "Vehicle." .. k) end
+	for _, k in ipairs({ "MenuTransitions", "RewardPop", "MissionSlide", "Journal" }) do eq(type(C.Animations.UI[k]), "boolean", "UI." .. k) end
+	eq(type(C.Animations.Police.Cuffs), "boolean")
+	local B = H.mod("VehicleBuilder"); local car = B.build(C.Vehicles[1], C.Vehicles[1].color)
+	local door = car:FindFirstChild("DoorL"); truthy(door, "porte conducteur"); truthy(door:FindFirstChild("DoorHinge"), "charnière")
+	local static = B.build(C.Vehicles[1], C.Vehicles[1].color, { static = true }); eq(static:FindFirstChild("DoorL"), nil, "pas de porte sur les voitures de vitrine")
+end)
+
+test("Animations.on : interrupteur général et par animation", function()
+	local C = H.mod("Config"); local Anim = H.mod("Animations")
+	eq(Anim.on("UI", "RewardPop"), true); eq(Anim.on("UI", "Inconnue"), false); eq(Anim.on("Inexistant", "x"), false)
+	C.Animations.UI.RewardPop = false; eq(Anim.on("UI", "RewardPop"), false)
+	C.Animations.UI.RewardPop = true; C.Animations.Enabled = false; eq(Anim.on("UI", "RewardPop"), false, "coupure générale")
+	C.Animations.Enabled = true
+end)
+
 print("== Client (chargement des modules)")
 test("modules client : syntaxe et chargement", function()
 	local spsC
