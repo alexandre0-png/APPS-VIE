@@ -361,6 +361,14 @@ local function chooseBookMarks(seed)
 	end
 end
 
+-- Phrases de texture pour les livres sans marque-page (rien d'explicatif : ambiance seulement)
+local BOOK_FLAVOUR = {
+	"Des pages poussiéreuses, sans intérêt.",
+	"Une recette de confiture, écrite à la main. Les mots sont effacés au milieu.",
+	"Un registre de comptes. Une seule ligne est soulignée deux fois : « ne pas le réveiller ».",
+	"Des cartes postales jamais envoyées. Elles sont toutes adressées à la même personne.",
+}
+
 local function readBook(player, book)
 	if bookReads[book] then
 		say(player, "Tu as déjà feuilleté ce livre.")
@@ -369,7 +377,12 @@ local function readBook(player, book)
 	bookReads[book] = true
 	local mark = book:GetAttribute("Mark")
 	if not mark then
-		say(player, "Des pages poussiéreuses, sans intérêt.")
+		-- Livres sans marque-page : une phrase de texture, dans un ordre qui change à chaque lecture
+		local n = 0
+		for _ in pairs(bookReads) do
+			n += 1
+		end
+		say(player, BOOK_FLAVOUR[(n - 1) % #BOOK_FLAVOUR + 1])
 		return
 	end
 	if mark ~= state.nextMark then
