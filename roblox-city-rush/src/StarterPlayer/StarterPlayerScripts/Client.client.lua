@@ -60,6 +60,7 @@ local function start()
 	State.init()
 	require(Controllers:WaitForChild("VehicleController")).init()
 	require(Controllers:WaitForChild("Atmosphere")).init()
+	require(Controllers:WaitForChild("SoundController")).init()
 	require(Controllers:WaitForChild("Hud")).init(gui)
 	require(Controllers:WaitForChild("Panels")).init(gui)
 end

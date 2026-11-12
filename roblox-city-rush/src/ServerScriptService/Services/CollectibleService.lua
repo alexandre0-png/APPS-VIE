@@ -90,7 +90,7 @@ function CollectibleService.init(world)
 end
 
 function CollectibleService.start()
-	task.spawn(function()
+	Util.supervise("CollectibleService", function()
 		while true do
 			task.wait(0.2)
 			for _, player in ipairs(Players:GetPlayers()) do

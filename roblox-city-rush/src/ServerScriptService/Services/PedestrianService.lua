@@ -270,7 +270,7 @@ function Pedestrians.start()
 	task.spawn(function()
 		local n = 0
 		while n < TARGET_COUNT do
-			spawnOne()
+			pcall(spawnOne)
 			n += 1
 			task.wait(0.15)
 		end
@@ -282,17 +282,17 @@ function Pedestrians.start()
 				count += 1
 			end
 			if count < TARGET_COUNT then
-				spawnOne()
+				pcall(spawnOne)
 			end
 		end
 	end)
-	task.spawn(function()
+	Util.supervise("PedestrianService", function()
 		while true do
 			task.wait(0.5)
 			aiStep()
 		end
 	end)
-	task.spawn(function()
+	Util.supervise("PedestrianService", function()
 		while true do
 			task.wait(0.25)
 			dropsStep()

@@ -402,7 +402,7 @@ function MissionService.init(world)
 end
 
 function MissionService.start()
-	task.spawn(function()
+	Util.supervise("MissionService", function()
 		while true do
 			task.wait(0.25)
 			step()

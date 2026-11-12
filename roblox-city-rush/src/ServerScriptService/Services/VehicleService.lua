@@ -354,9 +354,9 @@ function VehicleService.start()
 		table.insert(publicCars, entry)
 		spawnPublicAt(entry)
 	end
-	task.spawn(publicLoop)
-	task.spawn(hitLoop)
-	task.spawn(fallLoop)
+	Util.supervise("publicLoop", publicLoop)
+	Util.supervise("hitLoop", hitLoop)
+	Util.supervise("fallLoop", fallLoop)
 end
 
 return VehicleService

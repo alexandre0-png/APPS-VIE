@@ -32,6 +32,20 @@ function Util.moveToward(current, target, maxDelta)
 	return current + math.sign(target - current) * maxDelta
 end
 
+-- Lance une boucle de fond qui redémarre si elle lève une erreur (une erreur ne doit jamais tuer un système)
+function Util.supervise(name, fn)
+	task.spawn(function()
+		while true do
+			local ok, err = pcall(fn)
+			if ok then
+				return
+			end
+			warn(string.format("[%s] boucle relancée après erreur: %s", name, tostring(err)))
+			task.wait(1)
+		end
+	end)
+end
+
 -- Mini signal (pas de dépendance à BindableEvent => pas de copie profonde des arguments)
 local Signal = {}
 Signal.__index = Signal

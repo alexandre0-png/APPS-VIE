@@ -116,7 +116,7 @@ function LeaderboardService.start(world)
 			end
 		end)
 	end)
-	task.spawn(function()
+	Util.supervise("LeaderboardService", function()
 		task.wait(10)
 		while true do
 			refresh(rows)

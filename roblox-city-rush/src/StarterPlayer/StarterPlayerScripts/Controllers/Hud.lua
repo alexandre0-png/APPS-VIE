@@ -31,7 +31,7 @@ local pillar, pillarGui
 
 local function ping(id)
 	local s = Instance.new("Sound")
-	s.SoundId = id or "rbxasset://sounds/electronicpingshort.wav"
+	s.SoundId = id or Config.Sounds.ui
 	s.Volume = 0.5
 	s.Parent = SoundService
 	s:Play()

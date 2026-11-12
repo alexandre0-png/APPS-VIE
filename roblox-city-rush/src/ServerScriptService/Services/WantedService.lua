@@ -572,8 +572,8 @@ function WantedService.start()
 			legs = Color3.fromRGB(25, 30, 60),
 		})
 	end)
-	task.spawn(mainLoop)
-	task.spawn(cruiserLoop)
+	Util.supervise("mainLoop", mainLoop)
+	Util.supervise("cruiserLoop", cruiserLoop)
 end
 
 return WantedService

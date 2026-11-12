@@ -110,7 +110,7 @@ end
 
 function EventService.start(world)
 	World = world
-	task.spawn(function()
+	Util.supervise("EventService", function()
 		task.wait(150)
 		while true do
 			if #Players:GetPlayers() > 0 then
@@ -119,7 +119,7 @@ function EventService.start(world)
 			task.wait(rng:NextNumber(Config.Airdrop.MinInterval, Config.Airdrop.MaxInterval))
 		end
 	end)
-	task.spawn(function()
+	Util.supervise("EventService", function()
 		task.wait(600)
 		while true do
 			if #Players:GetPlayers() > 0 then

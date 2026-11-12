@@ -25,4 +25,4 @@
 - [ ] Recommandé : remplacer par de vraies captures prises dans Studio après le test.
 
 ## 5. Facultatif
-- [ ] Sons personnalisés (moteur, klaxon, sirène) : le jeu n'utilise que le ping intégré Roblox ; téléverser des audios libres de droits et les brancher.
+- [ ] Sons moteur / klaxon / sirène : aucun son intégré Roblox ne convient, ils sont donc désactivés (`Config.Sounds.*` vides). Téléverser des audios libres de droits dans le Creator Hub, coller leurs `rbxassetid://...` dans `Config.Sounds` : `SoundController` fait le reste (pitch moteur lié à la vitesse, klaxon touche H).

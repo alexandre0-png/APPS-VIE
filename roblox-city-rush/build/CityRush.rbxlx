@@ -105,7 +105,7 @@ Config.PublicCars = {
 }
 
 Config.Police = {
-	id = "police", name = "Voiture de Police", maxSpeed = 112, accel = 52, turn = 2.2,
+	id = "police", name = "Voiture de Police", price = -1, level = 99, maxSpeed = 112, accel = 52, turn = 2.2,
 	color = Color3.fromRGB(240, 240, 245), w = 7.2, l = 14, cabinH = 3.3, style = "sedan", police = true,
 }
 
@@ -210,6 +210,17 @@ Config.GamePasses = {
 	{ key = "BOOST", name = "Nitro Infini+", robux = 149, desc = "Nitro 2x plus long et recharge rapide" },
 }
 
+-- Sons : laisser "" pour désactiver. Aucun identifiant n'est référencé tant qu'un audio libre n'a pas été téléversé
+-- (les sons intégrés rbxasset:// utilisables ici ne contiennent ni moteur, ni klaxon, ni sirène).
+Config.Sounds = {
+	Enabled = true,
+	ui = "rbxasset://sounds/electronicpingshort.wav", -- son intégré Roblox
+	engine = "", -- boucle moteur (pitch lié à la vitesse)
+	horn = "", -- klaxon (touche H)
+	siren = "", -- sirène de police (voitures proches)
+	crash = "",
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },
@@ -281,6 +292,20 @@ function Util.moveToward(current, target, maxDelta)
 		return target
 	end
 	return current + math.sign(target - current) * maxDelta
+end
+
+-- Lance une boucle de fond qui redémarre si elle lève une erreur (une erreur ne doit jamais tuer un système)
+function Util.supervise(name, fn)
+	task.spawn(function()
+		while true do
+			local ok, err = pcall(fn)
+			if ok then
+				return
+			end
+			warn(string.format("[%s] boucle relancée après erreur: %s", name, tostring(err)))
+			task.wait(1)
+		end
+	end)
 end
 
 -- Mini signal (pas de dépendance à BindableEvent => pas de copie profonde des arguments)
@@ -528,7 +553,7 @@ function CollectibleService.init(world)
 end
 
 function CollectibleService.start()
-	task.spawn(function()
+	Util.supervise("CollectibleService", function()
 		while true do
 			task.wait(0.2)
 			for _, player in ipairs(Players:GetPlayers()) do
@@ -744,7 +769,7 @@ function DataService.init()
 	end
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 
-	task.spawn(function()
+	Util.supervise("DataService", function()
 		while true do
 			task.wait(Config.SaveInterval)
 			for player, p in pairs(profiles) do
@@ -1135,7 +1160,7 @@ function EconomyService.init()
 		stateDirty[player] = nil
 	end)
 
-	task.spawn(function()
+	Util.supervise("EconomyService", function()
 		while true do
 			task.wait(0.25)
 			for player in pairs(stateDirty) do
@@ -1261,7 +1286,7 @@ end
 
 function EventService.start(world)
 	World = world
-	task.spawn(function()
+	Util.supervise("EventService", function()
 		task.wait(150)
 		while true do
 			if #Players:GetPlayers() > 0 then
@@ -1270,7 +1295,7 @@ function EventService.start(world)
 			task.wait(rng:NextNumber(Config.Airdrop.MinInterval, Config.Airdrop.MaxInterval))
 		end
 	end)
-	task.spawn(function()
+	Util.supervise("EventService", function()
 		task.wait(600)
 		while true do
 			if #Players:GetPlayers() > 0 then
@@ -1400,7 +1425,7 @@ function LeaderboardService.start(world)
 			end
 		end)
 	end)
-	task.spawn(function()
+	Util.supervise("LeaderboardService", function()
 		task.wait(10)
 		while true do
 			refresh(rows)
@@ -1814,7 +1839,7 @@ function MissionService.init(world)
 end
 
 function MissionService.start()
-	task.spawn(function()
+	Util.supervise("MissionService", function()
 		while true do
 			task.wait(0.25)
 			step()
@@ -2206,7 +2231,7 @@ function Pedestrians.start()
 	task.spawn(function()
 		local n = 0
 		while n < TARGET_COUNT do
-			spawnOne()
+			pcall(spawnOne)
 			n += 1
 			task.wait(0.15)
 		end
@@ -2218,17 +2243,17 @@ function Pedestrians.start()
 				count += 1
 			end
 			if count < TARGET_COUNT then
-				spawnOne()
+				pcall(spawnOne)
 			end
 		end
 	end)
-	task.spawn(function()
+	Util.supervise("PedestrianService", function()
 		while true do
 			task.wait(0.5)
 			aiStep()
 		end
 	end)
-	task.spawn(function()
+	Util.supervise("PedestrianService", function()
 		while true do
 			task.wait(0.25)
 			dropsStep()
@@ -2945,9 +2970,9 @@ function VehicleService.start()
 		table.insert(publicCars, entry)
 		spawnPublicAt(entry)
 	end
-	task.spawn(publicLoop)
-	task.spawn(hitLoop)
-	task.spawn(fallLoop)
+	Util.supervise("publicLoop", publicLoop)
+	Util.supervise("hitLoop", hitLoop)
+	Util.supervise("fallLoop", fallLoop)
 end
 
 return VehicleService
@@ -3525,8 +3550,8 @@ function WantedService.start()
 			legs = Color3.fromRGB(25, 30, 60),
 		})
 	end)
-	task.spawn(mainLoop)
-	task.spawn(cruiserLoop)
+	Util.supervise("mainLoop", mainLoop)
+	Util.supervise("cruiserLoop", cruiserLoop)
 end
 
 return WantedService
@@ -4389,7 +4414,7 @@ function World.build()
 end
 
 return World
-]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX33"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX32"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX34"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX33"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
 	Client.client.lua : point d'entrée client de CITY RUSH.
 	Écran de chargement, mise à l'échelle de l'interface (téléphone / tablette / PC / console),
 	puis initialisation des contrôleurs.
@@ -4451,6 +4476,7 @@ local function start()
 	State.init()
 	require(Controllers:WaitForChild("VehicleController")).init()
 	require(Controllers:WaitForChild("Atmosphere")).init()
+	require(Controllers:WaitForChild("SoundController")).init()
 	require(Controllers:WaitForChild("Hud")).init(gui)
 	require(Controllers:WaitForChild("Panels")).init(gui)
 end
@@ -4481,7 +4507,7 @@ task.spawn(function()
 	end
 	loading:Destroy()
 end)
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX31"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX32"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
 	Atmosphere.lua : effets visuels côté client
 	- fenêtres et lampadaires allumés la nuit (tag "Lit")
 	- phares des véhicules occupés la nuit
@@ -4655,7 +4681,7 @@ local pillar, pillarGui
 
 local function ping(id)
 	local s = Instance.new("Sound")
-	s.SoundId = id or "rbxasset://sounds/electronicpingshort.wav"
+	s.SoundId = id or Config.Sounds.ui
 	s.Volume = 0.5
 	s.Parent = SoundService
 	s:Play()
@@ -5470,7 +5496,67 @@ function Panels.init(screenGui)
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
+	SoundController : sons du véhicule piloté. Chaque son est désactivé proprement tant que
+	Config.Sounds.<nom> est vide (voir A_FAIRE_UTILISATEUR.md pour brancher des audios).
+	- moteur : boucle dont la hauteur suit la vitesse
+	- klaxon : touche H (ou bouton R3 manette)
+]]
+
+local SoundService = game:GetService("SoundService")
+local UserInputService = game:GetService("UserInputService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+
+local VehicleController = require(script.Parent.VehicleController)
+
+local SoundController = {}
+
+local engine
+
+local function make(id, looped, volume)
+	if not Config.Sounds.Enabled or type(id) ~= "string" or id == "" then
+		return nil
+	end
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Looped = looped
+	s.Volume = volume
+	s.Parent = SoundService
+	return s
+end
+
+function SoundController.init()
+	engine = make(Config.Sounds.engine, true, 0.35)
+	local horn = make(Config.Sounds.horn, false, 0.8)
+
+	VehicleController.Updated:Connect(function(speed, _, driving)
+		if not engine then
+			return
+		end
+		if driving then
+			if not engine.IsPlaying then
+				engine:Play()
+			end
+			engine.PlaybackSpeed = 0.7 + math.clamp(speed / 120, 0, 1.4)
+		elseif engine.IsPlaying then
+			engine:Stop()
+		end
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or not horn then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.H and VehicleController.Driving then
+			horn:Play()
+		end
+	end)
+end
+
+return SoundController
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
 	State.lua : état client synchronisé avec le serveur (lecture seule côté UI).
 ]]
 
@@ -5556,7 +5642,7 @@ function State.init()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
 	UI.lua : petites fabriques d'interface au style Roblox (Gotham, coins arrondis).
 ]]
 
@@ -5643,7 +5729,7 @@ function UI.tween(inst, info, goal)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleController : pilotage arcade du véhicule par le client du conducteur.
 	Lit les entrées du VehicleSeat (clavier, manette, joystick tactile gérés par Roblox),
 	écrit la vitesse cible dans les contraintes créées par le serveur.

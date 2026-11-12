@@ -104,7 +104,7 @@ Config.PublicCars = {
 }
 
 Config.Police = {
-	id = "police", name = "Voiture de Police", maxSpeed = 112, accel = 52, turn = 2.2,
+	id = "police", name = "Voiture de Police", price = -1, level = 99, maxSpeed = 112, accel = 52, turn = 2.2,
 	color = Color3.fromRGB(240, 240, 245), w = 7.2, l = 14, cabinH = 3.3, style = "sedan", police = true,
 }
 
@@ -207,6 +207,17 @@ Config.Products = {
 Config.GamePasses = {
 	{ key = "VIP", name = "VIP CITY RUSH", robux = 399, desc = "Gains x2, Phantom Doré exclusif, badge VIP" },
 	{ key = "BOOST", name = "Nitro Infini+", robux = 149, desc = "Nitro 2x plus long et recharge rapide" },
+}
+
+-- Sons : laisser "" pour désactiver. Aucun identifiant n'est référencé tant qu'un audio libre n'a pas été téléversé
+-- (les sons intégrés rbxasset:// utilisables ici ne contiennent ni moteur, ni klaxon, ni sirène).
+Config.Sounds = {
+	Enabled = true,
+	ui = "rbxasset://sounds/electronicpingshort.wav", -- son intégré Roblox
+	engine = "", -- boucle moteur (pitch lié à la vitesse)
+	horn = "", -- klaxon (touche H)
+	siren = "", -- sirène de police (voitures proches)
+	crash = "",
 }
 
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService

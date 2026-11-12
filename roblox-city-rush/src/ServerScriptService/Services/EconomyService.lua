@@ -350,7 +350,7 @@ function EconomyService.init()
 		stateDirty[player] = nil
 	end)
 
-	task.spawn(function()
+	Util.supervise("EconomyService", function()
 		while true do
 			task.wait(0.25)
 			for player in pairs(stateDirty) do

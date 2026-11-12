@@ -194,7 +194,7 @@ function DataService.init()
 	end
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 
-	task.spawn(function()
+	Util.supervise("DataService", function()
 		while true do
 			task.wait(Config.SaveInterval)
 			for player, p in pairs(profiles) do

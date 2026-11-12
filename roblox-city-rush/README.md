@@ -27,7 +27,14 @@ Aucune récompense, achat, mission ou collecte ne dépend d'une valeur envoyée 
 (`RequestSpawn/Buy/Color`, `AbandonMission`, `ClaimDaily`, `RequestState`) sont validés (types, limites de fréquence, propriété, niveau, argent).
 Limite connue : la conduite est simulée par le client du conducteur (standard Roblox), donc la vitesse d'un véhicule est falsifiable ; aucun gain n'en dépend directement.
 
-## Statut des vérifications (voir rapport de session)
-- **Exécuté** : `tools/check_luau.py` (blocs/délimiteurs, requires locaux, noms inconnus), construction et validation XML du `.rbxlx`.
-- **Analysé seulement** : toute la logique Luau (relecture manuelle), physique des véhicules, IA de police, API Roblox utilisées.
-- **À tester dans Studio** : tout le comportement en jeu (cf. `A_FAIRE_UTILISATEUR.md`).
+## Tests
+`pip install lupa && python3 tests/run.py` : 48 tests exécutés sous Lua 5.5 dans un faux environnement Roblox (`tests/harness.lua` : Instance, signaux, scheduler de tâches, DataStore avec pannes injectables).
+Couvrent : économie (gains, plafonds, valeurs aberrantes), achats, succès, quotidien, sauvegarde (chargement raté, verrou de session, Studio, sortie du joueur), reçus Robux idempotents,
+niveaux de recherche et arrestations, missions (progression validée serveur, ordre des points, annulation, braquage), étoiles, voitures, piétons, événements, génération complète de la ville et démarrage de `Main`,
+validateurs de chaque Remote (nil, mauvais types, NaN, très grands, chaînes longues, spam).
+`ONLY="mot|autre" python3 tests/run.py` filtre par nom.
+
+## Statut des vérifications
+- **Exécuté** : les 48 tests ci-dessus (Lua 5.5, pas Luau), `tools/check_luau.py`, construction + validation XML du `.rbxlx`.
+- **Analysé seulement** : physique des véhicules (contraintes), IA des voitures de patrouille (déplacement réel), rendu, UI (le faux environnement ne simule ni GUI ni physique), compatibilité exacte Luau (types/APIs).
+- **À tester dans Studio** : tout ce qui touche au rendu, à la physique et à l'interface (cf. `A_FAIRE_UTILISATEUR.md`).
