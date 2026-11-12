@@ -338,7 +338,7 @@ local function clearPad(s, i)
 	s.labels[i] = nil
 end
 
-local function refreshPad(s, i)
+local function refreshPad(s, i, animate)
 	clearPad(s, i)
 	local d = s.data
 	local pad = s.plot.pads[i]
@@ -386,6 +386,10 @@ local function refreshPad(s, i)
 		model.Parent = content
 		model:PivotTo(pad.part.CFrame * CFrame.new(0, 0.2 + lift, 0))
 		CollectionService:AddTag(model, "Bob")
+		if animate then
+			model:SetAttribute("Born", workspace:GetServerTimeNow())
+			CollectionService:AddTag(model, "PopIn")
+		end
 		s.labels[i] = Builder.sign(model.PrimaryPart, "", Config.TIERS[Config.PETS[sl.p].tier].color, labelY, 220)
 	end
 end
@@ -522,7 +526,7 @@ function hatch(s, i)
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
-	refreshPad(s, i)
+	refreshPad(s, i, true)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
@@ -604,6 +608,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		end
 		local t = n.egg
 		setNestEgg(n, nil)
+		Builder.flyEgg(t, n.pos, player.UserId)
+		Builder.burst(n.pos, Config.TIERS[t].color, 14, false)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
 		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s.data, t), rival = n.rival }
 		s.data.stolen += 1
@@ -630,6 +636,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		end
 		vs.data.slots[i] = false
 		refreshPad(vs, i)
+		Builder.flyEgg(sl.t, pad.Position + Vector3.new(0, 2, 0), player.UserId)
 		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId }
 		s.data.stolen += 1
 		qp(s, "steal", 1)
@@ -841,6 +848,7 @@ local function fastTick(dt)
 					local e = table.remove(s.carry, 1)
 					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(d) }
 					refreshPad(s, i)
+					Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 2, 0), Config.TIERS[e.t].color, 12, false)
 					rebuildCarry(s)
 					applySpeed(s)
 					sync(s)

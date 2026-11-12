@@ -112,6 +112,19 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	addBall("EyeL", Vector3.new(-0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
 	addBall("EyeR", Vector3.new(0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
 
+	-- reflets dans les yeux, joues et pieds
+	addBall("ShineL", Vector3.new(-0.46 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
+	addBall("ShineR", Vector3.new(0.38 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
+	if def.tier <= 3 then
+		addBall("CheekL", Vector3.new(-0.72 * R, -0.05 * R, -0.68 * R), 0.26 * R, Color3.fromRGB(255, 150, 170))
+		addBall("CheekR", Vector3.new(0.72 * R, -0.05 * R, -0.68 * R), 0.26 * R, Color3.fromRGB(255, 150, 170))
+	end
+	if def.extra ~= "tentacles" then
+		local footCol = bodyColor:Lerp(Color3.new(0, 0, 0), 0.25)
+		addBall("FootL", Vector3.new(-0.45 * R, -0.92 * R, -0.15 * R), 0.55 * R, footCol)
+		addBall("FootR", Vector3.new(0.45 * R, -0.92 * R, -0.15 * R), 0.55 * R, footCol)
+	end
+
 	-- oreilles
 	local ears = def.ears
 	if ears == "round" then
@@ -153,6 +166,19 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 		addBlock("Ant", Vector3.new(0, 1.3 * R, 0), Vector3.new(0.12 * R, 0.8 * R, 0.12 * R), bodyColor)
 		addBall("AntTip", Vector3.new(0, 1.8 * R, 0), 0.35 * R, Color3.fromRGB(255, 80, 200), Enum.Material.Neon)
 	end
+
+	-- étincelles dorées discrètes : le pet « produit » des pièces
+	local coin = Instance.new("ParticleEmitter")
+	coin.Texture = SPARK
+	coin.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90))
+	coin.Rate = 0.7
+	coin.Lifetime = NumberRange.new(1.2, 1.8)
+	coin.Speed = NumberRange.new(1, 2)
+	coin.Acceleration = Vector3.new(0, 3, 0)
+	coin.SpreadAngle = Vector2.new(60, 60)
+	coin.LightEmission = 1
+	coin.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	coin.Parent = body
 
 	-- mutation : particules
 	if mut.color or mut.rainbow then
@@ -496,8 +522,36 @@ function Builder.burst(position, color, count, big)
 	l.Parent = anchor
 	anchor.Parent = workspace
 	e:Emit(count)
+	local ring = Instance.new("Part")
+	ring.Name = "Shockwave"
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.3, 3, 3)
+	ring.CFrame = CFrame.new(position - Vector3.new(0, 2.4, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	ring.Color = color
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.2
+	ring:SetAttribute("Big", big == true)
+	CollectionService:AddTag(ring, "Shockwave") -- animée côté client
+	ring.Parent = workspace
+	game:GetService("Debris"):AddItem(ring, 1.5)
 	game:GetService("TweenService"):Create(l, TweenInfo.new(0.7), { Brightness = 0 }):Play()
 	game:GetService("Debris"):AddItem(anchor, 2.5)
+end
+
+-- Œuf qui vole vers le joueur qui vient de le prendre (animé côté client grâce au tag FlyEgg).
+function Builder.flyEgg(tier, fromPos, userId)
+	local egg = Builder.egg(tier, true)
+	egg.Name = "FlyEgg"
+	egg.CFrame = CFrame.new(fromPos)
+	egg:SetAttribute("Target", userId)
+	egg:SetAttribute("Start", fromPos)
+	CollectionService:AddTag(egg, "FlyEgg")
+	egg.Parent = workspace
+	game:GetService("Debris"):AddItem(egg, 1.2)
+	return egg
 end
 
 -- Pet suiveur : version miniature d'un pet, sans étiquette.

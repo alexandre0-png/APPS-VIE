@@ -566,7 +566,7 @@ local function clearPad(s, i)
 	s.labels[i] = nil
 end
 
-local function refreshPad(s, i)
+local function refreshPad(s, i, animate)
 	clearPad(s, i)
 	local d = s.data
 	local pad = s.plot.pads[i]
@@ -614,6 +614,10 @@ local function refreshPad(s, i)
 		model.Parent = content
 		model:PivotTo(pad.part.CFrame * CFrame.new(0, 0.2 + lift, 0))
 		CollectionService:AddTag(model, "Bob")
+		if animate then
+			model:SetAttribute("Born", workspace:GetServerTimeNow())
+			CollectionService:AddTag(model, "PopIn")
+		end
 		s.labels[i] = Builder.sign(model.PrimaryPart, "", Config.TIERS[Config.PETS[sl.p].tier].color, labelY, 220)
 	end
 end
@@ -750,7 +754,7 @@ function hatch(s, i)
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
-	refreshPad(s, i)
+	refreshPad(s, i, true)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
@@ -832,6 +836,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		end
 		local t = n.egg
 		setNestEgg(n, nil)
+		Builder.flyEgg(t, n.pos, player.UserId)
+		Builder.burst(n.pos, Config.TIERS[t].color, 14, false)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
 		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s.data, t), rival = n.rival }
 		s.data.stolen += 1
@@ -858,6 +864,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		end
 		vs.data.slots[i] = false
 		refreshPad(vs, i)
+		Builder.flyEgg(sl.t, pad.Position + Vector3.new(0, 2, 0), player.UserId)
 		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId }
 		s.data.stolen += 1
 		qp(s, "steal", 1)
@@ -1069,6 +1076,7 @@ local function fastTick(dt)
 					local e = table.remove(s.carry, 1)
 					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(d) }
 					refreshPad(s, i)
+					Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 2, 0), Config.TIERS[e.t].color, 12, false)
 					rebuildCarry(s)
 					applySpeed(s)
 					sync(s)
@@ -1964,6 +1972,19 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	addBall("EyeL", Vector3.new(-0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
 	addBall("EyeR", Vector3.new(0.42 * R, 0.25 * R, -0.86 * R), 0.36 * R, dark)
 
+	-- reflets dans les yeux, joues et pieds
+	addBall("ShineL", Vector3.new(-0.46 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
+	addBall("ShineR", Vector3.new(0.38 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
+	if def.tier <= 3 then
+		addBall("CheekL", Vector3.new(-0.72 * R, -0.05 * R, -0.68 * R), 0.26 * R, Color3.fromRGB(255, 150, 170))
+		addBall("CheekR", Vector3.new(0.72 * R, -0.05 * R, -0.68 * R), 0.26 * R, Color3.fromRGB(255, 150, 170))
+	end
+	if def.extra ~= "tentacles" then
+		local footCol = bodyColor:Lerp(Color3.new(0, 0, 0), 0.25)
+		addBall("FootL", Vector3.new(-0.45 * R, -0.92 * R, -0.15 * R), 0.55 * R, footCol)
+		addBall("FootR", Vector3.new(0.45 * R, -0.92 * R, -0.15 * R), 0.55 * R, footCol)
+	end
+
 	-- oreilles
 	local ears = def.ears
 	if ears == "round" then
@@ -2005,6 +2026,19 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 		addBlock("Ant", Vector3.new(0, 1.3 * R, 0), Vector3.new(0.12 * R, 0.8 * R, 0.12 * R), bodyColor)
 		addBall("AntTip", Vector3.new(0, 1.8 * R, 0), 0.35 * R, Color3.fromRGB(255, 80, 200), Enum.Material.Neon)
 	end
+
+	-- étincelles dorées discrètes : le pet « produit » des pièces
+	local coin = Instance.new("ParticleEmitter")
+	coin.Texture = SPARK
+	coin.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90))
+	coin.Rate = 0.7
+	coin.Lifetime = NumberRange.new(1.2, 1.8)
+	coin.Speed = NumberRange.new(1, 2)
+	coin.Acceleration = Vector3.new(0, 3, 0)
+	coin.SpreadAngle = Vector2.new(60, 60)
+	coin.LightEmission = 1
+	coin.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	coin.Parent = body
 
 	-- mutation : particules
 	if mut.color or mut.rainbow then
@@ -2348,8 +2382,36 @@ function Builder.burst(position, color, count, big)
 	l.Parent = anchor
 	anchor.Parent = workspace
 	e:Emit(count)
+	local ring = Instance.new("Part")
+	ring.Name = "Shockwave"
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.3, 3, 3)
+	ring.CFrame = CFrame.new(position - Vector3.new(0, 2.4, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	ring.Color = color
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.2
+	ring:SetAttribute("Big", big == true)
+	CollectionService:AddTag(ring, "Shockwave") -- animée côté client
+	ring.Parent = workspace
+	game:GetService("Debris"):AddItem(ring, 1.5)
 	game:GetService("TweenService"):Create(l, TweenInfo.new(0.7), { Brightness = 0 }):Play()
 	game:GetService("Debris"):AddItem(anchor, 2.5)
+end
+
+-- Œuf qui vole vers le joueur qui vient de le prendre (animé côté client grâce au tag FlyEgg).
+function Builder.flyEgg(tier, fromPos, userId)
+	local egg = Builder.egg(tier, true)
+	egg.Name = "FlyEgg"
+	egg.CFrame = CFrame.new(fromPos)
+	egg:SetAttribute("Target", userId)
+	egg:SetAttribute("Start", fromPos)
+	CollectionService:AddTag(egg, "FlyEgg")
+	egg.Parent = workspace
+	game:GetService("Debris"):AddItem(egg, 1.2)
+	return egg
 end
 
 -- Pet suiveur : version miniature d'un pet, sans étiquette.
@@ -2411,6 +2473,24 @@ end
 local function corner(o, r)
 	make("UICorner", { CornerRadius = UDim.new(0, r or 12) }, o)
 end
+-- Retour tactile : le bouton se rétrécit légèrement quand on appuie.
+local function pressFx(btn)
+	local sc = Instance.new("UIScale")
+	sc.Parent = btn
+	local function to(v)
+		TweenService:Create(sc, TweenInfo.new(0.08), { Scale = v }):Play()
+	end
+	btn.MouseButton1Down:Connect(function()
+		to(0.93)
+	end)
+	btn.MouseButton1Up:Connect(function()
+		to(1)
+	end)
+	btn.MouseLeave:Connect(function()
+		to(1)
+	end)
+end
+
 local function text(parent, props)
 	if props.BackgroundTransparency == nil then
 		props.BackgroundTransparency = 1
@@ -2422,19 +2502,22 @@ end
 
 local gui = make("ScreenGui", { Name = "ChipeUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, player:WaitForChild("PlayerGui"))
 
-local function pill(y, icon)
-	local f = make("Frame", { Position = UDim2.fromOffset(10, y), Size = UDim2.fromOffset(176, 50), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.12 }, gui)
-	corner(f, 25)
-	text(f, { Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(36, 50), Text = icon, TextSize = 26 })
-	local big = text(f, { Position = UDim2.fromOffset(48, 4), Size = UDim2.new(1, -54, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 20, Text = "0" })
-	local small = text(f, { Position = UDim2.fromOffset(48, 28), Size = UDim2.new(1, -54, 0, 16), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = COL.muted, Text = "" })
-	return big, small
+local function pill(y, icon, tint)
+	local f = make("Frame", { Position = UDim2.fromOffset(10, y), Size = UDim2.fromOffset(196, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.05 }, gui)
+	corner(f, 26)
+	make("UIStroke", { Color = tint, Thickness = 2, Transparency = 0.15 }, f)
+	make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(34, 88, 58), Color3.fromRGB(10, 30, 20)), Rotation = 90 }, f)
+	local scale = make("UIScale", { Scale = 1 }, f)
+	text(f, { Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(38, 52), Text = icon, TextSize = 28 })
+	local big = text(f, { Position = UDim2.fromOffset(50, 4), Size = UDim2.new(1, -56, 0, 28), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 24, Text = "0", TextStrokeTransparency = 0.6 })
+	local small = text(f, { Position = UDim2.fromOffset(50, 31), Size = UDim2.new(1, -56, 0, 16), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = "" })
+	return big, small, scale, f
 end
-local coinsBig, coinsSmall = pill(8, "🪙")
-local speedBig, speedSmall = pill(64, "⚡")
+local coinsBig, coinsSmall, coinsScale = pill(8, "🪙", COL.yellow)
+local speedBig, speedSmall = pill(66, "⚡", Color3.fromRGB(110, 190, 255))
 speedSmall.Text = "VITESSE"
 
-local carryLbl = text(gui, { Position = UDim2.fromOffset(14, 118), Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
+local carryLbl = text(gui, { Position = UDim2.fromOffset(14, 126), Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
 corner(carryLbl, 13)
 carryLbl.Visible = false
 
@@ -2455,18 +2538,30 @@ local function toast(msg)
 			break
 		end
 	end
-	local t = text(toasts, { Size = UDim2.fromOffset(340, 30), TextSize = 14, Text = msg, BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y })
+	local accent = COL.panel
+	if msg:find("^🌟") then
+		accent = COL.yellow
+	elseif msg:find("^😡") or msg:find("^🐕") or msg:find("^🥷") or msg:find("Pas assez") or msg:find("Sac plein") or msg:find("Base pleine") then
+		accent = COL.red
+	elseif msg:find("^🎯") or msg:find("^🎁") or msg:find("^♻") then
+		accent = COL.green
+	end
+	local t = text(toasts, { Size = UDim2.fromOffset(340, 30), TextSize = 14, Text = msg, BackgroundColor3 = COL.pill, BackgroundTransparency = 0.08, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y })
 	corner(t, 10)
+	make("UIStroke", { Color = accent, Thickness = 1.5 }, t)
 	make("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, t)
+	local sc = make("UIScale", { Scale = 0.6 }, t)
+	TweenService:Create(sc, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	Debris:AddItem(t, 3.2)
 end
 
 ---------------------------------------------------------------- Pop d'éclosion
-local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(300, 200), BackgroundTransparency = 1, Visible = false }, gui)
+local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false }, gui)
 local popScale = make("UIScale", { Scale = 1 }, pop)
-local popEmoji = text(pop, { Size = UDim2.new(1, 0, 0, 110), TextSize = 96, Text = "" })
-local popName = text(pop, { Position = UDim2.fromOffset(0, 112), Size = UDim2.new(1, 0, 0, 34), TextSize = 26, Text = "", TextStrokeTransparency = 0 })
-local popInfo = text(pop, { Position = UDim2.fromOffset(0, 148), Size = UDim2.new(1, 0, 0, 26), TextSize = 18, Text = "", TextStrokeTransparency = 0 })
+local popRarity = text(pop, { Size = UDim2.new(1, 0, 0, 30), TextSize = 22, Text = "", TextStrokeTransparency = 0 })
+local popEmoji = text(pop, { Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 0, 110), TextSize = 96, Text = "" })
+local popName = text(pop, { Position = UDim2.fromOffset(0, 142), Size = UDim2.new(1, 0, 0, 36), TextSize = 28, Text = "", TextStrokeTransparency = 0 })
+local popInfo = text(pop, { Position = UDim2.fromOffset(0, 180), Size = UDim2.new(1, 0, 0, 28), TextSize = 20, Text = "", TextStrokeTransparency = 0 })
 local popToken = 0
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
 
@@ -2487,6 +2582,11 @@ local function hatchPop(info)
 	popToken += 1
 	local token = popToken
 	popEmoji.Text = def.emoji
+	popEmoji.Rotation = -14
+	TweenService:Create(popEmoji, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
+	popRarity.Text = def.tier >= 4 and ("★ " .. string.upper(tier.name) .. " ★") or string.upper(tier.name)
+	popRarity.TextColor3 = tier.color
+	popRarity.TextSize = def.tier >= 4 and 28 or 20
 	popName.Text = Config.petName(info.p, info.s, info.m)
 	popName.TextColor3 = tier.color
 	popInfo.Text = tier.name .. "  ·  +" .. fmt(info.inc) .. "/s"
@@ -2531,6 +2631,7 @@ make("UIStroke", { Color = COL.panel, Thickness = 2 }, panelFrame)
 local titleLbl = text(panelFrame, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -70, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, Text = "" })
 local closeBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = COL.panel, Text = "✕", Font = FONT, TextSize = 16, TextColor3 = COL.text }, panelFrame)
 corner(closeBtn, 17)
+pressFx(closeBtn)
 local tabsFrame = make("Frame", { Position = UDim2.fromOffset(12, 46), Size = UDim2.new(1, -24, 0, 34), BackgroundTransparency = 1 }, panelFrame)
 make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }, tabsFrame)
 local scroll = make("ScrollingFrame", {
@@ -2563,6 +2664,7 @@ local function addRow(o)
 	if o.btn2 then
 		local b2 = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -126, 0.5, 0), Size = UDim2.fromOffset(42, 40), Text = o.btn2, Font = FONT, TextSize = 18, BackgroundColor3 = o.btn2Color or COL.dis, TextColor3 = COL.dark }, f)
 		corner(b2, 10)
+		pressFx(b2)
 		if o.onClick2 then
 			b2.Activated:Connect(o.onClick2)
 		end
@@ -2570,6 +2672,7 @@ local function addRow(o)
 	if o.btn then
 		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(112, 40), Text = o.btn, Font = FONT, TextSize = 14, AutoButtonColor = true, BackgroundColor3 = o.btnColor or COL.yellow, TextColor3 = o.btnText or COL.dark }, f)
 		corner(b, 10)
+		pressFx(b)
 		if o.cost then
 			costBtns[b] = o.cost
 			paintCost(b, o.cost)
@@ -2638,6 +2741,7 @@ function render()
 			local on = panel.tab == t[1]
 			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
+			pressFx(b)
 			b.Activated:Connect(function()
 				setTab(t[1])
 			end)
@@ -2841,6 +2945,7 @@ make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = 
 for _, n in ipairs(navDefs) do
 	local b = make("TextButton", { Size = UDim2.fromOffset(52, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, navBar)
 	corner(b, 14)
+	pressFx(b)
 	make("UIStroke", { Color = COL.panel, Thickness = 2 }, b)
 	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22 })
 	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10 })
@@ -2877,6 +2982,19 @@ local function refreshStats()
 		end
 	end
 end
+local lastCoins = nil
+player:GetAttributeChangedSignal("Coins"):Connect(function()
+	local c = coins()
+	local delta = lastCoins and (c - lastCoins) or 0
+	lastCoins = c
+	if delta > math.max((player:GetAttribute("Income") or 0) * 2.5, 8) then
+		coinsScale.Scale = 1.18
+		TweenService:Create(coinsScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		local f = text(gui, { Position = UDim2.fromOffset(212, 16), Size = UDim2.fromOffset(120, 30), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, TextColor3 = COL.green, Text = "+" .. fmt(delta), TextStrokeTransparency = 0.3 })
+		TweenService:Create(f, TweenInfo.new(1.1), { Position = UDim2.fromOffset(212, -6), TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		Debris:AddItem(f, 1.2)
+	end
+end)
 for _, a in ipairs({ "Coins", "Income", "Speed" }) do
 	player:GetAttributeChangedSignal(a):Connect(refreshStats)
 end
@@ -3016,23 +3134,28 @@ task.spawn(function()
 	end
 end)
 
----------------------------------------------------------------- Œufs qui tremblent avant d'éclore
+---------------------------------------------------------------- Œufs qui tremblent, puis blanchissent juste avant d'éclore
 local eggBase = setmetatable({}, { __mode = "k" })
+local eggColor = setmetatable({}, { __mode = "k" })
 local eggShaking = setmetatable({}, { __mode = "k" })
 RunService.RenderStepped:Connect(function()
 	local now, t = os.time(), os.clock()
 	for _, egg in ipairs(CollectionService:GetTagged("EggShake")) do
 		if not eggBase[egg] then
 			eggBase[egg] = egg.CFrame
+			eggColor[egg] = egg.Color
 		end
 		local ends = egg:GetAttribute("Ends")
 		local left = ends and (ends - now) or 99
 		if left < 4 then
 			local a = (4 - left) / 4
 			egg.CFrame = eggBase[egg] * CFrame.Angles(math.sin(t * 29) * 0.08 * a, 0, math.sin(t * 35) * 0.12 * a)
+			local glow = left < 1.5 and (1.5 - left) / 1.5 * (0.5 + 0.5 * math.sin(t * 22)) or 0
+			egg.Color = eggColor[egg]:Lerp(Color3.new(1, 1, 1), glow)
 			eggShaking[egg] = true
 		elseif eggShaking[egg] then
 			egg.CFrame = eggBase[egg]
+			egg.Color = eggColor[egg]
 			eggShaking[egg] = nil
 		end
 	end
@@ -3048,6 +3171,84 @@ RunService.RenderStepped:Connect(function(dt)
 			local n = m:GetAttribute("Idx") or 1
 			local target = CFrame.new(root.Position) * root.CFrame.Rotation * CFrame.new((n - 2) * 3, -2.2 + math.sin(os.clock() * 4 + n) * 0.15, 4)
 			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
+		end
+	end
+end)
+
+---------------------------------------------------------------- Effets déclenchés par les tags posés par le serveur
+-- Les objets sont créés par le serveur ; l'animation se joue localement (aucun coût réseau par image).
+
+-- Pet qui apparaît à l'éclosion : il grossit avec un petit rebond.
+local function easeOutBack(x)
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
+local function onPopIn(model)
+	local born = model:GetAttribute("Born")
+	if not born or workspace:GetServerTimeNow() - born > 2 then
+		return
+	end
+	task.spawn(function()
+		local t0 = os.clock()
+		while model.Parent do
+			local a = math.min(1, (os.clock() - t0) / 0.55)
+			model:ScaleTo(math.max(0.05, 0.25 + 0.75 * easeOutBack(a)))
+			if a >= 1 then
+				break
+			end
+			RunService.RenderStepped:Wait()
+		end
+	end)
+end
+CollectionService:GetInstanceAddedSignal("PopIn"):Connect(onPopIn)
+
+-- Onde de choc : un anneau néon qui s'élargit et disparaît.
+CollectionService:GetInstanceAddedSignal("Shockwave"):Connect(function(ring)
+	local big = ring:GetAttribute("Big")
+	local d = big and 40 or 22
+	TweenService:Create(ring, TweenInfo.new(big and 0.7 or 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.3, d, d), Transparency = 1 }):Play()
+end)
+
+-- Récolte : l'œuf s'envole en arc vers le joueur qui vient de le prendre.
+CollectionService:GetInstanceAddedSignal("FlyEgg"):Connect(function(egg)
+	local target = Players:GetPlayerByUserId(egg:GetAttribute("Target") or 0)
+	local start = egg:GetAttribute("Start")
+	if not (target and start) then
+		return
+	end
+	local baseSize = egg.Size
+	task.spawn(function()
+		local t0 = os.clock()
+		while egg.Parent do
+			local a = math.min(1, (os.clock() - t0) / 0.4)
+			local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+			if not root then
+				break
+			end
+			local e = a * a * (3 - 2 * a)
+			local pos = start:Lerp(root.Position + Vector3.new(0, 4, 0), e) + Vector3.new(0, math.sin(a * math.pi) * 4, 0)
+			egg.CFrame = CFrame.new(pos)
+			egg.Size = baseSize * (1 - 0.6 * a)
+			if a >= 1 then
+				break
+			end
+			RunService.RenderStepped:Wait()
+		end
+		if egg.Parent then
+			egg.Transparency = 1
+		end
+	end)
+end)
+
+-- Tapis roulant : les rayures défilent à la vitesse du tapis (-14 studs/s).
+RunService.RenderStepped:Connect(function()
+	local t = os.clock()
+	for _, st in ipairs(CollectionService:GetTagged("BeltStripe")) do
+		local z0, cz = st:GetAttribute("Z0"), st:GetAttribute("CenterZ")
+		if z0 and cz then
+			local rel = ((z0 - 14 * t + 20) % 40) - 20
+			local p = st.Position
+			st.Position = Vector3.new(p.X, p.Y, cz + rel)
 		end
 	end
 end)
