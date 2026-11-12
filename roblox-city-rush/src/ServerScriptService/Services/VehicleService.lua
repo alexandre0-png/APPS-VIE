@@ -246,6 +246,12 @@ end
 function VehicleService.spawnCruiser(cf)
 	local model = create(Config.Police, Config.Police.color, cf)
 	model:SetAttribute("Police", true)
+	for _, seatName in ipairs({ "DriverSeat", "PassengerSeat" }) do
+		local seat = model:FindFirstChild(seatName)
+		if seat then
+			seat.Disabled = true -- les voitures de police ne sont pas volables
+		end
+	end
 	model.PrimaryPart:SetNetworkOwner(nil)
 	return model
 end

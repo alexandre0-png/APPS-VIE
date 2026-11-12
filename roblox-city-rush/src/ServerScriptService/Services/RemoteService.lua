@@ -17,6 +17,7 @@ local CLIENT_TO_SERVER = { "RequestSpawn", "RequestBuy", "RequestColor", "Abando
 
 local folder
 local events = {}
+local registrations = 0
 local lastCall = {} -- [player][name] = os.clock()
 
 function RemoteService.init()
@@ -67,14 +68,16 @@ end
 function RemoteService.on(name, cooldown, validator, handler)
 	local e = events[name]
 	assert(e, "Remote inconnu: " .. tostring(name))
+	registrations += 1
+	local slot = name .. "#" .. registrations
 	e.OnServerEvent:Connect(function(player, ...)
 		local now = os.clock()
 		lastCall[player] = lastCall[player] or {}
-		local last = lastCall[player][name]
+		local last = lastCall[player][slot]
 		if last and now - last < cooldown then
 			return
 		end
-		lastCall[player][name] = now
+		lastCall[player][slot] = now
 		if validator and not validator(...) then
 			return
 		end

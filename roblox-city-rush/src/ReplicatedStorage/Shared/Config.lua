@@ -209,6 +209,18 @@ Config.GamePasses = {
 	{ key = "BOOST", name = "Nitro Infini+", robux = 149, desc = "Nitro 2x plus long et recharge rapide" },
 }
 
+-- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
+Config.POIs = {
+	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },
+	{ name = "Station taxi", x = -40, z = -10, color = Color3.fromRGB(255, 214, 0), glyph = "T" },
+	{ name = "Banque", x = 0, z = -170, color = Color3.fromRGB(255, 60, 60), glyph = "$" },
+	{ name = "Course de rue", x = 322, z = 0, color = Color3.fromRGB(255, 70, 70), glyph = "C" },
+	{ name = "Concessionnaire", x = 200, z = 375, color = Color3.fromRGB(80, 200, 255), glyph = "V" },
+	{ name = "Pay'n'Spray", x = -200, z = 386, color = Color3.fromRGB(255, 214, 0), glyph = "S" },
+	{ name = "Commissariat", x = 0, z = 420, color = Color3.fromRGB(90, 140, 255), glyph = "!" },
+	{ name = "Planque", x = -30, z = -345, color = Color3.fromRGB(80, 255, 120), glyph = "H" },
+}
+
 -- ====================================================================
 -- Interface
 -- ====================================================================
