@@ -1,0 +1,197 @@
+--!strict
+-- Configuration centrale du jeu « Festin du T-Rex ».
+-- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
+
+local Config: any = {}
+
+Config.Name = "Festin du T-Rex"
+
+Config.Data = {
+	StoreName = "FestinTRex_v1",
+	FedBoardName = "FestinTRex_Fed_v1",
+	AutosaveSeconds = 90,
+	LockSeconds = 150, -- un verrou de session plus vieux que ça est considéré périmé
+	LoadRetries = 6,
+	LoadRetryDelay = 2,
+}
+
+-- Nourritures (ordre = ordre de déblocage). Shape : Ball / Block / Cylinder.
+Config.Foods = {
+	{ Id = "pomme", Name = "Pomme", Emoji = "🍎", Value = 10, Price = 0, Shape = "Ball", Size = { 1.4, 1.4, 1.4 }, Color = { 220, 40, 40 }, Material = "SmoothPlastic", Weight = 4 },
+	{ Id = "burger", Name = "Burger", Emoji = "🍔", Value = 26, Price = 350, Shape = "Block", Size = { 1.7, 1.3, 1.7 }, Color = { 205, 133, 63 }, Material = "SmoothPlastic", Weight = 3 },
+	{ Id = "pizza", Name = "Pizza", Emoji = "🍕", Value = 65, Price = 2200, Shape = "Cylinder", Size = { 0.4, 2.2, 2.2 }, Color = { 255, 190, 60 }, Material = "SmoothPlastic", Weight = 3 },
+	{ Id = "donut", Name = "Donut", Emoji = "🍩", Value = 150, Price = 11000, Shape = "Cylinder", Size = { 0.8, 2.0, 2.0 }, Color = { 255, 130, 190 }, Material = "SmoothPlastic", Weight = 2 },
+	{ Id = "gateau", Name = "Gâteau", Emoji = "🍰", Value = 340, Price = 55000, Shape = "Block", Size = { 2.0, 1.7, 2.0 }, Color = { 250, 240, 225 }, Material = "SmoothPlastic", Weight = 2 },
+	{ Id = "dinde", Name = "Dinde dorée", Emoji = "🍗", Value = 900, Price = 280000, Shape = "Ball", Size = { 2.3, 2.3, 2.3 }, Color = { 255, 200, 40 }, Material = "Neon", Weight = 1 },
+}
+
+Config.Upgrades = {
+	{ Id = "power", Name = "Bras musclé", Icon = "💪", Desc = "+7 studs de portée par niveau", Max = 10, BaseCost = 120, Growth = 1.7 },
+	{ Id = "rate", Name = "Cadence", Icon = "⚡", Desc = "Lancers plus rapides", Max = 10, BaseCost = 150, Growth = 1.7 },
+	{ Id = "basket", Name = "Grand panier", Icon = "🧺", Desc = "+2 nourritures par niveau", Max = 10, BaseCost = 100, Growth = 1.65 },
+	{ Id = "greed", Name = "Gourmandise", Icon = "🪙", Desc = "+10% de pièces par niveau", Max = 15, BaseCost = 300, Growth = 1.75 },
+	{ Id = "aim", Name = "Visée", Icon = "🎯", Desc = "Assistance de visée plus large", Max = 8, BaseCost = 200, Growth = 1.7 },
+	{ Id = "boots", Name = "Bottes", Icon = "👟", Desc = "Course plus rapide", Max = 8, BaseCost = 180, Growth = 1.6 },
+}
+
+Config.Throw = {
+	BaseRange = 60,
+	RangePerLevel = 7,
+	BaseCooldown = 1.0,
+	CooldownPerLevel = 0.07,
+	MinCooldown = 0.3,
+	CooldownTolerance = 0.85, -- tolérance de latence côté serveur
+	BaseCapacity = 6,
+	CapacityPerLevel = 2,
+	BaseAssist = 4,
+	AssistPerLevel = 1.5,
+	Speed = 70, -- studs/s, sert à déterminer la durée de vol
+	MinFlight = 0.35,
+	MaxFlight = 1.8,
+	TrailTime = 1.0, -- temps de vol supplémentaire simulé après la cible
+	StepsPerSecond = 30,
+	MaxArenaRadius = 300,
+	BaseWalkSpeed = 16,
+	WalkPerLevel = 1.2,
+}
+
+Config.Combo = {
+	Window = 5, -- secondes entre deux touches pour garder le combo
+	PerStep = 0.05,
+	Max = 30,
+}
+
+Config.FavoriteMult = 3
+Config.HungryMult = 1.5
+
+Config.RebirthBaseCost = 20000
+Config.RebirthCostGrowth = 3
+Config.RebirthBonus = 0.5 -- +50% de pièces permanent par renaissance
+
+Config.Dino = {
+	DecayPerSecond = 0.003, -- fraction du besoin perdue par seconde
+	HungryFraction = 0.12,
+	FavoriteEvery = 45,
+	Stages = {
+		{ Name = "Bébé Rex", Scale = 0.6, Need = 600 },
+		{ Name = "Rex Junior", Scale = 0.8, Need = 1500 },
+		{ Name = "Rex", Scale = 1.0, Need = 3500 },
+		{ Name = "Rex Géant", Scale = 1.25, Need = 8000 },
+		{ Name = "Titan Rex", Scale = 1.5, Need = 20000 },
+	},
+}
+
+Config.Feast = {
+	BaseCoins = 400,
+	EggChance = 0.25,
+	MinShareForEgg = 0.15,
+}
+
+-- Événements serveur périodiques.
+Config.Events = {
+	FirstDelay = 70,
+	MinInterval = 150,
+	MaxInterval = 230,
+	Sauce = { Name = "Marée de sauce tomate", Warning = 9, Duration = 17, Height = 10, Reward = 350, Half = 340 },
+	Rain = { Name = "Pluie gourmande", Warning = 5, Duration = 28, DropEvery = 0.45, DropValue = 30, DropLife = 14 },
+	Frenzy = { Name = "Frénésie du festin", Warning = 4, Duration = 40, Mult = 2 },
+}
+
+-- Compagnons
+Config.PetSlots = 3
+Config.Rarities = {
+	{ Id = "commun", Name = "Commun", Color = { 190, 190, 190 } },
+	{ Id = "rare", Name = "Rare", Color = { 80, 160, 255 } },
+	{ Id = "epique", Name = "Épique", Color = { 190, 90, 255 } },
+	{ Id = "legendaire", Name = "Légendaire", Color = { 255, 190, 40 } },
+	{ Id = "mythique", Name = "Mythique", Color = { 255, 80, 120 } },
+}
+
+Config.Pets = {
+	{ Id = "poussin", Name = "Poussin Rex", Rarity = "commun", Mult = 0.05, Color = { 255, 225, 90 } },
+	{ Id = "raptor", Name = "Mini Raptor", Rarity = "commun", Mult = 0.06, Color = { 110, 190, 90 } },
+	{ Id = "gluant", Name = "Gluant", Rarity = "commun", Mult = 0.07, Color = { 120, 220, 200 } },
+	{ Id = "stego", Name = "Stégo Bonbon", Rarity = "rare", Mult = 0.12, Color = { 255, 130, 170 } },
+	{ Id = "tricera", Name = "Tricéra Pizza", Rarity = "rare", Mult = 0.15, Color = { 255, 170, 70 } },
+	{ Id = "ptero", Name = "Ptéro Nuage", Rarity = "epique", Mult = 0.30, Color = { 190, 210, 255 } },
+	{ Id = "ankylo", Name = "Ankylo Burger", Rarity = "epique", Mult = 0.35, Color = { 190, 120, 60 } },
+	{ Id = "rexor", Name = "Rex Doré", Rarity = "legendaire", Mult = 0.70, Color = { 255, 200, 40 } },
+	{ Id = "spino", Name = "Spino Glace", Rarity = "legendaire", Mult = 0.80, Color = { 120, 220, 255 } },
+	{ Id = "dragon", Name = "Dragon Gourmand", Rarity = "mythique", Mult = 2.00, Color = { 255, 70, 90 } },
+	{ Id = "arcenciel", Name = "Rex Arc-en-ciel", Rarity = "mythique", Mult = 2.50, Color = { 255, 120, 255 } },
+}
+
+-- Poids de tirage par rareté.
+Config.Eggs = {
+	classic = {
+		Name = "Œuf du T-Rex",
+		Emoji = "🥚",
+		Price = 4000,
+		Odds = { commun = 60, rare = 28, epique = 9, legendaire = 2.6, mythique = 0.4 },
+	},
+	gold = {
+		Name = "Œuf doré",
+		Emoji = "🌟",
+		Price = 40000,
+		Odds = { commun = 20, rare = 40, epique = 28, legendaire = 10, mythique = 2 },
+	},
+}
+Config.DuplicateRefundFraction = 0.25 -- fraction du prix de l'œuf rendue pour un doublon déjà possédé
+
+-- Quêtes quotidiennes : 3 tirées chaque jour parmi ces types.
+Config.Quests = {
+	{ Kind = "feed", Text = "Nourris le T-Rex %d fois", Targets = { 30, 60, 100 }, BaseCoins = 600, Mode = "add" },
+	{ Kind = "combo", Text = "Atteins un combo de %d", Targets = { 8, 12, 18 }, BaseCoins = 700, Mode = "max" },
+	{ Kind = "fav", Text = "Donne %d fois sa nourriture préférée", Targets = { 6, 12, 20 }, BaseCoins = 700, Mode = "add" },
+	{ Kind = "survive", Text = "Survis à %d marée(s) de sauce", Targets = { 1, 2, 3 }, BaseCoins = 800, Mode = "add" },
+	{ Kind = "feast", Text = "Participe à %d festin(s)", Targets = { 1, 2, 3 }, BaseCoins = 900, Mode = "add" },
+	{ Kind = "earn", Text = "Gagne %d pièces", Targets = { 3000, 10000, 30000 }, BaseCoins = 600, Mode = "add" },
+}
+Config.QuestsPerDay = 3
+
+-- Récompenses de connexion quotidienne (série de 7 jours).
+Config.Daily = {
+	{ Coins = 200, Eggs = 0 },
+	{ Coins = 400, Eggs = 0 },
+	{ Coins = 800, Eggs = 0 },
+	{ Coins = 1500, Eggs = 0 },
+	{ Coins = 3000, Eggs = 0 },
+	{ Coins = 6000, Eggs = 0 },
+	{ Coins = 10000, Eggs = 1 },
+}
+
+-- Fourchettes d'or cachées (secrets). La position est définie dans MapBuilder.
+Config.SecretCount = 5
+Config.SecretReward = { Coins = 1500, Eggs = 1 }
+Config.SecretAllBonus = { Coins = 25000, Eggs = 2 }
+
+-- Sons intégrés au client Roblox (rbxasset://). Remplaçables par vos propres ids.
+Config.Sounds = {
+	Throw = "rbxasset://sounds/swoosh.wav",
+	Munch = "rbxasset://sounds/splat.wav",
+	Thud = "rbxasset://sounds/snap.mp3",
+	Coin = "rbxasset://sounds/electronicpingshort.wav",
+	Click = "rbxasset://sounds/button.wav",
+	Roar = "rbxasset://sounds/impact_explosion_03.mp3",
+	Wave = "rbxasset://sounds/impact_water.mp3",
+	Success = "rbxasset://sounds/bass.wav",
+}
+
+Config.Defaults = {
+	version = 1,
+	coins = 0,
+	totalFed = 0,
+	rebirths = 0,
+	upgrades = {},
+	foods = { pomme = true },
+	selectedFood = "pomme",
+	pets = {},
+	equipped = {},
+	eggs = 1,
+	secrets = {},
+	quests = { day = 0, list = {} },
+	streak = { last = 0, count = 0 },
+	stats = { bestCombo = 0, feasts = 0, survived = 0, hits = 0 },
+}
+
+return Config

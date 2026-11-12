@@ -1,0 +1,25 @@
+{
+  "name": "FestinDuTRex",
+  "className": "DataModel",
+  "children": [
+    {
+      "name": "ReplicatedStorage",
+      "className": "ReplicatedStorage",
+      "children": [
+        {
+          "name": "Shared",
+          "className": "Folder",
+          "children": [
+            { "name": "Config", "className": "ModuleScript", "filePaths": ["src/shared/Config.luau"] },
+            { "name": "Util", "className": "ModuleScript", "filePaths": ["src/shared/Util.luau"] },
+            { "name": "Economy", "className": "ModuleScript", "filePaths": ["src/shared/Economy.luau"] },
+            { "name": "QuestLogic", "className": "ModuleScript", "filePaths": ["src/shared/QuestLogic.luau"] },
+            { "name": "DinoCore", "className": "ModuleScript", "filePaths": ["src/shared/DinoCore.luau"] },
+            { "name": "Ballistics", "className": "ModuleScript", "filePaths": ["src/shared/Ballistics.luau"] },
+            { "name": "Remotes", "className": "ModuleScript", "filePaths": ["src/shared/Remotes.luau"] }
+          ]
+        }
+      ]
+    }
+  ]
+}

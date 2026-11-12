@@ -1,0 +1,4528 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBXEF3DF9D9D5794DC7BE81CC4A6FFD7910"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBX17E1B6817FB0494DA932F51547A9D371"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX8FF6641DA58041889012CD90EA7A4C61"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX47EC5A1B59C74810ADF84DFCCC4B82A1"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
+-- Balistique pure (nombres, pas de Vector3) : utilisée à l'identique par le serveur (validation)
+-- et par les clients (animation), donc l'arc affiché correspond exactement à l'arc calculé.
+
+local Ballistics = {}
+
+function Ballistics.flightTime(distance: number, speed: number, minT: number, maxT: number): number
+	return math.clamp(distance / speed, minT, maxT)
+end
+
+-- Vitesse initiale pour atteindre (tx,ty,tz) depuis (ox,oy,oz) en T secondes, gravité g (>0, vers -Y).
+function Ballistics.launchVelocity(ox: number, oy: number, oz: number, tx: number, ty: number, tz: number, T: number, g: number): (number, number, number)
+	return (tx - ox) / T, (ty - oy) / T + 0.5 * g * T, (tz - oz) / T
+end
+
+function Ballistics.position(ox: number, oy: number, oz: number, vx: number, vy: number, vz: number, t: number, g: number): (number, number, number)
+	return ox + vx * t, oy + vy * t - 0.5 * g * t * t, oz + vz * t
+end
+
+return Ballistics
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5AD66D2E384A43BAA74434D520E89746"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
+-- Configuration centrale du jeu « Festin du T-Rex ».
+-- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
+
+local Config: any = {}
+
+Config.Name = "Festin du T-Rex"
+
+Config.Data = {
+	StoreName = "FestinTRex_v1",
+	FedBoardName = "FestinTRex_Fed_v1",
+	AutosaveSeconds = 90,
+	LockSeconds = 150, -- un verrou de session plus vieux que ça est considéré périmé
+	LoadRetries = 6,
+	LoadRetryDelay = 2,
+}
+
+-- Nourritures (ordre = ordre de déblocage). Shape : Ball / Block / Cylinder.
+Config.Foods = {
+	{ Id = "pomme", Name = "Pomme", Emoji = "🍎", Value = 10, Price = 0, Shape = "Ball", Size = { 1.4, 1.4, 1.4 }, Color = { 220, 40, 40 }, Material = "SmoothPlastic", Weight = 4 },
+	{ Id = "burger", Name = "Burger", Emoji = "🍔", Value = 26, Price = 350, Shape = "Block", Size = { 1.7, 1.3, 1.7 }, Color = { 205, 133, 63 }, Material = "SmoothPlastic", Weight = 3 },
+	{ Id = "pizza", Name = "Pizza", Emoji = "🍕", Value = 65, Price = 2200, Shape = "Cylinder", Size = { 0.4, 2.2, 2.2 }, Color = { 255, 190, 60 }, Material = "SmoothPlastic", Weight = 3 },
+	{ Id = "donut", Name = "Donut", Emoji = "🍩", Value = 150, Price = 11000, Shape = "Cylinder", Size = { 0.8, 2.0, 2.0 }, Color = { 255, 130, 190 }, Material = "SmoothPlastic", Weight = 2 },
+	{ Id = "gateau", Name = "Gâteau", Emoji = "🍰", Value = 340, Price = 55000, Shape = "Block", Size = { 2.0, 1.7, 2.0 }, Color = { 250, 240, 225 }, Material = "SmoothPlastic", Weight = 2 },
+	{ Id = "dinde", Name = "Dinde dorée", Emoji = "🍗", Value = 900, Price = 280000, Shape = "Ball", Size = { 2.3, 2.3, 2.3 }, Color = { 255, 200, 40 }, Material = "Neon", Weight = 1 },
+}
+
+Config.Upgrades = {
+	{ Id = "power", Name = "Bras musclé", Icon = "💪", Desc = "+7 studs de portée par niveau", Max = 10, BaseCost = 120, Growth = 1.7 },
+	{ Id = "rate", Name = "Cadence", Icon = "⚡", Desc = "Lancers plus rapides", Max = 10, BaseCost = 150, Growth = 1.7 },
+	{ Id = "basket", Name = "Grand panier", Icon = "🧺", Desc = "+2 nourritures par niveau", Max = 10, BaseCost = 100, Growth = 1.65 },
+	{ Id = "greed", Name = "Gourmandise", Icon = "🪙", Desc = "+10% de pièces par niveau", Max = 15, BaseCost = 300, Growth = 1.75 },
+	{ Id = "aim", Name = "Visée", Icon = "🎯", Desc = "Assistance de visée plus large", Max = 8, BaseCost = 200, Growth = 1.7 },
+	{ Id = "boots", Name = "Bottes", Icon = "👟", Desc = "Course plus rapide", Max = 8, BaseCost = 180, Growth = 1.6 },
+}
+
+Config.Throw = {
+	BaseRange = 60,
+	RangePerLevel = 7,
+	BaseCooldown = 1.0,
+	CooldownPerLevel = 0.07,
+	MinCooldown = 0.3,
+	CooldownTolerance = 0.85, -- tolérance de latence côté serveur
+	BaseCapacity = 6,
+	CapacityPerLevel = 2,
+	BaseAssist = 4,
+	AssistPerLevel = 1.5,
+	Speed = 70, -- studs/s, sert à déterminer la durée de vol
+	MinFlight = 0.35,
+	MaxFlight = 1.8,
+	TrailTime = 1.0, -- temps de vol supplémentaire simulé après la cible
+	StepsPerSecond = 30,
+	MaxArenaRadius = 300,
+	BaseWalkSpeed = 16,
+	WalkPerLevel = 1.2,
+}
+
+Config.Combo = {
+	Window = 5, -- secondes entre deux touches pour garder le combo
+	PerStep = 0.05,
+	Max = 30,
+}
+
+Config.FavoriteMult = 3
+Config.HungryMult = 1.5
+
+Config.RebirthBaseCost = 20000
+Config.RebirthCostGrowth = 3
+Config.RebirthBonus = 0.5 -- +50% de pièces permanent par renaissance
+
+Config.Dino = {
+	DecayPerSecond = 0.003, -- fraction du besoin perdue par seconde
+	HungryFraction = 0.12,
+	FavoriteEvery = 45,
+	Stages = {
+		{ Name = "Bébé Rex", Scale = 0.6, Need = 600 },
+		{ Name = "Rex Junior", Scale = 0.8, Need = 1500 },
+		{ Name = "Rex", Scale = 1.0, Need = 3500 },
+		{ Name = "Rex Géant", Scale = 1.25, Need = 8000 },
+		{ Name = "Titan Rex", Scale = 1.5, Need = 20000 },
+	},
+}
+
+Config.Feast = {
+	BaseCoins = 400,
+	EggChance = 0.25,
+	MinShareForEgg = 0.15,
+}
+
+-- Événements serveur périodiques.
+Config.Events = {
+	FirstDelay = 70,
+	MinInterval = 150,
+	MaxInterval = 230,
+	Sauce = { Name = "Marée de sauce tomate", Warning = 9, Duration = 17, Height = 10, Reward = 350, Half = 340 },
+	Rain = { Name = "Pluie gourmande", Warning = 5, Duration = 28, DropEvery = 0.45, DropValue = 30, DropLife = 14 },
+	Frenzy = { Name = "Frénésie du festin", Warning = 4, Duration = 40, Mult = 2 },
+}
+
+-- Compagnons
+Config.PetSlots = 3
+Config.Rarities = {
+	{ Id = "commun", Name = "Commun", Color = { 190, 190, 190 } },
+	{ Id = "rare", Name = "Rare", Color = { 80, 160, 255 } },
+	{ Id = "epique", Name = "Épique", Color = { 190, 90, 255 } },
+	{ Id = "legendaire", Name = "Légendaire", Color = { 255, 190, 40 } },
+	{ Id = "mythique", Name = "Mythique", Color = { 255, 80, 120 } },
+}
+
+Config.Pets = {
+	{ Id = "poussin", Name = "Poussin Rex", Rarity = "commun", Mult = 0.05, Color = { 255, 225, 90 } },
+	{ Id = "raptor", Name = "Mini Raptor", Rarity = "commun", Mult = 0.06, Color = { 110, 190, 90 } },
+	{ Id = "gluant", Name = "Gluant", Rarity = "commun", Mult = 0.07, Color = { 120, 220, 200 } },
+	{ Id = "stego", Name = "Stégo Bonbon", Rarity = "rare", Mult = 0.12, Color = { 255, 130, 170 } },
+	{ Id = "tricera", Name = "Tricéra Pizza", Rarity = "rare", Mult = 0.15, Color = { 255, 170, 70 } },
+	{ Id = "ptero", Name = "Ptéro Nuage", Rarity = "epique", Mult = 0.30, Color = { 190, 210, 255 } },
+	{ Id = "ankylo", Name = "Ankylo Burger", Rarity = "epique", Mult = 0.35, Color = { 190, 120, 60 } },
+	{ Id = "rexor", Name = "Rex Doré", Rarity = "legendaire", Mult = 0.70, Color = { 255, 200, 40 } },
+	{ Id = "spino", Name = "Spino Glace", Rarity = "legendaire", Mult = 0.80, Color = { 120, 220, 255 } },
+	{ Id = "dragon", Name = "Dragon Gourmand", Rarity = "mythique", Mult = 2.00, Color = { 255, 70, 90 } },
+	{ Id = "arcenciel", Name = "Rex Arc-en-ciel", Rarity = "mythique", Mult = 2.50, Color = { 255, 120, 255 } },
+}
+
+-- Poids de tirage par rareté.
+Config.Eggs = {
+	classic = {
+		Name = "Œuf du T-Rex",
+		Emoji = "🥚",
+		Price = 4000,
+		Odds = { commun = 60, rare = 28, epique = 9, legendaire = 2.6, mythique = 0.4 },
+	},
+	gold = {
+		Name = "Œuf doré",
+		Emoji = "🌟",
+		Price = 40000,
+		Odds = { commun = 20, rare = 40, epique = 28, legendaire = 10, mythique = 2 },
+	},
+}
+Config.DuplicateRefundFraction = 0.25 -- fraction du prix de l'œuf rendue pour un doublon déjà possédé
+
+-- Quêtes quotidiennes : 3 tirées chaque jour parmi ces types.
+Config.Quests = {
+	{ Kind = "feed", Text = "Nourris le T-Rex %d fois", Targets = { 30, 60, 100 }, BaseCoins = 600, Mode = "add" },
+	{ Kind = "combo", Text = "Atteins un combo de %d", Targets = { 8, 12, 18 }, BaseCoins = 700, Mode = "max" },
+	{ Kind = "fav", Text = "Donne %d fois sa nourriture préférée", Targets = { 6, 12, 20 }, BaseCoins = 700, Mode = "add" },
+	{ Kind = "survive", Text = "Survis à %d marée(s) de sauce", Targets = { 1, 2, 3 }, BaseCoins = 800, Mode = "add" },
+	{ Kind = "feast", Text = "Participe à %d festin(s)", Targets = { 1, 2, 3 }, BaseCoins = 900, Mode = "add" },
+	{ Kind = "earn", Text = "Gagne %d pièces", Targets = { 3000, 10000, 30000 }, BaseCoins = 600, Mode = "add" },
+}
+Config.QuestsPerDay = 3
+
+-- Récompenses de connexion quotidienne (série de 7 jours).
+Config.Daily = {
+	{ Coins = 200, Eggs = 0 },
+	{ Coins = 400, Eggs = 0 },
+	{ Coins = 800, Eggs = 0 },
+	{ Coins = 1500, Eggs = 0 },
+	{ Coins = 3000, Eggs = 0 },
+	{ Coins = 6000, Eggs = 0 },
+	{ Coins = 10000, Eggs = 1 },
+}
+
+-- Fourchettes d'or cachées (secrets). La position est définie dans MapBuilder.
+Config.SecretCount = 5
+Config.SecretReward = { Coins = 1500, Eggs = 1 }
+Config.SecretAllBonus = { Coins = 25000, Eggs = 2 }
+
+-- Sons intégrés au client Roblox (rbxasset://). Remplaçables par vos propres ids.
+Config.Sounds = {
+	Throw = "rbxasset://sounds/swoosh.wav",
+	Munch = "rbxasset://sounds/splat.wav",
+	Thud = "rbxasset://sounds/snap.mp3",
+	Coin = "rbxasset://sounds/electronicpingshort.wav",
+	Click = "rbxasset://sounds/button.wav",
+	Roar = "rbxasset://sounds/impact_explosion_03.mp3",
+	Wave = "rbxasset://sounds/impact_water.mp3",
+	Success = "rbxasset://sounds/bass.wav",
+}
+
+Config.Defaults = {
+	version = 1,
+	coins = 0,
+	totalFed = 0,
+	rebirths = 0,
+	upgrades = {},
+	foods = { pomme = true },
+	selectedFood = "pomme",
+	pets = {},
+	equipped = {},
+	eggs = 1,
+	secrets = {},
+	quests = { day = 0, list = {} },
+	streak = { last = 0, count = 0 },
+	stats = { bestCombo = 0, feasts = 0, survived = 0, hits = 0 },
+}
+
+return Config
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB55D02A45EED497BA36F99DCE859546D"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Machine d'état du T-Rex (satiété, contributions, festin). Pure : testable hors Studio.
+
+local Config = require(script.Parent.Config)
+
+local DinoCore = {}
+DinoCore.__index = DinoCore
+
+export type Core = typeof(setmetatable(
+	{} :: { stage: number, satiety: number, contrib: { [number]: number }, feasts: number },
+	DinoCore
+))
+
+function DinoCore.new(): Core
+	return setmetatable({ stage = 1, satiety = 0, contrib = {}, feasts = 0 }, DinoCore)
+end
+
+function DinoCore.need(self: Core): number
+	return Config.Dino.Stages[self.stage].Need
+end
+
+function DinoCore.isHungry(self: Core): boolean
+	return self.satiety < self:need() * Config.Dino.HungryFraction
+end
+
+-- Ajoute de la satiété. Retourne true si le seuil du festin est atteint.
+function DinoCore.add(self: Core, userId: number, amount: number): boolean
+	self.satiety += amount
+	self.contrib[userId] = (self.contrib[userId] or 0) + amount
+	return self.satiety >= self:need()
+end
+
+function DinoCore.decay(self: Core, dt: number)
+	local loss = self:need() * Config.Dino.DecayPerSecond * dt
+	self.satiety = math.max(0, self.satiety - loss)
+end
+
+-- Termine le festin : renvoie (contributions, total, stadeTerminé) et prépare le stade suivant.
+function DinoCore.completeFeast(self: Core): ({ [number]: number }, number, number)
+	local contrib = self.contrib
+	local total = 0
+	for _, v in pairs(contrib) do
+		total += v
+	end
+	local finished = self.stage
+	self.contrib = {}
+	self.satiety = 0
+	self.feasts += 1
+	self.stage = math.min(self.stage + 1, #Config.Dino.Stages)
+	return contrib, total, finished
+end
+
+return DinoCore
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17734AB0C9DA4211B2D2AF5D5259237E"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Calculs d'économie et de statistiques (purs, testables hors Studio).
+
+local Config = require(script.Parent.Config)
+
+local Economy = {}
+
+export type Stats = {
+	range: number,
+	cooldown: number,
+	capacity: number,
+	assist: number,
+	walkSpeed: number,
+	coinMult: number,
+	petMult: number,
+	petSlots: number,
+}
+
+local function upgradeLevel(data: any, id: string): number
+	local lvl = data.upgrades[id]
+	if type(lvl) ~= "number" then
+		return 0
+	end
+	return math.max(0, math.floor(lvl))
+end
+
+function Economy.findFood(id: string): any?
+	for _, f in ipairs(Config.Foods) do
+		if f.Id == id then
+			return f
+		end
+	end
+	return nil
+end
+
+function Economy.findUpgrade(id: string): any?
+	for _, u in ipairs(Config.Upgrades) do
+		if u.Id == id then
+			return u
+		end
+	end
+	return nil
+end
+
+function Economy.findPet(id: string): any?
+	for _, p in ipairs(Config.Pets) do
+		if p.Id == id then
+			return p
+		end
+	end
+	return nil
+end
+
+-- Coût du prochain niveau d'une amélioration (level = niveau actuel).
+function Economy.upgradeCost(def: any, level: number): number
+	return math.floor(def.BaseCost * (def.Growth ^ level))
+end
+
+function Economy.rebirthCost(rebirths: number): number
+	return math.floor(Config.RebirthBaseCost * (Config.RebirthCostGrowth ^ rebirths))
+end
+
+function Economy.rebirthMult(rebirths: number): number
+	return 1 + Config.RebirthBonus * rebirths
+end
+
+function Economy.petSlots(data: any): number
+	return Config.PetSlots + (if data.rebirths >= 5 then 1 else 0)
+end
+
+-- Somme des bonus des compagnons équipés (ignore les ids invalides ou non possédés).
+function Economy.petBonus(data: any): number
+	local total = 0
+	local seen: { [string]: boolean } = {}
+	local slots = Economy.petSlots(data)
+	for i, id in ipairs(data.equipped) do
+		if i > slots then
+			break
+		end
+		if type(id) == "string" and not seen[id] and (data.pets[id] or 0) > 0 then
+			local def = Economy.findPet(id)
+			if def then
+				total += def.Mult
+				seen[id] = true
+			end
+		end
+	end
+	return total
+end
+
+function Economy.stats(data: any): Stats
+	local T = Config.Throw
+	local power = upgradeLevel(data, "power")
+	local rate = upgradeLevel(data, "rate")
+	local basket = upgradeLevel(data, "basket")
+	local greed = upgradeLevel(data, "greed")
+	local aim = upgradeLevel(data, "aim")
+	local boots = upgradeLevel(data, "boots")
+	local petMult = Economy.petBonus(data)
+	return {
+		range = T.BaseRange + T.RangePerLevel * power,
+		cooldown = math.max(T.MinCooldown, T.BaseCooldown - T.CooldownPerLevel * rate),
+		capacity = T.BaseCapacity + T.CapacityPerLevel * basket,
+		assist = T.BaseAssist + T.AssistPerLevel * aim,
+		walkSpeed = T.BaseWalkSpeed + T.WalkPerLevel * boots,
+		coinMult = (1 + 0.1 * greed + petMult) * Economy.rebirthMult(data.rebirths),
+		petMult = petMult,
+		petSlots = Economy.petSlots(data),
+	}
+end
+
+function Economy.comboMult(combo: number): number
+	return 1 + Config.Combo.PerStep * math.min(combo, Config.Combo.Max)
+end
+
+function Economy.hitReward(foodValue: number, combo: number, isFav: boolean, hungry: boolean, eventMult: number, coinMult: number): number
+	local fav = if isFav then Config.FavoriteMult else 1
+	local hunger = if hungry then Config.HungryMult else 1
+	local v = foodValue * Economy.comboMult(combo) * fav * hunger * eventMult * coinMult
+	return math.max(1, math.floor(v + 0.5))
+end
+
+-- Niveau « gourmet » : fonction de la nourriture totale donnée.
+function Economy.level(totalFed: number): (number, number, number)
+	local level = math.min(99, math.floor(math.sqrt(math.max(0, totalFed) / 12)) + 1)
+	local cur = (level - 1) ^ 2 * 12
+	local nxt = level ^ 2 * 12
+	local progress = if level >= 99 then 1 else (totalFed - cur) / (nxt - cur)
+	return level, math.clamp(progress, 0, 1), math.floor(nxt)
+end
+
+function Economy.feastCoins(stageIndex: number, share: number, rebirths: number): number
+	local base = Config.Feast.BaseCoins * stageIndex
+	return math.floor(base * (0.4 + 1.6 * share) * Economy.rebirthMult(rebirths))
+end
+
+-- Tirage d'un compagnon : retourne l'id. rnd1 choisit la rareté, rnd2 le compagnon dans la rareté.
+function Economy.rollPet(eggKind: string, rnd1: number, rnd2: number): string
+	local egg = Config.Eggs[eggKind]
+	local items = {}
+	for _, r in ipairs(Config.Rarities) do
+		table.insert(items, { id = r.Id, weight = egg.Odds[r.Id] or 0 })
+	end
+	local total = 0
+	for _, it in ipairs(items) do
+		total += it.weight
+	end
+	local target = rnd1 * total
+	local acc = 0
+	local rarity = items[#items].id
+	for _, it in ipairs(items) do
+		acc += it.weight
+		if target < acc then
+			rarity = it.id
+			break
+		end
+	end
+	local pool = {}
+	for _, p in ipairs(Config.Pets) do
+		if p.Rarity == rarity then
+			table.insert(pool, p)
+		end
+	end
+	return pool[math.min(#pool, math.floor(rnd2 * #pool) + 1)].Id
+end
+
+return Economy
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1051F564C12D48BCA44BBDC6CA471B9D"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Logique des quêtes quotidiennes et de la série de connexion (pure).
+
+local Config = require(script.Parent.Config)
+local Util = require(script.Parent.Util)
+
+local QuestLogic = {}
+
+local function findDef(kind: string): any?
+	for _, d in ipairs(Config.Quests) do
+		if d.Kind == kind then
+			return d
+		end
+	end
+	return nil
+end
+QuestLogic.findDef = findDef
+
+-- Génère les quêtes du jour : déterministe pour (jour, joueur).
+function QuestLogic.generate(day: number, userId: number): { any }
+	local rnd = Util.lcg(day * 7919 + (userId % 100003) + 17)
+	local pool = {}
+	for _, d in ipairs(Config.Quests) do
+		table.insert(pool, d)
+	end
+	local list = {}
+	for _ = 1, math.min(Config.QuestsPerDay, #pool) do
+		local idx = math.floor(rnd() * #pool) + 1
+		local def = table.remove(pool, idx)
+		local tier = math.floor(rnd() * #def.Targets) + 1
+		table.insert(list, {
+			kind = def.Kind,
+			target = def.Targets[tier],
+			coins = def.BaseCoins * tier,
+			eggs = if tier == #def.Targets then 1 else 0,
+			progress = 0,
+			claimed = false,
+		})
+	end
+	return list
+end
+
+-- Régénère les quêtes si le jour a changé. Retourne true si changement.
+function QuestLogic.ensure(data: any, day: number, userId: number): boolean
+	if data.quests.day == day and #data.quests.list > 0 then
+		return false
+	end
+	data.quests.day = day
+	data.quests.list = QuestLogic.generate(day, userId)
+	return true
+end
+
+-- Applique une progression. Retourne true si au moins une quête a changé.
+function QuestLogic.progress(data: any, kind: string, amount: number): boolean
+	local def = findDef(kind)
+	if not def then
+		return false
+	end
+	local changed = false
+	for _, q in ipairs(data.quests.list) do
+		if q.kind == kind and not q.claimed and q.progress < q.target then
+			local before = q.progress
+			if def.Mode == "max" then
+				q.progress = math.min(q.target, math.max(q.progress, amount))
+			else
+				q.progress = math.min(q.target, q.progress + amount)
+			end
+			if q.progress ~= before then
+				changed = true
+			end
+		end
+	end
+	return changed
+end
+
+-- Réclame une quête terminée. Retourne coins, eggs ou nil, raison.
+function QuestLogic.claim(data: any, index: number): (number?, number?, string?)
+	local q = data.quests.list[index]
+	if not q then
+		return nil, nil, "Quête introuvable"
+	end
+	if q.claimed then
+		return nil, nil, "Déjà réclamée"
+	end
+	if q.progress < q.target then
+		return nil, nil, "Quête non terminée"
+	end
+	q.claimed = true
+	local mult = 1 + data.rebirths * Config.RebirthBonus
+	return math.floor(q.coins * mult), q.eggs, nil
+end
+
+-- Série de connexion : retourne (peutRéclamer, prochainJourDeSérie)
+function QuestLogic.dailyStatus(data: any, today: number): (boolean, number)
+	local s = data.streak
+	if s.last == today then
+		return false, (s.count % #Config.Daily) + 1
+	end
+	if s.last == today - 1 then
+		return true, (s.count % #Config.Daily) + 1
+	end
+	return true, 1
+end
+
+function QuestLogic.claimDaily(data: any, today: number): (number?, number?, number?, string?)
+	local can, nextDay = QuestLogic.dailyStatus(data, today)
+	if not can then
+		return nil, nil, nil, "Déjà réclamé aujourd'hui"
+	end
+	local reward = Config.Daily[nextDay]
+	data.streak.last = today
+	data.streak.count = nextDay
+	local mult = 1 + data.rebirths * Config.RebirthBonus
+	return math.floor(reward.Coins * mult), reward.Eggs, nextDay, nil
+end
+
+return QuestLogic
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90B73F400B18494786AB44FB47A04D40"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
+-- Définition unique des RemoteEvents / RemoteFunction. Le serveur les crée, le client les attend.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Remotes = {}
+
+Remotes.Events = { "Throw", "State", "Notify", "ThrowFx", "FeedFx", "OpenPanel", "Reveal", "FeastFx" }
+Remotes.Functions = { "Request" }
+
+local function folder(): Instance
+	if RunService:IsServer() then
+		local existing = ReplicatedStorage:FindFirstChild("Remotes")
+		if existing then
+			return existing
+		end
+		local f = Instance.new("Folder")
+		f.Name = "Remotes"
+		for _, name in ipairs(Remotes.Events) do
+			local e = Instance.new("RemoteEvent")
+			e.Name = name
+			e.Parent = f
+		end
+		for _, name in ipairs(Remotes.Functions) do
+			local fn = Instance.new("RemoteFunction")
+			fn.Name = name
+			fn.Parent = f
+		end
+		f.Parent = ReplicatedStorage
+		return f
+	end
+	return ReplicatedStorage:WaitForChild("Remotes")
+end
+
+function Remotes.get(name: string): any
+	return folder():WaitForChild(name)
+end
+
+-- Côté serveur : crée le dossier tout de suite (appelé par Main avant tout autre service).
+function Remotes.init()
+	folder()
+end
+
+return Remotes
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDD2A70203F48413090482E18A946E693"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
+-- Utilitaires purs (sans dépendance Roblox) : testables en dehors de Studio.
+
+local Util = {}
+
+function Util.clamp(x: number, a: number, b: number): number
+	if x < a then
+		return a
+	elseif x > b then
+		return b
+	end
+	return x
+end
+
+function Util.round(x: number): number
+	return math.floor(x + 0.5)
+end
+
+local SUFFIXES = { "", "K", "M", "B", "T", "Qa", "Qi" }
+
+function Util.formatNumber(n: number): string
+	if n ~= n then
+		return "0"
+	end
+	local sign = ""
+	if n < 0 then
+		sign = "-"
+		n = -n
+	end
+	if n < 1000 then
+		return sign .. tostring(math.floor(n))
+	end
+	local i = 1
+	while n >= 1000 and i < #SUFFIXES do
+		n /= 1000
+		i += 1
+	end
+	local truncated = math.floor(n * 10) / 10
+	local text = string.format("%.1f", truncated)
+	if string.sub(text, -2) == ".0" then
+		text = string.sub(text, 1, -3)
+	end
+	return sign .. text .. SUFFIXES[i]
+end
+
+function Util.deepCopy(value: any): any
+	if type(value) ~= "table" then
+		return value
+	end
+	local copy = {}
+	for k, v in pairs(value) do
+		copy[k] = Util.deepCopy(v)
+	end
+	return copy
+end
+
+-- Complète `target` avec les clés manquantes de `template` (récursif). Ne supprime rien.
+function Util.reconcile(target: any, template: any)
+	for k, v in pairs(template) do
+		if target[k] == nil then
+			target[k] = Util.deepCopy(v)
+		elseif type(v) == "table" and type(target[k]) == "table" then
+			Util.reconcile(target[k], v)
+		end
+	end
+end
+
+-- items : { {id = string, weight = number} } ; r dans [0,1)
+function Util.weightedPick(items: { { id: string, weight: number } }, r: number): string
+	local total = 0
+	for _, item in ipairs(items) do
+		total += item.weight
+	end
+	local target = r * total
+	local acc = 0
+	for _, item in ipairs(items) do
+		acc += item.weight
+		if target < acc then
+			return item.id
+		end
+	end
+	return items[#items].id
+end
+
+-- Générateur pseudo-aléatoire déterministe (LCG), renvoie des nombres dans [0,1).
+function Util.lcg(seed: number): () -> number
+	local state = math.floor(math.abs(seed)) % 4294967296
+	return function()
+		state = (state * 1664525 + 1013904223) % 4294967296
+		return state / 4294967296
+	end
+end
+
+function Util.dayIndex(unixTime: number): number
+	return math.floor(unixTime / 86400)
+end
+
+function Util.count(t: { [any]: any }): number
+	local n = 0
+	for _ in pairs(t) do
+		n += 1
+	end
+	return n
+end
+
+function Util.formatTime(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
+end
+
+return Util
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBXF37C32B03EEA4825875C04CC998E93FE"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBXDCD3B9DF611649509EDDAD7AAC64B291"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBXBCD5FC6C025548E9857E05CBBF24684C"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Point d'entrée serveur : initialise les services dans l'ordre des dépendances.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+
+Remotes.init()
+
+local Services = script.Parent:WaitForChild("Services")
+local MapBuilder = require(Services:WaitForChild("MapBuilder"))
+local PlayerService = require(Services:WaitForChild("PlayerService"))
+local DinoService = require(Services:WaitForChild("DinoService"))
+local EventService = require(Services:WaitForChild("EventService"))
+local FoodService = require(Services:WaitForChild("FoodService"))
+local PetService = require(Services:WaitForChild("PetService"))
+local QuestService = require(Services:WaitForChild("QuestService"))
+local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
+local ShopService = require(Services:WaitForChild("ShopService"))
+
+local state = Instance.new("Configuration")
+state.Name = "GameState"
+state.Parent = ReplicatedStorage
+
+local mapFolder, boardLabels = MapBuilder.build()
+
+DinoService.init(mapFolder)
+EventService.init()
+FoodService.init()
+QuestService.init()
+LeaderboardService.init(boardLabels)
+ShopService.init()
+PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
+
+print("[FestinTRex] Serveur prêt.")
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX70F59F81BF5D40F2BDC3F938B73D7528"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBXFFAFA7F9E0DF40AAA9F00CE4F857A428"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Chargement / sauvegarde des profils avec verrou de session (anti-duplication entre serveurs).
+-- Le DataStore est injectable (_setStore) pour pouvoir tester la logique hors Studio.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local DataService = {}
+
+local store: any = nil
+local clock: () -> number = os.time
+local jobId: string = ""
+local sleep: (number) -> () = function(s)
+	task.wait(s)
+end
+
+local function getStore()
+	if store == nil then
+		store = game:GetService("DataStoreService"):GetDataStore(Config.Data.StoreName)
+		jobId = game.JobId
+		if jobId == "" then
+			jobId = "studio"
+		end
+	end
+	return store
+end
+
+-- Pour les tests : remplace le magasin, l'horloge, l'identifiant de serveur et l'attente.
+function DataService._setStore(fakeStore: any, fakeClock: (() -> number)?, fakeJobId: string?, fakeSleep: ((number) -> ())?)
+	store = fakeStore
+	if fakeClock then
+		clock = fakeClock
+	end
+	jobId = fakeJobId or "test"
+	if fakeSleep then
+		sleep = fakeSleep
+	end
+end
+
+local function keyFor(userId: number): string
+	return "P_" .. tostring(userId)
+end
+
+local function lockIsForeign(record: any): boolean
+	local lock = record and record.lock
+	if not lock then
+		return false
+	end
+	if lock.job == jobId then
+		return false
+	end
+	return (clock() - (lock.t or 0)) < Config.Data.LockSeconds
+end
+
+-- Retourne (data, nil) ou (nil, raison). Prend le verrou de session.
+function DataService.load(userId: number): (any?, string?)
+	local s = getStore()
+	local lastError = "inconnu"
+	for attempt = 1, Config.Data.LoadRetries do
+		local captured: any = nil
+		local blocked = false
+		local ok, err = pcall(function()
+			s:UpdateAsync(keyFor(userId), function(old)
+				captured = nil
+				blocked = false
+				old = old or {}
+				if lockIsForeign(old) then
+					blocked = true
+					return nil -- annule l'écriture
+				end
+				captured = old.data
+				old.lock = { job = jobId, t = clock() }
+				return old
+			end)
+		end)
+		if ok and not blocked then
+			local data = if captured ~= nil then Util.deepCopy(captured) else {}
+			Util.reconcile(data, Config.Defaults)
+			return data, nil
+		end
+		lastError = if blocked then "session déjà ouverte sur un autre serveur" else tostring(err)
+		if attempt < Config.Data.LoadRetries then
+			sleep(Config.Data.LoadRetryDelay)
+		end
+	end
+	return nil, lastError
+end
+
+-- Sauvegarde. release=true libère le verrou (départ du joueur). Retourne true si écrit.
+function DataService.save(userId: number, data: any, release: boolean): boolean
+	local s = getStore()
+	local written = false
+	local ok = pcall(function()
+		s:UpdateAsync(keyFor(userId), function(old)
+			written = false
+			old = old or {}
+			if lockIsForeign(old) then
+				return nil -- un autre serveur détient le profil : on n'écrase rien
+			end
+			old.data = data
+			old.lock = if release then nil else { job = jobId, t = clock() }
+			written = true
+			return old
+		end)
+	end)
+	return ok and written
+end
+
+return DataService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX970A87342353472EB539FCDE85C1E81E"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Le T-Rex central : construction du modèle (blocs Roblox), satiété, favori, festin et croissance.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local DinoCore = require(Shared:WaitForChild("DinoCore"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local PlayerService = require(script.Parent.PlayerService)
+
+local DinoService = {}
+
+local core = DinoCore.new()
+local model: Model
+local mouthZone: BasePart
+local hitParts: { Instance } = {}
+local jawParts: { { part: BasePart, offset: Vector3 } } = {}
+local HINGE = Vector3.new(0, 20, 13.5)
+local favorite = "pomme"
+local state: Instance
+local chompStart = -10
+local feastBusy = false
+local currentScale = 1
+
+local function setAttr(name: string, value: any)
+	if state:GetAttribute(name) ~= value then
+		state:SetAttribute(name, value)
+	end
+end
+
+local function c3(t: { number }): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+-- ---------------------------------------------------------------- construction
+
+local function addPart(name: string, size: Vector3, pos: Vector3, color: Color3, opts: any?): Part
+	opts = opts or {}
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.Anchored = true
+	p.CFrame = CFrame.new(pos) * (opts.rot or CFrame.new())
+	p.Color = color
+	p.Material = opts.material or Enum.Material.SmoothPlastic
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.CanCollide = opts.collide ~= false
+	p.CanQuery = opts.query == true
+	p.CanTouch = false
+	p.CastShadow = opts.shadow ~= false
+	if opts.hidden then
+		p.Transparency = 1
+	end
+	p.Parent = model
+	return p
+end
+
+local function buildModel()
+	model = Instance.new("Model")
+	model.Name = "Dino"
+
+	local green = Color3.fromRGB(88, 170, 80)
+	local darkGreen = Color3.fromRGB(66, 138, 62)
+	local belly = Color3.fromRGB(240, 230, 150)
+	local orange = Color3.fromRGB(255, 150, 60)
+	local white = Color3.fromRGB(250, 250, 250)
+
+	local root = addPart("Root", Vector3.new(1, 1, 1), Vector3.new(0, 0, 0), green, { hidden = true, collide = false, shadow = false })
+	model.PrimaryPart = root
+
+	addPart("LegL", Vector3.new(4, 10, 5.5), Vector3.new(3.8, 5, 0), darkGreen)
+	addPart("LegR", Vector3.new(4, 10, 5.5), Vector3.new(-3.8, 5, 0), darkGreen)
+	addPart("FootL", Vector3.new(4.4, 1.6, 8), Vector3.new(3.8, 0.8, 1.5), darkGreen)
+	addPart("FootR", Vector3.new(4.4, 1.6, 8), Vector3.new(-3.8, 0.8, 1.5), darkGreen)
+	addPart("Body", Vector3.new(11, 10, 17), Vector3.new(0, 15, -1.5), green)
+	addPart("Belly", Vector3.new(11.2, 4, 15), Vector3.new(0, 11.2, -0.5), belly)
+	addPart("Tail1", Vector3.new(6.5, 6.5, 10), Vector3.new(0, 13.5, -13), green)
+	addPart("Tail2", Vector3.new(4.5, 4.5, 10), Vector3.new(0, 12.5, -22), green)
+	addPart("Tail3", Vector3.new(2.8, 2.8, 9), Vector3.new(0, 12, -30.5), green)
+	addPart("Head", Vector3.new(9, 8.5, 9), Vector3.new(0, 21.5, 8.5), green)
+	addPart("Snout", Vector3.new(7.5, 3.2, 8.5), Vector3.new(0, 22.6, 17.75), Color3.fromRGB(100, 185, 90))
+	addPart("MouthInside", Vector3.new(6, 1.2, 7), Vector3.new(0, 21, 17.3), Color3.fromRGB(160, 40, 50), { collide = false })
+	addPart("ArmL", Vector3.new(1.8, 1.8, 4.5), Vector3.new(5.9, 16.5, 8), green)
+	addPart("ArmR", Vector3.new(1.8, 1.8, 4.5), Vector3.new(-5.9, 16.5, 8), green)
+
+	-- Yeux
+	for _, side in ipairs({ 1, -1 }) do
+		addPart("Eye", Vector3.new(0.8, 2.4, 2.4), Vector3.new(4.55 * side, 24, 10.5), white, { collide = false })
+		addPart("Pupil", Vector3.new(0.5, 1.3, 1.3), Vector3.new(4.9 * side, 24, 10.9), Color3.fromRGB(20, 20, 20), { collide = false })
+	end
+
+	-- Dents du haut
+	for _, x in ipairs({ -2.5, -0.85, 0.85, 2.5 }) do
+		addPart("Tooth", Vector3.new(0.9, 1.3, 0.9), Vector3.new(x, 20.4, 21.4), white, { collide = false })
+	end
+	for _, side in ipairs({ 1, -1 }) do
+		for _, z in ipairs({ 16.5, 19 }) do
+			addPart("Tooth", Vector3.new(0.9, 1.1, 0.9), Vector3.new(3.4 * side, 20.5, z), white, { collide = false })
+		end
+	end
+
+	-- Piques dorsaux
+	local spikes = { { -7, 21.2 }, { -3, 21.2 }, { 1, 21.2 }, { -13, 17.6 }, { -22, 15.4 } }
+	for _, s in ipairs(spikes) do
+		addPart("Spike", Vector3.new(2, 2.6, 2), Vector3.new(0, s[2], s[1]), orange, { rot = CFrame.Angles(0, math.rad(45), 0), collide = false })
+	end
+
+	-- Mâchoire (animée) : mâchoire, langue, dents du bas.
+	local function jaw(name: string, size: Vector3, pos: Vector3, color: Color3)
+		local p = addPart(name, size, pos, color, { collide = false })
+		table.insert(jawParts, { part = p, offset = pos - HINGE })
+	end
+	jaw("LowerJaw", Vector3.new(7, 2.2, 8), Vector3.new(0, 19.9, 17.5), Color3.fromRGB(100, 185, 90))
+	jaw("Tongue", Vector3.new(4, 0.6, 6), Vector3.new(0, 21.1, 17), Color3.fromRGB(240, 110, 130))
+	for _, x in ipairs({ -2.2, -0.75, 0.75, 2.2 }) do
+		jaw("LowerTooth", Vector3.new(0.8, 1.1, 0.8), Vector3.new(x, 21.4, 21.3), white)
+	end
+
+	-- Hitbox invisibles (seules parties interrogeables par les lancers).
+	mouthZone = addPart("MouthZone", Vector3.new(9, 6.5, 9), Vector3.new(0, 21.2, 17.8), white, { hidden = true, collide = false, query = true, shadow = false })
+	local head = addPart("HeadHit", Vector3.new(9, 8.5, 9), Vector3.new(0, 21.5, 8.5), white, { hidden = true, collide = false, query = true, shadow = false })
+	local body = addPart("BodyHit", Vector3.new(11, 20, 25), Vector3.new(0, 10, -5), white, { hidden = true, collide = false, query = true, shadow = false })
+	hitParts = { mouthZone, head, body }
+
+	model:PivotTo(CFrame.new(0, 0, 0))
+	model.Parent = workspace
+	model:ScaleTo(Config.Dino.Stages[1].Scale)
+	currentScale = Config.Dino.Stages[1].Scale
+end
+
+-- ---------------------------------------------------------------- état public
+
+local function publish()
+	local stage = Config.Dino.Stages[core.stage]
+	setAttr("Satiety", math.floor(core.satiety))
+	setAttr("Need", stage.Need)
+	setAttr("Stage", core.stage)
+	setAttr("StageName", stage.Name)
+	setAttr("Favorite", favorite)
+	setAttr("Hungry", core:isHungry())
+	setAttr("Feasts", core.feasts)
+end
+
+local function pickFavorite()
+	local items = {}
+	for _, f in ipairs(Config.Foods) do
+		if f.Id ~= favorite then
+			table.insert(items, { id = f.Id, weight = f.Weight })
+		end
+	end
+	favorite = Util.weightedPick(items, math.random())
+end
+
+-- ---------------------------------------------------------------- API
+
+function DinoService.getFavorite(): string
+	return favorite
+end
+
+function DinoService.isHungry(): boolean
+	return core:isHungry()
+end
+
+function DinoService.getStage(): number
+	return core.stage
+end
+
+function DinoService.getMouthPosition(): Vector3
+	return mouthZone.Position
+end
+
+-- Instances interrogeables par les lancers : hitbox du dino + carte (ajoutée par init).
+local rayTargets: { Instance } = {}
+function DinoService.getRayTargets(): { Instance }
+	return rayTargets
+end
+
+function DinoService.chomp()
+	chompStart = os.clock()
+end
+
+local function growTo(newScale: number)
+	local from = currentScale
+	local steps = 40
+	for i = 1, steps do
+		local alpha = i / steps
+		local eased = alpha * alpha * (3 - 2 * alpha)
+		currentScale = from + (newScale - from) * eased
+		model:ScaleTo(currentScale)
+		task.wait(1 / 30)
+	end
+end
+
+local function runFeast()
+	if feastBusy then
+		return
+	end
+	feastBusy = true
+	local contrib, total, finishedStage = core:completeFeast()
+	local stageName = Config.Dino.Stages[finishedStage].Name
+
+	-- Meilleur contributeur
+	local topId, topValue = 0, -1
+	for userId, v in pairs(contrib) do
+		if v > topValue then
+			topId, topValue = userId, v
+		end
+	end
+
+	local topName = ""
+	for userId, value in pairs(contrib) do
+		local player = Players:GetPlayerByUserId(userId)
+		if player and PlayerService.get(player) then
+			local data = PlayerService.get(player)
+			local share = value / math.max(total, 1)
+			local coins = Economy.feastCoins(finishedStage, share, data.rebirths)
+			PlayerService.addCoins(player, coins)
+			PlayerService.record(player, "feast", 1)
+			data.stats.feasts += 1
+			local eggText = ""
+			if userId == topId or (share >= Config.Feast.MinShareForEgg and math.random() < Config.Feast.EggChance) then
+				PlayerService.addEggs(player, 1)
+				eggText = " + 1 œuf 🥚"
+			end
+			if userId == topId then
+				topName = player.DisplayName
+			end
+			PlayerService.notify(player, string.format("Festin ! +%s pièces%s", Util.formatNumber(coins), eggText), "gold")
+			PlayerService.markDirty(player)
+		end
+	end
+
+	Remotes.get("FeastFx"):FireAllClients(stageName, topName)
+	pickFavorite()
+	publish()
+
+	local newScale = Config.Dino.Stages[core.stage].Scale
+	if math.abs(newScale - currentScale) > 0.001 then
+		task.wait(1.2)
+		growTo(newScale)
+	end
+	feastBusy = false
+	publish()
+end
+
+-- Appelé par FoodService quand un aliment entre dans la bouche. Retourne true si festin déclenché.
+function DinoService.feed(userId: number, satiety: number): boolean
+	if feastBusy then
+		return false
+	end
+	local reached = core:add(userId, satiety)
+	publish()
+	if reached then
+		task.spawn(runFeast)
+	end
+	return reached
+end
+
+function DinoService.init(mapFolder: Instance)
+	state = ReplicatedStorage:FindFirstChild("GameState")
+	if not state then
+		state = Instance.new("Configuration")
+		state.Name = "GameState"
+		state.Parent = ReplicatedStorage
+	end
+	buildModel()
+	rayTargets = { mapFolder, mouthZone, hitParts[2], hitParts[3] }
+	pickFavorite()
+	publish()
+
+	-- Décroissance de la satiété.
+	task.spawn(function()
+		local step = 0.25
+		while true do
+			task.wait(step)
+			if not feastBusy then
+				core:decay(step)
+				publish()
+			end
+		end
+	end)
+
+	-- Changement de plat préféré régulier.
+	task.spawn(function()
+		while true do
+			task.wait(Config.Dino.FavoriteEvery)
+			if not feastBusy then
+				pickFavorite()
+				publish()
+			end
+		end
+	end)
+
+	-- Animation de la mâchoire (~20 Hz).
+	local acc = 0
+	RunService.Heartbeat:Connect(function(dt)
+		acc += dt
+		if acc < 0.05 then
+			return
+		end
+		acc = 0
+		local t = os.clock()
+		local open
+		local since = t - chompStart
+		if since < 0.4 then
+			open = 0.05 + 0.5 * math.sin((since / 0.4) * math.pi)
+		else
+			open = 0.12 + 0.08 * math.sin(t * 1.6)
+		end
+		local s = currentScale
+		local pivot = CFrame.new(HINGE * s) * CFrame.Angles(open, 0, 0)
+		for _, j in ipairs(jawParts) do
+			j.part.CFrame = pivot * CFrame.new(j.offset * s)
+		end
+	end)
+end
+
+return DinoService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX705E69DD0B894B25988EAF8154478756"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Événements périodiques : Marée de sauce (survie), Pluie gourmande (collecte), Frénésie (x2 pièces).
+-- L'état est publié dans ReplicatedStorage.GameState : les clients dessinent les effets eux-mêmes.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local PlayerService = require(script.Parent.PlayerService)
+local DinoService = require(script.Parent.DinoService)
+
+local EventService = {}
+
+local state: Instance
+local coinMult = 1
+local lastEvent = ""
+
+function EventService.getCoinMult(): number
+	return coinMult
+end
+
+local function setEvent(id: string, phase: string, startAt: number, endAt: number)
+	state:SetAttribute("EventId", id)
+	state:SetAttribute("EventPhase", phase)
+	state:SetAttribute("EventStart", startAt)
+	state:SetAttribute("EventEnd", endAt)
+end
+
+local function clearEvent()
+	setEvent("", "", 0, 0)
+end
+
+local function broadcast(text: string, kind: string)
+	for _, p in ipairs(Players:GetPlayers()) do
+		PlayerService.notify(p, text, kind)
+	end
+end
+
+-- ---------------------------------------------------------------- Marée de sauce
+
+local function sauceBounds(): (number, number)
+	-- La vague traverse l'arène sur l'axe X ; les clients dessinent la même vague.
+	return -Config.Events.Sauce.Half, Config.Events.Sauce.Half
+end
+
+local function runSauce()
+	local cfg = Config.Events.Sauce
+	local now = workspace:GetServerTimeNow()
+	local startAt = now + cfg.Warning
+	local endAt = startAt + cfg.Duration
+	local dir = if math.random() < 0.5 then 1 else -1
+	state:SetAttribute("SauceDir", dir)
+	setEvent("sauce", "warning", startAt, endAt)
+	broadcast("⚠️ " .. cfg.Name .. " dans " .. cfg.Warning .. "s ! Grimpe sur une table !", "bad")
+	task.wait(cfg.Warning)
+	setEvent("sauce", "active", startAt, endAt)
+
+	local from, to = sauceBounds()
+	if dir < 0 then
+		from, to = to, from
+	end
+	local caught: { [Player]: boolean } = {}
+	local lastFling: { [Player]: number } = {}
+	local halfWidth = 6
+
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = (workspace:GetServerTimeNow() - startAt) / cfg.Duration
+		if t < 0 or t > 1 then
+			return
+		end
+		local waveX = from + (to - from) * t
+		for _, player in ipairs(Players:GetPlayers()) do
+			local char = player.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				local pos = hrp.Position
+				if math.abs(pos.X - waveX) < halfWidth and pos.Y - 3 < cfg.Height then
+					caught[player] = true
+					local nowC = os.clock()
+					if nowC - (lastFling[player] or -10) > 2 then
+						lastFling[player] = nowC
+						-- Projection spectaculaire, sans dégâts.
+						hrp.AssemblyLinearVelocity = Vector3.new(dir * 45, 50, (math.random() - 0.5) * 30)
+						hum.PlatformStand = true
+						task.delay(1.2, function()
+							if hum.Parent then
+								hum.PlatformStand = false
+							end
+						end)
+						PlayerService.notify(player, "Éclaboussé ! 🍅", "bad")
+					end
+				end
+			end
+		end
+	end)
+
+	task.wait(cfg.Duration)
+	conn:Disconnect()
+	setEvent("sauce", "ended", startAt, endAt)
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		local data = PlayerService.get(player)
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if data and hum and hum.Health > 0 and not caught[player] then
+			local coins = math.floor(cfg.Reward * (1 + DinoService.getStage()) * Economy.rebirthMult(data.rebirths))
+			PlayerService.addCoins(player, coins)
+			PlayerService.record(player, "survive", 1)
+			data.stats.survived += 1
+			PlayerService.notify(player, string.format("Survivant ! +%s pièces 🏆", Util.formatNumber(coins)), "gold")
+			PlayerService.markDirty(player)
+		end
+	end
+	task.wait(2)
+	clearEvent()
+end
+
+-- ---------------------------------------------------------------- Pluie gourmande
+
+local function spawnDrop(folder: Folder)
+	local cfg = Config.Events.Rain
+	local angle = math.random() * math.pi * 2
+	local radius = 20 + math.random() * 70
+	local drop = Instance.new("Part")
+	drop.Name = "Drop"
+	drop.Shape = Enum.PartType.Ball
+	drop.Size = Vector3.new(2.2, 2.2, 2.2)
+	drop.Color = Color3.fromRGB(255, 205, 40)
+	drop.Material = Enum.Material.Neon
+	drop.CanCollide = false
+	drop.CanQuery = false
+	drop.Anchored = true
+	local ground = Vector3.new(math.cos(angle) * radius, 2.5, 20 + math.sin(angle) * radius)
+	drop.Position = ground + Vector3.new(0, 70, 0)
+	drop.Parent = folder
+
+	local light = Instance.new("PointLight")
+	light.Color = drop.Color
+	light.Range = 10
+	light.Parent = drop
+
+	local taken = false
+	drop.Touched:Connect(function(hit)
+		if taken then
+			return
+		end
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if not player or not PlayerService.get(player) then
+			return
+		end
+		taken = true
+		local data = PlayerService.get(player)
+		local stats = Economy.stats(data)
+		local coins = math.floor(cfg.DropValue * (1 + DinoService.getStage()) * stats.coinMult)
+		PlayerService.addCoins(player, coins)
+		PlayerService.markDirty(player)
+		drop:Destroy()
+	end)
+
+	TweenService:Create(drop, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = ground }):Play()
+	task.delay(cfg.DropLife, function()
+		if drop.Parent then
+			drop:Destroy()
+		end
+	end)
+end
+
+local function runRain()
+	local cfg = Config.Events.Rain
+	local now = workspace:GetServerTimeNow()
+	local startAt = now + cfg.Warning
+	local endAt = startAt + cfg.Duration
+	setEvent("rain", "warning", startAt, endAt)
+	broadcast("🍗 " .. cfg.Name .. " dans " .. cfg.Warning .. "s ! Ramasse les boules dorées !", "gold")
+	task.wait(cfg.Warning)
+	setEvent("rain", "active", startAt, endAt)
+
+	local folder = Instance.new("Folder")
+	folder.Name = "Drops"
+	folder.Parent = workspace
+	local elapsed = 0
+	while elapsed < cfg.Duration do
+		spawnDrop(folder)
+		task.wait(cfg.DropEvery)
+		elapsed += cfg.DropEvery
+	end
+	task.wait(cfg.DropLife)
+	folder:Destroy()
+	clearEvent()
+end
+
+-- ---------------------------------------------------------------- Frénésie
+
+local function runFrenzy()
+	local cfg = Config.Events.Frenzy
+	local now = workspace:GetServerTimeNow()
+	local startAt = now + cfg.Warning
+	local endAt = startAt + cfg.Duration
+	setEvent("frenzy", "warning", startAt, endAt)
+	broadcast("🔥 " .. cfg.Name .. " ! Toutes les pièces x" .. cfg.Mult .. " bientôt !", "gold")
+	task.wait(cfg.Warning)
+	setEvent("frenzy", "active", startAt, endAt)
+	coinMult = cfg.Mult
+	state:SetAttribute("CoinEvent", coinMult)
+	task.wait(cfg.Duration)
+	coinMult = 1
+	state:SetAttribute("CoinEvent", 1)
+	clearEvent()
+end
+
+local runners = { sauce = runSauce, rain = runRain, frenzy = runFrenzy }
+
+function EventService.init()
+	state = ReplicatedStorage:WaitForChild("GameState")
+	state:SetAttribute("CoinEvent", 1)
+	clearEvent()
+
+	task.spawn(function()
+		task.wait(Config.Events.FirstDelay)
+		while true do
+			local pick
+			repeat
+				local ids = { "sauce", "rain", "frenzy" }
+				pick = ids[math.random(#ids)]
+			until pick ~= lastEvent
+			lastEvent = pick
+			if #Players:GetPlayers() > 0 then
+				local ok, err = pcall(runners[pick])
+				if not ok then
+					warn("[FestinTRex] Événement " .. pick .. " en erreur : " .. tostring(err))
+					coinMult = 1
+					state:SetAttribute("CoinEvent", 1)
+					clearEvent()
+				end
+			end
+			task.wait(math.random(Config.Events.MinInterval, Config.Events.MaxInterval))
+		end
+	end)
+end
+
+return EventService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1D1C8A69275348AF857C249FB38D9650"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Lancers de nourriture : validation serveur complète, simulation balistique, récompenses.
+-- Le client n'envoie QUE la position visée ; origine, portée, cadence, munitions et résultat
+-- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
+
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local Ballistics = require(Shared:WaitForChild("Ballistics"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local PlayerService = require(script.Parent.PlayerService)
+local DinoService = require(script.Parent.DinoService)
+local EventService = require(script.Parent.EventService)
+
+local FoodService = {}
+
+local ThrowFx: any
+local FeedFx: any
+
+local MAX_FLIGHTS_PER_PLAYER = 4
+local THROW_BUCKET_MAX = 8 -- anti-spam du RemoteEvent (en plus de la cadence)
+
+local function isFiniteVector(v: any): boolean
+	if typeof(v) ~= "Vector3" then
+		return false
+	end
+	local lim = 1e5
+	return v.X == v.X and v.Y == v.Y and v.Z == v.Z and math.abs(v.X) < lim and math.abs(v.Y) < lim and math.abs(v.Z) < lim
+end
+
+-- Anti-spam : seau à jetons par joueur.
+local function allow(player: Player, key: string, perSecond: number, burst: number): boolean
+	local s = PlayerService.session(player)
+	if not s then
+		return false
+	end
+	local bucket = s.rate[key]
+	local now = os.clock()
+	if not bucket then
+		bucket = { tokens = burst, t = now }
+		s.rate[key] = bucket
+	end
+	bucket.tokens = math.min(burst, bucket.tokens + (now - bucket.t) * perSecond)
+	bucket.t = now
+	if bucket.tokens < 1 then
+		return false
+	end
+	bucket.tokens -= 1
+	return true
+end
+FoodService.allow = allow
+
+-- ---------------------------------------------------------------- nourriture en main
+
+local function c3(t: { number }): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+local function refreshHeldFood(player: Player)
+	local char = player.Character
+	local data, s = PlayerService.get(player), PlayerService.session(player)
+	if not char or not data or not s then
+		return
+	end
+	local old = char:FindFirstChild("HeldFood")
+	if old then
+		old:Destroy()
+	end
+	if s.ammo <= 0 then
+		return
+	end
+	local hand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+	local food = Economy.findFood(data.selectedFood)
+	if not hand or not food then
+		return
+	end
+	local p = Instance.new("Part")
+	p.Name = "HeldFood"
+	p.Shape = Enum.PartType[food.Shape]
+	p.Size = Vector3.new(food.Size[1], food.Size[2], food.Size[3])
+	p.Color = c3(food.Color)
+	p.Material = Enum.Material[food.Material]
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CFrame = hand.CFrame * CFrame.new(0, -1, -0.8)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = hand
+	weld.Part1 = p
+	weld.Parent = p
+	p.Parent = char
+end
+FoodService.refreshHeldFood = refreshHeldFood
+
+-- ---------------------------------------------------------------- simulation
+
+local function simulate(origin: Vector3, v: Vector3, T: number, g: number): (string, Vector3, number)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = DinoService.getRayTargets()
+
+	local dt = 1 / Config.Throw.StepsPerSecond
+	local maxT = T + Config.Throw.TrailTime
+	local prev = origin
+	local t = 0
+	while t < maxT do
+		t += dt
+		local x, y, z = Ballistics.position(origin.X, origin.Y, origin.Z, v.X, v.Y, v.Z, t, g)
+		local pos = Vector3.new(x, y, z)
+		local result = workspace:Raycast(prev, pos - prev, params)
+		if result then
+			local name = result.Instance.Name
+			local kind = "ground"
+			if name == "MouthZone" then
+				kind = "mouth"
+			elseif name == "HeadHit" or name == "BodyHit" then
+				kind = "body"
+			end
+			local frac = (result.Position - prev).Magnitude / math.max((pos - prev).Magnitude, 1e-4)
+			return kind, result.Position, math.max(0.05, t - dt + dt * frac)
+		end
+		prev = pos
+	end
+	return "none", prev, maxT
+end
+
+-- ---------------------------------------------------------------- résolution
+
+local function resolveHit(player: Player, foodId: string, kind: string, hitPos: Vector3)
+	local data, s = PlayerService.get(player), PlayerService.session(player)
+	if not data or not s then
+		return
+	end
+	s.flights = math.max(0, (s.flights or 1) - 1)
+
+	if kind ~= "mouth" then
+		if s.combo > 1 then
+			PlayerService.notify(player, "Combo perdu !", "bad")
+		end
+		s.combo = 0
+		if kind == "body" then
+			FeedFx:FireAllClients(hitPos, 0, player.UserId, "thud", 0)
+		end
+		return
+	end
+
+	local food = Economy.findFood(foodId)
+	if not food then
+		return
+	end
+	local now = os.clock()
+	if now - s.lastHit <= Config.Combo.Window then
+		s.combo += 1
+	else
+		s.combo = 1
+	end
+	s.lastHit = now
+
+	local isFav = DinoService.getFavorite() == food.Id
+	local hungry = DinoService.isHungry()
+	local stats = Economy.stats(data)
+	local coins = Economy.hitReward(food.Value, s.combo, isFav, hungry, EventService.getCoinMult(), stats.coinMult)
+
+	PlayerService.addCoins(player, coins)
+	PlayerService.addFed(player, 1)
+	PlayerService.record(player, "feed", 1)
+	PlayerService.record(player, "combo", s.combo)
+	if isFav then
+		PlayerService.record(player, "fav", 1)
+	end
+	if s.combo > data.stats.bestCombo then
+		data.stats.bestCombo = s.combo
+	end
+
+	DinoService.chomp()
+	FeedFx:FireAllClients(hitPos, coins, player.UserId, if isFav then "fav" else "ok", s.combo)
+	DinoService.feed(player.UserId, food.Value * (if isFav then 2 else 1))
+end
+
+-- ---------------------------------------------------------------- lancer
+
+local function onThrow(player: Player, aim: any)
+	if not allow(player, "throw", 12, THROW_BUCKET_MAX) then
+		return
+	end
+	if not isFiniteVector(aim) then
+		return
+	end
+	local data, s = PlayerService.get(player), PlayerService.session(player)
+	if not data or not s or not s.loaded then
+		return
+	end
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hrp or not hum or hum.Health <= 0 then
+		return
+	end
+	if hrp.Position.Magnitude > Config.Throw.MaxArenaRadius then
+		return
+	end
+
+	local stats = Economy.stats(data)
+	local now = os.clock()
+	if now - s.lastThrow < stats.cooldown * Config.Throw.CooldownTolerance then
+		return
+	end
+	if (s.flights or 0) >= MAX_FLIGHTS_PER_PLAYER then
+		return
+	end
+	if s.ammo <= 0 then
+		if now - (s.lastEmptyNotice or -10) > 3 then
+			s.lastEmptyNotice = now
+			PlayerService.notify(player, "Panier vide ! Va chercher de la nourriture aux stands 🧺", "bad")
+		end
+		return
+	end
+
+	s.lastThrow = now
+	s.ammo -= 1
+	s.flights = (s.flights or 0) + 1
+	local foodId = data.selectedFood
+	local food = Economy.findFood(foodId)
+	if not food then
+		s.flights -= 1
+		return
+	end
+
+	-- Origine calculée par le serveur.
+	local flat = Vector3.new(aim.X - hrp.Position.X, 0, aim.Z - hrp.Position.Z)
+	local dirFlat = if flat.Magnitude > 0.01 then flat.Unit else hrp.CFrame.LookVector
+	local origin = hrp.Position + Vector3.new(0, 1.6, 0) + dirFlat * 1.8
+
+	-- Portée maximale imposée par les améliorations.
+	local offset = aim - origin
+	if offset.Magnitude > stats.range then
+		aim = origin + offset.Unit * stats.range
+	end
+	-- Assistance de visée : si le point visé est proche de la bouche, on vise le centre.
+	local mouth = DinoService.getMouthPosition()
+	if (aim - mouth).Magnitude <= stats.assist and (origin - mouth).Magnitude <= stats.range then
+		aim = mouth
+	end
+
+	local g = workspace.Gravity
+	local distance = (aim - origin).Magnitude
+	local T = Ballistics.flightTime(distance, Config.Throw.Speed, Config.Throw.MinFlight, Config.Throw.MaxFlight)
+	local vx, vy, vz = Ballistics.launchVelocity(origin.X, origin.Y, origin.Z, aim.X, aim.Y, aim.Z, T, g)
+	local v = Vector3.new(vx, vy, vz)
+
+	local kind, hitPos, tHit = simulate(origin, v, T, g)
+
+	ThrowFx:FireAllClients(player.UserId, foodId, origin, v, tHit, kind, hitPos)
+	refreshHeldFood(player)
+	PlayerService.markDirty(player)
+
+	task.delay(tHit, function()
+		if player.Parent then
+			resolveHit(player, foodId, kind, hitPos)
+		end
+	end)
+end
+
+-- ---------------------------------------------------------------- stands
+
+local function onStandTriggered(prompt: ProximityPrompt, player: Player)
+	if not allow(player, "stand", 3, 3) then
+		return
+	end
+	local data = PlayerService.get(player)
+	if not data then
+		return
+	end
+	local foodId = prompt:GetAttribute("FoodId")
+	local food = type(foodId) == "string" and Economy.findFood(foodId)
+	if not food then
+		return
+	end
+	if not data.foods[food.Id] then
+		PlayerService.notify(player, string.format("%s %s verrouillé : débloque-le à la boutique (%s 🪙)", food.Emoji, food.Name, Util.formatNumber(food.Price)), "bad")
+		return
+	end
+	PlayerService.refillBasket(player, food.Id)
+	refreshHeldFood(player)
+	PlayerService.notify(player, string.format("%s %s : panier rempli !", food.Emoji, food.Name), "good")
+end
+
+local function bindStand(prompt: Instance)
+	if prompt:IsA("ProximityPrompt") then
+		prompt.Triggered:Connect(function(player)
+			onStandTriggered(prompt, player)
+		end)
+	end
+end
+
+function FoodService.init()
+	ThrowFx = Remotes.get("ThrowFx")
+	FeedFx = Remotes.get("FeedFx")
+	Remotes.get("Throw").OnServerEvent:Connect(onThrow)
+
+	CollectionService:GetInstanceAddedSignal("FoodStand"):Connect(bindStand)
+	for _, inst in ipairs(CollectionService:GetTagged("FoodStand")) do
+		bindStand(inst)
+	end
+
+	-- Rechargement du panier au réapparition + nourriture en main.
+	PlayerService.onCharacter(function(player)
+		local s = PlayerService.session(player)
+		if s then
+			PlayerService.refillBasket(player)
+		end
+		task.wait(0.5)
+		refreshHeldFood(player)
+	end)
+end
+
+return FoodService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA87605A2E8F5450D98A46F760EC99D32"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Classement mondial « Plus gros nourrisseurs » (OrderedDataStore) + tableau dans le monde.
+
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local PlayerService = require(script.Parent.PlayerService)
+
+local LeaderboardService = {}
+
+local ordered: any = nil
+local top: { { name: string, value: number } } = {}
+local nameCache: { [number]: string } = {}
+local lastWritten: { [number]: number } = {}
+local labels: { TextLabel } = {}
+
+local function getOrdered()
+	if not ordered then
+		ordered = DataStoreService:GetOrderedDataStore(Config.Data.FedBoardName)
+	end
+	return ordered
+end
+
+local function nameFor(userId: number): string
+	if nameCache[userId] then
+		return nameCache[userId]
+	end
+	local ok, name = pcall(function()
+		return Players:GetNameFromUserIdAsync(userId)
+	end)
+	nameCache[userId] = if ok then name else ("Joueur " .. userId)
+	return nameCache[userId]
+end
+
+local function writeScore(player: Player, data: any)
+	if PlayerService.session(player) and PlayerService.session(player).temporary then
+		return
+	end
+	local value = math.floor(data.totalFed)
+	if value <= 0 or lastWritten[player.UserId] == value then
+		return
+	end
+	local ok = pcall(function()
+		getOrdered():SetAsync(tostring(player.UserId), value)
+	end)
+	if ok then
+		lastWritten[player.UserId] = value
+	end
+end
+
+local function refresh()
+	local ok, entries = pcall(function()
+		return getOrdered():GetSortedAsync(false, #labels > 0 and #labels or 10):GetCurrentPage()
+	end)
+	if not ok then
+		return
+	end
+	local list = {}
+	for _, entry in ipairs(entries) do
+		local userId = tonumber(entry.key)
+		if userId then
+			table.insert(list, { name = nameFor(userId), value = entry.value })
+		end
+	end
+	top = list
+	for i, label in ipairs(labels) do
+		local e = list[i]
+		label.Text = if e then string.format("%d. %s — %s", i, e.name, Util.formatNumber(e.value)) else string.format("%d. —", i)
+	end
+end
+
+function LeaderboardService.getTop()
+	return top
+end
+
+function LeaderboardService.init(boardLabels: { TextLabel })
+	labels = boardLabels
+	PlayerService.onSave(writeScore)
+	task.spawn(function()
+		while true do
+			refresh()
+			task.wait(60)
+		end
+	end)
+end
+
+return LeaderboardService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2B059CC23C9A4E42BA79E4B0C42F9EB3"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Construction procédurale du monde avec des Parts natives Roblox (aucun asset externe) :
+-- place du festin, stands, kiosques, tables de survie, arbres, secrets, éclairage.
+
+local CollectionService = game:GetService("CollectionService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local MapBuilder = {}
+
+local map: Folder
+
+local function part(parent: Instance, props: any): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = Enum.Material.SmoothPlastic
+	for k, v in pairs(props) do
+		p[k] = v
+	end
+	p.Parent = parent
+	return p
+end
+
+local function c3(t: { number }): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+local function billboard(adornee: BasePart, text: string, offset: Vector3, width: number, height: number, maxDistance: number, alwaysOnTop: boolean?)
+	local gui = Instance.new("BillboardGui")
+	gui.Adornee = adornee
+	gui.Size = UDim2.fromOffset(width, height)
+	gui.StudsOffset = offset
+	gui.MaxDistance = maxDistance
+	gui.AlwaysOnTop = alwaysOnTop == true
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeTransparency = 0
+	label.Text = text
+	label.Parent = gui
+	gui.Parent = adornee
+	return label
+end
+
+local function prompt(parent: BasePart, action: string, object: string, hold: number, distance: number): ProximityPrompt
+	local pp = Instance.new("ProximityPrompt")
+	pp.ActionText = action
+	pp.ObjectText = object
+	pp.HoldDuration = hold
+	pp.MaxActivationDistance = distance
+	pp.RequiresLineOfSight = false
+	pp.KeyboardKeyCode = Enum.KeyCode.E
+	pp.Parent = parent
+	return pp
+end
+
+-- ---------------------------------------------------------------- éléments
+
+local function buildGround()
+	part(map, { Name = "Ground", Size = Vector3.new(520, 2, 520), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(98, 155, 72), Material = Enum.Material.Grass })
+
+	-- Place pavée circulaire : 2 anneaux de couleurs différentes.
+	part(map, { Name = "Plaza", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 150, 150), CFrame = CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(163, 162, 165), Material = Enum.Material.Cobblestone })
+	part(map, { Name = "PlazaInner", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 90, 90), CFrame = CFrame.new(0, 0.25, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(196, 170, 120), Material = Enum.Material.Cobblestone })
+
+	-- Chemin du point d'apparition à la place.
+	part(map, { Name = "Path", Size = Vector3.new(14, 0.3, 70), Position = Vector3.new(0, 0.15, 95), Color = Color3.fromRGB(196, 170, 120), Material = Enum.Material.Cobblestone })
+
+	-- Points d'apparition.
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn"
+	spawn.Anchored = true
+	spawn.Size = Vector3.new(16, 1, 16)
+	spawn.Position = Vector3.new(0, 0.5, 128)
+	spawn.Color = Color3.fromRGB(255, 120, 80)
+	spawn.Material = Enum.Material.SmoothPlastic
+	spawn.Neutral = true
+	spawn.AllowTeamChangeOnTouch = false
+	spawn.Duration = 0
+	spawn.TopSurface = Enum.SurfaceType.Smooth
+	spawn.Parent = map
+	billboard(spawn, "🍽️ Festin du T-Rex", Vector3.new(0, 7, 0), 260, 60, 150)
+
+	-- Murs invisibles autour de l'arène.
+	local walls = {
+		{ Vector3.new(520, 80, 2), Vector3.new(0, 40, 258) },
+		{ Vector3.new(520, 80, 2), Vector3.new(0, 40, -258) },
+		{ Vector3.new(2, 80, 520), Vector3.new(258, 40, 0) },
+		{ Vector3.new(2, 80, 520), Vector3.new(-258, 40, 0) },
+	}
+	for _, w in ipairs(walls) do
+		part(map, { Name = "Wall", Size = w[1], Position = w[2], Transparency = 1, CanQuery = false, CanTouch = false })
+	end
+end
+
+local function buildStand(food: any, pos: Vector3)
+	local base = CFrame.lookAt(pos, Vector3.new(0, pos.Y, 0))
+	local folder = Instance.new("Model")
+	folder.Name = "Stand_" .. food.Id
+	folder.Parent = map
+	local accent = c3(food.Color)
+	if food.Id == "gateau" then
+		accent = Color3.fromRGB(255, 150, 200)
+	end
+
+	local counter = part(folder, { Name = "Counter", Size = Vector3.new(9, 4, 3.5), CFrame = base * CFrame.new(0, 2, 0), Color = Color3.fromRGB(150, 100, 60), Material = Enum.Material.Wood })
+	part(folder, { Name = "BackWall", Size = Vector3.new(9.4, 8, 0.5), CFrame = base * CFrame.new(0, 4, 2.6), Color = Color3.fromRGB(235, 225, 200), Material = Enum.Material.Wood })
+	for _, x in ipairs({ -4.4, 4.4 }) do
+		part(folder, { Name = "Post", Size = Vector3.new(0.6, 8.4, 0.6), CFrame = base * CFrame.new(x, 4.2, -1.4), Color = Color3.fromRGB(110, 75, 45), Material = Enum.Material.Wood })
+	end
+	-- Auvent rayé
+	local roof
+	for i = 0, 4 do
+		local stripe = part(folder, {
+			Name = "Awning",
+			Size = Vector3.new(2.4, 0.6, 6.6),
+			CFrame = base * CFrame.new(-4.8 + i * 2.4, 8.4, 0.5) * CFrame.Angles(math.rad(-8), 0, 0),
+			Color = if i % 2 == 0 then accent else Color3.fromRGB(250, 250, 250),
+		})
+		if i == 2 then
+			roof = stripe
+		end
+	end
+	-- Présentoir
+	for i = -1, 1 do
+		part(folder, {
+			Name = "Display",
+			Shape = Enum.PartType[food.Shape],
+			Size = Vector3.new(food.Size[1], food.Size[2], food.Size[3]) * 1.3,
+			CFrame = base * CFrame.new(i * 2.4, 4 + food.Size[2] * 0.65, -0.2),
+			Color = c3(food.Color),
+			Material = Enum.Material[food.Material],
+			CanCollide = false,
+		})
+	end
+	counter:SetAttribute("FoodId", food.Id)
+	local label = if food.Price > 0 then string.format("%s %s\nDébloquer : %s 🪙", food.Emoji, food.Name, Util.formatNumber(food.Price)) else (food.Emoji .. " " .. food.Name .. " (gratuit)")
+	billboard(roof, label, Vector3.new(0, 4.5, 0), 240, 90, 110)
+
+	local pp = prompt(counter, "Prendre", food.Name, 0, 11)
+	pp:SetAttribute("FoodId", food.Id)
+	CollectionService:AddTag(pp, "FoodStand")
+end
+
+local function buildKiosk(name: string, pos: Vector3, target: Vector3, color: Color3, text: string, panel: string, action: string)
+	local base = CFrame.lookAt(pos, Vector3.new(target.X, pos.Y, target.Z))
+	local m = Instance.new("Model")
+	m.Name = name
+	m.Parent = map
+	local counter = part(m, { Name = "Counter", Size = Vector3.new(14, 4, 4), CFrame = base * CFrame.new(0, 2, -2), Color = Color3.fromRGB(150, 100, 60), Material = Enum.Material.Wood })
+	part(m, { Name = "Back", Size = Vector3.new(16, 14, 1), CFrame = base * CFrame.new(0, 7, 5), Color = color })
+	part(m, { Name = "SideL", Size = Vector3.new(1, 14, 8), CFrame = base * CFrame.new(-8, 7, 1.5), Color = color })
+	part(m, { Name = "SideR", Size = Vector3.new(1, 14, 8), CFrame = base * CFrame.new(8, 7, 1.5), Color = color })
+	local roof = part(m, { Name = "Roof", Size = Vector3.new(19, 1.4, 12), CFrame = base * CFrame.new(0, 14.4, -0.5), Color = Color3.fromRGB(200, 60, 60) })
+	part(m, { Name = "Floor", Size = Vector3.new(16, 0.4, 9), CFrame = base * CFrame.new(0, 0.2, 1), Color = Color3.fromRGB(120, 90, 60), Material = Enum.Material.WoodPlanks })
+	billboard(roof, text, Vector3.new(0, 5, 0), 300, 100, 160)
+	local pp = prompt(counter, action, text, 0.2, 12)
+	pp:SetAttribute("Panel", panel)
+	CollectionService:AddTag(pp, "PanelPrompt")
+end
+
+local function buildAltar(pos: Vector3)
+	local m = Instance.new("Model")
+	m.Name = "Altar"
+	m.Parent = map
+	part(m, { Name = "Base", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.5, 14, 14), CFrame = CFrame.new(pos.X, 0.75, pos.Z) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(150, 150, 160), Material = Enum.Material.Marble })
+	local orb = part(m, { Name = "Orb", Shape = Enum.PartType.Ball, Size = Vector3.new(4, 4, 4), Position = Vector3.new(pos.X, 5, pos.Z), Color = Color3.fromRGB(190, 120, 255), Material = Enum.Material.Neon, CanCollide = false })
+	local light = Instance.new("PointLight")
+	light.Color = orb.Color
+	light.Range = 22
+	light.Parent = orb
+	billboard(orb, "✨ Autel d'évolution", Vector3.new(0, 4, 0), 300, 70, 160)
+	local pp = prompt(orb, "Évoluer", "Autel d'évolution", 0.2, 14)
+	pp:SetAttribute("Panel", "rebirth")
+	CollectionService:AddTag(pp, "PanelPrompt")
+end
+
+local function buildLeaderboard(pos: Vector3, target: Vector3): { TextLabel }
+	local base = CFrame.lookAt(pos, Vector3.new(target.X, pos.Y, target.Z))
+	local m = Instance.new("Model")
+	m.Name = "Leaderboard"
+	m.Parent = map
+	for _, x in ipairs({ -9, 9 }) do
+		part(m, { Name = "Post", Size = Vector3.new(1.2, 8, 1.2), CFrame = base * CFrame.new(x, 4, 0.8), Color = Color3.fromRGB(110, 75, 45), Material = Enum.Material.Wood })
+	end
+	local board = part(m, { Name = "Board", Size = Vector3.new(22, 13, 1), CFrame = base * CFrame.new(0, 12, 0), Color = Color3.fromRGB(35, 35, 45) })
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.Parent = board
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0, 70)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.FredokaOne
+	title.TextSize = 52
+	title.TextColor3 = Color3.fromRGB(255, 210, 60)
+	title.Text = "🏆 Plus gros nourrisseurs"
+	title.Parent = gui
+	local labels = {}
+	for i = 1, 10 do
+		local l = Instance.new("TextLabel")
+		l.Size = UDim2.new(1, -40, 0, 38)
+		l.Position = UDim2.new(0, 20, 0, 72 + (i - 1) * 43)
+		l.BackgroundTransparency = 1
+		l.Font = Enum.Font.GothamBold
+		l.TextSize = 30
+		l.TextXAlignment = Enum.TextXAlignment.Left
+		l.TextColor3 = Color3.new(1, 1, 1)
+		l.Text = string.format("%d. —", i)
+		l.Parent = gui
+		labels[i] = l
+	end
+	return labels
+end
+
+-- Table de survie surélevée avec escalier.
+local function buildTable(pos: Vector3, stairsDir: number)
+	local m = Instance.new("Model")
+	m.Name = "SafeTable"
+	m.Parent = map
+	local top = part(m, { Name = "Top", Size = Vector3.new(16, 1, 16), Position = Vector3.new(pos.X, 14.5, pos.Z), Color = Color3.fromRGB(245, 245, 245), Material = Enum.Material.Wood })
+	part(m, { Name = "Cloth", Size = Vector3.new(12, 0.2, 12), Position = Vector3.new(pos.X, 15.1, pos.Z), Color = Color3.fromRGB(220, 60, 60), CanCollide = false })
+	for _, dx in ipairs({ -7, 7 }) do
+		for _, dz in ipairs({ -7, 7 }) do
+			part(m, { Name = "Leg", Size = Vector3.new(1.4, 14, 1.4), Position = Vector3.new(pos.X + dx, 7, pos.Z + dz), Color = Color3.fromRGB(150, 100, 60), Material = Enum.Material.Wood })
+		end
+	end
+	-- 10 marches de 1,5 stud (hauteur totale 15), côté de l'axe central.
+	local edgeZ = pos.Z + stairsDir * 8
+	for k = 1, 10 do
+		local z = edgeZ + stairsDir * (1.5 + (10 - k) * 3)
+		part(m, { Name = "Step", Size = Vector3.new(8, 1.5 * k, 3), Position = Vector3.new(pos.X, 0.75 * k, z), Color = Color3.fromRGB(200, 170, 120), Material = Enum.Material.WoodPlanks })
+	end
+	billboard(top, "🛟 Zone sûre", Vector3.new(0, 6, 0), 220, 60, 300, true)
+end
+
+local function buildTrees()
+	for i = 1, 40 do
+		local angle = (i / 40) * math.pi * 2 + math.sin(i * 12.9898) * 0.08
+		local radius = 190 + (math.sin(i * 78.233) * 0.5 + 0.5) * 50
+		local x, z = math.cos(angle) * radius, math.sin(angle) * radius
+		local s = 0.8 + (math.sin(i * 3.7) * 0.5 + 0.5) * 0.6
+		part(map, { Name = "Trunk", Size = Vector3.new(2.4 * s, 10 * s, 2.4 * s), Position = Vector3.new(x, 5 * s, z), Color = Color3.fromRGB(110, 75, 45), Material = Enum.Material.Wood })
+		part(map, { Name = "Leaves", Shape = Enum.PartType.Ball, Size = Vector3.new(14 * s, 14 * s, 14 * s), Position = Vector3.new(x, 14 * s, z), Color = Color3.fromRGB(60 + (i % 3) * 12, 140 + (i % 4) * 8, 60), Material = Enum.Material.Grass, CanCollide = false })
+	end
+end
+
+local function buildBunting()
+	local colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 210, 60), Color3.fromRGB(80, 170, 255), Color3.fromRGB(120, 220, 120), Color3.fromRGB(255, 140, 220) }
+	for i = 1, 24 do
+		local a = (i / 24) * math.pi * 2
+		local x, z = math.cos(a) * 72, math.sin(a) * 72
+		part(map, { Name = "FlagPole", Size = Vector3.new(0.6, 14, 0.6), Position = Vector3.new(x, 7, z), Color = Color3.fromRGB(230, 230, 230), CanQuery = false })
+		part(map, { Name = "Flag", Size = Vector3.new(0.3, 2.6, 3.4), CFrame = CFrame.new(x, 12.6, z) * CFrame.Angles(0, -a, 0) * CFrame.new(0, 0, 1.9), Color = colors[(i % #colors) + 1], CanCollide = false, CanQuery = false })
+	end
+end
+
+local SECRETS = {
+	{ "s1", Vector3.new(10, 1.5, -62) },
+	{ "s2", Vector3.new(130, 16.2, 45) },
+	{ "s3", Vector3.new(-200, 1.5, -150) },
+	{ "s4", Vector3.new(-110, 1.5, 78) },
+	{ "s5", Vector3.new(212, 1.5, 112) },
+}
+
+local function buildSecrets()
+	for _, s in ipairs(SECRETS) do
+		local fork = part(map, { Name = "GoldenFork_" .. s[1], Size = Vector3.new(0.9, 2.6, 0.9), Position = s[2], Color = Color3.fromRGB(255, 205, 50), Material = Enum.Material.Neon, CanCollide = false })
+		local light = Instance.new("PointLight")
+		light.Color = fork.Color
+		light.Range = 9
+		light.Brightness = 1.5
+		light.Parent = fork
+		local pp = prompt(fork, "Ramasser", "Fourchette d'or", 0.6, 10)
+		pp:SetAttribute("SecretId", s[1])
+		CollectionService:AddTag(pp, "Secret")
+	end
+end
+
+local function buildLighting()
+	Lighting.ClockTime = 14.5
+	Lighting.Brightness = 2.2
+	Lighting.Ambient = Color3.fromRGB(120, 125, 135)
+	Lighting.OutdoorAmbient = Color3.fromRGB(135, 140, 150)
+	Lighting.GlobalShadows = true
+	for _, class in ipairs({ "Atmosphere", "BloomEffect", "ColorCorrectionEffect", "SunRaysEffect" }) do
+		local old = Lighting:FindFirstChildOfClass(class)
+		if old then
+			old:Destroy()
+		end
+	end
+	local atmo = Instance.new("Atmosphere")
+	atmo.Density = 0.25
+	atmo.Offset = 0.2
+	atmo.Color = Color3.fromRGB(200, 215, 240)
+	atmo.Haze = 0.6
+	atmo.Parent = Lighting
+	local bloom = Instance.new("BloomEffect")
+	bloom.Intensity = 0.25
+	bloom.Size = 20
+	bloom.Threshold = 1.5
+	bloom.Parent = Lighting
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Saturation = 0.15
+	cc.Contrast = 0.08
+	cc.Parent = Lighting
+	local rays = Instance.new("SunRaysEffect")
+	rays.Intensity = 0.08
+	rays.Spread = 0.6
+	rays.Parent = Lighting
+end
+
+-- Retourne (dossierCarte, étiquettesDuClassement)
+function MapBuilder.build(): (Folder, { TextLabel })
+	map = Instance.new("Folder")
+	map.Name = "Map"
+	map.Parent = workspace
+
+	buildLighting()
+	buildGround()
+	buildBunting()
+	buildTrees()
+
+	-- Stands de nourriture en arc de cercle devant le T-Rex.
+	local angles = { -62, -37, -12, 12, 37, 62 }
+	for i, food in ipairs(Config.Foods) do
+		local a = math.rad(angles[i])
+		buildStand(food, Vector3.new(math.sin(a) * 58, 0, math.cos(a) * 58))
+	end
+
+	buildKiosk("ShopKiosk", Vector3.new(-100, 0, 72), Vector3.new(0, 0, 72), Color3.fromRGB(255, 170, 60), "🛒 Boutique", "shop", "Ouvrir")
+	buildKiosk("NestKiosk", Vector3.new(100, 0, 72), Vector3.new(0, 0, 72), Color3.fromRGB(120, 200, 120), "🥚 Nid des compagnons", "pets", "Ouvrir")
+	buildKiosk("QuestKiosk", Vector3.new(30, 0, 108), Vector3.new(0, 0, 128), Color3.fromRGB(200, 150, 90), "📜 Quêtes du jour", "quests", "Ouvrir")
+	buildAltar(Vector3.new(0, 0, 160))
+	local labels = buildLeaderboard(Vector3.new(-30, 0, 108), Vector3.new(0, 0, 128))
+
+	-- 8 tables de survie : 4 colonnes x 2 rangées, escaliers tournés vers l'axe central.
+	for _, x in ipairs({ -125, -80, 80, 125 }) do
+		buildTable(Vector3.new(x, 0, 40), -1)
+		buildTable(Vector3.new(x, 0, -40), 1)
+	end
+
+	buildSecrets()
+	return map, labels
+end
+
+return MapBuilder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3BD1C90D637440B5A81E6CA59C415540"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Œufs et compagnons : tirage serveur (aléatoire non manipulable par le client), équipement.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local PlayerService = require(script.Parent.PlayerService)
+
+local PetService = {}
+
+local function hatch(player: Player, eggKind: string): string
+	local data = PlayerService.get(player)
+	local petId = Economy.rollPet(eggKind, math.random(), math.random())
+	local isDuplicate = (data.pets[petId] or 0) > 0
+	data.pets[petId] = (data.pets[petId] or 0) + 1
+	local refund = 0
+	if isDuplicate then
+		refund = math.floor(Config.Eggs[eggKind].Price * Config.DuplicateRefundFraction)
+		PlayerService.addCoins(player, refund)
+	end
+	Remotes.get("Reveal"):FireClient(player, petId, isDuplicate, refund, eggKind)
+	PlayerService.markDirty(player)
+	return petId
+end
+
+-- Ouvre un œuf. source = "free" (œuf gratuit du stock) ou "coins".
+function PetService.openEgg(player: Player, eggKind: any, source: any): (boolean, string)
+	local data = PlayerService.get(player)
+	if not data then
+		return false, "Données non chargées"
+	end
+	if type(eggKind) ~= "string" or Config.Eggs[eggKind] == nil then
+		return false, "Œuf inconnu"
+	end
+	if source == "free" then
+		if eggKind ~= "classic" or data.eggs < 1 then
+			return false, "Aucun œuf gratuit"
+		end
+		data.eggs -= 1
+	elseif source == "coins" then
+		if not PlayerService.trySpend(player, Config.Eggs[eggKind].Price) then
+			return false, "Pas assez de pièces"
+		end
+	else
+		return false, "Requête invalide"
+	end
+	hatch(player, eggKind)
+	return true, "Éclosion !"
+end
+
+function PetService.equip(player: Player, petId: any, on: any): (boolean, string)
+	local data = PlayerService.get(player)
+	if not data then
+		return false, "Données non chargées"
+	end
+	if type(petId) ~= "string" or type(on) ~= "boolean" or not Economy.findPet(petId) then
+		return false, "Requête invalide"
+	end
+	if (data.pets[petId] or 0) < 1 then
+		return false, "Tu ne possèdes pas ce compagnon"
+	end
+	local idx = table.find(data.equipped, petId)
+	if on then
+		if idx then
+			return true, "Déjà équipé"
+		end
+		if #data.equipped >= Economy.petSlots(data) then
+			return false, "Emplacements pleins : déséquipe un compagnon d'abord"
+		end
+		table.insert(data.equipped, petId)
+	else
+		if idx then
+			table.remove(data.equipped, idx)
+		end
+	end
+	PlayerService.markDirty(player)
+	return true, "OK"
+end
+
+return PetService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4A07C240733445A7AC537F34FBA866E8"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Profils joueurs : chargement, état de session, statistiques, monnaie, synchronisation client.
+-- Toutes les modifications de données passent par ici (le client ne peut jamais écrire).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local QuestLogic = require(Shared:WaitForChild("QuestLogic"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local DataService = require(script.Parent.DataService)
+
+local PlayerService = {}
+
+local profiles: { [Player]: any } = {} -- player -> data
+local sessions: { [Player]: any } = {} -- player -> état volatil
+local dirty: { [Player]: boolean } = {}
+local loadedHooks: { (Player) -> () } = {}
+local characterHooks: { (Player, Model) -> () } = {}
+local saveHooks: { (Player, any) -> () } = {}
+
+local StateRemote = nil
+local NotifyRemote = nil
+
+function PlayerService.get(player: Player): any?
+	return profiles[player]
+end
+
+function PlayerService.session(player: Player): any?
+	return sessions[player]
+end
+
+function PlayerService.getStats(player: Player): any?
+	local data = profiles[player]
+	if not data then
+		return nil
+	end
+	return Economy.stats(data)
+end
+
+function PlayerService.onLoaded(fn: (Player) -> ())
+	table.insert(loadedHooks, fn)
+end
+
+function PlayerService.onCharacter(fn: (Player, Model) -> ())
+	table.insert(characterHooks, fn)
+end
+
+function PlayerService.onSave(fn: (Player, any) -> ())
+	table.insert(saveHooks, fn)
+end
+
+function PlayerService.notify(player: Player, text: string, kind: string?)
+	if NotifyRemote and player.Parent then
+		NotifyRemote:FireClient(player, text, kind or "info")
+	end
+end
+
+function PlayerService.markDirty(player: Player)
+	if profiles[player] then
+		dirty[player] = true
+	end
+end
+
+-- ---------------------------------------------------------------- monnaie
+
+function PlayerService.addCoins(player: Player, amount: number): boolean
+	local data = profiles[player]
+	if not data or amount ~= amount or amount <= 0 then
+		return false
+	end
+	amount = math.floor(amount)
+	data.coins = math.min(data.coins + amount, 1e15)
+	QuestLogic.progress(data, "earn", amount)
+	dirty[player] = true
+	return true
+end
+
+function PlayerService.trySpend(player: Player, amount: number): boolean
+	local data = profiles[player]
+	if not data or amount ~= amount or amount < 0 then
+		return false
+	end
+	amount = math.floor(amount)
+	if data.coins < amount then
+		return false
+	end
+	data.coins -= amount
+	dirty[player] = true
+	return true
+end
+
+function PlayerService.addEggs(player: Player, n: number)
+	local data = profiles[player]
+	if data then
+		data.eggs += math.max(0, math.floor(n))
+		dirty[player] = true
+	end
+end
+
+function PlayerService.addFed(player: Player, n: number)
+	local data = profiles[player]
+	if data then
+		data.totalFed += n
+		data.stats.hits += n
+		dirty[player] = true
+	end
+end
+
+-- kind = "feed" | "combo" | "fav" | "survive" | "feast" | "earn"
+function PlayerService.record(player: Player, kind: string, amount: number)
+	local data = profiles[player]
+	if data and QuestLogic.progress(data, kind, amount) then
+		dirty[player] = true
+	end
+end
+
+-- ---------------------------------------------------------------- session
+
+function PlayerService.refillBasket(player: Player, foodId: string?)
+	local data, s = profiles[player], sessions[player]
+	if not data or not s then
+		return
+	end
+	if foodId then
+		data.selectedFood = foodId
+	end
+	s.ammo = Economy.stats(data).capacity
+	dirty[player] = true
+end
+
+function PlayerService.applyCharacter(player: Player)
+	local data = profiles[player]
+	local char = player.Character
+	if not data or not char then
+		return
+	end
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.WalkSpeed = Economy.stats(data).walkSpeed
+	end
+end
+
+-- ---------------------------------------------------------------- état public
+
+local function snapshot(player: Player): any
+	local data, s = profiles[player], sessions[player]
+	local stats = Economy.stats(data)
+	local level, progress, nextNeed = Economy.level(data.totalFed)
+	local canDaily, nextDay = QuestLogic.dailyStatus(data, Util.dayIndex(os.time()))
+	return {
+		coins = data.coins,
+		totalFed = data.totalFed,
+		rebirths = data.rebirths,
+		level = level,
+		levelProgress = progress,
+		levelNext = nextNeed,
+		upgrades = data.upgrades,
+		foods = data.foods,
+		selectedFood = data.selectedFood,
+		ammo = s.ammo,
+		capacity = stats.capacity,
+		pets = data.pets,
+		equipped = data.equipped,
+		eggs = data.eggs,
+		secrets = Util.count(data.secrets),
+		quests = data.quests.list,
+		canDaily = canDaily,
+		nextDay = nextDay,
+		streak = data.streak.count,
+		stats = stats,
+		bestCombo = data.stats.bestCombo,
+		feasts = data.stats.feasts,
+		survived = data.stats.survived,
+		rebirthCost = Economy.rebirthCost(data.rebirths),
+		temporary = s.temporary == true,
+	}
+end
+
+local function syncPublic(player: Player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	local ls = player:FindFirstChild("leaderstats")
+	if ls then
+		ls["Pièces"].Value = data.coins
+		ls["Nourri"].Value = data.totalFed
+		ls["Renaissances"].Value = data.rebirths
+	end
+	local level = Economy.level(data.totalFed)
+	player:SetAttribute("Level", level)
+	player:SetAttribute("Pets", table.concat(data.equipped, ","))
+	player:SetAttribute("PetMult", Economy.petBonus(data))
+end
+
+function PlayerService.pushState(player: Player)
+	if profiles[player] and sessions[player] then
+		syncPublic(player)
+		StateRemote:FireClient(player, snapshot(player))
+	end
+end
+
+-- ---------------------------------------------------------------- cycle de vie
+
+local function makeLeaderstats(player: Player)
+	local folder = Instance.new("Folder")
+	folder.Name = "leaderstats"
+	for _, name in ipairs({ "Pièces", "Nourri", "Renaissances" }) do
+		local v = Instance.new("NumberValue")
+		v.Name = name
+		v.Value = 0
+		v.Parent = folder
+	end
+	folder.Parent = player
+end
+
+function PlayerService.save(player: Player, release: boolean): boolean
+	local data, s = profiles[player], sessions[player]
+	if not data or not s or s.temporary then
+		return false
+	end
+	local ok = DataService.save(player.UserId, data, release)
+	for _, hook in ipairs(saveHooks) do
+		task.spawn(hook, player, data)
+	end
+	return ok
+end
+
+local function onPlayerAdded(player: Player)
+	sessions[player] = { loaded = false, ammo = 0, combo = 0, lastHit = 0, lastThrow = 0, temporary = false, rate = {} }
+
+	player.CharacterAdded:Connect(function(char)
+		local s = sessions[player]
+		if s and s.loaded then
+			PlayerService.applyCharacter(player)
+			for _, hook in ipairs(characterHooks) do
+				task.spawn(hook, player, char)
+			end
+		end
+	end)
+
+	local data, err = DataService.load(player.UserId)
+	if not player.Parent or not sessions[player] then
+		if data then
+			DataService.save(player.UserId, data, true)
+		end
+		return
+	end
+	local s = sessions[player]
+	if not data then
+		if err and string.find(err, "session", 1, true) then
+			player:Kick("Ta partie est encore ouverte sur un autre serveur. Réessaie dans quelques secondes.")
+			return
+		end
+		-- DataStore indisponible : on joue avec un profil temporaire non sauvegardé.
+		warn("[FestinTRex] Chargement impossible pour " .. player.Name .. " : " .. tostring(err))
+		data = Util.deepCopy(Config.Defaults)
+		s.temporary = true
+	end
+
+	profiles[player] = data
+	QuestLogic.ensure(data, Util.dayIndex(os.time()), player.UserId)
+	if not data.foods[data.selectedFood] then
+		data.selectedFood = "pomme"
+	end
+	s.ammo = Economy.stats(data).capacity
+	makeLeaderstats(player)
+	s.loaded = true
+
+	for _, hook in ipairs(loadedHooks) do
+		task.spawn(hook, player)
+	end
+	PlayerService.pushState(player)
+	if s.temporary then
+		PlayerService.notify(player, "Sauvegarde indisponible : ta progression ne sera pas enregistrée cette session.", "bad")
+	end
+	if player.Character then
+		PlayerService.applyCharacter(player)
+		for _, hook in ipairs(characterHooks) do
+			task.spawn(hook, player, player.Character)
+		end
+	end
+end
+
+local function onPlayerRemoving(player: Player)
+	PlayerService.save(player, true)
+	profiles[player] = nil
+	sessions[player] = nil
+	dirty[player] = nil
+end
+
+function PlayerService.init()
+	StateRemote = Remotes.get("State")
+	NotifyRemote = Remotes.get("Notify")
+
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	Players.PlayerRemoving:Connect(onPlayerRemoving)
+	for _, p in ipairs(Players:GetPlayers()) do
+		task.spawn(onPlayerAdded, p)
+	end
+
+	-- Envoi groupé de l'état modifié (au plus ~5 fois par seconde et par joueur).
+	task.spawn(function()
+		while true do
+			task.wait(0.2)
+			for player in pairs(dirty) do
+				dirty[player] = nil
+				if player.Parent then
+					PlayerService.pushState(player)
+				end
+			end
+		end
+	end)
+
+	-- Sauvegarde automatique.
+	task.spawn(function()
+		while true do
+			task.wait(Config.Data.AutosaveSeconds)
+			for _, player in ipairs(Players:GetPlayers()) do
+				task.spawn(PlayerService.save, player, false)
+			end
+		end
+	end)
+
+	game:BindToClose(function()
+		local pending = 0
+		for _, player in ipairs(Players:GetPlayers()) do
+			pending += 1
+			task.spawn(function()
+				PlayerService.save(player, true)
+				pending -= 1
+			end)
+		end
+		local waited = 0
+		while pending > 0 and waited < 25 do
+			task.wait(0.2)
+			waited += 0.2
+		end
+	end)
+end
+
+return PlayerService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94B3E2B2327442B1B7A44561E0D48D2C"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Quêtes quotidiennes, série de connexion et secrets (fourchettes d'or).
+
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local QuestLogic = require(Shared:WaitForChild("QuestLogic"))
+
+local PlayerService = require(script.Parent.PlayerService)
+
+local QuestService = {}
+
+function QuestService.claimQuest(player: Player, index: any): (boolean, string)
+	local data = PlayerService.get(player)
+	if not data or type(index) ~= "number" or index % 1 ~= 0 then
+		return false, "Requête invalide"
+	end
+	QuestLogic.ensure(data, Util.dayIndex(os.time()), player.UserId)
+	local coins, eggs, reason = QuestLogic.claim(data, index)
+	if not coins then
+		return false, reason or "Impossible"
+	end
+	PlayerService.addCoins(player, coins)
+	PlayerService.addEggs(player, eggs or 0)
+	PlayerService.markDirty(player)
+	return true, string.format("Quête réussie ! +%s pièces%s", Util.formatNumber(coins), if (eggs or 0) > 0 then " + 1 œuf 🥚" else "")
+end
+
+function QuestService.claimDaily(player: Player): (boolean, string)
+	local data = PlayerService.get(player)
+	if not data then
+		return false, "Données non chargées"
+	end
+	local coins, eggs, day, reason = QuestLogic.claimDaily(data, Util.dayIndex(os.time()))
+	if not coins then
+		return false, reason or "Impossible"
+	end
+	PlayerService.addCoins(player, coins)
+	PlayerService.addEggs(player, eggs or 0)
+	PlayerService.markDirty(player)
+	return true, string.format("Jour %d de série ! +%s pièces%s", day, Util.formatNumber(coins), if (eggs or 0) > 0 then " + 1 œuf 🥚" else "")
+end
+
+local function onSecret(prompt: ProximityPrompt, player: Player)
+	local data = PlayerService.get(player)
+	local id = prompt:GetAttribute("SecretId")
+	if not data or type(id) ~= "string" then
+		return
+	end
+	if data.secrets[id] then
+		PlayerService.notify(player, "Tu as déjà trouvé cette fourchette d'or.", "info")
+		return
+	end
+	data.secrets[id] = true
+	local found = Util.count(data.secrets)
+	local r = Config.SecretReward
+	PlayerService.addCoins(player, r.Coins * (1 + data.rebirths))
+	PlayerService.addEggs(player, r.Eggs)
+	PlayerService.notify(player, string.format("🍴 Fourchette d'or %d/%d ! +%s pièces + 1 œuf", found, Config.SecretCount, Util.formatNumber(r.Coins * (1 + data.rebirths))), "gold")
+	if found >= Config.SecretCount then
+		local b = Config.SecretAllBonus
+		PlayerService.addCoins(player, b.Coins * (1 + data.rebirths))
+		PlayerService.addEggs(player, b.Eggs)
+		PlayerService.notify(player, "🏆 Toutes les fourchettes d'or trouvées ! Bonus énorme !", "gold")
+	end
+	PlayerService.markDirty(player)
+end
+
+local function bindSecret(inst: Instance)
+	if inst:IsA("ProximityPrompt") then
+		inst.Triggered:Connect(function(player)
+			onSecret(inst, player)
+		end)
+	end
+end
+
+function QuestService.init()
+	-- Régénère les quêtes si la journée change pendant que le joueur est connecté.
+	task.spawn(function()
+		while true do
+			task.wait(60)
+			for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+				local data = PlayerService.get(player)
+				if data and QuestLogic.ensure(data, Util.dayIndex(os.time()), player.UserId) then
+					PlayerService.markDirty(player)
+				end
+			end
+		end
+	end)
+	CollectionService:GetInstanceAddedSignal("Secret"):Connect(bindSecret)
+	for _, inst in ipairs(CollectionService:GetTagged("Secret")) do
+		bindSecret(inst)
+	end
+end
+
+return QuestService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6BEE5D30BD0F4351800B35AEAF733638"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Routeur unique des requêtes client (RemoteFunction « Request ») + achats.
+-- Chaque action est validée : types, existence, propriété, prix, limites, cadence.
+
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local PlayerService = require(script.Parent.PlayerService)
+local FoodService = require(script.Parent.FoodService)
+local PetService = require(script.Parent.PetService)
+local QuestService = require(script.Parent.QuestService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
+
+local ShopService = {}
+
+local function fail(msg: string)
+	return { ok = false, msg = msg }
+end
+
+local function ok(msg: string, extra: any?)
+	local r = { ok = true, msg = msg }
+	if extra then
+		for k, v in pairs(extra) do
+			r[k] = v
+		end
+	end
+	return r
+end
+
+local handlers = {}
+
+function handlers.buyUpgrade(player, data, payload)
+	local def = type(payload.id) == "string" and Economy.findUpgrade(payload.id)
+	if not def then
+		return fail("Amélioration inconnue")
+	end
+	local level = data.upgrades[def.Id] or 0
+	if level >= def.Max then
+		return fail("Niveau maximum atteint")
+	end
+	local cost = Economy.upgradeCost(def, level)
+	if not PlayerService.trySpend(player, cost) then
+		return fail("Pas assez de pièces")
+	end
+	data.upgrades[def.Id] = level + 1
+	if def.Id == "boots" then
+		PlayerService.applyCharacter(player)
+	end
+	if def.Id == "basket" then
+		PlayerService.refillBasket(player)
+	end
+	PlayerService.markDirty(player)
+	return ok(def.Name .. " niveau " .. (level + 1))
+end
+
+function handlers.buyFood(player, data, payload)
+	local def = type(payload.id) == "string" and Economy.findFood(payload.id)
+	if not def then
+		return fail("Nourriture inconnue")
+	end
+	if data.foods[def.Id] then
+		return fail("Déjà débloquée")
+	end
+	if not PlayerService.trySpend(player, def.Price) then
+		return fail("Pas assez de pièces")
+	end
+	data.foods[def.Id] = true
+	PlayerService.markDirty(player)
+	return ok(def.Emoji .. " " .. def.Name .. " débloqué ! Va au stand correspondant.")
+end
+
+function handlers.openEgg(player, data, payload)
+	local success, msg = PetService.openEgg(player, payload.kind, payload.source)
+	return { ok = success, msg = msg }
+end
+
+function handlers.equipPet(player, data, payload)
+	local success, msg = PetService.equip(player, payload.id, payload.on)
+	return { ok = success, msg = msg }
+end
+
+function handlers.claimQuest(player, data, payload)
+	local success, msg = QuestService.claimQuest(player, payload.index)
+	return { ok = success, msg = msg }
+end
+
+function handlers.claimDaily(player, data, payload)
+	local success, msg = QuestService.claimDaily(player)
+	return { ok = success, msg = msg }
+end
+
+function handlers.rebirth(player, data, payload)
+	local cost = Economy.rebirthCost(data.rebirths)
+	if data.coins < cost then
+		return fail("Il te faut " .. Util.formatNumber(cost) .. " pièces")
+	end
+	if not PlayerService.trySpend(player, cost) then
+		return fail("Pas assez de pièces")
+	end
+	data.rebirths += 1
+	data.coins = 0
+	data.upgrades = {}
+	data.foods = { pomme = true }
+	data.selectedFood = "pomme"
+	PlayerService.refillBasket(player)
+	PlayerService.applyCharacter(player)
+	FoodService.refreshHeldFood(player)
+	PlayerService.markDirty(player)
+	return ok(string.format("Évolution %d ! Bonus de pièces x%.1f", data.rebirths, Economy.rebirthMult(data.rebirths)))
+end
+
+function handlers.leaderboard(player, data, payload)
+	return ok("", { top = LeaderboardService.getTop() })
+end
+
+local PANELS = { shop = true, pets = true, quests = true, rebirth = true }
+
+local function bindPanelPrompt(inst: Instance)
+	if inst:IsA("ProximityPrompt") then
+		inst.Triggered:Connect(function(player)
+			local panel = inst:GetAttribute("Panel")
+			if type(panel) == "string" and PANELS[panel] then
+				Remotes.get("OpenPanel"):FireClient(player, panel)
+			end
+		end)
+	end
+end
+
+function ShopService.init()
+	CollectionService:GetInstanceAddedSignal("PanelPrompt"):Connect(bindPanelPrompt)
+	for _, inst in ipairs(CollectionService:GetTagged("PanelPrompt")) do
+		bindPanelPrompt(inst)
+	end
+	Remotes.get("Request").OnServerInvoke = function(player: Player, action: any, payload: any)
+		if type(action) ~= "string" then
+			return fail("Requête invalide")
+		end
+		if type(payload) ~= "table" then
+			payload = {}
+		end
+		if not FoodService.allow(player, "request", 6, 8) then
+			return fail("Doucement !")
+		end
+		local data = PlayerService.get(player)
+		if not data then
+			return fail("Données non chargées")
+		end
+		local handler = handlers[action]
+		if not handler then
+			return fail("Action inconnue")
+		end
+		local success, result = pcall(handler, player, data, payload)
+		if not success then
+			warn("[FestinTRex] Erreur action " .. action .. " : " .. tostring(result))
+			return fail("Erreur serveur")
+		end
+		return result
+	end
+end
+
+return ShopService
+]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX81435D08ED5D41A8A35AC4FAF10BAABC"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX45BDB6DA49CA4062BE126B4C33DE3B74"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX21BBA74AD30146388192DE1EE095681D"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBX7E4A1155AA894986BE247129C205FE81"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Effets visuels et sonores : arcs de lancer (rejoués depuis le calcul serveur), impacts,
+-- bonus flottants, festin, vague de sauce (calculée localement depuis l'heure serveur).
+
+local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+local Ballistics = require(Shared:WaitForChild("Ballistics"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local UIKit = require(script.Parent.UIKit)
+local HUD = require(script.Parent.HUD)
+
+local Effects = {}
+
+local localPlayer = Players.LocalPlayer
+local swinging: { [Instance]: boolean } = {}
+
+local function c3(t: { number }): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+local function nearCamera(pos: Vector3, maxDist: number): boolean
+	local cam = workspace.CurrentCamera
+	return cam ~= nil and (cam.CFrame.Position - pos).Magnitude <= maxDist
+end
+
+local function burst(pos: Vector3, color: Color3, count: number, speed: number)
+	local anchor = Instance.new("Part")
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Position = pos
+	anchor.Parent = workspace
+	local e = Instance.new("ParticleEmitter")
+	e.Rate = 0
+	e.Color = ColorSequence.new(color)
+	e.Lifetime = NumberRange.new(0.5, 0.9)
+	e.Speed = NumberRange.new(speed * 0.5, speed)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	e.Acceleration = Vector3.new(0, -30, 0)
+	e.LightEmission = 0.4
+	e.Parent = anchor
+	e:Emit(count)
+	Debris:AddItem(anchor, 1.5)
+end
+
+local function popup(pos: Vector3, text: string, color: Color3, big: boolean)
+	local anchor = Instance.new("Part")
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Position = pos + Vector3.new(0, 3, 0)
+	anchor.Parent = workspace
+	local gui = Instance.new("BillboardGui")
+	gui.Size = if big then UDim2.fromOffset(220, 60) else UDim2.fromOffset(130, 36)
+	gui.AlwaysOnTop = true
+	gui.StudsOffset = Vector3.new(0, 0, 0)
+	gui.MaxDistance = 220
+	gui.Parent = anchor
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.fromScale(1, 1)
+	l.BackgroundTransparency = 1
+	l.Font = Enum.Font.FredokaOne
+	l.TextScaled = true
+	l.Text = text
+	l.TextColor3 = color
+	l.TextStrokeTransparency = 0
+	l.Parent = gui
+	TweenService:Create(gui, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffset = Vector3.new(0, 6, 0) }):Play()
+	TweenService:Create(l, TweenInfo.new(1.1, Enum.EasingStyle.Linear), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	Debris:AddItem(anchor, 1.3)
+end
+
+-- Geste de lancer : on décale brièvement l'épaule (C0) du lanceur, uniquement en local.
+local function swingArm(character: Model?)
+	if not character then
+		return
+	end
+	local shoulder = character:FindFirstChild("RightShoulder", true) or character:FindFirstChild("Right Shoulder", true)
+	if not shoulder or not shoulder:IsA("Motor6D") or swinging[shoulder] then
+		return
+	end
+	swinging[shoulder] = true
+	local original = shoulder.C0
+	local up = TweenService:Create(shoulder, TweenInfo.new(0.1), { C0 = original * CFrame.Angles(math.rad(-140), 0, 0) })
+	local down = TweenService:Create(shoulder, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { C0 = original })
+	up:Play()
+	up.Completed:Connect(function()
+		down:Play()
+	end)
+	down.Completed:Connect(function()
+		shoulder.C0 = original
+		swinging[shoulder] = nil
+	end)
+end
+
+-- ---------------------------------------------------------------- lancers
+
+local function onThrowFx(userId: number, foodId: string, origin: Vector3, v: Vector3, tHit: number, kind: string, hitPos: Vector3)
+	local food = Economy.findFood(foodId)
+	if not food then
+		return
+	end
+	local owner = Players:GetPlayerByUserId(userId)
+	swingArm(owner and owner.Character)
+	if userId == localPlayer.UserId or nearCamera(origin, 120) then
+		UIKit.sfx("Throw", if userId == localPlayer.UserId then 0.5 else 0.25, 0.9 + math.random() * 0.3)
+	end
+	if userId == localPlayer.UserId and kind ~= "mouth" then
+		task.delay(tHit, HUD.hideCombo)
+	end
+
+	local p = Instance.new("Part")
+	p.Name = "FlyingFood"
+	p.Shape = Enum.PartType[food.Shape]
+	p.Size = Vector3.new(food.Size[1], food.Size[2], food.Size[3])
+	p.Color = c3(food.Color)
+	p.Material = Enum.Material[food.Material]
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CFrame = CFrame.new(origin)
+	p.Parent = workspace
+
+	local g = workspace.Gravity
+	local t0 = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - t0
+		if t >= tHit then
+			conn:Disconnect()
+			p:Destroy()
+			if kind == "ground" or kind == "none" then
+				burst(hitPos, c3(food.Color), 8, 14)
+			end
+			return
+		end
+		local x, y, z = Ballistics.position(origin.X, origin.Y, origin.Z, v.X, v.Y, v.Z, t, g)
+		p.CFrame = CFrame.new(x, y, z) * CFrame.Angles(t * 9, t * 6, 0)
+	end)
+	-- Sécurité : si le client rame, la pièce est détruite quand même.
+	Debris:AddItem(p, tHit + 2)
+end
+
+local function onFeedFx(hitPos: Vector3, coins: number, userId: number, kind: string, combo: number)
+	if kind == "thud" then
+		if nearCamera(hitPos, 120) then
+			UIKit.sfx("Thud", 0.4, 0.8)
+		end
+		burst(hitPos, Color3.fromRGB(200, 200, 200), 6, 10)
+		return
+	end
+	local mine = userId == localPlayer.UserId
+	local fav = kind == "fav"
+	local text = "+" .. Util.formatNumber(coins)
+	if fav then
+		text ..= " ⭐"
+	end
+	popup(hitPos, text, if fav then Color3.fromRGB(255, 120, 200) else Color3.fromRGB(255, 220, 70), mine)
+	burst(hitPos, if fav then Color3.fromRGB(255, 120, 200) else Color3.fromRGB(255, 200, 60), if mine then 22 else 10, 26)
+	if mine then
+		UIKit.sfx("Munch", 0.6, 0.95 + math.min(combo, 20) * 0.02)
+		UIKit.sfx("Coin", 0.4, 1 + math.min(combo, 20) * 0.03)
+		HUD.showCombo(combo)
+	elseif nearCamera(hitPos, 120) then
+		UIKit.sfx("Munch", 0.3)
+	end
+end
+
+-- ---------------------------------------------------------------- festin
+
+local function shake(duration: number, intensity: number)
+	local char = localPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hum then
+		return
+	end
+	task.spawn(function()
+		local start = os.clock()
+		while os.clock() - start < duration and hum.Parent do
+			local k = intensity * (1 - (os.clock() - start) / duration)
+			hum.CameraOffset = Vector3.new((math.random() - 0.5) * k, (math.random() - 0.5) * k, 0)
+			task.wait()
+		end
+		hum.CameraOffset = Vector3.zero
+	end)
+end
+
+local function confetti()
+	local anchor = Instance.new("Part")
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(1, 1, 1)
+	anchor.Position = Vector3.new(0, 45, 20)
+	anchor.Parent = workspace
+	local e = Instance.new("ParticleEmitter")
+	e.Rate = 0
+	e.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+		ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 220, 60)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(90, 220, 120)),
+		ColorSequenceKeypoint.new(0.75, Color3.fromRGB(80, 160, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 120, 230)),
+	})
+	e.Lifetime = NumberRange.new(2.5, 3.5)
+	e.Speed = NumberRange.new(25, 55)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new(0.8)
+	e.Acceleration = Vector3.new(0, -35, 0)
+	e.RotSpeed = NumberRange.new(-200, 200)
+	e.Parent = anchor
+	for _ = 1, 3 do
+		e:Emit(80)
+		task.wait(0.25)
+	end
+	Debris:AddItem(anchor, 4)
+end
+
+local function onFeastFx(stageName: string, topName: string)
+	UIKit.sfx("Roar", 0.9, 0.8)
+	UIKit.sfx("Success", 0.6)
+	shake(0.7, 1.2)
+	task.spawn(confetti)
+	local text = "🎉 FESTIN COMPLET ! 🎉"
+	if topName ~= "" then
+		text ..= "\nMeilleur nourrisseur : " .. topName
+	end
+	local gui = HUD.gui()
+	local l = UIKit.label(gui, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.fromOffset(640, 120),
+		Text = text,
+		TextSize = 40,
+		Font = Enum.Font.FredokaOne,
+		TextColor3 = Color3.fromRGB(255, 220, 70),
+		TextStrokeTransparency = 0,
+	})
+	task.delay(2.5, function()
+		TweenService:Create(l, TweenInfo.new(0.8), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		task.wait(0.9)
+		l:Destroy()
+	end)
+end
+
+-- ---------------------------------------------------------------- événements
+
+local wave: Part? = nil
+local waveConn: RBXScriptConnection? = nil
+
+local function stopWave()
+	if waveConn then
+		waveConn:Disconnect()
+		waveConn = nil
+	end
+	if wave then
+		wave:Destroy()
+		wave = nil
+	end
+end
+
+local function startWave(state: Instance)
+	stopWave()
+	local cfg = Config.Events.Sauce
+	local dir = state:GetAttribute("SauceDir") or 1
+	local startAt = state:GetAttribute("EventStart") or 0
+	local from, to = -cfg.Half, cfg.Half
+	if dir < 0 then
+		from, to = to, from
+	end
+	local w = Instance.new("Part")
+	w.Name = "SauceWave"
+	w.Anchored = true
+	w.CanCollide = false
+	w.CanQuery = false
+	w.CanTouch = false
+	w.Size = Vector3.new(12, cfg.Height, 540)
+	w.Color = Color3.fromRGB(215, 45, 35)
+	w.Material = Enum.Material.SmoothPlastic
+	w.Transparency = 0.25
+	w.Parent = workspace
+	local foam = Instance.new("Part")
+	foam.Anchored = true
+	foam.CanCollide = false
+	foam.CanQuery = false
+	foam.CanTouch = false
+	foam.Size = Vector3.new(14, 2, 540)
+	foam.Color = Color3.fromRGB(255, 230, 220)
+	foam.Transparency = 0.1
+	foam.Parent = w
+	wave = w
+	UIKit.sfx("Wave", 0.8)
+	waveConn = RunService.RenderStepped:Connect(function()
+		local t = (workspace:GetServerTimeNow() - startAt) / cfg.Duration
+		t = math.clamp(t, 0, 1)
+		local x = from + (to - from) * t
+		w.CFrame = CFrame.new(x, cfg.Height / 2, 0)
+		foam.CFrame = CFrame.new(x, cfg.Height + 0.5, 0)
+	end)
+end
+
+local frenzyTint: ColorCorrectionEffect? = nil
+
+function Effects.init()
+	Remotes.get("ThrowFx").OnClientEvent:Connect(onThrowFx)
+	Remotes.get("FeedFx").OnClientEvent:Connect(onFeedFx)
+	Remotes.get("FeastFx").OnClientEvent:Connect(onFeastFx)
+
+	local state = ReplicatedStorage:WaitForChild("GameState")
+	local lastKey = ""
+	state.AttributeChanged:Connect(function()
+		local id = state:GetAttribute("EventId") or ""
+		local phase = state:GetAttribute("EventPhase") or ""
+		local key = id .. ":" .. phase
+		if key == lastKey then
+			return
+		end
+		lastKey = key
+		if id == "sauce" and phase == "active" then
+			startWave(state)
+		elseif id == "sauce" and phase ~= "warning" then
+			stopWave()
+		elseif id == "" then
+			stopWave()
+		end
+		if id == "frenzy" and phase == "active" then
+			if not frenzyTint then
+				frenzyTint = Instance.new("ColorCorrectionEffect")
+				frenzyTint.TintColor = Color3.fromRGB(255, 225, 190)
+				frenzyTint.Parent = game:GetService("Lighting")
+			end
+		elseif frenzyTint then
+			frenzyTint:Destroy()
+			frenzyTint = nil
+		end
+	end)
+end
+
+return Effects
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0A070B02209D4C8BBA372FE2032DB526"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Interface permanente : pièces, niveau, état du T-Rex, événements, panier, combo, boutons, notifications.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+
+local Store = require(script.Parent.Store)
+local UIKit = require(script.Parent.UIKit)
+
+local C = UIKit.Colors
+local HUD = {}
+
+local gui: ScreenGui
+local refs: any = {}
+local comboToken = 0
+
+local function scaled(group: Frame, baseWidth: number, baseHeight: number)
+	local s = Instance.new("UIScale")
+	s.Parent = group
+	local function update()
+		local cam = workspace.CurrentCamera
+		if not cam then
+			return
+		end
+		local vp = cam.ViewportSize
+		s.Scale = math.clamp(math.min(vp.X / baseWidth, vp.Y / baseHeight), 0.62, 1.2)
+	end
+	update()
+	task.defer(function()
+		local cam = workspace.CurrentCamera
+		if cam then
+			cam:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+		end
+	end)
+	return s
+end
+
+local function group(name: string, anchor: Vector2, pos: UDim2, size: UDim2): Frame
+	local f = Instance.new("Frame")
+	f.Name = name
+	f.BackgroundTransparency = 1
+	f.AnchorPoint = anchor
+	f.Position = pos
+	f.Size = size
+	f.Parent = gui
+	return f
+end
+
+-- ---------------------------------------------------------------- blocs
+
+local function buildTopLeft()
+	local g = group("TopLeft", Vector2.new(0, 0), UDim2.new(0, 12, 0, 8), UDim2.fromOffset(250, 96))
+	scaled(g, 1000, 560)
+	local pill = UIKit.frame(g, { Size = UDim2.fromOffset(250, 46), BackgroundColor3 = C.panel, BackgroundTransparency = 0.15 })
+	UIKit.corner(pill, 23)
+	UIKit.stroke(pill, C.gold, 2)
+	refs.coins = UIKit.label(pill, { Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), Text = "🪙 0", TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne, TextColor3 = C.gold })
+
+	local lv = UIKit.frame(g, { Position = UDim2.fromOffset(0, 54), Size = UDim2.fromOffset(250, 34), BackgroundColor3 = C.panel, BackgroundTransparency = 0.15 })
+	UIKit.corner(lv, 12)
+	refs.level = UIKit.label(lv, { Size = UDim2.fromOffset(90, 34), Position = UDim2.fromOffset(8, 0), Text = "Niv. 1", TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left })
+	local bg, fill = UIKit.bar(lv, { Position = UDim2.fromOffset(86, 10), Size = UDim2.fromOffset(150, 14) }, C.blue)
+	refs.levelFill = fill
+	refs.mult = UIKit.label(g, { Position = UDim2.fromOffset(4, 90), Size = UDim2.fromOffset(250, 18), Text = "", TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.dim })
+end
+
+local function buildDino()
+	local g = group("DinoPanel", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 8), UDim2.fromOffset(400, 140))
+	scaled(g, 1000, 560)
+	local p = UIKit.frame(g, { Size = UDim2.fromOffset(400, 84), BackgroundTransparency = 0.12 })
+	UIKit.corner(p, 14)
+	UIKit.stroke(p, Color3.fromRGB(88, 170, 80), 3)
+	refs.dinoName = UIKit.label(p, { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(190, 24), Text = "🦖 Bébé Rex", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
+	refs.fav = UIKit.label(p, { Position = UDim2.fromOffset(190, 6), Size = UDim2.fromOffset(200, 24), Text = "Envie : 🍎 x3", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C.gold })
+	local bg, fill = UIKit.bar(p, { Position = UDim2.fromOffset(12, 36), Size = UDim2.fromOffset(376, 26) }, Color3.fromRGB(255, 140, 60))
+	refs.satFill = fill
+	refs.satText = UIKit.label(bg, { Size = UDim2.fromScale(1, 1), Text = "0 / 600", TextSize = 16, ZIndex = 3 })
+	refs.hungry = UIKit.label(p, { Position = UDim2.fromOffset(12, 63), Size = UDim2.fromOffset(376, 18), Text = "", TextSize = 14, TextColor3 = C.good })
+
+	-- Bandeau d'événement
+	local banner = UIKit.frame(g, { Position = UDim2.fromOffset(0, 92), Size = UDim2.fromOffset(400, 40), BackgroundColor3 = C.bad, Visible = false })
+	UIKit.corner(banner, 12)
+	UIKit.stroke(banner, Color3.new(1, 1, 1), 2)
+	refs.banner = banner
+	refs.bannerText = UIKit.label(banner, { Size = UDim2.fromScale(1, 1), Text = "", TextSize = 18 })
+end
+
+local function buildSideButtons(openPanel: (string) -> ())
+	local g = group("Side", Vector2.new(1, 0.5), UDim2.new(1, -10, 0.5, 0), UDim2.fromOffset(78, 380))
+	scaled(g, 1000, 560)
+	local layout = UIKit.list(g, 8)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	local defs = {
+		{ "shop", "🛒", "Boutique" },
+		{ "quests", "📜", "Quêtes" },
+		{ "pets", "🥚", "Nid" },
+		{ "leaderboard", "🏆", "Top" },
+		{ "rebirth", "✨", "Évolution" },
+	}
+	refs.sideButtons = {}
+	for i, d in ipairs(defs) do
+		local b = UIKit.button(g, {
+			LayoutOrder = i,
+			Size = UDim2.fromOffset(74, 68),
+			BackgroundColor3 = C.panel,
+			BackgroundTransparency = 0.1,
+			Text = d[2] .. "\n" .. d[3],
+			TextSize = 15,
+			Callback = function()
+				openPanel(d[1])
+			end,
+		})
+		UIKit.stroke(b, C.accent, 2)
+		local dot = UIKit.frame(b, { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(1, -14, 0, -4), BackgroundColor3 = C.bad, Visible = false })
+		UIKit.corner(dot, 9)
+		refs.sideButtons[d[1]] = dot
+	end
+end
+
+local function buildBottom(throwCenter: () -> ())
+	local g = group("Bottom", Vector2.new(0.5, 1), UDim2.new(0.5, 0, 1, -12), UDim2.fromOffset(420, 110))
+	scaled(g, 1000, 560)
+	refs.hint = UIKit.label(g, { Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(420, 30), Text = "", TextSize = 16, TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3 })
+	local p = UIKit.frame(g, { Position = UDim2.fromOffset(40, 34), Size = UDim2.fromOffset(340, 66), BackgroundTransparency = 0.12 })
+	UIKit.corner(p, 14)
+	UIKit.stroke(p, C.accent, 2)
+	refs.foodIcon = UIKit.label(p, { Position = UDim2.fromOffset(8, 4), Size = UDim2.fromOffset(60, 58), Text = "🍎", TextSize = 40 })
+	refs.foodName = UIKit.label(p, { Position = UDim2.fromOffset(72, 6), Size = UDim2.fromOffset(150, 22), Text = "Pomme", TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
+	refs.ammo = UIKit.label(p, { Position = UDim2.fromOffset(220, 6), Size = UDim2.fromOffset(112, 22), Text = "x6/6", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C.gold })
+	local bg, fill = UIKit.bar(p, { Position = UDim2.fromOffset(72, 38), Size = UDim2.fromOffset(256, 16) }, C.good)
+	refs.ammoFill = fill
+
+	-- Bouton LANCER (tactile / manette) : vise le centre de l'écran.
+	if UserInputService.TouchEnabled or UserInputService.GamepadEnabled then
+		local btn = UIKit.button(gui, {
+			Name = "ThrowButton",
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -110, 1, -40),
+			Size = UDim2.fromOffset(120, 120),
+			BackgroundColor3 = C.bad,
+			Text = "LANCER\n🍎",
+			TextSize = 20,
+			Callback = throwCenter,
+		})
+		btn.Active = true
+		UIKit.corner(btn, 60)
+		UIKit.stroke(btn, Color3.new(1, 1, 1), 3)
+		scaled(btn, 1000, 560)
+		refs.throwBtn = btn
+	end
+end
+
+local function buildCombo()
+	local l = UIKit.label(gui, {
+		Name = "Combo",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.3),
+		Size = UDim2.fromOffset(300, 60),
+		Text = "",
+		TextSize = 40,
+		Font = Enum.Font.FredokaOne,
+		TextColor3 = C.gold,
+		TextStrokeTransparency = 0,
+		Visible = false,
+	})
+	refs.combo = l
+end
+
+local function buildToasts()
+	local g = group("Toasts", Vector2.new(0, 1), UDim2.new(0, 12, 1, -12), UDim2.fromOffset(360, 220))
+	scaled(g, 1000, 560)
+	local layout = UIKit.list(g, 4)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	refs.toasts = g
+end
+
+-- ---------------------------------------------------------------- API
+
+function HUD.toast(text: string, kind: string?)
+	if not refs.toasts then
+		return
+	end
+	local color = C.panel
+	if kind == "good" then
+		color = Color3.fromRGB(40, 120, 70)
+	elseif kind == "bad" then
+		color = Color3.fromRGB(140, 50, 50)
+	elseif kind == "gold" then
+		color = Color3.fromRGB(150, 110, 20)
+	end
+	local f = UIKit.frame(refs.toasts, { Size = UDim2.fromOffset(360, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = color, BackgroundTransparency = 0.1 })
+	UIKit.corner(f, 10)
+	UIKit.padding(f, 8)
+	UIKit.label(f, { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Text = text, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left })
+	local children = refs.toasts:GetChildren()
+	local count = 0
+	for _, c in ipairs(children) do
+		if c:IsA("Frame") then
+			count += 1
+		end
+	end
+	if count > 5 then
+		for _, c in ipairs(children) do
+			if c:IsA("Frame") then
+				c:Destroy()
+				break
+			end
+		end
+	end
+	task.delay(5, function()
+		if f.Parent then
+			TweenService:Create(f, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+			task.wait(0.5)
+			f:Destroy()
+		end
+	end)
+end
+
+function HUD.showCombo(n: number)
+	comboToken += 1
+	local token = comboToken
+	if n < 2 then
+		refs.combo.Visible = false
+		return
+	end
+	refs.combo.Visible = true
+	refs.combo.Text = string.format("COMBO x%d  (+%d%%)", n, math.floor(Economy.comboMult(n) * 100 - 100))
+	refs.combo.TextSize = 52
+	TweenService:Create(refs.combo, TweenInfo.new(0.2, Enum.EasingStyle.Back), { TextSize = 40 }):Play()
+	task.delay(Config.Combo.Window, function()
+		if token == comboToken then
+			refs.combo.Visible = false
+		end
+	end)
+end
+
+function HUD.hideCombo()
+	comboToken += 1
+	refs.combo.Visible = false
+end
+
+local function refreshState(s: any)
+	refs.coins.Text = "🪙 " .. Util.formatNumber(s.coins)
+	refs.level.Text = "Niv. " .. s.level
+	refs.levelFill.Size = UDim2.fromScale(s.levelProgress, 1)
+	refs.mult.Text = string.format("Pièces x%.2f  ·  Évolution %d", s.stats.coinMult, s.rebirths)
+
+	local food = Economy.findFood(s.selectedFood)
+	if food then
+		refs.foodIcon.Text = food.Emoji
+		refs.foodName.Text = food.Name
+		if refs.throwBtn then
+			refs.throwBtn.Text = "LANCER\n" .. food.Emoji
+		end
+	end
+	refs.ammo.Text = string.format("x%d/%d", s.ammo, s.capacity)
+	refs.ammoFill.Size = UDim2.fromScale(math.clamp(s.ammo / math.max(1, s.capacity), 0, 1), 1)
+	refs.ammoFill.BackgroundColor3 = if s.ammo == 0 then C.bad else C.good
+
+	if s.ammo <= 0 then
+		refs.hint.Text = "🧺 Panier vide ! Va prendre de la nourriture à un stand (touche E)"
+	elseif s.totalFed == 0 then
+		refs.hint.Text = "👆 Clique / touche pour lancer, vise la BOUCHE du T-Rex !"
+	else
+		refs.hint.Text = ""
+	end
+
+	-- Pastille rouge sur les quêtes : une récompense est à réclamer.
+	local claimable = s.canDaily
+	for _, q in ipairs(s.quests) do
+		if q.progress >= q.target and not q.claimed then
+			claimable = true
+		end
+	end
+	refs.sideButtons.quests.Visible = claimable
+	refs.sideButtons.pets.Visible = s.eggs > 0
+end
+
+local function refreshDino(state: Instance)
+	local name = state:GetAttribute("StageName") or "Bébé Rex"
+	local sat = state:GetAttribute("Satiety") or 0
+	local need = state:GetAttribute("Need") or 1
+	local fav = Economy.findFood(state:GetAttribute("Favorite") or "pomme")
+	refs.dinoName.Text = "🦖 " .. name
+	refs.satFill.Size = UDim2.fromScale(math.clamp(sat / need, 0, 1), 1)
+	refs.satText.Text = string.format("Festin : %s / %s", Util.formatNumber(sat), Util.formatNumber(need))
+	if fav then
+		refs.fav.Text = string.format("Envie : %s %s x%d", fav.Emoji, fav.Name, Config.FavoriteMult)
+	end
+	refs.hungry.Text = if state:GetAttribute("Hungry") then string.format("🍽️ Faim de loup ! Pièces x%.1f", Config.HungryMult) else ""
+end
+
+local function refreshBanner(state: Instance)
+	local id = state:GetAttribute("EventId") or ""
+	local phase = state:GetAttribute("EventPhase") or ""
+	if id == "" or phase == "" then
+		refs.banner.Visible = false
+		return
+	end
+	local cfg = ({ sauce = Config.Events.Sauce, rain = Config.Events.Rain, frenzy = Config.Events.Frenzy })[id]
+	if not cfg then
+		refs.banner.Visible = false
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	local startAt = state:GetAttribute("EventStart") or 0
+	local endAt = state:GetAttribute("EventEnd") or 0
+	refs.banner.Visible = true
+	if phase == "warning" then
+		refs.banner.BackgroundColor3 = Color3.fromRGB(220, 130, 30)
+		refs.bannerText.Text = string.format("⚠️ %s dans %ds !", cfg.Name, math.max(0, math.ceil(startAt - now)))
+		if id == "sauce" then
+			refs.bannerText.Text ..= " Monte sur une table !"
+		end
+	elseif phase == "active" then
+		refs.banner.BackgroundColor3 = if id == "sauce" then C.bad else C.good
+		refs.bannerText.Text = string.format("%s — %ds", cfg.Name, math.max(0, math.ceil(endAt - now)))
+	else
+		refs.banner.Visible = false
+	end
+end
+
+function HUD.init(openPanel: (string) -> (), throwCenter: () -> ())
+	local player = Players.LocalPlayer
+	gui = Instance.new("ScreenGui")
+	gui.Name = "FestinHUD"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = false
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = player:WaitForChild("PlayerGui")
+
+	buildTopLeft()
+	buildDino()
+	buildSideButtons(openPanel)
+	buildBottom(throwCenter)
+	buildCombo()
+	buildToasts()
+
+	local state = ReplicatedStorage:WaitForChild("GameState")
+	Store.onChange(refreshState)
+	local function dino()
+		refreshDino(state)
+	end
+	state.AttributeChanged:Connect(dino)
+	dino()
+
+	task.spawn(function()
+		while true do
+			refreshBanner(state)
+			task.wait(0.25)
+		end
+	end)
+end
+
+function HUD.gui(): ScreenGui
+	return gui
+end
+
+return HUD
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6FD28649E47D45378DF21A6BADE40D90"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Entrées : clic souris, tap tactile (distingué d'un glissement de caméra), bouton LANCER, gâchette de manette.
+-- Le client n'envoie que le point visé ; le serveur décide de tout le reste.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+local Store = require(script.Parent.Store)
+
+local Input = {}
+
+local localPlayer = Players.LocalPlayer
+local throwRemote: any
+local lastSent = 0
+local touches: { [InputObject]: { pos: Vector3, t: number } } = {}
+
+local TAP_MAX_DISTANCE = 14 -- pixels
+local TAP_MAX_TIME = 0.35 -- secondes
+local RAY_LENGTH = 600
+local FALLBACK_DISTANCE = 80
+
+local function aimFromRay(ray: Ray): Vector3
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = {}
+	if localPlayer.Character then
+		table.insert(ignore, localPlayer.Character)
+	end
+	local pets = workspace:FindFirstChild("LocalPets")
+	if pets then
+		table.insert(ignore, pets)
+	end
+	params.FilterDescendantsInstances = ignore
+	local result = workspace:Raycast(ray.Origin, ray.Direction * RAY_LENGTH, params)
+	if result then
+		return result.Position
+	end
+	return ray.Origin + ray.Direction * FALLBACK_DISTANCE
+end
+
+local function send(aim: Vector3)
+	local state = Store.state
+	if not state then
+		return
+	end
+	local now = os.clock()
+	-- Anti-spam local : le serveur applique de toute façon la vraie cadence.
+	if now - lastSent < state.stats.cooldown * 0.8 then
+		return
+	end
+	lastSent = now
+	throwRemote:FireServer(aim)
+end
+
+local function throwAtScreen(x: number, y: number)
+	local cam = workspace.CurrentCamera
+	if cam then
+		send(aimFromRay(cam:ScreenPointToRay(x, y)))
+	end
+end
+
+function Input.throwCenter()
+	local cam = workspace.CurrentCamera
+	if cam then
+		local size = cam.ViewportSize
+		send(aimFromRay(cam:ViewportPointToRay(size.X / 2, size.Y / 2)))
+	end
+end
+
+function Input.init()
+	throwRemote = Remotes.get("Throw")
+
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed then
+			return
+		end
+		local kind = input.UserInputType
+		if kind == Enum.UserInputType.MouseButton1 then
+			throwAtScreen(input.Position.X, input.Position.Y)
+		elseif kind == Enum.UserInputType.Touch then
+			touches[input] = { pos = input.Position, t = os.clock() }
+		elseif input.KeyCode == Enum.KeyCode.ButtonR2 or input.KeyCode == Enum.KeyCode.F then
+			Input.throwCenter()
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		local info = touches[input]
+		if not info then
+			return
+		end
+		touches[input] = nil
+		local moved = (input.Position - info.pos).Magnitude
+		if moved <= TAP_MAX_DISTANCE and os.clock() - info.t <= TAP_MAX_TIME then
+			throwAtScreen(input.Position.X, input.Position.Y)
+		end
+	end)
+end
+
+return Input
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXCFE543FBA952419F8ED3E847AA363958"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Point d'entrée client.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+
+local Store = require(script.Parent:WaitForChild("Store"))
+local HUD = require(script.Parent:WaitForChild("HUD"))
+local Panels = require(script.Parent:WaitForChild("Panels"))
+local Effects = require(script.Parent:WaitForChild("Effects"))
+local PetsRenderer = require(script.Parent:WaitForChild("Pets"))
+local Input = require(script.Parent:WaitForChild("Input"))
+local UIKit = require(script.Parent:WaitForChild("UIKit"))
+
+Store.init()
+HUD.init(function(name)
+	Panels.open(name)
+end, Input.throwCenter)
+Panels.init()
+Effects.init()
+PetsRenderer.init()
+Input.init()
+
+Remotes.get("Notify").OnClientEvent:Connect(function(text, kind)
+	if type(text) == "string" then
+		HUD.toast(text, kind)
+	end
+end)
+
+Remotes.get("OpenPanel").OnClientEvent:Connect(function(name)
+	if type(name) == "string" then
+		Panels.open(name)
+	end
+end)
+
+Remotes.get("Reveal").OnClientEvent:Connect(function(petId, isDup, refund, eggKind)
+	Panels.reveal(petId, isDup, refund, eggKind)
+end)
+
+task.delay(2, function()
+	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
+end)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFC995F0B3F10401E965BAB1F8785130E"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Fenêtres : boutique, nid (compagnons), quêtes, classement, évolution + animation d'éclosion.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+local Economy = require(Shared:WaitForChild("Economy"))
+
+local Store = require(script.Parent.Store)
+local UIKit = require(script.Parent.UIKit)
+local HUD = require(script.Parent.HUD)
+
+local C = UIKit.Colors
+local Panels = {}
+
+local gui: ScreenGui
+local windows: { [string]: any } = {}
+local current: string? = nil
+
+local function rarityDef(id: string): any
+	for _, r in ipairs(Config.Rarities) do
+		if r.Id == id then
+			return r
+		end
+	end
+	return Config.Rarities[1]
+end
+
+local function rarityColor(id: string): Color3
+	local c = rarityDef(id).Color
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+local function act(action: string, payload: any?)
+	local r = Store.request(action, payload)
+	if r.msg and r.msg ~= "" then
+		HUD.toast(r.msg, if r.ok then "good" else "bad")
+	end
+	if r.ok then
+		UIKit.sfx("Coin", 0.4)
+	end
+	return r
+end
+
+local function createWindow(name: string, title: string)
+	local w = UIKit.frame(gui, {
+		Name = name,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(580, 440),
+		Visible = false,
+	})
+	UIKit.corner(w, 16)
+	UIKit.stroke(w, C.accent, 3)
+	local scale = Instance.new("UIScale")
+	scale.Parent = w
+	local function update()
+		local cam = workspace.CurrentCamera
+		if cam then
+			local vp = cam.ViewportSize
+			scale.Scale = math.clamp(math.min(vp.X / 660, vp.Y / 500), 0.55, 1.15)
+		end
+	end
+	update()
+	task.defer(function()
+		if workspace.CurrentCamera then
+			workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+		end
+	end)
+
+	UIKit.label(w, { Position = UDim2.fromOffset(16, 8), Size = UDim2.fromOffset(440, 40), Text = title, TextSize = 28, Font = Enum.Font.FredokaOne, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.gold })
+	UIKit.button(w, {
+		Position = UDim2.new(1, -52, 0, 8),
+		Size = UDim2.fromOffset(40, 40),
+		BackgroundColor3 = C.bad,
+		Text = "X",
+		TextSize = 22,
+		Callback = function()
+			Panels.close()
+		end,
+	})
+	local content = UIKit.frame(w, { Position = UDim2.fromOffset(12, 56), Size = UDim2.new(1, -24, 1, -68), BackgroundTransparency = 1 })
+	local win = { frame = w, content = content, refresh = function(_) end, onOpen = function() end }
+	windows[name] = win
+	return win
+end
+
+function Panels.close()
+	if current and windows[current] then
+		windows[current].frame.Visible = false
+	end
+	current = nil
+end
+
+function Panels.open(name: string)
+	local win = windows[name]
+	if not win then
+		return
+	end
+	if current == name then
+		Panels.close()
+		return
+	end
+	Panels.close()
+	current = name
+	win.frame.Visible = true
+	if Store.state then
+		win.refresh(Store.state)
+	end
+	win.onOpen()
+end
+
+-- ---------------------------------------------------------------- boutique
+
+local function buildShop()
+	local win = createWindow("shop", "🛒 Boutique")
+	local content = win.content
+
+	local tabs = {}
+	local pages = {}
+	local function selectTab(id: string)
+		for k, p in pairs(pages) do
+			p.Visible = (k == id)
+			tabs[k].BackgroundColor3 = if k == id then C.accent else C.panel2
+		end
+	end
+	local function makeTab(id: string, text: string, x: number)
+		tabs[id] = UIKit.button(content, { Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(200, 36), Text = text, BackgroundColor3 = C.panel2, TextSize = 17, Callback = function() selectTab(id) end })
+		pages[id] = UIKit.scroll(content, { Position = UDim2.fromOffset(0, 44), Size = UDim2.new(1, 0, 1, -44), Visible = false })
+		UIKit.list(pages[id], 8)
+	end
+	makeTab("upgrades", "💪 Améliorations", 0)
+	makeTab("foods", "🍔 Nourritures", 208)
+
+	local upgradeRows = {}
+	for i, def in ipairs(Config.Upgrades) do
+		local row = UIKit.frame(pages.upgrades, { Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = C.panel2, LayoutOrder = i })
+		UIKit.corner(row, 12)
+		UIKit.label(row, { Position = UDim2.fromOffset(10, 4), Size = UDim2.fromOffset(46, 56), Text = def.Icon, TextSize = 34 })
+		local title = UIKit.label(row, { Position = UDim2.fromOffset(62, 6), Size = UDim2.fromOffset(280, 24), Text = def.Name, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 32), Size = UDim2.fromOffset(280, 26), Text = def.Desc, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.dim })
+		local btn = UIKit.button(row, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -8, 0.5, 0),
+			Size = UDim2.fromOffset(150, 46),
+			Text = "",
+			TextSize = 16,
+			Callback = function()
+				act("buyUpgrade", { id = def.Id })
+			end,
+		})
+		upgradeRows[def.Id] = { title = title, btn = btn, def = def }
+	end
+
+	local foodRows = {}
+	for i, food in ipairs(Config.Foods) do
+		local row = UIKit.frame(pages.foods, { Size = UDim2.new(1, -10, 0, 64), BackgroundColor3 = C.panel2, LayoutOrder = i })
+		UIKit.corner(row, 12)
+		UIKit.label(row, { Position = UDim2.fromOffset(10, 4), Size = UDim2.fromOffset(46, 56), Text = food.Emoji, TextSize = 34 })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 6), Size = UDim2.fromOffset(280, 24), Text = food.Name, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.FredokaOne })
+		UIKit.label(row, { Position = UDim2.fromOffset(62, 32), Size = UDim2.fromOffset(280, 26), Text = string.format("Valeur de base : %d pièces", food.Value), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.dim })
+		local btn = UIKit.button(row, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -8, 0.5, 0),
+			Size = UDim2.fromOffset(150, 46),
+			Text = "",
+			TextSize = 16,
+			Callback = function()
+				act("buyFood", { id = food.Id })
+			end,
+		})
+		foodRows[food.Id] = { btn = btn, food = food }
+	end
+
+	win.refresh = function(s)
+		for id, r in pairs(upgradeRows) do
+			local lvl = s.upgrades[id] or 0
+			r.title.Text = string.format("%s  (niv. %d/%d)", r.def.Name, lvl, r.def.Max)
+			if lvl >= r.def.Max then
+				r.btn.Text = "MAX"
+				r.btn.BackgroundColor3 = C.panel
+			else
+				local cost = Economy.upgradeCost(r.def, lvl)
+				r.btn.Text = "🪙 " .. Util.formatNumber(cost)
+				r.btn.BackgroundColor3 = if s.coins >= cost then C.good else C.bad
+			end
+		end
+		for id, r in pairs(foodRows) do
+			if s.foods[id] then
+				r.btn.Text = "✔ Débloquée"
+				r.btn.BackgroundColor3 = C.panel
+			else
+				r.btn.Text = "🪙 " .. Util.formatNumber(r.food.Price)
+				r.btn.BackgroundColor3 = if s.coins >= r.food.Price then C.good else C.bad
+			end
+		end
+	end
+	selectTab("upgrades")
+end
+
+-- ---------------------------------------------------------------- compagnons
+
+local function buildPets()
+	local win = createWindow("pets", "🥚 Nid des compagnons")
+	local content = win.content
+
+	local info = UIKit.label(content, { Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 22), Text = "", TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.dim })
+	local freeBtn = UIKit.button(content, { Position = UDim2.fromOffset(0, 26), Size = UDim2.fromOffset(172, 46), Text = "", TextSize = 15, Callback = function() act("openEgg", { kind = "classic", source = "free" }) end })
+	local classicBtn = UIKit.button(content, { Position = UDim2.fromOffset(180, 26), Size = UDim2.fromOffset(172, 46), Text = "", TextSize = 15, Callback = function() act("openEgg", { kind = "classic", source = "coins" }) end })
+	local goldBtn = UIKit.button(content, { Position = UDim2.fromOffset(360, 26), Size = UDim2.fromOffset(172, 46), Text = "", TextSize = 15, BackgroundColor3 = Color3.fromRGB(190, 140, 20), Callback = function() act("openEgg", { kind = "gold", source = "coins" }) end })
+
+	local grid = UIKit.scroll(content, { Position = UDim2.fromOffset(0, 80), Size = UDim2.new(1, 0, 1, -80) })
+	local layout = Instance.new("UIGridLayout")
+	layout.CellSize = UDim2.fromOffset(170, 112)
+	layout.CellPadding = UDim2.fromOffset(8, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = grid
+
+	local cards = {}
+	for i, pet in ipairs(Config.Pets) do
+		local card = UIKit.frame(grid, { BackgroundColor3 = C.panel2, LayoutOrder = i })
+		UIKit.corner(card, 12)
+		local stroke = UIKit.stroke(card, rarityColor(pet.Rarity), 2)
+		local nameL = UIKit.label(card, { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 22), Text = pet.Name, TextSize = 15, Font = Enum.Font.FredokaOne, TextColor3 = rarityColor(pet.Rarity) })
+		local detail = UIKit.label(card, { Position = UDim2.fromOffset(6, 28), Size = UDim2.new(1, -12, 0, 36), Text = "", TextSize = 13, TextColor3 = C.dim })
+		local btn = UIKit.button(card, { Position = UDim2.fromOffset(8, 68), Size = UDim2.new(1, -16, 0, 34), Text = "", TextSize = 15, Callback = function() end })
+		cards[pet.Id] = { name = nameL, detail = detail, btn = btn, pet = pet, conn = nil }
+	end
+
+	win.refresh = function(s)
+		info.Text = string.format("Équipés : %d/%d   ·   Bonus actuel : +%d%% pièces", #s.equipped, s.stats.petSlots, math.floor(s.stats.petMult * 100 + 0.5))
+		freeBtn.Text = string.format("🎁 Œuf gratuit\n(x%d)", s.eggs)
+		freeBtn.BackgroundColor3 = if s.eggs > 0 then C.good else C.panel
+		classicBtn.Text = string.format("%s 🪙 %s", Config.Eggs.classic.Emoji, Util.formatNumber(Config.Eggs.classic.Price))
+		classicBtn.BackgroundColor3 = if s.coins >= Config.Eggs.classic.Price then C.blue else C.panel
+		goldBtn.Text = string.format("%s 🪙 %s", Config.Eggs.gold.Emoji, Util.formatNumber(Config.Eggs.gold.Price))
+		for id, c in pairs(cards) do
+			local count = s.pets[id] or 0
+			local equipped = table.find(s.equipped, id) ~= nil
+			if count > 0 then
+				c.detail.Text = string.format("+%d%% pièces  ·  x%d", math.floor(c.pet.Mult * 100 + 0.5), count)
+				c.btn.Text = if equipped then "Déséquiper" else "Équiper"
+				c.btn.BackgroundColor3 = if equipped then C.bad else C.good
+				c.btn.Visible = true
+			else
+				c.detail.Text = "???  ·  " .. rarityDef(c.pet.Rarity).Name
+				c.btn.Visible = false
+			end
+			if c.conn then
+				c.conn:Disconnect()
+			end
+			c.conn = c.btn.Activated:Connect(function()
+				act("equipPet", { id = id, on = not equipped })
+			end)
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- quêtes
+
+local function buildQuests()
+	local win = createWindow("quests", "📜 Quêtes du jour")
+	local content = win.content
+
+	local daily = UIKit.frame(content, { Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = C.panel2 })
+	UIKit.corner(daily, 12)
+	local dailyText = UIKit.label(daily, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -190, 1, -12), Text = "", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left })
+	local dailyBtn = UIKit.button(daily, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(160, 48), Text = "Réclamer", Callback = function() act("claimDaily") end })
+
+	local rows = {}
+	for i = 1, Config.QuestsPerDay do
+		local row = UIKit.frame(content, { Position = UDim2.fromOffset(0, 80 + (i - 1) * 78), Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = C.panel2 })
+		UIKit.corner(row, 12)
+		local text = UIKit.label(row, { Position = UDim2.fromOffset(12, 4), Size = UDim2.new(1, -190, 0, 28), Text = "", TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left })
+		local bg, fill = UIKit.bar(row, { Position = UDim2.fromOffset(12, 40), Size = UDim2.new(1, -190, 0, 20) }, C.blue)
+		local progress = UIKit.label(bg, { Size = UDim2.fromScale(1, 1), Text = "", TextSize = 14, ZIndex = 3 })
+		local btn = UIKit.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(160, 48), Text = "", TextSize = 15, Callback = function() act("claimQuest", { index = i }) end })
+		rows[i] = { row = row, text = text, fill = fill, progress = progress, btn = btn }
+	end
+
+	local secrets = UIKit.label(content, { Position = UDim2.fromOffset(0, 80 + Config.QuestsPerDay * 78), Size = UDim2.new(1, 0, 0, 40), Text = "", TextSize = 15, TextColor3 = C.gold })
+
+	win.refresh = function(s)
+		if s.canDaily then
+			dailyText.Text = string.format("🎁 Récompense de connexion : jour %d/7 prête !\nSérie actuelle : %d jour(s)", s.nextDay, s.streak)
+			dailyBtn.Text = "Réclamer"
+			dailyBtn.BackgroundColor3 = C.good
+		else
+			dailyText.Text = string.format("🎁 Récompense du jour déjà réclamée.\nSérie actuelle : %d jour(s) — reviens demain !", s.streak)
+			dailyBtn.Text = "✔"
+			dailyBtn.BackgroundColor3 = C.panel
+		end
+		for i, r in ipairs(rows) do
+			local q = s.quests[i]
+			r.row.Visible = q ~= nil
+			if q then
+				local def
+				for _, d in ipairs(Config.Quests) do
+					if d.Kind == q.kind then
+						def = d
+					end
+				end
+				r.text.Text = string.format(def.Text, q.target)
+				r.fill.Size = UDim2.fromScale(math.clamp(q.progress / q.target, 0, 1), 1)
+				r.progress.Text = string.format("%s / %s", Util.formatNumber(q.progress), Util.formatNumber(q.target))
+				if q.claimed then
+					r.btn.Text = "✔ Réclamée"
+					r.btn.BackgroundColor3 = C.panel
+				elseif q.progress >= q.target then
+					r.btn.Text = string.format("Réclamer\n🪙 %s%s", Util.formatNumber(q.coins * (1 + s.rebirths * Config.RebirthBonus)), if q.eggs > 0 then " +🥚" else "")
+					r.btn.BackgroundColor3 = C.good
+				else
+					r.btn.Text = string.format("🪙 %s%s", Util.formatNumber(q.coins * (1 + s.rebirths * Config.RebirthBonus)), if q.eggs > 0 then " +🥚" else "")
+					r.btn.BackgroundColor3 = C.panel
+				end
+			end
+		end
+		secrets.Text = string.format("🍴 Fourchettes d'or cachées trouvées : %d/%d — explore la carte !", s.secrets, Config.SecretCount)
+	end
+end
+
+-- ---------------------------------------------------------------- classement
+
+local function buildLeaderboard()
+	local win = createWindow("leaderboard", "🏆 Plus gros nourrisseurs")
+	local rows = {}
+	for i = 1, 10 do
+		local l = UIKit.label(win.content, { Position = UDim2.fromOffset(10, (i - 1) * 33), Size = UDim2.new(1, -20, 0, 30), Text = string.format("%d. —", i), TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left })
+		rows[i] = l
+	end
+	local mine = UIKit.label(win.content, { Position = UDim2.fromOffset(10, 335), Size = UDim2.new(1, -20, 0, 24), Text = "", TextSize = 16, TextColor3 = C.gold, TextXAlignment = Enum.TextXAlignment.Left })
+	win.refresh = function(s)
+		mine.Text = string.format("Toi : %s nourritures données  ·  niveau %d", Util.formatNumber(s.totalFed), s.level)
+	end
+	win.onOpen = function()
+		task.spawn(function()
+			local r = Store.request("leaderboard")
+			for i, l in ipairs(rows) do
+				local e = r.top and r.top[i]
+				l.Text = if e then string.format("%d. %s — %s", i, e.name, Util.formatNumber(e.value)) else string.format("%d. —", i)
+			end
+		end)
+	end
+end
+
+-- ---------------------------------------------------------------- évolution
+
+local function buildRebirth()
+	local win = createWindow("rebirth", "✨ Autel d'évolution")
+	local text = UIKit.label(win.content, { Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 210), Text = "", TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
+	local btn = UIKit.button(win.content, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(300, 60), Text = "", TextSize = 20, Callback = function()
+		local r = act("rebirth")
+		if r.ok then
+			UIKit.sfx("Success", 0.7)
+		end
+	end })
+	win.refresh = function(s)
+		local nextMult = Economy.rebirthMult(s.rebirths + 1)
+		text.Text = string.format(
+			"Évolutions : %d  (bonus actuel x%.1f)\n\nÉvoluer remet à zéro tes pièces, améliorations et nourritures débloquées, mais multiplie définitivement tes gains : x%.1f !\n\nTu gardes : compagnons, œufs, quêtes, secrets, classement.\nCoût : 🪙 %s",
+			s.rebirths, Economy.rebirthMult(s.rebirths), nextMult, Util.formatNumber(s.rebirthCost)
+		)
+		btn.Text = "✨ ÉVOLUER"
+		btn.BackgroundColor3 = if s.coins >= s.rebirthCost then C.good else C.panel
+	end
+end
+
+-- ---------------------------------------------------------------- éclosion
+
+function Panels.reveal(petId: string, isDup: boolean, refund: number, eggKind: string)
+	local pet = Economy.findPet(petId)
+	if not pet then
+		return
+	end
+	local overlay = UIKit.frame(gui, { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, ZIndex = 20 })
+	local card = UIKit.frame(overlay, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(0, 0), ZIndex = 21 })
+	UIKit.corner(card, 20)
+	UIKit.stroke(card, rarityColor(pet.Rarity), 5)
+	local r = rarityDef(pet.Rarity)
+	UIKit.label(card, { Position = UDim2.fromOffset(10, 16), Size = UDim2.new(1, -20, 0, 40), Text = "🥚 Éclosion !", TextSize = 30, Font = Enum.Font.FredokaOne, ZIndex = 22 })
+	local swatch = UIKit.frame(card, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 66), Size = UDim2.fromOffset(110, 110), BackgroundColor3 = Color3.fromRGB(pet.Color[1], pet.Color[2], pet.Color[3]), ZIndex = 22 })
+	UIKit.corner(swatch, 24)
+	UIKit.label(swatch, { Size = UDim2.fromScale(1, 1), Text = "🦖", TextSize = 64, ZIndex = 23 })
+	UIKit.label(card, { Position = UDim2.fromOffset(10, 184), Size = UDim2.new(1, -20, 0, 34), Text = pet.Name, TextSize = 28, Font = Enum.Font.FredokaOne, TextColor3 = rarityColor(pet.Rarity), ZIndex = 22 })
+	local sub = string.format("%s  ·  +%d%% pièces", r.Name, math.floor(pet.Mult * 100 + 0.5))
+	if isDup then
+		sub ..= string.format("\nDoublon : +%s 🪙", Util.formatNumber(refund))
+	end
+	UIKit.label(card, { Position = UDim2.fromOffset(10, 220), Size = UDim2.new(1, -20, 0, 60), Text = sub, TextSize = 18, ZIndex = 22 })
+	local ok = UIKit.button(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(180, 44), Text = "Super !", BackgroundColor3 = C.good, ZIndex = 22, Callback = function()
+		overlay:Destroy()
+	end })
+	UIKit.sfx("Success", 0.6, if pet.Rarity == "mythique" or pet.Rarity == "legendaire" then 1.2 else 1)
+	TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(340, 330) }):Play()
+	task.delay(8, function()
+		if overlay.Parent then
+			overlay:Destroy()
+		end
+	end)
+end
+
+function Panels.init()
+	gui = Instance.new("ScreenGui")
+	gui.Name = "FestinPanels"
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 10
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+	buildShop()
+	buildPets()
+	buildQuests()
+	buildLeaderboard()
+	buildRebirth()
+
+	Store.onChange(function(s)
+		if current and windows[current] then
+			windows[current].refresh(s)
+		end
+	end)
+end
+
+return Panels
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6AF1EBF1A3C8474F8FEB49FEA1289BD3"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Rendu local des compagnons de tous les joueurs (le serveur ne publie que l'attribut « Pets »).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Economy = require(Shared:WaitForChild("Economy"))
+
+local PetsRenderer = {}
+
+local entries: { [Player]: { key: string, models: { Model }, cfs: { any } } } = {}
+
+local SLOTS = {
+	CFrame.new(-3.5, -1.8, 4),
+	CFrame.new(3.5, -1.8, 4.5),
+	CFrame.new(0, -1.8, 7.5),
+	CFrame.new(-6, -1.8, 7),
+}
+
+local function build(def: any): Model
+	local color = Color3.fromRGB(def.Color[1], def.Color[2], def.Color[3])
+	local m = Instance.new("Model")
+	m.Name = "Pet_" .. def.Id
+	local function add(name: string, size: Vector3, offset: CFrame, c: Color3): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.Color = c
+		p.Material = Enum.Material.SmoothPlastic
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Parent = m
+		p:SetAttribute("ox", offset.X)
+		p:SetAttribute("oy", offset.Y)
+		p:SetAttribute("oz", offset.Z)
+		p.CFrame = offset
+		return p
+	end
+	local scale = if def.Rarity == "mythique" then 1.4 elseif def.Rarity == "legendaire" then 1.2 else 1
+	local body = add("Body", Vector3.new(1.8, 1.6, 2.6) * scale, CFrame.new(), color)
+	add("Head", Vector3.new(1.4, 1.3, 1.5) * scale, CFrame.new(0, 0.9 * scale, 1.6 * scale), color)
+	add("Tail", Vector3.new(0.7, 0.7, 1.8) * scale, CFrame.new(0, 0.1, -2.1 * scale), color)
+	add("EyeL", Vector3.new(0.25, 0.3, 0.2), CFrame.new(-0.4 * scale, 1.15 * scale, 2.3 * scale), Color3.new(0, 0, 0))
+	add("EyeR", Vector3.new(0.25, 0.3, 0.2), CFrame.new(0.4 * scale, 1.15 * scale, 2.3 * scale), Color3.new(0, 0, 0))
+	m.PrimaryPart = body
+	m.Parent = workspace:FindFirstChild("LocalPets") or (function()
+		local f = Instance.new("Folder")
+		f.Name = "LocalPets"
+		f.Parent = workspace
+		return f
+	end)()
+	return m
+end
+
+local function clear(entry: any)
+	for _, m in ipairs(entry.models) do
+		m:Destroy()
+	end
+	entry.models = {}
+	entry.cfs = {}
+end
+
+local function sync(player: Player)
+	local str = player:GetAttribute("Pets") or ""
+	local entry = entries[player]
+	if not entry then
+		entry = { key = "", models = {}, cfs = {} }
+		entries[player] = entry
+	end
+	if entry.key == str then
+		return
+	end
+	entry.key = str
+	clear(entry)
+	if str == "" then
+		return
+	end
+	for id in string.gmatch(str, "[^,]+") do
+		local def = Economy.findPet(id)
+		if def then
+			table.insert(entry.models, build(def))
+			table.insert(entry.cfs, false)
+		end
+	end
+end
+
+function PetsRenderer.init()
+	local function watch(player: Player)
+		sync(player)
+		player:GetAttributeChangedSignal("Pets"):Connect(function()
+			sync(player)
+		end)
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		watch(p)
+	end
+	Players.PlayerAdded:Connect(watch)
+	Players.PlayerRemoving:Connect(function(p)
+		local e = entries[p]
+		if e then
+			clear(e)
+			entries[p] = nil
+		end
+	end)
+
+	RunService.RenderStepped:Connect(function(dt)
+		local t = os.clock()
+		local alpha = 1 - math.exp(-8 * dt)
+		for player, entry in pairs(entries) do
+			local char = player.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			for i, model in ipairs(entry.models) do
+				if hrp then
+					local slot = SLOTS[i] or SLOTS[1]
+					local bob = math.sin(t * 3 + i) * 0.25
+					local target = hrp.CFrame * slot * CFrame.new(0, bob, 0)
+					-- Garde seulement le cap (yaw) pour que les bêtes restent à plat.
+					local pos = target.Position
+					local _, yaw, _ = hrp.CFrame:ToOrientation()
+					target = CFrame.new(pos) * CFrame.Angles(0, yaw, 0)
+					local current = entry.cfs[i]
+					if not current then
+						current = target
+					else
+						current = current:Lerp(target, alpha)
+					end
+					entry.cfs[i] = current
+					model:PivotTo(current)
+				end
+			end
+		end
+	end)
+end
+
+return PetsRenderer
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB9C0EE9D2477493EA5B8E562545FF9B2"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Magasin d'état côté client : dernier instantané envoyé par le serveur + abonnements.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local Store = {}
+Store.state = nil :: any
+local listeners: { (any) -> () } = {}
+
+function Store.onChange(fn: (any) -> ())
+	table.insert(listeners, fn)
+	if Store.state then
+		task.spawn(fn, Store.state)
+	end
+end
+
+function Store.init()
+	Remotes.get("State").OnClientEvent:Connect(function(snapshot)
+		Store.state = snapshot
+		for _, fn in ipairs(listeners) do
+			task.spawn(fn, snapshot)
+		end
+	end)
+end
+
+-- Requête serveur (achats, quêtes...). Retourne toujours une table { ok, msg, ... }.
+function Store.request(action: string, payload: any?): any
+	local ok, result = pcall(function()
+		return Remotes.get("Request"):InvokeServer(action, payload or {})
+	end)
+	if not ok or type(result) ~= "table" then
+		return { ok = false, msg = "Connexion au serveur impossible" }
+	end
+	return result
+end
+
+return Store
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXA5CE3115FDA34E048370782D9C22B13F"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Petite boîte à outils d'interface (style Roblox : coins arrondis, polices Fredoka/Gotham).
+
+local SoundService = game:GetService("SoundService")
+local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+
+local UIKit = {}
+
+UIKit.Colors = {
+	panel = Color3.fromRGB(34, 36, 48),
+	panel2 = Color3.fromRGB(48, 51, 68),
+	accent = Color3.fromRGB(255, 170, 40),
+	good = Color3.fromRGB(70, 200, 100),
+	bad = Color3.fromRGB(235, 80, 80),
+	gold = Color3.fromRGB(255, 210, 60),
+	blue = Color3.fromRGB(70, 140, 255),
+	text = Color3.fromRGB(255, 255, 255),
+	dim = Color3.fromRGB(170, 175, 190),
+}
+
+function UIKit.sfx(key: string, volume: number?, pitch: number?)
+	local id = Config.Sounds[key]
+	if not id then
+		return
+	end
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Volume = volume or 0.5
+	s.PlaybackSpeed = pitch or 1
+	s.Parent = SoundService
+	s:Play()
+	Debris:AddItem(s, 4)
+end
+
+function UIKit.corner(inst: GuiObject, radius: number?)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius or 10)
+	c.Parent = inst
+	return c
+end
+
+function UIKit.stroke(inst: GuiObject, color: Color3?, thickness: number?)
+	local s = Instance.new("UIStroke")
+	s.Color = color or Color3.new(0, 0, 0)
+	s.Thickness = thickness or 2
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = inst
+	return s
+end
+
+function UIKit.frame(parent: Instance, props: any): Frame
+	local f = Instance.new("Frame")
+	f.BackgroundColor3 = UIKit.Colors.panel
+	f.BorderSizePixel = 0
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	f.Parent = parent
+	return f
+end
+
+function UIKit.label(parent: Instance, props: any): TextLabel
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.Font = Enum.Font.GothamBold
+	l.TextColor3 = UIKit.Colors.text
+	l.TextSize = 18
+	l.TextWrapped = true
+	for k, v in pairs(props or {}) do
+		l[k] = v
+	end
+	l.Parent = parent
+	return l
+end
+
+-- Bouton : props.Callback appelé au clic / toucher.
+function UIKit.button(parent: Instance, props: any): TextButton
+	local b = Instance.new("TextButton")
+	b.AutoButtonColor = true
+	b.BackgroundColor3 = UIKit.Colors.accent
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBold
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.TextSize = 18
+	b.TextWrapped = true
+	local callback = nil
+	for k, v in pairs(props or {}) do
+		if k == "Callback" then
+			callback = v
+		else
+			b[k] = v
+		end
+	end
+	UIKit.corner(b, 10)
+	if callback then
+		b.Activated:Connect(function()
+			UIKit.sfx("Click", 0.3)
+			callback()
+		end)
+	end
+	b.Parent = parent
+	return b
+end
+
+function UIKit.scroll(parent: Instance, props: any): ScrollingFrame
+	local s = Instance.new("ScrollingFrame")
+	s.BackgroundTransparency = 1
+	s.BorderSizePixel = 0
+	s.ScrollBarThickness = 6
+	s.CanvasSize = UDim2.new()
+	s.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	for k, v in pairs(props or {}) do
+		s[k] = v
+	end
+	s.Parent = parent
+	return s
+end
+
+function UIKit.list(parent: Instance, padding: number?)
+	local l = Instance.new("UIListLayout")
+	l.Padding = UDim.new(0, padding or 6)
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Parent = parent
+	return l
+end
+
+function UIKit.padding(parent: Instance, px: number)
+	local p = Instance.new("UIPadding")
+	p.PaddingTop = UDim.new(0, px)
+	p.PaddingBottom = UDim.new(0, px)
+	p.PaddingLeft = UDim.new(0, px)
+	p.PaddingRight = UDim.new(0, px)
+	p.Parent = parent
+	return p
+end
+
+-- Barre de progression : retourne (fond, remplissage).
+function UIKit.bar(parent: Instance, props: any, color: Color3): (Frame, Frame)
+	local bg = UIKit.frame(parent, props)
+	bg.BackgroundColor3 = Color3.fromRGB(20, 21, 28)
+	UIKit.corner(bg, 8)
+	local fill = UIKit.frame(bg, { Size = UDim2.fromScale(0, 1), BackgroundColor3 = color })
+	UIKit.corner(fill, 8)
+	return bg, fill
+end
+
+return UIKit
+]]></ProtectedString></Properties></Item></Item></Item></Item></roblox>
