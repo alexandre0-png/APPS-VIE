@@ -127,7 +127,12 @@ local function onDeath(player)
 
 	lives[player] = livesOf(player) - 1
 	if not anyAlive() then
-		-- Plus personne debout : aucune réanimation possible
+		-- Plus personne debout : aucune réanimation possible. Les minuteries en attente et
+		-- les invites sont annulées pour que rien ne ressuscite un joueur pendant la fin.
+		for _, other in ipairs(Players:GetPlayers()) do
+			serial[other] = (serial[other] or 0) + 1
+			clearPrompt(other)
+		end
 		hooks.onCurse()
 		return
 	end
@@ -168,6 +173,12 @@ end
 
 -- Nouvelle partie : chacun repart avec ses vies
 function Respawn.resetRound()
+	for player in pairs(prompts) do
+		clearPrompt(player)
+	end
+	for player in pairs(serial) do
+		serial[player] = (serial[player] or 0) + 1
+	end
 	lives = {}
 end
 

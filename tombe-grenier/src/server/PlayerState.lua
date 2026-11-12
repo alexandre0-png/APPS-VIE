@@ -31,12 +31,12 @@ local function newState()
 		flashlightOn = false,
 		battery = FL.Battery,
 		threatTime = -math.huge, -- dernier instant où le monstre a perçu ce joueur
-		roomDark = false,
+		roomDark = false,         -- le joueur est dans une pièce plongée dans le noir
 		room = nil,              -- pièce où se trouve le joueur
-		log = {},                -- ce que le joueur a fait (pour le journal)        -- le joueur est dans une pièce plongée dans le noir
+		log = {},                -- ce que le joueur a fait (pour le journal)
 		throws = Config.Throw.Charges,
 		frozenUntil = 0,         -- réveil scénarisé : pas de déplacement avant cet instant
-		crouch = false,         -- accroupi : plus lent, plus silencieux
+		crouch = false,          -- accroupi : plus lent, plus silencieux
 		lastThrow = -math.huge,
 	}
 end
