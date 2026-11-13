@@ -21,6 +21,8 @@ local MonetizationService = require(Server.MonetizationService)
 local BotService = require(Server.BotService)
 local SeasonService = require(Server.SeasonService)
 local StoryService = require(Server.StoryService)
+local AssetService = require(Server.AssetService)
+local WeaponFactory = require(Server.WeaponFactory)
 
 -- Les personnages sont chargés manuellement une fois le profil prêt.
 Players.CharacterAutoLoads = false
@@ -36,6 +38,8 @@ RequestService.Init()
 MonetizationService.Init()
 BotService.Init(map)
 StoryService.Init(map)
+WeaponFactory.SkinProvider = AssetService.GetSkin
+AssetService.Init(map)
 LeaderboardService.Init(map)
 DummyService.Init(map.DummySpots)
 

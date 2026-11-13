@@ -72,6 +72,19 @@ local list: { WeaponDef } = {
 		},
 	},
 	{
+		Id = "pistol",
+		Name = "Pistolet photon",
+		Description = "Facile à prendre en main : tir instantané et précis. Les tirs à la tête font très mal.",
+		Kind = "Hitscan", Class = "Ranged", Rarity = "Commune", Price = 150, LevelReq = 1,
+		Damage = 17, Cooldown = 0.32, Range = 220, HeadshotMult = 1.7,
+		Accent = "35E0FF",
+		Parts = {
+			{ Size = { 0.35, 0.9, 0.5 }, Offset = { 0, 0, 0 }, Color = "2E3440", Material = "Metal" },
+			{ Size = { 0.35, 0.4, 1.8 }, Offset = { 0, 0.55, -0.6 }, Color = "4C566A", Material = "Metal" },
+			{ Size = { 0.2, 0.2, 0.3 }, Offset = { 0, 0.55, -1.6 }, Color = "35E0FF", Material = "Neon", Neon = true },
+		},
+	},
+	{
 		Id = "katana",
 		Name = "Katana de l'aube",
 		Description = "Frappes très rapides, portée généreuse.",
@@ -85,19 +98,6 @@ local list: { WeaponDef } = {
 		},
 	},
 	{
-		Id = "pistol",
-		Name = "Pistolet photon",
-		Description = "Tir instantané et précis. Les tirs à la tête font très mal.",
-		Kind = "Hitscan", Class = "Ranged", Rarity = "Rare", Price = 650, LevelReq = 4,
-		Damage = 17, Cooldown = 0.32, Range = 220, HeadshotMult = 1.7,
-		Accent = "35E0FF",
-		Parts = {
-			{ Size = { 0.35, 0.9, 0.5 }, Offset = { 0, 0, 0 }, Color = "2E3440", Material = "Metal" },
-			{ Size = { 0.35, 0.4, 1.8 }, Offset = { 0, 0.55, -0.6 }, Color = "4C566A", Material = "Metal" },
-			{ Size = { 0.2, 0.2, 0.3 }, Offset = { 0, 0.55, -1.6 }, Color = "35E0FF", Material = "Neon", Neon = true },
-		},
-	},
-	{
 		Id = "hammer",
 		Name = "Marteau du titan",
 		Description = "Lent mais dévastateur : dégâts de zone et projection.",
@@ -108,6 +108,20 @@ local list: { WeaponDef } = {
 			{ Size = { 0.5, 2.0, 0.5 }, Offset = { 0, 0, 0 }, Color = "6B4A2B", Material = "Wood" },
 			{ Size = { 1.8, 1.3, 1.3 }, Offset = { 0, 1.5, 0 }, Color = "7D8590", Material = "Slate" },
 			{ Size = { 1.9, 0.25, 1.4 }, Offset = { 0, 1.5, 0 }, Color = "FFA94D", Material = "Metal" },
+		},
+	},
+	{
+		Id = "carbine",
+		Name = "Carabine Marée",
+		Description = "Rafale précise et régulière : maintenez pour arroser.",
+		Kind = "Hitscan", Class = "Ranged", Rarity = "Rare", Price = 1400, LevelReq = 7,
+		Damage = 11, Cooldown = 0.16, Range = 170, HeadshotMult = 1.5,
+		Accent = "35C9D8",
+		Parts = {
+			{ Size = { 0.4, 0.9, 0.7 }, Offset = { 0, 0, 0 }, Color = "2B3A42", Material = "Metal" },
+			{ Size = { 0.35, 0.45, 2.6 }, Offset = { 0, 0.55, -1.1 }, Color = "3B4F5C", Material = "Metal" },
+			{ Size = { 0.2, 0.2, 0.4 }, Offset = { 0, 0.55, -2.5 }, Color = "35C9D8", Material = "Neon", Neon = true },
+			{ Size = { 0.3, 0.7, 0.4 }, Offset = { 0, -0.6, -0.4 }, Color = "20282D", Material = "Metal" },
 		},
 	},
 	{
@@ -147,6 +161,20 @@ local list: { WeaponDef } = {
 			{ Size = { 0.45, 1.0, 0.6 }, Offset = { 0, 0, 0 }, Color = "5A3A1E", Material = "Wood" },
 			{ Size = { 0.5, 0.5, 2.6 }, Offset = { 0, 0.6, -1.0 }, Color = "3B4252", Material = "Metal" },
 			{ Size = { 0.55, 0.15, 0.6 }, Offset = { 0, 0.9, -0.3 }, Color = "FFC857", Material = "Metal" },
+		},
+	},
+	{
+		Id = "assault",
+		Name = "Fusil Brasier",
+		Description = "Cadence soutenue et dégâts solides à moyenne portée.",
+		Kind = "Hitscan", Class = "Ranged", Rarity = "Épique", Price = 3800, LevelReq = 16,
+		Damage = 15, Cooldown = 0.2, Range = 150, HeadshotMult = 1.6,
+		Accent = "FF8A3D",
+		Parts = {
+			{ Size = { 0.45, 1.0, 0.8 }, Offset = { 0, 0, 0 }, Color = "5A3A1E", Material = "Wood" },
+			{ Size = { 0.4, 0.5, 2.8 }, Offset = { 0, 0.6, -1.2 }, Color = "3B4252", Material = "Metal" },
+			{ Size = { 0.2, 0.2, 0.4 }, Offset = { 0, 0.6, -2.7 }, Color = "FF8A3D", Material = "Neon", Neon = true },
+			{ Size = { 0.3, 0.8, 0.5 }, Offset = { 0, -0.7, -0.5 }, Color = "2E3440", Material = "Metal" },
 		},
 	},
 	{

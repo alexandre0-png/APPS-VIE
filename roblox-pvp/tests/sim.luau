@@ -395,6 +395,78 @@ do
 	check("clés indépendantes", AnimGuard.Enabled("Run") and not AnimGuard.IsBroken("Run"))
 end
 
+print("• Chargement d'assets (AssetLoader, chargeur factice)")
+do
+	local Loader = require(E .. "AssetLoader")
+	local function node(class, name, parent)
+		local n = newInstance(class); n.Name = name or class; if parent then n.Parent = parent end; return n
+	end
+	local function fakeService(builder) return { LoadAsset = function(_, id) return builder(id) end } end
+	local function cleanModel()
+		local c = node("Model", "Asset")
+		local gun = node("Model", "AK47", c)
+		node("Part", "Barrel", gun); node("Part", "Stock", gun)
+		return c
+	end
+	local m, why = Loader.Load(1, 1, { InsertService = fakeService(cleanModel) })
+	check("chargement réussi", m ~= nil and why == nil)
+	local m2, why2 = Loader.Load(1, 1, { InsertService = fakeService(function() error("HTTP 403") end) })
+	check("échec capturé (pcall)", m2 == nil and why2 ~= nil and why2:find("403") ~= nil)
+	local t0 = os.clock()
+	local m3, why3 = Loader.Load(1, 0.15, { InsertService = fakeService(cleanModel), spawn = function() end })
+	check("délai maximum respecté", m3 == nil and why3 == "délai dépassé" and os.clock() - t0 < 2)
+	local m4, why4 = Loader.Load(1, 1, { InsertService = fakeService(function() return nil end) })
+	check("résultat vide = échec", m4 == nil and why4 ~= nil)
+
+	-- inspection
+	local ok1 = Loader.Inspect(cleanModel(), 100)
+	check("modèle sain accepté", ok1)
+	local bloody = cleanModel(); node("Decal", "BloodSplatter", bloody:GetChildren()[1])
+	local ok2, r2 = Loader.Inspect(bloody, 100)
+	check("nom de sang écarté", not ok2 and r2:find("BloodSplatter") ~= nil)
+	local red = cleanModel(); local pe = node("ParticleEmitter", "Spray", red)
+	pe.Color = { Keypoints = { { Value = { R = 0.7, G = 0.02, B = 0.02 } } } }
+	local ok3, r3 = Loader.Inspect(red, 100)
+	check("particules rouges écartées", not ok3 and r3:find("sang") ~= nil)
+	local orange = cleanModel(); local po = node("ParticleEmitter", "Flash", orange)
+	po.Color = { Keypoints = { { Value = { R = 1, G = 0.6, B = 0.1 } } } }
+	check("flash orange accepté", (Loader.Inspect(orange, 100)))
+	local ok4, r4 = Loader.Inspect(cleanModel(), 1)
+	check("plafond de pièces", not ok4 and r4:find("trop de pièces") ~= nil)
+
+	-- nettoyage
+	local dirty = cleanModel()
+	local inner = dirty:GetChildren()[1]
+	node("Script", "Hack", dirty); node("LocalScript", "Hack2", inner); node("ModuleScript", "Mod", inner)
+	node("RemoteEvent", "Net", dirty); node("BindableEvent", "Bus", inner); node("RemoteFunction", "Fn", dirty); node("BindableFunction", "BFn", dirty)
+	node("ParticleEmitter", "Fx", inner); node("Sound", "Boom", inner)
+	local removed = Loader.Sanitize(dirty)
+	eq("éléments retirés", removed, 9)
+	local left = {}
+	for _, d in ipairs(dirty:GetDescendants()) do left[d.ClassName] = (left[d.ClassName] or 0) + 1 end
+	check("plus aucun code ni canal", not (left.Script or left.LocalScript or left.ModuleScript or left.RemoteEvent or left.BindableEvent or left.RemoteFunction or left.BindableFunction))
+	check("plus d'effets tiers", not (left.ParticleEmitter or left.Sound))
+	eq("les pièces restent", left.Part, 2)
+
+	-- Prepare de bout en bout
+	local prepared, why5 = Loader.Prepare(1, { Timeout = 1, MaxParts = 100 }, { InsertService = fakeService(function() local c = cleanModel(); node("Script", "S", c); return c end) })
+	check("Prepare : modèle nettoyé", prepared ~= nil and why5 == nil and not prepared:FindFirstChild("S"))
+	local prepared2, why6 = Loader.Prepare(1, { Timeout = 1, MaxParts = 100 }, { InsertService = fakeService(function() local c = cleanModel(); node("Part", "BloodPool", c); return c end) })
+	check("Prepare : modèle sanglant écarté", prepared2 == nil and why6:find("écarté") ~= nil)
+	local prepared3, why7 = Loader.Prepare(1, { Timeout = 1, MaxParts = 100 }, { InsertService = fakeService(function() error("boom") end) })
+	check("Prepare : échec => nil (armes actuelles conservées)", prepared3 == nil and why7 ~= nil)
+
+	-- sélection de skins du pack
+	local Assets = require(E .. "AssetService")
+	local picks = Assets.SelectSkins({ "Knife", "Pump Shotgun", "AWP Sniper", "M4A1 Carbine", "AK-47" }, Config.Assets.Skins)
+	eq("pompe -> shotgun", picks.shotgun, 2)
+	eq("sniper -> rail", picks.rail, 3)
+	eq("M4 -> carabine", picks.carbine, 4)
+	eq("AK -> fusil d'assaut", picks.assault, 5)
+	eq("pas de skin sans candidat", Assets.SelectSkins({ "Knife" }, Config.Assets.Skins).rail, nil)
+	eq("aucun skin par défaut", Assets.GetSkin("pistol"), nil)
+end
+
 print("• Bots")
 do
 	local P, Q = makePlayer("Pia"), makePlayer("Quin")

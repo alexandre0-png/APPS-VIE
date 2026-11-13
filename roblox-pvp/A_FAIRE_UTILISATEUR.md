@@ -30,3 +30,11 @@ Puis `tools/publish.sh` injecte les Id (un Id à 0 reste désactivé).
 ## 5. Publication (compte Roblox)
 - Connexion, vérification d'identité si demandée, questionnaire de classification, File → Publish to Roblox, fiche du jeu (texte prêt dans `publication/PUBLICATION.md`).
 - Mettre le jeu en Public seulement après le test à deux joueurs.
+
+## 6. Modèles importés (à vérifier une fois dans Studio)
+Les 6 modèles sont chargés par le serveur avec `InsertService:LoadAsset` (IDs dans `Config.Assets.Ids`). Je ne peux pas les charger d'ici.
+- Le compte propriétaire du jeu doit avoir accès aux modèles (les « obtenir » dans la boutique Créateur si besoin). S'ils sont indisponibles, le jeu garde ses armes et son décor actuels (voir les `warn` « AssetService » dans la sortie serveur).
+- Vérifier l'orientation des armes en main : si un canon pointe à l'envers, mettre par exemple `Config.Assets.SkinRotationY = { carbine = 180 }`.
+- Vérifier que les noms du pack correspondent aux mots-clés de `Config.Assets.Skins` (sinon ajuster) et qu'aucun modèle n'a été écarté pour sang/gore (le `warn` l'indique).
+- Optionnel : `Config.Assets.LoadReserve = true` pour ranger le gros pack dans ServerStorage (réserve saisons / armes rares).
+- Désactiver tout chargement : `Config.Assets.Enabled = false`.

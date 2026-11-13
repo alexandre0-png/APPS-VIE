@@ -15,7 +15,7 @@ vérification d'identité, questionnaire d'âge) : je ne peux pas les faire à v
 
 > ⚔ Entre dans l'Arène des Légendes, combat de blocs en ligne !
 > Rejoins une manche en un clic : Mêlée générale, Guerre des couleurs (Rouges vs Bleus) ou Roi de la tour. Domine la tour centrale, évite la lave, attrape l'orbe de rage et enchaîne les éliminations.
-> • 10 armes à débloquer : épée, katana, arc, pistolet photon, marteau, dague, bâton de feu, fusil, rail, lame du Souverain
+> • 12 armes à débloquer : épée, arc, pistolet, katana, marteau, carabine, dague, bâton de feu, fusil à pompe, fusil d'assaut, rail, lame du Souverain
 > • Séries, primes sur les joueurs en feu, assistances, tirs à la tête
 > • 4 héros, une Chronique en 5 chapitres, 50 niveaux, titres, quêtes quotidiennes, cadeau de connexion, classement mondial
 > • Zone d'entraînement pour tester tes armes

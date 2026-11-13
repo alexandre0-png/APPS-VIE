@@ -221,6 +221,9 @@ local function buildLobby(root, result)
 		mk(lobby, { Name = "DisplayBlade", Size = Vector3.new(0.5, 5, 0.2), CFrame = CFrame.new(sx + i * 3.6, 7, sz + 7.8) * CFrame.Angles(0, 0, math.rad(i * 8)), Color = rgb(210, 216, 226), Material = Enum.Material.Metal })
 	end
 
+	result.VendorSpot = Vector3.new(sx, 2.4, sz + 6.2)
+	result.TableSpots = { Vector3.new(sx - 8.2, 1.5, sz + 4.5), Vector3.new(sx + 8.2, 1.5, sz + 4.5) }
+
 	-- tableau de quêtes
 	local qx, qz = 40, 14
 	mk(lobby, { Name = "BoardPostL", Size = Vector3.new(1, 10, 1), Position = Vector3.new(qx - 5, 5, qz), Color = rgb(92, 70, 48), Material = Enum.Material.Wood })

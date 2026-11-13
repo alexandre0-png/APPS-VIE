@@ -1,5 +1,10 @@
 # Journal des changements — Arène des Légendes
 
+## V1.11 — modèles importés
+- `AssetLogic` (pur), `AssetLoader` (LoadAsset + pcall + délai + inspection sang/gore + nettoyage), `AssetService` (skins d'armes, vendeur, tables, réserve), `Config.Assets`.
+- Deux armes ajoutées (Carabine Marée, Fusil Brasier) pour habiller les fusils du pack ; le pistolet devient une arme de départ facile (niveau 1, 150 pièces). Règles de tir inchangées.
+- Test avec chargeur factice : succès, échec, délai, sang écarté, nettoyage, repli.
+
 ## V1.10 — cinématiques
 - `CinematicLogic` (machine d'état, durées, skip/reprise, planification ; testé), `Cinematics` client (caméra scriptée, bandes noires, légendes, « Passer »), `Config.Cinematics`, marquage « vu » validé serveur.
 - Intro d'histoire, mini tutoriel, début de saison, présentation du Roi de la tour. Remplacent le prologue et les astuces quand activées.

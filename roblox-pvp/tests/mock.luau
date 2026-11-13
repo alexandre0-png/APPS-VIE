@@ -54,6 +54,22 @@ function Methods:GetAttributeChangedSignal() return Signal() end
 function Methods:WaitForChild(name) return rawget(self, "_children")[name] or setmetatable({ _children = {}, _list = {}, _attrs = {}, Name = name }, InstanceMT) end
 function Methods:FireClient(player, data) table.insert(remoteLog, { remote = rawget(self, "Name"), to = player, data = data }) end
 function Methods:FireAllClients(data) table.insert(remoteLog, { remote = rawget(self, "Name"), all = true, data = data }) end
+function Methods:GetChildren() local out = {} for _, c in ipairs(rawget(self, "_list")) do table.insert(out, c) end return out end
+function Methods:GetDescendants()
+	local out = {}
+	local function walk(node)
+		for _, c in ipairs(rawget(node, "_list")) do
+			table.insert(out, c)
+			walk(c)
+		end
+	end
+	walk(self)
+	return out
+end
+function Methods:IsA(class)
+	local own = rawget(self, "ClassName")
+	return own == class or (class == "BasePart" and (own == "Part" or own == "MeshPart"))
+end
 function Methods:Destroy()
 	local parent = rawget(self, "Parent")
 	if parent then

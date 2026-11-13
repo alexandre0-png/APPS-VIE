@@ -53,7 +53,7 @@ ul.ck{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--dim)}ul.ck b{c
 <header>
 <h1>Arène <em>des Légendes</em></h1>
 <p class="lead">Un jeu PVP Roblox en blocs classiques : un hub médiéval, une forteresse de lave, dix armes à débloquer et des manches de trois minutes sans file d'attente. Univers original, inspiré des mécaniques qui marchent dans la catégorie Combat.</p>
-<div class="stats"><div><b>10</b><span>armes</span></div><div><b>3</b><span>modes</span></div><div><b>50</b><span>niveaux</span></div><div><b>3&nbsp;min</b><span>par manche</span></div><div><b>6&nbsp;000</b><span>lignes de Luau</span></div></div>
+<div class="stats"><div><b>12</b><span>armes</span></div><div><b>3</b><span>modes</span></div><div><b>50</b><span>niveaux</span></div><div><b>3&nbsp;min</b><span>par manche</span></div><div><b>6&nbsp;000</b><span>lignes de Luau</span></div></div>
 </header>
 
 <section><h2>L'arène</h2><p class="sub">Plan vu du dessus, tracé depuis les cotes réelles de <code>MapBuilder.luau</code> (156 × 156 studs). On entre et on sort quand on veut.</p>
@@ -62,7 +62,7 @@ ul.ck{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--dim)}ul.ck b{c
 <div class="cols" style="grid-template-columns:1fr"><div><h3>Pourquoi cette carte</h3><ul><li>La tour donne l'avantage de hauteur et l'orbe de rage : tout le monde la veut.</li><li>La lave coupe les diagonales et pousse à se battre aux bords.</li><li>Les couvertures sont identiques dans les 4 quadrants (symétrie par rotation de 90°) : aucune zone favorisée.</li><li>Apparition au point le plus éloigné des ennemis, protection de 3 s.</li></ul></div>
 <div><h3>Hub</h3><div class="box" style="padding:8px">{{HUB}}</div><p class="cap">Plaza pavée, monument central, portail violet vers l'arène, armurerie, tableau de quêtes, coffre quotidien, zone d'entraînement à 5 cibles, classement mondial.</p></div></div></div></section>
 
-<section><h2>Les 10 armes</h2><p class="sub">Données lues directement dans <code>Weapons.luau</code>. Les armes de départ sont gratuites ; les autres s'achètent avec les pièces gagnées au combat, selon le niveau.</p><div class="wgrid">{{WEAPONS}}</div></section>
+<section><h2>Les 12 armes</h2><p class="sub">Données lues directement dans <code>Weapons.luau</code>. Les armes de départ sont gratuites ; les autres s'achètent avec les pièces gagnées au combat, selon le niveau.</p><div class="wgrid">{{WEAPONS}}</div></section>
 
 <section><h2>Interface en jeu</h2><p class="sub">Maquette de la disposition codée dans <code>HUD.luau</code> (bandeau de manche, carte joueur, vie, barre d'armes, kill-feed, menus). Ce n'est pas une capture de Studio.</p>
 <div class="hud" role="img" aria-label="Maquette de l'interface en jeu">
@@ -81,6 +81,6 @@ ul.ck{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--dim)}ul.ck b{c
 <div><h3>Appareils</h3><ul><li>Interface à l'échelle de l'écran (téléphone → console)</li><li>Bouton d'attaque tactile, L1/R1 manette, touches 1-2-3</li><li>Décor léger : blocs natifs, aucun asset externe</li></ul></div></div></section>
 
 <section><h2>Vérifications réellement exécutées</h2>
-<ul class="ck"><li><b>luau-analyze</b> sur tous les scripts : 0 message (syntaxe, variables, types entre modules).</li><li><b>1 584 usages d'API Roblox</b> (classes, propriétés, enums, méthodes) contrôlés contre les définitions officielles.</li><li><b>618 tests unitaires</b> : progression, dégâts, cônes, quêtes, logique de manche, cohérence des armes.</li><li><b>141 tests de simulation serveur</b> : les vrais modules tournent dans un faux Roblox (éliminations, séries, primes, assistances, anti-farm, profils corrompus).</li></ul>
+<ul class="ck"><li><b>luau-analyze</b> sur tous les scripts : 0 message (syntaxe, variables, types entre modules).</li><li><b>1 584 usages d'API Roblox</b> (classes, propriétés, enums, méthodes) contrôlés contre les définitions officielles.</li><li><b>696 tests unitaires</b> : progression, dégâts, cônes, quêtes, logique de manche, cohérence des armes.</li><li><b>163 tests de simulation serveur</b> : les vrais modules tournent dans un faux Roblox (éliminations, séries, primes, assistances, anti-farm, profils corrompus).</li></ul>
 <p class="cap" style="margin-top:14px">Non testé : aucune partie n'a été jouée dans Roblox Studio (rendu, physique, réseau, DataStore réel). À finaliser : premier playtest à deux clients, bots d'arène pour les parties à un joueur, sons et musique personnalisés.</p></section>
 </main>

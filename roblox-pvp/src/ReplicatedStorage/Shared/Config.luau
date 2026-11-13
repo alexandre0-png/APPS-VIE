@@ -113,6 +113,33 @@ Config.Cinematics = {
 	FadeSeconds = 0.4,
 }
 
+-- Modèles Roblox importés (côté serveur uniquement, InsertService:LoadAsset, nettoyés). Enabled = false : aucun chargement.
+-- Seule l'APPARENCE change : tirs, dégâts et cooldowns restent ceux de Weapons.luau. Échec => armes actuelles conservées.
+Config.Assets = {
+	Enabled = true,
+	TimeoutSeconds = 10,
+	MaxParts = 600,
+	LoadReserve = false, -- charger le gros pack (réserve saisons / armes rares) dans ServerStorage
+	Ids = {
+		WeaponPack = 133851017761151, -- pompe, AK-47, M4, sniper, fusils d'assaut
+		Reserve = 4765258367, -- énorme pack d'armes (réserve)
+		Pistol = 5102714039, -- pistolet, arme facile à prendre en main
+		Vendor = 5107855421, -- PNJ vendeur de l'armurerie
+		WeaponTable = 74181202673377, -- table d'armes (décor)
+		SuppliesTable = 6029346174, -- table de fournitures (décor)
+	},
+	-- Mots-clés cherchés dans les noms des modèles du pack, par arme du jeu (le plus précis d'abord).
+	Skins = {
+		shotgun = { "shotgun", "pump", "pompe", "spas", "remington" },
+		rail = { "sniper", "awp", "barrett", "scout" },
+		carbine = { "m4", "m4a1", "m16", "carbine" },
+		assault = { "ak47", "ak", "kalash", "assault", "rifle" },
+	},
+	SkinLength = 4.2, -- longueur cible d'une arme tenue (studs)
+	SkinRotationY = {}, -- ex. { carbine = 180 } pour retourner un modèle dont le canon est inversé
+	TableWidth = 6, -- largeur cible des tables du décor
+}
+
 Config.HealthPack = { Heal = 45, Respawn = 15 }
 Config.RageOrb = { Duration = 12, Multiplier = 1.5, Respawn = 45 }
 

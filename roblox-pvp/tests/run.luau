@@ -28,6 +28,7 @@ local Lore = require("../.emit/ReplicatedStorage/Shared/Lore")
 local SeasonLogic = require("../.emit/ReplicatedStorage/Shared/SeasonLogic")
 local AnimLogic = require("../.emit/ReplicatedStorage/Shared/AnimLogic")
 local CL = require("../.emit/ReplicatedStorage/Shared/CinematicLogic")
+local AssetLogic = require("../.emit/ReplicatedStorage/Shared/AssetLogic")
 local BotLogic = require("../.emit/ReplicatedStorage/Shared/BotLogic")
 
 section("Progression")
@@ -150,7 +151,7 @@ end
 section("Weapons & Config (cohérence des données)")
 do
 	local ids, kinds = {}, { Melee = true, Slam = true, Hitscan = true, Shotgun = true, Projectile = true }
-	eq("10 armes", #Weapons.List, 10)
+	eq("12 armes", #Weapons.List, 12)
 	local lastLevel = 0
 	for _, def in ipairs(Weapons.List) do
 		check(def.Id .. " id unique", not ids[def.Id]); ids[def.Id] = true
@@ -332,6 +333,36 @@ do
 	check("liste blanche", keys.intro and keys.tutorial and keys.hill and keys.season3 and not keys.season1 and not keys["../x"])
 	for k, v in pairs(Config.Cinematics) do
 		if k ~= "FadeSeconds" then check("Config.Cinematics." .. k .. " booléen", type(v) == "boolean") end
+	end
+end
+
+section("AssetLogic")
+do
+	for _, c in ipairs({ "Script", "LocalScript", "ModuleScript", "RemoteEvent", "RemoteFunction", "BindableEvent", "BindableFunction" }) do
+		check("classe bloquée " .. c, AssetLogic.IsBlockedClass(c))
+	end
+	check("Part non bloquée", not AssetLogic.IsBlockedClass("Part") and not AssetLogic.IsBlockedClass("MeshPart"))
+	check("effets tiers retirés", AssetLogic.IsStrippedFx("ParticleEmitter") and AssetLogic.IsStrippedFx("Sound") and not AssetLogic.IsStrippedFx("Weld"))
+	for _, n in ipairs({ "BloodSplatter", "blood_decal", "Gore", "GibsEmitter", "sang", "Wound_FX" }) do check("nom sang : " .. n, AssetLogic.IsBloodName(n)) end
+	for _, n in ipairs({ "AK-47", "Handle", "Barrel", "Muzzle", "Stock", "Magazine" }) do check("nom sain : " .. n, not AssetLogic.IsBloodName(n)) end
+	check("rouge sang", AssetLogic.IsBloodColor(0.6, 0.05, 0.05))
+	check("rouge vif non sang (orange)", not AssetLogic.IsBloodColor(1, 0.5, 0.1))
+	check("gris non sang", not AssetLogic.IsBloodColor(0.5, 0.5, 0.5))
+	eq("mot entier prioritaire", AssetLogic.PickByKeywords({ "Knife", "AK-47 Rifle", "Pump Shotgun" }, { "shotgun", "pump" }), 3)
+	eq("ak47 par jeton", AssetLogic.PickByKeywords({ "M4A1", "AK47", "Sniper" }, { "ak47", "ak" }), 2)
+	eq("sous-chaîne", AssetLogic.PickByKeywords({ "SuperSniperRifle" }, { "sniper" }), 1)
+	eq("aucun résultat", AssetLogic.PickByKeywords({ "Knife", "Axe" }, { "sniper" }), nil)
+	eq("liste vide", AssetLogic.PickByKeywords({}, { "ak" }), nil)
+	eq("échelle", AssetLogic.ScaleFor(2, 4), 2)
+	eq("échelle dim nulle", AssetLogic.ScaleFor(0, 4), 1)
+	check("échelle bornée", AssetLogic.ScaleFor(0.002, 4) <= 100)
+	eq("axe X", AssetLogic.LongestAxis(5, 1, 1), 1)
+	eq("axe Y", AssetLogic.LongestAxis(1, 5, 1), 2)
+	eq("axe Z", AssetLogic.LongestAxis(1, 1, 5), 3)
+	check("config Assets", Config.Assets.TimeoutSeconds > 0 and Config.Assets.MaxParts > 0 and Config.Assets.Ids.Pistol == 5102714039 and Config.Assets.Ids.Vendor == 5107855421 and Config.Assets.Ids.WeaponPack == 133851017761151 and Config.Assets.Ids.Reserve == 4765258367 and Config.Assets.Ids.WeaponTable == 74181202673377 and Config.Assets.Ids.SuppliesTable == 6029346174)
+	for weaponId, kws in pairs(Config.Assets.Skins) do
+		check("skin " .. weaponId .. " : arme existante", Weapons.Get(weaponId) ~= nil)
+		check("skin " .. weaponId .. " : mots-clés", #kws > 0)
 	end
 end
 

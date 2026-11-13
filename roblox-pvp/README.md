@@ -50,6 +50,7 @@ ressource externe, aucun modèle à importer. Les sons utilisent les fichiers in
 | Histoire | Prologue « Les Royaumes du Brasier », 4 héros jouables (aura et teinte, 2 à débloquer), Chronique de 6 chapitres avec récompenses |
 | Animations | Inclinaison à la course, poussière de saut, **glissade** (C / X), **esquive** à image rémanente (Q / B), **garde** (maintenir F / Y), matérialisation à la réapparition, flash de tir, rechargement visuel, transitions de manche, confettis et classement animé. Chacune est activable dans `Config.Animations`, protégée par `pcall` et désactivée seule en cas d'erreur. Glissade, esquive et garde sont visuelles : aucun avantage de combat côté serveur. Pas de boutons tactiles dédiés (clavier/manette) ; l'inclinaison suppose un avatar R15 |
 | Cinématiques | 4 séquences courtes, seulement aux moments clés : **intro** (histoire + 4 héros, ~26 s), **mini tutoriel** (déplacement, armes, modes, ~20 s), **début de saison** (~14 s, une fois par saison), **Roi de la tour** (~10 s pendant l'intermission, première fois). Toutes skippables (bouton « Passer », Entrée, Start), interrompues si le joueur meurt ou entre en arène, protégées par `pcall`, caméra toujours restaurée, réglables dans `Config.Cinematics`. « Vu » mémorisé dans le profil (liste blanche côté serveur) |
+| Modèles importés | Pack d'armes, pistolet, vendeur, tables de l'armurerie, réserve d'armes : chargés **côté serveur seulement** (`InsertService:LoadAsset` dans un `pcall`, délai maximum), inspectés (**tout modèle contenant du sang/gore est écarté**), nettoyés (Script, LocalScript, ModuleScript, RemoteEvent, BindableEvent, effets tiers supprimés), plafonnés en pièces. Seule l'apparence change ; tirs, dégâts et cooldowns restent ceux de `Weapons.luau`. Échec ou désactivation (`Config.Assets.Enabled = false`) : armes et décor actuels conservés. IDs dans `Config.Assets` |
 | Énigmes | 6 runes cachées (hub et arène) avec indices dans l'onglet Héros ; chapitre « Les Six Runes » à la clé |
 | Mode « Roi de la tour » | 3e mode : +1 point/s sur le plateau central, 60 points ou fin du temps |
 | Règle de contenu | **Aucun sang** : impacts en étincelles, éliminations en désintégration colorée (éclats, fumée) aux couleurs du héros |
@@ -90,9 +91,9 @@ LUAU_ANALYZE=luau-analyze LUAU=luau ROBLOX_TYPES=globalTypes.d.luau tools/test.s
 
 1. **Analyse statique `luau-analyze`** de tous les scripts (syntaxe, variables non définies, types entre modules) : 0 message.
 2. **Résolution des `require`**, membres de modules, noms de Remotes et attributs lus/écrits : cohérents.
-3. **API Roblox** : 2 123 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
-4. **618 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 10 armes).
-5. **141 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
+3. **API Roblox** : 2 180 usages (classes `Instance.new`, propriétés, `Enum.*`, méthodes) vérifiés contre les définitions officielles.
+4. **696 tests unitaires** (progression, dégâts, cônes, quêtes, logique de manche, cohérence des 12 armes).
+5. **163 tests de simulation serveur** : les vrais modules `DataService`/`PlayerService`/`QuestService`/`CombatService`
    tournent dans un faux environnement Roblox (règles de dégâts, élimination, séries, prime, assistance, tir à la tête,
    rage, vol de vie, anti-farm, cibles d'entraînement, profils corrompus, cadeau quotidien, niveaux).
 
