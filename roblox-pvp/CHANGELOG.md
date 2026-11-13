@@ -1,5 +1,8 @@
 # Journal des changements — Arène des Légendes
 
+## V1.12 — maquette
+- `docs/maquette.html` (fichier unique, sans ressource externe) généré depuis les vraies données par `tools/build_maquette.py`.
+
 ## V1.11 — modèles importés
 - `AssetLogic` (pur), `AssetLoader` (LoadAsset + pcall + délai + inspection sang/gore + nettoyage), `AssetService` (skins d'armes, vendeur, tables, réserve), `Config.Assets`.
 - Deux armes ajoutées (Carabine Marée, Fusil Brasier) pour habiller les fusils du pack ; le pistolet devient une arme de départ facile (niveau 1, 150 pièces). Règles de tir inchangées.

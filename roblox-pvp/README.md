@@ -9,6 +9,8 @@ ce qui attire dans ces jeux est la **boucle courte et lisible** (apparition imm�
 retour visuel instantané), la **progression par armes débloquables**, et le **drop-in / drop-out** sans file d'attente.
 Rien n'est copié : univers, carte, armes, UI et systèmes sont originaux.
 
+Maquette visuelle autonome (HTML, CSS/SVG inline) : `docs/maquette.html`, régénérable avec `python3 tools/build_maquette.py`.
+
 ## Ouvrir le jeu dans Roblox Studio
 
 Le projet est au format [Rojo](https://rojo.space) 7.x (`default.project.json`).
