@@ -55,6 +55,58 @@ end
 Builder.sign = sign
 
 ---------------------------------------------------------------- Œuf
+-- Chargeur de modèles d'œufs (module Assets, branché par Main). Nil = apparence par défaut partout.
+local eggAssets = nil
+function Builder.setAssets(a)
+	eggAssets = a
+end
+
+-- Habille l'œuf `p` avec une copie du modèle Roblox de sa rareté : la Part reste la racine (tags, prompts, soudure au joueur, animations),
+-- elle devient invisible et le modèle y est soudé par des Weld enfants des parts du modèle (pas de Weld direct sur l'œuf : l'animation de
+-- course cherche le Weld du joueur). Retourne true si le modèle est en place ; en cas d'erreur, tout est défait (apparence par défaut).
+local function dressEgg(p, tier)
+	local clone = eggAssets and eggAssets.cloneEgg(tier)
+	if not clone then
+		return false
+	end
+	local ok = pcall(function()
+		if not clone:IsA("Model") then
+			error("pas un Model")
+		end
+		local _, size = clone:GetBoundingBox()
+		if size.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		clone:ScaleTo(Config.Assets.targetHeight / size.Y)
+		local cf = clone:GetBoundingBox()
+		clone:PivotTo(CFrame.new() * cf:ToObjectSpace(clone:GetPivot()))
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = false
+				d.CanCollide = false
+				d.CanTouch = false
+				d.CanQuery = false
+				d.Massless = true
+				local w = Instance.new("Weld")
+				w.Part0 = p
+				w.Part1 = d
+				w.C0 = d.CFrame
+				w.Parent = d
+			end
+		end
+		clone.Name = "Skin"
+		clone.Parent = p
+	end)
+	if not ok then
+		pcall(function()
+			clone:Destroy()
+		end)
+		return false
+	end
+	p.Transparency = 1
+	return true
+end
+
 function Builder.egg(tier, anchored)
 	local c = Config.TIERS[tier].color
 	local p = Instance.new("Part")
@@ -74,6 +126,9 @@ function Builder.egg(tier, anchored)
 	l.Range = 7
 	l.Brightness = 1.2
 	l.Parent = p
+	if dressEgg(p, tier) then
+		m:Destroy() -- la sphère n'est plus visible : inutile de la garder
+	end
 	return p
 end
 

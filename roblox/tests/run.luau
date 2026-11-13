@@ -793,6 +793,189 @@ do
 	check("director : nouvelle demande acceptée après un abort", d4.request("intro", seqA, 5, false) == "playing")
 end
 
+-- Assets : chargeur factice -----------------------------------------------------------------
+do
+	local AssetsMod = luau.load(fs.readFile("roblox/src/ServerScriptService/Assets.lua"), { debugName = "Assets" })()
+	-- Instances factices
+	local function inst(class, props)
+		local o = { ClassName = class, children = {}, destroyed = false }
+		for k, v in pairs(props or {}) do
+			o[k] = v
+		end
+		function o:IsA(c)
+			return self.ClassName == c or (c == "BasePart" and self.ClassName == "Part")
+		end
+		function o:Destroy()
+			self.destroyed = true
+			self.dead = true
+		end
+		function o:Clone()
+			return inst(self.ClassName, { children = self.children })
+		end
+		function o:GetDescendants()
+			local out = {}
+			for _, ch in ipairs(self.children) do
+				if not ch.destroyed then
+					out[#out + 1] = ch
+				end
+			end
+			return out
+		end
+		return o
+	end
+	local clock = 0
+	local function deps(loader, store)
+		return {
+			loadAsset = loader,
+			spawn = function(fn)
+				fn()
+			end,
+			wait = function(s)
+				clock = clock + s
+			end,
+			clock = function()
+				return clock
+			end,
+			warn = function() end,
+			store = store,
+		}
+	end
+	local function make(loader)
+		return AssetsMod.new(Config, deps(loader))
+	end
+	local goodModel = function()
+		return inst("Model", { children = { inst("Part"), inst("Script"), inst("RemoteEvent"), inst("BindableEvent"), inst("ModuleScript"), inst("LocalScript"), inst("Sound"), inst("ParticleEmitter", { Rate = 500 }) } })
+	end
+
+	check("Config.Assets : 5 IDs entiers positifs", (function()
+		local n = 0
+		for _, id in pairs(Config.Assets.eggs) do
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				n = n + 1
+			end
+		end
+		return n == 5
+	end)())
+	check("Config.Assets : chaque rareté 1..6 pointe vers un modèle déclaré", (function()
+		for t = 1, #Config.TIERS do
+			if Config.eggAssetId(t) == nil then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Config.eggAssetId : rareté inconnue -> nil", Config.eggAssetId(99) == nil and Config.eggAssetId(0) == nil)
+	check("Config.isBlockedClass", Config.isBlockedClass("Script") and Config.isBlockedClass("LocalScript") and Config.isBlockedClass("ModuleScript") and Config.isBlockedClass("RemoteEvent") and Config.isBlockedClass("BindableEvent") and not Config.isBlockedClass("Part") and not Config.isBlockedClass("MeshPart"))
+
+	-- modèle sain : nettoyé, rangé, clonable
+	local stored = {}
+	local A = AssetsMod.new(Config, deps(function() return goodModel() end, function(k, m) stored[k] = m end))
+	local ready = 0
+	local n = A.loadAll(function() ready = ready + 1 end)
+	check("chargeur sain : 5 modèles chargés, onReady appelé une fois", n == 5 and ready == 1)
+	local m1 = A.templates.red
+	check("nettoyage : plus aucun Script/LocalScript/ModuleScript/RemoteEvent/BindableEvent/Sound", (function()
+		for _, d in ipairs(m1:GetDescendants()) do
+			if Config.isBlockedClass(d.ClassName) then
+				return false
+			end
+		end
+		return #m1:GetDescendants() == 2
+	end)())
+	check("nettoyage : particules plafonnées", (function()
+		for _, d in ipairs(m1:GetDescendants()) do
+			if d.ClassName == "ParticleEmitter" then
+				return d.Rate == Config.Assets.maxParticleRate
+			end
+		end
+		return false
+	end)())
+	check("modèle sain : rangé via deps.store et cloneEgg non nil", stored.red == m1 and A.cloneEgg(1) ~= nil and A.cloneEgg(6) ~= nil)
+	check("cloneEgg : rareté inconnue -> nil", A.cloneEgg(99) == nil)
+
+	-- modèle vide
+	local E = make(function() return inst("Model", { children = {} }) end)
+	check("modèle vide : refusé, cloneEgg nil, aucune erreur", E.loadAll() == 0 and E.cloneEgg(1) == nil and E.status.red.ok == false)
+	-- modèle sans géométrie (seulement du code)
+	local C0 = make(function() return inst("Model", { children = { inst("Script") } }) end)
+	check("modèle code seul : refusé", C0.loadAll() == 0 and C0.cloneEgg(2) == nil)
+	-- modèle corrompu (GetDescendants lève une erreur)
+	local bad = make(function()
+		local o = inst("Model")
+		function o:GetDescendants()
+			error("corrompu")
+		end
+		return o
+	end)
+	check("modèle corrompu : refusé sans erreur", bad.loadAll() == 0 and bad.cloneEgg(1) == nil)
+	-- instance corrompue (ClassName illisible)
+	local bad2 = make(function()
+		return inst("Model", { children = { setmetatable({ destroyed = false }, { __index = function() error("x") end }) } })
+	end)
+	check("instance corrompue : refusée", bad2.loadAll() == 0)
+	-- chargeur qui lève une erreur / retourne nil
+	check("LoadAsset en erreur : tolérée", make(function() error("HTTP 403") end).loadAll() == 0)
+	check("LoadAsset retourne nil : toléré", make(function() return nil end).loadAll() == 0)
+	-- trop lourd
+	local heavy = make(function()
+		local ch = {}
+		for i = 1, Config.Assets.maxParts + 1 do
+			ch[i] = inst("Part")
+		end
+		return inst("Model", { children = ch })
+	end)
+	check("modèle trop lourd : refusé", heavy.loadAll() == 0 and heavy.status.red.reason:find("lourd") ~= nil)
+	-- délai dépassé : le chargeur ne répond jamais (spawn différé, jamais exécuté)
+	clock = 0
+	local slowDeps = deps(function() return goodModel() end)
+	local pending = {}
+	slowDeps.spawn = function(fn)
+		pending[#pending + 1] = fn
+	end
+	local S = AssetsMod.new(Config, slowDeps)
+	local okSlow = S.loadOne("red", 151044983)
+	check("délai dépassé : abandon, temps écoulé >= timeout", okSlow == false and clock >= Config.Assets.timeout and S.status.red.reason:find("délai") ~= nil)
+	-- réponse tardive : le modèle arrivé après coup est détruit
+	local late = goodModel()
+	slowDeps.loadAsset = function() return late end
+	pending[1] = nil
+	for _, fn in ipairs(pending) do
+		fn()
+	end
+	check("après le délai, le modèle tardif n'est pas utilisé", S.templates.red == nil and S.cloneEgg(1) == nil)
+	-- réglage de désactivation
+	local savedEnabled = Config.Assets.enabled
+	Config.Assets.enabled = false
+	local called = 0
+	local D = make(function() called = called + 1 return goodModel() end)
+	check("enabled = false : aucun chargement, aucun clone, aucun ID", D.loadAll() == 0 and called == 0 and D.cloneEgg(1) == nil and Config.eggAssetId(1) == nil)
+	Config.Assets.enabled = savedEnabled
+	-- ID invalide
+	local savedId = Config.Assets.eggs.red
+	Config.Assets.eggs.red = -4
+	local I = make(function() return goodModel() end)
+	check("ID invalide : ignoré, les autres chargent", I.loadAll() == 4 and I.status.red.reason == "ID invalide")
+	Config.Assets.eggs.red = savedId
+
+	-- l'éclosion ne dépend pas des modèles : mêmes tirages, chargement réussi ou en échec
+	local function hatchRun()
+		local out = {}
+		for tier = 1, 6 do
+			for k = 0, 20 do
+				local r = Rules.rollPet(tier, 10, false, function() return (k * 0.047 + tier * 0.013) % 1 end, false)
+				out[#out + 1] = r.p .. ":" .. r.s .. ":" .. r.m .. ":" .. r.tier
+			end
+		end
+		return table.concat(out, ",")
+	end
+	local ref = hatchRun()
+	A.cloneEgg(3)
+	check("éclosion identique avec chargeur sain", hatchRun() == ref)
+	E.cloneEgg(3)
+	bad.cloneEgg(3)
+	check("éclosion identique avec modèle vide/corrompu", hatchRun() == ref)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

@@ -226,6 +226,60 @@ function Config.questText(t, n)
 	return t
 end
 
+---------------------------------------------------------------- Modèles Roblox pour l'apparence des œufs
+-- Seule l'APPARENCE change : éclosion, raretés, probabilités et animations ne dépendent pas de ces modèles. Chargement côté serveur
+-- uniquement (InsertService:LoadAsset), sous pcall, avec délai maximum, une seule fois au démarrage (puis clonage). Tout Script,
+-- LocalScript, ModuleScript, RemoteEvent, BindableEvent... est supprimé du modèle. Si le chargement échoue (modèle absent, vide, corrompu,
+-- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `enabled = false` : aucun chargement.
+Config.Assets = {
+	enabled = true,
+	timeout = 8, -- secondes maximum par modèle
+	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
+	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
+	targetHeight = 3.4, -- hauteur en studs à laquelle chaque modèle est ramené
+	eggs = {
+		red = 151044983, -- œuf rouge
+		orange = 147144059, -- œuf orange
+		purple = 112478990, -- œuf à aura violette
+		legendary = 2937230482, -- œuf légendaire
+		glitch = 2937218888, -- œuf glitch
+	},
+	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
+	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
+	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
+	blockedClasses = {
+		"Script", "LocalScript", "ModuleScript", "RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction",
+		"Sound", "Tool", "ForceField", "Explosion", "Weld", "WeldConstraint", "Motor6D", "ManualWeld", "Motor",
+	},
+}
+
+function Config.isBlockedClass(className)
+	for _, c in ipairs(Config.Assets.blockedClasses) do
+		if c == className then
+			return true
+		end
+	end
+	return false
+end
+
+-- Clé de modèle d'un œuf de rareté `tier` (nil si inconnue).
+function Config.eggAssetKey(tier)
+	return Config.Assets.eggByTier[tier]
+end
+
+-- ID du modèle d'un œuf de rareté `tier`, ou nil : chargement coupé, rareté inconnue ou ID invalide (entier > 0 exigé).
+function Config.eggAssetId(tier)
+	if Config.Assets.enabled ~= true then
+		return nil
+	end
+	local key = Config.eggAssetKey(tier)
+	local id = key and Config.Assets.eggs[key]
+	if type(id) == "number" and id > 0 and id % 1 == 0 then
+		return id
+	end
+	return nil
+end
+
 ---------------------------------------------------------------- Animations (client)
 -- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
 -- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.

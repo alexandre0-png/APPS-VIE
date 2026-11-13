@@ -57,6 +57,7 @@ for f in files:
 # Propriétés / méthodes / événements utilisés par les scripts, à vérifier dans le dump officiel (classe -> membres).
 # Ajoute ici tout nouveau membre Roblox utilisé dans le code.
 MEMBER_CHECKS = {
+    "InsertService": ["LoadAsset"],
     "Lighting": ["ClockTime", "Brightness", "Ambient", "OutdoorAmbient", "ColorShift_Top", "EnvironmentDiffuseScale", "EnvironmentSpecularScale", "ShadowSoftness", "GlobalShadows"],
     "Atmosphere": ["Density", "Offset", "Color", "Decay", "Glare", "Haze"],
     "BloomEffect": ["Intensity", "Size", "Threshold"],
@@ -103,7 +104,7 @@ MEMBER_CHECKS = {
     "Frame": ["Rotation", "AnchorPoint", "BorderSizePixel", "BackgroundTransparency"],
     "Tween": ["Completed", "Play"],
     "BasePart": ["CFrame", "Size", "Transparency", "CanCollide", "Position"],
-    "Model": ["ScaleTo", "PivotTo", "GetPivot", "PrimaryPart"],
+    "Model": ["ScaleTo", "PivotTo", "GetPivot", "PrimaryPart", "GetBoundingBox"],
     "SurfaceGui": ["Face", "CanvasSize", "LightInfluence", "Adornee"],
 }
 

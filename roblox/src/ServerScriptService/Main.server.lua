@@ -30,6 +30,26 @@ local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify")
 local RTop = newRemote("Top")
 
 ---------------------------------------------------------------- Monde
+-- Apparence des œufs : modèles Roblox chargés en arrière-plan (jamais bloquant ; échec = apparence par défaut, voir Config.Assets).
+task.spawn(function()
+	local InsertService = game:GetService("InsertService")
+	local assets = require(script.Parent:WaitForChild("Assets")).new(Config, {
+		loadAsset = function(id)
+			return InsertService:LoadAsset(id)
+		end,
+		spawn = task.spawn,
+		wait = task.wait,
+		clock = os.clock,
+		warn = warn,
+		store = function(key, model)
+			model.Name = "EggAsset_" .. key
+			model.Parent = game:GetService("ServerStorage")
+		end,
+	})
+	Builder.setAssets(assets)
+	assets.loadAll()
+end)
+
 local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
