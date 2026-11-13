@@ -12,6 +12,8 @@ local Economy = require(Shared:WaitForChild("Economy"))
 local DinoCore = require(Shared:WaitForChild("DinoCore"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local AnimLogic = require(Shared:WaitForChild("AnimLogic"))
+local AssetLogic = require(Shared:WaitForChild("AssetLogic"))
+local AssetService = require(script.Parent.AssetService)
 
 local PlayerService = require(script.Parent.PlayerService)
 
@@ -35,6 +37,8 @@ local aimTarget: Vector3? = nil
 local aimUntil = 0
 local aimYaw = 0
 local reaction = 0
+-- Apparence alternative (modèle externe validé) : null = T-Rex intégré.
+local skin: { model: Model, basePos: Vector3, baseRot: CFrame, jaw: BasePart?, jawRelPos: Vector3?, jawRelRot: CFrame? }? = nil
 local favorite = "pomme"
 local state: Instance
 local chompStart = -10
@@ -177,6 +181,78 @@ local function buildModel()
 	model.Parent = workspace
 	model:ScaleTo(Config.Dino.Stages[1].Scale)
 	currentScale = Config.Dino.Stages[1].Scale
+end
+
+-- ---------------------------------------------------------------- apparence alternative
+
+-- Remplace le visuel du T-Rex par un modèle externe SI et seulement si la validation passe (mâchoire reconnaissable,
+-- limites). Hitbox, satiété, festin et animations (mâchoire, rugissement, marche, tête) restent ceux du jeu.
+local function trySkin()
+	local key, id = AssetLogic.pickDinoSkin(Config.Assets)
+	if not key then
+		return
+	end
+	local loaded = AssetService.fetch(id)
+	if not loaded then
+		return -- chargement impossible : modèle intégré conservé
+	end
+	local ok, err = pcall(function()
+		local names, parts = {}, {}
+		for _, d in ipairs(loaded:GetDescendants()) do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+				table.insert(names, d.Name)
+			end
+		end
+		local jawIndex = AssetLogic.findJawIndex(names)
+		local valid, reason = AssetLogic.validateDino({ partCount = #parts, hasJaw = jawIndex ~= nil }, Config.Assets.Dino)
+		if not valid then
+			error(reason)
+		end
+		for _, p in ipairs(parts) do
+			p.CanCollide = false -- les collisions et lancers restent gérés par le T-Rex intégré (hitbox invisibles)
+			p.CanQuery = false
+		end
+		-- Mise à l'échelle et orientation (à l'échelle actuelle du T-Rex), pieds au sol.
+		local _, size = loaded:GetBoundingBox()
+		local fit = AssetLogic.fitScale(size.Y, Config.Assets.Dino.TargetHeight * currentScale, 0.02, 200)
+		loaded:ScaleTo(fit)
+		local cf, newSize = loaded:GetBoundingBox()
+		local off = Config.Assets.Dino.Offset
+		local rel = cf:ToObjectSpace(loaded:GetPivot())
+		local yaw = CFrame.Angles(0, math.rad(Config.Assets.Dino.FacingYaw), 0)
+		loaded:PivotTo(CFrame.new(off[1] * currentScale, newSize.Y / 2, off[3] * currentScale) * yaw * rel)
+		loaded.Parent = model
+
+		local pivot = loaded:GetPivot()
+		local jaw = if jawIndex then parts[jawIndex] else nil
+		local entry = {
+			model = loaded,
+			basePos = pivot.Position / currentScale,
+			baseRot = pivot.Rotation,
+			jaw = jaw,
+			jawRelPos = nil,
+			jawRelRot = nil,
+		}
+		if jaw then
+			local jr = pivot:ToObjectSpace(jaw.CFrame)
+			entry.jawRelPos = jr.Position / currentScale
+			entry.jawRelRot = jr.Rotation
+		end
+		-- Le visuel intégré devient invisible (les parties animées et hitbox restent en place).
+		for _, a in ipairs(model:GetChildren()) do
+			if a:IsA("BasePart") and a.Name ~= "MouthZone" and a.Name ~= "HeadHit" and a.Name ~= "BodyHit" and a.Name ~= "Root" then
+				a.Transparency = 1
+			end
+		end
+		skin = entry
+	end)
+	if not ok then
+		warn("[FestinTRex] Apparence « " .. key .. " » non appliquée : " .. tostring(err))
+		pcall(function()
+			loaded:Destroy()
+		end)
+	end
 end
 
 -- ---------------------------------------------------------------- état public
@@ -337,6 +413,7 @@ function DinoService.init(mapFolder: Instance)
 	rayTargets = { mapFolder, mouthZone, hitParts[2], hitParts[3] }
 	pickFavorite()
 	publish()
+	task.spawn(trySkin)
 
 	-- Décroissance de la satiété.
 	task.spawn(function()
@@ -431,9 +508,37 @@ function DinoService.init(mapFolder: Instance)
 			a.part.CFrame = groups[a.group] * (CFrame.new(a.pos * s) * a.rot)
 		end
 
+		-- Apparence alternative : respiration, saut de marche, cap de la tête, rugissement ; mâchoire par charnière.
+		if skin then
+			local sk = skin
+			local okSkin = pcall(function()
+				local lift = (liftL + liftR) / 2
+				local world = CFrame.new(sk.basePos * s + Vector3.new(0, (0.25 * breathe + lift) * s, 0))
+					* CFrame.Angles(-0.12 * roar - 0.08 * reaction, aimYaw * 0.6, 0)
+					* sk.baseRot
+				sk.model:PivotTo(world)
+				if sk.jaw and sk.jawRelPos and sk.jawRelRot then
+					local jawCF = world * CFrame.new(sk.jawRelPos * s) * sk.jawRelRot
+					local h = Vector3.new(0, sk.jaw.Size.Y / 2, -sk.jaw.Size.Z / 2)
+					sk.jaw.CFrame = jawCF * CFrame.new(h) * CFrame.Angles(open * Config.Assets.Dino.JawSign, 0, 0) * CFrame.new(-h)
+				end
+			end)
+			if not okSkin then
+				skin = nil -- en cas d'erreur d'animation, on revient au T-Rex intégré
+				pcall(function()
+					sk.model:Destroy()
+				end)
+				for _, a in ipairs(model:GetChildren()) do
+					if a:IsA("BasePart") and a.Name ~= "MouthZone" and a.Name ~= "HeadHit" and a.Name ~= "BodyHit" and a.Name ~= "Root" then
+						a.Transparency = 0
+					end
+				end
+			end
+		end
+
 		-- Clignement toutes les ~4,3 s.
 		local shouldBlink = (t % 4.3) < 0.12
-		if shouldBlink ~= blinking then
+		if shouldBlink ~= blinking and not skin then
 			blinking = shouldBlink
 			for _, p in ipairs(pupils) do
 				p.Transparency = if blinking then 1 else 0

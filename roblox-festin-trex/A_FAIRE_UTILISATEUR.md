@@ -19,6 +19,13 @@ Claude Code qui autorise `luau-lsp`, `luau`, `stylua`, `selene`, `rojo`, puis pr
 - Regarder l'intro, le mini tutoriel (premier lancement), la cinématique du Titan Rex et la fin : vérifier que la caméra
   cadre bien le T-Rex ; ajuster `Config.Cinematics.Sequences` (positions From/To/Look) ou couper avec `Enabled = false`.
 
+- **Modèles externes** (`Config.Assets`) : en jeu, lire *Output* ; un message « ignoré / rejeté / non appliquée » indique
+  le repli sur les pièces du jeu (droits sur le modèle, délai, pas de mâchoire...). Vérifier que ton compte peut utiliser
+  les modèles 1338860741, 1452069624, 10551600237 (et 71422282686175 / 10683798442 pour un T-Rex alternatif).
+- Pour essayer un autre T-Rex : `Config.Assets.DinoModel = "roblox"` ou `"trex2"`. Ajuster si besoin `Dino.FacingYaw`
+  (orientation), `Dino.JawSign` (sens d'ouverture de la mâchoire), `Dino.TargetHeight` (taille), ou `RequireJaw = false`.
+- Vérifier les licences / le contenu des modèles tiers et leur rendu ; tout couper avec `Config.Assets.Enabled = false`.
+
 ## 3. Identifiants Roblox (pour la publication)
 - Créer l'expérience sur create.roblox.com (Creations → Create experience).
 - Me donner **Universe ID** et **Place ID**. Je lance ensuite `tools/publish_place.py --go`.

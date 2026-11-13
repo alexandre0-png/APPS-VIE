@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBXA0CFB3CCE25A42FDA30FA0EF17204D89"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBXE8826630A8FC487CB137A0CD6AE3CB5A"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX02136CA67CEE439BABAEAD53E31B464A"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBXBE862F7B3E7741C88D891240DC563EB5"><Properties><string name="Name">AnimLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><Item class="Workspace" referent="RBX4CD962C886E445BA83CF0942D1F39C89"><Properties><string name="Name">Workspace</string></Properties></Item><Item class="ReplicatedStorage" referent="RBXAC6F3BD7243C4A3DB4A61CD07A110F88"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBXD5F8041830384E6BB00AB88DA0562497"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBXEB96E65D884B4D6AB1F68459BD2CB43C"><Properties><string name="Name">AnimLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique pure des animations (testable hors Studio) : activation par Config.Animations,
 -- exécution protégée (pcall) et fonctions de courbes/angles.
 
@@ -65,7 +65,151 @@ function AnimLogic.stompLift(t: number, amplitude: number, speed: number, phase:
 end
 
 return AnimLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39155289360D4174A6A84F685BD5704F"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4BB0BF79BCF2483986B987256B30AB26"><Properties><string name="Name">AssetLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Logique pure du chargement de modèles externes (testable avec un chargeur factice) :
+-- liste noire d'éléments dangereux, chargement avec délai maximum, limites, choix du T-Rex alternatif,
+-- validation d'un modèle de T-Rex (mâchoire reconnaissable) et mise à l'échelle.
+
+local AssetLogic = {}
+
+-- Classes supprimées de tout modèle chargé : code, communication, audio non maîtrisé, personnages/outils.
+AssetLogic.Forbidden = {
+	Script = true,
+	LocalScript = true,
+	ModuleScript = true,
+	RemoteEvent = true,
+	RemoteFunction = true,
+	BindableEvent = true,
+	BindableFunction = true,
+	Sound = true,
+	Tool = true,
+	HopperBin = true,
+	Humanoid = true,
+	VehicleSeat = true,
+}
+
+function AssetLogic.isForbidden(className: string): boolean
+	return AssetLogic.Forbidden[className] == true
+end
+
+-- Supprime les éléments interdits. getClass(inst) -> nom de classe ; destroy(inst). Retourne le nombre supprimé.
+function AssetLogic.sanitize(list: { any }, getClass: (any) -> string, destroy: (any) -> ()): number
+	local removed = 0
+	for _, inst in ipairs(list) do
+		if AssetLogic.isForbidden(getClass(inst)) then
+			destroy(inst)
+			removed += 1
+		end
+	end
+	return removed
+end
+
+function AssetLogic.isExcluded(id: number, cfg: any): boolean
+	for _, v in ipairs(cfg.Excluded) do
+		if v == id then
+			return true
+		end
+	end
+	return false
+end
+
+-- Charge un modèle avec délai maximum. opts = { timeout, step, spawn, wait }. Retourne (modèle, nil) ou (nil, raison).
+-- Ne lève jamais d'erreur : tout échec (erreur du chargeur, résultat vide, délai dépassé) devient (nil, raison).
+function AssetLogic.load(loader: (number) -> any, id: number, opts: any): (any?, string?)
+	if type(id) ~= "number" or id <= 0 or id % 1 ~= 0 then
+		return nil, "identifiant invalide"
+	end
+	local done, ok, result = false, false, nil
+	opts.spawn(function()
+		local o, r = pcall(loader, id)
+		ok, result, done = o, r, true
+	end)
+	local waited = 0
+	while not done and waited < opts.timeout do
+		opts.wait(opts.step)
+		waited += opts.step
+	end
+	if not done then
+		return nil, "délai dépassé"
+	end
+	if not ok then
+		return nil, "erreur de chargement : " .. tostring(result)
+	end
+	if result == nil then
+		return nil, "modèle vide"
+	end
+	return result, nil
+end
+
+-- Limites de taille/complexité. size = {x,y,z}.
+function AssetLogic.checkLimits(partCount: number, size: { number }, cfg: any): (boolean, string?)
+	if partCount < 1 then
+		return false, "aucune pièce"
+	end
+	if partCount > cfg.MaxParts then
+		return false, "trop de pièces (" .. partCount .. ")"
+	end
+	if math.max(size[1], size[2], size[3]) > cfg.MaxDimension then
+		return false, "dimensions excessives"
+	end
+	return true, nil
+end
+
+function AssetLogic.fitScale(currentMax: number, targetMax: number, minScale: number, maxScale: number): number
+	if currentMax <= 0 then
+		return 1
+	end
+	return math.clamp(targetMax / currentMax, minScale, maxScale)
+end
+
+-- Choix du T-Rex : retourne (clé, id) ou nil si le T-Rex intégré doit être conservé.
+function AssetLogic.pickDinoSkin(cfg: any): (string?, number?)
+	if cfg.Enabled ~= true or cfg.DinoModel == "builtin" then
+		return nil, nil
+	end
+	local id = cfg.DinoIds[cfg.DinoModel]
+	if type(id) ~= "number" or AssetLogic.isExcluded(id, cfg) then
+		return nil, nil
+	end
+	return cfg.DinoModel, id
+end
+
+-- Cherche la mâchoire inférieure parmi des noms de pièces. Retourne l'index ou nil.
+function AssetLogic.findJawIndex(names: { string }): number?
+	local best, bestScore = nil, 0
+	for i, name in ipairs(names) do
+		local n = string.lower(name)
+		local isJaw = string.find(n, "jaw", 1, true) or string.find(n, "mandib", 1, true) or string.find(n, "machoire", 1, true) or string.find(n, "mâchoire", 1, true)
+		if isJaw then
+			local score = 1
+			if string.find(n, "lower", 1, true) or string.find(n, "bottom", 1, true) or string.find(n, "inf", 1, true) then
+				score = 3
+			end
+			if string.find(n, "upper", 1, true) or string.find(n, "top", 1, true) or string.find(n, "sup", 1, true) then
+				score = 0
+			end
+			if score > bestScore then
+				best, bestScore = i, score
+			end
+		end
+	end
+	return best
+end
+
+-- Un modèle de T-Rex peut-il remplacer le modèle intégré sans perdre le comportement (mâchoire, rugissement, marche) ?
+-- info = { partCount, hasJaw }. Retourne (ok, raison).
+function AssetLogic.validateDino(info: any, cfg: any): (boolean, string?)
+	if info.partCount < 1 then
+		return false, "aucune pièce"
+	end
+	if cfg.RequireJaw and not info.hasJaw then
+		return false, "mâchoire introuvable : le T-Rex intégré est conservé"
+	end
+	return true, nil
+end
+
+return AssetLogic
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF8202465F8CA430C8715AE3AB7D4ECD4"><Properties><string name="Name">Ballistics</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Balistique pure (nombres, pas de Vector3) : utilisée à l'identique par le serveur (validation)
 -- et par les clients (animation), donc l'arc affiché correspond exactement à l'arc calculé.
 
@@ -85,7 +229,7 @@ function Ballistics.position(ox: number, oy: number, oz: number, vx: number, vy:
 end
 
 return Ballistics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX466336D0990E46D19337E31EFA63AE6C"><Properties><string name="Name">CinematicLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDEB1E57C47FA4A5F817BBEE921B2A380"><Properties><string name="Name">CinematicLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique pure des cinématiques (testable hors Studio) : règles de lancement (réglages, « une seule fois »,
 -- délai de repos), état de lecture, durée maximale, reprise après « Passer », choix du plan et interpolation caméra.
 -- Aucune dépendance Roblox : le client applique le résultat à la caméra.
@@ -210,7 +354,7 @@ function CinematicLogic.camera(shot: any, t: number): ({ number }, { number })
 end
 
 return CinematicLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD1884B94212947B68DEE711D9425A272"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX937C22B1F98C4976B1BF70B8997F675B"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Configuration centrale du jeu « Festin du T-Rex ».
 -- Toutes les valeurs d'équilibrage sont ici : aucune valeur magique dans les services.
 
@@ -412,6 +556,34 @@ Config.Riddles = {
 	{ Q = "Où se trouve le Coffre du Chef ?", Choices = { "Derrière Rex", "Au point d'arrivée", "Dans une table", "Sous la place" } },
 }
 
+-- Modèles Roblox externes (InsertService:LoadAsset, côté serveur uniquement, jamais obligatoires).
+-- Si un chargement échoue (délai, droits, modèle vide...), les pièces actuelles du jeu sont conservées.
+-- Chaque modèle chargé est nettoyé : Script/LocalScript/ModuleScript/RemoteEvent/RemoteFunction/BindableEvent/... supprimés.
+Config.Assets = {
+	Enabled = true, -- false = aucun chargement externe (tout reste en pièces intégrées)
+	TimeoutSeconds = 12,
+	MaxParts = 1500,
+	MaxDimension = 2000,
+	-- T-Rex : "builtin" (modèle actuel, par défaut) | "roblox" (71422282686175) | "trex2" (10683798442)
+	DinoModel = "builtin",
+	DinoIds = { roblox = 71422282686175, trex2 = 10683798442 },
+	Dino = {
+		RequireJaw = true, -- ne remplace le T-Rex que si le modèle contient une mâchoire reconnaissable (sinon repli)
+		TargetHeight = 26, -- hauteur visée à l'échelle 1 (le T-Rex intégré fait ~25 studs)
+		FacingYaw = 180, -- degrés : la plupart des modèles regardent vers -Z, le jeu vers +Z
+		JawSign = 1, -- -1 si la mâchoire s'ouvre à l'envers avec un modèle donné
+		Offset = { 0, 0, -6 },
+	},
+	-- Mobilier : tables de festin (1338860741, 1452069624) et salon des invités (10551600237).
+	Furniture = {
+		{ Id = 1338860741, Name = "Grande table de festin", Pos = { -78, 0, 96 }, Yaw = 90, TargetSize = 16 },
+		{ Id = 1452069624, Name = "Table ronde et chaises", Pos = { 78, 0, 96 }, Yaw = 0, TargetSize = 14 },
+		{ Id = 10551600237, Name = "Salon des invités", Pos = { -70, 0, 150 }, Yaw = 0, TargetSize = 16 },
+	},
+	-- Identifiants volontairement NON utilisés (véhicules, hors sujet) : refusés même si on les ajoutait par erreur.
+	Excluded = { 1312960740, 1166118062 },
+}
+
 -- Cinématiques : séquences de caméra courtes (20-30 s), toujours skippables, jamais bloquantes.
 -- Plan : Dur (s), From/To = position caméra, Look/LookTo = point visé, Fov, Text (sous-titre), Sfx (clé de Config.Sounds).
 -- Once : jouées une seule fois par joueur (mémorisé côté serveur). {story} / {zone} sont remplacés à l'exécution.
@@ -528,7 +700,7 @@ Config.Defaults = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF6F6047F8F6446D6A6C783BF51289C73"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0E23BC533C484A979AF2743865ACA89C"><Properties><string name="Name">DinoCore</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Machine d'état du T-Rex (satiété, contributions, festin). Pure : testable hors Studio.
 
 local Config = require(script.Parent.Config)
@@ -581,7 +753,7 @@ function DinoCore.completeFeast(self: Core): ({ [number]: number }, number, numb
 end
 
 return DinoCore
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5A8A92DE3C364479944637430D7207E8"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2FC2960016AE4B489C22E46FC08E026C"><Properties><string name="Name">Economy</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Calculs d'économie et de statistiques (purs, testables hors Studio).
 
 local Config = require(script.Parent.Config)
@@ -763,7 +935,7 @@ function Economy.rollPet(eggKind: string, rnd1: number, rnd2: number): string
 end
 
 return Economy
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD794B0B1D6364C1CA371E04DC6E202AC"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX569D6393872D4F4C884C1D12D0A2B08D"><Properties><string name="Name">QuestLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Logique des quêtes quotidiennes et de la série de connexion (pure).
 
 local Config = require(script.Parent.Config)
@@ -880,7 +1052,7 @@ function QuestLogic.claimDaily(data: any, today: number): (number?, number?, num
 end
 
 return QuestLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE1A7F67446B44E6FB336C0EA546B2422"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXEE0E60B0B4A74C7CB6EA586A4F0C4501"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Définition unique des RemoteEvents / RemoteFunction. Le serveur les crée, le client les attend.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -925,7 +1097,7 @@ function Remotes.init()
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5F0964E31B1D4B688E75806D78646C30"><Properties><string name="Name">RiddleLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14197502AD804EF982160148E6F21CF8"><Properties><string name="Name">RiddleLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Énigme du jour (QCM) : logique pure. Les bonnes réponses ne sont PAS dans le code partagé
 -- (elles restent côté serveur, passées en paramètre) pour qu'un client ne puisse pas les lire.
 
@@ -971,7 +1143,7 @@ function RiddleLogic.answer(data: any, day: number, choice: any, answers: { numb
 end
 
 return RiddleLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXAB1B25B633304B6CA8039B4FBE71D31A"><Properties><string name="Name">TutorialLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDCF751B8C1C8469DBDF44A9C459451BD"><Properties><string name="Name">TutorialLogic</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Mini tutoriel du premier lancement (logique pure) : 3 étapes déduites de l'état du jeu, sans écran bloquant.
 --   1. LANCER   : la munition du panier diminue (un lancer a eu lieu)
 --   2. VISER    : la nourriture donnée augmente (le T-Rex a été touché dans la bouche)
@@ -1019,7 +1191,7 @@ function TutorialLogic.skip(self: any)
 end
 
 return TutorialLogic
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXDFC2901E3B414A06AFE269F73B8A7F5F"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3FCB1450697B475BB77AE781C809B523"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--!strict
 -- Utilitaires purs (sans dépendance Roblox) : testables en dehors de Studio.
 
 local Util = {}
@@ -1130,7 +1302,7 @@ function Util.formatTime(seconds: number): string
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBXC0D6159EEEF045AC962982990535FF84"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX2098A48432B24160B47452B9C2923905"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBXE92EF303CD454BD084DF32423A4F5F5B"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBXF15117653CF1447DAD20224D46E7D10A"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBXDC8499A07D59463B972D3ECC32DFC944"><Properties><string name="Name">Server</string></Properties><Item class="Script" referent="RBX7C3CD018187D405B97B2649B7593FD54"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée serveur : initialise les services dans l'ordre des dépendances.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1144,6 +1316,7 @@ local PlayerService = require(Services:WaitForChild("PlayerService"))
 local DinoService = require(Services:WaitForChild("DinoService"))
 local EventService = require(Services:WaitForChild("EventService"))
 local FoodService = require(Services:WaitForChild("FoodService"))
+local AssetService = require(Services:WaitForChild("AssetService"))
 local NameTagService = require(Services:WaitForChild("NameTagService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
@@ -1157,6 +1330,7 @@ state.Parent = ReplicatedStorage
 local mapFolder, boardLabels = MapBuilder.build()
 
 DinoService.init(mapFolder)
+task.spawn(AssetService.placeFurniture) -- facultatif : un échec garde la carte intégrée
 EventService.init()
 FoodService.init()
 QuestService.init()
@@ -1167,7 +1341,124 @@ MonetizationService.init()
 PlayerService.init() -- en dernier : les joueurs déjà présents déclenchent les hooks ci-dessus
 
 print("[FestinTRex] Serveur prêt.")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX02527311C7EB4829A426C17F4163BDF2"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX9F6FC89442AD4233ACD8F9194E947A9B"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX11C0247CFCB343F4A0AA426EC95DEBE3"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBXAAB5BB1046464BAAA15BA355062F3E48"><Properties><string name="Name">AssetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+-- Chargement SÉCURISÉ de modèles Roblox externes : serveur uniquement, InsertService:LoadAsset dans un pcall avec
+-- délai maximum, suppression de tout code / événement, limites de taille, pièces neutralisées (ancrées, sans contact).
+-- En cas d'échec, l'appelant garde ses pièces actuelles. Ne lève jamais d'erreur.
+
+local InsertService = game:GetService("InsertService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local AssetLogic = require(Shared:WaitForChild("AssetLogic"))
+
+local AssetService = {}
+
+local function cfg()
+	return Config.Assets
+end
+
+-- Retourne un Model nettoyé (non parenté) ou nil. `neutralize` : désactive collisions/contacts (décor animé).
+function AssetService.fetch(id: number): Model?
+	local c = cfg()
+	if c.Enabled ~= true then
+		return nil
+	end
+	if AssetLogic.isExcluded(id, c) then
+		warn("[FestinTRex] Modèle " .. tostring(id) .. " exclu (hors sujet).")
+		return nil
+	end
+	local ok, model, err = pcall(function()
+		return AssetLogic.load(function(assetId)
+			return InsertService:LoadAsset(assetId)
+		end, id, { timeout = c.TimeoutSeconds, step = 0.1, spawn = task.spawn, wait = task.wait })
+	end)
+	if not ok then
+		warn("[FestinTRex] Chargement du modèle " .. tostring(id) .. " : " .. tostring(model))
+		return nil
+	end
+	if not model then
+		warn("[FestinTRex] Modèle " .. tostring(id) .. " ignoré : " .. tostring(err))
+		return nil
+	end
+
+	local safe, reason = pcall(function()
+		-- 1. Suppression de tout ce qui est interdit (scripts, événements...).
+		AssetLogic.sanitize(model:GetDescendants(), function(inst)
+			return inst.ClassName
+		end, function(inst)
+			inst:Destroy()
+		end)
+		-- 2. Limites.
+		local count = 0
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then
+				count += 1
+				d.Anchored = true
+				d.CanTouch = false
+				d.Massless = true
+			end
+		end
+		local _, size = model:GetBoundingBox()
+		local fine, why = AssetLogic.checkLimits(count, { size.X, size.Y, size.Z }, c)
+		if not fine then
+			error(why)
+		end
+	end)
+	if not safe then
+		warn("[FestinTRex] Modèle " .. tostring(id) .. " rejeté : " .. tostring(reason))
+		pcall(function()
+			model:Destroy()
+		end)
+		return nil
+	end
+	return model
+end
+
+-- Met le modèle à l'échelle (plus grande dimension = targetSize), le pose au sol en (x,z) avec un cap (yaw, degrés).
+function AssetService.place(model: Model, x: number, z: number, yawDegrees: number, targetSize: number)
+	local _, size = model:GetBoundingBox()
+	local scale = AssetLogic.fitScale(math.max(size.X, size.Y, size.Z), targetSize, 0.02, 200)
+	model:ScaleTo(scale)
+	local cf, newSize = model:GetBoundingBox()
+	local rel = cf:ToObjectSpace(model:GetPivot())
+	model:PivotTo(CFrame.new(x, newSize.Y / 2 + 0.2, z) * CFrame.Angles(0, math.rad(yawDegrees), 0) * rel)
+end
+
+-- Mobilier de festin : chaque pièce est chargée à part ; un échec n'affecte pas les autres.
+function AssetService.placeFurniture()
+	local c = cfg()
+	if c.Enabled ~= true then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "Decor" -- hors de la carte : les lancers traversent le mobilier
+	folder.Parent = workspace
+	for _, entry in ipairs(c.Furniture) do
+		task.spawn(function()
+			local model = AssetService.fetch(entry.Id)
+			if not model then
+				return
+			end
+			local ok, err = pcall(function()
+				model.Name = entry.Name
+				-- Le mobilier reste solide (on peut s'asseoir / contourner) mais sans interaction physique.
+				AssetService.place(model, entry.Pos[1], entry.Pos[3], entry.Yaw, entry.TargetSize)
+				model.Parent = folder
+			end)
+			if not ok then
+				warn("[FestinTRex] Placement de « " .. entry.Name .. " » impossible : " .. tostring(err))
+				pcall(function()
+					model:Destroy()
+				end)
+			end
+		end)
+	end
+end
+
+return AssetService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2F597F6B98104554B7D029B954617936"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Chargement / sauvegarde des profils avec verrou de session (anti-duplication entre serveurs).
 -- Le DataStore est injectable (_setStore) pour pouvoir tester la logique hors Studio.
 
@@ -1307,7 +1598,7 @@ function DataService.save(userId: number, data: any, release: boolean): boolean
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119E0292B454429AB3E27767026AD98B"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX059E8BE3F77C4400826531FAB4DEEF22"><Properties><string name="Name">DinoService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Le T-Rex central : construction du modèle (blocs Roblox), satiété, favori, festin et croissance.
 
 local Players = game:GetService("Players")
@@ -1321,6 +1612,8 @@ local Economy = require(Shared:WaitForChild("Economy"))
 local DinoCore = require(Shared:WaitForChild("DinoCore"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local AnimLogic = require(Shared:WaitForChild("AnimLogic"))
+local AssetLogic = require(Shared:WaitForChild("AssetLogic"))
+local AssetService = require(script.Parent.AssetService)
 
 local PlayerService = require(script.Parent.PlayerService)
 
@@ -1344,6 +1637,8 @@ local aimTarget: Vector3? = nil
 local aimUntil = 0
 local aimYaw = 0
 local reaction = 0
+-- Apparence alternative (modèle externe validé) : null = T-Rex intégré.
+local skin: { model: Model, basePos: Vector3, baseRot: CFrame, jaw: BasePart?, jawRelPos: Vector3?, jawRelRot: CFrame? }? = nil
 local favorite = "pomme"
 local state: Instance
 local chompStart = -10
@@ -1486,6 +1781,78 @@ local function buildModel()
 	model.Parent = workspace
 	model:ScaleTo(Config.Dino.Stages[1].Scale)
 	currentScale = Config.Dino.Stages[1].Scale
+end
+
+-- ---------------------------------------------------------------- apparence alternative
+
+-- Remplace le visuel du T-Rex par un modèle externe SI et seulement si la validation passe (mâchoire reconnaissable,
+-- limites). Hitbox, satiété, festin et animations (mâchoire, rugissement, marche, tête) restent ceux du jeu.
+local function trySkin()
+	local key, id = AssetLogic.pickDinoSkin(Config.Assets)
+	if not key then
+		return
+	end
+	local loaded = AssetService.fetch(id)
+	if not loaded then
+		return -- chargement impossible : modèle intégré conservé
+	end
+	local ok, err = pcall(function()
+		local names, parts = {}, {}
+		for _, d in ipairs(loaded:GetDescendants()) do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+				table.insert(names, d.Name)
+			end
+		end
+		local jawIndex = AssetLogic.findJawIndex(names)
+		local valid, reason = AssetLogic.validateDino({ partCount = #parts, hasJaw = jawIndex ~= nil }, Config.Assets.Dino)
+		if not valid then
+			error(reason)
+		end
+		for _, p in ipairs(parts) do
+			p.CanCollide = false -- les collisions et lancers restent gérés par le T-Rex intégré (hitbox invisibles)
+			p.CanQuery = false
+		end
+		-- Mise à l'échelle et orientation (à l'échelle actuelle du T-Rex), pieds au sol.
+		local _, size = loaded:GetBoundingBox()
+		local fit = AssetLogic.fitScale(size.Y, Config.Assets.Dino.TargetHeight * currentScale, 0.02, 200)
+		loaded:ScaleTo(fit)
+		local cf, newSize = loaded:GetBoundingBox()
+		local off = Config.Assets.Dino.Offset
+		local rel = cf:ToObjectSpace(loaded:GetPivot())
+		local yaw = CFrame.Angles(0, math.rad(Config.Assets.Dino.FacingYaw), 0)
+		loaded:PivotTo(CFrame.new(off[1] * currentScale, newSize.Y / 2, off[3] * currentScale) * yaw * rel)
+		loaded.Parent = model
+
+		local pivot = loaded:GetPivot()
+		local jaw = if jawIndex then parts[jawIndex] else nil
+		local entry = {
+			model = loaded,
+			basePos = pivot.Position / currentScale,
+			baseRot = pivot.Rotation,
+			jaw = jaw,
+			jawRelPos = nil,
+			jawRelRot = nil,
+		}
+		if jaw then
+			local jr = pivot:ToObjectSpace(jaw.CFrame)
+			entry.jawRelPos = jr.Position / currentScale
+			entry.jawRelRot = jr.Rotation
+		end
+		-- Le visuel intégré devient invisible (les parties animées et hitbox restent en place).
+		for _, a in ipairs(model:GetChildren()) do
+			if a:IsA("BasePart") and a.Name ~= "MouthZone" and a.Name ~= "HeadHit" and a.Name ~= "BodyHit" and a.Name ~= "Root" then
+				a.Transparency = 1
+			end
+		end
+		skin = entry
+	end)
+	if not ok then
+		warn("[FestinTRex] Apparence « " .. key .. " » non appliquée : " .. tostring(err))
+		pcall(function()
+			loaded:Destroy()
+		end)
+	end
 end
 
 -- ---------------------------------------------------------------- état public
@@ -1646,6 +2013,7 @@ function DinoService.init(mapFolder: Instance)
 	rayTargets = { mapFolder, mouthZone, hitParts[2], hitParts[3] }
 	pickFavorite()
 	publish()
+	task.spawn(trySkin)
 
 	-- Décroissance de la satiété.
 	task.spawn(function()
@@ -1740,9 +2108,37 @@ function DinoService.init(mapFolder: Instance)
 			a.part.CFrame = groups[a.group] * (CFrame.new(a.pos * s) * a.rot)
 		end
 
+		-- Apparence alternative : respiration, saut de marche, cap de la tête, rugissement ; mâchoire par charnière.
+		if skin then
+			local sk = skin
+			local okSkin = pcall(function()
+				local lift = (liftL + liftR) / 2
+				local world = CFrame.new(sk.basePos * s + Vector3.new(0, (0.25 * breathe + lift) * s, 0))
+					* CFrame.Angles(-0.12 * roar - 0.08 * reaction, aimYaw * 0.6, 0)
+					* sk.baseRot
+				sk.model:PivotTo(world)
+				if sk.jaw and sk.jawRelPos and sk.jawRelRot then
+					local jawCF = world * CFrame.new(sk.jawRelPos * s) * sk.jawRelRot
+					local h = Vector3.new(0, sk.jaw.Size.Y / 2, -sk.jaw.Size.Z / 2)
+					sk.jaw.CFrame = jawCF * CFrame.new(h) * CFrame.Angles(open * Config.Assets.Dino.JawSign, 0, 0) * CFrame.new(-h)
+				end
+			end)
+			if not okSkin then
+				skin = nil -- en cas d'erreur d'animation, on revient au T-Rex intégré
+				pcall(function()
+					sk.model:Destroy()
+				end)
+				for _, a in ipairs(model:GetChildren()) do
+					if a:IsA("BasePart") and a.Name ~= "MouthZone" and a.Name ~= "HeadHit" and a.Name ~= "BodyHit" and a.Name ~= "Root" then
+						a.Transparency = 0
+					end
+				end
+			end
+		end
+
 		-- Clignement toutes les ~4,3 s.
 		local shouldBlink = (t % 4.3) < 0.12
-		if shouldBlink ~= blinking then
+		if shouldBlink ~= blinking and not skin then
 			blinking = shouldBlink
 			for _, p in ipairs(pupils) do
 				p.Transparency = if blinking then 1 else 0
@@ -1755,7 +2151,7 @@ function DinoService.init(mapFolder: Instance)
 end
 
 return DinoService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXFD6BC23E823E4546BBD1446AB4445C39"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3A88DFC8E59C4B9FA7ACD8BB32352E0F"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Événements périodiques : Marée de sauce (survie), Pluie gourmande (collecte), Frénésie (x2 pièces).
 -- L'état est publié dans ReplicatedStorage.GameState : les clients dessinent les effets eux-mêmes.
 
@@ -2004,7 +2400,7 @@ function EventService.init()
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCDE88F086AE04B8FAAA0CCBEEF3CD379"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX0DB2B1C97099466D81D71932FD386CB1"><Properties><string name="Name">FoodService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Lancers de nourriture : validation serveur complète, simulation balistique, récompenses.
 -- Le client n'envoie QUE la position visée ; origine, portée, cadence, munitions et résultat
 -- sont décidés ici. Le trajet est simulé en une fois (raycasts), puis rejoué visuellement par les clients.
@@ -2328,7 +2724,7 @@ function FoodService.init()
 end
 
 return FoodService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9B92AC98711A4B6EB74D77B191F16ECF"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX573EF588A7B74C62A0045602705B20C0"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Classement mondial « Plus gros nourrisseurs » (OrderedDataStore) + tableau dans le monde.
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -2420,7 +2816,7 @@ function LeaderboardService.init(boardLabels: { TextLabel })
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7BB81FE6AAB8433DB9A992C421661FF8"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX079284298EDF4DC89439D00BF0FCA5AE"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Construction procédurale du monde avec des Parts natives Roblox (aucun asset externe) :
 -- place du festin, stands, kiosques, tables de survie, arbres, secrets, éclairage.
 
@@ -2861,7 +3257,7 @@ function MapBuilder.build(): (Folder, { TextLabel })
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXBC149839132A4D27BB8EFF85A10AE57E"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXBE0BB85ECB9E47E29ED5C1790160EE71"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Achats Robux : Game Passes (propriété vérifiée par Roblox) et produits développeur
 -- (ProcessReceipt idempotent : un reçu n'est jamais accordé deux fois, annulation si la sauvegarde échoue).
 
@@ -2999,7 +3395,7 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCA838E7D3483402181ED4BAB4D1FB929"><Properties><string name="Name">NameTagService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX991F57AB3E7B4135A78250669386D00B"><Properties><string name="Name">NameTagService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Étiquette au-dessus des joueurs : niveau gourmet + couronne VIP (progression visible, statut social).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3057,7 +3453,7 @@ function NameTagService.init()
 end
 
 return NameTagService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70A9F76C8F9143DD8C1336DE313FBCB5"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30940DA5139B4C0285AB12E2ED3E4A84"><Properties><string name="Name">PetService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Œufs et compagnons : tirage serveur (aléatoire non manipulable par le client), équipement.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3141,7 +3537,7 @@ function PetService.equip(player: Player, petId: any, on: any): (boolean, string
 end
 
 return PetService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63CB53B52951483691B3D8A51BFE0EC3"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96B9CA52E0454265821F783CFE7A8398"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Profils joueurs : chargement, état de session, statistiques, monnaie, synchronisation client.
 -- Toutes les modifications de données passent par ici (le client ne peut jamais écrire).
 
@@ -3498,7 +3894,7 @@ function PlayerService.init()
 end
 
 return PlayerService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB053B5E73770418BBBF69C415EC6724F"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4F4A1817840A42D28A5697C70E621356"><Properties><string name="Name">QuestService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Quêtes quotidiennes, série de connexion et secrets (fourchettes d'or).
 
 local CollectionService = game:GetService("CollectionService")
@@ -3661,7 +4057,7 @@ function QuestService.init()
 end
 
 return QuestService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38BD9352A2CB4EFE98BB384E0363978E"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXCA8E1B92C28248AAB7E0079384E575D3"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Routeur unique des requêtes client (RemoteFunction « Request ») + achats.
 -- Chaque action est validée : types, existence, propriété, prix, limites, cadence.
 
@@ -3844,7 +4240,7 @@ function ShopService.init()
 end
 
 return ShopService
-]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX4EFC278386C642C6A1F7CF4DCF6C8BFA"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBXADD6329A49BF4C279F05BE29A5ABB6F9"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX3DC62EC8BF134DE69D00B69AD999F64F"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBXF6935A41AEE54CE2BD5EEB6DDBD90321"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item></Item></Item></Item><Item class="StarterPlayer" referent="RBX45B1743EF6BF46DEB820667458F7F479"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX7FCB6B94F0344FCD965CBC7DB09D383A"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBXC650715C3E754D018850E895A0D33F5B"><Properties><string name="Name">Client</string></Properties><Item class="ModuleScript" referent="RBXFF033C96103B40A38BC6E089A625BDAF"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Cinématiques : séquences de caméra courtes, skippables, jamais bloquantes.
 -- Sécurités : pcall autour de chaque lecture, durée maximale, bouton « Passer », arrêt si le joueur se déplace,
 -- et restauration systématique de la caméra (même en cas d'erreur).
@@ -4137,7 +4533,7 @@ function Cinematics.init()
 end
 
 return Cinematics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8A125B44D09A43279AF3239B5DF3AC79"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX070C876205D84A62ACEE539A7FA161EE"><Properties><string name="Name">Effects</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Effets visuels et sonores : arcs de lancer (rejoués depuis le calcul serveur), impacts,
 -- bonus flottants, festin, vague de sauce (calculée localement depuis l'heure serveur).
 
@@ -4634,7 +5030,7 @@ function Effects.init()
 end
 
 return Effects
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD45AE4186CC244829C4EA096DC9A59FA"><Properties><string name="Name">Guide</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXD413FE7842FE4699BE2FF176636C921E"><Properties><string name="Name">Guide</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Aide à l'orientation : quand le panier est vide, un rayon doré mène au stand débloqué le plus proche.
 
 local CollectionService = game:GetService("CollectionService")
@@ -4729,7 +5125,7 @@ function Guide.init()
 end
 
 return Guide
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXB2C22558A3D34C92A07B77632C6A813D"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXEB66BF73A8E149668FE0B2F5235DF0AF"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Interface permanente : pièces, niveau, état du T-Rex, événements, panier, combo, boutons, notifications.
 
 local Players = game:GetService("Players")
@@ -5120,7 +5516,7 @@ function HUD.gui(): ScreenGui
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1CDBB928D1634A879FDC01A243E0666E"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXC8657593BE2E4DB39664287B794F16FE"><Properties><string name="Name">Input</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Entrées : clic souris, tap tactile (distingué d'un glissement de caméra), bouton LANCER, gâchette de manette.
 -- Le client n'envoie que le point visé ; le serveur décide de tout le reste.
 
@@ -5222,7 +5618,7 @@ function Input.init()
 end
 
 return Input
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX7C584D90F6D64577B6383209F916DAFC"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBXC59AE8802E5046A1B83A64736560240E"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Point d'entrée client.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5278,7 +5674,7 @@ end)
 task.delay(2, function()
 	HUD.toast("🦖 Bienvenue au Festin du T-Rex ! Prends de la nourriture au stand 🍎, puis lance-la dans la bouche du dino.", "info")
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX643A4D612B5945CEA57AE2FF8DD1E663"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXE83BC676CA234BBCA8AA4573EA639796"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Fenêtres : boutique, nid (compagnons), quêtes, classement, évolution + animation d'éclosion.
 
 local Players = game:GetService("Players")
@@ -5823,7 +6219,7 @@ function Panels.init()
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5E5B58A27332409D82332FA1A240CE65"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5ECB1AFFC54C43B3AC64FC874143BB90"><Properties><string name="Name">Pets</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Rendu local des compagnons de tous les joueurs (le serveur ne publie que l'attribut « Pets »).
 
 local Players = game:GetService("Players")
@@ -5965,7 +6361,7 @@ function PetsRenderer.init()
 end
 
 return PetsRenderer
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXF7D3FF084F7844D599BED6A0B1A73366"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX1E05BF01A02F490B8B972C4A41FA42BE"><Properties><string name="Name">Store</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Magasin d'état côté client : dernier instantané envoyé par le serveur + abonnements.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6004,7 +6400,7 @@ function Store.request(action: string, payload: any?): any
 end
 
 return Store
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6DA0E710B9074F20A9302B05F6FB9A3D"><Properties><string name="Name">Tutorial</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBXAE56D1C1204D430292D321266FA976D4"><Properties><string name="Name">Tutorial</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Mini tutoriel interactif (premier lancement) : lancer, viser, récolter. Jamais bloquant : simple encart avec
 -- bouton « Passer », flèche au-dessus de la bouche du T-Rex à l'étape « viser », pcall partout.
 
@@ -6150,7 +6546,7 @@ function Tutorial.init()
 end
 
 return Tutorial
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3A5E69128F8642CD906E264E9FE89372"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3FA7AF4EF8284AED90F513B8C2D73AA5"><Properties><string name="Name">UIKit</string><ProtectedString name="Source"><![CDATA[--!nonstrict
 -- Petite boîte à outils d'interface (style Roblox : coins arrondis, polices Fredoka/Gotham).
 
 local SoundService = game:GetService("SoundService")

@@ -20,6 +20,11 @@
 - Cinématiques (`CinematicLogic`, `Cinematics.luau`, `Config.Cinematics`) : 6 séquences (intro, sauce, victoire, stade, zone, fin), toujours
   skippables et non bloquantes ; état/durée/reprise après « Passer » testés en logique pure (non exécutés ici).
 
+- Modèles externes (`AssetLogic`, `AssetService`, `Config.Assets`) : chargement serveur seulement, pcall + délai, nettoyage
+  (scripts, remotes, bindables, sons, humanoïdes, outils), limites de taille, repli automatique ; T-Rex alternatif validé
+  (mâchoire) avant remplacement. **Aucun de ces modèles n'a pu être chargé ni vu ici** (pas d'accès Roblox) : testé
+  seulement avec un chargeur factice (logique pure, non exécutée).
+
 ## Décisions techniques notables
 - **Outils externes** : `luau-lsp`/`luau`/stylua/selene/rojo téléchargés mais leur exécution a été refusée par le
   bac à sable ; **pas de contournement**. Remplacés par `tools/blockcheck.py` et `tools/undefcheck.py`

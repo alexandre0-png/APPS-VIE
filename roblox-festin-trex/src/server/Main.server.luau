@@ -12,6 +12,7 @@ local PlayerService = require(Services:WaitForChild("PlayerService"))
 local DinoService = require(Services:WaitForChild("DinoService"))
 local EventService = require(Services:WaitForChild("EventService"))
 local FoodService = require(Services:WaitForChild("FoodService"))
+local AssetService = require(Services:WaitForChild("AssetService"))
 local NameTagService = require(Services:WaitForChild("NameTagService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local LeaderboardService = require(Services:WaitForChild("LeaderboardService"))
@@ -25,6 +26,7 @@ state.Parent = ReplicatedStorage
 local mapFolder, boardLabels = MapBuilder.build()
 
 DinoService.init(mapFolder)
+task.spawn(AssetService.placeFurniture) -- facultatif : un échec garde la carte intégrée
 EventService.init()
 FoodService.init()
 QuestService.init()

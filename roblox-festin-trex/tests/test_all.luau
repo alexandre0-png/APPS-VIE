@@ -46,6 +46,7 @@ local RiddleLogic = require("./RiddleLogic")
 local AnimLogic = require("./AnimLogic")
 local CinematicLogic = require("./CinematicLogic")
 local TutorialLogic = require("./TutorialLogic")
+local AssetLogic = require("./AssetLogic")
 
 -- ------------------------------------------------------------ Util
 check(Util.formatNumber(0) == "0", "format 0")
@@ -427,6 +428,89 @@ tut2:skip()
 check(tut2:isDone(), "tutoriel : Passer termine immédiatement")
 local tut3 = TutorialLogic.new()
 check(tut3:update(nil) == 1 and tut3:update({ ammo = "x", totalFed = 0 }) == 1, "tutoriel : données invalides ignorées")
+
+-- Modèles externes : chargeur factice
+local A = Config.Assets
+check(type(A.Enabled) == "boolean" and A.DinoModel == "builtin", "T-Rex intégré par défaut")
+check(A.DinoIds.roblox == 71422282686175 and A.DinoIds.trex2 == 10683798442, "identifiants des T-Rex alternatifs")
+check(#A.Furniture == 3 and A.Furniture[1].Id == 1338860741 and A.Furniture[2].Id == 1452069624 and A.Furniture[3].Id == 10551600237, "mobilier prévu")
+check(AssetLogic.isExcluded(1312960740, A) and AssetLogic.isExcluded(1166118062, A) and not AssetLogic.isExcluded(1338860741, A), "véhicules exclus")
+for _, f in ipairs(A.Furniture) do
+	check(not AssetLogic.isExcluded(f.Id, A), "mobilier jamais exclu")
+end
+for _, id in pairs(A.DinoIds) do
+	check(not AssetLogic.isExcluded(id, A), "T-Rex alternatifs jamais exclus")
+end
+
+-- sanitize : arbre factice
+local fakeTree = { { c = "Part" }, { c = "Script" }, { c = "LocalScript" }, { c = "ModuleScript" }, { c = "RemoteEvent" }, { c = "RemoteFunction" }, { c = "BindableEvent" }, { c = "BindableFunction" }, { c = "MeshPart" }, { c = "Sound" }, { c = "Humanoid" }, { c = "Decal" } }
+local destroyed = 0
+local removed = AssetLogic.sanitize(fakeTree, function(i) return i.c end, function() destroyed += 1 end)
+check(removed == 9 and destroyed == 9, "sanitize supprime code, événements, sons, humanoïdes (9 sur 12)")
+check(not AssetLogic.isForbidden("Part") and not AssetLogic.isForbidden("MeshPart") and not AssetLogic.isForbidden("Decal") and AssetLogic.isForbidden("Script"), "classes interdites")
+
+-- load : succès, erreur, vide, délai, identifiant invalide
+local function syncOpts(timeout)
+	return { timeout = timeout or 5, step = 0.1, spawn = function(f) f() end, wait = function() end }
+end
+local m1, e1 = AssetLogic.load(function(id) return { id = id } end, 123, syncOpts())
+check(m1 ~= nil and m1.id == 123 and e1 == nil, "chargement réussi")
+local m2, e2 = AssetLogic.load(function() error("pas les droits") end, 123, syncOpts())
+check(m2 == nil and string.find(e2, "pas les droits", 1, true) ~= nil, "erreur du chargeur capturée")
+local m3, e3 = AssetLogic.load(function() return nil end, 123, syncOpts())
+check(m3 == nil and e3 == "modèle vide", "modèle vide refusé")
+local waits = 0
+local m4, e4 = AssetLogic.load(function() return {} end, 123, { timeout = 2, step = 0.5, spawn = function() end, wait = function() waits += 1 end })
+check(m4 == nil and e4 == "délai dépassé" and waits == 4, "délai maximum respecté (4 attentes de 0,5 s)")
+check(AssetLogic.load(function() return {} end, -5, syncOpts()) == nil and AssetLogic.load(function() return {} end, 1.5, syncOpts()) == nil and AssetLogic.load(function() return {} end, "12", syncOpts()) == nil, "identifiants invalides refusés")
+-- un chargeur lent qui finit pendant l'attente
+local pending
+local function pendingWait()
+	if pending then
+		local f = pending
+		pending = nil
+		f()
+	end
+end
+local m5 = AssetLogic.load(function()
+	return { ok = true }
+end, 9, { timeout = 3, step = 1, spawn = function(f)
+	pending = f
+end, wait = pendingWait })
+check(m5 ~= nil and m5.ok == true, "chargeur asynchrone terminé avant le délai")
+
+-- limites
+check(AssetLogic.checkLimits(10, { 5, 5, 5 }, A) == true, "limites : petit modèle accepté")
+check(AssetLogic.checkLimits(0, { 5, 5, 5 }, A) == false and AssetLogic.checkLimits(A.MaxParts + 1, { 5, 5, 5 }, A) == false and AssetLogic.checkLimits(10, { A.MaxDimension + 1, 1, 1 }, A) == false, "limites : vide, trop de pièces, trop grand refusés")
+check(near(AssetLogic.fitScale(10, 20, 0.1, 100), 2) and AssetLogic.fitScale(10, 100000, 0.1, 100) == 100 and AssetLogic.fitScale(10, 0.01, 0.1, 100) == 0.1 and AssetLogic.fitScale(0, 5, 0.1, 100) == 1, "mise à l'échelle bornée")
+
+-- choix du T-Rex
+local function cfgWith(over)
+	local c = Util.deepCopy(A)
+	for k, v in pairs(over) do
+		c[k] = v
+	end
+	return c
+end
+check(AssetLogic.pickDinoSkin(A) == nil, "intégré par défaut : aucun chargement")
+local kRoblox, idRoblox = AssetLogic.pickDinoSkin(cfgWith({ DinoModel = "roblox" }))
+check(kRoblox == "roblox" and idRoblox == 71422282686175, "choix du T-Rex « roblox »")
+local kT2, idT2 = AssetLogic.pickDinoSkin(cfgWith({ DinoModel = "trex2" }))
+check(kT2 == "trex2" and idT2 == 10683798442, "choix du T-Rex « trex2 »")
+check(AssetLogic.pickDinoSkin(cfgWith({ DinoModel = "roblox", Enabled = false })) == nil, "chargement externe désactivé")
+check(AssetLogic.pickDinoSkin(cfgWith({ DinoModel = "inconnu" })) == nil, "choix inconnu = intégré")
+check(AssetLogic.pickDinoSkin(cfgWith({ DinoModel = "roblox", DinoIds = { roblox = 1312960740 } })) == nil, "T-Rex exclu refusé")
+
+-- mâchoire et validation
+check(AssetLogic.findJawIndex({ "Body", "Head", "Tail" }) == nil, "aucune mâchoire")
+check(AssetLogic.findJawIndex({ "Body", "UpperJaw", "LowerJaw" }) == 3, "mâchoire inférieure préférée")
+check(AssetLogic.findJawIndex({ "Body", "Mandibule" }) == 2 and AssetLogic.findJawIndex({ "JAW" }) == 1, "noms de mâchoire reconnus")
+check(AssetLogic.findJawIndex({ "UpperJaw" }) == nil, "mâchoire supérieure seule ignorée")
+check(AssetLogic.validateDino({ partCount = 5, hasJaw = true }, A.Dino) == true, "T-Rex valide")
+local vOk, vWhy = AssetLogic.validateDino({ partCount = 5, hasJaw = false }, A.Dino)
+check(vOk == false and string.find(vWhy, "conservé", 1, true) ~= nil, "sans mâchoire : repli sur le T-Rex intégré")
+check(AssetLogic.validateDino({ partCount = 5, hasJaw = false }, { RequireJaw = false }) == true, "sans exigence de mâchoire : accepté")
+check(AssetLogic.validateDino({ partCount = 0, hasJaw = true }, A.Dino) == false, "modèle sans pièce refusé")
 
 print(string.format("%d vérifications, %d échec(s).", total, failures))
 if failures > 0 then

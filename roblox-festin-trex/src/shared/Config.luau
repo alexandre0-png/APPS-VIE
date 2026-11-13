@@ -200,6 +200,34 @@ Config.Riddles = {
 	{ Q = "Où se trouve le Coffre du Chef ?", Choices = { "Derrière Rex", "Au point d'arrivée", "Dans une table", "Sous la place" } },
 }
 
+-- Modèles Roblox externes (InsertService:LoadAsset, côté serveur uniquement, jamais obligatoires).
+-- Si un chargement échoue (délai, droits, modèle vide...), les pièces actuelles du jeu sont conservées.
+-- Chaque modèle chargé est nettoyé : Script/LocalScript/ModuleScript/RemoteEvent/RemoteFunction/BindableEvent/... supprimés.
+Config.Assets = {
+	Enabled = true, -- false = aucun chargement externe (tout reste en pièces intégrées)
+	TimeoutSeconds = 12,
+	MaxParts = 1500,
+	MaxDimension = 2000,
+	-- T-Rex : "builtin" (modèle actuel, par défaut) | "roblox" (71422282686175) | "trex2" (10683798442)
+	DinoModel = "builtin",
+	DinoIds = { roblox = 71422282686175, trex2 = 10683798442 },
+	Dino = {
+		RequireJaw = true, -- ne remplace le T-Rex que si le modèle contient une mâchoire reconnaissable (sinon repli)
+		TargetHeight = 26, -- hauteur visée à l'échelle 1 (le T-Rex intégré fait ~25 studs)
+		FacingYaw = 180, -- degrés : la plupart des modèles regardent vers -Z, le jeu vers +Z
+		JawSign = 1, -- -1 si la mâchoire s'ouvre à l'envers avec un modèle donné
+		Offset = { 0, 0, -6 },
+	},
+	-- Mobilier : tables de festin (1338860741, 1452069624) et salon des invités (10551600237).
+	Furniture = {
+		{ Id = 1338860741, Name = "Grande table de festin", Pos = { -78, 0, 96 }, Yaw = 90, TargetSize = 16 },
+		{ Id = 1452069624, Name = "Table ronde et chaises", Pos = { 78, 0, 96 }, Yaw = 0, TargetSize = 14 },
+		{ Id = 10551600237, Name = "Salon des invités", Pos = { -70, 0, 150 }, Yaw = 0, TargetSize = 16 },
+	},
+	-- Identifiants volontairement NON utilisés (véhicules, hors sujet) : refusés même si on les ajoutait par erreur.
+	Excluded = { 1312960740, 1166118062 },
+}
+
 -- Cinématiques : séquences de caméra courtes (20-30 s), toujours skippables, jamais bloquantes.
 -- Plan : Dur (s), From/To = position caméra, Look/LookTo = point visé, Fov, Text (sous-titre), Sfx (clé de Config.Sounds).
 -- Once : jouées une seule fois par joueur (mémorisé côté serveur). {story} / {zone} sont remplacés à l'exécution.
