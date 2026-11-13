@@ -147,6 +147,60 @@ Config.Cinematics = {
 	GraceSeconds = 0.4, -- délai avant que l'appui « passer » soit pris en compte
 }
 
+-- Modèles Roblox du catalogue (chargés côté serveur seulement, par InsertService:LoadAsset, dans un pcall avec délai).
+-- Chaque modèle est nettoyé (scripts, remotes, événements retirés). Un animal habillé garde sa pièce « Root » invisible
+-- comme zone de capture : cœur rose, lasso, récupération et selle fonctionnent donc avec ou sans modèle.
+-- Si un chargement échoue ou dépasse le délai, les animaux et décors actuels restent en place.
+Config.Assets = {
+	Enabled = true, -- false : aucun chargement, le jeu garde ses animaux et décors dessinés par le code
+	LoadTimeout = 12, -- secondes maximum par modèle
+	MaxParts = 300, -- un modèle plus lourd est ignoré
+	Skins = true, -- habiller les animaux avec les modèles chargés
+	Decor = true, -- poser les décors chargés le long des zones
+	Yaw = 0, -- rotation (degrés) si les animaux importés ne regardent pas vers -Z
+	LengthFactor = 1.25, -- taille d'un animal habillé par rapport au corps de l'espèce
+	Animals = {
+		-- zones = clés de zones où le pack sert ; l'espèce choisit un modèle dont le nom correspond à ses mots-clés
+		{
+			id = 77584505169384,
+			name = "Pack animaux (renard, lion, panda, éléphant, chat, poulet)",
+			zones = { "savane", "marais", "desert", "volcan" },
+		},
+		{ id = 138337815539618, name = "Grand pack d'animaux", zones = { "desert", "volcan" } },
+		{ id = 97050466582003, name = "Pack animaux (serpent, biche, léopard...)", zones = { "savane", "marais" } },
+	},
+	Aliases = {
+		boar = { "boar", "pig", "warthog", "fox", "chicken" },
+		zebra = { "zebra", "deer", "horse", "donkey" },
+		ostrich = { "ostrich", "chicken", "bird", "emu" },
+		rhino = { "rhino" },
+		lion = { "lion", "leopard", "tiger", "cat", "cheetah" },
+		hippo = { "hippo", "panda", "bear" },
+		flamingo = { "flamingo", "swan", "crane", "bird" },
+		crocodile = { "crocodile", "croc", "snake", "lizard", "gator" },
+		camel = { "camel", "llama", "alpaca" },
+		ram = { "ram", "goat", "sheep", "deer" },
+		mammoth = { "mammoth", "elephant" },
+		trike = { "triceratops", "dino", "rhino" },
+		wyvern = { "wyvern", "dragon", "bat" },
+		salamander = { "salamander", "lizard", "snake", "dragon" },
+		elephant = { "elephant", "mammoth" },
+		croc_king = { "crocodile", "croc", "snake" },
+		sphinx = { "lion", "cat", "leopard" },
+		dragon = { "dragon", "wyvern" },
+	},
+	DecorItems = {
+		{ id = 101176034116232, name = "Sakura", zones = { "savane", "marais" }, height = 18, count = 12 },
+		{
+			id = 131378985761907,
+			name = "Plante d'extérieur moderne",
+			zones = { "savane", "desert" },
+			height = 10,
+			count = 12,
+		},
+	},
+}
+
 Config.Events = {
 	FirstDelay = 14,
 	MinGap = 11,

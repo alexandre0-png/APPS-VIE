@@ -19,6 +19,7 @@ Le jeu n'a jamais tourné dans Roblox : il est vérifié par simulation, compila
   8. la mort affiche « Continuer » ; les résultats arrivent ; l'or et les animaux sont dans le zoo ;
   9. les animations (désactivables dans `Config.Animations`) : marche et saut des animaux, pop du cœur, envol à la capture, joie des animaux au zoo après l'expédition, corde et boucle du lasso, survol de zone, balayage entre zones, nuage et étoiles à l'échec ;
   10. tactile (émulateur de téléphone) et, si possible, manette.
+- [ ] Modèles du catalogue (`Config.Assets`, `Enabled = false` pour les couper) : lancer et lire la fenêtre Sortie. Chaque identifiant doit se charger (sinon un avertissement `[Assets]` l'indique et l'animal dessiné par le code reste). Vérifier : les animaux habillés regardent dans le bon sens (sinon régler `Config.Assets.Yaw` à 180), posent les pieds au sol, gardent leur cœur rose, se capturent et se montent ; les décors (Sakura, plante moderne) sont posés de chaque côté de la piste dans les zones prévues. Les modèles importés ne sont pas animés (pas de marche) : seuls les animaux dessinés par le code marchent. Un modèle de la boîte à outils doit être autorisé pour ton compte/jeu (sinon LoadAsset échoue). Mapping par nom : un animal est habillé si le nom du modèle contient un mot-clé de `Config.Assets.Aliases`.
 - [ ] Régler la sensation dans `ReplicatedStorage > Shared > Config` si besoin (portée, vitesses, prix, durées).
 
 ## 2. Créer le jeu et la page (Creator Dashboard)

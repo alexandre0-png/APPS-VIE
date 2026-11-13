@@ -467,6 +467,31 @@ return function(Config, Species, Util, Zoo, AnimMath, Plan)
 		eq(Zoo.countOwned(animals), 4, "les clés invalides ne comptent pas")
 	end)
 
+	test("Modèles du catalogue : configuration cohérente", function()
+		local a = Config.Assets
+		truthy(a.LoadTimeout > 0 and a.MaxParts > 0 and a.LengthFactor > 0)
+		local ids = {}
+		for _, pack in ipairs(a.Animals) do
+			truthy(type(pack.id) == "number" and pack.id > 0, "identifiant de pack")
+			truthy(not ids[pack.id], "identifiant en double")
+			ids[pack.id] = true
+			for _, key in ipairs(pack.zones) do
+				truthy(Config.zoneByKey(key) ~= nil, "zone inconnue " .. key)
+			end
+		end
+		for _, item in ipairs(a.DecorItems) do
+			truthy(type(item.id) == "number" and not ids[item.id], "identifiant de décor")
+			ids[item.id] = true
+			truthy(item.height > 0 and item.count > 0)
+			for _, key in ipairs(item.zones) do
+				truthy(Config.zoneByKey(key) ~= nil, "zone inconnue " .. key)
+			end
+		end
+		for _, def in ipairs(Species.List) do
+			truthy(a.Aliases[def.id] ~= nil and #a.Aliases[def.id] > 0, "mots-clés manquants : " .. def.id)
+		end
+	end)
+
 	test("Cinématiques : config et durées", function()
 		local cfg = Config.Cinematics
 		truthy(cfg.Enabled ~= nil and cfg.MaxSeconds > 0 and cfg.GraceSeconds >= 0)

@@ -25,6 +25,7 @@ local RideService = require(Modules.RideService)
 local ZooService = require(Modules.ZooService)
 local EventService = require(Modules.EventService)
 local MapBuilder = require(Modules.MapBuilder)
+local AssetService = require(Modules.AssetService)
 local RoundService = require(Modules.RoundService)
 local MonetizationService = require(Modules.MonetizationService)
 
@@ -123,6 +124,7 @@ MonetizationService.Init()
 -- Carte (peut durer quelques secondes ; les joueurs attendent sans apparaître)
 MapBuilder.Build()
 State.MapReady = true
+AssetService.Init(Workspace) -- modèles du catalogue en tâche de fond : un échec garde les animaux actuels
 Players.CharacterAutoLoads = true
 
 for _, player in ipairs(Players:GetPlayers()) do

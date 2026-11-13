@@ -4,6 +4,9 @@
 -- avec des joueurs-robots. Il NE remplace PAS un test dans Roblox Studio (physique, rendu, réseau).
 
 local SCENARIO = SCENARIO or "A"
+-- F : modèles du catalogue chargés (chargeur factice) ; G : chargeur en panne. Les deux rejouent le scénario D (capture de boss).
+local ASSETS = nil
+if SCENARIO == "F" or SCENARIO == "G" then ASSETS = SCENARIO SCENARIO = "D" end
 local vt = 0
 local errors = 0
 local logLines = {}
@@ -76,6 +79,7 @@ CF.__index = function(t, k)
 	if k == "LookVector" then return vec(0, 0, -1) end
 	return nil
 end
+CF.__add = function(a, b) return cf(a.p + b) end
 CF.__mul = function(a, b)
 	if getmetatable(b) == V3 then return a.p + b end
 	return cf(a.p + b.p)
@@ -198,13 +202,55 @@ function M.ClearAllChildren(self) for _, c in ipairs(self._children) do c._destr
 function M.SetAttribute(self, k, v) self._attrs[k] = v end
 function M.GetAttribute(self, k) return self._attrs[k] end
 function M.GetAttributeChangedSignal(self, k) return newSignal() end
+function M.Clone(self)
+	local c = new(self._class)
+	for k, v in pairs(self._p) do c._p[k] = v end
+	for k, v in pairs(self._attrs) do c._attrs[k] = v end
+	for _, ch in ipairs(self._children) do local cc = M.Clone(ch) cc.Parent = c end
+	return c
+end
+local function boxOf(self)
+	local lo, hi
+	for _, d in ipairs(M.GetDescendants(self)) do
+		if BASEPART[d._class] then
+			local p, sz = d._p.CFrame.p, d._p.Size
+			local a = vec(p.X - sz.X / 2, p.Y - sz.Y / 2, p.Z - sz.Z / 2)
+			local b = vec(p.X + sz.X / 2, p.Y + sz.Y / 2, p.Z + sz.Z / 2)
+			if not lo then lo, hi = a, b else lo = vec(math.min(lo.X, a.X), math.min(lo.Y, a.Y), math.min(lo.Z, a.Z)) hi = vec(math.max(hi.X, b.X), math.max(hi.Y, b.Y), math.max(hi.Z, b.Z)) end
+		end
+	end
+	lo = lo or vec(0, 0, 0) hi = hi or vec(0, 0, 0)
+	return CFrame.new(vec((lo.X + hi.X) / 2, (lo.Y + hi.Y) / 2, (lo.Z + hi.Z) / 2)), vec(hi.X - lo.X, hi.Y - lo.Y, hi.Z - lo.Z)
+end
+function M.GetBoundingBox(self) return boxOf(self) end
+function M.GetPivot(self)
+	local first
+	for _, d in ipairs(M.GetDescendants(self)) do if BASEPART[d._class] then first = d break end end
+	return first and first._p.CFrame or CFrame.new(0, 0, 0)
+end
+function M.ScaleTo(self, k)
+	-- agrandit les dimensions des pièces et leurs distances au centre du modèle
+	local center = boxOf(self).p
+	for _, d in ipairs(M.GetDescendants(self)) do
+		if BASEPART[d._class] and d._p.Size then
+			d._p.Size = d._p.Size * k
+			d._p.CFrame = CFrame.new(center + (d._p.CFrame.p - center) * k)
+		end
+	end
+end
 function M.PivotTo(self, c)
+	if self._class == "Model" and not self._p.PrimaryPart and not M.FindFirstChild(self, "HumanoidRootPart") and #self._children > 0 then
+		local delta = c.p - M.GetPivot(self).p
+		for _, d in ipairs(M.GetDescendants(self)) do
+			if BASEPART[d._class] then d._p.CFrame = CFrame.new(d._p.CFrame.p + delta) end
+		end
+		return
+	end
 	local hrp = M.FindFirstChild(self, "HumanoidRootPart")
 	if hrp then hrp._p.CFrame = c else (self._p.PrimaryPart or self)._p.CFrame = c end
 end
 function M.SetNetworkOwner() end
 function M.Play() end
-function M.ScaleTo() end
 function M.Emit() end
 function M.GetServerTimeNow() return vt end
 function M.GetPlayers(self) return M.__players end
@@ -698,6 +744,36 @@ local function main()
 		for i, pass in ipairs(m.GamePasses) do pass.id = 110 + i end
 		for i, product in ipairs(m.Products) do product.id = 210 + i end
 	end
+	local assetStats
+	if ASSETS then
+		local AS = require(M.__nodes("server/Modules/AssetService"))
+		Config.Assets.LoadTimeout = 3
+		local calls = { n = 0 }
+		local function part(name, size) local p = new("Part") p._p.Name = name p._p.Size = size p._p.CFrame = CFrame.new(0, 7, 0) p._p.Color = Color3.fromRGB(200, 150, 80) p._p.Anchored = true return p end
+		local function animal(name, size)
+			local m = new("Model") m._p.Name = name
+			part("Body", size).Parent = m
+			local head = part("Head", vec(2, 2, 2)) head._p.CFrame = CFrame.new(0, 9, -4) head.Parent = m
+			local sc = new("Script") sc._p.Name = "Evil" sc.Parent = m
+			local ms = new("ModuleScript") ms.Parent = head
+			return m
+		end
+		AS.SetLoader(function(id)
+			calls.n = calls.n + 1
+			if ASSETS == "G" then error("HTTP 403 : modèle indisponible") end
+			if id == 138337815539618 then while true do task.wait(1) end end -- ne répond jamais : délai dépassé
+			local c = new("Model") c._p.Name = "Pack"
+			for _, cls in ipairs({ "Script", "LocalScript", "RemoteEvent", "BindableEvent", "Humanoid" }) do new(cls).Parent = c end
+			if id == 101176034116232 or id == 131378985761907 then
+				part("Trunk", vec(2, 12, 2)).Parent = c
+				return c
+			end
+			local f = new("Folder") f.Parent = c
+			for _, a in ipairs({ { "Lion", vec(4, 5, 9) }, { "Elephant", vec(8, 9, 14) }, { "Cat", vec(2, 2, 4) }, { "Snake", vec(1, 1, 8) }, { "Fox", vec(2, 3, 5) }, { "Panda", vec(4, 4, 5) }, { "Poulet", vec(1, 2, 1) } }) do animal(a[1], a[2]).Parent = f end
+			return c
+		end)
+		assetStats = { AS = AS, calls = calls }
+	end
 	-- 3 joueurs présents pendant la construction de la carte
 	local pa, pb, pc = makePlayer("Alice"), makePlayer("Bob"), makePlayer("Chloe")
 	local serverSrc = sources["server/init"]
@@ -711,6 +787,8 @@ local function main()
 	local lastPhase
 	local simEnd = SCENARIO == "E" and 25 or SCENARIO == "B" and 260 or (SCENARIO == "C" and 120 or (SCENARIO == "D" and 200 or 330))
 	local removed = false
+	local skinSeen = 0
+	local checkedSkin = false
 	local dt = 1 / 30
 	local checkedShop = false
 	local peakScore = 0
@@ -718,6 +796,21 @@ local function main()
 		advance(dt)
 		physics(dt)
 		bot_think(State)
+		if ASSETS and vt > 30 and math.floor(vt * 30) % 30 == 0 then
+			local fold = M.FindFirstChild(workspace, "Creatures")
+			for _, m in ipairs(fold and M.GetChildren(fold) or {}) do if m._attrs.Skinned then skinSeen = skinSeen + 1 end end
+			if not checkedSkin then
+				-- géométrie : habillage d'un lion posé au sol sous Root, hitbox conservée
+				local CS = require(M.__nodes("server/Modules/CreatureService"))
+				local Sp = require(M.__nodes("shared/Species")).ById.lion
+				local model, root = CS.BuildModel(Sp, 1)
+				if model._attrs.Skinned then
+					checkedSkin = true
+					local box, size = M.GetBoundingBox(M.FindFirstChild(model, "Skin"))
+					print(("ASSETS lion habillé : bas du modèle y=%.2f (attendu %.2f) longueur=%.1f (cible %.1f) | Root invisible=%s hitbox=%s"):format(box.p.Y - size.Y / 2, -Sp.rootY, math.max(size.X, size.Z), Sp.body.s.Z * Config.Assets.LengthFactor, tostring(root._p.Transparency == 1), tostring(root._p.Size.X == Sp.body.s.X)))
+				end
+			end
+		end
 		if SCENARIO == "C" and not removed and vt > 40 and State.Phase == "Running" then
 			removed = true
 			Players.PlayerRemoving:fire(pb)
@@ -862,6 +955,22 @@ local function main()
 		end
 	end
 
+	if assetStats then
+		local AS = assetStats.AS
+		local banned, skinned, total = 0, 0, 0
+		local function scan(root)
+			for _, d in ipairs(M.GetDescendants(root)) do
+				local c = d._class
+				if c == "Script" or c == "LocalScript" or c == "ModuleScript" or c == "RemoteEvent" or c == "BindableEvent" or c == "Humanoid" then
+					if not (c == "RemoteEvent" and d._parent and d._parent._p.Name == "Remotes") then banned = banned + 1 end
+				end
+			end
+		end
+		for _, n in ipairs({ "Creatures", "AssetDecor", "ZooAnimals" }) do local f = M.FindFirstChild(workspace, n) if f then scan(f) end end
+		for _, m in ipairs(M.GetChildren(M.FindFirstChild(workspace, "Creatures"))) do total = total + 1 if m._attrs.Skinned then skinned = skinned + 1 end end
+		local decor = M.FindFirstChild(workspace, "AssetDecor")
+		print(("ASSETS %s : chargements=%d chargés=%d échecs=%d retirés=%d modèles d'animaux=%d décors=%d posés=%d | scripts/remotes restants=%d | bêtes habillées (fin)=%d/%d | habillées vues pendant la partie=%d"):format(ASSETS, assetStats.calls.n, AS.Stats.loaded, AS.Stats.failed, AS.Stats.removed, AS.Stats.skins, AS.Stats.decor, decor and #decor._children or 0, banned, skinned, total, skinSeen))
+	end
 	print("---- RÉSUMÉ SCÉNARIO " .. SCENARIO .. " ----")
 	print("phases:", table.concat(seenPhases, " > "))
 	print("créatures max simultanées:", maxCreatures)

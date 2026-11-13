@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX41"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="Lighting" referent="RBX42"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
+<Item class="Workspace" referent="RBX42"><Properties><string name="Name">Workspace</string></Properties></Item>
+<Item class="Lighting" referent="RBX43"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
 <Item class="ReplicatedStorage" referent="RBX9"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX8"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[-- Mathématiques des animations (pures : testées avec Lune). Aucun appel à l'API Roblox ici.
 -- Les valeurs renvoyées sont appliquées par Fx (serveur), CreatureFx, Anim et HUD (client).
 
@@ -510,6 +510,60 @@ Config.Cinematics = {
 	MaxSeconds = 45, -- plafond de sécurité d'une cinématique
 	IdleDelay = 1.5, -- attente au calme avant de lancer la suivante
 	GraceSeconds = 0.4, -- délai avant que l'appui « passer » soit pris en compte
+}
+
+-- Modèles Roblox du catalogue (chargés côté serveur seulement, par InsertService:LoadAsset, dans un pcall avec délai).
+-- Chaque modèle est nettoyé (scripts, remotes, événements retirés). Un animal habillé garde sa pièce « Root » invisible
+-- comme zone de capture : cœur rose, lasso, récupération et selle fonctionnent donc avec ou sans modèle.
+-- Si un chargement échoue ou dépasse le délai, les animaux et décors actuels restent en place.
+Config.Assets = {
+	Enabled = true, -- false : aucun chargement, le jeu garde ses animaux et décors dessinés par le code
+	LoadTimeout = 12, -- secondes maximum par modèle
+	MaxParts = 300, -- un modèle plus lourd est ignoré
+	Skins = true, -- habiller les animaux avec les modèles chargés
+	Decor = true, -- poser les décors chargés le long des zones
+	Yaw = 0, -- rotation (degrés) si les animaux importés ne regardent pas vers -Z
+	LengthFactor = 1.25, -- taille d'un animal habillé par rapport au corps de l'espèce
+	Animals = {
+		-- zones = clés de zones où le pack sert ; l'espèce choisit un modèle dont le nom correspond à ses mots-clés
+		{
+			id = 77584505169384,
+			name = "Pack animaux (renard, lion, panda, éléphant, chat, poulet)",
+			zones = { "savane", "marais", "desert", "volcan" },
+		},
+		{ id = 138337815539618, name = "Grand pack d'animaux", zones = { "desert", "volcan" } },
+		{ id = 97050466582003, name = "Pack animaux (serpent, biche, léopard...)", zones = { "savane", "marais" } },
+	},
+	Aliases = {
+		boar = { "boar", "pig", "warthog", "fox", "chicken" },
+		zebra = { "zebra", "deer", "horse", "donkey" },
+		ostrich = { "ostrich", "chicken", "bird", "emu" },
+		rhino = { "rhino" },
+		lion = { "lion", "leopard", "tiger", "cat", "cheetah" },
+		hippo = { "hippo", "panda", "bear" },
+		flamingo = { "flamingo", "swan", "crane", "bird" },
+		crocodile = { "crocodile", "croc", "snake", "lizard", "gator" },
+		camel = { "camel", "llama", "alpaca" },
+		ram = { "ram", "goat", "sheep", "deer" },
+		mammoth = { "mammoth", "elephant" },
+		trike = { "triceratops", "dino", "rhino" },
+		wyvern = { "wyvern", "dragon", "bat" },
+		salamander = { "salamander", "lizard", "snake", "dragon" },
+		elephant = { "elephant", "mammoth" },
+		croc_king = { "crocodile", "croc", "snake" },
+		sphinx = { "lion", "cat", "leopard" },
+		dragon = { "dragon", "wyvern" },
+	},
+	DecorItems = {
+		{ id = 101176034116232, name = "Sakura", zones = { "savane", "marais" }, height = 18, count = 12 },
+		{
+			id = 131378985761907,
+			name = "Plante d'extérieur moderne",
+			zones = { "savane", "desert" },
+			height = 10,
+			count = 12,
+		},
+	},
 }
 
 Config.Events = {
@@ -1906,7 +1960,7 @@ end
 
 return Zoo
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX24"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX23"><Properties><string name="Name">Server</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée serveur de Saute-Troupeau.
+<Item class="ServerScriptService" referent="RBX25"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX24"><Properties><string name="Name">Server</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée serveur de Saute-Troupeau.
 -- Ordre : remotes -> services -> construction de la carte -> apparition des joueurs -> boucle de manches.
 
 local Players = game:GetService("Players")
@@ -1933,6 +1987,7 @@ local RideService = require(Modules.RideService)
 local ZooService = require(Modules.ZooService)
 local EventService = require(Modules.EventService)
 local MapBuilder = require(Modules.MapBuilder)
+local AssetService = require(Modules.AssetService)
 local RoundService = require(Modules.RoundService)
 local MonetizationService = require(Modules.MonetizationService)
 
@@ -2031,6 +2086,7 @@ MonetizationService.Init()
 -- Carte (peut durer quelques secondes ; les joueurs attendent sans apparaître)
 MapBuilder.Build()
 State.MapReady = true
+AssetService.Init(Workspace) -- modèles du catalogue en tâche de fond : un échec garde les animaux actuels
 Players.CharacterAutoLoads = true
 
 for _, player in ipairs(Players:GetPlayers()) do
@@ -2062,7 +2118,384 @@ task.spawn(function()
 end)
 
 task.spawn(RoundService.Run)
-]]></ProtectedString></Properties><Item class="Folder" referent="RBX22"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Cosmetics</string><ProtectedString name="Source"><![CDATA[-- Chapeaux : construits en blocs et soudés à la tête du personnage.
+]]></ProtectedString></Properties><Item class="Folder" referent="RBX23"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">AssetService</string><ProtectedString name="Source"><![CDATA[-- Modèles Roblox du catalogue : chargement serveur uniquement (InsertService:LoadAsset), nettoyage strict, habillage
+-- des animaux et décors de zones. Tout est protégé : en cas d'échec ou de délai dépassé, le jeu garde ses animaux
+-- dessinés par le code (voir Config.Assets).
+
+local InsertService = game:GetService("InsertService")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+
+local AssetService = {}
+
+-- Classes toujours supprimées d'un modèle importé (code, messages réseau, physique de personnage, sons).
+local BANNED = {
+	"Script",
+	"LocalScript",
+	"ModuleScript",
+	"RemoteEvent",
+	"RemoteFunction",
+	"BindableEvent",
+	"BindableFunction",
+	"Humanoid",
+	"Animator",
+	"Sound",
+}
+
+local rng = Random.new()
+
+AssetService.Stats = { loaded = 0, failed = 0, removed = 0, skins = 0, decor = 0, rejected = 0 }
+AssetService.loader = function(id)
+	return InsertService:LoadAsset(id)
+end
+
+local skins = {} -- { template, name (minuscules), pack }
+local decorTemplates = {} -- { template, item }
+local pools = {} -- cache : id d'espèce -> liste de modèles
+
+function AssetService.SetLoader(fn)
+	AssetService.loader = fn
+end
+
+function AssetService.Reset()
+	skins = {}
+	decorTemplates = {}
+	pools = {}
+	AssetService.Stats = { loaded = 0, failed = 0, removed = 0, skins = 0, decor = 0, rejected = 0 }
+end
+
+local function isBanned(instance)
+	for _, class in ipairs(BANNED) do
+		if instance:IsA(class) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Supprime tout élément interdit (le modèle racine inclus dans l'inspection de ses descendants). Renvoie le nombre supprimé.
+function AssetService.Sanitize(root)
+	local removed = 0
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if isBanned(descendant) then
+			descendant:Destroy()
+			removed = removed + 1
+		end
+	end
+	AssetService.Stats.removed = AssetService.Stats.removed + removed
+	return removed
+end
+
+local function countParts(root)
+	local count = 0
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			count = count + 1
+		end
+	end
+	return count
+end
+
+local function hasDirectPart(model)
+	for _, child in ipairs(model:GetChildren()) do
+		if child:IsA("BasePart") then
+			return true
+		end
+	end
+	return false
+end
+
+-- Modèles utilisables d'un conteneur chargé : un modèle portant directement des pièces compte comme un animal.
+local function candidates(container, depth, out)
+	if container:IsA("Model") and hasDirectPart(container) then
+		table.insert(out, container)
+		return
+	end
+	if depth >= 4 then
+		return
+	end
+	for _, child in ipairs(container:GetChildren()) do
+		if child:IsA("Model") or child:IsA("Folder") then
+			candidates(child, depth + 1, out)
+		end
+	end
+end
+
+-- Charge un identifiant avec délai maximum, dans un pcall. Renvoie le conteneur nettoyé ou nil.
+function AssetService.Load(id)
+	local result, finished = nil, false
+	task.spawn(function()
+		local ok, value = pcall(function()
+			return AssetService.loader(id)
+		end)
+		if ok then
+			result = value
+		end
+		finished = true
+	end)
+	local t0 = os.clock()
+	while not finished and os.clock() - t0 < Config.Assets.LoadTimeout do
+		task.wait(0.1)
+	end
+	if not finished or result == nil then
+		AssetService.Stats.failed = AssetService.Stats.failed + 1
+		warn("[Assets] modèle " .. tostring(id) .. " indisponible : les éléments actuels sont conservés")
+		return nil
+	end
+	local ok = pcall(function()
+		AssetService.Sanitize(result)
+	end)
+	if not ok then
+		AssetService.Stats.failed = AssetService.Stats.failed + 1
+		return nil
+	end
+	AssetService.Stats.loaded = AssetService.Stats.loaded + 1
+	return result
+end
+
+local function addSkins(container, pack)
+	local found = {}
+	candidates(container, 0, found)
+	for _, model in ipairs(found) do
+		if countParts(model) <= Config.Assets.MaxParts then
+			table.insert(skins, { template = model, name = string.lower(model.Name), pack = pack })
+			AssetService.Stats.skins = AssetService.Stats.skins + 1
+		else
+			AssetService.Stats.rejected = AssetService.Stats.rejected + 1
+		end
+	end
+	pools = {}
+end
+
+-- Charge les packs d'animaux (appelé en tâche de fond : ne bloque jamais la partie).
+function AssetService.LoadAnimals()
+	if not (Config.Assets.Enabled and Config.Assets.Skins) then
+		return
+	end
+	for _, pack in ipairs(Config.Assets.Animals) do
+		local container = AssetService.Load(pack.id)
+		if container then
+			local ok, err = pcall(addSkins, container, pack)
+			if not ok then
+				warn("[Assets] pack ignoré : " .. tostring(err))
+			end
+		end
+	end
+end
+
+local function packServes(pack, def)
+	if not pack.zones then
+		return true
+	end
+	for _, zone in ipairs(Config.Zones) do
+		local inPack = false
+		for _, key in ipairs(pack.zones) do
+			if key == zone.key then
+				inPack = true
+			end
+		end
+		if inPack then
+			if zone.boss == def.id then
+				return true
+			end
+			for _, id in ipairs(zone.animals) do
+				if id == def.id then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+-- Modèle correspondant à une espèce (mots-clés du nom) ou nil : l'espèce garde alors son apparence dessinée.
+function AssetService.Pick(def)
+	if not (Config.Assets.Enabled and Config.Assets.Skins) or #skins == 0 then
+		return nil
+	end
+	local pool = pools[def.id]
+	if not pool then
+		pool = {}
+		local words = Config.Assets.Aliases[def.id] or { def.id }
+		for _, skin in ipairs(skins) do
+			if packServes(skin.pack, def) then
+				for _, word in ipairs(words) do
+					if string.find(skin.name, word, 1, true) then
+						table.insert(pool, skin.template)
+						break
+					end
+				end
+			end
+		end
+		pools[def.id] = pool
+	end
+	if #pool == 0 then
+		return nil
+	end
+	return pool[rng:NextInteger(1, #pool)]
+end
+
+local function tint(root, color, amount)
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Color = descendant.Color:Lerp(color, amount)
+		end
+	end
+end
+
+local function prepareParts(model, anchored)
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = anchored
+			descendant.CanCollide = false
+			descendant.CanTouch = false
+			descendant.CanQuery = false
+			descendant.Massless = true
+		end
+	end
+end
+
+-- Ajuste un clone : taille cible, pieds au sol, orientation. `bottomY` = hauteur du bas du modèle, `centerXZ` = (x, z).
+local function placeOnGround(clone, scale, centerX, bottomY, centerZ, yawDegrees)
+	clone:ScaleTo(scale)
+	if yawDegrees ~= 0 then
+		clone:PivotTo(clone:GetPivot() * CFrame.Angles(0, math.rad(yawDegrees), 0))
+	end
+	local boxCFrame, size = clone:GetBoundingBox()
+	local wanted = Vector3.new(centerX, bottomY + size.Y / 2, centerZ)
+	clone:PivotTo(clone:GetPivot() + (wanted - boxCFrame.Position))
+end
+
+-- Habille un animal : clone le modèle, le met à l'échelle de l'espèce et le soude à Root (qui reste la hitbox).
+-- Renvoie true si l'habillage est en place ; en cas d'échec le modèle n'est pas modifié.
+function AssetService.Dress(model, root, def, variantIdx, template)
+	local clone = template:Clone()
+	local ok = pcall(function()
+		prepareParts(clone, false)
+		local _, size = clone:GetBoundingBox()
+		local longest = math.max(size.X, size.Z)
+		if longest <= 0.01 or size.Y <= 0.01 then
+			error("modèle sans dimension")
+		end
+		local length = def.body.s.Z * Config.Assets.LengthFactor
+		local height = (def.rootY + def.body.s.Y / 2) * 1.35 + 1
+		local scale = math.clamp(math.min(length / longest, height / size.Y), 0.005, 500)
+		placeOnGround(clone, scale, 0, -def.rootY, 0, Config.Assets.Yaw)
+		if variantIdx == 2 then
+			tint(clone, Color3.fromRGB(110, 210, 255), 0.5)
+		elseif variantIdx == 3 then
+			tint(clone, Color3.fromRGB(255, 205, 60), 0.6)
+		end
+		for _, descendant in ipairs(clone:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = root
+				weld.Part1 = descendant
+				weld.Parent = descendant
+			end
+		end
+	end)
+	if not ok then
+		clone:Destroy()
+		return false
+	end
+	clone.Name = "Skin"
+	clone.Parent = model
+	root.Transparency = 1
+	root.CastShadow = false
+	model:SetAttribute("Skinned", true)
+	return true
+end
+
+-- Décors : chargés une fois, posés le long de la piste dans les zones prévues. `parent` = dossier du monde.
+function AssetService.LoadDecor()
+	if not (Config.Assets.Enabled and Config.Assets.Decor) then
+		return
+	end
+	for _, item in ipairs(Config.Assets.DecorItems) do
+		local container = AssetService.Load(item.id)
+		if container then
+			local ok = pcall(function()
+				local found = {}
+				candidates(container, 0, found)
+				if #found == 0 and countParts(container) > 0 then
+					found = { container }
+				end
+				for _, model in ipairs(found) do
+					if countParts(model) <= Config.Assets.MaxParts then
+						table.insert(decorTemplates, { template = model, item = item })
+						AssetService.Stats.decor = AssetService.Stats.decor + 1
+						break
+					end
+				end
+			end)
+			if not ok then
+				AssetService.Stats.failed = AssetService.Stats.failed + 1
+			end
+		end
+	end
+end
+
+function AssetService.PlaceDecor(parent)
+	local placed = 0
+	local folder = Instance.new("Folder")
+	folder.Name = "AssetDecor"
+	for _, entry in ipairs(decorTemplates) do
+		for _, zoneKey in ipairs(entry.item.zones) do
+			local zone = Config.zoneByKey(zoneKey)
+			if zone then
+				local from = math.max(zone.from, zone.start, 40)
+				local to = math.min(zone.to, Config.Track.FinishZ)
+				for i = 1, entry.item.count do
+					local clone = entry.template:Clone()
+					local ok = pcall(function()
+						prepareParts(clone, true)
+						local _, size = clone:GetBoundingBox()
+						local scale = math.clamp(
+							entry.item.height * (0.8 + rng:NextNumber() * 0.4) / math.max(size.Y, 0.01),
+							0.01,
+							200
+						)
+						local side = (i % 2 == 0) and 1 or -1
+						local x = side * (Config.Track.HalfWidth + 6 + rng:NextNumber() * 14)
+						local z = from + (i - 0.5) / entry.item.count * (to - from) + (rng:NextNumber() - 0.5) * 20
+						placeOnGround(clone, scale, x, Config.Track.FloorTop, z, rng:NextInteger(0, 359))
+					end)
+					if ok then
+						clone.Name = entry.item.name
+						clone.Parent = folder
+						placed = placed + 1
+					else
+						clone:Destroy()
+					end
+				end
+			end
+		end
+	end
+	folder.Parent = parent
+	return placed
+end
+
+-- Chargement complet en tâche de fond (animaux, puis décors). Ne lève jamais d'erreur.
+function AssetService.Init(parent)
+	if not Config.Assets.Enabled then
+		return
+	end
+	task.spawn(function()
+		local ok, err = pcall(function()
+			AssetService.LoadAnimals()
+			AssetService.LoadDecor()
+			AssetService.PlaceDecor(parent or workspace)
+		end)
+		if not ok then
+			warn("[Assets] chargement interrompu : " .. tostring(err))
+		end
+	end)
+end
+
+return AssetService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Cosmetics</string><ProtectedString name="Source"><![CDATA[-- Chapeaux : construits en blocs et soudés à la tête du personnage.
 
 local Cosmetics = {}
 
@@ -2199,7 +2632,7 @@ function Cosmetics.applyHat(character, hatId)
 end
 
 return Cosmetics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CreatureService</string><ProtectedString name="Source"><![CDATA[-- Troupeau : construction des bêtes, déplacement, apparition / disparition.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CreatureService</string><ProtectedString name="Source"><![CDATA[-- Troupeau : construction des bêtes, déplacement, apparition / disparition.
 -- Chaque bête = un Model dont seule la pièce "Root" est ancrée ; les autres pièces sont soudées.
 -- Déplacer Root (CFrame) déplace tout le monde et ne réplique qu'une pièce.
 
@@ -2214,6 +2647,7 @@ local AnimMath = require(Shared.AnimMath)
 
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
+local AssetService = require(script.Parent.AssetService)
 
 local CreatureService = {}
 
@@ -2272,6 +2706,15 @@ function CreatureService.BuildModel(def, variantIdx)
 	root.CastShadow = true
 	root.Parent = model
 	model.PrimaryPart = root
+
+	-- Modèle du catalogue : Root (invisible) reste la hitbox ; si l'habillage échoue, l'animal dessiné par le code est gardé.
+	local template = AssetService.Pick(def)
+	if template then
+		local ok, dressed = pcall(AssetService.Dress, model, root, def, variantIdx, template)
+		if ok and dressed then
+			return model, root
+		end
+	end
 
 	for _, spec in ipairs(def.parts) do
 		local part = newPart(
@@ -2681,7 +3124,7 @@ function CreatureService.Step(dt)
 end
 
 return CreatureService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Sauvegarde des joueurs (DataStore) + classement mondial (OrderedDataStore).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Sauvegarde des joueurs (DataStore) + classement mondial (OrderedDataStore).
 -- Règles de sécurité :
 --  * si le chargement échoue, la sauvegarde est DÉSACTIVÉE pour ce joueur (on n'écrase jamais un vrai profil par un profil vide) ;
 --  * sauvegarde automatique toutes les 60 s, à la sortie du joueur et à l'arrêt du serveur.
@@ -2904,7 +3347,7 @@ function DataService.Init()
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[-- Événements de manche : Geysers (gros bonds gratuits) et Pluie de météores (éjecte les cavaliers).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[-- Événements de manche : Geysers (gros bonds gratuits) et Pluie de météores (éjecte les cavaliers).
 -- Chaque événement est annoncé par un anneau au sol ("télégraphie") avant d'agir.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3038,7 +3481,7 @@ function EventService.Step(elapsed)
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Fx</string><ProtectedString name="Source"><![CDATA[-- Effets visuels ponctuels côté serveur (anneaux d'avertissement, explosions, geysers, particules).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Fx</string><ProtectedString name="Source"><![CDATA[-- Effets visuels ponctuels côté serveur (anneaux d'avertissement, explosions, geysers, particules).
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
@@ -3284,7 +3727,7 @@ function Fx.clear()
 end
 
 return Fx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[-- Construction procédurale de tout le monde : salon (lobby), piste en 4 biomes, falaises, décors,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[-- Construction procédurale de tout le monde : salon (lobby), piste en 4 biomes, falaises, décors,
 -- portiques, ligne d'arrivée, podium et mur de lave. Uniquement des blocs et matériaux Roblox standards.
 
 local Lighting = game:GetService("Lighting")
@@ -4191,7 +4634,7 @@ function MapBuilder.Build()
 end
 
 return MapBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Achats Robux : pass de jeu (permanents) et produits développeur (paquets de pièces).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Achats Robux : pass de jeu (permanents) et produits développeur (paquets de pièces).
 -- Aucun achat n'est accordé sans reçu valide ; chaque reçu est enregistré (idempotent) avant d'être validé.
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -4388,7 +4831,7 @@ function MonetizationService.Init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">ProgressService</string><ProtectedString name="Source"><![CDATA[-- Progression : or, os, zoo (animaux, niveaux, caisse), améliorations, histoire, quêtes, boutique.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">ProgressService</string><ProtectedString name="Source"><![CDATA[-- Progression : or, os, zoo (animaux, niveaux, caisse), améliorations, histoire, quêtes, boutique.
 -- Toutes les décisions sont prises ici (serveur) ; le client ne fait que demander.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5233,7 +5676,7 @@ function ProgressService.Init()
 end
 
 return ProgressService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">RideService</string><ProtectedString name="Source"><![CDATA[-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">RideService</string><ProtectedString name="Source"><![CDATA[-- Cœur du gameplay : monter un animal, bondir, lasso, cœurs et captures, vies, boss, zones, arrivée.
 -- Le serveur est autoritaire : positions des bêtes, portée du lasso, score et états sont validés ici.
 
 local Debris = game:GetService("Debris")
@@ -6214,7 +6657,7 @@ function RideService.Init()
 end
 
 return RideService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">RoundService</string><ProtectedString name="Source"><![CDATA[-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">RoundService</string><ProtectedString name="Source"><![CDATA[-- Boucle d'expéditions : attente des joueurs prêts -> compte à rebours -> expédition -> résultats.
 -- Les joueurs prêts partent ensemble dans la zone choisie par la majorité. Les récompenses sont versées ici.
 
 local Players = game:GetService("Players")
@@ -6519,7 +6962,7 @@ function RoundService.Run()
 end
 
 return RoundService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[-- État partagé côté serveur (une seule source de vérité pour la manche en cours).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[-- État partagé côté serveur (une seule source de vérité pour la manche en cours).
 
 local State = {
 	Phase = "Intermission", -- Intermission | Countdown | Running | Results
@@ -6561,7 +7004,7 @@ function State.CountActive()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">ZooService</string><ProtectedString name="Source"><![CDATA[-- Le zoo de chaque joueur : une parcelle dans le parc central, des enclos qui se remplissent d'animaux,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">ZooService</string><ProtectedString name="Source"><![CDATA[-- Le zoo de chaque joueur : une parcelle dans le parc central, des enclos qui se remplissent d'animaux,
 -- une caisse qui accumule de l'or, des visiteurs (affichés côté client). Reconstruite quand le zoo change.
 
 local Players = game:GetService("Players")
@@ -6874,7 +7317,7 @@ end
 
 return ZooService
 ]]></ProtectedString></Properties></Item></Item></Item></Item>
-<Item class="StarterPlayer" referent="RBX40"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX39"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX38"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée client de Saute-Troupeau.
+<Item class="StarterPlayer" referent="RBX41"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX40"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX39"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- Point d'entrée client de Saute-Troupeau.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6945,7 +7388,7 @@ Ambience.init()
 Visitors.init()
 Cinematics.init()
 Anim.init()
-]]></ProtectedString></Properties><Item class="Folder" referent="RBX37"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- Ambiance : la lumière et la brume changent progressivement selon le biome traversé (effet local au client).
+]]></ProtectedString></Properties><Item class="Folder" referent="RBX38"><Properties><string name="Name">Modules</string></Properties><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- Ambiance : la lumière et la brume changent progressivement selon le biome traversé (effet local au client).
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -7001,7 +7444,7 @@ function Ambience.init()
 end
 
 return Ambience
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Anim</string><ProtectedString name="Source"><![CDATA[-- Animations côté client (caméra, écran, bras du joueur). Chacune est derrière Config.Animations et encapsulée
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Anim</string><ProtectedString name="Source"><![CDATA[-- Animations côté client (caméra, écran, bras du joueur). Chacune est derrière Config.Animations et encapsulée
 -- en pcall via Anim.run : une animation qui échoue est signalée une fois puis ignorée, le jeu continue.
 
 local Lighting = game:GetService("Lighting")
@@ -7157,7 +7600,7 @@ function Anim.init()
 end
 
 return Anim
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CameraRig</string><ProtectedString name="Source"><![CDATA[-- Caméra de course : derrière et au-dessus du cavalier, regardant vers +Z (sens de la piste).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">CameraRig</string><ProtectedString name="Source"><![CDATA[-- Caméra de course : derrière et au-dessus du cavalier, regardant vers +Z (sens de la piste).
 -- Actif pendant la course ; en spectateur, suit le leader. Sinon, caméra Roblox par défaut.
 
 local Players = game:GetService("Players")
@@ -7329,7 +7772,7 @@ function CameraRig.init()
 end
 
 return CameraRig
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- Cinématiques : intro, mini tutoriel, aperçu d'une nouvelle zone, capture d'un boss. Seulement aux moments clés,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- Cinématiques : intro, mini tutoriel, aperçu d'une nouvelle zone, capture d'un boss. Seulement aux moments clés,
 -- jamais pendant l'action. Passables d'un appui, rejouables (menu Histoire), protégées par pcall, jamais bloquantes :
 -- la caméra seule est scénarisée, le joueur garde toujours le contrôle, et un départ en expédition l'interrompt.
 -- La logique (séquences, durée, passage, reprise, choix de la prochaine) est dans shared/CinematicPlan.
@@ -7689,7 +8132,7 @@ function Cinematics.init()
 end
 
 return Cinematics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[-- État côté client + mini système d'abonnement.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[-- État côté client + mini système d'abonnement.
 
 local ClientState = {
 	Data = nil, -- profil envoyé par le serveur
@@ -7750,7 +8193,7 @@ function ClientState.inRun()
 end
 
 return ClientState
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Controls</string><ProtectedString name="Source"><![CDATA[-- Contrôles à une seule action, contextuelle (clavier, souris, tactile, manette) :
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Controls</string><ProtectedString name="Source"><![CDATA[-- Contrôles à une seule action, contextuelle (clavier, souris, tactile, manette) :
 --   * en selle   : SAUTER (quitte la monture avec un bond vers l'avant)
 --   * en l'air   : LASSO (maintenir = lasso automatique dès qu'une bête est à portée)
 -- Direction : A/D, flèches, joystick (pilote la monture, ou le vol en l'air).
@@ -8033,7 +8476,7 @@ function Controls.init()
 end
 
 return Controls
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, cœurs roses sur les animaux récupérables, cibles du saut et du lasso.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">CreatureFx</string><ProtectedString name="Source"><![CDATA[-- Côté client : animation des pattes/ailes, cœurs roses sur les animaux récupérables, cibles du saut et du lasso.
 -- Les animations ne sont jamais répliquées : le serveur ne déplace que la pièce Root.
 
 local RunService = game:GetService("RunService")
@@ -8348,7 +8791,7 @@ function CreatureFx.lassoTarget()
 end
 
 return CreatureFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">HUD</string><ProtectedString name="Source"><![CDATA[-- Interface d'expédition : minuteur, score, vies, lassos, combo, classement, confiance de l'animal monté,
 -- boutons (sauter / lasso, récupérer, lasso de capture), messages, écran « Continuer ? » et résultats.
 
 local Players = game:GetService("Players")
@@ -9130,7 +9573,7 @@ function HUD.init()
 end
 
 return HUD
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Menu</string><ProtectedString name="Source"><![CDATA[-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Menu</string><ProtectedString name="Source"><![CDATA[-- Menus du parc : Expédition (zone + départ), Zoo (caisse, animaux, améliorations), Boutique (équipement,
 -- chapeaux, cordes), Quêtes & histoire, Boutique Robux. Le client ne fait que demander : le serveur valide tout.
 
 local Players = game:GetService("Players")
@@ -10119,7 +10562,7 @@ function Menu.init()
 end
 
 return Menu
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Sfx</string><ProtectedString name="Source"><![CDATA[-- Audio : effets sonores (fichiers fournis avec le client Roblox) et musique par lieu avec fondu enchaîné.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Sfx</string><ProtectedString name="Source"><![CDATA[-- Audio : effets sonores (fichiers fournis avec le client Roblox) et musique par lieu avec fondu enchaîné.
 -- Les musiques se règlent dans Config.Audio.Music ; vides par défaut. Deux SoundGroups (Musique / Effets)
 -- permettent le réglage du volume et le mode muet.
 
@@ -10232,7 +10675,7 @@ function Sfx.modeLabel()
 end
 
 return Sfx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Petite boîte à outils d'interface dans le style Roblox (coins arrondis, police Fredoka).
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Petite boîte à outils d'interface dans le style Roblox (coins arrondis, police Fredoka).
 
 local TweenService = game:GetService("TweenService")
 
@@ -10389,7 +10832,7 @@ function UI.tween(inst, seconds, props, style)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Visitors</string><ProtectedString name="Source"><![CDATA[-- Visiteurs du zoo : de petits personnages en blocs qui se promènent devant les enclos du joueur.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Visitors</string><ProtectedString name="Source"><![CDATA[-- Visiteurs du zoo : de petits personnages en blocs qui se promènent devant les enclos du joueur.
 -- Purement visuels et locaux. Leur nombre grandit avec le zoo (attribut ZooVisitors, 2 à 30).
 
 local Players = game:GetService("Players")

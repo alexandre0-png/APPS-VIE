@@ -13,6 +13,7 @@ local AnimMath = require(Shared.AnimMath)
 
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
+local AssetService = require(script.Parent.AssetService)
 
 local CreatureService = {}
 
@@ -71,6 +72,15 @@ function CreatureService.BuildModel(def, variantIdx)
 	root.CastShadow = true
 	root.Parent = model
 	model.PrimaryPart = root
+
+	-- Modèle du catalogue : Root (invisible) reste la hitbox ; si l'habillage échoue, l'animal dessiné par le code est gardé.
+	local template = AssetService.Pick(def)
+	if template then
+		local ok, dressed = pcall(AssetService.Dress, model, root, def, variantIdx, template)
+		if ok and dressed then
+			return model, root
+		end
+	end
 
 	for _, spec in ipairs(def.parts) do
 		local part = newPart(
