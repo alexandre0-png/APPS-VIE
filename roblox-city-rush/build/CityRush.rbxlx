@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">640</int><float name="Gravity">196.2</float></Properties></Item><Item class="Lighting" referent="RBX1"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><float name="ClockTime">14</float><float name="Brightness">2.5</float><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX8"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX7"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[--[[
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">640</int><float name="Gravity">196.2</float></Properties></Item><Item class="Lighting" referent="RBX1"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><float name="ClockTime">14</float><float name="Brightness">2.5</float><bool name="GlobalShadows">true</bool></Properties></Item><Item class="ReplicatedStorage" referent="RBX9"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX8"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">AnimMath</string><ProtectedString name="Source"><![CDATA[--[[
 	AnimMath : fonctions pures des animations (testables sans Roblox).
 ]]
 
@@ -522,6 +522,45 @@ Config.Cinematics = {
 	},
 }
 
+-- Modèles Roblox externes (apparence uniquement). Chargés côté serveur par InsertService:LoadAsset, en pcall, avec délai maximum.
+-- Tout Script / LocalScript / ModuleScript / RemoteEvent / BindableEvent présent dans un modèle est supprimé ; la physique de conduite
+-- reste celle du code du jeu (le modèle n'est qu'une "carrosserie" soudée au châssis). Un modèle invalide est ignoré : la voiture
+-- intégrée au jeu reste en place. Enabled = false coupe tout chargement (aucun appel réseau).
+-- Les identifiants sont ceux fournis par l'utilisateur ; les noms affichés dans le jeu restent génériques (pas de marques).
+Config.Assets = {
+	Enabled = true,
+	LoadTimeout = 10, -- secondes par modèle
+	MaxParts = 400,
+	MaxSize = 150, -- studs : plus grand = rejeté
+	Vehicles = {
+		zoe = 12697468609, volvo = 12498575325, vw = 1312960740, rs4 = 1166118062, carrera = 8418468265,
+		bugattiBlue = 5510919963, bugattiGold = 9951814916, superRed = 12083366909, superWhite = 9825322891, midBlack = 5781315481,
+	},
+	-- apparence du joueur selon le véhicule du catalogue
+	VehicleSkins = { citadine = "zoe", berline = "volvo", pickup = "vw", muscle = "rs4", sport = "carrera", super = "bugattiBlue", gold = "bugattiGold" },
+	-- variantes des voitures de la ville (tirées au hasard en plus de l'apparence du modèle de base)
+	PublicVariants = { "superRed", "superWhite", "midBlack" },
+	PublicVariantChance = 0.3,
+	PoliceCars = { cruiser = 111786783762180, truck = 9386739850 },
+	PoliceTruckChance = 0.25,
+	Wreck = 8089000592, -- épave visuelle uniquement, jamais jouable
+	WreckCount = 3,
+	-- rotation supplémentaire (degrés) si un modèle regarde du mauvais côté : Yaw[id] = 180
+	Yaw = {},
+	-- Decor.size = plus grande dimension horizontale visée (studs) ; les modèles sont mis à l'échelle automatiquement
+	Decor = {
+		chair = { id = 8156800485, size = 2.6, count = 4 },
+		computer = { id = 130020507665878, size = 2.2, count = 1 },
+		lamp = { id = 5680874848, size = 1.6, count = 1 },
+		pool = { id = 14953074402, size = 12, count = 1, solid = true },
+		woodTable = { id = 839550130, size = 6, count = 1, solid = true },
+		metalTable = { id = 12470604445, size = 6, count = 1, solid = true },
+		plantWindow = { id = 15078054751, size = 2.5, count = 2 },
+		plantModern = { id = 16600867704, size = 3, count = 4 },
+		plantPot = { id = 116741237427172, size = 3, count = 2 },
+	},
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },
@@ -561,7 +600,46 @@ return {
 		BOOST = 0,
 	},
 }
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">SkinMath</string><ProtectedString name="Source"><![CDATA[--[[
+	SkinMath : calculs purs pour habiller un véhicule / placer un modèle externe (testables sans Roblox).
+]]
+
+local SkinMath = {}
+
+-- Échelle uniforme pour que le plus long côté horizontal (X ou Z) vaille targetLength
+function SkinMath.fitScale(sizeX, sizeZ, targetLength)
+	local longest = math.max(sizeX, sizeZ)
+	if longest <= 1e-6 or targetLength <= 0 then
+		return 1
+	end
+	return targetLength / longest
+end
+
+-- Rotation (radians) pour que l'axe long soit Z : quart de tour si X est plus long, plus rotation manuelle (degrés)
+function SkinMath.yawRadians(sizeX, sizeZ, extraDegrees)
+	local yaw = math.rad(extraDegrees or 0)
+	if sizeX > sizeZ then
+		yaw += math.pi / 2
+	end
+	return yaw
+end
+
+-- Dimensions plausibles ? Retourne (ok, raison)
+function SkinMath.sizeOk(x, y, z, maxSize)
+	if x ~= x or y ~= y or z ~= z then
+		return false, "dimensions invalides"
+	end
+	if x <= 0.05 or y <= 0.05 or z <= 0.05 then
+		return false, "modèle plat ou vide"
+	end
+	if math.max(x, y, z) > maxSize then
+		return false, "modèle trop grand"
+	end
+	return true, "ok"
+end
+
+return SkinMath
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
 	Util.lua : petites fonctions pures partagées.
 ]]
 
@@ -676,7 +754,7 @@ function Util.reconcile(t, defaults)
 end
 
 return Util
-]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX26"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX9"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="ServerScriptService" referent="RBX28"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX10"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[--[[
 	Main.server.lua : point d'entrée serveur de CITY RUSH.
 	Ordre : remotes -> données -> économie -> monde -> services dépendants -> boucles -> apparition des joueurs.
 ]]
@@ -700,6 +778,7 @@ local StoryService = require(Services.StoryService)
 local EventService = require(Services.EventService)
 local LeaderboardService = require(Services.LeaderboardService)
 local CinematicService = require(Services.CinematicService)
+local AssetService = require(Services.AssetService)
 local MonetizationService = require(Services.MonetizationService)
 
 -- Les joueurs peuvent arriver pendant la génération : on gère leur apparition dès maintenant.
@@ -751,6 +830,7 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 RemoteService.init()
+AssetService.init()
 DataService.init()
 EconomyService.init()
 World.build()
@@ -772,9 +852,427 @@ StoryService.start()
 EventService.start(World)
 LeaderboardService.start(World)
 
+-- modèles externes : chargés en arrière-plan, sans jamais bloquer le démarrage ni le jeu
+task.spawn(function()
+	local ok, err = pcall(function()
+		AssetService.preload()
+		AssetService.placeWrecks(World)
+		AssetService.placeDecor(World)
+		VehicleService.refreshPublic()
+	end)
+	if not ok then
+		warn("[CityRush] modèles externes ignorés : " .. tostring(err))
+	end
+end)
+
 workspace:SetAttribute("WorldReady", true)
 print("[CityRush] Serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX25"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">CinematicService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX27"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">AssetService</string><ProtectedString name="Source"><![CDATA[--[[
+	AssetService : chargement sécurisé de modèles Roblox externes (apparence des voitures, épaves, décor).
+	Règles :
+	  * serveur uniquement, InsertService:LoadAsset dans un pcall avec délai maximum
+	  * suppression de tout Script / LocalScript / ModuleScript / RemoteEvent / BindableEvent (et assimilés)
+	  * un véhicule doit avoir un PrimaryPart ou des roues identifiables, sinon il est rejeté (voiture intégrée conservée)
+	  * la physique reste celle du jeu : la carrosserie chargée est soudée, sans collision ni masse
+	  * Config.Assets.Enabled = false : aucun chargement
+]]
+
+local InsertService = game:GetService("InsertService")
+local ServerStorage = game:GetService("ServerStorage")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local SkinMath = require(Shared:WaitForChild("SkinMath"))
+
+local AssetService = {}
+
+local templates = {} -- [id] = Model nettoyé
+local failures = {} -- [id] = raison
+local pending = {} -- [id] = true pendant le chargement
+local rng = Random.new()
+local store
+
+AssetService.stats = { loaded = 0, failed = 0, removed = 0 }
+
+-- Classes interdites : jamais conservées dans un modèle externe
+local FORBIDDEN = {
+	Script = true, LocalScript = true, ModuleScript = true, RemoteEvent = true, RemoteFunction = true,
+	BindableEvent = true, BindableFunction = true, Tool = true, HopperBin = true, Sound = true, ForceField = true,
+	Humanoid = true, ProximityPrompt = true, ClickDetector = true, Seat = true, VehicleSeat = true,
+	-- jointures du modèle d'origine : remplacées par nos soudures
+	Weld = true, WeldConstraint = true, Motor6D = true, ManualWeld = true, Snap = true,
+}
+AssetService.FORBIDDEN = FORBIDDEN
+
+local WHEEL_WORDS = { "wheel", "tire", "tyre", "roue", "rim" }
+
+local function isWheelName(name)
+	local n = string.lower(name)
+	for _, w in ipairs(WHEEL_WORDS) do
+		if string.find(n, w, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+local function cfg()
+	return Config.Assets
+end
+
+-- Supprime les instances interdites ; retourne (nb supprimées, nb de BaseParts)
+local function sanitize(root)
+	local removed, parts = 0, 0
+	for _, d in ipairs(root:GetDescendants()) do
+		if FORBIDDEN[d.ClassName] then
+			d:Destroy()
+			removed += 1
+		end
+	end
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("BasePart") then
+			parts += 1
+		end
+	end
+	return removed, parts
+end
+AssetService.sanitize = sanitize
+
+-- Charge un modèle avec délai maximum. Retourne (conteneur | nil, raison)
+local function rawLoad(id)
+	local done, result, err, timedOut = false, nil, nil, false
+	task.spawn(function()
+		local ok, res = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if ok then
+			result = res
+		else
+			err = tostring(res)
+		end
+		done = true
+		if timedOut and result then
+			result:Destroy() -- arrivé trop tard : jeté
+		end
+	end)
+	local t0 = os.clock()
+	while not done and os.clock() - t0 < cfg().LoadTimeout do
+		task.wait(0.1)
+	end
+	if not done then
+		timedOut = true
+		return nil, "délai dépassé"
+	end
+	if not result then
+		return nil, err or "chargement refusé"
+	end
+	return result, nil
+end
+
+-- kind = "vehicle" | "wreck" | "decor". Retourne (Model nettoyé | nil, raison)
+local function prepare(id, kind)
+	local container, reason = rawLoad(id)
+	if not container then
+		return nil, reason
+	end
+	-- un seul Model racine (ou on regroupe les parts)
+	local root = container:FindFirstChildOfClass("Model")
+	if not root then
+		root = Instance.new("Model")
+		for _, c in ipairs(container:GetChildren()) do
+			if c:IsA("BasePart") then
+				c.Parent = root
+			end
+		end
+	end
+	container:Destroy()
+	local removed, parts = sanitize(root)
+	AssetService.stats.removed += removed
+	if parts == 0 then
+		root:Destroy()
+		return nil, "modèle vide"
+	end
+	if parts > cfg().MaxParts then
+		root:Destroy()
+		return nil, "trop de parts (" .. parts .. ")"
+	end
+	if kind == "vehicle" and not root.PrimaryPart then
+		-- pas de PrimaryPart : acceptable seulement si des roues sont identifiables
+		local wheels, biggest, bigVol = 0, nil, -1
+		for _, d in ipairs(root:GetDescendants()) do
+			if d:IsA("BasePart") then
+				if isWheelName(d.Name) then
+					wheels += 1
+				end
+				local vol = d.Size.X * d.Size.Y * d.Size.Z
+				if vol > bigVol then
+					biggest, bigVol = d, vol
+				end
+			end
+		end
+		if wheels < 2 or not biggest then
+			root:Destroy()
+			return nil, "ni PrimaryPart ni roues identifiables"
+		end
+		root.PrimaryPart = biggest
+	end
+	local _, size = root:GetBoundingBox()
+	local ok, why = SkinMath.sizeOk(size.X, size.Y, size.Z, cfg().MaxSize)
+	if not ok then
+		root:Destroy()
+		return nil, why
+	end
+	return root, nil
+end
+
+local function ensureLoaded(id, kind)
+	if templates[id] or failures[id] or pending[id] then
+		return
+	end
+	pending[id] = true
+	local ok, root, reason = pcall(prepare, id, kind)
+	pending[id] = nil
+	if ok and root then
+		root.Name = "Template_" .. id
+		root.Parent = store
+		templates[id] = root
+		AssetService.stats.loaded += 1
+	else
+		failures[id] = ok and reason or tostring(root)
+		AssetService.stats.failed += 1
+		warn(string.format("[AssetService] modèle %s ignoré : %s", tostring(id), tostring(failures[id])))
+	end
+end
+
+function AssetService.getTemplate(id)
+	return templates[id]
+end
+
+function AssetService.failureReason(id)
+	return failures[id]
+end
+
+-- Précharge tous les modèles configurés (en parallèle, avec délai maximum). Retourne quand tout est terminé.
+function AssetService.preload()
+	local c = cfg()
+	if not c.Enabled then
+		return
+	end
+	local jobs = {}
+	local function add(id, kind)
+		if type(id) == "number" and id > 0 then
+			table.insert(jobs, { id = id, kind = kind })
+		end
+	end
+	for _, id in pairs(c.Vehicles) do
+		add(id, "vehicle")
+	end
+	for _, id in pairs(c.PoliceCars) do
+		add(id, "vehicle")
+	end
+	add(c.Wreck, "wreck")
+	for _, d in pairs(c.Decor) do
+		add(d.id, "decor")
+	end
+	local remaining = #jobs
+	for _, j in ipairs(jobs) do
+		task.spawn(function()
+			ensureLoaded(j.id, j.kind)
+			remaining -= 1
+		end)
+	end
+	local t0 = os.clock()
+	while remaining > 0 and os.clock() - t0 < c.LoadTimeout + 5 do
+		task.wait(0.1)
+	end
+end
+
+-- ---------------------------------------------------------------- pose d'un modèle sur un repère
+-- Met à l'échelle (longueur cible), oriente (axe long = Z), pose le bas à `bottomY` dans le repère `frame`.
+local function fit(clone, frame, targetLength, bottomY, extraYawDeg)
+	local _, size0 = clone:GetBoundingBox()
+	local scale = SkinMath.fitScale(size0.X, size0.Z, targetLength)
+	clone:ScaleTo(clone:GetScale() * scale)
+	local bboxCF, size = clone:GetBoundingBox()
+	local yaw = SkinMath.yawRadians(size.X, size.Z, extraYawDeg or 0)
+	local target = frame * CFrame.new(0, bottomY + size.Y / 2, 0) * CFrame.Angles(0, yaw, 0)
+	local pivot = clone:GetPivot()
+	local pivotToBBox = pivot:ToObjectSpace(bboxCF)
+	clone:PivotTo(target * pivotToBBox:Inverse())
+end
+
+local function weldAll(clone, chassis, collide)
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = collide == true
+			d.CanTouch = false
+			d.Massless = true
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = chassis
+			w.Part1 = d
+			w.Parent = d
+		end
+	end
+end
+
+-- Remplace l'apparence d'un véhicule construit par VehicleBuilder. Retourne true si la carrosserie externe est en place.
+function AssetService.skinVehicle(vehicle, id)
+	if not cfg().Enabled or type(id) ~= "number" then
+		return false
+	end
+	local template = templates[id]
+	local chassis = vehicle.PrimaryPart
+	if not template or not chassis then
+		return false
+	end
+	local ok, err = pcall(function()
+		local clone = template:Clone()
+		sanitize(clone) -- ceinture et bretelles : le gabarit est déjà propre
+		fit(clone, chassis.CFrame, chassis.Size.Z + 1, -2.2, (cfg().Yaw or {})[id])
+		weldAll(clone, chassis, false)
+		clone.Name = "Skin"
+		-- on masque la carrosserie intégrée, on garde colliders, sièges et lumières
+		for _, d in ipairs(vehicle:GetChildren()) do
+			if d:IsA("BasePart") and d ~= chassis and d.Name ~= "Collider" and d.Name ~= "DriverSeat" and d.Name ~= "PassengerSeat" then
+				d.Transparency = 1
+			end
+		end
+		chassis.Transparency = 1
+		clone.Parent = vehicle
+	end)
+	if not ok then
+		warn("[AssetService] apparence ignorée : " .. tostring(err))
+		local bad = vehicle:FindFirstChild("Skin")
+		if bad then
+			bad:Destroy()
+		end
+		return false
+	end
+	vehicle:SetAttribute("Skin", id)
+	return true
+end
+
+function AssetService.vehicleId(key)
+	local id = cfg().Vehicles[key]
+	return type(id) == "number" and id or nil
+end
+
+function AssetService.pickPublicSkin(baseSpecId)
+	local c = cfg()
+	if #c.PublicVariants > 0 and rng:NextNumber() < c.PublicVariantChance then
+		return AssetService.vehicleId(c.PublicVariants[rng:NextInteger(1, #c.PublicVariants)])
+	end
+	return AssetService.vehicleId(c.VehicleSkins[baseSpecId] or "")
+end
+
+function AssetService.pickPoliceSkin()
+	local c = cfg()
+	if rng:NextNumber() < c.PoliceTruckChance then
+		return c.PoliceCars.truck
+	end
+	return c.PoliceCars.cruiser
+end
+
+-- ---------------------------------------------------------------- épaves et décor (statique, ancré, jamais jouable)
+local function placeStatic(id, cf, targetSize, solid, parent)
+	local template = templates[id]
+	if not template then
+		return nil
+	end
+	local ok, res = pcall(function()
+		local clone = template:Clone()
+		sanitize(clone)
+		fit(clone, cf, targetSize, 0, 0)
+		local bboxCF, size = clone:GetBoundingBox()
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.Massless = true
+			end
+		end
+		if solid then
+			local hit = Instance.new("Part")
+			hit.Name = "SolidBox"
+			hit.Anchored = true
+			hit.Transparency = 1
+			hit.CanQuery = false
+			hit.Size = size
+			hit.CFrame = bboxCF
+			hit.Parent = clone
+		end
+		clone.Parent = parent
+		return clone
+	end)
+	if not ok then
+		warn("[AssetService] décor ignoré : " .. tostring(res))
+		return nil
+	end
+	return res
+end
+
+function AssetService.placeWrecks(world)
+	local c = cfg()
+	if not c.Enabled or not templates[c.Wreck] then
+		return 0
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "Wrecks"
+	folder.Parent = world.Root
+	local n = 0
+	for i, pos in ipairs(world.WreckSpots or {}) do
+		if i > c.WreckCount then
+			break
+		end
+		local m = placeStatic(c.Wreck, CFrame.new(pos) * CFrame.Angles(0, i * 1.7, 0), 13, false, folder)
+		if m then
+			m.Name = "Wreck"
+			m:SetAttribute("Wreck", true)
+			n += 1
+		end
+	end
+	return n
+end
+
+function AssetService.placeDecor(world)
+	local c = cfg()
+	if not c.Enabled or not world.DecorSpots then
+		return 0
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "Decor3D"
+	folder.Parent = world.Root
+	local n = 0
+	for key, spots in pairs(world.DecorSpots) do
+		local d = c.Decor[key]
+		if d and templates[d.id] then
+			for i, spot in ipairs(spots) do
+				if i > d.count then
+					break
+				end
+				local m = placeStatic(d.id, spot, d.size, d.solid, folder)
+				if m then
+					m.Name = key
+					n += 1
+				end
+			end
+		end
+	end
+	return n
+end
+
+function AssetService.init()
+	store = ServerStorage:FindFirstChild("CityRushAssets")
+	if not store then
+		store = Instance.new("Folder")
+		store.Name = "CityRushAssets"
+		store.Parent = ServerStorage
+	end
+end
+
+return AssetService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">CinematicService</string><ProtectedString name="Source"><![CDATA[--[[
 	CinematicService : décide quand une cinématique est jouée (une seule fois par joueur) et prévient le client.
 	Le client ne peut pas déclencher de cinématique ; il peut seulement la passer.
 	Aucun effet sur le gameplay : une cinématique n'attribue rien et ne bloque rien.
@@ -823,7 +1321,7 @@ function CinematicService.play(player, id)
 end
 
 return CinematicService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">CollectibleService</string><ProtectedString name="Source"><![CDATA[--[[
 	CollectibleService : 30 étoiles dorées cachées dans la ville (stockées par joueur).
 	Détection par proximité côté serveur (aucune confiance accordée au client).
 ]]
@@ -935,7 +1433,7 @@ function CollectibleService.start()
 end
 
 return CollectibleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
 	DataService : chargement / sauvegarde des profils joueurs (DataStore).
 	- Verrou de session (JobId) pour éviter la duplication entre serveurs
 	- Réessais avec pcall, sauvegarde automatique, sauvegarde à la fermeture
@@ -1172,7 +1670,7 @@ function DataService.getBoard()
 end
 
 return DataService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">EconomyService</string><ProtectedString name="Source"><![CDATA[--[[
 	EconomyService : argent, XP/niveaux, statistiques, succès, récompense quotidienne,
 	achat de véhicules, état envoyé au client.
 	Toutes les modifications d'état passent par ici (autorité serveur).
@@ -1555,7 +2053,7 @@ function EconomyService.init()
 end
 
 return EconomyService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">EventService</string><ProtectedString name="Source"><![CDATA[--[[
 	EventService : événements mondiaux récurrents
 	- Largage de caisses : des caisses d'argent apparaissent dans la ville, premier arrivé premier servi
 	- Heure double XP
@@ -1688,7 +2186,7 @@ function EventService.start(world)
 end
 
 return EventService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source"><![CDATA[--[[
 	LeaderboardService : classement mondial de l'argent (OrderedDataStore)
 	affiché sur le panneau de la place centrale et dans le menu Profil.
 ]]
@@ -1816,7 +2314,7 @@ function LeaderboardService.start(world)
 end
 
 return LeaderboardService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">MissionService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">MissionService</string><ProtectedString name="Source"><![CDATA[--[[
 	MissionService : livraison, taxi, course de rue, braquage.
 	Tout est validé côté serveur : positions des objectifs, temps, récompenses.
 	Le client ne reçoit que l'état d'affichage (titre, objectif, position, échéance).
@@ -2229,7 +2727,7 @@ function MissionService.start()
 end
 
 return MissionService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[--[[
 	MonetizationService : achats intégrés (Developer Products) et Game Passes.
 	- ProcessReceipt idempotent (reçus déjà traités mémorisés dans le profil)
 	- Les IDs sont dans MonetizationIds (remplis par tools/publish.py)
@@ -2340,7 +2838,7 @@ function MonetizationService.init()
 end
 
 return MonetizationService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">PedestrianService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">PedestrianService</string><ProtectedString name="Source"><![CDATA[--[[
 	PedestrianService : piétons qui se promènent sur les trottoirs, rigs R15 classiques Roblox,
 	renversements (étourdis, sans violence), billets lâchés ; fabrique aussi les rigs de policiers.
 ]]
@@ -2643,7 +3141,7 @@ function Pedestrians.start()
 end
 
 return Pedestrians
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">RemoteService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">RemoteService</string><ProtectedString name="Source"><![CDATA[--[[
 	RemoteService : crée tous les RemoteEvents et fournit une connexion sécurisée
 	(limite de fréquence par joueur + validation du type des arguments).
 ]]
@@ -2731,7 +3229,7 @@ function RemoteService.on(name, cooldown, validator, handler)
 end
 
 return RemoteService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">StoryService</string><ProtectedString name="Source"><![CDATA[--[[
 	StoryService : "L'Affaire du Coffre". Quatre énigmes à résoudre dans l'ordre en se rendant sur place
 	(détection côté serveur), chacune révèle un chiffre ; le code à 4 chiffres ouvre le coffre final.
 	Le client ne peut ni sauter de chapitre ni deviner le code sans les chiffres : 2 s entre deux essais,
@@ -2812,7 +3310,7 @@ function StoryService.start()
 end
 
 return StoryService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">VehicleBuilder</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleBuilder : construit les modèles de voitures (blocs Roblox) et leur physique "arcade".
 
 	Physique : 1 LinearVelocity en mode Plan (vitesse avant + adhérence latérale nulle)
@@ -3097,7 +3595,7 @@ end
 VehicleBuilder.RideHeight = 2.2
 
 return VehicleBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">VehicleService</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleService : apparition / suppression des véhicules, voitures publiques garées dans la rue,
 	verrouillage du siège conducteur, détection des collisions avec piétons et mobilier,
 	distance parcourue.
@@ -3115,6 +3613,7 @@ local VehicleBuilder = require(script.Parent.VehicleBuilder)
 local RemoteService = require(script.Parent.RemoteService)
 local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
+local AssetService = require(script.Parent.AssetService)
 
 local VehicleService = {}
 
@@ -3157,10 +3656,14 @@ local function applyColor(model, color)
 end
 
 -- Crée un véhicule (non parenté au monde tant que l'appelant ne le décide pas)
-local function create(spec, color, cf)
+local function create(spec, color, cf, skinId)
 	local model = VehicleBuilder.build(spec, color)
 	model:PivotTo(cf)
 	model.Parent = vehiclesFolder
+	if skinId then
+		-- carrosserie externe optionnelle : en cas d'échec la voiture intégrée reste visible
+		pcall(AssetService.skinVehicle, model, skinId)
+	end
 	return model
 end
 
@@ -3268,7 +3771,7 @@ function VehicleService.spawnFor(player, vehicleId)
 	local colorIndex = profile.Colors[vehicleId]
 	local color = colorIndex and Config.VehicleColors[colorIndex] or spec.color
 	local cf = CFrame.lookAt(Vector3.new(pos.X, gy + VehicleBuilder.RideHeight + 0.3, pos.Z), Vector3.new(pos.X, gy + VehicleBuilder.RideHeight + 0.3, pos.Z) + flatLook)
-	local model = create(spec, color, cf)
+	local model = create(spec, color, cf, AssetService.vehicleId(Config.Assets.VehicleSkins[vehicleId] or ""))
 	model:SetAttribute("OwnerUserId", player.UserId)
 	playerVehicle[player] = model
 	hookSeats(model)
@@ -3289,7 +3792,7 @@ local function spawnPublicAt(entry)
 	local color = Config.VehicleColors[rng:NextInteger(1, #Config.VehicleColors)]
 	local gy = entry.home.Position.Y
 	local cf = entry.home + Vector3.new(0, VehicleBuilder.RideHeight + 0.2 - 0.3 + (gy - entry.home.Position.Y), 0)
-	local model = create(spec, color, cf)
+	local model = create(spec, color, cf, AssetService.pickPublicSkin(spec.id))
 	model:SetAttribute("Public", true)
 	hookSeats(model)
 	entry.model = model
@@ -3343,7 +3846,7 @@ end
 -- Voitures de police (IA pilotée par WantedService)
 -- ====================================================================
 function VehicleService.spawnCruiser(cf)
-	local model = create(Config.Police, Config.Police.color, cf)
+	local model = create(Config.Police, Config.Police.color, cf, AssetService.pickPoliceSkin())
 	model:SetAttribute("Police", true)
 	for _, seatName in ipairs({ "DriverSeat", "PassengerSeat" }) do
 		local seat = model:FindFirstChild(seatName)
@@ -3447,6 +3950,25 @@ function VehicleService.init()
 	end)
 end
 
+-- Re-crée les voitures de rue inoccupées (après le préchargement des apparences externes)
+function VehicleService.refreshPublic()
+	for _, e in ipairs(publicCars) do
+		local m = e.model
+		local occupied = false
+		if m then
+			for _, seat in ipairs({ m:FindFirstChild("DriverSeat"), m:FindFirstChild("PassengerSeat") }) do
+				if seat and seat.Occupant then
+					occupied = true
+				end
+			end
+		end
+		if m and not occupied and not m:GetAttribute("Skin") then
+			m:Destroy()
+			spawnPublicAt(e)
+		end
+	end
+end
+
 function VehicleService.start()
 	for _, cf in ipairs(World.ParkingSpots) do
 		local entry = { home = cf }
@@ -3459,7 +3981,7 @@ function VehicleService.start()
 end
 
 return VehicleService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">WantedService</string><ProtectedString name="Source"><![CDATA[--[[
 	WantedService : niveau de recherche (0-5 étoiles), policiers à pied et voitures de police (IA),
 	arrestations, Pay'n'Spray. Toute la logique est côté serveur.
 ]]
@@ -4042,7 +4564,7 @@ function WantedService.start()
 end
 
 return WantedService
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[--[[
 	WorldService : génère toute la ville avec des Parts natives Roblox (aucun asset externe).
 	Grille 5x5 de blocs, routes, bâtiments par quartier, props destructibles, lampadaires,
 	points d'intérêt (missions, concession, police...), éclairage et cycle jour/nuit.
@@ -4077,6 +4599,8 @@ World.PolicePoint = CFrame.new(0, 3, 372)
 World.Hideout = Vector3.new(0, 0.5, -400)
 World.Bank = Vector3.new(0, 0.5, -200)
 World.Ready = false
+World.WreckSpots = {}
+World.DecorSpots = {}
 
 local root, fRoads, fBuild, fBands, fProps, fBreak, fDecor
 local made = 0
@@ -4499,6 +5023,41 @@ local function districtStadium(i, j)
 	return c
 end
 
+-- Club (salle de billard) sur la place : pièce praticable meublée par des modèles externes (voir AssetService)
+local function buildClub(plazaCenter)
+	local cx, cz = plazaCenter.X + 58, plazaCenter.Z + 25
+	local W, D, H = 36, 28, 12
+	local wall = rgb(210, 200, 185)
+	mk(fBuild, Vector3.new(W, 0.2, D), Vector3.new(cx, SW_H + 0.1, cz), rgb(120, 85, 60), Enum.Material.WoodPlanks, { CanCollide = false })
+	mk(fBuild, Vector3.new(W + 2, 1, D + 2), Vector3.new(cx, SW_H + H + 0.5, cz), rgb(70, 50, 45), Enum.Material.Slate)
+	mk(fBuild, Vector3.new(1, H, D), Vector3.new(cx + W / 2, SW_H + H / 2, cz), wall, Enum.Material.Brick) -- fond
+	mk(fBuild, Vector3.new(W, H, 1), Vector3.new(cx, SW_H + H / 2, cz - D / 2), wall, Enum.Material.Brick)
+	mk(fBuild, Vector3.new(W, H, 1), Vector3.new(cx, SW_H + H / 2, cz + D / 2), wall, Enum.Material.Brick)
+	-- façade ouest avec une porte de 8 studs
+	local seg = (D - 8) / 2
+	mk(fBuild, Vector3.new(1, H, seg), Vector3.new(cx - W / 2, SW_H + H / 2, cz - D / 2 + seg / 2), wall, Enum.Material.Brick)
+	mk(fBuild, Vector3.new(1, H, seg), Vector3.new(cx - W / 2, SW_H + H / 2, cz + D / 2 - seg / 2), wall, Enum.Material.Brick)
+	mk(fBuild, Vector3.new(1, 4, 8), Vector3.new(cx - W / 2, SW_H + H - 2, cz), wall, Enum.Material.Brick)
+	local sg = mk(fDecor, Vector3.new(1, 1, 1), Vector3.new(cx - W / 2 - 1, SW_H + H + 4, cz), rgb(255, 255, 255), Enum.Material.SmoothPlastic, NOCOLLIDE)
+	sg.Transparency = 1
+	sign(sg, "CLUB BILLARD", 0, 260, rgb(255, 120, 200))
+	local function spot(dx, dz, up)
+		return CFrame.new(cx + dx, SW_H + (up or 0), cz + dz)
+	end
+	World.Club = { center = Vector3.new(cx, SW_H, cz), size = Vector3.new(W, H, D) }
+	World.DecorSpots = {
+		pool = { spot(6, 0) },
+		woodTable = { spot(-10, -8) },
+		metalTable = { spot(-10, 8) },
+		lamp = { spot(-10, -8, 3.2) },
+		computer = { spot(-10, 8, 3.2) },
+		chair = { spot(-6, -8), spot(-14, -8), spot(-6, 8), spot(-14, 8) },
+		plantWindow = { spot(W / 2 - 2, -D / 2 + 2), spot(W / 2 - 2, D / 2 - 2) },
+		plantModern = { spot(-W / 2 + 3, -D / 2 + 2), spot(-W / 2 + 3, D / 2 - 2), spot(0, -D / 2 + 2), spot(0, D / 2 - 2) },
+		plantPot = { spot(W / 2 - 8, -D / 2 + 2), spot(W / 2 - 8, D / 2 - 2) },
+	}
+end
+
 local function districtPlaza(i, j)
 	local c = buildBlockSlab(i, j, Enum.Material.Cobblestone, rgb(170, 160, 150))
 	-- fontaine
@@ -4528,6 +5087,7 @@ local function districtPlaza(i, j)
 		local a = k * math.pi / 2 + math.pi / 4
 		tree(c.X + math.cos(a) * 62, c.Z + math.sin(a) * 62, false)
 	end
+	buildClub(c)
 	for k = 1, 4 do
 		breakable("bench", c.X + (k - 2.5) * 22, c.Z + 26)
 	end
@@ -4960,6 +5520,10 @@ function World.build()
 	placeStars()
 	computeParking()
 	computeTaxiStops()
+	do
+		local c = Config.blockCenter(2, 1)
+		World.WreckSpots = { Vector3.new(c.X - 20, SW_H, c.Z), Vector3.new(c.X + 30, SW_H, c.Z), Vector3.new(c.X - 45, SW_H, c.Z + 45) }
+	end
 	startDayCycle()
 
 	root:SetAttribute("Built", true)
@@ -4968,7 +5532,7 @@ function World.build()
 end
 
 return World
-]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX41"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX40"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX27"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item></Item><Item class="StarterPlayer" referent="RBX43"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX42"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX29"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[--[[
 	Client.client.lua : point d'entrée client de CITY RUSH.
 	Écran de chargement, mise à l'échelle de l'interface (téléphone / tablette / PC / console),
 	puis initialisation des contrôleurs.
@@ -5070,7 +5634,7 @@ task.spawn(function()
 	end
 	loading:Destroy()
 end)
-]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX39"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="Folder" referent="RBX41"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[--[[
 	Animations : animations arcade (visuelles, locales, sans effet sur la physique ni sur le serveur).
 	Chaque animation est activable dans Config.Animations et protégée par pcall.
 	Véhicule : roulis dans les virages, plongée/cabrage de suspension, effet de démarrage, dérapage stylisé
@@ -5386,7 +5950,7 @@ function Animations.init()
 end
 
 return Animations
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Atmosphere</string><ProtectedString name="Source"><![CDATA[--[[
 	Atmosphere.lua : effets visuels côté client
 	- fenêtres et lampadaires allumés la nuit (tag "Lit")
 	- phares des véhicules occupés la nuit
@@ -5527,7 +6091,7 @@ function Atmosphere.init()
 end
 
 return Atmosphere
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[--[[
 	Cinematics : séquences caméra courtes (20-40 s), skippables, jamais bloquantes.
 	- déclenchées uniquement par le serveur (Remote "Cinematic"), une fois par joueur
 	- bandes noires, légendes, bouton "Passer" (+ Espace / Entrée / B manette)
@@ -5718,7 +6282,7 @@ function Cinematics.init(gui)
 end
 
 return Cinematics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Hud</string><ProtectedString name="Source"><![CDATA[--[[
 	Hud.lua : interface de jeu permanente (niveau, argent, radar, étoiles de recherche,
 	mission, notifications, compteur de vitesse, bannières d'événements, écran d'arrestation).
 ]]
@@ -6115,7 +6679,7 @@ function Hud.init(screenGui)
 end
 
 return Hud
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">MapView</string><ProtectedString name="Source"><![CDATA[--[[
 	MapView : carte nord en haut (nord = -Z). Utilisée pour le mini-radar et la grande carte.
 	Le décor de la carte est dessiné à partir de Config (grille, quartiers, POI).
 ]]
@@ -6259,7 +6823,7 @@ function MapView:update(centerPos, heading)
 end
 
 return MapView
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Panels</string><ProtectedString name="Source"><![CDATA[--[[
 	Panels.lua : fenêtres modales (garage / concessionnaire, boutique Robux, profil + succès + classement,
 	grande carte, récompense quotidienne). Raccourcis clavier : G, B, P, M.
 ]]
@@ -6663,7 +7227,7 @@ function Panels.init(screenGui)
 end
 
 return Panels
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">SoundController</string><ProtectedString name="Source"><![CDATA[--[[
 	SoundController : sons du véhicule piloté. Chaque son est désactivé proprement tant que
 	Config.Sounds.<nom> est vide (voir A_FAIRE_UTILISATEUR.md pour brancher des audios).
 	- moteur : boucle dont la hauteur suit la vitesse
@@ -6723,7 +7287,7 @@ function SoundController.init()
 end
 
 return SoundController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">State</string><ProtectedString name="Source"><![CDATA[--[[
 	State.lua : état client synchronisé avec le serveur (lecture seule côté UI).
 ]]
 
@@ -6821,7 +7385,7 @@ function State.init()
 end
 
 return State
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[--[[
 	UI.lua : petites fabriques d'interface au style Roblox (Gotham, coins arrondis).
 ]]
 
@@ -6914,7 +7478,7 @@ function UI.tween(inst, info, goal)
 end
 
 return UI
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">VehicleController</string><ProtectedString name="Source"><![CDATA[--[[
 	VehicleController : pilotage arcade du véhicule par le client du conducteur.
 	Lit les entrées du VehicleSeat (clavier, manette, joystick tactile gérés par Roblox),
 	écrit la vitesse cible dans les contraintes créées par le serveur.
@@ -7087,7 +7651,7 @@ function VehicleController.init()
 end
 
 return VehicleController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">VisualFX</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">VisualFX</string><ProtectedString name="Source"><![CDATA[--[[
 	VisualFX : effets visuels client, tous réglables dans Config.Visual et protégés par pcall.
 	- qualité auto (tactile = low) : bloom / rayons / ombres
 	- lampadaires qui éclairent la nuit (budget de lumières par qualité)

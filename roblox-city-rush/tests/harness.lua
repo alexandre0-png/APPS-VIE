@@ -113,6 +113,8 @@ CF.__mul = function(a, b)
 end
 CF.__add = function(a, v) return CF.new(a._p + v) end
 CF.__sub = function(a, v) return CF.new(a._p - v) end
+function CF:Inverse() return CF.new(V3.new(-self._p.X, -self._p.Y, -self._p.Z)) end
+function CF:ToObjectSpace(o) return CF.new(o._p - self._p) end
 
 local function auto(name)
 	local t = {}
@@ -206,6 +208,34 @@ end
 function Obj:FireClient(player, ...) table.insert(self._fired, { player = player, args = table.pack(...) }) end
 function Obj:FireAllClients(...) table.insert(self._fired, { all = true, args = table.pack(...) }) end
 function Obj:FireServer(...) self._props.OnServerEvent:Fire(...) end
+function Obj:GetBoundingBox()
+	local minx, miny, minz, maxx, maxy, maxz = math.huge, math.huge, math.huge, -math.huge, -math.huge, -math.huge
+	local any = false
+	for _, d in ipairs(self:GetDescendants()) do
+		if BASEPART[d._props.ClassName] and d._props.Size then
+			local p, sz = d._props.Position or V3.zero, d._props.Size
+			any = true
+			minx, maxx = math.min(minx, p.X - sz.X / 2), math.max(maxx, p.X + sz.X / 2)
+			miny, maxy = math.min(miny, p.Y - sz.Y / 2), math.max(maxy, p.Y + sz.Y / 2)
+			minz, maxz = math.min(minz, p.Z - sz.Z / 2), math.max(maxz, p.Z + sz.Z / 2)
+		end
+	end
+	if not any then return CF.new(0, 0, 0), V3.new(0, 0, 0) end
+	return CF.new((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2), V3.new(maxx - minx, maxy - miny, maxz - minz)
+end
+function Obj:GetScale() return self._props.Scale or 1 end
+function Obj:ScaleTo(n)
+	local old = self._props.Scale or 1
+	local f = n / old
+	for _, d in ipairs(self:GetDescendants()) do
+		if BASEPART[d._props.ClassName] and d._props.Size then
+			d._props.Size = d._props.Size * f
+			d._props.Position = (d._props.Position or V3.zero) * f
+		end
+	end
+	self._props.Scale = n
+end
+function Obj:GetPivot() return self._props.Pivot or CF.new(0, 0, 0) end
 function Obj:PivotTo(cf)
 	self._props.Pivot = cf
 	local pp = self._props.PrimaryPart
@@ -304,6 +334,15 @@ RunService._props.Heartbeat = newSignal()
 
 local TweenService = service("TweenService")
 function TweenService:Create() return { Play = function() end } end
+
+local InsertService = service("InsertService")
+H.loaderCalls = 0
+function InsertService:LoadAsset(id)
+	H.loaderCalls = H.loaderCalls + 1
+	local f = H.loader
+	if not f then error("aucun chargeur") end
+	return f(id)
+end
 
 local MPS = service("MarketplaceService")
 MPS._props.PromptGamePassPurchaseFinished = newSignal()
@@ -437,7 +476,9 @@ function H.reset()
 		if c._props.Name ~= "Terrain" and c._props.Name ~= "Camera" then c:Destroy() end
 	end
 	Workspace._attrs = {}
-	H.osTime, H.rayHit = nil, true
+	H.osTime, H.rayHit, H.loader, H.loaderCalls = nil, true, nil, 0
+	local ss = services.ServerStorage
+	if ss then for _, c in ipairs(ss:GetChildren()) do c:Destroy() end end
 	H.services.RunService.IsStudioValue = false
 	H.services.MarketplaceService.owned = {}
 end

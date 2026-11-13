@@ -33,6 +33,8 @@ World.PolicePoint = CFrame.new(0, 3, 372)
 World.Hideout = Vector3.new(0, 0.5, -400)
 World.Bank = Vector3.new(0, 0.5, -200)
 World.Ready = false
+World.WreckSpots = {}
+World.DecorSpots = {}
 
 local root, fRoads, fBuild, fBands, fProps, fBreak, fDecor
 local made = 0
@@ -455,6 +457,41 @@ local function districtStadium(i, j)
 	return c
 end
 
+-- Club (salle de billard) sur la place : pièce praticable meublée par des modèles externes (voir AssetService)
+local function buildClub(plazaCenter)
+	local cx, cz = plazaCenter.X + 58, plazaCenter.Z + 25
+	local W, D, H = 36, 28, 12
+	local wall = rgb(210, 200, 185)
+	mk(fBuild, Vector3.new(W, 0.2, D), Vector3.new(cx, SW_H + 0.1, cz), rgb(120, 85, 60), Enum.Material.WoodPlanks, { CanCollide = false })
+	mk(fBuild, Vector3.new(W + 2, 1, D + 2), Vector3.new(cx, SW_H + H + 0.5, cz), rgb(70, 50, 45), Enum.Material.Slate)
+	mk(fBuild, Vector3.new(1, H, D), Vector3.new(cx + W / 2, SW_H + H / 2, cz), wall, Enum.Material.Brick) -- fond
+	mk(fBuild, Vector3.new(W, H, 1), Vector3.new(cx, SW_H + H / 2, cz - D / 2), wall, Enum.Material.Brick)
+	mk(fBuild, Vector3.new(W, H, 1), Vector3.new(cx, SW_H + H / 2, cz + D / 2), wall, Enum.Material.Brick)
+	-- façade ouest avec une porte de 8 studs
+	local seg = (D - 8) / 2
+	mk(fBuild, Vector3.new(1, H, seg), Vector3.new(cx - W / 2, SW_H + H / 2, cz - D / 2 + seg / 2), wall, Enum.Material.Brick)
+	mk(fBuild, Vector3.new(1, H, seg), Vector3.new(cx - W / 2, SW_H + H / 2, cz + D / 2 - seg / 2), wall, Enum.Material.Brick)
+	mk(fBuild, Vector3.new(1, 4, 8), Vector3.new(cx - W / 2, SW_H + H - 2, cz), wall, Enum.Material.Brick)
+	local sg = mk(fDecor, Vector3.new(1, 1, 1), Vector3.new(cx - W / 2 - 1, SW_H + H + 4, cz), rgb(255, 255, 255), Enum.Material.SmoothPlastic, NOCOLLIDE)
+	sg.Transparency = 1
+	sign(sg, "CLUB BILLARD", 0, 260, rgb(255, 120, 200))
+	local function spot(dx, dz, up)
+		return CFrame.new(cx + dx, SW_H + (up or 0), cz + dz)
+	end
+	World.Club = { center = Vector3.new(cx, SW_H, cz), size = Vector3.new(W, H, D) }
+	World.DecorSpots = {
+		pool = { spot(6, 0) },
+		woodTable = { spot(-10, -8) },
+		metalTable = { spot(-10, 8) },
+		lamp = { spot(-10, -8, 3.2) },
+		computer = { spot(-10, 8, 3.2) },
+		chair = { spot(-6, -8), spot(-14, -8), spot(-6, 8), spot(-14, 8) },
+		plantWindow = { spot(W / 2 - 2, -D / 2 + 2), spot(W / 2 - 2, D / 2 - 2) },
+		plantModern = { spot(-W / 2 + 3, -D / 2 + 2), spot(-W / 2 + 3, D / 2 - 2), spot(0, -D / 2 + 2), spot(0, D / 2 - 2) },
+		plantPot = { spot(W / 2 - 8, -D / 2 + 2), spot(W / 2 - 8, D / 2 - 2) },
+	}
+end
+
 local function districtPlaza(i, j)
 	local c = buildBlockSlab(i, j, Enum.Material.Cobblestone, rgb(170, 160, 150))
 	-- fontaine
@@ -484,6 +521,7 @@ local function districtPlaza(i, j)
 		local a = k * math.pi / 2 + math.pi / 4
 		tree(c.X + math.cos(a) * 62, c.Z + math.sin(a) * 62, false)
 	end
+	buildClub(c)
 	for k = 1, 4 do
 		breakable("bench", c.X + (k - 2.5) * 22, c.Z + 26)
 	end
@@ -916,6 +954,10 @@ function World.build()
 	placeStars()
 	computeParking()
 	computeTaxiStops()
+	do
+		local c = Config.blockCenter(2, 1)
+		World.WreckSpots = { Vector3.new(c.X - 20, SW_H, c.Z), Vector3.new(c.X + 30, SW_H, c.Z), Vector3.new(c.X - 45, SW_H, c.Z + 45) }
+	end
 	startDayCycle()
 
 	root:SetAttribute("Built", true)

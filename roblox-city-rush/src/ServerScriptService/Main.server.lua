@@ -22,6 +22,7 @@ local StoryService = require(Services.StoryService)
 local EventService = require(Services.EventService)
 local LeaderboardService = require(Services.LeaderboardService)
 local CinematicService = require(Services.CinematicService)
+local AssetService = require(Services.AssetService)
 local MonetizationService = require(Services.MonetizationService)
 
 -- Les joueurs peuvent arriver pendant la génération : on gère leur apparition dès maintenant.
@@ -73,6 +74,7 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 RemoteService.init()
+AssetService.init()
 DataService.init()
 EconomyService.init()
 World.build()
@@ -93,6 +95,19 @@ CollectibleService.start()
 StoryService.start()
 EventService.start(World)
 LeaderboardService.start(World)
+
+-- modèles externes : chargés en arrière-plan, sans jamais bloquer le démarrage ni le jeu
+task.spawn(function()
+	local ok, err = pcall(function()
+		AssetService.preload()
+		AssetService.placeWrecks(World)
+		AssetService.placeDecor(World)
+		VehicleService.refreshPublic()
+	end)
+	if not ok then
+		warn("[CityRush] modèles externes ignorés : " .. tostring(err))
+	end
+end)
 
 workspace:SetAttribute("WorldReady", true)
 print("[CityRush] Serveur prêt")

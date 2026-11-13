@@ -805,6 +805,198 @@ test("cinématique client : file d'attente enchaînée, réglage global coupé",
 	t.State.cinematicsReady = true
 end)
 
+print("== AssetService (modèles externes)")
+local function part(name, size, pos, parent, class)
+	local x = H.Instance.new(class or "Part"); x.Name = name; x.Size = size; x.Position = pos or V3.zero; x.Anchored = true; x.Parent = parent; return x
+end
+-- fabrique de faux modèles : opts = { wheels, primary, scripts, parts, size, empty }
+local function fakeContainer(opts)
+	opts = opts or {}
+	local c = H.Instance.new("Model"); c.Name = "Container"
+	if opts.empty then return c end
+	local m = H.Instance.new("Model"); m.Name = "Car"; m.Parent = c
+	local sz = opts.size or V3.new(6, 3, 14)
+	local body = part("Body", sz, V3.zero, m)
+	if opts.primary ~= false then m.PrimaryPart = body end
+	if opts.wheels ~= false then for i = 1, 4 do part("Wheel" .. i, V3.new(1, 3, 3), V3.new((i % 2 == 0) and 3 or -3, -1, (i > 2) and 4 or -4), m) end end
+	for i = 1, (opts.parts or 0) do part("Extra" .. i, V3.new(1, 1, 1), V3.new(i % 5, 0, 0), m) end
+	if opts.scripts ~= false then
+		for _, cls in ipairs({ "Script", "LocalScript", "ModuleScript", "RemoteEvent", "BindableEvent", "RemoteFunction", "Sound", "Weld", "VehicleSeat", "Seat", "Humanoid" }) do
+			local i = H.Instance.new(cls); i.Name = "Mal_" .. cls; i.Parent = (cls == "Weld") and body or m
+		end
+		local deep = H.Instance.new("Script"); deep.Name = "Profond"; deep.Parent = body
+	end
+	return c
+end
+local function hasForbidden(root, A)
+	for _, d in ipairs(root:GetDescendants()) do if A.FORBIDDEN[d._props.ClassName] then return d._props.ClassName end end
+end
+local function bootAssets(loader)
+	H.reset() -- état neuf (modules, joueurs, remotes) à chaque démarrage
+	local M = bootGame(); local A = H.mod("AssetService"); A.init(); H.loader = loader
+	return M, A
+end
+test("Config.Assets : les 22 identifiants demandés sont présents, une seule fois, avec un réglage d'arrêt", function()
+	local C = boot().Config; local seen, n = {}, 0
+	local function add(id) truthy(type(id) == "number" and id > 0, "id invalide"); truthy(not seen[id], "id dupliqué " .. id); seen[id] = true; n = n + 1 end
+	for _, id in pairs(C.Assets.Vehicles) do add(id) end
+	for _, id in pairs(C.Assets.PoliceCars) do add(id) end
+	add(C.Assets.Wreck)
+	for _, d in pairs(C.Assets.Decor) do add(d.id) end
+	eq(n, 22, "10 voitures + 2 police + 1 épave + 9 décors")
+	for _, id in ipairs({ 12083366909, 9825322891, 5781315481, 5510919963, 9951814916, 12498575325, 1166118062, 1312960740, 8418468265, 12697468609, 111786783762180, 9386739850, 8089000592, 8156800485, 130020507665878, 5680874848, 14953074402, 839550130, 12470604445, 15078054751, 16600867704, 116741237427172 }) do truthy(seen[id], "identifiant manquant " .. id) end
+	eq(type(C.Assets.Enabled), "boolean")
+	for key, skin in pairs(C.Assets.VehicleSkins) do truthy(C.getVehicle(key), "véhicule inconnu " .. key); truthy(C.Assets.Vehicles[skin], "apparence inconnue " .. skin) end
+end)
+test("AssetService : modèle valide chargé, scripts et objets dangereux supprimés", function()
+	local M, A = bootAssets(function() return fakeContainer() end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local id = M.Config.Assets.Vehicles.zoe; local t = A.getTemplate(id)
+	truthy(t, "gabarit chargé"); eq(hasForbidden(t, A), nil, "plus aucun objet interdit"); truthy(A.stats.removed > 0)
+	eq(t.Parent.Name, "CityRushAssets", "stocké côté serveur")
+	for _, d in ipairs(t:GetDescendants()) do eq(d._props.ClassName == "Script" or d._props.ClassName == "LocalScript" or d._props.ClassName == "ModuleScript" or d._props.ClassName == "RemoteEvent" or d._props.ClassName == "BindableEvent", false) end
+end)
+test("AssetService : véhicule sans PrimaryPart ni roues rejeté, voiture intégrée conservée", function()
+	local M, A = bootAssets(function() return fakeContainer({ primary = false, wheels = false }) end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local id = M.Config.Assets.Vehicles.zoe
+	eq(A.getTemplate(id), nil); truthy(A.failureReason(id):find("PrimaryPart"), "raison: " .. tostring(A.failureReason(id)))
+	local car = H.mod("VehicleBuilder").build(M.Config.Vehicles[1], M.Config.Vehicles[1].color)
+	eq(A.skinVehicle(car, id), false); eq(car:FindFirstChild("Skin"), nil); eq(car.PrimaryPart.Transparency, nil, "carrosserie intégrée toujours visible")
+	local m2, a2 = bootAssets(function() return fakeContainer({ primary = false }) end)
+	H.env.task.spawn(function() a2.preload() end); H.advance(30)
+	local t = a2.getTemplate(m2.Config.Assets.Vehicles.zoe); truthy(t and t.PrimaryPart, "sans PrimaryPart mais avec roues : accepté, PrimaryPart attribué")
+end)
+test("AssetService : modèle vide, trop de parts, trop grand, dimensions nulles rejetés", function()
+	local cases = { { { empty = true }, "vide" }, { { parts = 450 }, "trop de parts" }, { { size = V3.new(400, 3, 14) }, "trop grand" }, { { size = V3.new(0, 0, 0), wheels = false }, "plat" } }
+	for _, case in ipairs(cases) do
+		local M, A = bootAssets(function() return fakeContainer(case[1]) end)
+		H.env.task.spawn(function() A.preload() end); H.advance(30)
+		local id = M.Config.Assets.Vehicles.zoe; eq(A.getTemplate(id), nil, case[2]); truthy(A.failureReason(id), "raison pour " .. case[2])
+	end
+end)
+test("AssetService : erreur de chargement, délai dépassé, conteneur nil : aucun crash, le reste continue", function()
+	local M, A = bootAssets(function(id)
+		if id == 12697468609 then error("HTTP 403") end
+		if id == 12498575325 then while true do H.env.task.wait(1) end end
+		if id == 1312960740 then return nil end
+		return fakeContainer()
+	end)
+	H.env.task.spawn(function() A.preload() end); H.advance(60)
+	eq(A.getTemplate(12697468609), nil); truthy(A.failureReason(12697468609):find("403"), "erreur capturée")
+	eq(A.getTemplate(12498575325), nil); truthy(A.failureReason(12498575325):find("délai"), "délai maximum respecté")
+	eq(A.getTemplate(1312960740), nil); truthy(A.getTemplate(1166118062), "un modèle valide est quand même chargé")
+	truthy(#H.warnings > 0, "avertissements")
+end)
+test("AssetService : Enabled = false => aucun appel de chargement", function()
+	local M, A = bootAssets(function() return fakeContainer() end)
+	M.Config.Assets.Enabled = false
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	eq(H.loaderCalls, 0, "InsertService jamais appelé"); eq(A.getTemplate(M.Config.Assets.Vehicles.zoe), nil)
+	local car = H.mod("VehicleBuilder").build(M.Config.Vehicles[1], M.Config.Vehicles[1].color)
+	eq(A.skinVehicle(car, M.Config.Assets.Vehicles.zoe), false)
+end)
+test("AssetService : un modèle n'est chargé qu'une fois (cache)", function()
+	local M, A = bootAssets(function() return fakeContainer() end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local first = H.loaderCalls
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	eq(H.loaderCalls, first, "second préchargement sans nouvel appel")
+end)
+test("AssetService : habillage d'un véhicule (soudé, sans collision, physique du jeu intacte)", function()
+	local M, A = bootAssets(function() return fakeContainer() end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local id = M.Config.Assets.Vehicles.zoe; local spec = M.Config.Vehicles[1]
+	local car = H.mod("VehicleBuilder").build(spec, spec.color); car.PrimaryPart.CFrame = CF.new(0, 5, 0)
+	eq(A.skinVehicle(car, id), true); eq(car:GetAttribute("Skin"), id)
+	local skin = car:FindFirstChild("Skin"); truthy(skin, "carrosserie ajoutée"); eq(hasForbidden(skin, { FORBIDDEN = { Script = true, LocalScript = true, ModuleScript = true, RemoteEvent = true, BindableEvent = true, Sound = true, Seat = true, VehicleSeat = true, Humanoid = true } }), nil)
+	local parts, welded = 0, 0
+	for _, d in ipairs(skin:GetDescendants()) do
+		if d:IsA("BasePart") then
+			parts = parts + 1; eq(d.Anchored, false); eq(d.CanCollide, false, "aucune collision du modèle"); eq(d.Massless, true)
+			local w = d:FindFirstChildOfClass("WeldConstraint"); if w and w.Part0 == car.PrimaryPart and w.Part1 == d then welded = welded + 1 end
+		end
+	end
+	truthy(parts >= 5); eq(welded, parts, "toutes les parts soudées au châssis")
+	truthy(car.PrimaryPart.DriveVelocity and car.PrimaryPart.TurnVelocity, "contraintes de conduite conservées"); eq(car.PrimaryPart.Transparency, 1)
+	local seat = car:FindFirstChild("DriverSeat"); eq(seat:IsA("VehicleSeat"), true, "siège du jeu conservé")
+	local hidden, colliders = 0, 0
+	for _, d in ipairs(car:GetChildren()) do
+		if d.Name == "Collider" then colliders = colliders + 1; eq(d.Transparency, 1) elseif d.Name == "Wheel" or d.Name == "BumperF" then eq(d.Transparency, 1); hidden = hidden + 1 end
+	end
+	eq(colliders, 4); truthy(hidden >= 3, "carrosserie intégrée masquée")
+	local len = 0; local _, size = skin:GetBoundingBox(); truthy(math.abs(math.max(size.X, size.Z) - (spec.l + 1)) < 0.5, "mise à l'échelle sur la longueur du véhicule: " .. tostring(math.max(size.X, size.Z)))
+end)
+test("AssetService : modèle couché (X plus long que Z) pivoté, apparence ignorée si l'API échoue", function()
+	local SM = H.mod("SkinMath")
+	near(SM.fitScale(14, 6, 7), 0.5); eq(SM.fitScale(0, 0, 7), 1); eq(SM.fitScale(5, 5, -1), 1)
+	near(SM.yawRadians(10, 5, 0), math.pi / 2); eq(SM.yawRadians(5, 10, 0), 0); near(SM.yawRadians(5, 10, 180), math.pi)
+	eq((SM.sizeOk(0 / 0, 1, 1, 100)), false); eq((SM.sizeOk(1, 1, 1, 100)), true); eq((SM.sizeOk(200, 1, 1, 100)), false)
+	local M, A = bootAssets(function() return fakeContainer() end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local car = H.mod("VehicleBuilder").build(M.Config.Vehicles[1], M.Config.Vehicles[1].color)
+	car.PrimaryPart.CFrame = nil -- repère invalide : l'habillage échoue sans casser la voiture
+	local ok = pcall(function() return A.skinVehicle(car, M.Config.Assets.Vehicles.zoe) end); eq(ok, true, "aucune erreur propagée"); eq(car:FindFirstChild("Skin"), nil, "carrosserie partielle retirée")
+end)
+test("AssetService : épave visuelle seulement (ancrée, sans siège, jamais un véhicule)", function()
+	local M, A = bootAssets(function() return fakeContainer() end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local world = mockWorld(); world.WreckSpots = { V3.new(0, 0.5, 0), V3.new(30, 0.5, 0), V3.new(60, 0.5, 0), V3.new(90, 0.5, 0) }
+	eq(A.placeWrecks(world), M.Config.Assets.WreckCount, "limité à WreckCount")
+	local f = world.Root:FindFirstChild("Wrecks")
+	for _, w in ipairs(f:GetChildren()) do
+		eq(w:GetAttribute("Wreck"), true); eq(w:GetAttribute("CRVehicle"), nil, "pas un véhicule du jeu")
+		for _, d in ipairs(w:GetDescendants()) do
+			eq(d._props.ClassName == "VehicleSeat" or d._props.ClassName == "Seat" or d._props.ClassName == "Script", false)
+			if d:IsA("BasePart") then eq(d.Anchored, true) end
+		end
+	end
+	local wreckId = M.Config.Assets.Wreck; for _, v in pairs(M.Config.Assets.Vehicles) do truthy(v ~= wreckId, "l'épave n'est dans aucune liste de véhicules jouables") end
+	for _, v in pairs(M.Config.Assets.VehicleSkins) do truthy(M.Config.Assets.Vehicles[v] ~= wreckId) end
+	for _, v in pairs(M.Config.Assets.PoliceCars) do truthy(v ~= wreckId) end
+end)
+test("AssetService : décor d'intérieur placé (tables solides, plantes, lampe)", function()
+	local M, A = bootAssets(function() return fakeContainer({ size = V3.new(5, 4, 5) }) end)
+	H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local world = mockWorld(); local C = CF.new
+	world.DecorSpots = { pool = { C(0, 0, 0) }, woodTable = { C(10, 0, 0) }, chair = { C(1, 0, 1), C(2, 0, 2), C(3, 0, 3), C(4, 0, 4), C(5, 0, 5) }, lamp = { C(10, 3, 0) }, inconnu = { C(0, 0, 0) } }
+	local n = A.placeDecor(world); eq(n, 1 + 1 + 4 + 1, "chaises limitées au nombre configuré, clé inconnue ignorée")
+	local f = world.Root:FindFirstChild("Decor3D"); local pool
+	for _, m in ipairs(f:GetChildren()) do if m.Name == "pool" then pool = m end end
+	truthy(pool and pool:FindFirstChild("SolidBox"), "table de billard solide"); eq(pool.SolidBox.CanCollide ~= false, true)
+end)
+test("VehicleService + AssetService : apparence du joueur, de la ville et de la police ; échec = voiture intégrée", function()
+	local M, A = bootAssets(function() return fakeContainer() end)
+	M.Veh.start(); H.env.task.spawn(function() A.preload() end); H.advance(30)
+	local p = join(M, "AS1"); H.advance(1); client(p, "RequestSpawn", "citadine")
+	local folder = H.Workspace:FindFirstChild("Vehicles"); local mine
+	for _, c in ipairs(folder:GetChildren()) do if c:GetAttribute("OwnerUserId") == p.UserId then mine = c end end
+	eq(mine:GetAttribute("Skin"), M.Config.Assets.Vehicles.zoe, "la Citadine du joueur prend l'apparence prévue"); truthy(mine.PrimaryPart.DriveVelocity, "physique du jeu")
+	local cruiser = M.Veh.spawnCruiser(CF.new(0, 3, 0)); local pc = M.Config.Assets.PoliceCars
+	truthy(cruiser:GetAttribute("Skin") == pc.cruiser or cruiser:GetAttribute("Skin") == pc.truck, "voiture de police habillée par un modèle de police")
+	eq(cruiser:FindFirstChild("DriverSeat").Disabled, true, "toujours non volable")
+	for _ = 1, 20 do local id = A.pickPoliceSkin(); truthy(id == pc.cruiser or id == pc.truck) end
+	for _ = 1, 40 do local id = A.pickPublicSkin("citadine"); local ok = false; for _, v in pairs(M.Config.Assets.Vehicles) do if v == id then ok = true end end; truthy(ok, "apparence de ville valide") end
+	for _, v in pairs(M.Config.Assets.PoliceCars) do for _, civ in pairs(M.Config.Assets.Vehicles) do truthy(v ~= civ) end end
+	-- échec total : voitures intégrées
+	local M2, A2 = bootAssets(function() error("hors ligne") end)
+	H.env.task.spawn(function() A2.preload() end); H.advance(30)
+	local q = join(M2, "AS2"); H.advance(1); client(q, "RequestSpawn", "citadine")
+	local f2 = H.Workspace:FindFirstChild("Vehicles"); local mine2
+	for _, c in ipairs(f2:GetChildren()) do if c:GetAttribute("OwnerUserId") == q.UserId then mine2 = c end end
+	truthy(mine2, "le véhicule apparaît quand même"); eq(mine2:GetAttribute("Skin"), nil); eq(mine2.PrimaryPart.Transparency, nil, "voiture intégrée visible")
+end)
+test("monde : club billard praticable + emplacements d'épaves et de décor", function()
+	local World = H.mod("WorldService"); local done = false
+	H.env.task.spawn(function() World.build(); done = true end); H.advance(2000)
+	truthy(done and World.Club, "club construit"); eq(#World.WreckSpots, 3)
+	for _, key in ipairs({ "pool", "woodTable", "metalTable", "lamp", "computer", "chair", "plantWindow", "plantModern", "plantPot" }) do truthy(World.DecorSpots[key] and #World.DecorSpots[key] >= 1, "emplacement " .. key) end
+	for key, spots in pairs(World.DecorSpots) do for _, sp in ipairs(spots) do
+		local p = sp.Position; local c = World.Club.center; local half = World.Club.size
+		truthy(math.abs(p.X - c.X) <= half.X / 2 and math.abs(p.Z - c.Z) <= half.Z / 2, key .. " dans le club")
+	end end
+end)
+
 print("== Client (chargement des modules)")
 test("modules client : syntaxe et chargement", function()
 	local spsC

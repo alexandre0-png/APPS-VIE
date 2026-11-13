@@ -301,6 +301,45 @@ Config.Cinematics = {
 	},
 }
 
+-- Modèles Roblox externes (apparence uniquement). Chargés côté serveur par InsertService:LoadAsset, en pcall, avec délai maximum.
+-- Tout Script / LocalScript / ModuleScript / RemoteEvent / BindableEvent présent dans un modèle est supprimé ; la physique de conduite
+-- reste celle du code du jeu (le modèle n'est qu'une "carrosserie" soudée au châssis). Un modèle invalide est ignoré : la voiture
+-- intégrée au jeu reste en place. Enabled = false coupe tout chargement (aucun appel réseau).
+-- Les identifiants sont ceux fournis par l'utilisateur ; les noms affichés dans le jeu restent génériques (pas de marques).
+Config.Assets = {
+	Enabled = true,
+	LoadTimeout = 10, -- secondes par modèle
+	MaxParts = 400,
+	MaxSize = 150, -- studs : plus grand = rejeté
+	Vehicles = {
+		zoe = 12697468609, volvo = 12498575325, vw = 1312960740, rs4 = 1166118062, carrera = 8418468265,
+		bugattiBlue = 5510919963, bugattiGold = 9951814916, superRed = 12083366909, superWhite = 9825322891, midBlack = 5781315481,
+	},
+	-- apparence du joueur selon le véhicule du catalogue
+	VehicleSkins = { citadine = "zoe", berline = "volvo", pickup = "vw", muscle = "rs4", sport = "carrera", super = "bugattiBlue", gold = "bugattiGold" },
+	-- variantes des voitures de la ville (tirées au hasard en plus de l'apparence du modèle de base)
+	PublicVariants = { "superRed", "superWhite", "midBlack" },
+	PublicVariantChance = 0.3,
+	PoliceCars = { cruiser = 111786783762180, truck = 9386739850 },
+	PoliceTruckChance = 0.25,
+	Wreck = 8089000592, -- épave visuelle uniquement, jamais jouable
+	WreckCount = 3,
+	-- rotation supplémentaire (degrés) si un modèle regarde du mauvais côté : Yaw[id] = 180
+	Yaw = {},
+	-- Decor.size = plus grande dimension horizontale visée (studs) ; les modèles sont mis à l'échelle automatiquement
+	Decor = {
+		chair = { id = 8156800485, size = 2.6, count = 4 },
+		computer = { id = 130020507665878, size = 2.2, count = 1 },
+		lamp = { id = 5680874848, size = 1.6, count = 1 },
+		pool = { id = 14953074402, size = 12, count = 1, solid = true },
+		woodTable = { id = 839550130, size = 6, count = 1, solid = true },
+		metalTable = { id = 12470604445, size = 6, count = 1, solid = true },
+		plantWindow = { id = 15078054751, size = 2.5, count = 2 },
+		plantModern = { id = 16600867704, size = 3, count = 4 },
+		plantPot = { id = 116741237427172, size = 3, count = 2 },
+	},
+}
+
 -- Points d'intérêt affichés sur la carte (coordonnées monde X, Z) : doivent suivre WorldService
 Config.POIs = {
 	{ name = "Pizzeria", x = -352, z = -30, color = Color3.fromRGB(255, 150, 80), glyph = "P" },

@@ -16,6 +16,7 @@ local VehicleBuilder = require(script.Parent.VehicleBuilder)
 local RemoteService = require(script.Parent.RemoteService)
 local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
+local AssetService = require(script.Parent.AssetService)
 
 local VehicleService = {}
 
@@ -58,10 +59,14 @@ local function applyColor(model, color)
 end
 
 -- Crée un véhicule (non parenté au monde tant que l'appelant ne le décide pas)
-local function create(spec, color, cf)
+local function create(spec, color, cf, skinId)
 	local model = VehicleBuilder.build(spec, color)
 	model:PivotTo(cf)
 	model.Parent = vehiclesFolder
+	if skinId then
+		-- carrosserie externe optionnelle : en cas d'échec la voiture intégrée reste visible
+		pcall(AssetService.skinVehicle, model, skinId)
+	end
 	return model
 end
 
@@ -169,7 +174,7 @@ function VehicleService.spawnFor(player, vehicleId)
 	local colorIndex = profile.Colors[vehicleId]
 	local color = colorIndex and Config.VehicleColors[colorIndex] or spec.color
 	local cf = CFrame.lookAt(Vector3.new(pos.X, gy + VehicleBuilder.RideHeight + 0.3, pos.Z), Vector3.new(pos.X, gy + VehicleBuilder.RideHeight + 0.3, pos.Z) + flatLook)
-	local model = create(spec, color, cf)
+	local model = create(spec, color, cf, AssetService.vehicleId(Config.Assets.VehicleSkins[vehicleId] or ""))
 	model:SetAttribute("OwnerUserId", player.UserId)
 	playerVehicle[player] = model
 	hookSeats(model)
@@ -190,7 +195,7 @@ local function spawnPublicAt(entry)
 	local color = Config.VehicleColors[rng:NextInteger(1, #Config.VehicleColors)]
 	local gy = entry.home.Position.Y
 	local cf = entry.home + Vector3.new(0, VehicleBuilder.RideHeight + 0.2 - 0.3 + (gy - entry.home.Position.Y), 0)
-	local model = create(spec, color, cf)
+	local model = create(spec, color, cf, AssetService.pickPublicSkin(spec.id))
 	model:SetAttribute("Public", true)
 	hookSeats(model)
 	entry.model = model
@@ -244,7 +249,7 @@ end
 -- Voitures de police (IA pilotée par WantedService)
 -- ====================================================================
 function VehicleService.spawnCruiser(cf)
-	local model = create(Config.Police, Config.Police.color, cf)
+	local model = create(Config.Police, Config.Police.color, cf, AssetService.pickPoliceSkin())
 	model:SetAttribute("Police", true)
 	for _, seatName in ipairs({ "DriverSeat", "PassengerSeat" }) do
 		local seat = model:FindFirstChild(seatName)
@@ -346,6 +351,25 @@ function VehicleService.init()
 		lastPos[player] = nil
 		distAcc[player] = nil
 	end)
+end
+
+-- Re-crée les voitures de rue inoccupées (après le préchargement des apparences externes)
+function VehicleService.refreshPublic()
+	for _, e in ipairs(publicCars) do
+		local m = e.model
+		local occupied = false
+		if m then
+			for _, seat in ipairs({ m:FindFirstChild("DriverSeat"), m:FindFirstChild("PassengerSeat") }) do
+				if seat and seat.Occupant then
+					occupied = true
+				end
+			end
+		end
+		if m and not occupied and not m:GetAttribute("Skin") then
+			m:Destroy()
+			spawnPublicAt(e)
+		end
+	end
 end
 
 function VehicleService.start()

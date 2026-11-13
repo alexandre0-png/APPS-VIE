@@ -20,6 +20,17 @@ Les animations sont locales (visibles par le joueur concerné). Si la caméra pa
 Skippables (bouton, Espace, Entrée, B manette), jouées une seule fois par joueur, jamais bloquantes (caméra toujours restaurée).
 À vérifier : cadrages (positions en studs dans `Sequences.*.shots`), lisibilité des légendes sur mobile. Pour les revoir : `PlayOnce = false` ou couper une séquence avec `enabled = false`.
 
+### Modèles Roblox externes (Config.Assets)
+22 identifiants fournis (10 voitures, 2 véhicules de police, 1 épave, 9 objets de décor). Ils sont chargés côté serveur (InsertService:LoadAsset, pcall, délai 10 s), nettoyés (aucun script / remote / bindable / son / siège conservé) et servent d'apparence seulement : la conduite reste celle du jeu. Si un modèle est invalide ou introuvable, la voiture intégrée reste en place. `Config.Assets.Enabled = false` coupe tout chargement.
+À vérifier dans Studio :
+- [ ] Les modèles se chargent (Output : lignes `[AssetService] modèle ... ignoré` en cas d'échec). `LoadAsset` exige que le modèle soit accessible à l'expérience (public / appartenant au créateur) ; un modèle retiré ou refusé sera simplement ignoré.
+- [ ] Sens des voitures : si un modèle regarde vers l'arrière, mettre `Config.Assets.Yaw[<id>] = 180` (le jeu aligne seulement l'axe long du modèle sur l'avant/arrière).
+- [ ] Échelle (longueur du châssis + 1 stud) et hauteur au sol, alignement des roues sur les colliders.
+- [ ] Épaves (zone industrielle nord-ouest), club billard (côté est de la place centrale) et mobilier.
+- [ ] Les couleurs du garage ne s'appliquent pas aux voitures habillées (le modèle garde ses couleurs).
+- [ ] Marques : plusieurs modèles reproduisent des constructeurs réels. Les noms affichés dans le jeu restent génériques ; à toi de juger si l'usage des modèles est conforme aux règles de Roblox pour ta publication.
+- Le modèle « voiture qui prend feu » n'est utilisé qu'en épave visuelle (ancrée, sans siège), jamais en véhicule jouable. Aucun modèle de ski ou de neige n'est utilisé.
+
 ## 2. Publication (Open Cloud / Creator Hub)
 - [ ] Créer une expérience vide dans le Creator Hub -> noter **universeId** et **placeId**.
 - [ ] Fournir une clé API Open Cloud (jamais dans le dépôt) : variable `ROBLOX_API_KEY`, permissions `universe-places:write`, `universe.developer-product:write`, `universe.game-pass:write`.
