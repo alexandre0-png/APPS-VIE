@@ -21,6 +21,8 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local AssetLoad = require(Shared.AssetLoad)
+local ModelLoader = require(script.Parent.ModelLoader)
 local Audio = require(Shared.Audio)
 local Remotes = require(Shared.Remotes)
 local Animations = require(Shared.Animations)
@@ -51,35 +53,27 @@ end
 
 -- Construit le monstre : modèle ServerStorage.Monster, ou rig de secours
 -- Modèles R15 du monstre (identifiants Roblox fournis) : essayés dans l'ordre, à l'initialisation
-local REMOTE_MONSTERS = { 14801251042, 126828585469313, 139294979123405 }
-
--- Charge un modèle R15 dans ServerStorage/Monster si rien n'y est déjà. Les scripts du modèle sont retirés.
+-- Charge un modèle R15 dans ServerStorage/Monster si rien n'y est déjà. Chargement sûr (ModelLoader) :
+-- candidats de Config.Assets dans l'ordre, délai maximum, scripts retirés. Sinon, le rig de secours.
 function MonsterAI.ensureModel()
 	if ServerStorage:FindFirstChild("Monster") then
 		return
 	end
-	local InsertService = game:GetService("InsertService")
-	for _, id in ipairs(REMOTE_MONSTERS) do
-		local ok, container = pcall(function()
-			return InsertService:LoadAsset(id)
-		end)
-		if ok and container then
-			local model = container:FindFirstChildWhichIsA("Model", true)
-			if model then
-				for _, d in ipairs(model:GetDescendants()) do
-					if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ModuleScript") then
-						d:Destroy()
-					end
-				end
-				model.Name = "Monster"
-				model.Parent = ServerStorage
-				container:Destroy()
-				return
-			end
-			container:Destroy()
+	if Config.Assets and Config.Assets.Enabled == false then
+		warn("[MonsterAI] chargement des modèles désactivé : rig de secours utilisé")
+		return
+	end
+	local candidates = {}
+	for _, key in ipairs({ "Monstre1", "Monstre2", "Monstre3" }) do
+		local id = Config.Assets and Config.Assets[key]
+		if typeof(id) == "number" and id > 0 then
+			table.insert(candidates, id)
 		end
 	end
-	warn("[MonsterAI] aucun modèle R15 chargé : rig de secours utilisé")
+	local name = AssetLoad.installFirst(candidates, "Monster", ModelLoader.loadWithTimeout, ServerStorage)
+	if not name then
+		warn("[MonsterAI] aucun modèle R15 chargé : rig de secours utilisé")
+	end
 end
 
 local function buildModel()

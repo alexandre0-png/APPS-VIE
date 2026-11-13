@@ -109,7 +109,33 @@ CASES = {
 }
 
 
+CASES["candidates"] = r"""
+        local folder = obj("Folder", "ServerStorage")
+        local tried = {}
+        local good = obj("Folder", "ok", { obj("Model", "m", { obj("Part", "p") }) })
+        local loaders = { [10] = nil, [11] = obj("Folder", "corrompu"), [12] = good }
+        local name = A.installFirst({ 10, 11, 12, 13 }, "Monster", function(id)
+          tried[#tried + 1] = id
+          return loaders[id]
+        end, folder)
+        check(name == "Monster", "le premier candidat valide doit être installé")
+        check(good._kids[1].Parent == folder and good._kids[1].Name == "Monster", "modèle du monstre mal rangé")
+        check(#tried == 3 and tried[3] == 12, "les candidats suivants ne doivent pas être essayés")
+    """
+CASES["candidates_none"] = r"""
+        local folder = obj("Folder", "ServerStorage")
+        local name = A.installFirst({ 20, 21 }, "Monster", function() return nil end, folder)
+        check(name == nil, "aucun candidat valide : pas de modèle")
+    """
+
+
 class TestAssetLoad(unittest.TestCase):
+    def test_first_valid_monster_candidate_is_used(self):
+        run(CASES["candidates"])
+
+    def test_no_valid_monster_candidate_gives_nothing(self):
+        run(CASES["candidates_none"])
+
     def test_valid_model_installed_and_unsafe_objects_removed(self):
         run(CASES["valid"])
 

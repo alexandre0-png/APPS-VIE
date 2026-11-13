@@ -53,4 +53,16 @@ function AssetLoad.install(entries, loadFn, folder)
 	return report
 end
 
+-- Essaie les candidats dans l'ordre et s'arrête au premier modèle valide (ex. modèle du monstre).
+-- Retourne le nom installé, ou nil si aucun candidat n'est valide.
+function AssetLoad.installFirst(candidates, name, loadFn, folder)
+	for _, id in ipairs(candidates) do
+		local report = AssetLoad.install({ { name = name, id = id } }, loadFn, folder)
+		if #report.ok > 0 then
+			return name
+		end
+	end
+	return nil
+end
+
 return AssetLoad

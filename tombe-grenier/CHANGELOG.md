@@ -28,6 +28,7 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Modèle du monstre : ses trois identifiants sont dans Config.Assets (Monstre1 à Monstre3), chargés avec le même chargeur sûr (pcall, délai, scripts retirés) et désactivables via Config.Assets.Enabled. Sans modèle valide, le rig de secours reste.
 - Modèles de décor (Config.Assets) : chaise de la salle à manger (remplace « chaise »), fauteuil antique (« fauteuil »), table longue (« table »), plante (« plante »), lampe avec lueur et chaise en bois (décor fixe), chaise bloquante devant une porte (décor seulement, jamais de collision ni de progression).
   - Chargement côté serveur seulement (InsertService, pcall, délai Config.Assets.Timeout). Scripts et événements retirés. Modèle vide ou corrompu refusé ; la pièce de remplacement actuelle reste.
   - Logique testée avec un chargeur factice (tools/lua/test_assets.py).

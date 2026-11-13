@@ -170,6 +170,10 @@ Config.Assets = {
 	LampeHorreur = 10780850055,        -- lampe avec lueur (décor, dans les pièces)
 	TableLongue = 188745055,           -- table de la salle à manger et de la cuisine (remplace « table »)
 	Plante = 116741237427172,          -- plante en pot (décor : hall, couloir)
+	-- Modèle du monstre : essayés dans l'ordre, le premier valide est utilisé. Sinon, le rig de secours.
+	Monstre1 = 14801251042,
+	Monstre2 = 126828585469313,
+	Monstre3 = 139294979123405,
 }
 
 -- Cinématiques aux moments clés seulement (intro, première apparition, descente, fins) : chacune se coupe seule.

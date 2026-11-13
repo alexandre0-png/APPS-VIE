@@ -68,6 +68,8 @@ local function loadWithTimeout(id)
 	return result
 end
 
+ModelLoader.loadWithTimeout = loadWithTimeout
+
 -- Liste à charger : les modèles de meubles, puis ceux de Config.Assets
 local function entries()
 	local list = {}
