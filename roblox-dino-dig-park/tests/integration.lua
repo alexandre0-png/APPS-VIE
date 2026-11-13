@@ -35,6 +35,60 @@ local function mod(folder, n) return require(folder:FindFirstChild(n)) end
 ----------------------------------------------------------------------
 section("Démarrage du serveur (construction du monde)")
 ----------------------------------------------------------------------
+-- chargeur factice de modèles externes (aucun appel réseau) : injecté AVANT le démarrage du serveur
+local ConfigEarly = mod(Shared, "Config")
+local AL = mod(Server, "AssetLoader")
+local AIDS = ConfigEarly.Assets.ids
+local loadLog = {}
+local lateModels = {}
+local function part(parent, class, name, size)
+	local p = Instance.new(class)
+	p.Name = name
+	p.Size = size
+	p.Parent = parent
+	return p
+end
+local function dirtyContainer()
+	local c = Instance.new("Model")
+	part(c, "Part", "Corps", Vector3.new(2, 5, 2))
+	local mp = part(c, "MeshPart", "Feuilles", Vector3.new(3, 4, 3))
+	Instance.new("Decal").Parent = mp
+	Instance.new("Script").Parent = c
+	Instance.new("LocalScript").Parent = mp
+	Instance.new("ModuleScript").Parent = c
+	Instance.new("RemoteEvent").Parent = c
+	Instance.new("BindableEvent").Parent = mp
+	Instance.new("BindableFunction").Parent = c
+	Instance.new("Sound").Parent = c
+	Instance.new("ParticleEmitter").Parent = mp
+	local conf = Instance.new("Configuration")
+	conf.Parent = c
+	Instance.new("LocalScript").Parent = conf
+	local f = Instance.new("Folder")
+	f.Parent = c
+	part(f, "Part", "Detail", Vector3.new(1, 1, 1))
+	Instance.new("RemoteEvent").Parent = f
+	return c
+end
+AL.setLoader(function(id)
+	loadLog[id] = (loadLog[id] or 0) + 1
+	if id == AIDS.pottedPlant or id == AIDS.windowPlant or id == ConfigEarly.Assets.museumTrex.ids[2] then
+		return dirtyContainer()
+	elseif id == AIDS.sakura then
+		error("HTTP 403 (simulé) : modèle non autorisé")
+	elseif id == AIDS.diningTable then
+		task.wait(14) -- arrive après le délai maximum de 12 s
+		local late = dirtyContainer()
+		table.insert(lateModels, late)
+		return late
+	elseif id == ConfigEarly.Assets.museumTrex.ids[1] then
+		local heavy = Instance.new("Model")
+		for i = 1, 1600 do part(heavy, "Part", "P" .. i, Vector3.new(1, 1, 1)) end
+		return heavy
+	end
+	return Instance.new("Model")
+end)
+ConfigEarly.Assets.museumTrex.enabled = true -- l'option est activée pour ce test
 M.runScript(Server:FindFirstChild("Main.server"))
 noErrors("démarrage serveur")
 local Config = mod(Shared, "Config")
@@ -55,6 +109,77 @@ check(M.Workspace:FindFirstChild("DinoWorld") ~= nil and M.Workspace:FindFirstCh
 check(Remotes.Action and Remotes.State and Remotes.Notify and Remotes.Fx, "remotes créés")
 check(M.Workspace.DinoWorld.Lobby.StatueRex ~= nil, "statue du lobby")
 check(M.Workspace.DinoWorld.OsDores:FindFirstChild("OsDore5") ~= nil, "os dorés cachés")
+
+----------------------------------------------------------------------
+section("Modèles externes : chargement sûr, nettoyage, repli")
+----------------------------------------------------------------------
+M.advance(45) -- laisse passer les délais et nouvelles tentatives
+local AssetService = mod(Server, "AssetService")
+local rep = AssetService.report
+check(rep.done and not rep.disabled, "chargement terminé")
+local BAD = { Script = true, LocalScript = true, ModuleScript = true, RemoteEvent = true, RemoteFunction = true, BindableEvent = true, BindableFunction = true, Sound = true, ParticleEmitter = true, Configuration = true }
+local museumFolder = M.Workspace.DinoWorld.Musee
+local bad, assetModels = 0, 0
+local function scan(root)
+	for _, d in ipairs(root:GetDescendants()) do
+		if BAD[d.ClassName] then bad = bad + 1 end
+		if string.sub(d.Name, 1, 6) == "Asset_" then assetModels = assetModels + 1 end
+	end
+end
+scan(museumFolder)
+for _, pl in ipairs(M.Workspace.Plots:GetChildren()) do local dec = pl:FindFirstChild("DecorAssets"); if dec then scan(dec) end end
+check(bad == 0, "aucun script, RemoteEvent, BindableEvent ni autre objet interdit dans les modèles placés (" .. bad .. ")")
+check(assetModels > 10, "des modèles externes sont bien placés (" .. assetModels .. ")")
+check(rep.loaded.pottedPlant and rep.loaded.windowPlant and rep.loaded.trex2, "plantes et T-Rex n°2 chargés")
+check(rep.loaded.pottedPlant.dangerous >= 6 and rep.loaded.pottedPlant.removed >= 8, "le nettoyage a compté et retiré les objets dangereux (" .. rep.loaded.pottedPlant.dangerous .. " dangereux)")
+check(rep.failed.sakura and rep.failed.sakura:find("403"), "échec du Sakura signalé : " .. tostring(rep.failed.sakura))
+check(rep.failed.diningTable and rep.failed.diningTable:find("délai"), "délai maximum respecté pour la table : " .. tostring(rep.failed.diningTable))
+check(rep.failed.trex1 and rep.failed.trex1:find("trop de pièces"), "modèle trop lourd refusé : " .. tostring(rep.failed.trex1))
+check(museumFolder:FindFirstChild("RepliTable") ~= nil, "table : modèle actuel conservé après l'échec")
+check(museumFolder:FindFirstChild("ReplisPlante3") ~= nil, "plante Sakura : modèle actuel conservé")
+check(museumFolder:FindFirstChild("ReplisPlante1") == nil and museumFolder:FindFirstChild("ReplisPlante2") == nil and museumFolder:FindFirstChild("ReplisPlante4") == nil, "plantes chargées : modèles de repli remplacés")
+check(museumFolder:FindFirstChild("RepliTRex") == nil, "T-Rex externe chargé : repli remplacé (l'autre T-Rex a échoué)")
+check(#lateModels >= 1 and lateModels[1].__destroyed, "modèle arrivé après le délai : détruit")
+check(loadLog[AIDS.pottedPlant] == 1 and loadLog[AIDS.windowPlant] == 1, "chaque modèle n'est chargé qu'une fois, puis cloné")
+check(loadLog[AIDS.sakura] == ConfigEarly.Assets.attempts, "nouvelles tentatives limitées à " .. ConfigEarly.Assets.attempts)
+for _, pl in ipairs(M.Workspace.Plots:GetChildren()) do
+	local dec = pl:FindFirstChild("DecorAssets")
+	if not dec or #dec:GetChildren() ~= 3 then bad = -1 end
+end
+check(bad ~= -1, "chaque parcelle reçoit 3 décors (2 plantes en pot + 1 plante de fenêtre)")
+do
+	local dec = M.Workspace.Plots.Plot1.DecorAssets
+	local m1 = dec:GetChildren()[1]
+	local bb, size = m1:GetBoundingBox()
+	check(math.abs(size.Y - ConfigEarly.Assets.targetHeights.pottedPlant) < 0.05 or math.abs(size.Y - ConfigEarly.Assets.targetHeights.windowPlant) < 0.05, "modèle mis à la hauteur cible (" .. string.format("%.2f", size.Y) .. ")")
+	check(math.abs((bb.p.Y - size.Y / 2) - 0.3) < 0.05, "base du modèle posée au sol")
+end
+-- identifiants invalides et paramètres
+check(AL.load(-5) == nil and AL.load(0) == nil and AL.load(1.5) == nil and AL.load("x") == nil and AL.load(nil) == nil, "identifiants invalides refusés sans appel")
+check(not AL.validId(2 ^ 60) and AL.validId(1338860741), "validation des identifiants")
+-- nettoyage direct
+do
+	local c = dirtyContainer()
+	local st = AL.sanitize(c)
+	check(st.dangerous == 8 and st.parts == 3, "sanitize : 8 objets dangereux retirés, 3 pièces gardées (" .. st.dangerous .. "/" .. st.parts .. ")")
+	local rest = 0
+	for _, d in ipairs(c:GetDescendants()) do if BAD[d.ClassName] then rest = rest + 1 end end
+	check(rest == 0, "sanitize : plus rien d'interdit")
+end
+-- réglage de désactivation : aucun chargement
+do
+	local before = 0
+	for _, n in pairs(loadLog) do before = before + n end
+	ConfigEarly.Assets.enabled = false
+	local AS2 = mod(Server, "AssetService")
+	AS2.init()
+	M.advance(5)
+	local after = 0
+	for _, n in pairs(loadLog) do after = after + n end
+	check(AS2.report.disabled and after == before, "Config.Assets.enabled = false : aucun chargement")
+	ConfigEarly.Assets.enabled = true
+end
+noErrors("modèles externes")
 
 ----------------------------------------------------------------------
 section("Connexion d'un joueur")

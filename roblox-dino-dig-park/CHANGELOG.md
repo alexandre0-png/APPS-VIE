@@ -38,3 +38,10 @@
 - Toujours skippables (bouton « Passer », Entrée, bouton B), jamais bloquantes (aucun verrouillage des commandes), protégées par pcall avec nettoyage systématique de la caméra, et arrêtées si le personnage réapparaît ou si la durée dépasse la limite.
 - Réglage : `Config.Cinematics` (interrupteur général et un par cinématique, durée mini et maxi).
 - Séquencement pur dans `src/shared/CinematicLogic.luau` : durée, interpolation, changement de plan, plafonnement des à-coups d'image, skip, reprise sur un état neuf. Testé unitairement et en intégration (état, durée, skip, reprise, erreur, désactivation).
+
+## Modèles externes (musée et décors)
+- Nouveau musée des fossiles dans le lobby, construit par le code avec ses décors de repli (table, 4 plantes, T-Rex sur piédestal). Les modèles de la boîte à outils remplacent ces décors s'ils se chargent.
+- Chargement sûr (`src/server/AssetLoader.luau`, `AssetService.luau`) : serveur uniquement, `InsertService:LoadAsset` dans un pcall, délai maximum, 2 essais, résultat tardif détruit, nettoyage par liste blanche (tout ce qui n'est pas une pièce, un modèle, un maillage, une décalcomanie ou une soudure est supprimé : scripts, remotes, bindables, sons, particules, configurations), limite de 1500 pièces, pièces figées sans collision, mise à l'échelle et pose au sol, chargement unique puis clonage, échec sans effet : le modèle actuel reste.
+- Réglage `Config.Assets` : `enabled`, `museum`, `digsiteDecor`, `museumTrex.enabled` (désactivé par défaut, en option), ids et hauteurs cibles.
+- Décision : liste blanche plutôt que liste noire, pour supprimer aussi les classes inconnues d'un modèle tiers.
+- Testé avec un chargeur factice : nettoyage, échec réseau, délai dépassé, modèle trop lourd, arrivée tardive, rechargement unique, hauteur et pose, désactivation, ids invalides.

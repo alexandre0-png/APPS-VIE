@@ -18,6 +18,14 @@ Mis à jour : tout le reste (code, visuels, textes, build) est fait. Détail pas
   - [ ] les sons (chemins `rbxasset://` non confirmés) ; remplace-les dans `Config.Sounds` si besoin
   - [ ] l'affichage sur téléphone (menu latéral de 7 boutons)
 
+## 1 bis. Modèles externes (boîte à outils)
+Les 6 modèles sont chargés côté serveur par `InsertService:LoadAsset`, dans un pcall, avec délai de 12 s, nettoyés (tout Script, LocalScript, ModuleScript, RemoteEvent, BindableEvent et autre objet non prévu est supprimé), avec repli automatique sur les modèles actuels. Réglages : `Config.Assets` (`enabled = false` coupe tout le chargement).
+- [ ] Vérifie dans la boîte à outils que chaque modèle est **public ou appartient au créateur de l'expérience** (sinon LoadAsset échoue et le repli s'applique) : 116741237427172 (plante en pot), 15078054751 (plante de fenêtre), 101176034116232 (Sakura), 1338860741 (table), 10683798442 et 71422282686175 (T-Rex).
+- [ ] Vérifie que tu as le droit d'utiliser ces modèles (licence et auteur) avant de publier.
+- [ ] Teste dans Studio : les modèles s'affichent à la bonne taille au musée (lobby, à l'ouest) et sur les parcelles (plantes près du site de fouille et du laboratoire) ; lis la Sortie pour les messages `[AssetService]` en cas d'échec.
+- [ ] T-Rex du musée : désactivés par défaut. Mets `Config.Assets.museumTrex.enabled = true` si tu veux les afficher, puis regarde s'ils sont à ta convenance.
+- [ ] Si un modèle est trop lourd, trop clair ou mal orienté, ajuste `targetHeights` dans `Config.Assets`.
+
 ## 2. Créer les achats dans Creator Hub (Monetization)
 Images dans `publication/images/`. Copie ensuite chaque ID dans `src/shared/Config.luau` (champ `id = 0`), puis reconstruis et republie.
 

@@ -917,6 +917,91 @@ local function buildGoldBones(root)
 end
 
 ----------------------------------------------------------------------
+-- Musée des fossiles (lobby) : bâtiment, décors de repli construits par le code, emplacements pour les modèles externes
+----------------------------------------------------------------------
+local function buildMuseum(root)
+	local folder = Instance.new("Folder")
+	folder.Name = "Musee"
+	folder.Parent = root
+	local cx, cz = -55, -50
+	local groundY = 1.1
+	local marble = Color3.fromRGB(235, 232, 225)
+	W.part(folder, "Sol", Vector3.new(40, 0.5, 30), CFrame.new(cx, 0.85, cz), Color3.fromRGB(215, 205, 185), M.Marble)
+	W.part(folder, "MurFond", Vector3.new(40, 12, 1), CFrame.new(cx, 6.6, cz - 15), marble, M.Concrete)
+	W.part(folder, "MurOuest", Vector3.new(1, 12, 30), CFrame.new(cx - 20, 6.6, cz), marble, M.Concrete)
+	W.part(folder, "MurEst", Vector3.new(1, 12, 30), CFrame.new(cx + 20, 6.6, cz), marble, M.Concrete)
+	local roof = W.part(folder, "Toit", Vector3.new(42, 1, 32), CFrame.new(cx, 12.8, cz), Color3.fromRGB(170, 70, 60), M.Slate)
+	roof.Transparency = 0.25
+	roof.CanCollide = false
+	W.sign(
+		folder,
+		"Enseigne",
+		Vector3.new(26, 3.6, 0.6),
+		CFrame.new(cx, 14.8, cz + 15.4) * CFrame.Angles(0, math.pi, 0),
+		"MUSÉE DES FOSSILES",
+		Color3.fromRGB(60, 40, 30)
+	)
+
+	-- repli : table de la salle d'exposition (remplacée si le modèle externe se charge)
+	local fbTable = Instance.new("Model")
+	fbTable.Name = "RepliTable"
+	W.part(fbTable, "Plateau", Vector3.new(9, 0.5, 4.5), CFrame.new(cx, groundY + 3, cz + 3), Color3.fromRGB(150, 105, 60), M.Wood)
+	for _, o in ipairs({ { -4, -1.8 }, { 4, -1.8 }, { -4, 1.8 }, { 4, 1.8 } }) do
+		W.part(
+			fbTable,
+			"Pied",
+			Vector3.new(0.6, 2.9, 0.6),
+			CFrame.new(cx + o[1], groundY + 1.5, cz + 3 + o[2]),
+			Color3.fromRGB(110, 75, 45),
+			M.Wood
+		)
+	end
+	fbTable.Parent = folder
+
+	-- repli : 4 plantes en pot
+	local plantSpots = {
+		Vector3.new(cx - 17, groundY, cz - 12),
+		Vector3.new(cx + 17, groundY, cz - 12),
+		Vector3.new(cx - 17, groundY, cz + 11),
+		Vector3.new(cx + 17, groundY, cz + 11),
+	}
+	local fbPlants = {}
+	for i, p in ipairs(plantSpots) do
+		local f = Instance.new("Model")
+		f.Name = "ReplisPlante" .. i
+		W.cylinder(f, "Pot", 1.6, 2.2, p + Vector3.new(0, 0.8, 0), Color3.fromRGB(180, 100, 70), M.Concrete)
+		W.ball(f, "Feuillage", 3.2, p + Vector3.new(0, 3, 0), Color3.fromRGB(70, 160, 80), M.Grass)
+		f.Parent = folder
+		fbPlants[i] = f
+	end
+
+	-- repli : T-Rex du musée sur piédestal (celui de la boîte à outils est optionnel)
+	local trexSpots = { Vector3.new(cx - 9, groundY + 1, cz - 8), Vector3.new(cx + 9, groundY + 1, cz - 8) }
+	for _, sp in ipairs(trexSpots) do
+		W.cylinder(folder, "Piedestal", 1, 12, sp - Vector3.new(0, 0.5, 0), Color3.fromRGB(190, 185, 175), M.Marble)
+	end
+	local fbTrex = DinoFactory.build("rex", { scaleMul = 0.85 })
+	if fbTrex then
+		fbTrex.Name = "RepliTRex"
+		fbTrex:PivotTo(CFrame.new(trexSpots[1]) * CFrame.Angles(0, math.rad(150), 0))
+		for _, p in ipairs(fbTrex:GetDescendants()) do
+			if p:IsA("BasePart") then
+				p.CanQuery = false
+			end
+		end
+		fbTrex.Parent = folder
+	end
+
+	return {
+		folder = folder,
+		spots = { table = Vector3.new(cx, groundY, cz + 3), plants = plantSpots, trex = trexSpots },
+		fallbackTable = fbTable,
+		fallbackPlants = fbPlants,
+		fallbackTrex = fbTrex,
+	}
+end
+
+----------------------------------------------------------------------
 -- Construction globale
 ----------------------------------------------------------------------
 function W.build()
@@ -943,6 +1028,9 @@ function W.build()
 	plotsFolder.Parent = Workspace
 
 	buildLobby(root)
+	if Config.Assets.museum then
+		W.museum = buildMuseum(root)
+	end
 	buildGoldBones(root)
 
 	local plots = {}

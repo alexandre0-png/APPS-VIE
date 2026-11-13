@@ -930,6 +930,28 @@ Config.Cinematics = {
 -- ids mémorisés dans la sauvegarde : une cinématique ne se rejoue pas
 Config.CinematicIds = { intro = true, tutorial = true, firstRare = true, zone_pen5 = true, zone_pen6 = true }
 
+----------------------------------------------------------------------
+-- MODÈLES EXTERNES (boîte à outils Roblox) : chargés côté serveur uniquement, nettoyés, avec repli
+----------------------------------------------------------------------
+-- enabled = false : aucun chargement, les décors et modèles actuels restent en place.
+-- Les modèles doivent être publics ou appartenir au créateur de l'expérience (sinon LoadAsset échoue et le repli s'applique).
+Config.Assets = {
+	enabled = true,
+	timeout = 12, -- secondes maximum par modèle
+	attempts = 2,
+	maxParts = 1500, -- un modèle plus lourd est refusé
+	museum = true, -- construit le musée du lobby (avec décors de repli construits par le code)
+	digsiteDecor = true, -- plantes sur le site de fouille de chaque parcelle
+	museumTrex = { enabled = false, ids = { 10683798442, 71422282686175 } }, -- T-Rex du musée : en option
+	ids = {
+		pottedPlant = 116741237427172, -- plante en pot d'intérieur
+		windowPlant = 15078054751, -- plante de fenêtre
+		sakura = 101176034116232, -- arbre Sakura
+		diningTable = 1338860741, -- table de la salle d'exposition
+	},
+	targetHeights = { pottedPlant = 4, windowPlant = 3, sakura = 14, diningTable = 3.2, trex = 14 },
+}
+
 return Config
 ]]></string>
         </Properties>
@@ -1824,6 +1846,333 @@ return Util
       </Properties>
       <Item class="ModuleScript" referent="13">
         <Properties>
+          <string name="Name">AssetLoader</string>
+          <string name="Source"><![CDATA[-- AssetLoader.luau : chargement SÛR de modèles externes (InsertService:LoadAsset), côté serveur uniquement.
+-- Règles : pcall, délai maximum, nouvelle tentative limitée, nettoyage par liste blanche (tout script,
+-- RemoteEvent, BindableEvent ou autre classe non prévue est supprimé), limite de pièces, repli sans effet de bord.
+
+local AssetLoader = {}
+
+-- classes conservées en plus de toutes les BasePart
+local KEEP = {
+	Model = true,
+	Folder = true,
+	SpecialMesh = true,
+	BlockMesh = true,
+	CylinderMesh = true,
+	FileMesh = true,
+	Decal = true,
+	Texture = true,
+	SurfaceAppearance = true,
+	Attachment = true,
+	Weld = true,
+	WeldConstraint = true,
+}
+-- classes dangereuses comptées à part (supprimées comme tout ce qui n'est pas dans KEEP)
+local DANGEROUS = {
+	Script = true,
+	LocalScript = true,
+	ModuleScript = true,
+	RemoteEvent = true,
+	RemoteFunction = true,
+	BindableEvent = true,
+	BindableFunction = true,
+	UnreliableRemoteEvent = true,
+}
+
+local customLoader = nil
+
+-- Permet d'injecter un chargeur factice (tests) : fn(id) -> Instance
+function AssetLoader.setLoader(fn)
+	customLoader = fn
+end
+
+function AssetLoader.validId(id)
+	return type(id) == "number" and id > 0 and id % 1 == 0 and id < 2 ^ 53
+end
+
+local function scanDanger(node)
+	local n = DANGEROUS[node.ClassName] and 1 or 0
+	for _, c in ipairs(node:GetChildren()) do
+		n = n + scanDanger(c)
+	end
+	return n
+end
+
+-- Supprime tout ce qui n'est pas autorisé. Retourne { removed, dangerous, parts }.
+function AssetLoader.sanitize(root)
+	local stats = { removed = 0, dangerous = 0, parts = 0 }
+	local function walk(node)
+		for _, child in ipairs(node:GetChildren()) do
+			if child:IsA("BasePart") then
+				stats.parts = stats.parts + 1
+				walk(child)
+			elseif KEEP[child.ClassName] then
+				walk(child)
+			else
+				stats.dangerous = stats.dangerous + scanDanger(child)
+				stats.removed = stats.removed + 1
+				child:Destroy()
+			end
+		end
+	end
+	-- la racine elle-même ne peut pas être un script
+	if DANGEROUS[root.ClassName] then
+		stats.dangerous = stats.dangerous + 1
+	end
+	walk(root)
+	return stats
+end
+
+-- Appel de LoadAsset avec délai maximum. Retourne instance ou nil, raison.
+local function fetch(id, timeout)
+	local result, err, done, timedOut = nil, nil, false, false
+	task.spawn(function()
+		local ok, res = pcall(function()
+			if customLoader then
+				return customLoader(id)
+			end
+			return game:GetService("InsertService"):LoadAsset(id)
+		end)
+		if ok then
+			result = res
+		else
+			err = tostring(res)
+		end
+		done = true
+		if timedOut and result then
+			pcall(function()
+				result:Destroy() -- arrivée tardive : on jette
+			end)
+		end
+	end)
+	local t0 = os.clock()
+	while not done and os.clock() - t0 < timeout do
+		task.wait(0.1)
+	end
+	if not done then
+		timedOut = true
+		return nil, "délai dépassé (" .. timeout .. " s)"
+	end
+	if err then
+		return nil, err
+	end
+	if typeof(result) ~= "Instance" then
+		return nil, "résultat invalide"
+	end
+	return result
+end
+
+-- Charge, nettoie et emballe un modèle. Retourne Model (sans parent), stats  -- ou nil, raison
+function AssetLoader.load(id, opts)
+	opts = opts or {}
+	if not AssetLoader.validId(id) then
+		return nil, "identifiant invalide"
+	end
+	local attempts = opts.attempts or 2
+	local lastReason = "échec"
+	for attempt = 1, attempts do
+		local container, reason = fetch(id, opts.timeout or 12)
+		if container then
+			local stats = AssetLoader.sanitize(container)
+			if stats.parts < 1 then
+				container:Destroy()
+				return nil, "modèle vide après nettoyage"
+			end
+			if stats.parts > (opts.maxParts or 1500) then
+				container:Destroy()
+				return nil, "trop de pièces (" .. stats.parts .. ")"
+			end
+			local model = Instance.new("Model")
+			model.Name = "Asset_" .. tostring(id)
+			for _, child in ipairs(container:GetChildren()) do
+				child.Parent = model
+			end
+			container:Destroy()
+			-- décor : figé, sans collision, sans coût physique
+			for _, d in ipairs(model:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+					d.CanCollide = false
+					d.CanTouch = false
+					d.CanQuery = false
+					d.Massless = true
+				end
+			end
+			return model, stats
+		end
+		lastReason = reason or lastReason
+		if attempt < attempts then
+			task.wait(1)
+		end
+	end
+	return nil, lastReason
+end
+
+-- Met le modèle à la hauteur voulue. Retourne true si possible.
+function AssetLoader.fit(model, targetHeight)
+	local _, size = model:GetBoundingBox()
+	if size.Y <= 0.01 or targetHeight <= 0 then
+		return false
+	end
+	local k = math.clamp(targetHeight / size.Y, 0.01, 100)
+	model:ScaleTo(k)
+	return true
+end
+
+-- Pose le modèle (centré, base au sol) à groundPos avec une rotation yaw
+function AssetLoader.placeOnGround(model, groundPos, yaw)
+	local centerCF, size = model:GetBoundingBox()
+	local pivotToCenter = model:GetPivot():ToObjectSpace(centerCF)
+	local target = CFrame.new(groundPos + Vector3.new(0, size.Y / 2, 0)) * CFrame.Angles(0, yaw or 0, 0)
+	model:PivotTo(target * pivotToCenter:Inverse())
+end
+
+return AssetLoader
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="14">
+        <Properties>
+          <string name="Name">AssetService</string>
+          <string name="Source"><![CDATA[-- AssetService.luau : place les modèles externes (plantes, table, T-Rex du musée) APRÈS la construction du monde.
+-- Aucun chargement si Config.Assets.enabled = false. Un échec laisse les modèles actuels en place.
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
+
+local AssetLoader = require(script.Parent.AssetLoader)
+local WorldBuilder = require(script.Parent.WorldBuilder)
+local PlotService = require(script.Parent.PlotService)
+
+local AssetService = {}
+AssetService.report = { loaded = {}, failed = {}, disabled = false, done = false }
+
+local function run()
+	local cfg = Config.Assets
+	local report = AssetService.report
+	local templates = {}
+
+	-- charge (une seule fois par nom) et met à l'échelle ; retourne le modèle gabarit ou nil
+	local function template(name, id, height)
+		if templates[name] ~= nil then
+			return templates[name] or nil
+		end
+		local model, info = AssetLoader.load(id, { timeout = cfg.timeout, attempts = cfg.attempts, maxParts = cfg.maxParts })
+		if model and not AssetLoader.fit(model, height) then
+			model:Destroy()
+			model, info = nil, "taille invalide"
+		end
+		if not model then
+			templates[name] = false
+			report.failed[name] = tostring(info)
+			warn("[AssetService] " .. name .. " (" .. tostring(id) .. ") non chargé, modèle actuel conservé : " .. tostring(info))
+			return nil
+		end
+		templates[name] = model
+		report.loaded[name] = info
+		return model
+	end
+
+	local function place(name, parent, groundPos, yaw)
+		local tpl = templates[name]
+		if not tpl then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			local c = tpl:Clone()
+			c.Parent = parent
+			AssetLoader.placeOnGround(c, groundPos, yaw)
+			return c
+		end)
+		if not ok then
+			warn("[AssetService] pose de " .. name .. " impossible : " .. tostring(clone))
+			return nil
+		end
+		return clone
+	end
+
+	local H = cfg.targetHeights
+	local ids = cfg.ids
+
+	-- musée
+	local museum = WorldBuilder.museum
+	if museum then
+		if template("diningTable", ids.diningTable, H.diningTable) then
+			if place("diningTable", museum.folder, museum.spots.table, 0) then
+				museum.fallbackTable:Destroy()
+			end
+		end
+		local plantNames = { "pottedPlant", "windowPlant", "sakura", "pottedPlant" }
+		local plantHeights = { H.pottedPlant, H.windowPlant, H.sakura * 0.45, H.pottedPlant }
+		for i, spot in ipairs(museum.spots.plants) do
+			local name = plantNames[i]
+			if template(name, ids[name], name == "sakura" and plantHeights[i] or H[name]) then
+				if place(name, museum.folder, spot, math.rad(i * 70)) then
+					museum.fallbackPlants[i]:Destroy()
+				end
+			end
+		end
+		if cfg.museumTrex.enabled then
+			local first = true
+			for i, id in ipairs(cfg.museumTrex.ids) do
+				local name = "trex" .. i
+				if template(name, id, H.trex) and place(name, museum.folder, museum.spots.trex[i], math.rad(150 - 60 * (i - 1))) then
+					if first and museum.fallbackTrex then
+						museum.fallbackTrex:Destroy()
+						first = false
+					end
+				end
+			end
+		end
+	end
+
+	-- décor du site de fouille et du laboratoire de chaque parcelle
+	if cfg.digsiteDecor then
+		local spots = {
+			{ "sakura", Vector3.new(-57, 0.3, 50), 0.6 },
+			{ "sakura", Vector3.new(57, 0.3, 62), 2.4 },
+			{ "pottedPlant", Vector3.new(14, 0.3, 44), 0 },
+			{ "pottedPlant", Vector3.new(50, 0.3, 42), 1 },
+			{ "windowPlant", Vector3.new(13, 0.3, 66), 1.6 },
+		}
+		for _, plot in ipairs(PlotService.getPlots()) do
+			local decor = Instance.new("Folder")
+			decor.Name = "DecorAssets"
+			decor.Parent = plot.model
+			for _, s in ipairs(spots) do
+				local name = s[1]
+				local height = name == "sakura" and H.sakura or H[name]
+				if template(name, ids[name], height) then
+					place(name, decor, WorldBuilder.toWorld(plot, s[2]), s[3])
+				end
+			end
+		end
+	end
+	report.done = true
+end
+
+function AssetService.init()
+	if not Config.Assets.enabled then
+		AssetService.report.disabled = true
+		AssetService.report.done = true
+		return
+	end
+	task.spawn(function()
+		local ok, err = pcall(run)
+		if not ok then
+			warn("[AssetService] erreur : " .. tostring(err))
+		end
+		AssetService.report.done = true
+	end)
+end
+
+return AssetService
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="15">
+        <Properties>
           <string name="Name">DataService</string>
           <string name="Source"><![CDATA[-- DataService.luau : chargement / sauvegarde DataStore avec verrou de session, réessais et validation.
 
@@ -2116,7 +2465,7 @@ return DataService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="14">
+      <Item class="ModuleScript" referent="16">
         <Properties>
           <string name="Name">EventService</string>
           <string name="Source"><![CDATA[-- EventService.luau : événement serveur "Pluie de météores" (récompense fossiles + boost de revenus).
@@ -2236,7 +2585,7 @@ return EventService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="15">
+      <Item class="ModuleScript" referent="17">
         <Properties>
           <string name="Name">GameService</string>
           <string name="Source"><![CDATA[-- GameService.luau : cœur du jeu côté serveur (autorité unique sur toutes les données du joueur).
@@ -3219,7 +3568,7 @@ return GameService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="16">
+      <Item class="ModuleScript" referent="18">
         <Properties>
           <string name="Name">Leaderboard</string>
           <string name="Source"><![CDATA[-- Leaderboard.luau : classement global (OrderedDataStore) des meilleurs parcs, affiché dans le lobby.
@@ -3325,7 +3674,7 @@ return Leaderboard
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="17">
+      <Item class="Script" referent="19">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -3342,6 +3691,7 @@ local GameService = require(script.Parent.GameService)
 local Monetization = require(script.Parent.Monetization)
 local EventService = require(script.Parent.EventService)
 local Leaderboard = require(script.Parent.Leaderboard)
+local AssetService = require(script.Parent.AssetService)
 
 DataService.init()
 PlotService.init() -- construit le monde (lobby + parcelles)
@@ -3349,13 +3699,14 @@ GameService.Monetization = Monetization
 Monetization.init(GameService)
 EventService.init(GameService)
 Leaderboard.init()
+AssetService.init() -- modèles externes : en arrière-plan, repli automatique
 GameService.init() -- en dernier : commence à accepter les joueurs
 
 print("[Dino Dig Park] serveur prêt")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="18">
+      <Item class="ModuleScript" referent="20">
         <Properties>
           <string name="Name">Monetization</string>
           <string name="Source"><![CDATA[-- Monetization.luau : gamepasses et produits développeur (inactifs tant que les IDs valent 0 dans Config).
@@ -3485,7 +3836,7 @@ return Monetization
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="19">
+      <Item class="ModuleScript" referent="21">
         <Properties>
           <string name="Name">PlotService</string>
           <string name="Source"><![CDATA[-- PlotService.luau : attribution des parcelles et synchronisation du monde physique avec les données du joueur.
@@ -3839,7 +4190,7 @@ return PlotService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="20">
+      <Item class="ModuleScript" referent="22">
         <Properties>
           <string name="Name">WorldBuilder</string>
           <string name="Source"><![CDATA[-- WorldBuilder.luau : construit tout le monde en blocs Roblox classiques (lobby, parcelles, bâtiments).
@@ -4761,6 +5112,91 @@ local function buildGoldBones(root)
 end
 
 ----------------------------------------------------------------------
+-- Musée des fossiles (lobby) : bâtiment, décors de repli construits par le code, emplacements pour les modèles externes
+----------------------------------------------------------------------
+local function buildMuseum(root)
+	local folder = Instance.new("Folder")
+	folder.Name = "Musee"
+	folder.Parent = root
+	local cx, cz = -55, -50
+	local groundY = 1.1
+	local marble = Color3.fromRGB(235, 232, 225)
+	W.part(folder, "Sol", Vector3.new(40, 0.5, 30), CFrame.new(cx, 0.85, cz), Color3.fromRGB(215, 205, 185), M.Marble)
+	W.part(folder, "MurFond", Vector3.new(40, 12, 1), CFrame.new(cx, 6.6, cz - 15), marble, M.Concrete)
+	W.part(folder, "MurOuest", Vector3.new(1, 12, 30), CFrame.new(cx - 20, 6.6, cz), marble, M.Concrete)
+	W.part(folder, "MurEst", Vector3.new(1, 12, 30), CFrame.new(cx + 20, 6.6, cz), marble, M.Concrete)
+	local roof = W.part(folder, "Toit", Vector3.new(42, 1, 32), CFrame.new(cx, 12.8, cz), Color3.fromRGB(170, 70, 60), M.Slate)
+	roof.Transparency = 0.25
+	roof.CanCollide = false
+	W.sign(
+		folder,
+		"Enseigne",
+		Vector3.new(26, 3.6, 0.6),
+		CFrame.new(cx, 14.8, cz + 15.4) * CFrame.Angles(0, math.pi, 0),
+		"MUSÉE DES FOSSILES",
+		Color3.fromRGB(60, 40, 30)
+	)
+
+	-- repli : table de la salle d'exposition (remplacée si le modèle externe se charge)
+	local fbTable = Instance.new("Model")
+	fbTable.Name = "RepliTable"
+	W.part(fbTable, "Plateau", Vector3.new(9, 0.5, 4.5), CFrame.new(cx, groundY + 3, cz + 3), Color3.fromRGB(150, 105, 60), M.Wood)
+	for _, o in ipairs({ { -4, -1.8 }, { 4, -1.8 }, { -4, 1.8 }, { 4, 1.8 } }) do
+		W.part(
+			fbTable,
+			"Pied",
+			Vector3.new(0.6, 2.9, 0.6),
+			CFrame.new(cx + o[1], groundY + 1.5, cz + 3 + o[2]),
+			Color3.fromRGB(110, 75, 45),
+			M.Wood
+		)
+	end
+	fbTable.Parent = folder
+
+	-- repli : 4 plantes en pot
+	local plantSpots = {
+		Vector3.new(cx - 17, groundY, cz - 12),
+		Vector3.new(cx + 17, groundY, cz - 12),
+		Vector3.new(cx - 17, groundY, cz + 11),
+		Vector3.new(cx + 17, groundY, cz + 11),
+	}
+	local fbPlants = {}
+	for i, p in ipairs(plantSpots) do
+		local f = Instance.new("Model")
+		f.Name = "ReplisPlante" .. i
+		W.cylinder(f, "Pot", 1.6, 2.2, p + Vector3.new(0, 0.8, 0), Color3.fromRGB(180, 100, 70), M.Concrete)
+		W.ball(f, "Feuillage", 3.2, p + Vector3.new(0, 3, 0), Color3.fromRGB(70, 160, 80), M.Grass)
+		f.Parent = folder
+		fbPlants[i] = f
+	end
+
+	-- repli : T-Rex du musée sur piédestal (celui de la boîte à outils est optionnel)
+	local trexSpots = { Vector3.new(cx - 9, groundY + 1, cz - 8), Vector3.new(cx + 9, groundY + 1, cz - 8) }
+	for _, sp in ipairs(trexSpots) do
+		W.cylinder(folder, "Piedestal", 1, 12, sp - Vector3.new(0, 0.5, 0), Color3.fromRGB(190, 185, 175), M.Marble)
+	end
+	local fbTrex = DinoFactory.build("rex", { scaleMul = 0.85 })
+	if fbTrex then
+		fbTrex.Name = "RepliTRex"
+		fbTrex:PivotTo(CFrame.new(trexSpots[1]) * CFrame.Angles(0, math.rad(150), 0))
+		for _, p in ipairs(fbTrex:GetDescendants()) do
+			if p:IsA("BasePart") then
+				p.CanQuery = false
+			end
+		end
+		fbTrex.Parent = folder
+	end
+
+	return {
+		folder = folder,
+		spots = { table = Vector3.new(cx, groundY, cz + 3), plants = plantSpots, trex = trexSpots },
+		fallbackTable = fbTable,
+		fallbackPlants = fbPlants,
+		fallbackTrex = fbTrex,
+	}
+end
+
+----------------------------------------------------------------------
 -- Construction globale
 ----------------------------------------------------------------------
 function W.build()
@@ -4787,6 +5223,9 @@ function W.build()
 	plotsFolder.Parent = Workspace
 
 	buildLobby(root)
+	if Config.Assets.museum then
+		W.museum = buildMuseum(root)
+	end
 	buildGoldBones(root)
 
 	local plots = {}
@@ -4826,19 +5265,19 @@ return W
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="21">
+  <Item class="StarterPlayer" referent="23">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="22">
+    <Item class="StarterPlayerScripts" referent="24">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="23">
+      <Item class="Folder" referent="25">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="ModuleScript" referent="24">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">Cinematics</string>
             <string name="Source"><![CDATA[-- Cinematics.luau : courtes séquences caméra aux moments clés. Skippables, réglables (Config.Cinematics),
@@ -5270,7 +5709,7 @@ return Cinematics
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">Hud</string>
             <string name="Source"><![CDATA[-- Hud.luau : interface permanente (monnaies, boutons de menu, objectif, notifications, boutons contextuels).
@@ -5798,7 +6237,7 @@ return Hud
 ]]></string>
           </Properties>
         </Item>
-        <Item class="LocalScript" referent="26">
+        <Item class="LocalScript" referent="28">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Main.client.luau : point d'entrée client de Dino Dig Park.
@@ -5829,7 +6268,7 @@ Store.act("RequestState")
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="27">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">Panels</string>
             <string name="Source"><![CDATA[-- Panels.luau : fenêtres du jeu (améliorations, collection, quêtes, cadeau quotidien, renaissance, boutique, choix d'œuf).
@@ -6700,7 +7139,7 @@ return Panels
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">Reveal</string>
             <string name="Source"><![CDATA[-- Reveal.luau : animation d'éclosion (œuf qui tremble -> flash -> dino en rotation avec sa rareté).
@@ -6914,7 +7353,7 @@ return Reveal
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">StateStore</string>
             <string name="Source"><![CDATA[-- StateStore.luau : copie locale de l'état envoyé par le serveur + signaux de changement.
@@ -6958,7 +7397,7 @@ return Store
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">Ui</string>
             <string name="Source"><![CDATA[-- Ui.luau : thème et petits composants d'interface (tout est construit par code, sans asset externe).
@@ -7340,7 +7779,7 @@ return Ui
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">World</string>
             <string name="Source"><![CDATA[-- World.luau : animations locales (dinos qui se promènent, visiteurs, ouvriers, œufs), effets et rayon-guide.

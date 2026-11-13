@@ -163,6 +163,7 @@ CF.__mul = function(a, b)
 	return a.p + rot(a.r, b) -- CFrame * Vector3
 end
 function CF.PointToWorldSpace(a, v) return a.p + rot(a.r, v) end
+function CF.ToObjectSpace(a, b) return a:Inverse() * b end
 function CF.ToEulerAnglesYXZ(a)
 	local r = a.r
 	return math.asin(math.max(-1, math.min(1, -r[6]))), math.atan2(r[3], r[9]), math.atan2(r[4], r[5])
@@ -311,6 +312,13 @@ function Methods.SetAttribute(self, k, v) self.__attrs[k] = v end
 function Methods.GetAttribute(self, k) return self.__attrs[k] end
 function Methods.GetPropertyChangedSignal(self, k) return newSignal() end
 function Methods.PivotTo(self, c)
+	if string.sub(self.__props.Name or "", 1, 6) == "Asset_" and self.__pivot then
+		-- modèles externes : déplacement rigide des pièces (les autres modèles gardent un pivot symbolique, plus rapide)
+		local delta = c * self.__pivot:Inverse()
+		for _, d in ipairs(self:GetDescendants()) do
+			if BASEPARTS[d.__class] then d.CFrame = delta * d.CFrame end
+		end
+	end
 	self.__pivot = c
 	local hrp = self:FindFirstChild("HumanoidRootPart")
 	if hrp then hrp.CFrame = c end
@@ -336,6 +344,24 @@ function Methods.FireClient(self, player, ...)
 end
 function Methods.FireServer(self, ...) self.OnServerEvent:Fire(M.localPlayer, ...) end
 function Methods.Emit() end
+function Methods.Clone(self)
+	local c = inst(self.__class)
+	for k, v in pairs(self.__props) do if k ~= "Parent" then c.__props[k] = v end end
+	for k, v in pairs(self.__attrs) do c.__attrs[k] = v end
+	c.__pivot = self.__pivot
+	for _, ch in ipairs(self.__children) do local cc = ch:Clone(); cc.Parent = c end
+	return c
+end
+function Methods.ScaleTo(self, k)
+	local pivot = self:GetPivot().p
+	for _, d in ipairs(self:GetDescendants()) do
+		if BASEPARTS[d.__class] then
+			d.Size = d.Size * k
+			d.CFrame = cf(pivot + (d.CFrame.p - pivot) * k, d.CFrame.r)
+		end
+	end
+end
+function typeof(v) if type(v) == "table" and rawget(v, "__class") then return "Instance" end return type(v) end
 function Methods.UnbindAction(self, name) if M.boundActions then M.boundActions[name] = nil end end
 function Methods.BindAction(self, name, fn) M.boundActions = M.boundActions or {} M.boundActions[name] = fn end
 function Methods.Play() end

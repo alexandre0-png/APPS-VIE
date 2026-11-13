@@ -713,4 +713,26 @@ Config.Cinematics = {
 -- ids mémorisés dans la sauvegarde : une cinématique ne se rejoue pas
 Config.CinematicIds = { intro = true, tutorial = true, firstRare = true, zone_pen5 = true, zone_pen6 = true }
 
+----------------------------------------------------------------------
+-- MODÈLES EXTERNES (boîte à outils Roblox) : chargés côté serveur uniquement, nettoyés, avec repli
+----------------------------------------------------------------------
+-- enabled = false : aucun chargement, les décors et modèles actuels restent en place.
+-- Les modèles doivent être publics ou appartenir au créateur de l'expérience (sinon LoadAsset échoue et le repli s'applique).
+Config.Assets = {
+	enabled = true,
+	timeout = 12, -- secondes maximum par modèle
+	attempts = 2,
+	maxParts = 1500, -- un modèle plus lourd est refusé
+	museum = true, -- construit le musée du lobby (avec décors de repli construits par le code)
+	digsiteDecor = true, -- plantes sur le site de fouille de chaque parcelle
+	museumTrex = { enabled = false, ids = { 10683798442, 71422282686175 } }, -- T-Rex du musée : en option
+	ids = {
+		pottedPlant = 116741237427172, -- plante en pot d'intérieur
+		windowPlant = 15078054751, -- plante de fenêtre
+		sakura = 101176034116232, -- arbre Sakura
+		diningTable = 1338860741, -- table de la salle d'exposition
+	},
+	targetHeights = { pottedPlant = 4, windowPlant = 3, sakura = 14, diningTable = 3.2, trex = 14 },
+}
+
 return Config

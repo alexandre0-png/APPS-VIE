@@ -141,6 +141,21 @@ do
 	local first = Economy.riddleIndex(100, 5)
 	check(Economy.riddleIndex(101, 5) ~= first, "l'énigme change d'un jour à l'autre")
 end
+do
+	local a = Config.Assets
+	check(type(a.enabled) == "boolean" and type(a.museum) == "boolean" and type(a.digsiteDecor) == "boolean" and type(a.museumTrex.enabled) == "boolean", "Config.Assets : réglages booléens")
+	check(a.timeout > 0 and a.attempts >= 1 and a.maxParts >= 100, "Config.Assets : délai, essais et limite de pièces")
+	local expected = { 10683798442, 71422282686175, 116741237427172, 15078054751, 101176034116232, 1338860741 }
+	local present = {}
+	for _, id in ipairs(a.museumTrex.ids) do present[id] = true end
+	for _, id in pairs(a.ids) do present[id] = true end
+	for _, id in ipairs(expected) do check(present[id] == true, "Config.Assets contient l'id " .. id) end
+	for name, id in pairs(a.ids) do check(type(id) == "number" and id > 0 and id % 1 == 0, "id valide : " .. name) end
+	for name, h in pairs(a.targetHeights) do check(type(h) == "number" and h > 0 and h < 60, "hauteur cible valide : " .. name) end
+	for _, name in ipairs({ "pottedPlant", "windowPlant", "sakura", "diningTable" }) do check(a.ids[name] and a.targetHeights[name], "modèle " .. name .. " défini avec sa hauteur") end
+	check(a.targetHeights.trex ~= nil and #a.museumTrex.ids == 2, "T-Rex du musée : 2 ids et une hauteur")
+	check(a.museumTrex.enabled == false, "T-Rex du musée désactivés par défaut (option)")
+end
 for k, p in pairs(Config.Passes) do check(p.id == 0 and p.price > 0 and p.name and p.desc, "pass " .. k .. " bien formé") end
 for k, p in pairs(Config.Products) do check(p.id == 0 and p.price > 0 and p.name and p.desc, "produit " .. k .. " bien formé") end
 check(#Config.DailyRewards == 7, "7 jours de récompenses")
