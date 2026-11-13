@@ -636,6 +636,41 @@ function MapBuilder.powerOn(duration)
 end
 
 -- Construit la carte fixe. Idempotent : reconstruit tout si la carte existe déjà.
+-- Décor autonome (sans collision, jamais dans une progression) : chaque entrée est posée si son modèle est chargé
+local STANDALONE_DECOR = {
+	{ "lampe horreur", 2, 0, 42 },
+	{ "lampe horreur", 118, 0, 88 },
+	{ "lampe horreur", 76, 12, 42 },
+	{ "chaise bois", 30, 0, 80 },
+	{ "chaise bloquante", 6, 0, 46 },
+	{ "plante", 42, 12, 86 },
+	{ "plante", 38, 0, 6 },
+}
+
+local function placeStandaloneDecor(root)
+	local folder = root:FindFirstChild("Maison")
+	local decor = folder and folder:FindFirstChild("Décor")
+	if not decor then
+		return
+	end
+	for _, entry in ipairs(STANDALONE_DECOR) do
+		local template = ServerStorage:FindFirstChild("Decor") and ServerStorage.Decor:FindFirstChild(entry[1])
+		if template then
+			pcall(function()
+				local model = template:Clone()
+				model:PivotTo(CFrame.new(entry[2], entry[3], entry[4]))
+				for _, d in ipairs(model:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+					end
+				end
+				model.Parent = decor
+			end)
+		end
+	end
+end
+
 function MapBuilder.build()
 	local root = Workspace:FindFirstChild("TombeMap")
 	if root then
@@ -650,6 +685,7 @@ function MapBuilder.build()
 	buildGarden(root)
 	buildSpawn(root)
 	setLighting()
+	pcall(placeStandaloneDecor, root)
 	pcall(Atmosphere.build)
 	print(("[MapBuilder] carte fixe construite : %d murs, %d meubles, %d lampes")
 		:format(#Data.walls, #Data.furniture, #lamps))

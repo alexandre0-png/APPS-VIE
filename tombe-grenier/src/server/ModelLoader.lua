@@ -1,10 +1,16 @@
 --[[
-  ModelLoader : charge les modèles de meubles fournis (identifiants Roblox) dans ServerStorage/Decor,
-  sous le nom du meuble. DecorKit les pose à la place des boîtes de substitution.
-  Les scripts éventuellement présents dans un modèle sont retirés. En cas d'échec, la boîte reste.
+  ModelLoader : charge les modèles de décor (identifiants Roblox) dans ServerStorage/Decor, sous le nom
+  du meuble ou de l'objet. DecorKit et MapBuilder les posent à la place des boîtes de substitution.
+  Côté serveur uniquement, avec InsertService:LoadAsset, dans pcall et avec un délai maximum (Config.Assets.Timeout).
+  Scripts et événements retirés (AssetLoad.sanitize). En cas d'échec, la pièce de remplacement actuelle reste.
 ]]
 local InsertService = game:GetService("InsertService")
 local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local AssetLoad = require(Shared.AssetLoad)
 
 local ModelLoader = {}
 
@@ -31,6 +37,52 @@ local MODELS = {
 	["cheminée"] = 3554244943,
 }
 
+-- Modèles de Config.Assets -> nom de meuble ou d'objet où ils servent
+local ASSET_NAMES = {
+	ChaiseHorreur = "chaise",
+	ChaiseBois = "chaise bois",
+	ChaiseAntique = "fauteuil",
+	ChaiseBloquante = "chaise bloquante",
+	LampeHorreur = "lampe horreur",
+	TableLongue = "table",
+	Plante = "plante",
+}
+
+-- Chargement d'un identifiant avec délai maximum. Retourne le conteneur, ou nil.
+local function loadWithTimeout(id)
+	local result = nil
+	local done = false
+	task.spawn(function()
+		local ok, container = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		result = ok and container or nil
+		done = true
+	end)
+	local limit = (Config.Assets and Config.Assets.Timeout) or 8
+	local waited = 0
+	while not done and waited < limit do
+		task.wait(0.2)
+		waited += 0.2
+	end
+	return result
+end
+
+-- Liste à charger : les modèles de meubles, puis ceux de Config.Assets
+local function entries()
+	local list = {}
+	for name, id in pairs(MODELS) do
+		table.insert(list, { name = name, id = id })
+	end
+	for key, name in pairs(ASSET_NAMES) do
+		local id = Config.Assets and Config.Assets[key]
+		if typeof(id) == "number" and id > 0 then
+			table.insert(list, { name = name, id = id })
+		end
+	end
+	return list
+end
+
 function ModelLoader.ensure()
 	local folder = ServerStorage:FindFirstChild("Decor")
 	if not folder then
@@ -38,27 +90,18 @@ function ModelLoader.ensure()
 		folder.Name = "Decor"
 		folder.Parent = ServerStorage
 	end
-	for name, id in pairs(MODELS) do
-		if not folder:FindFirstChild(name) then
-			local ok, container = pcall(function()
-				return InsertService:LoadAsset(id)
-			end)
-			local model = ok and container and container:FindFirstChildWhichIsA("Model", true)
-			if model then
-				for _, d in ipairs(model:GetDescendants()) do
-					if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ModuleScript") then
-						d:Destroy()
-					end
-				end
-				model.Name = name
-				model.Parent = folder
-			else
-				warn(("[ModelLoader] modèle « %s » non chargé (id %d)"):format(name, id))
-			end
-			if container then
-				container:Destroy()
-			end
+	if Config.Assets and Config.Assets.Enabled == false then
+		return
+	end
+	local todo = {}
+	for _, e in ipairs(entries()) do
+		if not folder:FindFirstChild(e.name) then
+			table.insert(todo, e)
 		end
+	end
+	local report = AssetLoad.install(todo, loadWithTimeout, folder)
+	for _, name in ipairs(report.failed) do
+		warn(("[ModelLoader] modèle « %s » non chargé : la pièce de remplacement reste"):format(name))
 	end
 end
 

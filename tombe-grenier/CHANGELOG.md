@@ -28,6 +28,9 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Modèles de décor (Config.Assets) : chaise de la salle à manger (remplace « chaise »), fauteuil antique (« fauteuil »), table longue (« table »), plante (« plante »), lampe avec lueur et chaise en bois (décor fixe), chaise bloquante devant une porte (décor seulement, jamais de collision ni de progression).
+  - Chargement côté serveur seulement (InsertService, pcall, délai Config.Assets.Timeout). Scripts et événements retirés. Modèle vide ou corrompu refusé ; la pièce de remplacement actuelle reste.
+  - Logique testée avec un chargeur factice (tools/lua/test_assets.py).
 - Animations de suite : tiroir de la cuisine (coulisse hors du meuble, Config.Animations.Drawer) ; geste de lecture (la feuille monte à hauteur des yeux à chaque document, Config.Animations.DocumentRead) ; réaction à l'apparition du monstre (secousse et sursaut des bords, pendant et après la cinématique, Config.Animations.MonsterReaction).
 - Cinématiques réduites aux moments clés : intro courte (arrivée de nuit), première apparition (avec la caméra qui se tourne), descente, fin 4, fin vérité. Le réveil dans le grenier n'est plus une cinématique (le battement de paupières le remplace).
 - Cinématiques (Config.Cinematics) : arrivée devant la maison de nuit, enchaînée sur le réveil dans le grenier (33 à 34 s chacune) ; réveil plus long avec gros plans (plaque, malle, trappe, miroir) ; descente du monstre au sous-sol (30 s) ; fin 4 « le piège » (32 s) ; fin « vérité » (33 s).

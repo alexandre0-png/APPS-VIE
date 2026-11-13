@@ -158,6 +158,20 @@ Config.Visual = {
 	CandleFlicker = true,    -- la lueur des bougies vacille (Quests.lua)
 }
 
+-- Modèles Roblox (décor). Chaque identifiant se charge côté serveur seulement, avec délai maximum.
+-- Un modèle absent ou invalide garde les pièces de remplacement actuelles. Enabled = false désactive le chargement.
+Config.Assets = {
+	Enabled = true,
+	Timeout = 8,               -- secondes maximum par modèle
+	ChaiseHorreur = 8995653666,        -- chaise de la salle à manger (remplace « chaise »)
+	ChaiseBois = 13369825696,          -- chaise en bois (décor, salle à manger)
+	ChaiseAntique = 97314700592382,    -- fauteuil du salon (remplace « fauteuil »)
+	ChaiseBloquante = 80943579301021,  -- chaise devant une porte (décor seulement)
+	LampeHorreur = 10780850055,        -- lampe avec lueur (décor, dans les pièces)
+	TableLongue = 188745055,           -- table de la salle à manger et de la cuisine (remplace « table »)
+	Plante = 116741237427172,          -- plante en pot (décor : hall, couloir)
+}
+
 -- Cinématiques aux moments clés seulement (intro, première apparition, descente, fins) : chacune se coupe seule.
 -- Enabled = false coupe toutes les cinématiques. SkipButton : bouton « Passer » à l'écran.
 Config.Cinematics = {
