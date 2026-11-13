@@ -1,6 +1,6 @@
 # À faire par toi (Chipe-Œufs, Roblox)
 
-Seulement ce que je ne peux pas faire à ta place : il faut ton compte Roblox, Studio, un navigateur connecté, ou ton autorisation. Tout le reste est fait ou suivi dans `CHANGELOG.md`. Dernière mise à jour : 2026-11-12 (achats : tant que les ID valent 0, ils restent désactivés dans le jeu avec un message clair, rien à faire de plus côté code).
+Seulement ce que je ne peux pas faire à ta place : il faut ton compte Roblox, Studio, un navigateur connecté, ou ton autorisation. Tout le reste est fait ou suivi dans `CHANGELOG.md`. Dernière mise à jour : 2026-11-13 (modèles d'œufs à vérifier ; 2026-11-12 : achats : tant que les ID valent 0, ils restent désactivés dans le jeu avec un message clair, rien à faire de plus côté code).
 
 Les cases sont à cocher au fur et à mesure.
 
@@ -22,6 +22,7 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **Test > Clients and Servers**, 2 joueurs. Parcourir la liste de `roblox/publication/LISTING.md` §5 (histoire, zones, vol entre joueurs, achats, sauvegarde, téléphone).
 - [ ] Vérifier les cinématiques en jeu (intro puis tutoriel au premier lancement, skip, retour de la caméra, plan de la première zone et du premier pet rare) : lisibilité des légendes sur téléphone, durée ressentie, et me dire si une cinématique doit être raccourcie ou coupée (`Config.Cinematics`).
 - [ ] Vérifier les animations en jeu (œufs, visages des pets, menus, barrière de zone, confettis) et me dire lesquelles gênent ou saccadent : chacune se coupe avec un drapeau de `Config.Animations`.
+- [ ] Vérifier les modèles d'œufs en jeu : apparaissent-ils (sinon lire les lignes `[Assets]` de la fenêtre Output : ID refusé, modèle non autorisé pour ton compte, vide...) ? Taille, aspect et rareté associée te conviennent-ils ? Les IDs doivent être des modèles que ton compte a le droit d'utiliser (disponibles dans la boutique, utilisables dans Studio). Correspondance et IDs modifiables dans `Config.Assets` ; `enabled = false` les coupe.
 - [ ] Vérifier à l'œil le monument du Grand Nid (runes, panneau d'énigme lisible des deux côtés) et la résolution de l'énigme du jour.
 - [ ] Me dire ce qui ne va pas (erreurs rouges de la fenêtre Output, comportements étranges, équilibrage trop dur ou trop facile) : je corrige.
 

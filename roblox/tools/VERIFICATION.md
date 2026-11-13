@@ -16,6 +16,8 @@
 
 ## Relu seulement (à confirmer dans Studio)
 
+- Modèles d'œufs : le chargement réel (`InsertService:LoadAsset`), la disponibilité et l'autorisation des 5 IDs, l'aspect et l'échelle des modèles, le comportement avec les animations de saut/tremblement ; seuls le module `Assets` (chargeur factice) et la configuration sont testés. `dressEgg` (Builder) n'est que relu et vérifié contre le dump de l'API.
+
 - Cinématiques : application des plans à la caméra, interface (barres, légende, boutons), restitution de la caméra en conditions réelles (mort, attaque, déconnexion), position des ancres dans le vrai monde ; seules la logique (`Cinema`), les définitions et la configuration sont testées.
 - Animations : application aux objets Roblox (œufs, visages des pets, barrières, confettis, FOV, menus) ; seules les courbes, le garde-fou et la configuration sont testées.
 - Énigme des runes : prompts, symboles locaux, panneau d'énoncé, validation et récompense (la logique de génération de l'énigme est testée, pas le câblage Roblox).

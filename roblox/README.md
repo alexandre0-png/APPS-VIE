@@ -17,6 +17,10 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Modèles d'œufs (Roblox)
+
+Cinq modèles de la boutique Roblox servent d'apparence aux œufs (`Config.Assets`). Réglages : `enabled = false` coupe tout chargement (apparence par défaut : Part + sphère teintée), `eggs` (IDs), `eggByTier` (rareté → modèle), `timeout`, `maxParts`. Le chargement est serveur, non bloquant et sûr (scripts et objets de communication supprimés, repli automatique). Sans modèle valide, rien ne change pour le joueur. Un modèle non autorisé pour ton compte ou retiré par Roblox échoue simplement avec un avertissement dans la sortie (`[Assets] …`).
+
 ## Cinématiques (v6)
 
 Courtes, **aux moments clés seulement** (le reste reste en gameplay), toutes **skippables** (bouton « Passer ▶ », « Tout passer », Entrée, manette B), réglables dans **`Config.Cinematics`**, exécutées sous `pcall` et **jamais bloquantes** : le joueur garde le contrôle de son personnage, le jeu continue, et la caméra lui est toujours rendue (fin, skip, mort, attaque d'un gardien ou d'un voleur, erreur, délai de sécurité).
@@ -104,6 +108,7 @@ roblox/
    ├─ ServerScriptService/Main.server.lua    → ServerScriptService > Main            (Script)
    ├─ ServerScriptService/Data.lua           → ServerScriptService > Data            (ModuleScript)
    ├─ ServerScriptService/Builder.lua        → ServerScriptService > Builder         (ModuleScript)
+   ├─ ServerScriptService/Assets.lua         → ServerScriptService > Assets          (ModuleScript, chargement sûr des modèles d'œufs)
    ├─ ServerScriptService/Rules.lua          → ServerScriptService > Rules           (ModuleScript, règles pures testées avec Lune)
    ├─ StarterPlayerScripts/Client.client.lua → StarterPlayer > StarterPlayerScripts > Client (LocalScript)
    ├─ StarterPlayerScripts/Animations.client.lua → StarterPlayer > StarterPlayerScripts > Animations (LocalScript)
