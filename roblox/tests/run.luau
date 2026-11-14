@@ -327,7 +327,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen" }
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -943,13 +943,23 @@ do
 		fn()
 	end
 	check("après le délai, le modèle tardif n'est pas utilisé", S.templates.red == nil and S.cloneEgg(1) == nil)
+	-- un seul avertissement par ID, échecs mémorisés
+	local warnings = 0
+	local W = AssetsMod.new(Config, (function()
+		local dd = deps(function() error("Requester does not have permission for Asset") end)
+		dd.warn = function() warnings = warnings + 1 end
+		return dd
+	end)())
+	W.loadAll()
+	W.loadAll()
+	check("échec de permission : un seul avertissement par ID, même en rechargeant", warnings == 5 and W.failedIds[2937230482] ~= nil and W.failedIds[147144059] ~= nil)
 	-- réglage de désactivation
-	local savedEnabled = Config.Assets.enabled
-	Config.Assets.enabled = false
+	local savedEnabled = Config.Assets.Enabled
+	Config.Assets.Enabled = false
 	local called = 0
 	local D = make(function() called = called + 1 return goodModel() end)
 	check("enabled = false : aucun chargement, aucun clone, aucun ID", D.loadAll() == 0 and called == 0 and D.cloneEgg(1) == nil and Config.eggAssetId(1) == nil)
-	Config.Assets.enabled = savedEnabled
+	Config.Assets.Enabled = savedEnabled
 	-- ID invalide
 	local savedId = Config.Assets.eggs.red
 	Config.Assets.eggs.red = -4
@@ -983,6 +993,53 @@ do
 	check("Diag : code StudioAccessToApisNotAllowed reconnu", Diag.isStudioApiError("104: StudioAccessToApisNotAllowed"))
 	check("Diag : une vraie erreur réseau n'est pas reconnue", not Diag.isStudioApiError("HTTP 500: InternalServerError") and not Diag.isStudioApiError("DataStore request was added to queue"))
 	check("Diag : valeur nil ou nombre sans erreur", not Diag.isStudioApiError(nil) and not Diag.isStudioApiError(404))
+end
+
+-- Apparences d'œufs construites par le code ---------------------------------------------------
+do
+	local seen = {}
+	local distinct = true
+	for key in pairs(Config.Assets.eggs) do
+		local look = Config.EggFx.looks[key]
+		check("EggFx : apparence définie pour " .. key, look ~= nil and look.color ~= nil and look.material ~= nil and look.light ~= nil)
+		if look then
+			local sig = string.format("%.2f,%.2f,%.2f,%s", look.color.R, look.color.G, look.color.B, look.material)
+			if seen[sig] then
+				distinct = false
+			end
+			seen[sig] = true
+		end
+	end
+	check("EggFx : cinq apparences toutes distinctes (couleur + matériau)", distinct)
+	check("EggFx : chaque rareté 1..6 a une apparence", (function()
+		for t = 1, #Config.TIERS do
+			if Config.eggLook(t) == nil then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("EggFx : matériaux valides", (function()
+		local ok = { SmoothPlastic = true, Plastic = true, Neon = true, Metal = true, Glass = true, Marble = true }
+		for _, look in pairs(Config.EggFx.looks) do
+			if not ok[look.material] then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("EggFx : halos et particules plafonnés (performance)", (function()
+		for _, look in pairs(Config.EggFx.looks) do
+			if look.particles and look.particles.rate > 20 then
+				return false
+			end
+			if look.halo and (look.halo.transparency < 0 or look.halo.transparency > 1 or look.halo.scale < 1 or look.halo.scale > 2) then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("EggFx : raretés supérieures plus marquées (le légendaire et le glitch ont un halo, le rouge non)", Config.EggFx.looks.legendary.halo ~= nil and Config.EggFx.looks.glitch.halo ~= nil and Config.EggFx.looks.red.halo == nil)
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

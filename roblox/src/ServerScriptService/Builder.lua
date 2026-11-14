@@ -107,13 +107,68 @@ local function dressEgg(p, tier)
 	return true
 end
 
+-- Halo décoratif soudé à l'œuf (sphère translucide ou anneau). Le client le fait tourner / scintiller (tag EggHalo, attributs Spin / Flicker).
+local function addHalo(p, h)
+	local halo = Instance.new("Part")
+	halo.Name = "Halo"
+	halo.Material = Enum.Material.Neon
+	halo.Color = h.color
+	halo.Transparency = h.transparency
+	halo.CanCollide = false
+	halo.CanTouch = false
+	halo.CanQuery = false
+	halo.Massless = true
+	halo.Anchored = false
+	halo.CastShadow = false
+	local rot = CFrame.new()
+	if h.shape == "ring" then
+		halo.Shape = Enum.PartType.Cylinder
+		halo.Size = Vector3.new(0.14, 3.2 * h.scale, 3.2 * h.scale)
+		rot = CFrame.Angles(0, 0, math.rad(90))
+	else
+		halo.Shape = Enum.PartType.Ball
+		halo.Size = Vector3.new(3.2 * h.scale, 3.2 * h.scale, 3.2 * h.scale)
+	end
+	local w = Instance.new("Weld")
+	w.Name = "HaloWeld"
+	w.Part0 = p
+	w.Part1 = halo
+	w.C0 = rot
+	w.Parent = halo
+	halo:SetAttribute("Spin", h.spin or 0)
+	halo:SetAttribute("Flicker", h.flicker == true)
+	halo:SetAttribute("BaseT", h.transparency)
+	CollectionService:AddTag(halo, "EggHalo")
+	halo.Parent = p
+end
+
+local function addParticles(p, pa)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SPARK
+	e.Color = ColorSequence.new(pa.color)
+	e.Rate = pa.rate
+	e.Lifetime = NumberRange.new(pa.life * 0.7, pa.life)
+	e.Speed = NumberRange.new(pa.speed * 0.5, pa.speed)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, pa.size), NumberSequenceKeypoint.new(1, 0) })
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	e.LightEmission = 0.8
+	e.Parent = p
+end
+
 function Builder.egg(tier, anchored)
-	local c = Config.TIERS[tier].color
+	local look = Config.EggFx.Enabled and Config.eggLook(tier) or nil
+	local c = look and look.light or Config.TIERS[tier].color
 	local p = Instance.new("Part")
 	p.Name = "Egg"
 	p.Size = Vector3.new(2.4, 3.2, 2.4)
-	p.Color = Color3.fromRGB(255, 244, 222):Lerp(c, 0.35)
-	p.Material = Enum.Material.SmoothPlastic
+	if look then
+		p.Color = look.color
+		p.Material = Enum.Material[look.material]
+	else
+		p.Color = Color3.fromRGB(255, 244, 222):Lerp(c, 0.35)
+		p.Material = Enum.Material.SmoothPlastic
+	end
 	p.Anchored = anchored ~= false
 	p.CanCollide = false
 	p.TopSurface = Enum.SurfaceType.Smooth
@@ -124,10 +179,18 @@ function Builder.egg(tier, anchored)
 	local l = Instance.new("PointLight")
 	l.Color = c
 	l.Range = 7
-	l.Brightness = 1.2
+	l.Brightness = look and look.brightness or 1.2
 	l.Parent = p
 	if dressEgg(p, tier) then
 		m:Destroy() -- la sphère n'est plus visible : inutile de la garder
+		l.Brightness = 1.2
+	elseif look then
+		if look.halo then
+			addHalo(p, look.halo)
+		end
+		if look.particles then
+			addParticles(p, look.particles)
+		end
 	end
 	return p
 end

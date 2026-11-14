@@ -230,9 +230,9 @@ end
 -- Seule l'APPARENCE change : éclosion, raretés, probabilités et animations ne dépendent pas de ces modèles. Chargement côté serveur
 -- uniquement (InsertService:LoadAsset), sous pcall, avec délai maximum, une seule fois au démarrage (puis clonage). Tout Script,
 -- LocalScript, ModuleScript, RemoteEvent, BindableEvent... est supprimé du modèle. Si le chargement échoue (modèle absent, vide, corrompu,
--- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `enabled = false` : aucun chargement.
+-- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `Enabled = false` : aucun chargement.
 Config.Assets = {
-	enabled = true,
+	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
 	timeout = 8, -- secondes maximum par modèle
 	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
@@ -253,6 +253,55 @@ Config.Assets = {
 	},
 }
 
+---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
+-- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
+-- scintille côté client). `Enabled = false` : œufs simples (couleur + sphère), utile pour alléger les téléphones modestes.
+Config.EggFx = {
+	Enabled = true,
+	looks = {
+		red = { name = "Rouge", color = Color3.fromRGB(222, 56, 56), material = "SmoothPlastic", light = Color3.fromRGB(255, 96, 96) },
+		orange = {
+			name = "Orange",
+			color = Color3.fromRGB(255, 150, 40),
+			material = "Plastic",
+			light = Color3.fromRGB(255, 170, 70),
+			particles = { color = Color3.fromRGB(255, 190, 90), rate = 3, speed = 1.5, size = 0.25, life = 1.2 },
+		},
+		purple = {
+			name = "Aura violette",
+			color = Color3.fromRGB(150, 80, 235),
+			material = "Neon",
+			light = Color3.fromRGB(180, 110, 255),
+			halo = { shape = "ball", color = Color3.fromRGB(205, 150, 255), scale = 1.4, transparency = 0.78 },
+			particles = { color = Color3.fromRGB(215, 170, 255), rate = 8, speed = 2, size = 0.3, life = 1.6 },
+		},
+		legendary = {
+			name = "Légendaire",
+			color = Color3.fromRGB(255, 205, 60),
+			material = "Metal",
+			light = Color3.fromRGB(255, 220, 110),
+			brightness = 2,
+			halo = { shape = "ring", color = Color3.fromRGB(255, 235, 140), scale = 1.55, transparency = 0.25, spin = 1.6 },
+			particles = { color = Color3.fromRGB(255, 230, 120), rate = 10, speed = 2.5, size = 0.3, life = 1.5 },
+		},
+		glitch = {
+			name = "Glitch",
+			color = Color3.fromRGB(40, 255, 230),
+			material = "Neon",
+			light = Color3.fromRGB(255, 60, 210),
+			brightness = 2,
+			halo = { shape = "ball", color = Color3.fromRGB(255, 40, 200), scale = 1.22, transparency = 0.55, flicker = true },
+			particles = { color = Color3.fromRGB(255, 70, 215), rate = 14, speed = 5, size = 0.22, life = 0.6 },
+		},
+	},
+}
+
+-- Apparence (table de Config.EggFx.looks) de l'œuf de rareté `tier`, ou nil.
+function Config.eggLook(tier)
+	local key = Config.eggAssetKey(tier)
+	return key and Config.EggFx.looks[key] or nil
+end
+
 function Config.isBlockedClass(className)
 	for _, c in ipairs(Config.Assets.blockedClasses) do
 		if c == className then
@@ -269,7 +318,7 @@ end
 
 -- ID du modèle d'un œuf de rareté `tier`, ou nil : chargement coupé, rareté inconnue ou ID invalide (entier > 0 exigé).
 function Config.eggAssetId(tier)
-	if Config.Assets.enabled ~= true then
+	if Config.Assets.Enabled ~= true then
 		return nil
 	end
 	local key = Config.eggAssetKey(tier)
@@ -299,6 +348,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
 }
 
 function Config.animEnabled(name)

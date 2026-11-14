@@ -234,9 +234,9 @@ end
 -- Seule l'APPARENCE change : éclosion, raretés, probabilités et animations ne dépendent pas de ces modèles. Chargement côté serveur
 -- uniquement (InsertService:LoadAsset), sous pcall, avec délai maximum, une seule fois au démarrage (puis clonage). Tout Script,
 -- LocalScript, ModuleScript, RemoteEvent, BindableEvent... est supprimé du modèle. Si le chargement échoue (modèle absent, vide, corrompu,
--- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `enabled = false` : aucun chargement.
+-- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `Enabled = false` : aucun chargement.
 Config.Assets = {
-	enabled = true,
+	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
 	timeout = 8, -- secondes maximum par modèle
 	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
@@ -257,6 +257,55 @@ Config.Assets = {
 	},
 }
 
+---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
+-- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
+-- scintille côté client). `Enabled = false` : œufs simples (couleur + sphère), utile pour alléger les téléphones modestes.
+Config.EggFx = {
+	Enabled = true,
+	looks = {
+		red = { name = "Rouge", color = Color3.fromRGB(222, 56, 56), material = "SmoothPlastic", light = Color3.fromRGB(255, 96, 96) },
+		orange = {
+			name = "Orange",
+			color = Color3.fromRGB(255, 150, 40),
+			material = "Plastic",
+			light = Color3.fromRGB(255, 170, 70),
+			particles = { color = Color3.fromRGB(255, 190, 90), rate = 3, speed = 1.5, size = 0.25, life = 1.2 },
+		},
+		purple = {
+			name = "Aura violette",
+			color = Color3.fromRGB(150, 80, 235),
+			material = "Neon",
+			light = Color3.fromRGB(180, 110, 255),
+			halo = { shape = "ball", color = Color3.fromRGB(205, 150, 255), scale = 1.4, transparency = 0.78 },
+			particles = { color = Color3.fromRGB(215, 170, 255), rate = 8, speed = 2, size = 0.3, life = 1.6 },
+		},
+		legendary = {
+			name = "Légendaire",
+			color = Color3.fromRGB(255, 205, 60),
+			material = "Metal",
+			light = Color3.fromRGB(255, 220, 110),
+			brightness = 2,
+			halo = { shape = "ring", color = Color3.fromRGB(255, 235, 140), scale = 1.55, transparency = 0.25, spin = 1.6 },
+			particles = { color = Color3.fromRGB(255, 230, 120), rate = 10, speed = 2.5, size = 0.3, life = 1.5 },
+		},
+		glitch = {
+			name = "Glitch",
+			color = Color3.fromRGB(40, 255, 230),
+			material = "Neon",
+			light = Color3.fromRGB(255, 60, 210),
+			brightness = 2,
+			halo = { shape = "ball", color = Color3.fromRGB(255, 40, 200), scale = 1.22, transparency = 0.55, flicker = true },
+			particles = { color = Color3.fromRGB(255, 70, 215), rate = 14, speed = 5, size = 0.22, life = 0.6 },
+		},
+	},
+}
+
+-- Apparence (table de Config.EggFx.looks) de l'œuf de rareté `tier`, ou nil.
+function Config.eggLook(tier)
+	local key = Config.eggAssetKey(tier)
+	return key and Config.EggFx.looks[key] or nil
+end
+
 function Config.isBlockedClass(className)
 	for _, c in ipairs(Config.Assets.blockedClasses) do
 		if c == className then
@@ -273,7 +322,7 @@ end
 
 -- ID du modèle d'un œuf de rareté `tier`, ou nil : chargement coupé, rareté inconnue ou ID invalide (entier > 0 exigé).
 function Config.eggAssetId(tier)
-	if Config.Assets.enabled ~= true then
+	if Config.Assets.Enabled ~= true then
 		return nil
 	end
 	local key = Config.eggAssetKey(tier)
@@ -303,6 +352,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
 }
 
 function Config.animEnabled(name)
@@ -3009,13 +3059,68 @@ local function dressEgg(p, tier)
 	return true
 end
 
+-- Halo décoratif soudé à l'œuf (sphère translucide ou anneau). Le client le fait tourner / scintiller (tag EggHalo, attributs Spin / Flicker).
+local function addHalo(p, h)
+	local halo = Instance.new("Part")
+	halo.Name = "Halo"
+	halo.Material = Enum.Material.Neon
+	halo.Color = h.color
+	halo.Transparency = h.transparency
+	halo.CanCollide = false
+	halo.CanTouch = false
+	halo.CanQuery = false
+	halo.Massless = true
+	halo.Anchored = false
+	halo.CastShadow = false
+	local rot = CFrame.new()
+	if h.shape == "ring" then
+		halo.Shape = Enum.PartType.Cylinder
+		halo.Size = Vector3.new(0.14, 3.2 * h.scale, 3.2 * h.scale)
+		rot = CFrame.Angles(0, 0, math.rad(90))
+	else
+		halo.Shape = Enum.PartType.Ball
+		halo.Size = Vector3.new(3.2 * h.scale, 3.2 * h.scale, 3.2 * h.scale)
+	end
+	local w = Instance.new("Weld")
+	w.Name = "HaloWeld"
+	w.Part0 = p
+	w.Part1 = halo
+	w.C0 = rot
+	w.Parent = halo
+	halo:SetAttribute("Spin", h.spin or 0)
+	halo:SetAttribute("Flicker", h.flicker == true)
+	halo:SetAttribute("BaseT", h.transparency)
+	CollectionService:AddTag(halo, "EggHalo")
+	halo.Parent = p
+end
+
+local function addParticles(p, pa)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SPARK
+	e.Color = ColorSequence.new(pa.color)
+	e.Rate = pa.rate
+	e.Lifetime = NumberRange.new(pa.life * 0.7, pa.life)
+	e.Speed = NumberRange.new(pa.speed * 0.5, pa.speed)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, pa.size), NumberSequenceKeypoint.new(1, 0) })
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	e.LightEmission = 0.8
+	e.Parent = p
+end
+
 function Builder.egg(tier, anchored)
-	local c = Config.TIERS[tier].color
+	local look = Config.EggFx.Enabled and Config.eggLook(tier) or nil
+	local c = look and look.light or Config.TIERS[tier].color
 	local p = Instance.new("Part")
 	p.Name = "Egg"
 	p.Size = Vector3.new(2.4, 3.2, 2.4)
-	p.Color = Color3.fromRGB(255, 244, 222):Lerp(c, 0.35)
-	p.Material = Enum.Material.SmoothPlastic
+	if look then
+		p.Color = look.color
+		p.Material = Enum.Material[look.material]
+	else
+		p.Color = Color3.fromRGB(255, 244, 222):Lerp(c, 0.35)
+		p.Material = Enum.Material.SmoothPlastic
+	end
 	p.Anchored = anchored ~= false
 	p.CanCollide = false
 	p.TopSurface = Enum.SurfaceType.Smooth
@@ -3026,10 +3131,18 @@ function Builder.egg(tier, anchored)
 	local l = Instance.new("PointLight")
 	l.Color = c
 	l.Range = 7
-	l.Brightness = 1.2
+	l.Brightness = look and look.brightness or 1.2
 	l.Parent = p
 	if dressEgg(p, tier) then
 		m:Destroy() -- la sphère n'est plus visible : inutile de la garder
+		l.Brightness = 1.2
+	elseif look then
+		if look.halo then
+			addHalo(p, look.halo)
+		end
+		if look.particles then
+			addParticles(p, look.particles)
+		end
 	end
 	return p
 end
@@ -3827,10 +3940,18 @@ return Rules
 local Assets = {}
 
 function Assets.new(Config, deps)
-	local A = { templates = {}, status = {} } -- status[clé] = { ok, reason | parts, removed }
+	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
+	local warned = {} -- un seul avertissement par ID
 	local cfg = Config.Assets
 
-	local function warn(msg)
+	local function warn(msg, id)
+		if id ~= nil then
+			A.failedIds[id] = msg
+			if warned[id] then
+				return
+			end
+			warned[id] = true
+		end
 		if deps.warn then
 			deps.warn("[Assets] " .. msg)
 		end
@@ -3937,7 +4058,7 @@ function Assets.new(Config, deps)
 		end, cfg.timeout)
 		if not ok then
 			A.status[key] = { ok = false, reason = tostring(model) }
-			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence par défaut conservée.")
+			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
 		local sOk, valid, info = pcall(A.sanitize, model)
@@ -3951,7 +4072,7 @@ function Assets.new(Config, deps)
 					model:Destroy()
 				end
 			end)
-			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence par défaut conservée.")
+			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
 		A.templates[key] = model
@@ -3963,9 +4084,9 @@ function Assets.new(Config, deps)
 	end
 
 	-- Charge tous les modèles d'œufs (un par clé). onReady() est appelé une fois si au moins un modèle est utilisable.
-	-- Retourne le nombre de modèles chargés. Ne lève jamais d'erreur ; ne fait rien si Config.Assets.enabled est faux.
+	-- Retourne le nombre de modèles chargés. Ne lève jamais d'erreur ; ne fait rien si Config.Assets.Enabled est faux.
 	function A.loadAll(onReady)
-		if cfg.enabled ~= true then
+		if cfg.Enabled ~= true then
 			return 0
 		end
 		local keys = {}
@@ -3992,7 +4113,7 @@ function Assets.new(Config, deps)
 
 	-- Copie du modèle d'un œuf de rareté `tier`, ou nil (chargement coupé, échoué, pas encore terminé...) : garder l'apparence par défaut.
 	function A.cloneEgg(tier)
-		if cfg.enabled ~= true then
+		if cfg.Enabled ~= true then
 			return nil
 		end
 		local key = Config.eggAssetKey(tier)
@@ -5086,6 +5207,42 @@ RunService.RenderStepped:Connect(function()
 				d.mesh.Scale = Vector3.new(d.sx, d.sy, d.sx)
 			end
 			egg.Color = d.color:Lerp(Color3.new(1, 1, 1), d.whiten)
+		end
+	end)
+end)
+
+-- Halos des œufs (anneau du légendaire qui tourne, sphère du glitch qui scintille) : modification locale de la soudure et de la transparence.
+local haloBase = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	run("eggHalo", function()
+		local t = os.clock()
+		for _, halo in ipairs(CollectionService:GetTagged("EggHalo")) do
+			local weld = halo:FindFirstChild("HaloWeld")
+			if weld then
+				local base = haloBase[halo]
+				if not base then
+					base = weld.C0
+					haloBase[halo] = base
+				end
+				local spin = halo:GetAttribute("Spin") or 0
+				local off = CFrame.new()
+				local trans = halo:GetAttribute("BaseT") or 0.5
+				if spin ~= 0 then
+					off = CFrame.Angles(0, t * spin, 0)
+				end
+				if halo:GetAttribute("Flicker") then
+					local k = math.floor(t * 10)
+					local r = (math.sin(k * 12.9898 + weld.Part0.Position.X) * 43758.5453) % 1
+					if r > 0.8 then
+						off = CFrame.new((r - 0.9) * 2.4, 0, 0)
+					end
+					if r > 0.65 then
+						trans = math.min(1, trans + 0.3)
+					end
+				end
+				weld.C0 = off * base
+				halo.Transparency = trans
+			end
 		end
 	end)
 end)

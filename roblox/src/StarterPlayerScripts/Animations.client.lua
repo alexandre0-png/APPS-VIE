@@ -100,6 +100,42 @@ RunService.RenderStepped:Connect(function()
 	end)
 end)
 
+-- Halos des œufs (anneau du légendaire qui tourne, sphère du glitch qui scintille) : modification locale de la soudure et de la transparence.
+local haloBase = setmetatable({}, { __mode = "k" })
+RunService.RenderStepped:Connect(function()
+	run("eggHalo", function()
+		local t = os.clock()
+		for _, halo in ipairs(CollectionService:GetTagged("EggHalo")) do
+			local weld = halo:FindFirstChild("HaloWeld")
+			if weld then
+				local base = haloBase[halo]
+				if not base then
+					base = weld.C0
+					haloBase[halo] = base
+				end
+				local spin = halo:GetAttribute("Spin") or 0
+				local off = CFrame.new()
+				local trans = halo:GetAttribute("BaseT") or 0.5
+				if spin ~= 0 then
+					off = CFrame.Angles(0, t * spin, 0)
+				end
+				if halo:GetAttribute("Flicker") then
+					local k = math.floor(t * 10)
+					local r = (math.sin(k * 12.9898 + weld.Part0.Position.X) * 43758.5453) % 1
+					if r > 0.8 then
+						off = CFrame.new((r - 0.9) * 2.4, 0, 0)
+					end
+					if r > 0.65 then
+						trans = math.min(1, trans + 0.3)
+					end
+				end
+				weld.C0 = off * base
+				halo.Transparency = trans
+			end
+		end
+	end)
+end)
+
 -- Œufs portés : ils rebondissent pendant la course (modification locale de la soudure).
 local carryBase = setmetatable({}, { __mode = "k" })
 RunService.RenderStepped:Connect(function()

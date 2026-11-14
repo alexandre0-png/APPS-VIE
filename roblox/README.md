@@ -19,7 +19,7 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 
 ## Modèles d'œufs (Roblox)
 
-Cinq modèles de la boutique Roblox servent d'apparence aux œufs (`Config.Assets`). Réglages : `enabled = false` coupe tout chargement (apparence par défaut : Part + sphère teintée), `eggs` (IDs), `eggByTier` (rareté → modèle), `timeout`, `maxParts`. Le chargement est serveur, non bloquant et sûr (scripts et objets de communication supprimés, repli automatique). Sans modèle valide, rien ne change pour le joueur. Un modèle non autorisé pour ton compte ou retiré par Roblox échoue simplement avec un avertissement dans la sortie (`[Assets] …`).
+Cinq modèles de la boutique Roblox servent d'apparence aux œufs (`Config.Assets`). Réglages : `Enabled = false` coupe tout chargement (apparence par défaut : Part + sphère teintée), `eggs` (IDs), `eggByTier` (rareté → modèle), `timeout`, `maxParts`. Le chargement est serveur, non bloquant et sûr (scripts et objets de communication supprimés, repli automatique). Sans modèle valide, rien ne change pour le joueur. Un modèle non autorisé pour ton compte ou retiré par Roblox échoue simplement avec un avertissement dans la sortie (`[Assets] …`).
 
 ## Cinématiques (v6)
 

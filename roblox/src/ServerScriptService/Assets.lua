@@ -8,10 +8,18 @@
 local Assets = {}
 
 function Assets.new(Config, deps)
-	local A = { templates = {}, status = {} } -- status[clé] = { ok, reason | parts, removed }
+	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
+	local warned = {} -- un seul avertissement par ID
 	local cfg = Config.Assets
 
-	local function warn(msg)
+	local function warn(msg, id)
+		if id ~= nil then
+			A.failedIds[id] = msg
+			if warned[id] then
+				return
+			end
+			warned[id] = true
+		end
 		if deps.warn then
 			deps.warn("[Assets] " .. msg)
 		end
@@ -118,7 +126,7 @@ function Assets.new(Config, deps)
 		end, cfg.timeout)
 		if not ok then
 			A.status[key] = { ok = false, reason = tostring(model) }
-			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence par défaut conservée.")
+			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
 		local sOk, valid, info = pcall(A.sanitize, model)
@@ -132,7 +140,7 @@ function Assets.new(Config, deps)
 					model:Destroy()
 				end
 			end)
-			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence par défaut conservée.")
+			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
 		A.templates[key] = model
@@ -144,9 +152,9 @@ function Assets.new(Config, deps)
 	end
 
 	-- Charge tous les modèles d'œufs (un par clé). onReady() est appelé une fois si au moins un modèle est utilisable.
-	-- Retourne le nombre de modèles chargés. Ne lève jamais d'erreur ; ne fait rien si Config.Assets.enabled est faux.
+	-- Retourne le nombre de modèles chargés. Ne lève jamais d'erreur ; ne fait rien si Config.Assets.Enabled est faux.
 	function A.loadAll(onReady)
-		if cfg.enabled ~= true then
+		if cfg.Enabled ~= true then
 			return 0
 		end
 		local keys = {}
@@ -173,7 +181,7 @@ function Assets.new(Config, deps)
 
 	-- Copie du modèle d'un œuf de rareté `tier`, ou nil (chargement coupé, échoué, pas encore terminé...) : garder l'apparence par défaut.
 	function A.cloneEgg(tier)
-		if cfg.enabled ~= true then
+		if cfg.Enabled ~= true then
 			return nil
 		end
 		local key = Config.eggAssetKey(tier)
