@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Tombe du Grenier — maquette</title>
+<style>
+:root { --fond:#0c0b0d; --texte:#e9e0c8; --doux:#9a927e; --or:#c8a46a; --sang:#7a2a2a; --carte:#17151a; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--fond); color:var(--texte); font-family:Georgia,"Times New Roman",serif; line-height:1.5; }
+header { padding:28px 16px 8px; text-align:center; }
+header h1 { margin:0; font-size:clamp(22px,4vw,34px); color:var(--or); letter-spacing:.04em; }
+header p { color:var(--doux); margin:6px 0 0; font-size:15px; }
+nav { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:12px 16px 20px; position:sticky; top:0; background:var(--fond); z-index:5; border-bottom:1px solid #2a262c; }
+nav a { color:var(--texte); text-decoration:none; font-size:13px; border:1px solid #3a343c; border-radius:999px; padding:4px 11px; }
+main { max-width:1000px; margin:0 auto; padding:16px; }
+section { margin:0 0 44px; }
+section > h2 { font-size:19px; color:var(--or); border-bottom:1px solid #2a262c; padding-bottom:6px; margin:0 0 6px; }
+section > p.note { color:var(--doux); font-size:14px; margin:6px 0 14px; }
+.ecran { position:relative; width:100%; aspect-ratio:16/9; border-radius:10px; overflow:hidden; background:#000; border:1px solid #2a262c; margin-bottom:10px; }
+.ecran .centre { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:16px; }
+.ecran svg { position:absolute; inset:0; width:100%; height:100%; }
+.legende { color:var(--doux); font-size:13px; margin:0 0 26px; }
+.titre-jeu { font-size:clamp(26px,6vw,56px); color:var(--or); margin:0; text-shadow:0 2px 14px #000; }
+.sous { color:var(--doux); font-size:clamp(13px,2.2vw,17px); margin:6px 0 0; }
+.bouton { display:inline-block; margin-top:14px; border:1px solid var(--or); color:var(--or); padding:8px 18px; border-radius:6px; font-size:15px; background:rgba(0,0,0,.4); }
+.hud { position:absolute; left:10px; right:10px; top:10px; font-family:Arial,sans-serif; font-size:clamp(11px,1.8vw,14px); color:#e6dcc4; text-shadow:0 1px 3px #000; }
+.hud .obj { font-size:clamp(12px,2vw,16px); }
+.bas { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); width:86%; text-align:center; font-family:Arial,sans-serif; font-size:clamp(12px,2vw,16px); color:#f2ead6; background:rgba(0,0,0,.55); padding:8px 12px; border-radius:6px; }
+.papier { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:44%; height:70%; background:#e2dac4; color:#2a2218; padding:clamp(10px,2vw,22px); font-size:clamp(11px,1.9vw,16px); box-shadow:0 8px 30px #000; border-radius:2px; }
+.papier p { margin:0 0 .6em; }
+.bouton-bas { position:absolute; right:10px; bottom:10px; font-family:Arial,sans-serif; font-size:13px; color:#e6dcc4; border:1px solid #6a6258; padding:5px 10px; border-radius:6px; background:rgba(0,0,0,.5); }
+.journal { background:var(--carte); border-radius:10px; padding:14px 16px; }
+.journal li { margin:0 0 8px; color:var(--texte); }
+.journal li span { color:var(--doux); display:block; font-size:13px; }
+.journal ol { padding-left:20px; margin:0; }
+.reglages { background:var(--carte); border-radius:10px; padding:14px 16px; font-family:Arial,sans-serif; font-size:14px; }
+.reglages h3 { font-family:Georgia,serif; color:var(--or); font-size:16px; margin:12px 0 6px; }
+.reglages table { width:100%; border-collapse:collapse; }
+.reglages td { padding:5px 4px; border-bottom:1px solid #26222a; vertical-align:top; }
+.reglages td:last-child { text-align:right; color:var(--doux); font-family:Consolas,monospace; white-space:nowrap; }
+.on { color:#9bd49b; } .off { color:#d08b8b; }
+@media (max-width:600px) { main { padding:10px; } .papier { width:70%; height:76%; } nav a { font-size:12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>La Tombe du Grenier</h1>
+  <p>Maquette visuelle — écrans tels que prévus dans le code. Aucun élément n'est un rendu du moteur.</p>
+</header>
+<nav>
+  <a href="#titre">Titre</a><a href="#hub">Hub</a><a href="#interieur">Intérieur</a><a href="#document">Document</a><a href="#horloge">Horloge</a><a href="#compteur">Compteur</a><a href="#piege">Fin 4</a><a href="#journal">Journal</a><a href="#reglages">Réglages</a>
+</nav>
+<main>
+
+<section id="titre">
+  <h2>1. Écran titre</h2>
+  <p class="note">Premier plan de la partie : cercueil ouvert, lueur du grenier.</p>
+  <div class="ecran" style="background:radial-gradient(ellipse at 50% 40%,#2a1f1a 0%,#0c0b0d 70%)">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="58" y="52" width="44" height="22" fill="#3a2a1e"/>
+      <rect x="60" y="48" width="40" height="5" fill="#4a3626"/>
+      <path d="M0 80 H160" stroke="#222" stroke-width="1"/>
+      <circle cx="80" cy="32" r="22" fill="#c8a46a" opacity=".06"/>
+    </svg>
+    <div class="centre">
+      <p class="titre-jeu">La Tombe du Grenier</p>
+      <p class="sous">Trois vies. Un enfant. Une maison qui se souvient.</p>
+      <span class="bouton">Commencer</span>
+    </div>
+  </div>
+</section>
+
+<section id="hub">
+  <h2>2. Écran d'accueil du hub</h2>
+  <p class="note">Lieu d'accueil, séparé de la partie. La borne « Lancer la partie » ouvre un serveur privé du lieu de jeu.</p>
+  <div class="ecran" style="background:linear-gradient(#15121a,#07060a)">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="0" y="70" width="160" height="20" fill="#14110f"/>
+      <rect x="70" y="22" width="20" height="4" fill="#c8a46a" opacity=".5"/>
+      <circle cx="80" cy="46" r="3" fill="#f0c890" opacity=".7"/>
+    </svg>
+    <div class="centre">
+      <p class="sous">Hall d'accueil · 2 joueurs maximum</p>
+      <p class="sous" style="margin-top:18px">Borne « Lancer la partie »</p>
+      <span class="bouton">Lancer la partie</span>
+      <p class="sous" style="margin-top:12px;font-size:13px">Lieu hub : 10776612735 · Lieu de jeu : 77452764500707</p>
+    </div>
+  </div>
+</section>
+
+<section id="interieur">
+  <h2>3. Intérieur sombre, vignette et lueur de bougie</h2>
+  <p class="note">Pièce sans lampe, sanité basse : vignette forte (Config.Visual.Vignette, VignetteMax = 0.6) et lueur de bougie qui vacille (CandleFlicker).</p>
+  <div class="ecran" style="background:#050405">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="bougie" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffb46e" stop-opacity=".55"/>
+          <stop offset="100%" stop-color="#ffb46e" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+          <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#000" stop-opacity=".78"/>
+        </radialGradient>
+      </defs>
+      <rect x="0" y="60" width="160" height="30" fill="#1a1512"/>
+      <rect x="20" y="30" width="40" height="30" fill="#221a15"/>
+      <rect x="100" y="34" width="18" height="26" fill="#18130f"/>
+      <circle cx="58" cy="50" r="34" fill="url(#bougie)"/>
+      <rect x="56" y="54" width="2.5" height="5" fill="#e8dcc0"/>
+      <rect x="0" y="0" width="160" height="90" fill="url(#vignette)"/>
+    </svg>
+    <div class="hud"><div class="obj">Rassemble les souvenirs (1/3)</div></div>
+    <div class="bas">Une lampe aide à voir dans le noir. Tu as une bougie : la pièce s'éclaire un peu.</div>
+    <div class="bouton-bas">Touche H : indice</div>
+  </div>
+</section>
+
+<section id="document">
+  <h2>4. Document en lecture</h2>
+  <p class="note">Geste de lecture (Config.Animations.DocumentRead) : la feuille monte à hauteur des yeux, puis s'efface.</p>
+  <div class="ecran" style="background:#0a090b">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="0" y="0" width="160" height="90" fill="#0f0d10"/>
+    </svg>
+    <div class="papier">
+      <p><strong>Journal intime</strong></p>
+      <p>« Il y a trente ans, une famille vivait ici. Un soir, notre enfant a disparu. Les voix venaient du grenier. »</p>
+    </div>
+    <div class="bas">Ligne récente, de ta main : « ... »</div>
+  </div>
+</section>
+
+<section id="horloge">
+  <h2>5. Code de l'horloge du hall</h2>
+  <p class="note">Progression V2 (Config.Design.ProgressionV2) : saisir la date de la plaque, mois puis jour, en quatre chiffres.</p>
+  <div class="ecran" style="background:#0d0b0a">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="0" y="0" width="160" height="90" fill="#15110d"/>
+      <circle cx="80" cy="42" r="26" fill="#2a2016" stroke="#6a5030" stroke-width="2"/>
+      <path d="M80 42 L80 24 M80 42 L92 48" stroke="#c8a46a" stroke-width="2"/>
+    </svg>
+    <div class="centre">
+      <p class="sous">Entre la date de la plaque : mois puis jour, deux chiffres chacun.</p>
+      <p class="titre-jeu" style="font-size:clamp(24px,5vw,40px);letter-spacing:.3em;margin-top:14px">_ _ _ _</p>
+      <p class="sous" style="font-size:13px">Refermer</p>
+    </div>
+  </div>
+</section>
+
+<section id="compteur">
+  <h2>6. Compteur de la cuisine</h2>
+  <p class="note">Énigme optionnelle (Config.Design.ExtraSafe) : le code à trois chiffres est sur l'étiquette « Réserve ». Bonne réponse : une pile.</p>
+  <div class="ecran" style="background:#0c0c0e">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="0" y="0" width="160" height="90" fill="#101014"/>
+      <rect x="62" y="22" width="36" height="46" fill="#3a3a40"/>
+      <rect x="66" y="28" width="28" height="10" fill="#1d2a1d"/>
+    </svg>
+    <div class="centre">
+      <p class="sous">Trois chiffres. L'étiquette de la réserve doit les donner.</p>
+      <p class="titre-jeu" style="font-size:clamp(22px,4.5vw,36px);letter-spacing:.3em;margin-top:14px">_ _ _</p>
+    </div>
+  </div>
+</section>
+
+<section id="piege">
+  <h2>7. Fin 4 « le piège »</h2>
+  <p class="note">Saisir la date fausse du cahier : un avertissement demande une confirmation, puis le cercueil se referme. Fin de la partie en cours seulement.</p>
+  <div class="ecran" style="background:#000">
+    <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="0" y="0" width="160" height="90" fill="#000"/>
+      <rect x="56" y="40" width="48" height="18" fill="#2a1e14" opacity=".8"/>
+    </svg>
+    <div class="centre">
+      <p class="sous" style="color:#d6b0a0">Fin 4 : le piège. Tu as pris la date du cahier, barrée d'un trait. Le couvercle se referme sur l'enfant.</p>
+      <p class="sous" style="margin-top:14px;font-size:13px">Fins trouvées : 4/4</p>
+      <span class="bouton">Rejouer</span> <span class="bouton">Quitter</span>
+    </div>
+  </div>
+</section>
+
+<section id="journal">
+  <h2>8. Journal des énigmes</h2>
+  <p class="note">Étapes de la chaîne principale, dans l'ordre du code (Quests.lua).</p>
+  <div class="journal">
+    <ol>
+      <li>Rassembler trois souvenirs<span>Une lampe aide à les voir dans le noir.</span></li>
+      <li>Trouver le code caché dans la maison<span>Un papier froissé se cache sur une surface plate, près d'un meuble.</span></li>
+      <li>Lire les deux derniers chiffres dans un miroir<span>Un miroir de la maison garde la fin du code. Le texte y est écrit à l'envers.</span></li>
+      <li>Ouvrir le coffret à bijoux<span>Le coffret à bijoux est posé sur la table de la salle de la tombe.</span></li>
+      <li>Ouvrir la malle du grenier<span>La petite clé du coffret ouvre une serrure.</span></li>
+      <li>Rejouer la mélodie du gramophone<span>Le gramophone du premier étage joue trois notes. Rejoue-les sur la boîte à musique.</span></li>
+      <li>Régler l'horloge du hall<span>Une date est gravée sur la plaque du cercueil.</span></li>
+      <li>Prendre la clé rouillée dans la malle</li>
+      <li>Les trois statues regardent la même direction<span>La lampe UV montre la cible de deux d'entre elles.</span></li>
+      <li>Sortir : la porte d'entrée, ou la tombe<span>Lis les documents avant de choisir.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="reglages">
+  <h2>9. Réglages (fichier Config)</h2>
+  <p class="note">Valeurs réelles de src/shared/Config.lua. Vert : activé ; rouge : désactivé.</p>
+  <div class="reglages">
+    <h3>Config.Assets</h3>
+    <table>
+      <tr><td>Enabled</td><td class="on">true</td></tr>
+      <tr><td>Timeout</td><td>8 s</td></tr>
+      <tr><td>ChaiseHorreur</td><td>8995653666</td></tr>
+      <tr><td>ChaiseBois</td><td>13369825696</td></tr>
+      <tr><td>ChaiseAntique</td><td>97314700592382</td></tr>
+      <tr><td>ChaiseBloquante</td><td>80943579301021</td></tr>
+      <tr><td>LampeHorreur</td><td>10780850055</td></tr>
+      <tr><td>TableLongue</td><td>188745055</td></tr>
+      <tr><td>Plante</td><td>116741237427172</td></tr>
+      <tr><td>Monstre1 / 2 / 3</td><td>14801251042 · 126828585469313 · 139294979123405</td></tr>
+    </table>
+    <h3>Config.Animations</h3>
+    <table>
+      <tr><td>Enabled</td><td class="on">true</td></tr>
+      <tr><td>ChestLid</td><td class="on">true</td></tr>
+      <tr><td>CoffretLid</td><td class="on">true</td></tr>
+      <tr><td>PickupRise</td><td class="on">true</td></tr>
+      <tr><td>LampSway</td><td class="on">true</td></tr>
+      <tr><td>CameraBob</td><td class="on">true</td></tr>
+      <tr><td>Breath</td><td class="on">true</td></tr>
+      <tr><td>DocumentRead</td><td class="on">true</td></tr>
+      <tr><td>Drawer</td><td class="on">true</td></tr>
+      <tr><td>WakeBlink</td><td class="on">true</td></tr>
+      <tr><td>ScareShake</td><td class="on">true</td></tr>
+      <tr><td>MonsterReaction</td><td class="on">true</td></tr>
+      <tr><td>BobAmplitude / BreathAmplitude / ShakeDuration</td><td>0.08 · 0.04 · 0.6 s</td></tr>
+    </table>
+    <h3>Config.Cinematics</h3>
+    <table>
+      <tr><td>Enabled</td><td class="on">true</td></tr>
+      <tr><td>Arrival (intro courte)</td><td class="on">true</td></tr>
+      <tr><td>Apparition</td><td class="on">true</td></tr>
+      <tr><td>Descent</td><td class="on">true</td></tr>
+      <tr><td>Sealed (fin 4)</td><td class="on">true</td></tr>
+      <tr><td>Truth (fin vérité)</td><td class="on">true</td></tr>
+      <tr><td>SkipButton</td><td class="on">true</td></tr>
+    </table>
+    <h3>Config.Visual</h3>
+    <table>
+      <tr><td>Dust / DustRate</td><td class="on">true · 3</td></tr>
+      <tr><td>Vignette / VignetteMax</td><td class="on">true · 0.6</td></tr>
+      <tr><td>CandleFlicker</td><td class="on">true</td></tr>
+    </table>
+  </div>
+</section>
+
+</main>
+</body>
+</html>
