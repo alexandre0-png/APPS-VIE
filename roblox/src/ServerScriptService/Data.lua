@@ -8,6 +8,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
@@ -21,6 +22,20 @@ local SAVE_RETRIES = 3
 -- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
 -- v5 : + cine (cinématiques déjà vues).
 local VERSION = 5
+
+-- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
+-- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
+local apiBlocked = false
+local function markApiBlocked(err)
+	if Diag.isStudioApiError(err) then
+		if not apiBlocked then
+			apiBlocked = true
+			warn("[Data] Studio sans accès aux API : mode mémoire (rien n'est sauvegardé, pas de classement). Pour tester les sauvegardes : Game Settings > Security > Enable Studio Access to API Services.")
+		end
+		return true
+	end
+	return false
+end
 
 local Data = {}
 Data.VERSION = VERSION
@@ -216,7 +231,7 @@ end
 
 -- Retourne (données, nePasSauvegarder). Données = nil si impossible de charger sans risque.
 function Data.load(player)
-	if not store then
+	if not store or apiBlocked then
 		return Data.default(), true
 	end
 	for attempt = 1, 8 do
@@ -240,6 +255,8 @@ function Data.load(player)
 		if ok then
 			warn("[Data] " .. player.Name .. " est encore verrouillé sur un autre serveur (" .. attempt .. "/8)")
 			task.wait(4)
+		elseif markApiBlocked(result) then
+			return Data.default(), true
 		else
 			warn("[Data] Chargement échoué (" .. attempt .. "/8) : " .. tostring(result))
 			task.wait(1.5)
@@ -256,7 +273,7 @@ local saving = {} -- clé -> true tant qu'une sauvegarde de cette clé est en co
 -- release = true : libère le verrou (départ du joueur). Refuse d'écrire si un autre serveur a pris le verrou.
 -- Réessaie jusqu'à SAVE_RETRIES fois. Retourne true si la sauvegarde a réussi.
 function Data.save(player, d, release)
-	if not store or not d then
+	if not store or not d or apiBlocked then
 		return false
 	end
 	local k = key(player)
@@ -301,6 +318,9 @@ function Data.save(player, d, release)
 			warn("[Data] " .. player.Name .. " : verrou pris par un autre serveur, sauvegarde annulée")
 			break
 		end
+		if markApiBlocked(err) then
+			break
+		end
 		warn("[Data] Sauvegarde échouée pour " .. player.Name .. " (" .. attempt .. "/" .. SAVE_RETRIES .. ") : " .. tostring(err))
 		task.wait(1.5 * attempt)
 	end
@@ -314,12 +334,15 @@ function Data.score(d)
 end
 
 function Data.submit(player, d)
-	if not board then
+	if not board or apiBlocked then
 		return
 	end
-	pcall(function()
+	local ok, err = pcall(function()
 		board:SetAsync(tostring(player.UserId), math.floor(Data.score(d)))
 	end)
+	if not ok then
+		markApiBlocked(err)
+	end
 end
 
 local nameCache = {}
@@ -337,13 +360,14 @@ end
 -- Retourne une liste { {name=, rb=, hatched=}, ... } (peut être vide)
 function Data.top(count)
 	local out = {}
-	if not board then
+	if not board or apiBlocked then
 		return out
 	end
 	local ok, page = pcall(function()
 		return board:GetSortedAsync(false, count):GetCurrentPage()
 	end)
 	if not ok then
+		markApiBlocked(page)
 		return out
 	end
 	for _, e in ipairs(page) do

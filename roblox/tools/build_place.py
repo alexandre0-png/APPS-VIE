@@ -33,7 +33,8 @@ tree = [
         item("ModuleScript", "Data", read("ServerScriptService/Data.lua")),
         item("ModuleScript", "Builder", read("ServerScriptService/Builder.lua")),
         item("ModuleScript", "Rules", read("ServerScriptService/Rules.lua")),
-        item("ModuleScript", "Assets", read("ServerScriptService/Assets.lua"))]),
+        item("ModuleScript", "Assets", read("ServerScriptService/Assets.lua")),
+        item("ModuleScript", "Diag", read("ServerScriptService/Diag.lua"))]),
     item("StarterPlayer", "StarterPlayer", children=[
         item("StarterPlayerScripts", "StarterPlayerScripts", children=[
             item("LocalScript", "Client", read("StarterPlayerScripts/Client.client.lua")),

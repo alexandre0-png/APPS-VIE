@@ -937,7 +937,7 @@ end
 
 return Cinema
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX11"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX6"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX12"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX6"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2526,6 +2526,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
@@ -2539,6 +2540,20 @@ local SAVE_RETRIES = 3
 -- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
 -- v5 : + cine (cinématiques déjà vues).
 local VERSION = 5
+
+-- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
+-- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
+local apiBlocked = false
+local function markApiBlocked(err)
+	if Diag.isStudioApiError(err) then
+		if not apiBlocked then
+			apiBlocked = true
+			warn("[Data] Studio sans accès aux API : mode mémoire (rien n'est sauvegardé, pas de classement). Pour tester les sauvegardes : Game Settings > Security > Enable Studio Access to API Services.")
+		end
+		return true
+	end
+	return false
+end
 
 local Data = {}
 Data.VERSION = VERSION
@@ -2734,7 +2749,7 @@ end
 
 -- Retourne (données, nePasSauvegarder). Données = nil si impossible de charger sans risque.
 function Data.load(player)
-	if not store then
+	if not store or apiBlocked then
 		return Data.default(), true
 	end
 	for attempt = 1, 8 do
@@ -2758,6 +2773,8 @@ function Data.load(player)
 		if ok then
 			warn("[Data] " .. player.Name .. " est encore verrouillé sur un autre serveur (" .. attempt .. "/8)")
 			task.wait(4)
+		elseif markApiBlocked(result) then
+			return Data.default(), true
 		else
 			warn("[Data] Chargement échoué (" .. attempt .. "/8) : " .. tostring(result))
 			task.wait(1.5)
@@ -2774,7 +2791,7 @@ local saving = {} -- clé -> true tant qu'une sauvegarde de cette clé est en co
 -- release = true : libère le verrou (départ du joueur). Refuse d'écrire si un autre serveur a pris le verrou.
 -- Réessaie jusqu'à SAVE_RETRIES fois. Retourne true si la sauvegarde a réussi.
 function Data.save(player, d, release)
-	if not store or not d then
+	if not store or not d or apiBlocked then
 		return false
 	end
 	local k = key(player)
@@ -2819,6 +2836,9 @@ function Data.save(player, d, release)
 			warn("[Data] " .. player.Name .. " : verrou pris par un autre serveur, sauvegarde annulée")
 			break
 		end
+		if markApiBlocked(err) then
+			break
+		end
 		warn("[Data] Sauvegarde échouée pour " .. player.Name .. " (" .. attempt .. "/" .. SAVE_RETRIES .. ") : " .. tostring(err))
 		task.wait(1.5 * attempt)
 	end
@@ -2832,12 +2852,15 @@ function Data.score(d)
 end
 
 function Data.submit(player, d)
-	if not board then
+	if not board or apiBlocked then
 		return
 	end
-	pcall(function()
+	local ok, err = pcall(function()
 		board:SetAsync(tostring(player.UserId), math.floor(Data.score(d)))
 	end)
+	if not ok then
+		markApiBlocked(err)
+	end
 end
 
 local nameCache = {}
@@ -2855,13 +2878,14 @@ end
 -- Retourne une liste { {name=, rb=, hatched=}, ... } (peut être vide)
 function Data.top(count)
 	local out = {}
-	if not board then
+	if not board or apiBlocked then
 		return out
 	end
 	local ok, page = pcall(function()
 		return board:GetSortedAsync(false, count):GetCurrentPage()
 	end)
 	if not ok then
+		markApiBlocked(page)
 		return out
 	end
 	for _, e in ipairs(page) do
@@ -3989,8 +4013,21 @@ function Assets.new(Config, deps)
 end
 
 return Assets
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+-- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
+local Diag = {}
+
+-- Studio sans « Enable Studio Access to API Services » : DataStore refusé, inutile de réessayer.
+function Diag.isStudioApiError(err)
+	local s = tostring(err)
+	return s:find("StudioAccessToApisNotAllowed", 1, true) ~= nil
+		or s:find("API access is not enabled", 1, true) ~= nil
+		or s:find("Studio access to APIs is not allowed", 1, true) ~= nil
+end
+
+return Diag
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX16"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX15"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX12"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX17"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX16"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX13"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4951,7 +4988,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX13"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX14"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -5443,7 +5480,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX14"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX15"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est

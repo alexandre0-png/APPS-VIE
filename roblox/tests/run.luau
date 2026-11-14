@@ -976,6 +976,15 @@ do
 	check("éclosion identique avec modèle vide/corrompu", hatchRun() == ref)
 end
 
+-- Diag : erreurs DataStore de Studio -----------------------------------------------------------
+do
+	local Diag = luau.load(fs.readFile("roblox/src/ServerScriptService/Diag.lua"), { debugName = "Diag" })()
+	check("Diag : erreur Studio sans API reconnue (message du journal)", Diag.isStudioApiError("403: Cannot write to DataStore from studio if API access is not enabled."))
+	check("Diag : code StudioAccessToApisNotAllowed reconnu", Diag.isStudioApiError("104: StudioAccessToApisNotAllowed"))
+	check("Diag : une vraie erreur réseau n'est pas reconnue", not Diag.isStudioApiError("HTTP 500: InternalServerError") and not Diag.isStudioApiError("DataStore request was added to queue"))
+	check("Diag : valeur nil ou nombre sans erreur", not Diag.isStudioApiError(nil) and not Diag.isStudioApiError(404))
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)
