@@ -1,0 +1,1972 @@
+<?xml version="1.0" encoding="utf-8"?>
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+<Meta name="ExplicitAutoJoints">true</Meta>
+<Item class="Workspace" referent="RBX20"><Properties><string name="Name">Workspace</string></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX27"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX26"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+-- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
+local Config = {}
+
+Config.PLOT_COUNT = 5 -- nombre de bases (= Config.Game.MaxPlayers : une partie accueille 5 joueurs au plus)
+
+---------------------------------------------------------------- Architecture hub + parties
+-- Deux lieux : le HUB (petit lieu léger : zones de lancement 1 à 5 joueurs, parties des amis) et le lieu de JEU (la partie, 5 joueurs max).
+-- Le rôle d'un serveur se déduit de game.PlaceId (Config.Game.roleFor). Identifiants = LIEUX (place ids), pas des univers.
+-- ATTENTION : TeleportService:ReserveServer et MemoryStoreService sont limités à UNE expérience (univers). Si le hub et le jeu sont deux
+-- expériences distinctes, la réservation vers l'autre expérience peut être refusée : le code essaie alors les replis de `Fallbacks`
+-- puis prévient le joueur. Le plus sûr : faire du hub un second lieu de l'expérience du jeu (Creator Hub > Lieux > Ajouter) et changer
+-- seulement Places.hub ci-dessous.
+Config.Game = {
+	Places = { hub = 106358102689021, game = 115261336085924 },
+	MaxPlayers = 5, -- plafond absolu d'un serveur de jeu (réglage Creator Dashboard : Max Players = 5 aussi)
+	Sizes = { 1, 2, 3, 4, 5 }, -- tailles de partie proposées par les zones du hub
+	CountdownFull = 5, -- secondes avant le départ d'un groupe complet
+	PartialWait = 25, -- secondes après le premier arrivé avant de lancer un groupe incomplet (la partie reste ouverte aux amis)
+	SoloCountdown = 3,
+	PartyTTL = 7200, -- une partie du registre plus vieille que ça n'est plus proposée
+	Fallbacks = { "reserved", "public" }, -- ordre des méthodes de téléportation essayées
+	LateJoinGrace = 90, -- secondes de protection des œufs d'un joueur qui arrive dans une partie déjà commencée
+	RegistryName = "ChipeParties",
+}
+
+function Config.Game.roleFor(placeId)
+	if placeId == Config.Game.Places.hub then
+		return "hub"
+	elseif placeId == Config.Game.Places.game then
+		return "game"
+	end
+	return "unknown" -- place non publiée (Studio) : chaque projet lance son propre code
+end
+
+Config.TIERS = {
+	{ name = "Commun", color = Color3.fromRGB(170, 180, 191) },
+	{ name = "Rare", color = Color3.fromRGB(74, 163, 255) },
+	{ name = "Épique", color = Color3.fromRGB(184, 120, 255) },
+	{ name = "Légendaire", color = Color3.fromRGB(255, 176, 32) },
+	{ name = "Mythique", color = Color3.fromRGB(255, 77, 109) },
+	{ name = "Cosmique", color = Color3.fromRGB(61, 255, 208) },
+}
+-- Prix et durées calibrés avec la simulation tests/Economy.lua (joueur-robot) : ~15 pièces/s après 1 min, œuf Rare vers 2 min,
+-- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
+Config.START_COINS = 50
+Config.EGG_PRICE = { 25, 900, 20000, 350000, 6000000, 130000000 }
+Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
+
+-- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
+Config.PETS = {
+	{ tier = 1, emoji = "🐥", name = "Poussin", inc = 1, color = Color3.fromRGB(255, 221, 87), ears = "none", extra = "beak" },
+	{ tier = 1, emoji = "🐹", name = "Hamster", inc = 1.5, color = Color3.fromRGB(222, 184, 135), ears = "round", extra = "none" },
+	{ tier = 1, emoji = "🐰", name = "Lapin", inc = 2, color = Color3.fromRGB(245, 245, 245), ears = "long", extra = "tail" },
+	{ tier = 2, emoji = "🐱", name = "Chat", inc = 6, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
+	{ tier = 2, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
+	{ tier = 2, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
+	{ tier = 3, emoji = "🐼", name = "Panda", inc = 32, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
+	{ tier = 3, emoji = "🦉", name = "Hibou", inc = 45, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
+	{ tier = 3, emoji = "🐧", name = "Manchot", inc = 60, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
+	{ tier = 4, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
+	{ tier = 4, emoji = "🐯", name = "Tigre", inc = 230, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
+	{ tier = 4, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
+	{ tier = 5, emoji = "🐲", name = "Dragon", inc = 1100, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
+	{ tier = 5, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
+	{ tier = 5, emoji = "🐙", name = "Kraken", inc = 2300, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
+	{ tier = 6, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
+}
+
+Config.SIZES = {
+	{ name = "Mini", mult = 0.8, weight = 20, scale = 0.8 },
+	{ name = "Normal", mult = 1, weight = 62, scale = 1 },
+	{ name = "Grand", mult = 1.5, weight = 14, scale = 1.25 },
+	{ name = "Géant", mult = 2.5, weight = 3.5, scale = 1.6 },
+	{ name = "Colossal", mult = 5, weight = 0.5, scale = 2.1 },
+}
+
+Config.MUTS = {
+	{ name = "", mult = 1, weight = 82 },
+	{ name = "Doré", mult = 2, weight = 9, color = Color3.fromRGB(255, 208, 0) },
+	{ name = "Néon", mult = 3, weight = 5, color = Color3.fromRGB(0, 229, 255) },
+	{ name = "Arc-en-ciel", mult = 5, weight = 2.6, rainbow = true },
+	{ name = "Alien", mult = 10, weight = 1.4, color = Color3.fromRGB(57, 255, 20) },
+}
+
+-- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
+-- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
+Config.RIVALS = {
+	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, color = Color3.fromRGB(224, 87, 90) },
+}
+
+-- Événements serveur (tous les joueurs en profitent)
+Config.EVENTS = {
+	{ key = "alien", name = "Biome Alien", emoji = "👽", desc = "Mutation Alien x5", tint = Color3.fromRGB(205, 160, 255) },
+	{ key = "gold", name = "Ruée vers l'or", emoji = "💰", desc = "Revenus x2", tint = Color3.fromRGB(255, 232, 160) },
+	{ key = "luck", name = "Pluie de chance", emoji = "🍀", desc = "Pets supérieurs +10%", tint = Color3.fromRGB(175, 255, 195) },
+	{ key = "run", name = "Marathon", emoji = "🏃", desc = "Entraînement x3", tint = Color3.fromRGB(175, 215, 255) },
+}
+Config.EVENT_DURATION = 60
+Config.EVENT_GAP = { 120, 200 } -- délai aléatoire entre deux événements
+
+-- Game Passes : crée-les sur create.roblox.com puis colle les ID ici (0 = désactivé)
+Config.PASSES = {
+	Coins2x = { id = 0, name = "Revenus x2", emoji = "💰", desc = "Double tous tes revenus, pour toujours." },
+	Lucky = { id = 0, name = "Chance +10%", emoji = "🍀", desc = "Plus de pets supérieurs à l'éclosion." },
+	Fast = { id = 0, name = "Éclosion rapide", emoji = "⚡", desc = "Les œufs éclosent 25% plus vite." },
+}
+
+Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
+Config.SHIELD_PER_LEVEL = 10
+
+function Config.stealTime(level)
+	return 1.3 * 0.85 ^ level
+end
+
+function Config.walkSpeed(speedStat)
+	return 16 + 44 * (1 - math.exp(-speedStat / 150))
+end
+
+function Config.rebirthCost(rb)
+	return 5e7 * 7 ^ rb
+end
+
+Config.UPGRADES = {
+	{ key = "slots", name = "Emplacements", emoji = "🏠", max = 8, cost = function(l) return 500 * 6 ^ l end,
+		desc = function(l) return (4 + l) .. " → " .. (5 + l) .. " emplacements" end },
+	{ key = "tm", name = "Tapis puissant", emoji = "🏃", max = 15, cost = function(l) return 100 * 2.4 ^ l end,
+		desc = function(l) return string.format("Entraînement x%.2f → x%.2f", 1 + 0.35 * l, 1 + 0.35 * (l + 1)) end },
+	{ key = "fing", name = "Doigts agiles", emoji = "🧤", max = 8, cost = function(l) return 200 * 3 ^ l end,
+		desc = function(l) return string.format("Vol en %.2fs → %.2fs", Config.stealTime(l), Config.stealTime(l + 1)) end },
+	{ key = "bag", name = "Grand sac", emoji = "🎒", max = 3, cost = function(l) return 1500 * 8 ^ l end,
+		desc = function(l) return "Porter " .. (1 + l) .. " → " .. (2 + l) .. " œufs" end },
+	{ key = "inc", name = "Incubateur", emoji = "🔥", max = 10, cost = function(l) return 200 * 3.8 ^ l end,
+		desc = function(l) return string.format("Éclosion -%d%% → -%d%%", math.floor((1 - 0.9 ^ l) * 100 + 0.5), math.floor((1 - 0.9 ^ (l + 1)) * 100 + 0.5)) end },
+	{ key = "luck", name = "Trèfle", emoji = "🍀", max = 10, cost = function(l) return 600 * 4 ^ l end,
+		desc = function(l) return "Pet supérieur " .. (3 * l) .. "% → " .. (3 * (l + 1)) .. "%" end },
+	{ key = "food", name = "Festin", emoji = "🍖", max = 20, cost = function(l) return 300 * 2.8 ^ l end,
+		desc = function(l) return "Revenus +" .. (20 * l) .. "% → +" .. (20 * (l + 1)) .. "%" end },
+	{ key = "lock", name = "Verrou", emoji = "🔒", max = 6, cost = function(l) return 300 * 3.5 ^ l end,
+		desc = function(l) return "Œufs protégés " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * l) .. "s → " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * (l + 1)) .. "s" end },
+}
+
+function Config.upgrade(key)
+	for _, u in ipairs(Config.UPGRADES) do
+		if u.key == key then
+			return u
+		end
+	end
+	return nil
+end
+
+function Config.fmt(n)
+	if n ~= n then
+		return "0"
+	end
+	if n == math.huge then
+		return "∞"
+	end
+	if n < 1000 then
+		if n < 10 and n % 1 ~= 0 then
+			return string.format("%.1f", n)
+		end
+		return tostring(math.floor(n))
+	end
+	local u = { "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc" }
+	local i = 0
+	while n >= 1000 and i < #u do
+		n = n / 1000
+		i += 1
+	end
+	if n < 10 then
+		return string.format("%.2f%s", n, u[i])
+	elseif n < 100 then
+		return string.format("%.1f%s", n, u[i])
+	end
+	return string.format("%d%s", math.floor(n), u[i])
+end
+
+function Config.fmtTime(s)
+	s = math.max(0, math.ceil(s))
+	if s < 60 then
+		return s .. "s"
+	end
+	return string.format("%dm%02d", s // 60, s % 60)
+end
+
+function Config.petIncome(p, s, m)
+	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
+end
+
+function Config.sellValue(p, s, m)
+	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+end
+
+function Config.petName(p, s, m)
+	local n = Config.PETS[p].name
+	if m > 1 then
+		n = n .. " " .. Config.MUTS[m].name
+	end
+	if s ~= 2 then
+		n = n .. " " .. Config.SIZES[s].name
+	end
+	return n
+end
+
+-- Sons : par défaut, sons intégrés au client Roblox (non vérifiés ici : si l'un manque, il reste simplement silencieux).
+-- Remplace "id" par un ID du Creator Store ("rbxassetid://123456") pour de vrais sons ; id = "" désactive le son. speed = hauteur, vol = volume.
+Config.SOUNDS = {
+	hatch = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.0, vol = 0.5 },
+	rare = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.6, vol = 0.8 },
+	steal = { id = "rbxasset://sounds/action_jump.mp3", speed = 1.5, vol = 0.5 },
+	caught = { id = "rbxasset://sounds/uuhhh.mp3", speed = 1.0, vol = 0.6 },
+	claim = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.3, vol = 0.6 },
+	click = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 2.0, vol = 0.25 },
+	event = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 0.8, vol = 0.7 },
+}
+
+-- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
+Config.PRODUCTS = {
+	InstantHatch = { id = 0, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
+	LuckPotion = { id = 0, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
+	CoinPack = { id = 0, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
+}
+Config.COIN_PACK_MINUTES = 20
+Config.COIN_PACK_MIN = 5000
+-- Un achat n'est proposé que si son ID Roblox a été renseigné (entier > 0). Sinon il reste désactivé, avec un message clair.
+function Config.purchasable(def)
+	return type(def.id) == "number" and def.id > 0 and def.id % 1 == 0
+end
+Config.UNAVAILABLE_MESSAGE = "🛒 Cet achat n'est pas encore disponible. Reviens bientôt !"
+
+Config.LUCK_POTION_BONUS = 25
+Config.LUCK_POTION_SECONDS = 900
+
+Config.MAX_FOLLOWERS = 3 -- pets qui suivent le joueur
+Config.SCORE_UNIT = 100000 -- classement : score = renaissances * SCORE_UNIT + œufs éclos
+
+function Config.questText(t, n)
+	if t == "steal" then
+		return "Voler " .. n .. " œufs aux rivaux"
+	elseif t == "hatch" then
+		return "Faire éclore " .. n .. " œufs"
+	elseif t == "earn" then
+		return "Gagner " .. Config.fmt(n) .. " pièces"
+	elseif t == "train" then
+		return "Courir " .. n .. "s sur le tapis"
+	elseif t == "pvp" then
+		return "Voler " .. n .. " œuf(s) à d'autres joueurs"
+	elseif t == "discover" then
+		return "Découvrir " .. n .. " nouvelle(s) espèce(s)"
+	elseif t == "sell" then
+		return "Vendre " .. n .. " pet(s)"
+	end
+	return t
+end
+
+---------------------------------------------------------------- Modèles Roblox pour l'apparence des œufs
+-- Seule l'APPARENCE change : éclosion, raretés, probabilités et animations ne dépendent pas de ces modèles. Chargement côté serveur
+-- uniquement (InsertService:LoadAsset), sous pcall, avec délai maximum, une seule fois au démarrage (puis clonage). Tout Script,
+-- LocalScript, ModuleScript, RemoteEvent, BindableEvent... est supprimé du modèle. Si le chargement échoue (modèle absent, vide, corrompu,
+-- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `Enabled = false` : aucun chargement.
+Config.Assets = {
+	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
+	timeout = 8, -- secondes maximum par modèle
+	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
+	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
+	targetHeight = 3.4, -- hauteur en studs à laquelle chaque modèle est ramené
+	eggs = {
+		red = 151044983, -- œuf rouge
+		orange = 147144059, -- œuf orange
+		purple = 112478990, -- œuf à aura violette
+		legendary = 2937230482, -- œuf légendaire
+		glitch = 2937218888, -- œuf glitch
+	},
+	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
+	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
+	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
+	blockedClasses = {
+		"Script", "LocalScript", "ModuleScript", "RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction",
+		"Sound", "Tool", "ForceField", "Explosion", "Weld", "WeldConstraint", "Motor6D", "ManualWeld", "Motor",
+	},
+}
+
+---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
+-- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
+-- scintille côté client). `Enabled = false` : œufs simples (couleur + sphère), utile pour alléger les téléphones modestes.
+Config.EggFx = {
+	Enabled = true,
+	looks = {
+		red = { name = "Rouge", color = Color3.fromRGB(222, 56, 56), material = "SmoothPlastic", light = Color3.fromRGB(255, 96, 96) },
+		orange = {
+			name = "Orange",
+			color = Color3.fromRGB(255, 150, 40),
+			material = "Plastic",
+			light = Color3.fromRGB(255, 170, 70),
+			particles = { color = Color3.fromRGB(255, 190, 90), rate = 3, speed = 1.5, size = 0.25, life = 1.2 },
+		},
+		purple = {
+			name = "Aura violette",
+			color = Color3.fromRGB(150, 80, 235),
+			material = "Neon",
+			light = Color3.fromRGB(180, 110, 255),
+			halo = { shape = "ball", color = Color3.fromRGB(205, 150, 255), scale = 1.4, transparency = 0.78 },
+			particles = { color = Color3.fromRGB(215, 170, 255), rate = 8, speed = 2, size = 0.3, life = 1.6 },
+		},
+		legendary = {
+			name = "Légendaire",
+			color = Color3.fromRGB(255, 205, 60),
+			material = "Metal",
+			light = Color3.fromRGB(255, 220, 110),
+			brightness = 2,
+			halo = { shape = "ring", color = Color3.fromRGB(255, 235, 140), scale = 1.55, transparency = 0.25, spin = 1.6 },
+			particles = { color = Color3.fromRGB(255, 230, 120), rate = 10, speed = 2.5, size = 0.3, life = 1.5 },
+		},
+		glitch = {
+			name = "Glitch",
+			color = Color3.fromRGB(40, 255, 230),
+			material = "Neon",
+			light = Color3.fromRGB(255, 60, 210),
+			brightness = 2,
+			halo = { shape = "ball", color = Color3.fromRGB(255, 40, 200), scale = 1.22, transparency = 0.55, flicker = true },
+			particles = { color = Color3.fromRGB(255, 70, 215), rate = 14, speed = 5, size = 0.22, life = 0.6 },
+		},
+	},
+}
+
+-- Apparence (table de Config.EggFx.looks) de l'œuf de rareté `tier`, ou nil.
+function Config.eggLook(tier)
+	local key = Config.eggAssetKey(tier)
+	return key and Config.EggFx.looks[key] or nil
+end
+
+function Config.isBlockedClass(className)
+	for _, c in ipairs(Config.Assets.blockedClasses) do
+		if c == className then
+			return true
+		end
+	end
+	return false
+end
+
+-- Clé de modèle d'un œuf de rareté `tier` (nil si inconnue).
+function Config.eggAssetKey(tier)
+	return Config.Assets.eggByTier[tier]
+end
+
+-- ID du modèle d'un œuf de rareté `tier`, ou nil : chargement coupé, rareté inconnue ou ID invalide (entier > 0 exigé).
+function Config.eggAssetId(tier)
+	if Config.Assets.Enabled ~= true then
+		return nil
+	end
+	local key = Config.eggAssetKey(tier)
+	local id = key and Config.Assets.eggs[key]
+	if type(id) == "number" and id > 0 and id % 1 == 0 then
+		return id
+	end
+	return nil
+end
+
+---------------------------------------------------------------- Animations (client)
+-- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
+-- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.
+Config.Animations = {
+	enabled = true, -- interrupteur général
+	eggShake = true, -- l'œuf tremble puis blanchit juste avant d'éclore
+	eggBounce = true, -- les œufs (nids, bases, portés) rebondissent légèrement
+	hatchSquash = true, -- squash & stretch de l'œuf avant l'éclosion et du pet à son apparition
+	popIn = true, -- le pet apparaît en grossissant
+	shockwave = true, -- anneau lumineux à l'éclosion
+	harvest = true, -- l'œuf s'envole vers le joueur à la récolte
+	petBlink = true, -- clignement des yeux des pets
+	petLook = true, -- les yeux des pets regardent autour
+	petMouth = true, -- la bouche des pets s'anime
+	menuTransitions = true, -- ouverture et fermeture animées des menus
+	reward = true, -- confettis lors d'une récompense (chapitre, succès, énigme, rare)
+	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
+	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
+	hen = true, -- Mère Poule picore
+	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
+}
+
+function Config.animEnabled(name)
+	return Config.Animations.enabled == true and Config.Animations[name] == true
+end
+
+---------------------------------------------------------------- Cinématiques (aux moments clés seulement)
+-- Toujours skippables (bouton « Passer », Entrée, manette B), jamais bloquantes (le joueur garde le contrôle de son personnage,
+-- la caméra est restituée quoi qu'il arrive), exécutées sous pcall. `enabled = false` coupe tout ; chaque clé coupe une cinématique.
+Config.Cinematics = {
+	enabled = true, -- interrupteur général
+	intro = true, -- courte intro : la ferme, Mère Poule, les œufs, le but (premier lancement)
+	tutorial = true, -- mini tutoriel : récolte, éclosion, zones (enchaîné à l'intro au premier lancement)
+	firstZone = true, -- la première zone débloquée
+	firstRare = true, -- le premier pet rare
+	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force
+}
+Config.CINE_IDS = { "intro", "tutorial", "firstZone", "firstRare" } -- identifiants mémorisés dans la sauvegarde une fois vus
+
+function Config.cineEnabled(name)
+	return Config.Cinematics.enabled == true and Config.Cinematics[name] == true
+end
+
+-- Ancres de caméra : arena (le Grand Nid), hen (Mère Poule), rival1..3 (domaines), base (ta base), pad (un emplacement de ta base).
+-- Les positions d'un plan sont { x, y, z } dans le repère de l'ancre ; `toPos` / `toLook` (facultatifs) animent le plan ; `fx = "sparkle"` (facultatif) lance des étincelles au point visé.
+Config.CINE_ANCHORS = { arena = true, hen = true, rival1 = true, rival2 = true, rival3 = true, base = true, pad = true }
+
+Config.CINE = {
+	intro = { id = "intro", shots = {
+		{ anchor = "arena", pos = { 0, 70, 100 }, look = { 0, 6, 0 }, toPos = { 0, 44, 72 }, dur = 4.5, text = "Il était une fois une ferme où la Grande Couvée donnait vie à tout le royaume…" },
+		{ anchor = "hen", pos = { 6, 4, -9 }, look = { 0, 3, 0 }, toPos = { 4, 4, -6 }, dur = 4, fx = "sparkle", text = "Mère Poule veillait sur le Grand Nid, gardienne de tous les œufs." },
+		{ anchor = "rival1", pos = { 0, 20, 28 }, look = { 0, 2, -3 }, toPos = { 0, 15, 22 }, dur = 4, fx = "sparkle", text = "Mais le Nid s'est brisé et ses œufs se sont dispersés. Les brigands les gardent !" },
+		{ anchor = "base", pos = { 0, 16, 36 }, look = { 0, 3, 0 }, toPos = { 0, 12, 28 }, dur = 4, text = "À toi, apprenti Chipeur : chipe les œufs, fais-les éclore et reconstruis le Grand Nid !" },
+	} },
+	tutorial = { id = "tutorial", shots = {
+		{ anchor = "rival1", pos = { 0, 12, 22 }, look = { 0, 3, -3 }, toPos = { 0, 9, 17 }, dur = 4, text = "① RÉCOLTE : maintiens le bouton devant un œuf pour le chiper. Attention au chien de garde !" },
+		{ anchor = "base", pos = { 0, 10, -22 }, look = { 0, 1, 6 }, toPos = { 0, 7, -14 }, dur = 4, text = "② ÉCLOSION : rapporte l'œuf ici. Touche-le pour l'aider à éclore !" },
+		{ anchor = "rival2", pos = { 0, 22, 48 }, look = { 0, 6, -2 }, toPos = { 0, 16, 36 }, dur = 4, text = "③ ZONES : réussis les chapitres de l'histoire pour ouvrir de nouveaux domaines." },
+	} },
+}
+
+-- Cinématique de la première zone débloquée (zoneIdx = 2 ou 3).
+function Config.cineFirstZone(zoneIdx)
+	local zone, rival = Config.ZONES[zoneIdx], Config.RIVALS[zoneIdx]
+	return { id = "firstZone", shots = {
+		{ anchor = "rival" .. zoneIdx, pos = { 0, 18, 46 }, look = { 0, 5, -2 }, toPos = { 0, 12, 34 }, dur = 3, text = "🔓 " .. zone.name .. " est ouvert !" },
+		{ anchor = "rival" .. zoneIdx, pos = { 18, 8, 24 }, look = { 0, 3, -3 }, toPos = { 10, 7, 18 }, dur = 3, text = "Ses œufs sont plus rares… et " .. rival.name .. " a un gardien plus rapide !" },
+	} }
+end
+
+-- Cinématique du premier pet rare ; ancre « pad » = l'emplacement où il vient d'éclore.
+function Config.cineFirstRare(petName, tierName, incText)
+	return { id = "firstRare", shots = {
+		{ anchor = "pad", pos = { 0, 4.5, -13 }, look = { 0, 2.5, 0 }, toPos = { 0, 3.5, -8 }, dur = 3.5, text = "✨ Un pet " .. tierName .. " : " .. petName .. " !" },
+		{ anchor = "pad", pos = { 6, 4, -8 }, look = { 0, 2.5, 0 }, toPos = { -6, 4, -8 }, dur = 2.5, text = incText .. " Les raretés supérieures rapportent bien plus." },
+	} }
+end
+
+-- Position locale (x, z) de l'emplacement `idx` (1..12) dans une base : source unique pour la construction et les caméras.
+function Config.padLocal(idx)
+	local col, row = (idx - 1) % 4, (idx - 1) // 4
+	return -15 + col * 10, -6 + row * 11
+end
+
+---------------------------------------------------------------- Univers, histoire et progression
+Config.TITLE = "Chipe-Œufs"
+Config.TAGLINE = "Chipe, couve, collectionne : deviens Roi des Couvées !"
+Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaume. Puis le Grand Nid a volé en éclats, et ses œufs se sont dispersés. "
+	.. "Les brigands Gus, Mara et Zed les gardent jalousement. Toi, apprenti Chipeur, tu peux les reprendre, les faire éclore et reconstruire le Nid. "
+	.. "Mais méfie-toi : les autres Chipeurs convoitent aussi tes œufs !"
+
+-- Domaines des rivaux : verrouillés tant que le chapitre `chapter` de l'histoire n'est pas réussi.
+Config.ZONES = {
+	{ name = "Domaine de Gus", chapter = 0 },
+	{ name = "Domaine de Mara", chapter = 3 },
+	{ name = "Citadelle de Zed", chapter = 6 },
+}
+
+-- Rangs selon le nombre de chapitres réussis.
+Config.RANKS = {
+	{ chapter = 0, name = "Apprenti", emoji = "🥚" },
+	{ chapter = 3, name = "Chipeur", emoji = "🧤" },
+	{ chapter = 6, name = "Maître Chipeur", emoji = "🥷" },
+	{ chapter = 9, name = "Seigneur des Couvées", emoji = "👑" },
+	{ chapter = 12, name = "Roi des Couvées", emoji = "🐉" },
+}
+
+-- Histoire : suite de chapitres. type = hatch | steal | train (secondes) | species (espèces découvertes) | tier (pet de rareté >= `tier` obtenu)
+-- | mut (pet muté obtenu) | puzzle (énigme du jour résolue) | rebirth. `rival` : ne compte que les vols chez ce rival. Récompense = max(coins, revenus de `mins` minutes).
+Config.STORY = {
+	{ title = "L'œuf d'argent", text = "Le Grand Nid s'est brisé, mais un dernier œuf dort dans ta base. Fais-le éclore : touche-le pour l'aider !", type = "hatch", goal = 1, coins = 100, mins = 0 },
+	{ title = "Premier larcin", text = "Les brigands de Gus gardent des œufs au nord. Maintiens le bouton devant un nid pour en chiper un, puis rapporte-le chez toi.", type = "steal", goal = 1, coins = 250, mins = 0 },
+	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur le tapis roulant du centre : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
+	{ title = "Le petit cabinet", text = "Un vrai Chipeur collectionne. Découvre 3 espèces différentes : chaque série de 3 augmente tes revenus pour toujours.", type = "species", goal = 3, coins = 800, mins = 2 },
+	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
+	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
+	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
+	{ title = "Le murmure des runes", text = "Les runes du Grand Nid s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Nid, puis touche le Nid pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
+	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
+	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
+	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
+	{ title = "Le Grand Nid s'éveille", text = "Le Nid est prêt à renaître. Renais une fois pour le reconstruire, plus fort, et deviens Roi des Couvées !", type = "rebirth", goal = 1, coins = 300000, mins = 45 },
+}
+
+Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
+Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
+Config.PITY_EVERY = 12 -- tous les 12 éclosions sans pet de rareté supérieure, la suivante l'est garantie
+
+function Config.rankFor(chaptersDone)
+	local best = Config.RANKS[1]
+	for _, r in ipairs(Config.RANKS) do
+		if chaptersDone >= r.chapter then
+			best = r
+		end
+	end
+	return best
+end
+
+function Config.collectionBonus(speciesCount)
+	return 1 + Config.COLLECTION_BONUS * math.floor(speciesCount / Config.COLLECTION_STEP)
+end
+
+function Config.zoneUnlocked(chaptersDone, rival)
+	local z = Config.ZONES[rival]
+	return z ~= nil and chaptersDone >= z.chapter
+end
+
+-- Texte de l'objectif d'un chapitre.
+function Config.storyGoalText(c)
+	local rival = c.rival and (" chez " .. Config.RIVALS[c.rival].name) or ""
+	if c.type == "hatch" then
+		return "Faire éclore " .. c.goal .. " œuf(s)"
+	elseif c.type == "steal" then
+		return "Chiper " .. c.goal .. " œuf(s)" .. rival
+	elseif c.type == "train" then
+		return "Courir " .. c.goal .. " secondes sur le tapis roulant"
+	elseif c.type == "species" then
+		return "Découvrir " .. c.goal .. " espèces différentes"
+	elseif c.type == "tier" then
+		return "Obtenir un pet " .. Config.TIERS[c.tier].name .. " ou mieux"
+	elseif c.type == "mut" then
+		return "Obtenir un pet muté"
+	elseif c.type == "puzzle" then
+		return "Résoudre l'énigme des runes"
+	elseif c.type == "rebirth" then
+		return "Renaître " .. c.goal .. " fois"
+	end
+	return c.type
+end
+
+-- Réglages d'interface (chaque ajout se coupe ici).
+Config.HUD = {
+	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
+}
+
+-- Objectif affiché en permanence : chapitre en cours de l'histoire (nil si l'histoire est terminée).
+-- st = { ch = chapitres réussis, prog = progression du chapitre en cours }.
+function Config.objective(st)
+	local c = Config.STORY[(st.ch or 0) + 1]
+	if not c then
+		return nil
+	end
+	local prog = math.min(math.max(st.prog or 0, 0), c.goal)
+	return { index = (st.ch or 0) + 1, total = #Config.STORY, title = c.title, text = Config.storyGoalText(c), prog = prog, goal = c.goal, done = prog >= c.goal }
+end
+
+-- Récompense de pièces d'un chapitre pour un revenu donné (par seconde).
+function Config.storyReward(chapter, income)
+	return math.floor(math.max(chapter.coins, income * chapter.mins * 60))
+end
+
+---------------------------------------------------------------- Énigmes des runes (Grand Nid)
+-- Quatre runes autour du monument (Nord, Est, Sud, Ouest). Chaque jour, Mère Poule énonce un indice par direction ; le joueur doit
+-- régler chaque rune sur le bon symbole puis valider en touchant le Grand Nid. L'énigme est la même pour tous les joueurs un jour donné.
+Config.RUNES = { "🔥", "🌊", "🌿", "⭐" }
+Config.RUNE_DIRECTIONS = { "Nord", "Est", "Sud", "Ouest" }
+Config.RUNE_LOCK_SECONDS = 6 -- pause après une mauvaise combinaison (empêche d'essayer au hasard en boucle)
+Config.PUZZLE_EGG_TIER = 3 -- récompense : un œuf Épique (ou son prix en pièces si la base est pleine)
+Config.PUZZLE_MINS = 10 -- + pièces : max(2000, 10 minutes de revenus)
+
+local RUNE_CLUES = {
+	{ "ce qui danse et brûle", "la flamme qui crépite", "ce qui réchauffe et consume" },
+	{ "ce qui coule et berce", "la vague qui murmure", "ce qui désaltère les rivières" },
+	{ "ce qui pousse vers la lumière", "la feuille qui respire", "ce qui plonge ses racines" },
+	{ "ce qui brille quand tout dort", "la lumière lointaine", "ce qui guide les voyageurs" },
+}
+local DIR_PREFIX = { "Au Nord", "À l'Est", "Au Sud", "À l'Ouest" }
+
+-- Générateur pseudo-aléatoire déterministe (Park-Miller : les produits restent exacts en double précision).
+local function dayRng(seed)
+	local x = (seed * 7919 + 104729) % 2147483646 + 1
+	local function raw()
+		x = (x * 16807) % 2147483647
+		return x
+	end
+	raw()
+	raw()
+	raw()
+	return function(n)
+		return raw() % n + 1
+	end
+end
+
+-- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé }.
+function Config.riddleFor(day)
+	local r = dayRng(day)
+	local order = { 1, 2, 3, 4 }
+	for i = 4, 2, -1 do
+		local j = r(i)
+		order[i], order[j] = order[j], order[i]
+	end
+	local parts = {}
+	for dir = 1, 4 do
+		local clues = RUNE_CLUES[order[dir]]
+		parts[dir] = DIR_PREFIX[dir] .. " : " .. clues[r(#clues)] .. "."
+	end
+	return { answer = order, text = table.concat(parts, " ") }
+end
+
+function Config.puzzleCoins(income)
+	return math.floor(math.max(2000, income * Config.PUZZLE_MINS * 60))
+end
+
+---------------------------------------------------------------- Succès à paliers (récompenses permanentes de progression)
+-- stat : hatched | stolen | species | rb | puzzles. goals : seuils des paliers successifs.
+Config.ACHIEVEMENTS = {
+	{ id = "hatched", name = "Éleveur", emoji = "🐣", stat = "hatched", unit = "œufs éclos", goals = { 10, 50, 250, 1000 } },
+	{ id = "stolen", name = "Chipeur", emoji = "🧤", stat = "stolen", unit = "œufs chipés", goals = { 10, 50, 200, 800 } },
+	{ id = "species", name = "Collectionneur", emoji = "📚", stat = "species", unit = "espèces découvertes", goals = { 3, 6, 12, 18 } },
+	{ id = "rebirth", name = "Renaissant", emoji = "♻️", stat = "rb", unit = "renaissances", goals = { 1, 2, 4, 8 } },
+	{ id = "puzzle", name = "Déchiffreur", emoji = "🔮", stat = "puzzles", unit = "énigmes résolues", goals = { 1, 5, 15, 40 } },
+}
+Config.ACH_REWARD = { coins = { 500, 5000, 50000, 500000 }, mins = { 1, 5, 20, 60 } }
+
+function Config.achievement(id)
+	for _, a in ipairs(Config.ACHIEVEMENTS) do
+		if a.id == id then
+			return a
+		end
+	end
+	return nil
+end
+
+-- Récompense du palier `tier` (1..4) : max(pièces fixes, revenus de `mins` minutes).
+function Config.achReward(tier, income)
+	return math.floor(math.max(Config.ACH_REWARD.coins[tier], income * Config.ACH_REWARD.mins[tier] * 60))
+end
+
+-- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)
+function Config.oddsText()
+	local function pct(list, none)
+		local total = 0
+		for _, x in ipairs(list) do
+			total += x.weight
+		end
+		local out = {}
+		for _, x in ipairs(list) do
+			out[#out + 1] = string.format("%s %.1f%%", x.name == "" and none or x.name, x.weight / total * 100)
+		end
+		return table.concat(out, " · ")
+	end
+	return "🎲 Probabilités de base. Rareté du pet : 12% une rareté au-dessus de l'œuf, 22% en dessous, le reste de la même rareté (Trèfle, événements, Pass Chance et Potion augmentent la part « au-dessus », plafonnée à 70%). Mutations : "
+		.. pct(Config.MUTS, "Aucune") .. " (le Biome Alien multiplie la mutation Alien par 5). Tailles : " .. pct(Config.SIZES, "Normal") .. "."
+end
+
+return Config
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+-- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
+-- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
+-- ne fait qu'appliquer ces valeurs aux objets.
+local Easing = {}
+
+local pi, sin, cos, exp, abs, floor, sqrt = math.pi, math.sin, math.cos, math.exp, math.abs, math.floor, math.sqrt
+
+local function clamp01(x)
+	if x < 0 then
+		return 0
+	elseif x > 1 then
+		return 1
+	end
+	return x
+end
+Easing.clamp01 = clamp01
+
+local function frac(x)
+	return x - floor(x)
+end
+
+function Easing.lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+-- Courbes classiques (entrée et sortie dans [0, 1]) ---------------------------------------------------------------
+function Easing.inOutSine(x)
+	x = clamp01(x)
+	return -(cos(pi * x) - 1) / 2
+end
+
+function Easing.outQuad(x)
+	x = clamp01(x)
+	return 1 - (1 - x) * (1 - x)
+end
+
+function Easing.outBack(x)
+	x = clamp01(x)
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
+
+function Easing.outElastic(x)
+	x = clamp01(x)
+	if x == 0 or x == 1 then
+		return x
+	end
+	return 2 ^ (-10 * x) * sin((x * 10 - 0.75) * (2 * pi) / 3) + 1
+end
+
+function Easing.outBounce(x)
+	x = clamp01(x)
+	local n1, d1 = 7.5625, 2.75
+	if x < 1 / d1 then
+		return n1 * x * x
+	elseif x < 2 / d1 then
+		x = x - 1.5 / d1
+		return n1 * x * x + 0.75
+	elseif x < 2.5 / d1 then
+		x = x - 2.25 / d1
+		return n1 * x * x + 0.9375
+	end
+	x = x - 2.625 / d1
+	return n1 * x * x + 0.984375
+end
+
+-- Squash & stretch : au temps t (0 -> 1), retourne (sx, sy) à appliquer en largeur et en hauteur.
+-- Part écrasé (sy < 1, sx > 1), puis s'étire, puis oscille de moins en moins jusqu'à (1, 1). Toujours strictement positif.
+function Easing.squashStretch(t, strength)
+	if t >= 1 then
+		return 1, 1
+	end
+	if t < 0 then
+		t = 0
+	end
+	local amp = (strength or 0.4) * exp(-5 * t) * cos(14 * t)
+	return math.max(0.2, 1 + amp * 0.6), math.max(0.2, 1 - amp)
+end
+
+-- Petit saut d'un œuf toutes les `period` secondes. Retourne (décalage vertical >= 0, sx, sy).
+-- Étirement en l'air, écrasement à l'atterrissage ; hors du saut : (0, 1, 1).
+function Easing.eggHop(time, phase, height, period)
+	period = period or 3.2
+	height = height or 0.6
+	local u = ((time + (phase or 0)) % period) / 0.6 -- le saut dure 0,6 s
+	if u >= 1 then
+		return 0, 1, 1
+	end
+	local y = height * sin(u * pi)
+	local sy = 1 + 0.15 * sin(u * pi)
+	if u > 0.85 then
+		sy = 1 - 0.12 * sin((u - 0.85) / 0.15 * pi)
+	end
+	return y, 1 / sqrt(sy), sy
+end
+
+-- Balancement d'un œuf porté pendant la course (décalage vertical >= 0).
+function Easing.runBounce(time, moving)
+	if not moving then
+		return 0
+	end
+	return 0.25 * abs(sin(time * 8))
+end
+
+-- Clignement : 1 = œil ouvert, 0 = fermé. Bref (0,16 s) à intervalle irrégulier propre à chaque `seed`.
+function Easing.blinkOpenness(time, seed)
+	seed = seed or 0
+	local period = 2.6 + (seed % 7) * 0.37
+	local ph = (time + seed * 0.53) % period
+	local d = 0.16
+	if ph < d then
+		return 1 - sin(ph / d * pi)
+	end
+	return 1
+end
+
+-- Regard : décalage (dx, dy) des yeux, dx dans [-0.85, 0.85], dy dans [-0.3, 0.3].
+function Easing.look(time, seed)
+	seed = seed or 0
+	local dx = sin(time * 0.7 + seed) * 0.6 + sin(time * 1.9 + seed * 2) * 0.25
+	local dy = sin(time * 0.5 + seed * 3) * 0.3
+	return dx, dy
+end
+
+-- Bouche : ouverture dans [0, 1] ; elle « mâche » brièvement de temps en temps.
+function Easing.mouthOpen(time, seed)
+	seed = seed or 0
+	local period = 4 + (seed % 5) * 0.6
+	local ph = (time + seed * 0.9) % period
+	if ph < 0.7 then
+		return sin(ph / 0.7 * pi)
+	end
+	return 0
+end
+
+-- Poule : coups de bec doubles à intervalle irrégulier. Retourne l'enfoncement de la tête dans [0, 1].
+function Easing.peck(time, seed)
+	seed = seed or 0
+	local period = 3.4 + (seed % 5) * 0.5
+	local ph = (time + seed * 0.7) % period
+	if ph < 0.25 then
+		return sin(ph / 0.25 * pi)
+	elseif ph < 0.5 then
+		return sin((ph - 0.25) / 0.25 * pi)
+	end
+	return 0
+end
+
+-- Pulsation d'une barrière de zone, dans [0, 1].
+function Easing.gatePulse(time, speed)
+	return 0.5 + 0.5 * sin(time * (speed or 2))
+end
+
+-- Récompenses : effets de confettis selon la clé de son envoyée avec la notification serveur. nil = pas de confettis.
+Easing.REWARD = {
+	claim = { count = 24, minSpeed = 160, maxSpeed = 340, life = 1.3 },
+	event = { count = 40, minSpeed = 180, maxSpeed = 380, life = 1.5 },
+	rare = { count = 70, minSpeed = 200, maxSpeed = 440, life = 1.7 },
+}
+function Easing.rewardBurst(sfx)
+	return Easing.REWARD[sfx]
+end
+
+-- Secousse de caméra (champ de vision) selon la clé de son : delta en degrés, durée d'un aller en secondes.
+Easing.FOV_KICK = {
+	steal = { delta = 5, time = 0.14 },
+	caught = { delta = -8, time = 0.2 },
+}
+
+-- Particule `i` d'une salve de `count` confettis : éventail vers le haut, déterministe (suite de la section d'or).
+-- Retourne { angle (radians, 0 = droite, -pi/2 = haut), speed, spin (degrés/s), hue [0,1), w, h (pixels) }.
+function Easing.confettiParticle(i, count, burst)
+	local minSpeed, maxSpeed = burst.minSpeed, burst.maxSpeed
+	return {
+		angle = -pi / 2 + (frac(i * 0.6180339887) - 0.5) * 1.8,
+		speed = minSpeed + frac(i * 0.7548776662) * (maxSpeed - minSpeed),
+		spin = (frac(i * 0.5698402910) - 0.5) * 720,
+		hue = frac(i * 0.3819660113 + count * 0.01),
+		w = 6 + floor(frac(i * 0.2599) * 7),
+		h = 10 + floor(frac(i * 0.4143) * 9),
+	}
+end
+
+-- Garde-fou d'une animation. isEnabled(name) -> bool ; failed : table partagée name -> true ; fn : l'animation (appelée sous pcall).
+-- Une animation désactivée n'est pas exécutée. Une animation qui lève une erreur est désactivée pour le reste de la session
+-- (onError(name, err) est appelé une seule fois). Retourne true si fn s'est exécutée sans erreur.
+function Easing.guard(isEnabled, failed, name, fn, onError)
+	if failed[name] or not isEnabled(name) then
+		return false
+	end
+	local ok, err = pcall(fn)
+	if not ok then
+		failed[name] = true
+		if onError then
+			onError(name, err)
+		end
+	end
+	return ok
+end
+
+return Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+-- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
+-- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
+-- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
+local Cinema = {}
+
+function Cinema.new(Easing)
+	local C = {}
+
+	-- Construit une séquence à partir de { id, shots = { { dur = secondes, ... }, ... } }.
+	-- Retourne nil et un message si la définition est invalide (aucun plan, durée <= 0).
+	function C.sequence(def)
+		if type(def) ~= "table" or type(def.shots) ~= "table" or #def.shots == 0 then
+			return nil, "aucun plan"
+		end
+		local starts, t = {}, 0
+		for i, shot in ipairs(def.shots) do
+			if type(shot.dur) ~= "number" or shot.dur <= 0 then
+				return nil, "durée invalide (plan " .. i .. ")"
+			end
+			starts[i] = t
+			t = t + shot.dur
+		end
+		return { id = def.id, shots = def.shots, starts = starts, total = t }
+	end
+
+	-- Plan actif à l'instant t (secondes depuis le début) : (index, progression dans [0, 1[), ou nil si la séquence est terminée.
+	-- Un temps négatif est ramené à 0.
+	function C.shotAt(seq, t)
+		if t < 0 then
+			t = 0
+		end
+		if t >= seq.total then
+			return nil
+		end
+		for i = #seq.shots, 1, -1 do
+			if t >= seq.starts[i] then
+				return i, (t - seq.starts[i]) / seq.shots[i].dur
+			end
+		end
+		return 1, 0
+	end
+
+	local function lerp3(a, b, e)
+		return { a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e, a[3] + (b[3] - a[3]) * e }
+	end
+
+	-- Position et point visé de la caméra pour la progression p du plan (repère de l'ancre), avec adoucissement.
+	function C.cameraAt(shot, p)
+		local e = Easing.inOutSine(Easing.clamp01(p))
+		return lerp3(shot.pos, shot.toPos or shot.pos, e), lerp3(shot.look, shot.toLook or shot.look, e)
+	end
+
+	-- Lecteur d'une séquence. États : idle -> playing -> done (raison : completed | skipped | aborted). play() redémarre à zéro (reprise).
+	function C.player(seq)
+		local P = { state = "idle", reason = nil, startedAt = 0, lastShot = 0 }
+		function P.play(now)
+			P.state, P.reason, P.startedAt, P.lastShot = "playing", nil, now, 0
+		end
+		function P.isPlaying()
+			return P.state == "playing"
+		end
+		-- À appeler à chaque image. nil si rien ne joue ; sinon { shot, progress, shotChanged, finished, reason }.
+		-- L'événement `finished` n'est renvoyé qu'une seule fois.
+		function P.update(now)
+			if P.state ~= "playing" then
+				return nil
+			end
+			local i, p = C.shotAt(seq, now - P.startedAt)
+			if not i then
+				P.state, P.reason = "done", "completed"
+				return { finished = true, reason = "completed" }
+			end
+			local changed = i ~= P.lastShot
+			P.lastShot = i
+			return { shot = i, progress = p, shotChanged = changed, finished = false }
+		end
+		function P.skip()
+			if P.state == "playing" then
+				P.state, P.reason = "done", "skipped"
+				return true
+			end
+			return false
+		end
+		function P.abort()
+			if P.state == "playing" then
+				P.state, P.reason = "done", "aborted"
+				return true
+			end
+			return false
+		end
+		return P
+	end
+
+	-- Directeur : une seule cinématique à la fois. Une demande « chain » pendant une lecture est mise en file (intro puis tutoriel) ;
+	-- une autre demande est refusée (jamais de cinématique superposée). Une cinématique ne démarre jamais seule en plein jeu.
+	function C.director()
+		local D = { current = nil, queue = {} }
+
+		local function startNext(now)
+			local nxt = table.remove(D.queue, 1)
+			if nxt then
+				D.current = { id = nxt.id, seq = nxt.seq, player = C.player(nxt.seq) }
+				D.current.player.play(now)
+			end
+		end
+
+		-- Retourne "playing", "queued" ou "refused".
+		function D.request(id, seq, now, chain)
+			if D.current and D.current.player.isPlaying() then
+				if chain then
+					D.queue[#D.queue + 1] = { id = id, seq = seq }
+					return "queued"
+				end
+				return "refused"
+			end
+			D.current = { id = id, seq = seq, player = C.player(seq) }
+			D.current.player.play(now)
+			return "playing"
+		end
+
+		-- Retourne (id, événement). À la fin d'une séquence, la suivante de la file démarre ; l'événement `finished` est renvoyé une fois.
+		function D.update(now)
+			local cur = D.current
+			if not cur then
+				return nil
+			end
+			local ev = cur.player.update(now)
+			if ev and ev.finished then
+				D.current = nil
+				startNext(now)
+			end
+			return cur.id, ev
+		end
+
+		-- Passe la séquence en cours (la file continue). Retourne l'id passé, ou nil si rien ne jouait.
+		function D.skip(now)
+			local cur = D.current
+			if cur and cur.player.skip() then
+				D.current = nil
+				startNext(now)
+				return cur.id
+			end
+			return nil
+		end
+
+		-- Passe tout : la séquence en cours et la file. Retourne la liste des identifiants passés.
+		function D.skipAll()
+			local ids = {}
+			local cur = D.current
+			if cur and cur.player.skip() then
+				ids[#ids + 1] = cur.id
+			end
+			for _, q in ipairs(D.queue) do
+				ids[#ids + 1] = q.id
+			end
+			D.current, D.queue = nil, {}
+			return ids
+		end
+
+		-- Abandon (mort, attaque, erreur) : tout s'arrête, la file est vidée, rien n'est considéré comme vu.
+		function D.abort()
+			local cur = D.current
+			if cur then
+				cur.player.abort()
+			end
+			D.current, D.queue = nil, {}
+		end
+
+		function D.isActive()
+			return D.current ~= nil
+		end
+
+		return D
+	end
+
+	return C
+end
+
+return Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+-- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
+-- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
+-- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
+local Layout = {}
+
+Layout.MIN_SCALE = 0.85 -- en dessous, les boutons passent sous 44 px (cible tactile minimale)
+Layout.MAX_SCALE = 1.25
+Layout.EDGE = 8
+Layout.NAV_BUTTON = 52
+Layout.NAV_GAP = 4
+-- Zone centrale à garder libre (en fraction de l'écran) : le personnage et la caméra.
+Layout.CENTER = { x0 = 0.32, x1 = 0.68, y0 = 0.32, y1 = 0.75 }
+
+function Layout.scaleFor(vw, vh)
+	local s = math.min(vw / 900, vh / 520)
+	if s ~= s then
+		s = 1
+	end
+	return math.max(Layout.MIN_SCALE, math.min(Layout.MAX_SCALE, s))
+end
+
+-- Rectangles { x, y, w, h } en pixels de conception pour un écran de vw x vh pixels réels. Retourne (rects, scale, dw, dh).
+function Layout.rects(vw, vh, navCount)
+	navCount = navCount or 6
+	local s = Layout.scaleFor(vw, vh)
+	local dw, dh = vw / s, vh / s
+	local e = Layout.EDGE
+	local navH = navCount * Layout.NAV_BUTTON + (navCount - 1) * Layout.NAV_GAP
+	local navW = Layout.NAV_BUTTON
+	local rightW = math.min(330, math.max(180, dw - 196 - 3 * e)) -- bannière et notifications : à droite des compteurs
+	local nav = { x = dw - e - navW, y = dh - e - navH, w = navW, h = navH }
+	-- Notifications : sous la bannière, à droite des compteurs ; décalées à gauche de la colonne de menu si celle-ci monte jusqu'à elles.
+	local toastsTop, toastsH = e + 46, 76
+	local right = (nav.y < toastsTop + toastsH) and (nav.x - e) or (dw - e)
+	local toastsW = math.min(240, right - (e + 196 + e))
+	local r = {
+		pillCoins = { x = e, y = e, w = 196, h = 52 },
+		pillSpeed = { x = e, y = e + 58, w = 196, h = 52 },
+		objective = { x = e, y = e + 118, w = 196, h = 62 },
+		carry = { x = e, y = e + 188, w = 170, h = 26 },
+		banner = { x = dw - e - rightW, y = e, w = rightW, h = 40 },
+		toasts = { x = right - toastsW, y = toastsTop, w = toastsW, h = toastsH },
+		nav = nav,
+		hint = { x = e, y = dh - e - 44, w = math.min(260, dw - navW - 3 * e - 8), h = 44 },
+	}
+	return r, s, dw, dh
+end
+
+local function overlap(a, b)
+	return a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+end
+Layout.overlap = overlap
+
+-- Zone centrale à garder libre, en pixels de conception pour cet écran.
+function Layout.centerRect(vw, vh)
+	local s = Layout.scaleFor(vw, vh)
+	local c = Layout.CENTER
+	return { x = c.x0 * vw / s, y = c.y0 * vh / s, w = (c.x1 - c.x0) * vw / s, h = (c.y1 - c.y0) * vh / s }
+end
+
+return Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+-- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
+-- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
+-- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
+--   deps.clock() -> secondes
+--   deps.reserve(placeId) -> accessCode            (réel : TeleportService:ReserveServer ; peut lever une erreur)
+--   deps.teleport(players, placeId, accessCode|nil, data)   (réel : TeleportToPrivateServer / TeleportAsync ; peut lever une erreur)
+--   deps.store : { get(key), update(key, fn) , remove(key), list() }   (réel : MemoryStoreService ; peut lever une erreur)
+--   deps.log(msg) (facultatif)
+local Party = {}
+
+-- Un serveur de jeu accepte-t-il un joueur de plus ? count = joueurs déjà présents.
+function Party.admit(count, max)
+	return count < max
+end
+
+function Party.new(Config, deps)
+	local G = Config.Game
+	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }
+
+	local function log(msg)
+		if deps.log then
+			deps.log("[Party] " .. msg)
+		end
+	end
+
+	for _, size in ipairs(G.Sizes) do
+		P.queues[size] = { members = {} }
+	end
+
+	---------------------------------------------------------------- zones de lancement (file d'attente)
+	function P.enter(userId, size)
+		local q = P.queues[size]
+		if not q then
+			return false, "taille inconnue"
+		end
+		if P.where[userId] then
+			if P.where[userId] == size then
+				return true
+			end
+			P.leave(userId)
+		end
+		if #q.members >= size then
+			return false, "zone pleine"
+		end
+		q.members[#q.members + 1] = userId
+		P.where[userId] = size
+		if #q.members == 1 then
+			q.firstAt = deps.clock()
+		end
+		q.readyAt = nil
+		return true
+	end
+
+	function P.leave(userId)
+		local size = P.where[userId]
+		if not size then
+			return false
+		end
+		local q = P.queues[size]
+		for i, id in ipairs(q.members) do
+			if id == userId then
+				table.remove(q.members, i)
+				break
+			end
+		end
+		P.where[userId] = nil
+		q.readyAt = nil
+		if #q.members == 0 then
+			q.firstAt = nil
+		end
+		return true
+	end
+
+	-- État affiché d'une zone : { size, count, countdown (secondes ou nil), mode = "empty" | "waiting" | "full" }
+	function P.status(size)
+		local q = P.queues[size]
+		local now = deps.clock()
+		local count = #q.members
+		local out = { size = size, count = count, mode = count == 0 and "empty" or (count >= size and "full" or "waiting") }
+		if count > 0 then
+			if count >= size then
+				q.readyAt = q.readyAt or (now + (size == 1 and G.SoloCountdown or G.CountdownFull))
+				out.countdown = math.max(0, q.readyAt - now)
+			else
+				q.readyAt = nil
+				out.countdown = math.max(0, q.firstAt + G.PartialWait - now)
+			end
+		end
+		return out
+	end
+
+	-- Groupes prêts à partir : { size, members }. Les membres sont retirés de la file.
+	function P.collectLaunches()
+		local out = {}
+		for _, size in ipairs(G.Sizes) do
+			local q = P.queues[size]
+			if #q.members > 0 then
+				local st = P.status(size)
+				if st.countdown ~= nil and st.countdown <= 0 then
+					local members = table.clone(q.members)
+					for _, id in ipairs(members) do
+						P.where[id] = nil
+					end
+					q.members = {}
+					q.firstAt, q.readyAt = nil, nil
+					out[#out + 1] = { size = size, members = members }
+				end
+			end
+		end
+		return out
+	end
+
+	---------------------------------------------------------------- registre des parties
+	local function newPartyId(host)
+		return tostring(host) .. "_" .. tostring(math.floor(deps.clock() * 1000))
+	end
+
+	local function alive(e)
+		return type(e) == "table" and deps.clock() - (e.createdAt or 0) < G.PartyTTL
+	end
+
+	-- Teleporte un groupe vers le lieu de jeu. Essaie les méthodes de G.Fallbacks dans l'ordre.
+	-- group = { size = n, members = {userId...}, players = {Player...}, hostName = "..." }
+	-- Retourne { ok = true, mode, partyId? } ou { ok = false, reason, message }.
+	function P.launch(group)
+		local gamePlace = G.Places.game
+		if type(gamePlace) ~= "number" or gamePlace <= 0 then
+			return { ok = false, reason = "lieu de jeu non configuré", message = "Le lieu de jeu n'est pas configuré. Préviens le créateur." }
+		end
+		local size = math.min(math.max(group.size or #group.members, 1), G.MaxPlayers)
+		local data = { from = "hub", size = size, late = false }
+		local lastErr = "aucune méthode de téléportation"
+		for _, mode in ipairs(G.Fallbacks) do
+			if mode == "reserved" then
+				local okR, code = pcall(deps.reserve, gamePlace)
+				if okR and code then
+					local partyId = newPartyId(group.members[1] or 0)
+					data.partyId = partyId
+					local okT, errT = pcall(deps.teleport, group.players, gamePlace, code, data)
+					if okT then
+						local entry = {
+							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = size, count = #group.members,
+							members = table.clone(group.members), code = code, createdAt = deps.clock(), open = size > 1,
+						}
+						local okS, errS = pcall(deps.store.update, partyId, function()
+							return entry
+						end)
+						if not okS then
+							log("registre indisponible : " .. tostring(errS))
+						end
+						return { ok = true, mode = "reserved", partyId = partyId, registered = okS }
+					end
+					lastErr = "téléportation : " .. tostring(errT)
+				else
+					lastErr = "réservation : " .. tostring(code)
+				end
+			elseif mode == "public" then
+				data.partyId = nil
+				local okT, errT = pcall(deps.teleport, group.players, gamePlace, nil, data)
+				if okT then
+					return { ok = true, mode = "public" }
+				end
+				lastErr = "téléportation publique : " .. tostring(errT)
+			end
+		end
+		log("lancement impossible : " .. tostring(lastErr))
+		return { ok = false, reason = lastErr, message = "Impossible de lancer la partie pour l'instant. Réessaie dans un instant." }
+	end
+
+	-- Parties ouvertes visibles par `viewerId` : celles de ses amis (friends[userId] = true) ou celles où il est déjà inscrit.
+	-- Retourne une liste triée { id, hostName, count, size }.
+	function P.visibleFor(viewerId, friends)
+		local okL, list = pcall(deps.store.list)
+		if not okL or type(list) ~= "table" then
+			return {}, false
+		end
+		local out = {}
+		for _, e in ipairs(list) do
+			if alive(e) and e.open and e.count < e.size and e.count < G.MaxPlayers then
+				local mine = false
+				for _, id in ipairs(e.members or {}) do
+					if id == viewerId then
+						mine = true
+					end
+				end
+				if not mine and friends and friends[e.host] then
+					out[#out + 1] = { id = e.id, hostName = e.hostName, count = e.count, size = e.size }
+				end
+			end
+		end
+		table.sort(out, function(a, b)
+			return a.id < b.id
+		end)
+		return out, true
+	end
+
+	-- Rejoindre une partie en cours. Retourne { ok = true } ou { ok = false, reason = "full" | "gone" | "registry" | "teleport", message }.
+	function P.join(partyId, player, userId)
+		local okG, e = pcall(deps.store.get, partyId)
+		if not okG then
+			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
+		end
+		if not alive(e) or not e.open then
+			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." }
+		end
+		-- réservation atomique de la place (compte + membre) ; refus si plein
+		local reserved = false
+		local okU, errU = pcall(deps.store.update, partyId, function(old)
+			if type(old) ~= "table" or old.count >= old.size or old.count >= G.MaxPlayers then
+				return nil
+			end
+			for _, id in ipairs(old.members) do
+				if id == userId then
+					return nil
+				end
+			end
+			old.count = old.count + 1
+			old.members[#old.members + 1] = userId
+			reserved = true
+			return old
+		end)
+		if not okU then
+			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
+		end
+		if not reserved then
+			return { ok = false, reason = "full", message = "Cette partie est pleine." }
+		end
+		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true })
+		if not okT then
+			P.leaveParty(partyId, userId) -- annule la place prise
+			log("rejoindre : " .. tostring(errT))
+			return { ok = false, reason = "teleport", message = "Impossible de rejoindre la partie pour l'instant." }
+		end
+		return { ok = true }
+	end
+
+	-- Libère la place d'un joueur (retour au hub, échec de téléportation). Supprime la partie quand elle est vide.
+	function P.leaveParty(partyId, userId)
+		pcall(deps.store.update, partyId, function(old)
+			if type(old) ~= "table" then
+				return nil
+			end
+			for i, id in ipairs(old.members) do
+				if id == userId then
+					table.remove(old.members, i)
+					old.count = math.max(0, old.count - 1)
+					break
+				end
+			end
+			return old
+		end)
+	end
+
+	return P
+end
+
+return Party
+]]></ProtectedString></Properties></Item></Item></Item>
+<Item class="ServerScriptService" referent="RBX30"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX28"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+-- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
+-- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local MemoryStoreService = game:GetService("MemoryStoreService")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+if Config.Game.roleFor(game.PlaceId) == "game" then
+	return -- lieu de jeu : le code de la partie (Main) s'en charge
+end
+local PartyMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
+local HubWorld = require(script.Parent:WaitForChild("HubWorld"))
+
+local G = Config.Game
+local world = HubWorld.build(Config)
+
+local remote = Instance.new("RemoteEvent")
+remote.Name = "HubRemote"
+remote.Parent = ReplicatedStorage
+
+local function say(player, text, kind)
+	remote:FireClient(player, "msg", text, kind or "info")
+end
+
+---------------------------------------------------------------- Registre des parties (MemoryStore), tout sous pcall
+local map
+do
+	local ok, m = pcall(function()
+		return MemoryStoreService:GetHashMap(G.RegistryName)
+	end)
+	if ok then
+		map = m
+	else
+		warn("[Hub] MemoryStore indisponible : pas de liste de parties d'amis (" .. tostring(m) .. ")")
+	end
+end
+
+local store = {}
+function store.get(key)
+	assert(map, "MemoryStore indisponible")
+	return map:GetAsync(key)
+end
+function store.update(key, fn)
+	assert(map, "MemoryStore indisponible")
+	return map:UpdateAsync(key, fn, G.PartyTTL)
+end
+function store.remove(key)
+	if map then
+		map:RemoveAsync(key)
+	end
+end
+function store.list()
+	assert(map, "MemoryStore indisponible")
+	local items = map:ListItemsAsync(100):GetCurrentPage()
+	local out = {}
+	for _, it in ipairs(items) do
+		out[#out + 1] = it.value
+	end
+	return out
+end
+
+local P = PartyMod.new(Config, {
+	clock = os.clock,
+	reserve = function(placeId)
+		local code = TeleportService:ReserveServerAsync(placeId)
+		return code
+	end,
+	teleport = function(players, placeId, code, data)
+		local opts = Instance.new("TeleportOptions")
+		if code then
+			opts.ReservedServerAccessCode = code
+		end
+		opts:SetTeleportData(data)
+		TeleportService:TeleportAsync(placeId, players, opts)
+	end,
+	store = store,
+	log = warn,
+})
+
+---------------------------------------------------------------- Zones de lancement : qui est dans quel portail
+local function rootOf(player)
+	local char = player.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function zoneAt(pos)
+	for size, z in pairs(world.zones) do
+		local d = (Vector3.new(pos.X, 0, pos.Z) - z.center).Magnitude
+		if d <= z.radius then
+			return size
+		end
+	end
+	return nil
+end
+
+local launching = {} -- userId -> true pendant la téléportation (évite de relancer)
+
+local function doLaunch(group)
+	local players = {}
+	for _, uid in ipairs(group.members) do
+		local p = Players:GetPlayerByUserId(uid)
+		if p and p.Parent then
+			players[#players + 1] = p
+			launching[uid] = true
+		end
+	end
+	if #players == 0 then
+		return
+	end
+	local members = {}
+	for _, p in ipairs(players) do
+		members[#members + 1] = p.UserId
+		say(p, "🚀 Départ vers la partie…", "info")
+	end
+	local res = P.launch({ size = group.size, members = members, players = players, hostName = players[1].DisplayName })
+	if not res.ok then
+		for _, p in ipairs(players) do
+			launching[p.UserId] = nil
+			say(p, "⚠️ " .. res.message, "error")
+		end
+	else
+		task.delay(20, function() -- si la téléportation n'a pas fini par déplacer le joueur, on le libère
+			for _, p in ipairs(players) do
+				launching[p.UserId] = nil
+			end
+		end)
+	end
+end
+
+local function statusText(size)
+	local st = P.status(size)
+	if st.mode == "empty" then
+		return "Libre"
+	end
+	local base = st.count .. "/" .. size .. " joueur" .. (size > 1 and "s" or "")
+	if st.countdown then
+		return base .. " · départ " .. math.ceil(st.countdown) .. " s"
+	end
+	return base
+end
+
+local lastStatus = {}
+task.spawn(function()
+	while true do
+		for _, player in ipairs(Players:GetPlayers()) do
+			if not launching[player.UserId] then
+				local root = rootOf(player)
+				local size = root and zoneAt(root.Position) or nil
+				local cur = P.where[player.UserId]
+				if size ~= cur then
+					if size then
+						if not P.enter(player.UserId, size) then
+							say(player, "Cette zone est pleine, choisis-en une autre.", "info")
+						end
+					else
+						P.leave(player.UserId)
+					end
+				end
+			end
+		end
+		for _, group in ipairs(P.collectLaunches()) do
+			task.spawn(doLaunch, group)
+		end
+		for size, z in pairs(world.zones) do
+			local txt = statusText(size)
+			if lastStatus[size] ~= txt then
+				lastStatus[size] = txt
+				z.status.Text = txt
+			end
+		end
+		task.wait(0.25)
+	end
+end)
+
+---------------------------------------------------------------- Amis : liste des parties ouvertes, rejoindre
+local friendCache = {} -- userId -> { t, set }
+local function friendsOf(player)
+	local c = friendCache[player.UserId]
+	if c and os.clock() - c.t < 90 then
+		return c.set
+	end
+	local set = {}
+	local ok = pcall(function()
+		local pages = Players:GetFriendsAsync(player.UserId)
+		for _ = 1, 5 do
+			for _, f in ipairs(pages:GetCurrentPage()) do
+				set[f.Id] = true
+			end
+			if pages.IsFinished then
+				break
+			end
+			pages:AdvanceToNextPageAsync()
+		end
+	end)
+	if not ok and c then
+		return c.set
+	end
+	friendCache[player.UserId] = { t = os.clock(), set = set }
+	return set
+end
+
+local lastReq = {}
+remote.OnServerEvent:Connect(function(player, action, arg)
+	local now = os.clock()
+	if now - (lastReq[player] or 0) < 0.4 or type(action) ~= "string" then
+		return
+	end
+	lastReq[player] = now
+	if action == "parties" then
+		local list, ok = P.visibleFor(player.UserId, friendsOf(player))
+		remote:FireClient(player, "parties", list, ok)
+	elseif action == "join" then
+		if type(arg) ~= "string" or #arg > 64 or launching[player.UserId] then
+			return
+		end
+		launching[player.UserId] = true
+		P.leave(player.UserId)
+		local res = P.join(arg, player, player.UserId)
+		if not res.ok then
+			launching[player.UserId] = nil
+			say(player, "⚠️ " .. res.message, "error")
+		else
+			say(player, "🚀 Tu rejoins la partie…", "info")
+			task.delay(20, function()
+				launching[player.UserId] = nil
+			end)
+		end
+	end
+end)
+
+---------------------------------------------------------------- Arrivées et départs
+Players.PlayerAdded:Connect(function(player)
+	local ok, data = pcall(function()
+		return player:GetJoinData().TeleportData
+	end)
+	if ok and type(data) == "table" then
+		if type(data.partyId) == "string" then
+			P.leaveParty(data.partyId, player.UserId) -- de retour de la partie : la place se libère
+		end
+		if data.reason == "full" then
+			task.delay(2, say, player, "Cette partie était pleine (5 joueurs maximum). Choisis-en une autre !", "info")
+		end
+	end
+end)
+Players.PlayerRemoving:Connect(function(player)
+	P.leave(player.UserId)
+	launching[player.UserId] = nil
+	lastReq[player] = nil
+	friendCache[player.UserId] = nil
+end)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+-- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
+-- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
+local CollectionService = game:GetService("CollectionService")
+local Lighting = game:GetService("Lighting")
+
+local HubWorld = {}
+
+local FONT = Enum.Font.GothamBold
+local ZONE_COLORS = {
+	Color3.fromRGB(255, 210, 63), -- solo
+	Color3.fromRGB(91, 227, 125), -- 2
+	Color3.fromRGB(74, 163, 255), -- 3
+	Color3.fromRGB(184, 120, 255), -- 4
+	Color3.fromRGB(255, 107, 107), -- 5
+}
+
+local function part(props, parent)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = Enum.Material.SmoothPlastic
+	for k, v in pairs(props) do
+		p[k] = v
+	end
+	p.Parent = parent
+	return p
+end
+
+local function cylinder(props, parent) -- cylindre à axe vertical
+	props.Shape = Enum.PartType.Cylinder
+	local h, d = props.Height, props.Diameter
+	props.Size = Vector3.new(h, d, d)
+	props.Height, props.Diameter = nil, nil
+	local pos = props.Position
+	props.Position = nil
+	props.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.pi / 2)
+	return part(props, parent)
+end
+
+local function billboard(adornee, text, offsetY, width, height)
+	local bb = Instance.new("BillboardGui")
+	bb.Adornee = adornee
+	bb.Size = UDim2.fromOffset(width, height)
+	bb.StudsOffset = Vector3.new(0, offsetY, 0)
+	bb.AlwaysOnTop = false
+	bb.MaxDistance = 140
+	bb.LightInfluence = 0
+	bb.Parent = adornee
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.Size = UDim2.fromScale(1, 1)
+	l.Font = FONT
+	l.TextScaled = true
+	l.TextColor3 = Color3.new(1, 1, 1)
+	l.TextStrokeTransparency = 0.3
+	l.Text = text
+	l.Parent = bb
+	return l
+end
+
+local function tree(pos, parent, rng)
+	local s = rng:NextNumber(0.9, 1.4)
+	part({ Name = "Trunk", Size = Vector3.new(2 * s, 8 * s, 2 * s), Position = pos + Vector3.new(0, 4 * s, 0), Color = Color3.fromRGB(110, 78, 50), Material = Enum.Material.Wood }, parent)
+	part({ Name = "Leaves", Shape = Enum.PartType.Ball, Size = Vector3.new(11 * s, 11 * s, 11 * s), Position = pos + Vector3.new(0, 11 * s, 0), Color = Color3.fromRGB(70, 150, 80), Material = Enum.Material.Grass }, parent)
+end
+
+local function lamp(pos, parent)
+	part({ Name = "LampPost", Size = Vector3.new(0.8, 7, 0.8), Position = pos + Vector3.new(0, 3.5, 0), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, parent)
+	local head = part({ Name = "Lamp", Shape = Enum.PartType.Ball, Size = Vector3.new(1.8, 1.8, 1.8), Position = pos + Vector3.new(0, 7.6, 0), Color = Color3.fromRGB(255, 235, 170), Material = Enum.Material.Neon }, parent)
+	local l = Instance.new("PointLight")
+	l.Color = Color3.fromRGB(255, 225, 160)
+	l.Range = 24
+	l.Brightness = 1.2
+	l.Parent = head
+end
+
+function HubWorld.setupLighting()
+	Lighting.ClockTime = 17.6 -- crépuscule doré : les portails néon ressortent
+	Lighting.Brightness = 2.2
+	Lighting.Ambient = Color3.fromRGB(110, 100, 130)
+	Lighting.OutdoorAmbient = Color3.fromRGB(140, 125, 150)
+	Lighting.ColorShift_Top = Color3.fromRGB(255, 200, 150)
+	Lighting.GlobalShadows = true
+	local atm = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
+	atm.Density = 0.32
+	atm.Offset = 0.25
+	atm.Color = Color3.fromRGB(255, 205, 170)
+	atm.Decay = Color3.fromRGB(180, 120, 160)
+	atm.Haze = 1.6
+	atm.Parent = Lighting
+	local bloom = Lighting:FindFirstChild("HubBloom") or Instance.new("BloomEffect")
+	bloom.Name = "HubBloom"
+	bloom.Intensity = 0.5
+	bloom.Size = 30
+	bloom.Threshold = 0.9
+	bloom.Parent = Lighting
+end
+
+-- Retourne { spawn, zones = { [taille] = { part, label, center, radius } }, folder }
+function HubWorld.build(Config)
+	local world = Instance.new("Folder")
+	world.Name = "HubWorld"
+	world.Parent = workspace
+	HubWorld.setupLighting()
+	local rng = Random.new(11)
+
+	cylinder({ Name = "Ground", Height = 2, Diameter = 420, Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(88, 150, 84), Material = Enum.Material.Grass }, world)
+	cylinder({ Name = "Plaza", Height = 0.6, Diameter = 96, Position = Vector3.new(0, 0.1, 0), Color = Color3.fromRGB(196, 184, 160), Material = Enum.Material.Cobblestone }, world)
+	cylinder({ Name = "PlazaRing", Height = 0.7, Diameter = 100, Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Slate }, world)
+	local rimWall = part({ Name = "Rim", Size = Vector3.new(420, 80, 2), Position = Vector3.new(0, 40, -210), Transparency = 1, CanQuery = false }, world)
+	for _, w in ipairs({ { 0, 210, 420, 2 }, { 210, 0, 2, 420 }, { -210, 0, 2, 420 } }) do
+		part({ Name = "Wall", Size = Vector3.new(w[3], 80, w[4]), Position = Vector3.new(w[1], 40, w[2]), Transparency = 1, CanQuery = false }, world)
+	end
+	rimWall.CanQuery = false
+
+	-- Fontaine centrale
+	cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
+	cylinder({ Name = "FountainWater", Height = 0.4, Diameter = 14, Position = Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, world)
+	local spout = part({ Name = "Spout", Size = Vector3.new(1.4, 6, 1.4), Position = Vector3.new(0, 5, 0), Color = Color3.fromRGB(190, 190, 200), Material = Enum.Material.Marble }, world)
+	local spray = Instance.new("ParticleEmitter")
+	spray.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	spray.Color = ColorSequence.new(Color3.fromRGB(160, 225, 255))
+	spray.Rate = 14
+	spray.Lifetime = NumberRange.new(1, 1.6)
+	spray.Speed = NumberRange.new(6, 10)
+	spray.SpreadAngle = Vector2.new(25, 25)
+	spray.Acceleration = Vector3.new(0, -14, 0)
+	spray.Size = NumberSequence.new(0.5, 0)
+	spray.LightEmission = 0.7
+	spray.Parent = spout
+	local fl = Instance.new("PointLight")
+	fl.Color = Color3.fromRGB(120, 210, 255)
+	fl.Range = 22
+	fl.Brightness = 1.4
+	fl.Parent = spout
+
+	-- Point d'arrivée au sud de la place
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "HubSpawn"
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.Size = Vector3.new(14, 0.4, 14)
+	spawn.Position = Vector3.new(0, 0.6, 34)
+	spawn.Color = Color3.fromRGB(255, 226, 150)
+	spawn.Material = Enum.Material.Neon
+	spawn.Transparency = 0.45
+	spawn.Parent = world
+
+	-- Titre au-dessus de l'entrée
+	local titlePost = part({ Name = "TitlePost", Size = Vector3.new(1.2, 14, 1.2), Position = Vector3.new(0, 7, 50), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+	local titleBoard = part({ Name = "TitleBoard", Size = Vector3.new(24, 6, 0.8), Position = Vector3.new(0, 13, 49.5), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, world)
+	billboard(titleBoard, "🥚 " .. Config.TITLE .. " : le hub", 0, 360, 70)
+	billboard(titlePost, "Entre dans un portail pour lancer ta partie", -4, 360, 40).TextSize = 18
+
+	-- Panneau des parties d'amis (la liste cliquable est dans l'interface, en haut à droite)
+	local fp = part({ Name = "FriendsPost", Size = Vector3.new(1, 8, 1), Position = Vector3.new(-26, 4, 28), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+	local fb = part({ Name = "FriendsBoard", Size = Vector3.new(11, 5, 0.7), Position = Vector3.new(-26, 8.6, 28), Color = Color3.fromRGB(46, 110, 80), Material = Enum.Material.WoodPlanks }, world)
+	billboard(fb, "👥 Parties de tes amis\nBouton « Amis » en haut à droite", 0, 300, 90)
+	CollectionService:AddTag(fp, "HubFriendsPost")
+
+	-- Portails de lancement : un arc au nord de la place, du solo à 5 joueurs
+	local zones = {}
+	local sizes = Config.Game.Sizes
+	local R = 62
+	for i, size in ipairs(sizes) do
+		local a = math.rad(-72 + (i - 1) * 36) -- -72°..72° autour du nord (-Z)
+		local cx, cz = math.sin(a) * R, -math.cos(a) * R
+		local color = ZONE_COLORS[(i - 1) % #ZONE_COLORS + 1]
+		local rot = CFrame.lookAt(Vector3.new(cx, 0, cz), Vector3.new(0, 0, 0))
+		cylinder({ Name = "PortalRing" .. size, Height = 0.5, Diameter = 21, Position = Vector3.new(cx, 0.45, cz), Color = color, Material = Enum.Material.Neon, CanCollide = false }, world)
+		local padPart = cylinder({ Name = "PortalZone" .. size, Height = 0.6, Diameter = 18, Position = Vector3.new(cx, 0.55, cz), Color = color:Lerp(Color3.new(0, 0, 0), 0.55), Material = Enum.Material.SmoothPlastic, CanCollide = false }, world)
+		padPart:SetAttribute("Size", size)
+		CollectionService:AddTag(padPart, "PortalZone")
+		for _, sx in ipairs({ -10.5, 10.5 }) do -- piliers de l'arche
+			part({ Name = "Pillar", Size = Vector3.new(2, 14, 2), CFrame = rot * CFrame.new(sx, 7, -2), Color = Color3.fromRGB(205, 200, 210), Material = Enum.Material.Marble }, world)
+		end
+		local lintel = part({ Name = "Lintel", Size = Vector3.new(24, 2.4, 2.4), CFrame = rot * CFrame.new(0, 15, -2), Color = color, Material = Enum.Material.Neon }, world)
+		local pl = Instance.new("PointLight")
+		pl.Color = color
+		pl.Range = 30
+		pl.Brightness = 1.6
+		pl.Parent = lintel
+		local label = billboard(lintel, "", 5, 320, 110)
+		label.Text = size == 1 and "SOLO" or (size .. " JOUEURS")
+		local status = billboard(padPart, "Libre", 7, 300, 60)
+		status.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.5)
+		zones[size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = color, title = label }
+	end
+
+	-- Décor : lampadaires autour de la place, arbres, fleurs, rochers, collines
+	for k = 0, 15 do
+		local a = k / 16 * math.pi * 2
+		lamp(Vector3.new(math.sin(a) * 47, 0, math.cos(a) * 47), world)
+	end
+	for _ = 1, 46 do
+		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(70, 190)
+		tree(Vector3.new(math.sin(a) * r, 0, math.cos(a) * r), world, rng)
+	end
+	local flowerColors = { Color3.fromRGB(255, 120, 150), Color3.fromRGB(255, 220, 90), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 220, 255) }
+	for _ = 1, 90 do
+		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(52, 120)
+		part({ Name = "Flower", Shape = Enum.PartType.Ball, Size = Vector3.new(0.9, 0.9, 0.9), Position = Vector3.new(math.sin(a) * r, 0.45, math.cos(a) * r), Color = flowerColors[rng:NextInteger(1, #flowerColors)], CanCollide = false }, world)
+	end
+	for k = 0, 11 do
+		local a = k / 12 * math.pi * 2
+		local sz = rng:NextNumber(120, 200)
+		part({ Name = "Hill", Shape = Enum.PartType.Ball, Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 250, -sz * 0.38, math.cos(a) * 250), Color = Color3.fromRGB(80 + (k % 3) * 8, 140 + (k % 2) * 12, 90), Material = Enum.Material.Grass, CanCollide = false }, world)
+	end
+	return { spawn = spawn, zones = zones, folder = world }
+end
+
+return HubWorld
+]]></ProtectedString></Properties></Item></Item>
+<Item class="StarterPlayer" referent="RBX33"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX32"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX31"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+-- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
+-- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+if Config.Game.roleFor(game.PlaceId) == "game" then
+	return
+end
+local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
+local remote = ReplicatedStorage:WaitForChild("HubRemote")
+local player = Players.LocalPlayer
+
+local COL = {
+	bg = Color3.fromRGB(15, 42, 27), panel = Color3.fromRGB(29, 77, 51), pill = Color3.fromRGB(10, 30, 20),
+	yellow = Color3.fromRGB(255, 210, 63), text = Color3.fromRGB(244, 255, 246), muted = Color3.fromRGB(159, 199, 173),
+	green = Color3.fromRGB(91, 227, 125), red = Color3.fromRGB(255, 107, 107),
+}
+local FONT = Enum.Font.GothamBold
+
+local function make(class, props, parent)
+	local o = Instance.new(class)
+	for k, v in pairs(props) do
+		o[k] = v
+	end
+	o.Parent = parent
+	return o
+end
+local function corner(o, r)
+	make("UICorner", { CornerRadius = UDim.new(0, r) }, o)
+end
+
+local gui = make("ScreenGui", { Name = "HubUI", ResetOnSpawn = false, ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets }, player:WaitForChild("PlayerGui"))
+local root = make("Frame", { Name = "Hud", BackgroundTransparency = 1, Size = UDim2.fromOffset(900, 520) }, gui)
+local scale = make("UIScale", { Scale = 1 }, root)
+
+-- Bouton « Amis » : en haut à droite
+local friendsBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(120, 44), BackgroundColor3 = COL.pill, Text = "👥 Amis", Font = FONT, TextSize = 18, TextColor3 = COL.text, AutoButtonColor = true }, root)
+corner(friendsBtn, 14)
+make("UIStroke", { Color = COL.yellow, Thickness = 2 }, friendsBtn)
+
+-- Panneau des parties : sous le bouton, côté droit
+local panel = make("Frame", { AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(300, 260), BackgroundColor3 = COL.bg, Visible = false }, root)
+corner(panel, 14)
+make("UIStroke", { Color = COL.panel, Thickness = 2 }, panel)
+make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 0, 26), Font = FONT, TextSize = 18, TextColor3 = COL.yellow, TextXAlignment = Enum.TextXAlignment.Left, Text = "Parties ouvertes de tes amis" }, panel)
+local list = make("ScrollingFrame", { Position = UDim2.fromOffset(8, 36), Size = UDim2.new(1, -16, 1, -44), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y }, panel)
+make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+local empty = make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 44), Size = UDim2.new(1, -24, 0, 60), Font = FONT, TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Text = "Aucune partie ouverte pour l'instant. Lance la tienne dans un portail : tes amis pourront la rejoindre !" }, panel)
+
+-- Messages : sous le bouton Amis
+local msg = make("TextLabel", { AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(300, 44), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Font = FONT, TextSize = 14, TextColor3 = COL.text, TextWrapped = true, Text = "", Visible = false }, root)
+corner(msg, 12)
+make("UIStroke", { Color = COL.yellow, Thickness = 2 }, msg)
+local msgToken = 0
+local function toast(text, kind)
+	msgToken += 1
+	local token = msgToken
+	msg.Text = text
+	msg.TextColor3 = kind == "error" and COL.red or COL.text
+	msg.Visible = true
+	task.delay(5, function()
+		if token == msgToken then
+			msg.Visible = false
+		end
+	end)
+end
+
+local function applyLayout()
+	local cam = workspace.CurrentCamera
+	local vs = cam and cam.ViewportSize or Vector2.new(900, 520)
+	if vs.X < 50 or vs.Y < 50 then
+		return
+	end
+	local s = Layout.scaleFor(vs.X, vs.Y)
+	scale.Scale = s
+	local dw = vs.X / s
+	root.Size = UDim2.fromOffset(dw, vs.Y / s)
+	local e = Layout.EDGE
+	friendsBtn.Position = UDim2.fromOffset(dw - e, e)
+	panel.Position = UDim2.fromOffset(dw - e, e + 52)
+	panel.Size = UDim2.fromOffset(math.min(300, dw - 2 * e), 260)
+	msg.Position = UDim2.fromOffset(dw - e, e + 52 + (panel.Visible and 268 or 0))
+	msg.Size = UDim2.fromOffset(math.min(300, dw - 2 * e), 44)
+end
+applyLayout()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(applyLayout)
+end
+
+local function render(parties)
+	for _, c in ipairs(list:GetChildren()) do
+		if c:IsA("Frame") then
+			c:Destroy()
+		end
+	end
+	empty.Visible = #parties == 0
+	for i, p in ipairs(parties) do
+		local row = make("Frame", { Size = UDim2.new(1, -4, 0, 48), BackgroundColor3 = COL.panel, LayoutOrder = i }, list)
+		corner(row, 10)
+		make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 2), Size = UDim2.new(1, -110, 0, 24), Font = FONT, TextSize = 15, TextColor3 = COL.text, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "🏠 " .. tostring(p.hostName) }, row)
+		make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 24), Size = UDim2.new(1, -110, 0, 20), Font = FONT, TextSize = 12, TextColor3 = COL.muted, TextXAlignment = Enum.TextXAlignment.Left, Text = tostring(p.count) .. "/" .. tostring(p.size) .. " joueurs" }, row)
+		local join = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(88, 34), BackgroundColor3 = COL.green, Font = FONT, TextSize = 14, TextColor3 = Color3.fromRGB(10, 40, 20), Text = "Rejoindre" }, row)
+		corner(join, 12)
+		join.Activated:Connect(function()
+			join.Text = "…"
+			remote:FireServer("join", p.id)
+		end)
+	end
+end
+
+local function refresh()
+	remote:FireServer("parties")
+end
+friendsBtn.Activated:Connect(function()
+	panel.Visible = not panel.Visible
+	applyLayout()
+	if panel.Visible then
+		refresh()
+	end
+end)
+task.spawn(function()
+	while true do
+		task.wait(8)
+		if panel.Visible then
+			refresh()
+		end
+	end
+end)
+
+remote.OnClientEvent:Connect(function(kind, a, b)
+	if kind == "msg" then
+		toast(tostring(a), b)
+	elseif kind == "parties" then
+		if type(a) == "table" then
+			render(a)
+		end
+		if b == false then
+			toast("Liste des amis indisponible pour l'instant.", "info")
+		end
+	end
+end)
+TweenService:Create(friendsBtn, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(120, 44) }):Play()
+]]></ProtectedString></Properties></Item></Item></Item>
+</roblox>

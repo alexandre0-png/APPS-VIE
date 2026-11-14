@@ -2,7 +2,36 @@
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
-Config.PLOT_COUNT = 10 -- nombre de bases (= joueurs max conseillé dans Game Settings > MaxPlayers)
+Config.PLOT_COUNT = 5 -- nombre de bases (= Config.Game.MaxPlayers : une partie accueille 5 joueurs au plus)
+
+---------------------------------------------------------------- Architecture hub + parties
+-- Deux lieux : le HUB (petit lieu léger : zones de lancement 1 à 5 joueurs, parties des amis) et le lieu de JEU (la partie, 5 joueurs max).
+-- Le rôle d'un serveur se déduit de game.PlaceId (Config.Game.roleFor). Identifiants = LIEUX (place ids), pas des univers.
+-- ATTENTION : TeleportService:ReserveServer et MemoryStoreService sont limités à UNE expérience (univers). Si le hub et le jeu sont deux
+-- expériences distinctes, la réservation vers l'autre expérience peut être refusée : le code essaie alors les replis de `Fallbacks`
+-- puis prévient le joueur. Le plus sûr : faire du hub un second lieu de l'expérience du jeu (Creator Hub > Lieux > Ajouter) et changer
+-- seulement Places.hub ci-dessous.
+Config.Game = {
+	Places = { hub = 106358102689021, game = 115261336085924 },
+	MaxPlayers = 5, -- plafond absolu d'un serveur de jeu (réglage Creator Dashboard : Max Players = 5 aussi)
+	Sizes = { 1, 2, 3, 4, 5 }, -- tailles de partie proposées par les zones du hub
+	CountdownFull = 5, -- secondes avant le départ d'un groupe complet
+	PartialWait = 25, -- secondes après le premier arrivé avant de lancer un groupe incomplet (la partie reste ouverte aux amis)
+	SoloCountdown = 3,
+	PartyTTL = 7200, -- une partie du registre plus vieille que ça n'est plus proposée
+	Fallbacks = { "reserved", "public" }, -- ordre des méthodes de téléportation essayées
+	LateJoinGrace = 90, -- secondes de protection des œufs d'un joueur qui arrive dans une partie déjà commencée
+	RegistryName = "ChipeParties",
+}
+
+function Config.Game.roleFor(placeId)
+	if placeId == Config.Game.Places.hub then
+		return "hub"
+	elseif placeId == Config.Game.Places.game then
+		return "game"
+	end
+	return "unknown" -- place non publiée (Studio) : chaque projet lance son propre code
+end
 
 Config.TIERS = {
 	{ name = "Commun", color = Color3.fromRGB(170, 180, 191) },

@@ -10,6 +10,10 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local MessagingService = game:GetService("MessagingService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+if Config.Game.roleFor(game.PlaceId) == "hub" then
+	return -- le hub a son propre script (Hub.server) ; ce code est celui de la partie
+end
+local TeleportService = game:GetService("TeleportService")
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -781,7 +785,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		if not sl or sl.k ~= "e" then
 			return
 		end
-		if (sl.shield or 0) > os.time() then
+		if (sl.shield or 0) > os.time() or (vs.graceUntil or 0) > os.time() then
 			notify(player, "🛡 Cet œuf est encore protégé !")
 			return
 		end
@@ -1409,7 +1413,29 @@ local function releasePlot(s)
 	s.plot.nameLabel.Text = "Base libre"
 end
 
+-- Partie pleine (5 joueurs au plus) ou lieu de jeu ouvert en trop : le joueur est renvoyé au hub (ou expulsé avec un message si le hub est injoignable).
+local function bounceToHub(player, message)
+	local hub = Config.Game.Places.hub
+	local role = Config.Game.roleFor(game.PlaceId)
+	if role == "game" and type(hub) == "number" and hub > 0 then
+		local opts = Instance.new("TeleportOptions")
+		opts:SetTeleportData({ from = "game", reason = "full" })
+		local ok = pcall(function()
+			TeleportService:TeleportAsync(hub, { player }, opts)
+		end)
+		if ok then
+			return
+		end
+	end
+	player:Kick(message)
+end
+
 local function onJoin(player)
+	if #Players:GetPlayers() > Config.Game.MaxPlayers then
+		bounceToHub(player, "Cette partie est pleine (" .. Config.Game.MaxPlayers .. " joueurs maximum). Réessaie avec une autre partie.")
+		return
+	end
+	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
 	local d, noSave = Data.load(player)
 	if not d then
 		player:Kick("Impossible de charger tes données. Reconnecte-toi dans un instant.")
@@ -1444,13 +1470,16 @@ local function onJoin(player)
 	local s = {
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
-		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
 	sessions[player] = s
+	if late then
+		notify(player, "🛡 Tu arrives en cours de partie : tes œufs sont protégés " .. Config.Game.LateJoinGrace .. " s.")
+	end
 
 	for name, def in pairs(Config.PASSES) do
 		s.passes[name] = false

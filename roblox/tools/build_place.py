@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Construit roblox/build/ChipeOeufs.rbxlx : un fichier de place Roblox (XML) contenant tous les scripts,
-à ouvrir dans Roblox Studio (double-clic) puis File > Publish to Roblox. Aucun outil externe requis. Usage : python3 build_place.py"""
+"""Construit les deux fichiers de place Roblox (XML) : build/ChipeOeufs.rbxlx (le jeu complet) et build/Hub.rbxlx (le hub, petit lieu),
+à ouvrir dans Roblox Studio puis File > Publish to Roblox. Aucun outil externe requis. Usage : python3 build_place.py"""
 import itertools, os
 from xml.etree import ElementTree as ET
 
@@ -21,14 +21,15 @@ def item(cls, name, source=None, children=()):
     kids = "".join(children)
     return f'<Item class="{cls}" referent="RBX{next(ids)}"><Properties>{props}</Properties>{kids}</Item>'
 
-tree = [
+SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua")]
+
+def shared():
+    return item("ReplicatedStorage", "ReplicatedStorage", children=[
+        item("Folder", "Shared", children=[item("ModuleScript", n, read("ReplicatedStorage/" + f)) for n, f in SHARED])])
+
+game_tree = [
     item("Workspace", "Workspace"),
-    item("ReplicatedStorage", "ReplicatedStorage", children=[
-        item("Folder", "Shared", children=[
-            item("ModuleScript", "Config", read("ReplicatedStorage/Config.lua")),
-            item("ModuleScript", "Easing", read("ReplicatedStorage/Easing.lua")),
-            item("ModuleScript", "Cinema", read("ReplicatedStorage/Cinema.lua")),
-            item("ModuleScript", "Layout", read("ReplicatedStorage/Layout.lua"))])]),
+    shared(),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Main", read("ServerScriptService/Main.server.lua")),
         item("ModuleScript", "Data", read("ServerScriptService/Data.lua")),
@@ -42,12 +43,28 @@ tree = [
             item("LocalScript", "Animations", read("StarterPlayerScripts/Animations.client.lua")),
             item("LocalScript", "Cinematics", read("StarterPlayerScripts/Cinematics.client.lua"))])]),
 ]
-xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
-       '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
-       'xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">\n'
-       '<Meta name="ExplicitAutoJoints">true</Meta>\n' + "\n".join(tree) + "\n</roblox>\n")
-ET.fromstring(xml.encode("utf-8"))  # lève une erreur si le XML est invalide
-out = os.path.join(ROOT, "build", "ChipeOeufs.rbxlx")
-os.makedirs(os.path.dirname(out), exist_ok=True)
-open(out, "w", encoding="utf-8", newline="\n").write(xml)
-print("écrit", os.path.relpath(out, ROOT), f"({len(xml)//1024} Ko)")
+
+hub_tree = [
+    item("Workspace", "Workspace"),
+    shared(),
+    item("ServerScriptService", "ServerScriptService", children=[
+        item("Script", "Hub", read("Hub/ServerScriptService/Hub.server.lua")),
+        item("ModuleScript", "HubWorld", read("Hub/ServerScriptService/HubWorld.lua"))]),
+    item("StarterPlayer", "StarterPlayer", children=[
+        item("StarterPlayerScripts", "StarterPlayerScripts", children=[
+            item("LocalScript", "HubClient", read("Hub/StarterPlayerScripts/HubClient.client.lua"))])]),
+]
+
+def write(name, tree):
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
+           '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+           'xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">\n'
+           '<Meta name="ExplicitAutoJoints">true</Meta>\n' + "\n".join(tree) + "\n</roblox>\n")
+    ET.fromstring(xml.encode("utf-8"))  # lève une erreur si le XML est invalide
+    out = os.path.join(ROOT, "build", name)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    open(out, "w", encoding="utf-8", newline="\n").write(xml)
+    print("écrit", os.path.relpath(out, ROOT), f"({len(xml)//1024} Ko)")
+
+write("ChipeOeufs.rbxlx", game_tree)
+write("Hub.rbxlx", hub_tree)

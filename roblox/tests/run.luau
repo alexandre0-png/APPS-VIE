@@ -1139,6 +1139,185 @@ do
 	check("Layout : échelle d'un écran dégénéré (0x0) bornée", Layout.scaleFor(0, 0) == Layout.MIN_SCALE)
 end
 
+-- Hub : zones de lancement, parties, rejoindre en cours, replis (faux TeleportService) ---------------------------------------
+do
+	local Party = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Party.lua"), { debugName = "Party" })()
+	local G = Config.Game
+	check("Game : lieux configurés (hub et jeu)", G.Places.hub == 106358102689021 and G.Places.game == 115261336085924)
+	check("Game.roleFor : hub, jeu, inconnu (Studio non publié)", Config.Game.roleFor(106358102689021) == "hub" and Config.Game.roleFor(115261336085924) == "game" and Config.Game.roleFor(0) == "unknown")
+	check("Game : tailles 1 à 5, plafond 5, autant de bases que de joueurs", #G.Sizes == 5 and G.Sizes[1] == 1 and G.Sizes[5] == 5 and G.MaxPlayers == 5 and Config.PLOT_COUNT == G.MaxPlayers)
+	check("Party.admit : 4 joueurs -> un de plus accepté, 5 -> refusé", Party.admit(4, 5) == true and Party.admit(5, 5) == false)
+
+	local function env(opts)
+		opts = opts or {}
+		local e = { now = 1000, calls = {}, entries = {}, reserveFail = opts.reserveFail, teleportFail = opts.teleportFail, publicFail = opts.publicFail, storeFail = opts.storeFail, codes = 0 }
+		local store = {}
+		function store.get(key)
+			if e.storeFail then
+				error("MemoryStore indisponible")
+			end
+			return e.entries[key]
+		end
+		function store.update(key, fn)
+			if e.storeFail then
+				error("MemoryStore indisponible")
+			end
+			local new = fn(e.entries[key])
+			if new ~= nil then
+				e.entries[key] = new
+			end
+			return new
+		end
+		function store.remove(key)
+			e.entries[key] = nil
+		end
+		function store.list()
+			if e.storeFail then
+				error("MemoryStore indisponible")
+			end
+			local out = {}
+			for _, v in pairs(e.entries) do
+				out[#out + 1] = v
+			end
+			return out
+		end
+		e.P = Party.new(Config, {
+			clock = function()
+				return e.now
+			end,
+			reserve = function(place)
+				if e.reserveFail then
+					error(e.reserveFail)
+				end
+				e.codes = e.codes + 1
+				return "CODE" .. e.codes
+			end,
+			teleport = function(players, place, code, data)
+				if code ~= nil and e.teleportFail then
+					error(e.teleportFail)
+				end
+				if code == nil and e.publicFail then
+					error(e.publicFail)
+				end
+				e.calls[#e.calls + 1] = { n = #players, place = place, code = code, data = data }
+			end,
+			store = store,
+		})
+		return e
+	end
+	local function fillAndLaunch(e, size, count)
+		local members, players = {}, {}
+		for i = 1, count do
+			local uid = 100 * size + i
+			check("zone " .. size .. " : entrée du joueur " .. i, e.P.enter(uid, size) == true)
+			members[i], players[i] = uid, { UserId = uid }
+		end
+		return members, players
+	end
+
+	for size = 1, 5 do
+		local e = env()
+		local members, players = fillAndLaunch(e, size, size)
+		local st = e.P.status(size)
+		check("zone " .. size .. " pleine : mode full avec compte à rebours", st.mode == "full" and st.count == size and st.countdown == (size == 1 and G.SoloCountdown or G.CountdownFull))
+		check("zone " .. size .. " : rien ne part avant la fin du compte à rebours", #e.P.collectLaunches() == 0)
+		e.now = e.now + (size == 1 and G.SoloCountdown or G.CountdownFull) + 0.1
+		local launches = e.P.collectLaunches()
+		check("zone " .. size .. " : un groupe de " .. size .. " part", #launches == 1 and #launches[1].members == size and e.P.status(size).mode == "empty")
+		local r = e.P.launch({ size = size, members = members, players = players, hostName = "Hôte" })
+		check("lancement " .. size .. " joueur(s) : serveur réservé, téléportation vers le lieu de jeu", r.ok and r.mode == "reserved" and e.calls[1].n == size and e.calls[1].place == G.Places.game and e.calls[1].code == "CODE1" and e.calls[1].data.late == false)
+		check("lancement " .. size .. " : inscrit au registre seulement si des amis peuvent rejoindre (taille > 1)", (e.entries[r.partyId] ~= nil and e.entries[r.partyId].open) == (size > 1))
+	end
+
+	do -- zone pleine, taille clampée, quitter la zone
+		local e = env()
+		e.P.enter(1, 3)
+		e.P.enter(2, 3)
+		e.P.enter(3, 3)
+		local ok, why = e.P.enter(4, 3)
+		check("zone pleine : le joueur en trop est refusé", ok == false and why == "zone pleine" and e.P.status(3).count == 3)
+		check("taille inconnue refusée", e.P.enter(9, 7) == false)
+		check("changer de zone : quitte l'ancienne, entre dans la nouvelle", e.P.enter(1, 2) == true and e.P.status(3).count == 2 and e.P.status(2).count == 1)
+		check("quitter la zone libère la place", e.P.leave(1) == true and e.P.status(2).count == 0 and e.P.leave(1) == false)
+		local r = e.P.launch({ size = 9, members = { 5 }, players = { { UserId = 5 } }, hostName = "X" })
+		check("taille 9 ramenée à 5 maximum", r.ok and e.entries[r.partyId].size == 5)
+	end
+
+	do -- groupe incomplet : part après PartialWait et reste ouvert aux amis
+		local e = env()
+		e.P.enter(42, 3)
+		check("groupe incomplet : compte à rebours de PartialWait", e.P.status(3).mode == "waiting" and e.P.status(3).countdown == G.PartialWait)
+		e.now = e.now + G.PartialWait + 1
+		local l = e.P.collectLaunches()
+		check("groupe incomplet : part après le délai", #l == 1 and #l[1].members == 1)
+		local r = e.P.launch({ size = 3, members = { 42 }, players = { { UserId = 42 } }, hostName = "Léa" })
+		local friends = { [42] = true }
+		local list = e.P.visibleFor(7, friends)
+		check("ami : voit la partie ouverte (1/3)", #list == 1 and list[1].hostName == "Léa" and list[1].count == 1 and list[1].size == 3)
+		check("non-ami : ne voit pas la partie", #e.P.visibleFor(8, {}) == 0)
+		check("l'hôte ne voit pas sa propre partie", #e.P.visibleFor(42, { [42] = true }) == 0)
+		-- rejoindre en cours
+		local j = e.P.join(r.partyId, { UserId = 7 }, 7)
+		check("rejoindre en cours : accepté, état de départ « late », même serveur réservé", j.ok and e.entries[r.partyId].count == 2 and e.calls[#e.calls].code == "CODE1" and e.calls[#e.calls].data.late == true and e.calls[#e.calls].data.partyId == r.partyId)
+		check("rejoindre deux fois : refusé", e.P.join(r.partyId, { UserId = 7 }, 7).reason == "full")
+		local j2 = e.P.join(r.partyId, { UserId = 9 }, 9)
+		check("rejoindre : 3e joueur accepté", j2.ok and e.entries[r.partyId].count == 3)
+		local j3 = e.P.join(r.partyId, { UserId = 10 }, 10)
+		check("partie pleine : refus clair", j3.ok == false and j3.reason == "full" and e.entries[r.partyId].count == 3)
+		check("partie pleine : n'apparaît plus dans la liste des amis", #e.P.visibleFor(11, friends) == 0)
+		-- départ
+		e.P.leaveParty(r.partyId, 9)
+		check("départ d'un joueur : la place se libère", e.entries[r.partyId].count == 2 and #e.P.visibleFor(11, friends) == 1)
+		check("partie inconnue : « gone »", e.P.join("nope", { UserId = 1 }, 1).reason == "gone")
+		e.now = e.now + G.PartyTTL + 1
+		check("partie expirée (TTL) : plus proposée, plus rejoignable", #e.P.visibleFor(11, friends) == 0 and e.P.join(r.partyId, { UserId = 12 }, 12).reason == "gone")
+	end
+
+	do -- plafond de 5 même si le registre dit autrement
+		local e = env()
+		e.entries["x"] = { id = "x", host = 1, hostName = "H", size = 9, count = 5, members = { 1, 2, 3, 4, 5 }, code = "C", createdAt = e.now, open = true }
+		check("plafond 5 : jamais de 6e joueur", e.P.join("x", { UserId = 6 }, 6).reason == "full" and e.entries["x"].count == 5 and #e.P.visibleFor(77, { [1] = true }) == 0)
+	end
+
+	do -- serveur indisponible, téléportation refusée, repli public
+		local e = env({ reserveFail = "ReserveServer: place of another experience" })
+		local r = e.P.launch({ size = 3, members = { 1, 2 }, players = { {}, {} }, hostName = "H" })
+		check("réservation refusée : repli sur un serveur public, partie non inscrite", r.ok and r.mode == "public" and e.calls[1].code == nil and next(e.entries) == nil)
+		local e2 = env({ teleportFail = "Unauthorized" })
+		local r2 = e2.P.launch({ size = 2, members = { 1, 2 }, players = { {}, {} }, hostName = "H" })
+		check("téléportation privée refusée : repli public", r2.ok and r2.mode == "public" and next(e2.entries) == nil)
+		local e3 = env({ reserveFail = "boom", publicFail = "TeleportService indisponible" })
+		local r3 = e3.P.launch({ size = 2, members = { 1, 2 }, players = { {}, {} }, hostName = "H" })
+		check("tout échoue : message clair, aucune erreur, aucune partie fantôme", r3.ok == false and type(r3.message) == "string" and #r3.message > 10 and next(e3.entries) == nil and #e3.calls == 0)
+		local e4 = env({ reserveFail = "boom" })
+		local saved = G.Fallbacks
+		G.Fallbacks = { "reserved" }
+		local r4 = e4.P.launch({ size = 2, members = { 1 }, players = { {} }, hostName = "H" })
+		G.Fallbacks = saved
+		check("repli public retiré de la config : échec propre", r4.ok == false)
+		local savedPlace = G.Places.game
+		G.Places.game = 0
+		local r5 = env().P.launch({ size = 2, members = { 1 }, players = { {} }, hostName = "H" })
+		G.Places.game = savedPlace
+		check("lieu de jeu non configuré : message clair", r5.ok == false and r5.message:find("configur") ~= nil)
+		-- rejoindre : téléportation qui échoue -> la place est rendue
+		local e6 = env()
+		local r6 = e6.P.launch({ size = 3, members = { 1 }, players = { {} }, hostName = "H" })
+		e6.teleportFail = "Unauthorized"
+		local j = e6.P.join(r6.partyId, {}, 2)
+		check("rejoindre refusé par Roblox : message clair et place rendue", j.ok == false and j.reason == "teleport" and e6.entries[r6.partyId].count == 1 and #e6.entries[r6.partyId].members == 1)
+	end
+
+	do -- registre indisponible : le jeu se lance quand même
+		local e = env({ storeFail = true })
+		local r = e.P.launch({ size = 4, members = { 1, 2 }, players = { {}, {} }, hostName = "H" })
+		check("registre indisponible : le lancement réussit, sans inscription", r.ok and r.mode == "reserved" and r.registered == false)
+		local list, ok = e.P.visibleFor(1, { [2] = true })
+		check("registre indisponible : liste vide sans erreur", #list == 0 and ok == false)
+		check("registre indisponible : rejoindre -> message clair", e.P.join("x", {}, 3).reason == "registry")
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

@@ -57,6 +57,11 @@ for f in files:
 # Propriétés / méthodes / événements utilisés par les scripts, à vérifier dans le dump officiel (classe -> membres).
 # Ajoute ici tout nouveau membre Roblox utilisé dans le code.
 MEMBER_CHECKS = {
+    "TeleportOptions": ["ReservedServerAccessCode", "SetTeleportData"],
+    "TeleportService": ["TeleportAsync", "ReserveServerAsync"],
+    "MemoryStoreHashMap": ["GetAsync", "UpdateAsync", "RemoveAsync", "ListItemsAsync"],
+    "MemoryStoreService": ["GetHashMap"],
+    "ScreenGui": ["ScreenInsets"],
     "InsertService": ["LoadAsset"],
     "Lighting": ["ClockTime", "Brightness", "Ambient", "OutdoorAmbient", "ColorShift_Top", "EnvironmentDiffuseScale", "EnvironmentSpecularScale", "ShadowSoftness", "GlobalShadows"],
     "Atmosphere": ["Density", "Offset", "Color", "Decay", "Glare", "Haze"],
@@ -124,6 +129,9 @@ def _member_tags(cn, name):
         cn = by_name[cn]["Superclass"]
     return []
 
+# Dépréciés dans le dump mais sans remplacement trouvé dans le même dump : exception documentée (VERIFICATION.md), repli prévu dans Party.launch.
+DEPRECATED_BUT_ONLY_OPTION = {("TeleportOptions", "ReservedServerAccessCode"), ("TeleportService", "ReserveServerAsync")}
+
 for cls, mems in MEMBER_CHECKS.items():
     if cls not in by_name:
         fail(f"MEMBER_CHECKS : classe inconnue {cls}")
@@ -135,7 +143,10 @@ for cls, mems in MEMBER_CHECKS.items():
         if m not in have:
             fail(f"{cls}.{m} n'existe pas dans l'API Roblox")
         elif "Deprecated" in _member_tags(cls, m):
-            fail(f"{cls}.{m} est déprécié dans l'API Roblox")
+            if (cls, m) in DEPRECATED_BUT_ONLY_OPTION:
+                print(f"  ! {cls}.{m} déprécié mais seule voie de création d'un serveur réservé (repli public prévu s'il disparaît)")
+            else:
+                fail(f"{cls}.{m} est déprécié dans l'API Roblox")
 
 # Classes réellement instanciées / services utilisés : aucune ne doit être dépréciée
 for f in files:
@@ -171,16 +182,23 @@ for f in files:
         if len(re.findall(r"\b" + n + r"\b", s)) <= 1:
             print(f"  ! {os.path.basename(f)} : « {n} » n'est jamais utilisé")
 
-print("[5/5] Fichier de place à jour")
-place = os.path.join(ROOT, "build", "ChipeOeufs.rbxlx")
-if not os.path.exists(place):
-    fail("build/ChipeOeufs.rbxlx absent : lance python3 roblox/tools/build_place.py")
-else:
+print("[5/5] Fichiers de place à jour (jeu et hub)")
+hub_files = [f for f in files if os.sep + "Hub" + os.sep in f]
+game_files = [f for f in files if f not in hub_files]
+for name, mine, other in (("ChipeOeufs.rbxlx", game_files, hub_files), ("Hub.rbxlx", [f for f in hub_files] + [f for f in game_files if os.sep + "ReplicatedStorage" + os.sep in f], [f for f in game_files if os.sep + "ReplicatedStorage" + os.sep not in f])):
+    place = os.path.join(ROOT, "build", name)
+    if not os.path.exists(place):
+        fail(f"build/{name} absent : lance python3 roblox/tools/build_place.py")
+        continue
     txt = open(place, encoding="utf-8").read()
-    for f in files:
+    for f in mine:
         body = open(f, encoding="utf-8").read().replace("]]>", "]]]]><![CDATA[>")
         if body not in txt:
-            fail(f"{os.path.relpath(f, ROOT)} a changé depuis le dernier build : relance build_place.py")
+            fail(f"{os.path.relpath(f, ROOT)} absent ou périmé dans {name} : relance build_place.py")
+    for f in other:
+        body = open(f, encoding="utf-8").read().replace("]]>", "]]]]><![CDATA[>")
+        if body in txt:
+            fail(f"{os.path.relpath(f, ROOT)} ne doit PAS figurer dans {name}")
 
 print("[6/6] Tests de logique pure (Lua 5.x via lupa, à défaut de Lune)")
 try:

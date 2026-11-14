@@ -2,11 +2,40 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX6"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX5"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX7"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX6"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
-Config.PLOT_COUNT = 10 -- nombre de bases (= joueurs max conseillé dans Game Settings > MaxPlayers)
+Config.PLOT_COUNT = 5 -- nombre de bases (= Config.Game.MaxPlayers : une partie accueille 5 joueurs au plus)
+
+---------------------------------------------------------------- Architecture hub + parties
+-- Deux lieux : le HUB (petit lieu léger : zones de lancement 1 à 5 joueurs, parties des amis) et le lieu de JEU (la partie, 5 joueurs max).
+-- Le rôle d'un serveur se déduit de game.PlaceId (Config.Game.roleFor). Identifiants = LIEUX (place ids), pas des univers.
+-- ATTENTION : TeleportService:ReserveServer et MemoryStoreService sont limités à UNE expérience (univers). Si le hub et le jeu sont deux
+-- expériences distinctes, la réservation vers l'autre expérience peut être refusée : le code essaie alors les replis de `Fallbacks`
+-- puis prévient le joueur. Le plus sûr : faire du hub un second lieu de l'expérience du jeu (Creator Hub > Lieux > Ajouter) et changer
+-- seulement Places.hub ci-dessous.
+Config.Game = {
+	Places = { hub = 106358102689021, game = 115261336085924 },
+	MaxPlayers = 5, -- plafond absolu d'un serveur de jeu (réglage Creator Dashboard : Max Players = 5 aussi)
+	Sizes = { 1, 2, 3, 4, 5 }, -- tailles de partie proposées par les zones du hub
+	CountdownFull = 5, -- secondes avant le départ d'un groupe complet
+	PartialWait = 25, -- secondes après le premier arrivé avant de lancer un groupe incomplet (la partie reste ouverte aux amis)
+	SoloCountdown = 3,
+	PartyTTL = 7200, -- une partie du registre plus vieille que ça n'est plus proposée
+	Fallbacks = { "reserved", "public" }, -- ordre des méthodes de téléportation essayées
+	LateJoinGrace = 90, -- secondes de protection des œufs d'un joueur qui arrive dans une partie déjà commencée
+	RegistryName = "ChipeParties",
+}
+
+function Config.Game.roleFor(placeId)
+	if placeId == Config.Game.Places.hub then
+		return "hub"
+	elseif placeId == Config.Game.Places.game then
+		return "game"
+	end
+	return "unknown" -- place non publiée (Studio) : chaque projet lance son propre code
+end
 
 Config.TIERS = {
 	{ name = "Commun", color = Color3.fromRGB(170, 180, 191) },
@@ -1067,8 +1096,266 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+-- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
+-- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
+-- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
+--   deps.clock() -> secondes
+--   deps.reserve(placeId) -> accessCode            (réel : TeleportService:ReserveServer ; peut lever une erreur)
+--   deps.teleport(players, placeId, accessCode|nil, data)   (réel : TeleportToPrivateServer / TeleportAsync ; peut lever une erreur)
+--   deps.store : { get(key), update(key, fn) , remove(key), list() }   (réel : MemoryStoreService ; peut lever une erreur)
+--   deps.log(msg) (facultatif)
+local Party = {}
+
+-- Un serveur de jeu accepte-t-il un joueur de plus ? count = joueurs déjà présents.
+function Party.admit(count, max)
+	return count < max
+end
+
+function Party.new(Config, deps)
+	local G = Config.Game
+	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }
+
+	local function log(msg)
+		if deps.log then
+			deps.log("[Party] " .. msg)
+		end
+	end
+
+	for _, size in ipairs(G.Sizes) do
+		P.queues[size] = { members = {} }
+	end
+
+	---------------------------------------------------------------- zones de lancement (file d'attente)
+	function P.enter(userId, size)
+		local q = P.queues[size]
+		if not q then
+			return false, "taille inconnue"
+		end
+		if P.where[userId] then
+			if P.where[userId] == size then
+				return true
+			end
+			P.leave(userId)
+		end
+		if #q.members >= size then
+			return false, "zone pleine"
+		end
+		q.members[#q.members + 1] = userId
+		P.where[userId] = size
+		if #q.members == 1 then
+			q.firstAt = deps.clock()
+		end
+		q.readyAt = nil
+		return true
+	end
+
+	function P.leave(userId)
+		local size = P.where[userId]
+		if not size then
+			return false
+		end
+		local q = P.queues[size]
+		for i, id in ipairs(q.members) do
+			if id == userId then
+				table.remove(q.members, i)
+				break
+			end
+		end
+		P.where[userId] = nil
+		q.readyAt = nil
+		if #q.members == 0 then
+			q.firstAt = nil
+		end
+		return true
+	end
+
+	-- État affiché d'une zone : { size, count, countdown (secondes ou nil), mode = "empty" | "waiting" | "full" }
+	function P.status(size)
+		local q = P.queues[size]
+		local now = deps.clock()
+		local count = #q.members
+		local out = { size = size, count = count, mode = count == 0 and "empty" or (count >= size and "full" or "waiting") }
+		if count > 0 then
+			if count >= size then
+				q.readyAt = q.readyAt or (now + (size == 1 and G.SoloCountdown or G.CountdownFull))
+				out.countdown = math.max(0, q.readyAt - now)
+			else
+				q.readyAt = nil
+				out.countdown = math.max(0, q.firstAt + G.PartialWait - now)
+			end
+		end
+		return out
+	end
+
+	-- Groupes prêts à partir : { size, members }. Les membres sont retirés de la file.
+	function P.collectLaunches()
+		local out = {}
+		for _, size in ipairs(G.Sizes) do
+			local q = P.queues[size]
+			if #q.members > 0 then
+				local st = P.status(size)
+				if st.countdown ~= nil and st.countdown <= 0 then
+					local members = table.clone(q.members)
+					for _, id in ipairs(members) do
+						P.where[id] = nil
+					end
+					q.members = {}
+					q.firstAt, q.readyAt = nil, nil
+					out[#out + 1] = { size = size, members = members }
+				end
+			end
+		end
+		return out
+	end
+
+	---------------------------------------------------------------- registre des parties
+	local function newPartyId(host)
+		return tostring(host) .. "_" .. tostring(math.floor(deps.clock() * 1000))
+	end
+
+	local function alive(e)
+		return type(e) == "table" and deps.clock() - (e.createdAt or 0) < G.PartyTTL
+	end
+
+	-- Teleporte un groupe vers le lieu de jeu. Essaie les méthodes de G.Fallbacks dans l'ordre.
+	-- group = { size = n, members = {userId...}, players = {Player...}, hostName = "..." }
+	-- Retourne { ok = true, mode, partyId? } ou { ok = false, reason, message }.
+	function P.launch(group)
+		local gamePlace = G.Places.game
+		if type(gamePlace) ~= "number" or gamePlace <= 0 then
+			return { ok = false, reason = "lieu de jeu non configuré", message = "Le lieu de jeu n'est pas configuré. Préviens le créateur." }
+		end
+		local size = math.min(math.max(group.size or #group.members, 1), G.MaxPlayers)
+		local data = { from = "hub", size = size, late = false }
+		local lastErr = "aucune méthode de téléportation"
+		for _, mode in ipairs(G.Fallbacks) do
+			if mode == "reserved" then
+				local okR, code = pcall(deps.reserve, gamePlace)
+				if okR and code then
+					local partyId = newPartyId(group.members[1] or 0)
+					data.partyId = partyId
+					local okT, errT = pcall(deps.teleport, group.players, gamePlace, code, data)
+					if okT then
+						local entry = {
+							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = size, count = #group.members,
+							members = table.clone(group.members), code = code, createdAt = deps.clock(), open = size > 1,
+						}
+						local okS, errS = pcall(deps.store.update, partyId, function()
+							return entry
+						end)
+						if not okS then
+							log("registre indisponible : " .. tostring(errS))
+						end
+						return { ok = true, mode = "reserved", partyId = partyId, registered = okS }
+					end
+					lastErr = "téléportation : " .. tostring(errT)
+				else
+					lastErr = "réservation : " .. tostring(code)
+				end
+			elseif mode == "public" then
+				data.partyId = nil
+				local okT, errT = pcall(deps.teleport, group.players, gamePlace, nil, data)
+				if okT then
+					return { ok = true, mode = "public" }
+				end
+				lastErr = "téléportation publique : " .. tostring(errT)
+			end
+		end
+		log("lancement impossible : " .. tostring(lastErr))
+		return { ok = false, reason = lastErr, message = "Impossible de lancer la partie pour l'instant. Réessaie dans un instant." }
+	end
+
+	-- Parties ouvertes visibles par `viewerId` : celles de ses amis (friends[userId] = true) ou celles où il est déjà inscrit.
+	-- Retourne une liste triée { id, hostName, count, size }.
+	function P.visibleFor(viewerId, friends)
+		local okL, list = pcall(deps.store.list)
+		if not okL or type(list) ~= "table" then
+			return {}, false
+		end
+		local out = {}
+		for _, e in ipairs(list) do
+			if alive(e) and e.open and e.count < e.size and e.count < G.MaxPlayers then
+				local mine = false
+				for _, id in ipairs(e.members or {}) do
+					if id == viewerId then
+						mine = true
+					end
+				end
+				if not mine and friends and friends[e.host] then
+					out[#out + 1] = { id = e.id, hostName = e.hostName, count = e.count, size = e.size }
+				end
+			end
+		end
+		table.sort(out, function(a, b)
+			return a.id < b.id
+		end)
+		return out, true
+	end
+
+	-- Rejoindre une partie en cours. Retourne { ok = true } ou { ok = false, reason = "full" | "gone" | "registry" | "teleport", message }.
+	function P.join(partyId, player, userId)
+		local okG, e = pcall(deps.store.get, partyId)
+		if not okG then
+			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
+		end
+		if not alive(e) or not e.open then
+			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." }
+		end
+		-- réservation atomique de la place (compte + membre) ; refus si plein
+		local reserved = false
+		local okU, errU = pcall(deps.store.update, partyId, function(old)
+			if type(old) ~= "table" or old.count >= old.size or old.count >= G.MaxPlayers then
+				return nil
+			end
+			for _, id in ipairs(old.members) do
+				if id == userId then
+					return nil
+				end
+			end
+			old.count = old.count + 1
+			old.members[#old.members + 1] = userId
+			reserved = true
+			return old
+		end)
+		if not okU then
+			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
+		end
+		if not reserved then
+			return { ok = false, reason = "full", message = "Cette partie est pleine." }
+		end
+		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true })
+		if not okT then
+			P.leaveParty(partyId, userId) -- annule la place prise
+			log("rejoindre : " .. tostring(errT))
+			return { ok = false, reason = "teleport", message = "Impossible de rejoindre la partie pour l'instant." }
+		end
+		return { ok = true }
+	end
+
+	-- Libère la place d'un joueur (retour au hub, échec de téléportation). Supprime la partie quand elle est vide.
+	function P.leaveParty(partyId, userId)
+		pcall(deps.store.update, partyId, function(old)
+			if type(old) ~= "table" then
+				return nil
+			end
+			for i, id in ipairs(old.members) do
+				if id == userId then
+					table.remove(old.members, i)
+					old.count = math.max(0, old.count - 1)
+					break
+				end
+			end
+			return old
+		end)
+	end
+
+	return P
+end
+
+return Party
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX13"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX7"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX14"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX8"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1080,6 +1367,10 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local MessagingService = game:GetService("MessagingService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+if Config.Game.roleFor(game.PlaceId) == "hub" then
+	return -- le hub a son propre script (Hub.server) ; ce code est celui de la partie
+end
+local TeleportService = game:GetService("TeleportService")
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -1851,7 +2142,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		if not sl or sl.k ~= "e" then
 			return
 		end
-		if (sl.shield or 0) > os.time() then
+		if (sl.shield or 0) > os.time() or (vs.graceUntil or 0) > os.time() then
 			notify(player, "🛡 Cet œuf est encore protégé !")
 			return
 		end
@@ -2479,7 +2770,29 @@ local function releasePlot(s)
 	s.plot.nameLabel.Text = "Base libre"
 end
 
+-- Partie pleine (5 joueurs au plus) ou lieu de jeu ouvert en trop : le joueur est renvoyé au hub (ou expulsé avec un message si le hub est injoignable).
+local function bounceToHub(player, message)
+	local hub = Config.Game.Places.hub
+	local role = Config.Game.roleFor(game.PlaceId)
+	if role == "game" and type(hub) == "number" and hub > 0 then
+		local opts = Instance.new("TeleportOptions")
+		opts:SetTeleportData({ from = "game", reason = "full" })
+		local ok = pcall(function()
+			TeleportService:TeleportAsync(hub, { player }, opts)
+		end)
+		if ok then
+			return
+		end
+	end
+	player:Kick(message)
+end
+
 local function onJoin(player)
+	if #Players:GetPlayers() > Config.Game.MaxPlayers then
+		bounceToHub(player, "Cette partie est pleine (" .. Config.Game.MaxPlayers .. " joueurs maximum). Réessaie avec une autre partie.")
+		return
+	end
+	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
 	local d, noSave = Data.load(player)
 	if not d then
 		player:Kick("Impossible de charger tes données. Reconnecte-toi dans un instant.")
@@ -2514,13 +2827,16 @@ local function onJoin(player)
 	local s = {
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
-		stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
 	sessions[player] = s
+	if late then
+		notify(player, "🛡 Tu arrives en cours de partie : tes œufs sont protégés " .. Config.Game.LateJoinGrace .. " s.")
+	end
 
 	for name, def in pairs(Config.PASSES) do
 		s.passes[name] = false
@@ -2647,7 +2963,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -3031,7 +3347,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -3867,7 +4183,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -4011,7 +4327,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Assets
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Assets
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -4215,7 +4531,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -4229,7 +4545,7 @@ end
 
 return Diag
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX18"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX17"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX14"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX19"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX18"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX15"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5257,7 +5573,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX15"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX16"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -5785,7 +6101,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX16"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX17"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est

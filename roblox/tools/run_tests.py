@@ -36,6 +36,7 @@ lua.globals().py_convert = luau_to_lua
 
 prelude = r'''
 local exit_code = 0
+table.clone = table.clone or function(t) local c = {} for k, v in pairs(t) do c[k] = v end return c end -- Luau seulement
 local function shim_load(src, opts)
 	local env = setmetatable((opts and opts.environment) or {}, { __index = _G })
 	local fn, err = load(py_convert(src), (opts and opts.debugName) or "chunk", "t", env)
