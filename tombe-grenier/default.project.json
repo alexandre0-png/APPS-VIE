@@ -10,6 +10,7 @@
 
     "ServerScriptService": {
       "$className": "ServerScriptService",
+      "Common": { "$path": "src/common" },
       "Server": { "$path": "src/server" }
     },
 

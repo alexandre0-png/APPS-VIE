@@ -22,12 +22,16 @@
 - Tests : solvabilité de l'horloge sur 60 graines (sim), position de l'horloge dans le hall (cartographie).
 
 ### Corrigé
+- Lieu hub : identifiant de lieu (et non d'univers) ; test de validation des identifiants (test_places.py).
 - Achats Robux : un achat n'est plus accordé au lieu hub (l'effet y serait perdu) ; il reste en attente jusqu'au lieu de jeu.
 - Mort fatale (plus personne debout) : les minuteries de réapparition et les invites de réanimation en attente sont annulées avant la fin de partie.
 - Nouvelle partie : les invites et minuteries de la partie précédente sont annulées.
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Hub : deux zones de lancement (« Partie solo », « Partie duo ») avec panneau de file d'attente ; la duo attend un second joueur 60 s au plus (HubRules.lua, testé). Décor du hub : piliers et banc.
+- Projets Rojo : hub.project.json (src/hub + Common + Shared) et game.project.json (src/server + src/client + Common + Shared) ; dossier commun src/common (Hub.lua déplacé). Testé par tools/lua/test_projects.py.
+- Interface : ancrage aux zones sûres (DeviceSafeInsets), échelle selon l'écran (UIScale, 0.8 à 1.3), messages et règles au tiers supérieur, centre réservé au coffret. Testé par tools/lua/test_ui.py.
 - Modèle du monstre : ses trois identifiants sont dans Config.Assets (Monstre1 à Monstre3), chargés avec le même chargeur sûr (pcall, délai, scripts retirés) et désactivables via Config.Assets.Enabled. Sans modèle valide, le rig de secours reste.
 - Modèles de décor (Config.Assets) : chaise de la salle à manger (remplace « chaise »), fauteuil antique (« fauteuil »), table longue (« table »), plante (« plante »), lampe avec lueur et chaise en bois (décor fixe), chaise bloquante devant une porte (décor seulement, jamais de collision ni de progression).
   - Chargement côté serveur seulement (InsertService, pcall, délai Config.Assets.Timeout). Scripts et événements retirés. Modèle vide ou corrompu refusé ; la pièce de remplacement actuelle reste.

@@ -24,9 +24,20 @@ player.CameraMode = Enum.CameraMode.LockFirstPerson
 local gui = Instance.new("ScreenGui")
 gui.Name = "TombeHUD"
 gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+-- Zones sûres : encoche, bords d'écran et barre du haut restent libres (ancrage aux bords)
+gui.IgnoreGuiInset = false
+pcall(function()
+	gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
+end)
 gui.DisplayOrder = 10
 gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Échelle de l'interface selon l'écran : téléphone, tablette ou PC (hauteur de référence 720 px)
+local function uiScaleValue()
+	local camera = workspace.CurrentCamera
+	local height = camera and camera.ViewportSize.Y or 720
+	return math.clamp(height / 720, 0.8, 1.3)
+end
 
 local function fullFrame(color, transparency, zIndex)
 	local frame = Instance.new("Frame")
@@ -59,6 +70,10 @@ local function label(props)
 	l.Text = ""
 	l.ZIndex = 5
 	l.Parent = gui
+	-- Taille proportionnée à l'écran (UIScale), réglée à chaque changement de taille de fenêtre
+	local scale = Instance.new("UIScale")
+	scale.Scale = uiScaleValue()
+	scale.Parent = l
 	return l
 end
 
@@ -79,9 +94,9 @@ local subtitleLabel = label({
 })
 subtitleLabel.TextTransparency = 1
 
--- Message de fin de partie : centre
+-- Message : tiers supérieur (le centre de la vue reste dégagé)
 local messageLabel = label({
-	position = UDim2.fromScale(0.5, 0.5),
+	position = UDim2.fromScale(0.5, 0.18),
 	anchor = Vector2.new(0.5, 0.5),
 	sizeUDim = UDim2.new(0.9, 0, 0, 90),
 	align = Enum.TextXAlignment.Center,
@@ -99,7 +114,7 @@ local hintLabel = label({
 -- Règles affichées au réveil : une fois, puis elles s'effacent
 local function showRules()
 	local rules = label({
-		position = UDim2.fromScale(0.5, 0.5),
+		position = UDim2.fromScale(0.5, 0.18),
 		anchor = Vector2.new(0.5, 0.5),
 		sizeUDim = UDim2.new(0.9, 0, 0, 170),
 		align = Enum.TextXAlignment.Center,

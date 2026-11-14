@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local HubRules = require(Shared.HubRules)
 
 local Hub = {}
 
@@ -46,6 +47,8 @@ end
 local CENTER = Vector3.new(300, 0, 300) -- loin de la maison et de la clôture
 local folder = nil
 local launchRequested = false
+local requestedMode = nil -- "solo" ou "duo" : borne pressée, nil sinon
+local queueLabels = {}    -- [mode] = BillboardGui TextLabel (file d'attente visible)
 
 local function coffinSpawn()
 	local root = Workspace:FindFirstChild("TombeMap")
@@ -96,6 +99,33 @@ local function makePad(name, pos, color, text, onPress)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
 	prompt.Triggered:Connect(onPress)
+	-- Panneau de file d'attente, au-dessus de la borne
+	local board = Instance.new("BillboardGui")
+	board.Size = UDim2.fromOffset(220, 40)
+	board.StudsOffset = Vector3.new(0, 4, 0)
+	board.AlwaysOnTop = false
+	board.Parent = part
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 0.4
+	label.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+	label.TextColor3 = Color3.fromRGB(240, 225, 190)
+	label.Font = Enum.Font.GothamMedium
+	label.TextScaled = true
+	label.Text = ""
+	label.Parent = board
+	return label
+end
+
+-- Met à jour les panneaux : nombre de joueurs qui attendent chaque mode
+local function updateQueues()
+	local present = #Players:GetPlayers()
+	for mode, label in pairs(queueLabels) do
+		if label and label.Parent then
+			local needed = mode == "duo" and 2 or 1
+			label.Text = HubRules.queueText(mode == "duo" and "Partie duo" or "Partie solo", requestedMode == mode and present or 0, needed)
+		end
+	end
 end
 
 -- Construit le hub (une seule fois, après la carte)
@@ -138,10 +168,37 @@ function Hub.build()
 	light.Color = Color3.fromRGB(255, 220, 160)
 	light.Parent = lamp
 
-	makePad("Borne Lancer", CENTER + Vector3.new(0, 0.5, 12), Color3.fromRGB(180, 140, 90), "Lancer la partie",
+	-- Deux zones : partie solo et partie duo (le joueur entre dans la zone et lance)
+	queueLabels.solo = makePad("Zone solo", CENTER + Vector3.new(-9, 0.5, 12), Color3.fromRGB(180, 140, 90), "Partie solo",
 		function()
+			requestedMode = "solo"
 			launchRequested = true
+			updateQueues()
 		end)
+	queueLabels.duo = makePad("Zone duo", CENTER + Vector3.new(9, 0.5, 12), Color3.fromRGB(120, 150, 170), "Partie duo",
+		function()
+			requestedMode = "duo"
+			updateQueues()
+		end)
+	-- Décor : piliers et banc, pour que le hub ait une ambiance propre
+	for _, corner in ipairs({ Vector3.new(-26, 6, -26), Vector3.new(26, 6, -26), Vector3.new(-26, 6, 26), Vector3.new(26, 6, 26) }) do
+		local pillar = Instance.new("Part")
+		pillar.Name = "Pilier"
+		pillar.Anchored = true
+		pillar.Size = Vector3.new(3, 12, 3)
+		pillar.Position = CENTER + corner
+		pillar.Color = Color3.fromRGB(60, 56, 52)
+		pillar.Material = Enum.Material.Concrete
+		pillar.Parent = folder
+	end
+	local bench = Instance.new("Part")
+	bench.Name = "Banc"
+	bench.Anchored = true
+	bench.Size = Vector3.new(10, 1, 2)
+	bench.Position = CENTER + Vector3.new(0, 1, -18)
+	bench.Color = Color3.fromRGB(90, 62, 40)
+	bench.Material = Enum.Material.Wood
+	bench.Parent = folder
 
 	setSpawns(true)
 end
@@ -159,6 +216,7 @@ end
 -- Tous les joueurs au hub (ou retour au lieu hub, si ce lieu est le lieu de jeu)
 function Hub.enter()
 	launchRequested = false
+	requestedMode = nil
 	if role == "game" then
 		sendToHubPlace(Players:GetPlayers())
 		return
@@ -184,14 +242,21 @@ function Hub.waitForStart()
 	local firstSeen = nil
 	while true do
 		local present = Players:GetPlayers()
+		updateQueues()
 		if #present > 0 then
 			firstSeen = firstSeen or os.clock()
-			if launchRequested or os.clock() - firstSeen >= Config.Game.HubWait then
+			local waited = os.clock() - firstSeen
+			local mode = requestedMode
+			if launchRequested then
+				mode = mode or "solo"
+			end
+			if HubRules.shouldLaunch(mode, #present, waited, Config.Game) then
 				return present
 			end
 		else
 			firstSeen = nil
 			launchRequested = false
+			requestedMode = nil
 		end
 		task.wait(0.3)
 	end
@@ -213,6 +278,7 @@ end
 -- Lance la partie pour le groupe : serveur privé (lieu hub), ou cercueil du grenier (autres rôles)
 function Hub.startGame(group)
 	launchRequested = false
+	requestedMode = nil
 	if role == "hub" then
 		return sendToPrivateGame(group)
 	end

@@ -116,6 +116,7 @@ Config.Game = {
 	-- privé du lieu de jeu et y téléporte les joueurs.
 	Places = { hub = 124575462695705, game = 77452764500707 }, -- hub : lieu « Hub Sortir Du Grenier » ; partie : lieu « Sortir Du Grenier »
 	HubWait = 30,            -- secondes au hub après l'arrivée du premier joueur, puis la partie démarre
+	DuoWait = 60,            -- zone duo : secondes d'attente d'un second joueur, puis partie en solo
 	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.
 	-- Le jeu est conçu pour un joueur (solo) ou un duo. Au-delà, la carte devient trop vite encombrée.
 	MaxPlayers = 2,

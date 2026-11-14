@@ -12,7 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local PlayerState = require(script.Parent.PlayerState)
-local Hub = require(script.Parent.Hub)
+local Hub = require(script.Parent.Common.Hub)
 
 local Shop = {}
 
