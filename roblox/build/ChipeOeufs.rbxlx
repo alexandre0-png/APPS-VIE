@@ -824,7 +824,7 @@ function Easing.blinkOpenness(time, seed)
 	local ph = (time + seed * 0.53) % period
 	local d = 0.16
 	if ph < d then
-		return 1 - sin(ph / d * pi)
+		return clamp01(1 - sin(ph / d * pi)) -- bornée : sin(pi) vaut ±1e-16 selon le moteur
 	end
 	return 1
 end
@@ -854,9 +854,9 @@ function Easing.peck(time, seed)
 	local period = 3.4 + (seed % 5) * 0.5
 	local ph = (time + seed * 0.7) % period
 	if ph < 0.25 then
-		return sin(ph / 0.25 * pi)
+		return clamp01(sin(ph / 0.25 * pi))
 	elseif ph < 0.5 then
-		return sin((ph - 0.25) / 0.25 * pi)
+		return clamp01(sin((ph - 0.25) / 0.25 * pi))
 	end
 	return 0
 end
