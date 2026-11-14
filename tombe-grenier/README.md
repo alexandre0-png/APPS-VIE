@@ -175,9 +175,9 @@ Après une fin, tout le monde est téléporté de nouveau au hub.
 ### Deux lieux : hub et serveur privé
 
 Le hub peut être un lieu Roblox séparé, qui envoie les joueurs sur un serveur privé du lieu de jeu :
-1. Dans Studio, crée deux lieux dans la même expérience : le **lieu de jeu** (ce projet) et un **lieu hub** (un lieu vide avec le même `src/server/Hub.lua` et `src/shared/Config.lua`).
-2. Publie les deux lieux, puis renseigne leurs identifiants dans `Config.Game.Places` (`hub` et `game`).
-3. Au lancement, le lieu hub réserve un serveur privé du lieu de jeu (`ReserveServer`) et y téléporte tous les joueurs présents (`TeleportToPrivateServer`).
+1. L'expérience « Sortir Du Grenier » (univers 10776611603) contient deux lieux : le **lieu de jeu** (`game.project.json`) et le **lieu hub** (`hub.project.json`).
+2. Les identifiants sont dans `Config.Game.Places` (hub `88091909899710`, partie `77452764500707`). Le profil (DataStore `TombeGrenierProfil`) est partagé par les deux lieux.
+3. Au lancement, le lieu hub réserve un serveur privé du lieu de jeu (`ReserveServer`) et y téléporte tous les joueurs présents (`TeleportToPrivateServer`). Si Roblox refuse, repli sur un serveur public (`TeleportAsync`) avec un message à l'écran.
 4. Après une fin, le lieu de jeu renvoie les joueurs au lieu hub (`TeleportAsync`).
 
 Tant que les identifiants valent 0, ou en Studio, tout se passe dans un seul lieu. La téléportation ne fonctionne pas en Studio : il faut un test publié.

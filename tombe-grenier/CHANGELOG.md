@@ -21,6 +21,9 @@
 - Génération : horloge du hall (tag Horloge) dans tools/map/generate_map.py ; rendu dans MapBuilder.
 - Tests : solvabilité de l'horloge sur 60 graines (sim), position de l'horloge dans le hall (cartographie).
 
+### Modifié
+- Hub : devient un lieu de la même expérience que la partie (univers 10776611603) ; `Config.Game.Places = { hub = 88091909899710, game = 77452764500707 }`, l'ancien hub 124575462695705 (expérience séparée) n'est plus utilisé. Repli sur un serveur public avec message clair si Roblox refuse le serveur privé. Tests : identifiants, ancien hub écarté, DataStore du profil partagé entre hub et partie, repli (test_places.py).
+
 ### Corrigé
 - Lieu hub : identifiant de lieu (et non d'univers) ; test de validation des identifiants (test_places.py).
 - Achats Robux : un achat n'est plus accordé au lieu hub (l'effet y serait perdu) ; il reste en attente jusqu'au lieu de jeu.

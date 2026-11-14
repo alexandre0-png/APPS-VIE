@@ -112,9 +112,10 @@ Config.Lights = {
 }
 
 Config.Game = {
-	-- Identifiants des deux lieux Roblox. 0 = un seul lieu (test). Le lieu hub réserve un serveur
-	-- privé du lieu de jeu et y téléporte les joueurs.
-	Places = { hub = 124575462695705, game = 77452764500707 }, -- hub : lieu « Hub Sortir Du Grenier » ; partie : lieu « Sortir Du Grenier »
+	-- Identifiants des deux lieux Roblox (même expérience, même univers). 0 = un seul lieu (test).
+	-- Le lieu hub réserve un serveur privé du lieu de jeu et y téléporte les joueurs ; si Roblox refuse,
+	-- repli sur un serveur public du lieu de jeu.
+	Places = { hub = 88091909899710, game = 77452764500707 }, -- deux lieux de la même expérience « Sortir Du Grenier » (univers 10776611603) : hub et partie
 	HubWait = 30,            -- secondes au hub après l'arrivée du premier joueur, puis la partie démarre
 	DuoWait = 60,            -- zone duo : secondes d'attente d'un second joueur, puis partie en solo
 	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.

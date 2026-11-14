@@ -319,15 +319,53 @@ end
 
 -- Lieu hub : réserve un serveur privé du lieu de jeu et y envoie le groupe.
 -- Retourne true si la téléportation est lancée (ce serveur n'a plus rien à faire pour ce groupe).
+-- Message court à l'écran des joueurs (le hub n'a pas de script client)
+local function notify(group, text)
+	for _, player in ipairs(group) do
+		pcall(function()
+			local gui = Instance.new("ScreenGui")
+			gui.Name = "MessageHub"
+			gui.ResetOnSpawn = false
+			local label = Instance.new("TextLabel")
+			label.AnchorPoint = Vector2.new(0.5, 0)
+			label.Position = UDim2.fromScale(0.5, 0.15)
+			label.Size = UDim2.new(0.8, 0, 0, 60)
+			label.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+			label.BackgroundTransparency = 0.3
+			label.TextColor3 = Color3.fromRGB(230, 220, 200)
+			label.TextWrapped = true
+			label.TextSize = 20
+			label.Font = Enum.Font.GothamMedium
+			label.Text = text
+			label.Parent = gui
+			gui.Parent = player:WaitForChild("PlayerGui", 5)
+			task.delay(8, function()
+				gui:Destroy()
+			end)
+		end)
+	end
+end
+
+-- Même expérience : le lieu de jeu est un autre lieu de l'expérience. Serveur privé d'abord ;
+-- si Roblox refuse (réservation ou téléportation), repli sur un serveur public avec un message clair.
 local function sendToPrivateGame(group)
 	local ok, err = pcall(function()
 		local code = TeleportService:ReserveServer(Config.Game.Places.game)
 		TeleportService:TeleportToPrivateServer(Config.Game.Places.game, code, group)
 	end)
-	if not ok then
-		warn("[Hub] téléportation vers le serveur privé impossible : " .. tostring(err))
+	if ok then
+		return true
 	end
-	return ok
+	warn("[Hub] serveur privé impossible, repli sur un serveur public : " .. tostring(err))
+	notify(group, "Serveur privé indisponible : tu rejoins un serveur public. Tu risques d'y croiser d'autres joueurs.")
+	local okPublic, errPublic = pcall(function()
+		TeleportService:TeleportAsync(Config.Game.Places.game, group)
+	end)
+	if not okPublic then
+		warn("[Hub] téléportation publique impossible : " .. tostring(errPublic))
+		notify(group, "Impossible de lancer la partie pour l'instant. Réessaie dans quelques secondes.")
+	end
+	return okPublic
 end
 
 -- Lance la partie pour le groupe : serveur privé (lieu hub), ou cercueil du grenier (autres rôles)
