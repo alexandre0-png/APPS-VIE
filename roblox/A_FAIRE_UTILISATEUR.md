@@ -10,6 +10,12 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] Ajouter une règle d'autorisation Bash pour `stylua`, `selene`, `rojo` et `lune` dans les paramètres de la session, puis me demander de les lancer ;
 - [ ] ou les lancer toi-même depuis la racine du dépôt (commandes dans `roblox/tools/VERIFICATION.md`), et me coller les sorties.
 
+## 1bis. Réglages Studio vus dans ton premier lancement (v4)
+
+- [ ] **Game Settings > Security > Enable Studio Access to API Services** : sans lui le jeu tourne en mode mémoire (rien n'est sauvegardé, pas de classement). C'est normal et signalé par un seul avertissement.
+- [ ] **Modèles d'œufs refusés** (`Requester does not have permission for Asset`) : legendary 2937230482, orange 147144059, glitch 2937218888. Le jeu utilise alors les apparences construites par le code, aucun effet sur le gameplay. Pour les obtenir : ouvre chaque modèle dans la boutique Roblox (Toolbox / page du modèle) avec ton compte et utilise **Get** / l'ajouter à ton inventaire, ou remplace l'ID par un modèle que tu possèdes ; sinon laisse tel quel.
+- [ ] Après le prochain playtest : dis-moi si le rythme te semble trop lent ou trop rapide (prix des œufs dans `Config.EGG_PRICE`, simulation dans `roblox/tools/sim_economy.py`).
+
 ## 2. Ouvrir la place dans Studio et publier
 
 - [ ] Studio : **File > Open from File** → `roblox/build/ChipeOeufs.rbxlx`.

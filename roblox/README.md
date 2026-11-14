@@ -17,6 +17,14 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Économie (simulation)
+
+Prix, coûts et gains sont calibrés avec `tests/Economy.lua` : `python3 roblox/tools/sim_economy.py 30 <graine>` affiche la chronologie d'un joueur-robot (revenu, éclosions, premiers achats par rareté) ; `tests/run.luau` impose des bornes de rythme sur 30 minutes. Après toute modification de `EGG_PRICE`, `HATCH`, `UPGRADES`, `PETS` ou `rebirthCost`, relance `check.py`.
+
+## Apparences d'œufs sans modèle
+
+`Config.EggFx` : couleur, matériau, lumière, particules et halo (sphère ou anneau) de chacun des 5 œufs, construits par le code. Ils servent quand un modèle de `Config.Assets` échoue ou est coupé (`Config.Assets.Enabled = false`). `Config.EggFx.Enabled = false` : œufs simples.
+
 ## Modèles d'œufs (Roblox)
 
 Cinq modèles de la boutique Roblox servent d'apparence aux œufs (`Config.Assets`). Réglages : `Enabled = false` coupe tout chargement (apparence par défaut : Part + sphère teintée), `eggs` (IDs), `eggByTier` (rareté → modèle), `timeout`, `maxParts`. Le chargement est serveur, non bloquant et sûr (scripts et objets de communication supprimés, repli automatique). Sans modèle valide, rien ne change pour le joueur. Un modèle non autorisé pour ton compte ou retiré par Roblox échoue simplement avec un avertissement dans la sortie (`[Assets] …`).

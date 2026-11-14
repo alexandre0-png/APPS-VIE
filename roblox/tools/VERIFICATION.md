@@ -16,6 +16,11 @@
 
 ## Relu seulement (à confirmer dans Studio)
 
+- Mode « Studio sans accès API » : la reconnaissance du message est testée (`Diag`) ; le basculement en mode mémoire dans `Data` n'est que relu.
+- Apparences d'œufs du code (`EggFx`) : données testées (distinctes, plafonds) ; le rendu (anneau, coque scintillante, particules, performance à 10 joueurs) est à voir dans Studio.
+- Carte d'objectif (HUD) : le texte et la progression (`Config.objective`) sont testés ; la mise en page (téléphone, chevauchement avec la bannière d'événement) est à voir dans Studio.
+- Économie : la simulation est un modèle (joueur-robot sans vol, quêtes, événements ni renaissance), pas un test de jeu réel.
+
 - Modèles d'œufs : le chargement réel (`InsertService:LoadAsset`), la disponibilité et l'autorisation des 5 IDs, l'aspect et l'échelle des modèles, le comportement avec les animations de saut/tremblement ; seuls le module `Assets` (chargeur factice) et la configuration sont testés. `dressEgg` (Builder) n'est que relu et vérifié contre le dump de l'API.
 
 - Cinématiques : application des plans à la caméra, interface (barres, légende, boutons), restitution de la caméra en conditions réelles (mort, attaque, déconnexion), position des ancres dans le vrai monde ; seules la logique (`Cinema`), les définitions et la configuration sont testées.
