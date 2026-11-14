@@ -8,6 +8,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HubRules = require(Shared.HubRules)
+local Config = require(Shared.Config)
+
+-- Test du hub seul en Studio (hub.project.json) : le rôle est forcé à « hub » avant le chargement de Hub.
+-- En production (hors Studio), le rôle vient de game.PlaceId comparé à Config.Game.Places : ce réglage est ignoré.
+Config.Debug.PlaceRole = Config.Debug.PlaceRole or "hub"
+
 local Hub = require(script.Parent.Common.Hub)
 local Profile = require(script.Parent.Common.Profile)
 

@@ -172,6 +172,12 @@ Le mode suit le nombre de joueurs : un seul joueur = solo (première apparition 
 
 Après une fin, tout le monde est téléporté de nouveau au hub.
 
+### Décor du hub
+
+`src/shared/HubLayout.lua` (disposition, limites, textes) et `src/common/HubDecor.lua` (construction) habillent le hub : étagères, malles, bougies avec lueur, lampes chaudes, toiles d'araignée, tapis, cadres, plantes mortes, poutres avec poussière légère, panneau explicatif devant chaque borne (solo, duo) et tableau des règles. Tout est décoratif : aucune collision, aucun clic, aucune plaque cachée ; la zone d'arrivée (rayon 8 autour de l'apparition) reste dégagée. Les modèles de `Config.Assets` (`HubBibliotheque`, `LampeHorreur`, `Plante`) remplacent les éléments procéduraux quand ils se chargent (InsertService, délai maximum) ; sinon le procédural reste. Limites : 250 pièces et un nombre de lumières lié à `RoomBudget` (`Config.Visual.RoomLightQuality`). Réglages : `Config.Hub` (`Decor`, `Music`, `MusicVolume`, `CandleFlicker`) ; la poussière suit `Config.Visual.Dust`. Tests : `tools/lua/test_hub_decor.py`.
+
+**Tester le hub seul dans Studio** : ouvrir `hub.rbxl` (construit par `rojo build hub.project.json`). Le script du hub force `Config.Debug.PlaceRole = "hub"` avant de charger `Hub` : en Studio, le rôle est donc « hub » (une borne téléporte vers le lieu de jeu, qui n'existe pas en Studio : la téléportation échoue avec un avertissement). En production, ce réglage est ignoré : le rôle vient de `game.PlaceId` comparé à `Config.Game.Places`. Dans le projet de jeu, `PlaceRole` reste `nil` (rôle « single » : une borne lance la partie sur place).
+
 ### Deux lieux : hub et serveur privé
 
 Le hub peut être un lieu Roblox séparé, qui envoie les joueurs sur un serveur privé du lieu de jeu :

@@ -226,10 +226,20 @@ Config.Assets = {
 	LampeHorreur = 10780850055, -- lampe avec lueur (décor, dans les pièces)
 	TableLongue = 188745055, -- table de la salle à manger et de la cuisine (remplace « table »)
 	Plante = 116741237427172, -- plante en pot (décor : hall, couloir)
+	HubBibliotheque = 9904549498, -- bibliothèque (décor du hub : étagères) ; même modèle que « bibliothèque » (ModelLoader)
 	-- Modèle du monstre : essayés dans l'ordre, le premier valide est utilisé. Sinon, le rig de secours.
 	Monstre1 = 14801251042,
 	Monstre2 = 126828585469313,
 	Monstre3 = 139294979123405,
+}
+
+-- Décor du hub (HubDecor.lua, HubLayout.lua) : mobilier, bougies, lampes, toiles, tapis, cadres, panneaux, poussière.
+-- Decor = false : le hub garde seulement son sol, ses bornes et son panneau. Music : nappe douce très basse.
+Config.Hub = {
+	Decor = true,
+	Music = true,
+	MusicVolume = 0.12,
+	CandleFlicker = true, -- la lueur des bougies vacille (comme Config.Visual.CandleFlicker)
 }
 
 -- Cinématiques aux moments clés seulement (intro, première apparition, descente, fins) : chacune se coupe seule.

@@ -256,7 +256,7 @@ function Hub.build()
 	board.Material = Enum.Material.Wood
 	board.Parent = folder
 	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
+	gui.Face = Enum.NormalId.Back -- le joueur arrive côté +Z : il voit la face arrière
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 40
 	gui.Parent = board
@@ -273,6 +273,14 @@ function Hub.build()
 		.. "Trois vies par joueur. Une mort en coûte une. Un coéquipier peut te réanimer.\n"
 		.. "Fouille la maison : papiers, livres, statues et objets répondent à une règle."
 	text.Parent = gui
+
+	-- Décor du hub (mobilier, bougies, lampes, panneaux, poussière) : n'empêche jamais le hub de fonctionner
+	local okDecor, errDecor = pcall(function()
+		require(script.Parent.HubDecor).build(folder, CENTER)
+	end)
+	if not okDecor then
+		warn("[Hub] décor non construit : " .. tostring(errDecor))
+	end
 
 	setSpawns(true)
 end
