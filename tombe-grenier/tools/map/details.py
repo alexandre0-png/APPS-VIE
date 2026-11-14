@@ -64,3 +64,15 @@ ROOM_DETAILS["ps"] = ["caisse défoncée", "tricycle", "flaque", "toile d'araign
                       "empreintes", "jouet cassé"]
 ROOM_DETAILS["cel"] = ["bocaux renversés", "tache sombre", "toile d'araignée", "seau", "terre", "empreintes",
                        "calendrier"]
+
+# --- Rez-de-chaussée : la vie d'avant, figée. Une famille partie en hâte, des cadres retournés.
+ROOM_DETAILS["salon"] = ["cendres", "cadre retourné", "cadre retourné", "papiers épars", "horloge arrêtée",
+                         "verre brisé", "tache sombre", "toile d'araignée"]
+ROOM_DETAILS["hall"] = ["terre", "empreintes", "cadre retourné", "griffures", "toile d'araignée"]
+ROOM_DETAILS["cuis"] = ["tache sombre", "verre brisé", "seau", "flaque", "calendrier", "papiers épars",
+                        "toile d'araignée"]
+ROOM_DETAILS["sam"] = ["chaise renversée", "tache sombre", "cadre retourné", "bougie fondue", "verre brisé",
+                       "papiers épars", "affiche déchirée"]
+ROOM_DETAILS["entree"] = ["valise ouverte", "empreintes", "terre", "calendrier", "miroir voilé", "tas de linge"]
+ROOM_DETAILS["bureau"] = ["papiers épars", "papiers épars", "pile de journaux", "tache sombre", "cadre retourné",
+                          "griffures", "horloge arrêtée"]
