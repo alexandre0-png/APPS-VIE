@@ -25,6 +25,8 @@ local Data = require(Shared.MapData)
 local Rng = require(Shared.Rng)
 local RoomMood = require(Shared.RoomMood)
 local Audio = require(Shared.Audio)
+local RoomBudget = require(Shared.RoomBudget)
+local Config = require(Shared.Config)
 local DecorKit = require(script.Parent.DecorKit)
 local Atmosphere = require(script.Parent.Atmosphere)
 
@@ -640,10 +642,49 @@ end
 -- Construit la carte fixe. Idempotent : reconstruit tout si la carte existe déjà.
 -- Ambiance par pièce : lueur propre, son d'ambiance très bas (en boucle) et repère visuel au sol.
 -- Ne change ni les lampes, ni les pièces sombres, ni la progression.
+local moodLights = {} -- [room id] = { light, range, room, cx, cz }
+
+-- Budget : seules les lueurs des pièces proches du joueur restent allumées (Config.Visual.RoomLights)
+local function startRoomBudget()
+	if not Config.Visual.RoomLights then
+		return
+	end
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local player = Players:GetPlayers()[1]
+			local root = player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local limits = RoomBudget.qualityLimits(Config.Visual.RoomLightQuality)
+				local list = {}
+				for id, m in pairs(moodLights) do
+					table.insert(list, { id = id, cx = m.cx, cz = m.cz, level = m.room.level })
+				end
+				local here = MapBuilder.roomAt(root.Position)
+				local lvl = nil
+				for _, m in pairs(moodLights) do
+					if m.room.id == here then
+						lvl = m.room.level
+					end
+				end
+				local active = {}
+				for _, id in ipairs(RoomBudget.activeRooms(list, { x = root.Position.X, z = root.Position.Z, level = lvl or "ground" }, limits.lights)) do
+					active[id] = true
+				end
+				for id, m in pairs(moodLights) do
+					m.light.Enabled = active[id] == true
+					m.light.Range = m.range * limits.rangeScale
+				end
+			end
+		end
+	end)
+end
+
 local function applyMoods(root)
 	local folder = Instance.new("Folder")
 	folder.Name = "Ambiances"
 	folder.Parent = root
+	moodLights = {}
 	for _, r in ipairs(Data.rooms) do
 		local mood = RoomMood.rooms[r.id]
 		if mood then
@@ -665,20 +706,32 @@ local function applyMoods(root)
 			light.Range = mood.range
 			light.Shadows = false
 			light.Parent = anchor
+			moodLights[r.id] = { light = light, range = mood.range, room = r, cx = cx, cz = cz }
 			if mood.sound and mood.volume > 0 then
 				pcall(Audio.play, mood.sound, anchor, { volume = mood.volume, range = 20, looped = true })
 			end
-			-- Repère au sol : une bande de couleur sans collision, nommée d'après le détail
-			local landmark = Instance.new("Part")
-			landmark.Name = "Repère " .. mood.detail[1]
-			landmark.Anchored = true
-			landmark.CanCollide = false
-			landmark.CanQuery = false
-			landmark.Size = Vector3.new(3, 0.1, 2)
-			landmark.Position = Vector3.new(cx, base + 0.05, cz)
-			landmark.Color = Color3.fromRGB(mood.detail[2][1], mood.detail[2][2], mood.detail[2][3])
-			landmark.Material = Enum.Material.Fabric
-			landmark.Parent = folder
+			-- Repère au sol : une bande de couleur sans collision, posée hors des meubles de la pièce
+			local boxes = {}
+			for _, f in ipairs(Data.furniture) do
+				local fx, fz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2
+				if f.y0 >= base - 1 and f.y0 <= base + Data.H and fx >= r.x0 and fx <= r.x1 and fz >= r.z0 and fz <= r.z1 then
+					table.insert(boxes, f)
+				end
+			end
+			local room = { id = r.id, x0 = r.x0, x1 = r.x1, z0 = r.z0, z1 = r.z1, cx = cx, cz = cz }
+			local lx, lz = RoomBudget.landmarkSpot(room, boxes, 3, 2)
+			if lx then
+				local landmark = Instance.new("Part")
+				landmark.Name = "Repère " .. mood.detail[1]
+				landmark.Anchored = true
+				landmark.CanCollide = false
+				landmark.CanQuery = false
+				landmark.Size = Vector3.new(3, 0.1, 2)
+				landmark.Position = Vector3.new(lx, base + 0.05, lz)
+				landmark.Color = Color3.fromRGB(mood.detail[2][1], mood.detail[2][2], mood.detail[2][3])
+				landmark.Material = Enum.Material.Fabric
+				landmark.Parent = folder
+			end
 		end
 	end
 end
@@ -734,6 +787,7 @@ function MapBuilder.build()
 	setLighting()
 	pcall(placeStandaloneDecor, root)
 	pcall(applyMoods, root)
+	startRoomBudget()
 	pcall(Atmosphere.build)
 	print(("[MapBuilder] carte fixe construite : %d murs, %d meubles, %d lampes")
 		:format(#Data.walls, #Data.furniture, #lamps))

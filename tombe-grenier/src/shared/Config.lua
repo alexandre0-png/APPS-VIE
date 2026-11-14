@@ -157,6 +157,8 @@ Config.Visual = {
 	Vignette = true,         -- bords de l'écran assombris, d'autant plus que la sanité baisse (client)
 	VignetteMax = 0.6,       -- opacité maximale de la vignette (0 à 1)
 	CandleFlicker = true,    -- la lueur des bougies vacille (Quests.lua)
+	RoomLights = true,       -- lueurs de pièce : seules les pièces proches du joueur restent allumées (RoomBudget.lua)
+	RoomLightQuality = "auto", -- "auto", "bas", "moyen" ou "haut" : nombre de lueurs actives et portée
 }
 
 -- Modèles Roblox (décor). Chaque identifiant se charge côté serveur seulement, avec délai maximum.

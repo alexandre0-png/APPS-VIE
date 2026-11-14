@@ -29,6 +29,7 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Passe 2 (partielle) : budget de lueurs de pièce. Seules les lueurs de la pièce du joueur et des plus proches restent allumées (RoomBudget.activeRooms, Config.Visual.RoomLights, RoomLightQuality : auto, bas, moyen, haut). Les repères de sol évitent les meubles (RoomBudget.landmarkSpot). Testé sur les vraies données de carte (tools/lua/test_budget.py).
 - Passe 1 des zones : chaque pièce (20) a une lueur propre (couleur, intensité, portée), un son d'ambiance très bas en boucle, et un repère au sol nommé (src/shared/RoomMood.lua, MapBuilder.applyMoods). Testé par tools/lua/test_moods.py. Les lueurs n'ont pas d'ombre et n'affectent pas les lampes ni les pièces sombres.
 - Hub : brume et lumière froide, lampes colorées aux piliers, panneau d'explication face à l'arrivée. Panneau de saisie (coffret) à l'échelle de l'écran.
 - Hub : deux zones de lancement (« Partie solo », « Partie duo ») avec panneau de file d'attente ; la duo attend un second joueur 60 s au plus (HubRules.lua, testé). Décor du hub : piliers et banc.
