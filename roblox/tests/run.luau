@@ -1202,6 +1202,10 @@ do
 				e.calls[#e.calls + 1] = { n = #players, place = place, code = code, data = data }
 			end,
 			store = store,
+			guid = function()
+				e.guids = (e.guids or 0) + 1
+				return string.format("%08x-%04x-%04x", (e.guids * 2654435761) % 4294967296, (e.guids * 40503) % 65536, 7)
+			end,
 		})
 		return e
 	end
@@ -1257,26 +1261,26 @@ do
 		check("non-ami : ne voit pas la partie", #e.P.visibleFor(8, {}) == 0)
 		check("l'hôte ne voit pas sa propre partie", #e.P.visibleFor(42, { [42] = true }) == 0)
 		-- rejoindre en cours
-		local j = e.P.join(r.partyId, { UserId = 7 }, 7)
+		local j = e.P.join(r.partyId, { UserId = 7 }, 7, friends)
 		check("rejoindre en cours : accepté, état de départ « late », même serveur réservé", j.ok and e.entries[r.partyId].count == 2 and e.calls[#e.calls].code == "CODE1" and e.calls[#e.calls].data.late == true and e.calls[#e.calls].data.partyId == r.partyId)
-		check("rejoindre deux fois : refusé", e.P.join(r.partyId, { UserId = 7 }, 7).reason == "full")
-		local j2 = e.P.join(r.partyId, { UserId = 9 }, 9)
+		check("rejoindre deux fois : refusé", e.P.join(r.partyId, { UserId = 7 }, 7, friends).reason == "full")
+		local j2 = e.P.join(r.partyId, { UserId = 9 }, 9, friends)
 		check("rejoindre : 3e joueur accepté", j2.ok and e.entries[r.partyId].count == 3)
-		local j3 = e.P.join(r.partyId, { UserId = 10 }, 10)
+		local j3 = e.P.join(r.partyId, { UserId = 10 }, 10, friends)
 		check("partie pleine : refus clair", j3.ok == false and j3.reason == "full" and e.entries[r.partyId].count == 3)
 		check("partie pleine : n'apparaît plus dans la liste des amis", #e.P.visibleFor(11, friends) == 0)
 		-- départ
 		e.P.leaveParty(r.partyId, 9)
 		check("départ d'un joueur : la place se libère", e.entries[r.partyId].count == 2 and #e.P.visibleFor(11, friends) == 1)
-		check("partie inconnue : « gone »", e.P.join("nope", { UserId = 1 }, 1).reason == "gone")
+		check("partie inconnue : « gone »", e.P.join("nope", { UserId = 1 }, 1, friends).reason == "gone")
 		e.now = e.now + G.PartyTTL + 1
-		check("partie expirée (TTL) : plus proposée, plus rejoignable", #e.P.visibleFor(11, friends) == 0 and e.P.join(r.partyId, { UserId = 12 }, 12).reason == "gone")
+		check("partie expirée (TTL) : plus proposée, plus rejoignable", #e.P.visibleFor(11, friends) == 0 and e.P.join(r.partyId, { UserId = 12 }, 12, friends).reason == "gone")
 	end
 
 	do -- plafond de 5 même si le registre dit autrement
 		local e = env()
 		e.entries["x"] = { id = "x", host = 1, hostName = "H", size = 9, count = 5, members = { 1, 2, 3, 4, 5 }, code = "C", createdAt = e.now, open = true }
-		check("plafond 5 : jamais de 6e joueur", e.P.join("x", { UserId = 6 }, 6).reason == "full" and e.entries["x"].count == 5 and #e.P.visibleFor(77, { [1] = true }) == 0)
+		check("plafond 5 : jamais de 6e joueur", e.P.join("x", { UserId = 6 }, 6, { [1] = true }).reason == "full" and e.entries["x"].count == 5 and #e.P.visibleFor(77, { [1] = true }) == 0)
 	end
 
 	do -- serveur indisponible, téléportation refusée, repli public
@@ -1304,7 +1308,7 @@ do
 		local e6 = env()
 		local r6 = e6.P.launch({ size = 3, members = { 1 }, players = { {} }, hostName = "H" })
 		e6.teleportFail = "Unauthorized"
-		local j = e6.P.join(r6.partyId, {}, 2)
+		local j = e6.P.join(r6.partyId, {}, 2, { [1] = true })
 		check("rejoindre refusé par Roblox : message clair et place rendue", j.ok == false and j.reason == "teleport" and e6.entries[r6.partyId].count == 1 and #e6.entries[r6.partyId].members == 1)
 	end
 
@@ -1314,7 +1318,43 @@ do
 		check("registre indisponible : le lancement réussit, sans inscription", r.ok and r.mode == "reserved" and r.registered == false)
 		local list, ok = e.P.visibleFor(1, { [2] = true })
 		check("registre indisponible : liste vide sans erreur", #list == 0 and ok == false)
-		check("registre indisponible : rejoindre -> message clair", e.P.join("x", {}, 3).reason == "registry")
+		check("registre indisponible : rejoindre -> message clair", e.P.join("x", {}, 3, { [2] = true }).reason == "registry")
+	end
+
+	do -- sécurité : seuls les amis de l'hôte (ou les inscrits) rejoignent, identifiants imprévisibles, liste blanche à l'arrivée
+		local e = env()
+		local r = e.P.launch({ size = 4, members = { 42, 43 }, players = { {}, {} }, hostName = "Léa" })
+		local pid = r.partyId
+		check("sécurité : l'identifiant n'est pas déductible de l'hôte ni de l'heure", pid ~= nil and not pid:find("42_", 1, true) and not pid:find(tostring(math.floor(e.now * 1000)), 1, true))
+		local r2 = e.P.launch({ size = 4, members = { 42 }, players = { {} }, hostName = "Léa" })
+		check("sécurité : deux parties du même hôte au même instant ont des identifiants différents", r2.partyId ~= pid)
+		local stranger = e.P.join(pid, { UserId = 99 }, 99, {})
+		check("sécurité : un inconnu qui envoie un identifiant valide est refusé", stranger.ok == false and stranger.reason == "gone" and e.entries[pid].count == 2 and #e.entries[pid].members == 2)
+		check("sécurité : sans ensemble d'amis fourni, refus", e.P.join(pid, { UserId = 99 }, 99, nil).ok == false)
+		check("sécurité : ami d'un autre joueur que l'hôte refusé", e.P.join(pid, { UserId = 98 }, 98, { [777] = true }).ok == false and e.entries[pid].count == 2)
+		local callsBefore = #e.calls
+		local friend = e.P.join(pid, { UserId = 7 }, 7, { [42] = true })
+		check("sécurité : un ami de l'hôte est accepté (et la téléportation part)", friend.ok == true and e.entries[pid].count == 3 and #e.calls == callsBefore + 1)
+		check("sécurité : même message pour un inconnu et une partie inexistante (rien n'est révélé)", e.P.join(pid, { UserId = 99 }, 99, {}).message == e.P.join("inventé", { UserId = 99 }, 99, {}).message)
+		check("sécurité : identifiant inventé refusé", e.P.join("inventé", { UserId = 7 }, 7, { [42] = true }).reason == "gone")
+		check("sécurité : identifiant d'un type invalide refusé sans erreur", e.P.join({}, { UserId = 7 }, 7, { [42] = true }).ok == false and e.P.join(nil, { UserId = 7 }, 7, { [42] = true }).ok == false)
+		e.P.join(pid, { UserId = 8 }, 8, { [42] = true })
+		check("sécurité : partie pleine refusée même pour un ami", e.P.join(pid, { UserId = 9 }, 9, { [42] = true }).reason == "full")
+		e.entries[pid].open = false
+		check("sécurité : partie fermée refusée même pour un ami", e.P.join(pid, { UserId = 5 }, 5, { [42] = true }).reason == "gone")
+		local A = Party.admitJoin
+		check("liste blanche : premier arrivé envoyé par le hub accepté", A(nil, { partyId = "P1", from = "hub" }, 0, 5, "game") == true)
+		check("liste blanche : même partie acceptée", A("P1", { partyId = "P1", from = "hub", late = true }, 2, 5, "game") == true)
+		local ok1, why1 = A("P1", { partyId = "P2", from = "hub" }, 1, 5, "game")
+		check("liste blanche : autre partie refusée (not_member)", ok1 == false and why1 == "not_member")
+		local ok2, why2 = A("P1", nil, 1, 5, "game")
+		check("liste blanche : arrivée directe sans données sur un serveur de partie refusée", ok2 == false and why2 == "not_member")
+		check("liste blanche : données forgées (from ~= hub) refusées", A("P1", { partyId = "P1", from = "x" }, 1, 5, "game") == false)
+		check("liste blanche : serveur public sans partie accepte les arrivées directes", A(nil, nil, 0, 5, "game") == true)
+		local ok3, why3 = A("P1", { partyId = "P1", from = "hub" }, 5, 5, "game")
+		check("liste blanche : serveur plein refusé (full)", ok3 == false and why3 == "full")
+		check("liste blanche : Studio (rôle inconnu) sans restriction de partie", A("P1", nil, 0, 5, "unknown") == true)
+		check("liste blanche : TeleportData invalide sans erreur", A("P1", 42, 0, 5, "game") == false and A(nil, "x", 0, 5, "game") == true)
 	end
 end
 

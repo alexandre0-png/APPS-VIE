@@ -14,6 +14,7 @@ if Config.Game.roleFor(game.PlaceId) == "hub" then
 	return -- le hub a son propre script (Hub.server) ; ce code est celui de la partie
 end
 local TeleportService = game:GetService("TeleportService")
+local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -1459,10 +1460,19 @@ local function bounceToHub(player, message)
 	player:Kick(message)
 end
 
+local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
+
 local function onJoin(player)
-	if #Players:GetPlayers() > Config.Game.MaxPlayers then
-		bounceToHub(player, "Cette partie est pleine (" .. Config.Game.MaxPlayers .. " joueurs maximum). Réessaie avec une autre partie.")
+	local okJ, joinData = pcall(function()
+		return player:GetJoinData().TeleportData
+	end)
+	local admitted, why = Party.admitJoin(serverPartyId, okJ and joinData or nil, #Players:GetPlayers() - 1, Config.Game.MaxPlayers, Config.Game.roleFor(game.PlaceId))
+	if not admitted then
+		bounceToHub(player, why == "full" and ("Cette partie est pleine (" .. Config.Game.MaxPlayers .. " joueurs maximum). Réessaie avec une autre partie.") or "Tu ne fais pas partie de cette partie.")
 		return
+	end
+	if serverPartyId == nil and okJ and type(joinData) == "table" and type(joinData.partyId) == "string" then
+		serverPartyId = joinData.partyId
 	end
 	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
 	local d, noSave = Data.load(player)

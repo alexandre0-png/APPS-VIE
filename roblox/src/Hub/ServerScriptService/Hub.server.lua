@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local MemoryStoreService = game:GetService("MemoryStoreService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -63,6 +64,9 @@ end
 
 local P = PartyMod.new(Config, {
 	clock = os.clock,
+	guid = function()
+		return HttpService:GenerateGUID(false)
+	end,
 	reserve = function(placeId)
 		local code = TeleportService:ReserveServerAsync(placeId)
 		return code
@@ -217,7 +221,7 @@ remote.OnServerEvent:Connect(function(player, action, arg)
 		end
 		launching[player.UserId] = true
 		P.leave(player.UserId)
-		local res = P.join(arg, player, player.UserId)
+		local res = P.join(arg, player, player.UserId, friendsOf(player))
 		if not res.ok then
 			launching[player.UserId] = nil
 			say(player, "⚠️ " .. res.message, "error")

@@ -1172,6 +1172,27 @@ function Party.admit(count, max)
 	return count < max
 end
 
+-- Admission d'un joueur dans un serveur de JEU. serverPartyId = identifiant de partie du serveur (celui du premier arrivé, nil si aucun),
+-- data = TeleportData reçu à l'arrivée (nil si arrivée directe), count = joueurs déjà présents, role = Config.Game.roleFor(PlaceId).
+-- Liste blanche : sur un serveur de partie, seul un joueur envoyé par le hub avec LE MÊME partyId entre. Retourne (true) ou (false, raison).
+function Party.admitJoin(serverPartyId, data, count, max, role)
+	if not Party.admit(count, max) then
+		return false, "full"
+	end
+	if role ~= "game" then
+		return true -- Studio / place non publiée : pas de liste blanche
+	end
+	local pid = type(data) == "table" and data.partyId or nil
+	if serverPartyId ~= nil then
+		if pid ~= serverPartyId or data.from ~= "hub" then
+			return false, "not_member"
+		end
+	elseif pid ~= nil and data.from ~= "hub" then
+		return false, "not_member"
+	end
+	return true
+end
+
 function Party.new(Config, deps)
 	local G = Config.Game
 	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }
@@ -1270,8 +1291,16 @@ function Party.new(Config, deps)
 	end
 
 	---------------------------------------------------------------- registre des parties
-	local function newPartyId(host)
-		return tostring(host) .. "_" .. tostring(math.floor(deps.clock() * 1000))
+	-- Identifiant imprévisible (GUID injecté : HttpService:GenerateGUID). Jamais dérivé de l'hôte ni de l'heure.
+	local function newPartyId()
+		if deps.guid then
+			return deps.guid()
+		end
+		local t = {}
+		for i = 1, 4 do
+			t[i] = string.format("%08x", math.random(0, 0x7fffffff))
+		end
+		return table.concat(t, "-")
 	end
 
 	local function alive(e)
@@ -1293,7 +1322,7 @@ function Party.new(Config, deps)
 			if mode == "reserved" then
 				local okR, code = pcall(deps.reserve, gamePlace)
 				if okR and code then
-					local partyId = newPartyId(group.members[1] or 0)
+					local partyId = newPartyId()
 					data.partyId = partyId
 					local okT, errT = pcall(deps.teleport, group.players, gamePlace, code, data)
 					if okT then
@@ -1354,13 +1383,28 @@ function Party.new(Config, deps)
 	end
 
 	-- Rejoindre une partie en cours. Retourne { ok = true } ou { ok = false, reason = "full" | "gone" | "registry" | "teleport", message }.
-	function P.join(partyId, player, userId)
+	-- friends = ensemble d'amis du joueur calculé par le SERVEUR (jamais fourni par le client) : seuls les amis de l'hôte (ou un joueur déjà
+	-- inscrit) peuvent rejoindre, même s'ils connaissent l'identifiant de la partie.
+	function P.join(partyId, player, userId, friends)
+		if type(partyId) ~= "string" then
+			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." }
+		end
 		local okG, e = pcall(deps.store.get, partyId)
 		if not okG then
 			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
 		end
 		if not alive(e) or not e.open then
 			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." }
+		end
+		local isMember = false
+		for _, id in ipairs(e.members or {}) do
+			if id == userId then
+				isMember = true
+			end
+		end
+		if not isMember and not (type(friends) == "table" and friends[e.host]) then
+			log("refus : " .. tostring(userId) .. " n'est pas ami de l'hôte")
+			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." } -- même message : ne révèle pas son existence
 		end
 		-- réservation atomique de la place (compte + membre) ; refus si plein
 		local reserved = false
@@ -1421,6 +1465,7 @@ return Party
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local MemoryStoreService = game:GetService("MemoryStoreService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -1480,6 +1525,9 @@ end
 
 local P = PartyMod.new(Config, {
 	clock = os.clock,
+	guid = function()
+		return HttpService:GenerateGUID(false)
+	end,
 	reserve = function(placeId)
 		local code = TeleportService:ReserveServerAsync(placeId)
 		return code
@@ -1634,7 +1682,7 @@ remote.OnServerEvent:Connect(function(player, action, arg)
 		end
 		launching[player.UserId] = true
 		P.leave(player.UserId)
-		local res = P.join(arg, player, player.UserId)
+		local res = P.join(arg, player, player.UserId, friendsOf(player))
 		if not res.ok then
 			launching[player.UserId] = nil
 			say(player, "⚠️ " .. res.message, "error")
