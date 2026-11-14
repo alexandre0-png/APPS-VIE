@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local SpawnGate = require(Shared.SpawnGate)
+local SpawnLog = require(script.Parent.Parent.Common.SpawnLog)
 
 local Respawn = {}
 local hooks = nil -- { isRoundActive, checkpoint, onCurse }
@@ -65,6 +66,7 @@ local spawnPart = nil
 
 local function reload(player, pos)
 	if not gate:request(player, pos) then
+		SpawnLog.say("%s : chargement du personnage en attente (carte pas prête)", player.Name)
 		return -- carte pas prête : la demande attend l'ouverture de la porte
 	end
 	task.spawn(function()
@@ -75,6 +77,12 @@ local function reload(player, pos)
 			return
 		end
 		local char = player.Character
+		SpawnLog.say(
+			"%s : LoadCharacter fait, personnage en %s, position demandée %s",
+			player.Name,
+			SpawnLog.where(char),
+			pos and ("(%.1f, %.1f, %.1f)"):format(pos.X, pos.Y, pos.Z) or "point d'apparition"
+		)
 		if char and pos then
 			char:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
 		end
@@ -201,6 +209,12 @@ end
 -- (téléportation pendant la construction) sont chargés maintenant, au point d'apparition.
 function Respawn.setReady(part)
 	spawnPart = part
+	SpawnLog.say(
+		"carte prête, point d'apparition %s, %d joueur(s) présent(s)",
+		part and ("%s (%.1f, %.1f, %.1f)"):format(part.Name, part.Position.X, part.Position.Y, part.Position.Z)
+			or "ABSENT",
+		#Players:GetPlayers()
+	)
 	for _, player in ipairs(Players:GetPlayers()) do
 		pcall(function()
 			player.RespawnLocation = part

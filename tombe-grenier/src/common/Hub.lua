@@ -15,6 +15,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local HubRules = require(Shared.HubRules)
+local HubLayout = require(Shared.HubLayout)
+local SpawnLog = require(script.Parent.SpawnLog)
 
 local Hub = {}
 
@@ -69,6 +71,14 @@ end
 -- Téléporte un joueur à la position cf ; s'il n'a pas de personnage, il en reçoit un au bon endroit
 local function teleport(player, cf)
 	local char = player.Character
+	SpawnLog.say(
+		"%s : téléportation demandée vers (%.1f, %.1f, %.1f), personnage actuel en %s",
+		player.Name,
+		cf.Position.X,
+		cf.Position.Y,
+		cf.Position.Z,
+		SpawnLog.where(char)
+	)
 	if char then
 		char:PivotTo(cf)
 	else
@@ -130,6 +140,28 @@ local function updateQueues()
 			)
 		end
 	end
+end
+
+-- Limites invisibles : quatre murs et un plafond autour de la zone du hub, pour que personne ne sorte ni ne tombe.
+-- Ces pièces sont volontairement transparentes et collisionnables ; elles ne sont ni cliquables ni détectables.
+local function buildBounds()
+	local bounds = HubLayout.BOUNDS
+	local boundsFolder = Instance.new("Folder")
+	boundsFolder.Name = "Limites"
+	boundsFolder.Parent = folder
+	for _, b in ipairs(HubLayout.boundBoxes()) do
+		local wall = Instance.new("Part")
+		wall.Name = b.name
+		wall.Anchored = true
+		wall.CanCollide = true
+		wall.CanQuery = false
+		wall.CanTouch = false
+		wall.Transparency = 1
+		wall.Size = Vector3.new(b.size[1], b.size[2], b.size[3])
+		wall.Position = CENTER + Vector3.new(b.pos[1], b.pos[2], b.pos[3])
+		wall.Parent = boundsFolder
+	end
+	return bounds
 end
 
 -- Construit le hub (une seule fois, après la carte)
@@ -273,6 +305,8 @@ function Hub.build()
 		.. "Trois vies par joueur. Une mort en coûte une. Un coéquipier peut te réanimer.\n"
 		.. "Fouille la maison : papiers, livres, statues et objets répondent à une règle."
 	text.Parent = gui
+
+	buildBounds()
 
 	-- Décor du hub (mobilier, bougies, lampes, panneaux, poussière) : n'empêche jamais le hub de fonctionner
 	local okDecor, errDecor = pcall(function()

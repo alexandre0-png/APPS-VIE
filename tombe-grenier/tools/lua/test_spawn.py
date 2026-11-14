@@ -60,6 +60,8 @@ game = { GetService = function(_, n)
   return {}
 end }
 require = function(x) return x end
+local spawnlog = { say = function() end, where = function() return "?" end }
+script = { Parent = { Parent = { Common = { SpawnLog = spawnlog } } } }
 PLAYERS = Players
 """
 
@@ -125,7 +127,7 @@ class TestRespawnOrder(unittest.TestCase):
         a, b = g.newPlayer("alice"), g.newPlayer("bob")
         g.addPlayer(a)
         g.addPlayer(b)
-        spawn = lua.table(Name="CercueilSpawn")
+        spawn = lua.table(Name="CercueilSpawn", Position=lua.table(X=90, Y=24.5, Z=45))
         g.MAP_READY = True
         respawn.setReady(spawn)
         loads = g.log.loads
@@ -139,7 +141,7 @@ class TestRespawnOrder(unittest.TestCase):
     def test_player_after_ready_loads_immediately_at_spawn(self):
         lua, respawn = self.start()
         g = lua.globals()
-        respawn.setReady(lua.table(Name="CercueilSpawn"))
+        respawn.setReady(lua.table(Name="CercueilSpawn", Position=lua.table(X=90, Y=24.5, Z=45)))
         p = g.newPlayer("carol")
         g.addPlayer(p)
         self.assertEqual(len(g.log.loads), 1)
@@ -152,7 +154,7 @@ class TestRespawnOrder(unittest.TestCase):
         g.addPlayer(p)
         p.Parent = False
         g.PLAYERS.PlayerRemoving.Fire(g.PLAYERS.PlayerRemoving, p)
-        respawn.setReady(lua.table(Name="CercueilSpawn"))
+        respawn.setReady(lua.table(Name="CercueilSpawn", Position=lua.table(X=90, Y=24.5, Z=45)))
         self.assertEqual(len(g.log.loads), 0)
 
 
@@ -197,7 +199,8 @@ class TestServerOrder(unittest.TestCase):
 class TestSafetyAndReturnPath(unittest.TestCase):
     def test_safety_net_replaces_and_protects(self):
         text = read("src", "common", "SpawnSafety.lua")
-        self.assertIn("SpawnGate.belowFloor(root.Position.Y, Config.Spawn.VoidY)", text)
+        self.assertIn("SpawnGate.shouldRescue", text)
+        self.assertIn("Config.Spawn", text)
         self.assertIn("ForceField", text)
         self.assertIn("AssemblyLinearVelocity = Vector3.zero", text)
         self.assertIn("char:PivotTo(spawn.CFrame", text)

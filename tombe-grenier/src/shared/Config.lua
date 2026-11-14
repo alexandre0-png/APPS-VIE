@@ -48,6 +48,10 @@ Config.Spawn = {
 	VoidY = -40, -- sous cette hauteur, le personnage est replacé (la maison descend à -12)
 	CheckInterval = 0.2, -- secondes entre deux contrôles
 	Protect = 3, -- secondes de protection après un replacement
+	HoldSeconds = 2.5, -- le personnage reste ancré à l'apparition : le sol a le temps d'arriver chez le client
+	FreefallSeconds = 1.5, -- chute libre plus longue que cela pendant EarlyWindow : replacement immédiat
+	EarlyWindow = 10, -- secondes après l'apparition pendant lesquelles la chute libre est surveillée
+	Debug = true, -- traces [Spawn] dans la console serveur
 	ReadyTimeout = 30, -- secondes d'attente du point d'apparition avant d'ouvrir la porte malgré tout
 }
 

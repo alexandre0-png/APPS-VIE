@@ -73,8 +73,10 @@ class TestProjects(unittest.TestCase):
                 text = open(os.path.join(dirpath, name), encoding="utf-8").read()
                 for m in re.finditer(r"require\(([^)]*)\)", text):
                     target = m.group(1)
+                    sibling = re.fullmatch(r"script\.Parent\.(\w+)", target.strip())
+                    in_common = sibling is not None and os.path.exists(os.path.join(common_dir, sibling.group(1) + ".lua"))
                     self.assertTrue(
-                        any(a in target for a in allowed) or "script.Parent.Common" in target,
+                        any(a in target for a in allowed) or "script.Parent.Common" in target or in_common,
                         f"{name} requiert une ressource hors hub : {target}",
                     )
 

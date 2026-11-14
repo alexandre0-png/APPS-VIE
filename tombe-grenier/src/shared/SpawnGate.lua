@@ -48,4 +48,17 @@ function SpawnGate.belowFloor(y, voidY)
 	return y < voidY
 end
 
+-- Faut-il replacer le personnage ? state = { y, age (secondes depuis l'apparition), freefall (secondes de
+-- chute libre en cours) }. Oui s'il est sous le sol de la carte, ou en chute libre depuis plus de
+-- freefallSeconds pendant les earlyWindow premières secondes. Renvoie (vrai, raison) ou (faux).
+function SpawnGate.shouldRescue(state, cfg)
+	if SpawnGate.belowFloor(state.y, cfg.VoidY) then
+		return true, "sous le sol"
+	end
+	if state.age <= cfg.EarlyWindow and state.freefall > cfg.FreefallSeconds then
+		return true, "chute libre"
+	end
+	return false
+end
+
 return SpawnGate

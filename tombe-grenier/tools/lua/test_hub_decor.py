@@ -199,6 +199,74 @@ class TestLayoutPlacement(Base):
                 self.assertLessEqual(d["size"][1], 0.1)
 
 
+class TestHubBounds(Base):
+    """Murs et plafond invisibles : personne ne sort de la zone du hub ni ne tombe."""
+
+    def boxes(self):
+        out = []
+        for i in range(1, len(self.L.boundBoxes()) + 1):
+            b = self.L.boundBoxes()[i]
+            out.append({"name": b["name"], "size": [b["size"][j] for j in (1, 2, 3)], "pos": [b["pos"][j] for j in (1, 2, 3)]})
+        return out
+
+    def extent(self, b):
+        return [(b["pos"][k] - b["size"][k] / 2, b["pos"][k] + b["size"][k] / 2) for k in range(3)]
+
+    def test_four_walls_and_a_ceiling(self):
+        names = sorted(b["name"] for b in self.boxes())
+        self.assertEqual(names, ["Mur est", "Mur nord", "Mur ouest", "Mur sud", "Plafond"])
+
+    def test_walls_touch_the_floor_edge_and_leave_no_gap(self):
+        half = self.L.HALF
+        by = {b["name"]: self.extent(b) for b in self.boxes()}
+        # face intérieure de chaque mur = bord du sol
+        self.assertAlmostEqual(by["Mur nord"][2][1], -half)
+        self.assertAlmostEqual(by["Mur sud"][2][0], half)
+        self.assertAlmostEqual(by["Mur ouest"][0][1], -half)
+        self.assertAlmostEqual(by["Mur est"][0][0], half)
+        # les murs nord et sud couvrent les angles des murs est et ouest : aucune fente
+        for name in ("Mur nord", "Mur sud"):
+            self.assertLessEqual(by[name][0][0], by["Mur ouest"][0][0])
+            self.assertGreaterEqual(by[name][0][1], by["Mur est"][0][1])
+        # du sol (y = 0) jusqu'au plafond : aucune ouverture en hauteur
+        for name in ("Mur nord", "Mur sud", "Mur ouest", "Mur est"):
+            self.assertLessEqual(by[name][1][0], 0)
+        ceiling = by["Plafond"]
+        self.assertAlmostEqual(ceiling[1][0], by["Mur nord"][1][1], msg="le plafond repose sur les murs")
+        for axis in (0, 2):
+            self.assertLessEqual(ceiling[axis][0], -half)
+            self.assertGreaterEqual(ceiling[axis][1], half)
+
+    def test_height_stops_jumps_and_covers_the_decor(self):
+        top = max(self.extent(b)[1][1] for b in self.boxes() if b["name"] != "Plafond")
+        self.assertGreaterEqual(top, 30)
+        beams = [d for d in self.items if d["kind"] == "poutre"]
+        self.assertTrue(all(d["y"] < top for d in beams))
+
+    def test_bounds_part_count_is_tiny(self):
+        self.assertEqual(len(self.boxes()), 5)
+
+    def test_builder_properties(self):
+        hub = read("src", "common", "Hub.lua")
+        block = hub[hub.index("local function buildBounds"):hub.index("function Hub.build")]
+        for needle in ("wall.Anchored = true", "wall.CanCollide = true", "wall.CanQuery = false", "wall.CanTouch = false", "wall.Transparency = 1"):
+            self.assertIn(needle, block)
+        for banned in ("ProximityPrompt", "ClickDetector", "TouchInterest"):
+            self.assertNotIn(banned, block)
+        self.assertIn("buildBounds()", hub)
+
+    def test_floor_covers_the_whole_playable_zone(self):
+        hub = read("src", "common", "Hub.lua")
+        self.assertIn("Vector3.new(60, 2, 60)", hub)  # sol 60 x 60 = 2 x HALF
+        self.assertEqual(self.L.HALF * 2, 60)
+
+    def test_pads_and_decor_inside_the_walls(self):
+        half = self.L.HALF
+        for pad in (self.L.PADS.solo, self.L.PADS.duo):
+            self.assertLessEqual(abs(pad.x) + pad.half, half)
+            self.assertLessEqual(abs(pad.z) + pad.half, half)
+
+
 class TestDecorSource(unittest.TestCase):
     def setUp(self):
         self.src = read("src", "common", "HubDecor.lua")

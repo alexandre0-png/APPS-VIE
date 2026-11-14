@@ -20,6 +20,23 @@ HubLayout.PILLAR_HALF = 1.5
 HubLayout.BENCH = { x = 0, z = -18, hx = 5, hz = 1 }
 HubLayout.BOARD = { x = 0, z = -29, hx = 11, hz = 0.3 }
 
+-- Limites invisibles : le sol (côté 2 x HALF) est entouré de quatre murs et couvert d'un plafond.
+-- Les murs débordent aux angles et le plafond couvre tout : aucune ouverture.
+HubLayout.BOUNDS = { thickness = 2, height = 40 }
+
+function HubLayout.boundBoxes()
+	local half, t, h = HubLayout.HALF, HubLayout.BOUNDS.thickness, HubLayout.BOUNDS.height
+	local span = 2 * (half + t)
+	local mid = half + t / 2
+	return {
+		{ name = "Mur nord", size = { span, h, t }, pos = { 0, h / 2, -mid } },
+		{ name = "Mur sud", size = { span, h, t }, pos = { 0, h / 2, mid } },
+		{ name = "Mur ouest", size = { t, h, span }, pos = { -mid, h / 2, 0 } },
+		{ name = "Mur est", size = { t, h, span }, pos = { mid, h / 2, 0 } },
+		{ name = "Plafond", size = { span, t, span }, pos = { 0, h + t / 2, 0 } },
+	}
+end
+
 -- Limites : pièces totales du décor ajouté, lumières (par rapport à RoomBudget.qualityLimits)
 HubLayout.MAX_PARTS = 250
 HubLayout.EXISTING_LIGHTS = 5 -- lampe centrale + une lueur par pilier (Hub.build)

@@ -35,12 +35,22 @@ local Replay = require(Shared.Replay)
 local Tutorial = require(Shared.Tutorial)
 local Profile = require(script.Parent.Common.Profile)
 local SpawnSafety = require(script.Parent.Common.SpawnSafety)
+local SpawnLog = require(script.Parent.Common.SpawnLog)
 
 -- Aucun personnage ne se charge tant que la carte n'existe pas : un joueur téléporté pendant le chargement
 -- des modèles ou la construction de la carte tomberait dans le vide. Respawn.setReady rouvre la porte.
 pcall(function()
 	Players.CharacterAutoLoads = false
 end)
+
+SpawnLog.say(
+	"démarrage du serveur : PlaceId=%d, rôle=%s, StreamingEnabled=%s, CharacterAutoLoads=%s, %d joueur(s) déjà là",
+	game.PlaceId,
+	Hub.role(),
+	tostring(workspace.StreamingEnabled),
+	tostring(Players.CharacterAutoLoads),
+	#Players:GetPlayers()
+)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
 pcall(function()
@@ -365,6 +375,7 @@ task.spawn(function()
 	if not activeSpawn() then
 		warn("[Spawn] aucun point d'apparition actif : chargement des personnages malgré tout")
 	end
+	SpawnLog.say("carte construite après %.1f s d'attente du point d'apparition", waited)
 	Respawn.setReady(activeSpawn())
 end)
 
