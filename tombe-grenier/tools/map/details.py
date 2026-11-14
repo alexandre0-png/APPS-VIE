@@ -89,3 +89,10 @@ ROOM_DETAILS["couloir"] = ["griffures", "griffures", "empreintes", "toile d'arai
 ROOM_DETAILS["sdb"] = ["flaque", "tache sombre", "tache sombre", "verre brisé", "griffures", "tas de linge"]
 ROOM_DETAILS["deb"] = ["caisse défoncée", "pile de journaux", "toile d'araignée", "toile d'araignée", "jouet cassé",
                        "tricycle", "seau"]
+
+# --- Grenier : la chambre secrète de l'enfant et la tombe.
+ROOM_DETAILS["gro"] = ["dessin à la craie", "dessin à la craie", "jouet cassé", "poupée", "empreintes", "toise",
+                       "griffures", "toile d'araignée", "toile d'araignée", "papiers épars", "bougie fondue",
+                       "craie au sol"]
+ROOM_DETAILS["tombe"] = ["cendres", "bougie fondue", "bougie fondue", "bougie fondue", "terre", "empreintes",
+                         "dessin à la craie", "fleurs fanées", "papiers épars", "griffures", "craie au sol"]
