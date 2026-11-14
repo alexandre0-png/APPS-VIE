@@ -60,7 +60,7 @@ end
 function Data.default()
 	local d = {
 		ver = VERSION,
-		coins = 50,
+		coins = Config.START_COINS,
 		speed = 0,
 		rb = 0,
 		up = {},

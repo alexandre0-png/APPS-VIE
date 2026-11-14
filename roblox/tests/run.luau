@@ -59,8 +59,8 @@ check("stealTime(8) ~ 0.354", near(Config.stealTime(8), 0.3542, 0.0005))
 check("walkSpeed(0) = 16", near(Config.walkSpeed(0), 16))
 check("walkSpeed croît", Config.walkSpeed(100) > Config.walkSpeed(10))
 check("walkSpeed plafonné à 60", Config.walkSpeed(1e9) <= 60)
-check("rebirthCost(0)", Config.rebirthCost(0) == 2e6)
-check("rebirthCost(1)", Config.rebirthCost(1) == 1.2e7)
+check("rebirthCost(0)", Config.rebirthCost(0) == 5e7)
+check("rebirthCost(1)", Config.rebirthCost(1) == 3.5e8)
 
 -- pets ----------------------------------------------------------------------------------
 check("petIncome Poussin normal", near(Config.petIncome(1, 2, 1), 1))
@@ -1040,6 +1040,36 @@ do
 		return true
 	end)())
 	check("EggFx : raretés supérieures plus marquées (le légendaire et le glitch ont un halo, le rouge non)", Config.EggFx.looks.legendary.halo ~= nil and Config.EggFx.looks.glitch.halo ~= nil and Config.EggFx.looks.red.halo == nil)
+end
+
+-- Économie : simulation de 30 minutes d'un joueur-robot (5 graines) ------------------------------------------------------
+do
+	local Economy = luau.load(fs.readFile("roblox/tests/Economy.lua"), { debugName = "Economy" })()
+	local allOk, why = true, ""
+	local function expect(cond, msg)
+		if not cond and allOk then
+			allOk, why = false, msg
+		end
+	end
+	for seed = 1, 5 do
+		local L = Economy.simulate(Config, Rules, 30, { seed = seed })
+		local f = L.final
+		local tag = " (graine " .. seed .. ")"
+		expect(L.firstIncome10 ~= nil and L.firstIncome10 <= 120, "10 pièces/s en moins de 2 min" .. tag)
+		expect(L.firstIncome100 ~= nil and L.firstIncome100 <= 300, "100 pièces/s en moins de 5 min" .. tag)
+		expect(L.firstIncome1000 ~= nil and L.firstIncome1000 <= 900, "1000 pièces/s en moins de 15 min" .. tag)
+		expect(L.firstEggTier[2] ~= nil and L.firstEggTier[2] >= 60 and L.firstEggTier[2] <= 200, "premier œuf Rare entre 1 et 3,3 min" .. tag)
+		expect(L.firstEggTier[3] ~= nil and L.firstEggTier[3] >= 150 and L.firstEggTier[3] <= 700, "premier œuf Épique entre 2,5 et 11,7 min" .. tag)
+		expect(L.firstEggTier[4] == nil or L.firstEggTier[4] >= 500, "pas d'œuf Légendaire avant 8 min" .. tag)
+		expect(L.firstEggTier[5] == nil and L.firstEggTier[6] == nil, "ni Mythique ni Cosmique en 30 min" .. tag)
+		expect(f.income >= 1000 and f.income <= 100000, "revenu à 30 min entre 1 000 et 100 000 /s" .. tag)
+		expect(L.maxStall <= 900, "jamais plus de 15 min sans progression de revenu" .. tag)
+		expect(f.coins < Config.rebirthCost(0), "renaissance hors de portée avant 30 min" .. tag)
+		expect(f.up.slots >= 3 and f.up.food >= 5, "les améliorations de base sont achetées" .. tag)
+	end
+	check("Économie : rythme des 30 premières minutes" .. (allOk and "" or " : " .. why), allOk)
+	local a, b = Economy.simulate(Config, Rules, 5, { seed = 7 }), Economy.simulate(Config, Rules, 5, { seed = 7 })
+	check("Économie : simulation déterministe (même graine, même résultat)", a.final.coins == b.final.coins and a.final.hatched == b.final.hatched)
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

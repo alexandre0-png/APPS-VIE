@@ -16,7 +16,10 @@ Config.TIERS = {
 	{ name = "Mythique", color = Color3.fromRGB(255, 77, 109) },
 	{ name = "Cosmique", color = Color3.fromRGB(61, 255, 208) },
 }
-Config.EGG_PRICE = { 25, 300, 3500, 45000, 650000, 7000000 }
+-- Prix et durées calibrés avec la simulation tests/Economy.lua (joueur-robot) : ~15 pièces/s après 1 min, œuf Rare vers 2 min,
+-- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
+Config.START_COINS = 50
+Config.EGG_PRICE = { 25, 900, 20000, 350000, 6000000, 130000000 }
 Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
 
 -- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
@@ -94,11 +97,11 @@ function Config.walkSpeed(speedStat)
 end
 
 function Config.rebirthCost(rb)
-	return 2e6 * 6 ^ rb
+	return 5e7 * 7 ^ rb
 end
 
 Config.UPGRADES = {
-	{ key = "slots", name = "Emplacements", emoji = "🏠", max = 8, cost = function(l) return 400 * 5 ^ l end,
+	{ key = "slots", name = "Emplacements", emoji = "🏠", max = 8, cost = function(l) return 500 * 6 ^ l end,
 		desc = function(l) return (4 + l) .. " → " .. (5 + l) .. " emplacements" end },
 	{ key = "tm", name = "Tapis puissant", emoji = "🏃", max = 15, cost = function(l) return 100 * 2.4 ^ l end,
 		desc = function(l) return string.format("Entraînement x%.2f → x%.2f", 1 + 0.35 * l, 1 + 0.35 * (l + 1)) end },
@@ -106,11 +109,11 @@ Config.UPGRADES = {
 		desc = function(l) return string.format("Vol en %.2fs → %.2fs", Config.stealTime(l), Config.stealTime(l + 1)) end },
 	{ key = "bag", name = "Grand sac", emoji = "🎒", max = 3, cost = function(l) return 1500 * 8 ^ l end,
 		desc = function(l) return "Porter " .. (1 + l) .. " → " .. (2 + l) .. " œufs" end },
-	{ key = "inc", name = "Incubateur", emoji = "🔥", max = 10, cost = function(l) return 150 * 3.2 ^ l end,
+	{ key = "inc", name = "Incubateur", emoji = "🔥", max = 10, cost = function(l) return 200 * 3.8 ^ l end,
 		desc = function(l) return string.format("Éclosion -%d%% → -%d%%", math.floor((1 - 0.9 ^ l) * 100 + 0.5), math.floor((1 - 0.9 ^ (l + 1)) * 100 + 0.5)) end },
-	{ key = "luck", name = "Trèfle", emoji = "🍀", max = 10, cost = function(l) return 500 * 3.4 ^ l end,
+	{ key = "luck", name = "Trèfle", emoji = "🍀", max = 10, cost = function(l) return 600 * 4 ^ l end,
 		desc = function(l) return "Pet supérieur " .. (3 * l) .. "% → " .. (3 * (l + 1)) .. "%" end },
-	{ key = "food", name = "Festin", emoji = "🍖", max = 20, cost = function(l) return 250 * 2.2 ^ l end,
+	{ key = "food", name = "Festin", emoji = "🍖", max = 20, cost = function(l) return 300 * 2.8 ^ l end,
 		desc = function(l) return "Revenus +" .. (20 * l) .. "% → +" .. (20 * (l + 1)) .. "%" end },
 	{ key = "lock", name = "Verrou", emoji = "🔒", max = 6, cost = function(l) return 300 * 3.5 ^ l end,
 		desc = function(l) return "Œufs protégés " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * l) .. "s → " .. (Config.SHIELD_BASE + Config.SHIELD_PER_LEVEL * (l + 1)) .. "s" end },
@@ -2628,7 +2631,7 @@ end
 function Data.default()
 	local d = {
 		ver = VERSION,
-		coins = 50,
+		coins = Config.START_COINS,
 		speed = 0,
 		rb = 0,
 		up = {},
