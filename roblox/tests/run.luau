@@ -1143,8 +1143,8 @@ end
 do
 	local Party = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Party.lua"), { debugName = "Party" })()
 	local G = Config.Game
-	check("Game : lieux configurés (hub et jeu)", G.Places.hub == 106358102689021 and G.Places.game == 115261336085924)
-	check("Game.roleFor : hub, jeu, inconnu (Studio non publié)", Config.Game.roleFor(106358102689021) == "hub" and Config.Game.roleFor(115261336085924) == "game" and Config.Game.roleFor(0) == "unknown")
+	check("Game : lieux configurés (hub et jeu)", G.Places.hub == 115261336085924 and G.Places.game == 87012762353093 and G.Places.hub ~= G.Places.game)
+	check("Game.roleFor : hub, jeu, inconnu (Studio non publié)", Config.Game.roleFor(115261336085924) == "hub" and Config.Game.roleFor(87012762353093) == "game" and Config.Game.roleFor(12345) == "unknown" and Config.Game.roleFor(0) == "unknown")
 	check("Game : tailles 1 à 5, plafond 5, autant de bases que de joueurs", #G.Sizes == 5 and G.Sizes[1] == 1 and G.Sizes[5] == 5 and G.MaxPlayers == 5 and Config.PLOT_COUNT == G.MaxPlayers)
 	check("Party.admit : 4 joueurs -> un de plus accepté, 5 -> refusé", Party.admit(4, 5) == true and Party.admit(5, 5) == false)
 

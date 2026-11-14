@@ -11,12 +11,11 @@ Config.PLOT_COUNT = 5 -- nombre de bases (= Config.Game.MaxPlayers : une partie 
 ---------------------------------------------------------------- Architecture hub + parties
 -- Deux lieux : le HUB (petit lieu léger : zones de lancement 1 à 5 joueurs, parties des amis) et le lieu de JEU (la partie, 5 joueurs max).
 -- Le rôle d'un serveur se déduit de game.PlaceId (Config.Game.roleFor). Identifiants = LIEUX (place ids), pas des univers.
--- ATTENTION : TeleportService:ReserveServer et MemoryStoreService sont limités à UNE expérience (univers). Si le hub et le jeu sont deux
--- expériences distinctes, la réservation vers l'autre expérience peut être refusée : le code essaie alors les replis de `Fallbacks`
--- puis prévient le joueur. Le plus sûr : faire du hub un second lieu de l'expérience du jeu (Creator Hub > Lieux > Ajouter) et changer
--- seulement Places.hub ci-dessous.
+-- Les deux lieux appartiennent à la MÊME expérience « Jeu des oeufs » (univers 10776613087) : la réservation de serveur privé
+-- (TeleportService) et le registre MemoryStore du hub fonctionnent donc entre eux. Si la réservation échoue malgré tout, le code essaie
+-- les replis de `Fallbacks` (serveur public) puis prévient le joueur. Hub = lieu de départ de l'expérience.
 Config.Game = {
-	Places = { hub = 106358102689021, game = 115261336085924 },
+	Places = { hub = 115261336085924, game = 87012762353093 },
 	MaxPlayers = 5, -- plafond absolu d'un serveur de jeu (réglage Creator Dashboard : Max Players = 5 aussi)
 	Sizes = { 1, 2, 3, 4, 5 }, -- tailles de partie proposées par les zones du hub
 	CountdownFull = 5, -- secondes avant le départ d'un groupe complet

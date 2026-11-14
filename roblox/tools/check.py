@@ -200,6 +200,26 @@ for name, mine, other in (("ChipeOeufs.rbxlx", game_files, hub_files), ("Hub.rbx
         if body in txt:
             fail(f"{os.path.relpath(f, ROOT)} ne doit PAS figurer dans {name}")
 
+print("[5b] Projets Rojo : JSON valide et chemins existants (substitut partiel de `rojo build`, non exécuté ici)")
+def _paths(node, out):
+    if isinstance(node, dict):
+        if "$path" in node:
+            out.append(node["$path"])
+        for v in node.values():
+            _paths(v, out)
+for proj in ("default.project.json", "game.project.json", "hub.project.json"):
+    try:
+        data = json.load(open(os.path.join(ROOT, proj), encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        fail(f"{proj} : JSON invalide ({e})")
+        continue
+    paths = []
+    _paths(data, paths)
+    for rel in paths:
+        if not os.path.isdir(os.path.join(ROOT, rel)):
+            fail(f"{proj} : chemin « {rel} » introuvable")
+    print(f"  ✓ {proj} ({len(paths)} chemins)")
+
 print("[6/6] Tests de logique pure (Lua 5.x via lupa, à défaut de Lune)")
 try:
     import lupa  # noqa: F401

@@ -18,9 +18,9 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 
 ## 1ter. Hub et parties (nouveau)
 
-- [ ] **Creator Dashboard, lieu de JEU (115261336085924) : Max Players = 5** (le code refuse un 6e joueur et le renvoie au hub, mais le réglage évite des essais inutiles).
-- [ ] Publier **deux fichiers** : `roblox/build/Hub.rbxlx` dans le lieu hub (106358102689021) et `roblox/build/ChipeOeufs.rbxlx` dans le lieu de jeu (115261336085924). Activer **Enable Studio Access to API Services** dans les deux, et **Allow Third Party Teleports** (Game Settings > Security) dans le lieu de jeu.
-- [ ] **Décision importante** : le hub et le jeu sont dans deux expériences différentes (univers 10776613783 et 10776613087). Roblox limite la réservation de serveurs privés et MemoryStore à une seule expérience : les parties privées avec amis peuvent être refusées (le code bascule alors sur un serveur public, sans rejoindre entre amis). Pour que tout marche : Creator Hub > expérience « Jeu des oeufs » > Lieux > **ajouter le hub comme second lieu** de cette expérience, puis me donner son nouvel identifiant (ou changer `Config.Game.Places.hub`). Je n'ai pas pu le tester.
+- [ ] **Creator Dashboard, lieu de JEU (87012762353093) : Max Players = 5** (le code refuse un 6e joueur et le renvoie au hub, mais le réglage évite des essais inutiles).
+- [ ] Publier **deux fichiers** : `roblox/build/Hub.rbxlx` dans le lieu hub (115261336085924, lieu de départ) et `roblox/build/ChipeOeufs.rbxlx` dans le lieu de jeu (87012762353093), tous deux dans l'expérience « Jeu des oeufs ». Activer **Enable Studio Access to API Services** (réglage de l'expérience, valable pour les deux lieux).
+- [ ] Vérifier dans Studio que la téléportation hub → jeu (serveur réservé) fonctionne maintenant que les deux lieux sont dans la même expérience : si elle échoue, le hub affiche « Impossible de lancer la partie » et la sortie contient la raison (`[Party] lancement impossible`).
 - [ ] Tester dans Studio (Test > Clients and Servers) : entrer dans un portail, compte à rebours, départ ; liste des amis ; interface bien aux bords sur téléphone (émulateur) et PC.
 - [ ] Vérifier la grande carte : les trois domaines (ferme, bois, citadelle), les repères, les trois secrets (Config.SECRETS), l'ambiance qui change en entrant dans un domaine, les performances sur téléphone (la sortie affiche le nombre de Parts au démarrage).
 
