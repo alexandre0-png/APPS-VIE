@@ -7,7 +7,7 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
    - `hub.rbxl` (accueil) ;
    - `game.rbxl` (partie).
    Fichiers construits par Rojo, à ouvrir dans Studio puis publier (Fichier > Publier sur Roblox).
-3. **Renseigner les identifiants** dans `src/shared/Config.lua` : `Config.Game.Places` (hub et partie) une fois publiés.
+3. **Publication** : les identifiants sont renseignés (`Config.Game.Places` : hub `10776612735`, partie `77452764500707`, expérience « Sortir Du Grenier »). Tu publies les deux lieux toi-même via l'API ou Studio ; rien n'a été publié par Claude.
 4. **Tester à deux joueurs** dans Studio : réveil, énigmes, trappes, mort et réanimation, fin, retour au hub.
 5. **Achats Robux** (optionnels) : créer les Game Pass et produits sur Roblox, puis renseigner leurs identifiants dans `Config.Shop`. Tant qu'ils valent 0, les achats sont désactivés.
 6. **Vérifier les nouveautés dans Studio** :
