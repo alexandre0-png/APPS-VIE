@@ -23,6 +23,8 @@ local ServerStorage = game:GetService("ServerStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Data = require(Shared.MapData)
 local Rng = require(Shared.Rng)
+local RoomMood = require(Shared.RoomMood)
+local Audio = require(Shared.Audio)
 local DecorKit = require(script.Parent.DecorKit)
 local Atmosphere = require(script.Parent.Atmosphere)
 
@@ -636,6 +638,51 @@ function MapBuilder.powerOn(duration)
 end
 
 -- Construit la carte fixe. Idempotent : reconstruit tout si la carte existe déjà.
+-- Ambiance par pièce : lueur propre, son d'ambiance très bas (en boucle) et repère visuel au sol.
+-- Ne change ni les lampes, ni les pièces sombres, ni la progression.
+local function applyMoods(root)
+	local folder = Instance.new("Folder")
+	folder.Name = "Ambiances"
+	folder.Parent = root
+	for _, r in ipairs(Data.rooms) do
+		local mood = RoomMood.rooms[r.id]
+		if mood then
+			local base = Data.base[r.level] or 0
+			local cx, cz = (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2
+			local anchor = Instance.new("Part")
+			anchor.Name = "Lueur_" .. r.id
+			anchor.Anchored = true
+			anchor.CanCollide = false
+			anchor.CanQuery = false
+			anchor.CanTouch = false
+			anchor.Transparency = 1
+			anchor.Size = Vector3.new(1, 1, 1)
+			anchor.Position = Vector3.new(cx, base + Data.H * 0.6, cz)
+			anchor.Parent = folder
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(mood.light[1], mood.light[2], mood.light[3])
+			light.Brightness = mood.brightness
+			light.Range = mood.range
+			light.Shadows = false
+			light.Parent = anchor
+			if mood.sound and mood.volume > 0 then
+				pcall(Audio.play, mood.sound, anchor, { volume = mood.volume, range = 20, looped = true })
+			end
+			-- Repère au sol : une bande de couleur sans collision, nommée d'après le détail
+			local landmark = Instance.new("Part")
+			landmark.Name = "Repère " .. mood.detail[1]
+			landmark.Anchored = true
+			landmark.CanCollide = false
+			landmark.CanQuery = false
+			landmark.Size = Vector3.new(3, 0.1, 2)
+			landmark.Position = Vector3.new(cx, base + 0.05, cz)
+			landmark.Color = Color3.fromRGB(mood.detail[2][1], mood.detail[2][2], mood.detail[2][3])
+			landmark.Material = Enum.Material.Fabric
+			landmark.Parent = folder
+		end
+	end
+end
+
 -- Décor autonome (sans collision, jamais dans une progression) : chaque entrée est posée si son modèle est chargé
 local STANDALONE_DECOR = {
 	{ "lampe horreur", 2, 0, 42 },
@@ -686,6 +733,7 @@ function MapBuilder.build()
 	buildSpawn(root)
 	setLighting()
 	pcall(placeStandaloneDecor, root)
+	pcall(applyMoods, root)
 	pcall(Atmosphere.build)
 	print(("[MapBuilder] carte fixe construite : %d murs, %d meubles, %d lampes")
 		:format(#Data.walls, #Data.furniture, #lamps))
