@@ -39,9 +39,37 @@ local SpawnLog = require(script.Parent.Common.SpawnLog)
 
 -- Aucun personnage ne se charge tant que la carte n'existe pas : un joueur téléporté pendant le chargement
 -- des modèles ou la construction de la carte tomberait dans le vide. Respawn.setReady rouvre la porte.
-pcall(function()
-	Players.CharacterAutoLoads = false
-end)
+-- Dans le lieu hub, ce script n'a pas de carte à attendre (et ne devrait pas tourner : le hub publie hub.project.json) :
+-- le moteur garde le chargement automatique, pour qu'une erreur plus bas ne laisse jamais le joueur sans personnage.
+if Hub.role() == "hub" then
+	warn(
+		"[Spawn] ATTENTION : le script de PARTIE tourne dans le lieu HUB. Le fichier publié sur ce lieu est-il game.rbxl au lieu de hub.rbxl ?"
+	)
+else
+	pcall(function()
+		Players.CharacterAutoLoads = false
+	end)
+end
+
+-- Point d'apparition actif : celui du hub (lieu unique ou hub), sinon le cercueil du grenier
+local function activeSpawn()
+	local hubFolder = workspace:FindFirstChild("Hub")
+	local hubSpawn = hubFolder and hubFolder:FindFirstChild("HubSpawn")
+	if hubSpawn and hubSpawn.Enabled then
+		return hubSpawn
+	end
+	local root = workspace:FindFirstChild("TombeMap")
+	local coffin = root and root:FindFirstChild("CercueilSpawn")
+	if coffin and coffin.Enabled then
+		return coffin
+	end
+	return nil
+end
+
+-- Filet de sécurité lancé tout de suite, avant les chargements qui attendent : même si la suite du script échoue,
+-- un joueur sans personnage 5 s après son arrivée en reçoit un (au point d'apparition actif, ou malgré tout
+-- après Config.Spawn.ReadyTimeout), et tout personnage qui tombe sous le sol est replacé.
+SpawnSafety.start(activeSpawn)
 
 SpawnLog.say(
 	"démarrage du serveur : PlaceId=%d, rôle=%s, StreamingEnabled=%s, CharacterAutoLoads=%s, %d joueur(s) déjà là",
@@ -349,23 +377,7 @@ Respawn.init({
 	end,
 })
 
--- Point d'apparition actif : celui du hub (lieu unique ou hub), sinon le cercueil du grenier
-local function activeSpawn()
-	local hubFolder = workspace:FindFirstChild("Hub")
-	local hubSpawn = hubFolder and hubFolder:FindFirstChild("HubSpawn")
-	if hubSpawn and hubSpawn.Enabled then
-		return hubSpawn
-	end
-	local root = workspace:FindFirstChild("TombeMap")
-	local coffin = root and root:FindFirstChild("CercueilSpawn")
-	if coffin and coffin.Enabled then
-		return coffin
-	end
-	return nil
-end
-
 -- La carte est construite : les personnages peuvent se charger. Filet de sécurité pour la suite.
-SpawnSafety.start(activeSpawn)
 task.spawn(function()
 	local waited = 0
 	while not activeSpawn() and waited < Config.Spawn.ReadyTimeout do

@@ -17,17 +17,44 @@ Config.Debug.PlaceRole = Config.Debug.PlaceRole or "hub"
 local Hub = require(script.Parent.Common.Hub)
 local Profile = require(script.Parent.Common.Profile)
 local SpawnSafety = require(script.Parent.Common.SpawnSafety)
+local SpawnLog = require(script.Parent.Common.SpawnLog)
 
--- Le hub ne construit que l'accueil ; les joueurs y arrivent directement
-Hub.build()
-Hub.enter()
+-- Le lieu hub charge les personnages tout seul (rien d'autre ne le fait ici) : réglage forcé, car la propriété
+-- Players.CharacterAutoLoads est enregistrée avec le lieu.
+pcall(function()
+	Players.CharacterAutoLoads = true
+end)
+SpawnLog.say(
+	"hub : démarrage, PlaceId=%d, rôle=%s, StreamingEnabled=%s, CharacterAutoLoads=%s, %d joueur(s) déjà là",
+	game.PlaceId,
+	Hub.role(),
+	tostring(workspace.StreamingEnabled),
+	tostring(Players.CharacterAutoLoads),
+	#Players:GetPlayers()
+)
 
--- Filet de sécurité : un joueur arrivé par téléportation (ou retour de la partie) qui tomberait sous le sol
--- est replacé sur le point d'apparition du hub
+-- Filet de sécurité, lancé avant toute construction : un joueur sans personnage 5 s après son arrivée en reçoit un ;
+-- un joueur arrivé par téléportation (ou de retour de la partie) qui tomberait sous le sol est replacé sur le
+-- point d'apparition du hub.
 SpawnSafety.start(function()
 	local folder = workspace:FindFirstChild("Hub")
 	return folder and folder:FindFirstChild("HubSpawn")
 end)
+
+-- Le hub ne construit que l'accueil ; les joueurs y arrivent directement. Une erreur de construction n'arrête
+-- pas le script : le hub reste jouable et la boucle de lancement tourne.
+local built, buildError = pcall(Hub.build)
+if not built then
+	warn("[Hub] construction du hub en erreur : " .. tostring(buildError))
+end
+local hubFolder = workspace:FindFirstChild("Hub")
+local hubSpawn = hubFolder and hubFolder:FindFirstChild("HubSpawn")
+SpawnLog.say(
+	"hub : construction %s, point d'apparition %s",
+	built and "terminée" or "EN ERREUR",
+	hubSpawn and "présent" or "ABSENT"
+)
+Hub.enter()
 
 -- Rang et titre affichés au-dessus de chaque joueur du hub
 local function greet(player)

@@ -920,3 +920,22 @@ task.spawn(function()
 		task.wait(0.25)
 	end
 end)
+
+-- Filet de sécurité de la caméra : hors cinématique, la caméra suit le personnage (type Custom, sujet = son Humanoid).
+-- Une cinématique interrompue par une erreur ne doit jamais laisser la vue dans le vide.
+task.spawn(function()
+	while true do
+		task.wait(2)
+		local camera = workspace.CurrentCamera
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if camera and humanoid and humanoid.Health > 0 and not Cinematic.isPlaying() then
+			if camera.CameraType ~= Enum.CameraType.Custom then
+				camera.CameraType = Enum.CameraType.Custom
+			end
+			if camera.CameraSubject ~= humanoid then
+				camera.CameraSubject = humanoid
+			end
+		end
+	end
+end)

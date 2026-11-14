@@ -163,8 +163,41 @@ function SpawnSafety.check(getSpawn)
 	end
 end
 
+-- Chien de garde : un joueur sans personnage Config.Spawn.WatchdogSeconds après son arrivée en reçoit un,
+-- au point d'apparition du rôle. Tant que ce point n'existe pas (carte en construction), on attend, jusqu'à
+-- Config.Spawn.ReadyTimeout ; passé ce délai, le personnage est chargé malgré tout.
+local function watchdog(player, getSpawn)
+	local started = os.clock()
+	task.delay(Config.Spawn.WatchdogSeconds, function()
+		while player.Parent and not player.Character do
+			local spawn = getSpawn()
+			local waited = os.clock() - started
+			if spawn or waited >= Config.Spawn.ReadyTimeout then
+				SpawnLog.say(
+					"%s : aucun personnage %.1f s après l'arrivée, LoadCharacter forcé (point d'apparition %s)",
+					player.Name,
+					waited,
+					spawn and "présent" or "ABSENT"
+				)
+				pcall(function()
+					player.RespawnLocation = spawn
+				end)
+				local ok, err = pcall(function()
+					player:LoadCharacter()
+				end)
+				if not ok then
+					warn("[Spawn] LoadCharacter forcé impossible : " .. tostring(err))
+				end
+				return
+			end
+			task.wait(1)
+		end
+	end)
+end
+
 function SpawnSafety.start(getSpawn)
 	local function bind(player)
+		watchdog(player, getSpawn)
 		player.CharacterAdded:Connect(function(char)
 			onCharacter(player, char, getSpawn)
 		end)

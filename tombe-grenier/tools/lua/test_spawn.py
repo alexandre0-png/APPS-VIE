@@ -162,6 +162,12 @@ class TestServerOrder(unittest.TestCase):
     def setUp(self):
         self.init = read("src", "server", "init.server.lua")
 
+    def test_game_script_in_the_hub_place_keeps_autoload_on(self):
+        i = self.init.index('if Hub.role() == "hub" then')
+        j = self.init.index("CharacterAutoLoads = false")
+        self.assertLess(i, j)
+        self.assertIn("le script de PARTIE tourne dans le lieu HUB", self.init)
+
     def test_autoload_off_before_anything_that_yields(self):
         i = self.init.index("CharacterAutoLoads = false")
         for later in ("ModelLoader.ensure()", "MapBuilder.build()", "MonsterAI.ensureModel()", "Hub.build()"):
@@ -220,7 +226,7 @@ class TestSafetyAndReturnPath(unittest.TestCase):
         self.assertLess(enter.index('role == "game"'), enter.index("setSpawns(true)"))
         # au retour, le hub a son propre point d'apparition actif, construit avant l'arrivée des joueurs
         hub_init = read("src", "hub", "init.server.lua")
-        self.assertLess(hub_init.index("Hub.build()"), hub_init.index("Hub.enter()"))
+        self.assertLess(hub_init.index("pcall(Hub.build)"), hub_init.index("Hub.enter()"))
         self.assertIn("HubSpawn", hub)
         self.assertRegex(hub, r"spawn\.Neutral = true")
 
