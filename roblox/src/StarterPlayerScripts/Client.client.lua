@@ -10,6 +10,7 @@ local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
@@ -29,8 +30,6 @@ local COL = {
 }
 local FONT = Enum.Font.GothamBold
 
-local compact = workspace.CurrentCamera ~= nil and workspace.CurrentCamera.ViewportSize.X < 560
-local NAV_Y = compact and -88 or -10
 local state = nil
 local topData = nil
 local panel = nil -- { name, tab, confirm }
@@ -93,10 +92,16 @@ local function text(parent, props)
 	return make("TextLabel", props, parent)
 end
 
-local gui = make("ScreenGui", { Name = "ChipeUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, player:WaitForChild("PlayerGui"))
+local gui = make("ScreenGui", { Name = "ChipeUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets }, player:WaitForChild("PlayerGui"))
+
+-- HUD fixe : conteneur mis à l'échelle (téléphone, tablette, PC) dont tous les éléments sont ancrés aux bords (voir Layout.lua, testé).
+-- Les menus (panneau, éclosion) restent hors du conteneur : ils sont temporaires et s'adaptent à l'écran en fractions.
+local hudRoot = make("Frame", { Name = "Hud", BackgroundTransparency = 1, Size = UDim2.fromOffset(900, 520) }, gui)
+local hudScale = make("UIScale", { Scale = 1 }, hudRoot)
+local hudParts = {} -- nom de Layout -> objet à placer
 
 local function pill(y, icon, tint)
-	local f = make("Frame", { Position = UDim2.fromOffset(10, y), Size = UDim2.fromOffset(196, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.05 }, gui)
+	local f = make("Frame", { Size = UDim2.fromOffset(196, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.05 }, hudRoot)
 	corner(f, 26)
 	make("UIStroke", { Color = tint, Thickness = 2, Transparency = 0.15 }, f)
 	make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(34, 88, 58), Color3.fromRGB(10, 30, 20)), Rotation = 90 }, f)
@@ -106,22 +111,23 @@ local function pill(y, icon, tint)
 	local small = text(f, { Position = UDim2.fromOffset(50, 31), Size = UDim2.new(1, -56, 0, 16), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = "" })
 	return big, small, scale, f
 end
-local coinsBig, coinsSmall, coinsScale = pill(8, "🪙", COL.yellow)
-local speedBig, speedSmall = pill(66, "⚡", Color3.fromRGB(110, 190, 255))
+local coinsBig, coinsSmall, coinsScale, coinsFrame = pill(8, "🪙", COL.yellow)
+local speedBig, speedSmall, _, speedFrame = pill(66, "⚡", Color3.fromRGB(110, 190, 255))
+hudParts.pillCoins, hudParts.pillSpeed = coinsFrame, speedFrame
 speedSmall.Text = "VITESSE"
 
-local carryLbl = text(gui, { Position = UDim2.fromOffset(14, 194), Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
+local carryLbl = text(hudRoot, { Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
 corner(carryLbl, 13)
 carryLbl.Visible = false
 
-local banner = text(gui, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8), Size = UDim2.fromOffset(330, 30), TextSize = 14, TextColor3 = COL.yellow, BackgroundTransparency = 0.12, BackgroundColor3 = COL.pill, Text = "", Visible = false })
+local banner = text(hudRoot, { Size = UDim2.fromOffset(330, 40), TextWrapped = true, TextSize = 13, TextColor3 = COL.yellow, BackgroundTransparency = 0.12, BackgroundColor3 = COL.pill, Text = "", Visible = false })
 corner(banner, 15)
 make("UIStroke", { Color = COL.yellow, Thickness = 2 }, banner)
 
-local toasts = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 46), Size = UDim2.fromOffset(360, 200), BackgroundTransparency = 1 }, gui)
+local toasts = make("Frame", { Size = UDim2.fromOffset(240, 76), BackgroundTransparency = 1, ClipsDescendants = false }, hudRoot)
 make("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, toasts)
 
-local hint = text(gui, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y - 62), Size = UDim2.fromOffset(340, 40), TextSize = 14, TextColor3 = COL.dark, BackgroundColor3 = COL.yellow, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
+local hint = text(hudRoot, { Size = UDim2.fromOffset(260, 44), TextSize = 14, TextColor3 = COL.dark, BackgroundColor3 = COL.yellow, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
 corner(hint, 12)
 
 local function toast(msg)
@@ -139,7 +145,7 @@ local function toast(msg)
 	elseif msg:find("^🎯") or msg:find("^🎁") or msg:find("^♻") then
 		accent = COL.green
 	end
-	local t = text(toasts, { Size = UDim2.fromOffset(340, 30), TextSize = 14, Text = msg, BackgroundColor3 = COL.pill, BackgroundTransparency = 0.08, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y })
+	local t = text(toasts, { Size = UDim2.new(1, 0, 0, 30), TextSize = 14, Text = msg, BackgroundColor3 = COL.pill, BackgroundTransparency = 0.08, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y })
 	corner(t, 10)
 	make("UIStroke", { Color = accent, Thickness = 1.5 }, t)
 	make("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, t)
@@ -668,8 +674,8 @@ closeBtn.Activated:Connect(hidePanel)
 
 ---------------------------------------------------------------- Boutons de navigation (colonne gauche)
 local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }
-local navBar = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, NAV_Y), Size = UDim2.fromOffset(#navDefs * 56, 52), BackgroundTransparency = 1 }, gui)
-make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center }, navBar)
+local navBar = make("Frame", { Size = UDim2.fromOffset(Layout.NAV_BUTTON, #navDefs * (Layout.NAV_BUTTON + Layout.NAV_GAP) - Layout.NAV_GAP), BackgroundTransparency = 1 }, hudRoot)
+make("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, Layout.NAV_GAP), HorizontalAlignment = Enum.HorizontalAlignment.Center }, navBar)
 local navDots = {}
 for _, n in ipairs(navDefs) do
 	local b = make("TextButton", { Size = UDim2.fromOffset(52, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, navBar)
@@ -687,7 +693,7 @@ for _, n in ipairs(navDefs) do
 end
 
 -- Carte « objectif en cours » : chapitre de l'histoire, avancement, un appui ouvre Missions > Histoire.
-local objCard = make("TextButton", { Position = UDim2.fromOffset(10, 126), Size = UDim2.fromOffset(196, 62), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, Visible = false }, gui)
+local objCard = make("TextButton", { Size = UDim2.fromOffset(196, 62), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, Visible = false }, hudRoot)
 corner(objCard, 14)
 local objStroke = make("UIStroke", { Color = COL.panel, Thickness = 2 }, objCard)
 local objTitle = text(objCard, { Position = UDim2.fromOffset(8, 3), Size = UDim2.new(1, -16, 0, 17), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = COL.yellow, Text = "", TextTruncate = Enum.TextTruncate.AtEnd })
@@ -710,6 +716,41 @@ local function refreshObjective()
 	objStroke.Color = o.done and COL.green or COL.panel
 	TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(o.goal > 0 and o.prog / o.goal or 1, 1) }):Play()
 end
+
+hudParts.objective, hudParts.carry, hudParts.banner, hudParts.toasts, hudParts.hint, hudParts.nav = objCard, carryLbl, banner, toasts, hint, navBar
+
+-- Place tout le HUD selon la taille réelle de l'écran (recalculé quand la fenêtre change : rotation, redimensionnement de Studio).
+local function applyLayout()
+	local cam = workspace.CurrentCamera
+	local vs = cam and cam.ViewportSize or Vector2.new(900, 520)
+	if vs.X < 50 or vs.Y < 50 then
+		return
+	end
+	local rects, scale, dw, dh = Layout.rects(vs.X, vs.Y, #navDefs)
+	hudScale.Scale = scale
+	hudRoot.Size = UDim2.fromOffset(dw, dh)
+	for name, obj in pairs(hudParts) do
+		local r = rects[name]
+		if r then
+			obj.Position = UDim2.fromOffset(r.x, r.y)
+			if name == "banner" or name == "hint" or name == "toasts" then
+				obj.Size = UDim2.fromOffset(r.w, r.h)
+			end
+		end
+	end
+end
+applyLayout()
+local function watchViewport()
+	local cam = workspace.CurrentCamera
+	if cam then
+		cam:GetPropertyChangedSignal("ViewportSize"):Connect(applyLayout)
+	end
+end
+watchViewport()
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	watchViewport()
+	applyLayout()
+end)
 
 ---------------------------------------------------------------- Réseau
 -- Symboles des runes : l'état est propre à chaque joueur, on affiche donc le sien sur les pierres (modification locale uniquement).
@@ -791,7 +832,7 @@ player:GetAttributeChangedSignal("Coins"):Connect(function()
 	if delta > math.max((player:GetAttribute("Income") or 0) * 2.5, 8) then
 		coinsScale.Scale = 1.18
 		TweenService:Create(coinsScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-		local f = text(gui, { Position = UDim2.fromOffset(212, 16), Size = UDim2.fromOffset(120, 30), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, TextColor3 = COL.green, Text = "+" .. fmt(delta), TextStrokeTransparency = 0.3 })
+		local f = text(hudRoot, { Position = UDim2.fromOffset(212, 16), Size = UDim2.fromOffset(120, 30), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, TextColor3 = COL.green, Text = "+" .. fmt(delta), TextStrokeTransparency = 0.3 })
 		TweenService:Create(f, TweenInfo.new(1.1), { Position = UDim2.fromOffset(212, -6), TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
 		Debris:AddItem(f, 1.2)
 	end

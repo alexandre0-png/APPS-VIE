@@ -1090,6 +1090,55 @@ do
 	end)())
 end
 
+-- Interface : disposition ancrée aux bords, zone centrale libre ----------------------------------------------------
+do
+	local Layout = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Layout.lua"), { debugName = "Layout" })()
+	local devices = {
+		{ "téléphone portrait 390x844", 390, 844 },
+		{ "petit téléphone 360x640", 360, 640 },
+		{ "téléphone paysage 844x390", 844, 390 },
+		{ "petit paysage 640x360", 640, 360 },
+		{ "tablette portrait 820x1180", 820, 1180 },
+		{ "tablette paysage 1180x820", 1180, 820 },
+		{ "PC 1920x1080", 1920, 1080 },
+		{ "PC 1366x768", 1366, 768 },
+		{ "ultra-large 2560x1080", 2560, 1080 },
+		{ "fenêtre Studio 1000x600", 1000, 600 },
+	}
+	for _, dev in ipairs(devices) do
+		local name, vw, vh = dev[1], dev[2], dev[3]
+		local r, s, dw, dh = Layout.rects(vw, vh, 6)
+		local center = Layout.centerRect(vw, vh)
+		check("Layout " .. name .. " : échelle bornée", s >= Layout.MIN_SCALE and s <= Layout.MAX_SCALE)
+		local inside, free, apart = true, true, true
+		local names = {}
+		for k in pairs(r) do
+			names[#names + 1] = k
+		end
+		table.sort(names)
+		for i, k in ipairs(names) do
+			local a = r[k]
+			if a.x < 0 or a.y < 0 or a.x + a.w > dw + 1e-6 or a.y + a.h > dh + 1e-6 or a.w <= 0 or a.h <= 0 then
+				inside = false
+			end
+			if Layout.overlap(a, center) then
+				free = false
+			end
+			for j = i + 1, #names do
+				if Layout.overlap(a, r[names[j]]) then
+					apart = false
+				end
+			end
+		end
+		check("Layout " .. name .. " : tout dans l'écran", inside)
+		check("Layout " .. name .. " : zone centrale libre", free)
+		check("Layout " .. name .. " : aucun élément ne se chevauche", apart)
+		check("Layout " .. name .. " : boutons >= 44 px réels", Layout.NAV_BUTTON * s >= 44 - 1e-6)
+		check("Layout " .. name .. " : menu en bas à droite, jamais au centre", r.nav.x + r.nav.w >= dw - Layout.EDGE - 1e-6 and r.nav.y + r.nav.h >= dh - Layout.EDGE - 1e-6 and r.nav.x * s >= vw * 0.68)
+	end
+	check("Layout : échelle d'un écran dégénéré (0x0) bornée", Layout.scaleFor(0, 0) == Layout.MIN_SCALE)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

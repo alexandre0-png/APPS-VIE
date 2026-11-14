@@ -27,7 +27,8 @@ tree = [
         item("Folder", "Shared", children=[
             item("ModuleScript", "Config", read("ReplicatedStorage/Config.lua")),
             item("ModuleScript", "Easing", read("ReplicatedStorage/Easing.lua")),
-            item("ModuleScript", "Cinema", read("ReplicatedStorage/Cinema.lua"))])]),
+            item("ModuleScript", "Cinema", read("ReplicatedStorage/Cinema.lua")),
+            item("ModuleScript", "Layout", read("ReplicatedStorage/Layout.lua"))])]),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Main", read("ServerScriptService/Main.server.lua")),
         item("ModuleScript", "Data", read("ServerScriptService/Data.lua")),
