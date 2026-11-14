@@ -55,7 +55,11 @@ local function followLoop()
 				for _, angle in ipairs({ 0, 45, -45, 90, -90 }) do
 					local rad = math.rad(angle)
 					local d = dir.Unit
-					local rotated = Vector3.new(d.X * math.cos(rad) - d.Z * math.sin(rad), 0, d.X * math.sin(rad) + d.Z * math.cos(rad))
+					local rotated = Vector3.new(
+						d.X * math.cos(rad) - d.Z * math.sin(rad),
+						0,
+						d.X * math.sin(rad) + d.Z * math.cos(rad)
+					)
 					if not Workspace:Raycast(cur + Vector3.new(0, 1, 0), rotated * len, params) then
 						child:PivotTo(CFrame.new(cur + rotated * len))
 						break

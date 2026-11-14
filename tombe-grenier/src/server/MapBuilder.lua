@@ -44,53 +44,108 @@ local CLOSED_ROOMS = { sdb = true, bureau = true, cha = true, sdb2 = true, cel =
 local PEBBLE_COUNT = 4
 
 local MATERIALS = {
-	carrelage   = { color = Color3.fromRGB(150, 150, 145), material = Enum.Material.Marble,
-	                tex = "17429425079", faces = { Enum.NormalId.Top }, tile = 6 },
-	ardoise     = { color = Color3.fromRGB(45, 47, 52), material = Enum.Material.Slate,
-	                tex = "9920599782", faces = { Enum.NormalId.Top }, tile = 6 },
-	brique      = { color = Color3.fromRGB(95, 50, 40), material = Enum.Material.Brick,
-	                tex = "97381143864995", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	mur         = { color = Color3.fromRGB(120, 112, 100), material = Enum.Material.Concrete,
-	                tex = "100280695301167", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	papier      = { color = Color3.fromRGB(150, 130, 110), material = Enum.Material.Fabric,
-	                tex = "11787663363", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	bureau      = { color = Color3.fromRGB(110, 100, 90), material = Enum.Material.Concrete,
-	                tex = "93902698", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	bois_mur    = { color = Color3.fromRGB(80, 55, 38), material = Enum.Material.Wood,
-	                tex = "539614542", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	rouille     = { color = Color3.fromRGB(90, 60, 40), material = Enum.Material.CorrodedMetal,
-	                tex = "889609059", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	beton       = { color = Color3.fromRGB(100, 100, 98), material = Enum.Material.Concrete,
-	                tex = "65710031", faces = { Enum.NormalId.Front, Enum.NormalId.Back }, tile = 4 },
-	plancher    = { color = Color3.fromRGB(70, 50, 34), material = Enum.Material.Wood,
-	                tex = "3867164051", faces = { Enum.NormalId.Top }, tile = 6 },
-	bois        = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
-	asphalte    = { color = Color3.fromRGB(45, 45, 48), material = Enum.Material.Asphalt },
+	carrelage = {
+		color = Color3.fromRGB(150, 150, 145),
+		material = Enum.Material.Marble,
+		tex = "17429425079",
+		faces = { Enum.NormalId.Top },
+		tile = 6,
+	},
+	ardoise = {
+		color = Color3.fromRGB(45, 47, 52),
+		material = Enum.Material.Slate,
+		tex = "9920599782",
+		faces = { Enum.NormalId.Top },
+		tile = 6,
+	},
+	brique = {
+		color = Color3.fromRGB(95, 50, 40),
+		material = Enum.Material.Brick,
+		tex = "97381143864995",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	mur = {
+		color = Color3.fromRGB(120, 112, 100),
+		material = Enum.Material.Concrete,
+		tex = "100280695301167",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	papier = {
+		color = Color3.fromRGB(150, 130, 110),
+		material = Enum.Material.Fabric,
+		tex = "11787663363",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	bureau = {
+		color = Color3.fromRGB(110, 100, 90),
+		material = Enum.Material.Concrete,
+		tex = "93902698",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	bois_mur = {
+		color = Color3.fromRGB(80, 55, 38),
+		material = Enum.Material.Wood,
+		tex = "539614542",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	rouille = {
+		color = Color3.fromRGB(90, 60, 40),
+		material = Enum.Material.CorrodedMetal,
+		tex = "889609059",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	beton = {
+		color = Color3.fromRGB(100, 100, 98),
+		material = Enum.Material.Concrete,
+		tex = "65710031",
+		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
+		tile = 4,
+	},
+	plancher = {
+		color = Color3.fromRGB(70, 50, 34),
+		material = Enum.Material.Wood,
+		tex = "3867164051",
+		faces = { Enum.NormalId.Top },
+		tile = 6,
+	},
+	bois = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
+	asphalte = { color = Color3.fromRGB(45, 45, 48), material = Enum.Material.Asphalt },
 	-- Plafond du grenier : ciel intérieur sur la face tournée vers les combles, ardoise dessus
-	plafond_grenier = { color = Color3.fromRGB(40, 40, 46), material = Enum.Material.Slate,
-	                tex = "1585871274", faces = { Enum.NormalId.Bottom }, tile = 12 },
+	plafond_grenier = {
+		color = Color3.fromRGB(40, 40, 46),
+		material = Enum.Material.Slate,
+		tex = "1585871274",
+		faces = { Enum.NormalId.Bottom },
+		tile = 12,
+	},
 	bois_sombre = { color = Color3.fromRGB(45, 30, 20), material = Enum.Material.Wood },
-	metal       = { color = Color3.fromRGB(60, 60, 66), material = Enum.Material.Metal },
-	tissu       = { color = Color3.fromRGB(90, 40, 40), material = Enum.Material.Fabric },
-	pierre      = { color = Color3.fromRGB(100, 100, 100), material = Enum.Material.Cobblestone },
-	vert        = { color = Color3.fromRGB(40, 70, 40), material = Enum.Material.LeafyGrass },
-	porcelaine  = { color = Color3.fromRGB(220, 220, 215), material = Enum.Material.SmoothPlastic },
-	carton      = { color = Color3.fromRGB(150, 120, 80), material = Enum.Material.Cardboard },
-	herbe       = { color = Color3.fromRGB(46, 74, 40), material = Enum.Material.Grass },
+	metal = { color = Color3.fromRGB(60, 60, 66), material = Enum.Material.Metal },
+	tissu = { color = Color3.fromRGB(90, 40, 40), material = Enum.Material.Fabric },
+	pierre = { color = Color3.fromRGB(100, 100, 100), material = Enum.Material.Cobblestone },
+	vert = { color = Color3.fromRGB(40, 70, 40), material = Enum.Material.LeafyGrass },
+	porcelaine = { color = Color3.fromRGB(220, 220, 215), material = Enum.Material.SmoothPlastic },
+	carton = { color = Color3.fromRGB(150, 120, 80), material = Enum.Material.Cardboard },
+	herbe = { color = Color3.fromRGB(46, 74, 40), material = Enum.Material.Grass },
 	-- Passe 2 : matériaux des détails narratifs (taches, papiers, toiles, jouets...)
-	tache       = { color = Color3.fromRGB(58, 22, 20), material = Enum.Material.Slate },
-	terre       = { color = Color3.fromRGB(62, 48, 36), material = Enum.Material.Ground },
-	cendre      = { color = Color3.fromRGB(48, 46, 44), material = Enum.Material.Sand },
-	papiers     = { color = Color3.fromRGB(205, 195, 165), material = Enum.Material.Fabric },
-	eau         = { color = Color3.fromRGB(70, 90, 100), material = Enum.Material.Glass },
-	verre       = { color = Color3.fromRGB(170, 190, 195), material = Enum.Material.Glass },
-	toile       = { color = Color3.fromRGB(225, 225, 225), material = Enum.Material.Fabric },
-	craie       = { color = Color3.fromRGB(215, 215, 205), material = Enum.Material.Limestone },
-	cire        = { color = Color3.fromRGB(225, 210, 170), material = Enum.Material.SmoothPlastic },
-	linge       = { color = Color3.fromRGB(120, 112, 100), material = Enum.Material.Fabric },
-	valise      = { color = Color3.fromRGB(95, 70, 50), material = Enum.Material.Leather },
-	jouet       = { color = Color3.fromRGB(150, 70, 60), material = Enum.Material.Plastic },
-	fleurs      = { color = Color3.fromRGB(95, 70, 55), material = Enum.Material.Grass },
+	tache = { color = Color3.fromRGB(58, 22, 20), material = Enum.Material.Slate },
+	terre = { color = Color3.fromRGB(62, 48, 36), material = Enum.Material.Ground },
+	cendre = { color = Color3.fromRGB(48, 46, 44), material = Enum.Material.Sand },
+	papiers = { color = Color3.fromRGB(205, 195, 165), material = Enum.Material.Fabric },
+	eau = { color = Color3.fromRGB(70, 90, 100), material = Enum.Material.Glass },
+	verre = { color = Color3.fromRGB(170, 190, 195), material = Enum.Material.Glass },
+	toile = { color = Color3.fromRGB(225, 225, 225), material = Enum.Material.Fabric },
+	craie = { color = Color3.fromRGB(215, 215, 205), material = Enum.Material.Limestone },
+	cire = { color = Color3.fromRGB(225, 210, 170), material = Enum.Material.SmoothPlastic },
+	linge = { color = Color3.fromRGB(120, 112, 100), material = Enum.Material.Fabric },
+	valise = { color = Color3.fromRGB(95, 70, 50), material = Enum.Material.Leather },
+	jouet = { color = Color3.fromRGB(150, 70, 60), material = Enum.Material.Plastic },
+	fleurs = { color = Color3.fromRGB(95, 70, 55), material = Enum.Material.Grass },
 }
 
 local LAMP_PALETTE = {
@@ -221,7 +276,11 @@ local function placeFitted(name, cf, target, parent)
 	end
 	local model = template:Clone()
 	local _, size = model:GetBoundingBox()
-	local fit = math.min(target.X / math.max(size.X, 0.01), target.Y / math.max(size.Y, 0.01), target.Z / math.max(size.Z, 0.01))
+	local fit = math.min(
+		target.X / math.max(size.X, 0.01),
+		target.Y / math.max(size.Y, 0.01),
+		target.Z / math.max(size.Z, 0.01)
+	)
 	model:ScaleTo(model:GetScale() * fit)
 	model:PivotTo(cf)
 	for _, d in ipairs(model:GetDescendants()) do
@@ -275,16 +334,26 @@ local function buildHouse(root)
 	end
 	-- Fenêtres sur les façades nord et sud, et cheminée contre le mur ouest du salon
 	local windows = {
-		{ 20, 4.5, -0.4, "fenêtre bois", 0 }, { 100, 4.5, -0.4, "fenêtre bois", 0 },
-		{ 20, 4.5, 90.4, "fenêtre bois", 0 }, { 100, 4.5, 90.4, "fenêtre bois", 0 },
-		{ 20, 16.5, -0.4, "fenêtre bois", 0 }, { 100, 16.5, -0.4, "fenêtre bois", 0 },
-		{ 20, 16.5, 90.4, "fenêtre bois", 0 }, { 100, 16.5, 90.4, "fenêtre bois", 0 },
-		{ 20, 28.5, -0.4, "fenêtre rouille", 0 }, { 100, 28.5, -0.4, "fenêtre rouille", 0 },
+		{ 20, 4.5, -0.4, "fenêtre bois", 0 },
+		{ 100, 4.5, -0.4, "fenêtre bois", 0 },
+		{ 20, 4.5, 90.4, "fenêtre bois", 0 },
+		{ 100, 4.5, 90.4, "fenêtre bois", 0 },
+		{ 20, 16.5, -0.4, "fenêtre bois", 0 },
+		{ 100, 16.5, -0.4, "fenêtre bois", 0 },
+		{ 20, 16.5, 90.4, "fenêtre bois", 0 },
+		{ 100, 16.5, 90.4, "fenêtre bois", 0 },
+		{ 20, 28.5, -0.4, "fenêtre rouille", 0 },
+		{ 100, 28.5, -0.4, "fenêtre rouille", 0 },
 	}
 	for _, w in ipairs(windows) do
 		placeFitted(w[4], CFrame.new(w[1], w[2], w[3]), Vector3.new(3, 4, 0.5), folders["Décor"])
 	end
-	placeFitted("cheminée", CFrame.new(1.5, 1.5, 22) * CFrame.Angles(0, math.pi / 2, 0), Vector3.new(4, 3, 2.5), folders["Décor"])
+	placeFitted(
+		"cheminée",
+		CFrame.new(1.5, 1.5, 22) * CFrame.Angles(0, math.pi / 2, 0),
+		Vector3.new(4, 3, 2.5),
+		folders["Décor"]
+	)
 	for _, s in ipairs(Data.slabs) do
 		makeBox(folders.Dalles, s, s.mat, s.name or "Dalle")
 	end
@@ -385,8 +454,7 @@ local function buildHouse(root)
 			makeMarker(folders.Props, p.pos, p.size, p.name, "Waypoint")
 		elseif p.tag == "Lamp" then
 			-- Une ampoule par pièce ; l'allumage et la couleur sont tirés à chaque partie
-			local bulb = makeVisible(folders.Props, p.pos, p.size, p.name,
-				LAMP_PALETTE[1], Enum.Material.Neon, "Lamp")
+			local bulb = makeVisible(folders.Props, p.pos, p.size, p.name, LAMP_PALETTE[1], Enum.Material.Neon, "Lamp")
 			placeDecorModel("lampe plafond", p.pos, bulb)
 			bulb.Transparency = 0.2
 			local light = Instance.new("PointLight")
@@ -397,76 +465,171 @@ local function buildHouse(root)
 			light.Parent = bulb
 			table.insert(lamps, { room = p.room, part = bulb, light = light })
 		elseif p.tag == "Interactable" then
-			local item = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(190, 170, 140), Enum.Material.SmoothPlastic, "Interactable")
+			local item = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(190, 170, 140),
+				Enum.Material.SmoothPlastic,
+				"Interactable"
+			)
 			item:SetAttribute("Kind", p.kind)
 		elseif p.tag == "Mirror" then
-			local glass = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(170, 190, 200), Enum.Material.Glass, "Mirror")
+			local glass = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(170, 190, 200),
+				Enum.Material.Glass,
+				"Mirror"
+			)
 			glass.Transparency = 0.45
 		elseif p.tag == "TV" then
-			local tv = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(25, 25, 28), Enum.Material.SmoothPlastic, "TV")
+			local tv = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(25, 25, 28),
+				Enum.Material.SmoothPlastic,
+				"TV"
+			)
 			placeDecorModel("télévision", p.pos, tv)
 		elseif p.tag == "Tiroir" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(110, 75, 50), Enum.Material.Wood, "Tiroir")
+			makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(110, 75, 50), Enum.Material.Wood, "Tiroir")
 		elseif p.tag == "Compteur" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(70, 70, 75), Enum.Material.Metal, "Compteur")
+			makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(70, 70, 75),
+				Enum.Material.Metal,
+				"Compteur"
+			)
 		elseif p.tag == "Horloge" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(120, 95, 60), Enum.Material.Wood, "Horloge")
+			makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(120, 95, 60),
+				Enum.Material.Wood,
+				"Horloge"
+			)
 		elseif p.tag == "IntroPhoto" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(225, 215, 190), Enum.Material.SmoothPlastic, "IntroPhoto")
+			makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(225, 215, 190),
+				Enum.Material.SmoothPlastic,
+				"IntroPhoto"
+			)
 		elseif p.tag == "Switch" then
-			local sw = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(200, 200, 195), Enum.Material.SmoothPlastic, "Switch")
+			local sw = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(200, 200, 195),
+				Enum.Material.SmoothPlastic,
+				"Switch"
+			)
 			sw:SetAttribute("Label", p.name)
 		elseif p.tag == "Phone" then
-			local phone = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(30, 30, 32), Enum.Material.SmoothPlastic, "Phone")
+			local phone = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(30, 30, 32),
+				Enum.Material.SmoothPlastic,
+				"Phone"
+			)
 			phone:SetAttribute("Label", p.name)
 			placeDecorModel("téléphone", p.pos, phone)
 		elseif p.tag == "CaveDoor" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(70, 72, 78), Enum.Material.Metal, "CaveDoor")
+			makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(70, 72, 78),
+				Enum.Material.Metal,
+				"CaveDoor"
+			)
 		elseif p.tag == "Coffret" then
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
+			makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
 		elseif p.tag == "Mannequin" then
 			-- Mannequin : une pièce invisible porte l'invite et le pivot (Quests) ; le modèle y est soudé
-			local anchor = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(230, 225, 215), Enum.Material.SmoothPlastic, "Mannequin")
+			local anchor = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(230, 225, 215),
+				Enum.Material.SmoothPlastic,
+				"Mannequin"
+			)
 			anchor.Transparency = 1
 			weldDecorModel("mannequin", anchor)
 		elseif p.tag == "Statue" then
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(190, 185, 175), Enum.Material.Marble, "Statue")
+			makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(190, 185, 175),
+				Enum.Material.Marble,
+				"Statue"
+			)
 		elseif p.tag == "Trappe" or p.tag == "TrappeGrenier" or p.tag == "TrappePalier" then
 			-- Trappe pleine : elle bloque le passage tant qu'elle n'est pas ouverte (Quests)
-			local hatch = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(78, 56, 38), Enum.Material.Wood, p.tag)
+			local hatch =
+				makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(78, 56, 38), Enum.Material.Wood, p.tag)
 			hatch.CanCollide = true
 			hatch.Transparency = 0
 		elseif p.tag == "Respire" then
 			-- Panneau du mur qui respire : presque invisible, sa zone sert à l'interaction
-			local panel = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(70, 60, 60), Enum.Material.Slate, "Respire")
+			local panel = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(70, 60, 60),
+				Enum.Material.Slate,
+				"Respire"
+			)
 			panel.Transparency = 0.85
 		elseif p.tag == "Plaque" then
-			local plaque = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(150, 140, 120), Enum.Material.Metal, "Interactable")
+			local plaque = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(150, 140, 120),
+				Enum.Material.Metal,
+				"Interactable"
+			)
 			plaque:SetAttribute("Kind", "plaque du cercueil")
 		elseif p.tag == "Key" then
 			-- Clé de la sortie, dans la malle : son invite est activée par Objectives.unlockKey
-			makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(200, 170, 60), Enum.Material.Metal, "Key")
+			makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(200, 170, 60), Enum.Material.Metal, "Key")
 		elseif p.tag == "ExitDoor" then
-			local door = makeVisible(folders.Props, p.pos, p.size, p.name,
-				Color3.fromRGB(70, 45, 30), Enum.Material.Wood, "ExitDoor")
+			local door = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(70, 45, 30),
+				Enum.Material.Wood,
+				"ExitDoor"
+			)
 			door.CanCollide = true -- porte fermée tant que la sortie n'est pas ouverte
 		end
 	end
@@ -698,7 +861,15 @@ local function startRoomBudget()
 					end
 				end
 				local active = {}
-				for _, id in ipairs(RoomBudget.activeRooms(list, { x = root.Position.X, z = root.Position.Z, level = lvl or "ground" }, limits.lights)) do
+				for _, id in
+					ipairs(
+						RoomBudget.activeRooms(
+							list,
+							{ x = root.Position.X, z = root.Position.Z, level = lvl or "ground" },
+							limits.lights
+						)
+					)
+				do
 					active[id] = true
 				end
 				for id, m in pairs(moodLights) do
@@ -744,7 +915,14 @@ local function applyMoods(root)
 			local boxes = {}
 			for _, f in ipairs(Data.furniture) do
 				local fx, fz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2
-				if f.y0 >= base - 1 and f.y0 <= base + Data.H and fx >= r.x0 and fx <= r.x1 and fz >= r.z0 and fz <= r.z1 then
+				if
+					f.y0 >= base - 1
+					and f.y0 <= base + Data.H
+					and fx >= r.x0
+					and fx <= r.x1
+					and fz >= r.z0
+					and fz <= r.z1
+				then
 					table.insert(boxes, f)
 				end
 			end
@@ -819,8 +997,13 @@ function MapBuilder.build()
 	pcall(applyMoods, root)
 	startRoomBudget()
 	pcall(Atmosphere.build)
-	print(("[MapBuilder] carte fixe construite : %d murs, %d meubles, %d lampes")
-		:format(#Data.walls, #Data.furniture, #lamps))
+	print(
+		("[MapBuilder] carte fixe construite : %d murs, %d meubles, %d lampes"):format(
+			#Data.walls,
+			#Data.furniture,
+			#lamps
+		)
+	)
 	return root
 end
 
@@ -865,27 +1048,62 @@ function MapBuilder.placeRound(seed)
 
 	-- Photos, clé, piles
 	for _, slot in ipairs(pick(rng, slots.photo, 3)) do
-		makeVisible(round, slot.pos, slot.size, "Photo " .. slot.name,
-			Color3.fromRGB(235, 230, 215), Enum.Material.SmoothPlastic, "Photo")
+		makeVisible(
+			round,
+			slot.pos,
+			slot.size,
+			"Photo " .. slot.name,
+			Color3.fromRGB(235, 230, 215),
+			Enum.Material.SmoothPlastic,
+			"Photo"
+		)
 	end
 	-- Papier du code : un emplacement tiré, la valeur du code vient de la seed (voir Quests)
 	for _, slot in ipairs(pick(rng, slots.note, 1)) do
-		makeVisible(round, slot.pos, slot.size, "Papier " .. slot.name,
-			Color3.fromRGB(235, 225, 190), Enum.Material.SmoothPlastic, "CodeNote")
+		makeVisible(
+			round,
+			slot.pos,
+			slot.size,
+			"Papier " .. slot.name,
+			Color3.fromRGB(235, 225, 190),
+			Enum.Material.SmoothPlastic,
+			"CodeNote"
+		)
 	end
 	-- Clé de la salle de bain : ouvre la porte verrouillée de la salle de bain
 	for _, slot in ipairs(pick(rng, slots.bathkey, 1)) do
-		makeVisible(round, slot.pos, slot.size, "Clé salle de bain",
-			Color3.fromRGB(190, 160, 60), Enum.Material.Metal, "BathKey")
+		makeVisible(
+			round,
+			slot.pos,
+			slot.size,
+			"Clé salle de bain",
+			Color3.fromRGB(190, 160, 60),
+			Enum.Material.Metal,
+			"BathKey"
+		)
 	end
 	-- Fausses clés : elles ne servent à rien
 	for i, slot in ipairs(pick(rng, slots.decoy, 3)) do
-		makeVisible(round, slot.pos, slot.size, "Fausse clé " .. slot.name,
-			Color3.fromRGB(170, 150, 70), Enum.Material.Metal, (i == 1) and "CaveKey" or "Decoy")
+		makeVisible(
+			round,
+			slot.pos,
+			slot.size,
+			"Fausse clé " .. slot.name,
+			Color3.fromRGB(170, 150, 70),
+			Enum.Material.Metal,
+			(i == 1) and "CaveKey" or "Decoy"
+		)
 	end
 	for _, slot in ipairs(pick(rng, slots.battery, 3)) do
-		makeVisible(round, slot.pos, slot.size, "Pile " .. slot.name,
-			Color3.fromRGB(70, 110, 170), Enum.Material.SmoothPlastic, "Battery")
+		makeVisible(
+			round,
+			slot.pos,
+			slot.size,
+			"Pile " .. slot.name,
+			Color3.fromRGB(70, 110, 170),
+			Enum.Material.SmoothPlastic,
+			"Battery"
+		)
 	end
 
 	-- Cailloux au sol, dans les pièces ouvertes : de quoi lancer (un caillou par lancer)
@@ -901,17 +1119,39 @@ function MapBuilder.placeRound(seed)
 		local base = Data.base[r.level]
 		local ray = Workspace:Raycast(Vector3.new(x, base + 4, z), Vector3.new(0, -6, 0))
 		local onFloor = ray and math.abs(ray.Position.Y - base) < 0.3
-		if onFloor and not (x > Data.stair[1] - 2 and x < Data.stair[3] + 2 and z > Data.stair[2] - 2 and z < Data.stair[4] + 2) then
-			makeVisible(round, { x, Data.base[r.level] + 0.2, z }, { 0.5, 0.4, 0.5 }, "Caillou",
-				Color3.fromRGB(105, 100, 96), Enum.Material.Slate, "Throwable")
+		if
+			onFloor
+			and not (
+				x > Data.stair[1] - 2
+				and x < Data.stair[3] + 2
+				and z > Data.stair[2] - 2
+				and z < Data.stair[4] + 2
+			)
+		then
+			makeVisible(
+				round,
+				{ x, Data.base[r.level] + 0.2, z },
+				{ 0.5, 0.4, 0.5 },
+				"Caillou",
+				Color3.fromRGB(105, 100, 96),
+				Enum.Material.Slate,
+				"Throwable"
+			)
 		end
 	end
 
 	-- Objets interactifs : un emplacement par objet
 	for _, key in ipairs(sortedKeys(slots.interactable)) do
 		local slot = pick(rng, slots.interactable[key], 1)[1]
-		local item = makeVisible(round, slot.pos, slot.size, slot.kind,
-			Color3.fromRGB(140, 110, 80), Enum.Material.Wood, "Interactable")
+		local item = makeVisible(
+			round,
+			slot.pos,
+			slot.size,
+			slot.kind,
+			Color3.fromRGB(140, 110, 80),
+			Enum.Material.Wood,
+			"Interactable"
+		)
 		item:SetAttribute("Kind", slot.kind)
 		item:SetAttribute("Place", slot.name)
 	end
@@ -939,9 +1179,13 @@ function MapBuilder.roomAt(pos, atFloor)
 	local floorY = atFloor and pos.Y or pos.Y - 2.5
 	for _, r in ipairs(Data.rooms) do
 		local base = Data.base[r.level]
-		if floorY >= base and floorY < base + Data.H
-			and pos.X >= r.x0 and pos.X < r.x1
-			and pos.Z >= r.z0 and pos.Z < r.z1
+		if
+			floorY >= base
+			and floorY < base + Data.H
+			and pos.X >= r.x0
+			and pos.X < r.x1
+			and pos.Z >= r.z0
+			and pos.Z < r.z1
 		then
 			return r.id
 		end

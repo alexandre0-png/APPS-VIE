@@ -7,23 +7,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = {}
 
 local EVENTS = {
-	"SetQuiet",         -- client -> serveur : boolean (mode silencieux)
-	"SetSprint",        -- client -> serveur : boolean (sprint)
+	"SetQuiet", -- client -> serveur : boolean (mode silencieux)
+	"SetSprint", -- client -> serveur : boolean (sprint)
 	"ToggleFlashlight", -- client -> serveur : (aucun argument)
-	"Effect",           -- serveur -> client : { kind = ..., ... }
-	"HUD",              -- serveur -> client : progression de l'équipe
-	"Objective",        -- serveur -> client : texte de l'objectif courant
-	"Message",          -- serveur -> client : { text = ... } (indices, lecture, retours)
-	"Keypad",           -- serveur -> client : ouvre l'écran de saisie du code
-	"SubmitCode",       -- client -> serveur : texte du code saisi
-	"Throw",            -- client -> serveur : direction du lancer (vecteur unitaire)
-	"Flashback",        -- serveur -> client : { kind = "family" | "intro" | "cahier" | "journal" | "plaque" } (séquence courte)
-	"Restart",          -- client -> serveur : « Rejouer » après une fin
-	"Quit",             -- client -> serveur : « Quitter » après une fin (le joueur quitte la partie)
-	"Inventory",        -- serveur -> client : { smallKey, caveKey, docs, docsTotal } (objets visibles à l'écran)
-	"SetCrouch",        -- client -> serveur : boolean (accroupi, touche C)
-	"AskHint",          -- client -> serveur : demande l'indication de l'étape (touche H)
-	"Hint",             -- serveur -> client : { text = ... } indication affichée en bas à gauche
+	"Effect", -- serveur -> client : { kind = ..., ... }
+	"HUD", -- serveur -> client : progression de l'équipe
+	"Objective", -- serveur -> client : texte de l'objectif courant
+	"Message", -- serveur -> client : { text = ... } (indices, lecture, retours)
+	"Keypad", -- serveur -> client : ouvre l'écran de saisie du code
+	"SubmitCode", -- client -> serveur : texte du code saisi
+	"Throw", -- client -> serveur : direction du lancer (vecteur unitaire)
+	"Flashback", -- serveur -> client : { kind = "family" | "intro" | "cahier" | "journal" | "plaque" } (séquence courte)
+	"Restart", -- client -> serveur : « Rejouer » après une fin
+	"Quit", -- client -> serveur : « Quitter » après une fin (le joueur quitte la partie)
+	"Inventory", -- serveur -> client : { smallKey, caveKey, docs, docsTotal } (objets visibles à l'écran)
+	"SetCrouch", -- client -> serveur : boolean (accroupi, touche C)
+	"AskHint", -- client -> serveur : demande l'indication de l'étape (touche H)
+	"Hint", -- serveur -> client : { text = ... } indication affichée en bas à gauche
 }
 
 function Remotes.init()

@@ -17,7 +17,7 @@ local PlayerState = require(script.Parent.PlayerState)
 
 local Props = {}
 
-local used = {}          -- [part] = true : effet déjà joué cette partie
+local used = {} -- [part] = true : effet déjà joué cette partie
 local tvRunning = false
 
 local function prompt(part, action, object, onTriggered)
@@ -60,8 +60,7 @@ local function setupMirrors()
 					used[part] = true
 					part.Transparency = 0.2
 					part.Color = Color3.fromRGB(120, 130, 140)
-					reflectionScare(player, part, 1,
-						"Le miroir est fissuré. Ton reflet met une seconde à te suivre.")
+					reflectionScare(player, part, 1, "Le miroir est fissuré. Ton reflet met une seconde à te suivre.")
 				end)
 			else
 				prompt(part, "Regarder", part.Name, function(player)
@@ -69,8 +68,7 @@ local function setupMirrors()
 						return
 					end
 					used[part] = true
-					reflectionScare(player, part, 2,
-						"Ton reflet tarde à bouger. Il regarde derrière toi.")
+					reflectionScare(player, part, 2, "Ton reflet tarde à bouger. Il regarde derrière toi.")
 				end)
 			end
 		end
@@ -85,7 +83,10 @@ local function tvText(player)
 	local st = player and PlayerState.get(player)
 	local last = st and #st.log > 0 and st.log[#st.log] or nil
 	local detail = last and (" Il y a un instant, tu étais en train de : " .. last .. ".") or ""
-	return "Une image granuleuse : la pièce vue de haut. Tu y es, au milieu. La créature est dans " .. where .. "." .. detail
+	return "Une image granuleuse : la pièce vue de haut. Tu y es, au milieu. La créature est dans "
+		.. where
+		.. "."
+		.. detail
 end
 
 local function setupTV()
@@ -252,8 +253,11 @@ function Props.setup()
 		introPart.Transparency = 0
 		introPart.Anchored = true
 		introPart.CFrame = CFrame.new(introStart)
-		TweenService:Create(introPart, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-			{ CFrame = CFrame.new(introStart - Vector3.new(0, 3.8, 0)) }):Play()
+		TweenService:Create(
+			introPart,
+			TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{ CFrame = CFrame.new(introStart - Vector3.new(0, 3.8, 0)) }
+		):Play()
 	end
 end
 

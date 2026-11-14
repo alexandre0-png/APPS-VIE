@@ -22,7 +22,9 @@
 - Tests : solvabilité de l'horloge sur 60 graines (sim), position de l'horloge dans le hall (cartographie).
 
 ### Modifié
-- Hub : devient un lieu de la même expérience que la partie (univers 10776611603) ; `Config.Game.Places = { hub = 88091909899710, game = 77452764500707 }`, l'ancien hub 124575462695705 (expérience séparée) n'est plus utilisé. Repli sur un serveur public avec message clair si Roblox refuse le serveur privé. Tests : identifiants, ancien hub écarté, DataStore du profil partagé entre hub et partie, repli (test_places.py).
+- Formatage : stylua appliqué à tout le code (stylua.toml : Luau, tabulations, 120 colonnes ; MapData.lua généré exclu).
+- Rôles des lieux inversés (le tableau de bord Roblox ne permet pas de changer le lieu de départ) : hub = 77452764500707 (lieu de départ), partie = 88091909899710. Aucun script ne suppose que le lieu de départ est le jeu : le rôle se déduit de `game.PlaceId` comparé à `Config.Game.Places` (Hub.lua).
+- Hub : devient un lieu de la même expérience que la partie (univers 10776611603) ; `Config.Game.Places = { hub = 77452764500707, game = 88091909899710 }`, l'ancien hub 124575462695705 (expérience séparée) n'est plus utilisé. Repli sur un serveur public avec message clair si Roblox refuse le serveur privé. Tests : identifiants, ancien hub écarté, DataStore du profil partagé entre hub et partie, repli (test_places.py).
 
 ### Corrigé
 - Lieu hub : identifiant de lieu (et non d'univers) ; test de validation des identifiants (test_places.py).

@@ -9,8 +9,8 @@ CONFIG = os.path.join(ROOT, "src", "shared", "Config.lua")
 
 # Expérience unique « Sortir Du Grenier » : un univers, deux lieux (hub et partie)
 UNIVERSE_ID = 10776611603
-HUB_PLACE = 88091909899710
-GAME_PLACE = 77452764500707
+HUB_PLACE = 77452764500707
+GAME_PLACE = 88091909899710
 # Univers (à ne jamais utiliser comme lieu) et anciens identifiants à ne plus employer
 UNIVERSE_IDS = {UNIVERSE_ID, 10776612735}
 RETIRED_IDS = {124575462695705}  # ancien hub : expérience séparée
@@ -43,6 +43,15 @@ class TestPlaces(unittest.TestCase):
         hub, game = places()
         self.assertNotIn(hub, UNIVERSE_IDS)
         self.assertNotIn(game, UNIVERSE_IDS)
+
+    def test_role_comes_from_place_id_not_from_the_start_place(self):
+        """Le lieu de départ de l'expérience est le hub : aucun script ne suppose qu'il s'agit du jeu."""
+        hub_src = read("src", "common", "Hub.lua")
+        self.assertIn("game.PlaceId == Config.Game.Places.hub", hub_src)
+        self.assertIn("game.PlaceId == Config.Game.Places.game", hub_src)
+        self.assertEqual(HUB_PLACE, 77452764500707)  # lieu de départ de l'expérience
+        for rel in ("hub.project.json", "game.project.json"):
+            self.assertNotIn(str(GAME_PLACE), read(rel))
 
     def test_hub_and_game_are_places_of_the_same_experience(self):
         self.assertEqual(places(), (HUB_PLACE, GAME_PLACE))

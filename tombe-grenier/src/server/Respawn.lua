@@ -16,11 +16,11 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 
 local Respawn = {}
-local hooks = nil        -- { isRoundActive, checkpoint, onCurse }
-local serial = {}        -- [player] = numéro du dernier arrêt ; invalide les minuteries plus anciennes
-local prompts = {}       -- [player] = invite de réanimation en cours
-local lives = {}         -- [player] = vies restantes cette partie
-local deathCount = 0     -- morts de la partie en cours (tous joueurs)
+local hooks = nil -- { isRoundActive, checkpoint, onCurse }
+local serial = {} -- [player] = numéro du dernier arrêt ; invalide les minuteries plus anciennes
+local prompts = {} -- [player] = invite de réanimation en cours
+local lives = {} -- [player] = vies restantes cette partie
+local deathCount = 0 -- morts de la partie en cours (tous joueurs)
 
 local function livesOf(player)
 	return lives[player] or Config.Player.Lives

@@ -165,7 +165,8 @@ local function beamOnMonster(m)
 		if st and st.flashlightOn and head then
 			local offset = m.root.Position - head.Position
 			local dist = offset.Magnitude
-			if dist > 0
+			if
+				dist > 0
 				and dist <= Config.Flashlight.Range
 				and offset.Unit:Dot(head.CFrame.LookVector) >= cosHalf
 				and clearLine(head.Position, m.root.Position, { char, m.model })
@@ -211,23 +212,25 @@ local function perceive(m)
 
 			if st.hiding then
 				-- Joueur caché : débusquage possible à courte distance
-				if searching
-					and dist <= CFG.SearchRange
-					and math.random() < CFG.DiscoverChancePerSecond * CFG.Tick
-				then
+				if searching and dist <= CFG.SearchRange and math.random() < CFG.DiscoverChancePerSecond * CFG.Tick then
 					PlayerState.unhide(player, true)
 					PlayerState.markThreat(player)
 					return player, "seen", root.Position
 				end
 			else
 				local kind = nil
-				if dist > 0
+				if
+					dist > 0
 					and dist <= sightRangeFor(st)
 					and offset.Unit:Dot(m.root.CFrame.LookVector) >= cosHalf
 					and clearLine(m.head.Position, root.Position, { m.model, char })
 				then
 					kind = "seen"
-				elseif st.noise > 0 and dist <= CFG.HearRange * Tension.current().hear * st.noise and (dist < 12 or clearLine(m.head.Position, root.Position, { m.model, char })) then
+				elseif
+					st.noise > 0
+					and dist <= CFG.HearRange * Tension.current().hear * st.noise
+					and (dist < 12 or clearLine(m.head.Position, root.Position, { m.model, char }))
+				then
 					kind = "heard"
 				end
 
@@ -251,8 +254,12 @@ local function openNearbyDoor(m)
 		return
 	end
 	for _, door in ipairs(CollectionService:GetTagged("Door")) do
-		if door:IsA("BasePart") and door:GetAttribute("Open") == false and door:GetAttribute("Lock") == nil
-			and (door.Position - m.root.Position).Magnitude < 3.5 then
+		if
+			door:IsA("BasePart")
+			and door:GetAttribute("Open") == false
+			and door:GetAttribute("Lock") == nil
+			and (door.Position - m.root.Position).Magnitude < 3.5
+		then
 			m.nextDoorAt = clock() + 2
 			Props.setDoor(door, true)
 			Noise.emit(door.Position, 0.6)

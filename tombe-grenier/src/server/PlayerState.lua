@@ -26,17 +26,17 @@ local function newState()
 		stamina = CFG.MaxStamina,
 		sanity = CFG.SanityMax,
 		noise = 0,
-		hiding = nil,            -- BasePart de la cachette occupée
-		savedCFrame = nil,       -- position avant la cachette
+		hiding = nil, -- BasePart de la cachette occupée
+		savedCFrame = nil, -- position avant la cachette
 		flashlightOn = false,
 		battery = FL.Battery,
 		threatTime = -math.huge, -- dernier instant où le monstre a perçu ce joueur
-		roomDark = false,         -- le joueur est dans une pièce plongée dans le noir
-		room = nil,              -- pièce où se trouve le joueur
-		log = {},                -- ce que le joueur a fait (pour le journal)
+		roomDark = false, -- le joueur est dans une pièce plongée dans le noir
+		room = nil, -- pièce où se trouve le joueur
+		log = {}, -- ce que le joueur a fait (pour le journal)
 		throws = Config.Throw.Charges,
-		frozenUntil = 0,         -- réveil scénarisé : pas de déplacement avant cet instant
-		crouch = false,          -- accroupi : plus lent, plus silencieux
+		frozenUntil = 0, -- réveil scénarisé : pas de déplacement avant cet instant
+		crouch = false, -- accroupi : plus lent, plus silencieux
 		lastThrow = -math.huge,
 	}
 end
@@ -148,7 +148,11 @@ function PlayerState.unhide(player, scared)
 	end
 	if scared then
 		st.sanity = math.clamp(st.sanity - CFG.SanityScare, 0, CFG.SanityMax)
-		Audio.play("porte", player.Character and player.Character:FindFirstChild("HumanoidRootPart") or workspace, { lifetime = 4 })
+		Audio.play(
+			"porte",
+			player.Character and player.Character:FindFirstChild("HumanoidRootPart") or workspace,
+			{ lifetime = 4 }
+		)
 		Remotes.fire("Effect", player, { kind = "Scare" })
 	end
 end

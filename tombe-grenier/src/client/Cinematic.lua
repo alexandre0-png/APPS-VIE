@@ -321,15 +321,12 @@ function Cinematic.play(name, gui, onDone)
 				while elapsed < plan.t and not token.done do
 					local dt = RunService.RenderStepped:Wait()
 					elapsed += dt
-					local jitter = CFrame.new(
-						(math.random() - 0.5) * 0.4,
-						(math.random() - 0.5) * 0.4,
-						0
-					)
+					local jitter = CFrame.new((math.random() - 0.5) * 0.4, (math.random() - 0.5) * 0.4, 0)
 					cam.CFrame = target * jitter
 				end
 			else
-				local tween = TweenService:Create(cam, TweenInfo.new(plan.t, Enum.EasingStyle.Sine), { CFrame = target })
+				local tween =
+					TweenService:Create(cam, TweenInfo.new(plan.t, Enum.EasingStyle.Sine), { CFrame = target })
 				token.tween = tween
 				tween:Play()
 				-- Attente par surveillance (un tween annulé ne déclenche pas Completed)

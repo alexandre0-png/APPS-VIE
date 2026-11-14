@@ -62,7 +62,11 @@ local PROPS = {
 	livre = { size = Vector3.new(0.6, 0.15, 0.9), material = Enum.Material.Fabric, shape = nil },
 	["boîte"] = { size = Vector3.new(1.0, 0.7, 0.8), material = Enum.Material.Cardboard, shape = nil },
 	bouteille = { size = Vector3.new(1.4, 0.45, 0.45), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
-	assiette = { size = Vector3.new(0.12, 1.0, 1.0), material = Enum.Material.SmoothPlastic, shape = Enum.PartType.Cylinder },
+	assiette = {
+		size = Vector3.new(0.12, 1.0, 1.0),
+		material = Enum.Material.SmoothPlastic,
+		shape = Enum.PartType.Cylinder,
+	},
 	vase = { size = Vector3.new(1.0, 0.6, 0.6), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
 	coussin = { size = Vector3.new(0.5, 1.2, 1.0), material = Enum.Material.Fabric, shape = nil },
 	casserole = { size = Vector3.new(0.6, 0.6, 0.6), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
@@ -118,8 +122,11 @@ local function placeModel(template, parent, x, y, z, target)
 	if model:IsA("Model") then
 		if target then
 			local _, size = model:GetBoundingBox()
-			local fit = math.min(target.X / math.max(size.X, 0.01),
-				target.Y / math.max(size.Y, 0.01), target.Z / math.max(size.Z, 0.01))
+			local fit = math.min(
+				target.X / math.max(size.X, 0.01),
+				target.Y / math.max(size.Y, 0.01),
+				target.Z / math.max(size.Z, 0.01)
+			)
 			model:ScaleTo(model:GetScale() * fit)
 		end
 		local cf, size = model:GetBoundingBox()

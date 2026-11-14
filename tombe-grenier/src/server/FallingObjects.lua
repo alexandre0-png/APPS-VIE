@@ -22,7 +22,7 @@ local Tension = require(Shared.Tension)
 local FallingObjects = {}
 
 local generation = 0
-local used = {}      -- spot -> true, réinitialisé quand tous les points ont servi
+local used = {} -- spot -> true, réinitialisé quand tous les points ont servi
 local lastSpot = nil
 
 local function makeItem()

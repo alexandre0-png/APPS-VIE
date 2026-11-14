@@ -7,7 +7,7 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
    - `hub.rbxl` (accueil) ;
    - `game.rbxl` (partie).
    Fichiers construits par Rojo, à ouvrir dans Studio puis publier (Fichier > Publier sur Roblox).
-3. **Publication** : les identifiants sont renseignés (`Config.Game.Places` : hub `88091909899710`, partie `77452764500707`, expérience unique « Sortir Du Grenier », univers `10776611603` ; l'ancien hub `124575462695705`, expérience séparée, n'est plus utilisé). Tu publies les deux lieux toi-même via l'API ou Studio ; rien n'a été publié par Claude.
+3. **Publication** : les identifiants sont renseignés (`Config.Game.Places` : hub `77452764500707`, partie `88091909899710`, expérience unique « Sortir Du Grenier », univers `10776611603` ; l'ancien hub `124575462695705`, expérience séparée, n'est plus utilisé). Tu publies les deux lieux toi-même via l'API ou Studio ; rien n'a été publié par Claude.
 4. **Tester à deux joueurs** dans Studio : réveil, énigmes, trappes, mort et réanimation, fin, retour au hub.
 5. **Achats Robux** (optionnels) : créer les Game Pass et produits sur Roblox, puis renseigner leurs identifiants dans `Config.Shop`. Tant qu'ils valent 0, les achats sont désactivés.
 6. **Vérifier les nouveautés dans Studio** :
@@ -25,7 +25,7 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
 15. **Modèle du monstre** : dans Studio, vérifier qu'un des trois identifiants `Config.Assets.Monstre1` à `Monstre3` se charge (sinon, le rig de secours est utilisé et un avertissement `[MonsterAI]` apparaît).
 16. **Hub** : dans Studio, vérifier les zones « Partie solo » et « Partie duo », les panneaux de file d'attente, et que la téléportation vers le serveur privé fonctionne. Les deux projets Rojo sont `hub.project.json` (lieu hub) et `game.project.json` (lieu de jeu).
 17. **Interface** : vérifier sur téléphone, tablette et PC que rien ne masque le centre de la vue et que les textes restent lisibles (échelle réglable dans l'échelle UIScale de `src/client/init.client.lua`).
-18. **Formatage stylua** : non fait (téléchargement refusé dans cet environnement). À lancer toi-même si tu veux : `stylua src tools`.
+18. **Formatage stylua** : fait (stylua 2.6 compilé avec la prise en charge de Luau, `stylua.toml`, `.styluaignore` pour MapData.lua généré). Pour reformater : `stylua src tools`.
 19. **Détails de pièces (passe 2)** : dans Studio, parcourir les 20 pièces et vérifier que les détails (dossier `Maison/Détails`) restent lisibles et ne gênent pas le regard (taches, flaques en verre, toiles). Ils n'ont ni collision ni tag. Pour en retirer un type, supprimer son nom dans `tools/map/details.py` puis relancer `python3 tools/map/generate_map.py`.
 20. **Sauvegarde du profil (rangs, défis, tutoriel)** : dans Roblox Studio, activer Game Settings > Security > « Enable Studio Access to API Services » pour tester la sauvegarde ; en ligne elle fonctionne d'office. Pour couper : `Config.Replay.StoreProfile = false`.
 21. **Régler la tension et la difficulté** : `Config.Tension` (durées du calme et de la montée, facteurs par temps), `Config.Balance` (solo et duo). Jouer une partie solo et une duo complètes pour juger le rythme ; couper la courbe avec `Config.Tension.Enabled = false`.

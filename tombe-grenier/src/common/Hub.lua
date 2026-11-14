@@ -48,7 +48,7 @@ local CENTER = Vector3.new(300, 0, 300) -- loin de la maison et de la clôture
 local folder = nil
 local launchRequested = false
 local requestedMode = nil -- "solo" ou "duo" : borne pressée, nil sinon
-local queueLabels = {}    -- [mode] = BillboardGui TextLabel (file d'attente visible)
+local queueLabels = {} -- [mode] = BillboardGui TextLabel (file d'attente visible)
 
 local function coffinSpawn()
 	local root = Workspace:FindFirstChild("TombeMap")
@@ -123,7 +123,11 @@ local function updateQueues()
 	for mode, label in pairs(queueLabels) do
 		if label and label.Parent then
 			local needed = mode == "duo" and 2 or 1
-			label.Text = HubRules.queueText(mode == "duo" and "Partie duo" or "Partie solo", requestedMode == mode and present or 0, needed)
+			label.Text = HubRules.queueText(
+				mode == "duo" and "Partie duo" or "Partie solo",
+				requestedMode == mode and present or 0,
+				needed
+			)
 		end
 	end
 end
@@ -169,19 +173,34 @@ function Hub.build()
 	light.Parent = lamp
 
 	-- Deux zones : partie solo et partie duo (le joueur entre dans la zone et lance)
-	queueLabels.solo = makePad("Zone solo", CENTER + Vector3.new(-9, 0.5, 12), Color3.fromRGB(180, 140, 90), "Partie solo",
+	queueLabels.solo = makePad(
+		"Zone solo",
+		CENTER + Vector3.new(-9, 0.5, 12),
+		Color3.fromRGB(180, 140, 90),
+		"Partie solo",
 		function()
 			requestedMode = "solo"
 			launchRequested = true
 			updateQueues()
-		end)
-	queueLabels.duo = makePad("Zone duo", CENTER + Vector3.new(9, 0.5, 12), Color3.fromRGB(120, 150, 170), "Partie duo",
+		end
+	)
+	queueLabels.duo = makePad(
+		"Zone duo",
+		CENTER + Vector3.new(9, 0.5, 12),
+		Color3.fromRGB(120, 150, 170),
+		"Partie duo",
 		function()
 			requestedMode = "duo"
 			updateQueues()
-		end)
+		end
+	)
 	-- Décor : piliers et banc, pour que le hub ait une ambiance propre
-	for _, corner in ipairs({ Vector3.new(-26, 6, -26), Vector3.new(26, 6, -26), Vector3.new(-26, 6, 26), Vector3.new(26, 6, 26) }) do
+	for _, corner in ipairs({
+		Vector3.new(-26, 6, -26),
+		Vector3.new(26, 6, -26),
+		Vector3.new(-26, 6, 26),
+		Vector3.new(26, 6, 26),
+	}) do
 		local pillar = Instance.new("Part")
 		pillar.Name = "Pilier"
 		pillar.Anchored = true
@@ -357,7 +376,10 @@ local function sendToPrivateGame(group)
 		return true
 	end
 	warn("[Hub] serveur privé impossible, repli sur un serveur public : " .. tostring(err))
-	notify(group, "Serveur privé indisponible : tu rejoins un serveur public. Tu risques d'y croiser d'autres joueurs.")
+	notify(
+		group,
+		"Serveur privé indisponible : tu rejoins un serveur public. Tu risques d'y croiser d'autres joueurs."
+	)
 	local okPublic, errPublic = pcall(function()
 		TeleportService:TeleportAsync(Config.Game.Places.game, group)
 	end)

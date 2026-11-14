@@ -156,18 +156,18 @@ end
 
 local function freshState()
 	return {
-		note = false,        -- papier du code trouvé
-		coffret = false,     -- coffret ouvert avec le code
-		chest = false,       -- malle ouverte avec la petite clé
-		smallKey = false,    -- la petite clé est obtenue
-		lore = {},           -- documents lus, par type
+		note = false, -- papier du code trouvé
+		coffret = false, -- coffret ouvert avec le code
+		chest = false, -- malle ouverte avec la petite clé
+		smallKey = false, -- la petite clé est obtenue
+		lore = {}, -- documents lus, par type
 		wrongCodes = 0,
 		lastProgress = os.clock(),
 		used = {},
-		fuseStep = 0,        -- interrupteurs bien actionnés, dans l'ordre
-		fuseDone = false,    -- courant rétabli
-		caveKey = false,     -- la vraie clé de la porte de la cave est prise
-		caveOpen = false,    -- la porte métallique est ouverte           -- objets interactifs déjà utilisés (une fois par partie)
+		fuseStep = 0, -- interrupteurs bien actionnés, dans l'ordre
+		fuseDone = false, -- courant rétabli
+		caveKey = false, -- la vraie clé de la porte de la cave est prise
+		caveOpen = false, -- la porte métallique est ouverte           -- objets interactifs déjà utilisés (une fois par partie)
 	}
 end
 
@@ -246,8 +246,10 @@ local OBJECTIVE = {
 		return "Oriente les trois statues du rez-de-chaussée, toutes dans la même direction"
 	end,
 	exit = function()
-		return ("Sors par la porte d'entrée, ou libère l'enfant (documents lus : %d/%d)")
-			:format(loreCount(), #LORE_KINDS)
+		return ("Sors par la porte d'entrée, ou libère l'enfant (documents lus : %d/%d)"):format(
+			loreCount(),
+			#LORE_KINDS
+		)
 	end,
 }
 
@@ -358,9 +360,15 @@ end
 local function writeLore(month, day)
 	local shown = ("%02d/%02d"):format(month, day)
 	local wrong = ("%02d/%02d"):format(month, day % 28 + 1)
-	LORE["journal intime"] = ("Journal intime : « Il y a trente ans, une famille vivait ici. Le %s, notre enfant a disparu. Les voix venaient du grenier. »"):format(shown)
-	LORE["cahier d'écolier"] = ("Cahier d'écolier : le même prénom, écrit des dizaines de fois. En marge, une date : %s. Puis un nom de famille, barré."):format(wrong)
-	LORE["plaque du cercueil"] = ("Plaque : un prénom délavé, sans nom de famille. Une date gravée dessous : %s."):format(shown)
+	LORE["journal intime"] = ("Journal intime : « Il y a trente ans, une famille vivait ici. Le %s, notre enfant a disparu. Les voix venaient du grenier. »"):format(
+		shown
+	)
+	LORE["cahier d'écolier"] = ("Cahier d'écolier : le même prénom, écrit des dizaines de fois. En marge, une date : %s. Puis un nom de famille, barré."):format(
+		wrong
+	)
+	LORE["plaque du cercueil"] = ("Plaque : un prénom délavé, sans nom de famille. Une date gravée dessous : %s."):format(
+		shown
+	)
 end
 
 -- Bibliothèque : trois livres portent un marque-page (1, 2, 3), tirés à chaque partie.
@@ -434,9 +442,9 @@ end
 
 -- Statues : chacune tourne par quarts de tour. Les trois doivent regarder la même cible (tirée par la seed).
 -- Résolue, la cave s'ouvre (la vraie clé est inutile). Le mur qui respire donne alors une pile.
-local paintingBase = {}   -- [tableau] = position de départ
-local statueBase = {}     -- [statue] = CFrame de départ, restauré à chaque partie
-local statueTargets = {}  -- [statue] = orientation cible (0 à 3)
+local paintingBase = {} -- [tableau] = position de départ
+local statueBase = {} -- [statue] = CFrame de départ, restauré à chaque partie
+local statueTargets = {} -- [statue] = orientation cible (0 à 3)
 
 -- Marques UV au sol, devant les deux premières statues : elles indiquent l'orientation cible
 local uvMarks = {}
@@ -492,7 +500,7 @@ local function chooseStatues(seed)
 end
 
 -- Mannequin : pivote face au joueur qui s'approche, une seule fois par partie
-local mannequinBase = {}   -- [part] = CFrame de départ
+local mannequinBase = {} -- [part] = CFrame de départ
 local mannequinTurned = {} -- [part] = true une fois pivoté pendant la partie en cours
 
 local function resetMannequins()
@@ -549,7 +557,10 @@ local function turnStatue(player, statue)
 	if Quests.onStatuesChanged then
 		Quests.onStatuesChanged(true)
 	end
-	say(player, "Les trois statues se figent, face à la même direction. Un déclic, très loin en bas : la cave est accessible.")
+	say(
+		player,
+		"Les trois statues se figent, face à la même direction. Un déclic, très loin en bas : la cave est accessible."
+	)
 	progressed()
 	-- Le mur se met à respirer : une pulsation lente, tant qu'il n'a pas été touché
 	local wall = CollectionService:GetTagged("Respire")[1]
@@ -594,11 +605,21 @@ local function wire()
 		if part:IsA("BasePart") then
 			prompt(part, { action = "Lire", object = "Papier" }, function(player)
 				if state.note then
-					say(player, "Au verso, toujours les deux premiers chiffres : " .. code:sub(1, 2) .. ". Les deux autres sont dans la glace.")
+					say(
+						player,
+						"Au verso, toujours les deux premiers chiffres : "
+							.. code:sub(1, 2)
+							.. ". Les deux autres sont dans la glace."
+					)
 					return
 				end
 				state.note = true
-				say(player, "Un papier froissé. Au verso, les deux premiers chiffres : " .. code:sub(1, 2) .. ". Les deux autres sont dans la glace, à l'envers.")
+				say(
+					player,
+					"Un papier froissé. Au verso, les deux premiers chiffres : "
+						.. code:sub(1, 2)
+						.. ". Les deux autres sont dans la glace, à l'envers."
+				)
 				progressed()
 			end)
 		end
@@ -607,31 +628,53 @@ local function wire()
 	-- Miroirs : le texte y est écrit à l'envers. Les deux derniers chiffres du code s'y lisent.
 	for _, part in ipairs(CollectionService:GetTagged("Mirror")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptReflet", action = "Lire le reflet", object = "Miroir", distance = 6 }, function(player)
-				if state.mirrorRead then
-					say(player, "Le reflet ne t'apprend plus rien.")
-					return
+			prompt(
+				part,
+				{ name = "QuestPromptReflet", action = "Lire le reflet", object = "Miroir", distance = 6 },
+				function(player)
+					if state.mirrorRead then
+						say(player, "Le reflet ne t'apprend plus rien.")
+						return
+					end
+					state.mirrorRead = true
+					say(
+						player,
+						"Dans la glace, un texte écrit à l'envers : « "
+							.. code:sub(3, 4):reverse()
+							.. " ». Remets-le dans le bon sens."
+					)
+					progressed()
 				end
-				state.mirrorRead = true
-				say(player, "Dans la glace, un texte écrit à l'envers : « " .. code:sub(3, 4):reverse() .. " ». Remets-le dans le bon sens.")
-				progressed()
-			end)
+			)
 		end
 	end
 
 	-- Mannequin : examiner (le pivot se fait seul, à l'approche)
 	for _, part in ipairs(CollectionService:GetTagged("Mannequin")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptMannequin", action = "Examiner", object = "Mannequin", distance = 6 }, function(player)
-				say(player, "Un mannequin de couturière. On lui a mis une petite robe, et une épingle est restée plantée dans le buste.")
-			end)
+			prompt(
+				part,
+				{ name = "QuestPromptMannequin", action = "Examiner", object = "Mannequin", distance = 6 },
+				function(player)
+					say(
+						player,
+						"Un mannequin de couturière. On lui a mis une petite robe, et une épingle est restée plantée dans le buste."
+					)
+				end
+			)
 		end
 	end
 
 	-- Statues : chaque tour compte, la solution est la même orientation pour les trois
 	for _, part in ipairs(CollectionService:GetTagged("Statue")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptStatue", action = "Tourner la statue", object = "Statue ancienne", hold = 0.2, distance = 6 }, function(player)
+			prompt(part, {
+				name = "QuestPromptStatue",
+				action = "Tourner la statue",
+				object = "Statue ancienne",
+				hold = 0.2,
+				distance = 6,
+			}, function(player)
 				turnStatue(player, part)
 			end)
 		end
@@ -643,13 +686,23 @@ local function wire()
 			if not paintingBase[part] then
 				paintingBase[part] = part.Position
 			end
-			prompt(part, { name = "QuestPromptTableau", action = "Décrocher le tableau", object = "Tableau", hold = 0.6, distance = 5 }, function(player)
+			prompt(part, {
+				name = "QuestPromptTableau",
+				action = "Décrocher le tableau",
+				object = "Tableau",
+				hold = 0.6,
+				distance = 5,
+			}, function(player)
 				if state.paintingDown then
 					say(player, "Le cadre est déjà à terre.")
 					return
 				end
 				state.paintingDown = true
-				TweenService:Create(part, TweenInfo.new(1.2, Enum.EasingStyle.Quad), { Position = paintingBase[part] + Vector3.new(0, -2.5, 0) }):Play()
+				TweenService:Create(
+					part,
+					TweenInfo.new(1.2, Enum.EasingStyle.Quad),
+					{ Position = paintingBase[part] + Vector3.new(0, -2.5, 0) }
+				):Play()
 				Audio.play("tableau_tombe", part, { lifetime = 4 })
 				PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
 				say(player, "Derrière le tableau, une fente dans le plâtre. Une pile y est rangée.")
@@ -661,7 +714,13 @@ local function wire()
 	-- Mur qui respire : une fois les statues résolues, il livre une pile
 	for _, part in ipairs(CollectionService:GetTagged("Respire")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptRespire", action = "Poser la main sur le mur", object = "Mur", hold = 0.5, distance = 5 }, function(player)
+			prompt(part, {
+				name = "QuestPromptRespire",
+				action = "Poser la main sur le mur",
+				object = "Mur",
+				hold = 0.5,
+				distance = 5,
+			}, function(player)
 				if not state.statuesDone then
 					say(player, "Le mur est froid et immobile. Rien ne se passe.")
 					return
@@ -673,7 +732,10 @@ local function wire()
 				state.breathed = true
 				PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
 				PlayerState.addSanity(player, -15)
-				say(player, "Le mur respire, lentement. Une chaleur, puis un battement sous le plâtre. Une pile tombe d'une fente.")
+				say(
+					player,
+					"Le mur respire, lentement. Une chaleur, puis un battement sous le plâtre. Une pile tombe d'une fente."
+				)
 			end)
 		end
 	end
@@ -681,49 +743,67 @@ local function wire()
 	-- Bibliothèque : feuilleter les livres
 	for _, part in ipairs(CollectionService:GetTagged("Livre")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptLivre", action = "Feuilleter", object = "Livre", hold = 0.4, distance = 6 }, function(player)
-				readBook(player, part)
-			end)
+			prompt(
+				part,
+				{ name = "QuestPromptLivre", action = "Feuilleter", object = "Livre", hold = 0.4, distance = 6 },
+				function(player)
+					readBook(player, part)
+				end
+			)
 		end
 	end
 
 	-- Tiroir de la cuisine : ouvrir ou refermer (le premier ouvrage donne une petite note)
 	for _, part in ipairs(CollectionService:GetTagged("Tiroir")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptTiroir", action = "Ouvrir le tiroir", object = "Tiroir", hold = 0.3, distance = 5 }, function(player)
-				state.drawerOpen = not state.drawerOpen
-				-- L'invite change de libellé : même invite, texte mis à jour
-				local invite = part:FindFirstChild("QuestPromptTiroir")
-				if invite then
-					invite.ActionText = state.drawerOpen and "Refermer le tiroir" or "Ouvrir le tiroir"
+			prompt(
+				part,
+				{ name = "QuestPromptTiroir", action = "Ouvrir le tiroir", object = "Tiroir", hold = 0.3, distance = 5 },
+				function(player)
+					state.drawerOpen = not state.drawerOpen
+					-- L'invite change de libellé : même invite, texte mis à jour
+					local invite = part:FindFirstChild("QuestPromptTiroir")
+					if invite then
+						invite.ActionText = state.drawerOpen and "Refermer le tiroir" or "Ouvrir le tiroir"
+					end
+					Gestures.pullDrawer(part, state.drawerOpen)
+					if state.drawerOpen and not state.drawerSeen then
+						state.drawerSeen = true
+						say(player, "Des couverts, et un vieux carnet de recettes. Rien d'utile ici.")
+					end
 				end
-				Gestures.pullDrawer(part, state.drawerOpen)
-				if state.drawerOpen and not state.drawerSeen then
-					state.drawerSeen = true
-					say(player, "Des couverts, et un vieux carnet de recettes. Rien d'utile ici.")
-				end
-			end)
+			)
 		end
 	end
 
 	-- Horloge du hall (progression V2) : saisie de la date de la plaque
 	for _, part in ipairs(CollectionService:GetTagged("Horloge")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptHorloge", action = "Régler", object = "Horloge", hold = 0.4, distance = 6 }, function(player)
-				if not Config.Design.ProgressionV2 or not state or state.horloge then
-					return
+			prompt(
+				part,
+				{ name = "QuestPromptHorloge", action = "Régler", object = "Horloge", hold = 0.4, distance = 6 },
+				function(player)
+					if not Config.Design.ProgressionV2 or not state or state.horloge then
+						return
+					end
+					state.horlogeOpen = true
+					Remotes.fire("Keypad", player, { length = 4 })
+					say(player, "Entre la date de la plaque : mois puis jour, deux chiffres chacun.")
 				end
-				state.horlogeOpen = true
-				Remotes.fire("Keypad", player, { length = 4 })
-				say(player, "Entre la date de la plaque : mois puis jour, deux chiffres chacun.")
-			end)
+			)
 		end
 	end
 
 	-- Énigme optionnelle de la cuisine : l'étiquette donne le code, le compteur le demande
 	for _, part in ipairs(CollectionService:GetTagged("Compteur")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptCompteur", action = "Saisir le code", object = "Compteur", hold = 0.4, distance = 6 }, function(player)
+			prompt(part, {
+				name = "QuestPromptCompteur",
+				action = "Saisir le code",
+				object = "Compteur",
+				hold = 0.4,
+				distance = 6,
+			}, function(player)
 				if not Config.Design.ExtraSafe or not state or state.compteurDone then
 					return
 				end
@@ -738,7 +818,13 @@ local function wire()
 	for _, part in ipairs(CollectionService:GetTagged("MusicBox")) do
 		if part:IsA("BasePart") then
 			for index, noteName in ipairs(NOTE_NAMES) do
-				prompt(part, { name = "QuestPromptNote" .. index, action = "Jouer " .. noteName, object = "Boîte à musique", hold = 0.2, distance = 6 }, function(player)
+				prompt(part, {
+					name = "QuestPromptNote" .. index,
+					action = "Jouer " .. noteName,
+					object = "Boîte à musique",
+					hold = 0.2,
+					distance = 6,
+				}, function(player)
 					pressNote(player, index)
 				end)
 			end
@@ -797,9 +883,18 @@ local function wire()
 		if part:IsA("BasePart") then
 			local kind = part:GetAttribute("Kind")
 			if kind == "étiquette de la réserve" then
-				prompt(part, { name = "QuestPromptEtiquette", action = "Lire", object = "Étiquette", hold = 0.4 }, function(player)
-					say(player, ("Étiquette, au feutre : « Réserve — %s »."):format(Config.Design.ExtraSafe and extraCode or "???"))
-				end)
+				prompt(
+					part,
+					{ name = "QuestPromptEtiquette", action = "Lire", object = "Étiquette", hold = 0.4 },
+					function(player)
+						say(
+							player,
+							("Étiquette, au feutre : « Réserve — %s »."):format(
+								Config.Design.ExtraSafe and extraCode or "???"
+							)
+						)
+					end
+				)
 			elseif LORE[kind] then
 				prompt(part, { action = "Lire", object = kind, hold = 0.4 }, function(player)
 					-- Geste de lecture : le papier monte à hauteur des yeux (client, Motion.readPose)
@@ -935,31 +1030,45 @@ local function wire()
 			end)
 			-- Sauver : rester près de la porte pendant trois secondes, une fois la cave ouverte.
 			-- Ça ne termine pas la partie : la personne est sauvée, et la progression continue.
-			prompt(part, { name = "QuestPromptSauver", action = "Sauver la personne", object = "Cave", hold = 3, distance = 6 }, function(player)
-				if not state.caveOpen or state.saved then
-					return
+			prompt(
+				part,
+				{ name = "QuestPromptSauver", action = "Sauver la personne", object = "Cave", hold = 3, distance = 6 },
+				function(player)
+					if not state.caveOpen or state.saved then
+						return
+					end
+					state.saved = true
+					say(player, "Tu la tires vers la lumière. Elle murmure un prénom.")
+					progressed()
 				end
-				state.saved = true
-				say(player, "Tu la tires vers la lumière. Elle murmure un prénom.")
-				progressed()
-			end)
+			)
 		end
 	end
 
 	-- Trappe au pied de l'escalier du sous-sol, côté maison : elle ne s'ouvre pas
 	for _, part in ipairs(CollectionService:GetTagged("Trappe")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptTrappe", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
-				Audio.play("ventilation", part, { lifetime = 6 })
-				say(player, "Une porte est peut-être dehors.")
-			end)
+			prompt(
+				part,
+				{ name = "QuestPromptTrappe", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 },
+				function(player)
+					Audio.play("ventilation", part, { lifetime = 6 })
+					say(player, "Une porte est peut-être dehors.")
+				end
+			)
 		end
 	end
 
 	-- Trappe du grenier : fermée tant que la malle n'est pas ouverte
 	for _, part in ipairs(CollectionService:GetTagged("TrappeGrenier")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptTrappeGrenier", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
+			prompt(part, {
+				name = "QuestPromptTrappeGrenier",
+				action = "Essayer d'ouvrir",
+				object = "Trappe",
+				hold = 0.5,
+				distance = 5,
+			}, function(player)
 				if state.chest then
 					say(player, "La trappe est ouverte. L'escalier descend vers le premier étage.")
 				else
@@ -972,7 +1081,13 @@ local function wire()
 	-- Trappe du premier étage : fermée jusqu'à la mélodie de la boîte à musique
 	for _, part in ipairs(CollectionService:GetTagged("TrappePalier")) do
 		if part:IsA("BasePart") then
-			prompt(part, { name = "QuestPromptTrappePalier", action = "Essayer d'ouvrir", object = "Trappe", hold = 0.5, distance = 5 }, function(player)
+			prompt(part, {
+				name = "QuestPromptTrappePalier",
+				action = "Essayer d'ouvrir",
+				object = "Trappe",
+				hold = 0.5,
+				distance = 5,
+			}, function(player)
 				if state.boxDone then
 					say(player, "La trappe est ouverte. L'escalier descend vers le rez-de-chaussée.")
 				else
@@ -985,7 +1100,13 @@ local function wire()
 	-- Portail du jardin : le franchir lance la poursuite finale (Quests.onGate)
 	for _, wall in ipairs(CollectionService:GetTagged("InvisibleWall")) do
 		if wall:IsA("BasePart") and wall:GetAttribute("Puzzle") == "portail" then
-			prompt(wall, { name = "QuestPromptPortail", action = "Franchir le portail", object = "Portail", hold = 1, distance = 8 }, function(player)
+			prompt(wall, {
+				name = "QuestPromptPortail",
+				action = "Franchir le portail",
+				object = "Portail",
+				hold = 1,
+				distance = 8,
+			}, function(player)
 				if not state.outside then
 					say(player, "Le portail est fermé. Il faut d'abord sortir de la maison.")
 					return
@@ -1027,7 +1148,13 @@ local function wire()
 				Remotes.fire("Keypad", player, { length = 4 })
 			end)
 			-- Choix de la malédiction : refermer le cercueil, une fois la malle ouverte
-			prompt(part, { name = "QuestPromptCercueil", action = "Refermer le cercueil", object = "Tombe", hold = 2, distance = 6 }, function()
+			prompt(part, {
+				name = "QuestPromptCercueil",
+				action = "Refermer le cercueil",
+				object = "Tombe",
+				hold = 2,
+				distance = 6,
+			}, function()
 				if not state or not state.chest then
 					return
 				end
@@ -1052,7 +1179,10 @@ local function submitDate(player, text)
 		-- pour éviter une erreur de saisie. Fin de la partie en cours seulement (rien n'est sauvegardé).
 		if not state.sealArmed then
 			state.sealArmed = true
-			say(player, "Cette date n'est pas celle de la plaque. Tu ne pourras pas revenir en arrière : ressaisis-la pour confirmer.")
+			say(
+				player,
+				"Cette date n'est pas celle de la plaque. Tu ne pourras pas revenir en arrière : ressaisis-la pour confirmer."
+			)
 			return
 		end
 		state.tombePending = false
@@ -1204,10 +1334,10 @@ function Quests.setup(seed)
 	state.mirrorRead = false
 	state.melodyIdx = 0
 	state.boxDone = false
-	state.horloge = false     -- progression V2 : horloge du hall réglée
+	state.horloge = false -- progression V2 : horloge du hall réglée
 	state.horlogeOpen = false -- saisie de la date ouverte au hall
 	state.compteurOpen = false -- saisie du code au compteur de la cuisine
-	state.sealArmed = false    -- date du cahier saisie une fois : une confirmation scellerait le cercueil
+	state.sealArmed = false -- date du cahier saisie une fois : une confirmation scellerait le cercueil
 	state.compteurDone = false
 	state.tombePending = false
 	state.nextMark = 1
@@ -1308,7 +1438,10 @@ function Quests.onFrontDoor(player)
 		Quests.onFrontDoorShown()
 	end
 	Remotes.fire("Effect", player, { kind = "Cine", name = "jardin" })
-	say(player, "Tu franchis la porte. Le jardin est silencieux. Des cris étouffés viennent d'en bas, du côté de la maison. Au fond de l'allée, le portail.")
+	say(
+		player,
+		"Tu franchis la porte. Le jardin est silencieux. Des cris étouffés viennent d'en bas, du côté de la maison. Au fond de l'allée, le portail."
+	)
 	progressed()
 end
 

@@ -208,7 +208,11 @@ local function endRound(reason)
 	local endText = Quests.endingText(reason)
 	Remotes.fireAll("Effect", { kind = "Cine", name = reason })
 	for _, player in ipairs(Players:GetPlayers()) do
-		Remotes.fire("Effect", player, { kind = "RoundEnd", reason = reason, text = endText .. (progress[player] or "") })
+		Remotes.fire(
+			"Effect",
+			player,
+			{ kind = "RoundEnd", reason = reason, text = endText .. (progress[player] or "") }
+		)
 	end
 
 	task.wait(Config.Round.EndScreenTime)
@@ -432,4 +436,3 @@ end)
 if Hub.role() ~= "game" then
 	Hub.enter()
 end
-

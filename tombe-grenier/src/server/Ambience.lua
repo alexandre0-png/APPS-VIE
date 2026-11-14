@@ -275,7 +275,8 @@ local function dollLoop(rng, gen)
 		end
 		if not near and moves < 3 and rng:next() < 0.5 then
 			moves += 1
-			TweenService:Create(doll, TweenInfo.new(1.5), { Position = doll.Position + Vector3.new(1.2, 0, 0.8) }):Play()
+			TweenService:Create(doll, TweenInfo.new(1.5), { Position = doll.Position + Vector3.new(1.2, 0, 0.8) })
+				:Play()
 			Audio.play("poupee_bouge", doll, { lifetime = 3 })
 		end
 	end
@@ -367,8 +368,9 @@ local function sceneLoop(rng, gen)
 			runner.Transparency = 0.2
 			runner.Position = Vector3.new(60, 14.75, 4)
 			runner.Parent = Workspace
-			TweenService:Create(runner, TweenInfo.new(3.5, Enum.EasingStyle.Linear),
-				{ Position = Vector3.new(60, 14.75, 84) }):Play()
+			TweenService
+				:Create(runner, TweenInfo.new(3.5, Enum.EasingStyle.Linear), { Position = Vector3.new(60, 14.75, 84) })
+				:Play()
 			Debris:AddItem(runner, 4)
 		else
 			local source = Instance.new("Part")

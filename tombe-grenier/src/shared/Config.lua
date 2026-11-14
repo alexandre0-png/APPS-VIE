@@ -6,75 +6,75 @@ local Config = {}
 
 Config.Debug = {
 	SkipActivationDelay = false, -- true : le monstre s'active immédiatement (tests)
-	Seed = nil,                  -- nombre fixe pour rejouer une partie à l'identique
-	PlaceRole = nil,             -- "hub" ou "game" : rôle forcé en Studio (un fichier de lieu par rôle)
-	SkipFlashbacks = false,      -- true : pas de flashback lors de la lecture des documents (tests)
+	Seed = nil, -- nombre fixe pour rejouer une partie à l'identique
+	PlaceRole = nil, -- "hub" ou "game" : rôle forcé en Studio (un fichier de lieu par rôle)
+	SkipFlashbacks = false, -- true : pas de flashback lors de la lecture des documents (tests)
 }
 
 Config.Round = {
-	EndScreenTime = 8,     -- durée de l'écran de fin avant le retour au hub
-	RestartTimeout = 30,   -- secondes d'attente du « Rejouer » avant nouvelle partie automatique
-	PhotosRequired = 3,    -- photos nécessaires (avec la clé) pour ouvrir la sortie
+	EndScreenTime = 8, -- durée de l'écran de fin avant le retour au hub
+	RestartTimeout = 30, -- secondes d'attente du « Rejouer » avant nouvelle partie automatique
+	PhotosRequired = 3, -- photos nécessaires (avec la clé) pour ouvrir la sortie
 }
 
 Config.Player = {
-	WalkSpeed = 8,            -- joueurs un peu plus lents : la maison prend du temps à parcourir
+	WalkSpeed = 8, -- joueurs un peu plus lents : la maison prend du temps à parcourir
 	SprintSpeed = 13,
-	QuietSpeed = 3,           -- vitesse en mode silencieux (Ctrl maintenu)
-	Lives = 3,                -- vies par joueur et par partie (une mort en coûte une)
-	CrouchSpeed = 2,         -- vitesse accroupi (C maintenu) : plus lent, mais silencieux
-	CrouchDrop = 1.2,        -- hauteur dont le personnage s'abaisse accroupi
-	MovingThreshold = 1.5,    -- vitesse horizontale (studs/s) au-delà de laquelle on est « en mouvement »
+	QuietSpeed = 3, -- vitesse en mode silencieux (Ctrl maintenu)
+	Lives = 3, -- vies par joueur et par partie (une mort en coûte une)
+	CrouchSpeed = 2, -- vitesse accroupi (C maintenu) : plus lent, mais silencieux
+	CrouchDrop = 1.2, -- hauteur dont le personnage s'abaisse accroupi
+	MovingThreshold = 1.5, -- vitesse horizontale (studs/s) au-delà de laquelle on est « en mouvement »
 	MaxStamina = 100,
-	StaminaDrain = 25,        -- par seconde en sprint
-	StaminaRegen = 15,        -- par seconde hors sprint
-	NoiseWalk = 0.5,          -- intensité de bruit en marche (0 à 1)
+	StaminaDrain = 25, -- par seconde en sprint
+	StaminaRegen = 15, -- par seconde hors sprint
+	NoiseWalk = 0.5, -- intensité de bruit en marche (0 à 1)
 	NoiseSprint = 1,
-	NoiseQuietFactor = 0.25,  -- multiplicateur de bruit en mode silencieux
+	NoiseQuietFactor = 0.25, -- multiplicateur de bruit en mode silencieux
 	SanityMax = 100,
-	SanityLossThreat = 14,    -- perte par seconde quand le monstre perçoit le joueur
+	SanityLossThreat = 14, -- perte par seconde quand le monstre perçoit le joueur
 	SanityRegenSafe = 3,
 	SanityRegenHidden = 6,
-	SanityLow = 25,           -- sous ce seuil : battements de cœur et ralentissement
-	SanityLossDark = 2,       -- perte par seconde dans une pièce noire sans lampe allumée
+	SanityLow = 25, -- sous ce seuil : battements de cœur et ralentissement
+	SanityLossDark = 2, -- perte par seconde dans une pièce noire sans lampe allumée
 	LowSanitySpeedFactor = 0.6,
-	SanityScare = 20,        -- perte quand le joueur est débusqué d'une cachette
+	SanityScare = 20, -- perte quand le joueur est débusqué d'une cachette
 	Tick = 0.1,
 }
 
 Config.Respawn = {
-	Delay = 4,               -- secondes avant la réapparition après une mort (solo, ou duo sans partenaire vivant)
+	Delay = 4, -- secondes avant la réapparition après une mort (solo, ou duo sans partenaire vivant)
 }
 
 Config.Revive = {
-	Window = 40,             -- duo : secondes pendant lesquelles l'autre joueur peut réanimer le joueur au sol
-	Hold = 3,                -- secondes de maintien de l'invite pour réanimer
+	Window = 40, -- duo : secondes pendant lesquelles l'autre joueur peut réanimer le joueur au sol
+	Hold = 3, -- secondes de maintien de l'invite pour réanimer
 }
 
 Config.Monster = {
 	WalkSpeed = 8,
 	ChaseSpeed = 15,
 	SightRange = 60,
-	FOV = 110,                       -- angle de vision total en degrés
-	HearRange = 40,                  -- portée d'ouïe à noise = 1
-	NoiseMemory = 0.6,               -- secondes pendant lesquelles un bruit ponctuel reste « entendu »
+	FOV = 110, -- angle de vision total en degrés
+	HearRange = 40, -- portée d'ouïe à noise = 1
+	NoiseMemory = 0.6, -- secondes pendant lesquelles un bruit ponctuel reste « entendu »
 	AttackRange = 4,
 	AttackCooldown = 2.5,
 	AttackDamage = 50,
-	AttackRecover = 1.5,             -- pause du monstre après une attaque
-	SanityHit = 30,                  -- perte de sanité à chaque attaque
-	LoseTargetTime = 5,              -- secondes sans voir la cible avant de passer en recherche
+	AttackRecover = 1.5, -- pause du monstre après une attaque
+	SanityHit = 30, -- perte de sanité à chaque attaque
+	LoseTargetTime = 5, -- secondes sans voir la cible avant de passer en recherche
 	SearchTime = 12,
-	SearchRange = 7,                 -- distance à laquelle le monstre peut débusquer un joueur caché
+	SearchRange = 7, -- distance à laquelle le monstre peut débusquer un joueur caché
 	DiscoverChancePerSecond = 0.5,
 	InvestigateTime = 8,
-	PatrolRadius = 60,               -- rayon de patrouille si aucun tag Waypoint n'existe
+	PatrolRadius = 60, -- rayon de patrouille si aucun tag Waypoint n'existe
 	PatrolPause = 1.5,
-	FreezeHold = 0.15,               -- durée de gel après un tick de faisceau lumineux
-	StepInterval = 0.6,              -- secondes entre deux pas audibles du monstre
-	SurpriseGap = 8,                 -- secondes sans attaque avant une attaque surprise
-	DarkSightFactor = 0.35,          -- portée de vue dans le noir, sans lampe allumée (x SightRange)
-	ScreamCooldown = 20,             -- secondes minimum entre deux cris de capture
+	FreezeHold = 0.15, -- durée de gel après un tick de faisceau lumineux
+	StepInterval = 0.6, -- secondes entre deux pas audibles du monstre
+	SurpriseGap = 8, -- secondes sans attaque avant une attaque surprise
+	DarkSightFactor = 0.35, -- portée de vue dans le noir, sans lampe allumée (x SightRange)
+	ScreamCooldown = 20, -- secondes minimum entre deux cris de capture
 	Tick = 0.1,
 	DirectWalkTimeout = 3,
 	WaypointTimeout = 3,
@@ -82,7 +82,7 @@ Config.Monster = {
 
 -- Boutique Robux. Un identifiant à 0 = article désactivé : le jeu reste entièrement jouable gratuitement.
 Config.Shop = {
-	GamePasses = { LampeRenforcee = 0 },    -- Game Pass : la lampe se vide deux fois moins vite
+	GamePasses = { LampeRenforcee = 0 }, -- Game Pass : la lampe se vide deux fois moins vite
 	Products = { Pile = 0, Cailloux = 0 }, -- produits : une pile, ou des cailloux à lancer
 	PileAmount = 45,
 	CaillouxAmount = 5,
@@ -90,11 +90,11 @@ Config.Shop = {
 
 Config.Flashlight = {
 	Range = 40,
-	Angle = 40,            -- angle total du faisceau en degrés
+	Angle = 40, -- angle total du faisceau en degrés
 	Brightness = 2,
 	Battery = 100,
-	DrainPerSecond = 1.6,    -- environ une minute de lampe allumée à pleine charge
-	PickupAmount = 45,       -- charge rendue par une pile ramassée
+	DrainPerSecond = 1.6, -- environ une minute de lampe allumée à pleine charge
+	PickupAmount = 45, -- charge rendue par une pile ramassée
 }
 
 Config.Lights = {
@@ -104,7 +104,7 @@ Config.Lights = {
 	OffMax = 0.5,
 	BurstMin = 1,
 	BurstMax = 4,
-	NearMonsterRange = 25,       -- en dessous, la lampe reste allumée moins longtemps
+	NearMonsterRange = 25, -- en dessous, la lampe reste allumée moins longtemps
 	NearMonsterOnFactor = 0.4,
 	BlackoutIntervalMin = 90,
 	BlackoutIntervalMax = 180,
@@ -115,9 +115,9 @@ Config.Game = {
 	-- Identifiants des deux lieux Roblox (même expérience, même univers). 0 = un seul lieu (test).
 	-- Le lieu hub réserve un serveur privé du lieu de jeu et y téléporte les joueurs ; si Roblox refuse,
 	-- repli sur un serveur public du lieu de jeu.
-	Places = { hub = 88091909899710, game = 77452764500707 }, -- deux lieux de la même expérience « Sortir Du Grenier » (univers 10776611603) : hub et partie
-	HubWait = 30,            -- secondes au hub après l'arrivée du premier joueur, puis la partie démarre
-	DuoWait = 60,            -- zone duo : secondes d'attente d'un second joueur, puis partie en solo
+	Places = { hub = 77452764500707, game = 88091909899710 }, -- deux lieux de la même expérience « Sortir Du Grenier » (univers 10776611603) : hub et partie
+	HubWait = 30, -- secondes au hub après l'arrivée du premier joueur, puis la partie démarre
+	DuoWait = 60, -- zone duo : secondes d'attente d'un second joueur, puis partie en solo
 	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.
 	-- Le jeu est conçu pour un joueur (solo) ou un duo. Au-delà, la carte devient trop vite encombrée.
 	MaxPlayers = 2,
@@ -140,7 +140,7 @@ Config.Tension = {
 		solo = { calm = 240, rise = 720 },
 		duo = { calm = 200, rise = 600 },
 	},
-	ProgressWeight = 1,       -- 0 : le temps seul ; 1 : la progression compte à plein
+	ProgressWeight = 1, -- 0 : le temps seul ; 1 : la progression compte à plein
 	Levels = {
 		calme = { events = 0.5, hear = 0.9, chase = 0.95, volume = 0.8, gap = 1.4 },
 		montee = { events = 1.0, hear = 1.0, chase = 1.0, volume = 1.0, gap = 1.0 },
@@ -158,15 +158,15 @@ Config.Balance = {
 -- Tutoriel discret au premier lancement : trois indices contextuels, jamais bloquants (Tutorial.lua).
 Config.Tutorial = {
 	Enabled = true,
-	Cooldown = 25,           -- secondes minimum entre deux indices
-	QuietAfter = 40,         -- indice 1 : après tant de secondes de jeu sans avoir ralenti ses pas (Ctrl)
-	LampBattery = 35,        -- indice 3 : lampe sous ce pourcentage
+	Cooldown = 25, -- secondes minimum entre deux indices
+	QuietAfter = 40, -- indice 1 : après tant de secondes de jeu sans avoir ralenti ses pas (Ctrl)
+	LampBattery = 35, -- indice 3 : lampe sous ce pourcentage
 }
 
 -- Progression : rangs et titres affichés au hub (Ranks.lua). Les points s'ajoutent à chaque partie.
 Config.Ranks = {
 	Enabled = true,
-	PointsPerRun = 10,       -- pour avoir terminé une partie
+	PointsPerRun = 10, -- pour avoir terminé une partie
 	PointsPerEnding = { lose = 5, sealed = 20, truth = 40 },
 	PointsPerChallenge = 15,
 	DuoBonus = 5,
@@ -175,42 +175,42 @@ Config.Ranks = {
 -- Rejouabilité : défis optionnels (Challenges.lua) et graines (Replay.lua).
 Config.Replay = {
 	Enabled = true,
-	AvoidLastSeeds = 5,      -- une nouvelle graine évite les cinq dernières jouées
-	DailySeed = true,        -- le premier défi du jour utilise la graine du jour (identique pour tous)
-	StoreProfile = true,     -- DataStore : rang, défis, tutoriel (désactiver pour tester sans sauvegarde)
+	AvoidLastSeeds = 5, -- une nouvelle graine évite les cinq dernières jouées
+	DailySeed = true, -- le premier défi du jour utilise la graine du jour (identique pour tous)
+	StoreProfile = true, -- DataStore : rang, défis, tutoriel (désactiver pour tester sans sauvegarde)
 	DataStoreName = "TombeGrenierProfil",
 }
 
 Config.Intro = {
-	Duration = 8,            -- secondes de réveil : le joueur ne peut pas marcher avant la fin
+	Duration = 8, -- secondes de réveil : le joueur ne peut pas marcher avant la fin
 }
 
 Config.Quests = {
-	HintDelay = 180,         -- secondes sans progrès avant une indication automatique
-	HintCooldown = 30,       -- secondes entre deux indications demandées (touche H)
+	HintDelay = 180, -- secondes sans progrès avant une indication automatique
+	HintCooldown = 30, -- secondes entre deux indications demandées (touche H)
 }
 
 Config.Throw = {
-	Charges = 0,             -- lancers au départ : il faut ramasser des cailloux (un caillou = un lancer)
-	MaxCarry = 6,            -- nombre maximum de lancers gardés sur soi
-	Cooldown = 3,            -- secondes entre deux jets
-	Range = 40,              -- portée maximale en studs
+	Charges = 0, -- lancers au départ : il faut ramasser des cailloux (un caillou = un lancer)
+	MaxCarry = 6, -- nombre maximum de lancers gardés sur soi
+	Cooldown = 3, -- secondes entre deux jets
+	Range = 40, -- portée maximale en studs
 }
 
 -- Conception du jeu. ProgressionV2 : une horloge dans le hall, à régler sur la date de la plaque,
 -- entre la mélodie et la clé de la malle. false : retour à la progression d'origine.
 Config.Design = {
 	ProgressionV2 = true,
-	ExtraSafe = true,        -- énigme optionnelle de la cuisine (compteur) : ne bloque rien, donne une pile
+	ExtraSafe = true, -- énigme optionnelle de la cuisine (compteur) : ne bloque rien, donne une pile
 }
 
 Config.Visual = {
-	Dust = true,             -- poussière en suspension dans les pièces (Atmosphere.lua)
-	DustRate = 3,            -- particules par seconde et par pièce : faible, pour rester léger
-	Vignette = true,         -- bords de l'écran assombris, d'autant plus que la sanité baisse (client)
-	VignetteMax = 0.6,       -- opacité maximale de la vignette (0 à 1)
-	CandleFlicker = true,    -- la lueur des bougies vacille (Quests.lua)
-	RoomLights = true,       -- lueurs de pièce : seules les pièces proches du joueur restent allumées (RoomBudget.lua)
+	Dust = true, -- poussière en suspension dans les pièces (Atmosphere.lua)
+	DustRate = 3, -- particules par seconde et par pièce : faible, pour rester léger
+	Vignette = true, -- bords de l'écran assombris, d'autant plus que la sanité baisse (client)
+	VignetteMax = 0.6, -- opacité maximale de la vignette (0 à 1)
+	CandleFlicker = true, -- la lueur des bougies vacille (Quests.lua)
+	RoomLights = true, -- lueurs de pièce : seules les pièces proches du joueur restent allumées (RoomBudget.lua)
 	RoomLightQuality = "auto", -- "auto", "bas", "moyen" ou "haut" : nombre de lueurs actives et portée
 }
 
@@ -218,14 +218,14 @@ Config.Visual = {
 -- Un modèle absent ou invalide garde les pièces de remplacement actuelles. Enabled = false désactive le chargement.
 Config.Assets = {
 	Enabled = true,
-	Timeout = 8,               -- secondes maximum par modèle
-	ChaiseHorreur = 8995653666,        -- chaise de la salle à manger (remplace « chaise »)
-	ChaiseBois = 13369825696,          -- chaise en bois (décor, salle à manger)
-	ChaiseAntique = 97314700592382,    -- fauteuil du salon (remplace « fauteuil »)
-	ChaiseBloquante = 80943579301021,  -- chaise devant une porte (décor seulement)
-	LampeHorreur = 10780850055,        -- lampe avec lueur (décor, dans les pièces)
-	TableLongue = 188745055,           -- table de la salle à manger et de la cuisine (remplace « table »)
-	Plante = 116741237427172,          -- plante en pot (décor : hall, couloir)
+	Timeout = 8, -- secondes maximum par modèle
+	ChaiseHorreur = 8995653666, -- chaise de la salle à manger (remplace « chaise »)
+	ChaiseBois = 13369825696, -- chaise en bois (décor, salle à manger)
+	ChaiseAntique = 97314700592382, -- fauteuil du salon (remplace « fauteuil »)
+	ChaiseBloquante = 80943579301021, -- chaise devant une porte (décor seulement)
+	LampeHorreur = 10780850055, -- lampe avec lueur (décor, dans les pièces)
+	TableLongue = 188745055, -- table de la salle à manger et de la cuisine (remplace « table »)
+	Plante = 116741237427172, -- plante en pot (décor : hall, couloir)
 	-- Modèle du monstre : essayés dans l'ordre, le premier valide est utilisé. Sinon, le rig de secours.
 	Monstre1 = 14801251042,
 	Monstre2 = 126828585469313,
@@ -236,45 +236,45 @@ Config.Assets = {
 -- Enabled = false coupe toutes les cinématiques. SkipButton : bouton « Passer » à l'écran.
 Config.Cinematics = {
 	Enabled = true,
-	Arrival = true,          -- intro courte : arrivée devant la maison, de nuit
-	Apparition = true,       -- première apparition du monstre (cri, caméra qui se tourne)
-	Descent = true,          -- le monstre descend au sous-sol
-	Sealed = true,           -- fin 4, « le piège »
-	Truth = true,            -- fin 3, « la vérité »
+	Arrival = true, -- intro courte : arrivée devant la maison, de nuit
+	Apparition = true, -- première apparition du monstre (cri, caméra qui se tourne)
+	Descent = true, -- le monstre descend au sous-sol
+	Sealed = true, -- fin 4, « le piège »
+	Truth = true, -- fin 3, « la vérité »
 	SkipButton = true,
 }
 
 -- Animations : chaque geste peut être coupé seul. Enabled = false coupe tout.
 Config.Animations = {
 	Enabled = true,
-	ChestLid = true,         -- la malle s'entrouvre en basculant
-	CoffretLid = true,       -- le couvercle du coffret se soulève
-	PickupRise = true,       -- un objet ramassé s'élève puis disparaît
-	LampSway = true,         -- les lampes de plafond se balancent doucement
-	CameraBob = true,        -- pas : léger balancement de la caméra en marche
-	Breath = true,           -- respiration : légère montée et descente de la caméra à l'arrêt
-	DocumentRead = true,     -- lecture d'un document : la feuille monte à hauteur des yeux
-	Drawer = true,           -- tiroir : il coulisse hors du meuble
-	WakeBlink = true,        -- réveil : battements de paupières (fondu en plusieurs temps)
-	ScareShake = true,       -- débusqué ou apparition : secousse courte de la caméra
-	MonsterReaction = true,  -- apparition du monstre : secousse et sursaut des bords (pendant et après la cinématique)
-	BobAmplitude = 0.08,     -- amplitude du balancement de marche (studs)
-	BreathAmplitude = 0.04,  -- amplitude de la respiration (studs)
-	ShakeDuration = 0.6,     -- durée de la secousse (secondes)
+	ChestLid = true, -- la malle s'entrouvre en basculant
+	CoffretLid = true, -- le couvercle du coffret se soulève
+	PickupRise = true, -- un objet ramassé s'élève puis disparaît
+	LampSway = true, -- les lampes de plafond se balancent doucement
+	CameraBob = true, -- pas : léger balancement de la caméra en marche
+	Breath = true, -- respiration : légère montée et descente de la caméra à l'arrêt
+	DocumentRead = true, -- lecture d'un document : la feuille monte à hauteur des yeux
+	Drawer = true, -- tiroir : il coulisse hors du meuble
+	WakeBlink = true, -- réveil : battements de paupières (fondu en plusieurs temps)
+	ScareShake = true, -- débusqué ou apparition : secousse courte de la caméra
+	MonsterReaction = true, -- apparition du monstre : secousse et sursaut des bords (pendant et après la cinématique)
+	BobAmplitude = 0.08, -- amplitude du balancement de marche (studs)
+	BreathAmplitude = 0.04, -- amplitude de la respiration (studs)
+	ShakeDuration = 0.6, -- durée de la secousse (secondes)
 }
 
 Config.Ambience = {
-	CreakIntervalMin = 25,   -- secondes entre deux grincements (porte ou chaise)
+	CreakIntervalMin = 25, -- secondes entre deux grincements (porte ou chaise)
 	CreakIntervalMax = 60,
-	ScreamInterval = 90,     -- cri lointain : au plus un par intervalle
-	ScreamChance = 0.5,      -- probabilité de déclenchement à chaque intervalle
+	ScreamInterval = 90, -- cri lointain : au plus un par intervalle
+	ScreamChance = 0.5, -- probabilité de déclenchement à chaque intervalle
 }
 
 Config.Falling = {
 	IntervalMin = 20,
 	IntervalMax = 45,
-	NoiseStrength = 1,       -- bruit émis à l'impact, attire le monstre
-	ItemLifetime = 20,       -- secondes avant suppression de l'objet tombé
+	NoiseStrength = 1, -- bruit émis à l'impact, attire le monstre
+	ItemLifetime = 20, -- secondes avant suppression de l'objet tombé
 }
 
 -- Niveaux de difficulté : valeurs du monstre. « normal » garde les réglages ci-dessus.

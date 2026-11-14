@@ -642,7 +642,8 @@ local inventoryLabel = label({
 	align = Enum.TextXAlignment.Right,
 	size = 18,
 })
-local inventory = { photos = 0, photosRequired = 3, hasKey = false, smallKey = false, caveKey = false, docs = 0, docsTotal = 4 }
+local inventory =
+	{ photos = 0, photosRequired = 3, hasKey = false, smallKey = false, caveKey = false, docs = 0, docsTotal = 4 }
 
 local function refreshInventory()
 	local lines = {
@@ -785,22 +786,82 @@ local function nearUvMark(radius)
 end
 
 local ACTIONS = {
-	{ name = "Course", order = 0, always = true, touch = true, kb = "Maj", gp = "L2",
-	  down = function() sendSprint(true) end, up = function() sendSprint(false) end },
-	{ name = "Accroupi", order = 1, always = true, touch = true, kb = "C", gp = "B",
-	  down = function() sendCrouch(true) end, up = function() sendCrouch(false) end },
-	{ name = "Lampe", order = 2, touch = true, kb = "F", gp = "Y",
-	  visible = function() return player:GetAttribute("InDark") == true end,
-	  down = function() Remotes.get("ToggleFlashlight"):FireServer() end },
-	{ name = "Lancer", order = 3, touch = true, kb = "G", gp = "R1",
-	  visible = function() return (player:GetAttribute("Throws") or 0) > 0 end,
-	  down = throwNoise },
-	{ name = "UV", order = 4, touch = true, kb = "U", gp = "R3",
-	  visible = function() return uvOn or nearUvMark(22) end,
-	  down = toggleUv },
-	{ name = "Indice", order = 5, touch = true, kb = "H", gp = "Haut",
-	  visible = function() return os.clock() - lastObjectiveAt > 60 end,
-	  down = function() Remotes.get("AskHint"):FireServer() end },
+	{
+		name = "Course",
+		order = 0,
+		always = true,
+		touch = true,
+		kb = "Maj",
+		gp = "L2",
+		down = function()
+			sendSprint(true)
+		end,
+		up = function()
+			sendSprint(false)
+		end,
+	},
+	{
+		name = "Accroupi",
+		order = 1,
+		always = true,
+		touch = true,
+		kb = "C",
+		gp = "B",
+		down = function()
+			sendCrouch(true)
+		end,
+		up = function()
+			sendCrouch(false)
+		end,
+	},
+	{
+		name = "Lampe",
+		order = 2,
+		touch = true,
+		kb = "F",
+		gp = "Y",
+		visible = function()
+			return player:GetAttribute("InDark") == true
+		end,
+		down = function()
+			Remotes.get("ToggleFlashlight"):FireServer()
+		end,
+	},
+	{
+		name = "Lancer",
+		order = 3,
+		touch = true,
+		kb = "G",
+		gp = "R1",
+		visible = function()
+			return (player:GetAttribute("Throws") or 0) > 0
+		end,
+		down = throwNoise,
+	},
+	{
+		name = "UV",
+		order = 4,
+		touch = true,
+		kb = "U",
+		gp = "R3",
+		visible = function()
+			return uvOn or nearUvMark(22)
+		end,
+		down = toggleUv,
+	},
+	{
+		name = "Indice",
+		order = 5,
+		touch = true,
+		kb = "H",
+		gp = "Haut",
+		visible = function()
+			return os.clock() - lastObjectiveAt > 60
+		end,
+		down = function()
+			Remotes.get("AskHint"):FireServer()
+		end,
+	},
 }
 
 local actionButtons = {}

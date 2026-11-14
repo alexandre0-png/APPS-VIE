@@ -7,12 +7,27 @@
 local Tutorial = {}
 
 Tutorial.HINTS = {
-	{ id = "quiet", text = "Astuce : maintiens Ctrl pour avancer sans bruit. Le monstre entend tes pas.",
-	  when = function(ctx, cfg) return ctx.elapsed >= cfg.QuietAfter and not ctx.quietUsed end },
-	{ id = "hide", text = "Astuce : une armoire ou un lit peut te cacher. Approche-toi, puis interagis.",
-	  when = function(ctx, cfg) return ctx.chased and not ctx.hidden end },
-	{ id = "lamp", text = "Astuce : ta lampe (F) se vide. Cherche des piles, ou éteins-la quand tu es à l'abri.",
-	  when = function(ctx, cfg) return ctx.battery <= cfg.LampBattery end },
+	{
+		id = "quiet",
+		text = "Astuce : maintiens Ctrl pour avancer sans bruit. Le monstre entend tes pas.",
+		when = function(ctx, cfg)
+			return ctx.elapsed >= cfg.QuietAfter and not ctx.quietUsed
+		end,
+	},
+	{
+		id = "hide",
+		text = "Astuce : une armoire ou un lit peut te cacher. Approche-toi, puis interagis.",
+		when = function(ctx, cfg)
+			return ctx.chased and not ctx.hidden
+		end,
+	},
+	{
+		id = "lamp",
+		text = "Astuce : ta lampe (F) se vide. Cherche des piles, ou éteins-la quand tu es à l'abri.",
+		when = function(ctx, cfg)
+			return ctx.battery <= cfg.LampBattery
+		end,
+	},
 }
 
 function Tutorial.newState()
