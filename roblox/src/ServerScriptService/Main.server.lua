@@ -720,7 +720,35 @@ ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
 	end
 end)
 
+-- Secrets de la carte : une récompense par jour et par secret, distance et existence vérifiées côté serveur.
+local function claimSecret(s, root, prompt)
+	local id = prompt:GetAttribute("SecretId")
+	local sct = type(id) == "string" and Config.secret(id)
+	local holder = prompt.Parent
+	if not sct or not holder or not holder:IsA("BasePart") or (root.Position - holder.Position).Magnitude > 18 then
+		return
+	end
+	local today = os.time() // 86400
+	if s.data.secrets[sct.id] == today then
+		notify(s.player, "💤 Tu as déjà fouillé ici aujourd'hui. Reviens demain !")
+		return
+	end
+	local reward = Config.secretReward(sct, income(s))
+	s.data.secrets[sct.id] = today
+	s.data.coins += reward
+	Builder.burst(holder.Position, Color3.fromRGB(255, 214, 90), 24, true)
+	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "claim")
+	sync(s)
+end
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	if CollectionService:HasTag(prompt, "SecretPrompt") then
+		local ss, rr = sessions[player], getRoot(player)
+		if ss and rr and alive(player) and ss.stun <= 0 then
+			claimSecret(ss, rr, prompt)
+		end
+		return
+	end
 	local kind = prompt:GetAttribute("Kind")
 	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" then
 		return
@@ -1178,6 +1206,7 @@ function actions.rebirth(s)
 	fresh.story, fresh.pity = d.story, d.pity
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	fresh.cine = d.cine
+	fresh.secrets = d.secrets
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)

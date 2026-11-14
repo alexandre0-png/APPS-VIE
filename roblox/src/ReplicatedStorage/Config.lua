@@ -380,6 +380,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
 	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
 }
 
@@ -452,6 +453,65 @@ Config.TAGLINE = "Chipe, couve, collectionne : deviens Roi des Couvées !"
 Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaume. Puis le Grand Nid a volé en éclats, et ses œufs se sont dispersés. "
 	.. "Les brigands Gus, Mara et Zed les gardent jalousement. Toi, apprenti Chipeur, tu peux les reprendre, les faire éclore et reconstruire le Nid. "
 	.. "Mais méfie-toi : les autres Chipeurs convoitent aussi tes œufs !"
+
+---------------------------------------------------------------- Carte : dimensions, domaines, ambiance par zone, secrets, budget
+-- Le sol fait 1200 x 1200 studs (la carte précédente : 620). Les bases forment un anneau de rayon 215 autour de l'arène centrale, les
+-- trois domaines (Gus, Mara, Zed) sont au nord, chacun dans son propre biome, et des repères et secrets sont répartis plus loin.
+Config.Map = {
+	groundSize = 1200,
+	plotRadius = 215,
+	rivalSpacing = 90,
+	rivalZ = -95,
+	domainRadius = 38,
+	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
+	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
+	Streaming = { Enabled = true, MinRadius = 128, TargetRadius = 480 },
+	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
+	ambience = {
+		arena = { clock = 15.3, ambient = Color3.fromRGB(95, 105, 120), outdoor = Color3.fromRGB(125, 135, 155), tint = Color3.fromRGB(255, 255, 255), atmo = Color3.fromRGB(199, 220, 255), density = 0.28, haze = 1.4 },
+		gus = { clock = 16.6, ambient = Color3.fromRGB(125, 110, 90), outdoor = Color3.fromRGB(165, 145, 110), tint = Color3.fromRGB(255, 244, 222), atmo = Color3.fromRGB(255, 226, 170), density = 0.25, haze = 1.2 },
+		mara = { clock = 19.0, ambient = Color3.fromRGB(95, 70, 130), outdoor = Color3.fromRGB(105, 85, 150), tint = Color3.fromRGB(226, 214, 255), atmo = Color3.fromRGB(165, 125, 210), density = 0.42, haze = 2.0 },
+		zed = { clock = 17.4, ambient = Color3.fromRGB(135, 75, 65), outdoor = Color3.fromRGB(160, 90, 75), tint = Color3.fromRGB(255, 208, 196), atmo = Color3.fromRGB(255, 140, 100), density = 0.40, haze = 2.2 },
+	},
+}
+
+-- Centre (x, z) du domaine du rival i. Source unique : Builder, Cinematics et les tests.
+function Config.rivalCenter(i)
+	return (i - 2) * Config.Map.rivalSpacing, Config.Map.rivalZ
+end
+
+-- Zone d'ambiance d'une position : "arena" ou la clé du domaine (gus / mara / zed) le plus proche, s'il est à portée.
+function Config.zoneAt(x, z)
+	local best, bd = "arena", Config.Map.ambienceRadius
+	for i, key in ipairs(Config.Map.zoneKeys) do
+		local cx, cz = Config.rivalCenter(i)
+		local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
+		if d <= bd then
+			best, bd = key, d
+		end
+	end
+	return best
+end
+
+-- Secrets : un lieu caché par domaine ; une récompense par jour et par secret (max(minCoins, revenus de `mins` minutes)).
+Config.SECRETS = {
+	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -340, z = -330, mins = 4, minCoins = 1500, hint = "Au bout du sentier de la ferme, derrière les champs, un verger oublié garde un trésor." },
+	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = 0, z = -450, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
+	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 340, z = -330, mins = 8, minCoins = 9000, hint = "La citadelle de Zed cache un cœur brûlant sur son flanc est." },
+}
+
+function Config.secret(id)
+	for _, sct in ipairs(Config.SECRETS) do
+		if sct.id == id then
+			return sct
+		end
+	end
+	return nil
+end
+
+function Config.secretReward(sct, income)
+	return math.floor(math.max(sct.minCoins, income * sct.mins * 60))
+end
 
 -- Domaines des rivaux : verrouillés tant que le chapitre `chapter` de l'histoire n'est pas réussi.
 Config.ZONES = {

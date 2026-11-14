@@ -21,7 +21,8 @@ local SAVE_RETRIES = 3
 -- v3 : + story { ch, prog } (histoire) et pity (compteur de pitié).
 -- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
 -- v5 : + cine (cinématiques déjà vues).
-local VERSION = 5
+-- v6 : + secrets (jour de la dernière fouille par secret de la carte).
+local VERSION = 6
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -81,6 +82,7 @@ function Data.default()
 		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
+		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -107,6 +109,9 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[5] = function(_saved)
+		-- v5 -> v6 : secrets reçoit sa valeur par défaut (rien fouillé).
 	end,
 	[4] = function(_saved)
 		-- v4 -> v5 : cine reçoit sa valeur par défaut (aucune cinématique vue : l'intro se jouera une fois).
@@ -169,6 +174,11 @@ local function merge(saved)
 	if type(saved.puzzle) == "table" then
 		d.puzzle.day = math.floor(sane(saved.puzzle.day, 0))
 		d.puzzle.solved = math.floor(sane(saved.puzzle.solved, 0))
+	end
+	if type(saved.secrets) == "table" then
+		for _, sct in ipairs(Config.SECRETS) do
+			d.secrets[sct.id] = math.floor(sane(saved.secrets[sct.id], 0))
+		end
 	end
 	if type(saved.cine) == "table" then
 		for _, id in ipairs(Config.CINE_IDS) do

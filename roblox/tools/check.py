@@ -109,7 +109,7 @@ MEMBER_CHECKS = {
     "Frame": ["Rotation", "AnchorPoint", "BorderSizePixel", "BackgroundTransparency"],
     "Tween": ["Completed", "Play"],
     "BasePart": ["CFrame", "Size", "Transparency", "CanCollide", "Position"],
-    "Model": ["ScaleTo", "PivotTo", "GetPivot", "PrimaryPart", "GetBoundingBox"],
+    "Model": ["ScaleTo", "PivotTo", "GetPivot", "PrimaryPart", "GetBoundingBox", "ModelStreamingMode"],
     "SurfaceGui": ["Face", "CanvasSize", "LightInfluence", "Adornee"],
 }
 

@@ -327,7 +327,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo" }
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -1316,6 +1316,193 @@ do
 		check("registre indisponible : liste vide sans erreur", #list == 0 and ok == false)
 		check("registre indisponible : rejoindre -> message clair", e.P.join("x", {}, 3).reason == "registry")
 	end
+end
+
+-- Carte : dimensions, domaines, ambiance, secrets -----------------------------------------------------------------------
+do
+	local M = Config.Map
+	check("Map : sol plus grand que l'ancienne carte (620)", M.groundSize >= 1000)
+	check("Map : un domaine par rival, clés d'ambiance complètes", #M.zoneKeys == #Config.RIVALS and (function()
+		for _, k in ipairs(M.zoneKeys) do
+			local a = M.ambience[k]
+			if not (a and a.clock and a.ambient and a.outdoor and a.tint and a.atmo and a.density and a.haze) then
+				return false
+			end
+		end
+		return M.ambience.arena ~= nil
+	end)())
+	local half = M.groundSize / 2
+	local function dist(ax, az, bx, bz)
+		return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+	end
+	local ok, why = true, ""
+	local function must(c, m2)
+		if not c and ok then
+			ok, why = false, m2
+		end
+	end
+	local centers = {}
+	for i = 1, #Config.RIVALS do
+		local x, z = Config.rivalCenter(i)
+		centers[i] = { x, z }
+		must(math.abs(x) + M.domainRadius < half and math.abs(z) + M.domainRadius < half, "domaine " .. i .. " dans la carte")
+		must(dist(x, z, 0, 0) > 75 + M.domainRadius * 0.5, "domaine " .. i .. " hors de l'arène centrale")
+	end
+	for i = 1, #centers do
+		for j = i + 1, #centers do
+			must(dist(centers[i][1], centers[i][2], centers[j][1], centers[j][2]) >= 2 * M.domainRadius + 8, "domaines " .. i .. " et " .. j .. " séparés")
+		end
+	end
+	-- les bases (52 x 52, anneau de rayon plotRadius) ne chevauchent ni les domaines ni le tapis roulant
+	for p = 1, Config.PLOT_COUNT do
+		local a = (p - 1) / Config.PLOT_COUNT * math.pi * 2
+		local px, pz = math.sin(a) * M.plotRadius, math.cos(a) * M.plotRadius
+		must(math.abs(px) + 40 < half and math.abs(pz) + 40 < half, "base " .. p .. " dans la carte")
+		for i = 1, #centers do
+			must(dist(px, pz, centers[i][1], centers[i][2]) > M.domainRadius + 26 + 6, "base " .. p .. " loin du domaine " .. i)
+		end
+		must(dist(px, pz, 0, 38) > 70, "base " .. p .. " loin du tapis roulant")
+	end
+	for _, sct in ipairs(Config.SECRETS) do
+		must(math.abs(sct.x) < half - 20 and math.abs(sct.z) < half - 20, "secret " .. sct.id .. " dans la carte")
+		must(dist(sct.x, sct.z, 0, 0) > M.plotRadius + 60, "secret " .. sct.id .. " loin du centre (à explorer)")
+		must(sct.minCoins > 0 and sct.mins > 0 and sct.hint ~= "" and Config.secret(sct.id) == sct, "secret " .. sct.id .. " complet")
+	end
+	check("Map : domaines, bases et secrets cohérents" .. (ok and "" or " : " .. why), ok)
+	check("zoneAt : au centre de chaque domaine = son ambiance", (function()
+		for i, k in ipairs(M.zoneKeys) do
+			local x, z = Config.rivalCenter(i)
+			if Config.zoneAt(x, z) ~= k or Config.zoneAt(x + 10, z + 10) ~= k then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("zoneAt : arène, bases et lointain = arena", Config.zoneAt(0, 0) == "arena" and Config.zoneAt(0, 215) == "arena" and Config.zoneAt(500, 500) == "arena")
+	check("zoneAt : hors de la portée d'un domaine = arena", Config.zoneAt(0, Config.Map.rivalZ + Config.Map.ambienceRadius + 5) == "arena")
+	check("secretReward : plancher et proportion aux revenus", Config.secretReward(Config.SECRETS[1], 0) == Config.SECRETS[1].minCoins and Config.secretReward(Config.SECRETS[1], 1000) == 1000 * Config.SECRETS[1].mins * 60)
+	check("Streaming : rayons cohérents", M.Streaming.MinRadius < M.Streaming.TargetRadius and M.Streaming.TargetRadius <= 1024)
+end
+
+-- Décor de la carte : exécution avec un Roblox factice (détecte les erreurs d'exécution et vérifie le compte de Parts) -----------------
+do
+	local function vec(x, y, z)
+		local v = { X = x, Y = y, Z = z }
+		return setmetatable(v, {
+			__add = function(a, b)
+				return vec(a.X + b.X, a.Y + b.Y, a.Z + b.Z)
+			end,
+			__sub = function(a, b)
+				return vec(a.X - b.X, a.Y - b.Y, a.Z - b.Z)
+			end,
+			__mul = function(a, b)
+				if type(b) == "number" then
+					return vec(a.X * b, a.Y * b, a.Z * b)
+				end
+				return vec(a.X * b.X, a.Y * b.Y, a.Z * b.Z)
+			end,
+		})
+	end
+	local function cf(x, y, z)
+		local c = { Position = vec(x or 0, y or 0, z or 0) }
+		return setmetatable(c, {
+			__mul = function(a, b)
+				if b.Position and b.Position.X ~= nil and b.Position.Y ~= nil then
+					return cf(a.Position.X + b.Position.X, a.Position.Y + b.Position.Y, a.Position.Z + b.Position.Z)
+				end
+				return a
+			end,
+		})
+	end
+	local enumMeta = {
+		__index = function(t, k)
+			local sub = setmetatable({}, { __index = function(_, k2)
+				return k .. "." .. k2
+			end })
+			rawset(t, k, sub)
+			return sub
+		end,
+	}
+	local function newInstance(class)
+		local o = { ClassName = class, children = {}, attrs = {} }
+		function o:SetAttribute(k, v)
+			self.attrs[k] = v
+		end
+		function o:GetDescendants()
+			return {}
+		end
+		return o
+	end
+	local env = {
+		Color3 = { fromRGB = function(r, g, b) return { R = r / 255, G = g / 255, B = b / 255 } end },
+		Vector3 = { new = function(x, y, z) return vec(x or 0, y or 0, z or 0) end },
+		Vector2 = { new = function(x, y) return { X = x, Y = y } end },
+		CFrame = { new = function(x, y, z)
+			if type(x) == "table" and x.X then
+				return cf(x.X, x.Y, x.Z)
+			end
+			return cf(x, y, z)
+		end, Angles = function() return cf(0, 0, 0) end },
+		Enum = setmetatable({}, enumMeta),
+		Instance = { new = newInstance },
+		ColorSequence = { new = function() return {} end },
+		NumberRange = { new = function() return {} end },
+		NumberSequence = { new = function() return {} end },
+		NumberSequenceKeypoint = { new = function() return {} end },
+		game = { GetService = function() return { AddTag = function() end } end },
+	}
+	local Scenery = luau.load(fs.readFile("roblox/src/ServerScriptService/Scenery.lua"), { debugName = "Scenery", environment = env })()
+	local made = 0
+	local function mk(props)
+		made = made + 1
+		local o = newInstance("Part")
+		for k, v in pairs(props) do
+			o[k] = v
+		end
+		return o
+	end
+	local helpers = {
+		part = function(props)
+			return mk(props)
+		end,
+		ball = function(props)
+			return mk(props)
+		end,
+		tree = function()
+			made = made + 4
+		end,
+		torch = function() end,
+		sign = function() end,
+	}
+	local seed = 5
+	local rng = {
+		NextNumber = function(_, a, b)
+			seed = (seed * 1103515245 + 12345) % 2147483648
+			return (a or 0) + (seed / 2147483648) * ((b or 1) - (a or 0))
+		end,
+		NextInteger = function(self, a, b)
+			return math.floor(self:NextNumber(a, b + 1))
+		end,
+	}
+	local total = 0
+	local function run(name, fn, ...)
+		made = 0
+		local ok, n = pcall(fn, helpers, ...)
+		check("Scenery." .. name .. " : s'exécute sans erreur" .. (ok and "" or " : " .. tostring(n)), ok)
+		if ok then
+			check("Scenery." .. name .. " : compte de Parts exact (" .. tostring(n) .. " annoncées, " .. made .. " créées)", n == made and n > 0)
+			total = total + n
+		end
+	end
+	for i, key in ipairs(Config.Map.zoneKeys) do
+		local cx, cz = Config.rivalCenter(i)
+		run(key, Scenery[key], cx, cz, {}, rng)
+	end
+	run("paths", function(h, parent) return Scenery.paths(h, parent, Config) end, {})
+	run("landmarks", function(h, parent) return Scenery.landmarks(h, parent, rng) end, {})
+	run("relief", function(h, parent) return Scenery.relief(h, parent, rng, Config) end, {})
+	run("secrets", function(h, parent) return Scenery.secrets(h, parent, Config) end, {})
+	check("Scenery : décor total dans le budget mobile (" .. total .. " Parts, budget " .. Config.Map.budgetParts .. ")", total > 300 and total < Config.Map.budgetParts * 0.6)
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

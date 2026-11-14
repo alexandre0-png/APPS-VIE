@@ -164,7 +164,8 @@ local function plotCFrame()
 end
 
 local function rivalCF(i)
-	return CFrame.new((i - 2) * 55, 0, -70)
+	local x, z = Config.rivalCenter(i)
+	return CFrame.new(x, 0, z)
 end
 
 local anchors = {

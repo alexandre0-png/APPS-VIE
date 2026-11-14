@@ -4,6 +4,7 @@ local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Scenery = require(script.Parent:WaitForChild("Scenery"))
 
 local Builder = {}
 
@@ -511,6 +512,7 @@ function Builder.hen(parent)
 	local white, red, orange, dark = Color3.fromRGB(250, 248, 240), Color3.fromRGB(235, 60, 60), Color3.fromRGB(255, 170, 40), Color3.fromRGB(30, 28, 32)
 	local model = Instance.new("Model")
 	model.Name = "MerePoule"
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent -- cinématiques et énigme : toujours présente côté client
 	local body = ball({ Name = "Body", Size = Vector3.new(4, 4, 4), CFrame = CFrame.new(0, 0, 0), Color = white }, model)
 	model.PrimaryPart = body
 	part({ Name = "Tail", Size = Vector3.new(1.2, 2.2, 0.6), CFrame = CFrame.new(0, 0.8, 2.1) * CFrame.Angles(-0.5, 0, 0), Color = white, CanCollide = false }, model)
@@ -588,19 +590,20 @@ function Builder.build()
 	Builder.setupLighting()
 
 	-- Sol, relief et décor ----------------------------------------------------------
-	part({ Name = "Ground", Size = Vector3.new(620, 2, 620), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
+	part({ Name = "Ground", Size = Vector3.new(Config.Map.groundSize, 2, Config.Map.groundSize), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
 	local rng = Random.new(7)
-	for _ = 1, 14 do -- taches d'herbe plus claires / plus sombres
+	local half = Config.Map.groundSize / 2
+	for _ = 1, 40 do -- taches d'herbe plus claires / plus sombres
 		local d = rng:NextNumber(40, 100)
 		local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
-		part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(rng:NextNumber(-280, 280), 0.03, rng:NextNumber(-280, 280)) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
+		part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(rng:NextNumber(-half + 40, half - 40), 0.03, rng:NextNumber(-half + 40, half - 40)) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	for k = 0, 15 do -- collines à l'horizon
-		local a = k / 16 * math.pi * 2
-		local sz = rng:NextNumber(200, 320)
-		ball({ Name = "Hill", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 400, -sz * 0.36, math.cos(a) * 400), Color = Color3.fromRGB(78 + (k % 3) * 8, 150 + (k % 2) * 10, 80), Material = Enum.Material.Grass }, world)
+	for k = 0, 23 do -- collines à l'horizon (hors de la zone de jeu)
+		local a = k / 24 * math.pi * 2
+		local sz = rng:NextNumber(240, 380)
+		ball({ Name = "Hill", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * (half + 90), -sz * 0.36, math.cos(a) * (half + 90)), Color = Color3.fromRGB(78 + (k % 3) * 8, 150 + (k % 2) * 10, 80), Material = Enum.Material.Grass }, world)
 	end
-	for _, w in ipairs({ { 0, 312, 640, 4 }, { 0, -312, 640, 4 }, { 312, 0, 4, 640 }, { -312, 0, 4, 640 } }) do -- murs invisibles : on ne tombe plus dans le vide
+	for _, w in ipairs({ { 0, half - 2, half * 2, 4 }, { 0, -half + 2, half * 2, 4 }, { half - 2, 0, 4, half * 2 }, { -half + 2, 0, 4, half * 2 } }) do -- murs invisibles : on ne tombe plus dans le vide
 		part({ Name = "Wall", Size = Vector3.new(w[3], 100, w[4]), Position = Vector3.new(w[1], 50, w[2]), Transparency = 1 }, world).CanQuery = false
 	end
 	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
@@ -609,9 +612,21 @@ function Builder.build()
 	local monument = Builder.monument(world)
 	Builder.hen(world)
 
+	local function inDomain(x, z)
+		for i = 1, #Config.RIVALS do
+			local dx, dz = Config.rivalCenter(i)
+			if math.sqrt((x - dx) ^ 2 + (z - dz) ^ 2) < Config.Map.domainRadius + 14 then
+				return true
+			end
+		end
+		return false
+	end
 	for _ = 1, 38 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
-		tree(Vector3.new(math.sin(a) * r, 0, math.cos(a) * r), world, rng)
+		local tx, tz = math.sin(a) * r, math.cos(a) * r
+		if not inDomain(tx, tz) then
+			tree(Vector3.new(tx, 0, tz), world, rng)
+		end
 	end
 	for _ = 1, 110 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 136)
@@ -626,8 +641,10 @@ function Builder.build()
 	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center }
 
 	-- Rivaux PNJ (au nord, z négatif) ------------------------------------------------
+	local sceneryHelpers = { part = part, ball = ball, tree = tree, torch = torch, sign = sign }
+	local sceneryParts = 0
 	for i, riv in ipairs(Config.RIVALS) do
-		local cx, cz = (i - 2) * 55, -70
+		local cx, cz = Config.rivalCenter(i)
 		local folder = Instance.new("Folder")
 		folder.Name = "Rival_" .. riv.name
 		folder.Parent = world
@@ -641,6 +658,15 @@ function Builder.build()
 		end
 		torch(Vector3.new(cx - 15, 0.5, cz + 9), folder)
 		torch(Vector3.new(cx + 15, 0.5, cz + 9), folder)
+		local theme = Scenery[Config.Map.zoneKeys[i]]
+		if theme then
+			local okS, countS = pcall(theme, sceneryHelpers, cx, cz, folder, Random.new(100 + i))
+			if okS then
+				sceneryParts += countS
+			else
+				warn("[Builder] décor du domaine " .. riv.name .. " : " .. tostring(countS))
+			end
+		end
 		local zone = Config.ZONES[i]
 		if zone and zone.chapter > 0 then
 			-- Barrière du domaine verrouillé. Elle est solide pour tous ; le client la rend traversable (localement) dès que le
@@ -690,7 +716,7 @@ function Builder.build()
 
 	-- Bases des joueurs ---------------------------------------------------------------
 	local N = Config.PLOT_COUNT
-	local radius = 170
+	local radius = Config.Map.plotRadius
 	for i = 1, N do
 		local pc = PLOT_COLORS[(i - 1) % #PLOT_COLORS + 1]
 		local a = (i - 1) / N * math.pi * 2
@@ -754,6 +780,42 @@ function Builder.build()
 		board.Name = "BoardPole"
 
 		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat, color = pc }
+	end
+
+	-- Chemins, repères lointains, relief, secrets (chaque bloc est isolé : une erreur de décor ne bloque jamais le jeu)
+	local srng = Random.new(2024)
+	for name, fn in pairs({
+		paths = function()
+			return Scenery.paths(sceneryHelpers, world, Config)
+		end,
+		landmarks = function()
+			return Scenery.landmarks(sceneryHelpers, world, srng)
+		end,
+		relief = function()
+			return Scenery.relief(sceneryHelpers, world, srng, Config)
+		end,
+		secrets = function()
+			return Scenery.secrets(sceneryHelpers, world, Config)
+		end,
+	}) do
+		local okS, countS = pcall(fn)
+		if okS then
+			sceneryParts += countS
+		else
+			warn("[Builder] décor « " .. name .. " » : " .. tostring(countS))
+		end
+	end
+	local total = 0
+	for _, d in ipairs(world:GetDescendants()) do
+		if d:IsA("BasePart") then
+			total += 1
+		end
+	end
+	result.partCount = total
+	if total > Config.Map.budgetParts then
+		warn("[Builder] budget mobile dépassé : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. "). Réduis le décor (Scenery) ou Config.Map.budgetParts.")
+	else
+		print("[Builder] carte construite : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. ")")
 	end
 
 	result.treadmillContains = function(p)

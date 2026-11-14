@@ -17,6 +17,10 @@ Jeu multijoueur Roblox complet (serveur + client + monde), écrit en Luau, sans 
 11. **Guidage** : un faisceau jaune indique le prochain objectif (nid à voler, tapis, ou ta base quand tu portes un œuf).
 12. **Sauvegarde sûre** : DataStore avec **verrou de session** (un joueur ne peut pas être chargé sur 2 serveurs en même temps), 8 tentatives au chargement, autosave 60 s, verrou libéré au départ.
 
+## Hub, parties et carte
+
+Deux lieux : le hub (`src/Hub/`, `hub.project.json`, `build/Hub.rbxlx`) et le jeu (`game.project.json`, `build/ChipeOeufs.rbxlx`), code commun dans `src/ReplicatedStorage`. Les joueurs arrivent au hub, entrent dans un portail (solo, 2 à 5 joueurs) et sont téléportés ; les amis voient les parties ouvertes (bouton Amis) et les rejoignent. Réglages : `Config.Game`. La carte (`Config.Map`, `Scenery`) fait 1200 x 1200 avec trois domaines, repères, secrets et ambiance par zone ; `Config.Map.Streaming` règle StreamingEnabled. Interface : `Layout` (HUD ancré aux bords). Limites et décisions (réservation inter-expériences) : CHANGELOG et A_FAIRE_UTILISATEUR.md.
+
 ## Économie (simulation)
 
 Prix, coûts et gains sont calibrés avec `tests/Economy.lua` : `python3 roblox/tools/sim_economy.py 30 <graine>` affiche la chronologie d'un joueur-robot (revenu, éclosions, premiers achats par rareté) ; `tests/run.luau` impose des bornes de rythme sur 30 minutes. Après toute modification de `EGG_PRICE`, `HATCH`, `UPGRADES`, `PETS` ou `rebirthCost`, relance `check.py`.

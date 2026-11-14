@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Construit les deux fichiers de place Roblox (XML) : build/ChipeOeufs.rbxlx (le jeu complet) et build/Hub.rbxlx (le hub, petit lieu),
 à ouvrir dans Roblox Studio puis File > Publish to Roblox. Aucun outil externe requis. Usage : python3 build_place.py"""
-import itertools, os
+import itertools, os, re
 from xml.etree import ElementTree as ET
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -14,8 +14,8 @@ def read(rel):
 def cdata(s):
     return "<![CDATA[" + s.replace("]]>", "]]]]><![CDATA[>") + "]]>"
 
-def item(cls, name, source=None, children=()):
-    props = f'<string name="Name">{name}</string>'
+def item(cls, name, source=None, children=(), extra=""):
+    props = f'<string name="Name">{name}</string>' + extra
     if source is not None:
         props += f'<ProtectedString name="Source">{cdata(source)}</ProtectedString>'
     kids = "".join(children)
@@ -27,8 +27,15 @@ def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
         item("Folder", "Shared", children=[item("ModuleScript", n, read("ReplicatedStorage/" + f)) for n, f in SHARED])])
 
+def cfg_int(name):
+    return int(re.search(name + r" = (\d+)", open(os.path.join(SRC, "ReplicatedStorage", "Config.lua"), encoding="utf-8").read()).group(1))
+
+# StreamingEnabled : valeurs lues dans Config.Map.Streaming (source unique)
+streaming = (f'<bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">{cfg_int("MinRadius")}</int>'
+             f'<int name="StreamingTargetRadius">{cfg_int("TargetRadius")}</int>')
+
 game_tree = [
-    item("Workspace", "Workspace"),
+    item("Workspace", "Workspace", extra=streaming),
     shared(),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Main", read("ServerScriptService/Main.server.lua")),
@@ -36,12 +43,14 @@ game_tree = [
         item("ModuleScript", "Builder", read("ServerScriptService/Builder.lua")),
         item("ModuleScript", "Rules", read("ServerScriptService/Rules.lua")),
         item("ModuleScript", "Assets", read("ServerScriptService/Assets.lua")),
-        item("ModuleScript", "Diag", read("ServerScriptService/Diag.lua"))]),
+        item("ModuleScript", "Diag", read("ServerScriptService/Diag.lua")),
+        item("ModuleScript", "Scenery", read("ServerScriptService/Scenery.lua"))]),
     item("StarterPlayer", "StarterPlayer", children=[
         item("StarterPlayerScripts", "StarterPlayerScripts", children=[
             item("LocalScript", "Client", read("StarterPlayerScripts/Client.client.lua")),
             item("LocalScript", "Animations", read("StarterPlayerScripts/Animations.client.lua")),
-            item("LocalScript", "Cinematics", read("StarterPlayerScripts/Cinematics.client.lua"))])]),
+            item("LocalScript", "Cinematics", read("StarterPlayerScripts/Cinematics.client.lua")),
+            item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua"))])]),
 ]
 
 hub_tree = [

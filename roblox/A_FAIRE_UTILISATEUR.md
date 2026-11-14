@@ -16,6 +16,14 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **Modèles d'œufs refusés** (`Requester does not have permission for Asset`) : legendary 2937230482, orange 147144059, glitch 2937218888. Le jeu utilise alors les apparences construites par le code, aucun effet sur le gameplay. Pour les obtenir : ouvre chaque modèle dans la boutique Roblox (Toolbox / page du modèle) avec ton compte et utilise **Get** / l'ajouter à ton inventaire, ou remplace l'ID par un modèle que tu possèdes ; sinon laisse tel quel.
 - [ ] Après le prochain playtest : dis-moi si le rythme te semble trop lent ou trop rapide (prix des œufs dans `Config.EGG_PRICE`, simulation dans `roblox/tools/sim_economy.py`).
 
+## 1ter. Hub et parties (nouveau)
+
+- [ ] **Creator Dashboard, lieu de JEU (115261336085924) : Max Players = 5** (le code refuse un 6e joueur et le renvoie au hub, mais le réglage évite des essais inutiles).
+- [ ] Publier **deux fichiers** : `roblox/build/Hub.rbxlx` dans le lieu hub (106358102689021) et `roblox/build/ChipeOeufs.rbxlx` dans le lieu de jeu (115261336085924). Activer **Enable Studio Access to API Services** dans les deux, et **Allow Third Party Teleports** (Game Settings > Security) dans le lieu de jeu.
+- [ ] **Décision importante** : le hub et le jeu sont dans deux expériences différentes (univers 10776613783 et 10776613087). Roblox limite la réservation de serveurs privés et MemoryStore à une seule expérience : les parties privées avec amis peuvent être refusées (le code bascule alors sur un serveur public, sans rejoindre entre amis). Pour que tout marche : Creator Hub > expérience « Jeu des oeufs » > Lieux > **ajouter le hub comme second lieu** de cette expérience, puis me donner son nouvel identifiant (ou changer `Config.Game.Places.hub`). Je n'ai pas pu le tester.
+- [ ] Tester dans Studio (Test > Clients and Servers) : entrer dans un portail, compte à rebours, départ ; liste des amis ; interface bien aux bords sur téléphone (émulateur) et PC.
+- [ ] Vérifier la grande carte : les trois domaines (ferme, bois, citadelle), les repères, les trois secrets (Config.SECRETS), l'ambiance qui change en entrant dans un domaine, les performances sur téléphone (la sortie affiche le nombre de Parts au démarrage).
+
 ## 2. Ouvrir la place dans Studio et publier
 
 - [ ] Studio : **File > Open from File** → `roblox/build/ChipeOeufs.rbxlx`.

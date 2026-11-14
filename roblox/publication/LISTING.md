@@ -67,7 +67,7 @@ Careful: an egg placed in your base is protected for a few seconds, then other p
 Drop rates are shown in-game (Plus menu).
 ```
 
-**Serveurs** : Max Players = **10** (= `Config.PLOT_COUNT`). Avatar : R15. Serveurs privés : facultatifs, laisse désactivés au lancement.
+**Serveurs** : Max Players = **5** pour le lieu de jeu (= `Config.PLOT_COUNT` = `Config.Game.MaxPlayers`) ; le hub est un lieu à part (Max Players plus élevé, par exemple 30). Avatar : R15. Serveurs privés : facultatifs, laisse désactivés au lancement.
 
 ## 2. Publier 🖱️
 

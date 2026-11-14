@@ -16,6 +16,10 @@
 
 ## Relu seulement (à confirmer dans Studio)
 
+- Hub et parties : la logique (`Party`) est testée avec un faux TeleportService ; `Hub.server`, `HubWorld`, `HubClient` (zones, MemoryStore, GetFriendsAsync, TeleportAsync réels) ne sont que relus. `ReserveServerAsync` et `TeleportOptions.ReservedServerAccessCode` sont dépréciés dans le dump de l'API et limités à une expérience : voir CHANGELOG.
+- Interface : `Layout` testé sur 10 écrans, mais l'affichage réel (UIScale, insets de sécurité, boutons) n'est pas vu.
+- Carte : le décor est exécuté avec un Roblox factice (pas d'erreur d'exécution, compte de Parts exact), pas rendu. StreamingEnabled non éprouvé avec les scripts clients.
+
 - Mode « Studio sans accès API » : la reconnaissance du message est testée (`Diag`) ; le basculement en mode mémoire dans `Data` n'est que relu.
 - Apparences d'œufs du code (`EggFx`) : données testées (distinctes, plafonds) ; le rendu (anneau, coque scintillante, particules, performance à 10 joueurs) est à voir dans Studio.
 - Carte d'objectif (HUD) : le texte et la progression (`Config.objective`) sont testés ; la mise en page (téléphone, chevauchement avec la bannière d'événement) est à voir dans Studio.
