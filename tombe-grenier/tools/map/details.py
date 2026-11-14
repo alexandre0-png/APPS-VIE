@@ -56,4 +56,11 @@ CATALOG = {
 ROOM_DETAILS = {}
 
 
-ROOM_DETAILS["pn"] = ["toile d'araignée", "flaque", "caisse défoncée", "empreintes", "terre"]
+# --- Sous-sol : là où tout a commencé. Terre, eau, caisses forcées, jouets d'un enfant qu'on y a enfermé.
+ROOM_DETAILS["pn"] = ["toile d'araignée", "flaque", "caisse défoncée", "empreintes", "terre", "griffures"]
+ROOM_DETAILS["cave"] = ["traînée", "flaque", "seau", "griffures", "toile d'araignée", "terre", "pile de journaux",
+                        "empreintes", "bougie fondue"]
+ROOM_DETAILS["ps"] = ["caisse défoncée", "tricycle", "flaque", "toile d'araignée", "verre brisé", "affiche déchirée",
+                      "empreintes", "jouet cassé"]
+ROOM_DETAILS["cel"] = ["bocaux renversés", "tache sombre", "toile d'araignée", "seau", "terre", "empreintes",
+                       "calendrier"]
