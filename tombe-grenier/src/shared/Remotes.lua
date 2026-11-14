@@ -42,8 +42,37 @@ function Remotes.init()
 	end
 end
 
+-- Canal factice : si les Remotes n'arrivent jamais (serveur en panne), le client continue au lieu de bloquer
+-- pour toujours. Toutes les opérations réseau deviennent sans effet.
+local function nullEvent()
+	local noop = { Connect = function() end, Wait = function() end }
+	return {
+		OnClientEvent = noop,
+		OnServerEvent = noop,
+		FireServer = function() end,
+		FireClient = function() end,
+		FireAllClients = function() end,
+	}
+end
+
+local warned = false
+
 function Remotes.get(name)
-	return ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(name)
+	local folder = ReplicatedStorage:WaitForChild("Remotes", 10)
+	local event = folder and folder:WaitForChild(name, 10)
+	if not event then
+		if not warned then
+			warned = true
+			warn(
+				"[Remotes] le dossier ReplicatedStorage.Remotes (ou « "
+					.. name
+					.. " ») n'existe pas après 10 s : le serveur n'a pas démarré correctement. "
+					.. "Les échanges réseau sont ignorés."
+			)
+		end
+		return nullEvent()
+	end
+	return event
 end
 
 function Remotes.fire(name, player, payload)

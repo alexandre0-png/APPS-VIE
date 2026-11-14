@@ -13,13 +13,18 @@ sys.path.insert(0, HERE)
 import test_spawn_map as base  # noqa: E402
 
 SCHEDULER = r"""
+ERRORS = {}
 local now = 0
 os.clock = function() return now end
 local sleepers = {}
 local function park(co, ok, wake)
-  if not ok then error(wake, 0) end
+  if not ok then
+    if SWALLOW then table.insert(ERRORS, tostring(wake)) return end
+    error(wake, 0)
+  end
   if coroutine.status(co) == "suspended" then table.insert(sleepers, { co = co, wake = now + (type(wake) == "number" and wake or 0) }) end
 end
+PARK = park
 task = {}
 task.spawn = function(f, ...)
   local co = coroutine.create(f)
@@ -60,13 +65,16 @@ end
 function newPlayer(name)
   local p = { Name = name, DisplayName = name, UserId = #name * 1000 + 7, Parent = true, Character = nil, RespawnLocation = nil, CharacterAdded = signal() }
   function p:RequestStreamAroundAsync() end
+  p._attrs = {}
+  function p:SetAttribute(k, v) self._attrs[k] = v end
+  function p:GetAttribute(k) return self._attrs[k] end
   function p:LoadCharacter()
     local char = Instance.new("Model")
     local root = Instance.new("Part"); root.Name = "HumanoidRootPart"; root.Parent = char
-    local hum = Instance.new("Humanoid"); hum.Health = 100; hum.GetState = function() return "Running" end; hum.Parent = char
+    local hum = Instance.new("Humanoid"); hum.Health = 100; hum.GetState = function() return "Running" end; hum.Died = signal(); hum.WalkSpeed = 8; hum.Parent = char
     local sp = findSpawn(self)
     local pos = sp and Vector3.new(sp.Position.X, sp.Position.Y + 3.5, sp.Position.Z) or Vector3.new(0, 5, 0)
-    root.Position = pos
+    root.Position = pos; root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
     char.PivotTo = function(self2, cf) root.Position = cf.Position end
     char.Parent = workspace
     self.Character = char
@@ -99,15 +107,21 @@ end
 def make(place_id):
     lua = LuaRuntime(unpack_returned_tuples=True)
     lua.globals().READ = lambda p: base.to_lua54(base.read(*p.split("/")))
+    lua.globals().EXISTS = lambda p: os.path.exists(os.path.join(base.ROOT, *p.split("/")))
     stub = base.STUB.replace(
+        "function methods.GetFullName(self) return self.Name end",
+        "function methods.GetFullName(self) return self.Name end function methods.GetAttributeChangedSignal() return { Connect = function() end } end function methods.Play() end function methods.Stop() end function methods.GetAttributes(self) return self._attrs end function methods.IsDescendantOf() return false end",
+    ).replace(
         'if k == "Parent" then return rawget(t, "_parent") end',
-        'if k == "Parent" then return rawget(t, "_parent") end if k == "Triggered" or k == "Touched" or k == "CharacterAdded" then return { Connect = function() end } end',
+        'if k == "Parent" then return rawget(t, "_parent") end if k == "Triggered" or k == "Touched" or k == "CharacterAdded" or k == "OnServerEvent" or k == "OnClientEvent" or k == "PromptTriggered" then return { Connect = function() end } end if k == "FireClient" or k == "FireAllClients" or k == "FireServer" then return function() end end',
     )
     lua.execute(stub)
+    lua.execute("math.clamp = function(x, a, b) return math.max(a, math.min(b, x)) end")
     lua.execute("game.PlaceId = %d" % place_id)
     lua.execute('game:GetService("RunService").IsStudio = function() return false end')
     lua.execute('local ts = game:GetService("TeleportService"); ts.TeleportAsync = function() end; ts.ReserveServer = function() return "c" end; ts.TeleportToPrivateServer = function() end')
     lua.execute("game.BindToClose = function() end")
+    lua.execute('local cs = game:GetService("CollectionService"); cs.RemoveTag = function() end')
     lua.execute(SCHEDULER)
     lua.execute(HUB_INIT)
     return lua
@@ -250,6 +264,93 @@ class TestGameRoleOnRealMap(unittest.TestCase):
         self.assertTrue(room.x0 <= pos.X <= room.x1 and room.z0 <= pos.Z <= room.z1, "dans la salle de la tombe")
         self.assertTrue(24 <= pos.Y <= 35, f"entre le plancher et le toit du grenier : y={pos.Y}")
         self.assertTrue(lua.eval("LOADS[1].usedSpawn"))
+
+
+SERVER_INIT = r"""
+function runServer()
+  local rs = game:GetService("ReplicatedStorage")
+  rs.WaitForChild = function(self, n)
+    if n == "Shared" then return LOADER("src/shared") end
+    local c = self:FindFirstChild(n)
+    if not c then error("INFINITE YIELD sur ReplicatedStorage:WaitForChild(" .. n .. ")", 0) end
+    return c
+  end
+  rs.Shared = LOADER("src/shared")
+  local src = READ("src/server/init.server.lua")
+  local children = LOADER("src/server")
+  local sc = setmetatable({ Parent = SSS }, { __index = function(_, n) return children[n] end })
+  local env = setmetatable({ script = sc }, { __index = _G })
+  local fn = assert(load(src, "=server/init", "t", env))
+  local co = coroutine.create(fn)
+  local ok, err = coroutine.resume(co)
+  if not ok then err = debug.traceback(co, tostring(err)) end
+  local first = { ok = ok, err = tostring(err), status = coroutine.status(co) }
+  if ok and coroutine.status(co) == "suspended" then PARK(co, ok, err) end
+  return first
+end
+"""
+
+
+class TestServerStartup(unittest.TestCase):
+    """Le vrai script serveur de partie, exécuté dans les deux rôles : il démarre sans erreur jusqu'à son premier
+    yield, et les Remotes existent déjà à ce moment (le client les attend dès son démarrage)."""
+
+    def run_server(self, place):
+        lua = make(place)
+        lua.execute(SERVER_INIT)
+        first = lua.eval("runServer()")
+        return lua, first
+
+    def test_game_role_starts_and_creates_remotes_first(self):
+        lua, first = self.run_server(GAME)
+        self.assertTrue(first.ok, first.err)
+        rs = lua.eval("game:GetService('ReplicatedStorage')")
+        remotes = rs.FindFirstChild(rs, "Remotes")
+        self.assertIsNotNone(remotes, "ReplicatedStorage.Remotes absent après le premier segment")
+        self.assertIsNotNone(remotes.FindFirstChild(remotes, "Effect"))
+        self.assertIsNotNone(remotes.FindFirstChild(remotes, "Message"))
+
+    def test_hub_role_with_the_game_script_starts(self):
+        lua, first = self.run_server(HUB)
+        self.assertTrue(first.ok, first.err)
+        rs = lua.eval("game:GetService('ReplicatedStorage')")
+        self.assertIsNotNone(rs.FindFirstChild(rs, "Remotes"))
+
+    def test_hub_role_with_the_game_script_loads_a_character_in_the_zone(self):
+        lua, first = self.run_server(HUB)
+        self.assertTrue(first.ok, first.err)
+        lua.execute("join(newPlayer('alice')); advance(8)")
+        self.assertGreaterEqual(int(lua.eval("#LOADS")), 1)
+        char = lua.eval("game:GetService('Players'):GetPlayers()[1].Character")
+        root = char.FindFirstChild(char, "HumanoidRootPart")
+        self.assertTrue(in_hub_zone(root.Position), f"hors zone : ({root.Position.X}, {root.Position.Y}, {root.Position.Z})")
+
+    def test_game_role_player_arriving_after_the_map_lands_in_the_attic(self):
+        lua, first = self.run_server(GAME)
+        self.assertTrue(first.ok, first.err)
+        lua.execute("SWALLOW = true; advance(40); join(newPlayer('alice')); advance(12)")
+        self.assertGreaterEqual(int(lua.eval("#LOADS")), 1, "aucun personnage chargé en partie")
+        load = lua.eval("LOADS[1]")
+        self.assertTrue(load.usedSpawn, "chargé sans point d'apparition")
+        data = lua.eval('require({ __path = "src/shared/MapData.lua" })')
+        room = next(r for r in data.rooms.values() if r.id == "tombe")
+        self.assertTrue(room.x0 <= load.pos.X <= room.x1 and room.z0 <= load.pos.Z <= room.z1)
+        self.assertTrue(24 <= load.pos.Y <= 35)
+
+    def test_game_role_player_arriving_during_map_construction_waits_then_lands(self):
+        lua, first = self.run_server(GAME)
+        self.assertTrue(first.ok, first.err)
+        lua.execute("SWALLOW = true; join(newPlayer('alice')); advance(60)")
+        loads = [lua.eval("LOADS[%d]" % i) for i in range(1, int(lua.eval("#LOADS")) + 1)]
+        self.assertTrue(loads)
+        self.assertTrue(all(l.usedSpawn for l in loads), "jamais de chargement sans point d'apparition")
+        self.assertEqual(len(loads), 1, "un seul LoadCharacter : le chien de garde annule la demande en attente")
+
+    def test_hub_script_creates_remotes_before_its_first_yield(self):
+        lua = make(HUB)
+        lua.execute("runHub()")
+        rs = lua.eval("game:GetService('ReplicatedStorage')")
+        self.assertIsNotNone(rs.FindFirstChild(rs, "Remotes"))
 
 
 class TestBuiltPlaces(unittest.TestCase):

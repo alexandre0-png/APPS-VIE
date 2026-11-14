@@ -207,6 +207,11 @@ end
 
 -- Ouvre la porte : la carte et un point d'apparition actif existent. Les joueurs arrivés avant
 -- (téléportation pendant la construction) sont chargés maintenant, au point d'apparition.
+-- Un chargement forcé ailleurs (chien de garde) remplace la demande en attente de ce joueur
+function Respawn.forget(player)
+	gate:forget(player)
+end
+
 function Respawn.setReady(part)
 	spawnPart = part
 	SpawnLog.say(

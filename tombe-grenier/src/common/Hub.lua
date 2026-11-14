@@ -83,7 +83,16 @@ local function teleport(player, cf)
 		char:PivotTo(cf)
 	else
 		task.spawn(function()
-			player:LoadCharacter()
+			-- Un chargement est peut-être déjà en route (porte d'apparition, chien de garde) : on lui laisse 2 s
+			-- avant d'en lancer un second, qui détruirait le premier personnage.
+			local waited = 0
+			while not player.Character and player.Parent and waited < 2 do
+				task.wait(0.25)
+				waited = waited + 0.25
+			end
+			if not player.Character and player.Parent then
+				player:LoadCharacter()
+			end
 			local newChar = player.Character
 			if newChar then
 				newChar:PivotTo(cf)

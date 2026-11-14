@@ -8,6 +8,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+-- Les Remotes existent avant tout le reste (et avant tout yield) : le client les attend dès son démarrage.
+Remotes.init()
 
 local PlayerState = require(script.PlayerState)
 local MonsterAI = require(script.MonsterAI)
@@ -69,7 +71,11 @@ end
 -- Filet de sécurité lancé tout de suite, avant les chargements qui attendent : même si la suite du script échoue,
 -- un joueur sans personnage 5 s après son arrivée en reçoit un (au point d'apparition actif, ou malgré tout
 -- après Config.Spawn.ReadyTimeout), et tout personnage qui tombe sous le sol est replacé.
-SpawnSafety.start(activeSpawn)
+SpawnSafety.start(activeSpawn, {
+	onForced = function(player)
+		Respawn.forget(player)
+	end,
+})
 
 SpawnLog.say(
 	"démarrage du serveur : PlaceId=%d, rôle=%s, StreamingEnabled=%s, CharacterAutoLoads=%s, %d joueur(s) déjà là",

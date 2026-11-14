@@ -7,6 +7,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+-- Les Remotes existent avant tout le reste : un client éventuel les attend dès son démarrage.
+Remotes.init()
 local HubRules = require(Shared.HubRules)
 local Config = require(Shared.Config)
 

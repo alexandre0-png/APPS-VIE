@@ -160,18 +160,30 @@ warn = function() end
 
 -- require : modules de src/shared et de src/server, chargés depuis les fichiers
 local cache = {}
-local function loader(dir)
-  return setmetatable({}, { __index = function(_, name) return { __path = dir .. "/" .. name .. ".lua" } end })
+local function loader(dir, extras)
+  return setmetatable({}, { __index = function(_, n)
+    if extras and extras[n] ~= nil then return extras[n] end
+    if EXISTS(dir .. "/" .. n .. ".lua") then return { __path = dir .. "/" .. n .. ".lua" } end
+    return nil
+  end })
 end
+-- Arbre Rojo : ServerScriptService contient Common (src/common) et Server (src/server) côte à côte
+local function scriptFor(dir)
+  local sss = { Common = loader("src/common"), Server = loader("src/server") }
+  if dir == "src/server" or dir == "src/common" then return { Parent = loader(dir, { Parent = sss }) } end
+  return { Parent = loader(dir) }
+end
+SSS = { Common = loader("src/common"), Server = loader("src/server") }
+LOADER = loader
 shared = loader("src/shared")
 rs.WaitForChild = function() return shared end
-script = { Parent = loader("src/server") }
+script = scriptFor("src/server")
 local realrequire = function(m)
   if m.__path then
     if not cache[m.__path] then
       local src = READ(m.__path)
       local dir = string.match(m.__path, "^(.*)/[^/]+$")
-      local env = setmetatable({ script = { Parent = loader(dir) } }, { __index = _G })
+      local env = setmetatable({ script = scriptFor(dir) }, { __index = _G })
       local fn = assert(load(src, "=" .. m.__path, "t", env))
       cache[m.__path] = fn()
     end
@@ -188,6 +200,7 @@ class TestRealMap(unittest.TestCase):
     def setUpClass(cls):
         lua = LuaRuntime(unpack_returned_tuples=True)
         lua.globals().READ = lambda p: to_lua54(read(*p.split("/")))
+        lua.globals().EXISTS = lambda p: os.path.exists(os.path.join(ROOT, *p.split("/")))
         lua.execute(STUB)
         cls.lua = lua
         cls.MapBuilder = lua.eval('require({ __path = "src/server/MapBuilder.lua" })')

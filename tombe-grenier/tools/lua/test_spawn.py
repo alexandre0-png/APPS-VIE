@@ -177,7 +177,7 @@ class TestServerOrder(unittest.TestCase):
         self.assertIn("Respawn.setReady(activeSpawn())", self.init)
         self.assertLess(self.init.index("MapBuilder.build()"), self.init.index("Respawn.setReady(activeSpawn())"))
         self.assertIn("Config.Spawn.ReadyTimeout", self.init)
-        self.assertIn("SpawnSafety.start(activeSpawn)", self.init)
+        self.assertIn("SpawnSafety.start(activeSpawn", self.init)
 
     def test_game_role_uses_the_coffin_spawn(self):
         self.assertIn('FindFirstChild("CercueilSpawn")', self.init)
