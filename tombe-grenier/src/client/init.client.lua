@@ -283,6 +283,12 @@ keypad.BorderSizePixel = 0
 keypad.Visible = false
 keypad.ZIndex = 40
 keypad.Parent = gui
+-- Le panneau de saisie suit aussi l'échelle de l'écran
+do
+	local keypadScale = Instance.new("UIScale")
+	keypadScale.Scale = uiScaleValue()
+	keypadScale.Parent = keypad
+end
 
 local keypadTitle = label({ position = UDim2.fromOffset(16, 12), sizeUDim = UDim2.fromOffset(268, 24), size = 18 })
 keypadTitle.Text = "Coffret à bijoux"

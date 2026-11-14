@@ -200,6 +200,61 @@ function Hub.build()
 	bench.Material = Enum.Material.Wood
 	bench.Parent = folder
 
+	-- Ambiance : brume légère et lumière froide, plus les lampes de couleur aux piliers
+	pcall(function()
+		local Lighting = game:GetService("Lighting")
+		Lighting.ClockTime = 22
+		Lighting.Ambient = Color3.fromRGB(20, 18, 22)
+		Lighting.OutdoorAmbient = Color3.fromRGB(16, 16, 22)
+		Lighting.FogColor = Color3.fromRGB(28, 26, 30)
+		Lighting.FogStart = 60
+		Lighting.FogEnd = 260
+		local haze = Lighting:FindFirstChild("HubBrume") or Instance.new("Atmosphere")
+		haze.Name = "HubBrume"
+		haze.Density = 0.3
+		haze.Color = Color3.fromRGB(120, 110, 100)
+		haze.Haze = 1.2
+		haze.Parent = Lighting
+	end)
+	for _, p in ipairs(folder:GetChildren()) do
+		if p.Name == "Pilier" then
+			local glow = Instance.new("PointLight")
+			glow.Range = 16
+			glow.Brightness = 0.6
+			glow.Color = Color3.fromRGB(255, 190, 120)
+			glow.Parent = p
+		end
+	end
+
+	-- Panneau d'explication, face à l'arrivée
+	local board = Instance.new("Part")
+	board.Name = "PanneauExplication"
+	board.Anchored = true
+	board.CanCollide = false
+	board.Size = Vector3.new(22, 8, 0.6)
+	board.Position = CENTER + Vector3.new(0, 6, -29)
+	board.Color = Color3.fromRGB(30, 26, 24)
+	board.Material = Enum.Material.Wood
+	board.Parent = folder
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.Parent = board
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(0.92, 0.9)
+	text.Position = UDim2.fromScale(0.04, 0.05)
+	text.BackgroundTransparency = 1
+	text.TextColor3 = Color3.fromRGB(230, 220, 195)
+	text.Font = Enum.Font.Gotham
+	text.TextScaled = true
+	text.TextWrapped = true
+	text.Text = "LA TOMBE DU GRENIER\n"
+		.. "Choisis une zone au sol : « Partie solo » ou « Partie duo ».\n"
+		.. "Trois vies par joueur. Une mort en coûte une. Un coéquipier peut te réanimer.\n"
+		.. "Fouille la maison : papiers, livres, statues et objets répondent à une règle."
+	text.Parent = gui
+
 	setSpawns(true)
 end
 

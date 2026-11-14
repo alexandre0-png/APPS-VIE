@@ -56,6 +56,10 @@ class TestHubPlacesAndZones(unittest.TestCase):
         self.assertIn('"Zone solo"', text)
         self.assertIn('"Zone duo"', text)
         self.assertIn("BillboardGui", text)
+        self.assertIn("Atmosphere", text)
+        self.assertIn("SurfaceGui", text)
+        self.assertIn("PanneauExplication", text)
+        self.assertIn("PointLight", text)
 
 
 if __name__ == "__main__":

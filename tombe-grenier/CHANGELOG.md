@@ -29,6 +29,7 @@
 - PlayerState : commentaires mélangés sur les champs `log` et `roomDark` séparés.
 
 ### Ajouté
+- Hub : brume et lumière froide, lampes colorées aux piliers, panneau d'explication face à l'arrivée. Panneau de saisie (coffret) à l'échelle de l'écran.
 - Hub : deux zones de lancement (« Partie solo », « Partie duo ») avec panneau de file d'attente ; la duo attend un second joueur 60 s au plus (HubRules.lua, testé). Décor du hub : piliers et banc.
 - Projets Rojo : hub.project.json (src/hub + Common + Shared) et game.project.json (src/server + src/client + Common + Shared) ; dossier commun src/common (Hub.lua déplacé). Testé par tools/lua/test_projects.py.
 - Interface : ancrage aux zones sûres (DeviceSafeInsets), échelle selon l'écran (UIScale, 0.8 à 1.3), messages et règles au tiers supérieur, centre réservé au coffret. Testé par tools/lua/test_ui.py.
