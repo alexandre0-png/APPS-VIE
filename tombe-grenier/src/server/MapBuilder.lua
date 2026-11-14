@@ -5,7 +5,7 @@
   MapData est généré par tools/map/generate_map.py : ne pas éditer à la main.
 
   Hiérarchie créée dans Workspace/TombeMap :
-    Maison/   Murs, Dalles, Escaliers, Meubles, Décor, Props (cachettes, repères, lampes, porte)
+    Maison/   Murs, Dalles, Escaliers, Meubles, Décor, Détails, Props (cachettes, repères, lampes, porte)
     Jardin/   pelouse, allée, arbres
     MursInvisibles/  clôture, portail, grille
     Round/    objets tirés pour la partie en cours (photos, clé, piles, objets, chutes, apparition)
@@ -77,6 +77,20 @@ local MATERIALS = {
 	porcelaine  = { color = Color3.fromRGB(220, 220, 215), material = Enum.Material.SmoothPlastic },
 	carton      = { color = Color3.fromRGB(150, 120, 80), material = Enum.Material.Cardboard },
 	herbe       = { color = Color3.fromRGB(46, 74, 40), material = Enum.Material.Grass },
+	-- Passe 2 : matériaux des détails narratifs (taches, papiers, toiles, jouets...)
+	tache       = { color = Color3.fromRGB(58, 22, 20), material = Enum.Material.Slate },
+	terre       = { color = Color3.fromRGB(62, 48, 36), material = Enum.Material.Ground },
+	cendre      = { color = Color3.fromRGB(48, 46, 44), material = Enum.Material.Sand },
+	papiers     = { color = Color3.fromRGB(205, 195, 165), material = Enum.Material.Fabric },
+	eau         = { color = Color3.fromRGB(70, 90, 100), material = Enum.Material.Glass },
+	verre       = { color = Color3.fromRGB(170, 190, 195), material = Enum.Material.Glass },
+	toile       = { color = Color3.fromRGB(225, 225, 225), material = Enum.Material.Fabric },
+	craie       = { color = Color3.fromRGB(215, 215, 205), material = Enum.Material.Limestone },
+	cire        = { color = Color3.fromRGB(225, 210, 170), material = Enum.Material.SmoothPlastic },
+	linge       = { color = Color3.fromRGB(120, 112, 100), material = Enum.Material.Fabric },
+	valise      = { color = Color3.fromRGB(95, 70, 50), material = Enum.Material.Leather },
+	jouet       = { color = Color3.fromRGB(150, 70, 60), material = Enum.Material.Plastic },
+	fleurs      = { color = Color3.fromRGB(95, 70, 55), material = Enum.Material.Grass },
 }
 
 local LAMP_PALETTE = {
@@ -117,6 +131,12 @@ local function makeBox(parent, b, matKey, name)
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	if b.deco then
 		part.CanCollide = false
+	end
+	if b.col then
+		part.Color = Color3.fromRGB(b.col[1], b.col[2], b.col[3])
+	end
+	if b.t then
+		part.Transparency = b.t
 	end
 	applyTextures(part, spec)
 	part.Parent = parent
@@ -241,7 +261,7 @@ local function buildHouse(root)
 	house.Parent = root
 
 	local folders = {}
-	for _, name in ipairs({ "Murs", "Dalles", "Escaliers", "Meubles", "Décor", "Props" }) do
+	for _, name in ipairs({ "Murs", "Dalles", "Escaliers", "Meubles", "Décor", "Détails", "Props" }) do
 		local f = Instance.new("Folder")
 		f.Name = name
 		f.Parent = house
@@ -313,6 +333,16 @@ local function buildHouse(root)
 				deco.Transparency = 1
 				model.Parent = folders["Décor"]
 			end
+		end
+	end
+
+	-- Détails narratifs (passe 2) : décor pur, sans collision, sans requête ni tag de jeu
+	for _, d in ipairs(Data.details or {}) do
+		local ok, detail = pcall(makeBox, folders["Détails"], d, d.mat, d.name)
+		if ok and detail then
+			detail.CanQuery = false
+			detail.CanTouch = false
+			detail:SetAttribute("Room", d.room)
 		end
 	end
 

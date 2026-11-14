@@ -14,6 +14,7 @@ Unités : studs. Axes : x (ouest -> est), z (nord -> sud), y (hauteur).
 Le sud (z = 90) porte la porte d'entrée principale.
 """
 import os
+import sys
 from collections import defaultdict
 
 # ----------------------------------------------------------------------------
@@ -813,6 +814,134 @@ def garden():
 # Construction complète
 # ----------------------------------------------------------------------------
 # Pièces fermées par une énigme : aucun indice ni document indispensable ne s'y trouve
+# ----------------------------------------------------------------------------
+# Passe 2 : détails narratifs (données dans details.py)
+# ----------------------------------------------------------------------------
+DETAIL_INFLATE = 0.3      # distance minimale entre deux détails
+DETAIL_KEEP_OUT = 1.2     # marge autour des repères de jeu, des emplacements et des meubles
+
+
+def _inflate(b, m):
+    return dict(x0=b["x0"] - m, x1=b["x1"] + m, y0=b["y0"] - m, y1=b["y1"] + m, z0=b["z0"] - m, z1=b["z1"] + m)
+
+
+def _overlap3(a, b):
+    return (a["x0"] < b["x1"] and b["x0"] < a["x1"] and a["y0"] < b["y1"] and b["y0"] < a["y1"]
+            and a["z0"] < b["z1"] and b["z0"] < a["z1"])
+
+
+def _keep_out_boxes():
+    """Boîtes à éviter : repères de jeu (props), emplacements d'objets, décor, meubles."""
+    out = []
+    props, _ = build_props()
+    for p in props:
+        x, y, z = p["pos"]
+        sx, sy, sz = p["size"]
+        out.append(dict(x0=x - sx / 2, x1=x + sx / 2, y0=y - sy / 2, y1=y + sy / 2, z0=z - sz / 2, z1=z + sz / 2))
+    groups = [PHOTO_SLOTS, NOTE_SLOTS, BATH_KEY_SLOTS, DECOY_KEY_SLOTS, BATTERY_SLOTS, FALL_SLOTS, SPAWN_SLOTS]
+    groups += list(INTERACTABLE_SLOTS.values())
+    for g in groups:
+        for s in g:
+            x, y, z = s["pos"]
+            sx, sy, sz = s["size"]
+            out.append(dict(x0=x - sx / 2, x1=x + sx / 2, y0=y - sy / 2, y1=y + sy / 2, z0=z - sz / 2, z1=z + sz / 2))
+    return [_inflate(b, DETAIL_KEEP_OUT) for b in out]
+
+
+def _door_blocks(level, x, z, reach):
+    """Vrai si (x, z) est à moins de `reach` (+ demi-largeur) du centre d'une porte du niveau."""
+    import math
+    for d in DOORS:
+        if d["level"] != level:
+            continue
+        cx, cz = (d["line"], d["c"]) if d["orient"] == "v" else (d["c"], d["line"])
+        if math.hypot(x - cx, z - cz) < reach + d["w"] / 2:
+            return True
+    return False
+
+
+def place_details():
+    """Pose les détails de details.ROOM_DETAILS : positions déterministes, toutes validées."""
+    import random
+    import zlib
+    import details as dt
+    keep = _keep_out_boxes()
+    fboxes = furniture_boxes()
+    solid_decor = [d for d in DECOR]
+    placed = []
+    for rid, lv, rect, *_ in ROOMS:
+        kinds = dt.ROOM_DETAILS.get(rid, [])
+        if not kinds:
+            continue
+        rx0, rz0, rx1, rz1 = rect
+        base = BASE[lv]
+        rng = random.Random(zlib.crc32(rid.encode("utf-8")))
+        for kind in kinds:
+            spec = dt.CATALOG[kind]
+            mode = spec["mode"]
+            ok = None
+            for _ in range(800):
+                sx, sy, sz = spec["size"]
+                if mode != "wall" and rng.random() < 0.5:
+                    sx, sz = sz, sx
+                side = rng.choice("nsew")
+                if mode == "flat":
+                    x = rng.uniform(rx0 + 1.5 + sx / 2, rx1 - 1.5 - sx / 2)
+                    z = rng.uniform(rz0 + 1.5 + sz / 2, rz1 - 1.5 - sz / 2)
+                    b = dict(x0=x - sx / 2, x1=x + sx / 2, y0=base, y1=base + sy, z0=z - sz / 2, z1=z + sz / 2)
+                elif mode == "floor":
+                    gap = 0.5 + 0.3
+                    if side in "ns":
+                        x = rng.uniform(rx0 + 2 + sx / 2, rx1 - 2 - sx / 2)
+                        z = rz0 + gap + sz / 2 if side == "n" else rz1 - gap - sz / 2
+                    else:
+                        z = rng.uniform(rz0 + 2 + sz / 2, rz1 - 2 - sz / 2)
+                        x = rx0 + gap + sx / 2 if side == "w" else rx1 - gap - sx / 2
+                    b = dict(x0=x - sx / 2, x1=x + sx / 2, y0=base, y1=base + sy, z0=z - sz / 2, z1=z + sz / 2)
+                else:
+                    yc = base + spec["y"]
+                    if side in "ns":
+                        x = rng.uniform(rx0 + 1.5 + sx / 2, rx1 - 1.5 - sx / 2)
+                        z0 = rz0 + 0.5 if side == "n" else rz1 - 0.5 - sz
+                        b = dict(x0=x - sx / 2, x1=x + sx / 2, y0=yc - sy / 2, y1=yc + sy / 2, z0=z0, z1=z0 + sz)
+                    else:
+                        z = rng.uniform(rz0 + 1.5 + sx / 2, rz1 - 1.5 - sx / 2)
+                        x0 = rx0 + 0.5 if side == "w" else rx1 - 0.5 - sz
+                        b = dict(x0=x0, x1=x0 + sz, y0=yc - sy / 2, y1=yc + sy / 2, z0=z - sx / 2, z1=z + sx / 2)
+                cx, cz = (b["x0"] + b["x1"]) / 2, (b["z0"] + b["z1"]) / 2
+                half = max(b["x1"] - b["x0"], b["z1"] - b["z0"]) / 2
+                # Portes : un détail ne bouche jamais l'approche d'une porte
+                if _door_blocks(lv, cx, cz, 1.5 + half):
+                    continue
+                # Escalier : rien dans l'emprise ni à côté
+                sm = 0.3 if mode == "wall" else 2.0
+                if any(_in_stair(px, pz, sm) for px, pz in
+                       ((b["x0"], b["z0"]), (b["x1"], b["z0"]), (b["x0"], b["z1"]), (b["x1"], b["z1"]), (cx, cz))):
+                    continue
+                # Meubles : marge de 0,8 au sol, 0,5 au mur
+                fm = 0.5 if mode == "wall" else 0.8
+                if any(_overlap3(b, _inflate(f, fm)) for f in fboxes):
+                    continue
+                # Repères de jeu, emplacements d'objets
+                if any(_overlap3(b, k) for k in keep):
+                    continue
+                # Décor existant et autres détails
+                if any(_overlap3(b, _inflate(d, 0.3)) for d in solid_decor + placed):
+                    continue
+                ok = b
+                break
+            if ok is None:
+                raise RuntimeError(f"pas de place pour « {kind} » dans {rid}")
+            d = box(ok["x0"], ok["x1"], ok["y0"], ok["y1"], ok["z0"], ok["z1"], spec["mat"], kind,
+                    deco=True, room=rid, mode=mode)
+            if spec.get("t"):
+                d["t"] = spec["t"]
+            if spec.get("col"):
+                d["col"] = list(spec["col"])
+            placed.append(d)
+    return placed
+
+
 LOCKED_ROOM_IDS = ("sdb", "bureau", "cha", "sdb2", "cel")
 
 
@@ -842,7 +971,7 @@ def build():
     plates, path, trees, garden_steps = garden()
     return dict(
         walls=walls, slabs=slabs, steps=stair_steps(), furniture=furniture_boxes(),
-        decor=DECOR, hiding=hiding_spots(), props=props, invisible=inv,
+        decor=DECOR, details=place_details(), hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees, steps=garden_steps),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),
         slots=dict(photo=_open_pool(PHOTO_SLOTS), note=_open_pool(NOTE_SLOTS), decoy=DECOY_KEY_SLOTS, bathkey=BATH_KEY_SLOTS, battery=BATTERY_SLOTS, fall=FALL_SLOTS,
