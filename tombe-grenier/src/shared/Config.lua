@@ -128,6 +128,58 @@ Config.Modes = {
 	duo = { activationDelay = 45 },
 }
 
+-- Passe 3 : courbe de tension en trois temps (calme, montée, pic). Chaque temps règle la fréquence des
+-- événements d'ambiance (events), la portée d'ouïe et la vitesse de poursuite du monstre (hear, chase),
+-- le volume (volume) et le délai avant une attaque surprise (gap). Les valeurs entre deux temps sont interpolées.
+-- Phases : fin du calme et fin de la montée, en secondes depuis le début de la partie. La progression
+-- (0 à 1, photos et étapes) peut avancer la courbe, jamais la reculer. Enabled = false : tout reste à 1.
+Config.Tension = {
+	Enabled = true,
+	Phases = {
+		solo = { calm = 240, rise = 720 },
+		duo = { calm = 200, rise = 600 },
+	},
+	ProgressWeight = 1,       -- 0 : le temps seul ; 1 : la progression compte à plein
+	Levels = {
+		calme = { events = 0.5, hear = 0.9, chase = 0.95, volume = 0.8, gap = 1.4 },
+		montee = { events = 1.0, hear = 1.0, chase = 1.0, volume = 1.0, gap = 1.0 },
+		pic = { events = 1.7, hear = 1.12, chase = 1.07, volume = 1.2, gap = 0.7 },
+	},
+}
+
+-- Difficulté propre à chaque mode (appliquée au début de la partie, par-dessus le niveau Config.Difficulty) :
+-- facteurs sur le monstre, durées de recherche, vies et délai des indices automatiques.
+Config.Balance = {
+	solo = { chase = 0.93, hear = 0.9, loseTarget = 4, search = 10, surpriseGap = 10, lives = 4, hintDelay = 150 },
+	duo = { chase = 1.0, hear = 1.05, loseTarget = 5, search = 12, surpriseGap = 8, lives = 3, hintDelay = 210 },
+}
+
+-- Tutoriel discret au premier lancement : trois indices contextuels, jamais bloquants (Tutorial.lua).
+Config.Tutorial = {
+	Enabled = true,
+	Cooldown = 25,           -- secondes minimum entre deux indices
+	QuietAfter = 40,         -- indice 1 : après tant de secondes de jeu sans avoir ralenti ses pas (Ctrl)
+	LampBattery = 35,        -- indice 3 : lampe sous ce pourcentage
+}
+
+-- Progression : rangs et titres affichés au hub (Ranks.lua). Les points s'ajoutent à chaque partie.
+Config.Ranks = {
+	Enabled = true,
+	PointsPerRun = 10,       -- pour avoir terminé une partie
+	PointsPerEnding = { lose = 5, sealed = 20, truth = 40 },
+	PointsPerChallenge = 15,
+	DuoBonus = 5,
+}
+
+-- Rejouabilité : défis optionnels (Challenges.lua) et graines (Replay.lua).
+Config.Replay = {
+	Enabled = true,
+	AvoidLastSeeds = 5,      -- une nouvelle graine évite les cinq dernières jouées
+	DailySeed = true,        -- le premier défi du jour utilise la graine du jour (identique pour tous)
+	StoreProfile = true,     -- DataStore : rang, défis, tutoriel (désactiver pour tester sans sauvegarde)
+	DataStoreName = "TombeGrenierProfil",
+}
+
 Config.Intro = {
 	Duration = 8,            -- secondes de réveil : le joueur ne peut pas marcher avant la fin
 }

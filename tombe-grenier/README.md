@@ -155,6 +155,15 @@ Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un ind
 
 Pas de sang : les coups se traduisent par un voile sombre, un son et une pause du joueur.
 
+## Tension, difficulté, progression, rejouabilité (passe 3)
+
+- **Courbe de tension** (`Config.Tension`, `src/shared/Tension.lua`) : calme, montée, pic, selon le temps de partie et la progression (photos). Elle règle la fréquence des événements d'ambiance (grincements, cris, portes, rideaux, chutes d'objets, coupures de courant), le volume de la musique de fond, la portée d'ouïe et la vitesse de poursuite du monstre, et le délai avant une attaque surprise. Le duo atteint le pic plus tôt que le solo. `Enabled = false` : tous les facteurs valent 1.
+- **Difficulté par mode** (`Config.Balance`, `Balance.lua`) : en solo, monstre un peu plus lent et moins à l'écoute, quatre vies, indices après 150 s ; en duo, monstre à pleine vitesse, trois vies, indices après 210 s. Appliqué au début de chaque partie par-dessus `Config.Difficulty`.
+- **Tutoriel discret** (`Config.Tutorial`, `Tutorial.lua`) : au premier lancement, trois indices contextuels (avancer sans bruit, se cacher quand le monstre poursuit, lampe presque vide), jamais bloquants, espacés d'au moins 25 s. Une fois les trois montrés, le tutoriel est marqué fini dans le profil.
+- **Rangs et titres** (`Config.Ranks`, `Ranks.lua`, `src/common/Profile.lua`) : six rangs (Visiteur à Gardien du grenier) par points ; le rang et le titre du dernier défi s'affichent au-dessus de chaque joueur, au hub et en partie. Profil sauvegardé dans un DataStore (`Config.Replay.StoreProfile`) ; en cas d'échec, le profil reste en mémoire.
+- **Rejouabilité** (`Config.Replay`, `Challenges.lua`, `Replay.lua`) : six défis optionnels évalués à chaque fin (sans mort, fin vérité, rapide, solo, duo sans mort, fin du piège), un point de bonus chacun, une seule fois. La première partie de la journée utilise la graine du jour (la même pour tous) ; les autres évitent les cinq dernières graines jouées.
+- Tests : `tools/lua/test_pass3.py`.
+
 ## Hub : salon commun
 
 Tous les joueurs arrivent dans un hub loin de la maison. La borne « Lancer la partie » démarre la partie. Sans borne, elle démarre 30 s après l'arrivée du premier joueur (`Config.Game.HubWait`). Tous les joueurs présents sont téléportés dans le cercueil du grenier.

@@ -16,6 +16,7 @@ local Audio = require(Shared.Audio)
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
 local Remotes = require(Shared.Remotes)
+local Tension = require(Shared.Tension)
 
 local CFG = Config.Ambience
 local Ambience = {}
@@ -24,7 +25,7 @@ local generation = 0
 
 local function creakLoop(rng, gen)
 	while generation == gen do
-		task.wait(rng:range(CFG.CreakIntervalMin, CFG.CreakIntervalMax))
+		task.wait(Tension.scaled(rng:range(CFG.CreakIntervalMin, CFG.CreakIntervalMax)))
 		if generation ~= gen then
 			return
 		end
@@ -37,7 +38,7 @@ end
 
 local function screamLoop(rng, gen)
 	while generation == gen do
-		task.wait(CFG.ScreamInterval)
+		task.wait(Tension.scaled(CFG.ScreamInterval))
 		if generation ~= gen then
 			return
 		end
@@ -51,7 +52,7 @@ end
 local function doorLoop(rng, gen)
 	local Props = require(script.Parent.Props)
 	while generation == gen do
-		task.wait(rng:range(40, 70))
+		task.wait(Tension.scaled(rng:range(40, 70)))
 		if generation ~= gen then
 			return
 		end
@@ -75,7 +76,7 @@ end
 local function curtainLoop(rng, gen)
 	local TweenService = game:GetService("TweenService")
 	while generation == gen do
-		task.wait(rng:range(20, 45))
+		task.wait(Tension.scaled(rng:range(20, 45)))
 		if generation ~= gen then
 			return
 		end
@@ -294,7 +295,7 @@ end
 local function eventLoop(rng, gen)
 	local Props = require(script.Parent.Props)
 	while generation == gen do
-		task.wait(rng:range(25, 45))
+		task.wait(Tension.scaled(rng:range(25, 45)))
 		if generation ~= gen then
 			return
 		end
@@ -333,7 +334,7 @@ end
 -- Événements ambiants au grenier : silhouette furtive (une fois sur deux) ou pas à l'étage
 local function sceneLoop(rng, gen)
 	while generation == gen do
-		task.wait(rng:range(35, 60))
+		task.wait(Tension.scaled(rng:range(35, 60)))
 		if generation ~= gen then
 			return
 		end
@@ -386,6 +387,16 @@ end
 
 local bed = nil -- musique longue de fond, arrêtée avec la partie
 
+-- Le volume de la musique de fond suit la tension : plus bas au calme, plus haut au pic
+local function bedLoop(gen)
+	local sound = bed
+	local base = sound and sound.Volume or 1
+	while generation == gen and sound and sound.Parent do
+		sound.Volume = base * Tension.current().volume
+		task.wait(2)
+	end
+end
+
 function Ambience.start(seed)
 	generation += 1
 	local gen = generation
@@ -393,6 +404,7 @@ function Ambience.start(seed)
 		bed:Destroy()
 	end
 	bed = Audio.play("ambiance_longue", Workspace)
+	task.spawn(bedLoop, gen)
 	task.spawn(sceneLoop, Rng.new(seed + 9901), gen)
 	task.spawn(creakLoop, Rng.new(seed + 3571), gen)
 	task.spawn(doorLoop, Rng.new(seed + 4421), gen)

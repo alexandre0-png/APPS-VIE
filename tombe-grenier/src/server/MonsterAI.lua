@@ -26,6 +26,7 @@ local ModelLoader = require(script.Parent.ModelLoader)
 local Audio = require(Shared.Audio)
 local Remotes = require(Shared.Remotes)
 local Animations = require(Shared.Animations)
+local Tension = require(Shared.Tension)
 local Noise = require(script.Parent.Noise)
 local PlayerState = require(script.Parent.PlayerState)
 local Memory = require(script.Parent.Memory)
@@ -226,7 +227,7 @@ local function perceive(m)
 					and clearLine(m.head.Position, root.Position, { m.model, char })
 				then
 					kind = "seen"
-				elseif st.noise > 0 and dist <= CFG.HearRange * st.noise and (dist < 12 or clearLine(m.head.Position, root.Position, { m.model, char })) then
+				elseif st.noise > 0 and dist <= CFG.HearRange * Tension.current().hear * st.noise and (dist < 12 or clearLine(m.head.Position, root.Position, { m.model, char })) then
 					kind = "heard"
 				end
 
@@ -351,7 +352,7 @@ local function tryAttack(m, player)
 	end
 
 	-- Surprise si le monstre n'a pas attaqué depuis un moment
-	local surprise = clock() - m.lastAttack > CFG.SurpriseGap
+	local surprise = clock() - m.lastAttack > CFG.SurpriseGap * Tension.current().gap
 	m.lastAttack = clock()
 	Animations.attack(m.anims, surprise)
 	-- Cri de capture espacé : au plus un toutes les ScreamCooldown secondes
@@ -384,10 +385,10 @@ local function stepChase(m)
 		m.lastSeenTime = clock()
 		m.lastSeenPos = troot.Position
 		PlayerState.markThreat(target)
-		m.hum.WalkSpeed = CFG.ChaseSpeed
+		m.hum.WalkSpeed = CFG.ChaseSpeed * Tension.current().chase
 		m.hum:MoveTo(troot.Position)
 	else
-		walkPath(m, troot.Position, CFG.ChaseSpeed)
+		walkPath(m, troot.Position, CFG.ChaseSpeed * Tension.current().chase)
 	end
 
 	if dist <= CFG.AttackRange then
@@ -515,7 +516,7 @@ end
 -- Bruit ponctuel récent suffisamment proche (chute d'objet, etc.)
 local function heardNoise(m)
 	for _, event in ipairs(Noise.recent(CFG.NoiseMemory)) do
-		if (event.pos - m.root.Position).Magnitude <= CFG.HearRange * event.strength then
+		if (event.pos - m.root.Position).Magnitude <= CFG.HearRange * Tension.current().hear * event.strength then
 			return event.pos
 		end
 	end

@@ -9,12 +9,25 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HubRules = require(Shared.HubRules)
 local Hub = require(script.Parent.Common.Hub)
+local Profile = require(script.Parent.Common.Profile)
 
 -- Le hub ne construit que l'accueil ; les joueurs y arrivent directement
 Hub.build()
 Hub.enter()
 
-Players.PlayerAdded:Connect(function()
+-- Rang et titre affichés au-dessus de chaque joueur du hub
+local function greet(player)
+	task.spawn(function()
+		Profile.load(player)
+		pcall(Profile.attachLabel, player)
+	end)
+end
+for _, player in ipairs(Players:GetPlayers()) do
+	greet(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+	greet(player)
 	-- Un joueur qui arrive dans le hub est placé au point d'accueil
 	task.defer(Hub.enter)
 end)

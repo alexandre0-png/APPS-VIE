@@ -20,6 +20,7 @@ local hooks = nil        -- { isRoundActive, checkpoint, onCurse }
 local serial = {}        -- [player] = numéro du dernier arrêt ; invalide les minuteries plus anciennes
 local prompts = {}       -- [player] = invite de réanimation en cours
 local lives = {}         -- [player] = vies restantes cette partie
+local deathCount = 0     -- morts de la partie en cours (tous joueurs)
 
 local function livesOf(player)
 	return lives[player] or Config.Player.Lives
@@ -126,6 +127,7 @@ local function onDeath(player)
 	end
 
 	lives[player] = livesOf(player) - 1
+	deathCount += 1
 	if not anyAlive() then
 		-- Plus personne debout : aucune réanimation possible. Les minuteries en attente et
 		-- les invites sont annulées pour que rien ne ressuscite un joueur pendant la fin.
@@ -180,6 +182,12 @@ function Respawn.resetRound()
 		serial[player] = (serial[player] or 0) + 1
 	end
 	lives = {}
+	deathCount = 0
+end
+
+-- Nombre de morts depuis le début de la partie (défis, rangs)
+function Respawn.deaths()
+	return deathCount
 end
 
 function Respawn.init(h)

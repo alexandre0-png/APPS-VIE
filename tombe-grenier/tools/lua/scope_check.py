@@ -18,7 +18,7 @@ GLOBALS = {"game", "workspace", "script", "task", "math", "table", "string", "os
            "print", "pairs", "ipairs", "tostring", "tonumber", "pcall", "error", "assert", "select",
            "next", "Instance", "Vector3", "CFrame", "Color3", "UDim2", "UDim", "Enum", "TweenInfo",
            "NumberSequence", "NumberSequenceKeypoint", "RaycastParams", "NumberRange", "Random",
-           "require", "setmetatable", "getmetatable", "rawget", "unpack", "Vector2"}
+           "require", "type", "setmetatable", "getmetatable", "rawget", "unpack", "Vector2"}
 
 
 def strip(src):

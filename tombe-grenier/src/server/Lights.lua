@@ -14,6 +14,7 @@ local Audio = require(Shared.Audio)
 local MonsterAI = require(script.Parent.MonsterAI)
 
 local CFG = Config.Lights
+local Tension = require(Shared.Tension)
 local Lights = {}
 
 local generation = 0
@@ -88,7 +89,7 @@ end
 
 local function blackoutLoop(rng, gen)
 	while generation == gen do
-		task.wait(rng:range(CFG.BlackoutIntervalMin, CFG.BlackoutIntervalMax))
+		task.wait(Tension.scaled(rng:range(CFG.BlackoutIntervalMin, CFG.BlackoutIntervalMax)))
 		if generation ~= gen then
 			return
 		end

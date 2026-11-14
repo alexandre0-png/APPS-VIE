@@ -27,6 +27,13 @@ local Finale = require(script.Finale)
 local Shop = require(script.Shop)
 local Respawn = require(script.Respawn)
 local Gestures = require(script.Gestures)
+local Tension = require(Shared.Tension)
+local Balance = require(Shared.Balance)
+local Ranks = require(Shared.Ranks)
+local Challenges = require(Shared.Challenges)
+local Replay = require(Shared.Replay)
+local Tutorial = require(Shared.Tutorial)
+local Profile = require(script.Parent.Common.Profile)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
 pcall(function()
@@ -36,10 +43,93 @@ end)
 local round = { seed = 0, ended = false, active = false, mode = "solo", leaving = false }
 local restartRequested = false
 
+-- Graine de la partie : celle du jour pour la première partie de la journée de tous les joueurs,
+-- sinon une graine tirée hors des dernières jouées (Replay). Config.Debug.Seed l'emporte.
+local function chooseSeed()
+	if Config.Debug.Seed then
+		return Config.Debug.Seed
+	end
+	local players = Players:GetPlayers()
+	if not Config.Replay.Enabled or #players == 0 then
+		return math.random(1, 2147483646)
+	end
+	local today = Replay.day(os.time())
+	local firstToday = Config.Replay.DailySeed
+	local history = {}
+	for _, p in ipairs(players) do
+		local profile = Profile.get(p)
+		if profile.lastDay == today then
+			firstToday = false
+		end
+		for _, s in ipairs(profile.seeds) do
+			table.insert(history, s)
+		end
+	end
+	local seed
+	if firstToday then
+		seed = Replay.dailySeed(today)
+	else
+		seed = Replay.fresh(history, Config.Replay.AvoidLastSeeds * #players, function()
+			return math.random(1, 2147483646)
+		end)
+	end
+	for _, p in ipairs(players) do
+		local profile = Profile.get(p)
+		profile.lastDay = today
+		Replay.push(profile.seeds, seed, 20)
+	end
+	return seed
+end
+
+-- Tutoriel discret : trois indices contextuels pour qui n'a pas fini le tutoriel, jamais bloquants
+local function startTutorial(gen)
+	local startedAt = os.clock()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local profile = Profile.get(player)
+		if Config.Tutorial.Enabled and not profile.tutorialDone then
+			local state = Tutorial.newState()
+			local quietUsed, hidden = false, false
+			task.spawn(function()
+				while round.gen == gen and not round.ended and player.Parent do
+					task.wait(2)
+					local st = PlayerState.get(player)
+					if st then
+						quietUsed = quietUsed or st.quiet or st.crouch
+						hidden = hidden or st.hiding ~= nil
+						local now = os.clock()
+						local hint = Tutorial.next(Config.Tutorial, state, {
+							elapsed = now - startedAt,
+							now = now,
+							quietUsed = quietUsed,
+							hidden = hidden,
+							chased = workspace:GetAttribute("MonsterChasing") == true,
+							battery = st.battery / Config.Flashlight.Battery * 100,
+						})
+						if hint then
+							Remotes.fire("Message", player, { text = hint.text })
+						end
+						if Tutorial.done(state) then
+							profile.tutorialDone = true
+							Profile.save(player)
+							return
+						end
+					end
+				end
+			end)
+		end
+	end
+end
+
 local function startRound()
-	round.seed = Config.Debug.Seed or math.random(1, 2147483646)
+	round.seed = chooseSeed()
 	round.ended = false
-	print(("[Round] début, seed=%d"):format(round.seed))
+	round.gen = (round.gen or 0) + 1
+	round.startedAt = os.clock()
+	Balance.apply(Config, round.mode)
+	Tension.start(round.mode, function()
+		return math.min(1, Objectives.snapshot().photos / Config.Round.PhotosRequired)
+	end)
+	print(("[Round] début, seed=%d, mode=%s"):format(round.seed, round.mode))
 
 	-- État des joueurs remis à zéro, puis emplacements, lampes et pièces sombres tirés à chaque partie
 	PlayerState.newRound()
@@ -63,6 +153,43 @@ local function startRound()
 
 	local delay = Config.Debug.SkipActivationDelay and 0 or Config.Modes[round.mode].activationDelay
 	MonsterAI.start(delay)
+	startTutorial(round.gen)
+end
+
+-- Fin de partie : défis réussis, points et rang de chaque joueur (sauvegardés), texte propre à chacun
+local function awardPlayers(reason)
+	local out = {}
+	if not Config.Ranks.Enabled then
+		return out
+	end
+	local result = {
+		ending = reason,
+		mode = round.mode,
+		duration = os.clock() - (round.startedAt or os.clock()),
+		deaths = Respawn.deaths(),
+	}
+	for _, player in ipairs(Players:GetPlayers()) do
+		local ok, text = pcall(function()
+			local profile = Profile.get(player)
+			result.challenges = Config.Replay.Enabled and Challenges.evaluate(result, profile.challenges) or {}
+			local gain = Ranks.award(Config.Ranks, profile, result, Challenges.titles())
+			Profile.save(player)
+			local line = (" +%d points · %s"):format(gain.gained, Ranks.label(profile))
+			if gain.rankUp then
+				line = line .. (" · nouveau rang : %s"):format(gain.rankUp)
+			end
+			for _, id in ipairs(result.challenges) do
+				line = line .. (" · défi réussi : %s"):format(Challenges.get(id).title)
+			end
+			return line
+		end)
+		if ok then
+			out[player] = text
+		else
+			warn("[Round] progression non attribuée : " .. tostring(text))
+		end
+	end
+	return out
 end
 
 local function endRound(reason)
@@ -76,8 +203,13 @@ local function endRound(reason)
 	Lights.stop()
 	FallingObjects.stop()
 	Ambience.stop()
+	Tension.stop()
+	local progress = awardPlayers(reason)
+	local endText = Quests.endingText(reason)
 	Remotes.fireAll("Effect", { kind = "Cine", name = reason })
-	Remotes.fireAll("Effect", { kind = "RoundEnd", reason = reason, text = Quests.endingText(reason) })
+	for _, player in ipairs(Players:GetPlayers()) do
+		Remotes.fire("Effect", player, { kind = "RoundEnd", reason = reason, text = endText .. (progress[player] or "") })
+	end
 
 	task.wait(Config.Round.EndScreenTime)
 
@@ -169,6 +301,19 @@ if Hub.role() ~= "game" then
 	Hub.build()
 end
 PlayerState.init()
+-- Profils : chargés à l'arrivée, rang et titre affichés au-dessus de chaque joueur
+Players.PlayerAdded:Connect(function(player)
+	task.spawn(function()
+		Profile.load(player)
+		pcall(Profile.attachLabel, player)
+	end)
+end)
+for _, player in ipairs(Players:GetPlayers()) do
+	task.spawn(function()
+		Profile.load(player)
+		pcall(Profile.attachLabel, player)
+	end)
+end
 Hiding.init()
 Quests.init(endRound)
 

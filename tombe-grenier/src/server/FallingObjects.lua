@@ -18,6 +18,7 @@ local Rng = require(Shared.Rng)
 local Noise = require(script.Parent.Noise)
 
 local CFG = Config.Falling
+local Tension = require(Shared.Tension)
 local FallingObjects = {}
 
 local generation = 0
@@ -93,7 +94,7 @@ end
 
 local function loop(rng, gen)
 	while generation == gen do
-		task.wait(rng:range(CFG.IntervalMin, CFG.IntervalMax))
+		task.wait(Tension.scaled(rng:range(CFG.IntervalMin, CFG.IntervalMax)))
 		if generation ~= gen then
 			return
 		end
