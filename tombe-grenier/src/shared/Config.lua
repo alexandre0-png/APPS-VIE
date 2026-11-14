@@ -42,6 +42,15 @@ Config.Player = {
 	Tick = 0.1,
 }
 
+-- Apparition sûre : aucun personnage n'est chargé avant que la carte et un point d'apparition actif existent
+-- (SpawnGate, Respawn.setReady) ; SpawnSafety replace tout personnage tombé sous VoidY.
+Config.Spawn = {
+	VoidY = -40, -- sous cette hauteur, le personnage est replacé (la maison descend à -12)
+	CheckInterval = 0.2, -- secondes entre deux contrôles
+	Protect = 3, -- secondes de protection après un replacement
+	ReadyTimeout = 30, -- secondes d'attente du point d'apparition avant d'ouvrir la porte malgré tout
+}
+
 Config.Respawn = {
 	Delay = 4, -- secondes avant la réapparition après une mort (solo, ou duo sans partenaire vivant)
 }

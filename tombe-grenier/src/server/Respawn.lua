@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local SpawnGate = require(Shared.SpawnGate)
 
 local Respawn = {}
 local hooks = nil -- { isRoundActive, checkpoint, onCurse }
@@ -59,7 +60,13 @@ local function clearPrompt(player)
 end
 
 -- Recharge le personnage ; s'il y a une position, le joueur y est posé
+local gate = SpawnGate.new() -- aucun LoadCharacter avant l'ouverture (Respawn.setReady)
+local spawnPart = nil
+
 local function reload(player, pos)
+	if not gate:request(player, pos) then
+		return -- carte pas prête : la demande attend l'ouverture de la porte
+	end
 	task.spawn(function()
 		local ok = pcall(function()
 			player:LoadCharacter()
@@ -190,6 +197,22 @@ function Respawn.deaths()
 	return deathCount
 end
 
+-- Ouvre la porte : la carte et un point d'apparition actif existent. Les joueurs arrivés avant
+-- (téléportation pendant la construction) sont chargés maintenant, au point d'apparition.
+function Respawn.setReady(part)
+	spawnPart = part
+	for _, player in ipairs(Players:GetPlayers()) do
+		pcall(function()
+			player.RespawnLocation = part
+		end)
+	end
+	for _, request in ipairs(gate:release()) do
+		if request.player.Parent then
+			reload(request.player, request.pos)
+		end
+	end
+end
+
 function Respawn.init(h)
 	hooks = h
 	pcall(function()
@@ -197,6 +220,11 @@ function Respawn.init(h)
 	end)
 
 	local function bind(player)
+		if spawnPart then
+			pcall(function()
+				player.RespawnLocation = spawnPart
+			end)
+		end
 		player.CharacterAdded:Connect(function(char)
 			bindCharacter(player, char)
 		end)
@@ -212,6 +240,7 @@ function Respawn.init(h)
 		bind(player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
+		gate:forget(player)
 		serial[player] = nil
 		prompts[player] = nil
 		lives[player] = nil

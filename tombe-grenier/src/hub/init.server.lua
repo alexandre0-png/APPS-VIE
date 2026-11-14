@@ -16,10 +16,18 @@ Config.Debug.PlaceRole = Config.Debug.PlaceRole or "hub"
 
 local Hub = require(script.Parent.Common.Hub)
 local Profile = require(script.Parent.Common.Profile)
+local SpawnSafety = require(script.Parent.Common.SpawnSafety)
 
 -- Le hub ne construit que l'accueil ; les joueurs y arrivent directement
 Hub.build()
 Hub.enter()
+
+-- Filet de sécurité : un joueur arrivé par téléportation (ou retour de la partie) qui tomberait sous le sol
+-- est replacé sur le point d'apparition du hub
+SpawnSafety.start(function()
+	local folder = workspace:FindFirstChild("Hub")
+	return folder and folder:FindFirstChild("HubSpawn")
+end)
 
 -- Rang et titre affichés au-dessus de chaque joueur du hub
 local function greet(player)

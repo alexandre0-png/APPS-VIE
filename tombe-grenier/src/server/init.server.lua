@@ -34,6 +34,13 @@ local Challenges = require(Shared.Challenges)
 local Replay = require(Shared.Replay)
 local Tutorial = require(Shared.Tutorial)
 local Profile = require(script.Parent.Common.Profile)
+local SpawnSafety = require(script.Parent.Common.SpawnSafety)
+
+-- Aucun personnage ne se charge tant que la carte n'existe pas : un joueur téléporté pendant le chargement
+-- des modèles ou la construction de la carte tomberait dans le vide. Respawn.setReady rouvre la porte.
+pcall(function()
+	Players.CharacterAutoLoads = false
+end)
 
 -- Taille du serveur : solo ou duo (voir Config.Game)
 pcall(function()
@@ -331,6 +338,35 @@ Respawn.init({
 		endRound("lose")
 	end,
 })
+
+-- Point d'apparition actif : celui du hub (lieu unique ou hub), sinon le cercueil du grenier
+local function activeSpawn()
+	local hubFolder = workspace:FindFirstChild("Hub")
+	local hubSpawn = hubFolder and hubFolder:FindFirstChild("HubSpawn")
+	if hubSpawn and hubSpawn.Enabled then
+		return hubSpawn
+	end
+	local root = workspace:FindFirstChild("TombeMap")
+	local coffin = root and root:FindFirstChild("CercueilSpawn")
+	if coffin and coffin.Enabled then
+		return coffin
+	end
+	return nil
+end
+
+-- La carte est construite : les personnages peuvent se charger. Filet de sécurité pour la suite.
+SpawnSafety.start(activeSpawn)
+task.spawn(function()
+	local waited = 0
+	while not activeSpawn() and waited < Config.Spawn.ReadyTimeout do
+		task.wait(0.2)
+		waited = waited + 0.2
+	end
+	if not activeSpawn() then
+		warn("[Spawn] aucun point d'apparition actif : chargement des personnages malgré tout")
+	end
+	Respawn.setReady(activeSpawn())
+end)
 
 -- Indication demandée par le joueur (touche H), limitée par Config.Quests.HintCooldown
 Remotes.get("AskHint").OnServerEvent:Connect(function(player)
