@@ -1072,6 +1072,24 @@ do
 	check("Économie : simulation déterministe (même graine, même résultat)", a.final.coins == b.final.coins and a.final.hatched == b.final.hatched)
 end
 
+-- Objectif affiché (HUD) ----------------------------------------------------------------------
+do
+	local o = Config.objective({ ch = 0, prog = 0 })
+	check("objective : chapitre 1 au départ", o ~= nil and o.index == 1 and o.total == #Config.STORY and o.done == false and o.prog == 0 and o.goal == Config.STORY[1].goal)
+	check("objective : progression plafonnée et terminée", Config.objective({ ch = 0, prog = 99 }).prog == Config.STORY[1].goal and Config.objective({ ch = 0, prog = 99 }).done == true)
+	check("objective : valeurs négatives ou nil sans erreur", Config.objective({ ch = 0, prog = -5 }).prog == 0 and Config.objective({}).index == 1)
+	check("objective : histoire terminée -> nil", Config.objective({ ch = #Config.STORY, prog = 0 }) == nil)
+	check("objective : texte non vide pour chaque chapitre", (function()
+		for ch = 0, #Config.STORY - 1 do
+			local x = Config.objective({ ch = ch, prog = 0 })
+			if not x or x.text == "" or x.title == "" then
+				return false
+			end
+		end
+		return true
+	end)())
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

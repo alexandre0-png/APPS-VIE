@@ -507,6 +507,22 @@ function Config.storyGoalText(c)
 	return c.type
 end
 
+-- Réglages d'interface (chaque ajout se coupe ici).
+Config.HUD = {
+	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
+}
+
+-- Objectif affiché en permanence : chapitre en cours de l'histoire (nil si l'histoire est terminée).
+-- st = { ch = chapitres réussis, prog = progression du chapitre en cours }.
+function Config.objective(st)
+	local c = Config.STORY[(st.ch or 0) + 1]
+	if not c then
+		return nil
+	end
+	local prog = math.min(math.max(st.prog or 0, 0), c.goal)
+	return { index = (st.ch or 0) + 1, total = #Config.STORY, title = c.title, text = Config.storyGoalText(c), prog = prog, goal = c.goal, done = prog >= c.goal }
+end
+
 -- Récompense de pièces d'un chapitre pour un revenu donné (par seconde).
 function Config.storyReward(chapter, income)
 	return math.floor(math.max(chapter.coins, income * chapter.mins * 60))
@@ -4263,7 +4279,7 @@ local coinsBig, coinsSmall, coinsScale = pill(8, "🪙", COL.yellow)
 local speedBig, speedSmall = pill(66, "⚡", Color3.fromRGB(110, 190, 255))
 speedSmall.Text = "VITESSE"
 
-local carryLbl = text(gui, { Position = UDim2.fromOffset(14, 126), Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
+local carryLbl = text(gui, { Position = UDim2.fromOffset(14, 194), Size = UDim2.fromOffset(170, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, Text = "", BackgroundTransparency = 0.2, BackgroundColor3 = COL.pill })
 corner(carryLbl, 13)
 carryLbl.Visible = false
 
@@ -4839,6 +4855,31 @@ for _, n in ipairs(navDefs) do
 	end)
 end
 
+-- Carte « objectif en cours » : chapitre de l'histoire, avancement, un appui ouvre Missions > Histoire.
+local objCard = make("TextButton", { Position = UDim2.fromOffset(10, 126), Size = UDim2.fromOffset(196, 62), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, Visible = false }, gui)
+corner(objCard, 14)
+local objStroke = make("UIStroke", { Color = COL.panel, Thickness = 2 }, objCard)
+local objTitle = text(objCard, { Position = UDim2.fromOffset(8, 3), Size = UDim2.new(1, -16, 0, 17), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = COL.yellow, Text = "", TextTruncate = Enum.TextTruncate.AtEnd })
+local objText = text(objCard, { Position = UDim2.fromOffset(8, 20), Size = UDim2.new(1, -16, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 11, TextColor3 = COL.text, TextWrapped = true, Text = "" })
+local objBarBg = make("Frame", { Position = UDim2.fromOffset(8, 47), Size = UDim2.new(1, -16, 0, 8), BackgroundColor3 = COL.bg }, objCard)
+corner(objBarBg, 4)
+local objBar = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = COL.green }, objBarBg)
+corner(objBar, 4)
+objCard.Activated:Connect(function()
+	openPanel("quests")
+end)
+local function refreshObjective()
+	local o = state and Config.HUD.objective and Config.objective(state.story)
+	objCard.Visible = o ~= nil and o ~= false and not (panelFrame.Visible)
+	if not o then
+		return
+	end
+	objTitle.Text = (o.done and "✅ " or "📜 ") .. o.index .. "/" .. o.total .. " · " .. o.title
+	objText.Text = o.done and "Terminé ! Touche pour réclamer ta récompense." or (o.text .. " (" .. fmt(o.prog) .. "/" .. fmt(o.goal) .. ")")
+	objStroke.Color = o.done and COL.green or COL.panel
+	TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(o.goal > 0 and o.prog / o.goal or 1, 1) }):Play()
+end
+
 ---------------------------------------------------------------- Réseau
 -- Symboles des runes : l'état est propre à chaque joueur, on affiche donc le sien sur les pierres (modification locale uniquement).
 local function updateRuneLabels()
@@ -4979,6 +5020,7 @@ task.spawn(function()
 				msg = "Cours sur le tapis roulant 🏃 au centre pour devenir plus rapide !"
 			end
 			hint.Visible = msg ~= nil and not panelFrame.Visible
+			refreshObjective()
 			hint.Text = msg or ""
 		end
 		task.wait(0.5)

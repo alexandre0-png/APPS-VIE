@@ -503,6 +503,22 @@ function Config.storyGoalText(c)
 	return c.type
 end
 
+-- Réglages d'interface (chaque ajout se coupe ici).
+Config.HUD = {
+	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
+}
+
+-- Objectif affiché en permanence : chapitre en cours de l'histoire (nil si l'histoire est terminée).
+-- st = { ch = chapitres réussis, prog = progression du chapitre en cours }.
+function Config.objective(st)
+	local c = Config.STORY[(st.ch or 0) + 1]
+	if not c then
+		return nil
+	end
+	local prog = math.min(math.max(st.prog or 0, 0), c.goal)
+	return { index = (st.ch or 0) + 1, total = #Config.STORY, title = c.title, text = Config.storyGoalText(c), prog = prog, goal = c.goal, done = prog >= c.goal }
+end
+
 -- Récompense de pièces d'un chapitre pour un revenu donné (par seconde).
 function Config.storyReward(chapter, income)
 	return math.floor(math.max(chapter.coins, income * chapter.mins * 60))
