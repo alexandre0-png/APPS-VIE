@@ -76,3 +76,16 @@ ROOM_DETAILS["sam"] = ["chaise renversée", "tache sombre", "cadre retourné", "
 ROOM_DETAILS["entree"] = ["valise ouverte", "empreintes", "terre", "calendrier", "miroir voilé", "tas de linge"]
 ROOM_DETAILS["bureau"] = ["papiers épars", "papiers épars", "pile de journaux", "tache sombre", "cadre retourné",
                           "griffures", "horloge arrêtée"]
+
+# --- Premier étage : l'intimité. Chambres, affaires de l'enfant, traces qui montent vers le grenier.
+ROOM_DETAILS["chp"] = ["valise ouverte", "tas de linge", "cadre retourné", "miroir voilé", "bougie fondue",
+                       "papiers épars", "tache sombre"]
+ROOM_DETAILS["palier"] = ["tache sombre", "griffures", "cadre retourné", "empreintes", "toile d'araignée"]
+ROOM_DETAILS["che"] = ["jouet cassé", "jouet cassé", "dessin à la craie", "dessin à la craie", "toise", "poupée",
+                       "empreintes", "griffures"]
+ROOM_DETAILS["cha"] = ["valise ouverte", "papiers épars", "calendrier", "poupée", "toile d'araignée"]
+ROOM_DETAILS["sdb2"] = ["flaque", "flaque", "tache sombre", "tas de linge", "seau", "verre brisé"]
+ROOM_DETAILS["couloir"] = ["griffures", "griffures", "empreintes", "toile d'araignée", "miroir voilé", "tache sombre"]
+ROOM_DETAILS["sdb"] = ["flaque", "tache sombre", "tache sombre", "verre brisé", "griffures", "tas de linge"]
+ROOM_DETAILS["deb"] = ["caisse défoncée", "pile de journaux", "toile d'araignée", "toile d'araignée", "jouet cassé",
+                       "tricycle", "seau"]
