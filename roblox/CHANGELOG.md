@@ -2,6 +2,18 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## 2026-11-19 : robustesse du démarrage, hub étoffé, éléments interactifs
+
+**Cause racine à vérifier (retour du Jeu 2 : un `require` mal résolu plante tout le script serveur avant les Remotes)** : `check.py` simule Rojo (arbre construit depuis `default/game/hub.project.json`) et résout chaque `require(...)` (parenthèses équilibrées) et chaque chaîne `WaitForChild` / `:GetService` / `.Parent` de modules statiques. Résultat sur les 3 projets : 0 chemin faux (39, 39 et 11 chemins vérifiés). Testé par mutation (noms de module faussés : détectés). Non exécuté : `rojo build` réel (blocage d'autorisation de la session).
+
+**Personnage garanti et filet anti-chute** : modules `Spawn` (décisions pures, 24 tests : aucun personnage, sous le sol, NaN, hors zone, trop haut, chute libre, joueur mort...) et `SpawnGuard` (application Roblox, sous pcall) dans le jeu ET le hub : chargement forcé après 10 s sans personnage (couvre `CharacterAutoLoads = false` de la partie), replacement au point de départ, alerte si plus de 6 sauvetages en une minute, traces `[Spawn]` en console serveur. `StreamingEnabled = false` écrit dans les 3 projets Rojo et dans les 2 places (vérifié par `check.py`) ; `Config.Map.Streaming.Enabled` reste le réglage de référence.
+
+**Hub** : murs et plafond invisibles (4 murs + plafond à 130 studs), 3 panneaux d'explication lisibles (Comment jouer, Lancer une partie, Rejoindre des amis, valeurs lues dans `Config.Game`), bancs, chemins en pas japonais vers chaque portail, lucioles ; décor exécuté avec un Roblox factice (`tests/FakeRoblox.lua`) : aucune erreur, entre 200 et 600 Parts, 5 zones, 4 murs et un plafond, 3 panneaux.
+
+**Partie** : les éléments interactifs (nids à chiper, secrets) portent un anneau doré pulsant et une icône (tag `Interactive`, `Config.Animations.interactMarkers`) ; aucun décor n'utilise ce doré.
+
+**Non fait** : sons (aucun identifiant vérifié, je n'en invente pas), nouveaux modèles du catalogue (aucun identifiant reçu dans cette demande ; `Config.Assets` et `Assets` restent le point d'entrée). stylua : non exécuté, le signalement du bug `//` n'a donc pas pu être vérifié.
+
 ## 2026-11-14 (suite) : interface ancrée, hub et parties, grande carte
 
 **Interface** : le HUD était posé au centre sur les captures d'écran de l'utilisateur. Nouveau module pur `Layout` : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite), dans un conteneur `UIScale` (0,85 à 1,25 selon l'écran) et `ScreenInsets = DeviceSafeInsets`. Tests : 10 appareils (téléphones portrait et paysage, tablettes, PC, ultra-large, fenêtre Studio) : tout dans l'écran, rien dans la zone centrale (32-68 % x 32-75 %), aucun chevauchement, boutons >= 44 px réels. Les tests ont d'abord échoué sur 4 cas réels (chevauchement des notifications et de la colonne de menu en paysage), corrigés. Non vérifié dans Studio : la cause exacte du placement central observé n'a pas pu être reproduite sans Studio.

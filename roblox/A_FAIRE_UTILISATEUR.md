@@ -21,6 +21,8 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **Creator Dashboard, lieu de JEU (87012762353093) : Max Players = 5** (le code refuse un 6e joueur et le renvoie au hub, mais le réglage évite des essais inutiles).
 - [ ] Publier **deux fichiers** : `roblox/build/Hub.rbxlx` dans le lieu hub (115261336085924, lieu de départ) et `roblox/build/ChipeOeufs.rbxlx` dans le lieu de jeu (87012762353093), tous deux dans l'expérience « Jeu des oeufs ». Activer **Enable Studio Access to API Services** (réglage de l'expérience, valable pour les deux lieux).
 - [ ] Vérifier dans Studio que la téléportation hub → jeu (serveur réservé) fonctionne maintenant que les deux lieux sont dans la même expérience : si elle échoue, le hub affiche « Impossible de lancer la partie » et la sortie contient la raison (`[Party] lancement impossible`).
+- [ ] Lire la console serveur à l'arrivée d'un joueur : lignes `[Spawn]` (arrivée, personnage apparu, éventuels replacements) ; si « chargement forcé » ou plusieurs replacements apparaissent, copie-moi la sortie.
+- [ ] Donner les identifiants catalogue (modèles et sons) à utiliser dans `Config.Assets` et `Config.SOUNDS` : je n'en invente pas.
 - [ ] Tester dans Studio (Test > Clients and Servers) : entrer dans un portail, compte à rebours, départ ; liste des amis ; interface bien aux bords sur téléphone (émulateur) et PC.
 - [ ] Vérifier la grande carte : les trois domaines (ferme, bois, citadelle), les repères, les trois secrets (Config.SECRETS), l'ambiance qui change en entrant dans un domaine, les performances sur téléphone (la sortie affiche le nombre de Parts au démarrage).
 

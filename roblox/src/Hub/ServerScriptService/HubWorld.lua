@@ -109,11 +109,12 @@ function HubWorld.build(Config)
 	cylinder({ Name = "Ground", Height = 2, Diameter = 420, Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(88, 150, 84), Material = Enum.Material.Grass }, world)
 	cylinder({ Name = "Plaza", Height = 0.6, Diameter = 96, Position = Vector3.new(0, 0.1, 0), Color = Color3.fromRGB(196, 184, 160), Material = Enum.Material.Cobblestone }, world)
 	cylinder({ Name = "PlazaRing", Height = 0.7, Diameter = 100, Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Slate }, world)
-	local rimWall = part({ Name = "Rim", Size = Vector3.new(420, 80, 2), Position = Vector3.new(0, 40, -210), Transparency = 1, CanQuery = false }, world)
-	for _, w in ipairs({ { 0, 210, 420, 2 }, { 210, 0, 2, 420 }, { -210, 0, 2, 420 } }) do
-		part({ Name = "Wall", Size = Vector3.new(w[3], 80, w[4]), Position = Vector3.new(w[1], 40, w[2]), Transparency = 1, CanQuery = false }, world)
+	-- Murs et plafond INVISIBLES : on ne sort jamais du hub, ni par les côtés ni en sautant très haut (hauteur des murs = plafond).
+	local CEIL = 130
+	for _, w in ipairs({ { 0, -212, 428, 4 }, { 0, 212, 428, 4 }, { 212, 0, 4, 428 }, { -212, 0, 4, 428 } }) do
+		part({ Name = "InvisibleWall", Size = Vector3.new(w[3], CEIL, w[4]), Position = Vector3.new(w[1], CEIL / 2, w[2]), Transparency = 1, CanQuery = false }, world)
 	end
-	rimWall.CanQuery = false
+	part({ Name = "InvisibleCeiling", Size = Vector3.new(428, 4, 428), Position = Vector3.new(0, CEIL + 2, 0), Transparency = 1, CanQuery = false }, world)
 
 	-- Fontaine centrale
 	cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
@@ -189,6 +190,80 @@ function HubWorld.build(Config)
 		status.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.5)
 		zones[size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = color, title = label }
 	end
+
+	-- Panneaux d'explication : planches lisibles (SurfaceGui) tournées vers le point d'arrivée
+	local function board(name, pos, title, lines, color)
+		local post = part({ Name = name .. "Post", Size = Vector3.new(1, 7, 1), Position = pos + Vector3.new(0, 3.5, 0), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+		local face = part({ Name = name, Size = Vector3.new(15, 9, 0.7), CFrame = CFrame.lookAt(pos + Vector3.new(0, 10, 0), Vector3.new(0, 10, 36)), Color = Color3.fromRGB(46, 90, 64), Material = Enum.Material.WoodPlanks }, world)
+		local sg = Instance.new("SurfaceGui")
+		sg.Face = Enum.NormalId.Front
+		sg.CanvasSize = Vector2.new(600, 360)
+		sg.LightInfluence = 0
+		sg.Adornee = face
+		sg.Parent = face
+		local head = Instance.new("TextLabel")
+		head.BackgroundTransparency = 1
+		head.Position = UDim2.fromOffset(20, 10)
+		head.Size = UDim2.new(1, -40, 0, 56)
+		head.Font = FONT
+		head.TextScaled = true
+		head.TextColor3 = color
+		head.Text = title
+		head.Parent = sg
+		local body = Instance.new("TextLabel")
+		body.BackgroundTransparency = 1
+		body.Position = UDim2.fromOffset(24, 72)
+		body.Size = UDim2.new(1, -48, 1, -84)
+		body.Font = Enum.Font.GothamMedium
+		body.TextSize = 27
+		body.TextWrapped = true
+		body.TextXAlignment = Enum.TextXAlignment.Left
+		body.TextYAlignment = Enum.TextYAlignment.Top
+		body.TextColor3 = Color3.fromRGB(240, 250, 242)
+		body.Text = table.concat(lines, "\n")
+		body.Parent = sg
+		return post
+	end
+	local G = Config.Game
+	board("BoardHow", Vector3.new(26, 0, 30), "Comment jouer", {
+		"🥚 Chipe des œufs, fais-les éclore, deviens Roi des Couvées.",
+		"🏃 Cours sur le tapis pour aller plus vite.",
+		"🐾 Tes pets rapportent des pièces, même absent.",
+	}, Color3.fromRGB(255, 210, 63))
+	board("BoardParty", Vector3.new(-26, 0, 8), "Lancer une partie", {
+		"1. Choisis ta taille : solo ou 2 à " .. G.MaxPlayers .. " joueurs.",
+		"2. Entre dans le portail de ce nombre.",
+		"3. Départ " .. G.CountdownFull .. " s après le dernier joueur (ou " .. G.PartialWait .. " s si le groupe est incomplet).",
+	}, Color3.fromRGB(91, 227, 125))
+	board("BoardFriends", Vector3.new(26, 0, 8), "Rejoindre des amis", {
+		"👥 Bouton « Amis » en haut à droite.",
+		"Tu vois les parties ouvertes de tes amis (moins de " .. G.MaxPlayers .. " joueurs).",
+		"Appuie sur Rejoindre : tu arrives en cours de partie, tes œufs sont protégés " .. G.LateJoinGrace .. " s.",
+	}, Color3.fromRGB(74, 163, 255))
+	for i = 1, 6 do -- bancs autour de la fontaine
+		local a = i / 6 * math.pi * 2 + 0.5
+		local bx, bz = math.sin(a) * 15, math.cos(a) * 15
+		local look = CFrame.lookAt(Vector3.new(bx, 1.6, bz), Vector3.new(0, 1.6, 0))
+		part({ Name = "BenchSeat", Size = Vector3.new(6, 0.6, 2), CFrame = look, Color = Color3.fromRGB(150, 104, 70), Material = Enum.Material.WoodPlanks }, world)
+		part({ Name = "BenchBack", Size = Vector3.new(6, 1.8, 0.4), CFrame = look * CFrame.new(0, 1.2, 1), Color = Color3.fromRGB(130, 90, 60), Material = Enum.Material.WoodPlanks }, world)
+	end
+	for _, z in pairs(zones) do -- fanions et chemin de pas depuis le point d'arrivée jusqu'à chaque portail
+		for k = 1, 7 do
+			local t = k / 8
+			part({ Name = "PathStone", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(Vector3.new(0 + (z.center.X - 0) * t, 0.5, 34 + (z.center.Z - 34) * t)) * CFrame.Angles(0, 0, math.pi / 2), Color = z.color:Lerp(Color3.fromRGB(215, 205, 180), 0.6), Material = Enum.Material.Cobblestone, CanCollide = false }, world)
+		end
+	end
+	local sparks = part({ Name = "Fireflies", Size = Vector3.new(160, 14, 160), Position = Vector3.new(0, 9, 0), Transparency = 1, CanCollide = false, CanQuery = false }, world)
+	local ff = Instance.new("ParticleEmitter")
+	ff.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	ff.Color = ColorSequence.new(Color3.fromRGB(255, 240, 150))
+	ff.Rate = 10
+	ff.Lifetime = NumberRange.new(4, 6)
+	ff.Speed = NumberRange.new(0.5, 1.5)
+	ff.SpreadAngle = Vector2.new(180, 180)
+	ff.Size = NumberSequence.new(0.35)
+	ff.LightEmission = 1
+	ff.Parent = sparks
 
 	-- Décor : lampadaires autour de la place, arbres, fleurs, rochers, collines
 	for k = 0, 15 do

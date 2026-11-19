@@ -41,6 +41,30 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	return e
 end
 
+---------------------------------------------------------------- Marqueur d'élément interactif
+-- Tout ce avec quoi on peut agir (nids à chiper, secrets) porte un anneau doré pulsant (tag Interactive, animé côté client) et une icône :
+-- les décors n'utilisent jamais ce doré, on distingue donc d'un coup d'œil ce qui est cliquable de ce qui est décoratif.
+function Scenery.marker(h, position, parent, icon, diameter)
+	local ring = cyl(h, { Name = "InteractiveMarker", Color = rgb(255, 214, 64), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false, CanQuery = false }, parent, diameter or 7, 0.2, position + Vector3.new(0, 0.3, 0))
+	ring:SetAttribute("BaseT", 0.35)
+	CollectionService:AddTag(ring, "Interactive")
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "InteractiveIcon"
+	bb.Adornee = ring
+	bb.Size = UDim2.fromOffset(40, 40)
+	bb.StudsOffsetWorldSpace = Vector3.new(0, 7, 0)
+	bb.MaxDistance = 90
+	bb.LightInfluence = 0
+	bb.Parent = ring
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.fromScale(1, 1)
+	t.TextScaled = true
+	t.Text = icon or "✋"
+	t.Parent = bb
+	return ring
+end
+
 ---------------------------------------------------------------- Domaine de Gus : la ferme dorée
 function Scenery.gus(h, cx, cz, parent, rng)
 	local n = 0
@@ -307,6 +331,8 @@ function Scenery.secrets(h, parent, cfg)
 		pr:SetAttribute("SecretId", sct.id)
 		CollectionService:AddTag(pr, "SecretPrompt")
 		pr.Parent = gem
+		Scenery.marker(h, base + Vector3.new(0, 0.4, 0), parent, "🔍", 14)
+		n += 1
 	end
 	return n
 end

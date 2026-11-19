@@ -383,6 +383,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
 	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
 }
@@ -4367,6 +4368,8 @@ function Builder.build()
 			local nx = cx + (j - 2) * 8
 			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.Wood, CanCollide = false }, folder)
 			part({ Name = "NestStraw", Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(nx, 1.25, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(226, 196, 120), Material = Enum.Material.Fabric, CanCollide = false }, folder)
+			Scenery.marker(sceneryHelpers, Vector3.new(nx, 0.5, cz - 3), folder, "✋", 8)
+			sceneryParts += 1
 			result.nests[#result.nests + 1] = { rival = i, pos = Vector3.new(nx, 3.2, cz - 3), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
 		end
 		local g = Builder.guard(i)
@@ -4982,6 +4985,30 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	return e
 end
 
+---------------------------------------------------------------- Marqueur d'élément interactif
+-- Tout ce avec quoi on peut agir (nids à chiper, secrets) porte un anneau doré pulsant (tag Interactive, animé côté client) et une icône :
+-- les décors n'utilisent jamais ce doré, on distingue donc d'un coup d'œil ce qui est cliquable de ce qui est décoratif.
+function Scenery.marker(h, position, parent, icon, diameter)
+	local ring = cyl(h, { Name = "InteractiveMarker", Color = rgb(255, 214, 64), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false, CanQuery = false }, parent, diameter or 7, 0.2, position + Vector3.new(0, 0.3, 0))
+	ring:SetAttribute("BaseT", 0.35)
+	CollectionService:AddTag(ring, "Interactive")
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "InteractiveIcon"
+	bb.Adornee = ring
+	bb.Size = UDim2.fromOffset(40, 40)
+	bb.StudsOffsetWorldSpace = Vector3.new(0, 7, 0)
+	bb.MaxDistance = 90
+	bb.LightInfluence = 0
+	bb.Parent = ring
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.fromScale(1, 1)
+	t.TextScaled = true
+	t.Text = icon or "✋"
+	t.Parent = bb
+	return ring
+end
+
 ---------------------------------------------------------------- Domaine de Gus : la ferme dorée
 function Scenery.gus(h, cx, cz, parent, rng)
 	local n = 0
@@ -5248,6 +5275,8 @@ function Scenery.secrets(h, parent, cfg)
 		pr:SetAttribute("SecretId", sct.id)
 		CollectionService:AddTag(pr, "SecretPrompt")
 		pr.Parent = gem
+		Scenery.marker(h, base + Vector3.new(0, 0.4, 0), parent, "🔍", 14)
+		n += 1
 	end
 	return n
 end
@@ -6416,6 +6445,17 @@ RunService.RenderStepped:Connect(function()
 				weld.C0 = off * base
 				halo.Transparency = trans
 			end
+		end
+	end)
+end)
+
+-- Marqueurs d'éléments interactifs (nids, secrets) : l'anneau doré pulse doucement.
+RunService.RenderStepped:Connect(function()
+	run("interactMarkers", function()
+		local t = os.clock()
+		for _, m in ipairs(CollectionService:GetTagged("Interactive")) do
+			local base = m:GetAttribute("BaseT") or 0.35
+			m.Transparency = math.clamp(base + math.sin(t * 3 + m.Position.X * 0.1) * 0.25, 0, 1)
 		end
 	end)
 end)

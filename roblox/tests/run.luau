@@ -327,7 +327,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience" }
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -1485,6 +1485,7 @@ do
 		end, Angles = function() return cf(0, 0, 0) end },
 		Enum = setmetatable({}, enumMeta),
 		Instance = { new = newInstance },
+		UDim2 = { fromOffset = function() return {} end, fromScale = function() return {} end },
 		ColorSequence = { new = function() return {} end },
 		NumberRange = { new = function() return {} end },
 		NumberSequence = { new = function() return {} end },
@@ -1542,6 +1543,9 @@ do
 	run("landmarks", function(h, parent) return Scenery.landmarks(h, parent, rng) end, {})
 	run("relief", function(h, parent) return Scenery.relief(h, parent, rng, Config) end, {})
 	run("secrets", function(h, parent) return Scenery.secrets(h, parent, Config) end, {})
+	made = 0
+	local okM, ring = pcall(Scenery.marker, helpers, vec(0, 0, 0), {}, "✋", 8)
+	check("Scenery.marker : anneau interactif créé (une Part, attribut BaseT)", okM and made == 1 and ring.attrs.BaseT ~= nil)
 	check("Scenery : décor total dans le budget mobile (" .. total .. " Parts, budget " .. Config.Map.budgetParts .. ")", total > 300 and total < Config.Map.budgetParts * 0.6)
 end
 
@@ -1582,6 +1586,52 @@ do
 	end
 	check("tally : 7 sauvetages en une minute comptés (alerte au-delà de 6)", n == 7 and t.total == 7 and t.counts.void == 7)
 	check("tally : la fenêtre d'une minute glisse", t.add("void", 100) == 1)
+end
+
+-- Hub : construction du monde avec un Roblox factice ---------------------------------------------------------------------
+do
+	local Fake = luau.load(fs.readFile("roblox/tests/FakeRoblox.lua"), { debugName = "FakeRoblox" })()
+	local f = Fake.new()
+	local env = f.env
+	env.script = { Parent = {} }
+	local HubWorld = luau.load(fs.readFile("roblox/src/Hub/ServerScriptService/HubWorld.lua"), { debugName = "HubWorld", environment = env })()
+	local ok, world = pcall(HubWorld.build, Config)
+	check("HubWorld.build : s'exécute sans erreur" .. (ok and "" or " : " .. tostring(world)), ok)
+	if ok then
+		local zoneCount = 0
+		for size, z in pairs(world.zones) do
+			zoneCount = zoneCount + 1
+			check("HubWorld : zone " .. size .. " complète (pastille, statut, centre, rayon)", z.part ~= nil and z.status ~= nil and z.center ~= nil and z.radius > 0)
+		end
+		check("HubWorld : une zone par taille de partie (1 à 5)", zoneCount == #Config.Game.Sizes and world.zones[1] ~= nil and world.zones[5] ~= nil)
+		check("HubWorld : point d'arrivée présent", world.spawn ~= nil)
+		local parts = f.counts.Part or 0
+		check("HubWorld : décor riche mais léger (" .. parts .. " Parts, entre 200 et 600)", parts >= 200 and parts <= 600)
+		check("HubWorld : 4 murs et un plafond invisibles", (function()
+			local walls, ceiling = 0, 0
+			for _, o in ipairs(f.created) do
+				if o.Name == "InvisibleWall" and o.Transparency == 1 then
+					walls = walls + 1
+				elseif o.Name == "InvisibleCeiling" and o.Transparency == 1 then
+					ceiling = ceiling + 1
+				end
+			end
+			return walls == 4 and ceiling == 1
+		end)())
+		check("HubWorld : 3 panneaux d'explication avec texte", (function()
+			local boards = 0
+			for _, o in ipairs(f.created) do
+				if o.ClassName == "TextLabel" and type(o.Text) == "string" and o.Text:find("Comment jouer", 1, true) then
+					boards = boards + 1
+				end
+				if o.ClassName == "TextLabel" and type(o.Text) == "string" and (o.Text:find("Lancer une partie", 1, true) or o.Text:find("Rejoindre des amis", 1, true)) then
+					boards = boards + 1
+				end
+			end
+			return boards == 3
+		end)())
+		check("HubWorld : les zones portent le tag PortalZone", f.tags.PortalZone == #Config.Game.Sizes)
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

@@ -136,6 +136,17 @@ RunService.RenderStepped:Connect(function()
 	end)
 end)
 
+-- Marqueurs d'éléments interactifs (nids, secrets) : l'anneau doré pulse doucement.
+RunService.RenderStepped:Connect(function()
+	run("interactMarkers", function()
+		local t = os.clock()
+		for _, m in ipairs(CollectionService:GetTagged("Interactive")) do
+			local base = m:GetAttribute("BaseT") or 0.35
+			m.Transparency = math.clamp(base + math.sin(t * 3 + m.Position.X * 0.1) * 0.25, 0, 1)
+		end
+	end)
+end)
+
 -- Œufs portés : ils rebondissent pendant la course (modification locale de la soudure).
 local carryBase = setmetatable({}, { __mode = "k" })
 RunService.RenderStepped:Connect(function()
