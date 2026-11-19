@@ -2,6 +2,13 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Mobilier et animations cohérentes (points 4 et 6)
+- Salon : meuble TV contre le mur sud (la télévision suit) ; entrée : penderie contre le mur est ; cuisine : plan de travail sous le tiroir (le tiroir coulisse de la face avant, espace libre devant).
+- Catalogue : `DecorKit.ALIASES` applique les modèles chargés (`lit`, `lampe horreur`) aux lits double et d'enfant et au lampadaire ; sans modèle, les boîtes et objets de substitution lisibles restent. Un modèle remplaçant ne retire pas la collision de la boîte.
+- Portes : chaque porte reçoit un côté d'ouverture calculé (`swing`, attribut `Swing`) sans aucun meuble sur le trajet du battant de 4 studs ; la porte d'entrée s'ouvre vers le jardin.
+- Tests (`TestRoomLayouts`, `TestAnimationPlacement`) : mobilier requis par pièce, pas de lit, canapé ni bain au sous-sol, chaises à leur table, chevets au lit, grands rangements contre un mur, toutes les portes d'une pièce reliées à pied (meubles gonflés de 1 stud), une lampe par pièce (budget RoomBudget inchangé), tiroir, cheval à bascule, battants dégagés.
+- Non fait : je n'ai pas d'identifiants de catalogue supplémentaires (canapé, table basse, cuisinière) ; ceux de `Config.Assets` et de `ModelLoader` sont tous utilisés. Pour en ajouter : un identifiant dans `ModelLoader.MODELS` au nom exact du meuble.
+
 ### Passages et animations (points 5 et 6)
 - Chaque porte a un seuil au sol (plaque basse en pierre, décor sans collision, 12 cm) ; chaque volée d'escalier a un panneau au pied (« monter vers … ») et en haut (« descendre vers … »), 6 panneaux au total.
 - Portes intérieures : elles pivotent autour de leur charnière (95°, 0,6 s) au lieu de s'estomper ; la collision suit l'état. Porte de sortie : même geste (`Gestures.swingOpen`).

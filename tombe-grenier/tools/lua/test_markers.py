@@ -91,3 +91,27 @@ class TestMarkers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCatalogModels(unittest.TestCase):
+    """Les modèles du catalogue (ModelLoader, Config.Assets) couvrent le mobilier ; les alias pointent vers un modèle chargé."""
+
+    def test_aliases_target_loaded_models(self):
+        kit = read("src", "server", "DecorKit.lua")
+        loader = read("src", "server", "ModelLoader.lua")
+        aliases = dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)",', kit[kit.index("DecorKit.ALIASES"):kit.index("}", kit.index("DecorKit.ALIASES"))]))
+        self.assertTrue(aliases)
+        loaded = set(re.findall(r'\["([^"]+)"\]\s*=\s*\d+', loader)) | set(re.findall(r'=\s*"([^"]+)",\n', loader[loader.index("ASSET_NAMES"):]))
+        for src, dst in aliases.items():
+            self.assertIn(dst, loaded, f"alias {src} -> {dst} sans modèle chargé")
+
+    def test_fallback_is_kept_when_no_model(self):
+        kit = read("src", "server", "DecorKit.lua")
+        self.assertIn("DecorKit.ALIASES", kit)
+        self.assertIn("RECIPES[f.name]", kit)  # sans modèle : objets de substitution lisibles
+        self.assertIn("furnParts[i].Transparency = 1", kit)  # la boîte garde la collision quand un modèle la remplace
+
+    def test_catalog_ids_are_configured(self):
+        cfg = read("src", "shared", "Config.lua")
+        for key in ("ChaiseHorreur", "ChaiseAntique", "TableLongue", "Plante", "LampeHorreur"):
+            self.assertRegex(cfg, rf"{key} = \d{{6,}}")

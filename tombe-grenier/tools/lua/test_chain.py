@@ -166,6 +166,7 @@ class TestExitDoorOpens(unittest.TestCase):
         g = read("src", "server", "Gestures.lua")
         i = g.index("function Gestures.swingOpen")
         self.assertIn("part.CanCollide = false", g[i:i + 300])
+        self.assertIn("alongX and -100 or 100", g)  # la porte d'entrée s'ouvre vers le jardin, pas sur le mobilier
         o = read("src", "server", "Objectives.lua")
         self.assertIn("Gestures.swingOpen(part)", o)
         self.assertLess(o.index("Gestures.swingOpen(part)"), o.index("onWin(player)"))

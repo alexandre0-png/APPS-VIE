@@ -461,6 +461,7 @@ local function buildHouse(root)
 			if d.lock then
 				panel:SetAttribute("Lock", d.lock)
 			end
+			panel:SetAttribute("Swing", d.swing or 1) -- côté sans meuble où le battant s'ouvre
 		end
 	end
 

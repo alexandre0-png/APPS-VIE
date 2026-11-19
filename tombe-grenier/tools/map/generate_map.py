@@ -102,6 +102,31 @@ FLIGHTS = [("basement", "ground"), ("ground", "first"), ("first", "attic")]
 # Liaison logique entre pièces par les escaliers (pour le contrôle d'accessibilité)
 STAIR_LINKS = [("cave", "hall"), ("hall", "palier"), ("palier", "gro")]
 
+def door_sweep(d, side):
+    """Rectangle balayé par le battant ouvert (porte de d['w'] studs, charnière au bord bas de l'ouverture).
+    side = +1 : le battant pivote vers le côté haut en x (porte « v ») ou bas en z (porte « h ») ; -1 : l'autre."""
+    hinge = d["c"] - d["w"] / 2
+    reach = d["w"]
+    if d["orient"] == "v":
+        a, b = (d["line"], d["line"] + reach) if side > 0 else (d["line"] - reach, d["line"])
+        return (a, hinge - 0.5, b, hinge + 0.5)
+    a, b = (d["line"] - reach, d["line"]) if side > 0 else (d["line"], d["line"] + reach)
+    return (hinge - 0.5, a, hinge + 0.5, b)
+
+
+def door_swing(d):
+    """Côté d'ouverture sans meuble (+1 par défaut) ; None si aucun côté n'est libre."""
+    for side in (1, -1):
+        sweep = door_sweep(d, side)
+        clear = all(
+            not overlaps(sweep, (it[1], it[2], it[3], it[4]))
+            for rid, items in FURNITURE.items() if room_by_id(rid)[1] == d["level"] for it in items
+        )
+        if clear:
+            return side
+    return None
+
+
 def thresholds():
     """Seuil de chaque porte : plaque basse au sol (décor sans collision) qui marque le passage."""
     out = []
@@ -163,7 +188,7 @@ FURNITURE = {
         ("canapé", 6, 6, 18, 11, 3, "tissu"),
         ("fauteuil", 24, 8, 28, 12, 3, "tissu"),
         ("table basse", 8, 16, 18, 22, 1.5, "bois"),
-        ("meuble TV", 6, 34, 20, 38, 2.5, "bois"),
+        ("meuble TV", 4, 40, 14, 43.5, 2.5, "bois"),
         ("cheminée", 30, 2, 38, 6, 5, "pierre"),
         ("bibliothèque", 0.5, 18, 2.5, 30, 8, "bois"),
     ],
@@ -174,6 +199,7 @@ FURNITURE = {
     ],
     "cuis": [
         ("cuisinière", 84, 2, 94, 6, 3, "metal"),
+        ("plan de travail", 94.5, 0.6, 105.5, 2.4, 3, "bois"),
         ("frigo", 106, 2, 110, 6, 6, "metal"),
         ("îlot", 88, 14, 100, 22, 3, "bois"),
         ("table", 104, 14, 114, 22, 2.5, "bois"),
@@ -189,7 +215,7 @@ FURNITURE = {
     ],
     "entree": [
         ("console", 44, 50, 48, 54, 3, "bois"),
-        ("penderie", 72, 50, 74, 52, 7, "bois"),
+        ("penderie", 77.5, 50, 79.5, 52, 7, "bois"),
         ("guéridon", 60, 70, 64, 74, 1, "bois"),
         ("banc", 48, 80, 56, 82, 1.5, "bois"),
     ],
@@ -768,7 +794,7 @@ def build_props():
     # télévision (salon), photo d'introduction (au-dessus du cercueil)
     props.append(dict(tag="Mirror", name="miroir inquiétant", pos=(119.2, 31, 30), size=(0.4, 6, 4)))
     props.append(dict(tag="Mirror", name="miroir fissuré", pos=(119.2, 17.5, 56), size=(0.4, 3, 3)))
-    props.append(dict(tag="TV", name="télévision", pos=(13, 4.2, 33.4), size=(4, 2.4, 0.3)))
+    props.append(dict(tag="TV", name="télévision", pos=(9, 4.2, 39.4), size=(4, 2.4, 0.3)))
     # Horloge du hall (progression V2) : à régler sur la date de la plaque, côté mur nord
     props.append(dict(tag="Horloge", name="horloge du hall", pos=(60, 4.5, 1.1), size=(1.0, 1.6, 0.3)))
     # Énigme optionnelle (cuisine) : une étiquette donne un code, le compteur du mur l'attend
@@ -1004,7 +1030,7 @@ def build():
         rooms=[dict(id=r[0], level=r[1], x0=r[2][0], z0=r[2][1], x1=r[2][2], z1=r[2][3], name=r[5])
                for r in ROOMS],
         doors=[dict(level=d["level"], orient=d["orient"], line=d["line"], c=d["c"], w=d["w"],
-                    puzzle=d.get("puzzle"), front=bool(d.get("front")), lock=d.get("lock")) for d in DOORS],
+                    puzzle=d.get("puzzle"), front=bool(d.get("front")), lock=d.get("lock"), swing=door_swing(d)) for d in DOORS],
         base=BASE, H=H, stair=STAIR,
     )
 

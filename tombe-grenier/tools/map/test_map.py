@@ -665,5 +665,166 @@ class TestPassages(unittest.TestCase):
         props = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "server", "Props.lua"),
                      encoding="utf-8").read()
         self.assertIn("hingeOf", props)
-        self.assertIn("CFrame.Angles(0, math.rad(95), 0)", props)
+        self.assertIn("math.rad(95) * (panel:GetAttribute(\"Swing\") or 1)", props)
         self.assertIn("panel.CanCollide = not open", props)
+
+
+class TestRoomLayouts(unittest.TestCase):
+    """Chaque pièce est meublée de façon logique et praticable (lit au mur, chaises à la table, passages libres)."""
+
+    REQUIRED = {
+        "chp": ["lit double", "chevet", "armoire", "commode"],
+        "che": ["lit", "bureau", "armoire"],
+        "cha": ["lit", "chevet", "bureau", "armoire"],
+        "salon": ["canapé", "fauteuil", "table basse", "meuble TV", "bibliothèque"],
+        "cuis": ["cuisinière", "frigo", "îlot", "placards"],
+        "sam": ["table", "chaise", "buffet"],
+        "bureau": ["bureau", "chaise", "bibliothèque"],
+        "hall": ["console"],
+        "entree": ["console", "penderie"],
+        "palier": ["console"],
+        "couloir": ["console"],
+        "sdb": ["baignoire", "lavabo", "WC"],
+        "sdb2": ["baignoire", "lavabo", "WC"],
+        "gro": ["caisses", "malle", "armoire"],
+        "tombe": ["cercueil", "coffre verrouillé"],
+        "cave": ["barriques", "étagère", "établi"],
+        "cel": ["tonneau", "étagère"],
+    }
+    NOT_BELOW_GROUND = {"lit", "lit double", "lit enfant", "canapé", "baignoire", "WC", "lavabo"}
+    AGAINST_WALL = {"armoire", "étagère", "étagères", "placards", "buffet", "penderie", "cheminée", "frigo",
+                    "cuisinière", "vitrine", "bibliothèque", "meuble TV", "armoire de toilette"}
+
+    def items(self, rid):
+        return gm.FURNITURE.get(rid, [])
+
+    def test_each_room_has_its_logical_furniture(self):
+        for rid, names in self.REQUIRED.items():
+            have = {it[0] for it in self.items(rid)}
+            for name in names:
+                self.assertIn(name, have, f"{rid} : « {name} » manque")
+
+    def test_no_bed_sofa_or_bath_in_the_basement(self):
+        for rid, items in gm.FURNITURE.items():
+            if gm.room_by_id(rid)[1] == "basement":
+                for it in items:
+                    self.assertNotIn(it[0], self.NOT_BELOW_GROUND, f"{it[0]} au sous-sol ({rid})")
+
+    def test_chairs_sit_at_their_table(self):
+        for rid in ("sam", "bureau"):
+            tables = [it for it in self.items(rid) if it[0] in ("table", "bureau")]
+            for chair in [it for it in self.items(rid) if it[0] == "chaise"]:
+                near = min(
+                    max(t[1] - chair[3], chair[1] - t[3], 0) + max(t[2] - chair[4], chair[2] - t[4], 0) for t in tables
+                )
+                self.assertLessEqual(near, 2.5, f"chaise loin de la table dans {rid} : {chair}")
+
+    def test_bedside_tables_touch_the_bed_side(self):
+        for rid in ("chp", "cha"):
+            beds = [it for it in self.items(rid) if it[0].startswith("lit")]
+            for stand in [it for it in self.items(rid) if it[0] == "chevet"]:
+                near = min(
+                    max(b[1] - stand[3], stand[1] - b[3], 0) + max(b[2] - stand[4], stand[2] - b[4], 0) for b in beds
+                )
+                self.assertLessEqual(near, 4, f"chevet loin du lit dans {rid} : {stand}")
+
+    def test_big_storage_stands_against_a_wall(self):
+        for rid, items in gm.FURNITURE.items():
+            x0, z0, x1, z1 = gm.room_by_id(rid)[2]
+            for it in items:
+                if it[0] not in self.AGAINST_WALL:
+                    continue
+                gap = min(it[1] - x0, x1 - it[3], it[2] - z0, z1 - it[4])
+                self.assertLessEqual(gap, 4.5, f"{it[0]} flotte au milieu de {rid} (écart au mur {gap})")
+
+    def test_every_door_is_joined_inside_each_room_with_furniture_solid(self):
+        """Dans chaque pièce, toutes les portes se rejoignent à pied (meubles gonflés de 1 stud pour le joueur)."""
+        for rid, lv, rect, *_ in gm.ROOMS:
+            x0, z0, x1, z1 = rect
+            solids = [(it[1] - 1, it[2] - 1, it[3] + 1, it[4] + 1) for it in self.items(rid)]
+            if rid == "tombe":
+                solids = []  # le cercueil est décoratif et ne bloque pas
+            ports = []
+            for d in gm.DOORS:
+                if d["level"] != lv:
+                    continue
+                if d["orient"] == "v":
+                    for sx in (d["line"] - 1.5, d["line"] + 1.5):
+                        if gm.inside(rect, sx, d["c"]):
+                            ports.append((sx, d["c"]))
+                else:
+                    for sz in (d["line"] - 1.5, d["line"] + 1.5):
+                        if gm.inside(rect, d["c"], sz):
+                            ports.append((d["c"], sz))
+            # Escalier : une porte virtuelle au pied de la volée dans les pièces qui la contiennent
+            sx0, sz0, sx1, sz1 = gm.STAIR
+            if gm.overlaps(rect, gm.STAIR):
+                ports.append(((sx0 + sx1) / 2, sz1 + 1.5 if gm.inside(rect, (sx0 + sx1) / 2, sz1 + 1.5) else sz0 - 1.5))
+            if len(ports) < 2:
+                continue
+
+            def free(x, z):
+                if not (x0 + 0.5 <= x <= x1 - 0.5 and z0 + 0.5 <= z <= z1 - 0.5):
+                    return False
+                return not any(a <= x <= c and b <= z <= e for a, b, c, e in solids)
+
+            start = ports[0]
+            seen, q = {(round(start[0]), round(start[1]))}, deque([start])
+            while q:
+                x, z = q.popleft()
+                for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    n = (round(x + dx), round(z + dz))
+                    if n not in seen and free(*n):
+                        seen.add(n)
+                        q.append(n)
+            for p in ports[1:]:
+                self.assertIn((round(p[0]), round(p[1])), seen, f"{rid} : passage bloqué vers {p}")
+
+    def test_one_light_per_room_keeps_the_budget(self):
+        lights = [p for p in gm.build_props()[0] if p["tag"] == "Lamp"]
+        self.assertEqual(len(lights), len(gm.ROOMS))
+
+
+class TestAnimationPlacement(unittest.TestCase):
+    """Les objets animés ont la place de bouger : tiroir au bord d'un plan, rien devant, porte et cheval dégagés."""
+
+    def test_drawer_sits_on_a_counter_front_with_free_space_to_open(self):
+        drawer = [p for p in gm.build_props()[0] if p["tag"] == "Tiroir"][0]
+        x, y, z = drawer["pos"]
+        counters = [it for it in gm.FURNITURE["cuis"] if it[0] == "plan de travail"]
+        self.assertEqual(len(counters), 1)
+        c = counters[0]
+        self.assertTrue(c[1] <= x <= c[3], "tiroir hors du plan de travail")
+        self.assertLessEqual(abs(z - c[4]), 0.6, "tiroir loin de la face avant du plan")
+        self.assertLessEqual(y, c[5] + 0.1)
+        # Il coulisse de 1 stud vers +z : l'espace devant (2 studs) est libre de meubles
+        front = (x - 0.7, z, x + 0.7, z + 2.0)
+        for it in gm.FURNITURE["cuis"]:
+            if it is not c:
+                self.assertFalse(gm.overlaps(front, (it[1], it[2], it[3], it[4])), f"{it[0]} gêne le tiroir")
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "server", "Gestures.lua"),
+                   encoding="utf-8").read()
+        self.assertIn("Vector3.new(0, 0, 1.0)", src)
+
+    def test_rocking_horses_have_room_to_swing(self):
+        for rid in ("che", "tombe"):
+            horse = [it for it in gm.FURNITURE[rid] if it[0] == "cheval à bascule"][0]
+            zone = (horse[1] - 1, horse[2] - 1, horse[3] + 1, horse[4] + 1)
+            for it in gm.FURNITURE[rid]:
+                if it is not horse:
+                    self.assertFalse(gm.overlaps(zone, (it[1], it[2], it[3], it[4])), f"{it[0]} touche le cheval ({rid})")
+
+    def test_swinging_doors_open_into_free_space(self):
+        """Chaque porte intérieure a un côté d'ouverture dont le trajet du battant (4 studs) est libre de meubles."""
+        by_key = {(d["level"], d["orient"], d["line"], d["c"]): d for d in DATA["doors"]}
+        for d in gm.DOORS:
+            if d.get("front") or d.get("puzzle"):
+                continue
+            side = by_key[(d["level"], d["orient"], d["line"], d["c"])].get("swing")
+            self.assertIn(side, (1, -1), f"aucun côté libre pour le battant de {d}")
+            sweep = gm.door_sweep(d, side)
+            for rid, items in gm.FURNITURE.items():
+                if gm.room_by_id(rid)[1] != d["level"]:
+                    continue
+                for it in items:
+                    self.assertFalse(gm.overlaps(sweep, (it[1], it[2], it[3], it[4])), f"{it[0]} bloque le battant de {d}")

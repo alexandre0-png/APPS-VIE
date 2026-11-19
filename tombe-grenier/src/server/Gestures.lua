@@ -43,7 +43,7 @@ function Gestures.swingOpen(part)
 		local hinge = alongX and CFrame.new(-half, 0, 0) or CFrame.new(0, 0, -half)
 		local origin = part.CFrame
 		TweenService:Create(part, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = origin * hinge * CFrame.Angles(0, math.rad(100), 0) * hinge:Inverse(),
+			CFrame = origin * hinge * CFrame.Angles(0, math.rad(alongX and -100 or 100), 0) * hinge:Inverse(),
 		}):Play()
 	end)
 end

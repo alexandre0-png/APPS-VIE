@@ -32,6 +32,13 @@ end
 
 local DecorKit = {}
 
+-- Meubles de la carte qui prennent le modèle du catalogue d'un autre nom (ModelLoader.MODELS / Config.Assets)
+DecorKit.ALIASES = {
+	["lit double"] = "lit",
+	["lit enfant"] = "lit",
+	["lampadaire"] = "lampe horreur",
+}
+
 local SEED = 4242
 
 -- Ce qui se pose sur chaque type de meuble (nom exact du meuble dans MapData)
@@ -158,7 +165,7 @@ function DecorKit.dress(parent, furniture, furnParts)
 	for i, f in ipairs(furniture) do
 		-- Une grande bibliothèque (plus de 8 studs de large) prend le modèle dédié
 		local modelName = (f.name == "bibliothèque" and f.x1 - f.x0 > 8) and "grande bibliothèque" or f.name
-		local template = studioModel(modelName)
+		local template = studioModel(modelName) or studioModel(DecorKit.ALIASES[modelName] or "")
 		if template then
 			local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
 			placeModel(template, parent, (f.x0 + f.x1) / 2, f.y0, (f.z0 + f.z1) / 2, target)

@@ -216,7 +216,8 @@ local function setDoor(panel, open)
 		closedPose[panel] = panel.CFrame
 	end
 	local hinge = hingeOf(panel)
-	local target = open and (closedPose[panel] * hinge * CFrame.Angles(0, math.rad(95), 0) * hinge:Inverse())
+	local target = open
+			and (closedPose[panel] * hinge * CFrame.Angles(0, math.rad(95) * (panel:GetAttribute("Swing") or 1), 0) * hinge:Inverse())
 		or closedPose[panel]
 	TweenService:Create(panel, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { CFrame = target }):Play()
 	panel.CanCollide = not open
