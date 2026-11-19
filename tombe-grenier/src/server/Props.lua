@@ -201,10 +201,24 @@ local function setupMusicBox()
 	end
 end
 
--- Portes intérieures : ouvrir ou fermer (tween de transparence, collision suivie)
+-- Portes intérieures : le panneau pivote autour de sa charnière (bord de la porte), la collision suit
+local closedPose = setmetatable({}, { __mode = "k" })
+
+local function hingeOf(panel)
+	local alongX = panel.Size.X >= panel.Size.Z
+	local half = (alongX and panel.Size.X or panel.Size.Z) / 2
+	return alongX and CFrame.new(-half, 0, 0) or CFrame.new(0, 0, -half)
+end
+
 local function setDoor(panel, open)
 	panel:SetAttribute("Open", open)
-	TweenService:Create(panel, TweenInfo.new(0.6), { Transparency = open and 0.9 or 0 }):Play()
+	if not closedPose[panel] then
+		closedPose[panel] = panel.CFrame
+	end
+	local hinge = hingeOf(panel)
+	local target = open and (closedPose[panel] * hinge * CFrame.Angles(0, math.rad(95), 0) * hinge:Inverse())
+		or closedPose[panel]
+	TweenService:Create(panel, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { CFrame = target }):Play()
 	panel.CanCollide = not open
 	panel.CanQuery = not open -- une porte fermée bloque aussi la vue et les raycasts
 end

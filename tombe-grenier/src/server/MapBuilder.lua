@@ -415,6 +415,35 @@ local function buildHouse(root)
 		end
 	end
 
+	-- Seuils au sol (chaque porte) et panneaux d'escalier : repères de passage, sans collision
+	for _, t in ipairs(Data.thresholds or {}) do
+		local ok, plate = pcall(makeBox, folders["Détails"], t, t.mat, t.name)
+		if ok and plate then
+			plate.CanCollide = false
+			plate.CanQuery = false
+			plate.CanTouch = false
+		end
+	end
+	for _, sign in ipairs(Data.signs or {}) do
+		pcall(function()
+			local anchor =
+				makeMarker(folders["Détails"], sign.pos, { 0.2, 0.2, 0.2 }, "panneau d'escalier", "StairSign")
+			local gui = Instance.new("BillboardGui")
+			gui.Size = UDim2.fromOffset(220, 30)
+			gui.MaxDistance = 40
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromScale(1, 1)
+			label.BackgroundColor3 = Color3.fromRGB(20, 18, 14)
+			label.BackgroundTransparency = 0.3
+			label.TextColor3 = Color3.fromRGB(230, 220, 190)
+			label.Font = Enum.Font.Gotham
+			label.TextScaled = true
+			label.Text = sign.text
+			label.Parent = gui
+			gui.Parent = anchor
+		end)
+	end
+
 	-- Portes intérieures : panneaux dans chaque ouverture (Props les ouvre et les ferme)
 	for _, d in ipairs(Data.doors) do
 		if not d.puzzle and not d.front then

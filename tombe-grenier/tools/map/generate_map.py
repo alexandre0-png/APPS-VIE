@@ -102,6 +102,33 @@ FLIGHTS = [("basement", "ground"), ("ground", "first"), ("first", "attic")]
 # Liaison logique entre pièces par les escaliers (pour le contrôle d'accessibilité)
 STAIR_LINKS = [("cave", "hall"), ("hall", "palier"), ("palier", "gro")]
 
+def thresholds():
+    """Seuil de chaque porte : plaque basse au sol (décor sans collision) qui marque le passage."""
+    out = []
+    for d in DOORS:
+        base = BASE[d["level"]]
+        lo, hi = d["c"] - d["w"] / 2, d["c"] + d["w"] / 2
+        if d["orient"] == "v":
+            out.append(dict(x0=d["line"] - 0.6, x1=d["line"] + 0.6, y0=base, y1=base + 0.12, z0=lo, z1=hi,
+                            mat="pierre", name="seuil", level=d["level"]))
+        else:
+            out.append(dict(x0=lo, x1=hi, y0=base, y1=base + 0.12, z0=d["line"] - 0.6, z1=d["line"] + 0.6,
+                            mat="pierre", name="seuil", level=d["level"]))
+    return out
+
+
+def stair_signs():
+    """Panneaux lisibles au pied et en haut de chaque volée (texte flottant, sans collision)."""
+    x0, z0, x1, z1 = STAIR
+    names = {"basement": "sous-sol", "ground": "rez-de-chaussée", "first": "étage", "attic": "grenier"}
+    out = []
+    cx = (x0 + x1) / 2
+    for lo, hi in FLIGHTS:
+        out.append(dict(pos=(cx, BASE[lo] + 4.5, z1 + 1.5), text=f"Escalier : monter vers {names[hi]}", level=lo, dir="up"))
+        out.append(dict(pos=(cx, BASE[hi] + 4.5, z0 - 1.5), text=f"Escalier : descendre vers {names[lo]}", level=hi, dir="down"))
+    return out
+
+
 # ----------------------------------------------------------------------------
 # Meubles : (nom, x0, z0, x1, z1, hauteur, matériau). Un « armoire » devient une cachette.
 # ----------------------------------------------------------------------------
@@ -967,7 +994,7 @@ def build():
     props, inv = build_props()
     plates, path, trees, garden_steps = garden()
     return dict(
-        walls=walls, slabs=slabs, steps=stair_steps(), furniture=furniture_boxes(),
+        walls=walls, slabs=slabs, steps=stair_steps(), thresholds=thresholds(), signs=stair_signs(), furniture=furniture_boxes(),
         decor=DECOR, details=place_details(), hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees, steps=garden_steps),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),

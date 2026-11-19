@@ -2,6 +2,11 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Passages et animations (points 5 et 6)
+- Chaque porte a un seuil au sol (plaque basse en pierre, décor sans collision, 12 cm) ; chaque volée d'escalier a un panneau au pied (« monter vers … ») et en haut (« descendre vers … »), 6 panneaux au total.
+- Portes intérieures : elles pivotent autour de leur charnière (95°, 0,6 s) au lieu de s'estomper ; la collision suit l'état. Porte de sortie : même geste (`Gestures.swingOpen`).
+- Tests (`tools/map/test_map.py`, `TestPassages`) : largeurs de porte (4 studs, 6 pour l'entrée), escalier large (8) et marches de 2,5, un seuil par porte dans l'ouverture et hors meubles, panneaux aux deux bouts de chaque volée, et connexité de toutes les routes de l'histoire : grenier, étages, rez, jardin par la porte d'entrée, sous-sol par la porte extérieure, cave, retour au grenier.
+
 ### Lisibilité des objets interactifs (point 3)
 - `src/shared/Markers.lua` (données pures) : 8 catégories distinctes (clé jaune, porte bleu clair, document blanc, mécanisme rouge-orangé, cachette vert, enfant rose, objet utile bleu, énigme violet) avec couleur, pastille de texte et nom au survol.
 - `src/server/Markers.lua` : à chaque partie, halo (Highlight) + pastille (BillboardGui, visible à moins de 16 studs) sur toute pièce portant une étiquette interactive ; nom au survol garanti (ObjectText). Le décor n'a ni halo ni pastille. Coupe : `Config.Design.Markers = false`.

@@ -563,3 +563,107 @@ class TestExtraPuzzle(unittest.TestCase):
         for p in counters + labels:
             x, y, z = p["pos"]
             self.assertEqual(gm.room_at("ground", x, z), "cuis")
+
+
+class TestPassages(unittest.TestCase):
+    """Portes, seuils, escaliers : chaque passage est net, assez large, balisé et utilisable dans l'ordre de l'histoire."""
+
+    def test_door_widths_allow_a_player_through(self):
+        for d in gm.DOORS:
+            self.assertGreaterEqual(d["w"], 4, f"porte trop étroite : {d}")
+        front = [d for d in gm.DOORS if d.get("front")][0]
+        self.assertGreaterEqual(front["w"], 6)
+
+    def test_stairs_are_wide_and_gentle(self):
+        x0, z0, x1, z1 = gm.STAIR
+        self.assertGreaterEqual(x1 - x0, 6, "escalier trop étroit")
+        run = (z1 - z0) / gm.STAIR_STEPS
+        self.assertGreaterEqual(run, 2, "marches trop courtes")
+        self.assertEqual(len(gm.FLIGHTS), 3)
+        self.assertEqual(len(DATA["steps"]), 3 * gm.STAIR_STEPS)
+
+    def test_every_door_has_a_threshold_inside_the_opening(self):
+        self.assertEqual(len(DATA["thresholds"]), len(gm.DOORS))
+        for d, t in zip(gm.DOORS, DATA["thresholds"]):
+            lo, hi = d["c"] - d["w"] / 2, d["c"] + d["w"] / 2
+            if d["orient"] == "v":
+                self.assertEqual((t["z0"], t["z1"]), (lo, hi))
+                self.assertLess(t["x0"], d["line"])
+                self.assertGreater(t["x1"], d["line"])
+            else:
+                self.assertEqual((t["x0"], t["x1"]), (lo, hi))
+                self.assertLess(t["z0"], d["line"])
+                self.assertGreater(t["z1"], d["line"])
+            self.assertLessEqual(t["y1"] - t["y0"], 0.2, "seuil trop haut : on y trébuche")
+            self.assertEqual(t["y0"], gm.BASE[d["level"]])
+
+    def test_thresholds_do_not_touch_furniture(self):
+        for t in DATA["thresholds"]:
+            rect = (t["x0"], t["z0"], t["x1"], t["z1"])
+            for rid, items in gm.FURNITURE.items():
+                if gm.room_by_id(rid)[1] != t["level"]:
+                    continue
+                for it in items:
+                    self.assertFalse(gm.overlaps(rect, (it[1], it[2], it[3], it[4])), f"seuil sous {it[0]} ({rid})")
+
+    def test_stair_signs_at_both_ends_of_each_flight(self):
+        signs = DATA["signs"]
+        self.assertEqual(len(signs), 2 * len(gm.FLIGHTS))
+        for lo, hi in gm.FLIGHTS:
+            ups = [s for s in signs if s["dir"] == "up" and s["level"] == lo]
+            downs = [s for s in signs if s["dir"] == "down" and s["level"] == hi]
+            self.assertEqual(len(ups), 1)
+            self.assertEqual(len(downs), 1)
+            self.assertIn("monter", ups[0]["text"])
+            self.assertIn("descendre", downs[0]["text"])
+            x0, z0, x1, z1 = gm.STAIR
+            # Panneau au pied (côté bas) et en haut (côté arrivée), dans l'axe de l'escalier
+            self.assertTrue(x0 <= ups[0]["pos"][0] <= x1)
+            self.assertGreater(ups[0]["pos"][2], z1)
+            self.assertLess(downs[0]["pos"][2], z0)
+
+    def test_every_route_of_the_story_is_connected(self):
+        """Grenier -> étages -> rez -> jardin (porte d'entrée) -> sous-sol (porte extérieure) -> cave -> retour -> grenier."""
+        adj = {r[0]: set() for r in gm.ROOMS}
+        adj["jardin"] = set()
+
+        def link(a, b):
+            if a and b and a != b:
+                adj[a].add(b)
+                adj[b].add(a)
+
+        for d in gm.DOORS:
+            lv = d["level"]
+            if d["orient"] == "v":
+                p1, p2 = (d["line"] - 0.5, d["c"]), (d["line"] + 0.5, d["c"])
+            else:
+                p1, p2 = (d["c"], d["line"] - 0.5), (d["c"], d["line"] + 0.5)
+            a, b = gm.room_at(lv, *p1), gm.room_at(lv, *p2)
+            link(a or "jardin", b or "jardin")  # hors maison : le jardin
+        for a, b in gm.STAIR_LINKS:
+            link(a, b)
+
+        def route(src, dst):
+            seen, q = {src}, deque([src])
+            while q:
+                cur = q.popleft()
+                if cur == dst:
+                    return True
+                for n in adj[cur] - seen:
+                    seen.add(n)
+                    q.append(n)
+            return False
+
+        for a, b in [("tombe", "gro"), ("gro", "palier"), ("palier", "hall"), ("hall", "entree"), ("entree", "jardin"),
+                     ("jardin", "ps"), ("ps", "cave"), ("cave", "hall"), ("hall", "palier"), ("palier", "gro"),
+                     ("gro", "tombe"), ("jardin", "entree")]:
+            self.assertTrue(route(a, b), f"pas de chemin {a} -> {b}")
+        # L'entrée du sous-sol par le jardin n'oblige pas à passer par la cave
+        self.assertIn("jardin", adj["ps"])
+
+    def test_doors_are_animated_with_a_hinge(self):
+        props = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "server", "Props.lua"),
+                     encoding="utf-8").read()
+        self.assertIn("hingeOf", props)
+        self.assertIn("CFrame.Angles(0, math.rad(95), 0)", props)
+        self.assertIn("panel.CanCollide = not open", props)
