@@ -115,3 +115,47 @@ class TestCatalogModels(unittest.TestCase):
         cfg = read("src", "shared", "Config.lua")
         for key in ("ChaiseHorreur", "ChaiseAntique", "TableLongue", "Plante", "LampeHorreur"):
             self.assertRegex(cfg, rf"{key} = \d{{6,}}")
+
+
+class TestUserCatalog(unittest.TestCase):
+    """Les identifiants du catalogue de l'utilisateur sont déclarés, chargés par ModelLoader et placés sans bloquer."""
+
+    IDS = {
+        125943216682367, 8156800485, 80943579301021, 8995653666, 13369825696, 97314700592382, 10780850055,
+        12032209888, 1452069624, 10551600237, 12470604445, 839550130, 188745055, 14953074402, 1338860741,
+        130020507665878, 5680874848, 16600867704, 15078054751, 116741237427172, 131378985761907, 101176034116232,
+    }
+
+    def test_every_catalog_id_is_in_config(self):
+        cfg = read("src", "shared", "Config.lua")
+        block = cfg[cfg.index("Config.Assets = {"):cfg.index("Config.Hub")]
+        found = {int(x) for x in re.findall(r"= (\d{6,})", block)}
+        self.assertTrue(self.IDS <= found, self.IDS - found)
+
+    def test_every_asset_key_is_loaded_by_the_loader(self):
+        cfg = read("src", "shared", "Config.lua")
+        block = cfg[cfg.index("Config.Assets = {"):cfg.index("Config.Hub")]
+        keys = set(re.findall(r"\t(\w+) = \d{6,}", block)) - {"Monstre1", "Monstre2", "Monstre3", "HubBibliotheque"}
+        loader = read("src", "server", "ModelLoader.lua")
+        for key in keys:
+            self.assertRegex(loader, rf"\b{key} = \"", f"{key} non chargé par ModelLoader")
+
+    def test_room_models_name_loaded_models(self):
+        kit = read("src", "server", "DecorKit.lua")
+        loader = read("src", "server", "ModelLoader.lua")
+        names = set(re.findall(r'= "([^"]+)",', loader[loader.index("ASSET_NAMES"):])) | set(re.findall(r'\["([^"]+)"\] = \d+', loader))
+        block = kit[kit.index("DecorKit.ROOM_MODELS"):kit.index("ROOM_RECIPES")]
+        for model in re.findall(r'= "([^"]+)"', block):
+            self.assertIn(model, names, f"modèle de pièce inconnu : {model}")
+
+    def test_room_models_never_block(self):
+        kit = read("src", "server", "DecorKit.lua")
+        self.assertIn("d.CanCollide = false", kit)  # les modèles n'ajoutent aucune collision
+        self.assertIn("studioModel(roomModels", kit)
+
+    def test_new_plants_are_in_the_map(self):
+        sys.path.insert(0, os.path.join(ROOT, "tools", "map"))
+        import generate_map as gm
+
+        rooms = {rid for rid, items in gm.FURNITURE.items() for it in items if it[0] == "plante"}
+        self.assertTrue({"salon", "sam", "bureau", "hall"} <= rooms)

@@ -46,6 +46,21 @@ local ASSET_NAMES = {
 	LampeHorreur = "lampe horreur",
 	TableLongue = "table",
 	Plante = "plante",
+	ChaiseModerne = "chaise moderne",
+	ChaiseEcole = "chaise école",
+	CanapeU = "canapé U",
+	TableMetal = "table métal",
+	TableBois = "table bois",
+	TableManger = "table à manger",
+	TableRondeChaise = "table ronde moderne",
+	Billard = "billard",
+	VieuxOrdinateur = "ordinateur",
+	LampeTable = "lampe de table",
+	PlanteMoyenne = "plante moyenne",
+	PlanteModerne = "plante moderne",
+	PlanteFenetre = "plante fenêtre",
+	PlanteExterieure = "plante extérieure",
+	PlanteSakura = "sakura",
 }
 
 -- Chargement d'un identifiant avec délai maximum. Retourne le conteneur, ou nil.

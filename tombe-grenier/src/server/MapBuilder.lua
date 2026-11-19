@@ -354,6 +354,11 @@ local function buildHouse(root)
 		Vector3.new(4, 3, 2.5),
 		folders["Décor"]
 	)
+	-- Jardin devant la maison : décor seul, à l'écart de l'allée (x 54 à 66), sans collision
+	placeFitted("sakura", CFrame.new(25, 3.5, 98), Vector3.new(5, 7, 5), folders["Décor"])
+	placeFitted("sakura", CFrame.new(95, 3.5, 98), Vector3.new(5, 7, 5), folders["Décor"])
+	placeFitted("plante extérieure", CFrame.new(47, 1.5, 94), Vector3.new(3, 3, 3), folders["Décor"])
+	placeFitted("plante extérieure", CFrame.new(73, 1.5, 94), Vector3.new(3, 3, 3), folders["Décor"])
 	for _, s in ipairs(Data.slabs) do
 		makeBox(folders.Dalles, s, s.mat, s.name or "Dalle")
 	end

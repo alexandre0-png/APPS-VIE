@@ -191,6 +191,7 @@ FURNITURE = {
         ("meuble TV", 4, 40, 14, 43.5, 2.5, "bois"),
         ("cheminée", 30, 2, 38, 6, 5, "pierre"),
         ("bibliothèque", 0.5, 18, 2.5, 30, 8, "bois"),
+        ("plante", 36, 39, 39, 42, 4, "vert"),
     ],
     "hall": [
         ("console", 62, 2, 72, 4, 3, "bois"),
@@ -212,6 +213,7 @@ FURNITURE = {
         ("chaise", 6, 71, 8, 73, 2, "bois"),
         ("chaise", 16, 71, 18, 73, 2, "bois"),
         ("buffet", 1, 80, 6, 88, 5, "bois"),
+        ("plante", 1.5, 45.5, 4.5, 48.5, 4, "vert"),
     ],
     "entree": [
         ("console", 44, 50, 48, 54, 3, "bois"),
@@ -225,6 +227,7 @@ FURNITURE = {
         ("bibliothèque", 113, 50, 119.5, 56, 8, "bois"),
         ("coffre", 106, 76, 116, 82, 3, "metal"),
         ("canapé", 86, 80, 96, 84, 3, "tissu"),
+        ("plante", 115.5, 85, 118.5, 88, 4, "vert"),
     ],
     # Premier étage
     "chp": [
@@ -531,12 +534,12 @@ def furniture_boxes():
         for name, x0, z0, x1, z1, h, mat in items:
             if name.startswith("lit"):
                 # Lit sur quatre pieds : le sommier flotte, l'espace dessous reste libre
-                out.append(box(x0, x1, base + BED_CLEARANCE, base + h, z0, z1, mat, name))
+                out.append(box(x0, x1, base + BED_CLEARANCE, base + h, z0, z1, mat, name, room=rid))
                 for lx in (x0, x1 - LEG):
                     for lz in (z0, z1 - LEG):
                         out.append(box(lx, lx + LEG, base, base + BED_CLEARANCE, lz, lz + LEG, mat, "pied de lit"))
             else:
-                out.append(box(x0, x1, base, base + h, z0, z1, mat, name))
+                out.append(box(x0, x1, base, base + h, z0, z1, mat, name, room=rid))
     return out
 
 

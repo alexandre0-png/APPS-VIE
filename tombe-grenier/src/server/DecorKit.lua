@@ -39,6 +39,37 @@ DecorKit.ALIASES = {
 	["lampadaire"] = "lampe horreur",
 }
 
+-- Modèle propre à une pièce : ROOM_MODELS[pièce][nom du meuble] = nom du modèle chargé.
+-- Horreur et antiquités pour le grenier et les chambres, moderne pour le salon et le bureau.
+DecorKit.ROOM_MODELS = {
+	salon = { ["canapé"] = "canapé U", ["plante"] = "plante moderne" },
+	bureau = {
+		["canapé"] = "canapé U",
+		["bureau"] = "table bois",
+		["chaise"] = "chaise moderne",
+		["plante"] = "plante moyenne",
+	},
+	cuis = { ["table"] = "table à manger", ["îlot"] = "table métal" },
+	sam = { ["plante"] = "plante fenêtre" },
+	couloir = { ["table ronde"] = "table ronde moderne" },
+	che = { ["chaise"] = "chaise école", ["bureau"] = "table bois" },
+	cha = { ["chaise"] = "chaise école", ["bureau"] = "table bois" },
+	gro = { ["table"] = "table bois", ["chaise"] = "chaise bois" },
+}
+
+-- Ce qui se pose sur un meuble d'une pièce donnée (remplace RECIPES pour ce meuble)
+local ROOM_RECIPES = {
+	bureau = { ["bureau"] = { "ordinateur", "livre", "lampe de table" } },
+	chp = { ["chevet"] = { "lampe de table" } },
+	cha = { ["chevet"] = { "lampe de table" } },
+}
+
+-- Taille cible (studs) des petits modèles posés sur un meuble
+local ITEM_TARGETS = {
+	["ordinateur"] = Vector3.new(1.8, 1.5, 1.5),
+	["lampe de table"] = Vector3.new(0.9, 1.4, 0.9),
+}
+
 local SEED = 4242
 
 -- Ce qui se pose sur chaque type de meuble (nom exact du meuble dans MapData)
@@ -77,6 +108,8 @@ local PROPS = {
 	vase = { size = Vector3.new(1.0, 0.6, 0.6), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
 	coussin = { size = Vector3.new(0.5, 1.2, 1.0), material = Enum.Material.Fabric, shape = nil },
 	casserole = { size = Vector3.new(0.6, 0.6, 0.6), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	["ordinateur"] = { size = Vector3.new(1.4, 1.0, 1.0), material = Enum.Material.Metal, shape = nil },
+	["lampe de table"] = { size = Vector3.new(0.5, 1.0, 0.5), material = Enum.Material.SmoothPlastic, shape = nil },
 }
 
 local COLORS = {
@@ -87,6 +120,8 @@ local COLORS = {
 	vase = { Color3.fromRGB(120, 110, 100) },
 	coussin = { Color3.fromRGB(110, 40, 40), Color3.fromRGB(70, 70, 60), Color3.fromRGB(60, 45, 70) },
 	casserole = { Color3.fromRGB(70, 70, 75) },
+	["ordinateur"] = { Color3.fromRGB(150, 145, 130) },
+	["lampe de table"] = { Color3.fromRGB(190, 160, 90) },
 }
 
 local function pick(rng, list)
@@ -165,7 +200,10 @@ function DecorKit.dress(parent, furniture, furnParts)
 	for i, f in ipairs(furniture) do
 		-- Une grande bibliothèque (plus de 8 studs de large) prend le modèle dédié
 		local modelName = (f.name == "bibliothèque" and f.x1 - f.x0 > 8) and "grande bibliothèque" or f.name
-		local template = studioModel(modelName) or studioModel(DecorKit.ALIASES[modelName] or "")
+		local roomModels = f.room and DecorKit.ROOM_MODELS[f.room]
+		local template = (roomModels and studioModel(roomModels[f.name] or ""))
+			or studioModel(modelName)
+			or studioModel(DecorKit.ALIASES[modelName] or "")
 		if template then
 			local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
 			placeModel(template, parent, (f.x0 + f.x1) / 2, f.y0, (f.z0 + f.z1) / 2, target)
@@ -174,7 +212,8 @@ function DecorKit.dress(parent, furniture, furnParts)
 				furnParts[i].CastShadow = false
 			end
 		else
-			local recipe = RECIPES[f.name]
+			local byRoom = f.room and ROOM_RECIPES[f.room]
+			local recipe = (byRoom and byRoom[f.name]) or RECIPES[f.name]
 			if recipe then
 				for _, kind in ipairs(recipe) do
 					-- Position aléatoire sur la surface, en gardant 0,3 stud de marge
@@ -182,7 +221,7 @@ function DecorKit.dress(parent, furniture, furnParts)
 					local z = rng:range(f.z0 + 0.3, f.z1 - 0.3)
 					local itemModel = studioModel(kind)
 					if itemModel then
-						placeModel(itemModel, parent, x, f.y1, z, nil)
+						placeModel(itemModel, parent, x, f.y1, z, ITEM_TARGETS[kind])
 					else
 						local prop = makeProp(parent, kind, rng, x, f.y1, z)
 						if kind == "livre" and not inLockedRoom(f) then

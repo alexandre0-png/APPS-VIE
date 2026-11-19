@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Catalogue d'identifiants de l'utilisateur
+- `Config.Assets` : les 22 identifiants du catalogue sont déclarés (chaises moderne, d'école, bloquante, horreur, bois, antique ; lampes ; tables ; canapé en U ; billard ; ordinateur ; plantes dont sakura et extérieure) ; `ModelLoader` les charge côté serveur (pcall, délai, scripts retirés ; en cas d'échec, par exemple « Requester does not have permission », la boîte ou l'objet de substitution reste).
+- Placement par pièce (`DecorKit.ROOM_MODELS`, `ROOM_RECIPES`) : salon et bureau en moderne (canapé en U, plantes, chaise moderne, ordinateur et lampe de table sur le bureau), cuisine (table à manger, îlot en métal), couloir (table ronde moderne), chambres d'enfant et d'ami (chaise d'école, table en bois), grenier (table en bois, chaise en bois), lampes de table sur les chevets. Trois plantes ajoutées au mobilier (salon, salle à manger, bureau) ; deux sakuras et deux plantes extérieures dans le jardin, hors de l'allée.
+- Aucun modèle n'ajoute de collision ni de tag ; les lampes de table n'émettent pas de lumière (budget RoomBudget inchangé). La table de billard est déclarée mais non placée (aucune pièce assez grande sans gêner un passage). La chaise bloquante reste décor optionnel, jamais devant une porte.
+- Tests : `TestUserCatalog` (identifiants présents, chargés, noms de modèles de pièce valides).
+
 ### Mobilier et animations cohérentes (points 4 et 6)
 - Salon : meuble TV contre le mur sud (la télévision suit) ; entrée : penderie contre le mur est ; cuisine : plan de travail sous le tiroir (le tiroir coulisse de la face avant, espace libre devant).
 - Catalogue : `DecorKit.ALIASES` applique les modèles chargés (`lit`, `lampe horreur`) aux lits double et d'enfant et au lampadaire ; sans modèle, les boîtes et objets de substitution lisibles restent. Un modèle remplaçant ne retire pas la collision de la boîte.

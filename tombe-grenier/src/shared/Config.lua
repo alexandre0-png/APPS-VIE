@@ -241,6 +241,22 @@ Config.Assets = {
 	LampeHorreur = 10780850055, -- lampe avec lueur (décor, dans les pièces)
 	TableLongue = 188745055, -- table de la salle à manger et de la cuisine (remplace « table »)
 	Plante = 116741237427172, -- plante en pot (décor : hall, couloir)
+	-- Catalogue de l'utilisateur (chaque modèle a son repli procédural si le chargement échoue)
+	ChaiseModerne = 125943216682367, -- chaise moderne (bureau)
+	ChaiseEcole = 8156800485, -- chaise de bureau d'école (chambres, bureau)
+	CanapeU = 10551600237, -- canapé moderne en U avec table basse (salon, bureau)
+	TableMetal = 12470604445, -- table en métal (îlot de la cuisine)
+	TableBois = 839550130, -- table en bois (bureaux, grenier)
+	TableManger = 1338860741, -- table à manger (cuisine)
+	TableRondeChaise = 1452069624, -- table ronde avec chaise moderne (couloir)
+	Billard = 14953074402, -- table de billard (réservé, non placé : aucune pièce assez grande sans bloquer)
+	VieuxOrdinateur = 130020507665878, -- vieil ordinateur (posé sur le bureau)
+	LampeTable = 5680874848, -- petite lampe de table (chevets, bureau), sans lumière : le budget de lueurs reste
+	PlanteMoyenne = 12032209888, -- plante moderne en pot moyenne (bureau)
+	PlanteModerne = 16600867704, -- plante moderne (salon)
+	PlanteFenetre = 15078054751, -- plante de fenêtre (salle à manger)
+	PlanteExterieure = 131378985761907, -- plante extérieure rectangle (jardin)
+	PlanteSakura = 101176034116232, -- sakura (jardin)
 	HubBibliotheque = 9904549498, -- bibliothèque (décor du hub : étagères) ; même modèle que « bibliothèque » (ModelLoader)
 	-- Modèle du monstre : essayés dans l'ordre, le premier valide est utilisé. Sinon, le rig de secours.
 	Monstre1 = 14801251042,
