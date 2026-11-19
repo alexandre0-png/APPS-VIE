@@ -1,4 +1,4 @@
--- ModuleScript : ServerScriptService/Assets
+-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -61,7 +61,8 @@ function Assets.new(Config, deps)
 
 	-- Retire tout ce qui est interdit, plafonne les particules, vérifie qu'il reste de la géométrie.
 	-- Retourne (true, { parts, removed }) ou (false, raison). Ne lève jamais d'erreur.
-	function A.sanitize(model)
+	function A.sanitize(model, maxParts)
+		maxParts = maxParts or cfg.maxParts
 		if model == nil then
 			return false, "modèle absent"
 		end
@@ -113,14 +114,14 @@ function Assets.new(Config, deps)
 		if parts == 0 then
 			return false, "modèle vide (aucune part)"
 		end
-		if parts > cfg.maxParts then
-			return false, "modèle trop lourd (" .. parts .. " parts, maximum " .. cfg.maxParts .. ")"
+		if parts > maxParts then
+			return false, "modèle trop lourd (" .. parts .. " parts, maximum " .. maxParts .. ")"
 		end
 		return true, { parts = parts, removed = #blocked }
 	end
 
 	-- Charge, nettoie et range un modèle. Retourne true si un modèle utilisable est disponible. Ne lève jamais d'erreur.
-	function A.loadOne(key, id)
+	function A.loadOne(key, id, maxParts)
 		local ok, model = withTimeout(function()
 			return deps.loadAsset(id)
 		end, cfg.timeout)
@@ -129,7 +130,7 @@ function Assets.new(Config, deps)
 			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
-		local sOk, valid, info = pcall(A.sanitize, model)
+		local sOk, valid, info = pcall(A.sanitize, model, maxParts)
 		if not sOk then
 			valid, info = false, tostring(valid)
 		end
@@ -177,6 +178,49 @@ function Assets.new(Config, deps)
 			pcall(onReady)
 		end
 		return loaded
+	end
+
+	-- Charge les modèles de décor du hub (Config.Assets.decor : clé -> ID), plafond de Parts plus large que pour les œufs.
+	-- Clés rangées sous « d:<clé> ». Retourne le nombre de modèles chargés. Ne lève jamais d'erreur.
+	function A.loadDecor()
+		if cfg.Enabled ~= true or type(cfg.decor) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.decor) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.decor[key]
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("d:" .. key, id, cfg.decorMaxParts or cfg.maxParts) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["d:" .. key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie du modèle de décor `key`, ou nil (coupé, échoué, pas encore chargé).
+	function A.cloneDecor(key)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["d:" .. key]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
 	end
 
 	-- Copie du modèle d'un œuf de rareté `tier`, ou nil (chargement coupé, échoué, pas encore terminé...) : garder l'apparence par défaut.

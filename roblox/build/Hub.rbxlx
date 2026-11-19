@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX24"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX33"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX32"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX34"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX33"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -270,6 +270,7 @@ Config.Assets = {
 	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
 	timeout = 8, -- secondes maximum par modèle
 	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
+	decorMaxParts = 220, -- plafond des modèles de décor du hub (placés une seule fois)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
 	targetHeight = 3.4, -- hauteur en studs à laquelle chaque modèle est ramené
 	eggs = {
@@ -280,6 +281,26 @@ Config.Assets = {
 		glitch = 2937218888, -- œuf glitch
 	},
 	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
+	-- Décor du hub (modèles catalogue fournis par l'utilisateur) : chargés par Assets.loadDecor, placés selon Config.HubDecor. Le hub est déjà
+	-- décoré par du code (bancs, lampadaires, arbres) : si un modèle est refusé, rien ne manque.
+	decor = {
+		chair = 125943216682367, -- chaise moderne
+		sofa = 10551600237, -- canapé moderne en U avec table basse
+		metalTable = 12470604445, -- table en métal
+		woodTable = 839550130, -- table en bois
+		diningTable = 1338860741, -- table à manger
+		billiard = 14953074402, -- table de billard
+		lamp = 5680874848, -- petite lampe de table
+		plantPot = 12032209888, -- plante moderne en pot moyenne
+		plantModern = 16600867704, -- plante moderne
+		plantWindow = 15078054751, -- plante fenêtre
+		plantIndoor = 116741237427172, -- plante en pot intérieur
+		plantOutdoor = 131378985761907, -- plante extérieure moderne rectangle
+		sakura = 101176034116232, -- plante Sakura
+	},
+	-- Packs d'animaux fournis (renard, lion, panda, girafe, éléphant, chat, poulet / énorme pack / serpent, biche, léopard) : NON chargés, car
+	-- aucun animal ne sert le gameplay (les pets sont construits par le code). Identifiants gardés ici pour un futur PNJ décor.
+	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -336,6 +357,30 @@ function Config.eggLook(tier)
 	local key = Config.eggAssetKey(tier)
 	return key and Config.EggFx.looks[key] or nil
 end
+
+-- Emplacements du décor du hub : { clé de Config.Assets.decor, x, z, rotation en degrés, hauteur cible en studs }.
+-- Zone libre au sud de la place (z > 44), hors fontaine, point d'arrivée, panneaux et portails (vérifié par les tests).
+Config.HubDecor = {
+	{ "sofa", -40, 58, 90, 4 },
+	{ "chair", -28, 66, 200, 3.4 },
+	{ "chair", -50, 70, 150, 3.4 },
+	{ "metalTable", -38, 76, 0, 3 },
+	{ "lamp", -52, 56, 0, 2.4 },
+	{ "diningTable", 34, 58, 0, 3.2 },
+	{ "chair", 26, 58, 270, 3.4 },
+	{ "chair", 42, 58, 90, 3.4 },
+	{ "woodTable", 52, 72, 20, 3 },
+	{ "billiard", 34, 80, 0, 3.4 },
+	{ "plantPot", -14, 50, 0, 4.5 },
+	{ "plantModern", 14, 50, 0, 4.5 },
+	{ "plantWindow", -22, 46, 0, 3.5 },
+	{ "plantIndoor", 22, 46, 0, 3.5 },
+	{ "plantOutdoor", -62, 64, 0, 4 },
+	{ "plantOutdoor", 64, 64, 0, 4 },
+	{ "sakura", 0, 92, 0, 16 },
+	{ "sakura", -70, 88, 0, 16 },
+	{ "sakura", 72, 90, 0, 16 },
+}
 
 function Config.isBlockedClass(className)
 	for _, c in ipairs(Config.Assets.blockedClasses) do
@@ -1627,8 +1672,256 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+-- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
+-- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
+-- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
+--   deps.loadAsset(id) -> modèle   (réel : InsertService:LoadAsset)
+--   deps.spawn(fn), deps.wait(secondes), deps.clock() -> secondes   (réels : task.spawn, task.wait, os.clock)
+--   deps.warn(message)  (facultatif)   deps.store(clé, modèle)  (facultatif : range le modèle, ex. dans ServerStorage)
+local Assets = {}
+
+function Assets.new(Config, deps)
+	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
+	local warned = {} -- un seul avertissement par ID
+	local cfg = Config.Assets
+
+	local function warn(msg, id)
+		if id ~= nil then
+			A.failedIds[id] = msg
+			if warned[id] then
+				return
+			end
+			warned[id] = true
+		end
+		if deps.warn then
+			deps.warn("[Assets] " .. msg)
+		end
+	end
+
+	-- Exécute fn avec un délai maximum (le chargeur réel peut ne jamais répondre). Retourne (ok, résultat | message).
+	-- Si le résultat arrive après le délai, le modèle est détruit et ignoré.
+	local function withTimeout(fn, seconds)
+		local state = { done = false, abandoned = false }
+		deps.spawn(function()
+			local ok, res = pcall(fn)
+			state.done, state.ok, state.res = true, ok, res
+			if state.abandoned and ok and res ~= nil then
+				pcall(function()
+					res:Destroy()
+				end)
+			end
+		end)
+		local t0 = deps.clock()
+		while not state.done and deps.clock() - t0 < seconds do
+			deps.wait(0.1)
+		end
+		if not state.done then
+			state.abandoned = true
+			return false, "délai dépassé (" .. seconds .. " s)"
+		end
+		return state.ok, state.res
+	end
+
+	local function descendants(model)
+		local ok, list = pcall(function()
+			return model:GetDescendants()
+		end)
+		if ok and type(list) == "table" then
+			return list
+		end
+		return nil
+	end
+
+	-- Retire tout ce qui est interdit, plafonne les particules, vérifie qu'il reste de la géométrie.
+	-- Retourne (true, { parts, removed }) ou (false, raison). Ne lève jamais d'erreur.
+	function A.sanitize(model, maxParts)
+		maxParts = maxParts or cfg.maxParts
+		if model == nil then
+			return false, "modèle absent"
+		end
+		local list = descendants(model)
+		if not list then
+			return false, "modèle illisible ou corrompu"
+		end
+		local blocked = {}
+		for _, d in ipairs(list) do
+			local ok, className = pcall(function()
+				return d.ClassName
+			end)
+			if not ok or type(className) ~= "string" then
+				return false, "instance corrompue"
+			end
+			if Config.isBlockedClass(className) then
+				blocked[#blocked + 1] = d
+			end
+		end
+		for _, d in ipairs(blocked) do
+			pcall(function()
+				d:Destroy()
+			end)
+		end
+		local after = descendants(model)
+		if not after then
+			return false, "modèle illisible après nettoyage"
+		end
+		local parts = 0
+		for _, d in ipairs(after) do
+			local okPart, isPart = pcall(function()
+				return d:IsA("BasePart")
+			end)
+			if okPart and isPart then
+				parts = parts + 1
+			else
+				local okEmitter, isEmitter = pcall(function()
+					return d.ClassName == "ParticleEmitter"
+				end)
+				if okEmitter and isEmitter then
+					pcall(function()
+						if d.Rate > cfg.maxParticleRate then
+							d.Rate = cfg.maxParticleRate
+						end
+					end)
+				end
+			end
+		end
+		if parts == 0 then
+			return false, "modèle vide (aucune part)"
+		end
+		if parts > maxParts then
+			return false, "modèle trop lourd (" .. parts .. " parts, maximum " .. maxParts .. ")"
+		end
+		return true, { parts = parts, removed = #blocked }
+	end
+
+	-- Charge, nettoie et range un modèle. Retourne true si un modèle utilisable est disponible. Ne lève jamais d'erreur.
+	function A.loadOne(key, id, maxParts)
+		local ok, model = withTimeout(function()
+			return deps.loadAsset(id)
+		end, cfg.timeout)
+		if not ok then
+			A.status[key] = { ok = false, reason = tostring(model) }
+			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence construite par le code conservée.", id)
+			return false
+		end
+		local sOk, valid, info = pcall(A.sanitize, model, maxParts)
+		if not sOk then
+			valid, info = false, tostring(valid)
+		end
+		if not valid then
+			A.status[key] = { ok = false, reason = tostring(info) }
+			pcall(function()
+				if model ~= nil then
+					model:Destroy()
+				end
+			end)
+			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence construite par le code conservée.", id)
+			return false
+		end
+		A.templates[key] = model
+		A.status[key] = { ok = true, parts = info.parts, removed = info.removed }
+		if deps.store then
+			pcall(deps.store, key, model)
+		end
+		return true
+	end
+
+	-- Charge tous les modèles d'œufs (un par clé). onReady() est appelé une fois si au moins un modèle est utilisable.
+	-- Retourne le nombre de modèles chargés. Ne lève jamais d'erreur ; ne fait rien si Config.Assets.Enabled est faux.
+	function A.loadAll(onReady)
+		if cfg.Enabled ~= true then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.eggs) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.eggs[key]
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne(key, id) then
+					loaded = loaded + 1
+				end
+			else
+				A.status[key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		if loaded > 0 and onReady then
+			pcall(onReady)
+		end
+		return loaded
+	end
+
+	-- Charge les modèles de décor du hub (Config.Assets.decor : clé -> ID), plafond de Parts plus large que pour les œufs.
+	-- Clés rangées sous « d:<clé> ». Retourne le nombre de modèles chargés. Ne lève jamais d'erreur.
+	function A.loadDecor()
+		if cfg.Enabled ~= true or type(cfg.decor) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.decor) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.decor[key]
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("d:" .. key, id, cfg.decorMaxParts or cfg.maxParts) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["d:" .. key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie du modèle de décor `key`, ou nil (coupé, échoué, pas encore chargé).
+	function A.cloneDecor(key)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["d:" .. key]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
+	-- Copie du modèle d'un œuf de rareté `tier`, ou nil (chargement coupé, échoué, pas encore terminé...) : garder l'apparence par défaut.
+	function A.cloneEgg(tier)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local key = Config.eggAssetKey(tier)
+		local template = key and A.templates[key]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
+	return A
+end
+
+return Assets
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX36"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX34"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX37"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX35"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -1652,6 +1945,28 @@ require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).att
 		return world.spawn.CFrame + Vector3.new(0, 4, 0)
 	end,
 })
+
+-- Décor catalogue du hub : chargé en arrière-plan (serveur, pcall, délai, scripts retirés) ; un échec ne retire rien (le hub est déjà décoré par le code).
+task.spawn(function()
+	local assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets")).new(Config, {
+		loadAsset = function(id)
+			return game:GetService("InsertService"):LoadAsset(id)
+		end,
+		spawn = task.spawn,
+		wait = task.wait,
+		clock = os.clock,
+		warn = warn,
+	})
+	local loaded = assets.loadDecor()
+	local placed = 0
+	for _, spot in ipairs(Config.HubDecor) do
+		local clone = assets.cloneDecor(spot[1])
+		if clone and HubWorld.placeModel(clone, spot[2], spot[3], spot[4], spot[5], world.folder) then
+			placed += 1
+		end
+	end
+	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s)")
+end)
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "HubRemote"
@@ -1890,7 +2205,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -1988,6 +2303,39 @@ function HubWorld.setupLighting()
 	bloom.Size = 30
 	bloom.Threshold = 0.9
 	bloom.Parent = Lighting
+end
+
+-- Place une copie d'un modèle de décor : mise à l'échelle à `height` studs, posée au sol en (x, z), tournée de `rotDeg`. Tout est ancré,
+-- sans collision ni requête (décor). Retourne true si le modèle est en place ; en cas d'erreur, tout est défait. Ne lève jamais d'erreur.
+function HubWorld.placeModel(model, x, z, rotDeg, height, parent)
+	local ok = pcall(function()
+		if not model:IsA("Model") then
+			error("pas un Model")
+		end
+		local _, size = model:GetBoundingBox()
+		if size.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		model:ScaleTo(height / size.Y)
+		local bbox, size2 = model:GetBoundingBox()
+		local target = CFrame.new(x, size2.Y / 2, z) * CFrame.Angles(0, math.rad(rotDeg), 0)
+		model:PivotTo(target * bbox:ToObjectSpace(model:GetPivot()))
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+			end
+		end
+		model.Parent = parent
+	end)
+	if not ok then
+		pcall(function()
+			model:Destroy()
+		end)
+	end
+	return ok
 end
 
 -- Retourne { spawn, zones = { [taille] = { part, label, center, radius } }, folder }
@@ -2181,7 +2529,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX39"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX38"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX40"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX39"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX38"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

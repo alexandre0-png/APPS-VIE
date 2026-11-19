@@ -795,7 +795,7 @@ end
 
 -- Assets : chargeur factice -----------------------------------------------------------------
 do
-	local AssetsMod = luau.load(fs.readFile("roblox/src/ServerScriptService/Assets.lua"), { debugName = "Assets" })()
+	local AssetsMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Assets.lua"), { debugName = "Assets" })()
 	-- Instances factices
 	local function inst(class, props)
 		local o = { ClassName = class, children = {}, destroyed = false }
@@ -1632,6 +1632,98 @@ do
 		end)())
 		check("HubWorld : les zones portent le tag PortalZone", f.tags.PortalZone == #Config.Game.Sizes)
 	end
+end
+
+-- Décor catalogue du hub : identifiants et emplacements ---------------------------------------------------------------------
+do
+	local A = Config.Assets
+	local function validId(id)
+		return type(id) == "number" and id > 0 and id % 1 == 0
+	end
+	local n = 0
+	for _, id in pairs(A.decor) do
+		n = n + 1
+		check("décor : identifiant valide " .. tostring(id), validId(id))
+	end
+	check("décor : 13 modèles fournis", n == 13)
+	local animals = 0
+	for _, id in pairs(A.animals) do
+		animals = animals + 1
+		check("animaux : identifiant valide " .. tostring(id), validId(id))
+	end
+	check("animaux : 3 packs gardés, non chargés", animals == 3 and A.decor.pack1 == nil)
+	check("œufs : les 5 modèles de la liste utilisateur", A.eggs.red == 151044983 and A.eggs.legendary == 2937230482 and A.eggs.glitch == 2937218888 and A.eggs.orange == 147144059 and A.eggs.purple == 112478990)
+	local ok, why = true, ""
+	local function must(c, m2)
+		if not c and ok then
+			ok, why = false, m2
+		end
+	end
+	local sizes = Config.Game.Sizes
+	for i, spot in ipairs(Config.HubDecor) do
+		local key, x, z, rot, h = spot[1], spot[2], spot[3], spot[4], spot[5]
+		must(A.decor[key] ~= nil, "emplacement " .. i .. " : clé inconnue " .. tostring(key))
+		must(h >= 2 and h <= 20, "emplacement " .. i .. " : hauteur raisonnable")
+		must(math.abs(x) < 180 and math.abs(z) < 180, "emplacement " .. i .. " dans le hub")
+		must(not (math.abs(x) < 14 and z > 24 and z < 44), "emplacement " .. i .. " hors du point d'arrivée")
+		must(math.sqrt(x * x + z * z) > 22, "emplacement " .. i .. " hors de la fontaine")
+		must(z > 44, "emplacement " .. i .. " dans la zone libre au sud")
+		for j = i + 1, #Config.HubDecor do
+			local o = Config.HubDecor[j]
+			must(math.sqrt((x - o[2]) ^ 2 + (z - o[3]) ^ 2) >= 3, "emplacements " .. i .. " et " .. j .. " distincts")
+		end
+		for k = 1, #sizes do
+			local a = math.rad(-72 + (k - 1) * 36)
+			must(math.sqrt((x - math.sin(a) * 62) ^ 2 + (z + math.cos(a) * 62) ^ 2) > 16, "emplacement " .. i .. " loin du portail " .. k)
+		end
+	end
+	check("HubDecor : emplacements cohérents" .. (ok and "" or " : " .. why), ok)
+	-- chargement avec chargeur factice : décor sain, refusé, plafond de Parts propre au décor
+	local AssetsMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Assets.lua"), { debugName = "Assets" })()
+	local function inst(class, children)
+		local o = { ClassName = class, children = children or {}, destroyed = false }
+		function o:IsA(c)
+			return self.ClassName == c or (c == "BasePart" and self.ClassName == "Part")
+		end
+		function o:Destroy()
+			self.destroyed = true
+		end
+		function o:Clone()
+			return inst(self.ClassName, self.children)
+		end
+		function o:GetDescendants()
+			local out = {}
+			for _, ch in ipairs(self.children) do
+				if not ch.destroyed then
+					out[#out + 1] = ch
+				end
+			end
+			return out
+		end
+		return o
+	end
+	local clock = 0
+	local function mkDeps(loader)
+		return { loadAsset = loader, spawn = function(fn) fn() end, wait = function(sec) clock = clock + sec end, clock = function() return clock end, warn = function() end }
+	end
+	local many = function()
+		local ch = {}
+		for i = 1, 100 do
+			ch[i] = inst("Part")
+		end
+		ch[101] = inst("Script")
+		return inst("Model", ch)
+	end
+	local D = AssetsMod.new(Config, mkDeps(many))
+	check("décor : un modèle de 100 Parts est accepté (plafond décor 220) et nettoyé", D.loadDecor() == 13 and D.cloneDecor("sofa") ~= nil and #D.templates["d:sofa"]:GetDescendants() == 100)
+	check("décor : un modèle de 100 Parts serait refusé comme œuf (plafond 60)", AssetsMod.new(Config, mkDeps(many)).loadAll() == 0)
+	local denied = AssetsMod.new(Config, mkDeps(function() error("Requester does not have permission for Asset") end))
+	check("décor : permission refusée -> rien chargé, rien ne casse, cloneDecor nil", denied.loadDecor() == 0 and denied.cloneDecor("sofa") == nil)
+	local saved = A.Enabled
+	A.Enabled = false
+	local off = AssetsMod.new(Config, mkDeps(many))
+	check("décor : Enabled = false -> aucun chargement", off.loadDecor() == 0 and off.cloneDecor("sofa") == nil)
+	A.Enabled = saved
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

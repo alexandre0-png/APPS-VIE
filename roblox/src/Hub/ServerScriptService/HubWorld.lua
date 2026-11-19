@@ -98,6 +98,39 @@ function HubWorld.setupLighting()
 	bloom.Parent = Lighting
 end
 
+-- Place une copie d'un modèle de décor : mise à l'échelle à `height` studs, posée au sol en (x, z), tournée de `rotDeg`. Tout est ancré,
+-- sans collision ni requête (décor). Retourne true si le modèle est en place ; en cas d'erreur, tout est défait. Ne lève jamais d'erreur.
+function HubWorld.placeModel(model, x, z, rotDeg, height, parent)
+	local ok = pcall(function()
+		if not model:IsA("Model") then
+			error("pas un Model")
+		end
+		local _, size = model:GetBoundingBox()
+		if size.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		model:ScaleTo(height / size.Y)
+		local bbox, size2 = model:GetBoundingBox()
+		local target = CFrame.new(x, size2.Y / 2, z) * CFrame.Angles(0, math.rad(rotDeg), 0)
+		model:PivotTo(target * bbox:ToObjectSpace(model:GetPivot()))
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+			end
+		end
+		model.Parent = parent
+	end)
+	if not ok then
+		pcall(function()
+			model:Destroy()
+		end)
+	end
+	return ok
+end
+
 -- Retourne { spawn, zones = { [taille] = { part, label, center, radius } }, folder }
 function HubWorld.build(Config)
 	local world = Instance.new("Folder")

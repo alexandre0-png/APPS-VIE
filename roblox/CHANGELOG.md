@@ -2,6 +2,10 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## 2026-11-19 (suite) : identifiants catalogue de l'utilisateur
+
+**Œufs** : les 5 identifiants de la liste sont déjà dans `Config.Assets.eggs` (rouge 151044983, orange 147144059, aura violette 112478990, légendaire 2937230482, glitch 2937218888) ; l'aura violette n'avait jamais été vue refusée, les trois autres l'ont été (repli par le code conservé). **Décor du hub** : 13 modèles (chaise, canapé en U, tables, billard, lampe, 6 plantes dont Sakura) dans `Config.Assets.decor`, placés selon `Config.HubDecor` (zone libre au sud de la place ; emplacements vérifiés par test : hors fontaine, point d'arrivée, portails, panneaux). `Assets` passe dans `Shared` (utilisé aussi par le hub), avec `loadDecor` / `cloneDecor` et un plafond de Parts propre au décor (220, œufs : 60). Chargement serveur seulement, `InsertService:LoadAsset` sous pcall avec délai, scripts et objets de communication retirés, refus de permission = rien n'est placé (le hub est déjà décoré par le code). **Animaux** : les 3 packs sont gardés dans `Config.Assets.animals` mais NON chargés : aucun animal ne sert le gameplay (les pets sont construits par le code). **Sons** : aucun fourni, aucun inventé. Non vérifié : le chargement réel, l'échelle et l'orientation des modèles.
+
 ## 2026-11-19 : robustesse du démarrage, hub étoffé, éléments interactifs
 
 **Cause racine à vérifier (retour du Jeu 2 : un `require` mal résolu plante tout le script serveur avant les Remotes)** : `check.py` simule Rojo (arbre construit depuis `default/game/hub.project.json`) et résout chaque `require(...)` (parenthèses équilibrées) et chaque chaîne `WaitForChild` / `:GetService` / `.Parent` de modules statiques. Résultat sur les 3 projets : 0 chemin faux (39, 39 et 11 chemins vérifiés). Testé par mutation (noms de module faussés : détectés). Non exécuté : `rojo build` réel (blocage d'autorisation de la session).

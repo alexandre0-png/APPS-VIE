@@ -38,7 +38,7 @@ local RTop = newRemote("Top")
 -- Apparence des œufs : modèles Roblox chargés en arrière-plan (jamais bloquant ; échec = apparence par défaut, voir Config.Assets).
 task.spawn(function()
 	local InsertService = game:GetService("InsertService")
-	local assets = require(script.Parent:WaitForChild("Assets")).new(Config, {
+	local assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets")).new(Config, {
 		loadAsset = function(id)
 			return InsertService:LoadAsset(id)
 		end,

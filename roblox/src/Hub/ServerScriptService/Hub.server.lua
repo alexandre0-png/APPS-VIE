@@ -23,6 +23,28 @@ require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).att
 	end,
 })
 
+-- Décor catalogue du hub : chargé en arrière-plan (serveur, pcall, délai, scripts retirés) ; un échec ne retire rien (le hub est déjà décoré par le code).
+task.spawn(function()
+	local assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets")).new(Config, {
+		loadAsset = function(id)
+			return game:GetService("InsertService"):LoadAsset(id)
+		end,
+		spawn = task.spawn,
+		wait = task.wait,
+		clock = os.clock,
+		warn = warn,
+	})
+	local loaded = assets.loadDecor()
+	local placed = 0
+	for _, spot in ipairs(Config.HubDecor) do
+		local clone = assets.cloneDecor(spot[1])
+		if clone and HubWorld.placeModel(clone, spot[2], spot[3], spot[4], spot[5], world.folder) then
+			placed += 1
+		end
+	end
+	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s)")
+end)
+
 local remote = Instance.new("RemoteEvent")
 remote.Name = "HubRemote"
 remote.Parent = ReplicatedStorage

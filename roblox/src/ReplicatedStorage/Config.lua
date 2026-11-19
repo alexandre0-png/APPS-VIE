@@ -266,6 +266,7 @@ Config.Assets = {
 	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
 	timeout = 8, -- secondes maximum par modèle
 	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
+	decorMaxParts = 220, -- plafond des modèles de décor du hub (placés une seule fois)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
 	targetHeight = 3.4, -- hauteur en studs à laquelle chaque modèle est ramené
 	eggs = {
@@ -276,6 +277,26 @@ Config.Assets = {
 		glitch = 2937218888, -- œuf glitch
 	},
 	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
+	-- Décor du hub (modèles catalogue fournis par l'utilisateur) : chargés par Assets.loadDecor, placés selon Config.HubDecor. Le hub est déjà
+	-- décoré par du code (bancs, lampadaires, arbres) : si un modèle est refusé, rien ne manque.
+	decor = {
+		chair = 125943216682367, -- chaise moderne
+		sofa = 10551600237, -- canapé moderne en U avec table basse
+		metalTable = 12470604445, -- table en métal
+		woodTable = 839550130, -- table en bois
+		diningTable = 1338860741, -- table à manger
+		billiard = 14953074402, -- table de billard
+		lamp = 5680874848, -- petite lampe de table
+		plantPot = 12032209888, -- plante moderne en pot moyenne
+		plantModern = 16600867704, -- plante moderne
+		plantWindow = 15078054751, -- plante fenêtre
+		plantIndoor = 116741237427172, -- plante en pot intérieur
+		plantOutdoor = 131378985761907, -- plante extérieure moderne rectangle
+		sakura = 101176034116232, -- plante Sakura
+	},
+	-- Packs d'animaux fournis (renard, lion, panda, girafe, éléphant, chat, poulet / énorme pack / serpent, biche, léopard) : NON chargés, car
+	-- aucun animal ne sert le gameplay (les pets sont construits par le code). Identifiants gardés ici pour un futur PNJ décor.
+	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -332,6 +353,30 @@ function Config.eggLook(tier)
 	local key = Config.eggAssetKey(tier)
 	return key and Config.EggFx.looks[key] or nil
 end
+
+-- Emplacements du décor du hub : { clé de Config.Assets.decor, x, z, rotation en degrés, hauteur cible en studs }.
+-- Zone libre au sud de la place (z > 44), hors fontaine, point d'arrivée, panneaux et portails (vérifié par les tests).
+Config.HubDecor = {
+	{ "sofa", -40, 58, 90, 4 },
+	{ "chair", -28, 66, 200, 3.4 },
+	{ "chair", -50, 70, 150, 3.4 },
+	{ "metalTable", -38, 76, 0, 3 },
+	{ "lamp", -52, 56, 0, 2.4 },
+	{ "diningTable", 34, 58, 0, 3.2 },
+	{ "chair", 26, 58, 270, 3.4 },
+	{ "chair", 42, 58, 90, 3.4 },
+	{ "woodTable", 52, 72, 20, 3 },
+	{ "billiard", 34, 80, 0, 3.4 },
+	{ "plantPot", -14, 50, 0, 4.5 },
+	{ "plantModern", 14, 50, 0, 4.5 },
+	{ "plantWindow", -22, 46, 0, 3.5 },
+	{ "plantIndoor", 22, 46, 0, 3.5 },
+	{ "plantOutdoor", -62, 64, 0, 4 },
+	{ "plantOutdoor", 64, 64, 0, 4 },
+	{ "sakura", 0, 92, 0, 16 },
+	{ "sakura", -70, 88, 0, 16 },
+	{ "sakura", 72, 90, 0, 16 },
+}
 
 function Config.isBlockedClass(className)
 	for _, c in ipairs(Config.Assets.blockedClasses) do
