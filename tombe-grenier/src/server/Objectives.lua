@@ -63,7 +63,7 @@ function Objectives.setStatuesDone(done)
 end
 
 -- Invite de ramassage à usage unique ; onPick est appelé une seule fois
-local function pickable(part, objectText, onPick)
+local function pickable(part, objectText, onPick, kind)
 	local taken = false
 	local prompt = makePrompt(part, {
 		action = "Ramasser",
@@ -71,6 +71,10 @@ local function pickable(part, objectText, onPick)
 		hold = 0.3,
 		onTriggered = function(player)
 			if taken then
+				return
+			end
+			-- La chaîne de progression (Quests) peut refuser : pas encore l'étape de cet objet
+			if kind and Objectives.canPick and not Objectives.canPick(kind, player) then
 				return
 			end
 			taken = true
@@ -96,7 +100,7 @@ function Objectives.setup()
 					Locks.open("bureau") -- les trois souvenirs ouvrent le bureau
 				end
 				refreshExit()
-			end)
+			end, "photo")
 		end
 	end
 
@@ -112,7 +116,7 @@ function Objectives.setup()
 			keyPrompt = pickable(part, "Clé", function()
 				team.hasKey = true
 				refreshExit()
-			end)
+			end, "key")
 			keyPrompt.Enabled = false
 		end
 	end
@@ -156,6 +160,9 @@ function Objectives.setup()
 				distance = 6,
 				enabled = false,
 				onTriggered = function(player)
+					if exitReady then
+						Gestures.swingOpen(part)
+					end
 					if exitReady and onWin then
 						onWin(player)
 					end

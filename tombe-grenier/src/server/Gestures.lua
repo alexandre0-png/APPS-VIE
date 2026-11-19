@@ -31,6 +31,23 @@ function Gestures.tiltOpen(part, flag)
 	end)
 end
 
+-- Porte qui pivote autour de sa charnière et reste ouverte (plus de collision, passage libre)
+function Gestures.swingOpen(part)
+	if not part or not part:IsA("BasePart") then
+		return
+	end
+	part.CanCollide = false
+	pcall(function()
+		local alongX = part.Size.X >= part.Size.Z
+		local half = (alongX and part.Size.X or part.Size.Z) / 2
+		local hinge = alongX and CFrame.new(-half, 0, 0) or CFrame.new(0, 0, -half)
+		local origin = part.CFrame
+		TweenService:Create(part, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = origin * hinge * CFrame.Angles(0, math.rad(100), 0) * hinge:Inverse(),
+		}):Play()
+	end)
+end
+
 -- Objet ramassé : il s'élève et s'efface, puis disparaît
 function Gestures.riseAndRemove(part)
 	if not part or not part:IsA("BasePart") then

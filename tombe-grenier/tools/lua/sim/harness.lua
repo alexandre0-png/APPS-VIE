@@ -242,7 +242,7 @@ end
 STUBS.Objectives = function()
 	return {
 		snapshot = function()
-			return { photos = 3, hasKey = false }
+			return { photos = M.photos or 3, hasKey = M.hasKey or false }
 		end,
 		unlockKey = function() end,
 		init = function() end,
@@ -314,6 +314,7 @@ game = {
 -- Les modules serveur et partagé
 M.shared = {
 	Config = { __path = "src/shared/Config.lua" },
+	Chain = { __path = "src/shared/Chain.lua" },
 	Remotes = { __path = "STUB:Remotes" },
 	Rng = { __path = "src/shared/Rng.lua" },
 	Audio = { __path = "STUB:Audio" },

@@ -532,17 +532,14 @@ PHOTO_SLOTS = [
     _s("salle à manger, table", (15, 2.6, 65), (1.4, 0.1, 1.0)),
     _s("cuisine, îlot", (94, 3.1, 18), (1.4, 0.1, 1.0)),
     _s("salle de la tombe, table ronde", (95, 27.1, 73), (1.4, 0.1, 1.0)),
-    _s("cave, barriques", (65, -8.9, 7), (1.4, 0.1, 1.0)),
-    _s("cave, établi", (69, -8.9, 62), (1.4, 0.1, 1.0)),
-    _s("cellier, tonneau", (28, -8.9, 72), (1.4, 0.1, 1.0)),
+    _s("grenier, caisse ouverte", (12, 28.1, 60), (1.4, 0.1, 1.0)),
 ]
 
 NOTE_SLOTS = [
     _s("grenier, étagère ouest", (2.5, 32.1, 6), (0.6, 0.1, 0.8)),
-    _s("chambre des parents, chevet", (2.5, 14.1, 6.5), (0.6, 0.1, 0.8)),
-    _s("cuisine, îlot", (92, 3.1, 16), (0.6, 0.1, 0.8)),
-    _s("cave, étagère", (45.5, -4.9, 63), (0.6, 0.1, 0.8)),
-    _s("chambre d'enfant, bureau", (88, 15.1, 11), (0.6, 0.1, 0.8)),
+    _s("grenier, table", (34, 27.1, 14), (0.6, 0.1, 0.8)),
+    _s("grenier, caisses", (14, 28.1, 62), (0.6, 0.1, 0.8)),
+    _s("salle de la tombe, table ronde", (93, 27.1, 72), (0.6, 0.1, 0.8)),
 ]
 
 BATH_KEY_SLOTS = [

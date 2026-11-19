@@ -28,6 +28,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Gestures = require(script.Parent.Gestures)
 local Config = require(Shared.Config)
+local Chain = require(Shared.Chain)
 local Remotes = require(Shared.Remotes)
 local Rng = require(Shared.Rng)
 local Audio = require(Shared.Audio)
@@ -109,18 +110,13 @@ local function startGramophone(position)
 	end)
 end
 
+-- Indices : ceux de la chaîne (Chain.lua), plus la fin de partie
 local HINTS = {
-	photos = "Les souvenirs traînent sur les meubles. Une lampe aide à les voir dans le noir.",
-	note = "Un papier froissé se cache sur une surface plate, près d'un meuble.",
-	reflet = "Un miroir de la maison garde la fin du code. Le texte y est écrit à l'envers.",
-	coffret = "Le coffret à bijoux est posé sur la table de la salle de la tombe.",
-	chest = "La petite clé du coffret ouvre une serrure. Cherche la malle, dans la salle de la tombe.",
-	melodie = "Le gramophone du premier étage joue trois notes. Rejoue-les sur la boîte à musique, dans le même ordre.",
-	horloge = "Une date est gravée sur la plaque du cercueil. L'horloge du hall attend cette date, mois puis jour.",
-	key = "La clé rouillée est au fond de la malle.",
-	statues = "Les trois statues doivent regarder la même direction. La lampe UV montre la cible de deux d'entre elles.",
-	exit = "Deux chemins : la porte d'entrée, ou la tombe. Lis les documents avant de choisir.",
+	fuite = "L'enfant te suit. Au fond de l'allée, le portail, et la voiture qui attend.",
 }
+for _, step in ipairs(Chain.STEPS) do
+	HINTS[step.id] = step.hint
+end
 
 local ENDING_TEXT = {
 	win = "Fin 1 : la fuite. Tu sors de la maison.",
@@ -167,6 +163,9 @@ local function freshState()
 		fuseStep = 0, -- interrupteurs bien actionnés, dans l'ordre
 		fuseDone = false, -- courant rétabli
 		caveKey = false, -- la vraie clé de la porte de la cave est prise
+		outside = false, -- sorti par la porte d'entrée
+		caveEntered = false, -- entré dans la cave, porte métallique ouverte
+		leftViaBasement = false, -- ressorti de la maison par le sous-sol
 		caveOpen = false, -- la porte métallique est ouverte           -- objets interactifs déjà utilisés (une fois par partie)
 	}
 end
@@ -181,77 +180,77 @@ local function loreCount()
 	return n
 end
 
--- Étape courante de la chaîne principale
-local function currentStep()
+-- Étapes faites, d'après l'état serveur de la partie (jamais le client)
+local function stepDone(id)
 	local snap = Objectives.snapshot()
-	if snap.photos < Config.Round.PhotosRequired then
-		return "photos"
+	if id == "note" then
+		return state.note == true
+	elseif id == "reflet" then
+		return state.mirrorRead == true
+	elseif id == "coffret" then
+		return state.coffret == true
+	elseif id == "chest" then
+		return state.chest == true
+	elseif id == "key" then
+		return snap.hasKey == true
+	elseif id == "melodie" then
+		return state.boxDone == true
+	elseif id == "horloge" then
+		return not Config.Design.ProgressionV2 or state.horloge == true
+	elseif id == "statues" then
+		return state.statuesDone == true
+	elseif id == "photos" then
+		return snap.photos >= Config.Round.PhotosRequired
+	elseif id == "sortie" then
+		return state.outside == true
+	elseif id == "cave" then
+		return state.caveOpen == true
+	elseif id == "sous_sol" then
+		return state.caveEntered == true
+	elseif id == "retour" then
+		return state.leftViaBasement == true
+	elseif id == "enfant" then
+		return state.freed == true
 	end
-	-- Petite clé obtenue par la bibliothèque : le code et le coffret ne sont plus nécessaires
-	if not state.smallKey then
-		if not state.note then
-			return "note"
-		end
-		if not state.mirrorRead then
-			return "reflet"
-		end
-		if not state.coffret then
-			return "coffret"
-		end
-	end
-	if not state.chest then
-		return "chest"
-	end
-	if not state.boxDone then
-		return "melodie"
-	end
-	if Config.Design.ProgressionV2 and not state.horloge then
-		return "horloge"
-	end
-	if not snap.hasKey then
-		return "key"
-	end
-	if not state.statuesDone then
-		return "statues"
-	end
-	return "exit"
+	return false
 end
 
-local OBJECTIVE = {
-	photos = function()
-		return ("Rassemble les souvenirs (%d/%d)"):format(Objectives.snapshot().photos, Config.Round.PhotosRequired)
-	end,
-	note = function()
-		return "Trouve le code caché dans la maison"
-	end,
-	reflet = function()
-		return "Lis les deux derniers chiffres dans un miroir (le texte est à l'envers)"
-	end,
-	coffret = function()
-		return ("Ouvre le coffret à bijoux (code : %s)"):format(state.note and (code:sub(1, 2) .. "??") or "????")
-	end,
-	chest = function()
-		return "Ouvre la malle du grenier"
-	end,
-	horloge = function()
-		return "Règle l'horloge du hall sur la date gravée sur la plaque du cercueil"
-	end,
-	key = function()
-		return "Prends la clé rouillée dans la malle"
-	end,
-	melodie = function()
-		return "Rejoue la mélodie du gramophone sur la boîte à musique (premier étage)"
-	end,
-	statues = function()
-		return "Oriente les trois statues du rez-de-chaussée, toutes dans la même direction"
-	end,
-	exit = function()
-		return ("Sors par la porte d'entrée, ou libère l'enfant (documents lus : %d/%d)"):format(
-			loreCount(),
-			#LORE_KINDS
-		)
-	end,
-}
+local function doneSet()
+	local done = {}
+	for _, step in ipairs(Chain.STEPS) do
+		done[step.id] = stepDone(step.id)
+	end
+	return done
+end
+
+-- Étape active : la première non faite ; "fuite" quand tout est fait (reste le portail)
+local function currentStep()
+	return Chain.current(doneSet()) or "fuite"
+end
+
+-- Une étape n'est accessible que si toutes les précédentes sont faites
+local function canAct(id)
+	return state ~= nil and Chain.canAct(doneSet(), id)
+end
+
+local OBJECTIVE = {}
+for _, step in ipairs(Chain.STEPS) do
+	OBJECTIVE[step.id] = function()
+		return step.objective
+	end
+end
+OBJECTIVE.photos = function()
+	return ("Rassemble les souvenirs (%d/%d)"):format(Objectives.snapshot().photos, Config.Round.PhotosRequired)
+end
+OBJECTIVE.coffret = function()
+	return ("Ouvre le coffret à bijoux (code : %s)"):format(state.note and (code:sub(1, 2) .. "??") or "????")
+end
+OBJECTIVE.enfant = function()
+	return ("Remonte au grenier, libère l'enfant au cercueil (documents lus : %d/%d)"):format(loreCount(), #LORE_KINDS)
+end
+OBJECTIVE.fuite = function()
+	return "Fuis par le portail : la voiture t'attend"
+end
 
 -- Inventaire visible : petites clés et documents (les photos et la clé de sortie viennent du HUD)
 local function pushInventory()
@@ -277,6 +276,17 @@ end
 
 local function say(player, text)
 	Remotes.fire("Message", player, { text = text })
+end
+
+-- Verrou de la chaîne : refuse (avec un message clair) une action dont les étapes précédentes ne sont pas faites
+local function gate(id, player)
+	if canAct(id) then
+		return true
+	end
+	if player and state then
+		say(player, Chain.lockedText(doneSet(), id))
+	end
+	return false
 end
 
 -- Progression : réinitialise le délai avant indication et met à jour l'objectif
@@ -432,8 +442,12 @@ local function readBook(player, book)
 	end
 	state.nextMark += 1
 	if state.nextMark > 3 then
-		state.smallKey = true
-		say(player, "Entre les pages du dernier marque-page, une petite clé.")
+		-- Plus de raccourci vers la petite clé (la chaîne est séquentielle) : une pile, une seule fois
+		if not state.bookBattery then
+			state.bookBattery = true
+			PlayerState.addBattery(player, Config.Flashlight.PickupAmount)
+		end
+		say(player, "Entre les pages du dernier marque-page, une pile glissée là depuis longtemps.")
 	else
 		say(player, "Marque-page n°" .. mark .. ". Il en reste d'autres, dans l'ordre.")
 	end
@@ -544,6 +558,9 @@ local function turnStatue(player, statue)
 		say(player, "Les statues sont immobiles, figées dans leur position.")
 		return
 	end
+	if not gate("statues", player) then
+		return
+	end
 	local facing = (statue:GetAttribute("Facing") + 1) % 4
 	statue:SetAttribute("Facing", facing)
 	statue.CFrame = statueBase[statue] * CFrame.Angles(0, facing * math.pi / 2, 0)
@@ -582,6 +599,9 @@ local function pressNote(player, index)
 		say(player, "La boîte est silencieuse. Sa mélodie est finie.")
 		return
 	end
+	if not gate("melodie", player) then
+		return
+	end
 	if index == melody[state.melodyIdx + 1] then
 		state.melodyIdx += 1
 		if state.melodyIdx >= #melody then
@@ -604,6 +624,9 @@ local function wire()
 	for _, part in ipairs(CollectionService:GetTagged("CodeNote")) do
 		if part:IsA("BasePart") then
 			prompt(part, { action = "Lire", object = "Papier" }, function(player)
+				if not state.note and not gate("note", player) then
+					return
+				end
 				if state.note then
 					say(
 						player,
@@ -634,6 +657,9 @@ local function wire()
 				function(player)
 					if state.mirrorRead then
 						say(player, "Le reflet ne t'apprend plus rien.")
+						return
+					end
+					if not gate("reflet", player) then
 						return
 					end
 					state.mirrorRead = true
@@ -786,6 +812,9 @@ local function wire()
 					if not Config.Design.ProgressionV2 or not state or state.horloge then
 						return
 					end
+					if not gate("horloge", player) then
+						return
+					end
 					state.horlogeOpen = true
 					Remotes.fire("Keypad", player, { length = 4 })
 					say(player, "Entre la date de la plaque : mois puis jour, deux chiffres chacun.")
@@ -848,6 +877,9 @@ local function wire()
 					say(player, "Le coffret est ouvert. Il est vide, à part une vieille photo.")
 					return
 				end
+				if not gate("coffret", player) then
+					return
+				end
 				Remotes.fire("Keypad", player, { length = 4 })
 			end)
 		end
@@ -859,6 +891,9 @@ local function wire()
 			prompt(part, { action = "Ouvrir la malle", object = "Malle", hold = 0.8, distance = 6 }, function(player)
 				if state.chest then
 					say(player, "Vide, à part des vieux chiffons.")
+					return
+				end
+				if not gate("chest", player) then
 					return
 				end
 				if not state.smallKey then
@@ -931,6 +966,9 @@ local function wire()
 				prompt(part, { action = ACTION[kind] or "Examiner", object = kind }, function(player)
 					if state.used[part] then
 						say(player, "Déjà fait.")
+						return
+					end
+					if kind == "gramophone ancien" and not gate("melodie", player) then
 						return
 					end
 					state.used[part] = true
@@ -1012,6 +1050,9 @@ local function wire()
 			prompt(part, { action = "Ouvrir", object = "Porte métallique", hold = 1, distance = 6 }, function(player)
 				if state.caveOpen then
 					say(player, "La porte est ouverte. Le passage sud est libre.")
+					return
+				end
+				if not gate("cave", player) then
 					return
 				end
 				if not state.caveKey then
@@ -1138,6 +1179,17 @@ local function wire()
 	for _, part in ipairs(CollectionService:GetTagged("Tombe")) do
 		if part:IsA("BasePart") then
 			prompt(part, { action = "Libérer l'enfant", object = "Tombe", hold = 2, distance = 6 }, function(player)
+				if state.freed then
+					return
+				end
+				-- L'enfant n'est sauvable qu'une fois sorti de la maison par le sous-sol (chaîne, côté serveur)
+				if not state.leftViaBasement then
+					say(player, "Tu ne peux pas encore l'aider. Il faut d'abord sortir de la maison par le sous-sol.")
+					return
+				end
+				if not gate("enfant", player) then
+					return
+				end
 				if loreCount() < #LORE_KINDS then
 					say(player, "Il te manque des souvenirs. Tu ne sais pas encore qui repose ici.")
 					return
@@ -1168,6 +1220,11 @@ end
 
 -- Date de la plaque, saisie près du cercueil : ouvre la fin « vérité »
 local function submitDate(player, text)
+	if state.freed or not state.leftViaBasement or not canAct("enfant") then
+		state.tombePending = false
+		say(player, "Tu ne peux pas encore l'aider. Il faut d'abord sortir de la maison par le sous-sol.")
+		return
+	end
 	local tomb = CollectionService:GetTagged("Tombe")[1]
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -1207,6 +1264,10 @@ end
 -- Saisie du code, envoyée par le client depuis le coffret
 -- Horloge du hall (progression V2) : la date de la plaque, MMJJ
 local function submitHorloge(player, text)
+	if not gate("horloge", player) then
+		state.horlogeOpen = false
+		return
+	end
 	if text == tombeDate then
 		state.horloge = true
 		state.horlogeOpen = false
@@ -1244,6 +1305,9 @@ function Quests.submitCode(player, text)
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	local coffret = CollectionService:GetTagged("Coffret")[1]
 	if not root or not coffret or (root.Position - coffret.Position).Magnitude > 10 then
+		return
+	end
+	if not gate("coffret", player) then
 		return
 	end
 	if text == code then
@@ -1348,6 +1412,10 @@ function Quests.setup(seed)
 	state.paintingDown = false
 	closeHatch("TrappeGrenier")
 	closeHatch("TrappePalier")
+	-- Objectifs ramassables : les photos et la clé n'arrivent que dans l'ordre de la chaîne
+	Objectives.canPick = function(kind, player)
+		return gate(kind == "photo" and "photos" or "key", player)
+	end
 	if Quests.onStatuesChanged then
 		Quests.onStatuesChanged(false)
 	end
@@ -1421,15 +1489,12 @@ function Quests.hintFor(player)
 	end
 	state.hintAt = now
 	local text = HINTS[currentStep()]
-	if state.outside and not state.freed then
-		text = "Au fond de l'allée, le portail. Les cris viennent d'en bas, au pied du mur sud : la porte du sous-sol."
-	end
 	Remotes.fire("Hint", player, { text = text })
 end
 
 -- Porte d'entrée franchie : on est dans le jardin
 function Quests.onFrontDoor(player)
-	if not state then
+	if not state or not canAct("sortie") then
 		return
 	end
 	state.outside = true
@@ -1445,9 +1510,70 @@ function Quests.onFrontDoor(player)
 	progressed()
 end
 
+-- Suivi des positions (serveur) : entrer dans la cave, puis ressortir de la maison par le sous-sol.
+-- Chaque palier exige les précédents de la chaîne : une téléportation ne saute rien.
+local function inFootprint(pos)
+	return pos.X >= -0.5 and pos.X <= 120.5 and pos.Z >= -0.5 and pos.Z <= 90.5
+end
+
+local function inCave(pos)
+	return pos.Y < -4 and pos.X >= 40 and pos.X <= 80 and pos.Z >= 0 and pos.Z <= 90
+end
+
+local function trackOnce()
+	if not (active and state) then
+		return
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if root then
+			local pos = root.Position
+			if not state.caveEntered then
+				if canAct("sous_sol") and inCave(pos) then
+					state.caveEntered = true
+					say(player, "La cave. Quelque chose t'a suivi. Il faut ressortir par le sous-sol.")
+					progressed()
+				end
+			elseif not state.leftViaBasement then
+				if canAct("retour") and not inFootprint(pos) then
+					state.leftViaBasement = true
+					say(
+						player,
+						"Tu es ressorti par le sous-sol. Il reste quelqu'un là-haut, dans le grenier : rentre par la porte d'entrée."
+					)
+					progressed()
+				end
+			end
+		end
+	end
+end
+
+local function trackPositions()
+	while true do
+		task.wait(0.5)
+		trackOnce()
+	end
+end
+
+Quests.trackOnce = trackOnce
+
+-- Progression (lecture seule) : étapes faites et étape active
+function Quests.progress()
+	if not state then
+		return { done = {}, current = "note" }
+	end
+	return { done = doneSet(), current = currentStep() }
+end
+
+function Quests.canAct(id)
+	return canAct(id)
+end
+
 function Quests.init(endCallback)
 	endFn = endCallback
 	task.spawn(hintLoop)
+	task.spawn(trackPositions)
 	task.spawn(mannequinLoop)
 end
 

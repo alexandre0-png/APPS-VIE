@@ -40,6 +40,7 @@ local function world()
 	w.coffret = add("Coffret", 95, 27, 73, "coffret")
 	w.chest = add("Chest", 70, 27, 60, "malle")
 	w.tomb = add("Tombe", 90, 26, 42, "cercueil")
+	w.caveDoor = add("CaveDoor", 80, -6, 45, "porte métallique")
 	w.mirror = add("Mirror", 119, 31, 30, "miroir")
 	w.box = add("MusicBox", 20, 0, 20, "boîte")
 	w.books = {}
@@ -79,6 +80,8 @@ Quests.init(function(reason)
 	H.endReason = reason
 end)
 check(true, "setup + init s'exécutent")
+local Objectives = require({ __path = "STUB:Objectives" })
+local chain = __runfile("tools/lua/sim/chain_lib.lua")(H, Quests, w, alice, find)
 
 -- 2. Papier, miroir et coffret : le code se reconstitue et ouvre le coffret
 H.log = {}
@@ -98,6 +101,10 @@ check(find(H.msgs(alice), "(Ce n'est pas le bon code)") ~= nil, "mauvais code re
 H.log = {}
 Quests.submitCode(alice, code)
 check(find(H.msgs(alice), "(Le couvercle se soulève)") ~= nil, "le bon code ouvre le coffret")
+H.trigger(w.chest, "QuestPrompt", alice)
+check(Quests.progress().done.chest == true, "la petite clé ouvre la malle")
+check(Objectives.canPick("key", alice) == true, "la clé rouillée est prenable une fois la malle ouverte")
+H.hasKey = true
 
 -- 3. Gramophone puis boîte à musique : la mélodie se rejoue
 H.log = {}
@@ -131,37 +138,25 @@ check(find(H.msgs(alice), "(se mélangent)") ~= nil, "mauvais ordre réinitialis
 for i = 1, 3 do
 	H.trigger(marked[i], "QuestPromptLivre", alice)
 end
-check(H.lastObjective() == "Ouvre la malle du grenier", "petite clé par la bibliothèque : objectif passe à la malle")
+check((H.battery or 0) > 0, "dernier marque-page : une pile (plus de raccourci vers la petite clé)")
+check(Quests.progress().done.coffret ~= true, "la bibliothèque ne donne plus la petite clé")
 
--- 5. Statues : une orientation par statue, tirée par la seed (on retrouve une solution)
-local found = nil
-for a = 0, 3 do
-	for b = 0, 3 do
-		for c = 0, 3 do
-			Quests.setup(999)
-			H.log = {}
-			local combo = { a, b, c }
-			for i = 1, 3 do
-				for _ = 1, combo[i] do
-					H.trigger(w.statues[i], "QuestPromptStatue", alice)
-				end
-			end
-			if find(H.msgs(alice), "(Les trois statues se figent)") then
-				found = combo
-			end
-		end
-	end
-end
-check(found ~= nil, "les statues ont une solution")
+-- 5. Statues : une orientation par statue, tirée par la seed (on retrouve une solution, dans l'ordre de la chaîne)
+chain.reset(999)
+chain.advanceTo("statues")
+chain.turns = 0
+chain.actions.statues(chain.sec)
+check(Quests.progress().done.statues == true, "les statues ont une solution")
 
 -- 6. Mur qui respire : refusé avant les statues, pile après
-Quests.setup(999)
+chain.reset(999)
 H.log = {}
 H.trigger(w.respire, "QuestPromptRespire", alice)
 check(find(H.msgs(alice), "(Rien ne se passe)") ~= nil, "mur muet avant les statues")
 
--- 7. Documents, date de la plaque et fin vérité
-Quests.setup(12345)
+-- 7. Documents, date de la plaque et fin vérité (l'enfant n'est sauvable qu'après le sous-sol)
+chain.reset(12345)
+chain.advanceTo("enfant")
 H.endReason = nil
 for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
 	H.trigger(w.docs[kind], "QuestPrompt", alice)
@@ -186,7 +181,8 @@ Quests.submitCode(alice, mm .. dd)
 check(H.freed == true and H.endReason == nil, "bonne date : enfant libéré, la partie continue")
 
 -- 7sexies. Fin 4 (piège) : la date du cahier, fausse, scelle le cercueil
-Quests.setup(12345)
+chain.reset(12345)
+chain.advanceTo("enfant")
 H.endReason = nil
 for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
 	H.trigger(w.docs[kind], "QuestPrompt", alice)
@@ -240,7 +236,8 @@ check(not hintAgain and find(H.msgs(alice), "(Attends)") ~= nil, "indication lim
 
 -- 7ter. Progression V2 : l'horloge du hall se règle avec la date de la plaque, pour chaque graine
 local function solveHorloge(seed)
-	Quests.setup(seed)
+	chain.reset(seed)
+	chain.advanceTo("horloge")
 	H.log = {}
 	H.trigger(w.docs["plaque du cercueil"], "QuestPrompt", alice)
 	local mm, dd = string.match(find(H.msgs(alice), "gravée dessous : (%d%d/%d%d)") or "", "(%d%d)/(%d%d)")
@@ -324,6 +321,81 @@ for seed = 1, 60 do
 	local ok, why = solveCompteur(seed)
 	check(ok, ("compteur solvable, graine %d%s"):format(seed, why and (" : " .. why) or ""))
 end
+
+-- 7octies. Chaîne strictement séquentielle : à chaque pas, toute étape suivante tentée trop tôt est refusée
+local function playChain(seed)
+	chain.reset(seed)
+	local n = #chain.steps
+	for i = 1, n do
+		local id = chain.steps[i].id
+		local skip = id == "horloge" and not require({ __path = "src/shared/Config.lua" }).Design.ProgressionV2
+		if not skip then
+			local p = Quests.progress()
+			if p.current ~= id then
+				return false, ("étape active « %s », attendue « %s »"):format(tostring(p.current), id)
+			end
+			local ok, why = chain.attemptsBefore(id)
+			if not ok then
+				return false, why
+			end
+			chain.turns = 0
+			chain.actions[id](chain.sec)
+			if not Quests.progress().done[id] then
+				return false, ("étape « %s » non réalisable dans l'ordre"):format(id)
+			end
+		end
+	end
+	return Quests.progress().done.enfant == true, "enfant non libéré"
+end
+H.endReason = nil
+for seed = 1, 60 do
+	local ok, why = playChain(seed)
+	check(ok, ("chaîne complète dans l'ordre, graine %d%s"):format(seed, why and (" : " .. tostring(why)) or ""))
+end
+check(H.endReason == nil, "la chaîne n'a terminé la partie à aucun moment")
+-- Répétition : refaire toutes les actions ne change rien
+local function doneCount()
+	local k = 0
+	for _, v in pairs(Quests.progress().done) do
+		if v then
+			k = k + 1
+		end
+	end
+	return k
+end
+local before = doneCount()
+for _, step in ipairs(chain.steps) do
+	chain.turns = 0
+	chain.actions[step.id](chain.sec)
+end
+check(doneCount() == before, "répéter les actions ne change rien")
+-- Sans l'horloge (ProgressionV2 = false) la chaîne reste séquentielle
+do
+	local Cfg = require({ __path = "src/shared/Config.lua" })
+	Cfg.Design.ProgressionV2 = false
+	for seed = 1, 20 do
+		local ok, why = playChain(seed)
+		check(ok, ("V1 : chaîne dans l'ordre, graine %d%s"):format(seed, why and (" : " .. tostring(why)) or ""))
+	end
+	Cfg.Design.ProgressionV2 = true
+end
+-- L'enfant n'est jamais sauvable avant la sortie par le sous-sol, même avec tous les documents et la date
+chain.reset(4242)
+chain.advanceTo("sortie")
+Quests.onFrontDoor(alice)
+for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
+	H.trigger(w.docs[kind], "QuestPrompt", alice)
+end
+moveTo(alice, 90, 26, 43)
+H.log = {}
+H.trigger(w.tomb, "QuestPrompt", alice)
+check(
+	find(H.msgs(alice), "(sortir de la maison par le sous%-sol)") ~= nil,
+	"message clair : d'abord sortir par le sous-sol"
+)
+Quests.submitCode(alice, chain.sec.date)
+check(Quests.progress().done.enfant ~= true, "date saisie avant le sous-sol : l'enfant reste prisonnier")
+check(Quests.canAct("enfant") == false, "l'étape enfant est verrouillée côté serveur")
 
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do

@@ -2,6 +2,14 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Progression : chaîne séquentielle stricte (points 1 et 2 de la passe de lisibilité)
+- Nouveau module `src/shared/Chain.lua` : ordre unique des étapes (papier, reflet, coffret, malle, clé, mélodie, horloge, statues, photos, sortie, cave, sous-sol, retour, enfant), avec objectif, indice et zone. Une seule étape active ; `Chain.canAct` exige toutes les précédentes.
+- `Quests.lua` : chaque action est verrouillée côté serveur (état de la partie, pas le client), message « Pas encore. D'abord : … ». Ramassage des photos et de la clé passe par `Objectives.canPick`. Le livre de la bibliothèque ne donne plus la petite clé (une pile à la place).
+- L'enfant ne peut être sauvé qu'après être sorti de la maison par le sous-sol (`leftViaBasement`, suivi de position serveur) ; message clair sinon ; saisie de la date refusée avant.
+- Porte de sortie : pivote et reste ouverte (`Gestures.swingOpen`, sans collision) ; auparavant elle ne s'ouvrait jamais.
+- Emplacements : papier uniquement au grenier et à la salle de la tombe, photos hors sous-sol (cohérence avec la chaîne).
+- Tests : `tools/lua/test_chain.py` (exhaustif sur les sous-ensembles d'étapes, verrous présents), simulation 80 parties complètes dans l'ordre, tentatives trop tôt (téléportation, ordre inversé, répétition) toutes refusées ; mutation de verrou détectée.
+
 ### Effets de peur (Config.Visual : Vignette, VignetteMax, CandleFlicker)
 - Vignette : bords de l'écran assombris selon la sanité (client, sans image).
 - Bougies : la lueur vacille pendant une minute (pcall).
