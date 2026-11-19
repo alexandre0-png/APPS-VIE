@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX7"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX6"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX9"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX8"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -468,7 +468,7 @@ Config.Map = {
 	domainRadius = 38,
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
-	Streaming = { Enabled = true, MinRadius = 128, TargetRadius = 480 },
+	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
 		arena = { clock = 15.3, ambient = Color3.fromRGB(95, 105, 120), outdoor = Color3.fromRGB(125, 135, 155), tint = Color3.fromRGB(255, 255, 255), atmo = Color3.fromRGB(199, 220, 255), density = 0.28, haze = 1.4 },
@@ -1457,8 +1457,177 @@ function Party.new(Config, deps)
 end
 
 return Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+-- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
+local Spawn = {}
+
+-- Réglages par rôle. floorY : en dessous, le joueur est tombé hors du monde. half : demi-côté de la zone jouable (au-delà : hors zone).
+-- freefallSpeed : vitesse verticale (studs/s, négative) au-delà de laquelle une chute au-dessus du sol est anormale.
+Spawn.PRESETS = {
+	game = { floorY = -25, half = 590, freefallSpeed = -160, freefallY = 40, noCharTimeout = 10, sky = 400 },
+	hub = { floorY = -25, half = 205, freefallSpeed = -160, freefallY = 40, noCharTimeout = 10, sky = 140 },
+}
+
+-- st = { hasChar, alive, waited, x, y, z, vy } ; waited = secondes sans personnage. Retourne nil ou une raison :
+-- "nochar" (aucun personnage depuis trop longtemps), "void" (sous le sol), "freefall" (chute libre), "outside" (hors de la zone), "sky" (trop haut).
+function Spawn.rescueReason(st, cfg)
+	if not st.hasChar then
+		if (st.waited or 0) >= cfg.noCharTimeout then
+			return "nochar"
+		end
+		return nil
+	end
+	if st.alive == false or st.y == nil then
+		return nil
+	end
+	if st.y ~= st.y or (st.x or 0) ~= (st.x or 0) or (st.z or 0) ~= (st.z or 0) then
+		return "void" -- NaN : position corrompue
+	end
+	if st.y < cfg.floorY then
+		return "void"
+	end
+	if math.abs(st.x or 0) > cfg.half or math.abs(st.z or 0) > cfg.half then
+		return "outside"
+	end
+	if st.y > cfg.sky then
+		return "sky"
+	end
+	if (st.vy or 0) < cfg.freefallSpeed and st.y < cfg.freefallY then
+		return "freefall"
+	end
+	return nil
+end
+
+-- Compteurs de sauvetages : une boucle de sauvetages (> maxPerMinute) est signalée pour ne pas masquer un vrai bug.
+function Spawn.newTally()
+	local t = { counts = {}, total = 0, times = {} }
+	function t.add(kind, now)
+		t.counts[kind] = (t.counts[kind] or 0) + 1
+		t.total = t.total + 1
+		t.times[#t.times + 1] = now
+		while #t.times > 0 and now - t.times[1] > 60 do
+			table.remove(t.times, 1)
+		end
+		return #t.times
+	end
+	return t
+end
+
+return Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+-- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
+-- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
+-- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
+-- Les décisions sont dans Spawn (pur, testé) ; ce module n'applique que du Roblox. Aucune erreur ne sort d'ici (tout sous pcall).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Spawn = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Spawn"))
+
+local SpawnGuard = {}
+
+-- opts = { role = "game" | "hub", safeCFrame = function(player) -> CFrame, interval = 0.5 }
+function SpawnGuard.attach(opts)
+	local cfg = Spawn.PRESETS[opts.role] or Spawn.PRESETS.game
+	local tally = Spawn.newTally()
+	local noChar = {} -- Player -> secondes sans personnage
+	local loading = {} -- Player -> true pendant un LoadCharacterAsync lancé ici
+	local function log(msg)
+		print("[Spawn] (" .. opts.role .. ") " .. msg)
+	end
+
+	local function safeCF(player)
+		local ok, cf = pcall(opts.safeCFrame, player)
+		if ok and typeof(cf) == "CFrame" then
+			return cf
+		end
+		return CFrame.new(0, 10, 0)
+	end
+
+	local function place(player, root, reason)
+		local n = tally.add(reason, os.clock())
+		local cf = safeCF(player)
+		pcall(function()
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			root.CFrame = cf
+		end)
+		log(player.Name .. " replacé (" .. reason .. ") vers " .. string.format("%.0f, %.0f, %.0f", cf.X, cf.Y, cf.Z) .. " [" .. tally.total .. " au total]")
+		if n > 6 then
+			warn("[Spawn] (" .. opts.role .. ") plus de 6 sauvetages en une minute : un joueur retombe en boucle, vérifie le point de départ")
+		end
+	end
+
+	Players.PlayerAdded:Connect(function(player)
+		log(player.Name .. " arrivé (" .. #Players:GetPlayers() .. " joueur(s), CharacterAutoLoads = " .. tostring(Players.CharacterAutoLoads) .. ")")
+		player.CharacterAdded:Connect(function(char)
+			log(player.Name .. " : personnage apparu")
+			task.defer(function()
+				local root = char:WaitForChild("HumanoidRootPart", 5)
+				if root and player.Parent then
+					local st = { hasChar = true, alive = true, x = root.Position.X, y = root.Position.Y, z = root.Position.Z, vy = 0 }
+					local reason = Spawn.rescueReason(st, cfg)
+					if reason then
+						place(player, root, reason)
+					end
+				end
+			end)
+		end)
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(opts.interval or 0.5)
+			for _, player in ipairs(Players:GetPlayers()) do
+				pcall(function()
+					local char = player.Character
+					local root = char and char:FindFirstChild("HumanoidRootPart")
+					local hum = char and char:FindFirstChildOfClass("Humanoid")
+					if not root then
+						noChar[player] = (noChar[player] or 0) + (opts.interval or 0.5)
+					else
+						noChar[player] = 0
+					end
+					local pos = root and root.Position
+					local st = {
+						hasChar = root ~= nil, alive = hum == nil or hum.Health > 0, waited = noChar[player] or 0,
+						x = pos and pos.X, y = pos and pos.Y, z = pos and pos.Z, vy = root and root.AssemblyLinearVelocity.Y or 0,
+					}
+					local reason = Spawn.rescueReason(st, cfg)
+					if reason == "nochar" then
+						if not loading[player] and player.Parent then
+							loading[player] = true
+							noChar[player] = 0
+							tally.add("nochar", os.clock())
+							log(player.Name .. " sans personnage depuis " .. cfg.noCharTimeout .. " s : chargement forcé")
+							task.spawn(function()
+								local ok, err = pcall(function()
+									player:LoadCharacterAsync()
+								end)
+								if not ok then
+									warn("[Spawn] (" .. opts.role .. ") LoadCharacterAsync a échoué pour " .. player.Name .. " : " .. tostring(err))
+								end
+								loading[player] = nil
+							end)
+						end
+					elseif reason and root then
+						place(player, root, reason)
+					end
+				end)
+			end
+		end
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		noChar[player] = nil
+		loading[player] = nil
+	end)
+	log("filet de sécurité actif (sol " .. cfg.floorY .. ", demi-zone " .. cfg.half .. ")")
+	return tally
+end
+
+return SpawnGuard
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX15"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX8"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX17"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX10"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -3043,6 +3212,18 @@ local function onJoin(player)
 end
 
 Players.PlayerAdded:Connect(onJoin)
+-- Filet de sécurité : personnage garanti dans la zone, replacement si chute (voir Spawn / SpawnGuard, traces [Spawn] en console serveur)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).attach({
+	role = "game",
+	safeCFrame = function(p)
+		local ss = sessions[p]
+		local sp = ss and ss.plot and ss.plot.spawn
+		if sp then
+			return sp.CFrame + Vector3.new(0, 4, 0)
+		end
+		return CFrame.new(0, 8, 60) -- à côté du tapis roulant : toujours au sol de l'arène
+	end,
+})
 for _, p in ipairs(Players:GetPlayers()) do
 	task.spawn(onJoin, p)
 end
@@ -3105,7 +3286,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -3499,7 +3680,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -4397,7 +4578,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -4541,7 +4722,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Assets
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Assets
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -4745,7 +4926,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -4758,7 +4939,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -5073,7 +5254,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX21"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX20"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX16"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX23"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX22"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX18"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6101,7 +6282,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX17"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX19"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -6629,7 +6810,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX18"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX20"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -7085,7 +7266,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX19"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.

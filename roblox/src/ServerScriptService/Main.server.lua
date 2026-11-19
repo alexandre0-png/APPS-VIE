@@ -1583,6 +1583,18 @@ local function onJoin(player)
 end
 
 Players.PlayerAdded:Connect(onJoin)
+-- Filet de sécurité : personnage garanti dans la zone, replacement si chute (voir Spawn / SpawnGuard, traces [Spawn] en console serveur)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).attach({
+	role = "game",
+	safeCFrame = function(p)
+		local ss = sessions[p]
+		local sp = ss and ss.plot and ss.plot.spawn
+		if sp then
+			return sp.CFrame + Vector3.new(0, 4, 0)
+		end
+		return CFrame.new(0, 8, 60) -- à côté du tapis roulant : toujours au sol de l'arène
+	end,
+})
 for _, p in ipairs(Players:GetPlayers()) do
 	task.spawn(onJoin, p)
 end

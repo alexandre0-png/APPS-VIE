@@ -1545,6 +1545,45 @@ do
 	check("Scenery : décor total dans le budget mobile (" .. total .. " Parts, budget " .. Config.Map.budgetParts .. ")", total > 300 and total < Config.Map.budgetParts * 0.6)
 end
 
+-- Filet anti-chute et garantie de personnage ------------------------------------------------------------------------
+do
+	local Spawn = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Spawn.lua"), { debugName = "Spawn" })()
+	for role, cfg in pairs(Spawn.PRESETS) do
+		local function R(st)
+			return Spawn.rescueReason(st, cfg)
+		end
+		local ok = { hasChar = true, alive = true, x = 10, y = 5, z = -20, vy = 0 }
+		local function with(k, v)
+			local c = {}
+			for a, b in pairs(ok) do
+				c[a] = b
+			end
+			c[k] = v
+			return c
+		end
+		check(role .. " : joueur normal au sol -> aucun sauvetage", R(ok) == nil)
+		check(role .. " : saut normal (vy positif ou faible) -> aucun sauvetage", R(with("vy", 40)) == nil and R(with("vy", -60)) == nil)
+		check(role .. " : sans personnage depuis peu -> attente", R({ hasChar = false, waited = cfg.noCharTimeout - 1 }) == nil)
+		check(role .. " : sans personnage depuis trop longtemps -> chargement", R({ hasChar = false, waited = cfg.noCharTimeout }) == "nochar")
+		check(role .. " : sous le sol -> void", R(with("y", cfg.floorY - 1)) == "void")
+		check(role .. " : position NaN -> void", R(with("y", 0 / 0)) == "void" and R(with("x", 0 / 0)) == "void")
+		check(role .. " : hors de la zone -> outside", R(with("x", cfg.half + 1)) == "outside" and R(with("z", -cfg.half - 1)) == "outside")
+		check(role .. " : trop haut -> sky", R(with("y", cfg.sky + 1)) == "sky")
+		check(role .. " : chute libre rapide près du sol -> freefall", R(with("vy", cfg.freefallSpeed - 1)) == "freefall")
+		check(role .. " : chute rapide mais très haut (saut sur une tour) -> pas de sauvetage", R({ hasChar = true, alive = true, x = 0, y = cfg.freefallY + 50, z = 0, vy = cfg.freefallSpeed - 20 }) == nil)
+		check(role .. " : joueur mort -> pas de sauvetage (le respawn s'en charge)", R({ hasChar = true, alive = false, x = 0, y = cfg.floorY - 50, z = 0, vy = 0 }) == nil)
+		check(role .. " : réglages cohérents", cfg.floorY < 0 and cfg.half > 0 and cfg.noCharTimeout > 0 and cfg.sky > cfg.freefallY)
+	end
+	check("carte du jeu : la zone jouable couvre le sol (demi-côté du preset >= moitié du sol - 10)", Spawn.PRESETS.game.half >= Config.Map.groundSize / 2 - 10)
+	local t = Spawn.newTally()
+	local n = 0
+	for i = 1, 7 do
+		n = t.add("void", i)
+	end
+	check("tally : 7 sauvetages en une minute comptés (alerte au-delà de 6)", n == 7 and t.total == 7 and t.counts.void == 7)
+	check("tally : la fenêtre d'une minute glisse", t.add("void", 100) == 1)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

@@ -21,7 +21,8 @@ def item(cls, name, source=None, children=(), extra=""):
     kids = "".join(children)
     return f'<Item class="{cls}" referent="RBX{next(ids)}"><Properties>{props}</Properties>{kids}</Item>'
 
-SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua")]
+SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
+          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua")]
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -31,7 +32,8 @@ def cfg_int(name):
     return int(re.search(name + r" = (\d+)", open(os.path.join(SRC, "ReplicatedStorage", "Config.lua"), encoding="utf-8").read()).group(1))
 
 # StreamingEnabled : valeurs lues dans Config.Map.Streaming (source unique)
-streaming = (f'<bool name="StreamingEnabled">true</bool><int name="StreamingMinRadius">{cfg_int("MinRadius")}</int>'
+stream_on = re.search(r'Streaming = \{ Enabled = (true|false)', open(os.path.join(SRC, 'ReplicatedStorage', 'Config.lua'), encoding='utf-8').read()).group(1)
+streaming = (f'<bool name="StreamingEnabled">{stream_on}</bool><int name="StreamingMinRadius">{cfg_int("MinRadius")}</int>'
              f'<int name="StreamingTargetRadius">{cfg_int("TargetRadius")}</int>')
 
 game_tree = [
@@ -54,7 +56,7 @@ game_tree = [
 ]
 
 hub_tree = [
-    item("Workspace", "Workspace"),
+    item("Workspace", "Workspace", extra='<bool name="StreamingEnabled">false</bool>'),
     shared(),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Hub", read("Hub/ServerScriptService/Hub.server.lua")),

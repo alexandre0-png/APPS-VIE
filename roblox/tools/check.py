@@ -218,7 +218,136 @@ for proj in ("default.project.json", "game.project.json", "hub.project.json"):
     for rel in paths:
         if not os.path.isdir(os.path.join(ROOT, rel)):
             fail(f"{proj} : chemin « {rel} » introuvable")
+    if data["tree"].get("Workspace", {}).get("$properties", {}).get("StreamingEnabled", None) is not False:
+        fail(f"{proj} : Workspace.StreamingEnabled doit être explicitement false")
     print(f"  ✓ {proj} ({len(paths)} chemins)")
+
+print("[5c] Chemins require / WaitForChild résolus dans l'arbre construit par chaque projet Rojo")
+
+def _build_tree(node, base):
+    """Simule Rojo : retourne un dict {nom: {"class": ..., "children": {...}}} pour un noeud du projet."""
+    out = {}
+    for key, val in node.items():
+        if key.startswith("$"):
+            continue
+        out[key] = _make(val, base, key)
+    return out
+
+def _make(val, base, name):
+    cls = val.get("$className", "Folder")
+    kids = {}
+    if "$path" in val:
+        kids.update(_scan(os.path.join(base, val["$path"])))
+    kids.update(_build_tree(val, base))
+    return {"class": cls, "children": kids, "src": None}
+
+def _scan(path):
+    kids = {}
+    if os.path.isdir(path):
+        for entry in sorted(os.listdir(path)):
+            full = os.path.join(path, entry)
+            if os.path.isdir(full):
+                kids[entry] = {"class": "Folder", "children": _scan(full), "src": None}
+            elif entry.endswith(".server.lua"):
+                kids[entry[:-11]] = {"class": "Script", "children": {}, "src": full}
+            elif entry.endswith(".client.lua"):
+                kids[entry[:-11]] = {"class": "LocalScript", "children": {}, "src": full}
+            elif entry.endswith(".lua"):
+                kids[entry[:-4]] = {"class": "ModuleScript", "children": {}, "src": full}
+    return kids
+
+def _index(tree, parent=None, out=None):
+    out = {} if out is None else out
+    for name, n in tree.items():
+        n["parent"] = parent
+        n["name"] = name
+        if n["src"]:
+            out[n["src"]] = n
+        _index(n["children"], n, out)
+    return out
+
+TOKEN = re.compile(r'\s*(?:\.Parent\b|:WaitForChild\("([^"]+)"[^)]*\)|:FindFirstChild\("([^"]+)"[^)]*\)|:GetService\("([^"]+)"\))')
+
+def _walk(node, expr, aliases, game_root):
+    """Évalue une expression de chemin (script / game / alias puis .Parent, :WaitForChild, :FindFirstChild, :GetService). None si non statique."""
+    m = re.match(r"\s*(script|game|[A-Za-z_]\w*)", expr)
+    if not m:
+        return None, expr
+    head, pos = m.group(1), m.end()
+    if head == "script":
+        cur = node
+    elif head == "game":
+        cur = game_root
+    elif head in aliases:
+        cur = aliases[head]
+    else:
+        return None, expr
+    path_ok = True
+    while True:
+        t = TOKEN.match(expr, pos)
+        if not t:
+            break
+        pos = t.end()
+        if t.group(0).strip().startswith(".Parent"):
+            cur = cur["parent"] if cur and cur["parent"] else None
+            if cur is None:
+                return "MISSING:.Parent", expr
+        elif t.group(3):
+            nxt = game_root["children"].get(t.group(3)) if cur is game_root else None
+            if nxt is None:
+                return "MISSING:service " + t.group(3), expr
+            cur = nxt
+        else:
+            name = t.group(1) or t.group(2)
+            nxt = cur["children"].get(name)
+            if nxt is None:
+                return "MISSING:" + name, expr
+            cur = nxt
+    return cur, expr
+
+RUNTIME_CREATED = {"Remotes", "State", "Notify", "Hatch", "Action", "Top", "HubRemote", "ReplayCinematic"}
+for proj in ("default.project.json", "game.project.json", "hub.project.json"):
+    try:
+        data = json.load(open(os.path.join(ROOT, proj), encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        continue
+    game_root = {"class": "DataModel", "children": _build_tree(data["tree"], ROOT), "src": None, "parent": None, "name": "game"}
+    scripts = _index(game_root["children"])
+    checked = 0
+    for src, node in scripts.items():
+        text = open(src, encoding="utf-8").read()
+        aliases = {}
+        for am in re.finditer(r"^\s*local\s+(\w+)\s*=\s*(game:GetService\(\"\w+\"\)[^\n]*|script[^\n]*)$", text, re.M):
+            val, _ = _walk(node, am.group(2).split("--")[0], aliases, game_root)
+            if isinstance(val, dict):
+                aliases[am.group(1)] = val
+        for rm in re.finditer(r"require\(", text):
+            depth, i = 1, rm.end()
+            while i < len(text) and depth:
+                depth += (text[i] == "(") - (text[i] == ")")
+                i += 1
+            expr = text[rm.end():i - 1]
+            val, _ = _walk(node, expr, aliases, game_root)
+            checked += 1
+            if isinstance(val, str):
+                fail(f"{proj} : {os.path.relpath(src, ROOT)} : require({expr.strip()}) -> {val} (absent de l'arbre Rojo)")
+            elif isinstance(val, dict) and val["class"] != "ModuleScript":
+                fail(f"{proj} : {os.path.relpath(src, ROOT)} : require({expr.strip()}) vise un objet de type {val['class']}, pas un ModuleScript")
+        for wm in re.finditer(r"((?:script|game|[A-Za-z_]\w*)(?:\.Parent|:WaitForChild\(\"[^\"]+\"[^)]*\)|:GetService\(\"[^\"]+\"\))+)", text):
+            chain = wm.group(1)
+            names = re.findall(r':WaitForChild\("([^"]+)"', chain)
+            if not names or names[-1] in RUNTIME_CREATED or any(n in RUNTIME_CREATED for n in names):
+                continue
+            if chain.startswith("script:") or chain.split(":")[0].split(".")[0] in ("PlayerGui", "player", "Players", "workspace", "char", "plot"):
+                continue
+            val, _ = _walk(node, chain, aliases, game_root)
+            checked += 1
+            if isinstance(val, str) and not (chain.split(".")[0].split(":")[0] in ("script",) and False):
+                # seuls les chemins qui visent des modules statiques (Shared, frères de script) sont des erreurs
+                static_targets = {"Shared", "Config", "Easing", "Cinema", "Layout", "Party", "Spawn", "SpawnGuard", "Data", "Builder", "Rules", "Assets", "Diag", "Scenery", "HubWorld"}
+                if val.startswith("MISSING:") and val[8:] in static_targets:
+                    fail(f"{proj} : {os.path.relpath(src, ROOT)} : {chain} -> {val}")
+    print(f"  ✓ {proj} : {len(scripts)} scripts, {checked} chemins vérifiés")
 
 print("[6/6] Tests de logique pure (Lua 5.x via lupa, à défaut de Lune)")
 try:

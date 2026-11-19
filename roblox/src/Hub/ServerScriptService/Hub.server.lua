@@ -16,6 +16,12 @@ local HubWorld = require(script.Parent:WaitForChild("HubWorld"))
 
 local G = Config.Game
 local world = HubWorld.build(Config)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).attach({
+	role = "hub",
+	safeCFrame = function()
+		return world.spawn.CFrame + Vector3.new(0, 4, 0)
+	end,
+})
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "HubRemote"

@@ -2,9 +2,17 @@
   "name": "ChipeOeufsJeu",
   "tree": {
     "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
-      "Shared": { "$path": "src/ReplicatedStorage" }
+      "Shared": {
+        "$path": "src/ReplicatedStorage"
+      }
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX22"><Properties><string name="Name">Workspace</string></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX29"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX28"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX24"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX33"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX32"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -468,7 +468,7 @@ Config.Map = {
 	domainRadius = 38,
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
-	Streaming = { Enabled = true, MinRadius = 128, TargetRadius = 480 },
+	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
 		arena = { clock = 15.3, ambient = Color3.fromRGB(95, 105, 120), outdoor = Color3.fromRGB(125, 135, 155), tint = Color3.fromRGB(255, 255, 255), atmo = Color3.fromRGB(199, 220, 255), density = 0.28, haze = 1.4 },
@@ -711,7 +711,7 @@ function Config.oddsText()
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -913,7 +913,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -1093,7 +1093,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -1155,7 +1155,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -1457,8 +1457,177 @@ function Party.new(Config, deps)
 end
 
 return Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+-- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
+local Spawn = {}
+
+-- Réglages par rôle. floorY : en dessous, le joueur est tombé hors du monde. half : demi-côté de la zone jouable (au-delà : hors zone).
+-- freefallSpeed : vitesse verticale (studs/s, négative) au-delà de laquelle une chute au-dessus du sol est anormale.
+Spawn.PRESETS = {
+	game = { floorY = -25, half = 590, freefallSpeed = -160, freefallY = 40, noCharTimeout = 10, sky = 400 },
+	hub = { floorY = -25, half = 205, freefallSpeed = -160, freefallY = 40, noCharTimeout = 10, sky = 140 },
+}
+
+-- st = { hasChar, alive, waited, x, y, z, vy } ; waited = secondes sans personnage. Retourne nil ou une raison :
+-- "nochar" (aucun personnage depuis trop longtemps), "void" (sous le sol), "freefall" (chute libre), "outside" (hors de la zone), "sky" (trop haut).
+function Spawn.rescueReason(st, cfg)
+	if not st.hasChar then
+		if (st.waited or 0) >= cfg.noCharTimeout then
+			return "nochar"
+		end
+		return nil
+	end
+	if st.alive == false or st.y == nil then
+		return nil
+	end
+	if st.y ~= st.y or (st.x or 0) ~= (st.x or 0) or (st.z or 0) ~= (st.z or 0) then
+		return "void" -- NaN : position corrompue
+	end
+	if st.y < cfg.floorY then
+		return "void"
+	end
+	if math.abs(st.x or 0) > cfg.half or math.abs(st.z or 0) > cfg.half then
+		return "outside"
+	end
+	if st.y > cfg.sky then
+		return "sky"
+	end
+	if (st.vy or 0) < cfg.freefallSpeed and st.y < cfg.freefallY then
+		return "freefall"
+	end
+	return nil
+end
+
+-- Compteurs de sauvetages : une boucle de sauvetages (> maxPerMinute) est signalée pour ne pas masquer un vrai bug.
+function Spawn.newTally()
+	local t = { counts = {}, total = 0, times = {} }
+	function t.add(kind, now)
+		t.counts[kind] = (t.counts[kind] or 0) + 1
+		t.total = t.total + 1
+		t.times[#t.times + 1] = now
+		while #t.times > 0 and now - t.times[1] > 60 do
+			table.remove(t.times, 1)
+		end
+		return #t.times
+	end
+	return t
+end
+
+return Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+-- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
+-- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
+-- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
+-- Les décisions sont dans Spawn (pur, testé) ; ce module n'applique que du Roblox. Aucune erreur ne sort d'ici (tout sous pcall).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Spawn = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Spawn"))
+
+local SpawnGuard = {}
+
+-- opts = { role = "game" | "hub", safeCFrame = function(player) -> CFrame, interval = 0.5 }
+function SpawnGuard.attach(opts)
+	local cfg = Spawn.PRESETS[opts.role] or Spawn.PRESETS.game
+	local tally = Spawn.newTally()
+	local noChar = {} -- Player -> secondes sans personnage
+	local loading = {} -- Player -> true pendant un LoadCharacterAsync lancé ici
+	local function log(msg)
+		print("[Spawn] (" .. opts.role .. ") " .. msg)
+	end
+
+	local function safeCF(player)
+		local ok, cf = pcall(opts.safeCFrame, player)
+		if ok and typeof(cf) == "CFrame" then
+			return cf
+		end
+		return CFrame.new(0, 10, 0)
+	end
+
+	local function place(player, root, reason)
+		local n = tally.add(reason, os.clock())
+		local cf = safeCF(player)
+		pcall(function()
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			root.CFrame = cf
+		end)
+		log(player.Name .. " replacé (" .. reason .. ") vers " .. string.format("%.0f, %.0f, %.0f", cf.X, cf.Y, cf.Z) .. " [" .. tally.total .. " au total]")
+		if n > 6 then
+			warn("[Spawn] (" .. opts.role .. ") plus de 6 sauvetages en une minute : un joueur retombe en boucle, vérifie le point de départ")
+		end
+	end
+
+	Players.PlayerAdded:Connect(function(player)
+		log(player.Name .. " arrivé (" .. #Players:GetPlayers() .. " joueur(s), CharacterAutoLoads = " .. tostring(Players.CharacterAutoLoads) .. ")")
+		player.CharacterAdded:Connect(function(char)
+			log(player.Name .. " : personnage apparu")
+			task.defer(function()
+				local root = char:WaitForChild("HumanoidRootPart", 5)
+				if root and player.Parent then
+					local st = { hasChar = true, alive = true, x = root.Position.X, y = root.Position.Y, z = root.Position.Z, vy = 0 }
+					local reason = Spawn.rescueReason(st, cfg)
+					if reason then
+						place(player, root, reason)
+					end
+				end
+			end)
+		end)
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(opts.interval or 0.5)
+			for _, player in ipairs(Players:GetPlayers()) do
+				pcall(function()
+					local char = player.Character
+					local root = char and char:FindFirstChild("HumanoidRootPart")
+					local hum = char and char:FindFirstChildOfClass("Humanoid")
+					if not root then
+						noChar[player] = (noChar[player] or 0) + (opts.interval or 0.5)
+					else
+						noChar[player] = 0
+					end
+					local pos = root and root.Position
+					local st = {
+						hasChar = root ~= nil, alive = hum == nil or hum.Health > 0, waited = noChar[player] or 0,
+						x = pos and pos.X, y = pos and pos.Y, z = pos and pos.Z, vy = root and root.AssemblyLinearVelocity.Y or 0,
+					}
+					local reason = Spawn.rescueReason(st, cfg)
+					if reason == "nochar" then
+						if not loading[player] and player.Parent then
+							loading[player] = true
+							noChar[player] = 0
+							tally.add("nochar", os.clock())
+							log(player.Name .. " sans personnage depuis " .. cfg.noCharTimeout .. " s : chargement forcé")
+							task.spawn(function()
+								local ok, err = pcall(function()
+									player:LoadCharacterAsync()
+								end)
+								if not ok then
+									warn("[Spawn] (" .. opts.role .. ") LoadCharacterAsync a échoué pour " .. player.Name .. " : " .. tostring(err))
+								end
+								loading[player] = nil
+							end)
+						end
+					elseif reason and root then
+						place(player, root, reason)
+					end
+				end)
+			end
+		end
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		noChar[player] = nil
+		loading[player] = nil
+	end)
+	log("filet de sécurité actif (sol " .. cfg.floorY .. ", demi-zone " .. cfg.half .. ")")
+	return tally
+end
+
+return SpawnGuard
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX32"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX30"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX36"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX34"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -1476,6 +1645,12 @@ local HubWorld = require(script.Parent:WaitForChild("HubWorld"))
 
 local G = Config.Game
 local world = HubWorld.build(Config)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).attach({
+	role = "hub",
+	safeCFrame = function()
+		return world.spawn.CFrame + Vector3.new(0, 4, 0)
+	end,
+})
 
 local remote = Instance.new("RemoteEvent")
 remote.Name = "HubRemote"
@@ -1714,7 +1889,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -1930,7 +2105,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX35"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX34"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX33"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX39"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX38"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")
