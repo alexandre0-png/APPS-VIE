@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Lisibilité des objets interactifs (point 3)
+- `src/shared/Markers.lua` (données pures) : 8 catégories distinctes (clé jaune, porte bleu clair, document blanc, mécanisme rouge-orangé, cachette vert, enfant rose, objet utile bleu, énigme violet) avec couleur, pastille de texte et nom au survol.
+- `src/server/Markers.lua` : à chaque partie, halo (Highlight) + pastille (BillboardGui, visible à moins de 16 studs) sur toute pièce portant une étiquette interactive ; nom au survol garanti (ObjectText). Le décor n'a ni halo ni pastille. Coupe : `Config.Design.Markers = false`.
+- Tests : `tools/lua/test_markers.py` (catégories, couleurs éloignées, toute étiquette à invite stylée, décor sans style, un seul style par étiquette).
+- Limite connue : Roblox n'affiche qu'environ 31 halos à la fois ; les pastilles restent affichées.
+
 ### Progression : chaîne séquentielle stricte (points 1 et 2 de la passe de lisibilité)
 - Nouveau module `src/shared/Chain.lua` : ordre unique des étapes (papier, reflet, coffret, malle, clé, mélodie, horloge, statues, photos, sortie, cave, sous-sol, retour, enfant), avec objectif, indice et zone. Une seule étape active ; `Chain.canAct` exige toutes les précédentes.
 - `Quests.lua` : chaque action est verrouillée côté serveur (état de la partie, pas le client), message « Pas encore. D'abord : … ». Ramassage des photos et de la clé passe par `Objectives.canPick`. Le livre de la bibliothèque ne donne plus la petite clé (une pile à la place).

@@ -16,6 +16,7 @@ local MonsterAI = require(script.MonsterAI)
 local Lights = require(script.Lights)
 local FallingObjects = require(script.FallingObjects)
 local Ambience = require(script.Ambience)
+local Markers = require(script.Markers)
 local MapBuilder = require(script.MapBuilder)
 local Quests = require(script.Quests)
 local Noise = require(script.Noise)
@@ -190,6 +191,7 @@ local function startRound()
 	Objectives.setup()
 	Quests.setup(round.seed)
 	Props.setup()
+	Markers.apply()
 
 	-- Réveil dans le cercueil : noir, puis le joueur se redresse
 	local intro = Config.Intro.Duration

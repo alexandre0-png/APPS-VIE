@@ -215,6 +215,7 @@ Config.Throw = {
 -- entre la mélodie et la clé de la malle. false : retour à la progression d'origine.
 Config.Design = {
 	ProgressionV2 = true,
+	Markers = true, -- halo, pastille et nom sur chaque objet interactif (src/shared/Markers.lua)
 	ExtraSafe = true, -- énigme optionnelle de la cuisine (compteur) : ne bloque rien, donne une pile
 }
 
