@@ -2,6 +2,13 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Halos prioritaires, journal de quêtes, indice automatique
+- Halos : `Markers.refresh` (toutes les secondes) allume au plus 24 halos (marge sous la limite d'environ 31 de Roblox). L'objet de l'étape active de la chaîne a un halo plein (contour opaque, léger remplissage, pastille visible à 45 studs) ; les autres sont discrets (contour à 80 % de transparence, pastille à 10 studs) et classés par distance au joueur le plus proche. Les étapes « sous_sol » et « retour » se jouent en marchant : aucun halo fort. Logique pure dans `src/shared/Markers.lua` (`STEP_TAGS`, `isCurrent`, `select`).
+- Journal de quêtes : touche J (client), lignes envoyées par le canal « Journal » à chaque changement d'étape : étape active en tête, étapes faites ensuite (la plus récente d'abord), puis « … N étape(s) à découvrir » sans dévoiler la suite (`Chain.journal`).
+- Indice automatique : `Quests.hintTick` envoie « Indice : … » après `Config.Quests.HintDelay` (180 s) sans progrès, une fois par étape ; chaque nouvelle étape a le sien.
+- Salle à manger : table à manger du catalogue (1338860741) ; le canapé en U du salon comprend sa table basse (la boîte de la table basse reste la collision).
+- Tests : sélection des halos (étape d'abord, limite 24 < 31), journal, indice (simulation, avec mutation vérifiée).
+
 ### Catalogue d'identifiants de l'utilisateur
 - `Config.Assets` : les 22 identifiants du catalogue sont déclarés (chaises moderne, d'école, bloquante, horreur, bois, antique ; lampes ; tables ; canapé en U ; billard ; ordinateur ; plantes dont sakura et extérieure) ; `ModelLoader` les charge côté serveur (pcall, délai, scripts retirés ; en cas d'échec, par exemple « Requester does not have permission », la boîte ou l'objet de substitution reste).
 - Placement par pièce (`DecorKit.ROOM_MODELS`, `ROOM_RECIPES`) : salon et bureau en moderne (canapé en U, plantes, chaise moderne, ordinateur et lampe de table sur le bureau), cuisine (table à manger, îlot en métal), couloir (table ronde moderne), chambres d'enfant et d'ami (chaise d'école, table en bois), grenier (table en bois, chaise en bois), lampes de table sur les chevets. Trois plantes ajoutées au mobilier (salon, salle à manger, bureau) ; deux sakuras et deux plantes extérieures dans le jardin, hors de l'allée.

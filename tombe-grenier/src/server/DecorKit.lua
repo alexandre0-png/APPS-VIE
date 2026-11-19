@@ -50,7 +50,7 @@ DecorKit.ROOM_MODELS = {
 		["plante"] = "plante moyenne",
 	},
 	cuis = { ["table"] = "table à manger", ["îlot"] = "table métal" },
-	sam = { ["plante"] = "plante fenêtre" },
+	sam = { ["plante"] = "plante fenêtre", ["table"] = "table à manger" },
 	couloir = { ["table ronde"] = "table ronde moderne" },
 	che = { ["chaise"] = "chaise école", ["bureau"] = "table bois" },
 	cha = { ["chaise"] = "chaise école", ["bureau"] = "table bois" },

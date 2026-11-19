@@ -397,6 +397,37 @@ Quests.submitCode(alice, chain.sec.date)
 check(Quests.progress().done.enfant ~= true, "date saisie avant le sous-sol : l'enfant reste prisonnier")
 check(Quests.canAct("enfant") == false, "l'étape enfant est verrouillée côté serveur")
 
+-- 7nonies. Journal de quêtes et indice automatique après 3 minutes sans progrès
+do
+	chain.reset(777)
+	local lines = Quests.journal()
+	check(find({ lines[1] }, "^Étape active") ~= nil, "le journal commence par l'étape active")
+	check(lines[#lines]:find("à découvrir") ~= nil, "le journal annonce les étapes restantes sans les dévoiler")
+	chain.advanceTo("coffret")
+	lines = Quests.journal()
+	check(
+		lines[2] ~= nil and lines[2]:sub(1, 3) == "✓",
+		"le journal liste d'abord les étapes faites, la plus récente en tête"
+	)
+	-- Indice automatique : rien avant 3 minutes, un indice ensuite, un seul par étape
+	chain.reset(778)
+	local cfgQ = require({ __path = "src/shared/Config.lua" }).Quests
+	local t0 = os.clock()
+	H.log = {}
+	check(Quests.hintTick(t0 + cfgQ.HintDelay - 5) == false, "pas d'indice automatique avant 3 minutes")
+	check(Quests.hintTick(t0 + cfgQ.HintDelay + 5) == true, "indice automatique après 3 minutes sans progrès")
+	local sentHint = false
+	for _, e in ipairs(H.log) do
+		if e.name == "Message" and e.payload.text:find("^Indice") then
+			sentHint = true
+		end
+	end
+	check(sentHint, "l'indice automatique est un message de la partie")
+	check(Quests.hintTick(t0 + 10 * cfgQ.HintDelay) == false, "un seul indice automatique par étape")
+	chain.advanceTo("coffret")
+	check(Quests.hintTick(os.clock() + cfgQ.HintDelay + 10) == true, "l'étape suivante a son propre indice")
+end
+
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do
 	Quests.setup(seed)

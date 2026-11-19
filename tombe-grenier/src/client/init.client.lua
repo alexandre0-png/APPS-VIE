@@ -84,6 +84,18 @@ local blackFrame = fullFrame(Color3.new(0, 0, 0), 1, 50)
 -- HUD minimal : seul l'objectif reste affiché en permanence
 local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.new(0.9, 0, 0, 30) })
 
+-- Journal de quêtes (touche J) : l'étape active en tête, puis les étapes faites
+local journalLabel = label({
+	position = UDim2.fromOffset(16, 52),
+	sizeUDim = UDim2.new(0.5, 0, 0, 170),
+	size = 17,
+})
+journalLabel.TextYAlignment = Enum.TextYAlignment.Top
+journalLabel.BackgroundTransparency = 0.45
+journalLabel.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+journalLabel.Visible = false
+journalLabel.Text = "Journal (J pour fermer)"
+
 -- Message contextuel (indice, lecture, retour d'action) : bas de l'écran
 local subtitleLabel = label({
 	position = UDim2.new(0.5, 0, 1, -110),
@@ -694,6 +706,12 @@ Remotes.get("Objective").OnClientEvent:Connect(function(data)
 	end
 end)
 
+Remotes.get("Journal").OnClientEvent:Connect(function(data)
+	if typeof(data) == "table" and typeof(data.lines) == "table" then
+		journalLabel.Text = table.concat(data.lines, "\n")
+	end
+end)
+
 Remotes.get("Message").OnClientEvent:Connect(function(data)
 	if typeof(data) == "table" and data.text then
 		showSubtitle(data.text)
@@ -748,6 +766,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		sendCrouch(true)
 	elseif input.KeyCode == Enum.KeyCode.H or input.KeyCode == Enum.KeyCode.DPadUp then
 		Remotes.get("AskHint"):FireServer()
+	elseif input.KeyCode == Enum.KeyCode.J then
+		journalLabel.Visible = not journalLabel.Visible
 	elseif input.KeyCode == Enum.KeyCode.G or input.KeyCode == Enum.KeyCode.ButtonR1 then
 		throwNoise()
 	elseif input.KeyCode == Enum.KeyCode.U or input.KeyCode == Enum.KeyCode.ButtonR3 then

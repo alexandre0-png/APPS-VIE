@@ -83,4 +83,63 @@ function Markers.isInteractiveTag(tag)
 	return Markers.styleForTag(tag) ~= nil
 end
 
+-- Étiquettes de l'objet à utiliser à chaque étape de la chaîne (Chain.lua). Les étapes « sous_sol » et « retour »
+-- se jouent en se déplaçant : aucun objet à mettre en avant.
+Markers.STEP_TAGS = {
+	note = { "CodeNote" },
+	reflet = { "Mirror" },
+	coffret = { "Coffret" },
+	chest = { "Chest" },
+	key = { "Key" },
+	melodie = { "MusicBox" },
+	horloge = { "Horloge" },
+	statues = { "Statue" },
+	photos = { "Photo" },
+	sortie = { "ExitDoor" },
+	cave = { "CaveDoor", "CaveKey" },
+	enfant = { "Tombe" },
+}
+
+Markers.MAX_HALOS = 24 -- Roblox n'affiche qu'environ 31 halos à la fois : on en garde une marge
+
+-- Cet objet (liste d'étiquettes) sert-il à l'étape donnée ?
+function Markers.isCurrent(step, tags)
+	local wanted = Markers.STEP_TAGS[step]
+	if not wanted then
+		return false
+	end
+	for _, tag in ipairs(tags) do
+		for _, w in ipairs(wanted) do
+			if tag == w then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- entries : { { dist = nombre, current = booléen } }. Retourne l'ensemble des indices à garder allumés (au plus limit) :
+-- d'abord les objets de l'étape active (du plus proche au plus loin), puis les autres par distance.
+function Markers.select(entries, limit)
+	local order = {}
+	for i = 1, #entries do
+		order[i] = i
+	end
+	table.sort(order, function(a, b)
+		local ea, eb = entries[a], entries[b]
+		if ea.current ~= eb.current then
+			return ea.current
+		end
+		if ea.dist ~= eb.dist then
+			return ea.dist < eb.dist
+		end
+		return a < b
+	end)
+	local keep = {}
+	for k = 1, math.min(limit, #order) do
+		keep[order[k]] = true
+	end
+	return keep
+end
+
 return Markers

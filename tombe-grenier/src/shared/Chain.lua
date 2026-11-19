@@ -160,4 +160,32 @@ function Chain.lockedText(done, id)
 	return "Pas encore. D'abord : " .. step.objective:sub(1, 1):lower() .. step.objective:sub(2) .. "."
 end
 
+-- Journal de quêtes : l'étape active en tête, puis les étapes faites (la plus récente d'abord),
+-- puis le nombre d'étapes encore à découvrir (leur contenu n'est pas dévoilé).
+function Chain.journal(done)
+	local lines = {}
+	local current = Chain.current(done)
+	if current then
+		table.insert(lines, "Étape active : " .. Chain.get(current).objective)
+	else
+		table.insert(lines, "Étape active : plus aucune, la chaîne est terminée.")
+	end
+	for i = #Chain.STEPS, 1, -1 do
+		local step = Chain.STEPS[i]
+		if done[step.id] then
+			table.insert(lines, "✓ " .. step.objective)
+		end
+	end
+	local remaining = 0
+	for _, step in ipairs(Chain.STEPS) do
+		if not done[step.id] and step.id ~= current then
+			remaining += 1
+		end
+	end
+	if remaining > 0 then
+		table.insert(lines, ("… %d étape(s) à découvrir"):format(remaining))
+	end
+	return lines
+end
+
 return Chain

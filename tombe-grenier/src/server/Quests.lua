@@ -262,11 +262,22 @@ local function pushInventory()
 	})
 end
 
+-- Journal de quêtes : lignes à afficher (étape active en tête)
+local function journalLines()
+	local done = doneSet()
+	local lines = Chain.journal(done)
+	if Chain.current(done) == nil then
+		lines[1] = "Étape active : " .. OBJECTIVE.fuite()
+	end
+	return lines
+end
+
 local function pushObjective()
 	if not state then
 		return
 	end
 	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()]() })
+	Remotes.fireAll("Journal", { lines = journalLines() })
 	pushInventory()
 end
 
@@ -1462,18 +1473,26 @@ function Quests.endingText(reason)
 	return (ENDING_TEXT[reason] or "") .. (" Fins trouvées : %d/%d."):format(count, ENDING_TOTAL)
 end
 
--- Indications automatiques après un long silence, une seule fois par étape
+-- Une vérification : indication automatique si l'équipe n'a pas progressé depuis CFG.HintDelay secondes
+-- (3 minutes), une seule fois par étape. now : horloge (paramétrable pour les tests).
+function Quests.hintTick(now)
+	now = now or os.clock()
+	if active and state then
+		local step = currentStep()
+		if now - state.lastProgress >= CFG.HintDelay and not hintGiven[step] then
+			hintGiven[step] = true
+			state.lastProgress = now
+			sayAll("Indice : " .. HINTS[step])
+			return true
+		end
+	end
+	return false
+end
+
 local function hintLoop()
 	while true do
 		task.wait(5)
-		if active and state then
-			local step = currentStep()
-			if os.clock() - state.lastProgress >= CFG.HintDelay and not hintGiven[step] then
-				hintGiven[step] = true
-				state.lastProgress = os.clock()
-				sayAll(HINTS[step])
-			end
-		end
+		Quests.hintTick()
 	end
 end
 
@@ -1564,6 +1583,10 @@ function Quests.progress()
 		return { done = {}, current = "note" }
 	end
 	return { done = doneSet(), current = currentStep() }
+end
+
+function Quests.journal()
+	return state and journalLines() or {}
 end
 
 function Quests.canAct(id)

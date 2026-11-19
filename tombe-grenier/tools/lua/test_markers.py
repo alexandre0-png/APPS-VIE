@@ -159,3 +159,68 @@ class TestUserCatalog(unittest.TestCase):
 
         rooms = {rid for rid, items in gm.FURNITURE.items() for it in items if it[0] == "plante"}
         self.assertTrue({"salon", "sam", "bureau", "hall"} <= rooms)
+
+
+class TestPriorityAndJournal(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.M = self.lua.execute(to_lua54(read("src", "shared", "Markers.lua")))
+        self.C = self.lua.execute(to_lua54(read("src", "shared", "Chain.lua")))
+        self.ids = [self.C.STEPS[i].id for i in range(1, len(self.C.STEPS) + 1)]
+
+    def done(self, ids):
+        return self.lua.table_from({i: True for i in ids})
+
+    def test_step_tags_are_styled_and_only_known_steps(self):
+        for step, tags in self.M.STEP_TAGS.items():
+            self.assertIn(step, self.ids)
+            for i in range(1, len(tags) + 1):
+                self.assertIsNotNone(self.M.styleForTag(tags[i]), tags[i])
+
+    def test_every_object_step_has_a_strong_halo_tag(self):
+        walk = {"sous_sol", "retour"}
+        for sid in self.ids:
+            self.assertEqual(sid in self.M.STEP_TAGS, sid not in walk, sid)
+
+    def test_is_current(self):
+        self.assertTrue(self.M.isCurrent("key", self.lua.table_from(["Key"])))
+        self.assertFalse(self.M.isCurrent("key", self.lua.table_from(["Photo"])))
+        self.assertFalse(self.M.isCurrent("retour", self.lua.table_from(["Key"])))
+
+    def test_select_keeps_current_step_first_then_nearest(self):
+        entries = self.lua.table_from([
+            self.lua.table_from({"dist": 5, "current": False}),
+            self.lua.table_from({"dist": 90, "current": True}),
+            self.lua.table_from({"dist": 2, "current": False}),
+            self.lua.table_from({"dist": 40, "current": False}),
+        ])
+        keep = self.M.select(entries, 2)
+        self.assertTrue(keep[2])  # l'objet de l'étape, même loin
+        self.assertTrue(keep[3])  # puis le plus proche
+        self.assertIsNone(keep[1])
+        self.assertIsNone(keep[4])
+
+    def test_select_never_exceeds_the_limit(self):
+        entries = self.lua.table_from([self.lua.table_from({"dist": i, "current": i % 7 == 0}) for i in range(1, 80)])
+        keep = self.M.select(entries, self.M.MAX_HALOS)
+        self.assertEqual(sum(1 for i in range(1, 80) if keep[i]), self.M.MAX_HALOS)
+        self.assertLess(self.M.MAX_HALOS, 31)
+
+    def test_journal_head_is_current_step_and_hides_the_future(self):
+        lines = self.C.journal(self.done(self.ids[:3]))
+        rows = [lines[i] for i in range(1, len(lines) + 1)]
+        self.assertTrue(rows[0].startswith("Étape active : "))
+        self.assertIn(self.C.STEPS[4].objective, rows[0])
+        self.assertEqual(sum(1 for r in rows if r.startswith("✓")), 3)
+        self.assertTrue(rows[-1].startswith("…"))
+        for later in range(5, len(self.ids) + 1):
+            self.assertFalse(any(self.C.STEPS[later].objective in r for r in rows))
+
+    def test_server_refreshes_by_step_and_client_has_journal_key(self):
+        srv = read("src", "server", "Markers.lua")
+        for word in ("Markers.refresh", "MarkerStyles.select", "MarkerStyles.isCurrent", "glow.Enabled"):
+            self.assertIn(word, srv)
+        cli = read("src", "client", "init.client.lua")
+        self.assertIn("Enum.KeyCode.J", cli)
+        self.assertIn('Remotes.get("Journal")', cli)
+        self.assertIn('"Journal"', read("src", "shared", "Remotes.lua"))
