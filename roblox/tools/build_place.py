@@ -52,7 +52,8 @@ game_tree = [
             item("LocalScript", "Animations", read("StarterPlayerScripts/Animations.client.lua")),
             item("LocalScript", "Cinematics", read("StarterPlayerScripts/Cinematics.client.lua")),
             item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua")),
-            item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua"))])]),
+            item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua")),
+            item("ModuleScript", "CoinIcon", read("StarterPlayerScripts/CoinIcon.lua"))])]),
 ]
 
 hub_tree = [

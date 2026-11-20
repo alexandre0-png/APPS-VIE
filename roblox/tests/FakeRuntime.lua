@@ -140,8 +140,16 @@ function Fake.runtime(opts)
 		end
 		return nil
 	end
-	function methods.FireClient(self, ...)
-		RT.fired[#RT.fired + 1] = { rawget(self, "__props").Name, ... }
+	function methods.FireClient(self, player, ...)
+		RT.fired[#RT.fired + 1] = { rawget(self, "__props").Name, player, ... }
+		if RT.localPlayer ~= nil and player == RT.localPlayer then
+			RT.fire(self, "OnClientEvent", ...)
+		end
+	end
+	function methods.FireServer(self, ...)
+		if RT.localPlayer ~= nil then
+			RT.fire(self, "OnServerEvent", RT.localPlayer, ...)
+		end
 	end
 	function methods.FireAllClients(self, ...)
 		RT.fired[#RT.fired + 1] = { rawget(self, "__props").Name, "all", ... }
@@ -250,8 +258,10 @@ function Fake.runtime(opts)
 	RT.newProxy = newProxy
 
 	---------------------------------------------------------------- Instance.new, signaux
+	RT.all = {}
 	local function instance(class, name)
 		local p = newProxy(name or class, class)
+		RT.all[#RT.all + 1] = p
 		rawget(p, "__props").Name = name or class
 		rawget(p, "__props").ClassName = class
 		return p
@@ -465,6 +475,12 @@ function Fake.runtime(opts)
 	service("InsertService")
 	service("StarterPlayer")
 	service("PhysicsService")
+	local cas = service("ContextActionService")
+	RT.actions = {}
+	rawget(cas, "__props").BindAction = function(_, name, fn)
+		RT.actions[name] = fn
+	end
+	rawget(cas, "__props").UnbindAction = function() end
 	service("SoundService")
 	service("GuiService")
 	service("UserInputService")
@@ -474,6 +490,9 @@ function Fake.runtime(opts)
 
 	local ws = instance("Workspace", "Workspace")
 	RT.workspace = ws
+	local camera = instance("Camera", "Camera")
+	rawget(camera, "__props").ViewportSize = { X = opts.viewport and opts.viewport[1] or 1280, Y = opts.viewport and opts.viewport[2] or 720 }
+	rawget(ws, "__props").CurrentCamera = camera
 	local game = instance("DataModel", "game")
 	rawget(game, "__props").PlaceId = opts.placeId or 0
 	rawget(game, "__props").JobId = "JOB-1"
@@ -510,6 +529,28 @@ function Fake.runtime(opts)
 		shared.Parent = rs
 		loadDir(srcRoot .. "/ReplicatedStorage", shared)
 		return loadDir(srcRoot .. (hubSide and "/Hub" or "") .. "/ServerScriptService", sss)
+	end
+
+	-- Scripts client : StarterPlayer.StarterPlayerScripts (objets rangés sous le même parent, comme dans Roblox). Retourne nom -> objet.
+	function RT.buildClient(srcRoot)
+		local folder = instance("Folder", "StarterPlayerScripts")
+		folder.Parent = services.StarterPlayer
+		local out = {}
+		for _, f in ipairs(fs.readDir(srcRoot .. "/StarterPlayerScripts")) do
+			if f:sub(-11) == ".client.lua" then
+				out[f:sub(1, -12)] = scriptObject("LocalScript", f:sub(1, -12), srcRoot .. "/StarterPlayerScripts/" .. f, folder)
+			elseif f:sub(-4) == ".lua" then
+				out[f:sub(1, -5)] = scriptObject("ModuleScript", f:sub(1, -5), srcRoot .. "/StarterPlayerScripts/" .. f, folder)
+			end
+		end
+		return out
+	end
+
+	function RT.setLocalPlayer(p)
+		RT.localPlayer = p
+		rawget(services.Players, "__props").LocalPlayer = p
+		local gui = instance("PlayerGui", "PlayerGui")
+		gui.Parent = p
 	end
 
 	local cache = {}

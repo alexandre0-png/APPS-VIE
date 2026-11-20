@@ -16,6 +16,8 @@
 
 ## Relu seulement (à confirmer dans Studio)
 
+- Révélation, carrousel, style glossy, icônes de richesse, bannières : exécutés de bout en bout (client et serveur) dans le runtime factice et comptés (objets créés = coût annoncé), mais l'aspect réel, les tailles à l'écran et la fluidité sur téléphone ne sont pas vus.
+
 - Démarrage hub et partie : exécutés dans un runtime factice (`tests/FakeRuntime.lua`), pas dans Roblox : proxies universels, pas de physique ni de rendu ; les vrais services (DataStore, MemoryStore, TeleportService, Players) ne sont que simulés.
 
 - Hub et parties : la logique (`Party`) est testée avec un faux TeleportService ; `Hub.server`, `HubWorld`, `HubClient` (zones, MemoryStore, GetFriendsAsync, TeleportAsync réels) ne sont que relus. `ReserveServerAsync` et `TeleportOptions.ReservedServerAccessCode` sont dépréciés dans le dump de l'API et limités à une expérience : voir CHANGELOG.

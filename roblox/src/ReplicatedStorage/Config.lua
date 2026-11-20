@@ -428,6 +428,104 @@ Config.REVEAL = {
 	secret = { oneInAtLeast = 20000, color = Color3.fromRGB(255, 70, 20), rays = 16, rings = 4, shake = 1, flash = 0.95, particles = 30, label = "ŒUF SECRET" },
 }
 
+---------------------------------------------------------------- Style d'interface « cartoon glossy » : couleur par fonction
+-- vert = jouer / continuer / acheter, bleu = sauver / charger / collection, orange = options / pause, rouge = fermer / retour.
+-- Chaque bouton : contour foncé épais (UIStroke), dégradé saturé (UIGradient), coins très arrondis (UICorner), reflet. Aucune icône externe.
+Config.UI = {
+	glossy = true,
+	kinds = {
+		play = { base = Color3.fromRGB(91, 227, 125), stroke = Color3.fromRGB(20, 92, 44), text = Color3.fromRGB(10, 40, 20) },
+		save = { base = Color3.fromRGB(74, 163, 255), stroke = Color3.fromRGB(18, 58, 120), text = Color3.fromRGB(8, 24, 56) },
+		options = { base = Color3.fromRGB(255, 159, 28), stroke = Color3.fromRGB(122, 60, 6), text = Color3.fromRGB(52, 24, 2) },
+		close = { base = Color3.fromRGB(255, 99, 99), stroke = Color3.fromRGB(120, 24, 28), text = Color3.fromRGB(56, 8, 10) },
+	},
+	nav = { shop = "play", dex = "save", quests = "play", bonus = "options", top = "save", more = "options" },
+}
+
+function Config.btnStyle(kind)
+	return Config.UI.kinds[kind]
+end
+
+-- Luminance relative WCAG d'une couleur Color3 (R, G, B dans [0, 1]).
+function Config.luminance(c)
+	local function lin(v)
+		return v <= 0.03928 and v / 12.92 or ((v + 0.055) / 1.055) ^ 2.4
+	end
+	return 0.2126 * lin(c.R) + 0.7152 * lin(c.G) + 0.0722 * lin(c.B)
+end
+
+function Config.contrast(a, b)
+	local la, lb = Config.luminance(a), Config.luminance(b)
+	local hi, lo = math.max(la, lb), math.min(la, lb)
+	return (hi + 0.05) / (lo + 0.05)
+end
+
+---------------------------------------------------------------- Paliers visuels de richesse (boutique)
+-- 1 pièce, petite pile, grosse pile, coffre : seuils alignés sur les prix des œufs (900, 20 000, 350 000).
+Config.WEALTH = {
+	{ name = "Une pièce", min = 0, icon = "coin" },
+	{ name = "Petite pile", min = 900, icon = "pile" },
+	{ name = "Grosse pile", min = 20000, icon = "mound" },
+	{ name = "Coffre", min = 350000, icon = "chest" },
+}
+
+function Config.wealthTier(coins)
+	local c = (type(coins) == "number" and coins == coins) and coins or 0
+	local tier = 1
+	for i, w in ipairs(Config.WEALTH) do
+		if c >= w.min then
+			tier = i
+		end
+	end
+	return tier
+end
+
+---------------------------------------------------------------- Carrousel d'œufs (boutique)
+-- Œuf présélectionné : le plus rare que le joueur peut payer (au moins le Commun).
+function Config.carouselDefault(coins)
+	local best = 1
+	for i, price in ipairs(Config.EGG_PRICE) do
+		if coins >= price then
+			best = i
+		end
+	end
+	return best
+end
+
+-- Déplace la sélection (dir = -1 ou 1) avec retour à l'autre bout.
+function Config.carouselStep(sel, dir, n)
+	n = n or #Config.TIERS
+	return ((sel - 1 + (dir >= 0 and 1 or -1)) % n) + 1
+end
+
+---------------------------------------------------------------- Bannière de zone et promesse d'accueil
+Config.ZONE_BANNERS = {
+	arena = { title = "L'ARÈNE", sub = "Le Grand Nid et le tapis roulant", color = Color3.fromRGB(255, 210, 63) },
+	gus = { title = "DOMAINE DE GUS", sub = "La ferme dorée : œufs communs et rares", color = Color3.fromRGB(255, 190, 70) },
+	mara = { title = "DOMAINE DE MARA", sub = "Les bois ensorcelés : œufs rares à légendaires", color = Color3.fromRGB(190, 120, 255) },
+	zed = { title = "CITADELLE DE ZED", sub = "La lave et l'obsidienne : œufs mythiques et cosmiques", color = Color3.fromRGB(255, 100, 60) },
+}
+Config.ZONE_BANNER_SECONDS = 2.6
+
+function Config.zoneBanner(key)
+	return Config.ZONE_BANNERS[key]
+end
+
+-- Promesse affichée dès l'arrivée (non bloquante) : le joueur peut agir tout de suite.
+Config.PROMISE = { seconds = 7, button = "▶ Jouer" }
+
+-- Prochain geste à proposer pendant les premières minutes : { id, text }. st = { hatched, stolen, speed }.
+function Config.nextHint(st)
+	if (st.hatched or 0) == 0 then
+		return { id = "tap", text = "Touche ton œuf 🥚 pour accélérer l'éclosion !" }
+	elseif (st.stolen or 0) == 0 then
+		return { id = "steal", text = "Va chez un rival (au nord) et maintiens le bouton pour voler un œuf… évite son gardien 🐕" }
+	elseif (st.speed or 0) < 8 then
+		return { id = "train", text = "Cours sur le tapis roulant 🏃 au centre pour devenir plus rapide !" }
+	end
+	return nil
+end
+
 -- « 1 sur N » : espaces entre les milliers, une décimale sous 10.
 function Config.fmtOdds(n)
 	if type(n) ~= "number" or n ~= n or n <= 0 or n == math.huge then
@@ -460,6 +558,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	zoneBanner = true, -- bannière au passage d'une zone de la carte
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
 	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch

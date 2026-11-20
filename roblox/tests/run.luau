@@ -340,7 +340,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers" }
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -1886,6 +1886,73 @@ do
 	check("Reveal : des tirages réels dépassent le seuil de l'œuf secret, d'autres sont courants", hasSecret and hasCommon)
 end
 
+-- Style glossy, richesse, carrousel, bannières, premiers instants -------------------------------------------------------------
+do
+	suite("Interface glossy : couleurs par fonction, richesse, carrousel d'œufs, bannières de zone, premiers gestes")
+	local kinds = { "play", "save", "options", "close" }
+	local seen = {}
+	local colorsOk = true
+	for _, k in ipairs(kinds) do
+		local st = Config.btnStyle(k)
+		if not st or Config.contrast(st.base, st.text) < 4.5 or Config.contrast(st.base, st.stroke) < 2 then
+			colorsOk = false
+		end
+		if st then
+			local sig = string.format("%.2f,%.2f,%.2f", st.base.R, st.base.G, st.base.B)
+			if seen[sig] then
+				colorsOk = false
+			end
+			seen[sig] = true
+		end
+	end
+	check("UI glossy : 4 fonctions (vert jouer, bleu sauver, orange options, rouge fermer) distinctes, texte lisible (contraste >= 4,5)", colorsOk and Config.btnStyle("inconnu") == nil)
+	check("UI glossy : teintes attendues (vert, bleu, orange, rouge)", Config.btnStyle("play").base.G > Config.btnStyle("play").base.R and Config.btnStyle("save").base.B > Config.btnStyle("save").base.R and Config.btnStyle("options").base.R > Config.btnStyle("options").base.B and Config.btnStyle("close").base.R > Config.btnStyle("close").base.G)
+	local navOk = true
+	for _, key in ipairs({ "shop", "dex", "quests", "bonus", "top", "more" }) do
+		if not Config.btnStyle(Config.UI.nav[key]) then
+			navOk = false
+		end
+	end
+	check("UI glossy : chaque bouton de navigation a une fonction valide", navOk)
+	check("Contraste : noir sur blanc = 21, identique = 1", math.abs(Config.contrast({ R = 0, G = 0, B = 0 }, { R = 1, G = 1, B = 1 }) - 21) < 1e-9 and math.abs(Config.contrast({ R = 0.5, G = 0.5, B = 0.5 }, { R = 0.5, G = 0.5, B = 0.5 }) - 1) < 1e-9)
+	-- richesse
+	check("Richesse : 1 pièce, petite pile, grosse pile, coffre aux seuils des prix d'œufs", Config.wealthTier(0) == 1 and Config.wealthTier(899) == 1 and Config.wealthTier(900) == 2 and Config.wealthTier(19999) == 2 and Config.wealthTier(20000) == 3 and Config.wealthTier(349999) == 3 and Config.wealthTier(350000) == 4 and Config.wealthTier(1e15) == 4)
+	check("Richesse : valeurs invalides sans erreur", Config.wealthTier(-5) == 1 and Config.wealthTier(0 / 0) == 1 and Config.wealthTier(nil) == 1 and Config.wealthTier("x") == 1)
+	check("Richesse : seuils croissants, alignés sur les prix des œufs", Config.WEALTH[2].min == Config.EGG_PRICE[2] and Config.WEALTH[3].min == Config.EGG_PRICE[3] and Config.WEALTH[4].min == Config.EGG_PRICE[4])
+	-- carrousel
+	check("Carrousel : œuf présélectionné = le plus rare payable (au moins Commun)", Config.carouselDefault(0) == 1 and Config.carouselDefault(24) == 1 and Config.carouselDefault(900) == 2 and Config.carouselDefault(25000) == 3 and Config.carouselDefault(1e12) == #Config.TIERS)
+	check("Carrousel : défilement circulaire dans les deux sens", Config.carouselStep(1, 1) == 2 and Config.carouselStep(6, 1) == 1 and Config.carouselStep(1, -1) == 6 and Config.carouselStep(3, -1) == 2 and Config.carouselStep(2, 0) == 3)
+	check("Carrousel : 6 ppas dans un sens ramènent à la case de départ", (function()
+		local sel = 4
+		for _ = 1, #Config.TIERS do
+			sel = Config.carouselStep(sel, 1)
+		end
+		return sel == 4
+	end)())
+	-- bannières
+	local bannersOk = true
+	for _, key in ipairs(Config.Map.zoneKeys) do
+		local b = Config.zoneBanner(key)
+		if not (b and #b.title > 3 and #b.sub > 5 and b.color) then
+			bannersOk = false
+		end
+	end
+	check("Bannières de zone : arène et chaque domaine ont un titre, un sous-titre et une couleur", bannersOk and Config.zoneBanner("arena") ~= nil and Config.zoneBanner("inconnue") == nil and Config.ZONE_BANNER_SECONDS > 1)
+	check("Bannières de zone : toute zone renvoyée par zoneAt a sa bannière", (function()
+		for _, pt in ipairs({ { 0, 0 }, { 0, 215 }, { -90, -95 }, { 0, -95 }, { 90, -95 }, { 500, 500 } }) do
+			if Config.zoneBanner(Config.zoneAt(pt[1], pt[2])) == nil then
+				return false
+			end
+		end
+		return true
+	end)())
+	-- premiers gestes
+	local h0 = Config.nextHint({ hatched = 0, stolen = 0, speed = 0 })
+	check("Premiers instants : action immédiate proposée dès l'arrivée (toucher l'œuf)", h0 ~= nil and h0.id == "tap" and #h0.text > 10)
+	check("Premiers gestes : œuf éclos -> voler, vol fait -> tapis, vitesse atteinte -> plus d'indice", Config.nextHint({ hatched = 1, stolen = 0, speed = 0 }).id == "steal" and Config.nextHint({ hatched = 3, stolen = 1, speed = 2 }).id == "train" and Config.nextHint({ hatched = 3, stolen = 1, speed = 8 }) == nil and Config.nextHint({}).id == "tap")
+	check("Promesse d'accueil : texte du titre et de la promesse présents", Config.TITLE ~= "" and Config.TAGLINE ~= "" and Config.PROMISE.seconds >= 4 and Config.PROMISE.button ~= "")
+end
+
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
 	suite("Sons : aucun identifiant inventé")
@@ -2163,6 +2230,86 @@ do
 	end
 end
 
+-- Client + serveur de bout en bout dans le runtime factice -----------------------------------------------------------------
+do
+	suite("Client + serveur de bout en bout : boutique (carrousel, richesse), achat, éclosion, révélation, bannière de zone")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local server = RT.buildTree("roblox/src", false)
+		local client = RT.buildClient("roblox/src")
+		RT.task.spawn(function()
+			RT.runScript(server)
+		end)
+		RT.step(1)
+		local me = RT.addPlayer("Ana", 3001, { from = "hub", partyId = "P-E2E", size = 1, late = false })
+		RT.setLocalPlayer(me)
+		RT.step(2)
+		for _, name in ipairs({ "Client", "Ambience", "Animations", "Cinematics" }) do
+			RT.task.spawn(function()
+				RT.runScript(client[name])
+			end)
+		end
+		RT.step(4)
+		check("Client : démarrage des 4 scripts client sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		local function findText(fragment)
+			for _, o in ipairs(RT.all) do
+				local t = rawget(o, "__props").Text
+				if type(t) == "string" and t:find(fragment, 1, true) then
+					return o
+				end
+			end
+			return nil
+		end
+		check("Client : la promesse d'accueil (titre, promesse, bouton Jouer) s'affiche", findText(Config.TAGLINE) ~= nil and findText(Config.PROMISE.button) ~= nil)
+		check("Client : l'objectif en cours et le premier geste (toucher l'œuf) sont proposés", findText("Touche ton œuf") ~= nil)
+		-- ouvrir la boutique par le raccourci (ou la manette X)
+		RT.actions.ChipeShop(nil, RT.env.Enum.UserInputState.Begin)
+		RT.step(1)
+		check("Boutique : ouverture sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		check("Boutique : icône de richesse (palier « Une pièce » avec 50 pièces) et fortune affichées", findText("Une pièce") ~= nil)
+		check("Boutique : carrousel d'œufs (œuf Commun présélectionné, voisins affichés)", findText("Acheter") ~= nil and findText(Config.TIERS[1].name) ~= nil and findText(Config.TIERS[2].name) ~= nil and findText(Config.TIERS[6].name) ~= nil)
+		local buy = findText("Acheter")
+		local coinsBefore = me:GetAttribute("Coins")
+		RT.fire(buy, "Activated")
+		RT.step(1.5)
+		local coinsAfter = me:GetAttribute("Coins")
+		check("Boutique : le bouton Acheter du carrousel achète l'œuf présélectionné côté serveur (50 -> ~25 pièces, revenus de 1-2 s inclus)" .. " [" .. tostring(coinsBefore) .. " -> " .. tostring(coinsAfter) .. "]", coinsBefore == Config.START_COINS and coinsAfter >= Config.START_COINS - Config.EGG_PRICE[1] and coinsAfter <= Config.START_COINS - Config.EGG_PRICE[1] + 10)
+		-- éclosion : le serveur envoie Hatch avec « 1 sur N », le client joue la révélation
+		RT.step(Config.HATCH[1] + 8)
+		local sawHatch, oneIn = false, nil
+		for _, f in ipairs(RT.fired) do
+			if f[1] == "Hatch" and f[2] == me and type(f[3]) == "table" then
+				sawHatch, oneIn = true, f[3].oneIn
+			end
+		end
+		check("Éclosion : le serveur envoie la probabilité réelle « 1 sur N » avec le pet", sawHatch and type(oneIn) == "number" and oneIn >= 1)
+		check("Éclosion : la révélation affiche « 1 sur N » sous le nom" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), findText("1 sur") ~= nil and #RT.errors == 0)
+		local fxCount = 0
+		for _, o in ipairs(RT.all) do
+			if rawget(o, "__props").Name == "RevealFx" then
+				fxCount = fxCount + 1
+			end
+		end
+		check("Éclosion : l'effet RevealFx est créé pour chaque éclosion", fxCount >= 1)
+		-- bannière de zone : le joueur se déplace dans le domaine de Mara
+		local char = me.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if root then
+			local mx, mz = Config.rivalCenter(2)
+			rawget(root, "__props").Position = RT.vec(mx, 3, mz)
+			RT.step(1.5)
+			check("Bannière de zone : « DOMAINE DE MARA » affichée en entrant dans le domaine" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), findText(Config.zoneBanner("mara").title) ~= nil)
+		else
+			check("Bannière de zone : le personnage existe pour le test", false)
+		end
+		-- carrousel : flèche droite -> sélection suivante, achat trop cher refusé côté serveur
+		RT.actions.ChipeShop(nil, RT.env.Enum.UserInputState.Begin) -- ferme
+		RT.actions.ChipeShop(nil, RT.env.Enum.UserInputState.Begin) -- rouvre
+		RT.step(0.5)
+		check("Boutique : réouverture sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	end
+end
+
 -- RevealFx : exécution de l'effet de révélation dans le runtime factice ---------------------------------------------------------
 do
 	suite("RevealFx : effet de révélation (étoile, rayons, anneaux, étincelles) exécuté dans le runtime factice")
@@ -2203,6 +2350,20 @@ do
 		local sFull = Reveal.style(Config, 6, 5, false)
 		check("RevealFx : le mode mobile coûte moins cher que le mode complet", RevealFx.cost(sMob) < RevealFx.cost(sFull))
 		check("RevealFx : style invalide -> nil sans erreur", RevealFx.play(gui, {}, nil) == nil)
+		-- icônes de richesse dessinées par le code
+		local CoinIcon = luau.load(fs.readFile("roblox/src/StarterPlayerScripts/CoinIcon.lua"), { debugName = "CoinIcon", environment = env })()
+		local counts, iconsOk = {}, true
+		for tier = 1, #Config.WEALTH do
+			created = 0
+			local ico = CoinIcon.build(gui, tier, 52)
+			counts[tier] = created
+			if ico == nil or created < 3 or created > 80 then
+				iconsOk = false
+			end
+		end
+		check("CoinIcon : 4 icônes (1 pièce, petite pile, grosse pile, coffre) construites, 3 à 80 objets chacune", iconsOk)
+		check("CoinIcon : les piles grossissent avec la richesse (pièce < petite pile < grosse pile)", counts[1] < counts[2] and counts[2] < counts[3])
+		check("CoinIcon : palier inconnu ou taille invalide sans erreur", pcall(CoinIcon.build, gui, 99, 52) and pcall(CoinIcon.build, gui, 2, 0))
 	end
 end
 

@@ -16,6 +16,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
+local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
@@ -95,6 +96,28 @@ local function text(parent, props)
 	props.Font = props.Font or FONT
 	props.TextColor3 = props.TextColor3 or COL.text
 	return make("TextLabel", props, parent)
+end
+
+-- Style « cartoon glossy » : contour foncé épais, dégradé, coins très arrondis, reflet. kind = fonction (Config.UI.kinds) : colore le bouton.
+-- Sans kind, la couleur existante est gardée (boutons de coût, recolorés selon les pièces). Retourne le style ou nil.
+local function glossy(obj, kind, radius, thickness)
+	if not Config.UI.glossy then
+		return nil
+	end
+	local st = kind and Config.btnStyle(kind) or nil
+	if st then
+		obj.BackgroundColor3 = st.base
+		obj.BackgroundTransparency = 0
+	end
+	local cr = obj:FindFirstChildOfClass("UICorner") or make("UICorner", {}, obj)
+	cr.CornerRadius = UDim.new(0, radius or 14)
+	local stroke = obj:FindFirstChildOfClass("UIStroke") or make("UIStroke", {}, obj)
+	stroke.Color = st and st.stroke or Color3.fromRGB(14, 24, 18)
+	stroke.Thickness = thickness or 3
+	make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(176, 176, 176)), Rotation = 90 }, obj)
+	local shine = make("Frame", { Name = "Shine", Size = UDim2.new(1, -12, 0.26, 0), Position = UDim2.fromOffset(6, 3), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.82, BorderSizePixel = 0, Active = false }, obj)
+	make("UICorner", { CornerRadius = UDim.new(0, math.max(6, (radius or 14) - 4)) }, shine)
+	return st
 end
 
 local gui = make("ScreenGui", { Name = "ChipeUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets }, player:WaitForChild("PlayerGui"))
@@ -230,6 +253,35 @@ local function hatchPop(info)
 	end)
 end
 
+---------------------------------------------------------------- Promesse d'accueil : visible tout de suite, ne bloque rien
+-- Une carte compacte (titre, promesse, bouton vert « Jouer ») en haut au centre pendant Config.PROMISE.seconds ; le joueur peut agir pendant ce temps
+-- (l'œuf de départ éclot en quelques secondes). Une seule fois par session.
+local function showPromise()
+	local card = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -140), Size = UDim2.fromOffset(340, 104), BackgroundColor3 = COL.bg, ZIndex = 30 }, gui)
+	corner(card, 20)
+	make("UIStroke", { Color = Color3.fromRGB(14, 24, 18), Thickness = 4 }, card)
+	make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(70, 160, 110), Color3.fromRGB(20, 60, 40)), Rotation = 90 }, card)
+	text(card, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 0, 30), Text = "🥚 " .. Config.TITLE, TextSize = 24, TextColor3 = COL.yellow, TextStrokeTransparency = 0.3, ZIndex = 31 })
+	text(card, { Position = UDim2.fromOffset(12, 36), Size = UDim2.new(1, -24, 0, 36), Text = Config.TAGLINE, TextSize = 13, TextWrapped = true, ZIndex = 31 })
+	local play = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.fromOffset(120, 28), Text = Config.PROMISE.button, Font = FONT, TextSize = 15, ZIndex = 32 }, card)
+	local st = glossy(play, "play", 12, 2)
+	if st then
+		play.TextColor3 = st.text
+	end
+	local closed = false
+	local function close()
+		if closed then
+			return
+		end
+		closed = true
+		TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Position = UDim2.new(0.5, 0, 0, -140) }):Play()
+		Debris:AddItem(card, 0.5)
+	end
+	play.Activated:Connect(close)
+	TweenService:Create(card, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 10) }):Play()
+	task.delay(Config.PROMISE.seconds, close)
+end
+
 ---------------------------------------------------------------- Introduction (nouveaux joueurs uniquement)
 local introChecked = false
 local function showIntro()
@@ -255,6 +307,10 @@ make("UISizeConstraint", { MaxSize = Vector2.new(560, 470) }, panelFrame)
 make("UIStroke", { Color = COL.panel, Thickness = 2 }, panelFrame)
 local titleLbl = text(panelFrame, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -70, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, Text = "" })
 local closeBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = COL.panel, Text = "✕", Font = FONT, TextSize = 16, TextColor3 = COL.text }, panelFrame)
+local closeStyle = glossy(closeBtn, "close", 12, 3)
+if closeStyle then
+	closeBtn.TextColor3 = closeStyle.text
+end
 corner(closeBtn, 17)
 pressFx(closeBtn)
 local tabsFrame = make("Frame", { Position = UDim2.fromOffset(12, 46), Size = UDim2.new(1, -24, 0, 34), BackgroundTransparency = 1 }, panelFrame)
@@ -297,6 +353,7 @@ local function addRow(o)
 	if o.btn then
 		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(112, 40), Text = o.btn, Font = FONT, TextSize = 14, AutoButtonColor = true, BackgroundColor3 = o.btnColor or COL.yellow, TextColor3 = o.btnText or COL.dark }, f)
 		corner(b, 10)
+		glossy(b, nil, 10, 2)
 		pressFx(b)
 		if o.cost then
 			costBtns[b] = o.cost
@@ -374,18 +431,87 @@ function render()
 		end
 	end
 
+	if panel.name == "shop" then
+		-- Fortune : icône de richesse dessinée par le code (1 pièce, petite pile, grosse pile, coffre)
+		local wt = Config.wealthTier(coins())
+		local wf = make("Frame", { Size = UDim2.new(1, -8, 0, 64), BackgroundColor3 = COL.bg }, scroll)
+		corner(wf, 14)
+		make("UIStroke", { Color = COL.panel, Thickness = 2 }, wf)
+		local icon = CoinIcon.build(wf, wt, 52)
+		if icon then
+			icon.Position = UDim2.fromOffset(8, 6)
+		end
+		text(wf, { Position = UDim2.fromOffset(70, 6), Size = UDim2.new(1, -80, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 18, TextColor3 = COL.yellow, Text = "🪙 " .. fmt(coins()) })
+		text(wf, { Position = UDim2.fromOffset(70, 34), Size = UDim2.new(1, -80, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = Config.WEALTH[wt].name })
+	end
 	if panel.name == "shop" and panel.tab == "eggs" then
 		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n🎁 Pitié : un pet de rareté supérieure est garanti dans " .. math.max(1, Config.PITY_EVERY - state.pity) .. " éclosion(s) si aucun n'est tombé d'ici là.")
-		for i, t in ipairs(Config.TIERS) do
-			addRow({
-				icon = "🥚", iconColor = t.color, title = "Œuf " .. t.name, titleColor = t.color,
-				desc = "Éclot en " .. Config.fmtTime(Config.HATCH[i] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(i) * state.mult) .. "/s en moyenne",
-				btn = "🪙 " .. fmt(Config.EGG_PRICE[i]), cost = Config.EGG_PRICE[i],
-				onClick = function()
-					RAction:FireServer("buyEgg", i)
-				end,
-			})
+		-- Carrousel d'œufs : l'œuf choisi est mis en avant, les voisins sont plus petits et sombres
+		panel.eggSel = panel.eggSel or Config.carouselDefault(coins())
+		local sel = panel.eggSel
+		local holder = make("Frame", { Size = UDim2.new(1, -8, 0, 330), BackgroundColor3 = COL.bg }, scroll)
+		corner(holder, 18)
+		make("UIStroke", { Color = COL.panel, Thickness = 2 }, holder)
+		local function eggCard(tierIdx, big, xScale)
+			local t = Config.TIERS[tierIdx]
+			local look = Config.eggLook(tierIdx)
+			local color = look and look.color or t.color
+			local w, h = big and 150 or 96, big and 200 or 128
+			local f = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(xScale, 0, 0, big and 10 or 38), Size = UDim2.fromOffset(w, h), BackgroundColor3 = big and Color3.fromRGB(24, 62, 44) or Color3.fromRGB(14, 38, 28), ZIndex = big and 3 or 2 }, holder)
+			corner(f, 20)
+			make("UIStroke", { Color = big and color or COL.panel, Thickness = big and 4 or 2, Transparency = big and 0 or 0.3 }, f)
+			make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), big and Color3.fromRGB(150, 150, 150) or Color3.fromRGB(110, 110, 110)), Rotation = 90 }, f)
+			local egg = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, big and 14 or 10), Size = UDim2.fromOffset(w * 0.46, h * 0.46), BackgroundColor3 = color, ZIndex = f.ZIndex + 1 }, f)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, egg)
+			make("UIStroke", { Color = Color3.fromRGB(20, 20, 30), Thickness = big and 3 or 2 }, egg)
+			make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(150, 150, 150)), Rotation = 90 }, egg)
+			local gloss = make("Frame", { Position = UDim2.fromScale(0.2, 0.12), Size = UDim2.fromScale(0.24, 0.2), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = f.ZIndex + 2 }, egg)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, gloss)
+			text(f, { Position = UDim2.new(0, 0, 0.58, 0), Size = UDim2.new(1, 0, 0, big and 26 or 20), Text = t.name, TextSize = big and 18 or 13, TextColor3 = t.color, TextStrokeTransparency = 0.3, ZIndex = f.ZIndex + 1 })
+			text(f, { Position = UDim2.new(0, 0, 0.58, big and 28 or 20), Size = UDim2.new(1, 0, 0, big and 22 or 16), Text = "🪙 " .. fmt(Config.EGG_PRICE[tierIdx]), TextSize = big and 14 or 11, TextColor3 = COL.text, ZIndex = f.ZIndex + 1 })
+			if big then
+				text(f, { Position = UDim2.new(0, 0, 1, -30), Size = UDim2.new(1, 0, 0, 22), Text = look and look.name or "", TextSize = 12, TextColor3 = COL.muted, ZIndex = f.ZIndex + 1 })
+			end
+			if not big then
+				f.Active = true
+			end
+			return f
 		end
+		local n = #Config.TIERS
+		local prev, nxt = Config.carouselStep(sel, -1, n), Config.carouselStep(sel, 1, n)
+		local leftCard, rightCard = eggCard(prev, false, 0.2), eggCard(nxt, false, 0.8)
+		eggCard(sel, true, 0.5)
+		for _, pair in ipairs({ { leftCard, -1 }, { rightCard, 1 } }) do
+			local hit = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 8 }, pair[1])
+			hit.Activated:Connect(function()
+				panel.eggSel = Config.carouselStep(sel, pair[2], n)
+				render()
+			end)
+		end
+		for _, side in ipairs({ { "◀", -1, 0 }, { "▶", 1, 1 } }) do
+			local ab = make("TextButton", { AnchorPoint = Vector2.new(side[3], 0), Position = UDim2.new(side[3], side[3] == 0 and 6 or -6, 0, 86), Size = UDim2.fromOffset(40, 56), Text = side[1], Font = FONT, TextSize = 22, TextColor3 = COL.dark, ZIndex = 9 }, holder)
+			local st = glossy(ab, "options", 14, 3)
+			if st then
+				ab.TextColor3 = st.text
+			end
+			pressFx(ab)
+			ab.Activated:Connect(function()
+				panel.eggSel = Config.carouselStep(sel, side[2], n)
+				render()
+			end)
+		end
+		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 13, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (sel < n and ("Un pet " .. Config.TIERS[sel + 1].name .. " est possible (pet de rareté supérieure)") or "Rareté maximale") })
+		info.TextYAlignment = Enum.TextYAlignment.Top
+		local buy = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(220, 52), Text = "🥚 Acheter  🪙 " .. fmt(Config.EGG_PRICE[sel]), Font = FONT, TextSize = 18, TextColor3 = COL.dark, ZIndex = 9 }, holder)
+		local buyStyle = glossy(buy, "play", 18, 3)
+		if buyStyle then
+			buy.TextColor3 = buyStyle.text
+		end
+		pressFx(buy)
+		costBtns[buy] = Config.EGG_PRICE[sel]
+		buy.Activated:Connect(function()
+			RAction:FireServer("buyEgg", sel)
+		end)
 	elseif panel.name == "shop" then
 		for _, u in ipairs(Config.UPGRADES) do
 			local l = state.up[u.key] or 0
@@ -740,9 +866,13 @@ for _, n in ipairs(navDefs) do
 	local b = make("TextButton", { Size = UDim2.fromOffset(52, 52), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true }, navBar)
 	corner(b, 14)
 	pressFx(b)
-	make("UIStroke", { Color = COL.panel, Thickness = 2 }, b)
-	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22 })
-	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10 })
+	local navStyle = glossy(b, Config.UI.nav[n[1]], 14, 3)
+	if not navStyle then
+		make("UIStroke", { Color = COL.panel, Thickness = 2 }, b)
+	end
+	local navText = navStyle and navStyle.text or COL.text
+	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22, TextColor3 = navText })
+	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10, TextColor3 = navText })
 	local dot = make("Frame", { Size = UDim2.fromOffset(13, 13), Position = UDim2.new(1, -14, 0, 1), BackgroundColor3 = COL.red, Visible = false, ZIndex = 5 }, b)
 	corner(dot, 7)
 	navDots[n[1]] = dot
@@ -901,6 +1031,13 @@ for _, a in ipairs({ "Coins", "Income", "Speed" }) do
 end
 refreshStats()
 
+task.spawn(function() -- promesse d'accueil dès que l'état est reçu (une fois)
+	repeat
+		task.wait(0.2)
+	until state
+	pcall(showPromise)
+end)
+
 task.spawn(function()
 	repeat
 		RAction:FireServer("sync")
@@ -942,14 +1079,8 @@ task.spawn(function()
 			updateRuneLabels()
 			carryLbl.Visible = state.carry > 0
 			carryLbl.Text = "🥚 " .. state.carry .. "/" .. state.carryCap
-			local msg
-			if state.hatched == 0 then
-				msg = "Touche ton œuf 🥚 pour accélérer l'éclosion !"
-			elseif state.stolen == 0 then
-				msg = "Va chez un rival (au nord) et maintiens le bouton pour voler un œuf… évite son gardien 🐕"
-			elseif (player:GetAttribute("Speed") or 0) < 8 then
-				msg = "Cours sur le tapis roulant 🏃 au centre pour devenir plus rapide !"
-			end
+			local nextHint = Config.nextHint({ hatched = state.hatched, stolen = state.stolen, speed = player:GetAttribute("Speed") or 0 })
+			local msg = nextHint and nextHint.text
 			hint.Visible = msg ~= nil and not panelFrame.Visible
 			refreshObjective()
 			hint.Text = msg or ""

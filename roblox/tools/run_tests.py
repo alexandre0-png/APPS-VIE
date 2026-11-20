@@ -21,7 +21,11 @@ def luau_to_lua(src):
         m = COMPOUND.match(line)
         if m and not line.lstrip().startswith("--"):
             indent, lhs, op, rhs = m.groups()
-            line = f"{indent}{lhs} = {lhs} {op} ({rhs})"
+            comment = ""
+            cut = rhs.find(" --")  # commentaire de fin de ligne : à garder hors de la parenthèse
+            if cut >= 0:
+                rhs, comment = rhs[:cut].rstrip(), rhs[cut:]
+            line = f"{indent}{lhs} = {lhs} {op} ({rhs}){comment}"
         out.append(line)
     return "\n".join(out)
 
