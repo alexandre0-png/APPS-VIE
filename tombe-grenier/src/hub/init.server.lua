@@ -48,7 +48,9 @@ end)
 -- pas le script : le hub reste jouable et la boucle de lancement tourne.
 local built, buildError = pcall(Hub.build)
 if not built then
-	warn("[Hub] construction du hub en erreur : " .. tostring(buildError))
+	warn("[Boot] hub ERREUR : " .. tostring(buildError))
+else
+	print("[Boot] hub construction ok")
 end
 local hubFolder = workspace:FindFirstChild("Hub")
 local hubSpawn = hubFolder and hubFolder:FindFirstChild("HubSpawn")
@@ -57,7 +59,12 @@ SpawnLog.say(
 	built and "terminée" or "EN ERREUR",
 	hubSpawn and "présent" or "ABSENT"
 )
-Hub.enter()
+local enteredOk, enterError = pcall(Hub.enter)
+if enteredOk then
+	print("[Boot] hub accueil ok")
+else
+	warn("[Boot] hub accueil ERREUR : " .. tostring(enterError))
+end
 
 -- Rang et titre affichés au-dessus de chaque joueur du hub
 local function greet(player)

@@ -15,7 +15,33 @@ local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
 local Motion = require(Shared.Motion)
 local RunService = game:GetService("RunService")
-local Cinematic = require(script.Cinematic)
+
+-- Isolation : une erreur dans un module ou un gestionnaire n'arrête ni le HUD ni le reste de l'interface.
+local function isolate(label, fn)
+	return function(...)
+		local ok, err = pcall(fn, ...)
+		if not ok then
+			warn(("[Client] module %s : erreur : %s"):format(label, tostring(err)))
+		end
+	end
+end
+local function safeConnect(signal, label, fn)
+	return signal:Connect(isolate(label, fn))
+end
+local function safeSpawn(label, fn)
+	task.spawn(isolate(label, fn))
+end
+
+local okCinematic, Cinematic = pcall(require, script.Cinematic)
+if not okCinematic then
+	warn("[Client] module Cinematic : erreur : " .. tostring(Cinematic))
+	Cinematic = {
+		isPlaying = function()
+			return false
+		end,
+		play = function() end,
+	}
+end
 
 local player = Players.LocalPlayer
 player.CameraMode = Enum.CameraMode.LockFirstPerson
@@ -152,7 +178,7 @@ local function refreshSanity()
 	tint.BackgroundTransparency = 1 - (1 - sanity / Config.Player.SanityMax) * 0.6
 end
 
-player:GetAttributeChangedSignal("Sanity"):Connect(refreshSanity)
+safeConnect(player:GetAttributeChangedSignal("Sanity"), "refreshSanity", refreshSanity)
 refreshSanity()
 
 -- Réaction à l'apparition du monstre : secousse, bords de l'écran qui s'éclaircissent et se ré-assombrissent.
@@ -203,7 +229,7 @@ local function refreshVignette()
 		f.BackgroundTransparency = 1 - math.clamp(fear * Config.Visual.VignetteMax * 1.6, 0, Config.Visual.VignetteMax)
 	end
 end
-player:GetAttributeChangedSignal("Sanity"):Connect(refreshVignette)
+safeConnect(player:GetAttributeChangedSignal("Sanity"), "refreshVignette", refreshVignette)
 refreshVignette()
 
 local readDocument
@@ -338,7 +364,7 @@ local function submitCode()
 end
 
 -- Seuls les chiffres, quatre maximum
-codeBox:GetPropertyChangedSignal("Text"):Connect(function()
+safeConnect(codeBox:GetPropertyChangedSignal("Text"), "Keypad texte", function()
 	local digits = codeBox.Text:gsub("%D", ""):sub(1, 4)
 	if digits ~= codeBox.Text then
 		codeBox.Text = digits
@@ -358,10 +384,10 @@ closeButton.TextSize = 18
 closeButton.Text = "Refermer"
 closeButton.ZIndex = 41
 closeButton.Parent = keypad
-closeButton.Activated:Connect(closeKeypad)
+safeConnect(closeButton.Activated, "closeKeypad", closeKeypad)
 
 -- Battements de cœur : pendant la poursuite ou à sanité basse
-task.spawn(function()
+safeSpawn("boucle1", function()
 	while true do
 		local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
 		local chasing = workspace:GetAttribute("MonsterChasing") == true
@@ -437,13 +463,13 @@ local function updateMusic()
 		tensionMusic = nil
 	end
 end
-workspace:GetAttributeChangedSignal("MonsterChasing"):Connect(updateMusic)
-player:GetAttributeChangedSignal("Sanity"):Connect(updateMusic)
+safeConnect(workspace:GetAttributeChangedSignal("MonsterChasing"), "updateMusic", updateMusic)
+safeConnect(player:GetAttributeChangedSignal("Sanity"), "updateMusic", updateMusic)
 updateMusic()
 
 -- Respiration tant que le joueur est caché (attribut posé par le serveur)
 local breath = nil
-player:GetAttributeChangedSignal("Hidden"):Connect(function()
+safeConnect(player:GetAttributeChangedSignal("Hidden"), "Hidden", function()
 	if player:GetAttribute("Hidden") then
 		breath = Audio.play("respiration", gui)
 	elseif breath then
@@ -477,7 +503,7 @@ end
 
 -- Secousse de caméra (débusquage, apparition) et mouvements du personnage : pas, respiration
 
-RunService.RenderStepped:Connect(function()
+safeConnect(RunService.RenderStepped, "RenderStepped", function()
 	pcall(function()
 		local char = player.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -601,18 +627,18 @@ quitButton.Text = "Quitter"
 quitButton.Visible = false
 quitButton.ZIndex = 45
 quitButton.Parent = gui
-quitButton.Activated:Connect(function()
+safeConnect(quitButton.Activated, "Quitter", function()
 	Remotes.get("Quit"):FireServer()
 	quitButton.Visible = false
 	restartButton.Visible = false
 end)
-restartButton.Activated:Connect(function()
+safeConnect(restartButton.Activated, "Rejouer", function()
 	Remotes.get("Restart"):FireServer()
 	restartButton.Visible = false
 end)
 
 -- Événements serveur
-Remotes.get("Effect").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
 	if typeof(data) ~= "table" then
 		return
 	end
@@ -679,7 +705,7 @@ local function refreshInventory()
 end
 
 -- Progression de l'équipe (photos, clé de la sortie) : envoyée par le serveur, affichée ici
-Remotes.get("HUD").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("HUD").OnClientEvent, "Remote HUD", function(data)
 	if typeof(data) == "table" then
 		inventory.photos = data.photos or 0
 		inventory.photosRequired = data.photosRequired or 3
@@ -688,7 +714,7 @@ Remotes.get("HUD").OnClientEvent:Connect(function(data)
 	end
 end)
 
-Remotes.get("Inventory").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Inventory").OnClientEvent, "Remote Inventory", function(data)
 	if typeof(data) == "table" then
 		inventory.smallKey = data.smallKey == true
 		inventory.caveKey = data.caveKey == true
@@ -698,35 +724,35 @@ Remotes.get("Inventory").OnClientEvent:Connect(function(data)
 	end
 end)
 
-Remotes.get("Hint").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Hint").OnClientEvent, "Remote Hint", function(data)
 	if typeof(data) == "table" and data.text then
 		hintLabel.Text = "Indice : " .. data.text
 	end
 end)
 
-Remotes.get("Objective").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Objective").OnClientEvent, "Remote Objective", function(data)
 	if typeof(data) == "table" and data.text then
 		objectiveLabel.Text = data.text
 	end
 end)
 
-Remotes.get("Journal").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Journal").OnClientEvent, "Remote Journal", function(data)
 	if typeof(data) == "table" and typeof(data.lines) == "table" then
 		journalLabel.Text = table.concat(data.lines, "\n")
 	end
 end)
 
-Remotes.get("Message").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Message").OnClientEvent, "Remote Message", function(data)
 	if typeof(data) == "table" and data.text then
 		showSubtitle(data.text)
 	end
 end)
 
-Remotes.get("Flashback").OnClientEvent:Connect(function(data)
+safeConnect(Remotes.get("Flashback").OnClientEvent, "Remote Flashback", function(data)
 	flashbackSequence(typeof(data) == "table" and data.kind or "family")
 end)
 
-Remotes.get("Keypad").OnClientEvent:Connect(function()
+safeConnect(Remotes.get("Keypad").OnClientEvent, "Remote Keypad", function()
 	keypad.Visible = true
 	codeBox:CaptureFocus()
 end)
@@ -751,7 +777,7 @@ local function throwNoise()
 	end
 end
 
-UserInputService.InputBegan:Connect(function(input, processed)
+safeConnect(UserInputService.InputBegan, "InputBegan", function(input, processed)
 	if input.KeyCode == Enum.KeyCode.Escape and keypad.Visible then
 		closeKeypad()
 		return
@@ -779,7 +805,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+safeConnect(UserInputService.InputEnded, "InputEnded", function(input)
 	if input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.ButtonL1 then
 		sendQuiet(false)
 	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
@@ -791,7 +817,7 @@ end)
 
 -- Actions de jeu : chaque bouton ne s'affiche que quand il sert (contexte), et la touche est rappelée à l'écran
 local lastObjectiveAt = os.clock()
-Remotes.get("Objective").OnClientEvent:Connect(function()
+safeConnect(Remotes.get("Objective").OnClientEvent, "Remote Objective", function()
 	lastObjectiveAt = os.clock()
 end)
 
@@ -920,10 +946,10 @@ for _, action in ipairs(ACTIONS) do
 		touchScale.Scale = uiScaleValue()
 		touchScale.Parent = b
 		if action.down then
-			b.MouseButton1Down:Connect(action.down)
+			safeConnect(b.MouseButton1Down, "action", action.down)
 		end
 		if action.up then
-			b.MouseButton1Up:Connect(action.up)
+			safeConnect(b.MouseButton1Up, "action", action.up)
 		end
 		actionButtons[action] = b
 	end
@@ -954,16 +980,16 @@ local function refreshActions()
 	keyHint.Text = table.concat(parts, "     ")
 end
 
-task.spawn(function()
+safeSpawn("actions", function()
 	while true do
-		refreshActions()
+		pcall(refreshActions)
 		task.wait(0.25)
 	end
 end)
 
 -- Filet de sécurité de la caméra : hors cinématique, la caméra suit le personnage (type Custom, sujet = son Humanoid).
 -- Une cinématique interrompue par une erreur ne doit jamais laisser la vue dans le vide.
-task.spawn(function()
+safeSpawn("camera", function()
 	while true do
 		task.wait(2)
 		local camera = workspace.CurrentCamera

@@ -14,6 +14,8 @@ local AssetLoad = require(Shared.AssetLoad)
 
 local ModelLoader = {}
 
+local todo = nil -- modèles encore à charger (partagé par les tâches parallèles)
+
 -- Nom du meuble (tel qu'il apparaît dans tools/map/generate_map.py) -> identifiant de modèle
 local MODELS = {
 	["armoire"] = 11237264353,
@@ -63,8 +65,8 @@ local ASSET_NAMES = {
 	PlanteSakura = "sakura",
 }
 
--- Chargement d'un identifiant avec délai maximum. Retourne le conteneur, ou nil.
-local function loadWithTimeout(id)
+-- Chargement d'un identifiant avec délai maximum (limit : secondes, 8 par défaut). Retourne le conteneur, ou nil.
+local function loadWithTimeout(id, limit)
 	local result = nil
 	local done = false
 	task.spawn(function()
@@ -74,7 +76,7 @@ local function loadWithTimeout(id)
 		result = ok and container or nil
 		done = true
 	end)
-	local limit = (Config.Assets and Config.Assets.Timeout) or 8
+	limit = limit or (Config.Assets and Config.Assets.Timeout) or 8
 	local waited = 0
 	while not done and waited < limit do
 		task.wait(0.2)
@@ -97,29 +99,107 @@ local function entries()
 			table.insert(list, { name = name, id = id })
 		end
 	end
+	table.sort(list, function(a, b)
+		return a.name < b.name
+	end)
 	return list
 end
 
-function ModelLoader.ensure()
+ModelLoader.entries = entries
+
+-- Chargement en arrière-plan : le jeu ne l'attend jamais. Des tâches parallèles (Config.Assets.Workers) tirent les
+-- modèles à charger ; au bout du plafond global (Config.Assets.GlobalTimeout, 10 s) plus rien n'est lancé et chaque
+-- chargement en cours est abandonné. onDone(report) est appelé une seule fois, avec les modèles installés, échoués et
+-- laissés de côté. Un modèle absent garde sa pièce de remplacement procédurale.
+function ModelLoader.start(onDone)
 	local folder = ServerStorage:FindFirstChild("Decor")
 	if not folder then
 		folder = Instance.new("Folder")
 		folder.Name = "Decor"
 		folder.Parent = ServerStorage
 	end
-	if Config.Assets and Config.Assets.Enabled == false then
-		return
+	local report = { ok = {}, failed = {}, skipped = {} }
+	local finished = false
+	local function finish()
+		if finished then
+			return
+		end
+		finished = true
+		for _, e in ipairs(todo or {}) do
+			table.insert(report.skipped, e.name)
+		end
+		if #report.failed > 0 or #report.skipped > 0 then
+			warn(
+				("[ModelLoader] %d modèle(s) chargé(s), %d en échec, %d laissé(s) de côté (plafond %d s) : pièces de remplacement conservées"):format(
+					#report.ok,
+					#report.failed,
+					#report.skipped,
+					(Config.Assets and Config.Assets.GlobalTimeout) or 10
+				)
+			)
+		end
+		print(
+			("[Boot] modèles chargés : %d ok, %d échec, %d de côté"):format(
+				#report.ok,
+				#report.failed,
+				#report.skipped
+			)
+		)
+		if onDone then
+			local ok, err = pcall(onDone, report)
+			if not ok then
+				warn("[ModelLoader] habillage après chargement en erreur : " .. tostring(err))
+			end
+		end
 	end
-	local todo = {}
+	if Config.Assets and Config.Assets.Enabled == false then
+		finish()
+		return report
+	end
+	todo = {}
 	for _, e in ipairs(entries()) do
 		if not folder:FindFirstChild(e.name) then
 			table.insert(todo, e)
 		end
 	end
-	local report = AssetLoad.install(todo, loadWithTimeout, folder)
-	for _, name in ipairs(report.failed) do
-		warn(("[ModelLoader] modèle « %s » non chargé : la pièce de remplacement reste"):format(name))
+	local cap = (Config.Assets and Config.Assets.GlobalTimeout) or 10
+	local deadline = os.clock() + cap
+	local workers = math.max(1, (Config.Assets and Config.Assets.Workers) or 8)
+	local running = workers
+	local function within(id)
+		return loadWithTimeout(
+			id,
+			math.max(0.2, math.min((Config.Assets and Config.Assets.Timeout) or 8, deadline - os.clock()))
+		)
 	end
+	for _ = 1, workers do
+		task.spawn(function()
+			while os.clock() < deadline do
+				local entry = table.remove(todo, 1)
+				if not entry then
+					break
+				end
+				local ok, partial = pcall(AssetLoad.install, { entry }, within, folder)
+				if ok then
+					for _, name in ipairs(partial.ok) do
+						table.insert(report.ok, name)
+					end
+					for _, name in ipairs(partial.failed) do
+						table.insert(report.failed, name)
+					end
+				else
+					table.insert(report.failed, entry.name)
+				end
+			end
+			running -= 1
+			if running == 0 then
+				finish()
+			end
+		end)
+	end
+	-- Filet de sécurité : même si une tâche reste bloquée, l'habillage a lieu au plus tard peu après le plafond
+	task.delay(cap + 2, finish)
+	return report
 end
 
 return ModelLoader

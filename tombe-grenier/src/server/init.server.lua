@@ -363,23 +363,32 @@ guarded("Throw", 4, 6, Guard.isUnitVector, function(player, direction)
 	end
 end)
 
--- Systèmes
--- La carte doit exister avant les systèmes qui lisent les tags (CollectionService)
--- Modèle du monstre : chargé une fois si ServerStorage/Monster est absent (lieu de jeu ou lieu unique)
-if Hub.role() ~= "hub" then
-	MonsterAI.ensureModel()
-	ModelLoader.ensure()
+-- Démarrage par étapes isolées : une erreur dans une étape est tracée (« [Boot] nom ERREUR ») et le jeu continue,
+-- il ne meurt jamais au milieu du script. Chaque étape réussie laisse « [Boot] nom ok ».
+local function boot(name, fn, ...)
+	local started = os.clock()
+	local ok, err = pcall(fn, ...)
+	if ok then
+		print(("[Boot] %s ok (%.1f s)"):format(name, os.clock() - started))
+	else
+		warn(("[Boot] %s ERREUR : %s"):format(name, tostring(err)))
+	end
+	return ok
 end
 
--- Le lieu hub n'a pas de maison : il ne construit que l'accueil
+-- Systèmes
+-- La carte doit exister avant les systèmes qui lisent les tags (CollectionService).
+-- Le lieu hub n'a pas de maison : il ne construit que l'accueil.
 if Hub.role() ~= "hub" then
-	MapBuilder.build()
-	MapBuilder.startShadowLoop()
+	boot("carte", function()
+		MapBuilder.build()
+		MapBuilder.startShadowLoop()
+	end)
 end
 if Hub.role() ~= "game" then
-	Hub.build()
+	boot("hub", Hub.build)
 end
-PlayerState.init()
+boot("PlayerState", PlayerState.init)
 -- Profils : chargés à l'arrivée, rang et titre affichés au-dessus de chaque joueur
 Players.PlayerAdded:Connect(function(player)
 	-- Arrivée tardive dans un serveur de jeu qui se vide (partie finie) : retour direct au hub
@@ -397,11 +406,11 @@ for _, player in ipairs(Players:GetPlayers()) do
 		pcall(Profile.attachLabel, player)
 	end)
 end
-Hiding.init()
-Quests.init(endRound)
+boot("Hiding", Hiding.init)
+boot("Quests", Quests.init, endRound)
 
 -- Réapparition : au point d'avancée atteint, ou réanimation par l'autre joueur en duo
-Respawn.init({
+boot("Respawn", Respawn.init, {
 	isRoundActive = function()
 		return round.active and not round.ended
 	end,
@@ -425,6 +434,17 @@ task.spawn(function()
 	Respawn.setReady(activeSpawn())
 end)
 
+-- Modèles : chargés EN ARRIÈRE-PLAN, après la carte et le point d'apparition ; le jeu n'en attend aucun.
+-- Plafond global Config.Assets.GlobalTimeout ; les pièces de remplacement restent partout où un modèle manque.
+if Hub.role() ~= "hub" then
+	task.spawn(function()
+		boot("modèle du monstre (arrière-plan)", MonsterAI.ensureModel)
+	end)
+	boot("modèles (arrière-plan)", ModelLoader.start, function()
+		boot("habillage des modèles", MapBuilder.applyLateModels)
+	end)
+end
+
 -- Indication demandée par le joueur (touche H), limitée par Config.Quests.HintCooldown
 guarded("AskHint", 2, 4, nil, function(player)
 	Quests.hintFor(player)
@@ -437,7 +457,7 @@ Quests.onFrontDoorShown = function()
 	MonsterAI.staged(Vector3.new(60, 0.5, 86), 6)
 end
 
-Shop.init()
+boot("Shop", Shop.init)
 
 Quests.onStatuesChanged = function(done)
 	Objectives.setStatuesDone(done)
@@ -456,7 +476,7 @@ Quests.onChestOpened = function(player)
 		MonsterAI.forceChase(player)
 	end)
 end
-Objectives.init(function(player)
+boot("Objectives", Objectives.init, function(player)
 	Quests.onFrontDoor(player)
 end)
 
