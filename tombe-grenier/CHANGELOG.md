@@ -2,6 +2,10 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Qualité mobile et publication
+- Texte minimal de l'interface porté à 14 px (deux limites étaient à 11 et 13) ; `tools/lua/test_mobile.py` borne les pièces de la carte (1200), les lampes construites (60), les lueurs actives (4 en bas, 8 en moyen), les halos (28), la poussière (4 par seconde), les accessoires (40), le plafond de chargement et la taille des boutons tactiles (44 px).
+- `PUBLICATION.md` : nom, descriptions courte et longue (limites vérifiées par `test_publication.py`), genres, 5 accroches, avertissement, âge conseillé, réponses au questionnaire de maturité, tableau d'audit (Remotes, DataStore, fuites, mobile) et checklist avant passage en public.
+
 ### Regraphisme et lisibilité des énigmes
 - Chaque pièce a son sol et son mur propres (matière et couleur distinctes, `tools/map/generate_map.py` puis `MapData.lua` régénéré) : cuisine carreaux blancs, salles d'eau carreaux bleutés, salon et chambre d'enfant parquets, chambres moquettes, bureau moquette verte, hall et entrée marbre, cave pavés, cellier terre battue, grenier plancher chaud, tombe dalles sombres. Nouvelles matières dans `MapBuilder.MATERIALS`.
 - L'objet de l'étape active est visible à travers les murs (halo `AlwaysOnTop`) et une flèche d'objectif en haut de l'écran indique sa direction et sa distance de n'importe quelle pièce (`Markers.bearing`, attribut joueur `ObjectiveTarget`, test client).

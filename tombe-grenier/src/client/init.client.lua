@@ -110,7 +110,7 @@ local function label(props)
 	-- Lisible sur téléphone comme sur grand écran : le texte se règle, dans des bornes
 	l.TextScaled = true
 	local limit = Instance.new("UITextSizeConstraint")
-	limit.MinTextSize = 13
+	limit.MinTextSize = 14
 	limit.MaxTextSize = props.size or 18
 	limit.Parent = l
 	l.TextXAlignment = props.align or Enum.TextXAlignment.Left
@@ -735,7 +735,7 @@ local function makeBanner(name, position, size, titleSize, subSize)
 	sub.ZIndex = 61
 	sub.Parent = frame
 	local limit2 = Instance.new("UITextSizeConstraint")
-	limit2.MinTextSize = 11
+	limit2.MinTextSize = 14
 	limit2.MaxTextSize = subSize
 	limit2.Parent = sub
 	return frame
