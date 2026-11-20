@@ -61,6 +61,11 @@ local ASSET_NAMES = {
 	PlanteFenetre = "plante fenêtre",
 	PlanteExterieure = "plante extérieure",
 	PlanteSakura = "sakura",
+	CleOr = "clé or",
+	CoffretAncien = "coffret ancien",
+	HorlogeComtoise = "horloge comtoise",
+	PoupeeAncienne = "poupée ancienne",
+	BougieChandelier = "bougie chandelier",
 }
 
 -- Chargement d'un identifiant avec délai maximum. Retourne le conteneur, ou nil.

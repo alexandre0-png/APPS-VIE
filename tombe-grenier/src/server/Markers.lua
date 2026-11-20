@@ -28,7 +28,8 @@ local function mark(part, style)
 	pcall(function()
 		local glow = Instance.new("Highlight")
 		glow.Name = "Halo"
-		glow.Adornee = part
+		-- Pièce invisible portant un modèle chargé : le halo entoure le modèle (la pièce, transparente, ne montrerait rien)
+		glow.Adornee = part:FindFirstChildWhichIsA("Model") or part
 		glow.FillTransparency = 1
 		glow.OutlineColor = color(style.color)
 		glow.OutlineTransparency = 0.45

@@ -27,6 +27,7 @@ local RoomMood = require(Shared.RoomMood)
 local Audio = require(Shared.Audio)
 local RoomBudget = require(Shared.RoomBudget)
 local Config = require(Shared.Config)
+local ModelFit = require(Shared.ModelFit)
 local DecorKit = require(script.Parent.DecorKit)
 local Atmosphere = require(script.Parent.Atmosphere)
 
@@ -314,6 +315,126 @@ local function weldDecorModel(name, anchorPart)
 	model.Parent = anchorPart
 end
 
+-- Centre de la pièce qui contient ce point (pour orienter un modèle vers l'intérieur de la pièce)
+local function roomCentre(pos)
+	for _, r in ipairs(Data.rooms) do
+		local base = Data.base[r.level]
+		if pos.X >= r.x0 and pos.X <= r.x1 and pos.Z >= r.z0 and pos.Z <= r.z1 and pos.Y >= base - 0.5 then
+			if pos.Y < base + Data.H + 1 then
+				return { (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2 }
+			end
+		end
+	end
+	return { pos.X, pos.Z + 1 }
+end
+
+-- Hauteur du sol de l'étage qui contient ce point
+local function floorOf(pos)
+	local best = 0
+	for _, base in pairs(Data.base) do
+		if pos.Y >= base - 0.5 and base >= best then
+			best = base
+		end
+	end
+	return best
+end
+
+-- Remplace l'aspect d'une pièce de jeu (clé, coffret, horloge) par un modèle chargé (ServerStorage/Decor).
+-- La pièce reste en place, invisible : invite, tag, halo et animations continuent de fonctionner, le modèle y est soudé.
+-- Taille mesurée (GetExtentsSize) puis ramenée à la taille de l'objet remplacé, face tournée vers l'intérieur de la pièce.
+-- Sans modèle (chargement refusé, par exemple « Requester does not have permission ») ou en cas d'erreur : rien ne change,
+-- la pièce procédurale reste visible. Retourne le modèle posé, ou nil.
+local function fitModelOver(part, name)
+	local plan = ModelFit.PLANS[name]
+	local folder = ServerStorage:FindFirstChild("Decor")
+	local template = folder and folder:FindFirstChild(name)
+	if not plan or not template or not template:IsA("Model") then
+		return nil
+	end
+	local ok, model = pcall(function()
+		local clone = template:Clone()
+		local ext = clone:GetExtentsSize()
+		local target = { part.Size.X, part.Size.Y, part.Size.Z }
+		if plan.height then
+			target = { 0, plan.height, 0 }
+		end
+		local scale = ModelFit.scaleFor({ ext.X, ext.Y, ext.Z }, target, plan.mode)
+		clone:ScaleTo(clone:GetScale() * scale)
+		local face = ModelFit.faceToward({ part.Position.X, part.Position.Z }, roomCentre(part.Position))
+		local yaw = ModelFit.yawFor(Config.Assets.Front[name] or plan.front, face)
+		clone:PivotTo(CFrame.new(part.Position) * CFrame.Angles(0, yaw, 0))
+		local cf, size = clone:GetBoundingBox()
+		local bottom = plan.floor and floorOf(part.Position) or (part.Position.Y - part.Size.Y / 2)
+		clone:TranslateBy(
+			Vector3.new(
+				part.Position.X - cf.Position.X,
+				bottom - (cf.Position.Y - size.Y / 2),
+				part.Position.Z - cf.Position.Z
+			)
+		)
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = false
+				d.CanCollide = false
+				d.CanQuery = false
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = part
+				weld.Part1 = d
+				weld.Parent = d
+			end
+		end
+		clone.Parent = part
+		if plan.floor then
+			-- L'invite suit le modèle : la pièce invisible couvre l'horloge entière
+			local _, finalSize = clone:GetBoundingBox()
+			part.Size = Vector3.new(finalSize.X, finalSize.Y, finalSize.Z)
+			part.Position = Vector3.new(part.Position.X, bottom + finalSize.Y / 2, part.Position.Z)
+		end
+		part.Transparency = 1
+		return clone
+	end)
+	if not ok then
+		warn(("[MapBuilder] modèle « %s » non posé : %s"):format(name, tostring(model)))
+		return nil
+	end
+	return model
+end
+
+-- Repli lisible quand un modèle décoratif ne se charge pas : poupée à robe rouge ou chandelier en laiton
+local function buildFallbackDecor(name, anchor)
+	local function piece(size, offsetY, color, material, shape)
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Size = size
+		p.Position = anchor.Position - Vector3.new(0, anchor.Size.Y / 2, 0) + Vector3.new(0, offsetY, 0)
+		p.Color = color
+		p.Material = material
+		if shape then
+			p.Shape = shape
+		end
+		p.Parent = anchor
+		return p
+	end
+	anchor.Transparency = 1
+	if name == "poupée ancienne" then
+		piece(Vector3.new(0.7, 0.9, 0.5), 0.45, Color3.fromRGB(150, 25, 30), Enum.Material.Fabric)
+		piece(
+			Vector3.new(0.5, 0.5, 0.5),
+			1.15,
+			Color3.fromRGB(225, 200, 180),
+			Enum.Material.SmoothPlastic,
+			Enum.PartType.Ball
+		)
+	else
+		piece(Vector3.new(0.5, 0.12, 0.5), 0.06, Color3.fromRGB(176, 141, 60), Enum.Material.Metal)
+		piece(Vector3.new(0.14, 0.7, 0.14), 0.45, Color3.fromRGB(235, 225, 200), Enum.Material.SmoothPlastic)
+		piece(Vector3.new(0.1, 0.16, 0.1), 0.88, Color3.fromRGB(255, 190, 90), Enum.Material.Neon, Enum.PartType.Ball)
+	end
+end
+
 local function buildHouse(root)
 	local house = Instance.new("Model")
 	house.Name = "Maison"
@@ -408,6 +529,24 @@ local function buildHouse(root)
 				model.Parent = folders["Décor"]
 			end
 		end
+	end
+
+	-- Poupées et chandeliers (modèles Blender) : décor d'ambiance sur les meubles ; sans modèle, un repli lisible
+	for _, d in ipairs(Data.decor_models or {}) do
+		pcall(function()
+			local anchor = Instance.new("Part")
+			anchor.Name = d.model
+			anchor.Anchored = true
+			anchor.CanCollide = false
+			anchor.CanQuery = false
+			anchor.CanTouch = false
+			anchor.Size = Vector3.new(0.6, 1, 0.6)
+			anchor.Position = Vector3.new(d.pos[1], d.pos[2] + 0.5, d.pos[3])
+			anchor.Parent = folders["Décor"]
+			if not fitModelOver(anchor, d.model) then
+				buildFallbackDecor(d.model, anchor)
+			end
+		end)
 	end
 
 	-- Détails narratifs (passe 2) : décor pur, sans collision, sans requête ni tag de jeu
@@ -545,7 +684,7 @@ local function buildHouse(root)
 				"Compteur"
 			)
 		elseif p.tag == "Horloge" then
-			makeVisible(
+			local clock = makeVisible(
 				folders.Props,
 				p.pos,
 				p.size,
@@ -554,6 +693,7 @@ local function buildHouse(root)
 				Enum.Material.Wood,
 				"Horloge"
 			)
+			fitModelOver(clock, "horloge comtoise")
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(
 				folders.Props,
@@ -598,7 +738,16 @@ local function buildHouse(root)
 				"CaveDoor"
 			)
 		elseif p.tag == "Coffret" then
-			makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(90, 60, 40), Enum.Material.Wood, "Coffret")
+			local casket = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(90, 60, 40),
+				Enum.Material.Wood,
+				"Coffret"
+			)
+			fitModelOver(casket, "coffret ancien")
 		elseif p.tag == "Mannequin" then
 			-- Mannequin : une pièce invisible porte l'invite et le pivot (Quests) ; le modèle y est soudé
 			local anchor = makeVisible(
@@ -654,7 +803,16 @@ local function buildHouse(root)
 			plaque:SetAttribute("Kind", "plaque du cercueil")
 		elseif p.tag == "Key" then
 			-- Clé de la sortie, dans la malle : son invite est activée par Objectives.unlockKey
-			makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(200, 170, 60), Enum.Material.Metal, "Key")
+			local key = makeVisible(
+				folders.Props,
+				p.pos,
+				p.size,
+				p.name,
+				Color3.fromRGB(200, 170, 60),
+				Enum.Material.Metal,
+				"Key"
+			)
+			fitModelOver(key, "clé or")
 		elseif p.tag == "ExitDoor" then
 			local door = makeVisible(
 				folders.Props,
