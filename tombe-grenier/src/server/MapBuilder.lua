@@ -256,7 +256,7 @@ local function placeDecorModel(name, pos, anchorPart)
 	local folder = ServerStorage:FindFirstChild("Decor")
 	local template = folder and folder:FindFirstChild(name)
 	if not template then
-		return
+		return false
 	end
 	local model = template:Clone()
 	model:PivotTo(CFrame.new(pos[1], pos[2], pos[3]))
@@ -267,6 +267,7 @@ local function placeDecorModel(name, pos, anchorPart)
 		end
 	end
 	model.Parent = anchorPart
+	return true
 end
 
 -- Pose un modèle chargé à l'échelle d'une boîte cible (fenêtre, cheminée), sans collision
@@ -274,7 +275,7 @@ local function placeFitted(name, cf, target, parent)
 	local folder = ServerStorage:FindFirstChild("Decor")
 	local template = folder and folder:FindFirstChild(name)
 	if not template then
-		return
+		return false
 	end
 	local model = template:Clone()
 	local _, size = model:GetBoundingBox()
@@ -292,6 +293,7 @@ local function placeFitted(name, cf, target, parent)
 		end
 	end
 	model.Parent = parent
+	return true
 end
 
 -- Soude le modèle chargé à la pièce ancre : le modèle suit l'ancre quand elle tourne
@@ -299,7 +301,7 @@ local function weldDecorModel(name, anchorPart)
 	local folder = ServerStorage:FindFirstChild("Decor")
 	local template = folder and folder:FindFirstChild(name)
 	if not template then
-		return
+		return false
 	end
 	local model = template:Clone()
 	model:PivotTo(anchorPart.CFrame)
@@ -314,6 +316,34 @@ local function weldDecorModel(name, anchorPart)
 		end
 	end
 	model.Parent = anchorPart
+	return true
+end
+
+-- Habillage tardif : les modèles se chargent en arrière-plan APRÈS la construction de la carte (le jeu ne les attend jamais).
+-- Chaque pose de modèle absent est mémorisée ; MapBuilder.applyLateModels les rejoue quand le chargement est fini.
+local late = {}
+
+local function tryNow(fn)
+	local ok, placed = pcall(fn)
+	if ok and placed then
+		return true
+	end
+	table.insert(late, fn)
+	return false
+end
+
+-- Rejoue les poses mémorisées. Retourne le nombre de modèles posés. Plus rien n'arrivera ensuite : la liste est vidée.
+function MapBuilder.applyLateModels()
+	local pending = late
+	late = {}
+	local placed = 0
+	for _, fn in ipairs(pending) do
+		local ok, done = pcall(fn)
+		if ok and done then
+			placed += 1
+		end
+	end
+	return placed
 end
 
 -- Remplace l'aspect d'une pièce de jeu (clé, coffret, horloge, statue, photo) par un modèle chargé (ServerStorage/Decor).
@@ -415,14 +445,18 @@ local function buildHouse(root)
 		{ 100, 28.5, -0.4, "fenêtre rouille", 0 },
 	}
 	for _, w in ipairs(windows) do
-		placeFitted(w[4], CFrame.new(w[1], w[2], w[3]), Vector3.new(3, 4, 0.5), folders["Décor"])
+		tryNow(function()
+			return placeFitted(w[4], CFrame.new(w[1], w[2], w[3]), Vector3.new(3, 4, 0.5), folders["Décor"])
+		end)
 	end
-	placeFitted(
-		"cheminée",
-		CFrame.new(1.5, 1.5, 22) * CFrame.Angles(0, math.pi / 2, 0),
-		Vector3.new(4, 3, 2.5),
-		folders["Décor"]
-	)
+	tryNow(function()
+		return placeFitted(
+			"cheminée",
+			CFrame.new(1.5, 1.5, 22) * CFrame.Angles(0, math.pi / 2, 0),
+			Vector3.new(4, 3, 2.5),
+			folders["Décor"]
+		)
+	end)
 	-- Jardin devant la maison : décor seul, à l'écart de l'allée (x 54 à 66), sans collision
 	placeFitted("sakura", CFrame.new(25, 3.5, 98), Vector3.new(5, 7, 5), folders["Décor"])
 	placeFitted("sakura", CFrame.new(95, 3.5, 98), Vector3.new(5, 7, 5), folders["Décor"])
@@ -460,11 +494,15 @@ local function buildHouse(root)
 		end
 		if string.sub(d.name, 1, 7) == "tableau" then
 			CollectionService:AddTag(deco, "Tableau")
-			local picture = ServerStorage:FindFirstChild("Decor")
 			local picNames = { "tableau", "tableau2", "tableau3", "tableau4", "tableau5", "tableau6" }
-			local template = picture and picture:FindFirstChild(picNames[paintingCount % #picNames + 1])
+			local picName = picNames[paintingCount % #picNames + 1]
 			paintingCount += 1
-			if template then
+			tryNow(function()
+				local picture = ServerStorage:FindFirstChild("Decor")
+				local template = picture and picture:FindFirstChild(picName)
+				if not template then
+					return false
+				end
 				local model = template:Clone()
 				model:PivotTo(deco.CFrame)
 				for _, part in ipairs(model:GetDescendants()) do
@@ -475,7 +513,8 @@ local function buildHouse(root)
 				end
 				deco.Transparency = 1
 				model.Parent = folders["Décor"]
-			end
+				return true
+			end)
 		end
 	end
 
@@ -493,6 +532,16 @@ local function buildHouse(root)
 			anchor.Parent = folders["Décor"]
 			if not fitModelOver(anchor, d.model) then
 				buildFallbackDecor(d.model, anchor)
+				local substitutes = anchor:GetChildren()
+				table.insert(late, function()
+					if not fitModelOver(anchor, d.model) then
+						return false
+					end
+					for _, piece in ipairs(substitutes) do
+						piece:Destroy()
+					end
+					return true
+				end)
 			end
 		end)
 	end
@@ -558,7 +607,9 @@ local function buildHouse(root)
 	end
 
 	-- Décor posé sur les meubles (ou modèles Studio de ServerStorage/Decor)
-	DecorKit.dress(folders["Décor"], Data.furniture, furnParts)
+	DecorKit.dress(folders["Décor"], Data.furniture, furnParts, function(fn)
+		table.insert(late, fn)
+	end)
 
 	-- Cachettes : une par armoire
 	for _, h in ipairs(Data.hiding) do
@@ -577,7 +628,9 @@ local function buildHouse(root)
 		elseif p.tag == "Lamp" then
 			-- Une ampoule par pièce ; l'allumage et la couleur sont tirés à chaque partie
 			local bulb = makeVisible(folders.Props, p.pos, p.size, p.name, LAMP_PALETTE[1], Enum.Material.Neon, "Lamp")
-			placeDecorModel("lampe plafond", p.pos, bulb)
+			tryNow(function()
+				return placeDecorModel("lampe plafond", p.pos, bulb)
+			end)
 			bulb.Transparency = 0.2
 			local light = Instance.new("PointLight")
 			light.Range = 24
@@ -618,7 +671,9 @@ local function buildHouse(root)
 				Enum.Material.SmoothPlastic,
 				"TV"
 			)
-			placeDecorModel("télévision", p.pos, tv)
+			tryNow(function()
+				return placeDecorModel("télévision", p.pos, tv)
+			end)
 		elseif p.tag == "Tiroir" then
 			makeVisible(folders.Props, p.pos, p.size, p.name, Color3.fromRGB(110, 75, 50), Enum.Material.Wood, "Tiroir")
 		elseif p.tag == "Compteur" then
@@ -641,7 +696,9 @@ local function buildHouse(root)
 				Enum.Material.Wood,
 				"Horloge"
 			)
-			fitModelOver(clock, "horloge comtoise")
+			tryNow(function()
+				return fitModelOver(clock, "horloge comtoise")
+			end)
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(
 				folders.Props,
@@ -674,7 +731,9 @@ local function buildHouse(root)
 				"Phone"
 			)
 			phone:SetAttribute("Label", p.name)
-			placeDecorModel("téléphone", p.pos, phone)
+			tryNow(function()
+				return placeDecorModel("téléphone", p.pos, phone)
+			end)
 		elseif p.tag == "CaveDoor" then
 			makeVisible(
 				folders.Props,
@@ -695,7 +754,9 @@ local function buildHouse(root)
 				Enum.Material.Wood,
 				"Coffret"
 			)
-			fitModelOver(casket, "coffret ancien")
+			tryNow(function()
+				return fitModelOver(casket, "coffret ancien")
+			end)
 		elseif p.tag == "Mannequin" then
 			-- Mannequin : une pièce invisible porte l'invite et le pivot (Quests) ; le modèle y est soudé
 			local anchor = makeVisible(
@@ -708,7 +769,9 @@ local function buildHouse(root)
 				"Mannequin"
 			)
 			anchor.Transparency = 1
-			weldDecorModel("mannequin", anchor)
+			tryNow(function()
+				return weldDecorModel("mannequin", anchor)
+			end)
 		elseif p.tag == "Statue" then
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
 			local statue = makeVisible(
@@ -761,7 +824,9 @@ local function buildHouse(root)
 				Enum.Material.Metal,
 				"Key"
 			)
-			fitModelOver(key, "clé or")
+			tryNow(function()
+				return fitModelOver(key, "clé or")
+			end)
 		elseif p.tag == "ExitDoor" then
 			local door = makeVisible(
 				folders.Props,
@@ -1104,20 +1169,22 @@ local function placeStandaloneDecor(root)
 		return
 	end
 	for _, entry in ipairs(STANDALONE_DECOR) do
-		local template = ServerStorage:FindFirstChild("Decor") and ServerStorage.Decor:FindFirstChild(entry[1])
-		if template then
-			pcall(function()
-				local model = template:Clone()
-				model:PivotTo(CFrame.new(entry[2], entry[3], entry[4]))
-				for _, d in ipairs(model:GetDescendants()) do
-					if d:IsA("BasePart") then
-						d.Anchored = true
-						d.CanCollide = false
-					end
+		tryNow(function()
+			local template = ServerStorage:FindFirstChild("Decor") and ServerStorage.Decor:FindFirstChild(entry[1])
+			if not template then
+				return false
+			end
+			local model = template:Clone()
+			model:PivotTo(CFrame.new(entry[2], entry[3], entry[4]))
+			for _, d in ipairs(model:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+					d.CanCollide = false
 				end
-				model.Parent = decor
-			end)
-		end
+			end
+			model.Parent = decor
+			return true
+		end)
 	end
 end
 

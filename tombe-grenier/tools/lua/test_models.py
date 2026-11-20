@@ -278,7 +278,8 @@ class TestModelColor(unittest.TestCase):
     def test_loader_paints_every_loaded_container(self):
         loader = read("src", "server", "ModelLoader.lua")
         self.assertIn("ModelColor.paint", loader)
-        self.assertIn("AssetLoad.install(todo, loadAndPaint, folder)", loader)
+        self.assertIn("AssetLoad.install", loader)
+        self.assertIn("return loadAndPaint(", loader)  # chaque chargement parallèle passe par la peinture
         self.assertIn("ModelLoader.loadWithTimeout = loadAndPaint", loader)
 
 

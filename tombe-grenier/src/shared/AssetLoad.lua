@@ -13,6 +13,9 @@ local UNSAFE = {
 	ModuleScript = true,
 	RemoteEvent = true,
 	BindableEvent = true,
+	RemoteFunction = true,
+	BindableFunction = true,
+	UnreliableRemoteEvent = true,
 }
 
 -- Retire les objets dangereux du modèle. Retourne le nombre retiré.

@@ -109,7 +109,7 @@ class TestCatalogModels(unittest.TestCase):
         kit = read("src", "server", "DecorKit.lua")
         self.assertIn("DecorKit.ALIASES", kit)
         self.assertIn("RECIPES[f.name]", kit)  # sans modèle : objets de substitution lisibles
-        self.assertIn("furnParts[i].Transparency = 1", kit)  # la boîte garde la collision quand un modèle la remplace
+        self.assertIn("furnPart.Transparency = 1", kit)  # la boîte garde la collision quand un modèle la remplace
 
     def test_catalog_ids_are_configured(self):
         cfg = read("src", "shared", "Config.lua")

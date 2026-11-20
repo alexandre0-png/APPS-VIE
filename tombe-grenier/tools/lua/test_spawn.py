@@ -170,12 +170,12 @@ class TestServerOrder(unittest.TestCase):
 
     def test_autoload_off_before_anything_that_yields(self):
         i = self.init.index("CharacterAutoLoads = false")
-        for later in ("ModelLoader.ensure()", "MapBuilder.build()", "MonsterAI.ensureModel()", "Hub.build()"):
+        for later in ("MapBuilder.build", "ModelLoader.start", "Hub.build"):
             self.assertLess(i, self.init.index(later), later)
 
     def test_ready_only_after_map_and_spawn_exist(self):
         self.assertIn("Respawn.setReady(activeSpawn())", self.init)
-        self.assertLess(self.init.index("MapBuilder.build()"), self.init.index("Respawn.setReady(activeSpawn())"))
+        self.assertLess(self.init.index("MapBuilder.build"), self.init.index("Respawn.setReady(activeSpawn())"))
         self.assertIn("Config.Spawn.ReadyTimeout", self.init)
         self.assertIn("SpawnSafety.start(activeSpawn", self.init)
 
@@ -226,7 +226,7 @@ class TestSafetyAndReturnPath(unittest.TestCase):
         self.assertLess(enter.index('role == "game"'), enter.index("setSpawns(true)"))
         # au retour, le hub a son propre point d'apparition actif, construit avant l'arrivée des joueurs
         hub_init = read("src", "hub", "init.server.lua")
-        self.assertLess(hub_init.index("pcall(Hub.build)"), hub_init.index("Hub.enter()"))
+        self.assertLess(hub_init.index("pcall(Hub.build)"), hub_init.index("pcall(Hub.enter)"))
         self.assertIn("HubSpawn", hub)
         self.assertRegex(hub, r"spawn\.Neutral = true")
 

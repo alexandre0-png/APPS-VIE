@@ -208,49 +208,59 @@ local function placeModel(template, parent, x, y, z, target)
 	model.Parent = parent
 end
 
--- Pose le décor. furnParts[i] : partie créée pour furniture[i] ; cachée (collision gardée)
--- quand un modèle la remplace.
-function DecorKit.dress(parent, furniture, furnParts)
+-- Modèle chargé qui habille ce meuble (spécifique à la pièce, ou du même nom, ou alias) : nom retenu et modèle, ou nil
+local function resolveTemplate(f)
+	-- Une grande bibliothèque (plus de 8 studs de large) prend le modèle dédié
+	local modelName = (f.name == "bibliothèque" and f.x1 - f.x0 > 8) and "grande bibliothèque" or f.name
+	local roomModels = f.room and DecorKit.ROOM_MODELS[f.room]
+	for _, candidate in ipairs({
+		roomModels and roomModels[f.name] or "",
+		modelName,
+		DecorKit.ALIASES[modelName] or "",
+	}) do
+		if candidate ~= "" and studioModel(candidate) then
+			return studioModel(candidate), candidate
+		end
+	end
+	return nil, nil
+end
+
+local function placeFurniture(parent, f, template, chosen, furnPart)
+	local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
+	local cx, cz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2
+	-- Bibliothèque Blender : taille mesurée, orientation vers l'intérieur de la pièce (ModelPlace) ; repli : ajustement simple
+	local placed = nil
+	if ModelFit.PLANS[chosen] then
+		placed = ModelPlace.fit({
+			name = chosen,
+			centre = Vector3.new(cx, f.y0, cz),
+			bottomY = f.y0,
+			target = { target.X, target.Y, target.Z },
+			parent = parent,
+			roomCentre = roomCentreOf(f.room),
+		})
+	end
+	if not placed then
+		placeModel(template, parent, cx, f.y0, cz, target)
+	end
+	if furnPart then
+		furnPart.Transparency = 1
+		furnPart.CastShadow = false
+	end
+end
+
+-- Pose le décor. furnParts[i] : partie créée pour furniture[i] ; cachée (collision gardée) quand un modèle la remplace.
+-- registerLate(fn) : les modèles se chargent après la carte ; pour un meuble sans modèle (objets de substitution posés),
+-- fn() habillera le meuble avec son modèle dès qu'il est chargé et retirera les objets de substitution.
+-- Un meuble qui porte des livres lisibles garde ses livres (ils font partie d'une énigme).
+function DecorKit.dress(parent, furniture, furnParts, registerLate)
 	local rng = Rng.new(SEED)
 	for i, f in ipairs(furniture) do
-		-- Une grande bibliothèque (plus de 8 studs de large) prend le modèle dédié
-		local modelName = (f.name == "bibliothèque" and f.x1 - f.x0 > 8) and "grande bibliothèque" or f.name
-		local roomModels = f.room and DecorKit.ROOM_MODELS[f.room]
-		local chosen = nil
-		for _, candidate in ipairs({
-			roomModels and roomModels[f.name] or "",
-			modelName,
-			DecorKit.ALIASES[modelName] or "",
-		}) do
-			if candidate ~= "" and studioModel(candidate) then
-				chosen = candidate
-				break
-			end
-		end
-		local template = chosen and studioModel(chosen)
+		local template, chosen = resolveTemplate(f)
 		if template then
-			local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
-			local cx, cz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2
-			-- Bibliothèque Blender : taille mesurée, orientation vers l'intérieur de la pièce (ModelPlace) ; repli : ajustement simple
-			local placed = nil
-			if ModelFit.PLANS[chosen] then
-				placed = ModelPlace.fit({
-					name = chosen,
-					centre = Vector3.new(cx, f.y0, cz),
-					bottomY = f.y0,
-					target = { target.X, target.Y, target.Z },
-					parent = parent,
-					roomCentre = roomCentreOf(f.room),
-				})
-			end
-			if not placed then
-				placeModel(template, parent, cx, f.y0, cz, target)
-			end
-			if furnParts and furnParts[i] then
-				furnParts[i].Transparency = 1
-				furnParts[i].CastShadow = false
-			end
+			placeFurniture(parent, f, template, chosen, furnParts and furnParts[i])
 		else
+			local generated, hasBook = {}, false
 			local byRoom = f.room and ROOM_RECIPES[f.room]
 			local recipe = (byRoom and byRoom[f.name]) or RECIPES[f.name]
 			if recipe then
@@ -263,12 +273,29 @@ function DecorKit.dress(parent, furniture, furnParts)
 						placeModel(itemModel, parent, x, f.y1, z, ITEM_TARGETS[kind])
 					else
 						local prop = makeProp(parent, kind, rng, x, f.y1, z)
+						table.insert(generated, prop)
 						if kind == "livre" and not inLockedRoom(f) then
 							-- Livres lisibles : les marque-pages sont tirés à chaque partie (Quests.setup)
 							CollectionService:AddTag(prop, "Livre")
+							hasBook = true
 						end
 					end
 				end
+			end
+			if registerLate and not hasBook then
+				registerLate(function()
+					local later, laterName = resolveTemplate(f)
+					if not later then
+						return false
+					end
+					for _, g in ipairs(generated) do
+						if g.Parent then
+							g:Destroy()
+						end
+					end
+					placeFurniture(parent, f, later, laterName, furnParts and furnParts[i])
+					return true
+				end)
 			end
 		end
 	end

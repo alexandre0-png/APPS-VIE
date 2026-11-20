@@ -2,6 +2,14 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Démarrage robuste (correctif prioritaire : le jeu ne se lançait plus)
+- Cause : le chargement des modèles (`ModelLoader.ensure`, `MonsterAI.ensureModel`) était synchrone et séquentiel AVANT la construction de la carte. Pendant ce temps `CharacterAutoLoads` restait faux, donc aucun joueur n'avait de personnage tant que tous les modèles n'étaient pas passés (ou expirés un par un).
+- Les modèles se chargent maintenant en arrière-plan APRÈS la carte et le point d'apparition (`ModelLoader.start`) : tâches parallèles (`Config.Assets.Workers`, 8), plafond global `Config.Assets.GlobalTimeout` (10 s), pcall partout. Une pièce déjà construite est habillée ensuite (`MapBuilder.applyLateModels`) ; sans modèle, la pièce de remplacement reste.
+- Script serveur de partie : chaque étape dans un pcall (`boot`), traces `[Boot] étape ok (x s)` ou `[Boot] étape ERREUR`. Script du hub : mêmes traces (`[Boot] hub construction ok`, `hub accueil ok`).
+- Client : chaque gestionnaire, boucle et module (Cinematic) est isolé ; une erreur donne `[Client] module X : erreur` sans bloquer le HUD ni les autres modules.
+- Modèles : `AssetLoad.sanitize` retire aussi RemoteFunction, BindableFunction, UnreliableRemoteEvent.
+- Tests : `tools/lua/client_env.py` (faux client Roblox complet) et `test_client.py` exécutent les vrais scripts client (événements serveur, entrées, charges malformées, 60 s) et échouent sur toute erreur, y compris absorbée ; `test_boot_async.py` (jeu démarré alors que chaque modèle bloque, plafond global, traces `[Boot]`).
+
 ### Qualité : retours, accessibilité (lot 3)
 - Retours sonores avec des sons déjà déclarés dans `AudioManifest` (aucun identifiant inventé) : porte qui bouge (`porte_grince`, silencieux à la mise en place de la partie), ramassage (`clic_lampe`), étape accomplie (`cachette`). Test : tout `Audio.play("...")` du code existe dans le manifeste, et tout identifiant du manifeste est valide.
 - Mobile et manette : bouton « Journal » (touche J, croix directionnelle Bas), boutons tactiles en deux colonnes à l'échelle de l'écran (sept boutons ne tenaient pas sur un téléphone en paysage), tests d'accessibilité (une touche clavier, une touche manette et un bouton tactile par action, ordres uniques).
