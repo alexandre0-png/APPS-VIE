@@ -33,3 +33,31 @@ Cartoon glossy : contours foncés épais, dégradés saturés, reflet brillant, 
 - Claude-Mem (thedotmack/claude-mem), gstack (garrytan/gstack), Graphify (Graphify-Labs/graphify) : existent, installables dans Claude Code LOCAL de l'utilisateur seulement (GitHub bloqué depuis le conteneur). À examiner avant installation.
 - Agent Reach : existe (repo populaire), commande exacte non vérifiée.
 - Plugins Roblox Studio vus (Ropilot, VFX Studio) : à installer par l'utilisateur depuis le Creator Store.
+
+## Lot 2 (6 vidéos + 9 images, 2026-11-20)
+### Vidéos observées
+- **Crazz, « Claude design »** : créatures voxel 3D (rhinocéros bleu, araignée violette, ours de glace, crocodile vert, mammouth, dragon…) avec un bouton « Download all 12 for Roblox (.glb) ». Idée : 12 créatures stylisées exportées en .glb.
+- **jubydandev, « all with one prompt »** : créatures voxel animées (dragon aux lasers, tour de dragon turquoise, éléphant à engrenages, aigle doré) avec onglets Idle / Move / Ability / Sit. Animations d'état par créature.
+- **myre.vfx, « Claude + Blender makes you tuff aura »** : auras de personnage : lotus vert, horloge à engrenages, tori rose avec pétales, constellations et planètes, ailes d'ange dorées, éclipse violette. Tous sur un cercle runique au sol avec particules.
+- **goofystudiodev, « One Prompt, Claude Opus 5.5 »** : ouverture de caisse « RARE CRATE » sur un piédestal hexagonal, lumières chaudes, créatures colorées autour.
+- **cordhub_, « Claude + Codex, 15 min »** : grande carte verte vue de haut : îles, rivières, chemins, falaises, forêts.
+- **cordhub_, « Codex COOKED »** : carte insulaire en mesh Blender avec cascades, ponts en bois, cabanes, moulin ; prompt unique (fichier MASTER_PROMPT) ; import dans Studio, échelle corrigée par la suite.
+### Images
+- Grande planche d'icônes UI (argent, gemme, étoile, éclair, marteau, cœur, œuf, coffre, médailles or/argent/bronze, foule).
+- Icônes de buffs (flèches, crâne, cible, scie, musique, x2, sablier) et icônes rondes lumineuses à bord coloré (feu, éclair, épée, bouclier, tourbillons).
+- Piles de pièces par palier, boutons pixel art (vert/bleu/orange/rouge), tuiles arrondies en dégradé, bandeaux de rareté (jaune, rouge, vert, violet, cyan, arc-en-ciel).
+- Capture d'un post listant 5 skills à installer : roblox-luau, roblox-game-skill, roblox-ai-skills, roblox-dev-skill, roblox-vfx, plus le MCP de Studio activé.
+
+### Skills vérifiés (existent, GitHub public)
+- `brockmartin/roblox-game-skill` : pièges listés (perte de données DataStore, monnaie côté client, ProcessReceipt, fuites mémoire, flood de RemoteEvent, BindToClose), 7 workflows, modèles de genres. Déjà couvert par nos revues de robustesse.
+- `nonlooped/roblox-suite` : skills animation, audio, core, datastores, gamepasses, mcp, networking, npcs, open-cloud, physics, rojo, teleport, testing, user-interfaces, vfx. Installation : `npx skills add nonlooped/roblox-suite` (à examiner avant).
+- `SyphoDev-yt/roblox-ai-skills` : pack de skills (code, UI, maps, modèles 3D, textures, VFX, SFX, animation).
+- Décision : ne pas installer ces skills dans les sessions cloud (instructions tierces qui influencent le comportement, GitHub bloqué). Adopter leurs bonnes pratiques par notes. L'utilisateur peut les installer dans son Claude Code local après lecture.
+
+### À appliquer
+- Auras et révélations : cercle runique au sol (Beam, ParticleEmitter, Trail), ailes, halo, constellations ; couleur selon rareté.
+- Ouverture de caisse sur piédestal avec lumières et créatures.
+- Pets/créatures de Chipe-Œufs en voxel stylisé (pistes Blender : 12 créatures, export FBX).
+- Carte : îles, rivières, ponts, cascades, cabanes, chemins lisibles.
+- Rareté en bandeaux colorés (jaune, rouge, vert, violet, cyan, arc-en-ciel).
+- Animations d'état par créature : idle, move, ability.
