@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX10"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX9"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX11"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -412,6 +412,37 @@ function Config.eggAssetId(tier)
 		return id
 	end
 	return nil
+end
+
+---------------------------------------------------------------- Révélation d'œuf : étoile, anneaux, rayons, « 1 sur N »
+-- tiers[t] : style du pet de rareté t (rayons, anneaux, secousse 0-1, flash 0-1, particules). secret : effet distinct (lave et magenta) quand le
+-- tirage est plus rare que oneInAtLeast. reducedFactor : option mobile. Tout est dessiné par le client en UI (Frames, UIGradient, UIStroke).
+Config.REVEAL = {
+	Enabled = true,
+	forceReduced = false, -- true : effets réduits partout (sinon : seulement sur appareil tactile sans clavier)
+	reducedFactor = 0.5,
+	tiers = {
+		{ rays = 6, rings = 1, shake = 0, flash = 0, particles = 4 },
+		{ rays = 8, rings = 1, shake = 0.1, flash = 0.15, particles = 8 },
+		{ rays = 10, rings = 2, shake = 0.25, flash = 0.3, particles = 14 },
+		{ rays = 12, rings = 2, shake = 0.5, flash = 0.5, particles = 20 },
+		{ rays = 14, rings = 3, shake = 0.8, flash = 0.7, particles = 28 },
+		{ rays = 16, rings = 3, shake = 1, flash = 0.85, particles = 36 },
+	},
+	secret = { oneInAtLeast = 20000, color = Color3.fromRGB(255, 70, 20), rays = 16, rings = 4, shake = 1, flash = 0.95, particles = 30, label = "ŒUF SECRET" },
+}
+
+-- « 1 sur N » : espaces entre les milliers, une décimale sous 10.
+function Config.fmtOdds(n)
+	if type(n) ~= "number" or n ~= n or n <= 0 or n == math.huge then
+		return ""
+	end
+	if n < 10 then
+		return "1 sur " .. string.format("%.1f", n):gsub("%.", ",")
+	end
+	local s = string.format("%d", math.floor(n + 0.5))
+	local out = s:reverse():gsub("(%d%d%d)", "%1 "):reverse():gsub("^ ", "")
+	return "1 sur " .. out
 end
 
 ---------------------------------------------------------------- Animations (client)
@@ -1943,8 +1974,80 @@ function Assets.new(Config, deps)
 end
 
 return Assets
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+-- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
+-- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
+local Reveal = {}
+
+-- Probabilité d'obtenir exactement (espèce p, taille s, mutation m) d'un œuf de rareté eggTier. guaranteed = tirage de pitié.
+function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+	local def = Config.PETS[p]
+	if not def or not Config.SIZES[s] or not Config.MUTS[m] then
+		return 0
+	end
+	local pTier
+	if guaranteed and eggTier < #Config.TIERS then
+		pTier = def.tier == eggTier + 1 and 1 or 0
+	else
+		local w = Rules.tierWeights(eggTier, upPoints)
+		local total = w[1] + w[2] + w[3]
+		local idx = def.tier - eggTier + 2
+		pTier = (idx >= 1 and idx <= 3 and total > 0) and (math.max(w[idx], 0) / total) or 0
+	end
+	if pTier == 0 then
+		return 0
+	end
+	local species = 0
+	for _, q in ipairs(Config.PETS) do
+		if q.tier == def.tier then
+			species = species + 1
+		end
+	end
+	local function share(weights, index)
+		local total = 0
+		for _, x in ipairs(weights) do
+			total = total + math.max(x, 0)
+		end
+		return total > 0 and math.max(weights[index], 0) / total or 0
+	end
+	return pTier * (1 / species) * share(Rules.sizeWeights(), s) * share(Rules.mutWeights(alienBoost), m)
+end
+
+-- « 1 sur N » : N = 1 / probabilité (math.huge si impossible).
+function Reveal.oneIn(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+	local pr = Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+	return pr > 0 and 1 / pr or math.huge
+end
+
+-- Style de la révélation selon la rareté du pet et la probabilité réelle. Un tirage plus rare que Config.REVEAL.secret.oneInAtLeast
+-- déclenche l'effet « œuf secret ». reduced = option mobile (moins de rayons, de particules et de secousse).
+function Reveal.style(Config, petTier, oneIn, reduced)
+	local R = Config.REVEAL
+	local base = R.tiers[math.min(math.max(petTier, 1), #R.tiers)]
+	local st = {}
+	for k, v in pairs(base) do
+		st[k] = v
+	end
+	st.secret = oneIn ~= nil and oneIn >= R.secret.oneInAtLeast
+	if st.secret then
+		for k, v in pairs(R.secret) do
+			st[k] = v
+		end
+	end
+	st.color = st.secret and R.secret.color or Config.TIERS[math.min(math.max(petTier, 1), #Config.TIERS)].color
+	if reduced then
+		local k = R.reducedFactor
+		st.rays = math.max(4, math.floor(st.rays * k))
+		st.particles = math.floor(st.particles * k)
+		st.shake = st.shake * k
+		st.rings = math.max(1, math.floor(st.rings * k + 0.5))
+	end
+	return st
+end
+
+return Reveal
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX17"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX11"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX18"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX12"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1961,6 +2064,7 @@ if Config.Game.roleFor(game.PlaceId) == "hub" then
 end
 local TeleportService = game:GetService("TeleportService")
 local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
+local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -2072,7 +2176,8 @@ end
 
 local function rollPet(s, eggTier, guaranteed)
 	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil)
-	return Rules.rollPet(eggTier, up, evKey() == "alien", rnd, guaranteed)
+	local alien = evKey() == "alien"
+	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
@@ -2531,7 +2636,8 @@ function hatch(s, i)
 		return
 	end
 	local guaranteed = sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
-	local p = rollPet(s, sl.t, guaranteed)
+	local p, upPoints, alienBoost = rollPet(s, sl.t, guaranteed)
+	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed)
 	if p.tier > sl.t then
 		d.pity = 0
 	elseif sl.t < #Config.TIERS then
@@ -2561,7 +2667,7 @@ function hatch(s, i)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end
@@ -3631,7 +3737,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -4025,7 +4131,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -4925,7 +5031,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -5069,7 +5175,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -5082,7 +5188,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -5423,7 +5529,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX23"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX22"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX18"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX25"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX24"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX19"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5439,6 +5545,8 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
+local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
+local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
@@ -5583,12 +5691,13 @@ local function toast(msg)
 end
 
 ---------------------------------------------------------------- Pop d'éclosion
-local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false }, gui)
+local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false, ZIndex = 10 }, gui)
 local popScale = make("UIScale", { Scale = 1 }, pop)
 local popRarity = text(pop, { Size = UDim2.new(1, 0, 0, 30), TextSize = 22, Text = "", TextStrokeTransparency = 0 })
 local popEmoji = text(pop, { Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 0, 110), TextSize = 96, Text = "" })
 local popName = text(pop, { Position = UDim2.fromOffset(0, 142), Size = UDim2.new(1, 0, 0, 36), TextSize = 28, Text = "", TextStrokeTransparency = 0 })
 local popInfo = text(pop, { Position = UDim2.fromOffset(0, 180), Size = UDim2.new(1, 0, 0, 28), TextSize = 20, Text = "", TextStrokeTransparency = 0 })
+local popOdds = text(pop, { Position = UDim2.fromOffset(0, 208), Size = UDim2.new(1, 0, 0, 24), TextSize = 16, Text = "", TextColor3 = COL.muted, TextStrokeTransparency = 0.4 })
 local popToken = 0
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
 
@@ -5608,31 +5717,44 @@ local function hatchPop(info)
 	popInfo.Text = tier.name .. "  ·  +" .. fmt(info.inc) .. "/s"
 	pop.Visible = true
 	popScale.Scale = 0.2
-	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
-	if big then
-		flash.BackgroundColor3 = Config.MUTS[info.m].color or tier.color
-		flash.BackgroundTransparency = 0.55
-		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
-		playSound("rare")
-	else
-		playSound("hatch")
+	-- Révélation par rareté : style calculé (Reveal.style) d'après la rareté et la probabilité réelle « 1 sur N » envoyée par le serveur.
+	local oneIn = type(info.oneIn) == "number" and info.oneIn > 0 and info.oneIn or nil
+	popOdds.Text = oneIn and Config.fmtOdds(oneIn) or ""
+	local reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+	local st = Reveal.style(Config, def.tier, oneIn, reduced)
+	if st.secret then
+		popRarity.Text = "✦ " .. st.label .. " ✦"
+		popRarity.TextColor3 = st.color
+		popRarity.TextSize = 26
 	end
-	if def.tier >= 5 then
+	if Config.REVEAL.Enabled then
+		RevealFx.play(gui, st, UDim2.new(0.5, 0, 0.3, -35))
+	end
+	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
+	if st.flash > 0 then
+		flash.BackgroundColor3 = Config.MUTS[info.m].color or st.color
+		flash.BackgroundTransparency = 1 - 0.7 * st.flash
+		TweenService:Create(flash, TweenInfo.new(0.35 + 0.5 * st.flash), { BackgroundTransparency = 1 }):Play()
+	end
+	playSound((big or st.secret) and "rare" or "hatch")
+	if st.shake > 0.2 then -- secousse de la caméra proportionnelle à la rareté
 		task.spawn(function()
 			local char = player.Character
 			local hum = char and char:FindFirstChildOfClass("Humanoid")
 			if not hum then
 				return
 			end
-			for _ = 1, 14 do
-				hum.CameraOffset = Vector3.new((math.random() - 0.5) * 0.7, (math.random() - 0.5) * 0.7, 0)
+			local frames = math.floor(8 + 12 * st.shake)
+			for k = 1, frames do
+				local amp = 0.8 * st.shake * (1 - k / frames)
+				hum.CameraOffset = Vector3.new((math.random() - 0.5) * amp, (math.random() - 0.5) * amp, 0)
 				task.wait(0.03)
 			end
 			hum.CameraOffset = Vector3.zero
 		end)
 	end
 	TweenService:Create(popScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(2.6, function()
+	task.delay(st.secret and 3.4 or 2.6, function()
 		if token == popToken then
 			pop.Visible = false
 		end
@@ -6494,7 +6616,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX19"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX20"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -7033,7 +7155,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX20"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -7489,7 +7611,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX22"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -7543,5 +7665,106 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+-- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
+-- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
+-- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local RevealFx = {}
+
+local DURATION = 2.6
+
+local function make(class, props, parent)
+	local o = Instance.new(class)
+	for k, v in pairs(props) do
+		o[k] = v
+	end
+	o.Parent = parent
+	return o
+end
+
+local function tween(obj, seconds, goal, style, dir)
+	TweenService:Create(obj, TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal):Play()
+end
+
+-- Nombre d'objets créés pour un style (plafond de performance, vérifié par les tests).
+function RevealFx.cost(style)
+	-- conteneur 1 + halo 3 (Frame, UICorner, UIGradient) + rayons 1 + 2 par rayon + 3 par anneau + étoile 1 + 1 par étincelle + libellé secret
+	return 6 + 2 * style.rays + 3 * style.rings + style.particles + ((style.secret and style.label) and 1 or 0)
+end
+
+-- Joue l'effet au centre (position `center`, UDim2) de `parent` (ScreenGui). Retourne le conteneur (détruit tout seul), ou nil en cas d'erreur.
+function RevealFx.play(parent, style, center)
+	local ok, root = pcall(function()
+		local color = style.color
+		local box = make("Frame", {
+			Name = "RevealFx", AnchorPoint = Vector2.new(0.5, 0.5), Position = center or UDim2.fromScale(0.5, 0.3), Size = UDim2.fromOffset(10, 10),
+			BackgroundTransparency = 1, ZIndex = 1, Active = false,
+		}, parent)
+		-- halo : disque dégradé (opaque au centre, transparent au bord)
+		local glow = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(60, 60), BackgroundColor3 = color, BackgroundTransparency = 0.1, ZIndex = 1 }, box)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, glow)
+		make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.85) }), Rotation = 90 }, glow)
+		tween(glow, 0.5, { Size = UDim2.fromOffset(300, 300), BackgroundTransparency = 0.7 }, Enum.EasingStyle.Back)
+		tween(glow, DURATION, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+		-- rayons : conteneur tournant
+		local spin = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(2, 2), BackgroundTransparency = 1, ZIndex = 2 }, box)
+		for i = 1, style.rays do
+			local ray = make("Frame", {
+				AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(i % 2 == 0 and 7 or 4, i % 2 == 0 and 250 or 190),
+				BackgroundColor3 = color, BackgroundTransparency = 0.15, Rotation = (i - 1) * 360 / style.rays, ZIndex = 2,
+			}, spin)
+			make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }), Rotation = 90 }, ray)
+		end
+		spin.Rotation = -20
+		tween(spin, DURATION, { Rotation = 70 }, Enum.EasingStyle.Sine)
+		-- anneaux
+		for i = 1, style.rings do
+			local ring = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(30, 30), BackgroundTransparency = 1, ZIndex = 3 }, box)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, ring)
+			local stroke = make("UIStroke", { Color = color, Thickness = 5, Transparency = 0.1 }, ring)
+			task.delay((i - 1) * 0.18, function()
+				pcall(function()
+					tween(ring, 0.9, { Size = UDim2.fromOffset(240 + i * 70, 240 + i * 70) }, Enum.EasingStyle.Quint)
+					tween(stroke, 0.9, { Transparency = 1, Thickness = 1 })
+				end)
+			end)
+		end
+		-- étoile centrale : « ★ » avec contour sombre épais et reflet
+		local star = make("TextLabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, Text = "★", TextScaled = true, Font = Enum.Font.GothamBold,
+			TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.45), TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(30, 20, 40), ZIndex = 5, Rotation = -30,
+		}, box)
+		tween(star, 0.55, { Size = UDim2.fromOffset(150, 150), Rotation = 0 }, Enum.EasingStyle.Elastic)
+		task.delay(DURATION - 0.7, function()
+			pcall(function()
+				tween(star, 0.7, { Size = UDim2.fromOffset(40, 40), TextTransparency = 1, TextStrokeTransparency = 1 })
+			end)
+		end)
+		-- étincelles lancées dans toutes les directions
+		for i = 1, style.particles do
+			local a = (i / style.particles) * math.pi * 2 + (i % 3) * 0.3
+			local dist = 150 + (i % 5) * 38
+			local spark = make("TextLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, Text = i % 2 == 0 and "✦" or "✨",
+				TextScaled = true, TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.3), Font = Enum.Font.GothamBold, ZIndex = 4,
+			}, box)
+			tween(spark, 0.9 + (i % 4) * 0.15, { Position = UDim2.fromOffset(math.cos(a) * dist, math.sin(a) * dist), TextTransparency = 1 })
+		end
+		if style.secret and style.label then
+			make("TextLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(0, -150), Size = UDim2.fromOffset(360, 36), BackgroundTransparency = 1, Text = style.label,
+				TextScaled = true, Font = Enum.Font.GothamBlack, TextColor3 = color, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(50, 10, 0), ZIndex = 6,
+			}, box)
+		end
+		Debris:AddItem(box, DURATION + 0.6)
+		return box
+	end)
+	return ok and root or nil
+end
+
+return RevealFx
 ]]></ProtectedString></Properties></Item></Item></Item>
 </roblox>

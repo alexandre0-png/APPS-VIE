@@ -1775,6 +1775,117 @@ do
 	A.Enabled = saved
 end
 
+-- Révélation d'œuf : « 1 sur N » = probabilité réelle ---------------------------------------------------------------------
+do
+	suite("Révélation d'œuf : probabilité affichée égale à la probabilité réelle")
+	local Reveal = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Reveal.lua"), { debugName = "Reveal" })()
+	local function total(eggTier, up, alien, guaranteed)
+		local sum = 0
+		for p = 1, #Config.PETS do
+			for sz = 1, #Config.SIZES do
+				for mu = 1, #Config.MUTS do
+					sum = sum + Reveal.probability(Config, Rules, eggTier, up, alien, p, sz, mu, guaranteed)
+				end
+			end
+		end
+		return sum
+	end
+	local sumsOk = true
+	for tier = 1, #Config.TIERS do
+		for _, up in ipairs({ 0, 12, 40, 70 }) do
+			for _, alien in ipairs({ false, true }) do
+				if math.abs(total(tier, up, alien, false) - 1) > 1e-9 then
+					sumsOk = false
+				end
+			end
+		end
+		if tier < #Config.TIERS and math.abs(total(tier, 12, false, true) - 1) > 1e-9 then
+			sumsOk = false
+		end
+	end
+	check("Reveal : les probabilités de tous les résultats somment à 1 (6 raretés, 4 niveaux de chance, événement alien, pitié)", sumsOk)
+	-- fréquences simulées avec le VRAI tirage de Rules.rollPet comparées aux probabilités annoncées
+	local function freqTest(label, eggTier, up, alien, guaranteed, n)
+		local seed = 4242 + eggTier * 7
+		local function rnd()
+			seed = (seed * 1103515245 + 12345) % 2147483648
+			return seed / 2147483648
+		end
+		local counts = {}
+		for _ = 1, n do
+			local r = Rules.rollPet(eggTier, up, alien, rnd, guaranteed)
+			local key = r.p .. ":" .. r.s .. ":" .. r.m
+			counts[key] = (counts[key] or 0) + 1
+		end
+		local worst, ok = 0, true
+		for p = 1, #Config.PETS do
+			for sz = 1, #Config.SIZES do
+				for mu = 1, #Config.MUTS do
+					local pr = Reveal.probability(Config, Rules, eggTier, up, alien, p, sz, mu, guaranteed)
+					local obs = (counts[p .. ":" .. sz .. ":" .. mu] or 0) / n
+					local sigma = math.sqrt(math.max(pr * (1 - pr), 1e-12) / n)
+					if pr == 0 and obs > 0 then
+						ok = false
+					end
+					if sigma > 0 and pr > 0.0005 then
+						worst = math.max(worst, math.abs(obs - pr) / sigma)
+					end
+				end
+			end
+		end
+		check("Reveal : fréquences simulées = probabilités annoncées (" .. label .. ", écart max " .. string.format("%.1f", worst) .. " sigma)", ok and worst < 5)
+	end
+	freqTest("œuf Épique, chance de base", 3, Rules.upPoints(0, false, false, false), false, false, 150000)
+	freqTest("œuf Commun, chance +40 et biome alien", 1, 40, true, false, 150000)
+	freqTest("œuf Légendaire, pitié", 4, 12, false, true, 150000)
+	freqTest("œuf Cosmique (rareté max)", 6, 12, false, false, 150000)
+	check("Reveal.oneIn = 1 / probabilité", (function()
+		local pr = Reveal.probability(Config, Rules, 3, 12, false, 7, 2, 1, false)
+		local n = Reveal.oneIn(Config, Rules, 3, 12, false, 7, 2, 1, false)
+		return pr > 0 and math.abs(n * pr - 1) < 1e-9
+	end)())
+	check("Reveal : résultat impossible = probabilité 0 et « jamais » (rareté hors de portée de l'œuf)", Reveal.probability(Config, Rules, 1, 12, false, 16, 2, 1, false) == 0 and Reveal.oneIn(Config, Rules, 1, 12, false, 16, 2, 1, false) == math.huge)
+	check("Reveal : indices invalides sans erreur", Reveal.probability(Config, Rules, 3, 12, false, 999, 1, 1, false) == 0 and Reveal.probability(Config, Rules, 3, 12, false, 1, 99, 1, false) == 0)
+	-- textes
+	check("fmtOdds : espaces entre milliers, entier, décimale sous 10", Config.fmtOdds(1008) == "1 sur 1 008" and Config.fmtOdds(1000000) == "1 sur 1 000 000" and Config.fmtOdds(12.4) == "1 sur 12" and Config.fmtOdds(3.25) == "1 sur 3,2" or Config.fmtOdds(3.25) == "1 sur 3,3")
+	check("fmtOdds : valeurs invalides -> chaîne vide", Config.fmtOdds(0) == "" and Config.fmtOdds(math.huge) == "" and Config.fmtOdds(0 / 0) == "" and Config.fmtOdds(nil) == "")
+	-- styles : progression monotone avec la rareté, secret distinct, mode réduit
+	local R = Config.REVEAL
+	local mono = true
+	for t = 2, #R.tiers do
+		local a, b = R.tiers[t - 1], R.tiers[t]
+		if b.rays < a.rays or b.rings < a.rings or b.shake < a.shake or b.flash < a.flash or b.particles < a.particles then
+			mono = false
+		end
+	end
+	check("REVEAL : 6 styles, intensité croissante avec la rareté", #R.tiers == #Config.TIERS and mono)
+	local common, cosmic = Reveal.style(Config, 1, 5, false), Reveal.style(Config, 6, 5, false)
+	check("Reveal.style : la couleur suit la rareté (gris commun, bleu rare, violet épique, orange légendaire)", common.color == Config.TIERS[1].color and Reveal.style(Config, 2, 5, false).color == Config.TIERS[2].color and Reveal.style(Config, 3, 5, false).color == Config.TIERS[3].color and Reveal.style(Config, 4, 5, false).color == Config.TIERS[4].color and cosmic.rays > common.rays)
+	local secret = Reveal.style(Config, 3, R.secret.oneInAtLeast, false)
+	check("Reveal.style : tirage au-delà du seuil = œuf secret distinct (couleur lave, plus d'anneaux, libellé)", secret.secret == true and secret.color == R.secret.color and secret.label == R.secret.label and secret.rings > R.tiers[3].rings and Reveal.style(Config, 3, R.secret.oneInAtLeast - 1, false).secret == false)
+	local reduced = Reveal.style(Config, 6, 5, true)
+	check("Reveal.style : option mobile = moins de rayons, de particules et de secousse (au moins 4 rayons)", reduced.rays < cosmic.rays and reduced.rays >= 4 and reduced.particles < cosmic.particles and reduced.shake < cosmic.shake and reduced.rings >= 1)
+	check("Reveal.style : rareté hors plage sans erreur", Reveal.style(Config, 0, 5, false).rays == R.tiers[1].rays and Reveal.style(Config, 99, 5, false).rays == R.tiers[#R.tiers].rays)
+	-- il existe de vrais tirages au-delà du seuil secret, et la plupart des tirages courants en dessous
+	local hasSecret, hasCommon = false, false
+	for p = 1, #Config.PETS do
+		for sz = 1, #Config.SIZES do
+			for mu = 1, #Config.MUTS do
+				for tier = 1, #Config.TIERS do
+					local n = Reveal.oneIn(Config, Rules, tier, 12, false, p, sz, mu, false)
+					if n ~= math.huge and n >= R.secret.oneInAtLeast then
+						hasSecret = true
+					end
+					if n ~= math.huge and n < 50 then
+						hasCommon = true
+					end
+				end
+			end
+		end
+	end
+	check("Reveal : des tirages réels dépassent le seuil de l'œuf secret, d'autres sont courants", hasSecret and hasCommon)
+end
+
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
 	suite("Sons : aucun identifiant inventé")
@@ -2049,6 +2160,49 @@ do
 	RT.dataStoreFail = nil
 	RT.removePlayer(p3)
 	RT.step(1)
+	end
+end
+
+-- RevealFx : exécution de l'effet de révélation dans le runtime factice ---------------------------------------------------------
+do
+	suite("RevealFx : effet de révélation (étoile, rayons, anneaux, étincelles) exécuté dans le runtime factice")
+	local Reveal = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Reveal.lua"), { debugName = "Reveal" })()
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = 0, hook = loopGuard })
+	if RT then
+		local created = 0
+		local env = {}
+		for k, v in pairs(RT.env) do
+			env[k] = v
+		end
+		env.Instance = { new = function(class)
+			created = created + 1
+			return RT.instance(class)
+		end }
+		local RevealFx = luau.load(fs.readFile("roblox/src/StarterPlayerScripts/RevealFx.lua"), { debugName = "RevealFx", environment = env })()
+		local gui = RT.instance("ScreenGui", "gui")
+		local worst, allOk, why = 0, true, ""
+		for tier = 1, #Config.TIERS do
+			for _, mode in ipairs({ { false, 5 }, { true, 5 }, { false, Config.REVEAL.secret.oneInAtLeast } }) do
+				local style = Reveal.style(Config, tier, mode[2], mode[1])
+				style.color = env.Color3.fromRGB(255, 176, 32)
+				created = 0
+				local ok, box = pcall(RevealFx.play, gui, style, nil)
+				local expected = RevealFx.cost(style)
+				if not ok or box == nil then
+					allOk, why = false, "tier " .. tier .. " : play a échoué"
+				elseif created ~= expected then
+					allOk, why = false, "tier " .. tier .. " : " .. created .. " objets pour un coût annoncé de " .. expected
+				end
+				worst = math.max(worst, created)
+			end
+		end
+		RT.step(4)
+		check("RevealFx : 18 effets (6 raretés x normal, mobile, secret) s'exécutent sans erreur, coûts annoncés exacts" .. (allOk and "" or " : " .. why), allOk and #RT.errors == 0)
+		check("RevealFx : plafond de performance (" .. worst .. " objets au maximum, <= 90)", worst <= 90)
+		local sMob = Reveal.style(Config, 6, 5, true)
+		local sFull = Reveal.style(Config, 6, 5, false)
+		check("RevealFx : le mode mobile coûte moins cher que le mode complet", RevealFx.cost(sMob) < RevealFx.cost(sFull))
+		check("RevealFx : style invalide -> nil sans erreur", RevealFx.play(gui, {}, nil) == nil)
 	end
 end
 

@@ -22,7 +22,7 @@ def item(cls, name, source=None, children=(), extra=""):
     return f'<Item class="{cls}" referent="RBX{next(ids)}"><Properties>{props}</Properties>{kids}</Item>'
 
 SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
-          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Assets", "Assets.lua")]
+          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua")]
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -51,7 +51,8 @@ game_tree = [
             item("LocalScript", "Client", read("StarterPlayerScripts/Client.client.lua")),
             item("LocalScript", "Animations", read("StarterPlayerScripts/Animations.client.lua")),
             item("LocalScript", "Cinematics", read("StarterPlayerScripts/Cinematics.client.lua")),
-            item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua"))])]),
+            item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua")),
+            item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua"))])]),
 ]
 
 hub_tree = [

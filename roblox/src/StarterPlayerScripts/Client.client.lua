@@ -14,6 +14,8 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
+local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
+local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
@@ -158,12 +160,13 @@ local function toast(msg)
 end
 
 ---------------------------------------------------------------- Pop d'éclosion
-local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false }, gui)
+local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false, ZIndex = 10 }, gui)
 local popScale = make("UIScale", { Scale = 1 }, pop)
 local popRarity = text(pop, { Size = UDim2.new(1, 0, 0, 30), TextSize = 22, Text = "", TextStrokeTransparency = 0 })
 local popEmoji = text(pop, { Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 0, 110), TextSize = 96, Text = "" })
 local popName = text(pop, { Position = UDim2.fromOffset(0, 142), Size = UDim2.new(1, 0, 0, 36), TextSize = 28, Text = "", TextStrokeTransparency = 0 })
 local popInfo = text(pop, { Position = UDim2.fromOffset(0, 180), Size = UDim2.new(1, 0, 0, 28), TextSize = 20, Text = "", TextStrokeTransparency = 0 })
+local popOdds = text(pop, { Position = UDim2.fromOffset(0, 208), Size = UDim2.new(1, 0, 0, 24), TextSize = 16, Text = "", TextColor3 = COL.muted, TextStrokeTransparency = 0.4 })
 local popToken = 0
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
 
@@ -183,31 +186,44 @@ local function hatchPop(info)
 	popInfo.Text = tier.name .. "  ·  +" .. fmt(info.inc) .. "/s"
 	pop.Visible = true
 	popScale.Scale = 0.2
-	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
-	if big then
-		flash.BackgroundColor3 = Config.MUTS[info.m].color or tier.color
-		flash.BackgroundTransparency = 0.55
-		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
-		playSound("rare")
-	else
-		playSound("hatch")
+	-- Révélation par rareté : style calculé (Reveal.style) d'après la rareté et la probabilité réelle « 1 sur N » envoyée par le serveur.
+	local oneIn = type(info.oneIn) == "number" and info.oneIn > 0 and info.oneIn or nil
+	popOdds.Text = oneIn and Config.fmtOdds(oneIn) or ""
+	local reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+	local st = Reveal.style(Config, def.tier, oneIn, reduced)
+	if st.secret then
+		popRarity.Text = "✦ " .. st.label .. " ✦"
+		popRarity.TextColor3 = st.color
+		popRarity.TextSize = 26
 	end
-	if def.tier >= 5 then
+	if Config.REVEAL.Enabled then
+		RevealFx.play(gui, st, UDim2.new(0.5, 0, 0.3, -35))
+	end
+	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
+	if st.flash > 0 then
+		flash.BackgroundColor3 = Config.MUTS[info.m].color or st.color
+		flash.BackgroundTransparency = 1 - 0.7 * st.flash
+		TweenService:Create(flash, TweenInfo.new(0.35 + 0.5 * st.flash), { BackgroundTransparency = 1 }):Play()
+	end
+	playSound((big or st.secret) and "rare" or "hatch")
+	if st.shake > 0.2 then -- secousse de la caméra proportionnelle à la rareté
 		task.spawn(function()
 			local char = player.Character
 			local hum = char and char:FindFirstChildOfClass("Humanoid")
 			if not hum then
 				return
 			end
-			for _ = 1, 14 do
-				hum.CameraOffset = Vector3.new((math.random() - 0.5) * 0.7, (math.random() - 0.5) * 0.7, 0)
+			local frames = math.floor(8 + 12 * st.shake)
+			for k = 1, frames do
+				local amp = 0.8 * st.shake * (1 - k / frames)
+				hum.CameraOffset = Vector3.new((math.random() - 0.5) * amp, (math.random() - 0.5) * amp, 0)
 				task.wait(0.03)
 			end
 			hum.CameraOffset = Vector3.zero
 		end)
 	end
 	TweenService:Create(popScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(2.6, function()
+	task.delay(st.secret and 3.4 or 2.6, function()
 		if token == popToken then
 			pop.Visible = false
 		end

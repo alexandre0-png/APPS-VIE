@@ -410,6 +410,37 @@ function Config.eggAssetId(tier)
 	return nil
 end
 
+---------------------------------------------------------------- Révélation d'œuf : étoile, anneaux, rayons, « 1 sur N »
+-- tiers[t] : style du pet de rareté t (rayons, anneaux, secousse 0-1, flash 0-1, particules). secret : effet distinct (lave et magenta) quand le
+-- tirage est plus rare que oneInAtLeast. reducedFactor : option mobile. Tout est dessiné par le client en UI (Frames, UIGradient, UIStroke).
+Config.REVEAL = {
+	Enabled = true,
+	forceReduced = false, -- true : effets réduits partout (sinon : seulement sur appareil tactile sans clavier)
+	reducedFactor = 0.5,
+	tiers = {
+		{ rays = 6, rings = 1, shake = 0, flash = 0, particles = 4 },
+		{ rays = 8, rings = 1, shake = 0.1, flash = 0.15, particles = 8 },
+		{ rays = 10, rings = 2, shake = 0.25, flash = 0.3, particles = 14 },
+		{ rays = 12, rings = 2, shake = 0.5, flash = 0.5, particles = 20 },
+		{ rays = 14, rings = 3, shake = 0.8, flash = 0.7, particles = 28 },
+		{ rays = 16, rings = 3, shake = 1, flash = 0.85, particles = 36 },
+	},
+	secret = { oneInAtLeast = 20000, color = Color3.fromRGB(255, 70, 20), rays = 16, rings = 4, shake = 1, flash = 0.95, particles = 30, label = "ŒUF SECRET" },
+}
+
+-- « 1 sur N » : espaces entre les milliers, une décimale sous 10.
+function Config.fmtOdds(n)
+	if type(n) ~= "number" or n ~= n or n <= 0 or n == math.huge then
+		return ""
+	end
+	if n < 10 then
+		return "1 sur " .. string.format("%.1f", n):gsub("%.", ",")
+	end
+	local s = string.format("%d", math.floor(n + 0.5))
+	local out = s:reverse():gsub("(%d%d%d)", "%1 "):reverse():gsub("^ ", "")
+	return "1 sur " .. out
+end
+
 ---------------------------------------------------------------- Animations (client)
 -- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
 -- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.

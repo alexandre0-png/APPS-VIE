@@ -15,6 +15,7 @@ if Config.Game.roleFor(game.PlaceId) == "hub" then
 end
 local TeleportService = game:GetService("TeleportService")
 local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
+local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -126,7 +127,8 @@ end
 
 local function rollPet(s, eggTier, guaranteed)
 	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil)
-	return Rules.rollPet(eggTier, up, evKey() == "alien", rnd, guaranteed)
+	local alien = evKey() == "alien"
+	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
@@ -585,7 +587,8 @@ function hatch(s, i)
 		return
 	end
 	local guaranteed = sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
-	local p = rollPet(s, sl.t, guaranteed)
+	local p, upPoints, alienBoost = rollPet(s, sl.t, guaranteed)
+	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed)
 	if p.tier > sl.t then
 		d.pity = 0
 	elseif sl.t < #Config.TIERS then
@@ -615,7 +618,7 @@ function hatch(s, i)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s) })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end
