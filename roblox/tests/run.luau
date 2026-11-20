@@ -1726,6 +1726,229 @@ do
 	A.Enabled = saved
 end
 
+-- Démarrage RÉEL du hub (vrai Hub.server.lua, vrais modules) dans le runtime factice ----------------------------------------------
+local FakeRuntime = luau.load(fs.readFile("roblox/tests/FakeRuntime.lua"), { debugName = "FakeRuntime" })()
+local function loopGuard(co)
+	if debug and debug.sethook then
+		debug.sethook(co, function()
+			error("boucle sans wait (garde d'instructions)")
+		end, "", 4000000)
+	end
+end
+do
+	local RT = FakeRuntime.runtime({ fs = fs, luau = luau, placeId = Config.Game.Places.hub, hook = loopGuard })
+	local main = RT.buildTree("roblox/src", true)
+	local okRun, errRun = pcall(function()
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+	end)
+	check("Hub : démarrage sans exception" .. (okRun and "" or " : " .. tostring(errRun)), okRun)
+	RT.step(1)
+	check("Hub : aucune erreur au démarrage" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	local remote = RT.services.ReplicatedStorage:FindFirstChild("HubRemote")
+	check("Hub : le RemoteEvent HubRemote existe avant l'arrivée des joueurs", remote ~= nil)
+	check("Hub : le gestionnaire du Remote est branché", remote ~= nil and RT.signalCount(remote, "OnServerEvent") == 1)
+	check("Hub : l'arrivée des joueurs est écoutée", RT.signalCount(RT.services.Players, "PlayerAdded") >= 1)
+	-- deux joueurs entrent dans le portail de taille 2 ; le compte à rebours part, la téléportation est demandée
+	local size = 2
+	local idx = 2
+	local a = math.rad(-72 + (idx - 1) * 36)
+	local cx, cz = math.sin(a) * 62, -math.cos(a) * 62
+	local p1, p2 = RT.addPlayer("Ana", 1001), RT.addPlayer("Bob", 1002)
+	for _, p in ipairs({ p1, p2 }) do
+		p.Character = RT.instance("Model", p.Name)
+		local root = RT.instance("Part", "HumanoidRootPart")
+		rawget(root, "__props").Position = RT.vec(cx, 3, cz)
+		root.Parent = p.Character
+	end
+	RT.step(2)
+	check("Hub : deux joueurs dans le portail 2, file d'attente prise en compte (aucune téléportation avant le compte à rebours)", #RT.teleports == 0)
+	RT.step(Config.Game.CountdownFull + 2)
+	check("Hub : compte à rebours terminé -> un groupe de 2 est téléporté vers le lieu de jeu", #RT.teleports == 1 and RT.teleports[1].place == Config.Game.Places.game and RT.teleports[1].n == 2)
+	check("Hub : aucune erreur pendant le lancement" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	-- le registre contient la partie ; un ami la voit et la rejoint, un inconnu non
+	local reg = RT.memory and RT.memory[Config.Game.RegistryName]
+	local partyId = nil
+	for k in pairs(reg or {}) do
+		partyId = k
+	end
+	check("Hub : la partie est inscrite au registre (taille 2 > 1, ouverte aux amis)", partyId ~= nil and reg[partyId].size == 2)
+	local friend = RT.addPlayer("Cléo", 1003)
+	RT.friendsPage = { { Id = 1001 } }
+	RT.fire(remote, "OnServerEvent", friend, "parties")
+	local sawList = false
+	for _, f in ipairs(RT.fired) do
+		if f[1] == "HubRemote" and f[3] == "parties" then
+			sawList = true
+		end
+	end
+	check("Hub : un ami de l'hôte reçoit la liste des parties", sawList)
+	-- fuzz des actions du Remote : types invalides, très longues chaînes, tables, nil
+	local garbage = { nil, 0, -1, 1e308, 0 / 0, math.huge, "", string.rep("x", 5000), {}, { 1, 2, 3 }, true, "join", "parties", "inexistant" }
+	local before = #RT.errors
+	for i = 1, 30 do
+		RT.now = RT.now + 1
+		RT.fire(remote, "OnServerEvent", friend, garbage[(i % #garbage) + 1], garbage[((i * 3) % #garbage) + 1])
+	end
+	RT.step(1)
+	check("Hub : 30 appels de Remote avec des arguments invalides ne provoquent aucune erreur" .. (#RT.errors == before and "" or " : " .. tostring(RT.errors[before + 1])), #RT.errors == before)
+	-- repli : réservation refusée -> serveur public ; tout refusé -> message, joueurs restent au hub
+	RT.removePlayer(p1)
+	RT.removePlayer(p2)
+	check("Hub : départ des joueurs sans erreur", #RT.errors == before)
+end
+
+-- Démarrage RÉEL de la partie (vrai Main.server.lua, Builder, Data, Rules...) dans le runtime factice ---------------------------------
+do
+	local RT = FakeRuntime.runtime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	local main = RT.buildTree("roblox/src", false)
+	RT.task.spawn(function()
+		RT.runScript(main)
+	end)
+	RT.step(1)
+	check("Partie : démarrage sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	local ready = false
+	for _, line in ipairs(RT.prints) do
+		if line:find("serveur prêt", 1, true) then
+			ready = true
+		end
+	end
+	check("Partie : le serveur atteint « serveur prêt » (rien ne plante avant les Remotes)", ready)
+	local function findRemote(name)
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == name then
+				return d
+			end
+		end
+		return nil
+	end
+	local RAction, RState = findRemote("Action"), findRemote("State")
+	check("Partie : les Remotes Action et State existent et Action est écouté", RAction ~= nil and RState ~= nil and RT.signalCount(RAction, "OnServerEvent") == 1)
+	check("Partie : la carte construite reste sous le budget mobile", (function()
+		for _, line in ipairs(RT.prints) do
+			local n, budget = line:match("carte construite : (%d+) Parts %(budget (%d+)")
+			if n then
+				return tonumber(n) <= tonumber(budget)
+			end
+		end
+		return false
+	end)())
+	check("Partie : filet de sécurité [Spawn] actif", (function()
+		for _, line in ipairs(RT.prints) do
+			if line:find("[Spawn] (game) filet", 1, true) then
+				return true
+			end
+		end
+		return false
+	end)())
+
+	-- arrivée de deux joueurs : données chargées via le DataStore, personnage garanti, plots distincts
+	local p1 = RT.addPlayer("Ana", 2001, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
+	RT.step(2)
+	local p2 = RT.addPlayer("Bob", 2002, { from = "hub", partyId = "PARTY-1", size = 2, late = true })
+	RT.step(2)
+	check("Partie : les deux joueurs ont un personnage (LoadCharacterAsync appelé)", (RT.characterLoads or 0) >= 2 and #RT.kicked == 0)
+	check("Partie : arrivée sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	local store = RT.dataStores["ChipeOeufs_v1"]
+	check("Partie : verrou de session pris dans le DataStore à l'arrivée", store ~= nil and store.data["P_2001"] ~= nil and store.data["P_2001"].lock ~= nil)
+
+	-- fuzz de TOUTES les actions du serveur avec des arguments invalides (types, plages, NaN, très longues chaînes, tables)
+	local actionNames = { "sync", "buyEgg", "buyUp", "sell", "rebirth", "equip", "claimQuest", "claimStory", "cineSeen", "claimAch", "top", "daily", "inexistante", "__index", "", "x" }
+	local garbage = { 0, -1, 1, 2, 7, 13, 1e308, 0 / 0, math.huge, -math.huge, 0.5, "", "slots", "tm", "intro", string.rep("x", 5000), {}, { 1, 2 }, true, false }
+	local warnsBefore = #RT.warns
+	local seed = 17
+	local function rnd(n)
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return (seed % n) + 1
+	end
+	for i = 1, 600 do
+		RT.now = RT.now + 0.1
+		local act = actionNames[rnd(#actionNames)]
+		local arg = garbage[rnd(#garbage)]
+		RT.fire(RAction, "OnServerEvent", i % 2 == 0 and p1 or p2, act, arg)
+		if i % 40 == 0 then
+			RT.step(1)
+		end
+	end
+	RT.fire(RAction, "OnServerEvent", p1, nil, nil)
+	RT.fire(RAction, "OnServerEvent", p1, 42, {})
+	RT.fire(RAction, "OnServerEvent", { fake = true }, "sync")
+	check("Partie : les actions valides ont des effets (états et notifications envoyés aux clients)", #RT.fired > 50)
+	local actionWarns = {}
+	for i = warnsBefore + 1, #RT.warns do
+		if RT.warns[i]:find("[Action", 1, true) then
+			actionWarns[#actionWarns + 1] = RT.warns[i]
+		end
+	end
+	check("Partie : 600 actions aléatoires avec arguments invalides, aucune erreur interne" .. (#actionWarns == 0 and "" or " : " .. tostring(actionWarns[1])), #actionWarns == 0)
+	check("Partie : aucune erreur de coroutine après le fuzz" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+
+	-- sauvegarde au départ : l'enregistrement est sain et le verrou libéré
+	RT.removePlayer(p1)
+	RT.step(2)
+	local rec = store.data["P_2001"]
+	local function sane(d)
+		if type(d) ~= "table" then
+			return false
+		end
+		for _, k in ipairs({ "coins", "speed", "rb" }) do
+			local v = d[k]
+			if type(v) ~= "number" or v ~= v or v < 0 or v == math.huge then
+				return false
+			end
+		end
+		for key, lvl in pairs(d.up or {}) do
+			local u = Config.upgrade(key)
+			if not u or type(lvl) ~= "number" or lvl < 0 or lvl > u.max then
+				return false
+			end
+		end
+		return true
+	end
+	check("Partie : sauvegarde au départ du joueur (PlayerRemoving), verrou libéré, données saines", rec ~= nil and rec.lock == nil and sane(rec.v))
+	-- fermeture du serveur : BindToClose sauvegarde les joueurs restants
+	local fnCount = #RT.bindToClose
+	check("Partie : BindToClose enregistré", fnCount >= 1)
+	for _, fn in ipairs(RT.bindToClose) do
+		RT.task.spawn(fn)
+	end
+	RT.step(3)
+	local rec2 = store.data["P_2002"]
+	check("Partie : BindToClose sauvegarde le joueur restant, verrou libéré, données saines" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), rec2 ~= nil and rec2.lock == nil and sane(rec2.v))
+	-- scénario réel : achats d'œufs, éclosion, sauvegarde cohérente (aucune pièce créée ni perdue, pas de négatif)
+	local p4 = RT.addPlayer("Dan", 2004, { from = "hub", partyId = "PARTY-1", size = 2, late = true })
+	RT.step(2)
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p4, "buyEgg", 1)
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p4, "buyEgg", 1)
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p4, "buyEgg", 3) -- trop cher : refusé
+	RT.step(1.2)
+	local coinsAfterBuys = p4:GetAttribute("Coins")
+	RT.step(Config.HATCH[1] + 6)
+	local hatchFired = 0
+	for _, f in ipairs(RT.fired) do
+		if f[1] == "Hatch" and f[2] == p4 then
+			hatchFired = hatchFired + 1
+		end
+	end
+	RT.removePlayer(p4)
+	RT.step(2)
+	local rec4 = store.data["P_2004"]
+	check("Partie : 2 achats d'œufs, éclosions envoyées au client, œuf trop cher refusé", hatchFired >= 2 and rec4 ~= nil and rec4.v.hatched >= 2)
+	check("Partie : économie cohérente (2 œufs à 25 payés sur 50 pièces, œuf à 20 000 refusé, jamais négatif)", type(coinsAfterBuys) == "number" and coinsAfterBuys >= 0 and coinsAfterBuys <= 2 and rec4 ~= nil and rec4.v.coins >= 0)
+	-- DataStore en panne : le jeu ne plante pas et la sauvegarde échoue proprement
+	RT.dataStoreFail = "503: DataStore indisponible"
+	local p3 = RT.addPlayer("Cyn", 2003, { from = "hub", partyId = "PARTY-1", size = 2, late = true })
+	RT.step(15)
+	check("Partie : DataStore indisponible -> aucune erreur non gérée" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	RT.dataStoreFail = nil
+	RT.removePlayer(p3)
+	RT.step(1)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 if failed > 0 then
 	process.exit(1)

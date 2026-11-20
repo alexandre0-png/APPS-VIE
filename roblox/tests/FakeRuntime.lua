@@ -1,0 +1,674 @@
+-- Runtime Roblox factice PERMISSIF pour exécuter le vrai démarrage des scripts serveur (hub et partie) hors de Roblox.
+-- Principe : toute propriété ou méthode inconnue est un « proxy universel » qui accepte tout (appel, arithmétique, signaux) ; les services
+-- dont la logique compte sont simulés pour de vrai : DataStore (en mémoire), MemoryStore, TeleportService (appels enregistrés, échecs
+-- injectables), Players, RunService.Heartbeat, ordonnanceur de tâches (task.spawn / wait / delay) avec temps virtuel, require() des vrais
+-- modules du dépôt. Détecte : erreur au démarrage, require cassé, boucle sans wait (garde d'instructions), Remote jamais créé.
+-- Ne simule NI la physique, NI le rendu : c'est un test de fumée de la logique de démarrage et de la validation des Remotes.
+local Fake = {}
+
+function Fake.runtime(opts)
+	local RT = {
+		now = 0, players = {}, errors = {}, prints = {}, warns = {}, teleports = {}, conns = {}, tags = {},
+		remotes = {}, fired = {}, bindToClose = {}, waiting = {}, kicked = {},
+	}
+	local fs, luau = opts.fs, opts.luau
+	local proxyMeta = {}
+	local services = {}
+	local newProxy
+
+	local function isProxy(v)
+		return type(v) == "table" and getmetatable(v) == proxyMeta
+	end
+	RT.isProxy = isProxy
+
+	local function child(t, k)
+		local props = rawget(t, "__props")
+		local v = props[k]
+		if v == nil then
+			v = newProxy(rawget(t, "__path") .. "." .. tostring(k), "Unknown")
+			props[k] = v
+		end
+		return v
+	end
+
+	local function addChild(parent, ch)
+		local kids = rawget(parent, "__children")
+		kids[#kids + 1] = ch
+	end
+	local function removeChild(parent, ch)
+		local kids = rawget(parent, "__children")
+		for i, c in ipairs(kids) do
+			if c == ch then
+				table.remove(kids, i)
+				return
+			end
+		end
+	end
+
+	local methods = {}
+	function methods.FindFirstChild(self, name)
+		for _, c in ipairs(rawget(self, "__children")) do
+			if rawget(c, "__props").Name == name then
+				return c
+			end
+		end
+		return nil
+	end
+	methods.WaitForChild = methods.FindFirstChild
+	methods.FindFirstChildOfClass = function(self, cls)
+		for _, c in ipairs(rawget(self, "__children")) do
+			if rawget(c, "__class") == cls then
+				return c
+			end
+		end
+		return nil
+	end
+	function methods.GetChildren(self)
+		local out = {}
+		for i, c in ipairs(rawget(self, "__children")) do
+			out[i] = c
+		end
+		return out
+	end
+	function methods.GetDescendants(self)
+		local out = {}
+		local function walk(n)
+			for _, c in ipairs(rawget(n, "__children")) do
+				out[#out + 1] = c
+				walk(c)
+			end
+		end
+		walk(self)
+		return out
+	end
+	function methods.GetAttribute(self, k)
+		return rawget(self, "__attrs")[k]
+	end
+	function methods.SetAttribute(self, k, v)
+		rawget(self, "__attrs")[k] = v
+	end
+	function methods.IsA(self, cls)
+		local c = rawget(self, "__class")
+		if c == cls then
+			return true
+		end
+		if cls == "BasePart" then
+			return c == "Part" or c == "SpawnLocation" or c == "MeshPart"
+		end
+		if cls == "Instance" then
+			return true
+		end
+		return false
+	end
+	function methods.Destroy(self)
+		local par = rawget(self, "__props").Parent
+		if par then
+			removeChild(par, self)
+		end
+		rawget(self, "__props").Parent = nil
+	end
+	function methods.Clone(self)
+		local c = newProxy(rawget(self, "__path") .. "(clone)", rawget(self, "__class"))
+		for k, v in pairs(rawget(self, "__props")) do
+			if k ~= "Parent" then
+				rawget(c, "__props")[k] = v
+			end
+		end
+		return c
+	end
+	function methods.GetService(self, name)
+		return services[name] or error("service factice inconnu : " .. tostring(name))
+	end
+	function methods.GetPlayers()
+		local out = {}
+		for i, p in ipairs(RT.players) do
+			out[i] = p
+		end
+		return out
+	end
+	function methods.GetPlayerByUserId(_, uid)
+		for _, p in ipairs(RT.players) do
+			if rawget(p, "__props").UserId == uid then
+				return p
+			end
+		end
+		return nil
+	end
+	function methods.FireClient(self, ...)
+		RT.fired[#RT.fired + 1] = { rawget(self, "__props").Name, ... }
+	end
+	function methods.FireAllClients(self, ...)
+		RT.fired[#RT.fired + 1] = { rawget(self, "__props").Name, "all", ... }
+	end
+	function methods.Kick(self, msg)
+		RT.kicked[#RT.kicked + 1] = { rawget(self, "__props").Name, msg }
+	end
+	function methods.BindToClose(_, fn)
+		RT.bindToClose[#RT.bindToClose + 1] = fn
+	end
+	function methods.AddTag(_, inst, tag)
+		RT.tags[tag] = RT.tags[tag] or {}
+		RT.tags[tag][inst] = true
+	end
+	function methods.HasTag(_, inst, tag)
+		return RT.tags[tag] ~= nil and RT.tags[tag][inst] == true
+	end
+	function methods.GetTagged(_, tag)
+		local out = {}
+		for inst in pairs(RT.tags[tag] or {}) do
+			out[#out + 1] = inst
+		end
+		return out
+	end
+	function methods.RemoveTag(_, inst, tag)
+		if RT.tags[tag] then
+			RT.tags[tag][inst] = nil
+		end
+	end
+
+	proxyMeta.__index = function(t, k)
+		if type(k) == "number" then
+			return nil
+		end
+		local props = rawget(t, "__props")
+		if props[k] ~= nil then
+			return props[k]
+		end
+		if methods[k] then
+			return methods[k]
+		end
+		if k == "Connect" or k == "Once" then
+			return function(self, fn)
+				RT.conns[self] = RT.conns[self] or {}
+				table.insert(RT.conns[self], fn)
+				return newProxy("connection", "Connection")
+			end
+		end
+		if k == "Wait" then
+			return function()
+				return 0.03
+			end
+		end
+		return child(t, k)
+	end
+	proxyMeta.__newindex = function(t, k, v)
+		local props = rawget(t, "__props")
+		if k == "Parent" then
+			local old = props.Parent
+			if old then
+				removeChild(old, t)
+			end
+			props.Parent = v
+			if isProxy(v) then
+				addChild(v, t)
+			end
+			return
+		end
+		props[k] = v
+	end
+	proxyMeta.__call = function(self, ...)
+		return newProxy(rawget(self, "__path") .. "()", "Unknown")
+	end
+	for _, op in ipairs({ "__add", "__sub", "__mul", "__div", "__mod", "__pow", "__idiv" }) do
+		proxyMeta[op] = function(a)
+			return isProxy(a) and a or newProxy("arith", "Unknown")
+		end
+	end
+	proxyMeta.__unm = function(a)
+		return a
+	end
+	proxyMeta.__lt = function()
+		return false
+	end
+	proxyMeta.__le = function()
+		return false
+	end
+	proxyMeta.__concat = function(a, b)
+		return tostring(isProxy(a) and "<proxy>" or a) .. tostring(isProxy(b) and "<proxy>" or b)
+	end
+	proxyMeta.__len = function()
+		return 0
+	end
+	proxyMeta.__tostring = function(t)
+		return "<" .. rawget(t, "__path") .. ">"
+	end
+	proxyMeta.__pairs = function()
+		return function()
+			return nil
+		end
+	end
+
+	newProxy = function(path, class)
+		return setmetatable({ __path = path, __class = class, __props = { Name = path:match("[^%.]*$") }, __children = {}, __attrs = {} }, proxyMeta)
+	end
+	RT.newProxy = newProxy
+
+	---------------------------------------------------------------- Instance.new, signaux
+	local function instance(class, name)
+		local p = newProxy(name or class, class)
+		rawget(p, "__props").Name = name or class
+		rawget(p, "__props").ClassName = class
+		return p
+	end
+	local function service(name)
+		local s = instance(name, name)
+		services[name] = s
+		return s
+	end
+
+	function RT.fire(obj, event, ...) -- déclenche les callbacks d'un signal : RT.fire(remote, "OnServerEvent", player, "action", arg)
+		local sig = obj[event]
+		for _, fn in ipairs(RT.conns[sig] or {}) do
+			local co = coroutine.create(fn)
+			RT.resume(co, ...)
+		end
+	end
+	function RT.signalCount(obj, event)
+		return #(RT.conns[obj[event]] or {})
+	end
+
+	---------------------------------------------------------------- ordonnanceur de tâches (temps virtuel)
+	local alive = {}
+	function RT.resume(co, ...)
+		if opts.hook then
+			pcall(opts.hook, co)
+		end
+		local ok, res = coroutine.resume(co, ...)
+		if not ok then
+			RT.errors[#RT.errors + 1] = tostring(res)
+			return
+		end
+		if coroutine.status(co) == "suspended" then
+			local wake = type(res) == "table" and res.wake or (RT.now + 0.03)
+			RT.waiting[#RT.waiting + 1] = { co = co, wake = wake }
+		end
+	end
+	local task = {}
+	function task.spawn(fn, ...)
+		local co = coroutine.create(fn)
+		RT.resume(co, ...)
+		return co
+	end
+	task.defer = task.spawn
+	function task.wait(sec)
+		coroutine.yield({ wake = RT.now + (sec or 0.03) })
+		return sec or 0.03
+	end
+	function task.delay(sec, fn, ...)
+		local args = { ... }
+		local co = coroutine.create(function()
+			task.wait(sec)
+			fn(table.unpack(args))
+		end)
+		RT.resume(co)
+		return co
+	end
+	function task.cancel() end
+	RT.task = task
+
+	function RT.step(seconds, dt)
+		dt = dt or 0.05
+		local target = RT.now + seconds
+		while RT.now < target do
+			RT.now = RT.now + dt
+			local due, rest = {}, {}
+			for _, w in ipairs(RT.waiting) do
+				if w.wake <= RT.now then
+					due[#due + 1] = w
+				else
+					rest[#rest + 1] = w
+				end
+			end
+			RT.waiting = rest
+			for _, w in ipairs(due) do
+				RT.resume(w.co)
+			end
+			RT.fire(services.RunService, "Heartbeat", dt)
+		end
+	end
+
+	---------------------------------------------------------------- services simulés
+	local ds = {}
+	local function dataStore()
+		local store = { data = {} }
+		local function copy(v)
+			if type(v) ~= "table" then
+				return v
+			end
+			local c = {}
+			for k, x in pairs(v) do
+				c[k] = copy(x)
+			end
+			return c
+		end
+		function store.UpdateAsync(_, key, fn)
+			if RT.dataStoreFail then
+				error(RT.dataStoreFail)
+			end
+			local new = fn(copy(store.data[key]))
+			if new ~= nil then
+				store.data[key] = copy(new)
+			end
+			return copy(store.data[key])
+		end
+		function store.GetAsync(_, key)
+			return copy(store.data[key])
+		end
+		function store.SetAsync(_, key, v)
+			if RT.dataStoreFail then
+				error(RT.dataStoreFail)
+			end
+			store.data[key] = copy(v)
+		end
+		function store.GetSortedAsync()
+			return { GetCurrentPage = function() return {} end }
+		end
+		return store
+	end
+	RT.dataStores = {}
+	local dss = service("DataStoreService")
+	rawget(dss, "__props").GetDataStore = function(_, name)
+		RT.dataStores[name] = RT.dataStores[name] or dataStore()
+		return RT.dataStores[name]
+	end
+	rawget(dss, "__props").GetOrderedDataStore = function(_, name)
+		RT.dataStores[name] = RT.dataStores[name] or dataStore()
+		return RT.dataStores[name]
+	end
+
+	local mss = service("MemoryStoreService")
+	rawget(mss, "__props").GetHashMap = function(_, name)
+		RT.memory = RT.memory or {}
+		RT.memory[name] = RT.memory[name] or {}
+		local map = RT.memory[name]
+		return {
+			GetAsync = function(_, k) return map[k] end,
+			UpdateAsync = function(_, k, fn)
+				local new = fn(map[k])
+				if new ~= nil then
+					map[k] = new
+				end
+				return new
+			end,
+			RemoveAsync = function(_, k) map[k] = nil end,
+			ListItemsAsync = function()
+				return { GetCurrentPage = function()
+					local out = {}
+					for k, v in pairs(map) do
+						out[#out + 1] = { key = k, value = v }
+					end
+					return out
+				end }
+			end,
+		}
+	end
+
+	local tps = service("TeleportService")
+	rawget(tps, "__props").ReserveServerAsync = function()
+		if RT.reserveFail then
+			error(RT.reserveFail)
+		end
+		return "CODE-" .. tostring(#RT.teleports + 1)
+	end
+	rawget(tps, "__props").TeleportAsync = function(_, place, players, options)
+		if RT.teleportFail then
+			error(RT.teleportFail)
+		end
+		RT.teleports[#RT.teleports + 1] = { place = place, n = #players, options = options, players = players }
+	end
+
+	local http = service("HttpService")
+	local guid = 0
+	rawget(http, "__props").GenerateGUID = function()
+		guid = guid + 1
+		return string.format("GUID-%08d-%04d", guid * 7919, guid)
+	end
+
+	local players = service("Players")
+	rawget(players, "__props").CharacterAutoLoads = true
+	rawget(players, "__props").LocalPlayer = nil
+	rawget(players, "__props").GetFriendsAsync = function()
+		return { GetCurrentPage = function() return RT.friendsPage or {} end, IsFinished = true, AdvanceToNextPageAsync = function() end }
+	end
+	rawget(players, "__props").GetNameFromUserIdAsync = function(_, uid)
+		return "Joueur" .. tostring(uid)
+	end
+	local run = service("RunService")
+	rawget(run, "__props").IsStudio = function() return false end
+	service("ReplicatedStorage")
+	service("ServerScriptService")
+	service("ServerStorage")
+	service("Lighting")
+	service("Debris")
+	service("TweenService")
+	service("CollectionService")
+	service("ProximityPromptService")
+	service("MarketplaceService")
+	rawget(services.MarketplaceService, "__props").UserOwnsGamePassAsync = function() return false end
+	service("MessagingService")
+	service("InsertService")
+	service("StarterPlayer")
+	service("PhysicsService")
+	service("SoundService")
+	service("GuiService")
+	service("UserInputService")
+	local marketplaceMsg = services.MessagingService
+	rawget(marketplaceMsg, "__props").SubscribeAsync = function() return newProxy("sub", "Connection") end
+	rawget(marketplaceMsg, "__props").PublishAsync = function() end
+
+	local ws = instance("Workspace", "Workspace")
+	RT.workspace = ws
+	local game = instance("DataModel", "game")
+	rawget(game, "__props").PlaceId = opts.placeId or 0
+	rawget(game, "__props").JobId = "JOB-1"
+	rawget(game, "__props").Workspace = ws
+	services.Workspace = ws
+
+	---------------------------------------------------------------- arbre des scripts (depuis les fichiers réels)
+	local function scriptObject(cls, name, path, parent)
+		local o = instance(cls, name)
+		rawget(o, "__source") -- (champ brut absent : on garde la source dans une table à part)
+		RT.sources = RT.sources or {}
+		RT.sources[o] = { path = path, name = name }
+		o.Parent = parent
+		return o
+	end
+	local function loadDir(dir, parent, skipClasses)
+		local main = nil
+		for _, f in ipairs(fs.readDir(dir)) do
+			if f:sub(-11) == ".server.lua" then
+				main = scriptObject("Script", f:sub(1, -12), dir .. "/" .. f, parent)
+			elseif f:sub(-11) == ".client.lua" then
+				scriptObject("LocalScript", f:sub(1, -12), dir .. "/" .. f, parent)
+			elseif f:sub(-4) == ".lua" then
+				scriptObject("ModuleScript", f:sub(1, -5), dir .. "/" .. f, parent)
+			end
+		end
+		return main
+	end
+	function RT.buildTree(srcRoot, hubSide)
+		local rs, sss = services.ReplicatedStorage, services.ServerScriptService
+		local shared = instance("Folder", "Shared")
+		shared.Parent = rs
+		loadDir(srcRoot .. "/ReplicatedStorage", shared)
+		return loadDir(srcRoot .. (hubSide and "/Hub" or "") .. "/ServerScriptService", sss)
+	end
+
+	local cache = {}
+	local baseEnv
+	function RT.require(obj)
+		local src = RT.sources and RT.sources[obj]
+		if not src then
+			error("require : l'objet n'est pas un ModuleScript du dépôt (" .. tostring(obj) .. ")")
+		end
+		if cache[obj] == nil then
+			cache[obj] = { RT.runScript(obj) }
+		end
+		return cache[obj][1]
+	end
+
+	function RT.runScript(obj)
+		local src = RT.sources[obj]
+		local env = {}
+		for k, v in pairs(baseEnv) do
+			env[k] = v
+		end
+		env.script = obj
+		local chunk = luau.load(fs.readFile(src.path), { debugName = src.name, environment = env })
+		return chunk()
+	end
+
+	---------------------------------------------------------------- environnement des scripts
+	local function vec(x, y, z)
+		local v = { X = x, Y = y, Z = z }
+		return setmetatable(v, {
+			__add = function(a, b) return vec(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end,
+			__sub = function(a, b) return vec(a.X - b.X, a.Y - b.Y, a.Z - b.Z) end,
+			__mul = function(a, b)
+				if type(b) == "number" then return vec(a.X * b, a.Y * b, a.Z * b) end
+				if type(a) == "number" then return vec(b.X * a, b.Y * a, b.Z * a) end
+				return vec(a.X * b.X, a.Y * b.Y, a.Z * b.Z)
+			end,
+			__div = function(a, b) return vec(a.X / b, a.Y / b, a.Z / b) end,
+			__unm = function(a) return vec(-a.X, -a.Y, -a.Z) end,
+			__index = function(_, k)
+				if k == "Magnitude" then return math.sqrt(x * x + y * y + z * z) end
+				if k == "Unit" then
+					local m = math.sqrt(x * x + y * y + z * z)
+					return m > 0 and vec(x / m, y / m, z / m) or vec(0, 0, 0)
+				end
+				if k == "Dot" then return function(_, o) return x * o.X + y * o.Y + z * o.Z end end
+				if k == "Lerp" then return function(_, o, t) return vec(x + (o.X - x) * t, y + (o.Y - y) * t, z + (o.Z - z) * t) end end
+			end,
+		})
+	end
+	local function cf(x, y, z)
+		local c = { X = x or 0, Y = y or 0, Z = z or 0 }
+		c.Position = vec(c.X, c.Y, c.Z)
+		return setmetatable(c, {
+			__mul = function(a, b)
+				if b.Position then return cf(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end
+				return vec(a.X + b.X, a.Y + b.Y, a.Z + b.Z)
+			end,
+			__add = function(a, b) return cf(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end,
+			__sub = function(a, b) return cf(a.X - b.X, a.Y - b.Y, a.Z - b.Z) end,
+			__index = function(t, k)
+				if k == "LookVector" then return vec(0, 0, -1) end
+				if k == "Rotation" then return t end
+				if k == "PointToObjectSpace" or k == "PointToWorldSpace" or k == "VectorToWorldSpace" or k == "Lerp" or k == "ToObjectSpace" or k == "ToWorldSpace" or k == "Inverse" then
+					return function(self, v) return v or self end
+				end
+			end,
+		})
+	end
+	local function color(r, g, b)
+		local c = { R = r, G = g, B = b }
+		function c:Lerp(o, t) return color(r + (o.R - r) * t, g + (o.G - g) * t, b + (o.B - b) * t) end
+		return c
+	end
+	local rngState = 99
+	local enum = setmetatable({}, { __index = function(t, k)
+		local sub = setmetatable({}, { __index = function(_, k2) return k .. "." .. k2 end })
+		rawset(t, k, sub)
+		return sub
+	end })
+	local function udim() return {} end
+	baseEnv = {
+		game = game, workspace = ws, task = task, require = function(o) return RT.require(o) end,
+		Instance = { new = function(class) return instance(class) end },
+		Vector3 = { new = function(x, y, z) return vec(x or 0, y or 0, z or 0) end, zero = vec(0, 0, 0), one = vec(1, 1, 1), yAxis = vec(0, 1, 0) },
+		Vector2 = { new = function(x, y) return { X = x or 0, Y = y or 0 } end },
+		CFrame = {
+			new = function(x, y, z)
+				if type(x) == "table" and x.X then return cf(x.X, x.Y, x.Z) end
+				return cf(x, y, z)
+			end,
+			Angles = function() return cf(0, 0, 0) end,
+			lookAt = function(from) return cf(from.X, from.Y, from.Z) end,
+			fromEulerAnglesXYZ = function() return cf(0, 0, 0) end,
+		},
+		Color3 = { fromRGB = function(r, g, b) return color(r / 255, g / 255, b / 255) end, new = color, fromHSV = function() return color(1, 1, 1) end },
+		UDim2 = { fromOffset = udim, fromScale = udim, new = udim }, UDim = { new = udim },
+		Enum = enum, TweenInfo = { new = function() return {} end },
+		ColorSequence = { new = function() return {} end }, NumberRange = { new = function() return {} end },
+		NumberSequence = { new = function() return {} end }, NumberSequenceKeypoint = { new = function() return {} end },
+		Random = { new = function(seed)
+			local s = seed or 1
+			local r = {}
+			function r:NextNumber(a, b)
+				s = (s * 1103515245 + 12345) % 2147483648
+				return (a or 0) + (s / 2147483648) * ((b or 1) - (a or 0))
+			end
+			function r:NextInteger(a, b) return math.floor(self:NextNumber(a, b + 1)) end
+			return r
+		end },
+		typeof = function(v) return isProxy(v) and "Instance" or type(v) end,
+		print = function(...)
+			local t = {}
+			for i = 1, select("#", ...) do
+				t[#t + 1] = tostring((select(i, ...)))
+			end
+			RT.prints[#RT.prints + 1] = table.concat(t, " ")
+		end,
+		warn = function(...)
+			local t = {}
+			for i = 1, select("#", ...) do
+				t[#t + 1] = tostring((select(i, ...)))
+			end
+			RT.warns[#RT.warns + 1] = table.concat(t, " ")
+		end,
+		os = { clock = function() return RT.now end, time = function() return 1700000000 + math.floor(RT.now) end, date = os.date },
+		tick = function() return RT.now end,
+		table = setmetatable({ clone = function(t) local c = {} for k, v in pairs(t) do c[k] = v end return c end }, { __index = table }),
+		math = setmetatable({ clamp = function(x, a, b) return math.max(a, math.min(b, x)) end, round = function(x) return math.floor(x + 0.5) end }, { __index = math }),
+	}
+	RT.env = baseEnv
+
+	---------------------------------------------------------------- joueurs
+	function RT.addPlayer(name, userId, joinData)
+		local p = instance("Player", name)
+		local pr = rawget(p, "__props")
+		pr.UserId, pr.DisplayName = userId, name
+		pr.GetJoinData = function() return { TeleportData = joinData } end
+		pr.LoadCharacterAsync = function(self)
+			local char = instance("Model", name)
+			local root = instance("Part", "HumanoidRootPart")
+			rawget(root, "__props").Position = vec(0, 5, 40)
+			rawget(root, "__props").CFrame = cf(0, 5, 40)
+			rawget(root, "__props").AssemblyLinearVelocity = vec(0, 0, 0)
+			root.Parent = char
+			local hum = instance("Humanoid", "Humanoid")
+			rawget(hum, "__props").Health = 100
+			rawget(hum, "__props").WalkSpeed = 16
+			hum.Parent = char
+			char.Parent = ws
+			pr.Character = char
+			RT.fire(p, "CharacterAdded", char)
+			RT.characterLoads = (RT.characterLoads or 0) + 1
+		end
+		pr.GetFriendsOnline = function() return {} end
+		RT.players[#RT.players + 1] = p
+		p.Parent = players
+		RT.fire(players, "PlayerAdded", p)
+		return p
+	end
+	function RT.removePlayer(p)
+		for i, q in ipairs(RT.players) do
+			if q == p then
+				table.remove(RT.players, i)
+				break
+			end
+		end
+		RT.fire(services.Players, "PlayerRemoving", p)
+		p.Parent = nil
+	end
+
+	RT.game = game
+	RT.services = services
+	RT.instance = instance
+	RT.vec = vec
+	RT.cf = cf
+	return RT
+end
+
+return Fake

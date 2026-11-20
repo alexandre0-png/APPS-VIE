@@ -32,6 +32,12 @@ def read_file(path):
         return f.read()
 
 lua.globals().py_read = read_file
+
+def list_dir(path):
+    full = os.path.join(ROOT, path)
+    return lua.table_from(sorted(os.listdir(full)), ) if os.path.isdir(full) else lua.table()
+
+lua.globals().py_listdir = list_dir
 lua.globals().py_convert = luau_to_lua
 
 prelude = r'''
@@ -44,7 +50,7 @@ local function shim_load(src, opts)
 	return fn
 end
 local shims = {
-	["@lune/fs"] = { readFile = function(p) return py_read(p) end },
+	["@lune/fs"] = { readFile = function(p) return py_read(p) end, readDir = function(p) return py_listdir(p) end, isDir = function(p) return #py_listdir(p) > 0 end },
 	["@lune/luau"] = { load = shim_load },
 	["@lune/process"] = { exit = function(c) exit_code = c; error("__EXIT__") end },
 }
