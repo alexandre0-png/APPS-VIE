@@ -15,6 +15,7 @@ local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
+local Easing = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Easing"))
 local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -1116,7 +1117,18 @@ RunService.RenderStepped:Connect(function()
 			bobBase[m] = base
 		end
 		if base then
-			m:PivotTo(base * CFrame.new(0, math.sin(t * 3 + base.X + base.Z) * 0.25, 0))
+			if Config.animEnabled("petStates") then
+				-- états des pets : respiration (idle) ; capacité (saut en vrille) pour les raretés élevées, périodique
+				local seed = base.X + base.Z
+				local ability = nil
+				if (m:GetAttribute("Tier") or 1) >= Config.PET_STATES.abilityMinTier then
+					ability = Easing.abilityProgress(t, seed, Config.PET_STATES.abilityInterval)
+				end
+				local pose = ability and Easing.petPose("ability", t, seed, ability) or Easing.petPose("idle", t, seed)
+				m:PivotTo(base * CFrame.new(0, pose.y, 0) * CFrame.Angles(pose.pitch, pose.yaw, 0))
+			else
+				m:PivotTo(base * CFrame.new(0, math.sin(t * 3 + base.X + base.Z) * 0.25, 0))
+			end
 		end
 	end
 end)
@@ -1196,6 +1208,13 @@ RunService.RenderStepped:Connect(function(dt)
 		if root and m.PrimaryPart then
 			local n = m:GetAttribute("Idx") or 1
 			local target = CFrame.new(root.Position) * root.CFrame.Rotation * CFrame.new((n - 2) * 3, -2.2 + math.sin(os.clock() * 4 + n) * 0.15, 4)
+			if Config.animEnabled("petStates") then
+				-- état « move » : bonds penchés vers l'avant quand le propriétaire se déplace, sinon respiration
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local moving = hum ~= nil and hum.MoveDirection.Magnitude > 0.1
+				local pose = Easing.petPose(moving and "move" or "idle", os.clock(), n * 1.7)
+				target = target * CFrame.new(0, pose.y, 0) * CFrame.Angles(pose.pitch, pose.yaw, 0)
+			end
 			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
 		end
 	end

@@ -8,8 +8,8 @@ function Economy.simulate(Config, Rules, minutes, opts)
 	opts = opts or {}
 	local seed = opts.seed or 12345
 	local function rnd()
-		seed = (seed * 1103515245 + 12345) % 2147483648
-		return seed / 2147483648
+		seed = (seed * 16807) % 2147483647
+		return seed / 2147483647
 	end
 	local up = {}
 	for _, u in ipairs(Config.UPGRADES) do

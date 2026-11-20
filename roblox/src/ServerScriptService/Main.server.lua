@@ -54,6 +54,7 @@ task.spawn(function()
 	})
 	Builder.setAssets(assets)
 	assets.loadAll()
+	assets.loadPets()
 end)
 
 local world = Builder.build()
@@ -618,6 +619,21 @@ function hatch(s, i)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
+	-- Rareté élevée ou tirage secret : cercle runique au sol, particules, pilier de lumière et contour lumineux du pet (Config.AURA)
+	local secretHit = oneIn >= Config.REVEAL.secret.oneInAtLeast
+	if Config.AURA.Enabled and (def.tier >= Config.AURA.minTier or secretHit) then
+		Builder.aura(s.plot.pads[i].part.Position, col, def.tier, secretHit)
+		local holder = s.plot.pads[i].content
+		local petModel = holder and holder:FindFirstChild("Pet")
+		if Config.AURA.highlight and petModel then
+			local hl = Instance.new("Highlight")
+			hl.FillTransparency = 1
+			hl.OutlineColor = col
+			hl.OutlineTransparency = 0.1
+			hl.Parent = petModel
+			game:GetService("Debris"):AddItem(hl, Config.AURA.seconds)
+		end
+	end
 	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")

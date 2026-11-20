@@ -306,6 +306,11 @@ Config.Assets = {
 	-- Packs d'animaux fournis (renard, lion, panda, girafe, éléphant, chat, poulet / énorme pack / serpent, biche, léopard) : NON chargés, car
 	-- aucun animal ne sert le gameplay (les pets sont construits par le code). Identifiants gardés ici pour un futur PNJ décor.
 	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
+	-- Modèles Blender des pets (à téléverser ensuite) : index d'espèce de Config.PETS -> identifiant du modèle. Vide = pets procéduraux.
+	-- Exemple : pets = { [1] = 123456789 }. Un modèle absent, refusé ou invalide garde le pet procédural (repli automatique).
+	pets = {},
+	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
+	petHeight = 3, -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -543,6 +548,55 @@ function Config.fmtOdds(n)
 	return "1 sur " .. out
 end
 
+---------------------------------------------------------------- Bandeaux de rareté, aura des raretés élevées, états des pets
+-- Bandeaux (couleurs imposées par les inspirations) : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan, secret arc-en-ciel.
+Config.RARITY_BANNERS = {
+	{ name = "COMMUN", colors = { Color3.fromRGB(255, 214, 64), Color3.fromRGB(214, 150, 10) } },
+	{ name = "RARE", colors = { Color3.fromRGB(110, 235, 110), Color3.fromRGB(30, 150, 50) } },
+	{ name = "ÉPIQUE", colors = { Color3.fromRGB(196, 120, 255), Color3.fromRGB(110, 40, 190) } },
+	{ name = "LÉGENDAIRE", colors = { Color3.fromRGB(255, 96, 96), Color3.fromRGB(170, 20, 30) } },
+	{ name = "MYTHIQUE", colors = { Color3.fromRGB(90, 240, 255), Color3.fromRGB(10, 130, 180) } },
+	{ name = "COSMIQUE", colors = { Color3.fromRGB(150, 255, 230), Color3.fromRGB(20, 150, 130) } },
+	secret = { name = "SECRET", colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 210, 60), Color3.fromRGB(90, 235, 110), Color3.fromRGB(80, 170, 255), Color3.fromRGB(190, 110, 255) } },
+}
+
+function Config.rarityBanner(tier, secret)
+	if secret then
+		return Config.RARITY_BANNERS.secret
+	end
+	return Config.RARITY_BANNERS[math.min(math.max(tier, 1), #Config.TIERS)]
+end
+
+-- Cercle runique au sol et aura autour du pet obtenu (rareté >= minTier ou secret). Budgets mobiles : maxRate (particules/s) et maxRunes plafonnent.
+Config.AURA = {
+	Enabled = true,
+	minTier = 4,
+	seconds = 6,
+	maxRate = 40,
+	maxRunes = 12,
+	maxParts = 24, -- plafond de Parts créées par une aura (vérifié par test)
+	highlight = true, -- contour lumineux (Highlight) du pet pendant l'aura
+}
+
+-- Style d'aura : { runes, rate, pillar, seconds, color } ou nil si la rareté est trop basse. reduced = option mobile.
+function Config.auraStyle(tier, secret, reduced)
+	local A = Config.AURA
+	if not A.Enabled or (tier < A.minTier and not secret) then
+		return nil
+	end
+	local level = secret and 7 or tier
+	local st = { runes = math.min(A.maxRunes, 4 + (level - A.minTier + 1) * 2), rate = math.min(A.maxRate, 8 + (level - A.minTier + 1) * 6), pillar = level >= 5, seconds = A.seconds + (secret and 3 or 0) }
+	if reduced then
+		st.runes = math.max(4, st.runes // 2)
+		st.rate = st.rate // 2
+		st.pillar = false
+	end
+	return st
+end
+
+-- États des pets (idle, move, ability) : la capacité des pets de rareté >= abilityMinTier se déclenche toutes les ~abilityInterval s.
+Config.PET_STATES = { abilityMinTier = 3, abilityInterval = 9 }
+
 ---------------------------------------------------------------- Animations (client)
 -- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
 -- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.
@@ -562,6 +616,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	petStates = true, -- états des pets : respiration, bonds en suivant le joueur, capacité (saut en vrille)
 	zoneBanner = true, -- bannière au passage d'une zone de la carte
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
@@ -647,6 +702,8 @@ Config.Map = {
 	rivalSpacing = 90,
 	rivalZ = -95,
 	domainRadius = 38,
+	pedestals = true, -- piédestal hexagonal sous chaque emplacement
+	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
@@ -1043,6 +1100,33 @@ function Easing.peck(time, seed)
 end
 
 -- Pulsation d'une barrière de zone, dans [0, 1].
+-- États des pets : idle (respiration), move (bonds penchés vers l'avant), ability (saut en vrille). Retourne { y, pitch, yaw, scale } ;
+-- state "ability" attend p = progression 0..1 de la capacité (Easing.abilityProgress). Toutes les valeurs sont bornées.
+function Easing.petPose(state, t, seed, p)
+	seed = seed or 0
+	if state == "move" then
+		return { y = abs(sin(t * 9 + seed)) * 0.7, pitch = -0.18, yaw = sin(t * 9 + seed) * 0.08, scale = 1 }
+	elseif state == "ability" then
+		local q = clamp01(p or 0)
+		return { y = sin(q * pi) * 1.8, pitch = 0, yaw = q * 2 * pi, scale = 1 + 0.25 * sin(q * pi) }
+	end
+	return { y = sin(t * 3 + seed) * 0.25, pitch = 0, yaw = sin(t * 0.8 + seed) * 0.12, scale = 1 }
+end
+
+-- Progression 0..1 de la capacité d'un pet (durée `window` s toutes les `interval` s environ, décalée par seed), nil hors capacité.
+function Easing.abilityProgress(t, seed, interval, window)
+	window = window or 1.1
+	local period = (interval or 9) + ((seed or 0) % 5)
+	if period <= window then
+		return nil
+	end
+	local phase = (t + (seed or 0) * 1.3) % period
+	if phase < window then
+		return phase / window
+	end
+	return nil
+end
+
 function Easing.gatePulse(time, speed)
 	return 0.5 + 0.5 * sin(time * (speed or 2))
 end
@@ -2032,6 +2116,50 @@ function Assets.new(Config, deps)
 		return loaded
 	end
 
+	-- Charge les modèles Blender des pets (Config.Assets.pets : index d'espèce -> ID). Clés « p:<index> ». Retourne le nombre de modèles chargés.
+	function A.loadPets()
+		if cfg.Enabled ~= true or type(cfg.pets) ~= "table" then
+			return 0
+		end
+		local loaded = 0
+		local idxs = {}
+		for idx in pairs(cfg.pets) do
+			idxs[#idxs + 1] = idx
+		end
+		table.sort(idxs, function(a, b)
+			return tostring(a) < tostring(b)
+		end)
+		for _, idx in ipairs(idxs) do
+			local id = cfg.pets[idx]
+			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("p:" .. idx, id, cfg.petsMaxParts or cfg.maxParts) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie du modèle du pet d'espèce `petIdx`, ou nil (repli : pet procédural).
+	function A.clonePet(petIdx)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["p:" .. tostring(petIdx)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
 	-- Copie du modèle de décor `key`, ou nil (coupé, échoué, pas encore chargé).
 	function A.cloneDecor(key)
 		if cfg.Enabled ~= true then
@@ -2134,6 +2262,7 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 		end
 	end
 	st.color = st.secret and R.secret.color or Config.TIERS[math.min(math.max(petTier, 1), #Config.TIERS)].color
+	st.banner = Config.rarityBanner(petTier, st.secret)
 	if reduced then
 		local k = R.reducedFactor
 		st.rays = math.max(4, math.floor(st.rays * k))
@@ -2202,6 +2331,7 @@ task.spawn(function()
 	})
 	Builder.setAssets(assets)
 	assets.loadAll()
+	assets.loadPets()
 end)
 
 local world = Builder.build()
@@ -2766,6 +2896,21 @@ function hatch(s, i)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
+	-- Rareté élevée ou tirage secret : cercle runique au sol, particules, pilier de lumière et contour lumineux du pet (Config.AURA)
+	local secretHit = oneIn >= Config.REVEAL.secret.oneInAtLeast
+	if Config.AURA.Enabled and (def.tier >= Config.AURA.minTier or secretHit) then
+		Builder.aura(s.plot.pads[i].part.Position, col, def.tier, secretHit)
+		local holder = s.plot.pads[i].content
+		local petModel = holder and holder:FindFirstChild("Pet")
+		if Config.AURA.highlight and petModel then
+			local hl = Instance.new("Highlight")
+			hl.FillTransparency = 1
+			hl.OutlineColor = col
+			hl.OutlineTransparency = 0.1
+			hl.Parent = petModel
+			game:GetService("Debris"):AddItem(hl, Config.AURA.seconds)
+		end
+	end
 	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
@@ -4430,10 +4575,56 @@ end
 
 ---------------------------------------------------------------- Pet (modèle 3D en Parts)
 -- Retourne (modèle, hauteur de levage). Le modèle regarde vers -Z.
+-- Habille un pet avec le modèle Blender de Config.Assets.pets si disponible (même contrat que le pet procédural : Model, PrimaryPart, hauteur de
+-- levage). Retourne (modèle, levage, hauteur d'étiquette) ou nil : l'appelant garde alors le pet procédural. Ne lève jamais d'erreur.
+local function customPet(petIdx, size)
+	local clone = eggAssets and eggAssets.clonePet and eggAssets.clonePet(petIdx)
+	if not clone then
+		return nil
+	end
+	local ok, lift, labelY = pcall(function()
+		if not clone:IsA("Model") then
+			error("pas un Model")
+		end
+		local _, sz = clone:GetBoundingBox()
+		if sz.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		local height = Config.Assets.petHeight * size.scale
+		clone:ScaleTo(height / sz.Y)
+		local first = nil
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				first = first or d
+			end
+		end
+		if not first then
+			error("aucune part")
+		end
+		clone.PrimaryPart = clone.PrimaryPart or first
+		clone.Name = "Pet"
+		return height / 2, height + 1.2
+	end)
+	if not ok then
+		pcall(function()
+			clone:Destroy()
+		end)
+		return nil
+	end
+	return clone, lift, labelY
+end
+
 function Builder.pet(petIdx, sizeIdx, mutIdx)
 	local def = Config.PETS[petIdx]
 	local size = Config.SIZES[sizeIdx]
 	local mut = Config.MUTS[mutIdx]
+	local custom, customLift, customLabel = customPet(petIdx, size)
+	if custom then
+		custom:SetAttribute("Tier", def.tier)
+		return custom, customLift, customLabel
+	end
 	local R = 1.5 * size.scale
 	local model = Instance.new("Model")
 	model.Name = "Pet"
@@ -4564,6 +4755,7 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	-- étiquette
 	model:SetAttribute("Height", lift)
 	CollectionService:AddTag(model, "PetFace") -- visage animé côté client (clignement, regard, bouche)
+	model:SetAttribute("Tier", def.tier) -- états des pets (capacité des raretés élevées)
 	return model, lift, 2.3 * R + 1.5
 end
 
@@ -4890,6 +5082,7 @@ function Builder.build()
 		end
 		torch(Vector3.new(cx - 15, 0.5, cz + 9), folder)
 		torch(Vector3.new(cx + 15, 0.5, cz + 9), folder)
+		sceneryParts += Scenery.moat(sceneryHelpers, cx, cz, folder, Config)
 		local theme = Scenery[Config.Map.zoneKeys[i]]
 		if theme then
 			local okS, countS = pcall(theme, sceneryHelpers, cx, cz, folder, Random.new(100 + i))
@@ -4992,6 +5185,9 @@ function Builder.build()
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
 			pads[idx] = { part = pad, lock = lockText.Parent, frame = frame, content = nil }
+			if Config.Map.pedestals then
+				sceneryParts += Scenery.pedestal(sceneryHelpers, (cf * CFrame.new(lx, 0.62, lz)).Position, model, nil)
+			end
 		end
 
 		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
@@ -5021,6 +5217,9 @@ function Builder.build()
 	for name, fn in pairs({
 		paths = function()
 			return Scenery.paths(sceneryHelpers, world, Config)
+		end,
+		rivers = function()
+			return Scenery.rivers(sceneryHelpers, world, Config)
 		end,
 		landmarks = function()
 			return Scenery.landmarks(sceneryHelpers, world, srng)
@@ -5122,6 +5321,24 @@ function Builder.flyEgg(tier, fromPos, userId)
 end
 
 -- Pet suiveur : version miniature d'un pet, sans étiquette.
+-- Aura d'une rareté élevée : cercle runique, particules, pilier de lumière (voir Scenery.aura), détruite seule. Retourne true si créée.
+function Builder.aura(position, color, tier, secret)
+	local style = Config.auraStyle(tier, secret, false)
+	if not style then
+		return false
+	end
+	local ok, anchor = pcall(function()
+		local a = Scenery.aura({ part = part, ball = ball }, position, workspace, style, color)
+		CollectionService:AddTag(a, "AuraFx")
+		return a
+	end)
+	if not ok then
+		return false
+	end
+	game:GetService("Debris"):AddItem(anchor, style.seconds)
+	return true
+end
+
 function Builder.follower(petIdx, sizeIdx, mutIdx)
 	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
 	model:ScaleTo(0.45)
@@ -5328,6 +5545,102 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	e.LightEmission = 0.8
 	e.Parent = parent
 	return e
+end
+
+---------------------------------------------------------------- Piédestal hexagonal des emplacements (lumières chaudes)
+-- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
+function Scenery.pedestal(h, position, parent, warm)
+	local n = 0
+	for k = 0, 2 do
+		h.part({ Name = "PedestalSlab", Size = Vector3.new(9.6, 0.5, 5.6), CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(k * 60), 0), Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent)
+		n += 1
+	end
+	h.part({ Name = "PedestalGlow", Size = Vector3.new(10.4, 0.15, 10.4), Position = position + Vector3.new(0, -0.15, 0), Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent)
+	return n + 1
+end
+
+---------------------------------------------------------------- Aura des raretés élevées : cercle runique au sol, piliers, particules
+-- style = Config.auraStyle(...) ; color = couleur de rareté. Disparaît seule après style.seconds (Debris côté appelant). Retourne (ancre, nombre de Parts).
+function Scenery.aura(h, position, parent, style, color)
+	local n = 0
+	local anchor = h.part({ Name = "AuraAnchor", Size = Vector3.new(1, 1, 1), Position = position, Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+	n += 1
+	cyl(h, { Name = "RuneRing", Color = color, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, 11, 0.15, position + Vector3.new(0, 0.2, 0))
+	cyl(h, { Name = "RuneRingInner", Color = color, Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false }, parent, 7, 0.15, position + Vector3.new(0, 0.25, 0))
+	n += 2
+	for i = 1, style.runes do -- glyphes : petits blocs néon répartis sur le cercle
+		local a = i / style.runes * math.pi * 2
+		h.part({ Name = "Rune", Size = Vector3.new(0.5, 0.2, 1.1), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 4.6, 0.3, math.sin(a) * 4.6)) * CFrame.Angles(0, -a, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+	end
+	local em = emitter(anchor, color, style.rate, 7, 1.6, 0.5, Vector3.new(0, 2, 0))
+	em.SpreadAngle = Vector2.new(25, 25)
+	light(anchor, color, 24, 1.6)
+	if style.pillar then -- Beam : pilier de lumière
+		local top = h.part({ Name = "AuraTop", Size = Vector3.new(1, 1, 1), Position = position + Vector3.new(0, 26, 0), Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Parent = anchor
+		a1.Parent = top
+		local beam = Instance.new("Beam")
+		beam.Attachment0, beam.Attachment1 = a0, a1
+		beam.Width0, beam.Width1 = 3.2, 1.2
+		beam.Color = ColorSequence.new(color)
+		beam.Transparency = NumberSequence.new(0.3)
+		beam.LightEmission = 1
+		beam.FaceCamera = true
+		beam.Parent = anchor
+	end
+	return anchor, n
+end
+
+---------------------------------------------------------------- Douve et pont en bois d'un domaine (îlot lisible de loin)
+-- Anneau d'eau franchissable (décor, CanCollide faux) autour du domaine, liseré de sable, pont en bois au sud (face à l'arène). Retourne le nombre de Parts.
+function Scenery.moat(h, cx, cz, parent, cfg)
+	local n = 0
+	local R, W = cfg.Map.moat.radius, cfg.Map.moat.width
+	local segments = 28
+	local chord = 2 * math.pi * R / segments + 1.5
+	for k = 0, segments - 1 do
+		local a = k / segments * math.pi * 2
+		local south = math.sin(a) > 0.99 -- face au sud (z+) : berge de sable sous le pont, pas d'eau
+		h.part({ Name = south and "MoatBank" or "MoatWater", Size = Vector3.new(chord, 0.3, W), CFrame = CFrame.new(cx + math.cos(a) * R, south and 0.12 or 0.1, cz + math.sin(a) * R) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = south and rgb(214, 190, 140) or rgb(60, 150, 220), Material = south and Enum.Material.Sand or Enum.Material.Glass, Transparency = south and 0 or 0.25, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+	end
+	-- pont en bois : planches, deux rampes de rambarde et poteaux, orienté nord-sud
+	local bx, bz = cx, cz + R
+	for k = -3, 3 do
+		h.part({ Name = "BridgePlank", Size = Vector3.new(5.4, 0.45, 1.4), Position = Vector3.new(bx, 0.55, bz + k * 1.6), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks, CanCollide = true }, parent)
+		n += 1
+	end
+	for _, sx in ipairs({ -2.9, 2.9 }) do
+		h.part({ Name = "BridgeRail", Size = Vector3.new(0.35, 0.35, 11.4), Position = Vector3.new(bx + sx, 1.8, bz), Color = rgb(120, 82, 48), Material = Enum.Material.Wood, CanCollide = false }, parent)
+		h.part({ Name = "BridgePost", Size = Vector3.new(0.6, 2.2, 0.6), Position = Vector3.new(bx + sx, 1.1, bz - 5), Color = rgb(100, 68, 40), Material = Enum.Material.Wood }, parent)
+		h.part({ Name = "BridgePost", Size = Vector3.new(0.6, 2.2, 0.6), Position = Vector3.new(bx + sx, 1.1, bz + 5), Color = rgb(100, 68, 40), Material = Enum.Material.Wood }, parent)
+		n += 3
+	end
+	return n
+end
+
+-- Deux rivières qui traversent la carte, avec deux ponts chacune : repères de lecture de la grande carte (franchissables).
+function Scenery.rivers(h, parent, cfg)
+	local n = 0
+	local half = cfg.Map.groundSize / 2
+	local function bridge(x, z, alongX)
+		for k = -4, 4 do
+			local px, pz = alongX and x + k * 1.6 or x, alongX and z or z + k * 1.6
+			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(1.4, 0.45, 6) or Vector3.new(6, 0.45, 1.4), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+			n += 1
+		end
+	end
+	h.part({ Name = "RiverSouth", Size = Vector3.new(half * 2 - 60, 0.3, 14), Position = Vector3.new(0, 0.1, 330), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	h.part({ Name = "RiverWest", Size = Vector3.new(14, 0.3, half * 2 - 60), Position = Vector3.new(-380, 0.1, 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	n += 2
+	bridge(-150, 330, true)
+	bridge(150, 330, true)
+	bridge(-380, -150, false)
+	bridge(-380, 150, false)
+	return n
 end
 
 ---------------------------------------------------------------- Marqueur d'élément interactif
@@ -5645,6 +5958,7 @@ local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
+local Easing = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Easing"))
 local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -6746,7 +7060,18 @@ RunService.RenderStepped:Connect(function()
 			bobBase[m] = base
 		end
 		if base then
-			m:PivotTo(base * CFrame.new(0, math.sin(t * 3 + base.X + base.Z) * 0.25, 0))
+			if Config.animEnabled("petStates") then
+				-- états des pets : respiration (idle) ; capacité (saut en vrille) pour les raretés élevées, périodique
+				local seed = base.X + base.Z
+				local ability = nil
+				if (m:GetAttribute("Tier") or 1) >= Config.PET_STATES.abilityMinTier then
+					ability = Easing.abilityProgress(t, seed, Config.PET_STATES.abilityInterval)
+				end
+				local pose = ability and Easing.petPose("ability", t, seed, ability) or Easing.petPose("idle", t, seed)
+				m:PivotTo(base * CFrame.new(0, pose.y, 0) * CFrame.Angles(pose.pitch, pose.yaw, 0))
+			else
+				m:PivotTo(base * CFrame.new(0, math.sin(t * 3 + base.X + base.Z) * 0.25, 0))
+			end
 		end
 	end
 end)
@@ -6826,6 +7151,13 @@ RunService.RenderStepped:Connect(function(dt)
 		if root and m.PrimaryPart then
 			local n = m:GetAttribute("Idx") or 1
 			local target = CFrame.new(root.Position) * root.CFrame.Rotation * CFrame.new((n - 2) * 3, -2.2 + math.sin(os.clock() * 4 + n) * 0.15, 4)
+			if Config.animEnabled("petStates") then
+				-- état « move » : bonds penchés vers l'avant quand le propriétaire se déplace, sinon respiration
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local moving = hum ~= nil and hum.MoveDirection.Magnitude > 0.1
+				local pose = Easing.petPose(moving and "move" or "idle", os.clock(), n * 1.7)
+				target = target * CFrame.new(0, pose.y, 0) * CFrame.Angles(pose.pitch, pose.yaw, 0)
+			end
 			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
 		end
 	end
@@ -6982,6 +7314,31 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	end)
+end)
+
+-- Aura des raretés élevées : sur appareil tactile sans clavier (ou Config.REVEAL.forceReduced), le pilier de lumière et la moitié des particules sont coupés.
+local UserInputService = game:GetService("UserInputService")
+local auraTrimmed = setmetatable({}, { __mode = "k" })
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		run("auraReduced", function()
+			if Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) then
+				for _, a in ipairs(CollectionService:GetTagged("AuraFx")) do
+					if not auraTrimmed[a] then
+						auraTrimmed[a] = true
+						for _, d in ipairs(a:GetChildren()) do
+							if d:IsA("Beam") then
+								d.Enabled = false
+							elseif d:IsA("ParticleEmitter") then
+								d.Rate = d.Rate / 2
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
 end)
 
 -- Marqueurs d'éléments interactifs (nids, secrets) : l'anneau doré pulse doucement.
@@ -7990,7 +8347,7 @@ end
 -- Nombre d'objets créés pour un style (plafond de performance, vérifié par les tests).
 function RevealFx.cost(style)
 	-- conteneur 1 + halo 3 (Frame, UICorner, UIGradient) + rayons 1 + 2 par rayon + 3 par anneau + étoile 1 + 1 par étincelle + libellé secret
-	return 6 + 2 * style.rays + 3 * style.rings + style.particles + ((style.secret and style.label) and 1 or 0)
+	return 6 + 2 * style.rays + 3 * style.rings + style.particles + ((style.secret and style.label) and 1 or 0) + (style.banner and 5 or 0)
 end
 
 -- Joue l'effet au centre (position `center`, UDim2) de `parent` (ScreenGui). Retourne le conteneur (détruit tout seul), ou nil en cas d'erreur.
@@ -8050,6 +8407,20 @@ function RevealFx.play(parent, style, center)
 				TextScaled = true, TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.3), Font = Enum.Font.GothamBold, ZIndex = 4,
 			}, box)
 			tween(spark, 0.9 + (i % 4) * 0.15, { Position = UDim2.fromOffset(math.cos(a) * dist, math.sin(a) * dist), TextTransparency = 1 })
+		end
+		if style.banner then -- bandeau de rareté coloré (commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan, secret arc-en-ciel)
+			local cols = style.banner.colors
+			local keys = {}
+			for i, c in ipairs(cols) do
+				keys[i] = ColorSequenceKeypoint.new((i - 1) / math.max(#cols - 1, 1), c)
+			end
+			local band = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(0, 120), Size = UDim2.fromOffset(40, 34), BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 4 }, box)
+			make("UICorner", { CornerRadius = UDim.new(0, 12) }, band)
+			make("UIStroke", { Color = Color3.fromRGB(24, 16, 30), Thickness = 4 }, band)
+			make("UIGradient", { Color = ColorSequence.new(keys), Rotation = #cols > 2 and 0 or 90 }, band)
+			local bt = make("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = style.banner.name, Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(24, 16, 30), ZIndex = 5 }, band)
+			bt.Name = "BannerText"
+			tween(band, 0.5, { Size = UDim2.fromOffset(250, 34) }, Enum.EasingStyle.Back)
 		end
 		if style.secret and style.label then
 			make("TextLabel", {

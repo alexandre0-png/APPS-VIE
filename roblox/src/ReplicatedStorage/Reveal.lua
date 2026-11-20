@@ -59,6 +59,7 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 		end
 	end
 	st.color = st.secret and R.secret.color or Config.TIERS[math.min(math.max(petTier, 1), #Config.TIERS)].color
+	st.banner = Config.rarityBanner(petTier, st.secret)
 	if reduced then
 		local k = R.reducedFactor
 		st.rays = math.max(4, math.floor(st.rays * k))

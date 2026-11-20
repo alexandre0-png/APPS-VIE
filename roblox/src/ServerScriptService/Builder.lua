@@ -198,10 +198,56 @@ end
 
 ---------------------------------------------------------------- Pet (modèle 3D en Parts)
 -- Retourne (modèle, hauteur de levage). Le modèle regarde vers -Z.
+-- Habille un pet avec le modèle Blender de Config.Assets.pets si disponible (même contrat que le pet procédural : Model, PrimaryPart, hauteur de
+-- levage). Retourne (modèle, levage, hauteur d'étiquette) ou nil : l'appelant garde alors le pet procédural. Ne lève jamais d'erreur.
+local function customPet(petIdx, size)
+	local clone = eggAssets and eggAssets.clonePet and eggAssets.clonePet(petIdx)
+	if not clone then
+		return nil
+	end
+	local ok, lift, labelY = pcall(function()
+		if not clone:IsA("Model") then
+			error("pas un Model")
+		end
+		local _, sz = clone:GetBoundingBox()
+		if sz.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		local height = Config.Assets.petHeight * size.scale
+		clone:ScaleTo(height / sz.Y)
+		local first = nil
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				first = first or d
+			end
+		end
+		if not first then
+			error("aucune part")
+		end
+		clone.PrimaryPart = clone.PrimaryPart or first
+		clone.Name = "Pet"
+		return height / 2, height + 1.2
+	end)
+	if not ok then
+		pcall(function()
+			clone:Destroy()
+		end)
+		return nil
+	end
+	return clone, lift, labelY
+end
+
 function Builder.pet(petIdx, sizeIdx, mutIdx)
 	local def = Config.PETS[petIdx]
 	local size = Config.SIZES[sizeIdx]
 	local mut = Config.MUTS[mutIdx]
+	local custom, customLift, customLabel = customPet(petIdx, size)
+	if custom then
+		custom:SetAttribute("Tier", def.tier)
+		return custom, customLift, customLabel
+	end
 	local R = 1.5 * size.scale
 	local model = Instance.new("Model")
 	model.Name = "Pet"
@@ -332,6 +378,7 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	-- étiquette
 	model:SetAttribute("Height", lift)
 	CollectionService:AddTag(model, "PetFace") -- visage animé côté client (clignement, regard, bouche)
+	model:SetAttribute("Tier", def.tier) -- états des pets (capacité des raretés élevées)
 	return model, lift, 2.3 * R + 1.5
 end
 
@@ -658,6 +705,7 @@ function Builder.build()
 		end
 		torch(Vector3.new(cx - 15, 0.5, cz + 9), folder)
 		torch(Vector3.new(cx + 15, 0.5, cz + 9), folder)
+		sceneryParts += Scenery.moat(sceneryHelpers, cx, cz, folder, Config)
 		local theme = Scenery[Config.Map.zoneKeys[i]]
 		if theme then
 			local okS, countS = pcall(theme, sceneryHelpers, cx, cz, folder, Random.new(100 + i))
@@ -760,6 +808,9 @@ function Builder.build()
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
 			pads[idx] = { part = pad, lock = lockText.Parent, frame = frame, content = nil }
+			if Config.Map.pedestals then
+				sceneryParts += Scenery.pedestal(sceneryHelpers, (cf * CFrame.new(lx, 0.62, lz)).Position, model, nil)
+			end
 		end
 
 		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
@@ -789,6 +840,9 @@ function Builder.build()
 	for name, fn in pairs({
 		paths = function()
 			return Scenery.paths(sceneryHelpers, world, Config)
+		end,
+		rivers = function()
+			return Scenery.rivers(sceneryHelpers, world, Config)
 		end,
 		landmarks = function()
 			return Scenery.landmarks(sceneryHelpers, world, srng)
@@ -890,6 +944,24 @@ function Builder.flyEgg(tier, fromPos, userId)
 end
 
 -- Pet suiveur : version miniature d'un pet, sans étiquette.
+-- Aura d'une rareté élevée : cercle runique, particules, pilier de lumière (voir Scenery.aura), détruite seule. Retourne true si créée.
+function Builder.aura(position, color, tier, secret)
+	local style = Config.auraStyle(tier, secret, false)
+	if not style then
+		return false
+	end
+	local ok, anchor = pcall(function()
+		local a = Scenery.aura({ part = part, ball = ball }, position, workspace, style, color)
+		CollectionService:AddTag(a, "AuraFx")
+		return a
+	end)
+	if not ok then
+		return false
+	end
+	game:GetService("Debris"):AddItem(anchor, style.seconds)
+	return true
+end
+
 function Builder.follower(petIdx, sizeIdx, mutIdx)
 	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
 	model:ScaleTo(0.45)

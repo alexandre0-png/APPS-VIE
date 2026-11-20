@@ -306,6 +306,11 @@ Config.Assets = {
 	-- Packs d'animaux fournis (renard, lion, panda, girafe, éléphant, chat, poulet / énorme pack / serpent, biche, léopard) : NON chargés, car
 	-- aucun animal ne sert le gameplay (les pets sont construits par le code). Identifiants gardés ici pour un futur PNJ décor.
 	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
+	-- Modèles Blender des pets (à téléverser ensuite) : index d'espèce de Config.PETS -> identifiant du modèle. Vide = pets procéduraux.
+	-- Exemple : pets = { [1] = 123456789 }. Un modèle absent, refusé ou invalide garde le pet procédural (repli automatique).
+	pets = {},
+	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
+	petHeight = 3, -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -543,6 +548,55 @@ function Config.fmtOdds(n)
 	return "1 sur " .. out
 end
 
+---------------------------------------------------------------- Bandeaux de rareté, aura des raretés élevées, états des pets
+-- Bandeaux (couleurs imposées par les inspirations) : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan, secret arc-en-ciel.
+Config.RARITY_BANNERS = {
+	{ name = "COMMUN", colors = { Color3.fromRGB(255, 214, 64), Color3.fromRGB(214, 150, 10) } },
+	{ name = "RARE", colors = { Color3.fromRGB(110, 235, 110), Color3.fromRGB(30, 150, 50) } },
+	{ name = "ÉPIQUE", colors = { Color3.fromRGB(196, 120, 255), Color3.fromRGB(110, 40, 190) } },
+	{ name = "LÉGENDAIRE", colors = { Color3.fromRGB(255, 96, 96), Color3.fromRGB(170, 20, 30) } },
+	{ name = "MYTHIQUE", colors = { Color3.fromRGB(90, 240, 255), Color3.fromRGB(10, 130, 180) } },
+	{ name = "COSMIQUE", colors = { Color3.fromRGB(150, 255, 230), Color3.fromRGB(20, 150, 130) } },
+	secret = { name = "SECRET", colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 210, 60), Color3.fromRGB(90, 235, 110), Color3.fromRGB(80, 170, 255), Color3.fromRGB(190, 110, 255) } },
+}
+
+function Config.rarityBanner(tier, secret)
+	if secret then
+		return Config.RARITY_BANNERS.secret
+	end
+	return Config.RARITY_BANNERS[math.min(math.max(tier, 1), #Config.TIERS)]
+end
+
+-- Cercle runique au sol et aura autour du pet obtenu (rareté >= minTier ou secret). Budgets mobiles : maxRate (particules/s) et maxRunes plafonnent.
+Config.AURA = {
+	Enabled = true,
+	minTier = 4,
+	seconds = 6,
+	maxRate = 40,
+	maxRunes = 12,
+	maxParts = 24, -- plafond de Parts créées par une aura (vérifié par test)
+	highlight = true, -- contour lumineux (Highlight) du pet pendant l'aura
+}
+
+-- Style d'aura : { runes, rate, pillar, seconds, color } ou nil si la rareté est trop basse. reduced = option mobile.
+function Config.auraStyle(tier, secret, reduced)
+	local A = Config.AURA
+	if not A.Enabled or (tier < A.minTier and not secret) then
+		return nil
+	end
+	local level = secret and 7 or tier
+	local st = { runes = math.min(A.maxRunes, 4 + (level - A.minTier + 1) * 2), rate = math.min(A.maxRate, 8 + (level - A.minTier + 1) * 6), pillar = level >= 5, seconds = A.seconds + (secret and 3 or 0) }
+	if reduced then
+		st.runes = math.max(4, st.runes // 2)
+		st.rate = st.rate // 2
+		st.pillar = false
+	end
+	return st
+end
+
+-- États des pets (idle, move, ability) : la capacité des pets de rareté >= abilityMinTier se déclenche toutes les ~abilityInterval s.
+Config.PET_STATES = { abilityMinTier = 3, abilityInterval = 9 }
+
 ---------------------------------------------------------------- Animations (client)
 -- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
 -- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.
@@ -562,6 +616,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	petStates = true, -- états des pets : respiration, bonds en suivant le joueur, capacité (saut en vrille)
 	zoneBanner = true, -- bannière au passage d'une zone de la carte
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
@@ -647,6 +702,8 @@ Config.Map = {
 	rivalSpacing = 90,
 	rivalZ = -95,
 	domainRadius = 38,
+	pedestals = true, -- piédestal hexagonal sous chaque emplacement
+	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
@@ -1043,6 +1100,33 @@ function Easing.peck(time, seed)
 end
 
 -- Pulsation d'une barrière de zone, dans [0, 1].
+-- États des pets : idle (respiration), move (bonds penchés vers l'avant), ability (saut en vrille). Retourne { y, pitch, yaw, scale } ;
+-- state "ability" attend p = progression 0..1 de la capacité (Easing.abilityProgress). Toutes les valeurs sont bornées.
+function Easing.petPose(state, t, seed, p)
+	seed = seed or 0
+	if state == "move" then
+		return { y = abs(sin(t * 9 + seed)) * 0.7, pitch = -0.18, yaw = sin(t * 9 + seed) * 0.08, scale = 1 }
+	elseif state == "ability" then
+		local q = clamp01(p or 0)
+		return { y = sin(q * pi) * 1.8, pitch = 0, yaw = q * 2 * pi, scale = 1 + 0.25 * sin(q * pi) }
+	end
+	return { y = sin(t * 3 + seed) * 0.25, pitch = 0, yaw = sin(t * 0.8 + seed) * 0.12, scale = 1 }
+end
+
+-- Progression 0..1 de la capacité d'un pet (durée `window` s toutes les `interval` s environ, décalée par seed), nil hors capacité.
+function Easing.abilityProgress(t, seed, interval, window)
+	window = window or 1.1
+	local period = (interval or 9) + ((seed or 0) % 5)
+	if period <= window then
+		return nil
+	end
+	local phase = (t + (seed or 0) * 1.3) % period
+	if phase < window then
+		return phase / window
+	end
+	return nil
+end
+
 function Easing.gatePulse(time, speed)
 	return 0.5 + 0.5 * sin(time * (speed or 2))
 end
@@ -2032,6 +2116,50 @@ function Assets.new(Config, deps)
 		return loaded
 	end
 
+	-- Charge les modèles Blender des pets (Config.Assets.pets : index d'espèce -> ID). Clés « p:<index> ». Retourne le nombre de modèles chargés.
+	function A.loadPets()
+		if cfg.Enabled ~= true or type(cfg.pets) ~= "table" then
+			return 0
+		end
+		local loaded = 0
+		local idxs = {}
+		for idx in pairs(cfg.pets) do
+			idxs[#idxs + 1] = idx
+		end
+		table.sort(idxs, function(a, b)
+			return tostring(a) < tostring(b)
+		end)
+		for _, idx in ipairs(idxs) do
+			local id = cfg.pets[idx]
+			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("p:" .. idx, id, cfg.petsMaxParts or cfg.maxParts) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie du modèle du pet d'espèce `petIdx`, ou nil (repli : pet procédural).
+	function A.clonePet(petIdx)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["p:" .. tostring(petIdx)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
 	-- Copie du modèle de décor `key`, ou nil (coupé, échoué, pas encore chargé).
 	function A.cloneDecor(key)
 		if cfg.Enabled ~= true then
@@ -2134,6 +2262,7 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 		end
 	end
 	st.color = st.secret and R.secret.color or Config.TIERS[math.min(math.max(petTier, 1), #Config.TIERS)].color
+	st.banner = Config.rarityBanner(petTier, st.secret)
 	if reduced then
 		local k = R.reducedFactor
 		st.rays = math.max(4, math.floor(st.rays * k))

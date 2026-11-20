@@ -41,6 +41,102 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	return e
 end
 
+---------------------------------------------------------------- Piédestal hexagonal des emplacements (lumières chaudes)
+-- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
+function Scenery.pedestal(h, position, parent, warm)
+	local n = 0
+	for k = 0, 2 do
+		h.part({ Name = "PedestalSlab", Size = Vector3.new(9.6, 0.5, 5.6), CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(k * 60), 0), Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent)
+		n += 1
+	end
+	h.part({ Name = "PedestalGlow", Size = Vector3.new(10.4, 0.15, 10.4), Position = position + Vector3.new(0, -0.15, 0), Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent)
+	return n + 1
+end
+
+---------------------------------------------------------------- Aura des raretés élevées : cercle runique au sol, piliers, particules
+-- style = Config.auraStyle(...) ; color = couleur de rareté. Disparaît seule après style.seconds (Debris côté appelant). Retourne (ancre, nombre de Parts).
+function Scenery.aura(h, position, parent, style, color)
+	local n = 0
+	local anchor = h.part({ Name = "AuraAnchor", Size = Vector3.new(1, 1, 1), Position = position, Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+	n += 1
+	cyl(h, { Name = "RuneRing", Color = color, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, 11, 0.15, position + Vector3.new(0, 0.2, 0))
+	cyl(h, { Name = "RuneRingInner", Color = color, Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false }, parent, 7, 0.15, position + Vector3.new(0, 0.25, 0))
+	n += 2
+	for i = 1, style.runes do -- glyphes : petits blocs néon répartis sur le cercle
+		local a = i / style.runes * math.pi * 2
+		h.part({ Name = "Rune", Size = Vector3.new(0.5, 0.2, 1.1), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 4.6, 0.3, math.sin(a) * 4.6)) * CFrame.Angles(0, -a, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+	end
+	local em = emitter(anchor, color, style.rate, 7, 1.6, 0.5, Vector3.new(0, 2, 0))
+	em.SpreadAngle = Vector2.new(25, 25)
+	light(anchor, color, 24, 1.6)
+	if style.pillar then -- Beam : pilier de lumière
+		local top = h.part({ Name = "AuraTop", Size = Vector3.new(1, 1, 1), Position = position + Vector3.new(0, 26, 0), Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Parent = anchor
+		a1.Parent = top
+		local beam = Instance.new("Beam")
+		beam.Attachment0, beam.Attachment1 = a0, a1
+		beam.Width0, beam.Width1 = 3.2, 1.2
+		beam.Color = ColorSequence.new(color)
+		beam.Transparency = NumberSequence.new(0.3)
+		beam.LightEmission = 1
+		beam.FaceCamera = true
+		beam.Parent = anchor
+	end
+	return anchor, n
+end
+
+---------------------------------------------------------------- Douve et pont en bois d'un domaine (îlot lisible de loin)
+-- Anneau d'eau franchissable (décor, CanCollide faux) autour du domaine, liseré de sable, pont en bois au sud (face à l'arène). Retourne le nombre de Parts.
+function Scenery.moat(h, cx, cz, parent, cfg)
+	local n = 0
+	local R, W = cfg.Map.moat.radius, cfg.Map.moat.width
+	local segments = 28
+	local chord = 2 * math.pi * R / segments + 1.5
+	for k = 0, segments - 1 do
+		local a = k / segments * math.pi * 2
+		local south = math.sin(a) > 0.99 -- face au sud (z+) : berge de sable sous le pont, pas d'eau
+		h.part({ Name = south and "MoatBank" or "MoatWater", Size = Vector3.new(chord, 0.3, W), CFrame = CFrame.new(cx + math.cos(a) * R, south and 0.12 or 0.1, cz + math.sin(a) * R) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = south and rgb(214, 190, 140) or rgb(60, 150, 220), Material = south and Enum.Material.Sand or Enum.Material.Glass, Transparency = south and 0 or 0.25, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+	end
+	-- pont en bois : planches, deux rampes de rambarde et poteaux, orienté nord-sud
+	local bx, bz = cx, cz + R
+	for k = -3, 3 do
+		h.part({ Name = "BridgePlank", Size = Vector3.new(5.4, 0.45, 1.4), Position = Vector3.new(bx, 0.55, bz + k * 1.6), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks, CanCollide = true }, parent)
+		n += 1
+	end
+	for _, sx in ipairs({ -2.9, 2.9 }) do
+		h.part({ Name = "BridgeRail", Size = Vector3.new(0.35, 0.35, 11.4), Position = Vector3.new(bx + sx, 1.8, bz), Color = rgb(120, 82, 48), Material = Enum.Material.Wood, CanCollide = false }, parent)
+		h.part({ Name = "BridgePost", Size = Vector3.new(0.6, 2.2, 0.6), Position = Vector3.new(bx + sx, 1.1, bz - 5), Color = rgb(100, 68, 40), Material = Enum.Material.Wood }, parent)
+		h.part({ Name = "BridgePost", Size = Vector3.new(0.6, 2.2, 0.6), Position = Vector3.new(bx + sx, 1.1, bz + 5), Color = rgb(100, 68, 40), Material = Enum.Material.Wood }, parent)
+		n += 3
+	end
+	return n
+end
+
+-- Deux rivières qui traversent la carte, avec deux ponts chacune : repères de lecture de la grande carte (franchissables).
+function Scenery.rivers(h, parent, cfg)
+	local n = 0
+	local half = cfg.Map.groundSize / 2
+	local function bridge(x, z, alongX)
+		for k = -4, 4 do
+			local px, pz = alongX and x + k * 1.6 or x, alongX and z or z + k * 1.6
+			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(1.4, 0.45, 6) or Vector3.new(6, 0.45, 1.4), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+			n += 1
+		end
+	end
+	h.part({ Name = "RiverSouth", Size = Vector3.new(half * 2 - 60, 0.3, 14), Position = Vector3.new(0, 0.1, 330), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	h.part({ Name = "RiverWest", Size = Vector3.new(14, 0.3, half * 2 - 60), Position = Vector3.new(-380, 0.1, 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	n += 2
+	bridge(-150, 330, true)
+	bridge(150, 330, true)
+	bridge(-380, -150, false)
+	bridge(-380, 150, false)
+	return n
+end
+
 ---------------------------------------------------------------- Marqueur d'élément interactif
 -- Tout ce avec quoi on peut agir (nids à chiper, secrets) porte un anneau doré pulsant (tag Interactive, animé côté client) et une icône :
 -- les décors n'utilisent jamais ce doré, on distingue donc d'un coup d'œil ce qui est cliquable de ce qui est décoratif.

@@ -340,7 +340,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner" }
+local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner", "petStates" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -1564,8 +1564,8 @@ do
 	local seed = 5
 	local rng = {
 		NextNumber = function(_, a, b)
-			seed = (seed * 1103515245 + 12345) % 2147483648
-			return (a or 0) + (seed / 2147483648) * ((b or 1) - (a or 0))
+			seed = (seed * 16807) % 2147483647
+			return (a or 0) + (seed / 2147483647) * ((b or 1) - (a or 0))
 		end,
 		NextInteger = function(self, a, b)
 			return math.floor(self:NextNumber(a, b + 1))
@@ -1592,6 +1592,45 @@ do
 	made = 0
 	local okM, ring = pcall(Scenery.marker, helpers, vec(0, 0, 0), {}, "✋", 8)
 	check("Scenery.marker : anneau interactif créé (une Part, attribut BaseT)", okM and made == 1 and ring.attrs.BaseT ~= nil)
+	-- piédestal, aura, douve, rivières
+	made = 0
+	local okP, nP = pcall(Scenery.pedestal, helpers, vec(0, 0, 0), {}, nil)
+	check("Scenery.pedestal : hexagone (3 dalles + liseré) sans erreur, compte exact", okP and nP == 4 and made == 4)
+	for _, spec in ipairs({ { 4, false }, { 5, false }, { 6, false }, { 3, true } }) do
+		made = 0
+		local style = Config.auraStyle(spec[1], spec[2], false)
+		local okA, anchor, nA = pcall(Scenery.aura, helpers, vec(0, 0, 0), {}, style, { R = 1, G = 0.5, B = 0 })
+		check("Scenery.aura (rareté " .. spec[1] .. (spec[2] and ", secret" or "") .. ") : cercle runique, particules, lumière" .. (okA and "" or " : " .. tostring(anchor)), okA and anchor ~= nil and nA == made and nA <= Config.AURA.maxParts)
+	end
+	made = 0
+	local okM, nM = pcall(Scenery.moat, helpers, 0, 0, {}, Config)
+	check("Scenery.moat : douve (28 segments) et pont en bois, compte exact", okM and nM == made and nM >= 40)
+	made = 0
+	local okR, nR = pcall(Scenery.rivers, helpers, {}, Config)
+	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 30)
+	-- géométrie : la douve ne passe sous aucune base de joueur
+	local R, W = Config.Map.moat.radius, Config.Map.moat.width
+	local clear = true
+	for pl = 1, Config.PLOT_COUNT do
+		local ang = (pl - 1) / Config.PLOT_COUNT * math.pi * 2
+		local px, pz = math.sin(ang) * Config.Map.plotRadius, math.cos(ang) * Config.Map.plotRadius
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			if math.sqrt((px - cx) ^ 2 + (pz - cz) ^ 2) - 26 < R + W / 2 + 1 then
+				clear = false
+			end
+		end
+	end
+	check("Douve : l'anneau d'eau (rayon " .. R .. " + largeur) ne recouvre aucune base de joueur", clear)
+	check("Douve : le domaine (rayon 38 et décors jusqu'à 52) est à l'intérieur de la douve", R - W / 2 >= 52)
+	check("Rivières : n'écrasent ni les secrets, ni les bases", (function()
+		for _, sct in ipairs(Config.SECRETS) do
+			if math.abs(sct.x - -380) < 20 or math.abs(sct.z - 330) < 20 then
+				return false
+			end
+		end
+		return true
+	end)())
 	check("Scenery : décor total dans le budget mobile (" .. total .. " Parts, budget " .. Config.Map.budgetParts .. ")", total > 300 and total < Config.Map.budgetParts * 0.6)
 end
 
@@ -1808,8 +1847,8 @@ do
 	local function freqTest(label, eggTier, up, alien, guaranteed, n)
 		local seed = 4242 + eggTier * 7
 		local function rnd()
-			seed = (seed * 1103515245 + 12345) % 2147483648
-			return seed / 2147483648
+			seed = (seed * 16807) % 2147483647
+			return seed / 2147483647
 		end
 		local counts = {}
 		for _ = 1, n do
@@ -1839,6 +1878,56 @@ do
 	freqTest("œuf Commun, chance +40 et biome alien", 1, 40, true, false, 150000)
 	freqTest("œuf Légendaire, pitié", 4, 12, false, true, 150000)
 	freqTest("œuf Cosmique (rareté max)", 6, 12, false, false, 150000)
+	-- vérification DÉTERMINISTE (sans générateur aléatoire, identique sous tous les moteurs) : la loi de rareté de rollPet par balayage exact
+	-- du premier tirage = la loi annoncée par Reveal.probability, et idem pour l'espèce, la taille et la mutation (un balayage par tirage).
+	local function sweep(eggTier, up, alien, guaranteed, drawIndex, buckets, key)
+		local N = 20000
+		local counts = {}
+		for k = 0, N - 1 do
+			local u = (k + 0.5) / N
+			local call = 0
+			local function rnd()
+				call = call + 1
+				return call == drawIndex and u or 0.5
+			end
+			local r = Rules.rollPet(eggTier, up, alien, rnd, guaranteed)
+			local kk = key(r)
+			counts[kk] = (counts[kk] or 0) + 1
+		end
+		local worst = 0
+		for kk, expected in pairs(buckets) do
+			worst = math.max(worst, math.abs((counts[kk] or 0) / N - expected))
+		end
+		return worst
+	end
+	local function marginal(eggTier, up, alien, guaranteed, key)
+		local out = {}
+		for p = 1, #Config.PETS do
+			for sz = 1, #Config.SIZES do
+				for mu = 1, #Config.MUTS do
+					local pr = Reveal.probability(Config, Rules, eggTier, up, alien, p, sz, mu, guaranteed)
+					local kk = key(p, sz, mu)
+					out[kk] = (out[kk] or 0) + pr
+				end
+			end
+		end
+		return out
+	end
+	local sweepOk, sweepWhy = true, ""
+	for _, cfgRow in ipairs({ { 3, 12, false, false }, { 1, 40, true, false }, { 4, 12, false, true }, { 6, 12, false, false }, { 2, 70, false, false } }) do
+		local et, up, alien, g = cfgRow[1], cfgRow[2], cfgRow[3], cfgRow[4]
+		local byTier = marginal(et, up, alien, g, function(p) return Config.PETS[p].tier end)
+		local bySize = marginal(et, up, alien, g, function(_, sz) return sz end)
+		local byMut = marginal(et, up, alien, g, function(_, _, mu) return mu end)
+		local shift = g and 1 or 0 -- la pitié ne consomme pas de tirage pour la rareté
+		local e1 = g and 0 or sweep(et, up, alien, g, 1, byTier, function(r) return r.tier end)
+		local e3 = sweep(et, up, alien, g, 3 - shift, bySize, function(r) return r.s end)
+		local e4 = sweep(et, up, alien, g, 4 - shift, byMut, function(r) return r.m end)
+		if e1 > 1e-3 or e3 > 1e-3 or e4 > 1e-3 then
+			sweepOk, sweepWhy = false, string.format("œuf %d : écarts rareté %.4f, taille %.4f, mutation %.4f", et, e1, e3, e4)
+		end
+	end
+	check("Reveal : balayage exact des tirages (sans aléatoire) : lois de rareté, de taille et de mutation = probabilités annoncées" .. (sweepOk and "" or " : " .. sweepWhy), sweepOk)
 	check("Reveal.oneIn = 1 / probabilité", (function()
 		local pr = Reveal.probability(Config, Rules, 3, 12, false, 7, 2, 1, false)
 		local n = Reveal.oneIn(Config, Rules, 3, 12, false, 7, 2, 1, false)
@@ -1951,6 +2040,89 @@ do
 	check("Premiers instants : action immédiate proposée dès l'arrivée (toucher l'œuf)", h0 ~= nil and h0.id == "tap" and #h0.text > 10)
 	check("Premiers gestes : œuf éclos -> voler, vol fait -> tapis, vitesse atteinte -> plus d'indice", Config.nextHint({ hatched = 1, stolen = 0, speed = 0 }).id == "steal" and Config.nextHint({ hatched = 3, stolen = 1, speed = 2 }).id == "train" and Config.nextHint({ hatched = 3, stolen = 1, speed = 8 }) == nil and Config.nextHint({}).id == "tap")
 	check("Promesse d'accueil : texte du titre et de la promesse présents", Config.TITLE ~= "" and Config.TAGLINE ~= "" and Config.PROMISE.seconds >= 4 and Config.PROMISE.button ~= "")
+end
+
+-- États des pets, aura, bandeaux de rareté ---------------------------------------------------------------------------------
+do
+	suite("Pets (idle, move, ability), aura des raretés élevées, bandeaux de rareté colorés")
+	local Easing = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+	local bounded = true
+	for t = 0, 60, 0.37 do
+		for seed = 0, 9 do
+			for _, state in ipairs({ "idle", "move" }) do
+				local p = Easing.petPose(state, t, seed)
+				if math.abs(p.y) > 1 or math.abs(p.pitch) > 0.5 or math.abs(p.yaw) > 1 or p.scale ~= 1 then
+					bounded = false
+				end
+			end
+			local ap = Easing.abilityProgress(t, seed, 9)
+			if ap ~= nil then
+				if ap < 0 or ap > 1 then
+					bounded = false
+				end
+				local p = Easing.petPose("ability", t, seed, ap)
+				if p.y < -1e-9 or p.y > 1.81 or p.scale < 1 or p.scale > 1.26 or p.yaw < 0 or p.yaw > 2 * math.pi + 1e-9 then
+					bounded = false
+				end
+			end
+		end
+	end
+	check("Pets : poses idle, move et ability bornées (hauteur, inclinaison, vrille, échelle)", bounded)
+	local moveMax, idleMax = 0, 0
+	for t = 0, 10, 0.05 do
+		moveMax = math.max(moveMax, Easing.petPose("move", t, 3).y)
+		idleMax = math.max(idleMax, Easing.petPose("idle", t, 3).y)
+	end
+	check("Pets : l'état « move » bondit plus haut que « idle » et se penche vers l'avant", moveMax > idleMax and Easing.petPose("move", 0, 0).pitch < 0 and Easing.petPose("idle", 0, 0).pitch == 0)
+	local ap0, spinStart, spinEnd = nil, Easing.petPose("ability", 0, 0, 0), Easing.petPose("ability", 0, 0, 1)
+	check("Pets : la capacité commence et finit au sol (y = 0) et fait un tour complet", math.abs(spinStart.y) < 1e-9 and math.abs(spinEnd.y) < 1e-6 and math.abs(spinEnd.yaw - 2 * math.pi) < 1e-9 and Easing.petPose("ability", 0, 0, 0.5).y > 1.7)
+	local active, total = 0, 0
+	for t = 0, 90, 0.1 do
+		total = total + 1
+		if Easing.abilityProgress(t, 2, 9) ~= nil then
+			active = active + 1
+		end
+	end
+	check("Pets : la capacité est brève et périodique (entre 5 % et 20 % du temps)", active / total > 0.05 and active / total < 0.2)
+	check("Pets : valeurs invalides sans erreur (progression hors plage, graine nil)", Easing.petPose("ability", 1, nil, 9).yaw <= 2 * math.pi + 1e-9 and Easing.petPose("inconnu", 1).scale == 1 and Easing.abilityProgress(1, nil, 0.5, 1) == nil)
+	-- Config.Assets.pets : point d'entrée vide par défaut, validé
+	check("Assets.pets : point d'entrée présent (vide = pets procéduraux), plafond de Parts défini", type(Config.Assets.pets) == "table" and next(Config.Assets.pets) == nil and Config.Assets.petsMaxParts >= 60 and Config.Assets.petHeight > 0)
+	-- aura
+	check("Aura : aucune sous la rareté minimale, sauf secret", Config.auraStyle(1, false) == nil and Config.auraStyle(3, false) == nil and Config.auraStyle(3, true) ~= nil and Config.auraStyle(4, false) ~= nil)
+	local prevRunes, prevRate, auraMono, capsOk = 0, 0, true, true
+	for tier = Config.AURA.minTier, #Config.TIERS do
+		local st = Config.auraStyle(tier, false, false)
+		if st.runes < prevRunes or st.rate < prevRate then
+			auraMono = false
+		end
+		if st.runes > Config.AURA.maxRunes or st.rate > Config.AURA.maxRate then
+			capsOk = false
+		end
+		prevRunes, prevRate = st.runes, st.rate
+	end
+	local sec = Config.auraStyle(3, true, false)
+	check("Aura : intensité croissante avec la rareté et plafonds de particules respectés", auraMono and capsOk and sec.runes <= Config.AURA.maxRunes and sec.rate <= Config.AURA.maxRate)
+	local full, red = Config.auraStyle(6, false, false), Config.auraStyle(6, false, true)
+	check("Aura : l'option mobile réduit runes et particules et supprime le pilier de lumière", red.runes < full.runes and red.rate < full.rate and full.pillar == true and red.pillar == false and red.runes >= 4)
+	check("Aura : désactivable (Config.AURA.Enabled = false)", (function()
+		local saved = Config.AURA.Enabled
+		Config.AURA.Enabled = false
+		local r = Config.auraStyle(6, true, false)
+		Config.AURA.Enabled = saved
+		return r == nil
+	end)())
+	-- bandeaux de rareté : couleurs imposées
+	local function hue(c)
+		return c.R, c.G, c.B
+	end
+	local b = Config.RARITY_BANNERS
+	local r1, g1 = hue(b[1].colors[1])
+	local r2, g2 = hue(b[2].colors[1])
+	local r3, g3, b3 = hue(b[3].colors[1])
+	local r4, g4 = hue(b[4].colors[1])
+	local r5, g5, b5 = hue(b[5].colors[1])
+	check("Bandeaux : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan", r1 > 0.9 and g1 > 0.7 and r2 < r1 and g2 > r2 and b3 > g3 and r3 > g3 and r4 > g4 + 0.3 and g5 > r5 and b5 > r5)
+	check("Bandeaux : 6 raretés nommées, secret arc-en-ciel (5 teintes distinctes)", #b == #Config.TIERS and b.secret.name == "SECRET" and #b.secret.colors == 5 and Config.rarityBanner(1, true) == b.secret and Config.rarityBanner(2, false) == b[2] and Config.rarityBanner(99, false) == b[6] and Config.rarityBanner(0, false) == b[1])
 end
 
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
@@ -2114,7 +2286,7 @@ do
 	local warnsBefore = #RT.warns
 	local seed = 17
 	local function rnd(n)
-		seed = (seed * 1103515245 + 12345) % 2147483648
+		seed = (seed * 16807) % 2147483647
 		return (seed % n) + 1
 	end
 	for i = 1, 600 do

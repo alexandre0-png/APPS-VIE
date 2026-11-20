@@ -25,7 +25,7 @@ end
 -- Nombre d'objets créés pour un style (plafond de performance, vérifié par les tests).
 function RevealFx.cost(style)
 	-- conteneur 1 + halo 3 (Frame, UICorner, UIGradient) + rayons 1 + 2 par rayon + 3 par anneau + étoile 1 + 1 par étincelle + libellé secret
-	return 6 + 2 * style.rays + 3 * style.rings + style.particles + ((style.secret and style.label) and 1 or 0)
+	return 6 + 2 * style.rays + 3 * style.rings + style.particles + ((style.secret and style.label) and 1 or 0) + (style.banner and 5 or 0)
 end
 
 -- Joue l'effet au centre (position `center`, UDim2) de `parent` (ScreenGui). Retourne le conteneur (détruit tout seul), ou nil en cas d'erreur.
@@ -85,6 +85,20 @@ function RevealFx.play(parent, style, center)
 				TextScaled = true, TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.3), Font = Enum.Font.GothamBold, ZIndex = 4,
 			}, box)
 			tween(spark, 0.9 + (i % 4) * 0.15, { Position = UDim2.fromOffset(math.cos(a) * dist, math.sin(a) * dist), TextTransparency = 1 })
+		end
+		if style.banner then -- bandeau de rareté coloré (commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan, secret arc-en-ciel)
+			local cols = style.banner.colors
+			local keys = {}
+			for i, c in ipairs(cols) do
+				keys[i] = ColorSequenceKeypoint.new((i - 1) / math.max(#cols - 1, 1), c)
+			end
+			local band = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(0, 120), Size = UDim2.fromOffset(40, 34), BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 4 }, box)
+			make("UICorner", { CornerRadius = UDim.new(0, 12) }, band)
+			make("UIStroke", { Color = Color3.fromRGB(24, 16, 30), Thickness = 4 }, band)
+			make("UIGradient", { Color = ColorSequence.new(keys), Rotation = #cols > 2 and 0 or 90 }, band)
+			local bt = make("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = style.banner.name, Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(24, 16, 30), ZIndex = 5 }, band)
+			bt.Name = "BannerText"
+			tween(band, 0.5, { Size = UDim2.fromOffset(250, 34) }, Enum.EasingStyle.Back)
 		end
 		if style.secret and style.label then
 			make("TextLabel", {

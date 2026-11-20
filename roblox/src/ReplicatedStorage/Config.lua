@@ -302,6 +302,11 @@ Config.Assets = {
 	-- Packs d'animaux fournis (renard, lion, panda, girafe, éléphant, chat, poulet / énorme pack / serpent, biche, léopard) : NON chargés, car
 	-- aucun animal ne sert le gameplay (les pets sont construits par le code). Identifiants gardés ici pour un futur PNJ décor.
 	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
+	-- Modèles Blender des pets (à téléverser ensuite) : index d'espèce de Config.PETS -> identifiant du modèle. Vide = pets procéduraux.
+	-- Exemple : pets = { [1] = 123456789 }. Un modèle absent, refusé ou invalide garde le pet procédural (repli automatique).
+	pets = {},
+	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
+	petHeight = 3, -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -539,6 +544,55 @@ function Config.fmtOdds(n)
 	return "1 sur " .. out
 end
 
+---------------------------------------------------------------- Bandeaux de rareté, aura des raretés élevées, états des pets
+-- Bandeaux (couleurs imposées par les inspirations) : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan, secret arc-en-ciel.
+Config.RARITY_BANNERS = {
+	{ name = "COMMUN", colors = { Color3.fromRGB(255, 214, 64), Color3.fromRGB(214, 150, 10) } },
+	{ name = "RARE", colors = { Color3.fromRGB(110, 235, 110), Color3.fromRGB(30, 150, 50) } },
+	{ name = "ÉPIQUE", colors = { Color3.fromRGB(196, 120, 255), Color3.fromRGB(110, 40, 190) } },
+	{ name = "LÉGENDAIRE", colors = { Color3.fromRGB(255, 96, 96), Color3.fromRGB(170, 20, 30) } },
+	{ name = "MYTHIQUE", colors = { Color3.fromRGB(90, 240, 255), Color3.fromRGB(10, 130, 180) } },
+	{ name = "COSMIQUE", colors = { Color3.fromRGB(150, 255, 230), Color3.fromRGB(20, 150, 130) } },
+	secret = { name = "SECRET", colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 210, 60), Color3.fromRGB(90, 235, 110), Color3.fromRGB(80, 170, 255), Color3.fromRGB(190, 110, 255) } },
+}
+
+function Config.rarityBanner(tier, secret)
+	if secret then
+		return Config.RARITY_BANNERS.secret
+	end
+	return Config.RARITY_BANNERS[math.min(math.max(tier, 1), #Config.TIERS)]
+end
+
+-- Cercle runique au sol et aura autour du pet obtenu (rareté >= minTier ou secret). Budgets mobiles : maxRate (particules/s) et maxRunes plafonnent.
+Config.AURA = {
+	Enabled = true,
+	minTier = 4,
+	seconds = 6,
+	maxRate = 40,
+	maxRunes = 12,
+	maxParts = 24, -- plafond de Parts créées par une aura (vérifié par test)
+	highlight = true, -- contour lumineux (Highlight) du pet pendant l'aura
+}
+
+-- Style d'aura : { runes, rate, pillar, seconds, color } ou nil si la rareté est trop basse. reduced = option mobile.
+function Config.auraStyle(tier, secret, reduced)
+	local A = Config.AURA
+	if not A.Enabled or (tier < A.minTier and not secret) then
+		return nil
+	end
+	local level = secret and 7 or tier
+	local st = { runes = math.min(A.maxRunes, 4 + (level - A.minTier + 1) * 2), rate = math.min(A.maxRate, 8 + (level - A.minTier + 1) * 6), pillar = level >= 5, seconds = A.seconds + (secret and 3 or 0) }
+	if reduced then
+		st.runes = math.max(4, st.runes // 2)
+		st.rate = st.rate // 2
+		st.pillar = false
+	end
+	return st
+end
+
+-- États des pets (idle, move, ability) : la capacité des pets de rareté >= abilityMinTier se déclenche toutes les ~abilityInterval s.
+Config.PET_STATES = { abilityMinTier = 3, abilityInterval = 9 }
+
 ---------------------------------------------------------------- Animations (client)
 -- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
 -- automatiquement pour la session (voir Easing.guard). Aucune n'est nécessaire au gameplay.
@@ -558,6 +612,7 @@ Config.Animations = {
 	zones = true, -- barrières de zone pulsantes et dissolution à l'ouverture
 	characterPop = true, -- petite secousse de caméra quand on prend un œuf ou qu'on est attrapé
 	hen = true, -- Mère Poule picore
+	petStates = true, -- états des pets : respiration, bonds en suivant le joueur, capacité (saut en vrille)
 	zoneBanner = true, -- bannière au passage d'une zone de la carte
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
@@ -643,6 +698,8 @@ Config.Map = {
 	rivalSpacing = 90,
 	rivalZ = -95,
 	domainRadius = 38,
+	pedestals = true, -- piédestal hexagonal sous chaque emplacement
+	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,

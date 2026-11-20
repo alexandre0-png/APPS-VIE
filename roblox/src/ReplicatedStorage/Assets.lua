@@ -205,6 +205,50 @@ function Assets.new(Config, deps)
 		return loaded
 	end
 
+	-- Charge les modèles Blender des pets (Config.Assets.pets : index d'espèce -> ID). Clés « p:<index> ». Retourne le nombre de modèles chargés.
+	function A.loadPets()
+		if cfg.Enabled ~= true or type(cfg.pets) ~= "table" then
+			return 0
+		end
+		local loaded = 0
+		local idxs = {}
+		for idx in pairs(cfg.pets) do
+			idxs[#idxs + 1] = idx
+		end
+		table.sort(idxs, function(a, b)
+			return tostring(a) < tostring(b)
+		end)
+		for _, idx in ipairs(idxs) do
+			local id = cfg.pets[idx]
+			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("p:" .. idx, id, cfg.petsMaxParts or cfg.maxParts) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie du modèle du pet d'espèce `petIdx`, ou nil (repli : pet procédural).
+	function A.clonePet(petIdx)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["p:" .. tostring(petIdx)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
 	-- Copie du modèle de décor `key`, ou nil (coupé, échoué, pas encore chargé).
 	function A.cloneDecor(key)
 		if cfg.Enabled ~= true then

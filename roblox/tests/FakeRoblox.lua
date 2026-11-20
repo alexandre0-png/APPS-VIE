@@ -87,8 +87,8 @@ function Fake.new()
 			local s = seed or 1
 			local r = {}
 			function r:NextNumber(a, b)
-				s = (s * 1103515245 + 12345) % 2147483648
-				return (a or 0) + (s / 2147483648) * ((b or 1) - (a or 0))
+				s = (s * 16807) % 2147483647
+				return (a or 0) + (s / 2147483647) * ((b or 1) - (a or 0))
 			end
 			function r:NextInteger(a, b) return math.floor(self:NextNumber(a, b + 1)) end
 			return r

@@ -148,6 +148,33 @@ function Easing.peck(time, seed)
 end
 
 -- Pulsation d'une barrière de zone, dans [0, 1].
+-- États des pets : idle (respiration), move (bonds penchés vers l'avant), ability (saut en vrille). Retourne { y, pitch, yaw, scale } ;
+-- state "ability" attend p = progression 0..1 de la capacité (Easing.abilityProgress). Toutes les valeurs sont bornées.
+function Easing.petPose(state, t, seed, p)
+	seed = seed or 0
+	if state == "move" then
+		return { y = abs(sin(t * 9 + seed)) * 0.7, pitch = -0.18, yaw = sin(t * 9 + seed) * 0.08, scale = 1 }
+	elseif state == "ability" then
+		local q = clamp01(p or 0)
+		return { y = sin(q * pi) * 1.8, pitch = 0, yaw = q * 2 * pi, scale = 1 + 0.25 * sin(q * pi) }
+	end
+	return { y = sin(t * 3 + seed) * 0.25, pitch = 0, yaw = sin(t * 0.8 + seed) * 0.12, scale = 1 }
+end
+
+-- Progression 0..1 de la capacité d'un pet (durée `window` s toutes les `interval` s environ, décalée par seed), nil hors capacité.
+function Easing.abilityProgress(t, seed, interval, window)
+	window = window or 1.1
+	local period = (interval or 9) + ((seed or 0) % 5)
+	if period <= window then
+		return nil
+	end
+	local phase = (t + (seed or 0) * 1.3) % period
+	if phase < window then
+		return phase / window
+	end
+	return nil
+end
+
 function Easing.gatePulse(time, speed)
 	return 0.5 + 0.5 * sin(time * (speed or 2))
 end

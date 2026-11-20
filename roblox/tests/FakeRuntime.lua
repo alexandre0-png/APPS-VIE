@@ -259,9 +259,21 @@ function Fake.runtime(opts)
 
 	---------------------------------------------------------------- Instance.new, signaux
 	RT.all = {}
+	-- Valeurs par défaut NUMÉRIQUES réelles (jamais des proxies) pour les propriétés que le code compare ou additionne : sous Luau, comparer une
+	-- table à un nombre lève une erreur (contrairement à Lua 5.x avec __lt), donc aucune comparaison ne doit toucher un proxy.
+	local vecFn, cfFn = nil, nil
+	local NUMERIC_DEFAULTS = { Transparency = 0, Health = 100, MaxHealth = 100, WalkSpeed = 16, JumpPower = 50, Volume = 0.5, Rotation = 0, Value = 0, Magnitude = 0 }
 	local function instance(class, name)
 		local p = newProxy(name or class, class)
 		RT.all[#RT.all + 1] = p
+		if vecFn then
+			local pr = rawget(p, "__props")
+			pr.Position, pr.CFrame, pr.Size = vecFn(0, 0, 0), cfFn(0, 0, 0), vecFn(1, 1, 1)
+			pr.AssemblyLinearVelocity, pr.Velocity = vecFn(0, 0, 0), vecFn(0, 0, 0)
+			for k, v in pairs(NUMERIC_DEFAULTS) do
+				pr[k] = v
+			end
+		end
 		rawget(p, "__props").Name = name or class
 		rawget(p, "__props").ClassName = class
 		return p
@@ -650,13 +662,13 @@ function Fake.runtime(opts)
 		UDim2 = { fromOffset = udim, fromScale = udim, new = udim }, UDim = { new = udim },
 		Enum = enum, TweenInfo = { new = function() return {} end },
 		ColorSequence = { new = function() return {} end }, NumberRange = { new = function() return {} end },
-		NumberSequence = { new = function() return {} end }, NumberSequenceKeypoint = { new = function() return {} end },
+		NumberSequence = { new = function() return {} end }, NumberSequenceKeypoint = { new = function() return {} end }, ColorSequenceKeypoint = { new = function() return {} end },
 		Random = { new = function(seed)
 			local s = seed or 1
 			local r = {}
 			function r:NextNumber(a, b)
-				s = (s * 1103515245 + 12345) % 2147483648
-				return (a or 0) + (s / 2147483648) * ((b or 1) - (a or 0))
+				s = (s * 16807) % 2147483647
+				return (a or 0) + (s / 2147483647) * ((b or 1) - (a or 0))
 			end
 			function r:NextInteger(a, b) return math.floor(self:NextNumber(a, b + 1)) end
 			return r
@@ -734,6 +746,7 @@ function Fake.runtime(opts)
 		return ok and res == true
 	end
 
+	vecFn, cfFn = vec, cf
 	RT.game = game
 	RT.services = services
 	RT.instance = instance

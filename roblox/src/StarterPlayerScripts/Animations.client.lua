@@ -136,6 +136,31 @@ RunService.RenderStepped:Connect(function()
 	end)
 end)
 
+-- Aura des raretés élevées : sur appareil tactile sans clavier (ou Config.REVEAL.forceReduced), le pilier de lumière et la moitié des particules sont coupés.
+local UserInputService = game:GetService("UserInputService")
+local auraTrimmed = setmetatable({}, { __mode = "k" })
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		run("auraReduced", function()
+			if Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) then
+				for _, a in ipairs(CollectionService:GetTagged("AuraFx")) do
+					if not auraTrimmed[a] then
+						auraTrimmed[a] = true
+						for _, d in ipairs(a:GetChildren()) do
+							if d:IsA("Beam") then
+								d.Enabled = false
+							elseif d:IsA("ParticleEmitter") then
+								d.Rate = d.Rate / 2
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
+end)
+
 -- Marqueurs d'éléments interactifs (nids, secrets) : l'anneau doré pulse doucement.
 RunService.RenderStepped:Connect(function()
 	run("interactMarkers", function()
