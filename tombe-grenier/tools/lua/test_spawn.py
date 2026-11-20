@@ -220,7 +220,7 @@ class TestSafetyAndReturnPath(unittest.TestCase):
 
     def test_return_path_game_to_hub(self):
         hub = read("src", "common", "Hub.lua")
-        self.assertIn("TeleportService:TeleportAsync(Config.Game.Places.hub, players)", hub)
+        self.assertIn("TeleportService:TeleportAsync(Config.Game.Places.hub, alive(group))", hub)
         # en rôle game, Hub.enter renvoie les joueurs au hub sans toucher aux points d'apparition
         enter = hub[hub.index("function Hub.enter"):hub.index("function Hub.waitForStart")]
         self.assertLess(enter.index('role == "game"'), enter.index("setSpawns(true)"))

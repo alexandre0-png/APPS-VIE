@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local HubRules = require(Shared.HubRules)
+local Retry = require(Shared.Retry)
 local HubLayout = require(Shared.HubLayout)
 local SpawnLog = require(script.Parent.SpawnLog)
 
@@ -48,8 +49,9 @@ end
 
 local CENTER = Vector3.new(300, 0, 300) -- loin de la maison et de la clôture
 local folder = nil
-local launchRequested = false
-local requestedMode = nil -- "solo" ou "duo" : borne pressée, nil sinon
+local queue = {} -- [joueur] = { mode = "solo" | "duo", at = horloge } : file d'attente par borne
+local joinedAt = {} -- [joueur] = horloge d'arrivée au hub
+local notify = nil -- message court à l'écran des joueurs (défini plus bas)
 local queueLabels = {} -- [mode] = BillboardGui TextLabel (file d'attente visible)
 
 local function coffinSpawn()
@@ -136,19 +138,48 @@ local function makePad(name, pos, color, text, onPress)
 	return label
 end
 
--- Met à jour les panneaux : nombre de joueurs qui attendent chaque mode
+-- Met à jour les panneaux : nombre de joueurs en file pour chaque borne
 local function updateQueues()
-	local present = #Players:GetPlayers()
+	local counts = { solo = 0, duo = 0 }
+	for player, entry in pairs(queue) do
+		if player.Parent then
+			counts[entry.mode] = (counts[entry.mode] or 0) + 1
+		end
+	end
 	for mode, label in pairs(queueLabels) do
 		if label and label.Parent then
-			local needed = mode == "duo" and 2 or 1
 			label.Text = HubRules.queueText(
 				mode == "duo" and "Partie duo" or "Partie solo",
-				requestedMode == mode and present or 0,
-				needed
+				counts[mode] or 0,
+				mode == "duo" and 2 or 1
 			)
 		end
 	end
+end
+
+-- Appui sur une borne : entre dans la file de cette borne ; un second appui sur la même borne la quitte
+local function pressPad(player, mode)
+	if typeof(player) ~= "Instance" then
+		return
+	end
+	local entry = queue[player]
+	if entry and entry.mode == mode then
+		queue[player] = nil
+		notify({ player }, "Tu as quitté la file d'attente.")
+	else
+		queue[player] = { mode = mode, at = os.clock() }
+		if mode == "duo" then
+			notify(
+				{ player },
+				("Partie duo : en attente d'un second joueur, %d s au plus, puis la partie démarre en solo."):format(
+					Config.Game.DuoWait
+				)
+			)
+		else
+			notify({ player }, "Départ pour la partie solo.")
+		end
+	end
+	updateQueues()
 end
 
 -- Limites invisibles : quatre murs et un plafond autour de la zone du hub, pour que personne ne sorte ni ne tombe.
@@ -219,10 +250,8 @@ function Hub.build()
 		CENTER + Vector3.new(-9, 0.5, 12),
 		Color3.fromRGB(180, 140, 90),
 		"Partie solo",
-		function()
-			requestedMode = "solo"
-			launchRequested = true
-			updateQueues()
+		function(player)
+			pressPad(player, "solo")
 		end
 	)
 	queueLabels.duo = makePad(
@@ -230,9 +259,8 @@ function Hub.build()
 		CENTER + Vector3.new(9, 0.5, 12),
 		Color3.fromRGB(120, 150, 170),
 		"Partie duo",
-		function()
-			requestedMode = "duo"
-			updateQueues()
+		function(player)
+			pressPad(player, "duo")
 		end
 	)
 	-- Décor : piliers et banc, pour que le hub ait une ambiance propre
@@ -328,69 +356,19 @@ function Hub.build()
 	setSpawns(true)
 end
 
--- Renvoie les joueurs vers le lieu hub (après une fin, dans le lieu de jeu)
-local function sendToHubPlace(players)
-	local ok, err = pcall(function()
-		TeleportService:TeleportAsync(Config.Game.Places.hub, players)
-	end)
-	if not ok then
-		warn("[Hub] retour au hub impossible : " .. tostring(err))
-	end
-end
-
--- Tous les joueurs au hub (ou retour au lieu hub, si ce lieu est le lieu de jeu)
-function Hub.enter()
-	launchRequested = false
-	requestedMode = nil
-	if role == "game" then
-		sendToHubPlace(Players:GetPlayers())
-		return
-	end
-	setSpawns(true)
-	local spawnPart = folder and folder:FindFirstChild("HubSpawn")
-	local cf = spawnPart and (spawnPart.CFrame + Vector3.new(0, 3, 0)) or CFrame.new(CENTER + Vector3.new(0, 4, 0))
-	for _, player in ipairs(Players:GetPlayers()) do
-		teleport(player, cf)
-	end
-end
-
--- Bloque jusqu'au lancement. Lieu hub : la borne ou le délai. Lieu de jeu : 5 s après l'arrivée.
--- Retourne la liste des joueurs présents
-function Hub.waitForStart()
-	if role == "game" then
-		while #Players:GetPlayers() == 0 do
-			task.wait(0.5)
+-- Joueurs encore présents sur ce serveur
+local function alive(list)
+	local out = {}
+	for _, player in ipairs(list) do
+		if player.Parent then
+			table.insert(out, player)
 		end
-		task.wait(5) -- laisse arriver le second joueur s'il suit
-		return Players:GetPlayers()
 	end
-	local firstSeen = nil
-	while true do
-		local present = Players:GetPlayers()
-		updateQueues()
-		if #present > 0 then
-			firstSeen = firstSeen or os.clock()
-			local waited = os.clock() - firstSeen
-			local mode = requestedMode
-			if launchRequested then
-				mode = mode or "solo"
-			end
-			if HubRules.shouldLaunch(mode, #present, waited, Config.Game) then
-				return present
-			end
-		else
-			firstSeen = nil
-			launchRequested = false
-			requestedMode = nil
-		end
-		task.wait(0.3)
-	end
+	return out
 end
 
--- Lieu hub : réserve un serveur privé du lieu de jeu et y envoie le groupe.
--- Retourne true si la téléportation est lancée (ce serveur n'a plus rien à faire pour ce groupe).
 -- Message court à l'écran des joueurs (le hub n'a pas de script client)
-local function notify(group, text)
+notify = function(group, text)
 	for _, player in ipairs(group) do
 		pcall(function()
 			local gui = Instance.new("ScreenGui")
@@ -416,13 +394,149 @@ local function notify(group, text)
 	end
 end
 
--- Même expérience : le lieu de jeu est un autre lieu de l'expérience. Serveur privé d'abord ;
--- si Roblox refuse (réservation ou téléportation), repli sur un serveur public avec un message clair.
-local function sendToPrivateGame(group)
-	local ok, err = pcall(function()
-		local code = TeleportService:ReserveServer(Config.Game.Places.game)
-		TeleportService:TeleportToPrivateServer(Config.Game.Places.game, code, group)
+local RETRY_DELAYS = { 2, 5 } -- pauses avant les deuxième et troisième essais
+local watchdogRunning = false
+local failedTries = {} -- [joueur] = échecs de téléportation signalés par le moteur
+
+-- Renvoie les joueurs vers le lieu hub, avec essais répétés, puis joueur par joueur, puis un message clair.
+-- Un veilleur recommence tant que des joueurs restent sur ce serveur (aucun joueur coincé).
+function Hub.sendPlayersToHub(players)
+	local group = alive(players)
+	if #group == 0 then
+		return true
+	end
+	local ok, tries, err = Retry.run(function()
+		TeleportService:TeleportAsync(Config.Game.Places.hub, alive(group))
+	end, RETRY_DELAYS, task.wait)
+	if not ok then
+		warn(("[Hub] retour au hub impossible après %d essai(s) : %s"):format(tries, tostring(err)))
+		notify(group, "Retour au hub difficile : nouvelle tentative en cours. Ne quitte pas le jeu.")
+		for _, player in ipairs(alive(group)) do
+			pcall(function()
+				TeleportService:TeleportAsync(Config.Game.Places.hub, { player })
+			end)
+		end
+	end
+	if not watchdogRunning then
+		watchdogRunning = true
+		task.spawn(function()
+			for _ = 1, 6 do
+				task.wait(25)
+				local left = alive(Players:GetPlayers())
+				if #left == 0 then
+					break
+				end
+				notify(left, "Retour au hub en cours...")
+				pcall(function()
+					TeleportService:TeleportAsync(Config.Game.Places.hub, left)
+				end)
+			end
+			watchdogRunning = false
+		end)
+	end
+	return ok
+end
+
+-- Échec signalé par le moteur après une téléportation acceptée : message, puis jusqu'à deux nouveaux essais
+pcall(function()
+	TeleportService.TeleportInitFailed:Connect(function(player, result, message, placeId, options)
+		failedTries[player] = (failedTries[player] or 0) + 1
+		warn(
+			("[Hub] téléportation de %s refusée (%s) : %s"):format(player.Name, tostring(result), tostring(message))
+		)
+		if failedTries[player] > 2 or not placeId then
+			notify({ player }, "La téléportation a échoué. Réessaie dans quelques instants.")
+			return
+		end
+		notify({ player }, "La téléportation a échoué, nouvel essai dans 3 secondes.")
+		task.delay(3, function()
+			if player.Parent then
+				pcall(function()
+					TeleportService:TeleportAsync(placeId, { player }, options)
+				end)
+			end
+		end)
 	end)
+end)
+Players.PlayerRemoving:Connect(function(player)
+	failedTries[player] = nil
+	queue[player] = nil
+	joinedAt[player] = nil
+end)
+
+-- Tous les joueurs au hub (ou retour au lieu hub, si ce lieu est le lieu de jeu)
+function Hub.enter()
+	if role == "game" then
+		Hub.sendPlayersToHub(Players:GetPlayers())
+		return
+	end
+	setSpawns(true)
+	local spawnPart = folder and folder:FindFirstChild("HubSpawn")
+	local cf = spawnPart and (spawnPart.CFrame + Vector3.new(0, 3, 0)) or CFrame.new(CENTER + Vector3.new(0, 4, 0))
+	for _, player in ipairs(Players:GetPlayers()) do
+		teleport(player, cf)
+	end
+end
+
+-- Bloque jusqu'au prochain groupe à lancer (un joueur seul, un duo, ou le plus ancien arrivé).
+-- Lieu de jeu : le premier arrivé, et son partenaire s'il arrive dans les 5 s. Retourne la liste des joueurs du groupe.
+function Hub.waitForStart()
+	if role == "game" then
+		while #Players:GetPlayers() == 0 do
+			task.wait(0.5)
+		end
+		task.wait(5) -- laisse arriver le second joueur s'il suit
+		local group = {}
+		for _, player in ipairs(Players:GetPlayers()) do
+			if #group < (Config.Game.MaxPlayers or 2) then
+				table.insert(group, player)
+			end
+		end
+		return group
+	end
+	while true do
+		local list = {}
+		local byId = {}
+		local now = os.clock()
+		for _, player in ipairs(Players:GetPlayers()) do
+			joinedAt[player] = joinedAt[player] or now
+			local entry = queue[player]
+			table.insert(list, {
+				id = player.UserId,
+				joinedAt = joinedAt[player],
+				queue = entry and entry.mode or nil,
+				queuedAt = entry and entry.at or 0,
+			})
+			byId[player.UserId] = player
+		end
+		updateQueues()
+		local ids = HubRules.nextGroup(list, now, Config.Game)
+		if ids then
+			local group = {}
+			for _, id in ipairs(ids) do
+				local player = byId[id]
+				if player then
+					queue[player] = nil
+					joinedAt[player] = nil
+					table.insert(group, player)
+				end
+			end
+			if #group > 0 then
+				updateQueues()
+				return group
+			end
+		end
+		task.wait(0.3)
+	end
+end
+
+-- Même expérience : le lieu de jeu est un autre lieu de l'expérience. Serveur privé d'abord (deux essais) ;
+-- si Roblox refuse, repli sur un serveur public (deux essais) avec un message clair.
+local function sendToPrivateGame(group)
+	local ok, _, err = Retry.run(function()
+		local code = TeleportService:ReserveServer(Config.Game.Places.game)
+		TeleportService:TeleportToPrivateServer(Config.Game.Places.game, code, alive(group))
+	end, { 2 }, task.wait)
 	if ok then
 		return true
 	end
@@ -431,9 +545,9 @@ local function sendToPrivateGame(group)
 		group,
 		"Serveur privé indisponible : tu rejoins un serveur public. Tu risques d'y croiser d'autres joueurs."
 	)
-	local okPublic, errPublic = pcall(function()
-		TeleportService:TeleportAsync(Config.Game.Places.game, group)
-	end)
+	local okPublic, _, errPublic = Retry.run(function()
+		TeleportService:TeleportAsync(Config.Game.Places.game, alive(group))
+	end, { 2, 4 }, task.wait)
 	if not okPublic then
 		warn("[Hub] téléportation publique impossible : " .. tostring(errPublic))
 		notify(group, "Impossible de lancer la partie pour l'instant. Réessaie dans quelques secondes.")
@@ -443,8 +557,10 @@ end
 
 -- Lance la partie pour le groupe : serveur privé (lieu hub), ou cercueil du grenier (autres rôles)
 function Hub.startGame(group)
-	launchRequested = false
-	requestedMode = nil
+	group = alive(group)
+	if #group == 0 then
+		return false
+	end
 	if role == "hub" then
 		return sendToPrivateGame(group)
 	end

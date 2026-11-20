@@ -62,8 +62,10 @@ local function findSpawn(p)
   end
   return nil
 end
+NEXT_ID = 1000
 function newPlayer(name)
-  local p = { Name = name, DisplayName = name, UserId = #name * 1000 + 7, Parent = true, Character = nil, RespawnLocation = nil, CharacterAdded = signal() }
+  NEXT_ID = NEXT_ID + 13
+  local p = { Name = name, DisplayName = name, UserId = NEXT_ID, Parent = true, Character = nil, RespawnLocation = nil, CharacterAdded = signal() }
   function p:RequestStreamAroundAsync() end
   p._attrs = {}
   function p:SetAttribute(k, v) self._attrs[k] = v end

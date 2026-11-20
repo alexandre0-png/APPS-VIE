@@ -77,7 +77,7 @@ class TestPlaces(unittest.TestCase):
         hub = read("src", "common", "Hub.lua")
         self.assertIn("ReserveServer(Config.Game.Places.game)", hub)
         self.assertIn("TeleportToPrivateServer", hub)
-        self.assertIn("TeleportAsync(Config.Game.Places.game, group)", hub)
+        self.assertIn("TeleportAsync(Config.Game.Places.game, alive(group))", hub)
         self.assertIn("Serveur privé indisponible", hub)
 
 

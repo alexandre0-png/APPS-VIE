@@ -382,6 +382,10 @@ end
 PlayerState.init()
 -- Profils : chargés à l'arrivée, rang et titre affichés au-dessus de chaque joueur
 Players.PlayerAdded:Connect(function(player)
+	-- Arrivée tardive dans un serveur de jeu qui se vide (partie finie) : retour direct au hub
+	if Hub.role() == "game" and round.leaving then
+		task.defer(Hub.sendPlayersToHub, { player })
+	end
 	task.spawn(function()
 		Profile.load(player)
 		pcall(Profile.attachLabel, player)

@@ -2,6 +2,13 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Hub, duo et téléportations (lot 2)
+- Files d'attente par borne (`HubRules.nextGroup`, logique pure) : « solo » part seul tout de suite sans entraîner les autres joueurs du hub (avant, tous les joueurs présents partaient ensemble, même au-delà de deux) ; « duo » réunit les deux premiers en file, un duo seul attend `Config.Game.DuoWait` puis part en solo ; sans borne, le plus ancien part après `HubWait` (avec le suivant, deux au plus). Un second appui sur la même borne quitte la file ; un joueur qui part sort de la file ; messages à l'écran à l'entrée en file.
+- Échecs de téléportation (`Retry.run`, pauses 2 s puis 5 s) : réservation et départ privés réessayés, puis repli public réessayé avec message clair ; `TeleportInitFailed` signale l'échec au joueur et relance deux fois ; jamais de joueur absent dans une téléportation.
+- Retour au hub (`Hub.sendPlayersToHub`) : essais répétés, puis joueur par joueur, message, et un veilleur qui recommence toutes les 25 s tant que des joueurs restent sur le serveur de jeu (six cycles) ; un joueur qui arrive tard dans un serveur de jeu qui se vide repart aussitôt au hub.
+- Tests : `tools/lua/test_hub_flow.py` (25 tests) : règles pures, essais répétés, et le vrai script du hub avec téléportation scriptée en échec (réservation, privé, public, tout), files solo, duo, trois joueurs, départ pendant l'attente, retour au hub avec échecs et veilleur.
+- Limite connue : un ami ne peut pas rejoindre directement un serveur privé de partie par « suivre » ; il rejoint le hub puis la file duo (documenté dans A_FAIRE_UTILISATEUR).
+
 ### Audit de robustesse (lot 1)
 - Événements du client : `src/shared/Guard.lua` (type, finitude, longueur, caractères de contrôle, limiteur à jetons par joueur) ; tous les `OnServerEvent` du script de partie passent par `guarded(...)` (erreurs isolées par pcall, seau libéré au départ du joueur). Corrigé : un vecteur NaN passait la vérification du lancer.
 - Profil : `UpdateAsync` fusionne (`Ranks.merge`, compteurs au maximum, ensembles réunis) pour que hub et partie ne s'écrasent plus ; chargement, lecture et écriture ne lèvent jamais d'erreur (profil neuf en mémoire en dernier recours) ; `BindToClose` sauvegarde tous les joueurs en parallèle (20 s au plus) ; sauvegarde au départ sous pcall.

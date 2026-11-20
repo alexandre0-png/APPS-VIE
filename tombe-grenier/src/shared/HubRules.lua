@@ -20,6 +20,53 @@ function HubRules.shouldLaunch(mode, present, waited, cfg)
 	return waited >= cfg.HubWait
 end
 
+-- File d'attente par borne. players : { { id, joinedAt, queue = "solo" | "duo" | nil, queuedAt } }.
+-- Retourne la liste des identifiants du prochain groupe à lancer (au plus cfg.MaxPlayers), ou nil :
+--  1. Un joueur en file solo part seul, tout de suite (les autres ne sont pas entraînés avec lui).
+--  2. Deux joueurs en file duo partent ensemble ; un seul attend cfg.DuoWait secondes, puis part en solo.
+--  3. Sans borne : le plus ancien part après cfg.HubWait secondes, avec le suivant s'il attend aussi (duo).
+function HubRules.nextGroup(players, now, cfg)
+	local solo, duo, free = {}, {}, {}
+	for _, p in ipairs(players) do
+		if p.queue == "solo" then
+			table.insert(solo, p)
+		elseif p.queue == "duo" then
+			table.insert(duo, p)
+		else
+			table.insert(free, p)
+		end
+	end
+	local function order(list, key)
+		table.sort(list, function(a, b)
+			if a[key] ~= b[key] then
+				return a[key] < b[key]
+			end
+			return a.id < b.id
+		end)
+	end
+	order(solo, "queuedAt")
+	order(duo, "queuedAt")
+	order(free, "joinedAt")
+	local cap = cfg.MaxPlayers or 2
+	if #solo > 0 then
+		return { solo[1].id }
+	end
+	if #duo >= 2 and cap >= 2 then
+		return { duo[1].id, duo[2].id }
+	end
+	if #duo == 1 and now - duo[1].queuedAt >= cfg.DuoWait then
+		return { duo[1].id }
+	end
+	if #free > 0 and now - free[1].joinedAt >= cfg.HubWait then
+		local group = { free[1].id }
+		if free[2] and cap >= 2 then
+			table.insert(group, free[2].id)
+		end
+		return group
+	end
+	return nil
+end
+
 -- Mode de la partie lancée : duo si deux joueurs ou plus, sinon solo
 function HubRules.groupMode(count)
 	return count >= 2 and "duo" or "solo"
