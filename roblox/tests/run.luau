@@ -1616,6 +1616,9 @@ do
 	check("Scenery.marker : anneau interactif créé (une Part, attribut BaseT)", okM and made == 1 and ring.attrs.BaseT ~= nil)
 	-- piédestal, aura, douve, rivières
 	made = 0
+	local okN, nN = pcall(Scenery.nest, helpers, vec(0, 0, 0), {})
+	check("Scenery.nest : nid de paille (plateau, bord, 8 brins) sans erreur, compte exact", okN and nN == 10 and made == 10)
+	made = 0
 	local okP, nP = pcall(Scenery.pedestal, helpers, vec(0, 0, 0), {}, nil)
 	check("Scenery.pedestal : hexagone (3 dalles + liseré) sans erreur, compte exact", okP and nP == 4 and made == 4)
 	for _, spec in ipairs({ { 4, false }, { 5, false }, { 6, false }, { 3, true } }) do
@@ -2145,6 +2148,29 @@ do
 	local r5, g5, b5 = hue(b[5].colors[1])
 	check("Bandeaux : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan", r1 > 0.9 and g1 > 0.7 and r2 < r1 and g2 > r2 and b3 > g3 and r3 > g3 and r4 > g4 + 0.3 and g5 > r5 and b5 > r5)
 	check("Bandeaux : 6 raretés nommées, secret arc-en-ciel (5 teintes distinctes)", #b == #Config.TIERS and b.secret.name == "SECRET" and #b.secret.colors == 5 and Config.rarityBanner(1, true) == b.secret and Config.rarityBanner(2, false) == b[2] and Config.rarityBanner(99, false) == b[6] and Config.rarityBanner(0, false) == b[1])
+end
+
+-- Œuf énorme à l'éclosion : plafond de taille, nid, pet à taille normale -----------------------------------------------------
+do
+	suite("Œuf borné (relatif à la base et au joueur), nid de paille, pet qui apparaît à taille normale")
+	local Easing = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+	local mx = Config.eggMaxSize()
+	check("Plafond d'œuf : relatif à l'emplacement (8) et au joueur (5) : largeur 4,4, hauteur 3,75", math.abs(mx.w - 4.4) < 1e-9 and math.abs(mx.h - 3.75) < 1e-9)
+	check("Plafond d'œuf : l'œuf standard (largeur 2,4, hauteur 3,2) et la hauteur cible des modèles tiennent", Config.fitScale({ X = 2.4, Y = 3.2, Z = 2.4 }, mx) == 1 and Config.Assets.targetHeight <= mx.h)
+	local fx = Config.fitScale({ X = 30, Y = 20, Z = 10 }, mx)
+	check("Plafond d'œuf : un modèle géant (30 x 20 x 10) est ramené sous la borne sur tous les axes", fx < 1 and 30 * fx <= mx.w + 1e-9 and 20 * fx <= mx.h + 1e-9 and 10 * fx <= mx.w + 1e-9)
+	check("Plafond d'œuf : très large mais bas ramené sur la largeur, très haut mais fin sur la hauteur", Config.fitScale({ X = 44, Y = 1, Z = 1 }, mx) == mx.w / 44 and Config.fitScale({ X = 1, Y = 37.5, Z = 1 }, mx) == mx.h / 37.5)
+	check("Plafond d'œuf : valeurs invalides (0, NaN, négatif, nil) sans erreur et sans réduction", Config.fitScale({ X = 0, Y = -3, Z = 0 / 0 }, mx) == 1 and Config.fitScale({}, mx) == 1)
+	local big = Config.eggMaxSize(16, 10)
+	check("Plafond d'œuf : proportionnel à la base et au joueur (base x2 -> largeur x2)", math.abs(big.w - 2 * mx.w) < 1e-9 and big.h >= mx.h)
+	-- pet qui apparaît
+	local maxPop, startPop, endPop = 0, Easing.popScale(0, true), Easing.popScale(1, true)
+	for k = 0, 100 do
+		local a = k / 100
+		maxPop = math.max(maxPop, Easing.popScale(a, true), Easing.popScale(a, false))
+	end
+	check("Apparition du pet : part petit (<= 0,3), ne dépasse jamais 1,15 et vaut exactement 1 à la fin", startPop <= 0.3 and maxPop <= 1.15 + 1e-9 and endPop == 1 and Easing.popScale(1, false) == 1 and Easing.popScale(2, true) == 1)
+	check("Apparition du pet : plafond réglable et valeurs hors plage sans erreur", Easing.popScale(0.5, false, 1.0) <= 1.0 and Easing.popScale(-1, true) >= 0.05)
 end
 
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------

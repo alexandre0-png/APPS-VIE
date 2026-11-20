@@ -368,6 +368,30 @@ function Config.eggLook(tier)
 	return key and Config.EggFx.looks[key] or nil
 end
 
+-- Taille maximale d'un œuf posé sur une base : relative à l'emplacement (pad de 8 studs) et au joueur (~5 studs). Quel que soit le modèle
+-- (Blender, catalogue, procédural), l'œuf ne dépasse jamais ces bornes : plus de géant à l'éclosion.
+Config.EGG_LIMITS = { padSize = 8, playerHeight = 5, widthOfPad = 0.55, heightOfPad = 0.5, heightOfPlayer = 0.75 }
+
+function Config.eggMaxSize(padSize, playerHeight)
+	local L = Config.EGG_LIMITS
+	padSize, playerHeight = padSize or L.padSize, playerHeight or L.playerHeight
+	return { w = padSize * L.widthOfPad, h = math.min(padSize * L.heightOfPad, playerHeight * L.heightOfPlayer) }
+end
+
+-- Facteur (<= 1) à appliquer à un modèle d'étendues ext = { X, Y, Z } pour qu'il tienne dans max = { w, h } ; 1 si déjà conforme ou valeurs invalides.
+function Config.fitScale(ext, max)
+	local f = 1
+	local function limit(extent, bound)
+		if type(extent) == "number" and extent == extent and extent > 0 and extent > bound then
+			f = math.min(f, bound / extent)
+		end
+	end
+	limit(ext.X, max.w)
+	limit(ext.Z, max.w)
+	limit(ext.Y, max.h)
+	return f
+end
+
 -- Emplacements du décor du hub : { clé de Config.Assets.decor, x, z, rotation en degrés, hauteur cible en studs }.
 -- Zone libre au sud de la place (z > 44), hors fontaine, point d'arrivée, panneaux et portails (vérifié par les tests).
 Config.HubDecor = {
@@ -1100,6 +1124,22 @@ function Easing.peck(time, seed)
 end
 
 -- Pulsation d'une barrière de zone, dans [0, 1].
+-- Échelle du pet qui apparaît à l'éclosion (a = progression 0..1) : part de 25 %, ne dépasse jamais `cap` et vaut exactement 1 à la fin.
+function Easing.popScale(a, squash, cap)
+	cap = cap or 1.15
+	if a >= 1 then
+		return 1
+	end
+	local scale
+	if squash then
+		local _, sy = Easing.squashStretch(a, 0.45)
+		scale = (0.25 + 0.75 * Easing.outQuad(math.min(1, a * 1.8))) * sy
+	else
+		scale = 0.25 + 0.75 * Easing.outBack(a)
+	end
+	return math.min(cap, math.max(0.05, scale))
+end
+
 -- États des pets : idle (respiration), move (bonds penchés vers l'avant), ability (saut en vrille). Retourne { y, pitch, yaw, scale } ;
 -- state "ability" attend p = progression 0..1 de la capacité (Easing.abilityProgress). Toutes les valeurs sont bornées.
 function Easing.petPose(state, t, seed, p)
@@ -2717,6 +2757,7 @@ local function refreshPad(s, i, animate)
 		egg:SetAttribute("Ends", sl.ends)
 		CollectionService:AddTag(egg, "EggShake")
 		egg.Parent = content
+		Builder.nest(pad.part.Position + Vector3.new(0, 0.3, 0), content) -- l'œuf repose sur un nid
 		local pr = Instance.new("ProximityPrompt")
 		pr.ActionText = "Voler l'œuf"
 		pr.ObjectText = "Œuf de " .. s.player.DisplayName
@@ -4464,6 +4505,12 @@ local function dressEgg(p, tier)
 			error("hauteur nulle")
 		end
 		clone:ScaleTo(Config.Assets.targetHeight / size.Y)
+		-- plafond relatif à l'emplacement et au joueur : un modèle très large ou trop haut est ramené à la borne (jamais d'œuf géant)
+		local ext = clone:GetExtentsSize()
+		local f = Config.fitScale({ X = ext.X, Y = ext.Y, Z = ext.Z }, Config.eggMaxSize())
+		if f < 1 then
+			clone:ScaleTo(clone:GetScale() * f)
+		end
 		local cf = clone:GetBoundingBox()
 		clone:PivotTo(CFrame.new() * cf:ToObjectSpace(clone:GetPivot()))
 		for _, d in ipairs(clone:GetDescendants()) do
@@ -5347,6 +5394,12 @@ function Builder.aura(position, color, tier, secret)
 	return true
 end
 
+-- Nid sous un œuf (paille : plateau, bord, brins) ; remplacé par le modèle Blender NidOeufs si disponible. Retourne le nombre de Parts du repli.
+function Builder.nest(position, parent)
+	local ok, n = pcall(Scenery.nest, { part = part, ball = ball }, position, parent)
+	return ok and n or 0
+end
+
 function Builder.follower(petIdx, sizeIdx, mutIdx)
 	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
 	model:ScaleTo(0.45)
@@ -5553,6 +5606,20 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	e.LightEmission = 0.8
 	e.Parent = parent
 	return e
+end
+
+---------------------------------------------------------------- Nid de paille sous un œuf (repli procédural de NidOeufs)
+function Scenery.nest(h, position, parent)
+	local n = 0
+	cyl(h, { Name = "NestBase", Color = rgb(196, 150, 70), Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }, parent, 6, 0.5, position + Vector3.new(0, 0.3, 0))
+	cyl(h, { Name = "NestRim", Color = rgb(150, 104, 44), Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }, parent, 6.8, 0.35, position + Vector3.new(0, 0.2, 0))
+	n += 2
+	for i = 1, 8 do -- brins de paille dépassant du bord
+		local a = i / 8 * math.pi * 2
+		h.part({ Name = "NestStraw", Size = Vector3.new(0.3, 0.25, 1.6), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 3.2, 0.55, math.sin(a) * 3.2)) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = rgb(226, 190, 100), Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+	end
+	return n
 end
 
 ---------------------------------------------------------------- Piédestal hexagonal des emplacements (lumières chaudes)
@@ -7398,14 +7465,7 @@ CollectionService:GetInstanceAddedSignal("PopIn"):Connect(function(model)
 			local t0 = os.clock()
 			while model.Parent do
 				local a = math.min(1, (os.clock() - t0) / 0.7)
-				local scale
-				if squash then
-					local _, sy = Easing.squashStretch(a, 0.45)
-					scale = (0.25 + 0.75 * Easing.outQuad(math.min(1, a * 1.8))) * sy
-				else
-					scale = 0.25 + 0.75 * Easing.outBack(a)
-				end
-				model:ScaleTo(math.max(0.05, scale))
+				model:ScaleTo(Easing.popScale(a, squash)) -- plafonné : le pet n'apparaît jamais plus gros que nature
 				if a >= 1 then
 					model:ScaleTo(1)
 					break

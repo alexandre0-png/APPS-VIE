@@ -79,6 +79,12 @@ local function dressEgg(p, tier)
 			error("hauteur nulle")
 		end
 		clone:ScaleTo(Config.Assets.targetHeight / size.Y)
+		-- plafond relatif à l'emplacement et au joueur : un modèle très large ou trop haut est ramené à la borne (jamais d'œuf géant)
+		local ext = clone:GetExtentsSize()
+		local f = Config.fitScale({ X = ext.X, Y = ext.Y, Z = ext.Z }, Config.eggMaxSize())
+		if f < 1 then
+			clone:ScaleTo(clone:GetScale() * f)
+		end
 		local cf = clone:GetBoundingBox()
 		clone:PivotTo(CFrame.new() * cf:ToObjectSpace(clone:GetPivot()))
 		for _, d in ipairs(clone:GetDescendants()) do
@@ -960,6 +966,12 @@ function Builder.aura(position, color, tier, secret)
 	end
 	game:GetService("Debris"):AddItem(anchor, style.seconds)
 	return true
+end
+
+-- Nid sous un œuf (paille : plateau, bord, brins) ; remplacé par le modèle Blender NidOeufs si disponible. Retourne le nombre de Parts du repli.
+function Builder.nest(position, parent)
+	local ok, n = pcall(Scenery.nest, { part = part, ball = ball }, position, parent)
+	return ok and n or 0
 end
 
 function Builder.follower(petIdx, sizeIdx, mutIdx)

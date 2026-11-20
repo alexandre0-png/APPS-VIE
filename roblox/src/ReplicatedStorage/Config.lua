@@ -364,6 +364,30 @@ function Config.eggLook(tier)
 	return key and Config.EggFx.looks[key] or nil
 end
 
+-- Taille maximale d'un œuf posé sur une base : relative à l'emplacement (pad de 8 studs) et au joueur (~5 studs). Quel que soit le modèle
+-- (Blender, catalogue, procédural), l'œuf ne dépasse jamais ces bornes : plus de géant à l'éclosion.
+Config.EGG_LIMITS = { padSize = 8, playerHeight = 5, widthOfPad = 0.55, heightOfPad = 0.5, heightOfPlayer = 0.75 }
+
+function Config.eggMaxSize(padSize, playerHeight)
+	local L = Config.EGG_LIMITS
+	padSize, playerHeight = padSize or L.padSize, playerHeight or L.playerHeight
+	return { w = padSize * L.widthOfPad, h = math.min(padSize * L.heightOfPad, playerHeight * L.heightOfPlayer) }
+end
+
+-- Facteur (<= 1) à appliquer à un modèle d'étendues ext = { X, Y, Z } pour qu'il tienne dans max = { w, h } ; 1 si déjà conforme ou valeurs invalides.
+function Config.fitScale(ext, max)
+	local f = 1
+	local function limit(extent, bound)
+		if type(extent) == "number" and extent == extent and extent > 0 and extent > bound then
+			f = math.min(f, bound / extent)
+		end
+	end
+	limit(ext.X, max.w)
+	limit(ext.Z, max.w)
+	limit(ext.Y, max.h)
+	return f
+end
+
 -- Emplacements du décor du hub : { clé de Config.Assets.decor, x, z, rotation en degrés, hauteur cible en studs }.
 -- Zone libre au sud de la place (z > 44), hors fontaine, point d'arrivée, panneaux et portails (vérifié par les tests).
 Config.HubDecor = {

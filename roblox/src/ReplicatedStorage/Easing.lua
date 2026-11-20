@@ -148,6 +148,22 @@ function Easing.peck(time, seed)
 end
 
 -- Pulsation d'une barrière de zone, dans [0, 1].
+-- Échelle du pet qui apparaît à l'éclosion (a = progression 0..1) : part de 25 %, ne dépasse jamais `cap` et vaut exactement 1 à la fin.
+function Easing.popScale(a, squash, cap)
+	cap = cap or 1.15
+	if a >= 1 then
+		return 1
+	end
+	local scale
+	if squash then
+		local _, sy = Easing.squashStretch(a, 0.45)
+		scale = (0.25 + 0.75 * Easing.outQuad(math.min(1, a * 1.8))) * sy
+	else
+		scale = 0.25 + 0.75 * Easing.outBack(a)
+	end
+	return math.min(cap, math.max(0.05, scale))
+end
+
 -- États des pets : idle (respiration), move (bonds penchés vers l'avant), ability (saut en vrille). Retourne { y, pitch, yaw, scale } ;
 -- state "ability" attend p = progression 0..1 de la capacité (Easing.abilityProgress). Toutes les valeurs sont bornées.
 function Easing.petPose(state, t, seed, p)

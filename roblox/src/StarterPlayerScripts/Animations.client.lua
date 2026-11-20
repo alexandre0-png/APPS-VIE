@@ -210,14 +210,7 @@ CollectionService:GetInstanceAddedSignal("PopIn"):Connect(function(model)
 			local t0 = os.clock()
 			while model.Parent do
 				local a = math.min(1, (os.clock() - t0) / 0.7)
-				local scale
-				if squash then
-					local _, sy = Easing.squashStretch(a, 0.45)
-					scale = (0.25 + 0.75 * Easing.outQuad(math.min(1, a * 1.8))) * sy
-				else
-					scale = 0.25 + 0.75 * Easing.outBack(a)
-				end
-				model:ScaleTo(math.max(0.05, scale))
+				model:ScaleTo(Easing.popScale(a, squash)) -- plafonné : le pet n'apparaît jamais plus gros que nature
 				if a >= 1 then
 					model:ScaleTo(1)
 					break

@@ -41,6 +41,20 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	return e
 end
 
+---------------------------------------------------------------- Nid de paille sous un œuf (repli procédural de NidOeufs)
+function Scenery.nest(h, position, parent)
+	local n = 0
+	cyl(h, { Name = "NestBase", Color = rgb(196, 150, 70), Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }, parent, 6, 0.5, position + Vector3.new(0, 0.3, 0))
+	cyl(h, { Name = "NestRim", Color = rgb(150, 104, 44), Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }, parent, 6.8, 0.35, position + Vector3.new(0, 0.2, 0))
+	n += 2
+	for i = 1, 8 do -- brins de paille dépassant du bord
+		local a = i / 8 * math.pi * 2
+		h.part({ Name = "NestStraw", Size = Vector3.new(0.3, 0.25, 1.6), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 3.2, 0.55, math.sin(a) * 3.2)) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = rgb(226, 190, 100), Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }, parent)
+		n += 1
+	end
+	return n
+end
+
 ---------------------------------------------------------------- Piédestal hexagonal des emplacements (lumières chaudes)
 -- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
 function Scenery.pedestal(h, position, parent, warm)

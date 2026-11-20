@@ -432,6 +432,7 @@ local function refreshPad(s, i, animate)
 		egg:SetAttribute("Ends", sl.ends)
 		CollectionService:AddTag(egg, "EggShake")
 		egg.Parent = content
+		Builder.nest(pad.part.Position + Vector3.new(0, 0.3, 0), content) -- l'œuf repose sur un nid
 		local pr = Instance.new("ProximityPrompt")
 		pr.ActionText = "Voler l'œuf"
 		pr.ObjectText = "Œuf de " .. s.player.DisplayName
