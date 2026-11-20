@@ -259,6 +259,16 @@ Config.Assets = {
 	PlanteFenetre = 15078054751, -- plante de fenêtre (salle à manger)
 	PlanteExterieure = 131378985761907, -- plante extérieure rectangle (jardin)
 	PlanteSakura = 101176034116232, -- sakura (jardin)
+	-- Modèles Blender low-poly (approuvés) : ils remplacent la clé, le coffret et l'horloge des énigmes, et ornent
+	-- la chambre d'enfant (poupée) et le grenier (bougie). Échelle et orientation : src/shared/ModelFit.lua.
+	CleOr = 128263149076283, -- clé dorée (anneau, tige, dents), étape « clé »
+	CoffretAncien = 80816541343966, -- coffret en bois cerclé de fer, serrure dorée face -Z, étape « coffret »
+	HorlogeComtoise = 121788657121996, -- horloge haute, cadran face -Y (Blender), étape « horloge »
+	PoupeeAncienne = 114751010380157, -- poupée à robe rouge (chambre d'enfant)
+	BougieChandelier = 118027923730609, -- chandelier en laiton avec bougie (grenier)
+	-- Face avant réelle d'un modèle dans Roblox si elle diffère de ModelFit.PLANS : Front = { ["horloge comtoise"] = "-Z" }
+	-- (valeurs "-Z", "+Z", "-X", "+X"). À régler après avoir regardé le modèle dans Studio.
+	Front = {},
 	HubBibliotheque = 9904549498, -- bibliothèque (décor du hub : étagères) ; même modèle que « bibliothèque » (ModelLoader)
 	-- Modèle du monstre : essayés dans l'ordre, le premier valide est utilisé. Sinon, le rig de secours.
 	Monstre1 = 14801251042,

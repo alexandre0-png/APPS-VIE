@@ -102,6 +102,16 @@ FLIGHTS = [("basement", "ground"), ("ground", "first"), ("first", "attic")]
 # Liaison logique entre pièces par les escaliers (pour le contrôle d'accessibilité)
 STAIR_LINKS = [("cave", "hall"), ("hall", "palier"), ("palier", "gro")]
 
+# Modèles Blender posés en décor d'ambiance (Config.Assets : PoupeeAncienne, BougieChandelier). pos = centre du pied du modèle,
+# sur le dessus d'un meuble de la pièce ; jamais sur un emplacement d'indice, ni sur une pièce de jeu.
+DECOR_MODELS = [
+    dict(model="poupée ancienne", room="che", on="lit", pos=(100, 14.5, 6)),
+    dict(model="poupée ancienne", room="gro", on="berceau", pos=(38, 27, 50)),
+    dict(model="bougie chandelier", room="gro", on="table", pos=(29.5, 27, 11.2)),
+    dict(model="bougie chandelier", room="gro", on="commode", pos=(19, 28, 4)),
+]
+
+
 def door_sweep(d, side):
     """Rectangle balayé par le battant ouvert (porte de d['w'] studs, charnière au bord bas de l'ouverture).
     side = +1 : le battant pivote vers le côté haut en x (porte « v ») ou bas en z (porte « h ») ; -1 : l'autre."""
@@ -1023,7 +1033,7 @@ def build():
     props, inv = build_props()
     plates, path, trees, garden_steps = garden()
     return dict(
-        walls=walls, slabs=slabs, steps=stair_steps(), thresholds=thresholds(), signs=stair_signs(), furniture=furniture_boxes(),
+        walls=walls, slabs=slabs, steps=stair_steps(), thresholds=thresholds(), decor_models=DECOR_MODELS, signs=stair_signs(), furniture=furniture_boxes(),
         decor=DECOR, details=place_details(), hiding=hiding_spots(), props=props, invisible=inv,
         garden=dict(plates=plates, path=path, trees=trees, steps=garden_steps),
         spawn=dict(pos=(90, BASE["attic"] + 0.5, 45), size=(4, 1, 4)),

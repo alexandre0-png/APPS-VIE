@@ -120,6 +120,7 @@ local function inst(class, name)
   function methods.MoveTo(self, p) rawset(self, "Position", p) end
   function methods.ScaleTo() end
   function methods.GetScale() return 1 end
+  function methods.GetExtentsSize(self) local e = rawget(self, "_ext"); return e or V(1, 1, 1) end
   function methods.GetBoundingBox(self) return CF(rawget(self, "Position") or V(0, 0, 0)), V(1, 1, 1) end
   function methods.SetNetworkOwner() end
   function methods.GetState() return "Running" end
