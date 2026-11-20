@@ -43,6 +43,31 @@ if not okCinematic then
 	}
 end
 
+-- Modules de style : un module absent ou en erreur donne un substitut inerte (appels sans effet), jamais un HUD bloqué.
+local function softRequire(name, source)
+	local ok, module = pcall(require, source)
+	if ok and typeof(module) == "table" then
+		return module
+	end
+	warn(("[Client] module %s : erreur : %s"):format(name, tostring(module)))
+	local ghost
+	ghost = setmetatable({}, {
+		__index = function()
+			return ghost
+		end,
+		__call = function()
+			return ghost
+		end,
+	})
+	return ghost
+end
+local Theme = softRequire("Theme", Shared.Theme)
+local UiStyle = softRequire("UiStyle", Shared.UiStyle)
+local Zones = softRequire("Zones", Shared.Zones)
+local Opening = softRequire("Opening", Shared.Opening)
+local Reveal = softRequire("Reveal", Shared.Reveal)
+local MapData = softRequire("MapData", Shared.MapData)
+
 local player = Players.LocalPlayer
 player.CameraMode = Enum.CameraMode.LockFirstPerson
 
@@ -121,6 +146,15 @@ journalLabel.BackgroundTransparency = 0.45
 journalLabel.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
 journalLabel.Visible = false
 journalLabel.Text = "Journal (J pour fermer)"
+-- Style cartoon glossy : le journal est une option (orange), comme son bouton
+UiStyle.apply(journalLabel, Theme.roleForAction("Journal"), { transparency = 0.06 })
+do
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.PaddingTop = UDim.new(0, 8)
+	pad.Parent = journalLabel
+end
 
 local function toggleJournal()
 	journalLabel.Visible = not journalLabel.Visible
@@ -135,6 +169,8 @@ local subtitleLabel = label({
 	size = 20,
 })
 subtitleLabel.TextTransparency = 1
+UiStyle.apply(subtitleLabel, Theme.MESSAGE_ROLES.info, { transparency = 0.1 })
+subtitleLabel.Visible = false
 
 -- Message : tiers supérieur (le centre de la vue reste dégagé)
 local messageLabel = label({
@@ -145,6 +181,8 @@ local messageLabel = label({
 	size = 26,
 })
 messageLabel.TextTransparency = 1
+UiStyle.apply(messageLabel, Theme.MESSAGE_ROLES.info, { transparency = 0.1 })
+messageLabel.Visible = false
 
 -- Indication demandée (touche H) : bas à gauche, reste affichée jusqu'à la suivante
 local hintLabel = label({
@@ -152,6 +190,9 @@ local hintLabel = label({
 	sizeUDim = UDim2.new(0.6, 0, 0, 40),
 	size = 18,
 })
+-- Indice : fonction « aider » (bleu), comme le bouton Indice
+UiStyle.apply(hintLabel, Theme.roleForAction("Indice"), { transparency = 0.08 })
+hintLabel.Visible = false
 
 -- Règles affichées au réveil : une fois, puis elles s'effacent
 local function showRules()
@@ -297,22 +338,37 @@ local function blackout(duration)
 	end)
 end
 
+-- Message à fond stylé : visible pendant `delay` secondes, puis fondu. Un message plus récent annule le fondu du précédent.
 local function fadeOut(lbl, delay)
+	local token = (lbl:GetAttribute("Token") or 0) + 1
+	lbl:SetAttribute("Token", token)
 	task.delay(delay, function()
-		TweenService:Create(lbl, TweenInfo.new(1.5), { TextTransparency = 1 }):Play()
+		if lbl:GetAttribute("Token") ~= token then
+			return
+		end
+		TweenService:Create(lbl, TweenInfo.new(1.5), { TextTransparency = 1, BackgroundTransparency = 1 }):Play()
+		task.delay(1.6, function()
+			if lbl:GetAttribute("Token") == token then
+				lbl.Visible = false
+			end
+		end)
 	end)
 end
 
+local function showToast(lbl, text, seconds)
+	lbl.Text = text
+	lbl.TextTransparency = 0
+	lbl.BackgroundTransparency = 0.1
+	lbl.Visible = true
+	fadeOut(lbl, seconds)
+end
+
 local function showSubtitle(text)
-	subtitleLabel.Text = text
-	subtitleLabel.TextTransparency = 0
-	fadeOut(subtitleLabel, 6)
+	showToast(subtitleLabel, text, 6)
 end
 
 local function showMessage(text)
-	messageLabel.Text = text
-	messageLabel.TextTransparency = 0
-	fadeOut(messageLabel, 8)
+	showToast(messageLabel, text, 8)
 end
 
 -- Écran de saisie du code (coffret à bijoux)
@@ -384,6 +440,7 @@ closeButton.TextSize = 18
 closeButton.Text = "Refermer"
 closeButton.ZIndex = 41
 closeButton.Parent = keypad
+UiStyle.apply(closeButton, Theme.roleForButton("Refermer"))
 safeConnect(closeButton.Activated, "closeKeypad", closeKeypad)
 
 -- Battements de cœur : pendant la poursuite ou à sanité basse
@@ -627,6 +684,8 @@ quitButton.Text = "Quitter"
 quitButton.Visible = false
 quitButton.ZIndex = 45
 quitButton.Parent = gui
+UiStyle.apply(quitButton, Theme.roleForButton("Quitter"))
+UiStyle.apply(restartButton, Theme.roleForButton("Rejouer"))
 safeConnect(quitButton.Activated, "Quitter", function()
 	Remotes.get("Quit"):FireServer()
 	quitButton.Visible = false
@@ -636,6 +695,141 @@ safeConnect(restartButton.Activated, "Rejouer", function()
 	Remotes.get("Restart"):FireServer()
 	restartButton.Visible = false
 end)
+
+-- Bannières stylées : zone, étape accomplie, promesse du titre, première action. ZIndex au-dessus du noir du réveil.
+local function makeBanner(name, position, size, titleSize, subSize)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = position
+	frame.Size = size
+	frame.Visible = false
+	frame.ZIndex = 60
+	frame.Parent = gui
+	UiStyle.apply(frame, "neutral", { transparency = 0.04 })
+	local scale = Instance.new("UIScale")
+	scale.Scale = uiScaleValue()
+	scale.Parent = frame
+	local title = Instance.new("TextLabel")
+	title.Name = "Titre"
+	title.BackgroundTransparency = 1
+	title.Size = UDim2.new(1, -16, 0.58, 0)
+	title.Position = UDim2.fromOffset(8, 4)
+	title.Font = Enum.Font.GothamBlack
+	title.TextScaled = true
+	title.TextWrapped = true
+	title.ZIndex = 61
+	title.Parent = frame
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MinTextSize = 14
+	limit.MaxTextSize = titleSize
+	limit.Parent = title
+	local sub = Instance.new("TextLabel")
+	sub.Name = "Sous"
+	sub.BackgroundTransparency = 1
+	sub.Size = UDim2.new(1, -16, 0.34, 0)
+	sub.Position = UDim2.new(0, 8, 0.62, 0)
+	sub.Font = Enum.Font.GothamMedium
+	sub.TextScaled = true
+	sub.TextWrapped = true
+	sub.ZIndex = 61
+	sub.Parent = frame
+	local limit2 = Instance.new("UITextSizeConstraint")
+	limit2.MinTextSize = 11
+	limit2.MaxTextSize = subSize
+	limit2.Parent = sub
+	return frame
+end
+
+local zoneBanner = makeBanner("BanniereZone", UDim2.new(0.5, 0, 0, 88), UDim2.fromOffset(340, 64), 26, 15)
+local revealBanner = makeBanner("BanniereEtape", UDim2.fromScale(0.5, 0.3), UDim2.fromOffset(420, 74), 28, 16)
+local titleBanner = makeBanner("BanniereTitre", UDim2.fromScale(0.5, 0.42), UDim2.new(0.84, 0, 0, 120), 44, 22)
+local actionBanner = makeBanner("BanniereAction", UDim2.fromScale(0.5, 0.78), UDim2.new(0.8, 0, 0, 78), 26, 18)
+
+-- Affiche une bannière : glisse depuis le haut, reste `hold` secondes, puis fond. Un appel plus récent annule le précédent.
+local function showBanner(frame, role, title, sub, hold)
+	local token = (frame:GetAttribute("Token") or 0) + 1
+	frame:SetAttribute("Token", token)
+	UiStyle.recolor(frame, role)
+	local spec = Theme.role(role)
+	local t, s2 = frame:FindFirstChild("Titre"), frame:FindFirstChild("Sous")
+	for _, lbl in ipairs({ t, s2 }) do
+		lbl.TextColor3 = Color3.fromRGB(spec.text[1], spec.text[2], spec.text[3])
+		lbl.TextStrokeColor3 = Color3.fromRGB(spec.stroke[1], spec.stroke[2], spec.stroke[3])
+		lbl.TextStrokeTransparency = spec.text[1] > 200 and 0.4 or 1
+		lbl.TextTransparency = 0
+	end
+	t.Text = title
+	s2.Text = sub or ""
+	s2.Visible = sub ~= nil and sub ~= ""
+	local home = frame.Position
+	frame.Position = home - UDim2.fromOffset(0, 40)
+	frame.BackgroundTransparency = 0.04
+	frame.Visible = true
+	TweenService
+		:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = home })
+		:Play()
+	task.delay(hold, function()
+		if frame:GetAttribute("Token") ~= token then
+			return
+		end
+		TweenService:Create(frame, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+		for _, lbl in ipairs({ t, s2 }) do
+			TweenService:Create(lbl, TweenInfo.new(0.5), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		end
+		task.delay(0.55, function()
+			if frame:GetAttribute("Token") == token then
+				frame.Visible = false
+			end
+		end)
+	end)
+end
+
+-- Étape accomplie : lueur dorée brève, bannière « Étape n sur N » et le nouvel objectif
+safeConnect(Remotes.get("Reveal").OnClientEvent, "Remote Reveal", function(data)
+	if typeof(data) ~= "table" or typeof(data.n) ~= "number" or typeof(data.total) ~= "number" then
+		return
+	end
+	flash(Color3.fromRGB(255, 220, 140), 0.22, 0.6)
+	showBanner(
+		revealBanner,
+		Reveal.role(data.n, data.total),
+		Reveal.title(data.n, data.total),
+		typeof(data.text) == "string" and data.text or nil,
+		Reveal.duration(data.n, data.total)
+	)
+end)
+
+-- Bannière de zone : grenier, étage, rez-de-chaussée, cave, sous-sol, jardin
+safeSpawn("boucleStyle", function()
+	local announcer = Zones.newAnnouncer(1.0, 6, 45)
+	while true do
+		task.wait(0.5)
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if root and not Cinematic.isPlaying() and blackFrame.BackgroundTransparency > 0.5 then
+			local p = root.Position
+			local zone = announcer.update(Zones.at(MapData.rooms, MapData.base, MapData.H, p.X, p.Y, p.Z), os.clock())
+			local info = zone and Zones.INFO[zone]
+			if info then
+				showBanner(zoneBanner, info.role, info.title, info.sub, 3.2)
+			end
+		end
+	end
+end)
+
+-- Dix premières secondes : la promesse, puis la première action tout de suite
+local function openingSequence(wakeDuration)
+	for _, e in ipairs(Opening.plan(wakeDuration, nil)) do
+		task.delay(e.at, function()
+			if e.kind == "title" then
+				showBanner(titleBanner, "option", e.title, e.text, e.duration)
+			elseif e.kind == "action" then
+				showBanner(actionBanner, "play", e.title, e.text, e.duration)
+			end
+		end)
+	end
+end
 
 -- Événements serveur
 safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
@@ -659,7 +853,8 @@ safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
 	elseif data.kind == "Intro" then
 		restartButton.Visible = false
 		introSequence(data.duration or 8)
-		showRules()
+		openingSequence(data.duration or 8)
+		task.delay(15, showRules)
 	elseif data.kind == "Blackout" then
 		blackout(data.duration or 2)
 	elseif data.kind == "RoundEnd" then
@@ -727,6 +922,7 @@ end)
 safeConnect(Remotes.get("Hint").OnClientEvent, "Remote Hint", function(data)
 	if typeof(data) == "table" and data.text then
 		hintLabel.Text = "Indice : " .. data.text
+		hintLabel.Visible = true
 	end
 end)
 
@@ -945,6 +1141,7 @@ for _, action in ipairs(ACTIONS) do
 		local touchScale = Instance.new("UIScale")
 		touchScale.Scale = uiScaleValue()
 		touchScale.Parent = b
+		UiStyle.apply(b, Theme.roleForAction(action.name), { transparency = 0.08 })
 		if action.down then
 			safeConnect(b.MouseButton1Down, "action", action.down)
 		end

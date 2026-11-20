@@ -16,6 +16,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local HubRules = require(Shared.HubRules)
 local Retry = require(Shared.Retry)
+local Theme = require(Shared.Theme)
+local UiStyle = require(Shared.UiStyle)
+local Opening = require(Shared.Opening)
 local HubLayout = require(Shared.HubLayout)
 local SpawnLog = require(script.Parent.SpawnLog)
 
@@ -165,7 +168,7 @@ local function pressPad(player, mode)
 	local entry = queue[player]
 	if entry and entry.mode == mode then
 		queue[player] = nil
-		notify({ player }, "Tu as quitté la file d'attente.")
+		notify({ player }, "Tu as quitté la file d'attente.", "neutral")
 	else
 		queue[player] = { mode = mode, at = os.clock() }
 		if mode == "duo" then
@@ -173,10 +176,11 @@ local function pressPad(player, mode)
 				{ player },
 				("Partie duo : en attente d'un second joueur, %d s au plus, puis la partie démarre en solo."):format(
 					Config.Game.DuoWait
-				)
+				),
+				"option"
 			)
 		else
-			notify({ player }, "Départ pour la partie solo.")
+			notify({ player }, "Départ pour la partie solo.", "play")
 		end
 	end
 	updateQueues()
@@ -248,7 +252,7 @@ function Hub.build()
 	queueLabels.solo = makePad(
 		"Zone solo",
 		CENTER + Vector3.new(-9, 0.5, 12),
-		Color3.fromRGB(180, 140, 90),
+		Color3.fromRGB(Theme.ROLES.play.top[1], Theme.ROLES.play.top[2], Theme.ROLES.play.top[3]),
 		"Partie solo",
 		function(player)
 			pressPad(player, "solo")
@@ -257,7 +261,7 @@ function Hub.build()
 	queueLabels.duo = makePad(
 		"Zone duo",
 		CENTER + Vector3.new(9, 0.5, 12),
-		Color3.fromRGB(120, 150, 170),
+		Color3.fromRGB(Theme.ROLES.save.top[1], Theme.ROLES.save.top[2], Theme.ROLES.save.top[3]),
 		"Partie duo",
 		function(player)
 			pressPad(player, "duo")
@@ -337,7 +341,9 @@ function Hub.build()
 	text.Font = Enum.Font.Gotham
 	text.TextScaled = true
 	text.TextWrapped = true
-	text.Text = "LA TOMBE DU GRENIER\n"
+	text.Text = Opening.PROMISE
+		.. "\n"
+		.. "LA TOMBE DU GRENIER\n"
 		.. "Choisis une zone au sol : « Partie solo » ou « Partie duo ».\n"
 		.. "Trois vies par joueur. Une mort en coûte une. Un coéquipier peut te réanimer.\n"
 		.. "Fouille la maison : papiers, livres, statues et objets répondent à une règle."
@@ -368,7 +374,7 @@ local function alive(list)
 end
 
 -- Message court à l'écran des joueurs (le hub n'a pas de script client)
-notify = function(group, text)
+notify = function(group, text, role)
 	for _, player in ipairs(group) do
 		pcall(function()
 			local gui = Instance.new("ScreenGui")
@@ -377,15 +383,13 @@ notify = function(group, text)
 			local label = Instance.new("TextLabel")
 			label.AnchorPoint = Vector2.new(0.5, 0)
 			label.Position = UDim2.fromScale(0.5, 0.15)
-			label.Size = UDim2.new(0.8, 0, 0, 60)
-			label.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-			label.BackgroundTransparency = 0.3
-			label.TextColor3 = Color3.fromRGB(230, 220, 200)
+			label.Size = UDim2.new(0.8, 0, 0, 64)
 			label.TextWrapped = true
 			label.TextSize = 20
-			label.Font = Enum.Font.GothamMedium
 			label.Text = text
 			label.Parent = gui
+			-- Même style et même code couleur que dans la partie : vert = continuer, bleu = aider, orange = attente, rouge = échec
+			UiStyle.apply(label, role or "neutral", { transparency = 0.06 })
 			gui.Parent = player:WaitForChild("PlayerGui", 5)
 			task.delay(8, function()
 				gui:Destroy()
@@ -410,7 +414,7 @@ function Hub.sendPlayersToHub(players)
 	end, RETRY_DELAYS, task.wait)
 	if not ok then
 		warn(("[Hub] retour au hub impossible après %d essai(s) : %s"):format(tries, tostring(err)))
-		notify(group, "Retour au hub difficile : nouvelle tentative en cours. Ne quitte pas le jeu.")
+		notify(group, "Retour au hub difficile : nouvelle tentative en cours. Ne quitte pas le jeu.", "danger")
 		for _, player in ipairs(alive(group)) do
 			pcall(function()
 				TeleportService:TeleportAsync(Config.Game.Places.hub, { player })
@@ -426,7 +430,7 @@ function Hub.sendPlayersToHub(players)
 				if #left == 0 then
 					break
 				end
-				notify(left, "Retour au hub en cours...")
+				notify(left, "Retour au hub en cours...", "option")
 				pcall(function()
 					TeleportService:TeleportAsync(Config.Game.Places.hub, left)
 				end)
@@ -445,10 +449,10 @@ pcall(function()
 			("[Hub] téléportation de %s refusée (%s) : %s"):format(player.Name, tostring(result), tostring(message))
 		)
 		if failedTries[player] > 2 or not placeId then
-			notify({ player }, "La téléportation a échoué. Réessaie dans quelques instants.")
+			notify({ player }, "La téléportation a échoué. Réessaie dans quelques instants.", "danger")
 			return
 		end
-		notify({ player }, "La téléportation a échoué, nouvel essai dans 3 secondes.")
+		notify({ player }, "La téléportation a échoué, nouvel essai dans 3 secondes.", "option")
 		task.delay(3, function()
 			if player.Parent then
 				pcall(function()
@@ -543,14 +547,15 @@ local function sendToPrivateGame(group)
 	warn("[Hub] serveur privé impossible, repli sur un serveur public : " .. tostring(err))
 	notify(
 		group,
-		"Serveur privé indisponible : tu rejoins un serveur public. Tu risques d'y croiser d'autres joueurs."
+		"Serveur privé indisponible : tu rejoins un serveur public. Tu risques d'y croiser d'autres joueurs.",
+		"option"
 	)
 	local okPublic, _, errPublic = Retry.run(function()
 		TeleportService:TeleportAsync(Config.Game.Places.game, alive(group))
 	end, { 2, 4 }, task.wait)
 	if not okPublic then
 		warn("[Hub] téléportation publique impossible : " .. tostring(errPublic))
-		notify(group, "Impossible de lancer la partie pour l'instant. Réessaie dans quelques secondes.")
+		notify(group, "Impossible de lancer la partie pour l'instant. Réessaie dans quelques secondes.", "danger")
 	end
 	return okPublic
 end

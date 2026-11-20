@@ -76,6 +76,25 @@ class TestRealClient(unittest.TestCase):
         lua.execute("advance(60)")
         self.check(lua)
 
+    def test_broken_style_modules_never_block_the_hud(self):
+        lua = make()
+        real = lua.globals().READ
+
+        def broken(path):
+            if path.endswith(("Theme.lua", "UiStyle.lua", "Zones.lua", "Opening.lua", "Reveal.lua")):
+                return "error('module cassé')"
+            return real(path)
+
+        lua.globals().READ = broken
+        lua.execute("runClient()")
+        lua.execute("advance(5)")
+        self.assertEqual(errors(lua), [])
+        self.assertTrue(any("[Client] module Theme" in w for w in warns(lua)), warns(lua))
+        self.assertIsNotNone(lua.eval('findGui("TombeHUD")'))
+        fire(lua, "HUD", {"sanity": 50})
+        lua.execute("advance(2)")
+        self.assertEqual(errors(lua), [])
+
     def test_a_failing_handler_is_isolated(self):
         lua = boot()
         # un gestionnaire qui lève une erreur ne bloque pas le suivant

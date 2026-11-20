@@ -23,6 +23,7 @@ local EVENTS = {
 	"Inventory", -- serveur -> client : { smallKey, caveKey, docs, docsTotal } (objets visibles à l'écran)
 	"SetCrouch", -- client -> serveur : boolean (accroupi, touche C)
 	"AskHint", -- client -> serveur : demande l'indication de l'étape (touche H)
+	"Reveal", -- serveur -> client : { n, total, text } étape accomplie (bannière « Étape n sur N »)
 	"Journal", -- serveur -> client : { lines = { texte, ... } } journal de quêtes (touche J)
 	"Hint", -- serveur -> client : { text = ... } indication affichée en bas à gauche
 }

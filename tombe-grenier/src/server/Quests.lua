@@ -282,6 +282,8 @@ local function pushObjective()
 	local stepNow = currentStep()
 	if lastStepSeen ~= nil and lastStepSeen ~= stepNow then
 		Audio.play("cachette", workspace, { lifetime = 3, volume = 0.5 })
+		local n, total = Chain.progress(doneSet())
+		Remotes.fireAll("Reveal", { n = n, total = total, text = OBJECTIVE[stepNow]() })
 	end
 	lastStepSeen = stepNow
 	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()]() })
