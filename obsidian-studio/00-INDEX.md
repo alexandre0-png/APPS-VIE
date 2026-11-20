@@ -21,6 +21,7 @@ Point d'entrée unique. Claude lit CE fichier d'abord, puis seulement les notes 
 ## Ressources
 - [[Assets/IDs-catalogue]] : liste d'IDs catalogue fournie par l'utilisateur.
 - [[Assets/Assets-crees]] : modèles Blender et sons créés et téléversés.
+- [[Inspirations/Videos-et-styles]] : ce qui a été observé dans les vidéos et images de l'utilisateur, principes de design à appliquer.
 - [[Sessions/Sessions]] : ID des sessions de chaque jeu et comment leur parler.
 
 ## Suivi
