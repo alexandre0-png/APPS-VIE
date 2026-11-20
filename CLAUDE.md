@@ -11,4 +11,4 @@ Ce dépôt contient aussi des jeux Roblox, un dossier par jeu (`jeu-1/`, `jeu-2/
 Outils : `scripts/setup-roblox-toolchain.sh` installe stylua, selene, lune, rojo ; `scripts/check-game.sh <jeu>` les exécute.
 Ne jamais mélanger deux jeux dans un même commit, sauf demande « Tous les jeux ».
 
-État du studio (IDs d'expériences et de lieux, procédure de publication, pièges connus) : lire `STUDIO.md` en premier avant toute recherche.
+État du studio (IDs d'expériences et de lieux, procédure de publication, pièges connus) : lire `obsidian-studio/00-INDEX.md` en premier avant toute recherche, puis la note ciblée.
