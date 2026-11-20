@@ -36,3 +36,6 @@ armoire_toilette 128128467516107 ; baignoire 81854062482660 ; barrique 108166293
 Les textures sont des décals : lire `Decal.Texture` après `InsertService:LoadAsset` pour obtenir l'image.
 g_applique 114023857878257 ; g_balustrade 75136739107081 ; g_encadrement 125000444415052 ; g_fenetre_rideaux 126909624367682 ; g_fenetre_ronde 71510822261833 ; g_marche 101885017410350 ; g_moulure 75784159506222 ; g_plinthe 92565174748095 ; g_radiateur 113203803952444 ; g_soupirail 103729918302456 ; tex_dalles_cave 107078290448335 ; tex_damier_cuisine 74886659758502 ; tex_faience_murale 80018384734004 ; tex_lames_plancher 137828535744065 ; tex_marbre_veine 82505741913633 ; tex_papier_enfant 134002350904585 ; tex_papier_fleuri 133522614389829 ; tex_parquet_chevrons 103808199880931
 
+## Mise à jour en place (2026-11-21)
+Les 130 modèles des lots 2 à 6 ont été régénérés avec biseaux (segments 2, angle 35°) et lissage automatique, puis mis à jour SANS changer leurs IDs (`PATCH /assets/v1/assets/{id}`, nouvelle révision, tous approuvés). Script : `scripts/blender_update_all.py` ; la bibliothèque `scripts/blender_lib.py` applique le biseau (variable d'environnement `BEVEL=1`). Aucun changement de code nécessaire dans les jeux : le chargement lit la dernière révision.
+

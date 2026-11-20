@@ -1,8 +1,18 @@
 import bpy, math, os, sys
 def reset(): bpy.ops.wm.read_factory_settings(use_empty=True)
-def _fin(o, name, hexc):
+def _fin(o, name, hexc, bevel=True):
     o.name = f"{name}__{hexc}"; o.data.name = o.name
-    bpy.ops.object.shade_flat()
+    if bevel and os.environ.get("BEVEL","1")=="1":
+        d = o.dimensions; w = max(0.012, min(0.09, min(x for x in d if x>1e-4)*0.12)) if min(d)>1e-4 else 0.02
+        m = o.modifiers.new("b","BEVEL"); m.width = w; m.segments = 2; m.limit_method = "ANGLE"; m.angle_limit = math.radians(35)
+        bpy.context.view_layer.objects.active = o; o.select_set(True)
+        try: bpy.ops.object.modifier_apply(modifier="b")
+        except Exception: pass
+    bpy.ops.object.shade_smooth()
+    try:
+        bpy.ops.object.shade_auto_smooth(angle=math.radians(40))
+    except Exception:
+        pass
     return o
 def box(name, hexc, loc, size, rot=(0,0,0)):
     bpy.ops.mesh.primitive_cube_add(location=loc); o = bpy.context.active_object
