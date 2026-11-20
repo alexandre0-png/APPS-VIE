@@ -200,6 +200,20 @@ for name, mine, other in (("ChipeOeufs.rbxlx", game_files, hub_files), ("Hub.rbx
         if body in txt:
             fail(f"{os.path.relpath(f, ROOT)} ne doit PAS figurer dans {name}")
 
+print("[4b] Boucles infinies : chaque « while true do » contient un task.wait")
+for f in files:
+    lines = open(f, encoding="utf-8").read().split("\n")
+    for i, line in enumerate(lines):
+        if re.match(r"\s*while true do\b", line):
+            indent = re.match(r"\s*", line).group(0)
+            body = []
+            for l2 in lines[i + 1:]:
+                if l2.startswith(indent + "end") and not l2.startswith(indent + "end)") or l2 == indent + "end":
+                    break
+                body.append(l2)
+            if not any("task.wait" in l2 or ":Wait(" in l2 or "RenderStepped:Wait" in l2 for l2 in body):
+                fail(f"{os.path.relpath(f, ROOT)}:{i + 1} : while true sans task.wait (boucle qui gèlerait le serveur)")
+
 print("[5b] Projets Rojo : JSON valide et chemins existants (substitut partiel de `rojo build`, non exécuté ici)")
 def _paths(node, out):
     if isinstance(node, dict):

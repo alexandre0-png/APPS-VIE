@@ -7,6 +7,9 @@ local CollectionService = game:GetService("CollectionService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local ContextActionService = game:GetService("ContextActionService")
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -51,7 +54,7 @@ end
 -- Sons : voir Config.SOUNDS (clé -> { id, speed, vol }). Un id vide ou introuvable reste silencieux.
 local function playSound(key)
 	local def = Config.SOUNDS[key]
-	if not def or def.id == "" then
+	if not Config.SOUNDS_ENABLED or not def or def.id == "" then
 		return
 	end
 	local snd = Instance.new("Sound")
@@ -676,6 +679,41 @@ local function openPanel(name)
 	render()
 end
 closeBtn.Activated:Connect(hidePanel)
+
+-- Manette et clavier : X = boutique, Y = missions, B (ou Échap) = fermer ; clavier B / M / Q / O. Un appui sur la touche du menu ouvert le ferme.
+-- (Config.HUD.shortcuts). À la manette, le premier bouton du menu est sélectionné pour naviguer avec le stick.
+if Config.HUD.shortcuts then
+	local function bind(name, handler, ...)
+		ContextActionService:BindAction(name, function(_, state)
+			if state == Enum.UserInputState.Begin then
+				handler()
+			end
+			return Enum.ContextActionResult.Pass
+		end, false, ...)
+	end
+	bind("ChipeShop", function()
+		openPanel("shop")
+	end, Enum.KeyCode.ButtonX, Enum.KeyCode.B)
+	bind("ChipeQuests", function()
+		openPanel("quests")
+	end, Enum.KeyCode.ButtonY, Enum.KeyCode.Q)
+	bind("ChipeMore", function()
+		openPanel("more")
+	end, Enum.KeyCode.ButtonSelect, Enum.KeyCode.O)
+	bind("ChipeClose", function()
+		if panelFrame.Visible then
+			hidePanel()
+		end
+	end, Enum.KeyCode.ButtonB)
+	local function selectFirst()
+		if UserInputService.GamepadEnabled and panelFrame.Visible then
+			pcall(function()
+				GuiService.SelectedObject = closeBtn
+			end)
+		end
+	end
+	panelFrame:GetPropertyChangedSignal("Visible"):Connect(selectFirst)
+end
 
 ---------------------------------------------------------------- Boutons de navigation (colonne gauche)
 local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }

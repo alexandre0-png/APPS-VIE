@@ -216,7 +216,12 @@ Config.SOUNDS = {
 	claim = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.3, vol = 0.6 },
 	click = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 2.0, vol = 0.25 },
 	event = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 0.8, vol = 0.7 },
+	-- Crochets pour de nouveaux sons : id = "" (silence) tant qu'aucun identifiant vérifié n'est fourni (rbxassetid://NOMBRE). Aucun n'est inventé.
+	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
+	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
+	menu = { id = "", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
 }
+Config.SOUNDS_ENABLED = true -- false : tout est muet
 
 -- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
 Config.PRODUCTS = {
@@ -640,6 +645,7 @@ end
 -- Réglages d'interface (chaque ajout se coupe ici).
 Config.HUD = {
 	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
+	shortcuts = true, -- manette (X boutique, Y missions, Select Plus, B fermer) et clavier (B, Q, O) pour les menus
 }
 
 -- Objectif affiché en permanence : chapitre en cours de l'histoire (nil si l'histoire est terminée).

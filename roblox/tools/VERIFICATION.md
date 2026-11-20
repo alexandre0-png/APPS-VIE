@@ -16,6 +16,8 @@
 
 ## Relu seulement (à confirmer dans Studio)
 
+- Démarrage hub et partie : exécutés dans un runtime factice (`tests/FakeRuntime.lua`), pas dans Roblox : proxies universels, pas de physique ni de rendu ; les vrais services (DataStore, MemoryStore, TeleportService, Players) ne sont que simulés.
+
 - Hub et parties : la logique (`Party`) est testée avec un faux TeleportService ; `Hub.server`, `HubWorld`, `HubClient` (zones, MemoryStore, GetFriendsAsync, TeleportAsync réels) ne sont que relus. `ReserveServerAsync` et `TeleportOptions.ReservedServerAccessCode` sont dépréciés dans le dump de l'API et limités à une expérience : voir CHANGELOG.
 - Interface : `Layout` testé sur 10 écrans, mais l'affichage réel (UIScale, insets de sécurité, boutons) n'est pas vu.
 - Carte : le décor est exécuté avec un Roblox factice (pas d'erreur d'exécution, compte de Parts exact), pas rendu. StreamingEnabled non éprouvé avec les scripts clients.

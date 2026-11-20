@@ -1738,6 +1738,19 @@ do
 	A.Enabled = saved
 end
 
+-- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
+do
+	local ok, why = true, ""
+	for key, def in pairs(Config.SOUNDS) do
+		local good = type(def.id) == "string" and (def.id == "" or def.id:find("^rbxasset://") ~= nil or def.id:find("^rbxassetid://%d+$") ~= nil) and def.vol > 0 and def.vol <= 1 and def.speed > 0
+		if not good and ok then
+			ok, why = false, key
+		end
+	end
+	check("Sons : chaque entrée est valide (vide, intégrée rbxasset:// ou rbxassetid://N)" .. (ok and "" or " : " .. why), ok)
+	check("Sons : crochets secret, portal et menu présents et muets (aucun ID inventé)", Config.SOUNDS.secret.id == "" and Config.SOUNDS.portal.id == "" and Config.SOUNDS.menu.id == "" and Config.SOUNDS_ENABLED == true)
+end
+
 -- Démarrage RÉEL du hub (vrai Hub.server.lua, vrais modules) dans le runtime factice ----------------------------------------------
 local FakeRuntime = luau.load(fs.readFile("roblox/tests/FakeRuntime.lua"), { debugName = "FakeRuntime" })()
 local function loopGuard(co)

@@ -23,6 +23,8 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] Vérifier dans Studio que la téléportation hub → jeu (serveur réservé) fonctionne maintenant que les deux lieux sont dans la même expérience : si elle échoue, le hub affiche « Impossible de lancer la partie » et la sortie contient la raison (`[Party] lancement impossible`).
 - [ ] Lire la console serveur à l'arrivée d'un joueur : lignes `[Spawn]` (arrivée, personnage apparu, éventuels replacements) ; si « chargement forcé » ou plusieurs replacements apparaissent, copie-moi la sortie.
 - [ ] Identifiants catalogue : œufs et décor du hub intégrés (`Config.Assets.eggs` / `.decor`). Vérifier dans Studio la sortie `[Assets]` (modèles refusés pour permission : ouvre-les avec ton compte dans la boutique et ajoute-les à ton inventaire) et `[Hub] décor catalogue : N modèle(s) chargé(s), M placé(s)`. Sons : toujours aucun identifiant fourni (`Config.SOUNDS`), je n'en invente pas.
+- [ ] Tester le retour au hub (menu Plus > « Retour au hub ») et les raccourcis manette si tu as une manette (X boutique, Y missions, B fermer).
+- [ ] Sons : toujours aucun identifiant de son fourni ; les crochets `secret`, `portal`, `menu` de `Config.SOUNDS` attendent des `rbxassetid://` vérifiés.
 - [ ] Tester dans Studio (Test > Clients and Servers) : entrer dans un portail, compte à rebours, départ ; liste des amis ; interface bien aux bords sur téléphone (émulateur) et PC.
 - [ ] Vérifier la grande carte : les trois domaines (ferme, bois, citadelle), les repères, les trois secrets (Config.SECRETS), l'ambiance qui change en entrant dans un domaine, les performances sur téléphone (la sortie affiche le nombre de Parts au démarrage).
 

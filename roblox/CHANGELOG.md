@@ -2,6 +2,20 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## 2026-11-20 : audit de robustesse, retour au hub, manette
+
+**Tests de démarrage RÉEL** (`tests/FakeRuntime.lua`) : le vrai `Hub.server.lua` et le vrai `Main.server.lua` (avec Builder, Data, Rules, Assets, Scenery...) s'exécutent dans un runtime factice permissif : DataStore et MemoryStore en mémoire, TeleportService enregistré avec échecs injectables, Players, Heartbeat, ordonnanceur à temps virtuel, `require` des vrais modules, garde d'instructions contre les boucles sans `wait`. Vérifié : démarrage sans erreur, « serveur prêt » atteint (les Remotes existent), carte construite à 1117 Parts (budget 7000), deux joueurs avec personnage et verrou de session, **600 actions aléatoires aux arguments invalides** (types, NaN, infini, tables, chaînes de 5000 caractères) sans erreur interne, sauvegarde au départ (verrou libéré, données saines), `BindToClose`, DataStore en panne sans erreur non gérée, scénario d'achat (2 œufs payés, œuf à 20 000 refusé) et du côté hub : portail 2 + compte à rebours + téléportation, registre, liste des amis, fuzz du Remote. Mutations détectées : require cassé, boucle infinie, achat sans paiement. Limite : proxies universels et physique absente (le `fastTick` du tapis lève des erreurs de type sous le faux monde, sans valeur pour Roblox) ; ce n'est pas un playtest.
+
+**Boucles et fuites** : `check.py` impose un `task.wait` dans chaque `while true do` (0 violation). Les tables par joueur du hub sont nettoyées au départ (`lastReq`, `friendCache`, `launching`, file des portails).
+
+**Fin de partie** : action serveur `toHub` + ligne « Retour au hub » dans Plus (lieu de jeu seulement) : sauvegarde, `Party.returnToHub` (testé : succès, échec avec message clair, hub non configuré), le joueur reste en jeu si la téléportation échoue, nouvel essai possible après 15 s ; `Hub.server` libère sa place dans la partie à son retour.
+
+**Accessibilité** : manette X = boutique, Y = missions, Select = Plus, B = fermer ; clavier B / Q / O ; premier bouton du menu sélectionné à la manette (`Config.HUD.shortcuts`).
+
+**Sons** : les sons existants sont des chemins intégrés `rbxasset://sounds/...` (non vérifiés dans Studio). Ajout de crochets muets `secret`, `portal`, `menu` (`id = ""`) et de `Config.SOUNDS_ENABLED` ; aucun identifiant inventé.
+
+**Non fait** : « équilibrage des manches » (le jeu n'a pas de manches : économie par simulation, déjà traitée) ; progression/tutoriel inchangés (rangs, histoire, objectif à l'écran et indices existent déjà).
+
 ## 2026-11-19 (suite) : identifiants catalogue de l'utilisateur
 
 **Œufs** : les 5 identifiants de la liste sont déjà dans `Config.Assets.eggs` (rouge 151044983, orange 147144059, aura violette 112478990, légendaire 2937230482, glitch 2937218888) ; l'aura violette n'avait jamais été vue refusée, les trois autres l'ont été (repli par le code conservé). **Décor du hub** : 13 modèles (chaise, canapé en U, tables, billard, lampe, 6 plantes dont Sakura) dans `Config.Assets.decor`, placés selon `Config.HubDecor` (zone libre au sud de la place ; emplacements vérifiés par test : hors fontaine, point d'arrivée, portails, panneaux). `Assets` passe dans `Shared` (utilisé aussi par le hub), avec `loadDecor` / `cloneDecor` et un plafond de Parts propre au décor (220, œufs : 60). Chargement serveur seulement, `InsertService:LoadAsset` sous pcall avec délai, scripts et objets de communication retirés, refus de permission = rien n'est placé (le hub est déjà décoré par le code). **Animaux** : les 3 packs sont gardés dans `Config.Assets.animals` mais NON chargés : aucun animal ne sert le gameplay (les pets sont construits par le code). **Sons** : aucun fourni, aucun inventé. Non vérifié : le chargement réel, l'échelle et l'orientation des modèles.
