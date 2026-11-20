@@ -962,7 +962,7 @@ for _, n in ipairs(navDefs) do
 	end
 	local navText = navStyle and navStyle.text or COL.text
 	text(b, { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 2), Text = n[2], TextSize = 22, TextColor3 = navText })
-	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 10, TextColor3 = navText })
+	text(b, { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 33), Text = n[3], TextSize = 11, TextColor3 = navText })
 	local dot = make("Frame", { Size = UDim2.fromOffset(13, 13), Position = UDim2.new(1, -14, 0, 1), BackgroundColor3 = COL.red, Visible = false, ZIndex = 5 }, b)
 	corner(dot, 7)
 	navDots[n[1]] = dot
@@ -976,7 +976,7 @@ local objCard = make("TextButton", { Size = UDim2.fromOffset(196, 62), Backgroun
 corner(objCard, 14)
 local objStroke = make("UIStroke", { Color = COL.panel, Thickness = 2 }, objCard)
 local objTitle = text(objCard, { Position = UDim2.fromOffset(8, 3), Size = UDim2.new(1, -16, 0, 17), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = COL.yellow, Text = "", TextTruncate = Enum.TextTruncate.AtEnd })
-local objText = text(objCard, { Position = UDim2.fromOffset(8, 20), Size = UDim2.new(1, -16, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 11, TextColor3 = COL.text, TextWrapped = true, Text = "" })
+local objText = text(objCard, { Position = UDim2.fromOffset(8, 20), Size = UDim2.new(1, -16, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 12, TextColor3 = COL.text, TextWrapped = true, Text = "" })
 local objBarBg = make("Frame", { Position = UDim2.fromOffset(8, 47), Size = UDim2.new(1, -16, 0, 8), BackgroundColor3 = COL.bg }, objCard)
 corner(objBarBg, 4)
 local objBar = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = COL.green }, objBarBg)

@@ -2628,6 +2628,23 @@ do
 	check("Chevalier : touche (« knight ») quand le joueur est dessus, rien quand il est loin", C.hit(t, C.room(3), kx, k.lz) ~= nil and C.hit(t, C.room(3), kx, k.lz + 12) ~= "knight" and Config.CASTLE.damage.knight > 0 and Config.CASTLE.damage.knight < Config.GUARD.maxHp)
 end
 
+-- Accessibilité : taille de texte minimale dans toute l'interface ---------------------------------------------------------------
+do
+	suite("Accessibilité : aucune taille de texte fixe sous 11 dans l'interface")
+	local smallest, where = 99, ""
+	for _, f in ipairs({ "Client.client.lua", "Animations.client.lua", "Cinematics.client.lua", "Ambience.client.lua", "RevealFx.lua", "CoinIcon.lua" }) do
+		local okRead, src = pcall(fs.readFile, "roblox/src/StarterPlayerScripts/" .. f)
+		if okRead then
+			for n in src:gmatch("TextSize = (%d+)") do
+				if tonumber(n) < smallest then
+					smallest, where = tonumber(n), f
+				end
+			end
+		end
+	end
+	check("Texte : taille fixe minimale " .. smallest .. " (" .. where .. ") >= 11", smallest >= 11)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")

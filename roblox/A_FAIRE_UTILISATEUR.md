@@ -29,6 +29,11 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] Tester dans Studio (Test > Clients and Servers) : entrer dans un portail, compte à rebours, départ ; liste des amis ; interface bien aux bords sur téléphone (émulateur) et PC.
 - [ ] Vérifier la grande carte : les trois domaines (ferme, bois, citadelle), les repères, les trois secrets (Config.SECRETS), l'ambiance qui change en entrant dans un domaine, les performances sur téléphone (la sortie affiche le nombre de Parts au démarrage).
 
+## 1quater. Passage en public
+
+- [ ] Suivre la liste de `roblox/PUBLICATION.md` §5 (fiche, descriptions, accroches, vérifications dans l'ordre, lancement progressif privé puis amis puis public).
+- [ ] Au premier playtest, me dire si les modèles Blender (gardiens, pièges, herses, pales, bancs, lampadaires, chevaliers, sol) ont la bonne taille et le bon sens : devant supposé = -Z, pics dessinés sortis.
+
 ## 2. Ouvrir la place dans Studio et publier
 
 - [ ] Studio : **File > Open from File** → `roblox/build/ChipeOeufs.rbxlx`.
