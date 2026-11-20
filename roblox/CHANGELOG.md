@@ -9,6 +9,10 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **C (8bc3546)** : plafond de taille de l'œuf (`Config.eggMaxSize`, relatif à l'emplacement et au joueur), nid sous chaque œuf, pet qui apparaît plafonné (`Easing.popScale`).
 - **D** : modèles Blender intégrés : œufs par rareté (6 + secret, prioritaires sur le catalogue), 6 pets liés aux espèces (Poussin, Lapin, Renard, Panda, Dragonnet = Dragon, Fantôme = Alien), accessoires (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine du hub, nid). Convention `Nom__RRGGBB` lue par `Assets.colorize` (couleurs du FBX ignorées, petits détails sans ombre), un seul `LoadAsset` par identifiant puis clonage, plafond de Parts par modèle (`propsMaxParts`) et budget global (`propsBudgetParts`, pire cas testé), repli procédural conservé partout. `BLENDER_REQUESTS.md` liste tous les modèles à créer ensuite.
 
+## 2026-11-22 (suite) : câblage Blender, lot 4 pets supplémentaires
+
+- 8 pets ajoutés à `Config.Assets.pets` : Hamster, Chat, Chien, Hibou, Manchot, Lion, Licorne, T-Rex (14 espèces sur 18 en Blender ; Tigre, Kraken, Calmar stellaire, Wyrm astral restent procéduraux, non créés). Même chargeur, même plafond de Parts (`petsMaxParts`), repli procédural.
+
 ## 2026-11-22 (suite) : câblage Blender, lot 3 château (murs, tours, herses, coffre, torches, drapeaux, fond)
 
 - `Builder.dressCastle` : 4 murs Blender par salle (les murs procéduraux restent les colliders, invisibles si les 4 sont posés), 2 tours, une porte par salle dont la pièce `Herse` monte à l'ouverture (`Builder.animDoor`, uniquement au changement d'état), coffre dont le `Couvercle` s'ouvre à la prise du trésor (`Builder.openChest`), torches (la lumière du pilote reste), drapeaux sur le portail, bâtiment `props.castle` en fond. Budget global `castleBudgetParts` (1700, pire cas = plafonds de Parts) ; un modèle sans Herse/Couvercle est ignoré (repli procédural). Groupe `props` entier chargé (moulin, enclos, lampadaire, banc, panneau sont chargés mais pas encore posés). Le sol (`castle.floor`) n'est pas posé : un dallage demande des dizaines de clones, hors budget mobile sans mesures réelles.
