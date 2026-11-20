@@ -2,6 +2,10 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Mobilier Blender (lot 2 : 25 modèles)
+- Chaise, table de salle, étagère murale, caisses, pied de lit, plante d'intérieur, console, baignoire, lavabo, WC, armoire de toilette, barrique, cuve, canapé, fauteuil, cuisinière, frigo, cercueil, coffre verrouillé, coffre à jouets, vitrine, portemanteau, lampadaire, lit double, établi : `Config.Assets`, plans `fit` (devant « +Z » pour un avant -Y Blender), alias de meubles dans `DecorKit.ALIASES`. Le grenier prend désormais ces modèles pour tables et chaises.
+- Ordre de chargement : énigmes et monstre d'abord, puis le mobilier le plus répandu (`PRIORITY`), puis le reste ; 8 tâches en parallèle pour tenir dans le plafond de 10 s avec 90 modèles.
+
 ### Accessoires Blender de lisibilité des pièces
 - 11 modèles approuvés (Config.Assets : Cheminee, Escalier, Etagere, Gramophone, Lustre, MachineCoudre, PorteAncienne, TapisRond, Telephone, ToileAraignee, Valise), chargés après la carte comme les autres (plafond global 10 s, repli procédural).
 - Remplacent : cheminée (meuble du salon et mur ouest), étagères (alias de `étagère`), gramophone des énigmes, téléphone (avant l'ancien modèle du catalogue).
@@ -11,7 +15,7 @@
 
 ### Démarrage robuste (correctif prioritaire : le jeu ne se lançait plus)
 - Cause : le chargement des modèles (`ModelLoader.ensure`, `MonsterAI.ensureModel`) était synchrone et séquentiel AVANT la construction de la carte. Pendant ce temps `CharacterAutoLoads` restait faux, donc aucun joueur n'avait de personnage tant que tous les modèles n'étaient pas passés (ou expirés un par un).
-- Les modèles se chargent maintenant en arrière-plan APRÈS la carte et le point d'apparition (`ModelLoader.start`) : tâches parallèles (`Config.Assets.Workers`, 4), plafond global `Config.Assets.GlobalTimeout` (10 s), pcall partout. Une pièce déjà construite est habillée ensuite (`MapBuilder.applyLateModels`) ; sans modèle, la pièce de remplacement reste.
+- Les modèles se chargent maintenant en arrière-plan APRÈS la carte et le point d'apparition (`ModelLoader.start`) : tâches parallèles (`Config.Assets.Workers`, 8), plafond global `Config.Assets.GlobalTimeout` (10 s), pcall partout. Une pièce déjà construite est habillée ensuite (`MapBuilder.applyLateModels`) ; sans modèle, la pièce de remplacement reste.
 - Script serveur de partie : chaque étape dans un pcall (`boot`), traces `[Boot] étape ok (x s)` ou `[Boot] étape ERREUR`. Script du hub : mêmes traces (`[Boot] hub construction ok`, `hub accueil ok`).
 - Client : chaque gestionnaire, boucle et module (Cinematic) est isolé ; une erreur donne `[Client] module X : erreur` sans bloquer le HUD ni les autres modules.
 - Modèles : `AssetLoad.sanitize` retire aussi RemoteFunction, BindableFunction, UnreliableRemoteEvent.

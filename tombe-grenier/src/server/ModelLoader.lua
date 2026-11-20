@@ -78,6 +78,31 @@ local ASSET_NAMES = {
 	Statuette = "statuette",
 	CadrePhoto = "cadre photo",
 	OmbreRampante = "ombre rampante",
+	Chaise = "chaise ancienne",
+	TableSalle = "table de salle",
+	EtagereMurale = "étagère murale",
+	Caisses = "caisses en bois",
+	PiedLit = "pied de lit",
+	PlanteInterieur = "plante d'intérieur",
+	Console = "console d'entrée",
+	Baignoire = "baignoire sur pieds",
+	Lavabo = "lavabo",
+	WC = "WC",
+	ArmoireToilette = "armoire de toilette",
+	Barrique = "barrique",
+	Cuve = "cuve",
+	Canape = "canapé ancien",
+	Fauteuil = "fauteuil ancien",
+	Cuisiniere = "cuisinière ancienne",
+	Frigo = "frigo ancien",
+	Cercueil = "cercueil",
+	CoffreVerrouille = "coffre verrouillé",
+	CoffreJouets = "coffre à jouets",
+	Vitrine = "vitrine",
+	Portemanteau = "portemanteau",
+	Lampadaire = "lampadaire ancien",
+	LitDouble = "lit double ancien",
+	Etabli = "établi",
 	Cheminee = "cheminée gothique",
 	Escalier = "escalier Blender",
 	Etagere = "étagère livres",
@@ -122,6 +147,27 @@ end
 
 ModelLoader.loadWithTimeout = loadAndPaint
 
+local PRIORITY = {
+	"clé or",
+	"coffret ancien",
+	"horloge comtoise",
+	"statuette",
+	"cadre photo",
+	"ombre rampante",
+	"poupée ancienne",
+	"chaise ancienne",
+	"table de salle",
+	"étagère murale",
+	"caisses en bois",
+	"pied de lit",
+	"plante d'intérieur",
+	"console d'entrée",
+	"armoire gothique",
+	"gramophone ancien",
+	"téléphone ancien",
+	"bougie chandelier",
+}
+
 -- Liste à charger : les modèles de meubles, puis ceux de Config.Assets
 local function entries()
 	local list = {}
@@ -134,7 +180,16 @@ local function entries()
 			table.insert(list, { name = name, id = id })
 		end
 	end
+	-- Ordre de chargement : énigmes et monstre d'abord, puis le mobilier le plus répandu, puis le reste par nom.
+	local rank = {}
+	for i, name in ipairs(PRIORITY) do
+		rank[name] = i
+	end
 	table.sort(list, function(a, b)
+		local ra, rb = rank[a.name] or 1000, rank[b.name] or 1000
+		if ra ~= rb then
+			return ra < rb
+		end
 		return a.name < b.name
 	end)
 	return list
