@@ -596,6 +596,11 @@ function render()
 				end
 			end,
 		})
+		if Config.Game.roleFor(game.PlaceId) == "game" then
+			addRow({ icon = "🏠", title = "Retour au hub", desc = "Quitte la partie (ta progression est sauvegardée) pour choisir une autre partie.", btn = "Partir", btnColor = COL.green, onClick = function()
+				RAction:FireServer("toHub")
+			end })
+		end
 		local function replay(kind)
 			return function()
 				local ev = ReplicatedStorage:FindFirstChild("ReplayCinematic")

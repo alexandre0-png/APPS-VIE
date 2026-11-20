@@ -35,6 +35,23 @@ function Party.admitJoin(serverPartyId, data, count, max, role)
 	return true
 end
 
+-- Retour d'un joueur de la partie vers le hub. deps.teleport(players, placeId, nil, data) peut lever une erreur (réseau, lieu non autorisé).
+-- Retourne { ok = true } ou { ok = false, message } : le joueur reste alors dans la partie (aucune perte), avec un message clair.
+function Party.returnToHub(Config, deps, player, partyId)
+	local hub = Config.Game.Places.hub
+	if type(hub) ~= "number" or hub <= 0 then
+		return { ok = false, message = "Le hub n'est pas configuré. Tu restes dans la partie." }
+	end
+	local ok, err = pcall(deps.teleport, { player }, hub, nil, { from = "game", partyId = partyId, reason = "leave" })
+	if not ok then
+		if deps.log then
+			deps.log("[Party] retour au hub impossible : " .. tostring(err))
+		end
+		return { ok = false, message = "Impossible de retourner au hub pour l'instant. Tu restes dans la partie : réessaie dans un instant." }
+	end
+	return { ok = true }
+end
+
 function Party.new(Config, deps)
 	local G = Config.Game
 	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }

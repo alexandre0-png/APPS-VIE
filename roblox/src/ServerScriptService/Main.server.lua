@@ -58,6 +58,7 @@ end)
 local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
+local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
 local function rnd()
 	return rng:NextNumber()
@@ -1134,6 +1135,34 @@ end)
 ---------------------------------------------------------------- Actions du client
 local actions = {}
 
+-- Retour au hub : la progression est sauvegardée d'abord ; si la téléportation échoue, le joueur reste en jeu avec un message clair.
+function actions.toHub(s)
+	local now = os.clock()
+	if s.leaving or now - (s.toHubAt or -100) < 15 then
+		return
+	end
+	if Config.Game.roleFor(game.PlaceId) ~= "game" then
+		return notify(s.player, "Le hub n'est pas disponible depuis ce lieu.")
+	end
+	s.toHubAt = now
+	if not s.noSave then
+		Data.save(s.player, s.data)
+	end
+	local res = Party.returnToHub(Config, {
+		teleport = function(players, placeId, _, data)
+			local opts = Instance.new("TeleportOptions")
+			opts:SetTeleportData(data)
+			TeleportService:TeleportAsync(placeId, players, opts)
+		end,
+		log = warn,
+	}, s.player, serverPartyId)
+	if res.ok then
+		notify(s.player, "🏠 Retour au hub…")
+	else
+		notify(s.player, "⚠️ " .. res.message)
+	end
+end
+
 function actions.sync(s)
 	sync(s)
 end
@@ -1460,7 +1489,6 @@ local function bounceToHub(player, message)
 	player:Kick(message)
 end
 
-local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
 local function onJoin(player)
 	local okJ, joinData = pcall(function()

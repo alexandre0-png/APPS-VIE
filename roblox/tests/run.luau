@@ -1148,6 +1148,18 @@ do
 	check("Game : tailles 1 à 5, plafond 5, autant de bases que de joueurs", #G.Sizes == 5 and G.Sizes[1] == 1 and G.Sizes[5] == 5 and G.MaxPlayers == 5 and Config.PLOT_COUNT == G.MaxPlayers)
 	check("Party.admit : 4 joueurs -> un de plus accepté, 5 -> refusé", Party.admit(4, 5) == true and Party.admit(5, 5) == false)
 
+	do -- retour au hub (logique pure)
+		local calls = {}
+		local okR = Party.returnToHub(Config, { teleport = function(players, place, code, data) calls[#calls + 1] = { place = place, code = code, data = data, n = #players } end }, { UserId = 1 }, "P9")
+		check("returnToHub : téléportation vers le hub avec partyId et raison", okR.ok and calls[1].place == G.Places.hub and calls[1].code == nil and calls[1].data.partyId == "P9" and calls[1].data.from == "game" and calls[1].n == 1)
+		local bad = Party.returnToHub(Config, { teleport = function() error("TeleportService indisponible") end }, { UserId = 1 }, "P9")
+		check("returnToHub : échec -> message clair, aucune erreur", bad.ok == false and #bad.message > 20)
+		local savedHub = G.Places.hub
+		G.Places.hub = 0
+		check("returnToHub : hub non configuré -> message clair", Party.returnToHub(Config, { teleport = function() end }, { UserId = 1 }, nil).ok == false)
+		G.Places.hub = savedHub
+	end
+
 	local function env(opts)
 		opts = opts or {}
 		local e = { now = 1000, calls = {}, entries = {}, reserveFail = opts.reserveFail, teleportFail = opts.teleportFail, publicFail = opts.publicFail, storeFail = opts.storeFail, codes = 0 }
@@ -1939,6 +1951,31 @@ do
 	local rec4 = store.data["P_2004"]
 	check("Partie : 2 achats d'œufs, éclosions envoyées au client, œuf trop cher refusé", hatchFired >= 2 and rec4 ~= nil and rec4.v.hatched >= 2)
 	check("Partie : économie cohérente (2 œufs à 25 payés sur 50 pièces, œuf à 20 000 refusé, jamais négatif)", type(coinsAfterBuys) == "number" and coinsAfterBuys >= 0 and coinsAfterBuys <= 2 and rec4 ~= nil and rec4.v.coins >= 0)
+	-- retour au hub : téléportation vers le hub avec l'identifiant de partie ; échec = message, le joueur reste en jeu ; limite de fréquence
+	local p5 = RT.addPlayer("Eve", 2005, { from = "hub", partyId = "PARTY-1", size = 2, late = true })
+	RT.step(2)
+	local tpBefore = #RT.teleports
+	RT.now = RT.now + 20
+	RT.teleportFail = "Unauthorized"
+	local firedBefore = #RT.fired
+	RT.fire(RAction, "OnServerEvent", p5, "toHub")
+	local failMsg = false
+	for i = firedBefore + 1, #RT.fired do
+		if RT.fired[i][1] == "Notify" and type(RT.fired[i][3]) == "string" and RT.fired[i][3]:find("Impossible de retourner", 1, true) then
+			failMsg = true
+		end
+	end
+	check("Retour au hub : téléportation refusée -> message clair, le joueur reste, aucune erreur", failMsg and #RT.teleports == tpBefore and #RT.errors == 0)
+	RT.teleportFail = nil
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p5, "toHub")
+	check("Retour au hub : nouvel essai dans les 15 s ignoré (anti-spam)", #RT.teleports == tpBefore)
+	RT.now = RT.now + 20
+	RT.fire(RAction, "OnServerEvent", p5, "toHub")
+	local last = RT.teleports[#RT.teleports]
+	check("Retour au hub : téléportation vers le lieu hub avec les données de partie", #RT.teleports == tpBefore + 1 and last.place == Config.Game.Places.hub and last.n == 1)
+	RT.removePlayer(p5)
+	RT.step(1)
 	-- DataStore en panne : le jeu ne plante pas et la sauvegarde échoue proprement
 	RT.dataStoreFail = "503: DataStore indisponible"
 	local p3 = RT.addPlayer("Cyn", 2003, { from = "hub", partyId = "PARTY-1", size = 2, late = true })
