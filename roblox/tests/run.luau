@@ -1274,7 +1274,7 @@ do
 		check("zone " .. size .. " : un groupe de " .. size .. " part", #launches == 1 and #launches[1].members == size and e.P.status(size).mode == "empty")
 		local r = e.P.launch({ size = size, members = members, players = players, hostName = "Hôte" })
 		check("lancement " .. size .. " joueur(s) : serveur réservé, téléportation vers le lieu de jeu", r.ok and r.mode == "reserved" and e.calls[1].n == size and e.calls[1].place == G.Places.game and e.calls[1].code == "CODE1" and e.calls[1].data.late == false)
-		check("lancement " .. size .. " : inscrit au registre seulement si des amis peuvent rejoindre (taille > 1)", (e.entries[r.partyId] ~= nil and e.entries[r.partyId].open) == (size > 1))
+		check("lancement " .. size .. " : inscrit au registre et OUVERT aux amis (même en solo), plafond " .. G.MaxPlayers, e.entries[r.partyId] ~= nil and e.entries[r.partyId].open == true and e.entries[r.partyId].size == G.MaxPlayers and e.entries[r.partyId].groupSize == size)
 	end
 
 	do -- zone pleine, taille clampée, quitter la zone
@@ -1301,7 +1301,7 @@ do
 		local r = e.P.launch({ size = 3, members = { 42 }, players = { { UserId = 42 } }, hostName = "Léa" })
 		local friends = { [42] = true }
 		local list = e.P.visibleFor(7, friends)
-		check("ami : voit la partie ouverte (1/3)", #list == 1 and list[1].hostName == "Léa" and list[1].count == 1 and list[1].size == 3)
+		check("ami : voit la partie ouverte (1/5, groupe de 3 prévu)", #list == 1 and list[1].hostName == "Léa" and list[1].count == 1 and list[1].size == G.MaxPlayers)
 		check("non-ami : ne voit pas la partie", #e.P.visibleFor(8, {}) == 0)
 		check("l'hôte ne voit pas sa propre partie", #e.P.visibleFor(42, { [42] = true }) == 0)
 		-- rejoindre en cours
@@ -1310,15 +1310,36 @@ do
 		check("rejoindre deux fois : refusé", e.P.join(r.partyId, { UserId = 7 }, 7, friends).reason == "full")
 		local j2 = e.P.join(r.partyId, { UserId = 9 }, 9, friends)
 		check("rejoindre : 3e joueur accepté", j2.ok and e.entries[r.partyId].count == 3)
-		local j3 = e.P.join(r.partyId, { UserId = 10 }, 10, friends)
-		check("partie pleine : refus clair", j3.ok == false and j3.reason == "full" and e.entries[r.partyId].count == 3)
-		check("partie pleine : n'apparaît plus dans la liste des amis", #e.P.visibleFor(11, friends) == 0)
+		for uid = 10, 12 do
+			e.P.join(r.partyId, { UserId = uid }, uid, friends)
+		end
+		local j3 = e.P.join(r.partyId, { UserId = 13 }, 13, friends)
+		check("partie pleine (5) : refus clair avec le plafond dans le message", j3.ok == false and j3.reason == "full" and e.entries[r.partyId].count == 5 and j3.message:find("5", 1, true) ~= nil)
+		check("partie pleine : n'apparaît plus dans la liste des amis", #e.P.visibleFor(14, friends) == 0)
 		-- départ
 		e.P.leaveParty(r.partyId, 9)
-		check("départ d'un joueur : la place se libère", e.entries[r.partyId].count == 2 and #e.P.visibleFor(11, friends) == 1)
+		check("départ d'un joueur : la place se libère", e.entries[r.partyId].count == 4 and #e.P.visibleFor(14, friends) == 1)
 		check("partie inconnue : « gone »", e.P.join("nope", { UserId = 1 }, 1, friends).reason == "gone")
 		e.now = e.now + G.PartyTTL + 1
-		check("partie expirée (TTL) : plus proposée, plus rejoignable", #e.P.visibleFor(11, friends) == 0 and e.P.join(r.partyId, { UserId = 12 }, 12, friends).reason == "gone")
+		check("partie expirée (TTL) : plus proposée, plus rejoignable", #e.P.visibleFor(14, friends) == 0 and e.P.join(r.partyId, { UserId = 15 }, 15, friends).reason == "gone")
+	end
+
+	do -- partie lancée SEULE : les amis du créateur peuvent la rejoindre, jamais un inconnu ; elle disparaît quand tout le monde est parti
+		local e = env()
+		local r = e.P.launch({ size = 1, members = { 500 }, players = { { UserId = 500 } }, hostName = "Solo" })
+		local friends = { [500] = true }
+		check("solo : la partie est visible des amis avec des places libres", #e.P.visibleFor(501, friends) == 1 and e.P.visibleFor(501, friends)[1].count == 1 and e.P.visibleFor(501, friends)[1].size == G.MaxPlayers)
+		check("solo : un inconnu ne la voit pas et ne peut pas la rejoindre", #e.P.visibleFor(502, {}) == 0 and e.P.join(r.partyId, { UserId = 502 }, 502, {}).ok == false)
+		check("solo : un ami la rejoint (même serveur réservé, plafond 5)", e.P.join(r.partyId, { UserId = 501 }, 501, friends).ok == true and e.entries[r.partyId].count == 2 and e.calls[#e.calls].code == e.calls[1].code)
+		for uid = 503, 505 do
+			e.P.join(r.partyId, { UserId = uid }, uid, friends)
+		end
+		check("solo : 5 joueurs au maximum, le 6e ami reçoit « pleine »", e.P.join(r.partyId, { UserId = 506 }, 506, friends).reason == "full")
+		for _, uid in ipairs({ 500, 501, 503, 504, 505 }) do
+			e.P.leaveParty(r.partyId, uid)
+		end
+		local after = e.P.join(r.partyId, { UserId = 507 }, 507, friends)
+		check("solo : quand tout le monde est parti, la partie est retirée du registre (« n'existe plus »)", e.entries[r.partyId] == nil and after.reason == "gone" and after.message:find("n'existe plus", 1, true) ~= nil and #e.P.visibleFor(507, friends) == 0)
 	end
 
 	do -- plafond de 5 même si le registre dit autrement
@@ -1383,6 +1404,7 @@ do
 		check("sécurité : identifiant inventé refusé", e.P.join("inventé", { UserId = 7 }, 7, { [42] = true }).reason == "gone")
 		check("sécurité : identifiant d'un type invalide refusé sans erreur", e.P.join({}, { UserId = 7 }, 7, { [42] = true }).ok == false and e.P.join(nil, { UserId = 7 }, 7, { [42] = true }).ok == false)
 		e.P.join(pid, { UserId = 8 }, 8, { [42] = true })
+		e.P.join(pid, { UserId = 20 }, 20, { [42] = true })
 		check("sécurité : partie pleine refusée même pour un ami", e.P.join(pid, { UserId = 9 }, 9, { [42] = true }).reason == "full")
 		e.entries[pid].open = false
 		check("sécurité : partie fermée refusée même pour un ami", e.P.join(pid, { UserId = 5 }, 5, { [42] = true }).reason == "gone")
@@ -2197,7 +2219,7 @@ do
 	for k in pairs(reg or {}) do
 		partyId = k
 	end
-	check("Hub : la partie est inscrite au registre (taille 2 > 1, ouverte aux amis)", partyId ~= nil and reg[partyId].size == 2)
+	check("Hub : la partie est inscrite au registre, ouverte aux amis jusqu'au plafond", partyId ~= nil and reg[partyId].size == Config.Game.MaxPlayers and reg[partyId].open == true)
 	local friend = RT.addPlayer("Cléo", 1003)
 	RT.friendsPage = { { Id = 1001 } }
 	RT.fire(remote, "OnServerEvent", friend, "parties")

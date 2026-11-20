@@ -1475,6 +1475,9 @@ function Party.returnToHub(Config, deps, player, partyId)
 	return { ok = true }
 end
 
+-- Même message pour « inexistante », « terminée » et « tu n'es pas ami de l'hôte » : rien n'est révélé sur les parties des autres.
+local GONE_MESSAGE = "Cette partie n'existe plus : elle vient de se terminer ou ton ami est parti."
+
 function Party.new(Config, deps)
 	local G = Config.Game
 	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }
@@ -1609,8 +1612,8 @@ function Party.new(Config, deps)
 					local okT, errT = pcall(deps.teleport, group.players, gamePlace, code, data)
 					if okT then
 						local entry = {
-							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = size, count = #group.members,
-							members = table.clone(group.members), code = code, createdAt = deps.clock(), open = size > 1,
+							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = G.MaxPlayers, groupSize = size, count = #group.members,
+							members = table.clone(group.members), code = code, createdAt = deps.clock(), open = true, -- toute partie (même solo) reste ouverte aux amis jusqu'au plafond
 						}
 						local okS, errS = pcall(deps.store.update, partyId, function()
 							return entry
@@ -1669,14 +1672,14 @@ function Party.new(Config, deps)
 	-- inscrit) peuvent rejoindre, même s'ils connaissent l'identifiant de la partie.
 	function P.join(partyId, player, userId, friends)
 		if type(partyId) ~= "string" then
-			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." }
+			return { ok = false, reason = "gone", message = GONE_MESSAGE }
 		end
 		local okG, e = pcall(deps.store.get, partyId)
 		if not okG then
 			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
 		end
 		if not alive(e) or not e.open then
-			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." }
+			return { ok = false, reason = "gone", message = GONE_MESSAGE }
 		end
 		local isMember = false
 		for _, id in ipairs(e.members or {}) do
@@ -1686,7 +1689,7 @@ function Party.new(Config, deps)
 		end
 		if not isMember and not (type(friends) == "table" and friends[e.host]) then
 			log("refus : " .. tostring(userId) .. " n'est pas ami de l'hôte")
-			return { ok = false, reason = "gone", message = "Cette partie n'existe plus." } -- même message : ne révèle pas son existence
+			return { ok = false, reason = "gone", message = GONE_MESSAGE } -- même message : ne révèle pas son existence
 		end
 		-- réservation atomique de la place (compte + membre) ; refus si plein
 		local reserved = false
@@ -1708,7 +1711,7 @@ function Party.new(Config, deps)
 			return { ok = false, reason = "registry", message = "Liste des parties indisponible." }
 		end
 		if not reserved then
-			return { ok = false, reason = "full", message = "Cette partie est pleine." }
+			return { ok = false, reason = "full", message = "Cette partie est pleine (" .. G.MaxPlayers .. " joueurs maximum)." }
 		end
 		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true })
 		if not okT then
@@ -1734,6 +1737,11 @@ function Party.new(Config, deps)
 			end
 			return old
 		end)
+		-- plus personne dans la partie : elle est retirée du registre (les amis ne la voient plus, « n'existe plus » s'ils réessaient)
+		local okG, e = pcall(deps.store.get, partyId)
+		if okG and type(e) == "table" and e.count <= 0 then
+			pcall(deps.store.remove, partyId)
+		end
 	end
 
 	return P
@@ -2986,8 +2994,8 @@ local function render(parties)
 		local row = make("Frame", { Size = UDim2.new(1, -4, 0, 48), BackgroundColor3 = COL.panel, LayoutOrder = i }, list)
 		corner(row, 10)
 		make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 2), Size = UDim2.new(1, -110, 0, 24), Font = FONT, TextSize = 15, TextColor3 = COL.text, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "🏠 " .. tostring(p.hostName) }, row)
-		make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 24), Size = UDim2.new(1, -110, 0, 20), Font = FONT, TextSize = 12, TextColor3 = COL.muted, TextXAlignment = Enum.TextXAlignment.Left, Text = tostring(p.count) .. "/" .. tostring(p.size) .. " joueurs" }, row)
-		local join = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(88, 34), BackgroundColor3 = COL.green, Font = FONT, TextSize = 14, TextColor3 = Color3.fromRGB(10, 40, 20), Text = "Rejoindre" }, row)
+		make("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 24), Size = UDim2.new(1, -110, 0, 20), Font = FONT, TextSize = 12, TextColor3 = COL.muted, TextXAlignment = Enum.TextXAlignment.Left, Text = tostring(math.max(0, p.size - p.count)) .. " place(s) libre(s) · " .. tostring(p.count) .. "/" .. tostring(p.size) }, row)
+		local join = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(100, 34), BackgroundColor3 = COL.green, Font = FONT, TextSize = 12, TextColor3 = Color3.fromRGB(10, 40, 20), Text = "Rejoindre l'ami" }, row)
 		corner(join, 12)
 		join.Activated:Connect(function()
 			join.Text = "…"
