@@ -755,10 +755,11 @@ function render()
 		table.sort(prodNames)
 		for _, name in ipairs(prodNames) do
 			local def = Config.PRODUCTS[name]
+			local used = def.once == true and state.starter == true
 			addRow({
 				icon = def.emoji, title = def.name, desc = def.desc,
-				btn = Config.purchasable(def) and "Acheter" or "Bientôt", btnColor = Config.purchasable(def) and COL.green or COL.dis,
-				onClick = function()
+				btn = used and "✅ Acheté" or (Config.purchasable(def) and "Acheter" or "Bientôt"), btnColor = (used or not Config.purchasable(def)) and COL.dis or COL.green,
+				onClick = used and nil or function()
 					if Config.purchasable(def) then
 						MarketplaceService:PromptProductPurchase(player, def.id)
 					else

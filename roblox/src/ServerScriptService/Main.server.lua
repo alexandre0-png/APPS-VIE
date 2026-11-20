@@ -112,8 +112,12 @@ end
 local function hatchTime(s, tier)
 	return Rules.hatchTime(tier, s.data.up.inc, s.passes.Fast == true)
 end
-local function shieldTime(d)
-	return Rules.shieldTime(d.up.lock)
+local function shieldTime(s)
+	return Rules.shieldTime(s.data.up.lock) * (s.passes.VipBase == true and Config.VIP_SHIELD_MUL or 1)
+end
+-- Multiplicateur de vitesse de marche (pass « Vitesse+ »), appliqué aussi à la tolérance anti-triche.
+local function speedMul(s)
+	return s.passes.Speed == true and Config.SPEED_PASS_MUL or 1
 end
 local function freeSlot(d)
 	for i = 1, cap(d) do
@@ -293,6 +297,7 @@ local function snapshot(s)
 		carry = #s.carry,
 		carryCap = carryCap(d),
 		passes = s.passes,
+		starter = s.data.starter == true,
 		dailyReady = d.daily ~= today,
 		dailyReward = math.floor(math.max(200, income(s) * 600) * math.min(nextStreak, 7)),
 		streak = nextStreak,
@@ -336,7 +341,7 @@ end
 local function applySpeed(s)
 	local hum = getHum(s.player)
 	if hum and s.stun <= 0 then
-		local ws = Config.walkSpeed(s.data.speed) * 0.93 ^ #s.carry
+		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * 0.93 ^ #s.carry
 		if math.abs(hum.WalkSpeed - ws) > 0.05 then
 			hum.WalkSpeed = ws
 		end
@@ -495,7 +500,7 @@ local function returnEgg(e)
 		if vs then
 			local i = freeSlot(vs.data)
 			if i then
-				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs.data) }
+				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs) }
 				refreshPad(vs, i)
 				notify(vs.player, "🥚 Ton œuf t'a été rendu !")
 				sync(vs)
@@ -688,7 +693,7 @@ local function solvePuzzle(s)
 	local i = freeSlot(d)
 	local coins = Config.puzzleCoins(income(s))
 	if i then
-		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
 		refreshPad(s, i)
 	else
 		coins += Config.EGG_PRICE[tier]
@@ -1125,7 +1130,7 @@ local function giveEgg(s, tier)
 		d.coins += Config.EGG_PRICE[tier] * 0.5
 		return false
 	end
-	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
 	refreshPad(s, i)
 	return true
 end
@@ -1323,7 +1328,7 @@ local function fastTick(dt)
 			local pos = root.Position
 			if s.lastPos and s.stun <= 0 and os.clock() > s.noCheckUntil then
 				local moved = Vector3.new(pos.X - s.lastPos.X, 0, pos.Z - s.lastPos.Z).Magnitude
-				local allowed = (Config.walkSpeed(d.speed) + 16) * dt * 1.4 + 3
+				local allowed = (Config.walkSpeed(d.speed) * speedMul(s) + 16) * dt * 1.4 + 3
 				if moved > allowed then
 					s.flags += 1
 					if s.flags >= 3 then
@@ -1347,7 +1352,7 @@ local function fastTick(dt)
 					end
 				else
 					local e = table.remove(s.carry, 1)
-					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(d) }
+					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(s) }
 					refreshPad(s, i)
 					Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 2, 0), Config.TIERS[e.t].color, 12, false)
 					rebuildCarry(s)
@@ -1505,7 +1510,7 @@ function actions.buyEgg(s, tier)
 		return notify(s.player, "Base pleine !")
 	end
 	d.coins -= price
-	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
 	refreshPad(s, i)
 	sync(s)
 end
@@ -1736,7 +1741,7 @@ function actions.daily(s)
 		return notify(s.player, "Bonus déjà récupéré aujourd'hui !")
 	end
 	local streak = (d.daily == today - 1) and d.streak + 1 or 1
-	local reward = math.floor(math.max(200, income(s) * 600) * math.min(streak, 7))
+	local reward = math.floor(math.max(200, income(s) * 600) * math.min(streak, 7) * (s.passes.VipBase == true and Config.VIP_DAILY_MUL or 1))
 	d.daily, d.streak = today, streak
 	d.coins += reward
 	notify(s.player, "🎁 Bonus quotidien : +" .. Config.fmt(reward) .. " 🪙 (série " .. streak .. ")", "claim")
@@ -1784,13 +1789,41 @@ MarketplaceService.ProcessReceipt = function(info)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	local rid = tostring(info.PurchaseId)
+	local function persist()
+		-- PurchaseGranted seulement une fois la sauvegarde réussie ; sinon Roblox rappellera ProcessReceipt (le reçu en mémoire n'est
+		-- compté « traité » qu'après une sauvegarde réussie, la livraison n'est donc jamais refaite : s.pendingReceipts).
+		if not s.noSave and not Data.save(player, s.data) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		s.pendingReceipts[rid] = nil
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+	if s.pendingReceipts[rid] then
+		return persist() -- déjà livré en mémoire, il ne reste qu'à sauvegarder
+	end
 	if s.data.receipts[rid] then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 	local granted = false
 	for name, def in pairs(Config.PRODUCTS) do
 		if Config.purchasable(def) and def.id == info.ProductId then
-			if name == "InstantHatch" then
+			if name == "StarterPack" then
+				if s.data.starter then
+					return Enum.ProductPurchaseDecision.NotProcessedYet -- achat unique : déjà fait, rien n'est livré
+				end
+				s.data.starter = true
+				s.data.coins += Config.STARTER_PACK.coins
+				for _ = 1, Config.STARTER_PACK.eggs do
+					giveEgg(s, Config.STARTER_PACK.eggTier)
+				end
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			elseif name == "ExclusiveEgg" then
+				if not freeSlot(s.data) then
+					notify(player, "Base pleine : libère une place, ton achat sera livré automatiquement.")
+					return Enum.ProductPurchaseDecision.NotProcessedYet
+				end
+				giveEgg(s, Config.EXCLUSIVE_EGG_TIER)
+			elseif name == "InstantHatch" then
 				for i = 1, cap(s.data) do
 					hatch(s, i)
 				end
@@ -1812,11 +1845,9 @@ MarketplaceService.ProcessReceipt = function(info)
 		end
 	end
 	s.data.receipts[rid] = now
+	s.pendingReceipts[rid] = true
 	sync(s)
-	if not s.noSave and not Data.save(player, s.data) then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-	return Enum.ProductPurchaseDecision.PurchaseGranted
+	return persist()
 end
 
 ---------------------------------------------------------------- Cycle de vie des joueurs
@@ -1912,7 +1943,7 @@ local function onJoin(player)
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
-		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
+		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}

@@ -3017,6 +3017,46 @@ do
 	RT.fire(RAction, "OnServerEvent", p8, "sellDupes")
 	RT.step(1)
 	check("Revente : emplacement invalide, type invalide et « aucun doublon » sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	-- achats Robux : reçus, sauvegarde obligatoire avant PurchaseGranted, achat unique, base pleine
+	local cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+	cfg.PRODUCTS.StarterPack.id, cfg.PRODUCTS.ExclusiveEgg.id, cfg.PRODUCTS.CoinPack.id = 9101, 9102, 9103
+	local PS = RT.Enum.ProductPurchaseDecision
+	local rawProcess = RT.services.MarketplaceService.ProcessReceipt
+	check("Achats : ProcessReceipt est branché", type(rawProcess) == "function")
+	local function process(info, wait)
+		local out
+		RT.task.spawn(function()
+			out = rawProcess(info)
+		end)
+		RT.step(wait or 0.5)
+		return out
+	end
+	local base0 = p8:GetAttribute("Coins")
+	process({ PlayerId = 2008, PurchaseId = "R-0", ProductId = 777 })
+	local drift = math.max(1, p8:GetAttribute("Coins") - base0) -- revenu passif pendant un appel (référence)
+	local c0 = p8:GetAttribute("Coins")
+	RT.dataStoreFail = "503: DataStore indisponible"
+	local d1 = process({ PlayerId = 2008, PurchaseId = "R-1", ProductId = 9101, CurrencySpent = 99 }, 20)
+	check("Achats : sauvegarde en échec -> NotProcessedYet (jamais PurchaseGranted sans sauvegarde)", d1 == PS.NotProcessedYet)
+	RT.dataStoreFail = nil
+	local d2 = process({ PlayerId = 2008, PurchaseId = "R-1", ProductId = 9101, CurrencySpent = 99 })
+	local c1 = p8:GetAttribute("Coins")
+	check("Achats : nouvelle tentative du même reçu -> PurchaseGranted, livré UNE seule fois (+" .. cfg.STARTER_PACK.coins .. " pièces)", d2 == PS.PurchaseGranted and c1 - c0 >= cfg.STARTER_PACK.coins and c1 - c0 < cfg.STARTER_PACK.coins * 1.9)
+	local rec = RT.dataStores["ChipeOeufs_v1"] and RT.dataStores["ChipeOeufs_v1"].data["P_2008"]
+	check("Achats : au moment du PurchaseGranted, le reçu et le pack de départ sont DÉJÀ dans le DataStore", rec ~= nil and rec.v ~= nil and rec.v.receipts["R-1"] ~= nil and rec.v.starter == true)
+	local d3 = process({ PlayerId = 2008, PurchaseId = "R-1", ProductId = 9101 })
+	check("Achats : reçu déjà traité -> PurchaseGranted sans nouvelle livraison", d3 == PS.PurchaseGranted and p8:GetAttribute("Coins") - c1 < cfg.STARTER_PACK.coins * 0.9)
+	local d4 = process({ PlayerId = 2008, PurchaseId = "R-2", ProductId = 9101 })
+	check("Achats : pack de départ déjà acheté (achat unique) -> rien n'est livré", d4 == PS.NotProcessedYet)
+	check("Achats : produit inconnu ou joueur absent -> NotProcessedYet", process({ PlayerId = 2008, PurchaseId = "R-3", ProductId = 777 }) == PS.NotProcessedYet and process({ PlayerId = 424242, PurchaseId = "R-4", ProductId = 9102 }) == PS.NotProcessedYet)
+	local d5 = process({ PlayerId = 2008, PurchaseId = "R-5", ProductId = 9102 })
+	check("Achats : œuf exclusif livré s'il reste une place, sinon NotProcessedYet sans livrer", d5 == PS.PurchaseGranted or d5 == PS.NotProcessedYet)
+	for n = 1, 12 do
+		process({ PlayerId = 2008, PurchaseId = "F-" .. n, ProductId = 9102 })
+	end
+	local dFull = process({ PlayerId = 2008, PurchaseId = "R-FULL", ProductId = 9102 })
+	check("Achats : base pleine -> œuf exclusif NotProcessedYet (l'argent n'est pas pris sans livraison)", dFull == PS.NotProcessedYet)
+	check("Achats : aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
 	RT.removePlayer(p8)
 	RT.step(1)
 	-- DataStore en panne : le jeu ne plante pas et la sauvegarde échoue proprement

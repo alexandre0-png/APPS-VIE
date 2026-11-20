@@ -23,7 +23,8 @@ local SAVE_RETRIES = 3
 -- v4 : + puzzle { day, solved } (énigmes), ach (succès) ; un chapitre d'histoire (énigme) est inséré en position 8.
 -- v5 : + cine (cinématiques déjà vues).
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
-local VERSION = 6
+-- v7 : + starter (pack de départ déjà acheté, achat unique).
+local VERSION = 7
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -89,6 +90,7 @@ function Data.default()
 		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
+		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
 	}
 	for _, u in ipairs(Config.UPGRADES) do
@@ -116,6 +118,10 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[6] = function(saved)
+		-- v6 -> v7 : starter vaut false (pack de départ jamais acheté).
+		saved.starter = saved.starter == true
 	end,
 	[5] = function(_saved)
 		-- v5 -> v6 : secrets reçoit sa valeur par défaut (rien fouillé).
@@ -197,6 +203,7 @@ local function merge(saved)
 			d.ach[a.id] = math.min(#a.goals, math.floor(sane(saved.ach[a.id], 0)))
 		end
 	end
+	d.starter = saved.starter == true
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end

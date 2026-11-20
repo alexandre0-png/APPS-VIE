@@ -685,6 +685,7 @@ function Fake.runtime(opts)
 		rawset(t, k, sub)
 		return sub
 	end })
+	RT.Enum = enum
 	local function udim() return {} end
 	baseEnv = {
 		game = game, workspace = ws, task = task, require = function(o) return RT.require(o) end,
