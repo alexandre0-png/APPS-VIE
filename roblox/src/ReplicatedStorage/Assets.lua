@@ -394,7 +394,7 @@ function Assets.new(Config, deps)
 
 	-- Groupes de modèles Blender de Config.Assets.models (guards, castle, traps, ground, props...) : clé "groupe.nom", plafond de Parts par
 	-- Config.Assets.modelsMaxParts["groupe.nom"]. Même garanties que loadProps (un seul LoadAsset par ID, jamais d'erreur levée).
-	function A.loadGroup(group)
+	function A.loadGroup(group, only)
 		local g = cfg.models and cfg.models[group]
 		if cfg.Enabled ~= true or type(g) ~= "table" then
 			return 0
@@ -406,10 +406,12 @@ function Assets.new(Config, deps)
 		table.sort(keys)
 		local loaded = 0
 		for _, key in ipairs(keys) do
-			local id = g[key]
+			local id = (not only or only[key]) and g[key] or nil
 			local full = group .. "." .. key
 			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or cfg.decorMaxParts or cfg.maxParts
-			if type(id) == "number" and id > 0 and id % 1 == 0 then
+			if not id then
+				-- clé non demandée (filtre `only`)
+			elseif type(id) == "number" and id > 0 and id % 1 == 0 then
 				if A.loadOne("m:" .. full, id, cap) then
 					loaded = loaded + 1
 				end

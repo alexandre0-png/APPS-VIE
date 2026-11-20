@@ -2592,7 +2592,7 @@ function Assets.new(Config, deps)
 
 	-- Groupes de modèles Blender de Config.Assets.models (guards, castle, traps, ground, props...) : clé "groupe.nom", plafond de Parts par
 	-- Config.Assets.modelsMaxParts["groupe.nom"]. Même garanties que loadProps (un seul LoadAsset par ID, jamais d'erreur levée).
-	function A.loadGroup(group)
+	function A.loadGroup(group, only)
 		local g = cfg.models and cfg.models[group]
 		if cfg.Enabled ~= true or type(g) ~= "table" then
 			return 0
@@ -2604,10 +2604,12 @@ function Assets.new(Config, deps)
 		table.sort(keys)
 		local loaded = 0
 		for _, key in ipairs(keys) do
-			local id = g[key]
+			local id = (not only or only[key]) and g[key] or nil
 			local full = group .. "." .. key
 			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or cfg.decorMaxParts or cfg.maxParts
-			if type(id) == "number" and id > 0 and id % 1 == 0 then
+			if not id then
+				-- clé non demandée (filtre `only`)
+			elseif type(id) == "number" and id > 0 and id % 1 == 0 then
 				if A.loadOne("m:" .. full, id, cap) then
 					loaded = loaded + 1
 				end
@@ -3147,6 +3149,25 @@ task.spawn(function()
 			p:Destroy()
 		end
 	end
+	-- Bancs et lampadaires Blender : chacun remplace son équivalent procédural une fois posé (la lumière des lampadaires reste, boule invisible)
+	assets.loadGroup("props", { bench = true, lamp = true })
+	local swapped = 0
+	for _, b in ipairs(world.benchItems) do
+		local clone = assets.cloneModel("props", "bench")
+		if clone and assets.place(clone, b.x, b.z, b.rot, 2.4, world.folder) then
+			b.seat:Destroy()
+			b.back:Destroy()
+			swapped += 1
+		end
+	end
+	for _, l in ipairs(world.lampItems) do
+		local clone = assets.cloneModel("props", "lamp")
+		if clone and assets.place(clone, l.x, l.z, 0, 8, world.folder) then
+			l.post:Destroy()
+			l.head.Transparency = 1
+			swapped += 1
+		end
+	end
 	local placed = 0
 	for _, spot in ipairs(Config.HubDecor) do
 		local clone = assets.cloneDecor(spot[1])
@@ -3154,7 +3175,7 @@ task.spawn(function()
 			placed += 1
 		end
 	end
-	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s)")
+	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s), " .. swapped .. " banc(s)/lampadaire(s) Blender")
 end)
 
 local remote = Instance.new("RemoteEvent")
@@ -3464,13 +3485,14 @@ local function tree(pos, parent, rng)
 end
 
 local function lamp(pos, parent)
-	part({ Name = "LampPost", Size = Vector3.new(0.8, 7, 0.8), Position = pos + Vector3.new(0, 3.5, 0), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, parent)
+	local post = part({ Name = "LampPost", Size = Vector3.new(0.8, 7, 0.8), Position = pos + Vector3.new(0, 3.5, 0), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, parent)
 	local head = part({ Name = "Lamp", Shape = Enum.PartType.Ball, Size = Vector3.new(1.8, 1.8, 1.8), Position = pos + Vector3.new(0, 7.6, 0), Color = Color3.fromRGB(255, 235, 170), Material = Enum.Material.Neon }, parent)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromRGB(255, 225, 160)
 	l.Range = 24
 	l.Brightness = 1.2
 	l.Parent = head
+	return { post = post, head = head, x = pos.X, z = pos.Z }
 end
 
 function HubWorld.setupLighting()
@@ -3700,12 +3722,14 @@ function HubWorld.build(Config)
 		"Tu vois les parties ouvertes de tes amis (moins de " .. G.MaxPlayers .. " joueurs).",
 		"Appuie sur Rejoindre : tu arrives en cours de partie, tes œufs sont protégés " .. G.LateJoinGrace .. " s.",
 	}, Color3.fromRGB(74, 163, 255))
+	local benchItems, lampItems = {}, {}
 	for i = 1, 6 do -- bancs autour de la fontaine
 		local a = i / 6 * math.pi * 2 + 0.5
 		local bx, bz = math.sin(a) * 15, math.cos(a) * 15
 		local look = CFrame.lookAt(Vector3.new(bx, 1.6, bz), Vector3.new(0, 1.6, 0))
-		part({ Name = "BenchSeat", Size = Vector3.new(6, 0.6, 2), CFrame = look, Color = Color3.fromRGB(150, 104, 70), Material = Enum.Material.WoodPlanks }, world)
-		part({ Name = "BenchBack", Size = Vector3.new(6, 1.8, 0.4), CFrame = look * CFrame.new(0, 1.2, 1), Color = Color3.fromRGB(130, 90, 60), Material = Enum.Material.WoodPlanks }, world)
+		local seat = part({ Name = "BenchSeat", Size = Vector3.new(6, 0.6, 2), CFrame = look, Color = Color3.fromRGB(150, 104, 70), Material = Enum.Material.WoodPlanks }, world)
+		local back = part({ Name = "BenchBack", Size = Vector3.new(6, 1.8, 0.4), CFrame = look * CFrame.new(0, 1.2, 1), Color = Color3.fromRGB(130, 90, 60), Material = Enum.Material.WoodPlanks }, world)
+		benchItems[#benchItems + 1] = { seat = seat, back = back, x = bx, z = bz, rot = math.deg(a) }
 	end
 	for _, z in pairs(zones) do -- fanions et chemin de pas depuis le point d'arrivée jusqu'à chaque portail
 		for k = 1, 7 do
@@ -3728,7 +3752,7 @@ function HubWorld.build(Config)
 	-- Décor : lampadaires autour de la place, arbres, fleurs, rochers, collines
 	for k = 0, 15 do
 		local a = k / 16 * math.pi * 2
-		lamp(Vector3.new(math.sin(a) * 47, 0, math.cos(a) * 47), world)
+		lampItems[#lampItems + 1] = lamp(Vector3.new(math.sin(a) * 47, 0, math.cos(a) * 47), world)
 	end
 	for _ = 1, 46 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(70, 190)
@@ -3744,7 +3768,7 @@ function HubWorld.build(Config)
 		local sz = rng:NextNumber(120, 200)
 		part({ Name = "Hill", Shape = Enum.PartType.Ball, Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 250, -sz * 0.38, math.cos(a) * 250), Color = Color3.fromRGB(80 + (k % 3) * 8, 140 + (k % 2) * 12, 90), Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	return { spawn = spawn, zones = zones, folder = world, fountainParts = { fBase, fWater, spout } }
+	return { spawn = spawn, zones = zones, folder = world, fountainParts = { fBase, fWater, spout }, benchItems = benchItems, lampItems = lampItems }
 end
 
 return HubWorld

@@ -687,7 +687,7 @@ function Builder.dressArena(assets)
 		put("ground", "plaza", 0, 0.08, 0, 56, nil, 0, "ArenaPlaza")
 		for k = 0, 3 do
 			local a = k * math.pi / 2
-			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, 2.4, a, "ArenaBench") -- le banc regarde le monument
+			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, 2.4, math.pi - a, "ArenaBench") -- le banc regarde le monument
 			local b = a + math.pi / 4
 			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, 9, 0, "ArenaLamp")
 		end

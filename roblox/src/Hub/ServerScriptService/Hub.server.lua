@@ -43,6 +43,25 @@ task.spawn(function()
 			p:Destroy()
 		end
 	end
+	-- Bancs et lampadaires Blender : chacun remplace son équivalent procédural une fois posé (la lumière des lampadaires reste, boule invisible)
+	assets.loadGroup("props", { bench = true, lamp = true })
+	local swapped = 0
+	for _, b in ipairs(world.benchItems) do
+		local clone = assets.cloneModel("props", "bench")
+		if clone and assets.place(clone, b.x, b.z, b.rot, 2.4, world.folder) then
+			b.seat:Destroy()
+			b.back:Destroy()
+			swapped += 1
+		end
+	end
+	for _, l in ipairs(world.lampItems) do
+		local clone = assets.cloneModel("props", "lamp")
+		if clone and assets.place(clone, l.x, l.z, 0, 8, world.folder) then
+			l.post:Destroy()
+			l.head.Transparency = 1
+			swapped += 1
+		end
+	end
 	local placed = 0
 	for _, spot in ipairs(Config.HubDecor) do
 		local clone = assets.cloneDecor(spot[1])
@@ -50,7 +69,7 @@ task.spawn(function()
 			placed += 1
 		end
 	end
-	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s)")
+	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s), " .. swapped .. " banc(s)/lampadaire(s) Blender")
 end)
 
 local remote = Instance.new("RemoteEvent")

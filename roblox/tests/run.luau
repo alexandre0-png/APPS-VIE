@@ -2683,6 +2683,22 @@ do
 	local remote = RT.services.ReplicatedStorage:FindFirstChild("HubRemote")
 	check("Hub : le RemoteEvent HubRemote existe avant l'arrivée des joueurs", remote ~= nil)
 	check("Hub : le gestionnaire du Remote est branché", remote ~= nil and RT.signalCount(remote, "OnServerEvent") == 1)
+	RT.step(3)
+	do
+		local benches, lamps, oldSeat, oldPost = 0, 0, 0, 0
+		for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+			if d.Name == "Asset" .. Config.Assets.models.props.bench then
+				benches += 1
+			elseif d.Name == "Asset" .. Config.Assets.models.props.lamp then
+				lamps += 1
+			elseif d.Name == "BenchSeat" then
+				oldSeat += 1
+			elseif d.Name == "LampPost" then
+				oldPost += 1
+			end
+		end
+		check("Hub : 6 bancs et 16 lampadaires Blender posés, équivalents procéduraux retirés (" .. benches .. "/" .. lamps .. ", restes " .. oldSeat .. "/" .. oldPost .. ")", benches == 6 and lamps == 16 and oldSeat == 0 and oldPost == 0)
+	end
 	check("Hub : l'arrivée des joueurs est écoutée", RT.signalCount(RT.services.Players, "PlayerAdded") >= 1)
 	-- deux joueurs entrent dans le portail de taille 2 ; le compte à rebours part, la téléportation est demandée
 	local size = 2

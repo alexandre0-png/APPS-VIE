@@ -67,13 +67,14 @@ local function tree(pos, parent, rng)
 end
 
 local function lamp(pos, parent)
-	part({ Name = "LampPost", Size = Vector3.new(0.8, 7, 0.8), Position = pos + Vector3.new(0, 3.5, 0), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, parent)
+	local post = part({ Name = "LampPost", Size = Vector3.new(0.8, 7, 0.8), Position = pos + Vector3.new(0, 3.5, 0), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, parent)
 	local head = part({ Name = "Lamp", Shape = Enum.PartType.Ball, Size = Vector3.new(1.8, 1.8, 1.8), Position = pos + Vector3.new(0, 7.6, 0), Color = Color3.fromRGB(255, 235, 170), Material = Enum.Material.Neon }, parent)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromRGB(255, 225, 160)
 	l.Range = 24
 	l.Brightness = 1.2
 	l.Parent = head
+	return { post = post, head = head, x = pos.X, z = pos.Z }
 end
 
 function HubWorld.setupLighting()
@@ -303,12 +304,14 @@ function HubWorld.build(Config)
 		"Tu vois les parties ouvertes de tes amis (moins de " .. G.MaxPlayers .. " joueurs).",
 		"Appuie sur Rejoindre : tu arrives en cours de partie, tes œufs sont protégés " .. G.LateJoinGrace .. " s.",
 	}, Color3.fromRGB(74, 163, 255))
+	local benchItems, lampItems = {}, {}
 	for i = 1, 6 do -- bancs autour de la fontaine
 		local a = i / 6 * math.pi * 2 + 0.5
 		local bx, bz = math.sin(a) * 15, math.cos(a) * 15
 		local look = CFrame.lookAt(Vector3.new(bx, 1.6, bz), Vector3.new(0, 1.6, 0))
-		part({ Name = "BenchSeat", Size = Vector3.new(6, 0.6, 2), CFrame = look, Color = Color3.fromRGB(150, 104, 70), Material = Enum.Material.WoodPlanks }, world)
-		part({ Name = "BenchBack", Size = Vector3.new(6, 1.8, 0.4), CFrame = look * CFrame.new(0, 1.2, 1), Color = Color3.fromRGB(130, 90, 60), Material = Enum.Material.WoodPlanks }, world)
+		local seat = part({ Name = "BenchSeat", Size = Vector3.new(6, 0.6, 2), CFrame = look, Color = Color3.fromRGB(150, 104, 70), Material = Enum.Material.WoodPlanks }, world)
+		local back = part({ Name = "BenchBack", Size = Vector3.new(6, 1.8, 0.4), CFrame = look * CFrame.new(0, 1.2, 1), Color = Color3.fromRGB(130, 90, 60), Material = Enum.Material.WoodPlanks }, world)
+		benchItems[#benchItems + 1] = { seat = seat, back = back, x = bx, z = bz, rot = math.deg(a) }
 	end
 	for _, z in pairs(zones) do -- fanions et chemin de pas depuis le point d'arrivée jusqu'à chaque portail
 		for k = 1, 7 do
@@ -331,7 +334,7 @@ function HubWorld.build(Config)
 	-- Décor : lampadaires autour de la place, arbres, fleurs, rochers, collines
 	for k = 0, 15 do
 		local a = k / 16 * math.pi * 2
-		lamp(Vector3.new(math.sin(a) * 47, 0, math.cos(a) * 47), world)
+		lampItems[#lampItems + 1] = lamp(Vector3.new(math.sin(a) * 47, 0, math.cos(a) * 47), world)
 	end
 	for _ = 1, 46 do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(70, 190)
@@ -347,7 +350,7 @@ function HubWorld.build(Config)
 		local sz = rng:NextNumber(120, 200)
 		part({ Name = "Hill", Shape = Enum.PartType.Ball, Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 250, -sz * 0.38, math.cos(a) * 250), Color = Color3.fromRGB(80 + (k % 3) * 8, 140 + (k % 2) * 12, 90), Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	return { spawn = spawn, zones = zones, folder = world, fountainParts = { fBase, fWater, spout } }
+	return { spawn = spawn, zones = zones, folder = world, fountainParts = { fBase, fWater, spout }, benchItems = benchItems, lampItems = lampItems }
 end
 
 return HubWorld
