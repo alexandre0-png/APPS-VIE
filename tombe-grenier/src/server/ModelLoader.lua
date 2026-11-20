@@ -219,12 +219,11 @@ function ModelLoader.start(onDone)
 			table.insert(report.skipped, e.name)
 		end
 		if #report.failed > 0 or #report.skipped > 0 then
-			warn(
-				("[ModelLoader] %d modèle(s) chargé(s), %d en échec, %d laissé(s) de côté (plafond %d s) : pièces de remplacement conservées"):format(
-					#report.ok,
-					#report.failed,
-					#report.skipped,
-					(Config.Assets and Config.Assets.GlobalTimeout) or 10
+			print(
+				("[Boot] modèles non chargés (plafond %d s), pièces de remplacement conservées : échec = %s ; de côté = %s"):format(
+					(Config.Assets and Config.Assets.GlobalTimeout) or 10,
+					table.concat(report.failed, ", "),
+					table.concat(report.skipped, ", ")
 				)
 			)
 		end

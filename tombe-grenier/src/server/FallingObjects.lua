@@ -31,7 +31,7 @@ local function makeItem()
 		return template:Clone()
 	end
 	if not template then
-		warn("[FallingObjects] ServerStorage.FallingItem absent : bloc de secours")
+		print("[Boot] FallingObjects : ServerStorage.FallingItem absent : bloc de secours")
 	end
 	local part = Instance.new("Part")
 	part.Name = "FallingItem"

@@ -62,7 +62,7 @@ function MonsterAI.ensureModel()
 		return
 	end
 	if Config.Assets and Config.Assets.Enabled == false then
-		warn("[MonsterAI] chargement des modèles désactivé : rig de secours utilisé")
+		print("[Boot] MonsterAI : chargement des modèles désactivé : rig de secours utilisé")
 		return
 	end
 	local candidates = {}
@@ -74,7 +74,7 @@ function MonsterAI.ensureModel()
 	end
 	local name = AssetLoad.installFirst(candidates, "Monster", ModelLoader.loadWithTimeout, ServerStorage)
 	if not name then
-		warn("[MonsterAI] aucun modèle R15 chargé : rig de secours utilisé")
+		print("[Boot] MonsterAI : aucun modèle R15 chargé : rig de secours utilisé")
 	end
 end
 
@@ -88,9 +88,9 @@ local function buildModel()
 			return model
 		end
 		model:Destroy()
-		warn("[MonsterAI] ServerStorage.Monster sans HumanoidRootPart ou Humanoid : rig de secours utilisé")
+		print("[Boot] MonsterAI : ServerStorage.Monster sans HumanoidRootPart ou Humanoid : rig de secours utilisé")
 	else
-		warn("[MonsterAI] ServerStorage.Monster absent : rig de secours utilisé")
+		print("[Boot] MonsterAI : ServerStorage.Monster absent : rig de secours utilisé")
 	end
 
 	local model = Instance.new("Model")

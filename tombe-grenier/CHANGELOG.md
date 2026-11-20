@@ -2,6 +2,10 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Passe « zéro message d'erreur »
+- Les replis attendus (rig du monstre, bloc de chute, modèles non chargés) deviennent des traces `[Boot]` au lieu de `warn`. Les `warn` restants signalent de vraies pannes (réseau, DataStore, étape en erreur).
+- `tools/lua/test_zero_warn.py` : 4 minutes virtuelles d'une partie duo (serveur réel, sans modèle puis avec tous les modèles) et du client réel ; tout `warn(` ou `error(` hors `[Boot]` et `[Spawn]` fait échouer la batterie.
+
 ### Mobilier Blender (lot 2 : 25 modèles)
 - Chaise, table de salle, étagère murale, caisses, pied de lit, plante d'intérieur, console, baignoire, lavabo, WC, armoire de toilette, barrique, cuve, canapé, fauteuil, cuisinière, frigo, cercueil, coffre verrouillé, coffre à jouets, vitrine, portemanteau, lampadaire, lit double, établi : `Config.Assets`, plans `fit` (devant « +Z » pour un avant -Y Blender), alias de meubles dans `DecorKit.ALIASES`. Le grenier prend désormais ces modèles pour tables et chaises.
 - Ordre de chargement : énigmes et monstre d'abord, puis le mobilier le plus répandu (`PRIORITY`), puis le reste ; 8 tâches en parallèle pour tenir dans le plafond de 10 s avec 90 modèles.
