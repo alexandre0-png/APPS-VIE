@@ -55,6 +55,9 @@ Mise à jour : 2026-11-20.
 - Modèles catalogue refusés à `LoadAsset` (« Requester does not have permission ») : repli procédural.
 - Un message à une session partage son contexte : toujours vérifier l'ID de session avant d'envoyer.
 
+## Assets Blender téléversés (compte ahmzk0, approuvés)
+- CleOr 128263149076283 ; CoffretAncien 80816541343966 ; HorlogeComtoise 121788657121996 ; PoupeeAncienne 114751010380157 ; BougieChandelier 118027923730609. Scripts de modélisation : `scripts/blender_make_models.py` (lancer avec `python` du venv bpy : `python scripts/blender_make_models.py <dossier_sortie>`).
+
 ## Outils
 - Binaires dans `/tmp/claude-0/cargo-out/bin` (stylua, selene, lune, rojo) à remettre dans le PATH ; `scripts/setup-roblox-toolchain.sh` et `scripts/check-game.sh <jeu>`.
 - Blender : `pip install bpy` dans un venv (testé), scripts de modélisation dans le scratchpad ; export FBX vers l'API Assets.
