@@ -584,6 +584,16 @@ local function buildHouse(root)
 			anchor.Parent = folders["Décor"]
 			if not fitModelOver(anchor, d.model) then
 				buildFallbackDecor(d.model, anchor)
+				local substitutes = anchor:GetChildren()
+				table.insert(late, function()
+					if not fitModelOver(anchor, d.model) then
+						return false
+					end
+					for _, piece in ipairs(substitutes) do
+						piece:Destroy()
+					end
+					return true
+				end)
 			end
 		end)
 	end
@@ -738,7 +748,9 @@ local function buildHouse(root)
 				Enum.Material.Wood,
 				"Horloge"
 			)
-			fitModelOver(clock, "horloge comtoise")
+			tryNow(function()
+				return fitModelOver(clock, "horloge comtoise")
+			end)
 		elseif p.tag == "IntroPhoto" then
 			makeVisible(
 				folders.Props,
@@ -794,7 +806,9 @@ local function buildHouse(root)
 				Enum.Material.Wood,
 				"Coffret"
 			)
-			fitModelOver(casket, "coffret ancien")
+			tryNow(function()
+				return fitModelOver(casket, "coffret ancien")
+			end)
 		elseif p.tag == "Mannequin" then
 			-- Mannequin : une pièce invisible porte l'invite et le pivot (Quests) ; le modèle y est soudé
 			local anchor = makeVisible(
@@ -861,7 +875,9 @@ local function buildHouse(root)
 				Enum.Material.Metal,
 				"Key"
 			)
-			fitModelOver(key, "clé or")
+			tryNow(function()
+				return fitModelOver(key, "clé or")
+			end)
 		elseif p.tag == "ExitDoor" then
 			local door = makeVisible(
 				folders.Props,

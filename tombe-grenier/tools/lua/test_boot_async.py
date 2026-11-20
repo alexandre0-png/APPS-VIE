@@ -68,6 +68,13 @@ class TestStaticGuards(unittest.TestCase):
         for cls in ("Script", "LocalScript", "ModuleScript", "RemoteEvent", "RemoteFunction", "BindableEvent", "BindableFunction"):
             self.assertIn(cls, s)
 
+    def test_every_model_placement_is_deferred_when_the_model_is_not_there_yet(self):
+        s = self.read("src", "server", "MapBuilder.lua")
+        for name in ("horloge comtoise", "coffret ancien", "clé or"):
+            i = s.index('fitModelOver(%s' % ("clock" if "horloge" in name else "casket" if "coffret" in name else "key"))
+            self.assertIn("tryNow", s[i - 40 : i])
+        self.assertIn("table.insert(late, function()", s)  # décor narratif : repli puis remplacement tardif
+
     def test_hub_script_is_isolated(self):
         s = self.read("src", "hub", "init.server.lua")
         self.assertIn("[Boot]", s)

@@ -2,7 +2,7 @@
   ModelLoader : charge les modèles de décor (identifiants Roblox) dans ServerStorage/Decor, sous le nom
   du meuble ou de l'objet. DecorKit et MapBuilder les posent à la place des boîtes de substitution.
   Côté serveur uniquement, avec InsertService:LoadAsset, dans pcall et avec un délai maximum (Config.Assets.Timeout).
-  Scripts et événements retirés (AssetLoad.sanitize). En cas d'échec, la pièce de remplacement actuelle reste.
+  Scripts et événements retirés (AssetLoad.sanitize). En cas d'échec, la pièce de remplacement reste.
 ]]
 local InsertService = game:GetService("InsertService")
 local ServerStorage = game:GetService("ServerStorage")
