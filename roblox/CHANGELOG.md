@@ -2,6 +2,13 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## 2026-11-22 : lots A à D (correctifs Lune, amis, œuf borné, modèles Blender)
+
+- **A (23ae91b)** : les échecs sous Lune venaient de MON test : le générateur du test (`seed * 1103515245`) dépasse 2^53, exact avec les entiers de Lua 5.5 (lupa) mais imprécis avec les doubles de Luau (Lune). Remplacé partout par Park–Miller (`seed * 16807 % 2147483647`, exact en doubles) ; ajout d'un test DÉTERMINISTE sans aléatoire (balayage exact du tirage). L'erreur client « compare table < number » venait du runtime factice (Luau ne tolère pas `proxy < nombre`) : les instances ont maintenant des valeurs numériques réelles par défaut.
+- **B (6fa1453)** : toute partie, même lancée seul, reste ouverte aux amis du créateur jusqu'à 5 joueurs (liste blanche serveur inchangée), « Rejoindre l'ami » avec places libres, retrait du registre quand tout le monde est parti, messages clairs.
+- **C (8bc3546)** : plafond de taille de l'œuf (`Config.eggMaxSize`, relatif à l'emplacement et au joueur), nid sous chaque œuf, pet qui apparaît plafonné (`Easing.popScale`).
+- **D** : modèles Blender intégrés : œufs par rareté (6 + secret, prioritaires sur le catalogue), 6 pets liés aux espèces (Poussin, Lapin, Renard, Panda, Dragonnet = Dragon, Fantôme = Alien), accessoires (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine du hub, nid). Convention `Nom__RRGGBB` lue par `Assets.colorize` (couleurs du FBX ignorées, petits détails sans ombre), un seul `LoadAsset` par identifiant puis clonage, plafond de Parts par modèle (`propsMaxParts`) et budget global (`propsBudgetParts`, pire cas testé), repli procédural conservé partout. `BLENDER_REQUESTS.md` liste tous les modèles à créer ensuite.
+
 ## 2026-11-21 : inspirations (révélation, carrousel, style glossy, richesse, bannières)
 
 Source : note `obsidian-studio/Inspirations/Videos-et-styles.md` (branche `claude/jolly-cannon-w2wx5h`), vidéos et images fournies par l'utilisateur. Tout est dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : aucun asset ni identifiant.

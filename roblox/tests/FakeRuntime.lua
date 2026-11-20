@@ -87,6 +87,23 @@ function Fake.runtime(opts)
 		walk(self)
 		return out
 	end
+	-- Géométrie numérique réelle (jamais de proxy dans une comparaison : voir NUMERIC_DEFAULTS)
+	function methods.GetBoundingBox()
+		return RT.cf(0, 0, 0), RT.vec(4, 6, 4)
+	end
+	function methods.GetExtentsSize()
+		return RT.vec(4, 6, 4)
+	end
+	function methods.GetScale()
+		return 1
+	end
+	function methods.GetPivot()
+		return RT.cf(0, 0, 0)
+	end
+	function methods.ScaleTo(self, k)
+		rawget(self, "__props").lastScale = k
+	end
+	function methods.PivotTo() end
 	function methods.GetAttribute(self, k)
 		return rawget(self, "__attrs")[k]
 	end
@@ -484,7 +501,20 @@ function Fake.runtime(opts)
 	service("MarketplaceService")
 	rawget(services.MarketplaceService, "__props").UserOwnsGamePassAsync = function() return false end
 	service("MessagingService")
-	service("InsertService")
+	local insert = service("InsertService")
+	RT.loadedIds = {}
+	rawget(insert, "__props").LoadAsset = function(_, id)
+		RT.loadedIds[#RT.loadedIds + 1] = id
+		if RT.loadAssetFail then
+			error(RT.loadAssetFail)
+		end
+		local model = RT.instance("Model", "Asset" .. tostring(id))
+		for i, nm in ipairs({ "Corps__FF8800", "Detail__000000", "Socle" }) do
+			local part = RT.instance("Part", nm)
+			part.Parent = model
+		end
+		return model
+	end
 	service("StarterPlayer")
 	service("PhysicsService")
 	local cas = service("ContextActionService")

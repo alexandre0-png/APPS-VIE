@@ -286,6 +286,36 @@ Config.Assets = {
 		glitch = 2937218888, -- œuf glitch
 	},
 	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
+	-- Modèles BLENDER de l'utilisateur (approuvés) : convention de couleur `Nom__RRGGBB` lue par Assets.colorize (les couleurs du FBX sont ignorées).
+	-- Œufs par rareté de pet (1 Commun .. 5 Mythique, 6 Cosmique = œuf Secret) : prioritaires sur les modèles du catalogue, repli : catalogue puis code.
+	eggsByRarity = {
+		[1] = 100023720665590, -- OeufCommun
+		[2] = 74975545149168, -- OeufRare
+		[3] = 86639017295697, -- OeufEpique
+		[4] = 137014263068694, -- OeufLegendaire
+		[5] = 110535599163330, -- OeufMythique
+		[6] = 95190117262171, -- OeufSecret
+		secret = 95190117262171,
+	},
+	-- Accessoires : arbres, rochers, cabanes, pont, fontaine (place du hub), nid d'œufs (sous chaque œuf).
+	props = {
+		tree = 88144895198576, -- Arbre
+		fir = 79188790509321, -- Sapin
+		rock = 132852439679625, -- Rocher
+		bush = 81559211389899, -- Buisson
+		bridge = 72821096584538, -- PontBois (4,4 de long)
+		hut = 121389844339916, -- Cabane
+		fence = 98207856976488, -- Barriere
+		fountain = 87696152276058, -- Fontaine
+		nest = 85337440768183, -- NidOeufs
+	},
+	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
+	-- Nombre d'exemplaires posés sur la carte de la partie et hauteur en studs (le pont est mis à l'échelle sur sa longueur).
+	propsPlan = { tree = 18, fir = 10, rock = 14, bush = 14, hut = 3, fence = 12, bridge = 4 },
+	propsHeight = { tree = 14, fir = 16, rock = 3.5, bush = 2.5, hut = 9, fence = 3, bridge = 1.5, fountain = 9, nest = 1.2 },
+	bridgeLength = 18,
+	propsBudgetParts = 2600, -- pire cas (exemplaires x plafond de Parts) à ne jamais dépasser ; le placement s'arrête aussi au compte réel
+	smallDetail = 0.6, -- pièces dont la plus grande arête est inférieure : CastShadow = false
 	-- Décor du hub (modèles catalogue fournis par l'utilisateur) : chargés par Assets.loadDecor, placés selon Config.HubDecor. Le hub est déjà
 	-- décoré par du code (bancs, lampadaires, arbres) : si un modèle est refusé, rien ne manque.
 	decor = {
@@ -308,9 +338,16 @@ Config.Assets = {
 	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
 	-- Modèles Blender des pets (à téléverser ensuite) : index d'espèce de Config.PETS -> identifiant du modèle. Vide = pets procéduraux.
 	-- Exemple : pets = { [1] = 123456789 }. Un modèle absent, refusé ou invalide garde le pet procédural (repli automatique).
-	pets = {},
+	pets = {
+		[1] = 122665615732907, -- PetPoussin (Poussin, Commun)
+		[3] = 88649442626593, -- PetLapin (Lapin, Commun)
+		[6] = 125436205733282, -- PetRenard (Renard, Rare)
+		[7] = 113006978203286, -- PetPanda (Panda, Épique)
+		[13] = 134284711848469, -- PetDragonnet (Dragon, Mythique)
+		[16] = 129116477413499, -- PetFantome (Alien, Cosmique : le « fantôme »)
+	},
 	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
-	petHeight = 3, -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
+	petHeight = 3, -- (les pets Blender mesurent ~1 : mis à l'échelle sur cette hauteur) -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -415,6 +452,15 @@ Config.HubDecor = {
 	{ "sakura", -70, 88, 0, 16 },
 	{ "sakura", 72, 90, 0, 16 },
 }
+
+-- Pire cas de Parts de tous les accessoires placés sur la carte (exemplaires x plafond par modèle) : doit rester sous propsBudgetParts.
+function Config.propsWorstCase()
+	local total = 0
+	for key, count in pairs(Config.Assets.propsPlan) do
+		total = total + count * (Config.Assets.propsMaxParts[key] or Config.Assets.decorMaxParts)
+	end
+	return total
+end
 
 function Config.isBlockedClass(className)
 	for _, c in ipairs(Config.Assets.blockedClasses) do
@@ -1966,9 +2012,23 @@ return SpawnGuard
 --   deps.warn(message)  (facultatif)   deps.store(clé, modèle)  (facultatif : range le modèle, ex. dans ServerStorage)
 local Assets = {}
 
+-- Convention des modèles Blender : chaque pièce se nomme `Nom__RRGGBB` (hexadécimal). Retourne (r, g, b) en 0-255, ou nil si le nom n'a pas de
+-- suffixe valide (exactement 6 chiffres hexadécimaux après le DERNIER « __ »). Pur et testé.
+function Assets.parseColorSuffix(name)
+	if type(name) ~= "string" then
+		return nil
+	end
+	local hex = name:match("__(%x%x%x%x%x%x)$")
+	if not hex then
+		return nil
+	end
+	return tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
+end
+
 function Assets.new(Config, deps)
 	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
 	local warned = {} -- un seul avertissement par ID
+	local byId = {} -- identifiant -> { model, status } des modèles déjà chargés
 	local cfg = Config.Assets
 
 	local function warn(msg, id)
@@ -2079,8 +2139,51 @@ function Assets.new(Config, deps)
 		return true, { parts = parts, removed = #blocked }
 	end
 
+	-- Applique la couleur lue dans le suffixe `__RRGGBB` du nom de chaque pièce (les couleurs du FBX ne sont jamais utilisées) ; sans suffixe, rien
+	-- ne change. CastShadow = false pour les petits détails (arête la plus longue sous cfg.smallDetail studs). Retourne le nombre de pièces colorées.
+	function A.colorize(model)
+		local make = deps.color or (Color3 and Color3.fromRGB)
+		if not make then
+			return 0
+		end
+		local list = descendants(model)
+		if not list then
+			return 0
+		end
+		local count = 0
+		for _, d in ipairs(list) do
+			local okName, name = pcall(function()
+				return d.Name
+			end)
+			local r, g, b = Assets.parseColorSuffix(okName and name or nil)
+			if r then
+				local isPart = false
+				pcall(function()
+					isPart = d:IsA("BasePart")
+				end)
+				if isPart then
+					pcall(function()
+						d.Color = make(r, g, b)
+						count = count + 1
+						local s = d.Size
+						if s and math.max(s.X, s.Y, s.Z) < (cfg.smallDetail or 0.6) then
+							d.CastShadow = false
+						end
+					end)
+				end
+			end
+		end
+		return count
+	end
+
 	-- Charge, nettoie et range un modèle. Retourne true si un modèle utilisable est disponible. Ne lève jamais d'erreur.
 	function A.loadOne(key, id, maxParts)
+		-- un identifiant déjà chargé (même modèle sous une autre clé) est réutilisé : un seul LoadAsset par modèle
+		if byId[id] then
+			A.templates[key] = byId[id].model
+			A.status[key] = byId[id].status
+			return true
+		end
 		local ok, model = withTimeout(function()
 			return deps.loadAsset(id)
 		end, cfg.timeout)
@@ -2103,8 +2206,14 @@ function Assets.new(Config, deps)
 			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
+		local colored = 0
+		local cOk, cn = pcall(A.colorize, model)
+		if cOk then
+			colored = cn
+		end
 		A.templates[key] = model
-		A.status[key] = { ok = true, parts = info.parts, removed = info.removed }
+		A.status[key] = { ok = true, parts = info.parts, removed = info.removed, colored = colored }
+		byId[id] = { model = model, status = A.status[key] }
 		if deps.store then
 			pcall(deps.store, key, model)
 		end
@@ -2131,6 +2240,17 @@ function Assets.new(Config, deps)
 				end
 			else
 				A.status[key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		if type(cfg.eggsByRarity) == "table" then -- modèles Blender par rareté (1..6 et « secret ») : prioritaires sur les modèles du catalogue
+			for rarity, id in pairs(cfg.eggsByRarity) do
+				if type(id) == "number" and id > 0 and id % 1 == 0 then
+					if A.loadOne("r:" .. tostring(rarity), id) then
+						loaded = loaded + 1
+					end
+				else
+					A.status["r:" .. tostring(rarity)] = { ok = false, reason = "ID invalide" }
+				end
 			end
 		end
 		if loaded > 0 and onReady then
@@ -2227,12 +2347,19 @@ function Assets.new(Config, deps)
 	end
 
 	-- Copie du modèle d'un œuf de rareté `tier`, ou nil (chargement coupé, échoué, pas encore terminé...) : garder l'apparence par défaut.
-	function A.cloneEgg(tier)
+	function A.cloneEgg(tier, secret)
 		if cfg.Enabled ~= true then
 			return nil
 		end
-		local key = Config.eggAssetKey(tier)
-		local template = key and A.templates[key]
+		local template = nil
+		if secret then
+			template = A.templates["r:secret"]
+		end
+		template = template or A.templates["r:" .. tostring(tier)]
+		if not template then
+			local key = Config.eggAssetKey(tier)
+			template = key and A.templates[key]
+		end
 		if not template then
 			return nil
 		end
@@ -2243,6 +2370,90 @@ function Assets.new(Config, deps)
 			return clone
 		end
 		return nil
+	end
+
+	-- Accessoires (arbres, rochers, cabanes, pont, fontaine, nid...) : Config.Assets.props clé -> ID, plafond de Parts par clé (propsMaxParts).
+	function A.loadProps()
+		if cfg.Enabled ~= true or type(cfg.props) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.props) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.props[key]
+			local cap = (cfg.propsMaxParts and cfg.propsMaxParts[key]) or cfg.decorMaxParts or cfg.maxParts
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("x:" .. key, id, cap) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["x:" .. key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie d'un accessoire (clone du modèle chargé une seule fois : jamais de LoadAsset répété), ou nil.
+	function A.cloneProp(key)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["x:" .. tostring(key)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
+	-- Pose un modèle cloné : mis à l'échelle à `height` studs, posé au sol en (x, z), tourné de rotDeg, ancré, sans collision. Retourne (true, nombre de
+	-- Parts) ou (false) ; en cas d'erreur le clone est détruit. Ne lève jamais d'erreur.
+	function A.place(model, x, z, rotDeg, height, parent, length, groundY)
+		local count = 0
+		local ok = pcall(function()
+			if not model:IsA("Model") then
+				error("pas un Model")
+			end
+			local _, size = model:GetBoundingBox()
+			if size.Y < 0.05 then
+				error("hauteur nulle")
+			end
+			local longest = math.max(size.X, size.Z)
+			if length and longest > 0.05 then
+				model:ScaleTo(length / longest) -- ponts : échelle d'après la longueur
+			else
+				model:ScaleTo(height / size.Y)
+			end
+			local bbox, size2 = model:GetBoundingBox()
+			local target = CFrame.new(x, (groundY or 0) + size2.Y / 2, z) * CFrame.Angles(0, math.rad(rotDeg or 0), 0)
+			model:PivotTo(target * bbox:ToObjectSpace(model:GetPivot()))
+			for _, d in ipairs(model:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+					d.CanCollide = false
+					d.CanQuery = false
+					d.CanTouch = false
+					count = count + 1
+				end
+			end
+			model.Parent = parent
+		end)
+		if not ok then
+			pcall(function()
+				model:Destroy()
+			end)
+			return false
+		end
+		return true, count
 	end
 
 	return A
@@ -2360,6 +2571,14 @@ task.spawn(function()
 		warn = warn,
 	})
 	local loaded = assets.loadDecor()
+	assets.loadProps()
+	-- Fontaine Blender sur la place : si elle est posée, la fontaine procédurale est retirée (sinon elle reste : repli)
+	local fountain = assets.cloneProp("fountain")
+	if fountain and assets.place(fountain, 0, 0, 0, Config.Assets.propsHeight.fountain, world.folder) then
+		for _, p in ipairs(world.fountainParts) do
+			p:Destroy()
+		end
+	end
 	local placed = 0
 	for _, spot in ipairs(Config.HubDecor) do
 		local clone = assets.cloneDecor(spot[1])
@@ -2759,8 +2978,8 @@ function HubWorld.build(Config)
 	part({ Name = "InvisibleCeiling", Size = Vector3.new(428, 4, 428), Position = Vector3.new(0, CEIL + 2, 0), Transparency = 1, CanQuery = false }, world)
 
 	-- Fontaine centrale
-	cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
-	cylinder({ Name = "FountainWater", Height = 0.4, Diameter = 14, Position = Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, world)
+	local fBase = cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
+	local fWater = cylinder({ Name = "FountainWater", Height = 0.4, Diameter = 14, Position = Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, world)
 	local spout = part({ Name = "Spout", Size = Vector3.new(1.4, 6, 1.4), Position = Vector3.new(0, 5, 0), Color = Color3.fromRGB(190, 190, 200), Material = Enum.Material.Marble }, world)
 	local spray = Instance.new("ParticleEmitter")
 	spray.Texture = "rbxasset://textures/particles/sparkles_main.dds"
@@ -2926,7 +3145,7 @@ function HubWorld.build(Config)
 		local sz = rng:NextNumber(120, 200)
 		part({ Name = "Hill", Shape = Enum.PartType.Ball, Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 250, -sz * 0.38, math.cos(a) * 250), Color = Color3.fromRGB(80 + (k % 3) * 8, 140 + (k % 2) * 12, 90), Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	return { spawn = spawn, zones = zones, folder = world }
+	return { spawn = spawn, zones = zones, folder = world, fountainParts = { fBase, fWater, spout } }
 end
 
 return HubWorld

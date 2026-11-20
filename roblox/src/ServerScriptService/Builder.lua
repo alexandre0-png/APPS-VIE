@@ -970,8 +970,96 @@ end
 
 -- Nid sous un œuf (paille : plateau, bord, brins) ; remplacé par le modèle Blender NidOeufs si disponible. Retourne le nombre de Parts du repli.
 function Builder.nest(position, parent)
+	-- modèle Blender NidOeufs s'il est chargé (cloné, jamais rechargé), sinon nid de paille procédural
+	local clone = eggAssets and eggAssets.cloneProp and eggAssets.cloneProp("nest")
+	if clone then
+		local ok = eggAssets.place(clone, position.X, position.Z, 0, Config.Assets.propsHeight.nest, parent, nil, position.Y)
+		if ok then
+			return 0
+		end
+	end
 	local ok, n = pcall(Scenery.nest, { part = part, ball = ball }, position, parent)
 	return ok and n or 0
+end
+
+-- Pose les accessoires Blender sur la carte une fois chargés (arbres, sapins, rochers, buissons, cabanes, barrières, ponts) avec un budget de Parts :
+-- le placement s'arrête dès que Config.Assets.propsBudgetParts serait dépassé. Positions déterministes, hors domaines, secrets, rivières et bases.
+-- Retourne le nombre de Parts posées. Ne lève jamais d'erreur (tout sous pcall) ; rien n'est posé si les modèles sont absents (la carte reste procédurale).
+function Builder.dressWorld(assets)
+	local total, placed = 0, 0
+	local ok = pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do -- la carte est construite en parallèle : on l'attend (30 s au plus)
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderProps"
+		folder.Parent = world
+		local rng = Random.new(77)
+		local half = Config.Map.groundSize / 2
+		local function free(x, z)
+			for i = 1, #Config.RIVALS do
+				local cx, cz = Config.rivalCenter(i)
+				if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < 110 then
+					return false
+				end
+			end
+			for _, sct in ipairs(Config.SECRETS) do
+				if math.sqrt((x - sct.x) ^ 2 + (z - sct.z) ^ 2) < 40 then
+					return false
+				end
+			end
+			if math.abs(z - 330) < 14 or math.abs(x + 380) < 14 then
+				return false
+			end
+			local d = math.sqrt(x * x + z * z)
+			return d > 270 and math.abs(x) < half - 40 and math.abs(z) < half - 40
+		end
+		local function put(key, x, z, rot, length)
+			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
+				return
+			end
+			local clone = assets.cloneProp(key)
+			if not clone then
+				return
+			end
+			local okPlace, count = assets.place(clone, x, z, rot, Config.Assets.propsHeight[key], folder, length)
+			if okPlace then
+				total = total + count
+				placed = placed + 1
+			end
+		end
+		for _, key in ipairs({ "tree", "fir", "rock", "bush" }) do
+			local n, tries = Config.Assets.propsPlan[key] or 0, 0
+			while n > 0 and tries < 400 do
+				tries = tries + 1
+				local x, z = rng:NextNumber(-half + 60, half - 60), rng:NextNumber(-half + 60, half - 60)
+				if free(x, z) then
+					put(key, x, z, rng:NextNumber(0, 360))
+					n = n - 1
+				end
+			end
+		end
+		for i = 1, #Config.RIVALS do -- une cabane et des barrières par domaine, côté arène
+			local cx, cz = Config.rivalCenter(i)
+			put("hut", cx + 34, cz + 16, 200)
+			for k = 0, 3 do
+				if k < math.ceil((Config.Assets.propsPlan.fence or 0) / #Config.RIVALS) then
+					put("fence", cx - 18 + k * 12, cz + 34, 0)
+				end
+			end
+		end
+		for _, b in ipairs({ { -150, 330, 90 }, { 150, 330, 90 }, { -380, -150, 0 }, { -380, 150, 0 } }) do
+			put("bridge", b[1], b[2], b[3], Config.Assets.bridgeLength)
+		end
+	end)
+	return ok and total or 0, placed
 end
 
 function Builder.follower(petIdx, sizeIdx, mutIdx)

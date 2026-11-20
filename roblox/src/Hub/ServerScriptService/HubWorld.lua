@@ -150,8 +150,8 @@ function HubWorld.build(Config)
 	part({ Name = "InvisibleCeiling", Size = Vector3.new(428, 4, 428), Position = Vector3.new(0, CEIL + 2, 0), Transparency = 1, CanQuery = false }, world)
 
 	-- Fontaine centrale
-	cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
-	cylinder({ Name = "FountainWater", Height = 0.4, Diameter = 14, Position = Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, world)
+	local fBase = cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
+	local fWater = cylinder({ Name = "FountainWater", Height = 0.4, Diameter = 14, Position = Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, world)
 	local spout = part({ Name = "Spout", Size = Vector3.new(1.4, 6, 1.4), Position = Vector3.new(0, 5, 0), Color = Color3.fromRGB(190, 190, 200), Material = Enum.Material.Marble }, world)
 	local spray = Instance.new("ParticleEmitter")
 	spray.Texture = "rbxasset://textures/particles/sparkles_main.dds"
@@ -317,7 +317,7 @@ function HubWorld.build(Config)
 		local sz = rng:NextNumber(120, 200)
 		part({ Name = "Hill", Shape = Enum.PartType.Ball, Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * 250, -sz * 0.38, math.cos(a) * 250), Color = Color3.fromRGB(80 + (k % 3) * 8, 140 + (k % 2) * 12, 90), Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	return { spawn = spawn, zones = zones, folder = world }
+	return { spawn = spawn, zones = zones, folder = world, fountainParts = { fBase, fWater, spout } }
 end
 
 return HubWorld

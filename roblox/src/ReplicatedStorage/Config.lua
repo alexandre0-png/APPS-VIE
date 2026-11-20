@@ -282,6 +282,36 @@ Config.Assets = {
 		glitch = 2937218888, -- œuf glitch
 	},
 	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
+	-- Modèles BLENDER de l'utilisateur (approuvés) : convention de couleur `Nom__RRGGBB` lue par Assets.colorize (les couleurs du FBX sont ignorées).
+	-- Œufs par rareté de pet (1 Commun .. 5 Mythique, 6 Cosmique = œuf Secret) : prioritaires sur les modèles du catalogue, repli : catalogue puis code.
+	eggsByRarity = {
+		[1] = 100023720665590, -- OeufCommun
+		[2] = 74975545149168, -- OeufRare
+		[3] = 86639017295697, -- OeufEpique
+		[4] = 137014263068694, -- OeufLegendaire
+		[5] = 110535599163330, -- OeufMythique
+		[6] = 95190117262171, -- OeufSecret
+		secret = 95190117262171,
+	},
+	-- Accessoires : arbres, rochers, cabanes, pont, fontaine (place du hub), nid d'œufs (sous chaque œuf).
+	props = {
+		tree = 88144895198576, -- Arbre
+		fir = 79188790509321, -- Sapin
+		rock = 132852439679625, -- Rocher
+		bush = 81559211389899, -- Buisson
+		bridge = 72821096584538, -- PontBois (4,4 de long)
+		hut = 121389844339916, -- Cabane
+		fence = 98207856976488, -- Barriere
+		fountain = 87696152276058, -- Fontaine
+		nest = 85337440768183, -- NidOeufs
+	},
+	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
+	-- Nombre d'exemplaires posés sur la carte de la partie et hauteur en studs (le pont est mis à l'échelle sur sa longueur).
+	propsPlan = { tree = 18, fir = 10, rock = 14, bush = 14, hut = 3, fence = 12, bridge = 4 },
+	propsHeight = { tree = 14, fir = 16, rock = 3.5, bush = 2.5, hut = 9, fence = 3, bridge = 1.5, fountain = 9, nest = 1.2 },
+	bridgeLength = 18,
+	propsBudgetParts = 2600, -- pire cas (exemplaires x plafond de Parts) à ne jamais dépasser ; le placement s'arrête aussi au compte réel
+	smallDetail = 0.6, -- pièces dont la plus grande arête est inférieure : CastShadow = false
 	-- Décor du hub (modèles catalogue fournis par l'utilisateur) : chargés par Assets.loadDecor, placés selon Config.HubDecor. Le hub est déjà
 	-- décoré par du code (bancs, lampadaires, arbres) : si un modèle est refusé, rien ne manque.
 	decor = {
@@ -304,9 +334,16 @@ Config.Assets = {
 	animals = { pack1 = 77584505169384, huge = 138337815539618, pack2 = 97050466582003 },
 	-- Modèles Blender des pets (à téléverser ensuite) : index d'espèce de Config.PETS -> identifiant du modèle. Vide = pets procéduraux.
 	-- Exemple : pets = { [1] = 123456789 }. Un modèle absent, refusé ou invalide garde le pet procédural (repli automatique).
-	pets = {},
+	pets = {
+		[1] = 122665615732907, -- PetPoussin (Poussin, Commun)
+		[3] = 88649442626593, -- PetLapin (Lapin, Commun)
+		[6] = 125436205733282, -- PetRenard (Renard, Rare)
+		[7] = 113006978203286, -- PetPanda (Panda, Épique)
+		[13] = 134284711848469, -- PetDragonnet (Dragon, Mythique)
+		[16] = 129116477413499, -- PetFantome (Alien, Cosmique : le « fantôme »)
+	},
 	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
-	petHeight = 3, -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
+	petHeight = 3, -- (les pets Blender mesurent ~1 : mis à l'échelle sur cette hauteur) -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
 	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
@@ -411,6 +448,15 @@ Config.HubDecor = {
 	{ "sakura", -70, 88, 0, 16 },
 	{ "sakura", 72, 90, 0, 16 },
 }
+
+-- Pire cas de Parts de tous les accessoires placés sur la carte (exemplaires x plafond par modèle) : doit rester sous propsBudgetParts.
+function Config.propsWorstCase()
+	local total = 0
+	for key, count in pairs(Config.Assets.propsPlan) do
+		total = total + count * (Config.Assets.propsMaxParts[key] or Config.Assets.decorMaxParts)
+	end
+	return total
+end
 
 function Config.isBlockedClass(className)
 	for _, c in ipairs(Config.Assets.blockedClasses) do

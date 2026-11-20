@@ -898,7 +898,7 @@ do
 	local A = AssetsMod.new(Config, deps(function() return goodModel() end, function(k, m) stored[k] = m end))
 	local ready = 0
 	local n = A.loadAll(function() ready = ready + 1 end)
-	check("chargeur sain : 5 modèles chargés, onReady appelé une fois", n == 5 and ready == 1)
+	check("chargeur sain : 5 œufs du catalogue + 7 œufs Blender (6 raretés et secret) chargés, onReady appelé une fois", n == 12 and ready == 1)
 	local m1 = A.templates.red
 	check("nettoyage : plus aucun Script/LocalScript/ModuleScript/RemoteEvent/BindableEvent/Sound", (function()
 		for _, d in ipairs(m1:GetDescendants()) do
@@ -978,7 +978,7 @@ do
 	end)())
 	W.loadAll()
 	W.loadAll()
-	check("échec de permission : un seul avertissement par ID, même en rechargeant", warnings == 5 and W.failedIds[2937230482] ~= nil and W.failedIds[147144059] ~= nil)
+	check("échec de permission : un seul avertissement par ID (11 ID distincts), même en rechargeant", warnings == 11 and W.failedIds[2937230482] ~= nil and W.failedIds[147144059] ~= nil)
 	-- réglage de désactivation
 	local savedEnabled = Config.Assets.Enabled
 	Config.Assets.Enabled = false
@@ -990,7 +990,7 @@ do
 	local savedId = Config.Assets.eggs.red
 	Config.Assets.eggs.red = -4
 	local I = make(function() return goodModel() end)
-	check("ID invalide : ignoré, les autres chargent", I.loadAll() == 4 and I.status.red.reason == "ID invalide")
+	check("ID invalide : ignoré, les autres chargent", I.loadAll() == 4 + 7 and I.status.red.reason == "ID invalide")
 	Config.Assets.eggs.red = savedId
 
 	-- l'éclosion ne dépend pas des modèles : mêmes tirages, chargement réussi ou en échec
@@ -2111,7 +2111,16 @@ do
 	check("Pets : la capacité est brève et périodique (entre 5 % et 20 % du temps)", active / total > 0.05 and active / total < 0.2)
 	check("Pets : valeurs invalides sans erreur (progression hors plage, graine nil)", Easing.petPose("ability", 1, nil, 9).yaw <= 2 * math.pi + 1e-9 and Easing.petPose("inconnu", 1).scale == 1 and Easing.abilityProgress(1, nil, 0.5, 1) == nil)
 	-- Config.Assets.pets : point d'entrée vide par défaut, validé
-	check("Assets.pets : point d'entrée présent (vide = pets procéduraux), plafond de Parts défini", type(Config.Assets.pets) == "table" and next(Config.Assets.pets) == nil and Config.Assets.petsMaxParts >= 60 and Config.Assets.petHeight > 0)
+	check("Assets.pets : 6 pets Blender liés à des espèces réelles, plafond de Parts défini", (function()
+		local n = 0
+		for idx, id in pairs(Config.Assets.pets) do
+			n = n + 1
+			if not Config.PETS[idx] or type(id) ~= "number" or id <= 0 then
+				return false
+			end
+		end
+		return n == 6 and Config.PETS[1].name == "Poussin" and Config.PETS[3].name == "Lapin" and Config.PETS[6].name == "Renard" and Config.PETS[7].name == "Panda" and Config.PETS[13].name == "Dragon" and Config.PETS[16].name == "Alien"
+	end)() and Config.Assets.petsMaxParts >= 60 and Config.Assets.petHeight > 0)
 	-- aura
 	check("Aura : aucune sous la rareté minimale, sauf secret", Config.auraStyle(1, false) == nil and Config.auraStyle(3, false) == nil and Config.auraStyle(3, true) ~= nil and Config.auraStyle(4, false) ~= nil)
 	local prevRunes, prevRate, auraMono, capsOk = 0, 0, true, true
@@ -2171,6 +2180,110 @@ do
 	end
 	check("Apparition du pet : part petit (<= 0,3), ne dépasse jamais 1,15 et vaut exactement 1 à la fin", startPop <= 0.3 and maxPop <= 1.15 + 1e-9 and endPop == 1 and Easing.popScale(1, false) == 1 and Easing.popScale(2, true) == 1)
 	check("Apparition du pet : plafond réglable et valeurs hors plage sans erreur", Easing.popScale(0.5, false, 1.0) <= 1.0 and Easing.popScale(-1, true) >= 0.05)
+end
+
+-- Modèles Blender : convention Nom__RRGGBB, identifiants, budget, repli, réutilisation -------------------------------------------------
+do
+	suite("Modèles Blender : suffixe de couleur Nom__RRGGBB, IDs, budget de Parts, repli, un seul LoadAsset par modèle")
+	local AssetsMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Assets.lua"), { debugName = "Assets" })()
+	local P = AssetsMod.parseColorSuffix
+	local function rgb(name)
+		local r, g, b = P(name)
+		return r and (r .. "," .. g .. "," .. b) or "nil"
+	end
+	check("Suffixe : « Corps__FF8800 » -> 255,136,0", rgb("Corps__FF8800") == "255,136,0")
+	check("Suffixe : minuscules acceptées, noir et blanc", rgb("Oeil__000000") == "0,0,0" and rgb("Aile__ffffff") == "255,255,255" and rgb("X__aBcDeF") == "171,205,239")
+	check("Suffixe : seul le DERNIER « __ » compte (« A__B__123456 »)", rgb("A__B__123456") == "18,52,86")
+	check("Suffixe : pas de suffixe -> nil (rien ne change)", rgb("Corps") == "nil" and rgb("") == "nil" and rgb("Corps_FF8800") == "nil")
+	check("Suffixe : invalide -> nil (non hexadécimal, trop court, trop long, suffixe au milieu)", rgb("X__GGGGGG") == "nil" and rgb("X__12345") == "nil" and rgb("X__1234567") == "nil" and rgb("X__FF8800_suite") == "nil")
+	check("Suffixe : nom nul ou non texte -> nil sans erreur", P(nil) == nil and P(42) == nil and P({}) == nil)
+	check("Suffixe : « __ABCDEF » seul (nom vide) accepté", rgb("__ABCDEF") == "171,205,239")
+	-- colorize sur un faux modèle
+	local function part(name, size)
+		local o = { Name = name, Size = size or { X = 2, Y = 2, Z = 2 }, Color = "origine", CastShadow = true, ClassName = "Part" }
+		function o:IsA(c)
+			return c == "BasePart" or c == "Part"
+		end
+		return o
+	end
+	local function model(children)
+		local o = { Name = "M", ClassName = "Model", kids = children }
+		function o:IsA(c)
+			return c == "Model"
+		end
+		function o:GetDescendants()
+			return self.kids
+		end
+		function o:Clone()
+			return self
+		end
+		function o:Destroy() end
+		return o
+	end
+	local colored = model({ part("Corps__FF8800"), part("Oeil__000000", { X = 0.3, Y = 0.3, Z = 0.2 }), part("Socle"), part("Aile__zzzzzz") })
+	local C = AssetsMod.new(Config, { loadAsset = function() return colored end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, color = function(r, g, b) return "rgb(" .. r .. "," .. g .. "," .. b .. ")" end })
+	check("colorize : applique la couleur du suffixe, ignore les pièces sans suffixe ou invalides", C.colorize(colored) == 2 and colored.kids[1].Color == "rgb(255,136,0)" and colored.kids[2].Color == "rgb(0,0,0)" and colored.kids[3].Color == "origine" and colored.kids[4].Color == "origine")
+	check("colorize : CastShadow = false pour les petits détails seulement", colored.kids[2].CastShadow == false and colored.kids[1].CastShadow == true)
+	check("colorize : modèle illisible ou nil sans erreur", pcall(C.colorize, nil) and C.colorize({ GetDescendants = function() error("x") end }) == 0)
+	-- identifiants
+	local function validId(id)
+		return type(id) == "number" and id > 0 and id % 1 == 0
+	end
+	local A = Config.Assets
+	local rar = 0
+	for k, id in pairs(A.eggsByRarity) do
+		rar = rar + 1
+		if not validId(id) then
+			rar = -100
+		end
+	end
+	check("Œufs Blender : 6 raretés + secret, identifiants valides, Cosmique = œuf Secret", rar == 7 and A.eggsByRarity[1] == 100023720665590 and A.eggsByRarity[5] == 110535599163330 and A.eggsByRarity[6] == A.eggsByRarity.secret and A.eggsByRarity[6] == 95190117262171)
+	local props = 0
+	local propsOk = true
+	for k, id in pairs(A.props) do
+		props = props + 1
+		if not validId(id) or not A.propsMaxParts[k] or not A.propsHeight[k] then
+			propsOk = false
+		end
+	end
+	check("Accessoires Blender : 9 modèles (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine, nid) avec plafond de Parts et hauteur", props == 9 and propsOk and A.props.nest == 85337440768183 and A.props.fountain == 87696152276058 and A.props.bridge == 72821096584538)
+	check("Budget mobile : pire cas des accessoires de la carte <= " .. A.propsBudgetParts .. " Parts (" .. Config.propsWorstCase() .. ")", Config.propsWorstCase() <= A.propsBudgetParts)
+	check("Budget mobile : avec le décor et les accessoires, la carte reste sous le budget total", 1200 + 600 + Config.propsWorstCase() + 12 * Config.PLOT_COUNT * A.propsMaxParts.nest <= Config.Map.budgetParts)
+	-- chargement : un seul LoadAsset par modèle, clonage, repli
+	local calls = {}
+	local function heavy(n)
+		local ch = {}
+		for i = 1, n do
+			ch[i] = part("P" .. i .. "__AABBCC")
+		end
+		return model(ch)
+	end
+	local R = AssetsMod.new(Config, { loadAsset = function(id) calls[id] = (calls[id] or 0) + 1 return heavy(5) end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, color = function() return "c" end })
+	local loadedAll = R.loadAll()
+	R.loadProps()
+	local n1 = R.cloneProp("tree")
+	local n2 = R.cloneProp("tree")
+	local once = true
+	for _, c in pairs(calls) do
+		if c ~= 1 then
+			once = false
+		end
+	end
+	check("Chargement : chaque modèle n'est chargé qu'UNE fois (LoadAsset), puis cloné", once and n1 ~= nil and n2 ~= nil and R.cloneEgg(3) ~= nil and loadedAll >= 12)
+	check("Priorité des œufs : le modèle Blender de la rareté passe avant le modèle du catalogue", (function()
+		local R2 = AssetsMod.new(Config, { loadAsset = function(id) local m = heavy(3) m.id = id return m end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, color = function() return "c" end })
+		R2.loadAll()
+		return R2.cloneEgg(2).id == A.eggsByRarity[2] and R2.cloneEgg(6, true).id == A.eggsByRarity.secret
+	end)())
+	local H = AssetsMod.new(Config, { loadAsset = function() return heavy(A.propsMaxParts.nest + 1) end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, color = function() return "c" end })
+	H.loadProps()
+	check("Budget : un nid de plus de " .. A.propsMaxParts.nest .. " Parts est refusé (repli procédural), un arbre léger accepté", H.cloneProp("nest") == nil and H.cloneProp("tree") ~= nil and H.status["x:nest"].reason:find("lourd") ~= nil)
+	local D = AssetsMod.new(Config, { loadAsset = function() error("Requester does not have permission for Asset") end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end })
+	check("Repli : permission refusée -> aucun modèle, aucun clone, aucune erreur (tout reste procédural)", D.loadAll() == 0 and D.loadProps() == 0 and D.loadPets() == 0 and D.cloneProp("tree") == nil and D.cloneEgg(1) == nil and D.clonePet(1) == nil)
+	local off = A.Enabled
+	A.Enabled = false
+	check("Repli : Config.Assets.Enabled = false -> rien n'est chargé ni cloné", R.cloneProp("tree") == nil and R.cloneEgg(1) == nil and AssetsMod.new(Config, { loadAsset = function() return heavy(1) end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end }).loadProps() == 0)
+	A.Enabled = off
 end
 
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
@@ -2318,6 +2431,33 @@ do
 		return false
 	end)())
 
+	-- modèles Blender : chargés une seule fois chacun, accessoires posés dans le budget, œufs et pets habillés
+	local seenIds, dup = {}, false
+	for _, id in ipairs(RT.loadedIds) do
+		if seenIds[id] then
+			dup = true
+		end
+		seenIds[id] = true
+	end
+	check("Blender : aucun modèle chargé deux fois (un seul LoadAsset par identifiant), " .. #RT.loadedIds .. " modèles distincts", not dup and #RT.loadedIds >= 20)
+	local propLine = nil
+	for _, line in ipairs(RT.prints) do
+		if line:find("accessoires Blender :", 1, true) then
+			propLine = line
+		end
+	end
+	local nPlaced, nParts = nil, nil
+	if propLine then
+		nPlaced, nParts = propLine:match("accessoires Blender : (%d+) pos%S+ %((%d+) Parts%)")
+	end
+	check("Blender : accessoires posés sur la carte (arbres, rochers, cabanes, ponts...) dans le budget de Parts" .. (propLine and (" [" .. propLine .. "]") or " [ligne absente]"), nPlaced ~= nil and tonumber(nPlaced) > 20 and tonumber(nParts) <= Config.Assets.propsBudgetParts)
+	local skins = 0
+	for _, o in ipairs(RT.all) do
+		if rawget(o, "__props").Name == "Skin" then
+			skins = skins + 1
+		end
+	end
+	check("Blender : le chargement avec un faux modèle n'a levé aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
 	-- arrivée de deux joueurs : données chargées via le DataStore, personnage garanti, plots distincts
 	local p1 = RT.addPlayer("Ana", 2001, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
 	RT.step(2)

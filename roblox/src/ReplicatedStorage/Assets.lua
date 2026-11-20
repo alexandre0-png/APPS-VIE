@@ -7,9 +7,23 @@
 --   deps.warn(message)  (facultatif)   deps.store(clé, modèle)  (facultatif : range le modèle, ex. dans ServerStorage)
 local Assets = {}
 
+-- Convention des modèles Blender : chaque pièce se nomme `Nom__RRGGBB` (hexadécimal). Retourne (r, g, b) en 0-255, ou nil si le nom n'a pas de
+-- suffixe valide (exactement 6 chiffres hexadécimaux après le DERNIER « __ »). Pur et testé.
+function Assets.parseColorSuffix(name)
+	if type(name) ~= "string" then
+		return nil
+	end
+	local hex = name:match("__(%x%x%x%x%x%x)$")
+	if not hex then
+		return nil
+	end
+	return tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
+end
+
 function Assets.new(Config, deps)
 	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
 	local warned = {} -- un seul avertissement par ID
+	local byId = {} -- identifiant -> { model, status } des modèles déjà chargés
 	local cfg = Config.Assets
 
 	local function warn(msg, id)
@@ -120,8 +134,51 @@ function Assets.new(Config, deps)
 		return true, { parts = parts, removed = #blocked }
 	end
 
+	-- Applique la couleur lue dans le suffixe `__RRGGBB` du nom de chaque pièce (les couleurs du FBX ne sont jamais utilisées) ; sans suffixe, rien
+	-- ne change. CastShadow = false pour les petits détails (arête la plus longue sous cfg.smallDetail studs). Retourne le nombre de pièces colorées.
+	function A.colorize(model)
+		local make = deps.color or (Color3 and Color3.fromRGB)
+		if not make then
+			return 0
+		end
+		local list = descendants(model)
+		if not list then
+			return 0
+		end
+		local count = 0
+		for _, d in ipairs(list) do
+			local okName, name = pcall(function()
+				return d.Name
+			end)
+			local r, g, b = Assets.parseColorSuffix(okName and name or nil)
+			if r then
+				local isPart = false
+				pcall(function()
+					isPart = d:IsA("BasePart")
+				end)
+				if isPart then
+					pcall(function()
+						d.Color = make(r, g, b)
+						count = count + 1
+						local s = d.Size
+						if s and math.max(s.X, s.Y, s.Z) < (cfg.smallDetail or 0.6) then
+							d.CastShadow = false
+						end
+					end)
+				end
+			end
+		end
+		return count
+	end
+
 	-- Charge, nettoie et range un modèle. Retourne true si un modèle utilisable est disponible. Ne lève jamais d'erreur.
 	function A.loadOne(key, id, maxParts)
+		-- un identifiant déjà chargé (même modèle sous une autre clé) est réutilisé : un seul LoadAsset par modèle
+		if byId[id] then
+			A.templates[key] = byId[id].model
+			A.status[key] = byId[id].status
+			return true
+		end
 		local ok, model = withTimeout(function()
 			return deps.loadAsset(id)
 		end, cfg.timeout)
@@ -144,8 +201,14 @@ function Assets.new(Config, deps)
 			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(info) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
+		local colored = 0
+		local cOk, cn = pcall(A.colorize, model)
+		if cOk then
+			colored = cn
+		end
 		A.templates[key] = model
-		A.status[key] = { ok = true, parts = info.parts, removed = info.removed }
+		A.status[key] = { ok = true, parts = info.parts, removed = info.removed, colored = colored }
+		byId[id] = { model = model, status = A.status[key] }
 		if deps.store then
 			pcall(deps.store, key, model)
 		end
@@ -172,6 +235,17 @@ function Assets.new(Config, deps)
 				end
 			else
 				A.status[key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		if type(cfg.eggsByRarity) == "table" then -- modèles Blender par rareté (1..6 et « secret ») : prioritaires sur les modèles du catalogue
+			for rarity, id in pairs(cfg.eggsByRarity) do
+				if type(id) == "number" and id > 0 and id % 1 == 0 then
+					if A.loadOne("r:" .. tostring(rarity), id) then
+						loaded = loaded + 1
+					end
+				else
+					A.status["r:" .. tostring(rarity)] = { ok = false, reason = "ID invalide" }
+				end
 			end
 		end
 		if loaded > 0 and onReady then
@@ -268,12 +342,19 @@ function Assets.new(Config, deps)
 	end
 
 	-- Copie du modèle d'un œuf de rareté `tier`, ou nil (chargement coupé, échoué, pas encore terminé...) : garder l'apparence par défaut.
-	function A.cloneEgg(tier)
+	function A.cloneEgg(tier, secret)
 		if cfg.Enabled ~= true then
 			return nil
 		end
-		local key = Config.eggAssetKey(tier)
-		local template = key and A.templates[key]
+		local template = nil
+		if secret then
+			template = A.templates["r:secret"]
+		end
+		template = template or A.templates["r:" .. tostring(tier)]
+		if not template then
+			local key = Config.eggAssetKey(tier)
+			template = key and A.templates[key]
+		end
 		if not template then
 			return nil
 		end
@@ -284,6 +365,90 @@ function Assets.new(Config, deps)
 			return clone
 		end
 		return nil
+	end
+
+	-- Accessoires (arbres, rochers, cabanes, pont, fontaine, nid...) : Config.Assets.props clé -> ID, plafond de Parts par clé (propsMaxParts).
+	function A.loadProps()
+		if cfg.Enabled ~= true or type(cfg.props) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.props) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.props[key]
+			local cap = (cfg.propsMaxParts and cfg.propsMaxParts[key]) or cfg.decorMaxParts or cfg.maxParts
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("x:" .. key, id, cap) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["x:" .. key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie d'un accessoire (clone du modèle chargé une seule fois : jamais de LoadAsset répété), ou nil.
+	function A.cloneProp(key)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["x:" .. tostring(key)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		if ok then
+			return clone
+		end
+		return nil
+	end
+
+	-- Pose un modèle cloné : mis à l'échelle à `height` studs, posé au sol en (x, z), tourné de rotDeg, ancré, sans collision. Retourne (true, nombre de
+	-- Parts) ou (false) ; en cas d'erreur le clone est détruit. Ne lève jamais d'erreur.
+	function A.place(model, x, z, rotDeg, height, parent, length, groundY)
+		local count = 0
+		local ok = pcall(function()
+			if not model:IsA("Model") then
+				error("pas un Model")
+			end
+			local _, size = model:GetBoundingBox()
+			if size.Y < 0.05 then
+				error("hauteur nulle")
+			end
+			local longest = math.max(size.X, size.Z)
+			if length and longest > 0.05 then
+				model:ScaleTo(length / longest) -- ponts : échelle d'après la longueur
+			else
+				model:ScaleTo(height / size.Y)
+			end
+			local bbox, size2 = model:GetBoundingBox()
+			local target = CFrame.new(x, (groundY or 0) + size2.Y / 2, z) * CFrame.Angles(0, math.rad(rotDeg or 0), 0)
+			model:PivotTo(target * bbox:ToObjectSpace(model:GetPivot()))
+			for _, d in ipairs(model:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+					d.CanCollide = false
+					d.CanQuery = false
+					d.CanTouch = false
+					count = count + 1
+				end
+			end
+			model.Parent = parent
+		end)
+		if not ok then
+			pcall(function()
+				model:Destroy()
+			end)
+			return false
+		end
+		return true, count
 	end
 
 	return A

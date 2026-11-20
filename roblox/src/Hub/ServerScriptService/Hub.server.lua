@@ -35,6 +35,14 @@ task.spawn(function()
 		warn = warn,
 	})
 	local loaded = assets.loadDecor()
+	assets.loadProps()
+	-- Fontaine Blender sur la place : si elle est posée, la fontaine procédurale est retirée (sinon elle reste : repli)
+	local fountain = assets.cloneProp("fountain")
+	if fountain and assets.place(fountain, 0, 0, 0, Config.Assets.propsHeight.fountain, world.folder) then
+		for _, p in ipairs(world.fountainParts) do
+			p:Destroy()
+		end
+	end
 	local placed = 0
 	for _, spot in ipairs(Config.HubDecor) do
 		local clone = assets.cloneDecor(spot[1])
