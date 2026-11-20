@@ -105,7 +105,7 @@ Config.GUARD = {
 }
 
 -- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
-Config.CASTLE = { damage = { spikes = 18, blade = 24, ball = 28 }, step = 0.1, boardSeconds = 120, boardSize = 5 }
+Config.CASTLE = { damage = { spikes = 18, blade = 24, ball = 28, knight = 22 }, step = 0.1, boardSeconds = 120, boardSize = 5 }
 
 -- Événements serveur (tous les joueurs en profitent)
 Config.EVENTS = {
@@ -2920,6 +2920,7 @@ function Castle.room(r)
 		spikes = 3 + r, -- plaques à pics (4 colonnes)
 		blades = r >= 4 and 2 or (r >= 2 and 1 or 0),
 		balls = r >= 3 and (r - 2) or 0,
+		knights = r >= 5 and 2 or (r >= 3 and 1 or 0), -- chevaliers qui patrouillent d'un mur à l'autre (touche non mortelle)
 		period = math.max(1.6, 3.4 - 0.3 * r), -- durée d'un cycle des pics (s)
 		bladeSpeed = 1.2 + 0.3 * r, -- radians par seconde
 		ballTravel = math.max(1.6, 3.2 - 0.25 * r), -- traversée d'un boulet (s)
@@ -2984,6 +2985,24 @@ function Castle.ballX(t, ball, room)
 	return -22 + 44 * (phase / room.ballTravel)
 end
 
+-- Chevaliers : patrouille en aller-retour latéral (onde triangulaire, vitesse constante), décalés pour ne pas être synchrones.
+function Castle.knights(room)
+	local out = {}
+	for i = 1, room.knights do
+		out[i] = { lz = 14 + (i - 1) * 24, amp = 15, period = math.max(5, 9 - 0.7 * room.index), offset = (i - 1) * 2.3, radius = 2.6 }
+	end
+	return out
+end
+
+-- Position latérale et sens (+1 vers la droite, -1 vers la gauche) d'un chevalier à l'instant t.
+function Castle.knightPos(t, k)
+	local phase = ((t + k.offset) % k.period) / k.period -- 0..1
+	if phase < 0.5 then
+		return -k.amp + 4 * k.amp * phase, 1
+	end
+	return k.amp - 4 * k.amp * (phase - 0.5), -1
+end
+
 -- Porte de fin de salle : ouverte pendant doorOpen secondes par cycle.
 function Castle.doorIsOpen(t, room)
 	return (t % room.doorPeriod) < room.doorOpen
@@ -3018,6 +3037,12 @@ function Castle.hit(t, room, px, pz, playerRadius)
 		local bx = Castle.ballX(t, ba, room)
 		if bx and math.sqrt((px - bx) ^ 2 + (pz - ba.lz) ^ 2) < ba.radius + playerRadius * 0.5 then
 			return "ball"
+		end
+	end
+	for _, kn in ipairs(Castle.knights(room)) do
+		local kx = Castle.knightPos(t, kn)
+		if math.sqrt((px - kx) ^ 2 + (pz - kn.lz) ^ 2) < kn.radius + playerRadius * 0.5 then
+			return "knight"
 		end
 	end
 	return nil
@@ -3170,7 +3195,9 @@ task.spawn(function()
 	assets.loadGroup("guards")
 	print("[Assets] gardiens Blender : " .. Builder.dressGuards(assets) .. " remplacé(s)")
 	assets.loadGroup("traps")
+	assets.loadGroup("guards", { knight = true })
 	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
+	print("[Assets] chevaliers Blender : " .. Builder.dressKnights(assets) .. " habillé(s)")
 	assets.loadGroup("castle")
 	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
 	assets.loadGroup("ground")
@@ -4318,6 +4345,12 @@ local function castleStep(dt)
 			local bp = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
 			v.part.Position = bp
 			Builder.animBall(v, bp.X, bp.Y, bp.Z)
+		end
+		for i, kn in ipairs(Castle.knights(room)) do
+			local v = rec.knights[i]
+			local kx, dir = Castle.knightPos(T, kn)
+			v.part.Position = Vector3.new(Castle.ORIGIN.x + kx, 3, v.wz)
+			Builder.animKnight(v, Castle.ORIGIN.x + kx, v.wz, dir)
 		end
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)
@@ -6477,6 +6510,44 @@ function Builder.openChest()
 	end
 end
 
+-- Habille les chevaliers du château avec guards.knight (hauteur Config.Assets.guardHeights.knight). Le pilote procédural devient invisible.
+function Builder.dressKnights(assets)
+	local n = 0
+	pcall(function()
+		local waited = 0
+		while not builtCastle and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+		end
+		local parent = builtCastle and builtCastle.rooms[1] and builtCastle.rooms[1].door and builtCastle.rooms[1].door.Parent
+		if not parent then
+			return
+		end
+		for _, rec in ipairs(builtCastle.rooms) do
+			for _, v in ipairs(rec.knights) do
+				local clone = assets.cloneModel("guards", "knight")
+				if clone then
+					clone.Name = "CastleKnightModel"
+					if setModel(clone, v.part.Position.X, 0, v.wz, nil, Config.Assets.guardHeights.knight, parent, 0) then
+						v.vis = { model = clone, off = CFrame.new(v.part.Position.X, 0, v.wz):ToObjectSpace(clone:GetPivot()) }
+						v.part.Transparency = 1
+						n = n + 1
+					end
+				end
+			end
+		end
+	end)
+	return n
+end
+
+-- Place le modèle du chevalier sur sa position et le tourne dans le sens de la marche (devant = -Z : vers +X = -90°).
+function Builder.animKnight(v, x, z, dir)
+	local vis = v.vis
+	if vis then
+		vis.model:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, dir > 0 and -math.pi / 2 or math.pi / 2, 0) * vis.off)
+	end
+end
+
 -- Anime le modèle d'un piège d'après la position de son pilote procédural (appelé 10 fois par seconde par le château).
 function Builder.animSpike(v, tipY, state)
 	local vis = v.vis
@@ -7422,7 +7493,7 @@ function Scenery.castle(h, parent, Castle)
 	for r = 1, Castle.ROOMS do
 		local room = Castle.room(r)
 		local cx, cz = Castle.toWorld(r, 0, L / 2)
-		local rec = { spikes = {}, blades = {}, balls = {} }
+		local rec = { spikes = {}, blades = {}, balls = {}, knights = {} }
 		world.rooms[r] = rec
 		P({ Name = "CastleFloor" .. r, Size = Vector3.new(W, 1, L), Position = Vector3.new(cx, -0.5, cz), Color = r % 2 == 0 and rgb(122, 118, 132) or rgb(104, 100, 114), Material = Enum.Material.Slate })
 		for _, sx in ipairs({ -1, 1 }) do
@@ -7457,6 +7528,12 @@ function Scenery.castle(h, parent, Castle)
 			local ball = h.ball({ Name = "Boulder", Size = Vector3.new(ba.radius * 2, ba.radius * 2, ba.radius * 2), Position = Vector3.new(wx, -10, wz), Color = rgb(122, 127, 140), Material = Enum.Material.Slate }, parent)
 			n += 1
 			rec.balls[i] = { part = ball, wz = wz }
+		end
+		-- chevaliers : silhouette d'armure (pilote de la logique ; remplacée par le modèle Blender si chargé)
+		for i, kn in ipairs(Castle.knights(room)) do
+			local wx, wz = Castle.toWorld(r, 0, kn.lz)
+			local k = P({ Name = "CastleKnight", Size = Vector3.new(3, 6, 3), Position = Vector3.new(wx, 3, wz), Color = rgb(150, 156, 170), Material = Enum.Material.Metal, CanCollide = false })
+			rec.knights[i] = { part = k, wz = wz }
 		end
 		-- porte de fin de salle (s'ouvre par intervalles)
 		local dx, dz = Castle.toWorld(r, 0, L - 1)

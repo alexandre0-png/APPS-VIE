@@ -17,6 +17,7 @@ function Castle.room(r)
 		spikes = 3 + r, -- plaques à pics (4 colonnes)
 		blades = r >= 4 and 2 or (r >= 2 and 1 or 0),
 		balls = r >= 3 and (r - 2) or 0,
+		knights = r >= 5 and 2 or (r >= 3 and 1 or 0), -- chevaliers qui patrouillent d'un mur à l'autre (touche non mortelle)
 		period = math.max(1.6, 3.4 - 0.3 * r), -- durée d'un cycle des pics (s)
 		bladeSpeed = 1.2 + 0.3 * r, -- radians par seconde
 		ballTravel = math.max(1.6, 3.2 - 0.25 * r), -- traversée d'un boulet (s)
@@ -81,6 +82,24 @@ function Castle.ballX(t, ball, room)
 	return -22 + 44 * (phase / room.ballTravel)
 end
 
+-- Chevaliers : patrouille en aller-retour latéral (onde triangulaire, vitesse constante), décalés pour ne pas être synchrones.
+function Castle.knights(room)
+	local out = {}
+	for i = 1, room.knights do
+		out[i] = { lz = 14 + (i - 1) * 24, amp = 15, period = math.max(5, 9 - 0.7 * room.index), offset = (i - 1) * 2.3, radius = 2.6 }
+	end
+	return out
+end
+
+-- Position latérale et sens (+1 vers la droite, -1 vers la gauche) d'un chevalier à l'instant t.
+function Castle.knightPos(t, k)
+	local phase = ((t + k.offset) % k.period) / k.period -- 0..1
+	if phase < 0.5 then
+		return -k.amp + 4 * k.amp * phase, 1
+	end
+	return k.amp - 4 * k.amp * (phase - 0.5), -1
+end
+
 -- Porte de fin de salle : ouverte pendant doorOpen secondes par cycle.
 function Castle.doorIsOpen(t, room)
 	return (t % room.doorPeriod) < room.doorOpen
@@ -115,6 +134,12 @@ function Castle.hit(t, room, px, pz, playerRadius)
 		local bx = Castle.ballX(t, ba, room)
 		if bx and math.sqrt((px - bx) ^ 2 + (pz - ba.lz) ^ 2) < ba.radius + playerRadius * 0.5 then
 			return "ball"
+		end
+	end
+	for _, kn in ipairs(Castle.knights(room)) do
+		local kx = Castle.knightPos(t, kn)
+		if math.sqrt((px - kx) ^ 2 + (pz - kn.lz) ^ 2) < kn.radius + playerRadius * 0.5 then
+			return "knight"
 		end
 	end
 	return nil

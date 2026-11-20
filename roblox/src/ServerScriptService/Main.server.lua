@@ -63,7 +63,9 @@ task.spawn(function()
 	assets.loadGroup("guards")
 	print("[Assets] gardiens Blender : " .. Builder.dressGuards(assets) .. " remplacé(s)")
 	assets.loadGroup("traps")
+	assets.loadGroup("guards", { knight = true })
 	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
+	print("[Assets] chevaliers Blender : " .. Builder.dressKnights(assets) .. " habillé(s)")
 	assets.loadGroup("castle")
 	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
 	assets.loadGroup("ground")
@@ -1211,6 +1213,12 @@ local function castleStep(dt)
 			local bp = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
 			v.part.Position = bp
 			Builder.animBall(v, bp.X, bp.Y, bp.Z)
+		end
+		for i, kn in ipairs(Castle.knights(room)) do
+			local v = rec.knights[i]
+			local kx, dir = Castle.knightPos(T, kn)
+			v.part.Position = Vector3.new(Castle.ORIGIN.x + kx, 3, v.wz)
+			Builder.animKnight(v, Castle.ORIGIN.x + kx, v.wz, dir)
 		end
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)

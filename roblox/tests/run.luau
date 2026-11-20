@@ -2607,6 +2607,27 @@ do
 	check("Doublons : seuls les emplacements débloqués (cap) comptent", #Config.dupesToSell({ { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }, 2) == 1)
 end
 
+-- Château : chevaliers (patrouille, touche non mortelle) -------------------------------------------------------------------
+do
+	suite("Château : chevaliers qui patrouillent (pur)")
+	local C = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
+	check("Chevaliers : aucun avant la salle 3, 1 en salles 3-4, 2 en salle 5", #C.knights(C.room(1)) == 0 and #C.knights(C.room(2)) == 0 and #C.knights(C.room(3)) == 1 and #C.knights(C.room(4)) == 1 and #C.knights(C.room(5)) == 2)
+	local k = C.knights(C.room(3))[1]
+	local minX, maxX, okDir = 1e9, -1e9, true
+	for i = 0, 400 do
+		local x, d = C.knightPos(i * 0.05, k)
+		minX, maxX = math.min(minX, x), math.max(maxX, x)
+		local x2 = C.knightPos(i * 0.05 + 0.001, k)
+		if math.abs(x) < k.amp - 0.3 and (x2 - x) * d <= 0 then
+			okDir = false
+		end
+	end
+	check("Chevalier : aller-retour entre -amp et +amp, sens cohérent avec le déplacement", math.abs(minX + k.amp) < 0.2 and math.abs(maxX - k.amp) < 0.2 and okDir)
+	local t = 3.7
+	local kx = C.knightPos(t, k)
+	check("Chevalier : touche (« knight ») quand le joueur est dessus, rien quand il est loin", C.hit(t, C.room(3), kx, k.lz) ~= nil and C.hit(t, C.room(3), kx, k.lz + 12) ~= "knight" and Config.CASTLE.damage.knight > 0 and Config.CASTLE.damage.knight < Config.GUARD.maxHp)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -3043,6 +3064,11 @@ do
 				end
 			end
 			check("Sol : tuiles de chemin et d'herbe posées dans le budget mesuré (" .. ground .. " tuiles, plafond " .. Config.Assets.groundMaxTiles .. ")", ground > 20 and ground <= Config.Assets.groundMaxTiles)
+			local expK = 0
+			for r = 1, Castle.ROOMS do
+				expK += #Castle.knights(Castle.room(r))
+			end
+			check("Château : " .. expK .. " chevaliers Blender posés (" .. tostring(names.CastleKnightModel) .. ")", names.CastleKnightModel == expK and expK == 4)
 			local R = Castle.ROOMS
 			check("Château : murs, tours, herses, coffre, torches, drapeaux et fond Blender posés (" .. tostring(names.CastleWallModel) .. " murs, " .. tostring(names.CastleTowerModel) .. " tours, " .. tostring(names.CastleDoorModel) .. " portes, " .. tostring(names.CastleChestModel) .. " coffre, " .. tostring(names.CastleTorchModel) .. " torches, " .. tostring(names.CastleFlagModel) .. " drapeaux, " .. tostring(names.CastleBackdrop) .. " fond)", names.CastleWallModel == R * 4 and names.CastleTowerModel == 2 and names.CastleDoorModel == R and names.CastleChestModel == 1 and names.CastleTorchModel == R * 2 and names.CastleFlagModel == 2 and names.CastleBackdrop == 1)
 		end

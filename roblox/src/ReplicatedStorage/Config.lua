@@ -101,7 +101,7 @@ Config.GUARD = {
 }
 
 -- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
-Config.CASTLE = { damage = { spikes = 18, blade = 24, ball = 28 }, step = 0.1, boardSeconds = 120, boardSize = 5 }
+Config.CASTLE = { damage = { spikes = 18, blade = 24, ball = 28, knight = 22 }, step = 0.1, boardSeconds = 120, boardSize = 5 }
 
 -- Événements serveur (tous les joueurs en profitent)
 Config.EVENTS = {

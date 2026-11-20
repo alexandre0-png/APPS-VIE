@@ -55,7 +55,7 @@ function Scenery.castle(h, parent, Castle)
 	for r = 1, Castle.ROOMS do
 		local room = Castle.room(r)
 		local cx, cz = Castle.toWorld(r, 0, L / 2)
-		local rec = { spikes = {}, blades = {}, balls = {} }
+		local rec = { spikes = {}, blades = {}, balls = {}, knights = {} }
 		world.rooms[r] = rec
 		P({ Name = "CastleFloor" .. r, Size = Vector3.new(W, 1, L), Position = Vector3.new(cx, -0.5, cz), Color = r % 2 == 0 and rgb(122, 118, 132) or rgb(104, 100, 114), Material = Enum.Material.Slate })
 		for _, sx in ipairs({ -1, 1 }) do
@@ -90,6 +90,12 @@ function Scenery.castle(h, parent, Castle)
 			local ball = h.ball({ Name = "Boulder", Size = Vector3.new(ba.radius * 2, ba.radius * 2, ba.radius * 2), Position = Vector3.new(wx, -10, wz), Color = rgb(122, 127, 140), Material = Enum.Material.Slate }, parent)
 			n += 1
 			rec.balls[i] = { part = ball, wz = wz }
+		end
+		-- chevaliers : silhouette d'armure (pilote de la logique ; remplacée par le modèle Blender si chargé)
+		for i, kn in ipairs(Castle.knights(room)) do
+			local wx, wz = Castle.toWorld(r, 0, kn.lz)
+			local k = P({ Name = "CastleKnight", Size = Vector3.new(3, 6, 3), Position = Vector3.new(wx, 3, wz), Color = rgb(150, 156, 170), Material = Enum.Material.Metal, CanCollide = false })
+			rec.knights[i] = { part = k, wz = wz }
 		end
 		-- porte de fin de salle (s'ouvre par intervalles)
 		local dx, dz = Castle.toWorld(r, 0, L - 1)

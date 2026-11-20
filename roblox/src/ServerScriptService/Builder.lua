@@ -802,6 +802,44 @@ function Builder.openChest()
 	end
 end
 
+-- Habille les chevaliers du château avec guards.knight (hauteur Config.Assets.guardHeights.knight). Le pilote procédural devient invisible.
+function Builder.dressKnights(assets)
+	local n = 0
+	pcall(function()
+		local waited = 0
+		while not builtCastle and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+		end
+		local parent = builtCastle and builtCastle.rooms[1] and builtCastle.rooms[1].door and builtCastle.rooms[1].door.Parent
+		if not parent then
+			return
+		end
+		for _, rec in ipairs(builtCastle.rooms) do
+			for _, v in ipairs(rec.knights) do
+				local clone = assets.cloneModel("guards", "knight")
+				if clone then
+					clone.Name = "CastleKnightModel"
+					if setModel(clone, v.part.Position.X, 0, v.wz, nil, Config.Assets.guardHeights.knight, parent, 0) then
+						v.vis = { model = clone, off = CFrame.new(v.part.Position.X, 0, v.wz):ToObjectSpace(clone:GetPivot()) }
+						v.part.Transparency = 1
+						n = n + 1
+					end
+				end
+			end
+		end
+	end)
+	return n
+end
+
+-- Place le modèle du chevalier sur sa position et le tourne dans le sens de la marche (devant = -Z : vers +X = -90°).
+function Builder.animKnight(v, x, z, dir)
+	local vis = v.vis
+	if vis then
+		vis.model:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, dir > 0 and -math.pi / 2 or math.pi / 2, 0) * vis.off)
+	end
+end
+
 -- Anime le modèle d'un piège d'après la position de son pilote procédural (appelé 10 fois par seconde par le château).
 function Builder.animSpike(v, tipY, state)
 	local vis = v.vis

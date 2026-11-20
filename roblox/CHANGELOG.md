@@ -28,6 +28,12 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : hub Blender, sol mesuré, chevaliers du château
+
+- **Hub** (a86b6b1) : 6 bancs et 16 lampadaires Blender remplacent les procéduraux (la lumière des lampadaires est conservée, boule invisible). `Assets.loadGroup(groupe, seulement)` charge un sous-ensemble. Banc de l'arène : orientation corrigée (face au monument).
+- **Sol** (de9e882) : `Builder.dressGround` : chemins (`ground.path`, du Grand Nid vers les domaines) puis pelouses 3 x 3 devant chaque base (`ground.grass`). Coût d'une tuile MESURÉ à l'exécution (Parts réelles du modèle chargé) ; arrêt à `groundBudgetParts` (600) ou `groundMaxTiles` (120). Je ne peux pas mesurer les vrais modèles ici : le plafond protège le mobile, le nombre de tuiles réellement posées s'affiche dans la sortie (`[Assets] sol Blender`).
+- **Chevaliers** : 1 en salles 3 et 4, 2 en salle 5 (`Castle.knights`, `Castle.knightPos`, patrouille latérale en onde triangulaire), touche non mortelle (22 pv, mêmes pv et invulnérabilité que les pièges), pilote procédural remplacé par `guards.knight` orienté dans le sens de la marche.
+
 ## 2026-11-22 (suite) : étape 2, tutoriel, inventaire à onglets, bannière avec distance, offres au bon moment
 
 - **Tutoriel** (`Config.TUTORIAL`, `Config.tutorial(stats)`) : la carte d'objectif sous les compteurs affiche « 🎯 Objectif n/4 : Chipe 2 œufs chez un rival (0/2) » avec barre de progression, étape lue dans les statistiques (rien de sauvegardé en plus), puis laisse la place à l'objectif de l'histoire ; le conseil du bas est masqué pendant le tutoriel (un seul guidage).
