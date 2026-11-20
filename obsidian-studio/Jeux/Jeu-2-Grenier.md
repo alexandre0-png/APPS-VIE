@@ -10,7 +10,7 @@ statut: prive-publie
 - Rôle choisi par `game.PlaceId` dans `Config.Game.Places`.
 - Dossier `tombe-grenier/`, branche `claude/tombe-grenier-animations-5ilizr`.
 - Session de développement : `session_0164z8QRKAjeEQzGAp6T7swM`.
-- **Dernier publié** : commit f98bdc7 (hub v21, partie v14).
+- **Dernier publié** : commit f98bdc7 (retour arrière, hub v25, partie v17). Les commits 095bf86 (modèles) et de5b47a (style) ont été retirés : ils empêchaient le lancement chez l'utilisateur.
 
 ## Contenu et règles
 - Chaîne stricte des énigmes : papier, reflet, coffret, malle, clé, mélodie, horloge, statues, photos, sortie, cave, sous-sol, retour, enfant. L'enfant n'est sauvable qu'après la sortie par le sous-sol (verrou serveur).
