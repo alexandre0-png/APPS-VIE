@@ -1548,6 +1548,45 @@ function actions.sell(s, i)
 	sync(s)
 end
 
+-- Revend un œuf d'un emplacement (25 % du prix). Validé côté serveur : emplacement existant, contient un œuf.
+function actions.sellEgg(s, i)
+	if not validSlot(i) then
+		return
+	end
+	local sl = s.data.slots[i]
+	if not sl or sl.k ~= "e" then
+		return
+	end
+	s.data.coins += Config.eggSellValue(sl.t)
+	s.data.slots[i] = false
+	refreshPad(s, i)
+	qp(s, "sell", 1)
+	sync(s)
+end
+
+-- Revend les doublons de pets (garde le meilleur de chaque espèce). Les pets revendus quittent la liste de ceux qui suivent le joueur.
+function actions.sellDupes(s)
+	local d = s.data
+	local list, total = Config.dupesToSell(d.slots, cap(d))
+	if #list == 0 then
+		return notify(s.player, "Aucun doublon à revendre.")
+	end
+	for _, i in ipairs(list) do
+		d.slots[i] = false
+		refreshPad(s, i)
+		for n = #d.equip, 1, -1 do
+			if d.equip[n] == i then
+				table.remove(d.equip, n)
+			end
+		end
+		qp(s, "sell", 1)
+	end
+	d.coins += total
+	rebuildFollowers(s)
+	notify(s.player, "💰 " .. #list .. " doublon(s) revendu(s) : +" .. Config.fmt(total) .. " 🪙", "claim")
+	sync(s)
+end
+
 function actions.rebirth(s)
 	local d = s.data
 	if d.coins < Config.rebirthCost(d.rb) then

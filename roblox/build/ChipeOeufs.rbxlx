@@ -206,6 +206,38 @@ function Config.petIncome(p, s, m)
 	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
 end
 
+-- Revente d'un œuf (jamais rentable : on récupère 25 % du prix, achat puis revente = perte de 75 %).
+Config.EGG_SELL_RATIO = 0.25
+function Config.eggSellValue(tier)
+	local price = Config.EGG_PRICE[tier]
+	return price and math.max(1, math.floor(price * Config.EGG_SELL_RATIO)) or 0
+end
+
+-- Doublons à revendre : pour chaque espèce, on garde le pet le plus rentable (revenu, puis indice le plus bas) et on revend les autres.
+-- slots[i] = { k = "p", p, s, m } | { k = "e" } | false ; retourne (liste triée d'indices, valeur totale).
+function Config.dupesToSell(slots, cap)
+	local best = {} -- espèce -> { i, income }
+	for i = 1, cap do
+		local sl = slots[i]
+		if sl and sl.k == "p" then
+			local inc = Config.petIncome(sl.p, sl.s, sl.m)
+			local b = best[sl.p]
+			if not b or inc > b.income then
+				best[sl.p] = { i = i, income = inc }
+			end
+		end
+	end
+	local out, total = {}, 0
+	for i = 1, cap do
+		local sl = slots[i]
+		if sl and sl.k == "p" and best[sl.p].i ~= i then
+			out[#out + 1] = i
+			total = total + Config.sellValue(sl.p, sl.s, sl.m)
+		end
+	end
+	return out, total
+end
+
 function Config.sellValue(p, s, m)
 	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
 end
@@ -4479,6 +4511,45 @@ function actions.sell(s, i)
 	sync(s)
 end
 
+-- Revend un œuf d'un emplacement (25 % du prix). Validé côté serveur : emplacement existant, contient un œuf.
+function actions.sellEgg(s, i)
+	if not validSlot(i) then
+		return
+	end
+	local sl = s.data.slots[i]
+	if not sl or sl.k ~= "e" then
+		return
+	end
+	s.data.coins += Config.eggSellValue(sl.t)
+	s.data.slots[i] = false
+	refreshPad(s, i)
+	qp(s, "sell", 1)
+	sync(s)
+end
+
+-- Revend les doublons de pets (garde le meilleur de chaque espèce). Les pets revendus quittent la liste de ceux qui suivent le joueur.
+function actions.sellDupes(s)
+	local d = s.data
+	local list, total = Config.dupesToSell(d.slots, cap(d))
+	if #list == 0 then
+		return notify(s.player, "Aucun doublon à revendre.")
+	end
+	for _, i in ipairs(list) do
+		d.slots[i] = false
+		refreshPad(s, i)
+		for n = #d.equip, 1, -1 do
+			if d.equip[n] == i then
+				table.remove(d.equip, n)
+			end
+		end
+		qp(s, "sell", 1)
+	end
+	d.coins += total
+	rebuildFollowers(s)
+	notify(s.player, "💰 " .. #list .. " doublon(s) revendu(s) : +" .. Config.fmt(total) .. " 🪙", "claim")
+	sync(s)
+end
+
 function actions.rebirth(s)
 	local d = s.data
 	if d.coins < Config.rebirthCost(d.rb) then
@@ -7773,6 +7844,30 @@ function render()
 		end
 	elseif panel.name == "dex" then
 		local n = 0
+		local dupes, dupeTotal = Config.dupesToSell(state.slots, state.cap)
+		if #dupes > 0 then
+			addRow({
+				icon = "♻️", title = "Revendre les doublons (" .. #dupes .. ")", desc = "Garde le meilleur pet de chaque espèce.",
+				btn = "+" .. fmt(dupeTotal), btnColor = COL.green,
+				onClick = function()
+					RAction:FireServer("sellDupes")
+				end,
+			})
+		end
+		for i = 1, state.cap do
+			local sl = state.slots[i]
+			if sl and sl.k == "e" then
+				n += 1
+				addRow({
+					icon = "🥚", iconColor = Config.TIERS[sl.t].color, title = "Œuf " .. Config.TIERS[sl.t].name, titleColor = Config.TIERS[sl.t].color,
+					desc = "En train d'éclore · revente à " .. math.floor(Config.EGG_SELL_RATIO * 100) .. " % du prix",
+					btn = "Vendre " .. fmt(Config.eggSellValue(sl.t)), btnColor = COL.red, btnText = COL.text,
+					onClick = function()
+						RAction:FireServer("sellEgg", i)
+					end,
+				})
+			end
+		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
 			if sl and sl.k == "p" then

@@ -202,6 +202,38 @@ function Config.petIncome(p, s, m)
 	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
 end
 
+-- Revente d'un œuf (jamais rentable : on récupère 25 % du prix, achat puis revente = perte de 75 %).
+Config.EGG_SELL_RATIO = 0.25
+function Config.eggSellValue(tier)
+	local price = Config.EGG_PRICE[tier]
+	return price and math.max(1, math.floor(price * Config.EGG_SELL_RATIO)) or 0
+end
+
+-- Doublons à revendre : pour chaque espèce, on garde le pet le plus rentable (revenu, puis indice le plus bas) et on revend les autres.
+-- slots[i] = { k = "p", p, s, m } | { k = "e" } | false ; retourne (liste triée d'indices, valeur totale).
+function Config.dupesToSell(slots, cap)
+	local best = {} -- espèce -> { i, income }
+	for i = 1, cap do
+		local sl = slots[i]
+		if sl and sl.k == "p" then
+			local inc = Config.petIncome(sl.p, sl.s, sl.m)
+			local b = best[sl.p]
+			if not b or inc > b.income then
+				best[sl.p] = { i = i, income = inc }
+			end
+		end
+	end
+	local out, total = {}, 0
+	for i = 1, cap do
+		local sl = slots[i]
+		if sl and sl.k == "p" and best[sl.p].i ~= i then
+			out[#out + 1] = i
+			total = total + Config.sellValue(sl.p, sl.s, sl.m)
+		end
+	end
+	return out, total
+end
+
 function Config.sellValue(p, s, m)
 	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
 end

@@ -583,6 +583,30 @@ function render()
 		end
 	elseif panel.name == "dex" then
 		local n = 0
+		local dupes, dupeTotal = Config.dupesToSell(state.slots, state.cap)
+		if #dupes > 0 then
+			addRow({
+				icon = "♻️", title = "Revendre les doublons (" .. #dupes .. ")", desc = "Garde le meilleur pet de chaque espèce.",
+				btn = "+" .. fmt(dupeTotal), btnColor = COL.green,
+				onClick = function()
+					RAction:FireServer("sellDupes")
+				end,
+			})
+		end
+		for i = 1, state.cap do
+			local sl = state.slots[i]
+			if sl and sl.k == "e" then
+				n += 1
+				addRow({
+					icon = "🥚", iconColor = Config.TIERS[sl.t].color, title = "Œuf " .. Config.TIERS[sl.t].name, titleColor = Config.TIERS[sl.t].color,
+					desc = "En train d'éclore · revente à " .. math.floor(Config.EGG_SELL_RATIO * 100) .. " % du prix",
+					btn = "Vendre " .. fmt(Config.eggSellValue(sl.t)), btnColor = COL.red, btnText = COL.text,
+					onClick = function()
+						RAction:FireServer("sellEgg", i)
+					end,
+				})
+			end
+		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
 			if sl and sl.k == "p" then

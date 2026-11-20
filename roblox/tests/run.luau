@@ -2576,6 +2576,28 @@ do
 	check("Temps : formatTime « m:ss.d »", Castle.formatTime(125.34) == "2:05.3" and Castle.formatTime(59.96) == "1:00.0" and Castle.formatTime(0) == "0:00.0" and Castle.formatTime(-1) == "--:--.-" and Castle.formatTime(0 / 0) == "--:--.-" and Castle.formatTime(nil) == "--:--.-")
 end
 
+-- Économie : revente des œufs et des doublons --------------------------------------------------------------------------------
+do
+	suite("Économie : revente d'œufs (25 %), doublons d'espèces, aucun gain par achat-revente")
+	check("Revente d'œuf : 25 % du prix pour chaque rareté, au moins 1", Config.eggSellValue(1) == 6 and Config.eggSellValue(2) == 225 and Config.eggSellValue(6) == 32500000 and Config.eggSellValue(99) == 0)
+	local loss = true
+	for t = 1, #Config.TIERS do
+		if Config.eggSellValue(t) >= Config.EGG_PRICE[t] then
+			loss = false
+		end
+	end
+	check("Revente d'œuf : acheter puis revendre est toujours une perte (aucune boucle de gain)", loss and Config.EGG_SELL_RATIO < 0.5)
+	local slots = { { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 4, m = 1 }, { k = "p", p = 2, s = 2, m = 1 }, { k = "e", t = 1 }, false, { k = "p", p = 1, s = 1, m = 2 } }
+	local list, total = Config.dupesToSell(slots, 6)
+	check("Doublons : garde le meilleur pet de chaque espèce (revenu le plus haut), vend les autres", #list == 2 and list[1] == 1 and list[2] == 6 and total == Config.sellValue(1, 2, 1) + Config.sellValue(1, 1, 2))
+	check("Doublons : une seule copie, ou œufs et vides, rien à vendre", #Config.dupesToSell({ { k = "p", p = 3, s = 2, m = 1 }, { k = "e", t = 2 }, false }, 3) == 0 and #Config.dupesToSell({}, 0) == 0)
+	check("Doublons : égalité de revenu départagée par l'indice le plus bas (le premier est gardé)", (function()
+		local l = Config.dupesToSell({ { k = "p", p = 5, s = 2, m = 1 }, { k = "p", p = 5, s = 2, m = 1 } }, 2)
+		return #l == 1 and l[1] == 2
+	end)())
+	check("Doublons : seuls les emplacements débloqués (cap) comptent", #Config.dupesToSell({ { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }, 2) == 1)
+end
+
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
 	suite("Sons : aucun identifiant inventé")
@@ -2976,6 +2998,26 @@ do
 		check("Château : le coffre ne peut être ouvert qu'une fois par course", not notified(p7, "Château terminé", firedAgain + 1))
 	end
 	RT.removePlayer(p7)
+	RT.step(1)
+	-- revente d'œuf et de doublons côté serveur
+	local p8 = RT.addPlayer("Hal", 2008, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
+	RT.step(2)
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p8, "buyEgg", 1)
+	RT.step(1.2)
+	local afterBuy = p8:GetAttribute("Coins")
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p8, "sellEgg", 2) -- l'emplacement 1 est l'œuf de départ, l'achat est en 2
+	RT.step(1.2)
+	local afterSell = p8:GetAttribute("Coins")
+	check("Revente d'œuf côté serveur : +" .. Config.eggSellValue(1) .. " pièces (25 %), pas plus [" .. tostring(afterBuy) .. " -> " .. tostring(afterSell) .. "]", afterSell >= afterBuy + Config.eggSellValue(1) and afterSell <= afterBuy + Config.eggSellValue(1) + 4)
+	RT.now = RT.now + 1
+	RT.fire(RAction, "OnServerEvent", p8, "sellEgg", 99)
+	RT.fire(RAction, "OnServerEvent", p8, "sellEgg", "x")
+	RT.fire(RAction, "OnServerEvent", p8, "sellDupes")
+	RT.step(1)
+	check("Revente : emplacement invalide, type invalide et « aucun doublon » sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	RT.removePlayer(p8)
 	RT.step(1)
 	-- DataStore en panne : le jeu ne plante pas et la sauvegarde échoue proprement
 	RT.dataStoreFail = "503: DataStore indisponible"
