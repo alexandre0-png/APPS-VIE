@@ -253,3 +253,30 @@ class TestFeedbackSounds(unittest.TestCase):
     def test_all_manifest_assets_are_real_ids(self):
         for key, asset in re.findall(r'^\t(\w+) = \{ asset = "([^"]*)"', read("src", "shared", "AudioManifest.lua"), re.M):
             self.assertRegex(asset, r"^rbxassetid://\d{6,}$", f"{key} : identifiant de son invalide")
+
+
+class TestObjectiveArrow(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.M = self.lua.execute(to_lua54(read("src", "shared", "Markers.lua")))
+
+    def test_bearing_front_right_back_left(self):
+        b = self.M.bearing
+        self.assertAlmostEqual(b(0, -1, 0, -5), 0, places=3)  # droit devant (regard vers -Z)
+        self.assertAlmostEqual(b(0, -1, 5, 0), 90, places=3)  # à droite
+        self.assertAlmostEqual(abs(b(0, -1, 0, 5)), 180, places=3)  # derrière
+        self.assertAlmostEqual(b(0, -1, -5, 0), -90, places=3)  # à gauche
+
+    def test_bearing_degenerate_inputs(self):
+        self.assertIsNone(self.M.bearing(0, 0, 1, 1))
+        self.assertIsNone(self.M.bearing(0, -1, 0, 0))
+
+    def test_server_sets_target_and_current_halo_is_seen_through_walls(self):
+        server = read("src", "server", "Markers.lua")
+        self.assertIn('SetAttribute("ObjectiveTarget"', server)
+        self.assertIn("AlwaysOnTop", server)
+
+    def test_client_draws_the_arrow_isolated(self):
+        client = read("src", "client", "init.client.lua")
+        self.assertIn("FlecheObjectif", client)
+        self.assertIn('safeConnect(RunService.RenderStepped, "Flèche objectif"', client)

@@ -2,6 +2,11 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Regraphisme et lisibilité des énigmes
+- Chaque pièce a son sol et son mur propres (matière et couleur distinctes, `tools/map/generate_map.py` puis `MapData.lua` régénéré) : cuisine carreaux blancs, salles d'eau carreaux bleutés, salon et chambre d'enfant parquets, chambres moquettes, bureau moquette verte, hall et entrée marbre, cave pavés, cellier terre battue, grenier plancher chaud, tombe dalles sombres. Nouvelles matières dans `MapBuilder.MATERIALS`.
+- L'objet de l'étape active est visible à travers les murs (halo `AlwaysOnTop`) et une flèche d'objectif en haut de l'écran indique sa direction et sa distance de n'importe quelle pièce (`Markers.bearing`, attribut joueur `ObjectiveTarget`, test client).
+- `BLENDER_REQUESTS.md` lot 3 : plinthes, moulures, fenêtres, balustrade, marches, encadrement de porte, applique, soupirail, radiateur, 8 textures tuilables.
+
 ### Passe « zéro message d'erreur »
 - Les replis attendus (rig du monstre, bloc de chute, modèles non chargés) deviennent des traces `[Boot]` au lieu de `warn`. Les `warn` restants signalent de vraies pannes (réseau, DataStore, étape en erreur).
 - `tools/lua/test_zero_warn.py` : 4 minutes virtuelles d'une partie duo (serveur réel, sans modèle puis avec tous les modèles) et du client réel ; tout `warn(` ou `error(` hors `[Boot]` et `[Spawn]` fait échouer la batterie.

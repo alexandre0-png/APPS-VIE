@@ -87,10 +87,30 @@ function Markers.refresh()
 		end
 	end
 	entries = alive
+	-- Cible de la flèche d'objectif : l'objet de l'étape active le plus proche de chaque joueur
+	for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local target, best = nil, math.huge
+		if root then
+			for _, e in ipairs(entries) do
+				if e.current then
+					local d = (e.part.Position - root.Position).Magnitude
+					if d < best then
+						best, target = d, e.part.Position
+					end
+				end
+			end
+		end
+		pcall(function()
+			player:SetAttribute("ObjectiveTarget", target)
+		end)
+	end
 	local keep = MarkerStyles.select(list, MarkerStyles.MAX_HALOS)
 	for i, e in ipairs(entries) do
 		pcall(function()
 			e.glow.Enabled = keep[i] == true
+			-- L'objet de l'étape active se voit à travers les murs, de n'importe quelle pièce
+			e.glow.DepthMode = e.current and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
 			e.glow.OutlineTransparency = e.current and 0 or 0.8
 			e.glow.FillTransparency = e.current and 0.75 or 1
 			if e.gui then

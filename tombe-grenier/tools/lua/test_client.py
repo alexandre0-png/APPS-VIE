@@ -95,6 +95,18 @@ class TestRealClient(unittest.TestCase):
         lua.execute("advance(2)")
         self.assertEqual(errors(lua), [])
 
+    def test_objective_arrow_follows_the_server_target(self):
+        lua = boot()
+        lua.execute("LOCAL:SetAttribute('ObjectiveTarget', Vector3.new(20, 27, 45))")
+        lua.execute("advance(1)")
+        arrow = lua.eval('findGui("FlecheObjectif")')
+        self.assertIsNotNone(arrow)
+        self.assertTrue(arrow.Visible)
+        lua.execute("LOCAL:SetAttribute('ObjectiveTarget', nil)")
+        lua.execute("advance(1)")
+        self.assertFalse(arrow.Visible)
+        self.check(lua)
+
     def test_a_failing_handler_is_isolated(self):
         lua = boot()
         # un gestionnaire qui lève une erreur ne bloque pas le suivant

@@ -100,6 +100,23 @@ Markers.STEP_TAGS = {
 	enfant = { "Tombe" },
 }
 
+-- Flèche d'objectif : angle (degrés, positif vers la droite) entre la direction du regard (lookX, lookZ) et la cible
+-- (dx, dz depuis le joueur). 0 = droit devant, 180 = derrière. nil si le regard ou la cible est nul.
+function Markers.bearing(lookX, lookZ, dx, dz)
+	local lookLen = math.sqrt(lookX * lookX + lookZ * lookZ)
+	local len = math.sqrt(dx * dx + dz * dz)
+	if lookLen < 1e-6 or len < 1e-6 then
+		return nil
+	end
+	local lx, lz = lookX / lookLen, lookZ / lookLen
+	local forward = (dx * lx + dz * lz) / len
+	local right = (dx * -lz + dz * lx) / len
+	local atan2 = math.atan2 or math.atan
+	return math.deg(atan2(right, forward))
+end
+
+Markers.ARROW_MIN_DISTANCE = 6 -- plus près, la flèche s'efface : l'objet se voit
+
 Markers.MAX_HALOS = 24 -- Roblox n'affiche qu'environ 31 halos à la fois : on en garde une marge
 
 -- Cet objet (liste d'étiquettes) sert-il à l'étape donnée ?

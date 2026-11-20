@@ -800,6 +800,61 @@ safeConnect(Remotes.get("Reveal").OnClientEvent, "Remote Reveal", function(data)
 	)
 end)
 
+-- Flèche d'objectif : indique, de n'importe quelle pièce, où se trouve l'objet de l'étape active (cible posée par le serveur)
+local objectiveArrow = Instance.new("TextLabel")
+objectiveArrow.Name = "FlecheObjectif"
+objectiveArrow.AnchorPoint = Vector2.new(0.5, 0.5)
+objectiveArrow.Position = UDim2.fromScale(0.5, 0.2)
+objectiveArrow.Size = UDim2.fromOffset(44, 44)
+objectiveArrow.BackgroundTransparency = 1
+objectiveArrow.Text = "▲"
+objectiveArrow.TextSize = 40
+objectiveArrow.Font = Enum.Font.GothamBold
+objectiveArrow.TextColor3 = Color3.fromRGB(255, 214, 90)
+objectiveArrow.TextStrokeTransparency = 0.2
+objectiveArrow.Visible = false
+objectiveArrow.ZIndex = 20
+objectiveArrow.Parent = gui
+local arrowDistance = Instance.new("TextLabel")
+arrowDistance.BackgroundTransparency = 1
+arrowDistance.AnchorPoint = Vector2.new(0.5, 0)
+arrowDistance.Position = UDim2.fromScale(0.5, 1)
+arrowDistance.Size = UDim2.fromOffset(80, 18)
+arrowDistance.TextSize = 16
+arrowDistance.Font = Enum.Font.GothamMedium
+arrowDistance.TextColor3 = Color3.fromRGB(255, 214, 90)
+arrowDistance.TextStrokeTransparency = 0.3
+arrowDistance.ZIndex = 20
+arrowDistance.Parent = objectiveArrow
+local MarkerRules = require(Shared.Markers)
+local arrowClock = 0
+safeConnect(RunService.RenderStepped, "Flèche objectif", function(dt)
+	arrowClock += dt
+	if arrowClock < 0.1 then
+		return
+	end
+	arrowClock = 0
+	local target = player:GetAttribute("ObjectiveTarget")
+	local camera = workspace.CurrentCamera
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if typeof(target) ~= "Vector3" or not camera or not root or Cinematic.isPlaying() then
+		objectiveArrow.Visible = false
+		return
+	end
+	local dx, dz = target.X - root.Position.X, target.Z - root.Position.Z
+	local distance = math.sqrt(dx * dx + dz * dz)
+	local look = camera.CFrame.LookVector
+	local angle = MarkerRules.bearing(look.X, look.Z, dx, dz)
+	if not angle or distance < MarkerRules.ARROW_MIN_DISTANCE then
+		objectiveArrow.Visible = false
+		return
+	end
+	objectiveArrow.Visible = true
+	objectiveArrow.Rotation = angle
+	arrowDistance.Text = ("%d m"):format(math.floor(distance * 0.28 + 0.5))
+end)
+
 -- Bannière de zone : grenier, étage, rez-de-chaussée, cave, sous-sol, jardin
 safeSpawn("boucleStyle", function()
 	local announcer = Zones.newAnnouncer(1.0, 6, 45)
