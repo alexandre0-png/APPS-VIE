@@ -259,13 +259,23 @@ Config.Assets = {
 	PlanteSakura = 101176034116232, -- sakura (jardin)
 	-- Modèles Blender low-poly (approuvés) : ils remplacent la clé, le coffret et l'horloge des énigmes, et ornent
 	-- la chambre d'enfant (poupée) et le grenier (bougie). Échelle et orientation : src/shared/ModelFit.lua.
-	CleOr = 128263149076283, -- clé dorée (anneau, tige, dents), étape « clé »
-	CoffretAncien = 80816541343966, -- coffret en bois cerclé de fer, serrure dorée face -Z, étape « coffret »
-	HorlogeComtoise = 121788657121996, -- horloge haute, cadran face -Y (Blender), étape « horloge »
-	PoupeeAncienne = 114751010380157, -- poupée à robe rouge (chambre d'enfant)
-	BougieChandelier = 118027923730609, -- chandelier en laiton avec bougie (grenier)
+	CleOr = 71927105620016, -- clé dorée (anneau, tige, dents), étape « clé »
+	CoffretAncien = 135334916682974, -- coffret en bois cerclé de fer, serrure dorée face -Z, étape « coffret »
+	HorlogeComtoise = 127086141131615, -- horloge haute, cadran face -Y (Blender), étape « horloge »
+	PoupeeAncienne = 137798724739586, -- poupée à robe rouge (chambre d'enfant)
+	BougieChandelier = 91265848520746, -- chandelier en laiton avec bougie (grenier)
 	-- Face avant réelle d'un modèle dans Roblox si elle diffère de ModelFit.PLANS : Front = { ["horloge comtoise"] = "-Z" }
 	-- (valeurs "-Z", "+Z", "-X", "+X"). À régler après avoir regardé le modèle dans Studio.
+	-- Bibliothèque Blender (chaque FBX : pièces séparées `Nom__RRGGBB`, couleur lue par ModelColor)
+	Armoire = 88627357314275, -- armoire gothique (chambres, grenier), ~2,2 studs de haut
+	Commode = 116600254156058, -- commode ancienne, ~1 de haut
+	Berceau = 73900289399193, -- berceau (grenier), ~1
+	ChevalBascule = 74320735179635, -- cheval à bascule (chambre d'enfant, salle de la tombe), ~1,3
+	MiroirAncien = 134489196998276, -- miroir sur pied (grenier), ~2
+	Malle = 94690600145377, -- malle (grenier), ~0,9
+	Statuette = 107399380407320, -- statues de l'énigme des statues, ~1,2
+	CadrePhoto = 86021806351640, -- cadre des photos de l'énigme des photos, ~1
+	OmbreRampante = 101328489566505, -- le monstre : silhouette sombre, masque blanc, yeux rouges, ~2,5
 	Front = {},
 	HubBibliotheque = 9904549498, -- bibliothèque (décor du hub : étagères) ; même modèle que « bibliothèque » (ModelLoader)
 	-- Modèle du monstre : essayés dans l'ordre, le premier valide est utilisé. Sinon, le rig de secours.

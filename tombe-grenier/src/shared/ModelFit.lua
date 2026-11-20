@@ -16,6 +16,16 @@ ModelFit.PLANS = {
 	["horloge comtoise"] = { mode = "height", height = 6.5, front = "+Z", floor = true }, -- cadran « -Y » côté Blender = +Z Roblox
 	["poupée ancienne"] = { mode = "height", height = 1.6, front = "-Z" },
 	["bougie chandelier"] = { mode = "height", height = 1.0, front = "-Z" },
+	-- Bibliothèque Blender : meubles qui tiennent dans la boîte du meuble de la carte, orientés vers l'intérieur de la pièce
+	["armoire gothique"] = { mode = "fit", front = "-Z" },
+	["commode ancienne"] = { mode = "fit", front = "-Z" },
+	["berceau"] = { mode = "fit", front = "-Z" },
+	["cheval à bascule"] = { mode = "fit", front = "-Z" },
+	["miroir sur pied"] = { mode = "fit", front = "-Z" },
+	["malle"] = { mode = "fit", front = "-Z" },
+	["statuette"] = { mode = "height", front = "-Z" }, -- statue de l'énigme : à la hauteur de la pièce de jeu
+	["cadre photo"] = { mode = "longest", front = "-Z" }, -- cadre des photos : à la taille de la photo remplacée
+	["ombre rampante"] = { mode = "height", front = "-Z" }, -- monstre : à la hauteur du rig
 }
 
 ModelFit.FRONT = {
@@ -78,6 +88,26 @@ function ModelFit.yawFor(front, wanted)
 		t = t + 2 * math.pi
 	end
 	return t
+end
+
+-- Quart de tour : les largeurs en x et en z du modèle s'échangent
+function ModelFit.rotatedExtents(extents, yaw)
+	if math.abs(math.sin(yaw)) > 0.5 then
+		return { extents[3], extents[2], extents[1] }
+	end
+	return { extents[1], extents[2], extents[3] }
+end
+
+-- Résout la pose : échelle et rotation pour un modèle de mesures `extents`, remplaçant un objet de taille `target`,
+-- tourné vers `facing` ({ dx, dz }). front : face avant réelle si elle diffère du plan (Config.Assets.Front).
+-- Retourne { scale, yaw, size } où size est la taille finale du modèle une fois posé.
+function ModelFit.solve(name, extents, target, facing, front)
+	local plan = ModelFit.PLANS[name] or { mode = "fit", front = "-Z" }
+	local yaw = ModelFit.yawFor(front or plan.front, facing)
+	local turned = ModelFit.rotatedExtents(extents, yaw)
+	local goal = plan.height and { 0, plan.height, 0 } or target
+	local scale = ModelFit.scaleFor(turned, goal, plan.mode)
+	return { scale = scale, yaw = yaw, size = { turned[1] * scale, turned[2] * scale, turned[3] * scale } }
 end
 
 return ModelFit

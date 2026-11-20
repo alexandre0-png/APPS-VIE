@@ -151,7 +151,7 @@ class TestUserCatalog(unittest.TestCase):
     def test_room_models_never_block(self):
         kit = read("src", "server", "DecorKit.lua")
         self.assertIn("d.CanCollide = false", kit)  # les modèles n'ajoutent aucune collision
-        self.assertIn("studioModel(roomModels", kit)
+        self.assertIn("DecorKit.ROOM_MODELS[f.room]", kit)
 
     def test_new_plants_are_in_the_map(self):
         sys.path.insert(0, os.path.join(ROOT, "tools", "map"))
