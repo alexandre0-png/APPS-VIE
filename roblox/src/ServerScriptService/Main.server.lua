@@ -66,6 +66,8 @@ task.spawn(function()
 	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
 	assets.loadGroup("castle")
 	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
+	assets.loadGroup("ground")
+	print("[Assets] arène Blender : " .. Builder.dressArena(assets) .. " modèle(s) posé(s)")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
 end)
 
@@ -1179,6 +1181,7 @@ local function castleBoardRefresh()
 end
 
 local function castleStep(dt)
+	Builder.animProps(os.clock())
 	if not castleWorld then
 		return
 	end

@@ -409,7 +409,9 @@ Config.Assets = {
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
-		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20 },
+		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20,
+		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
+	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	guardKinds = { "dog", "wolf", "bear" }, -- gardien de chaque domaine (Config.RIVALS) -> modèle de models.guards
 	guardHeights = { dog = 2.8, wolf = 3.4, bear = 4.6, knight = 5.2 }, -- hauteur en studs
@@ -3104,6 +3106,8 @@ task.spawn(function()
 	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
 	assets.loadGroup("castle")
 	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
+	assets.loadGroup("ground")
+	print("[Assets] arène Blender : " .. Builder.dressArena(assets) .. " modèle(s) posé(s)")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
 end)
 
@@ -4217,6 +4221,7 @@ local function castleBoardRefresh()
 end
 
 local function castleStep(dt)
+	Builder.animProps(os.clock())
 	if not castleWorld then
 		return
 	end
@@ -6243,6 +6248,73 @@ function Builder.dressCastle(assets)
 		put("props", "castle", bx, 0, bz, nil, 46, math.pi, "CastleBackdrop")
 	end)
 	return n
+end
+
+-- Habille l'arène : place pavée sous le monument (ground.plaza), bancs et lampadaires autour, moulin (pales animées) et enclos dans le domaine 1.
+-- Budget `arenaBudgetParts` (pire cas) ; chaque modèle est facultatif (repli : rien n'est posé, la carte reste procédurale). Retourne le nombre posé.
+local millVis = nil
+function Builder.dressArena(assets)
+	local n, spent = 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderArena"
+		folder.Parent = world
+		local function put(group, key, x, y0, z, span, height, rotY, name)
+			local cost = Config.Assets.modelsMaxParts[group .. "." .. key] or 60
+			if spent + cost > Config.Assets.arenaBudgetParts then
+				return nil
+			end
+			local clone = assets.cloneModel(group, key)
+			if not clone then
+				return nil
+			end
+			clone.Name = name
+			if setModel(clone, x, y0, z, span, height, folder, rotY) then
+				spent = spent + cost
+				n = n + 1
+				return clone
+			end
+			return nil
+		end
+		put("ground", "plaza", 0, 0.08, 0, 56, nil, 0, "ArenaPlaza")
+		for k = 0, 3 do
+			local a = k * math.pi / 2
+			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, 2.4, a, "ArenaBench") -- le banc regarde le monument
+			local b = a + math.pi / 4
+			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, 9, 0, "ArenaLamp")
+		end
+		local cx, cz = Config.rivalCenter(1)
+		local mill = put("props", "mill", cx - 44, 0, cz + 22, nil, 13, math.pi / 6, "ArenaMill")
+		if mill then
+			local p1, p2 = findNamed(mill, "Pales"), findNamed(mill, "Pales2")
+			if p1 then
+				millVis = { p1 = p1, b1 = p1.CFrame, p2 = p2, b2 = p2 and p2.CFrame }
+			end
+		end
+		put("props", "pen", cx + 30, 0, cz + 44, 16, nil, 0, "ArenaPen")
+	end)
+	return n
+end
+
+-- Fait tourner les pales du moulin (appelé 10 fois par seconde ; tournent en sens contraires autour de leur axe avant).
+function Builder.animProps(t)
+	local m = millVis
+	if m and m.p1.Parent then
+		m.p1.CFrame = m.b1 * CFrame.Angles(0, 0, t * 0.5)
+		if m.p2 then
+			m.p2.CFrame = m.b2 * CFrame.Angles(0, 0, -t * 0.35)
+		end
+	end
 end
 
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).

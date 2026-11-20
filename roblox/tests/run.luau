@@ -2709,7 +2709,7 @@ do
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
 		local tm = Config.Assets.models.traps
-		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" }, [Config.Assets.models.castle.door] = { "Herse__8A8A8A" }, [Config.Assets.models.props.chest] = { "Couvercle__E8B923" } } -- les modèles de pièges portent leurs pièces animées
+		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" }, [Config.Assets.models.castle.door] = { "Herse__8A8A8A" }, [Config.Assets.models.props.chest] = { "Couvercle__E8B923" }, [Config.Assets.models.props.mill] = { "Pales__AA7733", "Pales2__AA7733" } } -- les modèles de pièges portent leurs pièces animées
 	end
 	if RT then
 	local main = RT.buildTree("roblox/src", false)
@@ -2988,6 +2988,7 @@ do
 					names[d.Name] = (names[d.Name] or 0) + 1
 				end
 			end
+			check("Arène : place, bancs, lampadaires, moulin (pales) et enclos Blender posés (" .. tostring(names.ArenaPlaza) .. " place, " .. tostring(names.ArenaBench) .. " bancs, " .. tostring(names.ArenaLamp) .. " lampadaires, " .. tostring(names.ArenaMill) .. " moulin, " .. tostring(names.ArenaPen) .. " enclos)", names.ArenaPlaza == 1 and names.ArenaBench == 4 and names.ArenaLamp == 4 and names.ArenaMill == 1 and names.ArenaPen == 1)
 			local R = Castle.ROOMS
 			check("Château : murs, tours, herses, coffre, torches, drapeaux et fond Blender posés (" .. tostring(names.CastleWallModel) .. " murs, " .. tostring(names.CastleTowerModel) .. " tours, " .. tostring(names.CastleDoorModel) .. " portes, " .. tostring(names.CastleChestModel) .. " coffre, " .. tostring(names.CastleTorchModel) .. " torches, " .. tostring(names.CastleFlagModel) .. " drapeaux, " .. tostring(names.CastleBackdrop) .. " fond)", names.CastleWallModel == R * 4 and names.CastleTowerModel == 2 and names.CastleDoorModel == R and names.CastleChestModel == 1 and names.CastleTorchModel == R * 2 and names.CastleFlagModel == 2 and names.CastleBackdrop == 1)
 		end

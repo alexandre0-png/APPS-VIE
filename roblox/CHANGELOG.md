@@ -9,6 +9,11 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **C (8bc3546)** : plafond de taille de l'œuf (`Config.eggMaxSize`, relatif à l'emplacement et au joueur), nid sous chaque œuf, pet qui apparaît plafonné (`Easing.popScale`).
 - **D** : modèles Blender intégrés : œufs par rareté (6 + secret, prioritaires sur le catalogue), 6 pets liés aux espèces (Poussin, Lapin, Renard, Panda, Dragonnet = Dragon, Fantôme = Alien), accessoires (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine du hub, nid). Convention `Nom__RRGGBB` lue par `Assets.colorize` (couleurs du FBX ignorées, petits détails sans ombre), un seul `LoadAsset` par identifiant puis clonage, plafond de Parts par modèle (`propsMaxParts`) et budget global (`propsBudgetParts`, pire cas testé), repli procédural conservé partout. `BLENDER_REQUESTS.md` liste tous les modèles à créer ensuite.
 
+## 2026-11-22 (suite) : câblage Blender, lot 5 arène (sol, moulin, enclos, bancs, lampadaires)
+
+- `Builder.dressArena` : place `ground.plaza` sous le monument, 4 bancs (tournés vers le monument) et 4 lampadaires autour, moulin (`props.mill`) avec ses `Pales` / `Pales2` qui tournent en sens contraires (10 Hz, `Builder.animProps`) et enclos (`props.pen`) dans le domaine 1. Budget `arenaBudgetParts` (500, pire cas). Chargé après les gardiens et les pièges, avant le château.
+- Pas posés : `ground.grass` et `ground.path` (le sol et les chemins procéduraux de `Scenery.paths` restent : dallage = trop de clones sans mesure réelle sur téléphone) ; le hub n'a pas de lampadaires/bancs Blender (ses bancs et lampadaires sont déjà construits par `HubWorld`, à remplacer dans un lot dédié si tu le veux). Non testé en Studio : axe de rotation des pales, orientation des bancs, taille de la place.
+
 ## 2026-11-22 (suite) : câblage Blender, lot 4 pets supplémentaires
 
 - 8 pets ajoutés à `Config.Assets.pets` : Hamster, Chat, Chien, Hibou, Manchot, Lion, Licorne, T-Rex (14 espèces sur 18 en Blender ; Tigre, Kraken, Calmar stellaire, Wyrm astral restent procéduraux, non créés). Même chargeur, même plafond de Parts (`petsMaxParts`), repli procédural.
