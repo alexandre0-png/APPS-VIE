@@ -672,7 +672,7 @@ function render()
 			local done = q.prog >= q.goal
 			addRow({
 				icon = q.claimed and "✅" or "🎯", title = Config.questText(q.t, q.goal),
-				desc = fmt(math.floor(q.prog)) .. "/" .. fmt(q.goal) .. " · récompense 🪙 " .. fmt(q.rew),
+				desc = fmt(math.floor(q.prog)) .. "/" .. fmt(q.goal) .. " · récompense " .. Config.questRewardText(q),
 				btn = q.claimed and "Fait" or (done and "Réclamer" or "…"),
 				btnColor = (done and not q.claimed) and COL.green or COL.dis,
 				onClick = (done and not q.claimed) and function()

@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX12"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX11"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX13"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX12"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -103,6 +103,9 @@ Config.GUARD = {
 	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
 	alertDelay = 0.6, alertMax = 3, loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
 }
+
+-- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
+Config.CASTLE = { damage = { spikes = 18, blade = 24, ball = 28 }, step = 0.1, boardSeconds = 120, boardSize = 5 }
 
 -- Événements serveur (tous les joueurs en profitent)
 Config.EVENTS = {
@@ -270,8 +273,45 @@ function Config.questText(t, n)
 		return "Découvrir " .. n .. " nouvelle(s) espèce(s)"
 	elseif t == "sell" then
 		return "Vendre " .. n .. " pet(s)"
+	elseif t == "castle" then
+		return "Terminer le Château (ouvrir le coffre final)"
+	elseif t == "rare" then
+		return "Faire éclore " .. n .. " pet(s) Épique ou mieux"
+	elseif t == "secret" then
+		return "Fouiller " .. n .. " secret(s) de la carte"
 	end
 	return t
+end
+
+-- Bonus de mission au-delà des pièces : { egg = rareté d'œuf, boost = secondes de chance supplémentaire }. Missions de défi (Château, rare, secret) :
+-- œuf ou boost ; sinon la 2e mission du jour donne un œuf (rareté selon la progression d'histoire `ch`), la 3e un boost de chance de 10 minutes.
+function Config.questBonus(t, index, ch)
+	ch = ch or 0
+	local tier = 1 + (ch >= 4 and 1 or 0) + (ch >= 8 and 1 or 0)
+	if t == "castle" then
+		return { egg = math.min(4, 3 + (ch >= 8 and 1 or 0)) }
+	elseif t == "rare" then
+		return { boost = 900 }
+	elseif t == "secret" then
+		return { egg = 2 }
+	elseif index == 2 then
+		return { egg = tier }
+	elseif index == 3 then
+		return { boost = 600 }
+	end
+	return {}
+end
+
+-- Texte de la récompense d'une mission : « 🪙 1,2K · 🥚 Rare · 🍀 +10 min ».
+function Config.questRewardText(q)
+	local parts = { "🪙 " .. Config.fmt(q.rew or 0) }
+	if (q.re or 0) > 0 and Config.TIERS[q.re] then
+		parts[#parts + 1] = "🥚 " .. Config.TIERS[q.re].name
+	end
+	if (q.rb or 0) > 0 then
+		parts[#parts + 1] = "🍀 +" .. math.floor(q.rb / 60 + 0.5) .. " min de chance"
+	end
+	return table.concat(parts, " · ")
 end
 
 ---------------------------------------------------------------- Modèles Roblox pour l'apparence des œufs
@@ -1575,7 +1615,7 @@ local GONE_MESSAGE = "Cette partie n'existe plus : elle vient de se terminer ou 
 
 function Party.new(Config, deps)
 	local G = Config.Game
-	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }
+	local P = { queues = {}, where = {} } -- queues[clé] = { size, mode, members = {userId...}, firstAt, readyAt } ; clé = taille (arène) ou "c<taille>" (château)
 
 	local function log(msg)
 		if deps.log then
@@ -1583,27 +1623,34 @@ function Party.new(Config, deps)
 		end
 	end
 
+	-- Clé d'une file : la taille seule pour l'arène (compatibilité), « c<taille> » pour le mode Château.
+	function P.key(size, mode)
+		return mode == "castle" and ("c" .. tostring(size)) or size
+	end
+
 	for _, size in ipairs(G.Sizes) do
-		P.queues[size] = { members = {} }
+		P.queues[size] = { size = size, mode = "arena", members = {} }
+		P.queues["c" .. size] = { size = size, mode = "castle", members = {} }
 	end
 
 	---------------------------------------------------------------- zones de lancement (file d'attente)
-	function P.enter(userId, size)
-		local q = P.queues[size]
+	function P.enter(userId, size, mode)
+		local key = P.key(size, mode)
+		local q = P.queues[key]
 		if not q then
 			return false, "taille inconnue"
 		end
 		if P.where[userId] then
-			if P.where[userId] == size then
+			if P.where[userId] == key then
 				return true
 			end
 			P.leave(userId)
 		end
-		if #q.members >= size then
+		if #q.members >= q.size then
 			return false, "zone pleine"
 		end
 		q.members[#q.members + 1] = userId
-		P.where[userId] = size
+		P.where[userId] = key
 		if #q.members == 1 then
 			q.firstAt = deps.clock()
 		end
@@ -1612,11 +1659,11 @@ function Party.new(Config, deps)
 	end
 
 	function P.leave(userId)
-		local size = P.where[userId]
-		if not size then
+		local key = P.where[userId]
+		if not key then
 			return false
 		end
-		local q = P.queues[size]
+		local q = P.queues[key]
 		for i, id in ipairs(q.members) do
 			if id == userId then
 				table.remove(q.members, i)
@@ -1631,12 +1678,13 @@ function Party.new(Config, deps)
 		return true
 	end
 
-	-- État affiché d'une zone : { size, count, countdown (secondes ou nil), mode = "empty" | "waiting" | "full" }
-	function P.status(size)
-		local q = P.queues[size]
+	-- État affiché d'une zone : { size, mode = "arena" | "castle", count, countdown (secondes ou nil), state = "empty" | "waiting" | "full" }
+	function P.status(size, mode)
+		local q = P.queues[P.key(size, mode)]
 		local now = deps.clock()
 		local count = #q.members
-		local out = { size = size, count = count, mode = count == 0 and "empty" or (count >= size and "full" or "waiting") }
+		local out = { size = size, count = count, queue = mode == "castle" and "castle" or "arena" }
+		out.mode = count == 0 and "empty" or (count >= size and "full" or "waiting") -- (nom historique : état de la file)
 		if count > 0 then
 			if count >= size then
 				q.readyAt = q.readyAt or (now + (size == 1 and G.SoloCountdown or G.CountdownFull))
@@ -1649,13 +1697,18 @@ function Party.new(Config, deps)
 		return out
 	end
 
-	-- Groupes prêts à partir : { size, members }. Les membres sont retirés de la file.
+	-- Groupes prêts à partir : { size, mode, members }. Les membres sont retirés de la file.
 	function P.collectLaunches()
 		local out = {}
+		local keys = {}
 		for _, size in ipairs(G.Sizes) do
-			local q = P.queues[size]
+			keys[#keys + 1] = size
+			keys[#keys + 1] = "c" .. size
+		end
+		for _, key in ipairs(keys) do
+			local q = P.queues[key]
 			if #q.members > 0 then
-				local st = P.status(size)
+				local st = P.status(q.size, q.mode)
 				if st.countdown ~= nil and st.countdown <= 0 then
 					local members = table.clone(q.members)
 					for _, id in ipairs(members) do
@@ -1663,7 +1716,7 @@ function Party.new(Config, deps)
 					end
 					q.members = {}
 					q.firstAt, q.readyAt = nil, nil
-					out[#out + 1] = { size = size, members = members }
+					out[#out + 1] = { size = q.size, mode = q.mode, members = members }
 				end
 			end
 		end
@@ -1696,10 +1749,11 @@ function Party.new(Config, deps)
 			return { ok = false, reason = "lieu de jeu non configuré", message = "Le lieu de jeu n'est pas configuré. Préviens le créateur." }
 		end
 		local size = math.min(math.max(group.size or #group.members, 1), G.MaxPlayers)
-		local data = { from = "hub", size = size, late = false }
+		local mode = group.mode == "castle" and "castle" or "arena"
+		local data = { from = "hub", size = size, late = false, mode = mode }
 		local lastErr = "aucune méthode de téléportation"
-		for _, mode in ipairs(G.Fallbacks) do
-			if mode == "reserved" then
+		for _, method in ipairs(G.Fallbacks) do
+			if method == "reserved" then
 				local okR, code = pcall(deps.reserve, gamePlace)
 				if okR and code then
 					local partyId = newPartyId()
@@ -1707,7 +1761,7 @@ function Party.new(Config, deps)
 					local okT, errT = pcall(deps.teleport, group.players, gamePlace, code, data)
 					if okT then
 						local entry = {
-							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = G.MaxPlayers, groupSize = size, count = #group.members,
+							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = G.MaxPlayers, groupSize = size, mode = mode, count = #group.members,
 							members = table.clone(group.members), code = code, createdAt = deps.clock(), open = true, -- toute partie (même solo) reste ouverte aux amis jusqu'au plafond
 						}
 						local okS, errS = pcall(deps.store.update, partyId, function()
@@ -1722,7 +1776,7 @@ function Party.new(Config, deps)
 				else
 					lastErr = "réservation : " .. tostring(code)
 				end
-			elseif mode == "public" then
+			elseif method == "public" then
 				data.partyId = nil
 				local okT, errT = pcall(deps.teleport, group.players, gamePlace, nil, data)
 				if okT then
@@ -1808,7 +1862,7 @@ function Party.new(Config, deps)
 		if not reserved then
 			return { ok = false, reason = "full", message = "Cette partie est pleine (" .. G.MaxPlayers .. " joueurs maximum)." }
 		end
-		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true })
+		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true, mode = e.mode or "arena" })
 		if not okT then
 			P.leaveParty(partyId, userId) -- annule la place prise
 			log("rejoindre : " .. tostring(errT))
@@ -2671,8 +2725,211 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+-- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
+-- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
+-- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
+local Castle = {}
+
+Castle.ROOMS = 5
+Castle.ROOM_LENGTH = 56
+Castle.ROOM_WIDTH = 40
+Castle.ORIGIN = { x = 470, z = -280 } -- entrée de la salle 1 dans le monde ; les salles avancent vers -z
+
+-- Difficulté d'une salle r (1..ROOMS) : nombre de pièges et rythme, croissants.
+function Castle.room(r)
+	r = math.min(math.max(r, 1), Castle.ROOMS)
+	return {
+		index = r,
+		spikes = 3 + r, -- plaques à pics (4 colonnes)
+		blades = r >= 4 and 2 or (r >= 2 and 1 or 0),
+		balls = r >= 3 and (r - 2) or 0,
+		period = math.max(1.6, 3.4 - 0.3 * r), -- durée d'un cycle des pics (s)
+		bladeSpeed = 1.2 + 0.3 * r, -- radians par seconde
+		ballTravel = math.max(1.6, 3.2 - 0.25 * r), -- traversée d'un boulet (s)
+		doorPeriod = math.max(3, 5 - 0.4 * r), -- cycle de la porte (s)
+		doorOpen = math.max(1.4, 2.4 - 0.2 * r), -- durée d'ouverture (s)
+	}
+end
+
+-- Pics : phase 0..1 du cycle ; avertissement avant le danger (les pics se dressent), danger 0,9 s par cycle.
+local DANGER, WARN = 0.9, 0.6
+function Castle.spikeState(t, trap, room)
+	local period = room.period
+	local phase = ((t + trap.offset) % period)
+	local dangerStart = period - DANGER
+	if phase >= dangerStart then
+		return "danger"
+	elseif phase >= dangerStart - WARN then
+		return "warning"
+	end
+	return "safe"
+end
+
+-- Plaques à pics de la salle : 4 colonnes espacées (couloirs sûrs de 4 studs entre elles), phases décalées.
+function Castle.spikes(room)
+	local out = {}
+	for i = 1, room.spikes do
+		local col, row = (i - 1) % 4, math.floor((i - 1) / 4)
+		out[i] = { lx = -15 + col * 10, lz = 10 + row * 9, radius = 3, offset = ((col + row) % 4) * (room.period / 4) }
+	end
+	return out
+end
+
+-- Lames tournantes : centre de la salle, deux bras opposés de 14 studs, angle selon le temps.
+function Castle.blades(room)
+	local out = {}
+	for i = 1, room.blades do
+		out[i] = { lx = (i - (room.blades + 1) / 2) * 20, lz = 34, arm = 14, phase = (i - 1) * math.pi / 2 }
+	end
+	return out
+end
+
+function Castle.bladeAngle(t, blade, room)
+	return blade.phase + t * room.bladeSpeed
+end
+
+-- Boulets : couloirs horizontaux (traversée de gauche à droite puis pause avant de recommencer).
+function Castle.balls(room)
+	local out = {}
+	for i = 1, room.balls do
+		out[i] = { lz = 18 + (i - 1) * 9, radius = 3, offset = (i - 1) * 0.9 }
+	end
+	return out
+end
+
+-- Position latérale d'un boulet (nil pendant la pause).
+function Castle.ballX(t, ball, room)
+	local cycle = room.ballTravel + 1.4
+	local phase = (t + ball.offset) % cycle
+	if phase >= room.ballTravel then
+		return nil
+	end
+	return -22 + 44 * (phase / room.ballTravel)
+end
+
+-- Porte de fin de salle : ouverte pendant doorOpen secondes par cycle.
+function Castle.doorIsOpen(t, room)
+	return (t % room.doorPeriod) < room.doorOpen
+end
+
+-- Distance d'un point au segment [a, b].
+local function distToSegment(px, pz, ax, az, bx, bz)
+	local dx, dz = bx - ax, bz - az
+	local l2 = dx * dx + dz * dz
+	local u = l2 > 0 and math.max(0, math.min(1, ((px - ax) * dx + (pz - az) * dz) / l2)) or 0
+	local cx, cz = ax + u * dx, az + u * dz
+	return math.sqrt((px - cx) ^ 2 + (pz - cz) ^ 2)
+end
+Castle.distToSegment = distToSegment
+
+-- Le joueur (px, pz en coordonnées locales de salle) est-il touché par un piège à l'instant t ? Retourne le nom du piège ou nil.
+function Castle.hit(t, room, px, pz, playerRadius)
+	playerRadius = playerRadius or 1.2
+	for _, sp in ipairs(Castle.spikes(room)) do
+		if Castle.spikeState(t, sp, room) == "danger" and math.sqrt((px - sp.lx) ^ 2 + (pz - sp.lz) ^ 2) < sp.radius + playerRadius * 0.5 then
+			return "spikes"
+		end
+	end
+	for _, bl in ipairs(Castle.blades(room)) do
+		local a = Castle.bladeAngle(t, bl, room)
+		local cx, cz = math.cos(a) * bl.arm, math.sin(a) * bl.arm
+		if distToSegment(px, pz, bl.lx - cx, bl.lz - cz, bl.lx + cx, bl.lz + cz) < 1.6 + playerRadius * 0.5 then
+			return "blade"
+		end
+	end
+	for _, ba in ipairs(Castle.balls(room)) do
+		local bx = Castle.ballX(t, ba, room)
+		if bx and math.sqrt((px - bx) ^ 2 + (pz - ba.lz) ^ 2) < ba.radius + playerRadius * 0.5 then
+			return "ball"
+		end
+	end
+	return nil
+end
+
+-- Conversion monde <-> salle : la salle r commence à ORIGIN.z - (r - 1) * ROOM_LENGTH et avance vers -z.
+function Castle.toLocal(wx, wz)
+	local depth = Castle.ORIGIN.z - wz -- profondeur totale depuis l'entrée
+	local r = math.floor(depth / Castle.ROOM_LENGTH) + 1
+	return r, wx - Castle.ORIGIN.x, depth - (r - 1) * Castle.ROOM_LENGTH
+end
+
+function Castle.toWorld(r, lx, lz)
+	return Castle.ORIGIN.x + lx, Castle.ORIGIN.z - ((r - 1) * Castle.ROOM_LENGTH + lz)
+end
+
+-- Joueur dans le château ? (rectangle des salles). Retourne le numéro de salle ou nil.
+function Castle.roomAt(wx, wz)
+	local r, lx, lz = Castle.toLocal(wx, wz)
+	if r >= 1 and r <= Castle.ROOMS and math.abs(lx) <= Castle.ROOM_WIDTH / 2 and lz >= 0 then
+		return r, lx, lz
+	end
+	return nil
+end
+
+-- Classement des temps (secondes, plus petit = meilleur) : insère { name, userId, time }, conserve `max` entrées, un seul meilleur temps par joueur.
+-- Retourne (nouvelle liste, rang du joueur ou nil s'il n'entre pas).
+function Castle.insertScore(list, entry, max)
+	local out, existing = {}, nil
+	for _, e in ipairs(list) do
+		if e.userId == entry.userId then
+			existing = e
+		else
+			out[#out + 1] = e
+		end
+	end
+	if existing and existing.time <= entry.time then
+		local same = {}
+		for i, e in ipairs(list) do
+			same[i] = e
+		end
+		return same, nil -- son meilleur temps existant est conservé
+	end
+	out[#out + 1] = entry
+	table.sort(out, function(a, b)
+		if a.time ~= b.time then
+			return a.time < b.time
+		end
+		return a.userId < b.userId
+	end)
+	local rank = nil
+	for i, e in ipairs(out) do
+		if e == entry then
+			rank = i
+		end
+	end
+	while #out > max do
+		table.remove(out)
+	end
+	if rank and rank > max then
+		rank = nil
+	end
+	return out, rank
+end
+
+-- Durée en « m:ss.d » (arrondie au dixième).
+function Castle.formatTime(seconds)
+	if type(seconds) ~= "number" or seconds ~= seconds or seconds < 0 then
+		return "--:--.-"
+	end
+	local tenths = math.floor(seconds * 10 + 0.5)
+	local m = tenths // 600
+	local rest = (tenths - m * 600) / 10
+	return string.format("%d:%04.1f", m, rest)
+end
+
+-- Récompense du coffre final : œuf rare (Épique, Légendaire si temps rapide), pièces proportionnelles aux revenus.
+-- fastTime : durée de référence « rapide » (s) pour ce nombre de salles.
+function Castle.reward(timeSeconds, income, deaths)
+	local fast = 60 * Castle.ROOMS * 0.6 -- 3 min : bon temps
+	local tier = (timeSeconds <= fast and (deaths or 0) == 0) and 4 or 3
+	local coins = math.floor(math.max(5000, income * 600 * (timeSeconds <= fast and 1.5 or 1)))
+	return { eggTier = tier, coins = coins }
+end
+
+return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX19"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX13"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX20"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX14"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2691,6 +2948,7 @@ local TeleportService = game:GetService("TeleportService")
 local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
+local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -2738,6 +2996,7 @@ end)
 local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
+local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
 local function rnd()
@@ -2811,7 +3070,7 @@ local function rollPet(s, eggTier, guaranteed)
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
-local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell" }
+local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell", "castle", "rare", "secret" }
 
 local function newQuests(s)
 	local inc = math.max(income(s), 1)
@@ -2830,10 +3089,13 @@ local function newQuests(s)
 			goal = rng:NextInteger(3, 6) * 20
 		elseif t == "sell" then
 			goal = rng:NextInteger(2, 4)
+		elseif t == "castle" or t == "rare" or t == "secret" then
+			goal = 1
 		else -- pvp, discover
 			goal = rng:NextInteger(1, 2)
 		end
-		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), claimed = false }
+		local bonus = Config.questBonus(t, #out + 1, s.data.story.ch)
+		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), re = bonus.egg or 0, rb = bonus.boost or 0, claimed = false }
 	end
 	return out
 end
@@ -3294,6 +3556,9 @@ function hatch(s, i)
 	if p.m > 1 then
 		sp(s, "mut", 1)
 	end
+	if def.tier >= 3 then
+		qp(s, "rare", 1)
+	end
 	storyRefresh(s)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
@@ -3437,11 +3702,25 @@ local function claimSecret(s, root, prompt)
 	s.data.secrets[sct.id] = today
 	s.data.coins += reward
 	Builder.burst(holder.Position, Color3.fromRGB(255, 214, 90), 24, true)
+	qp(s, "secret", 1)
 	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "claim")
 	sync(s)
 end
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	if CollectionService:HasTag(prompt, "CastleEntry") then
+		local ss, rr = sessions[player], getRoot(player)
+		if ss and rr and alive(player) and ss.stun <= 0 and (rr.Position - prompt.Parent.Position).Magnitude <= 20 then
+			castleEnter(ss)
+		end
+		return
+	elseif CollectionService:HasTag(prompt, "CastleChest") then
+		local ss, rr = sessions[player], getRoot(player)
+		if ss and rr and alive(player) then
+			castleFinish(ss, rr, prompt)
+		end
+		return
+	end
 	if CollectionService:HasTag(prompt, "SecretPrompt") then
 		local ss, rr = sessions[player], getRoot(player)
 		if ss and rr and alive(player) and ss.stun <= 0 then
@@ -3749,6 +4028,158 @@ local function guardsStep(dt)
 	end
 end
 
+---------------------------------------------------------------- Mode Château : salles à pièges, chrono, coffre final, classement des temps
+local serverMode = "arena" -- « castle » si le premier joueur arrive du hub avec TeleportData.mode == "castle"
+local castleWorld = world.castle
+
+local function castleTeleport(s, room, depth)
+	local root = getRoot(s.player)
+	if root then
+		local wx, wz = Castle.toWorld(room, 0, depth or 3)
+		root.CFrame = CFrame.new(wx, 4, wz)
+		root.AssemblyLinearVelocity = Vector3.zero
+		s.noCheckUntil = os.clock() + 2
+	end
+end
+
+function castleEnter(s)
+	s.castle = { deaths = 0, maxRoom = 1, t0 = nil, finished = false }
+	castleTeleport(s, 1, -4)
+	notify(s.player, "🏰 Le Château : traverse 5 salles à pièges (pics, lames, boulets, portes). Le chrono démarre à la première salle. Coffre final : œuf rare !", "event")
+end
+
+-- Donne un œuf dans un emplacement libre (protégé quelques secondes) ; base pleine : l'équivalent de la moitié du prix en pièces. Retourne true si l'œuf est placé.
+local function giveEgg(s, tier)
+	local d = s.data
+	local i = freeSlot(d)
+	if not i then
+		d.coins += Config.EGG_PRICE[tier] * 0.5
+		return false
+	end
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+	refreshPad(s, i)
+	return true
+end
+
+local function castleDamage(s, kind, room)
+	local dmg = Config.CASTLE.damage[kind] or 20
+	local hp, hit, inv = Guard.applyDamage(s.hp, dmg, s.iframes, GC)
+	if not hit then
+		return
+	end
+	s.iframes, s.sinceHit = inv, 0
+	setHp(s, hp)
+	local label = kind == "spikes" and "des pics" or (kind == "blade" and "une lame" or "un boulet")
+	notify(s.player, "💥 Touché par " .. label .. " : -" .. dmg .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "caught")
+	if hp <= 0 then -- défaite : retour au début de la salle, pv rétablis (jamais de perte d'œuf)
+		s.castle.deaths += 1
+		setHp(s, GC.maxHp)
+		s.iframes = GC.respawnIframes
+		castleTeleport(s, room, 3)
+		notify(s.player, "🏰 Tu retentes la salle " .. room .. " (" .. s.castle.deaths .. " défaite(s)).", "caught")
+	end
+end
+
+local castleBoardTimer = 0
+local function castleBoardRefresh()
+	task.spawn(function()
+		local top = Data.castleTop(Config.CASTLE.boardSize)
+		if castleWorld and castleWorld.board then
+			local lines = { "🏰 Meilleurs temps" }
+			for i, e in ipairs(top) do
+				lines[#lines + 1] = i .. ". " .. e.name .. "  " .. Castle.formatTime(e.time)
+			end
+			if #top == 0 then
+				lines[#lines + 1] = "(aucun pour l'instant)"
+			end
+			castleWorld.board.Text = table.concat(lines, "\n")
+		end
+	end)
+end
+
+local function castleStep(dt)
+	if not castleWorld then
+		return
+	end
+	local T = os.clock()
+	-- animation des pièges (positions répliquées 10 fois par seconde)
+	for r, rec in ipairs(castleWorld.rooms) do
+		local room = Castle.room(r)
+		for i, sp in ipairs(Castle.spikes(room)) do
+			local v = rec.spikes[i]
+			local state = Castle.spikeState(T, sp, room)
+			v.tip.Position = Vector3.new(v.wx, state == "danger" and 0.9 or (state == "warning" and 0.05 or -1), v.wz)
+			v.tip.Color = state == "danger" and Color3.fromRGB(255, 90, 90) or (state == "warning" and Color3.fromRGB(255, 214, 90) or Color3.fromRGB(210, 214, 222))
+		end
+		for i, bl in ipairs(Castle.blades(room)) do
+			local v = rec.blades[i]
+			v.arm.CFrame = CFrame.new(v.wx, 1.4, v.wz) * CFrame.Angles(0, Castle.bladeAngle(T, bl, room), 0)
+		end
+		for i, ba in ipairs(Castle.balls(room)) do
+			local v = rec.balls[i]
+			local bx = Castle.ballX(T, ba, room)
+			v.part.Position = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
+		end
+		local open = Castle.doorIsOpen(T, room)
+		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)
+		rec.door.CanCollide = not open
+	end
+	-- joueurs dans le donjon : chrono, touches
+	for player, s in pairs(sessions) do
+		local root = getRoot(player)
+		if s.castle and root and alive(player) and not s.castle.finished then
+			local r, lx, lz = Castle.roomAt(root.Position.X, root.Position.Z)
+			if r then
+				s.castle.maxRoom = math.max(s.castle.maxRoom, r)
+				if r == 1 and lz > 2 and not s.castle.t0 then
+					s.castle.t0 = T
+					notify(player, "⏱ Chrono lancé !")
+				end
+				local kind = Castle.hit(T, Castle.room(r), lx, lz)
+				if kind then
+					castleDamage(s, kind, r)
+				end
+			end
+		end
+	end
+	castleBoardTimer += dt
+	if castleBoardTimer >= Config.CASTLE.boardSeconds then
+		castleBoardTimer = 0
+		castleBoardRefresh()
+	end
+end
+task.defer(castleBoardRefresh)
+
+function castleFinish(s, root, prompt)
+	local c = s.castle
+	local holder = prompt.Parent
+	if not (c and c.t0 and not c.finished and holder and (root.Position - holder.Position).Magnitude <= 18) then
+		return
+	end
+	if c.maxRoom < Castle.ROOMS then
+		return notify(s.player, "Il faut traverser les " .. Castle.ROOMS .. " salles avant d'ouvrir le coffre.")
+	end
+	c.finished = true
+	local seconds = os.clock() - c.t0
+	local reward = Castle.reward(seconds, income(s), c.deaths)
+	s.data.coins += reward.coins
+	local placed = giveEgg(s, reward.eggTier)
+	qp(s, "castle", 1)
+	Data.castleSubmit(s.player, seconds)
+	notify(s.player, "🏆 Château terminé en " .. Castle.formatTime(seconds) .. " (" .. c.deaths .. " défaite(s)) : +" .. Config.fmt(reward.coins) .. " 🪙 et un œuf " .. Config.TIERS[reward.eggTier].name .. (placed and " dans ta base !" or " (base pleine : converti en pièces)."), "claim")
+	sync(s)
+	task.delay(4, function()
+		if s.player.Parent and sessions[s.player] == s then
+			s.castle = nil
+			local root2 = getRoot(s.player)
+			if root2 and s.plot then
+				root2.CFrame = s.plot.spawn.CFrame + Vector3.new(0, 4, 0)
+			end
+			castleBoardRefresh()
+		end
+	end)
+end
+
 ---------------------------------------------------------------- Événements serveur
 local tint = Instance.new("ColorCorrectionEffect")
 tint.Name = "EventTint"
@@ -3933,9 +4364,15 @@ local function slowTick(dt)
 	end
 end
 
-local acc1, acc2 = 0, 0
+local acc1, acc2, acc3 = 0, 0, 0
 RunService.Heartbeat:Connect(function(dt)
 	guardsStep(dt)
+	acc3 += dt
+	if acc3 >= Config.CASTLE.step then
+		local d3 = acc3
+		acc3 = 0
+		castleStep(d3)
+	end
 	acc2 += dt
 	if acc2 >= 0.25 then
 		local d2 = acc2
@@ -4098,7 +4535,15 @@ function actions.claimQuest(s, i)
 	end
 	q.claimed = true
 	s.data.coins += q.rew
-	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙", "claim")
+	local extra = ""
+	if (q.re or 0) > 0 and Config.TIERS[q.re] then
+		extra = extra .. (giveEgg(s, q.re) and (" + œuf " .. Config.TIERS[q.re].name) or " (base pleine : œuf converti en pièces)")
+	end
+	if (q.rb or 0) > 0 then
+		s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + q.rb
+		extra = extra .. " + boost de chance"
+	end
+	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙" .. extra, "claim")
 	sync(s)
 end
 
@@ -4320,6 +4765,9 @@ local function onJoin(player)
 	if serverPartyId == nil and okJ and type(joinData) == "table" and type(joinData.partyId) == "string" then
 		serverPartyId = joinData.partyId
 	end
+	if okJ and type(joinData) == "table" and joinData.mode == "castle" and next(sessions) == nil then
+		serverMode = "castle" -- le premier joueur détermine le mode du serveur réservé
+	end
 	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
 	local d, noSave = Data.load(player)
 	if not d then
@@ -4403,6 +4851,9 @@ local function onJoin(player)
 			char:WaitForChild("HumanoidRootPart", 10)
 			if player.Parent and sessions[player] == s then
 				rebuildFollowers(s)
+				if serverMode == "castle" and not s.castle then
+					castleEnter(s) -- serveur de mode Château : arrivée directement à l'entrée du donjon
+				end
 			end
 		end)
 		hum.Died:Connect(function()
@@ -4505,7 +4956,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -4518,6 +4969,7 @@ local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
+local CASTLE_NAME = "ChipeOeufs_Castle_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
 local SLOT_COUNT = 12
 local LOCK_TTL = 120 -- un verrou plus vieux que ça est considéré comme abandonné (crash serveur)
@@ -4549,7 +5001,7 @@ local Data = {}
 Data.VERSION = VERSION
 Data.SERVER_ID = HttpService:GenerateGUID(false)
 
-local store, board
+local store, board, castleBoard
 do
 	local ok, result = pcall(function()
 		return DataStoreService:GetDataStore(STORE_NAME)
@@ -4562,6 +5014,12 @@ do
 	end)
 	if ok2 then
 		board = result2
+	end
+	local ok3, result3 = pcall(function()
+		return DataStoreService:GetOrderedDataStore(CASTLE_NAME)
+	end)
+	if ok3 then
+		castleBoard = result3
 	end
 end
 
@@ -4710,7 +5168,7 @@ local function merge(saved)
 	if type(saved.quests) == "table" then
 		for _, q in ipairs(saved.quests) do
 			if type(q) == "table" and type(q.t) == "string" and type(q.goal) == "number" then
-				d.quests[#d.quests + 1] = { t = q.t, goal = q.goal, prog = tonumber(q.prog) or 0, rew = tonumber(q.rew) or 0, claimed = q.claimed == true }
+				d.quests[#d.quests + 1] = { t = q.t, goal = q.goal, prog = tonumber(q.prog) or 0, rew = tonumber(q.rew) or 0, re = math.floor(math.min(#Config.TIERS, math.max(0, tonumber(q.re) or 0))), rb = math.floor(math.min(3600, math.max(0, tonumber(q.rb) or 0))), claimed = q.claimed == true }
 			end
 		end
 	end
@@ -4862,6 +5320,26 @@ function Data.submit(player, d)
 	end
 end
 
+-- Classement des temps du mode Château : valeur = centièmes de seconde, le plus petit est le meilleur ; seul le meilleur temps d'un joueur est gardé.
+function Data.castleSubmit(player, seconds)
+	if not castleBoard or apiBlocked or type(seconds) ~= "number" or seconds ~= seconds or seconds <= 0 then
+		return false
+	end
+	local value = math.max(1, math.floor(seconds * 100 + 0.5))
+	local ok, err = pcall(function()
+		castleBoard:UpdateAsync(tostring(player.UserId), function(old)
+			if type(old) == "number" and old <= value then
+				return nil
+			end
+			return value
+		end)
+	end)
+	if not ok then
+		markApiBlocked(err)
+	end
+	return ok
+end
+
 local nameCache = {}
 local function nameOf(userId)
 	if nameCache[userId] then
@@ -4872,6 +5350,25 @@ local function nameOf(userId)
 	end)
 	nameCache[userId] = ok and n or ("Joueur " .. userId)
 	return nameCache[userId]
+end
+
+-- Meilleurs temps du Château : liste { {name=, time=secondes}, ... } triée (peut être vide).
+function Data.castleTop(count)
+	local out = {}
+	if not castleBoard or apiBlocked then
+		return out
+	end
+	local ok, page = pcall(function()
+		return castleBoard:GetSortedAsync(true, count):GetCurrentPage()
+	end)
+	if not ok then
+		markApiBlocked(page)
+		return out
+	end
+	for _, e in ipairs(page) do
+		out[#out + 1] = { name = nameOf(tonumber(e.key) or 0), time = (tonumber(e.value) or 0) / 100 }
+	end
+	return out
 end
 
 -- Retourne une liste { {name=, rb=, hatched=}, ... } (peut être vide)
@@ -4899,13 +5396,14 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
+local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
 
 local Builder = {}
 
@@ -5751,6 +6249,11 @@ function Builder.build()
 		rivers = function()
 			return Scenery.rivers(sceneryHelpers, world, Config)
 		end,
+		castle = function()
+			local cw, cn = Scenery.castle(sceneryHelpers, world, Castle)
+			result.castle = cw
+			return cn
+		end,
 		landmarks = function()
 			return Scenery.landmarks(sceneryHelpers, world, srng)
 		end,
@@ -5971,7 +6474,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -6115,7 +6618,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -6128,7 +6631,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -6169,6 +6672,112 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	e.LightEmission = 0.8
 	e.Parent = parent
 	return e
+end
+
+---------------------------------------------------------------- Château : 5 salles à pièges, entrée, coffre final, tableau des temps
+-- Construit le donjon décrit par Castle (géométrie pure). Retourne (monde, nombre de Parts) : monde.rooms[r] = { spikes = { {base, spikes} }, blades = {...},
+-- balls = {...}, door }, monde.chest (Part), monde.entry (Part), monde.board (TextLabel). Les pièges sont animés côté serveur (voir Main).
+function Scenery.castle(h, parent, Castle)
+	local world = { rooms = {} }
+	local n = 0
+	local function P(props)
+		n += 1
+		return h.part(props, parent)
+	end
+	local W, L = Castle.ROOM_WIDTH, Castle.ROOM_LENGTH
+	for r = 1, Castle.ROOMS do
+		local room = Castle.room(r)
+		local cx, cz = Castle.toWorld(r, 0, L / 2)
+		local rec = { spikes = {}, blades = {}, balls = {} }
+		world.rooms[r] = rec
+		P({ Name = "CastleFloor" .. r, Size = Vector3.new(W, 1, L), Position = Vector3.new(cx, -0.5, cz), Color = r % 2 == 0 and rgb(122, 118, 132) or rgb(104, 100, 114), Material = Enum.Material.Slate })
+		for _, sx in ipairs({ -1, 1 }) do
+			P({ Name = "CastleWall", Size = Vector3.new(2, 14, L), Position = Vector3.new(cx + sx * (W / 2 + 1), 7, cz), Color = rgb(96, 92, 106), Material = Enum.Material.Slate })
+		end
+		-- liseré de salle (couleur de difficulté : de vert à rouge) et torches
+		local heat = (r - 1) / (Castle.ROOMS - 1)
+		local ex, ez = Castle.toWorld(r, 0, 0.6)
+		P({ Name = "CastleStartLine", Size = Vector3.new(W, 0.15, 1.2), Position = Vector3.new(ex, 0.08, ez), Color = Color3.fromRGB(math.floor(80 + 175 * heat), math.floor(230 - 150 * heat), 90), Material = Enum.Material.Neon, CanCollide = false })
+		for _, sx in ipairs({ -1, 1 }) do
+			local tx, tz = Castle.toWorld(r, sx * (W / 2 - 1), 4)
+			local torch = P({ Name = "CastleTorch", Size = Vector3.new(1, 1, 1), Position = Vector3.new(tx, 6, tz), Color = rgb(255, 150, 60), Material = Enum.Material.Neon, CanCollide = false })
+			light(torch, rgb(255, 170, 90), 22, 1)
+		end
+		-- pics : plaque + pointes (la pointe monte quand le danger approche)
+		for i, sp in ipairs(Castle.spikes(room)) do
+			local wx, wz = Castle.toWorld(r, sp.lx, sp.lz)
+			local base = P({ Name = "SpikePlate", Size = Vector3.new(6.4, 0.3, 6.4), Position = Vector3.new(wx, 0.15, wz), Color = rgb(70, 70, 80), Material = Enum.Material.Metal, CanCollide = false })
+			local tip = P({ Name = "SpikeTips", Size = Vector3.new(5, 1.6, 5), Position = Vector3.new(wx, -1, wz), Color = rgb(210, 214, 222), Material = Enum.Material.Metal, CanCollide = false })
+			rec.spikes[i] = { base = base, tip = tip, wx = wx, wz = wz }
+		end
+		-- lames : un bras traversant (deux demi-bras) autour d'un moyeu
+		for i, bl in ipairs(Castle.blades(room)) do
+			local wx, wz = Castle.toWorld(r, bl.lx, bl.lz)
+			P({ Name = "BladeHub", Size = Vector3.new(2.4, 2.4, 2.4), Position = Vector3.new(wx, 1.4, wz), Color = rgb(60, 60, 70), Material = Enum.Material.Metal, CanCollide = false })
+			local arm = P({ Name = "BladeArm", Size = Vector3.new(bl.arm * 2, 0.5, 1.4), Position = Vector3.new(wx, 1.4, wz), Color = rgb(215, 220, 232), Material = Enum.Material.Metal, CanCollide = false })
+			rec.blades[i] = { arm = arm, wx = wx, wz = wz }
+		end
+		-- boulets : sphère qui traverse la salle (cachée sous le sol pendant la pause)
+		for i, ba in ipairs(Castle.balls(room)) do
+			local wx, wz = Castle.toWorld(r, 0, ba.lz)
+			local ball = h.ball({ Name = "Boulder", Size = Vector3.new(ba.radius * 2, ba.radius * 2, ba.radius * 2), Position = Vector3.new(wx, -10, wz), Color = rgb(122, 127, 140), Material = Enum.Material.Slate }, parent)
+			n += 1
+			rec.balls[i] = { part = ball, wz = wz }
+		end
+		-- porte de fin de salle (s'ouvre par intervalles)
+		local dx, dz = Castle.toWorld(r, 0, L - 1)
+		rec.door = P({ Name = "CastleDoor" .. r, Size = Vector3.new(W, 9, 1.2), Position = Vector3.new(dx, 4.5, dz), Color = rgb(74, 74, 82), Material = Enum.Material.Metal })
+		rec.doorClosedY, rec.doorX, rec.doorZ = 4.5, dx, dz
+	end
+	-- entrée (le joueur peut y entrer depuis l'arène) : arche et invite
+	local ex, ez = Castle.toWorld(1, 0, -6)
+	local entry = P({ Name = "CastleEntry", Size = Vector3.new(14, 1, 8), Position = Vector3.new(ex, 0.5, ez), Color = rgb(255, 110, 60), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.3 })
+	for _, sx in ipairs({ -8, 8 }) do
+		P({ Name = "CastleGatePillar", Size = Vector3.new(3, 16, 3), Position = Vector3.new(ex + sx, 8, ez), Color = rgb(112, 108, 120), Material = Enum.Material.Slate })
+	end
+	P({ Name = "CastleGateTop", Size = Vector3.new(19, 3, 3), Position = Vector3.new(ex, 17, ez), Color = rgb(96, 92, 104), Material = Enum.Material.Slate })
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Entrer"
+	pr.ObjectText = "🏰 Le Château"
+	pr.HoldDuration = 0.8
+	pr.MaxActivationDistance = 14
+	pr.RequiresLineOfSight = false
+	CollectionService:AddTag(pr, "CastleEntry")
+	pr.Parent = entry
+	world.entry = entry
+	-- coffre final au bout de la salle 5
+	local cx2, cz2 = Castle.toWorld(Castle.ROOMS, 0, L - 5)
+	local chest = P({ Name = "CastleChest", Size = Vector3.new(6, 4, 4), Position = Vector3.new(cx2, 2, cz2), Color = rgb(150, 98, 44), Material = Enum.Material.Wood })
+	P({ Name = "CastleChestLid", Size = Vector3.new(6.4, 1.4, 4.4), Position = Vector3.new(cx2, 4.4, cz2), Color = rgb(232, 185, 35), Material = Enum.Material.Metal, CanCollide = false })
+	light(chest, rgb(255, 215, 90), 26, 1.6)
+	local cp = Instance.new("ProximityPrompt")
+	cp.ActionText = "Ouvrir le coffre"
+	cp.ObjectText = "🏆 Trésor du Château"
+	cp.HoldDuration = 1
+	cp.MaxActivationDistance = 12
+	cp.RequiresLineOfSight = false
+	CollectionService:AddTag(cp, "CastleChest")
+	cp.Parent = chest
+	world.chest = chest
+	-- tableau des meilleurs temps, à l'entrée
+	local bx, bz = Castle.toWorld(1, 18, -6)
+	local board = P({ Name = "CastleBoard", Size = Vector3.new(11, 7, 0.7), Position = Vector3.new(bx, 6, bz), Color = rgb(40, 30, 34), Material = Enum.Material.WoodPlanks })
+	local bb = Instance.new("BillboardGui")
+	bb.Adornee = board
+	bb.Size = UDim2.fromOffset(360, 200)
+	bb.MaxDistance = 110
+	bb.LightInfluence = 0
+	bb.Parent = board
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 18
+	label.TextColor3 = rgb(255, 214, 120)
+	label.Text = "🏰 Meilleurs temps\n(aucun pour l'instant)"
+	label.Parent = bb
+	world.board = label
+	return world, n
 end
 
 ---------------------------------------------------------------- Nid de paille sous un œuf (repli procédural de NidOeufs)
@@ -6579,7 +7188,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX27"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX26"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX20"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX28"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX27"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7253,7 +7862,7 @@ function render()
 			local done = q.prog >= q.goal
 			addRow({
 				icon = q.claimed and "✅" or "🎯", title = Config.questText(q.t, q.goal),
-				desc = fmt(math.floor(q.prog)) .. "/" .. fmt(q.goal) .. " · récompense 🪙 " .. fmt(q.rew),
+				desc = fmt(math.floor(q.prog)) .. "/" .. fmt(q.goal) .. " · récompense " .. Config.questRewardText(q),
 				btn = q.claimed and "Fait" or (done and "Réclamer" or "…"),
 				btnColor = (done and not q.claimed) and COL.green or COL.dis,
 				onClick = (done and not q.claimed) and function()
@@ -7838,7 +8447,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX22"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -8395,7 +9004,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX22"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -8851,7 +9460,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -8973,7 +9582,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -9088,7 +9697,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

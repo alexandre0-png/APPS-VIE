@@ -126,10 +126,10 @@ local function rootOf(player)
 end
 
 local function zoneAt(pos)
-	for size, z in pairs(world.zones) do
+	for _, z in pairs(world.zones) do
 		local d = (Vector3.new(pos.X, 0, pos.Z) - z.center).Magnitude
 		if d <= z.radius then
-			return size
+			return z
 		end
 	end
 	return nil
@@ -154,7 +154,7 @@ local function doLaunch(group)
 		members[#members + 1] = p.UserId
 		say(p, "🚀 Départ vers la partie…", "info")
 	end
-	local res = P.launch({ size = group.size, members = members, players = players, hostName = players[1].DisplayName })
+	local res = P.launch({ size = group.size, mode = group.mode, members = members, players = players, hostName = players[1].DisplayName })
 	if not res.ok then
 		for _, p in ipairs(players) do
 			launching[p.UserId] = nil
@@ -169,8 +169,8 @@ local function doLaunch(group)
 	end
 end
 
-local function statusText(size)
-	local st = P.status(size)
+local function statusText(size, mode)
+	local st = P.status(size, mode)
 	if st.mode == "empty" then
 		return "Libre"
 	end
@@ -187,11 +187,12 @@ task.spawn(function()
 		for _, player in ipairs(Players:GetPlayers()) do
 			if not launching[player.UserId] then
 				local root = rootOf(player)
-				local size = root and zoneAt(root.Position) or nil
+				local zone = root and zoneAt(root.Position) or nil
+				local size = zone and P.key(zone.size, zone.mode) or nil
 				local cur = P.where[player.UserId]
 				if size ~= cur then
 					if size then
-						if not P.enter(player.UserId, size) then
+						if not P.enter(player.UserId, zone.size, zone.mode) then
 							say(player, "Cette zone est pleine, choisis-en une autre.", "info")
 						end
 					else
@@ -203,10 +204,10 @@ task.spawn(function()
 		for _, group in ipairs(P.collectLaunches()) do
 			task.spawn(doLaunch, group)
 		end
-		for size, z in pairs(world.zones) do
-			local txt = statusText(size)
-			if lastStatus[size] ~= txt then
-				lastStatus[size] = txt
+		for key, z in pairs(world.zones) do
+			local txt = statusText(z.size, z.mode)
+			if lastStatus[key] ~= txt then
+				lastStatus[key] = txt
 				z.status.Text = txt
 			end
 		end

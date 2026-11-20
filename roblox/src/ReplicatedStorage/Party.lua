@@ -57,7 +57,7 @@ local GONE_MESSAGE = "Cette partie n'existe plus : elle vient de se terminer ou 
 
 function Party.new(Config, deps)
 	local G = Config.Game
-	local P = { queues = {}, where = {} } -- queues[taille] = { members = {userId...}, firstAt, readyAt }
+	local P = { queues = {}, where = {} } -- queues[clé] = { size, mode, members = {userId...}, firstAt, readyAt } ; clé = taille (arène) ou "c<taille>" (château)
 
 	local function log(msg)
 		if deps.log then
@@ -65,27 +65,34 @@ function Party.new(Config, deps)
 		end
 	end
 
+	-- Clé d'une file : la taille seule pour l'arène (compatibilité), « c<taille> » pour le mode Château.
+	function P.key(size, mode)
+		return mode == "castle" and ("c" .. tostring(size)) or size
+	end
+
 	for _, size in ipairs(G.Sizes) do
-		P.queues[size] = { members = {} }
+		P.queues[size] = { size = size, mode = "arena", members = {} }
+		P.queues["c" .. size] = { size = size, mode = "castle", members = {} }
 	end
 
 	---------------------------------------------------------------- zones de lancement (file d'attente)
-	function P.enter(userId, size)
-		local q = P.queues[size]
+	function P.enter(userId, size, mode)
+		local key = P.key(size, mode)
+		local q = P.queues[key]
 		if not q then
 			return false, "taille inconnue"
 		end
 		if P.where[userId] then
-			if P.where[userId] == size then
+			if P.where[userId] == key then
 				return true
 			end
 			P.leave(userId)
 		end
-		if #q.members >= size then
+		if #q.members >= q.size then
 			return false, "zone pleine"
 		end
 		q.members[#q.members + 1] = userId
-		P.where[userId] = size
+		P.where[userId] = key
 		if #q.members == 1 then
 			q.firstAt = deps.clock()
 		end
@@ -94,11 +101,11 @@ function Party.new(Config, deps)
 	end
 
 	function P.leave(userId)
-		local size = P.where[userId]
-		if not size then
+		local key = P.where[userId]
+		if not key then
 			return false
 		end
-		local q = P.queues[size]
+		local q = P.queues[key]
 		for i, id in ipairs(q.members) do
 			if id == userId then
 				table.remove(q.members, i)
@@ -113,12 +120,13 @@ function Party.new(Config, deps)
 		return true
 	end
 
-	-- État affiché d'une zone : { size, count, countdown (secondes ou nil), mode = "empty" | "waiting" | "full" }
-	function P.status(size)
-		local q = P.queues[size]
+	-- État affiché d'une zone : { size, mode = "arena" | "castle", count, countdown (secondes ou nil), state = "empty" | "waiting" | "full" }
+	function P.status(size, mode)
+		local q = P.queues[P.key(size, mode)]
 		local now = deps.clock()
 		local count = #q.members
-		local out = { size = size, count = count, mode = count == 0 and "empty" or (count >= size and "full" or "waiting") }
+		local out = { size = size, count = count, queue = mode == "castle" and "castle" or "arena" }
+		out.mode = count == 0 and "empty" or (count >= size and "full" or "waiting") -- (nom historique : état de la file)
 		if count > 0 then
 			if count >= size then
 				q.readyAt = q.readyAt or (now + (size == 1 and G.SoloCountdown or G.CountdownFull))
@@ -131,13 +139,18 @@ function Party.new(Config, deps)
 		return out
 	end
 
-	-- Groupes prêts à partir : { size, members }. Les membres sont retirés de la file.
+	-- Groupes prêts à partir : { size, mode, members }. Les membres sont retirés de la file.
 	function P.collectLaunches()
 		local out = {}
+		local keys = {}
 		for _, size in ipairs(G.Sizes) do
-			local q = P.queues[size]
+			keys[#keys + 1] = size
+			keys[#keys + 1] = "c" .. size
+		end
+		for _, key in ipairs(keys) do
+			local q = P.queues[key]
 			if #q.members > 0 then
-				local st = P.status(size)
+				local st = P.status(q.size, q.mode)
 				if st.countdown ~= nil and st.countdown <= 0 then
 					local members = table.clone(q.members)
 					for _, id in ipairs(members) do
@@ -145,7 +158,7 @@ function Party.new(Config, deps)
 					end
 					q.members = {}
 					q.firstAt, q.readyAt = nil, nil
-					out[#out + 1] = { size = size, members = members }
+					out[#out + 1] = { size = q.size, mode = q.mode, members = members }
 				end
 			end
 		end
@@ -178,10 +191,11 @@ function Party.new(Config, deps)
 			return { ok = false, reason = "lieu de jeu non configuré", message = "Le lieu de jeu n'est pas configuré. Préviens le créateur." }
 		end
 		local size = math.min(math.max(group.size or #group.members, 1), G.MaxPlayers)
-		local data = { from = "hub", size = size, late = false }
+		local mode = group.mode == "castle" and "castle" or "arena"
+		local data = { from = "hub", size = size, late = false, mode = mode }
 		local lastErr = "aucune méthode de téléportation"
-		for _, mode in ipairs(G.Fallbacks) do
-			if mode == "reserved" then
+		for _, method in ipairs(G.Fallbacks) do
+			if method == "reserved" then
 				local okR, code = pcall(deps.reserve, gamePlace)
 				if okR and code then
 					local partyId = newPartyId()
@@ -189,7 +203,7 @@ function Party.new(Config, deps)
 					local okT, errT = pcall(deps.teleport, group.players, gamePlace, code, data)
 					if okT then
 						local entry = {
-							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = G.MaxPlayers, groupSize = size, count = #group.members,
+							id = partyId, host = group.members[1], hostName = group.hostName or "?", size = G.MaxPlayers, groupSize = size, mode = mode, count = #group.members,
 							members = table.clone(group.members), code = code, createdAt = deps.clock(), open = true, -- toute partie (même solo) reste ouverte aux amis jusqu'au plafond
 						}
 						local okS, errS = pcall(deps.store.update, partyId, function()
@@ -204,7 +218,7 @@ function Party.new(Config, deps)
 				else
 					lastErr = "réservation : " .. tostring(code)
 				end
-			elseif mode == "public" then
+			elseif method == "public" then
 				data.partyId = nil
 				local okT, errT = pcall(deps.teleport, group.players, gamePlace, nil, data)
 				if okT then
@@ -290,7 +304,7 @@ function Party.new(Config, deps)
 		if not reserved then
 			return { ok = false, reason = "full", message = "Cette partie est pleine (" .. G.MaxPlayers .. " joueurs maximum)." }
 		end
-		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true })
+		local okT, errT = pcall(deps.teleport, { player }, G.Places.game, e.code, { from = "hub", partyId = partyId, size = e.size, late = true, mode = e.mode or "arena" })
 		if not okT then
 			P.leaveParty(partyId, userId) -- annule la place prise
 			log("rejoindre : " .. tostring(errT))

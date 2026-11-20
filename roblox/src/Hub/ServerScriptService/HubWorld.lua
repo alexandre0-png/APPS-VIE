@@ -221,8 +221,38 @@ function HubWorld.build(Config)
 		label.Text = size == 1 and "SOLO" or (size .. " JOUEURS")
 		local status = billboard(padPart, "Libre", 7, 300, 60)
 		status.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.5)
-		zones[size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = color, title = label }
+		zones[size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = color, title = label, size = size, mode = "arena" }
 	end
+
+	-- Portails du mode CHÂTEAU : second arc, plus au nord, couleur pierre et feu (clés « c1 » à « c5 »)
+	local castleColor = Color3.fromRGB(255, 110, 60)
+	for i, size in ipairs(sizes) do
+		local a = math.rad(-72 + (i - 1) * 36)
+		local cx, cz = math.sin(a) * 108, -math.cos(a) * 108
+		local rot = CFrame.lookAt(Vector3.new(cx, 0, cz), Vector3.new(0, 0, 0))
+		cylinder({ Name = "CastlePortalRing" .. size, Height = 0.5, Diameter = 21, Position = Vector3.new(cx, 0.45, cz), Color = castleColor, Material = Enum.Material.Neon, CanCollide = false }, world)
+		local padPart = cylinder({ Name = "CastlePortalZone" .. size, Height = 0.6, Diameter = 18, Position = Vector3.new(cx, 0.55, cz), Color = Color3.fromRGB(70, 36, 24), Material = Enum.Material.Slate, CanCollide = false }, world)
+		padPart:SetAttribute("Size", size)
+		padPart:SetAttribute("Mode", "castle")
+		CollectionService:AddTag(padPart, "PortalZone")
+		for _, sx in ipairs({ -10.5, 10.5 }) do -- piliers en pierre sombre, créneaux
+			part({ Name = "CastlePillar", Size = Vector3.new(2.6, 16, 2.6), CFrame = rot * CFrame.new(sx, 8, -2), Color = Color3.fromRGB(112, 108, 120), Material = Enum.Material.Slate }, world)
+			part({ Name = "CastleMerlon", Size = Vector3.new(3.4, 1.4, 3.4), CFrame = rot * CFrame.new(sx, 16.7, -2), Color = Color3.fromRGB(96, 92, 104), Material = Enum.Material.Slate }, world)
+		end
+		local lintel = part({ Name = "CastleLintel", Size = Vector3.new(24, 2.4, 2.4), CFrame = rot * CFrame.new(0, 15.5, -2), Color = castleColor, Material = Enum.Material.Neon }, world)
+		local pl = Instance.new("PointLight")
+		pl.Color = castleColor
+		pl.Range = 30
+		pl.Brightness = 1.6
+		pl.Parent = lintel
+		local label = billboard(lintel, "", 5, 340, 110)
+		label.Text = "🏰 CHÂTEAU · " .. (size == 1 and "SOLO" or (size .. " JOUEURS"))
+		local status = billboard(padPart, "Libre", 7, 300, 60)
+		status.TextColor3 = Color3.fromRGB(255, 190, 150)
+		zones["c" .. size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = castleColor, title = label, size = size, mode = "castle" }
+	end
+	local cb = part({ Name = "CastleBoard", Size = Vector3.new(15, 9, 0.7), CFrame = CFrame.lookAt(Vector3.new(0, 10, 78), Vector3.new(0, 10, 36)), Color = Color3.fromRGB(70, 46, 40), Material = Enum.Material.WoodPlanks }, world)
+	billboard(cb, "🏰 Mode Château\nSalles à pièges : pics, lames, boulets, portes.\nCoffre final : œuf rare. Classement des temps.", 0, 420, 130)
 
 	-- Panneaux d'explication : planches lisibles (SurfaceGui) tournées vers le point d'arrivée
 	local function board(name, pos, title, lines, color)

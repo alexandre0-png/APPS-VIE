@@ -5,6 +5,7 @@ local Lighting = game:GetService("Lighting")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
+local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
 
 local Builder = {}
 
@@ -849,6 +850,11 @@ function Builder.build()
 		end,
 		rivers = function()
 			return Scenery.rivers(sceneryHelpers, world, Config)
+		end,
+		castle = function()
+			local cw, cn = Scenery.castle(sceneryHelpers, world, Castle)
+			result.castle = cw
+			return cn
 		end,
 		landmarks = function()
 			return Scenery.landmarks(sceneryHelpers, world, srng)

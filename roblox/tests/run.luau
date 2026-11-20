@@ -1324,6 +1324,32 @@ do
 		check("partie expirée (TTL) : plus proposée, plus rejoignable", #e.P.visibleFor(14, friends) == 0 and e.P.join(r.partyId, { UserId = 15 }, 15, friends).reason == "gone")
 	end
 
+	do -- mode Château : files séparées de l'arène, mode transmis au serveur de jeu et conservé pour les amis
+		local e = env()
+		check("Château : file d'attente distincte de l'arène (même taille, deux files)", e.P.enter(1, 2, "castle") == true and e.P.status(2, "castle").count == 1 and e.P.status(2).count == 0 and e.P.status(2, "castle").queue == "castle")
+		e.P.enter(2, 2, "castle")
+		e.P.status(2, "castle") -- démarre le compte à rebours du groupe complet
+		e.now = e.now + G.CountdownFull + 0.1
+		local launches = e.P.collectLaunches()
+		check("Château : groupe complet -> lancement avec mode « castle »", #launches == 1 and launches[1].mode == "castle" and #launches[1].members == 2)
+		local r = e.P.launch({ size = 2, mode = "castle", members = { 1, 2 }, players = { { UserId = 1 }, { UserId = 2 } }, hostName = "Ana" })
+		check("Château : les données de téléportation portent mode = castle ; l'arène reste « arena » par défaut", r.ok and e.calls[1].data.mode == "castle" and e.entries[r.partyId].mode == "castle")
+		local j = e.P.join(r.partyId, { UserId = 3 }, 3, { [1] = true })
+		check("Château : un ami qui rejoint reçoit le même mode (castle) et le même serveur réservé", j.ok and e.calls[#e.calls].data.mode == "castle" and e.calls[#e.calls].code == e.calls[1].code)
+		local e2 = env()
+		e2.P.enter(5, 1)
+		e2.P.status(1)
+		e2.now = e2.now + G.SoloCountdown + 0.1
+		local arena = e2.P.collectLaunches()
+		local ra = e2.P.launch({ size = 1, members = { 5 }, players = { { UserId = 5 } }, hostName = "Solo" })
+		check("Arène : mode « arena » par défaut dans le lancement et les données", arena[1].mode == "arena" and e2.calls[1].data.mode == "arena")
+		local e3 = env()
+		e3.P.enter(9, 3, "castle")
+		e3.P.enter(9, 3)
+		check("Château : changer de file quitte l'ancienne (une seule file à la fois)", e3.P.status(3, "castle").count == 0 and e3.P.status(3).count == 1)
+		check("Château : taille inconnue refusée", e3.P.enter(9, 7, "castle") == false)
+	end
+
 	do -- partie lancée SEULE : les amis du créateur peuvent la rejoindre, jamais un inconnu ; elle disparaît quand tout le monde est parti
 		local e = env()
 		local r = e.P.launch({ size = 1, members = { 500 }, players = { { UserId = 500 } }, hostName = "Solo" })
@@ -1631,6 +1657,11 @@ do
 	local okM, nM = pcall(Scenery.moat, helpers, 0, 0, {}, Config)
 	check("Scenery.moat : douve (28 segments) et pont en bois, compte exact", okM and nM == made and nM >= 40)
 	made = 0
+	local CastleMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
+	local okC, cworld, nC = pcall(Scenery.castle, helpers, {}, CastleMod)
+	check("Scenery.castle : donjon (5 salles, pièges, entrée, coffre, tableau) sans erreur, compte exact, sous 400 Parts" .. (okC and "" or " : " .. tostring(cworld)), okC and nC == made and nC <= 400 and #cworld.rooms == 5 and cworld.chest ~= nil and cworld.entry ~= nil and cworld.board ~= nil)
+	check("Scenery.castle : chaque salle expose ses pièges (pics, lames, boulets) et sa porte selon la difficulté", okC and #cworld.rooms[1].spikes == CastleMod.room(1).spikes and #cworld.rooms[5].blades == 2 and #cworld.rooms[5].balls == 3 and cworld.rooms[3].door ~= nil)
+	made = 0
 	local okR, nR = pcall(Scenery.rivers, helpers, {}, Config)
 	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 30)
 	-- géométrie : la douve ne passe sous aucune base de joueur
@@ -1715,10 +1746,10 @@ do
 			zoneCount = zoneCount + 1
 			check("HubWorld : zone " .. size .. " complète (pastille, statut, centre, rayon)", z.part ~= nil and z.status ~= nil and z.center ~= nil and z.radius > 0)
 		end
-		check("HubWorld : une zone par taille de partie (1 à 5)", zoneCount == #Config.Game.Sizes and world.zones[1] ~= nil and world.zones[5] ~= nil)
+		check("HubWorld : une zone par taille de partie (1 à 5) pour l'arène ET pour le Château", zoneCount == 2 * #Config.Game.Sizes and world.zones[1] ~= nil and world.zones[5] ~= nil and world.zones.c1 ~= nil and world.zones.c5 ~= nil and world.zones.c3.mode == "castle" and world.zones[3].mode == "arena" and world.zones.c3.size == 3)
 		check("HubWorld : point d'arrivée présent", world.spawn ~= nil)
 		local parts = f.counts.Part or 0
-		check("HubWorld : décor riche mais léger (" .. parts .. " Parts, entre 200 et 600)", parts >= 200 and parts <= 600)
+		check("HubWorld : décor riche mais léger (" .. parts .. " Parts, entre 200 et 800)", parts >= 200 and parts <= 800)
 		check("HubWorld : 4 murs et un plafond invisibles", (function()
 			local walls, ceiling = 0, 0
 			for _, o in ipairs(f.created) do
@@ -1742,7 +1773,7 @@ do
 			end
 			return boards == 3
 		end)())
-		check("HubWorld : les zones portent le tag PortalZone", f.tags.PortalZone == #Config.Game.Sizes)
+		check("HubWorld : les zones portent le tag PortalZone", f.tags.PortalZone == 2 * #Config.Game.Sizes)
 	end
 end
 
@@ -2373,6 +2404,178 @@ do
 	check("Régénération : rapide dans la base (" .. C.baseRegen .. " pv/s), plafonnée à " .. C.maxHp, Guard.regen(50, 0, 1, true, C) == 50 + C.baseRegen and Guard.regen(99, 100, 10, true, C) == C.maxHp and Guard.regen(0, 100, 1, true, C) == 0)
 end
 
+-- Château : pièges, difficulté, classement, récompense -----------------------------------------------------------------------
+do
+	suite("Mode Château : salles, pièges (pics, lames, boulets, porte), difficulté croissante, classement, récompense")
+	local Castle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
+	check("Château : 5 salles, longueur et largeur fixes, entrée dans la carte", Castle.ROOMS == 5 and Castle.ROOM_LENGTH == 56 and Castle.ROOM_WIDTH == 40 and math.abs(Castle.ORIGIN.x) + 30 < Config.Map.groundSize / 2 and math.abs(Castle.ORIGIN.z - (Castle.ROOMS - 1) * Castle.ROOM_LENGTH * 0) > 0 and math.abs(Castle.ORIGIN.z - Castle.ROOMS * Castle.ROOM_LENGTH) < Config.Map.groundSize / 2 - 20)
+	-- difficulté croissante
+	local mono = true
+	for r = 2, Castle.ROOMS do
+		local a, b = Castle.room(r - 1), Castle.room(r)
+		if b.spikes < a.spikes or b.blades < a.blades or b.balls < a.balls or b.period > a.period or b.bladeSpeed < a.bladeSpeed or b.ballTravel > a.ballTravel or b.doorOpen > a.doorOpen then
+			mono = false
+		end
+	end
+	check("Difficulté : pièges plus nombreux et plus rapides de salle en salle (monotone)", mono and Castle.room(1).blades == 0 and Castle.room(1).balls == 0 and Castle.room(5).blades == 2 and Castle.room(5).balls == 3)
+	check("Difficulté : salle hors plage ramenée à 1..5 sans erreur", Castle.room(0).index == 1 and Castle.room(99).index == Castle.ROOMS)
+	-- pics
+	local room2 = Castle.room(2)
+	local sp = Castle.spikes(room2)[1]
+	local seen = { safe = 0, warning = 0, danger = 0 }
+	for t = 0, room2.period * 3, 0.05 do
+		local st = Castle.spikeState(t, sp, room2)
+		seen[st] = seen[st] + 1
+	end
+	check("Pics : chaque cycle passe par sûr, avertissement puis danger (le joueur est prévenu avant les pics)", seen.safe > 0 and seen.warning > 0 and seen.danger > 0 and seen.danger < seen.safe + seen.warning)
+	local order, lastSt = {}, nil
+	for t = 0, room2.period, 0.02 do
+		local st = Castle.spikeState(t - (sp.offset % room2.period), { offset = 0 }, room2)
+		if st ~= lastSt then
+			order[#order + 1] = st
+			lastSt = st
+		end
+	end
+	check("Pics : l'avertissement précède toujours le danger (safe -> warning -> danger)", table.concat(order, ">"):find("warning>danger", 1, true) ~= nil)
+	-- couloirs sûrs entre les plaques : un joueur placé entre deux colonnes n'est jamais touché par les pics
+	local corridorSafe = true
+	for r = 1, Castle.ROOMS do
+		local rm = Castle.room(r)
+		for t = 0, rm.period * 2, 0.05 do
+			if Castle.hit(t, rm, -10, 12) == "spikes" or Castle.hit(t, rm, 0, 12) == "spikes" or Castle.hit(t, rm, 10, 12) == "spikes" then
+				corridorSafe = false
+			end
+		end
+	end
+	check("Pics : les couloirs entre les colonnes (x = -10, 0, 10) sont sûrs dans toutes les salles", corridorSafe)
+	local spikeHit = false
+	local rm4 = Castle.room(4)
+	local plate = Castle.spikes(rm4)[1]
+	for t = 0, rm4.period, 0.02 do
+		if Castle.hit(t - 0, rm4, plate.lx, plate.lz) == "spikes" then
+			spikeHit = true
+		end
+	end
+	check("Pics : debout sur une plaque, le joueur est touché pendant la phase de danger", spikeHit)
+	-- lames
+	local rm3 = Castle.room(4)
+	local bl = Castle.blades(rm3)[1]
+	local hitBlade, safeBlade = false, false
+	for t = 0, 8, 0.02 do
+		local a = Castle.bladeAngle(t, bl, rm3)
+		local tipX, tipZ = bl.lx + math.cos(a) * bl.arm * 0.8, bl.lz + math.sin(a) * bl.arm * 0.8
+		if Castle.hit(t, rm3, tipX, tipZ) == "blade" then
+			hitBlade = true
+		end
+	end
+	check("Lames : un joueur placé sur le bras tournant est touché", hitBlade)
+	check("Lames : loin du centre (coin de la salle) aucune touche", (function()
+		for t = 0, 12, 0.1 do
+			if Castle.hit(t, rm3, -19, 2) == "blade" or Castle.hit(t, rm3, 19, 2) == "blade" then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Lames : angle croissant avec le temps et la vitesse de la salle", Castle.bladeAngle(1, bl, rm3) < Castle.bladeAngle(2, bl, rm3) and Castle.room(5).bladeSpeed > Castle.room(2).bladeSpeed)
+	-- boulets
+	local rm5 = Castle.room(5)
+	local ba = Castle.balls(rm5)[1]
+	local ballSeen, paused = false, false
+	for t = 0, 12, 0.05 do
+		local x = Castle.ballX(t, ba, rm5)
+		if x then
+			ballSeen = ballSeen or (x >= -22 and x <= 22)
+			if Castle.hit(t, rm5, x, ba.lz) == "ball" then
+				ballSeen = ballSeen and true
+			end
+		else
+			paused = true
+		end
+	end
+	check("Boulets : traversent la salle de -22 à +22 puis font une pause", ballSeen and paused)
+	local ballHit = false
+	for t = 0, 8, 0.05 do
+		local x = Castle.ballX(t, ba, rm5)
+		if x and Castle.hit(t, rm5, x, ba.lz) == "ball" then
+			ballHit = true
+		end
+	end
+	check("Boulets : un joueur sur la trajectoire est touché", ballHit)
+	-- porte
+	local openTime, total = 0, 0
+	for t = 0, 60, 0.05 do
+		total = total + 1
+		if Castle.doorIsOpen(t, rm3) then
+			openTime = openTime + 1
+		end
+	end
+	check("Porte : ouverte une fraction du cycle (entre 20 % et 70 %), se ferme ensuite", openTime / total > 0.2 and openTime / total < 0.7 and Castle.doorIsOpen(0, rm3) and not Castle.doorIsOpen(rm3.doorPeriod - 0.1, rm3))
+	-- repères monde <-> salle
+	local wx, wz = Castle.toWorld(3, 5, 12)
+	local r, lx, lz = Castle.toLocal(wx, wz)
+	check("Repères : conversion monde <-> salle aller-retour exacte (salle 3, x 5, z 12)", r == 3 and math.abs(lx - 5) < 1e-9 and math.abs(lz - 12) < 1e-9)
+	check("Repères : roomAt reconnaît l'intérieur et refuse l'extérieur", Castle.roomAt(Castle.ORIGIN.x, Castle.ORIGIN.z - 5) == 1 and Castle.roomAt(Castle.ORIGIN.x + 30, Castle.ORIGIN.z - 5) == nil and Castle.roomAt(Castle.ORIGIN.x, Castle.ORIGIN.z + 10) == nil and Castle.roomAt(Castle.ORIGIN.x, Castle.ORIGIN.z - Castle.ROOMS * Castle.ROOM_LENGTH - 5) == nil)
+	check("Repères : le donjon entier tient dans la carte", (function()
+		local x0, z0 = Castle.toWorld(1, -Castle.ROOM_WIDTH / 2, 0)
+		local x1, z1 = Castle.toWorld(Castle.ROOMS, Castle.ROOM_WIDTH / 2, Castle.ROOM_LENGTH)
+		local half = Config.Map.groundSize / 2 - 10
+		return math.abs(x0) < half and math.abs(x1) < half and math.abs(z0) < half and math.abs(z1) < half
+	end)())
+	check("Repères : le donjon ne recouvre ni les domaines ni les secrets ni les rivières", (function()
+		for _, sct in ipairs(Config.SECRETS) do
+			if Castle.roomAt(sct.x, sct.z) then
+				return false
+			end
+		end
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			if Castle.roomAt(cx, cz) then
+				return false
+			end
+		end
+		return true
+	end)())
+	-- classement
+	local list = {}
+	local rank
+	list, rank = Castle.insertScore(list, { name = "A", userId = 1, time = 200 }, 5)
+	list, rank = Castle.insertScore(list, { name = "B", userId = 2, time = 150 }, 5)
+	check("Classement : tri croissant, rang renvoyé", list[1].name == "B" and list[2].name == "A" and rank == 1)
+	local list2, rank2 = Castle.insertScore(list, { name = "A", userId = 1, time = 260 }, 5)
+	check("Classement : un temps moins bon ne remplace pas le meilleur du même joueur", #list2 == 2 and list2[2].time == 200 and rank2 == nil)
+	local list3, rank3 = Castle.insertScore(list, { name = "A", userId = 1, time = 100 }, 5)
+	check("Classement : un meilleur temps remplace l'ancien (pas de doublon) et passe premier", #list3 == 2 and list3[1].userId == 1 and list3[1].time == 100 and rank3 == 1)
+	local big = {}
+	for i = 1, 5 do
+		big, _ = Castle.insertScore(big, { name = "J" .. i, userId = 10 + i, time = 100 + i * 10 }, 5)
+	end
+	local big2, rank4 = Castle.insertScore(big, { name = "Lent", userId = 99, time = 999 }, 5)
+	check("Classement : limité à 5 entrées, un temps trop lent n'entre pas", #big2 == 5 and rank4 == nil)
+	local big3, rank5 = Castle.insertScore(big, { name = "Rapide", userId = 98, time = 5 }, 5)
+	check("Classement : un temps rapide entre premier et pousse le dernier dehors", #big3 == 5 and big3[1].name == "Rapide" and rank5 == 1 and big3[5].name ~= "J5")
+	check("Classement : égalité de temps départagée par l'identifiant (ordre stable)", (function()
+		local l = Castle.insertScore({}, { name = "X", userId = 7, time = 50 }, 5)
+		l = Castle.insertScore(l, { name = "Y", userId = 3, time = 50 }, 5)
+		return l[1].userId == 3 and l[2].userId == 7
+	end)())
+	-- récompense
+	local fastR, slowR, deathR = Castle.reward(120, 100, 0), Castle.reward(400, 100, 0), Castle.reward(120, 100, 2)
+	check("Récompense : œuf Légendaire si rapide et sans défaite, sinon Épique ; pièces plus élevées si rapide", fastR.eggTier == 4 and slowR.eggTier == 3 and deathR.eggTier == 3 and fastR.coins > slowR.coins and slowR.coins >= 5000)
+end
+
+-- Missions : bonus de récompense, texte ; temps du Château ----------------------------------------------------------------
+do
+	suite("Missions : œufs et boosts en récompense, textes, temps du Château")
+	local Castle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
+	check("Missions : la 2e mission du jour donne un œuf dont la rareté monte avec l'histoire", Config.questBonus("steal", 2, 0).egg == 1 and Config.questBonus("steal", 2, 4).egg == 2 and Config.questBonus("steal", 2, 8).egg == 3)
+	check("Missions : la 3e mission donne un boost de chance de 10 minutes, la 1re seulement des pièces", Config.questBonus("hatch", 3, 0).boost == 600 and next(Config.questBonus("hatch", 1, 0)) == nil)
+	check("Missions de défi : Château = œuf Épique (Légendaire en fin d'histoire), rare = boost, secret = œuf Rare", Config.questBonus("castle", 1, 0).egg == 3 and Config.questBonus("castle", 1, 8).egg == 4 and Config.questBonus("rare", 1, 0).boost == 900 and Config.questBonus("secret", 1, 0).egg == 2)
+	check("Missions : texte de récompense (pièces, œuf, boost) et textes des nouvelles missions", Config.questRewardText({ rew = 1500, re = 2, rb = 600 }):find("Rare", 1, true) ~= nil and Config.questRewardText({ rew = 1500, re = 2, rb = 600 }):find("10 min", 1, true) ~= nil and Config.questRewardText({ rew = 5 }):find("🥚", 1, true) == nil and Config.questText("castle", 1):find("Château", 1, true) ~= nil and Config.questText("rare", 1):find("Épique", 1, true) ~= nil and Config.questText("secret", 2):find("secret", 1, true) ~= nil)
+	check("Missions : récompense invalide sans erreur", Config.questRewardText({ rew = 10, re = 99, rb = -5 }) == "🪙 10")
+	check("Temps : formatTime « m:ss.d »", Castle.formatTime(125.34) == "2:05.3" and Castle.formatTime(59.96) == "1:00.0" and Castle.formatTime(0) == "0:00.0" and Castle.formatTime(-1) == "--:--.-" and Castle.formatTime(0 / 0) == "--:--.-" and Castle.formatTime(nil) == "--:--.-")
+end
+
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
 	suite("Sons : aucun identifiant inventé")
@@ -2704,6 +2907,75 @@ do
 	end
 	check("Gardien : après plusieurs coups, défaite -> retour à la base, pv rétablis, message clair" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), defeated and sawDefeat and #RT.errors == 0)
 	RT.removePlayer(p6)
+	RT.step(1)
+	-- mode Château : entrée par le prompt, chrono, pièges non mortels, coffre final (récompense + classement)
+	local Castle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
+	local p7 = RT.addPlayer("Gil", 2007, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
+	RT.step(2)
+	local root7 = p7.Character:FindFirstChild("HumanoidRootPart")
+	local function tagged(tag)
+		for obj in pairs(RT.tags[tag] or {}) do
+			return obj
+		end
+		return nil
+	end
+	local function notified(player, fragment, from)
+		for i = from or 1, #RT.fired do
+			local f = RT.fired[i]
+			if f[1] == "Notify" and f[2] == player and type(f[3]) == "string" and f[3]:find(fragment, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+	local entryPrompt, chestPrompt = tagged("CastleEntry"), tagged("CastleChest")
+	check("Château : le donjon est construit (prompt d'entrée et coffre final)", entryPrompt ~= nil and chestPrompt ~= nil)
+	if entryPrompt and chestPrompt then
+		local ep = entryPrompt.Parent.Position
+		rawget(root7, "__props").Position = RT.vec(ep.X, 3, ep.Z)
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", entryPrompt, p7)
+		RT.step(0.5)
+		check("Château : l'entrée téléporte dans le donjon avec les consignes", notified(p7, "Le Château"))
+		local ox, oz = Castle.toWorld(1, 0, 6)
+		rawget(root7, "__props").Position = RT.vec(ox, 3, oz)
+		RT.step(0.5)
+		check("Château : le chrono démarre en entrant dans la première salle", notified(p7, "Chrono lancé"))
+		-- pics : on reste sur une plaque de la salle 4 jusqu'à la touche ; un coup n'est jamais mortel
+		local room4 = Castle.room(4)
+		local plate = Castle.spikes(room4)[1]
+		local px, pz = Castle.toWorld(4, plate.lx, plate.lz)
+		rawget(root7, "__props").Position = RT.vec(px, 3, pz)
+		local firstHp = nil
+		for _ = 1, 80 do
+			RT.step(0.1)
+			local hp = p7:GetAttribute("Hp")
+			if hp < Config.GUARD.maxHp then
+				firstHp = hp
+				break
+			end
+		end
+		check("Château : un piège à pics retire " .. Config.CASTLE.damage.spikes .. " pv seulement (jamais mortel) et prévient (" .. tostring(firstHp) .. ")", firstHp == Config.GUARD.maxHp - Config.CASTLE.damage.spikes and notified(p7, "Touché par des pics"))
+		-- traverser les salles à l'abri (coin sûr) puis ouvrir le coffre
+		for r = 2, Castle.ROOMS do
+			local sx, sz = Castle.toWorld(r, -19, 2)
+			rawget(root7, "__props").Position = RT.vec(sx, 3, sz)
+			RT.step(0.3)
+		end
+		local chestPos = chestPrompt.Parent.Position
+		rawget(root7, "__props").Position = RT.vec(chestPos.X, 3, chestPos.Z)
+		local coinsBeforeChest = p7:GetAttribute("Coins")
+		local firedBefore = #RT.fired
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", chestPrompt, p7)
+		RT.step(1.2)
+		check("Château : le coffre final donne pièces et œuf rare et affiche le temps" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), notified(p7, "Château terminé", firedBefore) and p7:GetAttribute("Coins") > coinsBeforeChest and #RT.errors == 0)
+		local ranking = RT.dataStores["ChipeOeufs_Castle_v1"]
+		check("Château : le temps est enregistré au classement (meilleur temps conservé)", ranking ~= nil and type(ranking.data["2007"]) == "number" and ranking.data["2007"] > 0)
+		local firedAgain = #RT.fired
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", chestPrompt, p7)
+		RT.step(0.5)
+		check("Château : le coffre ne peut être ouvert qu'une fois par course", not notified(p7, "Château terminé", firedAgain + 1))
+	end
+	RT.removePlayer(p7)
 	RT.step(1)
 	-- DataStore en panne : le jeu ne plante pas et la sauvegarde échoue proprement
 	RT.dataStoreFail = "503: DataStore indisponible"

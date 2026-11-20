@@ -41,6 +41,112 @@ local function emitter(parent, color, rate, speed, life, size, accel)
 	return e
 end
 
+---------------------------------------------------------------- Château : 5 salles à pièges, entrée, coffre final, tableau des temps
+-- Construit le donjon décrit par Castle (géométrie pure). Retourne (monde, nombre de Parts) : monde.rooms[r] = { spikes = { {base, spikes} }, blades = {...},
+-- balls = {...}, door }, monde.chest (Part), monde.entry (Part), monde.board (TextLabel). Les pièges sont animés côté serveur (voir Main).
+function Scenery.castle(h, parent, Castle)
+	local world = { rooms = {} }
+	local n = 0
+	local function P(props)
+		n += 1
+		return h.part(props, parent)
+	end
+	local W, L = Castle.ROOM_WIDTH, Castle.ROOM_LENGTH
+	for r = 1, Castle.ROOMS do
+		local room = Castle.room(r)
+		local cx, cz = Castle.toWorld(r, 0, L / 2)
+		local rec = { spikes = {}, blades = {}, balls = {} }
+		world.rooms[r] = rec
+		P({ Name = "CastleFloor" .. r, Size = Vector3.new(W, 1, L), Position = Vector3.new(cx, -0.5, cz), Color = r % 2 == 0 and rgb(122, 118, 132) or rgb(104, 100, 114), Material = Enum.Material.Slate })
+		for _, sx in ipairs({ -1, 1 }) do
+			P({ Name = "CastleWall", Size = Vector3.new(2, 14, L), Position = Vector3.new(cx + sx * (W / 2 + 1), 7, cz), Color = rgb(96, 92, 106), Material = Enum.Material.Slate })
+		end
+		-- liseré de salle (couleur de difficulté : de vert à rouge) et torches
+		local heat = (r - 1) / (Castle.ROOMS - 1)
+		local ex, ez = Castle.toWorld(r, 0, 0.6)
+		P({ Name = "CastleStartLine", Size = Vector3.new(W, 0.15, 1.2), Position = Vector3.new(ex, 0.08, ez), Color = Color3.fromRGB(math.floor(80 + 175 * heat), math.floor(230 - 150 * heat), 90), Material = Enum.Material.Neon, CanCollide = false })
+		for _, sx in ipairs({ -1, 1 }) do
+			local tx, tz = Castle.toWorld(r, sx * (W / 2 - 1), 4)
+			local torch = P({ Name = "CastleTorch", Size = Vector3.new(1, 1, 1), Position = Vector3.new(tx, 6, tz), Color = rgb(255, 150, 60), Material = Enum.Material.Neon, CanCollide = false })
+			light(torch, rgb(255, 170, 90), 22, 1)
+		end
+		-- pics : plaque + pointes (la pointe monte quand le danger approche)
+		for i, sp in ipairs(Castle.spikes(room)) do
+			local wx, wz = Castle.toWorld(r, sp.lx, sp.lz)
+			local base = P({ Name = "SpikePlate", Size = Vector3.new(6.4, 0.3, 6.4), Position = Vector3.new(wx, 0.15, wz), Color = rgb(70, 70, 80), Material = Enum.Material.Metal, CanCollide = false })
+			local tip = P({ Name = "SpikeTips", Size = Vector3.new(5, 1.6, 5), Position = Vector3.new(wx, -1, wz), Color = rgb(210, 214, 222), Material = Enum.Material.Metal, CanCollide = false })
+			rec.spikes[i] = { base = base, tip = tip, wx = wx, wz = wz }
+		end
+		-- lames : un bras traversant (deux demi-bras) autour d'un moyeu
+		for i, bl in ipairs(Castle.blades(room)) do
+			local wx, wz = Castle.toWorld(r, bl.lx, bl.lz)
+			P({ Name = "BladeHub", Size = Vector3.new(2.4, 2.4, 2.4), Position = Vector3.new(wx, 1.4, wz), Color = rgb(60, 60, 70), Material = Enum.Material.Metal, CanCollide = false })
+			local arm = P({ Name = "BladeArm", Size = Vector3.new(bl.arm * 2, 0.5, 1.4), Position = Vector3.new(wx, 1.4, wz), Color = rgb(215, 220, 232), Material = Enum.Material.Metal, CanCollide = false })
+			rec.blades[i] = { arm = arm, wx = wx, wz = wz }
+		end
+		-- boulets : sphère qui traverse la salle (cachée sous le sol pendant la pause)
+		for i, ba in ipairs(Castle.balls(room)) do
+			local wx, wz = Castle.toWorld(r, 0, ba.lz)
+			local ball = h.ball({ Name = "Boulder", Size = Vector3.new(ba.radius * 2, ba.radius * 2, ba.radius * 2), Position = Vector3.new(wx, -10, wz), Color = rgb(122, 127, 140), Material = Enum.Material.Slate }, parent)
+			n += 1
+			rec.balls[i] = { part = ball, wz = wz }
+		end
+		-- porte de fin de salle (s'ouvre par intervalles)
+		local dx, dz = Castle.toWorld(r, 0, L - 1)
+		rec.door = P({ Name = "CastleDoor" .. r, Size = Vector3.new(W, 9, 1.2), Position = Vector3.new(dx, 4.5, dz), Color = rgb(74, 74, 82), Material = Enum.Material.Metal })
+		rec.doorClosedY, rec.doorX, rec.doorZ = 4.5, dx, dz
+	end
+	-- entrée (le joueur peut y entrer depuis l'arène) : arche et invite
+	local ex, ez = Castle.toWorld(1, 0, -6)
+	local entry = P({ Name = "CastleEntry", Size = Vector3.new(14, 1, 8), Position = Vector3.new(ex, 0.5, ez), Color = rgb(255, 110, 60), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.3 })
+	for _, sx in ipairs({ -8, 8 }) do
+		P({ Name = "CastleGatePillar", Size = Vector3.new(3, 16, 3), Position = Vector3.new(ex + sx, 8, ez), Color = rgb(112, 108, 120), Material = Enum.Material.Slate })
+	end
+	P({ Name = "CastleGateTop", Size = Vector3.new(19, 3, 3), Position = Vector3.new(ex, 17, ez), Color = rgb(96, 92, 104), Material = Enum.Material.Slate })
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Entrer"
+	pr.ObjectText = "🏰 Le Château"
+	pr.HoldDuration = 0.8
+	pr.MaxActivationDistance = 14
+	pr.RequiresLineOfSight = false
+	CollectionService:AddTag(pr, "CastleEntry")
+	pr.Parent = entry
+	world.entry = entry
+	-- coffre final au bout de la salle 5
+	local cx2, cz2 = Castle.toWorld(Castle.ROOMS, 0, L - 5)
+	local chest = P({ Name = "CastleChest", Size = Vector3.new(6, 4, 4), Position = Vector3.new(cx2, 2, cz2), Color = rgb(150, 98, 44), Material = Enum.Material.Wood })
+	P({ Name = "CastleChestLid", Size = Vector3.new(6.4, 1.4, 4.4), Position = Vector3.new(cx2, 4.4, cz2), Color = rgb(232, 185, 35), Material = Enum.Material.Metal, CanCollide = false })
+	light(chest, rgb(255, 215, 90), 26, 1.6)
+	local cp = Instance.new("ProximityPrompt")
+	cp.ActionText = "Ouvrir le coffre"
+	cp.ObjectText = "🏆 Trésor du Château"
+	cp.HoldDuration = 1
+	cp.MaxActivationDistance = 12
+	cp.RequiresLineOfSight = false
+	CollectionService:AddTag(cp, "CastleChest")
+	cp.Parent = chest
+	world.chest = chest
+	-- tableau des meilleurs temps, à l'entrée
+	local bx, bz = Castle.toWorld(1, 18, -6)
+	local board = P({ Name = "CastleBoard", Size = Vector3.new(11, 7, 0.7), Position = Vector3.new(bx, 6, bz), Color = rgb(40, 30, 34), Material = Enum.Material.WoodPlanks })
+	local bb = Instance.new("BillboardGui")
+	bb.Adornee = board
+	bb.Size = UDim2.fromOffset(360, 200)
+	bb.MaxDistance = 110
+	bb.LightInfluence = 0
+	bb.Parent = board
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 18
+	label.TextColor3 = rgb(255, 214, 120)
+	label.Text = "🏰 Meilleurs temps\n(aucun pour l'instant)"
+	label.Parent = bb
+	world.board = label
+	return world, n
+end
+
 ---------------------------------------------------------------- Nid de paille sous un œuf (repli procédural de NidOeufs)
 function Scenery.nest(h, position, parent)
 	local n = 0

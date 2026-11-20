@@ -11,6 +11,7 @@ local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
+local CASTLE_NAME = "ChipeOeufs_Castle_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
 local SLOT_COUNT = 12
 local LOCK_TTL = 120 -- un verrou plus vieux que ça est considéré comme abandonné (crash serveur)
@@ -42,7 +43,7 @@ local Data = {}
 Data.VERSION = VERSION
 Data.SERVER_ID = HttpService:GenerateGUID(false)
 
-local store, board
+local store, board, castleBoard
 do
 	local ok, result = pcall(function()
 		return DataStoreService:GetDataStore(STORE_NAME)
@@ -55,6 +56,12 @@ do
 	end)
 	if ok2 then
 		board = result2
+	end
+	local ok3, result3 = pcall(function()
+		return DataStoreService:GetOrderedDataStore(CASTLE_NAME)
+	end)
+	if ok3 then
+		castleBoard = result3
 	end
 end
 
@@ -203,7 +210,7 @@ local function merge(saved)
 	if type(saved.quests) == "table" then
 		for _, q in ipairs(saved.quests) do
 			if type(q) == "table" and type(q.t) == "string" and type(q.goal) == "number" then
-				d.quests[#d.quests + 1] = { t = q.t, goal = q.goal, prog = tonumber(q.prog) or 0, rew = tonumber(q.rew) or 0, claimed = q.claimed == true }
+				d.quests[#d.quests + 1] = { t = q.t, goal = q.goal, prog = tonumber(q.prog) or 0, rew = tonumber(q.rew) or 0, re = math.floor(math.min(#Config.TIERS, math.max(0, tonumber(q.re) or 0))), rb = math.floor(math.min(3600, math.max(0, tonumber(q.rb) or 0))), claimed = q.claimed == true }
 			end
 		end
 	end
@@ -355,6 +362,26 @@ function Data.submit(player, d)
 	end
 end
 
+-- Classement des temps du mode Château : valeur = centièmes de seconde, le plus petit est le meilleur ; seul le meilleur temps d'un joueur est gardé.
+function Data.castleSubmit(player, seconds)
+	if not castleBoard or apiBlocked or type(seconds) ~= "number" or seconds ~= seconds or seconds <= 0 then
+		return false
+	end
+	local value = math.max(1, math.floor(seconds * 100 + 0.5))
+	local ok, err = pcall(function()
+		castleBoard:UpdateAsync(tostring(player.UserId), function(old)
+			if type(old) == "number" and old <= value then
+				return nil
+			end
+			return value
+		end)
+	end)
+	if not ok then
+		markApiBlocked(err)
+	end
+	return ok
+end
+
 local nameCache = {}
 local function nameOf(userId)
 	if nameCache[userId] then
@@ -365,6 +392,25 @@ local function nameOf(userId)
 	end)
 	nameCache[userId] = ok and n or ("Joueur " .. userId)
 	return nameCache[userId]
+end
+
+-- Meilleurs temps du Château : liste { {name=, time=secondes}, ... } triée (peut être vide).
+function Data.castleTop(count)
+	local out = {}
+	if not castleBoard or apiBlocked then
+		return out
+	end
+	local ok, page = pcall(function()
+		return castleBoard:GetSortedAsync(true, count):GetCurrentPage()
+	end)
+	if not ok then
+		markApiBlocked(page)
+		return out
+	end
+	for _, e in ipairs(page) do
+		out[#out + 1] = { name = nameOf(tonumber(e.key) or 0), time = (tonumber(e.value) or 0) / 100 }
+	end
+	return out
 end
 
 -- Retourne une liste { {name=, rb=, hatched=}, ... } (peut être vide)

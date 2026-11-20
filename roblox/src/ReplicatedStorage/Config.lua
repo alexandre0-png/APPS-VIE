@@ -100,6 +100,9 @@ Config.GUARD = {
 	alertDelay = 0.6, alertMax = 3, loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
 }
 
+-- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
+Config.CASTLE = { damage = { spikes = 18, blade = 24, ball = 28 }, step = 0.1, boardSeconds = 120, boardSize = 5 }
+
 -- Événements serveur (tous les joueurs en profitent)
 Config.EVENTS = {
 	{ key = "alien", name = "Biome Alien", emoji = "👽", desc = "Mutation Alien x5", tint = Color3.fromRGB(205, 160, 255) },
@@ -266,8 +269,45 @@ function Config.questText(t, n)
 		return "Découvrir " .. n .. " nouvelle(s) espèce(s)"
 	elseif t == "sell" then
 		return "Vendre " .. n .. " pet(s)"
+	elseif t == "castle" then
+		return "Terminer le Château (ouvrir le coffre final)"
+	elseif t == "rare" then
+		return "Faire éclore " .. n .. " pet(s) Épique ou mieux"
+	elseif t == "secret" then
+		return "Fouiller " .. n .. " secret(s) de la carte"
 	end
 	return t
+end
+
+-- Bonus de mission au-delà des pièces : { egg = rareté d'œuf, boost = secondes de chance supplémentaire }. Missions de défi (Château, rare, secret) :
+-- œuf ou boost ; sinon la 2e mission du jour donne un œuf (rareté selon la progression d'histoire `ch`), la 3e un boost de chance de 10 minutes.
+function Config.questBonus(t, index, ch)
+	ch = ch or 0
+	local tier = 1 + (ch >= 4 and 1 or 0) + (ch >= 8 and 1 or 0)
+	if t == "castle" then
+		return { egg = math.min(4, 3 + (ch >= 8 and 1 or 0)) }
+	elseif t == "rare" then
+		return { boost = 900 }
+	elseif t == "secret" then
+		return { egg = 2 }
+	elseif index == 2 then
+		return { egg = tier }
+	elseif index == 3 then
+		return { boost = 600 }
+	end
+	return {}
+end
+
+-- Texte de la récompense d'une mission : « 🪙 1,2K · 🥚 Rare · 🍀 +10 min ».
+function Config.questRewardText(q)
+	local parts = { "🪙 " .. Config.fmt(q.rew or 0) }
+	if (q.re or 0) > 0 and Config.TIERS[q.re] then
+		parts[#parts + 1] = "🥚 " .. Config.TIERS[q.re].name
+	end
+	if (q.rb or 0) > 0 then
+		parts[#parts + 1] = "🍀 +" .. math.floor(q.rb / 60 + 0.5) .. " min de chance"
+	end
+	return table.concat(parts, " · ")
 end
 
 ---------------------------------------------------------------- Modèles Roblox pour l'apparence des œufs

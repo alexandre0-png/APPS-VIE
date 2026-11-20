@@ -17,6 +17,7 @@ local TeleportService = game:GetService("TeleportService")
 local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
+local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -64,6 +65,7 @@ end)
 local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
+local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
 local function rnd()
@@ -137,7 +139,7 @@ local function rollPet(s, eggTier, guaranteed)
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
-local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell" }
+local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell", "castle", "rare", "secret" }
 
 local function newQuests(s)
 	local inc = math.max(income(s), 1)
@@ -156,10 +158,13 @@ local function newQuests(s)
 			goal = rng:NextInteger(3, 6) * 20
 		elseif t == "sell" then
 			goal = rng:NextInteger(2, 4)
+		elseif t == "castle" or t == "rare" or t == "secret" then
+			goal = 1
 		else -- pvp, discover
 			goal = rng:NextInteger(1, 2)
 		end
-		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), claimed = false }
+		local bonus = Config.questBonus(t, #out + 1, s.data.story.ch)
+		out[#out + 1] = { t = t, goal = goal, prog = 0, rew = math.floor(math.max(250, inc * 150)), re = bonus.egg or 0, rb = bonus.boost or 0, claimed = false }
 	end
 	return out
 end
@@ -620,6 +625,9 @@ function hatch(s, i)
 	if p.m > 1 then
 		sp(s, "mut", 1)
 	end
+	if def.tier >= 3 then
+		qp(s, "rare", 1)
+	end
 	storyRefresh(s)
 	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
@@ -763,11 +771,25 @@ local function claimSecret(s, root, prompt)
 	s.data.secrets[sct.id] = today
 	s.data.coins += reward
 	Builder.burst(holder.Position, Color3.fromRGB(255, 214, 90), 24, true)
+	qp(s, "secret", 1)
 	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "claim")
 	sync(s)
 end
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	if CollectionService:HasTag(prompt, "CastleEntry") then
+		local ss, rr = sessions[player], getRoot(player)
+		if ss and rr and alive(player) and ss.stun <= 0 and (rr.Position - prompt.Parent.Position).Magnitude <= 20 then
+			castleEnter(ss)
+		end
+		return
+	elseif CollectionService:HasTag(prompt, "CastleChest") then
+		local ss, rr = sessions[player], getRoot(player)
+		if ss and rr and alive(player) then
+			castleFinish(ss, rr, prompt)
+		end
+		return
+	end
 	if CollectionService:HasTag(prompt, "SecretPrompt") then
 		local ss, rr = sessions[player], getRoot(player)
 		if ss and rr and alive(player) and ss.stun <= 0 then
@@ -1075,6 +1097,158 @@ local function guardsStep(dt)
 	end
 end
 
+---------------------------------------------------------------- Mode Château : salles à pièges, chrono, coffre final, classement des temps
+local serverMode = "arena" -- « castle » si le premier joueur arrive du hub avec TeleportData.mode == "castle"
+local castleWorld = world.castle
+
+local function castleTeleport(s, room, depth)
+	local root = getRoot(s.player)
+	if root then
+		local wx, wz = Castle.toWorld(room, 0, depth or 3)
+		root.CFrame = CFrame.new(wx, 4, wz)
+		root.AssemblyLinearVelocity = Vector3.zero
+		s.noCheckUntil = os.clock() + 2
+	end
+end
+
+function castleEnter(s)
+	s.castle = { deaths = 0, maxRoom = 1, t0 = nil, finished = false }
+	castleTeleport(s, 1, -4)
+	notify(s.player, "🏰 Le Château : traverse 5 salles à pièges (pics, lames, boulets, portes). Le chrono démarre à la première salle. Coffre final : œuf rare !", "event")
+end
+
+-- Donne un œuf dans un emplacement libre (protégé quelques secondes) ; base pleine : l'équivalent de la moitié du prix en pièces. Retourne true si l'œuf est placé.
+local function giveEgg(s, tier)
+	local d = s.data
+	local i = freeSlot(d)
+	if not i then
+		d.coins += Config.EGG_PRICE[tier] * 0.5
+		return false
+	end
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(d) }
+	refreshPad(s, i)
+	return true
+end
+
+local function castleDamage(s, kind, room)
+	local dmg = Config.CASTLE.damage[kind] or 20
+	local hp, hit, inv = Guard.applyDamage(s.hp, dmg, s.iframes, GC)
+	if not hit then
+		return
+	end
+	s.iframes, s.sinceHit = inv, 0
+	setHp(s, hp)
+	local label = kind == "spikes" and "des pics" or (kind == "blade" and "une lame" or "un boulet")
+	notify(s.player, "💥 Touché par " .. label .. " : -" .. dmg .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "caught")
+	if hp <= 0 then -- défaite : retour au début de la salle, pv rétablis (jamais de perte d'œuf)
+		s.castle.deaths += 1
+		setHp(s, GC.maxHp)
+		s.iframes = GC.respawnIframes
+		castleTeleport(s, room, 3)
+		notify(s.player, "🏰 Tu retentes la salle " .. room .. " (" .. s.castle.deaths .. " défaite(s)).", "caught")
+	end
+end
+
+local castleBoardTimer = 0
+local function castleBoardRefresh()
+	task.spawn(function()
+		local top = Data.castleTop(Config.CASTLE.boardSize)
+		if castleWorld and castleWorld.board then
+			local lines = { "🏰 Meilleurs temps" }
+			for i, e in ipairs(top) do
+				lines[#lines + 1] = i .. ". " .. e.name .. "  " .. Castle.formatTime(e.time)
+			end
+			if #top == 0 then
+				lines[#lines + 1] = "(aucun pour l'instant)"
+			end
+			castleWorld.board.Text = table.concat(lines, "\n")
+		end
+	end)
+end
+
+local function castleStep(dt)
+	if not castleWorld then
+		return
+	end
+	local T = os.clock()
+	-- animation des pièges (positions répliquées 10 fois par seconde)
+	for r, rec in ipairs(castleWorld.rooms) do
+		local room = Castle.room(r)
+		for i, sp in ipairs(Castle.spikes(room)) do
+			local v = rec.spikes[i]
+			local state = Castle.spikeState(T, sp, room)
+			v.tip.Position = Vector3.new(v.wx, state == "danger" and 0.9 or (state == "warning" and 0.05 or -1), v.wz)
+			v.tip.Color = state == "danger" and Color3.fromRGB(255, 90, 90) or (state == "warning" and Color3.fromRGB(255, 214, 90) or Color3.fromRGB(210, 214, 222))
+		end
+		for i, bl in ipairs(Castle.blades(room)) do
+			local v = rec.blades[i]
+			v.arm.CFrame = CFrame.new(v.wx, 1.4, v.wz) * CFrame.Angles(0, Castle.bladeAngle(T, bl, room), 0)
+		end
+		for i, ba in ipairs(Castle.balls(room)) do
+			local v = rec.balls[i]
+			local bx = Castle.ballX(T, ba, room)
+			v.part.Position = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
+		end
+		local open = Castle.doorIsOpen(T, room)
+		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)
+		rec.door.CanCollide = not open
+	end
+	-- joueurs dans le donjon : chrono, touches
+	for player, s in pairs(sessions) do
+		local root = getRoot(player)
+		if s.castle and root and alive(player) and not s.castle.finished then
+			local r, lx, lz = Castle.roomAt(root.Position.X, root.Position.Z)
+			if r then
+				s.castle.maxRoom = math.max(s.castle.maxRoom, r)
+				if r == 1 and lz > 2 and not s.castle.t0 then
+					s.castle.t0 = T
+					notify(player, "⏱ Chrono lancé !")
+				end
+				local kind = Castle.hit(T, Castle.room(r), lx, lz)
+				if kind then
+					castleDamage(s, kind, r)
+				end
+			end
+		end
+	end
+	castleBoardTimer += dt
+	if castleBoardTimer >= Config.CASTLE.boardSeconds then
+		castleBoardTimer = 0
+		castleBoardRefresh()
+	end
+end
+task.defer(castleBoardRefresh)
+
+function castleFinish(s, root, prompt)
+	local c = s.castle
+	local holder = prompt.Parent
+	if not (c and c.t0 and not c.finished and holder and (root.Position - holder.Position).Magnitude <= 18) then
+		return
+	end
+	if c.maxRoom < Castle.ROOMS then
+		return notify(s.player, "Il faut traverser les " .. Castle.ROOMS .. " salles avant d'ouvrir le coffre.")
+	end
+	c.finished = true
+	local seconds = os.clock() - c.t0
+	local reward = Castle.reward(seconds, income(s), c.deaths)
+	s.data.coins += reward.coins
+	local placed = giveEgg(s, reward.eggTier)
+	qp(s, "castle", 1)
+	Data.castleSubmit(s.player, seconds)
+	notify(s.player, "🏆 Château terminé en " .. Castle.formatTime(seconds) .. " (" .. c.deaths .. " défaite(s)) : +" .. Config.fmt(reward.coins) .. " 🪙 et un œuf " .. Config.TIERS[reward.eggTier].name .. (placed and " dans ta base !" or " (base pleine : converti en pièces)."), "claim")
+	sync(s)
+	task.delay(4, function()
+		if s.player.Parent and sessions[s.player] == s then
+			s.castle = nil
+			local root2 = getRoot(s.player)
+			if root2 and s.plot then
+				root2.CFrame = s.plot.spawn.CFrame + Vector3.new(0, 4, 0)
+			end
+			castleBoardRefresh()
+		end
+	end)
+end
+
 ---------------------------------------------------------------- Événements serveur
 local tint = Instance.new("ColorCorrectionEffect")
 tint.Name = "EventTint"
@@ -1259,9 +1433,15 @@ local function slowTick(dt)
 	end
 end
 
-local acc1, acc2 = 0, 0
+local acc1, acc2, acc3 = 0, 0, 0
 RunService.Heartbeat:Connect(function(dt)
 	guardsStep(dt)
+	acc3 += dt
+	if acc3 >= Config.CASTLE.step then
+		local d3 = acc3
+		acc3 = 0
+		castleStep(d3)
+	end
 	acc2 += dt
 	if acc2 >= 0.25 then
 		local d2 = acc2
@@ -1424,7 +1604,15 @@ function actions.claimQuest(s, i)
 	end
 	q.claimed = true
 	s.data.coins += q.rew
-	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙", "claim")
+	local extra = ""
+	if (q.re or 0) > 0 and Config.TIERS[q.re] then
+		extra = extra .. (giveEgg(s, q.re) and (" + œuf " .. Config.TIERS[q.re].name) or " (base pleine : œuf converti en pièces)")
+	end
+	if (q.rb or 0) > 0 then
+		s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + q.rb
+		extra = extra .. " + boost de chance"
+	end
+	notify(s.player, "🎯 Mission accomplie : +" .. Config.fmt(q.rew) .. " 🪙" .. extra, "claim")
 	sync(s)
 end
 
@@ -1646,6 +1834,9 @@ local function onJoin(player)
 	if serverPartyId == nil and okJ and type(joinData) == "table" and type(joinData.partyId) == "string" then
 		serverPartyId = joinData.partyId
 	end
+	if okJ and type(joinData) == "table" and joinData.mode == "castle" and next(sessions) == nil then
+		serverMode = "castle" -- le premier joueur détermine le mode du serveur réservé
+	end
 	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
 	local d, noSave = Data.load(player)
 	if not d then
@@ -1729,6 +1920,9 @@ local function onJoin(player)
 			char:WaitForChild("HumanoidRootPart", 10)
 			if player.Parent and sessions[player] == s then
 				rebuildFollowers(s)
+				if serverMode == "castle" and not s.castle then
+					castleEnter(s) -- serveur de mode Château : arrivée directement à l'entrée du donjon
+				end
 			end
 		end)
 		hum.Died:Connect(function()
