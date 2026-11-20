@@ -57,6 +57,11 @@ class TestMobileBudgets(unittest.TestCase):
         block = src[src.index("MapBuilder.ACCESSORIES = {") : src.index("local function placeAccessories")]
         self.assertLessEqual(block.count('{ "'), 40)
 
+    def test_trims_are_capped(self):
+        src = read("src", "server", "MapBuilder.lua")
+        self.assertLessEqual(int(re.search(r"TRIM_MAX = (\d+)", src).group(1)), 160)
+        self.assertLessEqual(len(re.search(r"TRIM_ROOMS = \{([^}]*)\}", src).group(1).split(",")), 5)
+
     def test_loader_limits(self):
         cfg = read("src", "shared", "Config.lua")
         self.assertLessEqual(int(re.search(r"GlobalTimeout = (\d+)", cfg).group(1)), 12)

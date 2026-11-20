@@ -67,6 +67,39 @@ class TestAsyncModels(unittest.TestCase):
         self.assertNotIn("ERREUR", log)
 
 
+class TestLateDressing(unittest.TestCase):
+    STUB = (
+        'local m = Instance.new("Model"); m.Name = "X"; local p = Instance.new("Part"); p.Size = Vector3.new(2, 2, 2); p.Parent = m;'
+        ' local d = Instance.new("Decal"); d.Texture = "rbxassetid://777"; d.Parent = m; local c = Instance.new("Model"); m.Parent = c; return c'
+    )
+
+    def test_textures_from_decals_are_applied_to_the_floors_and_walls(self):
+        lua = server(self.STUB)
+        lua.execute("SWALLOW = true; advance(40)")
+        n = int(lua.execute(
+            'local k = 0 for _, d in ipairs(workspace.TombeMap:GetDescendants()) do if d.ClassName == "Texture" and d.Texture == "rbxassetid://777" then k = k + 1 end end return k'
+        ))
+        self.assertGreater(n, 10)
+        self.assertTrue(any("[Boot] textures chargées : 8 sur 8" in l for l in prints(lua)), prints(lua))
+
+    def test_without_textures_the_current_materials_stay(self):
+        lua = server("return nil")
+        lua.execute("SWALLOW = true; advance(40)")
+        n = int(lua.execute(
+            'local k = 0 for _, d in ipairs(workspace.TombeMap:GetDescendants()) do if d.ClassName == "Texture" and d.Texture == "rbxassetid://777" then k = k + 1 end end return k'
+        ))
+        self.assertEqual(n, 0)
+
+    def test_trims_are_capped_and_placed_clear_of_doors(self):
+        lua = server(self.STUB)
+        lua.execute("SWALLOW = true; advance(40)")
+        n = int(lua.execute(
+            'local k = 0 for _, d in ipairs(workspace.TombeMap:GetDescendants()) do if d.ClassName == "Model" and (d.Name == "plinthe bois" or d.Name == "moulure plafond") then k = k + 1 end end return k'
+        ))
+        self.assertGreater(n, 60)
+        self.assertLessEqual(n, 300)  # plafond : 150 plinthes + 150 moulures
+
+
 class TestStaticGuards(unittest.TestCase):
     def read(self, *p):
         return open(os.path.join(roles.base.ROOT, *p), encoding="utf-8").read()

@@ -96,7 +96,7 @@ local function inst(class, name)
   end
   function methods.WaitForChild(self, n) return self:FindFirstChild(n) end
   function methods.FindFirstChildOfClass(self, cn) for _, c in ipairs(self._children) do if c.ClassName == cn then return c end end end
-  methods.FindFirstChildWhichIsA = methods.FindFirstChildOfClass
+  function methods.FindFirstChildWhichIsA(self, cn, deep) for _, c in ipairs(self._children) do if c.ClassName == cn then return c end if deep then local r = c:FindFirstChildWhichIsA(cn, true) if r then return r end end end end
   function methods.GetChildren(self) return { table.unpack(self._children) } end
   function methods.GetDescendants(self)
     local out = {}
@@ -112,7 +112,15 @@ local function inst(class, name)
   function methods.SetAttribute(self, k, v) self._attrs[k] = v end
   function methods.GetAttribute(self, k) return self._attrs[k] end
   function methods.IsA(self, cn) return self.ClassName == cn or (cn == "BasePart" and (self.ClassName == "Part" or self.ClassName == "SpawnLocation")) end
-  function methods.Clone(self) return self end
+  function methods.Clone(self)
+    local c = inst(self.ClassName, self.Name)
+    for k, v in pairs(self) do
+      if k ~= "_children" and k ~= "_attrs" and k ~= "Parent" and k ~= "_parent" and k ~= "_signals" then rawset(c, k, v) end
+    end
+    for k, v in pairs(self._attrs) do c._attrs[k] = v end
+    for _, ch in ipairs(self._children) do ch:Clone().Parent = c end
+    return c
+  end
   function methods.GetPropertyChangedSignal() return { Connect = function() end } end
   function methods.GetFullName(self) return self.Name end
   function methods.PivotTo(self, cf) rawset(self, "Position", cf.Position); rawset(self, "CFrame", cf) end

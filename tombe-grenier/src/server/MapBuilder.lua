@@ -80,6 +80,8 @@ local MATERIALS = {
 		tex = "11787663363",
 		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
 		tile = 4,
+		lateTex = "papier_fleuri",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	bureau = {
 		color = Color3.fromRGB(110, 100, 90),
@@ -115,27 +117,84 @@ local MATERIALS = {
 		tex = "3867164051",
 		faces = { Enum.NormalId.Top },
 		tile = 6,
+		lateTex = "lames_plancher",
+		lateFaces = { Enum.NormalId.Top },
 	},
 	-- Sols et murs propres à chaque pièce (lisibilité d'un coup d'œil) : matière et couleur distinctes
-	pave = { color = Color3.fromRGB(78, 76, 72), material = Enum.Material.Cobblestone },
-	pave_sombre = { color = Color3.fromRGB(52, 52, 56), material = Enum.Material.Pavement },
+	pave = {
+		color = Color3.fromRGB(78, 76, 72),
+		material = Enum.Material.Cobblestone,
+		lateTex = "dalles_cave",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	pave_sombre = {
+		color = Color3.fromRGB(52, 52, 56),
+		material = Enum.Material.Pavement,
+		lateTex = "dalles_cave",
+		lateFaces = { Enum.NormalId.Top },
+	},
 	terre_battue = { color = Color3.fromRGB(70, 56, 42), material = Enum.Material.Ground },
-	parquet = { color = Color3.fromRGB(150, 104, 62), material = Enum.Material.WoodPlanks },
-	parquet_sombre = { color = Color3.fromRGB(82, 54, 34), material = Enum.Material.WoodPlanks },
-	parquet_clair = { color = Color3.fromRGB(196, 160, 112), material = Enum.Material.WoodPlanks },
-	marbre = { color = Color3.fromRGB(196, 192, 184), material = Enum.Material.Marble },
-	carreaux_blancs = { color = Color3.fromRGB(226, 226, 222), material = Enum.Material.Marble },
+	parquet = {
+		color = Color3.fromRGB(150, 104, 62),
+		material = Enum.Material.WoodPlanks,
+		lateTex = "parquet_chevrons",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	parquet_sombre = {
+		color = Color3.fromRGB(82, 54, 34),
+		material = Enum.Material.WoodPlanks,
+		lateTex = "lames_plancher",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	parquet_clair = {
+		color = Color3.fromRGB(196, 160, 112),
+		material = Enum.Material.WoodPlanks,
+		lateTex = "parquet_chevrons",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	marbre = {
+		color = Color3.fromRGB(196, 192, 184),
+		material = Enum.Material.Marble,
+		lateTex = "marbre_veine",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	carreaux_blancs = {
+		color = Color3.fromRGB(226, 226, 222),
+		material = Enum.Material.Marble,
+		lateTex = "damier_cuisine",
+		lateFaces = { Enum.NormalId.Top },
+	},
 	carreaux_bleus = { color = Color3.fromRGB(150, 190, 200), material = Enum.Material.Marble },
 	moquette_verte = { color = Color3.fromRGB(46, 84, 62), material = Enum.Material.Fabric },
 	moquette_bordeaux = { color = Color3.fromRGB(104, 34, 44), material = Enum.Material.Fabric },
 	moquette_bleue = { color = Color3.fromRGB(58, 76, 110), material = Enum.Material.Fabric },
 	beton_sol = { color = Color3.fromRGB(110, 110, 106), material = Enum.Material.Concrete },
 	dalles_tombe = { color = Color3.fromRGB(58, 56, 60), material = Enum.Material.Slate },
-	faience = { color = Color3.fromRGB(214, 214, 208), material = Enum.Material.Marble },
-	faience_bleue = { color = Color3.fromRGB(140, 180, 192), material = Enum.Material.Marble },
+	faience = {
+		color = Color3.fromRGB(214, 214, 208),
+		material = Enum.Material.Marble,
+		lateTex = "faience_murale",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
+	},
+	faience_bleue = {
+		color = Color3.fromRGB(140, 180, 192),
+		material = Enum.Material.Marble,
+		lateTex = "faience_murale",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
+	},
 	papier_vert = { color = Color3.fromRGB(96, 124, 96), material = Enum.Material.Fabric },
-	papier_bordeaux = { color = Color3.fromRGB(122, 54, 62), material = Enum.Material.Fabric },
-	papier_rose = { color = Color3.fromRGB(206, 150, 160), material = Enum.Material.Fabric },
+	papier_bordeaux = {
+		color = Color3.fromRGB(122, 54, 62),
+		material = Enum.Material.Fabric,
+		lateTex = "papier_fleuri",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
+	},
+	papier_rose = {
+		color = Color3.fromRGB(206, 150, 160),
+		material = Enum.Material.Fabric,
+		lateTex = "papier_enfant",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
+	},
 	papier_bleu = { color = Color3.fromRGB(104, 130, 168), material = Enum.Material.Fabric },
 	bois = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
 	asphalte = { color = Color3.fromRGB(45, 45, 48), material = Enum.Material.Asphalt },
@@ -217,6 +276,9 @@ local function makeBox(parent, b, matKey, name)
 		part.Transparency = b.t
 	end
 	applyTextures(part, spec)
+	if spec.lateTex then
+		part:SetAttribute("LateTex", spec.lateTex)
+	end
 	part.Parent = parent
 	return part
 end
@@ -467,6 +529,21 @@ local function buildHouse(root)
 	}
 	for _, w in ipairs(windows) do
 		tryNow(function()
+			-- Fenêtre Blender côté intérieur (rideaux, œil-de-bœuf au grenier) ; sinon l'ancien modèle à l'extérieur
+			local round = w[4] == "fenêtre rouille"
+			local name = round and "fenêtre ronde" or "fenêtre rideaux"
+			if ModelPlace.template(name) then
+				local north = w[3] < 45
+				local z = north and 0.8 or 89.2
+				return ModelPlace.fit({
+					name = name,
+					centre = Vector3.new(w[1], w[2], z),
+					bottomY = w[2] - (round and 1.5 or 2.5),
+					target = { 3, round and 3 or 5, 0.6 },
+					parent = folders["Décor"],
+					roomCentre = { w[1], z + (north and 10 or -10) },
+				}) ~= nil
+			end
 			return placeFitted(w[4], CFrame.new(w[1], w[2], w[3]), Vector3.new(3, 4, 0.5), folders["Décor"])
 		end)
 	end
@@ -1243,6 +1320,200 @@ local function placeAccessories(root)
 	end
 end
 
+-- Garnitures Blender (lot 3), posées après la carte, sans collision, hors portes et sous plafond de pièces :
+-- plinthes et moulures par modules de 4 studs dans quelques pièces d'accueil, encadrements de portes, appliques,
+-- soupiraux, radiateurs. { modèle, x, bas, z, taille cible X/Y/Z, normale vers l'intérieur X, Z }.
+MapBuilder.TRIM_ROOMS = { "salon", "hall", "entree", "couloir" }
+MapBuilder.TRIM_MAX = 150 -- modules par type (plinthe, moulure) : budget de pièces mobile
+MapBuilder.WALL_ITEMS = {
+	{ "applique murale", 41, 6, 14, { 0.8, 1.5, 1 }, 1, 0 }, -- hall
+	{ "applique murale", 79, 6, 30, { 0.8, 1.5, 1 }, -1, 0 },
+	{ "applique murale", 41, 6, 60, { 0.8, 1.5, 1 }, 1, 0 }, -- entrée
+	{ "applique murale", 79, 6, 75, { 0.8, 1.5, 1 }, -1, 0 },
+	{ "applique murale", 41, 18, 58, { 0.8, 1.5, 1 }, 1, 0 }, -- couloir
+	{ "applique murale", 41, 18, 12, { 0.8, 1.5, 1 }, 1, 0 }, -- palier
+	{ "applique murale", 79, 18, 13, { 0.8, 1.5, 1 }, -1, 0 },
+	{ "soupirail", 119, -3.5, 20, { 0.6, 1.5, 3 }, -1, 0 }, -- sous-sol, murs extérieurs
+	{ "soupirail", 119, -3.5, 60, { 0.6, 1.5, 3 }, -1, 0 },
+	{ "soupirail", 1, -3.5, 10, { 0.6, 1.5, 3 }, 1, 0 },
+	{ "soupirail", 1, -3.5, 70, { 0.6, 1.5, 3 }, 1, 0 },
+	{ "radiateur fonte", 20, 0.2, 1.3, { 4, 2.5, 0.6 }, 0, 1 }, -- sous les fenêtres
+	{ "radiateur fonte", 20, 0.2, 88.7, { 4, 2.5, 0.6 }, 0, -1 },
+	{ "radiateur fonte", 100, 0.2, 88.7, { 4, 2.5, 0.6 }, 0, -1 },
+	{ "radiateur fonte", 20, 12.2, 1.3, { 4, 2.5, 0.6 }, 0, 1 },
+	{ "radiateur fonte", 100, 12.2, 1.3, { 4, 2.5, 0.6 }, 0, 1 },
+	{ "radiateur fonte", 20, 12.2, 88.7, { 4, 2.5, 0.6 }, 0, -1 },
+	{ "radiateur fonte", 100, 12.2, 88.7, { 4, 2.5, 0.6 }, 0, -1 },
+}
+
+-- Ouvertures de porte d'un étage et d'une ligne de mur : x0 .. x1 le long de la ligne (marge comprise)
+local function doorGaps(level, orient, line)
+	local gaps = {}
+	for _, d in ipairs(Data.doors) do
+		if d.level == level and d.orient == orient and d.line == line then
+			table.insert(gaps, { d.c - d.w / 2 - 0.6, d.c + d.w / 2 + 0.6 })
+		end
+	end
+	return gaps
+end
+
+local function inGap(gaps, a, b)
+	for _, g in ipairs(gaps) do
+		if b > g[1] and a < g[2] then
+			return true
+		end
+	end
+	return false
+end
+
+-- Plinthes et moulures : le long de chaque mur de la pièce, face tournée vers l'intérieur
+local function placeTrims(root)
+	if not (ModelPlace.template("plinthe bois") or ModelPlace.template("moulure plafond")) then
+		return false
+	end
+	local decor = root:FindFirstChild("Maison") and root.Maison:FindFirstChild("Décor")
+	if not decor then
+		return false
+	end
+	local wanted = {}
+	for _, id in ipairs(MapBuilder.TRIM_ROOMS) do
+		wanted[id] = true
+	end
+	local counts = { ["plinthe bois"] = 0, ["moulure plafond"] = 0 }
+	local MODULE = 4
+	for _, r in ipairs(Data.rooms) do
+		if wanted[r.id] then
+			local base = Data.base[r.level]
+			-- quatre murs : { orient du mur, ligne du mur, début, fin, normale vers l'intérieur }
+			local walls = {
+				{ "h", r.z0, r.x0, r.x1, 0, 1 },
+				{ "h", r.z1, r.x0, r.x1, 0, -1 },
+				{ "v", r.x0, r.z0, r.z1, 1, 0 },
+				{ "v", r.x1, r.z0, r.z1, -1, 0 },
+			}
+			for _, w in ipairs(walls) do
+				local orient, line, from, to, nx, nz = w[1], w[2], w[3], w[4], w[5], w[6]
+				local gaps = doorGaps(r.level, orient, line)
+				local t = from + 1
+				while t + MODULE <= to - 1 do
+					if not inGap(gaps, t, t + MODULE) then
+						local mid = t + MODULE / 2
+						local x = orient == "h" and mid or line + nx * 0.75
+						local z = orient == "h" and line + nz * 0.75 or mid
+						for name, bottom in pairs({ ["plinthe bois"] = base, ["moulure plafond"] = base + Data.H - 1.5 }) do
+							if counts[name] < MapBuilder.TRIM_MAX and ModelPlace.template(name) then
+								local size = name == "plinthe bois" and { 0.7, 0.25 } or { 0.5, 0.5 }
+								local target = orient == "h" and { MODULE, size[1], size[2] }
+									or { size[2], size[1], MODULE }
+								local placed = ModelPlace.fit({
+									name = name,
+									centre = Vector3.new(x, bottom, z),
+									bottomY = bottom,
+									target = target,
+									parent = decor,
+									roomCentre = { x + nx * 10, z + nz * 10 },
+								})
+								if placed then
+									counts[name] += 1
+								end
+							end
+						end
+					end
+					t += MODULE
+				end
+			end
+		end
+	end
+	return true
+end
+
+-- Encadrement de chaque porte (décor seul : le battant et le passage ne changent pas)
+local function placeDoorFrames(root)
+	if not ModelPlace.template("encadrement de porte") then
+		return false
+	end
+	local decor = root:FindFirstChild("Maison") and root.Maison:FindFirstChild("Décor")
+	if not decor then
+		return false
+	end
+	for _, d in ipairs(Data.doors) do
+		local base = Data.base[d.level]
+		local x = d.orient == "v" and d.line or d.c
+		local z = d.orient == "v" and d.c or d.line
+		local target = d.orient == "v" and { 0.8, 9, 5 } or { 5, 9, 0.8 }
+		ModelPlace.fit({
+			name = "encadrement de porte",
+			centre = Vector3.new(x, base, z),
+			bottomY = base,
+			target = target,
+			parent = decor,
+			roomCentre = d.orient == "v" and { x + 10, z } or { x, z + 10 },
+		})
+	end
+	return true
+end
+
+local function placeWallItems(root)
+	local decor = root:FindFirstChild("Maison") and root.Maison:FindFirstChild("Décor")
+	if not decor then
+		return false
+	end
+	local placedAny = false
+	for _, a in ipairs(MapBuilder.WALL_ITEMS) do
+		if ModelPlace.template(a[1]) then
+			local placed = ModelPlace.fit({
+				name = a[1],
+				centre = Vector3.new(a[2], a[3], a[4]),
+				bottomY = a[3],
+				target = a[5],
+				parent = decor,
+				roomCentre = { a[2] + a[6] * 10, a[4] + a[7] * 10 },
+			})
+			placedAny = placedAny or placed ~= nil
+		end
+	end
+	return placedAny
+end
+
+-- Textures tuilables : urls[nom] = image lue sur le décal. Chaque pièce portant l'attribut LateTex la reçoit (faces de sa matière).
+function MapBuilder.applyLateTextures(urls)
+	local root = Workspace:FindFirstChild("TombeMap")
+	if not root or typeof(urls) ~= "table" then
+		return 0
+	end
+	local count = 0
+	local tiles = (Config.Textures and Config.Textures.Tile) or {}
+	local defaultTile = (Config.Textures and Config.Textures.StudsPerTile) or 8
+	for _, part in ipairs(root:GetDescendants()) do
+		local name = part:IsA("BasePart") and part:GetAttribute("LateTex")
+		local url = name and urls[name]
+		if url then
+			local spec = nil
+			for _, candidate in pairs(MATERIALS) do
+				if candidate.lateTex == name then
+					spec = candidate
+					break
+				end
+			end
+			for _, child in ipairs(part:GetChildren()) do
+				if child:IsA("Texture") then
+					child:Destroy()
+				end
+			end
+			for _, face in ipairs((spec and spec.lateFaces) or { Enum.NormalId.Top }) do
+				local texture = Instance.new("Texture")
+				texture.Texture = url
+				texture.Face = face
+				texture.StudsPerTileU = tiles[name] or defaultTile
+				texture.StudsPerTileV = tiles[name] or defaultTile
+				texture.Parent = part
+			end
+			count += 1
+		end
+	end
+	return count
+end
+
 local function placeStandaloneDecor(root)
 	local folder = root:FindFirstChild("Maison")
 	local decor = folder and folder:FindFirstChild("Décor")
@@ -1285,6 +1556,11 @@ function MapBuilder.build()
 	setLighting()
 	pcall(placeStandaloneDecor, root)
 	pcall(placeAccessories, root)
+	for _, fn in ipairs({ placeTrims, placeDoorFrames, placeWallItems }) do
+		tryNow(function()
+			return fn(root)
+		end)
+	end
 	pcall(applyMoods, root)
 	startRoomBudget()
 	pcall(Atmosphere.build)

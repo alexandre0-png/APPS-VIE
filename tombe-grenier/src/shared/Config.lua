@@ -137,6 +137,23 @@ Config.Game = {
 	MaxPlayers = 2,
 }
 
+-- Textures tuilables (ID = identifiant de DÉCAL : le serveur charge le décal, lit Decal.Texture et applique cette image).
+-- Sans chargement, les matières actuelles restent. StudsPerTile : longueur d'une répétition, réglable par texture.
+Config.Textures = {
+	StudsPerTile = 8,
+	Ids = {
+		damier_cuisine = 74886659758502,
+		parquet_chevrons = 103808199880931,
+		lames_plancher = 137828535744065,
+		dalles_cave = 107078290448335,
+		marbre_veine = 82505741913633,
+		papier_fleuri = 133522614389829,
+		papier_enfant = 134002350904585,
+		faience_murale = 80018384734004,
+	},
+	Tile = {}, -- exemple : Tile = { damier_cuisine = 4 }
+}
+
 -- Réglages par mode : en solo, plus de temps pour explorer seul avant la première apparition
 Config.Modes = {
 	solo = { activationDelay = 60 },
@@ -315,6 +332,17 @@ Config.Assets = {
 	Lampadaire = 92735211656049, -- lampadaire à abat-jour jauni
 	LitDouble = 135445479170017, -- lit à baldaquin dépouillé
 	Etabli = 124510607976600, -- établi d'atelier
+	-- Garnitures Blender (lot 3, approuvé) : plinthes, moulures, fenêtres, encadrements, appliques, soupiraux, radiateurs
+	Plinthe = 92565174748095, -- plinthe bois
+	Moulure = 75784159506222, -- moulure plafond
+	FenetreRideaux = 126909624367682, -- fenêtre rideaux
+	FenetreRonde = 71510822261833, -- fenêtre ronde
+	Balustrade = 75136739107081, -- balustrade d'escalier
+	Marche = 101885017410350, -- marche usée
+	Encadrement = 125000444415052, -- encadrement de porte
+	Applique = 114023857878257, -- applique murale
+	Soupirail = 103729918302456, -- soupirail
+	Radiateur = 113203803952444, -- radiateur fonte
 	OmbreRampante = 101328489566505, -- le monstre : silhouette sombre, masque blanc, yeux rouges, ~2,5
 	Front = {},
 	HubBibliotheque = 9904549498, -- bibliothèque (décor du hub : étagères) ; même modèle que « bibliothèque » (ModelLoader)

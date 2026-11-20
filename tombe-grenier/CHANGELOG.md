@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Garnitures et textures Blender (lot 3)
+- 10 modèles : plinthe, moulure, fenêtre à rideaux, œil-de-bœuf, balustrade, marche, encadrement de porte, applique, soupirail, radiateur (`Config.Assets`, plans `fit`, devant « +Z »).
+- Posés après la carte, sans collision : plinthes et moulures par modules de 4 studs dans le salon, le hall, l'entrée et le couloir (hors ouvertures de porte, plafond 150 modules par type, `MapBuilder.TRIM_MAX`), un encadrement par porte (22), fenêtres à rideaux côté intérieur à la place des anciennes (œil-de-bœuf au grenier), 7 appliques, 4 soupiraux, 7 radiateurs sous les fenêtres. Balustrade et marche sont chargées mais non posées : les marches de la carte sont des blocs pleins qui portent le passage.
+- 8 textures tuilables (`Config.Textures`) : les identifiants sont des décals ; `ModelLoader.loadTextures` charge chaque décal, lit `Decal.Texture` et `MapBuilder.applyLateTextures` pose l'image (Texture, 8 studs par répétition, réglable par `Config.Textures.Tile`) sur les sols et murs concernés (attribut `LateTex`). Sans chargement, les matières actuelles restent.
+- Tests : `test_accessories.py` (appliques et soupiraux hors portes et meubles), `test_boot_async.py` (textures posées, plafonds de modules), faux Roblox avec `Clone` réel.
+
 ### Qualité mobile et publication
 - Texte minimal de l'interface porté à 14 px (deux limites étaient à 11 et 13) ; `tools/lua/test_mobile.py` borne les pièces de la carte (1200), les lampes construites (60), les lueurs actives (4 en bas, 8 en moyen), les halos (28), la poussière (4 par seconde), les accessoires (40), le plafond de chargement et la taille des boutons tactiles (44 px).
 - `PUBLICATION.md` : nom, descriptions courte et longue (limites vérifiées par `test_publication.py`), genres, 5 accroches, avertissement, âge conseillé, réponses au questionnaire de maturité, tableau d'audit (Remotes, DataStore, fuites, mobile) et checklist avant passage en public.

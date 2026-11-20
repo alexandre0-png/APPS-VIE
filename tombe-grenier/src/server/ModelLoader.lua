@@ -103,6 +103,16 @@ local ASSET_NAMES = {
 	Lampadaire = "lampadaire ancien",
 	LitDouble = "lit double ancien",
 	Etabli = "établi",
+	Plinthe = "plinthe bois",
+	Moulure = "moulure plafond",
+	FenetreRideaux = "fenêtre rideaux",
+	FenetreRonde = "fenêtre ronde",
+	Balustrade = "balustrade d'escalier",
+	Marche = "marche usée",
+	Encadrement = "encadrement de porte",
+	Applique = "applique murale",
+	Soupirail = "soupirail",
+	Radiateur = "radiateur fonte",
 	Cheminee = "cheminée gothique",
 	Escalier = "escalier Blender",
 	Etagere = "étagère livres",
@@ -289,6 +299,63 @@ function ModelLoader.start(onDone)
 	-- Filet de sécurité : même si une tâche reste bloquée, l'habillage a lieu au plus tard peu après le plafond
 	task.delay(cap + 2, finish)
 	return report
+end
+
+-- Textures : chaque identifiant est un décal ; on charge le décal (InsertService), on lit Decal.Texture et on garde l'URL.
+-- Même plafond global que les modèles ; sans réponse, la matière actuelle reste. onDone(urls) est appelé une seule fois.
+ModelLoader.textures = {}
+
+function ModelLoader.loadTextures(onDone)
+	local ids = (Config.Textures and Config.Textures.Ids) or {}
+	local names = {}
+	for name in pairs(ids) do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	local cap = (Config.Assets and Config.Assets.GlobalTimeout) or 10
+	local deadline = os.clock() + cap
+	local running = #names
+	local finished = false
+	local function finish()
+		if finished then
+			return
+		end
+		finished = true
+		local count = 0
+		for _ in pairs(ModelLoader.textures) do
+			count += 1
+		end
+		print(("[Boot] textures chargées : %d sur %d"):format(count, #names))
+		if onDone then
+			local ok, err = pcall(onDone, ModelLoader.textures)
+			if not ok then
+				warn("[ModelLoader] pose des textures en erreur : " .. tostring(err))
+			end
+		end
+	end
+	if #names == 0 or (Config.Assets and Config.Assets.Enabled == false) then
+		finish()
+		return
+	end
+	for _, name in ipairs(names) do
+		task.spawn(function()
+			local ok = pcall(function()
+				local container = loadWithTimeout(ids[name], math.max(0.2, math.min(8, deadline - os.clock())))
+				local decal = container and container:FindFirstChildWhichIsA("Decal", true)
+				if decal and decal.Texture ~= "" then
+					ModelLoader.textures[name] = decal.Texture
+				end
+			end)
+			if not ok then
+				ModelLoader.textures[name] = nil
+			end
+			running -= 1
+			if running == 0 then
+				finish()
+			end
+		end)
+	end
+	task.delay(cap + 2, finish)
 end
 
 return ModelLoader
