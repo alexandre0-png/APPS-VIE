@@ -61,3 +61,18 @@ Cartoon glossy : contours foncés épais, dégradés saturés, reflet brillant, 
 - Carte : îles, rivières, ponts, cascades, cabanes, chemins lisibles.
 - Rareté en bandeaux colorés (jaune, rouge, vert, violet, cyan, arc-en-ciel).
 - Animations d'état par créature : idle, move, ability.
+
+## Lot 3 (3 vidéos + 8 images, 2026-11-20)
+### Vidéos observées (frames et sous-titres, pas la voix)
+- **melvynx.dev, « 5 skills Claude à installer en premier »** : apple-design (UI minimaliste), grill-me / to-spec / tdd / code-review (méthode de Matt Pocock), humanizer (retire les tics d'écriture IA), pack vidéo, marketing (53 dossiers). Utile : un skill de relecture de textes pour les descriptions ; le reste ne change rien pour nos jeux.
+- **4stume, « le secret d'une bonne miniature Roblox »** : une miniature = une action claire et un désir immédiat (tronçonneuse dans un arbre, bus jaune, personnage en gros plan), sujet grand, couleurs vives, un seul message, lisible en petit.
+- **4stume, « Je détruis ton jeu Roblox : +1 Stone Skipping »** : critique de jeu. Barre de tutoriel en haut (« GET 2 WINS (0/2) »), noms de zones avec distance (« Palm Beach 229 m »), barre de niveau avec boutons d'achat de multiplicateurs (+10K, +100K, +1M), inventaire à onglets (Stones, Pets, Eggs, Boosts, Titles) avec INDEX de collection, éclosion avec probabilité « 1/997 » affichée, achat proposé au bon moment.
+### Images
+Carrousel « Build your Jarvis OS » : 4 parties : Claude Code (moteur, route vers des skills), Obsidian (mémoire, tout en Markdown lié), Dun (clavier vocal iPhone, voix qui reste sur le téléphone, sans compte), interface (un écran). Règles : un skill = un but ; coffre `raw/` `wiki/` `outputs/` ; « si ce n'est pas dans le coffre, ça n'a pas eu lieu » ; routine de journée (briefing 7 h, plan 9 h, métriques 14 h, bilan 19 h).
+### Appliqué
+- Le coffre suit déjà la règle « tout est dans le coffre ». Les rapports de fin de lot vont dans `Journal/`.
+- Chipe-Œufs : barre d'objectif de tutoriel en haut, inventaire à onglets (Œufs, Pets, Boosts, Titres) avec index de collection, probabilité « 1 sur N » à l'éclosion (déjà fait), achats de multiplicateurs proposés au bon moment.
+- Miniatures : une action, un sujet grand, couleurs vives, un message.
+- Dun (clavier vocal iPhone) : l'utilisateur dicte déjà ses messages ; optionnel.
+- Routine quotidienne planifiée : non créée (l'utilisateur a annulé les programmations plus tôt) ; à proposer seulement sur demande.
+
