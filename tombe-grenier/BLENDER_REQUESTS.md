@@ -1,0 +1,51 @@
+# Modèles Blender à créer (demande au gestionnaire)
+
+Convention commune : une pièce par couleur, nommée `Nom__RRGGBB` (hex sans #) ; matériau déduit du nom (`Metal`, `Neon`, `Glass`, `Plastic`, sinon bois/tissu). Origine au centre du bas, face avant vers −Z (sauf mention). Moins de 3 000 triangles par objet. Aucune lumière ni script. Les tailles sont en studs (1 stud = 0,28 m) : largeur X × hauteur Y × profondeur Z, c'est la boîte de collision actuelle que le modèle doit remplir (`mode = fit`).
+
+Déjà couverts par la bibliothèque (rien à refaire) : clé or, coffret ancien, horloge comtoise, poupée ancienne, bougie chandelier, armoire gothique, commode ancienne, berceau, cheval à bascule, miroir sur pied, malle, statuette, cadre photo, ombre rampante.
+
+## Priorité 1 : visibles dans toutes les pièces (utilisés 4 fois ou plus)
+
+| Nom du modèle | Taille (X × Y × Z) | Description | Couleurs (suffixes) |
+|---|---|---|---|
+| chaise ancienne | 2 × 2 × 2 (assise 1,1 de haut, dossier jusqu'à 2) | Chaise en bois à dossier à barreaux, quatre pieds tournés, assise légèrement usée. Silhouette lisible de loin. | `Bois__5A3E28`, `Assise__7A2E2E` |
+| table de salle | 10 × 2,5 × 6 | Longue table rustique, plateau épais, pieds carrés, une rayure sur le plateau. | `Plateau__6B4A2F`, `Pieds__4A3220` |
+| étagère murale | 8 × 7 × 7 (profondeur réelle 1,5, le reste vide pour la boîte) | Étagère à 5 niveaux, montants épais, planches irrégulières, vide (les livres sont ajoutés par le jeu). | `Bois__5E4630` |
+| caisses en bois | 7 × 3 × 6 | Pile de 3 à 4 caisses de transport, lattes avec petits écarts, une caisse entrouverte. | `Lattes__8A6B45`, `Cerclage__3A3A3A` |
+| pied de lit | 0,6 × 1,2 × 0,6 | Montant de lit en fer ou bois tourné, boule au sommet. | `Bois__4A3220` |
+| plante d'intérieur | 3 × 4 × 3 | Grande plante en pot de terre cuite, feuilles larges, un peu fanées. | `Pot__A5603A`, `Feuilles__3F6B3A` |
+| console d'entrée | 10 × 3 × 2 | Console étroite, deux tiroirs, pieds galbés. | `Bois__5A4030`, `Poignees__B8A060` |
+
+## Priorité 2 : salles d'eau, cave, cuisine
+
+| Nom | Taille | Description | Couleurs |
+|---|---|---|---|
+| baignoire sur pieds | 7 × 2,5 × 6 | Baignoire en fonte à pieds de griffe, bords arrondis, émail écaillé. | `Email__D8D4C8`, `Pieds__3A3A3A` |
+| lavabo | 4 × 3 × 4 | Lavabo sur colonne, robinet métallique. | `Email__D8D4C8`, `Robinet__A0A0A0` (Metal) |
+| WC | 3 × 2,5 × 3 | WC ancien, réservoir haut avec chaîne. | `Email__D8D4C8`, `Chaine__808080` (Metal) |
+| armoire de toilette | 3 × 6 × 6 (profondeur 1) | Petite armoire murale à miroir, cadre en bois, miroir terne. | `Cadre__5A4030`, `Miroir__B0C4CC` (Glass) |
+| barrique | 4 × 3 × 4 | Tonneau couché ou debout, cerclages métalliques rouillés. | `Douelles__6B4A2F`, `Cercles__5A4A3A` (Metal) |
+| cuve | 8 × 4 × 6 | Cuve métallique de cave, rivets, robinet de vidange. | `Metal__6A6E70` (Metal) |
+| canapé | 12 × 3 × 5 | Canapé trois places défraîchi, accoudoirs ronds, coussins affaissés. | `Tissu__6A4A3A`, `Pieds__3A2A20` |
+| fauteuil | 4 × 3 × 4 | Fauteuil assorti au canapé. | `Tissu__6A4A3A`, `Pieds__3A2A20` |
+| cuisinière | 10 × 3 × 4 | Cuisinière à gaz ancienne, quatre feux, four à poignée. | `Email__3A3A3A`, `Chrome__B0B0B0` (Metal) |
+| frigo | 4 × 6 × 4 | Réfrigérateur arrondi années 50, poignée chromée. | `Email__C8C4B0`, `Chrome__B0B0B0` (Metal) |
+| cheminée | 8 × 5 × 4 | Cheminée en pierre, foyer sombre, manteau en bois, sans feu. | `Pierre__6A6660`, `Manteau__4A3220` |
+
+## Priorité 3 : pièces à identité forte (histoire)
+
+| Nom | Taille | Description | Couleurs |
+|---|---|---|---|
+| cercueil | 8 × 2 × 6 (couvercle posé de travers, lisible depuis la porte) | Cercueil ancien, bois sombre, croix gravée, poignées métalliques. | `Bois__3A2418`, `Poignees__8A7A50` (Metal) |
+| coffre verrouillé | 8 × 3 × 4 | Coffre renforcé de fer avec gros cadenas sur la face avant. | `Bois__4A3220`, `Fer__4A4A4A` (Metal), `Cadenas__B8A060` (Metal) |
+| coffre à jouets | 6 × 2,5 × 6 | Coffre d'enfant peint, motif d'étoiles écaillé. | `Bois__7A5A8A`, `Etoiles__D8C060` |
+| vitrine | 4 × 7 × 6 | Vitrine de collection, étagères intérieures, vitres sales. | `Cadre__4A3220`, `Vitre__A8C0C8` (Glass) |
+| portemanteau | 2 × 6 × 2 | Portemanteau sur pied avec manteau abandonné. | `Bois__4A3220`, `Manteau__3A3A44` |
+| lampadaire | 2 × 5 × 2 | Lampadaire à abat-jour de tissu jauni. | `Pied__4A3A2A`, `Abatjour__C8B070` (Neon, faible) |
+| lit double | 12 × 1,8 × 12 | Lit à baldaquin dépouillé, draps jaunis, une traîne au sol. | `Bois__4A3220`, `Draps__C8C0A8` |
+| établi | 10 × 3 × 4 | Établi d'atelier avec étau, quelques outils fixes. | `Bois__6B4A2F`, `Etau__5A5A5A` (Metal) |
+
+## Notes pour la pose
+- Chaque modèle reçoit son entrée dans `ModelFit.PLANS` (`fit` pour un meuble à boîte, `height` pour un objet à hauteur fixe) et son identifiant dans `Config.Assets` ; le moteur gère l'orientation, l'échelle mesurée et le repli procédural tant que l'asset manque.
+- Priorité 1 d'abord : ces sept objets couvrent plus de 50 emplacements.
+- Retour attendu : nom exact du modèle (colonne 1) et identifiant d'asset publié, dans `A_FAIRE_UTILISATEUR.md`.
