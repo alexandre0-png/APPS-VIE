@@ -4,7 +4,7 @@
 
 ### Démarrage robuste (correctif prioritaire : le jeu ne se lançait plus)
 - Cause : le chargement des modèles (`ModelLoader.ensure`, `MonsterAI.ensureModel`) était synchrone et séquentiel AVANT la construction de la carte. Pendant ce temps `CharacterAutoLoads` restait faux, donc aucun joueur n'avait de personnage tant que tous les modèles n'étaient pas passés (ou expirés un par un).
-- Les modèles se chargent maintenant en arrière-plan APRÈS la carte et le point d'apparition (`ModelLoader.start`) : tâches parallèles (`Config.Assets.Workers`, 8), plafond global `Config.Assets.GlobalTimeout` (10 s), pcall partout. Une pièce déjà construite est habillée ensuite (`MapBuilder.applyLateModels`) ; sans modèle, la pièce de remplacement reste.
+- Les modèles se chargent maintenant en arrière-plan APRÈS la carte et le point d'apparition (`ModelLoader.start`) : tâches parallèles (`Config.Assets.Workers`, 4), plafond global `Config.Assets.GlobalTimeout` (10 s), pcall partout. Une pièce déjà construite est habillée ensuite (`MapBuilder.applyLateModels`) ; sans modèle, la pièce de remplacement reste.
 - Script serveur de partie : chaque étape dans un pcall (`boot`), traces `[Boot] étape ok (x s)` ou `[Boot] étape ERREUR`. Script du hub : mêmes traces (`[Boot] hub construction ok`, `hub accueil ok`).
 - Client : chaque gestionnaire, boucle et module (Cinematic) est isolé ; une erreur donne `[Client] module X : erreur` sans bloquer le HUD ni les autres modules.
 - Modèles : `AssetLoad.sanitize` retire aussi RemoteFunction, BindableFunction, UnreliableRemoteEvent.

@@ -37,6 +37,14 @@ class TestAsyncModels(unittest.TestCase):
         self.assertGreaterEqual(int(lua.eval("#LOADS")), 1, "aucun personnage : le jeu a attendu les modèles")
         self.assertTrue(lua.eval("LOADS[1].usedSpawn"))
 
+    def test_server_ready_within_one_virtual_second_with_8s_loads(self):
+        lua = server("task.wait(8) return nil")
+        lua.execute("SWALLOW = true; advance(1)")
+        log = prints(lua)
+        self.assertTrue(any("[Boot] carte ok" in l for l in log), log)
+        self.assertTrue(any("[Boot] Respawn ok" in l for l in log), log)
+        self.assertFalse(any("[Boot] modèles chargés" in l for l in log))
+
     def test_global_cap_ends_loading_even_if_all_models_hang(self):
         lua = server("while true do task.wait(1) end")
         lua.execute("SWALLOW = true; advance(40)")
