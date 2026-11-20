@@ -2999,6 +2999,27 @@ do
 	end
 	RT.removePlayer(p7)
 	RT.step(1)
+	-- gardiens : modèle Blender (chien, loup, ours) posé à la place de l'apparence procédurale, après chargement
+	do
+		local found, withBlender, loadedGuards = 0, 0, 0
+		for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+			if d.ClassName == "Model" and d.Name:sub(1, 5) == "Guard" then
+				found += 1
+				if d:FindFirstChild("Blender") then
+					withBlender += 1
+				end
+			end
+		end
+		for _, id in ipairs(RT.loadedIds) do
+			for _, gid in pairs(Config.Assets.models.guards) do
+				if id == gid then
+					loadedGuards += 1
+				end
+			end
+		end
+		check("Gardiens : un LoadAsset par modèle (chien, loup, ours, chevalier) [" .. loadedGuards .. "]", loadedGuards == 4)
+		check("Gardiens : les " .. #Config.RIVALS .. " gardiens des domaines portent le modèle Blender [" .. withBlender .. "/" .. found .. "]", found == #Config.RIVALS and withBlender == #Config.RIVALS)
+	end
 	-- revente d'œuf et de doublons côté serveur
 	local p8 = RT.addPlayer("Hal", 2008, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
 	RT.step(2)

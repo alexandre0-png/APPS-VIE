@@ -408,6 +408,9 @@ Config.Assets = {
 		ground = { grass = 108336655087221, path = 129255762203803, plaza = 129476241883133 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
+	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100 },
+	guardKinds = { "dog", "wolf", "bear" }, -- gardien de chaque domaine (Config.RIVALS) -> modèle de models.guards
+	guardHeights = { dog = 2.8, wolf = 3.4, bear = 4.6, knight = 5.2 }, -- hauteur en studs
 	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
 	-- Nombre d'exemplaires posés sur la carte de la partie et hauteur en studs (le pont est mis à l'échelle sur sa longueur).
 	propsPlan = { tree = 18, fir = 10, rock = 14, bush = 14, hut = 3, fence = 12, bridge = 4 },
@@ -2509,6 +2512,49 @@ function Assets.new(Config, deps)
 			end
 		end
 		return loaded
+	end
+
+	-- Groupes de modèles Blender de Config.Assets.models (guards, castle, traps, ground, props...) : clé "groupe.nom", plafond de Parts par
+	-- Config.Assets.modelsMaxParts["groupe.nom"]. Même garanties que loadProps (un seul LoadAsset par ID, jamais d'erreur levée).
+	function A.loadGroup(group)
+		local g = cfg.models and cfg.models[group]
+		if cfg.Enabled ~= true or type(g) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(g) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = g[key]
+			local full = group .. "." .. key
+			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or cfg.decorMaxParts or cfg.maxParts
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("m:" .. full, id, cap) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["m:" .. full] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie d'un modèle d'un groupe (ou nil : repli procédural).
+	function A.cloneModel(group, key)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["m:" .. tostring(group) .. "." .. tostring(key)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		return ok and clone or nil
 	end
 
 	-- Copie d'un accessoire (clone du modèle chargé une seule fois : jamais de LoadAsset répété), ou nil.

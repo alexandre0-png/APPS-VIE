@@ -9,6 +9,11 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **C (8bc3546)** : plafond de taille de l'œuf (`Config.eggMaxSize`, relatif à l'emplacement et au joueur), nid sous chaque œuf, pet qui apparaît plafonné (`Easing.popScale`).
 - **D** : modèles Blender intégrés : œufs par rareté (6 + secret, prioritaires sur le catalogue), 6 pets liés aux espèces (Poussin, Lapin, Renard, Panda, Dragonnet = Dragon, Fantôme = Alien), accessoires (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine du hub, nid). Convention `Nom__RRGGBB` lue par `Assets.colorize` (couleurs du FBX ignorées, petits détails sans ombre), un seul `LoadAsset` par identifiant puis clonage, plafond de Parts par modèle (`propsMaxParts`) et budget global (`propsBudgetParts`, pire cas testé), repli procédural conservé partout. `BLENDER_REQUESTS.md` liste tous les modèles à créer ensuite.
 
+## 2026-11-22 (suite) : câblage Blender, lot 1 gardiens
+
+- `Assets.loadGroup(groupe)` / `cloneModel(groupe, clé)` : chargement générique des groupes de `Config.Assets.models` (un LoadAsset par ID, plafond de Parts par `modelsMaxParts`, repli procédural). Chargé APRÈS la carte et les accessoires.
+- `Builder.dressGuards` : chien (domaine 1), loup (2), ours (3) remplacent l'apparence procédurale (Body invisible conservé comme repère et support de l'étiquette, mise à l'échelle par `guardHeights`, posé au sol, ancré). Le déplacement (`PivotTo`) et la logique (perception, états, dégâts) sont inchangés. Le chevalier est chargé pour le château (lot suivant). Non testé en Studio : orientation du modèle (devant attendu = -Z) et hauteur.
+
 ## 2026-11-22 (suite) : lots G et H, économie et boutique payante
 
 - **G (fa55b6d)** : revente d'un œuf (`Config.eggSellValue`, 25 % du prix : acheter puis revendre est toujours une perte) et « Revendre les doublons » (`Config.dupesToSell` garde le meilleur pet de chaque espèce) ; actions serveur `sellEgg` / `sellDupes` validées (emplacement, type, pets retirés de ceux qui suivent), boutons dans l'onglet base. Améliorations (emplacements, vitesse, chance, sac, incubateurs...) et prix croissants existaient déjà, avec test de simulation.

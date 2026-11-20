@@ -392,6 +392,49 @@ function Assets.new(Config, deps)
 		return loaded
 	end
 
+	-- Groupes de modèles Blender de Config.Assets.models (guards, castle, traps, ground, props...) : clé "groupe.nom", plafond de Parts par
+	-- Config.Assets.modelsMaxParts["groupe.nom"]. Même garanties que loadProps (un seul LoadAsset par ID, jamais d'erreur levée).
+	function A.loadGroup(group)
+		local g = cfg.models and cfg.models[group]
+		if cfg.Enabled ~= true or type(g) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(g) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = g[key]
+			local full = group .. "." .. key
+			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or cfg.decorMaxParts or cfg.maxParts
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				if A.loadOne("m:" .. full, id, cap) then
+					loaded = loaded + 1
+				end
+			else
+				A.status["m:" .. full] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Copie d'un modèle d'un groupe (ou nil : repli procédural).
+	function A.cloneModel(group, key)
+		if cfg.Enabled ~= true then
+			return nil
+		end
+		local template = A.templates["m:" .. tostring(group) .. "." .. tostring(key)]
+		if not template then
+			return nil
+		end
+		local ok, clone = pcall(function()
+			return template:Clone()
+		end)
+		return ok and clone or nil
+	end
+
 	-- Copie d'un accessoire (clone du modèle chargé une seule fois : jamais de LoadAsset répété), ou nil.
 	function A.cloneProp(key)
 		if cfg.Enabled ~= true then

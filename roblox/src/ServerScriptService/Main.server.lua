@@ -60,6 +60,8 @@ task.spawn(function()
 	assets.loadProps()
 	local propParts, propCount = Builder.dressWorld(assets)
 	print("[Assets] accessoires Blender : " .. propCount .. " posés (" .. propParts .. " Parts)")
+	assets.loadGroup("guards")
+	print("[Assets] gardiens Blender : " .. Builder.dressGuards(assets) .. " remplacé(s)")
 end)
 
 local world = Builder.build()

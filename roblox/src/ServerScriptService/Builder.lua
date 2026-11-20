@@ -59,6 +59,7 @@ Builder.sign = sign
 ---------------------------------------------------------------- Œuf
 -- Chargeur de modèles d'œufs (module Assets, branché par Main). Nil = apparence par défaut partout.
 local eggAssets = nil
+local builtGuards = {} -- { model, rival } des gardiens construits (habillage Blender différé)
 function Builder.setAssets(a)
 	eggAssets = a
 end
@@ -390,6 +391,67 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 end
 
 ---------------------------------------------------------------- Gardien
+-- Remplace l'apparence procédurale d'un gardien par un modèle Blender : le Body devient invisible (il porte l'étiquette et sert de repère),
+-- les autres Parts procédurales sont détruites, le modèle est mis à l'échelle (hauteur en studs), posé au sol sous le Body et ancré.
+-- Retourne true si remplacé ; sinon le gardien procédural est conservé. Ne lève jamais d'erreur.
+local function fitGuard(model, clone, height)
+	local ok = pcall(function()
+		local body = model.PrimaryPart
+		local _, size = clone:GetBoundingBox()
+		if size.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		clone:ScaleTo(height / size.Y)
+		local bbox, size2 = clone:GetBoundingBox()
+		clone:PivotTo(body.CFrame * CFrame.new(0, -2.4 + size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+			end
+		end
+		for _, c in ipairs(model:GetChildren()) do
+			if c:IsA("BasePart") and c ~= body then
+				c:Destroy()
+			end
+		end
+		body.Transparency = 1
+		local label = body:FindFirstChild("Label")
+		if label then
+			label.StudsOffsetWorldSpace = Vector3.new(0, height + 1.2, 0)
+		end
+		clone.Name = "Blender"
+		clone.Parent = model
+	end)
+	if not ok then
+		pcall(function()
+			clone:Destroy()
+		end)
+	end
+	return ok
+end
+
+-- Habille les gardiens des domaines avec les modèles Blender chargés (guards.dog / wolf / bear). Retourne le nombre de gardiens remplacés.
+function Builder.dressGuards(assets)
+	local n = 0
+	pcall(function()
+		local waited = 0
+		while #builtGuards == 0 and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+		end
+		for _, g in ipairs(builtGuards) do
+			local kind = Config.Assets.guardKinds[g.rival]
+			local clone = kind and assets.cloneModel("guards", kind)
+			if clone and fitGuard(g.model, clone, Config.Assets.guardHeights[kind]) then
+				n = n + 1
+			end
+		end
+	end)
+	return n
+end
+
 function Builder.guard(rivalIdx)
 	local r = Config.RIVALS[rivalIdx]
 	local col = r.color:Lerp(Color3.fromRGB(60, 40, 30), 0.6)
@@ -746,6 +808,7 @@ function Builder.build()
 		end
 		local g = Builder.guard(i)
 		g.Parent = folder
+		builtGuards[#builtGuards + 1] = { model = g, rival = i }
 		result.guards[#result.guards + 1] = {
 			model = g, rival = i, cx = cx, patrolZ = cz + 12, pos = Vector3.new(cx, 2.4, cz + 12),
 			dir = (i % 2 == 0) and -1 or 1, state = "patrol", cd = 0, lost = 0,
