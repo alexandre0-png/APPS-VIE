@@ -160,6 +160,17 @@ function Chain.lockedText(done, id)
 	return "Pas encore. D'abord : " .. step.objective:sub(1, 1):lower() .. step.objective:sub(2) .. "."
 end
 
+-- Nombre d'étapes faites et nombre total (pour « Étape n sur N »)
+function Chain.progress(done)
+	local n = 0
+	for _, step in ipairs(Chain.STEPS) do
+		if done[step.id] then
+			n += 1
+		end
+	end
+	return n, #Chain.STEPS
+end
+
 -- Journal de quêtes : l'étape active en tête, puis les étapes faites (la plus récente d'abord),
 -- puis le nombre d'étapes encore à découvrir (leur contenu n'est pas dévoilé).
 function Chain.journal(done)
