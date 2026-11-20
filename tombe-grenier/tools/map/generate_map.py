@@ -37,29 +37,29 @@ ZONE_MARGIN = 2.5                        # zone libre devant chaque porte
 # ----------------------------------------------------------------------------
 ROOMS = [
     # Sous-sol
-    ("pn",     "basement", (0, 0, 40, 44),    "ardoise",   "brique", "Passage nord"),
-    ("cave",   "basement", (40, 0, 80, 90),   "ardoise",   "brique", "Cave centrale"),
-    ("ps",     "basement", (80, 0, 120, 90),  "ardoise",   "brique", "Passage sud"),
-    ("cel",    "basement", (0, 44, 40, 90),   "ardoise",   "brique", "Cellier"),
+    ("pn",     "basement", (0, 0, 40, 44),    "pave_sombre",   "brique", "Passage nord"),
+    ("cave",   "basement", (40, 0, 80, 90),   "pave",   "brique", "Cave centrale"),
+    ("ps",     "basement", (80, 0, 120, 90),  "pave_sombre",   "brique", "Passage sud"),
+    ("cel",    "basement", (0, 44, 40, 90),   "terre_battue",   "beton", "Cellier"),
     # Rez-de-chaussée
-    ("salon",  "ground",   (0, 0, 40, 44),    "carrelage", "papier", "Salon"),
-    ("hall",   "ground",   (40, 0, 80, 44),   "carrelage", "brique", "Hall"),
-    ("cuis",   "ground",   (80, 0, 120, 44),  "carrelage", "mur",    "Cuisine"),
-    ("sam",    "ground",   (0, 44, 40, 90),   "carrelage", "papier", "Salle à manger"),
-    ("entree", "ground",   (40, 44, 80, 90),  "carrelage", "brique", "Entrée"),
-    ("bureau", "ground",   (80, 44, 120, 90), "carrelage", "bureau", "Bureau"),
+    ("salon",  "ground",   (0, 0, 40, 44),    "parquet", "papier", "Salon"),
+    ("hall",   "ground",   (40, 0, 80, 44),   "marbre", "brique", "Hall"),
+    ("cuis",   "ground",   (80, 0, 120, 44),  "carreaux_blancs", "faience",    "Cuisine"),
+    ("sam",    "ground",   (0, 44, 40, 90),   "parquet_sombre", "papier_vert", "Salle à manger"),
+    ("entree", "ground",   (40, 44, 80, 90),  "marbre", "brique", "Entrée"),
+    ("bureau", "ground",   (80, 44, 120, 90), "moquette_verte", "bureau", "Bureau"),
     # Premier étage
-    ("chp",    "first",    (0, 0, 40, 44),    "carrelage", "mur",    "Chambre des parents"),
-    ("palier", "first",    (40, 0, 80, 44),   "carrelage", "brique", "Palier"),
-    ("che",    "first",    (80, 0, 120, 44),  "carrelage", "mur",    "Chambre d'enfant"),
-    ("cha",    "first",    (12, 44, 40, 90),  "carrelage", "mur",    "Chambre d'ami"),
-    ("sdb2",   "first",    (0, 44, 12, 90),   "carrelage", "mur",    "Salle d'eau"),
-    ("couloir", "first",   (40, 44, 80, 90),  "carrelage", "brique", "Couloir"),
-    ("sdb",    "first",    (80, 44, 120, 68), "carrelage", "mur",    "Salle de bain"),
-    ("deb",    "first",    (80, 68, 120, 90), "carrelage", "mur",    "Débarras"),
+    ("chp",    "first",    (0, 0, 40, 44),    "moquette_bordeaux", "papier_bordeaux",    "Chambre des parents"),
+    ("palier", "first",    (40, 0, 80, 44),   "parquet_sombre", "brique", "Palier"),
+    ("che",    "first",    (80, 0, 120, 44),  "parquet_clair", "papier_rose",    "Chambre d'enfant"),
+    ("cha",    "first",    (12, 44, 40, 90),  "moquette_bleue", "papier_bleu",    "Chambre d'ami"),
+    ("sdb2",   "first",    (0, 44, 12, 90),   "carreaux_bleus", "faience_bleue",    "Salle d'eau"),
+    ("couloir", "first",   (40, 44, 80, 90),  "parquet_sombre", "brique", "Couloir"),
+    ("sdb",    "first",    (80, 44, 120, 68), "carreaux_bleus", "faience_bleue",    "Salle de bain"),
+    ("deb",    "first",    (80, 68, 120, 90), "beton_sol", "mur",    "Débarras"),
     # Grenier
     ("gro",    "attic",    (0, 0, 60, 90),    "plancher",  "bois_mur", "Grenier ouest"),
-    ("tombe",  "attic",    (60, 0, 120, 90),  "plancher",  "mur",    "Salle de la tombe"),
+    ("tombe",  "attic",    (60, 0, 120, 90),  "dalles_tombe",  "mur",    "Salle de la tombe"),
 ]
 
 # ----------------------------------------------------------------------------

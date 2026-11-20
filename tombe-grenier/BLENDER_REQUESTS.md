@@ -49,3 +49,42 @@ Déjà couverts par la bibliothèque (rien à refaire) : clé or, coffret ancien
 - Chaque modèle reçoit son entrée dans `ModelFit.PLANS` (`fit` pour un meuble à boîte, `height` pour un objet à hauteur fixe) et son identifiant dans `Config.Assets` ; le moteur gère l'orientation, l'échelle mesurée et le repli procédural tant que l'asset manque.
 - Priorité 1 d'abord : ces sept objets couvrent plus de 50 emplacements.
 - Retour attendu : nom exact du modèle (colonne 1) et identifiant d'asset publié, dans `A_FAIRE_UTILISATEUR.md`.
+
+---
+
+# Lot 3 : sols, murs, fenêtres, escalier (demande du regraphisme)
+
+État actuel : chaque pièce a déjà son sol et son mur distincts par matière et couleur (cuisine carreaux blancs, salles d'eau carreaux bleutés, salon et chambre d'enfant parquets, chambres moquettes bordeaux et bleue, bureau moquette verte, hall et entrée marbre, cave pavés, cellier terre battue, grenier plancher chaud, tombe dalles sombres). Il manque le relief et les textures fines.
+
+## Modèles 3D (convention `Nom__RRGGBB`, devant = −Y Blender, tailles en studs X × Y × Z)
+
+| Nom | Taille | Description | Couleurs |
+|---|---|---|---|
+| plinthe bois | 4 × 0,7 × 0,25 | Module de plinthe, profil à deux marches, bouts droits pour se raccorder. Posé en série le long des murs (hors portes). | `Bois__4A3220` |
+| moulure plafond | 4 × 0,5 × 0,5 | Module de corniche en quart de rond, bouts droits. | `Platre__D8D0C0` |
+| fenêtre ancienne à rideaux | 3 × 5 × 0,6 | Cadre à six carreaux, volets repliés, rideaux de tissu usé de chaque côté, appui de fenêtre. | `Cadre__5A4030`, `Vitre__A8C0C8` (Glass), `Rideau__7A3A3A` |
+| fenêtre grenier ronde | 3 × 3 × 0,6 | Œil-de-bœuf à cadre rouillé, vitre fêlée. | `Cadre__5A4A3A` (Metal), `Vitre__A8C0C8` (Glass) |
+| balustrade d'escalier | 4 × 3,5 × 0,4 | Garde-corps de 4 studs : main courante, six barreaux tournés, poteau d'angle. Modules raccordables. | `Bois__4A3220` |
+| marche usée | 4 × 0,7 × 1,3 | Une marche de bois, bord avant arrondi par l'usure, un nez en laiton terni. | `Bois__6B4A2F`, `Nez__8A7A50` (Metal) |
+| encadrement de porte | 5 × 9 × 0,8 | Chambranle et linteau moulurés autour d'une ouverture de 4 × 8. | `Bois__4A3220` |
+| lampe murale applique | 1 × 1,5 × 0,8 | Applique à tulipe de verre, sans lumière. | `Laiton__B8A060` (Metal), `Verre__E8D8A8` (Glass) |
+| soupirail | 3 × 1,5 × 0,6 | Soupirail de cave à barreaux et grille de fonte. | `Fonte__2A2A2A` (Metal), `Pierre__6A6660` |
+| radiateur fonte | 4 × 2,5 × 0,6 | Radiateur à éléments, peinture écaillée. | `Fonte__6A6A64` (Metal) |
+
+## Textures tuilables (images carrées 512 ou 1024, à téléverser comme décals/textures)
+Demande d'images (pas de 3D) : chacune se répète sans couture.
+
+| Nom | Usage | Description |
+|---|---|---|
+| damier cuisine | sol de la cuisine | Carreaux 1 × 1 stud blanc cassé et noir, joints sales. |
+| parquet à chevrons | salon, chambre d'enfant | Lames de chêne en chevrons, usure au centre. |
+| lames de plancher larges | grenier, couloir, salle à manger | Lames de 1 stud, nœuds, rayures. |
+| dalles de cave | cave, passages | Dalles de pierre irrégulières de 2 × 2 studs, mousse dans les joints. |
+| marbre veiné | hall, entrée | Marbre blanc cassé à veines grises. |
+| papier peint fleuri | salon, chambre des parents | Motif de fleurs passées sur fond crème, léger déchirement. |
+| papier peint enfant | chambre d'enfant | Rayures roses et petites étoiles, coins décollés. |
+| faïence murale | cuisine, salles d'eau | Carrelage mural 0,5 × 0,5 stud blanc ou bleuté, joints gris. |
+
+## Notes
+- Priorité : plinthe bois, moulure plafond, fenêtre ancienne à rideaux, encadrement de porte, textures damier cuisine et parquet.
+- Les plinthes et moulures se posent par modules : la logique de pose (hors portes, plafonnée en nombre de pièces pour le mobile) reste à écrire côté jeu dès que les modèles existent.
