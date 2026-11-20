@@ -2703,7 +2703,7 @@ do
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
 		local tm = Config.Assets.models.traps
-		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" } } -- les modèles de pièges portent leurs pièces animées
+		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" }, [Config.Assets.models.castle.door] = { "Herse__8A8A8A" }, [Config.Assets.models.props.chest] = { "Couvercle__E8B923" } } -- les modèles de pièges portent leurs pièces animées
 	end
 	if RT then
 	local main = RT.buildTree("roblox/src", false)
@@ -2974,6 +2974,16 @@ do
 					ballsVis += 1
 				end
 			end
+		end
+		do
+			local names = {}
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if d.ClassName == "Model" then
+					names[d.Name] = (names[d.Name] or 0) + 1
+				end
+			end
+			local R = Castle.ROOMS
+			check("Château : murs, tours, herses, coffre, torches, drapeaux et fond Blender posés (" .. tostring(names.CastleWallModel) .. " murs, " .. tostring(names.CastleTowerModel) .. " tours, " .. tostring(names.CastleDoorModel) .. " portes, " .. tostring(names.CastleChestModel) .. " coffre, " .. tostring(names.CastleTorchModel) .. " torches, " .. tostring(names.CastleFlagModel) .. " drapeaux, " .. tostring(names.CastleBackdrop) .. " fond)", names.CastleWallModel == R * 4 and names.CastleTowerModel == 2 and names.CastleDoorModel == R and names.CastleChestModel == 1 and names.CastleTorchModel == R * 2 and names.CastleFlagModel == 2 and names.CastleBackdrop == 1)
 		end
 		local expSp, expBl, expBa = 0, 0, 0
 		for r = 1, Castle.ROOMS do

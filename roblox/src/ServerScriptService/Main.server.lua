@@ -64,6 +64,9 @@ task.spawn(function()
 	print("[Assets] gardiens Blender : " .. Builder.dressGuards(assets) .. " remplacé(s)")
 	assets.loadGroup("traps")
 	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
+	assets.loadGroup("castle")
+	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
+	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
 end)
 
 local world = Builder.build()
@@ -1207,6 +1210,7 @@ local function castleStep(dt)
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)
 		rec.door.CanCollide = not open
+		Builder.animDoor(rec, open)
 	end
 	-- joueurs dans le donjon : chrono, touches
 	for player, s in pairs(sessions) do
@@ -1244,6 +1248,7 @@ function castleFinish(s, root, prompt)
 		return notify(s.player, "Il faut traverser les " .. Castle.ROOMS .. " salles avant d'ouvrir le coffre.")
 	end
 	c.finished = true
+	Builder.openChest()
 	local seconds = os.clock() - c.t0
 	local reward = Castle.reward(seconds, income(s), c.deaths)
 	s.data.coins += reward.coins

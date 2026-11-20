@@ -408,7 +408,9 @@ Config.Assets = {
 		ground = { grass = 108336655087221, path = 129255762203803, plaza = 129476241883133 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
-	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30 },
+	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
+		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20 },
+	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	guardKinds = { "dog", "wolf", "bear" }, -- gardien de chaque domaine (Config.RIVALS) -> modèle de models.guards
 	guardHeights = { dog = 2.8, wolf = 3.4, bear = 4.6, knight = 5.2 }, -- hauteur en studs
 	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
@@ -3092,6 +3094,9 @@ task.spawn(function()
 	print("[Assets] gardiens Blender : " .. Builder.dressGuards(assets) .. " remplacé(s)")
 	assets.loadGroup("traps")
 	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
+	assets.loadGroup("castle")
+	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
+	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
 end)
 
 local world = Builder.build()
@@ -4235,6 +4240,7 @@ local function castleStep(dt)
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)
 		rec.door.CanCollide = not open
+		Builder.animDoor(rec, open)
 	end
 	-- joueurs dans le donjon : chrono, touches
 	for player, s in pairs(sessions) do
@@ -4272,6 +4278,7 @@ function castleFinish(s, root, prompt)
 		return notify(s.player, "Il faut traverser les " .. Castle.ROOMS .. " salles avant d'ouvrir le coffre.")
 	end
 	c.finished = true
+	Builder.openChest()
 	local seconds = os.clock() - c.t0
 	local reward = Castle.reward(seconds, income(s), c.deaths)
 	s.data.coins += reward.coins
@@ -6027,7 +6034,7 @@ end
 
 -- Pose un clone de modèle Blender centré en (x, z), posé sur le sol y0, mis à l'échelle pour que sa plus grande arête horizontale vaille `span`
 -- (ou, sans span, pour que sa hauteur vaille `height`), ancré, sans collision. Retourne la table { model, center } ou nil (clone détruit).
-local function setModel(clone, x, y0, z, span, height, parent)
+local function setModel(clone, x, y0, z, span, height, parent, rotY)
 	local ok = pcall(function()
 		local _, size = clone:GetBoundingBox()
 		if size.Y < 0.05 then
@@ -6040,7 +6047,7 @@ local function setModel(clone, x, y0, z, span, height, parent)
 			clone:ScaleTo(height / size.Y)
 		end
 		local bbox, size2 = clone:GetBoundingBox()
-		clone:PivotTo(CFrame.new(x, y0 + size2.Y / 2, z) * bbox:ToObjectSpace(clone:GetPivot()))
+		clone:PivotTo(CFrame.new(x, y0 + size2.Y / 2, z) * CFrame.Angles(0, rotY or 0, 0) * bbox:ToObjectSpace(clone:GetPivot()))
 		for _, d in ipairs(clone:GetDescendants()) do
 			if d:IsA("BasePart") then
 				d.Anchored = true
@@ -6124,6 +6131,132 @@ function Builder.dressTraps(assets)
 		end
 	end)
 	return n
+end
+
+-- Habille le château (murs, tours, herses, coffre, torches, drapeaux, bâtiment en fond) avec les modèles Blender (groupes `castle` et `props`), dans un
+-- budget de Parts (Config.Assets.castleBudgetParts, pire cas = plafond de Parts de chaque modèle). Les Parts procédurales gardent la collision et la logique
+-- (murs, portes, coffre) et deviennent invisibles seulement si leur modèle a été posé. Herse (porte) et Couvercle (coffre) sont animées par le code.
+-- Retourne le nombre de modèles posés.
+function Builder.dressCastle(assets)
+	local n, spent = 0, 0
+	pcall(function()
+		local waited = 0
+		while not builtCastle and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+		end
+		local w = builtCastle
+		local parent = w and w.rooms[1] and w.rooms[1].door and w.rooms[1].door.Parent
+		if not parent then
+			return
+		end
+		local function put(group, key, x, y0, z, span, height, rotY, name)
+			local cost = Config.Assets.modelsMaxParts[group .. "." .. key] or 60
+			if spent + cost > Config.Assets.castleBudgetParts then
+				return nil
+			end
+			local clone = assets.cloneModel(group, key)
+			if not clone then
+				return nil
+			end
+			clone.Name = name
+			if setModel(clone, x, y0, z, span, height, parent, rotY) then
+				spent = spent + cost
+				n = n + 1
+				return clone
+			end
+			return nil
+		end
+		local W, L = Castle.ROOM_WIDTH, Castle.ROOM_LENGTH
+		-- murs : deux segments de L/2 par côté et par salle (les murs procéduraux restent les colliders)
+		for r = 1, Castle.ROOMS do
+			local placed = 0
+			for _, sx in ipairs({ -1, 1 }) do
+				for k = 0, 1 do
+					local x, z = Castle.toWorld(r, sx * (W / 2 + 1), L / 4 + k * L / 2)
+					if put("castle", "wall", x, 0, z, L / 2, nil, math.pi / 2, "CastleWallModel") then
+						placed = placed + 1
+					end
+				end
+			end
+			if placed == 4 then
+				local _, roomZ = Castle.toWorld(r, 0, L / 2)
+				for _, c in ipairs(parent:GetChildren()) do
+					if c.Name == "CastleWall" and c:IsA("BasePart") and math.abs(c.Position.Z - roomZ) < 1 then
+						c.Transparency = 1
+					end
+				end
+			end
+		end
+		-- tours de chaque côté de l'entrée
+		local ex, ez = Castle.toWorld(1, 0, -6)
+		for _, sx in ipairs({ -13, 13 }) do
+			put("castle", "tower", ex + sx, 0, ez, nil, 24, 0, "CastleTowerModel")
+		end
+		-- herses : la pièce Herse monte quand la porte s'ouvre (le pilote procédural garde la collision)
+		for _, rec in ipairs(w.rooms) do
+			local door = put("castle", "door", rec.doorX, 0, rec.doorZ, W, nil, 0, "CastleDoorModel")
+			local herse = door and findNamed(door, "Herse")
+			if herse then
+				rec.vis = { part = herse, base = herse.CFrame, last = "" }
+				rec.door.Transparency = 1
+			elseif door then
+				door:Destroy()
+				n = n - 1
+			end
+		end
+		-- coffre : le Couvercle s'ouvre quand le trésor est pris (Builder.openChest)
+		if w.chest then
+			local chest = put("props", "chest", w.chest.Position.X, 0, w.chest.Position.Z, nil, 4, 0, "CastleChestModel")
+			local lid = chest and findNamed(chest, "Couvercle")
+			if lid then
+				w.chestVis = { part = lid, base = lid.CFrame }
+				w.chest.Transparency = 1
+				local old = parent:FindFirstChild("CastleChestLid")
+				if old then
+					old.Transparency = 1
+				end
+			elseif chest then
+				chest:Destroy()
+				n = n - 1
+			end
+		end
+		-- torches (la lumière du pilote reste) et drapeaux sur le portail
+		for _, c in ipairs(parent:GetChildren()) do
+			if c.Name == "CastleTorch" and c:IsA("BasePart") and put("props", "torch", c.Position.X, 4.4, c.Position.Z, nil, 3, 0, "CastleTorchModel") then
+				c.Transparency = 1
+			end
+		end
+		for _, sx in ipairs({ -8, 8 }) do
+			put("props", "flag", ex + sx, 18.5, ez, nil, 7, 0, "CastleFlagModel")
+		end
+		-- bâtiment du château en fond, derrière la dernière salle
+		local bx, bz = Castle.toWorld(Castle.ROOMS, 0, L + 45)
+		put("props", "castle", bx, 0, bz, nil, 46, math.pi, "CastleBackdrop")
+	end)
+	return n
+end
+
+-- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
+function Builder.animDoor(rec, open)
+	local vis = rec.vis
+	if vis and vis.last ~= open then
+		vis.last = open
+		vis.part.CFrame = vis.base * CFrame.new(0, open and 9 or 0, 0)
+	end
+end
+
+-- Ouvre le couvercle du coffre final quelques secondes.
+function Builder.openChest()
+	local cv = builtCastle and builtCastle.chestVis
+	if cv then
+		cv.part.CFrame = cv.base * CFrame.Angles(-1.2, 0, 0)
+		task.delay(4, function()
+			if cv.part.Parent then
+				cv.part.CFrame = cv.base
+			end
+		end)
+	end
 end
 
 -- Anime le modèle d'un piège d'après la position de son pilote procédural (appelé 10 fois par seconde par le château).
