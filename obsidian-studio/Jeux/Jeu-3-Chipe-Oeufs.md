@@ -9,7 +9,7 @@ statut: prive-publie
 - **Partie** : lieu **87012762353093** « Partie Chipe-Oeufs » (Max Players 5).
 - Dossier `roblox/`, branche `claude/lucid-wozniak-o23lf0`.
 - Session : `session_0164z8QSjguKxoDaDm6aN2MU`.
-- **Dernier publié** : commit 3ee934e (hub v11, partie v7).
+- **Dernier publié** : commit 087efed (hub v14, partie v9).
 - Obsolète : lieu 106358102689021 et univers 10776613783 (ancien hub séparé).
 
 ## Contenu
