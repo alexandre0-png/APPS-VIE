@@ -13,6 +13,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Rng = require(Shared.Rng)
 local MapData = require(Shared.MapData)
+local ModelFit = require(Shared.ModelFit)
+local ModelPlace = require(script.Parent.ModelPlace)
 
 -- Pièces fermées par une énigme : les livres qui s'y trouvent ne sont pas des indices
 local LOCKED = { sdb = true, bureau = true, cha = true, sdb2 = true, cel = true }
@@ -30,6 +32,16 @@ local function inLockedRoom(f)
 	return false
 end
 
+-- Centre d'une pièce (par identifiant) pour orienter les meubles vers l'intérieur ; nil si inconnue
+local function roomCentreOf(id)
+	for _, r in ipairs(MapData.rooms) do
+		if r.id == id then
+			return { (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2 }
+		end
+	end
+	return nil
+end
+
 local DecorKit = {}
 
 -- Meubles de la carte qui prennent le modèle du catalogue d'un autre nom (ModelLoader.MODELS / Config.Assets)
@@ -37,6 +49,7 @@ DecorKit.ALIASES = {
 	["lit double"] = "lit",
 	["lit enfant"] = "lit",
 	["lampadaire"] = "lampe horreur",
+	["commode"] = "commode ancienne",
 }
 
 -- Modèle propre à une pièce : ROOM_MODELS[pièce][nom du meuble] = nom du modèle chargé.
@@ -52,9 +65,11 @@ DecorKit.ROOM_MODELS = {
 	cuis = { ["table"] = "table à manger", ["îlot"] = "table métal" },
 	sam = { ["plante"] = "plante fenêtre", ["table"] = "table à manger" },
 	couloir = { ["table ronde"] = "table ronde moderne" },
-	che = { ["chaise"] = "chaise école", ["bureau"] = "table bois" },
-	cha = { ["chaise"] = "chaise école", ["bureau"] = "table bois" },
-	gro = { ["table"] = "table bois", ["chaise"] = "chaise bois" },
+	che = { ["chaise"] = "chaise école", ["bureau"] = "table bois", ["armoire"] = "armoire gothique" },
+	cha = { ["chaise"] = "chaise école", ["bureau"] = "table bois", ["armoire"] = "armoire gothique" },
+	gro = { ["table"] = "table bois", ["chaise"] = "chaise bois", ["armoire"] = "armoire gothique" },
+	chp = { ["armoire"] = "armoire gothique" },
+	tombe = { ["armoire"] = "armoire gothique" },
 }
 
 -- Ce qui se pose sur un meuble d'une pièce donnée (remplace RECIPES pour ce meuble)
@@ -193,19 +208,41 @@ local function placeModel(template, parent, x, y, z, target)
 	model.Parent = parent
 end
 
--- Modèle chargé qui habille ce meuble (spécifique à la pièce, ou du même nom, ou alias), ou nil
+-- Modèle chargé qui habille ce meuble (spécifique à la pièce, ou du même nom, ou alias) : nom retenu et modèle, ou nil
 local function resolveTemplate(f)
 	-- Une grande bibliothèque (plus de 8 studs de large) prend le modèle dédié
 	local modelName = (f.name == "bibliothèque" and f.x1 - f.x0 > 8) and "grande bibliothèque" or f.name
 	local roomModels = f.room and DecorKit.ROOM_MODELS[f.room]
-	return (roomModels and studioModel(roomModels[f.name] or ""))
-		or studioModel(modelName)
-		or studioModel(DecorKit.ALIASES[modelName] or "")
+	for _, candidate in ipairs({
+		roomModels and roomModels[f.name] or "",
+		modelName,
+		DecorKit.ALIASES[modelName] or "",
+	}) do
+		if candidate ~= "" and studioModel(candidate) then
+			return studioModel(candidate), candidate
+		end
+	end
+	return nil, nil
 end
 
-local function placeFurniture(parent, f, template, furnPart)
+local function placeFurniture(parent, f, template, chosen, furnPart)
 	local target = Vector3.new(f.x1 - f.x0, f.y1 - f.y0, f.z1 - f.z0)
-	placeModel(template, parent, (f.x0 + f.x1) / 2, f.y0, (f.z0 + f.z1) / 2, target)
+	local cx, cz = (f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2
+	-- Bibliothèque Blender : taille mesurée, orientation vers l'intérieur de la pièce (ModelPlace) ; repli : ajustement simple
+	local placed = nil
+	if ModelFit.PLANS[chosen] then
+		placed = ModelPlace.fit({
+			name = chosen,
+			centre = Vector3.new(cx, f.y0, cz),
+			bottomY = f.y0,
+			target = { target.X, target.Y, target.Z },
+			parent = parent,
+			roomCentre = roomCentreOf(f.room),
+		})
+	end
+	if not placed then
+		placeModel(template, parent, cx, f.y0, cz, target)
+	end
 	if furnPart then
 		furnPart.Transparency = 1
 		furnPart.CastShadow = false
@@ -219,9 +256,9 @@ end
 function DecorKit.dress(parent, furniture, furnParts, registerLate)
 	local rng = Rng.new(SEED)
 	for i, f in ipairs(furniture) do
-		local template = resolveTemplate(f)
+		local template, chosen = resolveTemplate(f)
 		if template then
-			placeFurniture(parent, f, template, furnParts and furnParts[i])
+			placeFurniture(parent, f, template, chosen, furnParts and furnParts[i])
 		else
 			local generated, hasBook = {}, false
 			local byRoom = f.room and ROOM_RECIPES[f.room]
@@ -247,7 +284,7 @@ function DecorKit.dress(parent, furniture, furnParts, registerLate)
 			end
 			if registerLate and not hasBook then
 				registerLate(function()
-					local later = resolveTemplate(f)
+					local later, laterName = resolveTemplate(f)
 					if not later then
 						return false
 					end
@@ -256,7 +293,7 @@ function DecorKit.dress(parent, furniture, furnParts, registerLate)
 							g:Destroy()
 						end
 					end
-					placeFurniture(parent, f, later, furnParts and furnParts[i])
+					placeFurniture(parent, f, later, laterName, furnParts and furnParts[i])
 					return true
 				end)
 			end

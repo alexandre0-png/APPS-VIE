@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local AssetLoad = require(Shared.AssetLoad)
+local ModelColor = require(Shared.ModelColor)
 
 local ModelLoader = {}
 
@@ -68,6 +69,15 @@ local ASSET_NAMES = {
 	HorlogeComtoise = "horloge comtoise",
 	PoupeeAncienne = "poupée ancienne",
 	BougieChandelier = "bougie chandelier",
+	Armoire = "armoire gothique",
+	Commode = "commode ancienne",
+	Berceau = "berceau",
+	ChevalBascule = "cheval à bascule",
+	MiroirAncien = "miroir sur pied",
+	Malle = "malle",
+	Statuette = "statuette",
+	CadrePhoto = "cadre photo",
+	OmbreRampante = "ombre rampante",
 }
 
 -- Chargement d'un identifiant avec délai maximum (limit : secondes, 8 par défaut). Retourne le conteneur, ou nil.
@@ -90,7 +100,16 @@ local function loadWithTimeout(id, limit)
 	return result
 end
 
-ModelLoader.loadWithTimeout = loadWithTimeout
+-- Chargement + peinture : les pièces `Nom__RRGGBB` reçoivent leur couleur (Roblox ignore celles du FBX)
+local function loadAndPaint(id, limit)
+	local container = loadWithTimeout(id, limit)
+	if container then
+		pcall(ModelColor.paint, container)
+	end
+	return container
+end
+
+ModelLoader.loadWithTimeout = loadAndPaint
 
 -- Liste à charger : les modèles de meubles, puis ceux de Config.Assets
 local function entries()
@@ -172,7 +191,7 @@ function ModelLoader.start(onDone)
 	local workers = math.max(1, (Config.Assets and Config.Assets.Workers) or 8)
 	local running = workers
 	local function within(id)
-		return loadWithTimeout(
+		return loadAndPaint(
 			id,
 			math.max(0.2, math.min((Config.Assets and Config.Assets.Timeout) or 8, deadline - os.clock()))
 		)

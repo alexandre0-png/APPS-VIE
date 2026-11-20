@@ -28,6 +28,7 @@ local Audio = require(Shared.Audio)
 local RoomBudget = require(Shared.RoomBudget)
 local Config = require(Shared.Config)
 local ModelFit = require(Shared.ModelFit)
+local ModelPlace = require(script.Parent.ModelPlace)
 local DecorKit = require(script.Parent.DecorKit)
 local Atmosphere = require(script.Parent.Atmosphere)
 
@@ -345,88 +346,35 @@ function MapBuilder.applyLateModels()
 	return placed
 end
 
--- Centre de la pièce qui contient ce point (pour orienter un modèle vers l'intérieur de la pièce)
-local function roomCentre(pos)
-	for _, r in ipairs(Data.rooms) do
-		local base = Data.base[r.level]
-		if pos.X >= r.x0 and pos.X <= r.x1 and pos.Z >= r.z0 and pos.Z <= r.z1 and pos.Y >= base - 0.5 then
-			if pos.Y < base + Data.H + 1 then
-				return { (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2 }
-			end
-		end
-	end
-	return { pos.X, pos.Z + 1 }
-end
-
--- Hauteur du sol de l'étage qui contient ce point
-local function floorOf(pos)
-	local best = 0
-	for _, base in pairs(Data.base) do
-		if pos.Y >= base - 0.5 and base >= best then
-			best = base
-		end
-	end
-	return best
-end
-
--- Remplace l'aspect d'une pièce de jeu (clé, coffret, horloge) par un modèle chargé (ServerStorage/Decor).
+-- Remplace l'aspect d'une pièce de jeu (clé, coffret, horloge, statue, photo) par un modèle chargé (ServerStorage/Decor).
 -- La pièce reste en place, invisible : invite, tag, halo et animations continuent de fonctionner, le modèle y est soudé.
--- Taille mesurée (GetExtentsSize) puis ramenée à la taille de l'objet remplacé, face tournée vers l'intérieur de la pièce.
+-- Taille mesurée (GetExtentsSize) puis ramenée à la taille de l'objet remplacé (ModelFit), face tournée vers l'intérieur.
 -- Sans modèle (chargement refusé, par exemple « Requester does not have permission ») ou en cas d'erreur : rien ne change,
 -- la pièce procédurale reste visible. Retourne le modèle posé, ou nil.
 local function fitModelOver(part, name)
 	local plan = ModelFit.PLANS[name]
-	local folder = ServerStorage:FindFirstChild("Decor")
-	local template = folder and folder:FindFirstChild(name)
-	if not plan or not template or not template:IsA("Model") then
+	if not plan then
 		return nil
 	end
-	local ok, model = pcall(function()
-		local clone = template:Clone()
-		local ext = clone:GetExtentsSize()
-		local target = { part.Size.X, part.Size.Y, part.Size.Z }
-		if plan.height then
-			target = { 0, plan.height, 0 }
-		end
-		local scale = ModelFit.scaleFor({ ext.X, ext.Y, ext.Z }, target, plan.mode)
-		clone:ScaleTo(clone:GetScale() * scale)
-		local face = ModelFit.faceToward({ part.Position.X, part.Position.Z }, roomCentre(part.Position))
-		local yaw = ModelFit.yawFor(Config.Assets.Front[name] or plan.front, face)
-		clone:PivotTo(CFrame.new(part.Position) * CFrame.Angles(0, yaw, 0))
-		local cf, size = clone:GetBoundingBox()
-		local bottom = plan.floor and floorOf(part.Position) or (part.Position.Y - part.Size.Y / 2)
-		clone:TranslateBy(
-			Vector3.new(
-				part.Position.X - cf.Position.X,
-				bottom - (cf.Position.Y - size.Y / 2),
-				part.Position.Z - cf.Position.Z
-			)
-		)
-		for _, d in ipairs(clone:GetDescendants()) do
-			if d:IsA("BasePart") then
-				d.Anchored = false
-				d.CanCollide = false
-				d.CanQuery = false
-				local weld = Instance.new("WeldConstraint")
-				weld.Part0 = part
-				weld.Part1 = d
-				weld.Parent = d
-			end
-		end
-		clone.Parent = part
-		if plan.floor then
-			-- L'invite suit le modèle : la pièce invisible couvre l'horloge entière
-			local _, finalSize = clone:GetBoundingBox()
-			part.Size = Vector3.new(finalSize.X, finalSize.Y, finalSize.Z)
-			part.Position = Vector3.new(part.Position.X, bottom + finalSize.Y / 2, part.Position.Z)
-		end
-		part.Transparency = 1
-		return clone
-	end)
-	if not ok then
-		warn(("[MapBuilder] modèle « %s » non posé : %s"):format(name, tostring(model)))
+	local floor = plan.floor
+	local bottom = floor and ModelPlace.floorOf(part.Position) or (part.Position.Y - part.Size.Y / 2)
+	local model = ModelPlace.fit({
+		name = name,
+		centre = part.Position,
+		bottomY = bottom,
+		target = { part.Size.X, part.Size.Y, part.Size.Z },
+		weldTo = part,
+	})
+	if not model then
 		return nil
 	end
+	if floor then
+		-- L'invite suit le modèle : la pièce invisible couvre l'horloge entière
+		local _, finalSize = model:GetBoundingBox()
+		part.Size = Vector3.new(finalSize.X, finalSize.Y, finalSize.Z)
+		part.Position = Vector3.new(part.Position.X, bottom + finalSize.Y / 2, part.Position.Z)
+	end
+	part.Transparency = 1
 	return model
 end
 
@@ -826,7 +774,7 @@ local function buildHouse(root)
 			end)
 		elseif p.tag == "Statue" then
 			-- Statue de pierre : son orientation se tourne (énigme des statues, Quests)
-			makeVisible(
+			local statue = makeVisible(
 				folders.Props,
 				p.pos,
 				p.size,
@@ -835,6 +783,7 @@ local function buildHouse(root)
 				Enum.Material.Marble,
 				"Statue"
 			)
+			fitModelOver(statue, "statuette") -- la statuette suit la pièce quand l'énigme la tourne (soudée)
 		elseif p.tag == "Trappe" or p.tag == "TrappeGrenier" or p.tag == "TrappePalier" then
 			-- Trappe pleine : elle bloque le passage tant qu'elle n'est pas ouverte (Quests)
 			local hatch =
@@ -1308,7 +1257,7 @@ function MapBuilder.placeRound(seed)
 
 	-- Photos, clé, piles
 	for _, slot in ipairs(pick(rng, slots.photo, 3)) do
-		makeVisible(
+		local photo = makeVisible(
 			round,
 			slot.pos,
 			slot.size,
@@ -1317,6 +1266,7 @@ function MapBuilder.placeRound(seed)
 			Enum.Material.SmoothPlastic,
 			"Photo"
 		)
+		fitModelOver(photo, "cadre photo") -- cadre posé sur le meuble ; ramassé, il disparaît avec la pièce
 	end
 	-- Papier du code : un emplacement tiré, la valeur du code vient de la seed (voir Quests)
 	for _, slot in ipairs(pick(rng, slots.note, 1)) do

@@ -23,6 +23,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local AssetLoad = require(Shared.AssetLoad)
 local ModelLoader = require(script.Parent.ModelLoader)
+local MonsterVisual = require(script.Parent.MonsterVisual)
 local Audio = require(Shared.Audio)
 local Remotes = require(Shared.Remotes)
 local Animations = require(Shared.Animations)
@@ -545,6 +546,7 @@ local function updateLocomotion(m)
 	else
 		key = "marche"
 	end
+	m.locoKey = key -- lu par MonsterVisual pour balancer la silhouette
 	Animations.setLocomotion(m.anims, key)
 end
 
@@ -641,6 +643,11 @@ function MonsterAI.start(activationDelay)
 		spawnOrigin = root.Position,
 	}
 	current = m
+	-- Apparence « Ombre rampante » si le modèle est chargé (le rig reste la logique et la hitbox) ; sinon le rig actuel
+	m.visual = MonsterVisual.attach(model, root)
+	if m.visual then
+		task.spawn(MonsterVisual.loop, m)
+	end
 	task.spawn(run, m)
 end
 

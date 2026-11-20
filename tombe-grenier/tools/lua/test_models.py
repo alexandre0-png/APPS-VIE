@@ -21,11 +21,20 @@ import generate_map as gm  # noqa: E402
 ROOT = base.ROOT
 
 IDS = {
-    "CleOr": 128263149076283,
-    "CoffretAncien": 80816541343966,
-    "HorlogeComtoise": 121788657121996,
-    "PoupeeAncienne": 114751010380157,
-    "BougieChandelier": 118027923730609,
+    "CleOr": 71927105620016,
+    "CoffretAncien": 135334916682974,
+    "HorlogeComtoise": 127086141131615,
+    "PoupeeAncienne": 137798724739586,
+    "BougieChandelier": 91265848520746,
+    "Armoire": 88627357314275,
+    "Commode": 116600254156058,
+    "Berceau": 73900289399193,
+    "ChevalBascule": 74320735179635,
+    "MiroirAncien": 134489196998276,
+    "Malle": 94690600145377,
+    "Statuette": 107399380407320,
+    "CadrePhoto": 86021806351640,
+    "OmbreRampante": 101328489566505,
 }
 NAMES = {
     "CleOr": "clé or",
@@ -33,7 +42,17 @@ NAMES = {
     "HorlogeComtoise": "horloge comtoise",
     "PoupeeAncienne": "poupée ancienne",
     "BougieChandelier": "bougie chandelier",
+    "Armoire": "armoire gothique",
+    "Commode": "commode ancienne",
+    "Berceau": "berceau",
+    "ChevalBascule": "cheval à bascule",
+    "MiroirAncien": "miroir sur pied",
+    "Malle": "malle",
+    "Statuette": "statuette",
+    "CadrePhoto": "cadre photo",
+    "OmbreRampante": "ombre rampante",
 }
+OLD_IDS = (128263149076283, 80816541343966, 121788657121996, 114751010380157, 118027923730609)
 
 
 def read(*parts):
@@ -46,6 +65,11 @@ class TestIdsAndLoader(unittest.TestCase):
         cfg = read("src", "shared", "Config.lua")
         for key, ident in IDS.items():
             self.assertRegex(cfg, rf"\b{key} = {ident},", key)
+
+    def test_previous_single_block_ids_are_gone(self):
+        cfg = read("src", "shared", "Config.lua")
+        for old in OLD_IDS:
+            self.assertNotIn(str(old), cfg)
 
     def test_loader_installs_each_under_its_name(self):
         loader = read("src", "server", "ModelLoader.lua")
@@ -62,7 +86,7 @@ class TestIdsAndLoader(unittest.TestCase):
     def test_every_plan_names_a_loaded_model(self):
         fit = read("src", "shared", "ModelFit.lua")
         planned = set(re.findall(r'\["([^"]+)"\] = \{ mode', fit))
-        self.assertEqual(planned, set(NAMES.values()))
+        self.assertEqual(planned, set(NAMES.values()))  # un plan par modèle de la bibliothèque
 
 
 class TestModelFit(unittest.TestCase):
@@ -128,16 +152,17 @@ class TestModelFit(unittest.TestCase):
 class TestMapAndFallbacks(unittest.TestCase):
     def test_game_pieces_are_fitted_with_fallback_kept(self):
         mb = read("src", "server", "MapBuilder.lua")
-        for name in ("clé or", "coffret ancien", "horloge comtoise"):
+        for name in ("clé or", "coffret ancien", "horloge comtoise", "statuette", "cadre photo"):
             self.assertIn(f'fitModelOver(', mb)
             self.assertIn(f'"{name}"', mb)
-        fit = mb[mb.index("local function fitModelOver"):mb.index("-- Repli lisible")] if "-- Repli lisible" in mb[mb.index("local function fitModelOver"):] else mb
-        body = mb[mb.index("local function fitModelOver"):mb.index("local function buildHouse")]
+        body = mb[mb.index("local function fitModelOver"):mb.index("-- Repli lisible")]
         # la pièce procédurale ne devient invisible qu'après la pose réussie
-        self.assertLess(body.index("clone.Parent = part"), body.index("part.Transparency = 1"))
-        self.assertIn("pcall(function()", body)
-        self.assertIn("CanCollide = false", body)
-        self.assertIn("WeldConstraint", body)
+        self.assertLess(body.index("if not model then"), body.index("part.Transparency = 1"))
+        place = read("src", "server", "ModelPlace.lua")
+        self.assertIn("pcall(function()", place)
+        self.assertIn("CanCollide = false", place)
+        self.assertIn("WeldConstraint", place)
+        self.assertIn("GetExtentsSize", place)
 
     def test_decor_models_have_a_readable_fallback(self):
         mb = read("src", "server", "MapBuilder.lua")
@@ -171,13 +196,210 @@ class TestMapAndFallbacks(unittest.TestCase):
                 self.assertFalse(abs(sx - x) < 1.0 and abs(sz - z) < 1.0 and abs(sy - y) < 1.5, f"cache un emplacement ({sx},{sy},{sz}) : {m}")
 
 
+class TestModelColor(unittest.TestCase):
+    def setUp(self):
+        self.lua, self.C = pure_lua("src/shared/ModelColor.lua")
+
+    def parse3(self, name):
+        out = self.lua.eval("function(m, n) local r, g, b = m.parse(n) return { r, g, b } end")(self.C, name)
+        return None if out[1] is None else (out[1], out[2], out[3])
+
+    def test_hex_suffix_is_read(self):
+        self.assertEqual(self.parse3("Anneau__C8A020"), (0xC8, 0xA0, 0x20))
+        self.assertEqual(self.parse3("Corps__000000"), (0, 0, 0))
+        self.assertEqual(self.parse3("Masque__ffffff"), (255, 255, 255))
+        self.assertEqual(self.parse3("Robe__B01020"), (0xB0, 0x10, 0x20))
+
+    def test_blender_duplicate_suffix_is_tolerated(self):
+        self.assertEqual(self.parse3("Tige__C8A020.001"), (0xC8, 0xA0, 0x20))
+        self.assertEqual(self.parse3("Tige__C8A020.12"), (0xC8, 0xA0, 0x20))
+
+    def test_missing_or_malformed_suffix_keeps_the_current_color(self):
+        for name in ("Anneau", "Anneau__", "Anneau__C8A02", "Anneau__C8A0200", "Anneau__GGGGGG", "Anneau_C8A020", "__C8A020x", "", None, 12):
+            self.assertIsNone(self.parse3(name), name)
+
+    def test_material_by_name(self):
+        m = self.C.materialKey
+        for name in ("Anneau__C8A020", "Tige__C8A020", "Dent__C8A020", "Serrure__C8A020", "Poignee__C8A020", "Poignée__C8A020", "Cadre__C8A020", "Laiton__B5A642"):
+            self.assertEqual(m(name), "metal", name)
+        for name in ("Flamme__FFB040", "Yeux__FF0000", "Oeil__FF0000", "Œil"):
+            self.assertIn(m(name), ("neon", "plastic"), name)
+        self.assertEqual(m("Flamme__FFB040"), "neon")
+        self.assertEqual(m("Yeux__FF0000"), "neon")
+        self.assertEqual(m("Verre__88AACC"), "glass")
+        self.assertEqual(m("Corps__202020"), "plastic")
+        self.assertEqual(m(None), "plastic")
+
+    def test_paint_applies_color_material_and_removes_collision(self):
+        lua = LuaRuntime(unpack_returned_tuples=True)
+        lua.globals().READ = lambda p: base.to_lua54(base.read(*p.split("/")))
+        lua.globals().EXISTS = lambda p: os.path.exists(os.path.join(base.ROOT, *p.split("/")))
+        lua.execute(base.STUB)
+        result = lua.eval(
+            """(function()
+              local C = require({ __path = "src/shared/ModelColor.lua" })
+              local model = Instance.new("Model")
+              local function part(name, collide)
+                local p = Instance.new("Part"); p.Name = name; p.CanCollide = collide; p.Parent = model
+                p.Color = { R = 9, G = 9, B = 9 }
+                return p
+              end
+              local a = part("Anneau__C8A020", true)
+              local b = part("Corps__101010.001", true)
+              local c = part("SansCouleur", true)
+              local n = C.paint(model)
+              return { n, a.Color.R, a.Color.G, a.Color.B, tostring(a.Material), tostring(b.Material), a.CanCollide, b.CanCollide, a.Anchored, c.Color.R, c.CanCollide }
+            end)()"""
+        )
+        n, r, g, b, mat_a, mat_b, coll_a, coll_b, anch, untouched, coll_c = [result[i] for i in range(1, 12)]
+        self.assertEqual(n, 2)
+        self.assertEqual((r, g, b), (0xC8, 0xA0, 0x20))
+        self.assertTrue(str(mat_a).endswith("Metal"), mat_a)
+        self.assertTrue(str(mat_b).endswith("Plastic"), mat_b)
+        self.assertFalse(coll_a)
+        self.assertFalse(coll_b)
+        self.assertTrue(anch)
+        self.assertEqual(untouched, 9, "sans suffixe : la couleur actuelle est conservée")
+        self.assertTrue(coll_c, "sans suffixe : la pièce n'est pas touchée")
+
+    def test_paint_never_raises(self):
+        lua = LuaRuntime(unpack_returned_tuples=True)
+        lua.globals().READ = lambda p: base.to_lua54(base.read(*p.split("/")))
+        lua.globals().EXISTS = lambda p: os.path.exists(os.path.join(base.ROOT, *p.split("/")))
+        lua.execute(base.STUB)
+        n = lua.eval(
+            """(function()
+              local C = require({ __path = "src/shared/ModelColor.lua" })
+              return C.paint(setmetatable({}, { __index = function() error("boom") end }))
+            end)()"""
+        )
+        self.assertEqual(n, 0)
+
+    def test_loader_paints_every_loaded_container(self):
+        loader = read("src", "server", "ModelLoader.lua")
+        self.assertIn("ModelColor.paint", loader)
+        self.assertIn("AssetLoad.install", loader)
+        self.assertIn("return loadAndPaint(", loader)  # chaque chargement parallèle passe par la peinture
+        self.assertIn("ModelLoader.loadWithTimeout = loadAndPaint", loader)
+
+
+def pure_lua(path):
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    return lua, lua.execute(to_lua54(read(*path.split("/"))))
+
+
+class TestSolveAndScale(unittest.TestCase):
+    """Échelle par extents pour chaque modèle de la bibliothèque, aux tailles Blender annoncées."""
+
+    SIZES = {  # hauteur annoncée -> mesures plausibles (x, y, z)
+        "armoire gothique": (1.4, 2.2, 0.8),
+        "commode ancienne": (1.6, 1.0, 0.7),
+        "berceau": (1.2, 1.0, 0.7),
+        "cheval à bascule": (1.8, 1.3, 0.6),
+        "miroir sur pied": (0.9, 2.0, 0.5),
+        "malle": (1.3, 0.9, 0.8),
+        "statuette": (0.5, 1.2, 0.5),
+        "cadre photo": (0.1, 1.0, 0.8),
+    }
+
+    def setUp(self):
+        self.lua, self.M = pure_lua("src/shared/ModelFit.lua")
+
+    def t(self, *v):
+        return self.lua.table_from(list(v))
+
+    def solve(self, name, ext, target, facing):
+        r = self.M.solve(name, self.t(*ext), self.t(*target), self.t(*facing), None)
+        return r.scale, r.yaw, (r.size[1], r.size[2], r.size[3])
+
+    def test_furniture_always_fits_inside_its_box(self):
+        boxes = {"armoire gothique": (11, 8, 4), "commode ancienne": (8, 3, 4), "berceau": (8, 3, 8), "cheval à bascule": (8, 3, 6), "miroir sur pied": (2, 6, 2), "malle": (4, 3, 6)}
+        for name, box in boxes.items():
+            for facing in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                scale, yaw, size = self.solve(name, self.SIZES[name], box, facing)
+                for dim, limit in zip(size, box):
+                    self.assertLessEqual(dim, limit + 1e-6, f"{name} {facing} dépasse sa boîte : {size} dans {box}")
+                self.assertGreater(scale, 0.02)
+
+    def test_quarter_turn_swaps_the_footprint_before_scaling(self):
+        # un meuble large (2 x 1) dans une boîte étroite en x (1 x 2) : tourné d'un quart de tour il tient plein format
+        box = (1, 5, 2)
+        s_front, _, _ = self.solve("commode ancienne", (2, 1, 1), box, (0, -1))  # face -Z conservée : largeur 2 en x
+        s_turned, _, _ = self.solve("commode ancienne", (2, 1, 1), box, (1, 0))  # quart de tour : largeur 2 en z
+        self.assertGreater(s_turned, s_front)
+
+    def test_statue_scales_to_the_game_piece_height(self):
+        scale, _, size = self.solve("statuette", self.SIZES["statuette"], (1, 2.2, 1), (0, 1))
+        self.assertAlmostEqual(size[1], 2.2, places=6)
+        self.assertAlmostEqual(scale, 2.2 / 1.2, places=6)
+
+    def test_photo_frame_matches_the_replaced_photo(self):
+        scale, _, size = self.solve("cadre photo", self.SIZES["cadre photo"], (1.4, 0.1, 1.0), (0, 1))
+        self.assertAlmostEqual(max(size), 1.4, places=6)
+
+    def test_monster_height_is_set_by_the_rig(self):
+        scale, _, size = self.solve("ombre rampante", (1.0, 2.5, 0.8), (0, 5.5, 0), (0, 1))
+        self.assertAlmostEqual(size[1], 5.5, places=6)
+
+    def test_every_decor_model_has_a_plan_and_unknown_names_fit(self):
+        r = self.M.solve("inconnu", self.t(1, 1, 1), self.t(2, 2, 2), self.t(0, 1), None)
+        self.assertAlmostEqual(r.scale, 2.0)
+
+    def test_front_override_changes_the_yaw(self):
+        a = self.M.solve("armoire gothique", self.t(1, 2, 1), self.t(5, 5, 5), self.t(0, 1), None).yaw
+        b = self.M.solve("armoire gothique", self.t(1, 2, 1), self.t(5, 5, 5), self.t(0, 1), "+Z").yaw
+        self.assertNotAlmostEqual(a, b)
+        self.assertAlmostEqual(b, 0)
+
+
+class TestMonsterSway(unittest.TestCase):
+    def setUp(self):
+        self.lua, self.S = pure_lua("src/shared/MonsterSway.lua")
+
+    def test_poses_are_bounded_and_periodic(self):
+        for gait in ("immobile", "marche", "course"):
+            g = self.S.GAITS[gait]
+            for i in range(200):
+                t = i * 0.037
+                p = self.S.pose(gait, t)
+                self.assertLessEqual(abs(p.roll), math.radians(g.roll) + 1e-9)
+                self.assertGreaterEqual(p.bob, 0)
+                self.assertLessEqual(p.bob, g.bob + 1e-9)
+                self.assertAlmostEqual(p.pitch, math.radians(g.pitch))
+                p2 = self.S.pose(gait, t + 1 / g.freq)
+                self.assertAlmostEqual(p.roll, p2.roll, places=6)
+
+    def test_running_is_more_inclined_and_faster_than_walking(self):
+        g = self.S.GAITS
+        self.assertGreater(g.course.pitch, g.marche.pitch)
+        self.assertGreater(g.marche.pitch, g.immobile.pitch)
+        self.assertGreater(g.course.freq, g.marche.freq)
+        self.assertGreater(g.course.roll, g.marche.roll)
+
+    def test_unknown_gait_falls_back_to_idle(self):
+        a = self.S.pose("inconnu", 1.3)
+        b = self.S.pose("immobile", 1.3)
+        self.assertAlmostEqual(a.roll, b.roll)
+
+    def test_visual_keeps_the_rig_logic_and_falls_back(self):
+        v = read("src", "server", "MonsterVisual.lua")
+        self.assertIn("d.Transparency = 1", v)  # le rig devient invisible, sa hitbox reste
+        self.assertIn("CanCollide = false", v)  # la silhouette n'ajoute aucune collision
+        self.assertIn("pcall(function()", v)
+        self.assertIn("rig conservé", v)
+        ai = read("src", "server", "MonsterAI.lua")
+        self.assertIn("MonsterVisual.attach(model, root)", ai)
+        self.assertIn("m.locoKey = key", ai)
+
+
 class TestRealBuilderWithAndWithoutModels(unittest.TestCase):
     """Le vrai MapBuilder dans le faux Roblox : avec modèles présents, les trois pièces de jeu sont habillées et gardent
     leurs invites ; sans modèles ou avec un modèle défectueux, la pièce procédurale reste visible."""
 
     TEMPLATES = ("clé or", "coffret ancien", "horloge comtoise", "poupée ancienne", "bougie chandelier")
+    LIBRARY = TEMPLATES + ("armoire gothique", "commode ancienne", "berceau", "cheval à bascule", "miroir sur pied", "malle", "statuette", "cadre photo", "ombre rampante")
 
-    def build(self, templates, broken=()):
+    def build(self, templates, broken=(), play=False):
         lua = robust.make_capturing(roles.GAME)
         lua.execute(
             """
@@ -198,6 +420,9 @@ class TestRealBuilderWithAndWithoutModels(unittest.TestCase):
             )
         self.assertTrue(lua.eval("runServer()").ok)
         lua.execute("SWALLOW = true; advance(20)")
+        if play:
+            # une partie commence : photos tirées, statues, monstre
+            lua.execute("join(newPlayer('alice')); advance(90)")
         return lua
 
     def piece(self, lua, tag):
@@ -228,6 +453,74 @@ class TestRealBuilderWithAndWithoutModels(unittest.TestCase):
         coffret = self.piece(lua, "Coffret")
         self.assertNotEqual(coffret.Transparency, 1, "modèle défectueux : le coffret procédural reste visible")
         self.assertEqual(self.piece(lua, "Key").Transparency, 1, "les autres modèles se posent quand même")
+        self.assertEqual(robust.errors(lua), [])
+
+    def test_statues_and_photo_frames_are_dressed_when_models_load(self):
+        lua = self.build(self.LIBRARY, play=True)
+        for tag in ("Statue", "Photo"):
+            part = self.piece(lua, tag)
+            self.assertIsNotNone(part, tag)
+            self.assertEqual(part.Transparency, 1, f"{tag} : modèle posé, pièce de jeu invisible")
+        self.assertEqual(robust.errors(lua), [])
+
+    def test_statues_and_photos_stay_visible_without_models(self):
+        lua = self.build((), play=True)
+        for tag in ("Statue", "Photo"):
+            part = self.piece(lua, tag)
+            self.assertNotEqual(part.Transparency, 1, f"{tag} invisible sans modèle")
+
+    def test_blender_furniture_is_placed_in_the_decor_folder(self):
+        lua = self.build(self.LIBRARY, play=True)
+        found = lua.eval(
+            """(function()
+              local names = {}
+              for _, d in ipairs(workspace:GetDescendants()) do
+                if d.ClassName == "Model" then names[d.Name] = true end
+              end
+              return names
+            end)()"""
+        )
+        for name in ("armoire gothique", "commode ancienne", "berceau", "cheval à bascule", "miroir sur pied", "malle"):
+            self.assertTrue(found[name], f"{name} absent du décor")
+        self.assertEqual(robust.errors(lua), [])
+
+    def test_monster_gets_the_shadow_silhouette_and_keeps_its_rig(self):
+        lua = self.build(self.LIBRARY, play=True)
+        info = lua.eval(
+            """(function()
+              local welds, silhouette = 0, false
+              for _, d in ipairs(workspace:GetDescendants()) do
+                if d.ClassName == "Weld" then welds = welds + 1 end
+                if d.ClassName == "Model" and d.Name == "ombre rampante" and d.Parent and d.Parent.Name == "Monster" then silhouette = true end
+              end
+              local hum = 0
+              for _, d in ipairs(workspace:GetDescendants()) do
+                if d.ClassName == "Humanoid" and d.Parent and d.Parent.Name == "Monster" then hum = hum + 1 end
+              end
+              return { welds, silhouette, hum }
+            end)()"""
+        )
+        self.assertGreaterEqual(info[1], 1, "un Weld anime la silhouette")
+        self.assertTrue(info[2], "la silhouette est dans le modèle du monstre")
+        self.assertEqual(info[3], 1, "le rig (Humanoid) reste la logique et la hitbox")
+        self.assertEqual(robust.errors(lua), [])
+
+    def test_monster_keeps_its_rig_without_the_model(self):
+        lua = self.build((), play=True)
+        info = lua.eval(
+            """(function()
+              local silhouette = false
+              for _, d in ipairs(workspace:GetDescendants()) do
+                if d.ClassName == "Model" and d.Name == "ombre rampante" then silhouette = true end
+              end
+              return silhouette
+            end)()"""
+        )
+        self.assertFalse(info)
+        self.assertEqual(robust.errors(lua), [])
+
+    def test_a_defective_monster_model_falls_back_to_the_rig(self):
+        lua = self.build(self.LIBRARY, broken=("ombre rampante",), play=True)
         self.assertEqual(robust.errors(lua), [])
 
     def test_decor_has_fallback_pieces_when_models_are_missing(self):

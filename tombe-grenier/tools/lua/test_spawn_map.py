@@ -52,6 +52,7 @@ local function CF(pos)
     if k == "Y" then return t.Position.Y end
     if k == "Z" then return t.Position.Z end
     if k == "Inverse" then return function(self) return self end end
+    if k == "Rotation" then return CF(V(0, 0, 0)) end
     return nil
   end
   return setmetatable(c, mt)
