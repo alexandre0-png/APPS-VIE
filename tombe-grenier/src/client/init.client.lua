@@ -96,6 +96,10 @@ journalLabel.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
 journalLabel.Visible = false
 journalLabel.Text = "Journal (J pour fermer)"
 
+local function toggleJournal()
+	journalLabel.Visible = not journalLabel.Visible
+end
+
 -- Message contextuel (indice, lecture, retour d'action) : bas de l'écran
 local subtitleLabel = label({
 	position = UDim2.new(0.5, 0, 1, -110),
@@ -766,8 +770,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		sendCrouch(true)
 	elseif input.KeyCode == Enum.KeyCode.H or input.KeyCode == Enum.KeyCode.DPadUp then
 		Remotes.get("AskHint"):FireServer()
-	elseif input.KeyCode == Enum.KeyCode.J then
-		journalLabel.Visible = not journalLabel.Visible
+	elseif input.KeyCode == Enum.KeyCode.J or input.KeyCode == Enum.KeyCode.DPadDown then
+		toggleJournal()
 	elseif input.KeyCode == Enum.KeyCode.G or input.KeyCode == Enum.KeyCode.ButtonR1 then
 		throwNoise()
 	elseif input.KeyCode == Enum.KeyCode.U or input.KeyCode == Enum.KeyCode.ButtonR3 then
@@ -806,6 +810,15 @@ local function nearUvMark(radius)
 end
 
 local ACTIONS = {
+	{
+		name = "Journal",
+		order = 6,
+		always = true,
+		touch = true,
+		kb = "J",
+		gp = "Bas",
+		down = toggleJournal,
+	},
 	{
 		name = "Course",
 		order = 0,
@@ -889,7 +902,10 @@ for _, action in ipairs(ACTIONS) do
 	if action.touch then
 		local b = Instance.new("TextButton")
 		b.Size = UDim2.new(0, 110, 0, 54)
-		b.Position = UDim2.new(1, -124, 1, -(70 + action.order * 62))
+		-- Deux colonnes : un téléphone en paysage n'a pas la hauteur de sept boutons empilés
+		local column = action.order >= 4 and 1 or 0
+		local row = action.order % 4
+		b.Position = UDim2.new(1, -124 - column * 122, 1, -(70 + row * 62))
 		b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 		b.BackgroundTransparency = 0.3
 		b.TextColor3 = Color3.fromRGB(230, 226, 210)
@@ -899,6 +915,10 @@ for _, action in ipairs(ACTIONS) do
 		b.ZIndex = 20
 		b.Visible = false
 		b.Parent = gui
+		-- Cible tactile à l'échelle de l'écran (au moins 44 px de côté, norme tactile)
+		local touchScale = Instance.new("UIScale")
+		touchScale.Scale = uiScaleValue()
+		touchScale.Parent = b
 		if action.down then
 			b.MouseButton1Down:Connect(action.down)
 		end

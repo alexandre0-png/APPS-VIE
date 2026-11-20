@@ -224,3 +224,32 @@ class TestPriorityAndJournal(unittest.TestCase):
         self.assertIn("Enum.KeyCode.J", cli)
         self.assertIn('Remotes.get("Journal")', cli)
         self.assertIn('"Journal"', read("src", "shared", "Remotes.lua"))
+
+
+class TestFeedbackSounds(unittest.TestCase):
+    """Retours sonores : seuls des sons déjà présents dans AudioManifest sont utilisés (aucun identifiant inventé)."""
+
+    def manifest_keys(self):
+        return set(re.findall(r"^\t(\w+) = \{", read("src", "shared", "AudioManifest.lua"), re.M))
+
+    def test_every_played_sound_exists_in_the_manifest(self):
+        keys = self.manifest_keys()
+        for sub in ("server", "client", "common", "shared"):
+            d = os.path.join(ROOT, "src", sub)
+            for f in os.listdir(d):
+                if f.endswith(".lua"):
+                    for key in re.findall(r'Audio\.play\("(\w+)"', read("src", sub, f)):
+                        self.assertIn(key, keys, f"{sub}/{f} joue un son absent du manifeste : {key}")
+
+    def test_doors_pickups_and_steps_give_feedback(self):
+        self.assertIn('Audio.play("porte_grince", panel', read("src", "server", "Props.lua"))
+        self.assertIn('Audio.play("clic_lampe", part', read("src", "server", "Objectives.lua"))
+        self.assertIn('Audio.play("cachette", workspace', read("src", "server", "Quests.lua"))
+
+    def test_initial_door_state_is_silent(self):
+        props = read("src", "server", "Props.lua")
+        self.assertIn("lock == nil or Locks.isOpen(lock), true)", props)
+
+    def test_all_manifest_assets_are_real_ids(self):
+        for key, asset in re.findall(r'^\t(\w+) = \{ asset = "([^"]*)"', read("src", "shared", "AudioManifest.lua"), re.M):
+            self.assertRegex(asset, r"^rbxassetid://\d{6,}$", f"{key} : identifiant de son invalide")

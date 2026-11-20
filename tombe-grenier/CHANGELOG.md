@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Qualité : retours, accessibilité (lot 3)
+- Retours sonores avec des sons déjà déclarés dans `AudioManifest` (aucun identifiant inventé) : porte qui bouge (`porte_grince`, silencieux à la mise en place de la partie), ramassage (`clic_lampe`), étape accomplie (`cachette`). Test : tout `Audio.play("...")` du code existe dans le manifeste, et tout identifiant du manifeste est valide.
+- Mobile et manette : bouton « Journal » (touche J, croix directionnelle Bas), boutons tactiles en deux colonnes à l'échelle de l'écran (sept boutons ne tenaient pas sur un téléphone en paysage), tests d'accessibilité (une touche clavier, une touche manette et un bouton tactile par action, ordres uniques).
+- Animation du monstre : animations R15 standard déjà chargées sur son Animator (immobile, marche, course, trois attaques), sans modification ; sur un rig différent, le rig de secours prend le relais.
+- `A_FAIRE_UTILISATEUR.md` réécrit : ordre conseillé en 6 actions avec vérification, limites connues, puis la liste complète.
+
 ### Hub, duo et téléportations (lot 2)
 - Files d'attente par borne (`HubRules.nextGroup`, logique pure) : « solo » part seul tout de suite sans entraîner les autres joueurs du hub (avant, tous les joueurs présents partaient ensemble, même au-delà de deux) ; « duo » réunit les deux premiers en file, un duo seul attend `Config.Game.DuoWait` puis part en solo ; sans borne, le plus ancien part après `HubWait` (avec le suivant, deux au plus). Un second appui sur la même borne quitte la file ; un joueur qui part sort de la file ; messages à l'écran à l'entrée en file.
 - Échecs de téléportation (`Retry.run`, pauses 2 s puis 5 s) : réservation et départ privés réessayés, puis repli public réessayé avec message clair ; `TeleportInitFailed` signale l'échec au joueur et relance deux fois ; jamais de joueur absent dans une téléportation.

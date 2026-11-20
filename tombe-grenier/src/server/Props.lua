@@ -210,8 +210,11 @@ local function hingeOf(panel)
 	return alongX and CFrame.new(-half, 0, 0) or CFrame.new(0, 0, -half)
 end
 
-local function setDoor(panel, open)
+local function setDoor(panel, open, silent)
 	panel:SetAttribute("Open", open)
+	if not silent then
+		Audio.play("porte_grince", panel, { lifetime = 3, volume = 0.45 }) -- retour sonore : la porte bouge
+	end
 	if not closedPose[panel] then
 		closedPose[panel] = panel.CFrame
 	end
@@ -229,7 +232,7 @@ local function setupDoors()
 		if panel:IsA("BasePart") then
 			local lock = panel:GetAttribute("Lock")
 			-- Ouvertes au début de chaque partie, sauf celles dont le verrou n'est pas levé
-			setDoor(panel, lock == nil or Locks.isOpen(lock))
+			setDoor(panel, lock == nil or Locks.isOpen(lock), true)
 			local p = prompt(panel, "Ouvrir", "Porte", function(player)
 				local name = panel:GetAttribute("Lock")
 				if name and not Locks.isOpen(name) then

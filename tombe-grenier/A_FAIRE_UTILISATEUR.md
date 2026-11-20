@@ -1,6 +1,24 @@
 # À faire par toi (et seulement toi)
 
-Liste mise à jour. Tout le reste est fait dans le code et les tests.
+Tout le reste est fait dans le code et vérifié par les tests (cartes, Lua, simulation de 80 parties, démarrage réel du hub et de la partie dans un faux Roblox). Ce qui suit demande Roblox Studio, un compte ou un jugement humain.
+
+## Ordre conseillé (30 minutes)
+
+1. **Publier les deux lieux** (hub puis partie) : `rojo build -o hub.rbxl hub.project.json` et `rojo build -o game.rbxl game.project.json`, ouvrir chaque fichier dans Studio, Fichier > Publier sur Roblox. Vérification : la console serveur du hub affiche « hub : démarrage … rôle=hub » ; celle de la partie affiche « rôle=game » puis « [Round] début ».
+2. **Activer les services** : Game Settings > Security > « Enable Studio Access to API Services » (sauvegarde du profil). Vérification : après une partie, le rang s'affiche au-dessus du personnage au retour au hub.
+3. **Jouer une partie solo puis une partie duo complètes** (deux comptes) en suivant l'objectif à l'écran. Vérification : aucune ligne rouge dans la console serveur et client, l'enfant n'est libérable qu'après la sortie par le sous-sol, retour au hub à la fin.
+4. **Tester l'échec de téléportation** : dans Studio, rien à faire (les essais répétés et le repli public sont testés dans le faux Roblox). En ligne, si un joueur reste bloqué plus d'une minute, copier les lignes `[Hub]` de la console serveur.
+5. **Regarder le rendu** : halos et pastilles colorés sur les objets interactifs (coupe : `Config.Design.Markers = false`), portes qui pivotent du bon côté, seuils au sol, panneaux d'escalier, modèles du catalogue (échelle et orientation).
+6. **Fournir ce qui manque** : identifiants de sons pour de nouveaux retours (aucun n'a été inventé : ramassage = `clic_lampe`, porte = `porte_grince`, étape accomplie = `cachette`, à remplacer dans `AudioManifest.lua` par des sons plus adaptés) ; identifiants de catalogue pour canapé, table basse, cuisinière si tu veux les remplacer (à ajouter dans `ModelLoader.MODELS`).
+
+## Limites connues
+
+- Un ami ne peut pas rejoindre directement un serveur privé de partie avec « suivre » : il rejoint le hub puis la file « Partie duo ».
+- Roblox n'affiche qu'environ 31 halos à la fois : 24 sont allumés (`MAX_HALOS` dans `src/shared/Markers.lua`), l'étape active en premier.
+- Les animations du monstre utilisent les animations R15 standard : sur un autre rig, il glisse sans animation (le rig de secours prend le relais).
+
+## Liste complète (numérotation historique)
+
 
 1. **Installer Roblox Studio** sur ton ordinateur, et te connecter avec ton compte.
 2. **Publier les deux lieux** dans une même expérience :
@@ -38,3 +56,6 @@ Liste mise à jour. Tout le reste est fait dans le code et les tests.
 27. **Chaîne d'énigmes** : jouer une partie en suivant l'objectif affiché ; vérifier qu'aucune étape n'est faisable avant la précédente (message « Pas encore ») et que l'enfant n'est libérable qu'après la sortie par le sous-sol et le retour. Ordre modifiable dans `src/shared/Chain.lua`.
 28. **Aspect en jeu (lisibilité, portes, meubles)** : vérifier dans Studio (Play) : halos et pastilles colorés sur les objets interactifs et rien sur le décor (coupe : `Config.Design.Markers = false`), portes qui pivotent du bon côté, seuils au sol, panneaux d'escalier, porte d'entrée qui s'ouvre vers le jardin. Donner d'autres identifiants de catalogue (canapé, table basse, cuisinière, lit) à ajouter dans `ModelLoader.MODELS` au nom exact du meuble ; sans identifiant, les boîtes de substitution restent.
 29. **Journal et halos** : en jeu, touche J pour le journal de quêtes ; vérifier que l'objet de l'étape active se repère de loin (halo plein) et que les autres restent discrets. Réglages : `MAX_HALOS` et `STEP_TAGS` dans `src/shared/Markers.lua`, `Config.Quests.HintDelay` pour l'indice automatique.
+30. **Hub et duo** : au hub, « Partie solo » part seul sans entraîner les autres ; « Partie duo » réunit les deux premiers en file, un duo seul attend `Config.Game.DuoWait` (60 s) puis part en solo ; un second appui sur la même borne quitte la file. Réglages dans `Config.Game` (`HubWait`, `DuoWait`, `MaxPlayers`).
+31. **Robustesse** : les événements du client sont validés côté serveur (`src/shared/Guard.lua`) ; un joueur qui spamme est ignoré sans effet. Aucun réglage nécessaire.
+32. **Mobile et manette** : vérifier sur téléphone que les boutons (deux colonnes à droite, dont « Journal ») restent à portée du pouce, et sur manette que Haut = indice, Bas = journal.

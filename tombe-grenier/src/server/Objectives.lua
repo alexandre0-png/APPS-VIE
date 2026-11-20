@@ -16,6 +16,7 @@ local Remotes = require(Shared.Remotes)
 local PlayerState = require(script.Parent.PlayerState)
 local Gestures = require(script.Parent.Gestures)
 local Locks = require(script.Parent.Locks)
+local Audio = require(Shared.Audio)
 
 local Objectives = {}
 
@@ -78,6 +79,7 @@ local function pickable(part, objectText, onPick, kind)
 				return
 			end
 			taken = true
+			Audio.play("clic_lampe", part, { lifetime = 1, volume = 0.6 }) -- retour sonore du ramassage
 			Gestures.riseAndRemove(part)
 			onPick(player)
 		end,

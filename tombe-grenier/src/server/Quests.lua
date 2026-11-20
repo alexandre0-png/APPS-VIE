@@ -272,10 +272,18 @@ local function journalLines()
 	return lines
 end
 
+local lastStepSeen = nil
+
 local function pushObjective()
 	if not state then
 		return
 	end
+	-- Retour sonore et message quand une étape est accomplie (pas au tout début de la partie)
+	local stepNow = currentStep()
+	if lastStepSeen ~= nil and lastStepSeen ~= stepNow then
+		Audio.play("cachette", workspace, { lifetime = 3, volume = 0.5 })
+	end
+	lastStepSeen = stepNow
 	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()]() })
 	Remotes.fireAll("Journal", { lines = journalLines() })
 	pushInventory()
@@ -1454,6 +1462,7 @@ function Quests.setup(seed)
 	wrongDate = ("%02d%02d"):format(month, day % 28 + 1)
 	writeLore(month, day)
 	hintGiven = {}
+	lastStepSeen = nil
 	active = true
 	resetCave()
 	wire()
