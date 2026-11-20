@@ -51,6 +51,17 @@ NAMES = {
     "Statuette": "statuette",
     "CadrePhoto": "cadre photo",
     "OmbreRampante": "ombre rampante",
+    "Cheminee": "cheminée gothique",
+    "Escalier": "escalier Blender",
+    "Etagere": "étagère livres",
+    "Gramophone": "gramophone ancien",
+    "Lustre": "lustre",
+    "MachineCoudre": "machine à coudre",
+    "PorteAncienne": "porte ancienne",
+    "TapisRond": "tapis rond",
+    "Telephone": "téléphone ancien",
+    "ToileAraignee": "toile d'araignée",
+    "Valise": "valise",
 }
 OLD_IDS = (128263149076283, 80816541343966, 121788657121996, 114751010380157, 118027923730609)
 

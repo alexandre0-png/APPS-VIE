@@ -78,6 +78,17 @@ local ASSET_NAMES = {
 	Statuette = "statuette",
 	CadrePhoto = "cadre photo",
 	OmbreRampante = "ombre rampante",
+	Cheminee = "cheminée gothique",
+	Escalier = "escalier Blender",
+	Etagere = "étagère livres",
+	Gramophone = "gramophone ancien",
+	Lustre = "lustre",
+	MachineCoudre = "machine à coudre",
+	PorteAncienne = "porte ancienne",
+	TapisRond = "tapis rond",
+	Telephone = "téléphone ancien",
+	ToileAraignee = "toile d'araignée",
+	Valise = "valise",
 }
 
 -- Chargement d'un identifiant avec délai maximum (limit : secondes, 8 par défaut). Retourne le conteneur, ou nil.

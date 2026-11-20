@@ -2,6 +2,13 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Accessoires Blender de lisibilité des pièces
+- 11 modèles approuvés (Config.Assets : Cheminee, Escalier, Etagere, Gramophone, Lustre, MachineCoudre, PorteAncienne, TapisRond, Telephone, ToileAraignee, Valise), chargés après la carte comme les autres (plafond global 10 s, repli procédural).
+- Remplacent : cheminée (meuble du salon et mur ouest), étagères (alias de `étagère`), gramophone des énigmes, téléphone (avant l'ancien modèle du catalogue).
+- Posés en décor sans collision (`MapBuilder.ACCESSORIES`) : tapis ronds (salle à manger, grenier), valises (grenier, salle de la tombe), machine à coudre (chambre d'amis), lustres (hall, entrée, couloir, palier), portes anciennes (murs du couloir et du palier), toiles d'araignée (coins de plafond).
+- Escalier : chargé (plan prêt) mais non posé, l'escalier de la carte porte la logique de passage.
+- `tools/lua/test_accessories.py` : chaque emplacement est hors meubles et hors zones de portes.
+
 ### Démarrage robuste (correctif prioritaire : le jeu ne se lançait plus)
 - Cause : le chargement des modèles (`ModelLoader.ensure`, `MonsterAI.ensureModel`) était synchrone et séquentiel AVANT la construction de la carte. Pendant ce temps `CharacterAutoLoads` restait faux, donc aucun joueur n'avait de personnage tant que tous les modèles n'étaient pas passés (ou expirés un par un).
 - Les modèles se chargent maintenant en arrière-plan APRÈS la carte et le point d'apparition (`ModelLoader.start`) : tâches parallèles (`Config.Assets.Workers`, 4), plafond global `Config.Assets.GlobalTimeout` (10 s), pcall partout. Une pièce déjà construite est habillée ensuite (`MapBuilder.applyLateModels`) ; sans modèle, la pièce de remplacement reste.

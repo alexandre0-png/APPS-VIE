@@ -451,6 +451,17 @@ local function buildHouse(root)
 	end
 	tryNow(function()
 		return placeFitted(
+			"cheminée gothique",
+			CFrame.new(1.4, 3.5, 22) * CFrame.Angles(0, -math.pi / 2, 0),
+			Vector3.new(6, 7, 1.6),
+			folders["Décor"]
+		)
+	end)
+	tryNow(function()
+		if ServerStorage:FindFirstChild("Decor") and ServerStorage.Decor:FindFirstChild("cheminée gothique") then
+			return true -- le modèle Blender occupe déjà le mur
+		end
+		return placeFitted(
 			"cheminée",
 			CFrame.new(1.5, 1.5, 22) * CFrame.Angles(0, math.pi / 2, 0),
 			Vector3.new(4, 3, 2.5),
@@ -650,6 +661,11 @@ local function buildHouse(root)
 				"Interactable"
 			)
 			item:SetAttribute("Kind", p.kind)
+			if p.kind == "gramophone ancien" then
+				tryNow(function()
+					return fitModelOver(item, "gramophone ancien") ~= nil
+				end)
+			end
 		elseif p.tag == "Mirror" then
 			local glass = makeVisible(
 				folders.Props,
@@ -732,7 +748,7 @@ local function buildHouse(root)
 			)
 			phone:SetAttribute("Label", p.name)
 			tryNow(function()
-				return placeDecorModel("téléphone", p.pos, phone)
+				return fitModelOver(phone, "téléphone ancien") ~= nil or placeDecorModel("téléphone", p.pos, phone)
 			end)
 		elseif p.tag == "CaveDoor" then
 			makeVisible(
@@ -1162,6 +1178,50 @@ local STANDALONE_DECOR = {
 	{ "plante", 38, 0, 6 },
 }
 
+-- Accessoires Blender de lisibilité (sans collision) : { modèle, x, sol ou bas du modèle, z, taille cible X/Y/Z }.
+-- Emplacements calculés hors meubles, hors zones de portes et hors couloirs de passage (tools/lua/test_boot_async.py les vérifie).
+MapBuilder.ACCESSORIES = {
+	{ "tapis rond", 26, 0.06, 67, { 6, 0.2, 6 } }, -- salle à manger
+	{ "tapis rond", 30, 24.06, 45, { 6, 0.2, 6 } }, -- grenier
+	{ "valise", 3, 24, 2, { 2.5, 1.5, 1.5 } },
+	{ "valise", 57, 24, 2, { 2.5, 1.5, 1.5 } },
+	{ "valise", 63, 24, 2, { 2.5, 1.5, 1.5 } }, -- salle de la tombe
+	{ "machine à coudre", 15, 12, 46, { 2.5, 2.5, 2 } }, -- chambre d'amis
+	{ "lustre", 60, 7, 22, { 3, 3, 3 } }, -- hall
+	{ "lustre", 60, 7, 67, { 3, 3, 3 } }, -- entrée
+	{ "lustre", 60, 19, 67, { 3, 3, 3 } }, -- couloir
+	{ "lustre", 60, 19, 22, { 3, 3, 3 } }, -- palier
+	{ "porte ancienne", 41, 12, 52, { 4.6, 8.4, 0.6 } }, -- couloir, mur ouest
+	{ "porte ancienne", 41, 12, 80, { 4.6, 8.4, 0.6 } },
+	{ "porte ancienne", 79, 12, 67, { 4.6, 8.4, 0.6 } }, -- couloir, mur est
+	{ "porte ancienne", 41, 12, 35, { 4.6, 8.4, 0.6 } }, -- palier
+	{ "porte ancienne", 79, 12, 8, { 4.6, 8.4, 0.6 } },
+	{ "toile d'araignée", 1.6, 8.6, 1.6, { 3, 3, 3 } }, -- coins de plafond
+	{ "toile d'araignée", 1.6, 20.6, 1.6, { 3, 3, 3 } },
+	{ "toile d'araignée", 1.6, 8.6, 42.4, { 3, 3, 3 } },
+	{ "toile d'araignée", 118.4, 20.6, 1.6, { 3, 3, 3 } },
+	{ "toile d'araignée", 1.6, -3.4, 88.4, { 3, 3, 3 } }, -- cellier
+}
+
+local function placeAccessories(root)
+	local folder = root:FindFirstChild("Maison")
+	local decor = folder and folder:FindFirstChild("Décor")
+	if not decor then
+		return
+	end
+	for _, a in ipairs(MapBuilder.ACCESSORIES) do
+		tryNow(function()
+			return ModelPlace.fit({
+				name = a[1],
+				centre = Vector3.new(a[2], a[3], a[4]),
+				bottomY = a[3],
+				target = a[5],
+				parent = decor,
+			}) ~= nil
+		end)
+	end
+end
+
 local function placeStandaloneDecor(root)
 	local folder = root:FindFirstChild("Maison")
 	local decor = folder and folder:FindFirstChild("Décor")
@@ -1203,6 +1263,7 @@ function MapBuilder.build()
 	buildSpawn(root)
 	setLighting()
 	pcall(placeStandaloneDecor, root)
+	pcall(placeAccessories, root)
 	pcall(applyMoods, root)
 	startRoomBudget()
 	pcall(Atmosphere.build)
@@ -1364,6 +1425,11 @@ function MapBuilder.placeRound(seed)
 		)
 		item:SetAttribute("Kind", slot.kind)
 		item:SetAttribute("Place", slot.name)
+		if slot.kind == "gramophone ancien" then
+			tryNow(function()
+				return fitModelOver(item, "gramophone ancien") ~= nil
+			end)
+		end
 	end
 
 	-- Chutes d'objets et apparition du monstre

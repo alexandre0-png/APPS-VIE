@@ -25,6 +25,17 @@ ModelFit.PLANS = {
 	["malle"] = { mode = "fit", front = "-Z" },
 	["statuette"] = { mode = "height", front = "-Z" }, -- statue de l'énigme : à la hauteur de la pièce de jeu
 	["cadre photo"] = { mode = "longest", front = "-Z" }, -- cadre des photos : à la taille de la photo remplacée
+	["cheminée gothique"] = { mode = "fit", front = "-Z" },
+	["étagère livres"] = { mode = "fit", front = "-Z" },
+	["gramophone ancien"] = { mode = "longest", front = "-Z" },
+	["escalier Blender"] = { mode = "fit", front = "-Z" }, -- chargé, pas encore posé : l'escalier de la carte reste
+	["lustre"] = { mode = "height", front = "-Z" },
+	["machine à coudre"] = { mode = "longest", front = "-Z" },
+	["porte ancienne"] = { mode = "height", front = "-Z" },
+	["tapis rond"] = { mode = "longest", front = "-Z" },
+	["téléphone ancien"] = { mode = "longest", front = "-Z" },
+	["toile d'araignée"] = { mode = "longest", front = "-Z" },
+	["valise"] = { mode = "longest", front = "-Z" },
 	["ombre rampante"] = { mode = "height", front = "-Z" }, -- monstre : à la hauteur du rig
 }
 

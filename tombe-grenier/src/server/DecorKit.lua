@@ -50,6 +50,8 @@ DecorKit.ALIASES = {
 	["lit enfant"] = "lit",
 	["lampadaire"] = "lampe horreur",
 	["commode"] = "commode ancienne",
+	["cheminée"] = "cheminée gothique",
+	["étagère"] = "étagère livres",
 }
 
 -- Modèle propre à une pièce : ROOM_MODELS[pièce][nom du meuble] = nom du modèle chargé.
