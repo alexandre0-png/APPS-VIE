@@ -38,6 +38,7 @@ local COL = {
 local FONT = Enum.Font.GothamBold
 
 local state = nil
+local tryOfferLater, lastMilestone = nil, nil -- offre d'achat (définie avec le HUD) ; dernier palier d'éclosions vu
 local topData = nil
 local panel = nil -- { name, tab, confirm }
 local costBtns = {}
@@ -218,6 +219,9 @@ local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C
 
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
+	if def.tier >= 4 and tryOfferLater then
+		tryOfferLater("rare")
+	end
 	local tier = Config.TIERS[def.tier]
 	popToken += 1
 	local token = popToken
@@ -407,7 +411,7 @@ end
 
 local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
-	dex = { { "col", "📖 Pets" }, { "base", "🏠 Ma base" }, { "ach", "🏅 Succès" } },
+	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 }
 local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
@@ -445,7 +449,7 @@ function render()
 	if tabs then
 		for _, t in ipairs(tabs) do
 			local on = panel.tab == t[1]
-			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
+			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
 			pressFx(b)
 			b.Activated:Connect(function()
@@ -554,6 +558,7 @@ function render()
 		for k in pairs(state.dex) do
 			got += 1
 		end
+		addNote("📖 INDEX " .. got .. "/" .. #Config.PETS .. " · les espèces non obtenues restent grisées (❓).")
 		addNote("📚 Bonus de collection : +" .. math.floor((state.collection - 1) * 100 + 0.5) .. "% de revenus définitifs (" .. got .. "/" .. #Config.PETS .. " espèces ; +" .. math.floor(Config.COLLECTION_BONUS * 100 + 0.5) .. "% tous les " .. Config.COLLECTION_STEP .. " espèces découvertes). Tailles et mutations rares multiplient aussi les revenus.")
 		for i, p in ipairs(Config.PETS) do
 			local d = state.dex[tostring(i)]
@@ -581,18 +586,40 @@ function render()
 				end or nil,
 			})
 		end
-	elseif panel.name == "dex" then
-		local n = 0
-		local dupes, dupeTotal = Config.dupesToSell(state.slots, state.cap)
-		if #dupes > 0 then
-			addRow({
-				icon = "♻️", title = "Revendre les doublons (" .. #dupes .. ")", desc = "Garde le meilleur pet de chaque espèce.",
-				btn = "+" .. fmt(dupeTotal), btnColor = COL.green,
-				onClick = function()
-					RAction:FireServer("sellDupes")
-				end,
-			})
+	elseif panel.name == "dex" and panel.tab == "boosts" then
+		local list = {}
+		list[#list + 1] = { "✖️", "Multiplicateur de revenus", "x" .. string.format("%.2f", state.mult) .. " (renaissances, collection, améliorations, passes)" }
+		list[#list + 1] = { "📚", "Bonus de collection", "+" .. math.floor((state.collection - 1) * 100 + 0.5) .. " % de revenus" }
+		if state.luckLeft and state.luckLeft > 0 then
+			list[#list + 1] = { "🧪", "Potion de chance", Config.fmtTime(state.luckLeft) .. " restantes" }
 		end
+		local anyPass = false
+		for name, def in pairs(Config.PASSES) do
+			if state.passes[name] then
+				anyPass = true
+				list[#list + 1] = { def.emoji, def.name, "Actif, pour toujours" }
+			end
+		end
+		for _, b in ipairs(list) do
+			addRow({ icon = b[1], title = b[2], desc = b[3] })
+		end
+		if not anyPass then
+			addNote("Aucun pass actif. Les passes (revenus x2, chance, vitesse, VIP) sont dans l'onglet Bonus.")
+		end
+	elseif panel.name == "dex" and panel.tab == "titles" then
+		local list = Config.titles(state.stats)
+		local got = 0
+		for _, t in ipairs(list) do
+			if t.unlocked then
+				got += 1
+			end
+		end
+		addNote("🏷 " .. got .. "/" .. #list .. " titres. Ils se débloquent avec les paliers de succès.")
+		for _, t in ipairs(list) do
+			addRow({ icon = t.unlocked and "🏷" or "🔒", title = t.unlocked and t.name or "???", titleColor = t.unlocked and COL.yellow or COL.muted, desc = t.desc })
+		end
+	elseif panel.name == "dex" and panel.tab == "eggs" then
+		local n = 0
 		for i = 1, state.cap do
 			local sl = state.slots[i]
 			if sl and sl.k == "e" then
@@ -606,6 +633,21 @@ function render()
 					end,
 				})
 			end
+		end
+		if n == 0 then
+			addNote("Aucun œuf dans ta base. Achète-en dans la boutique ou chipe-en chez un rival !")
+		end
+	elseif panel.name == "dex" then
+		local n = 0
+		local dupes, dupeTotal = Config.dupesToSell(state.slots, state.cap)
+		if #dupes > 0 then
+			addRow({
+				icon = "♻️", title = "Revendre les doublons (" .. #dupes .. ")", desc = "Garde le meilleur pet de chaque espèce.",
+				btn = "+" .. fmt(dupeTotal), btnColor = COL.green,
+				onClick = function()
+					RAction:FireServer("sellDupes")
+				end,
+			})
 		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
@@ -943,6 +985,15 @@ objCard.Activated:Connect(function()
 	openPanel("quests")
 end)
 local function refreshObjective()
+	local tut = state and Config.tutorial(state.stats)
+	if tut then -- tutoriel des premières minutes : prioritaire sur l'objectif de l'histoire
+		objCard.Visible = not panelFrame.Visible
+		objTitle.Text = "🎯 Objectif " .. tut.index .. "/" .. tut.total
+		objText.Text = tut.text .. " (" .. fmt(tut.prog) .. "/" .. fmt(tut.goal) .. ")"
+		objStroke.Color = COL.yellow
+		TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(tut.goal > 0 and tut.prog / tut.goal or 1, 1) }):Play()
+		return
+	end
 	local o = state and Config.HUD.objective and Config.objective(state.story)
 	objCard.Visible = o ~= nil and o ~= false and not (panelFrame.Visible)
 	if not o then
@@ -954,7 +1005,48 @@ local function refreshObjective()
 	TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(o.goal > 0 and o.prog / o.goal or 1, 1) }):Play()
 end
 
-hudParts.objective, hudParts.carry, hudParts.banner, hudParts.toasts, hudParts.hint, hudParts.nav = objCard, carryLbl, banner, toasts, hint, navBar
+-- Offre d'achat « au bon moment » (Config.boostOffer) : carte non bloquante, un appui ouvre les bonus, ✕ la ferme, elle disparaît seule.
+local offerCard = text(hudRoot, { Size = UDim2.fromOffset(260, 44), TextSize = 13, TextColor3 = COL.dark, BackgroundColor3 = COL.green, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
+offerCard.Active = true
+corner(offerCard, 12)
+local offerClose = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = COL.panel, Text = "✕", Font = FONT, TextSize = 14, TextColor3 = COL.text }, offerCard)
+corner(offerClose, 13)
+local offerToken, offerShown, offerLast, joinedAt = 0, 0, nil, os.clock()
+local function hideOffer()
+	offerToken += 1
+	offerCard.Visible = false
+end
+local offerBtn = make("TextButton", { BackgroundTransparency = 1, Size = UDim2.new(1, -36, 1, 0), Text = "", ZIndex = 2 }, offerCard)
+offerBtn.Activated:Connect(function()
+	hideOffer()
+	openPanel("bonus")
+end)
+offerClose.Activated:Connect(hideOffer)
+local function tryOffer(ev)
+	if not state or panelFrame.Visible then
+		return
+	end
+	local o = Config.boostOffer(ev, state.passes, os.clock(), offerLast, offerShown, joinedAt)
+	if not o then
+		return
+	end
+	offerShown += 1
+	offerLast = os.clock()
+	offerToken += 1
+	local token = offerToken
+	local def = Config.PASSES[o.pass]
+	offerCard.Text = "   " .. def.emoji .. " " .. o.text .. " ›"
+	offerCard.Visible = true
+	task.delay(12, function()
+		if token == offerToken then
+			offerCard.Visible = false
+		end
+	end)
+end
+
+tryOfferLater = tryOffer
+
+hudParts.objective, hudParts.carry, hudParts.banner, hudParts.toasts, hudParts.hint, hudParts.nav, hudParts.offer = objCard, carryLbl, banner, toasts, hint, navBar, offerCard
 
 -- Place tout le HUD selon la taille réelle de l'écran (recalculé quand la fenêtre change : rotation, redimensionnement de Studio).
 local function applyLayout()
@@ -970,7 +1062,7 @@ local function applyLayout()
 		local r = rects[name]
 		if r then
 			obj.Position = UDim2.fromOffset(r.x, r.y)
-			if name == "banner" or name == "hint" or name == "toasts" then
+			if name == "banner" or name == "hint" or name == "toasts" or name == "offer" then
 				obj.Size = UDim2.fromOffset(r.w, r.h)
 			end
 		end
@@ -1129,7 +1221,15 @@ task.spawn(function()
 			carryLbl.Text = "🥚 " .. state.carry .. "/" .. state.carryCap
 			local nextHint = Config.nextHint({ hatched = state.hatched, stolen = state.stolen, speed = player:GetAttribute("Speed") or 0 })
 			local msg = nextHint and nextHint.text
-			hint.Visible = msg ~= nil and not panelFrame.Visible
+			if Config.tutorial(state.stats) then
+				msg = nil -- la barre d'objectif du tutoriel guide déjà : un seul conseil à l'écran
+			end
+			hint.Visible = msg ~= nil and not panelFrame.Visible and not offerCard.Visible
+			local ms = math.floor(state.hatched / 25)
+			if ms > (lastMilestone or ms) then
+				tryOffer("milestone")
+			end
+			lastMilestone = ms
 			refreshObjective()
 			hint.Text = msg or ""
 		end

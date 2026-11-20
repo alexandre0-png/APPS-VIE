@@ -707,6 +707,69 @@ end
 -- Promesse affichée dès l'arrivée (non bloquante) : le joueur peut agir tout de suite.
 Config.PROMISE = { seconds = 7, button = "▶ Jouer" }
 
+-- Tutoriel des premières minutes : une barre d'objectif unique (« Chipe 2 œufs (0/2) ») qui guide pas à pas ; chaque étape se lit dans les
+-- statistiques du joueur (aucune donnée sauvegardée en plus), la barre disparaît d'elle-même quand tout est fait.
+Config.TUTORIAL = {
+	{ id = "hatch1", stat = "hatched", goal = 1, text = "Touche ton œuf pour le faire éclore" },
+	{ id = "steal2", stat = "stolen", goal = 2, text = "Chipe 2 œufs chez un rival" },
+	{ id = "hatch3", stat = "hatched", goal = 4, text = "Fais éclore 4 œufs" },
+	{ id = "species3", stat = "species", goal = 3, text = "Découvre 3 espèces de pets" },
+}
+-- st = { hatched, stolen, species } ; retourne { index, total, text, prog, goal } de la première étape non terminée, ou nil (tutoriel fini).
+function Config.tutorial(st)
+	for i, step in ipairs(Config.TUTORIAL) do
+		local v = (st and st[step.stat]) or 0
+		if v < step.goal then
+			return { index = i, total = #Config.TUTORIAL, text = step.text, prog = v, goal = step.goal }
+		end
+	end
+	return nil
+end
+
+-- Ligne de la bannière de zone : nom court et distance à la base du joueur (arrondie à 5 m ; « chez toi » près de la base).
+Config.ZONE_NAMES = { arena = "Arène", gus = "Ferme de Gus", mara = "Bois de Mara", zed = "Citadelle de Zed" }
+function Config.zoneLine(zone, dist)
+	local name = Config.ZONE_NAMES[zone]
+	if not name then
+		return nil
+	end
+	if type(dist) ~= "number" or dist ~= dist then
+		return name
+	end
+	if dist < 40 then
+		return name .. " · chez toi"
+	end
+	return name .. " · " .. (math.floor(dist / 5 + 0.5) * 5) .. " m de ta base"
+end
+
+-- Titres : un par palier de succès (Éleveur I à IV...), débloqué quand la statistique atteint l'objectif. stats = state.stats.
+Config.ROMAN = { "I", "II", "III", "IV" }
+function Config.titles(stats)
+	local out = {}
+	for _, a in ipairs(Config.ACHIEVEMENTS) do
+		local v = (stats and stats[a.stat]) or 0
+		for i, goal in ipairs(a.goals) do
+			out[#out + 1] = { id = a.id .. i, name = a.emoji .. " " .. a.name .. " " .. (Config.ROMAN[i] or tostring(i)), desc = goal .. " " .. a.unit, unlocked = v >= goal }
+		end
+	end
+	return out
+end
+
+-- Offre d'achat « au bon moment » : petite carte non bloquante, fermable d'un geste, jamais plus de 3 par session ni plus d'une toutes les 5 minutes,
+-- seulement pour un achat disponible (ID renseigné) et pas déjà possédé. ev = "rare" (éclosion rare) ou "milestone" (palier). Retourne { pass, text } ou nil.
+Config.OFFERS = { max = 3, gap = 300, graceSeconds = 90 }
+function Config.boostOffer(ev, passes, now, lastAt, shown, joinedAt)
+	if (shown or 0) >= Config.OFFERS.max or (lastAt and now - lastAt < Config.OFFERS.gap) or now - (joinedAt or 0) < Config.OFFERS.graceSeconds then
+		return nil
+	end
+	local key = ev == "rare" and "Lucky" or (ev == "milestone" and "Coins2x" or nil)
+	local def = key and Config.PASSES[key]
+	if not def or not Config.purchasable(def) or (passes and passes[key]) then
+		return nil
+	end
+	return { pass = key, text = ev == "rare" and "Plus de pets rares ? Chance +10 %" or "Gagne 2 fois plus de pièces, pour toujours" }
+end
+
 -- Prochain geste à proposer pendant les premières minutes : { id, text }. st = { hatched, stolen, speed }.
 function Config.nextHint(st)
 	if (st.hatched or 0) == 0 then
@@ -1605,6 +1668,7 @@ function Layout.rects(vw, vh, navCount)
 		toasts = { x = right - toastsW, y = toastsTop, w = toastsW, h = toastsH },
 		nav = nav,
 		hint = { x = e, y = dh - e - 44, w = math.min(260, dw - navW - 3 * e - 8), h = 44 },
+		offer = { x = e, y = dh - e - 44, w = math.min(260, dw - navW - 3 * e - 8), h = 44 }, -- offre d'achat non bloquante : prend la place du conseil (jamais les deux)
 	}
 	return r, s, dw, dh
 end

@@ -28,6 +28,13 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : étape 2, tutoriel, inventaire à onglets, bannière avec distance, offres au bon moment
+
+- **Tutoriel** (`Config.TUTORIAL`, `Config.tutorial(stats)`) : la carte d'objectif sous les compteurs affiche « 🎯 Objectif n/4 : Chipe 2 œufs chez un rival (0/2) » avec barre de progression, étape lue dans les statistiques (rien de sauvegardé en plus), puis laisse la place à l'objectif de l'histoire ; le conseil du bas est masqué pendant le tutoriel (un seul guidage).
+- **Inventaire à onglets** : 🥚 Œufs (revente), 🐾 Pets (doublons, suivre, vendre), ⚡ Boosts (multiplicateur, collection, potion, passes actifs), 🏷 Titres (`Config.titles` : 20 titres = 5 succès x 4 paliers, verrouillés « ??? »), 📖 Index (compteur x/18, espèces non obtenues grisées ❓), 🏅 Succès.
+- **Bannière de zone** : « Ferme de Gus · 120 m de ta base » (`Config.zoneLine`, distance arrondie à 5 m, « chez toi » près de la base) ; la base est publiée en attributs du joueur (`BaseX`, `BaseZ`).
+- **Offres d'achat au bon moment** (`Config.boostOffer`) : après une éclosion rare (Chance +10 %) ou un palier de 25 éclosions (Revenus x2), carte non bloquante à la place du conseil, ✕ pour fermer, disparaît seule en 12 s, jamais dans les 90 premières secondes, 1 toutes les 5 minutes, 3 par session, jamais si déjà possédé ni si l'ID du pass est à 0. Testé en pur ; l'affichage de la carte n'est pas testé de bout en bout.
+
 ## 2026-11-22 (suite) : câblage Blender, lot 1 gardiens
 
 - `Assets.loadGroup(groupe)` / `cloneModel(groupe, clé)` : chargement générique des groupes de `Config.Assets.models` (un LoadAsset par ID, plafond de Parts par `modelsMaxParts`, repli procédural). Chargé APRÈS la carte et les accessoires.

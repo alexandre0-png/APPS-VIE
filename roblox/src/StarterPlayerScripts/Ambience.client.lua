@@ -66,7 +66,11 @@ local function showBanner(zone)
 	local token = bannerToken
 	bTitle.Text = b.title
 	bTitle.TextColor3 = b.color
-	bSub.Text = b.sub
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local bx, bz = player:GetAttribute("BaseX"), player:GetAttribute("BaseZ")
+	local dist = (root and type(bx) == "number" and type(bz) == "number") and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(bx, 0, bz)).Magnitude or nil
+	bSub.Text = (dist and Config.zoneLine(zone, dist)) or b.sub
 	bStroke.Color = b.color
 	TweenService2:Create(bannerFrame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 70) }):Play()
 	task.delay(Config.ZONE_BANNER_SECONDS, function()

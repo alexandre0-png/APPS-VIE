@@ -44,6 +44,7 @@ function Layout.rects(vw, vh, navCount)
 		toasts = { x = right - toastsW, y = toastsTop, w = toastsW, h = toastsH },
 		nav = nav,
 		hint = { x = e, y = dh - e - 44, w = math.min(260, dw - navW - 3 * e - 8), h = 44 },
+		offer = { x = e, y = dh - e - 44, w = math.min(260, dw - navW - 3 * e - 8), h = 44 }, -- offre d'achat non bloquante : prend la place du conseil (jamais les deux)
 	}
 	return r, s, dw, dh
 end

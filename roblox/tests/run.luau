@@ -1156,13 +1156,16 @@ do
 				free = false
 			end
 			for j = i + 1, #names do
-				if Layout.overlap(a, r[names[j]]) then
+				-- l'offre d'achat prend la place du conseil (jamais affichés ensemble : le client cache le conseil tant que l'offre est visible)
+				local pair = (k == "offer" and names[j] == "hint") or (k == "hint" and names[j] == "offer")
+				if not pair and Layout.overlap(a, r[names[j]]) then
 					apart = false
 				end
 			end
 		end
 		check("Layout " .. name .. " : tout dans l'écran", inside)
 		check("Layout " .. name .. " : zone centrale libre", free)
+		check("Layout " .. name .. " : l'offre d'achat occupe exactement la place du conseil", r.offer.x == r.hint.x and r.offer.y == r.hint.y and r.offer.w == r.hint.w and r.offer.h == r.hint.h)
 		check("Layout " .. name .. " : aucun élément ne se chevauche", apart)
 		check("Layout " .. name .. " : boutons >= 44 px réels", Layout.NAV_BUTTON * s >= 44 - 1e-6)
 		check("Layout " .. name .. " : menu en bas à droite, jamais au centre", r.nav.x + r.nav.w >= dw - Layout.EDGE - 1e-6 and r.nav.y + r.nav.h >= dh - Layout.EDGE - 1e-6 and r.nav.x * s >= vw * 0.68)
@@ -2604,6 +2607,34 @@ do
 	check("Doublons : seuls les emplacements débloqués (cap) comptent", #Config.dupesToSell({ { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }, 2) == 1)
 end
 
+-- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
+do
+	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
+	local t0 = Config.tutorial({ hatched = 0, stolen = 0, species = 0 })
+	check("Tutoriel : 1re étape au départ (0/1)", t0 and t0.index == 1 and t0.prog == 0 and t0.goal == 1 and t0.total == #Config.TUTORIAL)
+	local t1 = Config.tutorial({ hatched = 1, stolen = 1, species = 1 })
+	check("Tutoriel : étape « chipe 2 œufs » avec progression 1/2", t1 and t1.index == 2 and t1.prog == 1 and t1.goal == 2 and t1.text:find("Chipe", 1, true) ~= nil)
+	check("Tutoriel : se termine (nil) quand tout est fait, jamais d'étape sautée", Config.tutorial({ hatched = 9, stolen = 9, species = 9 }) == nil and Config.tutorial({ hatched = 9, stolen = 0, species = 9 }).index == 2 and Config.tutorial(nil).index == 1)
+	check("Zone : « Ferme de Gus · 120 m de ta base » (arrondi à 5), « chez toi » près de la base, nom seul sans distance, nil si inconnue", Config.zoneLine("gus", 121) == "Ferme de Gus · 120 m de ta base" and Config.zoneLine("arena", 10) == "Arène · chez toi" and Config.zoneLine("mara", nil) == "Bois de Mara" and Config.zoneLine("zzz", 5) == nil and Config.zoneLine("zed", 0 / 0) == "Citadelle de Zed")
+	local ti = Config.titles({ hatched = 60, stolen = 0, species = 3, rb = 0, puzzles = 0 })
+	local unlocked = 0
+	for _, x in ipairs(ti) do
+		if x.unlocked then
+			unlocked += 1
+		end
+	end
+	check("Titres : 20 titres (5 succès x 4 paliers), débloqués d'après les statistiques (Éleveur I-II, Collectionneur I)", #ti == 20 and unlocked == 3 and ti[1].unlocked and ti[2].unlocked and not ti[3].unlocked)
+	local saved = { Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id }
+	check("Offre : jamais proposée tant que l'achat n'est pas disponible (ID 0)", Config.boostOffer("rare", {}, 1000, nil, 0, 0) == nil)
+	Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id = 111, 222
+	local o = Config.boostOffer("rare", {}, 1000, nil, 0, 0)
+	check("Offre : après une éclosion rare -> Chance +10 %, après un palier -> Revenus x2", o and o.pass == "Lucky" and Config.boostOffer("milestone", {}, 1000, nil, 0, 0).pass == "Coins2x")
+	check("Offre : pas si déjà possédé, pas pendant les 90 premières secondes, pas plus d'une toutes les 5 min, pas plus de 3 par session, événement inconnu ignoré",
+		Config.boostOffer("rare", { Lucky = true }, 1000, nil, 0, 0) == nil and Config.boostOffer("rare", {}, 60, nil, 0, 0) == nil and Config.boostOffer("rare", {}, 1000, 800, 1, 0) == nil
+		and Config.boostOffer("rare", {}, 1000, 600, 1, 0) ~= nil and Config.boostOffer("rare", {}, 5000, 100, 3, 0) == nil and Config.boostOffer("autre", {}, 1000, nil, 0, 0) == nil)
+	Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id = saved[1], saved[2]
+end
+
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
 	suite("Sons : aucun identifiant inventé")
@@ -3207,6 +3238,32 @@ do
 		else
 			check("Bannière de zone : le personnage existe pour le test", false)
 		end
+		-- bannière : distance à la base du joueur ; inventaire à onglets (œufs, pets, boosts, titres, index)
+		check("Bannière de zone : la distance à la base est affichée (« Bois de Mara · N m de ta base »)", findText("Bois de Mara") ~= nil and findText("m de ta base") ~= nil)
+		RT.actions.ChipeClose(nil, RT.env.Enum.UserInputState.Begin)
+		RT.step(0.5)
+		local dexIcon = findText("📖")
+		RT.fire(dexIcon and dexIcon.Parent or nil, "Activated")
+		RT.step(1)
+		local sawTabs = findText("Titres") ~= nil and findText("Boosts") ~= nil and findText("Index") ~= nil and findText("Œufs") ~= nil
+		check("Inventaire : onglets Œufs, Pets, Boosts, Titres, Index, Succès" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), sawTabs and #RT.errors == 0)
+		local function tab(label)
+			for _, o in ipairs(RT.all) do
+				local t = rawget(o, "__props").Text
+				if o.ClassName == "TextButton" and type(t) == "string" and t:find(label, 1, true) then
+					RT.fire(o, "Activated")
+					RT.step(0.8)
+					return true
+				end
+			end
+			return false
+		end
+		check("Inventaire : onglet Titres (20 titres, cases verrouillées « ??? »)", tab("Titres") and findText("titres. Ils se débloquent") ~= nil and findText("???") ~= nil)
+		check("Inventaire : onglet Index (compteur x/N, espèces non obtenues grisées)", tab("Index") and findText("INDEX") ~= nil and findText("/" .. #Config.PETS) ~= nil)
+		check("Inventaire : onglet Boosts (multiplicateur, passes)", tab("Boosts") and findText("Multiplicateur de revenus") ~= nil)
+		check("Inventaire : onglets Œufs et Pets sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), tab("Œufs") and tab("Pets") and #RT.errors == 0)
+		RT.actions.ChipeClose(nil, RT.env.Enum.UserInputState.Begin)
+		RT.step(0.5)
 		-- carrousel : flèche droite -> sélection suivante, achat trop cher refusé côté serveur
 		RT.actions.ChipeShop(nil, RT.env.Enum.UserInputState.Begin) -- ferme
 		RT.actions.ChipeShop(nil, RT.env.Enum.UserInputState.Begin) -- rouvre

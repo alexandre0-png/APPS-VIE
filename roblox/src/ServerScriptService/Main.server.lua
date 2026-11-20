@@ -1969,6 +1969,10 @@ local function onJoin(player)
 	player:SetAttribute("Hp", Config.GUARD.maxHp)
 	player:SetAttribute("MaxHp", Config.GUARD.maxHp)
 	sessions[player] = s
+	if plot and plot.spawn then
+		player:SetAttribute("BaseX", plot.spawn.Position.X) -- le client affiche la distance à la base sur la bannière de zone
+		player:SetAttribute("BaseZ", plot.spawn.Position.Z)
+	end
 	if late then
 		notify(player, "🛡 Tu arrives en cours de partie : tes œufs sont protégés " .. Config.Game.LateJoinGrace .. " s.")
 	end
