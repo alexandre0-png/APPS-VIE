@@ -214,6 +214,14 @@ for f in files:
             if not any("task.wait" in l2 or ":Wait(" in l2 or "RenderStepped:Wait" in l2 for l2 in body):
                 fail(f"{os.path.relpath(f, ROOT)}:{i + 1} : while true sans task.wait (boucle qui gèlerait le serveur)")
 
+print("[4c] Tests sous Lune : aucun appel fs asynchrone dans une coroutine du runtime factice")
+_fr = open(os.path.join(ROOT, "tests", "FakeRuntime.lua"), encoding="utf-8").read()
+_run_script = _fr[_fr.index("function RT.runScript"):_fr.index("-- environnement des scripts")] if "function RT.runScript" in _fr else ""
+if "fs." in _run_script or "readFile(src" in _fr:
+    fail("tests/FakeRuntime.lua : fs.* appelé depuis runScript (coroutine) : sous Lune, fs est asynchrone et bloque le processus ; lire les fichiers dans buildTree")
+if "task.delay(90" not in open(os.path.join(ROOT, "tests", "run.luau"), encoding="utf-8").read() or "process.exit(failed > 0 and 1 or 0)" not in open(os.path.join(ROOT, "tests", "run.luau"), encoding="utf-8").read():
+    fail("tests/run.luau : watchdog global (task.delay 90 s) ou sortie explicite manquants")
+
 print("[5b] Projets Rojo : JSON valide et chemins existants (substitut partiel de `rojo build`, non exécuté ici)")
 def _paths(node, out):
     if isinstance(node, dict):

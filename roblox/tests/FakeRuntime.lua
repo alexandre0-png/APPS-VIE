@@ -6,12 +6,18 @@
 -- Ne simule NI la physique, NI le rendu : c'est un test de fumée de la logique de démarrage et de la validation des Remotes.
 local Fake = {}
 
+-- Garde-fous stricts : aucune suite ne peut boucler ni attendre. Horloge RÉELLE capturée avant tout remplacement de `os`.
+local realClock = os.clock
+local MAX_RESUMES = 300000 -- reprises de coroutines au total par runtime
+local MAX_REAL_SECONDS = 20 -- temps réel maximum par runtime (jamais d'attente du vrai temps : task.wait est virtuel)
+
 function Fake.runtime(opts)
 	local RT = {
 		now = 0, players = {}, errors = {}, prints = {}, warns = {}, teleports = {}, conns = {}, tags = {},
 		remotes = {}, fired = {}, bindToClose = {}, waiting = {}, kicked = {},
 	}
 	local fs, luau = opts.fs, opts.luau
+	local startedAt, resumes = realClock(), 0
 	local proxyMeta = {}
 	local services = {}
 	local newProxy
@@ -270,6 +276,13 @@ function Fake.runtime(opts)
 	---------------------------------------------------------------- ordonnanceur de tâches (temps virtuel)
 	local alive = {}
 	function RT.resume(co, ...)
+		resumes = resumes + 1
+		if resumes > MAX_RESUMES then
+			error("garde-fou : plus de " .. MAX_RESUMES .. " reprises de coroutines (boucle d'attente virtuelle ?)")
+		end
+		if realClock() - startedAt > MAX_REAL_SECONDS then
+			error("garde-fou : plus de " .. MAX_REAL_SECONDS .. " s de temps réel dans un runtime factice")
+		end
 		if opts.hook then
 			pcall(opts.hook, co)
 		end
@@ -308,6 +321,9 @@ function Fake.runtime(opts)
 
 	function RT.step(seconds, dt)
 		dt = dt or 0.05
+		if seconds > 600 then
+			error("garde-fou : RT.step(" .. tostring(seconds) .. ") dépasse 600 s virtuelles")
+		end
 		local target = RT.now + seconds
 		while RT.now < target do
 			RT.now = RT.now + dt
@@ -469,7 +485,9 @@ function Fake.runtime(opts)
 		local o = instance(cls, name)
 		rawget(o, "__source") -- (champ brut absent : on garde la source dans une table à part)
 		RT.sources = RT.sources or {}
-		RT.sources[o] = { path = path, name = name }
+		-- Lecture du fichier ICI (thread principal) et jamais dans une coroutine du runtime : sous Lune, fs.readFile est asynchrone et rend la main
+		-- à l'ordonnanceur de Lune ; appelée depuis une coroutine créée ici, elle n'est jamais reprise (blocage à 0 % CPU).
+		RT.sources[o] = { path = path, name = name, text = fs.readFile(path) }
 		o.Parent = parent
 		return o
 	end
@@ -514,7 +532,7 @@ function Fake.runtime(opts)
 			env[k] = v
 		end
 		env.script = obj
-		local chunk = luau.load(fs.readFile(src.path), { debugName = src.name, environment = env })
+		local chunk = luau.load(src.text, { debugName = src.name, environment = env })
 		return chunk()
 	end
 
@@ -661,6 +679,18 @@ function Fake.runtime(opts)
 		end
 		RT.fire(services.Players, "PlayerRemoving", p)
 		p.Parent = nil
+	end
+
+	-- Auto-vérification : l'environnement factice est-il réellement appliqué par luau.load ? Sinon (moteur qui ignore ou fusionne mal
+	-- `environment`), les scripts lanceraient de VRAIES tâches (task.spawn / task.wait réels) qui retiendraient le processus : les suites
+	-- qui dépendent du runtime doivent alors être sautées et le signaler.
+	function RT.selfCheck()
+		local ok, res = pcall(function()
+			local probe = luau.load("return task, warn, require, os", { debugName = "probe", environment = RT.env })
+			local t, w, r, o = probe()
+			return t == RT.task and w == RT.env.warn and o == RT.env.os
+		end)
+		return ok and res == true
 	end
 
 	RT.game = game

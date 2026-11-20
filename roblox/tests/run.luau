@@ -19,6 +19,19 @@ local chunk = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Config.lua"), 
 local Config = chunk()
 
 local passed, failed = 0, 0
+-- Garde-fous : nom de la suite en cours affiché, délai global de 90 s (sous Lune, `task.delay` réel : plus jamais de blocage silencieux),
+-- sortie explicite en fin de run (aucune tâche de fond ne peut retenir le processus).
+local currentSuite = "initialisation"
+local function suite(name)
+	currentSuite = name
+	print("  ▶ " .. name)
+end
+if task and task.delay then
+	task.delay(90, function()
+		print("TIMEOUT global (90 s) : le test est bloqué dans la suite « " .. currentSuite .. " »")
+		process.exit(2)
+	end)
+end
 local function check(name, cond)
 	if cond then
 		passed += 1
@@ -341,6 +354,7 @@ end
 check("animEnabled : actif par défaut", Config.animEnabled("eggShake") and Config.animEnabled("zones"))
 check("animEnabled : clé inconnue = faux", not Config.animEnabled("nimportequoi"))
 do
+	suite("bloc sans titre (ligne 343)")
 	local saved = Config.Animations.enabled
 	Config.Animations.enabled = false
 	local anyOn = false
@@ -384,6 +398,7 @@ check("courbes : entrées hors [0,1] bornées", Easing.outQuad(-3) == 0 and Easi
 
 -- squash & stretch
 do
+	suite("squash & stretch")
 	local sx0, sy0 = Easing.squashStretch(0, 0.4)
 	check("squashStretch(0) : écrasé en hauteur, élargi", sy0 < 1 and sx0 > 1)
 	local sx1, sy1 = Easing.squashStretch(1, 0.4)
@@ -403,6 +418,7 @@ end
 
 -- rebond des œufs
 do
+	suite("rebond des œufs")
 	local ok, hopped = true, false
 	for i = 0, 640 do
 		local y, sx, sy = Easing.eggHop(i * 0.01, 0.7, 0.6)
@@ -428,6 +444,7 @@ end
 
 -- yeux et bouche
 do
+	suite("yeux et bouche")
 	local inRange, minOpen, openCount, total = true, 1, 0, 0
 	for seed = 0, 9 do
 		for i = 0, 3000 do
@@ -475,6 +492,7 @@ end
 
 -- barrières de zone
 do
+	suite("barrières de zone")
 	local g = true
 	for i = 0, 200 do
 		local p = Easing.gatePulse(i * 0.1, 2)
@@ -492,6 +510,7 @@ for name, b in pairs(Easing.REWARD) do
 end
 check("FOV_KICK : steal vers l'avant, caught vers l'arrière", Easing.FOV_KICK.steal.delta > 0 and Easing.FOV_KICK.caught.delta < 0 and Easing.FOV_KICK.steal.time > 0 and Easing.FOV_KICK.caught.time > 0)
 do
+	suite("bloc sans titre (ligne 494)")
 	local b = Easing.REWARD.rare
 	local ok, angles = true, {}
 	for i = 1, b.count do
@@ -512,6 +531,7 @@ end
 
 -- garde-fou : désactivée = non exécutée ; erreur = désactivée pour la session, une seule alerte
 do
+	suite("garde-fou : désactivée = non exécutée ; erreur = désactivée pour la session, une seule ale")
 	local failed, calls, errors = {}, 0, 0
 	local function yes()
 		return true
@@ -558,6 +578,7 @@ check("inOutSine croissante", (function()
 	return true
 end)())
 do
+	suite("bloc sans titre (ligne 560)")
 	local inRange, zeros, total, maxPeck = true, 0, 0, 0
 	for seed = 0, 5 do
 		for i = 0, 3000 do
@@ -578,6 +599,7 @@ end
 
 -- Positions des emplacements -----------------------------------------------------------------------------
 do
+	suite("Positions des emplacements")
 	local seen, ok = {}, true
 	for i = 1, 12 do
 		local x, z = Config.padLocal(i)
@@ -598,6 +620,7 @@ end
 check("cineEnabled : actif par défaut", Config.cineEnabled("intro") and Config.cineEnabled("tutorial") and Config.cineEnabled("firstZone") and Config.cineEnabled("firstRare"))
 check("cineEnabled : clé inconnue = faux", not Config.cineEnabled("nimportequoi"))
 do
+	suite("bloc sans titre (ligne 600)")
 	local saved = Config.Cinematics.enabled
 	Config.Cinematics.enabled = false
 	local any = false
@@ -649,6 +672,7 @@ for idx = 2, #Config.ZONES do
 	check("première zone " .. idx .. " : le nom de la zone est dans le texte", def.shots[1].text:find(Config.ZONES[idx].name, 1, true) ~= nil)
 end
 do
+	suite("bloc sans titre (ligne 651)")
 	local def = Config.cineFirstRare("Dragon Doré", "Mythique", "+1.1K/s.")
 	checkDef("premier pet rare", def, 10, 3)
 	check("premier pet rare : ancre = emplacement, nom dans le texte", def.shots[1].anchor == "pad" and def.shots[1].text:find("Dragon Doré", 1, true) ~= nil)
@@ -670,6 +694,7 @@ end)() ~= nil)
 
 -- Cinéma : séquences, lecteur (lecture, skip, abandon, reprise), caméra, directeur -------------------------
 do
+	suite("Cinéma : séquences, lecteur (lecture, skip, abandon, reprise), caméra, directeur")
 	check("sequence : refuse nil, vide et durées invalides", Cinema.sequence(nil) == nil and Cinema.sequence({}) == nil and Cinema.sequence({ shots = {} }) == nil
 		and Cinema.sequence({ shots = { { dur = 0 } } }) == nil and Cinema.sequence({ shots = { { dur = -1 } } }) == nil and Cinema.sequence({ shots = { { dur = "3" } } }) == nil)
 	local seq = Cinema.sequence({ id = "t", shots = { { dur = 2, pos = { 0, 0, 0 }, look = { 0, 0, 1 } }, { dur = 3, pos = { 0, 0, 0 }, look = { 0, 0, 1 }, toPos = { 10, 20, 30 } }, { dur = 1.5, pos = { 1, 1, 1 }, look = { 0, 0, 1 } } } })
@@ -795,6 +820,7 @@ end
 
 -- Assets : chargeur factice -----------------------------------------------------------------
 do
+	suite("Assets : chargeur factice")
 	local AssetsMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Assets.lua"), { debugName = "Assets" })()
 	-- Instances factices
 	local function inst(class, props)
@@ -988,6 +1014,7 @@ end
 
 -- Diag : erreurs DataStore de Studio -----------------------------------------------------------
 do
+	suite("Diag : erreurs DataStore de Studio")
 	local Diag = luau.load(fs.readFile("roblox/src/ServerScriptService/Diag.lua"), { debugName = "Diag" })()
 	check("Diag : erreur Studio sans API reconnue (message du journal)", Diag.isStudioApiError("403: Cannot write to DataStore from studio if API access is not enabled."))
 	check("Diag : code StudioAccessToApisNotAllowed reconnu", Diag.isStudioApiError("104: StudioAccessToApisNotAllowed"))
@@ -997,6 +1024,7 @@ end
 
 -- Apparences d'œufs construites par le code ---------------------------------------------------
 do
+	suite("Apparences d'œufs construites par le code")
 	local seen = {}
 	local distinct = true
 	for key in pairs(Config.Assets.eggs) do
@@ -1044,6 +1072,7 @@ end
 
 -- Économie : simulation de 30 minutes d'un joueur-robot (5 graines) ------------------------------------------------------
 do
+	suite("Économie : simulation de 30 minutes d'un joueur-robot (5 graines)")
 	local Economy = luau.load(fs.readFile("roblox/tests/Economy.lua"), { debugName = "Economy" })()
 	local allOk, why = true, ""
 	local function expect(cond, msg)
@@ -1074,6 +1103,7 @@ end
 
 -- Objectif affiché (HUD) ----------------------------------------------------------------------
 do
+	suite("Objectif affiché (HUD)")
 	local o = Config.objective({ ch = 0, prog = 0 })
 	check("objective : chapitre 1 au départ", o ~= nil and o.index == 1 and o.total == #Config.STORY and o.done == false and o.prog == 0 and o.goal == Config.STORY[1].goal)
 	check("objective : progression plafonnée et terminée", Config.objective({ ch = 0, prog = 99 }).prog == Config.STORY[1].goal and Config.objective({ ch = 0, prog = 99 }).done == true)
@@ -1092,6 +1122,7 @@ end
 
 -- Interface : disposition ancrée aux bords, zone centrale libre ----------------------------------------------------
 do
+	suite("Interface : disposition ancrée aux bords, zone centrale libre")
 	local Layout = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Layout.lua"), { debugName = "Layout" })()
 	local devices = {
 		{ "téléphone portrait 390x844", 390, 844 },
@@ -1141,6 +1172,7 @@ end
 
 -- Hub : zones de lancement, parties, rejoindre en cours, replis (faux TeleportService) ---------------------------------------
 do
+	suite("Hub : zones de lancement, parties, rejoindre en cours, replis (faux TeleportService)")
 	local Party = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Party.lua"), { debugName = "Party" })()
 	local G = Config.Game
 	check("Game : lieux configurés (hub et jeu)", G.Places.hub == 115261336085924 and G.Places.game == 87012762353093 and G.Places.hub ~= G.Places.game)
@@ -1372,6 +1404,7 @@ end
 
 -- Carte : dimensions, domaines, ambiance, secrets -----------------------------------------------------------------------
 do
+	suite("Carte : dimensions, domaines, ambiance, secrets")
 	local M = Config.Map
 	check("Map : sol plus grand que l'ancienne carte (620)", M.groundSize >= 1000)
 	check("Map : un domaine par rival, clés d'ambiance complètes", #M.zoneKeys == #Config.RIVALS and (function()
@@ -1438,6 +1471,7 @@ end
 
 -- Décor de la carte : exécution avec un Roblox factice (détecte les erreurs d'exécution et vérifie le compte de Parts) -----------------
 do
+	suite("Décor de la carte : exécution avec un Roblox factice (détecte les erreurs d'exécution et v")
 	local function vec(x, y, z)
 		local v = { X = x, Y = y, Z = z }
 		return setmetatable(v, {
@@ -1563,6 +1597,7 @@ end
 
 -- Filet anti-chute et garantie de personnage ------------------------------------------------------------------------
 do
+	suite("Filet anti-chute et garantie de personnage")
 	local Spawn = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Spawn.lua"), { debugName = "Spawn" })()
 	for role, cfg in pairs(Spawn.PRESETS) do
 		local function R(st)
@@ -1602,6 +1637,7 @@ end
 
 -- Hub : construction du monde avec un Roblox factice ---------------------------------------------------------------------
 do
+	suite("Hub : construction du monde avec un Roblox factice")
 	local Fake = luau.load(fs.readFile("roblox/tests/FakeRoblox.lua"), { debugName = "FakeRoblox" })()
 	local f = Fake.new()
 	local env = f.env
@@ -1648,6 +1684,7 @@ end
 
 -- Décor catalogue du hub : identifiants et emplacements ---------------------------------------------------------------------
 do
+	suite("Décor catalogue du hub : identifiants et emplacements")
 	local A = Config.Assets
 	local function validId(id)
 		return type(id) == "number" and id > 0 and id % 1 == 0
@@ -1740,6 +1777,7 @@ end
 
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
+	suite("Sons : aucun identifiant inventé")
 	local ok, why = true, ""
 	for key, def in pairs(Config.SOUNDS) do
 		local good = type(def.id) == "string" and (def.id == "" or def.id:find("^rbxasset://") ~= nil or def.id:find("^rbxassetid://%d+$") ~= nil) and def.vol > 0 and def.vol <= 1 and def.speed > 0
@@ -1753,6 +1791,15 @@ end
 
 -- Démarrage RÉEL du hub (vrai Hub.server.lua, vrais modules) dans le runtime factice ----------------------------------------------
 local FakeRuntime = luau.load(fs.readFile("roblox/tests/FakeRuntime.lua"), { debugName = "FakeRuntime" })()
+-- Crée un runtime factice, ou nil (avec un échec explicite) si le moteur n'applique pas l'environnement fourni (évite toute tâche réelle).
+local function newRuntime(opts)
+	local RT = FakeRuntime.runtime(opts)
+	if not RT.selfCheck() then
+		check("Runtime factice : l'environnement fourni à luau.load est appliqué (sinon les suites de démarrage sont sautées)", false)
+		return nil
+	end
+	return RT
+end
 local function loopGuard(co)
 	if debug and debug.sethook then
 		debug.sethook(co, function()
@@ -1761,7 +1808,9 @@ local function loopGuard(co)
 	end
 end
 do
-	local RT = FakeRuntime.runtime({ fs = fs, luau = luau, placeId = Config.Game.Places.hub, hook = loopGuard })
+	suite("Démarrage RÉEL du hub dans le runtime factice")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.hub, hook = loopGuard })
+	if RT then
 	local main = RT.buildTree("roblox/src", true)
 	local okRun, errRun = pcall(function()
 		RT.task.spawn(function()
@@ -1822,11 +1871,14 @@ do
 	RT.removePlayer(p1)
 	RT.removePlayer(p2)
 	check("Hub : départ des joueurs sans erreur", #RT.errors == before)
+	end
 end
 
 -- Démarrage RÉEL de la partie (vrai Main.server.lua, Builder, Data, Rules...) dans le runtime factice ---------------------------------
 do
-	local RT = FakeRuntime.runtime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	suite("Démarrage RÉEL de la partie (vrai Main.server.lua, Builder, Data, Rules...) dans le runtim")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
 	local main = RT.buildTree("roblox/src", false)
 	RT.task.spawn(function()
 		RT.runScript(main)
@@ -1997,9 +2049,8 @@ do
 	RT.dataStoreFail = nil
 	RT.removePlayer(p3)
 	RT.step(1)
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
-if failed > 0 then
-	process.exit(1)
-end
+process.exit(failed > 0 and 1 or 0)
