@@ -21,3 +21,7 @@ Convention : chaque pièce s'appelle `Nom__RRGGBB`. Le chargeur lit le suffixe, 
 - Total : environ 10 000 faces pour 35 modèles ; le plus lourd (PetPanda) 1 056 faces.
 - Vignettes : brouillons Blender (Grenier et Chipe-Œufs), qualité insuffisante pour publier, à refaire.
 
+## Modèles Blender lot 3 (Chipe-Œufs, 31 modèles approuvés, script `scripts/blender_make_oeufs2.py`)
+- Décor, gardiens, château, pièges, sol : props.mill 108678125939354 ; guards.dog 103939852527807 ; guards.wolf 97774277975586 ; guards.bear 70929301247964 ; guards.knight 79935066561502 ; props.castle 85826335560323 ; castle.wall 136500159645250 ; castle.tower 120194370584366 ; castle.door 81799010490650 ; castle.floor 87526275066787 ; trap.spikes 109204482572726 ; trap.blade 83758069602274 ; trap.ball 97316525004480 ; props.chest 81643274706684 ; props.torch 89605986322384 ; props.flag 110279682395149 ; props.sign 74276869239897 ; props.pen 117636221218047 ; ground.grass 108336655087221 ; ground.path 129255762203803 ; ground.plaza 129476241883133 ; props.lamp 137473402121117 ; props.bench 123958905099505
+- Pets supplémentaires : Chat 81991111371408 ; Chien 90815266946917 ; Hamster 130387777043821 ; Hibou 95489512823854 ; Licorne 119358850090330 ; Lion 73493068085290 ; Manchot 73235151647339 ; TRex 113312935651236
+
