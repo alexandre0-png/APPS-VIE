@@ -517,6 +517,18 @@ function Fake.runtime(opts)
 	end
 	service("StarterPlayer")
 	service("PhysicsService")
+	local pathfinding = service("PathfindingService")
+	rawget(pathfinding, "__props").CreatePath = function()
+		return {
+			ComputeAsync = function()
+				if RT.pathFail then
+					error(RT.pathFail)
+				end
+			end,
+			Status = "Enum.PathStatus.NoPath",
+			GetWaypoints = function() return {} end,
+		}
+	end
 	local cas = service("ContextActionService")
 	RT.actions = {}
 	rawget(cas, "__props").BindAction = function(_, name, fn)

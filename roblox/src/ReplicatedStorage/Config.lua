@@ -87,9 +87,17 @@ Config.MUTS = {
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
-	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, color = Color3.fromRGB(111, 191, 115) },
-	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, color = Color3.fromRGB(224, 164, 59) },
-	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, color = Color3.fromRGB(224, 87, 90) },
+	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, viewDist = 24, viewAngle = 100, hearRadius = 12, damage = 14, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
+}
+
+-- Gardiens : jamais de coup mortel d'un seul coup. Barre de vie, invulnérabilité courte après un coup, recul, régénération ; perception (vue + ouïe)
+-- et états (voir Guard.lua). Voler DERRIÈRE un gardien (hors de son cône de vision) sans courir près de lui réussit sans combat.
+Config.GUARD = {
+	maxHp = 100, iframes = 1.6, regenDelay = 6, regenPerSec = 5, baseRegen = 25, knockback = 28, stun = 0.35, attackRange = 4.5, attackCd = 1.2,
+	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
+	alertDelay = 0.6, alertMax = 3, loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
 }
 
 -- Événements serveur (tous les joueurs en profitent)

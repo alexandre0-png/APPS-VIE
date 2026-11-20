@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX11"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX10"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX12"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX11"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -91,9 +91,17 @@ Config.MUTS = {
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
-	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, color = Color3.fromRGB(111, 191, 115) },
-	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, color = Color3.fromRGB(224, 164, 59) },
-	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, color = Color3.fromRGB(224, 87, 90) },
+	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, viewDist = 24, viewAngle = 100, hearRadius = 12, damage = 14, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
+}
+
+-- Gardiens : jamais de coup mortel d'un seul coup. Barre de vie, invulnérabilité courte après un coup, recul, régénération ; perception (vue + ouïe)
+-- et états (voir Guard.lua). Voler DERRIÈRE un gardien (hors de son cône de vision) sans courir près de lui réussit sans combat.
+Config.GUARD = {
+	maxHp = 100, iframes = 1.6, regenDelay = 6, regenPerSec = 5, baseRegen = 25, knockback = 28, stun = 0.35, attackRange = 4.5, attackCd = 1.2,
+	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
+	alertDelay = 0.6, alertMax = 3, loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
 }
 
 -- Événements serveur (tous les joueurs en profitent)
@@ -1486,6 +1494,7 @@ function Layout.rects(vw, vh, navCount)
 		pillSpeed = { x = e, y = e + 58, w = 196, h = 52 },
 		objective = { x = e, y = e + 118, w = 196, h = 62 },
 		carry = { x = e, y = e + 188, w = 170, h = 26 },
+		hp = { x = e, y = dh - e - 44 - 28, w = 170, h = 22 }, -- au-dessus des conseils, bas gauche (jamais au centre)
 		banner = { x = dw - e - rightW, y = e, w = rightW, h = 40 },
 		toasts = { x = right - toastsW, y = toastsTop, w = toastsW, h = toastsH },
 		nav = nav,
@@ -2533,8 +2542,137 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 end
 
 return Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+-- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
+-- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
+-- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
+local Guard = {}
+
+local sqrt, acos, deg = math.sqrt, math.acos, math.deg
+
+local function len(x, z)
+	return sqrt(x * x + z * z)
+end
+
+-- Angle en degrés (0..180) entre le regard (fx, fz) et la direction (dx, dz). 0 si l'un des vecteurs est nul.
+function Guard.angle(fx, fz, dx, dz)
+	local a, b = len(fx, fz), len(dx, dz)
+	if a < 1e-9 or b < 1e-9 then
+		return 0
+	end
+	local c = (fx * dx + fz * dz) / (a * b)
+	return deg(acos(math.max(-1, math.min(1, c))))
+end
+
+-- Le gardien g = { x, z, fx, fz } voit-il la cible t = { x, z } ? Cône de `viewAngle` degrés (total) et distance max `viewDist`.
+function Guard.sees(g, t, viewDist, viewAngle)
+	local dx, dz = t.x - g.x, t.z - g.z
+	local d = len(dx, dz)
+	if d > viewDist then
+		return false
+	end
+	if d < 1.5 then
+		return true -- collé au gardien : toujours vu
+	end
+	return Guard.angle(g.fx, g.fz, dx, dz) <= viewAngle / 2
+end
+
+-- Niveau de bruit (0..1) selon la vitesse : immobile = silence, marche lente = discret, course = plein bruit.
+function Guard.noise(speed, cfg)
+	if type(speed) ~= "number" or speed ~= speed or speed <= cfg.stillSpeed then
+		return 0
+	elseif speed < cfg.sneakSpeed then
+		return cfg.sneakNoise
+	end
+	return 1
+end
+
+-- Entend-il la cible ? Rayon d'ouïe réduit proportionnellement au bruit.
+function Guard.hears(dist, noise, hearRadius)
+	return noise > 0 and dist <= hearRadius * noise
+end
+
+-- Perception complète : { sees, hears, dist }. g = { x, z, fx, fz }, t = { x, z, speed }, rival = { viewDist, viewAngle, hearRadius }.
+function Guard.perceive(g, t, rival, cfg)
+	local d = len(t.x - g.x, t.z - g.z)
+	return { sees = Guard.sees(g, t, rival.viewDist, rival.viewAngle), hears = Guard.hears(d, Guard.noise(t.speed, cfg), rival.hearRadius), dist = d }
+end
+
+-- Machine à états. st = { state, timer, lost } ; percept = { sees, hears, atHome, dist } ; retourne le nouvel état (nouvelle table) et un événement
+-- éventuel : "alert" (intrigué), "spotted" (poursuite), "lost" (cible perdue), "calm" (retour au calme).
+--   patrol  : voit -> alert ; entend -> alert
+--   alert   : s'arrête et regarde ; voit pendant alertDelay -> chase ; ne perçoit plus alertMax secondes -> return
+--   chase   : voit ou entend -> poursuite continue ; ne perçoit plus -> lostChase ; trop loin (giveUpDist) -> return
+--   lostChase : continue vers la dernière position connue loseDelay secondes (perte de cible), retrouve la cible -> chase, sinon -> return
+--   return  : revient à la patrouille ; en route, voit -> alert
+function Guard.nextState(st, dt, p, cfg)
+	local s, timer, lost = st.state, st.timer or 0, st.lost or 0
+	local event = nil
+	if s == "patrol" then
+		if p.sees or p.hears then
+			s, timer, event = "alert", 0, "alert"
+		end
+	elseif s == "alert" then
+		if p.sees then
+			timer = timer + dt
+			if timer >= cfg.alertDelay then
+				s, timer, lost, event = "chase", 0, 0, "spotted"
+			end
+		elseif p.hears then
+			timer = math.max(0, timer - dt * 0.25) -- bruit seul : reste méfiant mais ne poursuit pas
+		else
+			timer = timer + dt
+			if timer >= cfg.alertMax then
+				s, timer, event = "return", 0, "calm"
+			end
+		end
+	elseif s == "chase" then
+		if p.dist > cfg.giveUpDist then
+			s, lost, event = "return", 0, "lost"
+		elseif p.sees or p.hears then
+			lost = 0
+		else
+			s, lost = "lostChase", 0
+		end
+	elseif s == "lostChase" then
+		if p.sees or p.hears then
+			s, lost, event = "chase", 0, "spotted"
+		else
+			lost = lost + dt
+			if lost >= cfg.loseDelay then
+				s, lost, event = "return", 0, "lost"
+			end
+		end
+	else -- return
+		if p.sees then
+			s, timer, event = "alert", 0, "alert"
+		elseif p.atHome then
+			s, timer, event = "patrol", 0, "calm"
+		end
+	end
+	return { state = s, timer = timer, lost = lost }, event
+end
+
+-- Dégâts : retourne (nouveaux points de vie, touché ?, invulnérabilité restante). Pendant l'invulnérabilité ou si hp <= 0 : aucun dégât.
+function Guard.applyDamage(hp, damage, iframes, cfg)
+	if iframes > 0 or hp <= 0 or damage <= 0 then
+		return hp, false, iframes
+	end
+	return math.max(0, hp - damage), true, cfg.iframes
+end
+
+-- Régénération : après regenDelay secondes sans coup, regenPerSec par seconde (baseRegen par seconde dans la base du joueur). Plafonnée à maxHp.
+function Guard.regen(hp, sinceHit, dt, atBase, cfg)
+	if hp <= 0 or hp >= cfg.maxHp then
+		return math.min(hp, cfg.maxHp)
+	end
+	local rate = atBase and cfg.baseRegen or (sinceHit >= cfg.regenDelay and cfg.regenPerSec or 0)
+	return math.min(cfg.maxHp, hp + rate * dt)
+end
+
+return Guard
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX18"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX12"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX19"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX13"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2552,6 +2690,7 @@ end
 local TeleportService = game:GetService("TeleportService")
 local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
+local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -3396,36 +3535,63 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	end
 end)
 
----------------------------------------------------------------- Gardiens PNJ
-local function catchPlayer(s, g)
-	local r = Config.RIVALS[g.rival]
-	local root = getRoot(s.player)
-	local hum = getHum(s.player)
+---------------------------------------------------------------- Gardiens PNJ : perception, états, dégâts non mortels (voir Guard.lua)
+local GC = Config.GUARD
+
+local function setHp(s, hp)
+	s.hp = hp
+	s.player:SetAttribute("Hp", math.floor(hp + 0.5))
+	s.player:SetAttribute("MaxHp", GC.maxHp)
+end
+
+-- Défaite (0 pv) : œufs portés rendus à leur nid, retour à la base avec tous les pv et une courte invulnérabilité. Jamais en un seul coup.
+local function defeatAtBase(s)
 	dropCarry(s)
-	s.stun = 1.3
+	local root = getRoot(s.player)
+	if root and s.plot then
+		root.CFrame = s.plot.spawn.CFrame + Vector3.new(0, 4, 0)
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
 	s.noCheckUntil = os.clock() + 2
+	s.iframes, s.sinceHit = GC.respawnIframes, 0
+	setHp(s, GC.maxHp)
+	notify(s.player, "🏠 Tu as été vaincu : retour à ta base, œufs rendus, pv rétablis.", "caught")
+end
+
+local function hitPlayer(s, g)
+	local r = Config.RIVALS[g.rival]
+	local hp, hit, inv = Guard.applyDamage(s.hp, r.damage, s.iframes, GC)
+	if not hit then
+		return false
+	end
+	s.iframes, s.sinceHit = inv, 0
+	setHp(s, hp)
+	s.stun = GC.stun
+	s.noCheckUntil = os.clock() + 1.2
+	local root, hum = getRoot(s.player), getHum(s.player)
 	if hum then
 		hum.PlatformStand = true
 	end
 	if root then
 		local away = (root.Position - g.pos) * Vector3.new(1, 0, 1)
 		away = away.Magnitude > 0.01 and away.Unit or Vector3.new(0, 0, 1)
-		root.AssemblyLinearVelocity = away * 45 + Vector3.new(0, 35, 0)
+		root.AssemblyLinearVelocity = away * GC.knockback + Vector3.new(0, 18, 0) -- recul
 	end
-	g.state = "return"
-	g.cd = 2.5
-	notify(s.player, "🐕 Le gardien de " .. r.name .. " t'a attrapé !", "caught")
+	notify(s.player, "🐕 " .. r.name .. " t'a mordu : -" .. r.damage .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "caught")
+	if hp <= 0 then
+		defeatAtBase(s)
+	end
+	return true
 end
 
--- rival : seuls les joueurs dont ce domaine est ouvert peuvent être ciblés (un joueur qui longe la barrière est ignoré)
-local function nearestTarget(pos, maxDist, rival)
-	local best, bd = nil, maxDist
+-- Cible la plus proche dans la zone de perception maximale du gardien (seuls les joueurs dont le domaine est ouvert sont ciblables).
+local function candidate(g, r)
+	local best, bd = nil, math.max(r.viewDist, r.hearRadius) + 2
 	for player, s in pairs(sessions) do
-		if s.stun <= 0 and Config.zoneUnlocked(s.data.story.ch, rival) and alive(player) then
+		if Config.zoneUnlocked(s.data.story.ch, g.rival) and alive(player) then
 			local root = getRoot(player)
 			if root then
-				local dv = root.Position - pos
-				local dd = Vector3.new(dv.X, 0, dv.Z).Magnitude
+				local dd = math.sqrt((root.Position.X - g.pos.X) ^ 2 + (root.Position.Z - g.pos.Z) ^ 2)
 				if dd < bd then
 					best, bd = player, dd
 				end
@@ -3435,12 +3601,114 @@ local function nearestTarget(pos, maxDist, rival)
 	return best
 end
 
+-- Chemin : PathfindingService en tâche de fond (ComputeAsync cède) ; sans résultat, ligne droite (repli). Retourne le point visé.
+local PathfindingService = game:GetService("PathfindingService")
+local function aimPoint(g, goal, dt)
+	g.pathT = (g.pathT or 0) - dt
+	if g.pathT <= 0 and not g.pathBusy then
+		g.pathT, g.pathBusy = GC.pathInterval, true
+		local from = g.pos
+		task.spawn(function()
+			local ok, wps = pcall(function()
+				local path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = false })
+				path:ComputeAsync(from, goal)
+				if path.Status ~= Enum.PathStatus.Success then
+					return nil
+				end
+				local out = {}
+				for _, w in ipairs(path:GetWaypoints()) do
+					out[#out + 1] = w.Position
+				end
+				return out
+			end)
+			g.wps = ok and wps or nil
+			g.pathBusy = false
+		end)
+	end
+	if g.wps then
+		while #g.wps > 0 and ((g.wps[1].X - g.pos.X) ^ 2 + (g.wps[1].Z - g.pos.Z) ^ 2) < 4 do
+			table.remove(g.wps, 1)
+		end
+		if g.wps[1] then
+			return Vector3.new(g.wps[1].X, g.pos.Y, g.wps[1].Z)
+		end
+	end
+	return goal
+end
+
+local MARKS = { patrol = "", alert = "❓", chase = "❗", lostChase = "❓", ["return"] = "" }
+
+for _, g in ipairs(world.guards) do -- marque d'état au-dessus de chaque gardien (❓ alerte, ❗ poursuite)
+	local ok, label = pcall(Builder.sign, g.model.PrimaryPart, "", Color3.fromRGB(255, 230, 90), 7, 80)
+	if ok then
+		label.TextSize = 34
+		g.mark = label
+	end
+end
+
 local function guardsStep(dt)
+	for _, s in pairs(sessions) do -- invulnérabilité et temps depuis le dernier coup
+		s.iframes = math.max(0, (s.iframes or 0) - dt)
+		s.sinceHit = (s.sinceHit or 99) + dt
+	end
 	for _, g in ipairs(world.guards) do
 		local r = Config.RIVALS[g.rival]
 		g.cd -= dt
-		local look
-		if g.state == "patrol" then
+		g.st = g.st or { state = "patrol", timer = 0, lost = 0 }
+		g.look = g.look or Vector3.new(g.dir, 0, 0)
+		-- perception de la cible (poursuivie ou la plus proche)
+		local target = g.target
+		local ts = target and sessions[target]
+		if not (ts and alive(target) and getRoot(target) and Config.zoneUnlocked(ts.data.story.ch, g.rival)) then
+			target, ts = nil, nil
+		end
+		if not target and (g.st.state == "patrol" or g.st.state == "alert" or g.st.state == "return") then
+			g.scan = (g.scan or 0) - dt
+			if g.scan <= 0 then
+				g.scan = 0.15
+				target = candidate(g, r)
+				ts = target and sessions[target]
+			else
+				target, ts = nil, nil
+			end
+		end
+		local percept = { sees = false, hears = false, dist = math.huge, atHome = false }
+		local troot = target and getRoot(target)
+		if troot then
+			local v = troot.AssemblyLinearVelocity
+			local speed = math.sqrt(v.X * v.X + v.Z * v.Z)
+			percept = Guard.perceive(
+				{ x = g.pos.X, z = g.pos.Z, fx = g.look.X, fz = g.look.Z },
+				{ x = troot.Position.X, z = troot.Position.Z, speed = speed },
+				r, GC
+			)
+			if percept.sees or percept.hears then
+				g.last = Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z)
+			end
+		end
+		local home = Vector3.new(math.clamp(g.pos.X, g.cx - 12, g.cx + 12), g.pos.Y, g.patrolZ)
+		percept.atHome = (home - g.pos).Magnitude < 1
+		local prev = g.st.state
+		local ev
+		g.st, ev = Guard.nextState(g.st, dt, percept, GC)
+		local state = g.st.state
+		if state ~= prev then
+			local mark = g.mark
+			if mark then
+				mark.Text = MARKS[state] or ""
+			end
+			if state == "chase" or state == "patrol" or state == "return" then
+				g.target = (state == "chase") and target or nil
+			end
+			if state == "chase" then
+				g.target = target or g.target
+			elseif state == "return" or state == "patrol" then
+				g.target = nil
+				g.wps = nil
+			end
+		end
+		local look = nil
+		if state == "patrol" then
 			g.pos += Vector3.new(g.dir * r.patrolSpeed * dt, 0, 0)
 			if g.pos.X > g.cx + 12 then
 				g.dir = -1
@@ -3448,53 +3716,35 @@ local function guardsStep(dt)
 				g.dir = 1
 			end
 			look = Vector3.new(g.dir, 0, 0)
-			g.scan = (g.scan or 0) - dt
-			if g.cd <= 0 and g.scan <= 0 then
-				g.scan = 0.15
-				local t = nearestTarget(g.pos, 16, g.rival)
-				if t then
-					g.state, g.target, g.lost = "chase", t, 0
+		elseif state == "alert" then
+			local to = g.last and (g.last - g.pos) or g.look -- s'arrête et se tourne vers le bruit ou la dernière position vue
+			look = Vector3.new(to.X, 0, to.Z)
+		elseif state == "chase" or state == "lostChase" then
+			local goal = (state == "chase" and troot) and Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z) or g.last
+			if goal then
+				local aim = aimPoint(g, goal, dt)
+				local dv = Vector3.new(aim.X - g.pos.X, 0, aim.Z - g.pos.Z)
+				if dv.Magnitude > 0.01 then
+					look = dv.Unit
+					g.pos += look * math.min(dv.Magnitude, r.guardSpeed * dt)
+				end
+				local flat = Vector3.new(goal.X - g.pos.X, 0, goal.Z - g.pos.Z)
+				if state == "chase" and ts and flat.Magnitude < GC.attackRange and g.cd <= 0 then
+					if hitPlayer(ts, g) then
+						g.cd = GC.attackCd
+					end
 				end
 			end
-		elseif g.state == "chase" then
-			local t = g.target
-			local s = t and sessions[t]
-			local root = t and getRoot(t)
-			if not (s and root and s.stun <= 0 and alive(t)) then
-				g.lost = 2
-			else
-				local dv = root.Position - g.pos
-				local flat = Vector3.new(dv.X, 0, dv.Z)
-				local dd = flat.Magnitude
-				local fromHome = Vector3.new(root.Position.X - g.cx, 0, root.Position.Z - (g.patrolZ - 12)).Magnitude
-				if fromHome > 55 or dd > 40 then
-					g.lost += dt
-				else
-					g.lost = 0
-				end
-				if dd > 0.01 then
-					look = flat.Unit
-					g.pos += look * math.min(dd, r.guardSpeed * dt)
-				end
-				if dd < 4.5 and g.cd <= 0 then
-					catchPlayer(s, g)
-				end
-			end
-			if g.lost > 1.2 then
-				g.state, g.target = "return", nil
-			end
-		else
-			local home = Vector3.new(math.clamp(g.pos.X, g.cx - 12, g.cx + 12), g.pos.Y, g.patrolZ)
+		else -- retour
 			local dv = home - g.pos
-			if dv.Magnitude < 1 then
-				g.state = "patrol"
-			else
+			if dv.Magnitude >= 1 then
 				look = dv.Unit
 				g.pos += look * math.min(dv.Magnitude, r.patrolSpeed * 1.6 * dt)
 			end
 		end
 		if look and look.Magnitude > 0.01 then
-			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + look))
+			g.look = look.Unit
+			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + g.look))
 		end
 	end
 end
@@ -3664,6 +3914,15 @@ local function slowTick(dt)
 							lbl.Text = txt
 						end
 					end
+				end
+			end
+			-- régénération des pv (rapide dans la base, lente ailleurs après un délai sans coup)
+			if s.hp < GC.maxHp then
+				local root = getRoot(player)
+				local atBase = root ~= nil and s.plot ~= nil and (root.Position - s.plot.spawn.Position).Magnitude < 40
+				local newHp = Guard.regen(s.hp, s.sinceHit, dt, atBase, GC)
+				if newHp ~= s.hp then
+					setHp(s, newHp)
 				end
 			end
 			pushStats(s)
@@ -4096,12 +4355,14 @@ local function onJoin(player)
 	local s = {
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
-		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
+	player:SetAttribute("Hp", Config.GUARD.maxHp)
+	player:SetAttribute("MaxHp", Config.GUARD.maxHp)
 	sessions[player] = s
 	if late then
 		notify(player, "🛡 Tu arrives en cours de partie : tes œufs sont protégés " .. Config.Game.LateJoinGrace .. " s.")
@@ -4244,7 +4505,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -4638,7 +4899,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -5710,7 +5971,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -5854,7 +6115,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -5867,7 +6128,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -6318,7 +6579,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX26"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX25"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX19"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX27"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX26"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX20"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6472,6 +6733,28 @@ carryLbl.Visible = false
 local banner = text(hudRoot, { Size = UDim2.fromOffset(330, 40), TextWrapped = true, TextSize = 13, TextColor3 = COL.yellow, BackgroundTransparency = 0.12, BackgroundColor3 = COL.pill, Text = "", Visible = false })
 corner(banner, 15)
 make("UIStroke", { Color = COL.yellow, Thickness = 2 }, banner)
+
+-- Barre de vie (visible seulement quand les pv sont entamés) : rouge dégradé, contour épais, texte « ❤ 86/100 ». Attributs Hp / MaxHp du joueur (serveur).
+local hpFrame = make("Frame", { Size = UDim2.fromOffset(170, 22), BackgroundColor3 = Color3.fromRGB(40, 12, 14), Visible = false }, hudRoot)
+corner(hpFrame, 11)
+make("UIStroke", { Color = Color3.fromRGB(20, 8, 10), Thickness = 3 }, hpFrame)
+local hpFill = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 82, 82) }, hpFrame)
+corner(hpFill, 11)
+make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(170, 170, 170)), Rotation = 90 }, hpFill)
+local hpText = text(hpFrame, { Size = UDim2.fromScale(1, 1), TextSize = 12, Text = "", TextStrokeTransparency = 0.3, ZIndex = 3 })
+hudParts.hp = hpFrame
+local function refreshHp()
+	local hp, maxHp = player:GetAttribute("Hp"), player:GetAttribute("MaxHp")
+	if type(hp) ~= "number" or type(maxHp) ~= "number" or maxHp <= 0 then
+		hpFrame.Visible = false
+		return
+	end
+	hpFrame.Visible = hp < maxHp
+	hpText.Text = "❤ " .. hp .. "/" .. maxHp
+	TweenService:Create(hpFill, TweenInfo.new(0.25), { Size = UDim2.fromScale(math.clamp(hp / maxHp, 0, 1), 1) }):Play()
+end
+player:GetAttributeChangedSignal("Hp"):Connect(refreshHp)
+player:GetAttributeChangedSignal("MaxHp"):Connect(refreshHp)
 
 local toasts = make("Frame", { Size = UDim2.fromOffset(240, 76), BackgroundTransparency = 1, ClipsDescendants = false }, hudRoot)
 make("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, toasts)
@@ -7555,7 +7838,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX20"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -8112,7 +8395,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX21"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX22"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -8568,7 +8851,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX22"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -8690,7 +8973,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -8805,7 +9088,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

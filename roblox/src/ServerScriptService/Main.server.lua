@@ -16,6 +16,7 @@ end
 local TeleportService = game:GetService("TeleportService")
 local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
+local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -860,36 +861,63 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	end
 end)
 
----------------------------------------------------------------- Gardiens PNJ
-local function catchPlayer(s, g)
-	local r = Config.RIVALS[g.rival]
-	local root = getRoot(s.player)
-	local hum = getHum(s.player)
+---------------------------------------------------------------- Gardiens PNJ : perception, états, dégâts non mortels (voir Guard.lua)
+local GC = Config.GUARD
+
+local function setHp(s, hp)
+	s.hp = hp
+	s.player:SetAttribute("Hp", math.floor(hp + 0.5))
+	s.player:SetAttribute("MaxHp", GC.maxHp)
+end
+
+-- Défaite (0 pv) : œufs portés rendus à leur nid, retour à la base avec tous les pv et une courte invulnérabilité. Jamais en un seul coup.
+local function defeatAtBase(s)
 	dropCarry(s)
-	s.stun = 1.3
+	local root = getRoot(s.player)
+	if root and s.plot then
+		root.CFrame = s.plot.spawn.CFrame + Vector3.new(0, 4, 0)
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
 	s.noCheckUntil = os.clock() + 2
+	s.iframes, s.sinceHit = GC.respawnIframes, 0
+	setHp(s, GC.maxHp)
+	notify(s.player, "🏠 Tu as été vaincu : retour à ta base, œufs rendus, pv rétablis.", "caught")
+end
+
+local function hitPlayer(s, g)
+	local r = Config.RIVALS[g.rival]
+	local hp, hit, inv = Guard.applyDamage(s.hp, r.damage, s.iframes, GC)
+	if not hit then
+		return false
+	end
+	s.iframes, s.sinceHit = inv, 0
+	setHp(s, hp)
+	s.stun = GC.stun
+	s.noCheckUntil = os.clock() + 1.2
+	local root, hum = getRoot(s.player), getHum(s.player)
 	if hum then
 		hum.PlatformStand = true
 	end
 	if root then
 		local away = (root.Position - g.pos) * Vector3.new(1, 0, 1)
 		away = away.Magnitude > 0.01 and away.Unit or Vector3.new(0, 0, 1)
-		root.AssemblyLinearVelocity = away * 45 + Vector3.new(0, 35, 0)
+		root.AssemblyLinearVelocity = away * GC.knockback + Vector3.new(0, 18, 0) -- recul
 	end
-	g.state = "return"
-	g.cd = 2.5
-	notify(s.player, "🐕 Le gardien de " .. r.name .. " t'a attrapé !", "caught")
+	notify(s.player, "🐕 " .. r.name .. " t'a mordu : -" .. r.damage .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "caught")
+	if hp <= 0 then
+		defeatAtBase(s)
+	end
+	return true
 end
 
--- rival : seuls les joueurs dont ce domaine est ouvert peuvent être ciblés (un joueur qui longe la barrière est ignoré)
-local function nearestTarget(pos, maxDist, rival)
-	local best, bd = nil, maxDist
+-- Cible la plus proche dans la zone de perception maximale du gardien (seuls les joueurs dont le domaine est ouvert sont ciblables).
+local function candidate(g, r)
+	local best, bd = nil, math.max(r.viewDist, r.hearRadius) + 2
 	for player, s in pairs(sessions) do
-		if s.stun <= 0 and Config.zoneUnlocked(s.data.story.ch, rival) and alive(player) then
+		if Config.zoneUnlocked(s.data.story.ch, g.rival) and alive(player) then
 			local root = getRoot(player)
 			if root then
-				local dv = root.Position - pos
-				local dd = Vector3.new(dv.X, 0, dv.Z).Magnitude
+				local dd = math.sqrt((root.Position.X - g.pos.X) ^ 2 + (root.Position.Z - g.pos.Z) ^ 2)
 				if dd < bd then
 					best, bd = player, dd
 				end
@@ -899,12 +927,114 @@ local function nearestTarget(pos, maxDist, rival)
 	return best
 end
 
+-- Chemin : PathfindingService en tâche de fond (ComputeAsync cède) ; sans résultat, ligne droite (repli). Retourne le point visé.
+local PathfindingService = game:GetService("PathfindingService")
+local function aimPoint(g, goal, dt)
+	g.pathT = (g.pathT or 0) - dt
+	if g.pathT <= 0 and not g.pathBusy then
+		g.pathT, g.pathBusy = GC.pathInterval, true
+		local from = g.pos
+		task.spawn(function()
+			local ok, wps = pcall(function()
+				local path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = false })
+				path:ComputeAsync(from, goal)
+				if path.Status ~= Enum.PathStatus.Success then
+					return nil
+				end
+				local out = {}
+				for _, w in ipairs(path:GetWaypoints()) do
+					out[#out + 1] = w.Position
+				end
+				return out
+			end)
+			g.wps = ok and wps or nil
+			g.pathBusy = false
+		end)
+	end
+	if g.wps then
+		while #g.wps > 0 and ((g.wps[1].X - g.pos.X) ^ 2 + (g.wps[1].Z - g.pos.Z) ^ 2) < 4 do
+			table.remove(g.wps, 1)
+		end
+		if g.wps[1] then
+			return Vector3.new(g.wps[1].X, g.pos.Y, g.wps[1].Z)
+		end
+	end
+	return goal
+end
+
+local MARKS = { patrol = "", alert = "❓", chase = "❗", lostChase = "❓", ["return"] = "" }
+
+for _, g in ipairs(world.guards) do -- marque d'état au-dessus de chaque gardien (❓ alerte, ❗ poursuite)
+	local ok, label = pcall(Builder.sign, g.model.PrimaryPart, "", Color3.fromRGB(255, 230, 90), 7, 80)
+	if ok then
+		label.TextSize = 34
+		g.mark = label
+	end
+end
+
 local function guardsStep(dt)
+	for _, s in pairs(sessions) do -- invulnérabilité et temps depuis le dernier coup
+		s.iframes = math.max(0, (s.iframes or 0) - dt)
+		s.sinceHit = (s.sinceHit or 99) + dt
+	end
 	for _, g in ipairs(world.guards) do
 		local r = Config.RIVALS[g.rival]
 		g.cd -= dt
-		local look
-		if g.state == "patrol" then
+		g.st = g.st or { state = "patrol", timer = 0, lost = 0 }
+		g.look = g.look or Vector3.new(g.dir, 0, 0)
+		-- perception de la cible (poursuivie ou la plus proche)
+		local target = g.target
+		local ts = target and sessions[target]
+		if not (ts and alive(target) and getRoot(target) and Config.zoneUnlocked(ts.data.story.ch, g.rival)) then
+			target, ts = nil, nil
+		end
+		if not target and (g.st.state == "patrol" or g.st.state == "alert" or g.st.state == "return") then
+			g.scan = (g.scan or 0) - dt
+			if g.scan <= 0 then
+				g.scan = 0.15
+				target = candidate(g, r)
+				ts = target and sessions[target]
+			else
+				target, ts = nil, nil
+			end
+		end
+		local percept = { sees = false, hears = false, dist = math.huge, atHome = false }
+		local troot = target and getRoot(target)
+		if troot then
+			local v = troot.AssemblyLinearVelocity
+			local speed = math.sqrt(v.X * v.X + v.Z * v.Z)
+			percept = Guard.perceive(
+				{ x = g.pos.X, z = g.pos.Z, fx = g.look.X, fz = g.look.Z },
+				{ x = troot.Position.X, z = troot.Position.Z, speed = speed },
+				r, GC
+			)
+			if percept.sees or percept.hears then
+				g.last = Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z)
+			end
+		end
+		local home = Vector3.new(math.clamp(g.pos.X, g.cx - 12, g.cx + 12), g.pos.Y, g.patrolZ)
+		percept.atHome = (home - g.pos).Magnitude < 1
+		local prev = g.st.state
+		local ev
+		g.st, ev = Guard.nextState(g.st, dt, percept, GC)
+		local state = g.st.state
+		if state ~= prev then
+			local mark = g.mark
+			if mark then
+				mark.Text = MARKS[state] or ""
+			end
+			if state == "chase" or state == "patrol" or state == "return" then
+				g.target = (state == "chase") and target or nil
+			end
+			if state == "chase" then
+				g.target = target or g.target
+			elseif state == "return" or state == "patrol" then
+				g.target = nil
+				g.wps = nil
+			end
+		end
+		local look = nil
+		if state == "patrol" then
 			g.pos += Vector3.new(g.dir * r.patrolSpeed * dt, 0, 0)
 			if g.pos.X > g.cx + 12 then
 				g.dir = -1
@@ -912,53 +1042,35 @@ local function guardsStep(dt)
 				g.dir = 1
 			end
 			look = Vector3.new(g.dir, 0, 0)
-			g.scan = (g.scan or 0) - dt
-			if g.cd <= 0 and g.scan <= 0 then
-				g.scan = 0.15
-				local t = nearestTarget(g.pos, 16, g.rival)
-				if t then
-					g.state, g.target, g.lost = "chase", t, 0
+		elseif state == "alert" then
+			local to = g.last and (g.last - g.pos) or g.look -- s'arrête et se tourne vers le bruit ou la dernière position vue
+			look = Vector3.new(to.X, 0, to.Z)
+		elseif state == "chase" or state == "lostChase" then
+			local goal = (state == "chase" and troot) and Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z) or g.last
+			if goal then
+				local aim = aimPoint(g, goal, dt)
+				local dv = Vector3.new(aim.X - g.pos.X, 0, aim.Z - g.pos.Z)
+				if dv.Magnitude > 0.01 then
+					look = dv.Unit
+					g.pos += look * math.min(dv.Magnitude, r.guardSpeed * dt)
+				end
+				local flat = Vector3.new(goal.X - g.pos.X, 0, goal.Z - g.pos.Z)
+				if state == "chase" and ts and flat.Magnitude < GC.attackRange and g.cd <= 0 then
+					if hitPlayer(ts, g) then
+						g.cd = GC.attackCd
+					end
 				end
 			end
-		elseif g.state == "chase" then
-			local t = g.target
-			local s = t and sessions[t]
-			local root = t and getRoot(t)
-			if not (s and root and s.stun <= 0 and alive(t)) then
-				g.lost = 2
-			else
-				local dv = root.Position - g.pos
-				local flat = Vector3.new(dv.X, 0, dv.Z)
-				local dd = flat.Magnitude
-				local fromHome = Vector3.new(root.Position.X - g.cx, 0, root.Position.Z - (g.patrolZ - 12)).Magnitude
-				if fromHome > 55 or dd > 40 then
-					g.lost += dt
-				else
-					g.lost = 0
-				end
-				if dd > 0.01 then
-					look = flat.Unit
-					g.pos += look * math.min(dd, r.guardSpeed * dt)
-				end
-				if dd < 4.5 and g.cd <= 0 then
-					catchPlayer(s, g)
-				end
-			end
-			if g.lost > 1.2 then
-				g.state, g.target = "return", nil
-			end
-		else
-			local home = Vector3.new(math.clamp(g.pos.X, g.cx - 12, g.cx + 12), g.pos.Y, g.patrolZ)
+		else -- retour
 			local dv = home - g.pos
-			if dv.Magnitude < 1 then
-				g.state = "patrol"
-			else
+			if dv.Magnitude >= 1 then
 				look = dv.Unit
 				g.pos += look * math.min(dv.Magnitude, r.patrolSpeed * 1.6 * dt)
 			end
 		end
 		if look and look.Magnitude > 0.01 then
-			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + look))
+			g.look = look.Unit
+			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + g.look))
 		end
 	end
 end
@@ -1128,6 +1240,15 @@ local function slowTick(dt)
 							lbl.Text = txt
 						end
 					end
+				end
+			end
+			-- régénération des pv (rapide dans la base, lente ailleurs après un délai sans coup)
+			if s.hp < GC.maxHp then
+				local root = getRoot(player)
+				local atBase = root ~= nil and s.plot ~= nil and (root.Position - s.plot.spawn.Position).Magnitude < 40
+				local newHp = Guard.regen(s.hp, s.sinceHit, dt, atBase, GC)
+				if newHp ~= s.hp then
+					setHp(s, newHp)
 				end
 			end
 			pushStats(s)
@@ -1560,12 +1681,14 @@ local function onJoin(player)
 	local s = {
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
-		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
 	ls.Parent = player
+	player:SetAttribute("Hp", Config.GUARD.maxHp)
+	player:SetAttribute("MaxHp", Config.GUARD.maxHp)
 	sessions[player] = s
 	if late then
 		notify(player, "🛡 Tu arrives en cours de partie : tes œufs sont protégés " .. Config.Game.LateJoinGrace .. " s.")

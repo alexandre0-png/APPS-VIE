@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX27"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX38"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX37"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX28"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX40"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX39"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -91,9 +91,17 @@ Config.MUTS = {
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
-	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, color = Color3.fromRGB(111, 191, 115) },
-	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, color = Color3.fromRGB(224, 164, 59) },
-	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, color = Color3.fromRGB(224, 87, 90) },
+	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, viewDist = 24, viewAngle = 100, hearRadius = 12, damage = 14, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
+}
+
+-- Gardiens : jamais de coup mortel d'un seul coup. Barre de vie, invulnérabilité courte après un coup, recul, régénération ; perception (vue + ouïe)
+-- et états (voir Guard.lua). Voler DERRIÈRE un gardien (hors de son cône de vision) sans courir près de lui réussit sans combat.
+Config.GUARD = {
+	maxHp = 100, iframes = 1.6, regenDelay = 6, regenPerSec = 5, baseRegen = 25, knockback = 28, stun = 0.35, attackRange = 4.5, attackCd = 1.2,
+	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
+	alertDelay = 0.6, alertMax = 3, loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
 }
 
 -- Événements serveur (tous les joueurs en profitent)
@@ -1020,7 +1028,7 @@ function Config.oddsText()
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -1265,7 +1273,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -1445,7 +1453,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -1486,6 +1494,7 @@ function Layout.rects(vw, vh, navCount)
 		pillSpeed = { x = e, y = e + 58, w = 196, h = 52 },
 		objective = { x = e, y = e + 118, w = 196, h = 62 },
 		carry = { x = e, y = e + 188, w = 170, h = 26 },
+		hp = { x = e, y = dh - e - 44 - 28, w = 170, h = 22 }, -- au-dessus des conseils, bas gauche (jamais au centre)
 		banner = { x = dw - e - rightW, y = e, w = rightW, h = 40 },
 		toasts = { x = right - toastsW, y = toastsTop, w = toastsW, h = toastsH },
 		nav = nav,
@@ -1507,7 +1516,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -1834,7 +1843,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -1891,7 +1900,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -2003,7 +2012,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -2460,7 +2469,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -2533,8 +2542,137 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 end
 
 return Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+-- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
+-- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
+-- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
+local Guard = {}
+
+local sqrt, acos, deg = math.sqrt, math.acos, math.deg
+
+local function len(x, z)
+	return sqrt(x * x + z * z)
+end
+
+-- Angle en degrés (0..180) entre le regard (fx, fz) et la direction (dx, dz). 0 si l'un des vecteurs est nul.
+function Guard.angle(fx, fz, dx, dz)
+	local a, b = len(fx, fz), len(dx, dz)
+	if a < 1e-9 or b < 1e-9 then
+		return 0
+	end
+	local c = (fx * dx + fz * dz) / (a * b)
+	return deg(acos(math.max(-1, math.min(1, c))))
+end
+
+-- Le gardien g = { x, z, fx, fz } voit-il la cible t = { x, z } ? Cône de `viewAngle` degrés (total) et distance max `viewDist`.
+function Guard.sees(g, t, viewDist, viewAngle)
+	local dx, dz = t.x - g.x, t.z - g.z
+	local d = len(dx, dz)
+	if d > viewDist then
+		return false
+	end
+	if d < 1.5 then
+		return true -- collé au gardien : toujours vu
+	end
+	return Guard.angle(g.fx, g.fz, dx, dz) <= viewAngle / 2
+end
+
+-- Niveau de bruit (0..1) selon la vitesse : immobile = silence, marche lente = discret, course = plein bruit.
+function Guard.noise(speed, cfg)
+	if type(speed) ~= "number" or speed ~= speed or speed <= cfg.stillSpeed then
+		return 0
+	elseif speed < cfg.sneakSpeed then
+		return cfg.sneakNoise
+	end
+	return 1
+end
+
+-- Entend-il la cible ? Rayon d'ouïe réduit proportionnellement au bruit.
+function Guard.hears(dist, noise, hearRadius)
+	return noise > 0 and dist <= hearRadius * noise
+end
+
+-- Perception complète : { sees, hears, dist }. g = { x, z, fx, fz }, t = { x, z, speed }, rival = { viewDist, viewAngle, hearRadius }.
+function Guard.perceive(g, t, rival, cfg)
+	local d = len(t.x - g.x, t.z - g.z)
+	return { sees = Guard.sees(g, t, rival.viewDist, rival.viewAngle), hears = Guard.hears(d, Guard.noise(t.speed, cfg), rival.hearRadius), dist = d }
+end
+
+-- Machine à états. st = { state, timer, lost } ; percept = { sees, hears, atHome, dist } ; retourne le nouvel état (nouvelle table) et un événement
+-- éventuel : "alert" (intrigué), "spotted" (poursuite), "lost" (cible perdue), "calm" (retour au calme).
+--   patrol  : voit -> alert ; entend -> alert
+--   alert   : s'arrête et regarde ; voit pendant alertDelay -> chase ; ne perçoit plus alertMax secondes -> return
+--   chase   : voit ou entend -> poursuite continue ; ne perçoit plus -> lostChase ; trop loin (giveUpDist) -> return
+--   lostChase : continue vers la dernière position connue loseDelay secondes (perte de cible), retrouve la cible -> chase, sinon -> return
+--   return  : revient à la patrouille ; en route, voit -> alert
+function Guard.nextState(st, dt, p, cfg)
+	local s, timer, lost = st.state, st.timer or 0, st.lost or 0
+	local event = nil
+	if s == "patrol" then
+		if p.sees or p.hears then
+			s, timer, event = "alert", 0, "alert"
+		end
+	elseif s == "alert" then
+		if p.sees then
+			timer = timer + dt
+			if timer >= cfg.alertDelay then
+				s, timer, lost, event = "chase", 0, 0, "spotted"
+			end
+		elseif p.hears then
+			timer = math.max(0, timer - dt * 0.25) -- bruit seul : reste méfiant mais ne poursuit pas
+		else
+			timer = timer + dt
+			if timer >= cfg.alertMax then
+				s, timer, event = "return", 0, "calm"
+			end
+		end
+	elseif s == "chase" then
+		if p.dist > cfg.giveUpDist then
+			s, lost, event = "return", 0, "lost"
+		elseif p.sees or p.hears then
+			lost = 0
+		else
+			s, lost = "lostChase", 0
+		end
+	elseif s == "lostChase" then
+		if p.sees or p.hears then
+			s, lost, event = "chase", 0, "spotted"
+		else
+			lost = lost + dt
+			if lost >= cfg.loseDelay then
+				s, lost, event = "return", 0, "lost"
+			end
+		end
+	else -- return
+		if p.sees then
+			s, timer, event = "alert", 0, "alert"
+		elseif p.atHome then
+			s, timer, event = "patrol", 0, "calm"
+		end
+	end
+	return { state = s, timer = timer, lost = lost }, event
+end
+
+-- Dégâts : retourne (nouveaux points de vie, touché ?, invulnérabilité restante). Pendant l'invulnérabilité ou si hp <= 0 : aucun dégât.
+function Guard.applyDamage(hp, damage, iframes, cfg)
+	if iframes > 0 or hp <= 0 or damage <= 0 then
+		return hp, false, iframes
+	end
+	return math.max(0, hp - damage), true, cfg.iframes
+end
+
+-- Régénération : après regenDelay secondes sans coup, regenPerSec par seconde (baseRegen par seconde dans la base du joueur). Plafonnée à maxHp.
+function Guard.regen(hp, sinceHit, dt, atBase, cfg)
+	if hp <= 0 or hp >= cfg.maxHp then
+		return math.min(hp, cfg.maxHp)
+	end
+	local rate = atBase and cfg.baseRegen or (sinceHit >= cfg.regenDelay and cfg.regenPerSec or 0)
+	return math.min(cfg.maxHp, hp + rate * dt)
+end
+
+return Guard
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX41"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX39"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX43"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX41"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -2826,7 +2964,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -3150,7 +3288,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX44"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX43"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX42"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX46"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX45"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX44"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

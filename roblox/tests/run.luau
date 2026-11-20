@@ -2286,6 +2286,93 @@ do
 	A.Enabled = off
 end
 
+-- Gardiens : perception (angle, distance, bruit), états, dégâts ----------------------------------------------------------------
+do
+	suite("Gardiens : champ de vision, ouïe, états, dégâts non mortels, régénération")
+	local Guard = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Guard.lua"), { debugName = "Guard" })()
+	local C = Config.GUARD
+	local R = Config.RIVALS[2] -- Mara
+	local g = { x = 0, z = 0, fx = 1, fz = 0 } -- regarde vers +x
+	check("Angle : devant = 0, côté = 90, derrière = 180, vecteur nul = 0", math.abs(Guard.angle(1, 0, 5, 0)) < 1e-6 and math.abs(Guard.angle(1, 0, 0, 3) - 90) < 1e-6 and math.abs(Guard.angle(1, 0, -2, 0) - 180) < 1e-6 and Guard.angle(0, 0, 1, 1) == 0)
+	check("Vue : cible devant dans la distance = vue", Guard.sees(g, { x = 20, z = 0 }, R.viewDist, R.viewAngle))
+	check("Vue : cible devant mais trop loin = non vue", not Guard.sees(g, { x = R.viewDist + 1, z = 0 }, R.viewDist, R.viewAngle))
+	check("Vue : cible DERRIÈRE le gardien (hors du cône) = non vue, même très proche", not Guard.sees(g, { x = -6, z = 0 }, R.viewDist, R.viewAngle) and not Guard.sees(g, { x = -3, z = 2 }, R.viewDist, R.viewAngle))
+	check("Vue : bord du cône (demi-angle) vu, juste au-delà non vu", Guard.sees(g, { x = 10 * math.cos(math.rad(R.viewAngle / 2 - 1)), z = 10 * math.sin(math.rad(R.viewAngle / 2 - 1)) }, R.viewDist, R.viewAngle) and not Guard.sees(g, { x = 10 * math.cos(math.rad(R.viewAngle / 2 + 2)), z = 10 * math.sin(math.rad(R.viewAngle / 2 + 2)) }, R.viewDist, R.viewAngle))
+	check("Vue : collé au gardien (< 1,5 stud) toujours vu, même derrière", Guard.sees(g, { x = -1, z = 0 }, R.viewDist, R.viewAngle))
+	check("Vue : plus le gardien est dangereux, plus le cône est large et long (Gus < Mara < Zed)", Config.RIVALS[1].viewDist < R.viewDist and R.viewDist < Config.RIVALS[3].viewDist and Config.RIVALS[1].viewAngle < R.viewAngle and R.viewAngle < Config.RIVALS[3].viewAngle)
+	check("Bruit : immobile 0, marche lente discrète, course pleine", Guard.noise(0, C) == 0 and Guard.noise(C.stillSpeed, C) == 0 and Guard.noise(8, C) == C.sneakNoise and Guard.noise(16, C) == 1 and Guard.noise(0 / 0, C) == 0 and Guard.noise(nil, C) == 0)
+	check("Ouïe : en courant, entendu dans le rayon ; discret, rayon réduit ; immobile jamais", Guard.hears(R.hearRadius - 1, 1, R.hearRadius) and not Guard.hears(R.hearRadius + 1, 1, R.hearRadius) and Guard.hears(R.hearRadius * C.sneakNoise - 0.5, C.sneakNoise, R.hearRadius) and not Guard.hears(R.hearRadius * C.sneakNoise + 1, C.sneakNoise, R.hearRadius) and not Guard.hears(1, 0, R.hearRadius))
+	-- voler derrière : cible derrière, loin du rayon d'ouïe -> aucune perception
+	local behind = Guard.perceive(g, { x = -R.hearRadius - 3, z = 0, speed = 16 }, R, C)
+	check("Perception : un voleur DERRIÈRE le gardien, hors portée d'ouïe, n'est ni vu ni entendu (vol sans combat)", behind.sees == false and behind.hears == false)
+	local front = Guard.perceive(g, { x = 12, z = 0, speed = 16 }, R, C)
+	check("Perception : passer DEVANT le gardien le déclenche (vu et entendu)", front.sees and front.hears)
+	local quiet = Guard.perceive(g, { x = -8, z = 0, speed = 0 }, R, C)
+	check("Perception : immobile derrière, proche : ni vu ni entendu", quiet.sees == false and quiet.hears == false)
+	-- états
+	local st = { state = "patrol", timer = 0, lost = 0 }
+	local ev
+	st, ev = Guard.nextState(st, 0.1, { sees = false, hears = false, dist = 30, atHome = true }, C)
+	check("États : patrouille tranquille, rien ne change", st.state == "patrol" and ev == nil)
+	st, ev = Guard.nextState(st, 0.1, { sees = false, hears = true, dist = 10 }, C)
+	check("États : un bruit met en ALERTE", st.state == "alert" and ev == "alert")
+	for _ = 1, 20 do
+		st, ev = Guard.nextState(st, 0.1, { sees = false, hears = true, dist = 10 }, C)
+	end
+	check("États : un bruit seul ne déclenche jamais la poursuite", st.state == "alert")
+	local spotted = nil
+	for _ = 1, 10 do
+		st, ev = Guard.nextState(st, 0.1, { sees = true, hears = true, dist = 10 }, C)
+		spotted = spotted or ev
+	end
+	check("États : vu pendant le délai d'alerte (" .. C.alertDelay .. " s) -> POURSUITE", st.state == "chase" and spotted == "spotted")
+	st, ev = Guard.nextState(st, 0.1, { sees = false, hears = false, dist = 12 }, C)
+	check("États : cible hors de perception -> PERTE DE CIBLE (continue vers la dernière position)", st.state == "lostChase")
+	for _ = 1, math.floor(C.loseDelay / 0.1) - 2 do
+		st, ev = Guard.nextState(st, 0.1, { sees = false, hears = false, dist = 12 }, C)
+	end
+	check("États : la perte de cible dure environ " .. C.loseDelay .. " s (encore en recherche juste avant)", st.state == "lostChase")
+	for _ = 1, 6 do
+		st, ev = Guard.nextState(st, 0.1, { sees = false, hears = false, dist = 12 }, C)
+	end
+	check("États : délai écoulé -> RETOUR", st.state == "return")
+	st = Guard.nextState({ state = "lostChase", timer = 0, lost = 1 }, 0.1, { sees = true, hears = true, dist = 9 }, C)
+	check("États : cible retrouvée pendant la recherche -> POURSUITE", st.state == "chase")
+	st = Guard.nextState({ state = "chase", timer = 0, lost = 0 }, 0.1, { sees = true, hears = true, dist = C.giveUpDist + 1 }, C)
+	check("États : cible trop loin -> abandon et RETOUR", st.state == "return")
+	st, ev = Guard.nextState({ state = "return" }, 0.1, { sees = false, hears = false, dist = 30, atHome = true }, C)
+	check("États : retour arrivé -> PATROUILLE", st.state == "patrol" and ev == "calm")
+	st = Guard.nextState({ state = "return" }, 0.1, { sees = true, hears = true, dist = 20, atHome = false }, C)
+	check("États : en retour, revoit la cible -> ALERTE", st.state == "alert")
+	st = { state = "alert", timer = 0, lost = 0 }
+	for _ = 1, 40 do
+		st = Guard.nextState(st, 0.1, { sees = false, hears = false, dist = 30 }, C)
+	end
+	check("États : alerte sans rien percevoir pendant " .. C.alertMax .. " s -> retour au calme (RETOUR)", st.state == "return")
+	-- aucun état inconnu ne bloque
+	check("États : un état inconnu retombe sur « return » sans erreur", Guard.nextState({ state = "???" }, 0.1, { sees = false, hears = false, dist = 5, atHome = true }, C).state == "patrol")
+	-- dégâts
+	local hp, hit, inv = Guard.applyDamage(C.maxHp, R.damage, 0, C)
+	check("Dégâts : un coup ne tue JAMAIS d'un coup (max " .. C.maxHp .. " pv, dégâts de chaque gardien < 40 %)", hit and hp == C.maxHp - R.damage and hp > 0 and inv == C.iframes and Config.RIVALS[1].damage < 40 and Config.RIVALS[2].damage < 40 and Config.RIVALS[3].damage < 40)
+	local hp2, hit2 = Guard.applyDamage(hp, R.damage, inv, C)
+	check("Dégâts : pendant l'invulnérabilité courte, aucun nouveau dégât", hit2 == false and hp2 == hp)
+	local pvLeft, hits = C.maxHp, 0
+	local ivs = 0
+	while pvLeft > 0 and hits < 50 do
+		local nhp, h, ni = Guard.applyDamage(pvLeft, Config.RIVALS[3].damage, ivs, C)
+		pvLeft, ivs = nhp, ni
+		if h then
+			hits = hits + 1
+			ivs = 0 -- (on enchaîne les coups après l'invulnérabilité)
+		end
+	end
+	check("Dégâts : l'ours de Zed met au moins 3 coups à vaincre un joueur", hits >= 3 and pvLeft == 0)
+	check("Dégâts : jamais en dessous de 0, rien sur un joueur déjà à 0, rien si dégâts <= 0", Guard.applyDamage(5, 999, 0, C) == 0 and select(2, Guard.applyDamage(0, 10, 0, C)) == false and select(2, Guard.applyDamage(50, 0, 0, C)) == false)
+	-- régénération
+	check("Régénération : aucune juste après un coup, " .. C.regenPerSec .. " pv/s après " .. C.regenDelay .. " s", Guard.regen(50, 1, 1, false, C) == 50 and Guard.regen(50, C.regenDelay, 1, false, C) == 50 + C.regenPerSec)
+	check("Régénération : rapide dans la base (" .. C.baseRegen .. " pv/s), plafonnée à " .. C.maxHp, Guard.regen(50, 0, 1, true, C) == 50 + C.baseRegen and Guard.regen(99, 100, 10, true, C) == C.maxHp and Guard.regen(0, 100, 1, true, C) == 0)
+end
+
 -- Sons : aucun identifiant inventé ---------------------------------------------------------------------------------------
 do
 	suite("Sons : aucun identifiant inventé")
@@ -2578,6 +2665,45 @@ do
 	local last = RT.teleports[#RT.teleports]
 	check("Retour au hub : téléportation vers le lieu hub avec les données de partie", #RT.teleports == tpBefore + 1 and last.place == Config.Game.Places.hub and last.n == 1)
 	RT.removePlayer(p5)
+	RT.step(1)
+	-- gardien de Gus : perception, dégâts non mortels, défaite = retour à la base (jamais mort en un coup)
+	local p6 = RT.addPlayer("Fay", 2006, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
+	RT.step(2)
+	local root6 = p6.Character:FindFirstChild("HumanoidRootPart")
+	local gx, gz = Config.rivalCenter(1)
+	local gus = Config.RIVALS[1]
+	rawget(root6, "__props").Position = RT.vec(gx - 40, 3, gz + 12) -- loin derrière / à l'écart
+	RT.step(4)
+	check("Gardien : un joueur hors de portée (40 studs) n'est ni vu ni entendu : aucun dégât", p6:GetAttribute("Hp") == Config.GUARD.maxHp)
+	rawget(root6, "__props").Position = RT.vec(gx, 3, gz + 12) -- sur la ligne de patrouille
+	local history, firstDrop, defeated = {}, nil, false
+	for _ = 1, 100 do
+		RT.step(0.25)
+		local hp = p6:GetAttribute("Hp")
+		history[#history + 1] = hp
+		if not firstDrop and hp < Config.GUARD.maxHp then
+			firstDrop = hp
+		end
+		if firstDrop and hp == Config.GUARD.maxHp and #history > 5 then
+			defeated = true
+			break
+		end
+	end
+	local neverZero = true
+	for _, hp in ipairs(history) do
+		if hp <= 0 then
+			neverZero = false
+		end
+	end
+	check("Gardien : le premier coup retire " .. gus.damage .. " pv seulement (" .. tostring(firstDrop) .. "/" .. Config.GUARD.maxHp .. "), jamais de mort en un coup", firstDrop == Config.GUARD.maxHp - gus.damage and neverZero)
+	local sawDefeat = false
+	for _, f in ipairs(RT.fired) do
+		if f[1] == "Notify" and f[2] == p6 and type(f[3]) == "string" and f[3]:find("vaincu", 1, true) then
+			sawDefeat = true
+		end
+	end
+	check("Gardien : après plusieurs coups, défaite -> retour à la base, pv rétablis, message clair" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), defeated and sawDefeat and #RT.errors == 0)
+	RT.removePlayer(p6)
 	RT.step(1)
 	-- DataStore en panne : le jeu ne plante pas et la sauvegarde échoue proprement
 	RT.dataStoreFail = "503: DataStore indisponible"

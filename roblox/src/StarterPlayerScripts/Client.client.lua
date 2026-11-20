@@ -153,6 +153,28 @@ local banner = text(hudRoot, { Size = UDim2.fromOffset(330, 40), TextWrapped = t
 corner(banner, 15)
 make("UIStroke", { Color = COL.yellow, Thickness = 2 }, banner)
 
+-- Barre de vie (visible seulement quand les pv sont entamés) : rouge dégradé, contour épais, texte « ❤ 86/100 ». Attributs Hp / MaxHp du joueur (serveur).
+local hpFrame = make("Frame", { Size = UDim2.fromOffset(170, 22), BackgroundColor3 = Color3.fromRGB(40, 12, 14), Visible = false }, hudRoot)
+corner(hpFrame, 11)
+make("UIStroke", { Color = Color3.fromRGB(20, 8, 10), Thickness = 3 }, hpFrame)
+local hpFill = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 82, 82) }, hpFrame)
+corner(hpFill, 11)
+make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(170, 170, 170)), Rotation = 90 }, hpFill)
+local hpText = text(hpFrame, { Size = UDim2.fromScale(1, 1), TextSize = 12, Text = "", TextStrokeTransparency = 0.3, ZIndex = 3 })
+hudParts.hp = hpFrame
+local function refreshHp()
+	local hp, maxHp = player:GetAttribute("Hp"), player:GetAttribute("MaxHp")
+	if type(hp) ~= "number" or type(maxHp) ~= "number" or maxHp <= 0 then
+		hpFrame.Visible = false
+		return
+	end
+	hpFrame.Visible = hp < maxHp
+	hpText.Text = "❤ " .. hp .. "/" .. maxHp
+	TweenService:Create(hpFill, TweenInfo.new(0.25), { Size = UDim2.fromScale(math.clamp(hp / maxHp, 0, 1), 1) }):Play()
+end
+player:GetAttributeChangedSignal("Hp"):Connect(refreshHp)
+player:GetAttributeChangedSignal("MaxHp"):Connect(refreshHp)
+
 local toasts = make("Frame", { Size = UDim2.fromOffset(240, 76), BackgroundTransparency = 1, ClipsDescendants = false }, hudRoot)
 make("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, toasts)
 
