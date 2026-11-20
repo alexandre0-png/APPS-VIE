@@ -2702,6 +2702,10 @@ do
 	suite("Démarrage RÉEL de la partie (vrai Main.server.lua, Builder, Data, Rules...) dans le runtim")
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
+		local tm = Config.Assets.models.traps
+		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" } } -- les modèles de pièges portent leurs pièces animées
+	end
+	if RT then
 	local main = RT.buildTree("roblox/src", false)
 	RT.task.spawn(function()
 		RT.runScript(main)
@@ -2958,6 +2962,29 @@ do
 		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", entryPrompt, p7)
 		RT.step(0.5)
 		check("Château : l'entrée téléporte dans le donjon avec les consignes", notified(p7, "Le Château"))
+	do
+		local spikesVis, bladesVis, ballsVis, hidden = 0, 0, 0, 0
+		for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+			if d.ClassName == "Model" then
+				if d.Name == "TrapSpikes" then
+					spikesVis += 1
+				elseif d.Name == "TrapBlade" then
+					bladesVis += 1
+				elseif d.Name == "TrapBall" then
+					ballsVis += 1
+				end
+			end
+		end
+		local expSp, expBl, expBa = 0, 0, 0
+		for r = 1, Castle.ROOMS do
+			local room = Castle.room(r)
+			expSp += #Castle.spikes(room)
+			expBl += #Castle.blades(room)
+			expBa += #Castle.balls(room)
+		end
+		check("Château : les pièges portent les modèles Blender (pics " .. spikesVis .. "/" .. expSp .. ", lames " .. bladesVis .. "/" .. expBl .. ", boulets " .. ballsVis .. "/" .. expBa .. ")", spikesVis == expSp and bladesVis == expBl and ballsVis == expBa and expSp > 0)
+	end
+
 		local ox, oz = Castle.toWorld(1, 0, 6)
 		rawget(root7, "__props").Position = RT.vec(ox, 3, oz)
 		RT.step(0.5)

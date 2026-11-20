@@ -52,10 +52,18 @@ function Fake.runtime(opts)
 	end
 
 	local methods = {}
-	function methods.FindFirstChild(self, name)
+	function methods.FindFirstChild(self, name, recursive)
 		for _, c in ipairs(rawget(self, "__children")) do
 			if rawget(c, "__props").Name == name then
 				return c
+			end
+		end
+		if recursive then
+			for _, c in ipairs(rawget(self, "__children")) do
+				local found = methods.FindFirstChild(c, name, true)
+				if found then
+					return found
+				end
 			end
 		end
 		return nil
@@ -136,6 +144,9 @@ function Fake.runtime(opts)
 			if k ~= "Parent" then
 				rawget(c, "__props")[k] = v
 			end
+		end
+		for _, child in ipairs(rawget(self, "__children")) do -- copie profonde, comme Instance:Clone()
+			methods.Clone(child).Parent = c
 		end
 		return c
 	end
@@ -510,6 +521,10 @@ function Fake.runtime(opts)
 		end
 		local model = RT.instance("Model", "Asset" .. tostring(id))
 		for i, nm in ipairs({ "Corps__FF8800", "Detail__000000", "Socle" }) do
+			local part = RT.instance("Part", nm)
+			part.Parent = model
+		end
+		for _, nm in ipairs(RT.assetParts and RT.assetParts[id] or {}) do -- pièces animées par code (Pics, Lame...) d'un modèle précis
 			local part = RT.instance("Part", nm)
 			part.Parent = model
 		end

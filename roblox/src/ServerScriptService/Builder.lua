@@ -59,6 +59,7 @@ Builder.sign = sign
 ---------------------------------------------------------------- Œuf
 -- Chargeur de modèles d'œufs (module Assets, branché par Main). Nil = apparence par défaut partout.
 local eggAssets = nil
+local builtCastle = nil -- monde du château (Scenery.castle) pour l'habillage Blender différé
 local builtGuards = {} -- { model, rival } des gardiens construits (habillage Blender différé)
 function Builder.setAssets(a)
 	eggAssets = a
@@ -430,6 +431,139 @@ local function fitGuard(model, clone, height)
 		end)
 	end
 	return ok
+end
+
+-- Pièce d'un modèle Blender par son nom de base : « Pics » et « Pics__C0C0C0 » (suffixe de couleur) désignent la même pièce.
+local function findNamed(model, base)
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") and (d.Name == base or d.Name:match("^(.-)__%x%x%x%x%x%x$") == base) then
+			return d
+		end
+	end
+	return nil
+end
+
+-- Pose un clone de modèle Blender centré en (x, z), posé sur le sol y0, mis à l'échelle pour que sa plus grande arête horizontale vaille `span`
+-- (ou, sans span, pour que sa hauteur vaille `height`), ancré, sans collision. Retourne la table { model, center } ou nil (clone détruit).
+local function setModel(clone, x, y0, z, span, height, parent)
+	local ok = pcall(function()
+		local _, size = clone:GetBoundingBox()
+		if size.Y < 0.05 then
+			error("hauteur nulle")
+		end
+		local longest = math.max(size.X, size.Z)
+		if span and longest > 0.05 then
+			clone:ScaleTo(span / longest)
+		elseif height then
+			clone:ScaleTo(height / size.Y)
+		end
+		local bbox, size2 = clone:GetBoundingBox()
+		clone:PivotTo(CFrame.new(x, y0 + size2.Y / 2, z) * bbox:ToObjectSpace(clone:GetPivot()))
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+			end
+		end
+		clone.Parent = parent
+	end)
+	if not ok then
+		pcall(function()
+			clone:Destroy()
+		end)
+		return false
+	end
+	return true
+end
+
+-- Habille les pièges du château (pics, lames, boulets) avec les modèles Blender (groupe `traps`). Les Parts procédurales restent les « pilotes » de la
+-- logique (positions, couleurs) ; le modèle suit : Pics se lève/descend, Lame tourne autour de l'axe vertical du modèle, Boulet suit la sphère.
+-- Un piège dont le modèle n'a pas la pièce animée attendue garde son apparence procédurale. Retourne le nombre de pièges habillés.
+function Builder.dressTraps(assets)
+	local n = 0
+	pcall(function()
+		local waited = 0
+		while not builtCastle and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+		end
+		if not builtCastle then
+			return
+		end
+		local parent = builtCastle.rooms[1] and builtCastle.rooms[1].door and builtCastle.rooms[1].door.Parent
+		if not parent then
+			return
+		end
+		for _, rec in ipairs(builtCastle.rooms) do
+			for _, v in ipairs(rec.spikes) do
+				local clone = assets.cloneModel("traps", "spikes")
+				if clone then
+					clone.Name = "TrapSpikes"
+				end
+				if clone and findNamed(clone, "Pics") and setModel(clone, v.wx, 0, v.wz, 6.4, nil, parent) then
+					local pics = findNamed(clone, "Pics")
+					v.vis = { part = pics, base = pics.CFrame, last = "" }
+					v.tip.Transparency = 1
+					n = n + 1
+				elseif clone then
+					clone:Destroy()
+				end
+			end
+			for _, v in ipairs(rec.blades) do
+				local clone = assets.cloneModel("traps", "blade")
+				if clone then
+					clone.Name = "TrapBlade"
+				end
+				if clone and findNamed(clone, "Lame") and setModel(clone, v.wx, 0, v.wz, v.arm.Size.X, nil, parent) then
+					local lame = findNamed(clone, "Lame")
+					v.vis = { part = lame, base = lame.CFrame, center = Vector3.new(v.wx, 0, v.wz) }
+					v.arm.Transparency = 1
+					n = n + 1
+				elseif clone then
+					clone:Destroy()
+				end
+			end
+			for _, v in ipairs(rec.balls) do
+				local clone = assets.cloneModel("traps", "ball")
+				if clone then
+					clone.Name = "TrapBall"
+				end
+				local d = v.part.Size.X
+				if clone and setModel(clone, v.part.Position.X, -10, v.wz, d, nil, parent) then
+					v.vis = { model = clone, d = d }
+					v.part.Transparency = 1
+					n = n + 1
+				elseif clone then
+					clone:Destroy()
+				end
+			end
+		end
+	end)
+	return n
+end
+
+-- Anime le modèle d'un piège d'après la position de son pilote procédural (appelé 10 fois par seconde par le château).
+function Builder.animSpike(v, tipY, state)
+	local vis = v.vis
+	if vis and vis.last ~= state then
+		vis.last = state
+		vis.part.CFrame = vis.base * CFrame.new(0, tipY - 0.9, 0) -- le modèle est dessiné pics sortis
+	end
+end
+function Builder.animBlade(v, angle)
+	local vis = v.vis
+	if vis then
+		local c = vis.center
+		vis.part.CFrame = CFrame.new(c) * CFrame.Angles(0, angle, 0) * CFrame.new(-c) * vis.base
+	end
+end
+function Builder.animBall(v, x, y, z)
+	local vis = v.vis
+	if vis then
+		vis.model:PivotTo(CFrame.new(x, y, z) * CFrame.Angles(0, 0, -x / math.max(0.5, vis.d / 2)))
+	end
 end
 
 -- Habille les gardiens des domaines avec les modèles Blender chargés (guards.dog / wolf / bear). Retourne le nombre de gardiens remplacés.
@@ -917,6 +1051,7 @@ function Builder.build()
 		castle = function()
 			local cw, cn = Scenery.castle(sceneryHelpers, world, Castle)
 			result.castle = cw
+			builtCastle = cw
 			return cn
 		end,
 		landmarks = function()

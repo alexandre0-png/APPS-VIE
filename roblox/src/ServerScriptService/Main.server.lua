@@ -62,6 +62,8 @@ task.spawn(function()
 	print("[Assets] accessoires Blender : " .. propCount .. " posés (" .. propParts .. " Parts)")
 	assets.loadGroup("guards")
 	print("[Assets] gardiens Blender : " .. Builder.dressGuards(assets) .. " remplacé(s)")
+	assets.loadGroup("traps")
+	print("[Assets] pièges Blender : " .. Builder.dressTraps(assets) .. " habillé(s)")
 end)
 
 local world = Builder.build()
@@ -1184,17 +1186,23 @@ local function castleStep(dt)
 		for i, sp in ipairs(Castle.spikes(room)) do
 			local v = rec.spikes[i]
 			local state = Castle.spikeState(T, sp, room)
-			v.tip.Position = Vector3.new(v.wx, state == "danger" and 0.9 or (state == "warning" and 0.05 or -1), v.wz)
+			local tipY = state == "danger" and 0.9 or (state == "warning" and 0.05 or -1)
+			v.tip.Position = Vector3.new(v.wx, tipY, v.wz)
+			Builder.animSpike(v, tipY, state)
 			v.tip.Color = state == "danger" and Color3.fromRGB(255, 90, 90) or (state == "warning" and Color3.fromRGB(255, 214, 90) or Color3.fromRGB(210, 214, 222))
 		end
 		for i, bl in ipairs(Castle.blades(room)) do
 			local v = rec.blades[i]
-			v.arm.CFrame = CFrame.new(v.wx, 1.4, v.wz) * CFrame.Angles(0, Castle.bladeAngle(T, bl, room), 0)
+			local angle = Castle.bladeAngle(T, bl, room)
+			v.arm.CFrame = CFrame.new(v.wx, 1.4, v.wz) * CFrame.Angles(0, angle, 0)
+			Builder.animBlade(v, angle)
 		end
 		for i, ba in ipairs(Castle.balls(room)) do
 			local v = rec.balls[i]
 			local bx = Castle.ballX(T, ba, room)
-			v.part.Position = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
+			local bp = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
+			v.part.Position = bp
+			Builder.animBall(v, bp.X, bp.Y, bp.Z)
 		end
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)

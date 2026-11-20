@@ -9,6 +9,11 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **C (8bc3546)** : plafond de taille de l'œuf (`Config.eggMaxSize`, relatif à l'emplacement et au joueur), nid sous chaque œuf, pet qui apparaît plafonné (`Easing.popScale`).
 - **D** : modèles Blender intégrés : œufs par rareté (6 + secret, prioritaires sur le catalogue), 6 pets liés aux espèces (Poussin, Lapin, Renard, Panda, Dragonnet = Dragon, Fantôme = Alien), accessoires (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine du hub, nid). Convention `Nom__RRGGBB` lue par `Assets.colorize` (couleurs du FBX ignorées, petits détails sans ombre), un seul `LoadAsset` par identifiant puis clonage, plafond de Parts par modèle (`propsMaxParts`) et budget global (`propsBudgetParts`, pire cas testé), repli procédural conservé partout. `BLENDER_REQUESTS.md` liste tous les modèles à créer ensuite.
 
+## 2026-11-22 (suite) : câblage Blender, lot 2 pièges du château
+
+- `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
+- Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
+
 ## 2026-11-22 (suite) : câblage Blender, lot 1 gardiens
 
 - `Assets.loadGroup(groupe)` / `cloneModel(groupe, clé)` : chargement générique des groupes de `Config.Assets.models` (un LoadAsset par ID, plafond de Parts par `modelsMaxParts`, repli procédural). Chargé APRÈS la carte et les accessoires.
