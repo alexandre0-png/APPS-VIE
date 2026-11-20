@@ -59,6 +59,7 @@ Builder.sign = sign
 ---------------------------------------------------------------- Œuf
 -- Chargeur de modèles d'œufs (module Assets, branché par Main). Nil = apparence par défaut partout.
 local eggAssets = nil
+local builtPlots = {} -- bases des joueurs (Builder.build) pour le dallage
 local builtCastle = nil -- monde du château (Scenery.castle) pour l'habillage Blender différé
 local builtGuards = {} -- { model, rival } des gardiens construits (habillage Blender différé)
 function Builder.setAssets(a)
@@ -715,6 +716,70 @@ function Builder.animProps(t)
 	end
 end
 
+-- Dallage du sol (ground.path : chemins du Grand Nid vers les domaines ; ground.grass : pelouses autour de chaque base). Le coût d'une tuile est
+-- MESURÉ (nombre réel de Parts du modèle chargé, Assets.status) et le placement s'arrête dès que `groundBudgetParts` serait dépassé ou que
+-- `groundMaxTiles` est atteint. Retourne (tuiles posées, Parts utilisées). Sans modèle : rien (sol procédural conservé).
+function Builder.dressGround(assets)
+	local tiles, used = 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while (not world or #builtPlots == 0) and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderGround"
+		folder.Parent = world
+		local function cost(key)
+			local st = assets.status and assets.status["m:ground." .. key]
+			return st and st.ok and st.parts or nil
+		end
+		local function tile(key, x, z, span)
+			local c = cost(key)
+			if not c or used + c > Config.Assets.groundBudgetParts or tiles >= Config.Assets.groundMaxTiles then
+				return false
+			end
+			local clone = assets.cloneModel("ground", key)
+			if not clone then
+				return false
+			end
+			clone.Name = "GroundTile"
+			if setModel(clone, x, 0.06, z, span, nil, folder, 0) then
+				used = used + c
+				tiles = tiles + 1
+				return true
+			end
+			return false
+		end
+		-- chemins : du Grand Nid vers le centre de chaque domaine, une tuile tous les 12 studs
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			local dist = math.sqrt(cx * cx + cz * cz)
+			local k = 0
+			while 34 + k * 12 < dist - 40 do
+				local t = (34 + k * 12) / dist
+				tile("path", cx * t, cz * t, 12)
+				k = k + 1
+			end
+		end
+		-- pelouses : 3 x 3 tuiles de 20 studs devant chaque base
+		for _, pl in ipairs(builtPlots) do
+			local p = pl.spawn.Position
+			for gx = -1, 1 do
+				for gz = -1, 1 do
+					tile("grass", p.X + gx * 20, p.Z + gz * 20, 20)
+				end
+			end
+		end
+	end)
+	return tiles, used
+end
+
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
 function Builder.animDoor(rec, open)
 	local vis = rec.vis
@@ -1229,6 +1294,7 @@ function Builder.build()
 		nameLabel.Parent = sg
 		board.Name = "BoardPole"
 
+		builtPlots[i] = { spawn = spawn }
 		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat, color = pc }
 	end
 

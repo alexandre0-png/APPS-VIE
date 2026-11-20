@@ -3036,6 +3036,13 @@ do
 				end
 			end
 			check("Arène : place, bancs, lampadaires, moulin (pales) et enclos Blender posés (" .. tostring(names.ArenaPlaza) .. " place, " .. tostring(names.ArenaBench) .. " bancs, " .. tostring(names.ArenaLamp) .. " lampadaires, " .. tostring(names.ArenaMill) .. " moulin, " .. tostring(names.ArenaPen) .. " enclos)", names.ArenaPlaza == 1 and names.ArenaBench == 4 and names.ArenaLamp == 4 and names.ArenaMill == 1 and names.ArenaPen == 1)
+			local ground = 0
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if d.ClassName == "Model" and d.Name == "GroundTile" then
+					ground += 1
+				end
+			end
+			check("Sol : tuiles de chemin et d'herbe posées dans le budget mesuré (" .. ground .. " tuiles, plafond " .. Config.Assets.groundMaxTiles .. ")", ground > 20 and ground <= Config.Assets.groundMaxTiles)
 			local R = Castle.ROOMS
 			check("Château : murs, tours, herses, coffre, torches, drapeaux et fond Blender posés (" .. tostring(names.CastleWallModel) .. " murs, " .. tostring(names.CastleTowerModel) .. " tours, " .. tostring(names.CastleDoorModel) .. " portes, " .. tostring(names.CastleChestModel) .. " coffre, " .. tostring(names.CastleTorchModel) .. " torches, " .. tostring(names.CastleFlagModel) .. " drapeaux, " .. tostring(names.CastleBackdrop) .. " fond)", names.CastleWallModel == R * 4 and names.CastleTowerModel == 2 and names.CastleDoorModel == R and names.CastleChestModel == 1 and names.CastleTorchModel == R * 2 and names.CastleFlagModel == 2 and names.CastleBackdrop == 1)
 		end
