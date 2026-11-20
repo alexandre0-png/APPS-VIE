@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local Guard = require(Shared.Guard)
 -- Les Remotes existent avant tout le reste (et avant tout yield) : le client les attend dès son démarrage.
 Remotes.init()
 
@@ -289,50 +290,71 @@ end
 -- Réseau
 Remotes.init()
 
-Remotes.get("SetQuiet").OnServerEvent:Connect(function(player, on)
-	if typeof(on) == "boolean" then
-		PlayerState.setQuiet(player, on)
+-- Les événements du client sont non fiables : type, plage, longueur et fréquence sont vérifiés ici (Guard)
+local limiters = {}
+local function guarded(name, rate, burst, check, handler)
+	local limiter = Guard.newLimiter(rate, burst, os.clock)
+	limiters[name] = limiter
+	Remotes.get(name).OnServerEvent:Connect(function(player, ...)
+		if typeof(player) ~= "Instance" or not limiter.allow(player.UserId) then
+			return
+		end
+		if check and not check(...) then
+			return
+		end
+		local ok, err = pcall(handler, player, ...)
+		if not ok then
+			warn(("[Remote] %s : %s"):format(name, tostring(err)))
+		end
+	end)
+end
+Players.PlayerRemoving:Connect(function(player)
+	for _, limiter in pairs(limiters) do
+		limiter.forget(player.UserId)
 	end
 end)
 
-Remotes.get("SetCrouch").OnServerEvent:Connect(function(player, on)
-	if typeof(on) == "boolean" then
-		PlayerState.setCrouch(player, on)
-	end
+guarded("SetQuiet", 10, 20, Guard.isBoolean, function(player, on)
+	PlayerState.setQuiet(player, on)
 end)
 
-Remotes.get("SetSprint").OnServerEvent:Connect(function(player, on)
-	if typeof(on) == "boolean" then
-		PlayerState.setSprint(player, on)
-	end
+guarded("SetCrouch", 10, 20, Guard.isBoolean, function(player, on)
+	PlayerState.setCrouch(player, on)
 end)
 
-Remotes.get("ToggleFlashlight").OnServerEvent:Connect(function(player)
+guarded("SetSprint", 10, 20, Guard.isBoolean, function(player, on)
+	PlayerState.setSprint(player, on)
+end)
+
+guarded("ToggleFlashlight", 6, 10, nil, function(player)
 	local st = PlayerState.get(player)
 	if st then
 		PlayerState.setFlashlight(player, not st.flashlightOn)
 	end
 end)
 
-Remotes.get("Restart").OnServerEvent:Connect(function()
+guarded("Restart", 1, 3, nil, function()
 	if round.ended then
 		restartRequested = true
 	end
 end)
 
 -- Quitter après une fin : le joueur sort de la partie avec un message
-Remotes.get("Quit").OnServerEvent:Connect(function(player)
+guarded("Quit", 1, 3, nil, function(player)
 	if round.ended then
 		player:Kick("Merci d'avoir joué à La Tombe du Grenier.")
 	end
 end)
 
--- Saisie du code au coffret, et lancer de bruit
-Remotes.get("SubmitCode").OnServerEvent:Connect(function(player, text)
+-- Saisie du code au coffret : texte court sans caractère de contrôle (le code et la date font quelques chiffres)
+guarded("SubmitCode", 3, 6, function(text)
+	return Guard.cleanText(text, 16) ~= nil
+end, function(player, text)
 	Quests.submitCode(player, text)
 end)
 
-Remotes.get("Throw").OnServerEvent:Connect(function(player, direction)
+-- Lancer de bruit : direction unitaire finie, une fois par Config.Throw.Cooldown de toute façon
+guarded("Throw", 4, 6, Guard.isUnitVector, function(player, direction)
 	local impact = PlayerState.tryThrow(player, direction)
 	if impact then
 		Noise.emit(impact, 1)
@@ -400,7 +422,7 @@ task.spawn(function()
 end)
 
 -- Indication demandée par le joueur (touche H), limitée par Config.Quests.HintCooldown
-Remotes.get("AskHint").OnServerEvent:Connect(function(player)
+guarded("AskHint", 2, 4, nil, function(player)
 	Quests.hintFor(player)
 end)
 

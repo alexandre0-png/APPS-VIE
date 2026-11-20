@@ -119,7 +119,7 @@ function Markers.apply()
 			for _, part in ipairs(CollectionService:GetTagged(tag)) do
 				if part:IsA("BasePart") and not seen[part] then
 					seen[part] = true
-					mark(part, MarkerStyles.styleFor(CollectionService:GetTags(part)))
+					mark(part, MarkerStyles.styleFor(CollectionService:GetTags(part)) or style)
 				end
 			end
 		end

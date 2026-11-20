@@ -51,6 +51,7 @@ local function CF(pos)
     if k == "X" then return t.Position.X end
     if k == "Y" then return t.Position.Y end
     if k == "Z" then return t.Position.Z end
+    if k == "Inverse" then return function(self) return self end end
     return nil
   end
   return setmetatable(c, mt)
@@ -81,6 +82,9 @@ table.clone = function(t) local o = {}; for k, v in pairs(t) do o[k] = v end; re
 table.find = function(t, v) for i, x in ipairs(t) do if x == v then return i end end end
 
 local tags = {}
+SIGNALS = { MoveToFinished = true, Died = true, Running = true, StateChanged = true, Changed = true, ChildAdded = true,
+  ChildRemoved = true, DescendantAdded = true, DescendantRemoving = true, AncestryChanged = true, Destroying = true,
+  Stepped = true, RenderStepped = true, Completed = true }
 local function inst(class, name)
   local o = { ClassName = class, Name = name or class, _children = {}, _attrs = {}, Parent = nil }
   local methods = {}
@@ -110,10 +114,35 @@ local function inst(class, name)
   function methods.Clone(self) return self end
   function methods.GetPropertyChangedSignal() return { Connect = function() end } end
   function methods.GetFullName(self) return self.Name end
+  function methods.PivotTo(self, cf) rawset(self, "Position", cf.Position); rawset(self, "CFrame", cf) end
+  function methods.GetPivot(self) return CF(rawget(self, "Position") or V(0, 0, 0)) end
+  function methods.TranslateBy() end
+  function methods.MoveTo(self, p) rawset(self, "Position", p) end
+  function methods.ScaleTo() end
+  function methods.GetScale() return 1 end
+  function methods.GetBoundingBox(self) return CF(rawget(self, "Position") or V(0, 0, 0)), V(1, 1, 1) end
+  function methods.SetNetworkOwner() end
+  function methods.GetState() return "Running" end
+  function methods.ChangeState() end
+  function methods.TakeDamage(self, n) self.Health = (self.Health or 100) - n end
+  function methods.AddTag(self, tag) tags[tag] = tags[tag] or {}; table.insert(tags[tag], self) end
+  function methods.HasTag() return false end
+  function methods.GetTags() return {} end
+  function methods.LoadAnimation() return { Play = function() end, Stop = function() end, AdjustSpeed = function() end, Looped = false, Priority = nil } end
+  function methods.GetPlayingAnimationTracks() return {} end
   setmetatable(o, {
     __index = function(t, k)
       if methods[k] then return methods[k] end
       if k == "Parent" then return rawget(t, "_parent") end
+      -- Comme Roblox : un enfant se lit par son nom, et les propriétés de pièce ont une valeur par défaut
+      if type(k) == "string" then
+        for _, c in ipairs(rawget(t, "_children")) do if c.Name == k then return c end end
+        if k == "CFrame" then return CF(rawget(t, "Position") or V(0, 0, 0)) end
+        if k == "Position" then return V(0, 0, 0) end
+        if k == "Size" then return V(1, 1, 1) end
+        if SIGNALS[k] then return { Connect = function() return { Disconnect = function() end } end, Wait = function() return nil end } end
+        if k == "AssemblyLinearVelocity" or k == "AssemblyAngularVelocity" or k == "Velocity" then return V(0, 0, 0) end
+      end
       return nil
     end,
     __newindex = function(t, k, v)
@@ -133,7 +162,11 @@ local function inst(class, name)
   })
   return o
 end
-Instance = { new = function(class) return inst(class) end }
+Instance = { new = function(class)
+  local o = inst(class)
+  if class == "Humanoid" then o.Health = 100; o.MaxHealth = 100; o.WalkSpeed = 16 end
+  return o
+end }
 
 local services = {}
 local function service(n)
@@ -145,6 +178,8 @@ workspace = ws
 local rs = service("ReplicatedStorage")
 local shared = inst("Folder", "Shared")
 rs._children = { shared }
+service("Debris").AddItem = function() end
+service("PathfindingService").CreatePath = function() return { ComputeAsync = function() end, Status = "NoPath", GetWaypoints = function() return {} end } end
 local cs = service("CollectionService")
 cs.AddTag = function(_, part, tag) tags[tag] = tags[tag] or {}; table.insert(tags[tag], part) end
 cs.GetTagged = function(_, tag) return tags[tag] or {} end

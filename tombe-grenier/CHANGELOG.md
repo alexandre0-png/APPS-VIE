@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Audit de robustesse (lot 1)
+- Événements du client : `src/shared/Guard.lua` (type, finitude, longueur, caractères de contrôle, limiteur à jetons par joueur) ; tous les `OnServerEvent` du script de partie passent par `guarded(...)` (erreurs isolées par pcall, seau libéré au départ du joueur). Corrigé : un vecteur NaN passait la vérification du lancer.
+- Profil : `UpdateAsync` fusionne (`Ranks.merge`, compteurs au maximum, ensembles réunis) pour que hub et partie ne s'écrasent plus ; chargement, lecture et écriture ne lèvent jamais d'erreur (profil neuf en mémoire en dernier recours) ; `BindToClose` sauvegarde tous les joueurs en parallèle (20 s au plus) ; sauvegarde au départ sous pcall.
+- Marqueurs : un objet sans étiquette retrouvée ne plante plus `Markers.apply`.
+- Tests : `tools/lua/test_robust.py` exécute le VRAI script serveur (rôles partie et hub avec le script de partie) et le vrai script du hub dans le faux Roblox, deux joueurs, 4 minutes virtuelles, avec la partie démarrée : aucune erreur dans les tâches de fond, deux personnages chargés, partie duo lancée ; appels hostiles simulés sur chaque événement (valeurs non booléennes, codes trop longs, vecteurs NaN ou non unitaires, rafales) ; fusion de profils ; chaque événement client vers serveur est gardé. Le faux Roblox a gagné les méthodes et propriétés par défaut manquantes (Debris, PathfindingService, Humanoid, CFrame, signaux), ce qui révèle désormais les erreurs profondes.
+
 ### Halos prioritaires, journal de quêtes, indice automatique
 - Halos : `Markers.refresh` (toutes les secondes) allume au plus 24 halos (marge sous la limite d'environ 31 de Roblox). L'objet de l'étape active de la chaîne a un halo plein (contour opaque, léger remplissage, pastille visible à 45 studs) ; les autres sont discrets (contour à 80 % de transparence, pastille à 10 studs) et classés par distance au joueur le plus proche. Les étapes « sous_sol » et « retour » se jouent en marchant : aucun halo fort. Logique pure dans `src/shared/Markers.lua` (`STEP_TAGS`, `isCurrent`, `select`).
 - Journal de quêtes : touche J (client), lignes envoyées par le canal « Journal » à chaque changement d'étape : étape active en tête, étapes faites ensuite (la plus récente d'abord), puis « … N étape(s) à découvrir » sans dévoiler la suite (`Chain.journal`).

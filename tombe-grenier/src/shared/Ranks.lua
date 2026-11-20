@@ -49,6 +49,28 @@ function Ranks.normalize(p)
 	return out
 end
 
+-- Fusion de deux profils (ancien enregistré, nouveau de la session) : rien ne régresse quand deux serveurs
+-- (hub et partie) enregistrent à tour de rôle. Compteurs : le plus grand ; ensembles : réunion.
+function Ranks.merge(old, new)
+	local a, b = Ranks.normalize(old), Ranks.normalize(new)
+	local out = Ranks.normalize(b)
+	out.points = math.max(a.points, b.points)
+	out.runs = math.max(a.runs, b.runs)
+	out.tutorialDone = a.tutorialDone or b.tutorialDone
+	out.lastDay = math.max(a.lastDay, b.lastDay)
+	for k, v in pairs(a.endings) do
+		out.endings[k] = math.max(v, out.endings[k] or 0)
+	end
+	for k in pairs(a.challenges) do
+		out.challenges[k] = true
+	end
+	if #out.seeds == 0 then
+		out.seeds = a.seeds
+	end
+	out.title = b.title or a.title
+	return out
+end
+
 function Ranks.rankIndex(points)
 	local idx = 1
 	for i, r in ipairs(Ranks.LIST) do

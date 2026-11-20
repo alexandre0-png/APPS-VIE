@@ -19,7 +19,7 @@ os.clock = function() return now end
 local sleepers = {}
 local function park(co, ok, wake)
   if not ok then
-    if SWALLOW then table.insert(ERRORS, tostring(wake)) return end
+    if SWALLOW then table.insert(ERRORS, debug.traceback(co, tostring(wake))) return end
     error(wake, 0)
   end
   if coroutine.status(co) == "suspended" then table.insert(sleepers, { co = co, wake = now + (type(wake) == "number" and wake or 0) }) end
@@ -121,7 +121,7 @@ def make(place_id):
     lua.execute('game:GetService("RunService").IsStudio = function() return false end')
     lua.execute('local ts = game:GetService("TeleportService"); ts.TeleportAsync = function() end; ts.ReserveServer = function() return "c" end; ts.TeleportToPrivateServer = function() end')
     lua.execute("game.BindToClose = function() end")
-    lua.execute('local cs = game:GetService("CollectionService"); cs.RemoveTag = function() end')
+    lua.execute('local cs = game:GetService("CollectionService"); cs.RemoveTag = function() end; cs.GetTags = function() return {} end')
     lua.execute(SCHEDULER)
     lua.execute(HUB_INIT)
     return lua

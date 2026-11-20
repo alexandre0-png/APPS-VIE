@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
+local Guard = require(Shared.Guard)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Memory = require(script.Parent.Memory)
 
@@ -165,7 +166,7 @@ function PlayerState.tryThrow(player, direction)
 	end
 	local char = player.Character
 	local head = char and char:FindFirstChild("Head")
-	if not head or typeof(direction) ~= "Vector3" or math.abs(direction.Magnitude - 1) > 0.05 then
+	if not head or typeof(direction) ~= "Vector3" or not Guard.isUnitVector(direction) then
 		return nil
 	end
 	local params = RaycastParams.new()

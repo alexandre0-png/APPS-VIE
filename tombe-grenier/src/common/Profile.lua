@@ -87,8 +87,8 @@ local function init()
 				set = function(key, data)
 					for attempt = 1, 3 do
 						local good = pcall(function()
-							ds:UpdateAsync(key, function()
-								return data
+							ds:UpdateAsync(key, function(old)
+								return Ranks.merge(old, data) -- hub et partie enregistrent à tour de rôle : rien ne régresse
 							end)
 						end)
 						if good then
@@ -105,27 +105,67 @@ local function init()
 	cache = Profile.newCache(store, Ranks)
 	local Players = game:GetService("Players")
 	Players.PlayerRemoving:Connect(function(player)
-		cache.release("p" .. player.UserId)
+		local ok, err = pcall(cache.release, "p" .. player.UserId)
+		if not ok then
+			warn("[Profile] sauvegarde au départ en erreur : " .. tostring(err))
+		end
 	end)
+	-- Arrêt du serveur : tous les profils sont sauvegardés en parallèle (30 s au plus pour BindToClose)
 	game:BindToClose(function()
+		local pending = 0
 		for _, player in ipairs(Players:GetPlayers()) do
-			cache.save("p" .. player.UserId)
+			pending += 1
+			task.spawn(function()
+				pcall(cache.save, "p" .. player.UserId)
+				pending -= 1
+			end)
+		end
+		local waited = 0
+		while pending > 0 and waited < 20 do
+			task.wait(0.2)
+			waited += 0.2
 		end
 	end)
 	return cache
 end
 
+-- Un profil neuf gardé en mémoire si tout le reste échoue : le jeu ne dépend jamais du DataStore
+local emergency = {}
+
+local function fallbackProfile(player)
+	local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+	local Ranks = require(Shared.Ranks)
+	emergency[player.UserId] = emergency[player.UserId] or Ranks.normalize(nil)
+	return emergency[player.UserId]
+end
+
 function Profile.load(player)
-	return init().load("p" .. player.UserId)
+	local ok, profile = pcall(function()
+		return init().load("p" .. player.UserId)
+	end)
+	if ok and profile then
+		return profile
+	end
+	warn("[Profile] chargement en erreur, profil neuf : " .. tostring(profile))
+	return fallbackProfile(player)
 end
 
 function Profile.get(player)
-	local c = init()
-	return c.get("p" .. player.UserId) or c.load("p" .. player.UserId)
+	local ok, profile = pcall(function()
+		local c = init()
+		return c.get("p" .. player.UserId) or c.load("p" .. player.UserId)
+	end)
+	if ok and profile then
+		return profile
+	end
+	return fallbackProfile(player)
 end
 
 function Profile.save(player)
-	return init().save("p" .. player.UserId)
+	local ok, saved = pcall(function()
+		return init().save("p" .. player.UserId)
+	end)
+	return ok and saved == true
 end
 
 -- Rang et titre au-dessus de la tête (visible de tous), mis à jour à chaque apparition du personnage
