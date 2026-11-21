@@ -51,3 +51,6 @@ vfx_ailes 139237669898830 ; vfx_bouclier 135593787305812 ; vfx_cercle_runique 78
 
 ## Lot 8 (pets restants, Chipe-Œufs) : script scripts/blender_make_pets4.py
 PetTigre 72370255271127 (index 11) ; PetKraken 123754319737365 (15) ; PetCalmar 85626350359383 (17) ; PetWyrm 127368682215579 (18). Tous approuvés. Les 18 espèces ont un modèle.
+
+## Lot 9 (Grenier lot 4 : cave et meubles) : scripts/blender_make_g2b.py
+g_cage_enfant 102154280370105 ; g_matelas_enfant 91319011192266 ; g_chaine_cave 132630002585073 ; g_chevet 106047201970729 ; g_table_basse 129483387884426 ; g_meuble_tv 73089944142322 ; g_plan_travail 79340837686582 ; g_penderie 78040764946413 ; g_gueridon 95132769826424 ; g_banc 87911810523146 ; g_bidon 135009865593146 ; g_coffre_cave 97448512398637 ; g_buffet 124370863796629. Envoyés à la session Jeu 2 pour branchement.

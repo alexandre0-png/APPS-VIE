@@ -24,3 +24,4 @@ statut: prive-publie
 - Retour de test utilisateur sur lisibilité, taille des modèles, ambiance.
 
 - 21 nov : dernier publié = 608d3a5 (hub v36, partie v27). Les mentions de f98bdc7 plus haut sont obsolètes. Toutes les demandes de BLENDER_REQUESTS du Grenier sont livrées et branchées.
+- 21 nov (après-midi) : retours utilisateur (lancement auto du hub, invite permanente, répliques sans encadré, enfant dans la cave, meubles). Commits e3fa521 à cb1c5f5 publiés : partie v29, hub v40. Vue 1re personne forcée (StarterPlayer). Lot 4 Blender créé (lot 9 des assets), branchement demandé à la session.

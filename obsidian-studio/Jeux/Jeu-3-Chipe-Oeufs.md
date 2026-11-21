@@ -20,3 +20,4 @@ statut: prive-publie
 - Sons : crochets muets, aucun identifiant inventé.
 
 - 21 nov : commit ebb5271 (pets Tigre, Kraken, Calmar, Wyrm). Publié en privé : hub v27, partie v21.
+- 21 nov (après-midi) : retours utilisateur envoyés à la session (sol du hub qui scintille, pets trop gros, bâtiment évolutif par rareté d'œuf, zones et gardiens plus durs et espacés style île en terrasses de la vidéo, placement planifié, icône de recyclage). En cours, rien publié.
