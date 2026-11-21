@@ -1666,7 +1666,7 @@ do
 	check("Scenery.castle : chaque salle expose ses pièges (pics, lames, boulets) et sa porte selon la difficulté", okC and #cworld.rooms[1].spikes == CastleMod.room(1).spikes and #cworld.rooms[5].blades == 2 and #cworld.rooms[5].balls == 3 and cworld.rooms[3].door ~= nil)
 	made = 0
 	local okR, nR = pcall(Scenery.rivers, helpers, {}, Config)
-	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 20)
+	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 16)
 	-- géométrie : la douve ne passe sous aucune base de joueur
 	local R, W = Config.Map.moat.radius, Config.Map.moat.width
 	local clear = true
@@ -3771,7 +3771,11 @@ do
 			end
 		end
 		check("Gardiens : un LoadAsset par modèle (chien, loup, ours, chevalier) [" .. loadedGuards .. "]", loadedGuards == 4)
-		check("Gardiens : les " .. #Config.RIVALS .. " gardiens des domaines portent le modèle Blender [" .. withBlender .. "/" .. found .. "]", found == #Config.RIVALS and withBlender == #Config.RIVALS)
+		local allGuards = 0
+		for _, rv in ipairs(Config.RIVALS) do
+			allGuards += rv.guards
+		end
+		check("Gardiens : les " .. allGuards .. " gardiens des domaines (1 + 2 + 3) portent le modèle Blender [" .. withBlender .. "/" .. found .. "]", found == allGuards and withBlender == allGuards)
 	end
 	-- revente d'œuf et de doublons côté serveur
 	local p8 = RT.addPlayer("Hal", 2008, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
@@ -4281,6 +4285,10 @@ do
 		noErrors("80 éclosions et reventes enchaînées : aucune erreur")
 		check("80 éclosions : pas de fuite d'objets dans Workspace (" .. tostring(liveBefore) .. " -> " .. tostring(liveAfter) .. ")", liveBefore ~= nil and liveAfter <= liveBefore + 40)
 		do -- échelle : chaque pet, œuf, gardien et accessoire posé respecte sa hauteur cible (±10 %), le plus grand pet <= 5
+			local totalGuards = 0
+			for _, rv in ipairs(Config.RIVALS) do
+				totalGuards += rv.guards
+			end
 			local worstPet, pets, badPet, guardsOk, guards = 0, 0, 0, true, 0
 			local lampOk, lamps, mills, millOk = true, 0, 0, true
 			local eggIds, eggsSeen, worstEgg = {}, 0, 0
@@ -4318,8 +4326,15 @@ do
 				end
 			end
 			check("Échelle : " .. pets .. " pets Blender (taille brute 20 studs) mesurés, le plus grand fait " .. string.format("%.2f", worstPet) .. " <= 5 studs", pets > 0 and badPet == 0 and worstPet <= Config.Assets.targetHeights.petHard * 1.1)
-			check("Échelle : " .. guards .. " gardiens (chien 2,5, loup 3, ours 5) à ±10 % de leur hauteur cible", guards == #Config.RIVALS and guardsOk)
+			check("Échelle : " .. guards .. "/" .. totalGuards .. " gardiens (chien 2,5, loup 3, ours 5) à ±10 % de leur hauteur cible", guards == totalGuards and guardsOk)
 			check("Échelle : " .. eggsSeen .. " œufs affichés, le plus haut fait " .. string.format("%.2f", worstEgg) .. " <= " .. Config.Assets.targetHeights.eggMax .. " studs (+10 %)", eggsSeen > 0 and worstEgg <= Config.Assets.targetHeights.eggMax * 1.1)
+			local boards, labels = 0, {}
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if rawget(d, "__props").Name == "DifficultyBoard" then
+					boards += 1
+				end
+			end
+			check("Zones : un panneau de difficulté (étoiles, nombre de gardiens) à l'entrée de chacun des " .. #Config.RIVALS .. " domaines (" .. boards .. "), 1 + 2 + 3 gardiens, étoiles croissantes", boards == #Config.RIVALS and Config.RIVALS[1].stars < Config.RIVALS[2].stars and Config.RIVALS[2].stars < Config.RIVALS[3].stars and Config.RIVALS[1].guards == 1 and Config.RIVALS[3].guards == 3 and Config.RIVALS[1].viewDist < Config.RIVALS[3].viewDist and Config.RIVALS[1].guardSpeed < Config.RIVALS[3].guardSpeed and Config.RIVALS[1].damage < Config.RIVALS[3].damage)
 			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
 		end
 		RT.removePlayer(k)
@@ -4384,7 +4399,11 @@ do
 			end
 		end
 		check("Chargements en échec à 100 % : aucune erreur non gérée" .. (#RF.errors == 0 and "" or " : " .. tostring(RF.errors[1])), #RF.errors == 0)
-		check("Chargements en échec : gardiens procéduraux conservés (" .. guardsProcedural .. "), aucun modèle Blender (" .. blender .. "), aucune texture (" .. textures .. ")", guardsProcedural == #Config.RIVALS and blender == 0 and textures == 0)
+		local allG = 0
+		for _, rv in ipairs(Config.RIVALS) do
+			allG += rv.guards
+		end
+		check("Chargements en échec : gardiens procéduraux conservés (" .. guardsProcedural .. "), aucun modèle Blender (" .. blender .. "), aucune texture (" .. textures .. ")", guardsProcedural == allG and blender == 0 and textures == 0)
 		local snap
 		for i = #RF.fired, 1, -1 do
 			local f = RF.fired[i]
@@ -4578,6 +4597,33 @@ do
 			end
 			check("Sol (" .. role .. ") : aucun disque ou dalle Neon plein sol (" .. table.concat(neonFloors, ",") .. ")", #neonFloors == 0)
 		end
+	end
+end
+
+-- Ambiance : lumière douce, brouillard léger, couleurs harmonisées ------------------------------------------------------------------
+do
+	suite("Ambiance : lumière douce, brouillard léger")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(2)
+		local L = rawget(RT.services.Lighting, "__props")
+		check("Éclairage : luminosité douce (<= 2,4), ombres adoucies (>= 0,3)", L.Brightness ~= nil and L.Brightness <= 2.4 and L.ShadowSoftness >= 0.3)
+		local bloom, grade, atmo
+		for _, o in ipairs(RT.all) do
+			local nm = rawget(o, "__props").Name
+			if nm == "ChipeBloom" then
+				bloom = rawget(o, "__props")
+			elseif nm == "ChipeGrade" then
+				grade = rawget(o, "__props")
+			elseif o.ClassName == "Atmosphere" then
+				atmo = rawget(o, "__props")
+			end
+		end
+		check("Ambiance : brouillard léger (brume >= 1,5), saturation modérée (<= 0,12), bloom discret (<= 0,35)", atmo ~= nil and atmo.Haze >= 1.5 and grade ~= nil and grade.Saturation <= 0.12 and bloom ~= nil and bloom.Intensity <= 0.35)
 	end
 end
 

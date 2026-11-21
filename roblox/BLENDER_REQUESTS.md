@@ -41,3 +41,24 @@
 | `pets.*` (suite) | Pets restants (12 espèces) | ~1 de haut | 40 | Hamster, Chat, Chien, Hibou, Manchot, Lion, Tigre, Licorne, T-Rex, Kraken, Calmar stellaire, Wyrm astral | une couleur dominante par espèce | `Corps`, `Tete`, `Yeux`, `Oreilles`, `Queue`, `Pattes` |
 
 Quand les modèles sont téléversés, indique pour chacun : identifiant, clé de la table ci-dessus. Les clés `guards.*`, `castle.*`, `trap.*`, `ground.*` seront branchées avec les mécaniques correspondantes (gardiens, mode Château).
+
+## Demandes de qualité visuelle (retours de test réels) : à créer
+
+Palette limitée à respecter (une couleur par rôle, suffixes `Nom__RRGGBB`) : herbe `5CA052` et `4B8E45`, terre `C4B494`, pierre `8E93A0` et `6E7280`, bois `96622C` et `6E4C2E`, eau `3C96DC`, or `FFCD46`, feuillage `3E8E44` et `5CB256`, accent rouge `C8323C`. Matières : tout en plastique lisse, sauf `Lame`, `Pics`, `Herse`, `Anneau`, `Tige`, `Serrure`, `Poignee`, `Fer`, `Cercles` (métal) ; aucun reflet. Bords arrondis (bevel de 0,1 à 0,2 stud) sur tous les blocs ; au moins deux nuances et un détail (joints, nœuds, mousse, ombre peinte) par pièce.
+
+| Clé de config | Modèle | Taille (studs) | Pièces max | Description | Couleurs (suffixes) | Parties séparées nommées |
+|---|---|---|---|---|---|---|
+| `deco.flower_a`, `deco.flower_b`, `deco.flower_c` | Fleurs (3 variantes) | 1 haut | 6 | Touffe de 3 fleurs, tiges fines | pétales `FF789A` / `FFD23F` / `FFFFFF`, tige `3E8E44`, cœur `FFB347` | `Petales`, `Tige` |
+| `deco.tuft` | Touffe d'herbe | 1,2 haut | 4 | Brins d'herbe en gerbe, deux verts | `5CA052`, `4B8E45` | `Brins` |
+| `deco.stone_flat`, `deco.stone_round` | Pierres plates et rondes | 0,6 haut, 2 large | 4 | Pierre arrondie, mousse sur le dessus | `8E93A0`, mousse `5CA052` | `Pierre`, `Mousse` |
+| `deco.lantern` | Lanterne posée | 1 haut | 6 | Lanterne de pierre au sol, flamme chaude | pierre `8E93A0`, flamme `FFE9A8` | `Pierre`, `Flamme` |
+| `deco.sign_stars` | Panneau de difficulté | 5 haut, 3 large | 10 | Poteau, planche rectangulaire, 5 étoiles creusées (étoiles = pièces `Etoile1` à `Etoile5` recolorées par code) | bois `96622C`, étoiles `FFCD46` | `Poteau`, `Planche`, `Etoile1`..`Etoile5` |
+| `terrain.cliff_a`, `terrain.cliff_b` | Falaise en terrasse (module) | 16 long, 8 haut, 6 épais | 14 | Bloc de falaise voxel/low-poly, haut herbeux, flanc de roche stratifiée, bords nets, assemblable | roche `8E93A0` / `6E7280`, herbe `5CA052`, terre `C4B494` | `Roche`, `Herbe` |
+| `terrain.cliff_corner` | Angle de falaise | 12 x 12, 8 haut | 14 | Angle extérieur, mêmes teintes | idem | `Roche`, `Herbe` |
+| `terrain.stairs` | Escalier de terrasse | 8 large, 8 haut, 12 long | 12 | Marches en pierre et terre entre deux niveaux | `C4B494`, `8E93A0` | `Marches` |
+| `terrain.waterfall` | Cascade | 8 large, 10 haut | 10 | Chute d'eau le long d'une falaise, écume (écume = pièce `Ecume`, Neon blanc) | eau `3C96DC`, écume `FFFFFF` | `Eau`, `Ecume` |
+| `terrain.islet` | Îlot | 24 de diamètre, 4 haut | 12 | Petite île ronde, un arbre, deux rochers, rive nette | herbe `5CA052`, roche `8E93A0`, tronc `6E4C2E` | `Herbe`, `Roche` |
+| `props.bridge_rail` | Pont en bois à rampes | 18 long, 6 large, 2,5 haut | 30 | Planches, deux rampes, poteaux d'extrémité qui s'enfoncent dans les rives | bois `96622C`, poteaux `6E4C2E` | `Planches`, `Rampes` |
+| `props.fence_corner`, `props.fence_gate` | Barrière d'angle et portillon | 3 haut | 10 | Angle à 90° et portillon s'ouvrant sur le chemin | bois `96622C` | `Poteaux`, `Lisses` |
+| `props.hut_small`, `props.hut_big` | Petite et grande cabane | 7 et 11 haut | 60 / 90 | Toit à deux pans, porte, fenêtre, cheminée ; entrée côté -Y Blender | murs `C9A66B`, toit `B04A3C`, porte `6E4C2E` | `Murs`, `Toit`, `Porte` |
+| `base.level1` à `base.level8` (facultatif) | Enclos, cabane, chaumière, maison, manoir, fort, forteresse, château doré | 52 x 52 d'emprise, 4 à 24 haut | 40 à 140 | Les 8 apparences de la base (voir `Config.BASE_LEVELS`) ; entrée côté -Y Blender, arrière +Y, pad de 52 x 52 laissé libre | palette ci-dessus, or `FFCD46` pour le niveau 8 | `Murs`, `Toit`, `Tours` |

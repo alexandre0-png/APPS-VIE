@@ -1141,13 +1141,13 @@ end
 -- Ambiance « jour doré » : soleil chaud, brume légère, bloom discret, étalonnage plus vif.
 function Builder.setupLighting()
 	Lighting.ClockTime = 15.3
-	Lighting.Brightness = 2.6
-	Lighting.Ambient = Color3.fromRGB(95, 105, 120)
-	Lighting.OutdoorAmbient = Color3.fromRGB(125, 135, 155)
+	Lighting.Brightness = 2.2 -- plus doux
+	Lighting.Ambient = Color3.fromRGB(110, 112, 125)
+	Lighting.OutdoorAmbient = Color3.fromRGB(135, 140, 158)
 	Lighting.ColorShift_Top = Color3.fromRGB(255, 238, 205)
 	Lighting.EnvironmentDiffuseScale = 0.6
 	Lighting.EnvironmentSpecularScale = 0.4
-	Lighting.ShadowSoftness = 0.25
+	Lighting.ShadowSoftness = 0.35
 	Lighting.GlobalShadows = true
 
 	local function effect(class, name, props)
@@ -1168,16 +1168,16 @@ function Builder.setupLighting()
 		atm = Instance.new("Atmosphere")
 		atm.Parent = Lighting
 	end
-	atm.Density = 0.28
-	atm.Offset = 0.2
+	atm.Density = 0.32 -- brouillard léger : les lointains se fondent dans le ciel
+	atm.Offset = 0.25
 	atm.Color = Color3.fromRGB(199, 220, 255)
 	atm.Decay = Color3.fromRGB(255, 214, 170)
 	atm.Glare = 0.25
-	atm.Haze = 1.4
+	atm.Haze = 1.7
 
-	effect("BloomEffect", "ChipeBloom", { Intensity = 0.4, Size = 28, Threshold = 0.95 })
+	effect("BloomEffect", "ChipeBloom", { Intensity = 0.3, Size = 24, Threshold = 0.96 })
 	effect("SunRaysEffect", "ChipeSunRays", { Intensity = 0.15, Spread = 0.8 })
-	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.18, Contrast = 0.1, Brightness = 0.02 })
+	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.1, Contrast = 0.06, Brightness = 0.02 }) -- couleurs plus harmonieuses, moins saturées
 end
 
 ---------------------------------------------------------------- Monument du Grand Nid (identité du jeu, au centre de l'arène)
@@ -1489,14 +1489,29 @@ function Builder.build()
 			sceneryParts += 1
 			result.nests[#result.nests + 1] = { rival = i, pos = Vector3.new(nx, 3.2, cz - 3), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
 		end
-		local g = Builder.guard(i)
-		g.Parent = folder
-		builtGuards[#builtGuards + 1] = { model = g, rival = i }
-		result.guards[#result.guards + 1] = {
-			model = g, rival = i, cx = cx, patrolZ = cz + 12, pos = Vector3.new(cx, 2.4, cz + 12),
-			dir = (i % 2 == 0) and -1 or 1, state = "patrol", cd = 0, lost = 0,
-		}
-		g:PivotTo(CFrame.new(cx, 2.4, cz + 12))
+		-- gardiens : de plus en plus nombreux (1, 2, 3), chacun avec son TERRITOIRE (± 12 studs, jamais superposés) et sa propre ligne de patrouille
+		local count = riv.guards or 1
+		for j = 1, count do
+			local gx = cx + (j - (count + 1) / 2) * 26
+			local gz = cz + 12 - (j - 1) * 4
+			local g = Builder.guard(i)
+			g.Name = "Guard" .. i .. "_" .. j
+			g.Parent = folder
+			builtGuards[#builtGuards + 1] = { model = g, rival = i }
+			result.guards[#result.guards + 1] = {
+				model = g, rival = i, cx = gx, patrolZ = gz, pos = Vector3.new(gx, 2.4, gz),
+				dir = ((i + j) % 2 == 0) and -1 or 1, state = "patrol", cd = 0, lost = 0,
+			}
+			g:PivotTo(CFrame.new(gx, 2.4, gz))
+		end
+		-- panneau de difficulté à l'entrée du domaine (devant le pont sud) : étoiles et nombre de gardiens
+		do
+			local post = part({ Name = "DifficultySign", Size = Vector3.new(0.8, 6, 0.8), Position = Vector3.new(cx + 12, 3, cz + Config.Map.moat.radius + 10), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			local board = part({ Name = "DifficultyBoard", Size = Vector3.new(7, 3, 0.5), Position = Vector3.new(cx + 12, 6.8, cz + Config.Map.moat.radius + 10), Color = Color3.fromRGB(70, 50, 36), Material = Enum.Material.WoodPlanks, CanCollide = false }, folder)
+			local lbl = sign(board, string.rep("⭐", riv.stars) .. string.rep("☆", 5 - riv.stars) .. "\n" .. riv.name .. " : " .. count .. " gardien" .. (count > 1 and "s" or ""), Color3.fromRGB(255, 220, 120), 0, 200)
+			lbl.TextSize = 16
+			post.Anchored = true
+		end
 	end
 
 	-- Tapis roulant (les rayures sont animées côté client grâce au tag BeltStripe) -----

@@ -91,9 +91,9 @@ Config.MUTS = {
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
-	{ name = "Gus", emoji = "🤠", stars = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, viewDist = 24, viewAngle = 100, hearRadius = 12, damage = 14, color = Color3.fromRGB(111, 191, 115) },
-	{ name = "Mara", emoji = "🧛", stars = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
-	{ name = "Zed", emoji = "🤖", stars = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
+	{ name = "Gus", emoji = "🤠", stars = 1, guards = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, viewDist = 24, viewAngle = 100, hearRadius = 12, damage = 14, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 2, guards = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 3, guards = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
 }
 
 -- Gardiens : jamais de coup mortel d'un seul coup. Barre de vie, invulnérabilité courte après un coup, recul, régénération ; perception (vue + ouïe)
@@ -1131,7 +1131,7 @@ Config.Map = {
 		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
 	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 14, trees = 10, patches = 6, hills = 8, moatSegments = 18, fencePosts = 8, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
+	decor = { flowers = 0, trees = 6, patches = 3, hills = 4, moatSegments = 14, fencePosts = 6, bridgePlanks = 4 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
