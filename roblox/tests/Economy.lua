@@ -17,7 +17,8 @@ function Economy.simulate(Config, Rules, minutes, opts)
 	end
 	local coins, hatched, pity = Config.START_COINS or 50, 0, 0
 	local slots = {} -- [i] = { k = "e", t, ends } | { k = "p", p, s, m }
-	local log = { marks = {}, firstEggTier = {}, firstUp = {}, spent = {} }
+	local log = { marks = {}, firstEggTier = {}, firstUp = {}, spent = {}, firstPetTier = {}, baseLevelAt = {} }
+	local baseScore = 0
 	local dex, species = {}, 0
 	local function income()
 		local mult = Rules.multiplier(0, up.food, false, false, Config.collectionBonus(species))
@@ -58,12 +59,19 @@ function Economy.simulate(Config, Rules, minutes, opts)
 			if sl and sl.k == "e" and t >= sl.ends then
 				hatched = hatched + 1
 				pity = pity + 1
-				local guaranteed = pity >= Config.PITY_EVERY and sl.t < #Config.TIERS
+				log.firstHatch = log.firstHatch or t
+				local guaranteed = Config.PITY_ENABLED and pity >= Config.PITY_EVERY and sl.t < #Config.TIERS
 				local r = Rules.rollPet(sl.t, Rules.upPoints(up.luck, false, false, false), false, rnd, guaranteed)
 				if r.tier > sl.t then
 					pity = 0
 				end
 				slots[i] = { k = "p", p = r.p, s = r.s, m = r.m }
+				log.firstPetTier[r.tier] = log.firstPetTier[r.tier] or t
+				baseScore = baseScore + Config.baseGain(r.tier)
+				local lv = Config.baseLevel(baseScore)
+				for l = 2, lv do
+					log.baseLevelAt[l] = log.baseLevelAt[l] or t
+				end
 				if not dex[r.p] then
 					dex[r.p] = true
 					species = species + 1

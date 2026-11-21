@@ -2,6 +2,13 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Économie : cibles de rythme mesurées
+
+- `tests/Economy.lua` journalise maintenant la première éclosion, le premier pet de chaque rareté et le niveau de base atteint ; la simulation respecte la pitié coupée et la règle d'amélioration à 5 %. `tools/sim_economy.py` les affiche.
+- Cibles testées (5 graines, joueur-robot actif) : éclosion < 60 s, Rare < 4 min, Épique < 12 min, Légendaire < 45 min, base 2 < 5 min, base 4 < 30 min. Mesuré, sans aucun réglage nécessaire : éclosion 9 s, Rare 56 à 89 s, Épique 159 à 274 s, Légendaire 740 à 808 s (graines 1 à 3), base 2 en 51 à 80 s, base 4 en 309 à 366 s. Le ralentissement redouté (amélioration 5 %, pitié coupée) reste largement dans les cibles.
+- Courbe des 18 pets : le revenu de chaque rareté dépasse strictement celui de la précédente (testé). Monnaie vendue : le sac de pièces vaut au plus 20 min de revenu, le pack de départ est unique (20 000 pièces, moins de 2 œufs Épiques).
+- Le Château n'a pas de verrou de déblocage (portail ouvert dès l'arrivée au hub) : la cible « débloqué < 20 min » est satisfaite d'emblée.
+
 ## Retours de test 5 : audit des mobs
 
 - Faux : les gardiens se déplaçaient en glissant (aucune animation), sans limite de territoire (une poursuite pouvait les emmener hors du plateau, dans la douve ou dans le vide), sans détection de blocage ; l'orientation n'était mise à jour que si le gardien avançait ; les pets suiveurs traversaient la carte en glissant après une téléportation (voyage rapide, retour à la base).

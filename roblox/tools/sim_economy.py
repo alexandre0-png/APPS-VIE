@@ -21,3 +21,4 @@ for t in sorted(out.marks):
     print(f"{t//60:>3} min {t%60:02d}s : pièces {m.coins:>12,.0f}  revenu {m.income:>9,.1f}/s  éclosions {m.hatched:>4}  empl. {m.slots}  festin {m.food}  incub. {m.inc}  espèces {m.species}")
 print("premier revenu >=10/s :", out.firstIncome10, "s ; >=100/s :", out.firstIncome100, "s ; >=1000/s :", out.firstIncome1000, "s ; blocage max :", out.maxStall, "s")
 print("premier achat d'œuf par rareté :", {i: out.firstEggTier[i] for i in range(1, 7)})
+print("première éclosion :", out.firstHatch, "s ; premier pet par rareté :", {i: out.firstPetTier[i] for i in range(1, 7)}, "; niveaux de base :", {i: out.baseLevelAt[i] for i in range(2, 9)})

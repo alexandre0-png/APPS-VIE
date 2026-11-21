@@ -1097,6 +1097,42 @@ do
 		expect(f.up.slots >= 3 and f.up.food >= 5, "les améliorations de base sont achetées" .. tag)
 	end
 	check("Économie : rythme des 30 premières minutes" .. (allOk and "" or " : " .. why), allOk)
+	-- cibles de rythme d'un nouveau joueur actif (joueur-robot, 5 graines, 60 min) : hors cible = échec
+	local tgtOk, tgtWhy, worst = true, "", {}
+	for seed = 1, 5 do
+		local L = Economy.simulate(Config, Rules, 60, { seed = seed })
+		local tag = " (graine " .. seed .. ")"
+		local function must(cond, msg)
+			if not cond and tgtOk then
+				tgtOk, tgtWhy = false, msg .. tag
+			end
+		end
+		must(L.firstHatch ~= nil and L.firstHatch < 60, "1er œuf éclos en moins de 60 s")
+		must(L.firstPetTier[2] ~= nil and L.firstPetTier[2] < 240, "1er pet Rare en moins de 4 min")
+		must(L.firstPetTier[3] ~= nil and L.firstPetTier[3] < 720, "1er pet Épique en moins de 12 min")
+		must(L.firstPetTier[4] ~= nil and L.firstPetTier[4] < 2700, "1er pet Légendaire en moins de 45 min")
+		must(L.baseLevelAt[2] ~= nil and L.baseLevelAt[2] < 300, "base niveau 2 en moins de 5 min")
+		must(L.baseLevelAt[4] ~= nil and L.baseLevelAt[4] < 1800, "base niveau 4 en moins de 30 min")
+		for k, v in pairs({ hatch = L.firstHatch, rare = L.firstPetTier[2], epic = L.firstPetTier[3], legendary = L.firstPetTier[4], base2 = L.baseLevelAt[2], base4 = L.baseLevelAt[4] }) do
+			worst[k] = math.max(worst[k] or 0, v or 99999)
+		end
+	end
+	check("Économie : cibles (éclosion < 60 s, Rare < 4 min, Épique < 12 min, Légendaire < 45 min, base 2 < 5 min, base 4 < 30 min) ; pires cas mesurés : éclosion " .. worst.hatch .. " s, Rare " .. worst.rare .. " s, Épique " .. worst.epic .. " s, Légendaire " .. worst.legendary .. " s, base 2 " .. worst.base2 .. " s, base 4 " .. worst.base4 .. " s" .. (tgtOk and "" or " : " .. tgtWhy), tgtOk)
+	-- courbe de revenu des pets : chaque rareté rapporte strictement plus que la précédente ; 18 pets
+	local lo, hi, curveOk = {}, {}, true
+	for _, def in ipairs(Config.PETS) do
+		lo[def.tier] = math.min(lo[def.tier] or math.huge, def.inc)
+		hi[def.tier] = math.max(hi[def.tier] or 0, def.inc)
+	end
+	for t = 2, #Config.TIERS do
+		if lo[t] == nil or hi[t - 1] == nil or lo[t] <= hi[t - 1] then
+			curveOk = false
+		end
+	end
+	check("Économie : " .. #Config.PETS .. " pets, le revenu de chaque rareté dépasse strictement celui de la précédente (courbe cohérente)", curveOk and #Config.PETS == 18)
+	-- monnaie vendue : proportionnelle au revenu, jamais au-delà de 20 minutes de gains (plancher 5 000), pack de départ unique
+	local sold = math.max(Config.COIN_PACK_MIN, 1000 * Config.COIN_PACK_MINUTES * 60)
+	check("Économie : le sac de pièces vaut au plus " .. Config.COIN_PACK_MINUTES .. " min de revenu (plancher " .. Config.COIN_PACK_MIN .. ") et le pack de départ est unique (" .. Config.STARTER_PACK.coins .. " pièces)", sold == 1000 * Config.COIN_PACK_MINUTES * 60 and Config.PRODUCTS.StarterPack.once == true and Config.STARTER_PACK.coins < Config.EGG_PRICE[3] * 2)
 	local a, b = Economy.simulate(Config, Rules, 5, { seed = 7 }), Economy.simulate(Config, Rules, 5, { seed = 7 })
 	check("Économie : simulation déterministe (même graine, même résultat)", a.final.coins == b.final.coins and a.final.hatched == b.final.hatched)
 end
