@@ -377,6 +377,7 @@ local function snapshot(s)
 		ach = d.ach,
 		stats = statValues(s),
 		baseScore = d.baseScore,
+		away = math.floor(d.pendingAway),
 		baseLevel = s.baseLevel,
 	}
 end
@@ -1519,6 +1520,9 @@ local function fastTick(dt)
 					s.flags = 0
 				end
 			end
+			if s.lastPos and (pos - s.lastPos).Magnitude > 0.3 then
+				s.lastActive = os.clock() -- déplacement = joueur actif
+			end
 			s.lastPos = pos
 			-- dépôt des œufs dans sa base
 			if #s.carry > 0 and inPlot(s, root) then
@@ -1566,8 +1570,14 @@ local function slowTick(dt)
 		local ok, err = pcall(function()
 			local d = s.data
 			local inc = income(s)
-			d.coins += inc * dt
-			qp(s, "earn", inc * dt)
+			local active = os.clock() - s.lastActive <= Config.IDLE.seconds
+			if (player:GetAttribute("Idle") == true) == active then
+				player:SetAttribute("Idle", not active) -- le client affiche « 💤 revenus en pause »
+			end
+			if active then
+				d.coins += inc * dt
+				qp(s, "earn", inc * dt)
+			end
 			ensureQuests(s)
 			storyRefresh(s)
 			s.syncT += dt
@@ -1915,6 +1925,17 @@ function actions.top(s)
 	RTop:FireClient(s.player, topCache)
 end
 
+function actions.claimAway(s)
+	local gain = math.floor(s.data.pendingAway)
+	if gain < 1 then
+		return
+	end
+	s.data.pendingAway = 0
+	s.data.coins += gain
+	notify(s.player, "💰 Gains récupérés : +" .. Config.fmt(gain) .. " 🪙", "claim")
+	RState:FireClient(s.player, snapshot(s))
+end
+
 function actions.daily(s)
 	local d = s.data
 	local today = os.time() // 86400
@@ -1939,6 +1960,7 @@ RAction.OnServerEvent:Connect(function(player, action, arg)
 		return
 	end
 	s.lastAct = now
+	s.lastActive = now -- toute action = joueur actif
 	local fn = actions[action]
 	if fn then
 		local ok, err = pcall(fn, s, arg)
@@ -2152,7 +2174,7 @@ local function onJoin(player)
 	local s = {
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
-		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastActive = os.clock(), lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
@@ -2180,11 +2202,13 @@ local function onJoin(player)
 	end
 
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
-	local away = math.clamp(os.time() - d.last, 0, 4 * 3600)
+	local away = math.clamp(os.time() - d.last, 0, Config.IDLE.offlineMaxSeconds)
 	if away > 30 then
-		local gain = income(s) * away * 0.4
-		d.coins += gain
-		notify(player, "Pendant ton absence : +" .. Config.fmt(gain) .. " 🪙")
+		local gain = income(s) * away * Config.IDLE.offlineRate
+		d.pendingAway = math.min(d.pendingAway + gain, math.max(income(s), 1) * Config.IDLE.offlineMaxSeconds * Config.IDLE.offlineRate) -- mis de côté (plafonné) : se récupère d'un clic (claimAway)
+	end
+	if d.pendingAway >= 1 then
+		notify(player, "💤 Gains pendant ton absence : " .. Config.fmt(d.pendingAway) .. " 🪙 : touche « Récupérer »")
 	end
 
 	ensureQuests(s)

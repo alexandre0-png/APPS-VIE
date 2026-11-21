@@ -92,6 +92,7 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
 	}
@@ -220,6 +221,7 @@ local function merge(saved)
 	end
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
+	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end

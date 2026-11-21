@@ -32,7 +32,7 @@ La Grande Couvée s'est brisée : reprends ses œufs, fais-les éclore et devien
 🐣 18 pets, 6 raretés, tailles et mutations (Doré, Néon, Arc-en-ciel, Alien)
 📚 Chaque série de 3 espèces découvertes = bonus de revenus définitif
 🎁 Pitié : une rareté supérieure garantie à intervalle régulier
-💰 Tes pets rapportent des pièces, même quand tu es absent
+💰 Tes pets rapportent des pièces tant que tu joues, et un peu de revenu continue quand tu pars (30 minutes au plus)
 🏃 Cours sur le tapis pour devenir plus rapide
 ♻️ Renais pour des bonus permanents
 🎯 Missions quotidiennes, classement, événements (Biome Alien, Ruée vers l'or...)

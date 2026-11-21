@@ -306,7 +306,7 @@ function HubWorld.build(Config)
 	board("BoardHow", Vector3.new(26, 0, 30), "Comment jouer", {
 		"🥚 Chipe des œufs, fais-les éclore, deviens Roi des Couvées.",
 		"🏃 Cours sur le tapis pour aller plus vite.",
-		"🐾 Tes pets rapportent des pièces, même absent.",
+		"🐾 Tes pets rapportent des pièces tant que tu joues ; un peu de revenu continue quand tu pars.",
 	}, Color3.fromRGB(255, 210, 63))
 	board("BoardParty", Vector3.new(-26, 0, 8), "Lancer une partie", {
 		"1. Choisis ta taille : solo ou 2 à " .. G.MaxPlayers .. " joueurs.",

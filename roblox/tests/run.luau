@@ -5704,5 +5704,97 @@ do
 	end
 end
 
+
+do
+	suite("Revenu passif : gelé quand le joueur est inactif, hors-ligne plafonné à 30 min et récupéré d'un clic")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local RA
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == "Action" then
+				RA = d
+			end
+		end
+		local p = RT.addPlayer("Idle", 9921, { from = "hub", partyId = "IDLE", size = 1, late = false })
+		RT.step(2)
+		local function coins()
+			return p:GetAttribute("Coins") or 0
+		end
+		local function act(a)
+			RT.now = RT.now + 0.2
+			RT.fire(RA, "OnServerEvent", p, a)
+		end
+		-- donner du revenu : un pet posé
+		for i = 1, 40 do
+			act("buyEgg")
+			RT.step(1)
+		end
+		RT.step(40)
+		local c0 = coins()
+		RT.step(20)
+		act("claimAway") -- toute action remet le joueur en activité
+		RT.step(20)
+		local grown = coins() > c0
+		-- 3 minutes sans aucune entrée ni déplacement : le compteur ne bouge plus
+		RT.step(Config.IDLE.seconds + 5)
+		local frozenFrom = coins()
+		RT.step(120)
+		local frozenTo = coins()
+		check("Revenu : le compteur monte quand le joueur est actif (" .. string.format("%.0f", c0) .. " -> " .. string.format("%.0f", coins()) .. ")", grown or c0 > 0)
+		check("Revenu : joueur sans entrée depuis 3 minutes -> compteur gelé (" .. string.format("%.1f", frozenFrom) .. " = " .. string.format("%.1f", frozenTo) .. "), attribut Idle", frozenFrom == frozenTo and p:GetAttribute("Idle") == true)
+		act("claimAway")
+		RT.step(15)
+		check("Revenu : le joueur revient -> le revenu reprend, Idle retiré", (coins() > frozenTo or frozenTo == 0) and p:GetAttribute("Idle") == false)
+		check("Revenu : aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		-- hors-ligne : 5 h d'absence = au plus 30 min de gains, mis de côté puis récupérés
+		RT.removePlayer(p)
+		RT.step(2)
+		local st = RT.dataStores["ChipeOeufs_v1"]
+		local rec = st and st.data["P_9921"]
+		if rec and rec.v then
+			rec.v.last = RT.env.os.time() - 5 * 3600
+			rec.v.pendingAway = 0
+			rec.lock = nil -- verrou libéré : la session précédente est terminée
+		end
+		RT.now = RT.now + 5 * 3600
+		local p2 = RT.addPlayer("Idle2", 9921, { from = "hub", partyId = "IDLE", size = 1, late = false })
+		RT.step(12)
+		RT.now = RT.now + 0.2
+		RT.fire(RA, "OnServerEvent", p2, "sync")
+		RT.step(1)
+		local sawMsg = false
+		for _, f in ipairs(RT.fired) do
+			if f[1] == "Notify" and f[2] == p2 and type(f[3]) == "string" and f[3]:find("Gains pendant ton absence", 1, true) then
+				sawMsg = true
+			end
+		end
+		local lastSnap
+		for i = #RT.fired, 1, -1 do
+			local f = RT.fired[i]
+			if f[1] == "State" and f[2] == p2 and type(f[3]) == "table" then
+				lastSnap = f[3]
+				break
+			end
+		end
+		local inc = p2:GetAttribute("Income") or 0
+		local cap = inc * Config.IDLE.offlineMaxSeconds * Config.IDLE.offlineRate
+		check("Hors ligne : 5 h d'absence -> message « Gains pendant ton absence » et gain mis de côté plafonné à 30 min (" .. tostring(lastSnap and lastSnap.away) .. " <= " .. string.format("%.0f", cap) .. ")", lastSnap ~= nil and sawMsg and lastSnap.away > 0 and lastSnap.away <= cap + 1)
+		local c1 = p2:GetAttribute("Coins") or 0
+		RT.fire(RA, "OnServerEvent", p2, "claimAway")
+		RT.step(1)
+		local c2 = p2:GetAttribute("Coins") or 0
+		check("Hors ligne : un clic sur « Récupérer » crédite le gain une seule fois", c2 - c1 >= (lastSnap and lastSnap.away or 0) - 1)
+		RT.now = RT.now + 0.2
+		RT.fire(RA, "OnServerEvent", p2, "claimAway")
+		RT.step(1)
+		check("Hors ligne : un second clic ne crédite rien de plus et sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), (p2:GetAttribute("Coins") or 0) - c2 < 100 + inc * 5 and #RT.errors == 0)
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

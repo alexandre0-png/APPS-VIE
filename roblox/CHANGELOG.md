@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Retours de test 2 : le revenu ne monte plus tout seul
+
+- Faux : `fastTick` créditait `income x dt` en permanence, joueur inactif ou non ; le hors-ligne créditait 40 % de 4 h d'un coup, sans message à récupérer.
+- Corrigé : revenu seulement si le joueur est actif (action ou déplacement > 0,3 stud dans les 90 s, `Config.IDLE`), attribut `Idle` + « 💤 Inactif : revenus en pause » ; hors-ligne plafonné à 30 min de gains (x 0,4), mis de côté (`pendingAway`, sauvegardé) et récupéré d'un clic (« Gains pendant ton absence »). Textes de publication, hub et listing ajustés.
+- Mesuré (test) : joueur sans entrée 3 min : compteur gelé (389,2 = 389,2) ; 5 h d'absence : gain 1152 au plus (= 30 min x 1,6/s x 0,4), crédité une seule fois. Mutation `active = true` détectée.
+
 ## Retours de test 1 : diagnostic et chargement des modèles Blender
 
 - Causes trouvées dans le code : chargement strictement séquentiel (chaque modèle jusqu'à 8 s), base et pads jamais reconstruits si le joueur arrivait avant la fin du chargement (la base procédurale restait jusqu'au prochain niveau), plafonds de Parts qui refusaient des modèles valides (pin 72 > 30, puits 50 > 40), barrières Blender chargées mais jamais posées.

@@ -20,7 +20,7 @@ La Grande Couvée s'est brisée : reprends ses œufs, fais-les éclore et devien
 👥 Lance une partie depuis le hub, tes amis te rejoignent quand ils veulent
 🐣 18 pets, 6 raretés, tailles et mutations (Doré, Néon, Arc-en-ciel, Alien)
 📖 Un index de collection : chaque série d'espèces découvertes donne un bonus définitif
-💰 Tes pets rapportent des pièces, même quand tu es absent
+💰 Tes pets rapportent des pièces tant que tu joues, et un peu de revenu continue quand tu pars (30 minutes au plus)
 ⭐ Échange tes doublons, améliore ta base, 🌅 renais pour des bonus permanents
 🎯 Missions du jour avec œufs en récompense, énigme quotidienne, événements
 
@@ -36,7 +36,7 @@ Un œuf posé dans ta base est protégé quelques secondes, puis les autres joue
 1. Chipe l'œuf, évite le loup, deviens Roi des Couvées !
 2. 18 pets à faire éclore : lequel sera ton premier Cosmique ?
 3. Affronte le Château avec jusqu'à 4 amis : pics, lames, boulets et chevaliers.
-4. Ton armée de pets travaille pour toi, même quand tu dors.
+4. Ton armée de pets travaille pour toi tant que tu joues, et garde un petit gain pour ton retour.
 5. Un œuf mal gardé ne reste pas longtemps dans ta base… sauras-tu le défendre ?
 
 ## 3. Achats à créer (IDs à renseigner dans `Config.PASSES` / `Config.PRODUCTS`)

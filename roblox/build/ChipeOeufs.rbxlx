@@ -365,6 +365,10 @@ Config.UNAVAILABLE_MESSAGE = "🛒 Cet achat n'est pas encore disponible. Revien
 Config.LUCK_POTION_BONUS = 25
 Config.LUCK_POTION_SECONDS = 900
 
+-- Revenu passif : il ne s'accumule que si le joueur est ACTIF (action ou déplacement dans les `seconds` dernières secondes). Au départ du joueur, le revenu hors ligne
+-- est plafonné à `offlineMaxSeconds` de gains (x `offlineRate`) ; il est mis de côté (pendingAway) et se récupère d'un clic à la reconnexion.
+Config.IDLE = { seconds = 90, offlineMaxSeconds = 1800, offlineRate = 0.4 }
+
 Config.MAX_FOLLOWERS = 3 -- pets qui suivent le joueur
 Config.SCORE_UNIT = 100000 -- classement : score = renaissances * SCORE_UNIT + œufs éclos
 
@@ -5388,6 +5392,7 @@ local function snapshot(s)
 		ach = d.ach,
 		stats = statValues(s),
 		baseScore = d.baseScore,
+		away = math.floor(d.pendingAway),
 		baseLevel = s.baseLevel,
 	}
 end
@@ -6530,6 +6535,9 @@ local function fastTick(dt)
 					s.flags = 0
 				end
 			end
+			if s.lastPos and (pos - s.lastPos).Magnitude > 0.3 then
+				s.lastActive = os.clock() -- déplacement = joueur actif
+			end
 			s.lastPos = pos
 			-- dépôt des œufs dans sa base
 			if #s.carry > 0 and inPlot(s, root) then
@@ -6577,8 +6585,14 @@ local function slowTick(dt)
 		local ok, err = pcall(function()
 			local d = s.data
 			local inc = income(s)
-			d.coins += inc * dt
-			qp(s, "earn", inc * dt)
+			local active = os.clock() - s.lastActive <= Config.IDLE.seconds
+			if (player:GetAttribute("Idle") == true) == active then
+				player:SetAttribute("Idle", not active) -- le client affiche « 💤 revenus en pause »
+			end
+			if active then
+				d.coins += inc * dt
+				qp(s, "earn", inc * dt)
+			end
 			ensureQuests(s)
 			storyRefresh(s)
 			s.syncT += dt
@@ -6926,6 +6940,17 @@ function actions.top(s)
 	RTop:FireClient(s.player, topCache)
 end
 
+function actions.claimAway(s)
+	local gain = math.floor(s.data.pendingAway)
+	if gain < 1 then
+		return
+	end
+	s.data.pendingAway = 0
+	s.data.coins += gain
+	notify(s.player, "💰 Gains récupérés : +" .. Config.fmt(gain) .. " 🪙", "claim")
+	RState:FireClient(s.player, snapshot(s))
+end
+
 function actions.daily(s)
 	local d = s.data
 	local today = os.time() // 86400
@@ -6950,6 +6975,7 @@ RAction.OnServerEvent:Connect(function(player, action, arg)
 		return
 	end
 	s.lastAct = now
+	s.lastActive = now -- toute action = joueur actif
 	local fn = actions[action]
 	if fn then
 		local ok, err = pcall(fn, s, arg)
@@ -7163,7 +7189,7 @@ local function onJoin(player)
 	local s = {
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
-		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
+		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastActive = os.clock(), lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
 		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
@@ -7191,11 +7217,13 @@ local function onJoin(player)
 	end
 
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
-	local away = math.clamp(os.time() - d.last, 0, 4 * 3600)
+	local away = math.clamp(os.time() - d.last, 0, Config.IDLE.offlineMaxSeconds)
 	if away > 30 then
-		local gain = income(s) * away * 0.4
-		d.coins += gain
-		notify(player, "Pendant ton absence : +" .. Config.fmt(gain) .. " 🪙")
+		local gain = income(s) * away * Config.IDLE.offlineRate
+		d.pendingAway = math.min(d.pendingAway + gain, math.max(income(s), 1) * Config.IDLE.offlineMaxSeconds * Config.IDLE.offlineRate) -- mis de côté (plafonné) : se récupère d'un clic (claimAway)
+	end
+	if d.pendingAway >= 1 then
+		notify(player, "💤 Gains pendant ton absence : " .. Config.fmt(d.pendingAway) .. " 🪙 : touche « Récupérer »")
 	end
 
 	ensureQuests(s)
@@ -7454,6 +7482,7 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
 	}
@@ -7582,6 +7611,7 @@ local function merge(saved)
 	end
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
+	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end
@@ -12199,8 +12229,25 @@ local function renderSoon()
 	end)
 end
 
+-- Carte « Gains pendant ton absence » (revenu hors ligne mis de côté, à récupérer d'un clic) et indicateur de revenus en pause (joueur inactif).
+local awayCard = make("TextButton", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 60), Size = UDim2.fromOffset(300, 44), BackgroundColor3 = COL.green, TextColor3 = COL.dark, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", Visible = false, ZIndex = 20 }, hudRoot)
+corner(awayCard, 12)
+awayCard.Activated:Connect(function()
+	RAction:FireServer("claimAway")
+	awayCard.Visible = false
+end)
+local idleLabel = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(300, 22), TextSize = 13, TextColor3 = Color3.fromRGB(255, 220, 140), Text = "💤 Inactif : revenus en pause (bouge pour reprendre)", Visible = false })
+player:GetAttributeChangedSignal("Idle"):Connect(function()
+	idleLabel.Visible = player:GetAttribute("Idle") == true
+end)
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	if type(snap.away) == "number" and snap.away >= 1 then
+		awayCard.Text = "💤 Gains pendant ton absence : " .. fmt(snap.away) .. " 🪙\nTouche pour récupérer"
+		awayCard.Visible = true
+	else
+		awayCard.Visible = false
+	end
 	soundReady = true
 	updateRuneLabels()
 	if not introChecked then

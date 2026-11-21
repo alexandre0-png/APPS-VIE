@@ -361,6 +361,10 @@ Config.UNAVAILABLE_MESSAGE = "🛒 Cet achat n'est pas encore disponible. Revien
 Config.LUCK_POTION_BONUS = 25
 Config.LUCK_POTION_SECONDS = 900
 
+-- Revenu passif : il ne s'accumule que si le joueur est ACTIF (action ou déplacement dans les `seconds` dernières secondes). Au départ du joueur, le revenu hors ligne
+-- est plafonné à `offlineMaxSeconds` de gains (x `offlineRate`) ; il est mis de côté (pendingAway) et se récupère d'un clic à la reconnexion.
+Config.IDLE = { seconds = 90, offlineMaxSeconds = 1800, offlineRate = 0.4 }
+
 Config.MAX_FOLLOWERS = 3 -- pets qui suivent le joueur
 Config.SCORE_UNIT = 100000 -- classement : score = renaissances * SCORE_UNIT + œufs éclos
 

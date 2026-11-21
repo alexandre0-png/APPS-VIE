@@ -1366,8 +1366,25 @@ local function renderSoon()
 	end)
 end
 
+-- Carte « Gains pendant ton absence » (revenu hors ligne mis de côté, à récupérer d'un clic) et indicateur de revenus en pause (joueur inactif).
+local awayCard = make("TextButton", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 60), Size = UDim2.fromOffset(300, 44), BackgroundColor3 = COL.green, TextColor3 = COL.dark, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", Visible = false, ZIndex = 20 }, hudRoot)
+corner(awayCard, 12)
+awayCard.Activated:Connect(function()
+	RAction:FireServer("claimAway")
+	awayCard.Visible = false
+end)
+local idleLabel = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(300, 22), TextSize = 13, TextColor3 = Color3.fromRGB(255, 220, 140), Text = "💤 Inactif : revenus en pause (bouge pour reprendre)", Visible = false })
+player:GetAttributeChangedSignal("Idle"):Connect(function()
+	idleLabel.Visible = player:GetAttribute("Idle") == true
+end)
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	if type(snap.away) == "number" and snap.away >= 1 then
+		awayCard.Text = "💤 Gains pendant ton absence : " .. fmt(snap.away) .. " 🪙\nTouche pour récupérer"
+		awayCard.Visible = true
+	else
+		awayCard.Visible = false
+	end
 	soundReady = true
 	updateRuneLabels()
 	if not introChecked then
