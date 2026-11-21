@@ -3564,6 +3564,75 @@ do
 		RT.step(5)
 		noErrors("Départ pendant le château : aucune erreur")
 
+		-- 1bis. château : défaite puis « Relancer maintenant » (produit payant, ID à 0 = aucune offre)
+		do
+			local Cs = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
+			local function enterCastle(p)
+				local entryP
+				for obj in pairs(RT.tags["CastleEntry"] or {}) do
+					entryP = obj
+				end
+				local rt = p.Character:FindFirstChild("HumanoidRootPart")
+				local ep = entryP.Parent.Position
+				rawget(rt, "__props").Position = RT.vec(ep.X, 3, ep.Z)
+				RT.fire(RT.services.ProximityPromptService, "PromptTriggered", entryP, p)
+				RT.step(1)
+				return rt
+			end
+			local sp = Cs.spikes(Cs.room(1))[1]
+			local wx, wz = Cs.toWorld(1, sp.lx, sp.lz)
+			local function dieOnSpikes(p, rt)
+				for _ = 1, 2500 do
+					rawget(rt, "__props").Position = RT.vec(wx, 3, wz)
+					RT.step(0.1)
+					if p:GetAttribute("ReviveUntil") then
+						return true
+					end
+				end
+				return false
+			end
+			local q0 = join("Quin0", 5800)
+			RT.step(2)
+			local rt0 = enterCastle(q0)
+			local sawOffer0 = false
+			for _ = 1, 600 do -- ID à 0 : aucune offre même après une défaite
+				rawget(rt0, "__props").Position = RT.vec(wx, 3, wz)
+				RT.step(0.1)
+				if q0:GetAttribute("ReviveUntil") then
+					sawOffer0 = true
+				end
+			end
+			check("Relance : produit désactivé (ID 0) -> aucune offre après une défaite", not sawOffer0)
+			RT.removePlayer(q0)
+			RT.step(2)
+			cfg.PRODUCTS.Revive.id = 8803
+			local q = join("Quin", 5801)
+			RT.step(2)
+			local rt = enterCastle(q)
+			local died = dieOnSpikes(q, rt)
+			check("Relance : après une défaite au château, l'offre est ouverte (attribut ReviveUntil)", died)
+			local backAtStart = rt.CFrame.Position
+			local deathsOk = q:GetAttribute("Hp") == Config.GUARD.maxHp -- retour gratuit : pv rétablis
+			local r = receipt({ PlayerId = 5801, PurchaseId = "RV-1", ProductId = 8803 }, 1)
+			local pos = rt.CFrame.Position
+			check("Relance : l'achat ramène le joueur là où il est tombé (" .. string.format("%.0f,%.0f", pos.X, pos.Z) .. " vers " .. string.format("%.0f,%.0f", wx, wz) .. "), pv pleins, offre fermée, PurchaseGranted", r == PS.PurchaseGranted and math.abs(pos.X - wx) < 6 and math.abs(pos.Z - wz) < 6 and q:GetAttribute("ReviveUntil") == nil and deathsOk and (math.abs(backAtStart.Z - wz) > 6 or math.abs(backAtStart.X - wx) > 6))
+			local before2 = #RT.fired
+			local r2 = receipt({ PlayerId = 5801, PurchaseId = "RV-2", ProductId = 8803 }, 1) -- sans offre ouverte : jamais perdu
+			local sawCompensation = false
+			for i = before2 + 1, #RT.fired do
+				local f = RT.fired[i]
+				if f[1] == "Notify" and f[2] == q and type(f[3]) == "string" and f[3]:find("potion de chance", 1, true) then
+					sawCompensation = true
+				end
+			end
+			check("Relance : offre expirée -> PurchaseGranted et potion de chance offerte à la place (l'achat n'est jamais perdu)", r2 == PS.PurchaseGranted and sawCompensation)
+			local r3 = receipt({ PlayerId = 5801, PurchaseId = "RV-1", ProductId = 8803 }, 1)
+			check("Relance : reçu rejoué -> PurchaseGranted sans nouvelle livraison ni erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), r3 == PS.PurchaseGranted and #RT.errors == 0)
+			cfg.PRODUCTS.Revive.id = 0
+			RT.removePlayer(q)
+			RT.step(2)
+		end
+
 		-- 2. courses entre joueurs -----------------------------------------------------------------------------------------------
 		local e1, e2 = join("Eli", 5011), join("Fay", 5012)
 		RT.step(2)
@@ -3594,14 +3663,14 @@ do
 		act(e1, "buyEgg", 1)
 		RT.step(0.5)
 		local before = snapshot(e1)
-		local eggsBefore = eggCount(before)
+		local eggsBefore = slotCount(before)
 		RT.fire(RA, "OnServerEvent", e1, "sellEgg", 3)
 		RT.fire(RA, "OnServerEvent", e1, "sellEgg", 3) -- même instant : le second appel est ignoré
 		RT.step(0.3)
 		act(e1, "sellEgg", 3) -- plus tard : l'emplacement est déjà vide
 		RT.step(0.5)
 		local after = snapshot(e1)
-		check("Double vente du même emplacement : un seul œuf vendu, aucun autre perdu (" .. eggsBefore .. " -> " .. eggCount(after) .. ")", eggCount(after) == eggsBefore - 1)
+		check("Double vente du même emplacement : un seul œuf vendu, aucun autre perdu (" .. eggsBefore .. " -> " .. slotCount(after) .. " emplacements occupés)", slotCount(after) == eggsBefore - 1)
 		act(e1, "buyEgg", 1)
 		act(e1, "sellEgg", 3)
 		RT.step(0.5)
@@ -3775,12 +3844,13 @@ do
 		RT.step(10) -- plusieurs joueurs, aucun chemin : repli en ligne droite
 		RT.pathFail = nil
 		local zx, zz = Config.rivalCenter(3) -- domaine de Zed, verrouillé au départ
+		local hpBeforeZed = m2:GetAttribute("Hp")
 		rawget(m2.Character:FindFirstChild("HumanoidRootPart"), "__props").Position = RT.vec(zx, 3, zz + 12)
 		RT.step(10)
 		RT.removePlayer(m1)
 		RT.step(5)
 		check("Gardiens : plusieurs joueurs, sans chemin, zone verrouillée, perte de cible : aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
-		check("Gardiens : un joueur dans une zone verrouillée n'est pas attaqué (pv intacts)", m2:GetAttribute("Hp") == Config.GUARD.maxHp)
+		check("Gardiens : un joueur dans une zone verrouillée n'est pas attaqué (pv " .. tostring(hpBeforeZed) .. " -> " .. tostring(m2:GetAttribute("Hp")) .. ", jamais en baisse)", m2:GetAttribute("Hp") >= hpBeforeZed)
 		RT.step(60) -- AFK d'une minute
 		noErrors("Joueur AFK une minute : aucune erreur")
 		RT.removePlayer(m2)

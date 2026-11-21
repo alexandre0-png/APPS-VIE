@@ -347,10 +347,12 @@ Config.PRODUCTS = {
 	LuckPotion = { id = 0, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
 	StarterPack = { id = 0, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
 	ExclusiveEgg = { id = 0, name = "Œuf exclusif Mythique", emoji = "🥚", desc = "Un œuf Mythique placé directement dans ta base (il faut une place libre)." },
+	Revive = { id = 0, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
 	CoinPack = { id = 0, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 2, eggs = 3 }
 Config.EXCLUSIVE_EGG_TIER = 5
+Config.REVIVE = { offerSeconds = 20, iframes = 4 } -- offre de relance après une défaite au château (non bloquante), invulnérabilité après la relance
 Config.COIN_PACK_MINUTES = 20
 Config.COIN_PACK_MIN = 5000
 -- Un achat n'est proposé que si son ID Roblox a été renseigné (entier > 0). Sinon il reste désactivé, avec un message clair.
@@ -4544,6 +4546,11 @@ local function castleDamage(s, kind, room)
 	local label = kind == "spikes" and "des pics" or (kind == "blade" and "une lame" or (kind == "knight" and "un chevalier" or "un boulet"))
 	notify(s.player, "💥 Touché par " .. label .. " : -" .. dmg .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "hurt")
 	if hp <= 0 then -- défaite : retour au début de la salle, pv rétablis (jamais de perte d'œuf)
+		local rootNow = getRoot(s.player)
+		if rootNow and Config.purchasable(Config.PRODUCTS.Revive) then -- offre « Relancer maintenant » (produit payant, non bloquante)
+			s.revive = { pos = rootNow.Position, room = room, expires = os.clock() + Config.REVIVE.offerSeconds }
+			s.player:SetAttribute("ReviveUntil", os.time() + Config.REVIVE.offerSeconds)
+		end
 		s.castle.deaths += 1
 		setHp(s, GC.maxHp)
 		s.iframes = GC.respawnIframes
@@ -5258,6 +5265,25 @@ MarketplaceService.ProcessReceipt = function(info)
 			elseif name == "InstantHatch" then
 				for i = 1, cap(s.data) do
 					hatch(s, i)
+				end
+			elseif name == "Revive" then
+				local rv = s.revive
+				s.revive = nil
+				player:SetAttribute("ReviveUntil", nil)
+				local root = getRoot(player)
+				if s.castle and not s.castle.finished and rv and os.clock() <= rv.expires + 5 and root then
+					-- relance sur place : retour là où il est tombé, pv pleins, invulnérable un moment, la défaite n'est pas comptée
+					root.CFrame = CFrame.new(rv.pos + Vector3.new(0, 3, 0))
+					root.AssemblyLinearVelocity = Vector3.zero
+					s.noCheckUntil = os.clock() + 2
+					setHp(s, GC.maxHp)
+					s.iframes = Config.REVIVE.iframes
+					s.castle.deaths = math.max(0, s.castle.deaths - 1)
+					notify(player, "💫 Relance ! Tu repars de là où tu es tombé.", "claim")
+				else
+					-- l'offre a expiré (ou il a quitté le château) : l'achat n'est jamais perdu, il est remplacé par une potion de chance
+					s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+					notify(player, "💫 L'offre de relance avait expiré : une potion de chance t'est offerte à la place.", "claim")
 				end
 			elseif name == "LuckPotion" then
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
@@ -9462,9 +9488,35 @@ local function hideOffer()
 	offerCard.Visible = false
 end
 local offerBtn = make("TextButton", { BackgroundTransparency = 1, Size = UDim2.new(1, -36, 1, 0), Text = "", ZIndex = 2 }, offerCard)
+local offerMode = "bonus" -- "bonus" (achat de boost) ou "revive" (relance au château)
 offerBtn.Activated:Connect(function()
 	hideOffer()
-	openPanel("bonus")
+	if offerMode == "revive" then
+		local def = Config.PRODUCTS.Revive
+		if Config.purchasable(def) then
+			MarketplaceService:PromptProductPurchase(player, def.id)
+		end
+	else
+		openPanel("bonus")
+	end
+end)
+-- Relance au château : après une défaite, carte non bloquante « Relancer maintenant » (20 s), seulement si le produit est disponible (ID renseigné).
+task.spawn(function()
+	while true do
+		pcall(function()
+			local until_ = player:GetAttribute("ReviveUntil")
+			local active = type(until_) == "number" and until_ > os.time() and Config.purchasable(Config.PRODUCTS.Revive)
+			if active and not (offerCard.Visible and offerMode == "revive") then
+				offerMode = "revive"
+				offerToken += 1
+				offerCard.Text = "   " .. Config.PRODUCTS.Revive.emoji .. " Relancer maintenant ›"
+				offerCard.Visible = true
+			elseif not active and offerCard.Visible and offerMode == "revive" then
+				hideOffer()
+			end
+		end)
+		task.wait(0.5)
+	end
 end)
 offerClose.Activated:Connect(hideOffer)
 local function tryOffer(ev)
@@ -9475,6 +9527,7 @@ local function tryOffer(ev)
 	if not o then
 		return
 	end
+	offerMode = "bonus"
 	offerShown += 1
 	offerLast = os.clock()
 	offerToken += 1

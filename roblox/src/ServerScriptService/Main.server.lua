@@ -1172,6 +1172,11 @@ local function castleDamage(s, kind, room)
 	local label = kind == "spikes" and "des pics" or (kind == "blade" and "une lame" or (kind == "knight" and "un chevalier" or "un boulet"))
 	notify(s.player, "💥 Touché par " .. label .. " : -" .. dmg .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "hurt")
 	if hp <= 0 then -- défaite : retour au début de la salle, pv rétablis (jamais de perte d'œuf)
+		local rootNow = getRoot(s.player)
+		if rootNow and Config.purchasable(Config.PRODUCTS.Revive) then -- offre « Relancer maintenant » (produit payant, non bloquante)
+			s.revive = { pos = rootNow.Position, room = room, expires = os.clock() + Config.REVIVE.offerSeconds }
+			s.player:SetAttribute("ReviveUntil", os.time() + Config.REVIVE.offerSeconds)
+		end
 		s.castle.deaths += 1
 		setHp(s, GC.maxHp)
 		s.iframes = GC.respawnIframes
@@ -1886,6 +1891,25 @@ MarketplaceService.ProcessReceipt = function(info)
 			elseif name == "InstantHatch" then
 				for i = 1, cap(s.data) do
 					hatch(s, i)
+				end
+			elseif name == "Revive" then
+				local rv = s.revive
+				s.revive = nil
+				player:SetAttribute("ReviveUntil", nil)
+				local root = getRoot(player)
+				if s.castle and not s.castle.finished and rv and os.clock() <= rv.expires + 5 and root then
+					-- relance sur place : retour là où il est tombé, pv pleins, invulnérable un moment, la défaite n'est pas comptée
+					root.CFrame = CFrame.new(rv.pos + Vector3.new(0, 3, 0))
+					root.AssemblyLinearVelocity = Vector3.zero
+					s.noCheckUntil = os.clock() + 2
+					setHp(s, GC.maxHp)
+					s.iframes = Config.REVIVE.iframes
+					s.castle.deaths = math.max(0, s.castle.deaths - 1)
+					notify(player, "💫 Relance ! Tu repars de là où tu es tombé.", "claim")
+				else
+					-- l'offre a expiré (ou il a quitté le château) : l'achat n'est jamais perdu, il est remplacé par une potion de chance
+					s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+					notify(player, "💫 L'offre de relance avait expiré : une potion de chance t'est offerte à la place.", "claim")
 				end
 			elseif name == "LuckPotion" then
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS

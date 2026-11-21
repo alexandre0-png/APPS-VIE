@@ -343,10 +343,12 @@ Config.PRODUCTS = {
 	LuckPotion = { id = 0, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
 	StarterPack = { id = 0, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
 	ExclusiveEgg = { id = 0, name = "Œuf exclusif Mythique", emoji = "🥚", desc = "Un œuf Mythique placé directement dans ta base (il faut une place libre)." },
+	Revive = { id = 0, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
 	CoinPack = { id = 0, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 2, eggs = 3 }
 Config.EXCLUSIVE_EGG_TIER = 5
+Config.REVIVE = { offerSeconds = 20, iframes = 4 } -- offre de relance après une défaite au château (non bloquante), invulnérabilité après la relance
 Config.COIN_PACK_MINUTES = 20
 Config.COIN_PACK_MIN = 5000
 -- Un achat n'est proposé que si son ID Roblox a été renseigné (entier > 0). Sinon il reste désactivé, avec un message clair.

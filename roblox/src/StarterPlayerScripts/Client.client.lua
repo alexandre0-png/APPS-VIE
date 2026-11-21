@@ -1080,9 +1080,35 @@ local function hideOffer()
 	offerCard.Visible = false
 end
 local offerBtn = make("TextButton", { BackgroundTransparency = 1, Size = UDim2.new(1, -36, 1, 0), Text = "", ZIndex = 2 }, offerCard)
+local offerMode = "bonus" -- "bonus" (achat de boost) ou "revive" (relance au château)
 offerBtn.Activated:Connect(function()
 	hideOffer()
-	openPanel("bonus")
+	if offerMode == "revive" then
+		local def = Config.PRODUCTS.Revive
+		if Config.purchasable(def) then
+			MarketplaceService:PromptProductPurchase(player, def.id)
+		end
+	else
+		openPanel("bonus")
+	end
+end)
+-- Relance au château : après une défaite, carte non bloquante « Relancer maintenant » (20 s), seulement si le produit est disponible (ID renseigné).
+task.spawn(function()
+	while true do
+		pcall(function()
+			local until_ = player:GetAttribute("ReviveUntil")
+			local active = type(until_) == "number" and until_ > os.time() and Config.purchasable(Config.PRODUCTS.Revive)
+			if active and not (offerCard.Visible and offerMode == "revive") then
+				offerMode = "revive"
+				offerToken += 1
+				offerCard.Text = "   " .. Config.PRODUCTS.Revive.emoji .. " Relancer maintenant ›"
+				offerCard.Visible = true
+			elseif not active and offerCard.Visible and offerMode == "revive" then
+				hideOffer()
+			end
+		end)
+		task.wait(0.5)
+	end
 end)
 offerClose.Activated:Connect(hideOffer)
 local function tryOffer(ev)
@@ -1093,6 +1119,7 @@ local function tryOffer(ev)
 	if not o then
 		return
 	end
+	offerMode = "bonus"
 	offerShown += 1
 	offerLast = os.clock()
 	offerToken += 1
