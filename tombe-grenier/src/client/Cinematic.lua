@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Timeline = require(Shared.CinematicTimeline)
+local Kit = require(Shared.CinematicKit)
 
 local Cinematic = {}
 
@@ -241,6 +242,8 @@ function Cinematic.play(name, gui, onDone)
 		end
 		return
 	end
+	-- Un plan du CinematicKit en cours est passé : une seule caméra à la fois
+	pcall(Kit.skip)
 	if current then
 		current.done = true
 		if current.tween then
@@ -376,7 +379,7 @@ function Cinematic.play(name, gui, onDone)
 end
 
 function Cinematic.isPlaying()
-	return current ~= nil and not current.done
+	return (current ~= nil and not current.done) or Kit.isPlaying()
 end
 
 return Cinematic

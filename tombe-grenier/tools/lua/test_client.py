@@ -70,9 +70,9 @@ class TestRealClient(unittest.TestCase):
     def test_inputs_and_long_run(self):
         lua = boot()
         for k in KEYS:
-            lua.execute('keyDown("Enum.KeyCode.%s")' % k)
+            lua.execute('keyDown("KeyCode.%s")' % k)
             lua.execute("advance(0.3)")
-            lua.execute('keyUp("Enum.KeyCode.%s")' % k)
+            lua.execute('keyUp("KeyCode.%s")' % k)
         lua.execute("advance(60)")
         self.check(lua)
 

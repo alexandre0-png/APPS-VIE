@@ -33,6 +33,44 @@ local function safeSpawn(label, fn)
 	task.spawn(isolate(label, fn))
 end
 
+-- Effets et plans de caméra : un module en erreur laisse le jeu sans effet, jamais sans interface
+local function optionalModule(name, source, fallback)
+	local ok, module = pcall(require, source)
+	if ok and typeof(module) == "table" then
+		return module
+	end
+	warn(("[Client] module %s : erreur : %s"):format(name, tostring(module)))
+	return fallback
+end
+local VfxKit = optionalModule("VfxKit", Shared.VfxKit, {
+	play = function()
+		return false
+	end,
+	quality = function()
+		return "bas"
+	end,
+})
+local CinematicKit = optionalModule("CinematicKit", Shared.CinematicKit, {
+	run = function()
+		return false
+	end,
+	skip = function()
+		return false
+	end,
+	isPlaying = function()
+		return false
+	end,
+})
+local UiFx = optionalModule("UiFx", script.UiFx, {
+	bounceIn = function() end,
+	countUp = function() end,
+	press = function() end,
+	shine = function() end,
+	floatText = function() end,
+	vignette = function() end,
+	pulseScreen = function() end,
+})
+
 local okCinematic, Cinematic = pcall(require, script.Cinematic)
 if not okCinematic then
 	warn("[Client] module Cinematic : erreur : " .. tostring(Cinematic))
@@ -835,6 +873,7 @@ local function showBanner(frame, role, title, sub, hold)
 	frame.Position = home - UDim2.fromOffset(0, 40)
 	frame.BackgroundTransparency = 0.04
 	frame.Visible = true
+	UiFx.bounceIn(frame, 0.4)
 	TweenService
 		:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = home })
 		:Play()
@@ -855,12 +894,87 @@ local function showBanner(frame, role, title, sub, hold)
 end
 
 -- Étape accomplie : lueur dorée brève, bannière « Étape n sur N » et le nouvel objectif
+-- Effets visuels et plans de caméra (VfxKit, CinematicKit) : qualité selon l'appareil, jamais en danger, toujours sous pcall
+local function vfxQuality()
+	local vfxSettings = Config.Vfx or {}
+	local camera = workspace.CurrentCamera
+	local size = camera and camera.ViewportSize
+	local override = vfxSettings.Quality ~= "auto" and vfxSettings.Quality or nil
+	return VfxKit.quality(
+		{ touch = UserInputService.TouchEnabled, width = size and size.X, height = size and size.Y },
+		override
+	)
+end
+local function playVfx(name, position, theme, adornee)
+	if Config.Vfx and Config.Vfx.Enabled == false then
+		return false
+	end
+	if typeof(position) ~= "Vector3" then
+		return false
+	end
+	return VfxKit.play(name, position, { quality = vfxQuality(), theme = theme, adornee = adornee })
+end
+local function myRootPosition()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	return root and root.Position or nil
+end
+local function cinematicState()
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return {
+		chasing = workspace:GetAttribute("MonsterChasing") == true,
+		hidden = player:GetAttribute("Hidden") == true,
+		health = humanoid and humanoid.Health or 0,
+		monsterDistance = player:GetAttribute("MonsterDistance"),
+		busy = Cinematic.isPlaying(),
+	}
+end
+local function runPlan(name, anchor, focus)
+	local cineSettings = Config.Cinematics
+	if not cineSettings or cineSettings.Enabled ~= true or cineSettings.Kit == false then
+		return false
+	end
+	local started = CinematicKit.run(name, {
+		gui = gui,
+		anchor = anchor,
+		focus = focus,
+		state = cinematicState,
+		audio = function(key)
+			Audio.fire(key, gui)
+		end,
+		vfx = function(effect, position, theme)
+			playVfx(effect, position, theme)
+		end,
+	})
+	return started == true
+end
+-- Dernière cible d'objectif connue : l'objet qui vient d'être utilisé quand l'étape change
+local currentTarget = nil
+safeConnect(player:GetAttributeChangedSignal("ObjectiveTarget"), "Cible objectif", function()
+	local value = player:GetAttribute("ObjectiveTarget")
+	currentTarget = typeof(value) == "Vector3" and value or nil
+end)
+local PLAN_FOR_STEP = {
+	coffret = "objet_precieux",
+	key = "objet_precieux",
+	cave = "porte_ouvre",
+	retour = "sortie_soussol",
+	enfant = "enfant_retrouve",
+}
+
 safeConnect(Remotes.get("Reveal").OnClientEvent, "Remote Reveal", function(data)
 	if typeof(data) ~= "table" or typeof(data.n) ~= "number" or typeof(data.total) ~= "number" then
 		return
 	end
 	flash(Color3.fromRGB(255, 220, 140), 0.22, 0.6)
 	Audio.fire("chuchotement", gui)
+	UiFx.pulseScreen(UserInputService.TouchEnabled)
+	playVfx("aura_runique", myRootPosition())
+	local plan = PLAN_FOR_STEP[data.step]
+	if plan and currentTarget then
+		runPlan(plan, currentTarget)
+	end
 	showBanner(
 		revealBanner,
 		Reveal.role(data.n, data.total),
@@ -967,13 +1081,30 @@ safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
 		flash(Color3.new(1, 1, 1), 0.6, 0.15)
 		startShake()
 		Audio.play("stinger_peur", gui, { lifetime = 3 })
+		playVfx("onde_de_choc", myRootPosition())
+		UiFx.vignette(gui, Color3.fromRGB(90, 15, 25), 0.3, 0.7)
 		-- le son du débusquage est joué côté serveur (PlayerState.unhide)
 	elseif data.kind == "Read" then
 		readDocument()
 	elseif data.kind == "Cine" then
-		Cinematic.play(data.name, gui)
 		if data.name == "apparition" then
+			-- Plan court du CinematicKit ; sans lui, la cinématique d'origine
+			local monster = workspace:FindFirstChild("Monster")
+			local rootPart = monster and monster:FindFirstChild("HumanoidRootPart")
+			if not runPlan("apparition_monstre", nil, rootPart and rootPart.Position or nil) then
+				Cinematic.play(data.name, gui)
+			end
 			reactToMonster()
+		elseif data.name == "win" then
+			if not runPlan("fuite_finale") then
+				Cinematic.play(data.name, gui)
+			end
+		elseif data.name == "arrival" then
+			Cinematic.play(data.name, gui, function()
+				runPlan("reveil_cercueil")
+			end)
+		else
+			Cinematic.play(data.name, gui)
 		end
 	elseif data.kind == "Intro" then
 		restartButton.Visible = false
@@ -992,6 +1123,8 @@ safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
 			endingVisual(data.reason)
 			restartButton.Visible = true
 			quitButton.Visible = true
+			UiFx.bounceIn(restartButton)
+			UiFx.shine(restartButton)
 		end)
 	end
 end)
@@ -1020,6 +1153,7 @@ end
 local function soundOnPickup(before)
 	if SoundRules.pickedUp(before, inventoryCopy()) then
 		Audio.fire("cle_ramassee", gui)
+		UiFx.floatText(gui, "Trouvé", UDim2.fromScale(0.5, 0.62))
 	end
 end
 
@@ -1039,6 +1173,32 @@ local function refreshInventory()
 	end
 	inventoryLabel.Text = table.concat(lines, "\n")
 end
+-- Le compteur de souvenirs défile quand il augmente
+local shownPhotos = 0
+local function animateCounters()
+	if inventory.photos > shownPhotos then
+		local from = shownPhotos
+		shownPhotos = inventory.photos
+		UiFx.countUp(inventoryLabel, from, inventory.photos, 0.5, function(n)
+			local lines = {
+				("Souvenirs %d/%d"):format(n, inventory.photosRequired),
+				("Documents %d/%d"):format(inventory.docs, inventory.docsTotal),
+			}
+			if inventory.smallKey then
+				table.insert(lines, "Petite clé")
+			end
+			if inventory.caveKey then
+				table.insert(lines, "Clé de la cave")
+			end
+			if inventory.hasKey then
+				table.insert(lines, "Clé rouillée")
+			end
+			return table.concat(lines, "\n")
+		end)
+	else
+		shownPhotos = inventory.photos
+	end
+end
 
 -- Progression de l'équipe (photos, clé de la sortie) : envoyée par le serveur, affichée ici
 safeConnect(Remotes.get("HUD").OnClientEvent, "Remote HUD", function(data)
@@ -1048,6 +1208,7 @@ safeConnect(Remotes.get("HUD").OnClientEvent, "Remote HUD", function(data)
 		inventory.photosRequired = data.photosRequired or 3
 		inventory.hasKey = data.hasKey == true
 		refreshInventory()
+		animateCounters()
 		soundOnPickup(before)
 	end
 end)
@@ -1290,6 +1451,7 @@ for _, action in ipairs(ACTIONS) do
 		b.Visible = false
 		b.Parent = gui
 		UiStyle.apply(b, Theme.roleForAction(action.name), { transparency = 0.08 })
+		UiFx.press(b)
 		if action.down then
 			safeConnect(b.MouseButton1Down, "action", action.down)
 		end
@@ -1329,6 +1491,40 @@ safeSpawn("actions", function()
 	while true do
 		pcall(refreshActions)
 		task.wait(0.25)
+	end
+end)
+
+-- Lueur sur l'objet de l'étape active et spirale de poussière au passage du monstre (rares, plafonnées par VfxKit)
+safeSpawn("effets d'ambiance", function()
+	local sinceSpark, sinceDust = 0, 0
+	while true do
+		task.wait(1)
+		sinceSpark += 1
+		sinceDust += 1
+		if not Cinematic.isPlaying() then
+			local ambient = Config.Vfx or {}
+			local here = myRootPosition()
+			if
+				here
+				and currentTarget
+				and sinceSpark >= (ambient.TargetSparkInterval or 6)
+				and (currentTarget - here).Magnitude < 45
+			then
+				sinceSpark = 0
+				playVfx("lueur_enigme", currentTarget)
+			end
+			local monster = workspace:FindFirstChild("Monster")
+			local rootPart = monster and monster:FindFirstChild("HumanoidRootPart")
+			if
+				here
+				and rootPart
+				and sinceDust >= (ambient.MonsterDustInterval or 4)
+				and (rootPart.Position - here).Magnitude < 30
+			then
+				sinceDust = 0
+				playVfx("spirale_montee", rootPart.Position - Vector3.new(0, 2.5, 0), "pale")
+			end
+		end
 	end
 end)
 

@@ -62,6 +62,19 @@ NAMES = {
     "Telephone": "téléphone ancien",
     "ToileAraignee": "toile d'araignée",
     "Valise": "valise",
+    "VfxCercle": "vfx cercle runique",
+    "VfxAiles": "vfx ailes",
+    "VfxHalo": "vfx halo",
+    "VfxRayons": "vfx rayons",
+    "VfxEtoile": "vfx etoile",
+    "VfxCristaux": "vfx cristaux",
+    "VfxOnde": "vfx onde",
+    "VfxTorii": "vfx torii",
+    "VfxSpirale": "vfx spirale",
+    "VfxPilier": "vfx pilier lumiere",
+    "VfxEtincelles": "vfx etincelles",
+    "VfxCone": "vfx cone lumiere",
+    "VfxBouclier": "vfx bouclier",
     "Plinthe": "plinthe bois",
     "Moulure": "moulure plafond",
     "FenetreRideaux": "fenêtre rideaux",
@@ -132,7 +145,7 @@ class TestIdsAndLoader(unittest.TestCase):
     def test_every_plan_names_a_loaded_model(self):
         fit = read("src", "shared", "ModelFit.lua")
         planned = set(re.findall(r'\["([^"]+)"\] = \{ mode', fit))
-        self.assertEqual(planned, set(NAMES.values()))  # un plan par modèle de la bibliothèque
+        self.assertEqual(planned, {n for n in NAMES.values() if not n.startswith("vfx ")})  # un plan par modèle posé (les effets n'en ont pas)
 
 
 class TestModelFit(unittest.TestCase):

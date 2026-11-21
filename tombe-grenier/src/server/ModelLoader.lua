@@ -113,6 +113,19 @@ local ASSET_NAMES = {
 	Applique = "applique murale",
 	Soupirail = "soupirail",
 	Radiateur = "radiateur fonte",
+	VfxCercle = "vfx cercle runique",
+	VfxAiles = "vfx ailes",
+	VfxHalo = "vfx halo",
+	VfxRayons = "vfx rayons",
+	VfxEtoile = "vfx etoile",
+	VfxCristaux = "vfx cristaux",
+	VfxOnde = "vfx onde",
+	VfxTorii = "vfx torii",
+	VfxSpirale = "vfx spirale",
+	VfxPilier = "vfx pilier lumiere",
+	VfxEtincelles = "vfx etincelles",
+	VfxCone = "vfx cone lumiere",
+	VfxBouclier = "vfx bouclier",
 	Cheminee = "cheminée gothique",
 	Escalier = "escalier Blender",
 	Etagere = "étagère livres",
@@ -220,11 +233,31 @@ function ModelLoader.start(onDone)
 	end
 	local report = { ok = {}, failed = {}, skipped = {} }
 	local finished = false
+	-- Les modèles d'effets sont copiés dans ReplicatedStorage.Vfx : le client les lit pour VfxKit
+	local function publishVfx()
+		pcall(function()
+			local out = ReplicatedStorage:FindFirstChild("Vfx")
+			if not out then
+				out = Instance.new("Folder")
+				out.Name = "Vfx"
+				out.Parent = ReplicatedStorage
+			end
+			for _, name in ipairs(report.ok) do
+				if name:sub(1, 4) == "vfx " and not out:FindFirstChild(name) then
+					local source = folder:FindFirstChild(name)
+					if source then
+						source:Clone().Parent = out
+					end
+				end
+			end
+		end)
+	end
 	local function finish()
 		if finished then
 			return
 		end
 		finished = true
+		publishVfx()
 		for _, e in ipairs(todo or {}) do
 			table.insert(report.skipped, e.name)
 		end

@@ -363,6 +363,20 @@ Config.Assets = {
 	Applique = 114023857878257, -- applique murale
 	Soupirail = 103729918302456, -- soupirail
 	Radiateur = 113203803952444, -- radiateur fonte
+	-- Modèles d'effets (pièces blanches `Nom__FFFFFF`, recolorées par VfxKit) : copiés dans ReplicatedStorage.Vfx pour le client
+	VfxCercle = 78887954880607, -- vfx cercle runique
+	VfxAiles = 139237669898830, -- vfx ailes
+	VfxHalo = 123922819073158, -- vfx halo
+	VfxRayons = 88635068911286, -- vfx rayons
+	VfxEtoile = 73454147532566, -- vfx etoile
+	VfxCristaux = 84932789634035, -- vfx cristaux
+	VfxOnde = 125557026046168, -- vfx onde
+	VfxTorii = 105301464189354, -- vfx torii
+	VfxSpirale = 130478050046509, -- vfx spirale
+	VfxPilier = 136359342334671, -- vfx pilier lumiere
+	VfxEtincelles = 116678428336273, -- vfx etincelles
+	VfxCone = 98452721754905, -- vfx cone lumiere
+	VfxBouclier = 135593787305812, -- vfx bouclier
 	OmbreRampante = 101328489566505, -- le monstre : silhouette sombre, masque blanc, yeux rouges, ~2,5
 	Front = {},
 	HubBibliotheque = 9904549498, -- bibliothèque (décor du hub : étagères) ; même modèle que « bibliothèque » (ModelLoader)
@@ -391,6 +405,7 @@ Config.Cinematics = {
 	Sealed = true, -- fin 4, « le piège »
 	Truth = true, -- fin 3, « la vérité »
 	SkipButton = true,
+	Kit = true, -- plans courts du grenier (CinematicKit, 8 s au plus, passables) : réveil, objets précieux, porte, sortie, enfant, fuite
 }
 
 -- Animations : chaque geste peut être coupé seul. Enabled = false coupe tout.
@@ -410,6 +425,19 @@ Config.Animations = {
 	BobAmplitude = 0.08, -- amplitude du balancement de marche (studs)
 	BreathAmplitude = 0.04, -- amplitude de la respiration (studs)
 	ShakeDuration = 0.6, -- durée de la secousse (secondes)
+	UiBounce = true, -- interface : apparition avec rebond et compteur qui défile
+	UiPress = true, -- interface : bouton écrasé au clic
+	UiShine = true, -- interface : balayage de brillance
+	UiFloat = true, -- interface : texte flottant
+	UiPulse = true, -- interface : flash de vignette et pulsation légère de l'image (jamais sur téléphone)
+}
+
+-- Effets visuels (VfxKit). Quality : "auto" (selon l'appareil), "haut", "moyen" ou "bas".
+Config.Vfx = {
+	Enabled = true,
+	Quality = "auto",
+	TargetSparkInterval = 6, -- secondes entre deux lueurs sur l'objet de l'étape active
+	MonsterDustInterval = 4, -- secondes entre deux spirales de poussière au passage du monstre
 }
 
 Config.Ambience = {
