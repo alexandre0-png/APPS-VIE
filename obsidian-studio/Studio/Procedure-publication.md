@@ -21,3 +21,9 @@ Prérequis : la clé API est injectée par le proxy (ne jamais l'écrire). Studi
 - 403 « Scope not authorized » : la clé n'a pas la permission. Permissions actuelles : universe-places écrire, universe écrire, universe.place écrire, Assets lire et écrire.
 - « Could not get the Universe associated with Place » : l'ID donné est un ID d'univers, pas de lieu.
 - Ne jamais mettre la clé dans une commande : le proxy l'ajoute tout seul.
+
+## Clé API v2 (21 nov) : lecture/écriture sur toutes les expériences actuelles
+- Game Passes : `POST https://apis.roblox.com/game-passes/v1/universes/{U}/game-passes` (multipart : name, description, isForSale=true, price) ; liste : `GET .../game-passes/creator?pageSize=N`.
+- Produits : `POST https://apis.roblox.com/developer-products/v2/universes/{U}/developer-products` (name, description, price) puis `PATCH .../{productId}` avec `price` et `isForSale=true` (HTTP 204). Le champ `priceInRobux` est ignoré.
+- Visibilité (PRIVATE/PUBLIC) et description d'expérience : `PATCH /cloud/v2/universes/{U}` répond 200 mais NE CHANGE RIEN. À faire par l'utilisateur dans le Creator Hub.
+- Fichier de lieu : téléchargement impossible (403). Ne jamais publier un lieu existant sans son fichier source.
