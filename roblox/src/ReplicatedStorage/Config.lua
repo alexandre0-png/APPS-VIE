@@ -1004,6 +1004,8 @@ Config.Cinematics = {
 	firstZone = true, -- la première zone débloquée
 	firstRare = true, -- le premier pet rare
 	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	eclosion = true, -- cinématiques d'éclosion (épique court ; légendaire, mythique, cosmique, secret complets)
+	chateau = true, -- entrée et victoire du château
 	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force
 }
 Config.CINE_IDS = { "intro", "tutorial", "firstZone", "firstRare" } -- identifiants mémorisés dans la sauvegarde une fois vus

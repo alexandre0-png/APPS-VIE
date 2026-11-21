@@ -2821,6 +2821,152 @@ do
 	check("Qualité automatique : tactile = Bas, sinon Élevé ; réglage forcé respecté, valeur inconnue ignorée", VK.quality(true) == "low" and VK.quality(false) == "high" and VK.quality(false, "medium") == "medium" and VK.quality(true, "high") == "high" and VK.quality(true, "xx") == "low")
 end
 
+-- CinematicKit : plans, trajectoires, 8 secondes maximum, ralenti, danger, restitution garantie --------------------------------------------
+do
+	suite("CinematicKit : durée = somme des prises, 8 s maximum, trajectoires, ralenti, restitution garantie, passage, deux cinématiques")
+	local CK = luau.load(fs.readFile("roblox/src/ReplicatedStorage/CinematicKit.lua"), { debugName = "CinematicKit" })()
+	local E = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+	local CinemaMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Cinema.lua"), { debugName = "Cinema" })()
+	local Ci = CinemaMod.new(E)
+	local K = CK.new(E, Ci)
+	local function sumDur(def)
+		local t = 0
+		for _, sh in ipairs(def.shots) do
+			t += sh.dur
+		end
+		return t
+	end
+	local plans = {}
+	for _, p in pairs(CK.PLANS) do
+		plans[#plans + 1] = p
+	end
+	for tier = 3, 6 do
+		plans[#plans + 1] = CK.hatchPlan(tier, false)
+	end
+	local under8, sumOk = true, true
+	for _, def in ipairs(plans) do
+		local built, real = K.build(def)
+		under8 = under8 and built ~= nil and real <= CK.MAX_SECONDS + 1e-9
+		if built and not def.shots[1].slow and not def.shots[2] then
+			sumOk = sumOk and math.abs(sumDur(built) - real) < 1e-9
+		end
+	end
+	check("Plans : " .. #plans .. " plans (survol du hub, éclosions, secret, entrée et victoire du château), tous <= 8 s réelles", #plans >= 8 and under8)
+	local nosl = { id = "x", shots = { { dur = 1.5, pos = { 0, 1, 0 }, look = { 0, 0, 0 } }, { dur = 2.5, pos = { 0, 1, 0 }, look = { 0, 0, 0 } } } }
+	local b1, r1 = K.build(nosl)
+	check("Durée d'un plan sans ralenti = somme des prises (4 s)", b1 and math.abs(r1 - 4) < 1e-9 and math.abs(sumDur(b1) - 4) < 1e-9)
+	local long = { id = "long", shots = { { dur = 6, pos = { 0, 1, 0 }, look = { 0, 0, 0 } }, { dur = 6, pos = { 0, 1, 0 }, look = { 0, 0, 0 } } } }
+	local b2, r2 = K.build(long)
+	check("Plan de 12 s : ramené à 8 s (durées réduites proportionnellement)", b2 and math.abs(r2 - 8) < 1e-9 and math.abs(sumDur(b2) - 8) < 1e-9 and math.abs(b2.shots[1].dur - 4) < 1e-9)
+	check("Plan invalide : aucune prise, durée nulle/NaN/négative, position manquante -> refus sans erreur", K.build(nil) == nil and K.build({ shots = {} }) == nil and K.build({ shots = { { dur = 0, pos = { 0, 0, 0 }, look = { 0, 0, 0 } } } }) == nil and K.build({ shots = { { dur = 0 / 0, pos = { 0, 0, 0 }, look = { 0, 0, 0 } } } }) == nil and K.build({ shots = { { dur = 1, look = { 0, 0, 0 } } } }) == nil and K.build({ shots = { { dur = -2, pos = { 0, 0, 0 }, look = { 0, 0, 0 } } } }) == nil)
+	check("Maximum demandé supérieur à 8 s ramené à 8 s", select(2, K.build(long, 99)) <= 8 + 1e-9 and select(2, K.build(long, 3)) <= 3 + 1e-9)
+	local orb = { dur = 3, pos = { 0, 0, 0 }, look = { 5, 2, -3 }, path = "orbit", radius = 10, toRadius = 6, angle0 = 0, angle1 = 3, height = 4, ease = "Sine" }
+	local ok1 = true
+	for i = 0, 20 do
+		local pos, look = K.cameraAt(orb, i / 20)
+		local d = math.sqrt((pos[1] - look[1]) ^ 2 + (pos[3] - look[3]) ^ 2)
+		local expect = 10 + (6 - 10) * K.curve("Sine", i / 20)
+		ok1 = ok1 and math.abs(d - expect) < 1e-6 and math.abs(pos[2] - (look[2] + 4)) < 1e-9
+	end
+	check("Orbite : la caméra reste à la distance voulue du point visé (10 -> 6) et à la hauteur donnée", ok1)
+	local dive = { dur = 1, pos = { 0, 30, 10 }, toPos = { 0, 4, 10 }, look = { 0, 0, 0 }, path = "dive" }
+	local dy0, dy1 = K.cameraAt(dive, 0), K.cameraAt(dive, 1)
+	check("Plongée : descend de 30 à 4 en gardant la cible", dy0[2] == 30 and math.abs(dy1[2] - 4) < 1e-9)
+	local _, _, f0 = K.cameraAt({ dur = 1, pos = { 0, 0, 0 }, look = { 0, 0, 1 }, fov = 70, toFov = 40, path = "dolly" }, 0)
+	local _, _, f1 = K.cameraAt({ dur = 1, pos = { 0, 0, 0 }, look = { 0, 0, 1 }, fov = 70, toFov = 40, path = "dolly" }, 1)
+	check("Zoom dolly : le champ de vision se resserre (70 -> 40) ; travelling : positions de départ et d'arrivée exactes", f0 == 70 and math.abs(f1 - 40) < 1e-9 and (function()
+		local tr = { dur = 1, pos = { 1, 2, 3 }, toPos = { 4, 5, 6 }, look = { 0, 0, 0 }, ease = "Quad" }
+		local a, b = K.cameraAt(tr, 0), K.cameraAt(tr, 1)
+		return a[1] == 1 and a[3] == 3 and math.abs(b[1] - 4) < 1e-9 and math.abs(b[3] - 6) < 1e-9
+	end)())
+	local sh = { shake = 0.6 }
+	local early, late = K.shakeOffset(sh, 0.05, 1.3), K.shakeOffset(sh, 1, 1.3)
+	check("Tremblement : décroît sur la prise (nul à la fin) et nul sans amplitude", math.abs(late[1]) + math.abs(late[2]) + math.abs(late[3]) < 1e-9 and math.abs(early[1]) + math.abs(early[2]) > 0.01 and K.shakeOffset({}, 0.5, 2)[1] == 0)
+	local slowDef = { id = "s", shots = { { dur = 2, pos = { 0, 0, 0 }, look = { 0, 0, 1 }, slow = { at = 0.5, to = 1, scale = 0.5 } } } }
+	local realD = K.realDuration(slowDef.shots[1])
+	check("Ralenti : la durée réelle s'allonge (2 s -> 3 s à moitié vitesse sur la seconde moitié), temps virtuel monotone et complet à la fin", math.abs(realD - 3) < 1e-9 and math.abs(K.virtualElapsed(slowDef, 1) - 1) < 1e-9 and math.abs(K.virtualElapsed(slowDef, 2) - 1.5) < 1e-9 and math.abs(K.virtualElapsed(slowDef, 3) - 2) < 1e-9 and K.virtualElapsed(slowDef, 99) == 2)
+	local prev, mono = -1, true
+	for i = 0, 60 do
+		local v = K.virtualElapsed(CK.PLANS.secret, i * 0.15)
+		mono = mono and v >= prev
+		prev = v
+	end
+	check("Ralenti : le temps virtuel du plan secret ne recule jamais", mono)
+	check("Danger : aucune cinématique à moins de 50 % de pv, juste après un coup, poursuivi, dans une salle à pièges ou mort", K.canPlay({ hp = 100, maxHp = 100, sinceHit = 30 }) and not K.canPlay({ hp = 40, maxHp = 100 }) and not K.canPlay({ hp = 100, maxHp = 100, sinceHit = 1 }) and not K.canPlay({ hp = 100, maxHp = 100, chased = true }) and not K.canPlay({ hp = 100, maxHp = 100, inTrapRoom = true }) and not K.canPlay({ dead = true }) and not K.canPlay(nil))
+	check("Alerte (gardien qui repère) : pas de caméra ; refusée sous 40 % de pv, juste après un coup, pendant le temps de recharge ou passé 3 par session", K.canAlert({ hp = 100, maxHp = 100, sinceHit = 30, chased = true }, 1000, nil, 0) and not K.canAlert({ hp = 30, maxHp = 100 }, 1000, nil, 0) and not K.canAlert({ hp = 100, maxHp = 100, sinceHit = 1 }, 1000, nil, 0) and not K.canAlert({ hp = 100, maxHp = 100 }, 1050, 1000, 1) and K.canAlert({ hp = 100, maxHp = 100 }, 1100, 1000, 1) and not K.canAlert({ hp = 100, maxHp = 100 }, 5000, nil, 3) and CK.ALERT.seconds <= 1.5)
+	check("Éclosions : commun et rare sans cinématique, épique court, légendaire et secret complets", CK.hatchPlan(1) == nil and CK.hatchPlan(2) == nil and #CK.hatchPlan(3).shots == 1 and #CK.hatchPlan(4).shots == 3 and CK.hatchPlan(2, true).id == "secret" and CK.hatchPlan(5).skipOnTap and K.realTotal(CK.hatchPlan(6)) > K.realTotal(CK.hatchPlan(3)))
+	-- lecteur : restitution garantie, passage, deux cinématiques simultanées
+	local function makeHost(failApply, failTake)
+		local h = { taken = 0, given = 0, applied = 0 }
+		function h.takeCamera()
+			if failTake then
+				error("caméra indisponible")
+			end
+			h.taken += 1
+		end
+		function h.giveCameraBack()
+			h.given += 1
+		end
+		function h.apply()
+			h.applied += 1
+			if failApply and h.applied >= 2 then
+				error("erreur d'affichage")
+			end
+		end
+		return h
+	end
+	local simple = { id = "p", shots = { { dur = 1, pos = { 0, 1, 0 }, look = { 0, 0, 0 } }, { dur = 1, pos = { 0, 1, 0 }, look = { 0, 0, 0 } } } }
+	local h1 = makeHost()
+	local R1 = K.runner(h1)
+	check("Lecteur : démarrage, lecture complète en 2 s, caméra prise puis restituée UNE fois", R1.start(simple, 0) == "playing" and h1.taken == 1 and (function()
+		local finished = 0
+		for i = 1, 60 do
+			if R1.update(i * 0.05) == "finished" then
+				finished += 1
+			end
+		end
+		return finished == 1 and h1.given == 1 and not R1.isActive()
+	end)())
+	local h2 = makeHost()
+	local R2 = K.runner(h2)
+	R2.start(simple, 0)
+	R2.update(0.5)
+	check("Passer en cours de prise : la caméra est restituée immédiatement, plus rien ne joue", R2.skip(0.6) == true and h2.given == 1 and not R2.isActive() and R2.update(0.7) == nil)
+	local h3 = makeHost(true)
+	local R3 = K.runner(h3)
+	R3.start(simple, 0)
+	local sawErr = false
+	for i = 1, 20 do
+		if R3.update(i * 0.05) == "error" then
+			sawErr = true
+			break
+		end
+	end
+	check("Erreur pendant la lecture : abandon et caméra restituée (jamais bloquée)", sawErr and h3.given == 1 and not R3.isActive())
+	local h4 = makeHost(false, true)
+	local R4 = K.runner(h4)
+	check("Caméra indisponible au démarrage : plan refusé, restitution tentée, aucun état bloqué", R4.start(simple, 0) == "invalid" and not R4.isActive() and h4.given == 1)
+	local h5 = makeHost()
+	local R5 = K.runner(h5)
+	R5.start(simple, 0)
+	check("Deux cinématiques simultanées : la seconde est refusée (jamais superposées), en file si enchaînée", R5.start({ id = "q", shots = simple.shots }, 0.2) == "refused" and R5.start({ id = "q2", shots = simple.shots }, 0.2, true) == "queued" and h5.taken == 1)
+	R5.abort()
+	check("Abandon (départ du joueur, mort) : caméra restituée, lecteur vide", h5.given >= 1 and not R5.isActive())
+	check("Plan invalide au démarrage : « invalid » sans toucher à la caméra", K.runner(makeHost()).start({ id = "z", shots = {} }, 0) == "invalid")
+	local h6 = makeHost()
+	local R6 = K.runner(h6)
+	R6.start(CK.hatchPlan(6), 0)
+	local reached = 0
+	for i = 1, 400 do
+		local st = R6.update(i * 0.05)
+		reached = i * 0.05
+		if st ~= "playing" then
+			break
+		end
+	end
+	check("Éclosion Cosmique complète jouée en 8 s au plus (" .. string.format("%.1f", reached) .. " s) puis caméra restituée", reached <= 8.1 and h6.given == 1)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -4120,6 +4266,33 @@ do
 			check("Bannière de zone : « DOMAINE DE MARA » affichée en entrant dans le domaine" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), findText(Config.zoneBanner("mara").title) ~= nil)
 		else
 			check("Bannière de zone : le personnage existe pour le test", false)
+		end
+		-- cinématique du CinematicKit (victoire du château) : démarre, ne dépasse pas 8 s, restitue la caméra, aucune erreur
+		do
+			local function findNamed(name)
+				for _, o in ipairs(RT.all) do
+					if rawget(o, "__props").Name == name then
+						return o
+					end
+				end
+				return nil
+			end
+			local cineGui = findNamed("ChipeCine")
+			local notifyRemote
+			for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+				if rawget(d, "__props").Name == "Notify" then
+					notifyRemote = d
+				end
+			end
+			check("Cinématiques : l'interface (bandes, carton de titre, bouton Passer) existe et est cachée au repos", cineGui ~= nil and rawget(cineGui, "__props").Enabled == false)
+			if cineGui and notifyRemote then
+				RT.fire(notifyRemote, "OnClientEvent", "🏆 Château terminé", "fanfare")
+				RT.step(0.6)
+				local playing = rawget(cineGui, "__props").Enabled == true
+				RT.step(9)
+				local finished = rawget(cineGui, "__props").Enabled == false
+				check("Cinématique de victoire : elle démarre, se termine en moins de 8 s et rend la caméra et l'interface" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), playing and finished and #RT.errors == 0)
+			end
 		end
 		-- bannière : distance à la base du joueur ; inventaire à onglets (œufs, pets, boosts, titres, index)
 		check("Bannière de zone : la distance à la base est affichée (« Bois de Mara · N m de ta base »)", findText("Bois de Mara") ~= nil and findText("m de ta base") ~= nil)

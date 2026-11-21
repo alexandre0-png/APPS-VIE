@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX14"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX13"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX15"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX14"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1008,6 +1008,8 @@ Config.Cinematics = {
 	firstZone = true, -- la première zone débloquée
 	firstRare = true, -- le premier pet rare
 	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	eclosion = true, -- cinématiques d'éclosion (épique court ; légendaire, mythique, cosmique, secret complets)
+	chateau = true, -- entrée et victoire du château
 	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force
 }
 Config.CINE_IDS = { "intro", "tutorial", "firstZone", "firstRare" } -- identifiants mémorisés dans la sauvegarde une fois vus
@@ -2094,7 +2096,300 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+-- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
+-- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
+-- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
+-- ralenti et bouton Passer sont appliqués par le client (Cinematics.client.lua) à partir de ces valeurs.
+-- Garanties : jamais plus de 8 secondes réelles (MAX_SECONDS) ; aucune cinématique si le joueur est en danger (`canPlay`) ; la caméra et le contrôle
+-- sont restitués par le client quoi qu'il arrive (fin, passage, erreur, départ). Utilisation : require(CinematicKit).new(Easing, Cinema).
+local CinematicKit = {}
+
+CinematicKit.MAX_SECONDS = 8
+
+-- Plans nommés. Les positions sont { x, y, z } dans le repère de l'ancre (arena, base, pad, rival1..3, castle, world, hubfountain, hubportals).
+-- `slow = { at, to, scale }` : entre ces progressions de la prise (0..1), le temps s'écoule à `scale` (0.35 = ralenti), ce qui allonge la durée réelle.
+CinematicKit.PLANS = {
+	hub_survol = { id = "hub_survol", shots = {
+		{ anchor = "hubfountain", pos = { 0, 30, 70 }, look = { 0, 3, 0 }, toPos = { 0, 18, 40 }, path = "travel", dur = 2.2, ease = "Quint", title = "🥚 Bienvenue !" },
+		{ anchor = "hubportals", pos = { 0, 22, 100 }, look = { 0, 8, -60 }, toPos = { 0, 14, 30 }, toLook = { 0, 8, -80 }, path = "travel", dur = 2.8, ease = "Sine", text = "Choisis un portail : seul, ou avec des amis." },
+	} },
+	secret = { id = "secret", shots = {
+		{ anchor = "pad", pos = { 0, 6, 10 }, look = { 0, 3, 0 }, toPos = { 0, 14, 6 }, path = "dive", dur = 1.4, ease = "Quint", shake = 0.25, title = "✦ ???" },
+		{ anchor = "pad", pos = { 0, 12, 12 }, look = { 0, 3, 0 }, path = "orbit", radius = 12, toRadius = 8, angle0 = 0, angle1 = 2.4, height = 8, dur = 3.4, ease = "Sine", shake = 0.5, slow = { at = 0.35, to = 0.6, scale = 0.4 }, fx = "flash" },
+		{ anchor = "pad", pos = { 0, 5, 9 }, look = { 0, 4, 0 }, path = "dolly", fov = 70, toFov = 46, toPos = { 0, 4, 3 }, dur = 1.4, ease = "Back", title = "✦ SECRET ✦" },
+	} },
+	chateau_entree = { id = "chateau_entree", shots = {
+		{ anchor = "castle", pos = { -40, 16, 34 }, look = { 0, 6, -8 }, toPos = { 40, 14, 34 }, toLook = { 0, 8, -8 }, path = "travel", dur = 2.6, ease = "Sine", title = "🏰 Le Château" },
+		{ anchor = "castle", pos = { 0, 5, 16 }, look = { 0, 7, 0 }, toPos = { 0, 6, 9 }, path = "dolly", fov = 70, toFov = 55, dur = 2.2, ease = "Quint", text = "La herse se lève…", fx = "gate" },
+	} },
+	chateau_victoire = { id = "chateau_victoire", shots = {
+		{ anchor = "castle_chest", pos = { 6, 7, 10 }, look = { 0, 3, 0 }, toPos = { 3, 5, 6 }, path = "dolly", fov = 70, toFov = 52, dur = 1.6, ease = "Quint", slow = { at = 0.4, to = 0.9, scale = 0.35 }, shake = 0.3, fx = "sparks" },
+		{ anchor = "castle_chest", pos = { 0, 6, 11 }, look = { 0, 3, 0 }, path = "orbit", radius = 11, toRadius = 9, angle0 = 0.6, angle1 = 2.0, height = 6, dur = 2.4, ease = "Sine", title = "🏆 Victoire !" },
+	} },
+}
+
+-- Plan d'éclosion selon la rareté (1..6) : plus la rareté monte, plus la caméra s'engage (orbite, zoom, secousse, ralenti, pilier de lumière côté VfxKit).
+-- Commun et Rare : AUCUNE cinématique (les effets 3D de VfxKit suffisent) ; Épique : plan court ; Légendaire et au-delà : plan complet.
+function CinematicKit.hatchPlan(tier, secret)
+	tier = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	if secret then
+		return CinematicKit.PLANS.secret
+	elseif tier <= 2 then
+		return nil
+	elseif tier == 3 then
+		return { id = "eclosion_epique", skipOnTap = true, shots = {
+			{ anchor = "pad", pos = { 0, 8, 12 }, look = { 0, 3, 0 }, toPos = { 0, 5, 7 }, path = "dolly", fov = 70, toFov = 56, dur = 1.6, ease = "Quint", shake = 0.15 },
+		} }
+	end
+	local big = tier >= 5
+	return { id = "eclosion", skipOnTap = true, shots = {
+		{ anchor = "pad", pos = { 0, 7, 12 }, look = { 0, 3, 0 }, path = "orbit", radius = 12, toRadius = 8, angle0 = 0, angle1 = big and 2.2 or 1.6, height = 6, dur = big and 2.4 or 1.8, ease = "Sine" },
+		{ anchor = "pad", pos = { 0, 5, 8 }, look = { 0, 3.2, 0 }, path = "dolly", fov = 70, toFov = big and 44 or 52, toPos = { 0, 4, 4 }, dur = big and 1.8 or 1.2, ease = "Back", shake = big and 0.6 or 0.4, slow = { at = 0.5, to = 1, scale = 0.35 }, fx = "crack" },
+		{ anchor = "pad", pos = { 0, 6, 9 }, look = { 0, 4, 0 }, toPos = { 0, 7, 11 }, path = "travel", fov = big and 52 or 60, toFov = 70, dur = big and 1.6 or 1.2, ease = "Quint", title = nil },
+	} }
+end
+
+-- Plan court « gardien ou chevalier qui repère le joueur » : AUCUN mouvement de caméra (le joueur garde le contrôle, il est en danger) : un à-coup
+-- de champ de vision, un peu de tremblement et un « ❗ » (voir `overlay`). Retourne le descriptif d'effet d'interface.
+CinematicKit.ALERT = { seconds = 1.2, fovPunch = 8, shake = 0.35, title = "❗", cooldown = 90, perSession = 3 }
+
+function CinematicKit.new(Easing, Cinema)
+	local K = {}
+
+	-- Courbe nommée (style de TweenService).
+	function K.curve(style, x)
+		x = Easing.clamp01(x)
+		if style == "Back" then
+			return Easing.outBack(x)
+		elseif style == "Elastic" then
+			return Easing.outElastic(x)
+		elseif style == "Quint" then
+			return 1 - (1 - x) ^ 5
+		elseif style == "Quad" then
+			return Easing.outQuad(x)
+		end
+		return Easing.inOutSine(x)
+	end
+
+	local function lerp(a, b, e)
+		return a + (b - a) * e
+	end
+	local function lerp3(a, b, e)
+		return { lerp(a[1], b[1], e), lerp(a[2], b[2], e), lerp(a[3], b[3], e) }
+	end
+
+	-- Durée RÉELLE d'une prise (le ralenti l'allonge) : dur x (1 + (1/scale - 1) x largeur de la zone lente).
+	function K.realDuration(shot)
+		local s = shot.slow
+		if not s then
+			return shot.dur
+		end
+		local width = math.max(0, math.min(1, s.to) - math.max(0, s.at))
+		return shot.dur * (1 + (1 / math.max(0.05, s.scale) - 1) * width)
+	end
+
+	function K.realTotal(def)
+		local t = 0
+		for _, shot in ipairs(def.shots) do
+			t = t + K.realDuration(shot)
+		end
+		return t
+	end
+
+	-- Plan normalisé : durées réduites proportionnellement si la durée RÉELLE dépasse `maxSeconds` (8 par défaut) ; prise invalide (durée <= 0, NaN) = refus.
+	-- Retourne (définition prête pour Cinema.sequence, durée réelle) ou (nil, raison).
+	function K.build(def, maxSeconds)
+		if type(def) ~= "table" or type(def.shots) ~= "table" or #def.shots == 0 then
+			return nil, "aucune prise"
+		end
+		maxSeconds = (type(maxSeconds) == "number" and maxSeconds > 0) and math.min(maxSeconds, CinematicKit.MAX_SECONDS) or CinematicKit.MAX_SECONDS
+		for i, shot in ipairs(def.shots) do
+			if type(shot.dur) ~= "number" or shot.dur ~= shot.dur or shot.dur <= 0 or type(shot.pos) ~= "table" or type(shot.look) ~= "table" then
+				return nil, "prise invalide (" .. i .. ")"
+			end
+		end
+		local real = K.realTotal(def)
+		local k = real > maxSeconds and (maxSeconds / real) or 1
+		local shots = {}
+		for i, shot in ipairs(def.shots) do
+			local copy = {}
+			for key, v in pairs(shot) do
+				copy[key] = v
+			end
+			copy.dur = shot.dur * k
+			shots[i] = copy
+		end
+		local out = { id = def.id, shots = shots, skipOnTap = def.skipOnTap }
+		return out, real * k
+	end
+
+	-- Temps virtuel (celui des prises) atteint après `realElapsed` secondes réelles : le ralenti fait avancer le temps plus lentement dans sa zone.
+	function K.virtualElapsed(def, realElapsed)
+		local virtual, left = 0, math.max(0, realElapsed)
+		for _, shot in ipairs(def.shots) do
+			local rd = K.realDuration(shot)
+			if left >= rd then
+				virtual = virtual + shot.dur
+				left = left - rd
+			else
+				local s = shot.slow
+				if not s then
+					return virtual + left
+				end
+				local a, b = math.max(0, s.at) * shot.dur, math.min(1, s.to) * shot.dur
+				local slowReal = (b - a) / math.max(0.05, s.scale)
+				if left <= a then
+					return virtual + left
+				elseif left <= a + slowReal then
+					return virtual + a + (left - a) * math.max(0.05, s.scale)
+				end
+				return virtual + b + (left - a - slowReal)
+			end
+		end
+		return virtual
+	end
+
+	-- Caméra à la progression p d'une prise : (position, point visé, champ de vision) dans le repère de l'ancre.
+	function K.cameraAt(shot, p)
+		local e = K.curve(shot.ease or "Sine", p)
+		local fov = lerp(shot.fov or 70, shot.toFov or shot.fov or 70, e)
+		local look = lerp3(shot.look, shot.toLook or shot.look, e)
+		local path = shot.path
+		if path == "orbit" then
+			local r = lerp(shot.radius or 10, shot.toRadius or shot.radius or 10, e)
+			local a = lerp(shot.angle0 or 0, shot.angle1 or (shot.angle0 or 0), e)
+			return { look[1] + math.sin(a) * r, look[2] + (shot.height or 5), look[3] + math.cos(a) * r }, look, fov
+		elseif path == "dive" then
+			return lerp3(shot.pos, shot.toPos or shot.pos, e), look, fov -- plongée : de haut en bas (ou l'inverse) en gardant la cible
+		elseif path == "dolly" then
+			return lerp3(shot.pos, shot.toPos or shot.pos, e), look, fov -- zoom dolly : la caméra avance, le champ de vision se resserre
+		end
+		return lerp3(shot.pos, shot.toPos or shot.pos, e), look, fov -- travelling
+	end
+
+	-- Décalage de caméra dû au tremblement (amplitude shot.shake en studs, décroissante sur la prise, bruit déterministe).
+	function K.shakeOffset(shot, p, time)
+		local amp = shot.shake
+		if not amp or amp <= 0 then
+			return { 0, 0, 0 }
+		end
+		local decay = (1 - Easing.clamp01(p)) ^ 1.5
+		local a = amp * decay
+		return { math.sin(time * 47.3) * a * 0.5, math.sin(time * 61.1 + 1.7) * a * 0.4, math.cos(time * 39.7) * a * 0.3 }
+	end
+
+	-- Le joueur peut-il voir une cinématique maintenant ? ctx = { hp, maxHp, sinceHit (s depuis le dernier coup), chased (poursuivi par un gardien),
+	-- inTrapRoom (dans une salle à pièges du château), dead }. Jamais en danger : peu de pv, coup récent, poursuite, salle à pièges, mort.
+	function K.canPlay(ctx)
+		if type(ctx) ~= "table" or ctx.dead then
+			return false
+		end
+		local maxHp = (type(ctx.maxHp) == "number" and ctx.maxHp > 0) and ctx.maxHp or 100
+		local hp = type(ctx.hp) == "number" and ctx.hp == ctx.hp and ctx.hp or maxHp
+		if hp / maxHp < 0.5 or (type(ctx.sinceHit) == "number" and ctx.sinceHit < 4) or ctx.chased or ctx.inTrapRoom then
+			return false
+		end
+		return true
+	end
+
+	-- Alerte (gardien ou chevalier qui repère le joueur) : pas une cinématique (aucune caméra) ; autorisée même poursuivi, mais pas à moins de 40 % de pv
+	-- ni juste après un coup, avec temps de recharge et nombre maximum par session.
+	function K.canAlert(ctx, now, lastAt, shown)
+		if type(ctx) ~= "table" or ctx.dead then
+			return false
+		end
+		local maxHp = (type(ctx.maxHp) == "number" and ctx.maxHp > 0) and ctx.maxHp or 100
+		local hp = type(ctx.hp) == "number" and ctx.hp == ctx.hp and ctx.hp or maxHp
+		if hp / maxHp < 0.4 or (type(ctx.sinceHit) == "number" and ctx.sinceHit < 2) then
+			return false
+		end
+		if (shown or 0) >= CinematicKit.ALERT.perSession or (lastAt and now - lastAt < CinematicKit.ALERT.cooldown) then
+			return false
+		end
+		return true
+	end
+
+	-- Gestionnaire de lecture : une seule cinématique à la fois (le directeur de Cinema refuse la seconde), passage immédiat, restitution garantie.
+	-- host = { takeCamera(), giveCameraBack(), apply(shotIndex, progress, shot) } ; toute erreur de host.apply restitue la caméra et abandonne.
+	-- Retourne un objet { start(def, now), update(now), skip(now), abort(), isActive(), restored } pour le client et les tests.
+	function K.runner(host)
+		local R = { restored = 0 }
+		local director = Cinema.director()
+		local current = nil
+		local function restore()
+			if current then
+				current = nil
+			end
+			R.restored = R.restored + 1
+			pcall(host.giveCameraBack)
+		end
+		-- Retourne "playing", "queued" ou "refused" (ou "invalid").
+		function R.start(def, now, chain)
+			local built, real = K.build(def)
+			if not built then
+				return "invalid"
+			end
+			local seq = Cinema.sequence(built)
+			if not seq then
+				return "invalid"
+			end
+			local result = director.request(def.id, seq, now, chain)
+			if result == "playing" then
+				current = { def = built, startedAt = now, seq = seq, real = real }
+				local ok = pcall(host.takeCamera)
+				if not ok then
+					director.abort()
+					restore()
+					return "invalid"
+				end
+			end
+			return result
+		end
+		function R.update(now)
+			if not current then
+				return nil
+			end
+			local virtual = K.virtualElapsed(current.def, now - current.startedAt)
+			local id, ev = director.update(current.startedAt + virtual)
+			if not id or (ev and ev.finished) then
+				restore()
+				return "finished"
+			end
+			if ev and ev.shot then
+				local ok = pcall(host.apply, ev.shot, ev.progress, current.def.shots[ev.shot])
+				if not ok then
+					director.abort()
+					restore()
+					return "error"
+				end
+			end
+			return "playing"
+		end
+		function R.skip(now)
+			if director.skip(now) then
+				restore()
+				return true
+			end
+			return false
+		end
+		function R.abort()
+			director.abort()
+			if current then
+				restore()
+			end
+		end
+		function R.isActive()
+			return director.isActive()
+		end
+		return R
+	end
+
+	return K
+end
+
+return CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -2158,7 +2453,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -2499,7 +2794,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -2556,7 +2851,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -2668,7 +2963,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -3293,7 +3588,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -3366,7 +3661,7 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -3495,7 +3790,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -3724,7 +4019,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX21"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX15"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX22"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX16"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5959,7 +6254,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -6410,7 +6705,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -8067,7 +8362,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -8211,7 +8506,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -8224,7 +8519,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -8789,7 +9084,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX29"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX28"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX22"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX30"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX29"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10372,7 +10667,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX23"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -10930,7 +11225,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX24"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX25"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -10949,6 +11244,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Easing = require(Shared:WaitForChild("Easing"))
 local Cinema = require(Shared:WaitForChild("Cinema")).new(Easing)
+local CinematicKitMod = require(Shared:WaitForChild("CinematicKit"))
+local Kit = CinematicKitMod.new(Easing, Cinema)
+local Castle = require(Shared:WaitForChild("Castle"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RAction = Remotes:WaitForChild("Action")
 
@@ -11033,13 +11331,32 @@ local skipAllBtn = button("Tout passer", -132, 120)
 skipAllBtn.BackgroundColor3 = Color3.fromRGB(75, 91, 81)
 skipAllBtn.TextColor3 = Color3.fromRGB(244, 255, 246)
 
+-- Carton de titre au centre (cinématiques à titre : « 🏰 Le Château », « ✦ SECRET ✦ »), jamais cliquable.
+local titleCard = Instance.new("TextLabel")
+titleCard.BackgroundTransparency = 1
+titleCard.AnchorPoint = Vector2.new(0.5, 0.5)
+titleCard.Position = UDim2.fromScale(0.5, 0.42)
+titleCard.Size = UDim2.fromScale(0.8, 0.14)
+titleCard.Font = Enum.Font.GothamBlack
+titleCard.TextScaled = true
+titleCard.TextColor3 = Color3.fromRGB(255, 244, 220)
+titleCard.TextStrokeTransparency = 0.3
+titleCard.TextTransparency = 1
+titleCard.Text = ""
+titleCard.Active = false
+titleCard.Parent = gui
+local titleLimit = Instance.new("UITextSizeConstraint")
+titleLimit.MaxTextSize = 54
+titleLimit.MinTextSize = 18
+titleLimit.Parent = titleCard
+
 local TITLES = { intro = "🎬 Il était une fois…", tutorial = "🎓 Comment jouer", firstZone = "🔓 Nouveau domaine", firstRare = "✨ Pet rare !" }
 
 ---------------------------------------------------------------- Caméra : toujours restituée
 local function takeCamera()
 	local cam = workspace.CurrentCamera
 	if cam and not saved then
-		saved = { cameraType = cam.CameraType, subject = cam.CameraSubject }
+		saved = { cameraType = cam.CameraType, subject = cam.CameraSubject, fov = cam.FieldOfView }
 		cam.CameraType = Enum.CameraType.Scriptable
 	end
 end
@@ -11050,6 +11367,9 @@ local function giveCameraBack()
 		cam.CameraType = (saved.cameraType == Enum.CameraType.Scriptable) and Enum.CameraType.Custom or saved.cameraType
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		cam.CameraSubject = hum or saved.subject
+		if type(saved.fov) == "number" then
+			cam.FieldOfView = saved.fov -- le champ de vision d'une cinématique n'est jamais gardé
+		end
 	end
 	saved = nil
 end
@@ -11119,6 +11439,17 @@ local anchors = {
 		return rivalCF(3)
 	end,
 	base = plotCFrame,
+	world = function(ctx)
+		return ctx and ctx.cf or nil
+	end,
+	castle = function()
+		local x, z = Castle.toWorld(1, 0, 0)
+		return CFrame.new(x, 0, z)
+	end,
+	castle_chest = function()
+		local x, z = Castle.toWorld(Castle.ROOMS, 0, Castle.ROOM_LENGTH - 5)
+		return CFrame.new(x, 0, z)
+	end,
 	pad = function(ctx)
 		local pc = plotCFrame()
 		if not pc or not ctx or not ctx.slot then
@@ -11164,14 +11495,28 @@ local function onShot(id, index)
 	caption.TextTransparency = 1
 	TweenService:Create(caption, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
 	header.Text = (TITLES[id] or "🎬") .. "   " .. index .. "/" .. #plan.seq.shots
-	if shot.fx == "sparkle" then
+	if shot.title then
+		titleCard.Text = shot.title
+		titleCard.TextTransparency = 1
+		TweenService:Create(titleCard, TweenInfo.new(0.35, Enum.EasingStyle.Back), { TextTransparency = 0 }):Play()
+		task.delay(math.max(0.8, shot.dur - 0.5), function()
+			TweenService:Create(titleCard, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+		end)
+	end
+	if shot.fx == "sparkle" or shot.fx == "sparks" or shot.fx == "crack" or shot.fx == "flash" then
 		pcall(sparkleAt, toWorld(plan.resolved[index], shot.look) + Vector3.new(0, 2, 0))
 	end
 end
 
 local function step()
 	local now = os.clock()
-	local id, ev = director.update(now)
+	local cur = director.current
+	local curPlan = cur and plans[cur.id]
+	local tnow = now
+	if curPlan and curPlan.kit then
+		tnow = curPlan.requestedAt + Kit.virtualElapsed(curPlan.def, now - curPlan.requestedAt) -- le ralenti fait avancer le temps des prises plus lentement
+	end
+	local id, ev = director.update(tnow)
 	if not id then
 		exitCinematic()
 		return
@@ -11194,16 +11539,24 @@ local function step()
 		activeId = id
 		plan.startedAt = now
 	end
-	if now - plan.startedAt > plan.seq.total + Config.Cinematics.watchdog then
+	if now - plan.startedAt > (plan.kit and Kit.realTotal(plan.def) or plan.seq.total) + Config.Cinematics.watchdog then
 		return emergency("délai de sécurité dépassé")
 	end
 	if ev.shotChanged then
 		onShot(id, ev.shot)
 	end
-	local pos, look = Cinema.cameraAt(plan.seq.shots[ev.shot], ev.progress)
 	local cam = workspace.CurrentCamera
 	local acf = plan.resolved[ev.shot]
-	cam.CFrame = CFrame.lookAt(toWorld(acf, pos), toWorld(acf, look))
+	if plan.kit then
+		local shot = plan.seq.shots[ev.shot]
+		local kpos, klook, kfov = Kit.cameraAt(shot, ev.progress)
+		local off = Kit.shakeOffset(shot, ev.progress, now)
+		cam.CFrame = CFrame.lookAt(toWorld(acf, kpos) + Vector3.new(off[1], off[2], off[3]), toWorld(acf, klook))
+		cam.FieldOfView = kfov
+	else
+		local pos, look = Cinema.cameraAt(plan.seq.shots[ev.shot], ev.progress)
+		cam.CFrame = CFrame.lookAt(toWorld(acf, pos), toWorld(acf, look))
+	end
 	skipAllBtn.Visible = #director.queue > 0
 end
 
@@ -11235,9 +11588,16 @@ local function warnOnce(name, err)
 end
 
 -- Retourne true si la cinématique a démarré ou été mise en file. Ne lève jamais d'erreur.
-local function begin(id, def, ctx, chain)
-	if failed[id] or not Config.cineEnabled(id) then
+local function begin(id, def, ctx, chain, kit)
+	if failed[id] or not (kit and Config.Cinematics.enabled == true or Config.cineEnabled(id)) then
 		return false
+	end
+	if kit then
+		local built = Kit.build(def) -- 8 secondes réelles au plus, prises validées
+		if not built then
+			return false
+		end
+		def = built
 	end
 	local ok, seq = pcall(Cinema.sequence, def)
 	if not ok or not seq then
@@ -11255,12 +11615,14 @@ local function begin(id, def, ctx, chain)
 		resolved[i] = cf
 	end
 	local started = false
-	Easing.guard(Config.cineEnabled, failed, id, function()
+	Easing.guard(kit and function()
+		return Config.Cinematics.enabled == true
+	end or Config.cineEnabled, failed, id, function()
 		local result = director.request(id, seq, os.clock(), chain)
 		if result == "refused" then
 			return
 		end
-		plans[id] = { seq = seq, resolved = resolved, startedAt = nil }
+		plans[id] = { seq = seq, resolved = resolved, startedAt = nil, kit = kit == true, def = def, requestedAt = os.clock(), skipOnTap = def.skipOnTap == true }
 		started = true
 		if result == "playing" then
 			enter()
@@ -11292,6 +11654,12 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or not director.isActive() then
 		return
 	end
+	-- une cinématique d'éclosion se passe d'un simple tap dans le monde (un tap sur l'interface, par exemple l'inventaire, ne la passe pas et ne la bloque pas)
+	local cp = director.current and plans[director.current.id]
+	if cp and cp.skipOnTap and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+		skipCurrent()
+		return
+	end
 	if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonB then
 		skipCurrent()
 	end
@@ -11299,7 +11667,7 @@ end)
 
 ---------------------------------------------------------------- Abandon : le joueur est attaqué ou meurt
 Remotes:WaitForChild("Notify").OnClientEvent:Connect(function(_msg, sfx)
-	if sfx == "caught" and director.isActive() then
+	if (sfx == "caught" or sfx == "hurt") and director.isActive() then
 		emergency() -- un gardien ou un voleur s'en prend à lui : retour immédiat au jeu
 	end
 end)
@@ -11370,6 +11738,99 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 	begin("firstRare", Config.cineFirstRare(Config.petName(info.p, info.s, info.m), Config.TIERS[def.tier].name, "+" .. Config.fmt(info.inc) .. "/s."), { slot = info.slot }, false)
 end)
 
+---------------------------------------------------------------- Plans du CinematicKit : éclosions, château, alerte des gardiens
+-- Suivi du danger : dernier coup reçu, dernière alerte de gardien (poursuite). Aucune cinématique à caméra si le joueur est en danger.
+local lastHurtAt, lastAlertAt, alertShown, lastAlertFx, lastHatchCine = -100, -100, 0, nil, -100
+local function dangerCtx(ignoreTrapRoom)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local inRoom = false
+	if root and not ignoreTrapRoom then
+		inRoom = Castle.roomAt(root.Position.X, root.Position.Z) ~= nil
+	end
+	return {
+		hp = player:GetAttribute("Hp"), maxHp = player:GetAttribute("MaxHp"), sinceHit = os.clock() - lastHurtAt,
+		chased = os.clock() - lastAlertAt < 8, inTrapRoom = inRoom, dead = not (hum and hum.Health > 0),
+	}
+end
+
+-- Alerte « ❗ » (gardien ou chevalier qui repère le joueur) : aucun mouvement de caméra ; un à-coup de champ de vision, un carton et un peu de tremblement.
+local function alertPunch()
+	if not Kit.canAlert(dangerCtx(true), os.clock(), lastAlertFx, alertShown) then
+		return
+	end
+	lastAlertFx = os.clock()
+	alertShown += 1
+	local A = CinematicKitMod.ALERT
+	pcall(function()
+		local cam = workspace.CurrentCamera
+		local baseFov = cam.FieldOfView
+		TweenService:Create(cam, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { FieldOfView = baseFov - A.fovPunch }):Play()
+		task.delay(0.12, function()
+			TweenService:Create(cam, TweenInfo.new(A.seconds - 0.12, Enum.EasingStyle.Sine), { FieldOfView = baseFov }):Play()
+		end)
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.AnchorPoint = Vector2.new(0.5, 0.5)
+		label.Position = UDim2.fromScale(0.5, 0.3)
+		label.Size = UDim2.fromOffset(120, 100)
+		label.Font = Enum.Font.GothamBlack
+		label.TextScaled = true
+		label.TextColor3 = Color3.fromRGB(255, 80, 70)
+		label.TextStrokeTransparency = 0.2
+		label.Text = A.title
+		label.Active = false
+		local g = Instance.new("ScreenGui")
+		g.Name = "ChipeAlert"
+		g.ResetOnSpawn = false
+		g.DisplayOrder = 55
+		label.Parent = g
+		g.Parent = player:WaitForChild("PlayerGui")
+		TweenService:Create(label, TweenInfo.new(A.seconds, Enum.EasingStyle.Quint), { TextTransparency = 1, Size = UDim2.fromOffset(180, 150) }):Play()
+		Debris:AddItem(g, A.seconds + 0.2)
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if hum then -- tremblement léger (décalage de caméra du personnage), remis à zéro quoi qu'il arrive
+			task.spawn(function()
+				local t0 = os.clock()
+				while os.clock() - t0 < A.seconds and hum.Parent do
+					local k = (1 - (os.clock() - t0) / A.seconds) * A.shake * 0.25
+					hum.CameraOffset = Vector3.new(math.sin(os.clock() * 60) * k, math.cos(os.clock() * 53) * k, 0)
+					task.wait()
+				end
+				hum.CameraOffset = Vector3.zero
+			end)
+		end
+	end)
+end
+
+Remotes:WaitForChild("Notify").OnClientEvent:Connect(function(msg, sfx)
+	if sfx == "hurt" or sfx == "caught" then
+		lastHurtAt = os.clock()
+	elseif sfx == "growl" or sfx == "bark" then
+		lastAlertAt = os.clock()
+		alertPunch()
+	elseif sfx == "fanfare" and Config.cineEnabled("chateau") and Kit.canPlay(dangerCtx(true)) then
+		begin("chateau_victoire", CinematicKitMod.PLANS.chateau_victoire, {}, false, true)
+	elseif sfx == "event" and type(msg) == "string" and msg:find("Le Château", 1, true) and Config.cineEnabled("chateau") and Kit.canPlay(dangerCtx()) then
+		begin("chateau_entree", CinematicKitMod.PLANS.chateau_entree, {}, false, true)
+	end
+end)
+
+-- Éclosion : commun et rare sans cinématique ; épique court ; légendaire, mythique, cosmique et secret complets ; au plus une toutes les 20 s.
+Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
+	local def = Config.PETS[info.p]
+	if not def or not Config.cineEnabled("eclosion") or os.clock() - lastHatchCine < 20 or director.isActive() then
+		return
+	end
+	local plan = CinematicKitMod.hatchPlan(def.tier, def.tier >= 6)
+	if not plan or not Kit.canPlay(dangerCtx()) then
+		return
+	end
+	if begin(plan.id .. "_" .. tostring(def.tier), plan, { slot = info.slot }, false, true) then
+		lastHatchCine = os.clock()
+	end
+end)
+
 -- Revoir (menu Plus) : événement local déclenché par l'interface.
 local replay = Instance.new("BindableEvent")
 replay.Name = "ReplayCinematic"
@@ -11386,7 +11847,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX25"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX26"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -11512,7 +11973,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -11627,7 +12088,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

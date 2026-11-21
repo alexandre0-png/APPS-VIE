@@ -14,7 +14,7 @@ local MAX_REAL_SECONDS = 20 -- temps réel maximum par runtime (jamais d'attente
 function Fake.runtime(opts)
 	local RT = {
 		now = 0, players = {}, errors = {}, prints = {}, warns = {}, teleports = {}, conns = {}, tags = {},
-		remotes = {}, fired = {}, bindToClose = {}, waiting = {}, kicked = {},
+		remotes = {}, fired = {}, bindToClose = {}, waiting = {}, kicked = {}, renderSteps = {},
 	}
 	local fs, luau = opts.fs, opts.luau
 	local startedAt, resumes = realClock(), 0
@@ -399,6 +399,12 @@ function Fake.runtime(opts)
 				RT.resume(w.co)
 			end
 			RT.fire(services.RunService, "Heartbeat", dt)
+			for name, fn in pairs(RT.renderSteps) do -- fonctions liées par BindToRenderStep (caméra des cinématiques)
+				local okR, errR = pcall(fn, dt)
+				if not okR then
+					RT.errors[#RT.errors + 1] = "RenderStep " .. tostring(name) .. " : " .. tostring(errR)
+				end
+			end
 		end
 	end
 
@@ -542,6 +548,12 @@ function Fake.runtime(opts)
 	service("TweenService")
 	service("CollectionService")
 	service("ProximityPromptService")
+	rawget(run, "__props").BindToRenderStep = function(_, name, _, fn)
+		RT.renderSteps[name] = fn
+	end
+	rawget(run, "__props").UnbindFromRenderStep = function(_, name)
+		RT.renderSteps[name] = nil
+	end
 	service("MarketplaceService")
 	rawget(services.MarketplaceService, "__props").UserOwnsGamePassAsync = function() return false end
 	service("MessagingService")
@@ -737,7 +749,12 @@ function Fake.runtime(opts)
 	end
 	local rngState = 99
 	local enum = setmetatable({}, { __index = function(t, k)
-		local sub = setmetatable({}, { __index = function(_, k2) return k .. "." .. k2 end })
+		local sub = setmetatable({}, { __index = function(_, k2)
+			if k == "RenderPriority" then
+				return { Value = 100 + #k2 } -- les priorités de rendu sont lues avec .Value
+			end
+			return k .. "." .. k2
+		end })
 		rawset(t, k, sub)
 		return sub
 	end })
