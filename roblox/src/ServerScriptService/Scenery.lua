@@ -489,19 +489,33 @@ end
 ---------------------------------------------------------------- Chemins en pas japonais
 function Scenery.paths(h, parent, cfg)
 	local n = 0
+	local placed = {}
+	local ringR = cfg.Map.plotRadius - 30
 	local function stones(ax, az, bx, bz, step)
 		local dx, dz = bx - ax, bz - az
 		local len = math.sqrt(dx * dx + dz * dz)
 		local count = math.floor(len / step)
 		for k = 0, count do
 			local t = k / math.max(count, 1)
-			n += 1
-			cyl(h, { Name = "PathStone", Color = rgb(196, 180, 150), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, 4.4, 0.25, Vector3.new(ax + dx * t, 0.18, az + dz * t))
+			local x, z = ax + dx * t, az + dz * t
+			local free = math.abs(math.sqrt(x * x + z * z) - ringR) > 6 -- jamais sur l'anneau de pavés des bases (même niveau = scintillement)
+			for _, o in ipairs(placed) do
+				if math.sqrt((x - o[1]) ^ 2 + (z - o[2]) ^ 2) < 5.2 then
+					free = false -- aux jonctions de deux segments, pas deux pavés l'un sur l'autre
+					break
+				end
+			end
+			if free then
+				placed[#placed + 1] = { x, z }
+				n += 1
+				cyl(h, { Name = "PathStone", Color = rgb(196, 180, 150), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, 4.4, 0.25, Vector3.new(x, 0.18, z))
+			end
 		end
 	end
-	for i = 1, #cfg.RIVALS do
-		local cx, cz = cfg.rivalCenter(i)
-		stones(cx * 0.5, -78, cx, cz + 24, 7)
+	for _, poly in ipairs(cfg.Map.paths) do
+		for k = 1, #poly - 1 do
+			stones(poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2], 16)
+		end
 	end
 	local r = cfg.Map.plotRadius - 30
 	for k = 0, 29 do

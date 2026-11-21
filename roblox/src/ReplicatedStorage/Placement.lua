@@ -47,11 +47,27 @@ function Placement.new(Config)
 	-- Segments de chemin (mêmes extrémités que Scenery.paths) : de la moitié du x du domaine, devant l'arène, jusqu'au domaine.
 	function P.pathSegments()
 		local out = {}
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			out[#out + 1] = { cx * 0.5, -78, cx, cz + 24 }
+		for _, poly in ipairs(M.paths) do
+			for k = 1, #poly - 1 do
+				out[#out + 1] = { poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2] }
+			end
+		end
+		for i = 1, #Config.RIVALS do -- les rampes sont des chemins larges
+			local r = Config.rampOf(i)
+			out[#out + 1] = { r.top[1], r.top[2], r.bottom[1], r.bottom[2] }
 		end
 		return out
+	end
+
+	-- Altitude du sol en (x, z) : la hauteur du plateau d'un domaine si le point est sur ce plateau, sinon 0.
+	function P.groundY(x, z)
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < M.plateauRadius - 1 then
+				return Config.rivalHeight(i)
+			end
+		end
+		return 0
 	end
 
 	-- Pourquoi une empreinte (x, z, r) est interdite : "eau", "chemin", "arène", "domaine", "base", "secret", "bord" ou nil si libre.
@@ -75,10 +91,12 @@ function Placement.new(Config)
 		for i = 1, #Config.RIVALS do
 			local cx, cz = Config.rivalCenter(i)
 			local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
-			if math.abs(d - M.moat.radius) < M.moat.width / 2 + r + margin then
-				return "eau"
-			end
-			if not (opts and opts.allowDomain) and d < M.moat.radius + r + margin then
+			if d < M.plateauRadius + r + margin and (opts and opts.allowDomain) then
+				-- sur le plateau : on ne pose rien dans la douve
+				if math.abs(d - M.moat.radius) < M.moat.width / 2 + r + margin then
+					return "eau"
+				end
+			elseif d < M.plateauRadius + r + margin then
 				return "domaine"
 			end
 		end
@@ -121,7 +139,7 @@ function Placement.new(Config)
 			return true
 		end
 		local function add(kind, x, z, rot)
-			items[#items + 1] = { kind = kind, x = x, z = z, rot = rot, r = KIND_RADIUS[kind] }
+			items[#items + 1] = { kind = kind, x = x, z = z, rot = rot, r = KIND_RADIUS[kind], y = P.groundY(x, z) }
 		end
 		local plan = Config.Assets.propsPlan
 		-- 1. par domaine : une cabane face au centre du domaine et une ligne de barrières alignée (jamais dans l'eau)
@@ -243,7 +261,7 @@ function Placement.new(Config)
 				local t = (k - 0.5) / steps
 				local x, z = seg[1] + dx * t + nx * (geo.pathHalf + 3.5), seg[2] + dz * t + nz * (geo.pathHalf + 3.5)
 				if fits("lantern", x, z) then
-					out[#out + 1] = { kind = "lantern", x = x, z = z, rot = 0, r = DECO_RADIUS.lantern }
+					out[#out + 1] = { kind = "lantern", x = x, z = z, rot = 0, r = DECO_RADIUS.lantern, y = P.groundY(x, z) }
 					placedLanterns = placedLanterns + 1
 				end
 			end
@@ -277,7 +295,7 @@ function Placement.new(Config)
 			end
 			local x, z = c[1] + (rnd() - 0.5) * 14, c[2] + (rnd() - 0.5) * 14
 			if fits(kinds[ki], x, z) then
-				out[#out + 1] = { kind = kinds[ki], x = x, z = z, rot = rnd() * 360, r = DECO_RADIUS[kinds[ki]] }
+				out[#out + 1] = { kind = kinds[ki], x = x, z = z, rot = rnd() * 360, r = DECO_RADIUS[kinds[ki]], y = P.groundY(x, z) }
 				ki = ki + 1
 			end
 		end

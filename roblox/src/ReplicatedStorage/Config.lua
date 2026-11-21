@@ -1121,8 +1121,20 @@ Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaum
 Config.Map = {
 	groundSize = 1200,
 	plotRadius = 262,
-	rivalSpacing = 125, -- distance entre deux domaines : leurs douves (rayon 56) ne se touchent plus (13 studs d'écart)
-	rivalZ = -110,
+	-- Domaines : trois PLATEAUX en terrasses, de plus en plus hauts, loin de l'arène et des bases (travel croissant : 386, 410, 533 studs du Grand Nid).
+	-- Chaque plateau (rayon `plateauRadius`) est une falaise ; on y monte par UNE rampe (largeur `rampWidth`, pente 1 pour `rampRun`) orientée comme `ramp`.
+	domains = {
+		{ x = -230, z = -310, h = 6, ramp = { 1, 0 } },
+		{ x = 0, z = -410, h = 14, ramp = { 0, 1 } },
+		{ x = 210, z = -490, h = 24, ramp = { -1, 0 } },
+	},
+	plateauRadius = 66, rampWidth = 14, rampRun = 3.2,
+	-- Chemins (polylignes) du Grand Nid au pied de chaque rampe : ils passent entre les bases et contournent les plateaux.
+	paths = {
+		{ { -60, -85 }, { -145, -310 } },
+		{ { 0, -85 }, { 0, -299 } },
+		{ { 60, -85 }, { 95, -250 }, { 95, -490 }, { 67, -490 } },
+	},
 	domainRadius = 38,
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
 	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
@@ -1139,7 +1151,7 @@ Config.Map = {
 		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
 	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 0, trees = 4, patches = 3, hills = 3, moatSegments = 14, fencePosts = 5, bridgePlanks = 7 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
+	decor = { flowers = 0, trees = 0, patches = 2, hills = 0, moatSegments = 11, fencePosts = 4, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
@@ -1152,7 +1164,22 @@ Config.Map = {
 
 -- Centre (x, z) du domaine du rival i. Source unique : Builder, Cinematics et les tests.
 function Config.rivalCenter(i)
-	return (i - 2) * Config.Map.rivalSpacing, Config.Map.rivalZ
+	local d = Config.Map.domains[i]
+	return d.x, d.z
+end
+
+-- Hauteur du plateau du domaine i (studs) : Gus 6, Mara 14, Zed 24 (chaque zone plus haute que la précédente).
+function Config.rivalHeight(i)
+	return Config.Map.domains[i].h
+end
+
+-- Pied de la rampe du domaine i (point au sol) et son sommet (au bord du plateau) : { bottom = {x, z}, top = {x, z}, dir = {dx, dz} }.
+function Config.rampOf(i)
+	local d = Config.Map.domains[i]
+	local M = Config.Map
+	local run = d.h * M.rampRun
+	local topX, topZ = d.x + d.ramp[1] * M.plateauRadius, d.z + d.ramp[2] * M.plateauRadius
+	return { top = { topX, topZ }, bottom = { topX + d.ramp[1] * run, topZ + d.ramp[2] * run }, dir = { d.ramp[1], d.ramp[2] }, run = run }
 end
 
 -- Zone d'ambiance d'une position : "arena" ou la clé du domaine (gus / mara / zed) le plus proche, s'il est à portée.
@@ -1171,7 +1198,7 @@ end
 -- Secrets : un lieu caché par domaine ; une récompense par jour et par secret (max(minCoins, revenus de `mins` minutes)).
 Config.SECRETS = {
 	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -340, z = -330, mins = 4, minCoins = 1500, hint = "Au bout du sentier de la ferme, derrière les champs, un verger oublié garde un trésor." },
-	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = 0, z = -450, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
+	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = -120, z = -470, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
 	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 340, z = -330, mins = 8, minCoins = 9000, hint = "La citadelle de Zed cache un cœur brûlant sur son flanc est." },
 }
 
@@ -1270,6 +1297,9 @@ end
 -- Réglages d'interface (chaque ajout se coupe ici).
 -- Effets 3D : qualité imposée (« high », « medium », « low ») ou nil = automatique (Bas sur tactile, Élevé sinon).
 Config.VFX = { quality = nil }
+
+-- Masquage des zones éloignées (client, sans StreamingEnabled) : masquées au-delà de cullAt studs du bord d'un domaine, réaffichées sous showAt.
+Config.Culling = { enabled = true, cullAt = 200, showAt = 170, interval = 1, batch = 150, refresh = 20 }
 
 Config.HUD = {
 	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)

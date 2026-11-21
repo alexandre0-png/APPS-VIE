@@ -190,7 +190,7 @@ end
 
 local function rivalCF(i)
 	local x, z = Config.rivalCenter(i)
-	return CFrame.new(x, 0, z)
+	return CFrame.new(x, Config.rivalHeight(i), z)
 end
 
 local anchors = {

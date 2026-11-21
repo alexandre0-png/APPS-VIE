@@ -695,14 +695,14 @@ function Builder.dressArena(assets)
 			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, Config.Assets.targetHeights.lamp, 0, "ArenaLamp")
 		end
 		local cx, cz = Config.rivalCenter(1)
-		local mill = put("props", "mill", cx - 24, 0, cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
+		local mill = put("props", "mill", cx - 24, Config.rivalHeight(1), cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
 		if mill then
 			local p1, p2 = findNamed(mill, "Pales"), findNamed(mill, "Pales2")
 			if p1 then
 				millVis = { p1 = p1, b1 = p1.CFrame, p2 = p2, b2 = p2 and p2.CFrame }
 			end
 		end
-		put("props", "pen", cx + 30, 0, cz + 4, 16, nil, 0, "ArenaPen")
+		put("props", "pen", cx + 30, Config.rivalHeight(1), cz + 4, 16, nil, 0, "ArenaPen")
 	end)
 	return n
 end
@@ -1071,7 +1071,7 @@ function Builder.dressDeco(assets)
 			local clone = cost > 0 and assets.cloneModel("deco", it.kind) or nil
 			if clone then
 				if used + cost <= Config.Assets.decoBudgetParts then
-					local ok = assets.place(clone, it.x, it.z, it.rot, Config.Assets.decoHeights[it.kind], folder)
+					local ok = assets.place(clone, it.x, it.z, it.rot, Config.Assets.decoHeights[it.kind], folder, nil, it.y)
 					if ok then
 						used = used + cost
 						placed = placed + 1
@@ -1081,8 +1081,8 @@ function Builder.dressDeco(assets)
 				end
 			elseif it.kind:sub(1, 6) == "flower" and fallback + 2 <= Config.Assets.decoFallbackMax then
 				local col = ({ flower_a = Color3.fromRGB(255, 120, 154), flower_b = Color3.fromRGB(255, 210, 63), flower_c = Color3.fromRGB(255, 255, 255) })[it.kind]
-				part({ Name = "FlowerStem", Size = Vector3.new(0.2, 0.9, 0.2), Position = Vector3.new(it.x, 0.45, it.z), Color = Color3.fromRGB(62, 142, 68), CanCollide = false, CanQuery = false }, folder)
-				ball({ Name = "FlowerHead", Size = Vector3.new(0.7, 0.7, 0.7), Position = Vector3.new(it.x, 1, it.z), Color = col, CanQuery = false }, folder)
+				part({ Name = "FlowerStem", Size = Vector3.new(0.2, 0.9, 0.2), Position = Vector3.new(it.x, 0.45 + (it.y or 0), it.z), Color = Color3.fromRGB(62, 142, 68), CanCollide = false, CanQuery = false }, folder)
+				ball({ Name = "FlowerHead", Size = Vector3.new(0.7, 0.7, 0.7), Position = Vector3.new(it.x, 1 + (it.y or 0), it.z), Color = col, CanQuery = false }, folder)
 				fallback = fallback + 2
 			end
 		end
@@ -1104,7 +1104,7 @@ function Builder.dressSigns(assets)
 				if clone then
 					local stars = d:GetAttribute("Stars") or 1
 					local pos = d.Position
-					if setModel(clone, pos.X, 0, pos.Z, nil, Config.Assets.decoHeights.sign_stars, d.Parent, 0) then
+					if setModel(clone, pos.X, pos.Y - 6.8, pos.Z, nil, Config.Assets.decoHeights.sign_stars, d.Parent, 0) then
 						for _, q in ipairs(clone:GetDescendants()) do
 							local idx = q:IsA("BasePart") and tonumber(AssetsMod.baseName(q.Name):match("^Etoile(%d)$"))
 							if idx then
@@ -1540,6 +1540,23 @@ local function torch(pos, parent)
 	l.Parent = head
 end
 
+-- Falaise (cylindre de roche), dalle d'herbe au sommet (à la hauteur H exacte) et rampe du domaine i. Retourne le nombre de Parts.
+function Builder.plateau(i, parent, riv)
+	local d = Config.Map.domains[i]
+	local R, H = Config.Map.plateauRadius, d.h
+	local f = Instance.new("Folder")
+	f.Name = "Terrace_" .. riv.name
+	f.Parent = parent
+	-- falaise : de -2 à H - 0,5 ; dalle d'herbe : de H - 0,5 à H (son dessus est le sol du domaine)
+	part({ Name = "Cliff", Size = Vector3.new(H + 1.5, R * 2, R * 2), CFrame = CFrame.new(d.x, (H - 0.5 - 2) / 2, d.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(128, 122, 118), Material = Enum.Material.Slate }, f)
+	part({ Name = "PlateauTop", Size = Vector3.new(0.5, R * 2 - 1.5, R * 2 - 1.5), CFrame = CFrame.new(d.x, H - 0.25, d.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(92, 160, 82), 0.65), Material = Enum.Material.Grass }, f)
+	local ramp = Config.rampOf(i)
+	local len = math.sqrt(ramp.run ^ 2 + H ^ 2)
+	local mid = Vector3.new((ramp.top[1] + ramp.bottom[1]) / 2, H / 2 - 0.5, (ramp.top[2] + ramp.bottom[2]) / 2)
+	part({ Name = "Ramp", Size = Vector3.new(Config.Map.rampWidth, 1, len), CFrame = CFrame.lookAt(mid, Vector3.new(ramp.bottom[1], -0.5, ramp.bottom[2])), Color = Color3.fromRGB(176, 150, 112), Material = Enum.Material.Slate }, f)
+	return 3
+end
+
 -- Retourne { plots, nests, treadmill, guards, treadmillContains }
 function Builder.build()
 	local world = Instance.new("Folder")
@@ -1696,13 +1713,31 @@ function Builder.build()
 		end
 		-- panneau de difficulté à l'entrée du domaine (devant le pont sud) : étoiles et nombre de gardiens
 		do
-			local post = part({ Name = "DifficultySign", Size = Vector3.new(0.8, 6, 0.8), Position = Vector3.new(cx + 12, 3, cz + Config.Map.moat.radius + 10), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood, CanCollide = false }, folder)
-			local board = part({ Name = "DifficultyBoard", Size = Vector3.new(7, 3, 0.5), Position = Vector3.new(cx + 12, 6.8, cz + Config.Map.moat.radius + 10), Color = Color3.fromRGB(70, 50, 36), Material = Enum.Material.WoodPlanks, CanCollide = false }, folder)
+			local post = part({ Name = "DifficultySign", Size = Vector3.new(0.8, 6, 0.8), Position = Vector3.new(cx + 12, 3, cz + Config.Map.plateauRadius - 5), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			local board = part({ Name = "DifficultyBoard", Size = Vector3.new(7, 3, 0.5), Position = Vector3.new(cx + 12, 6.8, cz + Config.Map.plateauRadius - 5), Color = Color3.fromRGB(70, 50, 36), Material = Enum.Material.WoodPlanks, CanCollide = false }, folder)
 			local lbl = sign(board, string.rep("⭐", riv.stars) .. string.rep("☆", 5 - riv.stars) .. "\n" .. riv.name .. " : " .. count .. " gardien" .. (count > 1 and "s" or ""), Color3.fromRGB(255, 220, 120), 0, 200)
 			lbl.TextSize = 16
 			post.Anchored = true
 			board:SetAttribute("Stars", riv.stars)
 		end
+		-- PLATEAU en terrasse : tout le domaine (décor, nids, gardiens, portail, douve) est relevé de H ; la falaise et la rampe sont posées hors du dossier
+		local H = Config.rivalHeight(i)
+		for _, d in ipairs(folder:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.CFrame = d.CFrame + Vector3.new(0, H, 0)
+			end
+		end
+		for _, nest in ipairs(result.nests) do
+			if nest.rival == i then
+				nest.pos = nest.pos + Vector3.new(0, H, 0)
+			end
+		end
+		for _, g in ipairs(result.guards) do
+			if g.rival == i then
+				g.pos = g.pos + Vector3.new(0, H, 0)
+			end
+		end
+		sceneryParts += Builder.plateau(i, world, riv)
 	end
 
 	-- Tapis roulant (les rayures sont animées côté client grâce au tag BeltStripe) -----
@@ -1968,7 +2003,7 @@ function Builder.dressWorld(assets)
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
 		local huts = 0
-		local function put(key, x, z, rot, length)
+		local function put(key, x, z, rot, length, gy)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
 			end
@@ -1985,14 +2020,14 @@ function Builder.dressWorld(assets)
 			if not clone then
 				return
 			end
-			local okPlace, count = assets.place(clone, x, z, rot, height, folder, length)
+			local okPlace, count = assets.place(clone, x, z, rot, height, folder, length, gy)
 			if okPlace then
 				total = total + count
 				placed = placed + 1
 			end
 		end
 		for _, it in ipairs(plan.items) do
-			put(it.kind, it.x, it.z, it.rot)
+			put(it.kind, it.x, it.z, it.rot, nil, it.y)
 		end
 		for _, b in ipairs(plan.bridges) do
 			put("bridge", b.x, b.z, b.rot, b.length)

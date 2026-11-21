@@ -1515,7 +1515,7 @@ do
 		return true
 	end)())
 	check("zoneAt : arène, bases et lointain = arena", Config.zoneAt(0, 0) == "arena" and Config.zoneAt(0, 215) == "arena" and Config.zoneAt(500, 500) == "arena")
-	check("zoneAt : hors de la portée d'un domaine = arena", Config.zoneAt(0, Config.Map.rivalZ + Config.Map.ambienceRadius + 5) == "arena")
+	check("zoneAt : hors de la portée d'un domaine = arena", Config.zoneAt(0, select(2, Config.rivalCenter(2)) + Config.Map.ambienceRadius + 5) == "arena")
 	check("secretReward : plancher et proportion aux revenus", Config.secretReward(Config.SECRETS[1], 0) == Config.SECRETS[1].minCoins and Config.secretReward(Config.SECRETS[1], 1000) == 1000 * Config.SECRETS[1].mins * 60)
 	check("Streaming : rayons cohérents", M.Streaming.MinRadius < M.Streaming.TargetRadius and M.Streaming.TargetRadius <= 1024)
 end
@@ -1658,7 +1658,7 @@ do
 	end
 	made = 0
 	local okM, nM = pcall(Scenery.moat, helpers, 0, 0, {}, Config)
-	check("Scenery.moat : douve (" .. Config.Map.decor.moatSegments .. " segments) et pont en bois, compte exact", okM and nM == made and nM >= 25)
+	check("Scenery.moat : douve (" .. Config.Map.decor.moatSegments .. " segments) et pont en bois, compte exact", okM and nM == made and nM >= 20)
 	made = 0
 	local CastleMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
 	local okC, cworld, nC = pcall(Scenery.castle, helpers, {}, CastleMod)
@@ -3166,6 +3166,104 @@ do
 	check("Blocage : eau, chemin, arène, domaine, bord sont reconnus", P.blocked(0, 330, 2) == "eau" and P.blocked(0, 0, 2) == "arène" and P.blocked(Config.rivalCenter(2), select(2, Config.rivalCenter(2)), 2) == "domaine" and P.blocked(2000, 0, 2) == "bord" and P.blocked(-380, 100, 2) == "eau")
 end
 
+-- Domaines en terrasses : distances, hauteurs, rampes, chemins -------------------------------------------------------------------------------
+do
+	suite("Domaines en terrasses : hors de l'arène et des bases, de plus en plus hauts et loin, une rampe chacun")
+	local PLc = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
+	local M = Config.Map
+	local n = #Config.RIVALS
+	local function dist(ax, az, bx, bz)
+		return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+	end
+	local plots = {}
+	for i = 1, Config.PLOT_COUNT do
+		local a = (i - 1) / Config.PLOT_COUNT * math.pi * 2
+		plots[i] = { math.sin(a) * M.plotRadius, math.cos(a) * M.plotRadius }
+	end
+	local spread, arenaOk, plotOk = true, true, true
+	for i = 1, n do
+		local xi, zi = Config.rivalCenter(i)
+		arenaOk = arenaOk and dist(xi, zi, 0, 0) >= M.geo.arenaRadius + M.plateauRadius + 20
+		for _, pl in ipairs(plots) do
+			plotOk = plotOk and dist(xi, zi, pl[1], pl[2]) >= M.plateauRadius + 37 + 10
+		end
+		for j = i + 1, n do
+			local xj, zj = Config.rivalCenter(j)
+			spread = spread and dist(xi, zi, xj, zj) >= 2 * M.plateauRadius + 20
+		end
+	end
+	check("Domaines : plateaux séparés d'au moins 20 studs, hors de l'arène (+20) et des bases (+10), aucun chevauchement", spread and arenaOk and plotOk)
+	local hOk, travelOk = true, true
+	for i = 2, n do
+		hOk = hOk and Config.rivalHeight(i) > Config.rivalHeight(i - 1)
+		local xa, za = Config.rivalCenter(i - 1)
+		local xb, zb = Config.rivalCenter(i)
+		travelOk = travelOk and dist(xb, zb, 0, 0) > dist(xa, za, 0, 0)
+	end
+	check("Zones : chaque zone plus HAUTE (6, 14, 24) et plus LOIN du Grand Nid que la précédente (trajet croissant)", hOk and travelOk and Config.rivalHeight(1) == 6 and Config.rivalHeight(3) == 24)
+	local rampOk = true
+	for i = 1, n do
+		local r = Config.rampOf(i)
+		local d = M.domains[i]
+		rampOk = rampOk and math.abs(dist(r.top[1], r.top[2], d.x, d.z) - M.plateauRadius) < 1e-6 and math.abs(dist(r.top[1], r.top[2], r.bottom[1], r.bottom[2]) - d.h * M.rampRun) < 1e-6
+		-- pente praticable : moins de 20 degrés
+		rampOk = rampOk and math.deg(math.atan(d.h / (d.h * M.rampRun))) < 20
+		for j = 1, n do
+			if j ~= i then
+				local xj, zj = Config.rivalCenter(j)
+				rampOk = rampOk and PLc.distToSegment(xj, zj, r.top[1], r.top[2], r.bottom[1], r.bottom[2]) >= M.plateauRadius + M.rampWidth / 2
+			end
+		end
+		for _, pl in ipairs(plots) do
+			rampOk = rampOk and PLc.distToSegment(pl[1], pl[2], r.top[1], r.top[2], r.bottom[1], r.bottom[2]) >= 26 + M.rampWidth / 2
+		end
+		rampOk = rampOk and dist(r.bottom[1], r.bottom[2], 0, 0) > M.geo.arenaRadius + M.rampWidth / 2
+		for _, lk in ipairs(M.geo.lakes) do
+			rampOk = rampOk and PLc.distToSegment(lk.x, lk.z, r.top[1], r.top[2], r.bottom[1], r.bottom[2]) >= lk.r + 5 + M.rampWidth / 2
+		end
+	end
+	check("Rampes : une par domaine, au bord du plateau, pente < 20°, sans toucher un autre plateau, une base, l'arène ou un lac", rampOk)
+	local pathOk = true
+	for pi, poly in ipairs(M.paths) do
+		for k = 1, #poly - 1 do
+			for j = 1, n do
+				local xj, zj = Config.rivalCenter(j)
+				pathOk = pathOk and PLc.distToSegment(xj, zj, poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]) >= M.plateauRadius - 0.5
+			end
+			for _, pl in ipairs(plots) do
+				pathOk = pathOk and PLc.distToSegment(pl[1], pl[2], poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]) >= 26 + 3
+			end
+		end
+		local lastP = poly[#poly]
+		local r = Config.rampOf(pi)
+		pathOk = pathOk and dist(lastP[1], lastP[2], r.bottom[1], r.bottom[2]) < 1
+	end
+	check("Chemins : partent du Grand Nid, passent entre les bases, contournent les plateaux et finissent au pied de la rampe", pathOk and #M.paths == n)
+	check("Secrets : aucun dans un plateau ni dans une rampe", (function()
+		for _, sct in ipairs(Config.SECRETS) do
+			for i = 1, n do
+				local xi, zi = Config.rivalCenter(i)
+				local r = Config.rampOf(i)
+				if dist(sct.x, sct.z, xi, zi) < M.plateauRadius + 10 or PLc.distToSegment(sct.x, sct.z, r.top[1], r.top[2], r.bottom[1], r.bottom[2]) < 10 then
+					return false
+				end
+			end
+		end
+		return true
+	end)())
+end
+
+-- Culling des zones éloignées : hystérésis, lots, e2e ----------------------------------------------------------------------------------
+do
+	suite("Culling : hystérésis, lots, distance, option de coupure")
+	local CU = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Culling.lua"), { debugName = "Culling" })()
+	local C = Config.Culling
+	check("Culling : masque au-delà de cullAt, réaffiche sous showAt, garde son état entre les deux (pas de clignotement)", CU.decide(250, false, C.cullAt, C.showAt) and not CU.decide(150, false, C.cullAt, C.showAt) and not CU.decide(190, false, C.cullAt, C.showAt) and CU.decide(190, true, C.cullAt, C.showAt) and not CU.decide(160, true, C.cullAt, C.showAt))
+	check("Culling : distance invalide (nil, NaN) ne masque jamais ; seuils cohérents (showAt < cullAt), ~1,5 domaine", not CU.decide(nil, false, 200, 170) and not CU.decide(0 / 0, true, 200, 170) and C.showAt < C.cullAt and C.cullAt >= 1.5 * Config.Map.plateauRadius)
+	check("Culling : distance au bord d'une zone (0 dedans), lots de taille donnée, liste vide", CU.distanceTo(0, 0, { x = 0, z = 100, radius = 66 }) == 34 and CU.distanceTo(0, 90, { x = 0, z = 100, radius = 66 }) == 0 and #CU.chunks({ 1, 2, 3, 4, 5 }, 2) == 3 and #CU.chunks({ 1, 2, 3, 4, 5 }, 2)[3] == 1 and #CU.chunks({}, 10) == 0 and #CU.chunks({ 1, 2 }, 0) == 2)
+	check("Culling : option de coupure Config.Culling.enabled et lots bornés (<= 300 éléments par image)", C.enabled == true and C.batch <= 300 and C.interval >= 0.5)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -4407,6 +4505,31 @@ do
 				check("Relief : crête de falaises, cascades, escaliers et îlots posés (" .. counts.relief .. " éléments), mur invisible en place (" .. counts.walls .. ")", counts.relief >= 20 and counts.walls >= 1)
 				check("Panneaux d'étoiles Blender : un par domaine (" .. counts.stars .. ")", counts.stars == #Config.RIVALS)
 			end
+			do -- plateaux construits : falaise, dalle, rampe ; domaine relevé de sa hauteur
+				local cliffs, ramps, discs, okH = 0, 0, 0, true
+				for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+					if d.ClassName == "Part" then
+						local pr = rawget(d, "__props")
+						if pr.Name == "Cliff" then
+							cliffs += 1
+						elseif pr.Name == "Ramp" then
+							ramps += 1
+						elseif pr.Name == "Disc" then
+							discs += 1
+							local best = false
+							local pp = (pr.Position and (pr.Position.X ~= 0 or pr.Position.Y ~= 0 or pr.Position.Z ~= 0)) and pr.Position or pr.CFrame.Position
+							for i = 1, #Config.RIVALS do
+								local cx, cz = Config.rivalCenter(i)
+								if math.abs(pp.X - cx) < 1 and math.abs(pp.Z - cz) < 1 and math.abs(pp.Y - (0.5 + Config.rivalHeight(i))) < 1e-6 then
+									best = true
+								end
+							end
+							okH = okH and best
+						end
+					end
+				end
+				check("Terrasses : " .. cliffs .. " falaises, " .. ramps .. " rampes, " .. discs .. " domaines relevés de leur hauteur (6, 14, 24)", cliffs == #Config.RIVALS and ramps == #Config.RIVALS and discs == #Config.RIVALS and okH)
+			end
 			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
 		end
 		RT.removePlayer(k)
@@ -4713,7 +4836,7 @@ do
 		local me = RT.addPlayer("Ana", 3001, { from = "hub", partyId = "P-E2E", size = 1, late = false })
 		RT.setLocalPlayer(me)
 		RT.step(2)
-		for _, name in ipairs({ "Client", "Ambience", "Animations", "Cinematics" }) do
+		for _, name in ipairs({ "Client", "Ambience", "Animations", "Cinematics", "Culling" }) do
 			RT.task.spawn(function()
 				RT.runScript(client[name])
 			end)
@@ -4839,6 +4962,44 @@ do
 				end
 			end
 			check("Éclosion légendaire : brillance sur le bandeau et flash de vignette créés, aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), vignette >= 1 and shine >= 1 and #RT.errors == 0)
+		end
+		-- culling : le joueur est au Grand Nid, les trois domaines (à plus de 200 studs de leur bord) sont masqués ; près de Mara, elle réapparaît
+		do
+			local function modifiers(folderName)
+				local hidden, shown, total = 0, 0, 0
+				for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+					if d.ClassName == "Part" then
+						local par = d.Parent
+						local nm = par and rawget(par, "__props").Name
+						if nm == folderName then
+							total += 1
+							local m = d.LocalTransparencyModifier
+							if m == 1 then
+								hidden += 1
+							elseif m == 0 or m == nil then
+								shown += 1
+							end
+						end
+					end
+				end
+				return hidden, shown, total
+			end
+			local rootC = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+			if rootC then
+				rawget(rootC, "__props").Position = RT.vec(0, 5, 40) -- au Grand Nid
+			end
+			RT.step(4)
+			local zh, _, zt = modifiers("Rival_Zed")
+			local gh, _, gt = modifiers("Rival_Gus")
+			check("Culling : les domaines éloignés (Zed " .. zh .. "/" .. zt .. ", Gus " .. gh .. "/" .. gt .. " Parts) sont masqués depuis le Grand Nid", zt > 10 and zh == zt and gt > 10 and gh == gt)
+			local mx, mz = Config.rivalCenter(2)
+			if rootC then
+				rawget(rootC, "__props").Position = RT.vec(mx, 3, mz)
+				RT.step(4)
+				local mh, ms, mt = modifiers("Rival_Mara")
+				local gh2 = modifiers("Rival_Gus")
+				check("Culling : près de Mara elle réapparaît (" .. ms .. "/" .. mt .. ") ; Gus, à plus de 170 studs de son bord, reste masqué (" .. gh2 .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), mt > 10 and mh == 0 and gh2 == gt and #RT.errors == 0)
+			end
 		end
 		-- bannière : distance à la base du joueur ; inventaire à onglets (œufs, pets, boosts, titres, index)
 		check("Bannière de zone : la distance à la base est affichée (« Bois de Mara · N m de ta base »)", findText("Bois de Mara") ~= nil and findText("m de ta base") ~= nil)
