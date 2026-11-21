@@ -2145,7 +2145,7 @@ do
 	check("Pets : la capacité est brève et périodique (entre 5 % et 20 % du temps)", active / total > 0.05 and active / total < 0.2)
 	check("Pets : valeurs invalides sans erreur (progression hors plage, graine nil)", Easing.petPose("ability", 1, nil, 9).yaw <= 2 * math.pi + 1e-9 and Easing.petPose("inconnu", 1).scale == 1 and Easing.abilityProgress(1, nil, 0.5, 1) == nil)
 	-- Config.Assets.pets : point d'entrée vide par défaut, validé
-	check("Assets.pets : 14 pets Blender liés à des espèces réelles, plafond de Parts défini", (function()
+	check("Assets.pets : 18 pets Blender liés à des espèces réelles, plafond de Parts défini", (function()
 		local n = 0
 		for idx, id in pairs(Config.Assets.pets) do
 			n = n + 1
@@ -2153,13 +2153,13 @@ do
 				return false
 			end
 		end
-		local want = { [2] = "Hamster", [4] = "Chat", [5] = "Chien", [8] = "Hibou", [9] = "Manchot", [10] = "Lion", [12] = "Licorne", [14] = "T-Rex" }
+		local want = { [2] = "Hamster", [4] = "Chat", [5] = "Chien", [8] = "Hibou", [9] = "Manchot", [10] = "Lion", [12] = "Licorne", [14] = "T-Rex", [11] = "Tigre", [15] = "Kraken", [17] = "Calmar stellaire", [18] = "Wyrm astral" }
 		for idx, nm in pairs(want) do
 			if Config.PETS[idx].name ~= nm or not Config.Assets.pets[idx] then
 				return false
 			end
 		end
-		return n == 14 and Config.PETS[1].name == "Poussin" and Config.PETS[3].name == "Lapin" and Config.PETS[6].name == "Renard" and Config.PETS[7].name == "Panda" and Config.PETS[13].name == "Dragon" and Config.PETS[16].name == "Alien"
+		return n == 18 and Config.PETS[1].name == "Poussin" and Config.PETS[3].name == "Lapin" and Config.PETS[6].name == "Renard" and Config.PETS[7].name == "Panda" and Config.PETS[13].name == "Dragon" and Config.PETS[16].name == "Alien"
 	end)() and Config.Assets.petsMaxParts >= 60 and Config.Assets.petHeight > 0)
 	-- aura
 	check("Aura : aucune sous la rareté minimale, sauf secret", Config.auraStyle(1, false) == nil and Config.auraStyle(3, false) == nil and Config.auraStyle(3, true) ~= nil and Config.auraStyle(4, false) ~= nil)
