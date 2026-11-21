@@ -27,3 +27,5 @@ Prérequis : la clé API est injectée par le proxy (ne jamais l'écrire). Studi
 - Produits : `POST https://apis.roblox.com/developer-products/v2/universes/{U}/developer-products` (name, description, price) puis `PATCH .../{productId}` avec `price` et `isForSale=true` (HTTP 204). Le champ `priceInRobux` est ignoré.
 - Visibilité (PRIVATE/PUBLIC) et description d'expérience : `PATCH /cloud/v2/universes/{U}` répond 200 mais NE CHANGE RIEN. À faire par l'utilisateur dans le Creator Hub.
 - Fichier de lieu : téléchargement impossible (403). Ne jamais publier un lieu existant sans son fichier source.
+- Icônes d'achats : `PATCH` du pass ou du produit avec `-F imageFile=@x.png;type=image/png` (HTTP 204). Les 16 icônes (512×512, générées par scripts/gen_icones_achats.py) sont téléversées (21 nov) ; images dans vignettes/icones-achats/.
+- Remote Control : le PC de l'utilisateur (LAPTOP-491EUPRQ) reste « not_available » pour les sessions cloud, même avec le dossier roblox-remote.
