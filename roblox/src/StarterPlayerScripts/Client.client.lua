@@ -1759,6 +1759,35 @@ do
 	end)
 end
 
+-- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
+do
+	local arrow = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 132), Size = UDim2.fromOffset(190, 24), TextSize = 14, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, Text = "", Visible = false })
+	local pointer = text(arrow, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(0, -2, 0.5, 0), Size = UDim2.fromOffset(26, 26), TextSize = 22, TextColor3 = COL.yellow, Text = "⬆", ZIndex = 3 })
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			pcall(function()
+				local cam = workspace.CurrentCamera
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if not (cam and root and state and state.story) then
+					arrow.Visible = false
+					return
+				end
+				local i = Config.frontierZone(state.story.ch)
+				local tx, tz = Config.travelPoint(i)
+				local look = cam.CFrame.LookVector
+				local a, dist = Config.compass(root.Position.X, root.Position.Z, look.X, look.Z, tx, tz)
+				arrow.Visible = dist > 45
+				if arrow.Visible then
+					pointer.Rotation = a
+					arrow.Text = Config.ZONES[i].name .. " · " .. math.floor(dist) .. " m (" .. math.ceil(dist / 16) .. " s)"
+				end
+			end)
+		end
+	end)
+end
+
 pcall(function()
 	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("AssetReportUi")).start(Config, player, ReplicatedStorage, UserInputService)
 end)

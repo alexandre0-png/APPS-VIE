@@ -334,7 +334,7 @@ function Placement.new(Config)
 			end
 			local kind = kinds[ki]
 			local x, z = c[1] + (rnd() - 0.5) * 12, c[2] + (rnd() - 0.5) * 12
-			if fits(kind, x, z) then
+			if math.sqrt(x * x + z * z) <= (M.decorRadius or math.huge) and fits(kind, x, z) then
 				add(kind, x, z, rnd() * 360)
 				ki = ki + 1
 			end

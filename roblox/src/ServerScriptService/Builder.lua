@@ -1974,6 +1974,36 @@ function Builder.build()
 		print("[Builder] carte construite : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. ")")
 	end
 
+	-- Voyage rapide : portails du Grand Nid vers chaque zone et portails de retour au pied des rampes (prompt serveur, tag « FastTravel », attribut Dest)
+	result.fastTravel = {}
+	do
+		local folder = Instance.new("Folder")
+		folder.Name = "FastTravel"
+		folder.Parent = world
+		local function pad(x, z, dest, label, color)
+			local p = part({ Name = "TravelPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 7, 7), CFrame = CFrame.new(x, 0.3, z) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.SmoothPlastic, Transparency = 0.25, CanCollide = false }, folder)
+			part({ Name = "TravelRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 8.4, 8.4), CFrame = CFrame.new(x, 0.18, z) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.SmoothPlastic, Transparency = 0.5, CanCollide = false }, folder)
+			sign(p, label, color:Lerp(Color3.new(1, 1, 1), 0.4), 4.5, 190)
+			local pr = Instance.new("ProximityPrompt")
+			pr.ActionText = "Voyage rapide"
+			pr.ObjectText = label
+			pr.HoldDuration = 0.6
+			pr.MaxActivationDistance = 8
+			pr.RequiresLineOfSight = false
+			pr:SetAttribute("Dest", dest)
+			pr.Parent = p
+			CollectionService:AddTag(pr, "FastTravel")
+			result.fastTravel[#result.fastTravel + 1] = { prompt = pr, dest = dest, pos = Vector3.new(x, 0.3, z) }
+		end
+		local cols = { Color3.fromRGB(110, 200, 120), Color3.fromRGB(170, 120, 230), Color3.fromRGB(255, 130, 90) }
+		for i = 1, #Config.RIVALS do
+			local x, z = Config.travelPad(i)
+			pad(x, z, i, "🌀 " .. Config.ZONES[i].name, cols[i])
+			local rx, rz = Config.returnPad(i)
+			pad(rx, rz, 0, "🌀 Grand Nid", Color3.fromRGB(255, 214, 120))
+		end
+	end
+
 	result.treadmillContains = function(p)
 		local rel = result.treadmill.cf:PointToObjectSpace(p)
 		local s = result.treadmill.size

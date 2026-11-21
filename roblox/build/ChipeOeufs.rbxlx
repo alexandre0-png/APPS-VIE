@@ -1184,20 +1184,21 @@ Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaum
 -- trois domaines (Gus, Mara, Zed) sont au nord, chacun dans son propre biome, et des repères et secrets sont répartis plus loin.
 Config.Map = {
 	groundSize = 1200,
-	plotRadius = 262,
-	-- Domaines : trois PLATEAUX en terrasses, de plus en plus hauts, loin de l'arène et des bases (travel croissant : 386, 410, 533 studs du Grand Nid).
+	plotRadius = 115, -- bases à 115 studs du Grand Nid (7 s à pied)
+	decorRadius = 360, -- le décor planifié (arbres, rochers, village) reste dans ce rayon autour du Grand Nid
+	-- Domaines : trois PLATEAUX en terrasses, de plus en plus hauts, juste derrière l'anneau des bases (232, 245, 269 studs du Grand Nid ; 221 et 188 entre voisins).
 	-- Chaque plateau (rayon `plateauRadius`) est une falaise ; on y monte par UNE rampe (largeur `rampWidth`, pente 1 pour `rampRun`) orientée comme `ramp`.
 	domains = {
-		{ x = -230, z = -310, h = 6, ramp = { 1, 0 } },
-		{ x = 0, z = -410, h = 14, ramp = { 0, 1 } },
-		{ x = 210, z = -490, h = 24, ramp = { -1, 0 } },
+		{ x = -185, z = -140, h = 6, ramp = { 0, 1 } },
+		{ x = 10, z = -245, h = 14, ramp = { 0, 1 } },
+		{ x = 190, z = -190, h = 24, ramp = { 0, 1 } },
 	},
 	plateauRadius = 66, rampWidth = 14, rampRun = 3.2,
 	-- Chemins (polylignes) du Grand Nid au pied de chaque rampe : ils passent entre les bases et contournent les plateaux.
 	paths = {
-		{ { -60, -85 }, { -145, -310 } },
-		{ { 0, -85 }, { 0, -299 } },
-		{ { 60, -85 }, { 95, -250 }, { 95, -490 }, { 67, -490 } },
+		{ { -80, -20 }, { -130, -32 }, { -185, -55 } },
+		{ { 0, -85 }, { 10, -134 } },
+		{ { 80, -30 }, { 140, -40 }, { 190, -47 } },
 	},
 	domainRadius = 38,
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
@@ -1259,11 +1260,58 @@ function Config.zoneAt(x, z)
 	return best
 end
 
+-- Boussole : zone à rejoindre = la plus avancée débloquée par l'histoire (1 au début).
+function Config.frontierZone(chaptersDone)
+	local best = 1
+	for i = 1, #Config.RIVALS do
+		if Config.zoneUnlocked(chaptersDone, i) then
+			best = i
+		end
+	end
+	return best
+end
+
+-- Flèche de boussole : angle (degrés, 0 = tout droit, positif = à droite) entre le regard (lookX, lookZ) et la direction du joueur (px, pz) vers la cible, et distance.
+function Config.compass(px, pz, lookX, lookZ, tx, tz)
+	local dx, dz = tx - px, tz - pz
+	local dist = math.sqrt(dx * dx + dz * dz)
+	local ll = math.sqrt(lookX * lookX + lookZ * lookZ)
+	if dist < 1e-6 or ll < 1e-6 then
+		return 0, dist
+	end
+	local cross = (lookX * dz - lookZ * dx) / (ll * dist) -- sin de l'angle orienté (axes X vers la droite, Z vers l'arrière de l'écran)
+	local dot = (lookX * dx + lookZ * dz) / (ll * dist)
+	local a = math.deg(math.atan(cross / (math.abs(dot) < 1e-9 and 1e-9 or dot)))
+	if dot < 0 then
+		a = a + (cross >= 0 and 180 or -180)
+	end
+	return a, dist
+end
+
+-- Voyage rapide : trois portails au Grand Nid (un par zone) et un portail de retour au pied de chaque rampe. `Config.travelPoint(dest)` = point d'arrivée
+-- (0 = Grand Nid, i = approche de la rampe du domaine i) ; `Config.travelPad(i)` = portail du Grand Nid vers la zone i ; `Config.returnPad(i)` = portail de retour.
+Config.TRAVEL = { cooldown = 4, combatLock = 4, arenaPads = { x = { -26, 0, 26 }, z = -45 }, arrivalOffset = 14, returnSide = 12, returnForward = 10 }
+function Config.travelPoint(dest)
+	if dest == 0 then
+		return 0, -30
+	end
+	local r = Config.rampOf(dest)
+	return r.bottom[1] + r.dir[1] * Config.TRAVEL.arrivalOffset, r.bottom[2] + r.dir[2] * Config.TRAVEL.arrivalOffset
+end
+function Config.travelPad(i)
+	return Config.TRAVEL.arenaPads.x[i], Config.TRAVEL.arenaPads.z
+end
+function Config.returnPad(rival)
+	local r = Config.rampOf(rival)
+	local px, pz = -r.dir[2], r.dir[1]
+	return r.bottom[1] + r.dir[1] * Config.TRAVEL.returnForward + px * Config.TRAVEL.returnSide, r.bottom[2] + r.dir[2] * Config.TRAVEL.returnForward + pz * Config.TRAVEL.returnSide
+end
+
 -- Secrets : un lieu caché par domaine ; une récompense par jour et par secret (max(minCoins, revenus de `mins` minutes)).
 Config.SECRETS = {
-	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -340, z = -330, mins = 4, minCoins = 1500, hint = "Au bout du sentier de la ferme, derrière les champs, un verger oublié garde un trésor." },
-	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = -120, z = -470, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
-	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 340, z = -330, mins = 8, minCoins = 9000, hint = "La citadelle de Zed cache un cœur brûlant sur son flanc est." },
+	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -235, z = -205, mins = 4, minCoins = 1500, hint = "Au bout du sentier de la ferme, derrière les champs, un verger oublié garde un trésor." },
+	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = -80, z = -305, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
+	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 290, z = -245, mins = 8, minCoins = 9000, hint = "La citadelle de Zed cache un cœur brûlant sur son flanc est." },
 }
 
 function Config.secret(id)
@@ -1367,7 +1415,7 @@ end
 Config.VFX = { quality = nil }
 
 -- Masquage des zones éloignées (client, sans StreamingEnabled) : masquées au-delà de cullAt studs du bord d'un domaine, réaffichées sous showAt.
-Config.Culling = { enabled = true, cullAt = 200, showAt = 170, interval = 1, batch = 150, refresh = 20 }
+Config.Culling = { enabled = true, cullAt = 170, showAt = 140, interval = 1, batch = 150, refresh = 20 }
 
 -- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
 Config.Debug = { AssetReport = true }
@@ -2940,7 +2988,7 @@ function Placement.new(Config)
 			end
 			local kind = kinds[ki]
 			local x, z = c[1] + (rnd() - 0.5) * 12, c[2] + (rnd() - 0.5) * 12
-			if fits(kind, x, z) then
+			if math.sqrt(x * x + z * z) <= (M.decorRadius or math.huge) and fits(kind, x, z) then
 				add(kind, x, z, rnd() * 360)
 				ki = ki + 1
 			end
@@ -5910,7 +5958,48 @@ local function claimSecret(s, root, prompt)
 	sync(s)
 end
 
+-- Voyage rapide : le serveur valide TOUT (zone débloquée, joueur vivant, hors combat, hors château, délai) ; l'argument vient d'un attribut du prompt, jamais du client.
+local function fastTravel(s, dest, prompt)
+	local root = getRoot(s.player)
+	if not root or not alive(s.player) or s.stun > 0 or s.castle then
+		return false
+	end
+	if type(dest) ~= "number" or dest % 1 ~= 0 or dest < 0 or dest > #Config.RIVALS then
+		return false
+	end
+	if prompt and prompt.Parent and (root.Position - prompt.Parent.CFrame.Position).Magnitude > 20 then
+		return false
+	end
+	local now = os.clock()
+	if now - (s.travelAt or -99) < Config.TRAVEL.cooldown then
+		return false
+	end
+	if s.sinceHit < Config.TRAVEL.combatLock then
+		notify(s.player, "⚔️ Pas de voyage rapide en plein combat.")
+		return false
+	end
+	if dest > 0 and not Config.zoneUnlocked(s.data.story.ch, dest) then
+		notify(s.player, "🔒 Zone verrouillée : termine l'histoire jusqu'au chapitre " .. Config.ZONES[dest].chapter .. ".", "refuse")
+		return false
+	end
+	s.travelAt = now
+	local x, z = Config.travelPoint(dest)
+	root.CFrame = CFrame.new(x, 4, z)
+	root.AssemblyLinearVelocity = Vector3.zero
+	s.noCheckUntil = now + 2
+	s.lastPos = nil
+	s.lastActive = now
+	return true
+end
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	if CollectionService:HasTag(prompt, "FastTravel") then
+		local ss = sessions[player]
+		if ss then
+			fastTravel(ss, prompt:GetAttribute("Dest"), prompt)
+		end
+		return
+	end
 	if CollectionService:HasTag(prompt, "CastleEntry") then
 		local ss, rr = sessions[player], getRoot(player)
 		if ss and rr and alive(player) and ss.stun <= 0 and (rr.Position - prompt.Parent.Position).Magnitude <= 20 then
@@ -9850,6 +9939,36 @@ function Builder.build()
 		print("[Builder] carte construite : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. ")")
 	end
 
+	-- Voyage rapide : portails du Grand Nid vers chaque zone et portails de retour au pied des rampes (prompt serveur, tag « FastTravel », attribut Dest)
+	result.fastTravel = {}
+	do
+		local folder = Instance.new("Folder")
+		folder.Name = "FastTravel"
+		folder.Parent = world
+		local function pad(x, z, dest, label, color)
+			local p = part({ Name = "TravelPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 7, 7), CFrame = CFrame.new(x, 0.3, z) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.SmoothPlastic, Transparency = 0.25, CanCollide = false }, folder)
+			part({ Name = "TravelRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 8.4, 8.4), CFrame = CFrame.new(x, 0.18, z) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.SmoothPlastic, Transparency = 0.5, CanCollide = false }, folder)
+			sign(p, label, color:Lerp(Color3.new(1, 1, 1), 0.4), 4.5, 190)
+			local pr = Instance.new("ProximityPrompt")
+			pr.ActionText = "Voyage rapide"
+			pr.ObjectText = label
+			pr.HoldDuration = 0.6
+			pr.MaxActivationDistance = 8
+			pr.RequiresLineOfSight = false
+			pr:SetAttribute("Dest", dest)
+			pr.Parent = p
+			CollectionService:AddTag(pr, "FastTravel")
+			result.fastTravel[#result.fastTravel + 1] = { prompt = pr, dest = dest, pos = Vector3.new(x, 0.3, z) }
+		end
+		local cols = { Color3.fromRGB(110, 200, 120), Color3.fromRGB(170, 120, 230), Color3.fromRGB(255, 130, 90) }
+		for i = 1, #Config.RIVALS do
+			local x, z = Config.travelPad(i)
+			pad(x, z, i, "🌀 " .. Config.ZONES[i].name, cols[i])
+			local rx, rz = Config.returnPad(i)
+			pad(rx, rz, 0, "🌀 Grand Nid", Color3.fromRGB(255, 214, 120))
+		end
+	end
+
 	result.treadmillContains = function(p)
 		local rel = result.treadmill.cf:PointToObjectSpace(p)
 		local s = result.treadmill.size
@@ -12635,6 +12754,35 @@ do
 				warn("[Sons] boucles désactivées pour cette session après une erreur")
 			end
 			task.wait(0.5)
+		end
+	end)
+end
+
+-- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
+do
+	local arrow = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 132), Size = UDim2.fromOffset(190, 24), TextSize = 14, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, Text = "", Visible = false })
+	local pointer = text(arrow, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(0, -2, 0.5, 0), Size = UDim2.fromOffset(26, 26), TextSize = 22, TextColor3 = COL.yellow, Text = "⬆", ZIndex = 3 })
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			pcall(function()
+				local cam = workspace.CurrentCamera
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if not (cam and root and state and state.story) then
+					arrow.Visible = false
+					return
+				end
+				local i = Config.frontierZone(state.story.ch)
+				local tx, tz = Config.travelPoint(i)
+				local look = cam.CFrame.LookVector
+				local a, dist = Config.compass(root.Position.X, root.Position.Z, look.X, look.Z, tx, tz)
+				arrow.Visible = dist > 45
+				if arrow.Visible then
+					pointer.Rotation = a
+					arrow.Text = Config.ZONES[i].name .. " · " .. math.floor(dist) .. " m (" .. math.ceil(dist / 16) .. " s)"
+				end
+			end)
 		end
 	end)
 end

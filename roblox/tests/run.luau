@@ -3075,9 +3075,10 @@ do
 	local geo, M = Config.Map.geo, Config.Map
 	local inWater, onPath, inArena = 0, 0, 0
 	local segs = {}
-	for i = 1, #Config.RIVALS do
-		local cx, cz = Config.rivalCenter(i)
-		segs[#segs + 1] = { cx * 0.5, -78, cx, cz + 24 }
+	for _, poly in ipairs(M.paths) do
+		for k = 1, #poly - 1 do
+			segs[#segs + 1] = { poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2] }
+		end
 	end
 	for _, it in ipairs(items) do
 		for _, rv in ipairs(geo.rivers) do
@@ -3258,7 +3259,7 @@ do
 	suite("Culling : hystérésis, lots, distance, option de coupure")
 	local CU = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Culling.lua"), { debugName = "Culling" })()
 	local C = Config.Culling
-	check("Culling : masque au-delà de cullAt, réaffiche sous showAt, garde son état entre les deux (pas de clignotement)", CU.decide(250, false, C.cullAt, C.showAt) and not CU.decide(150, false, C.cullAt, C.showAt) and not CU.decide(190, false, C.cullAt, C.showAt) and CU.decide(190, true, C.cullAt, C.showAt) and not CU.decide(160, true, C.cullAt, C.showAt))
+	check("Culling : masque au-delà de cullAt, réaffiche sous showAt, garde son état entre les deux (pas de clignotement)", CU.decide(C.cullAt + 50, false, C.cullAt, C.showAt) and not CU.decide(C.showAt - 20, false, C.cullAt, C.showAt) and not CU.decide((C.cullAt + C.showAt) / 2, false, C.cullAt, C.showAt) and CU.decide((C.cullAt + C.showAt) / 2, true, C.cullAt, C.showAt) and not CU.decide(C.showAt - 10, true, C.cullAt, C.showAt))
 	check("Culling : distance invalide (nil, NaN) ne masque jamais ; seuils cohérents (showAt < cullAt), ~1,5 domaine", not CU.decide(nil, false, 200, 170) and not CU.decide(0 / 0, true, 200, 170) and C.showAt < C.cullAt and C.cullAt >= 1.5 * Config.Map.plateauRadius)
 	check("Culling : distance au bord d'une zone (0 dedans), lots de taille donnée, liste vide", CU.distanceTo(0, 0, { x = 0, z = 100, radius = 66 }) == 34 and CU.distanceTo(0, 90, { x = 0, z = 100, radius = 66 }) == 0 and #CU.chunks({ 1, 2, 3, 4, 5 }, 2) == 3 and #CU.chunks({ 1, 2, 3, 4, 5 }, 2)[3] == 1 and #CU.chunks({}, 10) == 0 and #CU.chunks({ 1, 2 }, 0) == 2)
 	check("Culling : option de coupure Config.Culling.enabled et lots bornés (<= 300 éléments par image)", C.enabled == true and C.batch <= 300 and C.interval >= 0.5)
@@ -5063,7 +5064,7 @@ do
 				RT.step(4)
 				local mh, ms, mt = modifiers("Rival_Mara")
 				local gh2 = modifiers("Rival_Gus")
-				check("Culling : près de Mara elle réapparaît (" .. ms .. "/" .. mt .. ") ; Gus, à plus de 170 studs de son bord, reste masqué (" .. gh2 .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), mt > 10 and mh == 0 and gh2 == gt and #RT.errors == 0)
+				check("Culling : près de Mara elle réapparaît (" .. ms .. "/" .. mt .. ") ; Gus, à plus de 140 studs de son bord, reste masqué (" .. gh2 .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), mt > 10 and mh == 0 and gh2 == gt and #RT.errors == 0)
 			end
 		end
 		-- bannière : distance à la base du joueur ; inventaire à onglets (œufs, pets, boosts, titres, index)
@@ -5842,6 +5843,115 @@ do
 	end
 	check("Probabilité annoncée d'obtenir un pet Épique d'un œuf Épique = " .. string.format("%.3f", pr) .. " (95 %)", math.abs(pr - 0.95) < 1e-6)
 	check("Texte des probabilités : par œuf, « AMÉLIORÉ ! », jamais de rareté inférieure", Config.oddsText():find("AMÉLIORÉ", 1, true) and Config.oddsText():find("Épique : 95% Épique, 5% Légendaire", 1, true) and Config.oddsText():find("Jamais de rareté inférieure", 1, true))
+end
+
+
+do
+	suite("Carte compacte : distances mesurées, voyage rapide validé par le serveur, boussole")
+	local M = Config.Map
+	local function dist(ax, az, bx, bz)
+		return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+	end
+	local lines, distOk = {}, true
+	local dz = {}
+	for i = 1, #Config.RIVALS do
+		local x, z = Config.rivalCenter(i)
+		dz[i] = { x, z }
+		local d = dist(x, z, 0, 0)
+		lines[#lines + 1] = string.format("%s %.0f", Config.RIVALS[i].name, d)
+		if d < 150 or d > 280 then
+			distOk = false
+		end
+	end
+	local neigh = {}
+	for i = 2, #dz do
+		local d = dist(dz[i][1], dz[i][2], dz[i - 1][1], dz[i - 1][2])
+		neigh[#neigh + 1] = string.format("%.0f", d)
+		if d < 150 or d > 230 then
+			distOk = false
+		end
+	end
+	check("Distances : Grand Nid -> domaines " .. table.concat(lines, " / ") .. " ; entre voisins " .. table.concat(neigh, " / ") .. " (cibles 150 à 280 et 150 à 230)", distOk)
+	local walk = 16 -- vitesse de marche de base
+	local worst = 0
+	for i = 1, #dz do
+		local bx, bz = Config.travelPoint(i)
+		worst = math.max(worst, dist(0, 0, bx, bz) / walk)
+		if i > 1 then
+			local ax, az = Config.travelPoint(i - 1)
+			worst = math.max(worst, dist(ax, az, bx, bz) / walk)
+		end
+	end
+	check("Trajets à pied : Grand Nid -> rampe d'un domaine et rampe -> rampe voisine : au plus " .. string.format("%.1f", worst) .. " s (< 25 s)", worst < 25)
+	check("Base à " .. M.plotRadius .. " studs du Grand Nid : " .. string.format("%.1f", M.plotRadius / walk) .. " s à pied (< 15 s)", M.plotRadius / walk < 15)
+	-- boussole
+	local a1, d1 = Config.compass(0, 0, 0, -1, 10, 0)
+	local a2 = Config.compass(0, 0, 0, -1, -10, 0)
+	local a3 = Config.compass(0, 0, 0, -1, 0, -10)
+	local a4 = Config.compass(0, 0, 0, -1, 0, 10)
+	check("Boussole : droite +90, gauche -90, devant 0, derrière ±180 (" .. string.format("%.0f/%.0f/%.0f/%.0f", a1, a2, a3, a4) .. ")", math.abs(a1 - 90) < 1e-6 and math.abs(a2 + 90) < 1e-6 and math.abs(a3) < 1e-6 and math.abs(math.abs(a4) - 180) < 1e-6 and d1 == 10)
+	check("Boussole : zone à rejoindre = la plus avancée débloquée (chapitres 0, 3, 6)", Config.frontierZone(0) == 1 and Config.frontierZone(3) == 2 and Config.frontierZone(6) == 3 and Config.frontierZone(99) == 3)
+	-- e2e
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local p = RT.addPlayer("Voy", 9931, { from = "hub", partyId = "VOY", size = 1, late = false })
+		RT.step(3)
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		local prompts = {}
+		for obj in pairs(RT.tags["FastTravel"] or {}) do
+			prompts[#prompts + 1] = obj
+		end
+		local byDest = { [0] = {}, {}, {}, {} }
+		for _, pr in ipairs(prompts) do
+			local list = byDest[pr:GetAttribute("Dest")]
+			list[#list + 1] = pr
+		end
+		check("Voyage rapide : " .. #prompts .. " portails (3 au Grand Nid + 3 retours), aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #prompts == 2 * #Config.RIVALS and #byDest[0] == #Config.RIVALS and #RT.errors == 0)
+		local function posOf()
+			local pr = rawget(root, "__props")
+			return pr.CFrame.Position
+		end
+		local function trigger(prompt)
+			local pp = prompt.Parent
+			local pos = rawget(pp, "__props").CFrame and rawget(pp, "__props").CFrame.Position or rawget(pp, "__props").Position
+			rawget(root, "__props").Position = RT.vec(pos.X, 3, pos.Z)
+			rawget(root, "__props").CFrame = RT.cf(pos.X, 3, pos.Z)
+			RT.now = RT.now + 5
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", prompt, p)
+			RT.step(0.3)
+		end
+		if root and byDest[1][1] then
+			RT.step(10) -- aucun coup récent
+			trigger(byDest[1][1])
+			local px, pz = posOf().X, posOf().Z
+			local tx, tz = Config.travelPoint(1)
+			check("Voyage rapide : le portail du Grand Nid mène à la zone 1 débloquée (" .. string.format("%.0f,%.0f", px, pz) .. " attendu " .. string.format("%.0f,%.0f", tx, tz) .. ")", dist(px, pz, tx, tz) < 1)
+			trigger(byDest[3][1]) -- Zed : verrouillée au chapitre 0
+			local qx, qz = posOf().X, posOf().Z
+			local bx, bz = Config.travelPad(3)
+			check("Voyage rapide : une zone verrouillée est REFUSÉE côté serveur (le joueur reste sur le portail)", dist(qx, qz, bx, bz) < 1)
+			trigger(byDest[0][1])
+			local rx, rz = posOf().X, posOf().Z
+			local ax, az = Config.travelPoint(0)
+			check("Voyage rapide : le portail de retour ramène au Grand Nid", dist(rx, rz, ax, az) < 1)
+			-- délai de 4 s : deux déclenchements rapprochés = un seul voyage
+			local before = posOf()
+			local pr1 = byDest[2][1]
+			local pp = rawget(pr1.Parent, "__props")
+			rawget(root, "__props").CFrame = RT.cf(0, 3, 0)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", pr1, p) -- trop loin du portail : refusé
+			RT.step(0.3)
+			check("Voyage rapide : déclenché loin du portail -> refusé", dist(posOf().X, posOf().Z, 0, 0) < 1)
+			check("Voyage rapide : aucune erreur serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		else
+			check("Voyage rapide : joueur et portails présents", false)
+		end
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

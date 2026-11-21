@@ -2,6 +2,14 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Retours de test 4 : carte compacte
+
+- Faux : Grand Nid -> domaines 386 / 410 / 533 studs (24 à 33 s à pied), bases à 262 studs (16 s).
+- Corrigé : bases à 115 studs (7,2 s) ; domaines Gus (-185,-140) 232, Mara (10,-245) 245, Zed (190,-190) 269 studs ; 221 et 188 entre voisins ; terrasses 6 / 14 / 24, rampes, ponts et difficulté croissante conservés ; chemins et secrets recalculés ; décor planifié limité à 360 studs (`Config.Map.decorRadius`) ; culling 170 / 140 studs (distance au bord).
+- Ajouts : voyage rapide (3 portails au Grand Nid, un retour au pied de chaque rampe ; le serveur valide zone débloquée, joueur vivant, hors combat 4 s, hors château, distance au portail, délai 4 s ; arrivée sans alerte anti-triche) ; boussole « Zone · N m (N s) » avec flèche orientée selon la caméra (`Config.compass`, `Config.frontierZone`).
+- Mesuré (tests) : trajets à pied au plus 16,8 s entre deux rampes voisines ou depuis le Grand Nid ; base 7,2 s.
+- Pas de mini-carte : la boussole suffit. Non vu en Studio : placement des portails, lisibilité de la flèche, entrée du plateau de Zed (rampe vers le sud).
+
 ## Retours de test 3 : œuf annoncé = rareté du pet
 
 - Faux (code) : `Rules.tierWeights` donnait 22 % de rareté inférieure et 12 % de rareté supérieure (+3 par niveau de Trèfle, +10 pass, +25 potion), plus une pitié qui garantissait une amélioration toutes les 12 éclosions. Un œuf Épique donnait donc environ 66 % Épique, 12 % Légendaire (jusqu'à 100 % avec la pitié) et 22 % Rare.

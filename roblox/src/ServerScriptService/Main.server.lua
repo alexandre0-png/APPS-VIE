@@ -878,7 +878,48 @@ local function claimSecret(s, root, prompt)
 	sync(s)
 end
 
+-- Voyage rapide : le serveur valide TOUT (zone débloquée, joueur vivant, hors combat, hors château, délai) ; l'argument vient d'un attribut du prompt, jamais du client.
+local function fastTravel(s, dest, prompt)
+	local root = getRoot(s.player)
+	if not root or not alive(s.player) or s.stun > 0 or s.castle then
+		return false
+	end
+	if type(dest) ~= "number" or dest % 1 ~= 0 or dest < 0 or dest > #Config.RIVALS then
+		return false
+	end
+	if prompt and prompt.Parent and (root.Position - prompt.Parent.CFrame.Position).Magnitude > 20 then
+		return false
+	end
+	local now = os.clock()
+	if now - (s.travelAt or -99) < Config.TRAVEL.cooldown then
+		return false
+	end
+	if s.sinceHit < Config.TRAVEL.combatLock then
+		notify(s.player, "⚔️ Pas de voyage rapide en plein combat.")
+		return false
+	end
+	if dest > 0 and not Config.zoneUnlocked(s.data.story.ch, dest) then
+		notify(s.player, "🔒 Zone verrouillée : termine l'histoire jusqu'au chapitre " .. Config.ZONES[dest].chapter .. ".", "refuse")
+		return false
+	end
+	s.travelAt = now
+	local x, z = Config.travelPoint(dest)
+	root.CFrame = CFrame.new(x, 4, z)
+	root.AssemblyLinearVelocity = Vector3.zero
+	s.noCheckUntil = now + 2
+	s.lastPos = nil
+	s.lastActive = now
+	return true
+end
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	if CollectionService:HasTag(prompt, "FastTravel") then
+		local ss = sessions[player]
+		if ss then
+			fastTravel(ss, prompt:GetAttribute("Dest"), prompt)
+		end
+		return
+	end
 	if CollectionService:HasTag(prompt, "CastleEntry") then
 		local ss, rr = sessions[player], getRoot(player)
 		if ss and rr and alive(player) and ss.stun <= 0 and (rr.Position - prompt.Parent.Position).Magnitude <= 20 then
