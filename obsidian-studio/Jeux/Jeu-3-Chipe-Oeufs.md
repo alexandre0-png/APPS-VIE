@@ -21,3 +21,4 @@ statut: prive-publie
 
 - 21 nov : commit ebb5271 (pets Tigre, Kraken, Calmar, Wyrm). Publié en privé : hub v27, partie v21.
 - 21 nov (après-midi) : retours utilisateur envoyés à la session (sol du hub qui scintille, pets trop gros, bâtiment évolutif par rareté d'œuf, zones et gardiens plus durs et espacés style île en terrasses de la vidéo, placement planifié, icône de recyclage). En cours, rien publié.
+- 21 nov : commits c8b2e04..8b00c87 (sol, échelles, icônes, base à 8 niveaux, placement, zones) publiés : partie v22, hub v28. Reste : relief en terrasses et terrain (demandé à la session), branchement du lot 10 Blender.
