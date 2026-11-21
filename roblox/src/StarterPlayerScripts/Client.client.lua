@@ -1698,7 +1698,14 @@ RunService.RenderStepped:Connect(function(dt)
 			if (cur.Position - target.Position).Magnitude > 40 then
 				m:PivotTo(target) -- après une téléportation (voyage rapide, retour à la base) : le pet suit aussitôt au lieu de traverser la carte
 			else
-				m:PivotTo(cur:Lerp(target, 1 - math.exp(-8 * dt)))
+				local nxt = cur:Lerp(target, 1 - math.exp(-8 * dt))
+				-- orientation vers la direction de marche du pet (sinon celle du propriétaire)
+				local fx, fz = Easing.travelDir(nxt.Position.X - cur.Position.X, nxt.Position.Z - cur.Position.Z, dt, 1.5)
+				if fx then
+					local face = CFrame.lookAt(nxt.Position, nxt.Position + Vector3.new(fx, 0, fz))
+					nxt = CFrame.new(nxt.Position) * nxt.Rotation:Lerp(face.Rotation, 0.35) -- tourne progressivement vers la marche
+				end
+				m:PivotTo(nxt)
 			end
 		end
 	end

@@ -20,6 +20,19 @@ local function frac(x)
 	return x - floor(x)
 end
 
+-- Direction de déplacement unitaire (dx, dz) d'un objet qui a parcouru (dx, dz) en dt secondes, ou nil s'il va plus lentement que minSpeed (studs/s) : il garde
+-- alors son orientation. Sert à tourner les pets suiveurs vers leur direction de marche.
+function Easing.travelDir(dx, dz, dt, minSpeed)
+	if type(dx) ~= "number" or type(dz) ~= "number" or type(dt) ~= "number" or dt <= 0 or dx ~= dx or dz ~= dz then
+		return nil
+	end
+	local d = sqrt(dx * dx + dz * dz)
+	if d / dt < (minSpeed or 1.5) or d < 1e-9 then
+		return nil
+	end
+	return dx / d, dz / d
+end
+
 function Easing.lerp(a, b, t)
 	return a + (b - a) * t
 end

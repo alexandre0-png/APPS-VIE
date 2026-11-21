@@ -6166,5 +6166,13 @@ do
 	check("Chevaliers : hauteur cible 4,5 studs et plafond de Parts du modèle >= 80", Config.Assets.targetHeights.knight == 4.5 and Config.Assets.modelsMaxParts["guards.knight"] ~= nil and Config.Assets.modelsMaxParts["guards.knight"] >= 80)
 end
 
+
+do
+	local EZ = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+	local ax, az = EZ.travelDir(3, 4, 1, 1.5)
+	local bx = EZ.travelDir(0.5, 0, 1, 1.5)
+	check("Pets suiveurs : travelDir donne la direction unitaire (0,6 ; 0,8), nil quand le pet est quasi immobile, entrées invalides sans erreur", math.abs(ax - 0.6) < 1e-9 and math.abs(az - 0.8) < 1e-9 and bx == nil and EZ.travelDir(nil, 1, 1) == nil and EZ.travelDir(0 / 0, 1, 1) == nil and EZ.travelDir(1, 1, 0) == nil)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

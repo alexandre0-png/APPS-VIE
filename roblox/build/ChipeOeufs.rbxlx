@@ -1579,6 +1579,19 @@ local function frac(x)
 	return x - floor(x)
 end
 
+-- Direction de déplacement unitaire (dx, dz) d'un objet qui a parcouru (dx, dz) en dt secondes, ou nil s'il va plus lentement que minSpeed (studs/s) : il garde
+-- alors son orientation. Sert à tourner les pets suiveurs vers leur direction de marche.
+function Easing.travelDir(dx, dz, dt, minSpeed)
+	if type(dx) ~= "number" or type(dz) ~= "number" or type(dt) ~= "number" or dt <= 0 or dx ~= dx or dz ~= dz then
+		return nil
+	end
+	local d = sqrt(dx * dx + dz * dz)
+	if d / dt < (minSpeed or 1.5) or d < 1e-9 then
+		return nil
+	end
+	return dx / d, dz / d
+end
+
 function Easing.lerp(a, b, t)
 	return a + (b - a) * t
 end
@@ -6562,7 +6575,7 @@ local function castleStep(dt)
 			local v = rec.knights[i]
 			local kx, dir = Castle.knightPos(T, kn)
 			v.part.Position = Vector3.new(Castle.ORIGIN.x + kx, 3, v.wz)
-			Builder.animKnight(v, Castle.ORIGIN.x + kx, v.wz, dir)
+			Builder.animKnight(v, Castle.ORIGIN.x + kx, v.wz, dir, 4 * kn.amp / kn.period)
 		end
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)
@@ -8039,6 +8052,7 @@ local Lighting = game:GetService("Lighting")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
 local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
+local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Guard")) -- pose de marche
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 
@@ -9382,10 +9396,11 @@ function Builder.dressKnights(assets)
 end
 
 -- Place le modèle du chevalier sur sa position et le tourne dans le sens de la marche (devant = -Z : vers +X = -90°).
-function Builder.animKnight(v, x, z, dir)
+function Builder.animKnight(v, x, z, dir, speed)
 	local vis = v.vis
 	if vis then
-		vis.model:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, dir > 0 and -math.pi / 2 or math.pi / 2, 0) * vis.off)
+		local by, roll = GuardMod.walkPose(os.clock() + (v.wz or 0), speed or 8) -- rebond et roulis de marche
+		vis.model:PivotTo(CFrame.new(x, by, z) * CFrame.Angles(0, dir > 0 and -math.pi / 2 or math.pi / 2, 0) * CFrame.Angles(0, 0, roll) * vis.off)
 	end
 end
 
@@ -12764,7 +12779,14 @@ RunService.RenderStepped:Connect(function(dt)
 			if (cur.Position - target.Position).Magnitude > 40 then
 				m:PivotTo(target) -- après une téléportation (voyage rapide, retour à la base) : le pet suit aussitôt au lieu de traverser la carte
 			else
-				m:PivotTo(cur:Lerp(target, 1 - math.exp(-8 * dt)))
+				local nxt = cur:Lerp(target, 1 - math.exp(-8 * dt))
+				-- orientation vers la direction de marche du pet (sinon celle du propriétaire)
+				local fx, fz = Easing.travelDir(nxt.Position.X - cur.Position.X, nxt.Position.Z - cur.Position.Z, dt, 1.5)
+				if fx then
+					local face = CFrame.lookAt(nxt.Position, nxt.Position + Vector3.new(fx, 0, fz))
+					nxt = CFrame.new(nxt.Position) * nxt.Rotation:Lerp(face.Rotation, 0.35) -- tourne progressivement vers la marche
+				end
+				m:PivotTo(nxt)
 			end
 		end
 	end
