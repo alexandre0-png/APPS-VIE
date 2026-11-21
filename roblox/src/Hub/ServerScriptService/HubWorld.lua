@@ -150,7 +150,7 @@ function HubWorld.build(Config)
 
 	cylinder({ Name = "Ground", Height = 2, Diameter = 420, Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(88, 150, 84), Material = Enum.Material.Grass }, world)
 	cylinder({ Name = "Plaza", Height = 0.6, Diameter = 96, Position = Vector3.new(0, 0.1, 0), Color = Color3.fromRGB(196, 184, 160), Material = Enum.Material.Cobblestone }, world)
-	cylinder({ Name = "PlazaRing", Height = 0.7, Diameter = 100, Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Slate }, world)
+	cylinder({ Name = "PlazaRing", Height = 0.5, Diameter = 100, Position = Vector3.new(0, 0, 0), Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Slate }, world)
 	-- Murs et plafond INVISIBLES : on ne sort jamais du hub, ni par les côtés ni en sautant très haut (hauteur des murs = plafond).
 	local CEIL = 130
 	for _, w in ipairs({ { 0, -212, 428, 4 }, { 0, 212, 428, 4 }, { 212, 0, 4, 428 }, { -212, 0, 4, 428 } }) do
@@ -213,7 +213,7 @@ function HubWorld.build(Config)
 		local cx, cz = math.sin(a) * R, -math.cos(a) * R
 		local color = ZONE_COLORS[(i - 1) % #ZONE_COLORS + 1]
 		local rot = CFrame.lookAt(Vector3.new(cx, 0, cz), Vector3.new(0, 0, 0))
-		cylinder({ Name = "PortalRing" .. size, Height = 0.5, Diameter = 21, Position = Vector3.new(cx, 0.45, cz), Color = color, Material = Enum.Material.Neon, CanCollide = false }, world)
+		cylinder({ Name = "PortalRing" .. size, Height = 0.5, Diameter = 21, Position = Vector3.new(cx, 0.45, cz), Color = color:Lerp(Color3.new(1, 1, 1), 0.15), Material = Enum.Material.SmoothPlastic, CanCollide = false }, world)
 		local padPart = cylinder({ Name = "PortalZone" .. size, Height = 0.6, Diameter = 18, Position = Vector3.new(cx, 0.55, cz), Color = color:Lerp(Color3.new(0, 0, 0), 0.55), Material = Enum.Material.SmoothPlastic, CanCollide = false }, world)
 		padPart:SetAttribute("Size", size)
 		CollectionService:AddTag(padPart, "PortalZone")
@@ -240,7 +240,7 @@ function HubWorld.build(Config)
 		local a = math.rad(-72 + (i - 1) * 36)
 		local cx, cz = math.sin(a) * 108, -math.cos(a) * 108
 		local rot = CFrame.lookAt(Vector3.new(cx, 0, cz), Vector3.new(0, 0, 0))
-		cylinder({ Name = "CastlePortalRing" .. size, Height = 0.5, Diameter = 21, Position = Vector3.new(cx, 0.45, cz), Color = castleColor, Material = Enum.Material.Neon, CanCollide = false }, world)
+		cylinder({ Name = "CastlePortalRing" .. size, Height = 0.5, Diameter = 21, Position = Vector3.new(cx, 0.45, cz), Color = castleColor, Material = Enum.Material.SmoothPlastic, CanCollide = false }, world)
 		local padPart = cylinder({ Name = "CastlePortalZone" .. size, Height = 0.6, Diameter = 18, Position = Vector3.new(cx, 0.55, cz), Color = Color3.fromRGB(70, 36, 24), Material = Enum.Material.Slate, CanCollide = false }, world)
 		padPart:SetAttribute("Size", size)
 		padPart:SetAttribute("Mode", "castle")
@@ -323,10 +323,28 @@ function HubWorld.build(Config)
 		local back = part({ Name = "BenchBack", Size = Vector3.new(6, 1.8, 0.4), CFrame = look * CFrame.new(0, 1.2, 1), Color = Color3.fromRGB(130, 90, 60), Material = Enum.Material.WoodPlanks }, world)
 		benchItems[#benchItems + 1] = { seat = seat, back = back, x = bx, z = bz, rot = math.deg(a) }
 	end
-	for _, z in pairs(zones) do -- fanions et chemin de pas depuis le point d'arrivée jusqu'à chaque portail
+	local pathIndex = 0
+	for _, z in pairs(zones) do -- chemin de pas : de la place jusqu'au portail de l'arène ; du portail de l'arène jusqu'à son jumeau « château »
+		pathIndex += 1
+		local pathY = 0.5 + 0.07 * (pathIndex % 3) -- trois niveaux : deux chemins voisins ne partagent jamais la même hauteur (aucun scintillement)
+		local twin = z.mode == "castle" and zones[z.size] or nil
+		local ox, oz = 0, 34
+		if twin then
+			ox, oz = twin.center.X, twin.center.Z
+		end
+		local pathLen = math.sqrt((z.center.X - ox) ^ 2 + (z.center.Z - oz) ^ 2)
 		for k = 1, 7 do
 			local t = k / 8
-			part({ Name = "PathStone", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(Vector3.new(0 + (z.center.X - 0) * t, 0.5, 34 + (z.center.Z - 34) * t)) * CFrame.Angles(0, 0, math.pi / 2), Color = z.color:Lerp(Color3.fromRGB(215, 205, 180), 0.6), Material = Enum.Material.Cobblestone, CanCollide = false }, world)
+			local sx, sz = ox + (z.center.X - ox) * t, oz + (z.center.Z - oz) * t
+			local blocked = false
+			for _, other in pairs(zones) do
+				if math.sqrt((sx - other.center.X) ^ 2 + (sz - other.center.Z) ^ 2) < 13.5 then
+					blocked = true -- jamais de pavé sous l'anneau d'un portail (le sien ou celui d'un autre)
+				end
+			end
+			if not blocked and pathLen > 0 then
+				part({ Name = "PathStone", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(Vector3.new(sx, pathY, sz)) * CFrame.Angles(0, 0, math.pi / 2), Color = z.color:Lerp(Color3.fromRGB(215, 205, 180), 0.6), Material = Enum.Material.Cobblestone, CanCollide = false }, world)
+			end
 		end
 	end
 	local sparks = part({ Name = "Fireflies", Size = Vector3.new(160, 14, 160), Position = Vector3.new(0, 9, 0), Transparency = 1, CanCollide = false, CanQuery = false }, world)

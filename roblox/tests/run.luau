@@ -4267,6 +4267,92 @@ do
 	end
 end
 
+-- Z-fighting : aucune face horizontale coplanaire qui se recouvre ---------------------------------------------------------------------
+-- Géométrie approchée à partir des Parts du runtime factice : dessus d'une Part = Y du centre + hauteur / 2 (cylindres : l'axe est Size.X), empreinte =
+-- rectangle englobant. Deux dessus à moins de 0,05 stud l'un de l'autre qui se recouvrent sur plus de 1 stud carré scintillent (z-fighting).
+local function coplanarConflicts(RT, maxTop)
+	local items = {}
+	for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+		if d.ClassName == "Part" then
+			local pr = rawget(d, "__props")
+			local sz, pos = pr.Size, nil
+			local pp, cp = pr.Position, pr.CFrame and pr.CFrame.Position
+			if pp and (pp.X ~= 0 or pp.Y ~= 0 or pp.Z ~= 0) then
+				pos = pp
+			else
+				pos = cp or pp
+			end
+			if sz and pos and pr.Transparency ~= 1 and (pr.Shape == nil or pr.Shape == "PartType.Block" or pr.Shape == "PartType.Cylinder") then
+				local cyl = pr.Shape == "PartType.Cylinder"
+				local h = cyl and sz.X or sz.Y
+				local w, l = cyl and sz.Y or sz.X, cyl and sz.Z or sz.Z
+				local top = pos.Y + h / 2
+				if h <= 1.5 and w >= 3 and l >= 3 and top <= (maxTop or 1.6) and top >= -0.2 then
+					items[#items + 1] = { name = pr.Name, top = top, x0 = pos.X - w / 2, x1 = pos.X + w / 2, z0 = pos.Z - l / 2, z1 = pos.Z + l / 2, canCollide = pr.CanCollide }
+				end
+			end
+		end
+	end
+	local out = {}
+	for i = 1, #items do
+		for j = i + 1, #items do
+			local a, b = items[i], items[j]
+			if math.abs(a.top - b.top) < 0.05 then
+				local ox = math.min(a.x1, b.x1) - math.max(a.x0, b.x0)
+				local oz = math.min(a.z1, b.z1) - math.max(a.z0, b.z0)
+				if ox > 1 and oz > 1 then
+					out[#out + 1] = a.name .. "/" .. b.name .. " (dessus " .. string.format("%.2f", a.top) .. " et " .. string.format("%.2f", b.top) .. ")"
+				end
+			end
+		end
+	end
+	return out
+end
+
+do
+	suite("Z-fighting : hub et partie")
+	for _, role in ipairs({ "hub", "game" }) do
+		local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places[role], hook = loopGuard })
+		if RT then
+			local main = RT.buildTree("roblox/src", role == "hub")
+			RT.task.spawn(function()
+				RT.runScript(main)
+			end)
+			RT.step(3)
+			local conflicts = coplanarConflicts(RT)
+			local seen, uniq = {}, {}
+			for _, c in ipairs(conflicts) do
+				local key = c:gsub("%d+%.%d+", "")
+				if not seen[key] then
+					seen[key] = true
+					uniq[#uniq + 1] = c
+				end
+			end
+			for _, c in ipairs(uniq) do
+				print("ZF", role, c)
+			end
+			check("Z-fighting (" .. role .. ") : aucune surface horizontale coplanaire qui se recouvre (" .. #conflicts .. ")", #conflicts == 0)
+			local neonFloors = {}
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if d.ClassName == "Part" then
+					local pr = rawget(d, "__props")
+					local sz = pr.Size
+					if pr.Material == "Material.Neon" and pr.Transparency ~= 1 and sz then
+						local cyl = pr.Shape == "PartType.Cylinder"
+						local h = cyl and sz.X or sz.Y
+						local area = cyl and math.pi * (sz.Y / 2) ^ 2 or sz.X * sz.Z
+						local y = (pr.Position and pr.Position.Y ~= 0) and pr.Position.Y or (pr.CFrame and pr.CFrame.Position.Y or 0)
+						if h <= 1 and y <= 1.2 and area >= 300 then
+							neonFloors[#neonFloors + 1] = pr.Name
+						end
+					end
+				end
+			end
+			check("Sol (" .. role .. ") : aucun disque ou dalle Neon plein sol (" .. table.concat(neonFloors, ",") .. ")", #neonFloors == 0)
+		end
+	end
+end
+
 -- Client + serveur de bout en bout dans le runtime factice -----------------------------------------------------------------
 do
 	suite("Client + serveur de bout en bout : boutique (carrousel, richesse), achat, éclosion, révélation, bannière de zone")

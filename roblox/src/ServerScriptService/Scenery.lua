@@ -223,7 +223,7 @@ function Scenery.moat(h, cx, cz, parent, cfg)
 	for k = 0, segments - 1 do
 		local a = k / segments * math.pi * 2
 		local south = math.sin(a) > 0.99 -- face au sud (z+) : berge de sable sous le pont, pas d'eau
-		h.part({ Name = south and "MoatBank" or "MoatWater", Size = Vector3.new(chord, 0.3, W), CFrame = CFrame.new(cx + math.cos(a) * R, south and 0.12 or 0.1, cz + math.sin(a) * R) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = south and rgb(214, 190, 140) or rgb(60, 150, 220), Material = south and Enum.Material.Sand or Enum.Material.Glass, Transparency = south and 0 or 0.25, CanCollide = false, CanQuery = false }, parent)
+		h.part({ Name = south and "MoatBank" or "MoatWater", Size = Vector3.new(chord, 0.3, W), CFrame = CFrame.new(cx + math.cos(a) * R, south and 0.3 or (0.1 + (k % 2) * 0.11), cz + math.sin(a) * R) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = south and rgb(214, 190, 140) or rgb(60, 150, 220), Material = south and Enum.Material.Sand or Enum.Material.Glass, Transparency = south and 0 or 0.25, CanCollide = false, CanQuery = false }, parent)
 		n += 1
 	end
 	-- pont en bois : planches, deux rampes de rambarde et poteaux, orienté nord-sud
@@ -256,7 +256,7 @@ function Scenery.rivers(h, parent, cfg)
 		end
 	end
 	h.part({ Name = "RiverSouth", Size = Vector3.new(half * 2 - 60, 0.3, 14), Position = Vector3.new(0, 0.1, 330), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
-	h.part({ Name = "RiverWest", Size = Vector3.new(14, 0.3, half * 2 - 60), Position = Vector3.new(-380, 0.1, 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	h.part({ Name = "RiverWest", Size = Vector3.new(14, 0.3, half * 2 - 60), Position = Vector3.new(-380, 0.16, 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
 	n += 2
 	bridge(-150, 330, true)
 	bridge(150, 330, true)
@@ -381,7 +381,7 @@ function Scenery.mara(h, cx, cz, parent, rng)
 	end
 	-- mare violette et lucioles
 	n += 1
-	local pond = cyl(h, { Name = "WitchPond", Color = rgb(150, 70, 230), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, parent, 16, 0.3, Vector3.new(cx + 26, 0.25, cz + 4))
+	local pond = cyl(h, { Name = "WitchPond", Color = rgb(150, 70, 230), Material = Enum.Material.Glass, Transparency = 0.35, CanCollide = false }, parent, 16, 0.3, Vector3.new(cx + 26, 0.5, cz + 4))
 	emitter(pond, rgb(220, 255, 140), 6, 2, 3, 0.35, Vector3.new(0, 0.6, 0))
 	light(pond, rgb(170, 90, 255), 28, 1.2)
 	-- lanterne-lune sur un grand mât

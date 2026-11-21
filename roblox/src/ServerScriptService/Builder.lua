@@ -750,7 +750,7 @@ function Builder.dressGround(assets)
 				return false
 			end
 			clone.Name = "GroundTile"
-			if setModel(clone, x, 0.06, z, span, nil, folder, 0) then
+			if setModel(clone, x, key == "path" and 0.12 or 0.06, z, span, nil, folder, 0) then -- les chemins sont posés 0,06 au-dessus des pelouses (jamais coplanaires)
 				used = used + c
 				tiles = tiles + 1
 				return true
@@ -1223,10 +1223,29 @@ function Builder.build()
 	local rng = Random.new(7)
 	local half = Config.Map.groundSize / 2
 	local DC = Config.Map.decor
-	for _ = 1, DC.patches do -- taches d'herbe plus claires / plus sombres
+	local patchSpots = {}
+	for _ = 1, DC.patches do -- taches d'herbe plus claires / plus sombres, sans jamais se recouvrir (deux faces coplanaires scintilleraient)
 		local d = rng:NextNumber(40, 100)
-		local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
-		part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(rng:NextNumber(-half + 40, half - 40), 0.03, rng:NextNumber(-half + 40, half - 40)) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
+		local px, pz
+		for _ = 1, 40 do
+			local tx, tz = rng:NextNumber(-half + 60, half - 60), rng:NextNumber(-half + 60, half - 60)
+			local free = math.sqrt(tx * tx + tz * tz) > 100 + d / 2 -- jamais sous l'arène
+			for _, o in ipairs(patchSpots) do
+				if math.sqrt((tx - o[1]) ^ 2 + (tz - o[2]) ^ 2) < (d + o[3]) / 2 + 2 then
+					free = false
+					break
+				end
+			end
+			if free then
+				px, pz = tx, tz
+				break
+			end
+		end
+		if px then
+			patchSpots[#patchSpots + 1] = { px, pz, d }
+			local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
+			part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(px, 0.03, pz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
+		end
 	end
 	for k = 0, DC.hills - 1 do -- collines à l'horizon (hors de la zone de jeu)
 		local a = k / DC.hills * math.pi * 2
@@ -1236,8 +1255,8 @@ function Builder.build()
 	for _, w in ipairs({ { 0, half - 2, half * 2, 4 }, { 0, -half + 2, half * 2, 4 }, { half - 2, 0, 4, half * 2 }, { -half + 2, 0, 4, half * 2 } }) do -- murs invisibles : on ne tombe plus dans le vide
 		part({ Name = "Wall", Size = Vector3.new(w[3], 100, w[4]), Position = Vector3.new(w[1], 50, w[2]), Transparency = 1 }, world).CanQuery = false
 	end
-	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
-	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
+	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
+	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.02, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
 
 	local monument = Builder.monument(world)
 	Builder.hen(world)
@@ -1278,7 +1297,7 @@ function Builder.build()
 		local folder = Instance.new("Folder")
 		folder.Name = "Rival_" .. riv.name
 		folder.Parent = world
-		part({ Name = "GlowRing", Size = Vector3.new(0.4, 38, 38), CFrame = CFrame.new(cx, 0.3, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color, Material = Enum.Material.Neon, CanCollide = false }, folder)
+		part({ Name = "GlowRing", Size = Vector3.new(0.4, 38, 38), CFrame = CFrame.new(cx, 0.3, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color, Material = Enum.Material.SmoothPlastic, CanCollide = false }, folder)
 		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
 		for k = 0, DC.fencePosts - 1 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
 			local t = -0.15 * math.pi + k * (1.3 * math.pi / (DC.fencePosts - 1))
@@ -1315,7 +1334,7 @@ function Builder.build()
 		for j = 1, 3 do
 			local nx = cx + (j - 2) * 8
 			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.Wood, CanCollide = false }, folder)
-			part({ Name = "NestStraw", Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(nx, 1.25, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(226, 196, 120), Material = Enum.Material.Fabric, CanCollide = false }, folder)
+			part({ Name = "NestStraw", Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(nx, 1.32, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(226, 196, 120), Material = Enum.Material.Fabric, CanCollide = false }, folder)
 			Scenery.marker(sceneryHelpers, Vector3.new(nx, 0.5, cz - 3), folder, "✋", 8)
 			sceneryParts += 1
 			result.nests[#result.nests + 1] = { rival = i, pos = Vector3.new(nx, 3.2, cz - 3), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
