@@ -6,6 +6,7 @@ local Lighting = game:GetService("Lighting")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
 local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
+local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 
 local Builder = {}
 
@@ -78,11 +79,10 @@ local function dressEgg(p, tier)
 		if not clone:IsA("Model") then
 			error("pas un Model")
 		end
-		local _, size = clone:GetBoundingBox()
-		if size.Y < 0.05 then
-			error("hauteur nulle")
+		local fitted, why = AssetsMod.fitHeight(clone, Config.eggHeight(tier))
+		if not fitted then
+			error(why)
 		end
-		clone:ScaleTo(Config.Assets.targetHeight / size.Y)
 		-- plafond relatif à l'emplacement et au joueur : un modèle très large ou trop haut est ramené à la borne (jamais d'œuf géant)
 		local ext = clone:GetExtentsSize()
 		local f = Config.fitScale({ X = ext.X, Y = ext.Y, Z = ext.Z }, Config.eggMaxSize())
@@ -219,12 +219,11 @@ local function customPet(petIdx, size)
 		if not clone:IsA("Model") then
 			error("pas un Model")
 		end
-		local _, sz = clone:GetBoundingBox()
-		if sz.Y < 0.05 then
-			error("hauteur nulle")
+		local height = Config.petTargetHeight(Config.PETS[petIdx].tier, size.scale)
+		local fitted, why = AssetsMod.fitHeight(clone, height) -- mesure, mise à l'échelle sur la hauteur cible, vérification ±10 % (sinon pet procédural)
+		if not fitted then
+			error(why)
 		end
-		local height = Config.Assets.petHeight * size.scale
-		clone:ScaleTo(height / sz.Y)
 		local first = nil
 		for _, d in ipairs(clone:GetDescendants()) do
 			if d:IsA("BasePart") then
@@ -399,11 +398,10 @@ end
 local function fitGuard(model, clone, height)
 	local ok = pcall(function()
 		local body = model.PrimaryPart
-		local _, size = clone:GetBoundingBox()
-		if size.Y < 0.05 then
-			error("hauteur nulle")
+		local fitted, why = AssetsMod.fitHeight(clone, height)
+		if not fitted then
+			error(why)
 		end
-		clone:ScaleTo(height / size.Y)
 		local bbox, size2 = clone:GetBoundingBox()
 		clone:PivotTo(body.CFrame * CFrame.new(0, -2.4 + size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
 		for _, d in ipairs(clone:GetDescendants()) do
@@ -456,7 +454,10 @@ local function setModel(clone, x, y0, z, span, height, parent, rotY)
 		if span and longest > 0.05 then
 			clone:ScaleTo(span / longest)
 		elseif height then
-			clone:ScaleTo(height / size.Y)
+			local fitted, why = AssetsMod.fitHeight(clone, height)
+			if not fitted then
+				error(why)
+			end
 		end
 		local bbox, size2 = clone:GetBoundingBox()
 		clone:PivotTo(CFrame.new(x, y0 + size2.Y / 2, z) * CFrame.Angles(0, rotY or 0, 0) * bbox:ToObjectSpace(clone:GetPivot()))
@@ -603,7 +604,7 @@ function Builder.dressCastle(assets)
 		-- tours de chaque côté de l'entrée
 		local ex, ez = Castle.toWorld(1, 0, -6)
 		for _, sx in ipairs({ -13, 13 }) do
-			put("castle", "tower", ex + sx, 0, ez, nil, 24, 0, "CastleTowerModel")
+			put("castle", "tower", ex + sx, 0, ez, nil, Config.Assets.targetHeights.tower, 0, "CastleTowerModel")
 		end
 		-- herses : la pièce Herse monte quand la porte s'ouvre (le pilote procédural garde la collision)
 		for _, rec in ipairs(w.rooms) do
@@ -619,7 +620,7 @@ function Builder.dressCastle(assets)
 		end
 		-- coffre : le Couvercle s'ouvre quand le trésor est pris (Builder.openChest)
 		if w.chest then
-			local chest = put("props", "chest", w.chest.Position.X, 0, w.chest.Position.Z, nil, 4, 0, "CastleChestModel")
+			local chest = put("props", "chest", w.chest.Position.X, 0, w.chest.Position.Z, nil, Config.Assets.targetHeights.chest, 0, "CastleChestModel")
 			local lid = chest and findNamed(chest, "Couvercle")
 			if lid then
 				w.chestVis = { part = lid, base = lid.CFrame }
@@ -688,12 +689,12 @@ function Builder.dressArena(assets)
 		put("ground", "plaza", 0, 0.08, 0, 56, nil, 0, "ArenaPlaza")
 		for k = 0, 3 do
 			local a = k * math.pi / 2
-			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, 2.4, math.pi - a, "ArenaBench") -- le banc regarde le monument
+			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, Config.Assets.targetHeights.bench, math.pi - a, "ArenaBench") -- le banc regarde le monument
 			local b = a + math.pi / 4
-			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, 9, 0, "ArenaLamp")
+			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, Config.Assets.targetHeights.lamp, 0, "ArenaLamp")
 		end
 		local cx, cz = Config.rivalCenter(1)
-		local mill = put("props", "mill", cx - 44, 0, cz + 22, nil, 13, math.pi / 6, "ArenaMill")
+		local mill = put("props", "mill", cx - 44, 0, cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
 		if mill then
 			local p1, p2 = findNamed(mill, "Pales"), findNamed(mill, "Pales2")
 			if p1 then

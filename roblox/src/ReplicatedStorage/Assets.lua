@@ -13,11 +13,51 @@ function Assets.parseColorSuffix(name)
 	if type(name) ~= "string" then
 		return nil
 	end
-	local hex = name:match("__(%x%x%x%x%x%x)$")
+	-- un doublon d'import Blender (« Sapin__2E7D4F.001 ») garde la couleur de son suffixe
+	local hex = name:match("__(%x%x%x%x%x%x)$") or name:match("__(%x%x%x%x%x%x)%.%d+$")
 	if not hex then
 		return nil
 	end
 	return tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
+end
+
+-- Nom de base d'une pièce Blender : sans suffixe de couleur ni suffixe de doublon (« Lame__D8DCE8.001 » -> « Lame »).
+function Assets.baseName(name)
+	if type(name) ~= "string" then
+		return ""
+	end
+	local n = name:gsub("%.%d+$", "")
+	n = n:gsub("__%x%x%x%x%x%x$", "")
+	return n
+end
+
+-- Met un modèle à la hauteur cible (studs) d'après GetExtentsSize, puis REMESURE : la hauteur obtenue doit être à ±10 % de la cible (deux corrections
+-- au plus). Retourne (true, hauteur) ou (false, raison) : l'appelant ne pose alors pas le modèle (repli procédural), jamais d'échelle 1 brute.
+function Assets.fitHeight(model, target)
+	local ok, res = pcall(function()
+		if type(target) ~= "number" or target ~= target or target <= 0 or target > 1000 then
+			error("hauteur cible invalide")
+		end
+		local height
+		for _ = 1, 3 do
+			local e = model:GetExtentsSize()
+			height = e and e.Y
+			if type(height) ~= "number" or height ~= height or height < 0.05 or height > 1e6 then
+				error("mesure impossible")
+			end
+			if math.abs(height - target) <= 0.1 * target and _ > 1 then
+				return height
+			end
+			model:ScaleTo(model:GetScale() * target / height)
+		end
+		local e = model:GetExtentsSize()
+		height = e and e.Y
+		if type(height) ~= "number" or math.abs(height - target) > 0.1 * target then
+			error("hauteur hors tolérance")
+		end
+		return height
+	end)
+	return ok, res
 end
 
 function Assets.new(Config, deps)
@@ -136,7 +176,7 @@ function Assets.new(Config, deps)
 
 	-- Applique la couleur lue dans le suffixe `__RRGGBB` du nom de chaque pièce (les couleurs du FBX ne sont jamais utilisées) ; sans suffixe, rien
 	-- ne change. CastShadow = false pour les petits détails (arête la plus longue sous cfg.smallDetail studs). Retourne le nombre de pièces colorées.
-	function A.colorize(model)
+	function A.colorize(model, keepMaterial)
 		local make = deps.color or (Color3 and Color3.fromRGB)
 		if not make then
 			return 0
@@ -146,10 +186,29 @@ function Assets.new(Config, deps)
 			return 0
 		end
 		local count = 0
+		local MAT = deps.material or (Enum and Enum.Material)
 		for _, d in ipairs(list) do
 			local okName, name = pcall(function()
 				return d.Name
 			end)
+			if MAT and not keepMaterial then
+				-- matières : Metal et Neon seulement pour les pièces explicitement métalliques ou lumineuses (Metal sans reflets rend noir),
+				-- tout le reste en plastique lisse, jamais de reflets
+				pcall(function()
+					if d:IsA("BasePart") then
+						local base = Assets.baseName(okName and name or "")
+						local metals, neons = cfg.metalParts or {}, cfg.neonParts or {}
+						if metals[base] then
+							d.Material = MAT.Metal
+						elseif neons[base] then
+							d.Material = MAT.Neon
+						elseif d.Material ~= MAT.Plastic and d.Material ~= MAT.SmoothPlastic then
+							d.Material = MAT.SmoothPlastic
+						end
+						d.Reflectance = 0
+					end
+				end)
+			end
 			local r, g, b = Assets.parseColorSuffix(okName and name or nil)
 			if r then
 				local isPart = false
@@ -160,6 +219,16 @@ function Assets.new(Config, deps)
 					pcall(function()
 						d.Color = make(r, g, b)
 						count = count + 1
+						pcall(function()
+							if d.ClassName == "MeshPart" then
+								d.TextureID = "" -- une texture importée teinterait la couleur (rendu sombre)
+							end
+							for _, c in ipairs(d:GetChildren()) do
+								if c.ClassName == "SurfaceAppearance" then
+									c:Destroy()
+								end
+							end
+						end)
 						local s = d.Size
 						if s and math.max(s.X, s.Y, s.Z) < (cfg.smallDetail or 0.6) then
 							d.CastShadow = false
@@ -202,7 +271,7 @@ function Assets.new(Config, deps)
 			return false
 		end
 		local colored = 0
-		local cOk, cn = pcall(A.colorize, model)
+		local cOk, cn = pcall(A.colorize, model, key:sub(1, 2) == "v:") -- les effets (v:) gardent leur matière Neon
 		if cOk then
 			colored = cn
 		end
@@ -519,7 +588,10 @@ function Assets.new(Config, deps)
 			if length and longest > 0.05 then
 				model:ScaleTo(length / longest) -- ponts : échelle d'après la longueur
 			else
-				model:ScaleTo(height / size.Y)
+				local fitted, why = Assets.fitHeight(model, height) -- mesure puis vérification à ±10 % : sinon on ne pose pas
+				if not fitted then
+					error(why)
+				end
 			end
 			local bbox, size2 = model:GetBoundingBox()
 			local target = CFrame.new(x, (groundY or 0) + size2.Y / 2, z) * CFrame.Angles(0, math.rad(rotDeg or 0), 0)

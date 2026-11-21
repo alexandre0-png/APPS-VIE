@@ -493,12 +493,18 @@ Config.Assets = {
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
+	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
+	-- mesure impossible = modèle non posé (repli procédural), jamais d'échelle brute.
+	targetHeights = { player = 5, petMin = 2, petMax = 4, petHard = 5, eggMin = 3, eggMax = 4.5, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 3, wolf = 4, bear = 6, knight = 5.2, tower = 24, chest = 4, torch = 3, flag = 7 },
+	-- Seules ces pièces (nom de base, sans suffixe de couleur) gardent un matériau Metal ; Neon seulement pour les flammes ; tout le reste en plastique lisse.
+	metalParts = { Anneau = true, Tige = true, Serrure = true, Poignee = true, Fer = true, Cercles = true, Pics = true, Lame = true, Herse = true },
+	neonParts = { Flamme = true },
 	guardKinds = { "dog", "wolf", "bear" }, -- gardien de chaque domaine (Config.RIVALS) -> modèle de models.guards
-	guardHeights = { dog = 2.8, wolf = 3.4, bear = 4.6, knight = 5.2 }, -- hauteur en studs
+	guardHeights = { dog = 3, wolf = 4, bear = 6, knight = 5.2 }, -- hauteur en studs (= targetHeights)
 	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
 	-- Nombre d'exemplaires posés sur la carte de la partie et hauteur en studs (le pont est mis à l'échelle sur sa longueur).
 	propsPlan = { tree = 18, fir = 10, rock = 14, bush = 14, hut = 3, fence = 12, bridge = 4 },
-	propsHeight = { tree = 14, fir = 16, rock = 3.5, bush = 2.5, hut = 9, fence = 3, bridge = 1.5, fountain = 9, nest = 1.2 },
+	propsHeight = { tree = 12, fir = 14, rock = 3.5, bush = 2.5, hut = 11, fence = 3, bridge = 1.5, fountain = 7, nest = 1.2 },
 	bridgeLength = 18,
 	propsBudgetParts = 2600, -- pire cas (exemplaires x plafond de Parts) à ne jamais dépasser ; le placement s'arrête aussi au compte réel
 	smallDetail = 0.6, -- pièces dont la plus grande arête est inférieure : CastShadow = false
@@ -592,6 +598,22 @@ Config.EggFx = {
 		},
 	},
 }
+
+-- Hauteur cible d'un pet : 2 à 4 studs selon la rareté (1..6), multipliée par l'échelle de sa taille, jamais plus de 5 (joueur = 5).
+function Config.petTargetHeight(tier, sizeScale)
+	local H = Config.Assets.targetHeights
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	local base = H.petMin + (H.petMax - H.petMin) * (t - 1) / 5
+	local k = (type(sizeScale) == "number" and sizeScale == sizeScale and sizeScale > 0) and sizeScale or 1
+	return math.min(base * k, H.petHard)
+end
+
+-- Hauteur cible d'un œuf : 3 à 4,5 studs selon la rareté.
+function Config.eggHeight(tier)
+	local H = Config.Assets.targetHeights
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	return H.eggMin + (H.eggMax - H.eggMin) * (t - 1) / 5
+end
 
 -- Apparence (table de Config.EggFx.looks) de l'œuf de rareté `tier`, ou nil.
 function Config.eggLook(tier)
@@ -2293,11 +2315,51 @@ function Assets.parseColorSuffix(name)
 	if type(name) ~= "string" then
 		return nil
 	end
-	local hex = name:match("__(%x%x%x%x%x%x)$")
+	-- un doublon d'import Blender (« Sapin__2E7D4F.001 ») garde la couleur de son suffixe
+	local hex = name:match("__(%x%x%x%x%x%x)$") or name:match("__(%x%x%x%x%x%x)%.%d+$")
 	if not hex then
 		return nil
 	end
 	return tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
+end
+
+-- Nom de base d'une pièce Blender : sans suffixe de couleur ni suffixe de doublon (« Lame__D8DCE8.001 » -> « Lame »).
+function Assets.baseName(name)
+	if type(name) ~= "string" then
+		return ""
+	end
+	local n = name:gsub("%.%d+$", "")
+	n = n:gsub("__%x%x%x%x%x%x$", "")
+	return n
+end
+
+-- Met un modèle à la hauteur cible (studs) d'après GetExtentsSize, puis REMESURE : la hauteur obtenue doit être à ±10 % de la cible (deux corrections
+-- au plus). Retourne (true, hauteur) ou (false, raison) : l'appelant ne pose alors pas le modèle (repli procédural), jamais d'échelle 1 brute.
+function Assets.fitHeight(model, target)
+	local ok, res = pcall(function()
+		if type(target) ~= "number" or target ~= target or target <= 0 or target > 1000 then
+			error("hauteur cible invalide")
+		end
+		local height
+		for _ = 1, 3 do
+			local e = model:GetExtentsSize()
+			height = e and e.Y
+			if type(height) ~= "number" or height ~= height or height < 0.05 or height > 1e6 then
+				error("mesure impossible")
+			end
+			if math.abs(height - target) <= 0.1 * target and _ > 1 then
+				return height
+			end
+			model:ScaleTo(model:GetScale() * target / height)
+		end
+		local e = model:GetExtentsSize()
+		height = e and e.Y
+		if type(height) ~= "number" or math.abs(height - target) > 0.1 * target then
+			error("hauteur hors tolérance")
+		end
+		return height
+	end)
+	return ok, res
 end
 
 function Assets.new(Config, deps)
@@ -2416,7 +2478,7 @@ function Assets.new(Config, deps)
 
 	-- Applique la couleur lue dans le suffixe `__RRGGBB` du nom de chaque pièce (les couleurs du FBX ne sont jamais utilisées) ; sans suffixe, rien
 	-- ne change. CastShadow = false pour les petits détails (arête la plus longue sous cfg.smallDetail studs). Retourne le nombre de pièces colorées.
-	function A.colorize(model)
+	function A.colorize(model, keepMaterial)
 		local make = deps.color or (Color3 and Color3.fromRGB)
 		if not make then
 			return 0
@@ -2426,10 +2488,29 @@ function Assets.new(Config, deps)
 			return 0
 		end
 		local count = 0
+		local MAT = deps.material or (Enum and Enum.Material)
 		for _, d in ipairs(list) do
 			local okName, name = pcall(function()
 				return d.Name
 			end)
+			if MAT and not keepMaterial then
+				-- matières : Metal et Neon seulement pour les pièces explicitement métalliques ou lumineuses (Metal sans reflets rend noir),
+				-- tout le reste en plastique lisse, jamais de reflets
+				pcall(function()
+					if d:IsA("BasePart") then
+						local base = Assets.baseName(okName and name or "")
+						local metals, neons = cfg.metalParts or {}, cfg.neonParts or {}
+						if metals[base] then
+							d.Material = MAT.Metal
+						elseif neons[base] then
+							d.Material = MAT.Neon
+						elseif d.Material ~= MAT.Plastic and d.Material ~= MAT.SmoothPlastic then
+							d.Material = MAT.SmoothPlastic
+						end
+						d.Reflectance = 0
+					end
+				end)
+			end
 			local r, g, b = Assets.parseColorSuffix(okName and name or nil)
 			if r then
 				local isPart = false
@@ -2440,6 +2521,16 @@ function Assets.new(Config, deps)
 					pcall(function()
 						d.Color = make(r, g, b)
 						count = count + 1
+						pcall(function()
+							if d.ClassName == "MeshPart" then
+								d.TextureID = "" -- une texture importée teinterait la couleur (rendu sombre)
+							end
+							for _, c in ipairs(d:GetChildren()) do
+								if c.ClassName == "SurfaceAppearance" then
+									c:Destroy()
+								end
+							end
+						end)
 						local s = d.Size
 						if s and math.max(s.X, s.Y, s.Z) < (cfg.smallDetail or 0.6) then
 							d.CastShadow = false
@@ -2482,7 +2573,7 @@ function Assets.new(Config, deps)
 			return false
 		end
 		local colored = 0
-		local cOk, cn = pcall(A.colorize, model)
+		local cOk, cn = pcall(A.colorize, model, key:sub(1, 2) == "v:") -- les effets (v:) gardent leur matière Neon
 		if cOk then
 			colored = cn
 		end
@@ -2799,7 +2890,10 @@ function Assets.new(Config, deps)
 			if length and longest > 0.05 then
 				model:ScaleTo(length / longest) -- ponts : échelle d'après la longueur
 			else
-				model:ScaleTo(height / size.Y)
+				local fitted, why = Assets.fitHeight(model, height) -- mesure puis vérification à ±10 % : sinon on ne pose pas
+				if not fitted then
+					error(why)
+				end
 			end
 			local bbox, size2 = model:GetBoundingBox()
 			local target = CFrame.new(x, (groundY or 0) + size2.Y / 2, z) * CFrame.Angles(0, math.rad(rotDeg or 0), 0)
@@ -5927,6 +6021,7 @@ local Lighting = game:GetService("Lighting")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
 local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
+local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 
 local Builder = {}
 
@@ -5999,11 +6094,10 @@ local function dressEgg(p, tier)
 		if not clone:IsA("Model") then
 			error("pas un Model")
 		end
-		local _, size = clone:GetBoundingBox()
-		if size.Y < 0.05 then
-			error("hauteur nulle")
+		local fitted, why = AssetsMod.fitHeight(clone, Config.eggHeight(tier))
+		if not fitted then
+			error(why)
 		end
-		clone:ScaleTo(Config.Assets.targetHeight / size.Y)
 		-- plafond relatif à l'emplacement et au joueur : un modèle très large ou trop haut est ramené à la borne (jamais d'œuf géant)
 		local ext = clone:GetExtentsSize()
 		local f = Config.fitScale({ X = ext.X, Y = ext.Y, Z = ext.Z }, Config.eggMaxSize())
@@ -6140,12 +6234,11 @@ local function customPet(petIdx, size)
 		if not clone:IsA("Model") then
 			error("pas un Model")
 		end
-		local _, sz = clone:GetBoundingBox()
-		if sz.Y < 0.05 then
-			error("hauteur nulle")
+		local height = Config.petTargetHeight(Config.PETS[petIdx].tier, size.scale)
+		local fitted, why = AssetsMod.fitHeight(clone, height) -- mesure, mise à l'échelle sur la hauteur cible, vérification ±10 % (sinon pet procédural)
+		if not fitted then
+			error(why)
 		end
-		local height = Config.Assets.petHeight * size.scale
-		clone:ScaleTo(height / sz.Y)
 		local first = nil
 		for _, d in ipairs(clone:GetDescendants()) do
 			if d:IsA("BasePart") then
@@ -6320,11 +6413,10 @@ end
 local function fitGuard(model, clone, height)
 	local ok = pcall(function()
 		local body = model.PrimaryPart
-		local _, size = clone:GetBoundingBox()
-		if size.Y < 0.05 then
-			error("hauteur nulle")
+		local fitted, why = AssetsMod.fitHeight(clone, height)
+		if not fitted then
+			error(why)
 		end
-		clone:ScaleTo(height / size.Y)
 		local bbox, size2 = clone:GetBoundingBox()
 		clone:PivotTo(body.CFrame * CFrame.new(0, -2.4 + size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
 		for _, d in ipairs(clone:GetDescendants()) do
@@ -6377,7 +6469,10 @@ local function setModel(clone, x, y0, z, span, height, parent, rotY)
 		if span and longest > 0.05 then
 			clone:ScaleTo(span / longest)
 		elseif height then
-			clone:ScaleTo(height / size.Y)
+			local fitted, why = AssetsMod.fitHeight(clone, height)
+			if not fitted then
+				error(why)
+			end
 		end
 		local bbox, size2 = clone:GetBoundingBox()
 		clone:PivotTo(CFrame.new(x, y0 + size2.Y / 2, z) * CFrame.Angles(0, rotY or 0, 0) * bbox:ToObjectSpace(clone:GetPivot()))
@@ -6524,7 +6619,7 @@ function Builder.dressCastle(assets)
 		-- tours de chaque côté de l'entrée
 		local ex, ez = Castle.toWorld(1, 0, -6)
 		for _, sx in ipairs({ -13, 13 }) do
-			put("castle", "tower", ex + sx, 0, ez, nil, 24, 0, "CastleTowerModel")
+			put("castle", "tower", ex + sx, 0, ez, nil, Config.Assets.targetHeights.tower, 0, "CastleTowerModel")
 		end
 		-- herses : la pièce Herse monte quand la porte s'ouvre (le pilote procédural garde la collision)
 		for _, rec in ipairs(w.rooms) do
@@ -6540,7 +6635,7 @@ function Builder.dressCastle(assets)
 		end
 		-- coffre : le Couvercle s'ouvre quand le trésor est pris (Builder.openChest)
 		if w.chest then
-			local chest = put("props", "chest", w.chest.Position.X, 0, w.chest.Position.Z, nil, 4, 0, "CastleChestModel")
+			local chest = put("props", "chest", w.chest.Position.X, 0, w.chest.Position.Z, nil, Config.Assets.targetHeights.chest, 0, "CastleChestModel")
 			local lid = chest and findNamed(chest, "Couvercle")
 			if lid then
 				w.chestVis = { part = lid, base = lid.CFrame }
@@ -6609,12 +6704,12 @@ function Builder.dressArena(assets)
 		put("ground", "plaza", 0, 0.08, 0, 56, nil, 0, "ArenaPlaza")
 		for k = 0, 3 do
 			local a = k * math.pi / 2
-			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, 2.4, math.pi - a, "ArenaBench") -- le banc regarde le monument
+			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, Config.Assets.targetHeights.bench, math.pi - a, "ArenaBench") -- le banc regarde le monument
 			local b = a + math.pi / 4
-			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, 9, 0, "ArenaLamp")
+			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, Config.Assets.targetHeights.lamp, 0, "ArenaLamp")
 		end
 		local cx, cz = Config.rivalCenter(1)
-		local mill = put("props", "mill", cx - 44, 0, cz + 22, nil, 13, math.pi / 6, "ArenaMill")
+		local mill = put("props", "mill", cx - 44, 0, cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
 		if mill then
 			local p1, p2 = findNamed(mill, "Pales"), findNamed(mill, "Pales2")
 			if p1 then
@@ -9972,11 +10067,12 @@ CollectionService:GetInstanceAddedSignal("PopIn"):Connect(function(model)
 	task.spawn(function()
 		run(squash and "hatchSquash" or "popIn", function()
 			local t0 = os.clock()
+			local base = model:GetScale() -- échelle posée par le serveur (hauteur cible) : l'animation en est relative, jamais absolue
 			while model.Parent do
 				local a = math.min(1, (os.clock() - t0) / 0.7)
-				model:ScaleTo(Easing.popScale(a, squash)) -- plafonné : le pet n'apparaît jamais plus gros que nature
+				model:ScaleTo(base * Easing.popScale(a, squash)) -- plafonné : le pet n'apparaît jamais plus gros que nature
 				if a >= 1 then
-					model:ScaleTo(1)
+					model:ScaleTo(base)
 					break
 				end
 				RunService.RenderStepped:Wait()

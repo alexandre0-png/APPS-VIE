@@ -96,20 +96,27 @@ function Fake.runtime(opts)
 		return out
 	end
 	-- Géométrie numérique réelle (jamais de proxy dans une comparaison : voir NUMERIC_DEFAULTS)
-	function methods.GetBoundingBox()
-		return RT.cf(0, 0, 0), RT.vec(4, 6, 4)
+	-- Géométrie à état : taille « Blender » brute (rawset __fakeSize) x échelle courante (ScaleTo absolu, comme Roblox). Défaut 4 x 6 x 4.
+	local function fakeExtents(self)
+		local sz = rawget(self, "__fakeSize") or RT.vec(4, 6, 4)
+		local k = rawget(self, "__scale") or 1
+		return RT.vec(sz.X * k, sz.Y * k, sz.Z * k)
 	end
-	function methods.GetExtentsSize()
-		return RT.vec(4, 6, 4)
+	function methods.GetBoundingBox(self)
+		return RT.cf(0, 0, 0), fakeExtents(self)
 	end
-	function methods.GetScale()
-		return 1
+	function methods.GetExtentsSize(self)
+		return fakeExtents(self)
+	end
+	function methods.GetScale(self)
+		return rawget(self, "__scale") or 1
 	end
 	function methods.GetPivot()
 		return RT.cf(0, 0, 0)
 	end
 	function methods.ScaleTo(self, k)
 		rawget(self, "__props").lastScale = k
+		rawset(self, "__scale", k)
 	end
 	function methods.PivotTo() end
 	function methods.GetAttribute(self, k)
@@ -145,6 +152,8 @@ function Fake.runtime(opts)
 				rawget(c, "__props")[k] = v
 			end
 		end
+		rawset(c, "__fakeSize", rawget(self, "__fakeSize"))
+		rawset(c, "__scale", rawget(self, "__scale"))
 		for _, child in ipairs(rawget(self, "__children")) do -- copie profonde, comme Instance:Clone()
 			methods.Clone(child).Parent = c
 		end
@@ -544,6 +553,9 @@ function Fake.runtime(opts)
 			error(RT.loadAssetFail)
 		end
 		local model = RT.instance("Model", "Asset" .. tostring(id))
+		if RT.assetSizes and RT.assetSizes[id] then
+			rawset(model, "__fakeSize", RT.assetSizes[id]) -- taille brute du modèle Blender (peut être énorme)
+		end
 		for i, nm in ipairs({ "Corps__FF8800", "Detail__000000", "Socle" }) do
 			local part = RT.instance("Part", nm)
 			part.Parent = model

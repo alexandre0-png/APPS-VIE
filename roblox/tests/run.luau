@@ -2645,6 +2645,86 @@ do
 	check("Texte : taille fixe minimale " .. smallest .. " (" .. where .. ") >= 11", smallest >= 11)
 end
 
+-- Échelle et matières des modèles Blender (retour réel de Studio : pets énormes, couleurs sombres) -----------------------------------------------
+do
+	suite("Échelle par hauteur cible (±10 %), matières (Metal seulement pour les pièces métalliques), couleurs exactes")
+	local AM = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Assets.lua"), { debugName = "Assets" })()
+	local function rgbOf(n)
+		local r, g, b = AM.parseColorSuffix(n)
+		return r and (r .. "," .. g .. "," .. b) or "nil"
+	end
+	check("Couleur : Sapin__2E7D4F = 46,125,79 (vert), PetPoussin FFD84D = 255,216,77 (jaune)", rgbOf("Sapin__2E7D4F") == "46,125,79" and rgbOf("Poussin__FFD84D") == "255,216,77")
+	check("Couleur : doublon d'import « .001 » garde la couleur ; sans suffixe -> nil ; faux doublon (chiffres collés) refusé", rgbOf("Sapin__2E7D4F.001") == "46,125,79" and rgbOf("Sapin__2E7D4F.12") == "46,125,79" and rgbOf("Sapin.001") == "nil" and rgbOf("Sapin__2E7D4F12") == "nil")
+	check("Nom de base : suffixes de couleur et de doublon retirés", AM.baseName("Lame__D8DCE8.001") == "Lame" and AM.baseName("Pics__C0C0C0") == "Pics" and AM.baseName("Socle") == "Socle" and AM.baseName(nil) == "")
+	local MAT = { Metal = "Metal", Neon = "Neon", Plastic = "Plastic", SmoothPlastic = "SmoothPlastic", Foil = "Foil" }
+	local function mkpart(name, material)
+		local o = { Name = name, Size = { X = 2, Y = 2, Z = 2 }, Color = "origine", CastShadow = true, Material = material, Reflectance = 0.6, ClassName = "Part" }
+		function o:IsA(c)
+			return c == "BasePart" or c == "Part"
+		end
+		function o:GetChildren()
+			return {}
+		end
+		return o
+	end
+	local parts = { mkpart("Corps__2E7D4F.001", "Metal"), mkpart("Detail__000000", "Neon"), mkpart("Lame__D8DCE8", "Plastic"), mkpart("Herse__8A8A8A.002", "SmoothPlastic"), mkpart("Flamme__FFAA33", "Plastic"), mkpart("Socle", "Foil"), mkpart("Anneau__C0C0C0", "Neon") }
+	local fakeModel = { Name = "M", ClassName = "Model", kids = parts, IsA = function(_, c) return c == "Model" end, GetDescendants = function(self) return self.kids end, Clone = function(self) return self end, Destroy = function() end }
+	local CM = AM.new(Config, { loadAsset = function() return fakeModel end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, material = MAT, color = function(r, g, b) return "rgb(" .. r .. "," .. g .. "," .. b .. ")" end })
+	CM.colorize(fakeModel)
+	check("Matières : seules les pièces métalliques (Lame, Herse, Anneau) sont en Metal ; Flamme en Neon ; tout le reste en plastique lisse",
+		parts[1].Material == "SmoothPlastic" and parts[2].Material == "SmoothPlastic" and parts[3].Material == "Metal" and parts[4].Material == "Metal" and parts[5].Material == "Neon" and parts[6].Material == "SmoothPlastic" and parts[7].Material == "Metal")
+	check("Matières : aucun reflet (Reflectance 0 partout) et couleur exacte du suffixe (Corps 2E7D4F = vert, doublon .001 compris)", (function()
+		for _, p in ipairs(parts) do
+			if p.Reflectance ~= 0 then
+				return false
+			end
+		end
+		return parts[1].Color == "rgb(46,125,79)" and parts[6].Color == "origine"
+	end)())
+	-- effets (Neon voulu) : matière conservée
+	local vfx = { mkpart("Cercle__FFFFFF", "Neon") }
+	local vm = { Name = "V", ClassName = "Model", kids = vfx, IsA = function(_, c) return c == "Model" end, GetDescendants = function(self) return self.kids end, Clone = function(self) return self end, Destroy = function() end }
+	CM.colorize(vm, true)
+	check("Effets : le Neon voulu d'un modèle d'effet est conservé", vfx[1].Material == "Neon" and vfx[1].Color == "rgb(255,255,255)")
+	-- hauteur cible
+	local function sizedModel(raw)
+		local m = { k = 1 }
+		function m:GetExtentsSize()
+			return { X = raw.X * self.k, Y = raw.Y * self.k, Z = raw.Z * self.k }
+		end
+		function m:GetScale()
+			return self.k
+		end
+		function m:ScaleTo(v)
+			self.k = v
+		end
+		return m
+	end
+	local big = sizedModel({ X = 20, Y = 20, Z = 20 })
+	local okBig, hBig = AM.fitHeight(big, 3)
+	check("fitHeight : un pet brut de 20 studs est ramené à 3 studs (±10 %)", okBig and math.abs(hBig - 3) <= 0.3 and math.abs(big:GetExtentsSize().Y - 3) <= 0.3)
+	local tiny = sizedModel({ X = 0.01, Y = 0.1, Z = 0.01 })
+	local okTiny, hTiny = AM.fitHeight(tiny, 8)
+	check("fitHeight : un modèle minuscule est agrandi jusqu'à la cible", okTiny and math.abs(hTiny - 8) <= 0.8)
+	local zero, nan, nilM = sizedModel({ X = 1, Y = 0, Z = 1 }), sizedModel({ X = 1, Y = 0 / 0, Z = 1 }), {}
+	check("fitHeight : mesure nulle, NaN ou impossible -> refus (le modèle n'est pas posé, jamais d'échelle brute)", select(1, AM.fitHeight(zero, 3)) == false and select(1, AM.fitHeight(nan, 3)) == false and select(1, AM.fitHeight(nilM, 3)) == false)
+	check("fitHeight : cible invalide (0, négative, NaN, nil) -> refus", select(1, AM.fitHeight(sizedModel({ X = 1, Y = 1, Z = 1 }), 0)) == false and select(1, AM.fitHeight(sizedModel({ X = 1, Y = 1, Z = 1 }), -2)) == false and select(1, AM.fitHeight(sizedModel({ X = 1, Y = 1, Z = 1 }), nil)) == false)
+	local stuck = { GetExtentsSize = function() return { X = 1, Y = 10, Z = 1 } end, GetScale = function() return 1 end, ScaleTo = function() end }
+	check("fitHeight : une mise à l'échelle sans effet (hauteur hors tolérance) est refusée", select(1, AM.fitHeight(stuck, 3)) == false)
+	local worst = 0
+	for tier = 1, 6 do
+		for _, sz in ipairs(Config.SIZES) do
+			worst = math.max(worst, Config.petTargetHeight(tier, sz.scale))
+		end
+	end
+	check("Pets : hauteur cible 2 à 4 studs selon la rareté (taille normale), jamais plus de 5 (" .. string.format("%.2f", worst) .. ")", near(Config.petTargetHeight(1, 1), 2) and near(Config.petTargetHeight(6, 1), 4) and worst <= 5 and Config.petTargetHeight(nil, nil) == 2 and Config.petTargetHeight(99, 0 / 0) == 4)
+	check("Œufs : 3 à 4,5 studs selon la rareté", near(Config.eggHeight(1), 3) and near(Config.eggHeight(6), 4.5) and Config.eggHeight(nil) == 3)
+	local H = Config.Assets.targetHeights
+	check("Hauteurs cibles : joueur 5, lampadaire 8, banc 2,5, fontaine 7, cabane 11, moulin 20, chien 3, loup 4, ours 6, arbre 10-14", H.player == 5 and H.lamp == 8 and H.bench == 2.5 and Config.Assets.propsHeight.fountain == 7 and Config.Assets.propsHeight.hut == 11 and H.mill == 20 and Config.Assets.guardHeights.dog == 3 and Config.Assets.guardHeights.wolf == 4 and Config.Assets.guardHeights.bear == 6 and Config.Assets.propsHeight.tree >= 10 and Config.Assets.propsHeight.tree <= 14 and Config.Assets.propsHeight.fir <= 14)
+	local animSrc = fs.readFile("roblox/src/StarterPlayerScripts/Animations.client.lua")
+	check("Animations : l'apparition d'un pet ne remet jamais l'échelle à 1 (cause des pets énormes) : échelle relative à celle posée par le serveur", animSrc:find("ScaleTo(1)", 1, true) == nil and animSrc:find("GetScale()", 1, true) ~= nil)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -3315,6 +3395,17 @@ do
 		if loadFail then
 			RT.loadAssetFail = "403: accès refusé"
 		end
+		RT.assetSizes = {} -- tailles Blender brutes volontairement hors échelle : l'échelle doit venir de la hauteur cible
+		for _, id in pairs(Config.Assets.pets) do
+			RT.assetSizes[id] = RT.vec(20, 20, 20)
+		end
+		for _, id in pairs(Config.Assets.models.props) do
+			RT.assetSizes[id] = RT.vec(9, 31, 9)
+		end
+		for _, id in pairs(Config.Assets.models.guards) do
+			RT.assetSizes[id] = RT.vec(15, 40, 15)
+		end
+		RT.assetSizes[Config.Assets.models.castle.tower] = RT.vec(30, 90, 30)
 		local main = RT.buildTree("roblox/src", false)
 		RT.task.spawn(function()
 			RT.runScript(main)
@@ -3602,6 +3693,40 @@ do
 		local liveAfter = #RT.services.Workspace:GetDescendants()
 		noErrors("80 éclosions et reventes enchaînées : aucune erreur")
 		check("80 éclosions : pas de fuite d'objets dans Workspace (" .. tostring(liveBefore) .. " -> " .. tostring(liveAfter) .. ")", liveBefore ~= nil and liveAfter <= liveBefore + 40)
+		do -- échelle : chaque pet, œuf, gardien et accessoire posé respecte sa hauteur cible (±10 %), le plus grand pet <= 5
+			local worstPet, pets, badPet, guardsOk, guards = 0, 0, 0, true, 0
+			local lampOk, lamps, mills, millOk = true, 0, 0, true
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if d.ClassName == "Model" then
+					local e = d:GetExtentsSize()
+					if d.Name == "Pet" then
+						pets += 1
+						worstPet = math.max(worstPet, e.Y)
+						if e.Y > Config.Assets.targetHeights.petHard * 1.1 then
+							badPet += 1
+						end
+					elseif d.Name == "Blender" then -- gardien habillé
+						guards += 1
+						local want = nil
+						for _, kind in ipairs(Config.Assets.guardKinds) do
+							if math.abs(e.Y - Config.Assets.guardHeights[kind]) <= 0.1 * Config.Assets.guardHeights[kind] then
+								want = kind
+							end
+						end
+						guardsOk = guardsOk and want ~= nil
+					elseif d.Name == "ArenaLamp" then
+						lamps += 1
+						lampOk = lampOk and math.abs(e.Y - Config.Assets.targetHeights.lamp) <= 0.1 * Config.Assets.targetHeights.lamp
+					elseif d.Name == "ArenaMill" then
+						mills += 1
+						millOk = millOk and math.abs(e.Y - Config.Assets.targetHeights.mill) <= 0.1 * Config.Assets.targetHeights.mill
+					end
+				end
+			end
+			check("Échelle : " .. pets .. " pets Blender (taille brute 20 studs) mesurés, le plus grand fait " .. string.format("%.2f", worstPet) .. " <= 5 studs", pets > 0 and badPet == 0 and worstPet <= Config.Assets.targetHeights.petHard * 1.1)
+			check("Échelle : " .. guards .. " gardiens (chien 3, loup 4, ours 6) à ±10 % de leur hauteur cible", guards == #Config.RIVALS and guardsOk)
+			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
+		end
 		RT.removePlayer(k)
 		RT.step(2)
 

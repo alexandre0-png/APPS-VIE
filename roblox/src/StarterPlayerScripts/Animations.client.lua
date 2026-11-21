@@ -208,11 +208,12 @@ CollectionService:GetInstanceAddedSignal("PopIn"):Connect(function(model)
 	task.spawn(function()
 		run(squash and "hatchSquash" or "popIn", function()
 			local t0 = os.clock()
+			local base = model:GetScale() -- échelle posée par le serveur (hauteur cible) : l'animation en est relative, jamais absolue
 			while model.Parent do
 				local a = math.min(1, (os.clock() - t0) / 0.7)
-				model:ScaleTo(Easing.popScale(a, squash)) -- plafonné : le pet n'apparaît jamais plus gros que nature
+				model:ScaleTo(base * Easing.popScale(a, squash)) -- plafonné : le pet n'apparaît jamais plus gros que nature
 				if a >= 1 then
-					model:ScaleTo(1)
+					model:ScaleTo(base)
 					break
 				end
 				RunService.RenderStepped:Wait()
