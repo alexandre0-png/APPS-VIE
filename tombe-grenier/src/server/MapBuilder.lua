@@ -1336,6 +1336,8 @@ local STANDALONE_DECOR = {
 -- Accessoires Blender de lisibilité (sans collision) : { modèle, x, sol ou bas du modèle, z, taille cible X/Y/Z }.
 -- Emplacements calculés hors meubles, hors zones de portes et hors couloirs de passage (tools/lua/test_boot_async.py les vérifie).
 MapBuilder.ACCESSORIES = {
+	{ "matelas de l'enfant", 46, -12, 84, { 4, 0.5, 4 } }, -- cave : le coin de l'enfant, contre la cage
+	{ "chaîne de cave", 61, -11.5, 83, { 0.3, 3, 0.3 } },
 	{ "bougie chandelier", 53, -12, 78.4, { 0.6, 1, 0.6 } }, -- cave : lueur près de la cage de l'enfant
 	{ "bougie chandelier", 59, -12, 78.4, { 0.6, 1, 0.6 } },
 	{ "tapis rond", 26, 0.06, 67, { 6, 0.2, 6 } }, -- salle à manger
