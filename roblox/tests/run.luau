@@ -6121,5 +6121,50 @@ do
 	end
 end
 
+
+do
+	suite("Chevaliers du château : territoire, vitesse, continuité, non-chevauchement sur 10 minutes")
+	local CA = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })
+	local Cs = CA(Config)
+	local ok, why, maxSpeed, knightsN = true, "", 0, 0
+	for r = 1, Cs.ROOMS do
+		local room = Cs.room(r)
+		local ks = Cs.knights(room)
+		knightsN = knightsN + #ks
+		for i, k in ipairs(ks) do
+			if k.lz < 4 or k.lz > Cs.ROOM_LENGTH - 4 then
+				ok, why = false, "chevalier hors de la salle " .. r
+			end
+			if k.amp + k.radius >= Cs.ROOM_WIDTH / 2 then
+				ok, why = false, "salle " .. r .. " : le chevalier touche le mur"
+			end
+			if i > 1 and k.lz - ks[i - 1].lz < 2 * k.radius + 6 then
+				ok, why = false, "salle " .. r .. " : deux chevaliers trop proches"
+			end
+			local prev
+			for step = 0, 6000 do -- 10 minutes à 0,1 s
+				local t = step * 0.1
+				local x, dir = Cs.knightPos(t, k)
+				if math.abs(x) > k.amp + 1e-9 or (dir ~= 1 and dir ~= -1) then
+					ok, why = false, "salle " .. r .. " : position ou sens invalide à t=" .. t
+				end
+				if prev then
+					local v = math.abs(x - prev) / 0.1
+					if v > maxSpeed then
+						maxSpeed = v
+					end
+				end
+				prev = x
+			end
+			local sp = 4 * k.amp / k.period
+			if sp > 16 then
+				ok, why = false, "salle " .. r .. " : chevalier plus rapide que le joueur"
+			end
+		end
+	end
+	check("Chevaliers : " .. knightsN .. " chevaliers (5 salles), dans leur salle, sans se toucher, vitesse max mesurée " .. string.format("%.1f", maxSpeed) .. " studs/s (< 16), 10 minutes simulées" .. (ok and "" or " : " .. why), ok and knightsN >= 3 and maxSpeed < 16)
+	check("Chevaliers : hauteur cible 4,5 studs et plafond de Parts du modèle >= 80", Config.Assets.targetHeights.knight == 4.5 and Config.Assets.modelsMaxParts["guards.knight"] ~= nil and Config.Assets.modelsMaxParts["guards.knight"] >= 80)
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

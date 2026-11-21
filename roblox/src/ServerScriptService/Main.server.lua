@@ -1441,7 +1441,7 @@ local function castleStep(dt)
 			local v = rec.knights[i]
 			local kx, dir = Castle.knightPos(T, kn)
 			v.part.Position = Vector3.new(Castle.ORIGIN.x + kx, 3, v.wz)
-			Builder.animKnight(v, Castle.ORIGIN.x + kx, v.wz, dir)
+			Builder.animKnight(v, Castle.ORIGIN.x + kx, v.wz, dir, 4 * kn.amp / kn.period)
 		end
 		local open = Castle.doorIsOpen(T, room)
 		rec.door.Position = Vector3.new(rec.doorX, open and 14 or rec.doorClosedY, rec.doorZ)

@@ -6,6 +6,7 @@ local Lighting = game:GetService("Lighting")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
 local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
+local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Guard")) -- pose de marche
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 
@@ -1349,10 +1350,11 @@ function Builder.dressKnights(assets)
 end
 
 -- Place le modèle du chevalier sur sa position et le tourne dans le sens de la marche (devant = -Z : vers +X = -90°).
-function Builder.animKnight(v, x, z, dir)
+function Builder.animKnight(v, x, z, dir, speed)
 	local vis = v.vis
 	if vis then
-		vis.model:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, dir > 0 and -math.pi / 2 or math.pi / 2, 0) * vis.off)
+		local by, roll = GuardMod.walkPose(os.clock() + (v.wz or 0), speed or 8) -- rebond et roulis de marche
+		vis.model:PivotTo(CFrame.new(x, by, z) * CFrame.Angles(0, dir > 0 and -math.pi / 2 or math.pi / 2, 0) * CFrame.Angles(0, 0, roll) * vis.off)
 	end
 end
 
