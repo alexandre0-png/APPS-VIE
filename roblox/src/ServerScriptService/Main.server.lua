@@ -58,6 +58,7 @@ task.spawn(function()
 	assets.loadAll()
 	assets.loadPets()
 	assets.loadProps()
+	assets.loadGroup("trees")
 	local propParts, propCount = Builder.dressWorld(assets)
 	print("[Assets] accessoires Blender : " .. propCount .. " posés (" .. propParts .. " Parts)")
 	assets.loadGroup("guards")
@@ -75,6 +76,10 @@ task.spawn(function()
 	assets.loadGroup("deco")
 	assets.loadGroup("terrain")
 	assets.loadGroup("base")
+	assets.loadGroup("paths")
+	local pt, pu = Builder.dressPaths(assets)
+	print("[Assets] chemins sinueux : " .. pt .. " tuile(s), " .. pu .. " Parts (budget " .. Config.Assets.pathBudgetParts .. ")")
+	assets.loadGroup("eggguard") -- protections d'œuf (dôme, cage, cristaux, nid) posées à chaque rafraîchissement de pad
 	local dp, du, df = Builder.dressDeco(assets)
 	print("[Assets] décor fin : " .. dp .. " objet(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decoBudgetParts .. "), " .. df .. " Parts de repli")
 	local rn, ru = Builder.dressRelief(assets)
@@ -444,6 +449,10 @@ local hatch, speedUpEgg -- déclarations anticipées
 local function clearPad(s, i)
 	local pad = s.plot.pads[i]
 	if pad.content then
+		local gp = pad.content:GetAttribute("GuardParts")
+		if s.guardBudget and gp then
+			s.guardBudget.used = math.max(0, s.guardBudget.used - gp)
+		end
 		pad.content:Destroy()
 		pad.content = nil
 	end
@@ -475,7 +484,8 @@ local function refreshPad(s, i, animate)
 		egg:SetAttribute("Ends", sl.ends)
 		CollectionService:AddTag(egg, "EggShake")
 		egg.Parent = content
-		Builder.nest(pad.part.Position + Vector3.new(0, 0.3, 0), content) -- l'œuf repose sur un nid
+		s.guardBudget = s.guardBudget or { used = 0 }
+		Builder.nest(pad.part.Position + Vector3.new(0, 0.3, 0), content, sl.t, s.guardBudget) -- l'œuf repose sur une protection selon sa rareté
 		local pr = Instance.new("ProximityPrompt")
 		pr.ActionText = "Voler l'œuf"
 		pr.ObjectText = "Œuf de " .. s.player.DisplayName

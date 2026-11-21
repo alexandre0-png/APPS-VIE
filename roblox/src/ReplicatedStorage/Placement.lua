@@ -38,6 +38,142 @@ local function distToSegment(px, pz, ax, az, bx, bz)
 end
 Placement.distToSegment = distToSegment
 
+-- Angle Y (degrés, convention Roblox : CFrame.Angles(0, a, 0) envoie +X vers (cos a, -sin a)) d'un déplacement (dx, dz). Pas de math.atan2.
+function Placement.yawOfDir(dx, dz)
+	local ax, az = dx, -dz -- on veut cos a = dx/len, sin a = -dz/len
+	if ax == 0 and az == 0 then
+		return 0
+	end
+	local a
+	if ax == 0 then
+		a = az > 0 and math.pi / 2 or -math.pi / 2
+	else
+		a = math.atan(az / ax)
+		if ax < 0 then
+			a = a + math.pi
+		end
+	end
+	return math.deg(a) % 360
+end
+
+-- Variante d'arbre selon la zone : tree_sakura près des lacs et de l'arène centrale, tree_pine sur les falaises (autour des domaines), sinon prairie
+-- (chênes, bouleau, arbre rond en alternance ; tree_oak_b porte des pommes). `kind` = "tree" ou "fir" (les sapins restent des pins). `k` = rang (déterministe).
+function Placement.treeVariant(Config, kind, x, z, k)
+	if kind == "fir" then
+		return "tree_pine"
+	end
+	local geo = Config.Map.geo
+	for _, lk in ipairs(geo.lakes or {}) do
+		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 70 then
+			return "tree_sakura"
+		end
+	end
+	if math.sqrt(x * x + z * z) < geo.arenaRadius + 70 then
+		return "tree_sakura"
+	end
+	for i = 1, #Config.RIVALS do
+		local cx, cz = Config.rivalCenter(i)
+		if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < Config.Map.plateauRadius + 60 then
+			return "tree_pine"
+		end
+	end
+	return ({ "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" })[(k or 0) % 4 + 1]
+end
+
+-- Échelle aléatoire déterministe 1 ± jitter d'après la position (jamais de tirage libre).
+function Placement.jitter(x, z, jitter)
+	local h = math.abs(math.sin(x * 12.9898 + z * 78.233) * 43758.5453)
+	return 1 + ((h - math.floor(h)) * 2 - 1) * jitter
+end
+
+-- Chemin sinueux : la polyligne est rééchantillonnée tous les `tile` studs et décalée latéralement d'une sinusoïde (amplitude `wind`, nulle aux
+-- extrémités et aux sommets). Retourne { tiles = { {kind, x, z, rot} }, borders = { {x, z, rot} } } : tuiles droites (le long de X, tournées vers la
+-- direction), tuile de virage quand la direction tourne de 50° à 130° (rotation par pas de 90°), bordures de pierres de part et d'autre.
+function Placement.pathTiles(poly, tile, wind)
+	local pts, cum = {}, { 0 }
+	local verts = {}
+	local total = 0
+	for k = 1, #poly - 1 do
+		local ax, az, bx, bz = poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]
+		local len = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+		verts[#verts + 1] = total
+		local n = math.max(1, math.floor(len / tile + 0.5))
+		for j = 0, n - 1 do
+			local t = j / n
+			local dx, dz = (bx - ax) / len, (bz - az) / len
+			pts[#pts + 1] = { x = ax + (bx - ax) * t, z = az + (bz - az) * t, nx = -dz, nz = dx, d = total + len * t }
+		end
+		total = total + len
+	end
+	local last = poly[#poly]
+	local pdx, pdz = last[1] - poly[#poly - 1][1], last[2] - poly[#poly - 1][2]
+	local pl = math.sqrt(pdx * pdx + pdz * pdz)
+	pts[#pts + 1] = { x = last[1], z = last[2], nx = -pdz / pl, nz = pdx / pl, d = total }
+	verts[#verts + 1] = total
+	for _, p in ipairs(pts) do
+		local near = total
+		for _, v in ipairs(verts) do
+			near = math.min(near, math.abs(p.d - v))
+		end
+		local env = math.min(1, near / (tile * 2))
+		local off = (wind or 0) * math.sin(p.d / 38) * env
+		p.x, p.z = p.x + p.nx * off, p.z + p.nz * off
+	end
+	local tiles, borders = {}, {}
+	local snap = function(dx, dz)
+		if math.abs(dx) >= math.abs(dz) then
+			return dx > 0 and 1 or -1, 0
+		end
+		return 0, dz > 0 and 1 or -1
+	end
+	for i = 1, #pts do
+		local a, b = pts[i], pts[i + 1] or pts[i]
+		local pa = pts[i - 1]
+		local dx, dz = b.x - a.x, b.z - a.z
+		if i == #pts then
+			dx, dz = a.x - pa.x, a.z - pa.z
+		end
+		local rot = Placement.yawOfDir(dx, dz)
+		local kind = "path_straight"
+		if pa and i < #pts then
+			local ix, iz = a.x - pa.x, a.z - pa.z
+			local li, lo = math.sqrt(ix * ix + iz * iz), math.sqrt(dx * dx + dz * dz)
+			local cosT = (ix * dx + iz * dz) / (li * lo)
+			if cosT < 0.64 and cosT > -0.64 then -- tourne de 50° à 130°
+				local ux, uz = snap(ix, iz)
+				local vx, vz = snap(dx, dz)
+				-- virage de base : on entre en allant vers +X et on sort vers -Z ; 4 rotations x (sens direct / inverse)
+				local found
+				for q = 0, 3 do
+					local th = math.rad(q * 90)
+					local function rot90(x, z) -- image de (x, z) par Angles(0, th, 0)
+						return math.floor(x * math.cos(th) + z * math.sin(th) + 0.5), math.floor(-x * math.sin(th) + z * math.cos(th) + 0.5)
+					end
+					local ex, ez = rot90(1, 0)
+					local fx, fz = rot90(0, -1)
+					if ex == ux and ez == uz and fx == vx and fz == vz then
+						found = q * 90
+					elseif -fx == ux and -fz == uz and -ex == vx and -ez == vz then
+						found = q * 90 -- tuile parcourue en sens inverse
+					end
+				end
+				if found then
+					kind, rot = "path_curve", found
+				end
+			end
+		end
+		tiles[#tiles + 1] = { kind = kind, x = a.x, z = a.z, rot = rot }
+		local nxl, nzl = -dz, dx
+		local nl = math.sqrt(nxl * nxl + nzl * nzl)
+		if nl > 0 then
+			for _, side in ipairs({ -1, 1 }) do
+				borders[#borders + 1] = { x = a.x + side * nxl / nl * (tile / 2 + 1.2), z = a.z + side * nzl / nl * (tile / 2 + 1.2), rot = rot }
+			end
+		end
+	end
+	return { tiles = tiles, borders = borders, length = total }
+end
+
 function Placement.new(Config)
 	local P = {}
 	local M = Config.Map

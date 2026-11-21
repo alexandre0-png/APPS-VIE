@@ -2,6 +2,13 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Lot 11 : arbres, chemins sinueux, protections d'œufs (13 modèles Blender)
+
+- Arbres : 6 variantes (`models.trees`), choisies par zone (`Placement.treeVariant` : sakura près des lacs et de l'arène, pins autour des domaines, prairie = chênes/bouleau/arbre rond), hauteur 8–11 studs, échelle ±15 %, rotation libre, repli = accessoire procédural.
+- Chemins : `Placement.pathTiles` (rééchantillonnage 8 studs, sinusoïde amplitude 5 nulle aux extrémités et sommets, tuile de virage par pas de 90°, bordures de pierres une sur deux) ; `Builder.dressPaths`, budget 600 Parts ; pavés procéduraux retirés seulement là où des tuiles sont posées.
+- Protections d'œuf par rareté (`Builder.eggGuard`) : Commun nid à barrière, Rare/Épique dôme (vitre `Dome_Verre` transparente à 0,7), Légendaire cage, Mythique/Cosmique cristaux ; lumière proportionnelle à la rareté ; budget 220 Parts par base, sinon nid procédural.
+- Non vu en Studio : orientation du modèle de virage (hypothèse : entrée −X, sortie −Z), hauteur de l'œuf dans le dôme.
+
 ## Gus clément
 
 - Gus : poursuite 9,5 (≈ 59 % de la marche 16), patrouille 4,5, vue 16 / 80°, ouïe 7, délai de réaction 1,6 s (par gardien : `alertDelay`), jamais de dégâts : la première prise renvoie à la base (œufs et pets gardés) avec « Gus t'a attrapé, réessaie ! », 6 s de répit (`Config.GUARD.gentleRecover`).

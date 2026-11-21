@@ -475,6 +475,9 @@ Config.Assets = {
 		terrain = { cliff_a = 77185775444063, cliff_b = 121767734121074, cliff_corner = 110100977206117, stairs = 105161635046156, waterfall = 129292144451409, islet = 128405076287969 },
 		base = { level1 = 97252816676038, level2 = 81995835244074, level3 = 77426422736227, level4 = 95370892804658, level5 = 75516398880390, level6 = 108065975809605, level7 = 83929759854266, level8 = 100223033827392 },
 		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
+		trees = { tree_oak_a = 115675817596242, tree_oak_b = 139178488755477, tree_birch = 86165293471213, tree_pine = 134548154871906, tree_sakura = 136998832791777, tree_round = 128198214830836 },
+		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
+		eggguard = { egg_dome = 114304098897950, egg_nest_fence = 101252453233834, egg_cage = 98653120562597, egg_shield = 73837494094507 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
@@ -482,6 +485,9 @@ Config.Assets = {
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
 		["base.level1"] = 45, ["base.level2"] = 45, ["base.level3"] = 45, ["base.level4"] = 45, ["base.level5"] = 45, ["base.level6"] = 45, ["base.level7"] = 45, ["base.level8"] = 45,
+		["trees.tree_oak_a"] = 40, ["trees.tree_oak_b"] = 40, ["trees.tree_birch"] = 40, ["trees.tree_pine"] = 40, ["trees.tree_sakura"] = 40, ["trees.tree_round"] = 40,
+		["paths.path_straight"] = 12, ["paths.path_curve"] = 12, ["paths.path_stones"] = 12,
+		["eggguard.egg_dome"] = 20, ["eggguard.egg_nest_fence"] = 30, ["eggguard.egg_cage"] = 30, ["eggguard.egg_shield"] = 12,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
 	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
@@ -503,6 +509,15 @@ Config.Assets = {
 	castleBudgetParts = 1700,
 	decoBudgetParts = 420, -- décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ des 1200 Parts procédurales, posé après la carte
 	reliefBudgetParts = 700, -- falaises, cascades, îlots Blender : budget séparé, posé après la carte
+	-- Arbres Blender (6 variantes) : hauteur cible de chacun (studs) ; variante choisie selon la zone (Placement.treeVariant), échelle ±15 %, rotation libre.
+	treeHeights = { tree_oak_a = 10, tree_oak_b = 10, tree_birch = 10, tree_pine = 11, tree_sakura = 10, tree_round = 8 },
+	treeScaleJitter = 0.15,
+	-- Chemins Blender (tuiles de 8 x 8, droite le long de X, virage à 90°), bordés de pierres : budget de Parts séparé, repli = pavés procéduraux.
+	pathTile = 8, pathWind = 5, pathBudgetParts = 600, pathBorderHeight = 0.6,
+	-- Protection de l'œuf d'un emplacement selon la rareté (clé de models.eggguard) et largeur cible (studs) ; halo / lumière proportionnels à la rareté.
+	eggGuardKeys = { "egg_nest_fence", "egg_dome", "egg_dome", "egg_cage", "egg_shield", "egg_shield" },
+	eggGuardWidth = { egg_nest_fence = 6.5, egg_dome = 4.4, egg_cage = 4.6, egg_shield = 5 },
+	eggGuardBudgetPerBase = 220, -- Parts Blender de protection par base (au-delà : nid procédural)
 	decoHeights = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1.2, stone_flat = 0.6, stone_round = 0.9, lantern = 1.2, sign_stars = 5 }, -- hauteurs cibles (studs) du décor fin
 	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
@@ -673,6 +688,18 @@ function Config.petTargetHeight(tier, sizeScale)
 	local base = H.petMin + (H.petMax - H.petMin) * (t - 1) / 5
 	local k = (type(sizeScale) == "number" and sizeScale == sizeScale and sizeScale > 0) and sizeScale or 1
 	return math.min(base * k, H.petHard)
+end
+
+-- Protection de l'œuf de rareté `tier` : Commun = nid à barrière, Rare/Épique = dôme de verre, Légendaire = cage, Mythique/Cosmique = cristaux.
+function Config.eggGuardKey(tier)
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), #Config.Assets.eggGuardKeys)
+	return Config.Assets.eggGuardKeys[math.floor(t)]
+end
+
+-- Intensité de lumière de la protection (proportionnelle à la rareté : 0,5 à 3) et portée (6 à 11 studs).
+function Config.eggGuardGlow(tier)
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	return { brightness = 0.5 + (t - 1) * 0.5, range = 6 + (t - 1), transparency = t >= 3 and 0.7 or 0.8 }
 end
 
 -- Hauteur cible d'un œuf : 1,8 à 2,8 studs selon la rareté.

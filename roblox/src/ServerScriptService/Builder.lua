@@ -1090,6 +1090,70 @@ function Builder.dressDeco(assets)
 	return placed, used, fallback
 end
 
+-- Chemins sinueux Blender (tuiles droites/virages bordés de pierres, touffes sur les bords) posés sur les polylignes de Config.Map.paths ; les pavés
+-- procéduraux (PathStone) proches d'une polyligne habillée sont retirés (jamais de superposition). Retourne (tuiles posées, Parts utilisées).
+function Builder.dressPaths(assets)
+	local tiles, used = 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return
+		end
+		local A = Config.Assets
+		local straight = assets.status and assets.status["m:paths.path_straight"]
+		if not (straight and straight.ok) then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderPaths"
+		folder.Parent = world
+		local P = PlacementMod.new(Config)
+		local function cost(key)
+			local st = assets.status["m:paths." .. key]
+			return st and st.ok and st.parts or 0
+		end
+		for _, poly in ipairs(Config.Map.paths) do
+			local plan = PlacementMod.pathTiles(poly, A.pathTile, A.pathWind)
+			local placedHere = 0
+			for _, t in ipairs(plan.tiles) do
+				local key = t.kind
+				local c = cost(key)
+				if c <= 0 and key == "path_curve" then
+					key, c = "path_straight", cost("path_straight")
+				end
+				if c > 0 and used + c <= A.pathBudgetParts and not (P.blocked(t.x, t.z, 2, { allowDomain = true }) == "eau") then
+					local clone = assets.cloneModel("paths", key)
+					if clone and assets.place(clone, t.x, t.z, t.rot, nil, folder, A.pathTile, 0.08) then
+						used, tiles, placedHere = used + c, tiles + 1, placedHere + 1
+					end
+				end
+			end
+			local sc = cost("path_stones")
+			for i, b in ipairs(plan.borders) do
+				if sc > 0 and used + sc <= A.pathBudgetParts and i % 2 == 0 then -- une pierre sur deux : bordure aérée
+					local clone = assets.cloneModel("paths", "path_stones")
+					if clone and assets.place(clone, b.x, b.z, b.rot, A.pathBorderHeight, folder, nil, 0.08) then
+						used = used + sc
+					end
+				end
+			end
+			if placedHere > 0 then
+				for _, d in ipairs(world:GetDescendants()) do
+					if d.Name == "PathStone" and d:IsA("BasePart") then
+						for k = 1, #poly - 1 do
+							if PlacementMod.distToSegment(d.Position.X, d.Position.Z, poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]) < A.pathWind + 6 then
+								d:Destroy()
+								break
+							end
+						end
+					end
+				end
+			end
+		end
+	end)
+	return tiles, used
+end
+
 -- Panneaux de difficulté Blender (étoiles Etoile1..Etoile5 recolorées : or pour les étoiles acquises, gris sinon) à la place du panneau procédural.
 function Builder.dressSigns(assets)
 	local n = 0
@@ -1970,7 +2034,65 @@ function Builder.aura(position, color, tier, secret)
 end
 
 -- Nid sous un œuf (paille : plateau, bord, brins) ; remplacé par le modèle Blender NidOeufs si disponible. Retourne le nombre de Parts du repli.
-function Builder.nest(position, parent)
+-- Protection Blender de l'œuf d'un emplacement selon la rareté (nid à barrière, dôme de verre, cage, cristaux) : mise à la largeur cible, vitre du dôme
+-- translucide, lumière proportionnelle à la rareté. `budget` = { used = n } (Parts de protection déjà posées dans la base). Retourne le nombre de Parts
+-- posées ou nil (repli : nid procédural). Ne lève jamais d'erreur.
+function Builder.eggGuard(position, parent, tier, budget)
+	if not eggAssets or not eggAssets.cloneModel then
+		return nil
+	end
+	local key = Config.eggGuardKey(tier)
+	local st = eggAssets.status and eggAssets.status["m:eggguard." .. key]
+	local cost = (st and st.ok and st.parts) or 0
+	if cost <= 0 or (budget and budget.used + cost > Config.Assets.eggGuardBudgetPerBase) then
+		return nil
+	end
+	local clone = eggAssets.cloneModel("eggguard", key)
+	if not clone then
+		return nil
+	end
+	local ok, count = eggAssets.place(clone, position.X, position.Z, 0, nil, parent, Config.Assets.eggGuardWidth[key], position.Y)
+	if not ok then
+		return nil
+	end
+	pcall(function()
+		clone.Name = "EggGuard"
+		local glow = Config.eggGuardGlow(tier)
+		local tint = Config.TIERS[math.min(math.max(tier, 1), #Config.TIERS)].color
+		local first
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				first = first or d
+				if AssetsMod.baseName(d.Name) == "Dome_Verre" then
+					d.Transparency = 0.7
+					d.Material = Enum.Material.Glass
+					d.Color = d.Color:Lerp(tint, 0.35)
+					d.CastShadow = false
+				end
+			end
+		end
+		if first then
+			local l = Instance.new("PointLight")
+			l.Name = "RarityGlow"
+			l.Color = tint
+			l.Brightness = glow.brightness
+			l.Range = glow.range
+			l.Parent = first
+		end
+	end)
+	if budget then
+		budget.used = budget.used + (count or cost)
+	end
+	pcall(function()
+		parent:SetAttribute("GuardParts", count or cost) -- relu par clearPad pour rendre le budget à la base
+	end)
+	return count or cost
+end
+
+function Builder.nest(position, parent, tier, budget)
+	if tier and Builder.eggGuard(position, parent, tier, budget) then
+		return 0
+	end
 	-- modèle Blender NidOeufs s'il est chargé (cloné, jamais rechargé), sinon nid de paille procédural
 	local clone = eggAssets and eggAssets.cloneProp and eggAssets.cloneProp("nest")
 	if clone then
@@ -2005,7 +2127,7 @@ function Builder.dressWorld(assets)
 		-- Pose PLANIFIÉE (Placement) : grille, empreintes sans recouvrement, rien dans l'eau ni sur un chemin, cabanes face à leur domaine, barrières
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
-		local huts = 0
+		local huts, treeIdx = 0, 0
 		local function put(key, x, z, rot, length, gy)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
@@ -2018,6 +2140,18 @@ function Builder.dressWorld(assets)
 				local alt = huts % 2 == 1 and "hut_big" or "hut_small"
 				clone = assets.cloneModel("props", alt)
 				height = clone and Config.Assets.targetHeights[alt] or height
+			end
+			if key == "tree" or key == "fir" then
+				treeIdx = treeIdx + 1
+				local variant = PlacementMod.treeVariant(Config, key, x, z, treeIdx)
+				local st = assets.status and assets.status["m:trees." .. variant]
+				local vc = st and st.ok and st.parts or Config.Assets.propsMaxParts[key]
+				if st and st.ok and total + vc <= Config.Assets.propsBudgetParts then
+					clone = assets.cloneModel("trees", variant)
+					if clone then
+						height = (Config.Assets.treeHeights[variant] or height) * PlacementMod.jitter(x, z, Config.Assets.treeScaleJitter)
+					end
+				end
 			end
 			clone = clone or assets.cloneProp(key)
 			if not clone then

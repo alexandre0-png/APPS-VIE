@@ -4027,6 +4027,24 @@ do
 			end
 			RT.step(3)
 		end
+		do -- lot 11 : protection d'œuf Blender posée sur le pad d'un joueur qui possède un œuf (assets chargés avant l'arrivée)
+			RT.step(3)
+			local pj = join("Gard", 7301)
+			RT.step(3)
+			local names, eggs, guards = {}, 0, 0
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				local nm = rawget(d, "__props").Name
+				if nm == "Egg" then
+					eggs += 1
+				elseif nm == "EggGuard" then
+					guards += 1
+					names[#names + 1] = nm
+				end
+			end
+			check("Protection d'œuf Blender : " .. guards .. " protection(s) pour " .. eggs .. " œuf(s) posé(s) (une par œuf, nid procédural sinon)", guards >= 1)
+			RT.removePlayer(pj)
+			RT.step(2)
+		end
 		local function slotCount(snap) -- emplacements occupés (œufs et pets : un œuf devient pet en éclosant)
 			local n = 0
 			for i = 1, 12 do
@@ -4498,6 +4516,27 @@ do
 					end
 				end
 				check("Décor fin : " .. counts.deco .. " objets (fleurs, touffes, pierres, lanternes) posés après la carte, budget séparé " .. Config.Assets.decoBudgetParts .. " respecté, aucune erreur", counts.deco >= 30 and #RT.errors == 0)
+				do -- lot 11 : chemins sinueux, arbres variés, protections d'œufs
+					local tilesN, tileParts, guards, guardParts, trees = 0, 0, 0, 0, 0
+					local stonesLeft = 0
+					for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+						local parent = d.Parent and rawget(d.Parent, "__props").Name
+						if parent == "BlenderPaths" and d.ClassName == "Model" then
+							tilesN += 1
+							tileParts += #d:GetDescendants()
+						elseif rawget(d, "__props").Name == "EggGuard" and d.ClassName == "Model" then
+							guards += 1
+							guardParts += #d:GetDescendants()
+						elseif parent == "BlenderProps" and d.ClassName == "Model" then
+							trees += 1
+						elseif rawget(d, "__props").Name == "PathStone" then
+							stonesLeft += 1
+						end
+					end
+					check("Chemins Blender : " .. tilesN .. " éléments posés (tuiles + pierres), " .. tileParts .. " objets <= budget " .. Config.Assets.pathBudgetParts .. ", aucune erreur", tilesN >= 10 and tileParts <= Config.Assets.pathBudgetParts * 3 and #RT.errors == 0)
+					check("Arbres Blender : modèles posés sur la carte (" .. trees .. ")", trees >= 5)
+					check("Protections d'œufs Blender : " .. guards .. " posée(s), " .. guardParts .. " objets", guardParts <= Config.Assets.eggGuardBudgetPerBase * 3)
+				end
 				check("Relief : crête de falaises, cascades, escaliers et îlots posés (" .. counts.relief .. " éléments), mur invisible en place (" .. counts.walls .. ")", counts.relief >= 20 and counts.walls >= 1)
 				check("Panneaux d'étoiles Blender : un par domaine (" .. counts.stars .. ")", counts.stars == #Config.RIVALS)
 			end
@@ -5086,6 +5125,109 @@ do
 		check("CoinIcon : les piles grossissent avec la richesse (pièce < petite pile < grosse pile)", counts[1] < counts[2] and counts[2] < counts[3])
 		check("CoinIcon : palier inconnu ou taille invalide sans erreur", pcall(CoinIcon.build, gui, 99, 52) and pcall(CoinIcon.build, gui, 2, 0))
 	end
+end
+
+
+do
+	suite("Lot 11 : arbres, chemins sinueux, protections d'œufs (logique pure)")
+	local PLx = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
+	local M = Config.Assets.models
+	local n13 = 0
+	for _, g in ipairs({ "trees", "paths", "eggguard" }) do
+		for k, id in pairs(M[g]) do
+			n13 = n13 + 1
+			check("Modèle " .. g .. "." .. k .. " : ID valide et plafond de Parts", type(id) == "number" and id > 0 and Config.Assets.modelsMaxParts[g .. "." .. k] ~= nil)
+		end
+	end
+	check("13 modèles du lot 11 déclarés", n13 == 13)
+	-- protections par rareté
+	check("Protection : Commun = nid, Rare/Épique = dôme, Légendaire = cage, Mythique/Cosmique = cristaux",
+		Config.eggGuardKey(1) == "egg_nest_fence" and Config.eggGuardKey(2) == "egg_dome" and Config.eggGuardKey(3) == "egg_dome" and Config.eggGuardKey(4) == "egg_cage" and Config.eggGuardKey(5) == "egg_shield" and Config.eggGuardKey(6) == "egg_shield")
+	local mono = true
+	for t = 2, 6 do
+		if Config.eggGuardGlow(t).brightness <= Config.eggGuardGlow(t - 1).brightness or Config.eggGuardGlow(t).range < Config.eggGuardGlow(t - 1).range then
+			mono = false
+		end
+	end
+	check("Protection : lumière croissante avec la rareté", mono)
+	check("Protection : rareté invalide -> clé valide, sans erreur", Config.eggGuardKey(0) == "egg_nest_fence" and Config.eggGuardKey(99) == "egg_shield" and Config.eggGuardKey(nil) == "egg_nest_fence" and Config.eggGuardKey(0 / 0) == "egg_nest_fence")
+	local widthOk = true
+	for _, k in ipairs(Config.Assets.eggGuardKeys) do
+		if not Config.Assets.eggGuardWidth[k] or Config.Assets.eggGuardWidth[k] > 7 then
+			widthOk = false
+		end
+	end
+	check("Protection : largeur cible définie et <= 7 studs pour chaque clé", widthOk)
+	-- arbres
+	local seen, byZone = {}, {}
+	local c1x, c1z = Config.rivalCenter(1)
+	byZone.pine = PLx.treeVariant(Config, "tree", c1x + 20, c1z + 90, 1)
+	byZone.sakura = PLx.treeVariant(Config, "tree", 0, 60, 1)
+	local lk = Config.Map.geo.lakes[1]
+	byZone.lake = PLx.treeVariant(Config, "tree", lk.x + lk.r + 10, lk.z, 2)
+	byZone.fir = PLx.treeVariant(Config, "fir", 300, 100, 3)
+	check("Arbres : pins sur les falaises, sakuras près des lacs et de l'arène, sapin = pin", byZone.pine == "tree_pine" and byZone.sakura == "tree_sakura" and byZone.lake == "tree_sakura" and byZone.fir == "tree_pine")
+	for k = 1, 8 do
+		seen[PLx.treeVariant(Config, "tree", -300, 200, k)] = true
+	end
+	check("Arbres : prairie = chênes, bouleau et arbre rond mélangés (4 variantes)", seen.tree_oak_a and seen.tree_oak_b and seen.tree_birch and seen.tree_round)
+	local jOk, jmin, jmax = true, 9, 0
+	for i = 1, 200 do
+		local j = PLx.jitter(i * 7.3, i * 3.1, Config.Assets.treeScaleJitter)
+		jmin, jmax = math.min(jmin, j), math.max(jmax, j)
+		if j < 0.85 - 1e-9 or j > 1.15 + 1e-9 then
+			jOk = false
+		end
+	end
+	check("Arbres : échelle ±15 % (min " .. string.format("%.2f", jmin) .. ", max " .. string.format("%.2f", jmax) .. "), déterministe et variée", jOk and jmax - jmin > 0.2 and PLx.jitter(5, 6, 0.15) == PLx.jitter(5, 6, 0.15))
+	local hOk = true
+	for k, h in pairs(Config.Assets.treeHeights) do
+		if h < 8 or h > 11 or not M.trees[k] then
+			hOk = false
+		end
+	end
+	check("Arbres : hauteurs cibles 8 à 11 studs, une par modèle", hOk)
+	-- chemins sinueux
+	local allOk, curves, maxStep = true, 0, 0
+	for _, poly in ipairs(Config.Map.paths) do
+		local plan = PLx.pathTiles(poly, Config.Assets.pathTile, Config.Assets.pathWind)
+		if #plan.tiles < 3 or #plan.borders ~= 2 * #plan.tiles then
+			allOk = false
+		end
+		local first, last = plan.tiles[1], plan.tiles[#plan.tiles]
+		if math.sqrt((first.x - poly[1][1]) ^ 2 + (first.z - poly[1][2]) ^ 2) > 0.01 or math.sqrt((last.x - poly[#poly][1]) ^ 2 + (last.z - poly[#poly][2]) ^ 2) > 0.01 then
+			allOk = false -- extrémités fixes
+		end
+		for i = 2, #plan.tiles do
+			local a, b = plan.tiles[i - 1], plan.tiles[i]
+			maxStep = math.max(maxStep, math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2))
+		end
+		for _, t in ipairs(plan.tiles) do
+			if t.kind == "path_curve" then
+				curves = curves + 1
+				if t.rot % 90 ~= 0 then
+					allOk = false
+				end
+			end
+		end
+	end
+	check("Chemins : tuiles et bordures cohérentes, extrémités fixes, virages tournés par pas de 90°", allOk)
+	check("Chemins : tuiles consécutives jointives (pas max " .. string.format("%.1f", maxStep) .. " <= 1,5 x tuile) ", maxStep <= Config.Assets.pathTile * 1.5)
+	local winding = PLx.pathTiles({ { 0, 0 }, { 0, -240 } }, 8, 5)
+	local maxX = 0
+	for _, t in ipairs(winding.tiles) do
+		maxX = math.max(maxX, math.abs(t.x))
+	end
+	check("Chemins : un tracé droit devient sinueux (écart latéral max " .. string.format("%.1f", maxX) .. " studs, <= amplitude)", maxX > 2.5 and maxX <= 5 + 1e-6)
+	local corner = PLx.pathTiles({ { 0, 0 }, { 0, -80 }, { 40, -80 } }, 8, 0)
+	local cc = 0
+	for _, t in ipairs(corner.tiles) do
+		if t.kind == "path_curve" then
+			cc = cc + 1
+		end
+	end
+	check("Chemins : un coin à 90° donne une tuile de virage (" .. cc .. ")", cc >= 1)
+	check("Chemins : yawOfDir (1,0)=0, (0,-1)=90, (-1,0)=180, (0,1)=270", math.abs(PLx.yawOfDir(1, 0)) < 1e-6 and math.abs(PLx.yawOfDir(0, -1) - 90) < 1e-6 and math.abs(PLx.yawOfDir(-1, 0) - 180) < 1e-6 and math.abs(PLx.yawOfDir(0, 1) - 270) < 1e-6)
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
