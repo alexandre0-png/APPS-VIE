@@ -109,6 +109,9 @@ DECOR_MODELS = [
     dict(model="poupée ancienne", room="gro", on="berceau", pos=(38, 27, 50)),
     dict(model="bougie chandelier", room="gro", on="table", pos=(29.5, 27, 11.2)),
     dict(model="bougie chandelier", room="gro", on="commode", pos=(19, 28, 4)),
+    dict(model="chandeliers", room="sam", on="buffet", pos=(3.5, 5, 81.5)),
+    dict(model="renard statuette", room="salon", on="meuble TV", pos=(12.5, 2.5, 41.8)),
+    dict(model="livres", room="bureau", on="bureau", pos=(101, 2.5, 59)),
 ]
 
 

@@ -27,7 +27,12 @@ Tout le reste est fait dans le code et vérifié par les tests (cartes, Lua, sim
    Fichiers construits par Rojo, à ouvrir dans Studio puis publier (Fichier > Publier sur Roblox).
 3. **Publication** : les identifiants sont renseignés (`Config.Game.Places` : hub `77452764500707`, partie `88091909899710`, expérience unique « Sortir Du Grenier », univers `10776611603` ; l'ancien hub `124575462695705`, expérience séparée, n'est plus utilisé). Tu publies les deux lieux toi-même via l'API ou Studio ; rien n'a été publié par Claude.
 4. **Tester à deux joueurs** dans Studio : réveil, énigmes, trappes, mort et réanimation, fin, retour au hub.
-5. **Achats Robux** (optionnels) : créer les Game Pass et produits sur Roblox, puis renseigner leurs identifiants dans `Config.Shop`. Tant qu'ils valent 0, les achats sont désactivés.
+5. **Achats Robux** (optionnels) : créer sur le site Roblox (Creator Hub > Monétisation) les 2 Game Passes et 3 produits ci-dessous, puis coller chaque identifiant (nombre) dans `Config.Shop`. Tant qu'un identifiant vaut 0, l'article n'est pas proposé et rien ne plante. Détail (descriptions, icônes 512×512) : `PUBLICATION.md` §6.
+   - `GamePasses.LampeRenforcee` : Game Pass « Lampe renforcée », 149 R$, ID attendu : nombre ;
+   - `GamePasses.LanterneDoree` : Game Pass « Lanterne dorée » (cosmétique), 99 R$, ID attendu : nombre ;
+   - `Products.Pile` : produit « Pile de rechange », 25 R$, ID attendu : nombre ;
+   - `Products.Cailloux` : produit « Cinq cailloux », 25 R$, ID attendu : nombre ;
+   - `Products.Soutien` : produit « Soutenir le jeu », 49 R$, ID attendu : nombre.
 6. **Vérifier les nouveautés dans Studio** :
    - horloge du hall (tag `Horloge`) : position, saisie de la date de la plaque ;
    - compteur de la cuisine et étiquette « Réserve » (énigme optionnelle) ;

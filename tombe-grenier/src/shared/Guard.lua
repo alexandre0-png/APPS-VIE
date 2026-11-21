@@ -9,6 +9,10 @@ function Guard.isFinite(n)
 	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
 end
 
+function Guard.isString(v)
+	return typeof(v) == "string" and #v <= 40
+end
+
 function Guard.isBoolean(v)
 	return type(v) == "boolean"
 end

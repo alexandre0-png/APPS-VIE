@@ -25,6 +25,7 @@ local EVENTS = {
 	"AskHint", -- client -> serveur : demande l'indication de l'étape (touche H)
 	"Reveal", -- serveur -> client : { n, total, text } étape accomplie (bannière « Étape n sur N »)
 	"Journal", -- serveur -> client : { lines = { texte, ... } } journal de quêtes (touche J)
+	"Buy", -- client -> serveur : clé d'un article du catalogue (Config.Shop.Catalogue)
 	"Hint", -- serveur -> client : { text = ... } indication affichée en bas à gauche
 }
 

@@ -471,6 +471,11 @@ if Hub.role() ~= "hub" then
 	end)
 end
 
+-- Demande d'achat (panneau Boutique) : un article du catalogue, validé par Shop.request ; au plus un clic par seconde
+guarded("Buy", 1, 3, Guard.isString, function(player, key)
+	Shop.request(player, key)
+end)
+
 -- Indication demandée par le joueur (touche H), limitée par Config.Quests.HintCooldown
 guarded("AskHint", 2, 4, nil, function(player)
 	Quests.hintFor(player)

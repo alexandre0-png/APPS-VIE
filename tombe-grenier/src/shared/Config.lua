@@ -107,10 +107,54 @@ Config.Monster = {
 
 -- Boutique Robux. Un identifiant à 0 = article désactivé : le jeu reste entièrement jouable gratuitement.
 Config.Shop = {
-	GamePasses = { LampeRenforcee = 0 }, -- Game Pass : la lampe se vide deux fois moins vite
-	Products = { Pile = 0, Cailloux = 0 }, -- produits : une pile, ou des cailloux à lancer
+	GamePasses = { LampeRenforcee = 0, LanterneDoree = 0 }, -- Game Passes : lampe qui se vide deux fois moins vite ; faisceau doré (cosmétique)
+	Products = { Pile = 0, Cailloux = 0, Soutien = 0 }, -- produits : une pile, des cailloux à lancer, un soutien sans effet de jeu
 	PileAmount = 45,
 	CaillouxAmount = 5,
+	-- Catalogue (documentation, tests, panneau d'achat touche B). Un article n'est proposé que si son identifiant n'est pas 0.
+	-- kind : "pass" (GamePasses) ou "product" (Products) ; price : Robux suggéré ; icon : fichier d'icône à fournir (512x512).
+	Catalogue = {
+		{
+			key = "LampeRenforcee",
+			kind = "pass",
+			name = "Lampe renforcée",
+			description = "Ta lampe se vide deux fois moins vite, toute la partie.",
+			price = 149,
+			icon = "icone_lampe_renforcee.png",
+		},
+		{
+			key = "LanterneDoree",
+			kind = "pass",
+			name = "Lanterne dorée",
+			description = "Cosmétique : ton faisceau de lampe devient doré. Aucun avantage de jeu.",
+			price = 99,
+			icon = "icone_lanterne_doree.png",
+		},
+		{
+			key = "Pile",
+			kind = "product",
+			name = "Pile de rechange",
+			description = "Recharge ta lampe de 45 points, tout de suite.",
+			price = 25,
+			icon = "icone_pile.png",
+		},
+		{
+			key = "Cailloux",
+			kind = "product",
+			name = "Cinq cailloux",
+			description = "Cinq cailloux à lancer pour détourner l'ombre.",
+			price = 25,
+			icon = "icone_cailloux.png",
+		},
+		{
+			key = "Soutien",
+			kind = "product",
+			name = "Soutenir le jeu",
+			description = "Un merci. N'apporte aucun avantage de jeu.",
+			price = 49,
+			icon = "icone_soutien.png",
+		},
+	},
 }
 
 Config.Flashlight = {
@@ -384,6 +428,18 @@ Config.Assets = {
 	Bidon = 135009865593146, -- bidon métallique
 	CoffreCave = 97448512398637, -- coffre de fer riveté
 	Buffet = 124370863796629, -- buffet à quatre portes
+	-- Lot 5 (décors, approuvé) : salon, salle à manger, cuisine, bureau ; devant = -Y Blender
+	BuffetBas = 104815439105065, -- buffet bas, salle à manger (10×4×3)
+	PlacardHaut = 136718584759461, -- placard haut de cuisine (10×3×1,6)
+	FauteuilOsier = 73883595440989, -- fauteuil en osier, salon
+	TableRondePied = 134181576477835, -- table ronde à pied central (~7 de diamètre)
+	ChaiseAccoudoirs = 84730866248614, -- chaise à accoudoirs, salle à manger
+	Suspension = 140374171340658, -- suspension à abat-jour, 4 de haut, au plafond
+	Chandeliers = 100599765357745, -- trois chandeliers en laiton, ~4 de haut
+	RenardStatuette = 127546013937541, -- statuette de renard (~2)
+	Livres = 99596807748651, -- pile de livres (~3 de large)
+	TabouretBar = 93270940759227, -- tabouret de bar, cuisine
+	GueridonLampe = 93677754196340, -- guéridon avec lampe (~4,5 de haut)
 	-- Garnitures Blender (lot 3, approuvé) : plinthes, moulures, fenêtres, encadrements, appliques, soupiraux, radiateurs
 	Plinthe = 92565174748095, -- plinthe bois
 	Moulure = 75784159506222, -- moulure plafond

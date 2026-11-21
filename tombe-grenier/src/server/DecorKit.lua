@@ -69,7 +69,7 @@ DecorKit.ALIASES = {
 	["lampadaire"] = "lampadaire ancien",
 	["lit double"] = "lit double ancien",
 	["cheminée"] = "cheminée gothique",
-	["table ronde"] = "table ronde moderne",
+	["table ronde"] = "table ronde pied",
 	["placards"] = "armoire gothique",
 	["coffre"] = "coffre de cave",
 	["étagère"] = "étagère livres",
@@ -78,15 +78,21 @@ DecorKit.ALIASES = {
 -- Modèle propre à une pièce : ROOM_MODELS[pièce][nom du meuble] = nom du modèle chargé.
 -- Horreur et antiquités pour le grenier et les chambres, moderne pour le salon et le bureau.
 DecorKit.ROOM_MODELS = {
-	salon = { ["canapé"] = "canapé U", ["plante"] = "plante moderne" },
+	salon = { ["canapé"] = "canapé U", ["plante"] = "plante moderne", ["fauteuil"] = "fauteuil osier" },
 	bureau = {
 		["canapé"] = "canapé U",
 		["bureau"] = "table bois",
 		["chaise"] = "chaise moderne",
 		["plante"] = "plante moyenne",
 	},
-	cuis = { ["table"] = "table à manger", ["îlot"] = "table métal" },
-	sam = { ["plante"] = "plante fenêtre", ["table"] = "table à manger" },
+	cuis = { ["table"] = "table à manger", ["îlot"] = "table métal", ["placards"] = "placard haut" },
+	sam = {
+		["plante"] = "plante fenêtre",
+		["table"] = "table à manger",
+		["chaise"] = "chaise accoudoirs",
+		["buffet"] = "buffet bas",
+	},
+	entree = { ["guéridon"] = "guéridon lampe" },
 	couloir = { ["table ronde"] = "table ronde moderne" },
 	che = { ["chaise"] = "chaise école", ["bureau"] = "table bois", ["armoire"] = "armoire gothique" },
 	cha = { ["chaise"] = "chaise école", ["bureau"] = "table bois", ["armoire"] = "armoire gothique" },

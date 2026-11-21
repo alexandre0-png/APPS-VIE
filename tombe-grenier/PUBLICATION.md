@@ -93,3 +93,24 @@ Document de préparation du passage en public. Rien n'est publié par le code : 
 ## 5. Après la publication
 - Consulter chaque jour la console des erreurs serveur ; une ligne `[Boot] ... ERREUR` indique l'étape fautive.
 - Relever la part de joueurs qui quittent avant la première énigme : si elle dépasse 40 %, revoir l'introduction et la promesse du hub.
+
+## 6. Boutique (Game Passes et produits développeur)
+
+Tout est optionnel : tant que l'identifiant d'un article vaut 0 dans `Config.Shop`, il n'est pas proposé et le jeu reste entièrement jouable gratuitement. Rien n'est « payer pour gagner » : un indice supplémentaire n'est volontairement pas vendu (l'indice, touche H, est gratuit et illimité). À créer par l'utilisateur sur le site Roblox (Creator Hub > expérience > Monétisation), puis à renseigner dans `Config.Shop` :
+
+| Clé `Config.Shop` | Type | Nom | Description | Prix suggéré | Icône à fournir (512×512) | Identifiant attendu |
+|---|---|---|---|---|---|---|
+| `GamePasses.LampeRenforcee` | Game Pass | Lampe renforcée | Ta lampe se vide deux fois moins vite, toute la partie. | 149 R$ | `icone_lampe_renforcee.png` | ID du Game Pass, nombre |
+| `GamePasses.LanterneDoree` | Game Pass | Lanterne dorée | Cosmétique : ton faisceau de lampe devient doré. Aucun avantage de jeu. | 99 R$ | `icone_lanterne_doree.png` | ID du Game Pass, nombre |
+| `Products.Pile` | Produit développeur | Pile de rechange | Recharge ta lampe de 45 points, tout de suite. | 25 R$ | `icone_pile.png` | ID du produit, nombre |
+| `Products.Cailloux` | Produit développeur | Cinq cailloux | Cinq cailloux à lancer pour détourner l'ombre. | 25 R$ | `icone_cailloux.png` | ID du produit, nombre |
+| `Products.Soutien` | Produit développeur | Soutenir le jeu | Un merci. N'apporte aucun avantage de jeu. | 49 R$ | `icone_soutien.png` | ID du produit, nombre |
+
+Comportement : un bouton « Boutique » apparaît à droite de l'écran seulement si au moins un identifiant est renseigné ; les produits ne se vendent que dans la partie (au hub, seuls les Game Passes) ; les produits sont accordés par `ProcessReceipt` (une seule fois par achat) ; le Game Pass s'applique dès l'achat.
+
+## 7. Textes et images de la page de l'expérience
+
+- Titre, description courte, description longue et les 5 accroches : §1 ci-dessus (à coller tels quels).
+- Vignette de l'expérience : **1920×1080** px (16:9), format PNG ou JPG, sans texte important dans les 10 % du bord.
+- Icône de l'expérience : **512×512** px, PNG ; icônes des articles de la boutique : **512×512** px chacune.
+- La gestion fournit les images ; trois captures à ajouter en plus (grenier, couloir éclairé, poursuite).

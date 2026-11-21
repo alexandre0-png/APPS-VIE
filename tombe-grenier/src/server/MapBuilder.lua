@@ -547,6 +547,18 @@ local function buildFallbackDecor(name, anchor)
 			Enum.Material.SmoothPlastic,
 			Enum.PartType.Ball
 		)
+	elseif name == "livres" then
+		piece(Vector3.new(1.4, 0.25, 1), 0.125, Color3.fromRGB(110, 40, 40), Enum.Material.Fabric)
+		piece(Vector3.new(1.2, 0.25, 0.9), 0.375, Color3.fromRGB(50, 70, 100), Enum.Material.Fabric)
+	elseif name == "renard statuette" then
+		piece(Vector3.new(0.7, 0.6, 1.1), 0.3, Color3.fromRGB(190, 100, 40), Enum.Material.SmoothPlastic)
+		piece(
+			Vector3.new(0.5, 0.5, 0.5),
+			0.85,
+			Color3.fromRGB(200, 110, 45),
+			Enum.Material.SmoothPlastic,
+			Enum.PartType.Ball
+		)
 	else
 		piece(Vector3.new(0.5, 0.12, 0.5), 0.06, Color3.fromRGB(176, 141, 60), Enum.Material.Metal)
 		piece(Vector3.new(0.14, 0.7, 0.14), 0.45, Color3.fromRGB(235, 225, 200), Enum.Material.SmoothPlastic)
@@ -1367,6 +1379,12 @@ local STANDALONE_DECOR = {
 -- Accessoires Blender de lisibilité (sans collision) : { modèle, x, sol ou bas du modèle, z, taille cible X/Y/Z }.
 -- Emplacements calculés hors meubles, hors zones de portes et hors couloirs de passage (tools/lua/test_boot_async.py les vérifie).
 MapBuilder.ACCESSORIES = {
+	{ "suspension", 20, 7, 22, { 3, 4, 3 } }, -- salon
+	{ "suspension", 20, 7, 67, { 3, 4, 3 } }, -- salle à manger
+	{ "suspension", 100, 7, 67, { 3, 4, 3 } }, -- bureau
+	{ "tabouret de bar", 90, 0, 24, { 1.6, 2.4, 1.6 } }, -- cuisine, devant l'îlot
+	{ "tabouret de bar", 94, 0, 24, { 1.6, 2.4, 1.6 } },
+	{ "tabouret de bar", 98, 0, 24, { 1.6, 2.4, 1.6 } },
 	{ "matelas de l'enfant", 46, -12, 84, { 4, 0.5, 4 } }, -- cave : le coin de l'enfant, contre la cage
 	{ "chaîne de cave", 61, -11.5, 83, { 0.3, 3, 0.3 } },
 	{ "bougie chandelier", 53, -12, 78.4, { 0.6, 1, 0.6 } }, -- cave : lueur près de la cage de l'enfant

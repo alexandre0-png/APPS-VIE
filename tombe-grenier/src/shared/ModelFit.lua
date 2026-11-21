@@ -18,6 +18,17 @@ ModelFit.PLANS = {
 	["bougie chandelier"] = { mode = "height", height = 1.0, front = "-Z" },
 	-- Bibliothèque Blender : meubles qui tiennent dans la boîte du meuble de la carte, orientés vers l'intérieur de la pièce
 	["armoire gothique"] = { mode = "fit", front = "-Z" },
+	["buffet bas"] = { mode = "fit", front = "+Z" },
+	["placard haut"] = { mode = "fit", front = "+Z" },
+	["fauteuil osier"] = { mode = "fit", front = "+Z" },
+	["table ronde pied"] = { mode = "fit", front = "+Z" },
+	["chaise accoudoirs"] = { mode = "fit", front = "+Z" },
+	["suspension"] = { mode = "fit", front = "+Z" },
+	["chandeliers"] = { mode = "fit", front = "+Z" },
+	["renard statuette"] = { mode = "fit", front = "+Z" },
+	["livres"] = { mode = "fit", front = "+Z" },
+	["tabouret de bar"] = { mode = "fit", front = "+Z" },
+	["guéridon lampe"] = { mode = "fit", front = "+Z" },
 	["cage de l'enfant"] = { mode = "fit", front = "+Z" },
 	["matelas de l'enfant"] = { mode = "fit", front = "+Z" },
 	["chaîne de cave"] = { mode = "height", front = "+Z" },
@@ -90,6 +101,9 @@ ModelFit.PLANS = {
 -- Hauteurs cibles en studs : le modèle est mis à l'échelle sur sa HAUTEUR mesurée (GetExtentsSize), largeur et profondeur
 -- suivent ses proportions. Priorité sur le mode du plan. Testé à ±10 % par modèle (tools/lua/test_colors_scale.py).
 ModelFit.HEIGHTS = {
+	["guéridon lampe"] = 4.5,
+	["buffet bas"] = 4,
+	["placard haut"] = 7,
 	["cage de l'enfant"] = 5,
 	["chevet"] = 2,
 	["table basse"] = 1.5,

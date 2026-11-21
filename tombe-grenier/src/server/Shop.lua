@@ -16,6 +16,12 @@ local Hub = require(script.Parent.Parent.Common.Hub)
 
 local Shop = {}
 
+local function Remotes_say(player, text)
+	pcall(function()
+		require(Shared.Remotes).fire("Message", player, { text = text })
+	end)
+end
+
 local function ownsPass(player, passId)
 	if passId == 0 then
 		return false
@@ -29,6 +35,45 @@ end
 local function onPlayerAdded(player)
 	local lamp = Config.Shop.GamePasses.LampeRenforcee
 	player:SetAttribute("LampPass", ownsPass(player, lamp))
+	player:SetAttribute("LampSkin", ownsPass(player, Config.Shop.GamePasses.LanterneDoree) and "or" or nil)
+end
+
+-- Article du catalogue par clé, avec son identifiant Roblox ; nil si inconnu ou désactivé (identifiant 0)
+function Shop.item(key)
+	for _, entry in ipairs(Config.Shop.Catalogue) do
+		if entry.key == key then
+			local ids = entry.kind == "pass" and Config.Shop.GamePasses or Config.Shop.Products
+			local id = ids[key]
+			if typeof(id) == "number" and id ~= 0 then
+				return entry, id
+			end
+			return nil
+		end
+	end
+	return nil
+end
+
+-- Demande d'achat du client : seulement un article connu et activé ; jamais d'erreur
+function Shop.request(player, key)
+	if typeof(key) ~= "string" then
+		return false
+	end
+	local entry, id = Shop.item(key)
+	if not entry then
+		return false
+	end
+	-- Les produits ont un effet dans la partie : au hub, seuls les Game Passes sont proposés
+	if entry.kind == "product" and Hub.role() == "hub" then
+		return false
+	end
+	pcall(function()
+		if entry.kind == "pass" then
+			MarketplaceService:PromptGamePassPurchase(player, id)
+		else
+			MarketplaceService:PromptProductPurchase(player, id)
+		end
+	end)
+	return true
 end
 
 function Shop.init()
@@ -36,6 +81,12 @@ function Shop.init()
 		onPlayerAdded(player)
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
+	-- Un Game Pass acheté en jeu s'applique tout de suite
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+		if purchased then
+			onPlayerAdded(player)
+		end
+	end)
 
 	MarketplaceService.ProcessReceipt = function(receipt)
 		local player = Players:GetPlayerByUserId(receipt.PlayerId)
@@ -49,6 +100,10 @@ function Shop.init()
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		elseif Config.Shop.Products.Cailloux ~= 0 and receipt.ProductId == Config.Shop.Products.Cailloux then
 			PlayerState.addThrows(player, Config.Shop.CaillouxAmount)
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
+		if Config.Shop.Products.Soutien ~= 0 and receipt.ProductId == Config.Shop.Products.Soutien then
+			Remotes_say(player, "Merci pour ton soutien.")
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 		warn("[Shop] produit inconnu : " .. tostring(receipt.ProductId))

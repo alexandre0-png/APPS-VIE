@@ -226,6 +226,10 @@ function PlayerState.setFlashlight(player, on)
 		beam.Range = FL.Range
 		beam.Angle = FL.Angle
 		beam.Face = Enum.NormalId.Front
+		-- Lanterne dorée (Game Pass cosmétique) : faisceau doré
+		if player:GetAttribute("LampSkin") == "or" then
+			beam.Color = Color3.fromRGB(255, 205, 110)
+		end
 		beam.Parent = head
 	end
 	if beam then

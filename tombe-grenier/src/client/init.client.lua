@@ -1677,6 +1677,57 @@ safeSpawn("compteur debug", function()
 	end
 end)
 
+-- Boutique : un bouton « Boutique » (à droite) n'apparaît que si au moins un article a un identifiant Roblox ;
+-- sinon rien n'est affiché et aucun achat n'est possible. Chaque article envoie sa clé au serveur, qui la valide.
+local shopItems = {}
+for _, entry in ipairs((Config.Shop and Config.Shop.Catalogue) or {}) do
+	local ids = entry.kind == "pass" and Config.Shop.GamePasses or Config.Shop.Products
+	if typeof(ids[entry.key]) == "number" and ids[entry.key] ~= 0 then
+		table.insert(shopItems, entry)
+	end
+end
+if #shopItems > 0 then
+	local shopButton = Instance.new("TextButton")
+	shopButton.Name = "BoutiqueBouton"
+	shopButton.Text = "Boutique"
+	shopButton.Font = Enum.Font.GothamBold
+	shopButton.TextSize = 16
+	shopButton.AnchorPoint = Vector2.new(1, 0)
+	shopButton.Position = UDim2.new(1, -16, 0, 150)
+	shopButton.Size = UDim2.fromOffset(110, 34)
+	shopButton.ZIndex = 30
+	shopButton.Parent = gui
+	UiStyle.apply(shopButton, "option", { transparency = 0.1 })
+	local shopPanel = Instance.new("Frame")
+	shopPanel.Name = "BoutiquePanneau"
+	shopPanel.AnchorPoint = Vector2.new(1, 0)
+	shopPanel.Position = UDim2.new(1, -16, 0, 190)
+	shopPanel.Size = UDim2.fromOffset(300, 46 * #shopItems + 10)
+	shopPanel.Visible = false
+	shopPanel.ZIndex = 30
+	shopPanel.Parent = gui
+	UiStyle.apply(shopPanel, "neutral", { transparency = 0.1 })
+	for index, entry in ipairs(shopItems) do
+		local row = Instance.new("TextButton")
+		row.Name = "Article_" .. entry.key
+		row.Size = UDim2.new(1, -12, 0, 40)
+		row.Position = UDim2.fromOffset(6, 5 + (index - 1) * 46)
+		row.Font = Enum.Font.GothamMedium
+		row.TextSize = 14
+		row.TextWrapped = true
+		row.Text = ("%s : %d R$\n%s"):format(entry.name, entry.price, entry.description)
+		row.ZIndex = 31
+		row.Parent = shopPanel
+		UiStyle.apply(row, "play", { transparency = 0.15 })
+		safeConnect(row.Activated, "Boutique " .. entry.key, function()
+			Remotes.get("Buy"):FireServer(entry.key)
+		end)
+	end
+	safeConnect(shopButton.Activated, "Boutique bouton", function()
+		shopPanel.Visible = not shopPanel.Visible
+	end)
+end
+
 -- Filet de sécurité de la caméra : hors cinématique, la caméra suit le personnage (type Custom, sujet = son Humanoid).
 -- Une cinématique interrompue par une erreur ne doit jamais laisser la vue dans le vide.
 safeSpawn("camera", function()
