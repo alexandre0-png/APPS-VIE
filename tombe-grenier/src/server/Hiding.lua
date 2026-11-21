@@ -5,6 +5,8 @@
 local CollectionService = game:GetService("CollectionService")
 local PlayerState = require(script.Parent.PlayerState)
 
+local Prompts = require(script.Parent.Prompts)
+
 local Hiding = {}
 
 function Hiding.init()
@@ -17,6 +19,7 @@ function Hiding.init()
 			prompt.MaxActivationDistance = 6
 			prompt.RequiresLineOfSight = false
 			prompt.Parent = spot
+			Prompts.register(prompt)
 
 			prompt.Triggered:Connect(function(player)
 				local st = PlayerState.get(player)

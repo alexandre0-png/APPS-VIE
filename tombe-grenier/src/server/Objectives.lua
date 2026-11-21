@@ -17,6 +17,7 @@ local PlayerState = require(script.Parent.PlayerState)
 local Gestures = require(script.Parent.Gestures)
 local Locks = require(script.Parent.Locks)
 local Audio = require(Shared.Audio)
+local Prompts = require(script.Parent.Prompts)
 
 local Objectives = {}
 
@@ -33,9 +34,9 @@ local function makePrompt(part, props)
 	prompt.HoldDuration = props.hold or 0.3
 	prompt.MaxActivationDistance = props.distance or 8
 	prompt.RequiresLineOfSight = false
-	prompt.Enabled = props.enabled ~= false
 	prompt.Parent = part
 	prompt.Triggered:Connect(props.onTriggered)
+	Prompts.register(prompt, { enabled = props.enabled ~= false, step = props.step })
 	return prompt
 end
 
@@ -53,7 +54,7 @@ local statuesDone = false -- les statues du rez-de-chaussée sont résolues (ren
 local function refreshExit()
 	exitReady = team.photos >= Config.Round.PhotosRequired and team.hasKey and statuesDone
 	for _, prompt in ipairs(exitPrompts) do
-		prompt.Enabled = exitReady
+		Prompts.set(prompt, exitReady)
 	end
 	broadcast()
 end
@@ -119,7 +120,7 @@ function Objectives.setup()
 				team.hasKey = true
 				refreshExit()
 			end, "key")
-			keyPrompt.Enabled = false
+			Prompts.set(keyPrompt, false)
 		end
 	end
 
@@ -180,7 +181,7 @@ end
 -- La malle est ouverte : la clé de la sortie devient prenable
 function Objectives.unlockKey()
 	if keyPrompt then
-		keyPrompt.Enabled = true
+		Prompts.set(keyPrompt, true)
 	end
 end
 

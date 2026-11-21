@@ -23,6 +23,7 @@ local MapBuilder = require(script.MapBuilder)
 local Quests = require(script.Quests)
 local Noise = require(script.Noise)
 local Audio = require(Shared.Audio)
+local Prompts = require(script.Prompts)
 local Objectives = require(script.Objectives)
 local Hiding = require(script.Hiding)
 local Props = require(script.Props)
@@ -185,6 +186,8 @@ local function startRound()
 	end)
 	print(("[Round] début, seed=%d, mode=%s"):format(round.seed, round.mode))
 
+	-- Les invites ne s'allument que pendant la partie
+	Prompts.setRound(true)
 	-- État des joueurs remis à zéro, puis emplacements, lampes et pièces sombres tirés à chaque partie
 	PlayerState.newRound()
 	Respawn.resetRound()
@@ -252,6 +255,7 @@ local function endRound(reason)
 		return
 	end
 	round.ended = true
+	Prompts.setRound(false)
 	print(("[Round] fin : %s"):format(reason))
 
 	MonsterAI.stop()

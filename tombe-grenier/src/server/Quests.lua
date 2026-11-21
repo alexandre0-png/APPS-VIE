@@ -32,6 +32,8 @@ local Chain = require(Shared.Chain)
 local Remotes = require(Shared.Remotes)
 local Rng = require(Shared.Rng)
 local Audio = require(Shared.Audio)
+local Prompts = require(script.Parent.Prompts)
+local MarkerRules = require(Shared.Markers)
 local Noise = require(script.Parent.Noise)
 local Objectives = require(script.Parent.Objectives)
 local PlayerState = require(script.Parent.PlayerState)
@@ -289,6 +291,7 @@ local function pushObjective()
 	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()]() })
 	Remotes.fireAll("Journal", { lines = journalLines() })
 	pushInventory()
+	Prompts.refresh()
 end
 
 local function sayAll(text)
@@ -316,6 +319,19 @@ local function progressed()
 	pushObjective()
 end
 
+-- Étape de chaque objet de la chaîne (tags de Markers.STEP_TAGS), relue à chaque partie
+local stepOf = {}
+local function indexSteps()
+	stepOf = {}
+	for stepId, tags in pairs(MarkerRules.STEP_TAGS) do
+		for _, tag in ipairs(tags) do
+			for _, part in ipairs(CollectionService:GetTagged(tag)) do
+				stepOf[part] = stepId
+			end
+		end
+	end
+end
+
 -- Invite de proximité propre aux quêtes (remplacée à chaque partie)
 local function prompt(part, props, onTriggered)
 	local name = props.name or "QuestPrompt"
@@ -333,6 +349,8 @@ local function prompt(part, props, onTriggered)
 	p.RequiresLineOfSight = false
 	p.Parent = part
 	p.Triggered:Connect(onTriggered)
+	-- L'étape de l'objet (tags de Markers.STEP_TAGS) décide de l'activation : invite masquée tant que l'étape n'est pas accessible
+	Prompts.register(p, { step = props.step or stepOf[part] })
 	return p
 end
 
@@ -1418,6 +1436,8 @@ function Quests.setup(seed)
 	fuseOrder = fuseOrderFromSeed(seed)
 	Locks.reset()
 	state = freshState()
+	Prompts.setGate(canAct)
+	indexSteps()
 	state.mirrorRead = false
 	state.melodyIdx = 0
 	state.boxDone = false

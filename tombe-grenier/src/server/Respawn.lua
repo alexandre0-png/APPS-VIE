@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local SpawnGate = require(Shared.SpawnGate)
 local SpawnLog = require(script.Parent.Parent.Common.SpawnLog)
+local Prompts = require(script.Parent.Prompts)
 
 local Respawn = {}
 local hooks = nil -- { isRoundActive, checkpoint, onCurse }
@@ -122,6 +123,7 @@ local function addRevivePrompt(player, mine)
 		reload(player, rroot.Position)
 	end)
 	prompt.Parent = root
+	Prompts.register(prompt)
 	prompts[player] = prompt
 end
 

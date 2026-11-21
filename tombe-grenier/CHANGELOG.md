@@ -2,6 +2,10 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Retours de test (version en ligne)
+- **Le jeu se lançait tout seul dans le hub** : sans plaque pressée, `HubRules.nextGroup` envoyait le plus ancien joueur après `Config.Game.HubWait` (30 s) ; dans un lieu au rôle « single » (Studio, identifiants de lieu inconnus), la partie démarrait ainsi (cinématique, plaque du cercueil). Nouveau réglage `Config.Game.AutoStart = false` : seule une plaque lance une partie (dans le lieu de partie, l'arrivée du groupe la lance toujours). Tests : hub, rôle unique et lieu inconnu pendant 10 minutes sans partie, cinématique ni quête ; la plaque reste le seul déclencheur.
+- **Invites toujours à l'écran** : `src/server/Prompts.lua` (toutes les invites de la partie y passent) : portée de 8 studs au plus (`Config.Prompts.MaxDistance`), vue directe exigée, désactivées hors partie (hub, attente, après la fin), désactivées tant que l'étape de leur objet n'est pas accessible (`Chain.canAct`, mises à jour à chaque progression) ; le client masque aussi les invites pendant une cinématique et tant que l'écran est noir. Tests : `test_prompts.py`.
+
 ### Couleurs et échelle des modèles (retour utilisateur d'un autre jeu, même chargeur)
 - Couleurs : matière déduite de MOTS exacts du nom (plus de sous-chaînes : « Fermeture » ou « Dentelle » ne sont plus du métal) ; métal seulement pour anneau, tige, dent, serrure, poignée, laiton, fer, ferrure, chrome, pics et « cadre doré » (un cadre seul est mat) ; néon seulement pour flamme, yeux, œil et lanterne ; verre pour verre et vitre ; le reste en plastique. Reflectance 0 sur toutes les pièces, SurfaceAppearance importées retirées, suffixe `__RRGGBB` (avec ou sans `.001`) exact, pièce sans suffixe jamais noire par défaut (gris chaud) et jamais métallique par défaut.
 - Échelle : `ModelFit.HEIGHTS` (hauteur cible en studs par modèle : armoire 8, horloge 8,5, commode 3,2, lit double 5, cheminée 7, monstre 6,5, et 28 autres), mise à l'échelle sur la hauteur mesurée (`GetExtentsSize`) ; mesure impossible : le modèle est refusé et l'objet de remplacement reste (pose, horloge, silhouette du monstre).

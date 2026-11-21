@@ -187,6 +187,7 @@ class TestServerLifecycle(Base):
         lua = robust.make_capturing(0)  # lieu unique : la partie recommence sur place
         lua.execute(HELPERS)
         self.assertTrue(lua.eval("runServer()").ok)
+        lua.execute("require({ __path = 'src/shared/Config.lua' }).Game.AutoStart = true  -- ce test vérifie le redémarrage, pas le lancement")
         lua.execute("SWALLOW = true; advance(40); A = newPlayer('alice'); join(A); advance(90)")
         starts = [p for p in prints(lua) if "[Round] début" in p]
         self.assertEqual(len(starts), 1, prints(lua)[-8:])

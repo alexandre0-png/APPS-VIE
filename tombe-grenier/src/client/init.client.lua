@@ -1528,6 +1528,18 @@ safeSpawn("effets d'ambiance", function()
 	end
 end)
 
+-- Invites d'interaction : masquées pendant une cinématique et tant que l'écran est noir (réveil, fondus)
+safeSpawn("invites", function()
+	local service = game:GetService("ProximityPromptService")
+	while true do
+		task.wait(0.2)
+		local hidden = Cinematic.isPlaying() or blackFrame.BackgroundTransparency < 0.5
+		pcall(function()
+			service.Enabled = not hidden
+		end)
+	end
+end)
+
 -- Filet de sécurité de la caméra : hors cinématique, la caméra suit le personnage (type Custom, sujet = son Humanoid).
 -- Une cinématique interrompue par une erreur ne doit jamais laisser la vue dans le vide.
 safeSpawn("camera", function()

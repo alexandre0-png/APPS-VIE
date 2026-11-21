@@ -14,6 +14,7 @@ local Noise = require(script.Parent.Noise)
 local Locks = require(script.Parent.Locks)
 local MapBuilder = require(script.Parent.MapBuilder)
 local PlayerState = require(script.Parent.PlayerState)
+local Prompts = require(script.Parent.Prompts)
 
 local Props = {}
 
@@ -35,6 +36,7 @@ local function prompt(part, action, object, onTriggered)
 	p.RequiresLineOfSight = false
 	p.Parent = part
 	p.Triggered:Connect(onTriggered)
+	Prompts.register(p)
 	return p
 end
 

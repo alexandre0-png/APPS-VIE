@@ -182,6 +182,14 @@ function CS.AddTag(_, obj, tag)
 	tagged[tag] = tagged[tag] or {}
 	table.insert(tagged[tag], obj)
 end
+function CS.HasTag(_, obj, tag)
+	for _, o in ipairs(tagged[tag] or {}) do
+		if o == obj then
+			return true
+		end
+	end
+	return false
+end
 function CS.GetTagged(_, tag)
 	local out = {}
 	for i, o in ipairs(tagged[tag] or {}) do
@@ -227,6 +235,17 @@ end
 local STUBS = {}
 STUBS.Remotes = function()
 	return Remotes
+end
+STUBS.Prompts = function()
+	return {
+		register = function(prompt)
+			return prompt
+		end,
+		set = function() end,
+		setGate = function() end,
+		refresh = function() end,
+		setRound = function() end,
+	}
 end
 STUBS.Noise = function()
 	return { emit = function() end }
@@ -318,6 +337,7 @@ M.shared = {
 	Remotes = { __path = "STUB:Remotes" },
 	Rng = { __path = "src/shared/Rng.lua" },
 	Audio = { __path = "STUB:Audio" },
+	Markers = { __path = "src/shared/Markers.lua" },
 }
 script = {
 	Parent = {
@@ -327,6 +347,7 @@ script = {
 		PlayerState = { __path = "STUB:PlayerState" },
 		MapBuilder = { __path = "STUB:MapBuilder" },
 		Locks = { __path = "src/server/Locks.lua" },
+		Prompts = { __path = "STUB:Prompts" },
 	},
 }
 M.shared.Config.__path = "src/shared/Config.lua"

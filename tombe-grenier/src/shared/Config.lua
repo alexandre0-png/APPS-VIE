@@ -175,6 +175,12 @@ Config.Audio = {
 	MonsterNear = 40, -- studs : le murmure et le battement de cœur suivent la distance du monstre
 }
 
+-- Invites d'interaction (Prompts.lua) : portée courte, vue directe, actives seulement dans la partie et pour les étapes accessibles
+Config.Prompts = {
+	MaxDistance = 8, -- studs
+	LineOfSight = true,
+}
+
 -- Réglages par mode : en solo, plus de temps pour explorer seul avant la première apparition
 Config.Modes = {
 	solo = { activationDelay = 60 },
