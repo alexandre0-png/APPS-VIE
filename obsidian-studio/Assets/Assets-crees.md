@@ -45,3 +45,6 @@ aboiement 114298173898782 ; achat 113679524214656 ; ambiance_chateau 12327383578
 ## Textures lot 2 (14 décals tuilables 1024, approuvés, `scripts/blender_textures2.py`)
 bois_planches 136082705365776 ; briques_cave 110243665972154 ; carreaux_bleutes 128807555994876 ; dalles_chateau 90865253086689 ; eau 72897294450066 ; herbe 122917279401510 ; moquette_bleue 112143370146391 ; moquette_bordeaux 76003718416351 ; moquette_verte 71770506233998 ; pierre_chateau 87480813124386 ; platre_fissure 89934903274963 ; rideau_tissu 134198227829676 ; sable 83914325296472 ; terre_chemin 84243738566468
 
+## Modèles VFX (13 approuvés, pièces blanches à recolorer, `scripts/blender_make_vfx.py`)
+vfx_ailes 139237669898830 ; vfx_bouclier 135593787305812 ; vfx_cercle_runique 78887954880607 ; vfx_cone_lumiere 98452721754905 ; vfx_cristaux 84932789634035 ; vfx_etincelles 116678428336273 ; vfx_etoile 73454147532566 ; vfx_halo 123922819073158 ; vfx_pilier_lumiere 136359342334671 ; vfx_rayons 88635068911286 ; vfx_spirale 130478050046509 ; vfx_torii 105301464189354 ; vfx_onde 125557026046168
+
