@@ -3693,33 +3693,29 @@ do
 	RT.step(4)
 	check("Gardien : un joueur hors de portée (40 studs) n'est ni vu ni entendu : aucun dégât", p6:GetAttribute("Hp") == Config.GUARD.maxHp)
 	rawget(root6, "__props").Position = RT.vec(gx, 3, gz + 12) -- sur la ligne de patrouille
-	local history, firstDrop, defeated = {}, nil, false
+	local caught, hpMin, catches = false, Config.GUARD.maxHp, 0
 	for _ = 1, 100 do
 		RT.step(0.25)
-		local hp = p6:GetAttribute("Hp")
-		history[#history + 1] = hp
-		if not firstDrop and hp < Config.GUARD.maxHp then
-			firstDrop = hp
-		end
-		if firstDrop and hp == Config.GUARD.maxHp and #history > 5 then
-			defeated = true
-			break
-		end
+		hpMin = math.min(hpMin, p6:GetAttribute("Hp") or 0)
 	end
-	local neverZero = true
-	for _, hp in ipairs(history) do
-		if hp <= 0 then
-			neverZero = false
-		end
-	end
-	check("Gardien : le premier coup retire " .. gus.damage .. " pv seulement (" .. tostring(firstDrop) .. "/" .. Config.GUARD.maxHp .. "), jamais de mort en un coup", firstDrop == Config.GUARD.maxHp - gus.damage and neverZero)
-	local sawDefeat = false
 	for _, f in ipairs(RT.fired) do
-		if f[1] == "Notify" and f[2] == p6 and type(f[3]) == "string" and f[3]:find("vaincu", 1, true) then
-			sawDefeat = true
+		if f[1] == "Notify" and f[2] == p6 and type(f[3]) == "string" and f[3]:find("t'a attrapé", 1, true) then
+			catches = catches + 1
 		end
 	end
-	check("Gardien : après plusieurs coups, défaite -> retour à la base, pv rétablis, message clair" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), defeated and sawDefeat and #RT.errors == 0)
+	caught = catches >= 1
+	check("Gus clément : la prise renvoie à la base avec le message « t'a attrapé » (" .. catches .. " prise(s) en 25 s)", caught)
+	check("Gus clément : aucune perte de pv (min " .. hpMin .. "), jamais de mort au contact", hpMin == Config.GUARD.maxHp)
+	check("Gus clément : au plus une prise toutes les " .. Config.GUARD.gentleRecover .. " s (<= 5 en 25 s)", catches <= 5)
+	check("Gus clément : aucune erreur serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	local mara = Config.RIVALS[2]
+	local zed = Config.RIVALS[3]
+	check("Gus clément : vitesse de poursuite <= 60 % de la marche du joueur (" .. gus.guardSpeed .. " vs 16)", gus.guardSpeed <= 16 * 0.6)
+	check("Gus clément : délai de réaction >= 1,5 s, plus long que Mara et Zed", gus.alertDelay >= 1.5 and gus.alertDelay > (mara.alertDelay or 0) and gus.alertDelay > (zed.alertDelay or 0))
+	check("Gus clément : vue et ouïe plus courtes que Mara et Zed", gus.viewDist < mara.viewDist and gus.hearRadius < mara.hearRadius and gus.viewDist < zed.viewDist)
+	check("Gus clément : jamais de mort en moins de 3 contacts si les dégâts s'appliquaient", math.ceil(Config.GUARD.maxHp / gus.damage) >= 3 and gus.gentle == true)
+	check("Difficulté : Gus 1 étoile, Mara 3, Zed 5", gus.stars == 1 and mara.stars == 3 and zed.stars == 5)
+	check("Zone de sécurité : rayon d'entrée >= 12 studs, répit >= 6 s", Config.GUARD.safeRadius >= 12 and Config.GUARD.gentleRecover >= 6)
 	RT.removePlayer(p6)
 	RT.step(1)
 	-- mode Château : entrée par le prompt, chrono, pièges non mortels, coffre final (récompense + classement)

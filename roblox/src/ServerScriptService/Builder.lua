@@ -1322,6 +1322,9 @@ function Builder.guard(rivalIdx)
 	for i, o in ipairs({ { -1, -1.4 }, { 1, -1.4 }, { -1, 1.4 }, { 1, 1.4 } }) do
 		part({ Name = "Leg" .. i, CanCollide = false, Size = Vector3.new(0.7, 1.6, 0.7), CFrame = CFrame.new(o[1], -1.8, o[2]), Color = col }, model)
 	end
+	if r.gentle then -- anneau de vision au sol (disque jaune translucide de la portée de vue) : on voit jusqu'où Gus repère
+		part({ Name = "VisionRing", Size = Vector3.new(0.1, r.viewDist * 2, r.viewDist * 2), CFrame = CFrame.new(0, -2.25, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(255, 220, 90), Material = Enum.Material.SmoothPlastic, Transparency = 0.8, CanCollide = false, CanQuery = false }, model)
+	end
 	local s = sign(body, "🐕 Gardien de " .. r.name, Color3.fromRGB(255, 120, 120), 4, 220)
 	s.TextSize = 14
 	return model

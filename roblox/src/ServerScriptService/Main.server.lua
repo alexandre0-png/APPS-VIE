@@ -939,6 +939,17 @@ end)
 ---------------------------------------------------------------- Gardiens PNJ : perception, états, dégâts non mortels (voir Guard.lua)
 local GC = Config.GUARD
 
+-- Réglages de perception propres à chaque gardien (délai de réaction : Gus 1,6 s, Mara 0,9 s, Zed 0,5 s).
+local gcCache = {}
+local function gcFor(rival)
+	local c = gcCache[rival]
+	if not c then
+		c = setmetatable({ alertDelay = Config.RIVALS[rival].alertDelay or GC.alertDelay }, { __index = GC })
+		gcCache[rival] = c
+	end
+	return c
+end
+
 local function setHp(s, hp)
 	s.hp = hp
 	s.player:SetAttribute("Hp", math.floor(hp + 0.5))
@@ -961,6 +972,22 @@ end
 
 local function hitPlayer(s, g)
 	local r = Config.RIVALS[g.rival]
+	if r.gentle then
+		-- gardien clément (Gus) : jamais de dégâts ; la première prise renvoie à la base (la cargaison est gardée), puis 6 s de répit
+		if os.clock() < (s.gentleUntil or 0) then
+			return false
+		end
+		s.gentleUntil = os.clock() + GC.gentleRecover
+		s.stun = GC.stun
+		s.noCheckUntil = os.clock() + 2
+		local root0 = getRoot(s.player)
+		if root0 and s.plot then
+			root0.CFrame = s.plot.spawn.CFrame + Vector3.new(0, 4, 0)
+			root0.AssemblyLinearVelocity = Vector3.zero
+		end
+		notify(s.player, "🐕 " .. r.name .. " t'a attrapé, réessaie ! (aucun œuf ni pet perdu)", "hurt")
+		return true
+	end
 	local hp, hit, inv = Guard.applyDamage(s.hp, r.damage, s.iframes, GC)
 	if not hit then
 		return false
@@ -986,12 +1013,26 @@ local function hitPlayer(s, g)
 end
 
 -- Cible la plus proche dans la zone de perception maximale du gardien (seuls les joueurs dont le domaine est ouvert sont ciblables).
+local function inPlot(s, root)
+	local rel = s.plot.cf:PointToObjectSpace(root.Position)
+	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
+end
+
+-- Zone de sécurité : la base du joueur et l'entrée du plateau (sommet de la rampe) ne sont jamais ciblées.
+local function safeSpot(s, root, rival)
+	if s.plot and inPlot(s, root) then
+		return true
+	end
+	local ramp = Config.rampOf(rival)
+	return math.sqrt((root.Position.X - ramp.top[1]) ^ 2 + (root.Position.Z - ramp.top[2]) ^ 2) < GC.safeRadius
+end
+
 local function candidate(g, r)
 	local best, bd = nil, math.max(r.viewDist, r.hearRadius) + 2
 	for player, s in pairs(sessions) do
 		if Config.zoneUnlocked(s.data.story.ch, g.rival) and alive(player) then
 			local root = getRoot(player)
-			if root then
+			if root and not safeSpot(s, root, g.rival) then
 				local dd = math.sqrt((root.Position.X - g.pos.X) ^ 2 + (root.Position.Z - g.pos.Z) ^ 2)
 				if dd < bd then
 					best, bd = player, dd
@@ -1091,7 +1132,7 @@ local function guardsStep(dt)
 		percept.atHome = (home - g.pos).Magnitude < 1
 		local prev = g.st.state
 		local ev
-		g.st, ev = Guard.nextState(g.st, dt, percept, GC)
+		g.st, ev = Guard.nextState(g.st, dt, percept, gcFor(g.rival))
 		local state = g.st.state
 		if state ~= prev then
 			if state == "alert" or state == "chase" then -- aboiement ou grognement pour les joueurs proches (une fois par changement d'état)
@@ -1389,11 +1430,6 @@ local function eventStep(dt)
 end
 
 ---------------------------------------------------------------- Boucles de jeu
-local function inPlot(s, root)
-	local rel = s.plot.cf:PointToObjectSpace(root.Position)
-	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
-end
-
 local function fastTick(dt)
 	for player, s in pairs(sessions) do
 		local ok, err = pcall(function()

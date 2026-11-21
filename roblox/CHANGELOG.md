@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Gus clément
+
+- Gus : poursuite 9,5 (≈ 59 % de la marche 16), patrouille 4,5, vue 16 / 80°, ouïe 7, délai de réaction 1,6 s (par gardien : `alertDelay`), jamais de dégâts : la première prise renvoie à la base (œufs et pets gardés) avec « Gus t'a attrapé, réessaie ! », 6 s de répit (`Config.GUARD.gentleRecover`).
+- Zone de sécurité : base du joueur et sommet de la rampe (`Config.GUARD.safeRadius` 16) jamais ciblés. Anneau de vision translucide au sol autour de Gus.
+- Étoiles : Gus 1, Mara 3, Zed 5. Tests : 1873 réussis (mutation `gentle=false` détectée).
+
 ## 2026-11-22 : lots A à D (correctifs Lune, amis, œuf borné, modèles Blender)
 
 - **A (23ae91b)** : les échecs sous Lune venaient de MON test : le générateur du test (`seed * 1103515245`) dépasse 2^53, exact avec les entiers de Lua 5.5 (lupa) mais imprécis avec les doubles de Luau (Lune). Remplacé partout par Park–Miller (`seed * 16807 % 2147483647`, exact en doubles) ; ajout d'un test DÉTERMINISTE sans aléatoire (balayage exact du tirage). L'erreur client « compare table < number » venait du runtime factice (Luau ne tolère pas `proxy < nombre`) : les instances ont maintenant des valeurs numériques réelles par défaut.

@@ -91,9 +91,9 @@ Config.MUTS = {
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
-	{ name = "Gus", emoji = "🤠", stars = 1, guards = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 13, patrolSpeed = 7, viewDist = 24, viewAngle = 100, hearRadius = 12, damage = 14, color = Color3.fromRGB(111, 191, 115) },
-	{ name = "Mara", emoji = "🧛", stars = 2, guards = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
-	{ name = "Zed", emoji = "🤖", stars = 3, guards = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
+	{ name = "Gus", emoji = "🤠", stars = 1, guards = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 9.5, patrolSpeed = 4.5, viewDist = 16, viewAngle = 80, hearRadius = 7, damage = 10, alertDelay = 1.6, gentle = true, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 3, guards = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 5, guards = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
 }
 
 -- Gardiens : jamais de coup mortel d'un seul coup. Barre de vie, invulnérabilité courte après un coup, recul, régénération ; perception (vue + ouïe)
@@ -101,7 +101,8 @@ Config.RIVALS = {
 Config.GUARD = {
 	maxHp = 100, iframes = 1.6, regenDelay = 6, regenPerSec = 5, baseRegen = 25, knockback = 28, stun = 0.35, attackRange = 4.5, attackCd = 1.2,
 	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
-	alertDelay = 0.6, alertMax = 3, loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
+	alertDelay = 0.6, alertMax = 3, gentleRecover = 6, safeRadius = 16, -- Gus (clément) : 6 s de répit après une prise, aucun gardien ne vise un joueur à moins de 16 studs de l'entrée du plateau ou dans sa base
+	 loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
 }
 
 -- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
@@ -5441,6 +5442,17 @@ end)
 ---------------------------------------------------------------- Gardiens PNJ : perception, états, dégâts non mortels (voir Guard.lua)
 local GC = Config.GUARD
 
+-- Réglages de perception propres à chaque gardien (délai de réaction : Gus 1,6 s, Mara 0,9 s, Zed 0,5 s).
+local gcCache = {}
+local function gcFor(rival)
+	local c = gcCache[rival]
+	if not c then
+		c = setmetatable({ alertDelay = Config.RIVALS[rival].alertDelay or GC.alertDelay }, { __index = GC })
+		gcCache[rival] = c
+	end
+	return c
+end
+
 local function setHp(s, hp)
 	s.hp = hp
 	s.player:SetAttribute("Hp", math.floor(hp + 0.5))
@@ -5463,6 +5475,22 @@ end
 
 local function hitPlayer(s, g)
 	local r = Config.RIVALS[g.rival]
+	if r.gentle then
+		-- gardien clément (Gus) : jamais de dégâts ; la première prise renvoie à la base (la cargaison est gardée), puis 6 s de répit
+		if os.clock() < (s.gentleUntil or 0) then
+			return false
+		end
+		s.gentleUntil = os.clock() + GC.gentleRecover
+		s.stun = GC.stun
+		s.noCheckUntil = os.clock() + 2
+		local root0 = getRoot(s.player)
+		if root0 and s.plot then
+			root0.CFrame = s.plot.spawn.CFrame + Vector3.new(0, 4, 0)
+			root0.AssemblyLinearVelocity = Vector3.zero
+		end
+		notify(s.player, "🐕 " .. r.name .. " t'a attrapé, réessaie ! (aucun œuf ni pet perdu)", "hurt")
+		return true
+	end
 	local hp, hit, inv = Guard.applyDamage(s.hp, r.damage, s.iframes, GC)
 	if not hit then
 		return false
@@ -5488,12 +5516,26 @@ local function hitPlayer(s, g)
 end
 
 -- Cible la plus proche dans la zone de perception maximale du gardien (seuls les joueurs dont le domaine est ouvert sont ciblables).
+local function inPlot(s, root)
+	local rel = s.plot.cf:PointToObjectSpace(root.Position)
+	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
+end
+
+-- Zone de sécurité : la base du joueur et l'entrée du plateau (sommet de la rampe) ne sont jamais ciblées.
+local function safeSpot(s, root, rival)
+	if s.plot and inPlot(s, root) then
+		return true
+	end
+	local ramp = Config.rampOf(rival)
+	return math.sqrt((root.Position.X - ramp.top[1]) ^ 2 + (root.Position.Z - ramp.top[2]) ^ 2) < GC.safeRadius
+end
+
 local function candidate(g, r)
 	local best, bd = nil, math.max(r.viewDist, r.hearRadius) + 2
 	for player, s in pairs(sessions) do
 		if Config.zoneUnlocked(s.data.story.ch, g.rival) and alive(player) then
 			local root = getRoot(player)
-			if root then
+			if root and not safeSpot(s, root, g.rival) then
 				local dd = math.sqrt((root.Position.X - g.pos.X) ^ 2 + (root.Position.Z - g.pos.Z) ^ 2)
 				if dd < bd then
 					best, bd = player, dd
@@ -5593,7 +5635,7 @@ local function guardsStep(dt)
 		percept.atHome = (home - g.pos).Magnitude < 1
 		local prev = g.st.state
 		local ev
-		g.st, ev = Guard.nextState(g.st, dt, percept, GC)
+		g.st, ev = Guard.nextState(g.st, dt, percept, gcFor(g.rival))
 		local state = g.st.state
 		if state ~= prev then
 			if state == "alert" or state == "chase" then -- aboiement ou grognement pour les joueurs proches (une fois par changement d'état)
@@ -5891,11 +5933,6 @@ local function eventStep(dt)
 end
 
 ---------------------------------------------------------------- Boucles de jeu
-local function inPlot(s, root)
-	local rel = s.plot.cf:PointToObjectSpace(root.Position)
-	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
-end
-
 local function fastTick(dt)
 	for player, s in pairs(sessions) do
 		local ok, err = pcall(function()
@@ -8557,6 +8594,9 @@ function Builder.guard(rivalIdx)
 	part({ Name = "Tail", CanCollide = false, Size = Vector3.new(0.6, 0.6, 2), CFrame = CFrame.new(0, 0.8, 3.0) * CFrame.Angles(0.5, 0, 0), Color = col }, model)
 	for i, o in ipairs({ { -1, -1.4 }, { 1, -1.4 }, { -1, 1.4 }, { 1, 1.4 } }) do
 		part({ Name = "Leg" .. i, CanCollide = false, Size = Vector3.new(0.7, 1.6, 0.7), CFrame = CFrame.new(o[1], -1.8, o[2]), Color = col }, model)
+	end
+	if r.gentle then -- anneau de vision au sol (disque jaune translucide de la portée de vue) : on voit jusqu'où Gus repère
+		part({ Name = "VisionRing", Size = Vector3.new(0.1, r.viewDist * 2, r.viewDist * 2), CFrame = CFrame.new(0, -2.25, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(255, 220, 90), Material = Enum.Material.SmoothPlastic, Transparency = 0.8, CanCollide = false, CanQuery = false }, model)
 	end
 	local s = sign(body, "🐕 Gardien de " .. r.name, Color3.fromRGB(255, 120, 120), 4, 220)
 	s.TextSize = 14
