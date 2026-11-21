@@ -84,13 +84,19 @@ local function teleport(player, cf)
 		cf.Position.Z,
 		SpawnLog.where(char)
 	)
-	if char then
+	-- Un personnage mort (fin 2 puis nouvelle partie sur place) n'est pas déplacé : on en recharge un
+	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+	local dead = humanoid ~= nil and humanoid.Health <= 0
+	if char and not dead then
 		char:PivotTo(cf)
 	else
+		if dead then
+			player.Character = nil
+		end
 		task.spawn(function()
 			-- Un chargement est peut-être déjà en route (porte d'apparition, chien de garde) : on lui laisse 2 s
 			-- avant d'en lancer un second, qui détruirait le premier personnage.
-			local waited = 0
+			local waited = dead and 2 or 0
 			while not player.Character and player.Parent and waited < 2 do
 				task.wait(0.25)
 				waited = waited + 0.25

@@ -314,7 +314,7 @@ local function swapModels(folder, groups)
 			local report = AssetLoad.install({ { name = key, id = id } }, loadWithTimeout, cache)
 			local template = cache:FindFirstChild(key)
 			if #report.ok == 0 or not template then
-				warn(("[HubDecor] modèle « %s » non chargé : le décor procédural reste"):format(key))
+				print(("[Boot] HubDecor : modèle « %s » non chargé, le décor procédural reste"):format(key))
 			else
 				for _, entry in ipairs(groups[kind]) do
 					pcall(function()
@@ -411,7 +411,12 @@ function HubDecor.build(parent, center)
 		end
 	end
 	if plan.dropped > 0 then
-		warn(("[HubDecor] %d éléments écartés (limite de %d pièces)"):format(plan.dropped, HubLayout.MAX_PARTS))
+		print(
+			("[Boot] HubDecor : %d éléments écartés (limite de %d pièces)"):format(
+				plan.dropped,
+				HubLayout.MAX_PARTS
+			)
+		)
 	end
 	-- Ambiance douce, très basse
 	if Config.Hub.Music then
