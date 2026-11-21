@@ -57,18 +57,72 @@ local function corner(o, r)
 end
 -- Retour tactile : le bouton se rétrécit légèrement quand on appuie.
 -- Sons : voir Config.SOUNDS (clé -> { id, speed, vol }). Un id vide ou introuvable reste silencieux.
-local function playSound(key)
+-- Un seul objet Sound par type (réutilisé), volume = définition x réglage général (menu Plus), rien (hors clics) avant que la carte soit prête,
+-- aucune erreur si un son ne se charge pas (tout sous pcall).
+local soundPool = {}
+local soundReady = false -- vrai à la première réception de l'état du joueur (carte et joueur prêts)
+local volumeIdx = 1
+local function masterVolume()
+	return Config.VOLUME_STEPS[volumeIdx] or 1
+end
+local function getSound(key)
+	local snd = soundPool[key]
+	if snd and snd.Parent then
+		return snd
+	end
 	local def = Config.SOUNDS[key]
-	if not Config.SOUNDS_ENABLED or not def or def.id == "" then
+	if not def or def.id == "" then
+		return nil
+	end
+	local ok, made = pcall(function()
+		local s = Instance.new("Sound")
+		s.Name = "Sfx_" .. key
+		s.SoundId = def.id
+		s.PlaybackSpeed = def.speed or 1
+		s.Looped = def.loop == true
+		s.Parent = game:GetService("SoundService")
+		return s
+	end)
+	if ok then
+		soundPool[key] = made
+		return made
+	end
+	return nil
+end
+local function playSound(key)
+	if not soundReady and key ~= "click" and key ~= "menu" then
 		return
 	end
-	local snd = Instance.new("Sound")
-	snd.SoundId = def.id
-	snd.Volume = def.vol or 0.5
-	snd.PlaybackSpeed = def.speed or 1
-	snd.Parent = workspace
-	snd:Play()
-	Debris:AddItem(snd, 6)
+	local vol = Config.soundVolume(key, masterVolume())
+	if vol <= 0 then
+		return
+	end
+	pcall(function()
+		local snd = getSound(key)
+		if snd then
+			snd.Volume = vol
+			snd.TimePosition = 0
+			snd:Play()
+		end
+	end)
+end
+-- Boucle (ambiance, lame, boulet) : factor 0..1 = proximité ; en dessous de 1 % elle s'arrête.
+local function setLoop(key, factor)
+	pcall(function()
+		local vol = Config.soundVolume(key, masterVolume()) * (factor or 1)
+		local snd = vol > 0.005 and getSound(key) or soundPool[key]
+		if not snd then
+			return
+		end
+		if vol > 0.005 then
+			snd.Volume = vol
+			if not snd.IsPlaying then
+				snd:Play()
+			end
+		elseif snd.IsPlaying then
+			snd:Stop()
+		end
+	end)
 end
 
 local lastPress = 0 -- horodatage du dernier appui : sert à ne pas reconstruire un panneau sous le doigt du joueur
@@ -255,7 +309,7 @@ local function hatchPop(info)
 		flash.BackgroundTransparency = 1 - 0.7 * st.flash
 		TweenService:Create(flash, TweenInfo.new(0.35 + 0.5 * st.flash), { BackgroundTransparency = 1 }):Play()
 	end
-	playSound((big or st.secret) and "rare" or "hatch")
+	playSound(Config.hatchSoundKey(def.tier, st.secret))
 	if st.shake > 0.2 then -- secousse de la caméra proportionnelle à la rareté
 		task.spawn(function()
 			local char = player.Character
@@ -831,6 +885,14 @@ function render()
 				end
 			end,
 		})
+		addRow({
+			icon = volumeIdx == #Config.VOLUME_STEPS and "🔇" or "🔊", title = "Son : " .. Config.volumeLabel(volumeIdx), desc = "Volume général (effets et ambiances). Touche pour changer.",
+			btn = "Changer", btnColor = COL.green,
+			onClick = function()
+				volumeIdx = volumeIdx % #Config.VOLUME_STEPS + 1
+				render()
+			end,
+		})
 		if Config.Game.roleFor(game.PlaceId) == "game" then
 			addRow({ icon = "🏠", title = "Retour au hub", desc = "Quitte la partie (ta progression est sauvegardée) pour choisir une autre partie.", btn = "Partir", btnColor = COL.green, onClick = function()
 				RAction:FireServer("toHub")
@@ -903,6 +965,7 @@ local function openPanel(name)
 		hidePanel()
 		return
 	end
+	playSound("menu")
 	panel = { name = name, tab = tabsDef[name] and tabsDef[name][1][1] or "", confirm = false }
 	showPanel()
 	if name == "top" then
@@ -1116,6 +1179,7 @@ end
 
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	soundReady = true
 	updateRuneLabels()
 	if not introChecked then
 		introChecked = true
@@ -1128,7 +1192,9 @@ RState.OnClientEvent:Connect(function(snap)
 	end
 end)
 RNotify.OnClientEvent:Connect(function(msg, sfx)
-	toast(msg)
+	if type(msg) == "string" and msg ~= "" then
+		toast(msg)
+	end
 	if sfx then
 		playSound(sfx)
 	end
@@ -1382,3 +1448,47 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
+
+---------------------------------------------------------------- Ambiances et sons de pièges (boucles)
+-- Prairie dehors, château dedans ; lame et boulet : volume selon la distance. Rien avant que la carte soit prête ; une erreur coupe seulement les boucles.
+do
+	local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
+	task.spawn(function()
+		local failed = false
+		while not failed do
+			local ok = pcall(function()
+				if not soundReady then
+					return
+				end
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if not root then
+					return
+				end
+				local p = root.Position
+				local inCastle = Castle.roomAt(p.X, p.Z) ~= nil
+				local amb = Config.ambienceKey(true, inCastle)
+				setLoop(amb, 1)
+				setLoop(inCastle and "ambMeadow" or "ambCastle", 0)
+				local nearBlade, nearBall = 0, 0
+				if inCastle then
+					for _, b in ipairs(CollectionService:GetTagged("CastleBlade")) do
+						nearBlade = math.max(nearBlade, Config.loopFade((b.Position - p).Magnitude, 32))
+					end
+					for _, b in ipairs(CollectionService:GetTagged("CastleBall")) do
+						if b.Position.Y > 0 then
+							nearBall = math.max(nearBall, Config.loopFade((b.Position - p).Magnitude, 40))
+						end
+					end
+				end
+				setLoop("blade", nearBlade)
+				setLoop("ball", nearBall)
+			end)
+			if not ok then
+				failed = true
+				warn("[Sons] boucles désactivées pour cette session après une erreur")
+			end
+			task.wait(0.5)
+		end
+	end)
+end

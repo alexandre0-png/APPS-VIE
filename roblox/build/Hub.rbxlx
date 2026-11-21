@@ -260,20 +260,86 @@ end
 
 -- Sons : par défaut, sons intégrés au client Roblox (non vérifiés ici : si l'un manque, il reste simplement silencieux).
 -- Remplace "id" par un ID du Creator Store ("rbxassetid://123456") pour de vrais sons ; id = "" désactive le son. speed = hauteur, vol = volume.
+-- Sons synthétiques du jeu (approuvés, rbxassetid://). Effets : volume 0,5 à 0,7 ; ambiances en boucle (loop = true) : 0,25 à 0,4.
 Config.SOUNDS = {
-	hatch = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.0, vol = 0.5 },
-	rare = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.6, vol = 0.8 },
+	hatch = { id = "rbxassetid://84390525214058", speed = 1.0, vol = 0.55 }, -- éclosion commune (pop)
+	rare = { id = "rbxassetid://111600385012831", speed = 1.0, vol = 0.6 },
+	epic = { id = "rbxassetid://111875674907537", speed = 1.0, vol = 0.65 },
+	legendary = { id = "rbxassetid://90908436660215", speed = 1.0, vol = 0.7 },
+	hatchSecret = { id = "rbxassetid://124766540033525", speed = 1.0, vol = 0.7 },
+	coin = { id = "rbxassetid://110088134711268", speed = 1.0, vol = 0.5 },
+	buy = { id = "rbxassetid://113679524214656", speed = 1.0, vol = 0.55 },
+	refuse = { id = "rbxassetid://75136819922416", speed = 1.0, vol = 0.5 },
+	growl = { id = "rbxassetid://72413498813091", speed = 1.0, vol = 0.6 }, -- loup / ours : alerte ou poursuite
+	bark = { id = "rbxassetid://114298173898782", speed = 1.0, vol = 0.6 }, -- chien
+	hurt = { id = "rbxassetid://97370499111519", speed = 1.0, vol = 0.65 },
+	spikes = { id = "rbxassetid://115413112102226", speed = 1.0, vol = 0.5 },
+	blade = { id = "rbxassetid://84863036780507", speed = 1.0, vol = 0.5, loop = true }, -- près d'une lame
+	ball = { id = "rbxassetid://93517357278251", speed = 1.0, vol = 0.5, loop = true }, -- près d'un boulet qui roule
+	fanfare = { id = "rbxassetid://126605194205875", speed = 1.0, vol = 0.7 },
+	ambCastle = { id = "rbxassetid://123273835786709", speed = 1.0, vol = 0.3, loop = true },
+	ambMeadow = { id = "rbxassetid://89353143614427", speed = 1.0, vol = 0.3, loop = true },
 	steal = { id = "rbxasset://sounds/action_jump.mp3", speed = 1.5, vol = 0.5 },
 	caught = { id = "rbxasset://sounds/uuhhh.mp3", speed = 1.0, vol = 0.6 },
-	claim = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 1.3, vol = 0.6 },
-	click = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 2.0, vol = 0.25 },
+	claim = { id = "rbxassetid://110088134711268", speed = 1.15, vol = 0.55 },
+	click = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 },
 	event = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 0.8, vol = 0.7 },
 	-- Crochets pour de nouveaux sons : id = "" (silence) tant qu'aucun identifiant vérifié n'est fourni (rbxassetid://NOMBRE). Aucun n'est inventé.
 	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
 	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
-	menu = { id = "", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
+	menu = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
+Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet
+function Config.volumeLabel(i)
+	local v = Config.VOLUME_STEPS[i] or 1
+	return v <= 0 and "Muet" or (math.floor(v * 100 + 0.5) .. " %")
+end
+
+-- Clé de son d'éclosion d'après la rareté du pet (1 Commun .. 6 Cosmique) ; secret ou Cosmique = son secret.
+function Config.hatchSoundKey(tier, secret)
+	if secret or tier >= 6 then
+		return "hatchSecret"
+	elseif tier >= 4 then
+		return "legendary"
+	elseif tier == 3 then
+		return "epic"
+	elseif tier == 2 then
+		return "rare"
+	end
+	return "hatch"
+end
+
+-- Volume réel d'un son : volume de la définition x réglage général (0..1) ; 0 si muet, désactivé, inconnu ou sans identifiant.
+function Config.soundVolume(key, master)
+	local def = Config.SOUNDS[key]
+	if not Config.SOUNDS_ENABLED or not def or def.id == "" then
+		return 0
+	end
+	local m = type(master) == "number" and master == master and math.min(math.max(master, 0), 1) or 1
+	return def.vol * m
+end
+
+-- Son d'alerte d'un gardien (modèle du domaine : chien = aboiement, sinon grognement).
+function Config.guardSoundKey(guardKind)
+	return guardKind == "dog" and "bark" or "growl"
+end
+
+-- Ambiance en boucle : château ou prairie (dehors). Aucune avant que la carte soit prête (ready = false).
+function Config.ambienceKey(ready, inCastle)
+	if not ready then
+		return nil
+	end
+	return inCastle and "ambCastle" or "ambMeadow"
+end
+
+-- Volume d'une boucle localisée (lame, boulet) : plein près de la source, nul au-delà de maxDist (décroissance linéaire).
+function Config.loopFade(dist, maxDist)
+	if type(dist) ~= "number" or dist ~= dist or dist >= maxDist then
+		return 0
+	end
+	return 1 - math.max(dist, 0) / maxDist
+end
 
 -- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
 Config.PRODUCTS = {

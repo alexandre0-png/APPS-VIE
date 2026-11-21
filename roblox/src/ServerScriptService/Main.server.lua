@@ -943,7 +943,7 @@ local function hitPlayer(s, g)
 		away = away.Magnitude > 0.01 and away.Unit or Vector3.new(0, 0, 1)
 		root.AssemblyLinearVelocity = away * GC.knockback + Vector3.new(0, 18, 0) -- recul
 	end
-	notify(s.player, "🐕 " .. r.name .. " t'a mordu : -" .. r.damage .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "caught")
+	notify(s.player, "🐕 " .. r.name .. " t'a mordu : -" .. r.damage .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "hurt")
 	if hp <= 0 then
 		defeatAtBase(s)
 	end
@@ -1059,6 +1059,15 @@ local function guardsStep(dt)
 		g.st, ev = Guard.nextState(g.st, dt, percept, GC)
 		local state = g.st.state
 		if state ~= prev then
+			if state == "alert" or state == "chase" then -- aboiement ou grognement pour les joueurs proches (une fois par changement d'état)
+				local key = Config.guardSoundKey(Config.Assets.guardKinds[g.rival])
+				for pl in pairs(sessions) do
+					local pr = getRoot(pl)
+					if pr and (pr.Position - g.pos).Magnitude < 60 then
+						notify(pl, "", key)
+					end
+				end
+			end
 			local mark = g.mark
 			if mark then
 				mark.Text = MARKS[state] or ""
@@ -1156,8 +1165,8 @@ local function castleDamage(s, kind, room)
 	end
 	s.iframes, s.sinceHit = inv, 0
 	setHp(s, hp)
-	local label = kind == "spikes" and "des pics" or (kind == "blade" and "une lame" or "un boulet")
-	notify(s.player, "💥 Touché par " .. label .. " : -" .. dmg .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "caught")
+	local label = kind == "spikes" and "des pics" or (kind == "blade" and "une lame" or (kind == "knight" and "un chevalier" or "un boulet"))
+	notify(s.player, "💥 Touché par " .. label .. " : -" .. dmg .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "hurt")
 	if hp <= 0 then -- défaite : retour au début de la salle, pv rétablis (jamais de perte d'œuf)
 		s.castle.deaths += 1
 		setHp(s, GC.maxHp)
@@ -1196,6 +1205,10 @@ local function castleStep(dt)
 		for i, sp in ipairs(Castle.spikes(room)) do
 			local v = rec.spikes[i]
 			local state = Castle.spikeState(T, sp, room)
+			if state == "warning" and v.lastState ~= "warning" then
+				rec.newWarn = true
+			end
+			v.lastState = state
 			local tipY = state == "danger" and 0.9 or (state == "warning" and 0.05 or -1)
 			v.tip.Position = Vector3.new(v.wx, tipY, v.wz)
 			Builder.animSpike(v, tipY, state)
@@ -1213,6 +1226,18 @@ local function castleStep(dt)
 			local bp = bx and Vector3.new(Castle.ORIGIN.x + bx, ba.radius, v.wz) or Vector3.new(Castle.ORIGIN.x, -10, v.wz)
 			v.part.Position = bp
 			Builder.animBall(v, bp.X, bp.Y, bp.Z)
+		end
+		if rec.newWarn then -- pics qui sortent : un son par salle (au plus toutes les 0,8 s) pour les joueurs de la salle
+			rec.newWarn = false
+			if T - (rec.lastSpikeSfx or -9) > 0.8 then
+				rec.lastSpikeSfx = T
+				for pl, ps in pairs(sessions) do
+					local pr = ps.castle and getRoot(pl)
+					if pr and Castle.roomAt(pr.Position.X, pr.Position.Z) == r then
+						notify(pl, "", "spikes")
+					end
+				end
+			end
 		end
 		for i, kn in ipairs(Castle.knights(room)) do
 			local v = rec.knights[i]
@@ -1261,6 +1286,7 @@ function castleFinish(s, root, prompt)
 		return notify(s.player, "Il faut traverser les " .. Castle.ROOMS .. " salles avant d'ouvrir le coffre.")
 	end
 	c.finished = true
+	notify(s.player, "", "fanfare")
 	Builder.openChest()
 	local seconds = os.clock() - c.t0
 	local reward = Castle.reward(seconds, income(s), c.deaths)
@@ -1531,7 +1557,7 @@ function actions.buyEgg(s, tier)
 	local d = s.data
 	local price = Config.EGG_PRICE[tier]
 	if d.coins < price then
-		return notify(s.player, "Pas assez de pièces !")
+		return notify(s.player, "Pas assez de pièces !", "refuse")
 	end
 	local i = freeSlot(d)
 	if not i then
@@ -1540,6 +1566,7 @@ function actions.buyEgg(s, tier)
 	d.coins -= price
 	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
 	refreshPad(s, i)
+	notify(s.player, "", "buy")
 	sync(s)
 end
 
@@ -1555,9 +1582,10 @@ function actions.buyUp(s, key)
 	end
 	local cost = u.cost(l)
 	if d.coins < cost then
-		return notify(s.player, "Pas assez de pièces !")
+		return notify(s.player, "Pas assez de pièces !", "refuse")
 	end
 	d.coins -= cost
+	notify(s.player, "", "buy")
 	d.up[key] = l + 1
 	if key == "slots" then
 		refreshAllPads(s)
@@ -1623,7 +1651,7 @@ end
 function actions.rebirth(s)
 	local d = s.data
 	if d.coins < Config.rebirthCost(d.rb) then
-		return notify(s.player, "Pas assez de pièces pour renaître.")
+		return notify(s.player, "Pas assez de pièces pour renaître.", "refuse")
 	end
 	local fresh = Data.default()
 	fresh.speed, fresh.rb, fresh.dex = d.speed, d.rb + 1, d.dex

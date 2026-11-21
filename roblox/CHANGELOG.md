@@ -28,6 +28,12 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : sons
+
+- 18 sons synthétiques approuvés (rbxassetid://) branchés dans `Config.SOUNDS` : éclosion par rareté (`Config.hatchSoundKey` : commun pop, rare, épique, légendaire pour 4-5, secret ou Cosmique = son secret), pièce (récompenses), achat, refus (pas assez de pièces), grognement (loup, ours) et aboiement (chien) à l'alerte ou à la poursuite d'un gardien pour les joueurs à moins de 60 studs, coup reçu (gardiens, pièges, chevaliers), pics qui sortent (par salle, au plus 1 fois / 0,8 s), lame et boulet en boucle selon la distance (tags `CastleBlade`, `CastleBall`, `Config.loopFade`), fanfare à la fin du château, ambiances prairie (dehors) et château (dedans).
+- Client : un seul `Sound` réutilisé par type, volume = définition x réglage général, aucun son (hors clics et menus) avant la première réception de l'état, tout sous `pcall` (un asset qui échoue ne casse rien), boucles coupées en quittant la zone. Menu Plus : « Son » (100 %, 60 %, 30 %, muet), réglage non sauvegardé (remis à 100 % à chaque connexion). Les messages vides du serveur ne produisent que le son.
+- Non testé : le rendu réel des sons (je n'entends rien ici), les ambiances dans le hub (le client du hub n'a pas de sons ambiants), la sensation des volumes.
+
 ## 2026-11-22 (suite) : hub Blender, sol mesuré, chevaliers du château
 
 - **Hub** (a86b6b1) : 6 bancs et 16 lampadaires Blender remplacent les procéduraux (la lumière des lampadaires est conservée, boule invisible). `Assets.loadGroup(groupe, seulement)` charge un sous-ensemble. Banc de l'arène : orientation corrigée (face au monument).

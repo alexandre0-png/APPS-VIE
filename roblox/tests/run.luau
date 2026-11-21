@@ -2684,7 +2684,37 @@ do
 		end
 	end
 	check("Sons : chaque entrée est valide (vide, intégrée rbxasset:// ou rbxassetid://N)" .. (ok and "" or " : " .. why), ok)
-	check("Sons : crochets secret, portal et menu présents et muets (aucun ID inventé)", Config.SOUNDS.secret.id == "" and Config.SOUNDS.portal.id == "" and Config.SOUNDS.menu.id == "" and Config.SOUNDS_ENABLED == true)
+	check("Sons : crochets secret et portail encore muets (aucun ID fourni), menu relié au clic, sons activés", Config.SOUNDS.secret.id == "" and Config.SOUNDS.portal.id == "" and Config.SOUNDS.menu.id ~= "" and Config.SOUNDS_ENABLED == true)
+end
+
+-- Sons : rareté, volumes, gardiens, boucles --------------------------------------------------------------------------------
+do
+	suite("Sons : choix selon la rareté, volumes bornés, alerte des gardiens, boucles localisées, option de volume")
+	check("Sons d'éclosion suivent la rareté : commun pop, rare, épique, légendaire (4 et 5), secret et Cosmique = secret",
+		Config.hatchSoundKey(1, false) == "hatch" and Config.hatchSoundKey(2, false) == "rare" and Config.hatchSoundKey(3, false) == "epic" and Config.hatchSoundKey(4, false) == "legendary"
+		and Config.hatchSoundKey(5, false) == "legendary" and Config.hatchSoundKey(6, false) == "hatchSecret" and Config.hatchSoundKey(1, true) == "hatchSecret")
+	local fxOk, ambOk, idOk = true, true, true
+	local used = {}
+	for key, def in pairs(Config.SOUNDS) do
+		if def.id:find("^rbxassetid://%d+$") then
+			used[def.id] = true
+			if def.loop and key:find("^amb") then
+				ambOk = ambOk and def.vol >= 0.25 and def.vol <= 0.4
+			elseif not def.loop and (key == "hatch" or key == "rare" or key == "epic" or key == "legendary" or key == "hatchSecret" or key == "coin" or key == "buy" or key == "refuse" or key == "growl" or key == "bark" or key == "hurt" or key == "spikes" or key == "fanfare") then
+				fxOk = fxOk and def.vol >= 0.5 and def.vol <= 0.7
+			end
+		end
+	end
+	check("Sons : effets entre 0,5 et 0,7, ambiances entre 0,25 et 0,4", fxOk and ambOk)
+	local expected = { "84390525214058", "111600385012831", "111875674907537", "90908436660215", "124766540033525", "110088134711268", "113679524214656", "123764673506668", "75136819922416", "72413498813091", "114298173898782", "97370499111519", "115413112102226", "84863036780507", "93517357278251", "126605194205875", "123273835786709", "89353143614427" }
+	for _, id in ipairs(expected) do
+		idOk = idOk and used["rbxassetid://" .. id] == true
+	end
+	check("Sons : les 18 identifiants approuvés sont tous branchés", idOk)
+	check("Volume : réglage général (100/60/30 % et muet), bornes et valeurs invalides", near(Config.soundVolume("hatch", 1), 0.55) and near(Config.soundVolume("hatch", 0.5), 0.275) and Config.soundVolume("hatch", 0) == 0 and near(Config.soundVolume("hatch", 5), 0.55) and near(Config.soundVolume("hatch", nil), 0.55) and Config.soundVolume("inconnu", 1) == 0 and Config.soundVolume("secret", 1) == 0 and Config.volumeLabel(1) == "100 %" and Config.volumeLabel(#Config.VOLUME_STEPS) == "Muet")
+	check("Gardiens : aboiement pour le chien, grognement pour le loup et l'ours", Config.guardSoundKey("dog") == "bark" and Config.guardSoundKey("wolf") == "growl" and Config.guardSoundKey("bear") == "growl" and Config.guardSoundKey(nil) == "growl")
+	check("Ambiance : aucune avant la carte prête, prairie dehors, château dedans", Config.ambienceKey(false, true) == nil and Config.ambienceKey(true, false) == "ambMeadow" and Config.ambienceKey(true, true) == "ambCastle")
+	check("Boucle localisée : pleine contre la source, nulle au-delà, décroissante", near(Config.loopFade(0, 30), 1) and Config.loopFade(30, 30) == 0 and Config.loopFade(45, 30) == 0 and near(Config.loopFade(15, 30), 0.5) and Config.loopFade(0 / 0, 30) == 0)
 end
 
 -- Démarrage RÉEL du hub (vrai Hub.server.lua, vrais modules) dans le runtime factice ----------------------------------------------
@@ -3293,6 +3323,16 @@ do
 			end
 		end
 		check("Éclosion : l'effet RevealFx est créé pour chaque éclosion", fxCount >= 1)
+		do
+			local names = {}
+			for _, o in ipairs(RT.all) do
+				if o.ClassName == "Sound" then
+					names[rawget(o, "__props").Name] = rawget(o, "__props")
+				end
+			end
+			check("Sons : achat (Sfx_buy), éclosion (Sfx_hatch ou rareté) et ambiance prairie (Sfx_ambMeadow) créés, un seul Sound par type" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), names.Sfx_buy ~= nil and names.Sfx_ambMeadow ~= nil and (names.Sfx_hatch ~= nil or names.Sfx_rare ~= nil or names.Sfx_epic ~= nil) and #RT.errors == 0)
+			check("Sons : volumes appliqués (achat 0,55, prairie 0,3 en boucle)", names.Sfx_buy and math.abs(names.Sfx_buy.Volume - 0.55) < 1e-6 and names.Sfx_ambMeadow and math.abs(names.Sfx_ambMeadow.Volume - 0.3) < 1e-6 and names.Sfx_ambMeadow.Looped == true)
+		end
 		-- bannière de zone : le joueur se déplace dans le domaine de Mara
 		local char = me.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart")

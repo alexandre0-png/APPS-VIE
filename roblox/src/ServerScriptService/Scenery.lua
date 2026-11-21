@@ -82,6 +82,7 @@ function Scenery.castle(h, parent, Castle)
 			local wx, wz = Castle.toWorld(r, bl.lx, bl.lz)
 			P({ Name = "BladeHub", Size = Vector3.new(2.4, 2.4, 2.4), Position = Vector3.new(wx, 1.4, wz), Color = rgb(60, 60, 70), Material = Enum.Material.Metal, CanCollide = false })
 			local arm = P({ Name = "BladeArm", Size = Vector3.new(bl.arm * 2, 0.5, 1.4), Position = Vector3.new(wx, 1.4, wz), Color = rgb(215, 220, 232), Material = Enum.Material.Metal, CanCollide = false })
+			CollectionService:AddTag(arm, "CastleBlade") -- le client joue la boucle de la lame selon la distance
 			rec.blades[i] = { arm = arm, wx = wx, wz = wz }
 		end
 		-- boulets : sphère qui traverse la salle (cachée sous le sol pendant la pause)
@@ -89,6 +90,7 @@ function Scenery.castle(h, parent, Castle)
 			local wx, wz = Castle.toWorld(r, 0, ba.lz)
 			local ball = h.ball({ Name = "Boulder", Size = Vector3.new(ba.radius * 2, ba.radius * 2, ba.radius * 2), Position = Vector3.new(wx, -10, wz), Color = rgb(122, 127, 140), Material = Enum.Material.Slate }, parent)
 			n += 1
+			CollectionService:AddTag(ball, "CastleBall")
 			rec.balls[i] = { part = ball, wz = wz }
 		end
 		-- chevaliers : silhouette d'armure (pilote de la logique ; remplacée par le modèle Blender si chargé)
