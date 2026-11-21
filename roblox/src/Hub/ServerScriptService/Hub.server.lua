@@ -96,6 +96,21 @@ task.spawn(function()
 		end
 	end
 	print("[Hub] village : " .. village .. " modèle(s), " .. vParts .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. ")")
+	local lines, loadedN, requestedN = assets.reportLines()
+	for _, l in ipairs(lines) do
+		if l:find("ÉCHEC", 1, true) then
+			warn(l)
+		else
+			print(l)
+		end
+	end
+	print(("[Assets] TOTAL Blender (hub) %d/%d (repli procédural : %d)"):format(loadedN, requestedN, requestedN - loadedN))
+	local rv = Instance.new("StringValue")
+	rv.Name = "AssetReport"
+	rv:SetAttribute("Loaded", loadedN)
+	rv:SetAttribute("Requested", requestedN)
+	rv.Value = table.concat(lines, "\n"):sub(1, 15000)
+	rv.Parent = ReplicatedStorage
 	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s), " .. swapped .. " banc(s)/lampadaire(s) Blender")
 end)
 

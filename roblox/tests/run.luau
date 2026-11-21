@@ -5481,5 +5481,228 @@ do
 	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 11 and missing == "")
 end
 
+
+do
+	suite("Diagnostic des modèles Blender : IDs attendus, chargement par lots, relance, rapport par catégorie")
+	local M = Config.Assets.models
+	local expected = {
+		trees = { tree_oak_a = 115675817596242, tree_oak_b = 139178488755477, tree_birch = 86165293471213, tree_pine = 134548154871906, tree_sakura = 136998832791777, tree_round = 128198214830836 },
+		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
+		eggguard = { egg_dome = 114304098897950, egg_nest_fence = 101252453233834, egg_cage = 98653120562597, egg_shield = 73837494094507 },
+		scenery = { scn_puits = 93457733638103, scn_pin_haut = 103664392312435, scn_pont_pierre = 71167399273394, scn_maison_colombages = 108434085196211, scn_tour_cloche = 117760736577913,
+			scn_rocher_a = 109597978140541, scn_rocher_b = 91218401630144, scn_rocher_c = 126837715911422, scn_ile_sakura = 103275800553270 },
+	}
+	local bad, total = "", 0
+	for g, list in pairs(expected) do
+		for k, id in pairs(list) do
+			total = total + 1
+			if M[g][k] ~= id then
+				bad = bad .. " " .. g .. "." .. k
+			end
+		end
+	end
+	check("IDs des lots 11 et 12 : " .. total .. " modèles exactement ceux de la liste fournie" .. (bad == "" and "" or " : écarts" .. bad), total == 22 and bad == "")
+	local seenId, dup, count = {}, "", 0
+	for g, list in pairs(M) do
+		for k, id in pairs(list) do
+			count = count + 1
+			if type(id) ~= "number" or id <= 0 or id % 1 ~= 0 then
+				dup = dup .. " invalide:" .. g .. "." .. tostring(k)
+			elseif seenId[id] then
+				dup = dup .. " doublon:" .. g .. "." .. tostring(k) .. "=" .. seenId[id]
+			end
+			seenId[id] = g .. "." .. tostring(k)
+		end
+	end
+	check("Config.Assets.models : " .. count .. " IDs valides, aucun doublon entre clés (faute de frappe)" .. dup, dup == "")
+	local capBad = ""
+	for g, list in pairs(M) do
+		for k in pairs(list) do
+			if g ~= "pets" and not Config.Assets.modelsMaxParts[g .. "." .. k] and g ~= "vfx" then
+				capBad = capBad .. " " .. g .. "." .. k
+			end
+		end
+	end
+	check("Plafond de Parts explicite pour chaque modèle (sauf pets et effets)" .. capBad, capBad == "")
+	local known = { ["scenery.scn_pin_haut"] = 72, ["scenery.scn_pont_pierre"] = 67, ["scenery.scn_puits"] = 50, ["eggguard.egg_nest_fence"] = 28, ["base.level8"] = 41 }
+	local capOk = true
+	for k, parts in pairs(known) do
+		if Config.Assets.modelsMaxParts[k] < parts then
+			capOk = false
+		end
+	end
+	check("Plafonds relevés : pin 72, pont 67, puits 50, nid 28, base 41 Parts acceptés", capOk)
+	-- chargeur : lots parallèles, relance, jamais d'arrêt après un échec, rapport
+	local AssetsMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Assets.lua"), { debugName = "Assets" })()
+	local RT0 = newRuntime({ fs = fs, luau = luau, placeId = 0, hook = loopGuard })
+	if RT0 then
+		local clock = 0
+		local calls, hang = {}, nil
+		local function mk(cfgOverride)
+			local cfgT = setmetatable({}, { __index = Config })
+			local a = {}
+			for k, v in pairs(Config.Assets) do
+				a[k] = v
+			end
+			a.models = { trees = { tree_oak_a = 11, tree_pine = 12, tree_birch = 13, tree_round = 14 }, paths = { path_straight = 21 } }
+			a.modelsMaxParts = { ["trees.tree_oak_a"] = 40, ["trees.tree_pine"] = 40, ["trees.tree_birch"] = 40, ["trees.tree_round"] = 40, ["paths.path_straight"] = 40 }
+			for k, v in pairs(cfgOverride or {}) do
+				a[k] = v
+			end
+			cfgT.Assets = a
+			return cfgT
+		end
+		local env = RT0.env
+		local function deps()
+			return {
+				loadAsset = function(id)
+					calls[id] = (calls[id] or 0) + 1
+					if id == hang then
+						while true do
+							RT0.task.wait(1)
+						end
+					elseif id == 12 and calls[id] == 1 then
+						error("HTTP 500 temporaire")
+					elseif id == 13 then
+						error("Asset is not trusted for this place")
+					end
+					local m = RT0.instance("Model", "m" .. id)
+					local p = RT0.instance("Part", "Corps")
+					p.Parent = m
+					return m
+				end,
+				spawn = RT0.task.spawn, wait = RT0.task.wait, clock = function() return RT0.now end, warn = function() end,
+			}
+		end
+		RT0.now = 0
+		hang = 14
+		local A = AssetsMod.new(mk({ timeout = 3 }), deps())
+		local done = false
+		local t0 = RT0.now
+		RT0.task.spawn(function()
+			A.loadGroup("trees")
+			A.loadGroup("paths")
+			done = true
+		end)
+		RT0.step(60)
+		check("Chargeur : un modèle qui ne répond jamais (14) ni un refus (13) n'empêchent pas de charger la suite (chemin 21 chargé)", done and A.status["m:paths.path_straight"] and A.status["m:paths.path_straight"].ok == true)
+		check("Chargeur : erreur temporaire -> un nouvel essai réussit (id 12 appelé " .. tostring(calls[12]) .. " fois)", calls[12] == 2 and A.status["m:trees.tree_pine"].ok == true)
+		local rep = A.report()
+		local trees
+		for _, b in ipairs(rep) do
+			if b.cat == "arbres" then
+				trees = b
+			end
+		end
+		check("Rapport : arbres 2/4 chargés, 2 en repli", trees and trees.requested == 4 and trees.loaded == 2 and trees.fallback == 2)
+		local lines = A.reportLines()
+		local txt = table.concat(lines, "\n")
+		check("Rapport : chaque échec donne le nom, l'ID et le message d'erreur (refus et délai)", txt:find("tree_birch", 1, true) and txt:find("13", 1, true) and txt:find("not trusted", 1, true) and txt:find("délai dépassé", 1, true) and txt:find("tree_round", 1, true))
+		-- 20 modèles lents sont chargés par lots de 8 : durée << 20 x délai
+		RT0.now = 0
+		calls = {}
+		hang = nil
+		local big = {}
+		for i = 1, 24 do
+			big["m" .. i] = 100 + i
+		end
+		local caps = {}
+		for i = 1, 24 do
+			caps["trees.m" .. i] = 40
+		end
+		local A2 = AssetsMod.new(mk({ models = { trees = big }, modelsMaxParts = caps }), (function()
+			local d = deps()
+			d.loadAsset = function(id)
+				RT0.task.wait(1)
+				local m = RT0.instance("Model", "m" .. id)
+				local p = RT0.instance("Part", "Corps")
+				p.Parent = m
+				return m
+			end
+			return d
+		end)())
+		local n2, tEnd = 0, nil
+		RT0.task.spawn(function()
+			n2 = A2.loadGroup("trees")
+			tEnd = RT0.now
+		end)
+		RT0.step(40)
+		check("Chargeur : 24 modèles d'1 s en lots parallèles de 8 : " .. n2 .. "/24 chargés en " .. string.format("%.1f", (tEnd or 99) - 0) .. " s (< 8 s ; séquentiel = 24 s)", n2 == 24 and tEnd and tEnd < 8)
+	end
+	-- e2e : le serveur publie le rapport ; chaque catégorie demandée a au moins un modèle chargé ; en cas de refus total, tout est en repli avec le message
+	local function reportOf(fail)
+		local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+		if not RT then
+			return nil
+		end
+		if fail then
+			RT.loadAssetFail = "403: accès refusé"
+		end
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(60)
+		local rv = RT.services.ReplicatedStorage:FindFirstChild("AssetReport")
+		return rv, RT
+	end
+	local rv1 = reportOf(false)
+	if rv1 then
+		local props = rawget(rv1, "__props")
+		local text = rv1.Value or (props and props.Value) or ""
+		local cats, empty = 0, ""
+		for line in tostring(text):gmatch("[^\n]+") do
+			local name, got, want = line:match("%[Assets%] (.-) : (%d+)/(%d+) chargés")
+			if name then
+				cats = cats + 1
+				if tonumber(got) == 0 and tonumber(want) > 0 and name ~= "textures" then -- le runtime factice n'a pas de décals
+					empty = empty .. " " .. name
+				end
+			end
+		end
+		check("Rapport publié par le serveur : " .. cats .. " catégories, aucune entièrement en repli" .. (empty == "" and "" or " :" .. empty), cats >= 12 and empty == "")
+		check("Rapport : total Blender publié (attributs Loaded/Requested)", type(rv1:GetAttribute("Loaded")) == "number" and rv1:GetAttribute("Requested") >= 100 and rv1:GetAttribute("Loaded") >= rv1:GetAttribute("Requested") - 7)
+	else
+		check("Rapport publié par le serveur (StringValue AssetReport)", false)
+	end
+	do -- un joueur arrive AVANT la fin du chargement : sa base et ses œufs sont reconstruits avec les modèles dès leur arrivée
+		local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+		if RT then
+			RT.loadAssetDelay = 2
+			local main = RT.buildTree("roblox/src", false)
+			RT.task.spawn(function()
+				RT.runScript(main)
+			end)
+			local p = RT.addPlayer("Tot", 9911, { from = "hub", partyId = "LATE", size = 1, late = false })
+			RT.step(1)
+			local early = 0
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if rawget(d, "__props").Name == "BaseModel" then
+					early = early + 1
+				end
+			end
+			RT.step(120)
+			local bases, guards = 0, 0
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				local nm = rawget(d, "__props").Name
+				if nm == "BaseModel" then
+					bases = bases + 1
+				elseif nm == "EggGuard" then
+					guards = guards + 1
+				end
+			end
+			check("Arrivée pendant le chargement : base Blender (" .. bases .. ") posée après coup (" .. early .. " au moment de l'arrivée) ; protections d'œufs : " .. guards .. "), aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), early == 0 and bases >= 1 and #RT.errors == 0)
+		end
+	end
+	local rv2, RT2 = reportOf(true)
+	if rv2 then
+		local text = tostring(rv2.Value)
+		check("Refus total simulé : tout en repli, chaque échec liste nom, ID et message « 403 »", rv2:GetAttribute("Loaded") == 0 and text:find("ÉCHEC", 1, true) and text:find("403", 1, true) and text:find(tostring(M.trees.tree_oak_a), 1, true))
+		check("Refus total simulé : le jeu démarre sans erreur serveur (repli procédural)" .. (#RT2.errors == 0 and "" or " : " .. tostring(RT2.errors[1])), #RT2.errors == 0)
+	else
+		check("Refus total simulé : rapport publié", false)
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

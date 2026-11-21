@@ -1738,6 +1738,10 @@ do
 	end)
 end
 
+pcall(function()
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("AssetReportUi")).start(Config, player, ReplicatedStorage, UserInputService)
+end)
+
 ---------------------------------------------------------------- Compteur de debug (FPS, ping, Parts) : F3 l'affiche ou le masque ; coupé par défaut
 do
 	local dbg = Instance.new("ScreenGui")

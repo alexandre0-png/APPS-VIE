@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX17"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX16"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX18"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX17"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -431,7 +431,9 @@ end
 -- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `Enabled = false` : aucun chargement.
 Config.Assets = {
 	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
-	timeout = 8, -- secondes maximum par modèle
+	timeout = 12, -- secondes maximum par tentative (un nouvel essai est fait si la première échoue)
+	batchSize = 8, -- modèles chargés EN PARALLÈLE par lot (un échec ne retarde que son lot)
+	retryUntil = 25, -- secondes depuis le premier chargement : au-delà, plus de nouvel essai (la suite est toujours lancée)
 	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
 	decorMaxParts = 220, -- plafond des modèles de décor du hub (placés une seule fois)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
@@ -489,12 +491,12 @@ Config.Assets = {
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
-		["base.level1"] = 45, ["base.level2"] = 45, ["base.level3"] = 45, ["base.level4"] = 45, ["base.level5"] = 45, ["base.level6"] = 45, ["base.level7"] = 45, ["base.level8"] = 45,
-		["trees.tree_oak_a"] = 40, ["trees.tree_oak_b"] = 40, ["trees.tree_birch"] = 40, ["trees.tree_pine"] = 40, ["trees.tree_sakura"] = 40, ["trees.tree_round"] = 40,
-		["paths.path_straight"] = 12, ["paths.path_curve"] = 12, ["paths.path_stones"] = 12,
-		["eggguard.egg_dome"] = 20, ["eggguard.egg_nest_fence"] = 30, ["eggguard.egg_cage"] = 30, ["eggguard.egg_shield"] = 12,
-		["scenery.scn_puits"] = 40, ["scenery.scn_pin_haut"] = 30, ["scenery.scn_pont_pierre"] = 90, ["scenery.scn_maison_colombages"] = 90, ["scenery.scn_tour_cloche"] = 70,
-		["scenery.scn_rocher_a"] = 12, ["scenery.scn_rocher_b"] = 12, ["scenery.scn_rocher_c"] = 12, ["scenery.scn_ile_sakura"] = 80,
+		["base.level1"] = 80, ["base.level2"] = 80, ["base.level3"] = 80, ["base.level4"] = 80, ["base.level5"] = 80, ["base.level6"] = 80, ["base.level7"] = 80, ["base.level8"] = 80,
+		["trees.tree_oak_a"] = 120, ["trees.tree_oak_b"] = 120, ["trees.tree_birch"] = 120, ["trees.tree_pine"] = 120, ["trees.tree_sakura"] = 120, ["trees.tree_round"] = 120,
+		["paths.path_straight"] = 40, ["paths.path_curve"] = 40, ["paths.path_stones"] = 40,
+		["eggguard.egg_dome"] = 80, ["eggguard.egg_nest_fence"] = 80, ["eggguard.egg_cage"] = 80, ["eggguard.egg_shield"] = 60,
+		["scenery.scn_puits"] = 120, ["scenery.scn_pin_haut"] = 150, ["scenery.scn_pont_pierre"] = 200, ["scenery.scn_maison_colombages"] = 200, ["scenery.scn_tour_cloche"] = 150,
+		["scenery.scn_rocher_a"] = 40, ["scenery.scn_rocher_b"] = 40, ["scenery.scn_rocher_c"] = 40, ["scenery.scn_ile_sakura"] = 200,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
 	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
@@ -520,16 +522,16 @@ Config.Assets = {
 	treeHeights = { tree_oak_a = 10, tree_oak_b = 10, tree_birch = 10, tree_pine = 11, tree_sakura = 10, tree_round = 8 },
 	treeScaleJitter = 0.15,
 	-- Chemins Blender (tuiles de 8 x 8, droite le long de X, virage à 90°), bordés de pierres : budget de Parts séparé, repli = pavés procéduraux.
-	pathTile = 8, pathWind = 5, pathBudgetParts = 600, pathBorderHeight = 0.6,
+	pathTile = 8, pathWind = 5, pathBudgetParts = 900, pathBorderHeight = 0.6,
 	-- Protection de l'œuf d'un emplacement selon la rareté (clé de models.eggguard) et largeur cible (studs) ; halo / lumière proportionnels à la rareté.
 	eggGuardKeys = { "egg_nest_fence", "egg_dome", "egg_dome", "egg_cage", "egg_shield", "egg_shield" },
 	eggGuardWidth = { egg_nest_fence = 6.5, egg_dome = 4.4, egg_cage = 4.6, egg_shield = 5 },
-	eggGuardBudgetPerBase = 220, -- Parts Blender de protection par base (au-delà : nid procédural)
+	eggGuardBudgetPerBase = 500, -- Parts Blender de protection par base (au-delà : nid procédural)
 	-- Décor de village (lot scn_*) : `h` = hauteur cible, `len` = plus grande arête cible (studs), `r` = rayon d'empreinte pour la planification.
 	sceneryDims = { scn_puits = { h = 8, r = 4 }, scn_pin_haut = { h = 16, r = 4 }, scn_pont_pierre = { len = 40, r = 22 }, scn_maison_colombages = { h = 12, r = 8 }, scn_tour_cloche = { h = 16, r = 5 },
 		scn_rocher_a = { len = 8, r = 5 }, scn_rocher_b = { len = 6, r = 4 }, scn_rocher_c = { len = 10, r = 6 }, scn_ile_sakura = { len = 24, r = 13 } },
 	scenerySmallRock = 4, -- largeur des rochers en bordure de mare
-	sceneryBudgetParts = 700, -- Parts Blender du décor de village (carte et hub chacun, budget séparé)
+	sceneryBudgetParts = 1500, -- Parts Blender du décor de village (carte et hub chacun, budget séparé)
 	decoHeights = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1.2, stone_flat = 0.6, stone_round = 0.9, lantern = 1.2, sign_stars = 5 }, -- hauteurs cibles (studs) du décor fin
 	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
@@ -1358,6 +1360,9 @@ Config.VFX = { quality = nil }
 
 -- Masquage des zones éloignées (client, sans StreamingEnabled) : masquées au-delà de cullAt studs du bord d'un domaine, réaffichées sous showAt.
 Config.Culling = { enabled = true, cullAt = 200, showAt = 170, interval = 1, batch = 150, refresh = 20 }
+
+-- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
+Config.Debug = { AssetReport = true }
 
 Config.HUD = {
 	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
@@ -3102,7 +3107,95 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+-- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
+-- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
+-- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
+local AssetReportUi = {}
+
+-- Texte de l'étiquette : « Blender N/M » (ou « Blender … » tant que le rapport n'est pas arrivé).
+function AssetReportUi.label(loaded, requested)
+	if type(loaded) ~= "number" or type(requested) ~= "number" then
+		return "Blender …"
+	end
+	return ("Blender %d/%d"):format(loaded, requested)
+end
+
+function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService)
+	if not (Config.Debug and Config.Debug.AssetReport) then
+		return nil
+	end
+	local ok, gui = pcall(function()
+		local g = Instance.new("ScreenGui")
+		g.Name = "AssetReport"
+		g.ResetOnSpawn = false
+		g.DisplayOrder = 90
+		local lbl = Instance.new("TextButton")
+		lbl.Name = "Label"
+		lbl.AnchorPoint = Vector2.new(0, 1)
+		lbl.Position = UDim2.new(0, 8, 1, -8)
+		lbl.Size = UDim2.fromOffset(130, 22)
+		lbl.BackgroundColor3 = Color3.new(0, 0, 0)
+		lbl.BackgroundTransparency = 0.5
+		lbl.Font = Enum.Font.Code
+		lbl.TextSize = 13
+		lbl.TextColor3 = Color3.fromRGB(190, 255, 190)
+		lbl.Text = AssetReportUi.label(nil, nil)
+		lbl.AutoButtonColor = false
+		lbl.Parent = g
+		local box = Instance.new("TextLabel")
+		box.Name = "Details"
+		box.AnchorPoint = Vector2.new(0, 1)
+		box.Position = UDim2.new(0, 8, 1, -34)
+		box.Size = UDim2.new(0.8, 0, 0.6, 0)
+		box.BackgroundColor3 = Color3.new(0, 0, 0)
+		box.BackgroundTransparency = 0.25
+		box.Font = Enum.Font.Code
+		box.TextSize = 12
+		box.TextColor3 = Color3.new(1, 1, 1)
+		box.TextXAlignment = Enum.TextXAlignment.Left
+		box.TextYAlignment = Enum.TextYAlignment.Top
+		box.TextWrapped = true
+		box.Visible = false
+		box.Text = ""
+		box.Parent = g
+		lbl.Activated:Connect(function()
+			box.Visible = not box.Visible
+		end)
+		g.Parent = player:WaitForChild("PlayerGui")
+		return g
+	end)
+	if not ok then
+		return nil
+	end
+	task.spawn(function()
+		local rv = ReplicatedStorage:WaitForChild("AssetReport", 120)
+		if not rv then
+			pcall(function()
+				gui.Label.Text = "Blender : pas de rapport"
+			end)
+			return
+		end
+		pcall(function()
+			gui.Label.Text = AssetReportUi.label(rv:GetAttribute("Loaded"), rv:GetAttribute("Requested"))
+			gui.Details.Text = rv.Value
+			for line in rv.Value:gmatch("[^\n]+") do
+				print(line) -- rapport dans la console client
+			end
+		end)
+	end)
+	pcall(function()
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.KeyCode == Enum.KeyCode.F4 then
+				gui.Details.Visible = not gui.Details.Visible
+			end
+		end)
+	end)
+	return gui
+end
+
+return AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -3166,7 +3259,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -3507,7 +3600,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -3564,7 +3657,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -3676,7 +3769,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -3742,7 +3835,7 @@ function Assets.fitHeight(model, target)
 end
 
 function Assets.new(Config, deps)
-	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
+	local A = { templates = {}, status = {}, failedIds = {}, requested = {}, placeFailures = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
 	local warned = {} -- un seul avertissement par ID
 	local byId = {} -- identifiant -> { model, status } des modèles déjà chargés
 	local cfg = Config.Assets
@@ -3923,17 +4016,29 @@ function Assets.new(Config, deps)
 
 	-- Charge, nettoie et range un modèle. Retourne true si un modèle utilisable est disponible. Ne lève jamais d'erreur.
 	function A.loadOne(key, id, maxParts)
+		A.requested[key] = id
 		-- un identifiant déjà chargé (même modèle sous une autre clé) est réutilisé : un seul LoadAsset par modèle
 		if byId[id] then
 			A.templates[key] = byId[id].model
 			A.status[key] = byId[id].status
 			return true
 		end
+		A.startedAt = A.startedAt or deps.clock()
+		local t1 = deps.clock()
+		local attempts = 1
 		local ok, model = withTimeout(function()
 			return deps.loadAsset(id)
 		end, cfg.timeout)
+		-- un seul nouvel essai (chargement refusé ou trop lent), tant que le plafond global de relance n'est pas atteint : un échec ne bloque jamais la suite
+		if not ok and deps.clock() - A.startedAt < (cfg.retryUntil or 25) then
+			deps.wait(0.4)
+			attempts = 2
+			ok, model = withTimeout(function()
+				return deps.loadAsset(id)
+			end, cfg.timeout)
+		end
 		if not ok then
-			A.status[key] = { ok = false, reason = tostring(model) }
+			A.status[key] = { ok = false, reason = tostring(model), id = id, attempts = attempts, seconds = deps.clock() - t1 }
 			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
@@ -3942,7 +4047,7 @@ function Assets.new(Config, deps)
 			valid, info = false, tostring(valid)
 		end
 		if not valid then
-			A.status[key] = { ok = false, reason = tostring(info) }
+			A.status[key] = { ok = false, reason = tostring(info), id = id }
 			pcall(function()
 				if model ~= nil then
 					model:Destroy()
@@ -3957,12 +4062,141 @@ function Assets.new(Config, deps)
 			colored = cn
 		end
 		A.templates[key] = model
-		A.status[key] = { ok = true, parts = info.parts, removed = info.removed, colored = colored }
+		A.status[key] = { ok = true, parts = info.parts, removed = info.removed, colored = colored, id = id, attempts = attempts, seconds = deps.clock() - t1 }
 		byId[id] = { model = model, status = A.status[key] }
 		if deps.store then
 			pcall(deps.store, key, model)
 		end
 		return true
+	end
+
+	-- Charge une liste { {key, id, cap} } par LOTS PARALLÈLES (cfg.batchSize, 8 par défaut) : chaque modèle a son délai et son nouvel essai, un échec ou un modèle
+	-- lent ne retarde jamais que son lot et n'empêche JAMAIS de lancer les suivants. Les identifiants en double sont chargés une seule fois.
+	-- Retourne le nombre de modèles utilisables. Ne lève jamais d'erreur.
+	function A.loadMany(entries)
+		local first, dups, seen = {}, {}, {}
+		for _, e in ipairs(entries) do
+			A.requested[e.key] = e.id
+			if byId[e.id] or seen[e.id] then
+				dups[#dups + 1] = e
+			else
+				seen[e.id] = true
+				first[#first + 1] = e
+			end
+		end
+		local size = cfg.batchSize or 8
+		local i = 1
+		while i <= #first do
+			local running = 0
+			for j = i, math.min(i + size - 1, #first) do
+				local e = first[j]
+				running = running + 1
+				deps.spawn(function()
+					pcall(A.loadOne, e.key, e.id, e.cap)
+					running = running - 1
+				end)
+			end
+			while running > 0 do
+				deps.wait(0.05)
+			end
+			i = i + size
+		end
+		for _, e in ipairs(dups) do
+			pcall(A.loadOne, e.key, e.id, e.cap)
+		end
+		local loaded = 0
+		for _, e in ipairs(entries) do
+			if A.status[e.key] and A.status[e.key].ok then
+				loaded = loaded + 1
+			end
+		end
+		return loaded
+	end
+
+	-- Catégorie d'une clé de statut (pour le rapport) : arbres, chemins, protections d'œufs, base, village, pets, œufs, gardiens, décor...
+	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires" }
+	function A.categoryOf(key)
+		local grp = key:match("^m:(%a+)%.")
+		if grp then
+			return CATEGORY[grp] or grp
+		end
+		local prefix = key:match("^(%a+):")
+		if prefix == "p" then
+			return "pets"
+		elseif prefix == "r" then
+			return "œufs"
+		elseif prefix == "d" then
+			return "décor catalogue"
+		elseif prefix == "x" then
+			return "accessoires"
+		elseif prefix == "t" then
+			return "textures"
+		end
+		return "œufs"
+	end
+
+	-- Rapport par catégorie : { {cat, requested, loaded, fallback, failures = { {key, id, reason} }} } trié par nom ; les statuts sans demande (ID invalide) comptent.
+	function A.report()
+		local cats, order = {}, {}
+		local function bucket(c)
+			if not cats[c] then
+				cats[c] = { cat = c, requested = 0, loaded = 0, fallback = 0, failures = {} }
+				order[#order + 1] = c
+			end
+			return cats[c]
+		end
+		local keys, seenKey = {}, {}
+		for k in pairs(A.requested) do
+			keys[#keys + 1] = k
+			seenKey[k] = true
+		end
+		for k in pairs(A.status) do
+			if not seenKey[k] then
+				keys[#keys + 1] = k
+			end
+		end
+		table.sort(keys)
+		for _, k in ipairs(keys) do
+			local b = bucket(A.categoryOf(k))
+			local st = A.status[k]
+			b.requested = b.requested + 1
+			if st and st.ok then
+				b.loaded = b.loaded + 1
+			else
+				b.fallback = b.fallback + 1
+				b.failures[#b.failures + 1] = { key = k, id = A.requested[k] or (st and st.id), reason = st and st.reason or "pas encore chargé" }
+			end
+		end
+		table.sort(order)
+		local out = {}
+		for _, c in ipairs(order) do
+			out[#out + 1] = cats[c]
+		end
+		return out
+	end
+
+	-- Lignes de texte du rapport (une par catégorie, puis une par échec) + totaux { loaded, requested }.
+	function A.reportLines()
+		local lines, loaded, requested = {}, 0, 0
+		local rep = A.report()
+		for _, b in ipairs(rep) do
+			loaded, requested = loaded + b.loaded, requested + b.requested
+			lines[#lines + 1] = ("[Assets] %s : %d/%d chargés, %d en repli"):format(b.cat, b.loaded, b.requested, b.fallback)
+		end
+		for _, b in ipairs(rep) do
+			for _, f in ipairs(b.failures) do
+				lines[#lines + 1] = ("[Assets]   ÉCHEC %s (ID %s) : %s"):format(tostring(f.key), tostring(f.id), tostring(f.reason))
+			end
+		end
+		local shown = {}
+		for _, f in ipairs(A.placeFailures) do
+			if not shown[f] and #shown < 20 then -- un message distinct à la fois, 20 au plus
+				shown[f] = true
+				shown[#shown + 1] = f
+				lines[#lines + 1] = "[Assets]   POSE REFUSÉE " .. f
+			end
+		end
+		return lines, loaded, requested
 	end
 
 	-- Charge tous les modèles d'œufs (un par clé). onReady() est appelé une fois si au moins un modèle est utilisable.
@@ -3976,28 +4210,33 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
-		for _, key in ipairs(keys) do
-			local id = cfg.eggs[key]
-			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne(key, id) then
-					loaded = loaded + 1
-				end
-			else
-				A.status[key] = { ok = false, reason = "ID invalide" }
+		local entries = {}
+		if type(cfg.eggsByRarity) == "table" then -- modèles Blender par rareté (1..6 et « secret ») : prioritaires sur les modèles du catalogue, chargés en premier
+			local rk = {}
+			for rarity in pairs(cfg.eggsByRarity) do
+				rk[#rk + 1] = rarity
 			end
-		end
-		if type(cfg.eggsByRarity) == "table" then -- modèles Blender par rareté (1..6 et « secret ») : prioritaires sur les modèles du catalogue
-			for rarity, id in pairs(cfg.eggsByRarity) do
+			table.sort(rk, function(a, b)
+				return tostring(a) < tostring(b)
+			end)
+			for _, rarity in ipairs(rk) do
+				local id = cfg.eggsByRarity[rarity]
 				if type(id) == "number" and id > 0 and id % 1 == 0 then
-					if A.loadOne("r:" .. tostring(rarity), id) then
-						loaded = loaded + 1
-					end
+					entries[#entries + 1] = { key = "r:" .. tostring(rarity), id = id }
 				else
 					A.status["r:" .. tostring(rarity)] = { ok = false, reason = "ID invalide" }
 				end
 			end
 		end
+		for _, key in ipairs(keys) do
+			local id = cfg.eggs[key]
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				entries[#entries + 1] = { key = key, id = id }
+			else
+				A.status[key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		local loaded = A.loadMany(entries)
 		if loaded > 0 and onReady then
 			pcall(onReady)
 		end
@@ -4015,18 +4254,16 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
+		local entries = {}
 		for _, key in ipairs(keys) do
 			local id = cfg.decor[key]
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("d:" .. key, id, cfg.decorMaxParts or cfg.maxParts) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "d:" .. key, id = id, cap = cfg.decorMaxParts or cfg.maxParts }
 			else
 				A.status["d:" .. key] = { ok = false, reason = "ID invalide" }
 			end
 		end
-		return loaded
+		return A.loadMany(entries)
 	end
 
 	-- Charge les modèles Blender des pets (Config.Assets.pets : index d'espèce -> ID). Clés « p:<index> ». Retourne le nombre de modèles chargés.
@@ -4042,16 +4279,16 @@ function Assets.new(Config, deps)
 		table.sort(idxs, function(a, b)
 			return tostring(a) < tostring(b)
 		end)
+		local entries = {}
 		for _, idx in ipairs(idxs) do
 			local id = cfg.pets[idx]
 			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("p:" .. idx, id, cfg.petsMaxParts or cfg.maxParts) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "p:" .. idx, id = id, cap = cfg.petsMaxParts or cfg.maxParts }
 			else
 				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
 			end
 		end
+		loaded = A.loadMany(entries)
 		return loaded
 	end
 
@@ -4127,19 +4364,17 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
+		local entries = {}
 		for _, key in ipairs(keys) do
 			local id = cfg.props[key]
 			local cap = (cfg.propsMaxParts and cfg.propsMaxParts[key]) or cfg.decorMaxParts or cfg.maxParts
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("x:" .. key, id, cap) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "x:" .. key, id = id, cap = cap }
 			else
 				A.status["x:" .. key] = { ok = false, reason = "ID invalide" }
 			end
 		end
-		return loaded
+		return A.loadMany(entries)
 	end
 
 	-- Textures tuilables : chaque entrée de Config.Assets.textures est un ID de DÉCAL ; on charge le décal côté serveur, on lit son `Texture` (URL
@@ -4202,7 +4437,7 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
+		local entries = {}
 		for _, key in ipairs(keys) do
 			local id = (not only or only[key]) and g[key] or nil
 			local full = group .. "." .. key
@@ -4210,14 +4445,12 @@ function Assets.new(Config, deps)
 			if not id then
 				-- clé non demandée (filtre `only`)
 			elseif type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("m:" .. full, id, cap) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "m:" .. full, id = id, cap = cap }
 			else
 				A.status["m:" .. full] = { ok = false, reason = "ID invalide" }
 			end
 		end
-		return loaded
+		return A.loadMany(entries)
 	end
 
 	-- Copie d'un modèle d'un groupe (ou nil : repli procédural).
@@ -4257,7 +4490,11 @@ function Assets.new(Config, deps)
 	-- Parts) ou (false) ; en cas d'erreur le clone est détruit. Ne lève jamais d'erreur.
 	function A.place(model, x, z, rotDeg, height, parent, length, groundY)
 		local count = 0
-		local ok = pcall(function()
+		local mname = "?"
+		pcall(function()
+			mname = tostring(model.Name)
+		end)
+		local ok, err = pcall(function()
 			if not model:IsA("Model") then
 				error("pas un Model")
 			end
@@ -4289,6 +4526,10 @@ function Assets.new(Config, deps)
 			model.Parent = parent
 		end)
 		if not ok then
+			-- journal : le modèle est refusé (mesure, échelle ±10 %...) et l'apparence procédurale prend le relais
+			if #A.placeFailures < 200 then
+				A.placeFailures[#A.placeFailures + 1] = ("%s : %s"):format(mname, tostring(err))
+			end
 			pcall(function()
 				model:Destroy()
 			end)
@@ -4301,7 +4542,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -4410,7 +4651,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -4539,7 +4780,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -4768,7 +5009,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX24"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX18"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX25"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX19"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4808,6 +5049,7 @@ local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify")
 local RTop = newRemote("Top")
 
 ---------------------------------------------------------------- Monde
+local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
 -- Apparence des œufs : modèles Roblox chargés en arrière-plan (jamais bloquant ; échec = apparence par défaut, voir Config.Assets).
 task.spawn(function()
 	local InsertService = game:GetService("InsertService")
@@ -4825,10 +5067,18 @@ task.spawn(function()
 		end,
 	})
 	Builder.setAssets(assets)
+	-- Ordre de chargement : d'abord ce qui se voit dans les premières secondes (œufs, base du joueur, chemins, arbres, accessoires, village), par lots parallèles
 	assets.loadAll()
-	assets.loadPets()
-	assets.loadProps()
+	assets.loadGroup("base")
+	assets.loadGroup("paths")
 	assets.loadGroup("trees")
+	assets.loadProps()
+	assets.loadGroup("scenery")
+	assets.loadGroup("eggguard") -- protections d'œuf (dôme, cage, cristaux, nid) posées à chaque rafraîchissement de pad
+	assets.loadPets()
+	if onAssetsLoaded then
+		pcall(onAssetsLoaded) -- base et pads déjà affichés : reconstruits avec les modèles arrivés
+	end
 	local propParts, propCount = Builder.dressWorld(assets)
 	print("[Assets] accessoires Blender : " .. propCount .. " posés (" .. propParts .. " Parts)")
 	assets.loadGroup("guards")
@@ -4845,14 +5095,10 @@ task.spawn(function()
 	print("[Assets] textures : " .. Builder.dressTextures(assets) .. " posée(s)")
 	assets.loadGroup("deco")
 	assets.loadGroup("terrain")
-	assets.loadGroup("base")
-	assets.loadGroup("paths")
 	local pt, pu = Builder.dressPaths(assets)
 	print("[Assets] chemins sinueux : " .. pt .. " tuile(s), " .. pu .. " Parts (budget " .. Config.Assets.pathBudgetParts .. ")")
-	assets.loadGroup("scenery")
 	local sn, su = Builder.dressScenery(assets)
 	print("[Assets] décor de village : " .. sn .. " objet(s), " .. su .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. ")")
-	assets.loadGroup("eggguard") -- protections d'œuf (dôme, cage, cristaux, nid) posées à chaque rafraîchissement de pad
 	local dp, du, df = Builder.dressDeco(assets)
 	print("[Assets] décor fin : " .. dp .. " objet(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decoBudgetParts .. "), " .. df .. " Parts de repli")
 	local rn, ru = Builder.dressRelief(assets)
@@ -4863,6 +5109,25 @@ task.spawn(function()
 	local gt, gp = Builder.dressGround(assets)
 	print("[Assets] sol Blender : " .. gt .. " tuile(s), " .. gp .. " Parts (budget " .. Config.Assets.groundBudgetParts .. ")")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
+	if onAssetsLoaded then
+		pcall(onAssetsLoaded)
+	end
+	-- Rapport de chargement : par catégorie (chargés / demandés / en repli) et, pour chaque échec, nom, ID et message ; publié aux clients (touche F3, « Blender N/M »)
+	local lines, loaded, requested = assets.reportLines()
+	for _, l in ipairs(lines) do
+		if l:find("ÉCHEC", 1, true) then
+			warn(l)
+		else
+			print(l)
+		end
+	end
+	print(("[Assets] TOTAL Blender %d/%d (repli procédural : %d)"):format(loaded, requested, requested - loaded))
+	local rv = Instance.new("StringValue")
+	rv.Name = "AssetReport"
+	rv:SetAttribute("Loaded", loaded)
+	rv:SetAttribute("Requested", requested)
+	rv.Value = table.concat(lines, "\n"):sub(1, 15000)
+	rv.Parent = ReplicatedStorage
 end)
 
 local world = Builder.build()
@@ -5409,11 +5674,11 @@ end)
 
 ---------------------------------------------------------------- Progression de la base (niveau d'après le score pondéré par la rareté)
 -- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : effet de montée de niveau, interface).
-local function applyBase(s, announce)
+local function applyBase(s, announce, force)
 	local level, nxt = Config.baseLevel(s.data.baseScore)
 	local before = s.baseLevel
 	s.baseLevel = level
-	if before ~= level and s.plot then
+	if (before ~= level or force) and s.plot then
 		Builder.baseUpgrade(s.plot, level)
 	end
 	s.player:SetAttribute("BaseLevel", level)
@@ -5421,6 +5686,17 @@ local function applyBase(s, announce)
 	if announce and before and level > before then
 		local lv = Config.BASE_LEVELS[level]
 		notify(s.player, "🏠 Ta base passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. (nxt and (" · prochain palier : " .. nxt.name) or " · niveau maximum !"), "claim")
+	end
+end
+
+-- Les modèles Blender arrivent APRÈS l'entrée des premiers joueurs : une fois un groupe chargé, on reconstruit la base et les pads déjà affichés
+-- (sinon le repli procédural resterait visible jusqu'au prochain changement de niveau).
+onAssetsLoaded = function()
+	for _, s in pairs(sessions) do
+		pcall(function()
+			applyBase(s, false, true)
+			refreshAllPads(s)
+		end)
 	end
 end
 
@@ -7084,7 +7360,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -7551,7 +7827,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -9709,7 +9985,7 @@ function Builder.dressWorld(assets)
 		-- Pose PLANIFIÉE (Placement) : grille, empreintes sans recouvrement, rien dans l'eau ni sur un chemin, cabanes face à leur domaine, barrières
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
-		local huts, treeIdx = 0, 0
+		local huts, treeIdx, fences = 0, 0, 0
 		local function put(key, x, z, rot, length, gy)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
@@ -9722,6 +9998,10 @@ function Builder.dressWorld(assets)
 				local alt = huts % 2 == 1 and "hut_big" or "hut_small"
 				clone = assets.cloneModel("props", alt)
 				height = clone and Config.Assets.targetHeights[alt] or height
+			end
+			if key == "fence" then
+				fences = fences + 1
+				clone = assets.cloneModel("props", fences % 4 == 0 and "fence_gate" or "fence_corner") -- barrières Blender (le catalogue d'accessoires reste le repli)
 			end
 			if key == "tree" or key == "fir" then
 				treeIdx = treeIdx + 1
@@ -9763,7 +10043,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -9907,7 +10187,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -9920,7 +10200,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -10551,7 +10831,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX34"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX33"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX25"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX35"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX34"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX26"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12291,6 +12571,10 @@ do
 	end)
 end
 
+pcall(function()
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("AssetReportUi")).start(Config, player, ReplicatedStorage, UserInputService)
+end)
+
 ---------------------------------------------------------------- Compteur de debug (FPS, ping, Parts) : F3 l'affiche ou le masque ; coupé par défaut
 do
 	local dbg = Instance.new("ScreenGui")
@@ -12340,7 +12624,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX26"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX27"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -12898,7 +13182,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX27"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX28"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -13538,7 +13822,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX28"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX29"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -13664,7 +13948,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX29"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX30"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (domaines) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -13747,7 +14031,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -13862,7 +14146,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -14048,7 +14332,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

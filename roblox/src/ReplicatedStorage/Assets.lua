@@ -64,7 +64,7 @@ function Assets.fitHeight(model, target)
 end
 
 function Assets.new(Config, deps)
-	local A = { templates = {}, status = {}, failedIds = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
+	local A = { templates = {}, status = {}, failedIds = {}, requested = {}, placeFailures = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
 	local warned = {} -- un seul avertissement par ID
 	local byId = {} -- identifiant -> { model, status } des modèles déjà chargés
 	local cfg = Config.Assets
@@ -245,17 +245,29 @@ function Assets.new(Config, deps)
 
 	-- Charge, nettoie et range un modèle. Retourne true si un modèle utilisable est disponible. Ne lève jamais d'erreur.
 	function A.loadOne(key, id, maxParts)
+		A.requested[key] = id
 		-- un identifiant déjà chargé (même modèle sous une autre clé) est réutilisé : un seul LoadAsset par modèle
 		if byId[id] then
 			A.templates[key] = byId[id].model
 			A.status[key] = byId[id].status
 			return true
 		end
+		A.startedAt = A.startedAt or deps.clock()
+		local t1 = deps.clock()
+		local attempts = 1
 		local ok, model = withTimeout(function()
 			return deps.loadAsset(id)
 		end, cfg.timeout)
+		-- un seul nouvel essai (chargement refusé ou trop lent), tant que le plafond global de relance n'est pas atteint : un échec ne bloque jamais la suite
+		if not ok and deps.clock() - A.startedAt < (cfg.retryUntil or 25) then
+			deps.wait(0.4)
+			attempts = 2
+			ok, model = withTimeout(function()
+				return deps.loadAsset(id)
+			end, cfg.timeout)
+		end
 		if not ok then
-			A.status[key] = { ok = false, reason = tostring(model) }
+			A.status[key] = { ok = false, reason = tostring(model), id = id, attempts = attempts, seconds = deps.clock() - t1 }
 			warn("« " .. key .. " » (" .. tostring(id) .. ") : " .. tostring(model) .. " : apparence construite par le code conservée.", id)
 			return false
 		end
@@ -264,7 +276,7 @@ function Assets.new(Config, deps)
 			valid, info = false, tostring(valid)
 		end
 		if not valid then
-			A.status[key] = { ok = false, reason = tostring(info) }
+			A.status[key] = { ok = false, reason = tostring(info), id = id }
 			pcall(function()
 				if model ~= nil then
 					model:Destroy()
@@ -279,12 +291,141 @@ function Assets.new(Config, deps)
 			colored = cn
 		end
 		A.templates[key] = model
-		A.status[key] = { ok = true, parts = info.parts, removed = info.removed, colored = colored }
+		A.status[key] = { ok = true, parts = info.parts, removed = info.removed, colored = colored, id = id, attempts = attempts, seconds = deps.clock() - t1 }
 		byId[id] = { model = model, status = A.status[key] }
 		if deps.store then
 			pcall(deps.store, key, model)
 		end
 		return true
+	end
+
+	-- Charge une liste { {key, id, cap} } par LOTS PARALLÈLES (cfg.batchSize, 8 par défaut) : chaque modèle a son délai et son nouvel essai, un échec ou un modèle
+	-- lent ne retarde jamais que son lot et n'empêche JAMAIS de lancer les suivants. Les identifiants en double sont chargés une seule fois.
+	-- Retourne le nombre de modèles utilisables. Ne lève jamais d'erreur.
+	function A.loadMany(entries)
+		local first, dups, seen = {}, {}, {}
+		for _, e in ipairs(entries) do
+			A.requested[e.key] = e.id
+			if byId[e.id] or seen[e.id] then
+				dups[#dups + 1] = e
+			else
+				seen[e.id] = true
+				first[#first + 1] = e
+			end
+		end
+		local size = cfg.batchSize or 8
+		local i = 1
+		while i <= #first do
+			local running = 0
+			for j = i, math.min(i + size - 1, #first) do
+				local e = first[j]
+				running = running + 1
+				deps.spawn(function()
+					pcall(A.loadOne, e.key, e.id, e.cap)
+					running = running - 1
+				end)
+			end
+			while running > 0 do
+				deps.wait(0.05)
+			end
+			i = i + size
+		end
+		for _, e in ipairs(dups) do
+			pcall(A.loadOne, e.key, e.id, e.cap)
+		end
+		local loaded = 0
+		for _, e in ipairs(entries) do
+			if A.status[e.key] and A.status[e.key].ok then
+				loaded = loaded + 1
+			end
+		end
+		return loaded
+	end
+
+	-- Catégorie d'une clé de statut (pour le rapport) : arbres, chemins, protections d'œufs, base, village, pets, œufs, gardiens, décor...
+	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires" }
+	function A.categoryOf(key)
+		local grp = key:match("^m:(%a+)%.")
+		if grp then
+			return CATEGORY[grp] or grp
+		end
+		local prefix = key:match("^(%a+):")
+		if prefix == "p" then
+			return "pets"
+		elseif prefix == "r" then
+			return "œufs"
+		elseif prefix == "d" then
+			return "décor catalogue"
+		elseif prefix == "x" then
+			return "accessoires"
+		elseif prefix == "t" then
+			return "textures"
+		end
+		return "œufs"
+	end
+
+	-- Rapport par catégorie : { {cat, requested, loaded, fallback, failures = { {key, id, reason} }} } trié par nom ; les statuts sans demande (ID invalide) comptent.
+	function A.report()
+		local cats, order = {}, {}
+		local function bucket(c)
+			if not cats[c] then
+				cats[c] = { cat = c, requested = 0, loaded = 0, fallback = 0, failures = {} }
+				order[#order + 1] = c
+			end
+			return cats[c]
+		end
+		local keys, seenKey = {}, {}
+		for k in pairs(A.requested) do
+			keys[#keys + 1] = k
+			seenKey[k] = true
+		end
+		for k in pairs(A.status) do
+			if not seenKey[k] then
+				keys[#keys + 1] = k
+			end
+		end
+		table.sort(keys)
+		for _, k in ipairs(keys) do
+			local b = bucket(A.categoryOf(k))
+			local st = A.status[k]
+			b.requested = b.requested + 1
+			if st and st.ok then
+				b.loaded = b.loaded + 1
+			else
+				b.fallback = b.fallback + 1
+				b.failures[#b.failures + 1] = { key = k, id = A.requested[k] or (st and st.id), reason = st and st.reason or "pas encore chargé" }
+			end
+		end
+		table.sort(order)
+		local out = {}
+		for _, c in ipairs(order) do
+			out[#out + 1] = cats[c]
+		end
+		return out
+	end
+
+	-- Lignes de texte du rapport (une par catégorie, puis une par échec) + totaux { loaded, requested }.
+	function A.reportLines()
+		local lines, loaded, requested = {}, 0, 0
+		local rep = A.report()
+		for _, b in ipairs(rep) do
+			loaded, requested = loaded + b.loaded, requested + b.requested
+			lines[#lines + 1] = ("[Assets] %s : %d/%d chargés, %d en repli"):format(b.cat, b.loaded, b.requested, b.fallback)
+		end
+		for _, b in ipairs(rep) do
+			for _, f in ipairs(b.failures) do
+				lines[#lines + 1] = ("[Assets]   ÉCHEC %s (ID %s) : %s"):format(tostring(f.key), tostring(f.id), tostring(f.reason))
+			end
+		end
+		local shown = {}
+		for _, f in ipairs(A.placeFailures) do
+			if not shown[f] and #shown < 20 then -- un message distinct à la fois, 20 au plus
+				shown[f] = true
+				shown[#shown + 1] = f
+				lines[#lines + 1] = "[Assets]   POSE REFUSÉE " .. f
+			end
+		end
+		return lines, loaded, requested
 	end
 
 	-- Charge tous les modèles d'œufs (un par clé). onReady() est appelé une fois si au moins un modèle est utilisable.
@@ -298,28 +439,33 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
-		for _, key in ipairs(keys) do
-			local id = cfg.eggs[key]
-			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne(key, id) then
-					loaded = loaded + 1
-				end
-			else
-				A.status[key] = { ok = false, reason = "ID invalide" }
+		local entries = {}
+		if type(cfg.eggsByRarity) == "table" then -- modèles Blender par rareté (1..6 et « secret ») : prioritaires sur les modèles du catalogue, chargés en premier
+			local rk = {}
+			for rarity in pairs(cfg.eggsByRarity) do
+				rk[#rk + 1] = rarity
 			end
-		end
-		if type(cfg.eggsByRarity) == "table" then -- modèles Blender par rareté (1..6 et « secret ») : prioritaires sur les modèles du catalogue
-			for rarity, id in pairs(cfg.eggsByRarity) do
+			table.sort(rk, function(a, b)
+				return tostring(a) < tostring(b)
+			end)
+			for _, rarity in ipairs(rk) do
+				local id = cfg.eggsByRarity[rarity]
 				if type(id) == "number" and id > 0 and id % 1 == 0 then
-					if A.loadOne("r:" .. tostring(rarity), id) then
-						loaded = loaded + 1
-					end
+					entries[#entries + 1] = { key = "r:" .. tostring(rarity), id = id }
 				else
 					A.status["r:" .. tostring(rarity)] = { ok = false, reason = "ID invalide" }
 				end
 			end
 		end
+		for _, key in ipairs(keys) do
+			local id = cfg.eggs[key]
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				entries[#entries + 1] = { key = key, id = id }
+			else
+				A.status[key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		local loaded = A.loadMany(entries)
 		if loaded > 0 and onReady then
 			pcall(onReady)
 		end
@@ -337,18 +483,16 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
+		local entries = {}
 		for _, key in ipairs(keys) do
 			local id = cfg.decor[key]
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("d:" .. key, id, cfg.decorMaxParts or cfg.maxParts) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "d:" .. key, id = id, cap = cfg.decorMaxParts or cfg.maxParts }
 			else
 				A.status["d:" .. key] = { ok = false, reason = "ID invalide" }
 			end
 		end
-		return loaded
+		return A.loadMany(entries)
 	end
 
 	-- Charge les modèles Blender des pets (Config.Assets.pets : index d'espèce -> ID). Clés « p:<index> ». Retourne le nombre de modèles chargés.
@@ -364,16 +508,16 @@ function Assets.new(Config, deps)
 		table.sort(idxs, function(a, b)
 			return tostring(a) < tostring(b)
 		end)
+		local entries = {}
 		for _, idx in ipairs(idxs) do
 			local id = cfg.pets[idx]
 			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("p:" .. idx, id, cfg.petsMaxParts or cfg.maxParts) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "p:" .. idx, id = id, cap = cfg.petsMaxParts or cfg.maxParts }
 			else
 				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
 			end
 		end
+		loaded = A.loadMany(entries)
 		return loaded
 	end
 
@@ -449,19 +593,17 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
+		local entries = {}
 		for _, key in ipairs(keys) do
 			local id = cfg.props[key]
 			local cap = (cfg.propsMaxParts and cfg.propsMaxParts[key]) or cfg.decorMaxParts or cfg.maxParts
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("x:" .. key, id, cap) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "x:" .. key, id = id, cap = cap }
 			else
 				A.status["x:" .. key] = { ok = false, reason = "ID invalide" }
 			end
 		end
-		return loaded
+		return A.loadMany(entries)
 	end
 
 	-- Textures tuilables : chaque entrée de Config.Assets.textures est un ID de DÉCAL ; on charge le décal côté serveur, on lit son `Texture` (URL
@@ -524,7 +666,7 @@ function Assets.new(Config, deps)
 			keys[#keys + 1] = key
 		end
 		table.sort(keys)
-		local loaded = 0
+		local entries = {}
 		for _, key in ipairs(keys) do
 			local id = (not only or only[key]) and g[key] or nil
 			local full = group .. "." .. key
@@ -532,14 +674,12 @@ function Assets.new(Config, deps)
 			if not id then
 				-- clé non demandée (filtre `only`)
 			elseif type(id) == "number" and id > 0 and id % 1 == 0 then
-				if A.loadOne("m:" .. full, id, cap) then
-					loaded = loaded + 1
-				end
+				entries[#entries + 1] = { key = "m:" .. full, id = id, cap = cap }
 			else
 				A.status["m:" .. full] = { ok = false, reason = "ID invalide" }
 			end
 		end
-		return loaded
+		return A.loadMany(entries)
 	end
 
 	-- Copie d'un modèle d'un groupe (ou nil : repli procédural).
@@ -579,7 +719,11 @@ function Assets.new(Config, deps)
 	-- Parts) ou (false) ; en cas d'erreur le clone est détruit. Ne lève jamais d'erreur.
 	function A.place(model, x, z, rotDeg, height, parent, length, groundY)
 		local count = 0
-		local ok = pcall(function()
+		local mname = "?"
+		pcall(function()
+			mname = tostring(model.Name)
+		end)
+		local ok, err = pcall(function()
 			if not model:IsA("Model") then
 				error("pas un Model")
 			end
@@ -611,6 +755,10 @@ function Assets.new(Config, deps)
 			model.Parent = parent
 		end)
 		if not ok then
+			-- journal : le modèle est refusé (mesure, échelle ±10 %...) et l'apparence procédurale prend le relais
+			if #A.placeFailures < 200 then
+				A.placeFailures[#A.placeFailures + 1] = ("%s : %s"):format(mname, tostring(err))
+			end
 			pcall(function()
 				model:Destroy()
 			end)

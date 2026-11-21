@@ -38,6 +38,7 @@ local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify")
 local RTop = newRemote("Top")
 
 ---------------------------------------------------------------- Monde
+local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
 -- Apparence des œufs : modèles Roblox chargés en arrière-plan (jamais bloquant ; échec = apparence par défaut, voir Config.Assets).
 task.spawn(function()
 	local InsertService = game:GetService("InsertService")
@@ -55,10 +56,18 @@ task.spawn(function()
 		end,
 	})
 	Builder.setAssets(assets)
+	-- Ordre de chargement : d'abord ce qui se voit dans les premières secondes (œufs, base du joueur, chemins, arbres, accessoires, village), par lots parallèles
 	assets.loadAll()
-	assets.loadPets()
-	assets.loadProps()
+	assets.loadGroup("base")
+	assets.loadGroup("paths")
 	assets.loadGroup("trees")
+	assets.loadProps()
+	assets.loadGroup("scenery")
+	assets.loadGroup("eggguard") -- protections d'œuf (dôme, cage, cristaux, nid) posées à chaque rafraîchissement de pad
+	assets.loadPets()
+	if onAssetsLoaded then
+		pcall(onAssetsLoaded) -- base et pads déjà affichés : reconstruits avec les modèles arrivés
+	end
 	local propParts, propCount = Builder.dressWorld(assets)
 	print("[Assets] accessoires Blender : " .. propCount .. " posés (" .. propParts .. " Parts)")
 	assets.loadGroup("guards")
@@ -75,14 +84,10 @@ task.spawn(function()
 	print("[Assets] textures : " .. Builder.dressTextures(assets) .. " posée(s)")
 	assets.loadGroup("deco")
 	assets.loadGroup("terrain")
-	assets.loadGroup("base")
-	assets.loadGroup("paths")
 	local pt, pu = Builder.dressPaths(assets)
 	print("[Assets] chemins sinueux : " .. pt .. " tuile(s), " .. pu .. " Parts (budget " .. Config.Assets.pathBudgetParts .. ")")
-	assets.loadGroup("scenery")
 	local sn, su = Builder.dressScenery(assets)
 	print("[Assets] décor de village : " .. sn .. " objet(s), " .. su .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. ")")
-	assets.loadGroup("eggguard") -- protections d'œuf (dôme, cage, cristaux, nid) posées à chaque rafraîchissement de pad
 	local dp, du, df = Builder.dressDeco(assets)
 	print("[Assets] décor fin : " .. dp .. " objet(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decoBudgetParts .. "), " .. df .. " Parts de repli")
 	local rn, ru = Builder.dressRelief(assets)
@@ -93,6 +98,25 @@ task.spawn(function()
 	local gt, gp = Builder.dressGround(assets)
 	print("[Assets] sol Blender : " .. gt .. " tuile(s), " .. gp .. " Parts (budget " .. Config.Assets.groundBudgetParts .. ")")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
+	if onAssetsLoaded then
+		pcall(onAssetsLoaded)
+	end
+	-- Rapport de chargement : par catégorie (chargés / demandés / en repli) et, pour chaque échec, nom, ID et message ; publié aux clients (touche F3, « Blender N/M »)
+	local lines, loaded, requested = assets.reportLines()
+	for _, l in ipairs(lines) do
+		if l:find("ÉCHEC", 1, true) then
+			warn(l)
+		else
+			print(l)
+		end
+	end
+	print(("[Assets] TOTAL Blender %d/%d (repli procédural : %d)"):format(loaded, requested, requested - loaded))
+	local rv = Instance.new("StringValue")
+	rv.Name = "AssetReport"
+	rv:SetAttribute("Loaded", loaded)
+	rv:SetAttribute("Requested", requested)
+	rv.Value = table.concat(lines, "\n"):sub(1, 15000)
+	rv.Parent = ReplicatedStorage
 end)
 
 local world = Builder.build()
@@ -639,11 +663,11 @@ end)
 
 ---------------------------------------------------------------- Progression de la base (niveau d'après le score pondéré par la rareté)
 -- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : effet de montée de niveau, interface).
-local function applyBase(s, announce)
+local function applyBase(s, announce, force)
 	local level, nxt = Config.baseLevel(s.data.baseScore)
 	local before = s.baseLevel
 	s.baseLevel = level
-	if before ~= level and s.plot then
+	if (before ~= level or force) and s.plot then
 		Builder.baseUpgrade(s.plot, level)
 	end
 	s.player:SetAttribute("BaseLevel", level)
@@ -651,6 +675,17 @@ local function applyBase(s, announce)
 	if announce and before and level > before then
 		local lv = Config.BASE_LEVELS[level]
 		notify(s.player, "🏠 Ta base passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. (nxt and (" · prochain palier : " .. nxt.name) or " · niveau maximum !"), "claim")
+	end
+end
+
+-- Les modèles Blender arrivent APRÈS l'entrée des premiers joueurs : une fois un groupe chargé, on reconstruit la base et les pads déjà affichés
+-- (sinon le repli procédural resterait visible jusqu'au prochain changement de niveau).
+onAssetsLoaded = function()
+	for _, s in pairs(sessions) do
+		pcall(function()
+			applyBase(s, false, true)
+			refreshAllPads(s)
+		end)
 	end
 end
 

@@ -561,6 +561,9 @@ function Fake.runtime(opts)
 	RT.loadedIds = {}
 	rawget(insert, "__props").LoadAsset = function(_, id)
 		RT.loadedIds[#RT.loadedIds + 1] = id
+		if RT.loadAssetDelay then
+			RT.task.wait(RT.loadAssetDelay) -- chargement lent : les modèles arrivent après l'entrée des joueurs
+		end
 		if RT.loadAssetFail then
 			error(RT.loadAssetFail)
 		end

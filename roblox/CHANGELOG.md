@@ -2,6 +2,14 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Retours de test 1 : diagnostic et chargement des modèles Blender
+
+- Causes trouvées dans le code : chargement strictement séquentiel (chaque modèle jusqu'à 8 s), base et pads jamais reconstruits si le joueur arrivait avant la fin du chargement (la base procédurale restait jusqu'au prochain niveau), plafonds de Parts qui refusaient des modèles valides (pin 72 > 30, puits 50 > 40), barrières Blender chargées mais jamais posées.
+- Corrigé : `Assets.loadMany` (lots parallèles de 8, 12 s par tentative, un nouvel essai jusqu'à 25 s, la suite est toujours lancée), ordre (œufs, base, chemins, arbres, accessoires, village, protections, pets), `onAssetsLoaded` (base et pads reconstruits à l'arrivée des modèles), plafonds relevés, barrières Blender posées.
+- Diagnostic : `Assets.report/reportLines` (par catégorie : chargés / demandés / repli ; échecs avec nom, ID, message ; poses refusées), lignes `[Assets]` en console serveur et client, `StringValue AssetReport`, étiquette « Blender N/M » en bas à gauche (hub et partie, `Config.Debug.AssetReport = true`, clic ou F4 = détails). À repasser à false après le test.
+- Tests : IDs lots 11/12 exacts, aucun doublon, plafonds, relance, lot parallèle (24 modèles d'1 s en moins de 8 s), rapport par catégorie, refus total simulé, arrivée pendant le chargement (mutation détectée).
+- Hypothèse la plus probable en ligne, non vérifiable ici : `InsertService:LoadAsset` refuse les modèles non autorisés pour l'expérience ; le rapport affichera le message exact.
+
 ## Catalogue de la boutique
 
 - `PUBLICATION.md` §3bis : 11 achats (5 passes, 6 produits) avec nom, prix suggéré, description et ligne exacte de `Config.lua` où coller l'ID ; `A_FAIRE_UTILISATEUR.md` aligné ; test de cohérence documentation / code. Achats inactifs à l'ID 0 sans erreur (déjà testé).

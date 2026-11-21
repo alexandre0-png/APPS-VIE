@@ -2156,7 +2156,7 @@ function Builder.dressWorld(assets)
 		-- Pose PLANIFIÉE (Placement) : grille, empreintes sans recouvrement, rien dans l'eau ni sur un chemin, cabanes face à leur domaine, barrières
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
-		local huts, treeIdx = 0, 0
+		local huts, treeIdx, fences = 0, 0, 0
 		local function put(key, x, z, rot, length, gy)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
@@ -2169,6 +2169,10 @@ function Builder.dressWorld(assets)
 				local alt = huts % 2 == 1 and "hut_big" or "hut_small"
 				clone = assets.cloneModel("props", alt)
 				height = clone and Config.Assets.targetHeights[alt] or height
+			end
+			if key == "fence" then
+				fences = fences + 1
+				clone = assets.cloneModel("props", fences % 4 == 0 and "fence_gate" or "fence_corner") -- barrières Blender (le catalogue d'accessoires reste le repli)
 			end
 			if key == "tree" or key == "fir" then
 				treeIdx = treeIdx + 1

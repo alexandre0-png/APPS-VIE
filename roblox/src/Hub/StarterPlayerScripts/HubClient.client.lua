@@ -12,6 +12,9 @@ end
 local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Layout"))
 local remote = ReplicatedStorage:WaitForChild("HubRemote")
 local player = Players.LocalPlayer
+pcall(function()
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("AssetReportUi")).start(Config, player, ReplicatedStorage, game:GetService("UserInputService"))
+end)
 
 local COL = {
 	bg = Color3.fromRGB(15, 42, 27), panel = Color3.fromRGB(29, 77, 51), pill = Color3.fromRGB(10, 30, 20),

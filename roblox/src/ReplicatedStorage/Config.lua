@@ -427,7 +427,9 @@ end
 -- trop lourd, trop lent, non autorisé), l'apparence actuelle est gardée. `Enabled = false` : aucun chargement.
 Config.Assets = {
 	Enabled = true, -- interrupteur général (false : aucun chargement, apparence construite par le code)
-	timeout = 8, -- secondes maximum par modèle
+	timeout = 12, -- secondes maximum par tentative (un nouvel essai est fait si la première échoue)
+	batchSize = 8, -- modèles chargés EN PARALLÈLE par lot (un échec ne retarde que son lot)
+	retryUntil = 25, -- secondes depuis le premier chargement : au-delà, plus de nouvel essai (la suite est toujours lancée)
 	maxParts = 60, -- un modèle plus lourd est refusé (il est cloné pour chaque œuf)
 	decorMaxParts = 220, -- plafond des modèles de décor du hub (placés une seule fois)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
@@ -485,12 +487,12 @@ Config.Assets = {
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
-		["base.level1"] = 45, ["base.level2"] = 45, ["base.level3"] = 45, ["base.level4"] = 45, ["base.level5"] = 45, ["base.level6"] = 45, ["base.level7"] = 45, ["base.level8"] = 45,
-		["trees.tree_oak_a"] = 40, ["trees.tree_oak_b"] = 40, ["trees.tree_birch"] = 40, ["trees.tree_pine"] = 40, ["trees.tree_sakura"] = 40, ["trees.tree_round"] = 40,
-		["paths.path_straight"] = 12, ["paths.path_curve"] = 12, ["paths.path_stones"] = 12,
-		["eggguard.egg_dome"] = 20, ["eggguard.egg_nest_fence"] = 30, ["eggguard.egg_cage"] = 30, ["eggguard.egg_shield"] = 12,
-		["scenery.scn_puits"] = 40, ["scenery.scn_pin_haut"] = 30, ["scenery.scn_pont_pierre"] = 90, ["scenery.scn_maison_colombages"] = 90, ["scenery.scn_tour_cloche"] = 70,
-		["scenery.scn_rocher_a"] = 12, ["scenery.scn_rocher_b"] = 12, ["scenery.scn_rocher_c"] = 12, ["scenery.scn_ile_sakura"] = 80,
+		["base.level1"] = 80, ["base.level2"] = 80, ["base.level3"] = 80, ["base.level4"] = 80, ["base.level5"] = 80, ["base.level6"] = 80, ["base.level7"] = 80, ["base.level8"] = 80,
+		["trees.tree_oak_a"] = 120, ["trees.tree_oak_b"] = 120, ["trees.tree_birch"] = 120, ["trees.tree_pine"] = 120, ["trees.tree_sakura"] = 120, ["trees.tree_round"] = 120,
+		["paths.path_straight"] = 40, ["paths.path_curve"] = 40, ["paths.path_stones"] = 40,
+		["eggguard.egg_dome"] = 80, ["eggguard.egg_nest_fence"] = 80, ["eggguard.egg_cage"] = 80, ["eggguard.egg_shield"] = 60,
+		["scenery.scn_puits"] = 120, ["scenery.scn_pin_haut"] = 150, ["scenery.scn_pont_pierre"] = 200, ["scenery.scn_maison_colombages"] = 200, ["scenery.scn_tour_cloche"] = 150,
+		["scenery.scn_rocher_a"] = 40, ["scenery.scn_rocher_b"] = 40, ["scenery.scn_rocher_c"] = 40, ["scenery.scn_ile_sakura"] = 200,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
 	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
@@ -516,16 +518,16 @@ Config.Assets = {
 	treeHeights = { tree_oak_a = 10, tree_oak_b = 10, tree_birch = 10, tree_pine = 11, tree_sakura = 10, tree_round = 8 },
 	treeScaleJitter = 0.15,
 	-- Chemins Blender (tuiles de 8 x 8, droite le long de X, virage à 90°), bordés de pierres : budget de Parts séparé, repli = pavés procéduraux.
-	pathTile = 8, pathWind = 5, pathBudgetParts = 600, pathBorderHeight = 0.6,
+	pathTile = 8, pathWind = 5, pathBudgetParts = 900, pathBorderHeight = 0.6,
 	-- Protection de l'œuf d'un emplacement selon la rareté (clé de models.eggguard) et largeur cible (studs) ; halo / lumière proportionnels à la rareté.
 	eggGuardKeys = { "egg_nest_fence", "egg_dome", "egg_dome", "egg_cage", "egg_shield", "egg_shield" },
 	eggGuardWidth = { egg_nest_fence = 6.5, egg_dome = 4.4, egg_cage = 4.6, egg_shield = 5 },
-	eggGuardBudgetPerBase = 220, -- Parts Blender de protection par base (au-delà : nid procédural)
+	eggGuardBudgetPerBase = 500, -- Parts Blender de protection par base (au-delà : nid procédural)
 	-- Décor de village (lot scn_*) : `h` = hauteur cible, `len` = plus grande arête cible (studs), `r` = rayon d'empreinte pour la planification.
 	sceneryDims = { scn_puits = { h = 8, r = 4 }, scn_pin_haut = { h = 16, r = 4 }, scn_pont_pierre = { len = 40, r = 22 }, scn_maison_colombages = { h = 12, r = 8 }, scn_tour_cloche = { h = 16, r = 5 },
 		scn_rocher_a = { len = 8, r = 5 }, scn_rocher_b = { len = 6, r = 4 }, scn_rocher_c = { len = 10, r = 6 }, scn_ile_sakura = { len = 24, r = 13 } },
 	scenerySmallRock = 4, -- largeur des rochers en bordure de mare
-	sceneryBudgetParts = 700, -- Parts Blender du décor de village (carte et hub chacun, budget séparé)
+	sceneryBudgetParts = 1500, -- Parts Blender du décor de village (carte et hub chacun, budget séparé)
 	decoHeights = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1.2, stone_flat = 0.6, stone_round = 0.9, lantern = 1.2, sign_stars = 5 }, -- hauteurs cibles (studs) du décor fin
 	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
@@ -1354,6 +1356,9 @@ Config.VFX = { quality = nil }
 
 -- Masquage des zones éloignées (client, sans StreamingEnabled) : masquées au-delà de cullAt studs du bord d'un domaine, réaffichées sous showAt.
 Config.Culling = { enabled = true, cullAt = 200, showAt = 170, interval = 1, batch = 150, refresh = 20 }
+
+-- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
+Config.Debug = { AssetReport = true }
 
 Config.HUD = {
 	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
