@@ -922,6 +922,7 @@ local function wire()
 					return
 				end
 				state.chest = true
+				Audio.play("coffre_ouvre", part, { lifetime = 4 })
 				Gestures.tiltOpen(part, "ChestLid")
 				openHatch("TrappeGrenier")
 				Objectives.unlockKey()
@@ -1333,6 +1334,7 @@ function Quests.submitCode(player, text)
 	end
 	if text == code then
 		state.coffret = true
+		Audio.play("coffre_ouvre", coffret, { lifetime = 4 })
 		Gestures.tiltOpen(coffret, "CoffretLid")
 		state.smallKey = true
 		say(player, "Le couvercle se soulève. Une petite clé est au fond.")

@@ -154,6 +154,14 @@ Config.Textures = {
 	Tile = {}, -- exemple : Tile = { damier_cuisine = 4 }
 }
 
+-- Sons synthétiques (ogg) : Enabled = false coupe les nouveaux sons (les anciens restent). Un son dont l'asset ne se
+-- charge pas est ignoré sans erreur ; l'ancien son de secours reste alors utilisé.
+Config.Audio = {
+	Enabled = true,
+	PreloadTimeout = 6, -- secondes d'attente maximale du chargement d'un son
+	MonsterNear = 40, -- studs : le murmure et le battement de cœur suivent la distance du monstre
+}
+
 -- Réglages par mode : en solo, plus de temps pour explorer seul avant la première apparition
 Config.Modes = {
 	solo = { activationDelay = 60 },

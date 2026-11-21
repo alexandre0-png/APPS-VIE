@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Sons synthétiques (lot 4)
+- 14 sons ogg approuvés dans `AudioManifest` (ambiance grenier, vent, murmure, chuchotement, sting du monstre, battement de cœur, pas de bois et de course, marche d'escalier, grincement et verrou de porte, clé ramassée, coffre, tic-tac) ; `Config.Audio` (`Enabled`, `PreloadTimeout`, `MonsterNear`).
+- `Audio.preloadNew` charge ces sons en arrière-plan après la carte (serveur) et 3 s après le lancement (client) ; `Audio.play` ne joue un son synthétique que s'il est chargé, sinon l'ancien son reste (`prefer` : ambiance, ambiance longue, grincement de porte, cri du monstre). Aucun son ni erreur si l'asset est refusé.
+- Canaux réutilisés (`Audio.channel` / `Audio.fire`, un Sound par type) : pas (marche, course, escalier ; rien en mode silencieux, accroupi ou en l'air), chuchotement sur indice et étape accomplie, son de ramassage quand l'inventaire s'enrichit, battement de cœur et murmure en boucle selon la distance du monstre (attribut joueur `MonsterDistance` posé par `MonsterAI`), verrou de porte, coffre et coffret, tic-tac en boucle 3D sur l'horloge (portée 22 studs).
+- Règles pures dans `src/shared/SoundRules.lua`, tests `test_audio.py` (choix du son, volumes, repli, canaux, coupure par `Config.Audio.Enabled`) et `test_client.py` (sons chargés ou non, sans erreur). Le test client a trouvé et fait corriger une référence à `inventory` avant sa déclaration.
+
 ### Garnitures et textures Blender (lot 3)
 - 10 modèles : plinthe, moulure, fenêtre à rideaux, œil-de-bœuf, balustrade, marche, encadrement de porte, applique, soupirail, radiateur (`Config.Assets`, plans `fit`, devant « +Z »).
 - Posés après la carte, sans collision : plinthes et moulures par modules de 4 studs dans le salon, le hall, l'entrée et le couloir (hors ouvertures de porte, plafond 150 modules par type, `MapBuilder.TRIM_MAX`), un encadrement par porte (22), fenêtres à rideaux côté intérieur à la place des anciennes (œil-de-bœuf au grenier), 7 appliques, 4 soupiraux, 7 radiateurs sous les fenêtres. Balustrade et marche sont chargées mais non posées : les marches de la carte sont des blocs pleins qui portent le passage.

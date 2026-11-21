@@ -237,6 +237,7 @@ local function setupDoors()
 				local name = panel:GetAttribute("Lock")
 				if name and not Locks.isOpen(name) then
 					Remotes.fire("Message", player, { text = Locks.hint(name) })
+					Audio.play("porte_verrouillee", panel, { lifetime = 3 })
 					return
 				end
 				setDoor(panel, not panel:GetAttribute("Open"))

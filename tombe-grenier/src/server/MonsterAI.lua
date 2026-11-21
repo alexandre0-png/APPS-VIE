@@ -550,6 +550,17 @@ local function updateLocomotion(m)
 	Animations.setLocomotion(m.anims, key)
 end
 
+-- Distance du monstre à chaque joueur (attribut MonsterDistance) : le client règle le battement de cœur et le murmure
+local function publishDistances(m)
+	local Players = game:GetService("Players")
+	for _, player in ipairs(Players:GetPlayers()) do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		pcall(function()
+			player:SetAttribute("MonsterDistance", root and (root.Position - m.root.Position).Magnitude or nil)
+		end)
+	end
+end
+
 local function run(m)
 	while isRunning(m) and clock() < m.activeAt do
 		task.wait(0.5)
@@ -557,6 +568,7 @@ local function run(m)
 
 	while isRunning(m) do
 		updateLocomotion(m)
+		publishDistances(m)
 		openNearbyDoor(m)
 		Workspace:SetAttribute("MonsterAt", m.root.Position)
 		-- Hors de la carte (après une fuite par le portail) : il ne perçoit rien et ne bouge pas

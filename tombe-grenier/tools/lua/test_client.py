@@ -107,6 +107,30 @@ class TestRealClient(unittest.TestCase):
         self.assertFalse(arrow.Visible)
         self.check(lua)
 
+    def test_synthetic_sounds_run_without_error_when_loaded(self):
+        lua = make()
+        lua.execute('local A = REQUIRE("src/shared/Audio.lua"); for _, k in ipairs({"battement_coeur","murmure","pas_bois","pas_courses","marche_escalier","chuchotement","cle_ramassee"}) do A.markReady(k, true) end')
+        lua.execute("runClient()")
+        lua.execute("advance(2)")
+        lua.execute("LOCAL:SetAttribute('MonsterDistance', 8); LOCAL:SetAttribute('Sanity', 10)")
+        fire(lua, "Hint", {"text": "Cherche la clé"})
+        fire(lua, "Inventory", {"smallKey": True, "docs": 1, "docsTotal": 5})
+        fire(lua, "Inventory", {"smallKey": True, "docs": 2, "docsTotal": 5})
+        lua.execute("advance(8)")
+        self.check(lua)
+        names = lua.execute('local n = {} for _, d in ipairs(findGui("TombeHUD"):GetDescendants()) do if d.ClassName == "Sound" then n[#n + 1] = d.Name end end return table.concat(n, ",")')
+        self.assertIn("Canal_battement_coeur", str(names))
+        self.assertIn("Canal_chuchotement", str(names))
+        self.assertIn("Canal_cle_ramassee", str(names))
+
+    def test_sounds_not_loaded_make_no_sound_and_no_error(self):
+        lua = boot()
+        lua.execute("LOCAL:SetAttribute('MonsterDistance', 5)")
+        lua.execute("advance(10)")
+        names = lua.execute('local n = {} for _, d in ipairs(findGui("TombeHUD"):GetDescendants()) do if d.ClassName == "Sound" and string.find(d.Name, "Canal_") then n[#n + 1] = d.Name end end return #n')
+        self.assertEqual(int(names), 0)
+        self.check(lua)
+
     def test_a_failing_handler_is_isolated(self):
         lua = boot()
         # un gestionnaire qui lève une erreur ne bloque pas le suivant

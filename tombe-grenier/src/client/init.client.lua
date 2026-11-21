@@ -14,6 +14,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Audio = require(Shared.Audio)
 local Motion = require(Shared.Motion)
+local SoundRules = require(Shared.SoundRules)
 local RunService = game:GetService("RunService")
 
 -- Isolation : une erreur dans un module ou un gestionnaire n'arrête ni le HUD ni le reste de l'interface.
@@ -448,7 +449,9 @@ safeSpawn("boucle1", function()
 	while true do
 		local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
 		local chasing = workspace:GetAttribute("MonsterChasing") == true
-		if chasing or sanity < Config.Player.SanityLow then
+		if Audio.isReady("battement_coeur") then
+			task.wait(1) -- le battement synthétique en boucle (sons de jeu) prend le relais
+		elseif chasing or sanity < Config.Player.SanityLow then
 			Audio.play("battement", gui, { lifetime = 3 })
 			task.wait(chasing and 0.8 or 0.6 + sanity / 50)
 		else
@@ -495,6 +498,9 @@ local function toggleUv()
 	setUv(not uvOn)
 end
 
+-- État utile aux sons de pas : mode silencieux, sprint, accroupi (posés par les entrées)
+local audioState = { quiet = false, sprint = false, crouch = false }
+
 -- Ambiance continue, baissée pendant une poursuite, et musique de poursuite tant que le monstre chasse
 local ambience = Audio.play("ambiance", gui)
 local chaseMusic = nil
@@ -532,6 +538,68 @@ safeConnect(player:GetAttributeChangedSignal("Hidden"), "Hidden", function()
 	elseif breath then
 		breath:Destroy()
 		breath = nil
+	end
+end)
+
+-- Sons synthétiques : préchargés en arrière-plan après le lancement de la partie ; jamais d'erreur s'ils ne chargent pas
+safeSpawn("préchargement des sons", function()
+	task.wait(3)
+	Audio.preloadNew(function()
+		if Audio.isReady("ambiance_grenier") and ambience then
+			ambience:Destroy()
+			ambience = Audio.play("ambiance", gui)
+			updateMusic()
+		end
+	end)
+end)
+
+-- Boucles et pas : battement de cœur et murmure selon la distance du monstre (posée par le serveur), pas selon la marche
+safeSpawn("sons de jeu", function()
+	local nextStep = 0
+	while true do
+		task.wait(0.1)
+		local near = (Config.Audio and Config.Audio.MonsterNear) or 40
+		local distance = player:GetAttribute("MonsterDistance")
+		local chasing = workspace:GetAttribute("MonsterChasing") == true
+		local sanity = player:GetAttribute("Sanity") or Config.Player.SanityMax
+		local heart = Audio.channel("battement_coeur", gui)
+		if heart then
+			local v = SoundRules.heartVolume(distance, near, chasing, sanity < Config.Player.SanityLow)
+			heart.Volume = v
+			if v > 0.02 and not heart.Playing then
+				heart:Play()
+			elseif v <= 0.02 and heart.Playing then
+				heart:Stop()
+			end
+		end
+		local murmur = Audio.channel("murmure", gui)
+		if murmur then
+			local v = SoundRules.murmurVolume(distance, near, chasing)
+			murmur.Volume = v
+			if v > 0.02 and not murmur.Playing then
+				murmur:Play()
+			elseif v <= 0.02 and murmur.Playing then
+				murmur:Stop()
+			end
+		end
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if humanoid and root and humanoid.Health > 0 and not Cinematic.isPlaying() then
+			local velocity = root.AssemblyLinearVelocity or Vector3.new(0, 0, 0)
+			local key, interval = SoundRules.footstep({
+				speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude,
+				climbing = math.abs(velocity.Y),
+				grounded = humanoid.FloorMaterial ~= Enum.Material.Air,
+				sprint = audioState.sprint,
+				quiet = audioState.quiet,
+				crouch = audioState.crouch,
+			})
+			if key and os.clock() >= nextStep then
+				nextStep = os.clock() + interval
+				Audio.fire(key, gui)
+			end
+		end
 	end
 end)
 
@@ -791,6 +859,7 @@ safeConnect(Remotes.get("Reveal").OnClientEvent, "Remote Reveal", function(data)
 		return
 	end
 	flash(Color3.fromRGB(255, 220, 140), 0.22, 0.6)
+	Audio.fire("chuchotement", gui)
 	showBanner(
 		revealBanner,
 		Reveal.role(data.n, data.total),
@@ -937,6 +1006,22 @@ local inventoryLabel = label({
 local inventory =
 	{ photos = 0, photosRequired = 3, hasKey = false, smallKey = false, caveKey = false, docs = 0, docsTotal = 4 }
 
+-- Chuchotement sur les indices et les étapes accomplies ; son de ramassage quand l'inventaire s'enrichit
+local function inventoryCopy()
+	return {
+		photos = inventory.photos,
+		docs = inventory.docs,
+		hasKey = inventory.hasKey,
+		smallKey = inventory.smallKey,
+		caveKey = inventory.caveKey,
+	}
+end
+local function soundOnPickup(before)
+	if SoundRules.pickedUp(before, inventoryCopy()) then
+		Audio.fire("cle_ramassee", gui)
+	end
+end
+
 local function refreshInventory()
 	local lines = {
 		("Souvenirs %d/%d"):format(inventory.photos, inventory.photosRequired),
@@ -957,25 +1042,30 @@ end
 -- Progression de l'équipe (photos, clé de la sortie) : envoyée par le serveur, affichée ici
 safeConnect(Remotes.get("HUD").OnClientEvent, "Remote HUD", function(data)
 	if typeof(data) == "table" then
+		local before = inventoryCopy()
 		inventory.photos = data.photos or 0
 		inventory.photosRequired = data.photosRequired or 3
 		inventory.hasKey = data.hasKey == true
 		refreshInventory()
+		soundOnPickup(before)
 	end
 end)
 
 safeConnect(Remotes.get("Inventory").OnClientEvent, "Remote Inventory", function(data)
 	if typeof(data) == "table" then
+		local before = inventoryCopy()
 		inventory.smallKey = data.smallKey == true
 		inventory.caveKey = data.caveKey == true
 		inventory.docs = data.docs or inventory.docs
 		inventory.docsTotal = data.docsTotal or inventory.docsTotal
 		refreshInventory()
+		soundOnPickup(before)
 	end
 end)
 
 safeConnect(Remotes.get("Hint").OnClientEvent, "Remote Hint", function(data)
 	if typeof(data) == "table" and data.text then
+		Audio.fire("chuchotement", gui)
 		hintLabel.Text = "Indice : " .. data.text
 		hintLabel.Visible = true
 	end
@@ -1010,14 +1100,17 @@ end)
 
 -- Entrées : Ctrl = silencieux, Shift = sprint, F = lampe, G = lancer de bruit, Échap = fermer
 local function sendQuiet(on)
+	audioState.quiet = on == true
 	Remotes.get("SetQuiet"):FireServer(on)
 end
 
 local function sendSprint(on)
+	audioState.sprint = on == true
 	Remotes.get("SetSprint"):FireServer(on)
 end
 
 local function sendCrouch(on)
+	audioState.crouch = on == true
 	Remotes.get("SetCrouch"):FireServer(on)
 end
 

@@ -3,6 +3,7 @@
   Autorité serveur : toute décision (dégâts, objectifs, IA, sanité) se prend ici.
 ]]
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -439,6 +440,24 @@ end)
 if Hub.role() ~= "hub" then
 	task.spawn(function()
 		boot("modèle du monstre (arrière-plan)", MonsterAI.ensureModel)
+	end)
+	-- Sons synthétiques : préchargés après la carte ; le tic-tac suit l'horloge quand son asset est chargé
+	boot("sons (arrière-plan)", Audio.preloadNew, function()
+		boot("tic-tac de l'horloge", function()
+			if not Audio.isReady("horloge_tic") then
+				return
+			end
+			for _, part in ipairs(CollectionService:GetTagged("Horloge")) do
+				if part:IsA("BasePart") and not part:FindFirstChild("Canal_horloge_tic") then
+					local tic = Audio.channel("horloge_tic", part)
+					if tic then
+						tic.RollOffMaxDistance = 22
+						tic.RollOffMinDistance = 4
+						tic:Play()
+					end
+				end
+			end
+		end)
 	end)
 	boot("textures (arrière-plan)", ModelLoader.loadTextures, function(urls)
 		boot("pose des textures", MapBuilder.applyLateTextures, urls)
