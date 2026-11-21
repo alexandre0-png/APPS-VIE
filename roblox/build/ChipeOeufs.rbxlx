@@ -1314,7 +1314,11 @@ Config.STORY = {
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
-Config.PITY_EVERY = 12 -- tous les 12 éclosions sans pet de rareté supérieure, la suivante l'est garantie
+Config.PITY_ENABLED = false -- la pitié (amélioration garantie) est coupée : l'œuf annoncé fixe la rareté, avec UNE seule exception affichée (Config.UPGRADE)
+Config.PITY_EVERY = 12 -- (si la pitié est activée) toutes les 12 éclosions sans amélioration, la suivante l'est garantie
+-- Amélioration d'un cran de rareté (seule exception à « l'œuf annoncé = la rareté du pet ») : 5 % de base, +1 point par niveau de Trèfle, +10 avec le pass Chance,
+-- +5 en événement chance, +25 avec la potion ; signalée « AMÉLIORÉ ! » à la révélation. Plafond : Rules.MAX_UP.
+Config.UPGRADE = { base = 5, event = 5, pass = 10 }
 
 function Config.rankFor(chaptersDone)
 	local best = Config.RANKS[1]
@@ -1468,6 +1472,19 @@ function Config.achReward(tier, income)
 end
 
 -- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)
+-- Probabilités de base par œuf : « Épique : 95 % Épique, 5 % Légendaire ».
+function Config.eggOddsText()
+	local out = {}
+	for i, t in ipairs(Config.TIERS) do
+		if i < #Config.TIERS then
+			out[#out + 1] = string.format("%s : %d%% %s, %d%% %s", t.name, 100 - Config.UPGRADE.base, t.name, Config.UPGRADE.base, Config.TIERS[i + 1].name)
+		else
+			out[#out + 1] = string.format("%s : 100%% %s", t.name, t.name)
+		end
+	end
+	return table.concat(out, " · ") .. "."
+end
+
 function Config.oddsText()
 	local function pct(list, none)
 		local total = 0
@@ -1480,7 +1497,7 @@ function Config.oddsText()
 		end
 		return table.concat(out, " · ")
 	end
-	return "🎲 Probabilités de base. Rareté du pet : 12% une rareté au-dessus de l'œuf, 22% en dessous, le reste de la même rareté (Trèfle, événements, Pass Chance et Potion augmentent la part « au-dessus », plafonnée à 70%). Mutations : "
+	return "🎲 Probabilités de base. L'œuf annoncé fixe la rareté du pet. Seule exception : " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran, signalée « AMÉLIORÉ ! » (Trèfle, événements, Pass Chance et Potion augmentent cette part, plafonnée à 70%). Jamais de rareté inférieure. Par œuf : " .. Config.eggOddsText() .. " Mutations : "
 		.. pct(Config.MUTS, "Aucune") .. " (le Biome Alien multiplie la mutation Alien par 5). Tailles : " .. pct(Config.SIZES, "Normal") .. "."
 end
 
@@ -5712,7 +5729,7 @@ function hatch(s, i)
 	if not sl or sl.k ~= "e" then
 		return
 	end
-	local guaranteed = sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
+	local guaranteed = Config.PITY_ENABLED and sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
 	local p, upPoints, alienBoost = rollPet(s, sl.t, guaranteed)
 	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed)
 	if p.tier > sl.t then
@@ -5764,7 +5781,7 @@ function hatch(s, i)
 			game:GetService("Debris"):AddItem(hl, Config.AURA.seconds)
 		end
 	end
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t, upgraded = p.tier > sl.t })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end
@@ -10112,12 +10129,12 @@ function Rules.new(Config)
 
 	-- Points de « rareté supérieure » (en %) selon les bonus actifs.
 	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive)
-		local up = 12 + 3 * luckLevel
+		local up = Config.UPGRADE.base + luckLevel -- 5 % de base : UNE chance d'amélioration d'un cran (jamais de rétrogradation)
 		if luckEvent then
-			up += 10
+			up += Config.UPGRADE.event
 		end
 		if passLucky then
-			up += 10
+			up += Config.UPGRADE.pass
 		end
 		if potionActive then
 			up += Config.LUCK_POTION_BONUS
@@ -10127,7 +10144,7 @@ function Rules.new(Config)
 
 	-- Poids { plus bas, identique, plus haut } pour un œuf de rareté `tier`.
 	function R.tierWeights(tier, upPoints)
-		local down = tier > 1 and 22 or 0
+		local down = 0 -- l'œuf annoncé fixe la rareté : jamais de rareté inférieure
 		local up = tier < #Config.TIERS and math.min(math.max(upPoints, 0), R.MAX_UP) or 0
 		return { down, 100 - down - up, up }
 	end
@@ -11300,6 +11317,10 @@ local function revealPop(info)
 	popOdds.Text = oneIn and Config.fmtOdds(oneIn) or ""
 	local reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	local st = Reveal.style(Config, def.tier, oneIn, reduced)
+	if info.upgraded == true and Config.TIERS[info.egg] then
+		popRarity.Text = "⬆ AMÉLIORÉ ! " .. Config.TIERS[info.egg].name .. " → " .. tier.name
+		popRarity.TextSize = 22
+	end
 	if st.secret then
 		popRarity.Text = "✦ " .. st.label .. " ✦"
 		popRarity.TextColor3 = st.color
@@ -11539,7 +11560,7 @@ function render()
 		text(wf, { Position = UDim2.fromOffset(70, 34), Size = UDim2.new(1, -80, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = Config.WEALTH[wt].name })
 	end
 	if panel.name == "shop" and panel.tab == "eggs" then
-		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n🎁 Pitié : un pet de rareté supérieure est garanti dans " .. math.max(1, Config.PITY_EVERY - state.pity) .. " éclosion(s) si aucun n'est tombé d'ici là.")
+		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n⬆ L'œuf fixe la rareté du pet ; " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran (signalée « AMÉLIORÉ ! »).")
 		-- Carrousel d'œufs : l'œuf choisi est mis en avant, les voisins sont plus petits et sombres
 		panel.eggSel = panel.eggSel or Config.carouselDefault(coins())
 		local sel = panel.eggSel

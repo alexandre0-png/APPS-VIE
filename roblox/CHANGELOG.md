@@ -2,6 +2,14 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Retours de test 3 : œuf annoncé = rareté du pet
+
+- Faux (code) : `Rules.tierWeights` donnait 22 % de rareté inférieure et 12 % de rareté supérieure (+3 par niveau de Trèfle, +10 pass, +25 potion), plus une pitié qui garantissait une amélioration toutes les 12 éclosions. Un œuf Épique donnait donc environ 66 % Épique, 12 % Légendaire (jusqu'à 100 % avec la pitié) et 22 % Rare.
+- Corrigé : plus aucune rétrogradation ; amélioration d'un cran seulement : 5 % de base (`Config.UPGRADE`), +1 par niveau de Trèfle, +10 pass Chance, +5 événement, +25 potion, plafond 70 % ; pitié coupée (`Config.PITY_ENABLED = false`) ; la révélation affiche « ⬆ AMÉLIORÉ ! Épique → Légendaire » (`upgraded` dans l'événement Hatch) ; le menu des probabilités liste chaque œuf (« Épique : 95% Épique, 5% Légendaire ») et dit « Jamais de rareté inférieure ».
+- Mesuré (10 000 tirages par œuf, sans bonus) : œuf Épique ≥ 94 % Épique, 5 % Légendaire (amélioré), 0 autre ; 6 œufs sans saut de deux crans ; probabilité annoncée par `Reveal.probability` = 0,95 exactement.
+- Banc de test : le `Debris` du runtime factice détruit maintenant les objets après leur délai (il ne faisait rien) ; le contrôle de fuite d'objets de 80 éclosions est donc réel.
+- Économie : l'amélioration passant de 12 % à 5 % et la pitié coupée, la progression vers les raretés hautes est plus lente ; `tests/Economy.lua` (simulation de rythme) n'a pas été recalibré.
+
 ## Retours de test 2 : le revenu ne monte plus tout seul
 
 - Faux : `fastTick` créditait `income x dt` en permanence, joueur inactif ou non ; le hors-ligne créditait 40 % de 4 h d'un coup, sans message à récupérer.

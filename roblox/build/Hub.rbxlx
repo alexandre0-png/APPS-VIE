@@ -1314,7 +1314,11 @@ Config.STORY = {
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
-Config.PITY_EVERY = 12 -- tous les 12 éclosions sans pet de rareté supérieure, la suivante l'est garantie
+Config.PITY_ENABLED = false -- la pitié (amélioration garantie) est coupée : l'œuf annoncé fixe la rareté, avec UNE seule exception affichée (Config.UPGRADE)
+Config.PITY_EVERY = 12 -- (si la pitié est activée) toutes les 12 éclosions sans amélioration, la suivante l'est garantie
+-- Amélioration d'un cran de rareté (seule exception à « l'œuf annoncé = la rareté du pet ») : 5 % de base, +1 point par niveau de Trèfle, +10 avec le pass Chance,
+-- +5 en événement chance, +25 avec la potion ; signalée « AMÉLIORÉ ! » à la révélation. Plafond : Rules.MAX_UP.
+Config.UPGRADE = { base = 5, event = 5, pass = 10 }
 
 function Config.rankFor(chaptersDone)
 	local best = Config.RANKS[1]
@@ -1468,6 +1472,19 @@ function Config.achReward(tier, income)
 end
 
 -- Probabilités affichées dans le jeu (transparence sur les tirages aléatoires, exigée par Roblox pour les achats Robux liés au hasard)
+-- Probabilités de base par œuf : « Épique : 95 % Épique, 5 % Légendaire ».
+function Config.eggOddsText()
+	local out = {}
+	for i, t in ipairs(Config.TIERS) do
+		if i < #Config.TIERS then
+			out[#out + 1] = string.format("%s : %d%% %s, %d%% %s", t.name, 100 - Config.UPGRADE.base, t.name, Config.UPGRADE.base, Config.TIERS[i + 1].name)
+		else
+			out[#out + 1] = string.format("%s : 100%% %s", t.name, t.name)
+		end
+	end
+	return table.concat(out, " · ") .. "."
+end
+
 function Config.oddsText()
 	local function pct(list, none)
 		local total = 0
@@ -1480,7 +1497,7 @@ function Config.oddsText()
 		end
 		return table.concat(out, " · ")
 	end
-	return "🎲 Probabilités de base. Rareté du pet : 12% une rareté au-dessus de l'œuf, 22% en dessous, le reste de la même rareté (Trèfle, événements, Pass Chance et Potion augmentent la part « au-dessus », plafonnée à 70%). Mutations : "
+	return "🎲 Probabilités de base. L'œuf annoncé fixe la rareté du pet. Seule exception : " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran, signalée « AMÉLIORÉ ! » (Trèfle, événements, Pass Chance et Potion augmentent cette part, plafonnée à 70%). Jamais de rareté inférieure. Par œuf : " .. Config.eggOddsText() .. " Mutations : "
 		.. pct(Config.MUTS, "Aucune") .. " (le Biome Alien multiplie la mutation Alien par 5). Tailles : " .. pct(Config.SIZES, "Normal") .. "."
 end
 

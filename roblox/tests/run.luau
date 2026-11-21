@@ -156,8 +156,8 @@ check("wpick traite un poids négatif comme 0", Rules.wpick({ 22, -9, 87 }, cons
 check("wpick poids tous nuls -> dernier index", Rules.wpick({ 0, 0, 0 }, const(0.5)) == 3)
 
 -- tierWeights / upPoints / pickTier
-check("upPoints de base = 12", Rules.upPoints(0, false, false, false) == 12)
-check("upPoints cumulés = 87", Rules.upPoints(10, true, true, true) == 87)
+check("upPoints de base = 5 (amélioration d'un cran, jamais plus de 5 % sans bonus)", Rules.upPoints(0, false, false, false) == 5)
+check("upPoints cumulés = 55 (5 + 10 niveaux + événement 5 + pass 10 + potion 25)", Rules.upPoints(10, true, true, true) == 55)
 for tier = 1, 6 do
 	for _, up in ipairs({ -5, 0, 12, 42, 87, 500 }) do
 		local w = Rules.tierWeights(tier, up)
@@ -167,7 +167,7 @@ end
 check("rareté 1 : jamais de rareté inférieure", Rules.tierWeights(1, 12)[1] == 0)
 check("rareté 6 : jamais de rareté supérieure", Rules.tierWeights(6, 87)[3] == 0)
 check("part supérieure plafonnée", Rules.tierWeights(3, 500)[3] == Rules.MAX_UP)
-check("pickTier rnd=0 -> inférieure", Rules.pickTier(3, 12, const(0)) == 2)
+check("pickTier rnd=0 -> identique (jamais de rareté inférieure)", Rules.pickTier(3, 12, const(0)) == 3)
 check("pickTier rnd=0.5 -> identique", Rules.pickTier(3, 12, const(0.5)) == 3)
 check("pickTier rnd=0.99 -> supérieure", Rules.pickTier(3, 12, const(0.99)) == 4)
 check("pickTier rareté 1 jamais < 1", Rules.pickTier(1, 12, const(0)) >= 1)
@@ -253,7 +253,7 @@ for i = 2, #Config.RANKS do
 end
 check("bonus de collection neutre", Config.collectionBonus(0) == 1 and Config.collectionBonus(2) == 1)
 check("bonus de collection par paliers", near(Config.collectionBonus(3), 1.05) and near(Config.collectionBonus(18), 1.30))
-check("pitié définie", Config.PITY_EVERY >= 2)
+check("pitié définie mais coupée (l'œuf annoncé fixe la rareté)", Config.PITY_EVERY >= 2 and Config.PITY_ENABLED == false)
 check("sons : chaque clé a id, speed, vol", (function()
 	for _, def in pairs(Config.SOUNDS) do
 		if type(def.id) ~= "string" or type(def.speed) ~= "number" or type(def.vol) ~= "number" then
@@ -5794,6 +5794,54 @@ do
 		RT.step(1)
 		check("Hors ligne : un second clic ne crédite rien de plus et sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), (p2:GetAttribute("Coins") or 0) - c2 < 100 + inc * 5 and #RT.errors == 0)
 	end
+end
+
+
+do
+	suite("Œuf annoncé = rareté du pet : 10 000 éclosions par œuf, amélioration d'un cran seule exception")
+	local seed = 20260101
+	local function rnd()
+		seed = (seed * 16807) % 2147483647
+		return seed / 2147483647
+	end
+	local allOk, why = true, ""
+	for egg = 1, #Config.TIERS do
+		local same, up, other = 0, 0, 0
+		for _ = 1, 10000 do
+			local r = Rules.rollPet(egg, Rules.upPoints(0, false, false, false), false, rnd, false)
+			local d = Config.PETS[r.p].tier - egg
+			if d == 0 then
+				same = same + 1
+			elseif d == 1 then
+				up = up + 1
+			else
+				other = other + 1
+			end
+		end
+		local expectedUp = egg < #Config.TIERS and 0.05 or 0
+		if other > 0 or same / 10000 < 0.945 and egg < #Config.TIERS or (egg == #Config.TIERS and same ~= 10000) or math.abs(up / 10000 - expectedUp) > 0.012 then
+			allOk, why = false, "œuf " .. egg .. " : " .. same .. " identiques, " .. up .. " améliorés, " .. other .. " autres"
+		end
+		if egg == 3 then
+			check("Œuf Épique sans bonus : " .. same / 100 .. " % Épique, " .. up / 100 .. " % Légendaire (amélioré), " .. other .. " autres (>= 95 % Épique à 0,5 point près)", same / 10000 >= 0.94 and other == 0)
+		end
+	end
+	check("Les 6 œufs : jamais de rareté inférieure ni de saut de deux crans, 5 % d'amélioration de base " .. why, allOk)
+	local capped = Rules.tierWeights(3, 500)
+	check("Avec tous les bonus, la part d'amélioration reste plafonnée (" .. capped[3] .. " %) et il n'y a toujours aucune rétrogradation", capped[1] == 0 and capped[3] == Rules.MAX_UP)
+	local RVx = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Reveal.lua"), { debugName = "Reveal" })()
+	local pr = 0
+	for pidx, def in ipairs(Config.PETS) do
+		if def.tier == 3 then
+			for sz = 1, #Config.SIZES do
+				for mu = 1, #Config.MUTS do
+					pr = pr + RVx.probability(Config, Rules, 3, Rules.upPoints(0, false, false, false), false, pidx, sz, mu, false)
+				end
+			end
+		end
+	end
+	check("Probabilité annoncée d'obtenir un pet Épique d'un œuf Épique = " .. string.format("%.3f", pr) .. " (95 %)", math.abs(pr - 0.95) < 1e-6)
+	check("Texte des probabilités : par œuf, « AMÉLIORÉ ! », jamais de rareté inférieure", Config.oddsText():find("AMÉLIORÉ", 1, true) and Config.oddsText():find("Épique : 95% Épique, 5% Légendaire", 1, true) and Config.oddsText():find("Jamais de rareté inférieure", 1, true))
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

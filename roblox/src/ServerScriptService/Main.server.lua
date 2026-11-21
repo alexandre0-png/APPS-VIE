@@ -697,7 +697,7 @@ function hatch(s, i)
 	if not sl or sl.k ~= "e" then
 		return
 	end
-	local guaranteed = sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
+	local guaranteed = Config.PITY_ENABLED and sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
 	local p, upPoints, alienBoost = rollPet(s, sl.t, guaranteed)
 	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed)
 	if p.tier > sl.t then
@@ -749,7 +749,7 @@ function hatch(s, i)
 			game:GetService("Debris"):AddItem(hl, Config.AURA.seconds)
 		end
 	end
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t, upgraded = p.tier > sl.t })
 	if def.tier >= 6 or p.m == 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end

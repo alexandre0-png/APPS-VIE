@@ -545,6 +545,13 @@ function Fake.runtime(opts)
 	service("ServerStorage")
 	service("Lighting")
 	service("Debris")
+	rawget(services.Debris, "__props").AddItem = function(_, obj, seconds)
+		task.delay(tonumber(seconds) or 10, function()
+			pcall(function()
+				obj:Destroy() -- comme Roblox : l'objet est détruit après le délai
+			end)
+		end)
+	end
 	service("TweenService")
 	service("CollectionService")
 	service("ProximityPromptService")

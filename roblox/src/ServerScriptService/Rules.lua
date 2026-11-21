@@ -37,12 +37,12 @@ function Rules.new(Config)
 
 	-- Points de « rareté supérieure » (en %) selon les bonus actifs.
 	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive)
-		local up = 12 + 3 * luckLevel
+		local up = Config.UPGRADE.base + luckLevel -- 5 % de base : UNE chance d'amélioration d'un cran (jamais de rétrogradation)
 		if luckEvent then
-			up += 10
+			up += Config.UPGRADE.event
 		end
 		if passLucky then
-			up += 10
+			up += Config.UPGRADE.pass
 		end
 		if potionActive then
 			up += Config.LUCK_POTION_BONUS
@@ -52,7 +52,7 @@ function Rules.new(Config)
 
 	-- Poids { plus bas, identique, plus haut } pour un œuf de rareté `tier`.
 	function R.tierWeights(tier, upPoints)
-		local down = tier > 1 and 22 or 0
+		local down = 0 -- l'œuf annoncé fixe la rareté : jamais de rareté inférieure
 		local up = tier < #Config.TIERS and math.min(math.max(upPoints, 0), R.MAX_UP) or 0
 		return { down, 100 - down - up, up }
 	end

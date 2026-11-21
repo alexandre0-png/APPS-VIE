@@ -437,6 +437,10 @@ local function revealPop(info)
 	popOdds.Text = oneIn and Config.fmtOdds(oneIn) or ""
 	local reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	local st = Reveal.style(Config, def.tier, oneIn, reduced)
+	if info.upgraded == true and Config.TIERS[info.egg] then
+		popRarity.Text = "⬆ AMÉLIORÉ ! " .. Config.TIERS[info.egg].name .. " → " .. tier.name
+		popRarity.TextSize = 22
+	end
 	if st.secret then
 		popRarity.Text = "✦ " .. st.label .. " ✦"
 		popRarity.TextColor3 = st.color
@@ -676,7 +680,7 @@ function render()
 		text(wf, { Position = UDim2.fromOffset(70, 34), Size = UDim2.new(1, -80, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = Config.WEALTH[wt].name })
 	end
 	if panel.name == "shop" and panel.tab == "eggs" then
-		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n🎁 Pitié : un pet de rareté supérieure est garanti dans " .. math.max(1, Config.PITY_EVERY - state.pity) .. " éclosion(s) si aucun n'est tombé d'ici là.")
+		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n⬆ L'œuf fixe la rareté du pet ; " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran (signalée « AMÉLIORÉ ! »).")
 		-- Carrousel d'œufs : l'œuf choisi est mis en avant, les voisins sont plus petits et sombres
 		panel.eggSel = panel.eggSel or Config.carouselDefault(coins())
 		local sel = panel.eggSel
