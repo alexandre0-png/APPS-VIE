@@ -33,7 +33,7 @@ class TestChainData(unittest.TestCase):
         self.assertEqual(
             self.ids,
             ["note", "reflet", "coffret", "chest", "key", "melodie", "horloge", "statues", "photos",
-             "sortie", "cave", "sous_sol", "retour", "enfant"],
+             "sortie", "cave", "sous_sol", "enfant", "retour"],
         )
         self.assertEqual(len(set(self.ids)), len(self.ids))
 
@@ -42,10 +42,18 @@ class TestChainData(unittest.TestCase):
             step = self.C.STEPS[i]
             self.assertTrue(step.objective and step.hint and step.area, step.id)
 
-    def test_child_is_the_last_step_and_after_the_basement(self):
-        self.assertEqual(self.ids[-1], "enfant")
-        self.assertLess(self.ids.index("retour"), self.ids.index("enfant"))
+    def test_child_is_in_the_cave_after_entering_it_and_before_the_way_out(self):
+        self.assertEqual(self.ids[-1], "retour")
+        self.assertEqual(self.ids.index("enfant"), self.ids.index("sous_sol") + 1, "libérée juste après l'entrée dans la cave")
+        self.assertLess(self.ids.index("enfant"), self.ids.index("retour"))
         self.assertLess(self.ids.index("sortie"), self.ids.index("sous_sol"))
+        self.assertEqual(self.C.get("enfant").area, "sous-sol")
+
+    def test_no_text_places_the_child_in_the_attic(self):
+        for step in ("enfant", "retour", "sous_sol"):
+            text = self.C.get(step).objective + " " + self.C.get(step).hint
+            self.assertNotIn("grenier", text.lower(), step)
+        self.assertIn("cave", self.C.get("enfant").objective.lower())
 
     def test_only_the_next_step_is_active(self):
         for k in range(len(self.ids) + 1):
@@ -119,15 +127,16 @@ class TestServerLocks(unittest.TestCase):
         self.assertIn('gate("horloge"', sub)
         date = self.src[self.src.index("local function submitDate"):self.src.index("local function submitHorloge")]
         self.assertIn('canAct("enfant")', date)
-        self.assertIn("leftViaBasement", date)
+        self.assertNotIn("leftViaBasement", date)  # l'enfant est dans la cave : plus besoin d'être ressorti
         code = self.src[self.src.index("function Quests.submitCode"):]
         self.assertIn('gate("coffret"', code)
 
-    def test_child_requires_leaving_by_the_basement_on_the_prompt_too(self):
+    def test_child_prompt_is_chain_gated_and_in_the_cage(self):
         i = self.src.index('action = "Libérer l\'enfant"')
         window = self.src[i:i + 900]
-        self.assertIn("state.leftViaBasement", window)
-        self.assertIn("sortir de la maison par le sous-sol", window)
+        self.assertIn('gate("enfant"', window)
+        self.assertNotIn("leftViaBasement", window)
+        self.assertIn('object = "Cage"', window)
 
     def test_photos_and_key_pickups_go_through_the_chain(self):
         obj = read("src", "server", "Objectives.lua")

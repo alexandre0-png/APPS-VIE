@@ -646,7 +646,10 @@ local function buildHouse(root)
 		end
 		if f.name == "cercueil" then
 			part.CanCollide = false -- décoratif : le point de spawn est juste dessous
-			CollectionService:AddTag(part, "Tombe")
+			CollectionService:AddTag(part, "CercueilCurse") -- choix de la malédiction : refermer le cercueil du grenier
+		end
+		if f.name == "cage de l'enfant" then
+			CollectionService:AddTag(part, "Tombe") -- l'enfant à libérer, au fond de la cave
 		end
 	end
 	local paintingCount = 0
@@ -1333,6 +1336,8 @@ local STANDALONE_DECOR = {
 -- Accessoires Blender de lisibilité (sans collision) : { modèle, x, sol ou bas du modèle, z, taille cible X/Y/Z }.
 -- Emplacements calculés hors meubles, hors zones de portes et hors couloirs de passage (tools/lua/test_boot_async.py les vérifie).
 MapBuilder.ACCESSORIES = {
+	{ "bougie chandelier", 53, -12, 78.4, { 0.6, 1, 0.6 } }, -- cave : lueur près de la cage de l'enfant
+	{ "bougie chandelier", 59, -12, 78.4, { 0.6, 1, 0.6 } },
 	{ "tapis rond", 26, 0.06, 67, { 6, 0.2, 6 } }, -- salle à manger
 	{ "tapis rond", 30, 24.06, 45, { 6, 0.2, 6 } }, -- grenier
 	{ "valise", 3, 24, 2, { 2.5, 1.5, 1.5 } },

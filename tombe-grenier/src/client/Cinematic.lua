@@ -128,24 +128,24 @@ local SHOTS = {
 			{ from = { 80, -2, 50 }, look = { 90, -6, 90 }, t = 8 },
 		},
 	},
-	-- Fin 3, la vérité : la lumière monte du cercueil vers le ciel
+	-- Fin 3, la vérité : la cage s'ouvre au fond de la cave, la lumière monte vers le ciel
 	truth = {
 		plans = {
-			{ from = { 90, 26, 45 }, look = { 90, 30, 44 }, t = 3 },
-			{ from = { 90, 60, 45 }, look = { 90, 90, 45 }, t = 4 },
-			{ from = { 90, 40, 45 }, look = { 90, 60, 45 }, t = 8 },
+			{ from = { 53, -8, 76 }, look = { 55, -8.5, 84 }, t = 3 },
+			{ from = { 55, -4, 84 }, look = { 55, 30, 84 }, t = 4 },
+			{ from = { 55, 10, 84 }, look = { 55, 60, 84 }, t = 8 },
 			{ from = { 60, 95, -20 }, look = { 60, 60, 45 }, t = 10 },
 			{ from = { 60, 140, -60 }, look = { 60, 80, 45 }, t = 8 },
 		},
 	},
-	-- Fin 4, le piège : l'enfant reste dans le cercueil, le couvercle se referme
+	-- Fin 4, le piège : l'enfant reste dans la cage, qui se referme
 	sealed = {
 		fadeOut = true,
 		plans = {
-			{ from = { 90, 25.5, 45 }, look = { 90, 26, 43 }, t = 8 },
-			{ from = { 90, 28, 36 }, look = { 90, 26.1, 42.5 }, t = 8 },
-			{ from = { 90, 25.6, 45 }, look = { 90, 25.4, 44 }, t = 8 },
-			{ from = { 90, 27, 36 }, look = { 90, 26, 42.5 }, t = 8 },
+			{ from = { 55, -8.5, 76 }, look = { 55, -9, 84 }, t = 8 },
+			{ from = { 48, -7, 80 }, look = { 55, -9, 84 }, t = 8 },
+			{ from = { 62, -8.6, 78 }, look = { 55, -9.5, 84 }, t = 8 },
+			{ from = { 55, -6, 74 }, look = { 55, -9, 84 }, t = 8 },
 		},
 	},
 	-- Fin 2, la malédiction : le couvercle se referme, puis la plaque gravée

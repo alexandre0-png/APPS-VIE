@@ -5,8 +5,8 @@
   le client n'a aucun rôle dans l'état de la partie.
 
   Ordre : grenier (papier, reflet, coffret, malle, clé) -> étages (mélodie, horloge, statues, photos) ->
-  sortie par la porte d'entrée -> sous-sol (porte de la cave, puis la cave) -> retour dehors par le sous-sol ->
-  grenier (l'enfant). L'enfant n'est sauvable qu'après être sorti de la maison par le sous-sol.
+  sortie par la porte d'entrée -> sous-sol (porte de la cave, puis la cave) -> l'enfant, enfermé dans une cage au fond
+  de la cave -> retour dehors par le sous-sol. L'enfant n'est sauvable qu'après être entré dans la cave.
 ]]
 local Chain = {}
 
@@ -82,19 +82,19 @@ Chain.STEPS = {
 		id = "sous_sol",
 		area = "sous-sol",
 		objective = "Entre dans la cave",
-		hint = "La porte métallique est ouverte : avance dans la cave.",
+		hint = "La porte métallique est ouverte : avance dans la cave, quelqu'un y est enfermé.",
+	},
+	{
+		id = "enfant",
+		area = "sous-sol",
+		objective = "Dans la cave, lis les quatre documents et libère l'enfant dans la cage",
+		hint = "L'enfant est dans la cage, au fond de la cave. Lis les quatre documents de la maison, puis entre la date de la plaque devant la cage.",
 	},
 	{
 		id = "retour",
 		area = "sous-sol",
-		objective = "Ressors de la maison par le sous-sol",
-		hint = "Remonte par la porte du sous-sol, côté jardin. Le monstre te suit.",
-	},
-	{
-		id = "enfant",
-		area = "grenier",
-		objective = "Remonte au grenier, lis les quatre documents et libère l'enfant au cercueil",
-		hint = "Rentre par la porte d'entrée et monte au grenier. Lis les quatre documents, puis entre la date de la plaque au cercueil.",
+		objective = "Ressors de la maison par le sous-sol, avec l'enfant",
+		hint = "Remonte par la porte du sous-sol, côté jardin. L'enfant te suit, et le monstre aussi.",
 	},
 }
 

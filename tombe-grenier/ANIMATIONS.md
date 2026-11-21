@@ -29,7 +29,7 @@ Au plus 8 s, passables (Espace, Échap, Entrée ou bouton « Passer »), refusé
 | `objet_precieux` | 4 s | orbite en gros plan teintée or ; dolly lent ; pilier de lumière | étapes `coffret` et `key` accomplies |
 | `porte_ouvre` | 4 s | plan large qui avance ; dolly vers la porte, grincement | étape `cave` accomplie |
 | `sortie_soussol` | 7 s | plongée montante, puis plan aérien teinté de jour | étape `retour` accomplie |
-| `enfant_retrouve` | 5 s | orbite lente ; dolly, aura d'ailes | étape `enfant` accomplie |
+| `enfant_retrouve` | 5 s | orbite lente autour de la cage de la cave ; dolly, aura d'ailes | étape `enfant` accomplie (l'enfant est libéré dans la cave) |
 | `fuite_finale` | 8 s | poursuite par l'arrière ; plongée avec carton « Tu es sorti. » ; carton « Sortir Du Grenier » (générique) | fin victorieuse (Effect Cine `win`) |
 
 Trajectoires : `travelling`, `orbite` (rayon constant), `plongee`, `dolly` (avec variation du champ de vision) ; easings `linear`, `Sine`, `Quad`, `Quint`, `Back`, `Elastic` ; options de prise : `shake`, `slow`, `title`, `blur`, `tint`, `focus`.

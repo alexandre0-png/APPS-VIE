@@ -70,7 +70,7 @@ local function followLoop()
 	end
 end
 
--- Libération : l'enfant apparaît au cercueil et commence à suivre les joueurs
+-- Libération : l'enfant sort de la cage, au fond de la cave, et commence à suivre les joueurs
 function Finale.freed()
 	if child then
 		return
@@ -86,7 +86,9 @@ function Finale.freed()
 			d.CanCollide = false
 		end
 	end
-	child:PivotTo(CFrame.new(90, 25.5, 45))
+	local cage = game:GetService("CollectionService"):GetTagged("Tombe")[1]
+	local at = cage and cage.Position or Vector3.new(55, -9, 84)
+	child:PivotTo(CFrame.new(at.X, at.Y - (cage and cage.Size.Y / 2 or 2.5) + 2.5, at.Z))
 	child.Parent = Workspace
 	following = true
 	task.spawn(followLoop)

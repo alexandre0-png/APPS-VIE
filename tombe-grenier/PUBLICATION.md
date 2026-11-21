@@ -12,7 +12,7 @@ Document de préparation du passage en public. Rien n'est publié par le code : 
 **Description longue** (moins de 1000 caractères) :
 > Tu te réveilles dans un cercueil, au grenier d'une vieille maison. Quelque chose rôde en bas.
 >
-> Sortir Du Grenier est un jeu d'horreur en première personne pour un joueur ou un duo. Explore trois étages, une cave et un sous-sol, lis les notes laissées par la famille, trouve la clé, le coffret, l'horloge, la mélodie du gramophone et libère l'enfant avant de t'enfuir.
+> Sortir Du Grenier est un jeu d'horreur en première personne pour un joueur ou un duo. Explore trois étages, une cave et un sous-sol, lis les notes laissées par la famille, trouve la clé, le coffret, l'horloge, la mélodie du gramophone, descends dans la cave pour libérer l'enfant qu'on y a enfermé, puis enfuis-toi.
 >
 > Une ombre patrouille la maison. Elle entend tes pas, ta course, ta lampe. Cache-toi dans une armoire, accroupis-toi, lance un objet pour la détourner et garde ton sang-froid : ta sanité baisse dans le noir.
 >

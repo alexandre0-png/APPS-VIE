@@ -124,7 +124,7 @@ Chaîne principale, vers la sortie :
 Chaîne parallèle, vers la fin « vérité » :
 - Lire les 4 documents (journal, cahier d'écolier, photo de famille, plaque du cercueil). Chacun a 2 à 3 emplacements.
 - Recouper les dates : le journal et la plaque donnent la vraie date (mois/jour), le cahier en donne une fausse en marge.
-- Libérer l'enfant au cercueil une fois les 4 documents lus. Un clavier demande la date de la plaque en quatre chiffres (mois puis jour, par exemple `0314`).
+- Libérer l'enfant, enfermé dans la cage au fond de la cave (sous-sol), une fois entré dans la cave et les 4 documents lus (l'étape `enfant` suit `sous_sol`, puis `retour` : ressortir par le sous-sol avec l'enfant). Un clavier demande la date de la plaque en quatre chiffres (mois puis jour, par exemple `0314`).
 - Le gramophone donne une mélodie de trois notes (do, ré, mi, sol), tirée à chaque partie. La boîte à musique se joue note par note : une faute repart de zéro, la mélodie complète ouvre la salle de bain.
 - Bibliothèque (autre chemin vers la petite clé, donc vers la malle) : trois livres parmi ceux des bibliothèques portent un marque-page numéroté 1, 2, 3, tirés à chaque partie. Les feuilleter dans l'ordre 1, 2, 3 donne la petite clé. Une faute repart de zéro.
 - Statues (une dans le salon, une dans la cuisine, une dans le bureau) : chacune se tourne par quarts de tour. Les trois doivent regarder la même direction, tirée à chaque partie. Résolues, elles ouvrent la cave, sans la vraie clé.
@@ -139,7 +139,7 @@ Trois fins, chacune comptée dans « Fins trouvées » pour la session serveur :
 - Indication : la touche H affiche en bas à gauche l'indication de l'étape courante. Un délai de `Config.Quests.HintCooldown` secondes s'applique entre deux demandes.
 - Au réveil, un court rappel des règles s'affiche pendant 12 secondes.
 - Vitesse : marche 8, course 13, silencieux 3 (`Config.Player`), pour que la maison prenne du temps.
-- Fin 3, la vérité : l'enfant est libéré au cercueil (date de la plaque). Il suit alors les joueurs (il ne peut pas être attrapé). Il faut fuir par le portail : une voiture attend au bout de l'allée, on monte à bord, et le monstre suit de loin ; la partie se termine ensuite.
+- Fin 3, la vérité : l'enfant est libéré dans la cage de la cave (date de la plaque). Il suit alors les joueurs (il ne peut pas être attrapé). Il faut fuir par le portail : une voiture attend au bout de l'allée, on monte à bord, et le monstre suit de loin ; la partie se termine ensuite.
 
 Indications : après 3 minutes sans progrès (`Config.Quests.HintDelay`), un indice s'affiche, une seule fois par étape.
 
@@ -166,7 +166,7 @@ Pas de sang : les coups se traduisent par un voile sombre, un son et une pause d
 
 ## Hub : salon commun
 
-Tous les joueurs arrivent dans un hub loin de la maison. La borne « Lancer la partie » démarre la partie. Sans borne, elle démarre 30 s après l'arrivée du premier joueur (`Config.Game.HubWait`). Tous les joueurs présents sont téléportés dans le cercueil du grenier.
+Tous les joueurs arrivent dans un hub loin de la maison. La borne « Lancer la partie » démarre la partie. Sans borne, rien ne démarre (`Config.Game.AutoStart = false`) ; avec `AutoStart = true`, elle démarre 30 s après l'arrivée du premier joueur (`Config.Game.HubWait`). Tous les joueurs présents sont téléportés dans le cercueil du grenier.
 
 Le mode suit le nombre de joueurs : un seul joueur = solo (première apparition après 60 s), deux = duo (45 s).
 

@@ -31,13 +31,13 @@ Markers.STYLES = {
 	},
 	{
 		category = "levier",
-		tags = { "Switch", "Phone", "TV", "Tiroir", "Rocking", "MusicBox" },
+		tags = { "Switch", "Phone", "TV", "Tiroir", "Rocking", "MusicBox", "CercueilCurse" },
 		color = { 255, 90, 60 },
 		icon = "LEVIER",
 		label = "Mécanisme",
 	},
 	{ category = "cachette", tags = { "Hiding" }, color = { 110, 230, 150 }, icon = "CACHE", label = "Cachette" },
-	{ category = "enfant", tags = { "Tombe" }, color = { 255, 110, 190 }, icon = "ENFANT", label = "L'enfant" },
+	{ category = "enfant", tags = { "Tombe" }, color = { 255, 110, 190 }, icon = "ENFANT", label = "L'enfant (cave)" },
 	{
 		category = "outil",
 		tags = { "Battery", "Throwable" },

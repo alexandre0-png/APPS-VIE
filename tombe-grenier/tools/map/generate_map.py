@@ -180,6 +180,7 @@ FURNITURE = {
         ("établi", 64, 60, 74, 64, 3, "bois"),
         ("caisses", 62, 76, 70, 82, 3, "bois"),
         ("étagère", 72, 20, 78, 30, 7, "bois"),
+        ("cage de l'enfant", 50, 80, 60, 88, 5, "metal"),
     ],
     "ps": [
         ("étagère", 84, 4, 90, 12, 6, "bois"),
@@ -625,7 +626,7 @@ BATTERY_SLOTS = [
     _s("cuisine, plan de travail", (109, 2.6, 18), (0.6, 0.5, 0.4)),
     _s("grenier, caisses", (12, 28.1, 64), (0.6, 0.5, 0.4)),
     _s("chambre des parents, sol", (10, 0.1, 32), (0.6, 0.5, 0.4)),
-    _s("cave, au sol derrière les caisses", (50, -11.9, 85), (0.6, 0.5, 0.4)),
+    _s("cave, au sol derrière les caisses", (66, -11.9, 86), (0.6, 0.5, 0.4)),
 ]
 
 FALL_SLOTS = [
@@ -685,6 +686,13 @@ DARK_COUNT = 4
 
 # Décor : tapis et tableaux (non collisionnables)
 DECOR = [
+    # Cave : le coin de l'enfant (matelas, chaînes, jouets), autour de la cage
+    box(51, 55, -12, -11.6, 82, 86, "tissu", "matelas de l'enfant", deco=True),
+    box(56, 57, -12, -11.5, 84.5, 85.5, "jouet", "jouet de l'enfant", deco=True),
+    box(52.8, 53, -9, -6, 80.2, 80.4, "metal", "chaîne de la cage", deco=True),
+    box(57, 57.2, -9, -6, 80.2, 80.4, "metal", "chaîne de la cage", deco=True),
+    box(60.1, 60.3, -12, -8.5, 83, 83.2, "metal", "chaîne au mur", deco=True),
+    box(49, 50, -12, -11.7, 84, 85, "papiers", "dessins d'enfant froissés", deco=True),
     box(10, 30, 0, 0.05, 24, 34, "tissu", "tapis salon", deco=True),
     box(17, 23, 4, 8, 0.8, 1.2, "bois_sombre", "tableau salon", deco=True),
     box(8, 30, 12, 12.05, 20, 34, "tissu", "tapis chambre des parents", deco=True),

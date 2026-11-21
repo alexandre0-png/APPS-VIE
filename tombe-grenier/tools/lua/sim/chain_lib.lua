@@ -118,7 +118,7 @@ return function(H, Quests, w, alice, find)
 			for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
 				H.trigger(w.docs[kind], "QuestPrompt", alice)
 			end
-			moveTo(90, 26, 43)
+			moveTo(55, -9, 80)
 			H.trigger(w.tomb, "QuestPrompt", alice)
 			Quests.submitCode(alice, sec.date)
 		end,

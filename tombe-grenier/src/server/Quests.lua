@@ -9,7 +9,7 @@
     5. Sortir par la porte d'entrée (photos + clé)
 
   Chaîne parallèle (fin « vérité ») :
-    Lire les 4 documents (journal, cahier, photo de famille, plaque) puis libérer l'enfant au cercueil.
+    Lire les 4 documents (journal, cahier, photo de famille, plaque) puis libérer l'enfant, enfermé dans la cage de la cave.
 
   Fins :
     fuite      : sortie par la porte d'entrée
@@ -48,7 +48,7 @@ local Quests = {}
 local LORE_KINDS = { "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }
 
 local LORE = {
-	["journal intime"] = "Journal intime : « Il y a trente ans, une famille vivait ici. Un soir, notre enfant a disparu. Les voix venaient du grenier. »",
+	["journal intime"] = "Journal intime : « Il y a trente ans, une famille vivait ici. Un soir, notre enfant a disparu. Les voix venaient de la cave. »",
 	["cahier d'écolier"] = "Cahier d'écolier : le même prénom, écrit des dizaines de fois. Puis un nom de famille, barré.",
 	["photo de famille"] = "Photo de famille : quatre visages. Celui de l'enfant est effacé, à moitié.",
 	["plaque du cercueil"] = "Plaque : un prénom délavé, sans nom de famille. Une date récente est gravée dessous.",
@@ -123,8 +123,8 @@ end
 local ENDING_TEXT = {
 	win = "Fin 1 : la fuite. Tu sors de la maison.",
 	truth = "Fin 3 : la vérité. L'enfant peut enfin partir.",
-	lose = "Fin 2 : la malédiction. Le cercueil se referme.",
-	sealed = "Fin 4 : le piège. Tu as pris la date du cahier, barrée d'un trait. Le couvercle se referme sur l'enfant.",
+	lose = "Fin 2 : la malédiction. Le cercueil se referme.", -- le cercueil du grenier, où tout a commencé
+	sealed = "Fin 4 : le piège. Tu as pris la date du cahier, barrée d'un trait. La cage se referme sur l'enfant.",
 }
 local ENDING_TOTAL = 4
 
@@ -248,7 +248,7 @@ OBJECTIVE.coffret = function()
 	return ("Ouvre le coffret à bijoux (code : %s)"):format(state.note and (code:sub(1, 2) .. "??") or "????")
 end
 OBJECTIVE.enfant = function()
-	return ("Remonte au grenier, libère l'enfant au cercueil (documents lus : %d/%d)"):format(loreCount(), #LORE_KINDS)
+	return ("Libère l'enfant, dans la cage de la cave (documents lus : %d/%d)"):format(loreCount(), #LORE_KINDS)
 end
 OBJECTIVE.fuite = function()
 	return "Fuis par le portail : la voiture t'attend"
@@ -386,7 +386,7 @@ end
 local NOTE_NAMES = { "do", "ré", "mi", "sol" }
 local melody = {}
 local tombeDate = "0000"
-local wrongDate = "0000" -- date fausse du cahier : la saisir scelle le cercueil (fin 4)
+local wrongDate = "0000" -- date fausse du cahier : la saisir scelle la cage de l'enfant (fin 4)
 
 local function melodyFromSeed(seed)
 	local rng = Rng.new(seed * 13 + 7)
@@ -409,7 +409,7 @@ end
 local function writeLore(month, day)
 	local shown = ("%02d/%02d"):format(month, day)
 	local wrong = ("%02d/%02d"):format(month, day % 28 + 1)
-	LORE["journal intime"] = ("Journal intime : « Il y a trente ans, une famille vivait ici. Le %s, notre enfant a disparu. Les voix venaient du grenier. »"):format(
+	LORE["journal intime"] = ("Journal intime : « Il y a trente ans, une famille vivait ici. Le %s, notre enfant a disparu. Les voix venaient de la cave. »"):format(
 		shown
 	)
 	LORE["cahier d'écolier"] = ("Cahier d'écolier : le même prénom, écrit des dizaines de fois. En marge, une date : %s. Puis un nom de famille, barré."):format(
@@ -1218,32 +1218,36 @@ local function wire()
 	-- Tombe : libérer l'enfant, possible seulement après avoir lu les documents
 	for _, part in ipairs(CollectionService:GetTagged("Tombe")) do
 		if part:IsA("BasePart") then
-			prompt(part, { action = "Libérer l'enfant", object = "Tombe", hold = 2, distance = 6 }, function(player)
+			prompt(part, { action = "Libérer l'enfant", object = "Cage", hold = 2, distance = 6 }, function(player)
 				if state.freed then
 					return
 				end
-				-- L'enfant n'est sauvable qu'une fois sorti de la maison par le sous-sol (chaîne, côté serveur)
-				if not state.leftViaBasement then
-					say(player, "Tu ne peux pas encore l'aider. Il faut d'abord sortir de la maison par le sous-sol.")
-					return
-				end
+				-- L'enfant est dans la cage, au fond de la cave : on y accède une fois entré dans la cave (chaîne, côté serveur)
 				if not gate("enfant", player) then
 					return
 				end
 				if loreCount() < #LORE_KINDS then
-					say(player, "Il te manque des souvenirs. Tu ne sais pas encore qui repose ici.")
+					say(player, "Il te manque des souvenirs. Tu ne sais pas encore qui est enfermé ici.")
 					return
 				end
 				-- La date gravée sur la plaque ouvre la fin : on la saisit au clavier
 				state.tombePending = true
-				say(player, "La plaque porte une date. Entre-la au clavier, mois puis jour, en quatre chiffres.")
+				say(
+					player,
+					"Une plaque de métal est vissée à la cage, avec une date. Entre-la au clavier, mois puis jour, en quatre chiffres."
+				)
 				Remotes.fire("Keypad", player, { length = 4 })
 			end)
-			-- Choix de la malédiction : refermer le cercueil, une fois la malle ouverte
+		end
+	end
+
+	-- Choix de la malédiction : refermer le cercueil du grenier (là où tout a commencé), une fois la malle ouverte
+	for _, part in ipairs(CollectionService:GetTagged("CercueilCurse")) do
+		if part:IsA("BasePart") then
 			prompt(part, {
 				name = "QuestPromptCercueil",
 				action = "Refermer le cercueil",
-				object = "Tombe",
+				object = "Cercueil",
 				hold = 2,
 				distance = 6,
 			}, function()
@@ -1258,11 +1262,11 @@ local function wire()
 	end
 end
 
--- Date de la plaque, saisie près du cercueil : ouvre la fin « vérité »
+-- Date de la plaque, saisie devant la cage de l'enfant : ouvre la fin « vérité »
 local function submitDate(player, text)
-	if state.freed or not state.leftViaBasement or not canAct("enfant") then
+	if state.freed or not canAct("enfant") then
 		state.tombePending = false
-		say(player, "Tu ne peux pas encore l'aider. Il faut d'abord sortir de la maison par le sous-sol.")
+		say(player, "Tu ne peux pas encore l'aider. Il faut d'abord entrer dans la cave.")
 		return
 	end
 	local tomb = CollectionService:GetTagged("Tombe")[1]
@@ -1283,7 +1287,7 @@ local function submitDate(player, text)
 			return
 		end
 		state.tombePending = false
-		say(player, "Le couvercle se referme sur la date barrée du cahier.")
+		say(player, "La cage se referme sur la date barrée du cahier.")
 		if endFn then
 			endFn("sealed")
 		end
@@ -1584,16 +1588,16 @@ local function trackOnce()
 			if not state.caveEntered then
 				if canAct("sous_sol") and inCave(pos) then
 					state.caveEntered = true
-					say(player, "La cave. Quelque chose t'a suivi. Il faut ressortir par le sous-sol.")
+					say(
+						player,
+						"La cave. Au fond, une cage : quelqu'un y est enfermé. Lis les documents de la maison, puis libère l'enfant."
+					)
 					progressed()
 				end
 			elseif not state.leftViaBasement then
 				if canAct("retour") and not inFootprint(pos) then
 					state.leftViaBasement = true
-					say(
-						player,
-						"Tu es ressorti par le sous-sol. Il reste quelqu'un là-haut, dans le grenier : rentre par la porte d'entrée."
-					)
+					say(player, "Tu es ressorti par le sous-sol, avec l'enfant. Au fond de l'allée, le portail.")
 					progressed()
 				end
 			end

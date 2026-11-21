@@ -39,7 +39,7 @@ local function world()
 	w.note = add("CodeNote", 10, 0, 10, "papier")
 	w.coffret = add("Coffret", 95, 27, 73, "coffret")
 	w.chest = add("Chest", 70, 27, 60, "malle")
-	w.tomb = add("Tombe", 90, 26, 42, "cercueil")
+	w.tomb = add("Tombe", 55, -9, 84, "cage de l'enfant")
 	w.caveDoor = add("CaveDoor", 80, -6, 45, "porte métallique")
 	w.mirror = add("Mirror", 119, 31, 30, "miroir")
 	w.box = add("MusicBox", 20, 0, 20, "boîte")
@@ -166,7 +166,7 @@ H.log = {}
 H.trigger(w.docs["plaque du cercueil"], "QuestPrompt", alice)
 plaqueDate = find(H.msgs(alice), "gravée dessous : (%d%d/%d%d)")
 check(plaqueDate ~= nil, "la plaque donne une date")
-moveTo(alice, 90, 26, 43)
+moveTo(alice, 55, -9, 80)
 H.log = {}
 H.trigger(w.tomb, "QuestPrompt", alice)
 check(find(H.msgs(alice), "(Entre%-la au clavier)") ~= nil, "le cercueil demande la date")
@@ -198,7 +198,7 @@ check(
 	"la plaque donne la date juste, lisible avant le cercueil"
 )
 check(wrongMM ~= nil, "le cahier donne une date fausse")
-moveTo(alice, 90, 26, 43)
+moveTo(alice, 55, -9, 80)
 H.trigger(w.tomb, "QuestPrompt", alice)
 Quests.submitCode(alice, wrongMM .. wrongDD)
 check(H.endReason == nil, "une seule saisie de la date du cahier ne scelle pas (avertissement)")
@@ -379,23 +379,35 @@ do
 	end
 	Cfg.Design.ProgressionV2 = true
 end
--- L'enfant n'est jamais sauvable avant la sortie par le sous-sol, même avec tous les documents et la date
+-- L'enfant (dans la cage de la cave) n'est jamais sauvable avant d'être entré dans la cave, même avec tous les documents et la date
 chain.reset(4242)
 chain.advanceTo("sortie")
 Quests.onFrontDoor(alice)
 for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
 	H.trigger(w.docs[kind], "QuestPrompt", alice)
 end
-moveTo(alice, 90, 26, 43)
+moveTo(alice, 55, -9, 80)
 H.log = {}
 H.trigger(w.tomb, "QuestPrompt", alice)
-check(
-	find(H.msgs(alice), "(sortir de la maison par le sous%-sol)") ~= nil,
-	"message clair : d'abord sortir par le sous-sol"
-)
+check(#H.msgs(alice) > 0, "message clair : l'étape n'est pas accessible")
 Quests.submitCode(alice, chain.sec.date)
-check(Quests.progress().done.enfant ~= true, "date saisie avant le sous-sol : l'enfant reste prisonnier")
+check(Quests.progress().done.enfant ~= true, "date saisie avant la cave : l'enfant reste prisonnier")
 check(Quests.canAct("enfant") == false, "l'étape enfant est verrouillée côté serveur")
+-- Une fois dans la cave, l'enfant se libère ; la sortie par le sous-sol ne compte qu'ensuite
+chain.reset(4243)
+chain.advanceTo("enfant")
+for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
+	H.trigger(w.docs[kind], "QuestPrompt", alice)
+end
+moveTo(alice, 103, -5, 100)
+Quests.trackOnce()
+check(Quests.progress().done.retour ~= true, "sortir avant d'avoir libéré l'enfant ne compte pas")
+moveTo(alice, 55, -9, 80)
+chain.actions.enfant(chain.sec)
+check(Quests.progress().done.enfant == true, "l'enfant est libéré dans la cave")
+moveTo(alice, 103, -5, 100)
+Quests.trackOnce()
+check(Quests.progress().done.retour == true, "puis la sortie par le sous-sol compte")
 
 -- 7nonies. Journal de quêtes et indice automatique après 3 minutes sans progrès
 do
