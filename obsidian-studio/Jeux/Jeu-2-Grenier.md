@@ -22,3 +22,5 @@ statut: prive-publie
 ## Reste à faire
 - Intégrer les modèles Blender et les sons (session en cours).
 - Retour de test utilisateur sur lisibilité, taille des modèles, ambiance.
+
+- 21 nov : dernier publié = 608d3a5 (hub v36, partie v27). Les mentions de f98bdc7 plus haut sont obsolètes. Toutes les demandes de BLENDER_REQUESTS du Grenier sont livrées et branchées.

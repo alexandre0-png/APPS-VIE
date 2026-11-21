@@ -48,3 +48,6 @@ bois_planches 136082705365776 ; briques_cave 110243665972154 ; carreaux_bleutes 
 ## Modèles VFX (13 approuvés, pièces blanches à recolorer, `scripts/blender_make_vfx.py`)
 vfx_ailes 139237669898830 ; vfx_bouclier 135593787305812 ; vfx_cercle_runique 78887954880607 ; vfx_cone_lumiere 98452721754905 ; vfx_cristaux 84932789634035 ; vfx_etincelles 116678428336273 ; vfx_etoile 73454147532566 ; vfx_halo 123922819073158 ; vfx_pilier_lumiere 136359342334671 ; vfx_rayons 88635068911286 ; vfx_spirale 130478050046509 ; vfx_torii 105301464189354 ; vfx_onde 125557026046168
 
+
+## Lot 8 (pets restants, Chipe-Œufs) : script scripts/blender_make_pets4.py
+PetTigre 72370255271127 (index 11) ; PetKraken 123754319737365 (15) ; PetCalmar 85626350359383 (17) ; PetWyrm 127368682215579 (18). Tous approuvés. Les 18 espèces ont un modèle.

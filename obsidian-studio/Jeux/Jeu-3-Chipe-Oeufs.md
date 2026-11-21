@@ -18,3 +18,5 @@ statut: prive-publie
 - Décor du hub : 13 modèles catalogue. Œufs : voir [[Assets/IDs-catalogue]].
 - Tests : `lune run roblox/tests/run.luau` (1431 réussis), `python3 roblox/tools/check.py`.
 - Sons : crochets muets, aucun identifiant inventé.
+
+- 21 nov : commit ebb5271 (pets Tigre, Kraken, Calmar, Wyrm). Publié en privé : hub v27, partie v21.
