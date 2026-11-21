@@ -52,6 +52,13 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] Vérifier à l'œil le monument du Grand Nid (runes, panneau d'énigme lisible des deux côtés) et la résolution de l'énigme du jour.
 - [ ] Me dire ce qui ne va pas (erreurs rouges de la fenêtre Output, comportements étranges, équilibrage trop dur ou trop facile) : je corrige.
 
+## 3ter. À regarder dans Studio après les derniers lots (rien de tout ceci n'a été vu)
+
+- [ ] **Gus clément** : se faire attraper une fois (retour à la base, message « Gus t'a attrapé, réessaie ! », aucun œuf perdu), vérifier l'anneau jaune de vision au sol et que la base et le haut de la rampe ne sont jamais ciblés.
+- [ ] **Arbres, chemins, protections d'œufs** (lot 11) : orientation de la tuile de virage (hypothèse : entrée −X, sortie −Z), hauteur de l'œuf dans le dôme, rendu de la vitre.
+- [ ] **Village** (lot 12) : taille et orientation des maisons, du pont et de l'île sakura dans le hub, bords de la mare, décor de la carte.
+- [ ] **Écran machine à sous** : lisibilité des trois rouleaux sur téléphone, emoji 🪽 affiché, durée acceptable (sinon `Config.REVEAL.slot.enabled = false`).
+
 ## 4. Créer les achats sur le Creator Hub et me donner les ID
 
 Creator Hub → ton expérience → **Monetization**. Les prix sont des suggestions (Roblox prélève 30 %). Après création, colle chaque ID dans `Config.PASSES` / `Config.PRODUCTS` (clés `Coins2x`, `Lucky`, `Fast`, `Speed`, `VipBase`, `StarterPack`, `ExclusiveEgg`, `Revive`, `InstantHatch`, `LuckPotion`, `CoinPack`) et envoie-les-moi. Une icône est prête pour les 6 premiers achats dans `roblox/publication/art/`.
@@ -70,8 +77,8 @@ Creator Hub → ton expérience → **Monetization**. Les prix sont des suggesti
 | Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `product_luckpotion_512.png` |
 | Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de tes revenus (minimum 5 000 pièces). | `product_coinpack_512.png` |
 
-- [ ] Créer les 3 Game Passes et les 3 Developer Products.
-- [ ] Copier chaque **ID** dans `roblox/src/ReplicatedStorage/Config.lua`, champ `id = 0` de la ligne correspondante : `Config.PASSES.Coins2x`, `.Lucky`, `.Fast` et `Config.PRODUCTS.InstantHatch`, `.LuckPotion`, `.CoinPack`. Ou me donner les 6 ID et je m'en charge, puis je régénère la place.
+- [ ] Créer les 5 Game Passes et les 6 Developer Products du tableau ci-dessus (colonne « ID à renseigner » : `PUBLICATION.md` §3bis donne la ligne exacte de `Config.lua` pour chacun).
+- [ ] Copier chaque **ID** dans `roblox/src/ReplicatedStorage/Config.lua`, champ `id = 0` de la ligne correspondante (les 11 clés sont listées plus haut). Ou me donner les 11 ID et je m'en charge, puis je régénère la place.
 - [ ] Tester chaque achat avec le **test purchase** de Studio.
 - [ ] **Décision à prendre** : lire la politique Roblox sur les « Paid Random Items » avant d'activer **Chance +10%**, **Potion de chance** et **Éclosion instantanée** (elles touchent à des tirages aléatoires payés). Les probabilités sont déjà affichées dans le jeu (menu Plus). Prudence : ne lancer d'abord que Revenus x2, Éclosion rapide et Sac de pièces (laisser les autres à `id = 0`).
 

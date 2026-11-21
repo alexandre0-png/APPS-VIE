@@ -5462,5 +5462,22 @@ do
 	end
 end
 
+
+do
+	suite("Catalogue de la boutique : chaque achat du code est décrit dans PUBLICATION.md et A_FAIRE_UTILISATEUR.md")
+	local pub = fs.readFile("roblox/PUBLICATION.md")
+	local todo = fs.readFile("roblox/A_FAIRE_UTILISATEUR.md")
+	local missing, count = "", 0
+	for _, group in ipairs({ "PASSES", "PRODUCTS" }) do
+		for key, def in pairs(Config[group]) do
+			count = count + 1
+			if not pub:find("Config." .. group .. "." .. key .. ".id", 1, true) or not todo:find(def.name, 1, true) or not pub:find(def.name, 1, true) then
+				missing = missing .. " " .. key
+			end
+		end
+	end
+	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 11 and missing == "")
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

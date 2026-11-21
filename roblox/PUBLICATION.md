@@ -43,6 +43,26 @@ Un œuf posé dans ta base est protégé quelques secondes, puis les autres joue
 
 Voir le tableau complet (noms, prix, descriptions) dans `A_FAIRE_UTILISATEUR.md` §4. Tant qu'un ID vaut 0, l'achat reste désactivé avec un message clair et aucune offre d'achat n'apparaît dans le jeu.
 
+## 3bis. Catalogue de la boutique (à créer par le propriétaire)
+
+Chaque ligne donne l'ID attendu et l'endroit exact où le coller. Tant qu'un ID vaut 0 : aucune offre n'apparaît, l'achat renvoie « 🛒 Cet achat n'est pas encore disponible » et rien ne plante (testé). Les prix sont des suggestions (Roblox prélève 30 %). Les passes ci-dessous sont celles du code ; « Chance x2 » n'existe pas : la chance est vendue en bonus fixes affichés (+10 % passe, +25 % potion) pour rester conforme aux règles Roblox sur les objets aléatoires payants.
+
+| Type | Nom exact | Prix suggéré | Description | ID à renseigner (Config.lua) |
+|---|---|---|---|---|
+| Game Pass | Revenus x2 | 199 R$ | Double tous tes revenus de pièces, pour toujours. | `Config.PASSES.Coins2x.id` (ligne 119) : `____` |
+| Game Pass | Chance +10% | 149 R$ | Augmente de 10 points tes chances d'obtenir un pet de rareté supérieure. | `Config.PASSES.Lucky.id` (ligne 120) : `____` |
+| Game Pass | Éclosion rapide | 149 R$ | Les œufs éclosent 25 % plus vite, pour toujours. | `Config.PASSES.Fast.id` (ligne 121) : `____` |
+| Game Pass | Vitesse +20 % | 149 R$ | Cours 20 % plus vite, pour toujours. | `Config.PASSES.Speed.id` (ligne 122) : `____` |
+| Game Pass | Base VIP | 399 R$ | Boucliers d'œufs x2 et bonus quotidien x2, pour toujours. | `Config.PASSES.VipBase.id` (ligne 123) : `____` |
+| Developer Product | Pack de départ | 99 R$ | Achat unique : 20 000 pièces, 3 œufs Rares et une potion de chance. | `Config.PRODUCTS.StarterPack.id` (ligne 345) : `____` |
+| Developer Product | Œuf exclusif Mythique | 249 R$ | Un œuf Mythique placé dans ta base (place libre requise, sinon livré plus tard). | `Config.PRODUCTS.ExclusiveEgg.id` (ligne 346) : `____` |
+| Developer Product | Relance immédiate | 49 R$ | Au Château : repars aussitôt là où tu es tombé, pv rétablis. | `Config.PRODUCTS.Revive.id` (ligne 347) : `____` |
+| Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `Config.PRODUCTS.InstantHatch.id` (ligne 343) : `____` |
+| Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `Config.PRODUCTS.LuckPotion.id` (ligne 344) : `____` |
+| Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de revenus (minimum 5 000 pièces). | `Config.PRODUCTS.CoinPack.id` (ligne 348) : `____` |
+
+Bandeaux et icônes : `publication/art/` (icône 512 px des 6 premiers achats ; les autres sont à créer).
+
 ## 4. État de la qualité (constaté par lecture et tests, pas en Studio)
 
 | Domaine | Constat | Source |

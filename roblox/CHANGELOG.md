@@ -2,6 +2,10 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Catalogue de la boutique
+
+- `PUBLICATION.md` §3bis : 11 achats (5 passes, 6 produits) avec nom, prix suggéré, description et ligne exacte de `Config.lua` où coller l'ID ; `A_FAIRE_UTILISATEUR.md` aligné ; test de cohérence documentation / code. Achats inactifs à l'ID 0 sans erreur (déjà testé).
+
 ## Écran de tirage « machine à sous »
 
 - `Reveal.slotPlan/slotPos/slotIndex` (pur) : 3 colonnes RARETÉ / TAILLE / MUTATION, tours complets puis décélération (puissance 4), arrêt exact sur le tirage réel, colonnes stoppées à 1,1 / 1,7 / 2,3 s (0,6 / 0,95 / 1,3 s pour un tirage banal ou sur mobile).
