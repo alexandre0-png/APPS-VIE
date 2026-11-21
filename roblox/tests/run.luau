@@ -3019,6 +3019,35 @@ do
 	check("Icônes : échange des doublons = ⭐ « Échanger » (bouton, titre), renaissance = 🌅, menu Plus = ⚙️", client:find('icon = "⭐", title = "Échanger les doublons', 1, true) ~= nil and client:find('btn = "Échanger "', 1, true) ~= nil and client:find('icon = "🌅", title = "Renaissance"', 1, true) ~= nil and client:find('{ "more", "⚙️", "Plus" }', 1, true) ~= nil)
 end
 
+-- Progression de la base : niveaux, points par rareté ---------------------------------------------------------------------------------
+do
+	suite("Progression de la base : 8 niveaux, points pondérés par la rareté")
+	local B = Config.BASE_LEVELS
+	check("Base : 8 niveaux, de l'enclos de bois au château doré, seuils strictement croissants", #B == 8 and B[1].name == "Enclos de bois" and B[8].name == "Château doré" and B[1].score == 0 and (function()
+		for i = 2, #B do
+			if B[i].score <= B[i - 1].score then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Base : points par rareté Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Secret 150 ; rareté invalide bornée", Config.baseGain(1) == 1 and Config.baseGain(2) == 3 and Config.baseGain(3) == 8 and Config.baseGain(4) == 20 and Config.baseGain(5) == 50 and Config.baseGain(6) == 150 and Config.baseGain(0) == 1 and Config.baseGain(99) == 150 and Config.baseGain(nil) == 1 and Config.baseGain(0 / 0) == 1)
+	local l0, n0, p0, r0 = Config.baseLevel(0)
+	local l11, _, _, r11 = Config.baseLevel(11)
+	local l12 = Config.baseLevel(12)
+	local l8, n8, p8, r8 = Config.baseLevel(99999)
+	check("Base : niveau 1 à 0 point (suivant : cabane, 12 points), niveau 2 dès 12, dernier niveau sans suivant", l0 == 1 and n0.name == "Cabane" and p0 == 0 and r0 == 12 and l11 == 1 and r11 == 1 and l12 == 2 and l8 == 8 and n8 == nil and p8 == 1 and r8 == 0)
+	local mono, prev = true, 1
+	for score = 0, 4000, 7 do
+		local lv = Config.baseLevel(score)
+		mono = mono and lv >= prev and lv <= 8
+		prev = lv
+	end
+	check("Base : le niveau ne baisse jamais quand le score monte ; scores invalides (nil, NaN, négatif) = niveau 1", mono and Config.baseLevel(nil) == 1 and Config.baseLevel(0 / 0) == 1 and Config.baseLevel(-50) == 1)
+	check("Renaissance : le score de base et l'achat unique du pack de départ survivent (profil neuf)", fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.starter, fresh.baseScore = d.starter, d.baseScore", 1, true) ~= nil)
+	check("Base : un seul pet Secret (150 points) fait passer de l'enclos à la Maison (niveau 4) ; il faut 12 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(6)) == 4 and Config.baseLevel(12 * Config.baseGain(1)) == 2)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -3910,6 +3939,64 @@ do
 			cfg.PRODUCTS.Revive.id = 0
 			RT.removePlayer(q)
 			RT.step(2)
+		end
+
+		-- 1ter. progression de la base : migration v7 -> v8, niveaux visibles, sauvegarde
+		do
+			local ds = RT.services.DataStoreService:GetDataStore("ChipeOeufs_v1")
+			ds.data["P_7001"] = { v = { ver = 7, coins = 10, dex = { ["1"] = { n = 5, b = 1 }, ["16"] = { n = 1, b = 1 }, ["999"] = { n = 3, b = 1 } } }, t = os.time() - 5000 }
+			local old = join("Vieux", 7001)
+			RT.step(2)
+			local oldScore, oldLevel = old:GetAttribute("BaseScore"), old:GetAttribute("BaseLevel")
+			check("Base : un ancien profil (v7) est migré, le score est reconstitué d'après la collection (5 Communs + 1 Secret = 155) [" .. tostring(oldScore) .. "], niveau 4 (Maison)", oldScore == 155 and oldLevel == 4)
+			RT.removePlayer(old)
+			RT.step(2)
+			local rec = record(7001)
+			check("Base : le profil sauvegardé porte la version 8 et le score de base", rec ~= nil and rec.v ~= nil and rec.v.ver == 8 and rec.v.baseScore == 155)
+			local savedLevels = cfg.BASE_LEVELS
+			local thresholds = {}
+			for i = 1, 8 do
+				thresholds[i] = { score = i - 1, name = savedLevels[i].name, emoji = savedLevels[i].emoji }
+			end
+			cfg.BASE_LEVELS = thresholds -- seuils minuscules : 8 niveaux atteints en 7 éclosions
+			local b = join("Bati", 7002)
+			RT.step(2)
+			local levels, monotone, last = {}, true, b:GetAttribute("BaseLevel") or 0
+			for n = 1, 30 do
+				receipt({ PlayerId = 7002, PurchaseId = "BS-c" .. n, ProductId = 8801 }, 0.1)
+				act(b, "buyEgg", 1)
+				receipt({ PlayerId = 7002, PurchaseId = "BS-h" .. n, ProductId = 8802 }, 0.2)
+				act(b, "sellDupes") -- libère des emplacements pour continuer à éclore
+				local lv = b:GetAttribute("BaseLevel") or 0
+				monotone = monotone and lv >= last
+				last = lv
+				levels[lv] = true
+				if lv >= 8 then
+					break
+				end
+			end
+			local folderParts, hut, tower = 0, 0, 0
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if rawget(d, "__props").Name == "BaseUpgrade" then
+					for _, q in ipairs(d:GetDescendants()) do
+						if q.ClassName == "Part" then
+							folderParts += 1
+						end
+						if rawget(q, "__props").Name == "HutModel" then
+							hut += 1
+						elseif rawget(q, "__props").Name == "TowerModel" then
+							tower += 1
+						end
+					end
+				end
+			end
+			check("Base : des éclosions successives montent la base de 1 à 8, niveau jamais en baisse (" .. tostring(b:GetAttribute("BaseLevel")) .. ")", b:GetAttribute("BaseLevel") == 8 and monotone)
+			check("Base niveau 8 : apparence posée (" .. folderParts .. " Parts, cabane et tours Blender " .. hut .. " + " .. tower .. "), moins de 130 Parts par base" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), folderParts > 40 and folderParts <= 130 and hut == 1 and tower == 2 and #RT.errors == 0)
+			RT.removePlayer(b)
+			RT.step(2)
+			local rb = record(7002)
+			check("Base : le score atteint est sauvegardé au départ du joueur (" .. tostring(rb and rb.v and rb.v.baseScore) .. ")", rb ~= nil and rb.v ~= nil and (rb.v.baseScore or 0) >= 7)
+			cfg.BASE_LEVELS = savedLevels
 		end
 
 		-- 2. courses entre joueurs -----------------------------------------------------------------------------------------------

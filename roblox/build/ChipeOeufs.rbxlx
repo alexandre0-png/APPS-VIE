@@ -495,6 +495,7 @@ Config.Assets = {
 	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
+	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
@@ -622,6 +623,40 @@ function Config.nearestPortal(x, z, portals, maxDist)
 		end
 	end
 	return best
+end
+
+-- Progression de la base : chaque pet éclos ajoute des points selon sa rareté (Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Cosmique/secret 150) ;
+-- 8 niveaux d'apparence, du simple enclos de bois au château doré. Le score est sauvegardé (profil v8) ; le niveau s'en déduit.
+Config.BASE_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
+Config.BASE_LEVELS = {
+	{ score = 0, name = "Enclos de bois", emoji = "🪵" },
+	{ score = 12, name = "Cabane", emoji = "🛖" },
+	{ score = 40, name = "Chaumière", emoji = "🏡" },
+	{ score = 110, name = "Maison", emoji = "🏠" },
+	{ score = 260, name = "Manoir", emoji = "🏘️" },
+	{ score = 600, name = "Fort", emoji = "🛡️" },
+	{ score = 1400, name = "Forteresse", emoji = "🏰" },
+	{ score = 3200, name = "Château doré", emoji = "👑" },
+}
+-- Points gagnés par un pet de rareté `tier` (1..6).
+function Config.baseGain(tier)
+	return Config.BASE_WEIGHTS[math.min(math.max(type(tier) == "number" and tier == tier and math.floor(tier) or 1, 1), #Config.BASE_WEIGHTS)]
+end
+-- Niveau d'une base d'après son score : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants).
+function Config.baseLevel(score)
+	score = (type(score) == "number" and score == score and score > 0) and score or 0
+	local level = 1
+	for i, lv in ipairs(Config.BASE_LEVELS) do
+		if score >= lv.score then
+			level = i
+		end
+	end
+	local nxt = Config.BASE_LEVELS[level + 1]
+	if not nxt then
+		return level, nil, 1, 0
+	end
+	local cur = Config.BASE_LEVELS[level]
+	return level, nxt, (score - cur.score) / (nxt.score - cur.score), math.ceil(nxt.score - score)
 end
 
 -- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
@@ -1014,6 +1049,7 @@ Config.Cinematics = {
 	firstZone = true, -- la première zone débloquée
 	firstRare = true, -- le premier pet rare
 	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	base = true, -- montée de niveau de la base (orbite courte)
 	hub = true, -- survol d'accueil du hub (fontaine puis portails), première arrivée seulement
 	eclosion = true, -- cinématiques d'éclosion (épique court ; légendaire, mythique, cosmique, secret complets)
 	chateau = true, -- entrée et victoire du château
@@ -2166,6 +2202,10 @@ CinematicKit.PLANS = {
 	chateau_entree = { id = "chateau_entree", shots = {
 		{ anchor = "castle", pos = { -40, 16, 34 }, look = { 0, 6, -8 }, toPos = { 40, 14, 34 }, toLook = { 0, 8, -8 }, path = "travel", dur = 2.6, ease = "Sine", title = "🏰 Le Château" },
 		{ anchor = "castle", pos = { 0, 5, 16 }, look = { 0, 7, 0 }, toPos = { 0, 6, 9 }, path = "dolly", fov = 70, toFov = 55, dur = 2.2, ease = "Quint", text = "La herse se lève…", fx = "gate" },
+	} },
+	base_niveau = { id = "base_niveau", shots = {
+		{ anchor = "base", pos = { 0, 20, -46 }, look = { 0, 5, 4 }, path = "orbit", radius = 44, toRadius = 36, angle0 = 3.14, angle1 = 4.6, height = 18, dur = 2.4, ease = "Sine", title = "🏠 Ta base évolue !" },
+		{ anchor = "base", pos = { 0, 12, -38 }, look = { 0, 6, 8 }, toPos = { 0, 9, -26 }, path = "dolly", fov = 70, toFov = 58, dur = 1.4, ease = "Quint" },
 	} },
 	chateau_victoire = { id = "chateau_victoire", shots = {
 		{ anchor = "castle_chest", pos = { 6, 7, 10 }, look = { 0, 3, 0 }, toPos = { 3, 5, 6 }, path = "dolly", fov = 70, toFov = 52, dur = 1.6, ease = "Quint", slow = { at = 0.4, to = 0.9, scale = 0.35 }, shake = 0.3, fx = "sparks" },
@@ -4401,6 +4441,8 @@ local function snapshot(s)
 		puzzleSolved = d.puzzle.solved,
 		ach = d.ach,
 		stats = statValues(s),
+		baseScore = d.baseScore,
+		baseLevel = s.baseLevel,
 	}
 end
 
@@ -4679,6 +4721,23 @@ task.spawn(function() -- SubscribeAsync attend le réseau : ne pas bloquer le d�
 	end)
 end)
 
+---------------------------------------------------------------- Progression de la base (niveau d'après le score pondéré par la rareté)
+-- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : effet de montée de niveau, interface).
+local function applyBase(s, announce)
+	local level, nxt = Config.baseLevel(s.data.baseScore)
+	local before = s.baseLevel
+	s.baseLevel = level
+	if before ~= level and s.plot then
+		Builder.baseUpgrade(s.plot, level)
+	end
+	s.player:SetAttribute("BaseLevel", level)
+	s.player:SetAttribute("BaseScore", s.data.baseScore)
+	if announce and before and level > before then
+		local lv = Config.BASE_LEVELS[level]
+		notify(s.player, "🏠 Ta base passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. (nxt and (" · prochain palier : " .. nxt.name) or " · niveau maximum !"), "claim")
+	end
+end
+
 ---------------------------------------------------------------- Éclosion
 function hatch(s, i)
 	local d = s.data
@@ -4696,6 +4755,7 @@ function hatch(s, i)
 	end
 	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
 	d.hatched += 1
+	d.baseScore += Config.baseGain(p.tier) -- la base grandit avec chaque pet éclos, d'autant plus que le pet est rare
 	local key = tostring(p.p)
 	local dx = d.dex[key]
 	if not dx then
@@ -4710,6 +4770,7 @@ function hatch(s, i)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
 	sp(s, "hatch", 1)
+	applyBase(s, true)
 	sp(s, "tier", 1, { tier = def.tier })
 	if p.m > 1 then
 		sp(s, "mut", 1)
@@ -5737,6 +5798,7 @@ function actions.rebirth(s)
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
+	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
@@ -6023,6 +6085,7 @@ local function releasePlot(s)
 	end
 	s.plot.owner = nil
 	s.plot.nameLabel.Text = "Base libre"
+	Builder.clearBase(s.plot)
 end
 
 -- Partie pleine (5 joueurs au plus) ou lieu de jeu ouvert en trop : le joueur est renvoyé au hub (ou expulsé avec un message si le hub est injoignable).
@@ -6138,6 +6201,7 @@ local function onJoin(player)
 	end
 
 	ensureQuests(s)
+	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
 	player:SetAttribute("PlotCF", plot.cf) -- position de la base : sert aux caméras des cinématiques (réplication sûre)
@@ -6324,7 +6388,8 @@ local SAVE_RETRIES = 3
 -- v5 : + cine (cinématiques déjà vues).
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
-local VERSION = 7
+-- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
+local VERSION = 8
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -6390,6 +6455,7 @@ function Data.default()
 		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
+		baseScore = 0, -- progression de la base
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
 	}
@@ -6418,6 +6484,19 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[7] = function(saved)
+		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté).
+		local score = 0
+		if type(saved.dex) == "table" then
+			for k, e in pairs(saved.dex) do
+				local def = Config.PETS[tonumber(k) or 0]
+				if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 then
+					score += math.floor(e.n) * Config.baseGain(def.tier)
+				end
+			end
+		end
+		saved.baseScore = score
 	end,
 	[6] = function(saved)
 		-- v6 -> v7 : starter vaut false (pack de départ jamais acheté).
@@ -6504,6 +6583,7 @@ local function merge(saved)
 		end
 	end
 	d.starter = saved.starter == true
+	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end
@@ -7612,6 +7692,155 @@ function Builder.exportVfx(assets)
 		folder.Parent = RS
 	end)
 	return n
+end
+
+-- Progression de la base : 8 apparences cumulatives, de l'enclos de bois au château doré (repère local de la base : l'entrée est du côté -Z, l'arrière +Z).
+-- Chaque niveau ajoute des Parts (au plus 100 en tout par base) dans le dossier « BaseUpgrade » du modèle de la base ; la cabane et les tours utilisent
+-- les modèles Blender (props.hut, castle.tower) tant que le budget Blender des bases n'est pas dépassé, sinon la version procédurale.
+-- Retourne le nombre de Parts posées.
+function Builder.baseUpgrade(plot, level)
+	local made = 0
+	pcall(function()
+		if not (plot and plot.model and plot.cf) then
+			return
+		end
+		Builder.clearBase(plot)
+		local folder = Instance.new("Folder")
+		folder.Name = "BaseUpgrade"
+		folder.Parent = plot.model
+		local cf0 = plot.cf
+		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
+			made += 1
+			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
+		end
+		local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
+		local stone, stone2 = Color3.fromRGB(150, 150, 158), Color3.fromRGB(112, 112, 122)
+		local gold = Color3.fromRGB(255, 205, 70)
+		local golden = level >= 8
+		local E = 28.5 -- le pourtour : en dehors de la plateforme (demi-côté 26)
+		local sideMat = level >= 4 and Enum.Material.Cobblestone or Enum.Material.WoodPlanks
+		local sideCol = level >= 4 and stone or wood
+		local h = level >= 4 and 2.2 or 1.6
+		box("Rail", -E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
+		box("Rail", E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
+		box("Rail", 0, h, E, 2 * E, 0.5, 0.6, sideCol, sideMat)
+		box("RailLow", -E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
+		box("RailLow", E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
+		box("RailLow", 0, h * 0.45, E, 2 * E, 0.4, 0.5, sideCol, sideMat)
+		for k = -3, 3 do
+			local t = k * (E / 3)
+			box("Post", -E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
+			box("Post", E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
+			box("Post", t, h * 0.6, E, 0.8, h * 1.3, 0.8, wood2)
+		end
+		-- place un modèle Blender (hauteur cible), ancré, sans collision ; false si le budget Blender est dépassé ou si la mesure échoue
+		local function placeModel(clone, cost, height, x, z, rot, name)
+			plot.baseBlender = plot.baseBlender or 0
+			if not clone or plot.baseBlender + cost > Config.Assets.baseBlenderBudget then
+				if clone then
+					pcall(function()
+						clone:Destroy()
+					end)
+				end
+				return false
+			end
+			local ok = pcall(function()
+				local fitted, why = AssetsMod.fitHeight(clone, height)
+				if not fitted then
+					error(why)
+				end
+				local bbox, size = clone:GetBoundingBox()
+				clone:PivotTo(cf0 * CFrame.new(x, size.Y / 2, z) * CFrame.Angles(0, rot, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+				for _, d in ipairs(clone:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+						d.CanQuery = false
+					end
+				end
+				clone.Name = name
+				clone.Parent = folder
+			end)
+			if ok then
+				plot.baseBlender += cost
+				made += 4
+				return true
+			end
+			pcall(function()
+				clone:Destroy()
+			end)
+			return false
+		end
+		if level >= 2 then
+			local clone = eggAssets and eggAssets.cloneProp and eggAssets.cloneProp("hut")
+			if not placeModel(clone, Config.Assets.propsMaxParts.hut or 120, level >= 5 and 8 or 6, 0, 21, math.pi, "HutModel") then
+				box("HutWall", 0, 2.4, 21, 11, 4.8, 7, level >= 4 and stone or wood2, level >= 4 and Enum.Material.Brick or Enum.Material.WoodPlanks)
+				box("HutRoof", 0, 5.8, 21, 12.4, 0.8, 8.4, golden and gold or Color3.fromRGB(176, 70, 60), golden and Enum.Material.Metal or Enum.Material.Slate)
+				box("HutDoor", 0, 1.6, 17.4, 2.4, 3.2, 0.3, wood)
+			end
+		end
+		if level >= 3 then
+			for _, c in ipairs({ { -E, -E }, { E, -E }, { -E, E }, { E, E } }) do
+				box("LampPost", c[1], 2.6, c[2], 0.5, 5.2, 0.5, Color3.fromRGB(50, 52, 60), Enum.Material.Metal)
+				local head = box("Lantern", c[1], 5.4, c[2], 1.1, 1.1, 1.1, Color3.fromRGB(255, 232, 160), Enum.Material.Neon)
+				local l = Instance.new("PointLight")
+				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 224, 150), 14, 0.9
+				l.Parent = head
+			end
+			for k = 0, 4 do
+				box("Flagstone", 0, 1.06 + 0.06 * (k % 2), -22 + k * 2.2, 4.2, 0.12, 1.9, stone, Enum.Material.Slate)
+			end
+		end
+		if level >= 5 then
+			for _, sx in ipairs({ -E, E }) do
+				local towerH = golden and 11 or 9
+				local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("castle", "tower")
+				if not placeModel(clone, Config.Assets.modelsMaxParts["castle.tower"] or 80, towerH + 3, sx, E, 0, "TowerModel") then
+					made += 2
+					part({ Name = "Tower", Shape = Enum.PartType.Cylinder, Size = Vector3.new(towerH, 5, 5), CFrame = cf0 * CFrame.new(sx, towerH / 2, E) * CFrame.Angles(0, 0, math.pi / 2), Color = stone2, Material = Enum.Material.Cobblestone, CanCollide = false }, folder)
+					part({ Name = "TowerCap", Shape = Enum.PartType.Ball, Size = Vector3.new(5.6, 5.6, 5.6), CFrame = cf0 * CFrame.new(sx, towerH + 0.6, E), Color = golden and gold or Color3.fromRGB(176, 70, 60), Material = golden and Enum.Material.Metal or Enum.Material.Slate, CanCollide = false }, folder)
+				end
+			end
+		end
+		if level >= 6 then
+			for k = -3, 3 do
+				box("Merlon", k * 7, h + 1.2, E, 2.6, 1.4, 1.2, stone2, Enum.Material.Cobblestone)
+			end
+			for _, sx in ipairs({ -10, 10 }) do
+				box("BannerPole", sx, 4, E - 1, 0.3, 8, 0.3, wood2)
+				box("Banner", sx, 6.4, E - 1, 2.2, 3, 0.15, Color3.fromRGB(200, 50, 60), Enum.Material.Fabric)
+			end
+		end
+		if level >= 7 then
+			box("GatePillar", -6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
+			box("GatePillar", 6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
+			box("GateLintel", 0, 8.4, -E, 14, 1.6, 2, golden and gold or stone, golden and Enum.Material.Metal or Enum.Material.Cobblestone)
+			for _, sx in ipairs({ -6, 6 }) do
+				local t = box("Torch", sx, 5.2, -E + 1.2, 0.8, 0.8, 0.8, Color3.fromRGB(255, 150, 60), Enum.Material.Neon)
+				local l = Instance.new("PointLight")
+				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 170, 90), 16, 1
+				l.Parent = t
+			end
+		end
+		if golden then
+			box("GoldTrim", 0, h + 0.3, E, 2 * E, 0.35, 0.8, gold, Enum.Material.Metal)
+			local glow = box("GoldGlow", 0, 7.4, 21, 3, 3, 3, gold, Enum.Material.Neon)
+			local l = Instance.new("PointLight")
+			l.Color, l.Range, l.Brightness = gold, 26, 1.4
+			l.Parent = glow
+		end
+	end)
+	return made
+end
+
+function Builder.clearBase(plot)
+	pcall(function()
+		local f = plot.model and plot.model:FindFirstChild("BaseUpgrade")
+		if f then
+			f:Destroy()
+		end
+		plot.baseBlender = 0
+	end)
 end
 
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
@@ -9540,6 +9769,27 @@ local function pulseLighting(strength)
 	end)
 end
 
+-- Montée de niveau de la base : pilier de lumière, aura runique et onde de choc au centre de la base (VfxKit), message du serveur en plus.
+do
+	local lastBaseLevel = nil
+	local function onBaseLevel()
+		local lv = player:GetAttribute("BaseLevel")
+		if type(lv) ~= "number" then
+			return
+		end
+		local previous = lastBaseLevel
+		lastBaseLevel = lv
+		if previous and lv > previous then
+			local pc = player:GetAttribute("PlotCF")
+			if typeof(pc) == "CFrame" then
+				pcall(playVfxAt, { "pilier_revelation", "aura_runique", "onde_de_choc" }, math.min(6, math.max(2, lv - 1)), pc * CFrame.new(0, 1.2, 0))
+			end
+		end
+	end
+	player:GetAttributeChangedSignal("BaseLevel"):Connect(onBaseLevel)
+	onBaseLevel()
+end
+
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
 	if def.tier >= 4 and tryOfferLater then
@@ -9951,6 +10201,10 @@ function render()
 		end
 	elseif panel.name == "dex" and panel.tab == "eggs" then
 		local n = 0
+		do
+			local lv, nxt, _, left = Config.baseLevel(state.baseScore)
+			addNote("🏠 Base niveau " .. lv .. " · " .. Config.BASE_LEVELS[lv].name .. (nxt and (" · encore " .. fmt(left) .. " pt pour " .. nxt.name) or " · niveau maximum") .. ". Chaque pet éclos fait grandir ta base, d'autant plus qu'il est rare.")
+		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
 			if sl and sl.k == "e" then
@@ -10162,6 +10416,14 @@ function render()
 				end
 			end,
 		})
+		do -- progression de la base : niveau, apparence, points et prochain palier
+			local lv, nxt, progress, left = Config.baseLevel(state.baseScore)
+			local cur = Config.BASE_LEVELS[lv]
+			addRow({
+				icon = cur.emoji, title = "Ma base : niveau " .. lv .. "/" .. #Config.BASE_LEVELS .. " · " .. cur.name,
+				desc = nxt and (math.floor(progress * 100) .. " % vers " .. nxt.emoji .. " " .. nxt.name .. " (encore " .. fmt(left) .. " pt) · Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Secret 150") or "Niveau maximum : ton château est en or !",
+			})
+		end
 		addRow({
 			icon = volumeIdx == #Config.VOLUME_STEPS and "🔇" or "🔊", title = "Son : " .. Config.volumeLabel(volumeIdx), desc = "Volume général (effets et ambiances). Touche pour changer.",
 			btn = "Changer", btnColor = COL.green,
@@ -11982,6 +12244,24 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		lastHatchCine = os.clock()
 	end
 end)
+
+-- Montée de niveau de la base : plan court en orbite autour de la base (jamais en danger ; le premier niveau reçu à la connexion ne déclenche rien).
+do
+	local lastLevel = nil
+	local function onLevel()
+		local lv = player:GetAttribute("BaseLevel")
+		if type(lv) ~= "number" then
+			return
+		end
+		local previous = lastLevel
+		lastLevel = lv
+		if previous and lv > previous and Config.cineEnabled("base") and not director.isActive() and Kit.canPlay(dangerCtx()) then
+			begin("base_niveau", CinematicKitMod.PLANS.base_niveau, {}, false, true)
+		end
+	end
+	player:GetAttributeChangedSignal("BaseLevel"):Connect(onLevel)
+	onLevel()
+end
 
 -- Revoir (menu Plus) : événement local déclenché par l'interface.
 local replay = Instance.new("BindableEvent")

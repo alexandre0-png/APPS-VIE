@@ -36,6 +36,15 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 
 - Le pictogramme de recyclage ♻ (rendu comme un « + » selon les polices) est retiré partout : échange des doublons = ⭐ « Échanger » (bouton « Échanger 1,2K », titre, message « ⭐ N doublon(s) échangé(s) »), renaissance = 🌅 (menu, succès, classement, message), menu Plus = ⚙️. Choix justifié : ⭐ dit « valeur » et reste lisible à 16 px ; 🌅 = recommencer plus fort ; aucune icône « 🔄 ». Test : plus aucun ♻ ni 🔄 dans les scripts.
 
+## 2026-11-22 (suite) : retours de test réels, lot 4 : la base grandit avec les œufs
+
+- **Score de base** : chaque pet éclos ajoute des points selon sa rareté (Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Cosmique/secret 150, `Config.BASE_WEIGHTS`) ; **8 niveaux** (`Config.BASE_LEVELS`) : Enclos de bois (0), Cabane (12), Chaumière (40), Maison (110), Manoir (260), Fort (600), Forteresse (1400), Château doré (3200).
+- **Apparence** (`Builder.baseUpgrade`, cumulative, 130 Parts au plus par base) : enclos de bois sur trois côtés, cabane au fond (modèle Blender `props.hut` si le budget le permet), lanternes lumineuses et dallage, muret de pierre, tours d'angle (modèle Blender `castle.tower`), créneaux et bannières, arche et torches, et au niveau 8 toit, tours, linteau et lueur en or. Repli procédural partout ; budget Blender des bases `baseBlenderBudget` (280 Parts par base).
+- **Montée de niveau** : message serveur, effet 3D (pilier, aura, onde de choc, `VfxKit`) et plan de caméra court en orbite (`base_niveau`, `CinematicKit`, jamais en danger). Interface : ligne « Ma base : niveau N » avec progression et prochain palier dans le menu Plus et note en tête de l'onglet Œufs.
+- **Sauvegarde** : profil **version 8** (`baseScore`), migration de l'ancien profil (score reconstitué d'après la collection : nombre de pets par espèce x poids de la rareté).
+- **Bug trouvé au passage** : la renaissance ne conservait pas `starter` (le pack de départ à achat unique pouvait être racheté après une renaissance) ; elle garde maintenant `starter` et `baseScore`.
+- Non testé en Studio : proportions des apparences, position des éléments sur la plateforme (l'entrée est supposée côté -Z, l'arrière +Z).
+
 ## 2026-11-22 (suite) : retours de test réels, lot 1 : sol qui scintille
 
 - **Détecteur de z-fighting** (test sur le hub et la partie construits) : deux dessus horizontaux à moins de 0,05 stud qui se recouvrent sur plus de 1 stud carré sont refusés ; il a trouvé (hub) la bague de la place au même niveau que la place, les pavés des chemins sous l'anneau des portails et superposés entre eux (le chemin du portail « château » doublait celui de l'arène) ; (partie) les taches d'herbe qui se recouvraient, l'arène sous l'eau des douves, les segments de douve entre eux, les deux rivières à leur croisement, la paille du nid, l'étang de Mara, les tuiles Blender de chemin sur celles de pelouse.

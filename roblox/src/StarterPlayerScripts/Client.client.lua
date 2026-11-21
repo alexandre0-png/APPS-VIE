@@ -391,6 +391,27 @@ local function pulseLighting(strength)
 	end)
 end
 
+-- Montée de niveau de la base : pilier de lumière, aura runique et onde de choc au centre de la base (VfxKit), message du serveur en plus.
+do
+	local lastBaseLevel = nil
+	local function onBaseLevel()
+		local lv = player:GetAttribute("BaseLevel")
+		if type(lv) ~= "number" then
+			return
+		end
+		local previous = lastBaseLevel
+		lastBaseLevel = lv
+		if previous and lv > previous then
+			local pc = player:GetAttribute("PlotCF")
+			if typeof(pc) == "CFrame" then
+				pcall(playVfxAt, { "pilier_revelation", "aura_runique", "onde_de_choc" }, math.min(6, math.max(2, lv - 1)), pc * CFrame.new(0, 1.2, 0))
+			end
+		end
+	end
+	player:GetAttributeChangedSignal("BaseLevel"):Connect(onBaseLevel)
+	onBaseLevel()
+end
+
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
 	if def.tier >= 4 and tryOfferLater then
@@ -802,6 +823,10 @@ function render()
 		end
 	elseif panel.name == "dex" and panel.tab == "eggs" then
 		local n = 0
+		do
+			local lv, nxt, _, left = Config.baseLevel(state.baseScore)
+			addNote("🏠 Base niveau " .. lv .. " · " .. Config.BASE_LEVELS[lv].name .. (nxt and (" · encore " .. fmt(left) .. " pt pour " .. nxt.name) or " · niveau maximum") .. ". Chaque pet éclos fait grandir ta base, d'autant plus qu'il est rare.")
+		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
 			if sl and sl.k == "e" then
@@ -1013,6 +1038,14 @@ function render()
 				end
 			end,
 		})
+		do -- progression de la base : niveau, apparence, points et prochain palier
+			local lv, nxt, progress, left = Config.baseLevel(state.baseScore)
+			local cur = Config.BASE_LEVELS[lv]
+			addRow({
+				icon = cur.emoji, title = "Ma base : niveau " .. lv .. "/" .. #Config.BASE_LEVELS .. " · " .. cur.name,
+				desc = nxt and (math.floor(progress * 100) .. " % vers " .. nxt.emoji .. " " .. nxt.name .. " (encore " .. fmt(left) .. " pt) · Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Secret 150") or "Niveau maximum : ton château est en or !",
+			})
+		end
 		addRow({
 			icon = volumeIdx == #Config.VOLUME_STEPS and "🔇" or "🔊", title = "Son : " .. Config.volumeLabel(volumeIdx), desc = "Volume général (effets et ambiances). Touche pour changer.",
 			btn = "Changer", btnColor = COL.green,

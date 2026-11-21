@@ -604,6 +604,24 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 	end
 end)
 
+-- Montée de niveau de la base : plan court en orbite autour de la base (jamais en danger ; le premier niveau reçu à la connexion ne déclenche rien).
+do
+	local lastLevel = nil
+	local function onLevel()
+		local lv = player:GetAttribute("BaseLevel")
+		if type(lv) ~= "number" then
+			return
+		end
+		local previous = lastLevel
+		lastLevel = lv
+		if previous and lv > previous and Config.cineEnabled("base") and not director.isActive() and Kit.canPlay(dangerCtx()) then
+			begin("base_niveau", CinematicKitMod.PLANS.base_niveau, {}, false, true)
+		end
+	end
+	player:GetAttributeChangedSignal("BaseLevel"):Connect(onLevel)
+	onLevel()
+end
+
 -- Revoir (menu Plus) : événement local déclenché par l'interface.
 local replay = Instance.new("BindableEvent")
 replay.Name = "ReplayCinematic"

@@ -24,7 +24,8 @@ local SAVE_RETRIES = 3
 -- v5 : + cine (cinématiques déjà vues).
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
-local VERSION = 7
+-- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
+local VERSION = 8
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -90,6 +91,7 @@ function Data.default()
 		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
+		baseScore = 0, -- progression de la base
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
 	}
@@ -118,6 +120,19 @@ local MIGRATIONS = {
 	end,
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
+	end,
+	[7] = function(saved)
+		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté).
+		local score = 0
+		if type(saved.dex) == "table" then
+			for k, e in pairs(saved.dex) do
+				local def = Config.PETS[tonumber(k) or 0]
+				if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 then
+					score += math.floor(e.n) * Config.baseGain(def.tier)
+				end
+			end
+		end
+		saved.baseScore = score
 	end,
 	[6] = function(saved)
 		-- v6 -> v7 : starter vaut false (pack de départ jamais acheté).
@@ -204,6 +219,7 @@ local function merge(saved)
 		end
 	end
 	d.starter = saved.starter == true
+	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end

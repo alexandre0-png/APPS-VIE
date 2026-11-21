@@ -336,6 +336,8 @@ local function snapshot(s)
 		puzzleSolved = d.puzzle.solved,
 		ach = d.ach,
 		stats = statValues(s),
+		baseScore = d.baseScore,
+		baseLevel = s.baseLevel,
 	}
 end
 
@@ -614,6 +616,23 @@ task.spawn(function() -- SubscribeAsync attend le réseau : ne pas bloquer le d�
 	end)
 end)
 
+---------------------------------------------------------------- Progression de la base (niveau d'après le score pondéré par la rareté)
+-- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : effet de montée de niveau, interface).
+local function applyBase(s, announce)
+	local level, nxt = Config.baseLevel(s.data.baseScore)
+	local before = s.baseLevel
+	s.baseLevel = level
+	if before ~= level and s.plot then
+		Builder.baseUpgrade(s.plot, level)
+	end
+	s.player:SetAttribute("BaseLevel", level)
+	s.player:SetAttribute("BaseScore", s.data.baseScore)
+	if announce and before and level > before then
+		local lv = Config.BASE_LEVELS[level]
+		notify(s.player, "🏠 Ta base passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. (nxt and (" · prochain palier : " .. nxt.name) or " · niveau maximum !"), "claim")
+	end
+end
+
 ---------------------------------------------------------------- Éclosion
 function hatch(s, i)
 	local d = s.data
@@ -631,6 +650,7 @@ function hatch(s, i)
 	end
 	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
 	d.hatched += 1
+	d.baseScore += Config.baseGain(p.tier) -- la base grandit avec chaque pet éclos, d'autant plus que le pet est rare
 	local key = tostring(p.p)
 	local dx = d.dex[key]
 	if not dx then
@@ -645,6 +665,7 @@ function hatch(s, i)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
 	sp(s, "hatch", 1)
+	applyBase(s, true)
 	sp(s, "tier", 1, { tier = def.tier })
 	if p.m > 1 then
 		sp(s, "mut", 1)
@@ -1672,6 +1693,7 @@ function actions.rebirth(s)
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
+	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
 	s.data = fresh
 	refreshAllPads(s)
@@ -1958,6 +1980,7 @@ local function releasePlot(s)
 	end
 	s.plot.owner = nil
 	s.plot.nameLabel.Text = "Base libre"
+	Builder.clearBase(s.plot)
 end
 
 -- Partie pleine (5 joueurs au plus) ou lieu de jeu ouvert en trop : le joueur est renvoyé au hub (ou expulsé avec un message si le hub est injoignable).
@@ -2073,6 +2096,7 @@ local function onJoin(player)
 	end
 
 	ensureQuests(s)
+	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
 	player:SetAttribute("PlotCF", plot.cf) -- position de la base : sert aux caméras des cinématiques (réplication sûre)

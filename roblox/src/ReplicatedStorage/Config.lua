@@ -491,6 +491,7 @@ Config.Assets = {
 	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
+	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
@@ -618,6 +619,40 @@ function Config.nearestPortal(x, z, portals, maxDist)
 		end
 	end
 	return best
+end
+
+-- Progression de la base : chaque pet éclos ajoute des points selon sa rareté (Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Cosmique/secret 150) ;
+-- 8 niveaux d'apparence, du simple enclos de bois au château doré. Le score est sauvegardé (profil v8) ; le niveau s'en déduit.
+Config.BASE_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
+Config.BASE_LEVELS = {
+	{ score = 0, name = "Enclos de bois", emoji = "🪵" },
+	{ score = 12, name = "Cabane", emoji = "🛖" },
+	{ score = 40, name = "Chaumière", emoji = "🏡" },
+	{ score = 110, name = "Maison", emoji = "🏠" },
+	{ score = 260, name = "Manoir", emoji = "🏘️" },
+	{ score = 600, name = "Fort", emoji = "🛡️" },
+	{ score = 1400, name = "Forteresse", emoji = "🏰" },
+	{ score = 3200, name = "Château doré", emoji = "👑" },
+}
+-- Points gagnés par un pet de rareté `tier` (1..6).
+function Config.baseGain(tier)
+	return Config.BASE_WEIGHTS[math.min(math.max(type(tier) == "number" and tier == tier and math.floor(tier) or 1, 1), #Config.BASE_WEIGHTS)]
+end
+-- Niveau d'une base d'après son score : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants).
+function Config.baseLevel(score)
+	score = (type(score) == "number" and score == score and score > 0) and score or 0
+	local level = 1
+	for i, lv in ipairs(Config.BASE_LEVELS) do
+		if score >= lv.score then
+			level = i
+		end
+	end
+	local nxt = Config.BASE_LEVELS[level + 1]
+	if not nxt then
+		return level, nil, 1, 0
+	end
+	local cur = Config.BASE_LEVELS[level]
+	return level, nxt, (score - cur.score) / (nxt.score - cur.score), math.ceil(nxt.score - score)
 end
 
 -- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
@@ -1010,6 +1045,7 @@ Config.Cinematics = {
 	firstZone = true, -- la première zone débloquée
 	firstRare = true, -- le premier pet rare
 	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	base = true, -- montée de niveau de la base (orbite courte)
 	hub = true, -- survol d'accueil du hub (fontaine puis portails), première arrivée seulement
 	eclosion = true, -- cinématiques d'éclosion (épique court ; légendaire, mythique, cosmique, secret complets)
 	chateau = true, -- entrée et victoire du château

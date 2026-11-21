@@ -863,6 +863,155 @@ function Builder.exportVfx(assets)
 	return n
 end
 
+-- Progression de la base : 8 apparences cumulatives, de l'enclos de bois au château doré (repère local de la base : l'entrée est du côté -Z, l'arrière +Z).
+-- Chaque niveau ajoute des Parts (au plus 100 en tout par base) dans le dossier « BaseUpgrade » du modèle de la base ; la cabane et les tours utilisent
+-- les modèles Blender (props.hut, castle.tower) tant que le budget Blender des bases n'est pas dépassé, sinon la version procédurale.
+-- Retourne le nombre de Parts posées.
+function Builder.baseUpgrade(plot, level)
+	local made = 0
+	pcall(function()
+		if not (plot and plot.model and plot.cf) then
+			return
+		end
+		Builder.clearBase(plot)
+		local folder = Instance.new("Folder")
+		folder.Name = "BaseUpgrade"
+		folder.Parent = plot.model
+		local cf0 = plot.cf
+		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
+			made += 1
+			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
+		end
+		local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
+		local stone, stone2 = Color3.fromRGB(150, 150, 158), Color3.fromRGB(112, 112, 122)
+		local gold = Color3.fromRGB(255, 205, 70)
+		local golden = level >= 8
+		local E = 28.5 -- le pourtour : en dehors de la plateforme (demi-côté 26)
+		local sideMat = level >= 4 and Enum.Material.Cobblestone or Enum.Material.WoodPlanks
+		local sideCol = level >= 4 and stone or wood
+		local h = level >= 4 and 2.2 or 1.6
+		box("Rail", -E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
+		box("Rail", E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
+		box("Rail", 0, h, E, 2 * E, 0.5, 0.6, sideCol, sideMat)
+		box("RailLow", -E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
+		box("RailLow", E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
+		box("RailLow", 0, h * 0.45, E, 2 * E, 0.4, 0.5, sideCol, sideMat)
+		for k = -3, 3 do
+			local t = k * (E / 3)
+			box("Post", -E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
+			box("Post", E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
+			box("Post", t, h * 0.6, E, 0.8, h * 1.3, 0.8, wood2)
+		end
+		-- place un modèle Blender (hauteur cible), ancré, sans collision ; false si le budget Blender est dépassé ou si la mesure échoue
+		local function placeModel(clone, cost, height, x, z, rot, name)
+			plot.baseBlender = plot.baseBlender or 0
+			if not clone or plot.baseBlender + cost > Config.Assets.baseBlenderBudget then
+				if clone then
+					pcall(function()
+						clone:Destroy()
+					end)
+				end
+				return false
+			end
+			local ok = pcall(function()
+				local fitted, why = AssetsMod.fitHeight(clone, height)
+				if not fitted then
+					error(why)
+				end
+				local bbox, size = clone:GetBoundingBox()
+				clone:PivotTo(cf0 * CFrame.new(x, size.Y / 2, z) * CFrame.Angles(0, rot, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+				for _, d in ipairs(clone:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+						d.CanQuery = false
+					end
+				end
+				clone.Name = name
+				clone.Parent = folder
+			end)
+			if ok then
+				plot.baseBlender += cost
+				made += 4
+				return true
+			end
+			pcall(function()
+				clone:Destroy()
+			end)
+			return false
+		end
+		if level >= 2 then
+			local clone = eggAssets and eggAssets.cloneProp and eggAssets.cloneProp("hut")
+			if not placeModel(clone, Config.Assets.propsMaxParts.hut or 120, level >= 5 and 8 or 6, 0, 21, math.pi, "HutModel") then
+				box("HutWall", 0, 2.4, 21, 11, 4.8, 7, level >= 4 and stone or wood2, level >= 4 and Enum.Material.Brick or Enum.Material.WoodPlanks)
+				box("HutRoof", 0, 5.8, 21, 12.4, 0.8, 8.4, golden and gold or Color3.fromRGB(176, 70, 60), golden and Enum.Material.Metal or Enum.Material.Slate)
+				box("HutDoor", 0, 1.6, 17.4, 2.4, 3.2, 0.3, wood)
+			end
+		end
+		if level >= 3 then
+			for _, c in ipairs({ { -E, -E }, { E, -E }, { -E, E }, { E, E } }) do
+				box("LampPost", c[1], 2.6, c[2], 0.5, 5.2, 0.5, Color3.fromRGB(50, 52, 60), Enum.Material.Metal)
+				local head = box("Lantern", c[1], 5.4, c[2], 1.1, 1.1, 1.1, Color3.fromRGB(255, 232, 160), Enum.Material.Neon)
+				local l = Instance.new("PointLight")
+				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 224, 150), 14, 0.9
+				l.Parent = head
+			end
+			for k = 0, 4 do
+				box("Flagstone", 0, 1.06 + 0.06 * (k % 2), -22 + k * 2.2, 4.2, 0.12, 1.9, stone, Enum.Material.Slate)
+			end
+		end
+		if level >= 5 then
+			for _, sx in ipairs({ -E, E }) do
+				local towerH = golden and 11 or 9
+				local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("castle", "tower")
+				if not placeModel(clone, Config.Assets.modelsMaxParts["castle.tower"] or 80, towerH + 3, sx, E, 0, "TowerModel") then
+					made += 2
+					part({ Name = "Tower", Shape = Enum.PartType.Cylinder, Size = Vector3.new(towerH, 5, 5), CFrame = cf0 * CFrame.new(sx, towerH / 2, E) * CFrame.Angles(0, 0, math.pi / 2), Color = stone2, Material = Enum.Material.Cobblestone, CanCollide = false }, folder)
+					part({ Name = "TowerCap", Shape = Enum.PartType.Ball, Size = Vector3.new(5.6, 5.6, 5.6), CFrame = cf0 * CFrame.new(sx, towerH + 0.6, E), Color = golden and gold or Color3.fromRGB(176, 70, 60), Material = golden and Enum.Material.Metal or Enum.Material.Slate, CanCollide = false }, folder)
+				end
+			end
+		end
+		if level >= 6 then
+			for k = -3, 3 do
+				box("Merlon", k * 7, h + 1.2, E, 2.6, 1.4, 1.2, stone2, Enum.Material.Cobblestone)
+			end
+			for _, sx in ipairs({ -10, 10 }) do
+				box("BannerPole", sx, 4, E - 1, 0.3, 8, 0.3, wood2)
+				box("Banner", sx, 6.4, E - 1, 2.2, 3, 0.15, Color3.fromRGB(200, 50, 60), Enum.Material.Fabric)
+			end
+		end
+		if level >= 7 then
+			box("GatePillar", -6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
+			box("GatePillar", 6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
+			box("GateLintel", 0, 8.4, -E, 14, 1.6, 2, golden and gold or stone, golden and Enum.Material.Metal or Enum.Material.Cobblestone)
+			for _, sx in ipairs({ -6, 6 }) do
+				local t = box("Torch", sx, 5.2, -E + 1.2, 0.8, 0.8, 0.8, Color3.fromRGB(255, 150, 60), Enum.Material.Neon)
+				local l = Instance.new("PointLight")
+				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 170, 90), 16, 1
+				l.Parent = t
+			end
+		end
+		if golden then
+			box("GoldTrim", 0, h + 0.3, E, 2 * E, 0.35, 0.8, gold, Enum.Material.Metal)
+			local glow = box("GoldGlow", 0, 7.4, 21, 3, 3, 3, gold, Enum.Material.Neon)
+			local l = Instance.new("PointLight")
+			l.Color, l.Range, l.Brightness = gold, 26, 1.4
+			l.Parent = glow
+		end
+	end)
+	return made
+end
+
+function Builder.clearBase(plot)
+	pcall(function()
+		local f = plot.model and plot.model:FindFirstChild("BaseUpgrade")
+		if f then
+			f:Destroy()
+		end
+		plot.baseBlender = 0
+	end)
+end
+
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
 function Builder.animDoor(rec, open)
 	local vis = rec.vis
