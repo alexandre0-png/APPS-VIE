@@ -12,6 +12,7 @@ if Config.Game.roleFor(game.PlaceId) == "game" then
 	return -- lieu de jeu : le code de la partie (Main) s'en charge
 end
 local PartyMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
+local Placement = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Placement"))
 local HubWorld = require(script.Parent:WaitForChild("HubWorld"))
 
 local G = Config.Game
@@ -69,6 +70,32 @@ task.spawn(function()
 			placed += 1
 		end
 	end
+	-- Village : maisons, puits, tour, pins, rochers, pont de pierre sur la mare, île sakura (Config.HubScenery) ; les arbres et fleurs procéduraux sous
+	-- l'empreinte d'un modèle posé sont retirés. Budget Parts séparé ; modèle refusé = rien ne change.
+	assets.loadGroup("scenery")
+	local village, vParts = 0, 0
+	for _, e in ipairs(Config.HubScenery) do
+		local dims = Config.Assets.sceneryDims[e[1]]
+		local st = assets.status["m:scenery." .. e[1]]
+		local cost = st and st.ok and st.parts or 0
+		if dims and cost > 0 and vParts + cost <= Config.Assets.sceneryBudgetParts then
+			local clone = assets.cloneModel("scenery", e[1])
+			local rot = e[4] or Placement.facing(-e[2], -e[3])
+			if clone and assets.place(clone, e[2], e[3], rot, (not e[5]) and dims.h or nil, world.folder, e[5] or dims.len, 0) then
+				village += 1
+				vParts += cost
+				for _, d in ipairs(world.folder:GetChildren()) do
+					local n = d.Name
+					if (n == "Trunk" or n == "Leaves" or n == "Flower" or n == "PathStone") and d:IsA("BasePart") then
+						if math.sqrt((d.Position.X - e[2]) ^ 2 + (d.Position.Z - e[3]) ^ 2) < dims.r + 2 then
+							d:Destroy()
+						end
+					end
+				end
+			end
+		end
+	end
+	print("[Hub] village : " .. village .. " modèle(s), " .. vParts .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. ")")
 	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s), " .. swapped .. " banc(s)/lampadaire(s) Blender")
 end)
 

@@ -478,6 +478,7 @@ Config.Assets = {
 		trees = { tree_oak_a = 115675817596242, tree_oak_b = 139178488755477, tree_birch = 86165293471213, tree_pine = 134548154871906, tree_sakura = 136998832791777, tree_round = 128198214830836 },
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
 		eggguard = { egg_dome = 114304098897950, egg_nest_fence = 101252453233834, egg_cage = 98653120562597, egg_shield = 73837494094507 },
+		scenery = { scn_puits = 93457733638103, scn_pin_haut = 103664392312435, scn_pont_pierre = 71167399273394, scn_maison_colombages = 108434085196211, scn_tour_cloche = 117760736577913, scn_rocher_a = 109597978140541, scn_rocher_b = 91218401630144, scn_rocher_c = 126837715911422, scn_ile_sakura = 103275800553270 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
@@ -488,6 +489,8 @@ Config.Assets = {
 		["trees.tree_oak_a"] = 40, ["trees.tree_oak_b"] = 40, ["trees.tree_birch"] = 40, ["trees.tree_pine"] = 40, ["trees.tree_sakura"] = 40, ["trees.tree_round"] = 40,
 		["paths.path_straight"] = 12, ["paths.path_curve"] = 12, ["paths.path_stones"] = 12,
 		["eggguard.egg_dome"] = 20, ["eggguard.egg_nest_fence"] = 30, ["eggguard.egg_cage"] = 30, ["eggguard.egg_shield"] = 12,
+		["scenery.scn_puits"] = 40, ["scenery.scn_pin_haut"] = 30, ["scenery.scn_pont_pierre"] = 90, ["scenery.scn_maison_colombages"] = 90, ["scenery.scn_tour_cloche"] = 70,
+		["scenery.scn_rocher_a"] = 12, ["scenery.scn_rocher_b"] = 12, ["scenery.scn_rocher_c"] = 12, ["scenery.scn_ile_sakura"] = 80,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
 	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
@@ -518,6 +521,11 @@ Config.Assets = {
 	eggGuardKeys = { "egg_nest_fence", "egg_dome", "egg_dome", "egg_cage", "egg_shield", "egg_shield" },
 	eggGuardWidth = { egg_nest_fence = 6.5, egg_dome = 4.4, egg_cage = 4.6, egg_shield = 5 },
 	eggGuardBudgetPerBase = 220, -- Parts Blender de protection par base (au-delà : nid procédural)
+	-- Décor de village (lot scn_*) : `h` = hauteur cible, `len` = plus grande arête cible (studs), `r` = rayon d'empreinte pour la planification.
+	sceneryDims = { scn_puits = { h = 8, r = 4 }, scn_pin_haut = { h = 16, r = 4 }, scn_pont_pierre = { len = 40, r = 22 }, scn_maison_colombages = { h = 12, r = 8 }, scn_tour_cloche = { h = 16, r = 5 },
+		scn_rocher_a = { len = 8, r = 5 }, scn_rocher_b = { len = 6, r = 4 }, scn_rocher_c = { len = 10, r = 6 }, scn_ile_sakura = { len = 24, r = 13 } },
+	scenerySmallRock = 4, -- largeur des rochers en bordure de mare
+	sceneryBudgetParts = 700, -- Parts Blender du décor de village (carte et hub chacun, budget séparé)
 	decoHeights = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1.2, stone_flat = 0.6, stone_round = 0.9, lantern = 1.2, sign_stars = 5 }, -- hauteurs cibles (studs) du décor fin
 	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
@@ -761,6 +769,21 @@ Config.HubDecor = {
 	{ "sakura", 0, 92, 0, 16 },
 	{ "sakura", -70, 88, 0, 16 },
 	{ "sakura", 72, 90, 0, 16 },
+}
+
+-- Décor de village du HUB (lot scn_*) : { modèle, x, z, rotation (nil = face au centre), largeur forcée (nil = dimension par défaut) }. Placé après le décor
+-- procédural ; les arbres et fleurs procéduraux sous l'empreinte sont retirés. Mare procédurale : Config.HubPond.
+Config.HubPond = { x = -125, z = 30, w = 36, d = 18 }
+Config.HubScenery = {
+	{ "scn_ile_sakura", 130, 40 },
+	{ "scn_pont_pierre", -125, 30, 0 },
+	{ "scn_puits", -100, 75 },
+	{ "scn_maison_colombages", -150, -40 }, { "scn_maison_colombages", 155, -45 }, { "scn_maison_colombages", 95, 115 }, { "scn_maison_colombages", -95, 125 },
+	{ "scn_tour_cloche", 0, 165 },
+	{ "scn_pin_haut", -170, 60 }, { "scn_pin_haut", 170, 70 }, { "scn_pin_haut", -60, 175 }, { "scn_pin_haut", 60, 175 }, { "scn_pin_haut", -145, -105 }, { "scn_pin_haut", 150, -110 },
+	{ "scn_rocher_a", -110, 110 }, { "scn_rocher_b", 115, 85 }, { "scn_rocher_c", 160, 10 }, { "scn_rocher_a", -165, -10 }, { "scn_rocher_b", -40, 150 }, { "scn_rocher_c", 45, 150 },
+	-- rochers en bordure de la mare
+	{ "scn_rocher_b", -146, 18, nil, 4 }, { "scn_rocher_a", -146, 42, nil, 4 }, { "scn_rocher_b", -104, 18, nil, 4 }, { "scn_rocher_a", -104, 42, nil, 4 },
 }
 
 -- Pire cas de Parts de tous les accessoires placés sur la carte (exemplaires x plafond par modèle) : doit rester sous propsBudgetParts.

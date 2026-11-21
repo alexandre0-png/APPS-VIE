@@ -158,6 +158,10 @@ function HubWorld.build(Config)
 	end
 	part({ Name = "InvisibleCeiling", Size = Vector3.new(428, 4, 428), Position = Vector3.new(0, CEIL + 2, 0), Transparency = 1, CanQuery = false }, world)
 
+	-- Mare du village (décor : on la traverse sans nager) ; le pont de pierre Blender l'enjambe, des rochers la bordent
+	local pond = Config.HubPond
+	part({ Name = "Pond", Size = Vector3.new(pond.w, 0.2, pond.d), Position = Vector3.new(pond.x, 0.12, pond.z), Color = Color3.fromRGB(70, 150, 210), Material = Enum.Material.SmoothPlastic, Transparency = 0.25, CanCollide = false, CanQuery = false }, world)
+
 	-- Fontaine centrale
 	local fBase = cylinder({ Name = "FountainBase", Height = 2.4, Diameter = 16, Position = Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(170, 170, 178), Material = Enum.Material.Marble }, world)
 	local fWater = cylinder({ Name = "FountainWater", Height = 0.4, Diameter = 14, Position = Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false }, world)

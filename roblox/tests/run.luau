@@ -3409,6 +3409,19 @@ do
 		check("Hub : 6 bancs et 16 lampadaires Blender posés, équivalents procéduraux retirés (" .. benches .. "/" .. lamps .. ", restes " .. oldSeat .. "/" .. oldPost .. ")", benches == 6 and lamps == 16 and oldSeat == 0 and oldPost == 0)
 	end
 	do
+		local houses, pond, towers = 0, 0, 0
+		for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+			if d.Name == "Asset" .. Config.Assets.models.scenery.scn_maison_colombages then
+				houses += 1
+			elseif d.Name == "Asset" .. Config.Assets.models.scenery.scn_tour_cloche then
+				towers += 1
+			elseif d.Name == "Pond" then
+				pond += 1
+			end
+		end
+		check("Hub : village posé (" .. houses .. " maisons à colombages, " .. towers .. " tour, mare " .. pond .. "), aucune erreur", houses == 4 and towers == 1 and pond == 1 and #RT.errors == 0)
+	end
+	do
 		local keys, kinds, tooFar, count = {}, { title = 0, status = 0 }, 0, 0
 		for obj in pairs(RT.tags["PortalLabel"] or {}) do
 			count += 1
@@ -4534,6 +4547,13 @@ do
 						end
 					end
 					check("Chemins Blender : " .. tilesN .. " éléments posés (tuiles + pierres), " .. tileParts .. " objets <= budget " .. Config.Assets.pathBudgetParts .. ", aucune erreur", tilesN >= 10 and tileParts <= Config.Assets.pathBudgetParts * 3 and #RT.errors == 0)
+					local village = 0
+					for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+						if d.Parent and rawget(d.Parent, "__props").Name == "BlenderVillage" then
+							village += 1
+						end
+					end
+					check("Village Blender de la carte : " .. village .. " objets posés (budget " .. Config.Assets.sceneryBudgetParts .. " Parts), aucune erreur", village >= 8 and #RT.errors == 0)
 					check("Arbres Blender : modèles posés sur la carte (" .. trees .. ")", trees >= 5)
 					check("Protections d'œufs Blender : " .. guards .. " posée(s), " .. guardParts .. " objets", guardParts <= Config.Assets.eggGuardBudgetPerBase * 3)
 				end
@@ -5228,6 +5248,109 @@ do
 	end
 	check("Chemins : un coin à 90° donne une tuile de virage (" .. cc .. ")", cc >= 1)
 	check("Chemins : yawOfDir (1,0)=0, (0,-1)=90, (-1,0)=180, (0,1)=270", math.abs(PLx.yawOfDir(1, 0)) < 1e-6 and math.abs(PLx.yawOfDir(0, -1) - 90) < 1e-6 and math.abs(PLx.yawOfDir(-1, 0) - 180) < 1e-6 and math.abs(PLx.yawOfDir(0, 1) - 270) < 1e-6)
+end
+
+
+do
+	suite("Lot 12 : village (scn_*) : hub fixe, carte planifiée, empreintes sans recouvrement")
+	local PLv = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
+	local D = Config.Assets.sceneryDims
+	local idsOk, n = true, 0
+	for k, id in pairs(Config.Assets.models.scenery) do
+		n = n + 1
+		if type(id) ~= "number" or id <= 0 or not D[k] or not Config.Assets.modelsMaxParts["scenery." .. k] then
+			idsOk = false
+		end
+	end
+	check("Lot 12 : 9 modèles scn_* avec ID, dimensions et plafond de Parts", idsOk and n == 9)
+	-- hub : aucune empreinte ne recouvre un portail, le spawn, la fontaine, la place, le décor catalogue, ni les autres éléments ; tout reste dans le sol (rayon 205)
+	local fixed = { { 0, 34, 10 }, { 0, 0, 10 }, { -26, 30, 4 }, { 26, 30, 4 }, { -26, 8, 4 }, { 26, 8, 4 } }
+	for _, ring in ipairs({ 62, 108 }) do
+		for i = 1, #Config.Game.Sizes do
+			local a = math.rad(-72 + (i - 1) * 36)
+			fixed[#fixed + 1] = { math.sin(a) * ring, -math.cos(a) * ring, 14 }
+		end
+	end
+	for _, d in ipairs(Config.HubDecor) do
+		fixed[#fixed + 1] = { d[2], d[3], 5 }
+	end
+	local hubOk, why, worst = true, "", 999
+	for i, e in ipairs(Config.HubScenery) do
+		local dm = D[e[1]]
+		local r = e[5] and e[5] / 2 + 1 or dm.r
+		if math.sqrt(e[2] ^ 2 + e[3] ^ 2) + r > 205 then
+			hubOk, why = false, "hors du sol : " .. e[1]
+		end
+		if math.sqrt(e[2] ^ 2 + e[3] ^ 2) - r < 52 and e[1] ~= "scn_pont_pierre" then
+			hubOk, why = false, "sur la place : " .. e[1]
+		end
+		for _, f in ipairs(fixed) do
+			local gap = math.sqrt((e[2] - f[1]) ^ 2 + (e[3] - f[2]) ^ 2) - r - f[3]
+			worst = math.min(worst, gap)
+			if gap < 0 and e[1] ~= "scn_pont_pierre" then
+				hubOk, why = false, e[1] .. " recouvre un élément fixe (" .. f[1] .. "," .. f[2] .. ")"
+			end
+		end
+		for j = i + 1, #Config.HubScenery do
+			local o = Config.HubScenery[j]
+			local ro = o[5] and o[5] / 2 + 1 or D[o[1]].r
+			local bridgePair = e[1] == "scn_pont_pierre" or o[1] == "scn_pont_pierre"
+			if not bridgePair and math.sqrt((e[2] - o[2]) ^ 2 + (e[3] - o[3]) ^ 2) < r + ro then
+				hubOk, why = false, e[1] .. " recouvre " .. o[1]
+			end
+		end
+	end
+	check("Village du hub : " .. #Config.HubScenery .. " éléments, aucun recouvrement, hors place et portails (marge min " .. string.format("%.1f", worst) .. ") " .. why, hubOk)
+	local pond = Config.HubPond
+	local bridge
+	for _, e in ipairs(Config.HubScenery) do
+		if e[1] == "scn_pont_pierre" then
+			bridge = e
+		end
+	end
+	check("Hub : le pont de pierre (40 de long) enjambe la mare (" .. pond.w .. " de large) et est centré dessus", bridge ~= nil and D.scn_pont_pierre.len > pond.w and bridge[2] == pond.x and bridge[3] == pond.z)
+	local ringN = 0
+	for _, e in ipairs(Config.HubScenery) do
+		if e[5] then
+			ringN = ringN + 1
+			local dx, dz = math.abs(e[2] - pond.x), math.abs(e[3] - pond.z)
+			if dx < pond.w / 2 - 1 or dz < pond.d / 2 - 1 then
+				hubOk = false
+			end
+		end
+	end
+	check("Hub : " .. ringN .. " rochers bordent la mare sans entrer dedans", ringN >= 4 and hubOk)
+	-- carte : planificateur
+	local P2 = PLv.new(Config)
+	local plan = P2.plan()
+	local v1, v2 = P2.scenery(plan.items), P2.scenery(plan.items)
+	local want = 0
+	for _, e in ipairs(PLv.VILLAGE) do
+		want = want + e[2]
+	end
+	check("Village de la carte : " .. #v1 .. "/" .. want .. " éléments placés, déterministe", #v1 >= want - 2 and #v1 == #v2 and v1[1].x == v2[1].x)
+	local mapOk = true
+	for i, a in ipairs(v1) do
+		if P2.blocked(a.x, a.z, a.r, {}) then
+			mapOk = false
+		end
+		for _, b in ipairs(plan.items) do
+			if math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2) < a.r + b.r then
+				mapOk = false
+			end
+		end
+		for j = i + 1, #v1 do
+			if math.sqrt((a.x - v1[j].x) ^ 2 + (a.z - v1[j].z) ^ 2) < a.r + v1[j].r then
+				mapOk = false
+			end
+		end
+	end
+	check("Village de la carte : rien dans l'eau, sur un chemin, une base, un domaine, ni sur un arbre/rocher du plan, ni sur un autre élément", mapOk)
+	local worstParts = 0
+	for _, e in ipairs(v1) do
+		worstParts = worstParts + Config.Assets.modelsMaxParts["scenery." .. e.kind]
+	end
+	check("Village : pire cas " .. worstParts .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. " : le placement s'arrête au budget réel)", worstParts > 0)
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

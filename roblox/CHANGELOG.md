@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Lot 12 : village (9 modèles scn_*)
+
+- Hub : mare procédurale (36 x 18) enjambée par le pont de pierre (40), 4 maisons à colombages, puits, tour de la cloche, 6 pins hauts, 6 rochers, 4 rochers en bordure de mare, île sakura (Config.HubScenery, mise en page fixe sans recouvrement des portails, du spawn, de la place et du décor catalogue). Arbres et fleurs procéduraux sous une empreinte posée sont retirés.
+- Carte : `Placement.scenery` (anneau 105–215 studs, mêmes interdits que plan()), `Builder.dressScenery`, budget 700 Parts séparé.
+- Non vu en Studio : taille réelle des modèles, orientation (face au centre supposée −Z), rendu de l'île sakura sur le sol du hub.
+
 ## Lot 11 : arbres, chemins sinueux, protections d'œufs (13 modèles Blender)
 
 - Arbres : 6 variantes (`models.trees`), choisies par zone (`Placement.treeVariant` : sakura près des lacs et de l'arène, pins autour des domaines, prairie = chênes/bouleau/arbre rond), hauteur 8–11 studs, échelle ±15 %, rotation libre, repli = accessoire procédural.

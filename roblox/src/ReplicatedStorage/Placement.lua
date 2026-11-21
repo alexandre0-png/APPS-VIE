@@ -438,6 +438,48 @@ function Placement.new(Config)
 		return out
 	end
 
+	-- Décor de village de la carte (modèles scn_*) : candidats sur des anneaux autour de l'arène, ordre fixe ; mêmes règles que plan() (rien dans l'eau, sur un
+	-- chemin, une base, un domaine ni sur un objet du plan). Retourne { {kind, x, z, rot, r, y} }.
+	local VILLAGE = { { "scn_tour_cloche", 1 }, { "scn_maison_colombages", 3 }, { "scn_puits", 2 }, { "scn_pin_haut", 6 }, { "scn_rocher_a", 3 }, { "scn_rocher_b", 3 }, { "scn_rocher_c", 3 } }
+	Placement.VILLAGE = VILLAGE
+	function P.scenery(planItems)
+		local out = {}
+		local dims = Config.Assets.sceneryDims
+		for _, entry in ipairs(VILLAGE) do
+			local kind, want = entry[1], entry[2]
+			local r = dims[kind].r
+			local got, tries = 0, 0
+			while got < want and tries < 400 do
+				tries = tries + 1
+				local ang = math.rad((tries * 137.5 + #out * 23) % 360)
+				local rad = 105 + (tries * 29) % 110 -- anneau de 105 à 215 studs : entre l'arène et les bases
+				local x, z = math.sin(ang) * rad, -math.cos(ang) * rad
+				local ok = not P.blocked(x, z, r, {})
+				if ok then
+					for _, it in ipairs(planItems or {}) do
+						if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 2 then
+							ok = false
+							break
+						end
+					end
+				end
+				if ok then
+					for _, it in ipairs(out) do
+						if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 3 then
+							ok = false
+							break
+						end
+					end
+				end
+				if ok then
+					out[#out + 1] = { kind = kind, x = x, z = z, rot = Placement.facing(-x, -z), r = r, y = P.groundY(x, z) }
+					got = got + 1
+				end
+			end
+		end
+		return out
+	end
+
 	return P
 end
 

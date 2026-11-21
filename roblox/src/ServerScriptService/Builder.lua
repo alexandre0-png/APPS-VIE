@@ -1154,6 +1154,35 @@ function Builder.dressPaths(assets)
 	return tiles, used
 end
 
+-- Décor de village Blender sur la carte (tour, maisons à colombages, puits, pins hauts, rochers) : planifié par Placement.scenery, budget séparé.
+-- Retourne (objets posés, Parts utilisées).
+function Builder.dressScenery(assets)
+	local placed, used = 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderVillage"
+		folder.Parent = world
+		local P = PlacementMod.new(Config)
+		local dims = Config.Assets.sceneryDims
+		for _, it in ipairs(P.scenery(P.plan().items)) do
+			local st = assets.status and assets.status["m:scenery." .. it.kind]
+			local cost = st and st.ok and st.parts or 0
+			if cost > 0 and used + cost <= Config.Assets.sceneryBudgetParts then
+				local clone = assets.cloneModel("scenery", it.kind)
+				local d = dims[it.kind]
+				if clone and assets.place(clone, it.x, it.z, it.rot, d.h, folder, d.len, it.y) then
+					used, placed = used + cost, placed + 1
+				end
+			end
+		end
+	end)
+	return placed, used
+end
+
 -- Panneaux de difficulté Blender (étoiles Etoile1..Etoile5 recolorées : or pour les étoiles acquises, gris sinon) à la place du panneau procédural.
 function Builder.dressSigns(assets)
 	local n = 0
