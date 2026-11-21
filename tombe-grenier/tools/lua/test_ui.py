@@ -73,7 +73,7 @@ class TestAccessibility(unittest.TestCase):
         # 4 lignes de 62 px après 70 px de marge, à l'échelle maximale 1,3 : doit tenir dans 390 px de hauteur
         self.assertIn("action.order % 4", self.src)
         self.assertLess((70 + 3 * 62 + 54) * 1.3, 430)
-        self.assertIn("UIScale", self.src[self.src.index("local actionButtons"):self.src.index("Rappel des touches")])
+        self.assertIn("uiScaleValue()", self.src[self.src.index("local actionButtons"):self.src.index("Rappel des touches")])
 
     def test_journal_on_keyboard_and_gamepad(self):
         self.assertIn("Enum.KeyCode.J or input.KeyCode == Enum.KeyCode.DPadDown", self.src)

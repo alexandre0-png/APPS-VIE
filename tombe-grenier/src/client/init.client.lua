@@ -187,7 +187,8 @@ messageLabel.Visible = false
 
 -- Indication demandée (touche H) : bas à gauche, reste affichée jusqu'à la suivante
 local hintLabel = label({
-	position = UDim2.new(0, 16, 1, -40),
+	position = UDim2.new(0, 16, 1, -8),
+	anchor = Vector2.new(0, 1),
 	sizeUDim = UDim2.new(0.6, 0, 0, 40),
 	size = 18,
 })
@@ -1271,11 +1272,14 @@ local actionButtons = {}
 for _, action in ipairs(ACTIONS) do
 	if action.touch then
 		local b = Instance.new("TextButton")
-		b.Size = UDim2.new(0, 110, 0, 54)
+		-- Taille et espacement suivent l'échelle de l'écran (au moins 44 px de côté, norme tactile) : jamais de
+		-- chevauchement ni de débordement, quelle que soit la taille de l'écran
+		local scale = math.max(uiScaleValue(), 0.82)
+		b.Size = UDim2.new(0, math.floor(110 * scale), 0, math.floor(54 * scale))
 		-- Deux colonnes : un téléphone en paysage n'a pas la hauteur de sept boutons empilés
 		local column = action.order >= 4 and 1 or 0
 		local row = action.order % 4
-		b.Position = UDim2.new(1, -124 - column * 122, 1, -(70 + row * 62))
+		b.Position = UDim2.new(1, -math.floor((124 + column * 122) * scale), 1, -math.floor((70 + row * 62) * scale))
 		b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 		b.BackgroundTransparency = 0.3
 		b.TextColor3 = Color3.fromRGB(230, 226, 210)
@@ -1285,10 +1289,6 @@ for _, action in ipairs(ACTIONS) do
 		b.ZIndex = 20
 		b.Visible = false
 		b.Parent = gui
-		-- Cible tactile à l'échelle de l'écran (au moins 44 px de côté, norme tactile)
-		local touchScale = Instance.new("UIScale")
-		touchScale.Scale = uiScaleValue()
-		touchScale.Parent = b
 		UiStyle.apply(b, Theme.roleForAction(action.name), { transparency = 0.08 })
 		if action.down then
 			safeConnect(b.MouseButton1Down, "action", action.down)

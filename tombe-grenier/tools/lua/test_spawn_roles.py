@@ -73,7 +73,7 @@ function newPlayer(name)
   function p:LoadCharacter()
     local char = Instance.new("Model")
     local root = Instance.new("Part"); root.Name = "HumanoidRootPart"; root.Parent = char
-    local hum = Instance.new("Humanoid"); hum.Health = 100; hum.GetState = function() return "Running" end; hum.Died = signal(); hum.WalkSpeed = 8; hum.Parent = char
+    local hum = Instance.new("Humanoid"); hum.Health = 100; hum.HipHeight = 2; hum.GetState = function() return "Running" end; hum.Died = signal(); hum.WalkSpeed = 8; hum.Parent = char
     local sp = findSpawn(self)
     local pos = sp and Vector3.new(sp.Position.X, sp.Position.Y + 3.5, sp.Position.Z) or Vector3.new(0, 5, 0)
     root.Position = pos; root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)

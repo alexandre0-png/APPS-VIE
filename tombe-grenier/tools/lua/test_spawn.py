@@ -192,7 +192,7 @@ class TestServerOrder(unittest.TestCase):
         self.assertLess(respawn.index("gate:request"), respawn.index("player:LoadCharacter()"))
         # dans Hub.lua, teleport() ne charge un personnage que pour un joueur sans personnage, après construction
         hub = read("src", "common", "Hub.lua")
-        self.assertIn("if char then", hub[hub.index("local function teleport"):hub.index("local function makePad")])
+        self.assertIn("if char and not dead then", hub[hub.index("local function teleport"):hub.index("local function makePad")])
 
     def test_void_height_is_below_the_whole_house(self):
         base = read("src", "shared", "MapData.lua")

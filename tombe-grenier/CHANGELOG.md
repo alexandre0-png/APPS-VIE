@@ -2,6 +2,12 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Chasse aux bugs finale
+- `tools/lua/test_scenarios.py` (40 scénarios sur les vrais scripts dans le faux Roblox) : départ avant, pendant et après le chargement, caché ou en duo ; morts (duo, solo jusqu'à la malédiction, caché, dans l'escalier, avant réapparition) ; DataStore en panne ou lent à l'arrivée, au départ et à `BindToClose` ; serveur plein, ami qui arrive après la fin, reconnexion ; fin puis nouvelle partie sans état résiduel (verrous, étapes, sanité, poursuite) ; monstre sans chemin, chemin en erreur, joueur hors d'atteinte, AFK 5 min, caché 10 min, cible qui part ; échec total des modèles, textures et sons ; fuzz de tous les événements du client, rafales par joueur ; téléportation du hub avec départ, panne de service ou joueurs partis.
+- `sim/scenario.lua` : réapparition à chaque étape de la chaîne (aucune étape perdue), deux joueurs sur la même action (une seule clé, malle et coffret ouverts une fois), 1000 codes faux et 200 actions hors ordre refusés.
+- `test_layout.py` : le vrai client sur 4 tailles d'écran (640×360, 844×390, 1024×768, 1366×1024) ; aucun élément fixe ne dépasse, aucun bouton tactile ne se chevauche, 44 px au moins.
+- Bugs trouvés et corrigés : (1) sur grande tablette les boutons tactiles dépassaient à droite et se chevauchaient (UIScale agrandissait sans déplacer) : taille et espacement suivent désormais l'échelle ; (2) à 360 px de haut les boutons mesuraient 43 px : minimum 44 ; (3) l'indication du bas de l'écran débordait de 2 px sur tablette ; (4) après une fin par malédiction puis une nouvelle partie sur place, les joueurs morts restaient morts (le hub les déplaçait sans les recharger) ; (5) des replis du décor du hub (`warn`) passés en traces `[Boot]`.
+
 ### Textures supplémentaires (lot 5)
 - 12 décals ajoutés à `Config.Textures.Ids` (20 au total, traces `[Boot] textures chargées : N sur 20`) : planches du grenier, briques de cave (murs du sous-sol), plâtre fissuré (murs `mur`), moquettes bordeaux, bleue et verte, carreaux bleutés (sols et murs des salles d'eau), herbe, terre de l'allée (nouvelle matière `allee`), pierre de château (façade, nouvelle matière `facade`), dalles de château (sol de la tombe). `rideau_tissu` est chargée mais non posée : les rideaux font partie des fenêtres Blender.
 - Aucune pièce ajoutée : seulement des `Texture` sur des pièces existantes (budget testé, 450 au plus) ; tailles par texture dans `Config.Textures.Tile`.

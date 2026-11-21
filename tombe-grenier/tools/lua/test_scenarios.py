@@ -195,6 +195,9 @@ class TestServerLifecycle(Base):
             Quests = require({ __path = "src/server/Quests.lua" })
             Locks = require({ __path = "src/server/Locks.lua" })
             Locks.open("cahier")
+            PSX = require({ __path = "src/server/PlayerState.lua" })
+            PSX.addSanity(A, -80)
+            workspace:SetAttribute("MonsterChasing", true)
             for _ = 1, 4 do die(A); advance(30) end
             advance(40)
             remote("Restart", A)
@@ -208,6 +211,8 @@ class TestServerLifecycle(Base):
         progress = lua.eval("Quests.progress()")
         self.assertEqual(sum(1 for _, v in progress.done.items() if v), 0, "aucune étape héritée de la partie précédente")
         self.assertEqual(lua.eval("A.Character.Humanoid.Health > 0"), True)
+        self.assertNotEqual(lua.eval('workspace:GetAttribute("MonsterChasing")'), True, "plus de poursuite héritée")
+        self.assertGreater(lua.eval('A:GetAttribute("Sanity") or 100'), 50, "sanité remise à neuf")
 
     def test_hub_bound_players_are_not_left_in_the_dead_game_server(self):
         lua = game(players=("alice",))
@@ -217,6 +222,209 @@ class TestServerLifecycle(Base):
             lua.execute("die(ALICE); advance(30)")
         lua.execute("advance(60)")
         self.assertGreaterEqual(int(lua.eval("#TELEPORTS")), 1)
+        self.clean(lua)
+
+
+class TestMonster(Base):
+    def chase(self, setup="", seconds=150):
+        lua = game()
+        lua.execute("advance(80)")
+        lua.execute(setup)
+        lua.execute(
+            """
+            MonsterAI = require({ __path = "src/server/MonsterAI.lua" })
+            MonsterAI.forceChase(ALICE)
+            advance(%d)
+            """
+            % seconds
+        )
+        return lua
+
+    def test_no_path_to_the_player(self):
+        lua = self.chase('game:GetService("PathfindingService").CreatePath = function() return { ComputeAsync = function() end, Status = "NoPath", GetWaypoints = function() return {} end } end')
+        self.clean(lua)
+
+    def test_pathfinding_raises(self):
+        lua = self.chase('game:GetService("PathfindingService").CreatePath = function() return { ComputeAsync = function() error("Pathfinding indisponible") end, Status = "NoPath", GetWaypoints = function() return {} end } end')
+        self.clean(lua)
+
+    def test_player_in_an_unreachable_zone(self):
+        lua = self.chase("ALICE.Character.HumanoidRootPart.Position = Vector3.new(5000, 400, 5000)")
+        self.clean(lua)
+
+    def test_player_afk_for_five_minutes(self):
+        lua = game()
+        lua.execute("advance(400)")
+        self.clean(lua)
+        self.assertEqual(int(lua.eval("#players()")), 2)
+
+    def test_player_hidden_for_ten_minutes(self):
+        lua = game()
+        lua.execute(
+            """
+            advance(60)
+            local PS = require({ __path = "src/server/PlayerState.lua" })
+            local spot = Instance.new("Part"); spot.Name = "armoire"; spot.Parent = workspace
+            PS.hide(ALICE, spot)
+            advance(600)
+            """
+        )
+        self.clean(lua)
+
+    def test_monster_removed_mid_chase(self):
+        lua = self.chase("", seconds=20)
+        lua.execute('MonsterAI.stop(); advance(30); MonsterAI.forceChase(ALICE); advance(30)')
+        self.clean(lua)
+
+    def test_target_leaves_during_the_chase(self):
+        lua = self.chase("", seconds=10)
+        lua.execute("leave(ALICE); advance(90)")
+        self.clean(lua)
+
+    def test_monster_root_is_stuck(self):
+        lua = self.chase("", seconds=10)
+        lua.execute('local r = MonsterAI.getRootPosition(); advance(90)')
+        self.clean(lua)
+
+
+ALL_FAIL = r"""
+game:GetService("InsertService").LoadAsset = function() error("HTTP 403 : accès refusé") end
+local cp = game:GetService("ContentProvider")
+cp.PreloadAsync = function() error("Préchargement impossible") end
+"""
+
+
+class TestEverythingFails(Base):
+    def run_duo(self, setup):
+        lua = robust.make_capturing(roles.GAME)
+        lua.execute(HELPERS)
+        lua.execute(setup)
+        self.assertTrue(lua.eval("runServer()").ok)
+        lua.execute("SWALLOW = true; advance(30); A = newPlayer('alice'); join(A); B = newPlayer('bob'); join(B); advance(240)")
+        return lua
+
+    def test_every_model_texture_and_sound_load_fails_the_game_stays_playable(self):
+        lua = self.run_duo(ALL_FAIL)
+        self.clean(lua)
+        self.assertTrue(any("[Round] début" in p for p in prints(lua)), "la partie démarre")
+        self.assertEqual(int(lua.eval("#LOADS")), 2)
+        parts = int(lua.execute('local k = 0 for _, d in ipairs(workspace.TombeMap:GetDescendants()) do if d.ClassName == "Part" then k = k + 1 end end return k'))
+        self.assertGreater(parts, 500, "la carte procédurale est entièrement construite sans aucun modèle")
+        report = [p for p in prints(lua) if "[Boot] modèles" in p]
+        self.assertTrue(report, "le bilan du chargement est tracé")
+
+    def test_failures_after_a_long_delay(self):
+        lua = self.run_duo('game:GetService("InsertService").LoadAsset = function() task.wait(30) error("timeout") end')
+        self.clean(lua)
+        self.assertEqual(int(lua.eval("#LOADS")), 2)
+
+    def test_empty_models_and_decals_without_texture(self):
+        lua = self.run_duo('game:GetService("InsertService").LoadAsset = function() return Instance.new("Model") end')
+        self.clean(lua)
+
+    def test_client_with_all_sounds_failing(self):
+        import test_client as client
+
+        lua = client.make()
+        lua.execute('REQUIRE("src/shared/Audio.lua")')
+        lua.execute("runClient()")
+        lua.execute("advance(120)")
+        self.assertEqual(client.errors(lua), [])
+        self.assertEqual([w for w in client.warns(lua) if not w.startswith(("[Boot]", "[Spawn]"))], [])
+
+
+class TestSpamAndFuzz(Base):
+    HANDLERS = ("SetQuiet", "SetCrouch", "SetSprint", "ToggleFlashlight", "Restart", "Quit", "SubmitCode", "Throw", "AskHint")
+
+    def test_fuzz_every_handler_with_hostile_payloads(self):
+        lua = game()
+        lua.execute(
+            """
+            advance(40)
+            local weird = { nil, true, false, 0, -1, 1e308, 0/0, math.huge, -math.huge, "", "x", string.rep("z", 5000), "1\\n2", {}, { 1, 2 }, function() end, Vector3.new(0, 0, 0), Vector3.new(0/0, 0, 0), Vector3.new(1e9, 1e9, 1e9), ALICE, workspace }
+            local names = { "SetQuiet", "SetCrouch", "SetSprint", "ToggleFlashlight", "Restart", "Quit", "SubmitCode", "Throw", "AskHint" }
+            for _, name in ipairs(names) do
+              for i = 1, 21 do remote(name, ALICE, weird[i]); remote(name, BOB, weird[i], weird[22 - i]) end
+              remote(name, nil, "x"); remote(name, "pas un joueur", true); remote(name, {}, 1)
+            end
+            advance(10)
+            """
+        )
+        self.clean(lua)
+
+    def test_flood_of_valid_events_is_limited_per_player_and_isolated(self):
+        lua = game()
+        lua.execute(
+            """
+            advance(40)
+            PS = require({ __path = "src/server/PlayerState.lua" })
+            N = { a = 0, b = 0 }
+            local setQuiet = PS.setQuiet
+            PS.setQuiet = function(p, on) if p == ALICE then N.a = N.a + 1 else N.b = N.b + 1 end return setQuiet(p, on) end
+            for i = 1, 500 do remote("SetQuiet", ALICE, i % 2 == 0) end
+            remote("SetQuiet", BOB, true)
+            """
+        )
+        self.assertLessEqual(int(lua.eval("N.a")), 40, "rafale limitée")
+        self.assertEqual(int(lua.eval("N.b")), 1, "le spam d'un joueur ne bloque pas l'autre")
+        self.clean(lua)
+
+    def test_restart_and_quit_before_the_end_do_nothing(self):
+        lua = game()
+        lua.execute("advance(60); remote('Restart', ALICE); remote('Quit', ALICE); advance(10)")
+        self.clean(lua)
+        self.assertEqual(int(lua.eval("#players()")), 2)
+        self.assertFalse(any("[Round] fin" in p for p in prints(lua)))
+
+
+class TestHubTeleport(Base):
+    def make_hub(self):
+        lua = roles.make(roles.HUB)
+        lua.execute(HELPERS)
+        lua.execute("TELEPORTS = {}; game:GetService('TeleportService').TeleportAsync = function(_, place, players) table.insert(TELEPORTS, #players) end")
+        lua.execute("SWALLOW = true; runHub(); advance(5)")
+        return lua
+
+    def test_player_leaves_during_the_hub_to_game_teleport(self):
+        lua = self.make_hub()
+        lua.execute(
+            """
+            A = newPlayer('alice'); join(A); B = newPlayer('bob'); join(B); advance(3)
+            local Hub = require({ __path = "src/common/Hub.lua" })
+            local group = { A, B }
+            leave(B)
+            local ok = Hub.startGame(group)
+            advance(20)
+            """
+        )
+        self.clean(lua)
+
+    def test_teleport_service_raises(self):
+        lua = self.make_hub()
+        lua.execute(
+            """
+            game:GetService('TeleportService').TeleportAsync = function() error("Teleport failed : 770") end
+            game:GetService('TeleportService').ReserveServer = function() error("Reserve failed") end
+            A = newPlayer('alice'); join(A); advance(3)
+            local Hub = require({ __path = "src/common/Hub.lua" })
+            Hub.startGame({ A })
+            advance(30)
+            """
+        )
+        bad = [m for m in problems(lua) if not m.startswith("[Hub]")]
+        self.assertEqual(bad, [], "seuls les avertissements [Hub] de repli sont tolérés")
+
+    def test_everyone_leaves_before_the_launch(self):
+        lua = self.make_hub()
+        lua.execute(
+            """
+            A = newPlayer('alice'); join(A); advance(3)
+            local Hub = require({ __path = "src/common/Hub.lua" })
+            leave(A)
+            Hub.startGame({ A })
+            advance(10)
+            """
+        )
         self.clean(lua)
 
 

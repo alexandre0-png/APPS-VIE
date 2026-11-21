@@ -428,6 +428,93 @@ do
 	check(Quests.hintTick(os.clock() + cfgQ.HintDelay + 10) == true, "l'étape suivante a son propre indice")
 end
 
+-- 9. Mort et réapparition à chaque étape : le point de réapparition existe sans erreur et la chaîne continue ensuite
+do
+	chain.reset(777)
+	local n = #chain.steps
+	for i = 1, n do
+		local id = chain.steps[i].id
+		local skip = id == "horloge" and not require({ __path = "src/shared/Config.lua" }).Design.ProgressionV2
+		if not skip then
+			local before = Quests.progress()
+			local okp, point = pcall(Quests.checkpoint)
+			check(okp, ("point de réapparition lisible avant « %s »"):format(id))
+			check(point == nil or point.X ~= nil, ("point de réapparition valide avant « %s »"):format(id))
+			chain.turns = 0
+			chain.actions[id](chain.sec)
+			local after = Quests.progress()
+			check(after.done[id] == true, ("étape « %s » faisable après une réapparition"):format(id))
+			-- une mort ne retire aucune étape accomplie
+			for _, step in ipairs(chain.steps) do
+				if before.done[step.id] then
+					check(after.done[step.id] == true, ("étape « %s » conservée après la mort"):format(step.id))
+				end
+			end
+		end
+	end
+end
+
+-- 10. Deux joueurs agissent en même temps sur le même objet : un seul effet, aucune erreur
+do
+	local bob = H.player("Bob", 95, 27, 73)
+	H.players = { alice, bob }
+	chain.reset(4242)
+	chain.advanceTo("coffret")
+	local sec = chain.sec
+	-- même code au même instant
+	moveTo(alice, 95, 27, 73)
+	moveTo(bob, 95, 27, 73)
+	H.trigger(w.coffret, "QuestPrompt", alice)
+	H.trigger(w.coffret, "QuestPrompt", bob)
+	Quests.submitCode(alice, sec.code)
+	Quests.submitCode(bob, sec.code)
+	check(Quests.progress().done.coffret == true, "coffret ouvert une fois par les deux joueurs")
+	local keys = 0
+	for _, e in ipairs(H.log) do
+		if e.name == "Message" and string.find(e.payload.text or "", "petite clé est au fond", 1, true) then
+			keys = keys + 1
+		end
+	end
+	check(keys == 1, "la petite clé est donnée une seule fois (" .. keys .. ")")
+	-- la malle ouverte par les deux
+	chain.advanceTo("key")
+	H.trigger(w.chest, "QuestPrompt", alice)
+	H.trigger(w.chest, "QuestPrompt", bob)
+	check(Quests.progress().done.chest == true, "malle ouverte une fois")
+	-- les statues tournées en même temps
+	chain.advanceTo("statues")
+	for _ = 1, 5 do
+		H.trigger(w.statues[3], "QuestPromptStatue", alice)
+		H.trigger(w.statues[3], "QuestPromptStatue", bob)
+	end
+	check(true, "statues tournées à deux sans erreur")
+	-- la porte de la cave et les documents lus à deux
+	for _, kind in ipairs({ "journal intime", "cahier d'écolier", "photo de famille", "plaque du cercueil" }) do
+		H.trigger(w.docs[kind], "QuestPrompt", alice)
+		H.trigger(w.docs[kind], "QuestPrompt", bob)
+	end
+	check(true, "documents lus à deux sans erreur")
+	H.players = { alice }
+end
+
+-- 11. Spam : mille soumissions de code fausses ou répétées ne cassent rien et ne font rien avancer
+do
+	chain.reset(99)
+	chain.advanceTo("coffret")
+	local before = Quests.progress()
+	for i = 1, 1000 do
+		Quests.submitCode(alice, tostring(i % 10000))
+	end
+	local after = Quests.progress()
+	check(after.current == before.current, "le spam de codes faux ne fait pas avancer la chaîne")
+	for i = 1, 200 do
+		H.trigger(w.tomb, "QuestPrompt", alice)
+		H.trigger(w.compteur, "QuestPrompt", alice)
+		Quests.onFrontDoor(alice)
+	end
+	check(Quests.progress().current == before.current, "le spam d'actions hors ordre est refusé")
+end
+
 -- 8. Robustesse : toutes les graines de la partie tiennent sans erreur
 for seed = 1, 60 do
 	Quests.setup(seed)

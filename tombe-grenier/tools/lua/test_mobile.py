@@ -89,12 +89,12 @@ class TestMobileUi(unittest.TestCase):
         for m in re.finditer(r"\bTextSize = (\d+)", self.client):
             self.assertGreaterEqual(int(m.group(1)), MIN_TEXT)
 
-    def test_touch_buttons_are_big_enough(self):
-        m = re.search(r"b\.Size = UDim2\.new\(0, (\d+), 0, (\d+)\)", self.client)
+    def test_touch_buttons_scale_with_the_screen_and_never_below_44px(self):
+        # Les mesures réelles (4 tailles d'écran) sont dans test_layout.py ; ici, la règle de calcul
+        m = re.search(r"local scale = math\.max\(uiScaleValue\(\), ([\d.]+)\)", self.client)
         self.assertIsNotNone(m)
-        self.assertGreaterEqual(int(m.group(1)), MIN_TOUCH)
-        self.assertGreaterEqual(int(m.group(2)), MIN_TOUCH)
-        self.assertIn("UIScale", self.client)  # échelle selon l'écran
+        self.assertGreaterEqual(54 * float(m.group(1)), MIN_TOUCH)
+        self.assertGreaterEqual(110 * float(m.group(1)), MIN_TOUCH)
 
     def test_buttons_use_two_columns_for_landscape_phones(self):
         self.assertIn("column", self.client)
