@@ -3,7 +3,7 @@ type: jeu
 jeu: 3
 statut: prive-publie
 ---
-# Jeu 3 : Chipe-Œufs
+# Jeu 2 : Chipe-Œufs (ancien Jeu 3)
 - Univers **10776613087**.
 - **Hub** : lieu **115261336085924** (lieu de départ).
 - **Partie** : lieu **87012762353093** « Partie Chipe-Oeufs » (Max Players 5).

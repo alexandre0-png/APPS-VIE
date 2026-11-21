@@ -13,10 +13,10 @@ Point d'entrée unique. Claude lit CE fichier d'abord, puis seulement les notes 
 - [[Studio/Outils]] : outils installés, commandes, limites.
 
 ## Jeux
-- [[Jeux/Jeu-2-Grenier]] : Sortir Du Grenier (privé, hub + partie).
-- [[Jeux/Jeu-3-Chipe-Oeufs]] : Chipe-Œufs (privé, hub + partie).
 - [[Jeux/Jeu-1-Hopital]] : Hôpital Sainte-Aurore (PUBLIC, publication manuelle).
-- [[Jeux/Jeux-4-a-8]] : jeux en pause.
+- [[Jeux/Jeu-2-Chipe-Oeufs]] : Chipe-Œufs (privé, hub + partie), ancien Jeu 3.
+- [[Jeux/Jeux-3-et-4]] : zoo (Jeu 3) et PvP (Jeu 4), en pause.
+- [[Archive/Grenier-supprime]] : Sortir Du Grenier, supprimé le 21 nov.
 
 ## Blender sur le PC
 - [[Blender/PC_BLENDER_A_FAIRE]] : paquet prêt pour travailler dans Blender sur le PC (modèles .blend, FBX, textures cuites, procédure d'import Studio).

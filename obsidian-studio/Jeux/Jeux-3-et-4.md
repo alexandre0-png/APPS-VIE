@@ -1,7 +1,7 @@
 ---
 type: jeux-pause
 ---
-# Jeux 4 à 8 (en pause)
+# Jeux 3 et 4 (en pause ; anciens jeux 5 et 7)
 Reprise après publication des jeux 2 et 3. Correspondance numéro, expérience : à confirmer avec l'utilisateur.
 - Festin du t-rex : univers 10776614241, lieu 111055882646208 (hub séparé univers 10776614638, lieu 134299502323007).
 - Rodeo Stampede (zoo, Jeu 5 supposé) : univers 10776615016, lieu 92973490999349 (publié v4 depuis le commit c72ad61 de herd-hopper).
@@ -16,3 +16,6 @@ Jeux 4, 6 et 8 supprimés (sessions ARCHIVÉES, réversible par unarchive ; rien
 - Jeu 5 = ancien Jeu 7 (PvP sans sang, Arène des Légendes) : session `session_0164z8QRyyrTjyqMZ6HWDmXa`, branche claude/modest-cray-hpko8m.
 - Archivées : ancien Jeu 4 `session_0164z8QNkbMwxqwFNdbhvMzy` (claude/roblox-autonomous-studio-dipvjg), ancien Jeu 6 `session_0164z8QTUe3r6BKc4EXFT2ev` (claude/beautiful-mayer-dqnzi5), ancien Jeu 8 `session_0164z8QPhB1SuURKY4KQpDcZ` (claude/upbeat-brahmagupta-wpi5vr).
 - Travail par paires : 2+3 en cours, puis 4+5. Jeu 1 (Hôpital) à part.
+
+## Renumérotation du 21 nov (2e)
+Le Grenier est supprimé : Hôpital = Jeu 1, Chipe-Œufs = Jeu 2, zoo (ancien 5, ancien 4 dans la 1re renumérotation) = Jeu 3, PvP Arène des Légendes (ancien 7) = Jeu 4.

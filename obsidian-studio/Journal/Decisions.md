@@ -16,3 +16,4 @@ type: journal
 - Convention : chaque session de jeu liste ses besoins de modèles dans `BLENDER_REQUESTS.md` de son dossier ; la gestion les crée avec `scripts/blender_make_all.py` et les téléverse.
 - Rappel : publier une version testée seulement ; en cas de doute, retour arrière sur la dernière version sûre.
 
+- 21 nov : l'utilisateur supprime le Jeu 2 (Sortir Du Grenier) et décale la numérotation : Hôpital 1, Chipe-Œufs 2, zoo 3, PvP 4. Session Grenier archivée, notes déplacées dans Archive/, expérience Roblox à supprimer par l'utilisateur (non faisable par API), branche de code conservée. Cinématiques déjà coupées (partie v34).
