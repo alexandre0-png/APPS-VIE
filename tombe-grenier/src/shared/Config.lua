@@ -486,7 +486,7 @@ Config.Hub = {
 -- Cinématiques aux moments clés seulement (intro, première apparition, descente, fins) : chacune se coupe seule.
 -- Enabled = false coupe toutes les cinématiques. SkipButton : bouton « Passer » à l'écran.
 Config.Cinematics = {
-	Enabled = true,
+	Enabled = false, -- 21 nov : coupées (l'animation de départ était signalée comme défaillante) ; remettre true pour les réactiver
 	Arrival = true, -- intro courte : arrivée devant la maison, de nuit
 	Apparition = true, -- première apparition du monstre (cri, caméra qui se tourne)
 	Descent = true, -- le monstre descend au sous-sol
