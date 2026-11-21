@@ -70,4 +70,40 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 	return st
 end
 
+-- Écran de tirage « machine à sous » : plan PUR des 3 colonnes. Chaque colonne est un anneau de symboles ; la position (continue, base 1) part de 1, tourne
+-- `loops` tours puis ralentit (sortie en puissance 4) et s'arrête EXACTEMENT sur le résultat réel. fast : durées courtes (tirage banal ou mobile).
+function Reveal.slotPlan(Config, petTier, sizeIdx, mutIdx, fast)
+	local S = Config.REVEAL.slot
+	local stops = fast and S.fastStops or S.stops
+	local function column(title, symbols, final, k)
+		local n = #symbols
+		local f = math.min(math.max(math.floor(tonumber(final) or 1), 1), n)
+		return { title = title, symbols = symbols, final = f, stop = stops[k], travel = n * S.loops[k] + (f - 1) }
+	end
+	local tiers, sizes, muts = {}, {}, {}
+	for i, t in ipairs(Config.TIERS) do
+		tiers[i] = { text = t.name, color = t.color }
+	end
+	for i, z in ipairs(Config.SIZES) do
+		sizes[i] = { text = z.name } -- couleur nil : blanc côté client
+	end
+	for i, m in ipairs(Config.MUTS) do
+		muts[i] = { text = m.name == "" and "Normal" or m.name, color = m.color }
+	end
+	local cols = { column("RARETÉ", tiers, petTier, 1), column("TAILLE", sizes, sizeIdx, 2), column("MUTATION", muts, mutIdx, 3) }
+	return { columns = cols, duration = cols[3].stop + S.hold, hold = S.hold, tier = math.min(math.max(math.floor(tonumber(petTier) or 1), 1), #Config.TIERS) }
+end
+
+-- Position continue de la colonne `col` à l'instant t (s) : croît sans jamais reculer, ralentit, vaut exactement 1 + travel à l'arrêt.
+function Reveal.slotPos(col, t)
+	local u = math.min(math.max(t / col.stop, 0), 1)
+	return 1 + col.travel * (1 - (1 - u) ^ 4)
+end
+
+-- Indice (1..n) du symbole centré à la position pos.
+function Reveal.slotIndex(col, pos)
+	local n = #col.symbols
+	return (math.floor(pos + 0.5) - 1) % n + 1
+end
+
 return Reveal

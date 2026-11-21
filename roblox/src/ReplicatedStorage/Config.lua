@@ -837,6 +837,9 @@ Config.REVEAL = {
 		{ rays = 14, rings = 3, shake = 0.8, flash = 0.7, particles = 28 },
 		{ rays = 16, rings = 3, shake = 1, flash = 0.85, particles = 36 },
 	},
+	-- Écran de tirage « machine à sous » avant la révélation : 3 colonnes (rareté, taille, mutation) qui défilent puis s'arrêtent une à une.
+	-- stops = secondes d'arrêt de chaque colonne ; loops = tours complets avant l'arrêt ; fastStops = tirage banal (Commun/Rare, taille et mutation normales) ou mobile.
+	slot = { enabled = true, stops = { 1.1, 1.7, 2.3 }, fastStops = { 0.6, 0.95, 1.3 }, loops = { 3, 3, 4 }, hold = 0.55, cell = 34, phoenixFromTier = 4 },
 	secret = { oneInAtLeast = 20000, color = Color3.fromRGB(255, 70, 20), rays = 16, rings = 4, shake = 1, flash = 0.95, particles = 30, label = "ŒUF SECRET" },
 }
 

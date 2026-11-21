@@ -17,6 +17,7 @@ local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("La
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Easing = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Easing"))
 local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
+local SlotFx = require(script.Parent:WaitForChild("SlotFx"))
 local VfxKitMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("VfxKit"))
 local Vfx = VfxKitMod.new(Config, Easing)
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
@@ -412,7 +413,7 @@ do
 	onBaseLevel()
 end
 
-local function hatchPop(info)
+local function revealPop(info)
 	local def = Config.PETS[info.p]
 	if def.tier >= 4 and tryOfferLater then
 		tryOfferLater("rare")
@@ -1393,6 +1394,39 @@ RNotify.OnClientEvent:Connect(function(msg, sfx)
 		playSound(sfx)
 	end
 end)
+-- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation. Un tirage banal ou un appareil tactile utilise les durées courtes ;
+-- un deuxième tirage reçu pendant l'animation termine aussitôt le précédent (jamais deux écrans empilés). Désactivable : Config.REVEAL.slot.enabled.
+local slotActive = nil
+local function hatchPop(info)
+	local def = Config.PETS[info.p]
+	if not (Config.REVEAL.Enabled and Config.REVEAL.slot.enabled and def and Config.SIZES[info.s] and Config.MUTS[info.m]) then
+		return revealPop(info)
+	end
+	if slotActive then
+		pcall(slotActive) -- termine l'écran précédent (révèle son pet), puis enchaîne
+		slotActive = nil
+	end
+	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local oneIn = type(info.oneIn) == "number" and info.oneIn > 0 and info.oneIn or nil
+	local st = Reveal.style(Config, def.tier, oneIn, false)
+	local fast = touch or Config.REVEAL.forceReduced or (def.tier <= 2 and info.s == 2 and info.m == 1)
+	local plan = Reveal.slotPlan(Config, def.tier, info.s, info.m, fast)
+	plan.phoenix = def.tier >= Config.REVEAL.slot.phoenixFromTier
+	local done = false
+	local function go()
+		if done then
+			return
+		end
+		done = true
+		slotActive = nil
+		revealPop(info)
+	end
+	slotActive = go
+	local box = SlotFx.play(gui, plan, Config.REVEAL.slot.cell, { secret = st.secret, reduced = touch, onDone = go, slotPos = Reveal.slotPos })
+	if not box then
+		go()
+	end
+end
 RHatch.OnClientEvent:Connect(hatchPop)
 RTop.OnClientEvent:Connect(function(list)
 	topData = list

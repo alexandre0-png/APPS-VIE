@@ -54,6 +54,7 @@ game_tree = [
             item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua")),
             item("LocalScript", "Culling", read("StarterPlayerScripts/Culling.client.lua")),
             item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua")),
+            item("ModuleScript", "SlotFx", read("StarterPlayerScripts/SlotFx.lua")),
             item("ModuleScript", "CoinIcon", read("StarterPlayerScripts/CoinIcon.lua"))])]),
 ]
 

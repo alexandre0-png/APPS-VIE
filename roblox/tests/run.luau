@@ -5007,6 +5007,14 @@ do
 			local dragon = 13
 			RT.fire(hatchRemote, "OnClientEvent", { p = dragon, s = 2, m = 1, slot = 1, inc = 99, oneIn = 400, egg = 4 })
 			RT.step(1.2)
+			local slotsMid = 0
+			for _, o in ipairs(RT.all) do
+				if rawget(o, "__props").Name == "SlotFx" then
+					slotsMid += 1
+				end
+			end
+			check("Éclosion : l'écran « machine à sous » apparaît avant la révélation (" .. slotsMid .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), slotsMid >= 1 and #RT.errors == 0)
+			RT.step(3.2)
 			local vignette, shine = 0, 0
 			for _, o in ipairs(RT.all) do
 				local nm = rawget(o, "__props").Name
@@ -5351,6 +5359,107 @@ do
 		worstParts = worstParts + Config.Assets.modelsMaxParts["scenery." .. e.kind]
 	end
 	check("Village : pire cas " .. worstParts .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. " : le placement s'arrête au budget réel)", worstParts > 0)
+end
+
+
+do
+	suite("Machine à sous : plan pur (arrêt exact sur le tirage, décélération, colonnes une à une) et écran SlotFx")
+	local RV = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Reveal.lua"), { debugName = "Reveal" })()
+	local exact, mono, decel, order, dur = true, true, true, true, 0
+	for tier = 1, #Config.TIERS do
+		for sz = 1, #Config.SIZES do
+			for mu = 1, #Config.MUTS do
+				for _, fast in ipairs({ false, true }) do
+					local plan = RV.slotPlan(Config, tier, sz, mu, fast)
+					local finals = { tier, sz, mu }
+					for k, col in ipairs(plan.columns) do
+						local endPos = RV.slotPos(col, col.stop + 5)
+						if RV.slotIndex(col, endPos) ~= finals[k] or RV.slotIndex(col, RV.slotPos(col, col.stop)) ~= finals[k] then
+							exact = false
+						end
+						local prev, prevV = RV.slotPos(col, 0), math.huge
+						for i = 1, 60 do
+							local t = col.stop * i / 60
+							local p = RV.slotPos(col, t)
+							local v = p - prev
+							if p < prev - 1e-9 then
+								mono = false
+							end
+							if v > prevV + 1e-9 then
+								decel = false
+							end
+							prev, prevV = p, v
+						end
+					end
+					if not (plan.columns[1].stop < plan.columns[2].stop and plan.columns[2].stop < plan.columns[3].stop) then
+						order = false
+					end
+					dur = math.max(dur, plan.duration)
+				end
+			end
+		end
+	end
+	check("Machine à sous : chaque colonne s'arrête exactement sur la rareté, la taille et la mutation réelles (6 x 5 x 5 x 2 plans)", exact)
+	check("Machine à sous : la position ne recule jamais et la vitesse décroît (ralentissement)", mono and decel)
+	check("Machine à sous : arrêt colonne par colonne (rareté, taille, mutation), durée max " .. string.format("%.2f", dur) .. " s <= 3 s", order and dur <= 3)
+	check("Machine à sous : entrées invalides ramenées dans les bornes", RV.slotPlan(Config, 99, 0, nil, false).columns[1].final == #Config.TIERS and RV.slotPlan(Config, 99, 0, nil, false).columns[2].final == 1)
+	local fastP, slowP = RV.slotPlan(Config, 1, 2, 1, true), RV.slotPlan(Config, 1, 2, 1, false)
+	check("Machine à sous : la version rapide (tirage banal, mobile) est plus courte", fastP.duration < slowP.duration)
+	-- exécution de l'écran dans le runtime factice
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = 0, hook = loopGuard })
+	if RT then
+		local created = 0
+		local env = {}
+		for k, v in pairs(RT.env) do
+			env[k] = v
+		end
+		env.Instance = { new = function(class)
+			created = created + 1
+			return RT.instance(class)
+		end }
+		local SlotFx = luau.load(fs.readFile("roblox/src/StarterPlayerScripts/SlotFx.lua"), { debugName = "SlotFx", environment = env })()
+		local gui = RT.instance("ScreenGui", "gui")
+		local allOk, why, worst = true, "", 0
+		for _, c in ipairs({ { 1, false, false }, { 4, true, false }, { 6, false, true } }) do
+			local plan = RV.slotPlan(Config, c[1], 2, 1, c[2])
+			plan.phoenix = c[1] >= Config.REVEAL.slot.phoenixFromTier
+			local doneN = 0
+			created = 0
+			local box = SlotFx.play(gui, plan, Config.REVEAL.slot.cell, { secret = c[3], onDone = function()
+				doneN = doneN + 1
+			end, slotPos = RV.slotPos })
+			if box == nil then
+				allOk, why = false, "play nil (palier " .. c[1] .. ")"
+			elseif created ~= SlotFx.STATIC_COST then
+				allOk, why = false, created .. " objets au départ pour un coût annoncé de " .. SlotFx.STATIC_COST
+			end
+			RT.step(plan.duration + 2)
+			worst = math.max(worst, created)
+			if doneN ~= 1 then
+				allOk, why = false, "onDone appelé " .. doneN .. " fois (palier " .. c[1] .. ")"
+			end
+		end
+		check("Machine à sous : 3 écrans (commun rapide, légendaire avec phénix, secret) jouent sans erreur, coût de départ exact (" .. SlotFx.STATIC_COST .. "), onDone une seule fois" .. (allOk and "" or " : " .. why), allOk and #RT.errors == 0)
+		check("Machine à sous : plafond de performance (" .. worst .. " objets créés au maximum, <= 140)", worst <= 140)
+		-- passage par un tap : onDone immédiat, une seule fois
+		local plan = RV.slotPlan(Config, 3, 2, 1, false)
+		local doneN = 0
+		local box = SlotFx.play(gui, plan, 34, { onDone = function()
+			doneN = doneN + 1
+		end, slotPos = RV.slotPos })
+		RT.fire(box, "Activated")
+		RT.fire(box, "Activated")
+		check("Machine à sous : un tap passe l'animation (onDone une seule fois)", doneN == 1)
+		RT.step(plan.duration + 2)
+		check("Machine à sous : après un passage, toujours un seul onDone et aucune erreur", doneN == 1 and #RT.errors == 0)
+		check("Machine à sous : plan invalide -> nil, onDone appelé quand même", (function()
+			local n = 0
+			local r = SlotFx.play(gui, {}, 34, { onDone = function()
+				n = n + 1
+			end, slotPos = RV.slotPos })
+			return r == nil and n == 1
+		end)())
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

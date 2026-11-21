@@ -2,6 +2,13 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Écran de tirage « machine à sous »
+
+- `Reveal.slotPlan/slotPos/slotIndex` (pur) : 3 colonnes RARETÉ / TAILLE / MUTATION, tours complets puis décélération (puissance 4), arrêt exact sur le tirage réel, colonnes stoppées à 1,1 / 1,7 / 2,3 s (0,6 / 0,95 / 1,3 s pour un tirage banal ou sur mobile).
+- `StarterPlayerScripts/SlotFx.lua` : rouleaux, secousse et étincelles à chaque arrêt, bannière « SECRET ! », phénix lumineux avec cercle de runes dès Légendaire, tap pour passer, garde-fou de durée, `onDone` exactement une fois. Réglages : `Config.REVEAL.slot`.
+- Client : la révélation (`revealPop`) est lancée à la fin de l'écran ; un second tirage reçu termine le précédent.
+- Non vu en Studio : lisibilité des rouleaux, rendu de l'émoji 🪽 selon la police.
+
 ## Lot 12 : village (9 modèles scn_*)
 
 - Hub : mare procédurale (36 x 18) enjambée par le pont de pierre (40), 4 maisons à colombages, puits, tour de la cloche, 6 pins hauts, 6 rochers, 4 rochers en bordure de mare, île sakura (Config.HubScenery, mise en page fixe sans recouvrement des portails, du spawn, de la place et du décor catalogue). Arbres et fleurs procéduraux sous une empreinte posée sont retirés.

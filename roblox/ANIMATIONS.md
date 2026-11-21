@@ -50,6 +50,8 @@ Les éclosions : au plus une cinématique toutes les 20 s. Intro, tutoriel, prem
 Existantes : bouton qui se rétrécit à l'appui, menus qui s'ouvrent en rebondissant, texte flottant « +pièces » au gain, pulsation du compteur, confettis, secousse de caméra, pets (respiration, bonds, capacités).
 Ajoutées (`Config.Animations.uiFx` et `pulse`) : compteur de pièces qui défile vers sa valeur, balayage de brillance sur le bandeau de rareté (dès Épique), flash de vignette coloré par rareté (dès Légendaire et secret), pulsation légère de `ColorCorrection` et `Bloom` à l'éclosion d'un pet rare (désactivable séparément).
 
+Écran de tirage « machine à sous » (`SlotFx`, réglages `Config.REVEAL.slot`) : avant chaque révélation, trois rouleaux (rareté, taille, mutation) défilent, ralentissent et s'arrêtent un à un (secousse, étincelles), « SECRET ! » sur un tirage secret, phénix et cercle runique dès Légendaire ; un tap passe l'écran.
+
 ## 4. Événements déclencheurs (résumé)
 
 | Événement serveur | Réaction du client |
