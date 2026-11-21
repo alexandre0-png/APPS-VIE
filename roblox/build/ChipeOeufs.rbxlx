@@ -469,16 +469,22 @@ Config.Assets = {
 	-- Modèles Blender approuvés (convention `Nom__RRGGBB`, devant = -Y) : IDs enregistrés, pas encore tous câblés (voir BLENDER_REQUESTS.md).
 	-- Pièces animées par code (noms de Parts attendus) : Pales/Pales2 (moulin), Herse (porte), Pics, Lame, Boulet, Couvercle (coffre), Flamme (torche).
 	models = {
-		props = { mill = 108678125939354, castle = 85826335560323, chest = 81643274706684, torch = 89605986322384, flag = 110279682395149, sign = 74276869239897, pen = 117636221218047, lamp = 137473402121117, bench = 123958905099505 },
+		props = { bridge_rail = 112917439859012, fence_corner = 120728100461105, fence_gate = 95541995292351, hut_small = 93190979240574, hut_big = 128414703286969, mill = 108678125939354, castle = 85826335560323, chest = 81643274706684, torch = 89605986322384, flag = 110279682395149, sign = 74276869239897, pen = 117636221218047, lamp = 137473402121117, bench = 123958905099505 },
 		guards = { dog = 103939852527807, wolf = 97774277975586, bear = 70929301247964, knight = 79935066561502 },
 		castle = { wall = 136500159645250, tower = 120194370584366, door = 81799010490650, floor = 87526275066787 },
 		traps = { spikes = 109204482572726, blade = 83758069602274, ball = 97316525004480 },
 		ground = { grass = 108336655087221, path = 129255762203803, plaza = 129476241883133 },
+		deco = { flower_a = 77356084419297, flower_b = 75380956155225, flower_c = 111315415429762, tuft = 87978041093798, stone_flat = 136754104457535, stone_round = 87559674928022, lantern = 104138982529608, sign_stars = 123744671851193 },
+		terrain = { cliff_a = 77185775444063, cliff_b = 121767734121074, cliff_corner = 110100977206117, stairs = 105161635046156, waterfall = 129292144451409, islet = 128405076287969 },
+		base = { level1 = 97252816676038, level2 = 81995835244074, level3 = 77426422736227, level4 = 95370892804658, level5 = 75516398880390, level6 = 108065975809605, level7 = 83929759854266, level8 = 100223033827392 },
 		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
-		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20,
+		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
+		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
+		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
+		["base.level1"] = 45, ["base.level2"] = 45, ["base.level3"] = 45, ["base.level4"] = 45, ["base.level5"] = 45, ["base.level6"] = 45, ["base.level7"] = 45, ["base.level8"] = 45,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
 	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
@@ -497,7 +503,11 @@ Config.Assets = {
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
 	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
-	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
+	castleBudgetParts = 1700,
+	decoBudgetParts = 420, -- décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ des 1200 Parts procédurales, posé après la carte
+	reliefBudgetParts = 700, -- falaises, cascades, îlots Blender : budget séparé, posé après la carte
+	decoHeights = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1.2, stone_flat = 0.6, stone_round = 0.9, lantern = 1.2, sign_stars = 5 }, -- hauteurs cibles (studs) du décor fin
+	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
 	-- mesure impossible = modèle non posé (repli procédural), jamais d'échelle brute.
 	targetHeights = { player = 5, petMin = 1.7, petMax = 2.1, petHard = 3, eggMin = 1.8, eggMax = 2.8, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 2.5, wolf = 3, bear = 5, knight = 4.5, tower = 24, chest = 4, torch = 3, flag = 7 },
@@ -1266,6 +1276,7 @@ end
 Config.VFX = { quality = nil }
 
 Config.HUD = {
+	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
 	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
 	shortcuts = true, -- manette (X boutique, Y missions, Select Plus, B fermer) et clavier (B, Q, O) pour les menus
 }
@@ -2683,6 +2694,90 @@ function Placement.new(Config)
 			end
 		end
 		return { items = items, bridges = bridges }
+	end
+
+	-- Décor fin (fleurs, touffes, pierres, lanternes) : mêmes règles (rien dans l'eau ni sur un chemin), espacement plus serré, après le plan principal.
+	-- Retourne { {kind, x, z, rot, r} } ; kinds : flower_a/b/c, tuft, stone_flat, stone_round, lantern. Les lanternes bordent les chemins (à 5 studs).
+	local DECO_RADIUS = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1, stone_flat = 1.5, stone_round = 1.5, lantern = 1 }
+	Placement.DECO_RADIUS = DECO_RADIUS
+	function P.decor(planItems, counts)
+		counts = counts or { flowers = 36, tufts = 24, stones = 18, lanterns = 12 }
+		local out = {}
+		local function fits(kind, x, z)
+			local r = DECO_RADIUS[kind]
+			if P.blocked(x, z, r, { allowDomain = true }) then
+				return false
+			end
+			for _, it in ipairs(planItems or {}) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 1 then
+					return false
+				end
+			end
+			for _, it in ipairs(out) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 0.5 then
+					return false
+				end
+			end
+			return true
+		end
+		local seed = 7919
+		local function rnd()
+			seed = seed * 16807 % 2147483647
+			return seed / 2147483647
+		end
+		-- lanternes le long des chemins (un côté, tous les ~28 studs)
+		local placedLanterns = 0
+		for _, seg in ipairs(P.pathSegments()) do
+			local dx, dz = seg[3] - seg[1], seg[4] - seg[2]
+			local len = math.sqrt(dx * dx + dz * dz)
+			local nx, nz = -dz / len, dx / len
+			local steps = math.max(1, math.floor(len / 28))
+			for k = 1, steps do
+				if placedLanterns >= counts.lanterns then
+					break
+				end
+				local t = (k - 0.5) / steps
+				local x, z = seg[1] + dx * t + nx * (geo.pathHalf + 3.5), seg[2] + dz * t + nz * (geo.pathHalf + 3.5)
+				if fits("lantern", x, z) then
+					out[#out + 1] = { kind = "lantern", x = x, z = z, rot = 0, r = DECO_RADIUS.lantern }
+					placedLanterns = placedLanterns + 1
+				end
+			end
+		end
+		-- fleurs, touffes, pierres : cellules de 24 studs dans un ordre mélangé déterministe ; les fleurs se regroupent autour des domaines et des chemins
+		local kinds = {}
+		for i = 1, counts.flowers do
+			kinds[#kinds + 1] = ({ "flower_a", "flower_b", "flower_c" })[i % 3 + 1]
+		end
+		for _ = 1, counts.tufts do
+			kinds[#kinds + 1] = "tuft"
+		end
+		for i = 1, counts.stones do
+			kinds[#kinds + 1] = i % 2 == 0 and "stone_flat" or "stone_round"
+		end
+		local cells = {}
+		local cell, lo, hi = 24, -half + 60, half - 60
+		for gx = lo, hi, cell do
+			for gz = lo, hi, cell do
+				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
+			end
+		end
+		for i = #cells, 2, -1 do
+			local j = 1 + math.floor(rnd() * i)
+			cells[i], cells[j] = cells[j], cells[i]
+		end
+		local ki = 1
+		for _, c in ipairs(cells) do
+			if ki > #kinds then
+				break
+			end
+			local x, z = c[1] + (rnd() - 0.5) * 14, c[2] + (rnd() - 0.5) * 14
+			if fits(kinds[ki], x, z) then
+				out[#out + 1] = { kind = kinds[ki], x = x, z = z, rot = rnd() * 360, r = DECO_RADIUS[kinds[ki]] }
+				ki = ki + 1
+			end
+		end
+		return out
 	end
 
 	return P
@@ -4393,6 +4488,14 @@ task.spawn(function()
 	print("[Assets] arène Blender : " .. Builder.dressArena(assets) .. " modèle(s) posé(s)")
 	assets.loadTextures()
 	print("[Assets] textures : " .. Builder.dressTextures(assets) .. " posée(s)")
+	assets.loadGroup("deco")
+	assets.loadGroup("terrain")
+	assets.loadGroup("base")
+	local dp, du, df = Builder.dressDeco(assets)
+	print("[Assets] décor fin : " .. dp .. " objet(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decoBudgetParts .. "), " .. df .. " Parts de repli")
+	local rn, ru = Builder.dressRelief(assets)
+	print("[Assets] relief : " .. rn .. " pièce(s), " .. ru .. " Parts (budget " .. Config.Assets.reliefBudgetParts .. ")")
+	print("[Assets] panneaux d'étoiles : " .. Builder.dressSigns(assets))
 	assets.loadGroup("vfx")
 	print("[Assets] effets 3D : " .. Builder.exportVfx(assets) .. " modèle(s) publiés pour les clients")
 	local gt, gp = Builder.dressGround(assets)
@@ -7926,6 +8029,38 @@ function Builder.baseUpgrade(plot, level)
 		folder.Name = "BaseUpgrade"
 		folder.Parent = plot.model
 		local cf0 = plot.cf
+		-- modèle Blender COMPLET du niveau (base.levelN, emprise 52 x 52, entrée -Z) : il remplace toute la version procédurale de ce niveau
+		do
+			local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("base", "level" .. level)
+			if clone then
+				local ok = pcall(function()
+					local _, size = clone:GetBoundingBox()
+					local longest = math.max(size.X, size.Z)
+					if size.Y < 0.05 or longest < 0.05 then
+						error("mesure impossible")
+					end
+					clone:ScaleTo(clone:GetScale() * 52 / longest)
+					local bbox, size2 = clone:GetBoundingBox()
+					clone:PivotTo(cf0 * CFrame.new(0, size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+					for _, d in ipairs(clone:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.Anchored = true
+							d.CanCollide = false
+							d.CanQuery = false
+						end
+					end
+					clone.Name = "BaseModel"
+					clone.Parent = folder
+				end)
+				if ok then
+					made = Config.Assets.modelsMaxParts["base.level" .. level] or 45
+					return
+				end
+				pcall(function()
+					clone:Destroy()
+				end)
+			end
+		end
 		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
 			made += 1
 			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
@@ -8058,6 +8193,164 @@ function Builder.clearBase(plot)
 		end
 		plot.baseBlender = 0
 	end)
+end
+
+-- Décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ (decoBudgetParts) posé après la carte, coût mesuré d'après les Parts réelles des modèles ;
+-- repli procédural limité (decoFallbackMax Parts de fleurs) si les modèles manquent. Retourne (objets posés, Parts utilisées, Parts de repli).
+function Builder.dressDeco(assets)
+	local placed, used, fallback = 0, 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderDeco"
+		folder.Parent = world
+		local P = PlacementMod.new(Config)
+		local items = P.decor(P.plan().items)
+		for _, it in ipairs(items) do
+			local st = assets.status and assets.status["m:deco." .. it.kind]
+			local cost = (st and st.ok and st.parts) or 0
+			local clone = cost > 0 and assets.cloneModel("deco", it.kind) or nil
+			if clone then
+				if used + cost <= Config.Assets.decoBudgetParts then
+					local ok = assets.place(clone, it.x, it.z, it.rot, Config.Assets.decoHeights[it.kind], folder)
+					if ok then
+						used = used + cost
+						placed = placed + 1
+					end
+				else
+					clone:Destroy()
+				end
+			elseif it.kind:sub(1, 6) == "flower" and fallback + 2 <= Config.Assets.decoFallbackMax then
+				local col = ({ flower_a = Color3.fromRGB(255, 120, 154), flower_b = Color3.fromRGB(255, 210, 63), flower_c = Color3.fromRGB(255, 255, 255) })[it.kind]
+				part({ Name = "FlowerStem", Size = Vector3.new(0.2, 0.9, 0.2), Position = Vector3.new(it.x, 0.45, it.z), Color = Color3.fromRGB(62, 142, 68), CanCollide = false, CanQuery = false }, folder)
+				ball({ Name = "FlowerHead", Size = Vector3.new(0.7, 0.7, 0.7), Position = Vector3.new(it.x, 1, it.z), Color = col, CanQuery = false }, folder)
+				fallback = fallback + 2
+			end
+		end
+	end)
+	return placed, used, fallback
+end
+
+-- Panneaux de difficulté Blender (étoiles Etoile1..Etoile5 recolorées : or pour les étoiles acquises, gris sinon) à la place du panneau procédural.
+function Builder.dressSigns(assets)
+	local n = 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return
+		end
+		for _, d in ipairs(world:GetDescendants()) do
+			if d.Name == "DifficultyBoard" and d:IsA("BasePart") then
+				local clone = assets.cloneModel("deco", "sign_stars")
+				if clone then
+					local stars = d:GetAttribute("Stars") or 1
+					local pos = d.Position
+					if setModel(clone, pos.X, 0, pos.Z, nil, Config.Assets.decoHeights.sign_stars, d.Parent, 0) then
+						for _, q in ipairs(clone:GetDescendants()) do
+							local idx = q:IsA("BasePart") and tonumber(AssetsMod.baseName(q.Name):match("^Etoile(%d)$"))
+							if idx then
+								q.Color = idx <= stars and Color3.fromRGB(255, 205, 70) or Color3.fromRGB(120, 120, 130)
+							end
+						end
+						clone.Name = "StarSign"
+						d.Transparency = 1
+						n = n + 1
+					end
+				end
+			end
+		end
+	end)
+	return n
+end
+
+-- Relief en toile de fond (budget séparé reliefBudgetParts) : crête de falaises sur deux niveaux au nord de la carte (hors zone de jeu), cascades, escaliers de
+-- terrasse, îlots Blender des lacs ; un mur invisible garde les joueurs hors de la crête. Retourne (pièces posées, Parts utilisées).
+function Builder.dressRelief(assets)
+	local n, used = 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderRelief"
+		folder.Parent = world
+		local half = Config.Map.groundSize / 2
+		local budget = Config.Assets.reliefBudgetParts
+		local function cost(key)
+			local st = assets.status and assets.status["m:terrain." .. key]
+			return (st and st.ok and st.parts) or nil
+		end
+		local function put(key, x, y0, z, span, height, rot)
+			local c = cost(key)
+			if not c or used + c > budget then
+				return false
+			end
+			local clone = assets.cloneModel("terrain", key)
+			if clone and setModel(clone, x, y0, z, span, height, folder, rot) then
+				used = used + c
+				n = n + 1
+				return true
+			end
+			return false
+		end
+		if not cost("cliff_a") then
+			return
+		end
+		local zRow = -half + 28 -- crête au nord, à l'intérieur du bord de carte
+		-- mur invisible : les joueurs ne montent pas sur la crête
+		part({ Name = "ReliefWall", Size = Vector3.new(2 * half - 100, 14, 1.5), Position = Vector3.new(0, 7, zRow + 8), Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, folder)
+		local x = -half + 130
+		local k = 0
+		while x <= half - 230 do
+			local key = k % 3 == 2 and "cliff_b" or "cliff_a"
+			put(key, x, 0, zRow, 16, nil, 180)
+			x = x + 16
+			k = k + 1
+		end
+		put("cliff_corner", -half + 114, 0, zRow, 12, nil, 180)
+		put("cliff_corner", x, 0, zRow, 12, nil, 180)
+		-- deuxième niveau (terrasse supérieure) sur la partie centrale, dans la limite du budget
+		local x2 = -200
+		while x2 <= 200 and put(k % 2 == 0 and "cliff_a" or "cliff_b", x2, 8, zRow - 5, 16, nil, 180) do
+			x2 = x2 + 16
+			k = k + 1
+		end
+		-- cascades devant la crête et escaliers de terrasse
+		for _, wx in ipairs({ -260, 90 }) do
+			put("waterfall", wx, 0, zRow + 4, nil, 8, 180)
+		end
+		for _, sx in ipairs({ -340, 260 }) do
+			put("stairs", sx, 0, zRow + 8, 8, nil, 180)
+		end
+		-- îlots Blender des lacs : remplacent l'îlot procédural
+		for _, lk in ipairs(Config.Map.geo.lakes or {}) do
+			if lk.islet and put("islet", lk.x, 0.2, lk.z, 24, nil, 0) then
+				for _, d in ipairs(world:GetDescendants()) do
+					if (d.Name == "Islet" or d.Name == "IsletRock") and d:IsA("BasePart") and math.abs(d.Position.X - lk.x) < 12 and math.abs(d.Position.Z - lk.z) < 12 then
+						d.Transparency = 1
+						d.CanCollide = false
+					end
+				end
+			end
+		end
+	end)
+	return n, used
 end
 
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
@@ -8558,6 +8851,7 @@ function Builder.build()
 			local lbl = sign(board, string.rep("⭐", riv.stars) .. string.rep("☆", 5 - riv.stars) .. "\n" .. riv.name .. " : " .. count .. " gardien" .. (count > 1 and "s" or ""), Color3.fromRGB(255, 220, 120), 0, 200)
 			lbl.TextSize = 16
 			post.Anchored = true
+			board:SetAttribute("Stars", riv.stars)
 		end
 	end
 
@@ -8823,15 +9117,25 @@ function Builder.dressWorld(assets)
 		-- Pose PLANIFIÉE (Placement) : grille, empreintes sans recouvrement, rien dans l'eau ni sur un chemin, cabanes face à leur domaine, barrières
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
+		local huts = 0
 		local function put(key, x, z, rot, length)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
 			end
-			local clone = assets.cloneProp(key)
+			local clone, height = nil, Config.Assets.propsHeight[key]
+			if key == "bridge" then
+				clone = assets.cloneModel("props", "bridge_rail") -- pont à rampes (repli : pont simple)
+			elseif key == "hut" then
+				huts = huts + 1
+				local alt = huts % 2 == 1 and "hut_big" or "hut_small"
+				clone = assets.cloneModel("props", alt)
+				height = clone and Config.Assets.targetHeights[alt] or height
+			end
+			clone = clone or assets.cloneProp(key)
 			if not clone then
 				return
 			end
-			local okPlace, count = assets.place(clone, x, z, rot, Config.Assets.propsHeight[key], folder, length)
+			local okPlace, count = assets.place(clone, x, z, rot, height, folder, length)
 			if okPlace then
 				total = total + count
 				placed = placed + 1
@@ -11331,6 +11635,56 @@ do
 				warn("[Sons] boucles désactivées pour cette session après une erreur")
 			end
 			task.wait(0.5)
+		end
+	end)
+end
+
+---------------------------------------------------------------- Compteur de debug (FPS, ping, Parts) : F3 l'affiche ou le masque ; coupé par défaut
+do
+	local dbg = Instance.new("ScreenGui")
+	dbg.Name = "DebugStats"
+	dbg.ResetOnSpawn = false
+	dbg.DisplayOrder = 80
+	dbg.Enabled = Config.HUD.debugStats == true
+	local lbl = Instance.new("TextLabel")
+	lbl.BackgroundColor3 = Color3.new(0, 0, 0)
+	lbl.BackgroundTransparency = 0.45
+	lbl.AnchorPoint = Vector2.new(0.5, 0)
+	lbl.Position = UDim2.new(0.5, 0, 0, 4)
+	lbl.Size = UDim2.fromOffset(300, 22)
+	lbl.Font = Enum.Font.Code
+	lbl.TextSize = 14
+	lbl.TextColor3 = Color3.fromRGB(180, 255, 190)
+	lbl.Text = ""
+	lbl.Active = false
+	lbl.Parent = dbg
+	pcall(function()
+		dbg.Parent = player:WaitForChild("PlayerGui")
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.KeyCode == Enum.KeyCode.F3 then
+				dbg.Enabled = not dbg.Enabled
+			end
+		end)
+	end)
+	task.spawn(function()
+		local frames, t0 = 0, os.clock()
+		local conn = RunService.RenderStepped:Connect(function()
+			frames += 1
+		end)
+		while conn.Connected do
+			task.wait(0.5)
+			if dbg.Enabled then
+				local now = os.clock()
+				local fps = frames / math.max(0.001, now - t0)
+				frames, t0 = 0, now
+				local ping = "?"
+				pcall(function()
+					ping = string.format("%d", game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+				end)
+				lbl.Text = string.format("FPS %d · ping %s ms", math.floor(fps + 0.5), ping)
+			else
+				frames, t0 = 0, os.clock()
+			end
 		end
 	end)
 end

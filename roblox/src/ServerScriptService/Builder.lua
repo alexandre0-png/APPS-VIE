@@ -879,6 +879,38 @@ function Builder.baseUpgrade(plot, level)
 		folder.Name = "BaseUpgrade"
 		folder.Parent = plot.model
 		local cf0 = plot.cf
+		-- modèle Blender COMPLET du niveau (base.levelN, emprise 52 x 52, entrée -Z) : il remplace toute la version procédurale de ce niveau
+		do
+			local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("base", "level" .. level)
+			if clone then
+				local ok = pcall(function()
+					local _, size = clone:GetBoundingBox()
+					local longest = math.max(size.X, size.Z)
+					if size.Y < 0.05 or longest < 0.05 then
+						error("mesure impossible")
+					end
+					clone:ScaleTo(clone:GetScale() * 52 / longest)
+					local bbox, size2 = clone:GetBoundingBox()
+					clone:PivotTo(cf0 * CFrame.new(0, size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+					for _, d in ipairs(clone:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.Anchored = true
+							d.CanCollide = false
+							d.CanQuery = false
+						end
+					end
+					clone.Name = "BaseModel"
+					clone.Parent = folder
+				end)
+				if ok then
+					made = Config.Assets.modelsMaxParts["base.level" .. level] or 45
+					return
+				end
+				pcall(function()
+					clone:Destroy()
+				end)
+			end
+		end
 		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
 			made += 1
 			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
@@ -1011,6 +1043,164 @@ function Builder.clearBase(plot)
 		end
 		plot.baseBlender = 0
 	end)
+end
+
+-- Décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ (decoBudgetParts) posé après la carte, coût mesuré d'après les Parts réelles des modèles ;
+-- repli procédural limité (decoFallbackMax Parts de fleurs) si les modèles manquent. Retourne (objets posés, Parts utilisées, Parts de repli).
+function Builder.dressDeco(assets)
+	local placed, used, fallback = 0, 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderDeco"
+		folder.Parent = world
+		local P = PlacementMod.new(Config)
+		local items = P.decor(P.plan().items)
+		for _, it in ipairs(items) do
+			local st = assets.status and assets.status["m:deco." .. it.kind]
+			local cost = (st and st.ok and st.parts) or 0
+			local clone = cost > 0 and assets.cloneModel("deco", it.kind) or nil
+			if clone then
+				if used + cost <= Config.Assets.decoBudgetParts then
+					local ok = assets.place(clone, it.x, it.z, it.rot, Config.Assets.decoHeights[it.kind], folder)
+					if ok then
+						used = used + cost
+						placed = placed + 1
+					end
+				else
+					clone:Destroy()
+				end
+			elseif it.kind:sub(1, 6) == "flower" and fallback + 2 <= Config.Assets.decoFallbackMax then
+				local col = ({ flower_a = Color3.fromRGB(255, 120, 154), flower_b = Color3.fromRGB(255, 210, 63), flower_c = Color3.fromRGB(255, 255, 255) })[it.kind]
+				part({ Name = "FlowerStem", Size = Vector3.new(0.2, 0.9, 0.2), Position = Vector3.new(it.x, 0.45, it.z), Color = Color3.fromRGB(62, 142, 68), CanCollide = false, CanQuery = false }, folder)
+				ball({ Name = "FlowerHead", Size = Vector3.new(0.7, 0.7, 0.7), Position = Vector3.new(it.x, 1, it.z), Color = col, CanQuery = false }, folder)
+				fallback = fallback + 2
+			end
+		end
+	end)
+	return placed, used, fallback
+end
+
+-- Panneaux de difficulté Blender (étoiles Etoile1..Etoile5 recolorées : or pour les étoiles acquises, gris sinon) à la place du panneau procédural.
+function Builder.dressSigns(assets)
+	local n = 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return
+		end
+		for _, d in ipairs(world:GetDescendants()) do
+			if d.Name == "DifficultyBoard" and d:IsA("BasePart") then
+				local clone = assets.cloneModel("deco", "sign_stars")
+				if clone then
+					local stars = d:GetAttribute("Stars") or 1
+					local pos = d.Position
+					if setModel(clone, pos.X, 0, pos.Z, nil, Config.Assets.decoHeights.sign_stars, d.Parent, 0) then
+						for _, q in ipairs(clone:GetDescendants()) do
+							local idx = q:IsA("BasePart") and tonumber(AssetsMod.baseName(q.Name):match("^Etoile(%d)$"))
+							if idx then
+								q.Color = idx <= stars and Color3.fromRGB(255, 205, 70) or Color3.fromRGB(120, 120, 130)
+							end
+						end
+						clone.Name = "StarSign"
+						d.Transparency = 1
+						n = n + 1
+					end
+				end
+			end
+		end
+	end)
+	return n
+end
+
+-- Relief en toile de fond (budget séparé reliefBudgetParts) : crête de falaises sur deux niveaux au nord de la carte (hors zone de jeu), cascades, escaliers de
+-- terrasse, îlots Blender des lacs ; un mur invisible garde les joueurs hors de la crête. Retourne (pièces posées, Parts utilisées).
+function Builder.dressRelief(assets)
+	local n, used = 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "BlenderRelief"
+		folder.Parent = world
+		local half = Config.Map.groundSize / 2
+		local budget = Config.Assets.reliefBudgetParts
+		local function cost(key)
+			local st = assets.status and assets.status["m:terrain." .. key]
+			return (st and st.ok and st.parts) or nil
+		end
+		local function put(key, x, y0, z, span, height, rot)
+			local c = cost(key)
+			if not c or used + c > budget then
+				return false
+			end
+			local clone = assets.cloneModel("terrain", key)
+			if clone and setModel(clone, x, y0, z, span, height, folder, rot) then
+				used = used + c
+				n = n + 1
+				return true
+			end
+			return false
+		end
+		if not cost("cliff_a") then
+			return
+		end
+		local zRow = -half + 28 -- crête au nord, à l'intérieur du bord de carte
+		-- mur invisible : les joueurs ne montent pas sur la crête
+		part({ Name = "ReliefWall", Size = Vector3.new(2 * half - 100, 14, 1.5), Position = Vector3.new(0, 7, zRow + 8), Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, folder)
+		local x = -half + 130
+		local k = 0
+		while x <= half - 230 do
+			local key = k % 3 == 2 and "cliff_b" or "cliff_a"
+			put(key, x, 0, zRow, 16, nil, 180)
+			x = x + 16
+			k = k + 1
+		end
+		put("cliff_corner", -half + 114, 0, zRow, 12, nil, 180)
+		put("cliff_corner", x, 0, zRow, 12, nil, 180)
+		-- deuxième niveau (terrasse supérieure) sur la partie centrale, dans la limite du budget
+		local x2 = -200
+		while x2 <= 200 and put(k % 2 == 0 and "cliff_a" or "cliff_b", x2, 8, zRow - 5, 16, nil, 180) do
+			x2 = x2 + 16
+			k = k + 1
+		end
+		-- cascades devant la crête et escaliers de terrasse
+		for _, wx in ipairs({ -260, 90 }) do
+			put("waterfall", wx, 0, zRow + 4, nil, 8, 180)
+		end
+		for _, sx in ipairs({ -340, 260 }) do
+			put("stairs", sx, 0, zRow + 8, 8, nil, 180)
+		end
+		-- îlots Blender des lacs : remplacent l'îlot procédural
+		for _, lk in ipairs(Config.Map.geo.lakes or {}) do
+			if lk.islet and put("islet", lk.x, 0.2, lk.z, 24, nil, 0) then
+				for _, d in ipairs(world:GetDescendants()) do
+					if (d.Name == "Islet" or d.Name == "IsletRock") and d:IsA("BasePart") and math.abs(d.Position.X - lk.x) < 12 and math.abs(d.Position.Z - lk.z) < 12 then
+						d.Transparency = 1
+						d.CanCollide = false
+					end
+				end
+			end
+		end
+	end)
+	return n, used
 end
 
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
@@ -1511,6 +1701,7 @@ function Builder.build()
 			local lbl = sign(board, string.rep("⭐", riv.stars) .. string.rep("☆", 5 - riv.stars) .. "\n" .. riv.name .. " : " .. count .. " gardien" .. (count > 1 and "s" or ""), Color3.fromRGB(255, 220, 120), 0, 200)
 			lbl.TextSize = 16
 			post.Anchored = true
+			board:SetAttribute("Stars", riv.stars)
 		end
 	end
 
@@ -1776,15 +1967,25 @@ function Builder.dressWorld(assets)
 		-- Pose PLANIFIÉE (Placement) : grille, empreintes sans recouvrement, rien dans l'eau ni sur un chemin, cabanes face à leur domaine, barrières
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
+		local huts = 0
 		local function put(key, x, z, rot, length)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
 			end
-			local clone = assets.cloneProp(key)
+			local clone, height = nil, Config.Assets.propsHeight[key]
+			if key == "bridge" then
+				clone = assets.cloneModel("props", "bridge_rail") -- pont à rampes (repli : pont simple)
+			elseif key == "hut" then
+				huts = huts + 1
+				local alt = huts % 2 == 1 and "hut_big" or "hut_small"
+				clone = assets.cloneModel("props", alt)
+				height = clone and Config.Assets.targetHeights[alt] or height
+			end
+			clone = clone or assets.cloneProp(key)
 			if not clone then
 				return
 			end
-			local okPlace, count = assets.place(clone, x, z, rot, Config.Assets.propsHeight[key], folder, length)
+			local okPlace, count = assets.place(clone, x, z, rot, height, folder, length)
 			if okPlace then
 				total = total + count
 				placed = placed + 1

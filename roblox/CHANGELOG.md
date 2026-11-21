@@ -58,6 +58,15 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **Ambiance** : lumière plus douce (luminosité 2,2, ombres adoucies, ambiance chaude), brume plus présente (densité 0,32, brume 1,7), couleurs moins saturées (0,10), bloom discret (0,3) ; tests de ces valeurs. `BLENDER_REQUESTS.md` : palette limitée et 14 nouvelles demandes de modèles (fleurs, touffes, pierres, lanternes, panneau d'étoiles, falaises en terrasse, escalier, cascade, îlot, pont à rampes, barrières d'angle, cabanes, 8 apparences de base).
 - **Pas fait dans cette session** (à décider avec toi) : relief en terrasses et falaises avec le Terrain Roblox, grandes rivières et lacs en terrain, cascades, chemins sinueux obligatoires, pas de passage forcé par les ponts (les douves restent franchissables), plus de variété de fleurs/touffes (le budget de 1200 Parts procédurales les a supprimées : elles attendent les modèles Blender demandés). Ces points exigent un playtest Studio du terrain (la logique de génération de Terrain n'est pas testable hors Studio).
 
+## 2026-11-22 (suite) : 27 modèles Blender branchés, décor fin, relief, compteur de debug
+
+- **Config.Assets.models** : `deco` (fleurs a/b/c, touffe, pierres plate et ronde, lanterne, panneau d'étoiles), `terrain` (falaises a/b/angle, escalier, cascade, îlot), `props` (pont à rampes, barrières d'angle et portillon, petite et grande cabane), `base.level1..8` ; plafonds de Parts par modèle ; tous avec repli procédural.
+- **Décor fin** (`Placement.decor` + `Builder.dressDeco`) : 36 fleurs, 24 touffes, 18 pierres, 12 lanternes le long des chemins, mêmes règles de pose (rien dans l'eau ni sur un chemin), budget SÉPARÉ `decoBudgetParts` (420 Parts, coût mesuré sur les modèles chargés), posé après la carte ; sans modèles, 40 Parts de fleurs de repli au plus.
+- **Relief** (`Builder.dressRelief`, budget séparé `reliefBudgetParts` 700) : crête de falaises sur deux niveaux au nord (hors zone de jeu), 2 cascades, 2 escaliers de terrasse, îlots Blender dans les lacs ; un mur invisible garde les joueurs hors de la crête.
+- Panneaux d'étoiles Blender (Etoile1..5 or / gris selon la difficulté) à la place du panneau procédural ; ponts à rampes et cabanes Blender (grande/petite en alternance) dans la pose planifiée ; modèle COMPLET `base.levelN` à la place de la version procédurale du niveau.
+- **Compteur de debug** : FPS et ping en haut de l'écran, F3 l'affiche ou le masque (`Config.HUD.debugStats`).
+- Chargement après la carte, par groupe (deco, terrain, base), jamais de boucle active inutile. Pas fait : terrasses en Terrain avec zones surélevées (les domaines chevauchent l'arène : un déplacement des domaines est un chantier à part), masquage des zones éloignées côté client.
+
 ## 2026-11-22 (suite) : eau : rivières larges, lacs, ponts obligatoires
 
 - Rivières de 24 de large (`Config.Map.geo`), **mur invisible au milieu de chaque rivière avec un passage de 12 à chaque pont** : on ne franchit l'eau que par les ponts. Bug corrigé : les ponts procéduraux étaient posés DANS LE SENS de la rivière au lieu de la traverser ; ils sont maintenant en travers, plus longs que l'eau (28 pour 24).

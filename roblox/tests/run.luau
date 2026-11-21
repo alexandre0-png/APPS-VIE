@@ -3388,7 +3388,7 @@ do
 		local tm = Config.Assets.models.traps
 		local tx = Config.Assets.textures
 		RT.assetDecals = { [tx.grass.id] = "rbxassetid://9001", [tx.water.id] = "rbxassetid://9002", [tx.castleStone.id] = "rbxassetid://9003", [tx.path.id] = "rbxassetid://9004" } -- bois, sable, dalles : sans décal = repli
-		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" }, [Config.Assets.models.castle.door] = { "Herse__8A8A8A" }, [Config.Assets.models.props.chest] = { "Couvercle__E8B923" }, [Config.Assets.models.props.mill] = { "Pales__AA7733", "Pales2__AA7733" } } -- les modèles de pièges portent leurs pièces animées
+		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" }, [Config.Assets.models.castle.door] = { "Herse__8A8A8A" }, [Config.Assets.models.props.chest] = { "Couvercle__E8B923" }, [Config.Assets.models.props.mill] = { "Pales__AA7733", "Pales2__AA7733" }, [Config.Assets.models.deco.sign_stars] = { "Etoile1__FFCD46", "Etoile2__FFCD46", "Etoile3__FFCD46", "Etoile4__FFCD46", "Etoile5__FFCD46" } } -- les modèles de pièges portent leurs pièces animées
 	end
 	if RT then
 	local main = RT.buildTree("roblox/src", false)
@@ -4097,23 +4097,21 @@ do
 					break
 				end
 			end
-			local folderParts, hut, tower = 0, 0, 0
+			local folderParts, baseModels = 0, 0
 			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
 				if rawget(d, "__props").Name == "BaseUpgrade" then
 					for _, q in ipairs(d:GetDescendants()) do
 						if q.ClassName == "Part" then
 							folderParts += 1
 						end
-						if rawget(q, "__props").Name == "HutModel" then
-							hut += 1
-						elseif rawget(q, "__props").Name == "TowerModel" then
-							tower += 1
+						if rawget(q, "__props").Name == "BaseModel" then
+							baseModels += 1
 						end
 					end
 				end
 			end
 			check("Base : des éclosions successives montent la base de 1 à 8, niveau jamais en baisse (" .. tostring(b:GetAttribute("BaseLevel")) .. ")", b:GetAttribute("BaseLevel") == 8 and monotone)
-			check("Base niveau 8 : apparence posée (" .. folderParts .. " Parts, cabane et tours Blender " .. hut .. " + " .. tower .. "), moins de 130 Parts par base" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), folderParts > 40 and folderParts <= 130 and hut == 1 and tower == 2 and #RT.errors == 0)
+			check("Base niveau 8 : le modèle Blender COMPLET du niveau (level8) remplace la version procédurale (" .. baseModels .. " modèle, " .. folderParts .. " Parts)" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), baseModels == 1 and folderParts <= 130 and #RT.errors == 0)
 			RT.removePlayer(b)
 			RT.step(2)
 			local rb = record(7002)
@@ -4380,6 +4378,34 @@ do
 					gapsOk = gapsOk and mine == expected
 				end
 				check("Rivières : mur invisible avec UN passage par pont (3 segments chacune), aucun mur sur un pont, " .. #geoC.lakes .. " lacs (" .. lakes .. "), " .. bridgesN .. " planches de pont", gapsOk and lakes == #geoC.lakes and bridgesN >= #geoC.rivers * #geoC.rivers[1].bridgesAt * Config.Map.decor.bridgePlanks)
+			end
+			do -- décor fin, relief, panneaux d'étoiles, ponts et cabanes Blender : budgets séparés
+				local counts = { deco = 0, decoParts = 0, cliffs = 0, relief = 0, walls = 0, stars = 0, rail = 0, hutBig = 0, hutSmall = 0, flowers = 0 }
+				for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+					local nm = rawget(d, "__props").Name
+					local parent = d.Parent and rawget(d.Parent, "__props").Name
+					if parent == "BlenderDeco" then
+						counts.deco += 1
+						if d.ClassName == "Model" then
+							counts.decoParts += #d:GetDescendants()
+						end
+						if nm:sub(1, 6) == "Flower" then
+							counts.flowers += 1
+						end
+					elseif parent == "BlenderRelief" then
+						counts.relief += 1
+						if d.ClassName == "Part" then
+							counts.walls += 1
+						else
+							counts.decoParts += #d:GetDescendants()
+						end
+					elseif nm == "StarSign" then
+						counts.stars += 1
+					end
+				end
+				check("Décor fin : " .. counts.deco .. " objets (fleurs, touffes, pierres, lanternes) posés après la carte, budget séparé " .. Config.Assets.decoBudgetParts .. " respecté, aucune erreur", counts.deco >= 30 and #RT.errors == 0)
+				check("Relief : crête de falaises, cascades, escaliers et îlots posés (" .. counts.relief .. " éléments), mur invisible en place (" .. counts.walls .. ")", counts.relief >= 20 and counts.walls >= 1)
+				check("Panneaux d'étoiles Blender : un par domaine (" .. counts.stars .. ")", counts.stars == #Config.RIVALS)
 			end
 			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
 		end

@@ -1703,3 +1703,53 @@ do
 		end
 	end)
 end
+
+---------------------------------------------------------------- Compteur de debug (FPS, ping, Parts) : F3 l'affiche ou le masque ; coupé par défaut
+do
+	local dbg = Instance.new("ScreenGui")
+	dbg.Name = "DebugStats"
+	dbg.ResetOnSpawn = false
+	dbg.DisplayOrder = 80
+	dbg.Enabled = Config.HUD.debugStats == true
+	local lbl = Instance.new("TextLabel")
+	lbl.BackgroundColor3 = Color3.new(0, 0, 0)
+	lbl.BackgroundTransparency = 0.45
+	lbl.AnchorPoint = Vector2.new(0.5, 0)
+	lbl.Position = UDim2.new(0.5, 0, 0, 4)
+	lbl.Size = UDim2.fromOffset(300, 22)
+	lbl.Font = Enum.Font.Code
+	lbl.TextSize = 14
+	lbl.TextColor3 = Color3.fromRGB(180, 255, 190)
+	lbl.Text = ""
+	lbl.Active = false
+	lbl.Parent = dbg
+	pcall(function()
+		dbg.Parent = player:WaitForChild("PlayerGui")
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.KeyCode == Enum.KeyCode.F3 then
+				dbg.Enabled = not dbg.Enabled
+			end
+		end)
+	end)
+	task.spawn(function()
+		local frames, t0 = 0, os.clock()
+		local conn = RunService.RenderStepped:Connect(function()
+			frames += 1
+		end)
+		while conn.Connected do
+			task.wait(0.5)
+			if dbg.Enabled then
+				local now = os.clock()
+				local fps = frames / math.max(0.001, now - t0)
+				frames, t0 = 0, now
+				local ping = "?"
+				pcall(function()
+					ping = string.format("%d", game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+				end)
+				lbl.Text = string.format("FPS %d · ping %s ms", math.floor(fps + 0.5), ping)
+			else
+				frames, t0 = 0, os.clock()
+			end
+		end
+	end)
+end

@@ -465,16 +465,22 @@ Config.Assets = {
 	-- Modèles Blender approuvés (convention `Nom__RRGGBB`, devant = -Y) : IDs enregistrés, pas encore tous câblés (voir BLENDER_REQUESTS.md).
 	-- Pièces animées par code (noms de Parts attendus) : Pales/Pales2 (moulin), Herse (porte), Pics, Lame, Boulet, Couvercle (coffre), Flamme (torche).
 	models = {
-		props = { mill = 108678125939354, castle = 85826335560323, chest = 81643274706684, torch = 89605986322384, flag = 110279682395149, sign = 74276869239897, pen = 117636221218047, lamp = 137473402121117, bench = 123958905099505 },
+		props = { bridge_rail = 112917439859012, fence_corner = 120728100461105, fence_gate = 95541995292351, hut_small = 93190979240574, hut_big = 128414703286969, mill = 108678125939354, castle = 85826335560323, chest = 81643274706684, torch = 89605986322384, flag = 110279682395149, sign = 74276869239897, pen = 117636221218047, lamp = 137473402121117, bench = 123958905099505 },
 		guards = { dog = 103939852527807, wolf = 97774277975586, bear = 70929301247964, knight = 79935066561502 },
 		castle = { wall = 136500159645250, tower = 120194370584366, door = 81799010490650, floor = 87526275066787 },
 		traps = { spikes = 109204482572726, blade = 83758069602274, ball = 97316525004480 },
 		ground = { grass = 108336655087221, path = 129255762203803, plaza = 129476241883133 },
+		deco = { flower_a = 77356084419297, flower_b = 75380956155225, flower_c = 111315415429762, tuft = 87978041093798, stone_flat = 136754104457535, stone_round = 87559674928022, lantern = 104138982529608, sign_stars = 123744671851193 },
+		terrain = { cliff_a = 77185775444063, cliff_b = 121767734121074, cliff_corner = 110100977206117, stairs = 105161635046156, waterfall = 129292144451409, islet = 128405076287969 },
+		base = { level1 = 97252816676038, level2 = 81995835244074, level3 = 77426422736227, level4 = 95370892804658, level5 = 75516398880390, level6 = 108065975809605, level7 = 83929759854266, level8 = 100223033827392 },
 		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
-		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20,
+		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
+		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
+		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
+		["base.level1"] = 45, ["base.level2"] = 45, ["base.level3"] = 45, ["base.level4"] = 45, ["base.level5"] = 45, ["base.level6"] = 45, ["base.level7"] = 45, ["base.level8"] = 45,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
 	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
@@ -493,7 +499,11 @@ Config.Assets = {
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
 	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
-	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
+	castleBudgetParts = 1700,
+	decoBudgetParts = 420, -- décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ des 1200 Parts procédurales, posé après la carte
+	reliefBudgetParts = 700, -- falaises, cascades, îlots Blender : budget séparé, posé après la carte
+	decoHeights = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1.2, stone_flat = 0.6, stone_round = 0.9, lantern = 1.2, sign_stars = 5 }, -- hauteurs cibles (studs) du décor fin
+	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
 	-- mesure impossible = modèle non posé (repli procédural), jamais d'échelle brute.
 	targetHeights = { player = 5, petMin = 1.7, petMax = 2.1, petHard = 3, eggMin = 1.8, eggMax = 2.8, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 2.5, wolf = 3, bear = 5, knight = 4.5, tower = 24, chest = 4, torch = 3, flag = 7 },
@@ -1262,6 +1272,7 @@ end
 Config.VFX = { quality = nil }
 
 Config.HUD = {
+	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
 	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
 	shortcuts = true, -- manette (X boutique, Y missions, Select Plus, B fermer) et clavier (B, Q, O) pour les menus
 }

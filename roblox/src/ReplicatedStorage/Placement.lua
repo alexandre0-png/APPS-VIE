@@ -200,6 +200,90 @@ function Placement.new(Config)
 		return { items = items, bridges = bridges }
 	end
 
+	-- Décor fin (fleurs, touffes, pierres, lanternes) : mêmes règles (rien dans l'eau ni sur un chemin), espacement plus serré, après le plan principal.
+	-- Retourne { {kind, x, z, rot, r} } ; kinds : flower_a/b/c, tuft, stone_flat, stone_round, lantern. Les lanternes bordent les chemins (à 5 studs).
+	local DECO_RADIUS = { flower_a = 1, flower_b = 1, flower_c = 1, tuft = 1, stone_flat = 1.5, stone_round = 1.5, lantern = 1 }
+	Placement.DECO_RADIUS = DECO_RADIUS
+	function P.decor(planItems, counts)
+		counts = counts or { flowers = 36, tufts = 24, stones = 18, lanterns = 12 }
+		local out = {}
+		local function fits(kind, x, z)
+			local r = DECO_RADIUS[kind]
+			if P.blocked(x, z, r, { allowDomain = true }) then
+				return false
+			end
+			for _, it in ipairs(planItems or {}) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 1 then
+					return false
+				end
+			end
+			for _, it in ipairs(out) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 0.5 then
+					return false
+				end
+			end
+			return true
+		end
+		local seed = 7919
+		local function rnd()
+			seed = seed * 16807 % 2147483647
+			return seed / 2147483647
+		end
+		-- lanternes le long des chemins (un côté, tous les ~28 studs)
+		local placedLanterns = 0
+		for _, seg in ipairs(P.pathSegments()) do
+			local dx, dz = seg[3] - seg[1], seg[4] - seg[2]
+			local len = math.sqrt(dx * dx + dz * dz)
+			local nx, nz = -dz / len, dx / len
+			local steps = math.max(1, math.floor(len / 28))
+			for k = 1, steps do
+				if placedLanterns >= counts.lanterns then
+					break
+				end
+				local t = (k - 0.5) / steps
+				local x, z = seg[1] + dx * t + nx * (geo.pathHalf + 3.5), seg[2] + dz * t + nz * (geo.pathHalf + 3.5)
+				if fits("lantern", x, z) then
+					out[#out + 1] = { kind = "lantern", x = x, z = z, rot = 0, r = DECO_RADIUS.lantern }
+					placedLanterns = placedLanterns + 1
+				end
+			end
+		end
+		-- fleurs, touffes, pierres : cellules de 24 studs dans un ordre mélangé déterministe ; les fleurs se regroupent autour des domaines et des chemins
+		local kinds = {}
+		for i = 1, counts.flowers do
+			kinds[#kinds + 1] = ({ "flower_a", "flower_b", "flower_c" })[i % 3 + 1]
+		end
+		for _ = 1, counts.tufts do
+			kinds[#kinds + 1] = "tuft"
+		end
+		for i = 1, counts.stones do
+			kinds[#kinds + 1] = i % 2 == 0 and "stone_flat" or "stone_round"
+		end
+		local cells = {}
+		local cell, lo, hi = 24, -half + 60, half - 60
+		for gx = lo, hi, cell do
+			for gz = lo, hi, cell do
+				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
+			end
+		end
+		for i = #cells, 2, -1 do
+			local j = 1 + math.floor(rnd() * i)
+			cells[i], cells[j] = cells[j], cells[i]
+		end
+		local ki = 1
+		for _, c in ipairs(cells) do
+			if ki > #kinds then
+				break
+			end
+			local x, z = c[1] + (rnd() - 0.5) * 14, c[2] + (rnd() - 0.5) * 14
+			if fits(kinds[ki], x, z) then
+				out[#out + 1] = { kind = kinds[ki], x = x, z = z, rot = rnd() * 360, r = DECO_RADIUS[kinds[ki]] }
+				ki = ki + 1
+			end
+		end
+		return out
+	end
+
 	return P
 end
 
