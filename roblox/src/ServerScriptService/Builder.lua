@@ -834,6 +834,35 @@ function Builder.dressTextures(assets)
 	return count
 end
 
+-- Publie les modèles d'effets (groupe `vfx`, déjà chargés par Assets) dans ReplicatedStorage.VfxTemplates : les clients les clonent pour VfxKit.play
+-- (un client ne peut pas charger d'assets lui-même). Parts ancrées, sans collision, matière Neon d'origine conservée. Retourne le nombre publié.
+function Builder.exportVfx(assets)
+	local n = 0
+	pcall(function()
+		local RS = game:GetService("ReplicatedStorage")
+		local folder = RS:FindFirstChild("VfxTemplates") or Instance.new("Folder")
+		folder.Name = "VfxTemplates"
+		for _, key in ipairs(AssetsMod.vfxKeys) do
+			local clone = assets.cloneModel("vfx", key)
+			if clone then
+				clone.Name = key
+				for _, d in ipairs(clone:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+						d.CanQuery = false
+						d.CanTouch = false
+					end
+				end
+				clone.Parent = folder
+				n = n + 1
+			end
+		end
+		folder.Parent = RS
+	end)
+	return n
+end
+
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
 function Builder.animDoor(rec, open)
 	local vis = rec.vis

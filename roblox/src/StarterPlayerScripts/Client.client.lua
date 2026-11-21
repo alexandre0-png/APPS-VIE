@@ -17,6 +17,8 @@ local Layout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("La
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Easing = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Easing"))
 local RevealFx = require(script.Parent:WaitForChild("RevealFx"))
+local VfxKitMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("VfxKit"))
+local Vfx = VfxKitMod.new(Config, Easing)
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
@@ -271,6 +273,59 @@ local popOdds = text(pop, { Position = UDim2.fromOffset(0, 208), Size = UDim2.ne
 local popToken = 0
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0 }, gui)
 
+-- Effets 3D (VfxKit) : modèles d'effets publiés par le serveur dans ReplicatedStorage.VfxTemplates ; qualité Basse sur tactile (3 effets simultanés
+-- au plus, 40 particules par émetteur, pas de faisceau) ; un modèle absent ou une erreur = l'effet est simplement sauté.
+local function vfxEnv()
+	return {
+		clone = function(key)
+			local folder = ReplicatedStorage:FindFirstChild("VfxTemplates")
+			local t = folder and folder:FindFirstChild(key)
+			return t and t:Clone() or nil
+		end,
+		tween = TweenService, debris = Debris, parent = workspace, delay = task.delay, color = Color3.fromRGB,
+	}
+end
+local function padCFrame(slot)
+	local pc = player:GetAttribute("PlotCF")
+	if typeof(pc) == "CFrame" and type(slot) == "number" then
+		local lx, lz = Config.padLocal(slot)
+		return pc * CFrame.new(lx, 0.4, lz)
+	end
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	return root and (root.CFrame * CFrame.new(0, -2.6, -6)) or nil
+end
+local function playVfxAt(names, tier, cf)
+	if not Config.animEnabled("vfx3d") or not cf then
+		return
+	end
+	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local q = VfxKitMod.quality(touch, Config.VFX.quality)
+	for _, name in ipairs(names) do
+		if not Vfx.admit(Vfx.active, q) then
+			break
+		end
+		local plan = Vfx.plan(name, tier, q, 1)
+		if plan then
+			Vfx.play(vfxEnv(), plan, cf)
+		end
+	end
+end
+local function playHatchVfx(info, tier, secret)
+	if not Config.animEnabled("vfx3d") then
+		return
+	end
+	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local q = VfxKitMod.quality(touch, Config.VFX.quality)
+	local cf = padCFrame(info.slot)
+	if not cf then
+		return
+	end
+	for _, plan in ipairs(Vfx.hatchPlans(tier, secret, q, Vfx.active)) do
+		Vfx.play(vfxEnv(), plan, cf)
+	end
+end
+
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
 	if def.tier >= 4 and tryOfferLater then
@@ -310,6 +365,7 @@ local function hatchPop(info)
 		TweenService:Create(flash, TweenInfo.new(0.35 + 0.5 * st.flash), { BackgroundTransparency = 1 }):Play()
 	end
 	playSound(Config.hatchSoundKey(def.tier, st.secret))
+	pcall(playHatchVfx, info, def.tier, st.secret) -- effets 3D en plus de la révélation en interface, selon la qualité
 	if st.shake > 0.2 then -- secousse de la caméra proportionnelle à la rareté
 		task.spawn(function()
 			local char = player.Character
@@ -1221,6 +1277,12 @@ end)
 RNotify.OnClientEvent:Connect(function(msg, sfx)
 	if type(msg) == "string" and msg ~= "" then
 		toast(msg)
+	end
+	if sfx == "fanfare" then -- victoire du château : pluie d'étincelles autour du joueur
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			pcall(playVfxAt, { "etincelles", "onde_de_choc" }, 5, root.CFrame * CFrame.new(0, -2.6, 0))
+		end
 	end
 	if sfx then
 		playSound(sfx)

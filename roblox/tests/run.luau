@@ -340,7 +340,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner", "petStates" }
+local animKeys = { "enabled", "vfx3d", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner", "petStates" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -2740,6 +2740,87 @@ do
 	check("Étiquettes : tailles fixes (titre " .. PL.titleSize[1] .. "x" .. PL.titleSize[2] .. ", statut " .. PL.statusSize[1] .. "x" .. PL.statusSize[2] .. " px), pas de taille proportionnelle, 40 studs", PL.titleSize[1] <= 300 and PL.titleSize[2] <= 60 and PL.statusSize[1] <= 260 and PL.statusSize[2] <= 40 and PL.maxDist == 40 and hubSrc:find("UDim2.fromOffset(width, height)", 1, true) ~= nil and hubSrc:find("UDim2.fromScale(1, 1)", 1, true) ~= nil)
 end
 
+-- VfxKit : préréglages, qualités, plafonds mobiles, effets par rareté ---------------------------------------------------------------
+do
+	suite("VfxKit : préréglages, qualité Élevé/Moyen/Bas, plafonds mobiles, effets par rareté")
+	local VK = luau.load(fs.readFile("roblox/src/ReplicatedStorage/VfxKit.lua"), { debugName = "VfxKit" })()
+	local E = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+	local K = VK.new(Config, E)
+	local names = { "aura_runique", "aura_ailes", "onde_de_choc", "pilier_revelation", "bouclier", "etincelles", "spirale_montee", "portail_torii" }
+	local allKnown = true
+	for _, n in ipairs(names) do
+		allKnown = allKnown and VK.PRESETS[n] ~= nil
+	end
+	check("Préréglages : les 8 effets demandés existent (aura runique, ailes, onde de choc, pilier, bouclier, étincelles, spirale, torii)", allKnown)
+	local modelsOk = true
+	for _, n in ipairs(names) do
+		for _, piece in ipairs(VK.PRESETS[n].pieces) do
+			modelsOk = modelsOk and Config.Assets.models.vfx[piece.model] ~= nil
+		end
+	end
+	check("Préréglages : chaque pièce référence un des 13 modèles Blender approuvés (IDs de Config.Assets.models.vfx)", modelsOk and #VK.MODELS == 13)
+	local count = 0
+	for _ in pairs(Config.Assets.models.vfx) do
+		count += 1
+	end
+	check("Modèles d'effets : 13 IDs approuvés, ceux du cercle runique et du pilier de lumière corrects", count == 13 and Config.Assets.models.vfx.cercle_runique == 78887954880607 and Config.Assets.models.vfx.pilier_lumiere == 136359342334671 and Config.Assets.models.vfx.bouclier == 135593787305812)
+	local low, high = K.plan("pilier_revelation", 4, "low", 1), K.plan("pilier_revelation", 4, "high", 1)
+	check("Qualité Basse : une seule pièce, 40 particules au plus, jamais de faisceau ; Élevée : 3 pièces et faisceau", low and #low.pieces == 1 and low.particles.count <= 40 and low.beam == false and high and #high.pieces == 3 and high.beam == true and high.particles.count == 30)
+	check("Qualité : aucun préréglage ne dépasse 40 particules en Bas, 70 en Moyen, 120 en Élevé", (function()
+		for _, n in ipairs(names) do
+			for q, cap in pairs({ low = 40, medium = 70, high = 120 }) do
+				local pl = K.plan(n, 3, q, 1)
+				if pl and pl.particles and pl.particles.count > cap then
+					return false
+				end
+				if pl and q ~= "high" and pl.beam then
+					return false
+				end
+			end
+		end
+		return true
+	end)())
+	check("Qualité : les effets exigeants (ailes, spirale, torii) sont refusés en Bas ; acceptés en Moyen", K.plan("aura_ailes", 4, "low", 1) == nil and K.plan("spirale_montee", 5, "low", 1) == nil and K.plan("portail_torii", 6, "low", 1) == nil and K.plan("aura_ailes", 4, "medium", 1) ~= nil)
+	check("Plan : préréglage ou qualité inconnus -> nil sans erreur ; ampleur invalide ramenée à 1", K.plan("inconnu", 1, "high", 1) == nil and K.plan("etincelles", 1, "ultra", 1) == nil and math.abs(K.plan("etincelles", 1, "high", 0 / 0).pieces[1].s1 - VK.PRESETS.etincelles.pieces[1].s1) < 1e-9)
+	check("Mobile : au plus 3 effets simultanés (Bas), 5 (Moyen), 8 (Élevé) ; admission refusée au-delà", VK.QUALITY.low.maxConcurrent == 3 and VK.QUALITY.medium.maxConcurrent == 5 and VK.QUALITY.high.maxConcurrent == 8 and K.admit(2, "low") and not K.admit(3, "low") and not K.admit(8, "high") and not K.admit(nil, "low"))
+	local legendaryLow = K.hatchPlans(5, false, "low", 0)
+	check("Éclosion mythique sur téléphone : 3 effets au plus (" .. #legendaryLow .. "), jamais plus que la simultanéité", #legendaryLow == 3 and #K.hatchPlans(5, false, "low", 2) == 1 and #K.hatchPlans(5, false, "low", 3) == 0)
+	local function nbEffects(tier, secret)
+		return #select(1, VK.hatchEffects(tier, secret))
+	end
+	check("Raretés : ampleur croissante (commun discret : 1 effet ; légendaire et secret spectaculaires)", nbEffects(1) == 1 and nbEffects(2) == 2 and nbEffects(4) >= 4 and nbEffects(6) >= 6 and nbEffects(1, true) >= 6 and select(2, VK.hatchEffects(1)) < select(2, VK.hatchEffects(3)) and select(2, VK.hatchEffects(3)) < select(2, VK.hatchEffects(5)) and select(2, VK.hatchEffects(6)) > select(2, VK.hatchEffects(5)))
+	check("Raretés : le secret joue pilier, spirale et torii ; rareté invalide (nil, NaN, 99) bornée sans erreur", (function()
+		local list = VK.hatchEffects(2, true)
+		local joined = table.concat(list, ",")
+		return joined:find("pilier_revelation", 1, true) ~= nil and joined:find("spirale_montee", 1, true) ~= nil and joined:find("portail_torii", 1, true) ~= nil and #select(1, VK.hatchEffects(nil)) == 1 and #select(1, VK.hatchEffects(99)) >= 6 and #select(1, VK.hatchEffects(0 / 0)) == 1
+	end)())
+	local c3 = K.plan("aura_runique", 3, "high", 1).pieces[1].color
+	local c6 = K.plan("aura_runique", 6, "high", 1).pieces[1].color
+	check("Couleurs : par rareté (Épique et Cosmique ont des couleurs différentes, valeurs 0-255), blanc pour « white »", (c3[1] ~= c6[1] or c3[2] ~= c6[2] or c3[3] ~= c6[3]) and c3[1] <= 255 and c3[1] >= 0 and K.plan("pilier_revelation", 3, "high", 1).pieces[3].color[1] == 255 and K.rarityColor(99)[1] == 255)
+	local piece = K.plan("onde_de_choc", 3, "high", 1).pieces[1]
+	local okCurve = true
+	for _, st in ipairs({ "Back", "Elastic", "Quint", "Quad", "Sine" }) do
+		okCurve = okCurve and math.abs(K.curve(st, 0)) < 1e-9 and math.abs(K.curve(st, 1) - 1) < 1e-9 and K.curve(st, -5) == K.curve(st, 0) and K.curve(st, 9) == K.curve(st, 1)
+	end
+	check("Courbes (Back, Elastic, Quint, Quad, Sine) : 0 au départ, 1 à l'arrivée, entrée bornée", okCurve)
+	local ok01 = true
+	for i = 0, 100 do
+		local tr = K.transparencyAt(piece, i / 100)
+		ok01 = ok01 and tr >= 0 and tr <= 1
+	end
+	check("Transparence : toujours dans [0, 1], visible au sommet (peak) puis effacée à la fin", ok01 and math.abs(K.transparencyAt(piece, 0.25) - piece.peak) < 1e-6 and K.transparencyAt(piece, 1) >= 0.99 and K.scaleAt(piece, 0) == piece.s0 and math.abs(K.scaleAt(piece, 1) - piece.s1) < 1e-9)
+	check("Durées : chaque effet dure moins de 5 s (tout est nettoyé ensuite)", (function()
+		for _, n in ipairs(names) do
+			local pl = K.plan(n, 5, "high", 1)
+			if not pl or pl.duration > 5 then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Qualité automatique : tactile = Bas, sinon Élevé ; réglage forcé respecté, valeur inconnue ignorée", VK.quality(true) == "low" and VK.quality(false) == "high" and VK.quality(false, "medium") == "medium" and VK.quality(true, "high") == "high" and VK.quality(true, "xx") == "low")
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -4009,6 +4090,16 @@ do
 			end
 		end
 		check("Éclosion : l'effet RevealFx est créé pour chaque éclosion", fxCount >= 1)
+		local vfxFolders, vfxModels = 0, 0
+		for _, o in ipairs(RT.all) do
+			local nm = rawget(o, "__props").Name
+			if type(nm) == "string" and nm:sub(1, 4) == "Vfx_" then
+				vfxFolders += 1
+			end
+		end
+		local templates = RT.services.ReplicatedStorage:FindFirstChild("VfxTemplates")
+		vfxModels = templates and #templates:GetChildren() or 0
+		check("Effets 3D : le serveur publie les 13 modèles d'effets (" .. vfxModels .. "), l'éclosion joue au moins un effet VfxKit (" .. vfxFolders .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), vfxModels == 13 and vfxFolders >= 1 and #RT.errors == 0)
 		do
 			local names = {}
 			for _, o in ipairs(RT.all) do

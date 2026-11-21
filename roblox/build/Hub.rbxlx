@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX29"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX42"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX41"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX30"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX44"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX43"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -474,6 +474,7 @@ Config.Assets = {
 		castle = { wall = 136500159645250, tower = 120194370584366, door = 81799010490650, floor = 87526275066787 },
 		traps = { spikes = 109204482572726, blade = 83758069602274, ball = 97316525004480 },
 		ground = { grass = 108336655087221, path = 129255762203803, plaza = 129476241883133 },
+		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
@@ -494,6 +495,7 @@ Config.Assets = {
 	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
+	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
 	-- mesure impossible = modèle non posé (repli procédural), jamais d'échelle brute.
@@ -989,6 +991,7 @@ Config.Animations = {
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
 	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
+	vfx3d = true, -- effets 3D (modèles Blender d'effets) à l'éclosion, à la victoire du château (VfxKit)
 }
 
 function Config.animEnabled(name)
@@ -1204,6 +1207,9 @@ function Config.storyGoalText(c)
 end
 
 -- Réglages d'interface (chaque ajout se coupe ici).
+-- Effets 3D : qualité imposée (« high », « medium », « low ») ou nil = automatique (Bas sur tactile, Élevé sinon).
+Config.VFX = { quality = nil }
+
 Config.HUD = {
 	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
 	shortcuts = true, -- manette (X boutique, Y missions, Select Plus, B fermer) et clavier (B, Q, O) pour les menus
@@ -1320,7 +1326,7 @@ function Config.oddsText()
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -1565,7 +1571,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -1745,7 +1751,350 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+-- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
+-- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
+-- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
+-- par code, ancré, sans collision, dont la transparence, l'échelle, la rotation et la hauteur sont animées par TweenService ; tout est nettoyé
+-- (Debris) et protégé par pcall : un effet qui échoue ne casse jamais le jeu.
+-- Utilisation : local Vfx = require(Shared.VfxKit).new(Config, Easing)
+local VfxKit = {}
+
+-- Modèles Blender d'effets (clé = nom du fichier Blender, voir Config.Assets.models.vfx).
+VfxKit.MODELS = { "cercle_runique", "ailes", "halo", "rayons", "etoile", "cristaux", "onde", "torii", "spirale", "pilier_lumiere", "etincelles", "cone_lumiere", "bouclier" }
+
+-- Préréglages. Pièce : { model, at (retard s), dur (s), s0/s1 (échelle de départ/arrivée, 1 = taille Blender), t0/t1 (transparence), spin (rad/s),
+-- rise (studs montés pendant l'effet), style (Back, Elastic, Quint, Quad, Sine), dir (Out, In, InOut), color ("rarity" | "white" | {r,g,b} 0-255) }.
+-- L'ordre des pièces est leur priorité : la qualité Basse n'en garde que les premières. Particules : { count, life, speed, size, color }.
+VfxKit.PRESETS = {
+	aura_runique = {
+		pieces = {
+			{ model = "cercle_runique", at = 0, dur = 1.8, s0 = 0.3, s1 = 1.15, t0 = 0.9, t1 = 1, spin = 1.4, style = "Back", dir = "Out", color = "rarity", peak = 0.35 },
+			{ model = "halo", at = 0.1, dur = 1.6, s0 = 0.5, s1 = 1.0, t0 = 0.85, t1 = 1, spin = -0.8, style = "Quint", dir = "Out", color = "rarity", peak = 0.4 },
+		},
+		particles = { count = 24, life = 1.4, speed = 5, size = 0.35, color = "rarity" },
+		minQuality = "low",
+	},
+	aura_ailes = {
+		pieces = { { model = "ailes", at = 0.2, dur = 2.2, s0 = 0.2, s1 = 1.2, t0 = 0.8, t1 = 1, rise = 1.5, style = "Elastic", dir = "Out", color = "rarity", peak = 0.3 } },
+		particles = { count = 18, life = 1.8, speed = 3, size = 0.3, color = "rarity" },
+		highlight = true,
+		minQuality = "medium",
+	},
+	onde_de_choc = {
+		pieces = { { model = "onde", at = 0, dur = 0.9, s0 = 0.2, s1 = 3.2, t0 = 0.2, t1 = 1, style = "Quint", dir = "Out", color = "rarity", peak = 0.2 } },
+		particles = { count = 14, life = 0.8, speed = 14, size = 0.3, color = "rarity" },
+		minQuality = "low",
+	},
+	pilier_revelation = {
+		pieces = {
+			{ model = "pilier_lumiere", at = 0.15, dur = 1.8, s0 = 0.1, s1 = 1.1, t0 = 0.7, t1 = 1, style = "Quint", dir = "Out", color = "rarity", peak = 0.25 },
+			{ model = "rayons", at = 0.2, dur = 1.6, s0 = 0.4, s1 = 1.3, t0 = 0.75, t1 = 1, spin = 0.9, style = "Quint", dir = "Out", color = "rarity", peak = 0.3 },
+			{ model = "cone_lumiere", at = 0.3, dur = 1.5, s0 = 0.6, s1 = 1.0, t0 = 0.8, t1 = 1, style = "Sine", dir = "InOut", color = "white", peak = 0.45 },
+		},
+		particles = { count = 30, life = 2, speed = 8, size = 0.4, color = "white" },
+		beam = true,
+		minQuality = "low",
+	},
+	bouclier = {
+		pieces = { { model = "bouclier", at = 0, dur = 1.4, s0 = 0.5, s1 = 1.0, t0 = 0.8, t1 = 1, spin = 0.6, style = "Back", dir = "Out", color = { 90, 200, 255 }, peak = 0.45 } },
+		highlight = true,
+		minQuality = "low",
+	},
+	etincelles = {
+		pieces = { { model = "etincelles", at = 0, dur = 1.6, s0 = 0.5, s1 = 1.2, t0 = 0.3, t1 = 1, rise = 3, style = "Quad", dir = "Out", color = "rarity", peak = 0.1 } },
+		particles = { count = 30, life = 1.5, speed = 9, size = 0.3, color = "rarity" },
+		minQuality = "low",
+	},
+	spirale_montee = {
+		pieces = {
+			{ model = "spirale", at = 0, dur = 2.4, s0 = 0.4, s1 = 1.2, t0 = 0.6, t1 = 1, spin = 3, rise = 8, style = "Quint", dir = "Out", color = "rarity", peak = 0.2 },
+			{ model = "etoile", at = 1.0, dur = 1.2, s0 = 0.2, s1 = 1.4, t0 = 0.5, t1 = 1, spin = 1, rise = 10, style = "Back", dir = "Out", color = "white", peak = 0.2 },
+		},
+		particles = { count = 26, life = 2.2, speed = 6, size = 0.35, color = "rarity" },
+		minQuality = "medium",
+	},
+	portail_torii = {
+		pieces = {
+			{ model = "torii", at = 0.3, dur = 2.6, s0 = 0.3, s1 = 1.0, t0 = 0.85, t1 = 1, style = "Back", dir = "Out", color = "rarity", peak = 0.3 },
+			{ model = "cristaux", at = 0.5, dur = 2.2, s0 = 0.2, s1 = 1.0, t0 = 0.8, t1 = 1, spin = 0.4, style = "Elastic", dir = "Out", color = "rarity", peak = 0.3 },
+		},
+		particles = { count = 22, life = 2, speed = 4, size = 0.4, color = "rarity" },
+		minQuality = "medium",
+	},
+}
+
+-- Qualités. Mobile = Bas : au plus 3 effets simultanés, 40 particules par émetteur, jamais de faisceau (Beam).
+VfxKit.QUALITY = {
+	high = { rank = 3, maxConcurrent = 8, particleCap = 120, beams = true, maxPieces = 3, highlight = true },
+	medium = { rank = 2, maxConcurrent = 5, particleCap = 70, beams = false, maxPieces = 2, highlight = true },
+	low = { rank = 1, maxConcurrent = 3, particleCap = 40, beams = false, maxPieces = 1, highlight = false },
+}
+
+-- Effets (préréglages) joués pour une éclosion : ampleur croissante avec la rareté (1 Commun discret .. 5 Mythique) ; Cosmique et secret sont
+-- spectaculaires. Retourne la liste ordonnée des préréglages et un facteur d'ampleur (échelle).
+function VfxKit.hatchEffects(tier, secret)
+	tier = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	local amp = ({ 0.55, 0.75, 0.95, 1.2, 1.45, 1.8 })[tier]
+	if secret then
+		return { "pilier_revelation", "spirale_montee", "portail_torii", "aura_runique", "onde_de_choc", "etincelles" }, 2
+	elseif tier == 1 then
+		return { "etincelles" }, amp
+	elseif tier == 2 then
+		return { "etincelles", "onde_de_choc" }, amp
+	elseif tier == 3 then
+		return { "aura_runique", "onde_de_choc" }, amp
+	elseif tier == 4 then
+		return { "pilier_revelation", "aura_runique", "aura_ailes", "onde_de_choc" }, amp
+	elseif tier == 5 then
+		return { "pilier_revelation", "aura_runique", "aura_ailes", "spirale_montee", "onde_de_choc" }, amp
+	end
+	return { "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" }, amp
+end
+
+-- Qualité : tactile = Bas, sinon Élevé ; `override` (« high », « medium », « low ») la remplace.
+function VfxKit.quality(isTouch, override)
+	if override and VfxKit.QUALITY[override] then
+		return override
+	end
+	return isTouch and "low" or "high"
+end
+
+function VfxKit.new(Config, Easing)
+	local K = { active = 0 }
+
+	-- Couleur (r, g, b en 0-255) d'une rareté ; blanc si inconnue.
+	function K.rarityColor(tier)
+		local t = Config.TIERS[tier]
+		local c = t and t.color
+		if c then
+			return { math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5) }
+		end
+		return { 255, 255, 255 }
+	end
+
+	local function resolveColor(spec, tier)
+		if spec == "white" then
+			return { 255, 255, 255 }
+		elseif type(spec) == "table" then
+			return spec
+		end
+		return K.rarityColor(tier)
+	end
+
+	-- Courbe nommée (style de TweenService) sur [0, 1] : Back, Elastic, Quint, Quad, Sine (sortie ou entrée-sortie).
+	function K.curve(style, x)
+		x = Easing.clamp01(x)
+		if style == "Back" then
+			return Easing.outBack(x)
+		elseif style == "Elastic" then
+			return Easing.outElastic(x)
+		elseif style == "Quint" then
+			return 1 - (1 - x) ^ 5
+		elseif style == "Quad" then
+			return Easing.outQuad(x)
+		end
+		return Easing.inOutSine(x)
+	end
+
+	-- Plan concret d'un préréglage pour une rareté et une qualité : pièces (priorité, nombre limité par la qualité), particules plafonnées,
+	-- faisceau seulement en Élevé, surbrillance selon la qualité, durée totale. nil si préréglage inconnu ou trop exigeant pour la qualité.
+	-- amp multiplie l'échelle (ampleur selon la rareté).
+	function K.plan(name, tier, quality, amp)
+		local preset = VfxKit.PRESETS[name]
+		local q = VfxKit.QUALITY[quality]
+		if not preset or not q then
+			return nil
+		end
+		local need = VfxKit.QUALITY[preset.minQuality or "low"]
+		if q.rank < need.rank then
+			return nil
+		end
+		amp = (type(amp) == "number" and amp == amp and amp > 0) and math.min(amp, 3) or 1
+		local pieces, duration = {}, 0
+		for i, p in ipairs(preset.pieces) do
+			if i > q.maxPieces then
+				break
+			end
+			pieces[#pieces + 1] = {
+				model = p.model, at = p.at, dur = p.dur, s0 = p.s0 * amp, s1 = p.s1 * amp, t0 = p.t0, t1 = p.t1, spin = p.spin or 0, rise = (p.rise or 0) * amp,
+				style = p.style, dir = p.dir, color = resolveColor(p.color, tier), peak = p.peak,
+			}
+			duration = math.max(duration, p.at + p.dur)
+		end
+		local particles = nil
+		if preset.particles then
+			particles = {
+				count = math.min(preset.particles.count, q.particleCap), life = preset.particles.life, speed = preset.particles.speed,
+				size = preset.particles.size, color = resolveColor(preset.particles.color, tier),
+			}
+		end
+		return {
+			name = name, pieces = pieces, particles = particles, beam = preset.beam == true and q.beams, highlight = preset.highlight == true and q.highlight,
+			duration = duration,
+		}
+	end
+
+	-- Admission : combien d'effets peuvent encore démarrer (limite de simultanéité de la qualité).
+	function K.admit(active, quality)
+		local q = VfxKit.QUALITY[quality]
+		return q ~= nil and type(active) == "number" and active < q.maxConcurrent
+	end
+
+	-- Liste ordonnée des plans d'une éclosion, tronquée à la simultanéité de la qualité (rien de plus que ce que le téléphone peut jouer).
+	function K.hatchPlans(tier, secret, quality, activeNow)
+		local names, amp = VfxKit.hatchEffects(tier, secret)
+		local out = {}
+		local active = activeNow or 0
+		for _, name in ipairs(names) do
+			if not K.admit(active + #out, quality) then
+				break
+			end
+			local plan = K.plan(name, tier, quality, amp)
+			if plan then
+				out[#out + 1] = plan
+			end
+		end
+		return out
+	end
+
+	-- Transparence d'une pièce à la progression p (0..1) : monte en fondu vers `peak` (visibilité maximale) puis disparaît ; valeur dans [0, 1].
+	function K.transparencyAt(piece, p)
+		p = Easing.clamp01(p)
+		local appear = 0.25
+		if p < appear then
+			return piece.t0 + (piece.peak - piece.t0) * K.curve("Quad", p / appear)
+		end
+		local e = (p - appear) / (1 - appear)
+		return math.min(math.max(piece.peak + (piece.t1 - piece.peak) * K.curve("Sine", e), 0), 1)
+	end
+
+	-- Échelle d'une pièce à la progression p.
+	function K.scaleAt(piece, p)
+		return piece.s0 + (piece.s1 - piece.s0) * K.curve(piece.style, p)
+	end
+
+	---------------------------------------------------------------- Exécution (client)
+	-- env = { clone(model) -> Model|nil, tween = TweenService, debris = Debris, parent = Instance, spawn = task.spawn, delay = task.delay, color = Color3.fromRGB }
+	-- Retourne true si l'effet a démarré. Tout est sous pcall ; l'effet est détruit à la fin (Debris) quoi qu'il arrive.
+	function K.play(env, plan, cframe, opts)
+		if not plan or K.active >= 99 then
+			return false
+		end
+		local started = false
+		local ok = pcall(function()
+			local folder = Instance.new("Folder")
+			folder.Name = "Vfx_" .. plan.name
+			folder.Parent = env.parent
+			env.debris:AddItem(folder, plan.duration + 1.5)
+			K.active += 1
+			env.delay(plan.duration + 1.4, function()
+				K.active = math.max(0, K.active - 1)
+			end)
+			for _, piece in ipairs(plan.pieces) do
+				env.delay(piece.at, function()
+					pcall(function()
+						local model = env.clone(piece.model)
+						if not model then
+							return
+						end
+						model.Parent = folder
+						local color = env.color(piece.color[1], piece.color[2], piece.color[3])
+						for _, d in ipairs(model:GetDescendants()) do
+							if d:IsA("BasePart") then
+								d.Anchored = true
+								d.CanCollide = false
+								d.CanQuery = false
+								d.CanTouch = false
+								d.CastShadow = false
+								d.Color = color
+								d.Transparency = piece.t0
+							end
+						end
+						local base = model:GetScale()
+						local pivot = cframe
+						local value = Instance.new("NumberValue")
+						value.Parent = folder
+						local function apply(p)
+							if not model.Parent then
+								return
+							end
+							pcall(function()
+								model:ScaleTo(math.max(0.01, base * K.scaleAt(piece, p)))
+								model:PivotTo(pivot * CFrame.new(0, piece.rise * p, 0) * CFrame.Angles(0, piece.spin * p * piece.dur, 0))
+								local tr = K.transparencyAt(piece, p)
+								for _, d in ipairs(model:GetDescendants()) do
+									if d:IsA("BasePart") then
+										d.Transparency = tr
+									end
+								end
+							end)
+						end
+						apply(0)
+						value.Changed:Connect(apply)
+						env.tween:Create(value, TweenInfo.new(piece.dur, Enum.EasingStyle.Linear), { Value = 1 }):Play() -- les courbes sont appliquées par apply (Back, Elastic, Quint...)
+					end)
+				end)
+			end
+			if plan.particles then
+				local anchor = Instance.new("Part")
+				anchor.Anchored = true
+				anchor.CanCollide = false
+				anchor.CanQuery = false
+				anchor.Transparency = 1
+				anchor.Size = Vector3.new(1, 1, 1)
+				anchor.CFrame = cframe
+				anchor.Parent = folder
+				local e = Instance.new("ParticleEmitter")
+				e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+				e.Color = ColorSequence.new(env.color(plan.particles.color[1], plan.particles.color[2], plan.particles.color[3]))
+				e.Rate = 0
+				e.Lifetime = NumberRange.new(plan.particles.life * 0.6, plan.particles.life)
+				e.Speed = NumberRange.new(plan.particles.speed * 0.5, plan.particles.speed)
+				e.SpreadAngle = Vector2.new(180, 180)
+				e.LightEmission = 1
+				e.Size = NumberSequence.new(plan.particles.size)
+				e.Parent = anchor
+				e:Emit(plan.particles.count) -- plafonné par la qualité (40 sur téléphone)
+			end
+			if plan.beam then -- faisceau vertical (qualité Élevée seulement)
+				local top = Instance.new("Part")
+				top.Anchored = true
+				top.CanCollide = false
+				top.CanQuery = false
+				top.Transparency = 1
+				top.Size = Vector3.new(1, 1, 1)
+				top.CFrame = cframe * CFrame.new(0, 14, 0)
+				top.Parent = folder
+				local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+				a0.Parent = top
+				a1.Parent = folder:FindFirstChildOfClass("Part") or top
+				local beam = Instance.new("Beam")
+				beam.Attachment0, beam.Attachment1 = a0, a1
+				beam.Width0, beam.Width1 = 0.6, 2.2
+				beam.LightEmission = 1
+				beam.Transparency = NumberSequence.new(0.35, 1)
+				beam.Color = ColorSequence.new(env.color(plan.pieces[1] and plan.pieces[1].color[1] or 255, plan.pieces[1] and plan.pieces[1].color[2] or 255, plan.pieces[1] and plan.pieces[1].color[3] or 255))
+				beam.Parent = top
+			end
+			if plan.highlight and opts and opts.target then
+				local hl = Instance.new("Highlight")
+				hl.FillTransparency = 0.8
+				hl.OutlineTransparency = 0.2
+				hl.FillColor = env.color(plan.pieces[1] and plan.pieces[1].color[1] or 255, plan.pieces[1] and plan.pieces[1].color[2] or 255, plan.pieces[1] and plan.pieces[1].color[3] or 255)
+				hl.Parent = opts.target
+				env.debris:AddItem(hl, plan.duration)
+			end
+			started = true
+		end)
+		return ok and started
+	end
+
+	return K
+end
+
+return VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -1809,7 +2158,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -2150,7 +2499,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -2207,7 +2556,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -2319,7 +2668,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -2341,6 +2690,9 @@ function Assets.parseColorSuffix(name)
 	end
 	return tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
 end
+
+-- Clés des modèles d'effets (même liste que VfxKit.MODELS), pour l'export vers les clients.
+Assets.vfxKeys = { "cercle_runique", "ailes", "halo", "rayons", "etoile", "cristaux", "onde", "torii", "spirale", "pilier_lumiere", "etincelles", "cone_lumiere", "bouclier" }
 
 -- Nom de base d'une pièce Blender : sans suffixe de couleur ni suffixe de doublon (« Lame__D8DCE8.001 » -> « Lame »).
 function Assets.baseName(name)
@@ -2592,7 +2944,7 @@ function Assets.new(Config, deps)
 			return false
 		end
 		local colored = 0
-		local cOk, cn = pcall(A.colorize, model, key:sub(1, 2) == "v:") -- les effets (v:) gardent leur matière Neon
+		local cOk, cn = pcall(A.colorize, model, key:sub(1, 2) == "v:" or key:sub(1, 6) == "m:vfx.") -- les effets gardent leur matière Neon
 		if cOk then
 			colored = cn
 		end
@@ -2846,7 +3198,7 @@ function Assets.new(Config, deps)
 		for _, key in ipairs(keys) do
 			local id = (not only or only[key]) and g[key] or nil
 			local full = group .. "." .. key
-			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or cfg.decorMaxParts or cfg.maxParts
+			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or (group == "vfx" and cfg.vfxMaxParts) or cfg.decorMaxParts or cfg.maxParts
 			if not id then
 				-- clé non demandée (filtre `only`)
 			elseif type(id) == "number" and id > 0 and id % 1 == 0 then
@@ -2941,7 +3293,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -3014,7 +3366,7 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -3143,7 +3495,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -3372,7 +3724,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX45"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX43"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX47"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX45"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -3684,7 +4036,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -4051,7 +4403,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX48"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX47"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX46"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX50"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX49"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX48"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

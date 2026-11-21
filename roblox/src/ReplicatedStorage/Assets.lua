@@ -21,6 +21,9 @@ function Assets.parseColorSuffix(name)
 	return tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
 end
 
+-- Clés des modèles d'effets (même liste que VfxKit.MODELS), pour l'export vers les clients.
+Assets.vfxKeys = { "cercle_runique", "ailes", "halo", "rayons", "etoile", "cristaux", "onde", "torii", "spirale", "pilier_lumiere", "etincelles", "cone_lumiere", "bouclier" }
+
 -- Nom de base d'une pièce Blender : sans suffixe de couleur ni suffixe de doublon (« Lame__D8DCE8.001 » -> « Lame »).
 function Assets.baseName(name)
 	if type(name) ~= "string" then
@@ -271,7 +274,7 @@ function Assets.new(Config, deps)
 			return false
 		end
 		local colored = 0
-		local cOk, cn = pcall(A.colorize, model, key:sub(1, 2) == "v:") -- les effets (v:) gardent leur matière Neon
+		local cOk, cn = pcall(A.colorize, model, key:sub(1, 2) == "v:" or key:sub(1, 6) == "m:vfx.") -- les effets gardent leur matière Neon
 		if cOk then
 			colored = cn
 		end
@@ -525,7 +528,7 @@ function Assets.new(Config, deps)
 		for _, key in ipairs(keys) do
 			local id = (not only or only[key]) and g[key] or nil
 			local full = group .. "." .. key
-			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or cfg.decorMaxParts or cfg.maxParts
+			local cap = (cfg.modelsMaxParts and cfg.modelsMaxParts[full]) or (group == "vfx" and cfg.vfxMaxParts) or cfg.decorMaxParts or cfg.maxParts
 			if not id then
 				-- clé non demandée (filtre `only`)
 			elseif type(id) == "number" and id > 0 and id % 1 == 0 then
