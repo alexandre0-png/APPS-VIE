@@ -543,6 +543,15 @@ end
 -- Même expérience : le lieu de jeu est un autre lieu de l'expérience. Serveur privé d'abord (deux essais) ;
 -- si Roblox refuse, repli sur un serveur public (deux essais) avec un message clair.
 local function sendToPrivateGame(group)
+	-- Roblox Studio ne sait pas téléporter vers un autre lieu : message clair au lieu d'une attente muette
+	if RunService:IsStudio() then
+		notify(
+			group,
+			"La téléportation ne marche pas dans Roblox Studio. Lance le jeu depuis roblox.com (page de l'expérience, bouton Jouer).",
+			"danger"
+		)
+		return false
+	end
 	local ok, _, err = Retry.run(function()
 		local code = TeleportService:ReserveServer(Config.Game.Places.game)
 		TeleportService:TeleportToPrivateServer(Config.Game.Places.game, code, alive(group))
