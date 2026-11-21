@@ -27,3 +27,4 @@ statut: prive-publie
 - 21 nov (après-midi) : retours utilisateur (lancement auto du hub, invite permanente, répliques sans encadré, enfant dans la cave, meubles). Commits e3fa521 à cb1c5f5 publiés : partie v29, hub v40. Vue 1re personne forcée (StarterPlayer). Lot 4 Blender créé (lot 9 des assets), branchement demandé à la session.
 - 21 nov : lot 4 branché (dfa20a9), publié : partie v30, hub v41.
 - 21 nov : bc4360c (déroulé pièce par pièce, perf) publié : partie v31, hub v42. Demandé : lot 13 meubles, boutique, textes de publication.
+- 21 nov : 53f7a97 (11 meubles m_*, boutique 2 passes + 3 produits à ID 0, textes de publication) publié : partie v32, hub v43.
