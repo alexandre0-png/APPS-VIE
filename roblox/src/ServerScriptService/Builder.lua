@@ -1795,8 +1795,7 @@ function Builder.build()
 		-- gardiens : de plus en plus nombreux (1, 2, 3), chacun avec son TERRITOIRE (± 12 studs, jamais superposés) et sa propre ligne de patrouille
 		local count = riv.guards or 1
 		for j = 1, count do
-			local gx = cx + (j - (count + 1) / 2) * 26
-			local gz = cz + 12 - (j - 1) * 4
+			local gx, gz = Config.guardTerritory(i, j, count)
 			local g = Builder.guard(i)
 			g.Name = "Guard" .. i .. "_" .. j
 			g.Parent = folder

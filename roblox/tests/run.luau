@@ -5954,5 +5954,136 @@ do
 	end
 end
 
+
+do
+	suite("Mobs : territoires séparés, plateau respecté, détection de blocage, 10 minutes sans gardien bloqué")
+	local GU = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Guard.lua"), { debugName = "Guard" })()
+	local G = Config.GUARD
+	-- territoires : segments de patrouille (± 12 en x) de TOUS les gardiens, y compris entre domaines
+	local segs = {}
+	for i, riv in ipairs(Config.RIVALS) do
+		for j = 1, riv.guards do
+			local gx, gz = Config.guardTerritory(i, j, riv.guards)
+			segs[#segs + 1] = { i = i, j = j, x1 = gx - 12, x2 = gx + 12, z = gz }
+		end
+	end
+	local minGap, inside = math.huge, true
+	for a = 1, #segs do
+		local s1 = segs[a]
+		local cx, cz = Config.rivalCenter(s1.i)
+		for _, x in ipairs({ s1.x1, s1.x2 }) do
+			if math.sqrt((x - cx) ^ 2 + (s1.z - cz) ^ 2) > Config.Map.plateauRadius - G.territoryMargin then
+				inside = false
+			end
+		end
+		for b = a + 1, #segs do
+			local s2 = segs[b]
+			local dx = math.max(0, math.max(s1.x1, s2.x1) - math.min(s1.x2, s2.x2))
+			local d = math.sqrt(dx ^ 2 + (s1.z - s2.z) ^ 2)
+			minGap = math.min(minGap, d)
+		end
+	end
+	check("Territoires : " .. #segs .. " gardiens, distance minimale entre deux zones de patrouille " .. string.format("%.1f", minGap) .. " studs (>= 4), tous dans le rayon du plateau - " .. G.territoryMargin, minGap >= 4 and inside)
+	local cx0, cz0 = GU.clampToDisc(100, 0, 0, 0, 50)
+	local cx1, cz1 = GU.clampToDisc(10, 10, 0, 0, 50)
+	check("Plateau : clampToDisc ramène un point lointain sur le bord (" .. string.format("%.0f,%.0f", cx0, cz0) .. ") et laisse un point intérieur", math.abs(cx0 - 50) < 1e-9 and math.abs(cz0) < 1e-9 and cx1 == 10 and cz1 == 10)
+	local tr = { t = 0 }
+	local fired = 0
+	for _ = 1, 100 do
+		if GU.stuckStep(tr, 0.1, 0, true, G) then
+			fired = fired + 1
+		end
+	end
+	check("Blocage : immobile 10 s alors qu'il devrait bouger -> détecté toutes les " .. G.stuckSeconds .. " s (" .. fired .. " fois)", fired == 2)
+	local tr2 = { t = 0 }
+	local f2, f3 = 0, 0
+	for k = 1, 100 do
+		if GU.stuckStep(tr2, 0.1, k % 30 == 0 and 1 or 0, true, G) then
+			f2 = f2 + 1
+		end
+	end
+	local tr3 = { t = 0 }
+	for _ = 1, 100 do
+		if GU.stuckStep(tr3, 0.1, 0, false, G) then
+			f3 = f3 + 1
+		end
+	end
+	check("Blocage : un mouvement remet le compteur à zéro ; immobile voulu (alerte) jamais signalé", f2 == 0 and f3 == 0)
+	local y0, r0 = GU.walkPose(1, 0)
+	local moving, maxY = true, 0
+	for k = 1, 60 do
+		local y, r = GU.walkPose(k * 0.05, 9)
+		maxY = math.max(maxY, y)
+		if y < 0 or y > 0.36 or math.abs(r) > 0.07 then
+			moving = false
+		end
+	end
+	check("Animation : rebond borné en marche (max " .. string.format("%.2f", maxY) .. " <= 0,35), respiration à l'arrêt (" .. string.format("%.3f", y0) .. ")", moving and maxY > 0.1 and math.abs(y0) <= 0.04 and r0 == 0)
+	-- simulation : 10 minutes avec un joueur qui court en zigzag dans et autour du domaine de Gus (hors plateau compris)
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		do -- poursuites exagérées (vue 200, vitesse 30) : les gardiens suivent le joueur jusqu'au bord et au-delà du plateau
+			local cfgSim = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+			local r1 = cfgSim.RIVALS[1]
+			r1.viewDist, r1.hearRadius, r1.viewAngle, r1.guardSpeed, r1.gentle = 200, 200, 360, 30, false
+		end
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local p = RT.addPlayer("Mob", 9941, { from = "hub", partyId = "MOB", size = 1, late = false })
+		RT.step(3)
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		local models = {}
+		for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+			local nm = rawget(d, "__props").Name
+			if d.ClassName == "Model" and type(nm) == "string" and nm:match("^Guard%d+_%d+$") then
+				models[#models + 1] = d
+			end
+		end
+		local gx, gz = Config.rivalCenter(1)
+		local seed = 77
+		local function rnd()
+			seed = (seed * 16807) % 2147483647
+			return seed / 2147483647
+		end
+		local outside, samples, fixes = 0, 0, 0
+		local moved = {}
+		local lastPos = {}
+		for sec = 1, 600 do
+			if root and sec % 4 == 1 then
+				local a, r = rnd() * math.pi * 2, rnd() * 75
+				rawget(root, "__props").Position = RT.vec(gx + math.cos(a) * r, 3, gz + math.sin(a) * r)
+				rawget(root, "__props").CFrame = RT.cf(gx + math.cos(a) * r, 3, gz + math.sin(a) * r)
+			end
+			RT.step(1)
+			for k, m in ipairs(models) do
+				local pv = m:GetPivot().Position
+				samples = samples + 1
+				local rival = tonumber(rawget(m, "__props").Name:match("^Guard(%d+)_"))
+				local rx, rz = Config.rivalCenter(rival)
+				if math.sqrt((pv.X - rx) ^ 2 + (pv.Z - rz) ^ 2) > Config.Map.plateauRadius - G.territoryMargin + 0.5 then
+					outside = outside + 1
+				end
+				local lp = lastPos[k]
+				if lp then
+					moved[k] = (moved[k] or 0) + math.sqrt((pv.X - lp.X) ^ 2 + (pv.Z - lp.Z) ^ 2)
+				end
+				lastPos[k] = pv
+			end
+		end
+		for _, m in ipairs(models) do
+			fixes = fixes + (m:GetAttribute("StuckFixes") or 0)
+		end
+		local worstMoved = math.huge
+		for k = 1, #models do
+			worstMoved = math.min(worstMoved, moved[k] or 0)
+		end
+		check("Simulation 10 min : " .. #models .. " gardiens, " .. samples .. " mesures, aucun hors du plateau (" .. outside .. "), blocages corrigés : " .. fixes .. ", erreurs : " .. #RT.errors, #models == 6 and outside == 0 and #RT.errors == 0)
+		check("Simulation 10 min : chaque gardien a bougé (distance parcourue minimale " .. string.format("%.0f", worstMoved) .. " studs sur 600 s)", worstMoved > 100)
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

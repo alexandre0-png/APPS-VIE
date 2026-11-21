@@ -2,6 +2,14 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Retours de test 5 : audit des mobs
+
+- Faux : les gardiens se déplaçaient en glissant (aucune animation), sans limite de territoire (une poursuite pouvait les emmener hors du plateau, dans la douve ou dans le vide), sans détection de blocage ; l'orientation n'était mise à jour que si le gardien avançait ; les pets suiveurs traversaient la carte en glissant après une téléportation (voyage rapide, retour à la base).
+- Corrigé : `Guard.clampToDisc` (rayon du plateau - 14, jamais dans la douve), `Guard.stuckStep` (devrait bouger et avance de moins de 0,3 stud/s depuis 4 s : retour doux au poste, état remis à zéro, attribut `StuckFixes`), `Guard.walkPose` (rebond et roulis en marchant, respiration à l'arrêt), orientation vers la marche à chaque image, `Config.guardTerritory` (territoires de ± 12 studs, 26 d'écart), pets suiveurs recalés sur le joueur au-delà de 40 studs.
+- Mesuré : territoires à 4,5 studs au minimum les uns des autres, tous dans le rayon du plateau - 14 ; simulation de 10 minutes (6 gardiens, poursuites exagérées jusqu'au bord) : 0 mesure hors plateau sur 3600, tous les gardiens en mouvement (plus de 100 studs parcourus), 0 erreur ; sans la contrainte de territoire le même test échoue (40 mesures dehors).
+- Banc de test : `PivotTo` / `GetPivot` mémorisent la pose dans le runtime factice.
+- Non audité faute de pouvoir le voir : T-pose et orientation des modèles Blender (hypothèse : avant = -Z), échelle réelle des chevaliers du château (non modifiés ici).
+
 ## Retours de test 4 : carte compacte
 
 - Faux : Grand Nid -> domaines 386 / 410 / 533 studs (24 à 33 s à pied), bases à 262 studs (16 s).

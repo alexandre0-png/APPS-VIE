@@ -1694,7 +1694,12 @@ RunService.RenderStepped:Connect(function(dt)
 				local pose = Easing.petPose(moving and "move" or "idle", os.clock(), n * 1.7)
 				target = target * CFrame.new(0, pose.y, 0) * CFrame.Angles(pose.pitch, pose.yaw, 0)
 			end
-			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
+			local cur = m:GetPivot()
+			if (cur.Position - target.Position).Magnitude > 40 then
+				m:PivotTo(target) -- après une téléportation (voyage rapide, retour à la base) : le pet suit aussitôt au lieu de traverser la carte
+			else
+				m:PivotTo(cur:Lerp(target, 1 - math.exp(-8 * dt)))
+			end
 		end
 	end
 end)

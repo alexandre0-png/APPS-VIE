@@ -103,6 +103,7 @@ Config.GUARD = {
 	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
 	alertDelay = 0.6, alertMax = 3, gentleRecover = 6, safeRadius = 16, -- Gus (clément) : 6 s de répit après une prise, aucun gardien ne vise un joueur à moins de 16 studs de l'entrée du plateau ou dans sa base
 	 loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
+	stuckSeconds = 4, stuckSpeed = 0.3, territoryMargin = 14, -- gardien immobile alors qu'il devrait bouger plus de 4 s : retour doux à son poste ; jamais hors du plateau (rayon - 14)
 }
 
 -- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
@@ -1226,6 +1227,12 @@ Config.Map = {
 		zed = { clock = 17.4, ambient = Color3.fromRGB(135, 75, 65), outdoor = Color3.fromRGB(160, 90, 75), tint = Color3.fromRGB(255, 208, 196), atmo = Color3.fromRGB(255, 140, 100), density = 0.40, haze = 2.2 },
 	},
 }
+
+-- Territoire du gardien j sur `count` du domaine i : centre de patrouille (x) et ligne (z) ; chaque territoire fait ± 12 studs, 26 d'écart, 4 de décalage en z.
+function Config.guardTerritory(i, j, count)
+	local cx, cz = Config.rivalCenter(i)
+	return cx + (j - (count + 1) / 2) * 26, cz + 12 - (j - 1) * 4
+end
 
 -- Centre (x, z) du domaine du rival i. Source unique : Builder, Cinematics et les tests.
 function Config.rivalCenter(i)
@@ -4840,6 +4847,40 @@ function Guard.applyDamage(hp, damage, iframes, cfg)
 end
 
 -- Régénération : après regenDelay secondes sans coup, regenPerSec par seconde (baseRegen par seconde dans la base du joueur). Plafonnée à maxHp.
+-- Ramène (x, z) dans le disque de centre (cx, cz) et de rayon `radius` (territoire : le gardien ne quitte jamais son plateau ni ne traverse la douve).
+function Guard.clampToDisc(x, z, cx, cz, radius)
+	local dx, dz = x - cx, z - cz
+	local d = len(dx, dz)
+	if d <= radius or d < 1e-9 then
+		return x, z
+	end
+	return cx + dx / d * radius, cz + dz / d * radius
+end
+
+-- Détection d'un gardien bloqué : `tr` = { t = 0 } conservé par gardien. Renvoie true quand il devrait bouger (want) mais avance de moins de cfg.stuckSpeed studs/s
+-- depuis cfg.stuckSeconds secondes ; tout mouvement ou toute immobilité voulue (alerte) remet le compteur à zéro.
+function Guard.stuckStep(tr, dt, moved, want, cfg)
+	if not want or moved > cfg.stuckSpeed * dt then
+		tr.t = 0
+		return false
+	end
+	tr.t = tr.t + dt
+	if tr.t >= cfg.stuckSeconds then
+		tr.t = 0
+		return true
+	end
+	return false
+end
+
+-- Pose de marche procédurale : rebond vertical et roulis en marchant (selon la vitesse), respiration à l'arrêt. `t` en secondes. Retourne (y, roulis en radians).
+function Guard.walkPose(t, speed)
+	if speed > 0.5 then
+		local ph = t * speed * 0.9
+		return math.abs(math.sin(ph)) * math.min(0.35, 0.04 * speed), math.sin(ph) * 0.06
+	end
+	return math.sin(t * 2) * 0.04, 0
+end
+
 function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 	if hp <= 0 or hp >= cfg.maxHp then
 		return math.min(hp, cfg.maxHp)
@@ -6329,7 +6370,10 @@ local function guardsStep(dt)
 			end
 		end
 		local look = nil
+		local prevPos = g.pos
+		local want = false -- le gardien DEVRAIT-il avancer ? (sert à la détection de blocage)
 		if state == "patrol" then
+			want = true
 			g.pos += Vector3.new(g.dir * r.patrolSpeed * dt, 0, 0)
 			if g.pos.X > g.cx + 12 then
 				g.dir = -1
@@ -6345,6 +6389,7 @@ local function guardsStep(dt)
 			if goal then
 				local aim = aimPoint(g, goal, dt)
 				local dv = Vector3.new(aim.X - g.pos.X, 0, aim.Z - g.pos.Z)
+				want = (goal - g.pos).Magnitude > GC.attackRange
 				if dv.Magnitude > 0.01 then
 					look = dv.Unit
 					g.pos += look * math.min(dv.Magnitude, r.guardSpeed * dt)
@@ -6358,15 +6403,38 @@ local function guardsStep(dt)
 			end
 		else -- retour
 			local dv = home - g.pos
+			want = dv.Magnitude >= 1
 			if dv.Magnitude >= 1 then
 				look = dv.Unit
 				g.pos += look * math.min(dv.Magnitude, r.patrolSpeed * 1.6 * dt)
 			end
 		end
+		-- le gardien reste sur son plateau (jamais dans la douve ni dans le vide), même en poursuite
+		do
+			local dcx, dcz = Config.rivalCenter(g.rival)
+			local nx, nz = Guard.clampToDisc(g.pos.X, g.pos.Z, dcx, dcz, Config.Map.plateauRadius - GC.territoryMargin)
+			g.pos = Vector3.new(nx, g.pos.Y, nz)
+		end
+		-- blocage : devrait bouger mais n'avance pas depuis plus de 4 s -> retour doux à son poste, état remis à zéro
+		g.stuck = g.stuck or { t = 0 }
+		local moved = (g.pos - prevPos).Magnitude
+		if Guard.stuckStep(g.stuck, dt, moved, want, GC) then
+			g.pos = Vector3.new(g.cx, g.pos.Y, g.patrolZ)
+			g.wps, g.target, g.last = nil, nil, nil
+			g.st = { state = "patrol", timer = 0, lost = 0 }
+			g.stuckFixes = (g.stuckFixes or 0) + 1
+			pcall(function()
+				g.model:SetAttribute("StuckFixes", g.stuckFixes)
+			end)
+			look = Vector3.new(g.dir, 0, 0)
+		end
 		if look and look.Magnitude > 0.01 then
 			g.look = look.Unit
-			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + g.look))
 		end
+		-- orientation vers la marche + animation procédurale (rebond et roulis en marchant, respiration à l'arrêt)
+		g.speedNow = (g.speedNow or 0) * 0.8 + (moved / math.max(dt, 1e-3)) * 0.2
+		local by, roll = Guard.walkPose(os.clock(), g.speedNow)
+		g.model:PivotTo(CFrame.lookAt(g.pos + Vector3.new(0, by, 0), g.pos + Vector3.new(0, by, 0) + g.look) * CFrame.Angles(0, 0, roll))
 	end
 end
 
@@ -9760,8 +9828,7 @@ function Builder.build()
 		-- gardiens : de plus en plus nombreux (1, 2, 3), chacun avec son TERRITOIRE (± 12 studs, jamais superposés) et sa propre ligne de patrouille
 		local count = riv.guards or 1
 		for j = 1, count do
-			local gx = cx + (j - (count + 1) / 2) * 26
-			local gz = cz + 12 - (j - 1) * 4
+			local gx, gz = Config.guardTerritory(i, j, count)
 			local g = Builder.guard(i)
 			g.Name = "Guard" .. i .. "_" .. j
 			g.Parent = folder
@@ -12693,7 +12760,12 @@ RunService.RenderStepped:Connect(function(dt)
 				local pose = Easing.petPose(moving and "move" or "idle", os.clock(), n * 1.7)
 				target = target * CFrame.new(0, pose.y, 0) * CFrame.Angles(pose.pitch, pose.yaw, 0)
 			end
-			m:PivotTo(m:GetPivot():Lerp(target, 1 - math.exp(-8 * dt)))
+			local cur = m:GetPivot()
+			if (cur.Position - target.Position).Magnitude > 40 then
+				m:PivotTo(target) -- après une téléportation (voyage rapide, retour à la base) : le pet suit aussitôt au lieu de traverser la carte
+			else
+				m:PivotTo(cur:Lerp(target, 1 - math.exp(-8 * dt)))
+			end
 		end
 	end
 end)

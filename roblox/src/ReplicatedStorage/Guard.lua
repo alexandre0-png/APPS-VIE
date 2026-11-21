@@ -118,6 +118,40 @@ function Guard.applyDamage(hp, damage, iframes, cfg)
 end
 
 -- Régénération : après regenDelay secondes sans coup, regenPerSec par seconde (baseRegen par seconde dans la base du joueur). Plafonnée à maxHp.
+-- Ramène (x, z) dans le disque de centre (cx, cz) et de rayon `radius` (territoire : le gardien ne quitte jamais son plateau ni ne traverse la douve).
+function Guard.clampToDisc(x, z, cx, cz, radius)
+	local dx, dz = x - cx, z - cz
+	local d = len(dx, dz)
+	if d <= radius or d < 1e-9 then
+		return x, z
+	end
+	return cx + dx / d * radius, cz + dz / d * radius
+end
+
+-- Détection d'un gardien bloqué : `tr` = { t = 0 } conservé par gardien. Renvoie true quand il devrait bouger (want) mais avance de moins de cfg.stuckSpeed studs/s
+-- depuis cfg.stuckSeconds secondes ; tout mouvement ou toute immobilité voulue (alerte) remet le compteur à zéro.
+function Guard.stuckStep(tr, dt, moved, want, cfg)
+	if not want or moved > cfg.stuckSpeed * dt then
+		tr.t = 0
+		return false
+	end
+	tr.t = tr.t + dt
+	if tr.t >= cfg.stuckSeconds then
+		tr.t = 0
+		return true
+	end
+	return false
+end
+
+-- Pose de marche procédurale : rebond vertical et roulis en marchant (selon la vitesse), respiration à l'arrêt. `t` en secondes. Retourne (y, roulis en radians).
+function Guard.walkPose(t, speed)
+	if speed > 0.5 then
+		local ph = t * speed * 0.9
+		return math.abs(math.sin(ph)) * math.min(0.35, 0.04 * speed), math.sin(ph) * 0.06
+	end
+	return math.sin(t * 2) * 0.04, 0
+end
+
 function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 	if hp <= 0 or hp >= cfg.maxHp then
 		return math.min(hp, cfg.maxHp)

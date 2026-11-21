@@ -99,6 +99,7 @@ Config.GUARD = {
 	stillSpeed = 2, sneakSpeed = 12, sneakNoise = 0.4, -- bruit : immobile = 0, lent = 0,4, course = 1
 	alertDelay = 0.6, alertMax = 3, gentleRecover = 6, safeRadius = 16, -- Gus (clément) : 6 s de répit après une prise, aucun gardien ne vise un joueur à moins de 16 studs de l'entrée du plateau ou dans sa base
 	 loseDelay = 2.5, giveUpDist = 45, pathInterval = 0.8, respawnIframes = 3,
+	stuckSeconds = 4, stuckSpeed = 0.3, territoryMargin = 14, -- gardien immobile alors qu'il devrait bouger plus de 4 s : retour doux à son poste ; jamais hors du plateau (rayon - 14)
 }
 
 -- Mode Château : dégâts non mortels des pièges (mêmes pv et invulnérabilité que les gardiens), animation des pièges à 10 Hz, tableau des temps.
@@ -1222,6 +1223,12 @@ Config.Map = {
 		zed = { clock = 17.4, ambient = Color3.fromRGB(135, 75, 65), outdoor = Color3.fromRGB(160, 90, 75), tint = Color3.fromRGB(255, 208, 196), atmo = Color3.fromRGB(255, 140, 100), density = 0.40, haze = 2.2 },
 	},
 }
+
+-- Territoire du gardien j sur `count` du domaine i : centre de patrouille (x) et ligne (z) ; chaque territoire fait ± 12 studs, 26 d'écart, 4 de décalage en z.
+function Config.guardTerritory(i, j, count)
+	local cx, cz = Config.rivalCenter(i)
+	return cx + (j - (count + 1) / 2) * 26, cz + 12 - (j - 1) * 4
+end
 
 -- Centre (x, z) du domaine du rival i. Source unique : Builder, Cinematics et les tests.
 function Config.rivalCenter(i)

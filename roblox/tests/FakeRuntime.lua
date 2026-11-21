@@ -111,14 +111,16 @@ function Fake.runtime(opts)
 	function methods.GetScale(self)
 		return rawget(self, "__scale") or 1
 	end
-	function methods.GetPivot()
-		return RT.cf(0, 0, 0)
+	function methods.GetPivot(self)
+		return rawget(self, "__pivot") or RT.cf(0, 0, 0)
 	end
 	function methods.ScaleTo(self, k)
 		rawget(self, "__props").lastScale = k
 		rawset(self, "__scale", k)
 	end
-	function methods.PivotTo() end
+	function methods.PivotTo(self, cf)
+		rawset(self, "__pivot", cf) -- mémorisé : les tests de déplacement lisent GetPivot
+	end
 	function methods.GetAttribute(self, k)
 		return rawget(self, "__attrs")[k]
 	end

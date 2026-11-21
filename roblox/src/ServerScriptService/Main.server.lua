@@ -1249,7 +1249,10 @@ local function guardsStep(dt)
 			end
 		end
 		local look = nil
+		local prevPos = g.pos
+		local want = false -- le gardien DEVRAIT-il avancer ? (sert à la détection de blocage)
 		if state == "patrol" then
+			want = true
 			g.pos += Vector3.new(g.dir * r.patrolSpeed * dt, 0, 0)
 			if g.pos.X > g.cx + 12 then
 				g.dir = -1
@@ -1265,6 +1268,7 @@ local function guardsStep(dt)
 			if goal then
 				local aim = aimPoint(g, goal, dt)
 				local dv = Vector3.new(aim.X - g.pos.X, 0, aim.Z - g.pos.Z)
+				want = (goal - g.pos).Magnitude > GC.attackRange
 				if dv.Magnitude > 0.01 then
 					look = dv.Unit
 					g.pos += look * math.min(dv.Magnitude, r.guardSpeed * dt)
@@ -1278,15 +1282,38 @@ local function guardsStep(dt)
 			end
 		else -- retour
 			local dv = home - g.pos
+			want = dv.Magnitude >= 1
 			if dv.Magnitude >= 1 then
 				look = dv.Unit
 				g.pos += look * math.min(dv.Magnitude, r.patrolSpeed * 1.6 * dt)
 			end
 		end
+		-- le gardien reste sur son plateau (jamais dans la douve ni dans le vide), même en poursuite
+		do
+			local dcx, dcz = Config.rivalCenter(g.rival)
+			local nx, nz = Guard.clampToDisc(g.pos.X, g.pos.Z, dcx, dcz, Config.Map.plateauRadius - GC.territoryMargin)
+			g.pos = Vector3.new(nx, g.pos.Y, nz)
+		end
+		-- blocage : devrait bouger mais n'avance pas depuis plus de 4 s -> retour doux à son poste, état remis à zéro
+		g.stuck = g.stuck or { t = 0 }
+		local moved = (g.pos - prevPos).Magnitude
+		if Guard.stuckStep(g.stuck, dt, moved, want, GC) then
+			g.pos = Vector3.new(g.cx, g.pos.Y, g.patrolZ)
+			g.wps, g.target, g.last = nil, nil, nil
+			g.st = { state = "patrol", timer = 0, lost = 0 }
+			g.stuckFixes = (g.stuckFixes or 0) + 1
+			pcall(function()
+				g.model:SetAttribute("StuckFixes", g.stuckFixes)
+			end)
+			look = Vector3.new(g.dir, 0, 0)
+		end
 		if look and look.Magnitude > 0.01 then
 			g.look = look.Unit
-			g.model:PivotTo(CFrame.lookAt(g.pos, g.pos + g.look))
 		end
+		-- orientation vers la marche + animation procédurale (rebond et roulis en marchant, respiration à l'arrêt)
+		g.speedNow = (g.speedNow or 0) * 0.8 + (moved / math.max(dt, 1e-3)) * 0.2
+		local by, roll = Guard.walkPose(os.clock(), g.speedNow)
+		g.model:PivotTo(CFrame.lookAt(g.pos + Vector3.new(0, by, 0), g.pos + Vector3.new(0, by, 0) + g.look) * CFrame.Angles(0, 0, roll))
 	end
 end
 
