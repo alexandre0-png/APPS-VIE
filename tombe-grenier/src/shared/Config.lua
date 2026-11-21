@@ -255,7 +255,7 @@ Config.Intro = {
 }
 
 Config.Quests = {
-	HintDelay = 180, -- secondes sans progrès avant une indication automatique
+	HintDelay = 90, -- secondes sans progrès avant une indication automatique (une par étape)
 	HintCooldown = 30, -- secondes entre deux indications demandées (touche H)
 }
 

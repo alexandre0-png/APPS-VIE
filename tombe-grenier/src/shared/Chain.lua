@@ -181,9 +181,15 @@ function Chain.journal(done)
 	else
 		table.insert(lines, "Étape active : plus aucune, la chaîne est terminée.")
 	end
+	-- « Ce que je dois faire » : l'étape active ci-dessus ; « Ce que je sais » : ce qui est déjà fait
+	local known = false
 	for i = #Chain.STEPS, 1, -1 do
 		local step = Chain.STEPS[i]
 		if done[step.id] then
+			if not known then
+				known = true
+				table.insert(lines, "Ce que je sais :")
+			end
 			table.insert(lines, "✓ " .. step.objective)
 		end
 	end

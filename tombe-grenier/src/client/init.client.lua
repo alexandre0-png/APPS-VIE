@@ -180,6 +180,9 @@ local tint = fullFrame(Color3.fromRGB(40, 40, 44), 1, 1)
 local blackFrame = fullFrame(Color3.new(0, 0, 0), 1, 50)
 
 -- HUD minimal : seul l'objectif reste affiché en permanence
+local PerfRules = require(Shared.PerfRules)
+local Deroule = require(Shared.Deroule)
+local currentStepId = nil -- étape active (envoyée avec l'objectif) : sert à la consigne de chaque pièce
 local objectiveLabel = label({ position = UDim2.fromOffset(16, 16), sizeUDim = UDim2.new(0.9, 0, 0, 30) })
 
 -- Journal de quêtes (touche J) : l'étape active en tête, puis les étapes faites
@@ -897,6 +900,7 @@ end
 local zoneBanner = makeBanner("BanniereZone", UDim2.new(0.5, 0, 0, 88), UDim2.fromOffset(340, 64), 26, 15)
 local revealBanner = makeBanner("BanniereEtape", UDim2.fromScale(0.5, 0.3), UDim2.fromOffset(420, 74), 28, 16)
 local titleBanner = makeBanner("BanniereTitre", UDim2.fromScale(0.5, 0.42), UDim2.new(0.84, 0, 0, 120), 44, 22)
+local roomBanner = makeBanner("BanniereSalle", UDim2.new(0.5, 0, 0, 168), UDim2.fromOffset(420, 64), 24, 15)
 local actionBanner = makeBanner("BanniereAction", UDim2.fromScale(0.5, 0.78), UDim2.new(0.8, 0, 0, 78), 26, 18)
 
 -- Affiche une bannière : glisse depuis le haut, reste `hold` secondes, puis fond. Un appel plus récent annule le précédent.
@@ -1086,6 +1090,7 @@ safeConnect(RunService.RenderStepped, "Flèche objectif", function(dt)
 end)
 
 -- Bannière de zone : grenier, étage, rez-de-chaussée, cave, sous-sol, jardin
+local lastRoomId = nil
 safeSpawn("boucleStyle", function()
 	local announcer = Zones.newAnnouncer(1.0, 6, 45)
 	while true do
@@ -1098,6 +1103,21 @@ safeSpawn("boucleStyle", function()
 			local info = zone and Zones.INFO[zone]
 			if info then
 				showBanner(zoneBanner, info.role, info.title, info.sub, 3.2)
+			end
+			-- Entrée dans une pièce : son nom et la consigne en une phrase (selon l'étape active)
+			local roomId = PerfRules.roomIdAt(MapData.rooms, MapData.base, MapData.H, p.X, p.Y, p.Z)
+			if roomId and roomId ~= lastRoomId then
+				lastRoomId = roomId
+				local line = Deroule.roomLine(roomId, currentStepId)
+				local name = nil
+				for _, r in ipairs(MapData.rooms) do
+					if r.id == roomId then
+						name = r.name
+					end
+				end
+				if name and line then
+					showBanner(roomBanner, "option", name, line, 4.5)
+				end
 			end
 		end
 	end
@@ -1127,7 +1147,7 @@ local function resetHud()
 	subtitleLabel.Visible = false
 	messageLabel:SetAttribute("Token", (messageLabel:GetAttribute("Token") or 0) + 1)
 	messageLabel.Visible = false
-	for _, banner in ipairs({ zoneBanner, revealBanner, titleBanner, actionBanner }) do
+	for _, banner in ipairs({ zoneBanner, revealBanner, titleBanner, actionBanner, roomBanner }) do
 		banner:SetAttribute("Token", (banner:GetAttribute("Token") or 0) + 1)
 		banner.Visible = false
 	end
@@ -1308,6 +1328,7 @@ end)
 safeConnect(Remotes.get("Objective").OnClientEvent, "Remote Objective", function(data)
 	if typeof(data) == "table" and data.text then
 		objectiveLabel.Text = data.text
+		currentStepId = data.step
 		-- Nouvelle étape : l'indice de l'étape précédente n'a plus lieu d'être
 		hintLabel:SetAttribute("Token", (hintLabel:GetAttribute("Token") or 0) + 1)
 		hintLabel.Visible = false
@@ -1618,7 +1639,6 @@ safeSpawn("invites", function()
 end)
 
 -- Compteur de debug (F7, ou Config.Perf.DebugOverlay) : FPS client, temps de frame serveur, ping, décor masqué
-local PerfRules = require(Shared.PerfRules)
 local hiddenCount = RoomCull.start()
 local debugLabel = Instance.new("TextLabel")
 debugLabel.Name = "DebugPerf"

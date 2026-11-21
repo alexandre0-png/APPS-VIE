@@ -19,12 +19,15 @@ local Locks = require(script.Parent.Locks)
 local Audio = require(Shared.Audio)
 local Prompts = require(script.Parent.Prompts)
 
+local Deroule = require(Shared.Deroule)
+
 local Objectives = {}
 
 local team = { photos = 0, hasKey = false }
 local exitReady = false
 local onWin = nil
 local exitPrompts = {}
+local lockedExitPrompts = {} -- « Essayer d'ouvrir » : visible tant que la sortie est fermée, explique ce qui manque
 local keyPrompt = nil -- invite de la clé : activée seulement quand la malle est ouverte
 
 local function makePrompt(part, props)
@@ -55,6 +58,9 @@ local function refreshExit()
 	exitReady = team.photos >= Config.Round.PhotosRequired and team.hasKey and statuesDone
 	for _, prompt in ipairs(exitPrompts) do
 		Prompts.set(prompt, exitReady)
+	end
+	for _, prompt in ipairs(lockedExitPrompts) do
+		Prompts.set(prompt, not exitReady)
 	end
 	broadcast()
 end
@@ -94,6 +100,7 @@ function Objectives.setup()
 	team.hasKey = false
 	exitReady = false
 	exitPrompts = {}
+	lockedExitPrompts = {}
 
 	for _, part in ipairs(CollectionService:GetTagged("Photo")) do
 		if part:IsA("BasePart") then
@@ -172,6 +179,19 @@ function Objectives.setup()
 				end,
 			})
 			table.insert(exitPrompts, prompt)
+			table.insert(
+				lockedExitPrompts,
+				makePrompt(part, {
+					action = "Essayer d'ouvrir",
+					object = "Porte d'entrée",
+					hold = 0.4,
+					distance = 6,
+					enabled = true,
+					onTriggered = function(player)
+						Remotes.fire("Message", player, { text = Deroule.lockedText("rez") })
+					end,
+				})
+			)
 		end
 	end
 

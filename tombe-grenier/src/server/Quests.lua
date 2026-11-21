@@ -29,6 +29,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Gestures = require(script.Parent.Gestures)
 local Config = require(Shared.Config)
 local Chain = require(Shared.Chain)
+local Deroule = require(Shared.Deroule)
 local Remotes = require(Shared.Remotes)
 local Rng = require(Shared.Rng)
 local Audio = require(Shared.Audio)
@@ -274,6 +275,26 @@ local function journalLines()
 	return lines
 end
 
+-- Trappe du grenier : elle s'ouvre quand la clé rouillée est prise. Elle se referme au début de chaque partie.
+
+local function openHatch(tag)
+	for _, hatch in ipairs(CollectionService:GetTagged(tag)) do
+		if hatch:IsA("BasePart") then
+			hatch.CanCollide = false
+			TweenService:Create(hatch, TweenInfo.new(1), { Transparency = 1 }):Play()
+		end
+	end
+end
+
+local function closeHatch(tag)
+	for _, hatch in ipairs(CollectionService:GetTagged(tag)) do
+		if hatch:IsA("BasePart") then
+			hatch.CanCollide = true
+			hatch.Transparency = 0
+		end
+	end
+end
+
 local lastStepSeen = nil
 
 local function pushObjective()
@@ -288,7 +309,11 @@ local function pushObjective()
 		Remotes.fireAll("Reveal", { n = n, total = total, text = OBJECTIVE[stepNow](), step = lastStepSeen })
 	end
 	lastStepSeen = stepNow
-	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()]() })
+	-- La trappe du grenier s'ouvre quand le grenier est fini : la clé rouillée est prise (dernière étape de la pièce)
+	if stepDone("key") then
+		openHatch("TrappeGrenier")
+	end
+	Remotes.fireAll("Objective", { text = OBJECTIVE[currentStep()](), step = currentStep() })
 	Remotes.fireAll("Journal", { lines = journalLines() })
 	pushInventory()
 	Prompts.refresh()
@@ -360,26 +385,6 @@ local function flashback(player, kind)
 		return
 	end
 	Remotes.fire("Flashback", player, { kind = kind })
-end
-
--- Trappe du grenier : elle s'ouvre quand la malle l'est. Elle se referme au début de chaque partie.
-
-local function openHatch(tag)
-	for _, hatch in ipairs(CollectionService:GetTagged(tag)) do
-		if hatch:IsA("BasePart") then
-			hatch.CanCollide = false
-			TweenService:Create(hatch, TweenInfo.new(1), { Transparency = 1 }):Play()
-		end
-	end
-end
-
-local function closeHatch(tag)
-	for _, hatch in ipairs(CollectionService:GetTagged(tag)) do
-		if hatch:IsA("BasePart") then
-			hatch.CanCollide = true
-			hatch.Transparency = 0
-		end
-	end
 end
 
 -- Mélodie du gramophone, date de la plaque et notes de la boîte à musique : tirées de la seed
@@ -942,7 +947,6 @@ local function wire()
 				state.chest = true
 				Audio.play("coffre_ouvre", part, { lifetime = 4 })
 				Gestures.tiltOpen(part, "ChestLid")
-				openHatch("TrappeGrenier")
 				Objectives.unlockKey()
 				if Quests.onChestOpened then
 					Quests.onChestOpened(player)
@@ -1150,10 +1154,10 @@ local function wire()
 				hold = 0.5,
 				distance = 5,
 			}, function(player)
-				if state.chest then
+				if stepDone("key") then
 					say(player, "La trappe est ouverte. L'escalier descend vers le premier étage.")
 				else
-					say(player, "La trappe ne cède pas. Quelque chose la retient, de l'autre côté de la malle.")
+					say(player, Deroule.lockedText("grenier"))
 				end
 			end)
 		end
@@ -1172,7 +1176,7 @@ local function wire()
 				if state.boxDone then
 					say(player, "La trappe est ouverte. L'escalier descend vers le rez-de-chaussée.")
 				else
-					say(player, "La trappe ne cède pas. Une mélodie la retient : la boîte à musique la sait.")
+					say(player, Deroule.lockedText("premier"))
 				end
 			end)
 		end

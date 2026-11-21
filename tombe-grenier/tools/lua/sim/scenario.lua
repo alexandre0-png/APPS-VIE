@@ -409,7 +409,7 @@ moveTo(alice, 103, -5, 100)
 Quests.trackOnce()
 check(Quests.progress().done.retour == true, "puis la sortie par le sous-sol compte")
 
--- 7nonies. Journal de quêtes et indice automatique après 3 minutes sans progrès
+-- 7nonies. Journal de quêtes et indice automatique après 90 s sans progrès
 do
 	chain.reset(777)
 	local lines = Quests.journal()
@@ -417,8 +417,9 @@ do
 	check(lines[#lines]:find("à découvrir") ~= nil, "le journal annonce les étapes restantes sans les dévoiler")
 	chain.advanceTo("coffret")
 	lines = Quests.journal()
+	check(lines[2] == "Ce que je sais :", "le journal a une rubrique « Ce que je sais »")
 	check(
-		lines[2] ~= nil and lines[2]:sub(1, 3) == "✓",
+		lines[3] ~= nil and lines[3]:sub(1, 3) == "✓",
 		"le journal liste d'abord les étapes faites, la plus récente en tête"
 	)
 	-- Indice automatique : rien avant 3 minutes, un indice ensuite, un seul par étape
@@ -426,8 +427,8 @@ do
 	local cfgQ = require({ __path = "src/shared/Config.lua" }).Quests
 	local t0 = os.clock()
 	H.log = {}
-	check(Quests.hintTick(t0 + cfgQ.HintDelay - 5) == false, "pas d'indice automatique avant 3 minutes")
-	check(Quests.hintTick(t0 + cfgQ.HintDelay + 5) == true, "indice automatique après 3 minutes sans progrès")
+	check(Quests.hintTick(t0 + cfgQ.HintDelay - 5) == false, "pas d'indice automatique avant 90 s")
+	check(Quests.hintTick(t0 + cfgQ.HintDelay + 5) == true, "indice automatique après 90 s sans progrès")
 	local sentHint = false
 	for _, e in ipairs(H.log) do
 		if e.name == "Message" and e.payload.text:find("^Indice") then

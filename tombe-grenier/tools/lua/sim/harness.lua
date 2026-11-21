@@ -334,6 +334,7 @@ game = {
 M.shared = {
 	Config = { __path = "src/shared/Config.lua" },
 	Chain = { __path = "src/shared/Chain.lua" },
+	Deroule = { __path = "src/shared/Deroule.lua" },
 	Remotes = { __path = "STUB:Remotes" },
 	Rng = { __path = "src/shared/Rng.lua" },
 	Audio = { __path = "STUB:Audio" },
