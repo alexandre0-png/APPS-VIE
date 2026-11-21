@@ -69,6 +69,11 @@ DecorKit.ALIASES = {
 	["lampadaire"] = "lampadaire ancien",
 	["lit double"] = "lit double ancien",
 	["cheminée"] = "cheminée gothique",
+	["table ronde"] = "table ronde moderne",
+	["bidon"] = "barrique",
+	["buffet"] = "commode ancienne",
+	["placards"] = "armoire gothique",
+	["coffre"] = "malle",
 	["étagère"] = "étagère livres",
 }
 

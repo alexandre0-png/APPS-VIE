@@ -88,3 +88,27 @@ Demande d'images (pas de 3D) : chacune se répète sans couture.
 ## Notes
 - Priorité : plinthe bois, moulure plafond, fenêtre ancienne à rideaux, encadrement de porte, textures damier cuisine et parquet.
 - Les plinthes et moulures se posent par modules : la logique de pose (hors portes, plafonnée en nombre de pièces pour le mobile) reste à écrire côté jeu dès que les modèles existent.
+
+---
+
+# Lot 4 : meubles encore procéduraux et cage de l'enfant (retours de test)
+
+Convention : `Nom__RRGGBB`, devant = −Y Blender, tailles en studs (X × Y hauteur × Z), moins de 3 000 triangles. Matière déduite du NOM (métal seulement pour Anneau, Tige, Dent, Serrure, Poignée, Laiton, Fer, Chrome, Pics, Cadre doré ; néon seulement pour Flamme, Yeux, Lanterne) : nomme donc `Barreaux_Fer__4A4A4A` pour du métal et `Bois__5A3E28` pour du bois. Hauteur cible respectée à ±10 % par le jeu.
+
+| Priorité | Nom du modèle | Taille (X × Y × Z) | Description | Pièces et couleurs |
+|---|---|---|---|---|
+| 1 | cage de l'enfant | 10 × 5 × 8 (porte sur la face −Y) | Cage de fer à barreaux verticaux serrés, toit plat, porte à gros cadenas, plaque de métal vissée sur la face avant (un petit rectangle lisse de 1,2 × 0,6 pour la date), sol de planches nues. C'est l'objet central de la cave. | `Barreaux_Fer__3A3A3A`, `Cadenas_Fer__5A5A5A`, `Plaque_Laiton__8A7A50`, `Sol__5E4630` |
+| 1 | matelas de l'enfant | 4 × 0,5 × 4 | Petit matelas taché, couverture roulée, un oreiller. | `Matelas__B8AE98`, `Couverture__6A4A3A` |
+| 1 | chaîne de cave | 0,3 × 3 × 0,3 | Chaîne verticale à maillons épais, anneau en haut (module à répéter). | `Chaine_Fer__3A3A3A` |
+| 2 | chevet | 2 × 2 × 2 | Table de chevet à un tiroir et pieds fins. | `Bois__5A4030`, `Poignee_Laiton__B8A060` |
+| 2 | table basse | 10 × 1,5 × 6 | Table basse rectangulaire, plateau épais, étagère basse. | `Bois__5A3E28` |
+| 2 | meuble TV | 10 × 2,5 × 3,5 | Meuble bas à deux portes coulissantes, dessus plat. | `Bois__4A3220`, `Poignee_Laiton__B8A060` |
+| 2 | plan de travail de cuisine | 11 × 3 × 1,8 | Plan de travail avec évier encastré, placards dessous. | `Plan__C8C4B0`, `Facade__6A5A48`, `Evier_Chrome__B0B0B0` |
+| 2 | penderie | 2 × 7 × 2 | Penderie étroite à une porte, haute. | `Bois__4A3220`, `Poignee_Laiton__B8A060` |
+| 3 | guéridon | 4 × 1 × 4 | Petite table ronde à pied central. | `Bois__5A3E28` |
+| 3 | banc | 8 × 1,5 × 2 | Banc de bois à dossier bas. | `Bois__6B4A2F` |
+| 3 | bidon métallique | 4 × 3 × 4 | Bidon cylindrique cabossé, bouchon. | `Bidon_Fer__5A4A3A`, `Bouchon_Fer__3A3A3A` |
+| 3 | coffre de cave | 6 × 3 × 6 | Coffre de fer riveté, couvercle bombé. | `Fer__4A4A4A`, `Rivets_Fer__6A6A6A` |
+| 3 | buffet | 5 × 5 × 8 | Buffet haut à quatre portes, moulures. | `Bois__4A3220`, `Poignee_Laiton__B8A060` |
+
+Notes : la cage est l'objet le plus visible de la partie (l'étape « libérer l'enfant » s'y joue) ; tant qu'elle n'existe pas, une boîte de métal procédurale en tient lieu.

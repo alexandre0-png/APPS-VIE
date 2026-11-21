@@ -1339,6 +1339,12 @@ MapBuilder.ACCESSORIES = {
 	{ "bougie chandelier", 53, -12, 78.4, { 0.6, 1, 0.6 } }, -- cave : lueur près de la cage de l'enfant
 	{ "bougie chandelier", 59, -12, 78.4, { 0.6, 1, 0.6 } },
 	{ "tapis rond", 26, 0.06, 67, { 6, 0.2, 6 } }, -- salle à manger
+	{ "tapis rond", 100, 12.06, 22, { 6, 0.2, 6 } }, -- chambre d'enfant
+	{ "tapis rond", 26, 12.06, 67, { 6, 0.2, 6 } }, -- chambre d'ami
+	{ "tapis rond", 100, 0.06, 67, { 6, 0.2, 6 } }, -- bureau
+	{ "tapis rond", 60, 0.06, 22, { 6, 0.2, 6 } }, -- hall
+	{ "tapis rond", 60, 0.06, 66, { 6, 0.2, 6 } }, -- entrée
+	{ "tapis rond", 60, 12.06, 22, { 6, 0.2, 6 } }, -- palier
 	{ "tapis rond", 30, 24.06, 45, { 6, 0.2, 6 } }, -- grenier
 	{ "valise", 3, 24, 2, { 2.5, 1.5, 1.5 } },
 	{ "valise", 57, 24, 2, { 2.5, 1.5, 1.5 } },
@@ -1392,6 +1398,19 @@ MapBuilder.WALL_ITEMS = {
 	{ "applique murale", 41, 18, 58, { 0.8, 1.5, 1 }, 1, 0 }, -- couloir
 	{ "applique murale", 41, 18, 12, { 0.8, 1.5, 1 }, 1, 0 }, -- palier
 	{ "applique murale", 79, 18, 13, { 0.8, 1.5, 1 }, -1, 0 },
+	{ "cadre photo", 10, 5.5, 0.9, { 1.4, 1.4, 0.2 }, 0, 1 }, -- salon
+	{ "cadre photo", 14, 5.5, 0.9, { 1.4, 1.4, 0.2 }, 0, 1 }, -- salon
+	{ "cadre photo", 0.9, 5.5, 8, { 1.4, 1.4, 0.2 }, 1, 0 }, -- salon
+	{ "cadre photo", 12, 5.5, 89.1, { 1.4, 1.4, 0.2 }, 0, -1 }, -- salle à manger
+	{ "cadre photo", 18, 5.5, 89.1, { 1.4, 1.4, 0.2 }, 0, -1 }, -- salle à manger
+	{ "cadre photo", 8, 17.5, 0.9, { 1.4, 1.4, 0.2 }, 0, 1 }, -- chambre des parents
+	{ "cadre photo", 80.9, 17.5, 8, { 1.4, 1.4, 0.2 }, 1, 0 }, -- chambre d'enfant
+	{ "cadre photo", 20, 17.5, 44.9, { 1.4, 1.4, 0.2 }, 0, 1 }, -- chambre d'ami
+	{ "cadre photo", 80.9, 5.5, 58, { 1.4, 1.4, 0.2 }, 1, 0 }, -- bureau
+	{ "cadre photo", 80.9, 5.5, 8, { 1.4, 1.4, 0.2 }, 1, 0 }, -- cuisine
+	{ "cadre photo", 48, 17.5, 0.9, { 1.4, 1.4, 0.2 }, 0, 1 }, -- palier
+	{ "cadre photo", 6, 29.5, 0.9, { 1.4, 1.4, 0.2 }, 0, 1 }, -- grenier
+	{ "cadre photo", 66, 29.5, 89.1, { 1.4, 1.4, 0.2 }, 0, -1 }, -- salle de la tombe
 	{ "soupirail", 119, -3.5, 20, { 0.6, 1.5, 3 }, -1, 0 }, -- sous-sol, murs extérieurs
 	{ "soupirail", 119, -3.5, 60, { 0.6, 1.5, 3 }, -1, 0 },
 	{ "soupirail", 1, -3.5, 10, { 0.6, 1.5, 3 }, 1, 0 },
