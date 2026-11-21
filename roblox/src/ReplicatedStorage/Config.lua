@@ -495,12 +495,12 @@ Config.Assets = {
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
 	-- mesure impossible = modèle non posé (repli procédural), jamais d'échelle brute.
-	targetHeights = { player = 5, petMin = 2, petMax = 4, petHard = 5, eggMin = 3, eggMax = 4.5, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 3, wolf = 4, bear = 6, knight = 5.2, tower = 24, chest = 4, torch = 3, flag = 7 },
+	targetHeights = { player = 5, petMin = 1.7, petMax = 2.1, petHard = 3, eggMin = 1.8, eggMax = 2.8, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 2.5, wolf = 3, bear = 5, knight = 4.5, tower = 24, chest = 4, torch = 3, flag = 7 },
 	-- Seules ces pièces (nom de base, sans suffixe de couleur) gardent un matériau Metal ; Neon seulement pour les flammes ; tout le reste en plastique lisse.
 	metalParts = { Anneau = true, Tige = true, Serrure = true, Poignee = true, Fer = true, Cercles = true, Pics = true, Lame = true, Herse = true },
 	neonParts = { Flamme = true },
 	guardKinds = { "dog", "wolf", "bear" }, -- gardien de chaque domaine (Config.RIVALS) -> modèle de models.guards
-	guardHeights = { dog = 3, wolf = 4, bear = 6, knight = 5.2 }, -- hauteur en studs (= targetHeights)
+	guardHeights = { dog = 2.5, wolf = 3, bear = 5, knight = 4.5 }, -- hauteur en studs (= targetHeights)
 	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
 	-- Nombre d'exemplaires posés sur la carte de la partie et hauteur en studs (le pont est mis à l'échelle sur sa longueur).
 	propsPlan = { tree = 18, fir = 10, rock = 14, bush = 14, hut = 3, fence = 12, bridge = 4 },
@@ -620,7 +620,7 @@ function Config.nearestPortal(x, z, portals, maxDist)
 	return best
 end
 
--- Hauteur cible d'un pet : 2 à 4 studs selon la rareté (1..6), multipliée par l'échelle de sa taille, jamais plus de 5 (joueur = 5).
+-- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
 function Config.petTargetHeight(tier, sizeScale)
 	local H = Config.Assets.targetHeights
 	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
@@ -629,7 +629,7 @@ function Config.petTargetHeight(tier, sizeScale)
 	return math.min(base * k, H.petHard)
 end
 
--- Hauteur cible d'un œuf : 3 à 4,5 studs selon la rareté.
+-- Hauteur cible d'un œuf : 1,8 à 2,8 studs selon la rareté.
 function Config.eggHeight(tier)
 	local H = Config.Assets.targetHeights
 	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)

@@ -257,7 +257,7 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 		custom:SetAttribute("Tier", def.tier)
 		return custom, customLift, customLabel
 	end
-	local R = 1.5 * size.scale
+	local R = 0.9 * math.min(size.scale, 1.6) -- pet procédural : même échelle réduite que les modèles Blender
 	local model = Instance.new("Model")
 	model.Name = "Pet"
 

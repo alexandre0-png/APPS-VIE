@@ -28,6 +28,10 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : retours de test réels, lot 2 : échelles réduites
+
+- Hauteurs cibles (joueur = 5) : pet normal 1,7 (Commun) à 2,1 (Cosmique), jamais plus de 3 = 60 % d'un joueur même Géant ou Colossal (`petHard`) ; œufs 1,8 à 2,8 ; gardiens chien 2,5, loup 3, ours 5, chevalier 4,5. Pet procédural réduit dans les mêmes proportions (rayon 0,9). Tests : pets (le plus grand <= 3), œufs affichés (<= 2,8 +10 %), gardiens (±10 %), lampadaires, moulin ; un modèle qui dépasse sa cible de plus de 10 % fait échouer la suite.
+
 ## 2026-11-22 (suite) : retours de test réels, lot 1 : sol qui scintille
 
 - **Détecteur de z-fighting** (test sur le hub et la partie construits) : deux dessus horizontaux à moins de 0,05 stud qui se recouvrent sur plus de 1 stud carré sont refusés ; il a trouvé (hub) la bague de la place au même niveau que la place, les pavés des chemins sous l'anneau des portails et superposés entre eux (le chemin du portail « château » doublait celui de l'arène) ; (partie) les taches d'herbe qui se recouvraient, l'arène sous l'eau des douves, les segments de douve entre eux, les deux rivières à leur croisement, la paille du nid, l'étang de Mara, les tuiles Blender de chemin sur celles de pelouse.

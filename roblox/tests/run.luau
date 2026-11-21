@@ -2717,10 +2717,10 @@ do
 			worst = math.max(worst, Config.petTargetHeight(tier, sz.scale))
 		end
 	end
-	check("Pets : hauteur cible 2 à 4 studs selon la rareté (taille normale), jamais plus de 5 (" .. string.format("%.2f", worst) .. ")", near(Config.petTargetHeight(1, 1), 2) and near(Config.petTargetHeight(6, 1), 4) and worst <= 5 and Config.petTargetHeight(nil, nil) == 2 and Config.petTargetHeight(99, 0 / 0) == 4)
-	check("Œufs : 3 à 4,5 studs selon la rareté", near(Config.eggHeight(1), 3) and near(Config.eggHeight(6), 4.5) and Config.eggHeight(nil) == 3)
+	check("Pets : hauteur cible 1,7 à 2,1 studs selon la rareté (taille normale), jamais plus de 3 = 60 % d'un joueur (" .. string.format("%.2f", worst) .. ")", near(Config.petTargetHeight(1, 1), 1.7) and near(Config.petTargetHeight(6, 1), 2.1) and worst <= 3 and worst <= 0.6 * Config.Assets.targetHeights.player + 1e-9 and Config.petTargetHeight(nil, nil) == 1.7 and near(Config.petTargetHeight(99, 0 / 0), 2.1))
+	check("Œufs : 1,8 à 2,8 studs selon la rareté", near(Config.eggHeight(1), 1.8) and near(Config.eggHeight(6), 2.8) and Config.eggHeight(nil) == 1.8)
 	local H = Config.Assets.targetHeights
-	check("Hauteurs cibles : joueur 5, lampadaire 8, banc 2,5, fontaine 7, cabane 11, moulin 20, chien 3, loup 4, ours 6, arbre 10-14", H.player == 5 and H.lamp == 8 and H.bench == 2.5 and Config.Assets.propsHeight.fountain == 7 and Config.Assets.propsHeight.hut == 11 and H.mill == 20 and Config.Assets.guardHeights.dog == 3 and Config.Assets.guardHeights.wolf == 4 and Config.Assets.guardHeights.bear == 6 and Config.Assets.propsHeight.tree >= 10 and Config.Assets.propsHeight.tree <= 14 and Config.Assets.propsHeight.fir <= 14)
+	check("Hauteurs cibles : joueur 5, lampadaire 8, banc 2,5, fontaine 7, cabane 11, moulin 20, chien 2,5, loup 3, ours 5, arbre 10-14", H.player == 5 and H.lamp == 8 and H.bench == 2.5 and Config.Assets.propsHeight.fountain == 7 and Config.Assets.propsHeight.hut == 11 and H.mill == 20 and Config.Assets.guardHeights.dog == 2.5 and Config.Assets.guardHeights.wolf == 3 and Config.Assets.guardHeights.bear == 5 and Config.Assets.propsHeight.tree >= 10 and Config.Assets.propsHeight.tree <= 14 and Config.Assets.propsHeight.fir <= 14)
 	local animSrc = fs.readFile("roblox/src/StarterPlayerScripts/Animations.client.lua")
 	check("Animations : l'apparition d'un pet ne remet jamais l'échelle à 1 (cause des pets énormes) : échelle relative à celle posée par le serveur", animSrc:find("ScaleTo(1)", 1, true) == nil and animSrc:find("GetScale()", 1, true) ~= nil)
 end
@@ -4063,6 +4063,10 @@ do
 		do -- échelle : chaque pet, œuf, gardien et accessoire posé respecte sa hauteur cible (±10 %), le plus grand pet <= 5
 			local worstPet, pets, badPet, guardsOk, guards = 0, 0, 0, true, 0
 			local lampOk, lamps, mills, millOk = true, 0, 0, true
+			local eggIds, eggsSeen, worstEgg = {}, 0, 0
+			for _, id in pairs(Config.Assets.eggsByRarity) do
+				eggIds["Asset" .. tostring(id)] = true
+			end
 			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
 				if d.ClassName == "Model" then
 					local e = d:GetExtentsSize()
@@ -4081,6 +4085,9 @@ do
 							end
 						end
 						guardsOk = guardsOk and want ~= nil
+					elseif d.Name == "Skin" then
+						eggsSeen += 1
+						worstEgg = math.max(worstEgg, e.Y)
 					elseif d.Name == "ArenaLamp" then
 						lamps += 1
 						lampOk = lampOk and math.abs(e.Y - Config.Assets.targetHeights.lamp) <= 0.1 * Config.Assets.targetHeights.lamp
@@ -4091,7 +4098,8 @@ do
 				end
 			end
 			check("Échelle : " .. pets .. " pets Blender (taille brute 20 studs) mesurés, le plus grand fait " .. string.format("%.2f", worstPet) .. " <= 5 studs", pets > 0 and badPet == 0 and worstPet <= Config.Assets.targetHeights.petHard * 1.1)
-			check("Échelle : " .. guards .. " gardiens (chien 3, loup 4, ours 6) à ±10 % de leur hauteur cible", guards == #Config.RIVALS and guardsOk)
+			check("Échelle : " .. guards .. " gardiens (chien 2,5, loup 3, ours 5) à ±10 % de leur hauteur cible", guards == #Config.RIVALS and guardsOk)
+			check("Échelle : " .. eggsSeen .. " œufs affichés, le plus haut fait " .. string.format("%.2f", worstEgg) .. " <= " .. Config.Assets.targetHeights.eggMax .. " studs (+10 %)", eggsSeen > 0 and worstEgg <= Config.Assets.targetHeights.eggMax * 1.1)
 			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
 		end
 		RT.removePlayer(k)
