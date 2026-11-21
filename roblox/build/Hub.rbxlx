@@ -991,6 +991,8 @@ Config.Animations = {
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
 	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
+	uiFx = true, -- animations d'interface : compteur qui défile, balayage de brillance sur la rareté, flash de vignette
+	pulse = true, -- pulsation légère de ColorCorrection et Bloom à l'éclosion d'un pet rare (désactivable)
 	vfx3d = true, -- effets 3D (modèles Blender d'effets) à l'éclosion, à la victoire du château (VfxKit)
 }
 
@@ -1008,6 +1010,7 @@ Config.Cinematics = {
 	firstZone = true, -- la première zone débloquée
 	firstRare = true, -- le premier pet rare
 	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	hub = true, -- survol d'accueil du hub (fontaine puis portails), première arrivée seulement
 	eclosion = true, -- cinématiques d'éclosion (épique court ; légendaire, mythique, cosmique, secret complets)
 	chateau = true, -- entrée et victoire du château
 	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force
@@ -1352,6 +1355,43 @@ end
 
 function Easing.lerp(a, b, t)
 	return a + (b - a) * t
+end
+
+-- Animations d'interface -------------------------------------------------------------------------------------------------------
+-- Compteur qui défile : rapproche `shown` de `target` (approche exponentielle, jamais de dépassement, arrêt exact). dt en secondes.
+function Easing.rollTo(shown, target, dt)
+	if type(shown) ~= "number" or shown ~= shown then
+		return type(target) == "number" and target == target and target or 0
+	end
+	if type(target) ~= "number" or target ~= target then
+		return shown
+	end
+	local diff = target - shown
+	if math.abs(diff) <= math.max(1, math.abs(target) * 0.0005) then
+		return target
+	end
+	local k = 1 - exp(-(dt or 1 / 30) * 9)
+	local nextValue = shown + diff * k
+	if (diff > 0 and nextValue > target) or (diff < 0 and nextValue < target) then
+		return target
+	end
+	return nextValue
+end
+
+-- Balayage de brillance : position horizontale (fraction de la largeur, de -0,25 à 1,25) à la progression p.
+function Easing.shineX(p)
+	p = clamp01(p)
+	return -0.25 + 1.5 * (1 - (1 - p) * (1 - p))
+end
+
+-- Pulsation unique (montée rapide, descente douce) : 0 -> 1 -> 0 sur p dans [0, 1].
+function Easing.pulse(p)
+	p = clamp01(p)
+	if p < 0.2 then
+		return 1 - (1 - p / 0.2) ^ 2
+	end
+	local e = (p - 0.2) / 0.8
+	return (1 - e) ^ 2
 end
 
 -- Courbes classiques (entrée et sortie dans [0, 1]) ---------------------------------------------------------------
@@ -4317,6 +4357,7 @@ Players.PlayerAdded:Connect(function(player)
 		return player:GetJoinData().TeleportData
 	end)
 	if ok and type(data) == "table" then
+		player:SetAttribute("ReturnVisit", true) -- de retour d'une partie : pas de survol d'accueil
 		if type(data.partyId) == "string" then
 			P.leaveParty(data.partyId, player.UserId) -- de retour de la partie : la place se libère
 		end
@@ -4869,5 +4910,109 @@ remote.OnClientEvent:Connect(function(kind, a, b)
 	end
 end)
 TweenService:Create(friendsBtn, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(120, 44) }):Play()
+
+---------------------------------------------------------------- Survol d'accueil : la fontaine puis les portails (CinematicKit)
+-- 5 secondes, première arrivée seulement (pas au retour d'une partie), passage d'un tap, d'un clic, d'Entrée ou du bouton, 8 s au plus par construction ;
+-- le personnage garde le contrôle, la caméra est restituée quoi qu'il arrive (fin, passage, erreur, sécurité).
+task.spawn(function()
+	if not Config.cineEnabled("hub") then
+		return
+	end
+	local ok, err = pcall(function()
+		local UserInputService = game:GetService("UserInputService")
+		local RunService = game:GetService("RunService")
+		local Shared = ReplicatedStorage:WaitForChild("Shared")
+		local Easing = require(Shared:WaitForChild("Easing"))
+		local CK = require(Shared:WaitForChild("CinematicKit"))
+		local Kit = CK.new(Easing, require(Shared:WaitForChild("Cinema")).new(Easing))
+		local t0 = os.clock()
+		while os.clock() - t0 < 15 and not (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) do
+			task.wait(0.25)
+		end
+		task.wait(1.5)
+		if player:GetAttribute("ReturnVisit") then
+			return
+		end
+		local cam = workspace.CurrentCamera
+		local saved = nil
+		local cine = make("ScreenGui", { Name = "HubCine", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 60, Enabled = false }, player:WaitForChild("PlayerGui"))
+		local function bar(y)
+			make("Frame", { AnchorPoint = Vector2.new(0, y), Position = UDim2.fromScale(0, y), Size = UDim2.fromScale(1, 0.1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.1, BorderSizePixel = 0, Active = false }, cine)
+		end
+		bar(0)
+		bar(1)
+		local title = make("TextLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(420, 70), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = COL.text, TextStrokeTransparency = 0.3, Text = "", Active = false }, cine)
+		local caption = make("TextLabel", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0.93, 0), Size = UDim2.fromOffset(520, 40), BackgroundTransparency = 1, Font = FONT, TextSize = 20, TextColor3 = COL.yellow, TextWrapped = true, Text = "", Active = false }, cine)
+		local skipBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0.02, 0), Size = UDim2.fromOffset(110, 34), BackgroundColor3 = COL.yellow, Text = "Passer ▶", Font = FONT, TextSize = 15, TextColor3 = Color3.fromRGB(43, 34, 0) }, cine)
+		corner(skipBtn, 10)
+		local lastShot = 0
+		local host = {
+			takeCamera = function()
+				saved = { cameraType = cam.CameraType, fov = cam.FieldOfView }
+				cam.CameraType = Enum.CameraType.Scriptable
+				cine.Enabled = true
+			end,
+			giveCameraBack = function()
+				cine.Enabled = false
+				if saved then
+					cam.CameraType = saved.cameraType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or saved.cameraType
+					cam.FieldOfView = saved.fov
+					local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+					if hum then
+						cam.CameraSubject = hum
+					end
+					saved = nil
+				end
+			end,
+			apply = function(index, progress, shot)
+				local pos, look, fov = Kit.cameraAt(shot, progress)
+				local off = Kit.shakeOffset(shot, progress, os.clock())
+				cam.CFrame = CFrame.lookAt(Vector3.new(pos[1] + off[1], pos[2] + off[2], pos[3] + off[3]), Vector3.new(look[1], look[2], look[3]))
+				cam.FieldOfView = fov
+				if index ~= lastShot then
+					lastShot = index
+					title.Text = shot.title or ""
+					caption.Text = shot.text or ""
+				end
+			end,
+		}
+		local runner = Kit.runner(host)
+		local started = runner.start(CK.PLANS.hub_survol, os.clock())
+		if started ~= "playing" then
+			warn("[Hub] survol d'accueil non démarré : " .. tostring(started))
+			return
+		end
+		local function stop()
+			pcall(function()
+				RunService:UnbindFromRenderStep("HubSurvol")
+			end)
+			runner.abort()
+		end
+		RunService:BindToRenderStep("HubSurvol", Enum.RenderPriority.Camera.Value + 1, function()
+			local status = runner.update(os.clock())
+			if status ~= "playing" then
+				stop()
+			end
+		end)
+		skipBtn.Activated:Connect(function()
+			runner.skip(os.clock())
+			stop()
+		end)
+		UserInputService.InputBegan:Connect(function(input)
+			if runner.isActive() and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonB) then
+				runner.skip(os.clock())
+				stop()
+			end
+		end)
+		task.delay(CK.MAX_SECONDS + 2, stop) -- sécurité : la caméra revient de force
+	end)
+	if not ok then
+		warn("[Hub] survol d'accueil abandonné : " .. tostring(err))
+		pcall(function()
+			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+		end)
+	end
+end)
+
 ]]></ProtectedString></Properties></Item></Item></Item>
 </roblox>

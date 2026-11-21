@@ -24,6 +24,43 @@ function Easing.lerp(a, b, t)
 	return a + (b - a) * t
 end
 
+-- Animations d'interface -------------------------------------------------------------------------------------------------------
+-- Compteur qui défile : rapproche `shown` de `target` (approche exponentielle, jamais de dépassement, arrêt exact). dt en secondes.
+function Easing.rollTo(shown, target, dt)
+	if type(shown) ~= "number" or shown ~= shown then
+		return type(target) == "number" and target == target and target or 0
+	end
+	if type(target) ~= "number" or target ~= target then
+		return shown
+	end
+	local diff = target - shown
+	if math.abs(diff) <= math.max(1, math.abs(target) * 0.0005) then
+		return target
+	end
+	local k = 1 - exp(-(dt or 1 / 30) * 9)
+	local nextValue = shown + diff * k
+	if (diff > 0 and nextValue > target) or (diff < 0 and nextValue < target) then
+		return target
+	end
+	return nextValue
+end
+
+-- Balayage de brillance : position horizontale (fraction de la largeur, de -0,25 à 1,25) à la progression p.
+function Easing.shineX(p)
+	p = clamp01(p)
+	return -0.25 + 1.5 * (1 - (1 - p) * (1 - p))
+end
+
+-- Pulsation unique (montée rapide, descente douce) : 0 -> 1 -> 0 sur p dans [0, 1].
+function Easing.pulse(p)
+	p = clamp01(p)
+	if p < 0.2 then
+		return 1 - (1 - p / 0.2) ^ 2
+	end
+	local e = (p - 0.2) / 0.8
+	return (1 - e) ^ 2
+end
+
 -- Courbes classiques (entrée et sortie dans [0, 1]) ---------------------------------------------------------------
 function Easing.inOutSine(x)
 	x = clamp01(x)

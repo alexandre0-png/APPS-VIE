@@ -326,6 +326,71 @@ local function playHatchVfx(info, tier, secret)
 	end
 end
 
+-- Animations d'interface (Config.Animations.uiFx / pulse) : balayage de brillance sur le bandeau de rareté, flash de vignette coloré, pulsation légère de
+-- ColorCorrection et Bloom. Tout sous pcall, nettoyé par Debris ; coupé sur demande.
+local function shineSweep(label, tint)
+	if not Config.animEnabled("uiFx") then
+		return
+	end
+	pcall(function()
+		label.ClipsDescendants = true
+		local shine = make("Frame", { Name = "Shine", Size = UDim2.new(0.18, 0, 1.6, 0), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(Easing.shineX(0), 0.5), Rotation = 18, BackgroundColor3 = tint or Color3.new(1, 1, 1), BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 5 }, label)
+		TweenService:Create(shine, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.fromScale(Easing.shineX(1), 0.5), BackgroundTransparency = 1 }):Play()
+		Debris:AddItem(shine, 1.1)
+	end)
+end
+local function vignetteFlash(color, strength)
+	if not Config.animEnabled("uiFx") then
+		return
+	end
+	pcall(function()
+		local g = make("ScreenGui", { Name = "UiFxVignette", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 40 }, player:WaitForChild("PlayerGui"))
+		local function edge(anchor, pos, size, rot)
+			local f = make("Frame", { AnchorPoint = anchor, Position = pos, Size = size, BackgroundColor3 = color, BackgroundTransparency = 1 - 0.55 * strength, BorderSizePixel = 0, Active = false }, g)
+			make("UIGradient", { Rotation = rot, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }) }, f)
+			TweenService:Create(f, TweenInfo.new(0.7, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
+		end
+		edge(Vector2.new(0, 0), UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.22), 90)
+		edge(Vector2.new(0, 1), UDim2.fromScale(0, 1), UDim2.fromScale(1, 0.22), -90)
+		edge(Vector2.new(0, 0), UDim2.fromScale(0, 0), UDim2.fromScale(0.16, 1), 0)
+		edge(Vector2.new(1, 0), UDim2.fromScale(1, 0), UDim2.fromScale(0.16, 1), 180)
+		Debris:AddItem(g, 1)
+	end)
+end
+local function pulseLighting(strength)
+	if not Config.animEnabled("pulse") then
+		return
+	end
+	pcall(function()
+		local Lighting = game:GetService("Lighting")
+		local bloom, grade = Lighting:FindFirstChild("ChipeBloom"), Lighting:FindFirstChild("ChipeGrade")
+		if bloom and bloom:IsA("BloomEffect") and not bloom:GetAttribute("Pulsing") then
+			local base = bloom.Intensity
+			bloom:SetAttribute("Pulsing", true)
+			TweenService:Create(bloom, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Intensity = base + 0.5 * strength }):Play()
+			task.delay(0.2, function()
+				TweenService:Create(bloom, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { Intensity = base }):Play()
+				task.delay(1, function()
+					bloom.Intensity = base
+					bloom:SetAttribute("Pulsing", nil)
+				end)
+			end)
+		end
+		if grade and grade:IsA("ColorCorrectionEffect") and not grade:GetAttribute("Pulsing") then
+			local base = grade.Brightness
+			grade:SetAttribute("Pulsing", true)
+			TweenService:Create(grade, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Brightness = base + 0.07 * strength }):Play()
+			task.delay(0.2, function()
+				TweenService:Create(grade, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { Brightness = base }):Play()
+				task.delay(1, function()
+					grade.Brightness = base
+					grade:SetAttribute("Pulsing", nil)
+				end)
+			end)
+		end
+	end)
+end
+
 local function hatchPop(info)
 	local def = Config.PETS[info.p]
 	if def.tier >= 4 and tryOfferLater then
@@ -366,6 +431,13 @@ local function hatchPop(info)
 	end
 	playSound(Config.hatchSoundKey(def.tier, st.secret))
 	pcall(playHatchVfx, info, def.tier, st.secret) -- effets 3D en plus de la révélation en interface, selon la qualité
+	if def.tier >= 3 then -- rareté croissante : brillance sur le bandeau dès Épique, vignette colorée et pulsation dès Légendaire
+		shineSweep(popRarity, tier.color:Lerp(Color3.new(1, 1, 1), 0.6))
+		if def.tier >= 4 or st.secret then
+			vignetteFlash(st.secret and st.color or tier.color, math.min(1, 0.4 + 0.15 * def.tier))
+			pulseLighting(math.min(1.5, 0.5 + 0.2 * def.tier))
+		end
+	end
 	if st.shake > 0.2 then -- secousse de la caméra proportionnelle à la rareté
 		task.spawn(function()
 			local char = player.Character
@@ -1296,8 +1368,12 @@ RTop.OnClientEvent:Connect(function(list)
 	end
 end)
 
+local shownCoins = coins()
 local function refreshStats()
-	coinsBig.Text = fmt(coins())
+	if not Config.animEnabled("uiFx") then
+		shownCoins = coins()
+	end
+	coinsBig.Text = fmt(shownCoins)
 	coinsSmall.Text = "+" .. fmt(player:GetAttribute("Income") or 0) .. "/s"
 	speedBig.Text = fmt(math.floor(player:GetAttribute("Speed") or 0))
 	for b, cost in pairs(costBtns) do
@@ -1325,6 +1401,19 @@ for _, a in ipairs({ "Coins", "Income", "Speed" }) do
 	player:GetAttributeChangedSignal(a):Connect(refreshStats)
 end
 refreshStats()
+-- Compteur de pièces qui défile vers sa valeur (Easing.rollTo, approche exponentielle) au lieu de sauter.
+task.spawn(function()
+	while true do
+		if Config.animEnabled("uiFx") then
+			local target = coins()
+			if shownCoins ~= target then
+				shownCoins = Easing.rollTo(shownCoins, target, 1 / 30)
+				coinsBig.Text = fmt(shownCoins)
+			end
+		end
+		task.wait(1 / 30)
+	end
+end)
 
 task.spawn(function() -- promesse d'accueil dès que l'état est reçu (une fois)
 	repeat

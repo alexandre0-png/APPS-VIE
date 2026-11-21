@@ -340,7 +340,7 @@ for tier = 2, 4 do
 end
 
 -- Animations : configuration et garde-fou ---------------------------------------------------------------
-local animKeys = { "enabled", "vfx3d", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner", "petStates" }
+local animKeys = { "enabled", "vfx3d", "uiFx", "pulse", "eggShake", "eggBounce", "hatchSquash", "popIn", "shockwave", "harvest", "petBlink", "petLook", "petMouth", "menuTransitions", "reward", "zones", "characterPop", "hen", "eggHalo", "zoneAmbience", "interactMarkers", "zoneBanner", "petStates" }
 for _, k in ipairs(animKeys) do
 	check("Config.Animations." .. k .. " défini (booléen)", type(Config.Animations[k]) == "boolean")
 end
@@ -2967,6 +2967,43 @@ do
 	check("Éclosion Cosmique complète jouée en 8 s au plus (" .. string.format("%.1f", reached) .. " s) puis caméra restituée", reached <= 8.1 and h6.given == 1)
 end
 
+-- Animations d'interface : compteur qui défile, brillance, pulsation ---------------------------------------------------------------
+do
+	suite("Animations d'interface : compteur qui défile, balayage de brillance, pulsation")
+	local E = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Easing.lua"), { debugName = "Easing" })()
+	local v, steps = 0, 0
+	local monotone, overshoot = true, false
+	while v ~= 12345 and steps < 600 do
+		local nv = E.rollTo(v, 12345, 1 / 30)
+		monotone = monotone and nv >= v
+		overshoot = overshoot or nv > 12345
+		v = nv
+		steps += 1
+	end
+	check("Compteur : atteint exactement la cible en moins de 20 s (" .. steps .. " images), sans reculer ni dépasser", v == 12345 and steps < 600 and monotone and not overshoot)
+	local d, dsteps = 5000, 0
+	while d ~= 100 and dsteps < 600 do
+		d = E.rollTo(d, 100, 1 / 30)
+		dsteps += 1
+	end
+	check("Compteur : fonctionne aussi à la baisse ; valeurs invalides (nil, NaN) sans erreur", d == 100 and E.rollTo(nil, 50, 0.03) == 50 and E.rollTo(7, nil, 0.03) == 7 and E.rollTo(0 / 0, 9, 0.03) == 9 and E.rollTo(3, 0 / 0, 0.03) == 3 and E.rollTo(10, 10, 0.03) == 10)
+	check("Brillance : balaye de -0,25 à 1,25 de la largeur, croissante, bornée", math.abs(E.shineX(0) + 0.25) < 1e-9 and math.abs(E.shineX(1) - 1.25) < 1e-9 and E.shineX(0.3) < E.shineX(0.6) and E.shineX(-3) == E.shineX(0) and E.shineX(9) == E.shineX(1))
+	local peak, okp = 0, true
+	for i = 0, 100 do
+		local pv = E.pulse(i / 100)
+		peak = math.max(peak, pv)
+		okp = okp and pv >= 0 and pv <= 1
+	end
+	check("Pulsation : 0 -> 1 -> 0, montée rapide, valeurs dans [0, 1]", okp and math.abs(peak - 1) < 1e-6 and E.pulse(0) == 0 and E.pulse(1) == 0 and E.pulse(0.2) > E.pulse(0.6))
+	check("Animations d'interface activables séparément (uiFx, pulse) et coupées par l'interrupteur général", Config.animEnabled("uiFx") and Config.animEnabled("pulse") and (function()
+		local saved = Config.Animations.enabled
+		Config.Animations.enabled = false
+		local off = not Config.animEnabled("uiFx") and not Config.animEnabled("pulse")
+		Config.Animations.enabled = saved
+		return off
+	end)())
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -4175,6 +4212,61 @@ do
 	end
 end
 
+-- Hub : survol d'accueil (client réel du hub) ---------------------------------------------------------------------------------
+do
+	suite("Hub : survol d'accueil, 8 s au plus, passage, caméra restituée, pas au retour d'une partie")
+	local function boot()
+		local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.hub, hook = loopGuard })
+		if not RT then
+			return nil
+		end
+		local main = RT.buildTree("roblox/src", true)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		return RT
+	end
+	local function guiOf(RT)
+		for _, o in ipairs(RT.all) do
+			if rawget(o, "__props").Name == "HubCine" then
+				return o
+			end
+		end
+		return nil
+	end
+	local RT = boot()
+	if RT then
+		local client = RT.buildClient("roblox/src/Hub")
+		local me = RT.addPlayer("Ana", 6001)
+		RT.setLocalPlayer(me)
+		me:LoadCharacterAsync()
+		RT.step(1)
+		RT.task.spawn(function()
+			RT.runScript(client.HubClient)
+		end)
+		RT.step(3.5)
+		local g = guiOf(RT)
+		check("Hub : le survol d'accueil démarre après l'arrivée (bandes, carton, bouton Passer visibles)", g ~= nil and rawget(g, "__props").Enabled == true)
+		RT.step(10)
+		check("Hub : le survol se termine en moins de 8 s et rend la caméra" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), g ~= nil and rawget(g, "__props").Enabled == false and #RT.errors == 0)
+	end
+	local RT2 = boot()
+	if RT2 then
+		local client2 = RT2.buildClient("roblox/src/Hub")
+		local back = RT2.addPlayer("Bob", 6002, { from = "game", partyId = "X" })
+		RT2.setLocalPlayer(back)
+		back:LoadCharacterAsync()
+		RT2.step(1)
+		RT2.task.spawn(function()
+			RT2.runScript(client2.HubClient)
+		end)
+		RT2.step(4)
+		local g2 = guiOf(RT2)
+		check("Hub : au retour d'une partie, aucun survol d'accueil" .. (#RT2.errors == 0 and "" or " : " .. tostring(RT2.errors[1])), (g2 == nil or rawget(g2, "__props").Enabled ~= true) and #RT2.errors == 0)
+	end
+end
+
 -- Client + serveur de bout en bout dans le runtime factice -----------------------------------------------------------------
 do
 	suite("Client + serveur de bout en bout : boutique (carrousel, richesse), achat, éclosion, révélation, bannière de zone")
@@ -4293,6 +4385,28 @@ do
 				local finished = rawget(cineGui, "__props").Enabled == false
 				check("Cinématique de victoire : elle démarre, se termine en moins de 8 s et rend la caméra et l'interface" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), playing and finished and #RT.errors == 0)
 			end
+		end
+		-- éclosion légendaire synthétique (événement Hatch du serveur) : révélation, effets 3D, brillance, vignette et pulsation sans erreur
+		do
+			local hatchRemote
+			for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+				if rawget(d, "__props").Name == "Hatch" then
+					hatchRemote = d
+				end
+			end
+			local dragon = 13
+			RT.fire(hatchRemote, "OnClientEvent", { p = dragon, s = 2, m = 1, slot = 1, inc = 99, oneIn = 400, egg = 4 })
+			RT.step(1.2)
+			local vignette, shine = 0, 0
+			for _, o in ipairs(RT.all) do
+				local nm = rawget(o, "__props").Name
+				if nm == "UiFxVignette" then
+					vignette += 1
+				elseif nm == "Shine" then
+					shine += 1
+				end
+			end
+			check("Éclosion légendaire : brillance sur le bandeau et flash de vignette créés, aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), vignette >= 1 and shine >= 1 and #RT.errors == 0)
 		end
 		-- bannière : distance à la base du joueur ; inventaire à onglets (œufs, pets, boosts, titres, index)
 		check("Bannière de zone : la distance à la base est affichée (« Bois de Mara · N m de ta base »)", findText("Bois de Mara") ~= nil and findText("m de ta base") ~= nil)

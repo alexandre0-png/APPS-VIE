@@ -987,6 +987,8 @@ Config.Animations = {
 	interactMarkers = true, -- anneaux dorés pulsants sur les éléments interactifs (nids, secrets)
 	zoneAmbience = true, -- éclairage et atmosphère propres à chaque domaine
 	eggHalo = true, -- halos des œufs : anneau qui tourne, scintillement du glitch
+	uiFx = true, -- animations d'interface : compteur qui défile, balayage de brillance sur la rareté, flash de vignette
+	pulse = true, -- pulsation légère de ColorCorrection et Bloom à l'éclosion d'un pet rare (désactivable)
 	vfx3d = true, -- effets 3D (modèles Blender d'effets) à l'éclosion, à la victoire du château (VfxKit)
 }
 
@@ -1004,6 +1006,7 @@ Config.Cinematics = {
 	firstZone = true, -- la première zone débloquée
 	firstRare = true, -- le premier pet rare
 	replay = true, -- boutons « Revoir l'intro / le tutoriel » dans le menu Plus
+	hub = true, -- survol d'accueil du hub (fontaine puis portails), première arrivée seulement
 	eclosion = true, -- cinématiques d'éclosion (épique court ; légendaire, mythique, cosmique, secret complets)
 	chateau = true, -- entrée et victoire du château
 	watchdog = 4, -- sécurité : au-delà de la durée + ce délai (secondes), la caméra est rendue de force

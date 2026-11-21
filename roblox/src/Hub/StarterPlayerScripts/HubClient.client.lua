@@ -169,3 +169,107 @@ remote.OnClientEvent:Connect(function(kind, a, b)
 	end
 end)
 TweenService:Create(friendsBtn, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(120, 44) }):Play()
+
+---------------------------------------------------------------- Survol d'accueil : la fontaine puis les portails (CinematicKit)
+-- 5 secondes, première arrivée seulement (pas au retour d'une partie), passage d'un tap, d'un clic, d'Entrée ou du bouton, 8 s au plus par construction ;
+-- le personnage garde le contrôle, la caméra est restituée quoi qu'il arrive (fin, passage, erreur, sécurité).
+task.spawn(function()
+	if not Config.cineEnabled("hub") then
+		return
+	end
+	local ok, err = pcall(function()
+		local UserInputService = game:GetService("UserInputService")
+		local RunService = game:GetService("RunService")
+		local Shared = ReplicatedStorage:WaitForChild("Shared")
+		local Easing = require(Shared:WaitForChild("Easing"))
+		local CK = require(Shared:WaitForChild("CinematicKit"))
+		local Kit = CK.new(Easing, require(Shared:WaitForChild("Cinema")).new(Easing))
+		local t0 = os.clock()
+		while os.clock() - t0 < 15 and not (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) do
+			task.wait(0.25)
+		end
+		task.wait(1.5)
+		if player:GetAttribute("ReturnVisit") then
+			return
+		end
+		local cam = workspace.CurrentCamera
+		local saved = nil
+		local cine = make("ScreenGui", { Name = "HubCine", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 60, Enabled = false }, player:WaitForChild("PlayerGui"))
+		local function bar(y)
+			make("Frame", { AnchorPoint = Vector2.new(0, y), Position = UDim2.fromScale(0, y), Size = UDim2.fromScale(1, 0.1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.1, BorderSizePixel = 0, Active = false }, cine)
+		end
+		bar(0)
+		bar(1)
+		local title = make("TextLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(420, 70), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = COL.text, TextStrokeTransparency = 0.3, Text = "", Active = false }, cine)
+		local caption = make("TextLabel", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0.93, 0), Size = UDim2.fromOffset(520, 40), BackgroundTransparency = 1, Font = FONT, TextSize = 20, TextColor3 = COL.yellow, TextWrapped = true, Text = "", Active = false }, cine)
+		local skipBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0.02, 0), Size = UDim2.fromOffset(110, 34), BackgroundColor3 = COL.yellow, Text = "Passer ▶", Font = FONT, TextSize = 15, TextColor3 = Color3.fromRGB(43, 34, 0) }, cine)
+		corner(skipBtn, 10)
+		local lastShot = 0
+		local host = {
+			takeCamera = function()
+				saved = { cameraType = cam.CameraType, fov = cam.FieldOfView }
+				cam.CameraType = Enum.CameraType.Scriptable
+				cine.Enabled = true
+			end,
+			giveCameraBack = function()
+				cine.Enabled = false
+				if saved then
+					cam.CameraType = saved.cameraType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or saved.cameraType
+					cam.FieldOfView = saved.fov
+					local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+					if hum then
+						cam.CameraSubject = hum
+					end
+					saved = nil
+				end
+			end,
+			apply = function(index, progress, shot)
+				local pos, look, fov = Kit.cameraAt(shot, progress)
+				local off = Kit.shakeOffset(shot, progress, os.clock())
+				cam.CFrame = CFrame.lookAt(Vector3.new(pos[1] + off[1], pos[2] + off[2], pos[3] + off[3]), Vector3.new(look[1], look[2], look[3]))
+				cam.FieldOfView = fov
+				if index ~= lastShot then
+					lastShot = index
+					title.Text = shot.title or ""
+					caption.Text = shot.text or ""
+				end
+			end,
+		}
+		local runner = Kit.runner(host)
+		local started = runner.start(CK.PLANS.hub_survol, os.clock())
+		if started ~= "playing" then
+			warn("[Hub] survol d'accueil non démarré : " .. tostring(started))
+			return
+		end
+		local function stop()
+			pcall(function()
+				RunService:UnbindFromRenderStep("HubSurvol")
+			end)
+			runner.abort()
+		end
+		RunService:BindToRenderStep("HubSurvol", Enum.RenderPriority.Camera.Value + 1, function()
+			local status = runner.update(os.clock())
+			if status ~= "playing" then
+				stop()
+			end
+		end)
+		skipBtn.Activated:Connect(function()
+			runner.skip(os.clock())
+			stop()
+		end)
+		UserInputService.InputBegan:Connect(function(input)
+			if runner.isActive() and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonB) then
+				runner.skip(os.clock())
+				stop()
+			end
+		end)
+		task.delay(CK.MAX_SECONDS + 2, stop) -- sécurité : la caméra revient de force
+	end)
+	if not ok then
+		warn("[Hub] survol d'accueil abandonné : " .. tostring(err))
+		pcall(function()
+			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+		end)
+	end
+end)
+

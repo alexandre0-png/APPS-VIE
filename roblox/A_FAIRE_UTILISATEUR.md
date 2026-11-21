@@ -34,6 +34,8 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] Suivre la liste de `roblox/PUBLICATION.md` §5 (fiche, descriptions, accroches, vérifications dans l'ordre, lancement progressif privé puis amis puis public).
 - [ ] Au premier playtest, me dire si les modèles Blender (gardiens, pièges, herses, pales, bancs, lampadaires, chevaliers, sol) ont la bonne taille et le bon sens : devant supposé = -Z, pics dessinés sortis.
 
+- [ ] Au premier playtest, regarder les effets 3D et cinématiques (`roblox/ANIMATIONS.md`) : taille et lisibilité des effets, position des caméras (éclosion, château, survol du hub), gêne éventuelle ; chaque famille se coupe par un drapeau (`Config.Animations.vfx3d`, `Config.Cinematics.*`).
+
 ## 2. Ouvrir la place dans Studio et publier
 
 - [ ] Studio : **File > Open from File** → `roblox/build/ChipeOeufs.rbxlx`.

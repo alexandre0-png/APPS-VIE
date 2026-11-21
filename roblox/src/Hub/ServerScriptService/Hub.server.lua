@@ -296,6 +296,7 @@ Players.PlayerAdded:Connect(function(player)
 		return player:GetJoinData().TeleportData
 	end)
 	if ok and type(data) == "table" then
+		player:SetAttribute("ReturnVisit", true) -- de retour d'une partie : pas de survol d'accueil
 		if type(data.partyId) == "string" then
 			P.leaveParty(data.partyId, player.UserId) -- de retour de la partie : la place se libère
 		end
