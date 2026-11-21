@@ -595,6 +595,23 @@ Config.EggFx = {
 	},
 }
 
+-- Étiquettes des portails du hub : une seule (le portail le plus proche) est visible à la fois, à moins de `maxDist` studs. portals = liste de
+-- { key, x, z } ; retourne la clé du plus proche ou nil (rien à portée, position invalide).
+Config.PORTAL_LABEL = { maxDist = 40, titleSize = { 230, 44 }, statusSize = { 200, 30 } } -- tailles FIXES en pixels (jamais proportionnelles)
+function Config.nearestPortal(x, z, portals, maxDist)
+	if type(x) ~= "number" or type(z) ~= "number" or x ~= x or z ~= z then
+		return nil
+	end
+	local best, bd = nil, (maxDist or Config.PORTAL_LABEL.maxDist) + 1e-9
+	for _, p in ipairs(portals) do
+		local d = math.sqrt((x - p.x) ^ 2 + (z - p.z) ^ 2)
+		if d <= bd then
+			best, bd = p.key, d
+		end
+	end
+	return best
+end
+
 -- Hauteur cible d'un pet : 2 à 4 studs selon la rareté (1..6), multipliée par l'échelle de sa taille, jamais plus de 5 (joueur = 5).
 function Config.petTargetHeight(tier, sizeScale)
 	local H = Config.Assets.targetHeights

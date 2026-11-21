@@ -2725,6 +2725,21 @@ do
 	check("Animations : l'apparition d'un pet ne remet jamais l'échelle à 1 (cause des pets énormes) : échelle relative à celle posée par le serveur", animSrc:find("ScaleTo(1)", 1, true) == nil and animSrc:find("GetScale()", 1, true) ~= nil)
 end
 
+-- Étiquettes de portails : un seul portail détaillé à la fois ------------------------------------------------------------------
+do
+	suite("Hub : étiquette du portail le plus proche seulement, tailles fixes en pixels")
+	local portals = { { key = "1", x = -50, z = 0 }, { key = "2", x = -20, z = 0 }, { key = "c2", x = -20, z = -45 }, { key = "5", x = 60, z = 0 } }
+	check("Portail le plus proche : choisi parmi 4, un seul résultat", Config.nearestPortal(-22, 3, portals) == "2" and Config.nearestPortal(58, 2, portals) == "5" and Config.nearestPortal(-48, 1, portals) == "1")
+	check("Portail : rien à portée (> 40 studs) ou position invalide -> aucune étiquette", Config.nearestPortal(0, 200, portals) == nil and Config.nearestPortal(nil, 3, portals) == nil and Config.nearestPortal(0 / 0, 3, portals) == nil and Config.nearestPortal(1, 1, {}) == nil)
+	check("Portail : à égale distance, un seul portail gagne (jamais deux étiquettes)", (function()
+		local k = Config.nearestPortal(-35, 0, portals)
+		return k == "1" or k == "2"
+	end)())
+	local PL = Config.PORTAL_LABEL
+	local hubSrc = fs.readFile("roblox/src/Hub/ServerScriptService/HubWorld.lua")
+	check("Étiquettes : tailles fixes (titre " .. PL.titleSize[1] .. "x" .. PL.titleSize[2] .. ", statut " .. PL.statusSize[1] .. "x" .. PL.statusSize[2] .. " px), pas de taille proportionnelle, 40 studs", PL.titleSize[1] <= 300 and PL.titleSize[2] <= 60 and PL.statusSize[1] <= 260 and PL.statusSize[2] <= 40 and PL.maxDist == 40 and hubSrc:find("UDim2.fromOffset(width, height)", 1, true) ~= nil and hubSrc:find("UDim2.fromScale(1, 1)", 1, true) ~= nil)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")
@@ -2868,6 +2883,25 @@ do
 			end
 		end
 		check("Hub : 6 bancs et 16 lampadaires Blender posés, équivalents procéduraux retirés (" .. benches .. "/" .. lamps .. ", restes " .. oldSeat .. "/" .. oldPost .. ")", benches == 6 and lamps == 16 and oldSeat == 0 and oldPost == 0)
+	end
+	do
+		local keys, kinds, tooFar, count = {}, { title = 0, status = 0 }, 0, 0
+		for obj in pairs(RT.tags["PortalLabel"] or {}) do
+			count += 1
+			local pr = rawget(obj, "__props")
+			local key = obj:GetAttribute("PortalKey")
+			keys[key] = (keys[key] or 0) + 1
+			kinds[obj:GetAttribute("Kind")] = (kinds[obj:GetAttribute("Kind")] or 0) + 1
+			if pr.MaxDistance ~= Config.PORTAL_LABEL.maxDist then
+				tooFar += 1
+			end
+		end
+		local nkeys, dup = 0, false
+		for _, n in pairs(keys) do
+			nkeys += 1
+			dup = dup or n ~= 2
+		end
+		check("Hub : étiquettes des 10 portails (5 arène + 5 château) : " .. count .. " BillboardGui, un titre et un statut par portail, aucun doublon, visibles à moins de " .. Config.PORTAL_LABEL.maxDist .. " studs", count == 20 and nkeys == 10 and not dup and kinds.title == 10 and kinds.status == 10 and tooFar == 0 and keys["c1"] == 2 and keys["5"] == 2)
 	end
 	check("Hub : l'arrivée des joueurs est écoutée", RT.signalCount(RT.services.Players, "PlayerAdded") >= 1)
 	-- deux joueurs entrent dans le portail de taille 2 ; le compte à rebours part, la téléportation est demandée

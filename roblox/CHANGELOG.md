@@ -28,6 +28,10 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : étiquettes des portails du hub
+
+- Les étiquettes « CHÂTEAU SOLO / 1 JOUEURS · Libre » se superposaient : 20 BillboardGui visibles de 140 studs. Maintenant : tailles FIXES en pixels (titre 230 x 44, statut 200 x 30, château +40 de large), `MaxDistance` 40, décalages verticaux alternés d'un portail à l'autre, et UNE SEULE paire visible à la fois : celle du portail le plus proche (`Config.nearestPortal`, HubClient, 4 fois par seconde), les autres sont désactivées. Tags `PortalLabel` avec `PortalKey` (« 1 » à « 5 » ; « c1 » à « c5 »). Testé : 10 portails, un titre et un statut chacun, aucun doublon, distance 40, choix du plus proche, positions invalides.
+
 ## 2026-11-22 (suite) : retour réel de Studio, échelle et matières des modèles Blender
 
 - **Pets énormes (cause trouvée)** : l'animation d'apparition du client (`Animations.client`) appelait `model:ScaleTo(1)` et `ScaleTo(popScale)` en échelle ABSOLUE : elle écrasait l'échelle posée par le serveur et rendait le modèle à sa taille Blender brute (~20 studs). Elle est maintenant relative (`base = model:GetScale()`), avec un test qui interdit `ScaleTo(1)`.

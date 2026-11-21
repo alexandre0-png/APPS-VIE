@@ -130,6 +130,32 @@ task.spawn(function()
 	end
 end)
 
+-- Une seule étiquette de portail à la fois : celle du portail le plus proche (à moins de Config.PORTAL_LABEL.maxDist studs) ; les autres sont masquées.
+task.spawn(function()
+	local CollectionService = game:GetService("CollectionService")
+	while true do
+		pcall(function()
+			local char = player.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			local portals, labels = {}, CollectionService:GetTagged("PortalLabel")
+			local seen = {}
+			for _, bb in ipairs(labels) do
+				local key = bb:GetAttribute("PortalKey")
+				local adornee = bb.Adornee
+				if key and adornee and not seen[key] then
+					seen[key] = true
+					portals[#portals + 1] = { key = key, x = adornee.Position.X, z = adornee.Position.Z }
+				end
+			end
+			local near = root and Config.nearestPortal(root.Position.X, root.Position.Z, portals) or nil
+			for _, bb in ipairs(labels) do
+				bb.Enabled = near ~= nil and bb:GetAttribute("PortalKey") == near
+			end
+		end)
+		task.wait(0.25)
+	end
+end)
+
 remote.OnClientEvent:Connect(function(kind, a, b)
 	if kind == "msg" then
 		toast(tostring(a), b)

@@ -39,13 +39,21 @@ local function cylinder(props, parent) -- cylindre à axe vertical
 	return part(props, parent)
 end
 
-local function billboard(adornee, text, offsetY, width, height)
+-- opts (étiquettes de portail) : { key = clé du portail, kind = "title" | "status" } : taille fixe en pixels, visible à moins de 40 studs seulement,
+-- et affichée uniquement pour le portail le plus proche (HubClient).
+local function billboard(adornee, text, offsetY, width, height, opts)
 	local bb = Instance.new("BillboardGui")
 	bb.Adornee = adornee
 	bb.Size = UDim2.fromOffset(width, height)
 	bb.StudsOffset = Vector3.new(0, offsetY, 0)
 	bb.AlwaysOnTop = false
-	bb.MaxDistance = 140
+	bb.MaxDistance = opts and opts.maxDist or 140
+	if opts then
+		bb.Name = "PortalLabel_" .. opts.kind
+		bb:SetAttribute("PortalKey", opts.key)
+		bb:SetAttribute("Kind", opts.kind)
+		CollectionService:AddTag(bb, "PortalLabel")
+	end
 	bb.LightInfluence = 0
 	bb.Parent = adornee
 	local l = Instance.new("TextLabel")
@@ -218,9 +226,10 @@ function HubWorld.build(Config)
 		pl.Range = 30
 		pl.Brightness = 1.6
 		pl.Parent = lintel
-		local label = billboard(lintel, "", 5, 320, 110)
+		local PL = Config.PORTAL_LABEL
+		local label = billboard(lintel, "", 4 + (i % 2) * 1.5, PL.titleSize[1], PL.titleSize[2], { key = tostring(size), kind = "title", maxDist = PL.maxDist })
 		label.Text = size == 1 and "SOLO" or (size .. " JOUEURS")
-		local status = billboard(padPart, "Libre", 7, 300, 60)
+		local status = billboard(padPart, "Libre", 7 + (i % 2) * 1.2, PL.statusSize[1], PL.statusSize[2], { key = tostring(size), kind = "status", maxDist = PL.maxDist })
 		status.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.5)
 		zones[size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = color, title = label, size = size, mode = "arena" }
 	end
@@ -246,9 +255,10 @@ function HubWorld.build(Config)
 		pl.Range = 30
 		pl.Brightness = 1.6
 		pl.Parent = lintel
-		local label = billboard(lintel, "", 5, 340, 110)
+		local PL = Config.PORTAL_LABEL
+		local label = billboard(lintel, "", 4 + (i % 2) * 1.5, PL.titleSize[1] + 40, PL.titleSize[2], { key = "c" .. size, kind = "title", maxDist = PL.maxDist })
 		label.Text = "🏰 CHÂTEAU · " .. (size == 1 and "SOLO" or (size .. " JOUEURS"))
-		local status = billboard(padPart, "Libre", 7, 300, 60)
+		local status = billboard(padPart, "Libre", 7 + (i % 2) * 1.2, PL.statusSize[1], PL.statusSize[2], { key = "c" .. size, kind = "status", maxDist = PL.maxDist })
 		status.TextColor3 = Color3.fromRGB(255, 190, 150)
 		zones["c" .. size] = { part = padPart, status = status, center = Vector3.new(cx, 0, cz), radius = 9, color = castleColor, title = label, size = size, mode = "castle" }
 	end
