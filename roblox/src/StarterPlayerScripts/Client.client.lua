@@ -250,7 +250,7 @@ local function toast(msg)
 		accent = COL.yellow
 	elseif msg:find("^😡") or msg:find("^🐕") or msg:find("^🥷") or msg:find("Pas assez") or msg:find("Sac plein") or msg:find("Base pleine") then
 		accent = COL.red
-	elseif msg:find("^🎯") or msg:find("^🎁") or msg:find("^♻") then
+	elseif msg:find("^🎯") or msg:find("^🎁") or msg:find("^🌅") or msg:find("^⭐") then
 		accent = COL.green
 	end
 	local t = text(toasts, { Size = UDim2.new(1, 0, 0, 30), TextSize = 14, Text = msg, BackgroundColor3 = COL.pill, BackgroundTransparency = 0.08, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y })
@@ -824,8 +824,8 @@ function render()
 		local dupes, dupeTotal = Config.dupesToSell(state.slots, state.cap)
 		if #dupes > 0 then
 			addRow({
-				icon = "♻️", title = "Revendre les doublons (" .. #dupes .. ")", desc = "Garde le meilleur pet de chaque espèce.",
-				btn = "+" .. fmt(dupeTotal), btnColor = COL.green,
+				icon = "⭐", title = "Échanger les doublons (" .. #dupes .. ")", desc = "Garde le meilleur pet de chaque espèce, échange les autres contre des pièces.",
+				btn = "Échanger " .. fmt(dupeTotal), btnColor = COL.green,
 				onClick = function()
 					RAction:FireServer("sellDupes")
 				end,
@@ -936,7 +936,7 @@ function render()
 		else
 			addNote("Classé par renaissances puis par œufs éclos.")
 			for i, e in ipairs(topData) do
-				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "♻️ " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
+				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "🌅 " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
 			end
 		end
 	elseif panel.name == "bonus" then
@@ -995,7 +995,7 @@ function render()
 	elseif panel.name == "more" then
 		local cost = Config.rebirthCost(state.rb)
 		addRow({
-			icon = "♻️", title = "Renaissance" .. (state.rb > 0 and (" (x" .. state.rb .. ")") or ""),
+			icon = "🌅", title = "Renaissance" .. (state.rb > 0 and (" (x" .. state.rb .. ")") or ""),
 			desc = "Remet pièces, pets et améliorations à zéro. Garde vitesse et collection. Revenus +50% définitif.",
 			btn = panel.confirm and "Confirmer ?" or ("🪙 " .. fmt(cost)),
 			btnColor = panel.confirm and COL.red or nil, btnText = panel.confirm and COL.text or nil, cost = (not panel.confirm) and cost or nil,
@@ -1139,7 +1139,7 @@ if Config.HUD.shortcuts then
 end
 
 ---------------------------------------------------------------- Boutons de navigation (colonne gauche)
-local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "♻️", "Plus" } }
+local navDefs = { { "shop", "🛒", "Boutique" }, { "dex", "📖", "Pets" }, { "quests", "🎯", "Missions" }, { "bonus", "🎁", "Bonus" }, { "top", "🏆", "Top" }, { "more", "⚙️", "Plus" } }
 local navBar = make("Frame", { Size = UDim2.fromOffset(Layout.NAV_BUTTON, #navDefs * (Layout.NAV_BUTTON + Layout.NAV_GAP) - Layout.NAV_GAP), BackgroundTransparency = 1 }, hudRoot)
 make("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, Layout.NAV_GAP), HorizontalAlignment = Enum.HorizontalAlignment.Center }, navBar)
 local navDots = {}

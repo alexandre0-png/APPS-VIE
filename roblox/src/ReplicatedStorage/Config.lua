@@ -1294,7 +1294,7 @@ Config.ACHIEVEMENTS = {
 	{ id = "hatched", name = "Éleveur", emoji = "🐣", stat = "hatched", unit = "œufs éclos", goals = { 10, 50, 250, 1000 } },
 	{ id = "stolen", name = "Chipeur", emoji = "🧤", stat = "stolen", unit = "œufs chipés", goals = { 10, 50, 200, 800 } },
 	{ id = "species", name = "Collectionneur", emoji = "📚", stat = "species", unit = "espèces découvertes", goals = { 3, 6, 12, 18 } },
-	{ id = "rebirth", name = "Renaissant", emoji = "♻️", stat = "rb", unit = "renaissances", goals = { 1, 2, 4, 8 } },
+	{ id = "rebirth", name = "Renaissant", emoji = "🌅", stat = "rb", unit = "renaissances", goals = { 1, 2, 4, 8 } },
 	{ id = "puzzle", name = "Déchiffreur", emoji = "🔮", stat = "puzzles", unit = "énigmes résolues", goals = { 1, 5, 15, 40 } },
 }
 Config.ACH_REWARD = { coins = { 500, 5000, 50000, 500000 }, mins = { 1, 5, 20, 60 } }

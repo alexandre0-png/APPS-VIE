@@ -3004,6 +3004,21 @@ do
 	end)())
 end
 
+-- Icônes : plus aucun pictogramme de recyclage « ♻ » (mal lisible, ressemble à un « + ») ----------------------------------------------------
+do
+	suite("Icônes : plus de ♻ dans le jeu, pictogrammes uniformes")
+	local bad = {}
+	for _, f in ipairs({ "roblox/src/ReplicatedStorage/Config.lua", "roblox/src/ServerScriptService/Main.server.lua", "roblox/src/StarterPlayerScripts/Client.client.lua", "roblox/src/Hub/StarterPlayerScripts/HubClient.client.lua", "roblox/src/Hub/ServerScriptService/Hub.server.lua", "roblox/src/ServerScriptService/Builder.lua" }) do
+		local okRead, src = pcall(fs.readFile, f)
+		if okRead and (src:find("♻", 1, true) or src:find("🔄", 1, true)) then
+			bad[#bad + 1] = f
+		end
+	end
+	check("Icônes : ni « ♻ » ni « 🔄 » dans les scripts (" .. table.concat(bad, ",") .. ")", #bad == 0)
+	local client = fs.readFile("roblox/src/StarterPlayerScripts/Client.client.lua")
+	check("Icônes : échange des doublons = ⭐ « Échanger » (bouton, titre), renaissance = 🌅, menu Plus = ⚙️", client:find('icon = "⭐", title = "Échanger les doublons', 1, true) ~= nil and client:find('btn = "Échanger "', 1, true) ~= nil and client:find('icon = "🌅", title = "Renaissance"', 1, true) ~= nil and client:find('{ "more", "⚙️", "Plus" }', 1, true) ~= nil)
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")

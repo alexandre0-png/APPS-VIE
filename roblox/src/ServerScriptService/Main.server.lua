@@ -1655,7 +1655,7 @@ function actions.sellDupes(s)
 	end
 	d.coins += total
 	rebuildFollowers(s)
-	notify(s.player, "💰 " .. #list .. " doublon(s) revendu(s) : +" .. Config.fmt(total) .. " 🪙", "claim")
+	notify(s.player, "⭐ " .. #list .. " doublon(s) échangé(s) : +" .. Config.fmt(total) .. " 🪙", "claim")
 	sync(s)
 end
 
@@ -1678,7 +1678,7 @@ function actions.rebirth(s)
 	rebuildFollowers(s)
 	storyRefresh(s)
 	sync(s)
-	notify(s.player, string.format("♻️ Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb), "claim")
+	notify(s.player, string.format("🌅 Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb), "claim")
 end
 
 function actions.equip(s, i)

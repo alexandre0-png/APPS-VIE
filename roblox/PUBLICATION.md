@@ -21,7 +21,7 @@ La Grande Couvée s'est brisée : reprends ses œufs, fais-les éclore et devien
 🐣 18 pets, 6 raretés, tailles et mutations (Doré, Néon, Arc-en-ciel, Alien)
 📖 Un index de collection : chaque série d'espèces découvertes donne un bonus définitif
 💰 Tes pets rapportent des pièces, même quand tu es absent
-♻️ Revends tes doublons, améliore ta base, renais pour des bonus permanents
+⭐ Échange tes doublons, améliore ta base, 🌅 renais pour des bonus permanents
 🎯 Missions du jour avec œufs en récompense, énigme quotidienne, événements
 
 Un œuf posé dans ta base est protégé quelques secondes, puis les autres joueurs peuvent te le voler. Les probabilités d'éclosion sont affichées dans le jeu.

@@ -32,6 +32,10 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 
 - Hauteurs cibles (joueur = 5) : pet normal 1,7 (Commun) à 2,1 (Cosmique), jamais plus de 3 = 60 % d'un joueur même Géant ou Colossal (`petHard`) ; œufs 1,8 à 2,8 ; gardiens chien 2,5, loup 3, ours 5, chevalier 4,5. Pet procédural réduit dans les mêmes proportions (rayon 0,9). Tests : pets (le plus grand <= 3), œufs affichés (<= 2,8 +10 %), gardiens (±10 %), lampadaires, moulin ; un modèle qui dépasse sa cible de plus de 10 % fait échouer la suite.
 
+## 2026-11-22 (suite) : retours de test réels, lot 3 : pictogrammes
+
+- Le pictogramme de recyclage ♻ (rendu comme un « + » selon les polices) est retiré partout : échange des doublons = ⭐ « Échanger » (bouton « Échanger 1,2K », titre, message « ⭐ N doublon(s) échangé(s) »), renaissance = 🌅 (menu, succès, classement, message), menu Plus = ⚙️. Choix justifié : ⭐ dit « valeur » et reste lisible à 16 px ; 🌅 = recommencer plus fort ; aucune icône « 🔄 ». Test : plus aucun ♻ ni 🔄 dans les scripts.
+
 ## 2026-11-22 (suite) : retours de test réels, lot 1 : sol qui scintille
 
 - **Détecteur de z-fighting** (test sur le hub et la partie construits) : deux dessus horizontaux à moins de 0,05 stud qui se recouvrent sur plus de 1 stud carré sont refusés ; il a trouvé (hub) la bague de la place au même niveau que la place, les pavés des chemins sous l'anneau des portails et superposés entre eux (le chemin du portail « château » doublait celui de l'arène) ; (partie) les taches d'herbe qui se recouvraient, l'arène sous l'eau des douves, les segments de douve entre eux, les deux rivières à leur croisement, la paille du nid, l'étang de Mara, les tuiles Blender de chemin sur celles de pelouse.
