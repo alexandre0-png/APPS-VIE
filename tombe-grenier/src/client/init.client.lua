@@ -207,8 +207,15 @@ local subtitleLabel = label({
 	align = Enum.TextXAlignment.Center,
 	size = 20,
 })
+-- Sous-titres et répliques (monstre, voix, indices) : texte libre, SANS cadre ni fond ni contour de boîte ;
+-- centré en bas, lisible grâce au contour du texte, en fondu à l'apparition et à la disparition
+subtitleLabel.Name = "SousTitre"
+subtitleLabel.BackgroundTransparency = 1
+subtitleLabel.BorderSizePixel = 0
 subtitleLabel.TextTransparency = 1
-UiStyle.apply(subtitleLabel, Theme.MESSAGE_ROLES.info, { transparency = 0.1 })
+subtitleLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+subtitleLabel.TextStrokeTransparency = 1
+subtitleLabel.Font = Enum.Font.GothamBold
 subtitleLabel.Visible = false
 
 -- Message : tiers supérieur (le centre de la vue reste dégagé)
@@ -403,8 +410,35 @@ local function showToast(lbl, text, seconds)
 	fadeOut(lbl, seconds)
 end
 
-local function showSubtitle(text)
-	showToast(subtitleLabel, text, 6)
+-- Réplique : le monstre parle en rouge pâle, les autres voix en blanc chaud (jamais de cadre)
+local SPEECH_COLORS = {
+	monster = Color3.fromRGB(235, 170, 165),
+	whisper = Color3.fromRGB(200, 215, 235),
+}
+local function showSubtitle(text, voice)
+	local token = (subtitleLabel:GetAttribute("Token") or 0) + 1
+	subtitleLabel:SetAttribute("Token", token)
+	subtitleLabel.Text = text
+	subtitleLabel.TextColor3 = SPEECH_COLORS[voice] or Color3.fromRGB(240, 234, 214)
+	subtitleLabel.BackgroundTransparency = 1
+	subtitleLabel.TextTransparency = 1
+	subtitleLabel.TextStrokeTransparency = 1
+	subtitleLabel.Visible = true
+	TweenService:Create(subtitleLabel, TweenInfo.new(0.4), { TextTransparency = 0, TextStrokeTransparency = 0.25 })
+		:Play()
+	local hold = math.clamp(2.5 + #text / 18, 4, 9)
+	task.delay(hold, function()
+		if subtitleLabel:GetAttribute("Token") ~= token then
+			return
+		end
+		TweenService:Create(subtitleLabel, TweenInfo.new(1), { TextTransparency = 1, TextStrokeTransparency = 1 })
+			:Play()
+		task.delay(1.1, function()
+			if subtitleLabel:GetAttribute("Token") == token then
+				subtitleLabel.Visible = false
+			end
+		end)
+	end)
 end
 
 local function showMessage(text)
@@ -1246,8 +1280,8 @@ safeConnect(Remotes.get("Journal").OnClientEvent, "Remote Journal", function(dat
 end)
 
 safeConnect(Remotes.get("Message").OnClientEvent, "Remote Message", function(data)
-	if typeof(data) == "table" and data.text then
-		showSubtitle(data.text)
+	if typeof(data) == "table" and typeof(data.text) == "string" then
+		showSubtitle(data.text, data.voice)
 	end
 end)
 

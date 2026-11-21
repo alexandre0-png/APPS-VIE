@@ -337,9 +337,27 @@ local function walkPath(m, goal, speed)
 	return true
 end
 
+-- Répliques du monstre : texte libre à l'écran (voice = "monster"), rares (au plus une toutes les 25 s)
+local LINES = {
+	Chase = { "Je te vois.", "Reste là…", "Tu ne sortiras pas." },
+	Investigate = { "Qui est là ?", "J'ai entendu quelque chose…" },
+}
+local lastLine = -100
+local function speak(state)
+	local lines = LINES[state]
+	if not lines or clock() - lastLine < 25 then
+		return
+	end
+	lastLine = clock()
+	pcall(function()
+		Remotes.fireAll("Message", { text = lines[math.random(1, #lines)], voice = "monster" })
+	end)
+end
+
 local function setState(m, state)
 	if m.state ~= state then
 		m.state = state
+		speak(state)
 		-- Lu par le client pour le battement de cœur pendant la poursuite
 		Workspace:SetAttribute("MonsterChasing", state == "Chase")
 	end

@@ -141,7 +141,10 @@ local function caveVoice()
 	local doors = CollectionService:GetTagged("CaveDoor")
 	local source = doors[1] or anchorAt(Vector3.new(80, -6, 45))
 	Audio.play("voix_enfant", source, { lifetime = 6 })
-	Remotes.fireAll("Message", { text = "Une voix d'enfant demande de l'aide, quelque part sous tes pieds." })
+	Remotes.fireAll(
+		"Message",
+		{ text = "Une voix d'enfant demande de l'aide, quelque part sous tes pieds.", voice = "whisper" }
+	)
 end
 
 -- Une armoire tremble quelques secondes quand on approche (une seule à la fois)
@@ -311,7 +314,7 @@ local function eventLoop(rng, gen)
 			local line = PHONE_LINES[rng:int(1, #PHONE_LINES)]
 			task.delay(6, function()
 				if generation == gen then
-					Remotes.fireAll("Message", { text = line })
+					Remotes.fireAll("Message", { text = line, voice = "monster" })
 				end
 			end)
 		elseif r < 0.7 then
