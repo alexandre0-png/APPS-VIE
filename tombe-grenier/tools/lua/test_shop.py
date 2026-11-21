@@ -26,15 +26,13 @@ class TestShop(unittest.TestCase):
         body = re.search(name + r" = \{([^}]*)\}", self.block).group(1)
         return dict(re.findall(r"(\w+) = (\d+)", body))
 
-    def test_every_id_is_zero_by_default(self):
+    def test_every_id_is_valid_and_matches_the_catalogue(self):
+        # 0 = article désactivé ; sinon un identifiant Roblox réel (créé par Open Cloud le 21 nov)
         for name in ("GamePasses", "Products"):
             ids = self.table(name)
             self.assertTrue(ids)
-            self.assertEqual(
-                set(ids.values()),
-                {"0"},
-                "un identifiant non nul active un achat : à renseigner par l'utilisateur",
-            )
+            for key, value in ids.items():
+                self.assertTrue(value == "0" or len(value) >= 7, f"{name}.{key} : identifiant invalide")
 
     def test_catalogue_matches_ids_with_price_name_description_icon(self):
         passes, products = self.table("GamePasses"), self.table("Products")

@@ -1692,17 +1692,21 @@ if #shopItems > 0 then
 	shopButton.Text = "Boutique"
 	shopButton.Font = Enum.Font.GothamBold
 	shopButton.TextSize = 16
-	shopButton.AnchorPoint = Vector2.new(1, 0)
-	shopButton.Position = UDim2.new(1, -16, 0, 150)
-	shopButton.Size = UDim2.fromOffset(110, 34)
+	shopButton.AnchorPoint = Vector2.new(0, 0)
+	shopButton.Position = UDim2.new(0, 16, 0, 110)
+	shopButton.Size = UDim2.fromOffset(110, 44)
 	shopButton.ZIndex = 30
 	shopButton.Parent = gui
 	UiStyle.apply(shopButton, "option", { transparency = 0.1 })
-	local shopPanel = Instance.new("Frame")
+	local shopPanel = Instance.new("ScrollingFrame")
 	shopPanel.Name = "BoutiquePanneau"
-	shopPanel.AnchorPoint = Vector2.new(1, 0)
-	shopPanel.Position = UDim2.new(1, -16, 0, 190)
-	shopPanel.Size = UDim2.fromOffset(300, 46 * #shopItems + 10)
+	shopPanel.AnchorPoint = Vector2.new(0, 0)
+	shopPanel.Position = UDim2.new(0, 16, 0, 160)
+	-- Hauteur bornée à l'écran (défilement si la liste est plus longue, p. ex. téléphone en paysage)
+	shopPanel.Size = UDim2.new(0, 300, 1, -176)
+	shopPanel.CanvasSize = UDim2.fromOffset(0, 50 * #shopItems + 10)
+	shopPanel.ScrollBarThickness = 6
+	shopPanel.BorderSizePixel = 0
 	shopPanel.Visible = false
 	shopPanel.ZIndex = 30
 	shopPanel.Parent = gui
@@ -1710,8 +1714,8 @@ if #shopItems > 0 then
 	for index, entry in ipairs(shopItems) do
 		local row = Instance.new("TextButton")
 		row.Name = "Article_" .. entry.key
-		row.Size = UDim2.new(1, -12, 0, 40)
-		row.Position = UDim2.fromOffset(6, 5 + (index - 1) * 46)
+		row.Size = UDim2.new(1, -18, 0, 44)
+		row.Position = UDim2.fromOffset(6, 5 + (index - 1) * 50)
 		row.Font = Enum.Font.GothamMedium
 		row.TextSize = 14
 		row.TextWrapped = true

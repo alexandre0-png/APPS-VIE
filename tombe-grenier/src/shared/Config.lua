@@ -107,8 +107,8 @@ Config.Monster = {
 
 -- Boutique Robux. Un identifiant à 0 = article désactivé : le jeu reste entièrement jouable gratuitement.
 Config.Shop = {
-	GamePasses = { LampeRenforcee = 0, LanterneDoree = 0 }, -- Game Passes : lampe qui se vide deux fois moins vite ; faisceau doré (cosmétique)
-	Products = { Pile = 0, Cailloux = 0, Soutien = 0 }, -- produits : une pile, des cailloux à lancer, un soutien sans effet de jeu
+	GamePasses = { LampeRenforcee = 2094131168, LanterneDoree = 2096725189 }, -- Game Passes : lampe qui se vide deux fois moins vite ; faisceau doré (cosmétique)
+	Products = { Pile = 3734229107, Cailloux = 3734229116, Soutien = 3734229125 }, -- produits : une pile, des cailloux à lancer, un soutien sans effet de jeu
 	PileAmount = 45,
 	CaillouxAmount = 5,
 	-- Catalogue (documentation, tests, panneau d'achat touche B). Un article n'est proposé que si son identifiant n'est pas 0.
