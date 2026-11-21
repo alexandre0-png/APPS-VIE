@@ -256,6 +256,9 @@ local function showRules()
 		.. "Touche H pour une indication. Ctrl ralentit tes pas, Maj court, F éclaire."
 	task.delay(12, function()
 		TweenService:Create(rules, TweenInfo.new(1.5), { TextTransparency = 1 }):Play()
+		task.delay(1.6, function()
+			rules:Destroy()
+		end)
 	end)
 end
 
@@ -1105,6 +1108,22 @@ local function openingSequence(wakeDuration)
 end
 
 -- Événements serveur
+-- Remise à zéro de l'interface (début de manche, fin de manche) : rien ne reste affiché sans raison
+local function resetHud()
+	hintLabel:SetAttribute("Token", (hintLabel:GetAttribute("Token") or 0) + 1)
+	hintLabel.Visible = false
+	journalLabel.Visible = false
+	keypad.Visible = false
+	subtitleLabel:SetAttribute("Token", (subtitleLabel:GetAttribute("Token") or 0) + 1)
+	subtitleLabel.Visible = false
+	messageLabel:SetAttribute("Token", (messageLabel:GetAttribute("Token") or 0) + 1)
+	messageLabel.Visible = false
+	for _, banner in ipairs({ zoneBanner, revealBanner, titleBanner, actionBanner }) do
+		banner:SetAttribute("Token", (banner:GetAttribute("Token") or 0) + 1)
+		banner.Visible = false
+	end
+end
+
 safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
 	if typeof(data) ~= "table" then
 		return
@@ -1141,6 +1160,8 @@ safeConnect(Remotes.get("Effect").OnClientEvent, "Remote Effect", function(data)
 			Cinematic.play(data.name, gui)
 		end
 	elseif data.kind == "Intro" then
+		resetHud()
+		objectiveLabel.Text = ""
 		restartButton.Visible = false
 		introSequence(data.duration or 8)
 		openingSequence(data.duration or 8)
@@ -1264,12 +1285,23 @@ safeConnect(Remotes.get("Hint").OnClientEvent, "Remote Hint", function(data)
 		Audio.fire("chuchotement", gui)
 		hintLabel.Text = "Indice : " .. data.text
 		hintLabel.Visible = true
+		-- Un indice ne reste jamais affiché indéfiniment : il disparaît au bout de 14 s (ou à l'étape suivante)
+		local token = (hintLabel:GetAttribute("Token") or 0) + 1
+		hintLabel:SetAttribute("Token", token)
+		task.delay(14, function()
+			if hintLabel:GetAttribute("Token") == token then
+				hintLabel.Visible = false
+			end
+		end)
 	end
 end)
 
 safeConnect(Remotes.get("Objective").OnClientEvent, "Remote Objective", function(data)
 	if typeof(data) == "table" and data.text then
 		objectiveLabel.Text = data.text
+		-- Nouvelle étape : l'indice de l'étape précédente n'a plus lieu d'être
+		hintLabel:SetAttribute("Token", (hintLabel:GetAttribute("Token") or 0) + 1)
+		hintLabel.Visible = false
 	end
 end)
 
