@@ -3282,6 +3282,7 @@ do
 	end
 	check("Titres : 20 titres (5 succès x 4 paliers), débloqués d'après les statistiques (Éleveur I-II, Collectionneur I)", #ti == 20 and unlocked == 3 and ti[1].unlocked and ti[2].unlocked and not ti[3].unlocked)
 	local saved = { Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id }
+	Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id = 0, 0
 	check("Offre : jamais proposée tant que l'achat n'est pas disponible (ID 0)", Config.boostOffer("rare", {}, 1000, nil, 0, 0) == nil)
 	Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id = 111, 222
 	local o = Config.boostOffer("rare", {}, 1000, nil, 0, 0)
@@ -4146,6 +4147,7 @@ do
 				end
 				return false
 			end
+			cfg.PRODUCTS.Revive.id = 0 -- test du produit désactivé (le vrai ID est renseigné dans Config)
 			local q0 = join("Quin0", 5800)
 			RT.step(2)
 			local rt0 = enterCastle(q0)
