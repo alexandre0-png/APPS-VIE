@@ -60,3 +60,8 @@ deco_flower_a 77356084419297 ; deco_flower_b 75380956155225 ; deco_flower_c 1113
 
 ## Lot 11 (Chipe-Œufs : arbres, chemins, protections d'œufs) : scripts/blender_make_g3c.py
 tree_oak_a 115675817596242 ; tree_oak_b 139178488755477 ; tree_birch 86165293471213 ; tree_pine 134548154871906 ; tree_sakura 136998832791777 ; tree_round 128198214830836 ; path_straight 85121318662290 ; path_curve 101412637646543 ; path_stones 119316046353622 ; egg_dome 114304098897950 ; egg_nest_fence 101252453233834 ; egg_cage 98653120562597 ; egg_shield 73837494094507. Envoyés à la session Jeu 3.
+
+## Lot 12 (Chipe-Œufs : décor village/île, inspiré des images de l'utilisateur) : scripts/blender_make_g3d.py
+scn_puits 93457733638103 ; scn_pin_haut 103664392312435 ; scn_pont_pierre 71167399273394 ; scn_maison_colombages 108434085196211 ; scn_tour_cloche 117760736577913 ; scn_rocher_a 109597978140541 ; scn_rocher_b 91218401630144 ; scn_rocher_c 126837715911422 ; scn_ile_sakura 103275800553270.
+## Lot 13 (Grenier : mobilier supplémentaire) : scripts/blender_make_g2c.py
+m_buffet_bas 104815439105065 ; m_placard_haut 136718584759461 ; m_fauteuil_osier 73883595440989 ; m_table_ronde_pied 134181576477835 ; m_chaise_accoudoirs 84730866248614 ; m_suspension 140374171340658 ; m_chandeliers 100599765357745 ; m_renard_statuette 127546013937541 ; m_livres 99596807748651 ; m_tabouret_bar 93270940759227 ; m_gueridon_lampe 93677754196340.

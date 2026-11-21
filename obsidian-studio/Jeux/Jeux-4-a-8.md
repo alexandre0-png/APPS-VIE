@@ -9,3 +9,10 @@ Reprise après publication des jeux 2 et 3. Correspondance numéro, expérience 
 - Concepts donnés : Jeu 5 zoo ; Jeu 6 tycoon évolutif ; Jeu 7 PvP sans sang avec histoire ; Jeu 8 à définir.
 - Sessions : Jeu 4 `session_0164z8QNkbMwxqwFNdbhvMzy`, Jeu 5 `session_0164z8QRnxKWaAv1uVejRxtq`, Jeu 6 `session_0164z8QTUe3r6BKc4EXFT2ev`, Jeu 7 `session_0164z8QRyyrTjyqMZ6HWDmXa`, Jeu 8 `session_0164z8QPhB1SuURKY4KQpDcZ`.
 - Achats (Game Passes, Developer Products) : IDs à 0, désactivés tant que l'utilisateur ne les crée pas.
+
+## Renumérotation (21 nov, décision de l'utilisateur)
+Jeux 4, 6 et 8 supprimés (sessions ARCHIVÉES, réversible par unarchive ; rien d'effacé côté Roblox ni dépôt). Nouvelle numérotation continue :
+- Jeu 4 = ancien Jeu 5 (zoo/Rodeo Stampede supposé) : session `session_0164z8QRnxKWaAv1uVejRxtq`, branche claude/wonderful-ritchie-1empd8.
+- Jeu 5 = ancien Jeu 7 (PvP sans sang, Arène des Légendes) : session `session_0164z8QRyyrTjyqMZ6HWDmXa`, branche claude/modest-cray-hpko8m.
+- Archivées : ancien Jeu 4 `session_0164z8QNkbMwxqwFNdbhvMzy` (claude/roblox-autonomous-studio-dipvjg), ancien Jeu 6 `session_0164z8QTUe3r6BKc4EXFT2ev` (claude/beautiful-mayer-dqnzi5), ancien Jeu 8 `session_0164z8QPhB1SuURKY4KQpDcZ` (claude/upbeat-brahmagupta-wpi5vr).
+- Travail par paires : 2+3 en cours, puis 4+5. Jeu 1 (Hôpital) à part.
