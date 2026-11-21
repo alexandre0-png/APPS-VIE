@@ -524,6 +524,11 @@ function Fake.runtime(opts)
 			local part = RT.instance("Part", nm)
 			part.Parent = model
 		end
+		if RT.assetDecals and RT.assetDecals[id] then -- ID de décal : le modèle contient un Decal dont la Texture est l'URL d'image
+			local decal = RT.instance("Decal", "Decal")
+			rawget(decal, "__props").Texture = RT.assetDecals[id]
+			decal.Parent = model
+		end
 		for _, nm in ipairs(RT.assetParts and RT.assetParts[id] or {}) do -- pièces animées par code (Pics, Lame...) d'un modèle précis
 			local part = RT.instance("Part", nm)
 			part.Parent = model

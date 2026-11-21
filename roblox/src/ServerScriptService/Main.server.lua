@@ -70,6 +70,8 @@ task.spawn(function()
 	assets.loadGroup("props") -- coffre, torche, drapeau, château en fond, moulin, enclos, lampadaire, banc, panneau
 	assets.loadGroup("ground")
 	print("[Assets] arène Blender : " .. Builder.dressArena(assets) .. " modèle(s) posé(s)")
+	assets.loadTextures()
+	print("[Assets] textures : " .. Builder.dressTextures(assets) .. " posée(s)")
 	local gt, gp = Builder.dressGround(assets)
 	print("[Assets] sol Blender : " .. gt .. " tuile(s), " .. gp .. " Parts (budget " .. Config.Assets.groundBudgetParts .. ")")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")

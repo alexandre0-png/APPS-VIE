@@ -477,6 +477,19 @@ Config.Assets = {
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
+	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
+	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
+	textures = {
+		grass = { id = 122917279401510, tile = 8, targets = { { name = "Ground", faces = { "Top" } } } },
+		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverSouth", faces = { "Top" } }, { name = "RiverWest", faces = { "Top" } }, { name = "MoatWater", faces = { "Top" } } } },
+		castleFloor = { id = 90865253086689, tile = 8, targets = { { prefix = "CastleFloor", faces = { "Top" } } } },
+		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } } } },
+		wood = { id = 136082705365776, tile = 4, targets = { { name = "BridgePlank", faces = { "Top" } } } },
+		sand = { id = 83914325296472, tile = 8, targets = { { name = "MoatBank", faces = { "Top" } } } },
+		path = { id = 84243738566468, tile = 8, targets = { { name = "PathStone", faces = { "Right" } } } }, -- pavés cylindriques : face plate = Right
+	},
+	textureOrder = { "grass", "water", "castleFloor", "castleStone", "wood", "sand", "path" },
+	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
@@ -2652,6 +2665,54 @@ function Assets.new(Config, deps)
 				end
 			else
 				A.status["x:" .. key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
+	-- Textures tuilables : chaque entrée de Config.Assets.textures est un ID de DÉCAL ; on charge le décal côté serveur, on lit son `Texture` (URL
+	-- d'image) et on la met en cache (A.textureUrls[clé]). Un échec laisse la matière actuelle (aucune URL = rien n'est posé). Retourne le nombre chargé.
+	A.textureUrls = {}
+	function A.loadTextures()
+		if cfg.Enabled ~= true or type(cfg.textures) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.textures) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.textures[key].id
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				local ok, model = withTimeout(function()
+					return deps.loadAsset(id)
+				end, cfg.timeout)
+				local url = nil
+				if ok and model ~= nil then
+					pcall(function()
+						for _, d in ipairs(model:GetDescendants()) do
+							if d:IsA("Decal") and type(d.Texture) == "string" and d.Texture ~= "" then
+								url = d.Texture
+								break
+							end
+						end
+					end)
+					pcall(function()
+						model:Destroy()
+					end)
+				end
+				if url then
+					A.textureUrls[key] = url
+					A.status["t:" .. key] = { ok = true }
+					loaded = loaded + 1
+				else
+					A.status["t:" .. key] = { ok = false, reason = ok and "aucun décal dans le modèle" or tostring(model) }
+					warn("texture « " .. key .. " » (" .. tostring(id) .. ") indisponible : matière actuelle conservée.", id)
+				end
+			else
+				A.status["t:" .. key] = { ok = false, reason = "ID invalide" }
 			end
 		end
 		return loaded

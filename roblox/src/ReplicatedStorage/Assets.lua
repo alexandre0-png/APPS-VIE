@@ -392,6 +392,54 @@ function Assets.new(Config, deps)
 		return loaded
 	end
 
+	-- Textures tuilables : chaque entrée de Config.Assets.textures est un ID de DÉCAL ; on charge le décal côté serveur, on lit son `Texture` (URL
+	-- d'image) et on la met en cache (A.textureUrls[clé]). Un échec laisse la matière actuelle (aucune URL = rien n'est posé). Retourne le nombre chargé.
+	A.textureUrls = {}
+	function A.loadTextures()
+		if cfg.Enabled ~= true or type(cfg.textures) ~= "table" then
+			return 0
+		end
+		local keys = {}
+		for key in pairs(cfg.textures) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		local loaded = 0
+		for _, key in ipairs(keys) do
+			local id = cfg.textures[key].id
+			if type(id) == "number" and id > 0 and id % 1 == 0 then
+				local ok, model = withTimeout(function()
+					return deps.loadAsset(id)
+				end, cfg.timeout)
+				local url = nil
+				if ok and model ~= nil then
+					pcall(function()
+						for _, d in ipairs(model:GetDescendants()) do
+							if d:IsA("Decal") and type(d.Texture) == "string" and d.Texture ~= "" then
+								url = d.Texture
+								break
+							end
+						end
+					end)
+					pcall(function()
+						model:Destroy()
+					end)
+				end
+				if url then
+					A.textureUrls[key] = url
+					A.status["t:" .. key] = { ok = true }
+					loaded = loaded + 1
+				else
+					A.status["t:" .. key] = { ok = false, reason = ok and "aucun décal dans le modèle" or tostring(model) }
+					warn("texture « " .. key .. " » (" .. tostring(id) .. ") indisponible : matière actuelle conservée.", id)
+				end
+			else
+				A.status["t:" .. key] = { ok = false, reason = "ID invalide" }
+			end
+		end
+		return loaded
+	end
+
 	-- Groupes de modèles Blender de Config.Assets.models (guards, castle, traps, ground, props...) : clé "groupe.nom", plafond de Parts par
 	-- Config.Assets.modelsMaxParts["groupe.nom"]. Même garanties que loadProps (un seul LoadAsset par ID, jamais d'erreur levée).
 	function A.loadGroup(group, only)

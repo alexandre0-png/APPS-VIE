@@ -780,6 +780,59 @@ function Builder.dressGround(assets)
 	return tiles, used
 end
 
+-- Pose les textures tuilables (Config.Assets.textures) sur les grandes surfaces de la carte : herbe, eaux, sol et murs du château, planches, sable,
+-- pavés. Une Texture par face listée, au plus `textureMaxCount` au total (priorité = `textureOrder`). Sans URL chargée pour une clé, la matière actuelle
+-- reste. Retourne le nombre de Textures posées. Ne lève jamais d'erreur.
+function Builder.dressTextures(assets)
+	local count = 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		local parts = {}
+		for _, d in ipairs(world:GetDescendants()) do
+			if d:IsA("BasePart") then
+				parts[#parts + 1] = d
+			end
+		end
+		local cfg = Config.Assets
+		for _, key in ipairs(cfg.textureOrder) do
+			local url = assets.textureUrls and assets.textureUrls[key]
+			local def = cfg.textures[key]
+			if url and def then
+				for _, p in ipairs(parts) do
+					for _, t in ipairs(def.targets) do
+						if (t.name and p.Name == t.name) or (t.prefix and p.Name:sub(1, #t.prefix) == t.prefix) then
+							for _, face in ipairs(t.faces) do
+								if count >= cfg.textureMaxCount then
+									return
+								end
+								local tx = Instance.new("Texture")
+								tx.Name = "Tile_" .. key
+								tx.Texture = url
+								tx.Face = Enum.NormalId[face]
+								tx.StudsPerTileU = def.tile
+								tx.StudsPerTileV = def.tile
+								tx.Transparency = def.transparency or 0
+								tx.Parent = p
+								count = count + 1
+							end
+						end
+					end
+				end
+			end
+		end
+	end)
+	return count
+end
+
 -- Anime la herse de la salle d'après l'état de la porte procédurale (appelé 10 fois par seconde, ne change que sur changement d'état).
 function Builder.animDoor(rec, open)
 	local vis = rec.vis

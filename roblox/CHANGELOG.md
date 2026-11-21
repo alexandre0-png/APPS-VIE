@@ -28,6 +28,12 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : textures tuilables
+
+- `Assets.loadTextures` : les 7 IDs approuvés sont des DÉCALS ; chargés côté serveur par `LoadAsset`, le `Decal.Texture` est lu et l'URL mise en cache (`textureUrls`), le modèle détruit. Échec, délai ou décal absent : la matière actuelle reste (warn).
+- `Builder.dressTextures` : une `Texture` par face visible (`StudsPerTileU/V` = `tile`) sur le sol de la carte (herbe 8), rivières et douves (eau 10, transparence 0,2), sol (dalles 8) et murs (pierre 6, faces intérieures) du château, planches de ponts (bois 4), berges (sable 8), pavés des chemins (terre 8, face plate des cylindres). Priorité `textureOrder`, plafond `textureMaxCount` (220). Chargé après les accessoires et avant le sol Blender.
+- Non testé en Studio : alignement des faces sur les cylindres des pavés, rendu des textures sur le verre des rivières (la matière Glass reste), cohérence visuelle avec les tuiles Blender du sol (`ground.grass` se pose au-dessus de la texture).
+
 ## 2026-11-22 (suite) : sons
 
 - 18 sons synthétiques approuvés (rbxassetid://) branchés dans `Config.SOUNDS` : éclosion par rareté (`Config.hatchSoundKey` : commun pop, rare, épique, légendaire pour 4-5, secret ou Cosmique = son secret), pièce (récompenses), achat, refus (pas assez de pièces), grognement (loup, ours) et aboiement (chien) à l'alerte ou à la poursuite d'un gardien pour les joueurs à moins de 60 studs, coup reçu (gardiens, pièges, chevaliers), pics qui sortent (par salle, au plus 1 fois / 0,8 s), lame et boulet en boucle selon la distance (tags `CastleBlade`, `CastleBall`, `Config.loopFade`), fanfare à la fin du château, ambiances prairie (dehors) et château (dedans).

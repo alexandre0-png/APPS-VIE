@@ -473,6 +473,19 @@ Config.Assets = {
 	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20,
 		["ground.plaza"] = 30, ["ground.path"] = 30, ["ground.grass"] = 30 },
+	-- Textures tuilables (IDs de DÉCALS, lus côté serveur) posées par Texture sur la face visible des grandes surfaces. `tile` = studs par répétition.
+	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
+	textures = {
+		grass = { id = 122917279401510, tile = 8, targets = { { name = "Ground", faces = { "Top" } } } },
+		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverSouth", faces = { "Top" } }, { name = "RiverWest", faces = { "Top" } }, { name = "MoatWater", faces = { "Top" } } } },
+		castleFloor = { id = 90865253086689, tile = 8, targets = { { prefix = "CastleFloor", faces = { "Top" } } } },
+		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } } } },
+		wood = { id = 136082705365776, tile = 4, targets = { { name = "BridgePlank", faces = { "Top" } } } },
+		sand = { id = 83914325296472, tile = 8, targets = { { name = "MoatBank", faces = { "Top" } } } },
+		path = { id = 84243738566468, tile = 8, targets = { { name = "PathStone", faces = { "Right" } } } }, -- pavés cylindriques : face plate = Right
+	},
+	textureOrder = { "grass", "water", "castleFloor", "castleStone", "wood", "sand", "path" },
+	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
 	castleBudgetParts = 1700, -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)

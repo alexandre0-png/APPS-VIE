@@ -2687,6 +2687,28 @@ do
 	check("Sons : crochets secret et portail encore muets (aucun ID fourni), menu relié au clic, sons activés", Config.SOUNDS.secret.id == "" and Config.SOUNDS.portal.id == "" and Config.SOUNDS.menu.id ~= "" and Config.SOUNDS_ENABLED == true)
 end
 
+-- Textures tuilables : configuration -------------------------------------------------------------------------------------------
+do
+	suite("Textures : IDs, tailles de répétition, ordre de priorité, plafond")
+	local tx, ids, ok = Config.Assets.textures, {}, true
+	local n = 0
+	for key, def in pairs(tx) do
+		n += 1
+		if type(def.id) ~= "number" or def.id <= 0 or ids[def.id] or def.tile <= 0 or #def.targets == 0 then
+			ok = false
+		end
+		ids[def.id] = true
+		local inOrder = false
+		for _, k in ipairs(Config.Assets.textureOrder) do
+			inOrder = inOrder or k == key
+		end
+		ok = ok and inOrder
+	end
+	check("Textures : 7 entrées (herbe, eau, sol et murs du château, bois, sable, chemin) avec ID unique, taille positive, cibles et priorité", n == 7 and #Config.Assets.textureOrder == 7 and ok)
+	check("Textures : IDs et tailles approuvés (herbe 8, pierre 6, bois 4, eau 10 translucide à 0,2)", tx.grass.id == 122917279401510 and tx.grass.tile == 8 and tx.castleStone.id == 87480813124386 and tx.castleStone.tile == 6 and tx.wood.id == 136082705365776 and tx.wood.tile == 4 and tx.water.id == 72897294450066 and tx.water.tile == 10 and tx.water.transparency == 0.2 and tx.castleFloor.id == 90865253086689 and tx.sand.id == 83914325296472 and tx.path.id == 84243738566468)
+	check("Textures : plafond mobile raisonnable (<= 300 Textures)", Config.Assets.textureMaxCount > 0 and Config.Assets.textureMaxCount <= 300)
+end
+
 -- Sons : rareté, volumes, gardiens, boucles --------------------------------------------------------------------------------
 do
 	suite("Sons : choix selon la rareté, volumes bornés, alerte des gardiens, boucles localisées, option de volume")
@@ -2824,6 +2846,8 @@ do
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
 		local tm = Config.Assets.models.traps
+		local tx = Config.Assets.textures
+		RT.assetDecals = { [tx.grass.id] = "rbxassetid://9001", [tx.water.id] = "rbxassetid://9002", [tx.castleStone.id] = "rbxassetid://9003", [tx.path.id] = "rbxassetid://9004" } -- bois, sable, dalles : sans décal = repli
 		RT.assetParts = { [tm.spikes] = { "Pics__C0C0C0" }, [tm.blade] = { "Lame__D8DCE8" }, [Config.Assets.models.castle.door] = { "Herse__8A8A8A" }, [Config.Assets.models.props.chest] = { "Couvercle__E8B923" }, [Config.Assets.models.props.mill] = { "Pales__AA7733", "Pales2__AA7733" } } -- les modèles de pièges portent leurs pièces animées
 	end
 	if RT then
@@ -3116,6 +3140,19 @@ do
 				expK += #Castle.knights(Castle.room(r))
 			end
 			check("Château : " .. expK .. " chevaliers Blender posés (" .. tostring(names.CastleKnightModel) .. ")", names.CastleKnightModel == expK and expK == 4)
+			local texCount, byKey, bad = 0, {}, 0
+			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+				if d.ClassName == "Texture" then
+					texCount += 1
+					local nm = rawget(d, "__props").Name
+					byKey[nm] = (byKey[nm] or 0) + 1
+					if rawget(d, "__props").StudsPerTileU <= 0 or not tostring(rawget(d, "__props").Texture):find("rbxassetid://900", 1, true) then
+						bad += 1
+					end
+				end
+			end
+			check("Textures : herbe (1), eaux, murs du château posés avec l'URL du décal ; bois, sable, dalles sans décal = aucune texture (repli matière)", byKey.Tile_grass == 1 and (byKey.Tile_water or 0) >= 1 and (byKey.Tile_castleStone or 0) >= 10 and byKey.Tile_wood == nil and byKey.Tile_sand == nil and byKey.Tile_castleFloor == nil and bad == 0)
+			check("Textures : plafond respecté (" .. texCount .. " <= " .. Config.Assets.textureMaxCount .. ")", texCount <= Config.Assets.textureMaxCount and texCount > 12)
 			local R = Castle.ROOMS
 			check("Château : murs, tours, herses, coffre, torches, drapeaux et fond Blender posés (" .. tostring(names.CastleWallModel) .. " murs, " .. tostring(names.CastleTowerModel) .. " tours, " .. tostring(names.CastleDoorModel) .. " portes, " .. tostring(names.CastleChestModel) .. " coffre, " .. tostring(names.CastleTorchModel) .. " torches, " .. tostring(names.CastleFlagModel) .. " drapeaux, " .. tostring(names.CastleBackdrop) .. " fond)", names.CastleWallModel == R * 4 and names.CastleTowerModel == 2 and names.CastleDoorModel == R and names.CastleChestModel == 1 and names.CastleTorchModel == R * 2 and names.CastleFlagModel == 2 and names.CastleBackdrop == 1)
 		end
