@@ -150,8 +150,20 @@ Config.Textures = {
 		papier_fleuri = 133522614389829,
 		papier_enfant = 134002350904585,
 		faience_murale = 80018384734004,
+		bois_planches = 136082705365776,
+		briques_cave = 110243665972154,
+		platre_fissure = 89934903274963,
+		moquette_bordeaux = 76003718416351,
+		moquette_bleue = 112143370146391,
+		moquette_verte = 71770506233998,
+		carreaux_bleutes = 128807555994876,
+		rideau_tissu = 134198227829676, -- chargée, non posée : les rideaux font partie des fenêtres Blender
+		herbe = 122917279401510,
+		terre_chemin = 84243738566468,
+		pierre_chateau = 87480813124386,
+		dalles_chateau = 90865253086689,
 	},
-	Tile = {}, -- exemple : Tile = { damier_cuisine = 4 }
+	Tile = { bois_planches = 4, briques_cave = 6, carreaux_bleutes = 4, pierre_chateau = 6 }, -- autres : StudsPerTile
 }
 
 -- Sons synthétiques (ogg) : Enabled = false coupe les nouveaux sons (les anciens restent). Un son dont l'asset ne se

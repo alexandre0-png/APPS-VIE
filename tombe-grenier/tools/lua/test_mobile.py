@@ -57,6 +57,17 @@ class TestMobileBudgets(unittest.TestCase):
         block = src[src.index("MapBuilder.ACCESSORIES = {") : src.index("local function placeAccessories")]
         self.assertLessEqual(block.count('{ "'), 40)
 
+    def test_late_texture_budget(self):
+        # Après la pose des textures (décals simulés), le nombre de Texture reste borné pour le mobile
+        sys.path.insert(0, HERE)
+        import test_boot_async as boot
+
+        lua = boot.server(boot.TestLateDressing.STUB)
+        lua.execute("SWALLOW = true; advance(40)")
+        n = int(lua.execute('local k = 0 for _, d in ipairs(workspace.TombeMap:GetDescendants()) do if d.ClassName == "Texture" then k = k + 1 end end return k'))
+        self.assertLessEqual(n, 450)
+        self.assertGreater(n, 20)
+
     def test_trims_are_capped(self):
         src = read("src", "server", "MapBuilder.lua")
         self.assertLessEqual(int(re.search(r"TRIM_MAX = (\d+)", src).group(1)), 160)

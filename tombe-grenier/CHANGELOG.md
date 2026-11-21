@@ -2,6 +2,10 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Textures supplémentaires (lot 5)
+- 12 décals ajoutés à `Config.Textures.Ids` (20 au total, traces `[Boot] textures chargées : N sur 20`) : planches du grenier, briques de cave (murs du sous-sol), plâtre fissuré (murs `mur`), moquettes bordeaux, bleue et verte, carreaux bleutés (sols et murs des salles d'eau), herbe, terre de l'allée (nouvelle matière `allee`), pierre de château (façade, nouvelle matière `facade`), dalles de château (sol de la tombe). `rideau_tissu` est chargée mais non posée : les rideaux font partie des fenêtres Blender.
+- Aucune pièce ajoutée : seulement des `Texture` sur des pièces existantes (budget testé, 450 au plus) ; tailles par texture dans `Config.Textures.Tile`.
+
 ### Sons synthétiques (lot 4)
 - 14 sons ogg approuvés dans `AudioManifest` (ambiance grenier, vent, murmure, chuchotement, sting du monstre, battement de cœur, pas de bois et de course, marche d'escalier, grincement et verrou de porte, clé ramassée, coffre, tic-tac) ; `Config.Audio` (`Enabled`, `PreloadTimeout`, `MonsterNear`).
 - `Audio.preloadNew` charge ces sons en arrière-plan après la carte (serveur) et 3 s après le lancement (client) ; `Audio.play` ne joue un son synthétique que s'il est chargé, sinon l'ancien son reste (`prefer` : ambiance, ambiance longue, grincement de porte, cri du monstre). Aucun son ni erreur si l'asset est refusé.

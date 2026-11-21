@@ -73,6 +73,9 @@ local MATERIALS = {
 		tex = "100280695301167",
 		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
 		tile = 4,
+
+		lateTex = "platre_fissure",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	papier = {
 		color = Color3.fromRGB(150, 130, 110),
@@ -96,6 +99,9 @@ local MATERIALS = {
 		tex = "539614542",
 		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
 		tile = 4,
+
+		lateTex = "bois_planches",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	rouille = {
 		color = Color3.fromRGB(90, 60, 40),
@@ -103,6 +109,9 @@ local MATERIALS = {
 		tex = "889609059",
 		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
 		tile = 4,
+
+		lateTex = "briques_cave",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	beton = {
 		color = Color3.fromRGB(100, 100, 98),
@@ -110,6 +119,9 @@ local MATERIALS = {
 		tex = "65710031",
 		faces = { Enum.NormalId.Front, Enum.NormalId.Back },
 		tile = 4,
+
+		lateTex = "briques_cave",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	plancher = {
 		color = Color3.fromRGB(70, 50, 34),
@@ -164,12 +176,37 @@ local MATERIALS = {
 		lateTex = "damier_cuisine",
 		lateFaces = { Enum.NormalId.Top },
 	},
-	carreaux_bleus = { color = Color3.fromRGB(150, 190, 200), material = Enum.Material.Marble },
-	moquette_verte = { color = Color3.fromRGB(46, 84, 62), material = Enum.Material.Fabric },
-	moquette_bordeaux = { color = Color3.fromRGB(104, 34, 44), material = Enum.Material.Fabric },
-	moquette_bleue = { color = Color3.fromRGB(58, 76, 110), material = Enum.Material.Fabric },
+	carreaux_bleus = {
+		color = Color3.fromRGB(150, 190, 200),
+		material = Enum.Material.Marble,
+		lateTex = "carreaux_bleutes",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	moquette_verte = {
+		color = Color3.fromRGB(46, 84, 62),
+		material = Enum.Material.Fabric,
+		lateTex = "moquette_verte",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	moquette_bordeaux = {
+		color = Color3.fromRGB(104, 34, 44),
+		material = Enum.Material.Fabric,
+		lateTex = "moquette_bordeaux",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	moquette_bleue = {
+		color = Color3.fromRGB(58, 76, 110),
+		material = Enum.Material.Fabric,
+		lateTex = "moquette_bleue",
+		lateFaces = { Enum.NormalId.Top },
+	},
 	beton_sol = { color = Color3.fromRGB(110, 110, 106), material = Enum.Material.Concrete },
-	dalles_tombe = { color = Color3.fromRGB(58, 56, 60), material = Enum.Material.Slate },
+	dalles_tombe = {
+		color = Color3.fromRGB(58, 56, 60),
+		material = Enum.Material.Slate,
+		lateTex = "dalles_chateau",
+		lateFaces = { Enum.NormalId.Top },
+	},
 	faience = {
 		color = Color3.fromRGB(214, 214, 208),
 		material = Enum.Material.Marble,
@@ -179,7 +216,7 @@ local MATERIALS = {
 	faience_bleue = {
 		color = Color3.fromRGB(140, 180, 192),
 		material = Enum.Material.Marble,
-		lateTex = "faience_murale",
+		lateTex = "carreaux_bleutes",
 		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	papier_vert = { color = Color3.fromRGB(96, 124, 96), material = Enum.Material.Fabric },
@@ -196,6 +233,18 @@ local MATERIALS = {
 		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
 	},
 	papier_bleu = { color = Color3.fromRGB(104, 130, 168), material = Enum.Material.Fabric },
+	allee = {
+		color = Color3.fromRGB(96, 78, 58),
+		material = Enum.Material.Ground,
+		lateTex = "terre_chemin",
+		lateFaces = { Enum.NormalId.Top },
+	},
+	facade = {
+		color = Color3.fromRGB(110, 100, 92),
+		material = Enum.Material.Brick,
+		lateTex = "pierre_chateau",
+		lateFaces = { Enum.NormalId.Front, Enum.NormalId.Back },
+	},
 	bois = { color = Color3.fromRGB(92, 62, 40), material = Enum.Material.Wood },
 	asphalte = { color = Color3.fromRGB(45, 45, 48), material = Enum.Material.Asphalt },
 	-- Plafond du grenier : ciel intérieur sur la face tournée vers les combles, ardoise dessus
@@ -213,7 +262,12 @@ local MATERIALS = {
 	vert = { color = Color3.fromRGB(40, 70, 40), material = Enum.Material.LeafyGrass },
 	porcelaine = { color = Color3.fromRGB(220, 220, 215), material = Enum.Material.SmoothPlastic },
 	carton = { color = Color3.fromRGB(150, 120, 80), material = Enum.Material.Cardboard },
-	herbe = { color = Color3.fromRGB(46, 74, 40), material = Enum.Material.Grass },
+	herbe = {
+		color = Color3.fromRGB(46, 74, 40),
+		material = Enum.Material.Grass,
+		lateTex = "herbe",
+		lateFaces = { Enum.NormalId.Top },
+	},
 	-- Passe 2 : matériaux des détails narratifs (taches, papiers, toiles, jouets...)
 	tache = { color = Color3.fromRGB(58, 22, 20), material = Enum.Material.Slate },
 	terre = { color = Color3.fromRGB(62, 48, 36), material = Enum.Material.Ground },
@@ -512,7 +566,7 @@ local function buildHouse(root)
 	for _, w in ipairs(Data.walls) do
 		-- Murs du pourtour : façade en brique
 		local outer = w.x0 <= -0.4 or w.z0 <= -0.4 or w.x1 >= 120.4 or w.z1 >= 90.4
-		makeBox(folders.Murs, w, outer and "brique" or w.mat, w.name or "Mur")
+		makeBox(folders.Murs, w, (outer and w.y1 > 0) and "facade" or (outer and "brique" or w.mat), w.name or "Mur")
 	end
 	-- Fenêtres sur les façades nord et sud, et cheminée contre le mur ouest du salon
 	local windows = {

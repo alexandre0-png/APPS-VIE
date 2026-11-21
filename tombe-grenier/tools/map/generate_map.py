@@ -861,7 +861,7 @@ def garden():
         box(-8, 0, -1, 0, 0, 90, "herbe", "pelouse ouest"),
         box(120, 128, -1, 0, 0, 90, "herbe", "pelouse est"),
     ]
-    path = [box(55, 65, -0.4, 0, 90, 150, "pierre", "allée")]
+    path = [box(55, 65, -0.4, 0, 90, 150, "allee", "allée")]
     # Escalier extérieur qui descend au sous-sol par la porte du mur sud (x 100..106, z 90..104)
     steps = []
     for k in range(12):

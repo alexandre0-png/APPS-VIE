@@ -80,7 +80,7 @@ class TestLateDressing(unittest.TestCase):
             'local k = 0 for _, d in ipairs(workspace.TombeMap:GetDescendants()) do if d.ClassName == "Texture" and d.Texture == "rbxassetid://777" then k = k + 1 end end return k'
         ))
         self.assertGreater(n, 10)
-        self.assertTrue(any("[Boot] textures chargées : 8 sur 8" in l for l in prints(lua)), prints(lua))
+        self.assertTrue(any("[Boot] textures chargées : 20 sur 20" in l for l in prints(lua)), prints(lua))
 
     def test_without_textures_the_current_materials_stay(self):
         lua = server("return nil")
