@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Premières secondes : 3 étapes passables
+
+- Le premier œuf est déjà OFFERT et posé dans la base (éclosion 6 s). `Config.onboarding` : étape 1 « aller vers l'œuf » (flèche vers la base), 2 « toucher l'œuf pour l'accélérer », 3 « il éclot ». Carte d'objectif avec bouton « Passer › » ; ensuite le tutoriel existant reprend. Textes de moins de 110 octets.
+- Test : la première éclosion arrive moins de 15 s après l'arrivée du joueur (œuf de départ : 6 s). Les étapes « Prends un œuf » / « Pose-le dans ta base » demandées n'existent pas telles quelles : l'œuf est déjà dans la base.
+- Chevaliers du château : rebond de marche ; territoire, vitesse (< 16), espacement et continuité testés sur 10 minutes ; pets suiveurs tournés vers leur direction de marche.
+
 ## Économie : cibles de rythme mesurées
 
 - `tests/Economy.lua` journalise maintenant la première éclosion, le premier pet de chaque rareté et le niveau de base atteint ; la simulation respecte la pitié coupée et la règle d'amélioration à 5 %. `tools/sim_economy.py` les affiche.

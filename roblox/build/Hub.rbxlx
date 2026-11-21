@@ -949,6 +949,21 @@ Config.TUTORIAL = {
 	{ id = "species3", stat = "species", goal = 3, text = "Découvre 3 espèces de pets" },
 }
 -- st = { hatched, stolen, species } ; retourne { index, total, text, prog, goal } de la première étape non terminée, ou nil (tutoriel fini).
+-- Premières secondes : l'œuf de départ est OFFERT et déjà posé dans la base (il éclot en quelques secondes). Trois étapes courtes, passables :
+-- 1 aller vers l'œuf (flèche), 2 le toucher pour l'accélérer, 3 le regarder éclore. `nearEgg` : le joueur est près de sa base ; `remaining` : secondes avant l'éclosion.
+function Config.onboarding(hatched, nearEgg, remaining)
+	if type(hatched) ~= "number" or hatched >= 1 then
+		return nil
+	end
+	if not nearEgg then
+		return { index = 1, total = 3, text = "🥚 Ton œuf offert t'attend dans ta base : suis la flèche" }
+	end
+	if type(remaining) == "number" and remaining > 2 then
+		return { index = 2, total = 3, text = "👆 Touche l'œuf : il éclot plus vite" }
+	end
+	return { index = 3, total = 3, text = "🐣 Il éclot ! Regarde ce que tu obtiens" }
+end
+
 function Config.tutorial(st)
 	for i, step in ipairs(Config.TUTORIAL) do
 		local v = (st and st[step.stat]) or 0

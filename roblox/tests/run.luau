@@ -4947,7 +4947,7 @@ do
 			return nil
 		end
 		check("Client : la promesse d'accueil (titre, promesse, bouton Jouer) s'affiche", findText(Config.TAGLINE) ~= nil and findText(Config.PROMISE.button) ~= nil)
-		check("Client : l'objectif en cours et le premier geste (toucher l'œuf) sont proposés", findText("Touche ton œuf") ~= nil)
+		check("Client : l'objectif en cours et le premier geste (toucher l'œuf) sont proposés (étapes 1 à 3, bouton Passer)", (findText("Ton œuf offert") ~= nil or findText("Touche l'œuf") ~= nil) and findText("Passer") ~= nil)
 		-- ouvrir la boutique par le raccourci (ou la manette X)
 		RT.actions.ChipeShop(nil, RT.env.Enum.UserInputState.Begin)
 		RT.step(1)
@@ -6172,6 +6172,43 @@ do
 	local ax, az = EZ.travelDir(3, 4, 1, 1.5)
 	local bx = EZ.travelDir(0.5, 0, 1, 1.5)
 	check("Pets suiveurs : travelDir donne la direction unitaire (0,6 ; 0,8), nil quand le pet est quasi immobile, entrées invalides sans erreur", math.abs(ax - 0.6) < 1e-9 and math.abs(az - 0.8) < 1e-9 and bx == nil and EZ.travelDir(nil, 1, 1) == nil and EZ.travelDir(0 / 0, 1, 1) == nil and EZ.travelDir(1, 1, 0) == nil)
+end
+
+
+do
+	suite("Premières secondes : 3 étapes courtes, passables, temps jusqu'à la première éclosion")
+	local a = Config.onboarding(0, false, 6)
+	local b = Config.onboarding(0, true, 5)
+	local c = Config.onboarding(0, true, 1)
+	check("Onboarding : étape 1 (aller vers l'œuf), 2 (le toucher), 3 (il éclot), puis plus rien après la première éclosion", a.index == 1 and b.index == 2 and c.index == 3 and a.total == 3 and Config.onboarding(1, true, 0) == nil and Config.onboarding(nil, true, 0) == nil)
+	local long = 0
+	for _, st in ipairs({ a, b, c }) do
+		long = math.max(long, #st.text)
+	end
+	check("Onboarding : textes courts (" .. long .. " octets au plus, < 110)", long < 110)
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local t0 = RT.now
+		local p = RT.addPlayer("Neo", 9951, { from = "hub", partyId = "NEO", size = 1, late = false })
+		local tHatch
+		for k = 1, 400 do
+			RT.step(0.1)
+			for _, f in ipairs(RT.fired) do
+				if f[1] == "Hatch" and f[2] == p then
+					tHatch = RT.now - t0
+				end
+			end
+			if tHatch then
+				break
+			end
+		end
+		check("Première éclosion : " .. string.format("%.1f", tHatch or -1) .. " s après l'arrivée du joueur (cible < 15 s, œuf de départ offert)", tHatch ~= nil and tHatch < 15 and #RT.errors == 0)
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

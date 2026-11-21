@@ -1213,7 +1213,46 @@ corner(objBar, 4)
 objCard.Activated:Connect(function()
 	openPanel("quests")
 end)
-local function refreshObjective()
+local onboardSkipped = false
+local skipBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 3), Size = UDim2.fromOffset(62, 18), BackgroundColor3 = COL.panel, Text = "Passer ›", Font = FONT, TextSize = 12, TextColor3 = COL.text, Visible = false, ZIndex = 3 }, objCard)
+corner(skipBtn, 9)
+local refreshObjective
+skipBtn.Activated:Connect(function()
+	onboardSkipped = true
+	skipBtn.Visible = false
+	refreshObjective()
+end)
+-- Étape courante des 3 premières secondes (nil : terminé, passé ou joueur déjà expérimenté).
+local function onboardStep()
+	if onboardSkipped or not state or (state.hatched or 0) >= 1 then
+		return nil
+	end
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local plot = player:GetAttribute("PlotCF")
+	local near = root ~= nil and typeof(plot) == "CFrame" and (root.Position - plot.Position).Magnitude < 30
+	local remaining
+	for i = 1, 12 do
+		local sl = state.slots and state.slots[i]
+		if sl and sl.k == "e" then
+			remaining = sl.ends - os.time()
+			break
+		end
+	end
+	return Config.onboarding(state.hatched or 0, near, remaining)
+end
+function refreshObjective()
+	local ob = onboardStep()
+	if ob then
+		objCard.Visible = not panelFrame.Visible
+		objTitle.Text = "🎯 Étape " .. ob.index .. "/" .. ob.total
+		objText.Text = ob.text
+		objStroke.Color = COL.yellow
+		skipBtn.Visible = true
+		TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(ob.index / ob.total, 1) }):Play()
+		return
+	end
+	skipBtn.Visible = false
 	local tut = state and Config.tutorial(state.stats)
 	if tut then -- tutoriel des premières minutes : prioritaire sur l'objectif de l'histoire
 		objCard.Visible = not panelFrame.Visible
@@ -1654,7 +1693,12 @@ task.spawn(function()
 		local char = player.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart")
 		if state and root then
-			if state.carry > 0 then
+			local ob = onboardStep()
+			if ob and ob.index == 1 then
+				target = player.RespawnLocation -- flèche vers la base et l'œuf offert
+			elseif ob then
+				target = nil
+			elseif state.carry > 0 then
 				local spawnPad = player.RespawnLocation
 				target = spawnPad
 			elseif state.hatched > 0 and state.stolen == 0 then
@@ -1674,6 +1718,7 @@ task.spawn(function()
 			end
 		end
 		setGuide(target)
+		pcall(refreshObjective) -- l'étape change avec la position et le compte à rebours de l'œuf
 		task.wait(0.5)
 	end
 end)
