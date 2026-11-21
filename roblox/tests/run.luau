@@ -1649,7 +1649,7 @@ do
 	check("Scenery.nest : nid de paille (plateau, bord, 8 brins) sans erreur, compte exact", okN and nN == 10 and made == 10)
 	made = 0
 	local okP, nP = pcall(Scenery.pedestal, helpers, vec(0, 0, 0), {}, nil)
-	check("Scenery.pedestal : hexagone (3 dalles + liseré) sans erreur, compte exact", okP and nP == 4 and made == 4)
+	check("Scenery.pedestal : disque de marbre + liseré (2 Parts) sans erreur, compte exact", okP and nP == 2 and made == 2)
 	for _, spec in ipairs({ { 4, false }, { 5, false }, { 6, false }, { 3, true } }) do
 		made = 0
 		local style = Config.auraStyle(spec[1], spec[2], false)
@@ -1658,7 +1658,7 @@ do
 	end
 	made = 0
 	local okM, nM = pcall(Scenery.moat, helpers, 0, 0, {}, Config)
-	check("Scenery.moat : douve (28 segments) et pont en bois, compte exact", okM and nM == made and nM >= 40)
+	check("Scenery.moat : douve (" .. Config.Map.decor.moatSegments .. " segments) et pont en bois, compte exact", okM and nM == made and nM >= 25)
 	made = 0
 	local CastleMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
 	local okC, cworld, nC = pcall(Scenery.castle, helpers, {}, CastleMod)
@@ -1666,7 +1666,7 @@ do
 	check("Scenery.castle : chaque salle expose ses pièges (pics, lames, boulets) et sa porte selon la difficulté", okC and #cworld.rooms[1].spikes == CastleMod.room(1).spikes and #cworld.rooms[5].blades == 2 and #cworld.rooms[5].balls == 3 and cworld.rooms[3].door ~= nil)
 	made = 0
 	local okR, nR = pcall(Scenery.rivers, helpers, {}, Config)
-	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 30)
+	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 20)
 	-- géométrie : la douve ne passe sous aucune base de joueur
 	local R, W = Config.Map.moat.radius, Config.Map.moat.width
 	local clear = true
@@ -2288,7 +2288,7 @@ do
 	end
 	check("Accessoires Blender : 9 modèles (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine, nid) avec plafond de Parts et hauteur", props == 9 and propsOk and A.props.nest == 85337440768183 and A.props.fountain == 87696152276058 and A.props.bridge == 72821096584538)
 	check("Budget mobile : pire cas des accessoires de la carte <= " .. A.propsBudgetParts .. " Parts (" .. Config.propsWorstCase() .. ")", Config.propsWorstCase() <= A.propsBudgetParts)
-	check("Budget mobile : avec le décor et les accessoires, la carte reste sous le budget total", 1200 + 600 + Config.propsWorstCase() + 12 * Config.PLOT_COUNT * A.propsMaxParts.nest <= Config.Map.budgetParts)
+	check("Budget mobile : avec le décor et les accessoires, la carte reste sous le budget total", 1200 + 600 + Config.propsWorstCase() + 12 * Config.PLOT_COUNT * A.propsMaxParts.nest <= Config.Map.totalBudgetParts)
 	-- chargement : un seul LoadAsset par modèle, clonage, repli
 	local calls = {}
 	local function heavy(n)
@@ -2874,15 +2874,20 @@ do
 	end
 	local RAction, RState = findRemote("Action"), findRemote("State")
 	check("Partie : les Remotes Action et State existent et Action est écouté", RAction ~= nil and RState ~= nil and RT.signalCount(RAction, "OnServerEvent") == 1)
-	check("Partie : la carte construite reste sous le budget mobile", (function()
-		for _, line in ipairs(RT.prints) do
-			local n, budget = line:match("carte construite : (%d+) Parts %(budget (%d+)")
-			if n then
-				return tonumber(n) <= tonumber(budget)
-			end
+	local mapParts, mapBudget = nil, nil
+	for _, line in ipairs(RT.prints) do
+		local n, budget = line:match("carte construite : (%d+) Parts %(budget (%d+)")
+		if n then
+			mapParts, mapBudget = tonumber(n), tonumber(budget)
 		end
-		return false
-	end)())
+	end
+	for _, line in ipairs(RT.warns) do
+		local over = line:match("budget mobile dépassé : (%d+) Parts")
+		if over then
+			mapParts, mapBudget = tonumber(over), -1 -- dépassement signalé par le serveur
+		end
+	end
+	check("Partie : la carte construite reste sous le budget mobile (" .. tostring(mapParts) .. " Parts, budget " .. tostring(mapBudget) .. ")", mapParts ~= nil and mapParts <= mapBudget and mapBudget <= 1200)
 	check("Partie : filet de sécurité [Spawn] actif", (function()
 		for _, line in ipairs(RT.prints) do
 			if line:find("[Spawn] (game) filet", 1, true) then
@@ -3296,6 +3301,421 @@ do
 	RT.dataStoreFail = nil
 	RT.removePlayer(p3)
 	RT.step(1)
+	end
+end
+
+-- Chasse aux bugs : scénarios de bout en bout sur les vrais scripts (runtime factice) --------------------------------------------------
+do
+	suite("Chasse aux bugs : départs en plein jeu, courses entre joueurs, DataStore, achats, éclosions, gardiens, château, chargements en échec")
+	local function boot(loadFail)
+		local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+		if not RT then
+			return nil
+		end
+		if loadFail then
+			RT.loadAssetFail = "403: accès refusé"
+		end
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		return RT
+	end
+	local function remoteOf(RT, name)
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == name then
+				return d
+			end
+		end
+		return nil
+	end
+	local RT = boot(false)
+	if RT then
+		local RA = remoteOf(RT, "Action")
+		local PS = RT.Enum.ProductPurchaseDecision
+		local cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+		cfg.PRODUCTS.CoinPack.id, cfg.PRODUCTS.InstantHatch.id = 8801, 8802
+		local function join(name, id)
+			return RT.addPlayer(name, id, { from = "hub", partyId = "BUGS", size = 2, late = false })
+		end
+		local function act(p, action, arg)
+			RT.now = RT.now + 0.2
+			RT.fire(RA, "OnServerEvent", p, action, arg)
+		end
+		local rawProcess = RT.services.MarketplaceService.ProcessReceipt
+		local function receipt(info, wait)
+			local out
+			RT.task.spawn(function()
+				out = rawProcess(info)
+			end)
+			RT.step(wait or 0.5)
+			return out
+		end
+		local function snapshot(p)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+			return nil
+		end
+		local function noErrors(label)
+			check(label .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		end
+		local function record(uid)
+			local st = RT.dataStores["ChipeOeufs_v1"]
+			return st and st.data["P_" .. uid]
+		end
+		local function clearAll()
+			local list = {}
+			for _, q in ipairs(RT.players) do
+				list[#list + 1] = q
+			end
+			for _, q in ipairs(list) do
+				RT.removePlayer(q)
+			end
+			RT.step(3)
+		end
+		local function slotCount(snap) -- emplacements occupés (œufs et pets : un œuf devient pet en éclosant)
+			local n = 0
+			for i = 1, 12 do
+				if snap.slots[i] then
+					n += 1
+				end
+			end
+			return n
+		end
+		local function eggCount(snap)
+			local n = 0
+			for i = 1, 12 do
+				if snap.slots[i] and snap.slots[i].k == "e" then
+					n += 1
+				end
+			end
+			return n
+		end
+
+		-- 1. départs en plein jeu ---------------------------------------------------------------------------------------------------
+		local a = join("Ann", 5001)
+		RT.step(2)
+		act(a, "buyEgg", 1)
+		RT.step(0.5)
+		RT.removePlayer(a) -- part pendant que l'œuf couve
+		RT.step(40) -- l'œuf éclôrait pendant ce temps
+		noErrors("Départ pendant l'éclosion : aucune erreur serveur")
+		check("Départ pendant l'éclosion : le profil est sauvegardé (œuf ou pet présent)", record(5001) ~= nil and record(5001).v ~= nil)
+		check("Achat d'un joueur déjà parti : NotProcessedYet (rien n'est livré, Roblox réessaiera)", receipt({ PlayerId = 5001, PurchaseId = "B-1", ProductId = 8801 }) == PS.NotProcessedYet)
+		local b = join("Bob", 5002)
+		RT.step(2)
+		act(b, "toHub")
+		RT.removePlayer(b) -- part pendant la téléportation
+		RT.step(5)
+		noErrors("Départ pendant la téléportation vers le hub : aucune erreur")
+		local c = join("Cy", 5003)
+		RT.step(2)
+		local croot = c.Character:FindFirstChild("HumanoidRootPart")
+		local gx, gz = Config.rivalCenter(1)
+		rawget(croot, "__props").Position = RT.vec(gx, 3, gz + 12)
+		RT.step(1.5) -- le gardien le repère et attaque
+		RT.removePlayer(c) -- part en plein combat de gardien
+		RT.step(8)
+		noErrors("Départ pendant un combat de gardien : aucune erreur, le gardien perd sa cible")
+		local d = join("Dee", 5004)
+		RT.step(2)
+		local entry
+		for obj in pairs(RT.tags["CastleEntry"] or {}) do
+			entry = obj
+		end
+		local droot = d.Character:FindFirstChild("HumanoidRootPart")
+		if entry and droot then
+			local ep = entry.Parent.Position
+			rawget(droot, "__props").Position = RT.vec(ep.X, 3, ep.Z)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", entry, d)
+			RT.step(2)
+		end
+		RT.removePlayer(d) -- part dans le château
+		RT.step(5)
+		noErrors("Départ pendant le château : aucune erreur")
+
+		-- 2. courses entre joueurs -----------------------------------------------------------------------------------------------
+		local e1, e2 = join("Eli", 5011), join("Fay", 5012)
+		RT.step(2)
+		local nestPrompt
+		for _, o in ipairs(RT.all) do
+			if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == "Nest" and o:GetAttribute("Rival") == 1 then
+				local holder = o.Parent
+				if holder and holder.ClassName == "Part" then
+					nestPrompt = nestPrompt or o
+				end
+			end
+		end
+		if nestPrompt then
+			local np = nestPrompt.Parent.Position
+			for _, p in ipairs({ e1, e2 }) do
+				rawget(p.Character:FindFirstChild("HumanoidRootPart"), "__props").Position = RT.vec(np.X, 3, np.Z)
+			end
+			RT.step(1)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", nestPrompt, e1)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", nestPrompt, e2) -- même instant
+			RT.step(1)
+			local s1, s2 = snapshot(e1), snapshot(e2)
+			check("Deux joueurs volent le même œuf au même instant : un seul l'obtient (" .. tostring(s1 and s1.carry) .. " + " .. tostring(s2 and s2.carry) .. ")", s1 and s2 and s1.carry + s2.carry <= 1)
+		else
+			check("Vol simultané : un nid de Gus est disponible pour le test", false)
+		end
+		act(e1, "buyEgg", 1)
+		act(e1, "buyEgg", 1)
+		RT.step(0.5)
+		local before = snapshot(e1)
+		local eggsBefore = eggCount(before)
+		RT.fire(RA, "OnServerEvent", e1, "sellEgg", 3)
+		RT.fire(RA, "OnServerEvent", e1, "sellEgg", 3) -- même instant : le second appel est ignoré
+		RT.step(0.3)
+		act(e1, "sellEgg", 3) -- plus tard : l'emplacement est déjà vide
+		RT.step(0.5)
+		local after = snapshot(e1)
+		check("Double vente du même emplacement : un seul œuf vendu, aucun autre perdu (" .. eggsBefore .. " -> " .. eggCount(after) .. ")", eggCount(after) == eggsBefore - 1)
+		act(e1, "buyEgg", 1)
+		act(e1, "sellEgg", 3)
+		RT.step(0.5)
+		noErrors("Achat et revente rapprochés : aucune erreur")
+		clearAll()
+		check("6e joueur : refusé (serveur plein)", (function()
+			local extra = {}
+			for n = 1, 5 do
+				extra[n] = join("X" .. n, 5100 + n)
+			end
+			RT.step(4)
+			local kickedBefore, tpBefore = #RT.kicked, #RT.teleports
+			local sixth = join("Sixieme", 5200)
+			RT.step(4)
+			local refused = #RT.kicked > kickedBefore or #RT.teleports > tpBefore -- renvoyé au hub (téléportation) ou expulsé
+			for _, p in ipairs(extra) do
+				RT.removePlayer(p)
+			end
+			RT.removePlayer(sixth)
+			RT.step(2)
+			return refused
+		end)())
+		noErrors("Plusieurs arrivées et départs successifs : aucune erreur")
+
+		clearAll()
+		-- 4. DataStore en panne à la sortie, retour avant la reprise, fermeture du serveur ------------------------------------------
+		local g = join("Gil", 5301)
+		RT.step(2)
+		act(g, "buyEgg", 1)
+		RT.step(0.5)
+		RT.dataStoreFail = "503: DataStore indisponible"
+		RT.removePlayer(g) -- la sauvegarde de départ échoue
+		RT.step(30)
+		noErrors("DataStore en panne au départ : aucune erreur")
+		local lost = record(5301)
+		RT.dataStoreFail = nil
+		RT.step(80) -- les essais en arrière-plan reprennent
+		local saved = record(5301)
+		check("DataStore en panne puis rétabli : le profil de départ est finalement sauvegardé avec l'œuf acheté juste avant (rien de perdu)", saved ~= nil and saved.v ~= nil and saved.v.slots[2] ~= nil and saved.v.slots[2] ~= false and #RT.errors == 0)
+		-- (a) il repart et revient aussitôt pendant que la sauvegarde de départ réessaie : le profil rechargé doit être le dernier
+		local h = join("Hal", 5302)
+		RT.step(2)
+		act(h, "buyEgg", 1)
+		RT.step(0.5)
+		RT.dataStoreFail = "503: DataStore indisponible"
+		RT.removePlayer(h)
+		RT.step(1)
+		RT.dataStoreFail = nil -- le DataStore revient pendant les essais de la sauvegarde de départ
+		local h2 = join("Hal", 5302)
+		RT.step(6)
+		local hs = snapshot(h2)
+		RT.step(80)
+		local rec2 = record(5302)
+		check("Retour pendant la sauvegarde de départ : la reconnexion attend, recharge le dernier profil (œuf acheté présent) et ne l'écrase pas", hs ~= nil and slotCount(hs) >= 2 and rec2 ~= nil and rec2.v ~= nil and rec2.v.slots[2] ~= nil and rec2.v.slots[2] ~= false)
+		-- (b) la sauvegarde de départ a définitivement échoué (reprise en arrière-plan) et le joueur revient avant la reprise
+		local h3 = join("Hel", 5305)
+		RT.step(2)
+		act(h3, "buyEgg", 1)
+		RT.step(0.5)
+		RT.dataStoreFail = "503: DataStore indisponible"
+		RT.removePlayer(h3)
+		RT.step(7) -- les essais de départ sont épuisés, la reprise est en attente
+		RT.dataStoreFail = nil
+		local h4 = join("Hel", 5305)
+		RT.step(3)
+		local hs4 = snapshot(h4)
+		check("Retour avec une sauvegarde de départ en attente : le profil non sauvegardé est repris (œuf acheté présent)", hs4 ~= nil and slotCount(hs4) >= 2)
+		local hk = #RT.kicked
+		RT.dataStoreFail = "503: DataStore indisponible"
+		local h5 = join("Hex", 5304) -- arrive pendant la panne : refusé proprement, aucun profil par défaut écrit
+		RT.step(40)
+		RT.dataStoreFail = nil
+		check("Arrivée pendant la panne : joueur renvoyé avec un message clair, aucun profil vierge écrit" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.kicked > hk and (record(5304) == nil or record(5304).v == nil) and #RT.errors == 0)
+		RT.removePlayer(h5)
+		RT.removePlayer(h4)
+		RT.removePlayer(h2)
+		RT.step(2)
+		local i1 = join("Ivy", 5303)
+		RT.step(2)
+		act(i1, "buyEgg", 1)
+		RT.step(0.5)
+		local closers = #RT.bindToClose
+		RT.dataStoreFail = nil
+		for _, fnClose in ipairs(RT.bindToClose) do
+			RT.task.spawn(fnClose)
+		end
+		RT.step(5)
+		check("BindToClose avec des joueurs en cours : tous les profils sont écrits (" .. closers .. " rappel(s))", closers >= 1 and record(5303) ~= nil and record(5302) ~= nil and #RT.errors == 0)
+
+		clearAll()
+		-- 5. boutique payante ---------------------------------------------------------------------------------------------------
+		local j = join("Jo", 5401)
+		RT.step(2)
+		check("Achat : ID à 0 (désactivé) ou produit inconnu -> NotProcessedYet", receipt({ PlayerId = 5401, PurchaseId = "P-0", ProductId = 0 }) == PS.NotProcessedYet and receipt({ PlayerId = 5401, PurchaseId = "P-X", ProductId = 424242 }) == PS.NotProcessedYet)
+		local c0 = j:GetAttribute("Coins")
+		local r1 = receipt({ PlayerId = 5401, PurchaseId = "P-1", ProductId = 8801 })
+		local c1 = j:GetAttribute("Coins")
+		local r2 = receipt({ PlayerId = 5401, PurchaseId = "P-1", ProductId = 8801 }) -- Roblox rejoue le même reçu
+		local c2 = j:GetAttribute("Coins")
+		check("Achat : reçu rejoué -> PurchaseGranted sans nouvelle livraison (" .. tostring(c1 - c0) .. " puis " .. tostring(c2 - c1) .. ")", r1 == PS.PurchaseGranted and r2 == PS.PurchaseGranted and c1 - c0 >= Config.COIN_PACK_MIN and c2 - c1 < Config.COIN_PACK_MIN)
+		RT.dataStoreFail = "503: DataStore indisponible"
+		local r3 = receipt({ PlayerId = 5401, PurchaseId = "P-2", ProductId = 8801 }, 25)
+		RT.dataStoreFail = nil
+		check("Achat : sauvegarde en échec -> NotProcessedYet", r3 == PS.NotProcessedYet)
+		noErrors("Boutique payante : aucune erreur")
+
+		clearAll()
+		-- 6. éclosions : taille bornée, centaines d'éclosions sans fuite d'objets ----------------------------------------------------
+		local k = join("Kim", 5501)
+		RT.step(2)
+		local liveBefore
+		for n = 1, 80 do
+			receipt({ PlayerId = 5501, PurchaseId = "H-c" .. n, ProductId = 8801 }, 0.1)
+			act(k, "buyEgg", 1)
+			receipt({ PlayerId = 5501, PurchaseId = "H-h" .. n, ProductId = 8802 }, 0.1)
+			act(k, "sellDupes")
+			if n == 20 then
+				RT.step(15)
+				liveBefore = #RT.services.Workspace:GetDescendants()
+			end
+		end
+		RT.step(15) -- les effets temporaires (Debris) disparaissent
+		local liveAfter = #RT.services.Workspace:GetDescendants()
+		noErrors("80 éclosions et reventes enchaînées : aucune erreur")
+		check("80 éclosions : pas de fuite d'objets dans Workspace (" .. tostring(liveBefore) .. " -> " .. tostring(liveAfter) .. ")", liveBefore ~= nil and liveAfter <= liveBefore + 40)
+		RT.removePlayer(k)
+		RT.step(2)
+
+		clearAll()
+		-- 7. gardiens : plusieurs joueurs, joueur AFK, zone inaccessible, perte de cible ------------------------------------------------
+		local m1, m2 = join("Mia", 5601), join("Noa", 5602)
+		RT.step(2)
+		local gx2, gz2 = Config.rivalCenter(1)
+		rawget(m1.Character:FindFirstChild("HumanoidRootPart"), "__props").Position = RT.vec(gx2, 3, gz2 + 12)
+		rawget(m2.Character:FindFirstChild("HumanoidRootPart"), "__props").Position = RT.vec(gx2 + 6, 3, gz2 + 14)
+		RT.pathFail = "pas de chemin"
+		RT.step(10) -- plusieurs joueurs, aucun chemin : repli en ligne droite
+		RT.pathFail = nil
+		local zx, zz = Config.rivalCenter(3) -- domaine de Zed, verrouillé au départ
+		rawget(m2.Character:FindFirstChild("HumanoidRootPart"), "__props").Position = RT.vec(zx, 3, zz + 12)
+		RT.step(10)
+		RT.removePlayer(m1)
+		RT.step(5)
+		check("Gardiens : plusieurs joueurs, sans chemin, zone verrouillée, perte de cible : aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		check("Gardiens : un joueur dans une zone verrouillée n'est pas attaqué (pv intacts)", m2:GetAttribute("Hp") == Config.GUARD.maxHp)
+		RT.step(60) -- AFK d'une minute
+		noErrors("Joueur AFK une minute : aucune erreur")
+		RT.removePlayer(m2)
+		RT.step(2)
+	end
+	-- 9. chargements de modèles, textures et sons qui échouent à 100 % : le jeu reste jouable
+	local RF = boot(true)
+	if RF then
+		local RAf = remoteOf(RF, "Action")
+		local p = RF.addPlayer("Zoe", 5701, { from = "hub", partyId = "BUGS", size = 2, late = false })
+		RF.step(5)
+		RF.now = RF.now + 0.2
+		RF.fire(RAf, "OnServerEvent", p, "buyEgg", 1)
+		RF.step(Config.HATCH[1] + 8)
+		local entry
+		for obj in pairs(RF.tags["CastleEntry"] or {}) do
+			entry = obj
+		end
+		local root = p.Character:FindFirstChild("HumanoidRootPart")
+		if entry and root then
+			local ep = entry.Parent.Position
+			rawget(root, "__props").Position = RF.vec(ep.X, 3, ep.Z)
+			RF.fire(RF.services.ProximityPromptService, "PromptTriggered", entry, p)
+			RF.step(2)
+		end
+		local guardsProcedural, blender = 0, 0
+		for _, d in ipairs(RF.services.Workspace:GetDescendants()) do
+			if d.ClassName == "Model" and d.Name:sub(1, 5) == "Guard" then
+				guardsProcedural += 1
+				if d:FindFirstChild("Blender") then
+					blender += 1
+				end
+			end
+		end
+		local textures = 0
+		for _, d in ipairs(RF.services.Workspace:GetDescendants()) do
+			if d.ClassName == "Texture" then
+				textures += 1
+			end
+		end
+		check("Chargements en échec à 100 % : aucune erreur non gérée" .. (#RF.errors == 0 and "" or " : " .. tostring(RF.errors[1])), #RF.errors == 0)
+		check("Chargements en échec : gardiens procéduraux conservés (" .. guardsProcedural .. "), aucun modèle Blender (" .. blender .. "), aucune texture (" .. textures .. ")", guardsProcedural == #Config.RIVALS and blender == 0 and textures == 0)
+		local snap
+		for i = #RF.fired, 1, -1 do
+			local f = RF.fired[i]
+			if f[1] == "State" and f[2] == p then
+				snap = f[3]
+				break
+			end
+		end
+		check("Chargements en échec : le jeu reste jouable (état synchronisé, œuf acheté puis éclos)", snap ~= nil and snap.hatched >= 1)
+	end
+	-- 6bis. 10 000 tirages d'éclosion : valeurs toujours valides
+	do
+		local Rules = luau.load(fs.readFile("roblox/src/ServerScriptService/Rules.lua"), { debugName = "Rules" })().new(Config)
+		local seed = 12345
+		local function rnd()
+			seed = seed * 16807 % 2147483647
+			return seed / 2147483647
+		end
+		local okAll, tiers = true, {}
+		for n = 1, 10000 do
+			local egg = (n % #Config.TIERS) + 1
+			local p = Rules.rollPet(egg, (n % 7) * 3, n % 5 == 0, rnd, n % 11 == 0)
+			if not p or not Config.PETS[p.p] or not Config.SIZES[p.s] or not Config.MUTS[p.m] or p.tier ~= Config.PETS[p.p].tier then
+				okAll = false
+			else
+				tiers[p.tier] = true
+			end
+		end
+		check("10 000 tirages d'éclosion : espèce, taille et mutation toujours valides, toutes les raretés atteintes", okAll and #tiers >= 5)
+		local mx = Config.eggMaxSize()
+		check("Œuf énorme impossible : un modèle de 500 studs est ramené sous le plafond (" .. mx.w .. " x " .. mx.h .. ")", (function()
+			local f = Config.fitScale({ X = 500, Y = 500, Z = 500 }, mx)
+			return 500 * f <= mx.w + 1e-6 and 500 * f <= mx.h + 1e-6
+		end)())
+	end
+	-- 8. château : classement avec ex aequo et valeurs invalides
+	do
+		local RT3 = boot(false)
+		if RT3 then
+			local board = RT3.dataStores["ChipeOeufs_Castle_v1"]
+			check("Classement du château : le magasin ordonné existe", board ~= nil)
+			if board then
+				board.data["1"], board.data["2"], board.data["3"], board.data["4"], board.data["5"], board.data["6"] = 5000, 5000, "abc", -4, 0 / 0, 3200
+			end
+			local out
+			RT3.task.spawn(function()
+				local DataMod = RT3.require(RT3.services.ServerScriptService:FindFirstChild("Data"))
+				out = DataMod.castleTop(10)
+			end)
+			RT3.step(2)
+			check("Classement du château : valeurs invalides (texte, négative, NaN) ignorées, ex aequo conservés, meilleur temps d'abord" .. (out and (" [" .. #out .. " entrées]") or ""), out ~= nil and #out == 3 and out[1].time == 32 and out[2].time == 50 and out[3].time == 50)
+		end
 	end
 end
 

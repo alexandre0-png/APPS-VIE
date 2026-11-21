@@ -426,8 +426,32 @@ function Fake.runtime(opts)
 			end
 			store.data[key] = copy(v)
 		end
-		function store.GetSortedAsync()
-			return { GetCurrentPage = function() return {} end }
+		function store.GetSortedAsync(_, ascending, count)
+			local list = {}
+			for k, v in pairs(store.data) do
+				list[#list + 1] = { key = k, value = v }
+			end
+			table.sort(list, function(a, b)
+				local x, y = type(a.value) == "number" and a.value or 0, type(b.value) == "number" and b.value or 0
+				if x ~= x then
+					x = 0 -- NaN : comparaison cohérente (sinon tri instable)
+				end
+				if y ~= y then
+					y = 0
+				end
+				if x ~= y then
+					if ascending then
+						return x < y
+					end
+					return x > y
+				end
+				return tostring(a.key) < tostring(b.key)
+			end)
+			local page = {}
+			for i = 1, math.min(count or #list, #list) do
+				page[i] = list[i]
+			end
+			return { GetCurrentPage = function() return page end }
 		end
 		return store
 	end

@@ -28,6 +28,18 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - `Builder.dressTraps` : pics (`traps.spikes`, pièce animée `Pics`), lames (`traps.blade`, pièce `Lame` qui tourne autour de l'axe vertical du modèle), boulets (`traps.ball`, modèle entier qui suit et roule). Les Parts procédurales restent les pilotes de la logique (dégâts, positions) et deviennent invisibles ; un modèle sans la pièce animée attendue est ignoré (apparence procédurale conservée). Les noms de pièces acceptent le suffixe de couleur (`Pics__C0C0C0`). Mise à jour des modèles seulement quand l'état change (pics) ou à 10 Hz (lames, boulets).
 - Tests : le runtime factice clone désormais en profondeur et gère `FindFirstChild(nom, true)`. Non testé en Studio : sens de rotation et position de repos des pièces animées (je suppose les pics dessinés « sortis »).
 
+## 2026-11-22 (suite) : chasse aux bugs
+
+Nouvelle suite de tests de bout en bout sur les vrais scripts (runtime factice) : départs en plein jeu (éclosion, téléportation, combat de gardien, château, achat), courses (vol simultané du même œuf, double vente, achat et revente rapprochés, 6e joueur), DataStore (panne au départ, retour pendant la sauvegarde, retour avec sauvegarde en attente, arrivée pendant la panne, `BindToClose`), achats (ID à 0, reçu rejoué, sauvegarde en échec), 80 éclosions enchaînées sans fuite d'objets, 10 000 tirages d'éclosion valides, gardiens (sans chemin, zone verrouillée, plusieurs joueurs, AFK, perte de cible), classement du château (valeurs invalides, ex aequo), chargements en échec à 100 %.
+
+Bugs trouvés et corrigés :
+1. **Profil écrasé à la reconnexion rapide** : un joueur qui repart puis revient pendant que sa sauvegarde de départ réessaie rechargeait un profil périmé, puis l'écrasait à sa prochaine sauvegarde (perte de l'œuf acheté). Correctif : la reconnexion attend la fin de la sauvegarde de départ (`leavingSave`).
+2. **Progression perdue si la sauvegarde de départ échoue** : après 3 essais le profil était abandonné. Correctif : reprise en arrière-plan (`saveLater`, délais croissants, 10 essais), reprise du profil en attente si le joueur revient avant, vidage à `BindToClose`.
+3. **Classement du château** : une valeur invalide (texte, négative, nulle, NaN) apparaissait comme un temps de 0:00. Correctif : ignorées dans `Data.castleTop`.
+4. **Budget de Parts** : la carte procédurale faisait 1622 Parts. Ramenée à 1194 (budget 1200 : fleurs, arbres, taches d'herbe, collines, douves, palissades, planches de pont réduits, piédestal en disque de marbre au lieu de 3 dalles) ; l'ancien budget de 7000 devient `Config.Map.totalBudgetParts` (carte + pire cas des modèles Blender).
+Le runtime factice clone désormais en profondeur, trie les magasins ordonnés et expose `RT.Enum`.
+Non couvert par des tests de bout en bout : vrai téléphone, vraie latence DataStore, deux amis qui rejoignent exactement au même instant (la logique d'admission est sérialisée et testée en séquence).
+
 ## 2026-11-22 (suite) : textures tuilables
 
 - `Assets.loadTextures` : les 7 IDs approuvés sont des DÉCALS ; chargés côté serveur par `LoadAsset`, le `Decal.Texture` est lu et l'URL mise en cache (`textureUrls`), le modèle détruit. Échec, délai ou décal absent : la matière actuelle reste (warn).

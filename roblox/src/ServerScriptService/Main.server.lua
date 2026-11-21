@@ -80,6 +80,8 @@ end)
 local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
+local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
+local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
@@ -1966,10 +1968,19 @@ local function onJoin(player)
 		serverMode = "castle" -- le premier joueur détermine le mode du serveur réservé
 	end
 	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
+	local waitedLeave = 0
+	while leavingSave[player.UserId] and waitedLeave < 20 and player.Parent do -- il vient de partir : attendre la fin de sa sauvegarde (sinon on lirait un profil périmé puis on l'écraserait)
+		task.wait(0.25)
+		waitedLeave += 0.25
+	end
 	local d, noSave = Data.load(player)
 	if not d then
 		player:Kick("Impossible de charger tes données. Reconnecte-toi dans un instant.")
 		return
+	end
+	if pendingSaves[player.UserId] and not noSave then
+		d = pendingSaves[player.UserId] -- il revient avant que sa dernière sauvegarde ait réussi : ce profil (plus récent) fait foi
+		pendingSaves[player.UserId] = nil
 	end
 	if not player.Parent then
 		if not noSave then
@@ -2099,6 +2110,30 @@ for _, p in ipairs(Players:GetPlayers()) do
 	task.spawn(onJoin, p)
 end
 
+-- Profils dont la sauvegarde de départ a échoué : réessayée en arrière-plan (délais croissants, 10 essais), abandonnée si le joueur est revenu
+-- (sa nouvelle session reprend ce profil au chargement) ; vidée aussi à la fermeture du serveur (BindToClose).
+function saveLater(player, d)
+	local uid = player.UserId
+	pendingSaves[uid] = d
+	task.spawn(function()
+		local delay = 4
+		for _ = 1, 10 do
+			task.wait(delay)
+			delay = math.min(delay * 2, 60)
+			if pendingSaves[uid] ~= d then
+				return
+			end
+			if Players:GetPlayerByUserId(uid) then
+				return -- revenu : le chargement a repris pendingSaves, rien à écraser
+			end
+			if Data.save(player, d, true) then
+				pendingSaves[uid] = nil
+				return
+			end
+		end
+	end)
+end
+
 Players.PlayerRemoving:Connect(function(player)
 	local s = sessions[player]
 	if not s then
@@ -2109,7 +2144,12 @@ Players.PlayerRemoving:Connect(function(player)
 	clearFollowers(s)
 	holds[player] = nil
 	if not s.noSave then
-		Data.save(player, s.data, true) -- libère le verrou
+		leavingSave[player.UserId] = true
+		local okSave = Data.save(player, s.data, true) -- libère le verrou
+		if not okSave then
+			saveLater(player, s.data) -- DataStore en panne ou lent : on réessaie en arrière-plan (la progression n'est pas perdue)
+		end
+		leavingSave[player.UserId] = nil
 		Data.submit(player, s.data)
 	end
 	releasePlot(s)
@@ -2133,6 +2173,16 @@ end)
 
 game:BindToClose(function()
 	local pending = 0
+	for uid, d in pairs(pendingSaves) do -- profils de joueurs déjà partis dont la sauvegarde a échoué
+		pending += 1
+		task.spawn(function()
+			local ghost = Players:GetPlayerByUserId(uid) or { UserId = uid, Name = "joueur " .. uid }
+			if Data.save(ghost, d, true) then
+				pendingSaves[uid] = nil
+			end
+			pending -= 1
+		end)
+	end
 	for player, s in pairs(sessions) do
 		if not s.noSave then
 			pending += 1

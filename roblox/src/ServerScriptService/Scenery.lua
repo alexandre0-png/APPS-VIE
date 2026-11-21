@@ -173,12 +173,9 @@ end
 -- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
 function Scenery.pedestal(h, position, parent, warm)
 	local n = 0
-	for k = 0, 2 do
-		h.part({ Name = "PedestalSlab", Size = Vector3.new(9.6, 0.5, 5.6), CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(k * 60), 0), Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent)
-		n += 1
-	end
-	h.part({ Name = "PedestalGlow", Size = Vector3.new(10.4, 0.15, 10.4), Position = position + Vector3.new(0, -0.15, 0), Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent)
-	return n + 1
+	cyl(h, { Name = "PedestalSlab", Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent, 9.6, 0.5, position)
+	cyl(h, { Name = "PedestalGlow", Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent, 10.4, 0.15, position + Vector3.new(0, -0.15, 0))
+	return 2
 end
 
 ---------------------------------------------------------------- Aura des raretés élevées : cercle runique au sol, piliers, particules
@@ -221,7 +218,7 @@ end
 function Scenery.moat(h, cx, cz, parent, cfg)
 	local n = 0
 	local R, W = cfg.Map.moat.radius, cfg.Map.moat.width
-	local segments = 28
+	local segments = cfg.Map.decor.moatSegments
 	local chord = 2 * math.pi * R / segments + 1.5
 	for k = 0, segments - 1 do
 		local a = k / segments * math.pi * 2
@@ -249,9 +246,12 @@ function Scenery.rivers(h, parent, cfg)
 	local n = 0
 	local half = cfg.Map.groundSize / 2
 	local function bridge(x, z, alongX)
-		for k = -4, 4 do
+		local planks = cfg.Map.decor.bridgePlanks
+		for idx = 0, planks - 1 do
+			local k = (idx - (planks - 1) / 2) * (12.8 / (planks - 1)) / 1.6
 			local px, pz = alongX and x + k * 1.6 or x, alongX and z or z + k * 1.6
-			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(1.4, 0.45, 6) or Vector3.new(6, 0.45, 1.4), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+			local pl = 12.8 / (planks - 1) + 0.2
+			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(pl, 0.45, 6) or Vector3.new(6, 0.45, pl), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
 			n += 1
 		end
 	end

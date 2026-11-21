@@ -1192,13 +1192,14 @@ function Builder.build()
 	part({ Name = "Ground", Size = Vector3.new(Config.Map.groundSize, 2, Config.Map.groundSize), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
 	local rng = Random.new(7)
 	local half = Config.Map.groundSize / 2
-	for _ = 1, 40 do -- taches d'herbe plus claires / plus sombres
+	local DC = Config.Map.decor
+	for _ = 1, DC.patches do -- taches d'herbe plus claires / plus sombres
 		local d = rng:NextNumber(40, 100)
 		local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
 		part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(rng:NextNumber(-half + 40, half - 40), 0.03, rng:NextNumber(-half + 40, half - 40)) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	for k = 0, 23 do -- collines à l'horizon (hors de la zone de jeu)
-		local a = k / 24 * math.pi * 2
+	for k = 0, DC.hills - 1 do -- collines à l'horizon (hors de la zone de jeu)
+		local a = k / DC.hills * math.pi * 2
 		local sz = rng:NextNumber(240, 380)
 		ball({ Name = "Hill", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * (half + 90), -sz * 0.36, math.cos(a) * (half + 90)), Color = Color3.fromRGB(78 + (k % 3) * 8, 150 + (k % 2) * 10, 80), Material = Enum.Material.Grass }, world)
 	end
@@ -1220,14 +1221,14 @@ function Builder.build()
 		end
 		return false
 	end
-	for _ = 1, 38 do
+	for _ = 1, DC.trees do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
 		local tx, tz = math.sin(a) * r, math.cos(a) * r
 		if not inDomain(tx, tz) then
 			tree(Vector3.new(tx, 0, tz), world, rng)
 		end
 	end
-	for _ = 1, 110 do
+	for _ = 1, DC.flowers do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 136)
 		ball({ Name = "Flower", Size = Vector3.new(0.9, 0.9, 0.9), Position = Vector3.new(math.sin(a) * r, 0.45, math.cos(a) * r), Color = FLOWER_COLORS[rng:NextInteger(1, #FLOWER_COLORS)] }, world)
 	end
@@ -1249,8 +1250,8 @@ function Builder.build()
 		folder.Parent = world
 		part({ Name = "GlowRing", Size = Vector3.new(0.4, 38, 38), CFrame = CFrame.new(cx, 0.3, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color, Material = Enum.Material.Neon, CanCollide = false }, folder)
 		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
-		for k = 0, 13 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
-			local t = -0.15 * math.pi + k * (1.3 * math.pi / 13)
+		for k = 0, DC.fencePosts - 1 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
+			local t = -0.15 * math.pi + k * (1.3 * math.pi / (DC.fencePosts - 1))
 			local pp = Vector3.new(cx + 17.5 * math.cos(t), 0, cz - 17.5 * math.sin(t))
 			part({ Name = "Post", Size = Vector3.new(1, 4, 1), Position = pp + Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(100, 70, 46), Material = Enum.Material.Wood }, folder)
 			ball({ Name = "PostCap", Size = Vector3.new(0.9, 0.9, 0.9), Position = pp + Vector3.new(0, 4.9, 0), Color = riv.color, Material = Enum.Material.Neon }, folder)

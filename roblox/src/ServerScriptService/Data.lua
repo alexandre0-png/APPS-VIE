@@ -415,7 +415,11 @@ function Data.castleTop(count)
 		return out
 	end
 	for _, e in ipairs(page) do
-		out[#out + 1] = { name = nameOf(tonumber(e.key) or 0), time = (tonumber(e.value) or 0) / 100 }
+		local v = type(e) == "table" and e.value
+		-- entrées invalides (valeur non numérique, négative, nulle, NaN ou infinie) ignorées ; ex aequo : l'ordre du classement est conservé
+		if type(v) == "number" and v == v and v > 0 and v < 1e9 then
+			out[#out + 1] = { name = nameOf(tonumber(e.key) or 0), time = v / 100 }
+		end
 	end
 	return out
 end

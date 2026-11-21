@@ -1032,7 +1032,9 @@ Config.Map = {
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
 	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
-	budgetParts = 7000, -- le serveur avertit au démarrage si la carte dépasse ce nombre de Parts (budget mobile)
+	budgetParts = 1200, -- le serveur avertit au démarrage si la carte procédurale dépasse ce nombre de Parts (budget mobile) ; les modèles Blender ont leurs propres budgets
+	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
+	decor = { flowers = 20, trees = 12, patches = 8, hills = 8, moatSegments = 18, fencePosts = 8, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
@@ -3339,6 +3341,8 @@ end)
 local world = Builder.build()
 local rng = Random.new()
 local sessions = {} -- [Player] = session
+local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
+local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
@@ -5225,10 +5229,19 @@ local function onJoin(player)
 		serverMode = "castle" -- le premier joueur détermine le mode du serveur réservé
 	end
 	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
+	local waitedLeave = 0
+	while leavingSave[player.UserId] and waitedLeave < 20 and player.Parent do -- il vient de partir : attendre la fin de sa sauvegarde (sinon on lirait un profil périmé puis on l'écraserait)
+		task.wait(0.25)
+		waitedLeave += 0.25
+	end
 	local d, noSave = Data.load(player)
 	if not d then
 		player:Kick("Impossible de charger tes données. Reconnecte-toi dans un instant.")
 		return
+	end
+	if pendingSaves[player.UserId] and not noSave then
+		d = pendingSaves[player.UserId] -- il revient avant que sa dernière sauvegarde ait réussi : ce profil (plus récent) fait foi
+		pendingSaves[player.UserId] = nil
 	end
 	if not player.Parent then
 		if not noSave then
@@ -5358,6 +5371,30 @@ for _, p in ipairs(Players:GetPlayers()) do
 	task.spawn(onJoin, p)
 end
 
+-- Profils dont la sauvegarde de départ a échoué : réessayée en arrière-plan (délais croissants, 10 essais), abandonnée si le joueur est revenu
+-- (sa nouvelle session reprend ce profil au chargement) ; vidée aussi à la fermeture du serveur (BindToClose).
+function saveLater(player, d)
+	local uid = player.UserId
+	pendingSaves[uid] = d
+	task.spawn(function()
+		local delay = 4
+		for _ = 1, 10 do
+			task.wait(delay)
+			delay = math.min(delay * 2, 60)
+			if pendingSaves[uid] ~= d then
+				return
+			end
+			if Players:GetPlayerByUserId(uid) then
+				return -- revenu : le chargement a repris pendingSaves, rien à écraser
+			end
+			if Data.save(player, d, true) then
+				pendingSaves[uid] = nil
+				return
+			end
+		end
+	end)
+end
+
 Players.PlayerRemoving:Connect(function(player)
 	local s = sessions[player]
 	if not s then
@@ -5368,7 +5405,12 @@ Players.PlayerRemoving:Connect(function(player)
 	clearFollowers(s)
 	holds[player] = nil
 	if not s.noSave then
-		Data.save(player, s.data, true) -- libère le verrou
+		leavingSave[player.UserId] = true
+		local okSave = Data.save(player, s.data, true) -- libère le verrou
+		if not okSave then
+			saveLater(player, s.data) -- DataStore en panne ou lent : on réessaie en arrière-plan (la progression n'est pas perdue)
+		end
+		leavingSave[player.UserId] = nil
 		Data.submit(player, s.data)
 	end
 	releasePlot(s)
@@ -5392,6 +5434,16 @@ end)
 
 game:BindToClose(function()
 	local pending = 0
+	for uid, d in pairs(pendingSaves) do -- profils de joueurs déjà partis dont la sauvegarde a échoué
+		pending += 1
+		task.spawn(function()
+			local ghost = Players:GetPlayerByUserId(uid) or { UserId = uid, Name = "joueur " .. uid }
+			if Data.save(ghost, d, true) then
+				pendingSaves[uid] = nil
+			end
+			pending -= 1
+		end)
+	end
 	for player, s in pairs(sessions) do
 		if not s.noSave then
 			pending += 1
@@ -5833,7 +5885,11 @@ function Data.castleTop(count)
 		return out
 	end
 	for _, e in ipairs(page) do
-		out[#out + 1] = { name = nameOf(tonumber(e.key) or 0), time = (tonumber(e.value) or 0) / 100 }
+		local v = type(e) == "table" and e.value
+		-- entrées invalides (valeur non numérique, négative, nulle, NaN ou infinie) ignorées ; ex aequo : l'ordre du classement est conservé
+		if type(v) == "number" and v == v and v > 0 and v < 1e9 then
+			out[#out + 1] = { name = nameOf(tonumber(e.key) or 0), time = v / 100 }
+		end
 	end
 	return out
 end
@@ -7057,13 +7113,14 @@ function Builder.build()
 	part({ Name = "Ground", Size = Vector3.new(Config.Map.groundSize, 2, Config.Map.groundSize), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
 	local rng = Random.new(7)
 	local half = Config.Map.groundSize / 2
-	for _ = 1, 40 do -- taches d'herbe plus claires / plus sombres
+	local DC = Config.Map.decor
+	for _ = 1, DC.patches do -- taches d'herbe plus claires / plus sombres
 		local d = rng:NextNumber(40, 100)
 		local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
 		part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(rng:NextNumber(-half + 40, half - 40), 0.03, rng:NextNumber(-half + 40, half - 40)) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
 	end
-	for k = 0, 23 do -- collines à l'horizon (hors de la zone de jeu)
-		local a = k / 24 * math.pi * 2
+	for k = 0, DC.hills - 1 do -- collines à l'horizon (hors de la zone de jeu)
+		local a = k / DC.hills * math.pi * 2
 		local sz = rng:NextNumber(240, 380)
 		ball({ Name = "Hill", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * (half + 90), -sz * 0.36, math.cos(a) * (half + 90)), Color = Color3.fromRGB(78 + (k % 3) * 8, 150 + (k % 2) * 10, 80), Material = Enum.Material.Grass }, world)
 	end
@@ -7085,14 +7142,14 @@ function Builder.build()
 		end
 		return false
 	end
-	for _ = 1, 38 do
+	for _ = 1, DC.trees do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
 		local tx, tz = math.sin(a) * r, math.cos(a) * r
 		if not inDomain(tx, tz) then
 			tree(Vector3.new(tx, 0, tz), world, rng)
 		end
 	end
-	for _ = 1, 110 do
+	for _ = 1, DC.flowers do
 		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 136)
 		ball({ Name = "Flower", Size = Vector3.new(0.9, 0.9, 0.9), Position = Vector3.new(math.sin(a) * r, 0.45, math.cos(a) * r), Color = FLOWER_COLORS[rng:NextInteger(1, #FLOWER_COLORS)] }, world)
 	end
@@ -7114,8 +7171,8 @@ function Builder.build()
 		folder.Parent = world
 		part({ Name = "GlowRing", Size = Vector3.new(0.4, 38, 38), CFrame = CFrame.new(cx, 0.3, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color, Material = Enum.Material.Neon, CanCollide = false }, folder)
 		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
-		for k = 0, 13 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
-			local t = -0.15 * math.pi + k * (1.3 * math.pi / 13)
+		for k = 0, DC.fencePosts - 1 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
+			local t = -0.15 * math.pi + k * (1.3 * math.pi / (DC.fencePosts - 1))
 			local pp = Vector3.new(cx + 17.5 * math.cos(t), 0, cz - 17.5 * math.sin(t))
 			part({ Name = "Post", Size = Vector3.new(1, 4, 1), Position = pp + Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(100, 70, 46), Material = Enum.Material.Wood }, folder)
 			ball({ Name = "PostCap", Size = Vector3.new(0.9, 0.9, 0.9), Position = pp + Vector3.new(0, 4.9, 0), Color = riv.color, Material = Enum.Material.Neon }, folder)
@@ -7821,12 +7878,9 @@ end
 -- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
 function Scenery.pedestal(h, position, parent, warm)
 	local n = 0
-	for k = 0, 2 do
-		h.part({ Name = "PedestalSlab", Size = Vector3.new(9.6, 0.5, 5.6), CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(k * 60), 0), Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent)
-		n += 1
-	end
-	h.part({ Name = "PedestalGlow", Size = Vector3.new(10.4, 0.15, 10.4), Position = position + Vector3.new(0, -0.15, 0), Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent)
-	return n + 1
+	cyl(h, { Name = "PedestalSlab", Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent, 9.6, 0.5, position)
+	cyl(h, { Name = "PedestalGlow", Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent, 10.4, 0.15, position + Vector3.new(0, -0.15, 0))
+	return 2
 end
 
 ---------------------------------------------------------------- Aura des raretés élevées : cercle runique au sol, piliers, particules
@@ -7869,7 +7923,7 @@ end
 function Scenery.moat(h, cx, cz, parent, cfg)
 	local n = 0
 	local R, W = cfg.Map.moat.radius, cfg.Map.moat.width
-	local segments = 28
+	local segments = cfg.Map.decor.moatSegments
 	local chord = 2 * math.pi * R / segments + 1.5
 	for k = 0, segments - 1 do
 		local a = k / segments * math.pi * 2
@@ -7897,9 +7951,12 @@ function Scenery.rivers(h, parent, cfg)
 	local n = 0
 	local half = cfg.Map.groundSize / 2
 	local function bridge(x, z, alongX)
-		for k = -4, 4 do
+		local planks = cfg.Map.decor.bridgePlanks
+		for idx = 0, planks - 1 do
+			local k = (idx - (planks - 1) / 2) * (12.8 / (planks - 1)) / 1.6
 			local px, pz = alongX and x + k * 1.6 or x, alongX and z or z + k * 1.6
-			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(1.4, 0.45, 6) or Vector3.new(6, 0.45, 1.4), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+			local pl = 12.8 / (planks - 1) + 0.2
+			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(pl, 0.45, 6) or Vector3.new(6, 0.45, pl), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
 			n += 1
 		end
 	end
