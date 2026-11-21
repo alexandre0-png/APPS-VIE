@@ -909,6 +909,7 @@ local function fastTravel(s, dest, prompt)
 	s.noCheckUntil = now + 2
 	s.lastPos = nil
 	s.lastActive = now
+	notify(s.player, "", "portal") -- son de portail
 	return true
 end
 

@@ -207,7 +207,7 @@ local carryLbl = text(hudRoot, { Size = UDim2.fromOffset(170, 26), TextXAlignmen
 corner(carryLbl, 13)
 carryLbl.Visible = false
 
-local banner = text(hudRoot, { Size = UDim2.fromOffset(330, 40), TextWrapped = true, TextSize = 13, TextColor3 = COL.yellow, BackgroundTransparency = 0.12, BackgroundColor3 = COL.pill, Text = "", Visible = false })
+local banner = text(hudRoot, { Size = UDim2.fromOffset(330, 40), TextWrapped = true, TextSize = 14, TextColor3 = COL.yellow, BackgroundTransparency = 0.12, BackgroundColor3 = COL.pill, Text = "", Visible = false })
 corner(banner, 15)
 make("UIStroke", { Color = COL.yellow, Thickness = 2 }, banner)
 
@@ -497,7 +497,7 @@ local function showPromise()
 	make("UIStroke", { Color = Color3.fromRGB(14, 24, 18), Thickness = 4 }, card)
 	make("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(70, 160, 110), Color3.fromRGB(20, 60, 40)), Rotation = 90 }, card)
 	text(card, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 0, 30), Text = "🥚 " .. Config.TITLE, TextSize = 24, TextColor3 = COL.yellow, TextStrokeTransparency = 0.3, ZIndex = 31 })
-	text(card, { Position = UDim2.fromOffset(12, 36), Size = UDim2.new(1, -24, 0, 36), Text = Config.TAGLINE, TextSize = 13, TextWrapped = true, ZIndex = 31 })
+	text(card, { Position = UDim2.fromOffset(12, 36), Size = UDim2.new(1, -24, 0, 36), Text = Config.TAGLINE, TextSize = 14, TextWrapped = true, ZIndex = 31 })
 	local play = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.fromOffset(120, 28), Text = Config.PROMISE.button, Font = FONT, TextSize = 15, ZIndex = 32 }, card)
 	local st = glossy(play, "play", 12, 2)
 	if st then
@@ -735,7 +735,7 @@ function render()
 				render()
 			end)
 		end
-		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 13, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (sel < n and ("Un pet " .. Config.TIERS[sel + 1].name .. " est possible (pet de rareté supérieure)") or "Rareté maximale") })
+		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (sel < n and ("Un pet " .. Config.TIERS[sel + 1].name .. " est possible (pet de rareté supérieure)") or "Rareté maximale") })
 		info.TextYAlignment = Enum.TextYAlignment.Top
 		local buy = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(220, 52), Text = "🥚 Acheter  🪙 " .. fmt(Config.EGG_PRICE[sel]), Font = FONT, TextSize = 18, TextColor3 = COL.dark, ZIndex = 9 }, holder)
 		local buyStyle = glossy(buy, "play", 18, 3)
@@ -1201,12 +1201,12 @@ for _, n in ipairs(navDefs) do
 end
 
 -- Carte « objectif en cours » : chapitre de l'histoire, avancement, un appui ouvre Missions > Histoire.
-local objCard = make("TextButton", { Size = UDim2.fromOffset(196, 62), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, Visible = false }, hudRoot)
+local objCard = make("TextButton", { Size = UDim2.fromOffset(196, 78), BackgroundColor3 = COL.pill, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, Visible = false }, hudRoot)
 corner(objCard, 14)
 local objStroke = make("UIStroke", { Color = COL.panel, Thickness = 2 }, objCard)
-local objTitle = text(objCard, { Position = UDim2.fromOffset(8, 3), Size = UDim2.new(1, -16, 0, 17), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = COL.yellow, Text = "", TextTruncate = Enum.TextTruncate.AtEnd })
-local objText = text(objCard, { Position = UDim2.fromOffset(8, 20), Size = UDim2.new(1, -16, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 12, TextColor3 = COL.text, TextWrapped = true, Text = "" })
-local objBarBg = make("Frame", { Position = UDim2.fromOffset(8, 47), Size = UDim2.new(1, -16, 0, 8), BackgroundColor3 = COL.bg }, objCard)
+local objTitle = text(objCard, { Position = UDim2.fromOffset(8, 3), Size = UDim2.new(1, -16, 0, 17), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 14, TextColor3 = COL.yellow, Text = "", TextTruncate = Enum.TextTruncate.AtEnd })
+local objText = text(objCard, { Position = UDim2.fromOffset(8, 22), Size = UDim2.new(1, -16, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 14, TextColor3 = COL.text, TextWrapped = true, Text = "" })
+local objBarBg = make("Frame", { Position = UDim2.fromOffset(8, 63), Size = UDim2.new(1, -16, 0, 8), BackgroundColor3 = COL.bg }, objCard)
 corner(objBarBg, 4)
 local objBar = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = COL.green }, objBarBg)
 corner(objBar, 4)
@@ -1274,7 +1274,7 @@ function refreshObjective()
 end
 
 -- Offre d'achat « au bon moment » (Config.boostOffer) : carte non bloquante, un appui ouvre les bonus, ✕ la ferme, elle disparaît seule.
-local offerCard = text(hudRoot, { Size = UDim2.fromOffset(260, 44), TextSize = 13, TextColor3 = COL.dark, BackgroundColor3 = COL.green, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
+local offerCard = text(hudRoot, { Size = UDim2.fromOffset(260, 44), TextSize = 14, TextColor3 = COL.dark, BackgroundColor3 = COL.green, BackgroundTransparency = 0, TextWrapped = true, Text = "", Visible = false })
 offerCard.Active = true
 corner(offerCard, 12)
 local offerClose = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = COL.panel, Text = "✕", Font = FONT, TextSize = 14, TextColor3 = COL.text }, offerCard)
@@ -1416,7 +1416,7 @@ awayCard.Activated:Connect(function()
 	RAction:FireServer("claimAway")
 	awayCard.Visible = false
 end)
-local idleLabel = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(300, 22), TextSize = 13, TextColor3 = Color3.fromRGB(255, 220, 140), Text = "💤 Inactif : revenus en pause (bouge pour reprendre)", Visible = false })
+local idleLabel = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(300, 22), TextSize = 14, TextColor3 = Color3.fromRGB(255, 220, 140), Text = "💤 Inactif : revenus en pause (bouge pour reprendre)", Visible = false })
 player:GetAttributeChangedSignal("Idle"):Connect(function()
 	idleLabel.Visible = player:GetAttribute("Idle") == true
 end)
@@ -1482,7 +1482,9 @@ local function hatchPop(info)
 		revealPop(info)
 	end
 	slotActive = go
-	local box = SlotFx.play(gui, plan, Config.REVEAL.slot.cell, { secret = st.secret, reduced = touch, onDone = go, slotPos = Reveal.slotPos })
+	local box = SlotFx.play(gui, plan, Config.REVEAL.slot.cell, { secret = st.secret, reduced = touch, onDone = go, slotPos = Reveal.slotPos, onStop = function(k)
+		playSound(k == 3 and "coin" or "click")
+	end })
 	if not box then
 		go()
 	end

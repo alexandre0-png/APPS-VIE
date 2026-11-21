@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## UI/UX : lisibilité et sons
+
+- Textes principaux portés à 14 : bannière, carte d'offre, carte d'objectif (196 x 78, `Layout` et colonne des compteurs ajustés), accroche d'accueil, infos d'œuf, indicateur « Inactif ». Mise en page testée sur les 10 tailles d'écran (aucun chevauchement). Restent sous 14 : étiquettes du menu (11), détails d'inventaire (12 à 13) ; le plancher testé reste 11.
+- Sons : voyage rapide (« portal »), arrêt de chaque rouleau de la machine à sous (« click », « coin » au dernier) ; déjà branchés : clic, menu, achat, refus, éclosion par rareté, gardiens, pièges, réclamation.
+- Qualité visuelle (ciel, brume, ombres) : aucune retouche, faute de pouvoir la juger sans Studio et en attendant la capture « Blender N/M ».
+
 ## Mini-carte
 
 - `MiniMap.place/landmarks` (pur, testé) et `MiniMapUi` : disque de 112 px (84 sur écran étroit) à droite, nord en haut, rayon 260 studs ; repères : toi, ta base 🏠, zones (grisées si verrouillées), portails 🌀, gardiens 🔴 à moins de 90 studs. Bouton 🗺 ou touche M pour l'afficher ou la masquer. Config.MINIMAP.

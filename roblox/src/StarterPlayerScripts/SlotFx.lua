@@ -159,6 +159,9 @@ function SlotFx.play(parent, plan, cell, opts)
 					if t >= col.stop then
 						if not c.stopped then
 							c.stopped = true
+							if opts.onStop then
+								pcall(opts.onStop, k) -- son à chaque rouleau qui s'arrête
+							end
 							burst(k, col.symbols[col.final].color or Color3.new(1, 1, 1))
 						end
 					else

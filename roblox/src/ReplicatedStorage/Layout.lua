@@ -37,8 +37,8 @@ function Layout.rects(vw, vh, navCount)
 	local r = {
 		pillCoins = { x = e, y = e, w = 196, h = 52 },
 		pillSpeed = { x = e, y = e + 58, w = 196, h = 52 },
-		objective = { x = e, y = e + 118, w = 196, h = 62 },
-		carry = { x = e, y = e + 188, w = 170, h = 26 },
+		objective = { x = e, y = e + 118, w = 196, h = 78 },
+		carry = { x = e, y = e + 204, w = 170, h = 26 },
 		hp = { x = e, y = dh - e - 44 - 28, w = 170, h = 22 }, -- au-dessus des conseils, bas gauche (jamais au centre)
 		banner = { x = dw - e - rightW, y = e, w = rightW, h = 40 },
 		toasts = { x = right - toastsW, y = toastsTop, w = toastsW, h = toastsH },
