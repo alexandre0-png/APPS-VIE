@@ -245,23 +245,75 @@ end
 function Scenery.rivers(h, parent, cfg)
 	local n = 0
 	local half = cfg.Map.groundSize / 2
-	local function bridge(x, z, alongX)
+	local geo = cfg.Map.geo
+	local names, levels = { "RiverSouth", "RiverWest" }, { 0.1, 0.16 } -- deux niveaux : les rivières ne sont jamais coplanaires à leur croisement
+	-- pont : planches posées EN TRAVERS de la rivière (axe du pont perpendiculaire à l'eau), plus long qu'elle (les deux rives sont reliées)
+	local function bridge(rv, along)
 		local planks = cfg.Map.decor.bridgePlanks
+		local span = rv.half * 2 + 2 * geo.bridgeBank
+		local step = span / (planks - 1)
 		for idx = 0, planks - 1 do
-			local k = (idx - (planks - 1) / 2) * (12.8 / (planks - 1)) / 1.6
-			local px, pz = alongX and x + k * 1.6 or x, alongX and z or z + k * 1.6
-			local pl = 12.8 / (planks - 1) + 0.2
-			h.part({ Name = "BridgePlank", Size = alongX and Vector3.new(pl, 0.45, 6) or Vector3.new(6, 0.45, pl), Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+			local off = (idx - (planks - 1) / 2) * step
+			local px, pz, size
+			if rv.axis == "z" then -- rivière le long de x : le pont va du nord au sud
+				px, pz, size = along, rv.at + off, Vector3.new(6, 0.45, step + 0.2)
+			else -- rivière le long de z : le pont va de l'est à l'ouest
+				px, pz, size = rv.at + off, along, Vector3.new(step + 0.2, 0.45, 6)
+			end
+			h.part({ Name = "BridgePlank", Size = size, Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
 			n += 1
 		end
 	end
-	h.part({ Name = "RiverSouth", Size = Vector3.new(half * 2 - 60, 0.3, 14), Position = Vector3.new(0, 0.1, 330), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
-	h.part({ Name = "RiverWest", Size = Vector3.new(14, 0.3, half * 2 - 60), Position = Vector3.new(-380, 0.16, 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
-	n += 2
-	bridge(-150, 330, true)
-	bridge(150, 330, true)
-	bridge(-380, -150, false)
-	bridge(-380, 150, false)
+	for i, rv in ipairs(geo.rivers) do
+		local length = half * 2 - 60
+		if rv.axis == "z" then
+			h.part({ Name = names[i], Size = Vector3.new(length, 0.3, rv.half * 2), Position = Vector3.new(0, levels[i], rv.at), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+		else
+			h.part({ Name = names[i], Size = Vector3.new(rv.half * 2, 0.3, length), Position = Vector3.new(rv.at, levels[i], 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+		end
+		n += 1
+		-- mur invisible au milieu de la rivière, avec un passage à chaque pont : on ne traverse l'eau QUE par les ponts
+		local cuts, edge = {}, length / 2
+		for _, c in ipairs(rv.bridgesAt) do
+			cuts[#cuts + 1] = c
+		end
+		table.sort(cuts)
+		local from = -edge
+		local function wall(a0, a1)
+			if a1 - a0 < 1 then
+				return
+			end
+			local mid, len = (a0 + a1) / 2, a1 - a0
+			local pos = rv.axis == "z" and Vector3.new(mid, 5, rv.at) or Vector3.new(rv.at, 5, mid)
+			local size = rv.axis == "z" and Vector3.new(len, 10, 1.5) or Vector3.new(1.5, 10, len)
+			h.part({ Name = "RiverWall", Size = size, Position = pos, Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, parent)
+			n += 1
+		end
+		for _, c in ipairs(cuts) do
+			wall(from, c - geo.bridgeHalfGap)
+			from = c + geo.bridgeHalfGap
+		end
+		wall(from, edge)
+		for _, along in ipairs(rv.bridgesAt) do
+			bridge(rv, along)
+		end
+	end
+	return n
+end
+
+-- Grands lacs à bords nets : disque d'eau, rive de sable (plus bas), îlot (herbe et rocher) ; franchissables à gué (décor), jamais coplanaires.
+function Scenery.lakes(h, parent, cfg)
+	local n = 0
+	for _, lk in ipairs(cfg.Map.geo.lakes or {}) do
+		cyl(h, { Name = "LakeShore", Color = rgb(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, parent, (lk.r + 5) * 2, 0.3, Vector3.new(lk.x, 0.08, lk.z))
+		cyl(h, { Name = "Lake", Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, lk.r * 2, 0.3, Vector3.new(lk.x, 0.16, lk.z))
+		n += 2
+		if lk.islet then
+			cyl(h, { Name = "Islet", Color = rgb(92, 160, 82), Material = Enum.Material.Grass }, parent, 16, 0.6, Vector3.new(lk.x, 0.45, lk.z))
+			h.ball({ Name = "IsletRock", Size = Vector3.new(4, 3, 4), Position = Vector3.new(lk.x + 3, 1.3, lk.z - 2), Color = rgb(130, 134, 140), Material = Enum.Material.Slate }, parent)
+			n += 2
+		end
+	end
 	return n
 end
 

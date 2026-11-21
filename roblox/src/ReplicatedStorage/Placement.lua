@@ -67,6 +67,11 @@ function Placement.new(Config)
 				return "eau"
 			end
 		end
+		for _, lk in ipairs(geo.lakes or {}) do
+			if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 5 + r + margin then
+				return "eau"
+			end
+		end
 		for i = 1, #Config.RIVALS do
 			local cx, cz = Config.rivalCenter(i)
 			local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)

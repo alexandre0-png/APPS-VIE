@@ -484,7 +484,7 @@ Config.Assets = {
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
 	textures = {
 		grass = { id = 122917279401510, tile = 8, targets = { { name = "Ground", faces = { "Top" } } } },
-		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverSouth", faces = { "Top" } }, { name = "RiverWest", faces = { "Top" } }, { name = "MoatWater", faces = { "Top" } } } },
+		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverSouth", faces = { "Top" } }, { name = "RiverWest", faces = { "Top" } }, { name = "MoatWater", faces = { "Top" } }, { name = "Lake", faces = { "Top" } } } },
 		castleFloor = { id = 90865253086689, tile = 8, targets = { { prefix = "CastleFloor", faces = { "Top" } } } },
 		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } } } },
 		wood = { id = 136082705365776, tile = 4, targets = { { name = "BridgePlank", faces = { "Top" } } } },
@@ -1125,13 +1125,15 @@ Config.Map = {
 	-- Géométrie de référence (source unique : décor, pose planifiée et tests) : rivières (axe, position, demi-largeur, ponts), arène, chemins, bases.
 	geo = {
 		rivers = {
-			{ axis = "z", at = 330, half = 7, bridgesAt = { -150, 150 } }, -- rivière sud : coule le long de x
-			{ axis = "x", at = -380, half = 7, bridgesAt = { -150, 150 } }, -- rivière ouest : coule le long de z
+			{ axis = "z", at = 330, half = 12, bridgesAt = { -150, 150 } }, -- rivière sud (24 de large) : coule le long de x
+			{ axis = "x", at = -380, half = 12, bridgesAt = { -150, 150 } }, -- rivière ouest (24 de large) : coule le long de z
 		},
+		bridgeHalfGap = 6, -- demi-largeur du passage laissé dans le mur invisible de chaque rivière, au niveau d'un pont (le SEUL passage)
+		lakes = { { x = 290, z = 250, r = 55, islet = true }, { x = -480, z = -150, r = 60, islet = true } }, -- grands lacs à bords nets (la rive de sable ajoute 5)
 		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
 	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 0, trees = 6, patches = 3, hills = 4, moatSegments = 14, fencePosts = 6, bridgePlanks = 4 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
+	decor = { flowers = 0, trees = 4, patches = 3, hills = 3, moatSegments = 14, fencePosts = 5, bridgePlanks = 7 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
@@ -2547,6 +2549,11 @@ function Placement.new(Config)
 		for _, rv in ipairs(geo.rivers) do
 			local c = rv.axis == "z" and z or x
 			if math.abs(c - rv.at) < rv.half + r + margin then
+				return "eau"
+			end
+		end
+		for _, lk in ipairs(geo.lakes or {}) do
+			if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 5 + r + margin then
 				return "eau"
 			end
 		end

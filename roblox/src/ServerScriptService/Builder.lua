@@ -1619,6 +1619,9 @@ function Builder.build()
 			builtCastle = cw
 			return cn
 		end,
+		lakes = function()
+			return Scenery.lakes(sceneryHelpers, world, Config)
+		end,
 		landmarks = function()
 			return Scenery.landmarks(sceneryHelpers, world, srng)
 		end,

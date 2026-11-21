@@ -58,6 +58,12 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **Ambiance** : lumière plus douce (luminosité 2,2, ombres adoucies, ambiance chaude), brume plus présente (densité 0,32, brume 1,7), couleurs moins saturées (0,10), bloom discret (0,3) ; tests de ces valeurs. `BLENDER_REQUESTS.md` : palette limitée et 14 nouvelles demandes de modèles (fleurs, touffes, pierres, lanternes, panneau d'étoiles, falaises en terrasse, escalier, cascade, îlot, pont à rampes, barrières d'angle, cabanes, 8 apparences de base).
 - **Pas fait dans cette session** (à décider avec toi) : relief en terrasses et falaises avec le Terrain Roblox, grandes rivières et lacs en terrain, cascades, chemins sinueux obligatoires, pas de passage forcé par les ponts (les douves restent franchissables), plus de variété de fleurs/touffes (le budget de 1200 Parts procédurales les a supprimées : elles attendent les modèles Blender demandés). Ces points exigent un playtest Studio du terrain (la logique de génération de Terrain n'est pas testable hors Studio).
 
+## 2026-11-22 (suite) : eau : rivières larges, lacs, ponts obligatoires
+
+- Rivières de 24 de large (`Config.Map.geo`), **mur invisible au milieu de chaque rivière avec un passage de 12 à chaque pont** : on ne franchit l'eau que par les ponts. Bug corrigé : les ponts procéduraux étaient posés DANS LE SENS de la rivière au lieu de la traverser ; ils sont maintenant en travers, plus longs que l'eau (28 pour 24).
+- 2 grands lacs à bords nets (disque d'eau, rive de sable, îlot herbeux et rocher), reconnus par `Placement` (rien n'y est posé) et par la texture d'eau.
+- Pas encore fait : terrasses et falaises (Terrain), cascades, décor de fleurs/touffes à budget séparé, branchement des 27 modèles Blender reçus (IDs de la gestion).
+
 ## 2026-11-22 (suite) : retours de test réels, lot 1 : sol qui scintille
 
 - **Détecteur de z-fighting** (test sur le hub et la partie construits) : deux dessus horizontaux à moins de 0,05 stud qui se recouvrent sur plus de 1 stud carré sont refusés ; il a trouvé (hub) la bague de la place au même niveau que la place, les pavés des chemins sous l'anneau des portails et superposés entre eux (le chemin du portail « château » doublait celui de l'arène) ; (partie) les taches d'herbe qui se recouvraient, l'arène sous l'eau des douves, les segments de douve entre eux, les deux rivières à leur croisement, la paille du nid, l'étang de Mara, les tuiles Blender de chemin sur celles de pelouse.

@@ -4335,6 +4335,52 @@ do
 				end
 			end
 			check("Zones : un panneau de difficulté (étoiles, nombre de gardiens) à l'entrée de chacun des " .. #Config.RIVALS .. " domaines (" .. boards .. "), 1 + 2 + 3 gardiens, étoiles croissantes", boards == #Config.RIVALS and Config.RIVALS[1].stars < Config.RIVALS[2].stars and Config.RIVALS[2].stars < Config.RIVALS[3].stars and Config.RIVALS[1].guards == 1 and Config.RIVALS[3].guards == 3 and Config.RIVALS[1].viewDist < Config.RIVALS[3].viewDist and Config.RIVALS[1].guardSpeed < Config.RIVALS[3].guardSpeed and Config.RIVALS[1].damage < Config.RIVALS[3].damage)
+			do -- eau : murs invisibles de rivière avec un passage à chaque pont (les ponts sont le seul passage), ponts en travers, lacs
+				local geoC = Config.Map.geo
+				local walls = { z = {}, x = {} }
+				local lakes, bridgesN, acrossOk = 0, 0, true
+				for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+					if d.ClassName == "Part" then
+						local pr = rawget(d, "__props")
+						if pr.Name == "RiverWall" then
+							local sz, pos = pr.Size, pr.Position
+							if sz.X > sz.Z then
+								walls.z[#walls.z + 1] = { pos.X - sz.X / 2, pos.X + sz.X / 2, pos.Z }
+							else
+								walls.x[#walls.x + 1] = { pos.Z - sz.Z / 2, pos.Z + sz.Z / 2, pos.X }
+							end
+						elseif pr.Name == "Lake" then
+							lakes += 1
+						elseif pr.Name == "BridgePlank" and math.abs(pr.Position.Y - 0.55) < 1e-6 then
+							bridgesN += 1
+							acrossOk = acrossOk and pr.Size.X > 0 and pr.Size.Z > 0
+						end
+					end
+				end
+				local gapsOk = true
+				for _, rv in ipairs(geoC.rivers) do
+					local list = walls[rv.axis]
+					for _, w in ipairs(list) do
+						for _, c in ipairs(rv.bridgesAt) do
+							if w[2] > c - geoC.bridgeHalfGap + 1e-6 and w[1] < c + geoC.bridgeHalfGap - 1e-6 then
+								gapsOk = false -- un mur recouvre un pont
+							end
+						end
+					end
+					table.sort(list, function(a, b)
+						return a[1] < b[1]
+					end)
+					local expected = #rv.bridgesAt + 1
+					local mine = 0
+					for _, w in ipairs(list) do
+						if math.abs(w[3] - rv.at) < 1e-6 then
+							mine += 1
+						end
+					end
+					gapsOk = gapsOk and mine == expected
+				end
+				check("Rivières : mur invisible avec UN passage par pont (3 segments chacune), aucun mur sur un pont, " .. #geoC.lakes .. " lacs (" .. lakes .. "), " .. bridgesN .. " planches de pont", gapsOk and lakes == #geoC.lakes and bridgesN >= #geoC.rivers * #geoC.rivers[1].bridgesAt * Config.Map.decor.bridgePlanks)
+			end
 			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
 		end
 		RT.removePlayer(k)
