@@ -27,3 +27,4 @@ Réseau : tous les Remotes sont déclenchés par un événement de jeu (étape, 
 ## Limites connues
 - Le chargement des modèles Blender reste global et en arrière-plan (priorité aux énigmes puis au mobilier courant). Un chargement par pièce n'est pas fait : le masquage de pièces limite le rendu mais pas le téléchargement initial.
 - Aucune mesure sur un vrai appareil : les chiffres ci-dessus viennent du simulateur. Mesurer avec F7 sur téléphone après publication.
+- Boucles d'ambiance sonore : seules celles des 8 pièces les plus proches jouent (`MapBuilder.startRoomBudget`).

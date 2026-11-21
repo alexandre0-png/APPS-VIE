@@ -1257,6 +1257,19 @@ local function startRoomBudget()
 				for id, m in pairs(moodLights) do
 					m.light.Enabled = active[id] == true
 					m.light.Range = m.range * limits.rangeScale
+					-- L'ambiance sonore d'une pièce éloignée est coupée : au plus quelques boucles à la fois
+					if m.sound then
+						local want = active[id] == true
+						if m.sound.IsPlaying ~= want then
+							pcall(function()
+								if want then
+									m.sound:Play()
+								else
+									m.sound:Pause()
+								end
+							end)
+						end
+					end
 				end
 				-- Les ampoules des pièces éloignées restent éteintes (aucune lumière inutile) : budget total sous Config.Perf.MaxLights
 				for _, lamp in ipairs(lamps) do
@@ -1301,7 +1314,11 @@ local function applyMoods(root)
 			light.Parent = anchor
 			moodLights[r.id] = { light = light, range = mood.range, room = r, cx = cx, cz = cz }
 			if mood.sound and mood.volume > 0 then
-				pcall(Audio.play, mood.sound, anchor, { volume = mood.volume, range = 20, looped = true })
+				local ok, sound =
+					pcall(Audio.play, mood.sound, anchor, { volume = mood.volume, range = 20, looped = true })
+				if ok then
+					moodLights[r.id].sound = sound -- ne joue que dans les pièces proches du joueur (budget)
+				end
 			end
 			-- Repère au sol : une bande de couleur sans collision, posée hors des meubles de la pièce
 			local boxes = {}
