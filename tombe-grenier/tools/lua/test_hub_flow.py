@@ -30,7 +30,7 @@ def pure(path):
 class TestNextGroup(unittest.TestCase):
     def setUp(self):
         self.lua, self.R = pure("src/shared/HubRules.lua")
-        self.cfg = self.lua.table_from({"DuoWait": 60, "HubWait": 30, "MaxPlayers": 2})
+        self.cfg = self.lua.table_from({"DuoWait": 60, "HubWait": 30, "MaxPlayers": 2, "AutoStart": True})
 
     def players(self, *rows):
         return self.lua.table_from([
@@ -39,6 +39,13 @@ class TestNextGroup(unittest.TestCase):
 
     def ids(self, group):
         return None if group is None else [group[i] for i in range(1, len(group) + 1)]
+
+    def test_without_autostart_nobody_leaves_without_a_pad(self):
+        cfg = self.lua.table_from({"DuoWait": 60, "HubWait": 30, "MaxPlayers": 2})  # AutoStart absent = faux
+        for now in (0, 30, 1000, 100000):
+            self.assertIsNone(self.R.nextGroup(self.players(*[(i, 0, None, 0) for i in range(1, 4)]), now, cfg))
+        # une borne reste le seul déclencheur
+        self.assertEqual(self.ids(self.R.nextGroup(self.players((1, 0, "solo", 1)), 2, cfg)), [1])
 
     def test_solo_press_leaves_alone_and_does_not_drag_the_others(self):
         g = self.R.nextGroup(self.players((1, 0, None, 0), (2, 0, "duo", 5), (3, 0, "solo", 9)), 10, self.cfg)
@@ -221,6 +228,7 @@ class TestHubQueues(unittest.TestCase):
 
     def test_pressing_the_same_pad_twice_leaves_the_queue(self):
         lua = self.start("alice")
+        lua.execute("require({ __path = 'src/shared/Config.lua' }).Game.AutoStart = true")
         lua.execute("press('Zone duo', player('alice')); press('Zone duo', player('alice')); advance(45)")
         sent = calls(lua, "private")
         self.assertTrue(sent, "sorti de la file : le délai du hub sans borne s'applique (30 s), pas celui du duo (60 s)")
@@ -231,8 +239,15 @@ class TestHubQueues(unittest.TestCase):
         lua.execute("press('Zone duo', player('alice')); local a = player('alice'); a.Parent = nil; advance(100)")
         self.assertTrue(all("alice" not in c.who.split(",") for c in calls(lua, "private") + calls(lua, "async")))
 
+    def test_without_a_pad_nobody_is_ever_launched(self):
+        lua = self.start("alice", "bob")
+        lua.execute("advance(600)")
+        self.assertEqual(calls(lua, "private"), [])
+        self.assertEqual(calls(lua, "async"), [])
+
     def test_no_pad_players_leave_after_the_hub_wait_at_most_two(self):
         lua = self.start("alice", "bob", "carol")
+        lua.execute("require({ __path = 'src/shared/Config.lua' }).Game.AutoStart = true")
         lua.execute("advance(40)")
         sent = calls(lua, "private")
         self.assertTrue(sent)

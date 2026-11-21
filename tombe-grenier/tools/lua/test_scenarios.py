@@ -428,6 +428,90 @@ class TestHubTeleport(Base):
         self.clean(lua)
 
 
+REMOTE_SPY = r"""
+SPY = {}
+local R = require({ __path = "src/shared/Remotes.lua" })
+local fire, fireAll = R.fire, R.fireAll
+R.fire = function(name, p, payload) table.insert(SPY, name .. ":" .. tostring(type(payload) == "table" and (payload.kind or payload.name) or "")) return fire(name, p, payload) end
+R.fireAll = function(name, payload) table.insert(SPY, name .. ":" .. tostring(type(payload) == "table" and (payload.kind or payload.name) or "")) return fireAll(name, payload) end
+"""
+
+PROMPT_COUNT = r"""
+function activePrompts()
+  local n, names = 0, {}
+  for _, d in ipairs(workspace:GetDescendants()) do
+    if d.ClassName == "ProximityPrompt" and d.Enabled ~= false and d.Name ~= "HubPrompt" then n = n + 1; names[#names + 1] = d.Name end
+  end
+  return n, table.concat(names, ",")
+end
+"""
+
+
+class TestHubNeverStartsAGame(Base):
+    """Le hub ne lance jamais de cinématique de partie ni de quête : seule une plaque (ou l'arrivée dans le lieu de partie)
+    démarre une partie."""
+
+    def server(self, place):
+        lua = robust.make_capturing(place)
+        lua.execute(HELPERS)
+        self.assertTrue(lua.eval("runServer()").ok)
+        lua.execute(REMOTE_SPY)
+        lua.execute(PROMPT_COUNT)
+        lua.execute("SWALLOW = true; advance(20); A = newPlayer('alice'); join(A); B = newPlayer('bob'); join(B)")
+        return lua
+
+    def spied(self, lua):
+        return [str(lua.eval("SPY[%d]" % i)) for i in range(1, int(lua.eval("#SPY")) + 1)]
+
+    def check_quiet(self, lua):
+        lua.execute("advance(600)")
+        self.assertFalse(any("[Round] début" in p for p in prints(lua)), "aucune partie sans plaque")
+        bad = [e for e in self.spied(lua) if e.startswith(("Effect:Cine", "Effect:Intro", "Reveal", "Flashback"))]
+        self.assertEqual(bad, [], "aucune cinématique ni quête dans le hub")
+        self.clean(lua)
+
+    def test_hub_role_with_the_game_script_never_starts_a_round(self):
+        lua = self.server(roles.HUB)
+        self.check_quiet(lua)
+
+    def test_single_role_waits_for_a_pad(self):
+        lua = self.server(0)
+        self.check_quiet(lua)
+
+    def test_unknown_place_id_behaves_like_single_and_waits_for_a_pad(self):
+        lua = robust.make_capturing(12345)
+        lua.execute(HELPERS)
+        self.assertTrue(lua.eval("runServer()").ok)
+        lua.execute(REMOTE_SPY)
+        lua.execute("SWALLOW = true; advance(20); A = newPlayer('alice'); join(A)")
+        self.check_quiet(lua)
+
+    def test_hub_script_alone_builds_no_quest_prompts_or_cinematics(self):
+        lua = roles.make(roles.HUB)
+        lua.execute(HELPERS)
+        lua.execute("SWALLOW = true; runHub()")
+        lua.execute(REMOTE_SPY)
+        lua.execute("advance(20); A = newPlayer('alice'); join(A); advance(600)")
+        self.assertEqual([e for e in self.spied(lua) if e.startswith(("Effect:", "Reveal"))], [])
+        quest_prompts = int(lua.execute('local n = 0 for _, d in ipairs(workspace:GetDescendants()) do if d.ClassName == "ProximityPrompt" and (d.Name == "QuestPrompt" or string.sub(d.Name, 1, 11) == "QuestPrompt") then n = n + 1 end end return n'))
+        self.assertEqual(quest_prompts, 0)
+        self.clean(lua)
+
+    def test_a_pad_press_still_starts_the_game_in_single_role(self):
+        lua = robust.make_capturing(0)
+        lua.execute(HELPERS)
+        self.assertTrue(lua.eval("runServer()").ok)
+        lua.execute("SWALLOW = true; advance(20); A = newPlayer('alice'); join(A); advance(30)")
+        lua.execute(
+            """
+            local Hub = require({ __path = "src/common/Hub.lua" })
+            HUBPRESS = Hub
+            """
+        )
+        # le hub sans plaque n'a rien lancé ; Hub.startGame (appelé par une plaque) lance bien la partie
+        self.assertFalse(any("[Round] début" in p for p in prints(lua)))
+
+
 DS_SETUP = r"""
 DS_MODE = "ok"      -- ok | fail | slow
 DS_DATA = {}

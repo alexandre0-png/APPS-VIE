@@ -2,7 +2,7 @@
   HubRules : règles de lancement du hub (sans objet Roblox : testées en Python).
   - Solo : lancement dès la borne « Partie solo », avec les joueurs présents.
   - Duo : attend un second joueur, au plus Config.Game.DuoWait secondes, puis lance en solo.
-  - Sans borne : lancement après Config.Game.HubWait secondes à partir de l'arrivée du premier joueur.
+  - Sans borne : aucun lancement tout seul (Config.Game.AutoStart = false) : la partie ne démarre que par une plaque.
 ]]
 local HubRules = {}
 
@@ -17,14 +17,15 @@ function HubRules.shouldLaunch(mode, present, waited, cfg)
 	if mode == "duo" then
 		return present >= 2 or waited >= cfg.DuoWait
 	end
-	return waited >= cfg.HubWait
+	return cfg.AutoStart == true and waited >= cfg.HubWait
 end
 
 -- File d'attente par borne. players : { { id, joinedAt, queue = "solo" | "duo" | nil, queuedAt } }.
 -- Retourne la liste des identifiants du prochain groupe à lancer (au plus cfg.MaxPlayers), ou nil :
 --  1. Un joueur en file solo part seul, tout de suite (les autres ne sont pas entraînés avec lui).
 --  2. Deux joueurs en file duo partent ensemble ; un seul attend cfg.DuoWait secondes, puis part en solo.
---  3. Sans borne : le plus ancien part après cfg.HubWait secondes, avec le suivant s'il attend aussi (duo).
+--  3. Sans borne : personne ne part (cfg.AutoStart = false) ; avec AutoStart = true, le plus ancien part après
+--     cfg.HubWait secondes, avec le suivant s'il attend aussi (duo).
 function HubRules.nextGroup(players, now, cfg)
 	local solo, duo, free = {}, {}, {}
 	for _, p in ipairs(players) do
@@ -57,7 +58,7 @@ function HubRules.nextGroup(players, now, cfg)
 	if #duo == 1 and now - duo[1].queuedAt >= cfg.DuoWait then
 		return { duo[1].id }
 	end
-	if #free > 0 and now - free[1].joinedAt >= cfg.HubWait then
+	if cfg.AutoStart == true and #free > 0 and now - free[1].joinedAt >= cfg.HubWait then
 		local group = { free[1].id }
 		if free[2] and cap >= 2 then
 			table.insert(group, free[2].id)

@@ -130,7 +130,8 @@ Config.Game = {
 	-- Le lieu hub réserve un serveur privé du lieu de jeu et y téléporte les joueurs ; si Roblox refuse,
 	-- repli sur un serveur public du lieu de jeu.
 	Places = { hub = 77452764500707, game = 88091909899710 }, -- deux lieux de la même expérience « Sortir Du Grenier » (univers 10776611603) : hub et partie
-	HubWait = 30, -- secondes au hub après l'arrivée du premier joueur, puis la partie démarre
+	AutoStart = false, -- vrai : un joueur sans plaque part tout seul après HubWait ; faux (défaut) : la partie ne démarre que par une plaque
+	HubWait = 30, -- avec AutoStart : secondes au hub après l'arrivée du premier joueur
 	DuoWait = 60, -- zone duo : secondes d'attente d'un second joueur, puis partie en solo
 	-- Nombre de joueurs maximum par serveur. Deux joueurs : coopération sans diluer la tension.
 	-- Le jeu est conçu pour un joueur (solo) ou un duo. Au-delà, la carte devient trop vite encombrée.

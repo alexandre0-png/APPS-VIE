@@ -7,7 +7,7 @@ from lupa.lua54 import LuaRuntime
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 RULES = os.path.join(ROOT, "src", "shared", "HubRules.lua")
-CFG = {"DuoWait": 60, "HubWait": 30}
+CFG = {"DuoWait": 60, "HubWait": 30, "AutoStart": True}
 
 
 def load():
@@ -37,6 +37,8 @@ class TestHubRules(unittest.TestCase):
         self.assertTrue(self.R.shouldLaunch("duo", 1, 60, self.cfg))
 
     def test_no_pad_launches_after_hub_wait(self):
+        off = self.lua.table_from({"DuoWait": 60, "HubWait": 30})
+        self.assertFalse(self.R.shouldLaunch(None, 1, 100000, off), "sans AutoStart, aucun lancement sans borne")
         self.assertFalse(self.R.shouldLaunch(None, 1, 29, self.cfg))
         self.assertTrue(self.R.shouldLaunch(None, 1, 30, self.cfg))
 
