@@ -57,6 +57,10 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **Gus clément** : se faire attraper une fois (retour à la base, message « Gus t'a attrapé, réessaie ! », aucun œuf perdu), vérifier l'anneau jaune de vision au sol et que la base et le haut de la rampe ne sont jamais ciblés.
 - [ ] **Arbres, chemins, protections d'œufs** (lot 11) : orientation de la tuile de virage (hypothèse : entrée −X, sortie −Z), hauteur de l'œuf dans le dôme, rendu de la vitre.
 - [ ] **Village** (lot 12) : taille et orientation des maisons, du pont et de l'île sakura dans le hub, bords de la mare, décor de la carte.
+- [ ] **Capture du hub avec l'étiquette « Blender N/M »** (bas à gauche) après republication ; un clic sur l'étiquette ou F4 ouvre le détail des échecs (nom, ID, message). Si des modèles sont refusés pour droits d'accès, ouvrir chacun avec le compte propriétaire de l'expérience et l'ajouter à l'inventaire / le rendre disponible pour l'expérience. Repasser `Config.Debug.AssetReport` à `false` ensuite.
+- [ ] **Carte compacte** : portails de voyage rapide au Grand Nid (z = -45) et au pied des rampes, flèche de la boussole, rampe de Zed orientée vers le sud, trajets à pied (bases 7 s, zones 8 à 13 s).
+- [ ] **Revenu** : vérifier « 💤 Inactif » après 90 s sans bouger et la carte « Gains pendant ton absence » à la reconnexion.
+- [ ] **Éclosions** : un œuf Épique donne un Épique (5 % de « AMÉLIORÉ ! » vers Légendaire).
 - [ ] **Écran machine à sous** : lisibilité des trois rouleaux sur téléphone, emoji 🪽 affiché, durée acceptable (sinon `Config.REVEAL.slot.enabled = false`).
 
 ## 4. Créer les achats sur le Creator Hub et me donner les ID
