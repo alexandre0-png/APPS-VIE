@@ -26,7 +26,10 @@ function MonsterVisual.attach(model, root)
 		local clone = template:Clone()
 		local ext = clone:GetExtentsSize()
 		-- Hauteur du rig : la silhouette (~2,5 studs au départ) est ramenée à la taille du monstre
-		local scale = ModelFit.scaleFor({ ext.X, ext.Y, ext.Z }, { 0, rigSize.Y, 0 }, "height")
+		local scale = ModelFit.scaleOf(MonsterVisual.MODEL, { ext.X, ext.Y, ext.Z }, { 0, rigSize.Y, 0 }, "height")
+		if not scale then
+			error("mesure impossible (GetExtentsSize) : silhouette refusée, le rig reste visible")
+		end
 		clone:ScaleTo(clone:GetScale() * scale)
 		local parts = {}
 		for _, d in ipairs(clone:GetDescendants()) do

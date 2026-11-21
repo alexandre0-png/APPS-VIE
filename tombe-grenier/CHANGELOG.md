@@ -2,6 +2,11 @@
 
 ## Non publié (branche claude/tombe-grenier-animations-5ilizr)
 
+### Couleurs et échelle des modèles (retour utilisateur d'un autre jeu, même chargeur)
+- Couleurs : matière déduite de MOTS exacts du nom (plus de sous-chaînes : « Fermeture » ou « Dentelle » ne sont plus du métal) ; métal seulement pour anneau, tige, dent, serrure, poignée, laiton, fer, ferrure, chrome, pics et « cadre doré » (un cadre seul est mat) ; néon seulement pour flamme, yeux, œil et lanterne ; verre pour verre et vitre ; le reste en plastique. Reflectance 0 sur toutes les pièces, SurfaceAppearance importées retirées, suffixe `__RRGGBB` (avec ou sans `.001`) exact, pièce sans suffixe jamais noire par défaut (gris chaud) et jamais métallique par défaut.
+- Échelle : `ModelFit.HEIGHTS` (hauteur cible en studs par modèle : armoire 8, horloge 8,5, commode 3,2, lit double 5, cheminée 7, monstre 6,5, et 28 autres), mise à l'échelle sur la hauteur mesurée (`GetExtentsSize`) ; mesure impossible : le modèle est refusé et l'objet de remplacement reste (pose, horloge, silhouette du monstre).
+- `test_colors_scale.py` : couleurs exactes, matières, noir par défaut, hauteur à ±10 % par modèle sur des mesures aléatoires, refus sur mesure invalide.
+
 ### Pack animations
 - `VfxKit` (partagé) : 9 préréglages (aura runique, ailes, onde de choc, pilier de révélation, bouclier, étincelles, spirale, torii, lueur d'énigme) bâtis sur les 13 modèles d'effets Blender (recolorés par thème froid, or, rouge ou pâle, tweens Back, Elastic et Quint), qualité haut, moyen ou bas selon l'appareil (téléphone : 3 effets simultanés, 40 particules par émetteur, ni Beam ni Highlight), nettoyage par Debris, tout sous pcall, forme néon de secours sans modèle. Les modèles sont copiés par le serveur dans `ReplicatedStorage.Vfx` après leur chargement.
 - `CinematicKit` (partagé) : 7 plans courts (réveil dans le cercueil, première apparition, objet précieux, porte, sortie par le sous-sol, enfant retrouvé, fuite finale avec générique), 8 s au plus, trajectoires travelling, orbite, plongée et dolly, easings, tremblement, flou, teinte, titres, bandes noires, bouton Passer et touches ; refusés en danger ; caméra, champ de vision, flou et personnage restaurés dans tous les cas ; une seule cinématique à la fois (`Cinematic.lua` d'origine et kit s'effacent l'un devant l'autre).

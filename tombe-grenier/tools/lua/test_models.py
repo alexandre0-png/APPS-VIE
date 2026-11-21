@@ -279,7 +279,7 @@ class TestModelColor(unittest.TestCase):
 
     def test_material_by_name(self):
         m = self.C.materialKey
-        for name in ("Anneau__C8A020", "Tige__C8A020", "Dent__C8A020", "Serrure__C8A020", "Poignee__C8A020", "Poignée__C8A020", "Cadre__C8A020", "Laiton__B5A642"):
+        for name in ("Anneau__C8A020", "Tige__C8A020", "Dent__C8A020", "Serrure__C8A020", "Poignee__C8A020", "Poignée__C8A020", "Cadre_Dore__C8A020", "Laiton__B5A642", "Chrome__B0B0B0", "Fer__404040", "Pics__505050"):
             self.assertEqual(m(name), "metal", name)
         for name in ("Flamme__FFB040", "Yeux__FF0000", "Oeil__FF0000", "Œil"):
             self.assertIn(m(name), ("neon", "plastic"), name)
@@ -371,20 +371,22 @@ class TestSolveAndScale(unittest.TestCase):
         r = self.M.solve(name, self.t(*ext), self.t(*target), self.t(*facing), None)
         return r.scale, r.yaw, (r.size[1], r.size[2], r.size[3])
 
-    def test_furniture_always_fits_inside_its_box(self):
+    def test_furniture_height_follows_the_height_table_and_footprint_stays_close_to_its_box(self):
         boxes = {"armoire gothique": (11, 8, 4), "commode ancienne": (8, 3, 4), "berceau": (8, 3, 8), "cheval à bascule": (8, 3, 6), "miroir sur pied": (2, 6, 2), "malle": (4, 3, 6)}
         for name, box in boxes.items():
             for facing in ((0, 1), (0, -1), (1, 0), (-1, 0)):
                 scale, yaw, size = self.solve(name, self.SIZES[name], box, facing)
-                for dim, limit in zip(size, box):
-                    self.assertLessEqual(dim, limit + 1e-6, f"{name} {facing} dépasse sa boîte : {size} dans {box}")
+                target = self.M.HEIGHTS[name]
+                self.assertAlmostEqual(size[1], target, delta=target * 0.1, msg=name)
+                for dim, limit in zip((size[0], size[2]), (box[0], box[2])):
+                    self.assertLessEqual(dim, limit * 1.4 + 1e-6, f"{name} {facing} déborde trop de sa boîte : {size} dans {box}")
                 self.assertGreater(scale, 0.02)
 
     def test_quarter_turn_swaps_the_footprint_before_scaling(self):
         # un meuble large (2 x 1) dans une boîte étroite en x (1 x 2) : tourné d'un quart de tour il tient plein format
         box = (1, 5, 2)
-        s_front, _, _ = self.solve("commode ancienne", (2, 1, 1), box, (0, -1))  # face -Z conservée : largeur 2 en x
-        s_turned, _, _ = self.solve("commode ancienne", (2, 1, 1), box, (1, 0))  # quart de tour : largeur 2 en z
+        s_front, _, _ = self.solve("inconnu", (2, 1, 1), box, (0, -1))  # face -Z conservée : largeur 2 en x
+        s_turned, _, _ = self.solve("inconnu", (2, 1, 1), box, (1, 0))  # quart de tour : largeur 2 en z
         self.assertGreater(s_turned, s_front)
 
     def test_statue_scales_to_the_game_piece_height(self):
@@ -396,9 +398,9 @@ class TestSolveAndScale(unittest.TestCase):
         scale, _, size = self.solve("cadre photo", self.SIZES["cadre photo"], (1.4, 0.1, 1.0), (0, 1))
         self.assertAlmostEqual(max(size), 1.4, places=6)
 
-    def test_monster_height_is_set_by_the_rig(self):
+    def test_monster_height_comes_from_the_height_table(self):
         scale, _, size = self.solve("ombre rampante", (1.0, 2.5, 0.8), (0, 5.5, 0), (0, 1))
-        self.assertAlmostEqual(size[1], 5.5, places=6)
+        self.assertAlmostEqual(size[1], self.M.HEIGHTS["ombre rampante"], places=6)
 
     def test_every_decor_model_has_a_plan_and_unknown_names_fit(self):
         r = self.M.solve("inconnu", self.t(1, 1, 1), self.t(2, 2, 2), self.t(0, 1), None)

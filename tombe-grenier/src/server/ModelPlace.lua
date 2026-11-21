@@ -67,6 +67,9 @@ function ModelPlace.fit(opts)
 			facing,
 			Config.Assets.Front and Config.Assets.Front[opts.name]
 		)
+		if not sol then
+			error("mesure impossible (GetExtentsSize) : modèle refusé, l'objet de remplacement reste")
+		end
 		clone:ScaleTo(clone:GetScale() * sol.scale)
 		clone:PivotTo(CFrame.new(opts.centre) * CFrame.Angles(0, sol.yaw, 0))
 		local cf, size = clone:GetBoundingBox()

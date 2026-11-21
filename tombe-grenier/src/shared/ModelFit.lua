@@ -13,7 +13,7 @@ local ModelFit = {}
 ModelFit.PLANS = {
 	["clé or"] = { mode = "longest", front = "-Z" },
 	["coffret ancien"] = { mode = "longest", front = "-Z" }, -- serrure dorée sur la face -Z
-	["horloge comtoise"] = { mode = "height", height = 6.5, front = "+Z", floor = true }, -- cadran « -Y » côté Blender = +Z Roblox
+	["horloge comtoise"] = { mode = "height", height = 8.5, front = "+Z", floor = true }, -- cadran « -Y » côté Blender = +Z Roblox
 	["poupée ancienne"] = { mode = "height", height = 1.6, front = "-Z" },
 	["bougie chandelier"] = { mode = "height", height = 1.0, front = "-Z" },
 	-- Bibliothèque Blender : meubles qui tiennent dans la boîte du meuble de la carte, orientés vers l'intérieur de la pièce
@@ -72,6 +72,45 @@ ModelFit.PLANS = {
 	["toile d'araignée"] = { mode = "longest", front = "-Z" },
 	["valise"] = { mode = "longest", front = "-Z" },
 	["ombre rampante"] = { mode = "height", front = "-Z" }, -- monstre : à la hauteur du rig
+}
+
+-- Hauteurs cibles en studs : le modèle est mis à l'échelle sur sa HAUTEUR mesurée (GetExtentsSize), largeur et profondeur
+-- suivent ses proportions. Priorité sur le mode du plan. Testé à ±10 % par modèle (tools/lua/test_colors_scale.py).
+ModelFit.HEIGHTS = {
+	["armoire gothique"] = 8,
+	["horloge comtoise"] = 8.5,
+	["commode ancienne"] = 3.2,
+	["lit double ancien"] = 5,
+	["cheminée gothique"] = 7,
+	["ombre rampante"] = 6.5, -- plus haut que le rig (5,4) pour l'allure, sous les linteaux (portes de 8)
+	["berceau"] = 3,
+	["cheval à bascule"] = 3,
+	["miroir sur pied"] = 6,
+	["malle"] = 3,
+	["chaise ancienne"] = 2,
+	["table de salle"] = 2.5,
+	["étagère murale"] = 7,
+	["caisses en bois"] = 3,
+	["pied de lit"] = 1.2,
+	["plante d'intérieur"] = 4,
+	["console d'entrée"] = 3,
+	["baignoire sur pieds"] = 2.5,
+	["lavabo"] = 3,
+	["WC"] = 2.5,
+	["armoire de toilette"] = 6,
+	["barrique"] = 3,
+	["cuve"] = 4,
+	["canapé ancien"] = 3,
+	["fauteuil ancien"] = 3,
+	["cuisinière ancienne"] = 3,
+	["frigo ancien"] = 6,
+	["cercueil"] = 2,
+	["coffre verrouillé"] = 3,
+	["coffre à jouets"] = 2.5,
+	["vitrine"] = 7,
+	["portemanteau"] = 6,
+	["lampadaire ancien"] = 5,
+	["établi"] = 3,
 }
 
 ModelFit.FRONT = {
@@ -147,12 +186,41 @@ end
 -- Résout la pose : échelle et rotation pour un modèle de mesures `extents`, remplaçant un objet de taille `target`,
 -- tourné vers `facing` ({ dx, dz }). front : face avant réelle si elle diffère du plan (Config.Assets.Front).
 -- Retourne { scale, yaw, size } où size est la taille finale du modèle une fois posé.
+-- Mesure exploitable : trois dimensions finies et positives
+function ModelFit.validExtents(extents)
+	if type(extents) ~= "table" then
+		return false
+	end
+	for i = 1, 3 do
+		if not finite(extents[i]) or extents[i] <= 0 then
+			return false
+		end
+	end
+	return true
+end
+
+-- Échelle d'un modèle : sur la hauteur cible du tableau HEIGHTS, sinon selon le mode du plan. nil si la mesure est
+-- impossible (le modèle est alors refusé et l'objet de remplacement reste).
+function ModelFit.scaleOf(name, extents, target, mode)
+	if not ModelFit.validExtents(extents) then
+		return nil
+	end
+	local height = ModelFit.HEIGHTS[name]
+	if height then
+		return math.max(MIN_SCALE, math.min(MAX_SCALE, height / extents[2]))
+	end
+	return ModelFit.scaleFor(extents, target, mode)
+end
+
 function ModelFit.solve(name, extents, target, facing, front)
 	local plan = ModelFit.PLANS[name] or { mode = "fit", front = "-Z" }
 	local yaw = ModelFit.yawFor(front or plan.front, facing)
 	local turned = ModelFit.rotatedExtents(extents, yaw)
 	local goal = plan.height and { 0, plan.height, 0 } or target
-	local scale = ModelFit.scaleFor(turned, goal, plan.mode)
+	local scale = ModelFit.scaleOf(name, turned, goal, plan.mode)
+	if not scale then
+		return nil
+	end
 	return { scale = scale, yaw = yaw, size = { turned[1] * scale, turned[2] * scale, turned[3] * scale } }
 end
 
