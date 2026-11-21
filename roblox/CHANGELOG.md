@@ -45,6 +45,13 @@ Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM
 - **Bug trouvé au passage** : la renaissance ne conservait pas `starter` (le pack de départ à achat unique pouvait être racheté après une renaissance) ; elle garde maintenant `starter` et `baseScore`.
 - Non testé en Studio : proportions des apparences, position des éléments sur la plateforme (l'entrée est supposée côté -Z, l'arrière +Z).
 
+## 2026-11-22 (suite) : retours de test réels, lot 5 : pose planifiée du décor, domaines espacés
+
+- **Cause du désordre** : les trois domaines étaient à 90 studs l'un de l'autre alors que leurs douves ont 56 de rayon : les anneaux d'eau se recouvraient, et les accessoires (posés au hasard) finissaient dans l'eau ou sur les chemins. Corrigé : domaines espacés de 125 (`Config.Map.rivalSpacing`, 13 studs entre deux douves), reculés (`rivalZ = -110`) et anneau des bases agrandi (`plotRadius = 262`) pour ne rien recouvrir.
+- **`Placement` (module pur, 14 tests)** remplace la pose aléatoire de `Builder.dressWorld` : grille de cellules parcourue dans un ordre déterministe, empreinte circulaire par objet, refus si l'empreinte touche l'eau (rivières, douves), un chemin, l'arène, un domaine, une base, un secret ou le bord, distance minimale de 2 studs entre objets, cabanes tournées face au centre de leur domaine, barrières alignées sur une même ligne (côté nord, jamais sur le chemin d'arrivée), ponts centrés sur leur rivière et plus longs qu'elle (18 pour 14) donc posés sur les deux rives. Géométrie de référence dans `Config.Map.geo`. Moulin et enclos de l'arène déplacés dans le domaine, hors douve.
+- Tests : aucune collision d'empreintes, aucun objet dans l'eau ni sur un chemin ni dans l'arène (vérification indépendante du planificateur), ponts reliant les rives, plan déterministe. Décor procédural réduit pour rester sous 1200 Parts.
+- Non fait ici (voir le rapport) : relief en terrasses avec Terrain et falaises, cascades.
+
 ## 2026-11-22 (suite) : retours de test réels, lot 1 : sol qui scintille
 
 - **Détecteur de z-fighting** (test sur le hub et la partie construits) : deux dessus horizontaux à moins de 0,05 stud qui se recouvrent sur plus de 1 stud carré sont refusés ; il a trouvé (hub) la bague de la place au même niveau que la place, les pavés des chemins sous l'anneau des portails et superposés entre eux (le chemin du portail « château » doublait celui de l'arène) ; (partie) les taches d'herbe qui se recouvraient, l'arène sous l'eau des douves, les segments de douve entre eux, les deux rivières à leur croisement, la paille du nid, l'étang de Mara, les tuiles Blender de chemin sur celles de pelouse.

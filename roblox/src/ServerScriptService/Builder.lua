@@ -7,6 +7,7 @@ local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared
 local Scenery = require(script.Parent:WaitForChild("Scenery"))
 local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Castle"))
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
+local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 
 local Builder = {}
 
@@ -694,14 +695,14 @@ function Builder.dressArena(assets)
 			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, Config.Assets.targetHeights.lamp, 0, "ArenaLamp")
 		end
 		local cx, cz = Config.rivalCenter(1)
-		local mill = put("props", "mill", cx - 44, 0, cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
+		local mill = put("props", "mill", cx - 24, 0, cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
 		if mill then
 			local p1, p2 = findNamed(mill, "Pales"), findNamed(mill, "Pales2")
 			if p1 then
 				millVis = { p1 = p1, b1 = p1.CFrame, p2 = p2, b2 = p2 and p2.CFrame }
 			end
 		end
-		put("props", "pen", cx + 30, 0, cz + 44, 16, nil, 0, "ArenaPen")
+		put("props", "pen", cx + 30, 0, cz + 4, 16, nil, 0, "ArenaPen")
 	end)
 	return n
 end
@@ -1754,26 +1755,9 @@ function Builder.dressWorld(assets)
 		local folder = Instance.new("Folder")
 		folder.Name = "BlenderProps"
 		folder.Parent = world
-		local rng = Random.new(77)
-		local half = Config.Map.groundSize / 2
-		local function free(x, z)
-			for i = 1, #Config.RIVALS do
-				local cx, cz = Config.rivalCenter(i)
-				if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < 110 then
-					return false
-				end
-			end
-			for _, sct in ipairs(Config.SECRETS) do
-				if math.sqrt((x - sct.x) ^ 2 + (z - sct.z) ^ 2) < 40 then
-					return false
-				end
-			end
-			if math.abs(z - 330) < 14 or math.abs(x + 380) < 14 then
-				return false
-			end
-			local d = math.sqrt(x * x + z * z)
-			return d > 270 and math.abs(x) < half - 40 and math.abs(z) < half - 40
-		end
+		-- Pose PLANIFIÉE (Placement) : grille, empreintes sans recouvrement, rien dans l'eau ni sur un chemin, cabanes face à leur domaine, barrières
+		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
+		local plan = PlacementMod.new(Config).plan()
 		local function put(key, x, z, rot, length)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
@@ -1788,28 +1772,11 @@ function Builder.dressWorld(assets)
 				placed = placed + 1
 			end
 		end
-		for _, key in ipairs({ "tree", "fir", "rock", "bush" }) do
-			local n, tries = Config.Assets.propsPlan[key] or 0, 0
-			while n > 0 and tries < 400 do
-				tries = tries + 1
-				local x, z = rng:NextNumber(-half + 60, half - 60), rng:NextNumber(-half + 60, half - 60)
-				if free(x, z) then
-					put(key, x, z, rng:NextNumber(0, 360))
-					n = n - 1
-				end
-			end
+		for _, it in ipairs(plan.items) do
+			put(it.kind, it.x, it.z, it.rot)
 		end
-		for i = 1, #Config.RIVALS do -- une cabane et des barrières par domaine, côté arène
-			local cx, cz = Config.rivalCenter(i)
-			put("hut", cx + 34, cz + 16, 200)
-			for k = 0, 3 do
-				if k < math.ceil((Config.Assets.propsPlan.fence or 0) / #Config.RIVALS) then
-					put("fence", cx - 18 + k * 12, cz + 34, 0)
-				end
-			end
-		end
-		for _, b in ipairs({ { -150, 330, 90 }, { 150, 330, 90 }, { -380, -150, 0 }, { -380, 150, 0 } }) do
-			put("bridge", b[1], b[2], b[3], Config.Assets.bridgeLength)
+		for _, b in ipairs(plan.bridges) do
+			put("bridge", b.x, b.z, b.rot, b.length)
 		end
 	end)
 	return ok and total or 0, placed

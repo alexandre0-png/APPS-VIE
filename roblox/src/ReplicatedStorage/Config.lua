@@ -1110,16 +1110,24 @@ Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaum
 -- trois domaines (Gus, Mara, Zed) sont au nord, chacun dans son propre biome, et des repères et secrets sont répartis plus loin.
 Config.Map = {
 	groundSize = 1200,
-	plotRadius = 215,
-	rivalSpacing = 90,
-	rivalZ = -95,
+	plotRadius = 262,
+	rivalSpacing = 125, -- distance entre deux domaines : leurs douves (rayon 56) ne se touchent plus (13 studs d'écart)
+	rivalZ = -110,
 	domainRadius = 38,
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
 	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 1200, -- le serveur avertit au démarrage si la carte procédurale dépasse ce nombre de Parts (budget mobile) ; les modèles Blender ont leurs propres budgets
+	-- Géométrie de référence (source unique : décor, pose planifiée et tests) : rivières (axe, position, demi-largeur, ponts), arène, chemins, bases.
+	geo = {
+		rivers = {
+			{ axis = "z", at = 330, half = 7, bridgesAt = { -150, 150 } }, -- rivière sud : coule le long de x
+			{ axis = "x", at = -380, half = 7, bridgesAt = { -150, 150 } }, -- rivière ouest : coule le long de z
+		},
+		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
+	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 20, trees = 12, patches = 8, hills = 8, moatSegments = 18, fencePosts = 8, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
+	decor = { flowers = 14, trees = 10, patches = 6, hills = 8, moatSegments = 18, fencePosts = 8, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {

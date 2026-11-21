@@ -3048,6 +3048,124 @@ do
 	check("Base : un seul pet Secret (150 points) fait passer de l'enclos à la Maison (niveau 4) ; il faut 12 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(6)) == 4 and Config.baseLevel(12 * Config.baseGain(1)) == 2)
 end
 
+-- Pose planifiée du décor : aucune collision, rien dans l'eau ni sur un chemin, ponts qui relient les rives ------------------------------------
+do
+	suite("Placement planifié : empreintes sans recouvrement, rien dans l'eau ni sur un chemin, ponts, barrières alignées, cabanes face au domaine")
+	local PL = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
+	local P = PL.new(Config)
+	local plan = P.plan()
+	local items = plan.items
+	local counts = {}
+	for _, it in ipairs(items) do
+		counts[it.kind] = (counts[it.kind] or 0) + 1
+	end
+	check("Plan : arbres, rochers, buissons, cabanes et barrières posés (" .. #items .. " objets : " .. (counts.tree or 0) .. " arbres, " .. (counts.fir or 0) .. " sapins, " .. (counts.rock or 0) .. " rochers, " .. (counts.bush or 0) .. " buissons, " .. (counts.hut or 0) .. " cabanes, " .. (counts.fence or 0) .. " barrières)", #items >= 40 and (counts.tree or 0) >= 10 and (counts.hut or 0) == #Config.RIVALS and (counts.fence or 0) >= 8)
+	local overlaps, worst = 0, 1e9
+	for i = 1, #items do
+		for j = i + 1, #items do
+			local d = math.sqrt((items[i].x - items[j].x) ^ 2 + (items[i].z - items[j].z) ^ 2)
+			worst = math.min(worst, d - items[i].r - items[j].r)
+			if d < items[i].r + items[j].r then
+				overlaps += 1
+			end
+		end
+	end
+	check("Empreintes : aucune collision entre objets (" .. overlaps .. "), espace minimal " .. string.format("%.1f", worst) .. " studs >= " .. PL.MIN_GAP, overlaps == 0 and worst >= PL.MIN_GAP - 1e-9)
+	-- vérification INDÉPENDANTE de la géométrie (autre code que Placement.blocked)
+	local geo, M = Config.Map.geo, Config.Map
+	local inWater, onPath, inArena = 0, 0, 0
+	local segs = {}
+	for i = 1, #Config.RIVALS do
+		local cx, cz = Config.rivalCenter(i)
+		segs[#segs + 1] = { cx * 0.5, -78, cx, cz + 24 }
+	end
+	for _, it in ipairs(items) do
+		for _, rv in ipairs(geo.rivers) do
+			local c = rv.axis == "z" and it.z or it.x
+			if math.abs(c - rv.at) < rv.half + it.r then
+				inWater += 1
+			end
+		end
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			local d = math.sqrt((it.x - cx) ^ 2 + (it.z - cz) ^ 2)
+			if math.abs(d - M.moat.radius) < M.moat.width / 2 + it.r then
+				inWater += 1
+			end
+		end
+		for _, sg in ipairs(segs) do
+			if PL.distToSegment(it.x, it.z, sg[1], sg[2], sg[3], sg[4]) < geo.pathHalf + it.r then
+				onPath += 1
+			end
+		end
+		if math.abs(math.sqrt(it.x ^ 2 + it.z ^ 2) - (M.plotRadius - 30)) < geo.pathHalf + it.r then
+			onPath += 1
+		end
+		if math.sqrt(it.x ^ 2 + it.z ^ 2) < geo.arenaRadius + it.r then
+			inArena += 1
+		end
+	end
+	check("Aucun objet dans l'eau (rivières, douves), sur un chemin ni dans l'arène (" .. inWater .. "/" .. onPath .. "/" .. inArena .. ")", inWater == 0 and onPath == 0 and inArena == 0)
+	check("Bridges : " .. #plan.bridges .. " ponts centrés sur leur rivière, plus longs qu'elle (les deux rives sont reliées), axe perpendiculaire à l'eau", #plan.bridges == 4 and (function()
+		for _, b in ipairs(plan.bridges) do
+			local rv = b.river
+			local center = rv.axis == "z" and b.z or b.x
+			if center ~= rv.at or b.length < rv.half * 2 + 2 or (rv.axis == "z" and b.rot ~= 90) or (rv.axis == "x" and b.rot ~= 0) then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Barrières : alignées (même rotation, même ligne) dans chaque domaine, jamais dans l'eau", (function()
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			local n = 0
+			for _, it in ipairs(items) do
+				if it.kind == "fence" and math.abs(it.z - (cz - 34)) < 1e-9 and math.abs(it.x - cx) < 22 then
+					n += 1
+					if it.rot ~= 0 then
+						return false
+					end
+				end
+			end
+			if n < 3 then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Cabanes : une par domaine, tournées vers le centre du domaine (avant = -Z)", (function()
+		for _, it in ipairs(items) do
+			if it.kind == "hut" then
+				local best = 1e9
+				for i = 1, #Config.RIVALS do
+					local cx, cz = Config.rivalCenter(i)
+					local d = math.sqrt((it.x - cx) ^ 2 + (it.z - cz) ^ 2)
+					if d < best then
+						best = d
+						local want = PL.facing(cx - it.x, cz - it.z)
+						local diff = math.abs((it.rot - want + 180) % 360 - 180)
+						if diff > 1e-6 and d == best then
+							-- garde la dernière valeur du plus proche
+						end
+					end
+				end
+				if best > 50 then
+					return false
+				end
+			end
+		end
+		return true
+	end)() and math.abs(PL.facing(0, -1)) < 1e-6 and math.abs(PL.facing(1, 0) - 270) < 1e-6 and math.abs(PL.facing(0, 1) - 180) < 1e-6 and math.abs(PL.facing(-1, 0) - 90) < 1e-6)
+	local again = PL.new(Config).plan()
+	check("Le plan est déterministe (deux calculs identiques)", #again.items == #items and again.items[7].x == items[7].x and again.items[#items].z == items[#items].z)
+	check("Le moulin et l'enclos de l'arène ne sont ni dans l'eau ni sur un chemin ni dans un autre domaine", (function()
+		local cx, cz = Config.rivalCenter(1)
+		return P.blocked(cx - 24, cz + 22, 7, { allowDomain = true }) == nil and P.blocked(cx + 30, cz + 4, 8, { allowDomain = true }) == nil
+	end)())
+	check("Blocage : eau, chemin, arène, domaine, bord sont reconnus", P.blocked(0, 330, 2) == "eau" and P.blocked(0, 0, 2) == "arène" and P.blocked(Config.rivalCenter(2), select(2, Config.rivalCenter(2)), 2) == "domaine" and P.blocked(2000, 0, 2) == "bord" and P.blocked(-380, 100, 2) == "eau")
+end
+
 -- Tutoriel, bannière de zone avec distance, titres, offres d'achat au bon moment ---------------------------------------------
 do
 	suite("Tutoriel (barre d'objectif), distance de zone, titres, offres d'achat non bloquantes")

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX31"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX46"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX45"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX32"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX48"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX47"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1114,16 +1114,24 @@ Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaum
 -- trois domaines (Gus, Mara, Zed) sont au nord, chacun dans son propre biome, et des repères et secrets sont répartis plus loin.
 Config.Map = {
 	groundSize = 1200,
-	plotRadius = 215,
-	rivalSpacing = 90,
-	rivalZ = -95,
+	plotRadius = 262,
+	rivalSpacing = 125, -- distance entre deux domaines : leurs douves (rayon 56) ne se touchent plus (13 studs d'écart)
+	rivalZ = -110,
 	domainRadius = 38,
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
 	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
 	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 1200, -- le serveur avertit au démarrage si la carte procédurale dépasse ce nombre de Parts (budget mobile) ; les modèles Blender ont leurs propres budgets
+	-- Géométrie de référence (source unique : décor, pose planifiée et tests) : rivières (axe, position, demi-largeur, ponts), arène, chemins, bases.
+	geo = {
+		rivers = {
+			{ axis = "z", at = 330, half = 7, bridgesAt = { -150, 150 } }, -- rivière sud : coule le long de x
+			{ axis = "x", at = -380, half = 7, bridgesAt = { -150, 150 } }, -- rivière ouest : coule le long de z
+		},
+		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
+	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 20, trees = 12, patches = 8, hills = 8, moatSegments = 18, fencePosts = 8, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
+	decor = { flowers = 14, trees = 10, patches = 6, hills = 8, moatSegments = 18, fencePosts = 8, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
@@ -1371,7 +1379,7 @@ function Config.oddsText()
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -1653,7 +1661,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -1833,7 +1841,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2176,7 +2184,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2473,7 +2481,208 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+-- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
+-- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
+-- empreinte ne touche NI l'eau (rivières, douves), NI un chemin, NI l'arène, un domaine, une base ou un secret, et reste à distance minimale des objets
+-- déjà posés. Cabanes tournées face au centre de leur domaine, barrières alignées sur une même ligne, ponts centrés sur leur rivière et plus longs
+-- qu'elle (les deux rives sont reliées). Utilisation : require(Placement).new(Config).plan().
+local Placement = {}
+
+local KIND_RADIUS = { tree = 3.5, fir = 3.5, rock = 2.5, bush = 2, hut = 7, fence = 5.5 }
+Placement.KIND_RADIUS = KIND_RADIUS
+Placement.MIN_GAP = 2 -- espace libre minimal entre deux empreintes (studs)
+Placement.CELL = 30
+
+-- Angle (degrés) de rotation autour de Y pour qu'un modèle dont l'avant est -Z regarde la direction (dx, dz). Portable (pas de math.atan2).
+function Placement.facing(dx, dz)
+	local fx, fz = -dx, -dz -- on veut sin(theta) = -dx/len et cos(theta) = -dz/len
+	if fx == 0 and fz == 0 then
+		return 0
+	end
+	local theta
+	if fz == 0 then
+		theta = fx > 0 and math.pi / 2 or -math.pi / 2
+	else
+		theta = math.atan(fx / fz)
+		if fz < 0 then
+			theta = theta + math.pi
+		end
+	end
+	return math.deg(theta) % 360
+end
+
+local function distToSegment(px, pz, ax, az, bx, bz)
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = len2 > 0 and math.max(0, math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2)) or 0
+	local cx, cz = ax + dx * t, az + dz * t
+	return math.sqrt((px - cx) ^ 2 + (pz - cz) ^ 2)
+end
+Placement.distToSegment = distToSegment
+
+function Placement.new(Config)
+	local P = {}
+	local M = Config.Map
+	local geo = M.geo
+	local half = M.groundSize / 2
+
+	-- Segments de chemin (mêmes extrémités que Scenery.paths) : de la moitié du x du domaine, devant l'arène, jusqu'au domaine.
+	function P.pathSegments()
+		local out = {}
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			out[#out + 1] = { cx * 0.5, -78, cx, cz + 24 }
+		end
+		return out
+	end
+
+	-- Pourquoi une empreinte (x, z, r) est interdite : "eau", "chemin", "arène", "domaine", "base", "secret", "bord" ou nil si libre.
+	-- opts.allowDomain : l'empreinte peut se trouver dans un domaine (cabane et barrières d'un domaine).
+	function P.blocked(x, z, r, opts)
+		local margin = 1.5
+		if math.abs(x) > half - 50 or math.abs(z) > half - 50 then
+			return "bord"
+		end
+		for _, rv in ipairs(geo.rivers) do
+			local c = rv.axis == "z" and z or x
+			if math.abs(c - rv.at) < rv.half + r + margin then
+				return "eau"
+			end
+		end
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
+			if math.abs(d - M.moat.radius) < M.moat.width / 2 + r + margin then
+				return "eau"
+			end
+			if not (opts and opts.allowDomain) and d < M.moat.radius + r + margin then
+				return "domaine"
+			end
+		end
+		if math.sqrt(x * x + z * z) < geo.arenaRadius + r + margin then
+			return "arène"
+		end
+		for _, seg in ipairs(P.pathSegments()) do
+			if distToSegment(x, z, seg[1], seg[2], seg[3], seg[4]) < geo.pathHalf + r + margin then
+				return "chemin"
+			end
+		end
+		local ring = math.abs(math.sqrt(x * x + z * z) - (M.plotRadius - 30))
+		if ring < geo.pathHalf + r + margin then
+			return "chemin"
+		end
+		if math.abs(math.sqrt(x * x + z * z) - M.plotRadius) < geo.baseBand + r then
+			return "base"
+		end
+		for _, sct in ipairs(Config.SECRETS) do
+			if math.sqrt((x - sct.x) ^ 2 + (z - sct.z) ^ 2) < 40 + r then
+				return "secret"
+			end
+		end
+		return nil
+	end
+
+	-- Plan complet : { items = { {kind, x, z, rot, r} }, bridges = { {x, z, rot, length, river} } }. Déterministe.
+	function P.plan()
+		local items = {}
+		local function fits(kind, x, z, opts)
+			local r = KIND_RADIUS[kind]
+			if P.blocked(x, z, r, opts) then
+				return false
+			end
+			for _, it in ipairs(items) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + Placement.MIN_GAP then
+					return false
+				end
+			end
+			return true
+		end
+		local function add(kind, x, z, rot)
+			items[#items + 1] = { kind = kind, x = x, z = z, rot = rot, r = KIND_RADIUS[kind] }
+		end
+		local plan = Config.Assets.propsPlan
+		-- 1. par domaine : une cabane face au centre du domaine et une ligne de barrières alignée (jamais dans l'eau)
+		for i = 1, #Config.RIVALS do
+			local cx, cz = Config.rivalCenter(i)
+			for _, off in ipairs({ { -28, 12 }, { 28, 12 }, { -28, -12 }, { 28, -12 } }) do
+				if (plan.hut or 0) > 0 and fits("hut", cx + off[1], cz + off[2], { allowDomain = true }) then
+					add("hut", cx + off[1], cz + off[2], Placement.facing(cx - (cx + off[1]), cz - (cz + off[2])))
+					break
+				end
+			end
+			local perDomain = math.ceil((plan.fence or 0) / #Config.RIVALS)
+			for k = 0, perDomain - 1 do
+				local fx, fz = cx - 20.25 + k * 13.5, cz - 34 -- côté nord (le côté sud porte le chemin d'arrivée)
+				if fits("fence", fx, fz, { allowDomain = true }) then
+					add("fence", fx, fz, 0) -- alignées sur l'axe X, même rotation : jamais de barrières qui se croisent
+				end
+			end
+		end
+		-- 2. décor libre : grille de cellules parcourue dans un ordre fixe (mélange déterministe), un genre par cellule selon les quantités du plan
+		local kinds = {}
+		local remaining = { tree = plan.tree or 0, fir = plan.fir or 0, rock = plan.rock or 0, bush = plan.bush or 0 }
+		local order = { "tree", "rock", "fir", "bush" }
+		local left = remaining.tree + remaining.fir + remaining.rock + remaining.bush
+		local idx = 0
+		while left > 0 do
+			idx = idx % #order + 1
+			local k = order[idx]
+			if remaining[k] > 0 then
+				remaining[k] = remaining[k] - 1
+				left = left - 1
+				kinds[#kinds + 1] = k
+			end
+		end
+		local cells = {}
+		local lo, hi = -half + 70, half - 70
+		local cell = Placement.CELL
+		for gx = lo, hi, cell do
+			for gz = lo, hi, cell do
+				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
+			end
+		end
+		local seed = 4093 -- Park–Miller : mélange déterministe des cellules
+		local function rnd()
+			seed = seed * 16807 % 2147483647
+			return seed / 2147483647
+		end
+		for i = #cells, 2, -1 do
+			local j = 1 + math.floor(rnd() * i)
+			cells[i], cells[j] = cells[j], cells[i]
+		end
+		local ki = 1
+		for _, c in ipairs(cells) do
+			if ki > #kinds then
+				break
+			end
+			local kind = kinds[ki]
+			local x, z = c[1] + (rnd() - 0.5) * 12, c[2] + (rnd() - 0.5) * 12
+			if fits(kind, x, z) then
+				add(kind, x, z, rnd() * 360)
+				ki = ki + 1
+			end
+		end
+		-- 3. ponts : centrés sur la rivière, plus longs qu'elle (les deux rives sont reliées)
+		local bridges = {}
+		for _, rv in ipairs(geo.rivers) do
+			local length = rv.half * 2 + 2 * geo.bridgeBank
+			for _, along in ipairs(rv.bridgesAt) do
+				if rv.axis == "z" then
+					bridges[#bridges + 1] = { x = along, z = rv.at, rot = 90, length = length, river = rv }
+				else
+					bridges[#bridges + 1] = { x = rv.at, z = along, rot = 0, length = length, river = rv }
+				end
+			end
+		end
+		return { items = items, bridges = bridges }
+	end
+
+	return P
+end
+
+return Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -2537,7 +2746,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -2878,7 +3087,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -2935,7 +3144,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -3047,7 +3256,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -3672,7 +3881,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -3745,7 +3954,7 @@ function Reveal.style(Config, petTier, oneIn, reduced)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -3874,7 +4083,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -4103,7 +4312,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX49"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX47"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX51"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX49"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -4416,7 +4625,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -4801,7 +5010,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX52"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX51"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX50"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX54"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX53"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX52"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")
