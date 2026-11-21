@@ -11,6 +11,17 @@ Config.Debug = {
 	SkipFlashbacks = false, -- true : pas de flashback lors de la lecture des documents (tests)
 }
 
+-- Performance (téléphone compris) : budgets mesurés par tools/lua/test_perf.py, compteur de debug (touche F7)
+Config.Perf = {
+	MaxParts = 2500, -- Parts affichées en même temps (carte et décor, sans les personnages)
+	MaxLights = 20, -- lumières allumées en même temps
+	MaxParticles = 400, -- particules actives en même temps
+	MaxHalos = 8, -- halos (Highlight) allumés ; Roblox en accepte 31
+	CullRooms = 7, -- le décor des pièces au-delà des 7 plus proches du joueur est masqué côté client
+	CullInterval = 0.75, -- secondes entre deux mises à jour du masquage
+	DebugOverlay = false, -- vrai : le compteur s'affiche au démarrage ; la touche F7 le bascule toujours
+}
+
 Config.Round = {
 	EndScreenTime = 8, -- durée de l'écran de fin avant le retour au hub
 	RestartTimeout = 30, -- secondes d'attente du « Rejouer » avant nouvelle partie automatique
@@ -89,7 +100,7 @@ Config.Monster = {
 	SurpriseGap = 8, -- secondes sans attaque avant une attaque surprise
 	DarkSightFactor = 0.35, -- portée de vue dans le noir, sans lampe allumée (x SightRange)
 	ScreamCooldown = 20, -- secondes minimum entre deux cris de capture
-	Tick = 0.1,
+	Tick = 0.2, -- cadence de la boucle de l'IA (perception, raycasts) : 5 par seconde suffisent
 	DirectWalkTimeout = 3,
 	WaypointTimeout = 3,
 }

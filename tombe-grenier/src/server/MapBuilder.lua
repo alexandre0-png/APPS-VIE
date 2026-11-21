@@ -26,6 +26,7 @@ local Rng = require(Shared.Rng)
 local RoomMood = require(Shared.RoomMood)
 local Audio = require(Shared.Audio)
 local RoomBudget = require(Shared.RoomBudget)
+local PerfRules = require(Shared.PerfRules)
 local Config = require(Shared.Config)
 local ModelFit = require(Shared.ModelFit)
 local ModelPlace = require(script.Parent.ModelPlace)
@@ -323,6 +324,9 @@ local function makeBox(parent, b, matKey, name)
 	if b.deco then
 		part.CanCollide = false
 	end
+	-- Coût : rien ne réagit au toucher, et les petits objets ne projettent pas d'ombre
+	part.CanTouch = false
+	part.CastShadow = PerfRules.castsShadow(part.Size.X, part.Size.Y, part.Size.Z)
 	if b.col then
 		part.Color = Color3.fromRGB(b.col[1], b.col[2], b.col[3])
 	end
@@ -1253,6 +1257,16 @@ local function startRoomBudget()
 				for id, m in pairs(moodLights) do
 					m.light.Enabled = active[id] == true
 					m.light.Range = m.range * limits.rangeScale
+				end
+				-- Les ampoules des pièces éloignées restent éteintes (aucune lumière inutile) : budget total sous Config.Perf.MaxLights
+				for _, lamp in ipairs(lamps) do
+					local far = not active[lamp.room]
+					lamp.part:SetAttribute("Culled", far)
+					if far then
+						lamp.light.Enabled = false
+					elseif not darkRooms[lamp.room] then
+						lamp.light.Enabled = true
+					end
 				end
 			end
 		end

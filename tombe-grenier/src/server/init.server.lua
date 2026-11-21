@@ -572,6 +572,25 @@ task.spawn(function()
 	end
 end)
 
+-- Mesure de performance serveur : temps moyen d'une frame (ms), publié une fois par seconde pour le compteur F7 des clients.
+-- Aucun coût en dehors d'un addition par frame.
+do
+	local sum, frames = 0, 0
+	game:GetService("RunService").Heartbeat:Connect(function(dt)
+		sum += dt
+		frames += 1
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if frames > 0 then
+				workspace:SetAttribute("ServerFrameMs", math.floor(sum / frames * 10000) / 10)
+			end
+			sum, frames = 0, 0
+		end
+	end)
+end
+
 if Hub.role() ~= "game" then
 	Hub.enter()
 end

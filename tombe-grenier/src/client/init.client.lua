@@ -71,6 +71,14 @@ local UiFx = optionalModule("UiFx", script.UiFx, {
 	pulseScreen = function() end,
 })
 
+local RoomCull = optionalModule("RoomCull", script.RoomCull, {
+	start = function()
+		return function()
+			return 0
+		end
+	end,
+})
+
 local okCinematic, Cinematic = pcall(require, script.Cinematic)
 if not okCinematic then
 	warn("[Client] module Cinematic : erreur : " .. tostring(Cinematic))
@@ -195,6 +203,7 @@ do
 	pad.Parent = journalLabel
 end
 
+local toggleDebug
 local function toggleJournal()
 	journalLabel.Visible = not journalLabel.Visible
 end
@@ -633,7 +642,7 @@ end)
 safeSpawn("sons de jeu", function()
 	local nextStep = 0
 	while true do
-		task.wait(0.1)
+		task.wait(0.2)
 		local near = (Config.Audio and Config.Audio.MonsterNear) or 40
 		local distance = player:GetAttribute("MonsterDistance")
 		local chasing = workspace:GetAttribute("MonsterChasing") == true
@@ -1362,6 +1371,8 @@ safeConnect(UserInputService.InputBegan, "InputBegan", function(input, processed
 		sendQuiet(true)
 	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
 		sendSprint(true)
+	elseif input.KeyCode == Enum.KeyCode.F7 then
+		toggleDebug()
 	elseif input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonY then
 		Remotes.get("ToggleFlashlight"):FireServer()
 	elseif input.KeyCode == Enum.KeyCode.C or input.KeyCode == Enum.KeyCode.ButtonB then
@@ -1603,6 +1614,46 @@ safeSpawn("invites", function()
 		pcall(function()
 			service.Enabled = not hidden
 		end)
+	end
+end)
+
+-- Compteur de debug (F7, ou Config.Perf.DebugOverlay) : FPS client, temps de frame serveur, ping, décor masqué
+local PerfRules = require(Shared.PerfRules)
+local hiddenCount = RoomCull.start()
+local debugLabel = Instance.new("TextLabel")
+debugLabel.Name = "DebugPerf"
+debugLabel.BackgroundTransparency = 0.4
+debugLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+debugLabel.TextColor3 = Color3.fromRGB(120, 255, 140)
+debugLabel.Font = Enum.Font.Code
+debugLabel.TextSize = 14
+debugLabel.TextXAlignment = Enum.TextXAlignment.Left
+debugLabel.Position = UDim2.new(0, 8, 1, -64)
+debugLabel.Size = UDim2.fromOffset(470, 22)
+debugLabel.ZIndex = 200
+debugLabel.Visible = (Config.Perf or {}).DebugOverlay == true
+debugLabel.Parent = gui
+local debugFps = 60
+toggleDebug = function()
+	debugLabel.Visible = not debugLabel.Visible
+end
+safeConnect(RunService.RenderStepped, "Compteur debug", function(dt)
+	if dt > 0 then
+		debugFps = debugFps * 0.95 + (1 / dt) * 0.05
+	end
+end)
+safeSpawn("compteur debug", function()
+	while true do
+		task.wait(0.5)
+		if debugLabel.Visible then
+			local ping = 0
+			pcall(function()
+				ping = player:GetNetworkPing() * 2000
+			end)
+			local serverMs = workspace:GetAttribute("ServerFrameMs") or 0
+			debugLabel.Text = PerfRules.debugLine(debugFps, serverMs, ping, 0)
+				.. (" | masqués %d"):format(hiddenCount())
+		end
 	end
 end)
 

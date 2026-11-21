@@ -117,7 +117,7 @@ end
 
 Markers.ARROW_MIN_DISTANCE = 6 -- plus près, la flèche s'efface : l'objet se voit
 
-Markers.MAX_HALOS = 24 -- Roblox n'affiche qu'environ 31 halos à la fois : on en garde une marge
+Markers.MAX_HALOS = 8 -- Roblox accepte 31 halos : 8 suffisent (étape active d'abord, puis les plus proches)
 
 -- Cet objet (liste d'étiquettes) sert-il à l'étape donnée ?
 function Markers.isCurrent(step, tags)

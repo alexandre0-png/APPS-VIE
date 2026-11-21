@@ -15,10 +15,11 @@ VfxKit.THEMES = {
 	pale = { primary = { 170, 200, 190 }, accent = { 225, 240, 235 } },
 }
 
--- Qualité : « bas » = téléphone (3 effets, 40 particules par émetteur, ni Beam ni Highlight)
+-- Qualité : « bas » = téléphone (3 effets, 40 particules par émetteur, ni Beam ni Highlight). Budget : effets simultanés x
+-- particules par émetteur <= Config.Perf.MaxParticles (400) pour chaque niveau.
 VfxKit.QUALITY = {
-	haut = { maxConcurrent = 8, maxParticles = 120, beam = true, highlight = true, pieces = 5 },
-	moyen = { maxConcurrent = 5, maxParticles = 80, beam = false, highlight = true, pieces = 3 },
+	haut = { maxConcurrent = 5, maxParticles = 80, beam = true, highlight = true, pieces = 5 },
+	moyen = { maxConcurrent = 4, maxParticles = 60, beam = false, highlight = true, pieces = 3 },
 	bas = { maxConcurrent = 3, maxParticles = 40, beam = false, highlight = false, pieces = 2 },
 }
 

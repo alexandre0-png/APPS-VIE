@@ -21,6 +21,10 @@ local generation = 0
 local blackoutUntil = 0
 
 local function setPart(part, on)
+	-- Ampoule d'une pièce éloignée du joueur : reste éteinte (budget de lumières)
+	if on and part:GetAttribute("Culled") == true then
+		on = false
+	end
 	for _, child in ipairs(part:GetChildren()) do
 		if child:IsA("PointLight") or child:IsA("SpotLight") or child:IsA("SurfaceLight") then
 			child.Enabled = on
@@ -65,7 +69,10 @@ end
 
 local function runLight(part, rng, gen)
 	while generation == gen and part.Parent do
-		if os.clock() < blackoutUntil then
+		if part:GetAttribute("Culled") == true then
+			-- Pièce éloignée : aucun scintillement, aucune propriété modifiée
+			task.wait(1)
+		elseif os.clock() < blackoutUntil then
 			setPart(part, false)
 			task.wait(0.1)
 		else
