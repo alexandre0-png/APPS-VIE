@@ -18,6 +18,9 @@ Point d'entrée unique. Claude lit CE fichier d'abord, puis seulement les notes 
 - [[Jeux/Jeu-1-Hopital]] : Hôpital Sainte-Aurore (PUBLIC, publication manuelle).
 - [[Jeux/Jeux-4-a-8]] : jeux en pause.
 
+## Blender sur le PC
+- [[Blender/PC_BLENDER_A_FAIRE]] : paquet prêt pour travailler dans Blender sur le PC (modèles .blend, FBX, textures cuites, procédure d'import Studio).
+
 ## Ressources
 - [[Assets/IDs-catalogue]] : liste d'IDs catalogue fournie par l'utilisateur.
 - [[Assets/Assets-crees]] : modèles Blender et sons créés et téléversés.
