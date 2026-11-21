@@ -1438,6 +1438,9 @@ Config.Culling = { enabled = true, cullAt = 170, showAt = 140, interval = 1, bat
 -- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
 Config.Debug = { AssetReport = true }
 
+-- Mini-carte (coin droit) : activable par le bouton 🗺 ; `radius` studs du centre au bord, `size` pixels, `hz` mises à jour par seconde (faible : mobile).
+Config.MINIMAP = { enabled = true, radius = 260, size = 112, sizeSmall = 84, hz = 4, guardRange = 90, maxDots = 24 }
+
 Config.HUD = {
 	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
 	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs

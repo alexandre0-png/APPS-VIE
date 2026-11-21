@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX18"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX17"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX19"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX18"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1441,6 +1441,9 @@ Config.Culling = { enabled = true, cullAt = 170, showAt = 140, interval = 1, bat
 
 -- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
 Config.Debug = { AssetReport = true }
+
+-- Mini-carte (coin droit) : activable par le bouton 🗺 ; `radius` studs du centre au bord, `size` pixels, `hz` mises à jour par seconde (faible : mobile).
+Config.MINIMAP = { enabled = true, radius = 260, size = 112, sizeSmall = 84, hz = 4, guardRange = 90, maxDots = 24 }
 
 Config.HUD = {
 	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
@@ -3299,7 +3302,44 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+-- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
+-- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
+-- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
+local MiniMap = {}
+
+function MiniMap.place(px, pz, x, z, radius, half, clamp)
+	if type(px) ~= "number" or type(pz) ~= "number" or type(x) ~= "number" or type(z) ~= "number" or x ~= x or z ~= z or px ~= px or pz ~= pz or radius <= 0 then
+		return nil
+	end
+	local dx, dz = x - px, z - pz
+	local d = math.sqrt(dx * dx + dz * dz)
+	if d > radius then
+		if not clamp then
+			return nil
+		end
+		dx, dz = dx / d * radius, dz / d * radius
+	end
+	return dx / radius * half, dz / radius * half -- (droite, bas) en pixels depuis le centre
+end
+
+-- Repères du monde : { {kind, x, z, label, locked} } (base du joueur, zones, portails de voyage rapide). Pur : ne lit que Config et la position de la base.
+function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
+	local out = {}
+	if plotX then
+		out[#out + 1] = { kind = "base", x = plotX, z = plotZ, label = "🏠" }
+	end
+	for i, riv in ipairs(Config.RIVALS) do
+		local cx, cz = Config.rivalCenter(i)
+		out[#out + 1] = { kind = "zone", x = cx, z = cz, label = riv.emoji, locked = not Config.zoneUnlocked(chaptersDone or 0, i) }
+		local tx, tz = Config.travelPad(i)
+		out[#out + 1] = { kind = "portal", x = tx, z = tz, label = "🌀" }
+	end
+	return out
+end
+
+return MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -3363,7 +3403,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -3704,7 +3744,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -3761,7 +3801,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -3873,7 +3913,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -4646,7 +4686,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -4755,7 +4795,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -4918,7 +4958,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX16"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -5147,7 +5187,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX25"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX19"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX26"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX20"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7590,7 +7630,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -8059,7 +8099,7 @@ function Data.top(count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -10306,7 +10346,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -10450,7 +10490,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -10463,7 +10503,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
 -- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
@@ -11094,7 +11134,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX35"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX34"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX26"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX37"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX36"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX27"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12912,6 +12952,20 @@ do
 	end)
 end
 
+-- Mini-carte (coin droit, bouton 🗺 ou touche M) : toi, ta base, les zones, les portails de voyage rapide et les gardiens proches.
+pcall(function()
+	local MiniMapMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MiniMap"))
+	local MiniMapUi = require(script.Parent:WaitForChild("MiniMapUi"))
+	local mg = Instance.new("ScreenGui")
+	mg.Name = "MiniMapGui"
+	mg.ResetOnSpawn = false
+	mg.DisplayOrder = 5
+	mg.Parent = player:WaitForChild("PlayerGui")
+	MiniMapUi.start(Config, MiniMapMod, player, mg, function()
+		return state
+	end, UserInputService, RunService)
+end)
+
 -- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
 do
 	local arrow = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 132), Size = UDim2.fromOffset(190, 24), TextSize = 14, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, Text = "", Visible = false })
@@ -12994,7 +13048,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX27"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX28"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -13552,7 +13606,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX28"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX29"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -14192,7 +14246,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX29"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX30"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -14318,7 +14372,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX30"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX31"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (domaines) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -14401,7 +14455,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -14516,7 +14570,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -14702,7 +14756,158 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+-- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
+-- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
+-- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
+local MiniMapUi = {}
+
+function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputService, RunService)
+	local C = Config.MINIMAP
+	if not C.enabled then
+		return nil
+	end
+	local ok, objs = pcall(function()
+		local cam = workspace.CurrentCamera
+		local small = cam ~= nil and cam.ViewportSize.X < 500
+		local size = small and C.sizeSmall or C.size
+		local half = size / 2
+		local btn = Instance.new("TextButton")
+		btn.Name = "MiniMapToggle"
+		btn.AnchorPoint = Vector2.new(1, 0)
+		btn.Position = UDim2.new(1, -8, 0.3, 0)
+		btn.Size = UDim2.fromOffset(34, 34)
+		btn.Text = "🗺"
+		btn.TextSize = 18
+		btn.Font = Enum.Font.GothamBold
+		btn.BackgroundColor3 = Color3.fromRGB(30, 36, 48)
+		btn.BackgroundTransparency = 0.2
+		btn.TextColor3 = Color3.new(1, 1, 1)
+		btn.Parent = gui
+		local bc = Instance.new("UICorner")
+		bc.CornerRadius = UDim.new(0.5, 0)
+		bc.Parent = btn
+		local frame = Instance.new("Frame")
+		frame.Name = "MiniMap"
+		frame.AnchorPoint = Vector2.new(1, 0)
+		frame.Position = UDim2.new(1, -8, 0.3, 40)
+		frame.Size = UDim2.fromOffset(size, size)
+		frame.BackgroundColor3 = Color3.fromRGB(34, 60, 44)
+		frame.BackgroundTransparency = 0.25
+		frame.ClipsDescendants = true
+		frame.Parent = gui
+		local fc = Instance.new("UICorner")
+		fc.CornerRadius = UDim.new(0.5, 0)
+		fc.Parent = frame
+		local fs = Instance.new("UIStroke")
+		fs.Color = Color3.fromRGB(255, 232, 150)
+		fs.Thickness = 2
+		fs.Parent = frame
+		local dots = {}
+		for i = 1, C.maxDots do
+			local d = Instance.new("TextLabel")
+			d.AnchorPoint = Vector2.new(0.5, 0.5)
+			d.BackgroundTransparency = 1
+			d.Size = UDim2.fromOffset(16, 16)
+			d.TextSize = 14
+			d.Font = Enum.Font.GothamBold
+			d.Text = ""
+			d.Visible = false
+			d.Parent = frame
+			dots[i] = d
+		end
+		local me = Instance.new("TextLabel")
+		me.AnchorPoint = Vector2.new(0.5, 0.5)
+		me.Position = UDim2.fromOffset(half, half)
+		me.BackgroundTransparency = 1
+		me.Size = UDim2.fromOffset(18, 18)
+		me.TextSize = 16
+		me.Text = "🔹"
+		me.Parent = frame
+		return { btn = btn, frame = frame, dots = dots, half = half }
+	end)
+	if not ok then
+		return nil
+	end
+	local visible = true
+	objs.btn.Activated:Connect(function()
+		visible = not visible
+		objs.frame.Visible = visible
+	end)
+	pcall(function()
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.KeyCode == Enum.KeyCode.M then
+				visible = not visible
+				objs.frame.Visible = visible
+			end
+		end)
+	end)
+	local guardCache, cacheAt = {}, -99
+	task.spawn(function()
+		while true do
+			task.wait(1 / math.max(1, C.hz))
+			pcall(function()
+				if not visible then
+					return
+				end
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				local state = getState()
+				if not root or not state then
+					return
+				end
+				local px, pz = root.Position.X, root.Position.Z
+				local plot = player:GetAttribute("PlotCF")
+				local pts = MiniMap.landmarks(Config, typeof(plot) == "CFrame" and plot.Position.X or nil, typeof(plot) == "CFrame" and plot.Position.Z or nil, state.story and state.story.ch)
+				if os.clock() - cacheAt > 2 then -- gardiens : liste relue toutes les 2 s seulement
+					cacheAt = os.clock()
+					guardCache = {}
+					local w = workspace:FindFirstChild("World")
+					if w then
+						for _, d in ipairs(w:GetDescendants()) do
+							if d:IsA("Model") and d.Name:match("^Guard%d+_%d+$") then
+								guardCache[#guardCache + 1] = d
+							end
+						end
+					end
+				end
+				for _, g in ipairs(guardCache) do
+					local ok2, cf = pcall(function()
+						return g:GetPivot()
+					end)
+					if ok2 and cf then
+						local dx, dz = cf.Position.X - px, cf.Position.Z - pz
+						if dx * dx + dz * dz <= C.guardRange * C.guardRange then
+							pts[#pts + 1] = { kind = "guard", x = cf.Position.X, z = cf.Position.Z, label = "🔴" }
+						end
+					end
+				end
+				local used = 0
+				for _, p in ipairs(pts) do
+					if used >= #objs.dots then
+						break
+					end
+					local u, v = MiniMap.place(px, pz, p.x, p.z, C.radius, objs.half - 8, p.kind ~= "guard")
+					if u then
+						used = used + 1
+						local d = objs.dots[used]
+						d.Visible = true
+						d.Position = UDim2.fromOffset(objs.half + u, objs.half + v)
+						d.Text = p.label
+						d.TextTransparency = p.locked and 0.6 or 0
+					end
+				end
+				for i = used + 1, #objs.dots do
+					objs.dots[i].Visible = false
+				end
+			end)
+		end
+	end)
+	return objs
+end
+
+return MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

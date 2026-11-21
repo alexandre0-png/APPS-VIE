@@ -6211,5 +6211,60 @@ do
 	end
 end
 
+
+do
+	suite("Mini-carte : projection pure, repères, pastilles réutilisées, coût constant")
+	local MM = luau.load(fs.readFile("roblox/src/ReplicatedStorage/MiniMap.lua"), { debugName = "MiniMap" })()
+	local u1, v1 = MM.place(0, 0, 130, 0, 260, 50, false)
+	local u2, v2 = MM.place(0, 0, 0, -260, 260, 50, false)
+	check("Mini-carte : un point à mi-rayon à l'est est à mi-disque à droite ; le nord (-Z) est en haut", math.abs(u1 - 25) < 1e-9 and v1 == 0 and v2 == -50 and u2 == 0)
+	check("Mini-carte : hors du disque -> absent (gardiens) ou ramené au bord (repères)", MM.place(0, 0, 500, 0, 260, 50, false) == nil and math.abs(select(1, MM.place(0, 0, 500, 0, 260, 50, true)) - 50) < 1e-9)
+	check("Mini-carte : entrées invalides (nil, NaN, rayon nul) -> nil sans erreur", MM.place(nil, 0, 1, 1, 260, 50) == nil and MM.place(0, 0, 0 / 0, 1, 260, 50) == nil and MM.place(0, 0, 1, 1, 0, 50) == nil)
+	local pts = MM.landmarks(Config, 10, 20, 0)
+	local kinds = { base = 0, zone = 0, portal = 0 }
+	local lockedZones = 0
+	for _, p in ipairs(pts) do
+		kinds[p.kind] = kinds[p.kind] + 1
+		if p.kind == "zone" and p.locked then
+			lockedZones = lockedZones + 1
+		end
+	end
+	check("Mini-carte : repères = 1 base, " .. #Config.RIVALS .. " zones (" .. lockedZones .. " verrouillées au chapitre 0), " .. #Config.RIVALS .. " portails", kinds.base == 1 and kinds.zone == #Config.RIVALS and kinds.portal == #Config.RIVALS and lockedZones == #Config.RIVALS - 1)
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = 0, hook = loopGuard })
+	if RT then
+		local created = 0
+		local env = {}
+		for k, v in pairs(RT.env) do
+			env[k] = v
+		end
+		env.Instance = { new = function(class)
+			created = created + 1
+			return RT.instance(class)
+		end }
+		local UI = luau.load(fs.readFile("roblox/src/StarterPlayerScripts/MiniMapUi.lua"), { debugName = "MiniMapUi", environment = env })()
+		local gui = RT.instance("ScreenGui", "mm")
+		local plr = RT.instance("Player", "P")
+		local char = RT.instance("Model", "Char")
+		local root = RT.instance("Part", "HumanoidRootPart")
+		rawget(root, "__props").Position = RT.vec(0, 3, 0)
+		root.Parent = char
+		rawget(plr, "__props").Character = char
+		local objs = UI.start(Config, MM, plr, gui, function()
+			return { story = { ch = 0 } }
+		end, RT.services.UserInputService, RT.services.RunService)
+		local atStart = created
+		RT.step(10)
+		local visible = 0
+		if objs then
+			for _, d in ipairs(objs.dots) do
+				if rawget(d, "__props").Visible == true then
+					visible = visible + 1
+				end
+			end
+		end
+		check("Mini-carte : l'interface démarre, " .. visible .. " pastilles visibles au Grand Nid, " .. atStart .. " objets créés au départ (<= 60) et AUCUN de plus pendant 10 s de jeu" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), objs ~= nil and visible >= 4 and atStart <= 60 and created == atStart and #RT.errors == 0)
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

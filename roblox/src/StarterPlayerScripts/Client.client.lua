@@ -1816,6 +1816,20 @@ do
 	end)
 end
 
+-- Mini-carte (coin droit, bouton 🗺 ou touche M) : toi, ta base, les zones, les portails de voyage rapide et les gardiens proches.
+pcall(function()
+	local MiniMapMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MiniMap"))
+	local MiniMapUi = require(script.Parent:WaitForChild("MiniMapUi"))
+	local mg = Instance.new("ScreenGui")
+	mg.Name = "MiniMapGui"
+	mg.ResetOnSpawn = false
+	mg.DisplayOrder = 5
+	mg.Parent = player:WaitForChild("PlayerGui")
+	MiniMapUi.start(Config, MiniMapMod, player, mg, function()
+		return state
+	end, UserInputService, RunService)
+end)
+
 -- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
 do
 	local arrow = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 132), Size = UDim2.fromOffset(190, 24), TextSize = 14, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, Text = "", Visible = false })

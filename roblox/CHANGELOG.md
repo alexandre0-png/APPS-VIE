@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Mini-carte
+
+- `MiniMap.place/landmarks` (pur, testé) et `MiniMapUi` : disque de 112 px (84 sur écran étroit) à droite, nord en haut, rayon 260 studs ; repères : toi, ta base 🏠, zones (grisées si verrouillées), portails 🌀, gardiens 🔴 à moins de 90 studs. Bouton 🗺 ou touche M pour l'afficher ou la masquer. Config.MINIMAP.
+- Performance : 24 pastilles créées une fois (aucun objet de plus en cours de jeu, testé sur 10 s), 4 mises à jour par seconde, liste des gardiens relue toutes les 2 s.
+- Non vu en Studio : chevauchement éventuel avec le HUD sur très petits écrans (le disque est hors du système de mise en page ; position à droite, 30 % de la hauteur).
+
 ## Premières secondes : 3 étapes passables
 
 - Le premier œuf est déjà OFFERT et posé dans la base (éclosion 6 s). `Config.onboarding` : étape 1 « aller vers l'œuf » (flèche vers la base), 2 « toucher l'œuf pour l'accélérer », 3 « il éclot ». Carte d'objectif avec bouton « Passer › » ; ensuite le tutoriel existant reprend. Textes de moins de 110 octets.

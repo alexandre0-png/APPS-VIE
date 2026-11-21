@@ -21,7 +21,7 @@ def item(cls, name, source=None, children=(), extra=""):
     kids = "".join(children)
     return f'<Item class="{cls}" referent="RBX{next(ids)}"><Properties>{props}</Properties>{kids}</Item>'
 
-SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("VfxKit", "VfxKit.lua"), ("CinematicKit", "CinematicKit.lua"), ("Placement", "Placement.lua"), ("Culling", "Culling.lua"), ("AssetReportUi", "AssetReportUi.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
+SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("VfxKit", "VfxKit.lua"), ("CinematicKit", "CinematicKit.lua"), ("Placement", "Placement.lua"), ("Culling", "Culling.lua"), ("AssetReportUi", "AssetReportUi.lua"), ("MiniMap", "MiniMap.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
           ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Castle", "Castle.lua")]
 
 def shared():
@@ -55,6 +55,7 @@ game_tree = [
             item("LocalScript", "Culling", read("StarterPlayerScripts/Culling.client.lua")),
             item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua")),
             item("ModuleScript", "SlotFx", read("StarterPlayerScripts/SlotFx.lua")),
+            item("ModuleScript", "MiniMapUi", read("StarterPlayerScripts/MiniMapUi.lua")),
             item("ModuleScript", "CoinIcon", read("StarterPlayerScripts/CoinIcon.lua"))])]),
 ]
 

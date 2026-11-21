@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX36"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX54"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX53"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX38"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX57"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX56"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1442,6 +1442,9 @@ Config.Culling = { enabled = true, cullAt = 170, showAt = 140, interval = 1, bat
 -- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
 Config.Debug = { AssetReport = true }
 
+-- Mini-carte (coin droit) : activable par le bouton 🗺 ; `radius` studs du centre au bord, `size` pixels, `hz` mises à jour par seconde (faible : mobile).
+Config.MINIMAP = { enabled = true, radius = 260, size = 112, sizeSmall = 84, hz = 4, guardRange = 90, maxDots = 24 }
+
 Config.HUD = {
 	debugStats = false, -- compteur FPS / ping / Parts affiché en haut (F3 l'affiche ou le masque en jeu)
 	objective = true, -- carte « objectif en cours » (chapitre de l'histoire) sous les compteurs
@@ -1572,7 +1575,7 @@ function Config.oddsText()
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -1867,7 +1870,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2047,7 +2050,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2390,7 +2393,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2687,7 +2690,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (rivières, douves), NI un chemin, NI l'arène, un domaine, une base ou un secret, et reste à distance minimale des objets
@@ -3173,7 +3176,7 @@ function Placement.new(Config)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -3211,7 +3214,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -3299,7 +3302,44 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+-- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
+-- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
+-- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
+local MiniMap = {}
+
+function MiniMap.place(px, pz, x, z, radius, half, clamp)
+	if type(px) ~= "number" or type(pz) ~= "number" or type(x) ~= "number" or type(z) ~= "number" or x ~= x or z ~= z or px ~= px or pz ~= pz or radius <= 0 then
+		return nil
+	end
+	local dx, dz = x - px, z - pz
+	local d = math.sqrt(dx * dx + dz * dz)
+	if d > radius then
+		if not clamp then
+			return nil
+		end
+		dx, dz = dx / d * radius, dz / d * radius
+	end
+	return dx / radius * half, dz / radius * half -- (droite, bas) en pixels depuis le centre
+end
+
+-- Repères du monde : { {kind, x, z, label, locked} } (base du joueur, zones, portails de voyage rapide). Pur : ne lit que Config et la position de la base.
+function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
+	local out = {}
+	if plotX then
+		out[#out + 1] = { kind = "base", x = plotX, z = plotZ, label = "🏠" }
+	end
+	for i, riv in ipairs(Config.RIVALS) do
+		local cx, cz = Config.rivalCenter(i)
+		out[#out + 1] = { kind = "zone", x = cx, z = cz, label = riv.emoji, locked = not Config.zoneUnlocked(chaptersDone or 0, i) }
+		local tx, tz = Config.travelPad(i)
+		out[#out + 1] = { kind = "portal", x = tx, z = tz, label = "🌀" }
+	end
+	return out
+end
+
+return MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -3363,7 +3403,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -3704,7 +3744,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -3761,7 +3801,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -3873,7 +3913,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -4646,7 +4686,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -4755,7 +4795,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -4918,7 +4958,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -5147,7 +5187,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX57"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX55"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX60"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX58"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -5502,7 +5542,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -5891,7 +5931,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX60"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX59"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX58"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX63"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX62"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX61"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")
