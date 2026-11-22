@@ -1380,6 +1380,32 @@ Config.STORY = {
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
+-- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
+Config.TOWER = { floors = 30, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse" } }
+function Config.towerTier(floor) -- rareté des adversaires : étages 1-5 Commun ... 26-30 Cosmique
+	return math.min(#Config.TIERS, 1 + (math.max(1, floor) - 1) // 5)
+end
+function Config.towerScale(floor) -- 0,85 au premier étage d'une rareté, 0,97 au dernier, boss x1,2
+	local pos = (math.max(1, floor) - 1) % 5
+	return (0.85 + 0.03 * pos) * (pos == 4 and 1.2 or 1)
+end
+function Config.towerFoeName(floor)
+	return Config.TOWER.bosses[floor] and ("👑 " .. Config.TOWER.bosses[floor]) or ("Dresseur " .. floor)
+end
+-- Récompenses : première victoire d'un étage = pièces (proportionnelles au revenu), œuf d'un cran au-dessus de la rareté de l'étage aux boss, potion de chance tous les
+-- 5 étages (3, 8, 13...). Victoires suivantes : petite récompense en pièces, limitée par jour. JAMAIS d'achat qui renforce un pet.
+function Config.towerReward(floor, income, first)
+	if not first then
+		return { coins = math.floor(math.max(200, income * 60)) }
+	end
+	local boss = floor % 5 == 0
+	return {
+		coins = math.floor(math.max(floor * 600, income * floor * 45)),
+		eggTier = boss and math.min(#Config.TIERS, Config.towerTier(floor) + 1) or 0,
+		potion = floor % 5 == 3,
+	}
+end
+
 Config.PITY_ENABLED = false -- la pitié (amélioration garantie) est coupée : l'œuf annoncé fixe la rareté, avec UNE seule exception affichée (Config.UPGRADE)
 Config.PITY_EVERY = 12 -- (si la pitié est activée) toutes les 12 éclosions sans amélioration, la suivante l'est garantie
 -- Amélioration d'un cran de rareté (seule exception à « l'œuf annoncé = la rareté du pet ») : 5 % de base, +1 point par niveau de Trèfle, +10 avec le pass Chance,
@@ -1522,6 +1548,7 @@ Config.ACHIEVEMENTS = {
 	{ id = "stolen", name = "Chipeur", emoji = "🧤", stat = "stolen", unit = "œufs chipés", goals = { 10, 50, 200, 800 } },
 	{ id = "species", name = "Collectionneur", emoji = "📚", stat = "species", unit = "espèces découvertes", goals = { 3, 6, 12, 18 } },
 	{ id = "rebirth", name = "Renaissant", emoji = "🌅", stat = "rb", unit = "renaissances", goals = { 1, 2, 4, 8 } },
+	{ id = "tower", name = "Dresseur", emoji = "⚔️", stat = "tower", unit = "étages de la tour", goals = { 5, 10, 20, 30 } },
 	{ id = "puzzle", name = "Déchiffreur", emoji = "🔮", stat = "puzzles", unit = "énigmes résolues", goals = { 1, 5, 15, 40 } },
 }
 Config.ACH_REWARD = { coins = { 500, 5000, 50000, 500000 }, mins = { 1, 5, 20, 60 } }

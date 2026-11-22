@@ -25,7 +25,8 @@ local SAVE_RETRIES = 3
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
-local VERSION = 8
+-- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
+local VERSION = 9
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -92,6 +93,7 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0 }, -- Arène des pets
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -222,6 +224,25 @@ local function merge(saved)
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
+	if type(saved.battle) == "table" then
+		local b = saved.battle
+		local team, seen = {}, {}
+		if type(b.team) == "table" then
+			for _, v in ipairs(b.team) do
+				if type(v) == "number" and v == v and v % 1 == 0 and v >= 1 and v <= SLOT_COUNT and not seen[v] and #team < 3 then
+					seen[v] = true
+					team[#team + 1] = v
+				end
+			end
+		end
+		d.battle = {
+			team = team,
+			best = math.min(30, math.floor(sane(b.best, 0))),
+			day = math.floor(sane(b.day, 0)),
+			fights = math.min(1000, math.floor(sane(b.fights, 0))),
+			repeats = math.min(1000, math.floor(sane(b.repeats, 0))),
+		}
+	end
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end

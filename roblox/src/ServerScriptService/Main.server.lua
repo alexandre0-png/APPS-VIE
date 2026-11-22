@@ -36,6 +36,7 @@ local function newRemote(name)
 end
 local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
 local RTop = newRemote("Top")
+local RBattle = newRemote("Battle") -- serveur -> client : début, tours (événements à rejouer) et fin des combats de l'Arène des pets
 
 ---------------------------------------------------------------- Monde
 local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
@@ -327,7 +328,7 @@ currentRiddle() -- écrit l'énoncé sur les panneaux dès le démarrage
 
 local function statValues(s)
 	local d = s.data
-	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved }
+	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved, tower = d.battle.best }
 end
 
 ---------------------------------------------------------------- Synchronisation client
@@ -378,6 +379,7 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
+		battle = { team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 	}
 end
@@ -1861,6 +1863,7 @@ function actions.rebirth(s)
 	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
 	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
 	fresh.story, fresh.pity = d.story, d.pity
+	fresh.battle = d.battle -- le meilleur étage de la tour survit à la renaissance (l'équipe est revalidée à chaque combat)
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
@@ -2035,6 +2038,165 @@ RAction.OnServerEvent:Connect(function(player, action, arg)
 		local ok, err = pcall(fn, s, arg)
 		if not ok then
 			warn("[Action " .. action .. "] " .. tostring(err))
+		end
+	end
+end)
+
+---------------------------------------------------------------- Arène des pets (PvE : tour des Dresseurs)
+-- Le serveur possède tout : l'équipe est relue dans le profil à chaque combat, la graine est tirée ici, le client n'envoie qu'une intention par tour
+-- (« attack », « skill », « swap1 » à « swap3 ») et rejoue les événements reçus. Récompense versée UNE fois (s.battle est vidé avant le paiement).
+local Battle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Battle"))
+local TW = Config.TOWER
+
+local function battleDay(s)
+	local day = os.time() // 86400
+	local b = s.data.battle
+	if b.day ~= day then
+		b.day, b.fights, b.repeats = day, 0, 0
+	end
+	return b
+end
+
+local function battleUnits(s)
+	local units = {}
+	for _, idx in ipairs(s.data.battle.team) do
+		local sl = validSlot(idx) and s.data.slots[idx]
+		if sl and sl.k == "p" then
+			units[#units + 1] = Battle.unit(Config, sl)
+		end
+	end
+	return units
+end
+
+function actions.setTeam(s, arg)
+	if s.battle or type(arg) ~= "table" then
+		return
+	end
+	local team, seen = {}, {}
+	for i = 1, TW.teamSize do
+		local v = arg[i]
+		if type(v) == "number" and v == v and v % 1 == 0 and validSlot(v) and not seen[v] then
+			local sl = s.data.slots[v]
+			if sl and sl.k == "p" then
+				seen[v] = true
+				team[#team + 1] = v
+			end
+		end
+	end
+	s.data.battle.team = team
+	RState:FireClient(s.player, snapshot(s))
+end
+
+local function battleFinish(s)
+	local bt = s.battle
+	s.battle = nil -- vidé AVANT tout paiement : aucune double récompense possible
+	local st, win = bt.st, bt.st.winner == 1
+	local b = s.data.battle
+	local rewards = {}
+	if win then
+		local first = bt.floor > b.best
+		if first then
+			b.best = bt.floor
+		end
+		if first or b.repeats < TW.dailyRepeats then
+			local rw = Config.towerReward(bt.floor, income(s), first)
+			if not first then
+				b.repeats += 1
+			end
+			s.data.coins += rw.coins
+			rewards.coins = rw.coins
+			if rw.eggTier and rw.eggTier > 0 then
+				giveEgg(s, rw.eggTier)
+				rewards.egg = rw.eggTier
+			end
+			if rw.potion then
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+				rewards.potion = true
+			end
+			rewards.first = first
+		else
+			rewards.limited = true
+		end
+	end
+	RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = bt.floor, view = Battle.view(st) })
+	RState:FireClient(s.player, snapshot(s))
+end
+
+local function battleStep(s, act)
+	local bt = s.battle
+	if not bt or bt.st.over then
+		return
+	end
+	local events = Battle.turn(bt.st, act)
+	bt.deadline = os.clock() + TW.turnSeconds
+	if bt.st.over then
+		RBattle:FireClient(s.player, { k = "turn", events = events, view = Battle.view(bt.st) })
+		battleFinish(s)
+	else
+		RBattle:FireClient(s.player, { k = "turn", events = events, view = Battle.view(bt.st), seconds = TW.turnSeconds })
+	end
+end
+
+function actions.towerStart(s, floor)
+	if s.battle or s.castle or type(floor) ~= "number" or floor ~= floor or floor % 1 ~= 0 then
+		return
+	end
+	local b = battleDay(s)
+	if floor < 1 or floor > TW.floors or floor > b.best + 1 then
+		notify(s.player, "🔒 Étage verrouillé : bats d'abord l'étage " .. (b.best + 1) .. ".", "refuse")
+		return
+	end
+	if b.fights >= TW.dailyFights then
+		notify(s.player, "⚔️ Limite de combats atteinte pour aujourd'hui (" .. TW.dailyFights .. "). Reviens demain !", "refuse")
+		return
+	end
+	local mine = battleUnits(s)
+	if #mine == 0 then
+		notify(s.player, "⚔️ Compose d'abord une équipe de pets (1 à " .. TW.teamSize .. ").", "refuse")
+		return
+	end
+	b.fights += 1
+	local seed = rng:NextInteger(1, 2147483000)
+	s.battle = { st = Battle.new(seed, mine, Battle.towerTeam(Config, floor)), floor = floor, deadline = os.clock() + TW.turnSeconds }
+	RBattle:FireClient(s.player, { k = "start", floor = floor, foe = Config.towerFoeName(floor), view = Battle.view(s.battle.st), seconds = TW.turnSeconds })
+end
+
+function actions.battleAct(s, arg)
+	local bt = s.battle
+	if not bt or type(arg) ~= "string" then
+		return
+	end
+	local act
+	if arg == "attack" or arg == "skill" then
+		act = { kind = arg }
+	else
+		local n = tonumber(arg:match("^swap(%d)$"))
+		if n then
+			act = { kind = "swap", to = n }
+		end
+	end
+	if not act or Battle.validate(bt.st, 1, act) then
+		notify(s.player, "⚔️ Action impossible.", "refuse")
+		return
+	end
+	battleStep(s, act)
+end
+
+function actions.battleQuit(s)
+	if s.battle then
+		s.battle.st.over, s.battle.st.winner = true, 2 -- abandon = défaite (le combat compte dans la limite du jour)
+		battleFinish(s)
+	end
+end
+
+task.spawn(function() -- tour limité à 10 s : action par défaut (attaque)
+	while true do
+		task.wait(1)
+		for _, s in pairs(sessions) do
+			local bt = s.battle
+			if bt and os.clock() > bt.deadline then
+				pcall(battleStep, s, { kind = "attack" })
+			end
 		end
 	end
 end)

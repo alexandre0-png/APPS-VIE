@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX38"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX57"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX56"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX40"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX60"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX59"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1384,6 +1384,32 @@ Config.STORY = {
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
+-- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
+Config.TOWER = { floors = 30, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse" } }
+function Config.towerTier(floor) -- rareté des adversaires : étages 1-5 Commun ... 26-30 Cosmique
+	return math.min(#Config.TIERS, 1 + (math.max(1, floor) - 1) // 5)
+end
+function Config.towerScale(floor) -- 0,85 au premier étage d'une rareté, 0,97 au dernier, boss x1,2
+	local pos = (math.max(1, floor) - 1) % 5
+	return (0.85 + 0.03 * pos) * (pos == 4 and 1.2 or 1)
+end
+function Config.towerFoeName(floor)
+	return Config.TOWER.bosses[floor] and ("👑 " .. Config.TOWER.bosses[floor]) or ("Dresseur " .. floor)
+end
+-- Récompenses : première victoire d'un étage = pièces (proportionnelles au revenu), œuf d'un cran au-dessus de la rareté de l'étage aux boss, potion de chance tous les
+-- 5 étages (3, 8, 13...). Victoires suivantes : petite récompense en pièces, limitée par jour. JAMAIS d'achat qui renforce un pet.
+function Config.towerReward(floor, income, first)
+	if not first then
+		return { coins = math.floor(math.max(200, income * 60)) }
+	end
+	local boss = floor % 5 == 0
+	return {
+		coins = math.floor(math.max(floor * 600, income * floor * 45)),
+		eggTier = boss and math.min(#Config.TIERS, Config.towerTier(floor) + 1) or 0,
+		potion = floor % 5 == 3,
+	}
+end
+
 Config.PITY_ENABLED = false -- la pitié (amélioration garantie) est coupée : l'œuf annoncé fixe la rareté, avec UNE seule exception affichée (Config.UPGRADE)
 Config.PITY_EVERY = 12 -- (si la pitié est activée) toutes les 12 éclosions sans amélioration, la suivante l'est garantie
 -- Amélioration d'un cran de rareté (seule exception à « l'œuf annoncé = la rareté du pet ») : 5 % de base, +1 point par niveau de Trèfle, +10 avec le pass Chance,
@@ -1526,6 +1552,7 @@ Config.ACHIEVEMENTS = {
 	{ id = "stolen", name = "Chipeur", emoji = "🧤", stat = "stolen", unit = "œufs chipés", goals = { 10, 50, 200, 800 } },
 	{ id = "species", name = "Collectionneur", emoji = "📚", stat = "species", unit = "espèces découvertes", goals = { 3, 6, 12, 18 } },
 	{ id = "rebirth", name = "Renaissant", emoji = "🌅", stat = "rb", unit = "renaissances", goals = { 1, 2, 4, 8 } },
+	{ id = "tower", name = "Dresseur", emoji = "⚔️", stat = "tower", unit = "étages de la tour", goals = { 5, 10, 20, 30 } },
 	{ id = "puzzle", name = "Déchiffreur", emoji = "🔮", stat = "puzzles", unit = "énigmes résolues", goals = { 1, 5, 15, 40 } },
 }
 Config.ACH_REWARD = { coins = { 500, 5000, 50000, 500000 }, mins = { 1, 5, 20, 60 } }
@@ -1575,7 +1602,7 @@ function Config.oddsText()
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -1870,7 +1897,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2050,7 +2077,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2393,7 +2420,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2690,7 +2717,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (rivières, douves), NI un chemin, NI l'arène, un domaine, une base ou un secret, et reste à distance minimale des objets
@@ -3176,7 +3203,7 @@ function Placement.new(Config)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -3214,7 +3241,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -3302,7 +3329,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -3339,7 +3366,375 @@ function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+-- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
+-- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
+-- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
+local Battle = {}
+
+Battle.TYPES = { "Feu", "Eau", "Nature", "Ciel", "Ombre", "Lumière" }
+Battle.TYPE_EMOJI = { Feu = "🔥", Eau = "💧", Nature = "🌿", Ciel = "🌪️", Ombre = "🌑", ["Lumière"] = "✨" }
+Battle.BEATS = { Feu = "Nature", Nature = "Eau", Eau = "Feu", ["Lumière"] = "Ombre", Ombre = "Ciel", Ciel = "Lumière" }
+Battle.STRONG, Battle.WEAK = 1.5, 0.67
+Battle.MAX_TURNS = 30
+
+-- Type de chacune des 18 espèces (ordre de Config.PETS), 3 par type ; les 3 espèces d'une même rareté forment un TRIANGLE complet de la roue (Feu/Nature/Eau ou Lumière/Ombre/Ciel) : à rareté égale, aucune n'est favorisée.
+Battle.SPECIES_TYPE = { "Ciel", "Ombre", "Lumière", "Eau", "Nature", "Feu", "Lumière", "Ombre", "Ciel", "Feu", "Nature", "Eau", "Ciel", "Ombre", "Lumière", "Nature", "Eau", "Feu" }
+-- Compétence de chaque espèce : strike (dégâts x1,8), drain (dégâts x1,1 et soin du tiers), heal (soin 30 %), guard (le prochain coup ne fait que 30 %), stun (dégâts x1 et l'ennemi passe son tour), focus (attaque +25 % pendant 3 tours).
+Battle.SPECIES_SKILL = { "focus", "heal", "guard", "stun", "strike", "drain", "heal", "stun", "guard", "drain", "strike", "heal", "strike", "focus", "stun", "drain", "heal", "guard" }
+Battle.SKILLS = {
+	strike = { name = "Coup puissant", cd = 3, mul = 1.6 },
+	drain = { name = "Morsure vampire", cd = 3, mul = 1.1 },
+	heal = { name = "Soin", cd = 4, heal = 0.25 },
+	guard = { name = "Garde", cd = 3, keep = 0.3 },
+	stun = { name = "Étourdissement", cd = 5, mul = 1.0 },
+	focus = { name = "Concentration", cd = 4, boost = 1.4 },
+}
+
+-- Multiplicateur d'efficacité du type `atk` contre le type `def`.
+function Battle.typeMul(atk, def)
+	if Battle.BEATS[atk] == def then
+		return Battle.STRONG
+	elseif Battle.BEATS[def] == atk then
+		return Battle.WEAK
+	end
+	return 1
+end
+
+-- Générateur déterministe (Park–Miller) : état = entier, retourne (valeur 0..1, nouvel état).
+local function nextRnd(state)
+	state = (state * 16807) % 2147483647
+	return state / 2147483647, state
+end
+Battle.nextRnd = nextRnd
+
+local SIZE_BONUS = { 0.95, 1, 1.05, 1.10, 1.15 }
+local MUT_BONUS = { 1, 1.03, 1.05, 1.08, 1.10 }
+
+-- Unité de combat d'un pet { p = espèce, s = taille, m = mutation } ; `scale` : multiplicateur de niveau (adversaires de la tour).
+function Battle.unit(Config, pet, scale)
+	local def = Config.PETS[pet.p]
+	local bonus = (SIZE_BONUS[pet.s] or 1) * (MUT_BONUS[pet.m] or 1) * (scale or 1)
+	local t = def.tier
+	local hp = math.floor(60 * 1.45 ^ (t - 1) * bonus + 0.5)
+	return {
+		p = pet.p, s = pet.s, m = pet.m, tier = t,
+		type = Battle.SPECIES_TYPE[pet.p], skill = Battle.SPECIES_SKILL[pet.p],
+		maxHp = hp, hp = hp, atk = math.floor(10 * 1.4 ^ (t - 1) * bonus + 0.5), spd = 10 + 2 * t,
+		cd = 0, guard = false, stun = 0, focus = 0,
+	}
+end
+
+local function copyUnit(u)
+	local c = {}
+	for k, v in pairs(u) do
+		c[k] = v
+	end
+	return c
+end
+
+-- Nouveau combat. teamA/teamB : listes d'unités (Battle.unit). Camp A = joueur (ou attaquant), camp B = adversaire (ou défenseur).
+function Battle.new(seed, teamA, teamB)
+	local function side(team)
+		local units = {}
+		for i, u in ipairs(team) do
+			units[i] = copyUnit(u)
+		end
+		return { units = units, active = 1 }
+	end
+	return { seed = seed, rnd = (math.floor(seed) % 2147483646) + 1, turn = 0, sides = { side(teamA), side(teamB) }, over = false, winner = nil, log = {} }
+end
+
+local function alive(u)
+	return u.hp > 0
+end
+
+local function activeOf(st, i)
+	local sd = st.sides[i]
+	return sd.units[sd.active]
+end
+
+local function firstAlive(sd, from)
+	for k = 0, #sd.units - 1 do
+		local idx = ((from - 1 + k) % #sd.units) + 1
+		if alive(sd.units[idx]) then
+			return idx
+		end
+	end
+	return nil
+end
+
+-- Actions : { kind = "attack" } | { kind = "skill" } | { kind = "swap", to = n }. Retourne nil si valide, sinon la raison du refus.
+function Battle.validate(st, sideIdx, action)
+	if type(action) ~= "table" then
+		return "action invalide"
+	end
+	local sd = st.sides[sideIdx]
+	local u = sd.units[sd.active]
+	if action.kind == "attack" then
+		return nil
+	elseif action.kind == "skill" then
+		if u.cd > 0 then
+			return "compétence en recharge"
+		end
+		return nil
+	elseif action.kind == "swap" then
+		local to = action.to
+		if type(to) ~= "number" or to % 1 ~= 0 or not sd.units[to] then
+			return "pet inconnu"
+		elseif to == sd.active or not alive(sd.units[to]) then
+			return "pet indisponible"
+		end
+		return nil
+	end
+	return "action inconnue"
+end
+
+-- Action de l'IA (déterministe) : compétence si prête et utile, sinon attaque ; change de pet quand le type est très défavorable et qu'un meilleur existe.
+function Battle.aiAction(st, sideIdx)
+	local sd, foe = st.sides[sideIdx], activeOf(st, 3 - sideIdx)
+	local u = sd.units[sd.active]
+	if Battle.typeMul(foe.type, u.type) > 1 then
+		for i, o in ipairs(sd.units) do
+			if i ~= sd.active and alive(o) and Battle.typeMul(foe.type, o.type) <= 1 and u.hp < u.maxHp * 0.6 then
+				return { kind = "swap", to = i }
+			end
+		end
+	end
+	if u.cd == 0 then
+		local sk = u.skill
+		if sk == "heal" and u.hp > u.maxHp * 0.6 then
+			return { kind = "attack" }
+		end
+		return { kind = "skill" }
+	end
+	return { kind = "attack" }
+end
+
+local function emit(st, ev)
+	st.log[#st.log + 1] = ev
+	return ev
+end
+
+-- Inflige des dégâts de `side` (attaquant) à l'unité active adverse ; retourne les dégâts.
+local function strike(st, atkSide, mul)
+	local a, d = activeOf(st, atkSide), activeOf(st, 3 - atkSide)
+	local r
+	r, st.rnd = nextRnd(st.rnd)
+	local tm = Battle.typeMul(a.type, d.type)
+	local atk = a.atk * (a.focus > 0 and Battle.SKILLS.focus.boost or 1)
+	local dmg = math.max(1, math.floor(atk * mul * tm * (0.9 + 0.2 * r) + 0.5))
+	if d.guard then
+		dmg = math.max(1, math.floor(dmg * Battle.SKILLS.guard.keep))
+		d.guard = false
+	end
+	d.hp = math.max(0, d.hp - dmg)
+	return dmg, tm
+end
+
+local function perform(st, sideIdx, action)
+	local sd = st.sides[sideIdx]
+	local u = sd.units[sd.active]
+	if not alive(u) then
+		return
+	end
+	if u.stun > 0 then
+		u.stun = u.stun - 1
+		emit(st, { t = "stunned", side = sideIdx, p = u.p })
+		return
+	end
+	if action.kind == "swap" then
+		sd.active = action.to
+		emit(st, { t = "swap", side = sideIdx, to = action.to, p = sd.units[action.to].p })
+		return
+	end
+	local foe = activeOf(st, 3 - sideIdx)
+	if action.kind == "skill" and u.cd == 0 then
+		local sk = Battle.SKILLS[u.skill]
+		u.cd = sk.cd
+		if u.skill == "heal" then
+			local h = math.min(u.maxHp - u.hp, math.floor(u.maxHp * sk.heal + 0.5))
+			u.hp = u.hp + h
+			emit(st, { t = "heal", side = sideIdx, amount = h, skill = u.skill, p = u.p })
+		elseif u.skill == "guard" then
+			u.guard = true
+			emit(st, { t = "guard", side = sideIdx, skill = u.skill, p = u.p })
+		elseif u.skill == "focus" then
+			u.focus = 3
+			emit(st, { t = "buff", side = sideIdx, skill = u.skill, p = u.p })
+		else
+			local dmg, tm = strike(st, sideIdx, sk.mul)
+			emit(st, { t = "hit", side = sideIdx, dmg = dmg, mul = tm, skill = u.skill, hp = foe.hp, p = u.p, target = foe.p })
+			if u.skill == "drain" then
+				local h = math.min(u.maxHp - u.hp, math.floor(dmg / 3))
+				u.hp = u.hp + h
+			elseif u.skill == "stun" and foe.hp > 0 then
+				foe.stun = 1
+			end
+		end
+	else
+		local dmg, tm = strike(st, sideIdx, 1)
+		emit(st, { t = "hit", side = sideIdx, dmg = dmg, mul = tm, hp = foe.hp, p = u.p, target = foe.p })
+	end
+end
+
+local function settle(st)
+	for i = 1, 2 do
+		local sd = st.sides[i]
+		if not alive(sd.units[sd.active]) then
+			local nxt = firstAlive(sd, sd.active)
+			if nxt then
+				sd.active = nxt
+				emit(st, { t = "swap", side = i, to = nxt, forced = true, p = sd.units[nxt].p })
+			else
+				emit(st, { t = "ko", side = i })
+			end
+		end
+	end
+	local aOut, bOut = firstAlive(st.sides[1], 1) == nil, firstAlive(st.sides[2], 1) == nil
+	if aOut or bOut then
+		st.over, st.winner = true, aOut and 2 or 1
+		if aOut and bOut then
+			st.winner = 2 -- égalité : le défenseur l'emporte
+		end
+	end
+end
+
+local function totalFrac(sd)
+	local hp, mx = 0, 0
+	for _, u in ipairs(sd.units) do
+		hp, mx = hp + u.hp, mx + u.maxHp
+	end
+	return hp / mx
+end
+
+-- Joue UN tour : actionA = intention du camp A (validée ici ; invalide -> attaque), le camp B joue l'IA (ou actionB). Retourne les événements du tour.
+function Battle.turn(st, actionA, actionB)
+	if st.over then
+		return {}
+	end
+	local from = #st.log + 1
+	st.turn = st.turn + 1
+	if Battle.validate(st, 1, actionA) then
+		actionA = { kind = "attack" }
+	end
+	actionB = actionB or Battle.aiAction(st, 2)
+	if Battle.validate(st, 2, actionB) then
+		actionB = { kind = "attack" }
+	end
+	emit(st, { t = "turn", n = st.turn })
+	-- les changements de pet passent en premier, puis la vitesse décide (égalité : camp A)
+	local order = { 1, 2 }
+	local acts = { actionA, actionB }
+	local function prio(i)
+		return acts[i].kind == "swap" and 1 or 0
+	end
+	local ua, ub = activeOf(st, 1), activeOf(st, 2)
+	local tie
+	tie, st.rnd = nextRnd(st.rnd)
+	if prio(2) > prio(1) or (prio(2) == prio(1) and (ub.spd > ua.spd or (ub.spd == ua.spd and tie < 0.5))) then
+		order = { 2, 1 }
+	end
+	for _, i in ipairs(order) do
+		if not st.over and alive(activeOf(st, i)) then
+			perform(st, i, acts[i])
+			settle(st)
+		end
+	end
+	settle(st) -- même si personne n'a pu agir (deux camps déjà à terre)
+	for i = 1, 2 do -- recharges et effets qui s'estompent
+		for _, u in ipairs(st.sides[i].units) do
+			if u.cd > 0 then
+				u.cd = u.cd - 1
+			end
+			if u.focus > 0 then
+				u.focus = u.focus - 1
+			end
+		end
+	end
+	if not st.over and st.turn >= Battle.MAX_TURNS then
+		local fa, fb = totalFrac(st.sides[1]), totalFrac(st.sides[2])
+		st.over, st.winner = true, fa > fb and 1 or 2 -- limite de tours : le plus de PV restants gagne, égalité au défenseur
+		emit(st, { t = "timeout" })
+	end
+	local out = {}
+	for i = from, #st.log do
+		out[#out + 1] = st.log[i]
+	end
+	return out
+end
+
+-- Équipe adverse de l'étage `floor` de la tour (déterministe) : 3 espèces de la rareté de l'étage, taille normale, niveau Config.towerScale.
+function Battle.towerTeam(Config, floor)
+	local tier = Config.towerTier(floor)
+	local ids = {}
+	for i, d in ipairs(Config.PETS) do
+		if d.tier == tier then
+			ids[#ids + 1] = i
+		end
+	end
+	local scale = Config.towerScale(floor)
+	local team = {}
+	for k = 1, Config.TOWER.teamSize do
+		team[k] = Battle.unit(Config, { p = ids[(floor + k) % #ids + 1], s = 2, m = 1 }, scale)
+	end
+	return team
+end
+
+-- Combat complet automatique (IA des deux côtés) : sert à l'équilibrage et aux tests. Retourne l'état final.
+function Battle.run(seed, teamA, teamB)
+	local st = Battle.new(seed, teamA, teamB)
+	while not st.over do
+		Battle.turn(st, Battle.aiAction(st, 1))
+	end
+	return st
+end
+
+-- Texte court d'un événement pour le journal : « 🐰 Lapin : Coup puissant ! 12 dégâts (super efficace) ». `side` 1 = toi.
+function Battle.describe(Config, ev)
+	local def = ev.p and Config.PETS[ev.p]
+	local who = def and (def.emoji .. " " .. def.name) or ""
+	local pre = ev.side == 1 and "" or "Adversaire · "
+	if ev.t == "turn" then
+		return "— Tour " .. ev.n .. " —"
+	elseif ev.t == "hit" then
+		local eff = ev.mul > 1 and " (super efficace !)" or (ev.mul < 1 and " (peu efficace)" or "")
+		local sk = ev.skill and (Battle.SKILLS[ev.skill].name .. " ! ") or ""
+		return pre .. who .. " : " .. sk .. ev.dmg .. " dégâts" .. eff
+	elseif ev.t == "heal" then
+		return pre .. who .. " se soigne de " .. ev.amount
+	elseif ev.t == "guard" then
+		return pre .. who .. " se met en garde"
+	elseif ev.t == "buff" then
+		return pre .. who .. " se concentre (attaque +40 %)"
+	elseif ev.t == "stunned" then
+		return pre .. who .. " est étourdi et passe son tour"
+	elseif ev.t == "swap" then
+		return pre .. (ev.forced and "envoie " or "change pour ") .. who
+	elseif ev.t == "ko" then
+		return (ev.side == 1 and "Ton équipe est" or "L'équipe adverse est") .. " à terre"
+	elseif ev.t == "timeout" then
+		return "Limite de " .. Battle.MAX_TURNS .. " tours : les PV restants décident"
+	end
+	return ""
+end
+
+-- Vue minimale d'un camp pour l'interface (aucune donnée de graine).
+function Battle.view(st)
+	local out = { turn = st.turn, over = st.over, winner = st.winner, sides = {} }
+	for i = 1, 2 do
+		local sd = st.sides[i]
+		local units = {}
+		for k, u in ipairs(sd.units) do
+			units[k] = { p = u.p, s = u.s, m = u.m, type = u.type, hp = u.hp, maxHp = u.maxHp, cd = u.cd, skill = u.skill, guard = u.guard, stun = u.stun, focus = u.focus }
+		end
+		out.sides[i] = { units = units, active = sd.active }
+	end
+	return out
+end
+
+return Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -3403,7 +3798,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -3744,7 +4139,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -3801,7 +4196,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -3913,7 +4308,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -4686,7 +5081,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -4795,7 +5190,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -4958,7 +5353,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -5187,7 +5582,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX60"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX58"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX63"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX61"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -5542,7 +5937,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -5931,7 +6326,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX63"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX62"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX61"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX66"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX65"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX64"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")
