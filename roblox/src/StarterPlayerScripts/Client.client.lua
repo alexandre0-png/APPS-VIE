@@ -1832,6 +1832,22 @@ pcall(function()
 	end, UserInputService, RunService)
 end)
 
+-- Arène des pets (PvE) : bouton ⚔️ (écran d'équipe, tour des Dresseurs, combat tour par tour résolu par le serveur).
+pcall(function()
+	local BattleMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Battle"))
+	local BattleUi = require(script.Parent:WaitForChild("BattleUi"))
+	local bg = Instance.new("ScreenGui")
+	bg.Name = "BattleGui"
+	bg.ResetOnSpawn = false
+	bg.DisplayOrder = 20
+	bg.Parent = player:WaitForChild("PlayerGui")
+	BattleUi.start(Config, BattleMod, player, bg, function()
+		return state
+	end, function(action, arg)
+		RAction:FireServer(action, arg)
+	end, Remotes:WaitForChild("Battle"))
+end)
+
 -- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
 do
 	local arrow = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 132), Size = UDim2.fromOffset(190, 24), TextSize = 14, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, Text = "", Visible = false })
