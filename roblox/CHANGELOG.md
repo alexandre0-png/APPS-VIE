@@ -2,6 +2,15 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Lot 8 (PvE) : Arène des pets, tour des Dresseurs
+
+- **Moteur pur** `Battle.lua` : équipes de 3, 6 types (Feu > Nature > Eau > Feu, Lumière > Ombre > Ciel > Lumière, x1,5 / x0,67), les 3 espèces de chaque rareté forment un triangle complet (équilibre à rareté égale), une compétence par espèce avec recharge (coup puissant, morsure vampire, soin, garde, étourdissement, concentration), tour par tour déterministe (graine), actions attaque / compétence / changer, limite 30 tours (PV restants), égalité au défenseur.
+- **Données et serveur** : profil v9 (`battle` : équipe, meilleur étage, compteurs du jour), tour de 30 étages (raretés 1 à 6 par paliers de 5, boss Gus/Mara/Zed aux étages 5/10/15 puis versions de fin de tour), récompenses (première victoire : pièces, œuf d'un cran au-dessus aux boss, potion de chance tous les 5 étages ; répétitions : petites pièces, 10 par jour), 20 combats par jour, tour limité à 10 s (attaque par défaut), titre « Dresseur » (5/10/20/30 étages). Le serveur relit l'équipe dans le profil, tire la graine, valide chaque intention ; récompense versée une seule fois ; aucun achat ne renforce un pet.
+- **UI** `BattleUi.lua` : bouton ⚔️, écran d'équipe (type affiché), choix d'étage, combat (PV, icônes de type, avantage ⬆/⬇, journal, minuteur), résultat avec récompenses.
+- **Mesuré** : 100 000 combats d'équipes aléatoires de même rareté : espèces entre 43 % et 56 % de victoires, types entre 47,6 % et 52,8 % ; équipe aléatoire de même rareté : 94-95 % de victoires aux étages ordinaires, 23-36 % aux boss.
+- Corrigé en route : la validation de la compétence était toujours fausse (idiome Lua `and nil or`) ; un premier équilibrage à vitesse variable favorisait l'initiative au lieu des espèces.
+- Pas fait : cosmétiques (aucun système n'existe), PvP (lot suivant).
+
 ## UI/UX : lisibilité et sons
 
 - Textes principaux portés à 14 : bannière, carte d'offre, carte d'objectif (196 x 78, `Layout` et colonne des compteurs ajustés), accroche d'accueil, infos d'œuf, indicateur « Inactif ». Mise en page testée sur les 10 tailles d'écran (aucun chevauchement). Restent sous 14 : étiquettes du menu (11), détails d'inventaire (12 à 13) ; le plancher testé reste 11.

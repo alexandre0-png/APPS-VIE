@@ -318,7 +318,7 @@ end)())
 
 -- Succès à paliers -----------------------------------------------------------------------------------
 check("succès définis", #Config.ACHIEVEMENTS >= 4)
-local statNames = { hatched = true, stolen = true, species = true, rb = true, puzzles = true }
+local statNames = { hatched = true, stolen = true, species = true, rb = true, puzzles = true, tower = true }
 for _, a in ipairs(Config.ACHIEVEMENTS) do
 	check("succès " .. a.id .. " : statistique connue", statNames[a.stat] == true)
 	check("succès " .. a.id .. " : 4 paliers", #a.goals == #Config.ACH_REWARD.coins and #a.goals == #Config.ACH_REWARD.mins)
@@ -3317,7 +3317,7 @@ do
 			unlocked += 1
 		end
 	end
-	check("Titres : 20 titres (5 succès x 4 paliers), débloqués d'après les statistiques (Éleveur I-II, Collectionneur I)", #ti == 20 and unlocked == 3 and ti[1].unlocked and ti[2].unlocked and not ti[3].unlocked)
+	check("Titres : 24 titres (6 succès x 4 paliers), débloqués d'après les statistiques (Éleveur I-II, Collectionneur I)", #ti == 24 and unlocked == 3 and ti[1].unlocked and ti[2].unlocked and not ti[3].unlocked)
 	local saved = { Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id }
 	Config.PASSES.Lucky.id, Config.PASSES.Coins2x.id = 0, 0
 	check("Offre : jamais proposée tant que l'achat n'est pas disponible (ID 0)", Config.boostOffer("rare", {}, 1000, nil, 0, 0) == nil)
@@ -4238,7 +4238,7 @@ do
 			RT.removePlayer(old)
 			RT.step(2)
 			local rec = record(7001)
-			check("Base : le profil sauvegardé porte la version 8 et le score de base", rec ~= nil and rec.v ~= nil and rec.v.ver == 8 and rec.v.baseScore == 155)
+			check("Base : le profil sauvegardé porte la version 9 et le score de base", rec ~= nil and rec.v ~= nil and rec.v.ver == 9 and rec.v.baseScore == 155)
 			local savedLevels = cfg.BASE_LEVELS
 			local thresholds = {}
 			for i = 1, 8 do
@@ -6263,6 +6263,325 @@ do
 			end
 		end
 		check("Mini-carte : l'interface démarre, " .. visible .. " pastilles visibles au Grand Nid, " .. atStart .. " objets créés au départ (<= 60) et AUCUN de plus pendant 10 s de jeu" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), objs ~= nil and visible >= 4 and atStart <= 60 and created == atStart and #RT.errors == 0)
+	end
+end
+
+
+do
+	suite("Arène des pets : moteur pur, types, équilibrage 100 000 combats, tour, serveur et anti-triche")
+	local B = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Battle.lua"), { debugName = "Battle" })()
+	-- types : 3 espèces par type, chaque rareté = un triangle complet de la roue
+	local perType, tri = {}, true
+	for i, t in ipairs(B.SPECIES_TYPE) do
+		perType[t] = (perType[t] or 0) + 1
+	end
+	for tier = 1, 6 do
+		local seen = {}
+		for i, d in ipairs(Config.PETS) do
+			if d.tier == tier then
+				seen[B.SPECIES_TYPE[i]] = true
+			end
+		end
+		local n = 0
+		for t in pairs(seen) do
+			n = n + 1
+			if not (seen[B.BEATS[t]] and seen[B.BEATS[B.BEATS[t]]]) then
+				tri = false
+			end
+		end
+		if n ~= 3 then
+			tri = false
+		end
+	end
+	check("Types : 18 espèces, 3 par type (6 types), chaque rareté forme un triangle complet de la roue", #B.SPECIES_TYPE == 18 and #Config.PETS == 18 and tri and perType["Feu"] == 3 and perType["Eau"] == 3 and perType["Nature"] == 3 and perType["Ciel"] == 3 and perType["Ombre"] == 3 and perType["Lumière"] == 3)
+	check("Types : avantage x1,5, désavantage x0,67, neutre x1", B.typeMul("Feu", "Nature") == 1.5 and B.typeMul("Nature", "Feu") == 0.67 and B.typeMul("Feu", "Ciel") == 1 and B.typeMul("Lumière", "Ombre") == 1.5 and B.typeMul("Ciel", "Ombre") == 0.67)
+	local function team(tier, off)
+		local ids = {}
+		for i, d in ipairs(Config.PETS) do
+			if d.tier == tier then
+				ids[#ids + 1] = i
+			end
+		end
+		local t = {}
+		for k = 1, 3 do
+			t[k] = B.unit(Config, { p = ids[(k + off) % 3 + 1], s = 2, m = 1 })
+		end
+		return t
+	end
+	-- déterminisme
+	local r1, r2, r3 = B.run(42, team(3, 0), team(3, 1)), B.run(42, team(3, 0), team(3, 1)), B.run(43, team(3, 0), team(3, 1))
+	local same = #r1.log == #r2.log and r1.winner == r2.winner and r1.turn == r2.turn
+	for i = 1, #r1.log do
+		if same and (r1.log[i].t ~= r2.log[i].t or r1.log[i].dmg ~= r2.log[i].dmg) then
+			same = false
+		end
+	end
+	local differs = false
+	for i = 1, math.min(#r1.log, #r3.log) do
+		if r1.log[i].dmg ~= r3.log[i].dmg then
+			differs = true
+		end
+	end
+	check("Moteur : même graine = même combat (" .. #r1.log .. " événements), autre graine = autre déroulé", same and differs and r1.over and (r1.winner == 1 or r1.winner == 2))
+	-- avantage de type visible dans les dégâts (A Feu contre B Nature, sans aléa moyen)
+	local fire = B.unit(Config, { p = 6, s = 2, m = 1 }) -- Renard : Feu
+	local nature = B.unit(Config, { p = 5, s = 2, m = 1 }) -- Chien : Nature
+	local water = B.unit(Config, { p = 4, s = 2, m = 1 }) -- Chat : Eau
+	local sa = B.new(1, { fire }, { nature })
+	local ev = B.turn(sa, { kind = "attack" }, { kind = "attack" })
+	local sb = B.new(1, { fire }, { water })
+	local ev2 = B.turn(sb, { kind = "attack" }, { kind = "attack" })
+	local hitA, hitB
+	for _, e in ipairs(ev) do
+		if e.t == "hit" and e.side == 1 then
+			hitA = e
+		end
+	end
+	for _, e in ipairs(ev2) do
+		if e.t == "hit" and e.side == 1 then
+			hitB = e
+		end
+	end
+	check("Moteur : Feu frappe Nature x1,5 et Eau x0,67 (" .. tostring(hitA and hitA.dmg) .. " contre " .. tostring(hitB and hitB.dmg) .. ")", hitA and hitB and hitA.mul == 1.5 and hitB.mul == 0.67 and hitA.dmg > hitB.dmg * 1.8)
+	-- validation, tour limité, égalité, compétences
+	local sv = B.new(5, team(2, 0), team(2, 1))
+	check("Moteur : actions invalides refusées (inconnue, changer pour soi-même, pet inexistant, compétence en recharge)", B.validate(sv, 1, { kind = "x" }) and B.validate(sv, 1, { kind = "swap", to = 1 }) and B.validate(sv, 1, { kind = "swap", to = 9 }) and B.validate(sv, 1, "attack") and B.validate(sv, 1, { kind = "attack" }) == nil and B.validate(sv, 1, { kind = "swap", to = 2 }) == nil)
+	B.turn(sv, { kind = "skill" })
+	check("Moteur : après une compétence, elle est en recharge et refusée jusqu'à la fin du délai", sv.sides[1].units[1].cd > 0 and B.validate(sv, 1, { kind = "skill" }) ~= nil)
+	local stall = B.new(7, { B.unit(Config, { p = 1, s = 2, m = 1 }, 20) }, { B.unit(Config, { p = 1, s = 2, m = 1 }, 20) })
+	for _ = 1, 60 do
+		B.turn(stall, { kind = "skill" }, { kind = "skill" }) -- tours qui ne finissent pas vite
+	end
+	check("Moteur : le combat s'arrête au plus tard à " .. B.MAX_TURNS .. " tours (tour " .. stall.turn .. "), vainqueur défini", stall.over and stall.turn <= B.MAX_TURNS and (stall.winner == 1 or stall.winner == 2))
+	local tie = B.new(9, { B.unit(Config, { p = 1, s = 2, m = 1 }) }, { B.unit(Config, { p = 1, s = 2, m = 1 }) })
+	tie.sides[1].units[1].hp, tie.sides[2].units[1].hp = 0, 0
+	B.turn(tie, { kind = "attack" })
+	check("Moteur : égalité (deux camps à terre) -> le défenseur gagne", tie.over and tie.winner == 2)
+	local hs = B.new(11, { B.unit(Config, { p = 2, s = 2, m = 1 }) }, { B.unit(Config, { p = 9, s = 2, m = 1 }) })
+	hs.sides[1].units[1].hp = 40
+	B.turn(hs, { kind = "skill" }, { kind = "attack" })
+	local u = hs.sides[1].units[1]
+	check("Moteur : le soin ne dépasse jamais les PV max (" .. u.hp .. "/" .. u.maxHp .. ")", u.hp <= u.maxHp and u.hp > 40 - 30)
+	-- équilibrage : 100 000 combats d'équipes aléatoires de MÊME rareté
+	local seed = 99
+	local function rnd()
+		seed = (seed * 16807) % 2147483647
+		return seed / 2147483647
+	end
+	local function randTeam(tier)
+		local ids = {}
+		for i, d in ipairs(Config.PETS) do
+			if d.tier == tier then
+				ids[#ids + 1] = i
+			end
+		end
+		local t = {}
+		for k = 1, 3 do
+			t[k] = B.unit(Config, { p = ids[math.floor(rnd() * #ids) + 1], s = 1 + math.floor(rnd() * 5), m = 1 + math.floor(rnd() * 5) })
+		end
+		return t
+	end
+	local sw, sn, tw, tn, aw = {}, {}, {}, {}, 0
+	for i = 1, 18 do
+		sw[i], sn[i] = 0, 0
+	end
+	for _, t in ipairs(B.TYPES) do
+		tw[t], tn[t] = 0, 0
+	end
+	local N = 100000
+	for _ = 1, N do
+		local tier = 1 + math.floor(rnd() * 6)
+		local a, b = randTeam(tier), randTeam(tier)
+		local r = B.run(math.floor(rnd() * 1e9) + 1, a, b)
+		local win = r.winner == 1
+		if win then
+			aw = aw + 1
+		end
+		for _, un in ipairs(a) do
+			sn[un.p], tn[un.type] = sn[un.p] + 1, tn[un.type] + 1
+			if win then
+				sw[un.p], tw[un.type] = sw[un.p] + 1, tw[un.type] + 1
+			end
+		end
+		for _, un in ipairs(b) do
+			sn[un.p], tn[un.type] = sn[un.p] + 1, tn[un.type] + 1
+			if not win then
+				sw[un.p], tw[un.type] = sw[un.p] + 1, tw[un.type] + 1
+			end
+		end
+	end
+	local worstS, worstT, loS, hiS = 0, 0, 1, 0
+	for i = 1, 18 do
+		local r = sw[i] / sn[i]
+		worstS = math.max(worstS, math.abs(r - 0.5))
+		loS, hiS = math.min(loS, r), math.max(hiS, r)
+	end
+	for _, t in ipairs(B.TYPES) do
+		worstT = math.max(worstT, math.abs(tw[t] / tn[t] - 0.5))
+	end
+	check("Équilibrage : " .. N .. " combats, espèces de " .. string.format("%.1f", loS * 100) .. " % à " .. string.format("%.1f", hiS * 100) .. " % de victoires, écart maximal des types " .. string.format("%.1f", worstT * 100) .. " points (aucun > 60 %)", worstS < 0.1 and worstT < 0.1 and math.abs(aw / N - 0.5) < 0.02)
+	-- tour des Dresseurs : étages déterministes, difficulté croissante, boss tous les 5 étages
+	local tw1, tw2 = B.towerTeam(Config, 7), B.towerTeam(Config, 7)
+	local monotone = true
+	for f = 2, Config.TOWER.floors do
+		local pu, cu = B.towerTeam(Config, f - 1)[1], B.towerTeam(Config, f)[1]
+		if (Config.towerTier(f) == Config.towerTier(f - 1) and Config.towerScale(f) < Config.towerScale(f - 1) and f % 5 ~= 1) or Config.towerTier(f) < Config.towerTier(f - 1) then
+			monotone = false
+		end
+	end
+	check("Tour : 30 étages, raretés 1 à 6 par paliers de 5, boss aux étages 5/10/15/20/25/30, équipes déterministes, difficulté croissante dans chaque rareté", Config.TOWER.floors == 30 and Config.towerTier(1) == 1 and Config.towerTier(5) == 1 and Config.towerTier(6) == 2 and Config.towerTier(30) == 6 and Config.TOWER.bosses[5] == "Gus" and Config.TOWER.bosses[10] == "Mara" and Config.TOWER.bosses[15] == "Zed" and tw1[1].p == tw2[1].p and tw1[1].maxHp == tw2[1].maxHp and monotone)
+	-- victoire attendue d'une équipe normale de même rareté : étages ordinaires gagnés, boss plus durs
+	local lines = {}
+	for _, f in ipairs({ 3, 5, 8, 10, 15 }) do
+		local tier = Config.towerTier(f)
+		local w = 0
+		for g = 1, 400 do
+			local r = B.run(g * 7919, randTeam(tier), B.towerTeam(Config, f))
+			if r.winner == 1 then
+				w = w + 1
+			end
+		end
+		lines[#lines + 1] = f .. ":" .. string.format("%.0f", w / 4) .. "%"
+		if f % 5 == 0 then
+			check("Tour : le boss de l'étage " .. f .. " est plus dur qu'un étage ordinaire (équipe aléatoire de même rareté gagne " .. string.format("%.0f", w / 4) .. " %)", w / 400 < 0.5)
+		end
+	end
+	-- anti-triche : l'interface n'a aucun moyen de dicter l'issue (le serveur ne lit qu'une intention) ; vérifié sur le vrai serveur
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local RA
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == "Action" then
+				RA = d
+			end
+		end
+		local p = RT.addPlayer("Arena", 9961, { from = "hub", partyId = "ARENA", size = 1, late = false })
+		RT.step(2)
+		local function act(a, arg)
+			RT.now = RT.now + 0.2
+			RT.fire(RA, "OnServerEvent", p, a, arg)
+		end
+		for _ = 1, 40 do
+			act("buyEgg")
+			RT.step(1)
+		end
+		RT.step(40)
+		local function lastState()
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+		end
+		act("sync")
+		RT.step(1)
+		local st = lastState()
+		local petSlots = {}
+		for i = 1, 12 do
+			if st.slots[i] and st.slots[i].k == "p" then
+				petSlots[#petSlots + 1] = i
+			end
+		end
+		check("Arène serveur : le joueur possède des pets pour l'équipe (" .. #petSlots .. ")", #petSlots >= 1)
+		local function battleEvents(kind)
+			local out = {}
+			for _, f in ipairs(RT.fired) do
+				if f[1] == "Battle" and f[2] == p and type(f[3]) == "table" and f[3].k == kind then
+					out[#out + 1] = f[3]
+				end
+			end
+			return out
+		end
+		-- sans équipe, étage verrouillé, valeurs hostiles : aucun combat
+		act("towerStart", 1)
+		act("towerStart", 5)
+		act("towerStart", 0 / 0)
+		act("towerStart", "1")
+		act("battleAct", "attack")
+		check("Arène serveur : sans équipe, étage verrouillé, NaN, texte -> aucun combat démarré", #battleEvents("start") == 0)
+		act("setTeam", { 99, -1, "x", 0 / 0, 1.5 })
+		act("setTeam", "pirate")
+		act("setTeam", { petSlots[1], petSlots[1], petSlots[1] })
+		act("sync")
+		RT.step(0.5)
+		st = lastState()
+		check("Arène serveur : équipe validée côté serveur (indices hostiles ignorés, doublons retirés) -> 1 pet", st.battle and #st.battle.team == 1 and st.battle.team[1] == petSlots[1])
+		act("setTeam", { petSlots[1], petSlots[2], petSlots[3], petSlots[4] })
+		act("sync")
+		RT.step(0.5)
+		st = lastState()
+		check("Arène serveur : équipe limitée à " .. Config.TOWER.teamSize .. " pets", #st.battle.team <= Config.TOWER.teamSize)
+		-- combat : le client n'envoie que des intentions ; on joue jusqu'à la fin
+		act("towerStart", 1)
+		local starts = battleEvents("start")
+		check("Arène serveur : l'étage 1 démarre (adversaire " .. tostring(starts[1] and starts[1].foe) .. ")", #starts == 1)
+		act("towerStart", 1) -- second départ pendant un combat : ignoré
+		check("Arène serveur : impossible de lancer un second combat pendant un combat", #battleEvents("start") == 1)
+		act("battleAct", "n'importe quoi")
+		act("battleAct", "swap9")
+		act("battleAct", { kind = "win" })
+		check("Arène serveur : intentions hostiles refusées, le combat n'est pas terminé", #battleEvents("end") == 0)
+		local c0 = (lastState() or st).coins or 0
+		local turns = 0
+		while #battleEvents("end") == 0 and turns < 80 do
+			act("battleAct", turns % 3 == 2 and "skill" or "attack")
+			turns = turns + 1
+		end
+		local ends = battleEvents("end")
+		check("Arène serveur : le combat se termine en " .. turns .. " actions (limite de 30 tours), une seule fin envoyée" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #ends == 1 and turns <= 31 and #RT.errors == 0)
+		local won = ends[1] and ends[1].win
+		local coinsBefore = p:GetAttribute("Coins") or 0
+		act("battleAct", "attack")
+		act("battleAct", "skill")
+		check("Arène serveur : après la fin, plus aucune action n'est acceptée (aucun second paiement)", (p:GetAttribute("Coins") or 0) - coinsBefore < 5000 and #battleEvents("end") == 1)
+		if won then
+			check("Arène serveur : première victoire de l'étage 1 = pièces versées une seule fois (+" .. tostring(ends[1].rewards.coins) .. ")", ends[1].rewards.first == true and ends[1].rewards.coins >= 600 and ends[1].best == 1)
+			-- répétition : récompense limitée par jour
+			local repeats = 0
+			for n = 1, Config.TOWER.dailyRepeats + 2 do
+				local before = #battleEvents("end")
+				act("towerStart", 1)
+				if #battleEvents("start") > 0 then
+					local g = 0
+					while #battleEvents("end") == before and g < 80 do
+						act("battleAct", "attack")
+						g = g + 1
+					end
+					local e = battleEvents("end")[before + 1]
+					if e and e.win and e.rewards.coins then
+						repeats = repeats + 1
+					end
+				end
+			end
+			check("Arène serveur : récompenses de répétition limitées à " .. Config.TOWER.dailyRepeats .. " par jour (" .. repeats .. " versées)", repeats <= Config.TOWER.dailyRepeats)
+		end
+		-- limite de combats par jour
+		local startsNow = #battleEvents("start")
+		for _ = 1, Config.TOWER.dailyFights + 5 do
+			act("towerStart", 1)
+			local g = 0
+			local before = #battleEvents("end")
+			while #battleEvents("end") == before and g < 80 and #battleEvents("start") > before do
+				act("battleQuit")
+				g = g + 1
+			end
+		end
+		check("Arène serveur : au plus " .. Config.TOWER.dailyFights .. " combats par jour (" .. #battleEvents("start") .. " lancés)", #battleEvents("start") <= Config.TOWER.dailyFights)
+		-- tour limité à 10 s : action par défaut
+		RT.now = RT.now + 86400
+		RT.step(1)
+		act("towerStart", 1)
+		local before = #battleEvents("turn")
+		RT.step(Config.TOWER.turnSeconds + 3)
+		check("Arène serveur : sans action pendant " .. Config.TOWER.turnSeconds .. " s, un tour par défaut (attaque) est joué", #battleEvents("turn") > before or #battleEvents("end") > 0)
+		check("Arène serveur : aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		print("Tour, victoires d'une équipe aléatoire de même rareté par étage : " .. table.concat(lines, " "))
 	end
 end
 
