@@ -1,10 +1,22 @@
 -- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
--- empreinte ne touche NI l'eau (rivières, douves), NI un chemin, NI l'arène, un domaine, une base ou un secret, et reste à distance minimale des objets
--- déjà posés. Cabanes tournées face au centre de leur domaine, barrières alignées sur une même ligne, ponts centrés sur leur rivière et plus longs
--- qu'elle (les deux rives sont reliées). Utilisation : require(Placement).new(Config).plan().
+-- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
+-- (règles de MapGeo.blocked), et reste à distance minimale des objets déjà posés. Cabanes tournées face au centre de leur territoire, barrières
+-- alignées sur une même ligne, ponts de bois centrés sur leur cours d'eau. Forêts par rectangles et bosquets (REFONTE lot 2, carte 700 x 500).
+-- Utilisation : require(Placement).new(Config).plan() (MapGeo chargé à côté ; les tests le passent : Placement.new(Config, MapGeo)).
 local Placement = {}
+
+-- Pause coopérative facultative (Builder la règle sur task.wait) : les calculs de pose cèdent la main tous les 25 essais (jamais de gel du serveur ;
+-- les tests purs la laissent à nil).
+Placement.yield = nil
+local pauseCount = 0
+local function pause()
+	pauseCount = pauseCount + 1
+	if Placement.yield and pauseCount % 25 == 0 then
+		Placement.yield()
+	end
+end
 
 local KIND_RADIUS = { tree = 3.5, fir = 3.5, rock = 2.5, bush = 2, hut = 7, fence = 5.5 }
 Placement.KIND_RADIUS = KIND_RADIUS
@@ -56,24 +68,46 @@ function Placement.yawOfDir(dx, dz)
 	return math.deg(a) % 360
 end
 
--- Variante d'arbre selon la zone : tree_sakura près des lacs et de l'arène centrale, tree_pine sur les falaises (autour des domaines), sinon prairie
--- (chênes, bouleau, arbre rond en alternance ; tree_oak_b porte des pommes). `kind` = "tree" ou "fir" (les sapins restent des pins). `k` = rang (déterministe).
-function Placement.treeVariant(Config, kind, x, z, k)
+-- REFONTE (lot 2) : le module MapGeo (géométrie de la carte 700 x 500) est injecté par l'appelant ou chargé à côté de ce module.
+local function loadGeo(MapGeo)
+	if MapGeo then
+		return MapGeo
+	end
+	if Placement.MapGeo then
+		return Placement.MapGeo
+	end
+	local ok, mod = pcall(function()
+		return require(script.Parent:WaitForChild("MapGeo"))
+	end)
+	if ok then
+		Placement.MapGeo = mod
+		return mod
+	end
+	error("Placement : module MapGeo introuvable (passe-le à Placement.new(Config, MapGeo))")
+end
+
+-- Variante d'arbre selon la zone : tree_sakura près des lacs et de la place, tree_pine au nord (derrière la rivière), autour des territoires et sur le
+-- plateau du château, sinon prairie (chênes, bouleau, arbre rond en alternance ; tree_oak_b porte des pommes). `kind` = "tree" ou "fir" (les sapins
+-- restent des pins). `k` = rang (déterministe).
+function Placement.treeVariant(Config, kind, x, z, k, MapGeo)
 	if kind == "fir" then
 		return "tree_pine"
 	end
-	local geo = Config.Map.geo
-	for _, lk in ipairs(geo.lakes or {}) do
-		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 70 then
+	local M2 = Config.Map2
+	for _, lk in ipairs(M2.lakes) do
+		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 40 then
 			return "tree_sakura"
 		end
 	end
-	if math.sqrt(x * x + z * z) < geo.arenaRadius + 70 then
+	if math.sqrt((x - M2.plaza.x) ^ 2 + (z - M2.plaza.z) ^ 2) < M2.plaza.r + 50 then
 		return "tree_sakura"
 	end
-	for i = 1, #Config.RIVALS do
-		local cx, cz = Config.rivalCenter(i)
-		if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < Config.Map.plateauRadius + 60 then
+	if z < -180 then
+		return "tree_pine"
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2) < t.r + 25 then
 			return "tree_pine"
 		end
 	end
@@ -174,100 +208,164 @@ function Placement.pathTiles(poly, tile, wind)
 	return { tiles = tiles, borders = borders, length = total }
 end
 
-function Placement.new(Config)
-	local P = {}
-	local M = Config.Map
-	local geo = M.geo
-	local half = M.groundSize / 2
+function Placement.new(Config, MapGeo)
+	local MG = loadGeo(MapGeo)
+	local G = MG.new(Config)
+	local P = { G = G }
+	local M2 = Config.Map2
+	local B = M2.bounds
 
-	-- Segments de chemin (mêmes extrémités que Scenery.paths) : de la moitié du x du domaine, devant l'arène, jusqu'au domaine.
+	-- Segments des chemins au sol (mêmes polylignes que Scenery.paths) : { ax, az, bx, bz } ; les ponts sont des chemins.
 	function P.pathSegments()
 		local out = {}
-		for _, poly in ipairs(M.paths) do
-			for k = 1, #poly - 1 do
-				out[#out + 1] = { poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2] }
+		for _, sg in ipairs(G.pathSegs) do
+			if (sg.y or 0) == 0 then
+				out[#out + 1] = { sg[1], sg[2], sg[3], sg[4], half = sg.half }
 			end
-		end
-		for i = 1, #Config.RIVALS do -- les rampes sont des chemins larges
-			local r = Config.rampOf(i)
-			out[#out + 1] = { r.top[1], r.top[2], r.bottom[1], r.bottom[2] }
 		end
 		return out
 	end
 
-	-- Altitude du sol en (x, z) : la hauteur du plateau d'un domaine si le point est sur ce plateau, sinon 0.
+	-- Altitude du sol en (x, z) : plateau du château, colline, sinon 0.
 	function P.groundY(x, z)
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < M.plateauRadius - 1 then
-				return Config.rivalHeight(i)
-			end
-		end
-		return 0
+		return G.groundY(x, z)
 	end
 
-	-- Pourquoi une empreinte (x, z, r) est interdite : "eau", "chemin", "arène", "domaine", "base", "secret", "bord" ou nil si libre.
-	-- opts.allowDomain : l'empreinte peut se trouver dans un domaine (cabane et barrières d'un domaine).
+	-- Pourquoi une empreinte (x, z, r) est interdite : "eau", "chemin", "place", "repère", "arène", "château", "domaine", "base", "secret",
+	-- "plume", "bord" ou nil si libre. opts.allowDomain : dans un territoire (cabanes, barrières) ; opts.allowPlateau : sur le plateau du château.
 	function P.blocked(x, z, r, opts)
-		local margin = 1.5
-		if math.abs(x) > half - 50 or math.abs(z) > half - 50 then
-			return "bord"
-		end
-		for _, rv in ipairs(geo.rivers) do
-			local c = rv.axis == "z" and z or x
-			if math.abs(c - rv.at) < rv.half + r + margin then
-				return "eau"
-			end
-		end
-		for _, lk in ipairs(geo.lakes or {}) do
-			if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 5 + r + margin then
-				return "eau"
-			end
-		end
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
-			if d < M.plateauRadius + r + margin and (opts and opts.allowDomain) then
-				-- sur le plateau : on ne pose rien dans la douve
-				if math.abs(d - M.moat.radius) < M.moat.width / 2 + r + margin then
-					return "eau"
-				end
-			elseif d < M.plateauRadius + r + margin then
-				return "domaine"
-			end
-		end
-		if math.sqrt(x * x + z * z) < geo.arenaRadius + r + margin then
-			return "arène"
-		end
-		for _, seg in ipairs(P.pathSegments()) do
-			if distToSegment(x, z, seg[1], seg[2], seg[3], seg[4]) < geo.pathHalf + r + margin then
-				return "chemin"
-			end
-		end
-		local ring = math.abs(math.sqrt(x * x + z * z) - (M.plotRadius - 30))
-		if ring < geo.pathHalf + r + margin then
-			return "chemin"
-		end
-		if math.abs(math.sqrt(x * x + z * z) - M.plotRadius) < geo.baseBand + r then
-			return "base"
-		end
-		for _, sct in ipairs(Config.SECRETS) do
-			if math.sqrt((x - sct.x) ^ 2 + (z - sct.z) ^ 2) < 40 + r then
-				return "secret"
-			end
-		end
-		return nil
+		return G.blocked(x, z, r, opts)
 	end
 
-	-- Plan complet : { items = { {kind, x, z, rot, r} }, bridges = { {x, z, rot, length, river} } }. Déterministe.
+	-- Empreintes réservées dans les territoires : nids et postes des gardiens (rien n'y est posé).
+	local reserved = {}
+	for _, t in ipairs(G.terrs) do
+		for _, n in ipairs(t.nests or {}) do
+			reserved[#reserved + 1] = { n[1], n[2], 5 }
+		end
+		for _, p in ipairs(t.posts or {}) do
+			reserved[#reserved + 1] = { p[1], p[2], 6 }
+		end
+	end
+	reserved[#reserved + 1] = { G.keep.x, G.keep.z, G.keep.half + 4 }
+	local function freeOfReserved(x, z, r)
+		for _, q in ipairs(reserved) do
+			if math.sqrt((x - q[1]) ^ 2 + (z - q[2]) ^ 2) < q[3] + r then
+				return false
+			end
+		end
+		return true
+	end
+
+	-- Arbres PROCÉDURAUX des forêts (rectangles de Map2.forests, débordant sur le décor de fond au bord de la carte) et des bosquets : positions
+	-- déterministes, rien dans l'eau, sur un chemin, une base ou un territoire. { {x, z, r, y, grove} } ; au plus Map2.procTrees en forêt.
+	function P.forest()
+		if G._forest then
+			return G._forest
+		end
+		local out = {}
+		local r = 3.5
+		local function freeHere(x, z)
+			pause()
+			if math.abs(x) > M2.backdrop.w / 2 - 6 or math.abs(z) > M2.backdrop.d / 2 - 6 then
+				return false
+			end
+			local why = G.blocked(x, z, r, {})
+			if why and not (why == "bord" and not G.inBounds(x, z, 0)) then
+				return false
+			end
+			if not freeOfReserved(x, z, r) then
+				return false
+			end
+			for _, o in ipairs(out) do
+				if math.sqrt((x - o.x) ^ 2 + (z - o.z) ^ 2) < 2 * r + Placement.MIN_GAP then
+					return false
+				end
+			end
+			return true
+		end
+		-- bosquets : groveTrees arbres en couronne
+		for gi, gv in ipairs(M2.groves) do
+			for k = 1, M2.groveTrees do
+				local a = (k / M2.groveTrees + gi * 0.13) * math.pi * 2
+				local rad = M2.groveRadius * (k % 2 == 0 and 0.75 or 0.35)
+				local x, z = gv.x + math.cos(a) * rad, gv.z + math.sin(a) * rad
+				if freeHere(x, z) then
+					out[#out + 1] = { x = x, z = z, r = r, y = G.groundY(x, z), grove = gi }
+				end
+			end
+		end
+		-- forêts : quota proportionnel au maximum de chaque rectangle ; un rectangle collé au bord déborde de 24 studs dans le décor de fond
+		local sumMax = 0
+		for _, f in ipairs(M2.forests) do
+			sumMax = sumMax + f.max
+		end
+		local seed = 2711
+		local function rnd()
+			seed = seed * 16807 % 2147483647
+			return seed / 2147483647
+		end
+		for _, f in ipairs(M2.forests) do
+			local quota = math.floor(M2.procTrees * f.max / sumMax + 0.5)
+			local x0, x1, z0, z1 = f.x0, f.x1, f.z0, f.z1
+			if x0 <= B.x0 then
+				x0 = x0 - 24
+			end
+			if x1 >= B.x1 then
+				x1 = x1 + 24
+			end
+			if z0 <= B.z0 then
+				z0 = z0 - 24
+			end
+			if z1 >= B.z1 then
+				z1 = z1 + 24
+			end
+			local cells = {}
+			local step = 11
+			for gx = x0 + step / 2, x1, step do
+				for gz = z0 + step / 2, z1, step do
+					cells[#cells + 1] = { gx, gz }
+				end
+			end
+			for i = #cells, 2, -1 do
+				local j = 1 + math.floor(rnd() * i)
+				cells[i], cells[j] = cells[j], cells[i]
+			end
+			local got = 0
+			for _, c in ipairs(cells) do
+				if got >= quota then
+					break
+				end
+				local x, z = c[1] + (rnd() - 0.5) * 5, c[2] + (rnd() - 0.5) * 5
+				if freeHere(x, z) then
+					out[#out + 1] = { x = x, z = z, r = r, y = G.groundY(x, z) }
+					got = got + 1
+				end
+			end
+		end
+		G._forest = out
+		return out
+	end
+
+	-- Plan complet : { items = { {kind, x, z, rot, r, y} }, bridges = { {x, z, rot, length, name} }, forest = P.forest() }. Déterministe.
 	function P.plan()
+		if G._plan then
+			return G._plan
+		end
 		local items = {}
+		local forest = P.forest()
 		local function fits(kind, x, z, opts)
+			pause()
 			local r = KIND_RADIUS[kind]
-			if P.blocked(x, z, r, opts) then
+			if P.blocked(x, z, r, opts) or not freeOfReserved(x, z, r) then
 				return false
 			end
 			for _, it in ipairs(items) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + Placement.MIN_GAP then
+					return false
+				end
+			end
+			for _, it in ipairs(forest) do
 				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + Placement.MIN_GAP then
 					return false
 				end
@@ -278,80 +376,84 @@ function Placement.new(Config)
 			items[#items + 1] = { kind = kind, x = x, z = z, rot = rot, r = KIND_RADIUS[kind], y = P.groundY(x, z) }
 		end
 		local plan = Config.Assets.propsPlan
-		-- 1. par domaine : une cabane face au centre du domaine et une ligne de barrières alignée (jamais dans l'eau)
+		-- 1. par rival (premier territoire) : une ligne de barrières alignée puis une cabane face au centre du territoire (jamais dans l'eau)
 		for i = 1, #Config.RIVALS do
 			local cx, cz = Config.rivalCenter(i)
-			for _, off in ipairs({ { -28, 12 }, { 28, 12 }, { -28, -12 }, { 28, -12 } }) do
-				if (plan.hut or 0) > 0 and fits("hut", cx + off[1], cz + off[2], { allowDomain = true }) then
-					add("hut", cx + off[1], cz + off[2], Placement.facing(cx - (cx + off[1]), cz - (cz + off[2])))
-					break
-				end
-			end
+			local t = G.terr(Config.rivalTerritories(i)[1].key)
+			local inner = t.r - 10
+			local opts = { allowDomain = true, allowPlateau = true }
 			local perDomain = math.ceil((plan.fence or 0) / #Config.RIVALS)
 			for k = 0, perDomain - 1 do
-				local fx, fz = cx - 20.25 + k * 13.5, cz - 34 -- côté nord (le côté sud porte le chemin d'arrivée)
-				if fits("fence", fx, fz, { allowDomain = true }) then
+				local fx, fz = cx - 20.25 + k * 13.5, cz - (t.r - 12) -- côté nord du territoire
+				if fits("fence", fx, fz, opts) then
 					add("fence", fx, fz, 0) -- alignées sur l'axe X, même rotation : jamais de barrières qui se croisent
 				end
 			end
-		end
-		-- 2. décor libre : grille de cellules parcourue dans un ordre fixe (mélange déterministe), un genre par cellule selon les quantités du plan
-		local kinds = {}
-		local remaining = { tree = plan.tree or 0, fir = plan.fir or 0, rock = plan.rock or 0, bush = plan.bush or 0 }
-		local order = { "tree", "rock", "fir", "bush" }
-		local left = remaining.tree + remaining.fir + remaining.rock + remaining.bush
-		local idx = 0
-		while left > 0 do
-			idx = idx % #order + 1
-			local k = order[idx]
-			if remaining[k] > 0 then
-				remaining[k] = remaining[k] - 1
-				left = left - 1
-				kinds[#kinds + 1] = k
+			for _, off in ipairs({ { -1, 0.3 }, { 1, 0.3 }, { -0.7, -0.7 }, { 0.7, -0.7 }, { 0, 1 }, { 0, -1 }, { 0, 0.55 }, { 0.55, 0 }, { -0.55, 0 }, { 0, -0.55 } }) do
+				local hx, hz = cx + off[1] * inner, cz + off[2] * inner
+				if (plan.hut or 0) > 0 and fits("hut", hx, hz, opts) then
+					add("hut", hx, hz, Placement.facing(cx - hx, cz - hz))
+					break
+				end
 			end
 		end
-		local cells = {}
-		local lo, hi = -half + 70, half - 70
-		local cell = Placement.CELL
-		for gx = lo, hi, cell do
-			for gz = lo, hi, cell do
-				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
-			end
-		end
+		-- 2. décor libre : les sapins et les arbres vont d'abord dans les forêts, puis partout ; rochers et buissons sur toute la carte
 		local seed = 4093 -- Park–Miller : mélange déterministe des cellules
 		local function rnd()
 			seed = seed * 16807 % 2147483647
 			return seed / 2147483647
 		end
-		for i = #cells, 2, -1 do
-			local j = 1 + math.floor(rnd() * i)
-			cells[i], cells[j] = cells[j], cells[i]
-		end
-		local ki = 1
-		for _, c in ipairs(cells) do
-			if ki > #kinds then
-				break
-			end
-			local kind = kinds[ki]
-			local x, z = c[1] + (rnd() - 0.5) * 12, c[2] + (rnd() - 0.5) * 12
-			if math.sqrt(x * x + z * z) <= (M.decorRadius or math.huge) and fits(kind, x, z) then
-				add(kind, x, z, rnd() * 360)
-				ki = ki + 1
-			end
-		end
-		-- 3. ponts : centrés sur la rivière, plus longs qu'elle (les deux rives sont reliées)
-		local bridges = {}
-		for _, rv in ipairs(geo.rivers) do
-			local length = rv.half * 2 + 2 * geo.bridgeBank
-			for _, along in ipairs(rv.bridgesAt) do
-				if rv.axis == "z" then
-					bridges[#bridges + 1] = { x = along, z = rv.at, rot = 90, length = length, river = rv }
-				else
-					bridges[#bridges + 1] = { x = rv.at, z = along, rot = 0, length = length, river = rv }
+		local cell = Placement.CELL
+		local cells, forestCells = {}, {}
+		for gx = B.x0 + 10, B.x1 - 10, cell do
+			for gz = B.z0 + 10, B.z1 - 10, cell do
+				local c = { gx + cell / 2, gz + cell / 2 }
+				cells[#cells + 1] = c
+				for _, f in ipairs(M2.forests) do
+					if c[1] >= f.x0 - 10 and c[1] <= f.x1 + 10 and c[2] >= f.z0 - 10 and c[2] <= f.z1 + 10 then
+						forestCells[#forestCells + 1] = c
+						break
+					end
 				end
 			end
 		end
-		return { items = items, bridges = bridges }
+		local function shuffle(list)
+			for i = #list, 2, -1 do
+				local j = 1 + math.floor(rnd() * i)
+				list[i], list[j] = list[j], list[i]
+			end
+		end
+		shuffle(cells)
+		shuffle(forestCells)
+		local function scatter(kind, count, list)
+			local got = 0
+			for _, c in ipairs(list) do
+				if got >= count then
+					break
+				end
+				local x, z = c[1] + (rnd() - 0.5) * 14, c[2] + (rnd() - 0.5) * 14
+				if fits(kind, x, z) then
+					add(kind, x, z, rnd() * 360)
+					got = got + 1
+				end
+			end
+			return got
+		end
+		local firs = scatter("fir", plan.fir or 0, forestCells)
+		scatter("fir", (plan.fir or 0) - firs, cells)
+		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells)
+		scatter("tree", (plan.tree or 0) - trees, cells)
+		scatter("rock", plan.rock or 0, cells)
+		scatter("bush", plan.bush or 0, cells)
+		-- 3. ponts de bois (Blender) : centrés sur leur cours d'eau, axe du pont ; le pont de pierre du château (rampe) reste procédural
+		local bridges = {}
+		for _, b in ipairs(G.bridges) do
+			if not b.stone then
+				bridges[#bridges + 1] = { x = b.x, z = b.z, rot = b.axis == "NS" and 90 or 0, length = b.len, name = b.name, river = b.river }
+			end
+		end
+		G._plan = { items = items, bridges = bridges, forest = forest }
+		return G._plan
 	end
 
 	-- Décor fin (fleurs, touffes, pierres, lanternes) : mêmes règles (rien dans l'eau ni sur un chemin), espacement plus serré, après le plan principal.
@@ -362,11 +464,17 @@ function Placement.new(Config)
 		counts = counts or { flowers = 36, tufts = 24, stones = 18, lanterns = 12 }
 		local out = {}
 		local function fits(kind, x, z)
+			pause()
 			local r = DECO_RADIUS[kind]
 			if P.blocked(x, z, r, { allowDomain = true }) then
 				return false
 			end
 			for _, it in ipairs(planItems or {}) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 1 then
+					return false
+				end
+			end
+			for _, it in ipairs(P.forest()) do
 				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 1 then
 					return false
 				end
@@ -395,7 +503,7 @@ function Placement.new(Config)
 					break
 				end
 				local t = (k - 0.5) / steps
-				local x, z = seg[1] + dx * t + nx * (geo.pathHalf + 3.5), seg[2] + dz * t + nz * (geo.pathHalf + 3.5)
+				local x, z = seg[1] + dx * t + nx * ((seg.half or M2.pathHalf) + 3.5), seg[2] + dz * t + nz * ((seg.half or M2.pathHalf) + 3.5)
 				if fits("lantern", x, z) then
 					out[#out + 1] = { kind = "lantern", x = x, z = z, rot = 0, r = DECO_RADIUS.lantern, y = P.groundY(x, z) }
 					placedLanterns = placedLanterns + 1
@@ -414,9 +522,9 @@ function Placement.new(Config)
 			kinds[#kinds + 1] = i % 2 == 0 and "stone_flat" or "stone_round"
 		end
 		local cells = {}
-		local cell, lo, hi = 24, -half + 60, half - 60
-		for gx = lo, hi, cell do
-			for gz = lo, hi, cell do
+		local cell = 24
+		for gx = B.x0 + 12, B.x1 - 12, cell do
+			for gz = B.z0 + 12, B.z1 - 12, cell do
 				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
 			end
 		end
@@ -438,8 +546,8 @@ function Placement.new(Config)
 		return out
 	end
 
-	-- Décor de village de la carte (modèles scn_*) : candidats sur des anneaux autour de l'arène, ordre fixe ; mêmes règles que plan() (rien dans l'eau, sur un
-	-- chemin, une base, un domaine ni sur un objet du plan). Retourne { {kind, x, z, rot, r, y} }.
+	-- Décor de village de la carte (modèles scn_*) : candidats sur des anneaux autour de la place, ordre fixe ; mêmes règles que plan() (rien dans l'eau, sur un
+	-- chemin, une base, un territoire ni sur un objet du plan). Retourne { {kind, x, z, rot, r, y} }.
 	local VILLAGE = { { "scn_tour_cloche", 1 }, { "scn_maison_colombages", 3 }, { "scn_puits", 2 }, { "scn_pin_haut", 6 }, { "scn_rocher_a", 3 }, { "scn_rocher_b", 3 }, { "scn_rocher_c", 3 } }
 	Placement.VILLAGE = VILLAGE
 	function P.scenery(planItems)
@@ -451,12 +559,21 @@ function Placement.new(Config)
 			local got, tries = 0, 0
 			while got < want and tries < 400 do
 				tries = tries + 1
+				pause()
 				local ang = math.rad((tries * 137.5 + #out * 23) % 360)
-				local rad = 105 + (tries * 29) % 110 -- anneau de 105 à 215 studs : entre l'arène et les bases
+				local rad = 75 + (tries * 29) % 250 -- anneaux de 75 à 325 studs autour de la place
 				local x, z = math.sin(ang) * rad, -math.cos(ang) * rad
-				local ok = not P.blocked(x, z, r, {})
+				local ok = not P.blocked(x, z, r, {}) and freeOfReserved(x, z, r)
 				if ok then
 					for _, it in ipairs(planItems or {}) do
+						if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 2 then
+							ok = false
+							break
+						end
+					end
+				end
+				if ok then
+					for _, it in ipairs(P.forest()) do
 						if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 2 then
 							ok = false
 							break

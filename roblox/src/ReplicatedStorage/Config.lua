@@ -509,12 +509,13 @@ Config.Assets = {
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
 	textures = {
 		grass = { id = 122917279401510, tile = 8, targets = { { name = "Ground", faces = { "Top" } } } },
-		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverSouth", faces = { "Top" } }, { name = "RiverWest", faces = { "Top" } }, { name = "MoatWater", faces = { "Top" } }, { name = "Lake", faces = { "Top" } } } },
+		-- REFONTE (lot 2) : cibles renommées (A.6) : RiverNorth, BrookMill, BrookWillow, LakeMill, LakeWillow, Fountain, CastleMoat
+		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverNorth", faces = { "Top" } }, { name = "BrookMill", faces = { "Top" } }, { name = "BrookWillow", faces = { "Top" } }, { name = "LakeMill", faces = { "Top" } }, { name = "LakeWillow", faces = { "Top" } }, { name = "CastleMoat", faces = { "Top" } } } },
 		castleFloor = { id = 90865253086689, tile = 8, targets = { { prefix = "CastleFloor", faces = { "Top" } } } },
-		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } } } },
+		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } }, { name = "CourtWall", faces = { "Left", "Right" } } } },
 		wood = { id = 136082705365776, tile = 4, targets = { { name = "BridgePlank", faces = { "Top" } } } },
-		sand = { id = 83914325296472, tile = 8, targets = { { name = "MoatBank", faces = { "Top" } } } },
-		path = { id = 84243738566468, tile = 8, targets = { { name = "PathStone", faces = { "Right" } } } }, -- pavés cylindriques : face plate = Right
+		sand = { id = 83914325296472, tile = 8, targets = { { name = "LakeShore", faces = { "Right" } }, { name = "ArenaSand", faces = { "Right" } } } }, -- disques (cylindres) : face plate = Right
+		path = { id = 84243738566468, tile = 8, targets = { { name = "PathStone", faces = { "Top" } } } }, -- dalles des routes pavées (blocs) : face du dessus
 	},
 	textureOrder = { "grass", "water", "castleFloor", "castleStone", "wood", "sand", "path" },
 	textureMaxCount = 220,
@@ -928,7 +929,7 @@ end
 
 ---------------------------------------------------------------- Bannière de zone et promesse d'accueil
 Config.ZONE_BANNERS = {
-	arena = { title = "L'ARÈNE", sub = "Le Grand Nid et le tapis roulant", color = Color3.fromRGB(255, 210, 63) },
+	arena = { title = "LA PLACE DU MARCHÉ", sub = "Le Grand Œuf, la halle et les portails", color = Color3.fromRGB(255, 210, 63) },
 	gus = { title = "DOMAINE DE GUS", sub = "La ferme dorée : œufs communs et rares", color = Color3.fromRGB(255, 190, 70) },
 	mara = { title = "DOMAINE DE MARA", sub = "Les bois ensorcelés : œufs rares à légendaires", color = Color3.fromRGB(190, 120, 255) },
 	zed = { title = "CITADELLE DE ZED", sub = "La lave et l'obsidienne : œufs mythiques et cosmiques", color = Color3.fromRGB(255, 100, 60) },
@@ -1027,7 +1028,7 @@ function Config.nextHint(st)
 	elseif (st.stolen or 0) == 0 then
 		return { id = "steal", text = "Va chez un rival (au nord) et maintiens le bouton pour voler un œuf… évite son gardien 🐕" }
 	elseif (st.speed or 0) < 8 then
-		return { id = "train", text = "Cours sur le tapis roulant 🏃 au centre pour devenir plus rapide !" }
+		return { id = "train", text = "Cours sur la piste d'entraînement 🏃 près de la place pour devenir plus rapide !" }
 	end
 	return nil
 end
@@ -1197,44 +1198,16 @@ Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaum
 	.. "Les brigands Gus, Mara et Zed les gardent jalousement. Toi, apprenti Chipeur, tu peux les reprendre, les faire éclore et reconstruire le Nid. "
 	.. "Mais méfie-toi : les autres Chipeurs convoitent aussi tes œufs !"
 
----------------------------------------------------------------- Carte : dimensions, domaines, ambiance par zone, secrets, budget
--- Le sol fait 1200 x 1200 studs (la carte précédente : 620). Les bases forment un anneau de rayon 215 autour de l'arène centrale, les
--- trois domaines (Gus, Mara, Zed) sont au nord, chacun dans son propre biome, et des repères et secrets sont répartis plus loin.
+---------------------------------------------------------------- Carte : réglages communs, ambiance par zone, secrets, budget
+-- REFONTE (lot 2) : la géométrie vient de Config.Map2 (700 x 500, place du marché au centre) et de Config.TERR (territoires) ; la géométrie
+-- dérivée (bases orientées, chemins, eau, murs de rivière, portails, accessibilité) est calculée par le module pur MapGeo. Config.Map ne garde que
+-- les réglages qui ne sont pas de la géométrie (budgets, streaming, ambiances) : c'est l'alias conservé pour le code et les tests qui le lisent.
 Config.Map = {
-	groundSize = 1200,
-	plotRadius = 115, -- bases à 115 studs du Grand Nid (7 s à pied)
-	decorRadius = 360, -- le décor planifié (arbres, rochers, village) reste dans ce rayon autour du Grand Nid
-	-- Domaines : trois PLATEAUX en terrasses, de plus en plus hauts, juste derrière l'anneau des bases (232, 245, 269 studs du Grand Nid ; 221 et 188 entre voisins).
-	-- Chaque plateau (rayon `plateauRadius`) est une falaise ; on y monte par UNE rampe (largeur `rampWidth`, pente 1 pour `rampRun`) orientée comme `ramp`.
-	domains = {
-		{ x = -185, z = -140, h = 6, ramp = { 0, 1 } },
-		{ x = 10, z = -245, h = 14, ramp = { 0, 1 } },
-		{ x = 190, z = -190, h = 24, ramp = { 0, 1 } },
-	},
-	plateauRadius = 66, rampWidth = 14, rampRun = 3.2,
-	-- Chemins (polylignes) du Grand Nid au pied de chaque rampe : ils passent entre les bases et contournent les plateaux.
-	paths = {
-		{ { -80, -20 }, { -130, -32 }, { -185, -55 } },
-		{ { 0, -85 }, { 10, -134 } },
-		{ { 80, -30 }, { 140, -40 }, { 190, -47 } },
-	},
-	domainRadius = 38,
+	groundSize = 900, -- côté du plus grand axe du sol d'herbe (900 x 700 : zone jouable 700 x 500 + décor de fond)
+	ambienceRadius = 62, -- portée maximale d'une ambiance de territoire (rayon du territoire + 12, plafonné ici)
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
-	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
-	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 1200, -- le serveur avertit au démarrage si la carte procédurale dépasse ce nombre de Parts (budget mobile) ; les modèles Blender ont leurs propres budgets
-	-- Géométrie de référence (source unique : décor, pose planifiée et tests) : rivières (axe, position, demi-largeur, ponts), arène, chemins, bases.
-	geo = {
-		rivers = {
-			{ axis = "z", at = 330, half = 12, bridgesAt = { -150, 150 } }, -- rivière sud (24 de large) : coule le long de x
-			{ axis = "x", at = -380, half = 12, bridgesAt = { -150, 150 } }, -- rivière ouest (24 de large) : coule le long de z
-		},
-		bridgeHalfGap = 6, -- demi-largeur du passage laissé dans le mur invisible de chaque rivière, au niveau d'un pont (le SEUL passage)
-		lakes = { { x = 290, z = 250, r = 55, islet = true }, { x = -480, z = -150, r = 60, islet = true } }, -- grands lacs à bords nets (la rive de sable ajoute 5)
-		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
-	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 0, trees = 0, patches = 2, hills = 0, moatSegments = 11, fencePosts = 4, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
@@ -1245,40 +1218,79 @@ Config.Map = {
 	},
 }
 
--- Territoire du gardien j sur `count` du domaine i : centre de patrouille (x) et ligne (z) ; chaque territoire fait ± 12 studs, 26 d'écart, 4 de décalage en z.
-function Config.guardTerritory(i, j, count)
-	local cx, cz = Config.rivalCenter(i)
-	return cx + (j - (count + 1) / 2) * 26, cz + 12 - (j - 1) * 4
+-- Territoires du rival i (dans l'ordre de Config.TERR_ORDER) : { {key, x, z, r, ...}, ... }. Gus en a deux, Mara et Zed un.
+function Config.rivalTerritories(i)
+	local out = {}
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if t.rival == i then
+			out[#out + 1] = { key = key, x = t.x, z = t.z, r = t.r, data = t }
+		end
+	end
+	return out
 end
 
--- Centre (x, z) du domaine du rival i. Source unique : Builder, Cinematics et les tests.
+-- Centre (x, z) du domaine du rival i = son PREMIER territoire (Gus Nord-Ouest, Mara, cour de Zed). Source unique : Builder, Cinematics et les tests.
 function Config.rivalCenter(i)
-	local d = Config.Map.domains[i]
-	return d.x, d.z
+	local t = Config.rivalTerritories(i)[1]
+	return t.x, t.z
 end
 
--- Hauteur du plateau du domaine i (studs) : Gus 6, Mara 14, Zed 24 (chaque zone plus haute que la précédente).
+-- Hauteur du sol au centre du domaine i : 0, sauf la cour de Zed, sur le plateau du château (Map2.castle.h).
 function Config.rivalHeight(i)
-	return Config.Map.domains[i].h
+	local x, z = Config.rivalCenter(i)
+	local c = Config.Map2.castle
+	if x >= c.x0 and x <= c.x1 and z >= c.z0 and z <= c.z1 then
+		return c.h
+	end
+	return 0
 end
 
--- Pied de la rampe du domaine i (point au sol) et son sommet (au bord du plateau) : { bottom = {x, z}, top = {x, z}, dir = {dx, dz} }.
-function Config.rampOf(i)
-	local d = Config.Map.domains[i]
-	local M = Config.Map
-	local run = d.h * M.rampRun
-	local topX, topZ = d.x + d.ramp[1] * M.plateauRadius, d.z + d.ramp[2] * M.plateauRadius
-	return { top = { topX, topZ }, bottom = { topX + d.ramp[1] * run, topZ + d.ramp[2] * run }, dir = { d.ramp[1], d.ramp[2] }, run = run }
+-- Poste (x, z) du gardien j sur `count` du rival i : les postes de tous ses territoires, dans l'ordre (Gus : NO puis SO).
+function Config.guardTerritory(i, j, count)
+	local k = 0
+	for _, t in ipairs(Config.rivalTerritories(i)) do
+		for _, p in ipairs(t.data.posts or {}) do
+			k = k + 1
+			if k == j then
+				return p[1], p[2]
+			end
+		end
+	end
+	return Config.rivalCenter(i)
 end
 
--- Zone d'ambiance d'une position : "arena" ou la clé du domaine (gus / mara / zed) le plus proche, s'il est à portée.
+-- Nom du dossier d'un territoire dans World : « Rival_<nom> » pour le premier territoire d'un rival, « Rival_<nom>_<clé> » pour les suivants,
+-- « WildPen » pour l'enclos sauvage. Source unique : Builder (construction) et Culling (masquage côté client).
+function Config.territoryFolder(key)
+	local t = Config.TERR[key]
+	if t.rival == 0 then
+		return "WildPen"
+	end
+	local riv = Config.RIVALS[t.rival]
+	return "Rival_" .. riv.name .. (Config.rivalTerritories(t.rival)[1].key == key and "" or ("_" .. key))
+end
+
+-- Entrée d'un territoire (point du bord tourné vers la place ; la herse pour la cour de Zed) : zone sûre des gardiens (GUARD.safeRadius).
+function Config.territoryEntry(key)
+	local t = Config.TERR[key]
+	if t.traps and t.traps.gate then
+		return t.traps.gate.x, t.traps.gate.z
+	end
+	local d = math.sqrt(t.x * t.x + t.z * t.z)
+	return t.x - t.x / d * t.r, t.z - t.z / d * t.r
+end
+
+-- Zone d'ambiance d'une position : "arena" (la place et tout le reste) ou la clé du rival (gus / mara / zed) dont un territoire est à portée (rayon + 12).
 function Config.zoneAt(x, z)
-	local best, bd = "arena", Config.Map.ambienceRadius
-	for i, key in ipairs(Config.Map.zoneKeys) do
-		local cx, cz = Config.rivalCenter(i)
-		local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
-		if d <= bd then
-			best, bd = key, d
+	local best, bd = "arena", math.huge
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if t.rival > 0 then
+			local d = math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2)
+			if d <= math.min(t.r + 12, Config.Map.ambienceRadius) and d < bd then
+				best, bd = Config.Map.zoneKeys[t.rival], d
+			end
 		end
 	end
 	return best
@@ -1312,30 +1324,41 @@ function Config.compass(px, pz, lookX, lookZ, tx, tz)
 	return a, dist
 end
 
--- Voyage rapide : trois portails au Grand Nid (un par zone) et un portail de retour au pied de chaque rampe. `Config.travelPoint(dest)` = point d'arrivée
--- (0 = Grand Nid, i = approche de la rampe du domaine i) ; `Config.travelPad(i)` = portail du Grand Nid vers la zone i ; `Config.returnPad(i)` = portail de retour.
-Config.TRAVEL = { cooldown = 4, combatLock = 4, arenaPads = { x = { -26, 0, 26 }, z = -45 }, arrivalOffset = 14, returnSide = 12, returnForward = 10 }
+-- Voyage rapide (Config.TRAVEL2, plan A.4) : quatre portails sur la rose des portails de la place, un tapis de retour (vers la place) posé près de
+-- chaque arrivée, et une arche « Retour à la base » par base sur la place. Attribut Dest d'un prompt : k > 0 = portail k ; 0 = retour à la place ;
+-- -i = arche de la base i (seul son propriétaire l'utilise). Le serveur valide tout (voir Main.fastTravel).
+function Config.portalPad(k)
+	local h = Config.Map2.portalHub
+	return h.x0 + (k - 1) * h.gap, h.z
+end
+function Config.homeArch(i)
+	return -30 + (i - 1) * 15, 50
+end
+-- Point d'arrivée d'une destination de voyage : 0 = la place (près de la rose des portails), k = arrivée du portail k.
+function Config.travelDest(dest)
+	if dest == 0 then
+		return Config.Map2.plazaArrival.x, Config.Map2.plazaArrival.z
+	end
+	local p = Config.TRAVEL2.portals[dest]
+	return p.to[1], p.to[2]
+end
+-- Portail k débloqué au chapitre `chaptersDone` ?
+function Config.portalUnlocked(chaptersDone, k)
+	local p = Config.TRAVEL2.portals[k]
+	return p ~= nil and (chaptersDone or 0) >= (p.chapter or 0)
+end
+-- Cible de la boussole : 0 = la place ; i = entrée du premier territoire du rival i (compatibilité : ancien nom conservé).
 function Config.travelPoint(dest)
 	if dest == 0 then
-		return 0, -30
+		return Config.travelDest(0)
 	end
-	local r = Config.rampOf(dest)
-	return r.bottom[1] + r.dir[1] * Config.TRAVEL.arrivalOffset, r.bottom[2] + r.dir[2] * Config.TRAVEL.arrivalOffset
+	return Config.territoryEntry(Config.rivalTerritories(dest)[1].key)
 end
-function Config.travelPad(i)
-	return Config.TRAVEL.arenaPads.x[i], Config.TRAVEL.arenaPads.z
-end
-function Config.returnPad(rival)
-	local r = Config.rampOf(rival)
-	local px, pz = -r.dir[2], r.dir[1]
-	return r.bottom[1] + r.dir[1] * Config.TRAVEL.returnForward + px * Config.TRAVEL.returnSide, r.bottom[2] + r.dir[2] * Config.TRAVEL.returnForward + pz * Config.TRAVEL.returnSide
-end
-
 -- Secrets : un lieu caché par domaine ; une récompense par jour et par secret (max(minCoins, revenus de `mins` minutes)).
 Config.SECRETS = {
-	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -235, z = -205, mins = 4, minCoins = 1500, hint = "Au bout du sentier de la ferme, derrière les champs, un verger oublié garde un trésor." },
-	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = -80, z = -305, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
-	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 290, z = -245, mins = 8, minCoins = 9000, hint = "La citadelle de Zed cache un cœur brûlant sur son flanc est." },
+	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -330, z = -25, mins = 4, minCoins = 1500, hint = "Au fond du bois de l'Ouest, derrière les champs de Gus, un verger oublié garde un trésor." },
+	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = 35, z = 125, mins = 6, minCoins = 4000, hint = "Au sud des bois de Mara, une lueur persiste là où personne ne va." },
+	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 335, z = -165, mins = 8, minCoins = 9000, hint = "Sur le plateau du château, à l'est de la cour de Zed, un cœur brûlant attend." },
 }
 
 function Config.secret(id)
@@ -1372,12 +1395,12 @@ Config.RANKS = {
 Config.STORY = {
 	{ title = "L'œuf d'argent", text = "Le Grand Nid s'est brisé, mais un dernier œuf dort dans ta base. Fais-le éclore : touche-le pour l'aider !", type = "hatch", goal = 1, coins = 100, mins = 0 },
 	{ title = "Premier larcin", text = "Les brigands de Gus gardent des œufs au nord. Maintiens le bouton devant un nid pour en chiper un, puis rapporte-le chez toi.", type = "steal", goal = 1, coins = 250, mins = 0 },
-	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur le tapis roulant du centre : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
+	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur la piste d'entraînement de la place : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
 	{ title = "Le petit cabinet", text = "Un vrai Chipeur collectionne. Découvre 3 espèces différentes : chaque série de 3 augmente tes revenus pour toujours.", type = "species", goal = 3, coins = 800, mins = 2 },
 	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
 	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
 	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
-	{ title = "Le murmure des runes", text = "Les runes du Grand Nid s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Nid, puis touche le Nid pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
+	{ title = "Le murmure des runes", text = "Les runes du Grand Œuf s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Grand Œuf (à l'est de la place), puis touche-le pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
 	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
 	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
 	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
@@ -1468,7 +1491,7 @@ function Config.storyGoalText(c)
 	elseif c.type == "steal" then
 		return "Chiper " .. c.goal .. " œuf(s)" .. rival
 	elseif c.type == "train" then
-		return "Courir " .. c.goal .. " secondes sur le tapis roulant"
+		return "Courir " .. c.goal .. " secondes sur la piste d'entraînement"
 	elseif c.type == "species" then
 		return "Découvrir " .. c.goal .. " espèces différentes"
 	elseif c.type == "tier" then
@@ -1664,6 +1687,30 @@ Config.Map2 = {
 	groves = { { x = -160, z = -150 }, { x = 140, z = -20 }, { x = -200, z = 120 }, { x = 60, z = 190 } }, groveRadius = 12, groveTrees = 6,
 	hills = { { x = -300, z = -232, h = 18, r = 40 }, { x = 120, z = -238, h = 14, r = 35 }, { x = -330, z = 235, h = 12, r = 30 }, { x = 330, z = 240, h = 10, r = 30 } },
 	baseSizeMax = 72, -- emprise maximale d'une base (niveau 8)
+	-- REFONTE (lot 2) : données de construction ajoutées (chemins, arrivée sur la place, pontons, cabane, murs, budgets du décor procédural)
+	basePlatform = 52, spawnForward = 20, -- plateforme actuelle d'une base (52 x 52) ; le spawn est 20 studs devant son centre, côté place
+	plazaArrival = { x = 28, z = -34 }, -- arrivée des tapis de retour (près de la rose des portails, hors fontaine et chemins)
+	bridgeHalfGap = 3, -- demi-largeur minimale du passage laissé dans le mur invisible de la rivière du Nord à un pont (sinon demi-largeur du pont)
+	wallHeight = 40, -- murs invisibles (bornes et rivière du Nord) : plus hauts que les collines (on ne les enjambe jamais)
+	docks = { { lake = 1, x = -262, z = -90, len = 14, w = 4 }, { lake = 2, x = 255, z = 185, len = 14, w = 4 } }, -- pontons (avancent vers le centre du lac)
+	cabin = { x = -300, z = -58, w = 10, d = 8 }, -- cabane du pêcheur (lac du Moulin)
+	procTrees = 40, -- arbres procéduraux des forêts (2 Parts chacun ; les bosquets en ajoutent groveTrees chacun) : le reste vient des modèles Blender
+	paths = { -- routes pavées (paved, demi-largeur pathHalf) et chemins de terre (dirt, dirtHalf) ; polylignes (x, z) depuis le centre de la place
+		{ name = "B1", kind = "paved", pts = { { 0, 0 }, { 0, -140 } } },
+		{ name = "B2", kind = "paved", pts = { { 0, 0 }, { -205, -45 } } },
+		{ name = "B3", kind = "paved", pts = { { 0, 0 }, { 60, 15 }, { 150, 5 }, { 200, -45 } } }, -- coudes : contourne la place du Grand Œuf et le bosquet est
+		{ name = "B4", kind = "paved", pts = { { 0, 0 }, { -30, 165 } } },
+		{ name = "B5", kind = "paved", pts = { { 0, 0 }, { 110, 25 }, { 175, 135 } } }, -- coude : contourne le territoire de Mara par le nord
+		{ name = "Castle", kind = "paved", pts = { { 40, -40 }, { 140, -75 }, { 215, -103 } } }, -- jusqu'au pied du Pont du Château
+		{ name = "Court", kind = "paved", y = 10, pts = { { 215, -137 }, { 232, -137 } } }, -- sur le plateau : du pont vers la herse de la cour (240, -138), hors du territoire
+		{ name = "Arena", kind = "paved", pts = { { -20, 110 }, { -150, 145 }, { -235, 135 } } }, -- embranchement en J vers l'arène
+		{ name = "MillLake", kind = "dirt", pts = { { -205, -45 }, { -255, -70 } } },
+		{ name = "B1B2", kind = "dirt", pts = { { 0, -140 }, { -100, -135 }, { -205, -45 } } }, -- voisins : contourne Gus Nord-Ouest par le nord
+		{ name = "B1B3", kind = "dirt", pts = { { 0, -140 }, { 75, -130 }, { 200, -45 } } }, -- voisins : contourne l'enclos sauvage
+		{ name = "B3B5", kind = "dirt", pts = { { 200, -45 }, { 175, 135 } } },
+		{ name = "B5B4", kind = "dirt", pts = { { 175, 135 }, { -30, 165 } } },
+	},
+	neighbors = { { 1, 2, "B1B2" }, { 1, 3, "B1B3" }, { 3, 5, "B3B5" }, { 5, 4, "B5B4" } }, -- bases voisines et chemin qui les relie (B2 et B4 : par la place)
 }
 
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
@@ -1738,11 +1785,12 @@ Config.HEN_LINES = {
 	hintRune = "La rune {dir} veut {symbol}.",
 	runeWaits = "La rune {dir} attend sa plume.",
 }
+-- REFONTE (lot 2) : trois plumes déplacées pour rester atteignables (E2 était entre la rivière et la falaise, S1 hors du ponton, O1 dans la cabane).
 Config.FEATHER_SPOTS = {
 	N = { { x = -20, z = -228, where = "au-delà du pont de bois" }, { x = -280, z = -225, where = "sur la colline des vents" }, { x = 120, z = -232, where = "sous les sapins de la colline" } },
-	E = { { x = 215, z = -100, where = "au pied du pont de pierre" }, { x = 325, z = -120, where = "près de l'eau qui tombe" }, { x = 330, z = 40, where = "à l'orée du bois de l'Est" } },
-	S = { { x = 250, z = 190, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
-	O = { { x = -300, z = -58, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
+	E = { { x = 215, z = -100, where = "au pied du pont de pierre" }, { x = 325, z = -90, where = "face à l'eau qui tombe" }, { x = 330, z = 40, where = "à l'orée du bois de l'Est" } },
+	S = { { x = 262, z = 189, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
+	O = { { x = -300, z = -47, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
 }
 Config.HEN = { fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300 }
 -- Textes du HUD (onboarding et chapitres) : tous < 110 octets.

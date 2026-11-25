@@ -19,17 +19,26 @@ function MiniMap.place(px, pz, x, z, radius, half, clamp)
 	return dx / radius * half, dz / radius * half -- (droite, bas) en pixels depuis le centre
 end
 
--- Repères du monde : { {kind, x, z, label, locked} } (base du joueur, zones, portails de voyage rapide). Pur : ne lit que Config et la position de la base.
+-- Repères du monde : { {kind, x, z, label, locked} } (REFONTE lot 2) : ta base (🏠), les autres bases (kind « plot »), les territoires (zones ;
+-- grisés si verrouillés), les portails de la rose (grisés si verrouillés). Pur : ne lit que Config et la position de la base.
 function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 	local out = {}
 	if plotX then
 		out[#out + 1] = { kind = "base", x = plotX, z = plotZ, label = "🏠" }
 	end
-	for i, riv in ipairs(Config.RIVALS) do
-		local cx, cz = Config.rivalCenter(i)
-		out[#out + 1] = { kind = "zone", x = cx, z = cz, label = riv.emoji, locked = not Config.zoneUnlocked(chaptersDone or 0, i) }
-		local tx, tz = Config.travelPad(i)
-		out[#out + 1] = { kind = "portal", x = tx, z = tz, label = "🌀" }
+	for _, b in ipairs(Config.Map2.bases) do
+		if not (plotX and math.abs(b.x - plotX) < 1 and math.abs(b.z - plotZ) < 1) then
+			out[#out + 1] = { kind = "plot", x = b.x, z = b.z, label = "⬜" }
+		end
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		local riv = Config.RIVALS[t.rival]
+		out[#out + 1] = { kind = "zone", x = t.x, z = t.z, label = riv and riv.emoji or "🧺", locked = riv ~= nil and not Config.zoneUnlocked(chaptersDone or 0, t.rival), key = key }
+	end
+	for k = 1, #Config.TRAVEL2.portals do
+		local px, pz = Config.portalPad(k)
+		out[#out + 1] = { kind = "portal", x = px, z = pz, label = "🌀", locked = not Config.portalUnlocked(chaptersDone or 0, k) }
 	end
 	return out
 end
