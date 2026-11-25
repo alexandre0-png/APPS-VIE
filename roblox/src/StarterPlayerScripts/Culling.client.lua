@@ -1,5 +1,5 @@
 -- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
--- Masque les zones (domaines) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
+-- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
 local Players = game:GetService("Players")
@@ -13,9 +13,9 @@ end
 local player = Players.LocalPlayer
 
 local zones = {} -- { x, z, radius, names = { dossiers }, culled, items = nil | { instances }, itemsAt }
-for i, riv in ipairs(Config.RIVALS) do
-	local x, z = Config.rivalCenter(i)
-	zones[i] = { x = x, z = z, radius = Config.Map.plateauRadius, names = { "Rival_" .. riv.name, "Terrace_" .. riv.name }, culled = false }
+for _, key in ipairs(Config.TERR_ORDER) do -- REFONTE (lot 2) : une zone par territoire (Config.TERR), rayon du territoire
+	local t = Config.TERR[key]
+	zones[#zones + 1] = { x = t.x, z = t.z, radius = t.r, names = { Config.territoryFolder(key) }, culled = false }
 end
 
 local SWITCHABLE = { PointLight = true, SpotLight = true, SurfaceLight = true, ParticleEmitter = true, Beam = true, Fire = true, Smoke = true, Sparkles = true, BillboardGui = true, SurfaceGui = true, Highlight = true }

@@ -1,6 +1,7 @@
 -- ModuleScript : ServerScriptService/Scenery
--- Décor identitaire de chaque domaine, chemins, repères lointains et secrets. Tout en Parts de base ; les outils de construction de
--- Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction retourne le nombre de Parts créées (budget mobile).
+-- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
+-- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
+-- retourne le nombre de Parts créées (budget mobile).
 local CollectionService = game:GetService("CollectionService")
 
 local Scenery = {}
@@ -44,7 +45,8 @@ end
 ---------------------------------------------------------------- Château : 5 salles à pièges, entrée, coffre final, tableau des temps
 -- Construit le donjon décrit par Castle (géométrie pure). Retourne (monde, nombre de Parts) : monde.rooms[r] = { spikes = { {base, spikes} }, blades = {...},
 -- balls = {...}, door }, monde.chest (Part), monde.entry (Part), monde.board (TextLabel). Les pièges sont animés côté serveur (voir Main).
-function Scenery.castle(h, parent, Castle)
+-- REFONTE (lot 2) : `entry` (facultatif, Vector3) = porte du donjon sur le plateau du château ; l'entrée et le tableau des temps y sont posés.
+function Scenery.castle(h, parent, Castle, entry)
 	local world = { rooms = {} }
 	local n = 0
 	local function P(props)
@@ -106,11 +108,15 @@ function Scenery.castle(h, parent, Castle)
 	end
 	-- entrée (le joueur peut y entrer depuis l'arène) : arche et invite
 	local ex, ez = Castle.toWorld(1, 0, -6)
-	local entry = P({ Name = "CastleEntry", Size = Vector3.new(14, 1, 8), Position = Vector3.new(ex, 0.5, ez), Color = rgb(255, 110, 60), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.3 })
-	for _, sx in ipairs({ -8, 8 }) do
-		P({ Name = "CastleGatePillar", Size = Vector3.new(3, 16, 3), Position = Vector3.new(ex + sx, 8, ez), Color = rgb(112, 108, 120), Material = Enum.Material.Slate })
+	local ey = 0
+	if entry then
+		ex, ey, ez = entry.X, entry.Y, entry.Z
 	end
-	P({ Name = "CastleGateTop", Size = Vector3.new(19, 3, 3), Position = Vector3.new(ex, 17, ez), Color = rgb(96, 92, 104), Material = Enum.Material.Slate })
+	local entryPart = P({ Name = "CastleEntry", Size = Vector3.new(14, 1, 8), Position = Vector3.new(ex, ey + 0.5, ez), Color = rgb(255, 110, 60), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.3 })
+	for _, sx in ipairs({ -8, 8 }) do
+		P({ Name = "CastleGatePillar", Size = Vector3.new(3, 16, 3), Position = Vector3.new(ex + sx, ey + 8, ez), Color = rgb(112, 108, 120), Material = Enum.Material.Slate })
+	end
+	P({ Name = "CastleGateTop", Size = Vector3.new(19, 3, 3), Position = Vector3.new(ex, ey + 17, ez), Color = rgb(96, 92, 104), Material = Enum.Material.Slate })
 	local pr = Instance.new("ProximityPrompt")
 	pr.ActionText = "Entrer"
 	pr.ObjectText = "🏰 Le Château"
@@ -118,8 +124,8 @@ function Scenery.castle(h, parent, Castle)
 	pr.MaxActivationDistance = 14
 	pr.RequiresLineOfSight = false
 	CollectionService:AddTag(pr, "CastleEntry")
-	pr.Parent = entry
-	world.entry = entry
+	pr.Parent = entryPart
+	world.entry = entryPart
 	-- coffre final au bout de la salle 5
 	local cx2, cz2 = Castle.toWorld(Castle.ROOMS, 0, L - 5)
 	local chest = P({ Name = "CastleChest", Size = Vector3.new(6, 4, 4), Position = Vector3.new(cx2, 2, cz2), Color = rgb(150, 98, 44), Material = Enum.Material.Wood })
@@ -136,7 +142,10 @@ function Scenery.castle(h, parent, Castle)
 	world.chest = chest
 	-- tableau des meilleurs temps, à l'entrée
 	local bx, bz = Castle.toWorld(1, 18, -6)
-	local board = P({ Name = "CastleBoard", Size = Vector3.new(11, 7, 0.7), Position = Vector3.new(bx, 6, bz), Color = rgb(40, 30, 34), Material = Enum.Material.WoodPlanks })
+	if entry then
+		bx, bz = ex - 18, ez
+	end
+	local board = P({ Name = "CastleBoard", Size = Vector3.new(11, 7, 0.7), Position = Vector3.new(bx, ey + 6, bz), Color = rgb(40, 30, 34), Material = Enum.Material.WoodPlanks })
 	local bb = Instance.new("BillboardGui")
 	bb.Adornee = board
 	bb.Size = UDim2.fromOffset(360, 200)
@@ -213,107 +222,116 @@ function Scenery.aura(h, position, parent, style, color)
 	return anchor, n
 end
 
----------------------------------------------------------------- Douve et pont en bois d'un domaine (îlot lisible de loin)
--- Anneau d'eau franchissable (décor, CanCollide faux) autour du domaine, liseré de sable, pont en bois au sud (face à l'arène). Retourne le nombre de Parts.
-function Scenery.moat(h, cx, cz, parent, cfg)
-	local n = 0
-	local R, W = cfg.Map.moat.radius, cfg.Map.moat.width
-	local segments = cfg.Map.decor.moatSegments
-	local chord = 2 * math.pi * R / segments + 1.5
-	for k = 0, segments - 1 do
-		local a = k / segments * math.pi * 2
-		local south = math.sin(a) > 0.99 -- face au sud (z+) : berge de sable sous le pont, pas d'eau
-		h.part({ Name = south and "MoatBank" or "MoatWater", Size = Vector3.new(chord, 0.3, W), CFrame = CFrame.new(cx + math.cos(a) * R, south and 0.3 or (0.1 + (k % 2) * 0.11), cz + math.sin(a) * R) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = south and rgb(214, 190, 140) or rgb(60, 150, 220), Material = south and Enum.Material.Sand or Enum.Material.Glass, Transparency = south and 0 or 0.25, CanCollide = false, CanQuery = false }, parent)
-		n += 1
-	end
-	-- pont en bois : planches, deux rampes de rambarde et poteaux, orienté nord-sud
-	local bx, bz = cx, cz + R
-	for k = -3, 3 do
-		h.part({ Name = "BridgePlank", Size = Vector3.new(5.4, 0.45, 1.4), Position = Vector3.new(bx, 0.55, bz + k * 1.6), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks, CanCollide = true }, parent)
-		n += 1
-	end
-	for _, sx in ipairs({ -2.9, 2.9 }) do
-		h.part({ Name = "BridgeRail", Size = Vector3.new(0.35, 0.35, 11.4), Position = Vector3.new(bx + sx, 1.8, bz), Color = rgb(120, 82, 48), Material = Enum.Material.Wood, CanCollide = false }, parent)
-		h.part({ Name = "BridgePost", Size = Vector3.new(0.6, 2.2, 0.6), Position = Vector3.new(bx + sx, 1.1, bz - 5), Color = rgb(100, 68, 40), Material = Enum.Material.Wood }, parent)
-		h.part({ Name = "BridgePost", Size = Vector3.new(0.6, 2.2, 0.6), Position = Vector3.new(bx + sx, 1.1, bz + 5), Color = rgb(100, 68, 40), Material = Enum.Material.Wood }, parent)
-		n += 3
-	end
-	return n
-end
+---------------------------------------------------------------- Eau : rivières en polylignes, murs invisibles, ponts, lacs, pontons, cabane, cascade
+-- REFONTE (lot 2). Hauteurs des dessus (jamais deux surfaces coplanaires qui se recouvrent, écart >= 0,06) : chemins de terre 0,04 / 0,10 (coudes 0,16),
+-- disques des territoires 0,22, routes pavées 0,28 / 0,34 (coudes 0,40), bord de la place 0,46, place 0,52, place du Grand Œuf 0,58, rives des lacs 0,16,
+-- rivière du Nord et ruisseau des Saules 0,64 / 0,70 (coudes 0,76), ruisseau du Moulin 0,88, lacs 0,94, douve 1,00, pontons 1,10, fontaine 1,30.
+-- Une Part d'eau par segment (deux hauteurs alternées, disque aux sommets : jamais deux faces coplanaires), mur invisible le long
+-- de la rivière du Nord SAUF aux ponts (G.riverWalls), pile sous le pont du château (on ne passe pas dessous), planches des ponts de bois.
+local WATER = Color3.fromRGB(60, 150, 220)
 
--- Deux rivières qui traversent la carte, avec deux ponts chacune : repères de lecture de la grande carte (franchissables).
-function Scenery.rivers(h, parent, cfg)
+local function flatSeg(h, props, parent, ax, az, bx, bz, width, y, thick)
+	local len = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	props.Size = Vector3.new(width, thick or 0.3, len)
+	props.CFrame = CFrame.lookAt(Vector3.new((ax + bx) / 2, y, (az + bz) / 2), Vector3.new(bx, y, bz))
+	return h.part(props, parent)
+end
+Scenery.flatSeg = flatSeg
+
+function Scenery.rivers(h, parent, cfg, G)
 	local n = 0
-	local half = cfg.Map.groundSize / 2
-	local geo = cfg.Map.geo
-	local names, levels = { "RiverSouth", "RiverWest" }, { 0.1, 0.16 } -- deux niveaux : les rivières ne sont jamais coplanaires à leur croisement
-	-- pont : planches posées EN TRAVERS de la rivière (axe du pont perpendiculaire à l'eau), plus long qu'elle (les deux rives sont reliées)
-	local function bridge(rv, along)
-		local planks = cfg.Map.decor.bridgePlanks
-		local span = rv.half * 2 + 2 * geo.bridgeBank
-		local step = span / (planks - 1)
-		for idx = 0, planks - 1 do
-			local off = (idx - (planks - 1) / 2) * step
-			local px, pz, size
-			if rv.axis == "z" then -- rivière le long de x : le pont va du nord au sud
-				px, pz, size = along, rv.at + off, Vector3.new(6, 0.45, step + 0.2)
-			else -- rivière le long de z : le pont va de l'est à l'ouest
-				px, pz, size = rv.at + off, along, Vector3.new(step + 0.2, 0.45, 6)
-			end
-			h.part({ Name = "BridgePlank", Size = size, Position = Vector3.new(px, 0.55, pz), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+	local M2 = cfg.Map2
+	for ri, rv in ipairs(M2.rivers) do
+		local pts = rv.pts
+		for k = 1, #pts - 1 do
+			local segTop = ri == 2 and 0.88 or ((k % 2 == 1) and 0.64 or 0.70)
+			flatSeg(h, { Name = rv.name, Color = WATER, Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, pts[k][1], pts[k][2], pts[k + 1][1], pts[k + 1][2], rv.width, segTop - 0.15)
 			n += 1
+			if k > 1 then
+				cyl(h, { Name = rv.name, Color = WATER, Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, rv.width, 0.3, Vector3.new(pts[k][1], 0.76 - 0.15, pts[k][2]))
+				n += 1
+			end
+		end
+		if rv.ford then -- gué : trois pierres plates au milieu du ruisseau
+			local m = math.floor(#pts / 2)
+			local fx, fz = (pts[m][1] + pts[m + 1][1]) / 2, (pts[m][2] + pts[m + 1][2]) / 2
+			for s = -1, 1 do
+				cyl(h, { Name = "FordStone", Color = rgb(150, 146, 140), Material = Enum.Material.Slate }, parent, 2.6, 0.5, Vector3.new(fx + s * 0.4, 0.6, fz + s * 2.4))
+				n += 1
+			end
 		end
 	end
-	for i, rv in ipairs(geo.rivers) do
-		local length = half * 2 - 60
-		if rv.axis == "z" then
-			h.part({ Name = names[i], Size = Vector3.new(length, 0.3, rv.half * 2), Position = Vector3.new(0, levels[i], rv.at), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	-- murs invisibles de la rivière du Nord : le seul passage est un pont
+	local WH = M2.wallHeight
+	for _, w in ipairs(G.riverWalls(1)) do
+		local len = math.sqrt((w[3] - w[1]) ^ 2 + (w[4] - w[2]) ^ 2)
+		h.part({ Name = "RiverWall", Size = Vector3.new(1.5, WH, len + 0.5), CFrame = CFrame.lookAt(Vector3.new((w[1] + w[3]) / 2, WH / 2, (w[2] + w[4]) / 2), Vector3.new(w[3], WH / 2, w[4])), Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, parent)
+		n += 1
+	end
+	-- ponts
+	for _, b in ipairs(G.bridges) do
+		local ns = b.axis == "NS"
+		local dx, dz = ns and 0 or 1, ns and 1 or 0 -- axe du pont
+		if b.stone then
+			-- pont de pierre du château : rampe de 0 (rive sud) à la hauteur du plateau (rive nord), pile sous le tablier à la rivière
+			local H = M2.castle.h
+			local ax, az = b.x + dx * b.len / 2, b.z + dz * b.len / 2 -- extrémité sud (rive des joueurs)
+			local bx, bz = b.x - dx * b.len / 2, b.z - dz * b.len / 2 -- extrémité nord (plateau)
+			local mid = Vector3.new(b.x, H / 2 - 0.4, b.z)
+			local len = math.sqrt(b.len * b.len + H * H)
+			h.part({ Name = "CastleBridge", Size = Vector3.new(b.w, 1, len + 0.6), CFrame = CFrame.lookAt(mid, Vector3.new(bx, H - 0.4, bz)), Color = rgb(150, 146, 140), Material = Enum.Material.Slate }, parent)
+			for _, side in ipairs({ -1, 1 }) do
+				local ox, oz = dz * side * (b.w / 2 - 0.4), dx * side * (b.w / 2 - 0.4)
+				h.part({ Name = "CastleBridgeRail", Size = Vector3.new(0.8, 1.6, len), CFrame = CFrame.lookAt(mid + Vector3.new(ox, 1.2, oz), Vector3.new(bx + ox, H + 0.8, bz + oz)), Color = rgb(120, 116, 112), Material = Enum.Material.Slate }, parent)
+			end
+			local rx, rz = b.cross.x, b.cross.z
+			local tY = (az - rz) / b.len * H -- hauteur du tablier au-dessus de la rivière
+			local pierH = math.max(1, tY - 1.6)
+			h.part({ Name = "RiverWall", Size = Vector3.new(b.w + 2, pierH, 1.5), Position = Vector3.new(rx, pierH / 2, rz), Color = rgb(120, 116, 112), Material = Enum.Material.Slate, CanQuery = false }, parent)
+			n += 4
 		else
-			h.part({ Name = names[i], Size = Vector3.new(rv.half * 2, 0.3, length), Position = Vector3.new(rv.at, levels[i], 0), Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
-		end
-		n += 1
-		-- mur invisible au milieu de la rivière, avec un passage à chaque pont : on ne traverse l'eau QUE par les ponts
-		local cuts, edge = {}, length / 2
-		for _, c in ipairs(rv.bridgesAt) do
-			cuts[#cuts + 1] = c
-		end
-		table.sort(cuts)
-		local from = -edge
-		local function wall(a0, a1)
-			if a1 - a0 < 1 then
-				return
+			local planks = 5
+			local step = b.len / planks
+			local py = b.river == 1 and 0.55 or 0.75 -- tablier au-dessus de l'eau du cours d'eau franchi
+			for k = 0, planks - 1 do
+				local off = (k - (planks - 1) / 2) * step
+				h.part({ Name = "BridgePlank", Size = ns and Vector3.new(b.w, 0.45, step + 0.1) or Vector3.new(step + 0.1, 0.45, b.w), Position = Vector3.new(b.x + dx * off, py, b.z + dz * off), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+				n += 1
 			end
-			local mid, len = (a0 + a1) / 2, a1 - a0
-			local pos = rv.axis == "z" and Vector3.new(mid, 5, rv.at) or Vector3.new(rv.at, 5, mid)
-			local size = rv.axis == "z" and Vector3.new(len, 10, 1.5) or Vector3.new(1.5, 10, len)
-			h.part({ Name = "RiverWall", Size = size, Position = pos, Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, parent)
-			n += 1
-		end
-		for _, c in ipairs(cuts) do
-			wall(from, c - geo.bridgeHalfGap)
-			from = c + geo.bridgeHalfGap
-		end
-		wall(from, edge)
-		for _, along in ipairs(rv.bridgesAt) do
-			bridge(rv, along)
+			for _, side in ipairs({ -1, 1 }) do
+				h.part({ Name = "BridgeRail", Size = ns and Vector3.new(0.35, 0.35, b.len) or Vector3.new(b.len, 0.35, 0.35), Position = Vector3.new(b.x + dz * side * (b.w / 2 - 0.2), py + 1.25, b.z + dx * side * (b.w / 2 - 0.2)), Color = rgb(120, 82, 48), Material = Enum.Material.Wood, CanCollide = false }, parent)
+				n += 1
+			end
 		end
 	end
 	return n
 end
 
--- Grands lacs à bords nets : disque d'eau, rive de sable (plus bas), îlot (herbe et rocher) ; franchissables à gué (décor), jamais coplanaires.
-function Scenery.lakes(h, parent, cfg)
+-- Lacs (disque d'eau, rive de sable plus basse), pontons, cabane du pêcheur, cascade du château, douve.
+function Scenery.lakes(h, parent, cfg, G)
 	local n = 0
-	for _, lk in ipairs(cfg.Map.geo.lakes or {}) do
-		cyl(h, { Name = "LakeShore", Color = rgb(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, parent, (lk.r + 5) * 2, 0.3, Vector3.new(lk.x, 0.08, lk.z))
-		cyl(h, { Name = "Lake", Color = rgb(60, 150, 220), Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, lk.r * 2, 0.3, Vector3.new(lk.x, 0.16, lk.z))
+	local M2 = cfg.Map2
+	for _, lk in ipairs(M2.lakes) do
+		cyl(h, { Name = "LakeShore", Color = rgb(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, parent, (lk.r + lk.shore) * 2, 0.3, Vector3.new(lk.x, 0.01, lk.z))
+		cyl(h, { Name = lk.name, Color = WATER, Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, lk.r * 2, 0.3, Vector3.new(lk.x, 0.79, lk.z))
 		n += 2
-		if lk.islet then
-			cyl(h, { Name = "Islet", Color = rgb(92, 160, 82), Material = Enum.Material.Grass }, parent, 16, 0.6, Vector3.new(lk.x, 0.45, lk.z))
-			h.ball({ Name = "IsletRock", Size = Vector3.new(4, 3, 4), Position = Vector3.new(lk.x + 3, 1.3, lk.z - 2), Color = rgb(130, 134, 140), Material = Enum.Material.Slate }, parent)
-			n += 2
-		end
 	end
+	for _, dk in ipairs(G.docks) do
+		flatSeg(h, { Name = "Dock", Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent, dk.ax, dk.az, dk.bx, dk.bz, dk.w, 0.9, 0.4)
+		n += 1
+	end
+	local cab = M2.cabin
+	h.part({ Name = "CabinWalls", Size = Vector3.new(cab.w, 7, cab.d), Position = Vector3.new(cab.x, 3.5, cab.z), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks }, parent)
+	h.part({ Name = "CabinRoof", Size = Vector3.new(cab.w + 2, 1, cab.d + 2), Position = Vector3.new(cab.x, 7.5, cab.z), Color = rgb(150, 70, 52), Material = Enum.Material.Wood }, parent)
+	h.part({ Name = "CabinDoor", Size = Vector3.new(2.4, 4.4, 0.3), Position = Vector3.new(cab.x, 2.2, cab.z - cab.d / 2 - 0.1), Color = rgb(96, 64, 40), Material = Enum.Material.Wood, CanCollide = false }, parent)
+	n += 3
+	-- cascade : du bord du plateau du château vers la douve, et bassin d'écume
+	local wf = M2.waterfall
+	local fall = h.part({ Name = "Waterfall", Size = Vector3.new(8, wf.h, 0.6), Position = Vector3.new(wf.x, wf.h / 2, M2.castle.z1 + 0.4), Color = rgb(170, 215, 245), Material = Enum.Material.Glass, Transparency = 0.2, CanCollide = false, CanQuery = false }, parent)
+	emitter(fall, rgb(235, 248, 255), 10, 3, 1.4, 1.2, Vector3.new(0, -6, 0))
+	local mo = G.moat
+	h.part({ Name = "CastleMoat", Size = Vector3.new(mo.x1 - mo.x0, 0.3, mo.z1 - mo.z0), Position = Vector3.new((mo.x0 + mo.x1) / 2, 0.85, (mo.z0 + mo.z1) / 2), Color = WATER, Material = Enum.Material.Glass, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent)
+	n += 2
 	return n
 end
 
@@ -341,262 +359,345 @@ function Scenery.marker(h, position, parent, icon, diameter)
 	return ring
 end
 
----------------------------------------------------------------- Domaine de Gus : la ferme dorée
-function Scenery.gus(h, cx, cz, parent, rng)
+---------------------------------------------------------------- Territoires : décor identitaire (REFONTE lot 2 : centré sur le territoire, rayon r)
+-- Chaque thème reste dans son disque (rayon r) et évite les nids et les postes des gardiens (5 studs). Retourne le nombre de Parts.
+local function clearOf(t, x, z)
+	for _, p in ipairs(t.nests or {}) do
+		if math.sqrt((x - p[1]) ^ 2 + (z - p[2]) ^ 2) < 7 then
+			return false
+		end
+	end
+	for _, p in ipairs(t.posts or {}) do
+		if math.sqrt((x - p[1]) ^ 2 + (z - p[2]) ^ 2) < 7 then
+			return false
+		end
+	end
+	return true
+end
+
+-- Ferme de Gus : grange (Nord-Ouest) ou meules et épouvantail (Sud-Ouest).
+function Scenery.gus(h, t, parent, rng, y0)
 	local n = 0
+	y0 = y0 or 0
+	local cx, cz = t.x, t.z
 	local function P(props)
 		n += 1
 		return h.part(props, parent)
 	end
-	-- grange rouge (côté ouest, derrière la palisade)
-	local bx, bz = cx - 24, cz - 24
-	P({ Name = "BarnWalls", Size = Vector3.new(15, 9, 12), Position = Vector3.new(bx, 4.5, bz), Color = rgb(168, 52, 46), Material = Enum.Material.WoodPlanks })
-	for _, side in ipairs({ -1, 1 }) do
-		P({ Name = "BarnRoof", Size = Vector3.new(8.6, 0.8, 13.5), CFrame = CFrame.new(bx + side * 3.6, 10.6, bz) * CFrame.Angles(0, 0, -side * 0.62), Color = rgb(96, 70, 52), Material = Enum.Material.Wood })
+	if t.key == "gusNW" then
+		local bx, bz = cx - 22, cz + 18
+		P({ Name = "BarnWalls", Size = Vector3.new(14, 8, 11), Position = Vector3.new(bx, y0 + 4, bz), Color = rgb(168, 52, 46), Material = Enum.Material.WoodPlanks })
+		for _, side in ipairs({ -1, 1 }) do
+			P({ Name = "BarnRoof", Size = Vector3.new(8, 0.8, 12.5), CFrame = CFrame.new(bx + side * 3.4, y0 + 9.6, bz) * CFrame.Angles(0, 0, -side * 0.62), Color = rgb(96, 70, 52), Material = Enum.Material.Wood })
+		end
+		P({ Name = "BarnDoor", Size = Vector3.new(4.6, 6, 0.5), Position = Vector3.new(bx + 7.2, y0 + 3, bz), Color = rgb(235, 225, 205), Material = Enum.Material.Wood, CanCollide = false })
 	end
-	P({ Name = "BarnDoor", Size = Vector3.new(5, 6.4, 0.5), Position = Vector3.new(bx, 3.2, bz + 6.2), Color = rgb(235, 225, 205), Material = Enum.Material.Wood })
-	P({ Name = "BarnCross", Size = Vector3.new(5.6, 0.5, 0.3), CFrame = CFrame.new(bx, 3.2, bz + 6.5) * CFrame.Angles(0, 0, 0.9), Color = rgb(168, 52, 46), CanCollide = false })
-	-- moulin à vent
-	local mx, mz = cx + 26, cz - 22
-	cyl(h, { Name = "MillTower", Color = rgb(226, 210, 178), Material = Enum.Material.Brick }, parent, 6.5, 15, Vector3.new(mx, 7.5, mz))
-	n += 1
-	cyl(h, { Name = "MillCap", Color = rgb(150, 70, 52), Material = Enum.Material.Wood }, parent, 7.4, 2.4, Vector3.new(mx, 16, mz))
-	n += 1
-	for k = 0, 3 do
-		P({ Name = "MillBlade", Size = Vector3.new(1.6, 11, 0.4), CFrame = CFrame.new(mx, 14, mz + 3.4) * CFrame.Angles(0, 0, k * math.pi / 2 + 0.4) * CFrame.new(0, 5.5, 0), Color = rgb(245, 235, 215), Material = Enum.Material.Fabric, CanCollide = false })
-	end
-	-- champs de blé (rangées) et bottes de foin
-	for r = 0, 5 do
-		P({ Name = "Wheat", Size = Vector3.new(30, 2.6, 1.8), Position = Vector3.new(cx + 2, 1.3, cz - 40 + r * 3.2), Color = rgb(226 - (r % 2) * 14, 188 - (r % 2) * 10, 70), Material = Enum.Material.Grass, CanCollide = false })
-	end
-	for k = 1, 6 do
-		n += 1
-		cyl(h, { Name = "HayBale", Color = rgb(226, 196, 98), Material = Enum.Material.Fabric }, parent, 3.6, 3.2, Vector3.new(cx - 8 + k * 4.2, 1.8, cz - 12 + (k % 2) * 3), rng:NextNumber(0, 3))
-	end
-	-- clôture ouest, épouvantail
-	for k = 0, 8 do
-		P({ Name = "FencePost", Size = Vector3.new(0.7, 3.2, 0.7), Position = Vector3.new(cx - 40, 1.6, cz - 4 + k * 3.4), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
-	end
-	P({ Name = "FenceRail", Size = Vector3.new(0.4, 0.5, 28), Position = Vector3.new(cx - 40, 2.3, cz + 10), Color = rgb(140, 104, 70), Material = Enum.Material.Wood })
-	P({ Name = "ScarecrowPole", Size = Vector3.new(0.5, 5, 0.5), Position = Vector3.new(cx + 12, 2.5, cz - 32), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
-	P({ Name = "ScarecrowArms", Size = Vector3.new(4.6, 0.5, 0.5), Position = Vector3.new(cx + 12, 4, cz - 32), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
-	n += 1
-	h.ball({ Name = "ScarecrowHead", Size = Vector3.new(1.6, 1.6, 1.6), Position = Vector3.new(cx + 12, 5.6, cz - 32), Color = rgb(235, 200, 120) }, parent)
-	P({ Name = "ScarecrowHat", Size = Vector3.new(2.2, 0.3, 2.2), Position = Vector3.new(cx + 12, 6.4, cz - 32), Color = rgb(150, 110, 60), Material = Enum.Material.Fabric, CanCollide = false })
-	-- collines douces et lumière chaude
 	for k = 1, 3 do
-		n += 1
-		h.ball({ Name = "FarmHill", Size = Vector3.new(60, 40, 60), Position = Vector3.new(cx - 40 + k * 40, -12, cz - 78), Color = rgb(120, 168, 70), Material = Enum.Material.Grass }, parent)
+		local a = k * 2.1 + (t.key == "gusSW" and 0.7 or 0)
+		local x, z = cx + math.cos(a) * 22, cz + math.sin(a) * 22
+		if clearOf(t, x, z) then
+			n += 1
+			cyl(h, { Name = "HayBale", Color = rgb(226, 196, 98), Material = Enum.Material.Fabric }, parent, 3.6, 3.2, Vector3.new(x, y0 + 1.8, z), rng:NextNumber(0, 3))
+		end
 	end
-	local lamp = P({ Name = "FarmLight", Size = Vector3.new(0.6, 0.6, 0.6), Position = Vector3.new(cx, 22, cz - 8), Transparency = 1, CanCollide = false })
-	light(lamp, rgb(255, 214, 140), 60, 0.7)
+	if t.key == "gusSW" then
+		local sx, sz = cx + 16, cz - 16
+		P({ Name = "ScarecrowPole", Size = Vector3.new(0.5, 5, 0.5), Position = Vector3.new(sx, y0 + 2.5, sz), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
+		P({ Name = "ScarecrowArms", Size = Vector3.new(4.6, 0.5, 0.5), Position = Vector3.new(sx, y0 + 4, sz), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
+		n += 1
+		h.ball({ Name = "ScarecrowHead", Size = Vector3.new(1.6, 1.6, 1.6), Position = Vector3.new(sx, y0 + 5.6, sz), Color = rgb(235, 200, 120) }, parent)
+	end
 	return n
 end
 
----------------------------------------------------------------- Domaine de Mara : les bois ensorcelés
-function Scenery.mara(h, cx, cz, parent, rng)
+-- Bois ensorcelés de Mara : arbres morts, champignons lumineux, tombes, mare violette.
+function Scenery.mara(h, t, parent, rng, y0)
 	local n = 0
+	y0 = y0 or 0
+	local cx, cz = t.x, t.z
 	local function P(props)
 		n += 1
 		return h.part(props, parent)
 	end
-	-- arbres morts tordus
-	for k = 1, 9 do
-		local a = k / 9 * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
-		local r = rng:NextNumber(26, 46)
-		local x, z = cx + math.sin(a) * r, cz - math.abs(math.cos(a)) * r * 0.9 - 6
-		local s = rng:NextNumber(0.9, 1.5)
-		P({ Name = "DeadTrunk", Size = Vector3.new(1.6 * s, 11 * s, 1.6 * s), CFrame = CFrame.new(x, 5.5 * s, z) * CFrame.Angles(rng:NextNumber(-0.1, 0.1), 0, rng:NextNumber(-0.12, 0.12)), Color = rgb(52, 40, 52), Material = Enum.Material.Slate })
-		for b = 1, 3 do
-			P({ Name = "DeadBranch", Size = Vector3.new(0.7, 5.5 * s, 0.7), CFrame = CFrame.new(x, (6 + b * 1.6) * s, z) * CFrame.Angles(0, b * 2.1, 0.9 + b * 0.1) * CFrame.new(0, 2.4 * s, 0), Color = rgb(52, 40, 52), Material = Enum.Material.Slate, CanCollide = false })
+	for k = 1, 4 do
+		local a = k / 4 * math.pi * 2 + 0.4
+		local x, z = cx + math.cos(a) * (t.r - 8), cz + math.sin(a) * (t.r - 8)
+		if clearOf(t, x, z) then
+			local s = rng:NextNumber(0.9, 1.3)
+			P({ Name = "DeadTrunk", Size = Vector3.new(1.6 * s, 11 * s, 1.6 * s), CFrame = CFrame.new(x, y0 + 5.5 * s, z) * CFrame.Angles(rng:NextNumber(-0.1, 0.1), 0, rng:NextNumber(-0.12, 0.12)), Color = rgb(52, 40, 52), Material = Enum.Material.Slate })
+			for b = 1, 2 do
+				P({ Name = "DeadBranch", Size = Vector3.new(0.7, 5 * s, 0.7), CFrame = CFrame.new(x, y0 + (6 + b * 1.6) * s, z) * CFrame.Angles(0, b * 2.1, 0.9 + b * 0.1) * CFrame.new(0, 2.2 * s, 0), Color = rgb(52, 40, 52), Material = Enum.Material.Slate, CanCollide = false })
+			end
 		end
 	end
-	-- champignons lumineux (quelques-uns éclairent)
 	local colors = { rgb(190, 110, 255), rgb(90, 235, 235), rgb(255, 110, 200) }
-	for k = 1, 14 do
+	for k = 1, 6 do
 		local a = rng:NextNumber(0, math.pi * 2)
-		local r = rng:NextNumber(8, 40)
-		local x, z = cx + math.sin(a) * r, cz - math.abs(math.cos(a)) * r - 4
-		local s = rng:NextNumber(0.8, 1.8)
-		local col = colors[(k % #colors) + 1]
-		P({ Name = "MushroomStem", Size = Vector3.new(0.7 * s, 1.8 * s, 0.7 * s), Position = Vector3.new(x, 0.9 * s, z), Color = rgb(230, 225, 235), Material = Enum.Material.SmoothPlastic, CanCollide = false })
-		n += 1
-		local cap = h.ball({ Name = "MushroomCap", Size = Vector3.new(2.6 * s, 1.6 * s, 2.6 * s), Position = Vector3.new(x, 2 * s, z), Color = col, Material = Enum.Material.Neon }, parent)
-		if k % 3 == 0 then
-			light(cap, col, 14, 0.9)
+		local r = rng:NextNumber(8, t.r - 6)
+		local x, z = cx + math.cos(a) * r, cz + math.sin(a) * r
+		if clearOf(t, x, z) then
+			local s = rng:NextNumber(0.8, 1.6)
+			local col = colors[(k % #colors) + 1]
+			P({ Name = "MushroomStem", Size = Vector3.new(0.7 * s, 1.8 * s, 0.7 * s), Position = Vector3.new(x, y0 + 0.9 * s, z), Color = rgb(230, 225, 235), CanCollide = false })
+			n += 1
+			local cap = h.ball({ Name = "MushroomCap", Size = Vector3.new(2.6 * s, 1.6 * s, 2.6 * s), Position = Vector3.new(x, y0 + 2 * s, z), Color = col, Material = Enum.Material.Neon }, parent)
+			if k % 3 == 0 then
+				light(cap, col, 14, 0.9)
+			end
 		end
 	end
-	-- cimetière
-	for k = 1, 10 do
-		local x, z = cx - 38 + (k % 5) * 5, cz + 6 + math.floor(k / 5) * 6
-		P({ Name = "Tombstone", Size = Vector3.new(2.4, 3.4, 0.7), CFrame = CFrame.new(x, 1.7, z) * CFrame.Angles(0, rng:NextNumber(-0.3, 0.3), rng:NextNumber(-0.08, 0.08)), Color = rgb(120, 118, 130), Material = Enum.Material.Slate })
+	for k = 1, 4 do
+		local x, z = cx - 12 + k * 5, cz - t.r + 10
+		if clearOf(t, x, z) then
+			P({ Name = "Tombstone", Size = Vector3.new(2.4, 3.4, 0.7), CFrame = CFrame.new(x, y0 + 1.7, z) * CFrame.Angles(0, rng:NextNumber(-0.3, 0.3), rng:NextNumber(-0.08, 0.08)), Color = rgb(120, 118, 130), Material = Enum.Material.Slate })
+		end
 	end
-	-- mare violette et lucioles
 	n += 1
-	local pond = cyl(h, { Name = "WitchPond", Color = rgb(150, 70, 230), Material = Enum.Material.Glass, Transparency = 0.35, CanCollide = false }, parent, 16, 0.3, Vector3.new(cx + 26, 0.5, cz + 4))
+	local pond = cyl(h, { Name = "WitchPond", Color = rgb(150, 70, 230), Material = Enum.Material.Glass, Transparency = 0.35, CanCollide = false }, parent, 10, 0.3, Vector3.new(cx, y0 + 0.4, cz - 4))
 	emitter(pond, rgb(220, 255, 140), 6, 2, 3, 0.35, Vector3.new(0, 0.6, 0))
 	light(pond, rgb(170, 90, 255), 28, 1.2)
-	-- lanterne-lune sur un grand mât
-	P({ Name = "MoonPost", Size = Vector3.new(1, 24, 1), Position = Vector3.new(cx - 2, 12, cz - 48), Color = rgb(60, 48, 66), Material = Enum.Material.Metal })
-	n += 1
-	local moon = h.ball({ Name = "MoonLantern", Size = Vector3.new(6, 6, 6), Position = Vector3.new(cx - 2, 26, cz - 48), Color = rgb(235, 225, 255), Material = Enum.Material.Neon }, parent)
-	light(moon, rgb(190, 170, 255), 60, 1.4)
 	return n
 end
 
----------------------------------------------------------------- Domaine de Zed : la citadelle de lave
-function Scenery.zed(h, cx, cz, parent, rng)
+-- Cour de Zed : aiguilles d'obsidienne et lacs de lave (sur le plateau, hauteur y0).
+function Scenery.zed(h, t, parent, rng, y0)
 	local n = 0
-	local function P(props)
-		n += 1
-		return h.part(props, parent)
-	end
-	-- aiguilles d'obsidienne
-	for k = 1, 11 do
-		local a = k / 11 * math.pi * 1.3 - 0.15 * math.pi
-		local r = rng:NextNumber(32, 52)
-		local x, z = cx + math.cos(a) * r, cz - math.sin(a) * r
-		local hgt = rng:NextNumber(10, 24)
-		P({ Name = "ObsidianSpire", Size = Vector3.new(rng:NextNumber(3, 5), hgt, rng:NextNumber(3, 5)), CFrame = CFrame.new(x, hgt / 2, z) * CFrame.Angles(rng:NextNumber(-0.12, 0.12), rng:NextNumber(0, 3), rng:NextNumber(-0.12, 0.12)), Color = rgb(36, 32, 44), Material = Enum.Material.Slate })
-	end
-	-- lacs de lave (braises, lueur)
-	for k = 1, 4 do
-		local x, z = cx - 30 + k * 15, cz - 16 - (k % 2) * 14
-		n += 1
-		local lava = cyl(h, { Name = "LavaPool", Color = rgb(255, 110, 30), Material = Enum.Material.Neon, CanCollide = false }, parent, rng:NextNumber(8, 13), 0.3, Vector3.new(x, 0.22, z))
-		light(lava, rgb(255, 120, 40), 26, 1.5)
-		if k == 2 then
-			emitter(lava, rgb(255, 160, 60), 12, 8, 2, 0.5, Vector3.new(0, 4, 0))
+	y0 = y0 or 0
+	local cx, cz = t.x, t.z
+	for k = 1, 5 do
+		local a = k / 5 * math.pi * 2 + 0.3
+		local x, z = cx + math.cos(a) * (t.r - 7), cz + math.sin(a) * (t.r - 7)
+		if clearOf(t, x, z) then
+			local hgt = rng:NextNumber(8, 16)
+			h.part({ Name = "ObsidianSpire", Size = Vector3.new(3.5, hgt, 3.5), CFrame = CFrame.new(x, y0 + hgt / 2, z) * CFrame.Angles(rng:NextNumber(-0.1, 0.1), rng:NextNumber(0, 3), rng:NextNumber(-0.1, 0.1)), Color = rgb(36, 32, 44), Material = Enum.Material.Slate }, parent)
+			n += 1
 		end
 	end
-	-- tour sombre aux anneaux cyan
-	n += 1
-	cyl(h, { Name = "TowerBase", Color = rgb(44, 40, 54), Material = Enum.Material.Slate }, parent, 9, 22, Vector3.new(cx + 30, 11, cz - 36))
 	for k = 1, 3 do
-		n += 1
-		local ring = cyl(h, { Name = "TowerRing", Color = rgb(60, 230, 255), Material = Enum.Material.Neon, CanCollide = false }, parent, 9.6, 0.5, Vector3.new(cx + 30, 5 + k * 5.5, cz - 36))
-		if k == 3 then
-			light(ring, rgb(60, 230, 255), 40, 1.5)
+		local a = k * 2.2
+		local x, z = cx + math.cos(a) * 12, cz + math.sin(a) * 12
+		if clearOf(t, x, z) then
+			n += 1
+			local lava = cyl(h, { Name = "LavaPool", Color = rgb(255, 110, 30), Material = Enum.Material.Neon, CanCollide = false }, parent, 7, 0.3, Vector3.new(x, y0 + 0.22, z))
+			light(lava, rgb(255, 120, 40), 22, 1.4)
+			if k == 2 then
+				emitter(lava, rgb(255, 160, 60), 10, 8, 2, 0.5, Vector3.new(0, 4, 0))
+			end
 		end
-	end
-	-- passerelle d'acier
-	for k = 0, 5 do
-		P({ Name = "BridgePlank", Size = Vector3.new(4, 0.4, 2.2), Position = Vector3.new(cx - 18 + k * 2.5, 0.9, cz + 4), Color = rgb(70, 72, 80), Material = Enum.Material.DiamondPlate })
 	end
 	return n
 end
 
----------------------------------------------------------------- Chemins en pas japonais
-function Scenery.paths(h, parent, cfg)
+---------------------------------------------------------------- Chemins : routes pavées et chemins de terre (une dalle par segment, un disque à chaque coude)
+-- Hauteurs distinctes par segment (aucune face coplanaire, même aux croisements) ; la partie dans la place (déjà pavée) n'est pas dessinée.
+function Scenery.paths(h, parent, cfg, G)
 	local n = 0
-	local placed = {}
-	local ringR = cfg.Map.plotRadius - 30
-	local function stones(ax, az, bx, bz, step)
-		local dx, dz = bx - ax, bz - az
-		local len = math.sqrt(dx * dx + dz * dz)
-		local count = math.floor(len / step)
-		for k = 0, count do
-			local t = k / math.max(count, 1)
-			local x, z = ax + dx * t, az + dz * t
-			local free = math.abs(math.sqrt(x * x + z * z) - ringR) > 6 -- jamais sur l'anneau de pavés des bases (même niveau = scintillement)
-			for _, o in ipairs(placed) do
-				if math.sqrt((x - o[1]) ^ 2 + (z - o[2]) ^ 2) < 5.2 then
-					free = false -- aux jonctions de deux segments, pas deux pavés l'un sur l'autre
-					break
+	local M2 = cfg.Map2
+	local px, pz, pr = M2.plaza.x, M2.plaza.z, M2.plaza.r - 2
+	for _, p in ipairs(M2.paths) do
+		local paved = p.kind ~= "dirt"
+		local half = paved and M2.pathHalf or M2.dirtHalf
+		local base = p.y or 0
+		local col = paved and rgb(196, 180, 150) or rgb(150, 118, 80)
+		local mat = paved and Enum.Material.Cobblestone or Enum.Material.Ground
+		for k = 1, #p.pts - 1 do
+			local ax, az, bx, bz = p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2]
+			local inA = (ax - px) ^ 2 + (az - pz) ^ 2 < pr * pr
+			local inB = (bx - px) ^ 2 + (bz - pz) ^ 2 < pr * pr
+			if base == 0 and inA and not inB then -- départ dans la place : on commence au bord de la place
+				local dx, dz = bx - ax, bz - az
+				local qa, qb, qc = dx * dx + dz * dz, 2 * ((ax - px) * dx + (az - pz) * dz), (ax - px) ^ 2 + (az - pz) ^ 2 - pr * pr
+				local t = (-qb + math.sqrt(qb * qb - 4 * qa * qc)) / (2 * qa)
+				ax, az = ax + dx * t, az + dz * t
+			end
+			if not (base == 0 and inA and inB) then
+				local top = base + (paved and ((k % 2 == 1) and 0.28 or 0.34) or ((k % 2 == 1) and 0.04 or 0.10))
+				flatSeg(h, { Name = paved and "PathStone" or "DirtPath", Color = col, Material = mat, CanCollide = false }, parent, ax, az, bx, bz, half * 2, top - 0.1, 0.2)
+				n += 1
+				if k > 1 then
+					cyl(h, { Name = paved and "PathJoint" or "DirtPath", Color = col, Material = mat, CanCollide = false }, parent, half * 2, 0.2, Vector3.new(ax, base + (paved and 0.40 or 0.16) - 0.1, az))
+					n += 1
 				end
 			end
-			if free then
-				placed[#placed + 1] = { x, z }
-				n += 1
-				cyl(h, { Name = "PathStone", Color = rgb(196, 180, 150), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, 4.4, 0.25, Vector3.new(x, 0.18, z))
-			end
 		end
-	end
-	for _, poly in ipairs(cfg.Map.paths) do
-		for k = 1, #poly - 1 do
-			stones(poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2], 16)
-		end
-	end
-	local r = cfg.Map.plotRadius - 30
-	for k = 0, 29 do
-		local a = k / 30 * math.pi * 2
-		n += 1
-		cyl(h, { Name = "RingStone", Color = rgb(190, 176, 148), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, 5.2, 0.25, Vector3.new(math.sin(a) * r, 0.18, math.cos(a) * r), a)
 	end
 	return n
 end
 
----------------------------------------------------------------- Repères lointains (visibles de loin pour s'orienter)
-function Scenery.landmarks(h, parent, rng)
+---------------------------------------------------------------- Place du marché : dallage, halle à dôme, fontaine, étals
+function Scenery.plaza(h, parent, cfg)
 	local n = 0
+	local M2 = cfg.Map2
 	local function P(props)
 		n += 1
 		return h.part(props, parent)
 	end
-	-- Grand Arbre (sud-ouest)
-	P({ Name = "GreatTreeTrunk", Size = Vector3.new(10, 46, 10), Position = Vector3.new(-300, 23, 220), Color = rgb(105, 74, 48), Material = Enum.Material.Wood })
-	for k = 1, 5 do
+	local pl = M2.plaza
+	cyl(h, { Name = "PlazaRim", Color = rgb(150, 136, 110), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, pl.r * 2 + 3, 0.2, Vector3.new(pl.x, 0.36, pl.z))
+	cyl(h, { Name = "Plaza", Color = rgb(206, 192, 162), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, pl.r * 2, 0.2, Vector3.new(pl.x, 0.42, pl.z))
+	n += 2
+	-- halle à dôme : 8 piliers, dôme en gradins (haut `hall.h`), comptoir de la boutique d'œufs
+	local hl = M2.hall
+	for k = 0, 7 do
+		local a = k / 8 * math.pi * 2
+		P({ Name = "HallPillar", Size = Vector3.new(1.6, 15, 1.6), Position = Vector3.new(hl.x + math.cos(a) * (hl.r - 2), 7.5, hl.z + math.sin(a) * (hl.r - 2)), Color = rgb(226, 214, 190), Material = Enum.Material.Marble })
+	end
+	for k, tier in ipairs({ { hl.r * 2 + 2, 15.5 }, { hl.r * 1.5, 19.5 }, { hl.r, 23.5 } }) do
 		n += 1
-		h.ball({ Name = "GreatTreeLeaves", Size = Vector3.new(52 - k * 4, 40 - k * 3, 52 - k * 4), Position = Vector3.new(-300 + math.sin(k * 1.7) * 12, 52 + (k % 3) * 4, 220 + math.cos(k * 1.7) * 12), Color = rgb(70 + k * 5, 150, 82), Material = Enum.Material.Grass }, parent)
+		cyl(h, { Name = "HallDome", Color = k == 1 and rgb(176, 96, 70) or rgb(196, 110, 80), Material = Enum.Material.Slate }, parent, tier[1], 4, Vector3.new(hl.x, tier[2] + 2, hl.z))
 	end
-	-- Tour de guet (sud-est)
-	for _, c in ipairs({ { -5, -5 }, { 5, -5 }, { -5, 5 }, { 5, 5 } }) do
-		P({ Name = "WatchLeg", Size = Vector3.new(1.4, 30, 1.4), Position = Vector3.new(300 + c[1], 15, 230 + c[2]), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
-	end
-	P({ Name = "WatchDeck", Size = Vector3.new(15, 1.2, 15), Position = Vector3.new(300, 30, 230), Color = rgb(140, 104, 70), Material = Enum.Material.WoodPlanks })
-	P({ Name = "WatchRoof", Size = Vector3.new(17, 1, 17), Position = Vector3.new(300, 38, 230), Color = rgb(150, 70, 52), Material = Enum.Material.Wood })
-	for _, c in ipairs({ { -7, -7 }, { 7, -7 }, { -7, 7 }, { 7, 7 } }) do
-		P({ Name = "WatchPost", Size = Vector3.new(0.8, 8, 0.8), Position = Vector3.new(300 + c[1], 34, 230 + c[2]), Color = rgb(120, 88, 58), Material = Enum.Material.Wood })
-	end
-	local fire = P({ Name = "WatchBeacon", Size = Vector3.new(2, 1, 2), Position = Vector3.new(300, 31.2, 230), Color = rgb(255, 150, 60), Material = Enum.Material.Neon, CanCollide = false })
-	light(fire, rgb(255, 170, 80), 50, 1.6)
-	-- Arche de pierre (est)
-	for _, sx in ipairs({ -9, 9 }) do
-		P({ Name = "ArchPillar", Size = Vector3.new(6, 26, 6), Position = Vector3.new(430 + sx, 13, 20), Color = rgb(140, 138, 148), Material = Enum.Material.Slate })
-	end
-	P({ Name = "ArchTop", Size = Vector3.new(26, 6, 7), Position = Vector3.new(430, 28, 20), Color = rgb(150, 148, 158), Material = Enum.Material.Slate })
-	-- Obélisque doré (ouest)
-	P({ Name = "ObeliskBase", Size = Vector3.new(10, 3, 10), Position = Vector3.new(-430, 1.5, -20), Color = rgb(150, 146, 140), Material = Enum.Material.Marble })
-	P({ Name = "Obelisk", Size = Vector3.new(5, 34, 5), Position = Vector3.new(-430, 20, -20), Color = rgb(255, 214, 120), Material = Enum.Material.Metal })
-	local tip = h.ball({ Name = "ObeliskTip", Size = Vector3.new(4, 4, 4), Position = Vector3.new(-430, 38.5, -20), Color = rgb(255, 240, 180), Material = Enum.Material.Neon }, parent)
 	n += 1
-	light(tip, rgb(255, 224, 140), 70, 1.6)
+	local top = h.ball({ Name = "HallDomeTop", Size = Vector3.new(hl.r * 0.7, hl.r * 0.7, hl.r * 0.7), Position = Vector3.new(hl.x, hl.h - hl.r * 0.35, hl.z), Color = rgb(255, 214, 120), Material = Enum.Material.Metal }, parent)
+	light(top, rgb(255, 224, 160), 30, 0.8)
+	local counter = P({ Name = "EggCounter", Size = Vector3.new(10, 3.4, 2.4), Position = Vector3.new(hl.x - 4, 1.7, hl.z), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks })
+	h.sign(counter, "🥚 Boutique d'œufs", rgb(255, 220, 140), 4, 220)
+	-- bassin-fontaine
+	local f = M2.fountain
+	cyl(h, { Name = "FountainRim", Color = rgb(190, 184, 176), Material = Enum.Material.Marble }, parent, f.r * 2, 1.4, Vector3.new(f.x, 0.7, f.z))
+	cyl(h, { Name = "Fountain", Color = WATER, Material = Enum.Material.Glass, Transparency = 0.2, CanCollide = false, CanQuery = false }, parent, f.r * 2 - 1.4, 0.3, Vector3.new(f.x, 1.15, f.z))
+	cyl(h, { Name = "FountainColumn", Color = rgb(206, 200, 190), Material = Enum.Material.Marble }, parent, 1.6, 5, Vector3.new(f.x, 2.5, f.z))
+	n += 3
+	local spout = h.ball({ Name = "FountainSpout", Size = Vector3.new(2.4, 2.4, 2.4), Position = Vector3.new(f.x, 5.4, f.z), Color = rgb(170, 215, 245), Material = Enum.Material.Glass, Transparency = 0.3, CanCollide = false }, parent)
+	n += 1
+	emitter(spout, rgb(200, 235, 255), 18, 6, 1.2, 0.5, Vector3.new(0, -14, 0))
+	-- étals : Améliorations, Pets / vente, Boutique Robux
+	local labels = { "⬆️ Améliorations", "🐾 Pets / vente", "💎 Boutique" }
+	local awn = { rgb(230, 80, 80), rgb(90, 170, 240), rgb(255, 190, 60) }
+	for k, st in ipairs(M2.stalls) do
+		P({ Name = "StallCounter", Size = Vector3.new(10, 3, 3), Position = Vector3.new(st.x, 1.5, st.z - 2.5), Color = rgb(150, 104, 62), Material = Enum.Material.WoodPlanks })
+		for _, sx in ipairs({ -4.6, 4.6 }) do
+			P({ Name = "StallPost", Size = Vector3.new(0.5, 7, 0.5), Position = Vector3.new(st.x + sx, 3.5, st.z + 2.5), Color = rgb(110, 76, 46), Material = Enum.Material.Wood })
+		end
+		local roof = P({ Name = "StallAwning", Size = Vector3.new(11, 0.4, 8.6), CFrame = CFrame.new(st.x, 7.2, st.z) * CFrame.Angles(0.18, 0, 0), Color = awn[k] or awn[1], Material = Enum.Material.Fabric, CanCollide = false })
+		h.sign(roof, labels[k] or "", rgb(255, 240, 200), 2.5, 200)
+	end
 	return n
 end
 
----------------------------------------------------------------- Relief : monticules et forêt périphérique
-function Scenery.relief(h, parent, rng, cfg)
+---------------------------------------------------------------- Château : plateau (h), palier du pont, cour fermée par des murs (herse), donjon
+-- Retourne (nombre de Parts, position de la porte du donjon).
+function Scenery.castlePlateau(h, parent, cfg, G)
 	local n = 0
-	local half = cfg.Map.groundSize / 2
-	local function clear(x, z)
-		for i = 1, #cfg.RIVALS do
-			local cx, cz = cfg.rivalCenter(i)
-			if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < 110 then
-				return false
+	local M2 = cfg.Map2
+	local C = M2.castle
+	local H = C.h
+	local function P(props)
+		n += 1
+		return h.part(props, parent)
+	end
+	local w, d = C.x1 - C.x0, C.z1 - C.z0
+	P({ Name = "CastleCliff", Size = Vector3.new(w, H + 1.5, d), Position = Vector3.new((C.x0 + C.x1) / 2, (H - 0.5 - 2) / 2, (C.z0 + C.z1) / 2), Color = rgb(128, 122, 118), Material = Enum.Material.Slate })
+	P({ Name = "CastlePlateau", Size = Vector3.new(w - 1, 0.5, d - 1), Position = Vector3.new((C.x0 + C.x1) / 2, H - 0.25, (C.z0 + C.z1) / 2), Color = rgb(108, 150, 84), Material = Enum.Material.Grass })
+	local L = G.landing
+	P({ Name = "CastleLanding", Size = Vector3.new(L.x1 - L.x0 + 0.5, H, L.z1 - L.z0), Position = Vector3.new((L.x0 + L.x1) / 2 + 0.25, H / 2, (L.z0 + L.z1) / 2), Color = rgb(150, 146, 140), Material = Enum.Material.Slate })
+	-- cour de Zed : disque pavé et mur circulaire (rayon r + 2), rabattu le long du bord sud du plateau ; herse à l'entrée (Map2/TERR : traps.gate)
+	local zt = G.terr("zed")
+	cyl(h, { Name = "CourtFloor", Color = rgb(96, 88, 92), Material = Enum.Material.Cobblestone, CanCollide = false }, parent, zt.r * 2, 0.2, Vector3.new(zt.x, H + 0.08, zt.z))
+	n += 1
+	local R = zt.r + 2
+	local segs = 18
+	local pts = {}
+	for k = 0, segs - 1 do
+		local a = k / segs * math.pi * 2
+		pts[k + 1] = { zt.x + math.cos(a) * R, math.min(zt.z + math.sin(a) * R, C.z1 - 4) }
+	end
+	local gate = zt.entry
+	local gateK, gd = 1, math.huge
+	for k = 1, segs do
+		local a, b = pts[k], pts[k % segs + 1]
+		local mx, mz = (a[1] + b[1]) / 2, (a[2] + b[2]) / 2
+		local dd = math.sqrt((mx - gate.x) ^ 2 + (mz - gate.z) ^ 2)
+		if dd < gd then
+			gateK, gd = k, dd
+		end
+	end
+	for k = 1, segs do
+		local a, b = pts[k], pts[k % segs + 1]
+		local len = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
+		if len > 0.5 then
+			local mid = Vector3.new((a[1] + b[1]) / 2, H + 4, (a[2] + b[2]) / 2)
+			if k == gateK then
+				-- herse levée au-dessus du passage (le cycle ouvert/fermé est un piège du lot 4) et piliers
+				P({ Name = "CourtGate", Size = Vector3.new(1, 3, len), CFrame = CFrame.lookAt(mid + Vector3.new(0, 5.5, 0), Vector3.new(b[1], H + 9.5, b[2])), Color = rgb(70, 70, 78), Material = Enum.Material.Metal, CanCollide = false })
+			else
+				P({ Name = "CourtWall", Size = Vector3.new(2, 8, len + 1.2), CFrame = CFrame.lookAt(mid, Vector3.new(b[1], H + 4, b[2])), Color = rgb(96, 92, 106), Material = Enum.Material.Slate })
 			end
 		end
-		for _, sct in ipairs(cfg.SECRETS) do
-			if math.sqrt((x - sct.x) ^ 2 + (z - sct.z) ^ 2) < 40 then
-				return false
+	end
+	-- donjon : bloc, quatre tours d'angle, toit ; la porte (Map2.castle.door) est l'entrée du mode Château
+	local K = G.keep
+	P({ Name = "Keep", Size = Vector3.new(K.half * 2, 22, K.half * 2), Position = Vector3.new(K.x, H + 11, K.z), Color = rgb(112, 108, 120), Material = Enum.Material.Slate })
+	for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+		n += 1
+		cyl(h, { Name = "KeepTower", Color = rgb(104, 100, 114), Material = Enum.Material.Slate }, parent, 6, 28, Vector3.new(K.x + c[1] * K.half, H + 14, K.z + c[2] * K.half))
+	end
+	P({ Name = "KeepRoof", Size = Vector3.new(K.half * 2 - 2, 2, K.half * 2 - 2), Position = Vector3.new(K.x, H + 23, K.z), Color = rgb(150, 60, 52), Material = Enum.Material.Slate })
+	local flag = P({ Name = "KeepFlag", Size = Vector3.new(0.3, 4, 6), Position = Vector3.new(K.x, H + 28, K.z), Color = rgb(224, 87, 90), Material = Enum.Material.Fabric, CanCollide = false })
+	light(flag, rgb(255, 140, 100), 40, 0.8)
+	return n, Vector3.new(C.door.x, H, C.door.z)
+end
+
+---------------------------------------------------------------- Arène (colisée procédural simple) : sable, gradins, mur extérieur ouvert vers l'entrée
+function Scenery.arena(h, parent, cfg)
+	local n = 0
+	local A = cfg.Map2.arena
+	cyl(h, { Name = "ArenaSand", Color = rgb(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, parent, A.sand * 2, 0.3, Vector3.new(A.x, 0.12, A.z))
+	n += 1
+	local ex, ez = A.entry.x - A.x, A.entry.z - A.z
+	local el = math.sqrt(ex * ex + ez * ez)
+	local function ring(radius, segs, height, thick, name, col)
+		for k = 0, segs - 1 do
+			local a0, a1 = k / segs * math.pi * 2, (k + 1) / segs * math.pi * 2
+			local am = (a0 + a1) / 2
+			local mx, mz = math.cos(am), math.sin(am)
+			if (mx * ex + mz * ez) / el < math.cos(math.pi / segs * 1.2) then -- pas de segment devant l'entrée
+				local ax, az = A.x + math.cos(a0) * radius, A.z + math.sin(a0) * radius
+				local bx, bz = A.x + math.cos(a1) * radius, A.z + math.sin(a1) * radius
+				local len = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+				h.part({ Name = name, Size = Vector3.new(thick, height, len + 0.8), CFrame = CFrame.lookAt(Vector3.new((ax + bx) / 2, height / 2, (az + bz) / 2), Vector3.new(bx, height / 2, bz)), Color = col, Material = Enum.Material.Slate }, parent)
+				n += 1
 			end
 		end
-		return math.sqrt(x * x + z * z) > 270
 	end
-	for _ = 1, 34 do -- monticules praticables
-		local x, z = rng:NextNumber(-half + 80, half - 80), rng:NextNumber(-half + 80, half - 80)
-		if clear(x, z) then
-			local sz = rng:NextNumber(36, 90)
-			n += 1
-			local m = h.ball({ Name = "Mound", Size = Vector3.new(sz, sz * 0.5, sz), Position = Vector3.new(x, -sz * 0.12, z), Color = Color3.fromRGB(86 + rng:NextInteger(0, 18), 150 + rng:NextInteger(0, 16), 80), Material = Enum.Material.Grass }, parent)
-			m.CanCollide = true
-		end
+	ring(A.sand + 3, 12, 2.4, 5, "ArenaSteps", rgb(196, 184, 164))
+	ring(A.r - 2, 16, 9, 3, "ArenaWall", rgb(176, 160, 134))
+	local post = h.part({ Name = "ArenaSign", Size = Vector3.new(1, 8, 1), Position = Vector3.new(A.entry.x + 6, 4, A.entry.z - 6), Color = rgb(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	n += 1
+	h.sign(post, "⚔️ ARÈNE DES PETS\nDéfie la tour des Dresseurs", rgb(255, 220, 140), 6, 280)
+	return n
+end
+
+---------------------------------------------------------------- Relief : sol, bornes, collines (calottes sphériques), montagnes de fond, forêts procédurales
+-- `forest` = Placement.forest() : { {x, z, y} } (2 Parts par arbre : tronc et feuillage). Retourne le nombre de Parts.
+function Scenery.relief(h, parent, cfg, forest)
+	local n = 0
+	local M2 = cfg.Map2
+	local B = M2.bounds
+	local WH = M2.wallHeight
+	for _, w in ipairs({ { 0, B.z0 - 1, B.x1 - B.x0 + 4, 2 }, { 0, B.z1 + 1, B.x1 - B.x0 + 4, 2 }, { B.x0 - 1, 0, 2, B.z1 - B.z0 + 4 }, { B.x1 + 1, 0, 2, B.z1 - B.z0 + 4 } }) do
+		h.part({ Name = "BoundWall", Size = Vector3.new(w[3], WH * 2.5, w[4]), Position = Vector3.new(w[1], WH * 1.25, w[2]), Transparency = 1, CanQuery = false, CanTouch = false }, parent)
+		n += 1
 	end
-	for _ = 1, 46 do -- forêt périphérique
-		local x, z = rng:NextNumber(-half + 40, half - 40), rng:NextNumber(-half + 40, half - 40)
-		if clear(x, z) then
-			n += 4
-			h.tree(Vector3.new(x, 0, z), parent, rng)
-		end
+	for _, hl in ipairs(M2.hills) do -- collines praticables : calotte sphérique (pente < 50° au pied)
+		local R = (hl.r * hl.r + hl.h * hl.h) / (2 * hl.h)
+		n += 1
+		local b = h.ball({ Name = "Hill", Size = Vector3.new(R * 2, R * 2, R * 2), Position = Vector3.new(hl.x, hl.h - R, hl.z), Color = rgb(96, 158, 84), Material = Enum.Material.Grass }, parent)
+		b.CanCollide = true
+		b.CastShadow = false
+	end
+	-- montagnes au nord, collines ailleurs : décor de fond hors des bornes, sans collision ni ombre
+	local bw, bd = M2.backdrop.w / 2, M2.backdrop.d / 2
+	for k, m in ipairs({ { -260, -bd + 10, 150, 70 }, { -60, -bd + 5, 170, 85 }, { 150, -bd + 8, 150, 75 }, { 330, -bd + 20, 130, 60 }, { -bw + 10, 60, 120, 40 }, { bw - 10, 90, 120, 40 }, { 0, bd - 5, 180, 35 } }) do
+		n += 1
+		local b = h.ball({ Name = "Backdrop", Size = Vector3.new(m[3], m[3], m[3]), Position = Vector3.new(m[1], m[4] - m[3] / 2, m[2]), Color = k <= 4 and rgb(116, 128, 120) or rgb(90, 150, 82), Material = k <= 4 and Enum.Material.Slate or Enum.Material.Grass, CanCollide = false }, parent)
+		b.CastShadow = false
+	end
+	for _, t in ipairs(forest or {}) do -- arbres procéduraux : tronc et feuillage (2 Parts)
+		local s = 0.9 + ((math.floor(t.x * 7 + t.z * 3) % 5) * 0.08)
+		local y = t.y or 0
+		h.part({ Name = "Trunk", Size = Vector3.new(1.8 * s, 8 * s, 1.8 * s), Position = Vector3.new(t.x, y + 4 * s, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
+		h.ball({ Name = "Leaves", Size = Vector3.new(10 * s, 10 * s, 10 * s), Position = Vector3.new(t.x, y + 10.5 * s, t.z), Color = (t.z < -180 or t.grove) and rgb(54, 120, 70) or rgb(70, 146, 72), Material = Enum.Material.Grass }, parent)
+		n += 2
 	end
 	return n
 end

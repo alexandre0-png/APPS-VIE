@@ -9,6 +9,11 @@ local Castle = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared
 local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Guard")) -- pose de marche
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
+local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
+PlacementMod.MapGeo = MapGeoMod
+PlacementMod.yield = function()
+	task.wait()
+end
 
 local Builder = {}
 
@@ -688,12 +693,14 @@ function Builder.dressArena(assets)
 			end
 			return nil
 		end
-		put("ground", "plaza", 0, 0.08, 0, 56, nil, 0, "ArenaPlaza")
-		for k = 0, 3 do
-			local a = k * math.pi / 2
-			put("props", "bench", math.sin(a) * 24, 0, -math.cos(a) * 24, nil, Config.Assets.targetHeights.bench, math.pi - a, "ArenaBench") -- le banc regarde le monument
-			local b = a + math.pi / 4
-			put("props", "lamp", math.sin(b) * 28, 0, -math.cos(b) * 28, nil, Config.Assets.targetHeights.lamp, 0, "ArenaLamp")
+		local E = Config.Map2.bigEgg
+		put("ground", "plaza", E.x, 0.34, E.z, E.r * 2 - 4, nil, 0, "ArenaPlaza") -- dallage de la place du Grand Œuf
+		-- bancs et lampadaires de la place du marché (positions libres : hors halle, étals, fontaine, piste et portails)
+		for _, b in ipairs({ { -20, -28 }, { 20, 24 }, { -18, 26 }, { 48, 18 } }) do
+			put("props", "bench", b[1], 0, b[2], nil, Config.Assets.targetHeights.bench, math.rad(PlacementMod.facing(-b[1], -b[2])), "ArenaBench") -- le banc regarde le centre de la place
+		end
+		for _, l in ipairs({ { 30, -22 }, { -12, -42 }, { -52, 22 }, { 54, 8 } }) do
+			put("props", "lamp", l[1], 0, l[2], nil, Config.Assets.targetHeights.lamp, 0, "ArenaLamp")
 		end
 		local cx, cz = Config.rivalCenter(1)
 		local mill = put("props", "mill", cx - 24, Config.rivalHeight(1), cz + 22, nil, Config.Assets.targetHeights.mill, math.pi / 6, "ArenaMill")
@@ -759,15 +766,21 @@ function Builder.dressGround(assets)
 			end
 			return false
 		end
-		-- chemins : du Grand Nid vers le centre de chaque domaine, une tuile tous les 12 studs
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			local dist = math.sqrt(cx * cx + cz * cz)
-			local k = 0
-			while 34 + k * 12 < dist - 40 do
-				local t = (34 + k * 12) / dist
-				tile("path", cx * t, cz * t, 12)
-				k = k + 1
+		-- routes pavées (Config.Map2.paths) hors de la place : une tuile tous les 12 studs, jamais dans l'eau
+		local G = MapGeoMod.new(Config)
+		local PL = Config.Map2.plaza
+		for _, sg in ipairs(G.pathSegs) do
+			if sg.half == Config.Map2.pathHalf and (sg.y or 0) == 0 then
+				local dx, dz = sg[3] - sg[1], sg[4] - sg[2]
+				local len = math.sqrt(dx * dx + dz * dz)
+				local k = 0
+				while k * 12 < len do
+					local x, z = sg[1] + dx * k * 12 / len, sg[2] + dz * k * 12 / len
+					if math.sqrt((x - PL.x) ^ 2 + (z - PL.z) ^ 2) > PL.r + 6 and G.waterEdgeDist(x, z, true) > 6 then
+						tile("path", x, z, 12)
+					end
+					k = k + 1
+				end
 			end
 		end
 		-- pelouses : 3 x 3 tuiles de 20 studs devant chaque base
@@ -1091,7 +1104,7 @@ function Builder.dressDeco(assets)
 	return placed, used, fallback
 end
 
--- Chemins sinueux Blender (tuiles droites/virages bordés de pierres, touffes sur les bords) posés sur les polylignes de Config.Map.paths ; les pavés
+-- Chemins sinueux Blender (tuiles droites/virages bordés de pierres, touffes sur les bords) posés sur les polylignes de Config.Map2.paths ; les pavés
 -- procéduraux (PathStone) proches d'une polyligne habillée sont retirés (jamais de superposition). Retourne (tuiles posées, Parts utilisées).
 function Builder.dressPaths(assets)
 	local tiles, used = 0, 0
@@ -1113,19 +1126,25 @@ function Builder.dressPaths(assets)
 			local st = assets.status["m:paths." .. key]
 			return st and st.ok and st.parts or 0
 		end
-		for _, poly in ipairs(Config.Map.paths) do
+		local PL = Config.Map2.plaza
+		for _, path in ipairs(Config.Map2.paths) do
+			local poly = path.pts
 			local plan = PlacementMod.pathTiles(poly, A.pathTile, A.pathWind)
-			local placedHere = 0
+			local placedHere, wanted = 0, 0
 			for _, t in ipairs(plan.tiles) do
 				local key = t.kind
 				local c = cost(key)
 				if c <= 0 and key == "path_curve" then
 					key, c = "path_straight", cost("path_straight")
 				end
-				if c > 0 and used + c <= A.pathBudgetParts and not (P.blocked(t.x, t.z, 2, { allowDomain = true }) == "eau") then
-					local clone = assets.cloneModel("paths", key)
-					if clone and assets.place(clone, t.x, t.z, t.rot, nil, folder, A.pathTile, 0.08) then
-						used, tiles, placedHere = used + c, tiles + 1, placedHere + 1
+				local onPlaza = math.sqrt((t.x - PL.x) ^ 2 + (t.z - PL.z) ^ 2) < PL.r -- la place est déjà pavée
+				if not onPlaza and not (P.blocked(t.x, t.z, 2, { allowDomain = true, allowPlateau = true }) == "eau") then
+					wanted = wanted + 1
+					if c > 0 and used + c <= A.pathBudgetParts then
+						local clone = assets.cloneModel("paths", key)
+						if clone and assets.place(clone, t.x, t.z, t.rot, nil, folder, A.pathTile, (path.y or 0) + 0.2) then
+							used, tiles, placedHere = used + c, tiles + 1, placedHere + 1
+						end
 					end
 				end
 			end
@@ -1138,9 +1157,9 @@ function Builder.dressPaths(assets)
 					end
 				end
 			end
-			if placedHere > 0 then
+			if placedHere > 0 and placedHere == wanted then -- tout le tracé est habillé : les dalles procédurales de ce chemin sont retirées
 				for _, d in ipairs(world:GetDescendants()) do
-					if d.Name == "PathStone" and d:IsA("BasePart") then
+					if (d.Name == "PathStone" or d.Name == "PathJoint" or d.Name == "DirtPath") and d:IsA("BasePart") then
 						for k = 1, #poly - 1 do
 							if PlacementMod.distToSegment(d.Position.X, d.Position.Z, poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]) < A.pathWind + 6 then
 								d:Destroy()
@@ -1216,8 +1235,8 @@ function Builder.dressSigns(assets)
 	return n
 end
 
--- Relief en toile de fond (budget séparé reliefBudgetParts) : crête de falaises sur deux niveaux au nord de la carte (hors zone de jeu), cascades, escaliers de
--- terrasse, îlots Blender des lacs ; un mur invisible garde les joueurs hors de la crête. Retourne (pièces posées, Parts utilisées).
+-- Relief en toile de fond (budget séparé reliefBudgetParts) : crête de falaises sur deux niveaux au nord de la carte (décor de fond, au-delà de la borne
+-- nord), cascades, escaliers ; un mur invisible garde les joueurs hors de la crête. Retourne (pièces posées, Parts utilisées).
 function Builder.dressRelief(assets)
 	local n, used = 0, 0
 	pcall(function()
@@ -1234,7 +1253,7 @@ function Builder.dressRelief(assets)
 		local folder = Instance.new("Folder")
 		folder.Name = "BlenderRelief"
 		folder.Parent = world
-		local half = Config.Map.groundSize / 2
+		local B = Config.Map2.bounds
 		local budget = Config.Assets.reliefBudgetParts
 		local function cost(key)
 			local st = assets.status and assets.status["m:terrain." .. key]
@@ -1256,18 +1275,18 @@ function Builder.dressRelief(assets)
 		if not cost("cliff_a") then
 			return
 		end
-		local zRow = -half + 28 -- crête au nord, à l'intérieur du bord de carte
-		-- mur invisible : les joueurs ne montent pas sur la crête
-		part({ Name = "ReliefWall", Size = Vector3.new(2 * half - 100, 14, 1.5), Position = Vector3.new(0, 7, zRow + 8), Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, folder)
-		local x = -half + 130
+		local zRow = B.z0 - 22 -- crête au nord, dans le décor de fond (au-delà de la borne nord de la zone jouable)
+		-- mur invisible : les joueurs ne montent pas sur la crête (doublé par la borne de la carte)
+		part({ Name = "ReliefWall", Size = Vector3.new(B.x1 - B.x0, 14, 1.5), Position = Vector3.new(0, 7, zRow + 8), Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false }, folder)
+		local x = B.x0 + 20
 		local k = 0
-		while x <= half - 230 do
+		while x <= B.x1 - 20 do
 			local key = k % 3 == 2 and "cliff_b" or "cliff_a"
 			put(key, x, 0, zRow, 16, nil, 180)
 			x = x + 16
 			k = k + 1
 		end
-		put("cliff_corner", -half + 114, 0, zRow, 12, nil, 180)
+		put("cliff_corner", B.x0 + 4, 0, zRow, 12, nil, 180)
 		put("cliff_corner", x, 0, zRow, 12, nil, 180)
 		-- deuxième niveau (terrasse supérieure) sur la partie centrale, dans la limite du budget
 		local x2 = -200
@@ -1275,23 +1294,12 @@ function Builder.dressRelief(assets)
 			x2 = x2 + 16
 			k = k + 1
 		end
-		-- cascades devant la crête et escaliers de terrasse
+		-- cascades devant la crête et escaliers (décor de fond)
 		for _, wx in ipairs({ -260, 90 }) do
 			put("waterfall", wx, 0, zRow + 4, nil, 8, 180)
 		end
-		for _, sx in ipairs({ -340, 260 }) do
+		for _, sx in ipairs({ -300, 260 }) do
 			put("stairs", sx, 0, zRow + 8, 8, nil, 180)
-		end
-		-- îlots Blender des lacs : remplacent l'îlot procédural
-		for _, lk in ipairs(Config.Map.geo.lakes or {}) do
-			if lk.islet and put("islet", lk.x, 0.2, lk.z, 24, nil, 0) then
-				for _, d in ipairs(world:GetDescendants()) do
-					if (d.Name == "Islet" or d.Name == "IsletRock") and d:IsA("BasePart") and math.abs(d.Position.X - lk.x) < 12 and math.abs(d.Position.Z - lk.z) < 12 then
-						d.Transparency = 1
-						d.CanCollide = false
-					end
-				end
-			end
 		end
 	end)
 	return n, used
@@ -1468,16 +1476,21 @@ function Builder.setupLighting()
 	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.1, Contrast = 0.06, Brightness = 0.02 }) -- couleurs plus harmonieuses, moins saturées
 end
 
----------------------------------------------------------------- Monument du Grand Nid (identité du jeu, au centre de l'arène)
+---------------------------------------------------------------- Grand Œuf de l'énigme (ancien Grand Nid ; REFONTE lot 2 : place à l'est de la place du marché)
+-- Les noms (GrandNid, RuneStone, RiddleBoard), tags (RuneStone) et attributs (Kind, Idx) lus par le serveur et le client sont conservés.
 function Builder.monument(parent)
 	local gold = Color3.fromRGB(255, 214, 120)
-	part({ Name = "MonumentBase", Size = Vector3.new(1.4, 17, 17), CFrame = CFrame.new(0, 0.8, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(176, 160, 128), Material = Enum.Material.Slate }, parent)
-	part({ Name = "MonumentStep", Size = Vector3.new(0.8, 12, 12), CFrame = CFrame.new(0, 1.7, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(130, 116, 92), Material = Enum.Material.Slate }, parent)
+	local E = Config.Map2.bigEgg
+	local ox, oz = E.x, E.z
+	part({ Name = "BigEggPlace", Size = Vector3.new(0.2, E.r * 2, E.r * 2), CFrame = CFrame.new(ox, 0.48, oz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(190, 176, 150), Material = Enum.Material.Cobblestone, CanCollide = false }, parent)
+	part({ Name = "MonumentBase", Size = Vector3.new(1.4, 17, 17), CFrame = CFrame.new(ox, 0.8, oz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(176, 160, 128), Material = Enum.Material.Slate }, parent)
+	part({ Name = "MonumentStep", Size = Vector3.new(0.8, 12, 12), CFrame = CFrame.new(ox, 1.7, oz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(130, 116, 92), Material = Enum.Material.Slate }, parent)
 	local egg = Instance.new("Part")
 	egg.Name = "GrandNid"
 	egg.Anchored = true
-	egg.Size = Vector3.new(8, 11, 8)
-	egg.CFrame = CFrame.new(0, 8.1, 0)
+	egg.Size = Vector3.new(E.h * 0.72, E.h, E.h * 0.72)
+	local eggY = 2.1 + E.h / 2
+	egg.CFrame = CFrame.new(ox, eggY, oz)
 	egg.Color = gold
 	egg.Material = Enum.Material.Metal
 	local mesh = Instance.new("SpecialMesh")
@@ -1485,7 +1498,7 @@ function Builder.monument(parent)
 	mesh.Parent = egg
 	local glow = Instance.new("PointLight")
 	glow.Color = gold
-	glow.Range = 28
+	glow.Range = 32
 	glow.Brightness = 1.5
 	glow.Parent = egg
 	local sparks = Instance.new("ParticleEmitter")
@@ -1500,15 +1513,15 @@ function Builder.monument(parent)
 	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
 	sparks.Parent = egg
 	egg.Parent = parent
-	for k, c in ipairs({ { 0, 9.5, -3.7, 0.3 }, { 1.2, 6.6, -3.75, -0.5 }, { -1.1, 4.2, -3.6, 0.6 } }) do -- fissures lumineuses
-		part({ Name = "Crack" .. k, Size = Vector3.new(0.35, 3.2, 0.35), CFrame = CFrame.new(c[1], c[2], c[3]) * CFrame.Angles(0, 0, c[4]), Color = Color3.fromRGB(255, 248, 200), Material = Enum.Material.Neon, CanCollide = false }, parent)
+	local ew = E.h * 0.36
+	for k, c in ipairs({ { 0, 0.42, -0.98, 0.3 }, { 0.15, 0.05, -1, -0.5 }, { -0.14, -0.28, -0.97, 0.6 } }) do -- fissures lumineuses (face nord)
+		part({ Name = "Crack" .. k, Size = Vector3.new(0.35, 3.6, 0.35), CFrame = CFrame.new(ox + c[1] * ew, eggY + c[2] * E.h / 2, oz + c[3] * ew) * CFrame.Angles(0, 0, c[4]), Color = Color3.fromRGB(255, 248, 200), Material = Enum.Material.Neon, CanCollide = false }, parent)
 	end
 	-- Quatre runes cardinales (Nord = côté des rivaux). Chaque joueur règle ses propres runes : le symbole affiché est local au client
 	-- (étiquette « Label » modifiée côté client), l'état est tenu par le serveur.
-	local dirs = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } }
-	for k, dv in ipairs(dirs) do
-		local x, z = dv[1] * 9.5, dv[2] * 9.5
-		local stone = part({ Name = "RuneStone", Size = Vector3.new(2.4, 5, 1.2), CFrame = CFrame.lookAt(Vector3.new(x, 3.2, z), Vector3.new(0, 3.2, 0)), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
+	for k, rs in ipairs(Config.Map2.runeStones) do -- ordre N, E, S, O (= Config.RUNE_DIRECTIONS)
+		local x, z = rs.x, rs.z
+		local stone = part({ Name = "RuneStone", Size = Vector3.new(2.4, 5, 1.2), CFrame = CFrame.lookAt(Vector3.new(x, 2.7, z), Vector3.new(ox, 2.7, oz)), Color = Color3.fromRGB(110, 104, 96), Material = Enum.Material.Slate }, parent)
 		stone:SetAttribute("Idx", k)
 		CollectionService:AddTag(stone, "RuneStone")
 		part({ Name = "RuneGlow", Size = Vector3.new(1.1, 3.4, 0.2), CFrame = stone.CFrame * CFrame.new(0, 0.2, -0.65), Color = gold, Material = Enum.Material.Neon, CanCollide = false }, parent)
@@ -1527,16 +1540,17 @@ function Builder.monument(parent)
 	-- Valider la combinaison en touchant le Grand Nid
 	local confirm = Instance.new("ProximityPrompt")
 	confirm.ActionText = "Poser la combinaison"
-	confirm.ObjectText = "Grand Nid"
+	confirm.ObjectText = "Grand Œuf"
 	confirm.HoldDuration = 0.5
 	confirm.MaxActivationDistance = 14
 	confirm.RequiresLineOfSight = false
 	confirm:SetAttribute("Kind", "RuneConfirm")
 	confirm.Parent = egg
 	-- Panneau de l'énigme de Mère Poule (texte mis à jour chaque jour par le serveur), lisible des deux côtés
-	local board = part({ Name = "RiddleBoard", Size = Vector3.new(12, 4.6, 0.5), Position = Vector3.new(0, 3.8, 14), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, parent)
-	part({ Name = "RiddlePostL", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(-5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
-	part({ Name = "RiddlePostR", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(5.4, 2, 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	local bx, bz = ox + 16, oz + 14
+	local board = part({ Name = "RiddleBoard", Size = Vector3.new(12, 4.6, 0.5), Position = Vector3.new(bx, 3.8, bz), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, parent)
+	part({ Name = "RiddlePostL", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(bx - 5.4, 2, bz), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
+	part({ Name = "RiddlePostR", Size = Vector3.new(0.7, 4, 0.7), Position = Vector3.new(bx + 5.4, 2, bz), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, parent)
 	local labels = {}
 	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
 		local sg = Instance.new("SurfaceGui")
@@ -1566,8 +1580,8 @@ function Builder.monument(parent)
 		body.Parent = sg
 		labels[#labels + 1] = body
 	end
-	local result = { labels = labels, center = Vector3.new(0, 8.1, 0) }
-	local t = sign(egg, "✨ Le Grand Nid ✨\nReconstruis la Couvée, Chipeur !", gold, 9, 340)
+	local result = { labels = labels, center = Vector3.new(ox, eggY, oz) }
+	local t = sign(egg, "✨ Le Grand Œuf ✨\nRéveille la Couvée, Chipeur !", gold, E.h / 2 + 3, 340)
 	t.TextSize = 20
 	return result
 end
@@ -1593,11 +1607,12 @@ function Builder.hen(parent)
 	part({ Name = "HenComb", Size = Vector3.new(0.5, 0.9, 1.2), CFrame = CFrame.new(0, 3.6, -1.7), Color = red, CanCollide = false }, model)
 	part({ Name = "HenBeak", Size = Vector3.new(0.8, 0.5, 0.9), CFrame = CFrame.new(0, 2.15, -3.0), Color = orange, CanCollide = false }, model)
 	ball({ Name = "HenWattle", Size = Vector3.new(0.6, 0.8, 0.5), CFrame = CFrame.new(0, 1.6, -2.8), Color = red }, model)
-	local label = sign(body, "🐔 Mère Poule\nGardienne du Grand Nid", Color3.fromRGB(255, 220, 140), 5.5, 260)
+	local label = sign(body, "🐔 Mère Poule\nGardienne du Grand Œuf", Color3.fromRGB(255, 220, 140), 5.5, 260)
 	label.TextSize = 17
 	model:SetAttribute("Seed", 3)
 	CollectionService:AddTag(model, "Hen")
-	model:PivotTo(CFrame.lookAt(Vector3.new(-9, 3.2, 13), Vector3.new(0, 3.2, 0))) -- regarde le Grand Nid
+	local H, E = Config.Map2.hen, Config.Map2.bigEgg
+	model:PivotTo(CFrame.lookAt(Vector3.new(H.x, 3.2, H.z), Vector3.new(E.x, 3.2, E.z))) -- regarde le Grand Œuf
 	model.Parent = parent
 	return model
 end
@@ -1609,9 +1624,6 @@ local PLOT_COLORS = {
 	Color3.fromRGB(235, 235, 235), Color3.fromRGB(170, 190, 160),
 }
 Builder.PLOT_COLORS = PLOT_COLORS
-local FLOWER_COLORS = {
-	Color3.fromRGB(255, 120, 150), Color3.fromRGB(255, 220, 90), Color3.fromRGB(255, 255, 255), Color3.fromRGB(160, 130, 255), Color3.fromRGB(255, 150, 70),
-}
 
 local function tree(pos, parent, rng)
 	local s = rng:NextNumber(0.85, 1.3)
@@ -1638,24 +1650,21 @@ local function torch(pos, parent)
 	l.Parent = head
 end
 
--- Falaise (cylindre de roche), dalle d'herbe au sommet (à la hauteur H exacte) et rampe du domaine i. Retourne le nombre de Parts.
-function Builder.plateau(i, parent, riv)
-	local d = Config.Map.domains[i]
-	local R, H = Config.Map.plateauRadius, d.h
-	local f = Instance.new("Folder")
-	f.Name = "Terrace_" .. riv.name
-	f.Parent = parent
-	-- falaise : de -2 à H - 0,5 ; dalle d'herbe : de H - 0,5 à H (son dessus est le sol du domaine)
-	part({ Name = "Cliff", Size = Vector3.new(H + 1.5, R * 2, R * 2), CFrame = CFrame.new(d.x, (H - 0.5 - 2) / 2, d.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(128, 122, 118), Material = Enum.Material.Slate }, f)
-	part({ Name = "PlateauTop", Size = Vector3.new(0.5, R * 2 - 1.5, R * 2 - 1.5), CFrame = CFrame.new(d.x, H - 0.25, d.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(92, 160, 82), 0.65), Material = Enum.Material.Grass }, f)
-	local ramp = Config.rampOf(i)
-	local len = math.sqrt(ramp.run ^ 2 + H ^ 2)
-	local mid = Vector3.new((ramp.top[1] + ramp.bottom[1]) / 2, H / 2 - 0.5, (ramp.top[2] + ramp.bottom[2]) / 2)
-	part({ Name = "Ramp", Size = Vector3.new(Config.Map.rampWidth, 1, len), CFrame = CFrame.lookAt(mid, Vector3.new(ramp.bottom[1], -0.5, ramp.bottom[2])), Color = Color3.fromRGB(176, 150, 112), Material = Enum.Material.Slate }, f)
-	return 3
+-- Décale de dy toutes les Parts d'un dossier (contenu d'un territoire posé sur le plateau du château).
+local function liftFolder(folder, dy)
+	if dy == 0 then
+		return
+	end
+	for _, d in ipairs(folder:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.CFrame = d.CFrame + Vector3.new(0, dy, 0)
+		end
+	end
 end
 
--- Retourne { plots, nests, treadmill, guards, treadmillContains }
+-- Retourne { plots, nests, treadmill, guards, treadmillContains, fastTravel, partCount, ... }
+-- REFONTE (lot 2) : carte Config.Map2 (700 x 500) : place du marché au centre, 5 bases tournées vers la place, territoires de Config.TERR,
+-- château sur plateau au nord-est, arène au sud-ouest, lacs, rivières en polylignes. Géométrie dérivée : MapGeo.
 function Builder.build()
 	local world = Instance.new("Folder")
 	world.Name = "World"
@@ -1672,205 +1681,171 @@ function Builder.build()
 	end
 
 	Builder.setupLighting()
+	local M2 = Config.Map2
+	local G = MapGeoMod.new(Config)
+	local P = PlacementMod.new(Config, MapGeoMod)
 
-	-- Sol, relief et décor ----------------------------------------------------------
-	part({ Name = "Ground", Size = Vector3.new(Config.Map.groundSize, 2, Config.Map.groundSize), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
-	local rng = Random.new(7)
-	local half = Config.Map.groundSize / 2
-	local DC = Config.Map.decor
-	local patchSpots = {}
-	for _ = 1, DC.patches do -- taches d'herbe plus claires / plus sombres, sans jamais se recouvrir (deux faces coplanaires scintilleraient)
-		local d = rng:NextNumber(40, 100)
-		local px, pz
-		for _ = 1, 40 do
-			local tx, tz = rng:NextNumber(-half + 60, half - 60), rng:NextNumber(-half + 60, half - 60)
-			local free = math.sqrt(tx * tx + tz * tz) > 100 + d / 2 -- jamais sous l'arène
-			for _, o in ipairs(patchSpots) do
-				if math.sqrt((tx - o[1]) ^ 2 + (tz - o[2]) ^ 2) < (d + o[3]) / 2 + 2 then
-					free = false
-					break
-				end
-			end
-			if free then
-				px, pz = tx, tz
-				break
-			end
-		end
-		if px then
-			patchSpots[#patchSpots + 1] = { px, pz, d }
-			local c = rng:NextNumber() < 0.5 and Color3.fromRGB(104, 172, 90) or Color3.fromRGB(80, 146, 74)
-			part({ Name = "Patch", Size = Vector3.new(0.1, d, d), CFrame = CFrame.new(px, 0.03, pz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = c, Material = Enum.Material.Grass, CanCollide = false }, world)
+	-- Sol (herbe : zone jouable + décor de fond), bornes, collines, forêts --------------------------
+	part({ Name = "Ground", Size = Vector3.new(M2.backdrop.w, 2, M2.backdrop.d), Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(92, 160, 82), Material = Enum.Material.Grass }, world)
+	local sceneryHelpers = { part = part, ball = ball, tree = tree, torch = torch, sign = sign }
+	local sceneryParts = 0
+	local function deco(name, fn)
+		local okS, countS = pcall(fn)
+		if okS then
+			sceneryParts += countS or 0
+		else
+			warn("[Builder] décor « " .. name .. " » : " .. tostring(countS))
 		end
 	end
-	for k = 0, DC.hills - 1 do -- collines à l'horizon (hors de la zone de jeu)
-		local a = k / DC.hills * math.pi * 2
-		local sz = rng:NextNumber(240, 380)
-		ball({ Name = "Hill", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * (half + 90), -sz * 0.36, math.cos(a) * (half + 90)), Color = Color3.fromRGB(78 + (k % 3) * 8, 150 + (k % 2) * 10, 80), Material = Enum.Material.Grass }, world)
-	end
-	for _, w in ipairs({ { 0, half - 2, half * 2, 4 }, { 0, -half + 2, half * 2, 4 }, { half - 2, 0, 4, half * 2 }, { -half + 2, 0, 4, half * 2 } }) do -- murs invisibles : on ne tombe plus dans le vide
-		part({ Name = "Wall", Size = Vector3.new(w[3], 100, w[4]), Position = Vector3.new(w[1], 50, w[2]), Transparency = 1 }, world).CanQuery = false
-	end
-	part({ Name = "ArenaRim", Size = Vector3.new(0.2, 156, 156), CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 125, 85), Material = Enum.Material.Sand, CanCollide = false }, world)
-	part({ Name = "Arena", Size = Vector3.new(0.3, 150, 150), CFrame = CFrame.new(0, 0.02, 0) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(214, 190, 140), Material = Enum.Material.Sand, CanCollide = false }, world)
+	deco("relief", function()
+		local savedYield = PlacementMod.yield -- la carte se construit d'un bloc (pas de pause) : le serveur n'est prêt qu'après
+		PlacementMod.yield = nil
+		local okF, forest = pcall(P.forest)
+		PlacementMod.yield = savedYield
+		return Scenery.relief(sceneryHelpers, world, Config, okF and forest or {})
+	end)
+	deco("plaza", function()
+		return Scenery.plaza(sceneryHelpers, world, Config)
+	end)
 
 	local monument = Builder.monument(world)
 	Builder.hen(world)
 
-	local function inDomain(x, z)
-		for i = 1, #Config.RIVALS do
-			local dx, dz = Config.rivalCenter(i)
-			if math.sqrt((x - dx) ^ 2 + (z - dz) ^ 2) < Config.Map.domainRadius + 14 then
-				return true
-			end
-		end
-		return false
-	end
-	for _ = 1, DC.trees do
-		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(90, 125)
-		local tx, tz = math.sin(a) * r, math.cos(a) * r
-		if not inDomain(tx, tz) then
-			tree(Vector3.new(tx, 0, tz), world, rng)
-		end
-	end
-	for _ = 1, DC.flowers do
-		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 136)
-		ball({ Name = "Flower", Size = Vector3.new(0.9, 0.9, 0.9), Position = Vector3.new(math.sin(a) * r, 0.45, math.cos(a) * r), Color = FLOWER_COLORS[rng:NextInteger(1, #FLOWER_COLORS)] }, world)
-	end
-	for _ = 1, 22 do
-		local a, r = rng:NextNumber(0, math.pi * 2), rng:NextNumber(80, 138)
-		local sz = rng:NextNumber(2.5, 5)
-		ball({ Name = "Rock", Size = Vector3.new(sz, sz, sz), Position = Vector3.new(math.sin(a) * r, sz * 0.15, math.cos(a) * r), Color = Color3.fromRGB(130, 134, 140), Material = Enum.Material.Slate }, world)
-	end
+	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center, geo = G }
 
-	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center }
-
-	-- Rivaux PNJ (au nord, z négatif) ------------------------------------------------
-	local sceneryHelpers = { part = part, ball = ball, tree = tree, torch = torch, sign = sign }
-	local sceneryParts = 0
-	for i, riv in ipairs(Config.RIVALS) do
-		local cx, cz = Config.rivalCenter(i)
+	-- Territoires (Config.TERR) : nids, postes des gardiens, décor, barrière des zones verrouillées, panneau de difficulté ---------------
+	local gIndex = {} -- numéro du gardien dans son rival (Guard<rival>_<j>)
+	for _, t in ipairs(G.terrs) do
 		local folder = Instance.new("Folder")
-		folder.Name = "Rival_" .. riv.name
+		local riv = t.rival > 0 and Config.RIVALS[t.rival] or nil
+		folder.Name = Config.territoryFolder(t.key)
+		folder:SetAttribute("Territory", t.key)
 		folder.Parent = world
-		part({ Name = "GlowRing", Size = Vector3.new(0.4, 38, 38), CFrame = CFrame.new(cx, 0.3, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color, Material = Enum.Material.SmoothPlastic, CanCollide = false }, folder)
-		part({ Name = "Disc", Size = Vector3.new(1, 34, 34), CFrame = CFrame.new(cx, 0.5, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = riv.color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Slate, CanCollide = false }, folder)
-		for k = 0, DC.fencePosts - 1 do -- palissade sur l'arrière (le devant reste ouvert vers l'arène)
-			local t = -0.15 * math.pi + k * (1.3 * math.pi / (DC.fencePosts - 1))
-			local pp = Vector3.new(cx + 17.5 * math.cos(t), 0, cz - 17.5 * math.sin(t))
-			part({ Name = "Post", Size = Vector3.new(1, 4, 1), Position = pp + Vector3.new(0, 2.5, 0), Color = Color3.fromRGB(100, 70, 46), Material = Enum.Material.Wood }, folder)
-			ball({ Name = "PostCap", Size = Vector3.new(0.9, 0.9, 0.9), Position = pp + Vector3.new(0, 4.9, 0), Color = riv.color, Material = Enum.Material.Neon }, folder)
-		end
-		torch(Vector3.new(cx - 15, 0.5, cz + 9), folder)
-		torch(Vector3.new(cx + 15, 0.5, cz + 9), folder)
-		sceneryParts += Scenery.moat(sceneryHelpers, cx, cz, folder, Config)
-		local theme = Scenery[Config.Map.zoneKeys[i]]
-		if theme then
-			local okS, countS = pcall(theme, sceneryHelpers, cx, cz, folder, Random.new(100 + i))
-			if okS then
-				sceneryParts += countS
-			else
-				warn("[Builder] décor du domaine " .. riv.name .. " : " .. tostring(countS))
+		local y0 = G.groundY(t.x, t.z)
+		local nestRival = riv and t.rival or 1 -- enclos sauvage : rattaché au domaine de Gus (toujours ouvert), poids propres (Config.TERR.wild)
+		local color = riv and riv.color or Color3.fromRGB(200, 170, 110)
+		if riv then
+			part({ Name = "Disc", Size = Vector3.new(0.2, t.r * 2, t.r * 2), CFrame = CFrame.new(t.x, 0.12, t.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = color:Lerp(Color3.fromRGB(70, 55, 40), 0.55), Material = Enum.Material.Ground, Transparency = 0.35, CanCollide = false, CanQuery = false }, folder)
+			local ex, ez = t.entry.x, t.entry.z
+			torch(Vector3.new(ex - 4, 0, ez), folder)
+			torch(Vector3.new(ex + 4, 0, ez), folder)
+			local pole = part({ Name = "Sign", Size = Vector3.new(1, 9, 1), Position = Vector3.new(t.x, 4.5, t.z - t.r + 6), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
+			part({ Name = "Flag", Size = Vector3.new(0.2, 3, 5), Position = Vector3.new(t.x + 0.2, 8, t.z - t.r + 8.5), Color = riv.color, Material = Enum.Material.Fabric, CanCollide = false }, folder)
+			local lbl = sign(pole, riv.emoji .. " " .. riv.name .. "  " .. string.rep("★", riv.stars), Color3.fromRGB(255, 220, 90), 7, 260)
+			lbl.TextSize = 22
+			-- panneau de difficulté à l'entrée du territoire : étoiles et nombre de gardiens du territoire
+			local dx, dz = ex + 8, ez
+			local count = #t.posts
+			local post = part({ Name = "DifficultySign", Size = Vector3.new(0.8, 6, 0.8), Position = Vector3.new(dx, 3, dz), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			local board = part({ Name = "DifficultyBoard", Size = Vector3.new(7, 3, 0.5), Position = Vector3.new(dx, 6.8, dz), Color = Color3.fromRGB(70, 50, 36), Material = Enum.Material.WoodPlanks, CanCollide = false }, folder)
+			local dl = sign(board, string.rep("⭐", riv.stars) .. string.rep("☆", 5 - riv.stars) .. "\n" .. riv.name .. " : " .. count .. " gardien" .. (count > 1 and "s" or ""), Color3.fromRGB(255, 220, 120), 0, 200)
+			dl.TextSize = 16
+			post.Anchored = true
+			board:SetAttribute("Stars", riv.stars)
+			local theme = Scenery[Config.Map.zoneKeys[t.rival]]
+			if theme then
+				local okS, countS = pcall(theme, sceneryHelpers, t, folder, Random.new(100 + t.rival * 7 + #t.key), 0)
+				if okS then
+					sceneryParts += countS
+				else
+					warn("[Builder] décor du territoire " .. t.key .. " : " .. tostring(countS))
+				end
 			end
+			local zone = Config.ZONES[t.rival]
+			if zone and zone.chapter > 0 then
+				-- Barrière du territoire verrouillé. Elle est solide pour tous ; le client la rend traversable (localement) dès que le
+				-- joueur a réussi le chapitre requis. Le serveur refuse de toute façon tout vol dans une zone verrouillée.
+				local gate = part({ Name = "ZoneGate", Size = Vector3.new(12, t.r * 2 + 2, t.r * 2 + 2), CFrame = CFrame.new(t.x, 6, t.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(255, 70, 90), Material = Enum.Material.Neon, Transparency = 0.6 }, folder)
+				gate:SetAttribute("Rival", t.rival)
+				gate:SetAttribute("Chapter", zone.chapter)
+				CollectionService:AddTag(gate, "ZoneGate")
+				sign(gate, "🔒 " .. zone.name .. "\nHistoire : chapitre " .. zone.chapter, Color3.fromRGB(255, 210, 210), 10, 300)
+			end
+		else
+			-- enclos sauvage : clôture basse ouverte au sud, sans gardien
+			local W = M2.wildPen
+			for _, r in ipairs({ { 0, -W.d / 2, W.w, 0.4 }, { -W.w / 2, 0, 0.4, W.d }, { W.w / 2, 0, 0.4, W.d } }) do
+				part({ Name = "PenRail", Size = Vector3.new(r[3], 0.5, r[4]), Position = Vector3.new(t.x + r[1], 2, t.z + r[2]), Color = Color3.fromRGB(140, 104, 70), Material = Enum.Material.Wood }, folder)
+			end
+			for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+				part({ Name = "PenPost", Size = Vector3.new(0.7, 3, 0.7), Position = Vector3.new(t.x + c[1] * W.w / 2, 1.5, t.z + c[2] * W.d / 2), Color = Color3.fromRGB(120, 88, 58), Material = Enum.Material.Wood }, folder)
+			end
+			local pole = part({ Name = "Sign", Size = Vector3.new(0.8, 6, 0.8), Position = Vector3.new(t.x - W.w / 2 - 2, 3, t.z + W.d / 2), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
+			sign(pole, "🧺 Enclos sauvage\nÀ chiper sans gardien !", Color3.fromRGB(255, 230, 150), 5, 240)
 		end
-		local zone = Config.ZONES[i]
-		if zone and zone.chapter > 0 then
-			-- Barrière du domaine verrouillé. Elle est solide pour tous ; le client la rend traversable (localement) dès que le
-			-- joueur a réussi le chapitre requis. Le serveur refuse de toute façon tout vol dans une zone verrouillée.
-			local gate = part({ Name = "ZoneGate", Size = Vector3.new(12, 40, 40), CFrame = CFrame.new(cx, 6, cz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(255, 70, 90), Material = Enum.Material.Neon, Transparency = 0.6 }, folder)
-			gate:SetAttribute("Rival", i)
-			gate:SetAttribute("Chapter", zone.chapter)
-			CollectionService:AddTag(gate, "ZoneGate")
-			sign(gate, "🔒 " .. zone.name .. "\nHistoire : chapitre " .. zone.chapter, Color3.fromRGB(255, 210, 210), 10, 300)
-		end
-		local pole = part({ Name = "Sign", Size = Vector3.new(1, 9, 1), Position = Vector3.new(cx, 4.5, cz - 14), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, folder)
-		part({ Name = "Flag", Size = Vector3.new(0.2, 3, 5), Position = Vector3.new(cx + 0.2, 8, cz - 11.5), Color = riv.color, Material = Enum.Material.Fabric, CanCollide = false }, folder)
-		local t = sign(pole, riv.emoji .. " " .. riv.name .. "  " .. string.rep("★", riv.stars), Color3.fromRGB(255, 220, 90), 7, 260)
-		t.TextSize = 22
-		for j = 1, 3 do
-			local nx = cx + (j - 2) * 8
-			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.Wood, CanCollide = false }, folder)
-			part({ Name = "NestStraw", Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(nx, 1.32, cz - 3) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(226, 196, 120), Material = Enum.Material.Fabric, CanCollide = false }, folder)
-			Scenery.marker(sceneryHelpers, Vector3.new(nx, 0.5, cz - 3), folder, "✋", 8)
+		for ni, np in ipairs(t.nests or {}) do
+			local nx, nz = np[1], np[2]
+			local mound = part({ Name = "Nest", Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(nx, 1, nz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.Wood, CanCollide = false }, folder)
+			part({ Name = "NestStraw", Size = Vector3.new(0.3, 4.4, 4.4), CFrame = CFrame.new(nx, 1.32, nz) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(226, 196, 120), Material = Enum.Material.Fabric, CanCollide = false }, folder)
+			Scenery.marker(sceneryHelpers, Vector3.new(nx, 0.5 + ni * 0.06, nz), folder, "✋", 8) -- hauteurs distinctes : nids proches (enclos sauvage) sans z-fighting
 			sceneryParts += 1
-			result.nests[#result.nests + 1] = { rival = i, pos = Vector3.new(nx, 3.2, cz - 3), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
+			result.nests[#result.nests + 1] = { rival = nestRival, terr = t.key, weights = (not riv) and t.data.weights or nil, pos = Vector3.new(nx, 3.2 + y0, nz), mound = mound, folder = folder, egg = nil, rt = math.random() * 6 }
 		end
-		-- gardiens : de plus en plus nombreux (1, 2, 3), chacun avec son TERRITOIRE (± 12 studs, jamais superposés) et sa propre ligne de patrouille
-		local count = riv.guards or 1
-		for j = 1, count do
-			local gx, gz = Config.guardTerritory(i, j, count)
-			local g = Builder.guard(i)
-			g.Name = "Guard" .. i .. "_" .. j
+		-- gardiens : un par poste ; territoire = disque du territoire (clampToDisc), patrouille de ± patrolHalf autour du poste
+		for _, post in ipairs(t.posts) do
+			gIndex[t.rival] = (gIndex[t.rival] or 0) + 1
+			local j = gIndex[t.rival]
+			local gx, gz = post[1], post[2]
+			local g = Builder.guard(t.rival)
+			g.Name = "Guard" .. t.rival .. "_" .. j
+			g:SetAttribute("Territory", t.key)
 			g.Parent = folder
-			builtGuards[#builtGuards + 1] = { model = g, rival = i }
+			builtGuards[#builtGuards + 1] = { model = g, rival = t.rival }
+			local inner = t.r - Config.GUARD.territoryMargin
+			local dPost = math.sqrt((gx - t.x) ^ 2 + (gz - t.z) ^ 2)
+			local patrolHalf = math.max(4, math.min(12, inner - dPost))
 			result.guards[#result.guards + 1] = {
-				model = g, rival = i, cx = gx, patrolZ = gz, pos = Vector3.new(gx, 2.4, gz),
-				dir = ((i + j) % 2 == 0) and -1 or 1, state = "patrol", cd = 0, lost = 0,
+				model = g, rival = t.rival, terr = t.key, tx = t.x, tz = t.z, clampR = math.max(inner, dPost + patrolHalf + 0.5), patrolHalf = patrolHalf,
+				cx = gx, patrolZ = gz, pos = Vector3.new(gx, 2.4, gz), dir = ((t.rival + j) % 2 == 0) and -1 or 1, state = "patrol", cd = 0, lost = 0,
 			}
 			g:PivotTo(CFrame.new(gx, 2.4, gz))
 		end
-		-- panneau de difficulté à l'entrée du domaine (devant le pont sud) : étoiles et nombre de gardiens
-		do
-			local post = part({ Name = "DifficultySign", Size = Vector3.new(0.8, 6, 0.8), Position = Vector3.new(cx + 12, 3, cz + Config.Map.plateauRadius - 5), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood, CanCollide = false }, folder)
-			local board = part({ Name = "DifficultyBoard", Size = Vector3.new(7, 3, 0.5), Position = Vector3.new(cx + 12, 6.8, cz + Config.Map.plateauRadius - 5), Color = Color3.fromRGB(70, 50, 36), Material = Enum.Material.WoodPlanks, CanCollide = false }, folder)
-			local lbl = sign(board, string.rep("⭐", riv.stars) .. string.rep("☆", 5 - riv.stars) .. "\n" .. riv.name .. " : " .. count .. " gardien" .. (count > 1 and "s" or ""), Color3.fromRGB(255, 220, 120), 0, 200)
-			lbl.TextSize = 16
-			post.Anchored = true
-			board:SetAttribute("Stars", riv.stars)
-		end
-		-- PLATEAU en terrasse : tout le domaine (décor, nids, gardiens, portail, douve) est relevé de H ; la falaise et la rampe sont posées hors du dossier
-		local H = Config.rivalHeight(i)
-		for _, d in ipairs(folder:GetDescendants()) do
-			if d:IsA("BasePart") then
-				d.CFrame = d.CFrame + Vector3.new(0, H, 0)
+		-- contenu posé sur le sol réel (plateau du château pour la cour de Zed)
+		liftFolder(folder, y0)
+		if y0 ~= 0 then
+			for _, g in ipairs(result.guards) do
+				if g.terr == t.key then
+					g.pos = g.pos + Vector3.new(0, y0, 0)
+				end
 			end
 		end
-		for _, nest in ipairs(result.nests) do
-			if nest.rival == i then
-				nest.pos = nest.pos + Vector3.new(0, H, 0)
-			end
-		end
-		for _, g in ipairs(result.guards) do
-			if g.rival == i then
-				g.pos = g.pos + Vector3.new(0, H, 0)
-			end
-		end
-		sceneryParts += Builder.plateau(i, world, riv)
 	end
 
-	-- Tapis roulant (les rayures sont animées côté client grâce au tag BeltStripe) -----
+	-- Piste d'entraînement (ancien « Treadmill » ; clé `train` inchangée) : les rayures sont animées côté client (tag BeltStripe) -----
 	do
-		local belt = part({ Name = "Treadmill", Size = Vector3.new(16, 1, 40), Position = Vector3.new(0, 0.6, 38), Color = Color3.fromRGB(45, 48, 56), Material = Enum.Material.Metal }, world)
-		belt.AssemblyLinearVelocity = Vector3.new(0, 0, -14) -- le tapis pousse vers -Z : il faut courir vers +Z
+		local T = M2.track
+		local belt = part({ Name = "TrainingTrack", Size = Vector3.new(T.w, 1, T.d), Position = Vector3.new(T.x, 0.6, T.z), Color = Color3.fromRGB(45, 48, 56), Material = Enum.Material.Metal }, world)
+		belt.AssemblyLinearVelocity = Vector3.new(0, 0, -14) -- la piste pousse vers -Z : il faut courir vers +Z
 		for k = 0, 7 do
-			local stripe = part({ Name = "Stripe", Size = Vector3.new(14, 0.1, 1.2), Position = Vector3.new(0, 1.16, 38 - 17.5 + k * 5), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon, CanCollide = false }, belt)
+			local stripe = part({ Name = "Stripe", Size = Vector3.new(T.w - 2, 0.1, 1.2), Position = Vector3.new(T.x, 1.16, T.z - 17.5 + k * 5), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon, CanCollide = false }, belt)
 			stripe:SetAttribute("Z0", -17.5 + k * 5)
-			stripe:SetAttribute("CenterZ", 38)
+			stripe:SetAttribute("CenterZ", T.z)
 			CollectionService:AddTag(stripe, "BeltStripe")
 		end
-		for _, sx in ipairs({ -8.6, 8.6 }) do
-			part({ Name = "Rail", Size = Vector3.new(0.8, 1.6, 40), Position = Vector3.new(sx, 1.1, 38), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon }, world)
+		for _, sx in ipairs({ -T.w / 2 - 0.6, T.w / 2 + 0.6 }) do
+			part({ Name = "Rail", Size = Vector3.new(0.8, 1.6, T.d), Position = Vector3.new(T.x + sx, 1.1, T.z), Color = Color3.fromRGB(255, 210, 63), Material = Enum.Material.Neon }, world)
 		end
-		local pole = part({ Name = "TreadSign", Size = Vector3.new(1, 8, 1), Position = Vector3.new(-11, 4, 38), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
-		sign(pole, "🏃 TAPIS ROULANT\nCours dessus pour gagner en vitesse !", Color3.fromRGB(255, 220, 90), 6, 300)
+		local pole = part({ Name = "TreadSign", Size = Vector3.new(1, 8, 1), Position = Vector3.new(T.x + T.w / 2 + 3, 4, T.z + T.d / 2 - 2), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+		sign(pole, "🏃 PISTE D'ENTRAÎNEMENT\nCours dessus pour gagner en vitesse !", Color3.fromRGB(255, 220, 90), 6, 300)
 		result.treadmill = { cf = belt.CFrame, size = belt.Size }
 	end
 
-	-- Bases des joueurs ---------------------------------------------------------------
+	-- Bases des joueurs : façade (-Z local) tournée vers la place, spawn devant ---------------------------
 	local N = Config.PLOT_COUNT
-	local radius = Config.Map.plotRadius
+	local half = M2.basePlatform / 2
 	for i = 1, N do
 		local pc = PLOT_COLORS[(i - 1) % #PLOT_COLORS + 1]
-		local a = (i - 1) / N * math.pi * 2
-		local pos = Vector3.new(math.sin(a) * radius, 0, math.cos(a) * radius)
-		local cf = CFrame.lookAt(pos, Vector3.new(0, 0, 0)) -- l'avant (-Z) regarde le centre
+		local b = G.bases[(i - 1) % #G.bases + 1]
+		local pos = Vector3.new(b.x, 0, b.z)
+		local cf = CFrame.lookAt(pos, Vector3.new(M2.plaza.x, 0, M2.plaza.z)) -- l'avant (-Z) regarde la place
 		local model = Instance.new("Model")
 		model.Name = "Plot" .. i
 		model.Parent = world
-		local plat = part({ Name = "Platform", Size = Vector3.new(52, 1, 52), CFrame = cf * CFrame.new(0, 0.5, 0), Color = Color3.fromRGB(62, 112, 88):Lerp(pc, 0.15), Material = Enum.Material.Concrete }, model)
-		for _, e in ipairs({ { 0, -25.5, 52, 1 }, { 0, 25.5, 52, 1 }, { -25.5, 0, 1, 52 }, { 25.5, 0, 1, 52 } }) do -- liseré néon aux couleurs de la base
+		local plat = part({ Name = "Platform", Size = Vector3.new(half * 2, 1, half * 2), CFrame = cf * CFrame.new(0, 0.5, 0), Color = Color3.fromRGB(62, 112, 88):Lerp(pc, 0.15), Material = Enum.Material.Concrete }, model)
+		for _, e in ipairs({ { 0, -half + 0.5, half * 2, 1 }, { 0, half - 0.5, half * 2, 1 }, { -half + 0.5, 0, 1, half * 2 }, { half - 0.5, 0, 1, half * 2 } }) do -- liseré néon aux couleurs de la base
 			part({ Name = "Edge", Size = Vector3.new(e[3], 0.25, e[4]), CFrame = cf * CFrame.new(e[1], 1.1, e[2]), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
 		end
-		for _, c in ipairs({ { -25, -25 }, { 25, -25 }, { -25, 25 }, { 25, 25 } }) do -- lampadaires
+		for _, c in ipairs({ { -half + 1, -half + 1 }, { half - 1, -half + 1 }, { -half + 1, half - 1 }, { half - 1, half - 1 } }) do -- lampadaires
 			part({ Name = "LampPost", Size = Vector3.new(0.9, 7, 0.9), CFrame = cf * CFrame.new(c[1], 4.5, c[2]), Color = Color3.fromRGB(50, 52, 60), Material = Enum.Material.Metal }, model)
 			ball({ Name = "Lamp", Size = Vector3.new(1.8, 1.8, 1.8), CFrame = cf * CFrame.new(c[1], 8.4, c[2]), Color = Color3.fromRGB(255, 235, 170), Material = Enum.Material.Neon }, model)
 		end
@@ -1886,7 +1861,7 @@ function Builder.build()
 		spawn.Neutral = true
 		spawn.Duration = 0
 		spawn.Size = Vector3.new(6, 0.4, 6)
-		spawn.CFrame = cf * CFrame.new(0, 1.2, -20)
+		spawn.CFrame = cf * CFrame.new(0, 1.2, -M2.spawnForward)
 		spawn.Color = pc
 		spawn.Material = Enum.Material.Neon
 		spawn.Transparency = 0.4
@@ -1907,7 +1882,7 @@ function Builder.build()
 		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
 		local plank = part({ Name = "Plank", Size = Vector3.new(18, 4.2, 0.7), CFrame = cf * CFrame.new(0, 8.6, 23.6), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, model)
 		local sg = Instance.new("SurfaceGui")
-		sg.Face = Enum.NormalId.Front -- face -Z de la planche = côté arène
+		sg.Face = Enum.NormalId.Front -- face -Z de la planche = côté place
 		sg.CanvasSize = Vector2.new(720, 168)
 		sg.LightInfluence = 0
 		sg.Adornee = plank
@@ -1924,69 +1899,57 @@ function Builder.build()
 		board.Name = "BoardPole"
 
 		builtPlots[i] = { spawn = spawn }
-		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat, color = pc }
+		result.plots[i] = { model = model, cf = cf, pads = pads, spawn = spawn, nameLabel = nameLabel, owner = nil, platform = plat, color = pc, index = i }
 	end
 
-	-- Chemins, repères lointains, relief, secrets (chaque bloc est isolé : une erreur de décor ne bloque jamais le jeu)
-	local srng = Random.new(2024)
-	for name, fn in pairs({
-		paths = function()
-			return Scenery.paths(sceneryHelpers, world, Config)
-		end,
-		rivers = function()
-			return Scenery.rivers(sceneryHelpers, world, Config)
-		end,
-		castle = function()
-			local cw, cn = Scenery.castle(sceneryHelpers, world, Castle)
-			result.castle = cw
-			builtCastle = cw
-			return cn
-		end,
-		lakes = function()
-			return Scenery.lakes(sceneryHelpers, world, Config)
-		end,
-		landmarks = function()
-			return Scenery.landmarks(sceneryHelpers, world, srng)
-		end,
-		relief = function()
-			return Scenery.relief(sceneryHelpers, world, srng, Config)
-		end,
-		secrets = function()
-			return Scenery.secrets(sceneryHelpers, world, Config)
-		end,
-	}) do
-		local okS, countS = pcall(fn)
-		if okS then
-			sceneryParts += countS
-		else
-			warn("[Builder] décor « " .. name .. " » : " .. tostring(countS))
-		end
-	end
-	local total = 0
-	for _, d in ipairs(world:GetDescendants()) do
-		if d:IsA("BasePart") then
-			total += 1
-		end
-	end
-	result.partCount = total
-	if total > Config.Map.budgetParts then
-		warn("[Builder] budget mobile dépassé : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. "). Réduis le décor (Scenery) ou Config.Map.budgetParts.")
-	else
-		print("[Builder] carte construite : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. ")")
-	end
+	-- Chemins, eau, château, arène, secrets (chaque bloc est isolé : une erreur de décor ne bloque jamais le jeu)
+	deco("paths", function()
+		return Scenery.paths(sceneryHelpers, world, Config, G)
+	end)
+	deco("rivers", function()
+		return Scenery.rivers(sceneryHelpers, world, Config, G)
+	end)
+	deco("lakes", function()
+		return Scenery.lakes(sceneryHelpers, world, Config, G)
+	end)
+	local doorPos = nil
+	deco("castlePlateau", function()
+		local count, door = Scenery.castlePlateau(sceneryHelpers, world, Config, G)
+		doorPos = door
+		return count
+	end)
+	deco("castle", function()
+		local cw, cn = Scenery.castle(sceneryHelpers, world, Castle, doorPos)
+		result.castle = cw
+		builtCastle = cw
+		return cn
+	end)
+	deco("arena", function()
+		return Scenery.arena(sceneryHelpers, world, Config)
+	end)
+	deco("secrets", function()
+		return Scenery.secrets(sceneryHelpers, world, Config)
+	end)
 
-	-- Voyage rapide : portails du Grand Nid vers chaque zone et portails de retour au pied des rampes (prompt serveur, tag « FastTravel », attribut Dest)
+	-- Voyage rapide (Config.TRAVEL2) : 4 portails sur la rose des portails, un tapis de retour vers la place près de chaque arrivée, une arche
+	-- « Retour à la base » par base sur la place (prompt serveur, tag « FastTravel », attribut Dest ; le serveur valide tout)
 	result.fastTravel = {}
 	do
 		local folder = Instance.new("Folder")
 		folder.Name = "FastTravel"
 		folder.Parent = world
-		local function pad(x, z, dest, label, color)
-			local p = part({ Name = "TravelPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 7, 7), CFrame = CFrame.new(x, 0.3, z) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.SmoothPlastic, Transparency = 0.25, CanCollide = false }, folder)
-			part({ Name = "TravelRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 8.4, 8.4), CFrame = CFrame.new(x, 0.18, z) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.SmoothPlastic, Transparency = 0.5, CanCollide = false }, folder)
-			sign(p, label, color:Lerp(Color3.new(1, 1, 1), 0.4), 4.5, 190)
+		local function pad(x, z, dest, label, color, arch)
+			local p = part({ Name = "TravelPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 7, 7), CFrame = CFrame.new(x, 0.55, z) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.SmoothPlastic, Transparency = 0.25, CanCollide = false }, folder)
+			part({ Name = "TravelRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 8.4, 8.4), CFrame = CFrame.new(x, 0.52, z) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.SmoothPlastic, Transparency = 0.5, CanCollide = false }, folder)
+			if arch then -- arche : deux piliers et un linteau (on passe dessous)
+				for _, sx in ipairs({ -4, 4 }) do
+					part({ Name = "TravelArch", Size = Vector3.new(1, 9, 1), Position = Vector3.new(x + sx, 4.5, z), Color = color:Lerp(Color3.fromRGB(80, 70, 60), 0.4), Material = Enum.Material.Slate }, folder)
+				end
+				part({ Name = "TravelArch", Size = Vector3.new(9.6, 1.2, 1.2), Position = Vector3.new(x, 9.4, z), Color = color, Material = Enum.Material.Neon, CanCollide = false }, folder)
+			end
+			sign(p, label, color:Lerp(Color3.new(1, 1, 1), 0.4), arch and 11 or 4.5, 190)
 			local pr = Instance.new("ProximityPrompt")
-			pr.ActionText = "Voyage rapide"
+			pr.ActionText = dest < 0 and "Rentrer à la base" or "Voyage rapide"
 			pr.ObjectText = label
 			pr.HoldDuration = 0.6
 			pr.MaxActivationDistance = 8
@@ -1996,13 +1959,30 @@ function Builder.build()
 			CollectionService:AddTag(pr, "FastTravel")
 			result.fastTravel[#result.fastTravel + 1] = { prompt = pr, dest = dest, pos = Vector3.new(x, 0.3, z) }
 		end
-		local cols = { Color3.fromRGB(110, 200, 120), Color3.fromRGB(170, 120, 230), Color3.fromRGB(255, 130, 90) }
-		for i = 1, #Config.RIVALS do
-			local x, z = Config.travelPad(i)
-			pad(x, z, i, "🌀 " .. Config.ZONES[i].name, cols[i])
-			local rx, rz = Config.returnPad(i)
-			pad(rx, rz, 0, "🌀 Grand Nid", Color3.fromRGB(255, 214, 120))
+		local cols = { Color3.fromRGB(255, 130, 90), Color3.fromRGB(170, 120, 230), Color3.fromRGB(110, 200, 120), Color3.fromRGB(90, 190, 255) }
+		for k, pt in ipairs(G.portals) do
+			pad(pt.pad.x, pt.pad.z, k, "🌀 " .. pt.name .. (pt.chapter > 0 and ("\n🔒 chapitre " .. pt.chapter) or ""), cols[(k - 1) % #cols + 1], true)
+			pad(pt.back.x, pt.back.z, 0, "🌀 Place du marché", Color3.fromRGB(255, 214, 120), false)
 		end
+		for i, a in ipairs(G.homeArches) do
+			if i <= N then
+				pad(a.x, a.z, -i, "🏠 Retour à la base " .. i, PLOT_COLORS[(i - 1) % #PLOT_COLORS + 1], true)
+			end
+		end
+	end
+
+	local total = 0
+	for _, d in ipairs(world:GetDescendants()) do
+		if d:IsA("BasePart") then
+			total += 1
+		end
+	end
+	result.partCount = total
+	result.sceneryParts = sceneryParts
+	if total > Config.Map.budgetParts then
+		warn("[Builder] budget mobile dépassé : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. "). Réduis le décor (Scenery) ou Config.Map.budgetParts.")
+	else
+		print("[Builder] carte construite : " .. total .. " Parts (budget " .. Config.Map.budgetParts .. ")")
 	end
 
 	result.treadmillContains = function(p)

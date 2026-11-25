@@ -1716,7 +1716,7 @@ task.spawn(function()
 				target = best
 			elseif (player:GetAttribute("Speed") or 0) < 8 and state.stolen > 0 then
 				local w = workspace:FindFirstChild("World")
-				target = w and w:FindFirstChild("Treadmill")
+				target = w and w:FindFirstChild("TrainingTrack") -- piste d'entraînement (ancien tapis)
 			end
 		end
 		setGuide(target)
@@ -1761,7 +1761,7 @@ end)
 ---------------------------------------------------------------- Effets du monde
 -- Apparition des pets, onde de choc, récolte, œufs, visages, barrières de zone, confettis : voir Animations.client.lua (activables dans Config.Animations).
 
--- Tapis roulant : les rayures défilent à la vitesse du tapis (-14 studs/s).
+-- Piste d'entraînement (ancien tapis roulant) : les rayures défilent à la vitesse de la piste (-14 studs/s).
 RunService.RenderStepped:Connect(function()
 	local t = os.clock()
 	for _, st in ipairs(CollectionService:GetTagged("BeltStripe")) do

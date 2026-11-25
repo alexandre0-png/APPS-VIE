@@ -470,7 +470,7 @@ end
 
 for i, n in ipairs(world.nests) do
 	n.index = i
-	setNestEgg(n, wpick(Config.RIVALS[n.rival].weights))
+	setNestEgg(n, wpick(n.weights or Config.RIVALS[n.rival].weights)) -- enclos sauvage : poids propres (Config.TERR.wild)
 end
 
 ---------------------------------------------------------------- Pads d'une base
@@ -880,32 +880,50 @@ local function claimSecret(s, root, prompt)
 	sync(s)
 end
 
--- Voyage rapide : le serveur valide TOUT (zone débloquée, joueur vivant, hors combat, hors château, délai) ; l'argument vient d'un attribut du prompt, jamais du client.
+-- Voyage rapide (Config.TRAVEL2) : le serveur valide TOUT (destination, portail débloqué, joueur vivant, hors combat, hors château, à moins de
+-- maxDistance du portail, délai, AUCUN œuf porté : on ne téléporte jamais un œuf) ; la destination vient d'un attribut du prompt, jamais du client.
+-- dest > 0 : portail k de la rose ; 0 : retour à la place ; -i : arche de la base i (réservée à son propriétaire).
 local function fastTravel(s, dest, prompt)
 	local root = getRoot(s.player)
+	local T = Config.TRAVEL2
 	if not root or not alive(s.player) or s.stun > 0 or s.castle then
 		return false
 	end
-	if type(dest) ~= "number" or dest % 1 ~= 0 or dest < 0 or dest > #Config.RIVALS then
+	if type(dest) ~= "number" or dest % 1 ~= 0 or dest < -Config.PLOT_COUNT or dest > #T.portals then
 		return false
 	end
-	if prompt and prompt.Parent and (root.Position - prompt.Parent.CFrame.Position).Magnitude > 20 then
+	if not (prompt and prompt.Parent and prompt.Parent:IsA("BasePart")) or (root.Position - prompt.Parent.CFrame.Position).Magnitude > T.maxDistance + 1 then
 		return false
 	end
 	local now = os.clock()
-	if now - (s.travelAt or -99) < Config.TRAVEL.cooldown then
+	if now - (s.travelAt or -99) < T.cooldown then
 		return false
 	end
-	if s.sinceHit < Config.TRAVEL.combatLock then
+	if s.sinceHit < T.combatLock then
 		notify(s.player, "⚔️ Pas de voyage rapide en plein combat.")
 		return false
 	end
-	if dest > 0 and not Config.zoneUnlocked(s.data.story.ch, dest) then
-		notify(s.player, "🔒 Zone verrouillée : termine l'histoire jusqu'au chapitre " .. Config.ZONES[dest].chapter .. ".", "refuse")
+	if T.blockWhileCarrying and #s.carry > 0 then
+		notify(s.player, "🥚 Pas de portail avec un œuf : rapporte-le à pied !", "refuse")
 		return false
 	end
+	local x, z
+	if dest < 0 then
+		local plot = s.plot
+		if not plot or plot.index ~= -dest then
+			notify(s.player, "🏠 Cette arche mène à la base d'un autre joueur.", "refuse")
+			return false
+		end
+		local sp = plot.spawn.CFrame.Position
+		x, z = sp.X, sp.Z
+	else
+		if dest > 0 and not Config.portalUnlocked(s.data.story.ch, dest) then
+			notify(s.player, "🔒 Portail verrouillé : termine l'histoire jusqu'au chapitre " .. T.portals[dest].chapter .. ".", "refuse")
+			return false
+		end
+		x, z = Config.travelDest(dest)
+	end
 	s.travelAt = now
-	local x, z = Config.travelPoint(dest)
 	root.CFrame = CFrame.new(x, 4, z)
 	root.AssemblyLinearVelocity = Vector3.zero
 	s.noCheckUntil = now + 2
@@ -1111,13 +1129,19 @@ local function inPlot(s, root)
 	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
 end
 
--- Zone de sécurité : la base du joueur et l'entrée du plateau (sommet de la rampe) ne sont jamais ciblées.
-local function safeSpot(s, root, rival)
+-- Zone de sécurité (A.5) : la base du joueur, toute la place du marché et les safeRadius studs autour de l'entrée du territoire du gardien ne sont
+-- jamais ciblés.
+local PLAZA = Config.Map2.plaza
+local function safeSpot(s, root, g)
 	if s.plot and inPlot(s, root) then
 		return true
 	end
-	local ramp = Config.rampOf(rival)
-	return math.sqrt((root.Position.X - ramp.top[1]) ^ 2 + (root.Position.Z - ramp.top[2]) ^ 2) < GC.safeRadius
+	local p = root.Position
+	if math.sqrt((p.X - PLAZA.x) ^ 2 + (p.Z - PLAZA.z) ^ 2) < PLAZA.r then
+		return true
+	end
+	local ex, ez = Config.territoryEntry(g.terr)
+	return math.sqrt((p.X - ex) ^ 2 + (p.Z - ez) ^ 2) < GC.safeRadius
 end
 
 local function candidate(g, r)
@@ -1125,7 +1149,7 @@ local function candidate(g, r)
 	for player, s in pairs(sessions) do
 		if Config.zoneUnlocked(s.data.story.ch, g.rival) and alive(player) then
 			local root = getRoot(player)
-			if root and not safeSpot(s, root, g.rival) then
+			if root and not safeSpot(s, root, g) then
 				local dd = math.sqrt((root.Position.X - g.pos.X) ^ 2 + (root.Position.Z - g.pos.Z) ^ 2)
 				if dd < bd then
 					best, bd = player, dd
@@ -1221,7 +1245,7 @@ local function guardsStep(dt)
 				g.last = Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z)
 			end
 		end
-		local home = Vector3.new(math.clamp(g.pos.X, g.cx - 12, g.cx + 12), g.pos.Y, g.patrolZ)
+		local home = Vector3.new(math.clamp(g.pos.X, g.cx - g.patrolHalf, g.cx + g.patrolHalf), g.pos.Y, g.patrolZ)
 		percept.atHome = (home - g.pos).Magnitude < 1
 		local prev = g.st.state
 		local ev
@@ -1257,9 +1281,9 @@ local function guardsStep(dt)
 		if state == "patrol" then
 			want = true
 			g.pos += Vector3.new(g.dir * r.patrolSpeed * dt, 0, 0)
-			if g.pos.X > g.cx + 12 then
+			if g.pos.X > g.cx + g.patrolHalf then
 				g.dir = -1
-			elseif g.pos.X < g.cx - 12 then
+			elseif g.pos.X < g.cx - g.patrolHalf then
 				g.dir = 1
 			end
 			look = Vector3.new(g.dir, 0, 0)
@@ -1291,10 +1315,9 @@ local function guardsStep(dt)
 				g.pos += look * math.min(dv.Magnitude, r.patrolSpeed * 1.6 * dt)
 			end
 		end
-		-- le gardien reste sur son plateau (jamais dans la douve ni dans le vide), même en poursuite
+		-- le gardien reste dans le disque de SON territoire (Config.TERR), même en poursuite
 		do
-			local dcx, dcz = Config.rivalCenter(g.rival)
-			local nx, nz = Guard.clampToDisc(g.pos.X, g.pos.Z, dcx, dcz, Config.Map.plateauRadius - GC.territoryMargin)
+			local nx, nz = Guard.clampToDisc(g.pos.X, g.pos.Z, g.tx, g.tz, g.clampR)
 			g.pos = Vector3.new(nx, g.pos.Y, nz)
 		end
 		-- blocage : devrait bouger mais n'avance pas depuis plus de 4 s -> retour doux à son poste, état remis à zéro
@@ -1566,7 +1589,7 @@ local function fastTick(dt)
 			if not (root and hum and hum.Health > 0) then
 				return
 			end
-			-- tapis roulant : il faut courir dessus
+			-- piste d'entraînement (ancien tapis roulant) : il faut courir dessus
 			if s.stun <= 0 and world.treadmillContains(root.Position) and hum.MoveDirection.Magnitude > 0.1 then
 				local rate = 0.8 * (1 + 0.35 * d.up.tm) * (evKey() == "run" and 3 or 1)
 				d.speed += rate * dt
@@ -1632,7 +1655,7 @@ local function slowTick(dt)
 		if not n.egg then
 			n.rt -= dt
 			if n.rt <= 0 then
-				setNestEgg(n, wpick(Config.RIVALS[n.rival].weights))
+				setNestEgg(n, wpick(n.weights or Config.RIVALS[n.rival].weights))
 			end
 		end
 	end
@@ -2620,7 +2643,8 @@ require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).att
 		if sp then
 			return sp.CFrame + Vector3.new(0, 4, 0)
 		end
-		return CFrame.new(0, 8, 60) -- à côté du tapis roulant : toujours au sol de l'arène
+		local pa = Config.Map2.plazaArrival
+		return CFrame.new(pa.x, 8, pa.z) -- sur la place du marché, près de la rose des portails : toujours au sol
 	end,
 })
 for _, p in ipairs(Players:GetPlayers()) do
