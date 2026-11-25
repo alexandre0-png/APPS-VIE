@@ -19,6 +19,7 @@ local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Re
 local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
 local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
 local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
+local Traps = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Traps")) -- pièges des territoires (lot 4)
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -384,6 +385,7 @@ local function snapshot(s)
 		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
+		newbie = s.newbie == true, -- protection débutant active (lot 4)
 	}
 end
 
@@ -404,14 +406,112 @@ local function sync(s)
 	RState:FireClient(s.player, snapshot(s))
 end
 
+---------------------------------------------------------------- Vigilance des territoires et protection débutant (lot 4)
+-- Vols réussis par territoire (horodatages os.clock) : Guard.vigilance en tire le bonus de vue et d'ouïe des gardiens de CE territoire.
+local vigilSteals = {}
+local function recordSteal(terr)
+	local now = os.clock()
+	local list = Guard.vigilancePrune(vigilSteals[terr] or {}, now, Config.VIGILANCE)
+	list[#list + 1] = now
+	vigilSteals[terr] = list
+end
+local function vigilanceOf(terr)
+	return Guard.vigilance(vigilSteals[terr] or {}, os.clock(), Config.VIGILANCE)
+end
+-- Protection débutant : moins de Config.NEWBIE.minutes de jeu cumulées ET maison sous le niveau Config.NEWBIE.untilLevel (sauf fin anticipée).
+local function isNewbie(s)
+	return Config.isNewbie(s.data.played, s.baseLevel, s.data.newbieOff)
+end
+
 ---------------------------------------------------------------- Vitesse / étourdissement
+-- Rarétés des œufs portés (liste d'indices) : le poids du portage dépend de la rareté (Config.CARRY.weight, produit, plancher 0,70).
+local function carryTiers(s)
+	local out = {}
+	for i, e in ipairs(s.carry) do
+		out[i] = e.t
+	end
+	return out
+end
+-- Boue (Mara) : vitesse x Config.TRAPS.mudMul tant que le joueur est encore « embourbé » dans l'un des territoires (états de Traps par territoire).
+local function mudMulOf(s)
+	local m = 1
+	local now = os.clock()
+	for _, ps in pairs(s.traps or {}) do
+		m = math.min(m, Traps.mudMul(ps, now, Config.TRAPS))
+	end
+	return m
+end
 local function applySpeed(s)
 	local hum = getHum(s.player)
 	if hum and s.stun <= 0 then
-		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * 0.93 ^ #s.carry
+		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * Config.carryMul(carryTiers(s)) * mudMulOf(s)
 		if math.abs(hum.WalkSpeed - ws) > 0.05 then
 			hum.WalkSpeed = ws
 		end
+	end
+end
+
+---------------------------------------------------------------- Badge débutant, porte de base (lot 4)
+-- Met à jour la protection débutant d'un joueur : attribut `Newbie` (le client l'affiche), badge 🐣 au-dessus de la tête (recréé après chaque réapparition).
+local function refreshNewbie(s)
+	local nb = isNewbie(s)
+	if nb ~= s.newbie then
+		local was = s.newbie
+		s.newbie = nb
+		s.player:SetAttribute("Newbie", nb)
+		if was == true and not nb then
+			notify(s.player, "⚔️ Protection débutant terminée : tu peux voler les autres joueurs, et ils peuvent te voler.")
+		end
+	end
+	local char = s.player.Character
+	local adornee = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+	if nb and adornee and not (s.badge and s.badge.Parent and s.badge.Adornee == adornee) then -- recréé après chaque réapparition (nouveau personnage)
+		if s.badge then
+			s.badge:Destroy()
+			s.badge = nil
+		end
+		do
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "NewbieBadge"
+			gui.Adornee = adornee
+			gui.Size = UDim2.fromOffset(44, 44)
+			gui.StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0)
+			gui.MaxDistance = 80
+			local t = Instance.new("TextLabel")
+			t.BackgroundTransparency = 1
+			t.Size = UDim2.fromScale(1, 1)
+			t.Font = Enum.Font.GothamBold
+			t.TextSize = 30
+			t.Text = "🐣"
+			t.Parent = gui
+			gui.Parent = adornee
+			s.badge = gui
+		end
+	elseif not nb and s.badge then
+		s.badge:Destroy()
+		s.badge = nil
+	end
+end
+
+-- Barrière lumineuse de la porte de base : un mur de lumière sur le bord de la base qui regarde la place (aucune collision : le serveur refuse le vol).
+local function setDoorBarrier(s, on)
+	if on and not s.doorPart and s.plot then
+		local half = s.plot.platform.Size.X / 2
+		local p = Instance.new("Part")
+		p.Name = "DoorBarrier"
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Material = Enum.Material.Neon
+		p.Color = Color3.fromRGB(255, 120, 90)
+		p.Transparency = 0.6
+		p.Size = Vector3.new(half * 2, 7, 0.4)
+		p.CFrame = s.plot.cf * CFrame.new(0, 4.5, -(half + 0.2))
+		p.Parent = s.plot.model
+		s.doorPart = p
+	elseif not on and s.doorPart then
+		s.doorPart:Destroy()
+		s.doorPart = nil
 	end
 end
 
@@ -440,6 +540,33 @@ local function rebuildCarry(s)
 		CollectionService:AddTag(egg, "CarryEgg") -- balancement pendant la course (client)
 		s.carryParts[i] = egg
 	end
+	-- colonne de lumière : le porteur d'un œuf Légendaire ou plus est visible de loin (BillboardGui, portée Config.CARRY.beamRange, détruit avec les œufs)
+	local top = 0
+	for _, e in ipairs(s.carry) do
+		top = math.max(top, e.t)
+	end
+	if top >= Config.CARRY.beamTier then
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "CarryBeam"
+		gui.Adornee = root
+		gui.Size = UDim2.fromOffset(22, 640)
+		gui.ExtentsOffset = Vector3.new(0, 0.5, 0)
+		gui.MaxDistance = Config.CARRY.beamRange
+		gui.AlwaysOnTop = true
+		local col = Instance.new("Frame")
+		col.Name = "Column"
+		col.Size = UDim2.fromScale(1, 1)
+		col.BorderSizePixel = 0
+		col.BackgroundColor3 = Config.TIERS[top].color
+		col.BackgroundTransparency = 0.25
+		col.Parent = gui
+		local fade = Instance.new("UIGradient")
+		fade.Rotation = 90
+		fade.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+		fade.Parent = col
+		gui.Parent = root
+		s.carryParts[#s.carryParts + 1] = gui
+	end
 end
 
 ---------------------------------------------------------------- Nids des rivaux
@@ -460,9 +587,10 @@ local function setNestEgg(n, tier)
 	local pr = Instance.new("ProximityPrompt")
 	pr.ActionText = "Voler l'œuf"
 	pr.ObjectText = "Œuf " .. Config.TIERS[tier].name
-	pr.HoldDuration = Config.stealTime(0)
+	pr.HoldDuration = Config.stealTime(0, n.terr) -- temps de vol propre au territoire (sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5)
 	pr.MaxActivationDistance = 10
 	pr.RequiresLineOfSight = false
+	pr:SetAttribute("Terr", n.terr)
 	pr:SetAttribute("Kind", "Nest")
 	pr:SetAttribute("Nest", n.index)
 	pr:SetAttribute("Rival", n.rival) -- le client masque le prompt tant que la zone est verrouillée
@@ -560,10 +688,17 @@ end
 ---------------------------------------------------------------- Retour / chute des œufs portés
 local function returnEgg(e)
 	if e.rival then
-		for _, n in ipairs(world.nests) do
-			if n.rival == e.rival and not n.egg then
-				setNestEgg(n, e.t)
-				return
+		local home = e.nest and world.nests[e.nest]
+		if home then -- l'œuf regagne SON nid (même si un autre œuf y est réapparu entre-temps : le nid est remis tel qu'il était)
+			setNestEgg(home, e.t)
+			return
+		end
+		for pass = 1, 2 do -- d'abord un nid libre de SON territoire (clé `terr`), à défaut n'importe quel nid libre du même rival
+			for _, n in ipairs(world.nests) do
+				if n.rival == e.rival and not n.egg and (pass == 2 or n.terr == e.terr) then
+					setNestEgg(n, e.t)
+					return
+				end
 			end
 		end
 	elseif e.from then
@@ -996,7 +1131,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	if s.holdSeen then
 		local h = holds[player]
 		holds[player] = nil
-		if not h or h.prompt ~= prompt or os.clock() - h.t < Config.stealTime(s.data.up.fing) * 0.7 then
+		if not h or h.prompt ~= prompt or os.clock() - h.t < Config.stealTime(s.data.up.fing, prompt:GetAttribute("Terr")) * 0.7 then
 			return
 		end
 	end
@@ -1020,7 +1155,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		Builder.flyEgg(t, n.pos, player.UserId)
 		Builder.burst(n.pos, Config.TIERS[t].color, 14, false)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
-		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival }
+		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival, terr = n.terr, nest = n.index, fresh = Traps.freshDeadline(Config, t, n.terr, os.clock()) }
+		recordSteal(n.terr) -- vigilance : les gardiens de ce territoire voient et entendent plus loin pendant un moment
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		sp(s, "steal", 1, { rival = n.rival })
@@ -1034,6 +1170,18 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		end
 		local sl = vs.data.slots[i]
 		if not sl or sl.k ~= "e" then
+			return
+		end
+		if isNewbie(s) then
+			notify(player, "🐣 Protection débutant : tu ne peux pas encore voler d'autres joueurs (menu : « Je suis prêt pour le PvP »).")
+			return
+		end
+		if isNewbie(vs) then
+			notify(player, "🐣 Ce joueur est sous protection débutant : ses œufs ne peuvent pas être volés.")
+			return
+		end
+		if (vs.lockUntil or 0) > os.clock() then
+			notify(player, "🔒 La porte de cette base est fermée !")
 			return
 		end
 		if (sl.shield or 0) > os.time() or (vs.graceUntil or 0) > os.time() then
@@ -1093,7 +1241,7 @@ local function defeatAtBase(s)
 end
 
 local function hitPlayer(s, g)
-	local r = Config.RIVALS[g.rival]
+	local r = g.stats
 	if r.gentle then
 		-- gardien clément (Gus) : jamais de dégâts ; la première prise renvoie à la base (la cargaison est gardée), puis 6 s de répit
 		if os.clock() < (s.gentleUntil or 0) then
@@ -1216,13 +1364,23 @@ for _, g in ipairs(world.guards) do -- marque d'état au-dessus de chaque gardie
 	end
 end
 
+-- Réglages de chaque gardien d'après SON territoire (Config.guardStats : vitesses, vue, ouïe, coup de Config.TERR ; Gus = son rival, clément).
+for _, g in ipairs(world.guards) do
+	g.stats = Config.guardStats(g.terr)
+end
+
 local function guardsStep(dt)
 	for _, s in pairs(sessions) do -- invulnérabilité et temps depuis le dernier coup
 		s.iframes = math.max(0, (s.iframes or 0) - dt)
 		s.sinceHit = (s.sinceHit or 99) + dt
 	end
 	for _, g in ipairs(world.guards) do
-		local r = Config.RIVALS[g.rival]
+		local r = g.stats
+		local bonus = vigilanceOf(g.terr)
+		if bonus ~= g.vigBonus or not g.rv then -- vue et ouïe majorées par la vigilance du territoire (recalculé seulement quand le bonus change)
+			g.vigBonus, g.rv = bonus, Guard.boosted(r, bonus)
+		end
+		local rv = g.rv
 		g.cd -= dt
 		g.st = g.st or { state = "patrol", timer = 0, lost = 0 }
 		g.look = g.look or Vector3.new(g.dir, 0, 0)
@@ -1236,7 +1394,7 @@ local function guardsStep(dt)
 			g.scan = (g.scan or 0) - dt
 			if g.scan <= 0 then
 				g.scan = 0.15
-				target = candidate(g, r)
+				target = candidate(g, rv)
 				ts = target and sessions[target]
 			else
 				target, ts = nil, nil
@@ -1250,7 +1408,7 @@ local function guardsStep(dt)
 			percept = Guard.perceive(
 				{ x = g.pos.X, z = g.pos.Z, fx = g.look.X, fz = g.look.Z },
 				{ x = troot.Position.X, z = troot.Position.Z, speed = speed },
-				r, GC
+				rv, GC
 			)
 			if percept.sees or percept.hears then
 				g.last = Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z)
@@ -1351,6 +1509,87 @@ local function guardsStep(dt)
 		g.speedNow = (g.speedNow or 0) * 0.8 + (moved / math.max(dt, 1e-3)) * 0.2
 		local by, roll = Guard.walkPose(os.clock(), g.speedNow)
 		g.model:PivotTo(CFrame.lookAt(g.pos + Vector3.new(0, by, 0), g.pos + Vector3.new(0, by, 0) + g.look) * CFrame.Angles(0, 0, roll))
+	end
+end
+
+---------------------------------------------------------------- Pièges des territoires (lot 4) : fils à clochettes, boue, herse, dalles d'alarme, lanternes
+-- Traps (pur) décide, ce code applique : alarme = les gardiens du territoire foncent vers l'endroit (état « perte de cible » = ils vont à la dernière
+-- position connue puis reprennent leur poste, et repèrent le joueur s'il y est toujours) ; boue = vitesse x0,6 (applySpeed) ; herse = Part animée à 10 Hz.
+local trapsWorld = world.traps or { layouts = {}, lights = {}, plates = {} }
+local ALARM_TEXT = { bell = "🔔 Un fil à clochettes a sonné : les gardiens accourent !", plate = "🚨 Dalle d'alarme : les gardiens accourent !", light = "🔦 Une lanterne t'a repéré : les gardiens accourent !" }
+
+local function alarmGuards(terr, x, z)
+	for _, g in ipairs(world.guards) do
+		if g.terr == terr and g.st and g.st.state ~= "chase" then
+			g.st = { state = "lostChase", timer = 0, lost = 0 }
+			g.last = Vector3.new(x, g.pos.Y, z)
+			g.target, g.wps = nil, nil
+			if g.mark then
+				g.mark.Text = "❗"
+			end
+		end
+	end
+end
+
+local function trapsStep(_dt)
+	local now = os.clock()
+	for player, s in pairs(sessions) do
+		local root = getRoot(player)
+		if root and alive(player) then
+			local px, pz = root.Position.X, root.Position.Z
+			for key, L in pairs(trapsWorld.layouts) do
+				local ps = s.traps[key]
+				if (px - L.cx) ^ 2 + (pz - L.cz) ^ 2 <= (L.r + 8) ^ 2 then
+					if not ps then
+						ps = Traps.newPlayerState()
+						s.traps[key] = ps
+					end
+					for _, ev in ipairs(Traps.playerStep(ps, L, Config.TRAPS, now, px, pz)) do
+						if ev.kind == "mud" then
+							applySpeed(s)
+							notify(player, "🟤 De la boue ! Tu es ralenti.")
+						else
+							alarmGuards(key, px, pz)
+							notify(player, ALARM_TEXT[ev.kind] or "🔔", "caught")
+							if ev.kind == "plate" then
+								for _, pl in ipairs(trapsWorld.plates) do
+									if pl.key == key and pl.index == ev.index then
+										pl.part.Color = Color3.fromRGB(255, 220, 90)
+										task.delay(0.8, function()
+											pl.part.Color = Color3.fromRGB(150, 60, 60)
+										end)
+									end
+								end
+							end
+						end
+					end
+				elseif ps then
+					s.traps[key] = nil
+					applySpeed(s)
+				end
+			end
+		end
+	end
+	for _, ln in ipairs(trapsWorld.lights) do -- lanternes : le faisceau tourne (0,5 tour/s)
+		local l = ln.light
+		local a = Traps.lanternAngle(now, l)
+		local dx, dz = math.cos(a), math.sin(a)
+		local mid = Vector3.new(l.x + dx * l.range / 2, ln.y, l.z + dz * l.range / 2)
+		ln.part.CFrame = CFrame.lookAt(mid, mid + Vector3.new(dx, 0, dz))
+	end
+	local gt = trapsWorld.gate
+	local gl = trapsWorld.layouts.zed
+	if gt and gl and gl.gate then -- herse de la cour de Zed : cycle 3 s ouverte / 3 s fermée, solide quand elle est descendue
+		local lift = Traps.gateLift(now, gl.gate, Config.TRAPS.gateWindow)
+		if lift ~= gt.lift then
+			gt.lift = lift
+			gt.part.CFrame = gt.baseCF + Vector3.new(0, -5.5 + 8.5 * lift, 0)
+		end
+		local solid = Traps.gateSolid(now, gl.gate, Config.TRAPS.gateWindow)
+		if gt.solid ~= solid then
+			gt.solid = solid
+			gt.part.CanCollide = solid
+		end
 	end
 end
 
@@ -1647,6 +1886,33 @@ local function fastTick(dt)
 					sync(s)
 				end
 			end
+			-- fraîcheur : un œuf Légendaire+ pris chez Zed refroidit s'il n'atteint pas la base à temps -> il regagne son nid
+			if #s.carry > 0 then
+				local nowc, cooled, soonest = os.clock(), false, 0
+				for i = #s.carry, 1, -1 do
+					local e = s.carry[i]
+					if Traps.expired(e, nowc) then
+						table.remove(s.carry, i)
+						returnEgg(e)
+						cooled = true
+					elseif e.fresh then
+						soonest = (soonest == 0) and (e.fresh - nowc) or math.min(soonest, e.fresh - nowc)
+					end
+				end
+				if cooled then
+					notify(player, "🧊 L'œuf a refroidi et regagne son nid")
+					rebuildCarry(s)
+					applySpeed(s)
+					sync(s)
+				end
+				player:SetAttribute("FreshLeft", math.ceil(soonest))
+			elseif player:GetAttribute("FreshLeft") ~= 0 then
+				player:SetAttribute("FreshLeft", 0)
+			end
+			-- porte de base : fin de la fermeture
+			if s.doorPart and os.clock() >= (s.lockUntil or 0) then
+				setDoorBarrier(s, false)
+			end
 		end)
 		if not ok then
 			warn("[fastTick] " .. tostring(err))
@@ -1674,6 +1940,8 @@ local function slowTick(dt)
 	for player, s in pairs(sessions) do
 		local ok, err = pcall(function()
 			local d = s.data
+			d.played += dt -- temps de jeu cumulé (secondes, sauvegardé) : protection débutant
+			refreshNewbie(s)
 			local inc = income(s)
 			local active = os.clock() - s.lastActive <= Config.IDLE.seconds
 			if (player:GetAttribute("Idle") == true) == active then
@@ -1731,9 +1999,18 @@ local function slowTick(dt)
 	end
 end
 
-local acc1, acc2, acc3 = 0, 0, 0
+local acc1, acc2, acc3, acc4 = 0, 0, 0, 0
 RunService.Heartbeat:Connect(function(dt)
 	guardsStep(dt)
+	acc4 += dt
+	if acc4 >= 0.1 then
+		local d4 = acc4
+		acc4 = 0
+		local okT, errT = pcall(trapsStep, d4)
+		if not okT then
+			warn("[traps] " .. tostring(errT))
+		end
+	end
 	acc3 += dt
 	if acc3 >= Config.CASTLE.step then
 		local d3 = acc3
@@ -2029,6 +2306,40 @@ function actions.toHub(s)
 		notify(s.player, "🏠 Retour au hub…")
 	else
 		notify(s.player, "⚠️ " .. res.message)
+	end
+end
+
+-- Porte de base : ferme la base pendant Config.lockSeconds(niveau) secondes (aucun vol d'emplacement), puis recharge Config.DOOR.cooldown secondes.
+function actions.lockDoor(s)
+	local now = os.clock()
+	if (s.lockUntil or 0) > now then
+		return
+	end
+	if (s.lockReadyAt or 0) > now then
+		notify(s.player, "🔒 La porte se recharge : encore " .. math.ceil(s.lockReadyAt - now) .. " s.")
+		return
+	end
+	local dur = Config.lockSeconds(s.baseLevel or 1)
+	s.lockUntil = now + dur
+	s.lockReadyAt = s.lockUntil + Config.DOOR.cooldown
+	local okT, server = pcall(function()
+		return workspace:GetServerTimeNow()
+	end)
+	if not okT or type(server) ~= "number" then
+		server = os.time()
+	end
+	s.player:SetAttribute("DoorUntil", server + dur)
+	s.player:SetAttribute("DoorReady", server + dur + Config.DOOR.cooldown)
+	setDoorBarrier(s, true)
+	notify(s.player, "🔒 Porte fermée pendant " .. dur .. " s : personne ne peut voler tes œufs.")
+end
+
+-- Fin anticipée de la protection débutant (« Je suis prêt pour le PvP »).
+function actions.newbieOff(s)
+	if isNewbie(s) then
+		s.data.newbieOff = true
+		refreshNewbie(s)
+		sync(s)
 	end
 end
 
@@ -2716,6 +3027,11 @@ local function claimPlot(player)
 end
 
 local function releasePlot(s)
+	setDoorBarrier(s, false)
+	if s.badge then
+		s.badge:Destroy()
+		s.badge = nil
+	end
 	for i = 1, 12 do
 		clearPad(s, i)
 		s.plot.pads[i].lock.Enabled = true
@@ -2806,7 +3122,7 @@ local function onJoin(player)
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastActive = os.clock(), lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
-		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
+		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false, traps = {},
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX43"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX66"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX65"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX44"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX68"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX67"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -136,8 +136,15 @@ Config.VIP_DAILY_MUL = 2
 Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
 Config.SHIELD_PER_LEVEL = 10
 
-function Config.stealTime(level)
-	return 1.3 * 0.85 ^ level
+-- Temps de vol (s) : base du territoire `terr` (Config.TERR[terr].hold : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5) x 0,85 ^ niveau de Doigts agiles.
+-- Sans territoire (vol entre joueurs, appels historiques) : 1,3 s de base.
+function Config.stealTime(level, terr)
+	local base = 1.3
+	local t = terr and Config.TERR and Config.TERR[terr]
+	if t then
+		base = t.hold
+	end
+	return base * 0.85 ^ level
 end
 
 function Config.walkSpeed(speedStat)
@@ -1755,6 +1762,57 @@ Config.BELT = {
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
 Config.NEWBIE = { minutes = 15, untilLevel = 3 }
+-- Réglages de gardien d'un territoire : le rival (Config.RIVALS) complété par les valeurs propres du territoire (Config.TERR.speed / view / hit), source
+-- unique de Main (vitesses, vue, ouïe, coup). Gus (aucune valeur propre) garde celles de son rival : clément, inchangé.
+function Config.guardStats(terr)
+	local t = Config.TERR[terr]
+	local r = Config.RIVALS[t.rival]
+	local out = {}
+	for k, v in pairs(r) do
+		out[k] = v
+	end
+	if t.speed then
+		out.guardSpeed, out.patrolSpeed = t.speed.chase, t.speed.patrol
+	end
+	if t.view then
+		out.viewDist, out.viewAngle, out.hearRadius = t.view[1], t.view[2], t.view[3]
+	end
+	if t.hit then
+		out.damage = t.hit
+	end
+	return out
+end
+-- Vitesse de portage : produit des poids Config.CARRY.weight des raretés portées, plancher Config.CARRY.floor (0,70). `tiers` = liste d'indices de rareté.
+function Config.carryMul(tiers)
+	local m = 1
+	for _, t in ipairs(tiers) do
+		m = m * (Config.CARRY.weight[t] or 1)
+	end
+	return math.max(Config.CARRY.floor, m)
+end
+-- Pièges (lot 4) : constantes communes (le serveur applique, Traps décide).
+Config.TRAPS = {
+	mudMul = 0.6, mudSeconds = 2, mudRadius = 4, -- flaque : vitesse x0,6 pendant 2 s
+	bellCooldown = 4, bellHalfWidth = 5, -- fil à clochettes : demi-longueur du fil, délai avant de pouvoir donner l'alerte de nouveau
+	plateRadius = 2.5, plateCooldown = 4, -- dalle d'alarme
+	lightRange = 30, lightCone = 36, lightCooldown = 3, -- lanterne tournante : portée, ouverture totale du cône (degrés)
+	gateWindow = 0.6, -- durée de la montée ou de la descente de la herse (s) : la herse n'est solide qu'à la fin de la descente
+}
+-- Porte de base (B.4) : durée = BASE_LEVELS2[niveau].lock (15 s si le niveau n'en a pas), recharge 60 s.
+Config.DOOR = { defaultSeconds = 15, cooldown = 60 }
+function Config.lockSeconds(level)
+	local lv = Config.BASE_LEVELS2[level]
+	local sec = lv and lv.lock or 0
+	return sec > 0 and sec or Config.DOOR.defaultSeconds
+end
+-- Protection débutant : actif tant que le temps de jeu cumulé (s) est sous Config.NEWBIE.minutes ET que la maison est sous le niveau untilLevel,
+-- sauf fin anticipée (`off`).
+function Config.isNewbie(playedSeconds, baseLevel, off)
+	if off then
+		return false
+	end
+	return (playedSeconds or 0) < Config.NEWBIE.minutes * 60 and (baseLevel or 1) < Config.NEWBIE.untilLevel
+end
 -- A.4 Voyage rapide (remplace Config.TRAVEL au lot 2).
 Config.TRAVEL2 = {
 	cooldown = 4, combatLock = 4, maxDistance = 10, blockWhileCarrying = true,
@@ -1824,7 +1882,7 @@ Config.CHAPTER_TEXTS = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2119,7 +2177,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2299,7 +2357,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2642,7 +2700,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2939,7 +2997,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -3542,7 +3600,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -3967,7 +4025,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4005,7 +4063,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4093,7 +4151,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4139,7 +4197,7 @@ function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -4507,7 +4565,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -4571,7 +4629,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -4912,7 +4970,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -4969,7 +5027,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5081,7 +5139,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -5268,7 +5326,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -5372,7 +5430,7 @@ function Raven.resolve(chased)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -6145,7 +6203,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -6254,7 +6312,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -6408,6 +6466,42 @@ function Guard.walkPose(t, speed)
 	return math.sin(t * 2) * 0.04, 0
 end
 
+-- Vigilance d'un territoire (Config.VIGILANCE) : `steals` = horodatages (s) des vols réussis dans CE territoire. Bonus de vue et d'ouïe = perSteal par vol
+-- des `window` dernières secondes, plafonné à `max` ; retour à zéro `decay` secondes après le dernier vol. Retourne un nombre (0 .. max).
+function Guard.vigilance(steals, now, cfg)
+	local last, n = nil, 0
+	for _, t in ipairs(steals) do
+		if t <= now then
+			if now - t <= cfg.window then
+				n = n + 1
+			end
+			if last == nil or t > last then
+				last = t
+			end
+		end
+	end
+	if last == nil or now - last >= cfg.decay then
+		return 0
+	end
+	return math.min(cfg.max, n * cfg.perSteal)
+end
+
+-- Retire les vols trop anciens pour compter (hors de la fenêtre) : la liste ne grossit jamais. Retourne la nouvelle liste.
+function Guard.vigilancePrune(steals, now, cfg)
+	local out = {}
+	for _, t in ipairs(steals) do
+		if now - t <= cfg.window then
+			out[#out + 1] = t
+		end
+	end
+	return out
+end
+
+-- Réglages de perception majorés par la vigilance (vue et ouïe x (1 + bonus)) ; l'angle de vue ne change pas. Nouvelle table.
+function Guard.boosted(rival, bonus)
+	return { viewDist = rival.viewDist * (1 + bonus), viewAngle = rival.viewAngle, hearRadius = rival.hearRadius * (1 + bonus) }
+end
+
 function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 	if hp <= 0 or hp >= cfg.maxHp then
 		return math.min(hp, cfg.maxHp)
@@ -6417,7 +6511,208 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+-- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
+-- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
+-- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
+local Traps = {}
+
+local sqrt, cos, sin, rad, deg, acos, pi = math.sqrt, math.cos, math.sin, math.rad, math.deg, math.acos, math.pi
+
+-- Tourne le vecteur unitaire (ux, uz) de `degrees` degrés.
+local function rot(ux, uz, degrees)
+	local c, s = cos(rad(degrees)), sin(rad(degrees))
+	return ux * c - uz * s, ux * s + uz * c
+end
+
+-- Plan des pièges d'un territoire (nil si le territoire n'en a pas). `Config` = module Config. Tout est calculé autour de l'entrée du territoire :
+--   fils à clochettes : 3 fils tangents sur l'arc à 70 % du rayon, à -30 / 0 / +30 degrés de l'entrée (demi-longueur Config.TRAPS.bellHalfWidth)
+--   boue : flaques à 45 % du rayon, étalées de -70 à +70 degrés
+--   dalles d'alarme : à 55 % du rayon, tous les 360/n degrés à partir de 45 degrés
+--   lanternes : à 55 % du rayon, à +90 et -90 degrés, tournant en sens inverse l'une de l'autre depuis des angles opposés
+--   herse : à l'entrée (Config.TERR.zed.traps.gate)
+function Traps.layout(Config, key)
+	local t = Config.TERR[key]
+	local tr = t and t.traps
+	if not tr then
+		return nil
+	end
+	local C = Config.TRAPS
+	local ex, ez = Config.territoryEntry(key)
+	local dx, dz = ex - t.x, ez - t.z
+	local d = sqrt(dx * dx + dz * dz)
+	local ux, uz = dx / d, dz / d
+	local function at(frac, degrees)
+		local vx, vz = rot(ux, uz, degrees)
+		return t.x + vx * t.r * frac, t.z + vz * t.r * frac, vx, vz
+	end
+	local L = { key = key, cx = t.x, cz = t.z, r = t.r, bells = {}, mud = {}, plates = {}, lights = {}, gate = nil }
+	for k = 1, tr.bells or 0 do
+		local x, z, vx, vz = at(0.7, (k - 2) * 30)
+		local tx, tz = -vz, vx -- tangente au cercle : le fil barre le passage vers l'intérieur
+		L.bells[k] = { x = x, z = z, ax = x - tx * C.bellHalfWidth, az = z - tz * C.bellHalfWidth, bx = x + tx * C.bellHalfWidth, bz = z + tz * C.bellHalfWidth }
+	end
+	local nm = tr.mud or 0
+	for k = 1, nm do
+		local x, z = at(0.45, -70 + (k - 1) * 140 / math.max(1, nm - 1))
+		L.mud[k] = { x = x, z = z, r = C.mudRadius }
+	end
+	local np = tr.plates or 0
+	for k = 1, np do
+		local x, z = at(0.55, 45 + (k - 1) * 360 / np)
+		L.plates[k] = { x = x, z = z, r = C.plateRadius }
+	end
+	for k = 1, tr.searchlights or 0 do
+		local x, z = at(0.55, 90 + (k - 1) * 180)
+		L.lights[k] = { x = x, z = z, phase = (k - 1) * pi, rev = tr.searchlightRev or 0.5, range = C.lightRange, cone = C.lightCone }
+	end
+	if tr.gate then
+		L.gate = { x = tr.gate.x, z = tr.gate.z, open = tr.gate.open, closed = tr.gate.closed }
+	end
+	return L
+end
+
+-- Nombre de Parts que les pièges d'un plan font construire au Builder (budget : <= 40 pour tous les territoires).
+-- fil : 2 poteaux + le fil ; flaque : 1 ; dalle : 1 ; lanterne : poteau + faisceau ; herse : 0 (la Part CourtGate de Scenery est réutilisée).
+function Traps.partCount(L)
+	if not L then
+		return 0
+	end
+	return #L.bells * 3 + #L.mud + #L.plates + #L.lights * 2
+end
+
+---------------------------------------------------------------- géométrie
+local function orient(px, pz, qx, qz, rx, rz)
+	return (qx - px) * (rz - pz) - (qz - pz) * (rx - px)
+end
+
+-- Les segments [a b] et [c d] se croisent-ils strictement ?
+function Traps.segCross(ax, az, bx, bz, cx, cz, dx, dz)
+	local o1, o2 = orient(ax, az, bx, bz, cx, cz), orient(ax, az, bx, bz, dx, dz)
+	local o3, o4 = orient(cx, cz, dx, dz, ax, az), orient(cx, cz, dx, dz, bx, bz)
+	return o1 * o2 < 0 and o3 * o4 < 0
+end
+
+-- Distance du point (px, pz) au segment [a b].
+function Traps.distToSeg(px, pz, ax, az, bx, bz)
+	local vx, vz = bx - ax, bz - az
+	local l2 = vx * vx + vz * vz
+	local t = l2 > 0 and math.max(0, math.min(1, ((px - ax) * vx + (pz - az) * vz) / l2)) or 0
+	local qx, qz = ax + vx * t, az + vz * t
+	return sqrt((px - qx) ^ 2 + (pz - qz) ^ 2)
+end
+
+---------------------------------------------------------------- herse (cycle ouverte `open` s / fermée `closed` s, ouverte au temps 0)
+function Traps.gateOpen(t, gate)
+	local cyc = gate.open + gate.closed
+	return (t % cyc) < gate.open
+end
+
+-- Hauteur de la herse : 1 = levée (ouverte), 0 = baissée (fermée). Montée ou descente en `window` secondes au début de chaque phase.
+function Traps.gateLift(t, gate, window)
+	local cyc = gate.open + gate.closed
+	local ph = t % cyc
+	if ph < gate.open then
+		return math.min(1, ph / window)
+	end
+	return math.max(0, 1 - (ph - gate.open) / window)
+end
+
+-- La herse est SOLIDE tant qu'elle est descendue à moitié ou plus (elle ne bloque pas pendant qu'elle monte).
+function Traps.gateSolid(t, gate, window)
+	return Traps.gateLift(t, gate, window) <= 0.5 and not Traps.gateOpen(t, gate)
+end
+
+---------------------------------------------------------------- lanternes tournantes
+function Traps.lanternAngle(t, light)
+	return light.phase + 2 * pi * light.rev * t
+end
+
+-- La lanterne éclaire-t-elle (px, pz) au temps t ? Portée `range`, cône de `cone` degrés (total) centré sur l'angle courant.
+function Traps.lanternSees(light, t, px, pz)
+	local dx, dz = px - light.x, pz - light.z
+	local d = sqrt(dx * dx + dz * dz)
+	if d > light.range then
+		return false
+	end
+	if d < 1 then
+		return true
+	end
+	local a = Traps.lanternAngle(t, light)
+	local c = (cos(a) * dx + sin(a) * dz) / d
+	return deg(acos(math.max(-1, math.min(1, c)))) <= light.cone / 2
+end
+
+---------------------------------------------------------------- décision par joueur
+function Traps.newPlayerState()
+	return { px = nil, pz = nil, mudUntil = 0, cd = {} }
+end
+
+-- Un pas de simulation pour un joueur en (x, z) au temps t (le serveur l'appelle ~10 fois par seconde pour les joueurs proches du territoire).
+-- Met `ps` à jour (position précédente, délais) et retourne la liste des événements :
+--   { kind = "bell", index }  : le joueur a traversé un fil (ou le frôle à moins d'un stud)
+--   { kind = "plate", index } : il marche sur une dalle d'alarme
+--   { kind = "light", index } : une lanterne l'éclaire
+--   { kind = "mud", index }   : il entre dans une flaque (une seule fois par passage ; la vitesse est ralentie tant que t < ps.mudUntil)
+-- Chaque alarme a un délai de recharge par joueur (cfg = Config.TRAPS).
+function Traps.playerStep(ps, L, cfg, t, x, z)
+	local ev = {}
+	local qx, qz = ps.px or x, ps.pz or z
+	ps.px, ps.pz = x, z
+	for i, b in ipairs(L.bells) do
+		local key = "b" .. i
+		if t >= (ps.cd[key] or 0) and (Traps.segCross(qx, qz, x, z, b.ax, b.az, b.bx, b.bz) or Traps.distToSeg(x, z, b.ax, b.az, b.bx, b.bz) < 1) then
+			ps.cd[key] = t + cfg.bellCooldown
+			ev[#ev + 1] = { kind = "bell", index = i }
+		end
+	end
+	for i, m in ipairs(L.mud) do
+		if (x - m.x) ^ 2 + (z - m.z) ^ 2 <= m.r * m.r then
+			if t >= ps.mudUntil then
+				ev[#ev + 1] = { kind = "mud", index = i }
+			end
+			ps.mudUntil = t + cfg.mudSeconds
+		end
+	end
+	for i, p in ipairs(L.plates) do
+		local key = "p" .. i
+		if t >= (ps.cd[key] or 0) and (x - p.x) ^ 2 + (z - p.z) ^ 2 <= p.r * p.r then
+			ps.cd[key] = t + cfg.plateCooldown
+			ev[#ev + 1] = { kind = "plate", index = i }
+		end
+	end
+	for i, l in ipairs(L.lights) do
+		local key = "l" .. i
+		if t >= (ps.cd[key] or 0) and Traps.lanternSees(l, t, x, z) then
+			ps.cd[key] = t + cfg.lightCooldown
+			ev[#ev + 1] = { kind = "light", index = i }
+		end
+	end
+	return ev
+end
+
+-- Multiplicateur de vitesse de la boue (1 hors flaque).
+function Traps.mudMul(ps, t, cfg)
+	return t < ps.mudUntil and cfg.mudMul or 1
+end
+
+---------------------------------------------------------------- fraîcheur des œufs
+-- Échéance (temps absolu) d'un œuf de rareté `tier` pris dans le territoire `terr`, ou nil s'il ne se refroidit pas : seuls les œufs de rareté
+-- Config.CARRY.beamTier ou plus (Légendaire+) pris dans un territoire qui a une `freshness` (Zed : 75 s).
+function Traps.freshDeadline(Config, tier, terr, now)
+	local t = terr and Config.TERR[terr]
+	if t and t.freshness and tier >= Config.CARRY.beamTier then
+		return now + t.freshness
+	end
+	return nil
+end
+
+function Traps.expired(egg, now)
+	return egg.fresh ~= nil and now >= egg.fresh
+end
+
+return Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -6646,7 +6941,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX69"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX67"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX71"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX69"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -7001,7 +7296,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -7390,7 +7685,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX72"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX71"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX74"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX73"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

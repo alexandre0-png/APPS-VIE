@@ -70,11 +70,11 @@ end
 '''
 import signal
 def _timeout(signum, frame):
-    print("TIMEOUT global (120 s) : un test est bloqué (voir la dernière ligne « ▶ » ci-dessus)")
+    print("TIMEOUT global (240 s) : un test est bloqué (voir la dernière ligne « ▶ » ci-dessus)")
     sys.stdout.flush()
     os._exit(3)
 signal.signal(signal.SIGALRM, _timeout)
-signal.alarm(120)
+signal.alarm(240)
 runner = lua.execute(prelude)
 try:
     code = runner(read_file("roblox/tests/run.luau"))

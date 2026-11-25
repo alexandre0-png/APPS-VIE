@@ -132,8 +132,15 @@ Config.VIP_DAILY_MUL = 2
 Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
 Config.SHIELD_PER_LEVEL = 10
 
-function Config.stealTime(level)
-	return 1.3 * 0.85 ^ level
+-- Temps de vol (s) : base du territoire `terr` (Config.TERR[terr].hold : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5) x 0,85 ^ niveau de Doigts agiles.
+-- Sans territoire (vol entre joueurs, appels historiques) : 1,3 s de base.
+function Config.stealTime(level, terr)
+	local base = 1.3
+	local t = terr and Config.TERR and Config.TERR[terr]
+	if t then
+		base = t.hold
+	end
+	return base * 0.85 ^ level
 end
 
 function Config.walkSpeed(speedStat)
@@ -1751,6 +1758,57 @@ Config.BELT = {
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
 Config.NEWBIE = { minutes = 15, untilLevel = 3 }
+-- Réglages de gardien d'un territoire : le rival (Config.RIVALS) complété par les valeurs propres du territoire (Config.TERR.speed / view / hit), source
+-- unique de Main (vitesses, vue, ouïe, coup). Gus (aucune valeur propre) garde celles de son rival : clément, inchangé.
+function Config.guardStats(terr)
+	local t = Config.TERR[terr]
+	local r = Config.RIVALS[t.rival]
+	local out = {}
+	for k, v in pairs(r) do
+		out[k] = v
+	end
+	if t.speed then
+		out.guardSpeed, out.patrolSpeed = t.speed.chase, t.speed.patrol
+	end
+	if t.view then
+		out.viewDist, out.viewAngle, out.hearRadius = t.view[1], t.view[2], t.view[3]
+	end
+	if t.hit then
+		out.damage = t.hit
+	end
+	return out
+end
+-- Vitesse de portage : produit des poids Config.CARRY.weight des raretés portées, plancher Config.CARRY.floor (0,70). `tiers` = liste d'indices de rareté.
+function Config.carryMul(tiers)
+	local m = 1
+	for _, t in ipairs(tiers) do
+		m = m * (Config.CARRY.weight[t] or 1)
+	end
+	return math.max(Config.CARRY.floor, m)
+end
+-- Pièges (lot 4) : constantes communes (le serveur applique, Traps décide).
+Config.TRAPS = {
+	mudMul = 0.6, mudSeconds = 2, mudRadius = 4, -- flaque : vitesse x0,6 pendant 2 s
+	bellCooldown = 4, bellHalfWidth = 5, -- fil à clochettes : demi-longueur du fil, délai avant de pouvoir donner l'alerte de nouveau
+	plateRadius = 2.5, plateCooldown = 4, -- dalle d'alarme
+	lightRange = 30, lightCone = 36, lightCooldown = 3, -- lanterne tournante : portée, ouverture totale du cône (degrés)
+	gateWindow = 0.6, -- durée de la montée ou de la descente de la herse (s) : la herse n'est solide qu'à la fin de la descente
+}
+-- Porte de base (B.4) : durée = BASE_LEVELS2[niveau].lock (15 s si le niveau n'en a pas), recharge 60 s.
+Config.DOOR = { defaultSeconds = 15, cooldown = 60 }
+function Config.lockSeconds(level)
+	local lv = Config.BASE_LEVELS2[level]
+	local sec = lv and lv.lock or 0
+	return sec > 0 and sec or Config.DOOR.defaultSeconds
+end
+-- Protection débutant : actif tant que le temps de jeu cumulé (s) est sous Config.NEWBIE.minutes ET que la maison est sous le niveau untilLevel,
+-- sauf fin anticipée (`off`).
+function Config.isNewbie(playedSeconds, baseLevel, off)
+	if off then
+		return false
+	end
+	return (playedSeconds or 0) < Config.NEWBIE.minutes * 60 and (baseLevel or 1) < Config.NEWBIE.untilLevel
+end
 -- A.4 Voyage rapide (remplace Config.TRAVEL au lot 2).
 Config.TRAVEL2 = {
 	cooldown = 4, combatLock = 4, maxDistance = 10, blockWhileCarrying = true,

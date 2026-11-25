@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX23"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX22"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX24"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX23"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -136,8 +136,15 @@ Config.VIP_DAILY_MUL = 2
 Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
 Config.SHIELD_PER_LEVEL = 10
 
-function Config.stealTime(level)
-	return 1.3 * 0.85 ^ level
+-- Temps de vol (s) : base du territoire `terr` (Config.TERR[terr].hold : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5) x 0,85 ^ niveau de Doigts agiles.
+-- Sans territoire (vol entre joueurs, appels historiques) : 1,3 s de base.
+function Config.stealTime(level, terr)
+	local base = 1.3
+	local t = terr and Config.TERR and Config.TERR[terr]
+	if t then
+		base = t.hold
+	end
+	return base * 0.85 ^ level
 end
 
 function Config.walkSpeed(speedStat)
@@ -1755,6 +1762,57 @@ Config.BELT = {
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
 Config.NEWBIE = { minutes = 15, untilLevel = 3 }
+-- Réglages de gardien d'un territoire : le rival (Config.RIVALS) complété par les valeurs propres du territoire (Config.TERR.speed / view / hit), source
+-- unique de Main (vitesses, vue, ouïe, coup). Gus (aucune valeur propre) garde celles de son rival : clément, inchangé.
+function Config.guardStats(terr)
+	local t = Config.TERR[terr]
+	local r = Config.RIVALS[t.rival]
+	local out = {}
+	for k, v in pairs(r) do
+		out[k] = v
+	end
+	if t.speed then
+		out.guardSpeed, out.patrolSpeed = t.speed.chase, t.speed.patrol
+	end
+	if t.view then
+		out.viewDist, out.viewAngle, out.hearRadius = t.view[1], t.view[2], t.view[3]
+	end
+	if t.hit then
+		out.damage = t.hit
+	end
+	return out
+end
+-- Vitesse de portage : produit des poids Config.CARRY.weight des raretés portées, plancher Config.CARRY.floor (0,70). `tiers` = liste d'indices de rareté.
+function Config.carryMul(tiers)
+	local m = 1
+	for _, t in ipairs(tiers) do
+		m = m * (Config.CARRY.weight[t] or 1)
+	end
+	return math.max(Config.CARRY.floor, m)
+end
+-- Pièges (lot 4) : constantes communes (le serveur applique, Traps décide).
+Config.TRAPS = {
+	mudMul = 0.6, mudSeconds = 2, mudRadius = 4, -- flaque : vitesse x0,6 pendant 2 s
+	bellCooldown = 4, bellHalfWidth = 5, -- fil à clochettes : demi-longueur du fil, délai avant de pouvoir donner l'alerte de nouveau
+	plateRadius = 2.5, plateCooldown = 4, -- dalle d'alarme
+	lightRange = 30, lightCone = 36, lightCooldown = 3, -- lanterne tournante : portée, ouverture totale du cône (degrés)
+	gateWindow = 0.6, -- durée de la montée ou de la descente de la herse (s) : la herse n'est solide qu'à la fin de la descente
+}
+-- Porte de base (B.4) : durée = BASE_LEVELS2[niveau].lock (15 s si le niveau n'en a pas), recharge 60 s.
+Config.DOOR = { defaultSeconds = 15, cooldown = 60 }
+function Config.lockSeconds(level)
+	local lv = Config.BASE_LEVELS2[level]
+	local sec = lv and lv.lock or 0
+	return sec > 0 and sec or Config.DOOR.defaultSeconds
+end
+-- Protection débutant : actif tant que le temps de jeu cumulé (s) est sous Config.NEWBIE.minutes ET que la maison est sous le niveau untilLevel,
+-- sauf fin anticipée (`off`).
+function Config.isNewbie(playedSeconds, baseLevel, off)
+	if off then
+		return false
+	end
+	return (playedSeconds or 0) < Config.NEWBIE.minutes * 60 and (baseLevel or 1) < Config.NEWBIE.untilLevel
+end
 -- A.4 Voyage rapide (remplace Config.TRAVEL au lot 2).
 Config.TRAVEL2 = {
 	cooldown = 4, combatLock = 4, maxDistance = 10, blockWhileCarrying = true,
@@ -6408,6 +6466,42 @@ function Guard.walkPose(t, speed)
 	return math.sin(t * 2) * 0.04, 0
 end
 
+-- Vigilance d'un territoire (Config.VIGILANCE) : `steals` = horodatages (s) des vols réussis dans CE territoire. Bonus de vue et d'ouïe = perSteal par vol
+-- des `window` dernières secondes, plafonné à `max` ; retour à zéro `decay` secondes après le dernier vol. Retourne un nombre (0 .. max).
+function Guard.vigilance(steals, now, cfg)
+	local last, n = nil, 0
+	for _, t in ipairs(steals) do
+		if t <= now then
+			if now - t <= cfg.window then
+				n = n + 1
+			end
+			if last == nil or t > last then
+				last = t
+			end
+		end
+	end
+	if last == nil or now - last >= cfg.decay then
+		return 0
+	end
+	return math.min(cfg.max, n * cfg.perSteal)
+end
+
+-- Retire les vols trop anciens pour compter (hors de la fenêtre) : la liste ne grossit jamais. Retourne la nouvelle liste.
+function Guard.vigilancePrune(steals, now, cfg)
+	local out = {}
+	for _, t in ipairs(steals) do
+		if now - t <= cfg.window then
+			out[#out + 1] = t
+		end
+	end
+	return out
+end
+
+-- Réglages de perception majorés par la vigilance (vue et ouïe x (1 + bonus)) ; l'angle de vue ne change pas. Nouvelle table.
+function Guard.boosted(rival, bonus)
+	return { viewDist = rival.viewDist * (1 + bonus), viewAngle = rival.viewAngle, hearRadius = rival.hearRadius * (1 + bonus) }
+end
+
 function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 	if hp <= 0 or hp >= cfg.maxHp then
 		return math.min(hp, cfg.maxHp)
@@ -6417,7 +6511,208 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+-- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
+-- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
+-- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
+local Traps = {}
+
+local sqrt, cos, sin, rad, deg, acos, pi = math.sqrt, math.cos, math.sin, math.rad, math.deg, math.acos, math.pi
+
+-- Tourne le vecteur unitaire (ux, uz) de `degrees` degrés.
+local function rot(ux, uz, degrees)
+	local c, s = cos(rad(degrees)), sin(rad(degrees))
+	return ux * c - uz * s, ux * s + uz * c
+end
+
+-- Plan des pièges d'un territoire (nil si le territoire n'en a pas). `Config` = module Config. Tout est calculé autour de l'entrée du territoire :
+--   fils à clochettes : 3 fils tangents sur l'arc à 70 % du rayon, à -30 / 0 / +30 degrés de l'entrée (demi-longueur Config.TRAPS.bellHalfWidth)
+--   boue : flaques à 45 % du rayon, étalées de -70 à +70 degrés
+--   dalles d'alarme : à 55 % du rayon, tous les 360/n degrés à partir de 45 degrés
+--   lanternes : à 55 % du rayon, à +90 et -90 degrés, tournant en sens inverse l'une de l'autre depuis des angles opposés
+--   herse : à l'entrée (Config.TERR.zed.traps.gate)
+function Traps.layout(Config, key)
+	local t = Config.TERR[key]
+	local tr = t and t.traps
+	if not tr then
+		return nil
+	end
+	local C = Config.TRAPS
+	local ex, ez = Config.territoryEntry(key)
+	local dx, dz = ex - t.x, ez - t.z
+	local d = sqrt(dx * dx + dz * dz)
+	local ux, uz = dx / d, dz / d
+	local function at(frac, degrees)
+		local vx, vz = rot(ux, uz, degrees)
+		return t.x + vx * t.r * frac, t.z + vz * t.r * frac, vx, vz
+	end
+	local L = { key = key, cx = t.x, cz = t.z, r = t.r, bells = {}, mud = {}, plates = {}, lights = {}, gate = nil }
+	for k = 1, tr.bells or 0 do
+		local x, z, vx, vz = at(0.7, (k - 2) * 30)
+		local tx, tz = -vz, vx -- tangente au cercle : le fil barre le passage vers l'intérieur
+		L.bells[k] = { x = x, z = z, ax = x - tx * C.bellHalfWidth, az = z - tz * C.bellHalfWidth, bx = x + tx * C.bellHalfWidth, bz = z + tz * C.bellHalfWidth }
+	end
+	local nm = tr.mud or 0
+	for k = 1, nm do
+		local x, z = at(0.45, -70 + (k - 1) * 140 / math.max(1, nm - 1))
+		L.mud[k] = { x = x, z = z, r = C.mudRadius }
+	end
+	local np = tr.plates or 0
+	for k = 1, np do
+		local x, z = at(0.55, 45 + (k - 1) * 360 / np)
+		L.plates[k] = { x = x, z = z, r = C.plateRadius }
+	end
+	for k = 1, tr.searchlights or 0 do
+		local x, z = at(0.55, 90 + (k - 1) * 180)
+		L.lights[k] = { x = x, z = z, phase = (k - 1) * pi, rev = tr.searchlightRev or 0.5, range = C.lightRange, cone = C.lightCone }
+	end
+	if tr.gate then
+		L.gate = { x = tr.gate.x, z = tr.gate.z, open = tr.gate.open, closed = tr.gate.closed }
+	end
+	return L
+end
+
+-- Nombre de Parts que les pièges d'un plan font construire au Builder (budget : <= 40 pour tous les territoires).
+-- fil : 2 poteaux + le fil ; flaque : 1 ; dalle : 1 ; lanterne : poteau + faisceau ; herse : 0 (la Part CourtGate de Scenery est réutilisée).
+function Traps.partCount(L)
+	if not L then
+		return 0
+	end
+	return #L.bells * 3 + #L.mud + #L.plates + #L.lights * 2
+end
+
+---------------------------------------------------------------- géométrie
+local function orient(px, pz, qx, qz, rx, rz)
+	return (qx - px) * (rz - pz) - (qz - pz) * (rx - px)
+end
+
+-- Les segments [a b] et [c d] se croisent-ils strictement ?
+function Traps.segCross(ax, az, bx, bz, cx, cz, dx, dz)
+	local o1, o2 = orient(ax, az, bx, bz, cx, cz), orient(ax, az, bx, bz, dx, dz)
+	local o3, o4 = orient(cx, cz, dx, dz, ax, az), orient(cx, cz, dx, dz, bx, bz)
+	return o1 * o2 < 0 and o3 * o4 < 0
+end
+
+-- Distance du point (px, pz) au segment [a b].
+function Traps.distToSeg(px, pz, ax, az, bx, bz)
+	local vx, vz = bx - ax, bz - az
+	local l2 = vx * vx + vz * vz
+	local t = l2 > 0 and math.max(0, math.min(1, ((px - ax) * vx + (pz - az) * vz) / l2)) or 0
+	local qx, qz = ax + vx * t, az + vz * t
+	return sqrt((px - qx) ^ 2 + (pz - qz) ^ 2)
+end
+
+---------------------------------------------------------------- herse (cycle ouverte `open` s / fermée `closed` s, ouverte au temps 0)
+function Traps.gateOpen(t, gate)
+	local cyc = gate.open + gate.closed
+	return (t % cyc) < gate.open
+end
+
+-- Hauteur de la herse : 1 = levée (ouverte), 0 = baissée (fermée). Montée ou descente en `window` secondes au début de chaque phase.
+function Traps.gateLift(t, gate, window)
+	local cyc = gate.open + gate.closed
+	local ph = t % cyc
+	if ph < gate.open then
+		return math.min(1, ph / window)
+	end
+	return math.max(0, 1 - (ph - gate.open) / window)
+end
+
+-- La herse est SOLIDE tant qu'elle est descendue à moitié ou plus (elle ne bloque pas pendant qu'elle monte).
+function Traps.gateSolid(t, gate, window)
+	return Traps.gateLift(t, gate, window) <= 0.5 and not Traps.gateOpen(t, gate)
+end
+
+---------------------------------------------------------------- lanternes tournantes
+function Traps.lanternAngle(t, light)
+	return light.phase + 2 * pi * light.rev * t
+end
+
+-- La lanterne éclaire-t-elle (px, pz) au temps t ? Portée `range`, cône de `cone` degrés (total) centré sur l'angle courant.
+function Traps.lanternSees(light, t, px, pz)
+	local dx, dz = px - light.x, pz - light.z
+	local d = sqrt(dx * dx + dz * dz)
+	if d > light.range then
+		return false
+	end
+	if d < 1 then
+		return true
+	end
+	local a = Traps.lanternAngle(t, light)
+	local c = (cos(a) * dx + sin(a) * dz) / d
+	return deg(acos(math.max(-1, math.min(1, c)))) <= light.cone / 2
+end
+
+---------------------------------------------------------------- décision par joueur
+function Traps.newPlayerState()
+	return { px = nil, pz = nil, mudUntil = 0, cd = {} }
+end
+
+-- Un pas de simulation pour un joueur en (x, z) au temps t (le serveur l'appelle ~10 fois par seconde pour les joueurs proches du territoire).
+-- Met `ps` à jour (position précédente, délais) et retourne la liste des événements :
+--   { kind = "bell", index }  : le joueur a traversé un fil (ou le frôle à moins d'un stud)
+--   { kind = "plate", index } : il marche sur une dalle d'alarme
+--   { kind = "light", index } : une lanterne l'éclaire
+--   { kind = "mud", index }   : il entre dans une flaque (une seule fois par passage ; la vitesse est ralentie tant que t < ps.mudUntil)
+-- Chaque alarme a un délai de recharge par joueur (cfg = Config.TRAPS).
+function Traps.playerStep(ps, L, cfg, t, x, z)
+	local ev = {}
+	local qx, qz = ps.px or x, ps.pz or z
+	ps.px, ps.pz = x, z
+	for i, b in ipairs(L.bells) do
+		local key = "b" .. i
+		if t >= (ps.cd[key] or 0) and (Traps.segCross(qx, qz, x, z, b.ax, b.az, b.bx, b.bz) or Traps.distToSeg(x, z, b.ax, b.az, b.bx, b.bz) < 1) then
+			ps.cd[key] = t + cfg.bellCooldown
+			ev[#ev + 1] = { kind = "bell", index = i }
+		end
+	end
+	for i, m in ipairs(L.mud) do
+		if (x - m.x) ^ 2 + (z - m.z) ^ 2 <= m.r * m.r then
+			if t >= ps.mudUntil then
+				ev[#ev + 1] = { kind = "mud", index = i }
+			end
+			ps.mudUntil = t + cfg.mudSeconds
+		end
+	end
+	for i, p in ipairs(L.plates) do
+		local key = "p" .. i
+		if t >= (ps.cd[key] or 0) and (x - p.x) ^ 2 + (z - p.z) ^ 2 <= p.r * p.r then
+			ps.cd[key] = t + cfg.plateCooldown
+			ev[#ev + 1] = { kind = "plate", index = i }
+		end
+	end
+	for i, l in ipairs(L.lights) do
+		local key = "l" .. i
+		if t >= (ps.cd[key] or 0) and Traps.lanternSees(l, t, x, z) then
+			ps.cd[key] = t + cfg.lightCooldown
+			ev[#ev + 1] = { kind = "light", index = i }
+		end
+	end
+	return ev
+end
+
+-- Multiplicateur de vitesse de la boue (1 hors flaque).
+function Traps.mudMul(ps, t, cfg)
+	return t < ps.mudUntil and cfg.mudMul or 1
+end
+
+---------------------------------------------------------------- fraîcheur des œufs
+-- Échéance (temps absolu) d'un œuf de rareté `tier` pris dans le territoire `terr`, ou nil s'il ne se refroidit pas : seuls les œufs de rareté
+-- Config.CARRY.beamTier ou plus (Légendaire+) pris dans un territoire qui a une `freshness` (Zed : 75 s).
+function Traps.freshDeadline(Config, tier, terr, now)
+	local t = terr and Config.TERR[terr]
+	if t and t.freshness and tier >= Config.CARRY.beamTier then
+		return now + t.freshness
+	end
+	return nil
+end
+
+function Traps.expired(egg, now)
+	return egg.fresh ~= nil and now >= egg.fresh
+end
+
+return Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -6646,7 +6941,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX30"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX24"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX31"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX25"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6667,6 +6962,7 @@ local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Re
 local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
 local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
 local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
+local Traps = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Traps")) -- pièges des territoires (lot 4)
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -7032,6 +7328,7 @@ local function snapshot(s)
 		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
+		newbie = s.newbie == true, -- protection débutant active (lot 4)
 	}
 end
 
@@ -7052,14 +7349,112 @@ local function sync(s)
 	RState:FireClient(s.player, snapshot(s))
 end
 
+---------------------------------------------------------------- Vigilance des territoires et protection débutant (lot 4)
+-- Vols réussis par territoire (horodatages os.clock) : Guard.vigilance en tire le bonus de vue et d'ouïe des gardiens de CE territoire.
+local vigilSteals = {}
+local function recordSteal(terr)
+	local now = os.clock()
+	local list = Guard.vigilancePrune(vigilSteals[terr] or {}, now, Config.VIGILANCE)
+	list[#list + 1] = now
+	vigilSteals[terr] = list
+end
+local function vigilanceOf(terr)
+	return Guard.vigilance(vigilSteals[terr] or {}, os.clock(), Config.VIGILANCE)
+end
+-- Protection débutant : moins de Config.NEWBIE.minutes de jeu cumulées ET maison sous le niveau Config.NEWBIE.untilLevel (sauf fin anticipée).
+local function isNewbie(s)
+	return Config.isNewbie(s.data.played, s.baseLevel, s.data.newbieOff)
+end
+
 ---------------------------------------------------------------- Vitesse / étourdissement
+-- Rarétés des œufs portés (liste d'indices) : le poids du portage dépend de la rareté (Config.CARRY.weight, produit, plancher 0,70).
+local function carryTiers(s)
+	local out = {}
+	for i, e in ipairs(s.carry) do
+		out[i] = e.t
+	end
+	return out
+end
+-- Boue (Mara) : vitesse x Config.TRAPS.mudMul tant que le joueur est encore « embourbé » dans l'un des territoires (états de Traps par territoire).
+local function mudMulOf(s)
+	local m = 1
+	local now = os.clock()
+	for _, ps in pairs(s.traps or {}) do
+		m = math.min(m, Traps.mudMul(ps, now, Config.TRAPS))
+	end
+	return m
+end
 local function applySpeed(s)
 	local hum = getHum(s.player)
 	if hum and s.stun <= 0 then
-		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * 0.93 ^ #s.carry
+		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * Config.carryMul(carryTiers(s)) * mudMulOf(s)
 		if math.abs(hum.WalkSpeed - ws) > 0.05 then
 			hum.WalkSpeed = ws
 		end
+	end
+end
+
+---------------------------------------------------------------- Badge débutant, porte de base (lot 4)
+-- Met à jour la protection débutant d'un joueur : attribut `Newbie` (le client l'affiche), badge 🐣 au-dessus de la tête (recréé après chaque réapparition).
+local function refreshNewbie(s)
+	local nb = isNewbie(s)
+	if nb ~= s.newbie then
+		local was = s.newbie
+		s.newbie = nb
+		s.player:SetAttribute("Newbie", nb)
+		if was == true and not nb then
+			notify(s.player, "⚔️ Protection débutant terminée : tu peux voler les autres joueurs, et ils peuvent te voler.")
+		end
+	end
+	local char = s.player.Character
+	local adornee = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+	if nb and adornee and not (s.badge and s.badge.Parent and s.badge.Adornee == adornee) then -- recréé après chaque réapparition (nouveau personnage)
+		if s.badge then
+			s.badge:Destroy()
+			s.badge = nil
+		end
+		do
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "NewbieBadge"
+			gui.Adornee = adornee
+			gui.Size = UDim2.fromOffset(44, 44)
+			gui.StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0)
+			gui.MaxDistance = 80
+			local t = Instance.new("TextLabel")
+			t.BackgroundTransparency = 1
+			t.Size = UDim2.fromScale(1, 1)
+			t.Font = Enum.Font.GothamBold
+			t.TextSize = 30
+			t.Text = "🐣"
+			t.Parent = gui
+			gui.Parent = adornee
+			s.badge = gui
+		end
+	elseif not nb and s.badge then
+		s.badge:Destroy()
+		s.badge = nil
+	end
+end
+
+-- Barrière lumineuse de la porte de base : un mur de lumière sur le bord de la base qui regarde la place (aucune collision : le serveur refuse le vol).
+local function setDoorBarrier(s, on)
+	if on and not s.doorPart and s.plot then
+		local half = s.plot.platform.Size.X / 2
+		local p = Instance.new("Part")
+		p.Name = "DoorBarrier"
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Material = Enum.Material.Neon
+		p.Color = Color3.fromRGB(255, 120, 90)
+		p.Transparency = 0.6
+		p.Size = Vector3.new(half * 2, 7, 0.4)
+		p.CFrame = s.plot.cf * CFrame.new(0, 4.5, -(half + 0.2))
+		p.Parent = s.plot.model
+		s.doorPart = p
+	elseif not on and s.doorPart then
+		s.doorPart:Destroy()
+		s.doorPart = nil
 	end
 end
 
@@ -7088,6 +7483,33 @@ local function rebuildCarry(s)
 		CollectionService:AddTag(egg, "CarryEgg") -- balancement pendant la course (client)
 		s.carryParts[i] = egg
 	end
+	-- colonne de lumière : le porteur d'un œuf Légendaire ou plus est visible de loin (BillboardGui, portée Config.CARRY.beamRange, détruit avec les œufs)
+	local top = 0
+	for _, e in ipairs(s.carry) do
+		top = math.max(top, e.t)
+	end
+	if top >= Config.CARRY.beamTier then
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "CarryBeam"
+		gui.Adornee = root
+		gui.Size = UDim2.fromOffset(22, 640)
+		gui.ExtentsOffset = Vector3.new(0, 0.5, 0)
+		gui.MaxDistance = Config.CARRY.beamRange
+		gui.AlwaysOnTop = true
+		local col = Instance.new("Frame")
+		col.Name = "Column"
+		col.Size = UDim2.fromScale(1, 1)
+		col.BorderSizePixel = 0
+		col.BackgroundColor3 = Config.TIERS[top].color
+		col.BackgroundTransparency = 0.25
+		col.Parent = gui
+		local fade = Instance.new("UIGradient")
+		fade.Rotation = 90
+		fade.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+		fade.Parent = col
+		gui.Parent = root
+		s.carryParts[#s.carryParts + 1] = gui
+	end
 end
 
 ---------------------------------------------------------------- Nids des rivaux
@@ -7108,9 +7530,10 @@ local function setNestEgg(n, tier)
 	local pr = Instance.new("ProximityPrompt")
 	pr.ActionText = "Voler l'œuf"
 	pr.ObjectText = "Œuf " .. Config.TIERS[tier].name
-	pr.HoldDuration = Config.stealTime(0)
+	pr.HoldDuration = Config.stealTime(0, n.terr) -- temps de vol propre au territoire (sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5)
 	pr.MaxActivationDistance = 10
 	pr.RequiresLineOfSight = false
+	pr:SetAttribute("Terr", n.terr)
 	pr:SetAttribute("Kind", "Nest")
 	pr:SetAttribute("Nest", n.index)
 	pr:SetAttribute("Rival", n.rival) -- le client masque le prompt tant que la zone est verrouillée
@@ -7208,10 +7631,17 @@ end
 ---------------------------------------------------------------- Retour / chute des œufs portés
 local function returnEgg(e)
 	if e.rival then
-		for _, n in ipairs(world.nests) do
-			if n.rival == e.rival and not n.egg then
-				setNestEgg(n, e.t)
-				return
+		local home = e.nest and world.nests[e.nest]
+		if home then -- l'œuf regagne SON nid (même si un autre œuf y est réapparu entre-temps : le nid est remis tel qu'il était)
+			setNestEgg(home, e.t)
+			return
+		end
+		for pass = 1, 2 do -- d'abord un nid libre de SON territoire (clé `terr`), à défaut n'importe quel nid libre du même rival
+			for _, n in ipairs(world.nests) do
+				if n.rival == e.rival and not n.egg and (pass == 2 or n.terr == e.terr) then
+					setNestEgg(n, e.t)
+					return
+				end
 			end
 		end
 	elseif e.from then
@@ -7644,7 +8074,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	if s.holdSeen then
 		local h = holds[player]
 		holds[player] = nil
-		if not h or h.prompt ~= prompt or os.clock() - h.t < Config.stealTime(s.data.up.fing) * 0.7 then
+		if not h or h.prompt ~= prompt or os.clock() - h.t < Config.stealTime(s.data.up.fing, prompt:GetAttribute("Terr")) * 0.7 then
 			return
 		end
 	end
@@ -7668,7 +8098,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		Builder.flyEgg(t, n.pos, player.UserId)
 		Builder.burst(n.pos, Config.TIERS[t].color, 14, false)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
-		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival }
+		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival, terr = n.terr, nest = n.index, fresh = Traps.freshDeadline(Config, t, n.terr, os.clock()) }
+		recordSteal(n.terr) -- vigilance : les gardiens de ce territoire voient et entendent plus loin pendant un moment
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		sp(s, "steal", 1, { rival = n.rival })
@@ -7682,6 +8113,18 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		end
 		local sl = vs.data.slots[i]
 		if not sl or sl.k ~= "e" then
+			return
+		end
+		if isNewbie(s) then
+			notify(player, "🐣 Protection débutant : tu ne peux pas encore voler d'autres joueurs (menu : « Je suis prêt pour le PvP »).")
+			return
+		end
+		if isNewbie(vs) then
+			notify(player, "🐣 Ce joueur est sous protection débutant : ses œufs ne peuvent pas être volés.")
+			return
+		end
+		if (vs.lockUntil or 0) > os.clock() then
+			notify(player, "🔒 La porte de cette base est fermée !")
 			return
 		end
 		if (sl.shield or 0) > os.time() or (vs.graceUntil or 0) > os.time() then
@@ -7741,7 +8184,7 @@ local function defeatAtBase(s)
 end
 
 local function hitPlayer(s, g)
-	local r = Config.RIVALS[g.rival]
+	local r = g.stats
 	if r.gentle then
 		-- gardien clément (Gus) : jamais de dégâts ; la première prise renvoie à la base (la cargaison est gardée), puis 6 s de répit
 		if os.clock() < (s.gentleUntil or 0) then
@@ -7864,13 +8307,23 @@ for _, g in ipairs(world.guards) do -- marque d'état au-dessus de chaque gardie
 	end
 end
 
+-- Réglages de chaque gardien d'après SON territoire (Config.guardStats : vitesses, vue, ouïe, coup de Config.TERR ; Gus = son rival, clément).
+for _, g in ipairs(world.guards) do
+	g.stats = Config.guardStats(g.terr)
+end
+
 local function guardsStep(dt)
 	for _, s in pairs(sessions) do -- invulnérabilité et temps depuis le dernier coup
 		s.iframes = math.max(0, (s.iframes or 0) - dt)
 		s.sinceHit = (s.sinceHit or 99) + dt
 	end
 	for _, g in ipairs(world.guards) do
-		local r = Config.RIVALS[g.rival]
+		local r = g.stats
+		local bonus = vigilanceOf(g.terr)
+		if bonus ~= g.vigBonus or not g.rv then -- vue et ouïe majorées par la vigilance du territoire (recalculé seulement quand le bonus change)
+			g.vigBonus, g.rv = bonus, Guard.boosted(r, bonus)
+		end
+		local rv = g.rv
 		g.cd -= dt
 		g.st = g.st or { state = "patrol", timer = 0, lost = 0 }
 		g.look = g.look or Vector3.new(g.dir, 0, 0)
@@ -7884,7 +8337,7 @@ local function guardsStep(dt)
 			g.scan = (g.scan or 0) - dt
 			if g.scan <= 0 then
 				g.scan = 0.15
-				target = candidate(g, r)
+				target = candidate(g, rv)
 				ts = target and sessions[target]
 			else
 				target, ts = nil, nil
@@ -7898,7 +8351,7 @@ local function guardsStep(dt)
 			percept = Guard.perceive(
 				{ x = g.pos.X, z = g.pos.Z, fx = g.look.X, fz = g.look.Z },
 				{ x = troot.Position.X, z = troot.Position.Z, speed = speed },
-				r, GC
+				rv, GC
 			)
 			if percept.sees or percept.hears then
 				g.last = Vector3.new(troot.Position.X, g.pos.Y, troot.Position.Z)
@@ -7999,6 +8452,87 @@ local function guardsStep(dt)
 		g.speedNow = (g.speedNow or 0) * 0.8 + (moved / math.max(dt, 1e-3)) * 0.2
 		local by, roll = Guard.walkPose(os.clock(), g.speedNow)
 		g.model:PivotTo(CFrame.lookAt(g.pos + Vector3.new(0, by, 0), g.pos + Vector3.new(0, by, 0) + g.look) * CFrame.Angles(0, 0, roll))
+	end
+end
+
+---------------------------------------------------------------- Pièges des territoires (lot 4) : fils à clochettes, boue, herse, dalles d'alarme, lanternes
+-- Traps (pur) décide, ce code applique : alarme = les gardiens du territoire foncent vers l'endroit (état « perte de cible » = ils vont à la dernière
+-- position connue puis reprennent leur poste, et repèrent le joueur s'il y est toujours) ; boue = vitesse x0,6 (applySpeed) ; herse = Part animée à 10 Hz.
+local trapsWorld = world.traps or { layouts = {}, lights = {}, plates = {} }
+local ALARM_TEXT = { bell = "🔔 Un fil à clochettes a sonné : les gardiens accourent !", plate = "🚨 Dalle d'alarme : les gardiens accourent !", light = "🔦 Une lanterne t'a repéré : les gardiens accourent !" }
+
+local function alarmGuards(terr, x, z)
+	for _, g in ipairs(world.guards) do
+		if g.terr == terr and g.st and g.st.state ~= "chase" then
+			g.st = { state = "lostChase", timer = 0, lost = 0 }
+			g.last = Vector3.new(x, g.pos.Y, z)
+			g.target, g.wps = nil, nil
+			if g.mark then
+				g.mark.Text = "❗"
+			end
+		end
+	end
+end
+
+local function trapsStep(_dt)
+	local now = os.clock()
+	for player, s in pairs(sessions) do
+		local root = getRoot(player)
+		if root and alive(player) then
+			local px, pz = root.Position.X, root.Position.Z
+			for key, L in pairs(trapsWorld.layouts) do
+				local ps = s.traps[key]
+				if (px - L.cx) ^ 2 + (pz - L.cz) ^ 2 <= (L.r + 8) ^ 2 then
+					if not ps then
+						ps = Traps.newPlayerState()
+						s.traps[key] = ps
+					end
+					for _, ev in ipairs(Traps.playerStep(ps, L, Config.TRAPS, now, px, pz)) do
+						if ev.kind == "mud" then
+							applySpeed(s)
+							notify(player, "🟤 De la boue ! Tu es ralenti.")
+						else
+							alarmGuards(key, px, pz)
+							notify(player, ALARM_TEXT[ev.kind] or "🔔", "caught")
+							if ev.kind == "plate" then
+								for _, pl in ipairs(trapsWorld.plates) do
+									if pl.key == key and pl.index == ev.index then
+										pl.part.Color = Color3.fromRGB(255, 220, 90)
+										task.delay(0.8, function()
+											pl.part.Color = Color3.fromRGB(150, 60, 60)
+										end)
+									end
+								end
+							end
+						end
+					end
+				elseif ps then
+					s.traps[key] = nil
+					applySpeed(s)
+				end
+			end
+		end
+	end
+	for _, ln in ipairs(trapsWorld.lights) do -- lanternes : le faisceau tourne (0,5 tour/s)
+		local l = ln.light
+		local a = Traps.lanternAngle(now, l)
+		local dx, dz = math.cos(a), math.sin(a)
+		local mid = Vector3.new(l.x + dx * l.range / 2, ln.y, l.z + dz * l.range / 2)
+		ln.part.CFrame = CFrame.lookAt(mid, mid + Vector3.new(dx, 0, dz))
+	end
+	local gt = trapsWorld.gate
+	local gl = trapsWorld.layouts.zed
+	if gt and gl and gl.gate then -- herse de la cour de Zed : cycle 3 s ouverte / 3 s fermée, solide quand elle est descendue
+		local lift = Traps.gateLift(now, gl.gate, Config.TRAPS.gateWindow)
+		if lift ~= gt.lift then
+			gt.lift = lift
+			gt.part.CFrame = gt.baseCF + Vector3.new(0, -5.5 + 8.5 * lift, 0)
+		end
+		local solid = Traps.gateSolid(now, gl.gate, Config.TRAPS.gateWindow)
+		if gt.solid ~= solid then
+			gt.solid = solid
+			gt.part.CanCollide = solid
+		end
 	end
 end
 
@@ -8295,6 +8829,33 @@ local function fastTick(dt)
 					sync(s)
 				end
 			end
+			-- fraîcheur : un œuf Légendaire+ pris chez Zed refroidit s'il n'atteint pas la base à temps -> il regagne son nid
+			if #s.carry > 0 then
+				local nowc, cooled, soonest = os.clock(), false, 0
+				for i = #s.carry, 1, -1 do
+					local e = s.carry[i]
+					if Traps.expired(e, nowc) then
+						table.remove(s.carry, i)
+						returnEgg(e)
+						cooled = true
+					elseif e.fresh then
+						soonest = (soonest == 0) and (e.fresh - nowc) or math.min(soonest, e.fresh - nowc)
+					end
+				end
+				if cooled then
+					notify(player, "🧊 L'œuf a refroidi et regagne son nid")
+					rebuildCarry(s)
+					applySpeed(s)
+					sync(s)
+				end
+				player:SetAttribute("FreshLeft", math.ceil(soonest))
+			elseif player:GetAttribute("FreshLeft") ~= 0 then
+				player:SetAttribute("FreshLeft", 0)
+			end
+			-- porte de base : fin de la fermeture
+			if s.doorPart and os.clock() >= (s.lockUntil or 0) then
+				setDoorBarrier(s, false)
+			end
 		end)
 		if not ok then
 			warn("[fastTick] " .. tostring(err))
@@ -8322,6 +8883,8 @@ local function slowTick(dt)
 	for player, s in pairs(sessions) do
 		local ok, err = pcall(function()
 			local d = s.data
+			d.played += dt -- temps de jeu cumulé (secondes, sauvegardé) : protection débutant
+			refreshNewbie(s)
 			local inc = income(s)
 			local active = os.clock() - s.lastActive <= Config.IDLE.seconds
 			if (player:GetAttribute("Idle") == true) == active then
@@ -8379,9 +8942,18 @@ local function slowTick(dt)
 	end
 end
 
-local acc1, acc2, acc3 = 0, 0, 0
+local acc1, acc2, acc3, acc4 = 0, 0, 0, 0
 RunService.Heartbeat:Connect(function(dt)
 	guardsStep(dt)
+	acc4 += dt
+	if acc4 >= 0.1 then
+		local d4 = acc4
+		acc4 = 0
+		local okT, errT = pcall(trapsStep, d4)
+		if not okT then
+			warn("[traps] " .. tostring(errT))
+		end
+	end
 	acc3 += dt
 	if acc3 >= Config.CASTLE.step then
 		local d3 = acc3
@@ -8677,6 +9249,40 @@ function actions.toHub(s)
 		notify(s.player, "🏠 Retour au hub…")
 	else
 		notify(s.player, "⚠️ " .. res.message)
+	end
+end
+
+-- Porte de base : ferme la base pendant Config.lockSeconds(niveau) secondes (aucun vol d'emplacement), puis recharge Config.DOOR.cooldown secondes.
+function actions.lockDoor(s)
+	local now = os.clock()
+	if (s.lockUntil or 0) > now then
+		return
+	end
+	if (s.lockReadyAt or 0) > now then
+		notify(s.player, "🔒 La porte se recharge : encore " .. math.ceil(s.lockReadyAt - now) .. " s.")
+		return
+	end
+	local dur = Config.lockSeconds(s.baseLevel or 1)
+	s.lockUntil = now + dur
+	s.lockReadyAt = s.lockUntil + Config.DOOR.cooldown
+	local okT, server = pcall(function()
+		return workspace:GetServerTimeNow()
+	end)
+	if not okT or type(server) ~= "number" then
+		server = os.time()
+	end
+	s.player:SetAttribute("DoorUntil", server + dur)
+	s.player:SetAttribute("DoorReady", server + dur + Config.DOOR.cooldown)
+	setDoorBarrier(s, true)
+	notify(s.player, "🔒 Porte fermée pendant " .. dur .. " s : personne ne peut voler tes œufs.")
+end
+
+-- Fin anticipée de la protection débutant (« Je suis prêt pour le PvP »).
+function actions.newbieOff(s)
+	if isNewbie(s) then
+		s.data.newbieOff = true
+		refreshNewbie(s)
+		sync(s)
 	end
 end
 
@@ -9364,6 +9970,11 @@ local function claimPlot(player)
 end
 
 local function releasePlot(s)
+	setDoorBarrier(s, false)
+	if s.badge then
+		s.badge:Destroy()
+		s.badge = nil
+	end
 	for i = 1, 12 do
 		clearPad(s, i)
 		s.plot.pads[i].lock.Enabled = true
@@ -9454,7 +10065,7 @@ local function onJoin(player)
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastActive = os.clock(), lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
-		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false,
+		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false, traps = {},
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
@@ -9658,7 +10269,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -9685,6 +10296,7 @@ local SAVE_RETRIES = 3
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
+-- v9c : + played (secondes de jeu cumulées) et newbieOff (protection débutant, lot 4) : champs facultatifs assainis, sans changement de version.
 -- v9b : battle.pvp { season, trophies, wins, losses, defense = { {p,s,m} }, day, fights, claimed } (PvP asynchrone, sans changement de version : champs facultatifs assainis).
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
 local VERSION = 9
@@ -9758,6 +10370,8 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
+		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
@@ -9888,6 +10502,8 @@ local function merge(saved)
 	end
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
+	d.played = math.min(1e9, sane(saved.played, 0))
+	d.newbieOff = saved.newbieOff == true
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.battle) == "table" then
 		local b = saved.battle
@@ -10259,7 +10875,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -10271,6 +10887,7 @@ local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shar
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
+local TrapsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Traps")) -- plan des pièges des territoires (REFONTE lot 4)
 PlacementMod.MapGeo = MapGeoMod
 PlacementMod.yield = function()
 	task.wait()
@@ -12295,6 +12912,54 @@ function Builder.build()
 		end
 	end
 
+	-- Pièges des territoires (REFONTE lot 4) : le plan vient de Traps.layout (pur, dérivé de Config.TERR) ; < 40 Parts au total. Le serveur (Main) les anime.
+	result.traps = { layouts = {}, lights = {}, plates = {}, gate = nil, parts = 0 }
+	do
+		local function addPart(props, parent)
+			props.CanCollide = props.CanCollide == true
+			result.traps.parts += 1
+			return part(props, parent)
+		end
+		for _, key in ipairs(Config.TERR_ORDER) do
+			local L = TrapsMod.layout(Config, key)
+			if L then
+				result.traps.layouts[key] = L
+				local folder = Instance.new("Folder")
+				folder.Name = "Traps_" .. key
+				folder.Parent = world
+				local gy = G.groundY(L.cx, L.cz)
+				for _, b in ipairs(L.bells) do
+					local len = math.sqrt((b.bx - b.ax) ^ 2 + (b.bz - b.az) ^ 2)
+					for _, e in ipairs({ { b.ax, b.az }, { b.bx, b.bz } }) do
+						addPart({ Name = "BellPost", Size = Vector3.new(0.5, 3.4, 0.5), Position = Vector3.new(e[1], gy + 1.7, e[2]), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood }, folder)
+					end
+					local wire = addPart({ Name = "BellWire", Size = Vector3.new(0.12, 0.12, len), CFrame = CFrame.lookAt(Vector3.new(b.x, gy + 2.7, b.z), Vector3.new(b.bx, gy + 2.7, b.bz)), Color = Color3.fromRGB(255, 214, 90), Material = Enum.Material.Metal }, folder)
+					sign(wire, "🔔", Color3.fromRGB(255, 226, 120), 1.2, 60)
+				end
+				for _, m in ipairs(L.mud) do
+					addPart({ Name = "MudPuddle", Size = Vector3.new(0.15, m.r * 2, m.r * 2), CFrame = CFrame.new(m.x, gy + 0.3, m.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(88, 62, 42), Material = Enum.Material.Mud }, folder)
+				end
+				for plIdx, pl in ipairs(L.plates) do
+					local plate = addPart({ Name = "AlarmPlate", Size = Vector3.new(0.25, pl.r * 2, pl.r * 2), CFrame = CFrame.new(pl.x, gy + 0.32, pl.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 60, 60), Material = Enum.Material.Metal }, folder)
+					result.traps.plates[#result.traps.plates + 1] = { part = plate, key = key, index = plIdx }
+				end
+				for liIdx, l in ipairs(L.lights) do
+					addPart({ Name = "LanternPole", Size = Vector3.new(0.6, 5.2, 0.6), Position = Vector3.new(l.x, gy + 2.6, l.z), Color = Color3.fromRGB(70, 70, 78), Material = Enum.Material.Metal }, folder)
+					local beam = addPart({ Name = "LanternBeam", Size = Vector3.new(0.5, 0.5, l.range), Position = Vector3.new(l.x, gy + 5.2, l.z + l.range / 2), Color = Color3.fromRGB(255, 240, 160), Material = Enum.Material.Neon, Transparency = 0.55 }, folder)
+					result.traps.lights[#result.traps.lights + 1] = { part = beam, key = key, index = liIdx, light = l, y = gy + 5.2 }
+				end
+			end
+		end
+		-- herse de la cour de Zed : la Part CourtGate de Scenery (levée, sans collision) devient une vraie herse de la hauteur du mur, animée par le serveur
+		for _, d in ipairs(world:GetDescendants()) do
+			if d.Name == "CourtGate" and d:IsA("BasePart") then
+				d.Size = Vector3.new(d.Size.X, 8, d.Size.Z)
+				result.traps.gate = { part = d, baseCF = d.CFrame, lift = -1 }
+				break
+			end
+		end
+	end
+
 	local total = 0
 	for _, d in ipairs(world:GetDescendants()) do
 		if d:IsA("BasePart") then
@@ -12549,7 +13214,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -12693,7 +13358,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -12706,7 +13371,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -13438,7 +14103,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX42"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX41"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX31"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX43"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX42"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX32"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14860,6 +15525,38 @@ local idleLabel = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = 
 player:GetAttributeChangedSignal("Idle"):Connect(function()
 	idleLabel.Visible = player:GetAttribute("Idle") == true
 end)
+-- Boutons de base (lot 4) : « Fermer la porte » (durée selon le niveau, recharge 60 s) et « Je suis prêt pour le PvP » (fin de la protection débutant, 🐣) ;
+-- compte à rebours de fraîcheur de l'œuf porté (Légendaire+ chez Zed). Le client n'envoie que des intentions : le serveur décide.
+local toolsFrame = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 70), Size = UDim2.fromOffset(160, 124), BackgroundTransparency = 1, ZIndex = 20 }, hudRoot)
+local doorBtn = make("TextButton", { Size = UDim2.fromOffset(160, 36), BackgroundColor3 = COL.green, TextColor3 = COL.dark, Font = FONT, TextSize = 14, TextWrapped = true, Text = "🔒 Fermer la porte", ZIndex = 20 }, toolsFrame)
+corner(doorBtn, 10)
+doorBtn.Activated:Connect(function()
+	RAction:FireServer("lockDoor")
+end)
+local newbieBtn = make("TextButton", { Position = UDim2.fromOffset(0, 42), Size = UDim2.fromOffset(160, 40), BackgroundColor3 = COL.green, TextColor3 = COL.dark, Font = FONT, TextSize = 13, TextWrapped = true, Text = "🐣 Je suis prêt pour le PvP", Visible = false, ZIndex = 20 }, toolsFrame)
+corner(newbieBtn, 10)
+newbieBtn.Activated:Connect(function()
+	RAction:FireServer("newbieOff")
+end)
+local freshLabel = text(toolsFrame, { Position = UDim2.fromOffset(0, 88), Size = UDim2.fromOffset(160, 24), TextSize = 14, TextColor3 = Color3.fromRGB(160, 220, 255), Text = "", Visible = false })
+task.spawn(function()
+	while true do
+		local now = workspace:GetServerTimeNow()
+		local untilT, readyT = player:GetAttribute("DoorUntil") or 0, player:GetAttribute("DoorReady") or 0
+		if now < untilT then
+			doorBtn.Text = "🔒 Porte fermée : " .. math.ceil(untilT - now) .. " s"
+		elseif now < readyT then
+			doorBtn.Text = "🔒 Recharge : " .. math.ceil(readyT - now) .. " s"
+		else
+			doorBtn.Text = "🔒 Fermer la porte"
+		end
+		newbieBtn.Visible = player:GetAttribute("Newbie") == true
+		local fresh = player:GetAttribute("FreshLeft") or 0
+		freshLabel.Visible = fresh > 0
+		freshLabel.Text = "🧊 Apporte l'œuf : " .. fresh .. " s"
+		task.wait(0.25)
+	end
+end)
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
 	if type(snap.away) == "number" and snap.away >= 1 then
@@ -15056,7 +15753,7 @@ task.spawn(function()
 	while true do
 		local lvl = state and state.up.fing or 0
 		for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
-			pr.HoldDuration = Config.stealTime(lvl)
+			pr.HoldDuration = Config.stealTime(lvl, pr:GetAttribute("Terr")) -- temps de base du territoire (le serveur mesure lui-même)
 			local rival = pr:GetAttribute("Rival")
 			local open = rival == nil or (state ~= nil and Config.zoneUnlocked(state.story.ch, rival))
 			pr.Enabled = pr:GetAttribute("Owner") ~= player.UserId and open
@@ -15422,7 +16119,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX32"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX33"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -15980,7 +16677,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX33"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX34"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -16620,7 +17317,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX34"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -16746,7 +17443,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX36"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -16829,7 +17526,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -16944,7 +17641,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -17133,7 +17830,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -17284,7 +17981,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -17595,7 +18292,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

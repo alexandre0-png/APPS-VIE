@@ -152,6 +152,42 @@ function Guard.walkPose(t, speed)
 	return math.sin(t * 2) * 0.04, 0
 end
 
+-- Vigilance d'un territoire (Config.VIGILANCE) : `steals` = horodatages (s) des vols réussis dans CE territoire. Bonus de vue et d'ouïe = perSteal par vol
+-- des `window` dernières secondes, plafonné à `max` ; retour à zéro `decay` secondes après le dernier vol. Retourne un nombre (0 .. max).
+function Guard.vigilance(steals, now, cfg)
+	local last, n = nil, 0
+	for _, t in ipairs(steals) do
+		if t <= now then
+			if now - t <= cfg.window then
+				n = n + 1
+			end
+			if last == nil or t > last then
+				last = t
+			end
+		end
+	end
+	if last == nil or now - last >= cfg.decay then
+		return 0
+	end
+	return math.min(cfg.max, n * cfg.perSteal)
+end
+
+-- Retire les vols trop anciens pour compter (hors de la fenêtre) : la liste ne grossit jamais. Retourne la nouvelle liste.
+function Guard.vigilancePrune(steals, now, cfg)
+	local out = {}
+	for _, t in ipairs(steals) do
+		if now - t <= cfg.window then
+			out[#out + 1] = t
+		end
+	end
+	return out
+end
+
+-- Réglages de perception majorés par la vigilance (vue et ouïe x (1 + bonus)) ; l'angle de vue ne change pas. Nouvelle table.
+function Guard.boosted(rival, bonus)
+	return { viewDist = rival.viewDist * (1 + bonus), viewAngle = rival.viewAngle, hearRadius = rival.hearRadius * (1 + bonus) }
+end
+
 function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 	if hp <= 0 or hp >= cfg.maxHp then
 		return math.min(hp, cfg.maxHp)

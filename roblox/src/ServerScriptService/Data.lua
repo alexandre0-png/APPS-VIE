@@ -25,6 +25,7 @@ local SAVE_RETRIES = 3
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
+-- v9c : + played (secondes de jeu cumulées) et newbieOff (protection débutant, lot 4) : champs facultatifs assainis, sans changement de version.
 -- v9b : battle.pvp { season, trophies, wins, losses, defense = { {p,s,m} }, day, fights, claimed } (PvP asynchrone, sans changement de version : champs facultatifs assainis).
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
 local VERSION = 9
@@ -98,6 +99,8 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
+		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
@@ -228,6 +231,8 @@ local function merge(saved)
 	end
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
+	d.played = math.min(1e9, sane(saved.played, 0))
+	d.newbieOff = saved.newbieOff == true
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.battle) == "table" then
 		local b = saved.battle

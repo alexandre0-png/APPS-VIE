@@ -1420,6 +1420,38 @@ local idleLabel = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = 
 player:GetAttributeChangedSignal("Idle"):Connect(function()
 	idleLabel.Visible = player:GetAttribute("Idle") == true
 end)
+-- Boutons de base (lot 4) : « Fermer la porte » (durée selon le niveau, recharge 60 s) et « Je suis prêt pour le PvP » (fin de la protection débutant, 🐣) ;
+-- compte à rebours de fraîcheur de l'œuf porté (Légendaire+ chez Zed). Le client n'envoie que des intentions : le serveur décide.
+local toolsFrame = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 70), Size = UDim2.fromOffset(160, 124), BackgroundTransparency = 1, ZIndex = 20 }, hudRoot)
+local doorBtn = make("TextButton", { Size = UDim2.fromOffset(160, 36), BackgroundColor3 = COL.green, TextColor3 = COL.dark, Font = FONT, TextSize = 14, TextWrapped = true, Text = "🔒 Fermer la porte", ZIndex = 20 }, toolsFrame)
+corner(doorBtn, 10)
+doorBtn.Activated:Connect(function()
+	RAction:FireServer("lockDoor")
+end)
+local newbieBtn = make("TextButton", { Position = UDim2.fromOffset(0, 42), Size = UDim2.fromOffset(160, 40), BackgroundColor3 = COL.green, TextColor3 = COL.dark, Font = FONT, TextSize = 13, TextWrapped = true, Text = "🐣 Je suis prêt pour le PvP", Visible = false, ZIndex = 20 }, toolsFrame)
+corner(newbieBtn, 10)
+newbieBtn.Activated:Connect(function()
+	RAction:FireServer("newbieOff")
+end)
+local freshLabel = text(toolsFrame, { Position = UDim2.fromOffset(0, 88), Size = UDim2.fromOffset(160, 24), TextSize = 14, TextColor3 = Color3.fromRGB(160, 220, 255), Text = "", Visible = false })
+task.spawn(function()
+	while true do
+		local now = workspace:GetServerTimeNow()
+		local untilT, readyT = player:GetAttribute("DoorUntil") or 0, player:GetAttribute("DoorReady") or 0
+		if now < untilT then
+			doorBtn.Text = "🔒 Porte fermée : " .. math.ceil(untilT - now) .. " s"
+		elseif now < readyT then
+			doorBtn.Text = "🔒 Recharge : " .. math.ceil(readyT - now) .. " s"
+		else
+			doorBtn.Text = "🔒 Fermer la porte"
+		end
+		newbieBtn.Visible = player:GetAttribute("Newbie") == true
+		local fresh = player:GetAttribute("FreshLeft") or 0
+		freshLabel.Visible = fresh > 0
+		freshLabel.Text = "🧊 Apporte l'œuf : " .. fresh .. " s"
+		task.wait(0.25)
+	end
+end)
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
 	if type(snap.away) == "number" and snap.away >= 1 then
@@ -1616,7 +1648,7 @@ task.spawn(function()
 	while true do
 		local lvl = state and state.up.fing or 0
 		for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
-			pr.HoldDuration = Config.stealTime(lvl)
+			pr.HoldDuration = Config.stealTime(lvl, pr:GetAttribute("Terr")) -- temps de base du territoire (le serveur mesure lui-même)
 			local rival = pr:GetAttribute("Rival")
 			local open = rival == nil or (state ~= nil and Config.zoneUnlocked(state.story.ch, rival))
 			pr.Enabled = pr:GetAttribute("Owner") ~= player.UserId and open

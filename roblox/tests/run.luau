@@ -22,7 +22,7 @@ local MapGeoMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/MapGeo.lua
 local SpawnPresets = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Spawn.lua"), { debugName = "Spawn" })().PRESETS
 
 local passed, failed = 0, 0
--- Garde-fous : nom de la suite en cours affiché, délai global de 90 s (sous Lune, `task.delay` réel : plus jamais de blocage silencieux),
+-- Garde-fous : nom de la suite en cours affiché, délai global de 240 s (sous Lune, `task.delay` réel : plus jamais de blocage silencieux),
 -- sortie explicite en fin de run (aucune tâche de fond ne peut retenir le processus).
 local currentSuite = "initialisation"
 local function suite(name)
@@ -30,8 +30,8 @@ local function suite(name)
 	print("  ▶ " .. name)
 end
 if task and task.delay then
-	task.delay(90, function()
-		print("TIMEOUT global (90 s) : le test est bloqué dans la suite « " .. currentSuite .. " »")
+	task.delay(240, function()
+		print("TIMEOUT global (240 s) : le test est bloqué dans la suite « " .. currentSuite .. " »")
 		process.exit(2)
 	end)
 end
@@ -7609,6 +7609,652 @@ do
 			end
 		end
 		checkv("Tapis (e2e) : aucune erreur d'exécution, " .. beltWarns .. " avertissement « [belt] » du serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0 and beltWarns == 0)
+	end
+end
+
+-- REFONTE (lot 4) : difficulté croissante des territoires (logique pure) -------------------------------------------------------------
+do
+	suite("Refonte lot 4 : difficulté des territoires (temps de vol, vigilance, pièges, portage, fraîcheur, porte, protection débutant, simulation)")
+	local GU = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Guard.lua"), { debugName = "Guard" })()
+	local TR = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Traps.lua"), { debugName = "Traps" })()
+	local SIM = luau.load(fs.readFile("roblox/tests/SimSteal.lua"), { debugName = "SimSteal" })()
+	local V = Config.VIGILANCE
+
+	-- 1. temps de vol par territoire --------------------------------------------------------------------------------------------------
+	check("stealTime par territoire : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5 s", near(Config.stealTime(0, "wild"), 0.8) and near(Config.stealTime(0, "gusNW"), 1.3) and near(Config.stealTime(0, "gusSW"), 1.3) and near(Config.stealTime(0, "mara"), 2.2) and near(Config.stealTime(0, "zed"), 3.5))
+	check("stealTime : Doigts agiles x 0,85 par niveau dans chaque territoire (Zed niveau 4 = " .. string.format("%.3f", Config.stealTime(4, "zed")) .. " s)", near(Config.stealTime(4, "zed"), 3.5 * 0.85 ^ 4) and near(Config.stealTime(3, "mara"), 2.2 * 0.85 ^ 3) and near(Config.stealTime(8, "wild"), 0.8 * 0.85 ^ 8))
+	check("stealTime : appel historique sans territoire inchangé (1,3 x 0,85^niveau), territoire inconnu = 1,3", near(Config.stealTime(0), 1.3) and near(Config.stealTime(5), 1.3 * 0.85 ^ 5) and near(Config.stealTime(2, "inconnu"), 1.3 * 0.85 ^ 2))
+	check("stealTime : le temps de base de chaque territoire croît avec la difficulté (sauvage < Gus < Mara < Zed)", Config.stealTime(0, "wild") < Config.stealTime(0, "gusNW") and Config.stealTime(0, "gusNW") < Config.stealTime(0, "mara") and Config.stealTime(0, "mara") < Config.stealTime(0, "zed"))
+
+	-- 2. vitesses, vue, ouïe, coup par territoire --------------------------------------------------------------------------------------
+	local gm, gz, gg = Config.guardStats("mara"), Config.guardStats("zed"), Config.guardStats("gusNW")
+	check("Mara : poursuite 19 / patrouille 10, vue 28 m, angle 110, ouïe 14, coup 20 pv", gm.guardSpeed == 19 and gm.patrolSpeed == 10 and gm.viewDist == 28 and gm.viewAngle == 110 and gm.hearRadius == 14 and gm.damage == 20)
+	check("Zed : poursuite 26 / patrouille 13, vue 32 m, angle 120, ouïe 16, coup 28 pv", gz.guardSpeed == 26 and gz.patrolSpeed == 13 and gz.viewDist == 32 and gz.viewAngle == 120 and gz.hearRadius == 16 and gz.damage == 28)
+	check("Gus inchangé et clément : 9,5 / 4,5, vue 16 m, 80 degrés, ouïe 7, coup 10 pv, gentle", gg.guardSpeed == 9.5 and gg.patrolSpeed == 4.5 and gg.viewDist == 16 and gg.viewAngle == 80 and gg.hearRadius == 7 and gg.damage == 10 and gg.gentle == true and Config.guardStats("gusSW").gentle == true)
+	check("guardStats : ne modifie pas Config.RIVALS (copie)", Config.RIVALS[2].guardSpeed == 19 and gm ~= Config.RIVALS[2] and gm.name == "Mara")
+
+	-- 3. vigilance (module pur Guard) --------------------------------------------------------------------------------------------------
+	check("Vigilance : aucun vol = 0 ; un vol = +15 % ; trois vols = +45 %", GU.vigilance({}, 100, V) == 0 and near(GU.vigilance({ 100 }, 100, V), 0.15) and near(GU.vigilance({ 90, 95, 100 }, 100, V), 0.45))
+	check("Vigilance : plafonnée à +45 % (4, 6 et 20 vols dans les 60 s)", near(GU.vigilance({ 90, 92, 95, 100 }, 100, V), 0.45) and near(GU.vigilance({ 90, 91, 92, 93, 94, 95 }, 100, V), 0.45) and near(GU.vigilance({ 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99 }, 100, V), 0.45))
+	local steals = { 100, 101, 102, 103 }
+	check("Vigilance : toujours +45 % 29,9 s après le dernier vol, revenue à 0 exactement 30 s après", near(GU.vigilance(steals, 103 + 29.9, V), 0.45) and GU.vigilance(steals, 103 + 30, V) == 0 and GU.vigilance(steals, 103 + 300, V) == 0)
+	check("Vigilance : un vol de plus de 60 s ne compte plus (fenêtre) ; vols à 0, 25 et 50 s : +45 % à 50 s, +30 % à 79,9 s (le vol de 0 s est sorti), 0 à 80 s", GU.vigilance({ 0, 25, 50 }, 50, V) > 0.44 and near(GU.vigilance({ 0, 25, 50 }, 79.9, V), 0.3) and GU.vigilance({ 0, 25, 50 }, 80, V) == 0 and near(GU.vigilance({ 0, 45 }, 70, V), 0.15))
+	check("Vigilance : horodatage futur ignoré, liste purgée hors fenêtre", GU.vigilance({ 200 }, 100, V) == 0 and #GU.vigilancePrune({ 0, 30, 90, 100 }, 100, V) == 2 and #GU.vigilancePrune({}, 100, V) == 0)
+	local rv = GU.boosted(gz, 0.45)
+	check("Vigilance : vue 32 -> 46,4 et ouïe 16 -> 23,2 à +45 % ; l'angle ne change pas ; l'original n'est pas modifié", near(rv.viewDist, 32 * 1.45) and near(rv.hearRadius, 16 * 1.45) and rv.viewAngle == 120 and gz.viewDist == 32 and near(GU.boosted(gz, 0).viewDist, 32))
+	do -- vigilance par territoire : deux territoires ne se contaminent pas (la liste est par clé)
+		local byTerr = { mara = { 100, 101 }, zed = {} }
+		check("Vigilance : propre à chaque territoire (Mara +30 %, Zed 0)", near(GU.vigilance(byTerr.mara, 102, V), 0.3) and GU.vigilance(byTerr.zed, 102, V) == 0)
+	end
+
+	-- 4. poids du portage ---------------------------------------------------------------------------------------------------------------
+	local W = Config.CARRY.weight
+	check("Portage : poids par rareté 1,00 / 1,00 / 0,95 / 0,90 / 0,85 / 0,80, plancher 0,70", W[1] == 1 and W[2] == 1 and W[3] == 0.95 and W[4] == 0.9 and W[5] == 0.85 and W[6] == 0.8 and Config.CARRY.floor == 0.7)
+	local okOne = true
+	for t = 1, 6 do
+		okOne = okOne and near(Config.carryMul({ t }), W[t])
+	end
+	check("Portage : un œuf = son poids ; aucun œuf = 1", okOne and Config.carryMul({}) == 1)
+	check("Portage : plusieurs œufs = produit (Épique + Légendaire = 0,855 ; trois Légendaires = 0,729)", near(Config.carryMul({ 3, 4 }), 0.95 * 0.9) and near(Config.carryMul({ 4, 4, 4 }), 0.729))
+	check("Portage : plancher 0,70 (deux Cosmiques = 0,64 -> 0,70 ; quatre Mythiques -> 0,70)", Config.carryMul({ 6, 6 }) == 0.7 and Config.carryMul({ 5, 5, 5, 5 }) == 0.7 and Config.carryMul({ 6, 6, 6, 6, 6 }) == 0.7)
+	check("Portage : la vitesse du porteur = marche x produit (Légendaire à vitesse 0 = " .. string.format("%.1f", Config.walkSpeed(0) * Config.carryMul({ 4 })) .. ")", near(Config.walkSpeed(0) * Config.carryMul({ 4 }), 14.4) and Config.CARRY.beamTier == 4 and Config.CARRY.beamRange == 120)
+
+	-- 5. pièges : plan, budget, géométrie ---------------------------------------------------------------------------------------------
+	local Lm, Lz = TR.layout(Config, "mara"), TR.layout(Config, "zed")
+	check("Pièges : Mara = 3 fils à clochettes + 2 flaques de boue ; Zed = herse + 4 dalles + 2 lanternes ; aucun piège ailleurs", Lm ~= nil and #Lm.bells == 3 and #Lm.mud == 2 and #Lm.plates == 0 and #Lm.lights == 0 and Lm.gate == nil and Lz ~= nil and #Lz.bells == 0 and #Lz.mud == 0 and #Lz.plates == 4 and #Lz.lights == 2 and Lz.gate ~= nil and TR.layout(Config, "gusNW") == nil and TR.layout(Config, "wild") == nil)
+	local parts = TR.partCount(Lm) + TR.partCount(Lz)
+	check("Pièges : " .. parts .. " Parts procédurales pour tous les pièges (budget <= 40)", parts <= 40 and parts > 0)
+	local function layoutPoints(L)
+		local pts = {}
+		for _, b in ipairs(L.bells) do
+			pts[#pts + 1] = { b.x, b.z }
+			pts[#pts + 1] = { b.ax, b.az }
+			pts[#pts + 1] = { b.bx, b.bz }
+		end
+		for _, m in ipairs(L.mud) do
+			pts[#pts + 1] = { m.x, m.z }
+		end
+		for _, p in ipairs(L.plates) do
+			pts[#pts + 1] = { p.x, p.z }
+		end
+		for _, l in ipairs(L.lights) do
+			pts[#pts + 1] = { l.x, l.z }
+		end
+		return pts
+	end
+	local inside, minNest, minPost = true, math.huge, math.huge
+	for key, L in pairs({ mara = Lm, zed = Lz }) do
+		local T = Config.TERR[key]
+		for _, pt in ipairs(layoutPoints(L)) do
+			inside = inside and math.sqrt((pt[1] - T.x) ^ 2 + (pt[2] - T.z) ^ 2) <= T.r - 3
+			for _, n in ipairs(T.nests) do
+				minNest = math.min(minNest, math.sqrt((pt[1] - n[1]) ^ 2 + (pt[2] - n[2]) ^ 2))
+			end
+			for _, ps in ipairs(T.posts) do
+				minPost = math.min(minPost, math.sqrt((pt[1] - ps[1]) ^ 2 + (pt[2] - ps[2]) ^ 2))
+			end
+		end
+	end
+	check("Pièges : tous dans leur territoire (à 3 studs du bord), à " .. string.format("%.1f", minNest) .. " studs d'un nid et " .. string.format("%.1f", minPost) .. " d'un poste de gardien au plus près (>= 3)", inside and minNest >= 3 and minPost >= 3)
+	local det1, det2 = TR.layout(Config, "zed"), TR.layout(Config, "zed")
+	check("Pièges : plan déterministe, dérivé de Config.TERR (rien en dur)", det1.plates[2].x == det2.plates[2].x and det1.lights[1].z == det2.lights[1].z and near(det1.gate.x, Config.TERR.zed.traps.gate.x) and det1.gate.open == 3 and det1.gate.closed == 3)
+
+	-- 6. herse : cycle 3 s ouverte / 3 s fermée -------------------------------------------------------------------------------------
+	local gate = Lz.gate
+	check("Herse : ouverte de 0 à 3 s, fermée de 3 à 6 s, rouverte à 6 s, ainsi de suite", TR.gateOpen(0, gate) and TR.gateOpen(2.99, gate) and not TR.gateOpen(3, gate) and not TR.gateOpen(5.99, gate) and TR.gateOpen(6, gate) and TR.gateOpen(8.99, gate) and not TR.gateOpen(9.5, gate) and TR.gateOpen(60.5, gate))
+	local openN, solidN, N = 0, 0, 0
+	for k = 0, 599 do
+		local t = k * 0.1
+		N = N + 1
+		openN = openN + (TR.gateOpen(t, gate) and 1 or 0)
+		solidN = solidN + (TR.gateSolid(t, gate, Config.TRAPS.gateWindow) and 1 or 0)
+	end
+	check("Herse : sur 60 s, ouverte " .. openN .. "/" .. N .. " du temps (50 %), solide seulement quand elle est fermée (" .. solidN .. " échantillons)", openN == 300 and solidN > 230 and solidN <= 300)
+	local neverSolidWhenOpen = true
+	for k = 0, 599 do
+		local t = k * 0.1
+		if TR.gateOpen(t, gate) and TR.gateSolid(t, gate, Config.TRAPS.gateWindow) then
+			neverSolidWhenOpen = false
+		end
+	end
+	check("Herse : jamais solide pendant qu'elle est ouverte ; levée = 1 ouverte, 0 fermée, descend en " .. Config.TRAPS.gateWindow .. " s", neverSolidWhenOpen and TR.gateLift(1, gate, 0.6) == 1 and TR.gateLift(4, gate, 0.6) == 0 and near(TR.gateLift(3.3, gate, 0.6), 0.5, 1e-9) and TR.gateSolid(3.4, gate, 0.6) and not TR.gateSolid(3.1, gate, 0.6) and near(TR.gateLift(6.3, gate, 0.6), 0.5, 1e-9))
+
+	-- 7. fils à clochettes, boue, dalles, lanternes ----------------------------------------------------------------------------------
+	local C = Config.TRAPS
+	local bw = Lm.bells[2]
+	local nx, nz = -(bw.bz - bw.az), (bw.bx - bw.ax)
+	local nl = math.sqrt(nx * nx + nz * nz)
+	nx, nz = nx / nl, nz / nl
+	local ps2 = TR.newPlayerState()
+	TR.playerStep(ps2, Lm, C, 20, bw.x + nx * 3, bw.z + nz * 3)
+	local evCross = TR.playerStep(ps2, Lm, C, 20.1, bw.x - nx * 3, bw.z - nz * 3)
+	local bellsHit = 0
+	for _, e in ipairs(evCross) do
+		bellsHit = bellsHit + (e.kind == "bell" and 1 or 0)
+	end
+	local ps3 = TR.newPlayerState()
+	TR.playerStep(ps3, Lm, C, 20, bw.x + nx * 3, bw.z + nz * 3)
+	local evSide = TR.playerStep(ps3, Lm, C, 20.1, bw.x + nx * 3 + (bw.bx - bw.ax) * 0.8, bw.z + nz * 3 + (bw.bz - bw.az) * 0.8) -- longe le fil, sans le traverser
+	local sideBell = 0
+	for _, e in ipairs(evSide) do
+		sideBell = sideBell + (e.kind == "bell" and 1 or 0)
+	end
+	local evAgain = TR.playerStep(ps2, Lm, C, 20.3, bw.x + nx * 3, bw.z + nz * 3) -- retraverse trop tôt : délai de recharge
+	local againBell = 0
+	for _, e in ipairs(evAgain) do
+		againBell = againBell + (e.kind == "bell" and 1 or 0)
+	end
+	TR.playerStep(ps2, Lm, C, 20.1 + C.bellCooldown + 0.5, bw.x - nx * 3, bw.z - nz * 3)
+	local laterBell = 0
+	for _, e in ipairs(TR.playerStep(ps2, Lm, C, 40, bw.x + nx * 3, bw.z + nz * 3)) do
+		laterBell = laterBell + (e.kind == "bell" and 1 or 0)
+	end
+	check("Fil à clochettes : traverser donne UNE alerte, longer le fil aucune, retraverser avant " .. C.bellCooldown .. " s aucune, après le délai de nouveau (" .. bellsHit .. "/" .. sideBell .. "/" .. againBell .. "/" .. laterBell .. ")", bellsHit == 1 and sideBell == 0 and againBell == 0 and laterBell == 1)
+	local mud = Lm.mud[1]
+	local pm = TR.newPlayerState()
+	local evMud = TR.playerStep(pm, Lm, C, 100, mud.x, mud.z)
+	check("Boue : entrer dans une flaque ralentit x" .. C.mudMul .. " pendant " .. C.mudSeconds .. " s exactement, puis vitesse normale", #evMud >= 1 and evMud[1].kind == "mud" and TR.mudMul(pm, 100, C) == 0.6 and TR.mudMul(pm, 101.9, C) == 0.6 and TR.mudMul(pm, 102, C) == 1 and TR.mudMul(pm, 150, C) == 1 and TR.mudMul(TR.newPlayerState(), 0, C) == 1)
+	local pm2 = TR.newPlayerState()
+	TR.playerStep(pm2, Lm, C, 100, mud.x, mud.z)
+	local evMud2 = TR.playerStep(pm2, Lm, C, 100.5, mud.x + 1, mud.z) -- toujours dans la flaque : pas de nouvel événement, mais le ralentissement se prolonge
+	check("Boue : rester dans la flaque ne répète pas l'événement et prolonge le ralentissement de " .. C.mudSeconds .. " s", #evMud2 == 0 and TR.mudMul(pm2, 102.4, C) == 0.6 and TR.mudMul(pm2, 102.6, C) == 1)
+	local plate = Lz.plates[1]
+	local pp = TR.newPlayerState()
+	local e1 = TR.playerStep(pp, Lz, C, 5, plate.x, plate.z)
+	local e2 = TR.playerStep(pp, Lz, C, 6, plate.x, plate.z)
+	local e3 = TR.playerStep(pp, Lz, C, 5 + C.plateCooldown + 0.1, plate.x, plate.z)
+	local far = TR.playerStep(TR.newPlayerState(), Lz, C, 5, plate.x + 30, plate.z)
+	local function kinds(list, k)
+		local n = 0
+		for _, e in ipairs(list) do
+			n = n + (e.kind == k and 1 or 0)
+		end
+		return n
+	end
+	check("Dalle d'alarme : marcher dessus alerte (1 fois), pas de répétition avant " .. C.plateCooldown .. " s, alerte de nouveau ensuite, rien à distance", kinds(e1, "plate") == 1 and kinds(e2, "plate") == 0 and kinds(e3, "plate") == 1 and kinds(far, "plate") == 0)
+	local lamp = Lz.lights[1]
+	check("Lanterne : 0,5 tour/s (une demi-rotation en 1 s, un tour en 2 s), les deux lanternes tournent depuis des angles opposés", near(TR.lanternAngle(1, lamp) - TR.lanternAngle(0, lamp), math.pi) and near(TR.lanternAngle(2, lamp) - TR.lanternAngle(0, lamp), 2 * math.pi) and near(Lz.lights[2].phase - lamp.phase, math.pi) and lamp.rev == 0.5)
+	local a0 = TR.lanternAngle(0, lamp)
+	local ahead = { lamp.x + math.cos(a0) * 20, lamp.z + math.sin(a0) * 20 }
+	local tooFar = { lamp.x + math.cos(a0) * 31, lamp.z + math.sin(a0) * 31 }
+	local aside = { lamp.x + math.cos(a0 + math.rad(30)) * 20, lamp.z + math.sin(a0 + math.rad(30)) * 20 } -- au-delà du demi-cône (18 degrés)
+	local edge = { lamp.x + math.cos(a0 + math.rad(15)) * 20, lamp.z + math.sin(a0 + math.rad(15)) * 20 }
+	check("Lanterne : éclaire dans son cône (36 degrés) jusqu'à 30 studs, pas au-delà ni hors du cône ; une demi-seconde plus tard le cône a tourné de 180 degrés", TR.lanternSees(lamp, 0, ahead[1], ahead[2]) and TR.lanternSees(lamp, 0, edge[1], edge[2]) and not TR.lanternSees(lamp, 0, tooFar[1], tooFar[2]) and not TR.lanternSees(lamp, 0, aside[1], aside[2]) and not TR.lanternSees(lamp, 1, ahead[1], ahead[2]) and TR.lanternSees(lamp, 1, lamp.x - math.cos(a0) * 20, lamp.z - math.sin(a0) * 20))
+	local pl = TR.newPlayerState()
+	local seen1 = kinds(TR.playerStep(pl, Lz, C, 0, ahead[1], ahead[2]), "light")
+	local seen2 = kinds(TR.playerStep(pl, Lz, C, 0.5, ahead[1], ahead[2]), "light")
+	check("Lanterne : repérer le joueur déclenche l'alarme une fois par délai de " .. C.lightCooldown .. " s", seen1 >= 1 and seen2 == 0)
+
+	-- 8. fraîcheur ------------------------------------------------------------------------------------------------------------------------
+	check("Fraîcheur : un œuf Légendaire+ pris chez Zed a 75 s ; Épique chez Zed, Légendaire chez Gus ou Mara : jamais", TR.freshDeadline(Config, 4, "zed", 100) == 175 and TR.freshDeadline(Config, 6, "zed", 0) == 75 and TR.freshDeadline(Config, 3, "zed", 100) == nil and TR.freshDeadline(Config, 4, "mara", 100) == nil and TR.freshDeadline(Config, 5, "gusNW", 100) == nil and TR.freshDeadline(Config, 4, nil, 100) == nil and Config.TERR.zed.freshness == 75)
+	local egg = { t = 4, fresh = TR.freshDeadline(Config, 4, "zed", 100) }
+	check("Fraîcheur : l'œuf n'est pas refroidi à 74,9 s, l'est à 75 s ; un œuf sans échéance ne se refroidit jamais", not TR.expired(egg, 174.9) and TR.expired(egg, 175) and TR.expired(egg, 900) and not TR.expired({ t = 4 }, 1e9))
+
+	-- 9. porte de base et protection débutant -----------------------------------------------------------------------------------
+	check("Porte de base : durée = BASE_LEVELS2[niveau].lock (niveau 1 : 15 s par défaut, niveau 2 : 20, niveau 8 : 60), recharge 60 s", Config.lockSeconds(1) == 15 and Config.lockSeconds(2) == 20 and Config.lockSeconds(4) == 30 and Config.lockSeconds(8) == 60 and Config.lockSeconds(99) == 15 and Config.DOOR.cooldown == 60)
+	check("Protection débutant : active sous 15 min de jeu ET sous le niveau 3 ; levée à 15 min, au niveau 3 ou par fin anticipée", Config.isNewbie(0, 1, false) and Config.isNewbie(899, 2, false) and not Config.isNewbie(900, 1, false) and not Config.isNewbie(0, 3, false) and not Config.isNewbie(10, 2, true) and Config.NEWBIE.minutes == 15 and Config.NEWBIE.untilLevel == 3 and Config.isNewbie(nil, nil, nil))
+
+	-- 10. simulation PURE d'un vol chez Zed (hypothèses H1 à H6 en tête de roblox/tests/SimSteal.lua) --------------------------------
+	local N = 300
+	local r0 = SIM.rate(Config, GU, TR, 0, N, 777)
+	local r30 = SIM.rate(Config, GU, TR, 30, N, 777)
+	local r0f5 = SIM.rate(Config, GU, TR, 0, N, 777, { fing = 5 })
+	local r30f5 = SIM.rate(Config, GU, TR, 30, N, 777, { fing = 5 })
+	print(string.format("  [lot 4] simulation du vol chez Zed (%d essais, graine fixe) : vitesse 0 = %.0f %%, vitesse 30 = %.0f %%, vitesse 0 + Doigts agiles 5 = %.0f %%, vitesse 30 + Doigts agiles 5 = %.0f %%", N, r0 * 100, r30 * 100, r0f5 * 100, r30f5 * 100))
+	check("Simulation chez Zed : sans aucune amélioration, un vol réussit rarement (" .. string.format("%.0f", r0 * 100) .. " % < 45 %)", r0 < 0.45)
+	check("Simulation chez Zed : la vitesse de marche seule ne suffit pas (" .. string.format("%.0f", r30 * 100) .. " % à vitesse 30 < 45 %) : le temps de maintien (3,5 s à portée des ours) domine", r30 < 0.45)
+	check("Simulation chez Zed : vitesse 30 + Doigts agiles niveau 5 (maintien " .. string.format("%.2f", Config.stealTime(5, "zed")) .. " s) fait réussir plus de 60 % des vols (" .. string.format("%.0f", r30f5 * 100) .. " %)", r30f5 > 0.6)
+	check("Simulation chez Zed : Doigts agiles améliore nettement le taux (" .. string.format("%.0f", r0f5 * 100) .. " % contre " .. string.format("%.0f", r0 * 100) .. " % sans)", r0f5 > r0 + 0.25)
+end
+
+do
+	suite("Refonte lot 4 : territoires de bout en bout (vrai Main.server.lua, runtime factice, joueurs-robots)")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local checkv = check
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		checkv("Lot 4 (e2e) : démarrage sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		local ws = RT.services.Workspace
+		local RA = nil
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == "Action" then
+				RA = d
+			end
+		end
+		local function inWorkspace(o)
+			local cur = o
+			while cur ~= nil do
+				if cur == ws then
+					return true
+				end
+				cur = rawget(cur, "__props").Parent
+			end
+			return false
+		end
+		local function standAt(p, x, z)
+			local root = p.Character:FindFirstChild("HumanoidRootPart")
+			rawget(root, "__props").Position = RT.vec(x, 3, z)
+			rawget(root, "__props").CFrame = RT.cf(x, 3, z)
+		end
+		local function trigger(p, prompt)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", prompt, p)
+		end
+		local function snapshot(p)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+			return nil
+		end
+		local function notified(p, needle, fromIndex)
+			for i = fromIndex or 1, #RT.fired do
+				local f = RT.fired[i]
+				if f[1] == "Notify" and f[2] == p and type(f[3]) == "string" and f[3]:find(needle, 1, true) then
+					return true
+				end
+			end
+			return false
+		end
+		local function act(p, name, arg)
+			RT.now = RT.now + 0.2
+			RT.fire(RA, "OnServerEvent", p, name, arg)
+		end
+		local function join(name, id)
+			return RT.addPlayer(name, id, { from = "hub", partyId = "LOT4", size = 4, late = false })
+		end
+		-- vétéran : profil préparé (chapitre 6 réussi, 20 min de jeu, deux œufs posés dans sa base), puis reconnexion
+		local function veteran(name, id, withEggs)
+			local p = join(name, id)
+			RT.step(2)
+			RT.removePlayer(p)
+			RT.step(2)
+			local rec = RT.dataStores["ChipeOeufs_v1"].data["P_" .. id]
+			if rec and rec.v then
+				rec.lock = nil
+				rec.v.story = { ch = 6, prog = 0 }
+				rec.v.played = 20 * 60
+				if withEggs then
+					rec.v.slots[2] = { k = "e", t = 3, ends = RT.env.os.time() + 100000, shield = 0 }
+					rec.v.slots[3] = { k = "e", t = 3, ends = RT.env.os.time() + 100000, shield = 0 }
+				end
+			end
+			return join(name, id)
+		end
+		local function padPrompt(ownerId, slot)
+			local found
+			for _, o in ipairs(RT.all) do
+				if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == "Pad" and o:GetAttribute("Owner") == ownerId and o:GetAttribute("Slot") == slot and inWorkspace(o) then
+					found = o
+				end
+			end
+			return found
+		end
+		local function standOnPad(p, prompt)
+			-- le runtime factice ne recopie pas CFrame dans Position : on le fait pour le pad (Part parente du modèle Content de l'œuf) que le serveur mesure
+			local padPart = prompt.Parent.Parent.Parent
+			rawget(padPart, "__props").Position = rawget(padPart, "__props").CFrame.Position
+			local pos = rawget(prompt.Parent, "__props").CFrame.Position
+			standAt(p, pos.X, pos.Z)
+		end
+		local function carryOf(p)
+			local sn = snapshot(p)
+			return sn and sn.carry or -1
+		end
+		local function slotHas(p, i)
+			local sn = snapshot(p)
+			return sn ~= nil and sn.slots ~= nil and sn.slots[i] ~= nil and sn.slots[i] ~= false
+		end
+		local function namedAlive(name)
+			local n = 0
+			for _, o in ipairs(RT.all) do
+				if rawget(o, "__props").Name == name and inWorkspace(o) then
+					n = n + 1
+				end
+			end
+			return n
+		end
+
+		-- budget de Parts des pièges et de la carte --------------------------------------------------------------------------------------
+		local trapParts = 0
+		for _, nm in ipairs({ "BellPost", "BellWire", "MudPuddle", "AlarmPlate", "LanternPole", "LanternBeam" }) do
+			trapParts = trapParts + namedAlive(nm)
+		end
+		local built
+		for _, line in ipairs(RT.prints) do
+			local n = line:match("%[Builder%] carte construite : (%d+) Parts")
+			if n then
+				built = tonumber(n)
+			end
+		end
+		checkv("Pièges construits : " .. trapParts .. " Parts (<= 40), carte procédurale totale " .. tostring(built) .. " Parts (<= 1200)", trapParts == 19 and trapParts <= 40 and built ~= nil and built <= 1200)
+		print("  [lot 4] Parts des pièges = " .. trapParts .. ", total procédural = " .. tostring(built))
+
+		-- temps de vol des prompts de nids par territoire ----------------------------------------------------------------------------------
+		local holdOk, holdSeen, nestPrompts = true, {}, {}
+		for _, o in ipairs(RT.all) do
+			if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == "Nest" and inWorkspace(o) then
+				nestPrompts[#nestPrompts + 1] = o
+				local terr = o:GetAttribute("Terr")
+				holdSeen[terr] = rawget(o, "__props").HoldDuration
+				holdOk = holdOk and terr ~= nil and rawget(o, "__props").HoldDuration == Config.stealTime(0, terr)
+			end
+		end
+		checkv("Prompts de nids : temps de vol propre au territoire (sauvage " .. tostring(holdSeen.wild) .. " s, Gus " .. tostring(holdSeen.gusNW) .. ", Mara " .. tostring(holdSeen.mara) .. ", Zed " .. tostring(holdSeen.zed) .. ")", holdOk and holdSeen.wild == 0.8 and holdSeen.gusNW == 1.3 and holdSeen.mara == 2.2 and holdSeen.zed == 3.5 and #nestPrompts == 15)
+
+		-- protection débutant, porte de base ------------------------------------------------------------------------------------------------
+		local vetB = veteran("Bruno", 9802, true) -- le premier arrivé (les suivants ont 90 s de protection d'arrivée tardive : sans effet pour un voleur)
+		local vetA = veteran("Vera", 9801, false)
+		local newbie1, newbie2 = join("Nina", 9803), join("Noa", 9804)
+		RT.step(2)
+		checkv("Joueurs : deux vétérans (plus de 15 min) et deux débutants ; badge 🐣 sur les débutants seulement (" .. namedAlive("NewbieBadge") .. " badge(s))", vetA:GetAttribute("Newbie") == false and vetB:GetAttribute("Newbie") == false and newbie1:GetAttribute("Newbie") == true and newbie2:GetAttribute("Newbie") == true and namedAlive("NewbieBadge") == 2)
+		-- (a) un vétéran vole l'œuf d'un débutant : impossible
+		local pN1 = padPrompt(9803, 1)
+		local mark = #RT.fired
+		if pN1 then
+			standOnPad(vetA, pN1)
+			RT.step(0.5)
+			trigger(vetA, pN1)
+			RT.step(0.5)
+		end
+		checkv("Protection débutant : un vétéran ne peut pas voler l'œuf d'un débutant (message clair, sac vide, œuf toujours là)", pN1 ~= nil and carryOf(vetA) == 0 and slotHas(newbie1, 1) and notified(vetA, "protection débutant", mark) and inWorkspace(pN1))
+		-- (b) un débutant tente de voler un vétéran : impossible
+		local pB2 = padPrompt(9802, 2)
+		mark = #RT.fired
+		if pB2 then
+			standOnPad(newbie2, pB2)
+			RT.step(0.5)
+			trigger(newbie2, pB2)
+			RT.step(0.5)
+		end
+		checkv("Protection débutant : un débutant ne peut voler personne (message clair, sac vide, l'œuf de la victime est toujours là)", pB2 ~= nil and carryOf(newbie2) == 0 and slotHas(vetB, 2) and notified(newbie2, "Protection débutant", mark) and inWorkspace(pB2))
+		standAt(vetA, 0, 40)
+		standAt(newbie2, 0, 40)
+		-- (c) porte de base : refus tant que lockUntil > now, puis vol possible (on attend d'abord la fin des 90 s de protection d'arrivée tardive)
+		RT.step(95)
+		act(vetB, "lockDoor")
+		RT.step(0.5)
+		checkv("Porte de base : « Fermer la porte » -> barrière lumineuse visible, durée 15 s (niveau 1), attribut de fin de fermeture posé", namedAlive("DoorBarrier") == 1 and (vetB:GetAttribute("DoorUntil") or 0) > 0 and notified(vetB, "Porte fermée pendant 15 s"))
+		pB2 = padPrompt(9802, 2)
+		mark = #RT.fired
+		standOnPad(vetA, pB2)
+		RT.step(0.5)
+		trigger(vetA, pB2)
+		RT.step(0.5)
+		checkv("Porte de base fermée : le vol d'emplacement est refusé par le serveur (message « fermée », sac vide, œuf toujours là)", carryOf(vetA) == 0 and slotHas(vetB, 2) and notified(vetA, "porte de cette base est fermée", mark))
+		local untilBefore = vetB:GetAttribute("DoorUntil")
+		act(vetB, "lockDoor")
+		checkv("Porte de base : pas de second appel pendant la fermeture", vetB:GetAttribute("DoorUntil") == untilBefore)
+		RT.step(15.5)
+		checkv("Porte de base : barrière retirée à la fin des 15 s", namedAlive("DoorBarrier") == 0)
+		mark = #RT.fired
+		act(vetB, "lockDoor")
+		checkv("Porte de base : recharge de 60 s (refus juste après la fin, message « se recharge »)", vetB:GetAttribute("DoorUntil") == untilBefore and notified(vetB, "se recharge", mark) and namedAlive("DoorBarrier") == 0)
+		pB2 = padPrompt(9802, 2)
+		standOnPad(vetA, pB2)
+		RT.step(0.5)
+		trigger(vetA, pB2)
+		RT.step(0.5)
+		checkv("Porte rouverte : le même vol réussit (le refus venait bien de la porte)", carryOf(vetA) == 1 and not slotHas(vetB, 2))
+		standAt(vetA, 0, 40)
+		RT.step(60)
+		act(vetB, "lockDoor")
+		RT.step(0.3)
+		checkv("Porte de base : après la recharge elle peut se refermer", namedAlive("DoorBarrier") == 1 and vetB:GetAttribute("DoorUntil") ~= untilBefore)
+		-- (d) fin anticipée : le débutant peut voler, sa protection tombe, le badge disparaît
+		RT.step(16)
+		act(newbie1, "newbieOff")
+		RT.step(1.5)
+		checkv("Fin anticipée (newbieOff) : attribut Newbie levé, badge retiré, message d'information", newbie1:GetAttribute("Newbie") == false and namedAlive("NewbieBadge") == 1 and notified(newbie1, "Protection débutant terminée"))
+		local pB3 = padPrompt(9802, 3)
+		standOnPad(newbie1, pB3)
+		RT.step(0.5)
+		trigger(newbie1, pB3)
+		RT.step(0.5)
+		checkv("Après la fin de la protection, l'ex-débutant peut voler (l'œuf est dans son sac)", carryOf(newbie1) == 1 and not slotHas(vetB, 3))
+		RT.removePlayer(newbie1)
+		RT.step(2)
+		local recN = RT.dataStores["ChipeOeufs_v1"].data["P_9803"]
+		checkv("Persistance : temps de jeu cumulé et fin anticipée sauvegardés dans le profil sans changer la version (" .. tostring(recN and recN.v and recN.v.played) .. " s)", recN ~= nil and recN.v ~= nil and recN.v.played ~= nil and recN.v.played >= 60 and recN.v.newbieOff == true)
+		do -- 15 minutes de jeu cumulées : la protection tombe seule (profil à 14 min 50 s, puis 10 s de jeu)
+			RT.removePlayer(newbie2)
+			RT.step(2)
+			local rec = RT.dataStores["ChipeOeufs_v1"].data["P_9804"]
+			rec.lock = nil
+			rec.v.played = Config.NEWBIE.minutes * 60 - 5
+			local again = join("Noa", 9804)
+			RT.step(3)
+			local still = again:GetAttribute("Newbie")
+			RT.step(8)
+			checkv("Protection débutant : levée seule après 15 minutes de jeu cumulées (14 min 55 s au départ : encore active à +3 s = " .. tostring(still) .. ", levée à +11 s)", still == true and again:GetAttribute("Newbie") == false)
+			RT.removePlayer(again)
+		end
+		RT.removePlayer(vetA)
+		RT.removePlayer(vetB)
+		RT.step(3)
+
+		-- joueur-robot débutant : premier vol chez Gus < 4 min, aucun dégât avant 3 min ---------------------------------------------------
+		do
+			local bot = join("Robot", 9810)
+			RT.step(2)
+			local t0 = RT.now
+			local gusNests = {}
+			for _, o in ipairs(nestPrompts) do
+				if o:GetAttribute("Terr") == "gusNW" then
+					gusNests[#gusNests + 1] = o
+				end
+			end
+			local firstSteal, hpMin = nil, 100
+			local k = 0
+			while RT.now - t0 < 185 do
+				k = k + 1
+				local pr = gusNests[(k % #gusNests) + 1]
+				if not firstSteal and inWorkspace(pr) and pr.Parent ~= nil then
+					local pos = rawget(pr.Parent, "__props").CFrame.Position
+					standAt(bot, pos.X, pos.Z)
+					RT.step(0.5)
+					trigger(bot, pr)
+					RT.step(0.5)
+					if (snapshot(bot) or {}).stolen and snapshot(bot).stolen >= 1 then
+						firstSteal = RT.now - t0
+					end
+				else
+					standAt(bot, 0, 40)
+					RT.step(1)
+				end
+				hpMin = math.min(hpMin, bot:GetAttribute("Hp") or 0)
+			end
+			checkv(string.format("Joueur-robot débutant : premier vol chez Gus après %.1f s (< 240 s), pv minimaux sur 185 s : %d / %d (aucun dégât avant 3 min)", firstSteal or -1, hpMin, Config.GUARD.maxHp), firstSteal ~= nil and firstSteal < 240 and hpMin == Config.GUARD.maxHp)
+			RT.removePlayer(bot)
+			RT.step(2)
+		end
+
+		-- fraîcheur : œuf Légendaire+ pris chez Zed, 75 s pour atteindre la base --------------------------------------------------------
+		do
+			local z = veteran("Zara", 9820, false)
+			RT.step(2)
+			local nestOfTier
+			local function pickLegend()
+				for _, o in ipairs(nestPrompts) do
+					if o:GetAttribute("Terr") == "zed" and inWorkspace(o) then
+						for t = Config.CARRY.beamTier, #Config.TIERS do
+							if rawget(o, "__props").ObjectText == "Œuf " .. Config.TIERS[t].name then
+								return o, t
+							end
+						end
+					end
+				end
+				return nil
+			end
+			local nestPr, tier = pickLegend()
+			for _ = 1, 40 do
+				if nestPr then
+					break
+				end
+				RT.step(2)
+				nestPr, tier = pickLegend()
+			end
+			if nestPr then
+				local nestIdx = nestPr:GetAttribute("Nest")
+				local pos = rawget(nestPr.Parent, "__props").CFrame.Position
+				standAt(z, pos.X, pos.Z)
+				RT.step(0.3)
+				trigger(z, nestPr)
+				standAt(z, 0, 40)
+				RT.step(1)
+				local w0 = z.Character:FindFirstChild("Humanoid").WalkSpeed
+				local left = z:GetAttribute("FreshLeft")
+				local beams = namedAlive("CarryBeam")
+				checkv("Fraîcheur : œuf " .. Config.TIERS[tier].name .. " pris chez Zed : dans le sac, compte à rebours " .. tostring(left) .. " s (<= 75)", carryOf(z) == 1 and left ~= nil and left >= 73 and left <= 75)
+				checkv("Portage : vitesse du porteur = marche x poids de la rareté (" .. string.format("%.2f", w0) .. " = 16 x " .. Config.carryMul({ tier }) .. ")", near(w0, Config.walkSpeed(0) * Config.carryMul({ tier }), 0.01))
+				local beamGui
+				for _, o in ipairs(RT.all) do
+					if rawget(o, "__props").Name == "CarryBeam" and inWorkspace(o) then
+						beamGui = o
+					end
+				end
+				checkv("Colonne de lumière : visible à " .. Config.CARRY.beamRange .. " studs sur le porteur d'un œuf Légendaire+ (" .. beams .. " colonne)", beams == 1 and beamGui ~= nil and rawget(beamGui, "__props").MaxDistance == Config.CARRY.beamRange)
+				RT.step(70)
+				checkv("Fraîcheur : toujours dans le sac à 71 s", carryOf(z) == 1)
+				local sm = #RT.fired
+				RT.step(6)
+				local home
+				for _, o in ipairs(RT.all) do
+					if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == "Nest" and o:GetAttribute("Nest") == nestIdx and inWorkspace(o) then
+						home = o
+					end
+				end
+				checkv("Fraîcheur : à 75 s « L'œuf a refroidi et regagne son nid » : sac vide, vitesse normale, l'œuf est de retour dans SON nid (" .. tostring(home and rawget(home, "__props").ObjectText) .. ")", notified(z, "L'œuf a refroidi et regagne son nid", sm) and carryOf(z) == 0 and home ~= nil and rawget(home, "__props").ObjectText == "Œuf " .. Config.TIERS[tier].name and near(z.Character:FindFirstChild("Humanoid").WalkSpeed, Config.walkSpeed(0), 0.01) and namedAlive("CarryBeam") == 0 and z:GetAttribute("FreshLeft") == 0)
+			else
+				checkv("Fraîcheur (e2e) : un œuf Légendaire+ est disponible chez Zed", false)
+			end
+			RT.removePlayer(z)
+			RT.step(2)
+		end
+
+		-- herse et lanternes animées par le serveur ------------------------------------------------------------------------------------------
+		do
+			local gatePart
+			for _, o in ipairs(RT.all) do
+				if rawget(o, "__props").Name == "CourtGate" and inWorkspace(o) then
+					gatePart = o
+				end
+			end
+			local solid, total, flips, lastState = 0, 0, 0, nil
+			local beamA, beamB
+			local lamp
+			for _, o in ipairs(RT.all) do
+				if rawget(o, "__props").Name == "LanternBeam" and inWorkspace(o) and not lamp then
+					lamp = o
+				end
+			end
+			local tStart, tPrev = RT.now, RT.now
+			for k = 1, 400 do
+				RT.step(0.1)
+				local dtSample = RT.now - tPrev -- RT.step arrondit au pas du moteur : on pondère par le temps réel simulé
+				tPrev = RT.now
+				if gatePart then
+					local sNow = rawget(gatePart, "__props").CanCollide == true
+					solid = solid + (sNow and dtSample or 0)
+					total = total + dtSample
+					if lastState ~= nil and sNow ~= lastState then
+						flips = flips + 1
+					end
+					lastState = sNow
+				end
+				if k == 5 then
+					beamA = lamp and rawget(lamp, "__props").CFrame.Position
+				elseif k == 12 then
+					beamB = lamp and rawget(lamp, "__props").CFrame.Position
+				end
+			end
+			local expectFlips = (RT.now - tStart) / 3
+			checkv(string.format("Herse (e2e) : Part CourtGate solide %.0f %% du temps sur %.0f s (attendu ~45 %%), %d changements d'état (attendu ~%.0f : un cycle de 6 s en fait 2)", solid / total * 100, total, flips, expectFlips), gatePart ~= nil and solid / total >= 0.40 and solid / total <= 0.50 and math.abs(flips - expectFlips) <= 2)
+			checkv("Lanternes (e2e) : le faisceau tourne (position du faisceau différente d'une seconde à l'autre)", beamA ~= nil and beamB ~= nil and (math.abs(beamA.X - beamB.X) + math.abs(beamA.Z - beamB.Z)) > 5)
+		end
+
+		-- piège de Mara : fil à clochettes -> les 2 loups accourent ; boue -> vitesse x0,6 ---------------------------------------------------
+		do
+			local m = veteran("Mia", 9830, false)
+			RT.step(2)
+			local Lm = nil
+			local TRm = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Traps.lua"), { debugName = "Traps" })()
+			Lm = TRm.layout(Config, "mara")
+			local bw = Lm.bells[1]
+			local nx, nz = -(bw.bz - bw.az), (bw.bx - bw.ax)
+			local nl = math.sqrt(nx * nx + nz * nz)
+			nx, nz = nx / nl, nz / nl
+			standAt(m, bw.x + nx * 4, bw.z + nz * 4)
+			RT.step(0.5)
+			local sm = #RT.fired
+			standAt(m, bw.x - nx * 4, bw.z - nz * 4)
+			RT.step(0.3)
+			checkv("Fil à clochettes (e2e) : traverser alerte les gardiens (message « fil à clochettes »)", notified(m, "fil à clochettes", sm))
+			local mud = Lm.mud[1]
+			standAt(m, mud.x, mud.z)
+			RT.step(0.5)
+			local slowed = m.Character:FindFirstChild("Humanoid").WalkSpeed
+			standAt(m, 0, 40)
+			RT.step(4)
+			local normal = m.Character:FindFirstChild("Humanoid").WalkSpeed
+			checkv(string.format("Boue (e2e) : vitesse %.1f dans la flaque (x0,6 de %.1f), normale (%.1f) après sortie et 2 s", slowed, Config.walkSpeed(0), normal), near(slowed, Config.walkSpeed(0) * 0.6, 0.05) and near(normal, Config.walkSpeed(0), 0.05))
+			RT.removePlayer(m)
+			RT.step(2)
+		end
+
+		-- 10 minutes, 7 gardiens aux statistiques de leur territoire, un vétéran qui court partout : aucun gardien ne sort de son disque ----------
+		do
+			local runner = veteran("Coureur", 9840, false)
+			RT.step(3)
+			local root = runner.Character and runner.Character:FindFirstChild("HumanoidRootPart")
+			local models = {}
+			for _, d in ipairs(ws:GetDescendants()) do
+				local nm = rawget(d, "__props").Name
+				if d.ClassName == "Model" and type(nm) == "string" and nm:match("^Guard%d+_%d+$") then
+					models[#models + 1] = d
+				end
+			end
+			local seed = 4242
+			local function rnd()
+				seed = (seed * 16807) % 2147483647
+				return seed / 2147483647
+			end
+			local order = { "gusNW", "gusSW", "mara", "zed" }
+			local outside, samples, chased = 0, 0, 0
+			local errsBefore = #RT.errors
+			for sec = 1, 600 do
+				if root and sec % 3 == 1 then
+					local key = order[(math.floor(sec / 3) % #order) + 1]
+					local T = Config.TERR[key]
+					local a, r = rnd() * math.pi * 2, rnd() * (T.r - 4)
+					local x, z = T.x + math.cos(a) * r, T.z + math.sin(a) * r
+					rawget(root, "__props").Position = RT.vec(x, 3, z)
+					rawget(root, "__props").CFrame = RT.cf(x, 3, z)
+				end
+				RT.step(1)
+				for _, m in ipairs(models) do
+					local pv = m:GetPivot().Position
+					samples = samples + 1
+					local t = Config.TERR[m:GetAttribute("Territory") or ""]
+					if not t or math.sqrt((pv.X - t.x) ^ 2 + (pv.Z - t.z) ^ 2) > t.r + 0.5 then
+						outside = outside + 1
+					end
+				end
+			end
+			for _, f in ipairs(RT.fired) do
+				if f[1] == "Notify" and f[2] == runner and type(f[3]) == "string" and (f[3]:find("t'a mordu", 1, true) or f[3]:find("t'a attrapé", 1, true)) then
+					chased = chased + 1
+				end
+			end
+			checkv("10 minutes simulées : " .. #models .. " gardiens, " .. samples .. " mesures, " .. outside .. " sortie(s) de territoire, " .. chased .. " attaque(s) subie(s) par le robot, " .. (#RT.errors - errsBefore) .. " erreur(s)", #models == 7 and outside == 0 and chased >= 3 and #RT.errors == errsBefore)
+			RT.removePlayer(runner)
+		end
+		checkv("Lot 4 (e2e) : aucune erreur d'exécution sur toute la suite" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
 	end
 end
 

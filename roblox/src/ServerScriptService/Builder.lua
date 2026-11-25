@@ -10,6 +10,7 @@ local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shar
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
+local TrapsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Traps")) -- plan des pièges des territoires (REFONTE lot 4)
 PlacementMod.MapGeo = MapGeoMod
 PlacementMod.yield = function()
 	task.wait()
@@ -2030,6 +2031,54 @@ function Builder.build()
 		for i, a in ipairs(G.homeArches) do
 			if i <= N then
 				pad(a.x, a.z, -i, "🏠 Retour à la base " .. i, PLOT_COLORS[(i - 1) % #PLOT_COLORS + 1], true)
+			end
+		end
+	end
+
+	-- Pièges des territoires (REFONTE lot 4) : le plan vient de Traps.layout (pur, dérivé de Config.TERR) ; < 40 Parts au total. Le serveur (Main) les anime.
+	result.traps = { layouts = {}, lights = {}, plates = {}, gate = nil, parts = 0 }
+	do
+		local function addPart(props, parent)
+			props.CanCollide = props.CanCollide == true
+			result.traps.parts += 1
+			return part(props, parent)
+		end
+		for _, key in ipairs(Config.TERR_ORDER) do
+			local L = TrapsMod.layout(Config, key)
+			if L then
+				result.traps.layouts[key] = L
+				local folder = Instance.new("Folder")
+				folder.Name = "Traps_" .. key
+				folder.Parent = world
+				local gy = G.groundY(L.cx, L.cz)
+				for _, b in ipairs(L.bells) do
+					local len = math.sqrt((b.bx - b.ax) ^ 2 + (b.bz - b.az) ^ 2)
+					for _, e in ipairs({ { b.ax, b.az }, { b.bx, b.bz } }) do
+						addPart({ Name = "BellPost", Size = Vector3.new(0.5, 3.4, 0.5), Position = Vector3.new(e[1], gy + 1.7, e[2]), Color = Color3.fromRGB(110, 76, 46), Material = Enum.Material.Wood }, folder)
+					end
+					local wire = addPart({ Name = "BellWire", Size = Vector3.new(0.12, 0.12, len), CFrame = CFrame.lookAt(Vector3.new(b.x, gy + 2.7, b.z), Vector3.new(b.bx, gy + 2.7, b.bz)), Color = Color3.fromRGB(255, 214, 90), Material = Enum.Material.Metal }, folder)
+					sign(wire, "🔔", Color3.fromRGB(255, 226, 120), 1.2, 60)
+				end
+				for _, m in ipairs(L.mud) do
+					addPart({ Name = "MudPuddle", Size = Vector3.new(0.15, m.r * 2, m.r * 2), CFrame = CFrame.new(m.x, gy + 0.3, m.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(88, 62, 42), Material = Enum.Material.Mud }, folder)
+				end
+				for plIdx, pl in ipairs(L.plates) do
+					local plate = addPart({ Name = "AlarmPlate", Size = Vector3.new(0.25, pl.r * 2, pl.r * 2), CFrame = CFrame.new(pl.x, gy + 0.32, pl.z) * CFrame.Angles(0, 0, math.pi / 2), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(150, 60, 60), Material = Enum.Material.Metal }, folder)
+					result.traps.plates[#result.traps.plates + 1] = { part = plate, key = key, index = plIdx }
+				end
+				for liIdx, l in ipairs(L.lights) do
+					addPart({ Name = "LanternPole", Size = Vector3.new(0.6, 5.2, 0.6), Position = Vector3.new(l.x, gy + 2.6, l.z), Color = Color3.fromRGB(70, 70, 78), Material = Enum.Material.Metal }, folder)
+					local beam = addPart({ Name = "LanternBeam", Size = Vector3.new(0.5, 0.5, l.range), Position = Vector3.new(l.x, gy + 5.2, l.z + l.range / 2), Color = Color3.fromRGB(255, 240, 160), Material = Enum.Material.Neon, Transparency = 0.55 }, folder)
+					result.traps.lights[#result.traps.lights + 1] = { part = beam, key = key, index = liIdx, light = l, y = gy + 5.2 }
+				end
+			end
+		end
+		-- herse de la cour de Zed : la Part CourtGate de Scenery (levée, sans collision) devient une vraie herse de la hauteur du mur, animée par le serveur
+		for _, d in ipairs(world:GetDescendants()) do
+			if d.Name == "CourtGate" and d:IsA("BasePart") then
+				d.Size = Vector3.new(d.Size.X, 8, d.Size.Z)
+				result.traps.gate = { part = d, baseCF = d.CFrame, lift = -1 }
+				break
 			end
 		end
 	end
