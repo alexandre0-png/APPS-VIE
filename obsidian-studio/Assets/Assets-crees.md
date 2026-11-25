@@ -77,3 +77,6 @@ house_lvl2 83993710226197 (26,6×28,6×21,3) ; house_lvl3 137211706941591 ; hous
 
 ## Lot 18 (petits objets de maison, agent Haiku) : scripts/blender_make_refonte_d.py
 books_stack 75235784527086; branch_chandelier 81736669133938; clock_wall 95777609232622; coffee_maker 112911908053394; oven_stove 87903538253499; plant_pot_a 86148706778494; plant_pot_b 121510089986414; rug_round 90438557881098; stool_side 134719337565962; toaster 139790299453025; vase_big 123819297063677; coffee_table_round 112871489043894; speaker_pair 120384220519044; wall_lamp 73563604591192
+
+## Lot 19 (gros meubles de maison, agent Sonnet) : scripts/blender_make_refonte_e.py
+bed_double 73424212171108; dining_set 104316845432310; fridge_big 131419976234083; shelf_drawers 139964774272115; desk_study 102305030833988; kitchen_run 79053277599844; kitchen_upper 111169784434252; sofa_corner 107495439971094; tv_unit_stepped 108277232894442; wardrobe_tall 117500900219054

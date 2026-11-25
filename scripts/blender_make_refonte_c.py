@@ -18,7 +18,7 @@ def reg(fn):
 
 def limb(name, hexc, p0, p1, r0, r1, v=6):
     d = mathutils.Vector(p1) - mathutils.Vector(p0); L = d.length
-    ry = math.acos(d.z / L); rz = math.atan2(d.y, d.x)
+    ry = math.acos(max(-1, min(1, d.z / L))); rz = math.atan2(d.y, d.x)
     m = [(p0[i] + p1[i]) / 2 for i in range(3)]
     return cone(name, hexc, m, r0, r1, L, (0, ry, rz), v)
 def rock(name, hexc, loc, r, sc=(1,1,1), rot=(0,0,0), seg=7, rings=4):
