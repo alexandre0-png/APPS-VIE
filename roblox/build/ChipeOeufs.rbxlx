@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX25"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX24"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX26"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX25"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -300,6 +300,11 @@ Config.SOUNDS = {
 	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
 	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
 	menu = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
+	-- Berceuse de la Mère Poule (lot 6) : 4 notes = le son « claim » (identifiant déjà vérifié) à 4 hauteurs différentes, une par pierre.
+	note1 = { id = "rbxassetid://110088134711268", speed = 0.84, vol = 0.55 },
+	note2 = { id = "rbxassetid://110088134711268", speed = 1.0, vol = 0.55 },
+	note3 = { id = "rbxassetid://110088134711268", speed = 1.26, vol = 0.55 },
+	note4 = { id = "rbxassetid://110088134711268", speed = 1.5, vol = 0.55 },
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
 Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet
@@ -1563,7 +1568,7 @@ function Config.storyGoalText(c)
 	elseif c.type == "mut" then
 		return "Obtenir un pet muté"
 	elseif c.type == "puzzle" then
-		return "Résoudre l'énigme des runes"
+		return "Aider la Mère Poule : 4 plumes, 4 runes, la berceuse"
 	elseif c.type == "rebirth" then
 		return "Renaître " .. c.goal .. " fois"
 	end
@@ -1637,7 +1642,10 @@ local function dayRng(seed)
 	end
 end
 
--- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé }.
+Config.dayRng = dayRng -- partagé avec ReplicatedStorage/Riddle (plumes et berceuse du jour : même générateur, autre sel)
+
+-- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé,
+-- clues = {indice du Nord, de l'Est, du Sud, de l'Ouest} } : `clues` est lu par les plumes dorées (Riddle.featherLine, lot 6).
 function Config.riddleFor(day)
 	local r = dayRng(day)
 	local order = { 1, 2, 3, 4 }
@@ -1645,12 +1653,13 @@ function Config.riddleFor(day)
 		local j = r(i)
 		order[i], order[j] = order[j], order[i]
 	end
-	local parts = {}
+	local parts, one = {}, {}
 	for dir = 1, 4 do
 		local clues = RUNE_CLUES[order[dir]]
-		parts[dir] = DIR_PREFIX[dir] .. " : " .. clues[r(#clues)] .. "."
+		one[dir] = clues[r(#clues)]
+		parts[dir] = DIR_PREFIX[dir] .. " : " .. one[dir] .. "."
 	end
-	return { answer = order, text = table.concat(parts, " ") }
+	return { answer = order, text = table.concat(parts, " "), clues = one }
 end
 
 function Config.puzzleCoins(income)
@@ -1925,7 +1934,7 @@ Config.HEN_LINES = {
 		"Mais le vent a dispersé mes quatre plumes dorées : une au Nord, une à l'Est, une au Sud, une à l'Ouest.",
 		"Rapporte-les-moi, règle les runes comme elles te le disent, puis chante avec moi. Le Grand Œuf saura te remercier.",
 	},
-	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard" },
+	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard", hint = "💡 Un coup de bec", replay = "🔁 Réécouter" },
 	explain = "Trois étapes. ① Trouve les 4 plumes dorées : la flèche jaune t'y mène. ② Chaque plume parle de la rune de sa direction : tourne cette rune sur le bon symbole, puis touche le Grand Œuf. ③ Les runes s'allument dans un ordre : touche-les dans le même ordre.",
 	again = "Le Grand Œuf dort encore. Mes plumes se sont envolées de nouveau… Tu m'aides ?",
 	missing = "Il te manque {n} plume(s). Cherche du côté {dirs}.",
@@ -1940,6 +1949,14 @@ Config.HEN_LINES = {
 	hintFeather = "Un coup de bec ? La plume {dir} se cache {where}.",
 	hintRune = "La rune {dir} veut {symbol}.",
 	runeWaits = "La rune {dir} attend sa plume.",
+	-- lot 6 : indices et refus (le serveur n'envoie que l'identifiant et les paramètres)
+	hintLullaby = "Un coup de bec ? La berceuse commence par la pierre {dir}.",
+	hintWait = "Cot… laisse-moi réfléchir encore {mm} min {ss} s avant de te souffler quelque chose.",
+	hintFails = "Essaie encore : après {n} tentative(s) de plus, je t'aiderai.",
+	hintMax = "Je t'ai déjà soufflé mes deux indices du jour, petit.",
+	needFeathers = "Il te manque des plumes avant de poser la combinaison. Cherche du côté {dirs}.",
+	runesLocked = "Les runes se reposent… patiente quelques secondes.",
+	listen = "Écoute… la berceuse commence.",
 }
 -- REFONTE (lot 2) : trois plumes déplacées pour rester atteignables (E2 était entre la rivière et la falaise, S1 hors du ponton, O1 dans la cabane).
 Config.FEATHER_SPOTS = {
@@ -1948,7 +1965,11 @@ Config.FEATHER_SPOTS = {
 	S = { { x = 262, z = 189, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
 	O = { { x = -300, z = -47, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
 }
-Config.HEN = { fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300 }
+Config.HEN = {
+	fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300,
+	-- lot 6 : distances (studs) et cadences. pickupDistance : le serveur refuse une plume plus loin (11 studs = refusé) ; pickupGap : 1 ramassage / s.
+	talkDistance = 14, pickupDistance = 10, pickupGap = 1, singDistance = 16, failsForHint = 3, sparkleDistance = 40, quarterReach = 70, markerRange = 90, bubbleCps = 40, alertRange = 150,
+}
 -- Textes du HUD (onboarding et chapitres) : tous < 110 octets.
 Config.ONBOARD2 = {
 	"🥚 Touche ton œuf pour le faire éclore",
@@ -1959,6 +1980,22 @@ Config.ONBOARD2 = {
 Config.CHAPTER_TEXTS = {
 	[8] = { title = "La berceuse du Grand Œuf", text = "Aide la Mère Poule : trouve les 4 plumes, règle les runes, chante la berceuse." },
 }
+-- Lot 6 : le chapitre 8 devient « La berceuse du Grand Œuf » (son objectif suit la nouvelle énigme, type « puzzle » inchangé : une résolution du jour).
+for i, t in pairs(Config.CHAPTER_TEXTS) do
+	local c = Config.STORY[i]
+	if c then
+		c.title, c.text = t.title, t.text
+	end
+end
+-- Titre « Ami de la Mère Poule » : 7 fragments du Grand Œuf cumulés (puzzle.fragments). Config.titles (24 titres de succès) reste INCHANGÉE pour ne pas
+-- casser ses tests ; Config.allTitles lui ajoute ce titre (25e), c'est elle que lit l'onglet Titres.
+Config.TITLE_HEN = { id = "hen", name = "🐔 Ami de la Mère Poule", desc = "7 fragments du Grand Œuf" }
+function Config.allTitles(stats)
+	local out = Config.titles(stats)
+	local frags = stats and stats.fragments
+	out[#out + 1] = { id = Config.TITLE_HEN.id, name = Config.TITLE_HEN.name, desc = Config.TITLE_HEN.desc, unlocked = type(frags) == "number" and frags >= Config.HEN.fragmentsForEgg }
+	return out
+end
 
 return Config
 ]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
@@ -4273,6 +4310,23 @@ function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 	for k = 1, #Config.TRAVEL2.portals do
 		local px, pz = Config.portalPad(k)
 		out[#out + 1] = { kind = "portal", x = px, z = pz, label = "🌀", locked = not Config.portalUnlocked(chaptersDone or 0, k) }
+	end
+	return out
+end
+
+-- Plumes dorées non ramassées à moins de `range` studs (icône 🪶, REFONTE lot 6). spots = { { x, z } } publiés par le serveur (étape 1 seulement).
+function MiniMap.featherMarks(spots, px, pz, range)
+	local out = {}
+	if type(spots) ~= "table" or type(px) ~= "number" or type(pz) ~= "number" or px ~= px or pz ~= pz then
+		return out
+	end
+	for _, sp in ipairs(spots) do
+		if type(sp.x) == "number" and type(sp.z) == "number" then
+			local dx, dz = sp.x - px, sp.z - pz
+			if dx * dx + dz * dz <= range * range then
+				out[#out + 1] = { kind = "feather", x = sp.x, z = sp.z, label = "🪶" }
+			end
+		end
 	end
 	return out
 end
@@ -6793,7 +6847,440 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+-- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
+-- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
+--   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
+--
+-- Générateur : Config.dayRng (le MÊME Park-Miller déterministe que Config.riddleFor) avec un « sel » par usage, pour que les plumes, la berceuse et
+-- les runes d'un même jour ne soient pas corrélées : plumes = dayRng(jour + 5003), berceuse = dayRng(jour + 9007), runes = dayRng(jour) (Config.riddleFor).
+-- Même jour = mêmes plumes, mêmes runes, même berceuse pour tous les joueurs.
+--
+-- Étapes : 0 non commencée · 1 plumes · 2 runes · 3 berceuse · 4 faite (= puzzle.day == jour). Le profil ne stocke que 0..3 (+ puzzle.pday, le jour de la
+-- progression : un autre jour = remise à zéro) ; « 4 » se déduit de puzzle.day.
+local Riddle = {}
+
+Riddle.STEP = { idle = 0, feathers = 1, runes = 2, lullaby = 3, done = 4 }
+Riddle.DIRS = { "N", "E", "S", "O" } -- ordre de Config.RUNE_DIRECTIONS et de Config.Map2.runeStones
+Riddle.DIR_OF = { "du Nord", "de l'Est", "du Sud", "de l'Ouest" } -- « La plume du Nord », « la rune de l'Est »
+local FEATHER_SALT, LULLABY_SALT = 5003, 9007
+local BIT = { 1, 2, 4, 8 } -- masque des plumes : Nord 1, Est 2, Sud 4, Ouest 8
+
+local function validDir(dir)
+	return type(dir) == "number" and dir == dir and dir % 1 == 0 and dir >= 1 and dir <= 4
+end
+
+-- Profil `puzzle` neuf (même forme que Data.default().puzzle).
+function Riddle.fresh()
+	return { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0, pday = 0, met = false }
+end
+
+---------------------------------------------------------------- Plumes et berceuse du jour
+-- Une plume par direction (N, E, S, O) parmi les 3 emplacements de Config.FEATHER_SPOTS : { { dir, key, index, x, z, where } x4 }.
+function Riddle.featherSpots(Config, day)
+	local r = Config.dayRng(day + FEATHER_SALT)
+	local out = {}
+	for dir = 1, 4 do
+		local list = Config.FEATHER_SPOTS[Riddle.DIRS[dir]]
+		local idx = r(#list)
+		local sp = list[idx]
+		out[dir] = { dir = dir, key = Riddle.DIRS[dir], index = idx, x = sp.x, z = sp.z, where = sp.where, dock = sp.dock == true }
+	end
+	return out
+end
+
+-- Berceuse du jour : Config.HEN.lullabyLength pierres (numéros 1..4 = Nord, Est, Sud, Ouest), chaque pierre présente au moins une fois
+-- (les 4 pierres d'abord, puis des pierres tirées, le tout mélangé).
+function Riddle.lullaby(Config, day)
+	local r = Config.dayRng(day + LULLABY_SALT)
+	local n = math.max(4, Config.HEN.lullabyLength)
+	local seq = { 1, 2, 3, 4 }
+	for i = 5, n do
+		seq[i] = r(4)
+	end
+	for i = n, 2, -1 do
+		local j = r(i)
+		seq[i], seq[j] = seq[j], seq[i]
+	end
+	return seq
+end
+
+-- Durée totale d'une écoute de la berceuse (secondes) : chaque pierre brille `lullabyNote` s, puis `lullabyGap` s de silence.
+function Riddle.lullabyDuration(Config)
+	return Config.HEN.lullabyLength * (Config.HEN.lullabyNote + Config.HEN.lullabyGap)
+end
+
+-- Début (en secondes depuis le début de l'écoute) de la note i.
+function Riddle.noteStart(Config, i)
+	return (i - 1) * (Config.HEN.lullabyNote + Config.HEN.lullabyGap)
+end
+
+---------------------------------------------------------------- État et transitions (toutes pures : elles modifient p et disent si c'était permis)
+function Riddle.available(chaptersDone)
+	return type(chaptersDone) == "number" and chaptersDone >= 2 -- chapitre 2 réussi
+end
+
+function Riddle.featherCount(mask)
+	local n = 0
+	for dir = 1, 4 do
+		if math.floor(mask / BIT[dir]) % 2 == 1 then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+function Riddle.hasFeather(mask, dir)
+	return validDir(dir) and type(mask) == "number" and math.floor(mask / BIT[dir]) % 2 == 1
+end
+
+-- Un autre jour que celui de la progression : remise à zéro (étape, plumes, indices ; fragments et résolutions sont conservés).
+-- Retourne true si une remise à zéro a eu lieu, puis true si une progression a été perdue.
+function Riddle.normalize(p, day)
+	if p.pday ~= day then
+		local lost = p.step ~= 0 or p.feathers ~= 0 or p.hints ~= 0
+		p.pday, p.step, p.feathers, p.hints = day, 0, 0, 0
+		return true, lost
+	end
+	return false, false
+end
+
+-- Étape effective : 4 si résolue ce jour, sinon l'étape sauvegardée (0..3).
+function Riddle.stepOf(p, day)
+	if p.day == day then
+		return 4
+	end
+	return p.step
+end
+
+-- 0 -> 1 : le joueur accepte d'aider la Mère Poule. Refusée si indisponible (chapitre 2), déjà faite ou déjà commencée.
+function Riddle.start(p, day, avail)
+	if not avail then
+		return false, "locked"
+	end
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 0 then
+		return false, "started"
+	end
+	p.step = 1
+	return true
+end
+
+-- Ramassage d'une plume (étape 1 seulement). Retourne ok, nombre de plumes (ou ok=false, raison).
+function Riddle.collect(p, day, dir)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 1 then
+		return false, "step"
+	end
+	if not validDir(dir) then
+		return false, "dir"
+	end
+	if Riddle.hasFeather(p.feathers, dir) then
+		return false, "have"
+	end
+	p.feathers = p.feathers + BIT[dir]
+	return true, Riddle.featherCount(p.feathers)
+end
+
+-- 1 -> 2 : IMPOSSIBLE sans les 4 plumes.
+function Riddle.toRunes(p, day)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 1 then
+		return false, "step"
+	end
+	if Riddle.featherCount(p.feathers) ~= 4 then
+		return false, "feathers"
+	end
+	p.step = 2
+	return true
+end
+
+-- Une rune ne se tourne qu'une fois la plume de sa direction ramassée, et seulement pendant les étapes 1 et 2.
+function Riddle.runeUnlocked(p, day, dir)
+	if p.day == day or p.pday ~= day then
+		return false
+	end
+	return (p.step == 1 or p.step == 2) and Riddle.hasFeather(p.feathers, dir)
+end
+
+-- Nombre de runes justes (jamais lesquelles). runes et answer : 4 symboles.
+function Riddle.runesCorrect(runes, answer)
+	local k = 0
+	for i = 1, 4 do
+		if runes[i] ~= nil and runes[i] == answer[i] then
+			k = k + 1
+		end
+	end
+	return k
+end
+
+-- 2 -> 3 : seulement si les 4 runes sont justes (`correct` = résultat de runesCorrect).
+function Riddle.toLullaby(p, day, correct)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 2 then
+		return false, "step"
+	end
+	if correct ~= 4 then
+		return false, "runes"
+	end
+	p.step = 3
+	return true
+end
+
+-- Touche d'une pierre pendant la berceuse : seq = suite attendue, pos = position attendue (1..#seq), stone = pierre touchée (1..4).
+-- Retourne "ok" (bonne pierre, pos avance), "done" (dernière pierre juste) ou "wrong" (erreur : pos revient à 1, la suite est rejouée).
+function Riddle.tap(seq, pos, stone)
+	if seq[pos] ~= nil and stone == seq[pos] then
+		if pos >= #seq then
+			return "done", 1
+		end
+		return "ok", pos + 1
+	end
+	return "wrong", 1
+end
+
+function Riddle.tapAllowed(Config, now, lastTap)
+	return type(now) == "number" and type(lastTap) == "number" and now - lastTap >= Config.HEN.tapMinGap
+end
+
+function Riddle.pickupAllowed(Config, dist, now, lastPick)
+	return type(dist) == "number" and dist == dist and dist <= Config.HEN.pickupDistance and type(now) == "number" and type(lastPick) == "number" and now - lastPick >= Config.HEN.pickupGap
+end
+
+-- 3 -> 4 : récompense UNE fois par jour. Retourne ok puis { eggTier, coinsMins, fragments, legendary, titleNew } ; fragments cumulés,
+-- 1 œuf Légendaire à chaque tranche de Config.HEN.fragmentsForEgg (7) atteinte, titre « Ami de la Mère Poule » dès 7.
+function Riddle.complete(Config, p, day, lullabyDone)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 3 then
+		return false, "step"
+	end
+	if lullabyDone ~= true then
+		return false, "lullaby"
+	end
+	local before = p.fragments
+	local after = before + 1
+	local per = Config.HEN.fragmentsForEgg
+	local legendary = math.floor(after / per) - math.floor(before / per)
+	p.day = day
+	p.solved = p.solved + 1
+	p.step, p.feathers = 0, 0
+	p.fragments = after
+	return true, { eggTier = Config.PUZZLE_EGG_TIER, mins = Config.PUZZLE_MINS, fragments = after, legendary = legendary, titleNew = before < per and after >= per }
+end
+
+function Riddle.hasTitle(Config, fragments)
+	return type(fragments) == "number" and fragments >= Config.HEN.fragmentsForEgg
+end
+
+---------------------------------------------------------------- Indices (« 💡 Un coup de bec »)
+-- 2 par jour, jamais payants. Le 1er : gratuit après hintAfterSeconds dans l'étape courante. Le 2e : après failsForHint validations ratées à l'étape 2.
+-- Retourne ok ; sinon false, raison ("step" | "max" | "wait" | "fails"), et le temps (s) ou le nombre de validations ratées restantes.
+function Riddle.hintStatus(Config, p, day, secondsInStep, fails)
+	local H = Config.HEN
+	local step = Riddle.stepOf(p, day)
+	if step < 1 or step > 3 then
+		return false, "step"
+	end
+	if p.hints >= H.hintsPerDay then
+		return false, "max"
+	end
+	if p.hints == 0 then
+		if secondsInStep >= H.hintAfterSeconds then
+			return true
+		end
+		return false, "wait", math.ceil(H.hintAfterSeconds - secondsInStep)
+	end
+	if step == 2 and fails >= H.failsForHint then
+		return true
+	end
+	return false, "fails", step == 2 and (H.failsForHint - fails) or nil
+end
+
+-- Contenu de l'indice : identifiant de réplique et paramètres. runes = symboles actuels du joueur (4 numéros).
+function Riddle.hintFor(Config, p, day, runes)
+	local step = Riddle.stepOf(p, day)
+	if step == 1 then
+		local spots = Riddle.featherSpots(Config, day)
+		for dir = 1, 4 do
+			if not Riddle.hasFeather(p.feathers, dir) then
+				return "hintFeather", { dir = Riddle.DIR_OF[dir], where = spots[dir].where }
+			end
+		end
+	elseif step == 2 then
+		local answer = Config.riddleFor(day).answer
+		for dir = 1, 4 do
+			if runes[dir] ~= answer[dir] then
+				return "hintRune", { dir = Riddle.DIR_OF[dir], symbol = Config.RUNES[answer[dir]] }
+			end
+		end
+	elseif step == 3 then
+		return "hintLullaby", { dir = Riddle.DIR_OF[Riddle.lullaby(Config, day)[1]] }
+	end
+	return nil
+end
+
+---------------------------------------------------------------- Compte à rebours
+-- « Nouvelle berceuse dans h mm » : heures, minutes (arrondies au-dessus), secondes restantes avant 00:00 UTC.
+function Riddle.untilNext(now)
+	local left = 86400 - (now % 86400)
+	local total = math.ceil(left / 60)
+	return math.floor(total / 60), total % 60, left
+end
+
+---------------------------------------------------------------- Répliques
+function Riddle.format(tpl, params)
+	return (tpl:gsub("{(%w+)}", function(k)
+		local v = params and params[k]
+		if v == nil then
+			return "{" .. k .. "}"
+		end
+		return tostring(v)
+	end))
+end
+
+-- « du Nord, de l'Est et de l'Ouest » d'après le masque de plumes (les directions MANQUANTES).
+function Riddle.missingDirs(mask)
+	local list = {}
+	for dir = 1, 4 do
+		if not Riddle.hasFeather(mask, dir) then
+			list[#list + 1] = Riddle.DIR_OF[dir]
+		end
+	end
+	if #list <= 1 then
+		return list[1] or ""
+	end
+	return table.concat(list, ", ", 1, #list - 1) .. " et " .. list[#list]
+end
+
+-- Paramètres de la réplique « missing » d'après le masque.
+function Riddle.missingParams(mask)
+	return { n = 4 - Riddle.featherCount(mask), dirs = Riddle.missingDirs(mask) }
+end
+
+-- Réplique « {h} h {mm} ».
+function Riddle.doneParams(now)
+	local h, m = Riddle.untilNext(now)
+	return { h = h, mm = string.format("%02d", m) }
+end
+
+-- Texte d'une réplique (id de Config.HEN_LINES) : { id, pages = { texte, ... }, buttons = { { id, text }, ... } }.
+-- step = étape du joueur : ajoute « 💡 Un coup de bec » (étapes 1 à 3) et « 🔁 Réécouter » (étape 3) aux répliques de suivi.
+function Riddle.say(Config, id, params, step)
+	local L = Config.HEN_LINES
+	local B = L.buttons
+	local pages, ids = nil, {}
+	if id == "first" then
+		pages, ids = L.first, { "go", "again" }
+	elseif id == "explain" or id == "again" then
+		pages, ids = { L[id] }, { "go", "later" }
+	elseif id == "success" or id == "done" or id == "locked" or id == "feather" then
+		pages = { L[id] }
+	elseif L[id] ~= nil and type(L[id]) == "string" then
+		pages = { L[id] }
+		if step == 1 or step == 2 or step == 3 then
+			ids[#ids + 1] = "hint"
+		end
+		if step == 3 then
+			ids[#ids + 1] = "replay"
+		end
+	else
+		return { id = id, pages = {}, buttons = {} }
+	end
+	local out = {}
+	for i, p in ipairs(pages) do
+		out[i] = Riddle.format(p, params)
+	end
+	local buttons = {}
+	for _, b in ipairs(ids) do
+		buttons[#buttons + 1] = { id = b, text = B[b] }
+	end
+	return { id = id, pages = out, buttons = buttons }
+end
+
+-- Texte d'une plume ramassée : « 🪶 Plume du Nord : « ce qui coule et berce » ».
+function Riddle.featherLine(Config, day, dir)
+	local clue = Config.riddleFor(day).clues[dir]
+	return Riddle.format(Config.HEN_LINES.feather, { dir = Riddle.DIR_OF[dir], clue = clue }), clue
+end
+
+---------------------------------------------------------------- Guidage (faisceau, mini-carte)
+-- Centre du quart de carte (quadrant Nord-Ouest, Nord-Est, Sud-Ouest, Sud-Est de Config.Map2.bounds) qui contient (x, z).
+function Riddle.quarter(Config, x, z)
+	local b = Config.Map2.bounds
+	return (x < 0 and b.x0 or b.x1) / 2, (z < 0 and b.z0 or b.z1) / 2
+end
+
+local function dist2d(ax, az, bx, bz)
+	return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+end
+
+-- Cible du faisceau jaune d'après l'état `hen` envoyé par le serveur (avail, step, spots = plumes NON ramassées { dir, x, z }) et la position du joueur.
+-- { kind = "hen" | "quarter" | "feather" | "runes", x, z, dir, near } ou nil. Étape 0 : la Mère Poule. Étape 1 : le centre du quart de carte de la plume la
+-- plus proche tant qu'on en est loin (> quarterReach du centre), puis la plume elle-même ; `near` = à moins de sparkleDistance (la plume scintille).
+-- Étapes 2 et 3 : le Grand Œuf (les 4 runes l'entourent).
+function Riddle.guide(Config, hen, px, pz)
+	if type(hen) ~= "table" or hen.avail ~= true or type(hen.step) ~= "number" or hen.step >= 4 then
+		return nil
+	end
+	local H = Config.HEN
+	if hen.step == 0 then
+		return { kind = "hen", x = Config.Map2.hen.x, z = Config.Map2.hen.z }
+	elseif hen.step >= 2 then
+		return { kind = "runes", x = Config.Map2.bigEgg.x, z = Config.Map2.bigEgg.z }
+	end
+	local best, bd = nil, math.huge
+	for _, sp in ipairs(hen.spots or {}) do
+		if type(sp.x) == "number" and type(sp.z) == "number" then
+			local d = dist2d(px, pz, sp.x, sp.z)
+			if d < bd then
+				best, bd = sp, d
+			end
+		end
+	end
+	if not best then
+		return { kind = "hen", x = Config.Map2.hen.x, z = Config.Map2.hen.z }
+	end
+	if bd <= H.sparkleDistance then
+		return { kind = "feather", x = best.x, z = best.z, dir = best.dir, near = true }
+	end
+	local qx, qz = Riddle.quarter(Config, best.x, best.z)
+	if dist2d(px, pz, qx, qz) > H.quarterReach then
+		return { kind = "quarter", x = qx, z = qz, dir = best.dir }
+	end
+	return { kind = "feather", x = best.x, z = best.z, dir = best.dir, near = false }
+end
+
+---------------------------------------------------------------- Effet collectif (Pluie de chance)
+-- c = { day, count, fired } propre au serveur. Retourne true quand l'événement doit démarrer MAINTENANT (une fois par jour et par serveur).
+function Riddle.collectiveAdd(Config, c, day)
+	if c.day ~= day then
+		c.day, c.count, c.fired = day, 0, false
+	end
+	c.count = c.count + 1
+	if not c.fired and c.count >= Config.HEN.collectiveSolves then
+		c.fired = true
+		return true
+	end
+	return false
+end
+
+return Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -7021,7 +7508,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -7086,7 +7573,7 @@ end
 
 return Upgrade
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX32"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX26"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX34"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX27"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7108,8 +7595,10 @@ local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Gua
 local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
 local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
 local Traps = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Traps")) -- pièges des territoires (lot 4)
+local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule : règles pures (lot 6)
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
+local HenQuest = require(script.Parent:WaitForChild("HenQuest")) -- énigme de la Mère Poule : état, prompts, récompense (lot 6)
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
 
 Players.CharacterAutoLoads = false
@@ -7127,6 +7616,7 @@ end
 local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
 local RTop = newRemote("Top")
 local RBattle = newRemote("Battle") -- serveur -> client : début, tours (événements à rejouer) et fin des combats de l'Arène des pets
+local RHen = newRemote("Hen") -- serveur -> client : répliques de la Mère Poule (identifiant + paramètres), berceuse à jouer, retour des touches, plume ramassée
 
 ---------------------------------------------------------------- Monde
 local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
@@ -7217,6 +7707,7 @@ local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
+local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
@@ -7406,24 +7897,10 @@ local function updateSign(s)
 	s.plot.nameLabel.Text = "🏠 Base de " .. s.player.DisplayName .. " · " .. r.emoji .. " " .. r.name
 end
 
----------------------------------------------------------------- Énigme du jour (identique pour tous) et statistiques de succès
-local riddleCache = { day = -1, riddle = nil }
-local function currentRiddle()
-	local day = os.time() // 86400
-	if riddleCache.day ~= day then
-		riddleCache.day = day
-		riddleCache.riddle = Config.riddleFor(day)
-		for _, lbl in ipairs(world.riddleLabels) do
-			lbl.Text = riddleCache.riddle.text
-		end
-	end
-	return riddleCache.riddle
-end
-currentRiddle() -- écrit l'énoncé sur les panneaux dès le démarrage
-
+---------------------------------------------------------------- Statistiques de succès (l'énigme du jour est dans HenQuest)
 local function statValues(s)
 	local d = s.data
-	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved, tower = d.battle.best }
+	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved, tower = d.battle.best, fragments = d.puzzle.fragments }
 end
 
 ---------------------------------------------------------------- Synchronisation client
@@ -7468,7 +7945,7 @@ local function snapshot(s)
 		species = s.species,
 		collection = Config.collectionBonus(s.species),
 		runes = s.runes,
-		riddle = currentRiddle().text,
+		hen = Hen and Hen.snapshot(s) or nil, -- énigme de la Mère Poule : étape, plumes, indices (lot 6) ; aucun indice n'est envoyé avant le ramassage de la plume
 		puzzleDone = d.puzzle.day == today,
 		puzzleSolved = d.puzzle.solved,
 		ach = d.ach,
@@ -8067,71 +8544,6 @@ function speedUpEgg(s, i, who)
 	end
 end
 
----------------------------------------------------------------- Énigme des runes
--- Récompense : un œuf (ou son prix en pièces si la base est pleine) + des pièces. Une résolution par jour et par joueur.
-local function solvePuzzle(s)
-	local d = s.data
-	d.puzzle.day = os.time() // 86400
-	d.puzzle.solved += 1
-	local tier = Config.PUZZLE_EGG_TIER
-	local i = freeSlot(s)
-	local coins = Config.puzzleCoins(income(s))
-	if i then
-		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
-		refreshPad(s, i)
-	else
-		coins += Config.EGG_PRICE[tier]
-	end
-	d.coins += coins
-	s.runes = { 1, 1, 1, 1 }
-	Builder.burst(world.monumentCenter, Color3.fromRGB(255, 214, 120), 140, true)
-	notify(s.player, "🔮 Énigme résolue ! +" .. Config.fmt(coins) .. " 🪙" .. (i and (" et un œuf " .. Config.TIERS[tier].name .. " dans ta base") or " (base pleine : l'œuf est converti en pièces)"), "rare")
-	sp(s, "puzzle", 1)
-	sync(s)
-end
-
-local function rotateRune(s, root, prompt)
-	local idx = prompt:GetAttribute("Idx")
-	if type(idx) ~= "number" or idx % 1 ~= 0 or idx < 1 or idx > #Config.RUNES then
-		return
-	end
-	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 16 then
-		return
-	end
-	local now = os.clock()
-	if now - s.lastRune < 0.12 then
-		return
-	end
-	s.lastRune = now
-	s.runes[idx] = s.runes[idx] % #Config.RUNES + 1
-	sync(s)
-end
-
-local function confirmRunes(s, root, prompt)
-	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 20 then
-		return
-	end
-	local d = s.data
-	if d.puzzle.day == os.time() // 86400 then
-		notify(s.player, "🔮 Tu as déjà résolu l'énigme du jour. Reviens demain !")
-		return
-	end
-	local now = os.clock()
-	if now < s.runeLock then
-		notify(s.player, "🔮 Les runes se reposent… patiente quelques secondes.")
-		return
-	end
-	local answer = currentRiddle().answer
-	for i = 1, #answer do
-		if s.runes[i] ~= answer[i] then
-			s.runeLock = now + Config.RUNE_LOCK_SECONDS
-			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme de Mère Poule.", "caught")
-			return
-		end
-	end
-	solvePuzzle(s)
-end
-
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
@@ -8251,7 +8663,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		return
 	end
 	local kind = prompt:GetAttribute("Kind")
-	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" then
+	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" and kind ~= "HenTalk" and kind ~= "Feather" then
 		return
 	end
 	local s = sessions[player]
@@ -8259,11 +8671,18 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	if not s or not root or not alive(player) or s.stun > 0 then
 		return
 	end
-	if kind == "Rune" then
-		rotateRune(s, root, prompt)
-		return
-	elseif kind == "RuneConfirm" then
-		confirmRunes(s, root, prompt)
+	if kind == "Rune" or kind == "RuneConfirm" or kind == "HenTalk" or kind == "Feather" then
+		if Hen then -- énigme de la Mère Poule (toutes les validations sont dans HenQuest)
+			if kind == "Rune" then
+				Hen.stoneTap(s, root, prompt)
+			elseif kind == "RuneConfirm" then
+				Hen.confirmRunes(s, root)
+			elseif kind == "HenTalk" then
+				Hen.talk(s, root)
+			else
+				Hen.pickFeather(s, root, prompt)
+			end
+		end
 		return
 	end
 	local now = os.clock()
@@ -8956,9 +9375,9 @@ tint.Name = "EventTint"
 tint.Parent = Lighting
 local evTimer = rng:NextNumber(25, 40)
 
-local function setEvent(cfg)
+local function setEvent(cfg, seconds)
 	if cfg then
-		currentEvent = { cfg = cfg, ends = os.time() + Config.EVENT_DURATION }
+		currentEvent = { cfg = cfg, ends = os.time() + (type(seconds) == "number" and seconds or Config.EVENT_DURATION) } -- seconds : événement offert plus long (énigme, lot 6)
 		workspace:SetAttribute("EventKey", cfg.key)
 		workspace:SetAttribute("EventEnds", currentEvent.ends)
 		tint.TintColor = cfg.tint
@@ -8989,6 +9408,13 @@ local function eventStep(dt)
 		end
 	end
 end
+
+-- Énigme de la Mère Poule (lot 6) : construite ici car elle déclenche l'événement « Pluie de chance » (setEvent) ; le gestionnaire de prompts la lit via `Hen`.
+Hen = HenQuest.new({
+	Config = Config, Riddle = Riddle, Builder = Builder, world = world, sessions = sessions, RHen = RHen,
+	notify = notify, sync = sync, getRoot = getRoot, freeSlot = freeSlot, hatchTime = hatchTime, shieldTime = shieldTime, refreshPad = refreshPad,
+	income = income, story = sp, setEvent = setEvent,
+})
 
 ---------------------------------------------------------------- Boucles de jeu
 local function fastTick(dt)
@@ -9114,7 +9540,6 @@ end
 
 local function slowTick(dt)
 	eventStep(dt)
-	currentRiddle() -- change l'énoncé à minuit (UTC)
 	for _, n in ipairs(world.nests) do
 		if not n.egg then
 			n.rt -= dt
@@ -9630,6 +10055,20 @@ function actions.sellDupes(s)
 	rebuildFollowers(s)
 	notify(s.player, "⭐ " .. #list .. " doublon(s) échangé(s) : +" .. Config.fmt(total) .. " 🪙", "claim")
 	sync(s)
+end
+
+-- Dialogue de la Mère Poule (lot 6) : boutons « J'y vais ! », « Explique encore », « 💡 Un coup de bec », « 🔁 Réécouter » (intentions seulement).
+function actions.henGo(s)
+	return Hen and Hen.go(s)
+end
+function actions.henExplain(s)
+	return Hen and Hen.explain(s)
+end
+function actions.henHint(s)
+	return Hen and Hen.hint(s)
+end
+function actions.henReplay(s)
+	return Hen and Hen.replay(s)
 end
 
 function actions.rebirth(s)
@@ -10518,7 +10957,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -10643,7 +11082,7 @@ function Data.default()
 		luckUntil = 0,
 		story = { ch = 0, prog = 0 }, -- ch = chapitres réussis, prog = progression du chapitre en cours
 		pity = 0,
-		puzzle = { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0 }, -- day = dernier jour résolu ; step 0..3 ; feathers = masque de bits des 4 plumes ; hints du jour ; fragments cumulés
+		puzzle = { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0, pday = 0, met = false }, -- day = dernier jour résolu ; step 0..3 ; feathers = masque de bits des 4 plumes ; hints du jour ; fragments cumulés
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
@@ -10767,6 +11206,8 @@ local function merge(saved)
 		d.puzzle.feathers = math.min(15, math.floor(sane(saved.puzzle.feathers, 0))) -- masque de bits : Nord 1, Est 2, Sud 4, Ouest 8
 		d.puzzle.hints = math.min(99, math.floor(sane(saved.puzzle.hints, 0)))
 		d.puzzle.fragments = math.min(9999, math.floor(sane(saved.puzzle.fragments, 0)))
+		d.puzzle.pday = math.floor(sane(saved.puzzle.pday, 0)) -- jour de la progression intermédiaire (lot 6) : un autre jour = remise à zéro
+		d.puzzle.met = saved.puzzle.met == true -- la Mère Poule a déjà fait sa présentation (une fois dans la vie du profil)
 	end
 	if type(saved.tokens) == "table" then
 		d.tokens.remoteSteal = math.min(Config.REMOTE_STEAL.tokenMax, math.floor(sane(saved.tokens.remoteSteal, 0)))
@@ -11165,7 +11606,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -12771,7 +13212,7 @@ function Builder.monument(parent)
 		title.Font = FONT
 		title.TextSize = 40
 		title.TextColor3 = gold
-		title.Text = "📜 Énigme de Mère Poule"
+		title.Text = "📜 La berceuse du Grand Œuf"
 		title.Parent = sg
 		local body = Instance.new("TextLabel")
 		body.BackgroundTransparency = 1
@@ -12782,7 +13223,7 @@ function Builder.monument(parent)
 		body.TextWrapped = true
 		body.TextColor3 = Color3.fromRGB(255, 244, 220)
 		body.TextYAlignment = Enum.TextYAlignment.Top
-		body.Text = "…"
+		body.Text = "Parle à la Mère Poule 🐔 : trouve ses 4 plumes dorées, règle les 4 runes, puis chante la berceuse. Un nouveau défi chaque jour !" -- texte fixe : les indices sont sur les plumes (lot 6)
 		body.Parent = sg
 		labels[#labels + 1] = body
 	end
@@ -12815,12 +13256,56 @@ function Builder.hen(parent)
 	ball({ Name = "HenWattle", Size = Vector3.new(0.6, 0.8, 0.5), CFrame = CFrame.new(0, 1.6, -2.8), Color = red }, model)
 	local label = sign(body, "🐔 Mère Poule\nGardienne du Grand Œuf", Color3.fromRGB(255, 220, 140), 5.5, 260)
 	label.TextSize = 17
+	-- Lot 6 : « Parler » ouvre le dialogue de l'énigme (le serveur choisit la réplique selon l'étape du joueur et envoie son identifiant).
+	local talk = Instance.new("ProximityPrompt")
+	talk.ActionText = "Parler"
+	talk.ObjectText = "Mère Poule"
+	talk.HoldDuration = 0
+	talk.MaxActivationDistance = Config.HEN.talkDistance - 2
+	talk.RequiresLineOfSight = false
+	talk:SetAttribute("Kind", "HenTalk")
+	talk.Parent = body
 	model:SetAttribute("Seed", 3)
 	CollectionService:AddTag(model, "Hen")
 	local H, E = Config.Map2.hen, Config.Map2.bigEgg
 	model:PivotTo(CFrame.lookAt(Vector3.new(H.x, 3.2, H.z), Vector3.new(E.x, 3.2, E.z))) -- regarde le Grand Œuf
 	model.Parent = parent
 	return model
+end
+
+-- Plume dorée de l'énigme (lot 6) : UNE Part néon (visible de tous), ramassée PAR JOUEUR (le serveur tient le masque `puzzle.feathers` ; le client cache la plume
+-- de celui qui l'a prise). Déplacée chaque jour par le serveur (HenQuest) ; l'émetteur d'étincelles est coupé : le client l'allume à moins de 40 studs.
+function Builder.feather(parent, dir)
+	local f = part({ Name = "Feather", Size = Vector3.new(0.3, 3.4, 1.3), Color = Color3.fromRGB(255, 214, 90), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, parent)
+	f:SetAttribute("Dir", dir)
+	CollectionService:AddTag(f, "Feather")
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "Sparkle"
+	sparks.Texture = SPARK
+	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 240, 170))
+	sparks.Rate = 14
+	sparks.Lifetime = NumberRange.new(1, 1.8)
+	sparks.Speed = NumberRange.new(1, 3)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0) })
+	sparks.Enabled = false
+	sparks.Parent = f
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(255, 214, 90)
+	glow.Range = 10
+	glow.Brightness = 1.2
+	glow.Parent = f
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Ramasser"
+	pr.ObjectText = "Plume dorée"
+	pr.HoldDuration = 0.5
+	pr.MaxActivationDistance = Config.HEN.pickupDistance
+	pr.RequiresLineOfSight = false
+	pr:SetAttribute("Kind", "Feather")
+	pr:SetAttribute("Dir", dir)
+	pr.Parent = f
+	return f
 end
 
 ---------------------------------------------------------------- Monde
@@ -12915,9 +13400,9 @@ function Builder.build()
 	end)
 
 	local monument = Builder.monument(world)
-	Builder.hen(world)
+	local henModel = Builder.hen(world)
 
-	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center, geo = G }
+	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center, geo = G, hen = henModel, folder = world }
 
 	-- Territoires (Config.TERR) : nids, postes des gardiens, décor, barrière des zones verrouillées, panneau de difficulté ---------------
 	local gIndex = {} -- numéro du gardien dans son rival (Guard<rival>_<j>)
@@ -13542,7 +14027,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -13694,7 +14179,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -13707,7 +14192,523 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+-- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
+-- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
+-- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
+-- chaque cadence et la récompense (une fois par jour) sont revalidées ici. Les distances sont calculées sur les coordonnées de Config (jamais sur une
+-- valeur fournie par le client). Les textes viennent de Config.HEN_LINES : le serveur n'envoie que l'identifiant de la réplique et ses paramètres.
+local HenQuest = {}
+
+function HenQuest.new(ctx)
+	local Config, Riddle, Builder = ctx.Config, ctx.Riddle, ctx.Builder
+	local notify, sync = ctx.notify, ctx.sync
+	local RHen = ctx.RHen
+	local H = Config.HEN
+	local M = {}
+	local day0 = function()
+		return os.time() // 86400
+	end
+	local feathers = {} -- [dir] = Part (4 plumes, déplacées chaque jour)
+	local spots, spotsDay = nil, -1
+	local riddleDay, riddleToday = -1, nil -- énigme du jour mise en cache (Config.riddleFor est pure mais appelée à chaque synchronisation)
+	local function riddle(day)
+		if riddleDay ~= day then
+			riddleDay, riddleToday = day, Config.riddleFor(day)
+		end
+		return riddleToday
+	end
+	local collective = { day = -1, count = 0, fired = false }
+	local folder = ctx.world.folder
+	local geo = ctx.world.geo
+
+	local function say(s, id, params)
+		if s.player and s.player.Parent then
+			RHen:FireClient(s.player, "say", id, params)
+		end
+	end
+
+	function M.newState()
+		return { stepAt = os.clock(), startT = os.clock(), fails = 0, lullFails = 0, pos = 1, listenUntil = 0, lastPick = -99, lastTap = -99, lastAct = -99, lastTalk = -99, lastDay = -1 }
+	end
+
+	-- Journal : un relevé à chaque étape (abandon par étape, temps passé, indices) lisible dans la sortie du serveur.
+	local function log(s, step)
+		print(string.format("[Riddle] step=%d t=%d hints=%d", step, math.floor(os.clock() - s.hen.startT), s.data.puzzle.hints))
+	end
+
+	-- Passe à l'étape suivante : remet à zéro le chronomètre de l'étape (indice gratuit après 5 min DANS l'étape) et les échecs de l'étape.
+	local function enter(s, step)
+		s.hen.stepAt = os.clock()
+		s.hen.fails = 0
+		s.hen.pos = 1
+		log(s, step)
+	end
+
+	---------------------------------------------------------------- Les 4 plumes du jour
+	local function placeFeathers(day)
+		spots, spotsDay = Riddle.featherSpots(Config, day), day
+		for dir = 1, 4 do
+			local sp = spots[dir]
+			sp.y = geo.groundY(sp.x, sp.z) + 2.4
+			local f = feathers[dir]
+			if not f then
+				f = Builder.feather(folder, dir)
+				feathers[dir] = f
+			end
+			f.CFrame = CFrame.new(sp.x, sp.y, sp.z) * CFrame.Angles(0, dir * 1.3, 0.35)
+		end
+	end
+	placeFeathers(day0())
+
+	-- Remise à jour de ce joueur pour le jour courant. Retourne true si une progression d'un autre jour a été remise à zéro.
+	local function refresh(s, day)
+		if not s.hen then
+			s.hen = M.newState()
+		end
+		if day ~= spotsDay then
+			placeFeathers(day)
+		end
+		local reset, lost = Riddle.normalize(s.data.puzzle, day)
+		if reset then
+			s.runes = { 1, 1, 1, 1 }
+			s.runeLock = 0
+			s.hen.stepAt, s.hen.fails, s.hen.lullFails, s.hen.pos, s.hen.listenUntil = os.clock(), 0, 0, 1, 0
+			if lost then
+				log(s, 0)
+				notify(s.player, "🌙 Le Grand Œuf s'est rendormi : nouvelle berceuse aujourd'hui !") -- l'avancement d'hier est remis à zéro
+			end
+		end
+		return reset and lost
+	end
+
+	local function stepNow(s, day)
+		return Riddle.stepOf(s.data.puzzle, day)
+	end
+
+	local function henDist(root)
+		local h = Config.Map2.hen
+		return math.sqrt((root.Position.X - h.x) ^ 2 + (root.Position.Z - h.z) ^ 2)
+	end
+
+	local function sayStep(s)
+		local day = day0()
+		local p = s.data.puzzle
+		local step = stepNow(s, day)
+		if not Riddle.available(s.data.story.ch) then
+			say(s, "locked")
+		elseif step == 4 then
+			say(s, "done", Riddle.doneParams(os.time()))
+		elseif step == 0 then
+			if not p.met then
+				p.met = true
+				say(s, "first")
+			else
+				say(s, "again")
+			end
+		elseif step == 1 then
+			say(s, "missing", Riddle.missingParams(p.feathers))
+		elseif step == 2 then
+			say(s, "allFeathers")
+		else
+			say(s, "runesRight")
+			M.play(s)
+		end
+	end
+
+	---------------------------------------------------------------- Dialogue
+	function M.talk(s, root)
+		if henDist(root) > H.talkDistance then
+			return
+		end
+		local now = os.clock()
+		if now - s.hen.lastTalk < 0.4 then
+			return
+		end
+		s.hen.lastTalk = now
+		refresh(s, day0())
+		sayStep(s)
+		sync(s)
+	end
+
+	local function near(s, maxDist)
+		local root = ctx.getRoot(s.player)
+		return root ~= nil and henDist(root) <= maxDist
+	end
+
+	local function throttle(s)
+		local now = os.clock()
+		if now - s.hen.lastAct < 0.5 then
+			return false
+		end
+		s.hen.lastAct = now
+		return true
+	end
+
+	-- « J'y vais ! » : accepte l'énigme du jour (étape 0 -> 1).
+	function M.go(s)
+		if not throttle(s) or not near(s, H.talkDistance + 16) then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		local ok, why = Riddle.start(s.data.puzzle, day, Riddle.available(s.data.story.ch))
+		if ok then
+			s.hen.startT = os.clock()
+			s.data.puzzle.met = true
+			enter(s, 1)
+			notify(s.player, "📜 Berceuse du jour : étape 1/3 — trouve les 4 plumes dorées (suis la flèche jaune).", "claim")
+			sync(s)
+		elseif why == "started" then
+			sayStep(s)
+		elseif why == "locked" then
+			say(s, "locked")
+		else
+			say(s, "done", Riddle.doneParams(os.time()))
+		end
+	end
+
+	function M.explain(s)
+		if not throttle(s) or not near(s, H.talkDistance + 16) then
+			return
+		end
+		say(s, "explain")
+	end
+
+	-- « 💡 Un coup de bec » : 2 indices par jour (voir Riddle.hintStatus), jamais payants.
+	function M.hint(s)
+		if not throttle(s) or not near(s, H.talkDistance + 16) then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		local p = s.data.puzzle
+		local ok, why, extra = Riddle.hintStatus(Config, p, day, os.clock() - s.hen.stepAt, s.hen.fails)
+		if not ok then
+			if why == "wait" then
+				say(s, "hintWait", { mm = math.floor(extra / 60), ss = string.format("%02d", extra % 60) })
+			elseif why == "fails" then
+				say(s, "hintFails", { n = extra or H.failsForHint })
+			elseif why == "max" then
+				say(s, "hintMax")
+			end
+			return
+		end
+		local id, params = Riddle.hintFor(Config, p, day, s.runes)
+		if not id then
+			return
+		end
+		p.hints = p.hints + 1
+		say(s, id, params)
+		print(string.format("[Riddle] step=%d t=%d hints=%d (indice)", Riddle.stepOf(p, day), math.floor(os.clock() - s.hen.startT), p.hints))
+		sync(s)
+	end
+
+	---------------------------------------------------------------- Plumes
+	function M.pickFeather(s, root, prompt)
+		local dir = prompt:GetAttribute("Dir")
+		if type(dir) ~= "number" or dir % 1 ~= 0 or dir < 1 or dir > 4 or prompt.Parent ~= feathers[dir] then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		local p = s.data.puzzle
+		if not Riddle.available(s.data.story.ch) then
+			return
+		end
+		local sp = spots[dir]
+		local dist = math.sqrt((root.Position.X - sp.x) ^ 2 + (root.Position.Z - sp.z) ^ 2)
+		local now = os.clock()
+		if not Riddle.pickupAllowed(Config, dist, now, s.hen.lastPick) then
+			return
+		end
+		local step = stepNow(s, day)
+		if step == 0 then
+			say(s, "again") -- il faut d'abord parler à la Mère Poule
+			return
+		end
+		local ok, n = Riddle.collect(p, day, dir)
+		if not ok then
+			return
+		end
+		s.hen.lastPick = now
+		local line, clue = Riddle.featherLine(Config, day, dir)
+		RHen:FireClient(s.player, "feather", dir, clue)
+		notify(s.player, line, "claim")
+		if n == 4 then
+			local moved = Riddle.toRunes(p, day)
+			if moved then
+				enter(s, 2)
+				say(s, "allFeathers")
+			end
+		end
+		sync(s)
+	end
+
+	---------------------------------------------------------------- Runes
+	local function runeDistance(root, idx)
+		local st = Config.Map2.runeStones[idx]
+		return math.sqrt((root.Position.X - st.x) ^ 2 + (root.Position.Z - st.z) ^ 2)
+	end
+
+	function M.rotateRune(s, root, prompt)
+		local idx = prompt:GetAttribute("Idx")
+		if type(idx) ~= "number" or idx % 1 ~= 0 or idx < 1 or idx > #Config.RUNES then
+			return
+		end
+		if runeDistance(root, idx) > H.singDistance then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		local now = os.clock()
+		if now - s.lastRune < 0.12 then
+			return
+		end
+		s.lastRune = now
+		if not Riddle.runeUnlocked(s.data.puzzle, day, idx) then
+			if Riddle.available(s.data.story.ch) and stepNow(s, day) ~= 4 and now - (s.hen.lastWait or -99) > 1.5 then
+				s.hen.lastWait = now
+				notify(s.player, Riddle.format(Config.HEN_LINES.runeWaits, { dir = Riddle.DIR_OF[idx] }))
+			end
+			return
+		end
+		s.runes[idx] = s.runes[idx] % #Config.RUNES + 1
+		sync(s)
+	end
+
+	-- Écoute de la berceuse : les 4 pierres s'allument dans l'ordre (le client joue les notes et les lueurs). Le serveur refuse les touches pendant l'écoute.
+	function M.play(s)
+		local day = day0()
+		local seq = Riddle.lullaby(Config, day)
+		s.hen.pos = 1
+		s.hen.listenUntil = os.clock() + Riddle.lullabyDuration(Config) + 0.2
+		RHen:FireClient(s.player, "lullaby", seq, H.lullabyNote, H.lullabyGap)
+	end
+
+	function M.replay(s)
+		if not throttle(s) then
+			return
+		end
+		local root = ctx.getRoot(s.player)
+		if not root then
+			return
+		end
+		local e = Config.Map2.bigEgg
+		if henDist(root) > 40 and math.sqrt((root.Position.X - e.x) ^ 2 + (root.Position.Z - e.z) ^ 2) > 40 then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		if stepNow(s, day) == 3 and os.clock() >= s.hen.listenUntil then
+			M.play(s)
+		end
+	end
+
+	-- Validation des runes sur le Grand Œuf : on ne dit QUE le nombre de runes justes. Pause RUNE_LOCK_SECONDS après une erreur (existante).
+	function M.confirmRunes(s, root)
+		local e = Config.Map2.bigEgg
+		if math.sqrt((root.Position.X - e.x) ^ 2 + (root.Position.Z - e.z) ^ 2) > 20 then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		local p = s.data.puzzle
+		local step = stepNow(s, day)
+		if not Riddle.available(s.data.story.ch) then
+			say(s, "locked")
+			return
+		elseif step == 4 then
+			notify(s.player, "🔮 Tu as déjà chanté aujourd'hui. Reviens demain !")
+			return
+		elseif step == 0 then
+			say(s, "again")
+			return
+		elseif step == 1 then
+			say(s, "needFeathers", { dirs = Riddle.missingDirs(p.feathers) })
+			return
+		elseif step == 3 then
+			M.play(s)
+			return
+		end
+		local now = os.clock()
+		if now < s.runeLock then
+			notify(s.player, Config.HEN_LINES.runesLocked)
+			return
+		end
+		local k = Riddle.runesCorrect(s.runes, riddle(day).answer)
+		if k < 4 then
+			s.runeLock = now + Config.RUNE_LOCK_SECONDS
+			s.hen.fails = s.hen.fails + 1
+			say(s, "runesWrong", { k = k })
+			notify(s.player, Riddle.format(Config.HEN_LINES.runesWrong, { k = k }), "caught")
+			return
+		end
+		if Riddle.toLullaby(p, day, k) then
+			enter(s, 3)
+			say(s, "runesRight")
+			M.play(s)
+			sync(s)
+		end
+	end
+
+	---------------------------------------------------------------- Berceuse
+	local function grant(s, tier)
+		local i = ctx.freeSlot(s)
+		if i then
+			s.data.slots[i] = { k = "e", t = tier, ends = os.time() + ctx.hatchTime(s, tier), shield = os.time() + ctx.shieldTime(s) }
+			ctx.refreshPad(s, i)
+			return true
+		end
+		s.data.coins = s.data.coins + Config.EGG_PRICE[tier] -- base pleine : l'œuf est converti en pièces (prix plein)
+		return false
+	end
+
+	local function reward(s, day)
+		local p = s.data.puzzle
+		local ok, r = Riddle.complete(Config, p, day, true)
+		if not ok then
+			return
+		end
+		local d = s.data
+		local coins = Config.puzzleCoins(ctx.income(s))
+		local placed = grant(s, r.eggTier)
+		d.coins = d.coins + coins
+		local msg = "🔮 Le Grand Œuf s'éveille ! +" .. Config.fmt(coins) .. " 🪙 et " .. (placed and ("un œuf " .. Config.TIERS[r.eggTier].name .. " dans ta base") or "la valeur d'un œuf (base pleine)")
+		msg = msg .. " · 🥚 Fragment du Grand Œuf " .. (r.fragments % H.fragmentsForEgg == 0 and H.fragmentsForEgg or r.fragments % H.fragmentsForEgg) .. "/" .. H.fragmentsForEgg
+		notify(s.player, msg, "rare")
+		if r.legendary > 0 then
+			for _ = 1, r.legendary do
+				local placedL = grant(s, 4)
+				notify(s.player, "🌟 " .. H.fragmentsForEgg .. " fragments réunis : un œuf Légendaire" .. (placedL and " t'attend dans ta base !" or " (base pleine : converti en pièces)."), "legendary")
+			end
+		end
+		if r.titleNew then
+			notify(s.player, "🏷 Nouveau titre : " .. Config.TITLE_HEN.name, "claim")
+		end
+		s.runes = { 1, 1, 1, 1 }
+		s.hen.pos = 1
+		Builder.burst(ctx.world.monumentCenter, Color3.fromRGB(255, 214, 120), 140, true)
+		say(s, "success")
+		log(s, 4)
+		ctx.story(s, "puzzle", 1)
+		-- effet collectif : 3 énigmes résolues sur ce serveur aujourd'hui -> « Pluie de chance » gratuite pour tous (une fois par jour et par serveur)
+		if Riddle.collectiveAdd(Config, collective, day) then
+			for _, e in ipairs(Config.EVENTS) do
+				if e.key == "luck" then
+					ctx.setEvent(e, H.collectiveSeconds)
+				end
+			end
+			for _, o in pairs(ctx.sessions) do
+				notify(o.player, "🍀 " .. H.collectiveSolves .. " berceuses chantées aujourd'hui : Pluie de chance offerte à tout le serveur pendant " .. math.floor(H.collectiveSeconds / 60) .. " min !", "event")
+			end
+		end
+		sync(s)
+	end
+
+	function M.sing(s, root, prompt)
+		local idx = prompt:GetAttribute("Idx")
+		if type(idx) ~= "number" or idx % 1 ~= 0 or idx < 1 or idx > 4 or runeDistance(root, idx) > H.singDistance then
+			return
+		end
+		local day = day0()
+		refresh(s, day)
+		local now = os.clock()
+		if now < s.hen.listenUntil then
+			return -- écoute en cours : les touches sont ignorées
+		end
+		if not Riddle.tapAllowed(Config, now, s.hen.lastTap) then
+			return -- trop rapide (< 0,25 s) : refusée, sans compter comme une erreur
+		end
+		s.hen.lastTap = now
+		local seq = Riddle.lullaby(Config, day)
+		local res, pos = Riddle.tap(seq, s.hen.pos, idx)
+		s.hen.pos = pos
+		if res == "wrong" then
+			s.hen.lullFails = s.hen.lullFails + 1
+			RHen:FireClient(s.player, "tap", idx, false)
+			say(s, "lullabyWrong")
+			M.play(s) -- la suite est rejouée, sans pause
+			sync(s)
+		else
+			RHen:FireClient(s.player, "tap", idx, true)
+			if res == "done" then
+				reward(s, day)
+			else
+				sync(s)
+			end
+		end
+	end
+
+	-- Prompt d'une pierre runique : selon l'étape, tourner la rune (1 et 2) ou chanter (3).
+	function M.stoneTap(s, root, prompt)
+		local day = day0()
+		refresh(s, day)
+		if stepNow(s, day) == 3 then
+			M.sing(s, root, prompt)
+		else
+			M.rotateRune(s, root, prompt)
+		end
+	end
+
+	---------------------------------------------------------------- État publié au client
+	function M.snapshot(s)
+		local day = day0()
+		refresh(s, day)
+		local p = s.data.puzzle
+		local avail = Riddle.available(s.data.story.ch)
+		local step = stepNow(s, day)
+		local out = {
+			avail = avail, step = step, feathers = p.feathers, count = Riddle.featherCount(p.feathers), hints = p.hints, hintMax = H.hintsPerDay,
+			fragments = p.fragments, nextAt = (day + 1) * 86400, alert = avail and step < 4, lullabyPos = step == 3 and (s.hen.pos - 1) or 0,
+			spots = {}, clues = {}, solved = p.solved,
+		}
+		if step == 1 then
+			for dir = 1, 4 do
+				if not Riddle.hasFeather(p.feathers, dir) then
+					out.spots[#out.spots + 1] = { dir = dir, x = spots[dir].x, z = spots[dir].z }
+				end
+			end
+		end
+		if step >= 1 and step <= 3 then
+			for dir = 1, 4 do
+				if Riddle.hasFeather(p.feathers, dir) then
+					out.clues[dir] = riddle(day).clues[dir]
+				end
+			end
+		end
+		return out
+	end
+
+	-- Toutes les 5 s : changement de jour (plumes déplacées, progression de chacun remise à zéro et publiée).
+	function M.tick()
+		local day = day0()
+		if day ~= spotsDay then
+			placeFeathers(day)
+		end
+		for _, s in pairs(ctx.sessions) do
+			if refresh(s, day) then
+				sync(s)
+			end
+		end
+	end
+
+	M.feathers = feathers
+	M.collective = collective
+	task.spawn(function()
+		while true do
+			task.wait(5)
+			local ok, err = pcall(M.tick)
+			if not ok then
+				warn("[HenQuest] " .. tostring(err))
+			end
+		end
+	end)
+	return M
+end
+
+return HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -14443,7 +15444,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX45"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX44"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX33"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX48"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX47"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14466,9 +15467,12 @@ local SlotFx = require(script.Parent:WaitForChild("SlotFx"))
 local VfxKitMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("VfxKit"))
 local Vfx = VfxKitMod.new(Config, Easing)
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
+local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule (règles pures, lot 6)
+local HenUi = require(script.Parent:WaitForChild("HenUi")) -- dialogue, ❗, plumes, berceuse, cible du faisceau
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
+local RHen = Remotes:WaitForChild("Hen")
 local fmt = Config.fmt
 
 local COL = {
@@ -14486,6 +15490,7 @@ local COL = {
 local FONT = Enum.Font.GothamBold
 
 local state = nil
+local henUi = nil -- interface de l'énigme (créée après le HUD)
 local tryOfferLater, lastMilestone = nil, nil -- offre d'achat (définie avec le HUD) ; dernier palier d'éclosions vu
 local topData = nil
 local panel = nil -- { name, tab, confirm }
@@ -15100,6 +16105,10 @@ function render()
 			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
 			pressFx(b)
+			if t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true then -- pastille « 1 » : l'énigme du jour attend
+				local badge = make("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, -3), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = COL.red, Text = "1", TextSize = 12, Font = FONT, TextColor3 = COL.text, ZIndex = 5 }, b)
+				corner(badge, 9)
+			end
 			b.Activated:Connect(function()
 				setTab(t[1])
 			end)
@@ -15255,7 +16264,7 @@ function render()
 			addNote("Aucun pass actif. Les passes (revenus x2, chance, vitesse, VIP) sont dans l'onglet Bonus.")
 		end
 	elseif panel.name == "dex" and panel.tab == "titles" then
-		local list = Config.titles(state.stats)
+		local list = Config.allTitles(state.stats)
 		local got = 0
 		for _, t in ipairs(list) do
 			if t.unlocked then
@@ -15373,17 +16382,40 @@ function render()
 			addNote(table.concat(done, "\n"))
 		end
 	elseif panel.name == "quests" and panel.tab == "puzzle" then
-		addNote("📜 Énigme de Mère Poule (elle change chaque jour) :\n" .. state.riddle)
-		local cur = {}
-		for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
-			cur[#cur + 1] = dir .. " " .. Config.RUNES[state.runes[i]]
+		local hen = type(state.hen) == "table" and state.hen or nil
+		if not hen or hen.avail ~= true then
+			addNote("🐔 " .. Config.HEN_LINES.locked)
+		else
+			local step = type(hen.step) == "number" and hen.step or 0
+			local k = type(hen.count) == "number" and hen.count or 0
+			if step == 4 then
+				local h, m = Riddle.untilNext(os.time())
+				addRow({ icon = "✅", title = "Berceuse chantée aujourd'hui !", desc = Riddle.format(Config.HEN_LINES.done, { h = h, mm = string.format("%02d", m) }) })
+			else
+				addNote("🐔 La Mère Poule t'attend près du Grand Œuf (à l'est de la place). Une berceuse par jour, la même pour tous.")
+				local mark = { step > 1 and "✅" or (step == 1 and "🪶" or "⬜"), step > 2 and "✅" or (step == 2 and "🔮" or "⬜"), step >= 3 and "🎵" or "⬜" }
+				addRow({ icon = mark[1], title = "① Les 4 plumes dorées · " .. k .. "/4", desc = step == 0 and "Parle à la Mère Poule pour commencer." or "Suis la flèche jaune : elle te mène vers la plume la plus proche." })
+				addRow({ icon = mark[2], title = "② Les 4 runes autour du Grand Œuf", desc = "Chaque plume parle de la rune de sa direction. Règle-la, puis touche le Grand Œuf." })
+				addRow({ icon = mark[3], title = "③ La berceuse", desc = step == 3 and ("Répète la suite de pierres (" .. (type(hen.lullabyPos) == "number" and hen.lullabyPos or 0) .. "/" .. Config.HEN.lullabyLength .. ").") or "Les pierres s'allument : touche-les dans le même ordre." })
+				local found = {}
+				for dir = 1, 4 do
+					if type(hen.clues) == "table" and hen.clues[dir] then
+						found[#found + 1] = Riddle.format(Config.HEN_LINES.feather, { dir = Riddle.DIR_OF[dir], clue = hen.clues[dir] })
+					end
+				end
+				if #found > 0 then
+					addNote(table.concat(found, "\n"))
+				end
+				local cur = {}
+				for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
+					local unlocked = type(hen.feathers) == "number" and Riddle.hasFeather(hen.feathers, i)
+					cur[#cur + 1] = dir .. " " .. (unlocked and Config.RUNES[state.runes[i]] or "🔒")
+				end
+				addRow({ icon = "🔮", title = "Tes runes : " .. table.concat(cur, " · "), desc = "🔒 = la rune attend sa plume. Le Grand Œuf dit combien de runes sont justes (pas lesquelles)." })
+			end
+			local fr = type(hen.fragments) == "number" and hen.fragments or 0
+			addNote("🥚 Fragments du Grand Œuf : " .. fr % Config.HEN.fragmentsForEgg .. "/" .. Config.HEN.fragmentsForEgg .. " (" .. fr .. " au total). À 7 : un œuf Légendaire et le titre « Ami de la Mère Poule ». Récompense du jour : un œuf " .. Config.TIERS[Config.PUZZLE_EGG_TIER].name .. ", des pièces et 1 fragment. 💡 Un coup de bec (2 indices par jour) se demande à la Mère Poule.")
 		end
-		addRow({
-			icon = state.puzzleDone and "✅" or "🔮",
-			title = state.puzzleDone and "Énigme résolue aujourd'hui !" or ("Tes runes : " .. table.concat(cur, " · ")),
-			desc = state.puzzleDone and "Reviens demain pour une nouvelle énigme." or "Tourne chaque rune autour du Grand Nid, puis touche le Nid pour valider.",
-		})
-		addNote("Le Nord est du côté des rivaux. Chaque rune a 4 symboles : " .. table.concat(Config.RUNES, " ") .. ". Récompense : un œuf " .. Config.TIERS[Config.PUZZLE_EGG_TIER].name .. " et des pièces. Une résolution par jour (une pause de quelques secondes suit chaque erreur). Énigmes résolues : " .. state.puzzleSolved .. ".")
 	elseif panel.name == "quests" then
 		addNote("Les missions se renouvellent chaque jour.")
 		for i, q in ipairs(state.quests) do
@@ -15705,6 +16737,15 @@ function refreshObjective()
 		TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(tut.goal > 0 and tut.prog / tut.goal or 1, 1) }):Play()
 		return
 	end
+	local hq = state and henUi and henUi.objective(state) -- énigme de la Mère Poule : « 🐔 La Mère Poule t'appelle » puis « 📜 Berceuse du jour »
+	if hq then
+		objCard.Visible = not panelFrame.Visible
+		objTitle.Text = hq.title
+		objText.Text = hq.text
+		objStroke.Color = COL.yellow
+		TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(math.clamp(hq.frac, 0, 1), 1) }):Play()
+		return
+	end
 	local o = state and Config.HUD.objective and Config.objective(state.story)
 	objCard.Visible = o ~= nil and o ~= false and not (panelFrame.Visible)
 	if not o then
@@ -15898,6 +16939,9 @@ task.spawn(function()
 end)
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	if henUi then
+		pcall(henUi.onState, snap)
+	end
 	if type(snap.away) == "number" and snap.away >= 1 then
 		awayCard.Text = "💤 Gains pendant ton absence : " .. fmt(snap.away) .. " 🪙\nTouche pour récupérer"
 		awayCard.Visible = true
@@ -16055,7 +17099,7 @@ task.spawn(function()
 					claimable = true
 				end
 			end
-			navDots.quests.Visible = claimable
+			navDots.quests.Visible = claimable or (type(state.hen) == "table" and state.hen.alert == true)
 			navDots.bonus.Visible = state.dailyReady
 			local achReady = false
 			for _, a in ipairs(Config.ACHIEVEMENTS) do
@@ -16172,6 +17216,10 @@ task.spawn(function()
 		local root = char and char:FindFirstChild("HumanoidRootPart")
 		if state and root then
 			local ob = onboardStep()
+			local henT = nil -- énigme : la Mère Poule, puis la plume la plus proche, puis le Grand Œuf (la piste d'entraînement garde la priorité à l'étape 0)
+			if not ob and state.carry == 0 and henUi and type(state.hen) == "table" and (state.hen.step ~= 0 or (player:GetAttribute("Speed") or 0) >= 8) then
+				henT = henUi.guideTarget(root)
+			end
 			if ob and ob.target == "home" then
 				target = player.RespawnLocation -- flèche vers la base : œuf offert (étape 1) ou œuf du tapis à poser (étape 3)
 			elseif ob and ob.target == "belt" then
@@ -16198,6 +17246,8 @@ task.spawn(function()
 			elseif state.carry > 0 then
 				local spawnPad = player.RespawnLocation
 				target = spawnPad
+			elseif henT then
+				target = henT
 			elseif state.hatched > 0 and state.stolen == 0 then
 				local best, bd = nil, math.huge
 				for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
@@ -16346,6 +17396,14 @@ do
 	end)
 end
 
+-- Énigme de la Mère Poule (lot 6) : dialogue, ❗, plumes, berceuse. Sous pcall : une erreur ici ne doit jamais bloquer le reste du client.
+pcall(function()
+	henUi = HenUi.start({ Config = Config, Riddle = Riddle, player = player, gui = gui, make = make, corner = corner, COL = COL, FONT = FONT, RAction = RAction, RHen = RHen, playSound = playSound })
+	if state then
+		henUi.onState(state)
+	end
+end)
+
 -- Mini-carte (coin droit, bouton 🗺 ou touche M) : toi, ta base, les zones, les portails de voyage rapide et les gardiens proches.
 pcall(function()
 	local MiniMapMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MiniMap"))
@@ -16458,7 +17516,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX34"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX36"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -17020,7 +18078,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -17669,7 +18727,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX36"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX38"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -17795,7 +18853,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX39"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -17878,7 +18936,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -17993,7 +19051,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -18182,7 +19240,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -18285,6 +19343,11 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 				local px, pz = root.Position.X, root.Position.Z
 				local plot = player:GetAttribute("PlotCF")
 				local pts = MiniMap.landmarks(Config, typeof(plot) == "CFrame" and plot.Position.X or nil, typeof(plot) == "CFrame" and plot.Position.Z or nil, state.story and state.story.ch)
+				if type(state.hen) == "table" and MiniMap.featherMarks then -- plumes non ramassées à moins de 90 studs (🪶)
+					for _, mk in ipairs(MiniMap.featherMarks(state.hen.spots, px, pz, Config.HEN.markerRange)) do
+						pts[#pts + 1] = mk
+					end
+				end
 				if os.clock() - cacheAt > 2 then -- gardiens : liste relue toutes les 2 s seulement
 					cacheAt = os.clock()
 					guardCache = {}
@@ -18333,7 +19396,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -18644,7 +19707,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -18927,7 +19990,466 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+-- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
+-- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
+--  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
+--  - « ❗ » doré au-dessus de la Mère Poule (visible à Config.HEN.alertRange studs) tant que l'énigme est disponible et non faite ;
+--  - plumes dorées : cachées localement chez qui les a ramassées, scintillement + son « secret » à moins de 40 studs ;
+--  - berceuse : les pierres brillent dans l'ordre (une note par pierre), retour des touches, bouton « 🔁 Réécouter » ;
+--  - cible du faisceau jaune (Riddle.guide) et texte de la carte d'objectif.
+-- Léger pour mobile : une boucle à 2,5 Hz sur 4 plumes, une seule bulle réutilisée, un seul Highlight par pierre.
+local CollectionService = game:GetService("CollectionService")
+local TweenService = game:GetService("TweenService")
+
+local HenUi = {}
+
+local function num(v)
+	return type(v) == "number" and v == v
+end
+
+function HenUi.start(ctx)
+	local Config, Riddle, player, make, corner, COL, FONT = ctx.Config, ctx.Riddle, ctx.player, ctx.make, ctx.corner, ctx.COL, ctx.FONT
+	local H = Config.HEN
+	local RAction, RHen, playSound = ctx.RAction, ctx.RHen, ctx.playSound
+	local self = {}
+	local state = nil
+	local dlg = nil -- { pages, buttons, i, typing, token }
+	local token = 0
+
+	local function henState()
+		return state and type(state.hen) == "table" and state.hen or nil
+	end
+	local function myRoot()
+		local char = player.Character
+		return char and char:FindFirstChild("HumanoidRootPart")
+	end
+
+	---------------------------------------------------------------- Bulle de dialogue
+	local frame, nameLbl, textLbl, nextBtn, btnRow, overlay, pill, pillLbl, replayBtn
+	local okBuild = pcall(function()
+		frame = make("Frame", { Name = "HenBubble", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -96), Size = UDim2.new(0.94, 0, 0, 150), BackgroundColor3 = COL.bg, BackgroundTransparency = 0.05, Visible = false, ZIndex = 20 }, ctx.gui)
+		corner(frame, 16)
+		make("UIStroke", { Color = COL.yellow, Thickness = 2 }, frame)
+		make("UISizeConstraint", { MaxSize = Vector2.new(620, 170) }, frame)
+		overlay = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 21 }, frame)
+		make("TextLabel", { Position = UDim2.fromOffset(8, 10), Size = UDim2.fromOffset(52, 52), BackgroundTransparency = 1, Text = "🐔", TextSize = 40, Font = FONT, ZIndex = 22 }, frame)
+		nameLbl = make("TextLabel", { Position = UDim2.fromOffset(66, 6), Size = UDim2.new(1, -76, 0, 20), BackgroundTransparency = 1, Text = "Mère Poule", TextSize = 15, Font = FONT, TextColor3 = COL.yellow, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22 }, frame)
+		textLbl = make("TextLabel", { Position = UDim2.fromOffset(66, 28), Size = UDim2.new(1, -78, 0, 76), BackgroundTransparency = 1, Text = "", TextSize = 17, Font = Enum.Font.GothamMedium, TextColor3 = COL.text, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 22 }, frame)
+		nextBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -8), Size = UDim2.fromOffset(100, 32), BackgroundColor3 = COL.yellow, Text = "Suivant ▶", TextSize = 15, Font = FONT, TextColor3 = COL.dark, ZIndex = 23 }, frame)
+		corner(nextBtn, 16)
+		btnRow = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 8, 1, -8), Size = UDim2.new(1, -120, 0, 34), BackgroundTransparency = 1, ZIndex = 23 }, frame)
+		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, btnRow)
+		-- pastille de la berceuse (étape 3) : consigne + « 🔁 Réécouter »
+		pill = make("Frame", { Name = "HenLullaby", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -104), Size = UDim2.fromOffset(330, 40), BackgroundColor3 = COL.bg, BackgroundTransparency = 0.1, Visible = false, ZIndex = 18 }, ctx.gui)
+		corner(pill, 20)
+		make("UIStroke", { Color = COL.yellow, Thickness = 2 }, pill)
+		pillLbl = make("TextLabel", { Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -130, 1, 0), BackgroundTransparency = 1, Text = "", TextSize = 13, Font = FONT, TextColor3 = COL.text, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 19 }, pill)
+		replayBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(112, 30), BackgroundColor3 = COL.yellow, Text = "🔁 Réécouter", TextSize = 13, Font = FONT, TextColor3 = COL.dark, ZIndex = 19 }, pill)
+		corner(replayBtn, 15)
+	end)
+
+	local function clearButtons()
+		if not btnRow then
+			return
+		end
+		for _, c in ipairs(btnRow:GetChildren()) do
+			if c:IsA("TextButton") then
+				c:Destroy()
+			end
+		end
+	end
+
+	local function close()
+		token = token + 1
+		dlg = nil
+		if frame then
+			frame.Visible = false
+		end
+	end
+	self.close = close
+
+	local function controls()
+		if not dlg or not frame then
+			return
+		end
+		local last = dlg.i >= #dlg.pages
+		nextBtn.Visible = not last or #dlg.buttons == 0
+		nextBtn.Text = last and "OK" or "Suivant ▶"
+		btnRow.Visible = last and #dlg.buttons > 0
+	end
+
+	local function typePage()
+		if not dlg then
+			return
+		end
+		local d = dlg
+		local mine = token
+		local full = d.pages[d.i] or ""
+		textLbl.Text = full
+		d.typing = true
+		textLbl.MaxVisibleGraphemes = 0
+		controls()
+		task.spawn(function()
+			local t0 = os.clock()
+			local total = utf8.len(full) or #full
+			while dlg == d and token == mine and d.typing do
+				local n = math.floor((os.clock() - t0) * H.bubbleCps)
+				if n >= total then
+					break
+				end
+				textLbl.MaxVisibleGraphemes = n
+				task.wait(0.05)
+			end
+			if dlg == d and token == mine then
+				d.typing = false
+				textLbl.MaxVisibleGraphemes = -1
+				controls()
+				if #d.buttons == 0 and d.i >= #d.pages then -- réplique sans bouton : se referme seule
+					task.delay(7, function()
+						if dlg == d and token == mine then
+							close()
+						end
+					end)
+				end
+			end
+		end)
+	end
+
+	local function advance()
+		if not dlg then
+			return
+		end
+		if dlg.typing then
+			dlg.typing = false
+			textLbl.MaxVisibleGraphemes = -1
+			controls()
+		elseif dlg.i < #dlg.pages then
+			dlg.i = dlg.i + 1
+			typePage()
+		elseif #dlg.buttons == 0 then
+			close()
+		end
+	end
+
+	local function onButton(id)
+		if id == "go" then
+			RAction:FireServer("henGo")
+			close()
+		elseif id == "again" then
+			RAction:FireServer("henExplain")
+		elseif id == "later" then
+			close()
+		elseif id == "hint" then
+			RAction:FireServer("henHint")
+		elseif id == "replay" then
+			RAction:FireServer("henReplay")
+			close()
+		end
+	end
+
+	-- Affiche une réplique (identifiant de Config.HEN_LINES + paramètres envoyés par le serveur).
+	local function show(id, params)
+		if not okBuild or type(id) ~= "string" then
+			return
+		end
+		local hen = henState()
+		local d = Riddle.say(Config, id, type(params) == "table" and params or {}, hen and num(hen.step) and hen.step or 0)
+		if #d.pages == 0 then
+			return
+		end
+		token = token + 1
+		clearButtons()
+		dlg = { pages = d.pages, buttons = d.buttons, i = 1, typing = true }
+		for k, b in ipairs(d.buttons) do
+			local btn = make("TextButton", { LayoutOrder = k, Size = UDim2.fromOffset(b.id == "go" and 104 or 126, 34), BackgroundColor3 = (b.id == "go" or b.id == "hint") and COL.green or COL.panel, Text = b.text, TextSize = 14, Font = FONT, TextColor3 = (b.id == "go" or b.id == "hint") and COL.dark or COL.text, TextScaled = true, ZIndex = 24 }, btnRow)
+			corner(btn, 17)
+			make("UITextSizeConstraint", { MaxTextSize = 14, MinTextSize = 9 }, btn)
+			btn.Activated:Connect(function()
+				onButton(b.id)
+			end)
+		end
+		frame.Visible = true
+		typePage()
+	end
+	self.show = show
+
+	if okBuild then
+		overlay.Activated:Connect(advance)
+		nextBtn.Activated:Connect(advance)
+		replayBtn.Activated:Connect(function()
+			RAction:FireServer("henReplay")
+		end)
+	end
+
+	---------------------------------------------------------------- Pierres : lueur et notes
+	local highlights = {}
+	local function stonePart(idx)
+		for _, st in ipairs(CollectionService:GetTagged("RuneStone")) do
+			if st:GetAttribute("Idx") == idx then
+				return st
+			end
+		end
+		return nil
+	end
+	local function glow(idx, seconds, good)
+		pcall(function()
+			local st = stonePart(idx)
+			if not st then
+				return
+			end
+			local h = highlights[idx]
+			if not h or not h.Parent then
+				h = Instance.new("Highlight")
+				h.Name = "HenGlow"
+				h.FillTransparency = 0.25
+				h.OutlineTransparency = 0
+				h.Parent = st
+				highlights[idx] = h
+			end
+			h.Adornee = st
+			h.FillColor = good == false and COL.red or Color3.fromRGB(255, 232, 140)
+			h.OutlineColor = Color3.fromRGB(255, 255, 255)
+			h.Enabled = true
+			local mine = os.clock()
+			h:SetAttribute("At", mine)
+			task.delay(seconds, function()
+				if h.Parent and h:GetAttribute("At") == mine then
+					h.Enabled = false
+				end
+			end)
+		end)
+	end
+	local playToken = 0
+	local playing = false
+	local function playLullaby(seq, note, gap)
+		if type(seq) ~= "table" or not num(note) or not num(gap) then
+			return
+		end
+		playToken = playToken + 1
+		local mine = playToken
+		playing = true
+		task.spawn(function()
+			for i, stone in ipairs(seq) do
+				if playToken ~= mine then
+					return
+				end
+				if type(stone) == "number" then
+					glow(stone, note, true)
+					playSound("note" .. tostring(stone))
+				end
+				task.wait(note + gap)
+			end
+			if playToken == mine then
+				playing = false
+			end
+		end)
+	end
+
+	---------------------------------------------------------------- ❗ au-dessus de la Mère Poule
+	local alertGui, henBody
+	local function ensureAlert(want)
+		pcall(function()
+			if not henBody or not henBody.Parent then
+				local model = CollectionService:GetTagged("Hen")[1]
+				henBody = model and (model.PrimaryPart or model:FindFirstChild("Body")) or nil
+			end
+			if not henBody then
+				return
+			end
+			if not alertGui or not alertGui.Parent then
+				alertGui = Instance.new("BillboardGui")
+				alertGui.Name = "HenAlert"
+				alertGui.Adornee = henBody
+				alertGui.Size = UDim2.fromOffset(46, 52)
+				alertGui.StudsOffsetWorldSpace = Vector3.new(0, 8.5, 0)
+				alertGui.MaxDistance = H.alertRange
+				alertGui.AlwaysOnTop = true
+				local lbl = Instance.new("TextLabel")
+				lbl.Size = UDim2.fromScale(1, 1)
+				lbl.BackgroundTransparency = 1
+				lbl.Text = "❗"
+				lbl.TextSize = 44
+				lbl.Font = FONT
+				lbl.TextColor3 = Color3.fromRGB(255, 205, 40)
+				lbl.TextStrokeTransparency = 0.3
+				lbl.Parent = alertGui
+				alertGui.Parent = player:WaitForChild("PlayerGui")
+				TweenService:Create(alertGui, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { StudsOffsetWorldSpace = Vector3.new(0, 9.6, 0) }):Play()
+			end
+			alertGui.Enabled = want
+		end)
+	end
+
+	---------------------------------------------------------------- Plumes : visibilité locale, scintillement
+	local armed = {}
+	local function updateFeathers()
+		local hen = henState()
+		local root = myRoot()
+		local rx, rz = root and root.Position.X or 0, root and root.Position.Z or 0
+		for _, f in ipairs(CollectionService:GetTagged("Feather")) do
+			pcall(function()
+				local dir = f:GetAttribute("Dir")
+				local visible = hen ~= nil and hen.avail == true and num(hen.step) and hen.step <= 1 and not Riddle.hasFeather(num(hen.feathers) and hen.feathers or 0, dir)
+				f.Transparency = visible and 0 or 1
+				local pr = f:FindFirstChildOfClass("ProximityPrompt")
+				if pr then
+					pr.Enabled = visible
+				end
+				local em = f:FindFirstChildOfClass("ParticleEmitter")
+				local d = math.sqrt((f.Position.X - rx) ^ 2 + (f.Position.Z - rz) ^ 2)
+				local close = visible and root ~= nil and d <= H.sparkleDistance
+				if em then
+					em.Enabled = close
+				end
+				if close and armed[dir] ~= false then
+					armed[dir] = false
+					playSound("secret") -- le « son secret » (silencieux tant qu'aucun identifiant vérifié n'est fourni dans Config.SOUNDS.secret)
+				elseif not close and d > H.sparkleDistance + 20 then
+					armed[dir] = nil
+				end
+			end)
+		end
+	end
+
+	---------------------------------------------------------------- Pierres : texte de l'action selon l'étape ; pastille de la berceuse
+	local function updateStones()
+		local hen = henState()
+		local sing = hen ~= nil and hen.step == 3
+		for _, st in ipairs(CollectionService:GetTagged("RuneStone")) do
+			pcall(function()
+				local pr = st:FindFirstChildOfClass("ProximityPrompt")
+				if pr then
+					pr.ActionText = sing and "Chanter" or "Tourner la rune"
+				end
+			end)
+		end
+		if okBuild then
+			local show3 = sing and not frame.Visible
+			pill.Visible = show3
+			if show3 then
+				local n = num(hen.lullabyPos) and hen.lullabyPos or 0
+				pillLbl.Text = playing and "🎵 Écoute la berceuse…" or ("🎵 Touche les pierres dans le même ordre (" .. n .. "/" .. H.lullabyLength .. ")")
+			end
+		end
+	end
+
+	---------------------------------------------------------------- Cible du faisceau et carte d'objectif
+	local marker
+	local function getMarker()
+		if marker and marker.Parent then
+			return marker
+		end
+		marker = Instance.new("Part")
+		marker.Name = "HenGuide"
+		marker.Anchored = true
+		marker.CanCollide = false
+		marker.CanQuery = false
+		marker.Transparency = 1
+		marker.Size = Vector3.new(1, 1, 1)
+		marker.Parent = workspace
+		return marker
+	end
+
+	-- Partie sur laquelle le faisceau jaune se pose (ou nil quand l'énigme ne demande rien). root = HumanoidRootPart du joueur.
+	function self.guideTarget(root)
+		local hen = henState()
+		if not hen or not root then
+			return nil
+		end
+		local g = Riddle.guide(Config, hen, root.Position.X, root.Position.Z)
+		if not g then
+			return nil
+		end
+		if g.kind == "hen" then
+			ensureAlert(hen.alert == true) -- retrouve aussi le corps de la Mère Poule
+			if henBody and henBody.Parent then
+				return henBody
+			end
+		elseif g.kind == "feather" then
+			for _, f in ipairs(CollectionService:GetTagged("Feather")) do
+				if f:GetAttribute("Dir") == g.dir and f.Parent then
+					return f
+				end
+			end
+		end
+		local m = getMarker()
+		m.Position = Vector3.new(g.x, 4, g.z)
+		return m
+	end
+
+	-- Carte d'objectif : { title, text, frac } ou nil (énigme indisponible ou faite).
+	function self.objective(st)
+		local hen = type(st) == "table" and type(st.hen) == "table" and st.hen or nil
+		if not hen or hen.avail ~= true or not num(hen.step) or hen.step >= 4 then
+			return nil
+		end
+		local step, k = hen.step, num(hen.count) and hen.count or 0
+		if step == 0 then
+			return { title = "🐔 La Mère Poule t'appelle", text = "Va lui parler près du Grand Œuf : suis la flèche jaune.", frac = 0 }
+		elseif step == 1 then
+			return { title = "📜 Berceuse du jour", text = "Étape 1/3 · Plumes " .. k .. "/4 — suis la flèche jaune.", frac = k / 12 }
+		elseif step == 2 then
+			return { title = "📜 Berceuse du jour", text = "Étape 2/3 · Plumes 4/4 — règle les 4 runes.", frac = 1 / 3 + 0.15 }
+		end
+		local n = num(hen.lullabyPos) and hen.lullabyPos or 0
+		return { title = "📜 Berceuse du jour", text = "Étape 3/3 · Plumes 4/4 — répète la berceuse (" .. n .. "/" .. H.lullabyLength .. ").", frac = 2 / 3 + n / H.lullabyLength / 3 }
+	end
+
+	function self.onState(st)
+		state = st
+		local hen = henState()
+		ensureAlert(hen ~= nil and hen.alert == true)
+		updateStones()
+		updateFeathers()
+	end
+
+	---------------------------------------------------------------- Événements du serveur
+	RHen.OnClientEvent:Connect(function(kind, a, b, c)
+		local ok, err = pcall(function()
+			if kind == "say" then
+				show(a, b)
+			elseif kind == "lullaby" then
+				playLullaby(a, b, c)
+			elseif kind == "tap" then
+				if type(a) == "number" then
+					glow(a, 0.5, b == true)
+					if b == true then
+						playSound("note" .. tostring(a))
+					else
+						playSound("refuse")
+					end
+				end
+			end
+		end)
+		if not ok then
+			warn("[HenUi] " .. tostring(err)) -- jamais bloquant : l'énigme reste jouable avec les notifications
+		end
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.4)
+			pcall(function()
+				updateFeathers()
+				updateStones()
+				local root = myRoot()
+				local hen = henState()
+				if dlg and root and frame.Visible then -- la bulle se ferme si on s'éloigne
+					local h = Config.Map2.hen
+					if math.sqrt((root.Position.X - h.x) ^ 2 + (root.Position.Z - h.z) ^ 2) > 60 then
+						close()
+					end
+				end
+				ensureAlert(hen ~= nil and hen.alert == true)
+			end)
+		end
+	end)
+	return self
+end
+
+return HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

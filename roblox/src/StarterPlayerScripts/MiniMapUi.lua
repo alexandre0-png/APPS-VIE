@@ -101,6 +101,11 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 				local px, pz = root.Position.X, root.Position.Z
 				local plot = player:GetAttribute("PlotCF")
 				local pts = MiniMap.landmarks(Config, typeof(plot) == "CFrame" and plot.Position.X or nil, typeof(plot) == "CFrame" and plot.Position.Z or nil, state.story and state.story.ch)
+				if type(state.hen) == "table" and MiniMap.featherMarks then -- plumes non ramassées à moins de 90 studs (🪶)
+					for _, mk in ipairs(MiniMap.featherMarks(state.hen.spots, px, pz, Config.HEN.markerRange)) do
+						pts[#pts + 1] = mk
+					end
+				end
 				if os.clock() - cacheAt > 2 then -- gardiens : liste relue toutes les 2 s seulement
 					cacheAt = os.clock()
 					guardCache = {}

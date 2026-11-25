@@ -123,7 +123,7 @@ function Data.default()
 		luckUntil = 0,
 		story = { ch = 0, prog = 0 }, -- ch = chapitres réussis, prog = progression du chapitre en cours
 		pity = 0,
-		puzzle = { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0 }, -- day = dernier jour résolu ; step 0..3 ; feathers = masque de bits des 4 plumes ; hints du jour ; fragments cumulés
+		puzzle = { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0, pday = 0, met = false }, -- day = dernier jour résolu ; step 0..3 ; feathers = masque de bits des 4 plumes ; hints du jour ; fragments cumulés
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
@@ -247,6 +247,8 @@ local function merge(saved)
 		d.puzzle.feathers = math.min(15, math.floor(sane(saved.puzzle.feathers, 0))) -- masque de bits : Nord 1, Est 2, Sud 4, Ouest 8
 		d.puzzle.hints = math.min(99, math.floor(sane(saved.puzzle.hints, 0)))
 		d.puzzle.fragments = math.min(9999, math.floor(sane(saved.puzzle.fragments, 0)))
+		d.puzzle.pday = math.floor(sane(saved.puzzle.pday, 0)) -- jour de la progression intermédiaire (lot 6) : un autre jour = remise à zéro
+		d.puzzle.met = saved.puzzle.met == true -- la Mère Poule a déjà fait sa présentation (une fois dans la vie du profil)
 	end
 	if type(saved.tokens) == "table" then
 		d.tokens.remoteSteal = math.min(Config.REMOTE_STEAL.tokenMax, math.floor(sane(saved.tokens.remoteSteal, 0)))

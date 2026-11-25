@@ -8605,5 +8605,761 @@ do
 	end
 end
 
+do
+	suite("Refonte lot 6 : énigme de la Mère Poule, règles pures (plumes, berceuse, étapes, indices, compte à rebours, guidage, effet collectif)")
+	local Riddle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Riddle.lua"), { debugName = "Riddle" })()
+	local MiniMapMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/MiniMap.lua"), { debugName = "MiniMap" })()
+	local H = Config.HEN
+	-- déterminisme sur 365 jours : mêmes plumes, mêmes runes, même berceuse ; chaque plume sur un emplacement de sa direction ; chaque berceuse contient les 4 pierres
+	local detOk, spotsOk, lullOk, lenOk, cluesOk = true, true, true, true, true
+	local combos, tunes = {}, {}
+	for day = 20000, 20364 do
+		local a, b = Riddle.featherSpots(Config, day), Riddle.featherSpots(Config, day)
+		local r1, r2 = Config.riddleFor(day), Config.riddleFor(day)
+		local l1, l2 = Riddle.lullaby(Config, day), Riddle.lullaby(Config, day)
+		local key = ""
+		for dir = 1, 4 do
+			detOk = detOk and a[dir].x == b[dir].x and a[dir].z == b[dir].z and a[dir].index == b[dir].index and r1.answer[dir] == r2.answer[dir] and r1.clues[dir] == r2.clues[dir]
+			local found = false
+			for _, sp in ipairs(Config.FEATHER_SPOTS[Riddle.DIRS[dir]]) do
+				found = found or (sp.x == a[dir].x and sp.z == a[dir].z)
+			end
+			spotsOk = spotsOk and found and a[dir].dir == dir
+			cluesOk = cluesOk and type(r1.clues[dir]) == "string" and r1.text:find(r1.clues[dir], 1, true) ~= nil
+			key = key .. a[dir].index
+		end
+		local seen = {}
+		for i = 1, #l1 do
+			detOk = detOk and l1[i] == l2[i]
+			seen[l1[i]] = true
+		end
+		lullOk = lullOk and seen[1] and seen[2] and seen[3] and seen[4]
+		lenOk = lenOk and #l1 == H.lullabyLength
+		combos[key] = true
+		tunes[table.concat(l1, "")] = true
+	end
+	local nCombos, nTunes = 0, 0
+	for _ in pairs(combos) do
+		nCombos += 1
+	end
+	for _ in pairs(tunes) do
+		nTunes += 1
+	end
+	check("Déterminisme sur 365 jours : mêmes plumes, mêmes runes (réponse et indices), même berceuse pour un même jour", detOk)
+	check("Plumes : une par direction, toujours sur un des 3 emplacements de Config.FEATHER_SPOTS ; indices de plumes contenus dans l'énoncé des runes", spotsOk and cluesOk)
+	check("Berceuse : 5 pierres, chacune des 4 pierres présente au moins une fois, sur 365 jours", lullOk and lenOk)
+	check("Variété : >= 40 combinaisons de plumes et >= 60 berceuses distinctes sur 365 jours (" .. nCombos .. ", " .. nTunes .. ")", nCombos >= 40 and nTunes >= 60)
+	-- transitions : impossible d'aller à l'étape 2 sans 4 plumes
+	local D = 20100
+	local p = Riddle.fresh()
+	check("Disponible à partir du chapitre 2 réussi seulement", not Riddle.available(0) and not Riddle.available(1) and Riddle.available(2) and Riddle.available(9) and not Riddle.available(nil))
+	local ok0, why0 = Riddle.start(p, D, false)
+	check("Étape 0 -> 1 refusée avant le chapitre 2 (« locked »)", ok0 == false and why0 == "locked" and p.step == 0)
+	check("Ramassage refusé tant que la Mère Poule n'a pas été écoutée (étape 0)", select(1, Riddle.collect(p, D, 1)) == false and p.feathers == 0)
+	check("Étape 0 -> 1 acceptée au chapitre 2, refusée la 2e fois (« started »)", Riddle.start(p, D, true) == true and p.step == 1 and select(2, Riddle.start(p, D, true)) == "started")
+	local gate = true
+	for n = 0, 3 do
+		local q = { day = 0, solved = 0, step = 1, feathers = 0, hints = 0, fragments = 0, pday = D, met = true }
+		for dir = 1, n do
+			Riddle.collect(q, D, dir)
+		end
+		local okT = Riddle.toRunes(q, D)
+		gate = gate and okT == false and q.step == 1 and Riddle.featherCount(q.feathers) == n
+	end
+	check("IMPOSSIBLE de passer à l'étape 2 avec 0, 1, 2 ou 3 plumes (étape inchangée)", gate)
+	local okDup = select(1, Riddle.collect(p, D, 1)) == true and select(1, Riddle.collect(p, D, 1)) == false and select(1, Riddle.collect(p, D, 9)) == false and select(1, Riddle.collect(p, D, 0.5)) == false
+	check("Ramassage : une plume une seule fois, direction invalide refusée", okDup and Riddle.featherCount(p.feathers) == 1)
+	for dir = 2, 4 do
+		Riddle.collect(p, D, dir)
+	end
+	check("Avec les 4 plumes : passage à l'étape 2 accepté, puis refusé une 2e fois ; plus de ramassage à l'étape 2", Riddle.toRunes(p, D) == true and p.step == 2 and Riddle.toRunes(p, D) == false and select(1, Riddle.collect(p, D, 1)) == false)
+	check("Runes : une rune ne se tourne qu'une fois sa plume ramassée, et seulement aux étapes 1 et 2", (function()
+		local q = { day = 0, solved = 0, step = 1, feathers = 5, hints = 0, fragments = 0, pday = D, met = true } -- Nord + Sud
+		local r = Riddle.runeUnlocked(q, D, 1) and not Riddle.runeUnlocked(q, D, 2) and Riddle.runeUnlocked(q, D, 3) and not Riddle.runeUnlocked(q, D, 4)
+		q.step = 3
+		return r and not Riddle.runeUnlocked(q, D, 1) and not Riddle.runeUnlocked(q, D + 1, 1)
+	end)())
+	local ans = Config.riddleFor(D).answer
+	check("Runes : on ne compte que les runes justes", Riddle.runesCorrect({ ans[1], ans[2], ans[3], ans[4] }, ans) == 4 and Riddle.runesCorrect({ ans[1], ans[2], ans[3], (ans[4] % 4) + 1 }, ans) == 3 and Riddle.runesCorrect({ 0, 0, 0, 0 }, ans) == 0)
+	check("Étape 2 -> 3 refusée avec 3 runes justes, acceptée avec 4", Riddle.toLullaby(p, D, 3) == false and p.step == 2 and Riddle.toLullaby(p, D, 4) == true and p.step == 3)
+	check("Récompense refusée si la berceuse n'est pas chantée jusqu'au bout", select(1, Riddle.complete(Config, p, D, false)) == false and p.day ~= D)
+	-- berceuse : touches
+	local seq = Riddle.lullaby(Config, D)
+	local pos, res = 1, nil
+	local good = true
+	for i = 1, #seq do
+		res, pos = Riddle.tap(seq, pos, seq[i])
+		good = good and ((i < #seq and res == "ok" and pos == i + 1) or (i == #seq and res == "done"))
+	end
+	check("Berceuse : la bonne suite avance puis termine (« done »)", good)
+	local wrong = seq[2] % 4 + 1
+	local _, pos2 = Riddle.tap(seq, 1, seq[1])
+	local resW, posW = Riddle.tap(seq, pos2, wrong == seq[2] and (wrong % 4 + 1) or wrong)
+	check("Berceuse : une erreur renvoie « wrong » et remet la position à 1 (la suite est rejouée)", resW == "wrong" and posW == 1 and select(1, Riddle.tap(seq, 1, seq[1] % 4 + 1)) == "wrong")
+	check("Berceuse : touches à moins de 0,25 s refusées, 0,25 s acceptée", Riddle.tapAllowed(Config, 10.2, 10) == false and Riddle.tapAllowed(Config, 10.24, 10) == false and Riddle.tapAllowed(Config, 10.25, 10) == true and Riddle.tapAllowed(Config, 10, 5) == true)
+	check("Berceuse : durée d'écoute = 5 x (0,8 + 0,3) = 5,5 s, notes espacées de 1,1 s", near(Riddle.lullabyDuration(Config), 5.5) and near(Riddle.noteStart(Config, 1), 0) and near(Riddle.noteStart(Config, 3), 2.2))
+	-- ramassage : distance 10 / 11 studs, 1 par seconde
+	check("Ramassage : accepté à 9,9 et 10 studs, REFUSÉ à 11 studs ; 1 ramassage par seconde", Riddle.pickupAllowed(Config, 9.9, 5, 0) and Riddle.pickupAllowed(Config, 10, 5, 0) and not Riddle.pickupAllowed(Config, 11, 5, 0) and not Riddle.pickupAllowed(Config, 5, 5.5, 5) and Riddle.pickupAllowed(Config, 5, 6, 5) and not Riddle.pickupAllowed(Config, 0 / 0, 5, 0) and not Riddle.pickupAllowed(Config, {}, 5, 0))
+	-- récompense une seule fois par jour, fragments
+	local okC, r = Riddle.complete(Config, p, D, true)
+	check("Récompense : œuf Épique, 10 min de revenus, 1 fragment, jour marqué résolu, 1 résolution", okC and r.eggTier == Config.PUZZLE_EGG_TIER and r.mins == Config.PUZZLE_MINS and r.fragments == 1 and r.legendary == 0 and p.day == D and p.solved == 1 and Riddle.stepOf(p, D) == 4)
+	local okC2, why2 = Riddle.complete(Config, p, D, true)
+	check("Récompense versée UNE SEULE fois par jour (2e tentative refusée, rien ne change)", okC2 == false and why2 == "done" and p.fragments == 1 and p.solved == 1)
+	check("Une fois faite : étape 4 ; plus aucune transition (start, collect, toRunes)", Riddle.stepOf(p, D) == 4 and select(1, Riddle.start(p, D, true)) == false and select(1, Riddle.collect(p, D, 1)) == false and select(1, Riddle.toRunes(p, D)) == false)
+	-- 7 fragments = 1 œuf Légendaire + titre
+	local q = Riddle.fresh()
+	local legend, titles, last = 0, 0, nil
+	for i = 1, 14 do
+		local day = 30000 + i
+		Riddle.normalize(q, day)
+		q.step = 3
+		local ok, rr = Riddle.complete(Config, q, day, true)
+		legend = legend + (ok and rr.legendary or 0)
+		titles = titles + ((ok and rr.titleNew) and 1 or 0)
+		if i == 6 then
+			last = { legend = legend, frags = q.fragments, has = Riddle.hasTitle(Config, q.fragments) }
+		elseif i == 7 then
+			check("7 fragments = 1 œuf Légendaire et le titre « Ami de la Mère Poule » (le 6e n'en donne pas)", last.legend == 0 and last.frags == 6 and not last.has and legend == 1 and titles == 1 and Riddle.hasTitle(Config, q.fragments))
+		end
+	end
+	check("14 fragments (pas forcément consécutifs) = 2 œufs Légendaires, un seul titre", legend == 2 and titles == 1 and q.fragments == 14)
+	-- changement de jour = remise à zéro (fragments conservés)
+	local z = { day = 0, solved = 2, step = 2, feathers = 15, hints = 1, fragments = 4, pday = D, met = true }
+	local reset, lost = Riddle.normalize(z, D)
+	check("Même jour : aucune remise à zéro", reset == false and lost == false and z.step == 2 and z.feathers == 15)
+	reset, lost = Riddle.normalize(z, D + 1)
+	check("Changement de jour : étape, plumes et indices remis à zéro ; fragments et résolutions conservés", reset == true and lost == true and z.step == 0 and z.feathers == 0 and z.hints == 0 and z.fragments == 4 and z.solved == 2 and z.pday == D + 1)
+	check("Après la remise à zéro, les plumes du nouveau jour sont celles du nouveau jour (déterministes)", Riddle.featherSpots(Config, D + 1)[1].x == Riddle.featherSpots(Config, D + 1)[1].x and Riddle.stepOf(z, D + 1) == 0)
+	-- indices : 2 par jour
+	local h = { day = 0, solved = 0, step = 1, feathers = 0, hints = 0, fragments = 0, pday = D, met = true }
+	local okH, whyH, left = Riddle.hintStatus(Config, h, D, 120, 0)
+	check("Indice 1 : refusé avant 5 min dans l'étape (reste 180 s), accepté à 300 s", okH == false and whyH == "wait" and left == 180 and Riddle.hintStatus(Config, h, D, 300, 0) == true)
+	h.hints = 1
+	local okH2, whyH2 = Riddle.hintStatus(Config, h, D, 9999, 0)
+	check("Indice 2 à l'étape 1 : refusé (il faut 3 validations ratées à l'étape 2)", okH2 == false and whyH2 == "fails")
+	h.step, h.feathers = 2, 15
+	check("Indice 2 à l'étape 2 : refusé avec 2 validations ratées, accepté avec 3", Riddle.hintStatus(Config, h, D, 0, 2) == false and Riddle.hintStatus(Config, h, D, 0, 3) == true)
+	h.hints = 2
+	check("Jamais plus de 2 indices par jour ; aucun indice hors étapes 1 à 3", select(2, Riddle.hintStatus(Config, h, D, 9999, 9)) == "max" and select(2, Riddle.hintStatus(Config, Riddle.fresh(), D, 9999, 9)) == "step")
+	local hid, hp = Riddle.hintFor(Config, { step = 1, feathers = 1, day = 0, pday = D }, D, { 1, 1, 1, 1 })
+	check("Indice d'étape 1 : la 1re plume manquante (Est) et où elle se cache", hid == "hintFeather" and hp.dir == "de l'Est" and hp.where == Riddle.featherSpots(Config, D)[2].where)
+	local hid2, hp2 = Riddle.hintFor(Config, { step = 2, feathers = 15, day = 0, pday = D }, D, { ans[1], ans[2], (ans[3] % 4) + 1, ans[4] })
+	check("Indice d'étape 2 : la 1re rune fausse (Sud) et son symbole", hid2 == "hintRune" and hp2.dir == "du Sud" and hp2.symbol == Config.RUNES[ans[3]])
+	check("Indice d'étape 3 : la 1re pierre de la berceuse", select(1, Riddle.hintFor(Config, { step = 3, feathers = 15, day = 0, pday = D }, D, {})) == "hintLullaby")
+	-- compte à rebours « nouvelle berceuse dans h mm »
+	local hh, mm = Riddle.untilNext(D * 86400 + 20 * 3600 + 55 * 60)
+	check("Compte à rebours : à 20 h 55 UTC, nouvelle berceuse dans 3 h 05", hh == 3 and mm == 5)
+	hh, mm = Riddle.untilNext(D * 86400 + 86399)
+	check("Compte à rebours : à 23 h 59 min 59 s, dans 0 h 01 ; à 00:00 pile, dans 24 h 00", hh == 0 and mm == 1 and select(1, Riddle.untilNext(D * 86400)) == 24)
+	check("Réplique « done » : « Nouvelle berceuse dans 3 h 05. »", Riddle.say(Config, "done", Riddle.doneParams(D * 86400 + 20 * 3600 + 55 * 60), 4).pages[1] == "Tu as déjà chanté aujourd'hui. Nouvelle berceuse dans 3 h 05.")
+	-- répliques
+	local first = Riddle.say(Config, "first", {}, 0)
+	check("Dialogue d'accueil : 4 pages, boutons « J'y vais ! » et « Explique encore »", #first.pages == 4 and #first.buttons == 2 and first.buttons[1].text == "J'y vais !" and first.buttons[2].text == "Explique encore" and first.pages[1] == Config.HEN_LINES.first[1])
+	local miss = Riddle.say(Config, "missing", Riddle.missingParams(1 + 4), 1)
+	check("Réplique « missing » : plume(s) restantes et directions manquantes (Est et Ouest) + bouton d'indice", miss.pages[1] == "Il te manque 2 plume(s). Cherche du côté de l'Est et de l'Ouest." and miss.buttons[1].id == "hint")
+	check("Réplique « missing » avec 3 manquantes : « du Nord, de l'Est et du Sud » ; avec 1 : « de l'Ouest »", Riddle.missingDirs(8 - 8) == "du Nord, de l'Est, du Sud et de l'Ouest" and Riddle.missingDirs(7) == "de l'Ouest" and Riddle.missingDirs(8) == "du Nord, de l'Est et du Sud")
+	check("Étape 3 : « 🔁 Réécouter » proposé en plus de l'indice ; réplique de réussite sans bouton ; réplique inconnue sans page", #Riddle.say(Config, "lullabyWrong", {}, 3).buttons == 2 and Riddle.say(Config, "lullabyWrong", {}, 3).buttons[2].id == "replay" and #Riddle.say(Config, "success", {}, 3).buttons == 0 and #Riddle.say(Config, "inconnue", {}, 0).pages == 0)
+	local line, clue = Riddle.featherLine(Config, D, 2)
+	check("Plume ramassée : « 🪶 Plume de l'Est : « indice » » (l'indice est celui de la rune de l'Est)", line == "🪶 Plume de l'Est : « " .. Config.riddleFor(D).clues[2] .. " »" and clue == Config.riddleFor(D).clues[2])
+	check("Les textes de la carte d'objectif et des répliques restent courts (< 110 octets pour le HUD)", (function()
+		for _, t in ipairs({ "🐔 La Mère Poule t'appelle", "Va lui parler près du Grand Œuf : suis la flèche jaune.", "Étape 1/3 · Plumes 4/4 — suis la flèche jaune.", "Étape 3/3 · Plumes 4/4 — répète la berceuse (5/5)." }) do
+			if #t >= 110 then
+				return false
+			end
+		end
+		return #Config.TITLE_HEN.name < 110 and #Config.CHAPTER_TEXTS[8].title < 110
+	end)())
+	check("Chapitre 8 : « La berceuse du Grand Œuf », objectif de type énigme (une résolution du jour)", Config.STORY[8].title == "La berceuse du Grand Œuf" and Config.STORY[8].type == "puzzle" and Config.STORY[8].goal == 1 and Config.STORY[8].text == Config.CHAPTER_TEXTS[8].text)
+	-- titre
+	local tl = Config.allTitles({ hatched = 0, fragments = 6 })
+	local tl7 = Config.allTitles({ hatched = 0, fragments = 7 })
+	check("Titres : Config.titles garde ses 24 titres ; Config.allTitles ajoute « Ami de la Mère Poule » (25e), débloqué à 7 fragments", #Config.titles({}) == 24 and #tl == 25 and tl[25].name == "🐔 Ami de la Mère Poule" and not tl[25].unlocked and tl7[25].unlocked)
+	-- guidage : Mère Poule, puis quart de carte, puis plume, puis Grand Œuf
+	local gHen = Riddle.guide(Config, { avail = true, step = 0, spots = {} }, 0, 0)
+	check("Guidage étape 0 : la Mère Poule (52, -28) ; indisponible ou faite : rien", gHen.kind == "hen" and gHen.x == 52 and gHen.z == -28 and Riddle.guide(Config, { avail = false, step = 0 }, 0, 0) == nil and Riddle.guide(Config, { avail = true, step = 4 }, 0, 0) == nil and Riddle.guide(Config, nil, 0, 0) == nil)
+	local spotsHen = { { dir = 1, x = -280, z = -225 }, { dir = 3, x = 60, z = 195 } }
+	local gq = Riddle.guide(Config, { avail = true, step = 1, spots = spotsHen }, 60, 0)
+	local gq2 = Riddle.guide(Config, { avail = true, step = 1, spots = { spotsHen[1] } }, 60, 0)
+	check("Guidage étape 1 : loin, le faisceau vise le CENTRE du quart de carte de la plume la plus proche (-175, -125 pour le Nord-Ouest)", gq.kind == "quarter" and gq.x == 175 and gq.z == 125 and gq2.kind == "quarter" and gq2.x == -175 and gq2.z == -125 and gq2.dir == 1)
+	local gf = Riddle.guide(Config, { avail = true, step = 1, spots = { spotsHen[1] } }, -170, -130)
+	local gn = Riddle.guide(Config, { avail = true, step = 1, spots = { spotsHen[1] } }, -260, -215)
+	check("Guidage étape 1 : à moins de 70 studs du centre du quart, puis à moins de 40 studs : la plume elle-même (scintillement à moins de 40)", gf.kind == "feather" and gf.near == false and gn.kind == "feather" and gn.near == true and gn.x == -280)
+	local g2 = Riddle.guide(Config, { avail = true, step = 2, spots = {} }, 0, 0)
+	check("Guidage aux étapes 2 et 3 : le Grand Œuf (70, -20)", g2.kind == "runes" and g2.x == 70 and g2.z == -20 and Riddle.guide(Config, { avail = true, step = 3 }, 0, 0).kind == "runes")
+	local mk = MiniMapMod.featherMarks({ { x = 100, z = 0 }, { x = 189, z = 0 }, { x = 191, z = 0 }, { x = "x", z = 0 } }, 100 - 0, 0, H.markerRange)
+	check("Mini-carte : 🪶 pour les plumes non ramassées à moins de 90 studs (0 et 89 oui, 91 non, donnée invalide ignorée)", #mk == 2 and mk[1].label == "🪶" and mk[1].kind == "feather" and #MiniMapMod.featherMarks(nil, 0, 0, 90) == 0)
+	-- effet collectif
+	local col = { day = -1, count = 0, fired = false }
+	local f1, f2, f3, f4 = Riddle.collectiveAdd(Config, col, D), Riddle.collectiveAdd(Config, col, D), Riddle.collectiveAdd(Config, col, D), Riddle.collectiveAdd(Config, col, D)
+	check("Effet collectif : se déclenche à la 3e énigme du jour, une seule fois par jour et par serveur", f1 == false and f2 == false and f3 == true and f4 == false)
+	check("Effet collectif : nouveau jour = compteur remis à zéro (re-déclenchable)", Riddle.collectiveAdd(Config, col, D + 1) == false and col.count == 1 and col.fired == false)
+	check("Config.HEN : cadences et durées de l'énigme (0,25 s, 1 ramassage/s, 10 studs, 5 min de pluie de chance, 7 fragments, 2 indices)", H.tapMinGap == 0.25 and H.pickupGap == 1 and H.pickupDistance == 10 and H.collectiveSeconds == 300 and H.collectiveSolves == 3 and H.fragmentsForEgg == 7 and H.hintsPerDay == 2 and H.hintAfterSeconds == 300 and H.failsForHint == 3 and Config.RUNE_LOCK_SECONDS == 6)
+end
+
+do
+	suite("Refonte lot 6 : énigme de la Mère Poule de bout en bout (vrai Main.server.lua + HenQuest, runtime factice, joueurs-robots qui suivent seulement le faisceau et les indications du serveur)")
+	local Riddle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Riddle.lua"), { debugName = "Riddle" })()
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		check("Lot 6 (e2e) : démarrage sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		local ws = RT.services.Workspace
+		local ds = RT.dataStores["ChipeOeufs_v1"]
+		local RA
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == "Action" then
+				RA = d
+			end
+		end
+		local function put(id, v)
+			ds.data["P_" .. id] = { v = v, t = RT.env.os.time() - 5000 }
+		end
+		local function profile(extra)
+			local v = { ver = 10, coins = 10, slots = {}, up = {}, dex = { ["1"] = { n = 1, b = 1 } }, story = { ch = 2, prog = 0 } }
+			for k, x in pairs(extra or {}) do
+				v[k] = x
+			end
+			return v
+		end
+		local function join(name, id)
+			local p = RT.addPlayer(name, id, { from = "hub", partyId = "LOT6", size = 4, late = false })
+			RT.step(2)
+			return p
+		end
+		local function snapshot(p)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+		end
+		local function hen(p)
+			local s = snapshot(p)
+			return s and s.hen
+		end
+		local function act(p, name, arg)
+			RT.now = RT.now + 0.7
+			RT.fire(RA, "OnServerEvent", p, name, arg)
+		end
+		local function standAt(p, x, z)
+			local root = p.Character:FindFirstChild("HumanoidRootPart")
+			rawget(root, "__props").Position = RT.vec(x, 3, z)
+			rawget(root, "__props").CFrame = RT.cf(x, 3, z)
+		end
+		local function trigger(p, prompt)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", prompt, p)
+		end
+		local function prompts(kind)
+			local out = {}
+			for _, d in ipairs(ws:GetDescendants()) do
+				if rawget(d, "__class") == "ProximityPrompt" and d:GetAttribute("Kind") == kind then
+					out[#out + 1] = d
+				end
+			end
+			return out
+		end
+		local function promptOf(kind, key, val)
+			for _, pr in ipairs(prompts(kind)) do
+				if key == nil or pr:GetAttribute(key) == val then
+					return pr
+				end
+			end
+		end
+		local function said(p, id, from)
+			for i = from or 1, #RT.fired do
+				local f = RT.fired[i]
+				if f[1] == "Hen" and f[2] == p and f[3] == "say" and f[4] == id then
+					return f[5] or true
+				end
+			end
+			return false
+		end
+		local function notified(p, needle, from)
+			for i = from or 1, #RT.fired do
+				local f = RT.fired[i]
+				if f[1] == "Notify" and f[2] == p and type(f[3]) == "string" and f[3]:find(needle, 1, true) then
+					return true
+				end
+			end
+			return false
+		end
+		local function lastLullaby(p)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "Hen" and f[2] == p and f[3] == "lullaby" then
+					return f[4], i
+				end
+			end
+		end
+		local function slotsOf(p, id)
+			local rec = ds.data["P_" .. id] and ds.data["P_" .. id].v
+			return rec
+		end
+		local function count(t)
+			local n = 0
+			for _ in pairs(t) do
+				n += 1
+			end
+			return n
+		end
+		local built
+		for _, line in ipairs(RT.prints) do
+			local n = line:match("%[Builder%] carte construite : (%d+) Parts")
+			if n then
+				built = tonumber(n)
+			end
+		end
+		local featherParts = #prompts("Feather")
+		check("Parts procédurales : " .. tostring(built) .. " (carte) + " .. featherParts .. " plumes dorées = " .. tostring(built and built + featherParts) .. " <= 1200 (budget de la refonte)", built ~= nil and featherParts == 4 and built + featherParts <= 1200)
+		-- lexique du robot : indice d'une plume -> symbole de la rune (le savoir qu'un humain tire du texte)
+		local LEX = {}
+		for sym, list in ipairs({
+			{ "ce qui danse et brûle", "la flamme qui crépite", "ce qui réchauffe et consume" },
+			{ "ce qui coule et berce", "la vague qui murmure", "ce qui désaltère les rivières" },
+			{ "ce qui pousse vers la lumière", "la feuille qui respire", "ce qui plonge ses racines" },
+			{ "ce qui brille quand tout dort", "la lumière lointaine", "ce qui guide les voyageurs" },
+		}) do
+			for _, c in ipairs(list) do
+				LEX[c] = sym
+			end
+		end
+		local pos = {} -- position du robot (il ne triche pas : il se déplace où le faisceau le mène)
+		local function walk(p, x, z)
+			pos[p] = { x = x, z = z }
+			standAt(p, x, z)
+		end
+
+		---------------------------------------------------------------- robot A : résout toute l'énigme en suivant uniquement les indications
+		put(9901, profile())
+		local pA = join("RobotA", 9901)
+		local day = RT.env.os.time() // 86400
+		local h0 = hen(pA)
+		check("Énigme : disponible au chapitre 2, étape 0, ❗ (alert) et aucune plume visible dans l'état (aucun indice avant le ramassage)", h0 ~= nil and h0.avail == true and h0.step == 0 and h0.alert == true and h0.count == 0 and count(h0.clues) == 0 and #h0.spots == 0)
+		local early = promptOf("Feather", "Dir", 1)
+		walk(pA, 52, -22)
+		check("Mère Poule : 1 prompt « Parler » (HenTalk), 4 plumes dorées posées avec leur prompt « Ramasser » (0,5 s), 4 pierres runiques", #prompts("HenTalk") == 1 and #prompts("Feather") == 4 and #prompts("Rune") == 4 and early.HoldDuration == 0.5 and early.ActionText == "Ramasser" and promptOf("HenTalk").ActionText == "Parler")
+		-- premier contact : dialogue d'accueil (une fois dans la vie du profil)
+		trigger(pA, promptOf("HenTalk"))
+		check("Parler (1er contact) : le serveur envoie l'identifiant « first » (4 répliques)", said(pA, "first") ~= false)
+		-- parler trop loin : refusé
+		local fireN = #RT.fired
+		walk(pA, 52, 30)
+		RT.now = RT.now + 1
+		trigger(pA, promptOf("HenTalk"))
+		check("Parler à 58 studs : refusé (aucune réplique envoyée)", said(pA, "again", fireN + 1) == false and said(pA, "first", fireN + 1) == false)
+		walk(pA, 52, -22)
+		-- plume ramassée avant d'avoir accepté : refusée
+		local pr1 = promptOf("Feather", "Dir", 1)
+		local nPrints = #RT.prints
+		act(pA, "henGo")
+		local h1 = hen(pA)
+		local logged = false
+		for i = nPrints + 1, #RT.prints do
+			logged = logged or RT.prints[i]:find("[Riddle] step=1 t=", 1, true) ~= nil
+		end
+		check("« J'y vais ! » : étape 1, journal « [Riddle] step=1 t=… hints=0 », 4 plumes à chercher dans l'état (positions des plumes du jour)", h1.step == 1 and #h1.spots == 4 and logged)
+		local spotsToday = Riddle.featherSpots(Config, day)
+		local posOk = true
+		for _, sp in ipairs(h1.spots) do
+			posOk = posOk and spotsToday[sp.dir].x == sp.x and spotsToday[sp.dir].z == sp.z
+		end
+		check("Les plumes de l'état sont celles du jour (même générateur que Riddle.featherSpots)", posOk)
+		-- ramassage à 11 studs : refusé ; à 9 studs : accepté
+		local sp1 = h1.spots[1]
+		local pick = promptOf("Feather", "Dir", sp1.dir)
+		walk(pA, sp1.x + 11, sp1.z)
+		RT.now = RT.now + 1.5
+		trigger(pA, pick)
+		check("Ramassage à 11 studs : REFUSÉ (aucune plume gagnée)", hen(pA).count == 0 and hen(pA).step == 1)
+		walk(pA, sp1.x + 9, sp1.z)
+		RT.now = RT.now + 1.5
+		trigger(pA, pick)
+		check("Ramassage à 9 studs : accepté, plume du joueur seulement (masque), indice affiché « 🪶 Plume … : « … » »", hen(pA).count == 1 and Riddle.hasFeather(hen(pA).feathers, sp1.dir) and notified(pA, "🪶 Plume") and hen(pA).clues[sp1.dir] ~= nil)
+		trigger(pA, pick)
+		check("Ramassage : 2 ramassages à la même seconde refusés (1 / s) et une plume déjà prise ne se reprend pas", hen(pA).count == 1)
+		-- les runes attendent leur plume
+		walk(pA, 70, -20)
+		local stoneFor = function(i)
+			return promptOf("Rune", "Idx", i)
+		end
+		local before = snapshot(pA).runes[sp1.dir]
+		RT.now = RT.now + 1
+		trigger(pA, stoneFor(sp1.dir % 4 + 1)) -- une rune dont la plume n'est pas ramassée
+		check("Rune sans sa plume : « La rune … attend sa plume » et elle ne tourne pas", notified(pA, "attend sa plume") and snapshot(pA).runes[sp1.dir % 4 + 1] == 1)
+		RT.now = RT.now + 1
+		trigger(pA, stoneFor(sp1.dir))
+		check("Rune dont la plume est ramassée : elle tourne", snapshot(pA).runes[sp1.dir] == before % 4 + 1)
+		-- validation avant les 4 plumes : refusée
+		trigger(pA, promptOf("RuneConfirm"))
+		check("Valider les runes sans les 4 plumes : refusé (étape inchangée, réplique « needFeathers »)", hen(pA).step == 1 and said(pA, "needFeathers") ~= false)
+		-- le robot suit le faisceau : Riddle.guide d'après l'état serveur, déplacement vers la cible, ramassage quand la cible est une plume
+		local guard, jumps, kinds = 0, 0, {}
+		while hen(pA).step == 1 and guard < 40 do
+			guard += 1
+			local g = Riddle.guide(Config, hen(pA), pos[pA].x, pos[pA].z)
+			kinds[g.kind] = true
+			if g.kind == "feather" then
+				walk(pA, g.x + 3, g.z)
+				RT.now = RT.now + 1.2
+				trigger(pA, promptOf("Feather", "Dir", g.dir))
+			else
+				jumps += 1
+				walk(pA, g.x, g.z)
+			end
+		end
+		check("Robot A : les 4 plumes ramassées en suivant uniquement le faisceau (cibles : quart de carte puis plume) : étape 2 en " .. guard .. " tours, " .. jumps .. " étapes de quart", hen(pA).step == 2 and hen(pA).count == 4 and #hen(pA).spots == 0 and guard < 40 and (kinds.feather == true))
+		check("4 plumes : la Mère Poule le dit (« allFeathers ») et l'étape 2 est consignée au journal", said(pA, "allFeathers") ~= false)
+		-- étape 2 : runes. Le robot lit les 4 indices et les traduit avec son lexique
+		local hh = hen(pA)
+		local want, lexOk = {}, true
+		for dir = 1, 4 do
+			want[dir] = LEX[hh.clues[dir]]
+			lexOk = lexOk and want[dir] ~= nil
+		end
+		local truth = Config.riddleFor(day).answer
+		check("Les 4 indices des plumes mènent aux bons symboles (lexique du robot = réponse du serveur)", lexOk and want[1] == truth[1] and want[2] == truth[2] and want[3] == truth[3] and want[4] == truth[4])
+		walk(pA, 70, -20)
+		local function setRune(dir, sym)
+			local guardR = 0
+			while snapshot(pA).runes[dir] ~= sym and guardR < 6 do
+				guardR += 1
+				RT.now = RT.now + 0.2
+				trigger(pA, stoneFor(dir))
+			end
+		end
+		-- 3 justes + 1 fausse : « 3 rune(s) sur 4 » et pause de 6 s
+		for dir = 1, 3 do
+			setRune(dir, want[dir])
+		end
+		setRune(4, (want[4] % 4) + 1)
+		RT.now = RT.now + 1
+		trigger(pA, promptOf("RuneConfirm"))
+		local sayWrong = said(pA, "runesWrong")
+		check("Validation ratée : « k rune(s) sur 4 » (3 sur 4, sans dire lesquelles), l'étape reste 2", type(sayWrong) == "table" and sayWrong.k == 3 and hen(pA).step == 2)
+		setRune(4, want[4])
+		RT.now = RT.now + 1
+		trigger(pA, promptOf("RuneConfirm"))
+		check("Pause de 6 s après une erreur : une validation 1 s plus tard est refusée même avec les bonnes runes", hen(pA).step == 2 and notified(pA, "patiente quelques secondes"))
+		-- indice d'étape 2 : la rune 4 est encore fausse ; avant, la pause de 6 s
+		setRune(4, want[4])
+		RT.now = RT.now + 1
+		trigger(pA, promptOf("RuneConfirm"))
+		check("Pause de 6 s après une erreur : une validation 1 s plus tard est refusée même avec les bonnes runes", hen(pA).step == 2 and notified(pA, "patiente quelques secondes"))
+		setRune(4, (want[4] % 4) + 1)
+		walk(pA, 150, 60)
+		act(pA, "henHint")
+		check("Indice : refusé loin de la Mère Poule", said(pA, "hintRune") == false and said(pA, "hintWait") == false)
+		walk(pA, 52, -22)
+		act(pA, "henHint")
+		check("Indice 1 : trop tôt (moins de 5 min dans l'étape) -> « hintWait », rien de consommé", said(pA, "hintWait") ~= false and hen(pA).hints == 0)
+		RT.now = RT.now + 300
+		act(pA, "henHint")
+		local hr = said(pA, "hintRune")
+		check("Indice 1 : après 5 min dans l'étape, la rune fausse est révélée (« La rune de l'Ouest veut … »), 1 indice consommé", type(hr) == "table" and hr.dir == "de l'Ouest" and hr.symbol == Config.RUNES[want[4]] and hen(pA).hints == 1)
+		walk(pA, 70, -20)
+		setRune(4, want[4])
+		walk(pA, 70, -20)
+		RT.now = RT.now + 7
+		trigger(pA, promptOf("RuneConfirm"))
+		check("Validation juste : étape 3, la berceuse est jouée (écoute envoyée), « runesRight »", hen(pA).step == 3 and said(pA, "runesRight") ~= false and lastLullaby(pA) ~= nil)
+		-- étape 3 : berceuse
+		local seq = lastLullaby(pA)
+		local truthSeq = Riddle.lullaby(Config, day)
+		local same = #seq == #truthSeq
+		for i = 1, #truthSeq do
+			same = same and seq[i] == truthSeq[i]
+		end
+		check("Berceuse envoyée au client = suite du jour (5 pierres, les 4 présentes)", same and #seq == 5)
+		RT.now = RT.now + 0.5
+		trigger(pA, stoneFor(seq[1]))
+		check("Touche pendant l'écoute (5,5 s) : ignorée", hen(pA).lullabyPos == 0)
+		RT.now = RT.now + 6
+		trigger(pA, stoneFor(seq[1]))
+		check("Touche juste : position 1/5", hen(pA).lullabyPos == 1)
+		trigger(pA, stoneFor(seq[2])) -- même instant : trop rapide (< 0,25 s)
+		check("Touche à moins de 0,25 s de la précédente : REFUSÉE (position inchangée, pas une erreur)", hen(pA).lullabyPos == 1 and said(pA, "lullabyWrong") == false)
+		RT.now = RT.now + 0.3
+		local wrongStone = seq[2] % 4 + 1
+		trigger(pA, stoneFor(wrongStone))
+		local _, idx1 = lastLullaby(pA)
+		check("Erreur : « lullabyWrong », position remise à 0 et la suite est REJOUÉE aussitôt (nouvel envoi), sans pause", said(pA, "lullabyWrong") ~= false and hen(pA).lullabyPos == 0 and idx1 ~= nil)
+		RT.now = RT.now + 0.1
+		trigger(pA, stoneFor(seq[1]))
+		check("Pendant la réécoute, les touches sont ignorées", hen(pA).lullabyPos == 0)
+		RT.now = RT.now + 6
+		local fired0 = #RT.fired
+		act(pA, "henReplay")
+		local _, idx2 = lastLullaby(pA)
+		check("« 🔁 Réécouter » : illimité, rejoue la berceuse", idx2 > fired0)
+		RT.now = RT.now + 6
+		local coinsBefore = snapshot(pA).stats and nil
+		local ledgerBefore = pA:GetAttribute("Coins")
+		for i = 1, #seq do
+			RT.now = RT.now + 0.4
+			trigger(pA, stoneFor(seq[i]))
+		end
+		local hd = hen(pA)
+		check("Berceuse réussie : étape 4 (faite), 1 fragment, « success » dit, journal « step=4 »", hd.step == 4 and hd.fragments == 1 and said(pA, "success") ~= false and (function()
+			for _, l in ipairs(RT.prints) do
+				if l:find("[Riddle] step=4 t=", 1, true) then
+					return true
+				end
+			end
+			return false
+		end)())
+		local coinsAfter = pA:GetAttribute("Coins")
+		local eggs = 0
+		for _, sl in ipairs(snapshot(pA).slots) do
+			if type(sl) == "table" and sl.k == "e" and sl.t == Config.PUZZLE_EGG_TIER then
+				eggs += 1
+			end
+		end
+		check("Récompense : un œuf Épique dans la base, au moins 2000 pièces gagnées (" .. tostring(ledgerBefore) .. " -> " .. tostring(coinsAfter) .. ")", eggs == 1 and coinsAfter - ledgerBefore >= 2000 and hd.solved == 1)
+		-- une seule récompense par jour
+		for _ = 1, 3 do
+			for i = 1, #seq do
+				RT.now = RT.now + 0.4
+				trigger(pA, stoneFor(seq[i]))
+			end
+		end
+		trigger(pA, promptOf("RuneConfirm"))
+		local eggs2 = 0
+		for _, sl in ipairs(snapshot(pA).slots) do
+			if type(sl) == "table" and sl.k == "e" and sl.t == Config.PUZZLE_EGG_TIER then
+				eggs2 += 1
+			end
+		end
+		check("Récompense versée UNE SEULE fois par jour : toucher de nouveau les pierres ou le Grand Œuf ne donne rien (1 œuf, 1 fragment, mêmes pièces)", eggs2 == 1 and hen(pA).fragments == 1 and hen(pA).solved == 1 and pA:GetAttribute("Coins") - coinsAfter < 2000)
+		walk(pA, 52, -22)
+		RT.now = RT.now + 1
+		trigger(pA, promptOf("HenTalk"))
+		local doneSay = said(pA, "done")
+		check("Parler après la berceuse : « Tu as déjà chanté aujourd'hui. Nouvelle berceuse dans h mm. »", type(doneSay) == "table" and doneSay.h ~= nil and doneSay.mm ~= nil)
+		check("Chapitre 8 : l'énigme du jour fait avancer l'objectif d'histoire de type énigme (statistique « puzzles » = 1)", snapshot(pA).stats.puzzles == 1 and snapshot(pA).stats.fragments == 1)
+
+		---------------------------------------------------------------- changement de jour en cours de route : remise à zéro
+		put(9902, profile())
+		local pB = join("RobotB", 9902)
+		walk(pB, 52, -22)
+		trigger(pB, promptOf("HenTalk"))
+		act(pB, "henGo")
+		local sB = hen(pB).spots
+		for k = 1, 2 do
+			walk(pB, sB[k].x, sB[k].z)
+			RT.now = RT.now + 1.2
+			trigger(pB, promptOf("Feather", "Dir", sB[k].dir))
+		end
+		check("Robot B : 2 plumes ramassées, étape 1", hen(pB).count == 2 and hen(pB).step == 1)
+		local nowT = RT.env.os.time()
+		RT.now = RT.now + (86400 - nowT % 86400) + 20 -- minuit passé
+		RT.step(7)
+		local hB = hen(pB)
+		local resetLogged = false
+		for _, l in ipairs(RT.prints) do
+			resetLogged = resetLogged or l:find("[Riddle] step=0 t=", 1, true) ~= nil
+		end
+		check("Changement de jour en cours de route : plumes et étape remises à zéro (étape 0, 0 plume), indices à 0, journal « step=0 »", hB.step == 0 and hB.count == 0 and hB.hints == 0 and #hB.spots == 0 and resetLogged)
+		check("Changement de jour : les 4 plumes sont déplacées vers les emplacements du nouveau jour et le joueur est prévenu", (function()
+			local day2 = RT.env.os.time() // 86400
+			local want2 = Riddle.featherSpots(Config, day2)
+			local okMove = day2 == day + 1
+			for dir = 1, 4 do
+				local pr = promptOf("Feather", "Dir", dir)
+				okMove = okMove and pr ~= nil
+			end
+			return okMove and want2 ~= nil and notified(pB, "nouvelle berceuse")
+		end)())
+		-- robot A : un nouveau jour, l'énigme est de nouveau disponible (état 0), fragments conservés
+		check("Le lendemain : l'énigme du robot A est de nouveau à l'étape 0, son fragment est conservé", hen(pA).step == 0 and hen(pA).fragments == 1)
+		for _, q in ipairs({ pA, pB }) do
+			RT.removePlayer(q)
+		end
+		RT.step(2)
+
+		---------------------------------------------------------------- 7 fragments : œuf Légendaire ; 3 énigmes sur le serveur : Pluie de chance
+		local function solve(p, id)
+			walk(p, 52, -22)
+			RT.now = RT.now + 1
+			trigger(p, promptOf("HenTalk"))
+			act(p, "henGo")
+			local dayNow = RT.env.os.time() // 86400
+			local guardS = 0
+			while hen(p).step == 1 and guardS < 40 do
+				guardS += 1
+				local g = Riddle.guide(Config, hen(p), pos[p].x, pos[p].z)
+				if g.kind == "feather" then
+					walk(p, g.x + 2, g.z)
+					RT.now = RT.now + 1.2
+					trigger(p, promptOf("Feather", "Dir", g.dir))
+				else
+					walk(p, g.x, g.z)
+				end
+			end
+			walk(p, 70, -20)
+			local hd2 = hen(p)
+			for dir = 1, 4 do
+				local sym = LEX[hd2.clues[dir]]
+				local gr = 0
+				while snapshot(p).runes[dir] ~= sym and gr < 6 do
+					gr += 1
+					RT.now = RT.now + 0.2
+					trigger(p, stoneFor(dir))
+				end
+			end
+			RT.now = RT.now + 1
+			trigger(p, promptOf("RuneConfirm"))
+			local sq = lastLullaby(p)
+			RT.now = RT.now + 6
+			if sq then
+				for i = 1, #sq do
+					RT.now = RT.now + 0.4
+					trigger(p, stoneFor(sq[i]))
+				end
+			end
+			return dayNow
+		end
+		put(9903, profile({ puzzle = { day = 0, solved = 6, step = 0, feathers = 0, hints = 0, fragments = 6, pday = 0, met = true } }))
+		local pC = join("RobotC", 9903)
+		check("Profil avec 6 fragments chargé (fragments conservés, présentation déjà faite)", hen(pC).fragments == 6)
+		solve(pC, 9903)
+		local legendary = 0
+		for _, sl in ipairs(snapshot(pC).slots) do
+			if type(sl) == "table" and sl.k == "e" and sl.t == 4 then
+				legendary += 1
+			end
+		end
+		check("7 fragments : 1 œuf Légendaire dans la base + notification + titre « Ami de la Mère Poule »", hen(pC).fragments == 7 and legendary == 1 and notified(pC, "Légendaire") and notified(pC, "Ami de la Mère Poule") and snapshot(pC).stats.fragments == 7)
+		local luckBefore = ws:GetAttribute("EventKey")
+		put(9904, profile())
+		local pD = join("RobotD", 9904)
+		solve(pD, 9904)
+		check("2 énigmes résolues sur le serveur : pas encore de Pluie de chance offerte (" .. tostring(ws:GetAttribute("EventKey")) .. ")", hen(pD).step == 4 and ws:GetAttribute("EventKey") ~= "luck" or luckBefore == "luck")
+		put(9905, profile())
+		local pE = join("RobotE", 9905)
+		local t0 = RT.env.os.time()
+		solve(pE, 9905)
+		local ends = ws:GetAttribute("EventEnds")
+		check("3 énigmes résolues le même jour sur le serveur : « Pluie de chance » gratuite pour tous, 5 min (fin dans " .. tostring(type(ends) == "number" and (ends - RT.env.os.time()) or "?") .. " s)", ws:GetAttribute("EventKey") == "luck" and type(ends) == "number" and ends - t0 > 250 and ends - t0 <= 300 + 60)
+		check("Pluie de chance : tous les joueurs du serveur sont prévenus", notified(pC, "Pluie de chance offerte") and notified(pD, "Pluie de chance offerte") and notified(pE, "Pluie de chance offerte"))
+		local announced = 0
+		for _, f in ipairs(RT.fired) do
+			if f[1] == "Notify" and type(f[3]) == "string" and f[3]:find("Pluie de chance offerte", 1, true) and f[2] == pE then
+				announced += 1
+			end
+		end
+		put(9906, profile())
+		local pF = join("RobotF", 9906)
+		solve(pF, 9906)
+		local announced2 = 0
+		for _, f in ipairs(RT.fired) do
+			if f[1] == "Notify" and type(f[3]) == "string" and f[3]:find("Pluie de chance offerte", 1, true) and f[2] == pE then
+				announced2 += 1
+			end
+		end
+		check("Une seule Pluie de chance par jour et par serveur : une 4e énigme ne la relance pas", announced == 1 and announced2 == 1 and hen(pF).step == 4)
+		check("Aucune erreur serveur pendant toute l'énigme (3 robots, changement de jour, 4 résolutions)" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+
+		---------------------------------------------------------------- indisponible avant le chapitre 2 ; base pleine ; entrées invalides
+		for _, q in ipairs({ pC, pD, pE, pF }) do
+			RT.removePlayer(q) -- le serveur de partie a une capacité maximale de joueurs
+		end
+		RT.step(2)
+		put(9907, profile({ story = { ch = 1, prog = 0 } }))
+		local pG = join("RobotG", 9907)
+		walk(pG, 52, -22)
+		RT.now = RT.now + 1
+		trigger(pG, promptOf("HenTalk"))
+		check("Avant le chapitre 2 : énigme indisponible (pas de ❗), « locked » dit par la Mère Poule, « J'y vais » sans effet", hen(pG).avail == false and hen(pG).alert == false and said(pG, "locked") ~= false and (function()
+			act(pG, "henGo")
+			return hen(pG).step == 0
+		end)())
+		local fullSlots = {}
+		for i = 1, 4 do
+			fullSlots[i] = { k = "p", p = 1, s = 2, m = 1 }
+		end
+		put(9908, profile({ slots = fullSlots }))
+		local pH = join("RobotH", 9908)
+		local coinsFull = pH:GetAttribute("Coins")
+		solve(pH, 9908)
+		local gained = pH:GetAttribute("Coins") - coinsFull
+		check("Base pleine : l'œuf Épique est converti en pièces (prix de l'œuf + pièces du jour), aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), hen(pH).step == 4 and gained >= Config.EGG_PRICE[Config.PUZZLE_EGG_TIER] + 2000 and #RT.errors == 0)
+		local errBefore = #RT.errors
+		for _, a in ipairs({ "henGo", "henExplain", "henHint", "henReplay" }) do
+			for _, arg in ipairs({ 1, "x", {}, false, 0 / 0 }) do
+				act(pH, a, arg)
+			end
+		end
+		for _, pr in ipairs(prompts("Feather")) do
+			trigger(pH, pr)
+		end
+		check("Entrées invalides (arguments des 4 actions, ramassage après la fin) : aucune erreur", #RT.errors == errBefore)
+
+		---------------------------------------------------------------- client : bulle, ❗, plumes, berceuse, carte d'objectif (vrais scripts client, runtime factice)
+		do
+			local client = RT.buildClient("roblox/src")
+			put(9909, profile())
+			local pI = join("RobotI", 9909)
+			RT.setLocalPlayer(pI)
+			RT.step(2)
+			for _, name in ipairs({ "Client", "Ambience", "Animations", "Cinematics", "Culling" }) do
+				RT.task.spawn(function()
+					RT.runScript(client[name])
+				end)
+			end
+			RT.step(3)
+			local RH
+			for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+				if rawget(d, "__props").Name == "Hen" then
+					RH = d
+				end
+			end
+			local errC = #RT.errors
+			local function findNamed(name)
+				for _, d in ipairs(RT.all) do
+					if rawget(d, "__props").Name == name then
+						return d
+					end
+				end
+			end
+			check("Client : le Remote « Hen » existe, le module HenUi est chargé et la bulle de dialogue est construite (masquée)", RH ~= nil and findNamed("HenBubble") ~= nil and rawget(findNamed("HenBubble"), "__props").Visible == false and #RT.errors == errC)
+			walk(pI, 52, -22) -- la bulle se ferme d'elle-même si le joueur s'éloigne de plus de 60 studs
+			RT.fire(RH, "OnClientEvent", "say", "first", {})
+			RT.step(1)
+			local bubble = findNamed("HenBubble")
+			check("Client : la réplique « first » ouvre la bulle (4 pages écrites progressivement), sans erreur", rawget(bubble, "__props").Visible == true and #RT.errors == errC)
+			RT.fire(RH, "OnClientEvent", "say", "missing", { n = 2, dirs = "de l'Est et de l'Ouest" })
+			RT.fire(RH, "OnClientEvent", "say", "inconnue", {})
+			RT.fire(RH, "OnClientEvent", "say", 42, "x")
+			RT.fire(RH, "OnClientEvent", "lullaby", { 1, 2, 3, 4, 1 }, 0.8, 0.3)
+			RT.fire(RH, "OnClientEvent", "lullaby", "n'importe quoi", {}, nil)
+			RT.fire(RH, "OnClientEvent", "tap", 2, true)
+			RT.fire(RH, "OnClientEvent", "tap", 9, false)
+			RT.fire(RH, "OnClientEvent", "feather", 1, "ce qui coule et berce")
+			RT.fire(RH, "OnClientEvent", "n'importe quoi")
+			RT.step(8)
+			local henWarns = 0
+			for _, w in ipairs(RT.warns) do
+				if tostring(w):find("[HenUi]", 1, true) then
+					henWarns += 1
+				end
+			end
+			check("Client : répliques inconnues, berceuse et touches, paramètres invalides : aucune erreur ni avertissement [HenUi]", #RT.errors == errC and henWarns == 0)
+			trigger(pI, promptOf("HenTalk"))
+			act(pI, "henGo")
+			RT.step(2)
+			check("Client : l'état serveur (étape 1) est pris en compte sans erreur ; la plume la plus proche est un faisceau valide", hen(pI).step == 1 and #RT.errors == errC)
+			check("Client : carte d'objectif, faisceau et mini-carte avec une énigme en cours : aucune erreur après 5 s", (function()
+				RT.step(5)
+				return #RT.errors == errC
+			end)())
+		end
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

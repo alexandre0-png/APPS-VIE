@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX46"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX71"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX70"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX49"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX75"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX74"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -300,6 +300,11 @@ Config.SOUNDS = {
 	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
 	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
 	menu = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
+	-- Berceuse de la Mère Poule (lot 6) : 4 notes = le son « claim » (identifiant déjà vérifié) à 4 hauteurs différentes, une par pierre.
+	note1 = { id = "rbxassetid://110088134711268", speed = 0.84, vol = 0.55 },
+	note2 = { id = "rbxassetid://110088134711268", speed = 1.0, vol = 0.55 },
+	note3 = { id = "rbxassetid://110088134711268", speed = 1.26, vol = 0.55 },
+	note4 = { id = "rbxassetid://110088134711268", speed = 1.5, vol = 0.55 },
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
 Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet
@@ -1563,7 +1568,7 @@ function Config.storyGoalText(c)
 	elseif c.type == "mut" then
 		return "Obtenir un pet muté"
 	elseif c.type == "puzzle" then
-		return "Résoudre l'énigme des runes"
+		return "Aider la Mère Poule : 4 plumes, 4 runes, la berceuse"
 	elseif c.type == "rebirth" then
 		return "Renaître " .. c.goal .. " fois"
 	end
@@ -1637,7 +1642,10 @@ local function dayRng(seed)
 	end
 end
 
--- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé }.
+Config.dayRng = dayRng -- partagé avec ReplicatedStorage/Riddle (plumes et berceuse du jour : même générateur, autre sel)
+
+-- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé,
+-- clues = {indice du Nord, de l'Est, du Sud, de l'Ouest} } : `clues` est lu par les plumes dorées (Riddle.featherLine, lot 6).
 function Config.riddleFor(day)
 	local r = dayRng(day)
 	local order = { 1, 2, 3, 4 }
@@ -1645,12 +1653,13 @@ function Config.riddleFor(day)
 		local j = r(i)
 		order[i], order[j] = order[j], order[i]
 	end
-	local parts = {}
+	local parts, one = {}, {}
 	for dir = 1, 4 do
 		local clues = RUNE_CLUES[order[dir]]
-		parts[dir] = DIR_PREFIX[dir] .. " : " .. clues[r(#clues)] .. "."
+		one[dir] = clues[r(#clues)]
+		parts[dir] = DIR_PREFIX[dir] .. " : " .. one[dir] .. "."
 	end
-	return { answer = order, text = table.concat(parts, " ") }
+	return { answer = order, text = table.concat(parts, " "), clues = one }
 end
 
 function Config.puzzleCoins(income)
@@ -1925,7 +1934,7 @@ Config.HEN_LINES = {
 		"Mais le vent a dispersé mes quatre plumes dorées : une au Nord, une à l'Est, une au Sud, une à l'Ouest.",
 		"Rapporte-les-moi, règle les runes comme elles te le disent, puis chante avec moi. Le Grand Œuf saura te remercier.",
 	},
-	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard" },
+	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard", hint = "💡 Un coup de bec", replay = "🔁 Réécouter" },
 	explain = "Trois étapes. ① Trouve les 4 plumes dorées : la flèche jaune t'y mène. ② Chaque plume parle de la rune de sa direction : tourne cette rune sur le bon symbole, puis touche le Grand Œuf. ③ Les runes s'allument dans un ordre : touche-les dans le même ordre.",
 	again = "Le Grand Œuf dort encore. Mes plumes se sont envolées de nouveau… Tu m'aides ?",
 	missing = "Il te manque {n} plume(s). Cherche du côté {dirs}.",
@@ -1940,6 +1949,14 @@ Config.HEN_LINES = {
 	hintFeather = "Un coup de bec ? La plume {dir} se cache {where}.",
 	hintRune = "La rune {dir} veut {symbol}.",
 	runeWaits = "La rune {dir} attend sa plume.",
+	-- lot 6 : indices et refus (le serveur n'envoie que l'identifiant et les paramètres)
+	hintLullaby = "Un coup de bec ? La berceuse commence par la pierre {dir}.",
+	hintWait = "Cot… laisse-moi réfléchir encore {mm} min {ss} s avant de te souffler quelque chose.",
+	hintFails = "Essaie encore : après {n} tentative(s) de plus, je t'aiderai.",
+	hintMax = "Je t'ai déjà soufflé mes deux indices du jour, petit.",
+	needFeathers = "Il te manque des plumes avant de poser la combinaison. Cherche du côté {dirs}.",
+	runesLocked = "Les runes se reposent… patiente quelques secondes.",
+	listen = "Écoute… la berceuse commence.",
 }
 -- REFONTE (lot 2) : trois plumes déplacées pour rester atteignables (E2 était entre la rivière et la falaise, S1 hors du ponton, O1 dans la cabane).
 Config.FEATHER_SPOTS = {
@@ -1948,7 +1965,11 @@ Config.FEATHER_SPOTS = {
 	S = { { x = 262, z = 189, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
 	O = { { x = -300, z = -47, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
 }
-Config.HEN = { fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300 }
+Config.HEN = {
+	fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300,
+	-- lot 6 : distances (studs) et cadences. pickupDistance : le serveur refuse une plume plus loin (11 studs = refusé) ; pickupGap : 1 ramassage / s.
+	talkDistance = 14, pickupDistance = 10, pickupGap = 1, singDistance = 16, failsForHint = 3, sparkleDistance = 40, quarterReach = 70, markerRange = 90, bubbleCps = 40, alertRange = 150,
+}
 -- Textes du HUD (onboarding et chapitres) : tous < 110 octets.
 Config.ONBOARD2 = {
 	"🥚 Touche ton œuf pour le faire éclore",
@@ -1959,9 +1980,25 @@ Config.ONBOARD2 = {
 Config.CHAPTER_TEXTS = {
 	[8] = { title = "La berceuse du Grand Œuf", text = "Aide la Mère Poule : trouve les 4 plumes, règle les runes, chante la berceuse." },
 }
+-- Lot 6 : le chapitre 8 devient « La berceuse du Grand Œuf » (son objectif suit la nouvelle énigme, type « puzzle » inchangé : une résolution du jour).
+for i, t in pairs(Config.CHAPTER_TEXTS) do
+	local c = Config.STORY[i]
+	if c then
+		c.title, c.text = t.title, t.text
+	end
+end
+-- Titre « Ami de la Mère Poule » : 7 fragments du Grand Œuf cumulés (puzzle.fragments). Config.titles (24 titres de succès) reste INCHANGÉE pour ne pas
+-- casser ses tests ; Config.allTitles lui ajoute ce titre (25e), c'est elle que lit l'onglet Titres.
+Config.TITLE_HEN = { id = "hen", name = "🐔 Ami de la Mère Poule", desc = "7 fragments du Grand Œuf" }
+function Config.allTitles(stats)
+	local out = Config.titles(stats)
+	local frags = stats and stats.fragments
+	out[#out + 1] = { id = Config.TITLE_HEN.id, name = Config.TITLE_HEN.name, desc = Config.TITLE_HEN.desc, unlocked = type(frags) == "number" and frags >= Config.HEN.fragmentsForEgg }
+	return out
+end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2257,7 +2294,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2437,7 +2474,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2780,7 +2817,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3078,7 +3115,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -3681,7 +3718,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4106,7 +4143,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4144,7 +4181,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4232,7 +4269,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4277,8 +4314,25 @@ function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 	return out
 end
 
+-- Plumes dorées non ramassées à moins de `range` studs (icône 🪶, REFONTE lot 6). spots = { { x, z } } publiés par le serveur (étape 1 seulement).
+function MiniMap.featherMarks(spots, px, pz, range)
+	local out = {}
+	if type(spots) ~= "table" or type(px) ~= "number" or type(pz) ~= "number" or px ~= px or pz ~= pz then
+		return out
+	end
+	for _, sp in ipairs(spots) do
+		if type(sp.x) == "number" and type(sp.z) == "number" then
+			local dx, dz = sp.x - px, sp.z - pz
+			if dx * dx + dz * dz <= range * range then
+				out[#out + 1] = { kind = "feather", x = sp.x, z = sp.z, label = "🪶" }
+			end
+		end
+	end
+	return out
+end
+
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -4646,7 +4700,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -4710,7 +4764,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5051,7 +5105,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5108,7 +5162,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5220,7 +5274,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -5407,7 +5461,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -5511,7 +5565,7 @@ function Raven.resolve(chased)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -6284,7 +6338,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -6393,7 +6447,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -6592,7 +6646,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -6793,7 +6847,440 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+-- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
+-- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
+--   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
+--
+-- Générateur : Config.dayRng (le MÊME Park-Miller déterministe que Config.riddleFor) avec un « sel » par usage, pour que les plumes, la berceuse et
+-- les runes d'un même jour ne soient pas corrélées : plumes = dayRng(jour + 5003), berceuse = dayRng(jour + 9007), runes = dayRng(jour) (Config.riddleFor).
+-- Même jour = mêmes plumes, mêmes runes, même berceuse pour tous les joueurs.
+--
+-- Étapes : 0 non commencée · 1 plumes · 2 runes · 3 berceuse · 4 faite (= puzzle.day == jour). Le profil ne stocke que 0..3 (+ puzzle.pday, le jour de la
+-- progression : un autre jour = remise à zéro) ; « 4 » se déduit de puzzle.day.
+local Riddle = {}
+
+Riddle.STEP = { idle = 0, feathers = 1, runes = 2, lullaby = 3, done = 4 }
+Riddle.DIRS = { "N", "E", "S", "O" } -- ordre de Config.RUNE_DIRECTIONS et de Config.Map2.runeStones
+Riddle.DIR_OF = { "du Nord", "de l'Est", "du Sud", "de l'Ouest" } -- « La plume du Nord », « la rune de l'Est »
+local FEATHER_SALT, LULLABY_SALT = 5003, 9007
+local BIT = { 1, 2, 4, 8 } -- masque des plumes : Nord 1, Est 2, Sud 4, Ouest 8
+
+local function validDir(dir)
+	return type(dir) == "number" and dir == dir and dir % 1 == 0 and dir >= 1 and dir <= 4
+end
+
+-- Profil `puzzle` neuf (même forme que Data.default().puzzle).
+function Riddle.fresh()
+	return { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0, pday = 0, met = false }
+end
+
+---------------------------------------------------------------- Plumes et berceuse du jour
+-- Une plume par direction (N, E, S, O) parmi les 3 emplacements de Config.FEATHER_SPOTS : { { dir, key, index, x, z, where } x4 }.
+function Riddle.featherSpots(Config, day)
+	local r = Config.dayRng(day + FEATHER_SALT)
+	local out = {}
+	for dir = 1, 4 do
+		local list = Config.FEATHER_SPOTS[Riddle.DIRS[dir]]
+		local idx = r(#list)
+		local sp = list[idx]
+		out[dir] = { dir = dir, key = Riddle.DIRS[dir], index = idx, x = sp.x, z = sp.z, where = sp.where, dock = sp.dock == true }
+	end
+	return out
+end
+
+-- Berceuse du jour : Config.HEN.lullabyLength pierres (numéros 1..4 = Nord, Est, Sud, Ouest), chaque pierre présente au moins une fois
+-- (les 4 pierres d'abord, puis des pierres tirées, le tout mélangé).
+function Riddle.lullaby(Config, day)
+	local r = Config.dayRng(day + LULLABY_SALT)
+	local n = math.max(4, Config.HEN.lullabyLength)
+	local seq = { 1, 2, 3, 4 }
+	for i = 5, n do
+		seq[i] = r(4)
+	end
+	for i = n, 2, -1 do
+		local j = r(i)
+		seq[i], seq[j] = seq[j], seq[i]
+	end
+	return seq
+end
+
+-- Durée totale d'une écoute de la berceuse (secondes) : chaque pierre brille `lullabyNote` s, puis `lullabyGap` s de silence.
+function Riddle.lullabyDuration(Config)
+	return Config.HEN.lullabyLength * (Config.HEN.lullabyNote + Config.HEN.lullabyGap)
+end
+
+-- Début (en secondes depuis le début de l'écoute) de la note i.
+function Riddle.noteStart(Config, i)
+	return (i - 1) * (Config.HEN.lullabyNote + Config.HEN.lullabyGap)
+end
+
+---------------------------------------------------------------- État et transitions (toutes pures : elles modifient p et disent si c'était permis)
+function Riddle.available(chaptersDone)
+	return type(chaptersDone) == "number" and chaptersDone >= 2 -- chapitre 2 réussi
+end
+
+function Riddle.featherCount(mask)
+	local n = 0
+	for dir = 1, 4 do
+		if math.floor(mask / BIT[dir]) % 2 == 1 then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+function Riddle.hasFeather(mask, dir)
+	return validDir(dir) and type(mask) == "number" and math.floor(mask / BIT[dir]) % 2 == 1
+end
+
+-- Un autre jour que celui de la progression : remise à zéro (étape, plumes, indices ; fragments et résolutions sont conservés).
+-- Retourne true si une remise à zéro a eu lieu, puis true si une progression a été perdue.
+function Riddle.normalize(p, day)
+	if p.pday ~= day then
+		local lost = p.step ~= 0 or p.feathers ~= 0 or p.hints ~= 0
+		p.pday, p.step, p.feathers, p.hints = day, 0, 0, 0
+		return true, lost
+	end
+	return false, false
+end
+
+-- Étape effective : 4 si résolue ce jour, sinon l'étape sauvegardée (0..3).
+function Riddle.stepOf(p, day)
+	if p.day == day then
+		return 4
+	end
+	return p.step
+end
+
+-- 0 -> 1 : le joueur accepte d'aider la Mère Poule. Refusée si indisponible (chapitre 2), déjà faite ou déjà commencée.
+function Riddle.start(p, day, avail)
+	if not avail then
+		return false, "locked"
+	end
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 0 then
+		return false, "started"
+	end
+	p.step = 1
+	return true
+end
+
+-- Ramassage d'une plume (étape 1 seulement). Retourne ok, nombre de plumes (ou ok=false, raison).
+function Riddle.collect(p, day, dir)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 1 then
+		return false, "step"
+	end
+	if not validDir(dir) then
+		return false, "dir"
+	end
+	if Riddle.hasFeather(p.feathers, dir) then
+		return false, "have"
+	end
+	p.feathers = p.feathers + BIT[dir]
+	return true, Riddle.featherCount(p.feathers)
+end
+
+-- 1 -> 2 : IMPOSSIBLE sans les 4 plumes.
+function Riddle.toRunes(p, day)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 1 then
+		return false, "step"
+	end
+	if Riddle.featherCount(p.feathers) ~= 4 then
+		return false, "feathers"
+	end
+	p.step = 2
+	return true
+end
+
+-- Une rune ne se tourne qu'une fois la plume de sa direction ramassée, et seulement pendant les étapes 1 et 2.
+function Riddle.runeUnlocked(p, day, dir)
+	if p.day == day or p.pday ~= day then
+		return false
+	end
+	return (p.step == 1 or p.step == 2) and Riddle.hasFeather(p.feathers, dir)
+end
+
+-- Nombre de runes justes (jamais lesquelles). runes et answer : 4 symboles.
+function Riddle.runesCorrect(runes, answer)
+	local k = 0
+	for i = 1, 4 do
+		if runes[i] ~= nil and runes[i] == answer[i] then
+			k = k + 1
+		end
+	end
+	return k
+end
+
+-- 2 -> 3 : seulement si les 4 runes sont justes (`correct` = résultat de runesCorrect).
+function Riddle.toLullaby(p, day, correct)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 2 then
+		return false, "step"
+	end
+	if correct ~= 4 then
+		return false, "runes"
+	end
+	p.step = 3
+	return true
+end
+
+-- Touche d'une pierre pendant la berceuse : seq = suite attendue, pos = position attendue (1..#seq), stone = pierre touchée (1..4).
+-- Retourne "ok" (bonne pierre, pos avance), "done" (dernière pierre juste) ou "wrong" (erreur : pos revient à 1, la suite est rejouée).
+function Riddle.tap(seq, pos, stone)
+	if seq[pos] ~= nil and stone == seq[pos] then
+		if pos >= #seq then
+			return "done", 1
+		end
+		return "ok", pos + 1
+	end
+	return "wrong", 1
+end
+
+function Riddle.tapAllowed(Config, now, lastTap)
+	return type(now) == "number" and type(lastTap) == "number" and now - lastTap >= Config.HEN.tapMinGap
+end
+
+function Riddle.pickupAllowed(Config, dist, now, lastPick)
+	return type(dist) == "number" and dist == dist and dist <= Config.HEN.pickupDistance and type(now) == "number" and type(lastPick) == "number" and now - lastPick >= Config.HEN.pickupGap
+end
+
+-- 3 -> 4 : récompense UNE fois par jour. Retourne ok puis { eggTier, coinsMins, fragments, legendary, titleNew } ; fragments cumulés,
+-- 1 œuf Légendaire à chaque tranche de Config.HEN.fragmentsForEgg (7) atteinte, titre « Ami de la Mère Poule » dès 7.
+function Riddle.complete(Config, p, day, lullabyDone)
+	Riddle.normalize(p, day)
+	if p.day == day then
+		return false, "done"
+	end
+	if p.step ~= 3 then
+		return false, "step"
+	end
+	if lullabyDone ~= true then
+		return false, "lullaby"
+	end
+	local before = p.fragments
+	local after = before + 1
+	local per = Config.HEN.fragmentsForEgg
+	local legendary = math.floor(after / per) - math.floor(before / per)
+	p.day = day
+	p.solved = p.solved + 1
+	p.step, p.feathers = 0, 0
+	p.fragments = after
+	return true, { eggTier = Config.PUZZLE_EGG_TIER, mins = Config.PUZZLE_MINS, fragments = after, legendary = legendary, titleNew = before < per and after >= per }
+end
+
+function Riddle.hasTitle(Config, fragments)
+	return type(fragments) == "number" and fragments >= Config.HEN.fragmentsForEgg
+end
+
+---------------------------------------------------------------- Indices (« 💡 Un coup de bec »)
+-- 2 par jour, jamais payants. Le 1er : gratuit après hintAfterSeconds dans l'étape courante. Le 2e : après failsForHint validations ratées à l'étape 2.
+-- Retourne ok ; sinon false, raison ("step" | "max" | "wait" | "fails"), et le temps (s) ou le nombre de validations ratées restantes.
+function Riddle.hintStatus(Config, p, day, secondsInStep, fails)
+	local H = Config.HEN
+	local step = Riddle.stepOf(p, day)
+	if step < 1 or step > 3 then
+		return false, "step"
+	end
+	if p.hints >= H.hintsPerDay then
+		return false, "max"
+	end
+	if p.hints == 0 then
+		if secondsInStep >= H.hintAfterSeconds then
+			return true
+		end
+		return false, "wait", math.ceil(H.hintAfterSeconds - secondsInStep)
+	end
+	if step == 2 and fails >= H.failsForHint then
+		return true
+	end
+	return false, "fails", step == 2 and (H.failsForHint - fails) or nil
+end
+
+-- Contenu de l'indice : identifiant de réplique et paramètres. runes = symboles actuels du joueur (4 numéros).
+function Riddle.hintFor(Config, p, day, runes)
+	local step = Riddle.stepOf(p, day)
+	if step == 1 then
+		local spots = Riddle.featherSpots(Config, day)
+		for dir = 1, 4 do
+			if not Riddle.hasFeather(p.feathers, dir) then
+				return "hintFeather", { dir = Riddle.DIR_OF[dir], where = spots[dir].where }
+			end
+		end
+	elseif step == 2 then
+		local answer = Config.riddleFor(day).answer
+		for dir = 1, 4 do
+			if runes[dir] ~= answer[dir] then
+				return "hintRune", { dir = Riddle.DIR_OF[dir], symbol = Config.RUNES[answer[dir]] }
+			end
+		end
+	elseif step == 3 then
+		return "hintLullaby", { dir = Riddle.DIR_OF[Riddle.lullaby(Config, day)[1]] }
+	end
+	return nil
+end
+
+---------------------------------------------------------------- Compte à rebours
+-- « Nouvelle berceuse dans h mm » : heures, minutes (arrondies au-dessus), secondes restantes avant 00:00 UTC.
+function Riddle.untilNext(now)
+	local left = 86400 - (now % 86400)
+	local total = math.ceil(left / 60)
+	return math.floor(total / 60), total % 60, left
+end
+
+---------------------------------------------------------------- Répliques
+function Riddle.format(tpl, params)
+	return (tpl:gsub("{(%w+)}", function(k)
+		local v = params and params[k]
+		if v == nil then
+			return "{" .. k .. "}"
+		end
+		return tostring(v)
+	end))
+end
+
+-- « du Nord, de l'Est et de l'Ouest » d'après le masque de plumes (les directions MANQUANTES).
+function Riddle.missingDirs(mask)
+	local list = {}
+	for dir = 1, 4 do
+		if not Riddle.hasFeather(mask, dir) then
+			list[#list + 1] = Riddle.DIR_OF[dir]
+		end
+	end
+	if #list <= 1 then
+		return list[1] or ""
+	end
+	return table.concat(list, ", ", 1, #list - 1) .. " et " .. list[#list]
+end
+
+-- Paramètres de la réplique « missing » d'après le masque.
+function Riddle.missingParams(mask)
+	return { n = 4 - Riddle.featherCount(mask), dirs = Riddle.missingDirs(mask) }
+end
+
+-- Réplique « {h} h {mm} ».
+function Riddle.doneParams(now)
+	local h, m = Riddle.untilNext(now)
+	return { h = h, mm = string.format("%02d", m) }
+end
+
+-- Texte d'une réplique (id de Config.HEN_LINES) : { id, pages = { texte, ... }, buttons = { { id, text }, ... } }.
+-- step = étape du joueur : ajoute « 💡 Un coup de bec » (étapes 1 à 3) et « 🔁 Réécouter » (étape 3) aux répliques de suivi.
+function Riddle.say(Config, id, params, step)
+	local L = Config.HEN_LINES
+	local B = L.buttons
+	local pages, ids = nil, {}
+	if id == "first" then
+		pages, ids = L.first, { "go", "again" }
+	elseif id == "explain" or id == "again" then
+		pages, ids = { L[id] }, { "go", "later" }
+	elseif id == "success" or id == "done" or id == "locked" or id == "feather" then
+		pages = { L[id] }
+	elseif L[id] ~= nil and type(L[id]) == "string" then
+		pages = { L[id] }
+		if step == 1 or step == 2 or step == 3 then
+			ids[#ids + 1] = "hint"
+		end
+		if step == 3 then
+			ids[#ids + 1] = "replay"
+		end
+	else
+		return { id = id, pages = {}, buttons = {} }
+	end
+	local out = {}
+	for i, p in ipairs(pages) do
+		out[i] = Riddle.format(p, params)
+	end
+	local buttons = {}
+	for _, b in ipairs(ids) do
+		buttons[#buttons + 1] = { id = b, text = B[b] }
+	end
+	return { id = id, pages = out, buttons = buttons }
+end
+
+-- Texte d'une plume ramassée : « 🪶 Plume du Nord : « ce qui coule et berce » ».
+function Riddle.featherLine(Config, day, dir)
+	local clue = Config.riddleFor(day).clues[dir]
+	return Riddle.format(Config.HEN_LINES.feather, { dir = Riddle.DIR_OF[dir], clue = clue }), clue
+end
+
+---------------------------------------------------------------- Guidage (faisceau, mini-carte)
+-- Centre du quart de carte (quadrant Nord-Ouest, Nord-Est, Sud-Ouest, Sud-Est de Config.Map2.bounds) qui contient (x, z).
+function Riddle.quarter(Config, x, z)
+	local b = Config.Map2.bounds
+	return (x < 0 and b.x0 or b.x1) / 2, (z < 0 and b.z0 or b.z1) / 2
+end
+
+local function dist2d(ax, az, bx, bz)
+	return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+end
+
+-- Cible du faisceau jaune d'après l'état `hen` envoyé par le serveur (avail, step, spots = plumes NON ramassées { dir, x, z }) et la position du joueur.
+-- { kind = "hen" | "quarter" | "feather" | "runes", x, z, dir, near } ou nil. Étape 0 : la Mère Poule. Étape 1 : le centre du quart de carte de la plume la
+-- plus proche tant qu'on en est loin (> quarterReach du centre), puis la plume elle-même ; `near` = à moins de sparkleDistance (la plume scintille).
+-- Étapes 2 et 3 : le Grand Œuf (les 4 runes l'entourent).
+function Riddle.guide(Config, hen, px, pz)
+	if type(hen) ~= "table" or hen.avail ~= true or type(hen.step) ~= "number" or hen.step >= 4 then
+		return nil
+	end
+	local H = Config.HEN
+	if hen.step == 0 then
+		return { kind = "hen", x = Config.Map2.hen.x, z = Config.Map2.hen.z }
+	elseif hen.step >= 2 then
+		return { kind = "runes", x = Config.Map2.bigEgg.x, z = Config.Map2.bigEgg.z }
+	end
+	local best, bd = nil, math.huge
+	for _, sp in ipairs(hen.spots or {}) do
+		if type(sp.x) == "number" and type(sp.z) == "number" then
+			local d = dist2d(px, pz, sp.x, sp.z)
+			if d < bd then
+				best, bd = sp, d
+			end
+		end
+	end
+	if not best then
+		return { kind = "hen", x = Config.Map2.hen.x, z = Config.Map2.hen.z }
+	end
+	if bd <= H.sparkleDistance then
+		return { kind = "feather", x = best.x, z = best.z, dir = best.dir, near = true }
+	end
+	local qx, qz = Riddle.quarter(Config, best.x, best.z)
+	if dist2d(px, pz, qx, qz) > H.quarterReach then
+		return { kind = "quarter", x = qx, z = qz, dir = best.dir }
+	end
+	return { kind = "feather", x = best.x, z = best.z, dir = best.dir, near = false }
+end
+
+---------------------------------------------------------------- Effet collectif (Pluie de chance)
+-- c = { day, count, fired } propre au serveur. Retourne true quand l'événement doit démarrer MAINTENANT (une fois par jour et par serveur).
+function Riddle.collectiveAdd(Config, c, day)
+	if c.day ~= day then
+		c.day, c.count, c.fired = day, 0, false
+	end
+	c.count = c.count + 1
+	if not c.fired and c.count >= Config.HEN.collectiveSolves then
+		c.fired = true
+		return true
+	end
+	return false
+end
+
+return Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -7021,7 +7508,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -7086,7 +7573,7 @@ end
 
 return Upgrade
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX74"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX72"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX78"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX76"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -7441,7 +7928,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -7830,7 +8317,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX77"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX76"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX75"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX81"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX80"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX79"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

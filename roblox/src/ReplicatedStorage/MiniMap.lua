@@ -43,4 +43,21 @@ function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 	return out
 end
 
+-- Plumes dorées non ramassées à moins de `range` studs (icône 🪶, REFONTE lot 6). spots = { { x, z } } publiés par le serveur (étape 1 seulement).
+function MiniMap.featherMarks(spots, px, pz, range)
+	local out = {}
+	if type(spots) ~= "table" or type(px) ~= "number" or type(pz) ~= "number" or px ~= px or pz ~= pz then
+		return out
+	end
+	for _, sp in ipairs(spots) do
+		if type(sp.x) == "number" and type(sp.z) == "number" then
+			local dx, dz = sp.x - px, sp.z - pz
+			if dx * dx + dz * dz <= range * range then
+				out[#out + 1] = { kind = "feather", x = sp.x, z = sp.z, label = "🪶" }
+			end
+		end
+	end
+	return out
+end
+
 return MiniMap

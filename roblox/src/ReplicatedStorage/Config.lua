@@ -296,6 +296,11 @@ Config.SOUNDS = {
 	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
 	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
 	menu = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
+	-- Berceuse de la Mère Poule (lot 6) : 4 notes = le son « claim » (identifiant déjà vérifié) à 4 hauteurs différentes, une par pierre.
+	note1 = { id = "rbxassetid://110088134711268", speed = 0.84, vol = 0.55 },
+	note2 = { id = "rbxassetid://110088134711268", speed = 1.0, vol = 0.55 },
+	note3 = { id = "rbxassetid://110088134711268", speed = 1.26, vol = 0.55 },
+	note4 = { id = "rbxassetid://110088134711268", speed = 1.5, vol = 0.55 },
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
 Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet
@@ -1559,7 +1564,7 @@ function Config.storyGoalText(c)
 	elseif c.type == "mut" then
 		return "Obtenir un pet muté"
 	elseif c.type == "puzzle" then
-		return "Résoudre l'énigme des runes"
+		return "Aider la Mère Poule : 4 plumes, 4 runes, la berceuse"
 	elseif c.type == "rebirth" then
 		return "Renaître " .. c.goal .. " fois"
 	end
@@ -1633,7 +1638,10 @@ local function dayRng(seed)
 	end
 end
 
--- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé }.
+Config.dayRng = dayRng -- partagé avec ReplicatedStorage/Riddle (plumes et berceuse du jour : même générateur, autre sel)
+
+-- Énigme d'un jour (day = os.time() // 86400). Retourne { answer = {symbole du Nord, de l'Est, du Sud, de l'Ouest}, text = énoncé,
+-- clues = {indice du Nord, de l'Est, du Sud, de l'Ouest} } : `clues` est lu par les plumes dorées (Riddle.featherLine, lot 6).
 function Config.riddleFor(day)
 	local r = dayRng(day)
 	local order = { 1, 2, 3, 4 }
@@ -1641,12 +1649,13 @@ function Config.riddleFor(day)
 		local j = r(i)
 		order[i], order[j] = order[j], order[i]
 	end
-	local parts = {}
+	local parts, one = {}, {}
 	for dir = 1, 4 do
 		local clues = RUNE_CLUES[order[dir]]
-		parts[dir] = DIR_PREFIX[dir] .. " : " .. clues[r(#clues)] .. "."
+		one[dir] = clues[r(#clues)]
+		parts[dir] = DIR_PREFIX[dir] .. " : " .. one[dir] .. "."
 	end
-	return { answer = order, text = table.concat(parts, " ") }
+	return { answer = order, text = table.concat(parts, " "), clues = one }
 end
 
 function Config.puzzleCoins(income)
@@ -1921,7 +1930,7 @@ Config.HEN_LINES = {
 		"Mais le vent a dispersé mes quatre plumes dorées : une au Nord, une à l'Est, une au Sud, une à l'Ouest.",
 		"Rapporte-les-moi, règle les runes comme elles te le disent, puis chante avec moi. Le Grand Œuf saura te remercier.",
 	},
-	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard" },
+	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard", hint = "💡 Un coup de bec", replay = "🔁 Réécouter" },
 	explain = "Trois étapes. ① Trouve les 4 plumes dorées : la flèche jaune t'y mène. ② Chaque plume parle de la rune de sa direction : tourne cette rune sur le bon symbole, puis touche le Grand Œuf. ③ Les runes s'allument dans un ordre : touche-les dans le même ordre.",
 	again = "Le Grand Œuf dort encore. Mes plumes se sont envolées de nouveau… Tu m'aides ?",
 	missing = "Il te manque {n} plume(s). Cherche du côté {dirs}.",
@@ -1936,6 +1945,14 @@ Config.HEN_LINES = {
 	hintFeather = "Un coup de bec ? La plume {dir} se cache {where}.",
 	hintRune = "La rune {dir} veut {symbol}.",
 	runeWaits = "La rune {dir} attend sa plume.",
+	-- lot 6 : indices et refus (le serveur n'envoie que l'identifiant et les paramètres)
+	hintLullaby = "Un coup de bec ? La berceuse commence par la pierre {dir}.",
+	hintWait = "Cot… laisse-moi réfléchir encore {mm} min {ss} s avant de te souffler quelque chose.",
+	hintFails = "Essaie encore : après {n} tentative(s) de plus, je t'aiderai.",
+	hintMax = "Je t'ai déjà soufflé mes deux indices du jour, petit.",
+	needFeathers = "Il te manque des plumes avant de poser la combinaison. Cherche du côté {dirs}.",
+	runesLocked = "Les runes se reposent… patiente quelques secondes.",
+	listen = "Écoute… la berceuse commence.",
 }
 -- REFONTE (lot 2) : trois plumes déplacées pour rester atteignables (E2 était entre la rivière et la falaise, S1 hors du ponton, O1 dans la cabane).
 Config.FEATHER_SPOTS = {
@@ -1944,7 +1961,11 @@ Config.FEATHER_SPOTS = {
 	S = { { x = 262, z = 189, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
 	O = { { x = -300, z = -47, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
 }
-Config.HEN = { fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300 }
+Config.HEN = {
+	fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300,
+	-- lot 6 : distances (studs) et cadences. pickupDistance : le serveur refuse une plume plus loin (11 studs = refusé) ; pickupGap : 1 ramassage / s.
+	talkDistance = 14, pickupDistance = 10, pickupGap = 1, singDistance = 16, failsForHint = 3, sparkleDistance = 40, quarterReach = 70, markerRange = 90, bubbleCps = 40, alertRange = 150,
+}
 -- Textes du HUD (onboarding et chapitres) : tous < 110 octets.
 Config.ONBOARD2 = {
 	"🥚 Touche ton œuf pour le faire éclore",
@@ -1955,5 +1976,21 @@ Config.ONBOARD2 = {
 Config.CHAPTER_TEXTS = {
 	[8] = { title = "La berceuse du Grand Œuf", text = "Aide la Mère Poule : trouve les 4 plumes, règle les runes, chante la berceuse." },
 }
+-- Lot 6 : le chapitre 8 devient « La berceuse du Grand Œuf » (son objectif suit la nouvelle énigme, type « puzzle » inchangé : une résolution du jour).
+for i, t in pairs(Config.CHAPTER_TEXTS) do
+	local c = Config.STORY[i]
+	if c then
+		c.title, c.text = t.title, t.text
+	end
+end
+-- Titre « Ami de la Mère Poule » : 7 fragments du Grand Œuf cumulés (puzzle.fragments). Config.titles (24 titres de succès) reste INCHANGÉE pour ne pas
+-- casser ses tests ; Config.allTitles lui ajoute ce titre (25e), c'est elle que lit l'onglet Titres.
+Config.TITLE_HEN = { id = "hen", name = "🐔 Ami de la Mère Poule", desc = "7 fragments du Grand Œuf" }
+function Config.allTitles(stats)
+	local out = Config.titles(stats)
+	local frags = stats and stats.fragments
+	out[#out + 1] = { id = Config.TITLE_HEN.id, name = Config.TITLE_HEN.name, desc = Config.TITLE_HEN.desc, unlocked = type(frags) == "number" and frags >= Config.HEN.fragmentsForEgg }
+	return out
+end
 
 return Config

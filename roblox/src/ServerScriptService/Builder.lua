@@ -1604,7 +1604,7 @@ function Builder.monument(parent)
 		title.Font = FONT
 		title.TextSize = 40
 		title.TextColor3 = gold
-		title.Text = "📜 Énigme de Mère Poule"
+		title.Text = "📜 La berceuse du Grand Œuf"
 		title.Parent = sg
 		local body = Instance.new("TextLabel")
 		body.BackgroundTransparency = 1
@@ -1615,7 +1615,7 @@ function Builder.monument(parent)
 		body.TextWrapped = true
 		body.TextColor3 = Color3.fromRGB(255, 244, 220)
 		body.TextYAlignment = Enum.TextYAlignment.Top
-		body.Text = "…"
+		body.Text = "Parle à la Mère Poule 🐔 : trouve ses 4 plumes dorées, règle les 4 runes, puis chante la berceuse. Un nouveau défi chaque jour !" -- texte fixe : les indices sont sur les plumes (lot 6)
 		body.Parent = sg
 		labels[#labels + 1] = body
 	end
@@ -1648,12 +1648,56 @@ function Builder.hen(parent)
 	ball({ Name = "HenWattle", Size = Vector3.new(0.6, 0.8, 0.5), CFrame = CFrame.new(0, 1.6, -2.8), Color = red }, model)
 	local label = sign(body, "🐔 Mère Poule\nGardienne du Grand Œuf", Color3.fromRGB(255, 220, 140), 5.5, 260)
 	label.TextSize = 17
+	-- Lot 6 : « Parler » ouvre le dialogue de l'énigme (le serveur choisit la réplique selon l'étape du joueur et envoie son identifiant).
+	local talk = Instance.new("ProximityPrompt")
+	talk.ActionText = "Parler"
+	talk.ObjectText = "Mère Poule"
+	talk.HoldDuration = 0
+	talk.MaxActivationDistance = Config.HEN.talkDistance - 2
+	talk.RequiresLineOfSight = false
+	talk:SetAttribute("Kind", "HenTalk")
+	talk.Parent = body
 	model:SetAttribute("Seed", 3)
 	CollectionService:AddTag(model, "Hen")
 	local H, E = Config.Map2.hen, Config.Map2.bigEgg
 	model:PivotTo(CFrame.lookAt(Vector3.new(H.x, 3.2, H.z), Vector3.new(E.x, 3.2, E.z))) -- regarde le Grand Œuf
 	model.Parent = parent
 	return model
+end
+
+-- Plume dorée de l'énigme (lot 6) : UNE Part néon (visible de tous), ramassée PAR JOUEUR (le serveur tient le masque `puzzle.feathers` ; le client cache la plume
+-- de celui qui l'a prise). Déplacée chaque jour par le serveur (HenQuest) ; l'émetteur d'étincelles est coupé : le client l'allume à moins de 40 studs.
+function Builder.feather(parent, dir)
+	local f = part({ Name = "Feather", Size = Vector3.new(0.3, 3.4, 1.3), Color = Color3.fromRGB(255, 214, 90), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, parent)
+	f:SetAttribute("Dir", dir)
+	CollectionService:AddTag(f, "Feather")
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "Sparkle"
+	sparks.Texture = SPARK
+	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 240, 170))
+	sparks.Rate = 14
+	sparks.Lifetime = NumberRange.new(1, 1.8)
+	sparks.Speed = NumberRange.new(1, 3)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0) })
+	sparks.Enabled = false
+	sparks.Parent = f
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(255, 214, 90)
+	glow.Range = 10
+	glow.Brightness = 1.2
+	glow.Parent = f
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Ramasser"
+	pr.ObjectText = "Plume dorée"
+	pr.HoldDuration = 0.5
+	pr.MaxActivationDistance = Config.HEN.pickupDistance
+	pr.RequiresLineOfSight = false
+	pr:SetAttribute("Kind", "Feather")
+	pr:SetAttribute("Dir", dir)
+	pr.Parent = f
+	return f
 end
 
 ---------------------------------------------------------------- Monde
@@ -1748,9 +1792,9 @@ function Builder.build()
 	end)
 
 	local monument = Builder.monument(world)
-	Builder.hen(world)
+	local henModel = Builder.hen(world)
 
-	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center, geo = G }
+	local result = { plots = {}, nests = {}, guards = {}, riddleLabels = monument.labels, monumentCenter = monument.center, geo = G, hen = henModel, folder = world }
 
 	-- Territoires (Config.TERR) : nids, postes des gardiens, décor, barrière des zones verrouillées, panneau de difficulté ---------------
 	local gIndex = {} -- numéro du gardien dans son rival (Guard<rival>_<j>)

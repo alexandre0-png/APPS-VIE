@@ -21,9 +21,12 @@ local SlotFx = require(script.Parent:WaitForChild("SlotFx"))
 local VfxKitMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("VfxKit"))
 local Vfx = VfxKitMod.new(Config, Easing)
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
+local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule (règles pures, lot 6)
+local HenUi = require(script.Parent:WaitForChild("HenUi")) -- dialogue, ❗, plumes, berceuse, cible du faisceau
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
+local RHen = Remotes:WaitForChild("Hen")
 local fmt = Config.fmt
 
 local COL = {
@@ -41,6 +44,7 @@ local COL = {
 local FONT = Enum.Font.GothamBold
 
 local state = nil
+local henUi = nil -- interface de l'énigme (créée après le HUD)
 local tryOfferLater, lastMilestone = nil, nil -- offre d'achat (définie avec le HUD) ; dernier palier d'éclosions vu
 local topData = nil
 local panel = nil -- { name, tab, confirm }
@@ -655,6 +659,10 @@ function render()
 			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
 			pressFx(b)
+			if t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true then -- pastille « 1 » : l'énigme du jour attend
+				local badge = make("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, -3), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = COL.red, Text = "1", TextSize = 12, Font = FONT, TextColor3 = COL.text, ZIndex = 5 }, b)
+				corner(badge, 9)
+			end
 			b.Activated:Connect(function()
 				setTab(t[1])
 			end)
@@ -810,7 +818,7 @@ function render()
 			addNote("Aucun pass actif. Les passes (revenus x2, chance, vitesse, VIP) sont dans l'onglet Bonus.")
 		end
 	elseif panel.name == "dex" and panel.tab == "titles" then
-		local list = Config.titles(state.stats)
+		local list = Config.allTitles(state.stats)
 		local got = 0
 		for _, t in ipairs(list) do
 			if t.unlocked then
@@ -928,17 +936,40 @@ function render()
 			addNote(table.concat(done, "\n"))
 		end
 	elseif panel.name == "quests" and panel.tab == "puzzle" then
-		addNote("📜 Énigme de Mère Poule (elle change chaque jour) :\n" .. state.riddle)
-		local cur = {}
-		for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
-			cur[#cur + 1] = dir .. " " .. Config.RUNES[state.runes[i]]
+		local hen = type(state.hen) == "table" and state.hen or nil
+		if not hen or hen.avail ~= true then
+			addNote("🐔 " .. Config.HEN_LINES.locked)
+		else
+			local step = type(hen.step) == "number" and hen.step or 0
+			local k = type(hen.count) == "number" and hen.count or 0
+			if step == 4 then
+				local h, m = Riddle.untilNext(os.time())
+				addRow({ icon = "✅", title = "Berceuse chantée aujourd'hui !", desc = Riddle.format(Config.HEN_LINES.done, { h = h, mm = string.format("%02d", m) }) })
+			else
+				addNote("🐔 La Mère Poule t'attend près du Grand Œuf (à l'est de la place). Une berceuse par jour, la même pour tous.")
+				local mark = { step > 1 and "✅" or (step == 1 and "🪶" or "⬜"), step > 2 and "✅" or (step == 2 and "🔮" or "⬜"), step >= 3 and "🎵" or "⬜" }
+				addRow({ icon = mark[1], title = "① Les 4 plumes dorées · " .. k .. "/4", desc = step == 0 and "Parle à la Mère Poule pour commencer." or "Suis la flèche jaune : elle te mène vers la plume la plus proche." })
+				addRow({ icon = mark[2], title = "② Les 4 runes autour du Grand Œuf", desc = "Chaque plume parle de la rune de sa direction. Règle-la, puis touche le Grand Œuf." })
+				addRow({ icon = mark[3], title = "③ La berceuse", desc = step == 3 and ("Répète la suite de pierres (" .. (type(hen.lullabyPos) == "number" and hen.lullabyPos or 0) .. "/" .. Config.HEN.lullabyLength .. ").") or "Les pierres s'allument : touche-les dans le même ordre." })
+				local found = {}
+				for dir = 1, 4 do
+					if type(hen.clues) == "table" and hen.clues[dir] then
+						found[#found + 1] = Riddle.format(Config.HEN_LINES.feather, { dir = Riddle.DIR_OF[dir], clue = hen.clues[dir] })
+					end
+				end
+				if #found > 0 then
+					addNote(table.concat(found, "\n"))
+				end
+				local cur = {}
+				for i, dir in ipairs(Config.RUNE_DIRECTIONS) do
+					local unlocked = type(hen.feathers) == "number" and Riddle.hasFeather(hen.feathers, i)
+					cur[#cur + 1] = dir .. " " .. (unlocked and Config.RUNES[state.runes[i]] or "🔒")
+				end
+				addRow({ icon = "🔮", title = "Tes runes : " .. table.concat(cur, " · "), desc = "🔒 = la rune attend sa plume. Le Grand Œuf dit combien de runes sont justes (pas lesquelles)." })
+			end
+			local fr = type(hen.fragments) == "number" and hen.fragments or 0
+			addNote("🥚 Fragments du Grand Œuf : " .. fr % Config.HEN.fragmentsForEgg .. "/" .. Config.HEN.fragmentsForEgg .. " (" .. fr .. " au total). À 7 : un œuf Légendaire et le titre « Ami de la Mère Poule ». Récompense du jour : un œuf " .. Config.TIERS[Config.PUZZLE_EGG_TIER].name .. ", des pièces et 1 fragment. 💡 Un coup de bec (2 indices par jour) se demande à la Mère Poule.")
 		end
-		addRow({
-			icon = state.puzzleDone and "✅" or "🔮",
-			title = state.puzzleDone and "Énigme résolue aujourd'hui !" or ("Tes runes : " .. table.concat(cur, " · ")),
-			desc = state.puzzleDone and "Reviens demain pour une nouvelle énigme." or "Tourne chaque rune autour du Grand Nid, puis touche le Nid pour valider.",
-		})
-		addNote("Le Nord est du côté des rivaux. Chaque rune a 4 symboles : " .. table.concat(Config.RUNES, " ") .. ". Récompense : un œuf " .. Config.TIERS[Config.PUZZLE_EGG_TIER].name .. " et des pièces. Une résolution par jour (une pause de quelques secondes suit chaque erreur). Énigmes résolues : " .. state.puzzleSolved .. ".")
 	elseif panel.name == "quests" then
 		addNote("Les missions se renouvellent chaque jour.")
 		for i, q in ipairs(state.quests) do
@@ -1260,6 +1291,15 @@ function refreshObjective()
 		TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(tut.goal > 0 and tut.prog / tut.goal or 1, 1) }):Play()
 		return
 	end
+	local hq = state and henUi and henUi.objective(state) -- énigme de la Mère Poule : « 🐔 La Mère Poule t'appelle » puis « 📜 Berceuse du jour »
+	if hq then
+		objCard.Visible = not panelFrame.Visible
+		objTitle.Text = hq.title
+		objText.Text = hq.text
+		objStroke.Color = COL.yellow
+		TweenService:Create(objBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(math.clamp(hq.frac, 0, 1), 1) }):Play()
+		return
+	end
 	local o = state and Config.HUD.objective and Config.objective(state.story)
 	objCard.Visible = o ~= nil and o ~= false and not (panelFrame.Visible)
 	if not o then
@@ -1453,6 +1493,9 @@ task.spawn(function()
 end)
 RState.OnClientEvent:Connect(function(snap)
 	state = snap
+	if henUi then
+		pcall(henUi.onState, snap)
+	end
 	if type(snap.away) == "number" and snap.away >= 1 then
 		awayCard.Text = "💤 Gains pendant ton absence : " .. fmt(snap.away) .. " 🪙\nTouche pour récupérer"
 		awayCard.Visible = true
@@ -1610,7 +1653,7 @@ task.spawn(function()
 					claimable = true
 				end
 			end
-			navDots.quests.Visible = claimable
+			navDots.quests.Visible = claimable or (type(state.hen) == "table" and state.hen.alert == true)
 			navDots.bonus.Visible = state.dailyReady
 			local achReady = false
 			for _, a in ipairs(Config.ACHIEVEMENTS) do
@@ -1727,6 +1770,10 @@ task.spawn(function()
 		local root = char and char:FindFirstChild("HumanoidRootPart")
 		if state and root then
 			local ob = onboardStep()
+			local henT = nil -- énigme : la Mère Poule, puis la plume la plus proche, puis le Grand Œuf (la piste d'entraînement garde la priorité à l'étape 0)
+			if not ob and state.carry == 0 and henUi and type(state.hen) == "table" and (state.hen.step ~= 0 or (player:GetAttribute("Speed") or 0) >= 8) then
+				henT = henUi.guideTarget(root)
+			end
 			if ob and ob.target == "home" then
 				target = player.RespawnLocation -- flèche vers la base : œuf offert (étape 1) ou œuf du tapis à poser (étape 3)
 			elseif ob and ob.target == "belt" then
@@ -1753,6 +1800,8 @@ task.spawn(function()
 			elseif state.carry > 0 then
 				local spawnPad = player.RespawnLocation
 				target = spawnPad
+			elseif henT then
+				target = henT
 			elseif state.hatched > 0 and state.stolen == 0 then
 				local best, bd = nil, math.huge
 				for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
@@ -1900,6 +1949,14 @@ do
 		end
 	end)
 end
+
+-- Énigme de la Mère Poule (lot 6) : dialogue, ❗, plumes, berceuse. Sous pcall : une erreur ici ne doit jamais bloquer le reste du client.
+pcall(function()
+	henUi = HenUi.start({ Config = Config, Riddle = Riddle, player = player, gui = gui, make = make, corner = corner, COL = COL, FONT = FONT, RAction = RAction, RHen = RHen, playSound = playSound })
+	if state then
+		henUi.onState(state)
+	end
+end)
 
 -- Mini-carte (coin droit, bouton 🗺 ou touche M) : toi, ta base, les zones, les portails de voyage rapide et les gardiens proches.
 pcall(function()

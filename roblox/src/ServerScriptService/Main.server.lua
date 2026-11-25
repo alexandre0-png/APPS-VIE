@@ -20,8 +20,10 @@ local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Gua
 local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
 local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
 local Traps = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Traps")) -- pièges des territoires (lot 4)
+local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule : règles pures (lot 6)
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
+local HenQuest = require(script.Parent:WaitForChild("HenQuest")) -- énigme de la Mère Poule : état, prompts, récompense (lot 6)
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
 
 Players.CharacterAutoLoads = false
@@ -39,6 +41,7 @@ end
 local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
 local RTop = newRemote("Top")
 local RBattle = newRemote("Battle") -- serveur -> client : début, tours (événements à rejouer) et fin des combats de l'Arène des pets
+local RHen = newRemote("Hen") -- serveur -> client : répliques de la Mère Poule (identifiant + paramètres), berceuse à jouer, retour des touches, plume ramassée
 
 ---------------------------------------------------------------- Monde
 local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
@@ -129,6 +132,7 @@ local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
+local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
@@ -318,24 +322,10 @@ local function updateSign(s)
 	s.plot.nameLabel.Text = "🏠 Base de " .. s.player.DisplayName .. " · " .. r.emoji .. " " .. r.name
 end
 
----------------------------------------------------------------- Énigme du jour (identique pour tous) et statistiques de succès
-local riddleCache = { day = -1, riddle = nil }
-local function currentRiddle()
-	local day = os.time() // 86400
-	if riddleCache.day ~= day then
-		riddleCache.day = day
-		riddleCache.riddle = Config.riddleFor(day)
-		for _, lbl in ipairs(world.riddleLabels) do
-			lbl.Text = riddleCache.riddle.text
-		end
-	end
-	return riddleCache.riddle
-end
-currentRiddle() -- écrit l'énoncé sur les panneaux dès le démarrage
-
+---------------------------------------------------------------- Statistiques de succès (l'énigme du jour est dans HenQuest)
 local function statValues(s)
 	local d = s.data
-	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved, tower = d.battle.best }
+	return { hatched = d.hatched, stolen = d.stolen, species = s.species, rb = d.rb, puzzles = d.puzzle.solved, tower = d.battle.best, fragments = d.puzzle.fragments }
 end
 
 ---------------------------------------------------------------- Synchronisation client
@@ -380,7 +370,7 @@ local function snapshot(s)
 		species = s.species,
 		collection = Config.collectionBonus(s.species),
 		runes = s.runes,
-		riddle = currentRiddle().text,
+		hen = Hen and Hen.snapshot(s) or nil, -- énigme de la Mère Poule : étape, plumes, indices (lot 6) ; aucun indice n'est envoyé avant le ramassage de la plume
 		puzzleDone = d.puzzle.day == today,
 		puzzleSolved = d.puzzle.solved,
 		ach = d.ach,
@@ -979,71 +969,6 @@ function speedUpEgg(s, i, who)
 	end
 end
 
----------------------------------------------------------------- Énigme des runes
--- Récompense : un œuf (ou son prix en pièces si la base est pleine) + des pièces. Une résolution par jour et par joueur.
-local function solvePuzzle(s)
-	local d = s.data
-	d.puzzle.day = os.time() // 86400
-	d.puzzle.solved += 1
-	local tier = Config.PUZZLE_EGG_TIER
-	local i = freeSlot(s)
-	local coins = Config.puzzleCoins(income(s))
-	if i then
-		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
-		refreshPad(s, i)
-	else
-		coins += Config.EGG_PRICE[tier]
-	end
-	d.coins += coins
-	s.runes = { 1, 1, 1, 1 }
-	Builder.burst(world.monumentCenter, Color3.fromRGB(255, 214, 120), 140, true)
-	notify(s.player, "🔮 Énigme résolue ! +" .. Config.fmt(coins) .. " 🪙" .. (i and (" et un œuf " .. Config.TIERS[tier].name .. " dans ta base") or " (base pleine : l'œuf est converti en pièces)"), "rare")
-	sp(s, "puzzle", 1)
-	sync(s)
-end
-
-local function rotateRune(s, root, prompt)
-	local idx = prompt:GetAttribute("Idx")
-	if type(idx) ~= "number" or idx % 1 ~= 0 or idx < 1 or idx > #Config.RUNES then
-		return
-	end
-	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 16 then
-		return
-	end
-	local now = os.clock()
-	if now - s.lastRune < 0.12 then
-		return
-	end
-	s.lastRune = now
-	s.runes[idx] = s.runes[idx] % #Config.RUNES + 1
-	sync(s)
-end
-
-local function confirmRunes(s, root, prompt)
-	if not prompt.Parent or (root.Position - prompt.Parent.Position).Magnitude > 20 then
-		return
-	end
-	local d = s.data
-	if d.puzzle.day == os.time() // 86400 then
-		notify(s.player, "🔮 Tu as déjà résolu l'énigme du jour. Reviens demain !")
-		return
-	end
-	local now = os.clock()
-	if now < s.runeLock then
-		notify(s.player, "🔮 Les runes se reposent… patiente quelques secondes.")
-		return
-	end
-	local answer = currentRiddle().answer
-	for i = 1, #answer do
-		if s.runes[i] ~= answer[i] then
-			s.runeLock = now + Config.RUNE_LOCK_SECONDS
-			notify(s.player, "🔮 Les runes restent muettes… relis l'énigme de Mère Poule.", "caught")
-			return
-		end
-	end
-	solvePuzzle(s)
-end
-
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
@@ -1163,7 +1088,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		return
 	end
 	local kind = prompt:GetAttribute("Kind")
-	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" then
+	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" and kind ~= "HenTalk" and kind ~= "Feather" then
 		return
 	end
 	local s = sessions[player]
@@ -1171,11 +1096,18 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	if not s or not root or not alive(player) or s.stun > 0 then
 		return
 	end
-	if kind == "Rune" then
-		rotateRune(s, root, prompt)
-		return
-	elseif kind == "RuneConfirm" then
-		confirmRunes(s, root, prompt)
+	if kind == "Rune" or kind == "RuneConfirm" or kind == "HenTalk" or kind == "Feather" then
+		if Hen then -- énigme de la Mère Poule (toutes les validations sont dans HenQuest)
+			if kind == "Rune" then
+				Hen.stoneTap(s, root, prompt)
+			elseif kind == "RuneConfirm" then
+				Hen.confirmRunes(s, root)
+			elseif kind == "HenTalk" then
+				Hen.talk(s, root)
+			else
+				Hen.pickFeather(s, root, prompt)
+			end
+		end
 		return
 	end
 	local now = os.clock()
@@ -1868,9 +1800,9 @@ tint.Name = "EventTint"
 tint.Parent = Lighting
 local evTimer = rng:NextNumber(25, 40)
 
-local function setEvent(cfg)
+local function setEvent(cfg, seconds)
 	if cfg then
-		currentEvent = { cfg = cfg, ends = os.time() + Config.EVENT_DURATION }
+		currentEvent = { cfg = cfg, ends = os.time() + (type(seconds) == "number" and seconds or Config.EVENT_DURATION) } -- seconds : événement offert plus long (énigme, lot 6)
 		workspace:SetAttribute("EventKey", cfg.key)
 		workspace:SetAttribute("EventEnds", currentEvent.ends)
 		tint.TintColor = cfg.tint
@@ -1901,6 +1833,13 @@ local function eventStep(dt)
 		end
 	end
 end
+
+-- Énigme de la Mère Poule (lot 6) : construite ici car elle déclenche l'événement « Pluie de chance » (setEvent) ; le gestionnaire de prompts la lit via `Hen`.
+Hen = HenQuest.new({
+	Config = Config, Riddle = Riddle, Builder = Builder, world = world, sessions = sessions, RHen = RHen,
+	notify = notify, sync = sync, getRoot = getRoot, freeSlot = freeSlot, hatchTime = hatchTime, shieldTime = shieldTime, refreshPad = refreshPad,
+	income = income, story = sp, setEvent = setEvent,
+})
 
 ---------------------------------------------------------------- Boucles de jeu
 local function fastTick(dt)
@@ -2026,7 +1965,6 @@ end
 
 local function slowTick(dt)
 	eventStep(dt)
-	currentRiddle() -- change l'énoncé à minuit (UTC)
 	for _, n in ipairs(world.nests) do
 		if not n.egg then
 			n.rt -= dt
@@ -2542,6 +2480,20 @@ function actions.sellDupes(s)
 	rebuildFollowers(s)
 	notify(s.player, "⭐ " .. #list .. " doublon(s) échangé(s) : +" .. Config.fmt(total) .. " 🪙", "claim")
 	sync(s)
+end
+
+-- Dialogue de la Mère Poule (lot 6) : boutons « J'y vais ! », « Explique encore », « 💡 Un coup de bec », « 🔁 Réécouter » (intentions seulement).
+function actions.henGo(s)
+	return Hen and Hen.go(s)
+end
+function actions.henExplain(s)
+	return Hen and Hen.explain(s)
+end
+function actions.henHint(s)
+	return Hen and Hen.hint(s)
+end
+function actions.henReplay(s)
+	return Hen and Hen.replay(s)
 end
 
 function actions.rebirth(s)
