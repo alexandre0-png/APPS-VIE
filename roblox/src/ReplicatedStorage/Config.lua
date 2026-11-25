@@ -951,22 +951,37 @@ Config.TUTORIAL = {
 	{ id = "hatch3", stat = "hatched", goal = 4, text = "Fais éclore 4 œufs" },
 	{ id = "species3", stat = "species", goal = 3, text = "Découvre 3 espèces de pets" },
 }
--- st = { hatched, stolen, species } ; retourne { index, total, text, prog, goal } de la première étape non terminée, ou nil (tutoriel fini).
--- Premières secondes : l'œuf de départ est OFFERT et déjà posé dans la base (il éclot en quelques secondes). Trois étapes courtes, passables :
--- 1 aller vers l'œuf (flèche), 2 le toucher pour l'accélérer, 3 le regarder éclore. `nearEgg` : le joueur est près de sa base ; `remaining` : secondes avant l'éclosion.
-function Config.onboarding(hatched, nearEgg, remaining)
-	if type(hatched) ~= "number" or hatched >= 1 then
+-- Onboarding en 4 étapes (Config.ONBOARD2), chacune passable : 1 toucher son œuf (aller vers lui, le toucher, le voir éclore), 2 prendre l'œuf de bienvenue sur le
+-- tapis (flèche vers (10, 0)), 3 le poser dans sa base, 4 chiper un œuf dans l'enclos sauvage (flèche vers (75, -105)). `nearEgg` : le joueur est près de sa base ;
+-- `remaining` : secondes avant l'éclosion ; `extra` = { stolen, carry, welcome } (état du serveur : welcome = wait / offered / taken / gone / none).
+-- Retourne { index, total, text, target } (target : home / belt / wild) ou nil quand tout est fait.
+function Config.onboarding(hatched, nearEgg, remaining, extra)
+	if type(hatched) ~= "number" then
 		return nil
 	end
-	if not nearEgg then
-		return { index = 1, total = 3, text = "🥚 Ton œuf offert t'attend dans ta base : suis la flèche" }
+	local T = Config.ONBOARD2
+	if hatched < 1 then
+		local text = "🐣 Il éclot ! Regarde ce que tu obtiens"
+		if not nearEgg then
+			text = "🥚 Ton œuf offert t'attend dans ta base : suis la flèche"
+		elseif type(remaining) == "number" and remaining > 2 then
+			text = T[1]
+		end
+		return { index = 1, total = #T, text = text, target = "home" }
 	end
-	if type(remaining) == "number" and remaining > 2 then
-		return { index = 2, total = 3, text = "👆 Touche l'œuf : il éclot plus vite" }
+	if type(extra) ~= "table" or (extra.stolen or 0) >= 1 then
+		return nil
 	end
-	return { index = 3, total = 3, text = "🐣 Il éclot ! Regarde ce que tu obtiens" }
+	if (extra.carry or 0) > 0 then
+		return { index = 3, total = #T, text = T[3], target = "home" }
+	end
+	if extra.welcome == "wait" or extra.welcome == "offered" then
+		return { index = 2, total = #T, text = T[2], target = "belt" }
+	end
+	return { index = 4, total = #T, text = T[4], target = "wild" }
 end
 
+-- st = { hatched, stolen, species } ; retourne { index, total, text, prog, goal } de la première étape non terminée, ou nil (tutoriel fini).
 function Config.tutorial(st)
 	for i, step in ipairs(Config.TUTORIAL) do
 		local v = (st and st[step.stat]) or 0

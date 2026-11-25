@@ -40,12 +40,35 @@ function Belt.goldenLeft(st, now)
 	return math.max(0, st.goldenUntil - now)
 end
 
--- Ajoute `seconds` de tapis doré (cumulable, plafonné à `maxSeconds` restantes).
-function Belt.addGolden(Config, st, now, seconds)
+-- Ajoute `seconds` de tapis doré (cumulable, plafonné à `maxSeconds` restantes). `by` (optionnel) : nom du donateur, affiché sur le panneau.
+function Belt.addGolden(Config, st, now, seconds, by)
 	local G = Config.BELT.golden
+	if type(seconds) ~= "number" or seconds ~= seconds or seconds <= 0 then
+		return Belt.goldenLeft(st, now)
+	end
 	local left = Belt.goldenLeft(st, now)
 	st.goldenUntil = now + math.min(G.maxSeconds, left + seconds)
+	if by then
+		st.goldenBy = by
+	end
 	return Belt.goldenLeft(st, now)
+end
+
+-- « 9:05 » pour 545 secondes.
+function Belt.clock(seconds)
+	local n = math.max(0, math.floor((seconds or 0) + 0.999))
+	return string.format("%d:%02d", n // 60, n % 60)
+end
+
+-- Contenu du panneau du tapis : les deux tables de rareté (textes de Config.beltOddsText, donc identiques à la config), celle en vigueur, le compte à rebours du tapis doré.
+function Belt.panel(Config, st, now)
+	local left = Belt.goldenLeft(st, now)
+	local golden = left > 0
+	local status = "Tapis standard : un œuf toutes les " .. Config.BELT.interval .. " s"
+	if golden then
+		status = "✨ TAPIS DORÉ : " .. Belt.clock(left) .. (st.goldenBy and (" · Offert par " .. st.goldenBy) or "")
+	end
+	return { normal = Config.beltOddsText("normal"), golden = Config.beltOddsText("golden"), active = golden and "golden" or "normal", left = left, status = status }
 end
 
 -- Abscisse de l'œuf sur le tapis (de belt.x0 vers belt.x1 à `speed` studs/s) ; nil s'il est tombé dans le bac.

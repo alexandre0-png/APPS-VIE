@@ -1224,7 +1224,7 @@ skipBtn.Activated:Connect(function()
 end)
 -- Étape courante des 3 premières secondes (nil : terminé, passé ou joueur déjà expérimenté).
 local function onboardStep()
-	if onboardSkipped or not state or (state.hatched or 0) >= 1 then
+	if onboardSkipped or not state then
 		return nil
 	end
 	local char = player.Character
@@ -1239,7 +1239,7 @@ local function onboardStep()
 			break
 		end
 	end
-	return Config.onboarding(state.hatched or 0, near, remaining)
+	return Config.onboarding(state.hatched or 0, near, remaining, { stolen = state.stolen or 0, carry = state.carry or 0, welcome = state.welcome })
 end
 function refreshObjective()
 	local ob = onboardStep()
@@ -1696,8 +1696,27 @@ task.spawn(function()
 		local root = char and char:FindFirstChild("HumanoidRootPart")
 		if state and root then
 			local ob = onboardStep()
-			if ob and ob.index == 1 then
-				target = player.RespawnLocation -- flèche vers la base et l'œuf offert
+			if ob and ob.target == "home" then
+				target = player.RespawnLocation -- flèche vers la base : œuf offert (étape 1) ou œuf du tapis à poser (étape 3)
+			elseif ob and ob.target == "belt" then
+				local w = workspace:FindFirstChild("World")
+				target = w and w:FindFirstChild("CentralBelt") -- tapis roulant du marché, vers (10, 0)
+				for _, pr in ipairs(CollectionService:GetTagged("BeltEgg")) do
+					if pr:GetAttribute("ForUser") == player.UserId and pr.Parent and pr.Parent:IsA("BasePart") then
+						target = pr.Parent -- l'œuf de bienvenue à son nom, dès qu'il est posé
+					end
+				end
+			elseif ob and ob.target == "wild" then
+				for _, pr in ipairs(CollectionService:GetTagged("StealPrompt")) do
+					local pp = pr.Parent
+					if pr:GetAttribute("Owner") == nil and pp and pp:IsA("BasePart") then
+						local W = Config.TERR.wild
+						if math.sqrt((pp.Position.X - W.x) ^ 2 + (pp.Position.Z - W.z) ^ 2) <= W.r + 2 then
+							target = pp -- un nid de l'enclos sauvage (75, -105)
+							break
+						end
+					end
+				end
 			elseif ob then
 				target = nil
 			elseif state.carry > 0 then
@@ -1724,6 +1743,39 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
+
+---------------------------------------------------------------- Tapis du marché : œuf de bienvenue d'un autre joueur masqué, annonce visuelle des œufs Légendaire et plus
+-- Léger : une pulsation de Highlight par œuf rare (quelques-uns à la fois, 12 œufs au plus sur le tapis) ; tout est enfant de l'œuf, donc détruit avec lui.
+local function onBeltPrompt(pr)
+	local owner = pr:GetAttribute("ForUser")
+	if owner ~= nil and owner ~= player.UserId then
+		pr.Enabled = false -- l'œuf de bienvenue d'un autre : visible, mais pas pour moi (le serveur refuse de toute façon)
+	end
+end
+for _, pr in ipairs(CollectionService:GetTagged("BeltEgg")) do
+	onBeltPrompt(pr)
+end
+CollectionService:GetInstanceAddedSignal("BeltEgg"):Connect(onBeltPrompt)
+local function onBeltRare(egg)
+	if not egg:IsA("BasePart") then
+		return
+	end
+	local tier = egg:GetAttribute("Tier") or 4
+	local def = Config.TIERS[tier]
+	local hl = Instance.new("Highlight")
+	hl.Name = "BeltRareGlow"
+	hl.FillColor = def and def.color or COL.yellow
+	hl.OutlineColor = Color3.new(1, 1, 1)
+	hl.FillTransparency = 0.7
+	hl.OutlineTransparency = 0.1
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Parent = egg
+	TweenService:Create(hl, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { FillTransparency = 0.25 }):Play()
+end
+for _, egg in ipairs(CollectionService:GetTagged("BeltRare")) do
+	onBeltRare(egg)
+end
+CollectionService:GetInstanceAddedSignal("BeltRare"):Connect(onBeltRare)
 
 ---------------------------------------------------------------- Pets suiveurs (mouvement fluide calculé localement)
 RunService.RenderStepped:Connect(function(dt)

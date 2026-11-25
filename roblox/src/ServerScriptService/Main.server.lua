@@ -18,6 +18,7 @@ local Party = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Par
 local Reveal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Reveal"))
 local Guard = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Guard"))
 local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Castle"))
+local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
@@ -125,6 +126,7 @@ local rng = Random.new()
 local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
+local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
 
@@ -381,6 +383,7 @@ local function snapshot(s)
 		away = math.floor(d.pendingAway),
 		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
+		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 	}
 end
 
@@ -583,6 +586,10 @@ local function dropCarry(s)
 		return
 	end
 	for _, e in ipairs(s.carry) do
+		if e.belt and (e.paid or 0) > 0 then
+			s.data.coins += e.paid -- œuf du tapis perdu en route : les pièces sont rendues (il n'a pas de nid d'origine)
+			notify(s.player, "🪙 Œuf du tapis perdu : " .. Config.fmt(e.paid) .. " 🪙 rendues.")
+		end
 		returnEgg(e)
 	end
 	s.carry = {}
@@ -593,11 +600,11 @@ local function dropCarry(s)
 	end
 end
 
-local function afterTake(s)
+local function afterTake(s, msg, sfx)
 	rebuildCarry(s)
 	applySpeed(s)
 	sync(s)
-	notify(s.player, "🥚 Œuf volé ! Rapporte-le vite à ta base.", "steal")
+	notify(s.player, msg or "🥚 Œuf volé ! Rapporte-le vite à ta base.", sfx or "steal")
 end
 
 ---------------------------------------------------------------- Pets suiveurs (le déplacement est calculé côté client, le serveur ne fait que créer les modèles)
@@ -934,6 +941,10 @@ local function fastTravel(s, dest, prompt)
 end
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	if CollectionService:HasTag(prompt, "BeltEgg") then
+		beltBuy(player, prompt)
+		return
+	end
 	if CollectionService:HasTag(prompt, "FastTravel") then
 		local ss = sessions[player]
 		if ss then
@@ -1742,6 +1753,253 @@ RunService.Heartbeat:Connect(function(dt)
 		slowTick(d1)
 	end
 end)
+
+---------------------------------------------------------------- Tapis roulant central (lot 3 de la refonte)
+-- Le serveur fait tout : Belt.step à 10 Hz (apparitions et sorties), un œuf visible par œuf du tapis (rareté et prix lisibles AVANT l'achat), un prompt
+-- par œuf, achat par réservation atomique (Belt.tryBuy) après validation de la distance, des pièces et du sac. L'œuf acheté passe dans les bras du joueur
+-- (s.carry, comme un œuf chipé) et doit être rapporté à la base. Tout œuf visuel est détruit à sa sortie (bac) ou à son achat : aucun objet ne fuit.
+local BC = Config.BELT
+local beltSt = Belt.new(rng:NextInteger(1, 2147483000), os.clock() + 2)
+local beltFolder = Instance.new("Folder")
+beltFolder.Name = "BeltEggs"
+beltFolder.Parent = workspace
+local beltEggs = {} -- [id] = { egg = œuf logique (Belt), part, prompt }
+local beltPanelAt, beltPanelKey = 0, ""
+local BELT_Y = 3.0 -- hauteur du centre d'un œuf posé sur le tapis
+local BELT_REACH = 14 -- distance serveur maximale joueur -> œuf (le prompt s'active à 10 ; marge pour la latence et le défilement)
+
+local function beltRemoveVisual(id)
+	local v = beltEggs[id]
+	if v then
+		beltEggs[id] = nil
+		if v.egg.forUser and not v.egg.claimedBy then
+			local op = Players:GetPlayerByUserId(v.egg.forUser)
+			local os_ = op and sessions[op]
+			if os_ and os_.welcome == "offered" then
+				os_.welcome = "gone" -- l'œuf de bienvenue est tombé dans le bac sans être pris
+				sync(os_)
+			end
+		end
+		if v.part then
+			v.part:Destroy() -- détruit aussi le prompt, l'étiquette, la lumière et le halo
+		end
+	end
+end
+
+local function beltAnnounce(tier)
+	local t = Config.TIERS[tier]
+	for _, p in ipairs(Players:GetPlayers()) do
+		notify(p, "✨ Un œuf " .. t.name .. " arrive sur le tapis du marché !", Config.hatchSoundKey(tier, false))
+	end
+end
+
+local function beltAddVisual(egg, ownerName)
+	local t = Config.TIERS[egg.tier]
+	local part = Builder.egg(egg.tier, true)
+	local x = Belt.positionX(Config, egg, os.clock()) or Config.Map2.belt.x0
+	part.CFrame = CFrame.new(x, BELT_Y, Config.Map2.belt.z)
+	part:SetAttribute("EggId", egg.id)
+	part:SetAttribute("Tier", egg.tier)
+	part:SetAttribute("Price", egg.price)
+	if egg.forUser then
+		part:SetAttribute("ForUser", egg.forUser)
+	end
+	CollectionService:AddTag(part, "EggShake")
+	local rare = egg.tier >= 4
+	if rare then
+		CollectionService:AddTag(part, "BeltRare") -- annonce visuelle côté client
+	end
+	local pr = Instance.new("ProximityPrompt")
+	if egg.forUser then
+		pr.ActionText = "Prendre (gratuit)"
+		pr.ObjectText = "Œuf de bienvenue"
+	else
+		pr.ActionText = "Acheter 🪙 " .. Config.fmt(egg.price)
+		pr.ObjectText = "Œuf " .. t.name
+	end
+	pr.HoldDuration = 0.3
+	pr.MaxActivationDistance = 10
+	pr.RequiresLineOfSight = false
+	pr.Enabled = not rare -- Légendaire et plus : le prompt s'active après Config.BELT.legendaryDelay (voir beltStep)
+	pr:SetAttribute("EggId", egg.id)
+	if egg.forUser then
+		pr:SetAttribute("ForUser", egg.forUser)
+	end
+	pr.Parent = part
+	CollectionService:AddTag(pr, "BeltEgg")
+	local label
+	if egg.forUser then
+		label = "🎁 Œuf de bienvenue de " .. tostring(ownerName or "?") .. "\nGratuit"
+	else
+		label = t.name .. "\n🪙 " .. Config.fmt(egg.price)
+	end
+	Builder.sign(part, label, t.color, 3, 200)
+	part.Parent = beltFolder
+	beltEggs[egg.id] = { egg = egg, part = part, prompt = pr }
+	if rare then
+		beltAnnounce(egg.tier)
+	end
+end
+
+local function beltPanelUpdate(now)
+	local b = world.belt
+	if not b then
+		return
+	end
+	local info = Belt.panel(Config, beltSt, now)
+	local key = info.active .. "|" .. info.status
+	if key == beltPanelKey then
+		return
+	end
+	beltPanelKey = key
+	local mark = "▶ "
+	b.panel.normal.Text = (info.active == "normal" and mark or "") .. "Standard : " .. info.normal
+	b.panel.golden.Text = (info.active == "golden" and mark or "") .. "Doré : " .. info.golden
+	b.panel.normal.TextColor3 = info.active == "normal" and Color3.fromRGB(255, 220, 90) or Color3.fromRGB(190, 190, 205)
+	b.panel.golden.TextColor3 = info.active == "golden" and Color3.fromRGB(255, 220, 90) or Color3.fromRGB(190, 190, 205)
+	b.panel.status.Text = info.status
+end
+
+local function beltStep()
+	local now = os.clock()
+	local spawned, removed = Belt.step(Config, beltSt, now)
+	for _, e in ipairs(removed) do
+		beltRemoveVisual(e.id)
+	end
+	for _, e in ipairs(spawned) do
+		local owner = e.forUser and Players:GetPlayerByUserId(e.forUser)
+		beltAddVisual(e, owner and owner.DisplayName)
+	end
+	local alive_ = {}
+	for _, e in ipairs(beltSt.eggs) do
+		alive_[e.id] = true
+	end
+	local stale = {}
+	for id in pairs(beltEggs) do
+		if not alive_[id] then
+			stale[#stale + 1] = id -- vendu, parti ou jamais revu dans la liste du tapis : plus aucun objet orphelin
+		end
+	end
+	for _, id in ipairs(stale) do
+		beltRemoveVisual(id)
+	end
+	for _, e in ipairs(beltSt.eggs) do
+		local v = beltEggs[e.id]
+		if v then
+			local x = Belt.positionX(Config, e, now)
+			if x then
+				v.part.CFrame = CFrame.new(x, BELT_Y, Config.Map2.belt.z)
+			end
+			if not v.prompt.Enabled and now - e.born >= BC.legendaryDelay then
+				v.prompt.Enabled = true
+			end
+		end
+	end
+	if now - beltPanelAt >= 1 then
+		beltPanelAt = now
+		beltPanelUpdate(now)
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		local ok, err = pcall(beltStep)
+		if not ok then
+			warn("[belt] " .. tostring(err))
+		end
+	end
+end)
+
+-- Action serveur INTERNE : ajoute des secondes de tapis doré (cumulables, plafonnées). Le produit Robux la branchera plus tard (lot 7) ; aucun ProcessReceipt ici.
+local function goldenBeltAdd(seconds, byName)
+	local left = Belt.addGolden(Config, beltSt, os.clock(), seconds, byName)
+	beltPanelKey = ""
+	return left
+end
+Builder.beltHooks = { goldenAdd = goldenBeltAdd, stats = function() -- crochet interne (tests, lot 7) : jamais exposé aux clients
+	local n = 0
+	for _ in pairs(beltEggs) do
+		n += 1
+	end
+	return { eggs = #beltSt.eggs, visuals = n, children = #beltFolder:GetChildren(), sold = beltSt.sold, goldenLeft = Belt.goldenLeft(beltSt, os.clock()) }
+end }
+
+-- Œuf de bienvenue : une fois par joueur, 20 s après l'arrivée, si hatched < 5 ; gratuit, étiqueté à son nom, achetable par lui seul.
+local function beltWelcome(player, s)
+	for _ = 1, 8 do
+		if not (player.Parent and sessions[player] == s) then
+			return
+		end
+		local egg = Belt.welcome(Config, beltSt, player.UserId, s.data.hatched, os.clock())
+		if egg then
+			s.welcome = "offered"
+			beltAddVisual(egg, player.DisplayName)
+			notify(player, "🎁 Un œuf de bienvenue t'attend sur le tapis du marché : il est gratuit, et il est à toi !", "event")
+			sync(s)
+			return
+		end
+		if s.data.hatched >= BC.welcome.maxHatched or beltSt.welcomed[player.UserId] then
+			s.welcome = "none"
+			sync(s)
+			return
+		end
+		task.wait(1.5) -- tapis plein : on réessaie
+	end
+	s.welcome = "none"
+end
+
+local BELT_MSG = {
+	late = "Trop tard ! Quelqu'un a pris cet œuf.",
+	gone = "Trop tard ! Cet œuf n'est plus sur le tapis.",
+	cooldown = "Attends un peu avant d'acheter un autre œuf.",
+	wait = "Attends un instant : cet œuf rare vient d'arriver.",
+	reserved = "Cet œuf de bienvenue est réservé à un autre joueur.",
+	legendaryLimit = "Un seul œuf Légendaire ou plus par minute et par joueur.",
+}
+
+function beltBuy(player, prompt)
+	local s, root = sessions[player], getRoot(player)
+	if not s or not root or not alive(player) or s.stun > 0 then
+		return
+	end
+	local now = os.clock()
+	if now - (s.lastBeltTry or -10) < 0.25 then
+		return -- anti-rafale
+	end
+	s.lastBeltTry = now
+	local id = prompt:GetAttribute("EggId")
+	local v = type(id) == "number" and beltEggs[id] or nil
+	if not v or prompt.Parent ~= v.part then
+		notify(player, BELT_MSG.late, "refuse") -- l'œuf a déjà été pris (ou est tombé dans le bac) pendant que la demande voyageait
+		return
+	end
+	if (root.Position - v.part.CFrame.Position).Magnitude > BELT_REACH then
+		return
+	end
+	if #s.carry >= carryCap(s.data) then
+		notify(player, "Sac plein ! Rapporte tes œufs à ta base.")
+		return
+	end
+	local ok, res = Belt.tryBuy(Config, beltSt, player.UserId, id, s.data.coins, now)
+	if not ok then
+		if res == "poor" then
+			notify(player, "Pas assez de pièces : il te faut " .. Config.fmt(v.egg.price) .. " 🪙.", "refuse")
+		else
+			notify(player, BELT_MSG[res] or "Achat impossible.", "refuse")
+		end
+		return
+	end
+	local egg = res
+	s.data.coins -= egg.price
+	beltRemoveVisual(egg.id)
+	Builder.burst(v.part.CFrame.Position, Config.TIERS[egg.tier].color, 10, false)
+	s.carry[#s.carry + 1] = { t = egg.tier, rem = hatchTime(s, egg.tier), belt = true, paid = egg.price }
+	if egg.forUser then
+		s.welcome = "taken"
+	end
+	afterTake(s, "🥚 Œuf " .. Config.TIERS[egg.tier].name .. (egg.price > 0 and (" acheté (-" .. Config.fmt(egg.price) .. " 🪙)") or " pris") .. " ! Porte-le vite dans ta base.", egg.price > 0 and "buy" or "claim")
+end
 
 ---------------------------------------------------------------- Actions du client
 local actions = {}
@@ -2589,6 +2847,10 @@ local function onJoin(player)
 	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
+	s.welcome = "wait"
+	task.delay(Config.BELT.welcome.delay, function()
+		beltWelcome(player, s) -- œuf de bienvenue du tapis (une fois, 20 s après l'arrivée)
+	end)
 	player:SetAttribute("PlotCF", plot.cf) -- position de la base : sert aux caméras des cinématiques (réplication sûre)
 	player.RespawnLocation = plot.spawn
 	player.CharacterAdded:Connect(function(char)

@@ -1830,6 +1830,69 @@ function Builder.build()
 		result.treadmill = { cf = belt.CFrame, size = belt.Size }
 	end
 
+	-- Tapis roulant central du marché (lot 3) : sort de la halle, avance vers +X, finit dans le bac. AUCUN effet de vitesse sur les joueurs :
+	-- rien n'y est solide (on le traverse comme un décor), les œufs y sont posés par le serveur (Main, section « Tapis roulant central »). ---
+	do
+		local B = M2.belt
+		local len = B.x1 - B.x0
+		local mx = (B.x0 + B.x1) / 2
+		local steel, amber = Color3.fromRGB(52, 56, 66), Color3.fromRGB(255, 196, 64)
+		local body = part({ Name = "CentralBelt", Size = Vector3.new(len, 0.8, B.width), Position = Vector3.new(mx, 0.4, B.z), Color = steel, Material = Enum.Material.Metal, CanCollide = false }, world)
+		for _, sz in ipairs({ -B.width / 2 - 0.4, B.width / 2 + 0.4 }) do
+			part({ Name = "BeltRail", Size = Vector3.new(len, 1.2, 0.8), Position = Vector3.new(mx, 0.6, B.z + sz), Color = amber, Material = Enum.Material.Neon, CanCollide = false }, world)
+		end
+		for k = 0, math.floor(len / 6) - 1 do -- repères fixes (le mouvement vient des œufs)
+			part({ Name = "BeltMark", Size = Vector3.new(1.2, 0.1, B.width - 2), Position = Vector3.new(B.x0 + 3 + k * 6, 0.85, B.z), Color = amber, Material = Enum.Material.Neon, CanCollide = false }, body)
+		end
+		-- le bac : l'œuf qui arrive au bout y tombe et disparaît
+		local bx, bz = B.bin.x, B.bin.z
+		part({ Name = "BeltBinFloor", Size = Vector3.new(7, 0.8, B.width + 2), Position = Vector3.new(bx, 0.4, bz), Color = Color3.fromRGB(70, 48, 36), Material = Enum.Material.Wood }, world)
+		part({ Name = "BeltBinWall", Size = Vector3.new(1, 3, B.width + 2), Position = Vector3.new(bx + 3.5, 1.5, bz), Color = Color3.fromRGB(96, 66, 48), Material = Enum.Material.Wood }, world)
+		part({ Name = "BeltBinBack", Size = Vector3.new(7, 2, 1), Position = Vector3.new(bx, 1.2, bz - B.width / 2 - 0.5), Color = Color3.fromRGB(96, 66, 48), Material = Enum.Material.Wood }, world)
+		part({ Name = "BeltBinFront", Size = Vector3.new(7, 2, 1), Position = Vector3.new(bx, 1.2, bz + B.width / 2 + 0.5), Color = Color3.fromRGB(96, 66, 48), Material = Enum.Material.Wood }, world)
+		-- panneau : deux tables de rareté (celle en vigueur en surbrillance) et compte à rebours du tapis doré ; mis à jour par Main
+		local post = part({ Name = "BeltPanelPost", Size = Vector3.new(1, 9, 1), Position = Vector3.new(mx, 4.5, B.z - B.width / 2 - 5), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, world)
+		local g = Instance.new("BillboardGui")
+		g.Name = "BeltPanel"
+		g.Adornee = post
+		g.Size = UDim2.fromOffset(440, 168)
+		g.StudsOffsetWorldSpace = Vector3.new(0, 6.5, 0)
+		g.MaxDistance = 80
+		g.AlwaysOnTop = false
+		local frame = Instance.new("Frame")
+		frame.Name = "Card"
+		frame.Size = UDim2.fromScale(1, 1)
+		frame.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+		frame.BackgroundTransparency = 0.15
+		frame.BorderSizePixel = 0
+		frame.Parent = g
+		local function label(name, y, h, size, color)
+			local t = Instance.new("TextLabel")
+			t.Name = name
+			t.BackgroundTransparency = 1
+			t.Position = UDim2.new(0, 8, 0, y)
+			t.Size = UDim2.new(1, -16, 0, h)
+			t.Font = FONT
+			t.TextSize = size
+			t.TextColor3 = color
+			t.TextWrapped = true
+			t.TextXAlignment = Enum.TextXAlignment.Left
+			t.TextYAlignment = Enum.TextYAlignment.Top
+			t.Text = ""
+			t.Parent = frame
+			return t
+		end
+		local panel = {
+			title = label("Title", 4, 22, 18, Color3.fromRGB(255, 220, 90)),
+			normal = label("Normal", 30, 40, 12, Color3.fromRGB(235, 235, 245)),
+			golden = label("Golden", 74, 40, 12, Color3.fromRGB(235, 235, 245)),
+			status = label("Status", 120, 40, 16, Color3.fromRGB(255, 220, 90)),
+		}
+		panel.title.Text = "🛤️ TAPIS DU MARCHÉ · raretés"
+		g.Parent = post
+		result.belt = { body = body, panel = panel, gui = g, post = post }
+	end
+
 	-- Bases des joueurs : façade (-Z local) tournée vers la place, spawn devant ---------------------------
 	local N = Config.PLOT_COUNT
 	local half = M2.basePlatform / 2
