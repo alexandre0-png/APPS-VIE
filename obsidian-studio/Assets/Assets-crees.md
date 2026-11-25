@@ -68,3 +68,6 @@ m_buffet_bas 104815439105065 ; m_placard_haut 136718584759461 ; m_fauteuil_osier
 
 ## Lot 14 (21 nov) : pets v2 style chibi, mis à jour EN PLACE (mêmes IDs) : scripts/blender_make_pets_v2.py
 Les 18 pets (Poussin à Wyrm) sont remplacés par une version chibi (grosse tête, grands yeux à reflet, joues roses, pieds). IDs inchangés (table Config.Assets.pets de Chipe-Œufs). Le jeu charge la dernière version : aucune republication nécessaire.
+
+## Lot 16 (accessoires de marché et décor, refonte Chipe-Œufs) : scripts/blender_make_refonte_b.py (agent Haiku)
+stall_a 121243958605530 ; stall_b 94658977878853 ; crate_stack 72797022625881 ; barrel_pair 102360413338352 ; hay_bale 99760241706274 ; reeds 83409451845816 ; lily_pad 108143670859973 ; bush_round 72736930746142 ; sign_base 121260374584222 (sans lettrage) ; flag_banner 72351168707999 ; lantern_post 116378599429951 ; well_small 140033477297106.
