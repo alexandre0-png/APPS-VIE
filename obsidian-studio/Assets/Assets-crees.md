@@ -74,3 +74,6 @@ stall_a 121243958605530 ; stall_b 94658977878853 ; crate_stack 72797022625881 ; 
 
 ## Lot 15 (refonte Chipe-Œufs : maisons de base, dôme, tapis roulant, Grand Œuf, arène) : scripts/blender_make_refonte_a.py (agent Sonnet)
 house_lvl2 83993710226197 (26,6×28,6×21,3) ; house_lvl3 137211706941591 ; house_lvl4 131395542579523 ; house_lvl5 86282878742281 ; house_lvl6 92231252125110 ; house_lvl7 79107809937066 ; hub_dome 106786001814640 (60×60×24,4) ; conveyor_belt 110718997928428 (12×4,1×1,5) ; conveyor_end 107430030694559 ; grand_oeuf 140225439366673 (13,6×13,6×15,7 ; runes Flamme_Rune*) ; arena_colosseum 105443469311651 (70,8×70,8×21). Maisons : bâtiment à l'arrière (+y), escalier vers l'avant (-y). Limites : lvl4 sans portail de garage, lvl5 sans la terrasse de référence, petit défaut d'ombrage sur conveyor_end.
+
+## Lot 18 (petits objets de maison, agent Haiku) : scripts/blender_make_refonte_d.py
+books_stack 75235784527086; branch_chandelier 81736669133938; clock_wall 95777609232622; coffee_maker 112911908053394; oven_stove 87903538253499; plant_pot_a 86148706778494; plant_pot_b 121510089986414; rug_round 90438557881098; stool_side 134719337565962; toaster 139790299453025; vase_big 123819297063677; coffee_table_round 112871489043894; speaker_pair 120384220519044; wall_lamp 73563604591192
