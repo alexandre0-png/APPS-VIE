@@ -1877,13 +1877,13 @@ Config.BASE_LEVELS2 = {
 -- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
 -- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
 Config.UPGRADE_FX = { seconds = 4.5, scaffold = 0.8, dust = 0.4, swap = 1.5, party = 1.8, hide = 40, announceFrom = 6, confetti = 36 }
--- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » (`from` = niveau quitté, par défaut level - 1).
-function Config.upgradeBanner(level, from)
+-- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » .
+function Config.upgradeBanner(level)
 	local lv = Config.BASE_LEVELS[level]
 	if not lv then
 		return ""
 	end
-	local gain = Config.levelSlots(level) - Config.levelSlots(from or (level - 1))
+	local gain = Config.levelSlots(level) -- bonus d'emplacements de la maison de ce niveau (comme la table D.2 : « +2 emplacements » au niveau 5)
 	local parts = {}
 	if gain > 0 then
 		parts[#parts + 1] = "+" .. gain .. (gain > 1 and " emplacements" or " emplacement")
@@ -7072,8 +7072,8 @@ function Upgrade.new(Config, Easing)
 	end
 
 	-- Texte de la bannière : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % ».
-	function U.banner(level, from)
-		return Config.upgradeBanner(level, from)
+	function U.banner(level)
+		return Config.upgradeBanner(level)
 	end
 
 	-- La caméra large est-elle permise ? Propriétaire seul, sans œuf porté, pas poursuivi (`chased`), vivant, aucune autre cinématique en cours.
@@ -7953,7 +7953,7 @@ local function applyBase(s, celebrate, force)
 	s.player:SetAttribute("BaseScore", s.data.baseScore)
 	if rose or (celebrate and before and level > before) then
 		local lv = Config.BASE_LEVELS[level]
-		local text = Config.upgradeBanner(level, before)
+		local text = Config.upgradeBanner(level)
 		local player = s.player
 		-- la bannière, la fanfare et les confettis arrivent au début de la fête (après échafaudage, poussière et échange des maisons : 2,7 s)
 		task.delay(Config.UPGRADE_FX.scaffold + Config.UPGRADE_FX.dust + Config.UPGRADE_FX.swap, function()
@@ -18750,7 +18750,8 @@ function BaseUpgradeFx.start(env)
 				return
 			end
 			local cam = workspace.CurrentCamera
-			if cam and (cam.CFrame.Position - cf.Position).Magnitude > 260 then
+			local dist = cam and (cam.CFrame.Position - cf.Position).Magnitude
+			if type(dist) == "number" and dist > 260 then
 				return -- trop loin pour voir : le serveur remet la maison en place seul
 			end
 			local run = { scaffold = {}, plates = {}, t0 = os.clock(), p = p, dust1 = false, dust2 = false }
@@ -18888,8 +18889,12 @@ function BaseUpgradeFx.start(env)
 	end
 
 	-- Écoute des montées de niveau de tous les joueurs (chacun voit la transformation des autres bases, sans caméra).
-	local last = {}
+	local last, hooked = {}, {}
 	local function hook(p)
+		if hooked[p] then
+			return
+		end
+		hooked[p] = true
 		local lv = p:GetAttribute("BaseLevel")
 		last[p] = type(lv) == "number" and lv or nil
 		p:GetAttributeChangedSignal("BaseLevel"):Connect(function()
@@ -18904,12 +18909,16 @@ function BaseUpgradeFx.start(env)
 			end
 		end)
 	end
+	if Players.LocalPlayer then
+		hook(Players.LocalPlayer)
+	end
 	for _, p in ipairs(Players:GetPlayers()) do
 		hook(p)
 	end
 	Players.PlayerAdded:Connect(hook)
 	Players.PlayerRemoving:Connect(function(p)
 		last[p] = nil
+		hooked[p] = nil
 	end)
 	if env.skipEvent then
 		env.skipEvent.Event:Connect(api.skip)

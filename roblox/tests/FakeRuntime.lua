@@ -127,8 +127,30 @@ function Fake.runtime(opts)
 	function methods.GetAttribute(self, k)
 		return rawget(self, "__attrs")[k]
 	end
+	-- lot 5 : GetAttributeChangedSignal renvoie un signal MÉMORISÉ par attribut et SetAttribute le déclenche quand la valeur change (sinon les clients
+	-- qui réagissent aux attributs publiés par le serveur, comme la montée de niveau de la maison, ne seraient jamais exercés)
+	function methods.GetAttributeChangedSignal(self, name)
+		local sigs = rawget(self, "__sigs")
+		if not sigs then
+			sigs = {}
+			rawset(self, "__sigs", sigs)
+		end
+		if not sigs[name] then
+			sigs[name] = newProxy(rawget(self, "__path") .. ".AttributeChanged:" .. tostring(name), "Signal")
+		end
+		return sigs[name]
+	end
 	function methods.SetAttribute(self, k, v)
-		rawget(self, "__attrs")[k] = v
+		local attrs = rawget(self, "__attrs")
+		local old = attrs[k]
+		attrs[k] = v
+		local sigs = rawget(self, "__sigs")
+		local sig = sigs and sigs[k]
+		if sig and old ~= v then
+			for _, fn in ipairs(RT.conns[sig] or {}) do
+				RT.resume(coroutine.create(fn))
+			end
+		end
 	end
 	function methods.IsA(self, cls)
 		local c = rawget(self, "__class")

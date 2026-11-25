@@ -8592,7 +8592,14 @@ do
 				new += 1
 			end
 		end
-		check("Montée de niveau : après 4,5 s, une seule maison (l'ancienne a disparu, la nouvelle est en place), aucune erreur d'exécution" .. (#RT.errors == errBefore and "" or " : " .. tostring(RT.errors[#RT.errors])), old == 0 and new == 1 and #RT.errors == errBefore)
+		check("Montée de niveau : après 4,5 s, une seule maison (l'ancienne a disparu, la nouvelle est en place), aucune erreur d'exécution" .. (#RT.errors == errBefore and "" or " : " .. tostring(RT.errors[#RT.errors])), old == 0 and new == 1 and #RT.errors == errBefore and (function()
+			for _, w in ipairs(RT.warns) do
+				if tostring(w):find("[BaseUpgradeFx]", 1, true) then
+					return false
+				end
+			end
+			return true
+		end)())
 		check("Montée de niveau : le niveau est publié au client (BaseLevel) et la caméra large a été rendue (bandes cachées de nouveau)", cineGui ~= nil and rawget(cineGui, "__props").Enabled == false)
 		leave(me, 8301)
 	end

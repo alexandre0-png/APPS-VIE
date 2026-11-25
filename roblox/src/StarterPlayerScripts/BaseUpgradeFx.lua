@@ -104,7 +104,8 @@ function BaseUpgradeFx.start(env)
 				return
 			end
 			local cam = workspace.CurrentCamera
-			if cam and (cam.CFrame.Position - cf.Position).Magnitude > 260 then
+			local dist = cam and (cam.CFrame.Position - cf.Position).Magnitude
+			if type(dist) == "number" and dist > 260 then
 				return -- trop loin pour voir : le serveur remet la maison en place seul
 			end
 			local run = { scaffold = {}, plates = {}, t0 = os.clock(), p = p, dust1 = false, dust2 = false }
@@ -242,8 +243,12 @@ function BaseUpgradeFx.start(env)
 	end
 
 	-- Écoute des montées de niveau de tous les joueurs (chacun voit la transformation des autres bases, sans caméra).
-	local last = {}
+	local last, hooked = {}, {}
 	local function hook(p)
+		if hooked[p] then
+			return
+		end
+		hooked[p] = true
 		local lv = p:GetAttribute("BaseLevel")
 		last[p] = type(lv) == "number" and lv or nil
 		p:GetAttributeChangedSignal("BaseLevel"):Connect(function()
@@ -258,12 +263,16 @@ function BaseUpgradeFx.start(env)
 			end
 		end)
 	end
+	if Players.LocalPlayer then
+		hook(Players.LocalPlayer)
+	end
 	for _, p in ipairs(Players:GetPlayers()) do
 		hook(p)
 	end
 	Players.PlayerAdded:Connect(hook)
 	Players.PlayerRemoving:Connect(function(p)
 		last[p] = nil
+		hooked[p] = nil
 	end)
 	if env.skipEvent then
 		env.skipEvent.Event:Connect(api.skip)
