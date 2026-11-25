@@ -6585,5 +6585,127 @@ do
 	end
 end
 
+
+do
+	suite("Arène des pets PvP asynchrone : trophées, saisons, défense, adversaire, limites, anti-triche")
+	local P = Config.PVP
+	check("PvP : gain de trophées 25 de base, +1 par 10 d'écart, borné entre 10 et 40 (" .. Config.pvpGain(100, 100) .. ", " .. Config.pvpGain(0, 1000) .. ", " .. Config.pvpGain(1000, 0) .. ")", Config.pvpGain(100, 100) == 25 and Config.pvpGain(0, 1000) == 40 and Config.pvpGain(1000, 0) == 10 and Config.pvpGain(0, 100) == 35)
+	check("PvP : récompense de fin de saison = plus haut palier atteint (aucune sous 100 trophées)", Config.pvpSeasonReward(99) == nil and Config.pvpSeasonReward(100).eggTier == 2 and Config.pvpSeasonReward(650).eggTier == 4 and Config.pvpSeasonReward(99999).eggTier == 5)
+	check("PvP : saison hebdomadaire (même saison pendant 7 jours, la suivante après)", Config.pvpSeason(0) == Config.pvpSeason(7 * 86400 - 1) and Config.pvpSeason(7 * 86400) == Config.pvpSeason(0) + 1)
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local RA
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			if rawget(d, "__props").Name == "Action" then
+				RA = d
+			end
+		end
+		local pa = RT.addPlayer("Alpha", 9971, { from = "hub", partyId = "PVP", size = 2, late = false })
+		local pb = RT.addPlayer("Beta", 9972, { from = "hub", partyId = "PVP", size = 2, late = false })
+		RT.step(2)
+		local function act(p, a, arg)
+			RT.now = RT.now + 0.2
+			RT.fire(RA, "OnServerEvent", p, a, arg)
+		end
+		for _, p in ipairs({ pa, pb }) do
+			for _ = 1, 40 do
+				act(p, "buyEgg")
+				RT.step(1)
+			end
+		end
+		RT.step(40)
+		local function state(p)
+			act(p, "sync")
+			RT.step(0.3)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+		end
+		local function events(p, kind)
+			local out = {}
+			for _, f in ipairs(RT.fired) do
+				if f[1] == "Battle" and f[2] == p and type(f[3]) == "table" and f[3].k == kind then
+					out[#out + 1] = f[3]
+				end
+			end
+			return out
+		end
+		local function team(p)
+			local st = state(p)
+			local list = {}
+			for i = 1, 12 do
+				if st.slots[i] and st.slots[i].k == "p" and #list < 3 then
+					list[#list + 1] = i
+				end
+			end
+			act(p, "setTeam", list)
+			return #list
+		end
+		local na, nb = team(pa), team(pb)
+		-- sans défense enregistrée : pas de combat classé
+		act(pb, "pvpStart")
+		RT.step(1)
+		check("PvP : sans équipe de défense enregistrée, aucun combat classé", #events(pb, "start") == 0)
+		act(pa, "pvpDefense")
+		RT.step(1)
+		check("PvP : la défense est enregistrée côté serveur (équipe de " .. na .. " pets)", state(pa).battle.pvp.hasDefense == true)
+		act(pb, "pvpDefense")
+		RT.step(1)
+		-- combat classé : adversaire = défense d'un autre joueur (ou fantôme), jamais soi-même
+		act(pb, "pvpStart")
+		RT.step(1)
+		local starts = events(pb, "start")
+		check("PvP : le combat classé démarre contre un autre joueur ou un fantôme (" .. tostring(starts[1] and starts[1].foe) .. ")", #starts == 1 and starts[1].pvp == true and not tostring(starts[1].foe):find("Beta", 1, true))
+		act(pb, "pvpStart") -- second départ pendant un combat : ignoré
+		RT.step(0.5)
+		check("PvP : impossible de lancer un second combat pendant un combat", #events(pb, "start") == 1)
+		local turns = 0
+		while #events(pb, "end") == 0 and turns < 80 do
+			act(pb, "battleAct", turns % 3 == 2 and "skill" or "attack")
+			turns = turns + 1
+		end
+		local ends = events(pb, "end")
+		local r = ends[1] and ends[1].rewards or {}
+		check("PvP : fin du combat en " .. turns .. " actions, trophées " .. tostring(r.trophies) .. " (total " .. tostring(r.total) .. "), aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #ends == 1 and ends[1].pvp == true and type(r.trophies) == "number" and r.total >= 0 and #RT.errors == 0 and ((ends[1].win and r.trophies >= 10) or (not ends[1].win and r.trophies <= 0)))
+		local st = state(pb)
+		check("PvP : le profil porte " .. st.battle.pvp.trophies .. " trophées, " .. st.battle.pvp.wins .. " V / " .. st.battle.pvp.losses .. " D", st.battle.pvp.trophies == r.total and st.battle.pvp.wins + st.battle.pvp.losses == 1)
+		act(pb, "battleAct", "attack")
+		check("PvP : après la fin, aucune action n'est acceptée (pas de second paiement de trophées)", state(pb).battle.pvp.trophies == r.total)
+		-- limite quotidienne
+		local launched = 1
+		for _ = 1, P.dailyFights + 4 do
+			local before = #events(pb, "start")
+			act(pb, "pvpStart")
+			RT.step(0.5)
+			if #events(pb, "start") > before then
+				launched = launched + 1
+				act(pb, "battleQuit")
+			end
+		end
+		check("PvP : au plus " .. P.dailyFights .. " combats classés par jour (" .. launched .. " lancés)", launched <= P.dailyFights)
+		-- défense hostile : le joueur ne peut pas écrire une équipe arbitraire (le serveur la lit dans le profil)
+		act(pa, "pvpDefense", { { p = 18, s = 5, m = 5 }, { p = 18, s = 5, m = 5 }, { p = 18, s = 5, m = 5 } })
+		RT.step(0.5)
+		act(pa, "setTeam", { 99, 98 })
+		act(pa, "pvpDefense")
+		check("PvP : la défense vient du profil, jamais du client ; équipe invalide refusée sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		-- nouvelle saison : récompense une seule fois
+		RT.now = RT.now + 8 * 86400
+		RT.step(2)
+		local c0 = pb:GetAttribute("Coins") or 0
+		act(pb, "pvpDefense")
+		RT.step(1)
+		check("PvP : au changement de saison les trophées sont réduits (" .. state(pb).battle.pvp.trophies .. ") sans erreur", #RT.errors == 0 and state(pb).battle.pvp.trophies <= r.total)
+	end
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

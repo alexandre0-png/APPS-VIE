@@ -1386,6 +1386,29 @@ Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
 -- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
 Config.TOWER = { floors = 30, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse" } }
+-- PvP asynchrone : l'équipe de DÉFENSE enregistrée d'un autre joueur est simulée par le serveur (aucune latence réseau). Trophées, saisons d'une semaine,
+-- récompense de fin de saison selon le palier de trophées atteint ; 10 combats classés par jour. Aucun achat ne touche à la force des pets.
+Config.PVP = {
+	seasonSeconds = 7 * 86400, dailyFights = 10, winBase = 25, winMin = 10, winMax = 40, loss = 15, start = 0,
+	rewards = { { trophies = 100, coins = 5000, eggTier = 2 }, { trophies = 300, coins = 25000, eggTier = 3 }, { trophies = 600, coins = 100000, eggTier = 4, potion = true }, { trophies = 1000, coins = 400000, eggTier = 5, potion = true } },
+}
+function Config.pvpSeason(now)
+	return math.floor(now / Config.PVP.seasonSeconds)
+end
+-- Trophées gagnés : 25 de base, +1 par 10 trophées d'écart en faveur de l'adversaire, entre 10 et 40.
+function Config.pvpGain(mine, theirs)
+	return math.min(Config.PVP.winMax, math.max(Config.PVP.winMin, Config.PVP.winBase + math.floor((theirs - mine) / 10)))
+end
+function Config.pvpSeasonReward(trophies)
+	local best
+	for _, r in ipairs(Config.PVP.rewards) do
+		if trophies >= r.trophies then
+			best = r
+		end
+	end
+	return best
+end
+
 function Config.towerTier(floor) -- rareté des adversaires : étages 1-5 Commun ... 26-30 Cosmique
 	return math.min(#Config.TIERS, 1 + (math.max(1, floor) - 1) // 5)
 end
@@ -5963,7 +5986,7 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
-		battle = { team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
+		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 	}
 end
@@ -7671,12 +7694,65 @@ function actions.setTeam(s, arg)
 	RState:FireClient(s.player, snapshot(s))
 end
 
+-- PvP : saison en cours, remise à zéro douce des trophées et récompense de la saison écoulée (une seule fois, selon le palier atteint).
+local function pvpState(s)
+	local pv = s.data.battle.pvp
+	local season = Config.pvpSeason(os.time())
+	if pv.season ~= season then
+		local rw = pv.season > 0 and Config.pvpSeasonReward(pv.trophies) or nil
+		if rw then
+			s.data.coins += rw.coins
+			giveEgg(s, rw.eggTier)
+			if rw.potion then
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			end
+			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or ""), "claim")
+		end
+		pv.season, pv.trophies, pv.wins, pv.losses = season, math.floor(pv.trophies / 4), 0, 0
+	end
+	local day = os.time() // 86400
+	if pv.day ~= day then
+		pv.day, pv.fights = day, 0
+	end
+	return pv
+end
+
+local function pvpPublishAsync(s)
+	local pv = s.data.battle.pvp
+	local team, season, trophies, player = {}, pv.season, pv.trophies, s.player
+	for _, e in ipairs(pv.defense) do
+		team[#team + 1] = { p = e.p, s = e.s, m = e.m }
+	end
+	if #team > 0 then
+		task.spawn(function()
+			pcall(Data.pvpPublish, player, team, trophies, season)
+		end)
+	end
+end
+
 local function battleFinish(s)
 	local bt = s.battle
 	s.battle = nil -- vidé AVANT tout paiement : aucune double récompense possible
 	local st, win = bt.st, bt.st.winner == 1
 	local b = s.data.battle
 	local rewards = {}
+	if bt.pvp then
+		local pv = pvpState(s)
+		if win then
+			local gain = Config.pvpGain(pv.trophies, bt.pvp.trophies)
+			pv.trophies, pv.wins = pv.trophies + gain, pv.wins + 1
+			rewards.trophies = gain
+		else
+			local loss = math.min(pv.trophies, Config.PVP.loss)
+			pv.trophies, pv.losses = pv.trophies - loss, pv.losses + 1
+			rewards.trophies = -loss
+		end
+		rewards.total = pv.trophies
+		pvpPublishAsync(s)
+		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = 0, pvp = true, foe = bt.pvp.name, view = Battle.view(st) })
+		RState:FireClient(s.player, snapshot(s))
+		return
+	end
 	if win then
 		local first = bt.floor > b.best
 		if first then
@@ -7719,6 +7795,72 @@ local function battleStep(s, act)
 	else
 		RBattle:FireClient(s.player, { k = "turn", events = events, view = Battle.view(bt.st), seconds = TW.turnSeconds })
 	end
+end
+
+function actions.pvpDefense(s)
+	if s.battle then
+		return
+	end
+	local pv = pvpState(s)
+	local def = {}
+	for _, idx in ipairs(s.data.battle.team) do
+		local sl = validSlot(idx) and s.data.slots[idx]
+		if sl and sl.k == "p" then
+			def[#def + 1] = { p = sl.p, s = sl.s, m = sl.m }
+		end
+	end
+	if #def == 0 then
+		notify(s.player, "🛡 Choisis d'abord une équipe de pets.", "refuse")
+		return
+	end
+	pv.defense = def
+	pvpPublishAsync(s)
+	notify(s.player, "🛡 Équipe de défense enregistrée (" .. #def .. " pet" .. (#def > 1 and "s" or "") .. "). Les autres joueurs peuvent l'affronter.", "buy")
+	RState:FireClient(s.player, snapshot(s))
+end
+
+function actions.pvpStart(s)
+	if s.battle or s.castle or s.pvpPending then
+		return
+	end
+	local pv = pvpState(s)
+	if #pv.defense == 0 then
+		notify(s.player, "🛡 Enregistre d'abord ton équipe de défense pour entrer au classement.", "refuse")
+		return
+	end
+	if pv.fights >= Config.PVP.dailyFights then
+		notify(s.player, "🏆 Limite de combats classés atteinte pour aujourd'hui (" .. Config.PVP.dailyFights .. ").", "refuse")
+		return
+	end
+	local mine = battleUnits(s)
+	if #mine == 0 then
+		notify(s.player, "⚔️ Compose d'abord une équipe de pets.", "refuse")
+		return
+	end
+	s.pvpPending = true -- la recherche d'adversaire attend le DataStore : un seul départ à la fois
+	local player = s.player
+	task.spawn(function()
+		local okOpp, opp = pcall(Data.pvpOpponent, player.UserId, pv.trophies, pv.season, rng:NextInteger(0, 4))
+		s.pvpPending = nil
+		if not (okOpp and sessions[player] == s) or s.battle then
+			return
+		end
+		if not opp then -- aucun autre joueur classé : adversaire fantôme de la tour, au niveau des trophées
+			local floor = math.min(Config.TOWER.floors, 1 + pv.trophies // 40)
+			local ghost = {}
+			for _, u in ipairs(Battle.towerTeam(Config, floor)) do
+				ghost[#ghost + 1] = { p = u.p, s = u.s, m = u.m }
+			end
+			opp = { name = "Dresseur fantôme", team = ghost, trophies = pv.trophies }
+		end
+		local foes = {}
+		for _, e in ipairs(opp.team) do
+			foes[#foes + 1] = Battle.unit(Config, e)
+		end
+		pv.fights += 1
+		s.battle = { st = Battle.new(rng:NextInteger(1, 2147483000), battleUnits(s), foes), floor = 0, pvp = { name = opp.name, trophies = opp.trophies }, deadline = os.clock() + TW.turnSeconds }
+		RBattle:FireClient(player, { k = "start", floor = 0, foe = "🏆 " .. opp.name, pvp = true, view = Battle.view(s.battle.st), seconds = TW.turnSeconds })
+	end)
 end
 
 function actions.towerStart(s, floor)
@@ -8027,6 +8169,7 @@ local function onJoin(player)
 	end
 
 	ensureQuests(s)
+	pvpState(s) -- nouvelle saison : récompense de la précédente et remise à zéro douce
 	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
@@ -8215,6 +8358,7 @@ local SAVE_RETRIES = 3
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
+-- v9b : battle.pvp { season, trophies, wins, losses, defense = { {p,s,m} }, day, fights, claimed } (PvP asynchrone, sans changement de version : champs facultatifs assainis).
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
 local VERSION = 9
 
@@ -8236,8 +8380,12 @@ local Data = {}
 Data.VERSION = VERSION
 Data.SERVER_ID = HttpService:GenerateGUID(false)
 
-local store, board, castleBoard
+local store, board, castleBoard, pvpStore, pvpBoard
 do
+	pcall(function()
+		pvpStore = DataStoreService:GetDataStore("ChipeOeufs_Pvp_v1")
+		pvpBoard = DataStoreService:GetOrderedDataStore("ChipeOeufs_PvpBoard_v1")
+	end)
 	local ok, result = pcall(function()
 		return DataStoreService:GetDataStore(STORE_NAME)
 	end)
@@ -8283,7 +8431,7 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
-		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0 }, -- Arène des pets
+		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -8425,7 +8573,20 @@ local function merge(saved)
 				end
 			end
 		end
+		local pv = type(b.pvp) == "table" and b.pvp or {}
+		local defense = {}
+		if type(pv.defense) == "table" then
+			for _, e in ipairs(pv.defense) do
+				if type(e) == "table" and Data.validPet(e) and #defense < 3 then
+					defense[#defense + 1] = { p = e.p, s = e.s, m = e.m }
+				end
+			end
+		end
 		d.battle = {
+			pvp = {
+				season = math.floor(sane(pv.season, 0)), trophies = math.min(100000, math.floor(sane(pv.trophies, 0))), wins = math.min(1e7, math.floor(sane(pv.wins, 0))),
+				losses = math.min(1e7, math.floor(sane(pv.losses, 0))), defense = defense, day = math.floor(sane(pv.day, 0)), fights = math.min(1000, math.floor(sane(pv.fights, 0))),
+			},
 			team = team,
 			best = math.min(30, math.floor(sane(b.best, 0))),
 			day = math.floor(sane(b.day, 0)),
@@ -8582,6 +8743,12 @@ function Data.save(player, d, release)
 end
 
 ---------------------------------------------------------------- Classement global
+-- Un pet { p, s, m } est-il valide (espèce, taille et mutation existantes, entiers) ?
+function Data.validPet(e)
+	return type(e) == "table" and type(e.p) == "number" and type(e.s) == "number" and type(e.m) == "number" and e.p % 1 == 0 and e.s % 1 == 0 and e.m % 1 == 0
+		and Config.PETS[e.p] ~= nil and Config.SIZES[e.s] ~= nil and Config.MUTS[e.m] ~= nil
+end
+
 function Data.score(d)
 	return d.rb * Config.SCORE_UNIT + math.min(d.hatched, Config.SCORE_UNIT - 1)
 end
@@ -8673,6 +8840,93 @@ function Data.top(count)
 			rb = score // Config.SCORE_UNIT,
 			hatched = score % Config.SCORE_UNIT,
 		}
+	end
+	return out
+end
+
+-- PvP asynchrone : publie l'équipe de défense (écrite par le SERVEUR seul) et les trophées de la saison. Retourne true si enregistré.
+function Data.pvpPublish(player, team, trophies, season)
+	if not pvpStore or apiBlocked then
+		return false
+	end
+	local ok, err = pcall(function()
+		pvpStore:SetAsync("D_" .. player.UserId, { name = player.DisplayName, team = team, season = season, t = os.time() })
+		if pvpBoard then
+			pvpBoard:SetAsync(season .. "_" .. player.UserId, math.max(0, math.floor(trophies)))
+		end
+	end)
+	if not ok then
+		markApiBlocked(err)
+	end
+	return ok
+end
+
+-- Adversaire de la saison au plus près de `trophies` (hors `userId`) : { name, team = { {p,s,m} }, trophies } ou nil (le serveur prend alors un adversaire fantôme).
+function Data.pvpOpponent(userId, trophies, season, salt)
+	if not pvpStore or not pvpBoard or apiBlocked then
+		return nil
+	end
+	local ok, page = pcall(function()
+		return pvpBoard:GetSortedAsync(false, 100):GetCurrentPage()
+	end)
+	if not ok then
+		markApiBlocked(page)
+		return nil
+	end
+	local cands = {}
+	local prefix = season .. "_"
+	for _, e in ipairs(page) do
+		local key = type(e) == "table" and tostring(e.key) or ""
+		local uid = key:sub(1, #prefix) == prefix and tonumber(key:sub(#prefix + 1)) or nil
+		if uid and uid ~= userId and type(e.value) == "number" then
+			cands[#cands + 1] = { uid = uid, trophies = e.value, d = math.abs(e.value - trophies) }
+		end
+	end
+	table.sort(cands, function(a, b)
+		if a.d ~= b.d then
+			return a.d < b.d
+		end
+		return a.uid < b.uid
+	end)
+	for k = 0, math.min(#cands - 1, 4) do -- parmi les 5 plus proches, tournant selon `salt`
+		local c = cands[((k + (salt or 0)) % math.min(#cands, 5)) + 1]
+		local ok2, rec = pcall(function()
+			return pvpStore:GetAsync("D_" .. c.uid)
+		end)
+		if ok2 and type(rec) == "table" and type(rec.team) == "table" then
+			local team = {}
+			for _, e in ipairs(rec.team) do
+				if Data.validPet(e) and #team < 3 then
+					team[#team + 1] = { p = e.p, s = e.s, m = e.m }
+				end
+			end
+			if #team > 0 then
+				return { name = tostring(rec.name or ("Joueur " .. c.uid)):sub(1, 24), team = team, trophies = c.trophies }
+			end
+		end
+	end
+	return nil
+end
+
+-- Classement de la saison : { {name, trophies} } (peut être vide).
+function Data.pvpTop(season, count)
+	local out = {}
+	if not pvpBoard or apiBlocked then
+		return out
+	end
+	local ok, page = pcall(function()
+		return pvpBoard:GetSortedAsync(false, 100):GetCurrentPage()
+	end)
+	if not ok then
+		markApiBlocked(page)
+		return out
+	end
+	local prefix = season .. "_"
+	for _, e in ipairs(page) do
+		local key = type(e) == "table" and tostring(e.key) or ""
+		if key:sub(1, #prefix) == prefix and type(e.value) == "number" and #out < count then
+			out[#out + 1] = { name = nameOf(tonumber(key:sub(#prefix + 1)) or 0), trophies = e.value }
+		end
 	end
 	return out
 end
@@ -15648,6 +15902,18 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 			floor = math.min(math.min(TW.floors, b.best + 1), floor + 1)
 			render()
 		end)
+		local pv = b.pvp or { trophies = 0, wins = 0, losses = 0, fightsLeft = Config.PVP.dailyFights, hasDefense = false }
+		add(label(ui.body, { Position = UDim2.new(0, 0, 1, -68), Size = UDim2.new(1, 0, 0, 14), TextSize = 12, Text = "🏆 " .. pv.trophies .. " trophées · " .. pv.wins .. " V / " .. pv.losses .. " D · classés restants : " .. pv.fightsLeft, ZIndex = 32 }))
+		local def = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -106), Size = UDim2.new(0.5, -3, 0, 28), Text = pv.hasDefense and "🛡 Défense ✔" or "🛡 Défense", BackgroundColor3 = Color3.fromRGB(74, 163, 255), ZIndex = 32 }))
+		def.Activated:Connect(function()
+			fire("setTeam", team)
+			fire("pvpDefense")
+		end)
+		local rk = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -106), Size = UDim2.new(0.5, -3, 0, 28), Text = "🏆 Combat classé", BackgroundColor3 = Color3.fromRGB(184, 120, 255), ZIndex = 32 }))
+		rk.Activated:Connect(function()
+			fire("setTeam", team)
+			fire("pvpStart")
+		end)
 		local go = add(button(ui.body, { Position = UDim2.new(1, -150, 1, -34), Size = UDim2.fromOffset(150, 30), Text = "⚔️ Combattre", ZIndex = 32 }))
 		go.Activated:Connect(function()
 			lastFloor = floor
@@ -15660,7 +15926,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 		if not view then
 			return
 		end
-		ui.title.Text = "⚔️ " .. foeName .. " · étage " .. lastFloor
+		ui.title.Text = "⚔️ " .. foeName .. (lastFloor > 0 and (" · étage " .. lastFloor) or "")
 		local me, foe = view.sides[1], view.sides[2]
 		local mu, fu = me.units[me.active], foe.units[foe.active]
 		ui.info.Text = BattleUi.advantage(Battle, mu.type, fu.type) .. " · tour " .. view.turn .. "/" .. Battle.MAX_TURNS
@@ -15764,6 +16030,9 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
 				if p.win and r.coins then
 					lines[#lines + 1] = "+" .. Config.fmt(r.coins) .. " 🪙" .. (r.first and " (première victoire de l'étage)" or "")
+				end
+				if p.pvp and r.trophies then
+					lines[#lines + 1] = (r.trophies >= 0 and "+" or "") .. r.trophies .. " 🏆 trophées (total " .. r.total .. ")"
 				end
 				if r.egg then
 					lines[#lines + 1] = "🥚 Œuf " .. Config.TIERS[r.egg].name

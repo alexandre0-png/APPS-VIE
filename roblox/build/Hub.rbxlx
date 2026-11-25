@@ -1386,6 +1386,29 @@ Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
 -- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
 Config.TOWER = { floors = 30, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse" } }
+-- PvP asynchrone : l'équipe de DÉFENSE enregistrée d'un autre joueur est simulée par le serveur (aucune latence réseau). Trophées, saisons d'une semaine,
+-- récompense de fin de saison selon le palier de trophées atteint ; 10 combats classés par jour. Aucun achat ne touche à la force des pets.
+Config.PVP = {
+	seasonSeconds = 7 * 86400, dailyFights = 10, winBase = 25, winMin = 10, winMax = 40, loss = 15, start = 0,
+	rewards = { { trophies = 100, coins = 5000, eggTier = 2 }, { trophies = 300, coins = 25000, eggTier = 3 }, { trophies = 600, coins = 100000, eggTier = 4, potion = true }, { trophies = 1000, coins = 400000, eggTier = 5, potion = true } },
+}
+function Config.pvpSeason(now)
+	return math.floor(now / Config.PVP.seasonSeconds)
+end
+-- Trophées gagnés : 25 de base, +1 par 10 trophées d'écart en faveur de l'adversaire, entre 10 et 40.
+function Config.pvpGain(mine, theirs)
+	return math.min(Config.PVP.winMax, math.max(Config.PVP.winMin, Config.PVP.winBase + math.floor((theirs - mine) / 10)))
+end
+function Config.pvpSeasonReward(trophies)
+	local best
+	for _, r in ipairs(Config.PVP.rewards) do
+		if trophies >= r.trophies then
+			best = r
+		end
+	end
+	return best
+end
+
 function Config.towerTier(floor) -- rareté des adversaires : étages 1-5 Commun ... 26-30 Cosmique
 	return math.min(#Config.TIERS, 1 + (math.max(1, floor) - 1) // 5)
 end

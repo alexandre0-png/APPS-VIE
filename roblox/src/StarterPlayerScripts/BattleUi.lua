@@ -139,6 +139,18 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 			floor = math.min(math.min(TW.floors, b.best + 1), floor + 1)
 			render()
 		end)
+		local pv = b.pvp or { trophies = 0, wins = 0, losses = 0, fightsLeft = Config.PVP.dailyFights, hasDefense = false }
+		add(label(ui.body, { Position = UDim2.new(0, 0, 1, -68), Size = UDim2.new(1, 0, 0, 14), TextSize = 12, Text = "🏆 " .. pv.trophies .. " trophées · " .. pv.wins .. " V / " .. pv.losses .. " D · classés restants : " .. pv.fightsLeft, ZIndex = 32 }))
+		local def = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -106), Size = UDim2.new(0.5, -3, 0, 28), Text = pv.hasDefense and "🛡 Défense ✔" or "🛡 Défense", BackgroundColor3 = Color3.fromRGB(74, 163, 255), ZIndex = 32 }))
+		def.Activated:Connect(function()
+			fire("setTeam", team)
+			fire("pvpDefense")
+		end)
+		local rk = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -106), Size = UDim2.new(0.5, -3, 0, 28), Text = "🏆 Combat classé", BackgroundColor3 = Color3.fromRGB(184, 120, 255), ZIndex = 32 }))
+		rk.Activated:Connect(function()
+			fire("setTeam", team)
+			fire("pvpStart")
+		end)
 		local go = add(button(ui.body, { Position = UDim2.new(1, -150, 1, -34), Size = UDim2.fromOffset(150, 30), Text = "⚔️ Combattre", ZIndex = 32 }))
 		go.Activated:Connect(function()
 			lastFloor = floor
@@ -151,7 +163,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 		if not view then
 			return
 		end
-		ui.title.Text = "⚔️ " .. foeName .. " · étage " .. lastFloor
+		ui.title.Text = "⚔️ " .. foeName .. (lastFloor > 0 and (" · étage " .. lastFloor) or "")
 		local me, foe = view.sides[1], view.sides[2]
 		local mu, fu = me.units[me.active], foe.units[foe.active]
 		ui.info.Text = BattleUi.advantage(Battle, mu.type, fu.type) .. " · tour " .. view.turn .. "/" .. Battle.MAX_TURNS
@@ -255,6 +267,9 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
 				if p.win and r.coins then
 					lines[#lines + 1] = "+" .. Config.fmt(r.coins) .. " 🪙" .. (r.first and " (première victoire de l'étage)" or "")
+				end
+				if p.pvp and r.trophies then
+					lines[#lines + 1] = (r.trophies >= 0 and "+" or "") .. r.trophies .. " 🏆 trophées (total " .. r.total .. ")"
 				end
 				if r.egg then
 					lines[#lines + 1] = "🥚 Œuf " .. Config.TIERS[r.egg].name

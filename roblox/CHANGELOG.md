@@ -2,6 +2,13 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## Lot 8 (PvP asynchrone)
+
+- Équipe de DÉFENSE enregistrée depuis le profil (jamais depuis le client), publiée par le serveur (DataStore `ChipeOeufs_Pvp_v1`, classement `ChipeOeufs_PvpBoard_v1` par saison) ; adversaire = un des 5 joueurs de la saison les plus proches en trophées (jamais soi-même), sinon « Dresseur fantôme » au niveau des trophées ; même moteur de combat, simulé par le serveur.
+- Trophées : +25 de base, +1 par 10 d'écart, entre +10 et +40 ; -15 en défaite (jamais sous 0). 10 combats classés par jour. Saisons d'une semaine : récompense unique selon le palier (100, 300, 600, 1000 trophées : pièces, œuf Rare à Mythique, potion), trophées réduits au quart pour la saison suivante.
+- UI : boutons « Défense » et « Combat classé », trophées et bilan dans l'écran d'équipe, résultat avec variation de trophées.
+- Pas fait : duel en direct entre deux joueurs d'un même serveur (invitation par portail) ; classement affiché (Data.pvpTop existe, non branché à l'interface) ; cosmétiques.
+
 ## Lot 8 (PvE) : Arène des pets, tour des Dresseurs
 
 - **Moteur pur** `Battle.lua` : équipes de 3, 6 types (Feu > Nature > Eau > Feu, Lumière > Ombre > Ciel > Lumière, x1,5 / x0,67), les 3 espèces de chaque rareté forment un triangle complet (équilibre à rareté égale), une compétence par espèce avec recharge (coup puissant, morsure vampire, soin, garde, étourdissement, concentration), tour par tour déterministe (graine), actions attaque / compétence / changer, limite 30 tours (PV restants), égalité au défenseur.

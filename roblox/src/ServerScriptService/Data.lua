@@ -25,6 +25,7 @@ local SAVE_RETRIES = 3
 -- v6 : + secrets (jour de la dernière fouille par secret de la carte).
 -- v7 : + starter (pack de départ déjà acheté, achat unique).
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
+-- v9b : battle.pvp { season, trophies, wins, losses, defense = { {p,s,m} }, day, fights, claimed } (PvP asynchrone, sans changement de version : champs facultatifs assainis).
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
 local VERSION = 9
 
@@ -46,8 +47,12 @@ local Data = {}
 Data.VERSION = VERSION
 Data.SERVER_ID = HttpService:GenerateGUID(false)
 
-local store, board, castleBoard
+local store, board, castleBoard, pvpStore, pvpBoard
 do
+	pcall(function()
+		pvpStore = DataStoreService:GetDataStore("ChipeOeufs_Pvp_v1")
+		pvpBoard = DataStoreService:GetOrderedDataStore("ChipeOeufs_PvpBoard_v1")
+	end)
 	local ok, result = pcall(function()
 		return DataStoreService:GetDataStore(STORE_NAME)
 	end)
@@ -93,7 +98,7 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
-		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0 }, -- Arène des pets
+		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -235,7 +240,20 @@ local function merge(saved)
 				end
 			end
 		end
+		local pv = type(b.pvp) == "table" and b.pvp or {}
+		local defense = {}
+		if type(pv.defense) == "table" then
+			for _, e in ipairs(pv.defense) do
+				if type(e) == "table" and Data.validPet(e) and #defense < 3 then
+					defense[#defense + 1] = { p = e.p, s = e.s, m = e.m }
+				end
+			end
+		end
 		d.battle = {
+			pvp = {
+				season = math.floor(sane(pv.season, 0)), trophies = math.min(100000, math.floor(sane(pv.trophies, 0))), wins = math.min(1e7, math.floor(sane(pv.wins, 0))),
+				losses = math.min(1e7, math.floor(sane(pv.losses, 0))), defense = defense, day = math.floor(sane(pv.day, 0)), fights = math.min(1000, math.floor(sane(pv.fights, 0))),
+			},
 			team = team,
 			best = math.min(30, math.floor(sane(b.best, 0))),
 			day = math.floor(sane(b.day, 0)),
@@ -392,6 +410,12 @@ function Data.save(player, d, release)
 end
 
 ---------------------------------------------------------------- Classement global
+-- Un pet { p, s, m } est-il valide (espèce, taille et mutation existantes, entiers) ?
+function Data.validPet(e)
+	return type(e) == "table" and type(e.p) == "number" and type(e.s) == "number" and type(e.m) == "number" and e.p % 1 == 0 and e.s % 1 == 0 and e.m % 1 == 0
+		and Config.PETS[e.p] ~= nil and Config.SIZES[e.s] ~= nil and Config.MUTS[e.m] ~= nil
+end
+
 function Data.score(d)
 	return d.rb * Config.SCORE_UNIT + math.min(d.hatched, Config.SCORE_UNIT - 1)
 end
@@ -483,6 +507,93 @@ function Data.top(count)
 			rb = score // Config.SCORE_UNIT,
 			hatched = score % Config.SCORE_UNIT,
 		}
+	end
+	return out
+end
+
+-- PvP asynchrone : publie l'équipe de défense (écrite par le SERVEUR seul) et les trophées de la saison. Retourne true si enregistré.
+function Data.pvpPublish(player, team, trophies, season)
+	if not pvpStore or apiBlocked then
+		return false
+	end
+	local ok, err = pcall(function()
+		pvpStore:SetAsync("D_" .. player.UserId, { name = player.DisplayName, team = team, season = season, t = os.time() })
+		if pvpBoard then
+			pvpBoard:SetAsync(season .. "_" .. player.UserId, math.max(0, math.floor(trophies)))
+		end
+	end)
+	if not ok then
+		markApiBlocked(err)
+	end
+	return ok
+end
+
+-- Adversaire de la saison au plus près de `trophies` (hors `userId`) : { name, team = { {p,s,m} }, trophies } ou nil (le serveur prend alors un adversaire fantôme).
+function Data.pvpOpponent(userId, trophies, season, salt)
+	if not pvpStore or not pvpBoard or apiBlocked then
+		return nil
+	end
+	local ok, page = pcall(function()
+		return pvpBoard:GetSortedAsync(false, 100):GetCurrentPage()
+	end)
+	if not ok then
+		markApiBlocked(page)
+		return nil
+	end
+	local cands = {}
+	local prefix = season .. "_"
+	for _, e in ipairs(page) do
+		local key = type(e) == "table" and tostring(e.key) or ""
+		local uid = key:sub(1, #prefix) == prefix and tonumber(key:sub(#prefix + 1)) or nil
+		if uid and uid ~= userId and type(e.value) == "number" then
+			cands[#cands + 1] = { uid = uid, trophies = e.value, d = math.abs(e.value - trophies) }
+		end
+	end
+	table.sort(cands, function(a, b)
+		if a.d ~= b.d then
+			return a.d < b.d
+		end
+		return a.uid < b.uid
+	end)
+	for k = 0, math.min(#cands - 1, 4) do -- parmi les 5 plus proches, tournant selon `salt`
+		local c = cands[((k + (salt or 0)) % math.min(#cands, 5)) + 1]
+		local ok2, rec = pcall(function()
+			return pvpStore:GetAsync("D_" .. c.uid)
+		end)
+		if ok2 and type(rec) == "table" and type(rec.team) == "table" then
+			local team = {}
+			for _, e in ipairs(rec.team) do
+				if Data.validPet(e) and #team < 3 then
+					team[#team + 1] = { p = e.p, s = e.s, m = e.m }
+				end
+			end
+			if #team > 0 then
+				return { name = tostring(rec.name or ("Joueur " .. c.uid)):sub(1, 24), team = team, trophies = c.trophies }
+			end
+		end
+	end
+	return nil
+end
+
+-- Classement de la saison : { {name, trophies} } (peut être vide).
+function Data.pvpTop(season, count)
+	local out = {}
+	if not pvpBoard or apiBlocked then
+		return out
+	end
+	local ok, page = pcall(function()
+		return pvpBoard:GetSortedAsync(false, 100):GetCurrentPage()
+	end)
+	if not ok then
+		markApiBlocked(page)
+		return out
+	end
+	local prefix = season .. "_"
+	for _, e in ipairs(page) do
+		local key = type(e) == "table" and tostring(e.key) or ""
+		if key:sub(1, #prefix) == prefix and type(e.value) == "number" and #out < count then
+			out[#out + 1] = { name = nameOf(tonumber(key:sub(#prefix + 1)) or 0), trophies = e.value }
+		end
 	end
 	return out
 end

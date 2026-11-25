@@ -379,7 +379,7 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
-		battle = { team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
+		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 	}
 end
@@ -2087,12 +2087,65 @@ function actions.setTeam(s, arg)
 	RState:FireClient(s.player, snapshot(s))
 end
 
+-- PvP : saison en cours, remise à zéro douce des trophées et récompense de la saison écoulée (une seule fois, selon le palier atteint).
+local function pvpState(s)
+	local pv = s.data.battle.pvp
+	local season = Config.pvpSeason(os.time())
+	if pv.season ~= season then
+		local rw = pv.season > 0 and Config.pvpSeasonReward(pv.trophies) or nil
+		if rw then
+			s.data.coins += rw.coins
+			giveEgg(s, rw.eggTier)
+			if rw.potion then
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			end
+			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or ""), "claim")
+		end
+		pv.season, pv.trophies, pv.wins, pv.losses = season, math.floor(pv.trophies / 4), 0, 0
+	end
+	local day = os.time() // 86400
+	if pv.day ~= day then
+		pv.day, pv.fights = day, 0
+	end
+	return pv
+end
+
+local function pvpPublishAsync(s)
+	local pv = s.data.battle.pvp
+	local team, season, trophies, player = {}, pv.season, pv.trophies, s.player
+	for _, e in ipairs(pv.defense) do
+		team[#team + 1] = { p = e.p, s = e.s, m = e.m }
+	end
+	if #team > 0 then
+		task.spawn(function()
+			pcall(Data.pvpPublish, player, team, trophies, season)
+		end)
+	end
+end
+
 local function battleFinish(s)
 	local bt = s.battle
 	s.battle = nil -- vidé AVANT tout paiement : aucune double récompense possible
 	local st, win = bt.st, bt.st.winner == 1
 	local b = s.data.battle
 	local rewards = {}
+	if bt.pvp then
+		local pv = pvpState(s)
+		if win then
+			local gain = Config.pvpGain(pv.trophies, bt.pvp.trophies)
+			pv.trophies, pv.wins = pv.trophies + gain, pv.wins + 1
+			rewards.trophies = gain
+		else
+			local loss = math.min(pv.trophies, Config.PVP.loss)
+			pv.trophies, pv.losses = pv.trophies - loss, pv.losses + 1
+			rewards.trophies = -loss
+		end
+		rewards.total = pv.trophies
+		pvpPublishAsync(s)
+		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = 0, pvp = true, foe = bt.pvp.name, view = Battle.view(st) })
+		RState:FireClient(s.player, snapshot(s))
+		return
+	end
 	if win then
 		local first = bt.floor > b.best
 		if first then
@@ -2135,6 +2188,72 @@ local function battleStep(s, act)
 	else
 		RBattle:FireClient(s.player, { k = "turn", events = events, view = Battle.view(bt.st), seconds = TW.turnSeconds })
 	end
+end
+
+function actions.pvpDefense(s)
+	if s.battle then
+		return
+	end
+	local pv = pvpState(s)
+	local def = {}
+	for _, idx in ipairs(s.data.battle.team) do
+		local sl = validSlot(idx) and s.data.slots[idx]
+		if sl and sl.k == "p" then
+			def[#def + 1] = { p = sl.p, s = sl.s, m = sl.m }
+		end
+	end
+	if #def == 0 then
+		notify(s.player, "🛡 Choisis d'abord une équipe de pets.", "refuse")
+		return
+	end
+	pv.defense = def
+	pvpPublishAsync(s)
+	notify(s.player, "🛡 Équipe de défense enregistrée (" .. #def .. " pet" .. (#def > 1 and "s" or "") .. "). Les autres joueurs peuvent l'affronter.", "buy")
+	RState:FireClient(s.player, snapshot(s))
+end
+
+function actions.pvpStart(s)
+	if s.battle or s.castle or s.pvpPending then
+		return
+	end
+	local pv = pvpState(s)
+	if #pv.defense == 0 then
+		notify(s.player, "🛡 Enregistre d'abord ton équipe de défense pour entrer au classement.", "refuse")
+		return
+	end
+	if pv.fights >= Config.PVP.dailyFights then
+		notify(s.player, "🏆 Limite de combats classés atteinte pour aujourd'hui (" .. Config.PVP.dailyFights .. ").", "refuse")
+		return
+	end
+	local mine = battleUnits(s)
+	if #mine == 0 then
+		notify(s.player, "⚔️ Compose d'abord une équipe de pets.", "refuse")
+		return
+	end
+	s.pvpPending = true -- la recherche d'adversaire attend le DataStore : un seul départ à la fois
+	local player = s.player
+	task.spawn(function()
+		local okOpp, opp = pcall(Data.pvpOpponent, player.UserId, pv.trophies, pv.season, rng:NextInteger(0, 4))
+		s.pvpPending = nil
+		if not (okOpp and sessions[player] == s) or s.battle then
+			return
+		end
+		if not opp then -- aucun autre joueur classé : adversaire fantôme de la tour, au niveau des trophées
+			local floor = math.min(Config.TOWER.floors, 1 + pv.trophies // 40)
+			local ghost = {}
+			for _, u in ipairs(Battle.towerTeam(Config, floor)) do
+				ghost[#ghost + 1] = { p = u.p, s = u.s, m = u.m }
+			end
+			opp = { name = "Dresseur fantôme", team = ghost, trophies = pv.trophies }
+		end
+		local foes = {}
+		for _, e in ipairs(opp.team) do
+			foes[#foes + 1] = Battle.unit(Config, e)
+		end
+		pv.fights += 1
+		s.battle = { st = Battle.new(rng:NextInteger(1, 2147483000), battleUnits(s), foes), floor = 0, pvp = { name = opp.name, trophies = opp.trophies }, deadline = os.clock() + TW.turnSeconds }
+		RBattle:FireClient(player, { k = "start", floor = 0, foe = "🏆 " .. opp.name, pvp = true, view = Battle.view(s.battle.st), seconds = TW.turnSeconds })
+	end)
 end
 
 function actions.towerStart(s, floor)
@@ -2443,6 +2562,7 @@ local function onJoin(player)
 	end
 
 	ensureQuests(s)
+	pvpState(s) -- nouvelle saison : récompense de la précédente et remise à zéro douce
 	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
