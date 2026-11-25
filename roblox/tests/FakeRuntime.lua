@@ -783,7 +783,13 @@ function Fake.runtime(opts)
 				return cf(x, y, z)
 			end,
 			Angles = function() return cf(0, 0, 0) end,
-			lookAt = function(from) return cf(from.X, from.Y, from.Z) end,
+			lookAt = function(from, to) -- REFONTE (lot 2) : garde la direction horizontale visée (empreinte tournée dans le test de z-fighting)
+				local c = cf(from.X, from.Y, from.Z)
+				if type(to) == "table" and to.X then
+					rawset(c, "LookFlat", { to.X - from.X, to.Z - from.Z })
+				end
+				return c
+			end,
 			fromEulerAnglesXYZ = function() return cf(0, 0, 0) end,
 		},
 		Color3 = { fromRGB = function(r, g, b) return color(r / 255, g / 255, b / 255) end, new = color, fromHSV = function() return color(1, 1, 1) end },

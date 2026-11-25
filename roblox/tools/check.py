@@ -366,7 +366,7 @@ for proj in ("default.project.json", "game.project.json", "hub.project.json"):
             checked += 1
             if isinstance(val, str) and not (chain.split(".")[0].split(":")[0] in ("script",) and False):
                 # seuls les chemins qui visent des modules statiques (Shared, frères de script) sont des erreurs
-                static_targets = {"Shared", "Config", "Easing", "Cinema", "Layout", "Party", "Spawn", "SpawnGuard", "Data", "Builder", "Rules", "Assets", "Diag", "Scenery", "HubWorld"}
+                static_targets = {"Shared", "Config", "Easing", "Cinema", "Layout", "Party", "Spawn", "SpawnGuard", "Data", "Builder", "Rules", "Assets", "Diag", "Scenery", "HubWorld", "MapGeo", "Placement"}
                 if val.startswith("MISSING:") and val[8:] in static_targets:
                     fail(f"{proj} : {os.path.relpath(src, ROOT)} : {chain} -> {val}")
     print(f"  ✓ {proj} : {len(scripts)} scripts, {checked} chemins vérifiés")

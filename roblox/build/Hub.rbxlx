@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX40"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX60"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX59"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX43"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX66"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX65"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -513,12 +513,13 @@ Config.Assets = {
 	-- Ordre de priorité = ordre de `textureOrder` ; au plus `textureMaxCount` Textures au total (mobile : une face par pièce).
 	textures = {
 		grass = { id = 122917279401510, tile = 8, targets = { { name = "Ground", faces = { "Top" } } } },
-		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverSouth", faces = { "Top" } }, { name = "RiverWest", faces = { "Top" } }, { name = "MoatWater", faces = { "Top" } }, { name = "Lake", faces = { "Top" } } } },
+		-- REFONTE (lot 2) : cibles renommées (A.6) : RiverNorth, BrookMill, BrookWillow, LakeMill, LakeWillow, Fountain, CastleMoat
+		water = { id = 72897294450066, tile = 10, transparency = 0.2, targets = { { name = "RiverNorth", faces = { "Top" } }, { name = "BrookMill", faces = { "Top" } }, { name = "BrookWillow", faces = { "Top" } }, { name = "LakeMill", faces = { "Top" } }, { name = "LakeWillow", faces = { "Top" } }, { name = "CastleMoat", faces = { "Top" } } } },
 		castleFloor = { id = 90865253086689, tile = 8, targets = { { prefix = "CastleFloor", faces = { "Top" } } } },
-		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } } } },
+		castleStone = { id = 87480813124386, tile = 6, targets = { { name = "CastleWall", faces = { "Left", "Right" } }, { name = "CourtWall", faces = { "Left", "Right" } } } },
 		wood = { id = 136082705365776, tile = 4, targets = { { name = "BridgePlank", faces = { "Top" } } } },
-		sand = { id = 83914325296472, tile = 8, targets = { { name = "MoatBank", faces = { "Top" } } } },
-		path = { id = 84243738566468, tile = 8, targets = { { name = "PathStone", faces = { "Right" } } } }, -- pavés cylindriques : face plate = Right
+		sand = { id = 83914325296472, tile = 8, targets = { { name = "LakeShore", faces = { "Right" } }, { name = "ArenaSand", faces = { "Right" } } } }, -- disques (cylindres) : face plate = Right
+		path = { id = 84243738566468, tile = 8, targets = { { name = "PathStone", faces = { "Top" } } } }, -- dalles des routes pavées (blocs) : face du dessus
 	},
 	textureOrder = { "grass", "water", "castleFloor", "castleStone", "wood", "sand", "path" },
 	textureMaxCount = 220,
@@ -932,7 +933,7 @@ end
 
 ---------------------------------------------------------------- Bannière de zone et promesse d'accueil
 Config.ZONE_BANNERS = {
-	arena = { title = "L'ARÈNE", sub = "Le Grand Nid et le tapis roulant", color = Color3.fromRGB(255, 210, 63) },
+	arena = { title = "LA PLACE DU MARCHÉ", sub = "Le Grand Œuf, la halle et les portails", color = Color3.fromRGB(255, 210, 63) },
 	gus = { title = "DOMAINE DE GUS", sub = "La ferme dorée : œufs communs et rares", color = Color3.fromRGB(255, 190, 70) },
 	mara = { title = "DOMAINE DE MARA", sub = "Les bois ensorcelés : œufs rares à légendaires", color = Color3.fromRGB(190, 120, 255) },
 	zed = { title = "CITADELLE DE ZED", sub = "La lave et l'obsidienne : œufs mythiques et cosmiques", color = Color3.fromRGB(255, 100, 60) },
@@ -1031,7 +1032,7 @@ function Config.nextHint(st)
 	elseif (st.stolen or 0) == 0 then
 		return { id = "steal", text = "Va chez un rival (au nord) et maintiens le bouton pour voler un œuf… évite son gardien 🐕" }
 	elseif (st.speed or 0) < 8 then
-		return { id = "train", text = "Cours sur le tapis roulant 🏃 au centre pour devenir plus rapide !" }
+		return { id = "train", text = "Cours sur la piste d'entraînement 🏃 près de la place pour devenir plus rapide !" }
 	end
 	return nil
 end
@@ -1201,44 +1202,16 @@ Config.LORE = "Il y a longtemps, la Grande Couvée donnait vie à tout le royaum
 	.. "Les brigands Gus, Mara et Zed les gardent jalousement. Toi, apprenti Chipeur, tu peux les reprendre, les faire éclore et reconstruire le Nid. "
 	.. "Mais méfie-toi : les autres Chipeurs convoitent aussi tes œufs !"
 
----------------------------------------------------------------- Carte : dimensions, domaines, ambiance par zone, secrets, budget
--- Le sol fait 1200 x 1200 studs (la carte précédente : 620). Les bases forment un anneau de rayon 215 autour de l'arène centrale, les
--- trois domaines (Gus, Mara, Zed) sont au nord, chacun dans son propre biome, et des repères et secrets sont répartis plus loin.
+---------------------------------------------------------------- Carte : réglages communs, ambiance par zone, secrets, budget
+-- REFONTE (lot 2) : la géométrie vient de Config.Map2 (700 x 500, place du marché au centre) et de Config.TERR (territoires) ; la géométrie
+-- dérivée (bases orientées, chemins, eau, murs de rivière, portails, accessibilité) est calculée par le module pur MapGeo. Config.Map ne garde que
+-- les réglages qui ne sont pas de la géométrie (budgets, streaming, ambiances) : c'est l'alias conservé pour le code et les tests qui le lisent.
 Config.Map = {
-	groundSize = 1200,
-	plotRadius = 115, -- bases à 115 studs du Grand Nid (7 s à pied)
-	decorRadius = 360, -- le décor planifié (arbres, rochers, village) reste dans ce rayon autour du Grand Nid
-	-- Domaines : trois PLATEAUX en terrasses, de plus en plus hauts, juste derrière l'anneau des bases (232, 245, 269 studs du Grand Nid ; 221 et 188 entre voisins).
-	-- Chaque plateau (rayon `plateauRadius`) est une falaise ; on y monte par UNE rampe (largeur `rampWidth`, pente 1 pour `rampRun`) orientée comme `ramp`.
-	domains = {
-		{ x = -185, z = -140, h = 6, ramp = { 0, 1 } },
-		{ x = 10, z = -245, h = 14, ramp = { 0, 1 } },
-		{ x = 190, z = -190, h = 24, ramp = { 0, 1 } },
-	},
-	plateauRadius = 66, rampWidth = 14, rampRun = 3.2,
-	-- Chemins (polylignes) du Grand Nid au pied de chaque rampe : ils passent entre les bases et contournent les plateaux.
-	paths = {
-		{ { -80, -20 }, { -130, -32 }, { -185, -55 } },
-		{ { 0, -85 }, { 10, -134 } },
-		{ { 80, -30 }, { 140, -40 }, { 190, -47 } },
-	},
-	domainRadius = 38,
+	groundSize = 900, -- côté du plus grand axe du sol d'herbe (900 x 700 : zone jouable 700 x 500 + décor de fond)
+	ambienceRadius = 62, -- portée maximale d'une ambiance de territoire (rayon du territoire + 12, plafonné ici)
 	pedestals = true, -- piédestal hexagonal sous chaque emplacement
-	moat = { radius = 56, width = 6 }, -- douve (rivière) autour de chaque domaine, franchissable (décor) ; un pont en bois la traverse au sud
-	ambienceRadius = 62, -- distance du centre d'un domaine à partir de laquelle son ambiance s'applique
 	budgetParts = 1200, -- le serveur avertit au démarrage si la carte procédurale dépasse ce nombre de Parts (budget mobile) ; les modèles Blender ont leurs propres budgets
-	-- Géométrie de référence (source unique : décor, pose planifiée et tests) : rivières (axe, position, demi-largeur, ponts), arène, chemins, bases.
-	geo = {
-		rivers = {
-			{ axis = "z", at = 330, half = 12, bridgesAt = { -150, 150 } }, -- rivière sud (24 de large) : coule le long de x
-			{ axis = "x", at = -380, half = 12, bridgesAt = { -150, 150 } }, -- rivière ouest (24 de large) : coule le long de z
-		},
-		bridgeHalfGap = 6, -- demi-largeur du passage laissé dans le mur invisible de chaque rivière, au niveau d'un pont (le SEUL passage)
-		lakes = { { x = 290, z = 250, r = 55, islet = true }, { x = -480, z = -150, r = 60, islet = true } }, -- grands lacs à bords nets (la rive de sable ajoute 5)
-		arenaRadius = 78, pathHalf = 2.6, baseBand = 36, bridgeBank = 2,
-	},
 	totalBudgetParts = 7000, -- plafond d'ensemble (carte procédurale + pire cas des accessoires Blender)
-	decor = { flowers = 0, trees = 0, patches = 2, hills = 0, moatSegments = 11, fencePosts = 4, bridgePlanks = 5 }, -- quantités de décor (Parts) : réglées pour tenir sous budgetParts
 	Streaming = { Enabled = false, MinRadius = 128, TargetRadius = 480 }, -- coupé : un streaming défaillant laisse des joueurs sans sol ; à réactiver seulement après un playtest mobile,
 	zoneKeys = { "gus", "mara", "zed" }, -- une clé par rival, dans l'ordre de Config.RIVALS
 	ambience = {
@@ -1249,40 +1222,79 @@ Config.Map = {
 	},
 }
 
--- Territoire du gardien j sur `count` du domaine i : centre de patrouille (x) et ligne (z) ; chaque territoire fait ± 12 studs, 26 d'écart, 4 de décalage en z.
-function Config.guardTerritory(i, j, count)
-	local cx, cz = Config.rivalCenter(i)
-	return cx + (j - (count + 1) / 2) * 26, cz + 12 - (j - 1) * 4
+-- Territoires du rival i (dans l'ordre de Config.TERR_ORDER) : { {key, x, z, r, ...}, ... }. Gus en a deux, Mara et Zed un.
+function Config.rivalTerritories(i)
+	local out = {}
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if t.rival == i then
+			out[#out + 1] = { key = key, x = t.x, z = t.z, r = t.r, data = t }
+		end
+	end
+	return out
 end
 
--- Centre (x, z) du domaine du rival i. Source unique : Builder, Cinematics et les tests.
+-- Centre (x, z) du domaine du rival i = son PREMIER territoire (Gus Nord-Ouest, Mara, cour de Zed). Source unique : Builder, Cinematics et les tests.
 function Config.rivalCenter(i)
-	local d = Config.Map.domains[i]
-	return d.x, d.z
+	local t = Config.rivalTerritories(i)[1]
+	return t.x, t.z
 end
 
--- Hauteur du plateau du domaine i (studs) : Gus 6, Mara 14, Zed 24 (chaque zone plus haute que la précédente).
+-- Hauteur du sol au centre du domaine i : 0, sauf la cour de Zed, sur le plateau du château (Map2.castle.h).
 function Config.rivalHeight(i)
-	return Config.Map.domains[i].h
+	local x, z = Config.rivalCenter(i)
+	local c = Config.Map2.castle
+	if x >= c.x0 and x <= c.x1 and z >= c.z0 and z <= c.z1 then
+		return c.h
+	end
+	return 0
 end
 
--- Pied de la rampe du domaine i (point au sol) et son sommet (au bord du plateau) : { bottom = {x, z}, top = {x, z}, dir = {dx, dz} }.
-function Config.rampOf(i)
-	local d = Config.Map.domains[i]
-	local M = Config.Map
-	local run = d.h * M.rampRun
-	local topX, topZ = d.x + d.ramp[1] * M.plateauRadius, d.z + d.ramp[2] * M.plateauRadius
-	return { top = { topX, topZ }, bottom = { topX + d.ramp[1] * run, topZ + d.ramp[2] * run }, dir = { d.ramp[1], d.ramp[2] }, run = run }
+-- Poste (x, z) du gardien j sur `count` du rival i : les postes de tous ses territoires, dans l'ordre (Gus : NO puis SO).
+function Config.guardTerritory(i, j, count)
+	local k = 0
+	for _, t in ipairs(Config.rivalTerritories(i)) do
+		for _, p in ipairs(t.data.posts or {}) do
+			k = k + 1
+			if k == j then
+				return p[1], p[2]
+			end
+		end
+	end
+	return Config.rivalCenter(i)
 end
 
--- Zone d'ambiance d'une position : "arena" ou la clé du domaine (gus / mara / zed) le plus proche, s'il est à portée.
+-- Nom du dossier d'un territoire dans World : « Rival_<nom> » pour le premier territoire d'un rival, « Rival_<nom>_<clé> » pour les suivants,
+-- « WildPen » pour l'enclos sauvage. Source unique : Builder (construction) et Culling (masquage côté client).
+function Config.territoryFolder(key)
+	local t = Config.TERR[key]
+	if t.rival == 0 then
+		return "WildPen"
+	end
+	local riv = Config.RIVALS[t.rival]
+	return "Rival_" .. riv.name .. (Config.rivalTerritories(t.rival)[1].key == key and "" or ("_" .. key))
+end
+
+-- Entrée d'un territoire (point du bord tourné vers la place ; la herse pour la cour de Zed) : zone sûre des gardiens (GUARD.safeRadius).
+function Config.territoryEntry(key)
+	local t = Config.TERR[key]
+	if t.traps and t.traps.gate then
+		return t.traps.gate.x, t.traps.gate.z
+	end
+	local d = math.sqrt(t.x * t.x + t.z * t.z)
+	return t.x - t.x / d * t.r, t.z - t.z / d * t.r
+end
+
+-- Zone d'ambiance d'une position : "arena" (la place et tout le reste) ou la clé du rival (gus / mara / zed) dont un territoire est à portée (rayon + 12).
 function Config.zoneAt(x, z)
-	local best, bd = "arena", Config.Map.ambienceRadius
-	for i, key in ipairs(Config.Map.zoneKeys) do
-		local cx, cz = Config.rivalCenter(i)
-		local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
-		if d <= bd then
-			best, bd = key, d
+	local best, bd = "arena", math.huge
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if t.rival > 0 then
+			local d = math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2)
+			if d <= math.min(t.r + 12, Config.Map.ambienceRadius) and d < bd then
+				best, bd = Config.Map.zoneKeys[t.rival], d
+			end
 		end
 	end
 	return best
@@ -1316,30 +1328,41 @@ function Config.compass(px, pz, lookX, lookZ, tx, tz)
 	return a, dist
 end
 
--- Voyage rapide : trois portails au Grand Nid (un par zone) et un portail de retour au pied de chaque rampe. `Config.travelPoint(dest)` = point d'arrivée
--- (0 = Grand Nid, i = approche de la rampe du domaine i) ; `Config.travelPad(i)` = portail du Grand Nid vers la zone i ; `Config.returnPad(i)` = portail de retour.
-Config.TRAVEL = { cooldown = 4, combatLock = 4, arenaPads = { x = { -26, 0, 26 }, z = -45 }, arrivalOffset = 14, returnSide = 12, returnForward = 10 }
+-- Voyage rapide (Config.TRAVEL2, plan A.4) : quatre portails sur la rose des portails de la place, un tapis de retour (vers la place) posé près de
+-- chaque arrivée, et une arche « Retour à la base » par base sur la place. Attribut Dest d'un prompt : k > 0 = portail k ; 0 = retour à la place ;
+-- -i = arche de la base i (seul son propriétaire l'utilise). Le serveur valide tout (voir Main.fastTravel).
+function Config.portalPad(k)
+	local h = Config.Map2.portalHub
+	return h.x0 + (k - 1) * h.gap, h.z
+end
+function Config.homeArch(i)
+	return -30 + (i - 1) * 15, 50
+end
+-- Point d'arrivée d'une destination de voyage : 0 = la place (près de la rose des portails), k = arrivée du portail k.
+function Config.travelDest(dest)
+	if dest == 0 then
+		return Config.Map2.plazaArrival.x, Config.Map2.plazaArrival.z
+	end
+	local p = Config.TRAVEL2.portals[dest]
+	return p.to[1], p.to[2]
+end
+-- Portail k débloqué au chapitre `chaptersDone` ?
+function Config.portalUnlocked(chaptersDone, k)
+	local p = Config.TRAVEL2.portals[k]
+	return p ~= nil and (chaptersDone or 0) >= (p.chapter or 0)
+end
+-- Cible de la boussole : 0 = la place ; i = entrée du premier territoire du rival i (compatibilité : ancien nom conservé).
 function Config.travelPoint(dest)
 	if dest == 0 then
-		return 0, -30
+		return Config.travelDest(0)
 	end
-	local r = Config.rampOf(dest)
-	return r.bottom[1] + r.dir[1] * Config.TRAVEL.arrivalOffset, r.bottom[2] + r.dir[2] * Config.TRAVEL.arrivalOffset
+	return Config.territoryEntry(Config.rivalTerritories(dest)[1].key)
 end
-function Config.travelPad(i)
-	return Config.TRAVEL.arenaPads.x[i], Config.TRAVEL.arenaPads.z
-end
-function Config.returnPad(rival)
-	local r = Config.rampOf(rival)
-	local px, pz = -r.dir[2], r.dir[1]
-	return r.bottom[1] + r.dir[1] * Config.TRAVEL.returnForward + px * Config.TRAVEL.returnSide, r.bottom[2] + r.dir[2] * Config.TRAVEL.returnForward + pz * Config.TRAVEL.returnSide
-end
-
 -- Secrets : un lieu caché par domaine ; une récompense par jour et par secret (max(minCoins, revenus de `mins` minutes)).
 Config.SECRETS = {
-	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -235, z = -205, mins = 4, minCoins = 1500, hint = "Au bout du sentier de la ferme, derrière les champs, un verger oublié garde un trésor." },
-	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = -80, z = -305, mins = 6, minCoins = 4000, hint = "Dans les bois de Mara, une lueur persiste là où personne ne va." },
-	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 290, z = -245, mins = 8, minCoins = 9000, hint = "La citadelle de Zed cache un cœur brûlant sur son flanc est." },
+	{ id = "verger", name = "L'œuf d'or du verger", emoji = "🥇", x = -330, z = -25, mins = 4, minCoins = 1500, hint = "Au fond du bois de l'Ouest, derrière les champs de Gus, un verger oublié garde un trésor." },
+	{ id = "lanterne", name = "La lanterne de Mara", emoji = "🏮", x = 35, z = 125, mins = 6, minCoins = 4000, hint = "Au sud des bois de Mara, une lueur persiste là où personne ne va." },
+	{ id = "coeur", name = "Le cœur de lave", emoji = "🔥", x = 335, z = -165, mins = 8, minCoins = 9000, hint = "Sur le plateau du château, à l'est de la cour de Zed, un cœur brûlant attend." },
 }
 
 function Config.secret(id)
@@ -1376,12 +1399,12 @@ Config.RANKS = {
 Config.STORY = {
 	{ title = "L'œuf d'argent", text = "Le Grand Nid s'est brisé, mais un dernier œuf dort dans ta base. Fais-le éclore : touche-le pour l'aider !", type = "hatch", goal = 1, coins = 100, mins = 0 },
 	{ title = "Premier larcin", text = "Les brigands de Gus gardent des œufs au nord. Maintiens le bouton devant un nid pour en chiper un, puis rapporte-le chez toi.", type = "steal", goal = 1, coins = 250, mins = 0 },
-	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur le tapis roulant du centre : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
+	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur la piste d'entraînement de la place : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
 	{ title = "Le petit cabinet", text = "Un vrai Chipeur collectionne. Découvre 3 espèces différentes : chaque série de 3 augmente tes revenus pour toujours.", type = "species", goal = 3, coins = 800, mins = 2 },
 	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
 	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
 	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
-	{ title = "Le murmure des runes", text = "Les runes du Grand Nid s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Nid, puis touche le Nid pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
+	{ title = "Le murmure des runes", text = "Les runes du Grand Œuf s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Grand Œuf (à l'est de la place), puis touche-le pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
 	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
 	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
 	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
@@ -1472,7 +1495,7 @@ function Config.storyGoalText(c)
 	elseif c.type == "steal" then
 		return "Chiper " .. c.goal .. " œuf(s)" .. rival
 	elseif c.type == "train" then
-		return "Courir " .. c.goal .. " secondes sur le tapis roulant"
+		return "Courir " .. c.goal .. " secondes sur la piste d'entraînement"
 	elseif c.type == "species" then
 		return "Découvrir " .. c.goal .. " espèces différentes"
 	elseif c.type == "tier" then
@@ -1668,6 +1691,30 @@ Config.Map2 = {
 	groves = { { x = -160, z = -150 }, { x = 140, z = -20 }, { x = -200, z = 120 }, { x = 60, z = 190 } }, groveRadius = 12, groveTrees = 6,
 	hills = { { x = -300, z = -232, h = 18, r = 40 }, { x = 120, z = -238, h = 14, r = 35 }, { x = -330, z = 235, h = 12, r = 30 }, { x = 330, z = 240, h = 10, r = 30 } },
 	baseSizeMax = 72, -- emprise maximale d'une base (niveau 8)
+	-- REFONTE (lot 2) : données de construction ajoutées (chemins, arrivée sur la place, pontons, cabane, murs, budgets du décor procédural)
+	basePlatform = 52, spawnForward = 20, -- plateforme actuelle d'une base (52 x 52) ; le spawn est 20 studs devant son centre, côté place
+	plazaArrival = { x = 28, z = -34 }, -- arrivée des tapis de retour (près de la rose des portails, hors fontaine et chemins)
+	bridgeHalfGap = 3, -- demi-largeur minimale du passage laissé dans le mur invisible de la rivière du Nord à un pont (sinon demi-largeur du pont)
+	wallHeight = 40, -- murs invisibles (bornes et rivière du Nord) : plus hauts que les collines (on ne les enjambe jamais)
+	docks = { { lake = 1, x = -262, z = -90, len = 14, w = 4 }, { lake = 2, x = 255, z = 185, len = 14, w = 4 } }, -- pontons (avancent vers le centre du lac)
+	cabin = { x = -300, z = -58, w = 10, d = 8 }, -- cabane du pêcheur (lac du Moulin)
+	procTrees = 40, -- arbres procéduraux des forêts (2 Parts chacun ; les bosquets en ajoutent groveTrees chacun) : le reste vient des modèles Blender
+	paths = { -- routes pavées (paved, demi-largeur pathHalf) et chemins de terre (dirt, dirtHalf) ; polylignes (x, z) depuis le centre de la place
+		{ name = "B1", kind = "paved", pts = { { 0, 0 }, { 0, -140 } } },
+		{ name = "B2", kind = "paved", pts = { { 0, 0 }, { -205, -45 } } },
+		{ name = "B3", kind = "paved", pts = { { 0, 0 }, { 60, 15 }, { 150, 5 }, { 200, -45 } } }, -- coudes : contourne la place du Grand Œuf et le bosquet est
+		{ name = "B4", kind = "paved", pts = { { 0, 0 }, { -30, 165 } } },
+		{ name = "B5", kind = "paved", pts = { { 0, 0 }, { 110, 25 }, { 175, 135 } } }, -- coude : contourne le territoire de Mara par le nord
+		{ name = "Castle", kind = "paved", pts = { { 40, -40 }, { 140, -75 }, { 215, -103 } } }, -- jusqu'au pied du Pont du Château
+		{ name = "Court", kind = "paved", y = 10, pts = { { 215, -137 }, { 232, -137 } } }, -- sur le plateau : du pont vers la herse de la cour (240, -138), hors du territoire
+		{ name = "Arena", kind = "paved", pts = { { -20, 110 }, { -150, 145 }, { -235, 135 } } }, -- embranchement en J vers l'arène
+		{ name = "MillLake", kind = "dirt", pts = { { -205, -45 }, { -255, -70 } } },
+		{ name = "B1B2", kind = "dirt", pts = { { 0, -140 }, { -100, -135 }, { -205, -45 } } }, -- voisins : contourne Gus Nord-Ouest par le nord
+		{ name = "B1B3", kind = "dirt", pts = { { 0, -140 }, { 75, -130 }, { 200, -45 } } }, -- voisins : contourne l'enclos sauvage
+		{ name = "B3B5", kind = "dirt", pts = { { 200, -45 }, { 175, 135 } } },
+		{ name = "B5B4", kind = "dirt", pts = { { 175, 135 }, { -30, 165 } } },
+	},
+	neighbors = { { 1, 2, "B1B2" }, { 1, 3, "B1B3" }, { 3, 5, "B3B5" }, { 5, 4, "B5B4" } }, -- bases voisines et chemin qui les relie (B2 et B4 : par la place)
 }
 
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
@@ -1742,11 +1789,12 @@ Config.HEN_LINES = {
 	hintRune = "La rune {dir} veut {symbol}.",
 	runeWaits = "La rune {dir} attend sa plume.",
 }
+-- REFONTE (lot 2) : trois plumes déplacées pour rester atteignables (E2 était entre la rivière et la falaise, S1 hors du ponton, O1 dans la cabane).
 Config.FEATHER_SPOTS = {
 	N = { { x = -20, z = -228, where = "au-delà du pont de bois" }, { x = -280, z = -225, where = "sur la colline des vents" }, { x = 120, z = -232, where = "sous les sapins de la colline" } },
-	E = { { x = 215, z = -100, where = "au pied du pont de pierre" }, { x = 325, z = -120, where = "près de l'eau qui tombe" }, { x = 330, z = 40, where = "à l'orée du bois de l'Est" } },
-	S = { { x = 250, z = 190, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
-	O = { { x = -300, z = -58, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
+	E = { { x = 215, z = -100, where = "au pied du pont de pierre" }, { x = 325, z = -90, where = "face à l'eau qui tombe" }, { x = 330, z = 40, where = "à l'orée du bois de l'Est" } },
+	S = { { x = 262, z = 189, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
+	O = { { x = -300, z = -47, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
 }
 Config.HEN = { fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300 }
 -- Textes du HUD (onboarding et chapitres) : tous < 110 octets.
@@ -1761,7 +1809,7 @@ Config.CHAPTER_TEXTS = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2056,7 +2104,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2236,7 +2284,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2579,7 +2627,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2876,13 +2924,25 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
--- empreinte ne touche NI l'eau (rivières, douves), NI un chemin, NI l'arène, un domaine, une base ou un secret, et reste à distance minimale des objets
--- déjà posés. Cabanes tournées face au centre de leur domaine, barrières alignées sur une même ligne, ponts centrés sur leur rivière et plus longs
--- qu'elle (les deux rives sont reliées). Utilisation : require(Placement).new(Config).plan().
+-- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
+-- (règles de MapGeo.blocked), et reste à distance minimale des objets déjà posés. Cabanes tournées face au centre de leur territoire, barrières
+-- alignées sur une même ligne, ponts de bois centrés sur leur cours d'eau. Forêts par rectangles et bosquets (REFONTE lot 2, carte 700 x 500).
+-- Utilisation : require(Placement).new(Config).plan() (MapGeo chargé à côté ; les tests le passent : Placement.new(Config, MapGeo)).
 local Placement = {}
+
+-- Pause coopérative facultative (Builder la règle sur task.wait) : les calculs de pose cèdent la main tous les 25 essais (jamais de gel du serveur ;
+-- les tests purs la laissent à nil).
+Placement.yield = nil
+local pauseCount = 0
+local function pause()
+	pauseCount = pauseCount + 1
+	if Placement.yield and pauseCount % 25 == 0 then
+		Placement.yield()
+	end
+end
 
 local KIND_RADIUS = { tree = 3.5, fir = 3.5, rock = 2.5, bush = 2, hut = 7, fence = 5.5 }
 Placement.KIND_RADIUS = KIND_RADIUS
@@ -2934,24 +2994,46 @@ function Placement.yawOfDir(dx, dz)
 	return math.deg(a) % 360
 end
 
--- Variante d'arbre selon la zone : tree_sakura près des lacs et de l'arène centrale, tree_pine sur les falaises (autour des domaines), sinon prairie
--- (chênes, bouleau, arbre rond en alternance ; tree_oak_b porte des pommes). `kind` = "tree" ou "fir" (les sapins restent des pins). `k` = rang (déterministe).
-function Placement.treeVariant(Config, kind, x, z, k)
+-- REFONTE (lot 2) : le module MapGeo (géométrie de la carte 700 x 500) est injecté par l'appelant ou chargé à côté de ce module.
+local function loadGeo(MapGeo)
+	if MapGeo then
+		return MapGeo
+	end
+	if Placement.MapGeo then
+		return Placement.MapGeo
+	end
+	local ok, mod = pcall(function()
+		return require(script.Parent:WaitForChild("MapGeo"))
+	end)
+	if ok then
+		Placement.MapGeo = mod
+		return mod
+	end
+	error("Placement : module MapGeo introuvable (passe-le à Placement.new(Config, MapGeo))")
+end
+
+-- Variante d'arbre selon la zone : tree_sakura près des lacs et de la place, tree_pine au nord (derrière la rivière), autour des territoires et sur le
+-- plateau du château, sinon prairie (chênes, bouleau, arbre rond en alternance ; tree_oak_b porte des pommes). `kind` = "tree" ou "fir" (les sapins
+-- restent des pins). `k` = rang (déterministe).
+function Placement.treeVariant(Config, kind, x, z, k, MapGeo)
 	if kind == "fir" then
 		return "tree_pine"
 	end
-	local geo = Config.Map.geo
-	for _, lk in ipairs(geo.lakes or {}) do
-		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 70 then
+	local M2 = Config.Map2
+	for _, lk in ipairs(M2.lakes) do
+		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 40 then
 			return "tree_sakura"
 		end
 	end
-	if math.sqrt(x * x + z * z) < geo.arenaRadius + 70 then
+	if math.sqrt((x - M2.plaza.x) ^ 2 + (z - M2.plaza.z) ^ 2) < M2.plaza.r + 50 then
 		return "tree_sakura"
 	end
-	for i = 1, #Config.RIVALS do
-		local cx, cz = Config.rivalCenter(i)
-		if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < Config.Map.plateauRadius + 60 then
+	if z < -180 then
+		return "tree_pine"
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2) < t.r + 25 then
 			return "tree_pine"
 		end
 	end
@@ -3052,100 +3134,164 @@ function Placement.pathTiles(poly, tile, wind)
 	return { tiles = tiles, borders = borders, length = total }
 end
 
-function Placement.new(Config)
-	local P = {}
-	local M = Config.Map
-	local geo = M.geo
-	local half = M.groundSize / 2
+function Placement.new(Config, MapGeo)
+	local MG = loadGeo(MapGeo)
+	local G = MG.new(Config)
+	local P = { G = G }
+	local M2 = Config.Map2
+	local B = M2.bounds
 
-	-- Segments de chemin (mêmes extrémités que Scenery.paths) : de la moitié du x du domaine, devant l'arène, jusqu'au domaine.
+	-- Segments des chemins au sol (mêmes polylignes que Scenery.paths) : { ax, az, bx, bz } ; les ponts sont des chemins.
 	function P.pathSegments()
 		local out = {}
-		for _, poly in ipairs(M.paths) do
-			for k = 1, #poly - 1 do
-				out[#out + 1] = { poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2] }
+		for _, sg in ipairs(G.pathSegs) do
+			if (sg.y or 0) == 0 then
+				out[#out + 1] = { sg[1], sg[2], sg[3], sg[4], half = sg.half }
 			end
-		end
-		for i = 1, #Config.RIVALS do -- les rampes sont des chemins larges
-			local r = Config.rampOf(i)
-			out[#out + 1] = { r.top[1], r.top[2], r.bottom[1], r.bottom[2] }
 		end
 		return out
 	end
 
-	-- Altitude du sol en (x, z) : la hauteur du plateau d'un domaine si le point est sur ce plateau, sinon 0.
+	-- Altitude du sol en (x, z) : plateau du château, colline, sinon 0.
 	function P.groundY(x, z)
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			if math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2) < M.plateauRadius - 1 then
-				return Config.rivalHeight(i)
-			end
-		end
-		return 0
+		return G.groundY(x, z)
 	end
 
-	-- Pourquoi une empreinte (x, z, r) est interdite : "eau", "chemin", "arène", "domaine", "base", "secret", "bord" ou nil si libre.
-	-- opts.allowDomain : l'empreinte peut se trouver dans un domaine (cabane et barrières d'un domaine).
+	-- Pourquoi une empreinte (x, z, r) est interdite : "eau", "chemin", "place", "repère", "arène", "château", "domaine", "base", "secret",
+	-- "plume", "bord" ou nil si libre. opts.allowDomain : dans un territoire (cabanes, barrières) ; opts.allowPlateau : sur le plateau du château.
 	function P.blocked(x, z, r, opts)
-		local margin = 1.5
-		if math.abs(x) > half - 50 or math.abs(z) > half - 50 then
-			return "bord"
-		end
-		for _, rv in ipairs(geo.rivers) do
-			local c = rv.axis == "z" and z or x
-			if math.abs(c - rv.at) < rv.half + r + margin then
-				return "eau"
-			end
-		end
-		for _, lk in ipairs(geo.lakes or {}) do
-			if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 5 + r + margin then
-				return "eau"
-			end
-		end
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			local d = math.sqrt((x - cx) ^ 2 + (z - cz) ^ 2)
-			if d < M.plateauRadius + r + margin and (opts and opts.allowDomain) then
-				-- sur le plateau : on ne pose rien dans la douve
-				if math.abs(d - M.moat.radius) < M.moat.width / 2 + r + margin then
-					return "eau"
-				end
-			elseif d < M.plateauRadius + r + margin then
-				return "domaine"
-			end
-		end
-		if math.sqrt(x * x + z * z) < geo.arenaRadius + r + margin then
-			return "arène"
-		end
-		for _, seg in ipairs(P.pathSegments()) do
-			if distToSegment(x, z, seg[1], seg[2], seg[3], seg[4]) < geo.pathHalf + r + margin then
-				return "chemin"
-			end
-		end
-		local ring = math.abs(math.sqrt(x * x + z * z) - (M.plotRadius - 30))
-		if ring < geo.pathHalf + r + margin then
-			return "chemin"
-		end
-		if math.abs(math.sqrt(x * x + z * z) - M.plotRadius) < geo.baseBand + r then
-			return "base"
-		end
-		for _, sct in ipairs(Config.SECRETS) do
-			if math.sqrt((x - sct.x) ^ 2 + (z - sct.z) ^ 2) < 40 + r then
-				return "secret"
-			end
-		end
-		return nil
+		return G.blocked(x, z, r, opts)
 	end
 
-	-- Plan complet : { items = { {kind, x, z, rot, r} }, bridges = { {x, z, rot, length, river} } }. Déterministe.
+	-- Empreintes réservées dans les territoires : nids et postes des gardiens (rien n'y est posé).
+	local reserved = {}
+	for _, t in ipairs(G.terrs) do
+		for _, n in ipairs(t.nests or {}) do
+			reserved[#reserved + 1] = { n[1], n[2], 5 }
+		end
+		for _, p in ipairs(t.posts or {}) do
+			reserved[#reserved + 1] = { p[1], p[2], 6 }
+		end
+	end
+	reserved[#reserved + 1] = { G.keep.x, G.keep.z, G.keep.half + 4 }
+	local function freeOfReserved(x, z, r)
+		for _, q in ipairs(reserved) do
+			if math.sqrt((x - q[1]) ^ 2 + (z - q[2]) ^ 2) < q[3] + r then
+				return false
+			end
+		end
+		return true
+	end
+
+	-- Arbres PROCÉDURAUX des forêts (rectangles de Map2.forests, débordant sur le décor de fond au bord de la carte) et des bosquets : positions
+	-- déterministes, rien dans l'eau, sur un chemin, une base ou un territoire. { {x, z, r, y, grove} } ; au plus Map2.procTrees en forêt.
+	function P.forest()
+		if G._forest then
+			return G._forest
+		end
+		local out = {}
+		local r = 3.5
+		local function freeHere(x, z)
+			pause()
+			if math.abs(x) > M2.backdrop.w / 2 - 6 or math.abs(z) > M2.backdrop.d / 2 - 6 then
+				return false
+			end
+			local why = G.blocked(x, z, r, {})
+			if why and not (why == "bord" and not G.inBounds(x, z, 0)) then
+				return false
+			end
+			if not freeOfReserved(x, z, r) then
+				return false
+			end
+			for _, o in ipairs(out) do
+				if math.sqrt((x - o.x) ^ 2 + (z - o.z) ^ 2) < 2 * r + Placement.MIN_GAP then
+					return false
+				end
+			end
+			return true
+		end
+		-- bosquets : groveTrees arbres en couronne
+		for gi, gv in ipairs(M2.groves) do
+			for k = 1, M2.groveTrees do
+				local a = (k / M2.groveTrees + gi * 0.13) * math.pi * 2
+				local rad = M2.groveRadius * (k % 2 == 0 and 0.75 or 0.35)
+				local x, z = gv.x + math.cos(a) * rad, gv.z + math.sin(a) * rad
+				if freeHere(x, z) then
+					out[#out + 1] = { x = x, z = z, r = r, y = G.groundY(x, z), grove = gi }
+				end
+			end
+		end
+		-- forêts : quota proportionnel au maximum de chaque rectangle ; un rectangle collé au bord déborde de 24 studs dans le décor de fond
+		local sumMax = 0
+		for _, f in ipairs(M2.forests) do
+			sumMax = sumMax + f.max
+		end
+		local seed = 2711
+		local function rnd()
+			seed = seed * 16807 % 2147483647
+			return seed / 2147483647
+		end
+		for _, f in ipairs(M2.forests) do
+			local quota = math.floor(M2.procTrees * f.max / sumMax + 0.5)
+			local x0, x1, z0, z1 = f.x0, f.x1, f.z0, f.z1
+			if x0 <= B.x0 then
+				x0 = x0 - 24
+			end
+			if x1 >= B.x1 then
+				x1 = x1 + 24
+			end
+			if z0 <= B.z0 then
+				z0 = z0 - 24
+			end
+			if z1 >= B.z1 then
+				z1 = z1 + 24
+			end
+			local cells = {}
+			local step = 11
+			for gx = x0 + step / 2, x1, step do
+				for gz = z0 + step / 2, z1, step do
+					cells[#cells + 1] = { gx, gz }
+				end
+			end
+			for i = #cells, 2, -1 do
+				local j = 1 + math.floor(rnd() * i)
+				cells[i], cells[j] = cells[j], cells[i]
+			end
+			local got = 0
+			for _, c in ipairs(cells) do
+				if got >= quota then
+					break
+				end
+				local x, z = c[1] + (rnd() - 0.5) * 5, c[2] + (rnd() - 0.5) * 5
+				if freeHere(x, z) then
+					out[#out + 1] = { x = x, z = z, r = r, y = G.groundY(x, z) }
+					got = got + 1
+				end
+			end
+		end
+		G._forest = out
+		return out
+	end
+
+	-- Plan complet : { items = { {kind, x, z, rot, r, y} }, bridges = { {x, z, rot, length, name} }, forest = P.forest() }. Déterministe.
 	function P.plan()
+		if G._plan then
+			return G._plan
+		end
 		local items = {}
+		local forest = P.forest()
 		local function fits(kind, x, z, opts)
+			pause()
 			local r = KIND_RADIUS[kind]
-			if P.blocked(x, z, r, opts) then
+			if P.blocked(x, z, r, opts) or not freeOfReserved(x, z, r) then
 				return false
 			end
 			for _, it in ipairs(items) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + Placement.MIN_GAP then
+					return false
+				end
+			end
+			for _, it in ipairs(forest) do
 				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + Placement.MIN_GAP then
 					return false
 				end
@@ -3156,80 +3302,84 @@ function Placement.new(Config)
 			items[#items + 1] = { kind = kind, x = x, z = z, rot = rot, r = KIND_RADIUS[kind], y = P.groundY(x, z) }
 		end
 		local plan = Config.Assets.propsPlan
-		-- 1. par domaine : une cabane face au centre du domaine et une ligne de barrières alignée (jamais dans l'eau)
+		-- 1. par rival (premier territoire) : une ligne de barrières alignée puis une cabane face au centre du territoire (jamais dans l'eau)
 		for i = 1, #Config.RIVALS do
 			local cx, cz = Config.rivalCenter(i)
-			for _, off in ipairs({ { -28, 12 }, { 28, 12 }, { -28, -12 }, { 28, -12 } }) do
-				if (plan.hut or 0) > 0 and fits("hut", cx + off[1], cz + off[2], { allowDomain = true }) then
-					add("hut", cx + off[1], cz + off[2], Placement.facing(cx - (cx + off[1]), cz - (cz + off[2])))
-					break
-				end
-			end
+			local t = G.terr(Config.rivalTerritories(i)[1].key)
+			local inner = t.r - 10
+			local opts = { allowDomain = true, allowPlateau = true }
 			local perDomain = math.ceil((plan.fence or 0) / #Config.RIVALS)
 			for k = 0, perDomain - 1 do
-				local fx, fz = cx - 20.25 + k * 13.5, cz - 34 -- côté nord (le côté sud porte le chemin d'arrivée)
-				if fits("fence", fx, fz, { allowDomain = true }) then
+				local fx, fz = cx - 20.25 + k * 13.5, cz - (t.r - 12) -- côté nord du territoire
+				if fits("fence", fx, fz, opts) then
 					add("fence", fx, fz, 0) -- alignées sur l'axe X, même rotation : jamais de barrières qui se croisent
 				end
 			end
-		end
-		-- 2. décor libre : grille de cellules parcourue dans un ordre fixe (mélange déterministe), un genre par cellule selon les quantités du plan
-		local kinds = {}
-		local remaining = { tree = plan.tree or 0, fir = plan.fir or 0, rock = plan.rock or 0, bush = plan.bush or 0 }
-		local order = { "tree", "rock", "fir", "bush" }
-		local left = remaining.tree + remaining.fir + remaining.rock + remaining.bush
-		local idx = 0
-		while left > 0 do
-			idx = idx % #order + 1
-			local k = order[idx]
-			if remaining[k] > 0 then
-				remaining[k] = remaining[k] - 1
-				left = left - 1
-				kinds[#kinds + 1] = k
+			for _, off in ipairs({ { -1, 0.3 }, { 1, 0.3 }, { -0.7, -0.7 }, { 0.7, -0.7 }, { 0, 1 }, { 0, -1 }, { 0, 0.55 }, { 0.55, 0 }, { -0.55, 0 }, { 0, -0.55 } }) do
+				local hx, hz = cx + off[1] * inner, cz + off[2] * inner
+				if (plan.hut or 0) > 0 and fits("hut", hx, hz, opts) then
+					add("hut", hx, hz, Placement.facing(cx - hx, cz - hz))
+					break
+				end
 			end
 		end
-		local cells = {}
-		local lo, hi = -half + 70, half - 70
-		local cell = Placement.CELL
-		for gx = lo, hi, cell do
-			for gz = lo, hi, cell do
-				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
-			end
-		end
+		-- 2. décor libre : les sapins et les arbres vont d'abord dans les forêts, puis partout ; rochers et buissons sur toute la carte
 		local seed = 4093 -- Park–Miller : mélange déterministe des cellules
 		local function rnd()
 			seed = seed * 16807 % 2147483647
 			return seed / 2147483647
 		end
-		for i = #cells, 2, -1 do
-			local j = 1 + math.floor(rnd() * i)
-			cells[i], cells[j] = cells[j], cells[i]
-		end
-		local ki = 1
-		for _, c in ipairs(cells) do
-			if ki > #kinds then
-				break
-			end
-			local kind = kinds[ki]
-			local x, z = c[1] + (rnd() - 0.5) * 12, c[2] + (rnd() - 0.5) * 12
-			if math.sqrt(x * x + z * z) <= (M.decorRadius or math.huge) and fits(kind, x, z) then
-				add(kind, x, z, rnd() * 360)
-				ki = ki + 1
-			end
-		end
-		-- 3. ponts : centrés sur la rivière, plus longs qu'elle (les deux rives sont reliées)
-		local bridges = {}
-		for _, rv in ipairs(geo.rivers) do
-			local length = rv.half * 2 + 2 * geo.bridgeBank
-			for _, along in ipairs(rv.bridgesAt) do
-				if rv.axis == "z" then
-					bridges[#bridges + 1] = { x = along, z = rv.at, rot = 90, length = length, river = rv }
-				else
-					bridges[#bridges + 1] = { x = rv.at, z = along, rot = 0, length = length, river = rv }
+		local cell = Placement.CELL
+		local cells, forestCells = {}, {}
+		for gx = B.x0 + 10, B.x1 - 10, cell do
+			for gz = B.z0 + 10, B.z1 - 10, cell do
+				local c = { gx + cell / 2, gz + cell / 2 }
+				cells[#cells + 1] = c
+				for _, f in ipairs(M2.forests) do
+					if c[1] >= f.x0 - 10 and c[1] <= f.x1 + 10 and c[2] >= f.z0 - 10 and c[2] <= f.z1 + 10 then
+						forestCells[#forestCells + 1] = c
+						break
+					end
 				end
 			end
 		end
-		return { items = items, bridges = bridges }
+		local function shuffle(list)
+			for i = #list, 2, -1 do
+				local j = 1 + math.floor(rnd() * i)
+				list[i], list[j] = list[j], list[i]
+			end
+		end
+		shuffle(cells)
+		shuffle(forestCells)
+		local function scatter(kind, count, list)
+			local got = 0
+			for _, c in ipairs(list) do
+				if got >= count then
+					break
+				end
+				local x, z = c[1] + (rnd() - 0.5) * 14, c[2] + (rnd() - 0.5) * 14
+				if fits(kind, x, z) then
+					add(kind, x, z, rnd() * 360)
+					got = got + 1
+				end
+			end
+			return got
+		end
+		local firs = scatter("fir", plan.fir or 0, forestCells)
+		scatter("fir", (plan.fir or 0) - firs, cells)
+		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells)
+		scatter("tree", (plan.tree or 0) - trees, cells)
+		scatter("rock", plan.rock or 0, cells)
+		scatter("bush", plan.bush or 0, cells)
+		-- 3. ponts de bois (Blender) : centrés sur leur cours d'eau, axe du pont ; le pont de pierre du château (rampe) reste procédural
+		local bridges = {}
+		for _, b in ipairs(G.bridges) do
+			if not b.stone then
+				bridges[#bridges + 1] = { x = b.x, z = b.z, rot = b.axis == "NS" and 90 or 0, length = b.len, name = b.name, river = b.river }
+			end
+		end
+		G._plan = { items = items, bridges = bridges, forest = forest }
+		return G._plan
 	end
 
 	-- Décor fin (fleurs, touffes, pierres, lanternes) : mêmes règles (rien dans l'eau ni sur un chemin), espacement plus serré, après le plan principal.
@@ -3240,11 +3390,17 @@ function Placement.new(Config)
 		counts = counts or { flowers = 36, tufts = 24, stones = 18, lanterns = 12 }
 		local out = {}
 		local function fits(kind, x, z)
+			pause()
 			local r = DECO_RADIUS[kind]
 			if P.blocked(x, z, r, { allowDomain = true }) then
 				return false
 			end
 			for _, it in ipairs(planItems or {}) do
+				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 1 then
+					return false
+				end
+			end
+			for _, it in ipairs(P.forest()) do
 				if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 1 then
 					return false
 				end
@@ -3273,7 +3429,7 @@ function Placement.new(Config)
 					break
 				end
 				local t = (k - 0.5) / steps
-				local x, z = seg[1] + dx * t + nx * (geo.pathHalf + 3.5), seg[2] + dz * t + nz * (geo.pathHalf + 3.5)
+				local x, z = seg[1] + dx * t + nx * ((seg.half or M2.pathHalf) + 3.5), seg[2] + dz * t + nz * ((seg.half or M2.pathHalf) + 3.5)
 				if fits("lantern", x, z) then
 					out[#out + 1] = { kind = "lantern", x = x, z = z, rot = 0, r = DECO_RADIUS.lantern, y = P.groundY(x, z) }
 					placedLanterns = placedLanterns + 1
@@ -3292,9 +3448,9 @@ function Placement.new(Config)
 			kinds[#kinds + 1] = i % 2 == 0 and "stone_flat" or "stone_round"
 		end
 		local cells = {}
-		local cell, lo, hi = 24, -half + 60, half - 60
-		for gx = lo, hi, cell do
-			for gz = lo, hi, cell do
+		local cell = 24
+		for gx = B.x0 + 12, B.x1 - 12, cell do
+			for gz = B.z0 + 12, B.z1 - 12, cell do
 				cells[#cells + 1] = { gx + cell / 2, gz + cell / 2 }
 			end
 		end
@@ -3316,8 +3472,8 @@ function Placement.new(Config)
 		return out
 	end
 
-	-- Décor de village de la carte (modèles scn_*) : candidats sur des anneaux autour de l'arène, ordre fixe ; mêmes règles que plan() (rien dans l'eau, sur un
-	-- chemin, une base, un domaine ni sur un objet du plan). Retourne { {kind, x, z, rot, r, y} }.
+	-- Décor de village de la carte (modèles scn_*) : candidats sur des anneaux autour de la place, ordre fixe ; mêmes règles que plan() (rien dans l'eau, sur un
+	-- chemin, une base, un territoire ni sur un objet du plan). Retourne { {kind, x, z, rot, r, y} }.
 	local VILLAGE = { { "scn_tour_cloche", 1 }, { "scn_maison_colombages", 3 }, { "scn_puits", 2 }, { "scn_pin_haut", 6 }, { "scn_rocher_a", 3 }, { "scn_rocher_b", 3 }, { "scn_rocher_c", 3 } }
 	Placement.VILLAGE = VILLAGE
 	function P.scenery(planItems)
@@ -3329,12 +3485,21 @@ function Placement.new(Config)
 			local got, tries = 0, 0
 			while got < want and tries < 400 do
 				tries = tries + 1
+				pause()
 				local ang = math.rad((tries * 137.5 + #out * 23) % 360)
-				local rad = 105 + (tries * 29) % 110 -- anneau de 105 à 215 studs : entre l'arène et les bases
+				local rad = 75 + (tries * 29) % 250 -- anneaux de 75 à 325 studs autour de la place
 				local x, z = math.sin(ang) * rad, -math.cos(ang) * rad
-				local ok = not P.blocked(x, z, r, {})
+				local ok = not P.blocked(x, z, r, {}) and freeOfReserved(x, z, r)
 				if ok then
 					for _, it in ipairs(planItems or {}) do
+						if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 2 then
+							ok = false
+							break
+						end
+					end
+				end
+				if ok then
+					for _, it in ipairs(P.forest()) do
 						if math.sqrt((x - it.x) ^ 2 + (z - it.z) ^ 2) < r + it.r + 2 then
 							ok = false
 							break
@@ -3362,7 +3527,432 @@ function Placement.new(Config)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+-- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
+-- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
+-- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
+-- Nord = -Z, Est = +X. Aucun service Roblox ; pas de math.atan2. Utilisation : require(MapGeo).new(Config).
+local MapGeo = {}
+
+local function dist(ax, az, bx, bz)
+	return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+end
+MapGeo.dist = dist
+
+local function distToSegment(px, pz, ax, az, bx, bz)
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = len2 > 0 and math.max(0, math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2)) or 0
+	return dist(px, pz, ax + dx * t, az + dz * t)
+end
+MapGeo.distToSegment = distToSegment
+
+-- Distance d'un point à une polyligne { {x, z}, ... }.
+function MapGeo.distToPoly(px, pz, pts)
+	local best = math.huge
+	for k = 1, #pts - 1 do
+		best = math.min(best, distToSegment(px, pz, pts[k][1], pts[k][2], pts[k + 1][1], pts[k + 1][2]))
+	end
+	return best
+end
+
+function MapGeo.polyLength(pts)
+	local total = 0
+	for k = 1, #pts - 1 do
+		total = total + dist(pts[k][1], pts[k][2], pts[k + 1][1], pts[k + 1][2])
+	end
+	return total
+end
+
+local function cross(ax, az, bx, bz)
+	return ax * bz - az * bx
+end
+
+-- Les segments [A, B] et [C, D] se coupent-ils (contact compris) ? Deux segments parallèles ne se coupent pas (un mur ne se longe pas « à travers »).
+function MapGeo.segmentsCross(ax, az, bx, bz, cx, cz, dx, dz)
+	local rx, rz = bx - ax, bz - az
+	local sx, sz = dx - cx, dz - cz
+	local den = cross(rx, rz, sx, sz)
+	if math.abs(den) < 1e-12 then
+		return false
+	end
+	local t = cross(cx - ax, cz - az, sx, sz) / den
+	local u = cross(cx - ax, cz - az, rx, rz) / den
+	return t >= -1e-9 and t <= 1 + 1e-9 and u >= -1e-9 and u <= 1 + 1e-9
+end
+
+-- Colline en calotte sphérique (rayon au sol r, hauteur h) : rayon de la sphère et hauteur de son centre (sous le sol).
+function MapGeo.hillSphere(hill)
+	local R = (hill.r * hill.r + hill.h * hill.h) / (2 * hill.h)
+	return R, hill.h - R
+end
+
+local cache = setmetatable({}, { __mode = "k" })
+
+function MapGeo.new(Config, fresh)
+	if cache[Config] and not fresh then
+		return cache[Config]
+	end
+	local M = Config.Map2
+	local G = { M = M }
+	cache[Config] = G
+	local B = M.bounds
+
+	function G.inBounds(x, z, margin)
+		margin = margin or 0
+		return x >= B.x0 + margin and x <= B.x1 - margin and z >= B.z0 + margin and z <= B.z1 - margin
+	end
+
+	---------------------------------------------------------------- Bases : façade (-Z local) tournée vers la place, spawn devant
+	G.bases = {}
+	for i, b in ipairs(M.bases) do
+		local d = dist(b.x, b.z, M.plaza.x, M.plaza.z)
+		local fx, fz = (M.plaza.x - b.x) / d, (M.plaza.z - b.z) / d
+		G.bases[i] = { i = i, x = b.x, z = b.z, fx = fx, fz = fz, half = M.baseSizeMax / 2, spawn = { x = b.x + fx * M.spawnForward, z = b.z + fz * M.spawnForward } }
+	end
+	-- Coordonnées locales d'un point dans la base i : (avant = vers la place, côté = à droite).
+	function G.baseLocal(i, x, z)
+		local b = G.bases[i]
+		local rx, rz = x - b.x, z - b.z
+		return rx * b.fx + rz * b.fz, rx * -b.fz + rz * b.fx
+	end
+	-- Distance d'un point au carré de la base i (demi-côté `half`, par défaut l'emprise maximale) ; 0 dedans.
+	function G.distToBase(i, x, z, half)
+		local a, s = G.baseLocal(i, x, z)
+		half = half or G.bases[i].half
+		local ex, ez = math.max(0, math.abs(a) - half), math.max(0, math.abs(s) - half)
+		return math.sqrt(ex * ex + ez * ez)
+	end
+
+	---------------------------------------------------------------- Territoires (Config.TERR, ordre TERR_ORDER)
+	G.terrs = {}
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		local ex, ez = Config.territoryEntry(key)
+		G.terrs[#G.terrs + 1] = { key = key, x = t.x, z = t.z, r = t.r, rival = t.rival, guards = t.guards, nests = t.nests, posts = t.posts or {}, entry = { x = ex, z = ez }, data = t }
+	end
+	function G.terr(key)
+		for _, t in ipairs(G.terrs) do
+			if t.key == key then
+				return t
+			end
+		end
+		return nil
+	end
+	-- Territoire qui contient (x, z) (marge facultative), ou nil.
+	function G.terrAt(x, z, margin)
+		for _, t in ipairs(G.terrs) do
+			if dist(x, z, t.x, t.z) < t.r + (margin or 0) then
+				return t
+			end
+		end
+		return nil
+	end
+
+	---------------------------------------------------------------- Chemins
+	G.paths = M.paths
+	-- Segments de tous les chemins : { ax, az, bx, bz, half, name, y }.
+	G.pathSegs = {}
+	for _, p in ipairs(M.paths) do
+		local half = p.kind == "dirt" and M.dirtHalf or M.pathHalf
+		for k = 1, #p.pts - 1 do
+			G.pathSegs[#G.pathSegs + 1] = { p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2], half = half, name = p.name, y = p.y or 0 }
+		end
+	end
+	function G.path(name)
+		for _, p in ipairs(M.paths) do
+			if p.name == name then
+				return p
+			end
+		end
+		return nil
+	end
+	-- Distance au bord du chemin le plus proche (négative sur le chemin).
+	function G.pathEdgeDist(x, z)
+		local best = math.huge
+		for _, s in ipairs(G.pathSegs) do
+			best = math.min(best, distToSegment(x, z, s[1], s[2], s[3], s[4]) - s.half)
+		end
+		return best
+	end
+
+	---------------------------------------------------------------- Eau
+	-- Distance au bord de l'eau la plus proche (négative dans l'eau) et son nom. withShore : la rive de sable des lacs compte comme de l'eau.
+	function G.waterEdgeDist(x, z, withShore)
+		local best, name = math.huge, nil
+		local function try(d, n)
+			if d < best then
+				best, name = d, n
+			end
+		end
+		for _, lk in ipairs(M.lakes) do
+			try(dist(x, z, lk.x, lk.z) - lk.r - (withShore and lk.shore or 0), lk.name)
+		end
+		for _, rv in ipairs(M.rivers) do
+			try(MapGeo.distToPoly(x, z, rv.pts) - rv.width / 2, rv.name)
+		end
+		try(dist(x, z, M.fountain.x, M.fountain.z) - M.fountain.r, "Fountain")
+		local mo = G.moat
+		local ex = math.max(mo.x0 - x, 0, x - mo.x1)
+		local ez = math.max(mo.z0 - z, 0, z - mo.z1)
+		try(math.sqrt(ex * ex + ez * ez) - ((ex == 0 and ez == 0) and 0.01 or 0), "CastleMoat")
+		return best, name
+	end
+	-- Douve décorative : bande de 6 au pied de la falaise sud du château, entre la rivière et le plateau.
+	G.moat = { x0 = M.castle.x0 + 8, x1 = M.castle.x1, z0 = M.castle.z1, z1 = M.castle.z1 + 6 }
+
+	---------------------------------------------------------------- Ponts et murs de la rivière du Nord
+	-- Pont : rivière franchie (la plus proche), point de franchissement sur la rivière, demi-passage dans le mur.
+	G.bridges = {}
+	for _, b in ipairs(M.bridges) do
+		local bestR, bestD = nil, math.huge
+		for ri, rv in ipairs(M.rivers) do
+			local d = MapGeo.distToPoly(b.x, b.z, rv.pts)
+			if d < bestD then
+				bestR, bestD = ri, d
+			end
+		end
+		local pts = M.rivers[bestR].pts
+		local cxp, czp, cd = b.x, b.z, math.huge -- point de la rivière le plus proche du centre du pont
+		for k = 1, #pts - 1 do
+			local ax, az, bx, bz = pts[k][1], pts[k][2], pts[k + 1][1], pts[k + 1][2]
+			local dx, dz = bx - ax, bz - az
+			local t = math.max(0, math.min(1, ((b.x - ax) * dx + (b.z - az) * dz) / (dx * dx + dz * dz)))
+			local qx, qz = ax + dx * t, az + dz * t
+			local d = dist(b.x, b.z, qx, qz)
+			if d < cd then
+				cxp, czp, cd = qx, qz, d
+			end
+		end
+		G.bridges[#G.bridges + 1] = { name = b.name, x = b.x, z = b.z, axis = b.axis, w = b.w, len = b.len, stone = b.stone, river = bestR, cross = { x = cxp, z = czp }, gapHalf = math.max(b.w / 2, M.bridgeHalfGap) }
+	end
+	-- Murs invisibles de la rivière du Nord (rivière 1) : sa ligne médiane découpée, sans les passages des ponts. { {ax, az, bx, bz}, ... }
+	function G.riverWalls(ri)
+		ri = ri or 1
+		local pts = M.rivers[ri].pts
+		local gaps = {}
+		for _, b in ipairs(G.bridges) do
+			if b.river == ri then
+				gaps[#gaps + 1] = b
+			end
+		end
+		local out = {}
+		for k = 1, #pts - 1 do
+			local ax, az, bx, bz = pts[k][1], pts[k][2], pts[k + 1][1], pts[k + 1][2]
+			local dx, dz = bx - ax, bz - az
+			local len = math.sqrt(dx * dx + dz * dz)
+			local cuts = {} -- intervalles [t0, t1] retirés (points à moins de gapHalf du point de franchissement)
+			for _, b in ipairs(gaps) do
+				-- |A + t D - C|^2 = g^2  ->  t^2 L^2 + 2 t (A-C).D + |A-C|^2 - g^2 = 0
+				local ox, oz = ax - b.cross.x, az - b.cross.z
+				local qa, qb, qc = len * len, 2 * (ox * dx + oz * dz), ox * ox + oz * oz - b.gapHalf * b.gapHalf
+				local disc = qb * qb - 4 * qa * qc
+				if disc > 0 then
+					local s = math.sqrt(disc)
+					local t0, t1 = (-qb - s) / (2 * qa), (-qb + s) / (2 * qa)
+					if t1 > 0 and t0 < 1 then
+						cuts[#cuts + 1] = { math.max(0, t0), math.min(1, t1) }
+					end
+				end
+			end
+			table.sort(cuts, function(p, q)
+				return p[1] < q[1]
+			end)
+			local from = 0
+			local function add(t0, t1)
+				if (t1 - t0) * len > 0.5 then
+					out[#out + 1] = { ax + dx * t0, az + dz * t0, ax + dx * t1, az + dz * t1 }
+				end
+			end
+			for _, c in ipairs(cuts) do
+				add(from, c[1])
+				from = math.max(from, c[2])
+			end
+			add(from, 1)
+		end
+		return out
+	end
+	-- Le trajet [A, B] traverse-t-il un mur de la rivière du Nord ?
+	function G.crossesRiverWall(ax, az, bx, bz)
+		for _, w in ipairs(G.riverWalls(1)) do
+			if MapGeo.segmentsCross(ax, az, bx, bz, w[1], w[2], w[3], w[4]) then
+				return true
+			end
+		end
+		return false
+	end
+
+	---------------------------------------------------------------- Relief : plateau du château, collines
+	local C = M.castle
+	-- Palier du pont du château : relie le pont (dont la moitié ouest dépasse du plateau) au plateau.
+	G.landing = { x0 = C.x0 - 7, x1 = C.x0, z0 = C.z1 - 8, z1 = C.z1 }
+	function G.onPlateau(x, z)
+		return (x >= C.x0 and x <= C.x1 and z >= C.z0 and z <= C.z1) or (x >= G.landing.x0 and x <= G.landing.x1 and z >= G.landing.z0 and z <= G.landing.z1)
+	end
+	function G.hillHeight(x, z)
+		local best = 0
+		for _, h in ipairs(M.hills) do
+			local d = dist(x, z, h.x, h.z)
+			if d < h.r then
+				local R, cy = MapGeo.hillSphere(h)
+				best = math.max(best, math.sqrt(R * R - d * d) + cy)
+			end
+		end
+		return best
+	end
+	-- Hauteur du sol : plateau du château, sinon colline, sinon 0.
+	function G.groundY(x, z)
+		if G.onPlateau(x, z) then
+			return C.h
+		end
+		return G.hillHeight(x, z)
+	end
+
+	---------------------------------------------------------------- Accessibilité (plumes, arrivées) : approximation documentée
+	-- Un point est atteignable s'il est dans les bornes, hors de l'eau (sauf sur un ponton), hors des bâtiments pleins (donjon, cabane), et pas dans la
+	-- bande close entre la rivière du Nord et la falaise du château (à l'est du pont : on n'y accède ni par le pont ni par le plateau).
+	G.docks = {}
+	for _, dk in ipairs(M.docks) do
+		local lk = M.lakes[dk.lake]
+		local d = dist(dk.x, dk.z, lk.x, lk.z)
+		local ux, uz = (lk.x - dk.x) / d, (lk.z - dk.z) / d -- vers le centre du lac
+		G.docks[#G.docks + 1] = { ax = dk.x - ux * 4, az = dk.z - uz * 4, bx = dk.x + ux * dk.len, bz = dk.z + uz * dk.len, w = dk.w, lake = dk.lake }
+	end
+	function G.onDock(x, z)
+		for _, dk in ipairs(G.docks) do
+			if distToSegment(x, z, dk.ax, dk.az, dk.bx, dk.bz) <= dk.w / 2 then
+				return true
+			end
+		end
+		return false
+	end
+	G.keep = { x = C.keep.x, z = C.keep.z, half = 12 }
+	function G.reachable(x, z)
+		if not G.inBounds(x, z, 2) then
+			return false, "bord"
+		end
+		if not G.onDock(x, z) and G.waterEdgeDist(x, z, false) < 1 then
+			return false, "eau"
+		end
+		if math.abs(x - G.keep.x) < G.keep.half and math.abs(z - G.keep.z) < G.keep.half then
+			return false, "donjon"
+		end
+		local cab = M.cabin
+		if math.abs(x - cab.x) < cab.w / 2 and math.abs(z - cab.z) < cab.d / 2 then
+			return false, "cabane"
+		end
+		if x > C.x0 + 6 and z > C.z1 and z < C.z1 + 30 then -- entre le plateau et la rivière, à l'est du pont : bande close
+			local rz = nil
+			local pts = M.rivers[1].pts
+			for k = 1, #pts - 1 do
+				if x >= pts[k][1] and x <= pts[k + 1][1] then
+					local t = (x - pts[k][1]) / (pts[k + 1][1] - pts[k][1])
+					rz = pts[k][2] + (pts[k + 1][2] - pts[k][2]) * t
+				end
+			end
+			if rz and z < rz then
+				return false, "bande close"
+			end
+		end
+		return true, nil
+	end
+
+	---------------------------------------------------------------- Portails et repères de la place
+	G.portals = {}
+	for k, p in ipairs(Config.TRAVEL2.portals) do
+		local px, pz = Config.portalPad(k)
+		G.portals[k] = { k = k, name = p.name, pad = { x = px, z = pz }, to = { x = p.to[1], z = p.to[2] }, back = { x = p.back[1], z = p.back[2] }, chapter = p.chapter or 0 }
+	end
+	G.homeArches = {}
+	for i = 1, #M.bases do
+		local x, z = Config.homeArch(i)
+		G.homeArches[i] = { x = x, z = z }
+	end
+
+	---------------------------------------------------------------- Emprises occupées (pose du décor) : raison du blocage ou nil
+	-- opts.allowDomain : l'empreinte peut être dans un territoire (cabanes, barrières) ; opts.allowPlateau : sur le plateau du château.
+	local function feathers()
+		local out = {}
+		for _, list in pairs(Config.FEATHER_SPOTS or {}) do
+			for _, f in ipairs(list) do
+				out[#out + 1] = f
+			end
+		end
+		return out
+	end
+	G.featherList = feathers()
+	function G.blocked(x, z, r, opts)
+		local margin = 1.5
+		if not G.inBounds(x, z, 4 + r) then
+			return "bord"
+		end
+		if G.waterEdgeDist(x, z, true) < r + margin then
+			return "eau"
+		end
+		if dist(x, z, M.plaza.x, M.plaza.z) < M.plaza.r + r + margin then
+			return "place"
+		end
+		if dist(x, z, M.bigEgg.x, M.bigEgg.z) < M.bigEgg.r + r + margin then
+			return "repère"
+		end
+		local tr = M.track
+		if math.abs(x - tr.x) < tr.w / 2 + r + margin and math.abs(z - tr.z) < tr.d / 2 + r + margin then
+			return "repère"
+		end
+		for _, p in ipairs(G.portals) do
+			if dist(x, z, p.back.x, p.back.z) < 6 + r or dist(x, z, p.to.x, p.to.z) < 4 + r then
+				return "repère"
+			end
+		end
+		local A = M.arena
+		if dist(x, z, A.x, A.z) < A.r + r + margin then
+			return "arène"
+		end
+		if G.onPlateau(x, z) or (x > C.x0 - 8 - r and x < C.x1 + r and z > C.z0 - r and z < C.z1 + r) then
+			if not (opts and opts.allowPlateau) then
+				return "château"
+			end
+		end
+		for _, t in ipairs(G.terrs) do
+			if dist(x, z, t.x, t.z) < t.r + r + margin and not (opts and opts.allowDomain) then
+				return "domaine"
+			end
+		end
+		if G.pathEdgeDist(x, z) < r + margin then
+			return "chemin"
+		end
+		for _, b in ipairs(G.bridges) do
+			if dist(x, z, b.x, b.z) < b.len / 2 + r then
+				return "chemin"
+			end
+		end
+		for i = 1, #G.bases do
+			if G.distToBase(i, x, z) < r + 4 then
+				return "base"
+			end
+		end
+		for _, sct in ipairs(Config.SECRETS) do
+			if dist(x, z, sct.x, sct.z) < 14 + r then
+				return "secret"
+			end
+		end
+		for _, f in ipairs(G.featherList) do
+			if dist(x, z, f.x, f.z) < 4 + r then
+				return "plume"
+			end
+		end
+		local cab = M.cabin
+		if math.abs(x - cab.x) < cab.w / 2 + r + 2 and math.abs(z - cab.z) < cab.d / 2 + r + 2 then
+			return "repère"
+		end
+		return nil
+	end
+
+	return G
+end
+
+return MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -3400,7 +3990,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -3488,7 +4078,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -3509,23 +4099,32 @@ function MiniMap.place(px, pz, x, z, radius, half, clamp)
 	return dx / radius * half, dz / radius * half -- (droite, bas) en pixels depuis le centre
 end
 
--- Repères du monde : { {kind, x, z, label, locked} } (base du joueur, zones, portails de voyage rapide). Pur : ne lit que Config et la position de la base.
+-- Repères du monde : { {kind, x, z, label, locked} } (REFONTE lot 2) : ta base (🏠), les autres bases (kind « plot »), les territoires (zones ;
+-- grisés si verrouillés), les portails de la rose (grisés si verrouillés). Pur : ne lit que Config et la position de la base.
 function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 	local out = {}
 	if plotX then
 		out[#out + 1] = { kind = "base", x = plotX, z = plotZ, label = "🏠" }
 	end
-	for i, riv in ipairs(Config.RIVALS) do
-		local cx, cz = Config.rivalCenter(i)
-		out[#out + 1] = { kind = "zone", x = cx, z = cz, label = riv.emoji, locked = not Config.zoneUnlocked(chaptersDone or 0, i) }
-		local tx, tz = Config.travelPad(i)
-		out[#out + 1] = { kind = "portal", x = tx, z = tz, label = "🌀" }
+	for _, b in ipairs(Config.Map2.bases) do
+		if not (plotX and math.abs(b.x - plotX) < 1 and math.abs(b.z - plotZ) < 1) then
+			out[#out + 1] = { kind = "plot", x = b.x, z = b.z, label = "⬜" }
+		end
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		local riv = Config.RIVALS[t.rival]
+		out[#out + 1] = { kind = "zone", x = t.x, z = t.z, label = riv and riv.emoji or "🧺", locked = riv ~= nil and not Config.zoneUnlocked(chaptersDone or 0, t.rival), key = key }
+	end
+	for k = 1, #Config.TRAVEL2.portals do
+		local px, pz = Config.portalPad(k)
+		out[#out + 1] = { kind = "portal", x = px, z = pz, label = "🌀", locked = not Config.portalUnlocked(chaptersDone or 0, k) }
 	end
 	return out
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -3893,7 +4492,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -3957,7 +4556,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -4298,7 +4897,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -4355,7 +4954,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -4467,7 +5066,275 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+-- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
+-- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
+local Belt = {}
+
+local function nextRnd(state)
+	state = (state * 16807) % 2147483647
+	return state / 2147483647, state
+end
+
+-- Tire une rareté (1..#weights) d'après des poids ; r dans [0, 1).
+function Belt.pick(weights, r)
+	local total = 0
+	for _, w in ipairs(weights) do
+		total = total + math.max(w, 0)
+	end
+	local x = r * total
+	for i, w in ipairs(weights) do
+		if w > 0 then
+			x = x - w
+			if x < 0 then
+				return i
+			end
+		end
+	end
+	return #weights
+end
+
+-- Prix en pièces d'un œuf de rareté `tier` au tapis : `priceRatio` du prix de la boutique (arrondi inférieur).
+function Belt.price(Config, tier)
+	return math.floor(Config.EGG_PRICE[tier] * Config.BELT.priceRatio)
+end
+
+function Belt.new(seed, startAt)
+	return { eggs = {}, nextId = 1, rnd = (math.floor(seed) % 2147483646) + 1, nextSpawn = startAt or 0, lastBuy = {}, legendaryAt = {}, goldenUntil = 0, sold = 0, welcomed = {} }
+end
+
+-- Le tapis doré est-il actif à l'instant `now` ? Retourne les secondes restantes (0 si inactif).
+function Belt.goldenLeft(st, now)
+	return math.max(0, st.goldenUntil - now)
+end
+
+-- Ajoute `seconds` de tapis doré (cumulable, plafonné à `maxSeconds` restantes).
+function Belt.addGolden(Config, st, now, seconds)
+	local G = Config.BELT.golden
+	local left = Belt.goldenLeft(st, now)
+	st.goldenUntil = now + math.min(G.maxSeconds, left + seconds)
+	return Belt.goldenLeft(st, now)
+end
+
+-- Abscisse de l'œuf sur le tapis (de belt.x0 vers belt.x1 à `speed` studs/s) ; nil s'il est tombé dans le bac.
+function Belt.positionX(Config, egg, now)
+	local B = Config.Map2.belt
+	local x = B.x0 + Config.BELT.speed * (now - egg.born)
+	if x > B.x1 then
+		return nil
+	end
+	return x
+end
+
+-- Fait vivre le tapis : retire les œufs arrivés au bac, en fait apparaître un nouveau toutes les `interval` secondes (3 en doré) tant qu'il y en a moins de maxEggs.
+-- `welcome` : si non nil, { userId = n } -> un œuf de bienvenue Commun gratuit est posé en tête (une fois par joueur, voir Belt.welcome). Retourne (apparus, retirés).
+function Belt.step(Config, st, now)
+	local C = Config.BELT
+	local removed, spawned = {}, {}
+	local keep = {}
+	for _, e in ipairs(st.eggs) do
+		if Belt.positionX(Config, e, now) then
+			keep[#keep + 1] = e
+		else
+			removed[#removed + 1] = e
+		end
+	end
+	st.eggs = keep
+	local golden = Belt.goldenLeft(st, now) > 0
+	local interval = golden and C.golden.interval or C.interval
+	local weights = golden and C.weights.golden or C.weights.normal
+	local guard = 0
+	while now >= st.nextSpawn and guard < 50 do
+		guard = guard + 1
+		if #st.eggs < C.maxEggs then
+			local r
+			r, st.rnd = nextRnd(st.rnd)
+			local egg = { id = st.nextId, tier = Belt.pick(weights, r), born = st.nextSpawn, claimedBy = nil, price = nil }
+			egg.price = Belt.price(Config, egg.tier)
+			st.nextId = st.nextId + 1
+			st.eggs[#st.eggs + 1] = egg
+			spawned[#spawned + 1] = egg
+		end
+		st.nextSpawn = st.nextSpawn + interval
+	end
+	if now - st.nextSpawn > 60 then
+		st.nextSpawn = now -- serveur en pause : pas de rattrapage massif
+	end
+	return spawned, removed
+end
+
+-- Œuf de bienvenue : gratuit, posé sur le tapis au nom du joueur, une seule fois par joueur (et seulement si hatched < welcome.maxHatched). Retourne l'œuf ou nil.
+function Belt.welcome(Config, st, userId, hatched, now)
+	local W = Config.BELT.welcome
+	if st.welcomed[userId] or hatched >= W.maxHatched or #st.eggs >= Config.BELT.maxEggs then
+		return nil
+	end
+	st.welcomed[userId] = true
+	local egg = { id = st.nextId, tier = 1, born = now, claimedBy = nil, price = 0, forUser = userId }
+	st.nextId = st.nextId + 1
+	st.eggs[#st.eggs + 1] = egg
+	return egg
+end
+
+-- Tente l'achat de l'œuf `eggId` par `userId` ; `coins` = pièces du joueur. Retourne (true, œuf) ou (false, raison).
+-- Règles : 1 achat par joueur toutes les `buyCooldown` s ; œuf Légendaire+ : prompt actif seulement `legendaryDelay` s après son apparition et 1 par joueur
+-- et par minute ; œuf de bienvenue réservé à son destinataire ; réservation atomique (le premier valide l'emporte).
+function Belt.tryBuy(Config, st, userId, eggId, coins, now)
+	local C = Config.BELT
+	local egg
+	for _, e in ipairs(st.eggs) do
+		if e.id == eggId then
+			egg = e
+		end
+	end
+	if not egg or not Belt.positionX(Config, egg, now) then
+		return false, "gone"
+	end
+	if egg.claimedBy then
+		return false, "late" -- « Trop tard ! »
+	end
+	if egg.forUser and egg.forUser ~= userId then
+		return false, "reserved"
+	end
+	if not egg.forUser and now - (st.lastBuy[userId] or -1e9) < C.buyCooldown then
+		return false, "cooldown"
+	end
+	if egg.tier >= 4 then
+		if now - egg.born < C.legendaryDelay then
+			return false, "wait"
+		end
+		if now - (st.legendaryAt[userId] or -1e9) < 60 / C.legendaryPerMinute then
+			return false, "legendaryLimit"
+		end
+	end
+	if type(coins) ~= "number" or coins ~= coins or coins < egg.price then
+		return false, "poor"
+	end
+	egg.claimedBy = userId -- atomique : la deuxième demande reçoit « late »
+	if not egg.forUser then
+		st.lastBuy[userId] = now
+	end
+	if egg.tier >= 4 then
+		st.legendaryAt[userId] = now
+	end
+	st.sold = st.sold + 1
+	-- l'œuf quitte le tapis
+	local keep = {}
+	for _, e in ipairs(st.eggs) do
+		if e ~= egg then
+			keep[#keep + 1] = e
+		end
+	end
+	st.eggs = keep
+	return true, egg
+end
+
+return Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+-- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
+-- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
+local Raven = {}
+
+-- Vérifie le DÉPART d'un corbeau. thief = { userId, tokens, level, playMinutes, freeSlot, dailyDone, flying, newbie, inCastle }
+-- victim = { userId, level, playMinutes, newbie, inCastle, graceUntil, shieldUntil, ravenCooldownUntil, friendOfThief, blockFriendRavens }
+-- egg = { tier, incubating, eggShieldUntil, endsAt }, now en secondes (os.time). Retourne true ou (false, code).
+function Raven.canLaunch(Config, thief, victim, egg, now)
+	local R = Config.REMOTE_STEAL
+	if not thief or not victim or not egg then
+		return false, "invalid"
+	end
+	if thief.userId == victim.userId then
+		return false, "self"
+	end
+	if (thief.tokens or 0) < 1 then
+		return false, "noToken"
+	end
+	if thief.flying then
+		return false, "alreadyFlying"
+	end
+	if (thief.dailyDone or 0) >= R.dailyMax then
+		return false, "dailyLimit"
+	end
+	if thief.inCastle or victim.inCastle then
+		return false, "castle"
+	end
+	if thief.newbie or victim.newbie then
+		return false, "newbie"
+	end
+	if (thief.playMinutes or 0) < R.minPlayMinutes or (victim.playMinutes or 0) < R.victimMinMinutes then
+		return false, "tooYoung"
+	end
+	if not thief.freeSlot then
+		return false, "noSlot"
+	end
+	if (victim.level or 1) < (thief.level or 1) - R.levelGap then
+		return false, "levelGap"
+	end
+	if now < (victim.shieldUntil or 0) then
+		return false, "victimShield"
+	end
+	if now < (victim.ravenCooldownUntil or 0) then
+		return false, "victimCooldown"
+	end
+	if now < (victim.graceUntil or 0) then
+		return false, "grace"
+	end
+	if victim.friendOfThief and victim.blockFriendRavens then
+		return false, "friendBlocked"
+	end
+	if not egg.incubating then
+		return false, "notEgg"
+	end
+	if type(egg.tier) ~= "number" or egg.tier > R.maxTier or egg.tier < 1 then
+		return false, "tier"
+	end
+	if now < (egg.eggShieldUntil or 0) then
+		return false, "eggShield"
+	end
+	if (egg.endsAt or 0) - now <= R.minEggSecondsLeft then
+		return false, "tooLate"
+	end
+	return true
+end
+
+-- Indemnité de la victime : floor(prix de la boutique x ratio).
+function Raven.compensation(Config, tier)
+	return math.floor(Config.EGG_PRICE[tier] * Config.REMOTE_STEAL.compensationRatio)
+end
+
+-- Jour UTC d'un horodatage (clé du plafond quotidien).
+function Raven.day(now)
+	return math.floor(now / 86400)
+end
+
+-- Plafond quotidien : retourne le nouveau compteur (remis à zéro si le jour a changé) sous la forme (jour, compte).
+function Raven.rollDaily(day, count, now)
+	local today = Raven.day(now)
+	if day ~= today then
+		return today, 0
+	end
+	return day, count
+end
+
+-- Un achat de `n` jetons est-il possible sans dépasser le plafond ? (sinon le reçu n'est PAS traité : jamais de jeton payé perdu.)
+function Raven.canBuy(Config, tokens, n)
+	return math.max(0, tokens) + n <= Config.REMOTE_STEAL.tokenMax
+end
+
+-- Jetons après un achat de `n` jetons (plafond tokenMax) : retourne (nouveau total, jetons perdus au-delà du plafond).
+function Raven.addTokens(Config, tokens, n)
+	local cap = Config.REMOTE_STEAL.tokenMax
+	local total = math.min(cap, math.max(0, tokens) + n)
+	return total, math.max(0, math.max(0, tokens) + n - cap)
+end
+
+-- Issue du vol : la victime a-t-elle chassé le corbeau (touche son pad à temps, présente dans sa base) ?
+function Raven.resolve(chased)
+	return chased and "chased" or "success"
+end
+
+return Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -5240,7 +6107,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -5349,7 +6216,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -5512,7 +6379,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -5741,7 +6608,7 @@ end
 
 return Castle
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX63"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX61"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX69"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX67"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -6096,7 +6963,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -6485,7 +7352,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX66"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX65"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX64"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX72"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX71"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

@@ -27,7 +27,8 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] Tester le retour au hub (menu Plus > « Retour au hub ») et les raccourcis manette si tu as une manette (X boutique, Y missions, B fermer).
 - [ ] Sons : toujours aucun identifiant de son fourni ; les crochets `secret`, `portal`, `menu` de `Config.SOUNDS` attendent des `rbxassetid://` vérifiés.
 - [ ] Tester dans Studio (Test > Clients and Servers) : entrer dans un portail, compte à rebours, départ ; liste des amis ; interface bien aux bords sur téléphone (émulateur) et PC.
-- [ ] Vérifier la grande carte : les trois domaines (ferme, bois, citadelle), les repères, les trois secrets (Config.SECRETS), l'ambiance qui change en entrant dans un domaine, les performances sur téléphone (la sortie affiche le nombre de Parts au démarrage).
+- [ ] **Nouvelle carte 700 x 500 (refonte, lot 2), à parcourir dans Studio (jamais testée en vrai)** : place du marché (halle, fontaine, étals, rose des portails, arches « Retour à la base »), les 5 bases tournées vers la place, l'enclos sauvage, les 4 territoires (Gus x2, Mara, cour de Zed sur le plateau du château), l'arène, les lacs, la rivière du Nord, les 3 secrets déplacés, l'ambiance par territoire, et la sortie `[Builder] carte construite : N Parts` (attendu ≈ 1056).
+- [ ] Points à vérifier à la main dans Studio : (1) le **Pont du Château** (rampe de pierre de 18°) se monte en marchant et mène au plateau ; (2) on ne traverse **pas** la rivière du Nord hors des 2 ponts (murs invisibles), ni en passant sous le pont du château ; (3) les **collines** (calottes) se gravissent sans bloquer ; (4) la **cour de Zed** (mur, passage de la herse au sud-ouest) et la porte du donjon (entrée du mode Château) ; (5) les gardiens restent dans leur territoire ; (6) les portails, le tapis de retour et l'arche de SA base (celle d'un autre joueur est refusée, aucun voyage avec un œuf porté).
 
 ## 1quater. Passage en public
 

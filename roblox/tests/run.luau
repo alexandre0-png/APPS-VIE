@@ -17,6 +17,9 @@ local chunk = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Config.lua"), 
 	},
 })
 local Config = chunk()
+-- REFONTE (lot 2) : géométrie pure de la carte 700 x 500 (Config.Map2), partagée par Builder, Scenery, Placement et ces tests.
+local MapGeoMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/MapGeo.lua"), { debugName = "MapGeo" })()
+local SpawnPresets = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Spawn.lua"), { debugName = "Spawn" })().PRESETS
 
 local passed, failed = 0, 0
 -- Garde-fous : nom de la suite en cours affiché, délai global de 90 s (sous Lune, `task.delay` réel : plus jamais de blocage silencieux),
@@ -1490,10 +1493,14 @@ do
 end
 
 -- Carte : dimensions, domaines, ambiance, secrets -----------------------------------------------------------------------
+-- REFONTE (lot 2) : suite réécrite pour la carte 700 x 500 (Config.Map2, territoires de Config.TERR). Mêmes intentions qu'avant : tout dans la
+-- carte, territoires séparés et hors de la place, bases loin des territoires, secrets à explorer, ambiance par zone.
 do
 	suite("Carte : dimensions, domaines, ambiance, secrets")
 	local M = Config.Map
-	check("Map : sol plus grand que l'ancienne carte (620)", M.groundSize >= 1000)
+	local M2 = Config.Map2
+	local B = M2.bounds
+	check("Map : sol d'herbe " .. M2.backdrop.w .. " x " .. M2.backdrop.d .. " qui couvre la zone jouable " .. (B.x1 - B.x0) .. " x " .. (B.z1 - B.z0), M2.backdrop.w >= B.x1 - B.x0 and M2.backdrop.d >= B.z1 - B.z0 and B.x1 - B.x0 == 700 and B.z1 - B.z0 == 500 and M.groundSize >= M2.backdrop.w)
 	check("Map : un domaine par rival, clés d'ambiance complètes", #M.zoneKeys == #Config.RIVALS and (function()
 		for _, k in ipairs(M.zoneKeys) do
 			local a = M.ambience[k]
@@ -1503,7 +1510,6 @@ do
 		end
 		return M.ambience.arena ~= nil
 	end)())
-	local half = M.groundSize / 2
 	local function dist(ax, az, bx, bz)
 		return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
 	end
@@ -1513,44 +1519,49 @@ do
 			ok, why = false, m2
 		end
 	end
-	local centers = {}
+	local terrs = {}
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		terrs[#terrs + 1] = t
+		must(t.x - t.r >= B.x0 and t.x + t.r <= B.x1 and t.z - t.r >= B.z0 and t.z + t.r <= B.z1, "territoire " .. key .. " dans la carte")
+		must(dist(t.x, t.z, M2.plaza.x, M2.plaza.z) - t.r - M2.plaza.r >= 12, "territoire " .. key .. " à 12 studs au moins de la place")
+	end
+	for i = 1, #terrs do
+		for j = i + 1, #terrs do
+			must(dist(terrs[i].x, terrs[i].z, terrs[j].x, terrs[j].z) >= terrs[i].r + terrs[j].r + 8, "territoires " .. i .. " et " .. j .. " séparés")
+		end
+	end
 	for i = 1, #Config.RIVALS do
 		local x, z = Config.rivalCenter(i)
-		centers[i] = { x, z }
-		must(math.abs(x) + M.domainRadius < half and math.abs(z) + M.domainRadius < half, "domaine " .. i .. " dans la carte")
-		must(dist(x, z, 0, 0) > 75 + M.domainRadius * 0.5, "domaine " .. i .. " hors de l'arène centrale")
+		must(Config.rivalTerritories(i)[1].x == x and Config.rivalTerritories(i)[1].z == z, "rivalCenter(" .. i .. ") = premier territoire du rival")
 	end
-	for i = 1, #centers do
-		for j = i + 1, #centers do
-			must(dist(centers[i][1], centers[i][2], centers[j][1], centers[j][2]) >= 2 * M.domainRadius + 8, "domaines " .. i .. " et " .. j .. " séparés")
-		end
-	end
-	-- les bases (52 x 52, anneau de rayon plotRadius) ne chevauchent ni les domaines ni le tapis roulant
-	for p = 1, Config.PLOT_COUNT do
-		local a = (p - 1) / Config.PLOT_COUNT * math.pi * 2
-		local px, pz = math.sin(a) * M.plotRadius, math.cos(a) * M.plotRadius
-		must(math.abs(px) + 40 < half and math.abs(pz) + 40 < half, "base " .. p .. " dans la carte")
-		for i = 1, #centers do
-			must(dist(px, pz, centers[i][1], centers[i][2]) > M.domainRadius + 26 + 6, "base " .. p .. " loin du domaine " .. i)
-		end
-		must(dist(px, pz, 0, 38) > 70, "base " .. p .. " loin du tapis roulant")
+	for p, b in ipairs(M2.bases) do
+		local h = M2.baseSizeMax / 2
+		must(b.x - h >= B.x0 and b.x + h <= B.x1 and b.z - h >= B.z0 and b.z + h <= B.z1, "base " .. p .. " dans la carte")
+		must(dist(b.x, b.z, M2.plaza.x, M2.plaza.z) > M2.plaza.r + h, "base " .. p .. " hors de la place")
 	end
 	for _, sct in ipairs(Config.SECRETS) do
-		must(math.abs(sct.x) < half - 20 and math.abs(sct.z) < half - 20, "secret " .. sct.id .. " dans la carte")
-		must(dist(sct.x, sct.z, 0, 0) > M.plotRadius + 60, "secret " .. sct.id .. " loin du centre (à explorer)")
+		must(sct.x > B.x0 + 8 and sct.x < B.x1 - 8 and sct.z > B.z0 + 8 and sct.z < B.z1 - 8, "secret " .. sct.id .. " dans la carte")
+		must(dist(sct.x, sct.z, 0, 0) > 120, "secret " .. sct.id .. " loin du centre (à explorer)")
+		for _, t in ipairs(terrs) do
+			must(dist(sct.x, sct.z, t.x, t.z) > t.r + 6, "secret " .. sct.id .. " hors des territoires")
+		end
 		must(sct.minCoins > 0 and sct.mins > 0 and sct.hint ~= "" and Config.secret(sct.id) == sct, "secret " .. sct.id .. " complet")
 	end
-	check("Map : domaines, bases et secrets cohérents" .. (ok and "" or " : " .. why), ok)
-	check("zoneAt : au centre de chaque domaine = son ambiance", (function()
-		for i, k in ipairs(M.zoneKeys) do
-			local x, z = Config.rivalCenter(i)
-			if Config.zoneAt(x, z) ~= k or Config.zoneAt(x + 10, z + 10) ~= k then
-				return false
+	check("Map : territoires, bases et secrets cohérents" .. (ok and "" or " : " .. why), ok)
+	check("zoneAt : au centre de chaque territoire = l'ambiance de son rival", (function()
+		for _, key in ipairs(Config.TERR_ORDER) do
+			local t = Config.TERR[key]
+			if t.rival > 0 then
+				local k = M.zoneKeys[t.rival]
+				if Config.zoneAt(t.x, t.z) ~= k or Config.zoneAt(t.x + 10, t.z + 10) ~= k then
+					return false
+				end
 			end
 		end
 		return true
 	end)())
-	check("zoneAt : arène, bases et lointain = arena", Config.zoneAt(0, 0) == "arena" and Config.zoneAt(0, 215) == "arena" and Config.zoneAt(500, 500) == "arena")
+	check("zoneAt : place, bases et lointain = arena", Config.zoneAt(0, 0) == "arena" and Config.zoneAt(M2.bases[4].x, M2.bases[4].z) == "arena" and Config.zoneAt(500, 500) == "arena")
 	check("zoneAt : hors de la portée d'un domaine = arena", Config.zoneAt(0, select(2, Config.rivalCenter(2)) + Config.Map.ambienceRadius + 5) == "arena")
 	check("secretReward : plancher et proportion aux revenus", Config.secretReward(Config.SECRETS[1], 0) == Config.SECRETS[1].minCoins and Config.secretReward(Config.SECRETS[1], 1000) == 1000 * Config.SECRETS[1].mins * 60)
 	check("Streaming : rayons cohérents", M.Streaming.MinRadius < M.Streaming.TargetRadius and M.Streaming.TargetRadius <= 1024)
@@ -1615,7 +1626,7 @@ do
 				return cf(x.X, x.Y, x.Z)
 			end
 			return cf(x, y, z)
-		end, Angles = function() return cf(0, 0, 0) end },
+		end, Angles = function() return cf(0, 0, 0) end, lookAt = function(p) return cf(p.X, p.Y, p.Z) end },
 		Enum = setmetatable({}, enumMeta),
 		Instance = { new = newInstance },
 		UDim2 = { fromOffset = function() return {} end, fromScale = function() return {} end },
@@ -1668,18 +1679,27 @@ do
 			total = total + n
 		end
 	end
-	for i, key in ipairs(Config.Map.zoneKeys) do
-		local cx, cz = Config.rivalCenter(i)
-		run(key, Scenery[key], cx, cz, {}, rng)
+	-- REFONTE (lot 2) : appels adaptés à la carte 700 x 500 (thèmes par territoire, eau en polylignes, place, château, arène, relief) ; la douve des
+	-- anciens plateaux et les repères lointains (hors de la nouvelle carte) ont disparu, leurs tests aussi.
+	local Gs = MapGeoMod.new(Config)
+	local PLs = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Gs.terr(key)
+		if t.rival > 0 then
+			run(Config.Map.zoneKeys[t.rival] .. " (" .. key .. ")", Scenery[Config.Map.zoneKeys[t.rival]], t, {}, rng, 0)
+		end
 	end
-	run("paths", function(h, parent) return Scenery.paths(h, parent, Config) end, {})
-	run("landmarks", function(h, parent) return Scenery.landmarks(h, parent, rng) end, {})
-	run("relief", function(h, parent) return Scenery.relief(h, parent, rng, Config) end, {})
+	run("paths", function(h, parent) return Scenery.paths(h, parent, Config, Gs) end, {})
+	run("plaza", function(h, parent) return Scenery.plaza(h, parent, Config) end, {})
+	run("castlePlateau", function(h, parent) return Scenery.castlePlateau(h, parent, Config, Gs) end, {})
+	run("arena", function(h, parent) return Scenery.arena(h, parent, Config) end, {})
+	run("lakes", function(h, parent) return Scenery.lakes(h, parent, Config, Gs) end, {})
+	run("relief", function(h, parent) return Scenery.relief(h, parent, Config, PLs.new(Config, MapGeoMod).forest()) end, {})
 	run("secrets", function(h, parent) return Scenery.secrets(h, parent, Config) end, {})
 	made = 0
 	local okM, ring = pcall(Scenery.marker, helpers, vec(0, 0, 0), {}, "✋", 8)
 	check("Scenery.marker : anneau interactif créé (une Part, attribut BaseT)", okM and made == 1 and ring.attrs.BaseT ~= nil)
-	-- piédestal, aura, douve, rivières
+	-- piédestal, aura, rivières
 	made = 0
 	local okN, nN = pcall(Scenery.nest, helpers, vec(0, 0, 0), {})
 	check("Scenery.nest : nid de paille (plateau, bord, 8 brins) sans erreur, compte exact", okN and nN == 10 and made == 10)
@@ -1693,40 +1713,31 @@ do
 		check("Scenery.aura (rareté " .. spec[1] .. (spec[2] and ", secret" or "") .. ") : cercle runique, particules, lumière" .. (okA and "" or " : " .. tostring(anchor)), okA and anchor ~= nil and nA == made and nA <= Config.AURA.maxParts)
 	end
 	made = 0
-	local okM, nM = pcall(Scenery.moat, helpers, 0, 0, {}, Config)
-	check("Scenery.moat : douve (" .. Config.Map.decor.moatSegments .. " segments) et pont en bois, compte exact", okM and nM == made and nM >= 20)
-	made = 0
 	local CastleMod = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
 	local okC, cworld, nC = pcall(Scenery.castle, helpers, {}, CastleMod)
 	check("Scenery.castle : donjon (5 salles, pièges, entrée, coffre, tableau) sans erreur, compte exact, sous 400 Parts" .. (okC and "" or " : " .. tostring(cworld)), okC and nC == made and nC <= 400 and #cworld.rooms == 5 and cworld.chest ~= nil and cworld.entry ~= nil and cworld.board ~= nil)
 	check("Scenery.castle : chaque salle expose ses pièges (pics, lames, boulets) et sa porte selon la difficulté", okC and #cworld.rooms[1].spikes == CastleMod.room(1).spikes and #cworld.rooms[5].blades == 2 and #cworld.rooms[5].balls == 3 and cworld.rooms[3].door ~= nil)
+	local door = Config.Map2.castle.door
+	local okE, eworld = pcall(Scenery.castle, helpers, {}, CastleMod, vec(door.x, Config.Map2.castle.h, door.z))
+	check("Scenery.castle : l'entrée du mode Château est posée à la porte du donjon (plateau h" .. Config.Map2.castle.h .. ")", okE and eworld.entry.Position.X == door.x and eworld.entry.Position.Z == door.z and math.abs(eworld.entry.Position.Y - (Config.Map2.castle.h + 0.5)) < 1e-9)
 	made = 0
-	local okR, nR = pcall(Scenery.rivers, helpers, {}, Config)
-	check("Scenery.rivers : 2 rivières et 4 ponts, compte exact", okR and nR == made and nR >= 16)
-	-- géométrie : la douve ne passe sous aucune base de joueur
-	local R, W = Config.Map.moat.radius, Config.Map.moat.width
-	local clear = true
-	for pl = 1, Config.PLOT_COUNT do
-		local ang = (pl - 1) / Config.PLOT_COUNT * math.pi * 2
-		local px, pz = math.sin(ang) * Config.Map.plotRadius, math.cos(ang) * Config.Map.plotRadius
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			if math.sqrt((px - cx) ^ 2 + (pz - cz) ^ 2) - 26 < R + W / 2 + 1 then
-				clear = false
+	local okR, nR = pcall(Scenery.rivers, helpers, {}, Config, Gs)
+	local wallsN = #Gs.riverWalls(1)
+	check("Scenery.rivers : 3 cours d'eau en polylignes, " .. wallsN .. " murs de la rivière du Nord, 3 ponts, compte exact (" .. tostring(nR) .. ")" .. (okR and "" or " : " .. tostring(nR)), okR and nR == made and nR >= 30 and wallsN >= 8)
+	check("Rivières et lacs : n'écrasent ni les secrets, ni les bases", (function()
+		for _, sct in ipairs(Config.SECRETS) do
+			if Gs.waterEdgeDist(sct.x, sct.z, true) < 8 then
+				return false
 			end
 		end
-	end
-	check("Douve : l'anneau d'eau (rayon " .. R .. " + largeur) ne recouvre aucune base de joueur", clear)
-	check("Douve : le domaine (rayon 38 et décors jusqu'à 52) est à l'intérieur de la douve", R - W / 2 >= 52)
-	check("Rivières : n'écrasent ni les secrets, ni les bases", (function()
-		for _, sct in ipairs(Config.SECRETS) do
-			if math.abs(sct.x - -380) < 20 or math.abs(sct.z - 330) < 20 then
+		for i = 1, #Gs.bases do
+			if Gs.waterEdgeDist(Gs.bases[i].x, Gs.bases[i].z, true) < Gs.bases[i].half then
 				return false
 			end
 		end
 		return true
 	end)())
-	check("Scenery : décor total dans le budget mobile (" .. total .. " Parts, budget " .. Config.Map.budgetParts .. ")", total > 300 and total < Config.Map.budgetParts * 0.6)
+	check("Scenery : décor total dans le budget mobile (" .. total .. " Parts, budget " .. Config.Map.budgetParts .. ")", total > 250 and total < Config.Map.budgetParts * 0.6) -- REFONTE (lot 2) : plancher 300 -> 250 (les anciens repères lointains, hors carte, ont disparu)
 end
 
 -- Filet anti-chute et garantie de personnage ------------------------------------------------------------------------
@@ -2453,7 +2464,10 @@ end
 do
 	suite("Mode Château : salles, pièges (pics, lames, boulets, porte), difficulté croissante, classement, récompense")
 	local Castle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
-	check("Château : 5 salles, longueur et largeur fixes, entrée dans la carte", Castle.ROOMS == 5 and Castle.ROOM_LENGTH == 56 and Castle.ROOM_WIDTH == 40 and math.abs(Castle.ORIGIN.x) + 30 < Config.Map.groundSize / 2 and math.abs(Castle.ORIGIN.z - (Castle.ROOMS - 1) * Castle.ROOM_LENGTH * 0) > 0 and math.abs(Castle.ORIGIN.z - Castle.ROOMS * Castle.ROOM_LENGTH) < Config.Map.groundSize / 2 - 20)
+	-- REFONTE (lot 2) : test adapté. Le donjon (mode de serveur) reste à Castle.ORIGIN, hors de la zone jouable 700 x 500 : il doit tenir dans la zone
+	-- de sauvetage (Spawn.PRESETS.game.half, même contrôle qu'avant sur l'ancien sol de 1200) et ne jamais recouvrir la zone jouable.
+	local rescueHalf = SpawnPresets.game.half
+	check("Château : 5 salles, longueur et largeur fixes, entrée dans la zone de sauvetage, hors de la zone jouable", Castle.ROOMS == 5 and Castle.ROOM_LENGTH == 56 and Castle.ROOM_WIDTH == 40 and math.abs(Castle.ORIGIN.x) + 30 < rescueHalf and math.abs(Castle.ORIGIN.z - (Castle.ROOMS - 1) * Castle.ROOM_LENGTH * 0) > 0 and math.abs(Castle.ORIGIN.z - Castle.ROOMS * Castle.ROOM_LENGTH) < rescueHalf - 20 and Castle.ORIGIN.x - Castle.ROOM_WIDTH / 2 > Config.Map2.bounds.x1)
 	-- difficulté croissante
 	local mono = true
 	for r = 2, Castle.ROOMS do
@@ -2564,7 +2578,7 @@ do
 	check("Repères : le donjon entier tient dans la carte", (function()
 		local x0, z0 = Castle.toWorld(1, -Castle.ROOM_WIDTH / 2, 0)
 		local x1, z1 = Castle.toWorld(Castle.ROOMS, Castle.ROOM_WIDTH / 2, Castle.ROOM_LENGTH)
-		local half = Config.Map.groundSize / 2 - 10
+		local half = SpawnPresets.game.half - 10 -- REFONTE (lot 2) : zone de sauvetage (le donjon est hors de la zone jouable 700 x 500)
 		return math.abs(x0) < half and math.abs(x1) < half and math.abs(z0) < half and math.abs(z1) < half
 	end)())
 	check("Repères : le donjon ne recouvre ni les domaines ni les secrets ni les rivières", (function()
@@ -3085,80 +3099,101 @@ do
 end
 
 -- Pose planifiée du décor : aucune collision, rien dans l'eau ni sur un chemin, ponts qui relient les rives ------------------------------------
+-- REFONTE (lot 2) : suite adaptée à la carte 700 x 500 (eau en polylignes et lacs, chemins de Map2.paths, territoires, place). La vérification
+-- indépendante de la géométrie est réécrite avec les données brutes de Config.Map2 (et non MapGeo.blocked).
 do
 	suite("Placement planifié : empreintes sans recouvrement, rien dans l'eau ni sur un chemin, ponts, barrières alignées, cabanes face au domaine")
 	local PL = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
-	local P = PL.new(Config)
+	local P = PL.new(Config, MapGeoMod)
 	local plan = P.plan()
 	local items = plan.items
 	local counts = {}
 	for _, it in ipairs(items) do
 		counts[it.kind] = (counts[it.kind] or 0) + 1
 	end
-	check("Plan : arbres, rochers, buissons, cabanes et barrières posés (" .. #items .. " objets : " .. (counts.tree or 0) .. " arbres, " .. (counts.fir or 0) .. " sapins, " .. (counts.rock or 0) .. " rochers, " .. (counts.bush or 0) .. " buissons, " .. (counts.hut or 0) .. " cabanes, " .. (counts.fence or 0) .. " barrières)", #items >= 40 and (counts.tree or 0) >= 10 and (counts.hut or 0) == #Config.RIVALS and (counts.fence or 0) >= 8)
+	check("Plan : arbres, rochers, buissons, cabanes et barrières posés (" .. #items .. " objets : " .. (counts.tree or 0) .. " arbres, " .. (counts.fir or 0) .. " sapins, " .. (counts.rock or 0) .. " rochers, " .. (counts.bush or 0) .. " buissons, " .. (counts.hut or 0) .. " cabanes, " .. (counts.fence or 0) .. " barrières ; " .. #plan.forest .. " arbres procéduraux de forêt et bosquets)", #items >= 40 and (counts.tree or 0) >= 10 and (counts.hut or 0) == #Config.RIVALS and (counts.fence or 0) >= 8 and #plan.forest >= 30)
+	local all = {}
+	for _, it in ipairs(items) do
+		all[#all + 1] = it
+	end
+	for _, it in ipairs(plan.forest) do
+		all[#all + 1] = it
+	end
 	local overlaps, worst = 0, 1e9
-	for i = 1, #items do
-		for j = i + 1, #items do
-			local d = math.sqrt((items[i].x - items[j].x) ^ 2 + (items[i].z - items[j].z) ^ 2)
-			worst = math.min(worst, d - items[i].r - items[j].r)
-			if d < items[i].r + items[j].r then
+	for i = 1, #all do
+		for j = i + 1, #all do
+			local d = math.sqrt((all[i].x - all[j].x) ^ 2 + (all[i].z - all[j].z) ^ 2)
+			worst = math.min(worst, d - all[i].r - all[j].r)
+			if d < all[i].r + all[j].r then
 				overlaps += 1
 			end
 		end
 	end
-	check("Empreintes : aucune collision entre objets (" .. overlaps .. "), espace minimal " .. string.format("%.1f", worst) .. " studs >= " .. PL.MIN_GAP, overlaps == 0 and worst >= PL.MIN_GAP - 1e-9)
-	-- vérification INDÉPENDANTE de la géométrie (autre code que Placement.blocked)
-	local geo, M = Config.Map.geo, Config.Map
-	local inWater, onPath, inArena = 0, 0, 0
-	local segs = {}
-	for _, poly in ipairs(M.paths) do
-		for k = 1, #poly - 1 do
-			segs[#segs + 1] = { poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2] }
-		end
+	check("Empreintes : aucune collision entre objets, arbres de forêt compris (" .. overlaps .. "), espace minimal " .. string.format("%.1f", worst) .. " studs >= " .. PL.MIN_GAP, overlaps == 0 and worst >= PL.MIN_GAP - 1e-9)
+	-- vérification INDÉPENDANTE de la géométrie (données brutes de Config.Map2, autre code que MapGeo.blocked)
+	local M2 = Config.Map2
+	local function segD(px, pz, ax, az, bx, bz)
+		local dx, dz = bx - ax, bz - az
+		local l2 = dx * dx + dz * dz
+		local t = math.max(0, math.min(1, ((px - ax) * dx + (pz - az) * dz) / l2))
+		return math.sqrt((px - ax - dx * t) ^ 2 + (pz - az - dz * t) ^ 2)
 	end
-	for _, it in ipairs(items) do
-		for _, rv in ipairs(geo.rivers) do
-			local c = rv.axis == "z" and it.z or it.x
-			if math.abs(c - rv.at) < rv.half + it.r then
+	local inWater, onPath, inPlaza, inTerr = 0, 0, 0, 0
+	for _, it in ipairs(all) do
+		for _, lk in ipairs(M2.lakes) do
+			if math.sqrt((it.x - lk.x) ^ 2 + (it.z - lk.z) ^ 2) < lk.r + lk.shore + it.r then
 				inWater += 1
 			end
 		end
-		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
-			local d = math.sqrt((it.x - cx) ^ 2 + (it.z - cz) ^ 2)
-			if math.abs(d - M.moat.radius) < M.moat.width / 2 + it.r then
-				inWater += 1
+		for _, rv in ipairs(M2.rivers) do
+			for k = 1, #rv.pts - 1 do
+				if segD(it.x, it.z, rv.pts[k][1], rv.pts[k][2], rv.pts[k + 1][1], rv.pts[k + 1][2]) < rv.width / 2 + it.r then
+					inWater += 1
+				end
 			end
 		end
-		for _, sg in ipairs(segs) do
-			if PL.distToSegment(it.x, it.z, sg[1], sg[2], sg[3], sg[4]) < geo.pathHalf + it.r then
-				onPath += 1
+		for _, pth in ipairs(M2.paths) do
+			local half = pth.kind == "dirt" and M2.dirtHalf or M2.pathHalf
+			for k = 1, #pth.pts - 1 do
+				if segD(it.x, it.z, pth.pts[k][1], pth.pts[k][2], pth.pts[k + 1][1], pth.pts[k + 1][2]) < half + it.r then
+					onPath += 1
+				end
 			end
 		end
-		if math.abs(math.sqrt(it.x ^ 2 + it.z ^ 2) - (M.plotRadius - 30)) < geo.pathHalf + it.r then
-			onPath += 1
+		if math.sqrt(it.x ^ 2 + it.z ^ 2) < M2.plaza.r + it.r then
+			inPlaza += 1
 		end
-		if math.sqrt(it.x ^ 2 + it.z ^ 2) < geo.arenaRadius + it.r then
-			inArena += 1
+		if it.kind ~= "hut" and it.kind ~= "fence" then
+			for _, key in ipairs(Config.TERR_ORDER) do
+				local t = Config.TERR[key]
+				if math.sqrt((it.x - t.x) ^ 2 + (it.z - t.z) ^ 2) < t.r + it.r then
+					inTerr += 1
+				end
+			end
 		end
 	end
-	check("Aucun objet dans l'eau (rivières, douves), sur un chemin ni dans l'arène (" .. inWater .. "/" .. onPath .. "/" .. inArena .. ")", inWater == 0 and onPath == 0 and inArena == 0)
-	check("Bridges : " .. #plan.bridges .. " ponts centrés sur leur rivière, plus longs qu'elle (les deux rives sont reliées), axe perpendiculaire à l'eau", #plan.bridges == 4 and (function()
+	check("Aucun objet dans l'eau (lacs, rivières), sur un chemin, sur la place ni (hors cabanes et barrières) dans un territoire (" .. inWater .. "/" .. onPath .. "/" .. inPlaza .. "/" .. inTerr .. ")", inWater == 0 and onPath == 0 and inPlaza == 0 and inTerr == 0)
+	check("Ponts de bois : " .. #plan.bridges .. " (Nord, Moulin) aux coordonnées du plan, plus longs que leur cours d'eau, axe du plan (le pont de pierre du château reste procédural)", #plan.bridges == 2 and (function()
 		for _, b in ipairs(plan.bridges) do
-			local rv = b.river
-			local center = rv.axis == "z" and b.z or b.x
-			if center ~= rv.at or b.length < rv.half * 2 + 2 or (rv.axis == "z" and b.rot ~= 90) or (rv.axis == "x" and b.rot ~= 0) then
+			local spec
+			for _, sb in ipairs(M2.bridges) do
+				if sb.name == b.name then
+					spec = sb
+				end
+			end
+			local rv = M2.rivers[b.river]
+			if not spec or spec.stone or b.x ~= spec.x or b.z ~= spec.z or b.length < rv.width + 2 or (spec.axis == "NS" and b.rot ~= 90) or (spec.axis == "EW" and b.rot ~= 0) then
 				return false
 			end
 		end
 		return true
 	end)())
-	check("Barrières : alignées (même rotation, même ligne) dans chaque domaine, jamais dans l'eau", (function()
+	check("Barrières : alignées (même rotation, même ligne) dans le premier territoire de chaque rival, jamais dans l'eau", (function()
 		for i = 1, #Config.RIVALS do
-			local cx, cz = Config.rivalCenter(i)
+			local t = Config.rivalTerritories(i)[1]
 			local n = 0
 			for _, it in ipairs(items) do
-				if it.kind == "fence" and math.abs(it.z - (cz - 34)) < 1e-9 and math.abs(it.x - cx) < 22 then
+				if it.kind == "fence" and math.abs(it.z - (t.z - (t.r - 12))) < 1e-9 and math.abs(it.x - t.x) < 22 then
 					n += 1
 					if it.rot ~= 0 then
 						return false
@@ -3171,21 +3206,13 @@ do
 		end
 		return true
 	end)())
-	check("Cabanes : une par domaine, tournées vers le centre du domaine (avant = -Z)", (function()
+	check("Cabanes : une par rival, dans son premier territoire (avant = -Z tourné vers le centre)", (function()
 		for _, it in ipairs(items) do
 			if it.kind == "hut" then
 				local best = 1e9
 				for i = 1, #Config.RIVALS do
 					local cx, cz = Config.rivalCenter(i)
-					local d = math.sqrt((it.x - cx) ^ 2 + (it.z - cz) ^ 2)
-					if d < best then
-						best = d
-						local want = PL.facing(cx - it.x, cz - it.z)
-						local diff = math.abs((it.rot - want + 180) % 360 - 180)
-						if diff > 1e-6 and d == best then
-							-- garde la dernière valeur du plus proche
-						end
-					end
+					best = math.min(best, math.sqrt((it.x - cx) ^ 2 + (it.z - cz) ^ 2))
 				end
 				if best > 50 then
 					return false
@@ -3194,100 +3221,339 @@ do
 		end
 		return true
 	end)() and math.abs(PL.facing(0, -1)) < 1e-6 and math.abs(PL.facing(1, 0) - 270) < 1e-6 and math.abs(PL.facing(0, 1) - 180) < 1e-6 and math.abs(PL.facing(-1, 0) - 90) < 1e-6)
-	local again = PL.new(Config).plan()
+	local again = PL.new(Config, MapGeoMod).plan()
 	check("Le plan est déterministe (deux calculs identiques)", #again.items == #items and again.items[7].x == items[7].x and again.items[#items].z == items[#items].z)
-	check("Le moulin et l'enclos de l'arène ne sont ni dans l'eau ni sur un chemin ni dans un autre domaine", (function()
+	check("Le moulin et l'enclos de Gus ne sont ni dans l'eau ni sur un chemin ni dans un autre domaine", (function()
 		local cx, cz = Config.rivalCenter(1)
 		return P.blocked(cx - 24, cz + 22, 7, { allowDomain = true }) == nil and P.blocked(cx + 30, cz + 4, 8, { allowDomain = true }) == nil
 	end)())
-	check("Blocage : eau, chemin, arène, domaine, bord sont reconnus", P.blocked(0, 330, 2) == "eau" and P.blocked(0, 0, 2) == "arène" and P.blocked(Config.rivalCenter(2), select(2, Config.rivalCenter(2)), 2) == "domaine" and P.blocked(2000, 0, 2) == "bord" and P.blocked(-380, 100, 2) == "eau")
+	local mx, mz = Config.rivalCenter(2)
+	check("Blocage : eau (lac, rivière du Nord), chemin, place, domaine, arène, château, bord sont reconnus", P.blocked(-285, -105, 2) == "eau" and P.blocked(-100, -210, 2) == "eau" and P.blocked(-150, 145, 1) == "chemin" and P.blocked(0, 0, 2) == "place" and P.blocked(mx, mz, 2) == "domaine" and P.blocked(-265, 165, 2) == "arène" and P.blocked(330, -230, 2) == "château" and P.blocked(2000, 0, 2) == "bord")
 end
 
--- Domaines en terrasses : distances, hauteurs, rampes, chemins -------------------------------------------------------------------------------
-do
-	suite("Domaines en terrasses : hors de l'arène et des bases, de plus en plus hauts et loin, une rampe chacun")
-	local PLc = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Placement.lua"), { debugName = "Placement" })()
-	local M = Config.Map
-	local n = #Config.RIVALS
+-- REFONTE (lot 2) : carte 700 x 500 -------------------------------------------------------------------------------------------------------
+-- Remplace la suite « Domaines en terrasses » (les plateaux en terrasses et leurs rampes ont disparu ; seul le plateau du château reste).
+-- Contrôles du cahier des charges (H, lot 2) : distances du tableau A.3 (± 5 %), base ↔ territoire >= 52 (centre au bord), base ↔ eau >= 12 (au
+-- bord), aucun chemin dans un territoire, tout dans les bornes, rivière du Nord infranchissable hors ponts (segments), plumes atteignables, spawns dans
+-- leur base, trajets voisins de 7 à 15 s. Les Parts (<= 1200 procédurales, <= 7000 en tout) sont mesurées au démarrage réel (plus bas).
+local function lot2MapChecks(Cfg, G, label)
+	local M2 = Cfg.Map2
+	local B = M2.bounds
+	local res = {}
 	local function dist(ax, az, bx, bz)
 		return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
 	end
-	local plots = {}
-	for i = 1, Config.PLOT_COUNT do
-		local a = (i - 1) / Config.PLOT_COUNT * math.pi * 2
-		plots[i] = { math.sin(a) * M.plotRadius, math.cos(a) * M.plotRadius }
-	end
-	local spread, arenaOk, plotOk = true, true, true
-	for i = 1, n do
-		local xi, zi = Config.rivalCenter(i)
-		arenaOk = arenaOk and dist(xi, zi, 0, 0) >= M.geo.arenaRadius + M.plateauRadius + 20
-		for _, pl in ipairs(plots) do
-			plotOk = plotOk and dist(xi, zi, pl[1], pl[2]) >= M.plateauRadius + 37 + 10
-		end
-		for j = i + 1, n do
-			local xj, zj = Config.rivalCenter(j)
-			spread = spread and dist(xi, zi, xj, zj) >= 2 * M.plateauRadius + 20
+	-- A.3 : distances (centre à centre) à ± 5 %
+	local A3 = {
+		{ "Place → B1", 0, 0, M2.bases[1], 140 }, { "Place → B2", 0, 0, M2.bases[2], 210 }, { "Place → B3", 0, 0, M2.bases[3], 205 },
+		{ "Place → B4", 0, 0, M2.bases[4], 168 }, { "Place → B5", 0, 0, M2.bases[5], 221 },
+		{ "B1 ↔ B2", M2.bases[1].x, M2.bases[1].z, M2.bases[2], 226 }, { "B1 ↔ B3", M2.bases[1].x, M2.bases[1].z, M2.bases[3], 221 },
+		{ "B3 ↔ B5", M2.bases[3].x, M2.bases[3].z, M2.bases[5], 182 }, { "B5 ↔ B4", M2.bases[5].x, M2.bases[5].z, M2.bases[4], 207 },
+		{ "Place → enclos sauvage", 0, 0, Cfg.TERR.wild, 128 }, { "Place → Gus NO", 0, 0, Cfg.TERR.gusNW, 124 }, { "Place → Gus SO", 0, 0, Cfg.TERR.gusSW, 141 }, { "Place → Mara", 0, 0, Cfg.TERR.mara, 117 },
+	}
+	local a3ok, a3why = true, ""
+	for _, e in ipairs(A3) do
+		local d = dist(e[2], e[3], e[4].x, e[4].z)
+		if math.abs(d - e[5]) > 0.05 * e[5] then
+			a3ok, a3why = false, e[1] .. " " .. string.format("%.0f", d) .. " (attendu " .. e[5] .. ")"
 		end
 	end
-	check("Domaines : plateaux séparés d'au moins 20 studs, hors de l'arène (+20) et des bases (+10), aucun chevauchement", spread and arenaOk and plotOk)
-	local hOk, travelOk = true, true
-	for i = 2, n do
-		hOk = hOk and Config.rivalHeight(i) > Config.rivalHeight(i - 1)
-		local xa, za = Config.rivalCenter(i - 1)
-		local xb, zb = Config.rivalCenter(i)
-		travelOk = travelOk and dist(xb, zb, 0, 0) > dist(xa, za, 0, 0)
-	end
-	check("Zones : chaque zone plus HAUTE (6, 14, 24) et plus LOIN du Grand Nid que la précédente (trajet croissant)", hOk and travelOk and Config.rivalHeight(1) == 6 and Config.rivalHeight(3) == 24)
-	local rampOk = true
-	for i = 1, n do
-		local r = Config.rampOf(i)
-		local d = M.domains[i]
-		rampOk = rampOk and math.abs(dist(r.top[1], r.top[2], d.x, d.z) - M.plateauRadius) < 1e-6 and math.abs(dist(r.top[1], r.top[2], r.bottom[1], r.bottom[2]) - d.h * M.rampRun) < 1e-6
-		-- pente praticable : moins de 20 degrés
-		rampOk = rampOk and math.deg(math.atan(d.h / (d.h * M.rampRun))) < 20
-		for j = 1, n do
-			if j ~= i then
-				local xj, zj = Config.rivalCenter(j)
-				rampOk = rampOk and PLc.distToSegment(xj, zj, r.top[1], r.top[2], r.bottom[1], r.bottom[2]) >= M.plateauRadius + M.rampWidth / 2
+	res[#res + 1] = { "A.3 : " .. #A3 .. " distances du tableau à ± 5 %" .. (a3ok and "" or " : " .. a3why), a3ok }
+	-- base ↔ territoire >= 52 (du centre de la base au bord du territoire) ; base ↔ eau >= 12 (du bord de la base, emprise maximale 72, au bord de l'eau)
+	local btOk, btMin, bwOk, bwMin = true, math.huge, true, math.huge
+	for _, b in ipairs(G.bases) do
+		for _, t in ipairs(G.terrs) do
+			local d = dist(b.x, b.z, t.x, t.z) - t.r
+			btMin = math.min(btMin, d)
+			btOk = btOk and d >= 52
+		end
+		local h = b.half
+		for k = -h, h, 2 do -- périmètre de l'emprise maximale (carré tourné vers la place)
+			for _, q in ipairs({ { k, -h }, { k, h }, { -h, k }, { h, k } }) do
+				local x = b.x + q[1] * b.fx + q[2] * -b.fz
+				local z = b.z + q[1] * b.fz + q[2] * b.fx
+				local w = G.waterEdgeDist(x, z, false)
+				bwMin = math.min(bwMin, w)
+				bwOk = bwOk and w >= 12
 			end
 		end
-		for _, pl in ipairs(plots) do
-			rampOk = rampOk and PLc.distToSegment(pl[1], pl[2], r.top[1], r.top[2], r.bottom[1], r.bottom[2]) >= 26 + M.rampWidth / 2
-		end
-		rampOk = rampOk and dist(r.bottom[1], r.bottom[2], 0, 0) > M.geo.arenaRadius + M.rampWidth / 2
-		for _, lk in ipairs(M.geo.lakes) do
-			rampOk = rampOk and PLc.distToSegment(lk.x, lk.z, r.top[1], r.top[2], r.bottom[1], r.bottom[2]) >= lk.r + 5 + M.rampWidth / 2
-		end
 	end
-	check("Rampes : une par domaine, au bord du plateau, pente < 20°, sans toucher un autre plateau, une base, l'arène ou un lac", rampOk)
-	local pathOk = true
-	for pi, poly in ipairs(M.paths) do
-		for k = 1, #poly - 1 do
-			for j = 1, n do
-				local xj, zj = Config.rivalCenter(j)
-				pathOk = pathOk and PLc.distToSegment(xj, zj, poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]) >= M.plateauRadius - 0.5
-			end
-			for _, pl in ipairs(plots) do
-				pathOk = pathOk and PLc.distToSegment(pl[1], pl[2], poly[k][1], poly[k][2], poly[k + 1][1], poly[k + 1][2]) >= 26 + 3
+	res[#res + 1] = { "Bases ↔ territoires : >= 52 du centre de la base au bord (min " .. string.format("%.1f", btMin) .. ")", btOk }
+	res[#res + 1] = { "Bases ↔ eau : >= 12 du bord de la base (emprise 72) au bord de l'eau (min " .. string.format("%.1f", bwMin) .. ")", bwOk }
+	-- aucun chemin dans un territoire (bord du chemin compris)
+	local pOk, pWhy = true, ""
+	for _, sg in ipairs(G.pathSegs) do
+		for _, t in ipairs(G.terrs) do
+			if MapGeoMod.distToSegment(t.x, t.z, sg[1], sg[2], sg[3], sg[4]) < t.r + sg.half then
+				pOk, pWhy = false, sg.name .. " dans " .. t.key
 			end
 		end
-		local lastP = poly[#poly]
-		local r = Config.rampOf(pi)
-		pathOk = pathOk and dist(lastP[1], lastP[2], r.bottom[1], r.bottom[2]) < 1
 	end
-	check("Chemins : partent du Grand Nid, passent entre les bases, contournent les plateaux et finissent au pied de la rampe", pathOk and #M.paths == n)
-	check("Secrets : aucun dans un plateau ni dans une rampe", (function()
-		for _, sct in ipairs(Config.SECRETS) do
-			for i = 1, n do
-				local xi, zi = Config.rivalCenter(i)
-				local r = Config.rampOf(i)
-				if dist(sct.x, sct.z, xi, zi) < M.plateauRadius + 10 or PLc.distToSegment(sct.x, sct.z, r.top[1], r.top[2], r.bottom[1], r.bottom[2]) < 10 then
+	res[#res + 1] = { "Chemins : aucun ne traverse un territoire (" .. #G.pathSegs .. " segments)" .. (pOk and "" or " : " .. pWhy), pOk }
+	-- tout dans les bornes
+	local inOk, inWhy = true, ""
+	local function inB(x, z, r, what)
+		if x - r < B.x0 - 1e-9 or x + r > B.x1 + 1e-9 or z - r < B.z0 - 1e-9 or z + r > B.z1 + 1e-9 then
+			inOk, inWhy = false, what
+		end
+	end
+	for i, b in ipairs(M2.bases) do
+		inB(b.x, b.z, M2.baseSizeMax / 2, "base " .. i)
+	end
+	for _, t in ipairs(G.terrs) do
+		inB(t.x, t.z, t.r, "territoire " .. t.key)
+		for _, n in ipairs(t.nests) do
+			inB(n[1], n[2], 3, "nid " .. t.key)
+		end
+	end
+	for _, k in ipairs({ "plaza", "hall", "fountain", "bigEgg" }) do
+		inB(M2[k].x, M2[k].z, M2[k].r, k)
+	end
+	inB(M2.track.x, M2.track.z, M2.track.d / 2, "piste")
+	inB(M2.arena.x, M2.arena.z, M2.arena.r, "arène")
+	inB(M2.hen.x, M2.hen.z, 3, "Mère Poule")
+	for _, l in ipairs({ M2.stalls, M2.runeStones, M2.groves }) do
+		for _, e in ipairs(l) do
+			inB(e.x, e.z, 2, "repère")
+		end
+	end
+	for _, lk in ipairs(M2.lakes) do
+		inB(lk.x, lk.z, lk.r + lk.shore, lk.name)
+	end
+	for _, br in ipairs(M2.bridges) do
+		inB(br.x, br.z, br.len / 2, "pont " .. br.name)
+	end
+	for _, p in ipairs(G.portals) do
+		inB(p.pad.x, p.pad.z, 4, "portail")
+		inB(p.to.x, p.to.z, 2, "arrivée " .. p.name)
+		inB(p.back.x, p.back.z, 4, "retour " .. p.name)
+	end
+	for _, a in ipairs(G.homeArches) do
+		inB(a.x, a.z, 5, "arche")
+	end
+	for _, pth in ipairs(M2.paths) do
+		for _, q in ipairs(pth.pts) do
+			inB(q[1], q[2], 0, "chemin " .. pth.name)
+		end
+	end
+	inB(M2.castle.x0, M2.castle.z0, 0, "château")
+	inB(M2.castle.x1, M2.castle.z1, 0, "château")
+	for _, sct in ipairs(Cfg.SECRETS) do
+		inB(sct.x, sct.z, 6, "secret " .. sct.id)
+	end
+	for _, f in ipairs(G.featherList) do
+		inB(f.x, f.z, 1, "plume " .. f.where)
+	end
+	res[#res + 1] = { "Bornes : bases, territoires, nids, place, halle, fontaine, Grand Œuf, piste, arène, lacs, ponts, portails, chemins, château, secrets et plumes dans 700 x 500" .. (inOk and "" or " : " .. inWhy), inOk }
+	-- rivière du Nord infranchissable hors ponts : segments sud -> nord tous les 2 studs, et 400 segments obliques
+	local pts = M2.rivers[1].pts
+	local function riverZ(x)
+		for k = 1, #pts - 1 do
+			if x >= pts[k][1] and x <= pts[k + 1][1] then
+				return pts[k][2] + (pts[k + 1][2] - pts[k][2]) * (x - pts[k][1]) / (pts[k + 1][1] - pts[k][1])
+			end
+		end
+		return nil
+	end
+	local function nearBridge(x, z) -- passage attendu : la largeur du pont (au moins 6), indépendamment du réglage bridgeHalfGap
+		for _, br in ipairs(G.bridges) do
+			if br.river == 1 and dist(x, z, br.cross.x, br.cross.z) <= math.max(br.w / 2, 3) + 1.5 then
+				return true
+			end
+		end
+		return false
+	end
+	local leaks, blocked, openAtBridges = 0, 0, 0
+	for x = B.x0 + 1, B.x1 - 1, 2 do
+		local rz = riverZ(x)
+		if rz then
+			local cross = G.crossesRiverWall(x, rz + 20, x, rz - 20)
+			if nearBridge(x, rz) then
+				if not cross then
+					openAtBridges += 1
+				end
+			elseif cross then
+				blocked += 1
+			else
+				leaks += 1
+			end
+		else
+			leaks += 1 -- pas de rivière à cette abscisse : on contourne par là
+		end
+	end
+	local seed = 99
+	local function rnd()
+		seed = seed * 16807 % 2147483647
+		return seed / 2147483647
+	end
+	for _ = 1, 400 do
+		local xa = B.x0 + 2 + rnd() * (B.x1 - B.x0 - 4)
+		local xb = math.max(B.x0 + 1, math.min(B.x1 - 1, xa + (rnd() - 0.5) * 60))
+		local za, zb = riverZ(xa), riverZ(xb)
+		if za and zb then
+			local ax, az, bx, bz = xa, za + 15 + rnd() * 20, xb, zb - 15 - rnd() * 20
+			local passesBridge = false
+			for _, br in ipairs(G.bridges) do
+				if br.river == 1 and MapGeoMod.distToSegment(br.cross.x, br.cross.z, ax, az, bx, bz) <= math.max(br.w / 2, 3) + 2 then
+					passesBridge = true
+				end
+			end
+			if not passesBridge then
+				if G.crossesRiverWall(ax, az, bx, bz) then
+					blocked += 1
+				else
+					leaks += 1
+				end
+			end
+		end
+	end
+	res[#res + 1] = { "Rivière du Nord : infranchissable hors des ponts (" .. blocked .. " traversées bloquées, " .. leaks .. " fuite(s)), passage libre aux " .. openAtBridges .. " points des 2 ponts", leaks == 0 and blocked > 400 and openAtBridges >= 4 }
+	-- plumes atteignables : pas dans l'eau (sauf sur un ponton), pas dans un bâtiment, pas dans la bande close, hors territoires
+	local fOk, fWhy = true, ""
+	for _, f in ipairs(G.featherList) do
+		local okR, whyR = G.reachable(f.x, f.z)
+		if not okR then
+			fOk, fWhy = false, f.where .. " (" .. tostring(whyR) .. ")"
+		end
+		if f.dock and not G.onDock(f.x, f.z) then
+			fOk, fWhy = false, f.where .. " (hors du ponton)"
+		end
+		if G.terrAt(f.x, f.z, 10) then
+			fOk, fWhy = false, f.where .. " (dans un territoire)"
+		end
+	end
+	res[#res + 1] = { "Plumes : les " .. #G.featherList .. " emplacements sont atteignables (hors de l'eau sauf ponton, hors bâtiments et territoires)" .. (fOk and "" or " : " .. fWhy), fOk and #G.featherList == 12 }
+	-- spawns : dans leur base (plateforme), devant (côté place)
+	local sOk = true
+	for i, b in ipairs(G.bases) do
+		local a, s = G.baseLocal(i, b.spawn.x, b.spawn.z)
+		sOk = sOk and math.abs(a) <= M2.basePlatform / 2 - 3 and math.abs(s) <= M2.basePlatform / 2 - 3 and a > 0 and dist(b.spawn.x, b.spawn.z, 0, 0) < dist(b.x, b.z, 0, 0)
+	end
+	res[#res + 1] = { "Spawns : les " .. #G.bases .. " spawns sont dans leur base, du côté de la place", sOk }
+	-- trajets voisins à pied : longueur du chemin de terre qui relie deux bases voisines / vitesse de base
+	local walk = Cfg.walkSpeed(0)
+	local tOk, tTxt = true, {}
+	for _, nb in ipairs(M2.neighbors) do
+		local p = G.path(nb[3])
+		local t = MapGeoMod.polyLength(p.pts) / walk
+		local a, b = M2.bases[nb[1]], M2.bases[nb[2]]
+		local ends = dist(p.pts[1][1], p.pts[1][2], a.x, a.z) < 1 and dist(p.pts[#p.pts][1], p.pts[#p.pts][2], b.x, b.z) < 1
+		tTxt[#tTxt + 1] = "B" .. nb[1] .. "↔B" .. nb[2] .. " " .. string.format("%.1f", t) .. " s"
+		tOk = tOk and t >= 7 and t <= 15 and ends
+	end
+	res[#res + 1] = { "Trajets voisins à pied (16 studs/s, par le chemin) : " .. table.concat(tTxt, ", ") .. " (7 à 15 s)", tOk and #M2.neighbors == 4 }
+	for _, r in ipairs(res) do
+		r[1] = (label or "") .. r[1]
+	end
+	return res
+end
+
+do
+	suite("Refonte lot 2 : carte 700 x 500 (distances, bornes, eau, ponts, plumes, spawns, trajets)")
+	local G = MapGeoMod.new(Config)
+	for _, r in ipairs(lot2MapChecks(Config, G)) do
+		check(r[1], r[2])
+	end
+	local M2 = Config.Map2
+	-- trajets mesurés (informatif, bornés) : place -> chaque base par sa route, place -> cour de Zed (route + pont), place -> arène
+	local walk = Config.walkSpeed(0)
+	local lines, worst = {}, 0
+	for i = 1, #M2.bases do
+		local t = MapGeoMod.polyLength(G.path("B" .. i).pts) / walk
+		worst = math.max(worst, t)
+		lines[#lines + 1] = "B" .. i .. " " .. string.format("%.1f", t)
+	end
+	local zedLen = math.sqrt(40 ^ 2 + 40 ^ 2) + MapGeoMod.polyLength(G.path("Castle").pts) + M2.bridges[1].len + MapGeoMod.polyLength(G.path("Court").pts) + math.sqrt((240 - Config.TERR.zed.x) ^ 2 + (-138 - Config.TERR.zed.z) ^ 2) + 8
+	local arenaLen = MapGeoMod.polyLength({ { 0, 0 }, { -20, 110 } }) + MapGeoMod.polyLength(G.path("Arena").pts) + M2.arena.r
+	check("Trajets mesurés par les routes : " .. table.concat(lines, " / ") .. " s ; cour de Zed " .. string.format("%.1f", zedLen / walk) .. " s ; arène " .. string.format("%.1f", arenaLen / walk) .. " s (bornes : base <= 16 s, Zed et arène <= 25 s)", worst <= 16 and zedLen / walk <= 25 and arenaLen / walk <= 25)
+	check("Voyage rapide : 4 portails sur la rose (espacés de " .. M2.portalHub.gap .. "), sur la place ou à son bord ; arrivées hors de l'eau et des territoires ; retours à moins de 15 studs de l'arrivée", (function()
+		for k, p in ipairs(G.portals) do
+			if math.sqrt(p.pad.x ^ 2 + p.pad.z ^ 2) > M2.plaza.r + 6 or (k > 1 and math.abs(p.pad.x - G.portals[k - 1].pad.x - M2.portalHub.gap) > 1e-9) then
+				return false
+			end
+			if not G.reachable(p.to.x, p.to.z) or G.terrAt(p.to.x, p.to.z, 2) or not G.reachable(p.back.x, p.back.z) or math.sqrt((p.to.x - p.back.x) ^ 2 + (p.to.z - p.back.z) ^ 2) > 15 then
+				return false
+			end
+		end
+		for _, a in ipairs(G.homeArches) do
+			if math.sqrt(a.x ^ 2 + a.z ^ 2) > M2.plaza.r then
+				return false
+			end
+		end
+		return #G.portals == 4 and Config.TRAVEL2.blockWhileCarrying == true and Config.portalUnlocked(0, 1) and not Config.portalUnlocked(0, 2) and Config.portalUnlocked(6, 2)
+	end)())
+	check("Gardiens : 7 postes (Gus 1 + 1, Mara 2, Zed 3), chacun dans son territoire ; rivalCenter(i) = premier territoire du rival", (function()
+		local n = 0
+		for _, t in ipairs(G.terrs) do
+			for _, p in ipairs(t.posts) do
+				n += 1
+				if math.sqrt((p[1] - t.x) ^ 2 + (p[2] - t.z) ^ 2) > t.r - 8 then
 					return false
 				end
 			end
 		end
+		local x1, z1 = Config.rivalCenter(1)
+		local x3, z3 = Config.rivalCenter(3)
+		return n == 7 and x1 == Config.TERR.gusNW.x and z1 == Config.TERR.gusNW.z and x3 == Config.TERR.zed.x and z3 == Config.TERR.zed.z and Config.rivalHeight(3) == M2.castle.h and Config.rivalHeight(1) == 0
+	end)())
+	check("Château : plateau h" .. M2.castle.h .. " (x " .. M2.castle.x0 .. ".." .. M2.castle.x1 .. ", z " .. M2.castle.z0 .. ".." .. M2.castle.z1 .. ") ; cour de Zed et porte du donjon dessus ; seul le Pont du Château y mène", G.onPlateau(Config.TERR.zed.x, Config.TERR.zed.z) and G.onPlateau(M2.castle.door.x, M2.castle.door.z) and G.groundY(M2.castle.door.x, M2.castle.door.z) == M2.castle.h and G.groundY(0, 0) == 0 and M2.bridges[1].stone and G.bridges[1].river == 1)
+	check("Collines : calottes praticables (pente au pied < 50°), hauteur au sommet = h", (function()
+		for _, h in ipairs(M2.hills) do
+			local R = MapGeoMod.hillSphere(h)
+			if math.deg(math.asin(h.r / R)) >= 50 or math.abs(G.hillHeight(h.x, h.z) - h.h) > 1e-6 then
+				return false
+			end
+		end
 		return true
 	end)())
+	-- tests de mutation (le contrôle doit ÉCHOUER si on casse la géométrie) : copie profonde de Config, mutation, nouveaux calculs, aucune écriture
+	local function deepCopy(t, seen)
+		if type(t) ~= "table" then
+			return t
+		end
+		seen = seen or {}
+		if seen[t] then
+			return seen[t]
+		end
+		local c = {}
+		seen[t] = c
+		for k, v in pairs(t) do
+			c[deepCopy(k, seen)] = deepCopy(v, seen)
+		end
+		return setmetatable(c, getmetatable(t))
+	end
+	local function failsWith(mutate, pattern)
+		local C2 = deepCopy(Config)
+		mutate(C2)
+		for _, r in ipairs(lot2MapChecks(C2, MapGeoMod.new(C2, true))) do
+			if r[1]:find(pattern, 1, true) and not r[2] then
+				return true
+			end
+		end
+		return false
+	end
+	check("Mutation : passage du mur élargi à 20 studs (bridgeHalfGap) -> la rivière du Nord fuit à côté des ponts, le contrôle échoue", failsWith(function(C2)
+		C2.Map2.bridgeHalfGap = 20
+	end, "Rivière du Nord"))
+	check("Mutation : rivière du Nord raccourcie (s'arrête à x = 285, avant la borne est) -> le contrôle de la rivière échoue", failsWith(function(C2)
+		table.remove(C2.Map2.rivers[1].pts)
+	end, "Rivière du Nord"))
+	check("Mutation : base 1 déplacée contre Gus Nord-Ouest -> contrôle base ↔ territoire en échec", failsWith(function(C2)
+		C2.Map2.bases[1] = { x = -40, z = -140 }
+	end, "Bases ↔ territoires"))
+	check("Mutation : chemin B1B2 coupé à travers Gus Nord-Ouest -> contrôle des chemins en échec", failsWith(function(C2)
+		for _, pth in ipairs(C2.Map2.paths) do
+			if pth.name == "B1B2" then
+				pth.pts = { { 0, -140 }, { -205, -45 } }
+			end
+		end
+	end, "Chemins : aucun"))
+	check("Mutation : plume déplacée au milieu du lac des Saules -> contrôle des plumes en échec", failsWith(function(C2)
+		C2.FEATHER_SPOTS.S[2] = { x = 280, z = 200, where = "dans le lac" }
+	end, "Plumes"))
+	check("Mutation : base 5 poussée dans le lac des Saules -> contrôle base ↔ eau en échec", failsWith(function(C2)
+		C2.Map2.bases[5] = { x = 235, z = 160 }
+	end, "Bases ↔ eau"))
 end
 
 -- Culling des zones éloignées : hystérésis, lots, e2e ----------------------------------------------------------------------------------
@@ -3296,7 +3562,7 @@ do
 	local CU = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Culling.lua"), { debugName = "Culling" })()
 	local C = Config.Culling
 	check("Culling : masque au-delà de cullAt, réaffiche sous showAt, garde son état entre les deux (pas de clignotement)", CU.decide(C.cullAt + 50, false, C.cullAt, C.showAt) and not CU.decide(C.showAt - 20, false, C.cullAt, C.showAt) and not CU.decide((C.cullAt + C.showAt) / 2, false, C.cullAt, C.showAt) and CU.decide((C.cullAt + C.showAt) / 2, true, C.cullAt, C.showAt) and not CU.decide(C.showAt - 10, true, C.cullAt, C.showAt))
-	check("Culling : distance invalide (nil, NaN) ne masque jamais ; seuils cohérents (showAt < cullAt), ~1,5 domaine", not CU.decide(nil, false, 200, 170) and not CU.decide(0 / 0, true, 200, 170) and C.showAt < C.cullAt and C.cullAt >= 1.5 * Config.Map.plateauRadius)
+	check("Culling : distance invalide (nil, NaN) ne masque jamais ; seuils cohérents (showAt < cullAt), ~1,5 domaine", not CU.decide(nil, false, 200, 170) and not CU.decide(0 / 0, true, 200, 170) and C.showAt < C.cullAt and C.cullAt >= 1.5 * Config.TERR.mara.r and C.cullAt == 170 and C.showAt == 140) -- REFONTE (lot 2) : plus grand territoire (Mara, 42) au lieu du plateau ; seuils 170/140 conservés
 	check("Culling : distance au bord d'une zone (0 dedans), lots de taille donnée, liste vide", CU.distanceTo(0, 0, { x = 0, z = 100, radius = 66 }) == 34 and CU.distanceTo(0, 90, { x = 0, z = 100, radius = 66 }) == 0 and #CU.chunks({ 1, 2, 3, 4, 5 }, 2) == 3 and #CU.chunks({ 1, 2, 3, 4, 5 }, 2)[3] == 1 and #CU.chunks({}, 10) == 0 and #CU.chunks({ 1, 2 }, 0) == 2)
 	check("Culling : option de coupure Config.Culling.enabled et lots bornés (<= 300 éléments par image)", C.enabled == true and C.batch <= 300 and C.interval >= 0.5)
 end
@@ -3553,6 +3819,22 @@ do
 		end
 	end
 	check("Partie : le serveur atteint « serveur prêt » (rien ne plante avant les Remotes)", ready)
+	do -- REFONTE (lot 2) : compte de Parts de la carte procédurale affiché au démarrage (<= budget 1200), et total de la scène (<= 7000)
+		local built
+		for _, line in ipairs(RT.prints) do
+			local n = line:match("%[Builder%] carte construite : (%d+) Parts")
+			if n then
+				built = tonumber(n)
+			end
+		end
+		local warned = false
+		for _, line in ipairs(RT.warns) do
+			if line:find("budget mobile dépassé", 1, true) then
+				warned = true
+			end
+		end
+		check("Carte 700 x 500 : " .. tostring(built) .. " Parts procédurales affichées au démarrage (budget " .. Config.Map.budgetParts .. "), aucun avertissement de budget", built ~= nil and built <= Config.Map.budgetParts and not warned)
+	end
 	local function findRemote(name)
 		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
 			if rawget(d, "__props").Name == name then
@@ -3743,7 +4025,7 @@ do
 	rawget(root6, "__props").Position = RT.vec(gx - 40, 3, gz + 12) -- loin derrière / à l'écart
 	RT.step(4)
 	check("Gardien : un joueur hors de portée (40 studs) n'est ni vu ni entendu : aucun dégât", p6:GetAttribute("Hp") == Config.GUARD.maxHp)
-	rawget(root6, "__props").Position = RT.vec(gx, 3, gz + 12) -- sur la ligne de patrouille
+	rawget(root6, "__props").Position = RT.vec(gx + 6, 3, gz) -- sur la ligne de patrouille (REFONTE lot 2 : la ligne passe par le poste, au centre du territoire)
 	local caught, hpMin, catches = false, Config.GUARD.maxHp, 0
 	for _ = 1, 100 do
 		RT.step(0.25)
@@ -3916,11 +4198,11 @@ do
 			end
 		end
 		check("Gardiens : un LoadAsset par modèle (chien, loup, ours, chevalier) [" .. loadedGuards .. "]", loadedGuards == 4)
-		local allGuards = 0
-		for _, rv in ipairs(Config.RIVALS) do
-			allGuards += rv.guards
+		local allGuards = 0 -- REFONTE (lot 2) : un gardien par poste de Config.TERR (Gus 1 + 1, Mara 2, Zed 3)
+		for _, key in ipairs(Config.TERR_ORDER) do
+			allGuards += #(Config.TERR[key].posts or {})
 		end
-		check("Gardiens : les " .. allGuards .. " gardiens des domaines (1 + 2 + 3) portent le modèle Blender [" .. withBlender .. "/" .. found .. "]", found == allGuards and withBlender == allGuards)
+		check("Gardiens : les " .. allGuards .. " gardiens des territoires (Gus 1 + 1, Mara 2, Zed 3) portent le modèle Blender [" .. withBlender .. "/" .. found .. "]", found == allGuards and withBlender == allGuards)
 	end
 	-- revente d'œuf et de doublons côté serveur
 	local p8 = RT.addPlayer("Hal", 2008, { from = "hub", partyId = "PARTY-1", size = 2, late = false })
@@ -4447,9 +4729,9 @@ do
 		noErrors("80 éclosions et reventes enchaînées : aucune erreur")
 		check("80 éclosions : pas de fuite d'objets dans Workspace (" .. tostring(liveBefore) .. " -> " .. tostring(liveAfter) .. ")", liveBefore ~= nil and liveAfter <= liveBefore + 40)
 		do -- échelle : chaque pet, œuf, gardien et accessoire posé respecte sa hauteur cible (±10 %), le plus grand pet <= 5
-			local totalGuards = 0
-			for _, rv in ipairs(Config.RIVALS) do
-				totalGuards += rv.guards
+			local totalGuards = 0 -- REFONTE (lot 2) : un gardien par poste de Config.TERR (Gus 1 + 1, Mara 2, Zed 3 = 7)
+			for _, key in ipairs(Config.TERR_ORDER) do
+				totalGuards += #(Config.TERR[key].posts or {})
 			end
 			local worstPet, pets, badPet, guardsOk, guards = 0, 0, 0, true, 0
 			local lampOk, lamps, mills, millOk = true, 0, 0, true
@@ -4496,52 +4778,42 @@ do
 					boards += 1
 				end
 			end
-			check("Zones : un panneau de difficulté (étoiles, nombre de gardiens) à l'entrée de chacun des " .. #Config.RIVALS .. " domaines (" .. boards .. "), 1 + 2 + 3 gardiens, étoiles croissantes", boards == #Config.RIVALS and Config.RIVALS[1].stars < Config.RIVALS[2].stars and Config.RIVALS[2].stars < Config.RIVALS[3].stars and Config.RIVALS[1].guards == 1 and Config.RIVALS[3].guards == 3 and Config.RIVALS[1].viewDist < Config.RIVALS[3].viewDist and Config.RIVALS[1].guardSpeed < Config.RIVALS[3].guardSpeed and Config.RIVALS[1].damage < Config.RIVALS[3].damage)
-			do -- eau : murs invisibles de rivière avec un passage à chaque pont (les ponts sont le seul passage), ponts en travers, lacs
-				local geoC = Config.Map.geo
-				local walls = { z = {}, x = {} }
-				local lakes, bridgesN, acrossOk = 0, 0, true
+			local rivalTerrs = 0 -- REFONTE (lot 2) : un panneau par territoire de rival (Gus en a deux)
+			for _, key in ipairs(Config.TERR_ORDER) do
+				if Config.TERR[key].rival > 0 then
+					rivalTerrs += 1
+				end
+			end
+			check("Zones : un panneau de difficulté (étoiles, nombre de gardiens) à l'entrée de chacun des " .. rivalTerrs .. " territoires de rival (" .. boards .. "), 1 + 2 + 3 gardiens, étoiles croissantes", boards == rivalTerrs and Config.RIVALS[1].stars < Config.RIVALS[2].stars and Config.RIVALS[2].stars < Config.RIVALS[3].stars and Config.RIVALS[1].guards == 1 and Config.RIVALS[3].guards == 3 and Config.RIVALS[1].viewDist < Config.RIVALS[3].viewDist and Config.RIVALS[1].guardSpeed < Config.RIVALS[3].guardSpeed and Config.RIVALS[1].damage < Config.RIVALS[3].damage)
+			do -- eau (REFONTE lot 2) : murs invisibles le long de la rivière du Nord, coupés aux ponts (G.riverWalls), lacs, ponts de bois en travers
+				local Gw = MapGeoMod.new(Config)
+				local wallsBuilt, pier, lakes, bridgesN = {}, 0, 0, 0
 				for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
 					if d.ClassName == "Part" then
 						local pr = rawget(d, "__props")
 						if pr.Name == "RiverWall" then
-							local sz, pos = pr.Size, pr.Position
-							if sz.X > sz.Z then
-								walls.z[#walls.z + 1] = { pos.X - sz.X / 2, pos.X + sz.X / 2, pos.Z }
+							if pr.Size.X > 2 then
+								pier += 1 -- pile sous le pont du château
 							else
-								walls.x[#walls.x + 1] = { pos.Z - sz.Z / 2, pos.Z + sz.Z / 2, pos.X }
+								wallsBuilt[#wallsBuilt + 1] = pr
 							end
-						elseif pr.Name == "Lake" then
+						elseif pr.Name == "LakeMill" or pr.Name == "LakeWillow" then
 							lakes += 1
-						elseif pr.Name == "BridgePlank" and math.abs(pr.Position.Y - 0.55) < 1e-6 then
+						elseif pr.Name == "BridgePlank" then
 							bridgesN += 1
-							acrossOk = acrossOk and pr.Size.X > 0 and pr.Size.Z > 0
 						end
 					end
 				end
-				local gapsOk = true
-				for _, rv in ipairs(geoC.rivers) do
-					local list = walls[rv.axis]
-					for _, w in ipairs(list) do
-						for _, c in ipairs(rv.bridgesAt) do
-							if w[2] > c - geoC.bridgeHalfGap + 1e-6 and w[1] < c + geoC.bridgeHalfGap - 1e-6 then
-								gapsOk = false -- un mur recouvre un pont
-							end
+				local expected = Gw.riverWalls(1)
+				local onBridge = 0
+				for _, w in ipairs(expected) do
+					for _, br in ipairs(Gw.bridges) do
+						if br.river == 1 and MapGeoMod.distToSegment(br.cross.x, br.cross.z, w[1], w[2], w[3], w[4]) < br.gapHalf - 1e-6 then
+							onBridge += 1 -- un mur recouvre un pont
 						end
 					end
-					table.sort(list, function(a, b)
-						return a[1] < b[1]
-					end)
-					local expected = #rv.bridgesAt + 1
-					local mine = 0
-					for _, w in ipairs(list) do
-						if math.abs(w[3] - rv.at) < 1e-6 then
-							mine += 1
-						end
-					end
-					gapsOk = gapsOk and mine == expected
 				end
-				check("Rivières : mur invisible avec UN passage par pont (3 segments chacune), aucun mur sur un pont, " .. #geoC.lakes .. " lacs (" .. lakes .. "), " .. bridgesN .. " planches de pont", gapsOk and lakes == #geoC.lakes and bridgesN >= #geoC.rivers * #geoC.rivers[1].bridgesAt * Config.Map.decor.bridgePlanks)
+				check("Rivière du Nord : " .. #wallsBuilt .. " murs invisibles (" .. #expected .. " attendus), aucun sur un pont, pile sous le pont du château (" .. pier .. "), " .. lakes .. " lacs, " .. bridgesN .. " planches de ponts de bois", #wallsBuilt == #expected and onBridge == 0 and pier == 1 and lakes == #Config.Map2.lakes and bridgesN >= 10)
 			end
 			do -- décor fin, relief, panneaux d'étoiles, ponts et cabanes Blender : budgets séparés
 				local counts = { deco = 0, decoParts = 0, cliffs = 0, relief = 0, walls = 0, stars = 0, rail = 0, hutBig = 0, hutSmall = 0, flowers = 0 }
@@ -4597,24 +4869,25 @@ do
 					check("Protections d'œufs Blender : " .. guards .. " posée(s), " .. guardParts .. " objets", guardParts <= Config.Assets.eggGuardBudgetPerBase * 3)
 				end
 				check("Relief : crête de falaises, cascades, escaliers et îlots posés (" .. counts.relief .. " éléments), mur invisible en place (" .. counts.walls .. ")", counts.relief >= 20 and counts.walls >= 1)
-				check("Panneaux d'étoiles Blender : un par domaine (" .. counts.stars .. ")", counts.stars == #Config.RIVALS)
+				check("Panneaux d'étoiles Blender : un par territoire de rival (" .. counts.stars .. ")", counts.stars == rivalTerrs) -- REFONTE (lot 2) : 4 territoires de rival
 			end
-			do -- plateaux construits : falaise, dalle, rampe ; domaine relevé de sa hauteur
-				local cliffs, ramps, discs, okH = 0, 0, 0, true
+			do -- REFONTE (lot 2) : plus de terrasses ; seul le plateau du château reste (falaise, dalle, palier), la cour de Zed est posée dessus
+				local cliffs, discs, okH, ramps = 0, 0, true, 0
 				for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
 					if d.ClassName == "Part" then
 						local pr = rawget(d, "__props")
-						if pr.Name == "Cliff" then
+						if pr.Name == "CastleCliff" or pr.Name == "CastlePlateau" or pr.Name == "CastleLanding" then
 							cliffs += 1
-						elseif pr.Name == "Ramp" then
+						elseif pr.Name == "Cliff" or pr.Name == "Ramp" or pr.Name == "PlateauTop" then
 							ramps += 1
 						elseif pr.Name == "Disc" then
 							discs += 1
-							local best = false
 							local pp = (pr.Position and (pr.Position.X ~= 0 or pr.Position.Y ~= 0 or pr.Position.Z ~= 0)) and pr.Position or pr.CFrame.Position
-							for i = 1, #Config.RIVALS do
-								local cx, cz = Config.rivalCenter(i)
-								if math.abs(pp.X - cx) < 1 and math.abs(pp.Z - cz) < 1 and math.abs(pp.Y - (0.5 + Config.rivalHeight(i))) < 1e-6 then
+							local best = false
+							for _, key in ipairs(Config.TERR_ORDER) do
+								local t = Config.TERR[key]
+								local y = (key == "zed") and Config.Map2.castle.h or 0
+								if math.abs(pp.X - t.x) < 1 and math.abs(pp.Z - t.z) < 1 and math.abs(pp.Y - (0.12 + y)) < 1e-6 then
 									best = true
 								end
 							end
@@ -4622,7 +4895,7 @@ do
 						end
 					end
 				end
-				check("Terrasses : " .. cliffs .. " falaises, " .. ramps .. " rampes, " .. discs .. " domaines relevés de leur hauteur (6, 14, 24)", cliffs == #Config.RIVALS and ramps == #Config.RIVALS and discs == #Config.RIVALS and okH)
+				check("Plateau du château : falaise, dalle et palier (" .. cliffs .. ") ; plus aucune terrasse ni rampe (" .. ramps .. ") ; " .. discs .. " territoires posés à leur hauteur (cour de Zed sur le plateau)", cliffs == 3 and ramps == 0 and discs == rivalTerrs and okH)
 			end
 			check("Échelle : lampadaires (8) et moulin (20) à ±10 % de leur hauteur cible", lamps == 4 and lampOk and mills == 1 and millOk)
 		end
@@ -4688,9 +4961,9 @@ do
 			end
 		end
 		check("Chargements en échec à 100 % : aucune erreur non gérée" .. (#RF.errors == 0 and "" or " : " .. tostring(RF.errors[1])), #RF.errors == 0)
-		local allG = 0
-		for _, rv in ipairs(Config.RIVALS) do
-			allG += rv.guards
+		local allG = 0 -- REFONTE (lot 2) : un gardien par poste de Config.TERR
+		for _, key in ipairs(Config.TERR_ORDER) do
+			allG += #(Config.TERR[key].posts or {})
 		end
 		check("Chargements en échec : gardiens procéduraux conservés (" .. guardsProcedural .. "), aucun modèle Blender (" .. blender .. "), aucune texture (" .. textures .. ")", guardsProcedural == allG and blender == 0 and textures == 0)
 		local snap
@@ -4806,6 +5079,8 @@ end
 -- Z-fighting : aucune face horizontale coplanaire qui se recouvre ---------------------------------------------------------------------
 -- Géométrie approchée à partir des Parts du runtime factice : dessus d'une Part = Y du centre + hauteur / 2 (cylindres : l'axe est Size.X), empreinte =
 -- rectangle englobant. Deux dessus à moins de 0,05 stud l'un de l'autre qui se recouvrent sur plus de 1 stud carré scintillent (z-fighting).
+-- REFONTE (lot 2) : empreintes plus exactes (contrôle plus précis, pas plus faible) : un disque (cylindre couché) est un cercle, une Part orientée par
+-- CFrame.lookAt (segments de chemin et de rivière en biais) a le rectangle englobant de son empreinte TOURNÉE ; recouvrement exigé > 1 stud.
 local function coplanarConflicts(RT, maxTop)
 	local items = {}
 	for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
@@ -4824,7 +5099,17 @@ local function coplanarConflicts(RT, maxTop)
 				local w, l = cyl and sz.Y or sz.X, cyl and sz.Z or sz.Z
 				local top = pos.Y + h / 2
 				if h <= 1.5 and w >= 3 and l >= 3 and top <= (maxTop or 1.6) and top >= -0.2 then
-					items[#items + 1] = { name = pr.Name, top = top, x0 = pos.X - w / 2, x1 = pos.X + w / 2, z0 = pos.Z - l / 2, z1 = pos.Z + l / 2, canCollide = pr.CanCollide }
+					local ex, ez = w / 2, l / 2
+					local look = pr.CFrame and rawget(pr.CFrame, "LookFlat")
+					if look and not cyl then
+						local ll = math.sqrt(look[1] ^ 2 + look[2] ^ 2)
+						if ll > 1e-9 then
+							local lx, lz = look[1] / ll, look[2] / ll -- avant (-Z local) ; droite = (-lz, lx)
+							ex = math.abs(lz) * w / 2 + math.abs(lx) * l / 2
+							ez = math.abs(lx) * w / 2 + math.abs(lz) * l / 2
+						end
+					end
+					items[#items + 1] = { name = pr.Name, top = top, x0 = pos.X - ex, x1 = pos.X + ex, z0 = pos.Z - ez, z1 = pos.Z + ez, canCollide = pr.CanCollide, circle = cyl and math.abs(w - l) < 1e-6 and w / 2 or nil, cx = pos.X, cz = pos.Z }
 				end
 			end
 		end
@@ -4836,7 +5121,18 @@ local function coplanarConflicts(RT, maxTop)
 			if math.abs(a.top - b.top) < 0.05 then
 				local ox = math.min(a.x1, b.x1) - math.max(a.x0, b.x0)
 				local oz = math.min(a.z1, b.z1) - math.max(a.z0, b.z0)
-				if ox > 1 and oz > 1 then
+				local overlap = ox > 1 and oz > 1
+				if overlap and (a.circle or b.circle) then
+					local c, o = a.circle and a or b, a.circle and b or a
+					if o.circle then
+						overlap = math.sqrt((c.cx - o.cx) ^ 2 + (c.cz - o.cz) ^ 2) < c.circle + o.circle - 1
+					else
+						local qx = math.max(o.x0, math.min(c.cx, o.x1))
+						local qz = math.max(o.z0, math.min(c.cz, o.z1))
+						overlap = math.sqrt((c.cx - qx) ^ 2 + (c.cz - qz) ^ 2) < c.circle - 1
+					end
+				end
+				if overlap then
 					out[#out + 1] = a.name .. "/" .. b.name .. " (dessus " .. string.format("%.2f", a.top) .. " et " .. string.format("%.2f", b.top) .. ")"
 				end
 			end
@@ -5092,15 +5388,17 @@ do
 			end
 			RT.step(4)
 			local zh, _, zt = modifiers("Rival_Zed")
-			local gh, _, gt = modifiers("Rival_Gus")
-			check("Culling : les domaines éloignés (Zed " .. zh .. "/" .. zt .. ", Gus " .. gh .. "/" .. gt .. " Parts) sont masqués depuis le Grand Nid", zt > 10 and zh == zt and gt > 10 and gh == gt)
+			local gh, gs, gt = modifiers("Rival_Gus")
+			-- REFONTE (lot 2) : test adapté. Sur la carte 700 x 500, Gus Nord-Ouest est à 113 studs (bord) de la place : sous le seuil (170), il reste
+			-- visible ; la cour de Zed (à 300 studs) est masquée. Seuils 170/140 inchangés.
+			check("Culling : la cour de Zed, éloignée (Zed " .. zh .. "/" .. zt .. " Parts), est masquée depuis la place ; Gus, proche, reste visible (" .. gs .. "/" .. gt .. ")", zt > 10 and zh == zt and gt > 10 and gh == 0)
 			local mx, mz = Config.rivalCenter(2)
 			if rootC then
 				rawget(rootC, "__props").Position = RT.vec(mx, 3, mz)
 				RT.step(4)
 				local mh, ms, mt = modifiers("Rival_Mara")
 				local gh2 = modifiers("Rival_Gus")
-				check("Culling : près de Mara elle réapparaît (" .. ms .. "/" .. mt .. ") ; Gus, à plus de 140 studs de son bord, reste masqué (" .. gh2 .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), mt > 10 and mh == 0 and gh2 == gt and #RT.errors == 0)
+				check("Culling : près de Mara elle est visible (" .. ms .. "/" .. mt .. ") ; Gus Nord-Ouest, à plus de 170 studs de son bord, est masqué (" .. gh2 .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), mt > 10 and mh == 0 and gh2 == gt and #RT.errors == 0)
 			end
 		end
 		-- bannière : distance à la base du joueur ; inventaire à onglets (œufs, pets, boosts, titres, index)
@@ -5227,15 +5525,17 @@ do
 	check("Protection : largeur cible définie et <= 7 studs pour chaque clé", widthOk)
 	-- arbres
 	local seen, byZone = {}, {}
+	-- REFONTE (lot 2) : pins au nord (derrière la rivière) et autour des territoires, sakuras près des lacs et de la place
 	local c1x, c1z = Config.rivalCenter(1)
-	byZone.pine = PLx.treeVariant(Config, "tree", c1x + 20, c1z + 90, 1)
-	byZone.sakura = PLx.treeVariant(Config, "tree", 0, 60, 1)
-	local lk = Config.Map.geo.lakes[1]
+	byZone.pine = PLx.treeVariant(Config, "tree", c1x + 20, c1z - 50, 1)
+	byZone.north = PLx.treeVariant(Config, "tree", -150, -235, 1)
+	byZone.sakura = PLx.treeVariant(Config, "tree", 0, 70, 1)
+	local lk = Config.Map2.lakes[1]
 	byZone.lake = PLx.treeVariant(Config, "tree", lk.x + lk.r + 10, lk.z, 2)
 	byZone.fir = PLx.treeVariant(Config, "fir", 300, 100, 3)
-	check("Arbres : pins sur les falaises, sakuras près des lacs et de l'arène, sapin = pin", byZone.pine == "tree_pine" and byZone.sakura == "tree_sakura" and byZone.lake == "tree_sakura" and byZone.fir == "tree_pine")
+	check("Arbres : pins au nord et autour des territoires, sakuras près des lacs et de la place, sapin = pin", byZone.pine == "tree_pine" and byZone.north == "tree_pine" and byZone.sakura == "tree_sakura" and byZone.lake == "tree_sakura" and byZone.fir == "tree_pine")
 	for k = 1, 8 do
-		seen[PLx.treeVariant(Config, "tree", -300, 200, k)] = true
+		seen[PLx.treeVariant(Config, "tree", -300, 150, k)] = true
 	end
 	check("Arbres : prairie = chênes, bouleau et arbre rond mélangés (4 variantes)", seen.tree_oak_a and seen.tree_oak_b and seen.tree_birch and seen.tree_round)
 	local jOk, jmin, jmax = true, 9, 0
@@ -5256,7 +5556,8 @@ do
 	check("Arbres : hauteurs cibles 8 à 11 studs, une par modèle", hOk)
 	-- chemins sinueux
 	local allOk, curves, maxStep = true, 0, 0
-	for _, poly in ipairs(Config.Map.paths) do
+	for _, pth in ipairs(Config.Map2.paths) do -- REFONTE (lot 2) : chemins de la carte 700 x 500
+		local poly = pth.pts
 		local plan = PLx.pathTiles(poly, Config.Assets.pathTile, Config.Assets.pathWind)
 		if #plan.tiles < 3 or #plan.borders ~= 2 * #plan.tiles then
 			allOk = false
@@ -5368,7 +5669,7 @@ do
 	end
 	check("Hub : " .. ringN .. " rochers bordent la mare sans entrer dedans", ringN >= 4 and hubOk)
 	-- carte : planificateur
-	local P2 = PLv.new(Config)
+	local P2 = PLv.new(Config, MapGeoMod)
 	local plan = P2.plan()
 	local v1, v2 = P2.scenery(plan.items), P2.scenery(plan.items)
 	local want = 0
@@ -5883,50 +6184,42 @@ end
 
 
 do
+	-- REFONTE (lot 2) : suite réécrite pour Config.TRAVEL2 (4 portails sur la rose de la place, tapis de retour, arches « Retour à la base »). Mêmes
+	-- règles serveur qu'avant (délai, combat, distance au portail, portail verrouillé) + la nouvelle : aucun voyage avec un œuf porté.
 	suite("Carte compacte : distances mesurées, voyage rapide validé par le serveur, boussole")
-	local M = Config.Map
+	local M2 = Config.Map2
 	local function dist(ax, az, bx, bz)
 		return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
 	end
 	local lines, distOk = {}, true
-	local dz = {}
 	for i = 1, #Config.RIVALS do
 		local x, z = Config.rivalCenter(i)
-		dz[i] = { x, z }
 		local d = dist(x, z, 0, 0)
 		lines[#lines + 1] = string.format("%s %.0f", Config.RIVALS[i].name, d)
-		if d < 150 or d > 280 then
+		if d < 100 or d > 320 then
 			distOk = false
 		end
 	end
-	local neigh = {}
-	for i = 2, #dz do
-		local d = dist(dz[i][1], dz[i][2], dz[i - 1][1], dz[i - 1][2])
-		neigh[#neigh + 1] = string.format("%.0f", d)
-		if d < 150 or d > 230 then
-			distOk = false
-		end
-	end
-	check("Distances : Grand Nid -> domaines " .. table.concat(lines, " / ") .. " ; entre voisins " .. table.concat(neigh, " / ") .. " (cibles 150 à 280 et 150 à 230)", distOk)
+	check("Distances : place -> domaines " .. table.concat(lines, " / ") .. " (cible 100 à 320, toutes dans 700 x 500)", distOk)
 	local walk = 16 -- vitesse de marche de base
 	local worst = 0
-	for i = 1, #dz do
+	for i = 1, #Config.RIVALS do
 		local bx, bz = Config.travelPoint(i)
 		worst = math.max(worst, dist(0, 0, bx, bz) / walk)
-		if i > 1 then
-			local ax, az = Config.travelPoint(i - 1)
-			worst = math.max(worst, dist(ax, az, bx, bz) / walk)
-		end
 	end
-	check("Trajets à pied : Grand Nid -> rampe d'un domaine et rampe -> rampe voisine : au plus " .. string.format("%.1f", worst) .. " s (< 25 s)", worst < 25)
-	check("Base à " .. M.plotRadius .. " studs du Grand Nid : " .. string.format("%.1f", M.plotRadius / walk) .. " s à pied (< 15 s)", M.plotRadius / walk < 15)
+	check("Trajets à pied : place -> entrée d'un domaine au plus " .. string.format("%.1f", worst) .. " s (< 25 s)", worst < 25)
+	local far = 0
+	for _, b in ipairs(M2.bases) do
+		far = math.max(far, dist(0, 0, b.x, b.z))
+	end
+	check("Bases à " .. string.format("%.0f", far) .. " studs de la place au plus : " .. string.format("%.1f", far / walk) .. " s à pied (< 15 s)", far / walk < 15)
 	-- boussole
 	local a1, d1 = Config.compass(0, 0, 0, -1, 10, 0)
 	local a2 = Config.compass(0, 0, 0, -1, -10, 0)
 	local a3 = Config.compass(0, 0, 0, -1, 0, -10)
 	local a4 = Config.compass(0, 0, 0, -1, 0, 10)
 	check("Boussole : droite +90, gauche -90, devant 0, derrière ±180 (" .. string.format("%.0f/%.0f/%.0f/%.0f", a1, a2, a3, a4) .. ")", math.abs(a1 - 90) < 1e-6 and math.abs(a2 + 90) < 1e-6 and math.abs(a3) < 1e-6 and math.abs(math.abs(a4) - 180) < 1e-6 and d1 == 10)
-	check("Boussole : zone à rejoindre = la plus avancée débloquée (chapitres 0, 3, 6)", Config.frontierZone(0) == 1 and Config.frontierZone(3) == 2 and Config.frontierZone(6) == 3 and Config.frontierZone(99) == 3)
+	check("Boussole : zone à rejoindre = la plus avancée débloquée (chapitres 0, 3, 6) ; cible = entrée de son premier territoire", Config.frontierZone(0) == 1 and Config.frontierZone(3) == 2 and Config.frontierZone(6) == 3 and Config.frontierZone(99) == 3 and select(1, Config.travelPoint(3)) == Config.TERR.zed.traps.gate.x)
 	-- e2e
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
@@ -5942,44 +6235,104 @@ do
 		for obj in pairs(RT.tags["FastTravel"] or {}) do
 			prompts[#prompts + 1] = obj
 		end
-		local byDest = { [0] = {}, {}, {}, {} }
+		local byDest = {}
 		for _, pr in ipairs(prompts) do
-			local list = byDest[pr:GetAttribute("Dest")]
-			list[#list + 1] = pr
+			local d = pr:GetAttribute("Dest")
+			byDest[d] = byDest[d] or {}
+			table.insert(byDest[d], pr)
 		end
-		check("Voyage rapide : " .. #prompts .. " portails (3 au Grand Nid + 3 retours), aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #prompts == 2 * #Config.RIVALS and #byDest[0] == #Config.RIVALS and #RT.errors == 0)
+		local nPortals = #Config.TRAVEL2.portals
+		check("Voyage rapide : " .. #prompts .. " prompts (4 portails, 4 retours vers la place, " .. Config.PLOT_COUNT .. " arches de base), aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #prompts == 2 * nPortals + Config.PLOT_COUNT and #(byDest[0] or {}) == nPortals and byDest[1] ~= nil and byDest[-1] ~= nil and #RT.errors == 0)
 		local function posOf()
 			local pr = rawget(root, "__props")
 			return pr.CFrame.Position
 		end
+		local function padPos(prompt)
+			local pp = rawget(prompt.Parent, "__props")
+			return pp.CFrame and pp.CFrame.Position or pp.Position
+		end
 		local function trigger(prompt)
-			local pp = prompt.Parent
-			local pos = rawget(pp, "__props").CFrame and rawget(pp, "__props").CFrame.Position or rawget(pp, "__props").Position
+			local pos = padPos(prompt)
 			rawget(root, "__props").Position = RT.vec(pos.X, 3, pos.Z)
 			rawget(root, "__props").CFrame = RT.cf(pos.X, 3, pos.Z)
 			RT.now = RT.now + 5
 			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", prompt, p)
 			RT.step(0.3)
 		end
-		if root and byDest[1][1] then
+		if root and byDest[1] and byDest[2] and byDest[0] then
 			RT.step(10) -- aucun coup récent
 			trigger(byDest[1][1])
 			local px, pz = posOf().X, posOf().Z
-			local tx, tz = Config.travelPoint(1)
-			check("Voyage rapide : le portail du Grand Nid mène à la zone 1 débloquée (" .. string.format("%.0f,%.0f", px, pz) .. " attendu " .. string.format("%.0f,%.0f", tx, tz) .. ")", dist(px, pz, tx, tz) < 1)
-			trigger(byDest[3][1]) -- Zed : verrouillée au chapitre 0
+			local tx, tz = Config.travelDest(1)
+			check("Voyage rapide : le portail « " .. Config.TRAVEL2.portals[1].name .. " » (ouvert dès le départ) mène à son arrivée (" .. string.format("%.0f,%.0f", px, pz) .. " attendu " .. string.format("%.0f,%.0f", tx, tz) .. ")", dist(px, pz, tx, tz) < 1)
+			trigger(byDest[2][1]) -- Pont du Château : chapitre 6
 			local qx, qz = posOf().X, posOf().Z
-			local bx, bz = Config.travelPad(3)
-			check("Voyage rapide : une zone verrouillée est REFUSÉE côté serveur (le joueur reste sur le portail)", dist(qx, qz, bx, bz) < 1)
+			local bx, bz = Config.portalPad(2)
+			check("Voyage rapide : un portail verrouillé (chapitre " .. Config.TRAVEL2.portals[2].chapter .. ") est REFUSÉ côté serveur (le joueur reste sur le portail)", dist(qx, qz, bx, bz) < 1)
 			trigger(byDest[0][1])
 			local rx, rz = posOf().X, posOf().Z
-			local ax, az = Config.travelPoint(0)
-			check("Voyage rapide : le portail de retour ramène au Grand Nid", dist(rx, rz, ax, az) < 1)
-			-- délai de 4 s : deux déclenchements rapprochés = un seul voyage
-			local before = posOf()
-			local pr1 = byDest[2][1]
-			local pp = rawget(pr1.Parent, "__props")
+			local ax, az = Config.travelDest(0)
+			check("Voyage rapide : le tapis de retour ramène sur la place", dist(rx, rz, ax, az) < 1)
+			-- arche de SA base : retour au spawn de sa base ; arche d'une autre base : refusée
+			local myPlot
+			local plotCF = p:GetAttribute("PlotCF")
+			local plotX = plotCF and plotCF.Position and plotCF.Position.X
+			for i, b in ipairs(M2.bases) do
+				if plotX and math.abs(b.x - plotX) < 1 then
+					myPlot = i
+				end
+			end
+			if myPlot and byDest[-myPlot] then
+				trigger(byDest[-myPlot][1])
+				local hx, hz = posOf().X, posOf().Z
+				local spawnPos -- position du SpawnLocation construit (le CFrame factice n'a pas de rotation : on compare au spawn réellement posé)
+				for _, o in ipairs(RT.all) do
+					if o.ClassName == "SpawnLocation" and o.Parent and rawget(o.Parent, "__props").Name == "Plot" .. myPlot then
+						spawnPos = rawget(o, "__props").CFrame.Position
+					end
+				end
+				check("Voyage rapide : l'arche « Retour à la base » de SA base ramène à son spawn (" .. string.format("%.0f,%.0f", hx, hz) .. ")", spawnPos ~= nil and dist(hx, hz, spawnPos.X, spawnPos.Z) < 1)
+				local other = myPlot % Config.PLOT_COUNT + 1
+				trigger(byDest[-other][1])
+				local ox, oz = posOf().X, posOf().Z
+				local opx, opz = Config.homeArch(other)
+				check("Voyage rapide : l'arche d'une AUTRE base est refusée (le joueur reste devant l'arche)", dist(ox, oz, opx, opz) < 1)
+			else
+				check("Voyage rapide : base du joueur identifiée (PlotCF)", false)
+			end
+			-- un œuf porté : aucun voyage (blockWhileCarrying)
+			local nestPrompt
+			for _, o in ipairs(RT.all) do
+				if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == "Nest" and o:GetAttribute("Rival") == 1 and o.Parent and o.Parent.ClassName == "Part" then
+					nestPrompt = nestPrompt or o
+				end
+			end
+			if nestPrompt then
+				local np = padPos(nestPrompt)
+				rawget(root, "__props").Position = RT.vec(np.X, 3, np.Z)
+				rawget(root, "__props").CFrame = RT.cf(np.X, 3, np.Z)
+				RT.now = RT.now + 5
+				RT.step(1)
+				RT.fire(RT.services.ProximityPromptService, "PromptTriggered", nestPrompt, p)
+				RT.step(0.5)
+				local carrying = false
+				for _, f in ipairs(RT.fired) do
+					if f[1] == "Notify" and f[2] == p and type(f[3]) == "string" and f[3]:find("Œuf volé", 1, true) then
+						carrying = true
+					end
+				end
+				trigger(byDest[1][1])
+				local cx, cz = posOf().X, posOf().Z
+				local pad1x, pad1z = Config.portalPad(1)
+				check("Voyage rapide : avec un œuf porté, le portail est REFUSÉ (on ne téléporte jamais un œuf)" .. (carrying and "" or " [vol non obtenu]"), carrying and dist(cx, cz, pad1x, pad1z) < 1)
+			else
+				check("Voyage rapide : un nid disponible pour le test de l'œuf porté", false)
+			end
+			-- trop loin du portail : refusé
+			local pr1 = byDest[1][1]
+			rawget(root, "__props").Position = RT.vec(0, 3, 0)
 			rawget(root, "__props").CFrame = RT.cf(0, 3, 0)
+			RT.now = RT.now + 5
 			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", pr1, p) -- trop loin du portail : refusé
 			RT.step(0.3)
 			check("Voyage rapide : déclenché loin du portail -> refusé", dist(posOf().X, posOf().Z, 0, 0) < 1)
@@ -5987,28 +6340,44 @@ do
 		else
 			check("Voyage rapide : joueur et portails présents", false)
 		end
+		-- REFONTE (lot 2) : total de la scène (carte procédurale + modèles Blender factices posés) <= 7000 Parts
+		RT.step(20)
+		local all, built = 0, nil
+		for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
+			if d.ClassName == "Part" or d.ClassName == "SpawnLocation" or d.ClassName == "MeshPart" then
+				all += 1
+			end
+		end
+		for _, line in ipairs(RT.prints) do
+			built = tonumber(line:match("%[Builder%] carte construite : (%d+) Parts")) or built
+		end
+		check("Carte 700 x 500 : " .. all .. " Parts en tout dans la scène (" .. tostring(built) .. " procédurales + modèles Blender factices ; plafond " .. Config.Map.totalBudgetParts .. ")", built ~= nil and all > built and all <= Config.Map.totalBudgetParts)
 	end
 end
 
 
 do
 	suite("Mobs : territoires séparés, plateau respecté, détection de blocage, 10 minutes sans gardien bloqué")
+	-- REFONTE (lot 2) : territoires = disques de Config.TERR (7 gardiens : Gus 1 + 1, Mara 2, Zed 3) ; patrouille de ± patrolHalf autour du poste,
+	-- gardien ramené dans le disque de son territoire (Guard.clampToDisc, rayon r - territoryMargin, élargi au besoin pour la patrouille).
 	local GU = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Guard.lua"), { debugName = "Guard" })()
 	local G = Config.GUARD
-	-- territoires : segments de patrouille (± 12 en x) de TOUS les gardiens, y compris entre domaines
 	local segs = {}
-	for i, riv in ipairs(Config.RIVALS) do
-		for j = 1, riv.guards do
-			local gx, gz = Config.guardTerritory(i, j, riv.guards)
-			segs[#segs + 1] = { i = i, j = j, x1 = gx - 12, x2 = gx + 12, z = gz }
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		for _, p in ipairs(t.posts or {}) do
+			local inner = t.r - G.territoryMargin
+			local dPost = math.sqrt((p[1] - t.x) ^ 2 + (p[2] - t.z) ^ 2)
+			local ph = math.max(4, math.min(12, inner - dPost))
+			segs[#segs + 1] = { key = key, t = t, x1 = p[1] - ph, x2 = p[1] + ph, z = p[2], clampR = math.max(inner, dPost + ph + 0.5) }
 		end
 	end
 	local minGap, inside = math.huge, true
 	for a = 1, #segs do
 		local s1 = segs[a]
-		local cx, cz = Config.rivalCenter(s1.i)
 		for _, x in ipairs({ s1.x1, s1.x2 }) do
-			if math.sqrt((x - cx) ^ 2 + (s1.z - cz) ^ 2) > Config.Map.plateauRadius - G.territoryMargin then
+			local d = math.sqrt((x - s1.t.x) ^ 2 + (s1.z - s1.t.z) ^ 2)
+			if d > s1.clampR + 1e-9 or d > s1.t.r then
 				inside = false
 			end
 		end
@@ -6019,10 +6388,10 @@ do
 			minGap = math.min(minGap, d)
 		end
 	end
-	check("Territoires : " .. #segs .. " gardiens, distance minimale entre deux zones de patrouille " .. string.format("%.1f", minGap) .. " studs (>= 4), tous dans le rayon du plateau - " .. G.territoryMargin, minGap >= 4 and inside)
+	check("Territoires : " .. #segs .. " gardiens, distance minimale entre deux zones de patrouille " .. string.format("%.1f", minGap) .. " studs (>= 4), chacune dans le disque de son territoire", #segs == 7 and minGap >= 4 and inside)
 	local cx0, cz0 = GU.clampToDisc(100, 0, 0, 0, 50)
 	local cx1, cz1 = GU.clampToDisc(10, 10, 0, 0, 50)
-	check("Plateau : clampToDisc ramène un point lointain sur le bord (" .. string.format("%.0f,%.0f", cx0, cz0) .. ") et laisse un point intérieur", math.abs(cx0 - 50) < 1e-9 and math.abs(cz0) < 1e-9 and cx1 == 10 and cz1 == 10)
+	check("Territoire : clampToDisc ramène un point lointain sur le bord (" .. string.format("%.0f,%.0f", cx0, cz0) .. ") et laisse un point intérieur", math.abs(cx0 - 50) < 1e-9 and math.abs(cz0) < 1e-9 and cx1 == 10 and cz1 == 10)
 	local tr = { t = 0 }
 	local fired = 0
 	for _ = 1, 100 do
@@ -6055,11 +6424,11 @@ do
 		end
 	end
 	check("Animation : rebond borné en marche (max " .. string.format("%.2f", maxY) .. " <= 0,35), respiration à l'arrêt (" .. string.format("%.3f", y0) .. ")", moving and maxY > 0.1 and math.abs(y0) <= 0.04 and r0 == 0)
-	-- simulation : 10 minutes avec un joueur qui court en zigzag dans et autour du domaine de Gus (hors plateau compris)
+	-- simulation : 10 minutes avec un joueur qui court en zigzag dans et autour du territoire de Gus Nord-Ouest (et au-delà)
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
 		local main = RT.buildTree("roblox/src", false)
-		do -- poursuites exagérées (vue 200, vitesse 30) : les gardiens suivent le joueur jusqu'au bord et au-delà du plateau
+		do -- poursuites exagérées (vue 200, vitesse 30) : les gardiens suivent le joueur jusqu'au bord et au-delà de leur territoire
 			local cfgSim = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
 			local r1 = cfgSim.RIVALS[1]
 			r1.viewDist, r1.hearRadius, r1.viewAngle, r1.guardSpeed, r1.gentle = 200, 200, 360, 30, false
@@ -6097,9 +6466,8 @@ do
 			for k, m in ipairs(models) do
 				local pv = m:GetPivot().Position
 				samples = samples + 1
-				local rival = tonumber(rawget(m, "__props").Name:match("^Guard(%d+)_"))
-				local rx, rz = Config.rivalCenter(rival)
-				if math.sqrt((pv.X - rx) ^ 2 + (pv.Z - rz) ^ 2) > Config.Map.plateauRadius - G.territoryMargin + 0.5 then
+				local t = Config.TERR[m:GetAttribute("Territory") or ""]
+				if not t or math.sqrt((pv.X - t.x) ^ 2 + (pv.Z - t.z) ^ 2) > t.r + 0.5 then
 					outside = outside + 1
 				end
 				local lp = lastPos[k]
@@ -6116,7 +6484,7 @@ do
 		for k = 1, #models do
 			worstMoved = math.min(worstMoved, moved[k] or 0)
 		end
-		check("Simulation 10 min : " .. #models .. " gardiens, " .. samples .. " mesures, aucun hors du plateau (" .. outside .. "), blocages corrigés : " .. fixes .. ", erreurs : " .. #RT.errors, #models == 6 and outside == 0 and #RT.errors == 0)
+		check("Simulation 10 min : " .. #models .. " gardiens, " .. samples .. " mesures, aucun hors de son territoire (" .. outside .. "), blocages corrigés : " .. fixes .. ", erreurs : " .. #RT.errors, #models == 7 and outside == 0 and #RT.errors == 0)
 		check("Simulation 10 min : chaque gardien a bougé (distance parcourue minimale " .. string.format("%.0f", worstMoved) .. " studs sur 600 s)", worstMoved > 100)
 	end
 end
@@ -6220,8 +6588,8 @@ do
 	check("Mini-carte : un point à mi-rayon à l'est est à mi-disque à droite ; le nord (-Z) est en haut", math.abs(u1 - 25) < 1e-9 and v1 == 0 and v2 == -50 and u2 == 0)
 	check("Mini-carte : hors du disque -> absent (gardiens) ou ramené au bord (repères)", MM.place(0, 0, 500, 0, 260, 50, false) == nil and math.abs(select(1, MM.place(0, 0, 500, 0, 260, 50, true)) - 50) < 1e-9)
 	check("Mini-carte : entrées invalides (nil, NaN, rayon nul) -> nil sans erreur", MM.place(nil, 0, 1, 1, 260, 50) == nil and MM.place(0, 0, 0 / 0, 1, 260, 50) == nil and MM.place(0, 0, 1, 1, 0, 50) == nil)
-	local pts = MM.landmarks(Config, 10, 20, 0)
-	local kinds = { base = 0, zone = 0, portal = 0 }
+	local pts = MM.landmarks(Config, Config.Map2.bases[1].x, Config.Map2.bases[1].z, 0)
+	local kinds = { base = 0, zone = 0, portal = 0, plot = 0 }
 	local lockedZones = 0
 	for _, p in ipairs(pts) do
 		kinds[p.kind] = kinds[p.kind] + 1
@@ -6229,7 +6597,8 @@ do
 			lockedZones = lockedZones + 1
 		end
 	end
-	check("Mini-carte : repères = 1 base, " .. #Config.RIVALS .. " zones (" .. lockedZones .. " verrouillées au chapitre 0), " .. #Config.RIVALS .. " portails", kinds.base == 1 and kinds.zone == #Config.RIVALS and kinds.portal == #Config.RIVALS and lockedZones == #Config.RIVALS - 1)
+	-- REFONTE (lot 2) : repères = ta base, les 4 autres bases, les 5 territoires (enclos sauvage compris), les 4 portails de la rose
+	check("Mini-carte : repères = 1 base, " .. kinds.plot .. " autres bases, " .. kinds.zone .. " territoires (" .. lockedZones .. " verrouillés au chapitre 0 : Mara et Zed), " .. kinds.portal .. " portails", kinds.base == 1 and kinds.plot == Config.PLOT_COUNT - 1 and kinds.zone == #Config.TERR_ORDER and kinds.portal == #Config.TRAVEL2.portals and lockedZones == 2 and #pts <= Config.MINIMAP.maxDots - 7)
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = 0, hook = loopGuard })
 	if RT then
 		local created = 0
