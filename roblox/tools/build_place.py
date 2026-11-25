@@ -22,7 +22,7 @@ def item(cls, name, source=None, children=(), extra=""):
     return f'<Item class="{cls}" referent="RBX{next(ids)}"><Properties>{props}</Properties>{kids}</Item>'
 
 SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("VfxKit", "VfxKit.lua"), ("CinematicKit", "CinematicKit.lua"), ("Placement", "Placement.lua"), ("MapGeo", "MapGeo.lua"), ("Culling", "Culling.lua"), ("AssetReportUi", "AssetReportUi.lua"), ("MiniMap", "MiniMap.lua"), ("Battle", "Battle.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
-          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Belt", "Belt.lua"), ("Raven", "Raven.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Traps", "Traps.lua"), ("Castle", "Castle.lua")]
+          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Belt", "Belt.lua"), ("Raven", "Raven.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Traps", "Traps.lua"), ("Castle", "Castle.lua"), ("Upgrade", "Upgrade.lua")]
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -57,6 +57,7 @@ game_tree = [
             item("ModuleScript", "SlotFx", read("StarterPlayerScripts/SlotFx.lua")),
             item("ModuleScript", "MiniMapUi", read("StarterPlayerScripts/MiniMapUi.lua")),
             item("ModuleScript", "BattleUi", read("StarterPlayerScripts/BattleUi.lua")),
+            item("ModuleScript", "BaseUpgradeFx", read("StarterPlayerScripts/BaseUpgradeFx.lua")),
             item("ModuleScript", "CoinIcon", read("StarterPlayerScripts/CoinIcon.lua"))])]),
 ]
 

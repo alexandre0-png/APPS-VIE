@@ -604,19 +604,22 @@ end
 do
 	suite("Positions des emplacements")
 	local seen, ok = {}, true
-	for i = 1, 12 do
+	-- REFONTE lot 5 (changement justifié) : 20 emplacements (grille 5 x 4, pas 9) dans la plateforme du niveau 8 (demi-côté 36, arrière 35,7), plus 12
+	for i = 1, Config.SLOTS_MAX do
 		local x, z = Config.padLocal(i)
-		ok = ok and math.abs(x) <= 26 and math.abs(z) <= 26
+		local halfX, backZ = Config.baseExtent(8)
+		ok = ok and math.abs(x) + 4.4 <= halfX and z - 4.4 >= -26 and z + 4.4 <= backZ
 		seen[x .. "," .. z] = true
 	end
 	local n = 0
 	for _ in pairs(seen) do
 		n += 1
 	end
-	check("padLocal : 12 emplacements distincts dans la plateforme", ok and n == 12)
+	check("padLocal : 20 emplacements distincts dans la plateforme du niveau 8", ok and n == 20)
 	local x1, z1 = Config.padLocal(1)
-	local x12, z12 = Config.padLocal(12)
-	check("padLocal : coins de la grille", x1 == -15 and z1 == -6 and x12 == 15 and z12 == 16)
+	local x20, z20 = Config.padLocal(20)
+	local x6, z6 = Config.padLocal(6)
+	check("padLocal : coins de la grille 5 x 4 (x = -18 + col * 9, z = -4 + rangée * 9) : 1 = (-18, -4), 6 = (-18, 5), 20 = (18, 23)", x1 == -18 and z1 == -4 and x6 == -18 and z6 == 5 and x20 == 18 and z20 == 23)
 end
 
 -- Cinématiques : configuration -----------------------------------------------------------------------------
@@ -3081,21 +3084,22 @@ do
 		end
 		return true
 	end)())
-	check("Base : points par rareté Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Secret 150 ; rareté invalide bornée", Config.baseGain(1) == 1 and Config.baseGain(2) == 3 and Config.baseGain(3) == 8 and Config.baseGain(4) == 20 and Config.baseGain(5) == 50 and Config.baseGain(6) == 150 and Config.baseGain(0) == 1 and Config.baseGain(99) == 150 and Config.baseGain(nil) == 1 and Config.baseGain(0 / 0) == 1)
+	-- REFONTE lot 5 (changement justifié) : nouveaux poids BASE_WEIGHTS2 (1, 4, 15, 50, 180, 700) à la place de (1, 3, 8, 20, 50, 150)
+	check("Base : points par rareté Commun 1, Rare 4, Épique 15, Légendaire 50, Mythique 180, Secret 700 ; rareté invalide bornée", Config.baseGain(1) == 1 and Config.baseGain(2) == 4 and Config.baseGain(3) == 15 and Config.baseGain(4) == 50 and Config.baseGain(5) == 180 and Config.baseGain(6) == 700 and Config.baseGain(0) == 1 and Config.baseGain(99) == 700 and Config.baseGain(nil) == 1 and Config.baseGain(0 / 0) == 1)
 	local l0, n0, p0, r0 = Config.baseLevel(0)
-	local l11, _, _, r11 = Config.baseLevel(11)
-	local l12 = Config.baseLevel(12)
+	local l11, _, _, r11 = Config.baseLevel(14)
+	local l12 = Config.baseLevel(15)
 	local l8, n8, p8, r8 = Config.baseLevel(99999)
-	check("Base : niveau 1 à 0 point (suivant : cabane, 12 points), niveau 2 dès 12, dernier niveau sans suivant", l0 == 1 and n0.name == "Cabane" and p0 == 0 and r0 == 12 and l11 == 1 and r11 == 1 and l12 == 2 and l8 == 8 and n8 == nil and p8 == 1 and r8 == 0)
+	check("Base : niveau 1 à 0 point (suivant : Chalet du Couvoir, 15 points), niveau 2 dès 15, dernier niveau sans suivant", l0 == 1 and n0.name == "Chalet du Couvoir" and p0 == 0 and r0 == 15 and l11 == 1 and r11 == 1 and l12 == 2 and l8 == 8 and n8 == nil and p8 == 1 and r8 == 0)
 	local mono, prev = true, 1
-	for score = 0, 4000, 7 do
+	for score = 0, 16000, 7 do
 		local lv = Config.baseLevel(score)
 		mono = mono and lv >= prev and lv <= 8
 		prev = lv
 	end
 	check("Base : le niveau ne baisse jamais quand le score monte ; scores invalides (nil, NaN, négatif) = niveau 1", mono and Config.baseLevel(nil) == 1 and Config.baseLevel(0 / 0) == 1 and Config.baseLevel(-50) == 1)
-	check("Renaissance : le score de base et l'achat unique du pack de départ survivent (profil neuf)", fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.starter, fresh.baseScore = d.starter, d.baseScore", 1, true) ~= nil)
-	check("Base : un seul pet Secret (150 points) fait passer de l'enclos à la Maison (niveau 4) ; il faut 12 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(6)) == 4 and Config.baseLevel(12 * Config.baseGain(1)) == 2)
+	check("Renaissance : le score de base et l'achat unique du pack de départ survivent (profil neuf)", fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.starter, fresh.baseScore = d.starter, d.baseScore", 1, true) ~= nil and fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings", 1, true) ~= nil)
+	check("Base : un seul pet Secret (700 points) fait passer de l'enclos à la Maison au garage (niveau 5) ; il faut 15 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(6)) == 5 and Config.baseLevel(15 * Config.baseGain(1)) == 2)
 end
 
 -- Pose planifiée du décor : aucune collision, rien dans l'eau ni sur un chemin, ponts qui relient les rives ------------------------------------
@@ -4516,11 +4520,12 @@ do
 			local old = join("Vieux", 7001)
 			RT.step(2)
 			local oldScore, oldLevel = old:GetAttribute("BaseScore"), old:GetAttribute("BaseLevel")
-			check("Base : un ancien profil (v7) est migré, le score est reconstitué d'après la collection (5 Communs + 1 Secret = 155) [" .. tostring(oldScore) .. "], niveau 4 (Maison)", oldScore == 155 and oldLevel == 4)
+			-- REFONTE lot 5 (changement justifié) : v7 -> v10 recalcule le score avec les NOUVEAUX poids (5 x 1 + 700 = 705) ; le niveau v9 (155 points = niveau 4) devient le plancher, le niveau calculé (705 = niveau 5) le dépasse
+			check("Base : un ancien profil (v7) est migré jusqu'en v10, score recalculé d'après la collection (5 Communs + 1 Secret = 705) [" .. tostring(oldScore) .. "], niveau 5 (Maison au garage)", oldScore == 705 and oldLevel == 5)
 			RT.removePlayer(old)
 			RT.step(2)
 			local rec = record(7001)
-			check("Base : le profil sauvegardé porte la version 9 et le score de base", rec ~= nil and rec.v ~= nil and rec.v.ver == 9 and rec.v.baseScore == 155)
+			check("Base : le profil sauvegardé porte la version 10, le score de base recalculé et le plancher de niveau (4, atteint en v9)", rec ~= nil and rec.v ~= nil and rec.v.ver == 10 and rec.v.baseScore == 705 and rec.v.baseLevelFloor == 4 and #rec.v.slots == 20)
 			local savedLevels = cfg.BASE_LEVELS
 			local thresholds = {}
 			for i = 1, 8 do

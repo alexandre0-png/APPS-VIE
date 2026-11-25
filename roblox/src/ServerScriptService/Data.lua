@@ -13,7 +13,7 @@ local Diag = require(script.Parent:WaitForChild("Diag"))
 local STORE_NAME = "ChipeOeufs_v1"
 local CASTLE_NAME = "ChipeOeufs_Castle_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
-local SLOT_COUNT = 12
+local SLOT_COUNT = 20 -- v10 : 4 de base + 8 améliorations + 4 de maison + 4 du pass (Config.SLOTS_MAX)
 local LOCK_TTL = 120 -- un verrou plus vieux que ça est considéré comme abandonné (crash serveur)
 local SAVE_RETRIES = 3
 
@@ -27,8 +27,36 @@ local SAVE_RETRIES = 3
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
 -- v9c : + played (secondes de jeu cumulées) et newbieOff (protection débutant, lot 4) : champs facultatifs assainis, sans changement de version.
 -- v9b : battle.pvp { season, trophies, wins, losses, defense = { {p,s,m} }, day, fights, claimed } (PvP asynchrone, sans changement de version : champs facultatifs assainis).
+-- v10 (REFONTE lot 5) : SLOT_COUNT 12 -> 20 (les 8 nouveaux emplacements sont vides), + baseLevelFloor (plancher du niveau de maison : jamais de recul),
+--   + tokens { remoteSteal }, + settings { blockFriendRavens }, puzzle étendu (step, feathers, hints, fragments) ; baseScore RECALCULÉ depuis dex avec Config.BASE_WEIGHTS2.
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
-local VERSION = 9
+local VERSION = 10
+
+-- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
+local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
+local LEGACY_THRESHOLDS = { 0, 12, 40, 110, 260, 600, 1400, 3200 }
+local function legacyLevel(score)
+	local level = 1
+	for i, t in ipairs(LEGACY_THRESHOLDS) do
+		if score >= t then
+			level = i
+		end
+	end
+	return level
+end
+-- Score de base d'après la collection : somme (nombre obtenu par espèce x poids de la rareté) avec la table de poids donnée.
+local function scoreFromDex(dex, weights)
+	local score = 0
+	if type(dex) == "table" then
+		for k, e in pairs(dex) do
+			local def = Config.PETS[tonumber(k) or 0]
+			if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 and e.n < 1e9 then
+				score += math.floor(e.n) * weights[math.min(math.max(def.tier, 1), #weights)]
+			end
+		end
+	end
+	return score
+end
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -95,10 +123,13 @@ function Data.default()
 		luckUntil = 0,
 		story = { ch = 0, prog = 0 }, -- ch = chapitres réussis, prog = progression du chapitre en cours
 		pity = 0,
-		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
+		puzzle = { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0 }, -- day = dernier jour résolu ; step 0..3 ; feathers = masque de bits des 4 plumes ; hints du jour ; fragments cumulés
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
+		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
+		settings = { blockFriendRavens = false }, -- réglages du joueur
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
@@ -132,18 +163,17 @@ local MIGRATIONS = {
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
 	end,
+	[9] = function(saved)
+		-- v9 -> v10 : le niveau de maison atteint (anciens seuils) devient un plancher, puis le score est RECALCULÉ depuis la collection avec les
+		-- nouveaux poids (1, 4, 15, 50, 180, 700). Aucun pet, œuf, pièce ni reçu n'est touché ; les 8 nouveaux emplacements sont créés vides par merge().
+		local oldScore = (type(saved.baseScore) == "number" and saved.baseScore == saved.baseScore and saved.baseScore > 0) and saved.baseScore or 0
+		saved.baseLevelFloor = math.max(legacyLevel(oldScore), math.floor(tonumber(saved.baseLevelFloor) or 1))
+		saved.baseScore = scoreFromDex(saved.dex, Config.BASE_WEIGHTS2)
+	end,
 	[7] = function(saved)
-		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté).
-		local score = 0
-		if type(saved.dex) == "table" then
-			for k, e in pairs(saved.dex) do
-				local def = Config.PETS[tonumber(k) or 0]
-				if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 then
-					score += math.floor(e.n) * Config.baseGain(def.tier)
-				end
-			end
-		end
-		saved.baseScore = score
+		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté, ANCIENS poids :
+		-- la migration v9 -> v10 le recalcule ensuite et en tire le plancher de niveau).
+		saved.baseScore = scoreFromDex(saved.dex, LEGACY_WEIGHTS)
 	end,
 	[6] = function(saved)
 		-- v6 -> v7 : starter vaut false (pack de départ jamais acheté).
@@ -213,6 +243,16 @@ local function merge(saved)
 	if type(saved.puzzle) == "table" then
 		d.puzzle.day = math.floor(sane(saved.puzzle.day, 0))
 		d.puzzle.solved = math.floor(sane(saved.puzzle.solved, 0))
+		d.puzzle.step = math.min(3, math.floor(sane(saved.puzzle.step, 0)))
+		d.puzzle.feathers = math.min(15, math.floor(sane(saved.puzzle.feathers, 0))) -- masque de bits : Nord 1, Est 2, Sud 4, Ouest 8
+		d.puzzle.hints = math.min(99, math.floor(sane(saved.puzzle.hints, 0)))
+		d.puzzle.fragments = math.min(9999, math.floor(sane(saved.puzzle.fragments, 0)))
+	end
+	if type(saved.tokens) == "table" then
+		d.tokens.remoteSteal = math.min(Config.REMOTE_STEAL.tokenMax, math.floor(sane(saved.tokens.remoteSteal, 0)))
+	end
+	if type(saved.settings) == "table" then
+		d.settings.blockFriendRavens = saved.settings.blockFriendRavens == true
 	end
 	if type(saved.secrets) == "table" then
 		for _, sct in ipairs(Config.SECRETS) do
@@ -231,6 +271,7 @@ local function merge(saved)
 	end
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
+	d.baseLevelFloor = math.min(#Config.BASE_LEVELS2, math.max(1, math.floor(sane(saved.baseLevelFloor, 1))))
 	d.played = math.min(1e9, sane(saved.played, 0))
 	d.newbieOff = saved.newbieOff == true
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))

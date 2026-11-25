@@ -62,6 +62,7 @@ task.spawn(function()
 	-- Ordre de chargement : d'abord ce qui se voit dans les premières secondes (œufs, base du joueur, chemins, arbres, accessoires, village), par lots parallèles
 	assets.loadAll()
 	assets.loadGroup("base")
+	assets.loadGroup("house") -- maisons évolutives (niveaux 2 à 7) : avant tous les groupes non essentiels, onAssetsLoaded les applique
 	assets.loadGroup("paths")
 	assets.loadGroup("trees")
 	assets.loadProps()
@@ -151,7 +152,7 @@ local function alive(player)
 	return h ~= nil and h.Health > 0
 end
 local function validSlot(i)
-	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= 12
+	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= Config.SLOTS_MAX
 end
 -- sfx (optionnel) : clé de Config.SOUNDS jouée par le client avec le message
 local function notify(player, msg, sfx)
@@ -166,8 +167,9 @@ local function evKey()
 	return currentEvent and currentEvent.cfg.key or nil
 end
 
-local function cap(d)
-	return Rules.capacity(d.up)
+-- Capacité de la base : 4 + améliorations + bonus de niveau de maison + pass ExtraSlots (jamais plus de Config.SLOTS_MAX = 20).
+local function cap(s)
+	return Rules.capacity(s.data.up, s.baseLevel or 1, s.passes.ExtraSlots == true)
 end
 local function carryCap(d)
 	return Rules.carryCapacity(d.up)
@@ -176,27 +178,29 @@ local function hatchTime(s, tier)
 	return Rules.hatchTime(tier, s.data.up.inc, s.passes.Fast == true)
 end
 local function shieldTime(s)
-	return Rules.shieldTime(s.data.up.lock) * (s.passes.VipBase == true and Config.VIP_SHIELD_MUL or 1)
+	local lv = Config.BASE_LEVELS[s.baseLevel or 1]
+	return Rules.shieldTime(s.data.up.lock) * (s.passes.VipBase == true and Config.VIP_SHIELD_MUL or 1) + (lv and lv.shieldBonus or 0) -- château doré : +10 s
 end
 -- Multiplicateur de vitesse de marche (pass « Vitesse+ »), appliqué aussi à la tolérance anti-triche.
 local function speedMul(s)
 	return s.passes.Speed == true and Config.SPEED_PASS_MUL or 1
 end
-local function freeSlot(d)
-	for i = 1, cap(d) do
-		if not d.slots[i] then
+local function freeSlot(s)
+	for i = 1, cap(s) do
+		if not s.data.slots[i] then
 			return i
 		end
 	end
 	return nil
 end
 
+-- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0))
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1)
 end
 
 local function income(s)
-	return Rules.income(s.data.slots, cap(s.data), gmult(s))
+	return Rules.income(s.data.slots, cap(s), gmult(s))
 end
 
 local function rollPet(s, eggTier, guaranteed)
@@ -338,7 +342,7 @@ end
 local function snapshot(s)
 	local d = s.data
 	local slots = {}
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		local sl = d.slots[i]
 		if sl and sl.k == "e" then
 			slots[i] = { k = "e", t = sl.t, ends = sl.ends }
@@ -356,7 +360,8 @@ local function snapshot(s)
 		rb = d.rb,
 		dex = d.dex,
 		mult = gmult(s),
-		cap = cap(d),
+		cap = cap(s),
+		baseLevelFloor = d.baseLevelFloor,
 		carry = #s.carry,
 		carryCap = carryCap(d),
 		passes = s.passes,
@@ -444,7 +449,7 @@ end
 local function applySpeed(s)
 	local hum = getHum(s.player)
 	if hum and s.stun <= 0 then
-		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * Config.carryMul(carryTiers(s)) * mudMulOf(s)
+		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * Config.carryMul(carryTiers(s)) * mudMulOf(s) * ((s.slowUntil or 0) > os.clock() and Config.INTRUDER.dogMul or 1)
 		if math.abs(hum.WalkSpeed - ws) > 0.05 then
 			hum.WalkSpeed = ws
 		end
@@ -496,7 +501,7 @@ end
 -- Barrière lumineuse de la porte de base : un mur de lumière sur le bord de la base qui regarde la place (aucune collision : le serveur refuse le vol).
 local function setDoorBarrier(s, on)
 	if on and not s.doorPart and s.plot then
-		local half = s.plot.platform.Size.X / 2
+		local half = math.max(s.plot.platform.Size.X / 2, (Config.baseExtent(s.baseLevel or 1)))
 		local p = Instance.new("Part")
 		p.Name = "DoorBarrier"
 		p.Anchored = true
@@ -517,6 +522,7 @@ end
 
 ---------------------------------------------------------------- Œufs portés
 local function rebuildCarry(s)
+	s.player:SetAttribute("Carry", #s.carry) -- le client évite les plans de caméra quand un œuf est porté
 	for _, p in ipairs(s.carryParts) do
 		p:Destroy()
 	end
@@ -624,8 +630,15 @@ local function refreshPad(s, i, animate)
 	clearPad(s, i)
 	local d = s.data
 	local pad = s.plot.pads[i]
-	local locked = i > cap(d)
+	local locked = i > cap(s)
+	pad.locked = locked
 	pad.lock.Enabled = locked
+	if locked then
+		local lbl = pad.lock:FindFirstChild("Text")
+		if lbl then
+			lbl.Text = Config.slotHint(i, cap(s), s.data.up.slots, s.baseLevel or 1, s.passes.ExtraSlots == true) -- cadenas + coût du prochain emplacement
+		end
+	end
 	pad.part.Transparency = locked and 0.25 or 0.7
 	pad.part.Color = locked and Color3.fromRGB(40, 40, 45) or Color3.new(1, 1, 1)
 	pad.frame.Color = locked and Color3.fromRGB(50, 52, 58) or s.plot.color
@@ -680,8 +693,21 @@ local function refreshPad(s, i, animate)
 end
 
 local function refreshAllPads(s)
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		refreshPad(s, i)
+	end
+end
+
+-- Capacité modifiée (niveau de maison, pass) : seuls les emplacements dont l'état verrouillé change, ou qui affichent un coût, sont rafraîchis ;
+-- les emplacements occupés ne sont JAMAIS recréés.
+local function refreshLocks(s)
+	local c = cap(s)
+	for i = 1, Config.SLOTS_MAX do
+		local pad = s.plot.pads[i]
+		if pad and (pad.locked ~= (i > c) or i == c + 1 or pad.hintShown) then
+			refreshPad(s, i)
+			pad.hintShown = (i > c) and i == c + 1 or nil
+		end
 	end
 end
 
@@ -705,7 +731,7 @@ local function returnEgg(e)
 		local vp = Players:GetPlayerByUserId(e.from)
 		local vs = vp and sessions[vp]
 		if vs then
-			local i = freeSlot(vs.data)
+			local i = freeSlot(vs)
 			if i then
 				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs) }
 				refreshPad(vs, i)
@@ -807,19 +833,48 @@ task.spawn(function() -- SubscribeAsync attend le réseau : ne pas bloquer le d�
 end)
 
 ---------------------------------------------------------------- Progression de la base (niveau d'après le score pondéré par la rareté)
--- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : effet de montée de niveau, interface).
-local function applyBase(s, announce, force)
-	local level, nxt = Config.baseLevel(s.data.baseScore)
+-- Niveau de maison d'après le score pondéré par la rareté, la rareté découverte (niveaux 7 et 8) et le plancher sauvegardé (jamais de recul).
+local function levelOf(s)
+	return Config.baseLevel(s.data.baseScore, s.data.dex, s.data.baseLevelFloor)
+end
+-- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : animation de montée de niveau, interface).
+-- Une vraie montée (célébration demandée, niveau supérieur à celui déjà construit) lance l'animation : l'ancienne maison reste le temps de l'effet (Config.UPGRADE_FX),
+-- les pads ne sont pas recréés (refreshLocks). `force` reconstruit sans animation (modèles Blender arrivés, renaissance).
+local function applyBase(s, celebrate, force)
+	local level = levelOf(s)
 	local before = s.baseLevel
 	s.baseLevel = level
-	if (before ~= level or force) and s.plot then
-		Builder.baseUpgrade(s.plot, level)
+	local built = s.baseBuilt
+	local rose = celebrate and built ~= nil and level > built
+	if s.plot and (built ~= level or force) then
+		Builder.baseUpgrade(s.plot, level, rose and { animate = true } or nil)
+		s.baseBuilt = level
+		if rose then
+			local plot = s.plot
+			task.delay(Config.UPGRADE_FX.seconds, function()
+				if plot.upgrading then
+					Builder.finishUpgrade(plot)
+				end
+			end)
+		end
+	end
+	if s.plot and before ~= level then
+		refreshLocks(s) -- la capacité dépend du niveau : cadenas et coûts à jour, pets déjà posés intacts
 	end
 	s.player:SetAttribute("BaseLevel", level)
 	s.player:SetAttribute("BaseScore", s.data.baseScore)
-	if announce and before and level > before then
+	if rose or (celebrate and before and level > before) then
 		local lv = Config.BASE_LEVELS[level]
-		notify(s.player, "🏠 Ta base passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. (nxt and (" · prochain palier : " .. nxt.name) or " · niveau maximum !"), "claim")
+		local text = Config.upgradeBanner(level, before)
+		local player = s.player
+		-- la bannière, la fanfare et les confettis arrivent au début de la fête (après échafaudage, poussière et échange des maisons : 2,7 s)
+		task.delay(Config.UPGRADE_FX.scaffold + Config.UPGRADE_FX.dust + Config.UPGRADE_FX.swap, function()
+			notify(player, text, "levelup")
+		end)
+		if level >= Config.UPGRADE_FX.announceFrom then
+			announce("🏠 " .. player.DisplayName .. " passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. " !")
+		end
+		sync(s)
 	end
 end
 
@@ -931,7 +986,7 @@ local function solvePuzzle(s)
 	d.puzzle.day = os.time() // 86400
 	d.puzzle.solved += 1
 	local tier = Config.PUZZLE_EGG_TIER
-	local i = freeSlot(d)
+	local i = freeSlot(s)
 	local coins = Config.puzzleCoins(income(s))
 	if i then
 		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
@@ -1285,7 +1340,32 @@ end
 -- Cible la plus proche dans la zone de perception maximale du gardien (seuls les joueurs dont le domaine est ouvert sont ciblables).
 local function inPlot(s, root)
 	local rel = s.plot.cf:PointToObjectSpace(root.Position)
-	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
+	return Config.inBase(s.baseLevel or 1, rel.X, rel.Z, rel.Y) -- la plateforme grandit avec le niveau de la maison
+end
+
+-- Intrusion dans la base de `host` par `visitor` (D.2) : alarme (niveau 3, notification à l'hôte) et chien de garde (niveau 5, intrus ralenti x0,7 pendant 3 s).
+-- Chaque effet a un délai de récupération ; aucun des deux ne bloque le vol (la porte de base et la protection débutant restent les règles de protection).
+local function onIntrusion(host, visitor)
+	local lv = Config.BASE_LEVELS[host.baseLevel or 1]
+	if not lv then
+		return
+	end
+	local now = os.clock()
+	if lv.alarm and now - (host.lastAlarm or -99) >= Config.INTRUDER.alarmCooldown then
+		host.lastAlarm = now
+		notify(host.player, "🔔 Alarme : " .. visitor.player.DisplayName .. " est entré dans ta base !")
+	end
+	if lv.guardDog and now - (visitor.lastDog or -99) >= Config.INTRUDER.dogCooldown then
+		visitor.lastDog = now
+		visitor.slowUntil = now + Config.INTRUDER.dogSeconds
+		applySpeed(visitor)
+		notify(visitor.player, "🐕 Le chien de garde de " .. host.player.DisplayName .. " te ralentit !")
+		task.delay(Config.INTRUDER.dogSeconds + 0.1, function()
+			if visitor.player.Parent then
+				applySpeed(visitor)
+			end
+		end)
+	end
 end
 
 -- Zone de sécurité (A.5) : la base du joueur, toute la place du marché et les safeRadius studs autour de l'entrée du territoire du gardien ne sont
@@ -1616,7 +1696,7 @@ end
 -- Donne un œuf dans un emplacement libre (protégé quelques secondes) ; base pleine : l'équivalent de la moitié du prix en pièces. Retourne true si l'œuf est placé.
 local function giveEgg(s, tier)
 	local d = s.data
-	local i = freeSlot(d)
+	local i = freeSlot(s)
 	if not i then
 		d.coins += Config.EGG_PRICE[tier] * 0.5
 		return false
@@ -1868,9 +1948,28 @@ local function fastTick(dt)
 				s.lastActive = os.clock() -- déplacement = joueur actif
 			end
 			s.lastPos = pos
+			-- intrusion : un autre joueur entre dans la base d'un hôte (alarme au niveau 3, chien de garde au niveau 5)
+			do
+				local host = nil
+				for _, o in pairs(sessions) do
+					if o ~= s and o.plot then
+						local rel = o.plot.cf:PointToObjectSpace(pos)
+						if Config.inBase(o.baseLevel or 1, rel.X, rel.Z, rel.Y) then
+							host = o
+							break
+						end
+					end
+				end
+				if host ~= s.intruderIn then
+					s.intruderIn = host
+					if host then
+						onIntrusion(host, s)
+					end
+				end
+			end
 			-- dépôt des œufs dans sa base
 			if #s.carry > 0 and inPlot(s, root) then
-				local i = freeSlot(d)
+				local i = freeSlot(s)
 				if not i then
 					if os.clock() - s.lastFull > 4 then
 						s.lastFull = os.clock()
@@ -1958,7 +2057,7 @@ local function slowTick(dt)
 				s.syncT = 0
 				RState:FireClient(player, snapshot(s))
 			end
-			for i = 1, cap(d) do
+			for i = 1, cap(s) do
 				local sl = d.slots[i]
 				if sl and sl.k == "e" then
 					if now >= sl.ends then
@@ -2356,7 +2455,7 @@ function actions.buyEgg(s, tier)
 	if d.coins < price then
 		return notify(s.player, "Pas assez de pièces !", "refuse")
 	end
-	local i = freeSlot(d)
+	local i = freeSlot(s)
 	if not i then
 		return notify(s.player, "Base pleine !")
 	end
@@ -2425,7 +2524,7 @@ end
 -- Revend les doublons de pets (garde le meilleur de chaque espèce). Les pets revendus quittent la liste de ceux qui suivent le joueur.
 function actions.sellDupes(s)
 	local d = s.data
-	local list, total = Config.dupesToSell(d.slots, cap(d))
+	local list, total = Config.dupesToSell(d.slots, cap(s))
 	if #list == 0 then
 		return notify(s.player, "Aucun doublon à revendre.")
 	end
@@ -2459,6 +2558,7 @@ function actions.rebirth(s)
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
+	fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings -- le niveau de maison, les jetons et les réglages survivent aussi
 	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
 	s.data = fresh
@@ -2923,6 +3023,9 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 			s.passes[name] = true
 		end
 	end
+	if passId == Config.PASSES.ExtraSlots.id and s.plot then
+		refreshLocks(s) -- +4 emplacements : cadenas levés sans recréer les pads occupés
+	end
 	sync(s)
 end)
 
@@ -2963,13 +3066,13 @@ MarketplaceService.ProcessReceipt = function(info)
 				end
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
 			elseif name == "ExclusiveEgg" then
-				if not freeSlot(s.data) then
+				if not freeSlot(s) then
 					notify(player, "Base pleine : libère une place, ton achat sera livré automatiquement.")
 					return Enum.ProductPurchaseDecision.NotProcessedYet
 				end
 				giveEgg(s, Config.EXCLUSIVE_EGG_TIER)
 			elseif name == "InstantHatch" then
-				for i = 1, cap(s.data) do
+				for i = 1, cap(s) do
 					hatch(s, i)
 				end
 			elseif name == "Revive" then
@@ -3032,7 +3135,7 @@ local function releasePlot(s)
 		s.badge:Destroy()
 		s.badge = nil
 	end
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		clearPad(s, i)
 		s.plot.pads[i].lock.Enabled = true
 		s.plot.pads[i].part.Transparency = 0.7
@@ -3148,6 +3251,7 @@ local function onJoin(player)
 		end
 	end
 
+	s.baseLevel = levelOf(s) -- le revenu (gains hors ligne compris) dépend du niveau de maison ; la base est construite plus bas par applyBase
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
 	local away = math.clamp(os.time() - d.last, 0, Config.IDLE.offlineMaxSeconds)
 	if away > 30 then

@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX24"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX23"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX25"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX24"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -288,6 +288,7 @@ Config.SOUNDS = {
 	blade = { id = "rbxassetid://84863036780507", speed = 1.0, vol = 0.5, loop = true }, -- près d'une lame
 	ball = { id = "rbxassetid://93517357278251", speed = 1.0, vol = 0.5, loop = true }, -- près d'un boulet qui roule
 	fanfare = { id = "rbxassetid://126605194205875", speed = 1.0, vol = 0.7 },
+	levelup = { id = "rbxassetid://126605194205875", speed = 1.15, vol = 0.7 }, -- montée de niveau de la maison (même son que la fanfare, sans déclencher la cinématique du château)
 	ambCastle = { id = "rbxassetid://123273835786709", speed = 1.0, vol = 0.3, loop = true },
 	ambMeadow = { id = "rbxassetid://89353143614427", speed = 1.0, vol = 0.3, loop = true },
 	steal = { id = "rbxasset://sounds/action_jump.mp3", speed = 1.5, vol = 0.5 },
@@ -498,6 +499,7 @@ Config.Assets = {
 		deco = { flower_a = 77356084419297, flower_b = 75380956155225, flower_c = 111315415429762, tuft = 87978041093798, stone_flat = 136754104457535, stone_round = 87559674928022, lantern = 104138982529608, sign_stars = 123744671851193 },
 		terrain = { cliff_a = 77185775444063, cliff_b = 121767734121074, cliff_corner = 110100977206117, stairs = 105161635046156, waterfall = 129292144451409, islet = 128405076287969 },
 		base = { level1 = 97252816676038, level2 = 81995835244074, level3 = 77426422736227, level4 = 95370892804658, level5 = 75516398880390, level6 = 108065975809605, level7 = 83929759854266, level8 = 100223033827392 },
+		house = { l2 = 83993710226197, l3 = 137211706941591, l4 = 131395542579523, l5 = 86282878742281, l6 = 92231252125110, l7 = 79107809937066 }, -- maisons évolutives (niveaux 2 à 7, lot 5) ; niveaux 1 et 8 : base.level1 / base.level8
 		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
 		trees = { tree_oak_a = 115675817596242, tree_oak_b = 139178488755477, tree_birch = 86165293471213, tree_pine = 134548154871906, tree_sakura = 136998832791777, tree_round = 128198214830836 },
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
@@ -510,6 +512,7 @@ Config.Assets = {
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
 		["base.level1"] = 80, ["base.level2"] = 80, ["base.level3"] = 80, ["base.level4"] = 80, ["base.level5"] = 80, ["base.level6"] = 80, ["base.level7"] = 80, ["base.level8"] = 80,
+		["house.l2"] = 160, ["house.l3"] = 160, ["house.l4"] = 160, ["house.l5"] = 160, ["house.l6"] = 160, ["house.l7"] = 160,
 		["trees.tree_oak_a"] = 120, ["trees.tree_oak_b"] = 120, ["trees.tree_birch"] = 120, ["trees.tree_pine"] = 120, ["trees.tree_sakura"] = 120, ["trees.tree_round"] = 120,
 		["paths.path_straight"] = 40, ["paths.path_curve"] = 40, ["paths.path_stones"] = 40,
 		["eggguard.egg_dome"] = 80, ["eggguard.egg_nest_fence"] = 80, ["eggguard.egg_cage"] = 80, ["eggguard.egg_shield"] = 60,
@@ -532,6 +535,7 @@ Config.Assets = {
 	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
+	houseBudgetPerBase = 160, -- Parts de la maison évolutive d'UNE base (modèle Blender house.lN ou repli procédural), lot 5
 	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700,
@@ -680,38 +684,78 @@ function Config.nearestPortal(x, z, portals, maxDist)
 	return best
 end
 
--- Progression de la base : chaque pet éclos ajoute des points selon sa rareté (Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Cosmique/secret 150) ;
--- 8 niveaux d'apparence, du simple enclos de bois au château doré. Le score est sauvegardé (profil v8) ; le niveau s'en déduit.
-Config.BASE_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
-Config.BASE_LEVELS = {
-	{ score = 0, name = "Enclos de bois", emoji = "🪵" },
-	{ score = 12, name = "Cabane", emoji = "🛖" },
-	{ score = 40, name = "Chaumière", emoji = "🏡" },
-	{ score = 110, name = "Maison", emoji = "🏠" },
-	{ score = 260, name = "Manoir", emoji = "🏘️" },
-	{ score = 600, name = "Fort", emoji = "🛡️" },
-	{ score = 1400, name = "Forteresse", emoji = "🏰" },
-	{ score = 3200, name = "Château doré", emoji = "👑" },
-}
+-- Progression de la base (REFONTE lot 5) : chaque pet éclos ajoute des points selon sa rareté (Config.BASE_WEIGHTS = BASE_WEIGHTS2 : 1, 4, 15, 50, 180, 700) ;
+-- 8 niveaux (Config.BASE_LEVELS = BASE_LEVELS2, définis plus bas), de l'enclos de bois au château doré. Le score est sauvegardé (profil v8, recalculé en v10) ;
+-- le niveau s'en déduit, plafonné par la rareté découverte (niveaux 7 et 8) et jamais sous le plancher `baseLevelFloor` des anciens joueurs.
 -- Points gagnés par un pet de rareté `tier` (1..6).
 function Config.baseGain(tier)
 	return Config.BASE_WEIGHTS[math.min(math.max(type(tier) == "number" and tier == tier and math.floor(tier) or 1, 1), #Config.BASE_WEIGHTS)]
 end
--- Niveau d'une base d'après son score : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants).
-function Config.baseLevel(score)
-	score = (type(score) == "number" and score == score and score > 0) and score or 0
-	local level = 1
-	for i, lv in ipairs(Config.BASE_LEVELS) do
-		if score >= lv.score then
-			level = i
+-- Rareté la plus haute découverte d'après le dex ({ ["indice d'espèce"] = { n = ... } }), 0 si rien.
+function Config.dexTopTier(dex)
+	local top = 0
+	if type(dex) == "table" then
+		for k, e in pairs(dex) do
+			local def = Config.PETS[tonumber(k) or 0]
+			if def and type(e) == "table" and type(e.n) == "number" and e.n > 0 and def.tier > top then
+				top = def.tier
+			end
 		end
 	end
-	local nxt = Config.BASE_LEVELS[level + 1]
-	if not nxt then
-		return level, nil, 1, 0
+	return top
+end
+-- Niveau d'une base : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants, rareté manquante ou nil).
+-- `dex` (facultatif) : sans lui, aucune condition de rareté n'est exigée (appels historiques) ; avec lui, le niveau est plafonné tant qu'il manque
+-- la rareté `needTier` du niveau suivant. `floor` (facultatif) : plancher sauvegardé, le niveau affiché ne passe jamais dessous.
+function Config.baseLevel(score, dex, floor)
+	score = (type(score) == "number" and score == score and score > 0) and score or 0
+	local levels = Config.BASE_LEVELS
+	local top = dex ~= nil and Config.dexTopTier(dex) or nil
+	local level = 1
+	for i = 2, #levels do
+		local lv = levels[i]
+		if score < lv.score or (lv.needTier and top ~= nil and top < lv.needTier) then
+			break
+		end
+		level = i
 	end
-	local cur = Config.BASE_LEVELS[level]
-	return level, nxt, (score - cur.score) / (nxt.score - cur.score), math.ceil(nxt.score - score)
+	if type(floor) == "number" and floor == floor then
+		level = math.max(level, math.min(#levels, math.max(1, math.floor(floor))))
+	end
+	local nxt = levels[level + 1]
+	if not nxt then
+		return level, nil, 1, 0, nil
+	end
+	local cur = levels[level]
+	local progress = math.min(1, math.max(0, (score - cur.score) / (nxt.score - cur.score)))
+	local need = (nxt.needTier and top ~= nil and top < nxt.needTier) and nxt.needTier or nil
+	return level, nxt, progress, math.max(0, math.ceil(nxt.score - score)), need
+end
+-- Emplacements bonus du niveau `level` (bonus absolu, non cumulatif : 0 au niveau 1, 4 au niveau 8) et multiplicateur de revenu (1 + income).
+function Config.levelSlots(level)
+	local lv = Config.BASE_LEVELS[level]
+	return lv and lv.slots or 0
+end
+function Config.levelIncomeMul(level)
+	local lv = Config.BASE_LEVELS[level]
+	return 1 + (lv and lv.income or 0)
+end
+-- Position locale (x, z) de l'emplacement `idx` (1..20) : grille 5 colonnes x 4 rangées, pas de 9 studs. Source unique (construction, caméras, interface).
+function Config.padLocal(idx)
+	local col, row = (idx - 1) % 5, (idx - 1) // 5
+	return -18 + col * 9, -4 + row * 9
+end
+-- Plateforme au niveau `level` : (demi-largeur, z local du bord arrière). Elle grandit vers les côtés (52 -> 72) et vers l'arrière (28 -> 35,7) ;
+-- l'avant reste à -26 (spawn, porte et chemins ne bougent pas) et l'arrière reste dans l'emprise réservée par la carte (baseSizeMax / 2 = 36).
+function Config.baseExtent(level)
+	local n = math.min(math.max(type(level) == "number" and level == level and level or 1, 1), #Config.BASE_LEVELS)
+	local lv = Config.BASE_LEVELS[math.floor(n)]
+	return ((lv and lv.size) or 52) / 2, 28 + (math.floor(n) - 1) * 1.1
+end
+-- Un point (repère local de la base : rx, rz, ry) est-il dans la base du niveau `level` (intérieur de la plateforme + 1 stud de marge) ?
+function Config.inBase(level, rx, rz, ry)
+	local halfX, backZ = Config.baseExtent(level)
+	return math.abs(rx) <= halfX + 1 and rz >= -27 and rz <= backZ + 1 and (ry == nil or ry < 30)
 end
 
 -- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
@@ -1209,12 +1253,6 @@ function Config.cineFirstRare(petName, tierName, incText)
 		{ anchor = "pad", pos = { 0, 4.5, -13 }, look = { 0, 2.5, 0 }, toPos = { 0, 3.5, -8 }, dur = 3.5, text = "✨ Un pet " .. tierName .. " : " .. petName .. " !" },
 		{ anchor = "pad", pos = { 6, 4, -8 }, look = { 0, 2.5, 0 }, toPos = { -6, 4, -8 }, dur = 2.5, text = incText .. " Les raretés supérieures rapportent bien plus." },
 	} }
-end
-
--- Position locale (x, z) de l'emplacement `idx` (1..12) dans une base : source unique pour la construction et les caméras.
-function Config.padLocal(idx)
-	local col, row = (idx - 1) % 4, (idx - 1) // 4
-	return -15 + col * 10, -6 + row * 11
 end
 
 ---------------------------------------------------------------- Univers, histoire et progression
@@ -1836,7 +1874,48 @@ Config.BASE_LEVELS2 = {
 	{ score = 5000, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 4 },
 	{ score = 14000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 5, shieldBonus = 10 },
 }
+-- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
+-- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
+Config.UPGRADE_FX = { seconds = 4.5, scaffold = 0.8, dust = 0.4, swap = 1.5, party = 1.8, hide = 40, announceFrom = 6, confetti = 36 }
+-- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » (`from` = niveau quitté, par défaut level - 1).
+function Config.upgradeBanner(level, from)
+	local lv = Config.BASE_LEVELS[level]
+	if not lv then
+		return ""
+	end
+	local gain = Config.levelSlots(level) - Config.levelSlots(from or (level - 1))
+	local parts = {}
+	if gain > 0 then
+		parts[#parts + 1] = "+" .. gain .. (gain > 1 and " emplacements" or " emplacement")
+	end
+	parts[#parts + 1] = "revenus +" .. math.floor((lv.income or 0) * 100 + 0.5) .. " %"
+	return "🏠 Niveau " .. level .. " : " .. lv.name .. " ! " .. table.concat(parts, ", ")
+end
+-- Alarme d'intrusion (niveau 3), chien de garde (niveau 5, intrus ralenti x0,7 pendant 3 s à l'entrée), bouclier d'œuf du niveau 8 (+10 s).
+Config.INTRUDER = { alarmCooldown = 12, dogMul = 0.7, dogSeconds = 3, dogCooldown = 20, margin = 1 }
+-- Texte du cadenas d'un emplacement non débloqué : le prochain affiche son coût (amélioration en pièces, niveau de maison ou pass).
+function Config.slotHint(idx, capacity, upSlots, level, hasPassExtra)
+	if idx ~= capacity + 1 then
+		return "🔒"
+	end
+	local u = Config.upgrade("slots")
+	if upSlots < u.max then
+		return "🔒 " .. Config.fmt(u.cost(upSlots)) .. " 🪙"
+	end
+	for l = level + 1, #Config.BASE_LEVELS do
+		if Config.BASE_LEVELS[l].slots > Config.levelSlots(level) then
+			return "🔒 Maison niv. " .. l
+		end
+	end
+	if not hasPassExtra then
+		return "🔒 Pass +4"
+	end
+	return "🔒"
+end
 Config.SLOTS_MAX = 20 -- 4 + 8 (Doigts agiles... améliorations) + 4 (maison) + 4 (pass)
+Config.BASE_WEIGHTS = Config.BASE_WEIGHTS2 -- lot 5 : mêmes tables, lues par baseGain / baseLevel (le plateau des niveaux et ses conditions de rareté)
+Config.BASE_LEVELS = Config.BASE_LEVELS2
+Config.PASS_EXTRA_SLOTS = 4 -- pass ExtraSlots
 
 -- C. Énigme de la Mère Poule : dialogues exacts et 12 emplacements de plumes (3 par direction ; les 4 du jour = Config.featherSpots(day) au lot 6).
 Config.HEN_LINES = {
@@ -2134,6 +2213,7 @@ Easing.REWARD = {
 	claim = { count = 24, minSpeed = 160, maxSpeed = 340, life = 1.3 },
 	event = { count = 40, minSpeed = 180, maxSpeed = 380, life = 1.5 },
 	rare = { count = 70, minSpeed = 200, maxSpeed = 440, life = 1.7 },
+	levelup = { count = 60, minSpeed = 190, maxSpeed = 420, life = 1.8 }, -- montée de niveau de la maison
 }
 function Easing.rewardBurst(sfx)
 	return Easing.REWARD[sfx]
@@ -2727,9 +2807,10 @@ CinematicKit.PLANS = {
 		{ anchor = "castle", pos = { -40, 16, 34 }, look = { 0, 6, -8 }, toPos = { 40, 14, 34 }, toLook = { 0, 8, -8 }, path = "travel", dur = 2.6, ease = "Sine", title = "🏰 Le Château" },
 		{ anchor = "castle", pos = { 0, 5, 16 }, look = { 0, 7, 0 }, toPos = { 0, 6, 9 }, path = "dolly", fov = 70, toFov = 55, dur = 2.2, ease = "Quint", text = "La herse se lève…", fx = "gate" },
 	} },
-	base_niveau = { id = "base_niveau", shots = {
-		{ anchor = "base", pos = { 0, 20, -46 }, look = { 0, 5, 4 }, path = "orbit", radius = 44, toRadius = 36, angle0 = 3.14, angle1 = 4.6, height = 18, dur = 2.4, ease = "Sine", title = "🏠 Ta base évolue !" },
-		{ anchor = "base", pos = { 0, 12, -38 }, look = { 0, 6, 8 }, toPos = { 0, 9, -26 }, path = "dolly", fov = 70, toFov = 58, dur = 1.4, ease = "Quint" },
+	-- Montée de niveau de la maison (D.4) : 4,5 s au total (2,7 + 1,8), plan large depuis l'avant de la base vers la maison à l'arrière ; passable (Passer, toucher l'écran).
+	base_niveau = { id = "base_niveau", skipOnTap = true, shots = {
+		{ anchor = "base", pos = { 0, 24, -62 }, look = { 0, 6, 14 }, toPos = { 0, 20, -50 }, path = "travel", dur = 2.7, ease = "Sine", title = "🏠 Ta base évolue !" },
+		{ anchor = "base", pos = { -34, 16, -26 }, look = { 0, 8, 16 }, toPos = { 34, 16, -26 }, path = "travel", dur = 1.8, ease = "Sine" },
 	} },
 	chateau_victoire = { id = "chateau_victoire", shots = {
 		{ anchor = "castle_chest", pos = { 6, 7, 10 }, look = { 0, 3, 0 }, toPos = { 3, 5, 6 }, path = "dolly", fov = 70, toFov = 52, dur = 1.6, ease = "Quint", slow = { at = 0.4, to = 0.9, scale = 0.35 }, shake = 0.3, fx = "sparks" },
@@ -6940,8 +7021,72 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+-- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
+-- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
+-- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
+-- ④ fête (confettis, bannière) 1,8 s ; total 4,5 s. Utilisation : require(Upgrade).new(Config, Easing).
+local Upgrade = {}
+
+function Upgrade.new(Config, Easing)
+	local U = {}
+	local F = Config.UPGRADE_FX
+
+	local function clamp01(x)
+		if type(x) ~= "number" or x ~= x then
+			return 0
+		end
+		return math.min(1, math.max(0, x))
+	end
+
+	U.seconds = F.seconds
+	U.dustAt = F.scaffold -- début de la poussière
+	U.swapAt = F.scaffold + F.dust -- début de l'échange des maisons
+	U.partyAt = F.scaffold + F.dust + F.swap -- début de la fête
+
+	-- État au temps t : toutes les valeurs sont dans [0, 1] sauf sx / sy (squash & stretch de la nouvelle maison, > 0).
+	--   scaffold : hauteur de l'échafaudage ; strip : retrait de l'échafaudage (pendant la fête) ; dust : poussière (0 -> 1 -> 0) ; wave : onde (0 avant, 1 pendant la poussière)
+	--   drop : enfoncement de l'ancienne maison ; rise : montée de la nouvelle ; party : progression de la fête ; done : animation terminée
+	function U.state(t)
+		t = (type(t) == "number" and t == t) and math.max(t, 0) or 0
+		local sc = clamp01(t / F.scaffold)
+		local swap = clamp01((t - U.swapAt) / F.swap)
+		local sx, sy = 1, 1
+		if swap > 0 and swap < 1 then
+			sx, sy = Easing.squashStretch(swap, 0.35)
+		end
+		local dustP = clamp01((t - U.dustAt) / F.dust)
+		return {
+			t = t,
+			scaffold = Easing.outQuad(sc),
+			strip = clamp01((t - U.partyAt) / 0.5),
+			dust = dustP > 0 and dustP < 1 and math.sin(dustP * math.pi) or 0,
+			wave = (t >= U.dustAt and t < U.swapAt) and 1 or 0,
+			drop = swap * swap, -- l'ancienne maison accélère en s'enfonçant
+			rise = Easing.outBack(swap), -- la nouvelle monte avec un léger dépassement
+			sx = sx,
+			sy = sy,
+			party = clamp01((t - U.partyAt) / F.party),
+			done = t >= U.seconds,
+		}
+	end
+
+	-- Texte de la bannière : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % ».
+	function U.banner(level, from)
+		return Config.upgradeBanner(level, from)
+	end
+
+	-- La caméra large est-elle permise ? Propriétaire seul, sans œuf porté, pas poursuivi (`chased`), vivant, aucune autre cinématique en cours.
+	function U.canFrame(isOwner, carrying, chased, dead, busy)
+		return isOwner == true and (carrying or 0) <= 0 and not chased and not dead and not busy
+	end
+
+	return U
+end
+
+return Upgrade
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX31"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX25"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX32"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX26"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7005,6 +7150,7 @@ task.spawn(function()
 	-- Ordre de chargement : d'abord ce qui se voit dans les premières secondes (œufs, base du joueur, chemins, arbres, accessoires, village), par lots parallèles
 	assets.loadAll()
 	assets.loadGroup("base")
+	assets.loadGroup("house") -- maisons évolutives (niveaux 2 à 7) : avant tous les groupes non essentiels, onAssetsLoaded les applique
 	assets.loadGroup("paths")
 	assets.loadGroup("trees")
 	assets.loadProps()
@@ -7094,7 +7240,7 @@ local function alive(player)
 	return h ~= nil and h.Health > 0
 end
 local function validSlot(i)
-	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= 12
+	return type(i) == "number" and i % 1 == 0 and i >= 1 and i <= Config.SLOTS_MAX
 end
 -- sfx (optionnel) : clé de Config.SOUNDS jouée par le client avec le message
 local function notify(player, msg, sfx)
@@ -7109,8 +7255,9 @@ local function evKey()
 	return currentEvent and currentEvent.cfg.key or nil
 end
 
-local function cap(d)
-	return Rules.capacity(d.up)
+-- Capacité de la base : 4 + améliorations + bonus de niveau de maison + pass ExtraSlots (jamais plus de Config.SLOTS_MAX = 20).
+local function cap(s)
+	return Rules.capacity(s.data.up, s.baseLevel or 1, s.passes.ExtraSlots == true)
 end
 local function carryCap(d)
 	return Rules.carryCapacity(d.up)
@@ -7119,27 +7266,29 @@ local function hatchTime(s, tier)
 	return Rules.hatchTime(tier, s.data.up.inc, s.passes.Fast == true)
 end
 local function shieldTime(s)
-	return Rules.shieldTime(s.data.up.lock) * (s.passes.VipBase == true and Config.VIP_SHIELD_MUL or 1)
+	local lv = Config.BASE_LEVELS[s.baseLevel or 1]
+	return Rules.shieldTime(s.data.up.lock) * (s.passes.VipBase == true and Config.VIP_SHIELD_MUL or 1) + (lv and lv.shieldBonus or 0) -- château doré : +10 s
 end
 -- Multiplicateur de vitesse de marche (pass « Vitesse+ »), appliqué aussi à la tolérance anti-triche.
 local function speedMul(s)
 	return s.passes.Speed == true and Config.SPEED_PASS_MUL or 1
 end
-local function freeSlot(d)
-	for i = 1, cap(d) do
-		if not d.slots[i] then
+local function freeSlot(s)
+	for i = 1, cap(s) do
+		if not s.data.slots[i] then
 			return i
 		end
 	end
 	return nil
 end
 
+-- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0))
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1)
 end
 
 local function income(s)
-	return Rules.income(s.data.slots, cap(s.data), gmult(s))
+	return Rules.income(s.data.slots, cap(s), gmult(s))
 end
 
 local function rollPet(s, eggTier, guaranteed)
@@ -7281,7 +7430,7 @@ end
 local function snapshot(s)
 	local d = s.data
 	local slots = {}
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		local sl = d.slots[i]
 		if sl and sl.k == "e" then
 			slots[i] = { k = "e", t = sl.t, ends = sl.ends }
@@ -7299,7 +7448,8 @@ local function snapshot(s)
 		rb = d.rb,
 		dex = d.dex,
 		mult = gmult(s),
-		cap = cap(d),
+		cap = cap(s),
+		baseLevelFloor = d.baseLevelFloor,
 		carry = #s.carry,
 		carryCap = carryCap(d),
 		passes = s.passes,
@@ -7387,7 +7537,7 @@ end
 local function applySpeed(s)
 	local hum = getHum(s.player)
 	if hum and s.stun <= 0 then
-		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * Config.carryMul(carryTiers(s)) * mudMulOf(s)
+		local ws = Config.walkSpeed(s.data.speed) * speedMul(s) * Config.carryMul(carryTiers(s)) * mudMulOf(s) * ((s.slowUntil or 0) > os.clock() and Config.INTRUDER.dogMul or 1)
 		if math.abs(hum.WalkSpeed - ws) > 0.05 then
 			hum.WalkSpeed = ws
 		end
@@ -7439,7 +7589,7 @@ end
 -- Barrière lumineuse de la porte de base : un mur de lumière sur le bord de la base qui regarde la place (aucune collision : le serveur refuse le vol).
 local function setDoorBarrier(s, on)
 	if on and not s.doorPart and s.plot then
-		local half = s.plot.platform.Size.X / 2
+		local half = math.max(s.plot.platform.Size.X / 2, (Config.baseExtent(s.baseLevel or 1)))
 		local p = Instance.new("Part")
 		p.Name = "DoorBarrier"
 		p.Anchored = true
@@ -7460,6 +7610,7 @@ end
 
 ---------------------------------------------------------------- Œufs portés
 local function rebuildCarry(s)
+	s.player:SetAttribute("Carry", #s.carry) -- le client évite les plans de caméra quand un œuf est porté
 	for _, p in ipairs(s.carryParts) do
 		p:Destroy()
 	end
@@ -7567,8 +7718,15 @@ local function refreshPad(s, i, animate)
 	clearPad(s, i)
 	local d = s.data
 	local pad = s.plot.pads[i]
-	local locked = i > cap(d)
+	local locked = i > cap(s)
+	pad.locked = locked
 	pad.lock.Enabled = locked
+	if locked then
+		local lbl = pad.lock:FindFirstChild("Text")
+		if lbl then
+			lbl.Text = Config.slotHint(i, cap(s), s.data.up.slots, s.baseLevel or 1, s.passes.ExtraSlots == true) -- cadenas + coût du prochain emplacement
+		end
+	end
 	pad.part.Transparency = locked and 0.25 or 0.7
 	pad.part.Color = locked and Color3.fromRGB(40, 40, 45) or Color3.new(1, 1, 1)
 	pad.frame.Color = locked and Color3.fromRGB(50, 52, 58) or s.plot.color
@@ -7623,8 +7781,21 @@ local function refreshPad(s, i, animate)
 end
 
 local function refreshAllPads(s)
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		refreshPad(s, i)
+	end
+end
+
+-- Capacité modifiée (niveau de maison, pass) : seuls les emplacements dont l'état verrouillé change, ou qui affichent un coût, sont rafraîchis ;
+-- les emplacements occupés ne sont JAMAIS recréés.
+local function refreshLocks(s)
+	local c = cap(s)
+	for i = 1, Config.SLOTS_MAX do
+		local pad = s.plot.pads[i]
+		if pad and (pad.locked ~= (i > c) or i == c + 1 or pad.hintShown) then
+			refreshPad(s, i)
+			pad.hintShown = (i > c) and i == c + 1 or nil
+		end
 	end
 end
 
@@ -7648,7 +7819,7 @@ local function returnEgg(e)
 		local vp = Players:GetPlayerByUserId(e.from)
 		local vs = vp and sessions[vp]
 		if vs then
-			local i = freeSlot(vs.data)
+			local i = freeSlot(vs)
 			if i then
 				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs) }
 				refreshPad(vs, i)
@@ -7750,19 +7921,48 @@ task.spawn(function() -- SubscribeAsync attend le réseau : ne pas bloquer le d�
 end)
 
 ---------------------------------------------------------------- Progression de la base (niveau d'après le score pondéré par la rareté)
--- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : effet de montée de niveau, interface).
-local function applyBase(s, announce, force)
-	local level, nxt = Config.baseLevel(s.data.baseScore)
+-- Niveau de maison d'après le score pondéré par la rareté, la rareté découverte (niveaux 7 et 8) et le plancher sauvegardé (jamais de recul).
+local function levelOf(s)
+	return Config.baseLevel(s.data.baseScore, s.data.dex, s.data.baseLevelFloor)
+end
+-- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : animation de montée de niveau, interface).
+-- Une vraie montée (célébration demandée, niveau supérieur à celui déjà construit) lance l'animation : l'ancienne maison reste le temps de l'effet (Config.UPGRADE_FX),
+-- les pads ne sont pas recréés (refreshLocks). `force` reconstruit sans animation (modèles Blender arrivés, renaissance).
+local function applyBase(s, celebrate, force)
+	local level = levelOf(s)
 	local before = s.baseLevel
 	s.baseLevel = level
-	if (before ~= level or force) and s.plot then
-		Builder.baseUpgrade(s.plot, level)
+	local built = s.baseBuilt
+	local rose = celebrate and built ~= nil and level > built
+	if s.plot and (built ~= level or force) then
+		Builder.baseUpgrade(s.plot, level, rose and { animate = true } or nil)
+		s.baseBuilt = level
+		if rose then
+			local plot = s.plot
+			task.delay(Config.UPGRADE_FX.seconds, function()
+				if plot.upgrading then
+					Builder.finishUpgrade(plot)
+				end
+			end)
+		end
+	end
+	if s.plot and before ~= level then
+		refreshLocks(s) -- la capacité dépend du niveau : cadenas et coûts à jour, pets déjà posés intacts
 	end
 	s.player:SetAttribute("BaseLevel", level)
 	s.player:SetAttribute("BaseScore", s.data.baseScore)
-	if announce and before and level > before then
+	if rose or (celebrate and before and level > before) then
 		local lv = Config.BASE_LEVELS[level]
-		notify(s.player, "🏠 Ta base passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. (nxt and (" · prochain palier : " .. nxt.name) or " · niveau maximum !"), "claim")
+		local text = Config.upgradeBanner(level, before)
+		local player = s.player
+		-- la bannière, la fanfare et les confettis arrivent au début de la fête (après échafaudage, poussière et échange des maisons : 2,7 s)
+		task.delay(Config.UPGRADE_FX.scaffold + Config.UPGRADE_FX.dust + Config.UPGRADE_FX.swap, function()
+			notify(player, text, "levelup")
+		end)
+		if level >= Config.UPGRADE_FX.announceFrom then
+			announce("🏠 " .. player.DisplayName .. " passe au niveau " .. level .. " : " .. lv.emoji .. " " .. lv.name .. " !")
+		end
+		sync(s)
 	end
 end
 
@@ -7874,7 +8074,7 @@ local function solvePuzzle(s)
 	d.puzzle.day = os.time() // 86400
 	d.puzzle.solved += 1
 	local tier = Config.PUZZLE_EGG_TIER
-	local i = freeSlot(d)
+	local i = freeSlot(s)
 	local coins = Config.puzzleCoins(income(s))
 	if i then
 		d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
@@ -8228,7 +8428,32 @@ end
 -- Cible la plus proche dans la zone de perception maximale du gardien (seuls les joueurs dont le domaine est ouvert sont ciblables).
 local function inPlot(s, root)
 	local rel = s.plot.cf:PointToObjectSpace(root.Position)
-	return math.abs(rel.X) <= 27 and math.abs(rel.Z) <= 27 and rel.Y < 30
+	return Config.inBase(s.baseLevel or 1, rel.X, rel.Z, rel.Y) -- la plateforme grandit avec le niveau de la maison
+end
+
+-- Intrusion dans la base de `host` par `visitor` (D.2) : alarme (niveau 3, notification à l'hôte) et chien de garde (niveau 5, intrus ralenti x0,7 pendant 3 s).
+-- Chaque effet a un délai de récupération ; aucun des deux ne bloque le vol (la porte de base et la protection débutant restent les règles de protection).
+local function onIntrusion(host, visitor)
+	local lv = Config.BASE_LEVELS[host.baseLevel or 1]
+	if not lv then
+		return
+	end
+	local now = os.clock()
+	if lv.alarm and now - (host.lastAlarm or -99) >= Config.INTRUDER.alarmCooldown then
+		host.lastAlarm = now
+		notify(host.player, "🔔 Alarme : " .. visitor.player.DisplayName .. " est entré dans ta base !")
+	end
+	if lv.guardDog and now - (visitor.lastDog or -99) >= Config.INTRUDER.dogCooldown then
+		visitor.lastDog = now
+		visitor.slowUntil = now + Config.INTRUDER.dogSeconds
+		applySpeed(visitor)
+		notify(visitor.player, "🐕 Le chien de garde de " .. host.player.DisplayName .. " te ralentit !")
+		task.delay(Config.INTRUDER.dogSeconds + 0.1, function()
+			if visitor.player.Parent then
+				applySpeed(visitor)
+			end
+		end)
+	end
 end
 
 -- Zone de sécurité (A.5) : la base du joueur, toute la place du marché et les safeRadius studs autour de l'entrée du territoire du gardien ne sont
@@ -8559,7 +8784,7 @@ end
 -- Donne un œuf dans un emplacement libre (protégé quelques secondes) ; base pleine : l'équivalent de la moitié du prix en pièces. Retourne true si l'œuf est placé.
 local function giveEgg(s, tier)
 	local d = s.data
-	local i = freeSlot(d)
+	local i = freeSlot(s)
 	if not i then
 		d.coins += Config.EGG_PRICE[tier] * 0.5
 		return false
@@ -8811,9 +9036,28 @@ local function fastTick(dt)
 				s.lastActive = os.clock() -- déplacement = joueur actif
 			end
 			s.lastPos = pos
+			-- intrusion : un autre joueur entre dans la base d'un hôte (alarme au niveau 3, chien de garde au niveau 5)
+			do
+				local host = nil
+				for _, o in pairs(sessions) do
+					if o ~= s and o.plot then
+						local rel = o.plot.cf:PointToObjectSpace(pos)
+						if Config.inBase(o.baseLevel or 1, rel.X, rel.Z, rel.Y) then
+							host = o
+							break
+						end
+					end
+				end
+				if host ~= s.intruderIn then
+					s.intruderIn = host
+					if host then
+						onIntrusion(host, s)
+					end
+				end
+			end
 			-- dépôt des œufs dans sa base
 			if #s.carry > 0 and inPlot(s, root) then
-				local i = freeSlot(d)
+				local i = freeSlot(s)
 				if not i then
 					if os.clock() - s.lastFull > 4 then
 						s.lastFull = os.clock()
@@ -8901,7 +9145,7 @@ local function slowTick(dt)
 				s.syncT = 0
 				RState:FireClient(player, snapshot(s))
 			end
-			for i = 1, cap(d) do
+			for i = 1, cap(s) do
 				local sl = d.slots[i]
 				if sl and sl.k == "e" then
 					if now >= sl.ends then
@@ -9299,7 +9543,7 @@ function actions.buyEgg(s, tier)
 	if d.coins < price then
 		return notify(s.player, "Pas assez de pièces !", "refuse")
 	end
-	local i = freeSlot(d)
+	local i = freeSlot(s)
 	if not i then
 		return notify(s.player, "Base pleine !")
 	end
@@ -9368,7 +9612,7 @@ end
 -- Revend les doublons de pets (garde le meilleur de chaque espèce). Les pets revendus quittent la liste de ceux qui suivent le joueur.
 function actions.sellDupes(s)
 	local d = s.data
-	local list, total = Config.dupesToSell(d.slots, cap(d))
+	local list, total = Config.dupesToSell(d.slots, cap(s))
 	if #list == 0 then
 		return notify(s.player, "Aucun doublon à revendre.")
 	end
@@ -9402,6 +9646,7 @@ function actions.rebirth(s)
 	fresh.puzzle, fresh.ach = d.puzzle, d.ach
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
+	fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings -- le niveau de maison, les jetons et les réglages survivent aussi
 	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
 	s.data = fresh
@@ -9866,6 +10111,9 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 			s.passes[name] = true
 		end
 	end
+	if passId == Config.PASSES.ExtraSlots.id and s.plot then
+		refreshLocks(s) -- +4 emplacements : cadenas levés sans recréer les pads occupés
+	end
 	sync(s)
 end)
 
@@ -9906,13 +10154,13 @@ MarketplaceService.ProcessReceipt = function(info)
 				end
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
 			elseif name == "ExclusiveEgg" then
-				if not freeSlot(s.data) then
+				if not freeSlot(s) then
 					notify(player, "Base pleine : libère une place, ton achat sera livré automatiquement.")
 					return Enum.ProductPurchaseDecision.NotProcessedYet
 				end
 				giveEgg(s, Config.EXCLUSIVE_EGG_TIER)
 			elseif name == "InstantHatch" then
-				for i = 1, cap(s.data) do
+				for i = 1, cap(s) do
 					hatch(s, i)
 				end
 			elseif name == "Revive" then
@@ -9975,7 +10223,7 @@ local function releasePlot(s)
 		s.badge:Destroy()
 		s.badge = nil
 	end
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		clearPad(s, i)
 		s.plot.pads[i].lock.Enabled = true
 		s.plot.pads[i].part.Transparency = 0.7
@@ -10091,6 +10339,7 @@ local function onJoin(player)
 		end
 	end
 
+	s.baseLevel = levelOf(s) -- le revenu (gains hors ligne compris) dépend du niveau de maison ; la base est construite plus bas par applyBase
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
 	local away = math.clamp(os.time() - d.last, 0, Config.IDLE.offlineMaxSeconds)
 	if away > 30 then
@@ -10269,7 +10518,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX26"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -10284,7 +10533,7 @@ local Diag = require(script.Parent:WaitForChild("Diag"))
 local STORE_NAME = "ChipeOeufs_v1"
 local CASTLE_NAME = "ChipeOeufs_Castle_v1"
 local BOARD_NAME = "ChipeOeufs_Board_v1"
-local SLOT_COUNT = 12
+local SLOT_COUNT = 20 -- v10 : 4 de base + 8 améliorations + 4 de maison + 4 du pass (Config.SLOTS_MAX)
 local LOCK_TTL = 120 -- un verrou plus vieux que ça est considéré comme abandonné (crash serveur)
 local SAVE_RETRIES = 3
 
@@ -10298,8 +10547,36 @@ local SAVE_RETRIES = 3
 -- v8 : + baseScore (progression de la base : points pondérés par la rareté des pets éclos).
 -- v9c : + played (secondes de jeu cumulées) et newbieOff (protection débutant, lot 4) : champs facultatifs assainis, sans changement de version.
 -- v9b : battle.pvp { season, trophies, wins, losses, defense = { {p,s,m} }, day, fights, claimed } (PvP asynchrone, sans changement de version : champs facultatifs assainis).
+-- v10 (REFONTE lot 5) : SLOT_COUNT 12 -> 20 (les 8 nouveaux emplacements sont vides), + baseLevelFloor (plancher du niveau de maison : jamais de recul),
+--   + tokens { remoteSteal }, + settings { blockFriendRavens }, puzzle étendu (step, feathers, hints, fragments) ; baseScore RECALCULÉ depuis dex avec Config.BASE_WEIGHTS2.
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
-local VERSION = 9
+local VERSION = 10
+
+-- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
+local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
+local LEGACY_THRESHOLDS = { 0, 12, 40, 110, 260, 600, 1400, 3200 }
+local function legacyLevel(score)
+	local level = 1
+	for i, t in ipairs(LEGACY_THRESHOLDS) do
+		if score >= t then
+			level = i
+		end
+	end
+	return level
+end
+-- Score de base d'après la collection : somme (nombre obtenu par espèce x poids de la rareté) avec la table de poids donnée.
+local function scoreFromDex(dex, weights)
+	local score = 0
+	if type(dex) == "table" then
+		for k, e in pairs(dex) do
+			local def = Config.PETS[tonumber(k) or 0]
+			if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 and e.n < 1e9 then
+				score += math.floor(e.n) * weights[math.min(math.max(def.tier, 1), #weights)]
+			end
+		end
+	end
+	return score
+end
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
 -- puis le jeu passe en mode mémoire (aucune sauvegarde, aucun classement) avec UN seul avertissement. Ne concerne pas les vrais serveurs.
@@ -10366,10 +10643,13 @@ function Data.default()
 		luckUntil = 0,
 		story = { ch = 0, prog = 0 }, -- ch = chapitres réussis, prog = progression du chapitre en cours
 		pity = 0,
-		puzzle = { day = 0, solved = 0 }, -- day = dernier jour où l'énigme a été résolue
+		puzzle = { day = 0, solved = 0, step = 0, feathers = 0, hints = 0, fragments = 0 }, -- day = dernier jour résolu ; step 0..3 ; feathers = masque de bits des 4 plumes ; hints du jour ; fragments cumulés
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
+		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
+		settings = { blockFriendRavens = false }, -- réglages du joueur
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
@@ -10403,18 +10683,17 @@ local MIGRATIONS = {
 	[2] = function(_saved)
 		-- v2 -> v3 : story et pity reçoivent leurs valeurs par défaut (histoire à reprendre au chapitre 1).
 	end,
+	[9] = function(saved)
+		-- v9 -> v10 : le niveau de maison atteint (anciens seuils) devient un plancher, puis le score est RECALCULÉ depuis la collection avec les
+		-- nouveaux poids (1, 4, 15, 50, 180, 700). Aucun pet, œuf, pièce ni reçu n'est touché ; les 8 nouveaux emplacements sont créés vides par merge().
+		local oldScore = (type(saved.baseScore) == "number" and saved.baseScore == saved.baseScore and saved.baseScore > 0) and saved.baseScore or 0
+		saved.baseLevelFloor = math.max(legacyLevel(oldScore), math.floor(tonumber(saved.baseLevelFloor) or 1))
+		saved.baseScore = scoreFromDex(saved.dex, Config.BASE_WEIGHTS2)
+	end,
 	[7] = function(saved)
-		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté).
-		local score = 0
-		if type(saved.dex) == "table" then
-			for k, e in pairs(saved.dex) do
-				local def = Config.PETS[tonumber(k) or 0]
-				if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 then
-					score += math.floor(e.n) * Config.baseGain(def.tier)
-				end
-			end
-		end
-		saved.baseScore = score
+		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté, ANCIENS poids :
+		-- la migration v9 -> v10 le recalcule ensuite et en tire le plancher de niveau).
+		saved.baseScore = scoreFromDex(saved.dex, LEGACY_WEIGHTS)
 	end,
 	[6] = function(saved)
 		-- v6 -> v7 : starter vaut false (pack de départ jamais acheté).
@@ -10484,6 +10763,16 @@ local function merge(saved)
 	if type(saved.puzzle) == "table" then
 		d.puzzle.day = math.floor(sane(saved.puzzle.day, 0))
 		d.puzzle.solved = math.floor(sane(saved.puzzle.solved, 0))
+		d.puzzle.step = math.min(3, math.floor(sane(saved.puzzle.step, 0)))
+		d.puzzle.feathers = math.min(15, math.floor(sane(saved.puzzle.feathers, 0))) -- masque de bits : Nord 1, Est 2, Sud 4, Ouest 8
+		d.puzzle.hints = math.min(99, math.floor(sane(saved.puzzle.hints, 0)))
+		d.puzzle.fragments = math.min(9999, math.floor(sane(saved.puzzle.fragments, 0)))
+	end
+	if type(saved.tokens) == "table" then
+		d.tokens.remoteSteal = math.min(Config.REMOTE_STEAL.tokenMax, math.floor(sane(saved.tokens.remoteSteal, 0)))
+	end
+	if type(saved.settings) == "table" then
+		d.settings.blockFriendRavens = saved.settings.blockFriendRavens == true
 	end
 	if type(saved.secrets) == "table" then
 		for _, sct in ipairs(Config.SECRETS) do
@@ -10502,6 +10791,7 @@ local function merge(saved)
 	end
 	d.starter = saved.starter == true
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
+	d.baseLevelFloor = math.min(#Config.BASE_LEVELS2, math.max(1, math.floor(sane(saved.baseLevelFloor, 1))))
 	d.played = math.min(1e9, sane(saved.played, 0))
 	d.newbieOff = saved.newbieOff == true
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
@@ -10875,7 +11165,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX27"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -11756,24 +12046,111 @@ function Builder.exportVfx(assets)
 	return n
 end
 
--- Progression de la base : 8 apparences cumulatives, de l'enclos de bois au château doré (repère local de la base : l'entrée est du côté -Z, l'arrière +Z).
--- Chaque niveau ajoute des Parts (au plus 100 en tout par base) dans le dossier « BaseUpgrade » du modèle de la base ; la cabane et les tours utilisent
--- les modèles Blender (props.hut, castle.tower) tant que le budget Blender des bases n'est pas dépassé, sinon la version procédurale.
+-- Maison évolutive (REFONTE lot 5, D) : le niveau N remplace l'enclos par une maison (repère local de la base : façade -Z tournée vers la place, arrière +Z).
+-- Niveau 1 : enclos de bois (modèle base.level1 ou rails procéduraux) ; niveaux 2 à 7 : modèles Blender house.l2..l7 (largeur = emprise du niveau - 4, bâtiment
+-- à l'ARRIÈRE de la plateforme, façade vers la place) ou, à défaut, une maison procédurale simple ; niveau 8 : base.level8. La plateforme grandit avec le niveau
+-- (dalle « BasePlate » sous les emplacements : côtés et arrière, l'avant et le spawn restent en place). Tout est dans le modèle « BaseUpgrade » (au plus
+-- Config.Assets.houseBudgetPerBase Parts) : les emplacements (pads) ne sont JAMAIS touchés par un changement de niveau.
+-- opts.animate : l'ancienne maison reste (« BaseUpgradeOld ») et la nouvelle attend sous le sol (attribut FinalPivot) jusqu'à Builder.finishUpgrade (animation client).
 -- Retourne le nombre de Parts posées.
-function Builder.baseUpgrade(plot, level)
+local function levelDef(level)
+	local lv = Config.BASE_LEVELS[level]
+	return {
+		size = lv and lv.size or 52,
+		name = lv and lv.name or "",
+	}
+end
+
+-- Maison procédurale de repli (niveaux 2 à 8) : murs, toit, porte, fenêtres, cheminée, perron ; ~14 à 30 Parts selon le niveau. Posée à l'arrière.
+local function proceduralHouse(level, box, backZ)
+	local size = levelDef(level).size
+	local golden = level >= 8
+	local w = math.min(size - 8, 22 + level * 3.5) -- largeur de la façade
+	local depth = 11 + level -- profondeur du bâtiment
+	local h = 4.2 + level * 0.9 -- hauteur des murs
+	local zc = backZ - 1 - depth / 2
+	local wall = golden and Color3.fromRGB(240, 220, 150) or (level >= 6 and Color3.fromRGB(226, 228, 232) or (level >= 4 and Color3.fromRGB(214, 190, 150) or Color3.fromRGB(176, 128, 84)))
+	local roof = golden and Color3.fromRGB(255, 205, 70) or Color3.fromRGB(176, 70, 60)
+	local wood = Color3.fromRGB(110, 76, 46)
+	box("HouseSocle", 0, 1.3, zc, w + 3, 0.6, depth + 3, Color3.fromRGB(150, 150, 158), Enum.Material.Cobblestone)
+	box("HouseWall", 0, 1.6 + h / 2, zc, w, h, depth, wall, level >= 6 and Enum.Material.Concrete or Enum.Material.WoodPlanks)
+	if level >= 6 then
+		box("HouseRoof", 0, 1.6 + h + 0.4, zc, w + 1.6, 0.8, depth + 1.6, roof, Enum.Material.Metal) -- toit plat moderne
+	else
+		box("HouseRoof", 0, 1.6 + h + 0.7, zc, w + 2, 1.4, depth * 0.6, roof, Enum.Material.Slate) -- toit : dalle haute et large
+		box("HouseRoofLow", 0, 1.6 + h + 0.2, zc, w + 2, 0.5, depth + 2, roof:Lerp(Color3.new(0, 0, 0), 0.15), Enum.Material.Slate)
+	end
+	box("HouseDoor", 0, 1.6 + 1.6, zc - depth / 2 - 0.1, 2.6, 3.2, 0.3, wood)
+	for _, sx in ipairs({ -w * 0.3, w * 0.3 }) do
+		box("HouseWindow", sx, 1.6 + h * 0.6, zc - depth / 2 - 0.1, 2.4, 2, 0.2, Color3.fromRGB(150, 205, 235), Enum.Material.Glass)
+	end
+	box("HouseChimney", w * 0.3, 1.6 + h + 2, zc + depth * 0.2, 1.6, 3, 1.6, Color3.fromRGB(120, 110, 108), Enum.Material.Brick)
+	for k = 0, 2 do -- perron
+		box("HouseStep", 0, 1.1 + k * 0.25, zc - depth / 2 - 1 - (2 - k) * 0.9, 4.2, 0.25, 0.9, Color3.fromRGB(170, 170, 176), Enum.Material.Slate)
+	end
+	if level >= 3 then
+		for _, sx in ipairs({ -w / 2 - 1, w / 2 + 1 }) do
+			local post = box("LampPost", sx, 2.8, zc - depth / 2 - 1, 0.5, 5.2, 0.5, Color3.fromRGB(50, 52, 60), Enum.Material.Metal)
+			local lamp = box("Lantern", sx, 5.6, zc - depth / 2 - 1, 1.1, 1.1, 1.1, Color3.fromRGB(255, 232, 160), Enum.Material.Neon)
+			local l = Instance.new("PointLight")
+			l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 224, 150), 14, 0.9
+			l.Parent = lamp
+			post.CanQuery = false
+		end
+	end
+	if level >= 4 then -- auvent ou garage latéral
+		box("HouseGarage", -w / 2 - 4, 1.6 + 2.2, zc, 7, 4.4, depth * 0.8, wall:Lerp(Color3.fromRGB(120, 120, 128), 0.3), Enum.Material.Concrete)
+		box("HouseGarageDoor", -w / 2 - 4, 1.6 + 1.6, zc - depth * 0.4 - 0.1, 5, 3.2, 0.2, Color3.fromRGB(90, 92, 100), Enum.Material.Metal)
+	end
+	if level >= 5 then
+		box("HouseTerrace", w / 2 + 3, 1.6 + 0.4, zc, 6, 0.4, depth * 0.8, wood, Enum.Material.WoodPlanks)
+	end
+	if golden then
+		local glow = box("GoldGlow", 0, 1.6 + h + 4, zc, 3, 3, 3, Color3.fromRGB(255, 205, 70), Enum.Material.Neon)
+		local l = Instance.new("PointLight")
+		l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 205, 70), 26, 1.4
+		l.Parent = glow
+	end
+end
+
+function Builder.baseUpgrade(plot, level, opts)
 	local made = 0
 	pcall(function()
 		if not (plot and plot.model and plot.cf) then
 			return
 		end
-		Builder.clearBase(plot)
-		local folder = Instance.new("Folder")
+		local animate = opts ~= nil and opts.animate == true
+		Builder.finishUpgrade(plot) -- une animation précédente encore en cours est terminée d'abord
+		local old = plot.model:FindFirstChild("BaseUpgrade")
+		if animate and old then
+			old.Name = "BaseUpgradeOld"
+			Builder.clearBase(plot, true)
+		else
+			Builder.clearBase(plot)
+		end
+		local folder = Instance.new("Model")
 		folder.Name = "BaseUpgrade"
-		folder.Parent = plot.model
 		local cf0 = plot.cf
-		-- modèle Blender COMPLET du niveau (base.levelN, emprise 52 x 52, entrée -Z) : il remplace toute la version procédurale de ce niveau
+		folder.WorldPivot = cf0
+		local def = levelDef(level)
+		local halfX, backZ = Config.baseExtent(level)
+		-- dalle de la plateforme agrandie : couvre l'ancienne plateforme (dessus à 1,02 : jamais de scintillement) et déborde sur les côtés et l'arrière
 		do
-			local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("base", "level" .. level)
+			local plat = plot.platform
+			local zFront = -(Config.Map2.basePlatform / 2)
+			made += 1
+			part({ Name = "BasePlate", Size = Vector3.new(halfX * 2, 1, backZ - zFront), CFrame = cf0 * CFrame.new(0, 0.52, (backZ + zFront) / 2),
+				Color = plat and plat.Color or Color3.fromRGB(70, 110, 90), Material = Enum.Material.Concrete, CanCollide = true }, folder)
+		end
+		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
+			made += 1
+			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
+		end
+		-- modèle Blender : niveau 1 et 8 = base.levelN (emprise centrée, entrée -Z) ; niveaux 2 à 7 = house.lN (bâtiment à l'arrière, devant -Z)
+		local placed = false
+		do
+			local isHouse = level >= 2 and level <= 7
+			local clone = eggAssets and eggAssets.cloneModel and (isHouse and eggAssets.cloneModel("house", "l" .. level) or eggAssets.cloneModel("base", "level" .. level))
 			if clone then
 				local ok = pcall(function()
 					local _, size = clone:GetBoundingBox()
@@ -11781,9 +12158,22 @@ function Builder.baseUpgrade(plot, level)
 					if size.Y < 0.05 or longest < 0.05 then
 						error("mesure impossible")
 					end
-					clone:ScaleTo(clone:GetScale() * 52 / longest)
+					local target = isHouse and (def.size - 4) or 52 -- l'emprise la plus grande du modèle = emprise du niveau - 4 (niveau 1 : 52, comme avant)
+					if level == 8 then
+						target = def.size - 4
+					end
+					local k = target / longest
+					if isHouse and size.Z * k > 26 then
+						k = 26 / size.Z -- jamais plus profond que 26 studs : l'avant de la maison reste loin de l'entrée
+					end
+					clone:ScaleTo(clone:GetScale() * k)
 					local bbox, size2 = clone:GetBoundingBox()
-					clone:PivotTo(cf0 * CFrame.new(0, size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+					local cx, cy, cz = 0, size2.Y / 2, 0
+					if isHouse then
+						cy = 1 + size2.Y / 2
+						cz = backZ - 1 - size2.Z / 2 -- le fond du modèle touche le bord arrière de la dalle
+					end
+					clone:PivotTo(cf0 * CFrame.new(cx, cy, cz) * bbox:ToObjectSpace(clone:GetPivot()))
 					for _, d in ipairs(clone:GetDescendants()) do
 						if d:IsA("BasePart") then
 							d.Anchored = true
@@ -11795,143 +12185,81 @@ function Builder.baseUpgrade(plot, level)
 					clone.Parent = folder
 				end)
 				if ok then
-					made = Config.Assets.modelsMaxParts["base.level" .. level] or 45
-					return
-				end
-				pcall(function()
-					clone:Destroy()
-				end)
-			end
-		end
-		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
-			made += 1
-			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
-		end
-		local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
-		local stone, stone2 = Color3.fromRGB(150, 150, 158), Color3.fromRGB(112, 112, 122)
-		local gold = Color3.fromRGB(255, 205, 70)
-		local golden = level >= 8
-		local E = 28.5 -- le pourtour : en dehors de la plateforme (demi-côté 26)
-		local sideMat = level >= 4 and Enum.Material.Cobblestone or Enum.Material.WoodPlanks
-		local sideCol = level >= 4 and stone or wood
-		local h = level >= 4 and 2.2 or 1.6
-		box("Rail", -E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
-		box("Rail", E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
-		box("Rail", 0, h, E, 2 * E, 0.5, 0.6, sideCol, sideMat)
-		box("RailLow", -E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
-		box("RailLow", E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
-		box("RailLow", 0, h * 0.45, E, 2 * E, 0.4, 0.5, sideCol, sideMat)
-		for k = -3, 3 do
-			local t = k * (E / 3)
-			box("Post", -E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
-			box("Post", E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
-			box("Post", t, h * 0.6, E, 0.8, h * 1.3, 0.8, wood2)
-		end
-		-- place un modèle Blender (hauteur cible), ancré, sans collision ; false si le budget Blender est dépassé ou si la mesure échoue
-		local function placeModel(clone, cost, height, x, z, rot, name)
-			plot.baseBlender = plot.baseBlender or 0
-			if not clone or plot.baseBlender + cost > Config.Assets.baseBlenderBudget then
-				if clone then
+					made += Config.Assets.modelsMaxParts[(isHouse and "house.l" or "base.level") .. level] or 80
+					placed = true
+				else
 					pcall(function()
 						clone:Destroy()
 					end)
 				end
-				return false
 			end
-			local ok = pcall(function()
-				local fitted, why = AssetsMod.fitHeight(clone, height)
-				if not fitted then
-					error(why)
+		end
+		if not placed then
+			if level == 1 then
+				-- enclos de bois procédural (niveau 1) : lisse et poteaux autour de la plateforme
+				local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
+				local E = 28.5
+				box("Rail", -E, 1.6, 0, 0.6, 0.5, 2 * E, wood)
+				box("Rail", E, 1.6, 0, 0.6, 0.5, 2 * E, wood)
+				box("Rail", 0, 1.6, E, 2 * E, 0.5, 0.6, wood)
+				for k = -3, 3 do
+					local t = k * (E / 3)
+					box("Post", -E, 1.0, t, 0.8, 2.1, 0.8, wood2)
+					box("Post", E, 1.0, t, 0.8, 2.1, 0.8, wood2)
+					box("Post", t, 1.0, E, 0.8, 2.1, 0.8, wood2)
 				end
-				local bbox, size = clone:GetBoundingBox()
-				clone:PivotTo(cf0 * CFrame.new(x, size.Y / 2, z) * CFrame.Angles(0, rot, 0) * bbox:ToObjectSpace(clone:GetPivot()))
-				for _, d in ipairs(clone:GetDescendants()) do
-					if d:IsA("BasePart") then
-						d.Anchored = true
-						d.CanCollide = false
-						d.CanQuery = false
-					end
-				end
-				clone.Name = name
-				clone.Parent = folder
-			end)
-			if ok then
-				plot.baseBlender += cost
-				made += 4
-				return true
-			end
-			pcall(function()
-				clone:Destroy()
-			end)
-			return false
-		end
-		if level >= 2 then
-			local clone = eggAssets and eggAssets.cloneProp and eggAssets.cloneProp("hut")
-			if not placeModel(clone, Config.Assets.propsMaxParts.hut or 120, level >= 5 and 8 or 6, 0, 21, math.pi, "HutModel") then
-				box("HutWall", 0, 2.4, 21, 11, 4.8, 7, level >= 4 and stone or wood2, level >= 4 and Enum.Material.Brick or Enum.Material.WoodPlanks)
-				box("HutRoof", 0, 5.8, 21, 12.4, 0.8, 8.4, golden and gold or Color3.fromRGB(176, 70, 60), golden and Enum.Material.Metal or Enum.Material.Slate)
-				box("HutDoor", 0, 1.6, 17.4, 2.4, 3.2, 0.3, wood)
+			else
+				proceduralHouse(level, box, backZ)
 			end
 		end
-		if level >= 3 then
-			for _, c in ipairs({ { -E, -E }, { E, -E }, { -E, E }, { E, E } }) do
-				box("LampPost", c[1], 2.6, c[2], 0.5, 5.2, 0.5, Color3.fromRGB(50, 52, 60), Enum.Material.Metal)
-				local head = box("Lantern", c[1], 5.4, c[2], 1.1, 1.1, 1.1, Color3.fromRGB(255, 232, 160), Enum.Material.Neon)
-				local l = Instance.new("PointLight")
-				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 224, 150), 14, 0.9
-				l.Parent = head
-			end
-			for k = 0, 4 do
-				box("Flagstone", 0, 1.06 + 0.06 * (k % 2), -22 + k * 2.2, 4.2, 0.12, 1.9, stone, Enum.Material.Slate)
-			end
-		end
-		if level >= 5 then
-			for _, sx in ipairs({ -E, E }) do
-				local towerH = golden and 11 or 9
-				local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("castle", "tower")
-				if not placeModel(clone, Config.Assets.modelsMaxParts["castle.tower"] or 80, towerH + 3, sx, E, 0, "TowerModel") then
-					made += 2
-					part({ Name = "Tower", Shape = Enum.PartType.Cylinder, Size = Vector3.new(towerH, 5, 5), CFrame = cf0 * CFrame.new(sx, towerH / 2, E) * CFrame.Angles(0, 0, math.pi / 2), Color = stone2, Material = Enum.Material.Cobblestone, CanCollide = false }, folder)
-					part({ Name = "TowerCap", Shape = Enum.PartType.Ball, Size = Vector3.new(5.6, 5.6, 5.6), CFrame = cf0 * CFrame.new(sx, towerH + 0.6, E), Color = golden and gold or Color3.fromRGB(176, 70, 60), Material = golden and Enum.Material.Metal or Enum.Material.Slate, CanCollide = false }, folder)
-				end
-			end
-		end
-		if level >= 6 then
-			for k = -3, 3 do
-				box("Merlon", k * 7, h + 1.2, E, 2.6, 1.4, 1.2, stone2, Enum.Material.Cobblestone)
-			end
-			for _, sx in ipairs({ -10, 10 }) do
-				box("BannerPole", sx, 4, E - 1, 0.3, 8, 0.3, wood2)
-				box("Banner", sx, 6.4, E - 1, 2.2, 3, 0.15, Color3.fromRGB(200, 50, 60), Enum.Material.Fabric)
-			end
-		end
-		if level >= 7 then
-			box("GatePillar", -6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
-			box("GatePillar", 6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
-			box("GateLintel", 0, 8.4, -E, 14, 1.6, 2, golden and gold or stone, golden and Enum.Material.Metal or Enum.Material.Cobblestone)
-			for _, sx in ipairs({ -6, 6 }) do
-				local t = box("Torch", sx, 5.2, -E + 1.2, 0.8, 0.8, 0.8, Color3.fromRGB(255, 150, 60), Enum.Material.Neon)
-				local l = Instance.new("PointLight")
-				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 170, 90), 16, 1
-				l.Parent = t
-			end
-		end
-		if golden then
-			box("GoldTrim", 0, h + 0.3, E, 2 * E, 0.35, 0.8, gold, Enum.Material.Metal)
-			local glow = box("GoldGlow", 0, 7.4, 21, 3, 3, 3, gold, Enum.Material.Neon)
-			local l = Instance.new("PointLight")
-			l.Color, l.Range, l.Brightness = gold, 26, 1.4
-			l.Parent = glow
+		folder.Parent = plot.model
+		if animate then
+			folder:SetAttribute("FinalPivot", cf0)
+			folder:PivotTo(cf0 * CFrame.new(0, -Config.UPGRADE_FX.hide, 0)) -- la nouvelle maison attend sous le sol ; le client la fait monter
+			plot.upgrading = true
 		end
 	end)
 	return made
 end
 
-function Builder.clearBase(plot)
+-- Fin de l'animation de montée de niveau : la nouvelle maison reprend sa place exacte, l'ancienne disparaît. Sans effet s'il n'y a rien à finir.
+function Builder.finishUpgrade(plot)
+	pcall(function()
+		local model = plot and plot.model
+		if not model then
+			return
+		end
+		local new = model:FindFirstChild("BaseUpgrade")
+		local final = new and new:GetAttribute("FinalPivot")
+		if new and final then
+			pcall(function()
+				if new:GetScale() ~= 1 then
+					new:ScaleTo(1)
+				end
+			end)
+			new:PivotTo(final)
+			new:SetAttribute("FinalPivot", nil)
+		end
+		local old = model:FindFirstChild("BaseUpgradeOld")
+		if old then
+			old:Destroy()
+		end
+		plot.upgrading = nil
+	end)
+end
+
+function Builder.clearBase(plot, keepOld)
 	pcall(function()
 		local f = plot.model and plot.model:FindFirstChild("BaseUpgrade")
 		if f then
 			f:Destroy()
+		end
+		if not keepOld then
+			local o = plot.model and plot.model:FindFirstChild("BaseUpgradeOld")
+			if o then
+				o:Destroy()
+			end
+			plot.upgrading = nil
 		end
 		plot.baseBlender = 0
 	end)
@@ -12809,19 +13137,19 @@ function Builder.build()
 		spawn.Parent = model
 
 		local pads = {}
-		for idx = 1, 12 do
+		for idx = 1, Config.SLOTS_MAX do
 			local lx, lz = Config.padLocal(idx)
 			local frame = part({ Name = "PadFrame" .. idx, Size = Vector3.new(8.8, 0.3, 8.8), CFrame = cf * CFrame.new(lx, 1.12, lz), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
 			pads[idx] = { part = pad, lock = lockText.Parent, frame = frame, content = nil }
 			if Config.Map.pedestals then
-				sceneryParts += Scenery.pedestal(sceneryHelpers, (cf * CFrame.new(lx, 0.62, lz)).Position, model, nil)
+				sceneryParts += Scenery.pedestal(sceneryHelpers, (cf * CFrame.new(lx, 0.62, lz)).Position, model, nil, 8.6, true)
 			end
 		end
 
-		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
-		local plank = part({ Name = "Plank", Size = Vector3.new(18, 4.2, 0.7), CFrame = cf * CFrame.new(0, 8.6, 23.6), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, model)
+		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(17, 4.5, -25), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model) -- lot 5 : le panneau passe devant (les emplacements occupent désormais tout le centre)
+		local plank = part({ Name = "Plank", Size = Vector3.new(18, 4.2, 0.7), CFrame = cf * CFrame.new(17, 8.6, -25.4), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, model)
 		local sg = Instance.new("SurfaceGui")
 		sg.Face = Enum.NormalId.Front -- face -Z de la planche = côté place
 		sg.CanvasSize = Vector2.new(720, 168)
@@ -13214,7 +13542,7 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -13326,8 +13654,16 @@ function Rules.new(Config)
 		return m
 	end
 
-	function R.capacity(up)
-		return 4 + up.slots
+	-- Capacité d'une base (REFONTE lot 5) : 4 + améliorations (0..8) + bonus du niveau de maison (Config.levelSlots, 0..4) + pass ExtraSlots (4) = 20 au plus.
+	-- `level` et `passExtra` sont facultatifs (appels historiques : 4 + améliorations).
+	function R.capacity(up, level, passExtra)
+		local n = 4 + up.slots + (level and Config.levelSlots(level) or 0) + (passExtra and Config.PASS_EXTRA_SLOTS or 0)
+		return math.min(n, Config.SLOTS_MAX)
+	end
+
+	-- Multiplicateur de revenu de la maison (1 + bonus du niveau).
+	function R.levelMul(level)
+		return Config.levelIncomeMul(level or 1)
 	end
 
 	function R.carryCapacity(up)
@@ -13358,7 +13694,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -13371,7 +13707,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -13553,10 +13889,14 @@ end
 
 ---------------------------------------------------------------- Piédestal hexagonal des emplacements (lumières chaudes)
 -- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
-function Scenery.pedestal(h, position, parent, warm)
-	local n = 0
-	cyl(h, { Name = "PedestalSlab", Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent, 9.6, 0.5, position)
-	cyl(h, { Name = "PedestalGlow", Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent, 10.4, 0.15, position + Vector3.new(0, -0.15, 0))
+function Scenery.pedestal(h, position, parent, warm, diam, noGlow)
+	-- diam / noGlow (lot 5) : les 20 emplacements d'une base sont espacés de 9 studs : dalle de 8,6 studs et pas d'anneau lumineux (budget de Parts, aucun chevauchement coplanaire)
+	local d = diam or 9.6
+	cyl(h, { Name = "PedestalSlab", Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent, d, 0.5, position)
+	if noGlow then
+		return 1
+	end
+	cyl(h, { Name = "PedestalGlow", Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent, d + 0.8, 0.15, position + Vector3.new(0, -0.15, 0))
 	return 2
 end
 
@@ -14103,7 +14443,7 @@ end
 
 return Scenery
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX43"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX42"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX32"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX45"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX44"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX33"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14497,25 +14837,20 @@ local function pulseLighting(strength)
 	end)
 end
 
--- Montée de niveau de la base : pilier de lumière, aura runique et onde de choc au centre de la base (VfxKit), message du serveur en plus.
+-- Montée de niveau de la maison (D.4) : échafaudage, poussière + onde, ancienne maison qui s'enfonce, nouvelle qui monte (BaseUpgradeFx, toutes les bases
+-- visibles) ; bannière, fanfare et confettis arrivent avec la notification « levelup » du serveur ; la caméra large est gérée par Cinematics.
 do
-	local lastBaseLevel = nil
-	local function onBaseLevel()
-		local lv = player:GetAttribute("BaseLevel")
-		if type(lv) ~= "number" then
-			return
-		end
-		local previous = lastBaseLevel
-		lastBaseLevel = lv
-		if previous and lv > previous then
-			local pc = player:GetAttribute("PlotCF")
-			if typeof(pc) == "CFrame" then
-				pcall(playVfxAt, { "pilier_revelation", "aura_runique", "onde_de_choc" }, math.min(6, math.max(2, lv - 1)), pc * CFrame.new(0, 1.2, 0))
-			end
-		end
+	local skipEvent = Instance.new("BindableEvent")
+	skipEvent.Name = "SkipBaseUpgrade"
+	skipEvent.Parent = ReplicatedStorage
+	local okFx, fxErr = pcall(function()
+		local UpgradeMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Upgrade"))
+		local BaseUpgradeFx = require(script.Parent:WaitForChild("BaseUpgradeFx"))
+		BaseUpgradeFx.start({ Config = Config, Upgrade = UpgradeMod.new(Config, Easing), vfx = playVfxAt, skipEvent = skipEvent })
+	end)
+	if not okFx then
+		warn("[BaseUpgradeFx] " .. tostring(fxErr))
 	end
-	player:GetAttributeChangedSignal("BaseLevel"):Connect(onBaseLevel)
-	onBaseLevel()
 end
 
 local function revealPop(info)
@@ -14934,8 +15269,8 @@ function render()
 	elseif panel.name == "dex" and panel.tab == "eggs" then
 		local n = 0
 		do
-			local lv, nxt, _, left = Config.baseLevel(state.baseScore)
-			addNote("🏠 Base niveau " .. lv .. " · " .. Config.BASE_LEVELS[lv].name .. (nxt and (" · encore " .. fmt(left) .. " pt pour " .. nxt.name) or " · niveau maximum") .. ". Chaque pet éclos fait grandir ta base, d'autant plus qu'il est rare.")
+			local lv, nxt, _, left, need = Config.baseLevel(state.baseScore, state.dex, state.baseLevelFloor)
+			addNote("🏠 Base niveau " .. lv .. " · " .. Config.BASE_LEVELS[lv].name .. (nxt and (" · encore " .. fmt(left) .. " pt pour " .. nxt.name) or " · niveau maximum") .. (need and (" · il te faut un pet " .. Config.TIERS[need].name .. " découvert") or "") .. ". Chaque pet éclos fait grandir ta base, d'autant plus qu'il est rare.")
 		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
@@ -15149,11 +15484,14 @@ function render()
 			end,
 		})
 		do -- progression de la base : niveau, apparence, points et prochain palier
-			local lv, nxt, progress, left = Config.baseLevel(state.baseScore)
+			local lv, nxt, progress, left, need = Config.baseLevel(state.baseScore, state.dex, state.baseLevelFloor)
 			local cur = Config.BASE_LEVELS[lv]
+			local w = Config.BASE_WEIGHTS
+			local gain = Config.levelSlots(lv) .. " emplacement(s) de maison · revenus +" .. math.floor((cur.income or 0) * 100 + 0.5) .. " %"
+			local weights = "Commun " .. w[1] .. ", Rare " .. w[2] .. ", Épique " .. w[3] .. ", Légendaire " .. w[4] .. ", Mythique " .. w[5] .. ", Secret " .. w[6]
 			addRow({
 				icon = cur.emoji, title = "Ma base : niveau " .. lv .. "/" .. #Config.BASE_LEVELS .. " · " .. cur.name,
-				desc = nxt and (math.floor(progress * 100) .. " % vers " .. nxt.emoji .. " " .. nxt.name .. " (encore " .. fmt(left) .. " pt) · Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Secret 150") or "Niveau maximum : ton château est en or !",
+				desc = gain .. "\n" .. (nxt and (math.floor(progress * 100) .. " % vers " .. nxt.emoji .. " " .. nxt.name .. " (encore " .. fmt(left) .. " pt)" .. (need and (" · découvre un pet " .. Config.TIERS[need].name) or "") .. " · " .. weights) or "Niveau maximum : ton château est en or !"),
 			})
 		end
 		addRow({
@@ -15337,7 +15675,7 @@ local function onboardStep()
 	local plot = player:GetAttribute("PlotCF")
 	local near = root ~= nil and typeof(plot) == "CFrame" and (root.Position - plot.Position).Magnitude < 30
 	local remaining
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		local sl = state.slots and state.slots[i]
 		if sl and sl.k == "e" then
 			remaining = sl.ends - os.time()
@@ -15581,7 +15919,7 @@ RNotify.OnClientEvent:Connect(function(msg, sfx)
 	if type(msg) == "string" and msg ~= "" then
 		toast(msg)
 	end
-	if sfx == "fanfare" then -- victoire du château : pluie d'étincelles autour du joueur
+	if sfx == "fanfare" or sfx == "levelup" then -- victoire du château ou montée de niveau de la maison : pluie d'étincelles autour du joueur
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			pcall(playVfxAt, { "etincelles", "onde_de_choc" }, 5, root.CFrame * CFrame.new(0, -2.6, 0))
@@ -16119,7 +16457,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX33"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX34"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -16677,7 +17015,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX34"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -16699,6 +17037,7 @@ local Cinema = require(Shared:WaitForChild("Cinema")).new(Easing)
 local CinematicKitMod = require(Shared:WaitForChild("CinematicKit"))
 local Kit = CinematicKitMod.new(Easing, Cinema)
 local Castle = require(Shared:WaitForChild("Castle"))
+local UpgradeMod = require(Shared:WaitForChild("Upgrade")).new(Config, Easing)
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RAction = Remotes:WaitForChild("Action")
 
@@ -17087,6 +17426,12 @@ local function skipCurrent()
 	local id = director.skip(os.clock())
 	if id then
 		markSeen(id)
+		if id == "base_niveau" then -- passer la caméra de la montée de niveau passe aussi l'animation de la maison (le serveur remet la maison en place seul)
+			local ev = game:GetService("ReplicatedStorage"):FindFirstChild("SkipBaseUpgrade")
+			if ev then
+				ev:Fire()
+			end
+		end
 	end
 	if not director.current then
 		exitCinematic()
@@ -17293,7 +17638,9 @@ do
 		end
 		local previous = lastLevel
 		lastLevel = lv
-		if previous and lv > previous and Config.cineEnabled("base") and not director.isActive() and Kit.canPlay(dangerCtx()) then
+		-- caméra large : propriétaire seul (cet attribut est celui du joueur local), sans œuf porté, pas poursuivi, pas de cinématique en cours
+		local dctx = dangerCtx()
+		if previous and lv > previous and Config.cineEnabled("base") and UpgradeMod.canFrame(true, player:GetAttribute("Carry"), dctx.chased, dctx.dead, director.isActive()) and Kit.canPlay(dctx) then
 			begin("base_niveau", CinematicKitMod.PLANS.base_niveau, {}, false, true)
 		end
 	end
@@ -17317,7 +17664,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX36"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -17443,7 +17790,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX36"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX37"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -17526,7 +17873,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -17641,7 +17988,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -17830,7 +18177,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -17981,7 +18328,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -18076,7 +18423,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 		ui.info.Text = "Meilleur étage : " .. b.best .. "/" .. TW.floors .. " · combats restants aujourd'hui : " .. b.fightsLeft .. "\nChoisis jusqu'à " .. TW.teamSize .. " pets (touche pour ajouter / retirer)."
 		local y = 0
 		local n = 0
-		for i = 1, 12 do
+		for i = 1, Config.SLOTS_MAX do
 			local sl = st and st.slots and st.slots[i]
 			if sl and sl.k == "p" then
 				n = n + 1
@@ -18292,7 +18639,281 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+-- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
+-- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
+-- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
+-- après 4,5 s quoi qu'il arrive : si cet effet échoue ou est passé, la maison apparaît quand même. Tout sous pcall, tout est nettoyé, aucune cinématique ici
+-- (la caméra large est celle de Cinematics). Les Parts de l'échafaudage sont locales : aucun autre joueur ne les voit comme des objets du serveur.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+
+local BaseUpgradeFx = {}
+
+-- env = { Config, Upgrade (instance du module Upgrade), vfx = function(names, tier, cframe), skipEvent (BindableEvent facultatif) }
+-- Retourne { run = function(p, from, to), skip = function(), active = function() }
+-- Nuage de poussière : une salve de fumée (Part invisible locale, supprimée par Debris).
+local function puff(position)
+	pcall(function()
+		local anchor = Instance.new("Part")
+		anchor.Name = "UpgradeDust"
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.new(1, 1, 1)
+		anchor.Position = position
+		local e = Instance.new("ParticleEmitter")
+		e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		e.Color = ColorSequence.new(Color3.fromRGB(214, 200, 176), Color3.fromRGB(176, 164, 146))
+		e.Rate = 0
+		e.Lifetime = NumberRange.new(1.2, 2.2)
+		e.Speed = NumberRange.new(8, 22)
+		e.SpreadAngle = Vector2.new(180, 60)
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 9) })
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		e.Parent = anchor
+		anchor.Parent = workspace
+		e:Emit(40)
+		Debris:AddItem(anchor, 3)
+	end)
+end
+
+function BaseUpgradeFx.start(env)
+	local Config, U = env.Config, env.Upgrade
+	local F = Config.UPGRADE_FX
+	local current = nil -- animation en cours (une seule à la fois, la plus récente remplace la précédente)
+	local api = {}
+
+	local function cleanup(run)
+		if run.conn then
+			pcall(function()
+				run.conn:Disconnect()
+			end)
+			run.conn = nil
+		end
+		for _, part in ipairs(run.scaffold) do
+			pcall(function()
+				part:Destroy()
+			end)
+		end
+		run.scaffold = {}
+		-- l'état local est restitué exactement : la nouvelle maison à sa place et à l'échelle 1, la dalle de nouveau solide
+		pcall(function()
+			if run.new and run.new.Parent and run.final then
+				run.new:ScaleTo(1)
+				run.new:PivotTo(run.final)
+			end
+		end)
+		for _, plate in ipairs(run.plates) do
+			pcall(function()
+				if plate.Parent then
+					plate.CanCollide = true
+				end
+			end)
+		end
+		run.plates = {}
+		if current == run then
+			current = nil
+		end
+	end
+
+	local function findHouse(cf)
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return nil
+		end
+		for _, m in ipairs(world:GetChildren()) do
+			local nu = m:FindFirstChild("BaseUpgrade")
+			local final = nu and nu:GetAttribute("FinalPivot")
+			if nu and typeof(final) == "CFrame" and (final.Position - cf.Position).Magnitude < 4 then
+				return m, nu, final
+			end
+		end
+		return nil
+	end
+
+	-- Une animation pour le joueur p dont le niveau passe de `from` à `to`.
+	function api.run(p, from, to)
+		local ok, err = pcall(function()
+			if current then
+				cleanup(current)
+			end
+			local cf = p:GetAttribute("PlotCF")
+			if typeof(cf) ~= "CFrame" then
+				return
+			end
+			local cam = workspace.CurrentCamera
+			if cam and (cam.CFrame.Position - cf.Position).Magnitude > 260 then
+				return -- trop loin pour voir : le serveur remet la maison en place seul
+			end
+			local run = { scaffold = {}, plates = {}, t0 = os.clock(), p = p, dust1 = false, dust2 = false }
+			current = run
+			local halfX, backZ = Config.baseExtent(to)
+			local wait0 = os.clock()
+			local waited = false
+			run.conn = RunService.Heartbeat:Connect(function()
+				local okStep, errStep = pcall(function()
+					if current ~= run then
+						return
+					end
+					if not run.new then -- la nouvelle maison peut arriver un peu après l'attribut : on réessaie ~1 s
+						local _, nu, final = findHouse(cf)
+						if nu then
+							local plotModel = nu.Parent
+							run.new, run.final, run.old = nu, final, plotModel:FindFirstChild("BaseUpgradeOld")
+							run.oldFinal = run.old and run.old:GetPivot() or nil
+							run.t0 = os.clock()
+							for _, d in ipairs(nu:GetChildren()) do
+								if d.Name == "BasePlate" then
+									d.CanCollide = false
+									run.plates[#run.plates + 1] = d
+								end
+							end
+							if run.old then
+								for _, d in ipairs(run.old:GetChildren()) do
+									if d.Name == "BasePlate" then
+										d.CanCollide = false
+									end
+								end
+							end
+							-- échafaudage : 4 poteaux et 2 niveaux de traverses autour de l'emprise de la maison (à l'arrière de la plateforme)
+							local x0, x1, z0, z1 = -halfX * 0.62, halfX * 0.62, backZ - 24, backZ - 3
+							local function plank(name, material)
+								local part = Instance.new("Part")
+								part.Name = name
+								part.Anchored = true
+								part.CanCollide = false
+								part.CanQuery = false
+								part.Material = material or Enum.Material.WoodPlanks
+								part.Color = Color3.fromRGB(150, 104, 62)
+								part.Size = Vector3.new(0.6, 0.6, 0.6)
+								part.Parent = workspace
+								run.scaffold[#run.scaffold + 1] = part
+								return part
+							end
+							run.posts, run.rails = {}, {}
+							for _, c in ipairs({ { x0, z0 }, { x1, z0 }, { x0, z1 }, { x1, z1 } }) do
+								run.posts[#run.posts + 1] = { part = plank("ScaffoldPost"), x = c[1], z = c[2] }
+							end
+							for level = 1, 2 do
+								for _, e in ipairs({ { 0, z0, x1 - x0, true }, { 0, z1, x1 - x0, true }, { x0, 0, z1 - z0, false }, { x1, 0, z1 - z0, false } }) do
+									run.rails[#run.rails + 1] = { part = plank("ScaffoldRail"), level = level, cx = e[1], cz = e[2], len = e[3], alongX = e[4], mid = (z0 + z1) / 2 }
+								end
+							end
+						elseif os.clock() - wait0 > 1 then
+							waited = true
+						end
+						if waited or not run.new then
+							if waited then
+								cleanup(run)
+							end
+							return
+						end
+					end
+					local st = U.state(os.clock() - run.t0)
+					-- échafaudage
+					local height = 12 * st.scaffold * (1 - st.strip)
+					for _, e in ipairs(run.posts) do
+						e.part.Size = Vector3.new(0.6, math.max(0.05, height), 0.6)
+						e.part.CFrame = cf * CFrame.new(e.x, 1 + height / 2, e.z)
+					end
+					for _, e in ipairs(run.rails) do
+						local y = 1 + height * (e.level == 1 and 0.5 or 1)
+						local cx, cz = e.cx, e.cz
+						if e.alongX then
+							e.part.Size = Vector3.new(e.len, 0.5, 0.5)
+						else
+							e.part.Size = Vector3.new(0.5, 0.5, e.len)
+							cz = e.mid
+						end
+						e.part.CFrame = cf * CFrame.new(cx, y, cz)
+						e.part.Transparency = height < 0.5 and 1 or 0
+					end
+					-- poussière et onde
+					if st.t >= U.dustAt and not run.dust1 then
+						run.dust1 = true
+						local at = cf * CFrame.new(0, 2, backZ - 12)
+						if env.vfx then
+							env.vfx({ "onde_de_choc" }, math.min(6, math.max(2, to - 1)), at)
+						end
+						puff(at.Position)
+					end
+					-- échange : l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch
+					if st.t >= U.swapAt then
+						if run.old and run.old.Parent and run.oldFinal then
+							run.old:PivotTo(run.oldFinal * CFrame.new(0, -30 * st.drop, 0))
+						end
+						if run.new.Parent then
+							run.new:PivotTo(run.final * CFrame.new(0, -F.hide * (1 - math.min(st.rise, 1.02)), 0))
+							run.new:ScaleTo(1 + (st.sy - 1) * 0.4)
+						end
+						if not run.dust2 then
+							run.dust2 = true
+							puff((cf * CFrame.new(0, 2, backZ - 12)).Position)
+						end
+					end
+					if st.done then
+						cleanup(run)
+					end
+				end)
+				if not okStep then
+					warn("[BaseUpgradeFx] " .. tostring(errStep))
+					cleanup(run)
+				end
+			end)
+		end)
+		if not ok then
+			warn("[BaseUpgradeFx] " .. tostring(err))
+			if current then
+				cleanup(current)
+			end
+		end
+	end
+
+	-- Passer : la nouvelle maison reprend sa place tout de suite (le serveur fait de même à 4,5 s).
+	function api.skip()
+		if current then
+			cleanup(current)
+		end
+	end
+	function api.active()
+		return current ~= nil
+	end
+
+	-- Écoute des montées de niveau de tous les joueurs (chacun voit la transformation des autres bases, sans caméra).
+	local last = {}
+	local function hook(p)
+		local lv = p:GetAttribute("BaseLevel")
+		last[p] = type(lv) == "number" and lv or nil
+		p:GetAttributeChangedSignal("BaseLevel"):Connect(function()
+			local now = p:GetAttribute("BaseLevel")
+			if type(now) ~= "number" then
+				return
+			end
+			local before = last[p]
+			last[p] = now
+			if before and now > before then
+				api.run(p, before, now)
+			end
+		end)
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		hook(p)
+	end
+	Players.PlayerAdded:Connect(hook)
+	Players.PlayerRemoving:Connect(function(p)
+		last[p] = nil
+	end)
+	if env.skipEvent then
+		env.skipEvent.Event:Connect(api.skip)
+	end
+	return api
+end
+
+return BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

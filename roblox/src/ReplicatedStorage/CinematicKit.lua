@@ -25,9 +25,10 @@ CinematicKit.PLANS = {
 		{ anchor = "castle", pos = { -40, 16, 34 }, look = { 0, 6, -8 }, toPos = { 40, 14, 34 }, toLook = { 0, 8, -8 }, path = "travel", dur = 2.6, ease = "Sine", title = "🏰 Le Château" },
 		{ anchor = "castle", pos = { 0, 5, 16 }, look = { 0, 7, 0 }, toPos = { 0, 6, 9 }, path = "dolly", fov = 70, toFov = 55, dur = 2.2, ease = "Quint", text = "La herse se lève…", fx = "gate" },
 	} },
-	base_niveau = { id = "base_niveau", shots = {
-		{ anchor = "base", pos = { 0, 20, -46 }, look = { 0, 5, 4 }, path = "orbit", radius = 44, toRadius = 36, angle0 = 3.14, angle1 = 4.6, height = 18, dur = 2.4, ease = "Sine", title = "🏠 Ta base évolue !" },
-		{ anchor = "base", pos = { 0, 12, -38 }, look = { 0, 6, 8 }, toPos = { 0, 9, -26 }, path = "dolly", fov = 70, toFov = 58, dur = 1.4, ease = "Quint" },
+	-- Montée de niveau de la maison (D.4) : 4,5 s au total (2,7 + 1,8), plan large depuis l'avant de la base vers la maison à l'arrière ; passable (Passer, toucher l'écran).
+	base_niveau = { id = "base_niveau", skipOnTap = true, shots = {
+		{ anchor = "base", pos = { 0, 24, -62 }, look = { 0, 6, 14 }, toPos = { 0, 20, -50 }, path = "travel", dur = 2.7, ease = "Sine", title = "🏠 Ta base évolue !" },
+		{ anchor = "base", pos = { -34, 16, -26 }, look = { 0, 8, 16 }, toPos = { 34, 16, -26 }, path = "travel", dur = 1.8, ease = "Sine" },
 	} },
 	chateau_victoire = { id = "chateau_victoire", shots = {
 		{ anchor = "castle_chest", pos = { 6, 7, 10 }, look = { 0, 3, 0 }, toPos = { 3, 5, 6 }, path = "dolly", fov = 70, toFov = 52, dur = 1.6, ease = "Quint", slow = { at = 0.4, to = 0.9, scale = 0.35 }, shake = 0.3, fx = "sparks" },

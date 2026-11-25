@@ -110,8 +110,16 @@ function Rules.new(Config)
 		return m
 	end
 
-	function R.capacity(up)
-		return 4 + up.slots
+	-- Capacité d'une base (REFONTE lot 5) : 4 + améliorations (0..8) + bonus du niveau de maison (Config.levelSlots, 0..4) + pass ExtraSlots (4) = 20 au plus.
+	-- `level` et `passExtra` sont facultatifs (appels historiques : 4 + améliorations).
+	function R.capacity(up, level, passExtra)
+		local n = 4 + up.slots + (level and Config.levelSlots(level) or 0) + (passExtra and Config.PASS_EXTRA_SLOTS or 0)
+		return math.min(n, Config.SLOTS_MAX)
+	end
+
+	-- Multiplicateur de revenu de la maison (1 + bonus du niveau).
+	function R.levelMul(level)
+		return Config.levelIncomeMul(level or 1)
 	end
 
 	function R.carryCapacity(up)

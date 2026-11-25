@@ -879,24 +879,111 @@ function Builder.exportVfx(assets)
 	return n
 end
 
--- Progression de la base : 8 apparences cumulatives, de l'enclos de bois au château doré (repère local de la base : l'entrée est du côté -Z, l'arrière +Z).
--- Chaque niveau ajoute des Parts (au plus 100 en tout par base) dans le dossier « BaseUpgrade » du modèle de la base ; la cabane et les tours utilisent
--- les modèles Blender (props.hut, castle.tower) tant que le budget Blender des bases n'est pas dépassé, sinon la version procédurale.
+-- Maison évolutive (REFONTE lot 5, D) : le niveau N remplace l'enclos par une maison (repère local de la base : façade -Z tournée vers la place, arrière +Z).
+-- Niveau 1 : enclos de bois (modèle base.level1 ou rails procéduraux) ; niveaux 2 à 7 : modèles Blender house.l2..l7 (largeur = emprise du niveau - 4, bâtiment
+-- à l'ARRIÈRE de la plateforme, façade vers la place) ou, à défaut, une maison procédurale simple ; niveau 8 : base.level8. La plateforme grandit avec le niveau
+-- (dalle « BasePlate » sous les emplacements : côtés et arrière, l'avant et le spawn restent en place). Tout est dans le modèle « BaseUpgrade » (au plus
+-- Config.Assets.houseBudgetPerBase Parts) : les emplacements (pads) ne sont JAMAIS touchés par un changement de niveau.
+-- opts.animate : l'ancienne maison reste (« BaseUpgradeOld ») et la nouvelle attend sous le sol (attribut FinalPivot) jusqu'à Builder.finishUpgrade (animation client).
 -- Retourne le nombre de Parts posées.
-function Builder.baseUpgrade(plot, level)
+local function levelDef(level)
+	local lv = Config.BASE_LEVELS[level]
+	return {
+		size = lv and lv.size or 52,
+		name = lv and lv.name or "",
+	}
+end
+
+-- Maison procédurale de repli (niveaux 2 à 8) : murs, toit, porte, fenêtres, cheminée, perron ; ~14 à 30 Parts selon le niveau. Posée à l'arrière.
+local function proceduralHouse(level, box, backZ)
+	local size = levelDef(level).size
+	local golden = level >= 8
+	local w = math.min(size - 8, 22 + level * 3.5) -- largeur de la façade
+	local depth = 11 + level -- profondeur du bâtiment
+	local h = 4.2 + level * 0.9 -- hauteur des murs
+	local zc = backZ - 1 - depth / 2
+	local wall = golden and Color3.fromRGB(240, 220, 150) or (level >= 6 and Color3.fromRGB(226, 228, 232) or (level >= 4 and Color3.fromRGB(214, 190, 150) or Color3.fromRGB(176, 128, 84)))
+	local roof = golden and Color3.fromRGB(255, 205, 70) or Color3.fromRGB(176, 70, 60)
+	local wood = Color3.fromRGB(110, 76, 46)
+	box("HouseSocle", 0, 1.3, zc, w + 3, 0.6, depth + 3, Color3.fromRGB(150, 150, 158), Enum.Material.Cobblestone)
+	box("HouseWall", 0, 1.6 + h / 2, zc, w, h, depth, wall, level >= 6 and Enum.Material.Concrete or Enum.Material.WoodPlanks)
+	if level >= 6 then
+		box("HouseRoof", 0, 1.6 + h + 0.4, zc, w + 1.6, 0.8, depth + 1.6, roof, Enum.Material.Metal) -- toit plat moderne
+	else
+		box("HouseRoof", 0, 1.6 + h + 0.7, zc, w + 2, 1.4, depth * 0.6, roof, Enum.Material.Slate) -- toit : dalle haute et large
+		box("HouseRoofLow", 0, 1.6 + h + 0.2, zc, w + 2, 0.5, depth + 2, roof:Lerp(Color3.new(0, 0, 0), 0.15), Enum.Material.Slate)
+	end
+	box("HouseDoor", 0, 1.6 + 1.6, zc - depth / 2 - 0.1, 2.6, 3.2, 0.3, wood)
+	for _, sx in ipairs({ -w * 0.3, w * 0.3 }) do
+		box("HouseWindow", sx, 1.6 + h * 0.6, zc - depth / 2 - 0.1, 2.4, 2, 0.2, Color3.fromRGB(150, 205, 235), Enum.Material.Glass)
+	end
+	box("HouseChimney", w * 0.3, 1.6 + h + 2, zc + depth * 0.2, 1.6, 3, 1.6, Color3.fromRGB(120, 110, 108), Enum.Material.Brick)
+	for k = 0, 2 do -- perron
+		box("HouseStep", 0, 1.1 + k * 0.25, zc - depth / 2 - 1 - (2 - k) * 0.9, 4.2, 0.25, 0.9, Color3.fromRGB(170, 170, 176), Enum.Material.Slate)
+	end
+	if level >= 3 then
+		for _, sx in ipairs({ -w / 2 - 1, w / 2 + 1 }) do
+			local post = box("LampPost", sx, 2.8, zc - depth / 2 - 1, 0.5, 5.2, 0.5, Color3.fromRGB(50, 52, 60), Enum.Material.Metal)
+			local lamp = box("Lantern", sx, 5.6, zc - depth / 2 - 1, 1.1, 1.1, 1.1, Color3.fromRGB(255, 232, 160), Enum.Material.Neon)
+			local l = Instance.new("PointLight")
+			l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 224, 150), 14, 0.9
+			l.Parent = lamp
+			post.CanQuery = false
+		end
+	end
+	if level >= 4 then -- auvent ou garage latéral
+		box("HouseGarage", -w / 2 - 4, 1.6 + 2.2, zc, 7, 4.4, depth * 0.8, wall:Lerp(Color3.fromRGB(120, 120, 128), 0.3), Enum.Material.Concrete)
+		box("HouseGarageDoor", -w / 2 - 4, 1.6 + 1.6, zc - depth * 0.4 - 0.1, 5, 3.2, 0.2, Color3.fromRGB(90, 92, 100), Enum.Material.Metal)
+	end
+	if level >= 5 then
+		box("HouseTerrace", w / 2 + 3, 1.6 + 0.4, zc, 6, 0.4, depth * 0.8, wood, Enum.Material.WoodPlanks)
+	end
+	if golden then
+		local glow = box("GoldGlow", 0, 1.6 + h + 4, zc, 3, 3, 3, Color3.fromRGB(255, 205, 70), Enum.Material.Neon)
+		local l = Instance.new("PointLight")
+		l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 205, 70), 26, 1.4
+		l.Parent = glow
+	end
+end
+
+function Builder.baseUpgrade(plot, level, opts)
 	local made = 0
 	pcall(function()
 		if not (plot and plot.model and plot.cf) then
 			return
 		end
-		Builder.clearBase(plot)
-		local folder = Instance.new("Folder")
+		local animate = opts ~= nil and opts.animate == true
+		Builder.finishUpgrade(plot) -- une animation précédente encore en cours est terminée d'abord
+		local old = plot.model:FindFirstChild("BaseUpgrade")
+		if animate and old then
+			old.Name = "BaseUpgradeOld"
+			Builder.clearBase(plot, true)
+		else
+			Builder.clearBase(plot)
+		end
+		local folder = Instance.new("Model")
 		folder.Name = "BaseUpgrade"
-		folder.Parent = plot.model
 		local cf0 = plot.cf
-		-- modèle Blender COMPLET du niveau (base.levelN, emprise 52 x 52, entrée -Z) : il remplace toute la version procédurale de ce niveau
+		folder.WorldPivot = cf0
+		local def = levelDef(level)
+		local halfX, backZ = Config.baseExtent(level)
+		-- dalle de la plateforme agrandie : couvre l'ancienne plateforme (dessus à 1,02 : jamais de scintillement) et déborde sur les côtés et l'arrière
 		do
-			local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("base", "level" .. level)
+			local plat = plot.platform
+			local zFront = -(Config.Map2.basePlatform / 2)
+			made += 1
+			part({ Name = "BasePlate", Size = Vector3.new(halfX * 2, 1, backZ - zFront), CFrame = cf0 * CFrame.new(0, 0.52, (backZ + zFront) / 2),
+				Color = plat and plat.Color or Color3.fromRGB(70, 110, 90), Material = Enum.Material.Concrete, CanCollide = true }, folder)
+		end
+		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
+			made += 1
+			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
+		end
+		-- modèle Blender : niveau 1 et 8 = base.levelN (emprise centrée, entrée -Z) ; niveaux 2 à 7 = house.lN (bâtiment à l'arrière, devant -Z)
+		local placed = false
+		do
+			local isHouse = level >= 2 and level <= 7
+			local clone = eggAssets and eggAssets.cloneModel and (isHouse and eggAssets.cloneModel("house", "l" .. level) or eggAssets.cloneModel("base", "level" .. level))
 			if clone then
 				local ok = pcall(function()
 					local _, size = clone:GetBoundingBox()
@@ -904,9 +991,22 @@ function Builder.baseUpgrade(plot, level)
 					if size.Y < 0.05 or longest < 0.05 then
 						error("mesure impossible")
 					end
-					clone:ScaleTo(clone:GetScale() * 52 / longest)
+					local target = isHouse and (def.size - 4) or 52 -- l'emprise la plus grande du modèle = emprise du niveau - 4 (niveau 1 : 52, comme avant)
+					if level == 8 then
+						target = def.size - 4
+					end
+					local k = target / longest
+					if isHouse and size.Z * k > 26 then
+						k = 26 / size.Z -- jamais plus profond que 26 studs : l'avant de la maison reste loin de l'entrée
+					end
+					clone:ScaleTo(clone:GetScale() * k)
 					local bbox, size2 = clone:GetBoundingBox()
-					clone:PivotTo(cf0 * CFrame.new(0, size2.Y / 2, 0) * bbox:ToObjectSpace(clone:GetPivot()))
+					local cx, cy, cz = 0, size2.Y / 2, 0
+					if isHouse then
+						cy = 1 + size2.Y / 2
+						cz = backZ - 1 - size2.Z / 2 -- le fond du modèle touche le bord arrière de la dalle
+					end
+					clone:PivotTo(cf0 * CFrame.new(cx, cy, cz) * bbox:ToObjectSpace(clone:GetPivot()))
 					for _, d in ipairs(clone:GetDescendants()) do
 						if d:IsA("BasePart") then
 							d.Anchored = true
@@ -918,143 +1018,81 @@ function Builder.baseUpgrade(plot, level)
 					clone.Parent = folder
 				end)
 				if ok then
-					made = Config.Assets.modelsMaxParts["base.level" .. level] or 45
-					return
-				end
-				pcall(function()
-					clone:Destroy()
-				end)
-			end
-		end
-		local function box(name, x, y, z, sx, sy, sz, color, material, rot)
-			made += 1
-			return part({ Name = name, Size = Vector3.new(sx, sy, sz), CFrame = cf0 * CFrame.new(x, y, z) * CFrame.Angles(0, rot or 0, 0), Color = color, Material = material or Enum.Material.WoodPlanks, CanCollide = false }, folder)
-		end
-		local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
-		local stone, stone2 = Color3.fromRGB(150, 150, 158), Color3.fromRGB(112, 112, 122)
-		local gold = Color3.fromRGB(255, 205, 70)
-		local golden = level >= 8
-		local E = 28.5 -- le pourtour : en dehors de la plateforme (demi-côté 26)
-		local sideMat = level >= 4 and Enum.Material.Cobblestone or Enum.Material.WoodPlanks
-		local sideCol = level >= 4 and stone or wood
-		local h = level >= 4 and 2.2 or 1.6
-		box("Rail", -E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
-		box("Rail", E, h, 0, 0.6, 0.5, 2 * E, sideCol, sideMat)
-		box("Rail", 0, h, E, 2 * E, 0.5, 0.6, sideCol, sideMat)
-		box("RailLow", -E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
-		box("RailLow", E, h * 0.45, 0, 0.5, 0.4, 2 * E, sideCol, sideMat)
-		box("RailLow", 0, h * 0.45, E, 2 * E, 0.4, 0.5, sideCol, sideMat)
-		for k = -3, 3 do
-			local t = k * (E / 3)
-			box("Post", -E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
-			box("Post", E, h * 0.6, t, 0.8, h * 1.3, 0.8, wood2)
-			box("Post", t, h * 0.6, E, 0.8, h * 1.3, 0.8, wood2)
-		end
-		-- place un modèle Blender (hauteur cible), ancré, sans collision ; false si le budget Blender est dépassé ou si la mesure échoue
-		local function placeModel(clone, cost, height, x, z, rot, name)
-			plot.baseBlender = plot.baseBlender or 0
-			if not clone or plot.baseBlender + cost > Config.Assets.baseBlenderBudget then
-				if clone then
+					made += Config.Assets.modelsMaxParts[(isHouse and "house.l" or "base.level") .. level] or 80
+					placed = true
+				else
 					pcall(function()
 						clone:Destroy()
 					end)
 				end
-				return false
 			end
-			local ok = pcall(function()
-				local fitted, why = AssetsMod.fitHeight(clone, height)
-				if not fitted then
-					error(why)
+		end
+		if not placed then
+			if level == 1 then
+				-- enclos de bois procédural (niveau 1) : lisse et poteaux autour de la plateforme
+				local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
+				local E = 28.5
+				box("Rail", -E, 1.6, 0, 0.6, 0.5, 2 * E, wood)
+				box("Rail", E, 1.6, 0, 0.6, 0.5, 2 * E, wood)
+				box("Rail", 0, 1.6, E, 2 * E, 0.5, 0.6, wood)
+				for k = -3, 3 do
+					local t = k * (E / 3)
+					box("Post", -E, 1.0, t, 0.8, 2.1, 0.8, wood2)
+					box("Post", E, 1.0, t, 0.8, 2.1, 0.8, wood2)
+					box("Post", t, 1.0, E, 0.8, 2.1, 0.8, wood2)
 				end
-				local bbox, size = clone:GetBoundingBox()
-				clone:PivotTo(cf0 * CFrame.new(x, size.Y / 2, z) * CFrame.Angles(0, rot, 0) * bbox:ToObjectSpace(clone:GetPivot()))
-				for _, d in ipairs(clone:GetDescendants()) do
-					if d:IsA("BasePart") then
-						d.Anchored = true
-						d.CanCollide = false
-						d.CanQuery = false
-					end
-				end
-				clone.Name = name
-				clone.Parent = folder
-			end)
-			if ok then
-				plot.baseBlender += cost
-				made += 4
-				return true
-			end
-			pcall(function()
-				clone:Destroy()
-			end)
-			return false
-		end
-		if level >= 2 then
-			local clone = eggAssets and eggAssets.cloneProp and eggAssets.cloneProp("hut")
-			if not placeModel(clone, Config.Assets.propsMaxParts.hut or 120, level >= 5 and 8 or 6, 0, 21, math.pi, "HutModel") then
-				box("HutWall", 0, 2.4, 21, 11, 4.8, 7, level >= 4 and stone or wood2, level >= 4 and Enum.Material.Brick or Enum.Material.WoodPlanks)
-				box("HutRoof", 0, 5.8, 21, 12.4, 0.8, 8.4, golden and gold or Color3.fromRGB(176, 70, 60), golden and Enum.Material.Metal or Enum.Material.Slate)
-				box("HutDoor", 0, 1.6, 17.4, 2.4, 3.2, 0.3, wood)
+			else
+				proceduralHouse(level, box, backZ)
 			end
 		end
-		if level >= 3 then
-			for _, c in ipairs({ { -E, -E }, { E, -E }, { -E, E }, { E, E } }) do
-				box("LampPost", c[1], 2.6, c[2], 0.5, 5.2, 0.5, Color3.fromRGB(50, 52, 60), Enum.Material.Metal)
-				local head = box("Lantern", c[1], 5.4, c[2], 1.1, 1.1, 1.1, Color3.fromRGB(255, 232, 160), Enum.Material.Neon)
-				local l = Instance.new("PointLight")
-				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 224, 150), 14, 0.9
-				l.Parent = head
-			end
-			for k = 0, 4 do
-				box("Flagstone", 0, 1.06 + 0.06 * (k % 2), -22 + k * 2.2, 4.2, 0.12, 1.9, stone, Enum.Material.Slate)
-			end
-		end
-		if level >= 5 then
-			for _, sx in ipairs({ -E, E }) do
-				local towerH = golden and 11 or 9
-				local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("castle", "tower")
-				if not placeModel(clone, Config.Assets.modelsMaxParts["castle.tower"] or 80, towerH + 3, sx, E, 0, "TowerModel") then
-					made += 2
-					part({ Name = "Tower", Shape = Enum.PartType.Cylinder, Size = Vector3.new(towerH, 5, 5), CFrame = cf0 * CFrame.new(sx, towerH / 2, E) * CFrame.Angles(0, 0, math.pi / 2), Color = stone2, Material = Enum.Material.Cobblestone, CanCollide = false }, folder)
-					part({ Name = "TowerCap", Shape = Enum.PartType.Ball, Size = Vector3.new(5.6, 5.6, 5.6), CFrame = cf0 * CFrame.new(sx, towerH + 0.6, E), Color = golden and gold or Color3.fromRGB(176, 70, 60), Material = golden and Enum.Material.Metal or Enum.Material.Slate, CanCollide = false }, folder)
-				end
-			end
-		end
-		if level >= 6 then
-			for k = -3, 3 do
-				box("Merlon", k * 7, h + 1.2, E, 2.6, 1.4, 1.2, stone2, Enum.Material.Cobblestone)
-			end
-			for _, sx in ipairs({ -10, 10 }) do
-				box("BannerPole", sx, 4, E - 1, 0.3, 8, 0.3, wood2)
-				box("Banner", sx, 6.4, E - 1, 2.2, 3, 0.15, Color3.fromRGB(200, 50, 60), Enum.Material.Fabric)
-			end
-		end
-		if level >= 7 then
-			box("GatePillar", -6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
-			box("GatePillar", 6, 4, -E, 1.8, 8, 1.8, stone2, Enum.Material.Cobblestone)
-			box("GateLintel", 0, 8.4, -E, 14, 1.6, 2, golden and gold or stone, golden and Enum.Material.Metal or Enum.Material.Cobblestone)
-			for _, sx in ipairs({ -6, 6 }) do
-				local t = box("Torch", sx, 5.2, -E + 1.2, 0.8, 0.8, 0.8, Color3.fromRGB(255, 150, 60), Enum.Material.Neon)
-				local l = Instance.new("PointLight")
-				l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 170, 90), 16, 1
-				l.Parent = t
-			end
-		end
-		if golden then
-			box("GoldTrim", 0, h + 0.3, E, 2 * E, 0.35, 0.8, gold, Enum.Material.Metal)
-			local glow = box("GoldGlow", 0, 7.4, 21, 3, 3, 3, gold, Enum.Material.Neon)
-			local l = Instance.new("PointLight")
-			l.Color, l.Range, l.Brightness = gold, 26, 1.4
-			l.Parent = glow
+		folder.Parent = plot.model
+		if animate then
+			folder:SetAttribute("FinalPivot", cf0)
+			folder:PivotTo(cf0 * CFrame.new(0, -Config.UPGRADE_FX.hide, 0)) -- la nouvelle maison attend sous le sol ; le client la fait monter
+			plot.upgrading = true
 		end
 	end)
 	return made
 end
 
-function Builder.clearBase(plot)
+-- Fin de l'animation de montée de niveau : la nouvelle maison reprend sa place exacte, l'ancienne disparaît. Sans effet s'il n'y a rien à finir.
+function Builder.finishUpgrade(plot)
+	pcall(function()
+		local model = plot and plot.model
+		if not model then
+			return
+		end
+		local new = model:FindFirstChild("BaseUpgrade")
+		local final = new and new:GetAttribute("FinalPivot")
+		if new and final then
+			pcall(function()
+				if new:GetScale() ~= 1 then
+					new:ScaleTo(1)
+				end
+			end)
+			new:PivotTo(final)
+			new:SetAttribute("FinalPivot", nil)
+		end
+		local old = model:FindFirstChild("BaseUpgradeOld")
+		if old then
+			old:Destroy()
+		end
+		plot.upgrading = nil
+	end)
+end
+
+function Builder.clearBase(plot, keepOld)
 	pcall(function()
 		local f = plot.model and plot.model:FindFirstChild("BaseUpgrade")
 		if f then
 			f:Destroy()
+		end
+		if not keepOld then
+			local o = plot.model and plot.model:FindFirstChild("BaseUpgradeOld")
+			if o then
+				o:Destroy()
+			end
+			plot.upgrading = nil
 		end
 		plot.baseBlender = 0
 	end)
@@ -1932,19 +1970,19 @@ function Builder.build()
 		spawn.Parent = model
 
 		local pads = {}
-		for idx = 1, 12 do
+		for idx = 1, Config.SLOTS_MAX do
 			local lx, lz = Config.padLocal(idx)
 			local frame = part({ Name = "PadFrame" .. idx, Size = Vector3.new(8.8, 0.3, 8.8), CFrame = cf * CFrame.new(lx, 1.12, lz), Color = pc, Material = Enum.Material.Neon, CanCollide = false }, model)
 			local pad = part({ Name = "Pad" .. idx, Size = Vector3.new(8, 0.4, 8), CFrame = cf * CFrame.new(lx, 1.2, lz), Color = Color3.fromRGB(255, 255, 255), Transparency = 0.7, CanCollide = false }, model)
 			local lockText = sign(pad, "🔒", Color3.new(1, 1, 1), 2.5, 80)
 			pads[idx] = { part = pad, lock = lockText.Parent, frame = frame, content = nil }
 			if Config.Map.pedestals then
-				sceneryParts += Scenery.pedestal(sceneryHelpers, (cf * CFrame.new(lx, 0.62, lz)).Position, model, nil)
+				sceneryParts += Scenery.pedestal(sceneryHelpers, (cf * CFrame.new(lx, 0.62, lz)).Position, model, nil, 8.6, true)
 			end
 		end
 
-		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(0, 4.5, 24), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model)
-		local plank = part({ Name = "Plank", Size = Vector3.new(18, 4.2, 0.7), CFrame = cf * CFrame.new(0, 8.6, 23.6), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, model)
+		local board = part({ Name = "Board", Size = Vector3.new(1, 7, 1), CFrame = cf * CFrame.new(17, 4.5, -25), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood }, model) -- lot 5 : le panneau passe devant (les emplacements occupent désormais tout le centre)
+		local plank = part({ Name = "Plank", Size = Vector3.new(18, 4.2, 0.7), CFrame = cf * CFrame.new(17, 8.6, -25.4), Color = Color3.fromRGB(120, 84, 56), Material = Enum.Material.WoodPlanks }, model)
 		local sg = Instance.new("SurfaceGui")
 		sg.Face = Enum.NormalId.Front -- face -Z de la planche = côté place
 		sg.CanvasSize = Vector2.new(720, 168)

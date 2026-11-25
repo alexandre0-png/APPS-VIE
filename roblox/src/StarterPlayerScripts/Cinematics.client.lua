@@ -20,6 +20,7 @@ local Cinema = require(Shared:WaitForChild("Cinema")).new(Easing)
 local CinematicKitMod = require(Shared:WaitForChild("CinematicKit"))
 local Kit = CinematicKitMod.new(Easing, Cinema)
 local Castle = require(Shared:WaitForChild("Castle"))
+local UpgradeMod = require(Shared:WaitForChild("Upgrade")).new(Config, Easing)
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RAction = Remotes:WaitForChild("Action")
 
@@ -408,6 +409,12 @@ local function skipCurrent()
 	local id = director.skip(os.clock())
 	if id then
 		markSeen(id)
+		if id == "base_niveau" then -- passer la caméra de la montée de niveau passe aussi l'animation de la maison (le serveur remet la maison en place seul)
+			local ev = game:GetService("ReplicatedStorage"):FindFirstChild("SkipBaseUpgrade")
+			if ev then
+				ev:Fire()
+			end
+		end
 	end
 	if not director.current then
 		exitCinematic()
@@ -614,7 +621,9 @@ do
 		end
 		local previous = lastLevel
 		lastLevel = lv
-		if previous and lv > previous and Config.cineEnabled("base") and not director.isActive() and Kit.canPlay(dangerCtx()) then
+		-- caméra large : propriétaire seul (cet attribut est celui du joueur local), sans œuf porté, pas poursuivi, pas de cinématique en cours
+		local dctx = dangerCtx()
+		if previous and lv > previous and Config.cineEnabled("base") and UpgradeMod.canFrame(true, player:GetAttribute("Carry"), dctx.chased, dctx.dead, director.isActive()) and Kit.canPlay(dctx) then
 			begin("base_niveau", CinematicKitMod.PLANS.base_niveau, {}, false, true)
 		end
 	end

@@ -250,6 +250,7 @@ Easing.REWARD = {
 	claim = { count = 24, minSpeed = 160, maxSpeed = 340, life = 1.3 },
 	event = { count = 40, minSpeed = 180, maxSpeed = 380, life = 1.5 },
 	rare = { count = 70, minSpeed = 200, maxSpeed = 440, life = 1.7 },
+	levelup = { count = 60, minSpeed = 190, maxSpeed = 420, life = 1.8 }, -- montée de niveau de la maison
 }
 function Easing.rewardBurst(sfx)
 	return Easing.REWARD[sfx]

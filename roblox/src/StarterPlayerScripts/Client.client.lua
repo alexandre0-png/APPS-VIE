@@ -392,25 +392,20 @@ local function pulseLighting(strength)
 	end)
 end
 
--- Montée de niveau de la base : pilier de lumière, aura runique et onde de choc au centre de la base (VfxKit), message du serveur en plus.
+-- Montée de niveau de la maison (D.4) : échafaudage, poussière + onde, ancienne maison qui s'enfonce, nouvelle qui monte (BaseUpgradeFx, toutes les bases
+-- visibles) ; bannière, fanfare et confettis arrivent avec la notification « levelup » du serveur ; la caméra large est gérée par Cinematics.
 do
-	local lastBaseLevel = nil
-	local function onBaseLevel()
-		local lv = player:GetAttribute("BaseLevel")
-		if type(lv) ~= "number" then
-			return
-		end
-		local previous = lastBaseLevel
-		lastBaseLevel = lv
-		if previous and lv > previous then
-			local pc = player:GetAttribute("PlotCF")
-			if typeof(pc) == "CFrame" then
-				pcall(playVfxAt, { "pilier_revelation", "aura_runique", "onde_de_choc" }, math.min(6, math.max(2, lv - 1)), pc * CFrame.new(0, 1.2, 0))
-			end
-		end
+	local skipEvent = Instance.new("BindableEvent")
+	skipEvent.Name = "SkipBaseUpgrade"
+	skipEvent.Parent = ReplicatedStorage
+	local okFx, fxErr = pcall(function()
+		local UpgradeMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Upgrade"))
+		local BaseUpgradeFx = require(script.Parent:WaitForChild("BaseUpgradeFx"))
+		BaseUpgradeFx.start({ Config = Config, Upgrade = UpgradeMod.new(Config, Easing), vfx = playVfxAt, skipEvent = skipEvent })
+	end)
+	if not okFx then
+		warn("[BaseUpgradeFx] " .. tostring(fxErr))
 	end
-	player:GetAttributeChangedSignal("BaseLevel"):Connect(onBaseLevel)
-	onBaseLevel()
 end
 
 local function revealPop(info)
@@ -829,8 +824,8 @@ function render()
 	elseif panel.name == "dex" and panel.tab == "eggs" then
 		local n = 0
 		do
-			local lv, nxt, _, left = Config.baseLevel(state.baseScore)
-			addNote("🏠 Base niveau " .. lv .. " · " .. Config.BASE_LEVELS[lv].name .. (nxt and (" · encore " .. fmt(left) .. " pt pour " .. nxt.name) or " · niveau maximum") .. ". Chaque pet éclos fait grandir ta base, d'autant plus qu'il est rare.")
+			local lv, nxt, _, left, need = Config.baseLevel(state.baseScore, state.dex, state.baseLevelFloor)
+			addNote("🏠 Base niveau " .. lv .. " · " .. Config.BASE_LEVELS[lv].name .. (nxt and (" · encore " .. fmt(left) .. " pt pour " .. nxt.name) or " · niveau maximum") .. (need and (" · il te faut un pet " .. Config.TIERS[need].name .. " découvert") or "") .. ". Chaque pet éclos fait grandir ta base, d'autant plus qu'il est rare.")
 		end
 		for i = 1, state.cap do
 			local sl = state.slots[i]
@@ -1044,11 +1039,14 @@ function render()
 			end,
 		})
 		do -- progression de la base : niveau, apparence, points et prochain palier
-			local lv, nxt, progress, left = Config.baseLevel(state.baseScore)
+			local lv, nxt, progress, left, need = Config.baseLevel(state.baseScore, state.dex, state.baseLevelFloor)
 			local cur = Config.BASE_LEVELS[lv]
+			local w = Config.BASE_WEIGHTS
+			local gain = Config.levelSlots(lv) .. " emplacement(s) de maison · revenus +" .. math.floor((cur.income or 0) * 100 + 0.5) .. " %"
+			local weights = "Commun " .. w[1] .. ", Rare " .. w[2] .. ", Épique " .. w[3] .. ", Légendaire " .. w[4] .. ", Mythique " .. w[5] .. ", Secret " .. w[6]
 			addRow({
 				icon = cur.emoji, title = "Ma base : niveau " .. lv .. "/" .. #Config.BASE_LEVELS .. " · " .. cur.name,
-				desc = nxt and (math.floor(progress * 100) .. " % vers " .. nxt.emoji .. " " .. nxt.name .. " (encore " .. fmt(left) .. " pt) · Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Secret 150") or "Niveau maximum : ton château est en or !",
+				desc = gain .. "\n" .. (nxt and (math.floor(progress * 100) .. " % vers " .. nxt.emoji .. " " .. nxt.name .. " (encore " .. fmt(left) .. " pt)" .. (need and (" · découvre un pet " .. Config.TIERS[need].name) or "") .. " · " .. weights) or "Niveau maximum : ton château est en or !"),
 			})
 		end
 		addRow({
@@ -1232,7 +1230,7 @@ local function onboardStep()
 	local plot = player:GetAttribute("PlotCF")
 	local near = root ~= nil and typeof(plot) == "CFrame" and (root.Position - plot.Position).Magnitude < 30
 	local remaining
-	for i = 1, 12 do
+	for i = 1, Config.SLOTS_MAX do
 		local sl = state.slots and state.slots[i]
 		if sl and sl.k == "e" then
 			remaining = sl.ends - os.time()
@@ -1476,7 +1474,7 @@ RNotify.OnClientEvent:Connect(function(msg, sfx)
 	if type(msg) == "string" and msg ~= "" then
 		toast(msg)
 	end
-	if sfx == "fanfare" then -- victoire du château : pluie d'étincelles autour du joueur
+	if sfx == "fanfare" or sfx == "levelup" then -- victoire du château ou montée de niveau de la maison : pluie d'étincelles autour du joueur
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			pcall(playVfxAt, { "etincelles", "onde_de_choc" }, 5, root.CFrame * CFrame.new(0, -2.6, 0))

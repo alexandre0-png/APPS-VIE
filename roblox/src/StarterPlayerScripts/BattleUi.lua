@@ -93,7 +93,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 		ui.info.Text = "Meilleur étage : " .. b.best .. "/" .. TW.floors .. " · combats restants aujourd'hui : " .. b.fightsLeft .. "\nChoisis jusqu'à " .. TW.teamSize .. " pets (touche pour ajouter / retirer)."
 		local y = 0
 		local n = 0
-		for i = 1, 12 do
+		for i = 1, Config.SLOTS_MAX do
 			local sl = st and st.slots and st.slots[i]
 			if sl and sl.k == "p" then
 				n = n + 1

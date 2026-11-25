@@ -180,10 +180,14 @@ end
 
 ---------------------------------------------------------------- Piédestal hexagonal des emplacements (lumières chaudes)
 -- Trois dalles croisées à 60° dessinent un hexagone ; liseré néon chaud. Retourne le nombre de Parts.
-function Scenery.pedestal(h, position, parent, warm)
-	local n = 0
-	cyl(h, { Name = "PedestalSlab", Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent, 9.6, 0.5, position)
-	cyl(h, { Name = "PedestalGlow", Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent, 10.4, 0.15, position + Vector3.new(0, -0.15, 0))
+function Scenery.pedestal(h, position, parent, warm, diam, noGlow)
+	-- diam / noGlow (lot 5) : les 20 emplacements d'une base sont espacés de 9 studs : dalle de 8,6 studs et pas d'anneau lumineux (budget de Parts, aucun chevauchement coplanaire)
+	local d = diam or 9.6
+	cyl(h, { Name = "PedestalSlab", Color = rgb(210, 200, 184), Material = Enum.Material.Marble, CanCollide = false }, parent, d, 0.5, position)
+	if noGlow then
+		return 1
+	end
+	cyl(h, { Name = "PedestalGlow", Color = warm or rgb(255, 190, 90), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.45 }, parent, d + 0.8, 0.15, position + Vector3.new(0, -0.15, 0))
 	return 2
 end
 

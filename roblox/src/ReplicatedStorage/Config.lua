@@ -284,6 +284,7 @@ Config.SOUNDS = {
 	blade = { id = "rbxassetid://84863036780507", speed = 1.0, vol = 0.5, loop = true }, -- près d'une lame
 	ball = { id = "rbxassetid://93517357278251", speed = 1.0, vol = 0.5, loop = true }, -- près d'un boulet qui roule
 	fanfare = { id = "rbxassetid://126605194205875", speed = 1.0, vol = 0.7 },
+	levelup = { id = "rbxassetid://126605194205875", speed = 1.15, vol = 0.7 }, -- montée de niveau de la maison (même son que la fanfare, sans déclencher la cinématique du château)
 	ambCastle = { id = "rbxassetid://123273835786709", speed = 1.0, vol = 0.3, loop = true },
 	ambMeadow = { id = "rbxassetid://89353143614427", speed = 1.0, vol = 0.3, loop = true },
 	steal = { id = "rbxasset://sounds/action_jump.mp3", speed = 1.5, vol = 0.5 },
@@ -494,6 +495,7 @@ Config.Assets = {
 		deco = { flower_a = 77356084419297, flower_b = 75380956155225, flower_c = 111315415429762, tuft = 87978041093798, stone_flat = 136754104457535, stone_round = 87559674928022, lantern = 104138982529608, sign_stars = 123744671851193 },
 		terrain = { cliff_a = 77185775444063, cliff_b = 121767734121074, cliff_corner = 110100977206117, stairs = 105161635046156, waterfall = 129292144451409, islet = 128405076287969 },
 		base = { level1 = 97252816676038, level2 = 81995835244074, level3 = 77426422736227, level4 = 95370892804658, level5 = 75516398880390, level6 = 108065975809605, level7 = 83929759854266, level8 = 100223033827392 },
+		house = { l2 = 83993710226197, l3 = 137211706941591, l4 = 131395542579523, l5 = 86282878742281, l6 = 92231252125110, l7 = 79107809937066 }, -- maisons évolutives (niveaux 2 à 7, lot 5) ; niveaux 1 et 8 : base.level1 / base.level8
 		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
 		trees = { tree_oak_a = 115675817596242, tree_oak_b = 139178488755477, tree_birch = 86165293471213, tree_pine = 134548154871906, tree_sakura = 136998832791777, tree_round = 128198214830836 },
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
@@ -506,6 +508,7 @@ Config.Assets = {
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
 		["base.level1"] = 80, ["base.level2"] = 80, ["base.level3"] = 80, ["base.level4"] = 80, ["base.level5"] = 80, ["base.level6"] = 80, ["base.level7"] = 80, ["base.level8"] = 80,
+		["house.l2"] = 160, ["house.l3"] = 160, ["house.l4"] = 160, ["house.l5"] = 160, ["house.l6"] = 160, ["house.l7"] = 160,
 		["trees.tree_oak_a"] = 120, ["trees.tree_oak_b"] = 120, ["trees.tree_birch"] = 120, ["trees.tree_pine"] = 120, ["trees.tree_sakura"] = 120, ["trees.tree_round"] = 120,
 		["paths.path_straight"] = 40, ["paths.path_curve"] = 40, ["paths.path_stones"] = 40,
 		["eggguard.egg_dome"] = 80, ["eggguard.egg_nest_fence"] = 80, ["eggguard.egg_cage"] = 80, ["eggguard.egg_shield"] = 60,
@@ -528,6 +531,7 @@ Config.Assets = {
 	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
+	houseBudgetPerBase = 160, -- Parts de la maison évolutive d'UNE base (modèle Blender house.lN ou repli procédural), lot 5
 	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700,
@@ -676,38 +680,78 @@ function Config.nearestPortal(x, z, portals, maxDist)
 	return best
 end
 
--- Progression de la base : chaque pet éclos ajoute des points selon sa rareté (Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Cosmique/secret 150) ;
--- 8 niveaux d'apparence, du simple enclos de bois au château doré. Le score est sauvegardé (profil v8) ; le niveau s'en déduit.
-Config.BASE_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
-Config.BASE_LEVELS = {
-	{ score = 0, name = "Enclos de bois", emoji = "🪵" },
-	{ score = 12, name = "Cabane", emoji = "🛖" },
-	{ score = 40, name = "Chaumière", emoji = "🏡" },
-	{ score = 110, name = "Maison", emoji = "🏠" },
-	{ score = 260, name = "Manoir", emoji = "🏘️" },
-	{ score = 600, name = "Fort", emoji = "🛡️" },
-	{ score = 1400, name = "Forteresse", emoji = "🏰" },
-	{ score = 3200, name = "Château doré", emoji = "👑" },
-}
+-- Progression de la base (REFONTE lot 5) : chaque pet éclos ajoute des points selon sa rareté (Config.BASE_WEIGHTS = BASE_WEIGHTS2 : 1, 4, 15, 50, 180, 700) ;
+-- 8 niveaux (Config.BASE_LEVELS = BASE_LEVELS2, définis plus bas), de l'enclos de bois au château doré. Le score est sauvegardé (profil v8, recalculé en v10) ;
+-- le niveau s'en déduit, plafonné par la rareté découverte (niveaux 7 et 8) et jamais sous le plancher `baseLevelFloor` des anciens joueurs.
 -- Points gagnés par un pet de rareté `tier` (1..6).
 function Config.baseGain(tier)
 	return Config.BASE_WEIGHTS[math.min(math.max(type(tier) == "number" and tier == tier and math.floor(tier) or 1, 1), #Config.BASE_WEIGHTS)]
 end
--- Niveau d'une base d'après son score : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants).
-function Config.baseLevel(score)
-	score = (type(score) == "number" and score == score and score > 0) and score or 0
-	local level = 1
-	for i, lv in ipairs(Config.BASE_LEVELS) do
-		if score >= lv.score then
-			level = i
+-- Rareté la plus haute découverte d'après le dex ({ ["indice d'espèce"] = { n = ... } }), 0 si rien.
+function Config.dexTopTier(dex)
+	local top = 0
+	if type(dex) == "table" then
+		for k, e in pairs(dex) do
+			local def = Config.PETS[tonumber(k) or 0]
+			if def and type(e) == "table" and type(e.n) == "number" and e.n > 0 and def.tier > top then
+				top = def.tier
+			end
 		end
 	end
-	local nxt = Config.BASE_LEVELS[level + 1]
-	if not nxt then
-		return level, nil, 1, 0
+	return top
+end
+-- Niveau d'une base : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants, rareté manquante ou nil).
+-- `dex` (facultatif) : sans lui, aucune condition de rareté n'est exigée (appels historiques) ; avec lui, le niveau est plafonné tant qu'il manque
+-- la rareté `needTier` du niveau suivant. `floor` (facultatif) : plancher sauvegardé, le niveau affiché ne passe jamais dessous.
+function Config.baseLevel(score, dex, floor)
+	score = (type(score) == "number" and score == score and score > 0) and score or 0
+	local levels = Config.BASE_LEVELS
+	local top = dex ~= nil and Config.dexTopTier(dex) or nil
+	local level = 1
+	for i = 2, #levels do
+		local lv = levels[i]
+		if score < lv.score or (lv.needTier and top ~= nil and top < lv.needTier) then
+			break
+		end
+		level = i
 	end
-	local cur = Config.BASE_LEVELS[level]
-	return level, nxt, (score - cur.score) / (nxt.score - cur.score), math.ceil(nxt.score - score)
+	if type(floor) == "number" and floor == floor then
+		level = math.max(level, math.min(#levels, math.max(1, math.floor(floor))))
+	end
+	local nxt = levels[level + 1]
+	if not nxt then
+		return level, nil, 1, 0, nil
+	end
+	local cur = levels[level]
+	local progress = math.min(1, math.max(0, (score - cur.score) / (nxt.score - cur.score)))
+	local need = (nxt.needTier and top ~= nil and top < nxt.needTier) and nxt.needTier or nil
+	return level, nxt, progress, math.max(0, math.ceil(nxt.score - score)), need
+end
+-- Emplacements bonus du niveau `level` (bonus absolu, non cumulatif : 0 au niveau 1, 4 au niveau 8) et multiplicateur de revenu (1 + income).
+function Config.levelSlots(level)
+	local lv = Config.BASE_LEVELS[level]
+	return lv and lv.slots or 0
+end
+function Config.levelIncomeMul(level)
+	local lv = Config.BASE_LEVELS[level]
+	return 1 + (lv and lv.income or 0)
+end
+-- Position locale (x, z) de l'emplacement `idx` (1..20) : grille 5 colonnes x 4 rangées, pas de 9 studs. Source unique (construction, caméras, interface).
+function Config.padLocal(idx)
+	local col, row = (idx - 1) % 5, (idx - 1) // 5
+	return -18 + col * 9, -4 + row * 9
+end
+-- Plateforme au niveau `level` : (demi-largeur, z local du bord arrière). Elle grandit vers les côtés (52 -> 72) et vers l'arrière (28 -> 35,7) ;
+-- l'avant reste à -26 (spawn, porte et chemins ne bougent pas) et l'arrière reste dans l'emprise réservée par la carte (baseSizeMax / 2 = 36).
+function Config.baseExtent(level)
+	local n = math.min(math.max(type(level) == "number" and level == level and level or 1, 1), #Config.BASE_LEVELS)
+	local lv = Config.BASE_LEVELS[math.floor(n)]
+	return ((lv and lv.size) or 52) / 2, 28 + (math.floor(n) - 1) * 1.1
+end
+-- Un point (repère local de la base : rx, rz, ry) est-il dans la base du niveau `level` (intérieur de la plateforme + 1 stud de marge) ?
+function Config.inBase(level, rx, rz, ry)
+	local halfX, backZ = Config.baseExtent(level)
+	return math.abs(rx) <= halfX + 1 and rz >= -27 and rz <= backZ + 1 and (ry == nil or ry < 30)
 end
 
 -- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
@@ -1205,12 +1249,6 @@ function Config.cineFirstRare(petName, tierName, incText)
 		{ anchor = "pad", pos = { 0, 4.5, -13 }, look = { 0, 2.5, 0 }, toPos = { 0, 3.5, -8 }, dur = 3.5, text = "✨ Un pet " .. tierName .. " : " .. petName .. " !" },
 		{ anchor = "pad", pos = { 6, 4, -8 }, look = { 0, 2.5, 0 }, toPos = { -6, 4, -8 }, dur = 2.5, text = incText .. " Les raretés supérieures rapportent bien plus." },
 	} }
-end
-
--- Position locale (x, z) de l'emplacement `idx` (1..12) dans une base : source unique pour la construction et les caméras.
-function Config.padLocal(idx)
-	local col, row = (idx - 1) % 4, (idx - 1) // 4
-	return -15 + col * 10, -6 + row * 11
 end
 
 ---------------------------------------------------------------- Univers, histoire et progression
@@ -1832,7 +1870,48 @@ Config.BASE_LEVELS2 = {
 	{ score = 5000, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 4 },
 	{ score = 14000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 5, shieldBonus = 10 },
 }
+-- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
+-- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
+Config.UPGRADE_FX = { seconds = 4.5, scaffold = 0.8, dust = 0.4, swap = 1.5, party = 1.8, hide = 40, announceFrom = 6, confetti = 36 }
+-- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » (`from` = niveau quitté, par défaut level - 1).
+function Config.upgradeBanner(level, from)
+	local lv = Config.BASE_LEVELS[level]
+	if not lv then
+		return ""
+	end
+	local gain = Config.levelSlots(level) - Config.levelSlots(from or (level - 1))
+	local parts = {}
+	if gain > 0 then
+		parts[#parts + 1] = "+" .. gain .. (gain > 1 and " emplacements" or " emplacement")
+	end
+	parts[#parts + 1] = "revenus +" .. math.floor((lv.income or 0) * 100 + 0.5) .. " %"
+	return "🏠 Niveau " .. level .. " : " .. lv.name .. " ! " .. table.concat(parts, ", ")
+end
+-- Alarme d'intrusion (niveau 3), chien de garde (niveau 5, intrus ralenti x0,7 pendant 3 s à l'entrée), bouclier d'œuf du niveau 8 (+10 s).
+Config.INTRUDER = { alarmCooldown = 12, dogMul = 0.7, dogSeconds = 3, dogCooldown = 20, margin = 1 }
+-- Texte du cadenas d'un emplacement non débloqué : le prochain affiche son coût (amélioration en pièces, niveau de maison ou pass).
+function Config.slotHint(idx, capacity, upSlots, level, hasPassExtra)
+	if idx ~= capacity + 1 then
+		return "🔒"
+	end
+	local u = Config.upgrade("slots")
+	if upSlots < u.max then
+		return "🔒 " .. Config.fmt(u.cost(upSlots)) .. " 🪙"
+	end
+	for l = level + 1, #Config.BASE_LEVELS do
+		if Config.BASE_LEVELS[l].slots > Config.levelSlots(level) then
+			return "🔒 Maison niv. " .. l
+		end
+	end
+	if not hasPassExtra then
+		return "🔒 Pass +4"
+	end
+	return "🔒"
+end
 Config.SLOTS_MAX = 20 -- 4 + 8 (Doigts agiles... améliorations) + 4 (maison) + 4 (pass)
+Config.BASE_WEIGHTS = Config.BASE_WEIGHTS2 -- lot 5 : mêmes tables, lues par baseGain / baseLevel (le plateau des niveaux et ses conditions de rareté)
+Config.BASE_LEVELS = Config.BASE_LEVELS2
+Config.PASS_EXTRA_SLOTS = 4 -- pass ExtraSlots
 
 -- C. Énigme de la Mère Poule : dialogues exacts et 12 emplacements de plumes (3 par direction ; les 4 du jour = Config.featherSpots(day) au lot 6).
 Config.HEN_LINES = {

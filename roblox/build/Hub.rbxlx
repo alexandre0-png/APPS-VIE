@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX44"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX68"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX67"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX46"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX71"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX70"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -288,6 +288,7 @@ Config.SOUNDS = {
 	blade = { id = "rbxassetid://84863036780507", speed = 1.0, vol = 0.5, loop = true }, -- près d'une lame
 	ball = { id = "rbxassetid://93517357278251", speed = 1.0, vol = 0.5, loop = true }, -- près d'un boulet qui roule
 	fanfare = { id = "rbxassetid://126605194205875", speed = 1.0, vol = 0.7 },
+	levelup = { id = "rbxassetid://126605194205875", speed = 1.15, vol = 0.7 }, -- montée de niveau de la maison (même son que la fanfare, sans déclencher la cinématique du château)
 	ambCastle = { id = "rbxassetid://123273835786709", speed = 1.0, vol = 0.3, loop = true },
 	ambMeadow = { id = "rbxassetid://89353143614427", speed = 1.0, vol = 0.3, loop = true },
 	steal = { id = "rbxasset://sounds/action_jump.mp3", speed = 1.5, vol = 0.5 },
@@ -498,6 +499,7 @@ Config.Assets = {
 		deco = { flower_a = 77356084419297, flower_b = 75380956155225, flower_c = 111315415429762, tuft = 87978041093798, stone_flat = 136754104457535, stone_round = 87559674928022, lantern = 104138982529608, sign_stars = 123744671851193 },
 		terrain = { cliff_a = 77185775444063, cliff_b = 121767734121074, cliff_corner = 110100977206117, stairs = 105161635046156, waterfall = 129292144451409, islet = 128405076287969 },
 		base = { level1 = 97252816676038, level2 = 81995835244074, level3 = 77426422736227, level4 = 95370892804658, level5 = 75516398880390, level6 = 108065975809605, level7 = 83929759854266, level8 = 100223033827392 },
+		house = { l2 = 83993710226197, l3 = 137211706941591, l4 = 131395542579523, l5 = 86282878742281, l6 = 92231252125110, l7 = 79107809937066 }, -- maisons évolutives (niveaux 2 à 7, lot 5) ; niveaux 1 et 8 : base.level1 / base.level8
 		vfx = { cercle_runique = 78887954880607, ailes = 139237669898830, halo = 123922819073158, rayons = 88635068911286, etoile = 73454147532566, cristaux = 84932789634035, onde = 125557026046168, torii = 105301464189354, spirale = 130478050046509, pilier_lumiere = 136359342334671, etincelles = 116678428336273, cone_lumiere = 98452721754905, bouclier = 135593787305812 },
 		trees = { tree_oak_a = 115675817596242, tree_oak_b = 139178488755477, tree_birch = 86165293471213, tree_pine = 134548154871906, tree_sakura = 136998832791777, tree_round = 128198214830836 },
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
@@ -510,6 +512,7 @@ Config.Assets = {
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
 		["base.level1"] = 80, ["base.level2"] = 80, ["base.level3"] = 80, ["base.level4"] = 80, ["base.level5"] = 80, ["base.level6"] = 80, ["base.level7"] = 80, ["base.level8"] = 80,
+		["house.l2"] = 160, ["house.l3"] = 160, ["house.l4"] = 160, ["house.l5"] = 160, ["house.l6"] = 160, ["house.l7"] = 160,
 		["trees.tree_oak_a"] = 120, ["trees.tree_oak_b"] = 120, ["trees.tree_birch"] = 120, ["trees.tree_pine"] = 120, ["trees.tree_sakura"] = 120, ["trees.tree_round"] = 120,
 		["paths.path_straight"] = 40, ["paths.path_curve"] = 40, ["paths.path_stones"] = 40,
 		["eggguard.egg_dome"] = 80, ["eggguard.egg_nest_fence"] = 80, ["eggguard.egg_cage"] = 80, ["eggguard.egg_shield"] = 60,
@@ -532,6 +535,7 @@ Config.Assets = {
 	textureMaxCount = 220,
 	groundBudgetParts = 600, groundMaxTiles = 120, -- dallage : Parts réelles (mesurées) et nombre de tuiles maximum
 	arenaBudgetParts = 500, -- pire cas de Parts des modèles Blender de l'arène (place, bancs, lampadaires, moulin, enclos)
+	houseBudgetPerBase = 160, -- Parts de la maison évolutive d'UNE base (modèle Blender house.lN ou repli procédural), lot 5
 	baseBlenderBudget = 280, -- pire cas de Parts des modèles Blender d'UNE base (cabane 120 + deux tours 80) ; au-delà, versions procédurales
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700,
@@ -680,38 +684,78 @@ function Config.nearestPortal(x, z, portals, maxDist)
 	return best
 end
 
--- Progression de la base : chaque pet éclos ajoute des points selon sa rareté (Commun 1, Rare 3, Épique 8, Légendaire 20, Mythique 50, Cosmique/secret 150) ;
--- 8 niveaux d'apparence, du simple enclos de bois au château doré. Le score est sauvegardé (profil v8) ; le niveau s'en déduit.
-Config.BASE_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
-Config.BASE_LEVELS = {
-	{ score = 0, name = "Enclos de bois", emoji = "🪵" },
-	{ score = 12, name = "Cabane", emoji = "🛖" },
-	{ score = 40, name = "Chaumière", emoji = "🏡" },
-	{ score = 110, name = "Maison", emoji = "🏠" },
-	{ score = 260, name = "Manoir", emoji = "🏘️" },
-	{ score = 600, name = "Fort", emoji = "🛡️" },
-	{ score = 1400, name = "Forteresse", emoji = "🏰" },
-	{ score = 3200, name = "Château doré", emoji = "👑" },
-}
+-- Progression de la base (REFONTE lot 5) : chaque pet éclos ajoute des points selon sa rareté (Config.BASE_WEIGHTS = BASE_WEIGHTS2 : 1, 4, 15, 50, 180, 700) ;
+-- 8 niveaux (Config.BASE_LEVELS = BASE_LEVELS2, définis plus bas), de l'enclos de bois au château doré. Le score est sauvegardé (profil v8, recalculé en v10) ;
+-- le niveau s'en déduit, plafonné par la rareté découverte (niveaux 7 et 8) et jamais sous le plancher `baseLevelFloor` des anciens joueurs.
 -- Points gagnés par un pet de rareté `tier` (1..6).
 function Config.baseGain(tier)
 	return Config.BASE_WEIGHTS[math.min(math.max(type(tier) == "number" and tier == tier and math.floor(tier) or 1, 1), #Config.BASE_WEIGHTS)]
 end
--- Niveau d'une base d'après son score : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants).
-function Config.baseLevel(score)
-	score = (type(score) == "number" and score == score and score > 0) and score or 0
-	local level = 1
-	for i, lv in ipairs(Config.BASE_LEVELS) do
-		if score >= lv.score then
-			level = i
+-- Rareté la plus haute découverte d'après le dex ({ ["indice d'espèce"] = { n = ... } }), 0 si rien.
+function Config.dexTopTier(dex)
+	local top = 0
+	if type(dex) == "table" then
+		for k, e in pairs(dex) do
+			local def = Config.PETS[tonumber(k) or 0]
+			if def and type(e) == "table" and type(e.n) == "number" and e.n > 0 and def.tier > top then
+				top = def.tier
+			end
 		end
 	end
-	local nxt = Config.BASE_LEVELS[level + 1]
-	if not nxt then
-		return level, nil, 1, 0
+	return top
+end
+-- Niveau d'une base : (niveau 1..8, niveau suivant ou nil, progression 0..1 vers le suivant, points restants, rareté manquante ou nil).
+-- `dex` (facultatif) : sans lui, aucune condition de rareté n'est exigée (appels historiques) ; avec lui, le niveau est plafonné tant qu'il manque
+-- la rareté `needTier` du niveau suivant. `floor` (facultatif) : plancher sauvegardé, le niveau affiché ne passe jamais dessous.
+function Config.baseLevel(score, dex, floor)
+	score = (type(score) == "number" and score == score and score > 0) and score or 0
+	local levels = Config.BASE_LEVELS
+	local top = dex ~= nil and Config.dexTopTier(dex) or nil
+	local level = 1
+	for i = 2, #levels do
+		local lv = levels[i]
+		if score < lv.score or (lv.needTier and top ~= nil and top < lv.needTier) then
+			break
+		end
+		level = i
 	end
-	local cur = Config.BASE_LEVELS[level]
-	return level, nxt, (score - cur.score) / (nxt.score - cur.score), math.ceil(nxt.score - score)
+	if type(floor) == "number" and floor == floor then
+		level = math.max(level, math.min(#levels, math.max(1, math.floor(floor))))
+	end
+	local nxt = levels[level + 1]
+	if not nxt then
+		return level, nil, 1, 0, nil
+	end
+	local cur = levels[level]
+	local progress = math.min(1, math.max(0, (score - cur.score) / (nxt.score - cur.score)))
+	local need = (nxt.needTier and top ~= nil and top < nxt.needTier) and nxt.needTier or nil
+	return level, nxt, progress, math.max(0, math.ceil(nxt.score - score)), need
+end
+-- Emplacements bonus du niveau `level` (bonus absolu, non cumulatif : 0 au niveau 1, 4 au niveau 8) et multiplicateur de revenu (1 + income).
+function Config.levelSlots(level)
+	local lv = Config.BASE_LEVELS[level]
+	return lv and lv.slots or 0
+end
+function Config.levelIncomeMul(level)
+	local lv = Config.BASE_LEVELS[level]
+	return 1 + (lv and lv.income or 0)
+end
+-- Position locale (x, z) de l'emplacement `idx` (1..20) : grille 5 colonnes x 4 rangées, pas de 9 studs. Source unique (construction, caméras, interface).
+function Config.padLocal(idx)
+	local col, row = (idx - 1) % 5, (idx - 1) // 5
+	return -18 + col * 9, -4 + row * 9
+end
+-- Plateforme au niveau `level` : (demi-largeur, z local du bord arrière). Elle grandit vers les côtés (52 -> 72) et vers l'arrière (28 -> 35,7) ;
+-- l'avant reste à -26 (spawn, porte et chemins ne bougent pas) et l'arrière reste dans l'emprise réservée par la carte (baseSizeMax / 2 = 36).
+function Config.baseExtent(level)
+	local n = math.min(math.max(type(level) == "number" and level == level and level or 1, 1), #Config.BASE_LEVELS)
+	local lv = Config.BASE_LEVELS[math.floor(n)]
+	return ((lv and lv.size) or 52) / 2, 28 + (math.floor(n) - 1) * 1.1
+end
+-- Un point (repère local de la base : rx, rz, ry) est-il dans la base du niveau `level` (intérieur de la plateforme + 1 stud de marge) ?
+function Config.inBase(level, rx, rz, ry)
+	local halfX, backZ = Config.baseExtent(level)
+	return math.abs(rx) <= halfX + 1 and rz >= -27 and rz <= backZ + 1 and (ry == nil or ry < 30)
 end
 
 -- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
@@ -1209,12 +1253,6 @@ function Config.cineFirstRare(petName, tierName, incText)
 		{ anchor = "pad", pos = { 0, 4.5, -13 }, look = { 0, 2.5, 0 }, toPos = { 0, 3.5, -8 }, dur = 3.5, text = "✨ Un pet " .. tierName .. " : " .. petName .. " !" },
 		{ anchor = "pad", pos = { 6, 4, -8 }, look = { 0, 2.5, 0 }, toPos = { -6, 4, -8 }, dur = 2.5, text = incText .. " Les raretés supérieures rapportent bien plus." },
 	} }
-end
-
--- Position locale (x, z) de l'emplacement `idx` (1..12) dans une base : source unique pour la construction et les caméras.
-function Config.padLocal(idx)
-	local col, row = (idx - 1) % 4, (idx - 1) // 4
-	return -15 + col * 10, -6 + row * 11
 end
 
 ---------------------------------------------------------------- Univers, histoire et progression
@@ -1836,7 +1874,48 @@ Config.BASE_LEVELS2 = {
 	{ score = 5000, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 4 },
 	{ score = 14000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 5, shieldBonus = 10 },
 }
+-- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
+-- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
+Config.UPGRADE_FX = { seconds = 4.5, scaffold = 0.8, dust = 0.4, swap = 1.5, party = 1.8, hide = 40, announceFrom = 6, confetti = 36 }
+-- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » (`from` = niveau quitté, par défaut level - 1).
+function Config.upgradeBanner(level, from)
+	local lv = Config.BASE_LEVELS[level]
+	if not lv then
+		return ""
+	end
+	local gain = Config.levelSlots(level) - Config.levelSlots(from or (level - 1))
+	local parts = {}
+	if gain > 0 then
+		parts[#parts + 1] = "+" .. gain .. (gain > 1 and " emplacements" or " emplacement")
+	end
+	parts[#parts + 1] = "revenus +" .. math.floor((lv.income or 0) * 100 + 0.5) .. " %"
+	return "🏠 Niveau " .. level .. " : " .. lv.name .. " ! " .. table.concat(parts, ", ")
+end
+-- Alarme d'intrusion (niveau 3), chien de garde (niveau 5, intrus ralenti x0,7 pendant 3 s à l'entrée), bouclier d'œuf du niveau 8 (+10 s).
+Config.INTRUDER = { alarmCooldown = 12, dogMul = 0.7, dogSeconds = 3, dogCooldown = 20, margin = 1 }
+-- Texte du cadenas d'un emplacement non débloqué : le prochain affiche son coût (amélioration en pièces, niveau de maison ou pass).
+function Config.slotHint(idx, capacity, upSlots, level, hasPassExtra)
+	if idx ~= capacity + 1 then
+		return "🔒"
+	end
+	local u = Config.upgrade("slots")
+	if upSlots < u.max then
+		return "🔒 " .. Config.fmt(u.cost(upSlots)) .. " 🪙"
+	end
+	for l = level + 1, #Config.BASE_LEVELS do
+		if Config.BASE_LEVELS[l].slots > Config.levelSlots(level) then
+			return "🔒 Maison niv. " .. l
+		end
+	end
+	if not hasPassExtra then
+		return "🔒 Pass +4"
+	end
+	return "🔒"
+end
 Config.SLOTS_MAX = 20 -- 4 + 8 (Doigts agiles... améliorations) + 4 (maison) + 4 (pass)
+Config.BASE_WEIGHTS = Config.BASE_WEIGHTS2 -- lot 5 : mêmes tables, lues par baseGain / baseLevel (le plateau des niveaux et ses conditions de rareté)
+Config.BASE_LEVELS = Config.BASE_LEVELS2
+Config.PASS_EXTRA_SLOTS = 4 -- pass ExtraSlots
 
 -- C. Énigme de la Mère Poule : dialogues exacts et 12 emplacements de plumes (3 par direction ; les 4 du jour = Config.featherSpots(day) au lot 6).
 Config.HEN_LINES = {
@@ -1882,7 +1961,7 @@ Config.CHAPTER_TEXTS = {
 }
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2134,6 +2213,7 @@ Easing.REWARD = {
 	claim = { count = 24, minSpeed = 160, maxSpeed = 340, life = 1.3 },
 	event = { count = 40, minSpeed = 180, maxSpeed = 380, life = 1.5 },
 	rare = { count = 70, minSpeed = 200, maxSpeed = 440, life = 1.7 },
+	levelup = { count = 60, minSpeed = 190, maxSpeed = 420, life = 1.8 }, -- montée de niveau de la maison
 }
 function Easing.rewardBurst(sfx)
 	return Easing.REWARD[sfx]
@@ -2177,7 +2257,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2357,7 +2437,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2700,7 +2780,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2727,9 +2807,10 @@ CinematicKit.PLANS = {
 		{ anchor = "castle", pos = { -40, 16, 34 }, look = { 0, 6, -8 }, toPos = { 40, 14, 34 }, toLook = { 0, 8, -8 }, path = "travel", dur = 2.6, ease = "Sine", title = "🏰 Le Château" },
 		{ anchor = "castle", pos = { 0, 5, 16 }, look = { 0, 7, 0 }, toPos = { 0, 6, 9 }, path = "dolly", fov = 70, toFov = 55, dur = 2.2, ease = "Quint", text = "La herse se lève…", fx = "gate" },
 	} },
-	base_niveau = { id = "base_niveau", shots = {
-		{ anchor = "base", pos = { 0, 20, -46 }, look = { 0, 5, 4 }, path = "orbit", radius = 44, toRadius = 36, angle0 = 3.14, angle1 = 4.6, height = 18, dur = 2.4, ease = "Sine", title = "🏠 Ta base évolue !" },
-		{ anchor = "base", pos = { 0, 12, -38 }, look = { 0, 6, 8 }, toPos = { 0, 9, -26 }, path = "dolly", fov = 70, toFov = 58, dur = 1.4, ease = "Quint" },
+	-- Montée de niveau de la maison (D.4) : 4,5 s au total (2,7 + 1,8), plan large depuis l'avant de la base vers la maison à l'arrière ; passable (Passer, toucher l'écran).
+	base_niveau = { id = "base_niveau", skipOnTap = true, shots = {
+		{ anchor = "base", pos = { 0, 24, -62 }, look = { 0, 6, 14 }, toPos = { 0, 20, -50 }, path = "travel", dur = 2.7, ease = "Sine", title = "🏠 Ta base évolue !" },
+		{ anchor = "base", pos = { -34, 16, -26 }, look = { 0, 8, 16 }, toPos = { 34, 16, -26 }, path = "travel", dur = 1.8, ease = "Sine" },
 	} },
 	chateau_victoire = { id = "chateau_victoire", shots = {
 		{ anchor = "castle_chest", pos = { 6, 7, 10 }, look = { 0, 3, 0 }, toPos = { 3, 5, 6 }, path = "dolly", fov = 70, toFov = 52, dur = 1.6, ease = "Quint", slow = { at = 0.4, to = 0.9, scale = 0.35 }, shake = 0.3, fx = "sparks" },
@@ -2997,7 +3078,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -3600,7 +3681,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4025,7 +4106,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4063,7 +4144,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4151,7 +4232,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4197,7 +4278,7 @@ function MiniMap.landmarks(Config, plotX, plotZ, chaptersDone)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -4565,7 +4646,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -4629,7 +4710,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -4970,7 +5051,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5027,7 +5108,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5139,7 +5220,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -5326,7 +5407,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -5430,7 +5511,7 @@ function Raven.resolve(chased)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -6203,7 +6284,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -6312,7 +6393,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -6511,7 +6592,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -6712,7 +6793,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -6940,8 +7021,72 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+-- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
+-- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
+-- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
+-- ④ fête (confettis, bannière) 1,8 s ; total 4,5 s. Utilisation : require(Upgrade).new(Config, Easing).
+local Upgrade = {}
+
+function Upgrade.new(Config, Easing)
+	local U = {}
+	local F = Config.UPGRADE_FX
+
+	local function clamp01(x)
+		if type(x) ~= "number" or x ~= x then
+			return 0
+		end
+		return math.min(1, math.max(0, x))
+	end
+
+	U.seconds = F.seconds
+	U.dustAt = F.scaffold -- début de la poussière
+	U.swapAt = F.scaffold + F.dust -- début de l'échange des maisons
+	U.partyAt = F.scaffold + F.dust + F.swap -- début de la fête
+
+	-- État au temps t : toutes les valeurs sont dans [0, 1] sauf sx / sy (squash & stretch de la nouvelle maison, > 0).
+	--   scaffold : hauteur de l'échafaudage ; strip : retrait de l'échafaudage (pendant la fête) ; dust : poussière (0 -> 1 -> 0) ; wave : onde (0 avant, 1 pendant la poussière)
+	--   drop : enfoncement de l'ancienne maison ; rise : montée de la nouvelle ; party : progression de la fête ; done : animation terminée
+	function U.state(t)
+		t = (type(t) == "number" and t == t) and math.max(t, 0) or 0
+		local sc = clamp01(t / F.scaffold)
+		local swap = clamp01((t - U.swapAt) / F.swap)
+		local sx, sy = 1, 1
+		if swap > 0 and swap < 1 then
+			sx, sy = Easing.squashStretch(swap, 0.35)
+		end
+		local dustP = clamp01((t - U.dustAt) / F.dust)
+		return {
+			t = t,
+			scaffold = Easing.outQuad(sc),
+			strip = clamp01((t - U.partyAt) / 0.5),
+			dust = dustP > 0 and dustP < 1 and math.sin(dustP * math.pi) or 0,
+			wave = (t >= U.dustAt and t < U.swapAt) and 1 or 0,
+			drop = swap * swap, -- l'ancienne maison accélère en s'enfonçant
+			rise = Easing.outBack(swap), -- la nouvelle monte avec un léger dépassement
+			sx = sx,
+			sy = sy,
+			party = clamp01((t - U.partyAt) / F.party),
+			done = t >= U.seconds,
+		}
+	end
+
+	-- Texte de la bannière : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % ».
+	function U.banner(level, from)
+		return Config.upgradeBanner(level, from)
+	end
+
+	-- La caméra large est-elle permise ? Propriétaire seul, sans œuf porté, pas poursuivi (`chased`), vivant, aucune autre cinématique en cours.
+	function U.canFrame(isOwner, carrying, chased, dead, busy)
+		return isOwner == true and (carrying or 0) <= 0 and not chased and not dead and not busy
+	end
+
+	return U
+end
+
+return Upgrade
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX71"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX69"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX74"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX72"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -7296,7 +7441,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -7685,7 +7830,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX74"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX73"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX77"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX76"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX75"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")
