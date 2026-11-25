@@ -1117,13 +1117,22 @@ do
 		must(L.firstPetTier[2] ~= nil and L.firstPetTier[2] < 240, "1er pet Rare en moins de 4 min")
 		must(L.firstPetTier[3] ~= nil and L.firstPetTier[3] < 720, "1er pet Épique en moins de 12 min")
 		must(L.firstPetTier[4] ~= nil and L.firstPetTier[4] < 2700, "1er pet Légendaire en moins de 45 min")
-		must(L.baseLevelAt[2] ~= nil and L.baseLevelAt[2] < 300, "base niveau 2 en moins de 5 min")
+		must(L.baseLevelAt[2] ~= nil and L.baseLevelAt[2] < 180, "base niveau 2 en moins de 3 min") -- lot 5 : cible resserrée de 5 à 3 min
 		must(L.baseLevelAt[4] ~= nil and L.baseLevelAt[4] < 1800, "base niveau 4 en moins de 30 min")
 		for k, v in pairs({ hatch = L.firstHatch, rare = L.firstPetTier[2], epic = L.firstPetTier[3], legendary = L.firstPetTier[4], base2 = L.baseLevelAt[2], base4 = L.baseLevelAt[4] }) do
 			worst[k] = math.max(worst[k] or 0, v or 99999)
 		end
 	end
 	check("Économie : cibles (éclosion < 60 s, Rare < 4 min, Épique < 12 min, Légendaire < 45 min, base 2 < 5 min, base 4 < 30 min) ; pires cas mesurés : éclosion " .. worst.hatch .. " s, Rare " .. worst.rare .. " s, Épique " .. worst.epic .. " s, Légendaire " .. worst.legendary .. " s, base 2 " .. worst.base2 .. " s, base 4 " .. worst.base4 .. " s" .. (tgtOk and "" or " : " .. tgtWhy), tgtOk)
+	-- lot 5 : niveau 6 de la maison en moins de 2 h (seuil de la Villa moderne ramené de 1 800 à 1 000 points après mesure : 1 800 donnait 7 290 s ou rien en 2 h)
+	local l6Ok, l6Worst = true, 0
+	for seed = 1, 5 do
+		local L = Economy.simulate(Config, Rules, 120, { seed = seed })
+		local t6 = L.baseLevelAt[6]
+		l6Ok = l6Ok and t6 ~= nil and t6 < 7200
+		l6Worst = math.max(l6Worst, t6 or 99999)
+	end
+	check("Économie : maison niveau 6 en moins de 2 h (5 graines, pire cas " .. l6Worst .. " s)", l6Ok)
 	-- courbe de revenu des pets : chaque rareté rapporte strictement plus que la précédente ; 18 pets
 	local lo, hi, curveOk = {}, {}, true
 	for _, def in ipairs(Config.PETS) do
@@ -8285,6 +8294,276 @@ do
 		end
 	end
 	check("Client : aucune comparaison directe avec GetServerTimeNow (valeur lue, gardée par type, puis comparée)" .. bad, bad == "")
+end
+
+
+-- REFONTE lot 5 : maison évolutive, 20 emplacements, données v10 -------------------------------------------------------------------
+do
+	suite("Refonte lot 5 : règles pures (capacité, niveaux, rareté exigée, plancher, revenu, porte, cadenas, calendrier d'animation)")
+	local up8, up0 = { slots = 8 }, { slots = 0 }
+	check("Capacité maximale : 4 + 8 améliorations + 4 de maison (niveau 8) + 4 du pass = 20 = Config.SLOTS_MAX", Rules.capacity(up8, 8, true) == 20 and Rules.capacity(up8, 8, false) == 16 and Rules.capacity(up8, 1, true) == 16 and Rules.capacity(up0, 1, false) == 4)
+	local dec = true
+	for level = 1, 8 do
+		dec = dec and Rules.capacity(up0, level, false) == 4 + Config.BASE_LEVELS2[level].slots and Rules.capacity(up0, level, true) == 8 + Config.BASE_LEVELS2[level].slots
+	end
+	check("Capacité : décomposition exacte par niveau (4 + bonus du niveau + 4 du pass), jamais au-dessus de 20 même avec des valeurs absurdes", dec and Rules.capacity({ slots = 99 }, 8, true) == 20 and Rules.capacity(up0) == 4)
+	local legend, mythic, common
+	for idx, def in ipairs(Config.PETS) do
+		if def.tier == 4 and not legend then
+			legend = idx
+		elseif def.tier == 5 and not mythic then
+			mythic = idx
+		elseif def.tier == 1 and not common then
+			common = idx
+		end
+	end
+	local dexC = { [tostring(common)] = { n = 3 } }
+	local dexL = { [tostring(common)] = { n = 3 }, [tostring(legend)] = { n = 1 } }
+	local dexM = { [tostring(mythic)] = { n = 1 } }
+	local lvC, _, _, _, needC = Config.baseLevel(99999, dexC, nil)
+	local lvL, _, _, _, needL = Config.baseLevel(99999, dexL, nil)
+	local lvM = Config.baseLevel(99999, dexM, nil)
+	check("Niveau 7 bloqué sans Légendaire découvert (plafonné au niveau 6, rareté exigée = 4), niveau 8 bloqué sans Mythique (niveau 7, rareté 5), niveau 8 avec un Mythique", lvC == 6 and needC == 4 and lvL == 7 and needL == 5 and lvM == 8)
+	check("Plancher : le niveau affiché vaut max(niveau calculé, plancher), jamais en baisse ; plancher invalide ignoré", Config.baseLevel(0, dexC, 8) == 8 and Config.baseLevel(99999, dexC, 3) == 6 and Config.baseLevel(0, nil, 0 / 0) == 1 and Config.baseLevel(0, nil, 99) == 8)
+	check("Revenu de niveau : multiplicateur 1 + bonus (niveau 1 x1, niveau 5 x1,20, niveau 8 x1,50) appliqué par Rules.levelMul", math.abs(Rules.levelMul(1) - 1) < 1e-9 and math.abs(Rules.levelMul(5) - 1.2) < 1e-9 and math.abs(Rules.levelMul(8) - 1.5) < 1e-9)
+	check("Porte de base par niveau : 15 s (niveau 1, défaut), 20, 25, 30, 35, 40, 50, 60 s au niveau 8", Config.lockSeconds(1) == 15 and Config.lockSeconds(2) == 20 and Config.lockSeconds(3) == 25 and Config.lockSeconds(4) == 30 and Config.lockSeconds(5) == 35 and Config.lockSeconds(6) == 40 and Config.lockSeconds(7) == 50 and Config.lockSeconds(8) == 60)
+	check("Effets de niveau : alarme dès le niveau 3, chien de garde (x0,7 pendant 3 s) dès le niveau 5, bouclier +10 s au niveau 8 seulement", Config.BASE_LEVELS2[3].alarm and not Config.BASE_LEVELS2[2].alarm and Config.BASE_LEVELS2[5].guardDog and not Config.BASE_LEVELS2[4].guardDog and Config.BASE_LEVELS2[8].shieldBonus == 10 and Config.INTRUDER.dogMul == 0.7 and Config.INTRUDER.dogSeconds == 3)
+	check("Cadenas : le prochain emplacement affiche son coût en pièces, puis le niveau de maison, puis le pass ; les autres un simple cadenas", Config.slotHint(6, 5, 1, 1, false):find("🪙", 1, true) ~= nil and Config.slotHint(7, 5, 1, 1, false) == "🔒" and Config.slotHint(13, 12, 8, 1, false) == "🔒 Maison niv. 2" and Config.slotHint(17, 16, 8, 8, false) == "🔒 Pass +4" and Config.slotHint(17, 16, 8, 8, true) == "🔒")
+	local okExt = true
+	for level = 1, 8 do
+		local halfX, backZ = Config.baseExtent(level)
+		okExt = okExt and halfX * 2 == Config.BASE_LEVELS2[level].size and backZ <= Config.Map2.baseSizeMax / 2 and Config.inBase(level, 0, 0, 0) and not Config.inBase(level, halfX + 3, 0, 0) and Config.inBase(level, 0, backZ, 0) and not Config.inBase(level, 0, backZ + 3, 0)
+	end
+	check("Plateforme : elle grandit de 52 à 72 selon le niveau, l'arrière reste dans l'emprise réservée (36), zone de la base cohérente", okExt and Config.baseExtent(1) == 26 and Config.baseExtent(8) == 36)
+	local U = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Upgrade.lua"), { debugName = "Upgrade" })().new(Config, Easing)
+	local mono, last = true, -1
+	local sane = true
+	for k = 0, 60 do
+		local st = U.state(k * 0.1)
+		mono = mono and st.drop >= last
+		last = st.drop
+		sane = sane and st.sx > 0 and st.sy > 0 and st.scaffold >= 0 and st.scaffold <= 1
+	end
+	local st0, st1, st9 = U.state(0), U.state(4.0), U.state(4.5)
+	check("Animation de montée : 4,5 s au total (0,8 + 0,4 + 1,5 + 1,8), échafaudage de 0 à 1, ancienne maison qui s'enfonce sans jamais remonter, états valides, terminée à 4,5 s", U.seconds == 4.5 and U.dustAt == 0.8 and math.abs(U.swapAt - 1.2) < 1e-9 and math.abs(U.partyAt - 2.7) < 1e-9 and st0.scaffold == 0 and U.state(0.8).scaffold == 1 and mono and sane and st1.done == false and st9.done and U.state(0 / 0).t == 0)
+	check("Animation : bannière exacte « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % », singulier au niveau 2, saut de niveaux cumulé", U.banner(5) == "🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 %" and U.banner(2) == "🏠 Niveau 2 : Chalet du Couvoir ! +1 emplacement, revenus +5 %" and U.banner(5, 2):find("+3 emplacements", 1, true) ~= nil)
+	check("Caméra large : propriétaire seul, sans œuf porté, pas poursuivi, vivant, aucune autre cinématique", U.canFrame(true, 0, false, false, false) and not U.canFrame(false, 0, false, false, false) and not U.canFrame(true, 1, false, false, false) and not U.canFrame(true, 0, true, false, false) and not U.canFrame(true, 0, false, true, false) and not U.canFrame(true, 0, false, false, true))
+	check("Groupe de modèles house.l2 à l7 déclaré (6 IDs), plafond 160 Parts par modèle, budget de maison 160", (function()
+		local n = 0
+		for lv = 2, 7 do
+			n = n + ((Config.Assets.models.house["l" .. lv] or 0) > 0 and Config.Assets.modelsMaxParts["house.l" .. lv] == 160 and 1 or 0)
+		end
+		return n == 6 and Config.Assets.houseBudgetPerBase == 160 and Config.Assets.models.house.l2 == 83993710226197 and Config.Assets.models.house.l7 == 79107809937066
+	end)())
+end
+
+do
+	suite("Refonte lot 5 : migrations v1, v5, v8, v9 vers v10 sans perte, plancher de niveau, capacité, revenu, animation (vrai Main.server.lua, runtime factice)")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		local client = RT.buildClient("roblox/src")
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		local ws = RT.services.Workspace
+		local ds = RT.dataStores["ChipeOeufs_v1"]
+		local RA, RN
+		for _, d in ipairs(RT.services.ReplicatedStorage:GetDescendants()) do
+			local nm = rawget(d, "__props").Name
+			if nm == "Action" then
+				RA = d
+			elseif nm == "Notify" then
+				RN = d
+			end
+		end
+		local legend, mythic
+		for idx, def in ipairs(Config.PETS) do
+			if def.tier == 4 and not legend then
+				legend = idx
+			elseif def.tier == 5 and not mythic then
+				mythic = idx
+			end
+		end
+		local function put(id, v)
+			ds.data["P_" .. id] = { v = v, t = RT.env.os.time() - 5000 }
+		end
+		local function join(name, id)
+			return RT.addPlayer(name, id, { from = "hub", partyId = "LOT5", size = 4, late = false })
+		end
+		local function leave(p, id)
+			RT.removePlayer(p)
+			RT.step(2)
+			return ds.data["P_" .. id] and ds.data["P_" .. id].v
+		end
+		local function snapshot(p)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+		end
+		local function act(p, name, arg)
+			RT.now = RT.now + 0.2
+			RT.fire(RA, "OnServerEvent", p, name, arg)
+		end
+		local function notified(p, needle, sfx)
+			for _, f in ipairs(RT.fired) do
+				if f[1] == "Notify" and f[2] == p and type(f[3]) == "string" and f[3]:find(needle, 1, true) and (sfx == nil or f[4] == sfx) then
+					return true
+				end
+			end
+			return false
+		end
+		local pets12 = {}
+		for i = 1, 12 do
+			pets12[i] = (i % 3 == 0) and { k = "e", t = 2, ends = RT.env.os.time() + 100000, shield = 0 } or { k = "p", p = i, s = 2, m = 1 }
+		end
+		local fixtures = {
+			{ id = 8101, name = "V1", v = { coins = 777, hatched = 12, stolen = 3, dex = { ["1"] = { n = 5, b = 1 }, ["2"] = { n = 2, b = 1 } },
+				slots = { { k = "p", p = 1, s = 2, m = 1 }, { k = "e", t = 3, ends = RT.env.os.time() + 100000, shield = 0 } }, receipts = { ["R-1"] = true } }, floor = 1 },
+			{ id = 8102, name = "V5", v = { ver = 5, coins = 4242, hatched = 40, dex = { ["1"] = { n = 30, b = 1 }, ["4"] = { n = 4, b = 1 } }, cine = { intro = true }, story = { ch = 3, prog = 0 },
+				slots = { { k = "p", p = 4, s = 3, m = 1 }, { k = "p", p = 1, s = 2, m = 1 }, { k = "e", t = 2, ends = RT.env.os.time() + 100000, shield = 0 } }, receipts = { ["R-5"] = true } }, floor = 1 },
+			{ id = 8103, name = "V8", v = { ver = 8, coins = 99999, hatched = 80, baseScore = 130, dex = { ["1"] = { n = 80, b = 1 }, ["5"] = { n = 3, b = 1 } },
+				slots = { { k = "p", p = 5, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }, receipts = { ["R-8"] = true } }, floor = 4 },
+			{ id = 8104, name = "V9", v = { ver = 9, coins = 5555, hatched = 90, baseScore = 300, played = 4000, starter = true, dex = { ["1"] = { n = 90, b = 1 } },
+				battle = { team = { 1 }, best = 7, day = 1, fights = 2, repeats = 1 }, slots = { { k = "p", p = 1, s = 2, m = 1 } }, receipts = { ["R-9"] = true } }, floor = 5 },
+			{ id = 8105, name = "V9n8", v = { ver = 9, coins = 1e6, hatched = 500, baseScore = 3300, played = 90000, starter = true, dex = { ["1"] = { n = 100, b = 1 }, ["2"] = { n = 2, b = 1 } },
+				slots = { { k = "p", p = 2, s = 2, m = 1 }, { k = "p", p = 1, s = 2, m = 1 } }, receipts = { ["R-8b"] = true } }, floor = 8 },
+			{ id = 8106, name = "V9plein", v = { ver = 9, coins = 321, hatched = 60, baseScore = 50, dex = { ["1"] = { n = 60, b = 1 } }, slots = pets12, receipts = { ["R-12"] = true } }, floor = 3 },
+		}
+		local allOk = true
+		for _, fx in ipairs(fixtures) do
+			put(fx.id, fx.v)
+			local p = join(fx.name, fx.id)
+			RT.step(2)
+			local lvl = p:GetAttribute("BaseLevel")
+			local snap = snapshot(p)
+			local rec = leave(p, fx.id)
+			local nPets, nEggs, okSlots = 0, 0, rec ~= nil
+			if rec then
+				for i, sl in pairs(fx.v.slots or {}) do
+					local after = rec.slots[i]
+					if type(sl) == "table" then
+						okSlots = okSlots and type(after) == "table" and after.k == sl.k and after.p == sl.p and after.t == sl.t
+					end
+				end
+				for i = #(fx.v.slots or {}) + 1, 20 do
+					okSlots = okSlots and not rec.slots[i]
+				end
+			end
+			local expectScore = 0
+			for k, e in pairs(fx.v.dex or {}) do
+				expectScore = expectScore + e.n * Config.baseGain(Config.PETS[tonumber(k)].tier)
+			end
+			local okRec = rec ~= nil and rec.ver == 10 and #rec.slots == 20 and rec.coins >= (fx.v.coins or 0) - 1 and rec.baseLevelFloor == fx.floor and rec.baseScore >= expectScore and type(rec.tokens) == "table" and rec.tokens.remoteSteal == 0
+				and type(rec.settings) == "table" and rec.settings.blockFriendRavens == false and type(rec.puzzle) == "table" and rec.puzzle.step == 0 and rec.puzzle.feathers == 0 and rec.puzzle.hints == 0 and rec.puzzle.fragments == 0
+			for rid in pairs(fx.v.receipts or {}) do
+				okRec = okRec and rec ~= nil and rec.receipts[rid] == true
+			end
+			okRec = okRec and rec ~= nil and rec.hatched >= (fx.v.hatched or 0) and (fx.v.stolen == nil or rec.stolen == fx.v.stolen) and (fx.v.played == nil or rec.played >= fx.v.played) and (fx.v.starter == nil or rec.starter == fx.v.starter)
+				and (fx.v.battle == nil or (rec.battle.best == 7 and rec.battle.team[1] == 1))
+			local levelOk = lvl ~= nil and lvl >= fx.floor and lvl == Config.baseLevel(expectScore, fx.v.dex, fx.floor)
+			check("Migration " .. fx.name .. " (v" .. tostring(fx.v.ver or 1) .. " -> v10) : aucun pet, œuf, pièce, reçu ni champ perdu, 20 emplacements dont les nouveaux vides, plancher " .. fx.floor .. ", niveau affiché " .. tostring(lvl) .. " (jamais en baisse)" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), okRec and okSlots and levelOk and snap ~= nil and snap.baseLevelFloor == fx.floor and #RT.errors == 0)
+			allOk = allOk and okRec
+		end
+		-- recalcul du score : v9 niveau 8 (3 300 points) -> 102 Communs x1 + 2 x4... recalculé depuis le dex, plancher 8 conservé
+		local rec8 = ds.data["P_8105"].v
+		check("Migration v9 niveau 8 : le score est RECALCULÉ depuis le dex avec les nouveaux poids (" .. tostring(rec8.baseScore) .. " au lieu de 3 300), et le niveau 8 reste affiché grâce au plancher", rec8.baseScore < 3300 and rec8.baseScore > 0 and rec8.baseLevelFloor == 8)
+		-- profil v10 neuf : capacité, rareté exigée, revenu, porte de base
+		local function v10(extra)
+			local v = { ver = 10, coins = 10, slots = {}, up = {}, dex = { ["1"] = { n = 1, b = 1 } } }
+			for k, x in pairs(extra) do
+				v[k] = x
+			end
+			return v
+		end
+		put(8201, v10({ baseScore = 99999, up = { slots = 8 }, dex = { ["1"] = { n = 5, b = 1 } }, baseLevelFloor = 1 }))
+		put(8202, v10({ baseScore = 99999, dex = { ["1"] = { n = 5, b = 1 }, [tostring(legend)] = { n = 1, b = 1 } } }))
+		put(8203, v10({ baseScore = 99999, dex = { [tostring(mythic)] = { n = 1, b = 1 } } }))
+		put(8204, v10({ baseScore = 0, baseLevelFloor = 1, slots = { { k = "p", p = 1, s = 2, m = 1 } } }))
+		put(8205, v10({ baseScore = 0, baseLevelFloor = 5, slots = { { k = "p", p = 1, s = 2, m = 1 } } }))
+		put(8206, v10({ baseScore = 0, baseLevelFloor = 8, up = { slots = 8 } }))
+		local p1, p2, p3, p4, p5, p6 = join("Cap6", 8201), join("Cap7", 8202), join("Cap8", 8203), join("Rev1", 8204), join("Rev5", 8205), join("Cap16", 8206)
+		RT.step(2)
+		check("Niveaux 7 et 8 bloqués sans Légendaire / Mythique découvert en vrai : 99 999 points sans rareté = niveau 6, avec un Légendaire = 7, avec un Mythique = 8 [" .. tostring(p1:GetAttribute("BaseLevel")) .. "," .. tostring(p2:GetAttribute("BaseLevel")) .. "," .. tostring(p3:GetAttribute("BaseLevel")) .. "]", p1:GetAttribute("BaseLevel") == 6 and p2:GetAttribute("BaseLevel") == 7 and p3:GetAttribute("BaseLevel") == 8)
+		local s1, s6, s4, s5 = snapshot(p1), snapshot(p6), snapshot(p4), snapshot(p5)
+		check("Capacité en vrai : niveau 6 (+3) avec 8 améliorations = 4 + 8 + 3 = 15 ; niveau 8 (+4) avec 8 améliorations = 16 (20 avec le pass) [" .. tostring(s1 and s1.cap) .. "," .. tostring(s6 and s6.cap) .. "]", s1 ~= nil and s1.cap == 15 and s6 ~= nil and s6.cap == 16)
+		check("Bonus de revenu en vrai : même profil au niveau 5 (x1,20) et au niveau 1 (x1) : rapport des multiplicateurs = 1,2 [" .. tostring(s5 and s4 and s5.mult / s4.mult) .. "]", s4 ~= nil and s5 ~= nil and math.abs(s5.mult / s4.mult - 1.2) < 1e-6)
+		-- porte de base par niveau (niveau 5 = 35 s)
+		act(p5, "lockDoor")
+		check("Porte de base : au niveau 5 elle se ferme 35 s (durée de BASE_LEVELS2), au niveau 1 15 s", notified(p5, "pendant 35 s") and (function()
+			act(p4, "lockDoor")
+			return notified(p4, "pendant 15 s")
+		end)())
+		-- capacité 16 : des emplacements 13 à 16 utilisables ; le 17e verrouillé (cadenas + coût)
+		local plot6
+		for _, d in ipairs(ws:GetDescendants()) do
+			if rawget(d, "__props").Name == "Pad16" then
+				plot6 = d
+			end
+		end
+		check("Cadenas : 20 emplacements construits par base (Pad1 à Pad20) avec « PadFrame » correspondant", (function()
+			local n = 0
+			for _, d in ipairs(ws:GetDescendants()) do
+				local nm = rawget(d, "__props").Name
+				if type(nm) == "string" and nm:match("^Pad%d+$") then
+					n = n + 1
+				end
+			end
+			return n == 20 * Config.PLOT_COUNT and plot6 ~= nil
+		end)())
+		for _, pr in ipairs({ { p1, 8201 }, { p2, 8202 }, { p3, 8203 }, { p4, 8204 }, { p5, 8205 }, { p6, 8206 } }) do
+			leave(pr[1], pr[2])
+		end
+		-- montée de niveau : l'animation (client + serveur), les pads occupés ne sont pas recréés
+		put(8301, v10({ baseScore = 14, baseLevelFloor = 1, slots = { { k = "e", t = 1, ends = RT.env.os.time() + 4, shield = 0 }, { k = "p", p = 1, s = 2, m = 1 } } }))
+		local me = join("Mont", 8301)
+		RT.setLocalPlayer(me)
+		RT.step(2)
+		for _, name in ipairs({ "Client", "Ambience", "Animations", "Cinematics", "Culling" }) do
+			RT.task.spawn(function()
+				RT.runScript(client[name])
+			end)
+		end
+		RT.step(3)
+		local function padContent(idx)
+			for _, d in ipairs(ws:GetDescendants()) do
+				if rawget(d, "__props").Name == "Content" and d.Parent and rawget(d.Parent, "__props").Name == "Pad" .. idx then
+					return d
+				end
+			end
+		end
+		local before = padContent(2)
+		local lvBefore = me:GetAttribute("BaseLevel")
+		local errBefore = #RT.errors
+		RT.step(6) -- éclosion à +4 s : +1 point ou plus ; le score passe de 14 à 15 ou plus : niveau 2
+		local lvAfter = me:GetAttribute("BaseLevel")
+		check("Montée de niveau : l'éclosion fait passer la maison du niveau 1 au niveau 2 (" .. tostring(lvBefore) .. " -> " .. tostring(lvAfter) .. ")", lvBefore == 1 and lvAfter ~= nil and lvAfter >= 2)
+		local cineGui
+		for _, o in ipairs(RT.all) do
+			if rawget(o, "__props").Name == "ChipeCine" then
+				cineGui = o
+			end
+		end
+		check("Montée de niveau : fanfare « levelup » et bannière « Niveau N : … » envoyées au joueur après 2,7 s", notified(me, "🏠 Niveau 2", "levelup") or notified(me, "🏠 Niveau 3", "levelup") or notified(me, "🏠 Niveau 4", "levelup") or notified(me, "🏠 Niveau 5", "levelup"))
+		local after = padContent(2)
+		check("Montée de niveau : l'emplacement occupé (Pad2) n'est PAS recréé par le changement de niveau (même objet « Content »)", before ~= nil and after == before)
+		local old, new = 0, 0
+		for _, d in ipairs(ws:GetDescendants()) do
+			local nm = rawget(d, "__props").Name
+			if nm == "BaseUpgradeOld" then
+				old += 1
+			elseif nm == "BaseUpgrade" then
+				new += 1
+			end
+		end
+		check("Montée de niveau : après 4,5 s, une seule maison (l'ancienne a disparu, la nouvelle est en place), aucune erreur d'exécution" .. (#RT.errors == errBefore and "" or " : " .. tostring(RT.errors[#RT.errors])), old == 0 and new == 1 and #RT.errors == errBefore)
+		check("Montée de niveau : le niveau est publié au client (BaseLevel) et la caméra large a été rendue (bandes cachées de nouveau)", cineGui ~= nil and rawget(cineGui, "__props").Enabled == false)
+		leave(me, 8301)
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

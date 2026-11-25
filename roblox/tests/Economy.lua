@@ -20,12 +20,17 @@ function Economy.simulate(Config, Rules, minutes, opts)
 	local log = { marks = {}, firstEggTier = {}, firstUp = {}, spent = {}, firstPetTier = {}, baseLevelAt = {} }
 	local baseScore = 0
 	local dex, species = {}, 0
+	local dexN = {} -- dex au format du profil (clé = indice d'espèce en texte) : conditions de rareté des niveaux 7 et 8
+	local level = 1
+	local function cap()
+		return Rules.capacity(up, level) -- lot 5 : 4 + améliorations + bonus de la maison (sans le pass)
+	end
 	local function income()
-		local mult = Rules.multiplier(0, up.food, false, false, Config.collectionBonus(species))
-		return Rules.income(slots, Rules.capacity(up), mult)
+		local mult = Rules.multiplier(0, up.food, false, false, Config.collectionBonus(species)) * Rules.levelMul(level)
+		return Rules.income(slots, cap(), mult)
 	end
 	local function freeSlot()
-		for i = 1, Rules.capacity(up) do
+		for i = 1, cap() do
 			if not slots[i] then
 				return i
 			end
@@ -33,7 +38,7 @@ function Economy.simulate(Config, Rules, minutes, opts)
 	end
 	local function weakest()
 		local wi, wv
-		for i = 1, Rules.capacity(up) do
+		for i = 1, cap() do
 			local sl = slots[i]
 			if sl and sl.k == "p" then
 				local v = Config.petIncome(sl.p, sl.s, sl.m)
@@ -54,7 +59,7 @@ function Economy.simulate(Config, Rules, minutes, opts)
 		t = t + 1
 		coins = coins + income()
 		-- éclosions
-		for i = 1, Rules.capacity(up) do
+		for i = 1, cap() do
 			local sl = slots[i]
 			if sl and sl.k == "e" and t >= sl.ends then
 				hatched = hatched + 1
@@ -68,7 +73,10 @@ function Economy.simulate(Config, Rules, minutes, opts)
 				slots[i] = { k = "p", p = r.p, s = r.s, m = r.m }
 				log.firstPetTier[r.tier] = log.firstPetTier[r.tier] or t
 				baseScore = baseScore + Config.baseGain(r.tier)
-				local lv = Config.baseLevel(baseScore)
+				local k = tostring(r.p)
+				dexN[k] = { n = (dexN[k] and dexN[k].n or 0) + 1 }
+				local lv = Config.baseLevel(baseScore, dexN, nil)
+				level = math.max(level, lv)
 				for l = 2, lv do
 					log.baseLevelAt[l] = log.baseLevelAt[l] or t
 				end
@@ -132,7 +140,7 @@ function Economy.simulate(Config, Rules, minutes, opts)
 		end
 		log.maxStall = math.max(log.maxStall or 0, t - lastIncomeGain)
 		if checkpoints[t] then
-			log.marks[t] = { coins = coins, income = inc, hatched = hatched, slots = Rules.capacity(up), food = up.food, inc = up.inc, species = species }
+			log.marks[t] = { coins = coins, income = inc, hatched = hatched, slots = cap(), food = up.food, inc = up.inc, species = species }
 		end
 		if not log.firstIncome10 and inc >= 10 then
 			log.firstIncome10 = t
