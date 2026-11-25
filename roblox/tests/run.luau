@@ -8263,5 +8263,29 @@ do
 	end
 end
 
+
+do
+	suite("Régression Lune : jamais de comparaison table / nombre côté client (workspace:GetServerTimeNow)")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = 0, hook = loopGuard })
+	if RT then
+		check("Runtime factice : GetServerTimeNow renvoie un NOMBRE (Luau refuse de comparer une table et un nombre)", type(RT.services.Workspace:GetServerTimeNow()) == "number")
+	end
+	local bad = ""
+	for _, f in ipairs({ "Client.client.lua", "Animations.client.lua", "Cinematics.client.lua", "Ambience.client.lua", "Culling.client.lua" }) do
+		local ok, src = pcall(fs.readFile, "roblox/src/StarterPlayerScripts/" .. f)
+		if ok then
+			local lineNo = 0
+			for line in (src .. "\n"):gmatch("([^\n]*)\n") do
+				lineNo = lineNo + 1
+				-- une valeur serveur lue directement dans une comparaison (sans garde de type) ferait planter Luau si le serveur renvoyait autre chose qu'un nombre
+				if line:find("GetServerTimeNow()", 1, true) and (line:find("GetServerTimeNow%(%)%s*[<>]") or line:find("[<>]=?%s*workspace:GetServerTimeNow")) then
+					bad = bad .. " " .. f .. ":" .. lineNo
+				end
+			end
+		end
+	end
+	check("Client : aucune comparaison directe avec GetServerTimeNow (valeur lue, gardée par type, puis comparée)" .. bad, bad == "")
+end
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

@@ -111,6 +111,9 @@ function Fake.runtime(opts)
 	function methods.GetScale(self)
 		return rawget(self, "__scale") or 1
 	end
+	function methods.GetServerTimeNow()
+		return 1700000000 + RT.now -- un NOMBRE, comme Roblox (Luau refuse de comparer une table et un nombre)
+	end
 	function methods.GetPivot(self)
 		return rawget(self, "__pivot") or RT.cf(0, 0, 0)
 	end

@@ -198,7 +198,8 @@ end)
 -- Le squash & stretch du pet est rendu par une échelle uniforme qui suit la courbe verticale ; celui de l'œuf (avant éclosion) est réel.
 CollectionService:GetInstanceAddedSignal("PopIn"):Connect(function(model)
 	local born = model:GetAttribute("Born")
-	if not born or workspace:GetServerTimeNow() - born > 2 then
+	local serverNow = workspace:GetServerTimeNow()
+	if not born or type(serverNow) ~= "number" or serverNow - born > 2 then
 		return
 	end
 	local squash = Config.animEnabled("hatchSquash")
@@ -315,6 +316,9 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 	local camPos, nowServer, t = cam.CFrame.Position, workspace:GetServerTimeNow(), os.clock()
+	if type(nowServer) ~= "number" then
+		nowServer = os.time()
+	end
 	local near = {}
 	for _, m in ipairs(models) do
 		local body = m.PrimaryPart

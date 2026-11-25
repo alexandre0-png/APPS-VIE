@@ -1434,7 +1434,8 @@ end)
 local freshLabel = text(toolsFrame, { Position = UDim2.fromOffset(0, 88), Size = UDim2.fromOffset(160, 24), TextSize = 14, TextColor3 = Color3.fromRGB(160, 220, 255), Text = "", Visible = false })
 task.spawn(function()
 	while true do
-		local now = workspace:GetServerTimeNow()
+		local nowRaw = workspace:GetServerTimeNow()
+		local now = type(nowRaw) == "number" and nowRaw or os.time() -- jamais de comparaison table / nombre (Luau refuse)
 		local untilT, readyT = player:GetAttribute("DoorUntil") or 0, player:GetAttribute("DoorReady") or 0
 		if now < untilT then
 			doorBtn.Text = "🔒 Porte fermée : " .. math.ceil(untilT - now) .. " s"
