@@ -1,6 +1,7 @@
 import sys, os, math, json, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from blender_lib import *
+from blender_lib import _fin
 import mathutils
 OUT = sys.argv[1]; M = {}
 R = math.radians
@@ -22,9 +23,10 @@ def limb(name, hexc, p0, p1, r0, r1, v=6):
     m = [(p0[i] + p1[i]) / 2 for i in range(3)]
     return cone(name, hexc, m, r0, r1, L, (0, ry, rz), v)
 def rock(name, hexc, loc, r, sc=(1,1,1), rot=(0,0,0), seg=7, rings=4):
-    o = sph(name, hexc, loc, r, sc, seg, rings)
-    o.rotation_euler = rot; bpy.context.view_layer.objects.active = o; o.select_set(True)
-    bpy.ops.object.transform_apply(rotation=True); return o
+    bpy.ops.mesh.primitive_uv_sphere_add(location=(0,0,0), segments=seg, ring_count=rings, radius=r); o = bpy.context.active_object
+    o.scale = sc; bpy.ops.object.transform_apply(scale=True)
+    o.rotation_euler = rot; bpy.ops.object.transform_apply(rotation=True)
+    o.location = loc; return _fin(o, name, hexc)
 def crown(cx, cy, cz, r, pal, rng, n=4, flat=0.6):
     sph("Houppier", pal[0], (cx, cy, cz), r, (1, 1, flat), 9, 6)
     for i in range(n):
