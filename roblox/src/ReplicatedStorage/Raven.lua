@@ -101,4 +101,85 @@ function Raven.resolve(chased)
 	return chased and "chased" or "success"
 end
 
+-- Jetons offerts par un produit (RemoteSteal 1, RemoteStealPack 3) ; 0 si le produit n'en donne pas.
+function Raven.tokensFor(Config, productName)
+	local n = Config.REMOTE_STEAL.packs[productName]
+	return type(n) == "number" and n or 0
+end
+
+-- Jetons « détenus » pour le plafond d'achat : ceux du profil PLUS celui qui est en vol (il sera rendu en cas d'échec : le compter évite de le perdre au-delà du plafond).
+function Raven.held(tokens, flying)
+	return math.max(0, tokens) + (flying and 1 or 0)
+end
+
+-- Cumul d'un bonus serveur (tapis doré, pluie de chance) : `left` secondes restantes, `add` secondes achetées, plafond `max`. Retourne (nouveau restant, accepté).
+-- Un achat qui dépasserait le plafond n'est PAS accepté (le reçu reste « pas encore traité » : aucun argent perdu).
+function Raven.stack(left, add, max)
+	left = math.max(0, left)
+	if left + add > max then
+		return left, false
+	end
+	return left + add, true
+end
+
+-- Une demande de vol en cours est-elle toujours valable ? Tout est décidé par le serveur ; `w` = { thiefHere, victimHere, eggStill, eggLeft, chased, shielded, thiefFreeSlot, now, endsAt }.
+-- Retourne (decision, raison) : "pending" (le corbeau vole encore), "chased" (jeton rendu), "success", ou "aborted" (raison : thiefGone, victimGone, eggGone, shield, noSlot ;
+-- jeton rendu partout sauf thiefGone, où le serveur le rend dans le profil du voleur avant sa sauvegarde de départ).
+function Raven.settle(w)
+	if not w.thiefHere then
+		return "aborted", "thiefGone"
+	end
+	if not w.victimHere then
+		return "aborted", "victimGone"
+	end
+	if not w.eggStill or (type(w.eggLeft) == "number" and w.eggLeft <= 0) then
+		return "aborted", "eggGone"
+	end
+	if w.chased then
+		return "chased", "chased"
+	end
+	if w.now < w.endsAt then
+		return "pending", "flying"
+	end
+	if w.shielded then
+		return "aborted", "shield" -- un autre corbeau (ou un vol) vient de protéger la victime : un seul vol à la fois la dépouille
+	end
+	if not w.thiefFreeSlot then
+		return "aborted", "noSlot"
+	end
+	return "success", "success"
+end
+
+-- Journal « Qui m'a volé ? » : insère l'entrée en tête, ne garde que `max` entrées. Retourne la liste (modifiée en place).
+function Raven.logPush(list, entry, max)
+	table.insert(list, 1, entry)
+	while #list > max do
+		table.remove(list)
+	end
+	return list
+end
+
+-- Clés du journal serveur RavenLog (une clé par jour UTC) : jour courant, et jour à effacer (plus vieux que `days` jours).
+function Raven.dayKey(now)
+	return "D" .. Raven.day(now)
+end
+function Raven.expiredKey(now, days)
+	return "D" .. (Raven.day(now) - days - 1)
+end
+
+-- Position du corbeau (x, y, z) à l'instant t (0 à 1) d'un vol de `from` vers `to` : montée en arc puis cercle au-dessus de la cible sur la fin.
+-- Pure (aucun Vector3) : le serveur en tire un CFrame. `orbit` = fraction du vol passée à tourner (0,3).
+function Raven.birdPos(from, to, t, orbit)
+	t = math.min(math.max(t, 0), 1)
+	local o = orbit or 0.3
+	local k = 1 - o
+	if t < k then
+		local u = t / k
+		local e = u * u * (3 - 2 * u)
+		return from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e + math.sin(u * math.pi) * 6, from.z + (to.z - from.z) * e
+	end
+	local a = (t - k) / o * math.pi * 2
+	return to.x + math.cos(a) * 5, to.y, to.z + math.sin(a) * 5
+end
+
 return Raven

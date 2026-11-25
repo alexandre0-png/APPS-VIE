@@ -36,7 +36,7 @@ function Rules.new(Config)
 	end
 
 	-- Points de « rareté supérieure » (en %) selon les bonus actifs.
-	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive)
+	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive, serverLuck)
 		local up = Config.UPGRADE.base + luckLevel -- 5 % de base : UNE chance d'amélioration d'un cran (jamais de rétrogradation)
 		if luckEvent then
 			up += Config.UPGRADE.event
@@ -46,6 +46,9 @@ function Rules.new(Config)
 		end
 		if potionActive then
 			up += Config.LUCK_POTION_BONUS
+		end
+		if serverLuck then
+			up += Config.SERVER_LUCK.bonus -- pluie de chance offerte au serveur (lot 7) : valeur fixe, jamais cumulée avec elle-même
 		end
 		return up
 	end

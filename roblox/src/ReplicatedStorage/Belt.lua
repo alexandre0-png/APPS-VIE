@@ -131,6 +131,24 @@ function Belt.welcome(Config, st, userId, hatched, now)
 	return egg
 end
 
+-- Tapis privé (pass PrivateBelt) : état { acc, pending = { raretés } }. Un œuf gratuit toutes les `interval` secondes d'ACTIVITÉ (`active` : le joueur a agi ou bougé dans
+-- Config.IDLE.seconds), `pending` œufs en attente au plus (plein : le compteur est suspendu), table STANDARD (Config.BELT.weights.normal), AUCUNE production hors ligne
+-- (ce module n'est appelé que pour un joueur présent). `r` dans [0, 1) tire la rareté. Retourne la rareté créée, ou nil.
+function Belt.privateStep(Config, st, dt, active, r)
+	local P = Config.BELT.private
+	if not active or type(dt) ~= "number" or dt ~= dt or dt <= 0 or #st.pending >= P.pending then
+		return nil
+	end
+	st.acc = st.acc + math.min(dt, 5) -- un grand dt (serveur en pause) ne rattrape pas plusieurs œufs
+	if st.acc < P.interval then
+		return nil
+	end
+	st.acc = 0
+	local tier = Belt.pick(Config.BELT.weights.normal, r)
+	st.pending[#st.pending + 1] = tier
+	return tier
+end
+
 -- Tente l'achat de l'œuf `eggId` par `userId` ; `coins` = pièces du joueur. Retourne (true, œuf) ou (false, raison).
 -- Règles : 1 achat par joueur toutes les `buyCooldown` s ; œuf Légendaire+ : prompt actif seulement `legendaryDelay` s après son apparition et 1 par joueur
 -- et par minute ; œuf de bienvenue réservé à son destinataire ; réservation atomique (le premier valide l'emporte).

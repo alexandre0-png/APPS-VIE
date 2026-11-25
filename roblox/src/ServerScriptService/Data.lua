@@ -8,6 +8,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Raven")) -- règles pures du Corbeau (clés du journal RavenLog)
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -130,6 +131,9 @@ function Data.default()
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
 		settings = { blockFriendRavens = false }, -- réglages du joueur
+		raven = { day = 0, n = 0, cd = 0, sh = 0 }, -- lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
+		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
+		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
@@ -252,6 +256,27 @@ local function merge(saved)
 	end
 	if type(saved.tokens) == "table" then
 		d.tokens.remoteSteal = math.min(Config.REMOTE_STEAL.tokenMax, math.floor(sane(saved.tokens.remoteSteal, 0)))
+	end
+	if type(saved.raven) == "table" then
+		local rv = saved.raven
+		d.raven.day = math.max(0, math.floor(sane(rv.day, 0)))
+		d.raven.n = math.min(Config.REMOTE_STEAL.dailyMax, math.max(0, math.floor(sane(rv.n, 0))))
+		d.raven.cd = math.min(4e9, math.max(0, sane(rv.cd, 0)))
+		d.raven.sh = math.min(4e9, math.max(0, sane(rv.sh, 0)))
+	end
+	if type(saved.stealLog) == "table" then
+		for _, e in ipairs(saved.stealLog) do
+			if type(e) == "table" and type(e.n) == "string" and type(e.t) == "number" and e.t % 1 == 0 and e.t >= 1 and e.t <= #Config.TIERS and (e.k == "p" or e.k == "r") and #d.stealLog < Config.REMOTE_STEAL.logMax then
+				d.stealLog[#d.stealLog + 1] = { n = string.sub(e.n, 1, 24), t = e.t, at = math.min(4e9, math.max(0, sane(e.at, 0))), k = e.k }
+			end
+		end
+	end
+	if type(saved.pb) == "table" then
+		for _, t in ipairs(saved.pb) do
+			if type(t) == "number" and t % 1 == 0 and t >= 1 and t <= #Config.TIERS and #d.pb < Config.BELT.private.pending then
+				d.pb[#d.pb + 1] = t
+			end
+		end
 	end
 	if type(saved.settings) == "table" then
 		d.settings.blockFriendRavens = saved.settings.blockFriendRavens == true
@@ -455,6 +480,46 @@ function Data.save(player, d, release)
 	end
 	saving[k] = nil
 	return success
+end
+
+---------------------------------------------------------------- Journal serveur du Corbeau (RavenLog)
+-- Une clé par jour UTC ("D<jour>") contenant au plus RAVEN_LOG_MAX entrées { thief, victim, tier, result, at } ; les clés de plus de Config.REMOTE_STEAL.logDays jours
+-- sont effacées (au mieux, une fois par serveur et par jour). Tout est dans un pcall : un échec ne bloque JAMAIS le jeu.
+local RAVEN_LOG_MAX = 400
+local ravenLogStore, ravenPruned = nil, nil
+function Data.logRaven(entry)
+	if apiBlocked or type(entry) ~= "table" then
+		return false
+	end
+	if not ravenLogStore then
+		local okS, st = pcall(function()
+			return DataStoreService:GetDataStore("RavenLog")
+		end)
+		if not okS then
+			return false
+		end
+		ravenLogStore = st
+	end
+	local now = os.time()
+	local ok, err = pcall(function()
+		ravenLogStore:UpdateAsync(Raven.dayKey(now), function(old)
+			local list = type(old) == "table" and old or {}
+			list[#list + 1] = entry
+			while #list > RAVEN_LOG_MAX do
+				table.remove(list, 1)
+			end
+			return list
+		end)
+		local day = Raven.day(now)
+		if ravenPruned ~= day then
+			ravenPruned = day
+			ravenLogStore:RemoveAsync(Raven.expiredKey(now, Config.REMOTE_STEAL.logDays))
+		end
+	end)
+	if not ok then
+		markApiBlocked(err)
+	end
+	return ok
 end
 
 ---------------------------------------------------------------- Classement global

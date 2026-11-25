@@ -2418,4 +2418,110 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 	return model
 end
 
+---------------------------------------------------------------- Corbeau chipeur et tapis privé (lot 7)
+-- Corbeau du vol à distance : modèle Blender `npc.raven` s'il a été chargé (aucun ID pour l'instant : REPLI procédural), sinon 6 Parts minuscules (corps, tête, bec, 2 ailes,
+-- queue), sans collision, TEMPORAIRES (détruites à la fin du vol ; au plus un par joueur voleur). Retourne le modèle (PrimaryPart = corps) ; `Builder.ravenFlap` bat des ailes.
+function Builder.raven(parent)
+	local ok, model = pcall(function()
+		local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("npc", "raven")
+		if not (clone and clone:IsA("Model")) then
+			if clone then
+				clone:Destroy()
+			end
+			return nil
+		end
+		local first
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				first = first or d
+			end
+		end
+		if not first then
+			clone:Destroy()
+			return nil
+		end
+		clone.PrimaryPart = clone.PrimaryPart or first
+		clone.Name = "Raven"
+		return clone
+	end)
+	if not (ok and model) then
+		model = Instance.new("Model")
+		model.Name = "Raven"
+		local black, grey = Color3.fromRGB(28, 28, 36), Color3.fromRGB(52, 52, 64)
+		local function bit(name, size, off, color)
+			local p = part({ Name = name, Size = size, CFrame = CFrame.new(off.X, off.Y, off.Z), Color = color, CanCollide = false, CanTouch = false, CanQuery = false }, model)
+			return p
+		end
+		local body = bit("Body", Vector3.new(1.6, 1.4, 2.6), Vector3.new(0, 0, 0), black)
+		bit("Head", Vector3.new(1.1, 1.1, 1.1), Vector3.new(0, 0.5, -1.7), black)
+		bit("Beak", Vector3.new(0.4, 0.4, 0.9), Vector3.new(0, 0.4, -2.5), Color3.fromRGB(235, 170, 50))
+		bit("WingL", Vector3.new(2.6, 0.2, 1.6), Vector3.new(-2, 0.2, 0), grey)
+		bit("WingR", Vector3.new(2.6, 0.2, 1.6), Vector3.new(2, 0.2, 0), grey)
+		bit("Tail", Vector3.new(1, 0.2, 1.4), Vector3.new(0, 0, 1.9), grey)
+		model.PrimaryPart = body
+	end
+	model:SetAttribute("Flap", false)
+	model.Parent = parent
+	return model
+end
+
+-- Bat des ailes (alterne deux poses : pas de rotation, simple décalage vertical) : appelée quelques fois par seconde par le serveur pendant le vol.
+function Builder.ravenFlap(model, up)
+	local body = model and model.PrimaryPart
+	if not body then
+		return
+	end
+	local dy = up and 0.55 or -0.2
+	for name, dx in pairs({ WingL = -2, WingR = 2 }) do
+		local w = model:FindFirstChild(name)
+		if w then
+			w.CFrame = body.CFrame * CFrame.new(dx, dy, 0)
+		end
+	end
+end
+
+-- Tapis privé d'une base (pass PrivateBelt) : un dossier « PrivateBelt » dans le modèle de la base, avec le tapis 10 x 3 (1 Part, prompt réservé au propriétaire) et un petit œuf
+-- par œuf en attente (3 au plus) : 4 Parts au maximum, détruit avec le propriétaire. `tiers` = raretés en attente. Retourne le dossier.
+function Builder.privateBelt(plot, ownerId, tiers)
+	Builder.clearPrivateBelt(plot)
+	local P = Config.BELT.private
+	local folder = Instance.new("Folder")
+	folder.Name = "PrivateBelt"
+	local belt = part({ Name = "PrivateBeltStrip", Size = Vector3.new(P.width, 0.3, P.depth), CFrame = plot.cf * CFrame.new(P.x or 0, 1.3, P.z), Color = Color3.fromRGB(46, 50, 62), Material = Enum.Material.Metal, CanCollide = false }, folder)
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Prendre l'œuf gratuit"
+	pr.ObjectText = "Tapis privé"
+	pr.HoldDuration = 0.3
+	pr.MaxActivationDistance = 10
+	pr.RequiresLineOfSight = false
+	pr.Enabled = #tiers > 0
+	pr:SetAttribute("Kind", "PrivBelt")
+	pr:SetAttribute("Owner", ownerId)
+	pr.Parent = belt
+	local label = #tiers > 0 and ("🥚 " .. #tiers .. " œuf(s) à prendre") or "🛤️ Tapis privé"
+	sign(belt, label, Color3.fromRGB(255, 235, 170), 3.5, 220)
+	for i, t in ipairs(tiers) do
+		local def = Config.TIERS[t]
+		if def then
+			local egg = ball({ Name = "PrivateEgg" .. i, Size = Vector3.new(1.9, 1.9, 1.9), CFrame = plot.cf * CFrame.new((P.x or 0) + (i - 2) * 3.4, 2.4, P.z), Color = def.color, Material = Enum.Material.SmoothPlastic, CanTouch = false, CanQuery = false }, folder)
+			sign(egg, def.name, def.color, 2, 120)
+		end
+	end
+	folder.Parent = plot.model
+	plot.privateBelt = folder
+	return folder
+end
+
+function Builder.clearPrivateBelt(plot)
+	local f = plot and plot.privateBelt
+	plot.privateBelt = nil
+	if f then
+		pcall(function()
+			f:Destroy()
+		end)
+	end
+end
+
 return Builder
