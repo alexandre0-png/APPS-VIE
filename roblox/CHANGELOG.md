@@ -2,6 +2,12 @@
 
 Chaque entrée indique les décisions techniques prises. Dates au format AAAA-MM-JJ.
 
+## REFONTE lot 1 : données (aucune logique serveur modifiée)
+
+- `Config.Map2` (carte 700 x 500, tous les éléments du plan A), `TERR` (5 territoires : poids, temps de vol, réapparition, pièges), `VIGILANCE`, `BELT` (tapis, tables standard et dorée), `CARRY`, `NEWBIE`, `TRAVEL2`, `REMOTE_STEAL`, `INTERCEPT` (coupée), `BASE_WEIGHTS2` / `BASE_LEVELS2` (maison à 8 niveaux, branchés au lot 5), `SLOTS_MAX = 20`, `HEN_LINES` et `HEN` (énigme), `FEATHER_SPOTS` (12), `ONBOARD2`, `CHAPTER_TEXTS`, `Config.beltOddsText`.
+- Achats : 2 passes (+4 emplacements 2098181699, Tapis privé 2098265697) et 4 produits (Pluie de chance 3736121217, Tapis doré 3736121227, Corbeau 3736121232, 3 Corbeaux 3736121238) ; les 6 offres à hasard portent `random = true` (PolicyService au lot 7). PUBLICATION.md et A_FAIRE_UTILISATEUR.md à jour (17 achats).
+- Tests : poids = 100 ± 0,01, produits complets, niveaux croissants, 12 plumes distinctes hors territoires (> rayon + 10) et hors lacs (sauf le ponton), textes du HUD < 110 octets, nids dans leurs disques, 7 gardiens.
+
 ## Lot 8 (PvP asynchrone)
 
 - Équipe de DÉFENSE enregistrée depuis le profil (jamais depuis le client), publiée par le serveur (DataStore `ChipeOeufs_Pvp_v1`, classement `ChipeOeufs_PvpBoard_v1` par saison) ; adversaire = un des 5 joueurs de la saison les plus proches en trophées (jamais soi-même), sinon « Dresseur fantôme » au niveau des trophées ; même moteur de combat, simulé par le serveur.

@@ -80,6 +80,12 @@ Creator Hub → ton expérience → **Monetization**. Les prix sont des suggesti
 | Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `product_instanthatch_512.png` |
 | Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `product_luckpotion_512.png` |
 | Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de tes revenus (minimum 5 000 pièces). | `product_coinpack_512.png` |
+| Game Pass | +4 emplacements | 249 R$ | 4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20). | créé et en vente |
+| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues. | créé et en vente |
+| Developer Product | Pluie de chance pour tous | 129 R$ | 10 min de +5 points de chance d'amélioration pour tout le serveur. | créé et en vente |
+| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 3 s (table dorée affichée), cumulable jusqu'à 30 min. | créé et en vente |
+| Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | créé et en vente |
+| Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | créé et en vente |
 
 - [ ] Créer les 5 Game Passes et les 6 Developer Products du tableau ci-dessus (colonne « ID à renseigner » : `PUBLICATION.md` §3bis donne la ligne exacte de `Config.lua` pour chacun).
 - [ ] Copier chaque **ID** dans `roblox/src/ReplicatedStorage/Config.lua`, champ `id = 0` de la ligne correspondante (les 11 clés sont listées plus haut). Ou me donner les 11 ID et je m'en charge, puis je régénère la place.

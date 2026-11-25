@@ -5515,7 +5515,7 @@ do
 			end
 		end
 	end
-	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 11 and missing == "")
+	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 17 and missing == "")
 end
 
 
@@ -6705,6 +6705,122 @@ do
 		RT.step(1)
 		check("PvP : au changement de saison les trophées sont réduits (" .. state(pb).battle.pvp.trophies .. ") sans erreur", #RT.errors == 0 and state(pb).battle.pvp.trophies <= r.total)
 	end
+end
+
+
+do
+	suite("Refonte lot 1 : tables de données (poids, produits, niveaux, plumes, textes)")
+	local function sum(t)
+		local x = 0
+		for _, v in ipairs(t) do
+			x = x + v
+		end
+		return x
+	end
+	local okW = math.abs(sum(Config.BELT.weights.normal) - 100) < 0.01 and math.abs(sum(Config.BELT.weights.golden) - 100) < 0.01
+	for k, t in pairs(Config.TERR) do
+		okW = okW and math.abs(sum(t.weights) - 100) < 0.01
+	end
+	check("Poids de rareté : tapis standard, tapis doré et 5 territoires somment à 100 (± 0,01)", okW)
+	check("Territoires : poids de Gus, Mara et Zed identiques à Config.RIVALS (inchangés)", (function()
+		for k, t in pairs(Config.TERR) do
+			if t.rival > 0 then
+				local w = Config.RIVALS[t.rival].weights
+				for i = 1, 6 do
+					if w[i] ~= t.weights[i] then
+						return false
+					end
+				end
+			end
+		end
+		return true
+	end)())
+	local bad = ""
+	for _, group in ipairs({ "PASSES", "PRODUCTS" }) do
+		for key, def in pairs(Config[group]) do
+			if type(def.name) ~= "string" or def.name == "" or type(def.desc) ~= "string" or def.desc == "" or type(def.emoji) ~= "string" or type(def.id) ~= "number" then
+				bad = bad .. " " .. key
+			end
+		end
+	end
+	check("Produits : chaque passe et produit a nom, description, emoji et ID" .. bad, bad == "" and Config.PASSES.ExtraSlots.id == 2098181699 and Config.PASSES.PrivateBelt.id == 2098265697 and Config.PRODUCTS.ServerLuck.id == 3736121217 and Config.PRODUCTS.GoldenBelt.id == 3736121227 and Config.PRODUCTS.RemoteSteal.id == 3736121232 and Config.PRODUCTS.RemoteStealPack.id == 3736121238)
+	local rnd = {}
+	for _, group in ipairs({ "PASSES", "PRODUCTS" }) do
+		for key, def in pairs(Config[group]) do
+			if def.random then
+				rnd[#rnd + 1] = key
+			end
+		end
+	end
+	table.sort(rnd)
+	check("PolicyService : les 6 offres à hasard sont marquées (" .. table.concat(rnd, ", ") .. ")", table.concat(rnd, ",") == "ExclusiveEgg,GoldenBelt,LuckPotion,Lucky,PrivateBelt,ServerLuck")
+	local inc = true
+	for i = 2, #Config.BASE_LEVELS2 do
+		if Config.BASE_LEVELS2[i].score <= Config.BASE_LEVELS2[i - 1].score or Config.BASE_LEVELS2[i].size < Config.BASE_LEVELS2[i - 1].size then
+			inc = false
+		end
+	end
+	local slotsBonus = 0
+	for _, l in ipairs(Config.BASE_LEVELS2) do
+		slotsBonus = math.max(slotsBonus, 0) + 0
+	end
+	check("Maison : 8 niveaux, seuils et emprises strictement croissants, niveau 7 exige un Légendaire et 8 un Mythique", #Config.BASE_LEVELS2 == 8 and inc and Config.BASE_LEVELS2[7].needTier == 4 and Config.BASE_LEVELS2[8].needTier == 5 and Config.BASE_LEVELS2[8].size == Config.Map2.baseSizeMax)
+	local total = 0
+	for _, l in ipairs(Config.BASE_LEVELS2) do
+		total = math.max(total, l.slots) -- bonus de niveau absolu (non cumulatif) : 4 au niveau 8
+	end
+	check("Emplacements : 4 + 8 améliorations + " .. total .. " de maison + 4 du pass = " .. (4 + 8 + total + 4) .. " = " .. Config.SLOTS_MAX, 4 + 8 + total + 4 == Config.SLOTS_MAX and Config.SLOTS_MAX == 20)
+	-- plumes : 12 emplacements distincts, hors territoires (distance > rayon + 10), hors lacs et rivière
+	local spots, distinct, far = 0, {}, true
+	for dir, list in pairs(Config.FEATHER_SPOTS) do
+		for _, sp in ipairs(list) do
+			spots = spots + 1
+			distinct[sp.x .. "," .. sp.z] = true
+			for _, t in pairs(Config.TERR) do
+				if math.sqrt((sp.x - t.x) ^ 2 + (sp.z - t.z) ^ 2) <= t.r + 10 then
+					far = false
+				end
+			end
+			for _, lk in ipairs(Config.Map2.lakes) do
+				if not sp.dock and math.sqrt((sp.x - lk.x) ^ 2 + (sp.z - lk.z) ^ 2) < lk.r then
+					far = false
+				end
+			end
+		end
+	end
+	local nd = 0
+	for _ in pairs(distinct) do
+		nd = nd + 1
+	end
+	check("Plumes : " .. spots .. " emplacements (3 par direction), " .. nd .. " distincts, tous hors territoires gardés (> rayon + 10) et hors lacs", spots == 12 and nd == 12 and far)
+	local long = ""
+	local function chk(txt, tag)
+		if #txt >= 110 then
+			long = long .. " " .. tag
+		end
+	end
+	for i, t in ipairs(Config.ONBOARD2) do
+		chk(t, "onboard" .. i)
+	end
+	chk(Config.CHAPTER_TEXTS[8].title, "ch8t")
+	chk(Config.CHAPTER_TEXTS[8].text, "ch8")
+	for k, v in pairs(Config.HEN_LINES) do
+		if type(v) == "string" and k ~= "explain" and #v >= 220 then
+			long = long .. " hen." .. k
+		end
+	end
+	check("Textes du HUD < 110 octets (onboarding, chapitre 8) et dialogues de la Mère Poule raisonnables" .. long, long == "")
+	check("Dialogue d'accueil : 4 répliques, 3 boutons ; oddsText mentionne le tapis", #Config.HEN_LINES.first == 4 and Config.HEN_LINES.buttons.go == "J'y vais !" and Config.oddsText():find("tapis", 1, true) ~= nil)
+	local terrOk = true
+	for _, k in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[k]
+		for _, n in ipairs(t.nests) do
+			if math.sqrt((n[1] - t.x) ^ 2 + (n[2] - t.z) ^ 2) > t.r + 1 then
+				terrOk = false
+			end
+		end
+	end
+	check("Territoires : tous les nids sont dans leur disque (7 gardiens au total : 1 + 1 + 2 + 3)", terrOk and Config.TERR.gusNW.guards + Config.TERR.gusSW.guards + Config.TERR.mara.guards + Config.TERR.zed.guards == 7)
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

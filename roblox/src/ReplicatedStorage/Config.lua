@@ -118,10 +118,12 @@ Config.EVENT_GAP = { 120, 200 } -- délai aléatoire entre deux événements
 -- Game Passes : crée-les sur create.roblox.com puis colle les ID ici (0 = désactivé)
 Config.PASSES = {
 	Coins2x = { id = 2093291260, name = "Revenus x2", emoji = "💰", desc = "Double tous tes revenus, pour toujours." },
-	Lucky = { id = 2093447290, name = "Chance +10%", emoji = "🍀", desc = "Plus de pets supérieurs à l'éclosion." },
+	Lucky = { id = 2093447290, name = "Chance +10%", emoji = "🍀", desc = "+10 points de chance d'amélioration d'un cran à l'éclosion (5 % → 15 %).", random = true },
 	Fast = { id = 2097173053, name = "Éclosion rapide", emoji = "⚡", desc = "Les œufs éclosent 25% plus vite." },
 	Speed = { id = 2092253306, name = "Vitesse +20 %", emoji = "👟", desc = "Cours 20 % plus vite, pour toujours." },
 	VipBase = { id = 2094209172, name = "Base VIP", emoji = "👑", desc = "Boucliers d'œufs x2 et bonus quotidien x2." },
+	ExtraSlots = { id = 2098181699, name = "+4 emplacements", emoji = "🧺", desc = "4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20)." },
+	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
 }
 Config.SPEED_PASS_MUL = 1.2
 Config.VIP_SHIELD_MUL = 2
@@ -342,10 +344,14 @@ end
 -- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
 Config.PRODUCTS = {
 	InstantHatch = { id = 3734229329, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
-	LuckPotion = { id = 3734229337, name = "Potion de chance", emoji = "🧪", desc = "+25% de pets supérieurs pendant 15 min." },
+	LuckPotion = { id = 3734229337, name = "Potion de chance", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 15 min.", random = true },
 	StarterPack = { id = 3734229313, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
-	ExclusiveEgg = { id = 3734229320, name = "Œuf exclusif Mythique", emoji = "🥚", desc = "Un œuf Mythique placé directement dans ta base (il faut une place libre)." },
+	ExclusiveEgg = { id = 3734229320, name = "Œuf exclusif Mythique", emoji = "🥚", desc = "Un œuf Mythique placé directement dans ta base (il faut une place libre).", random = true },
 	Revive = { id = 3734229323, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
+	ServerLuck = { id = 3736121217, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
+	GoldenBelt = { id = 3736121227, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
+	RemoteSteal = { id = 3736121232, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
+	RemoteStealPack = { id = 3736121238, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
 	CoinPack = { id = 3734229339, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 2, eggs = 3 }
@@ -1604,6 +1610,15 @@ function Config.eggOddsText()
 	return table.concat(out, " · ") .. "."
 end
 
+-- « Commun 62 % · Rare 26 % ... » pour une table de tapis (« normal » ou « golden »).
+function Config.beltOddsText(kind)
+	local w, out = Config.BELT.weights[kind], {}
+	for i, t in ipairs(Config.TIERS) do
+		out[#out + 1] = string.format("%s %s%%", t.name, tostring(w[i]))
+	end
+	return table.concat(out, " · ") .. "."
+end
+
 function Config.oddsText()
 	local function pct(list, none)
 		local total = 0
@@ -1616,8 +1631,129 @@ function Config.oddsText()
 		end
 		return table.concat(out, " · ")
 	end
-	return "🎲 Probabilités de base. L'œuf annoncé fixe la rareté du pet. Seule exception : " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran, signalée « AMÉLIORÉ ! » (Trèfle, événements, Pass Chance et Potion augmentent cette part, plafonnée à 70%). Jamais de rareté inférieure. Par œuf : " .. Config.eggOddsText() .. " Mutations : "
+	return "🎲 Probabilités de base. L'œuf annoncé fixe la rareté du pet. Seule exception : " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran, signalée « AMÉLIORÉ ! » (Trèfle, événements, Pass Chance et Potion augmentent cette part, plafonnée à 70%). Jamais de rareté inférieure. Par œuf : " .. Config.eggOddsText() .. " Rareté des œufs du tapis du marché (standard) : " .. Config.beltOddsText("normal") .. " Mutations : "
 		.. pct(Config.MUTS, "Aucune") .. " (le Biome Alien multiplie la mutation Alien par 5). Tailles : " .. pct(Config.SIZES, "Normal") .. "."
 end
+
+---------------------------------------------------------------- REFONTE (lot 1) : tables de données de la nouvelle carte, du tapis, des territoires, de l'énigme
+-- Source : obsidian-studio/Jeux/REFONTE_CHIPE_OEUFS.md. Nord = -Z, Est = +X, marche de référence 16 studs/s. Ces tables sont des DONNÉES : les lots suivants les branchent.
+
+-- A. Nouvelle carte 700 x 500 (remplace Config.Map au lot 2 ; Config.Map reste lu par les tests existants jusque-là).
+Config.Map2 = {
+	bounds = { x0 = -350, x1 = 350, z0 = -250, z1 = 250 }, backdrop = { w = 900, d = 700 }, pathHalf = 5, dirtHalf = 3,
+	plaza = { x = 0, z = 0, r = 60 }, hall = { x = -40, z = 0, r = 18, h = 30 }, fountain = { x = 10, z = -38, r = 7 },
+	belt = { x0 = -22, x1 = 38, z = 0, width = 8, height = 2, bin = { x = 42, z = 0 } },
+	stalls = { { x = -35, z = 38 }, { x = 5, z = 42 }, { x = 40, z = 36 } },
+	track = { x = -60, z = -45, w = 16, d = 40 }, -- ancien Treadmill : « Piste d'entraînement » (clé `train` inchangée)
+	portalHub = { x0 = 0, x1 = 40, z = -50, count = 4, gap = 13 },
+	bigEgg = { x = 70, z = -20, r = 22, h = 16 }, hen = { x = 52, z = -28 },
+	runeStones = { { x = 70, z = -34, dir = "N" }, { x = 84, z = -20, dir = "E" }, { x = 70, z = -6, dir = "S" }, { x = 56, z = -20, dir = "O" } },
+	bases = { { x = 0, z = -140 }, { x = -205, z = -45 }, { x = 200, z = -45 }, { x = -30, z = 165 }, { x = 175, z = 135 } },
+	wildPen = { x = 75, z = -105, w = 18, d = 14, nests = 3 },
+	castle = { keep = { x = 300, z = -205 }, court = { x = 265, z = -170 }, h = 10, x0 = 215, x1 = 345, z0 = -250, z1 = -135, door = { x = 300, z = -185 } },
+	arena = { x = -265, z = 165, r = 42, sand = 28, entry = { x = -235, z = 135 } },
+	lakes = { { name = "LakeMill", x = -285, z = -105, r = 38, shore = 5 }, { name = "LakeWillow", x = 280, z = 200, r = 32, shore = 5 } },
+	rivers = {
+		{ name = "RiverNorth", width = 22, pts = { { -350, -205 }, { -200, -212 }, { -60, -208 }, { 60, -198 }, { 150, -160 }, { 215, -118 }, { 285, -105 }, { 350, -110 } } },
+		{ name = "BrookMill", width = 8, pts = { { -285, -143 }, { -288, -197 } } },
+		{ name = "BrookWillow", width = 6, ford = true, fordSpeed = 0.7, pts = { { 248, 205 }, { 150, 232 }, { 20, 238 }, { -120, 236 } } },
+	},
+	waterfall = { x = 330, z = -138, h = 10 },
+	bridges = { { name = "Castle", x = 215, z = -118, axis = "NS", w = 12, len = 30, stone = true }, { name = "North", x = -20, z = -203, axis = "NS", w = 6, len = 28 }, { name = "Mill", x = -286, z = -170, axis = "EW", w = 6, len = 14 } },
+	forests = { { x0 = -350, x1 = -310, z0 = -40, z1 = 120, max = 40 }, { x0 = -350, x1 = 340, z0 = -250, z1 = -222, max = 50 }, { x0 = 312, x1 = 350, z0 = -60, z1 = 150, max = 25 }, { x0 = -200, x1 = 230, z0 = 228, z1 = 250, max = 40 } },
+	groves = { { x = -160, z = -150 }, { x = 140, z = -20 }, { x = -200, z = 120 }, { x = 60, z = 190 } }, groveRadius = 12, groveTrees = 6,
+	hills = { { x = -300, z = -232, h = 18, r = 40 }, { x = 120, z = -238, h = 14, r = 35 }, { x = -330, z = 235, h = 12, r = 30 }, { x = 330, z = 240, h = 10, r = 30 } },
+	baseSizeMax = 72, -- emprise maximale d'une base (niveau 8)
+}
+
+-- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
+Config.TERR = {
+	wild = { x = 75, z = -105, r = 12, rival = 0, guards = 0, hold = 0.8, respawn = { 12, 12 }, weights = { 100, 0, 0, 0, 0, 0 }, nests = { { 70, -105 }, { 75, -105 }, { 80, -105 } } },
+	gusNW = { x = -95, z = -80, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -75, -100 }, { -120, -95 }, { -95, -55 } }, posts = { { -95, -80 } } },
+	gusSW = { x = -120, z = 75, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -145, 55 }, { -115, 105 }, { -90, 60 } }, posts = { { -120, 75 } } },
+	mara = { x = 85, z = 80, r = 42, rival = 2, guards = 2, hold = 2.2, respawn = { 12, 21 }, weights = { 0, 40, 40, 20, 0, 0 }, nests = { { 65, 70 }, { 105, 65 }, { 90, 110 } }, posts = { { 72, 82 }, { 100, 82 } },
+		traps = { bells = 3, mud = 2 }, speed = { chase = 19, patrol = 10 }, view = { 28, 110, 14 }, hit = 20 },
+	zed = { x = 265, z = -170, r = 38, rival = 3, guards = 3, hold = 3.5, respawn = { 18, 32 }, weights = { 0, 0, 30, 45, 22, 3 }, nests = { { 240, -160 }, { 265, -185 }, { 290, -160 } }, posts = { { 240, -165 }, { 265, -180 }, { 290, -165 } },
+		traps = { gate = { x = 240, z = -138, open = 3, closed = 3 }, plates = 4, searchlights = 2, searchlightRev = 0.5 }, speed = { chase = 26, patrol = 13 }, view = { 32, 120, 16 }, hit = 28, freshness = 75 },
+}
+Config.TERR_ORDER = { "wild", "gusNW", "gusSW", "mara", "zed" }
+Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +15 % vue et ouïe par vol réussi dans les 60 s, plafond +45 %, retour à la normale 30 s après le dernier vol
+
+-- B.3 Tapis roulant central.
+Config.BELT = {
+	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
+	weights = { normal = { 62, 26, 9, 2.6, 0.37, 0.03 }, golden = { 40, 34, 18, 6.5, 1.35, 0.15 } },
+	golden = { interval = 3, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 },
+	private = { interval = 120, pending = 3, width = 10, depth = 3 },
+}
+-- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
+Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
+Config.NEWBIE = { minutes = 15, untilLevel = 3 }
+-- A.4 Voyage rapide (remplace Config.TRAVEL au lot 2).
+Config.TRAVEL2 = {
+	cooldown = 4, combatLock = 4, maxDistance = 10, blockWhileCarrying = true,
+	portals = { { name = "Arène", to = { -225, 135 }, back = { -215, 128 }, chapter = 0 }, { name = "Pont du Château", to = { 205, -95 }, back = { 195, -90 }, chapter = 6 },
+		{ name = "Lac du Moulin", to = { -245, -75 }, back = { -238, -68 }, chapter = 0 }, { name = "Lac des Saules", to = { 240, 175 }, back = { 232, 170 }, chapter = 0 } },
+}
+-- E.3 Vol à distance « Corbeau chipeur ».
+Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10 }
+Config.INTERCEPT = { enabled = false } -- interception d'un porteur : coupée par défaut (à tester en playtest)
+
+-- D. Maison évolutive : poids par rareté (migration au lot 5) et table des 8 niveaux. `model` = clé de Config.Assets.models.house ; `slots` = emplacements bonus ;
+-- `income` = bonus de revenu ; `lock` = durée de la porte de base (s) ; `needTier` = rareté qu'il faut avoir découverte.
+Config.BASE_WEIGHTS2 = { 1, 4, 15, 50, 180, 700 }
+Config.BASE_LEVELS2 = {
+	{ score = 0, name = "Enclos de bois", emoji = "🪵", model = "level1", size = 52, slots = 0, income = 0, lock = 0 },
+	{ score = 15, name = "Chalet du Couvoir", emoji = "🛖", model = "l2", size = 56, slots = 1, income = 0.05, lock = 20 },
+	{ score = 60, name = "Maison-Tour", emoji = "🏡", model = "l3", size = 58, slots = 1, income = 0.10, lock = 25, alarm = true },
+	{ score = 200, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
+	{ score = 600, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
+	{ score = 1800, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
+	{ score = 5000, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 4 },
+	{ score = 14000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 5, shieldBonus = 10 },
+}
+Config.SLOTS_MAX = 20 -- 4 + 8 (Doigts agiles... améliorations) + 4 (maison) + 4 (pass)
+
+-- C. Énigme de la Mère Poule : dialogues exacts et 12 emplacements de plumes (3 par direction ; les 4 du jour = Config.featherSpots(day) au lot 6).
+Config.HEN_LINES = {
+	first = {
+		"Cot ! Enfin un Chipeur au cœur honnête… Approche, petit.",
+		"Ce grand œuf de pierre, c'est le cœur de la Couvée. Chaque nuit, il s'endort, et seule ma berceuse peut le réveiller.",
+		"Mais le vent a dispersé mes quatre plumes dorées : une au Nord, une à l'Est, une au Sud, une à l'Ouest.",
+		"Rapporte-les-moi, règle les runes comme elles te le disent, puis chante avec moi. Le Grand Œuf saura te remercier.",
+	},
+	buttons = { go = "J'y vais !", again = "Explique encore", later = "Plus tard" },
+	explain = "Trois étapes. ① Trouve les 4 plumes dorées : la flèche jaune t'y mène. ② Chaque plume parle de la rune de sa direction : tourne cette rune sur le bon symbole, puis touche le Grand Œuf. ③ Les runes s'allument dans un ordre : touche-les dans le même ordre.",
+	again = "Le Grand Œuf dort encore. Mes plumes se sont envolées de nouveau… Tu m'aides ?",
+	missing = "Il te manque {n} plume(s). Cherche du côté {dirs}.",
+	feather = "🪶 Plume {dir} : « {clue} »",
+	allFeathers = "Les quatre plumes ! Chacune parle de sa rune. Tourne-les autour du Grand Œuf, puis touche-le.",
+	runesWrong = "Hmm… {k} rune(s) sur 4 chantent juste. Relis tes plumes.",
+	runesRight = "Les runes vibrent ! Écoute bien la berceuse… et répète-la.",
+	lullabyWrong = "Cot-cot, pas tout à fait ! Je te la rechante.",
+	success = "Le Grand Œuf s'éveille ! Tiens, ce petit trésor est pour toi. Reviens demain : il se rendort à minuit.",
+	done = "Tu as déjà chanté aujourd'hui. Nouvelle berceuse dans {h} h {mm}.",
+	locked = "Reviens quand tu auras chipé ton premier œuf, petit. Mes plumes ne se montrent qu'aux vrais Chipeurs.",
+	hintFeather = "Un coup de bec ? La plume {dir} se cache {where}.",
+	hintRune = "La rune {dir} veut {symbol}.",
+	runeWaits = "La rune {dir} attend sa plume.",
+}
+Config.FEATHER_SPOTS = {
+	N = { { x = -20, z = -228, where = "au-delà du pont de bois" }, { x = -280, z = -225, where = "sur la colline des vents" }, { x = 120, z = -232, where = "sous les sapins de la colline" } },
+	E = { { x = 215, z = -100, where = "au pied du pont de pierre" }, { x = 325, z = -120, where = "près de l'eau qui tombe" }, { x = 330, z = 40, where = "à l'orée du bois de l'Est" } },
+	S = { { x = 250, z = 190, where = "sur le ponton des saules", dock = true }, { x = 60, z = 195, where = "entre les arbres du sud" }, { x = -60, z = 215, where = "près du ruisseau du Sud" } },
+	O = { { x = -300, z = -58, where = "devant la cabane du lac" }, { x = -265, z = 120, where = "sur les gradins de l'arène" }, { x = -330, z = 40, where = "au fond du bois de l'Ouest" } },
+}
+Config.HEN = { fragmentsForEgg = 7, hintsPerDay = 2, hintAfterSeconds = 300, lullabyLength = 5, lullabyNote = 0.8, lullabyGap = 0.3, tapMinGap = 0.25, collectiveSolves = 3, collectiveSeconds = 300 }
+-- Textes du HUD (onboarding et chapitres) : tous < 110 octets.
+Config.ONBOARD2 = {
+	"🥚 Touche ton œuf pour le faire éclore",
+	"🛤️ Prends l'œuf de bienvenue sur le tapis",
+	"🏠 Pose-le dans ta base",
+	"🧺 Chipe un œuf dans l'enclos sauvage",
+}
+Config.CHAPTER_TEXTS = {
+	[8] = { title = "La berceuse du Grand Œuf", text = "Aide la Mère Poule : trouve les 4 plumes, règle les runes, chante la berceuse." },
+}
 
 return Config

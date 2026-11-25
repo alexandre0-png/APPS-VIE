@@ -60,6 +60,12 @@ Chaque ligne donne l'ID attendu et l'endroit exact où le coller. Tant qu'un ID 
 | Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `Config.PRODUCTS.InstantHatch.id` (ligne 343) : `____` |
 | Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `Config.PRODUCTS.LuckPotion.id` (ligne 344) : `____` |
 | Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de revenus (minimum 5 000 pièces). | `Config.PRODUCTS.CoinPack.id` (ligne 348) : `____` |
+| Game Pass | +4 emplacements | 249 R$ | 4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20). | `Config.PASSES.ExtraSlots.id` (ligne 125) : renseigné |
+| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues. | `Config.PASSES.PrivateBelt.id` (ligne 126) : renseigné |
+| Developer Product | Pluie de chance pour tous | 129 R$ | 10 min de +5 points de chance d'amélioration pour tout le serveur. | `Config.PRODUCTS.ServerLuck.id` (ligne 351) : renseigné |
+| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 3 s (table dorée affichée), cumulable jusqu'à 30 min. | `Config.PRODUCTS.GoldenBelt.id` (ligne 352) : renseigné |
+| Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | `Config.PRODUCTS.RemoteSteal.id` (ligne 353) : renseigné |
+| Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | `Config.PRODUCTS.RemoteStealPack.id` (ligne 354) : renseigné |
 
 Bandeaux et icônes : `publication/art/` (icône 512 px des 6 premiers achats ; les autres sont à créer).
 
