@@ -83,3 +83,6 @@ bed_double 73424212171108; dining_set 104316845432310; fridge_big 13141997623408
 
 ## Lot 17 (décor de carte : arbres, puits, îlot sakura, rochers, banc, parterre, agent Sonnet) : scripts/blender_make_refonte_c.py
 bench_park 71149096082627; boulder_cluster 94606784141362; flowerbed 136250950680925; log_hollow 92331613804784; tree_dead 110319726621538; tree_pine_tier 89102403219316; tree_wide 86295807080862; island_sakura 77134124755209; stump_roots 77105687594948; tree_autumn 139640609512190; tree_fork 134023676934024; well_roofed 77148661041685
+
+## Lot 20 (sons de l'énigme de la Mère Poule, synthétiques, en modération « Reviewing » au 25 nov, à vérifier)
+berceuse_note1 85257974839127 (do) ; berceuse_note2 101445210941604 (mi) ; berceuse_note3 139374738574752 (sol) ; berceuse_note4 82316993375303 (do aigu) ; plume_ramassee 118620801437766 ; poule_glousse 125679862476345 ; secret_decouvert 119606421875553. Générés par une variante de scripts/audio_synth.py (boîte à musique).
