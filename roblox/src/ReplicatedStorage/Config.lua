@@ -1873,13 +1873,13 @@ Config.BASE_LEVELS2 = {
 -- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
 -- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
 Config.UPGRADE_FX = { seconds = 4.5, scaffold = 0.8, dust = 0.4, swap = 1.5, party = 1.8, hide = 40, announceFrom = 6, confetti = 36 }
--- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » (`from` = niveau quitté, par défaut level - 1).
-function Config.upgradeBanner(level, from)
+-- Texte de la bannière de montée de niveau : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % » .
+function Config.upgradeBanner(level)
 	local lv = Config.BASE_LEVELS[level]
 	if not lv then
 		return ""
 	end
-	local gain = Config.levelSlots(level) - Config.levelSlots(from or (level - 1))
+	local gain = Config.levelSlots(level) -- bonus d'emplacements de la maison de ce niveau (comme la table D.2 : « +2 emplacements » au niveau 5)
 	local parts = {}
 	if gain > 0 then
 		parts[#parts + 1] = "+" .. gain .. (gain > 1 and " emplacements" or " emplacement")

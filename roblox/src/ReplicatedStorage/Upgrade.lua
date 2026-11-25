@@ -49,8 +49,8 @@ function Upgrade.new(Config, Easing)
 	end
 
 	-- Texte de la bannière : « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % ».
-	function U.banner(level, from)
-		return Config.upgradeBanner(level, from)
+	function U.banner(level)
+		return Config.upgradeBanner(level)
 	end
 
 	-- La caméra large est-elle permise ? Propriétaire seul, sans œuf porté, pas poursuivi (`chased`), vivant, aucune autre cinématique en cours.

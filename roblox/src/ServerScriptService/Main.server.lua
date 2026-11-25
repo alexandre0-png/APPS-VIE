@@ -865,7 +865,7 @@ local function applyBase(s, celebrate, force)
 	s.player:SetAttribute("BaseScore", s.data.baseScore)
 	if rose or (celebrate and before and level > before) then
 		local lv = Config.BASE_LEVELS[level]
-		local text = Config.upgradeBanner(level, before)
+		local text = Config.upgradeBanner(level)
 		local player = s.player
 		-- la bannière, la fanfare et les confettis arrivent au début de la fête (après échafaudage, poussière et échange des maisons : 2,7 s)
 		task.delay(Config.UPGRADE_FX.scaffold + Config.UPGRADE_FX.dust + Config.UPGRADE_FX.swap, function()

@@ -810,7 +810,15 @@ function Fake.runtime(opts)
 			function r:NextInteger(a, b) return math.floor(self:NextNumber(a, b + 1)) end
 			return r
 		end },
-		typeof = function(v) return isProxy(v) and "Instance" or type(v) end,
+		typeof = function(v)
+			if isProxy(v) then
+				return "Instance"
+			end
+			if type(v) == "table" and rawget(v, "Position") ~= nil and rawget(v, "X") ~= nil then
+				return "CFrame" -- lot 5 : les CFrame factices sont reconnus (attributs PlotCF, FinalPivot)
+			end
+			return type(v)
+		end,
 		print = function(...)
 			local t = {}
 			for i = 1, select("#", ...) do

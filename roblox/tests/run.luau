@@ -8346,7 +8346,7 @@ do
 	end
 	local st0, st1, st9 = U.state(0), U.state(4.0), U.state(4.5)
 	check("Animation de montée : 4,5 s au total (0,8 + 0,4 + 1,5 + 1,8), échafaudage de 0 à 1, ancienne maison qui s'enfonce sans jamais remonter, états valides, terminée à 4,5 s", U.seconds == 4.5 and U.dustAt == 0.8 and math.abs(U.swapAt - 1.2) < 1e-9 and math.abs(U.partyAt - 2.7) < 1e-9 and st0.scaffold == 0 and U.state(0.8).scaffold == 1 and mono and sane and st1.done == false and st9.done and U.state(0 / 0).t == 0)
-	check("Animation : bannière exacte « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % », singulier au niveau 2, saut de niveaux cumulé", U.banner(5) == "🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 %" and U.banner(2) == "🏠 Niveau 2 : Chalet du Couvoir ! +1 emplacement, revenus +5 %" and U.banner(5, 2):find("+3 emplacements", 1, true) ~= nil)
+	check("Animation : bannière exacte « 🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 % », singulier au niveau 2, +4 au niveau 8", U.banner(5) == "🏠 Niveau 5 : Maison au garage ! +2 emplacements, revenus +20 %" and U.banner(2) == "🏠 Niveau 2 : Chalet du Couvoir ! +1 emplacement, revenus +5 %" and U.banner(8):find("+4 emplacements", 1, true) ~= nil and U.banner(3):find("+1 emplacement,", 1, true) ~= nil and U.banner(8):find("revenus +50 %", 1, true) ~= nil)
 	check("Caméra large : propriétaire seul, sans œuf porté, pas poursuivi, vivant, aucune autre cinématique", U.canFrame(true, 0, false, false, false) and not U.canFrame(false, 0, false, false, false) and not U.canFrame(true, 1, false, false, false) and not U.canFrame(true, 0, true, false, false) and not U.canFrame(true, 0, false, true, false) and not U.canFrame(true, 0, false, false, true))
 	check("Groupe de modèles house.l2 à l7 déclaré (6 IDs), plafond 160 Parts par modèle, budget de maison 160", (function()
 		local n = 0
@@ -8454,6 +8454,21 @@ do
 					okSlots = okSlots and not rec.slots[i]
 				end
 			end
+			-- plancher attendu : niveau v9 d'après les ANCIENS poids (1, 3, 8, 20, 50, 150) et seuils (0, 12, 40, 110, 260, 600, 1400, 3200), codés en dur ici
+			local legacyScore = fx.v.baseScore
+			if legacyScore == nil then
+				legacyScore = 0
+				for k, e in pairs(fx.v.dex or {}) do
+					legacyScore = legacyScore + e.n * ({ 1, 3, 8, 20, 50, 150 })[Config.PETS[tonumber(k)].tier]
+				end
+			end
+			local wantFloor = 1
+			for i, th in ipairs({ 0, 12, 40, 110, 260, 600, 1400, 3200 }) do
+				if legacyScore >= th then
+					wantFloor = i
+				end
+			end
+			fx.floor = wantFloor
 			local expectScore = 0
 			for k, e in pairs(fx.v.dex or {}) do
 				expectScore = expectScore + e.n * Config.baseGain(Config.PETS[tonumber(k)].tier)
@@ -8486,9 +8501,13 @@ do
 		put(8204, v10({ baseScore = 0, baseLevelFloor = 1, slots = { { k = "p", p = 1, s = 2, m = 1 } } }))
 		put(8205, v10({ baseScore = 0, baseLevelFloor = 5, slots = { { k = "p", p = 1, s = 2, m = 1 } } }))
 		put(8206, v10({ baseScore = 0, baseLevelFloor = 8, up = { slots = 8 } }))
-		local p1, p2, p3, p4, p5, p6 = join("Cap6", 8201), join("Cap7", 8202), join("Cap8", 8203), join("Rev1", 8204), join("Rev5", 8205), join("Cap16", 8206)
+		local p1, p2, p3, p4, p5 = join("Cap6", 8201), join("Cap7", 8202), join("Cap8", 8203), join("Rev1", 8204), join("Rev5", 8205)
 		RT.step(2)
 		check("Niveaux 7 et 8 bloqués sans Légendaire / Mythique découvert en vrai : 99 999 points sans rareté = niveau 6, avec un Légendaire = 7, avec un Mythique = 8 [" .. tostring(p1:GetAttribute("BaseLevel")) .. "," .. tostring(p2:GetAttribute("BaseLevel")) .. "," .. tostring(p3:GetAttribute("BaseLevel")) .. "]", p1:GetAttribute("BaseLevel") == 6 and p2:GetAttribute("BaseLevel") == 7 and p3:GetAttribute("BaseLevel") == 8)
+		leave(p2, 8202)
+		leave(p3, 8203)
+		local p6 = join("Cap16", 8206)
+		RT.step(2)
 		local s1, s6, s4, s5 = snapshot(p1), snapshot(p6), snapshot(p4), snapshot(p5)
 		check("Capacité en vrai : niveau 6 (+3) avec 8 améliorations = 4 + 8 + 3 = 15 ; niveau 8 (+4) avec 8 améliorations = 16 (20 avec le pass) [" .. tostring(s1 and s1.cap) .. "," .. tostring(s6 and s6.cap) .. "]", s1 ~= nil and s1.cap == 15 and s6 ~= nil and s6.cap == 16)
 		check("Bonus de revenu en vrai : même profil au niveau 5 (x1,20) et au niveau 1 (x1) : rapport des multiplicateurs = 1,2 [" .. tostring(s5 and s4 and s5.mult / s4.mult) .. "]", s4 ~= nil and s5 ~= nil and math.abs(s5.mult / s4.mult - 1.2) < 1e-6)
@@ -8515,11 +8534,11 @@ do
 			end
 			return n == 20 * Config.PLOT_COUNT and plot6 ~= nil
 		end)())
-		for _, pr in ipairs({ { p1, 8201 }, { p2, 8202 }, { p3, 8203 }, { p4, 8204 }, { p5, 8205 }, { p6, 8206 } }) do
+		for _, pr in ipairs({ { p1, 8201 }, { p4, 8204 }, { p5, 8205 }, { p6, 8206 } }) do
 			leave(pr[1], pr[2])
 		end
 		-- montée de niveau : l'animation (client + serveur), les pads occupés ne sont pas recréés
-		put(8301, v10({ baseScore = 14, baseLevelFloor = 1, slots = { { k = "e", t = 1, ends = RT.env.os.time() + 4, shield = 0 }, { k = "p", p = 1, s = 2, m = 1 } } }))
+		put(8301, v10({ baseScore = 14, baseLevelFloor = 1, slots = { { k = "e", t = 1, ends = RT.env.os.time() + 11, shield = 0 }, { k = "p", p = 1, s = 2, m = 1 } } }))
 		local me = join("Mont", 8301)
 		RT.setLocalPlayer(me)
 		RT.step(2)
@@ -8542,6 +8561,18 @@ do
 		RT.step(6) -- éclosion à +4 s : +1 point ou plus ; le score passe de 14 à 15 ou plus : niveau 2
 		local lvAfter = me:GetAttribute("BaseLevel")
 		check("Montée de niveau : l'éclosion fait passer la maison du niveau 1 au niveau 2 (" .. tostring(lvBefore) .. " -> " .. tostring(lvAfter) .. ")", lvBefore == 1 and lvAfter ~= nil and lvAfter >= 2)
+		RT.step(0.8)
+		local playing, scaffold = false, 0
+		for _, o in ipairs(RT.all) do
+			local nm = rawget(o, "__props").Name
+			if nm == "ChipeCine" and rawget(o, "__props").Enabled == true then
+				playing = true
+			elseif nm == "ScaffoldPost" then
+				scaffold += 1
+			end
+		end
+		check("Montée de niveau : pendant l'animation, la caméra large est active (cinématique « base_niveau ») et l'échafaudage de bois est posé (" .. scaffold .. " poteaux)", playing and scaffold >= 4)
+		RT.step(2.4) -- fête à 2,7 s : bannière + fanfare
 		local cineGui
 		for _, o in ipairs(RT.all) do
 			if rawget(o, "__props").Name == "ChipeCine" then
@@ -8551,6 +8582,7 @@ do
 		check("Montée de niveau : fanfare « levelup » et bannière « Niveau N : … » envoyées au joueur après 2,7 s", notified(me, "🏠 Niveau 2", "levelup") or notified(me, "🏠 Niveau 3", "levelup") or notified(me, "🏠 Niveau 4", "levelup") or notified(me, "🏠 Niveau 5", "levelup"))
 		local after = padContent(2)
 		check("Montée de niveau : l'emplacement occupé (Pad2) n'est PAS recréé par le changement de niveau (même objet « Content »)", before ~= nil and after == before)
+		RT.step(2.5)
 		local old, new = 0, 0
 		for _, d in ipairs(ws:GetDescendants()) do
 			local nm = rawget(d, "__props").Name
