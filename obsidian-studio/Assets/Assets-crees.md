@@ -71,3 +71,6 @@ Les 18 pets (Poussin à Wyrm) sont remplacés par une version chibi (grosse têt
 
 ## Lot 16 (accessoires de marché et décor, refonte Chipe-Œufs) : scripts/blender_make_refonte_b.py (agent Haiku)
 stall_a 121243958605530 ; stall_b 94658977878853 ; crate_stack 72797022625881 ; barrel_pair 102360413338352 ; hay_bale 99760241706274 ; reeds 83409451845816 ; lily_pad 108143670859973 ; bush_round 72736930746142 ; sign_base 121260374584222 (sans lettrage) ; flag_banner 72351168707999 ; lantern_post 116378599429951 ; well_small 140033477297106.
+
+## Lot 15 (refonte Chipe-Œufs : maisons de base, dôme, tapis roulant, Grand Œuf, arène) : scripts/blender_make_refonte_a.py (agent Sonnet)
+house_lvl2 83993710226197 (26,6×28,6×21,3) ; house_lvl3 137211706941591 ; house_lvl4 131395542579523 ; house_lvl5 86282878742281 ; house_lvl6 92231252125110 ; house_lvl7 79107809937066 ; hub_dome 106786001814640 (60×60×24,4) ; conveyor_belt 110718997928428 (12×4,1×1,5) ; conveyor_end 107430030694559 ; grand_oeuf 140225439366673 (13,6×13,6×15,7 ; runes Flamme_Rune*) ; arena_colosseum 105443469311651 (70,8×70,8×21). Maisons : bâtiment à l'arrière (+y), escalier vers l'avant (-y). Limites : lvl4 sans portail de garage, lvl5 sans la terrasse de référence, petit défaut d'ombrage sur conveyor_end.
