@@ -6548,7 +6548,9 @@ do
 	local a = Config.onboarding(0, false, 6)
 	local b = Config.onboarding(0, true, 5)
 	local c = Config.onboarding(0, true, 1)
-	check("Onboarding : étape 1 (aller vers l'œuf), 2 (le toucher), 3 (il éclot), puis plus rien après la première éclosion", a.index == 1 and b.index == 2 and c.index == 3 and a.total == 3 and Config.onboarding(1, true, 0) == nil and Config.onboarding(nil, true, 0) == nil)
+	-- REFONTE (lot 3) : les trois temps (aller vers l'œuf, le toucher, le voir éclore) forment désormais l'ÉTAPE 1 sur 4 de Config.ONBOARD2 (textes inchangés
+	-- d'un temps à l'autre) ; les étapes 2 à 4 (tapis, pose, enclos sauvage) sont testées dans la suite du lot 3. Sans l'état du serveur (4e argument), plus rien après la première éclosion.
+	check("Onboarding : étape 1/4 en trois temps (aller vers l'œuf, le toucher, il éclot), puis plus rien après la première éclosion sans état du tapis", a.index == 1 and b.index == 1 and c.index == 1 and a.total == 4 and a.text ~= b.text and b.text ~= c.text and Config.onboarding(1, true, 0) == nil and Config.onboarding(nil, true, 0) == nil)
 	local long = 0
 	for _, st in ipairs({ a, b, c }) do
 		long = math.max(long, #st.text)
@@ -7190,6 +7192,424 @@ do
 		end
 	end
 	check("Territoires : tous les nids sont dans leur disque (7 gardiens au total : 1 + 1 + 2 + 3)", terrOk and Config.TERR.gusNW.guards + Config.TERR.gusSW.guards + Config.TERR.mara.guards + Config.TERR.zed.guards == 7)
+end
+
+-- REFONTE (lot 3) : tapis roulant central ------------------------------------------------------------------------------------------------------
+-- checkv : comme check, mais affiche aussi les mesures (chaque message du lot 3 contient ses chiffres).
+local function checkv(name, cond)
+	print("  [lot 3] " .. (cond and "ok  " or "KO  ") .. name)
+	check(name, cond)
+end
+do
+	suite("Refonte lot 3 : tapis roulant central (tirage pondéré, réservation atomique, cooldown, plafond, bienvenue, panneau, onboarding)")
+	local Belt = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Belt.lua"), { debugName = "Belt" })()
+	-- 1. tirage pondéré : 100 000 tirages par table, écart <= 0,3 point par rareté (générateur à graine fixe : résultat reproductible)
+	local maxGap, worst = 0, ""
+	for _, kind in ipairs({ "normal", "golden" }) do
+		local w = Config.BELT.weights[kind]
+		local counts = { 0, 0, 0, 0, 0, 0 }
+		local x = 123457
+		for _ = 1, 100000 do
+			x = (x * 16807) % 2147483647
+			local t = Belt.pick(w, x / 2147483647)
+			counts[t] = counts[t] + 1
+		end
+		for i = 1, 6 do
+			local gap = math.abs(counts[i] / 1000 - w[i])
+			if gap > maxGap then
+				maxGap, worst = gap, kind .. " rareté " .. i
+			end
+		end
+	end
+	checkv(string.format("Tapis : 100 000 tirages par table, écart maximal %.3f point (%s), <= 0,3", maxGap, worst), maxGap <= 0.3)
+	checkv("Tapis : r = 0 donne la 1re rareté, r proche de 1 la dernière ; poids nuls jamais tirés", Belt.pick({ 62, 26, 9, 2.6, 0.37, 0.03 }, 0) == 1 and Belt.pick({ 62, 26, 9, 2.6, 0.37, 0.03 }, 0.99999) == 6 and Belt.pick({ 0, 5, 0, 5 }, 0) == 2 and Belt.pick({ 0, 5, 0, 5 }, 0.75) == 4)
+	-- 2. réservation atomique : deux achats du même œuf au même instant -> un seul gagnant
+	local function fresh(now)
+		local st = Belt.new(7, 0)
+		Belt.step(Config, st, now)
+		for _, e in ipairs(st.eggs) do -- rareté fixée à Commun pour que le test ne dépende pas du hasard
+			e.tier = 1
+			e.price = Belt.price(Config, 1)
+		end
+		return st
+	end
+	local st = fresh(12)
+	local id1 = st.eggs[1].id
+	local ok1, r1 = Belt.tryBuy(Config, st, 1, id1, 1000, 12)
+	local ok2, r2 = Belt.tryBuy(Config, st, 2, id1, 1000, 12)
+	checkv("Tapis : 2 achats du même œuf au même instant -> 1 seul gagnant (« late » ou « gone » pour l'autre : l'œuf a quitté le tapis)", ok1 == true and ok2 == false and (r2 == "late" or r2 == "gone") and r1.claimedBy == 1)
+	-- réservation visible avant la sortie de liste : l'œuf réservé ne peut plus être pris
+	local st2 = fresh(12)
+	local e2 = st2.eggs[1]
+	e2.claimedBy = 5
+	local okR, whyR = Belt.tryBuy(Config, st2, 6, e2.id, 1000, 12)
+	checkv("Tapis : un œuf déjà réservé refuse un second acheteur (« late »)", okR == false and whyR == "late")
+	-- 3. limite 1 achat / 3 s
+	local st3 = fresh(14)
+	local a, b, c = st3.eggs[1].id, st3.eggs[2].id, st3.eggs[3].id
+	local okA = Belt.tryBuy(Config, st3, 1, a, 1000, 14)
+	local okB, whyB = Belt.tryBuy(Config, st3, 1, b, 1000, 15)
+	local okC, whyC = Belt.tryBuy(Config, st3, 1, b, 1000, 16.9)
+	local okD = Belt.tryBuy(Config, st3, 1, b, 1000, 17.0)
+	local okE = Belt.tryBuy(Config, st3, 2, c, 1000, 15) -- un autre joueur n'est pas limité par le cooldown du premier
+	checkv("Tapis : 1 achat par joueur toutes les 3 s (refus à +1 s et +2,9 s, accepté à +3 s) ; un autre joueur n'est pas gêné", okA and not okB and whyB == "cooldown" and not okC and whyC == "cooldown" and okD and okE)
+	-- refus « poor » : l'œuf reste disponible (rien n'est consommé)
+	local st4 = fresh(12)
+	local e4 = st4.eggs[1]
+	local okP, whyP = Belt.tryBuy(Config, st4, 1, e4.id, e4.price - 1, 12)
+	local okN, whyN = Belt.tryBuy(Config, st4, 1, e4.id, 0 / 0, 12)
+	local okS = Belt.tryBuy(Config, st4, 1, e4.id, "999", 12)
+	checkv("Tapis : pas assez de pièces (ou valeur invalide) -> refus « poor », l'œuf n'est ni réservé ni retiré", not okP and whyP == "poor" and not okN and whyN == "poor" and not okS and e4.claimedBy == nil and #st4.eggs == 3 and st4.lastBuy[1] == nil)
+	-- Légendaire et plus : prompt actif après 2 s, 1 par joueur et par minute
+	local st5 = Belt.new(1, 1e9)
+	local function legend(id, born)
+		st5.eggs[#st5.eggs + 1] = { id = id, tier = 5, born = born, price = Belt.price(Config, 5) }
+	end
+	legend(1, 100)
+	legend(2, 129)
+	legend(3, 150)
+	local okW, whyW = Belt.tryBuy(Config, st5, 1, 1, 1e12, 101.9)
+	local okW2 = Belt.tryBuy(Config, st5, 1, 1, 1e12, 102.0)
+	local okL, whyL = Belt.tryBuy(Config, st5, 1, 2, 1e12, 131) -- 29 s après le précédent : limite de 1 par minute
+	local okL2, whyL2 = Belt.tryBuy(Config, st5, 1, 3, 1e12, 160.9)
+	local okL3 = Belt.tryBuy(Config, st5, 1, 3, 1e12, 162.1)
+	checkv("Tapis : Légendaire+ achetable 2 s après son apparition, 1 par minute et par joueur (« wait », « legendaryLimit »)", not okW and whyW == "wait" and okW2 and not okL and whyL == "legendaryLimit" and not okL2 and whyL2 == "legendaryLimit" and okL3)
+	-- 4. plafond de 12 œufs, sorties au bac, jamais d'œuf perdu
+	local C2 = setmetatable({ BELT = setmetatable({ interval = 0.1 }, { __index = Config.BELT }) }, { __index = Config })
+	local st6 = Belt.new(3, 0)
+	local peak, spawnedTotal, removedTotal = 0, 0, 0
+	for k = 1, 3000 do -- 300 s simulées à 10 Hz
+		local sp, rm = Belt.step(C2, st6, k / 10)
+		spawnedTotal, removedTotal = spawnedTotal + #sp, removedTotal + #rm
+		peak = math.max(peak, #st6.eggs)
+	end
+	checkv("Tapis : jamais plus de " .. Config.BELT.maxEggs .. " œufs (pic mesuré " .. peak .. " avec une apparition toutes les 0,1 s) et chaque œuf apparu est soit sur le tapis, soit sorti", peak == Config.BELT.maxEggs and spawnedTotal == removedTotal + #st6.eggs)
+	local st7 = Belt.new(11, 0)
+	local sp7, rm7, peak7 = 0, 0, 0
+	for k = 1, 6000 do -- 10 minutes à 10 Hz, tapis standard
+		local sp, rm = Belt.step(Config, st7, k / 10)
+		sp7, rm7 = sp7 + #sp, rm7 + #rm
+		peak7 = math.max(peak7, #st7.eggs)
+	end
+	checkv("Tapis standard : 10 min = " .. sp7 .. " œufs apparus (attendu 121 : une dès t = 0, une toutes les 5 s jusqu'à t = 600), " .. rm7 .. " sortis au bac, " .. #st7.eggs .. " en cours, pic " .. peak7 .. " (durée de traversée " .. Config.BELT.length / Config.BELT.speed .. " s)", sp7 == 121 and sp7 == rm7 + #st7.eggs and peak7 <= 5)
+	-- 5. tapis doré : plus rapide, cumulable, plafonné ; panneau = table de config
+	local st8 = Belt.new(5, 0)
+	local before = Belt.addGolden(Config, st8, 0, 600, "Zoé")
+	local mid = Belt.addGolden(Config, st8, 100, 600, nil)
+	local capped = Belt.addGolden(Config, st8, 100, 99999, nil)
+	checkv("Tapis doré : cumulable (" .. before .. " puis " .. mid .. " s), plafonné à " .. Config.BELT.golden.maxSeconds .. " s (" .. capped .. "), durée négative ou invalide ignorée", before == 600 and mid == 1100 and capped == Config.BELT.golden.maxSeconds and Belt.addGolden(Config, Belt.new(1, 0), 0, -5, nil) == 0 and Belt.addGolden(Config, Belt.new(1, 0), 0, 0 / 0, nil) == 0)
+	local stG, stN = Belt.new(9, 0), Belt.new(9, 0)
+	Belt.addGolden(Config, stG, 0, 600, nil)
+	local ng, nn = 0, 0
+	for k = 1, 600 do
+		ng = ng + #(Belt.step(Config, stG, k / 10))
+		nn = nn + #(Belt.step(Config, stN, k / 10))
+	end
+	checkv("Tapis doré : 1 œuf toutes les " .. Config.BELT.golden.interval .. " s (" .. ng .. " œufs en 60 s contre " .. nn .. " au tapis standard)", ng >= 19 and ng <= 21 and nn >= 11 and nn <= 13)
+	local panelN = Belt.panel(Config, st7, 0)
+	local panelG = Belt.panel(Config, stG, 30)
+	checkv("Panneau du tapis : les deux tables sont exactement celles de la config, la table active est en surbrillance, le compte à rebours du tapis doré s'affiche (" .. panelG.status .. ")",
+		panelN.normal == Config.beltOddsText("normal") and panelN.golden == Config.beltOddsText("golden") and panelN.active == "normal" and panelG.active == "golden" and panelG.status:find("9:30", 1, true) ~= nil and panelN.normal:find("Commun 62%", 1, true) ~= nil)
+	-- 6. œuf de bienvenue : une seule fois par joueur, gratuit, à son nom
+	local stW = Belt.new(2, 1e9)
+	local w1 = Belt.welcome(Config, stW, 42, 0, 20)
+	local w2 = Belt.welcome(Config, stW, 42, 0, 21)
+	local w3 = Belt.welcome(Config, stW, 43, 5, 21) -- déjà 5 éclosions : plus d'œuf de bienvenue
+	local w4 = Belt.welcome(Config, stW, 44, 4, 21)
+	checkv("Œuf de bienvenue : une seule fois par joueur (2e demande refusée), seulement si hatched < " .. Config.BELT.welcome.maxHatched .. ", gratuit, Commun, à son nom", w1 ~= nil and w2 == nil and w3 == nil and w4 ~= nil and w1.price == 0 and w1.tier == 1 and w1.forUser == 42)
+	local okOther, whyOther = Belt.tryBuy(Config, stW, 44, w1.id, 1e9, 22)
+	local okOwn = Belt.tryBuy(Config, stW, 42, w1.id, 0, 22)
+	checkv("Œuf de bienvenue : refusé à un autre joueur (« reserved »), gratuit pour son destinataire (0 pièce suffit)", not okOther and whyOther == "reserved" and okOwn)
+	-- 7. onboarding en 4 étapes (ONBOARD2), chacune passable
+	local o1 = Config.onboarding(0, true, 5, { stolen = 0, carry = 0, welcome = "wait" })
+	local o2 = Config.onboarding(1, true, 0, { stolen = 0, carry = 0, welcome = "offered" })
+	local o2b = Config.onboarding(1, true, 0, { stolen = 0, carry = 0, welcome = "wait" })
+	local o3 = Config.onboarding(1, true, 0, { stolen = 0, carry = 1, welcome = "taken" })
+	local o4 = Config.onboarding(1, true, 0, { stolen = 0, carry = 0, welcome = "taken" })
+	local o4b = Config.onboarding(7, true, 0, { stolen = 0, carry = 0, welcome = "none" })
+	local o4c = Config.onboarding(1, true, 0, { stolen = 0, carry = 0, welcome = "gone" })
+	local o5 = Config.onboarding(1, true, 0, { stolen = 1, carry = 0, welcome = "taken" })
+	checkv("Onboarding : 1 toucher l'œuf, 2 prendre l'œuf de bienvenue (flèche tapis), 3 le poser (flèche base), 4 chiper dans l'enclos sauvage ; plus rien après le premier vol",
+		o1.index == 1 and o2.index == 2 and o2.target == "belt" and o2b.index == 2 and o3.index == 3 and o3.target == "home" and o4.index == 4 and o4.target == "wild" and o4b.index == 4 and o4c.index == 4 and o5 == nil and o1.total == 4)
+	local texts = true
+	for i, st in ipairs({ o1, o2, o3, o4 }) do
+		texts = texts and st.text == Config.ONBOARD2[i] and #st.text < 110
+	end
+	checkv("Onboarding : textes de Config.ONBOARD2 (< 110 octets), étape passable (le joueur peut la passer côté client)", texts)
+	checkv("Tapis : le tapis passe devant l'étape 2 (10, 0) : x0 <= 10 <= x1 et z = 0", Config.Map2.belt.x0 <= 10 and Config.Map2.belt.x1 >= 10 and Config.Map2.belt.z == 0)
+end
+
+do
+	suite("Refonte lot 3 : tapis roulant de bout en bout (vrai Main.server.lua, runtime factice, joueurs-robots)")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if RT then
+		local main = RT.buildTree("roblox/src", false)
+		RT.task.spawn(function()
+			RT.runScript(main)
+		end)
+		RT.step(1)
+		checkv("Tapis (e2e) : démarrage sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+		local hooks = RT.require(RT.services.ServerScriptService:FindFirstChild("Builder")).beltHooks
+		checkv("Tapis (e2e) : crochet interne du tapis doré branché (goldenBeltAdd), aucun ProcessReceipt ajouté pour lui", hooks ~= nil and type(hooks.goldenAdd) == "function")
+		local ws = RT.services.Workspace
+		local function inWorkspace(o)
+			local cur = o
+			while cur ~= nil do
+				if cur == ws then
+					return true
+				end
+				cur = rawget(cur, "__props").Parent
+			end
+			return false
+		end
+		local function livePrompts()
+			local out = {}
+			for _, o in ipairs(RT.all) do
+				if o.ClassName == "ProximityPrompt" and rawget(o, "__props").EggId == nil and o:GetAttribute("EggId") ~= nil and inWorkspace(o) then
+					out[#out + 1] = o
+				end
+			end
+			return out
+		end
+		local function allBeltPrompts() -- toutes celles jamais créées (même détruites)
+			local out = {}
+			for _, o in ipairs(RT.all) do
+				if o.ClassName == "ProximityPrompt" and o:GetAttribute("EggId") ~= nil then
+					out[#out + 1] = o
+				end
+			end
+			return out
+		end
+		local function eggPos(prompt)
+			return rawget(prompt.Parent, "__props").CFrame.Position
+		end
+		local function standAt(p, x, z)
+			local root = p.Character:FindFirstChild("HumanoidRootPart")
+			rawget(root, "__props").Position = RT.vec(x, 3, z)
+			rawget(root, "__props").CFrame = RT.cf(x, 3, z)
+		end
+		local function trigger(p, prompt)
+			RT.fire(RT.services.ProximityPromptService, "PromptTriggered", prompt, p)
+		end
+		local function standOn(p, prompt)
+			local pos = eggPos(prompt)
+			standAt(p, pos.X, pos.Z)
+		end
+		local function snapshot(p)
+			for i = #RT.fired, 1, -1 do
+				local f = RT.fired[i]
+				if f[1] == "State" and f[2] == p and type(f[3]) == "table" then
+					return f[3]
+				end
+			end
+			return nil
+		end
+		local function notified(p, needle, fromIndex)
+			for i = fromIndex or 1, #RT.fired do
+				local f = RT.fired[i]
+				if f[1] == "Notify" and f[2] == p and type(f[3]) == "string" and f[3]:find(needle, 1, true) then
+					return true
+				end
+			end
+			return false
+		end
+		local function join(name, id)
+			return RT.addPlayer(name, id, { from = "hub", partyId = "BELT", size = 4, late = false })
+		end
+		-- les pièces bougent seules (revenu du pet de départ) : « intactes » = pas de débit, « débité » = prix moins le revenu de quelques secondes
+		local function coinsOf(p)
+			return p:GetAttribute("Coins")
+		end
+		local function notDebited(p, before)
+			return coinsOf(p) >= before - 0.001
+		end
+		local function debitedAbout(p, before, price)
+			local lost = before - coinsOf(p)
+			return lost >= price - 12 and lost <= price + 0.001
+		end
+		local t0 = RT.now
+		local ana, bob, cleo, dan = join("Ana", 9701), join("Bob", 9702), join("Cleo", 9703), join("Dan", 9704)
+		RT.step(2)
+		for _, p in ipairs({ ana, bob, cleo, dan }) do
+			standAt(p, 0, 40) -- sur la place, loin du tapis
+		end
+		local function welcomePrompt(uid)
+			for _, pr in ipairs(livePrompts()) do
+				if pr:GetAttribute("ForUser") == uid then
+					return pr
+				end
+			end
+			return nil
+		end
+		-- joueur neuf : un œuf hors base en moins de 60 s (robot qui va chercher l'œuf de bienvenue)
+		local wp
+		for _ = 1, 400 do
+			RT.step(0.1)
+			wp = welcomePrompt(9701)
+			if wp then
+				break
+			end
+		end
+		local tOffer = RT.now - t0
+		checkv(string.format("Œuf de bienvenue : apparaît %.1f s après l'arrivée (attendu ~%d s), prompt « %s », visible et nominatif", tOffer, Config.BELT.welcome.delay, wp and rawget(wp, "__props").ActionText or "?"), wp ~= nil and tOffer >= Config.BELT.welcome.delay - 1 and tOffer <= Config.BELT.welcome.delay + 3 and rawget(wp, "__props").ActionText == "Prendre (gratuit)")
+		if wp then
+			-- l'œuf d'Ana vu par Bob : refusé par le serveur
+			local sBob = #RT.fired
+			standOn(bob, wp)
+			RT.step(0.3)
+			trigger(bob, wp)
+			RT.step(0.3)
+			checkv("Œuf de bienvenue d'autrui : refusé à Bob (message « réservé », aucun œuf obtenu, œuf toujours là)", not notified(bob, "Porte-le vite", sBob) and notified(bob, "réservé", sBob) and inWorkspace(wp))
+			standAt(bob, 0, 40)
+			-- Ana le prend
+			RT.step(0.3)
+			standOn(ana, wp)
+			RT.step(0.3)
+			local coinsBefore = ana:GetAttribute("Coins")
+			local sAna = #RT.fired
+			trigger(ana, wp)
+			RT.step(0.3)
+			local tGot = RT.now - t0
+			local sa = snapshot(ana)
+			checkv(string.format("Joueur neuf : œuf obtenu hors base après %.1f s (< 60 s), gratuit (pièces %s -> %s), état « taken », œuf retiré du tapis [welcome %s, sur le tapis %s]", tGot, tostring(coinsBefore), tostring(ana:GetAttribute("Coins")), tostring(sa.welcome), tostring(inWorkspace(wp))), notified(ana, "Porte-le vite", sAna) and tGot < 60 and notDebited(ana, coinsBefore) and sa.welcome == "taken" and not inWorkspace(wp))
+			standAt(ana, 0, 40)
+		end
+		-- œuf standard à prix abordable (Commun, 15 pièces) : refus hors de portée, achat valide, double achat simultané
+		local function findEgg(pred)
+			for _ = 1, 600 do
+				for _, pr in ipairs(livePrompts()) do
+					if pr:GetAttribute("ForUser") == nil and pred(pr) then
+						return pr
+					end
+				end
+				RT.step(0.1)
+			end
+			return nil
+		end
+		local cheap = findEgg(function(pr)
+			return pr.Parent:GetAttribute("Tier") == 1 and eggPos(pr).X < 20
+		end)
+		if cheap then
+			RT.step(0.5)
+			local cleoCoins, danCoins = coinsOf(cleo), coinsOf(dan)
+			local sFar = #RT.fired
+			trigger(cleo, cheap) -- Cleo est à 40 studs : hors de portée
+			RT.step(0.3)
+			checkv("Achat hors de portée : refusé côté serveur (aucun œuf obtenu, pièces intactes, œuf toujours sur le tapis)", not notified(cleo, "Porte-le vite", sFar) and notDebited(cleo, cleoCoins) and inWorkspace(cheap))
+			-- achat simultané par Cleo et Dan du même œuf : un seul gagnant
+			local pos = eggPos(cheap)
+			standAt(cleo, pos.X, pos.Z)
+			standAt(dan, pos.X, pos.Z)
+			RT.step(0.3)
+			local sd = #RT.fired
+			cleoCoins, danCoins = coinsOf(cleo), coinsOf(dan)
+			trigger(cleo, cheap)
+			trigger(dan, cheap) -- même instant
+			RT.step(0.3)
+			local cc = notified(cleo, "Porte-le vite", sd) and 1 or 0
+			local dc = notified(dan, "Porte-le vite", sd) and 1 or 0
+			local price = math.floor(Config.EGG_PRICE[1] * Config.BELT.priceRatio)
+			local winnerOk = (cc == 1 and debitedAbout(cleo, cleoCoins, price) and notDebited(dan, danCoins)) or (dc == 1 and debitedAbout(dan, danCoins, price) and notDebited(cleo, cleoCoins))
+			checkv("Achat simultané du même œuf par 2 joueurs : un seul l'obtient (" .. cc .. " + " .. dc .. "), seul le gagnant est débité (" .. price .. " pièces), l'autre reçoit « Trop tard ! »", cc + dc == 1 and winnerOk and (notified(cleo, "Trop tard", sd) or notified(dan, "Trop tard", sd)) and not inWorkspace(cheap))
+			standAt(cleo, 0, 40)
+			standAt(dan, 0, 40)
+		else
+			checkv("Tapis (e2e) : un œuf Commun apparaît sur le tapis dans les 60 s", false)
+		end
+		-- pas assez de pièces : un œuf Rare/Épique (prix > 50) reste sur le tapis
+		RT.step(1)
+		local dear = findEgg(function(pr)
+			local t = pr.Parent:GetAttribute("Tier")
+			return t >= 2 and t <= 3 and pr.Parent:GetAttribute("Price") > 300 and eggPos(pr).X < 20
+		end)
+		if dear then
+			local pos = eggPos(dear)
+			standAt(bob, pos.X, pos.Z)
+			RT.step(0.4)
+			local sb = #RT.fired
+			local coins = coinsOf(bob)
+			trigger(bob, dear)
+			RT.step(0.3)
+			checkv("Achat sans assez de pièces : refusé (« Pas assez de pièces »), rien débité (" .. tostring(coins) .. " pièces), l'œuf reste sur le tapis", not notified(bob, "Porte-le vite", sb) and notified(bob, "Pas assez de pièces", sb) and notDebited(bob, coins) and inWorkspace(dear))
+			standAt(bob, 0, 40)
+		else
+			checkv("Tapis (e2e) : un œuf Rare ou Épique apparaît (pour le test « sans pièces »)", false)
+		end
+		-- panneau : les deux tables de la config, table active en surbrillance, tapis doré avec compte à rebours et donateur
+		local function panelLabel(name)
+			for _, o in ipairs(RT.all) do
+				if o.ClassName == "TextLabel" and rawget(o, "__props").Name == name and o.Parent and rawget(o.Parent, "__props").Name == "Card" then
+					return o
+				end
+			end
+			return nil
+		end
+		local ln, lg, ls = panelLabel("Normal"), panelLabel("Golden"), panelLabel("Status")
+		checkv("Panneau du tapis (e2e) : table standard et table dorée = Config.beltOddsText, la standard en surbrillance (▶)", ln ~= nil and lg ~= nil and ln.Text == "▶ Standard : " .. Config.beltOddsText("normal") and lg.Text == "Doré : " .. Config.beltOddsText("golden"))
+		local idsBefore = #allBeltPrompts()
+		hooks.goldenAdd(120, "Zoé")
+		RT.step(2)
+		checkv("Panneau du tapis doré (e2e) : « " .. tostring(ls and ls.Text) .. " », table dorée en surbrillance", ls ~= nil and ls.Text:find("TAPIS DORÉ", 1, true) ~= nil and ls.Text:find("Zoé", 1, true) ~= nil and ls.Text:find("1:", 1, true) ~= nil and lg.Text:find("▶", 1, true) == 1 and ln.Text:find("▶", 1, true) == nil)
+		RT.step(60)
+		local nGolden = #allBeltPrompts() - idsBefore
+		-- 10 minutes simulées : 12 œufs au plus, une représentation visuelle par œuf logique, aucun objet qui fuit
+		local function descendantsOutsideBelt()
+			local n = 0
+			for _, d in ipairs(ws:GetDescendants()) do
+				local anc, inBelt = d, false
+				while anc ~= nil do
+					if rawget(anc, "__props").Name == "BeltEggs" then
+						inBelt = true
+					end
+					anc = rawget(anc, "__props").Parent
+				end
+				if not inBelt then
+					n = n + 1
+				end
+			end
+			return n
+		end
+		RT.step(130) -- le tapis doré (120 s) est fini
+		local base = descendantsOutsideBelt()
+		local peakEggs, mismatch = 0, 0
+		for chunk = 1, 6 do
+			RT.step(100, 0.1)
+			local st = hooks.stats()
+			peakEggs = math.max(peakEggs, st.eggs)
+			if st.visuals ~= st.eggs or st.children ~= st.visuals then
+				mismatch = mismatch + 1
+			end
+		end
+		local after = descendantsOutsideBelt()
+		local st = hooks.stats()
+		checkv("Tapis (e2e) : 600 s simulées, pic de " .. peakEggs .. " œufs (<= " .. Config.BELT.maxEggs .. "), un objet visuel par œuf logique à chaque contrôle (" .. mismatch .. " écart)", peakEggs <= Config.BELT.maxEggs and mismatch == 0 and st.children <= Config.BELT.maxEggs)
+		checkv("Tapis (e2e) : aucun objet qui fuit après 10 minutes : descendants de Workspace hors tapis " .. base .. " -> " .. after .. ", œufs du tapis " .. st.children .. " (<= 12)", math.abs(after - base) <= 40 and #livePrompts() == st.eggs)
+		local nStd = 0
+		do -- apparitions en tapis standard sur les 600 dernières secondes (hors œufs de bienvenue)
+			local idMax = 0
+			for _, pr in ipairs(allBeltPrompts()) do
+				idMax = math.max(idMax, pr:GetAttribute("EggId"))
+			end
+			nStd = idMax
+		end
+		checkv("Tapis doré (e2e) : " .. nGolden .. " œufs apparus pendant ~60 s dorées (contre ~12 au tapis standard)", nGolden >= 17)
+		-- œuf de bienvenue : une seule fois par joueur sur toute la durée (même sans l'avoir pris)
+		local perUser = {}
+		for _, pr in ipairs(allBeltPrompts()) do
+			local u = pr:GetAttribute("ForUser")
+			if u then
+				perUser[u] = (perUser[u] or 0) + 1
+			end
+		end
+		checkv("Œuf de bienvenue (e2e) : exactement un par joueur sur 10 minutes (Ana " .. tostring(perUser[9701]) .. ", Bob " .. tostring(perUser[9702]) .. ", Cleo " .. tostring(perUser[9703]) .. ", Dan " .. tostring(perUser[9704]) .. ", " .. nStd .. " œufs au total)", perUser[9701] == 1 and perUser[9702] == 1 and perUser[9703] == 1 and perUser[9704] == 1)
+		local beltWarns = 0
+		for _, w in ipairs(RT.warns) do
+			if tostring(w):find("[belt]", 1, true) then
+				beltWarns = beltWarns + 1
+			end
+		end
+		checkv("Tapis (e2e) : aucune erreur d'exécution, " .. beltWarns .. " avertissement « [belt] » du serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0 and beltWarns == 0)
+	end
 end
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
