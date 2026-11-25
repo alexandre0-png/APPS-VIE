@@ -36,6 +36,18 @@ def potion(d): o(d,d.ellipse,(130,210,382,430),fill=(90,230,130)); o(d,d.rectang
 def bag(d): o(d,d.ellipse,(120,190,392,430),fill=(200,150,70)); o(d,d.polygon,[(200,200),(160,110),(352,110),(312,200)],fill=(220,170,90)); o(d,d.rectangle,(190,190,322,215),fill=(240,60,90)); coin(d,256,330,60)
 def vip(d): crown(d)
 def support(d): heart(d,(255,110,150))
+
+def raven(d):
+    o(d,d.ellipse,(130,200,380,400),fill=(40,40,55)); o(d,d.ellipse,(300,130,420,250),fill=(40,40,55)); d.polygon([(410,185),(470,205),(410,225)],fill=(255,170,40),outline=(30,30,40)); d.ellipse((365,165,385,185),fill=(255,255,255)); d.polygon([(150,280),(60,200),(120,330)],fill=(60,60,80),outline=(30,30,40))
+def belt(d,gold=False):
+    c=(255,205,60) if gold else (110,110,125)
+    o(d,d.rounded_rectangle,(70,300,442,380),30,fill=c)
+    for x in (110,200,290,380): o(d,d.ellipse,(x-24,330,x+24,378),fill=(60,60,70),w=5)
+    egg(d,(240,240,250) if not gold else (255,240,160),False); 
+def slots(d):
+    for i,(x,y) in enumerate(((150,150),(300,150),(150,300),(300,300))): o(d,d.rounded_rectangle,(x-55,y-55,x+55,y+55),20,fill=(230,230,245)); o(d,d.ellipse,(x-28,y-38,x+28,y+38),fill=(255,190,90),w=5)
+    d.rectangle((236,235,276,275),fill=(60,200,100)); d.rectangle((246,225,266,285),fill=(60,200,100))
+def serverluck(d): clover(d); star(d,380,130,50,(255,230,70))
 ITEMS={
  "lampe_renforcee":((60,60,110),(120,120,200),lambda d:lamp(d)),
  "lanterne_doree":((120,80,10),(230,170,40),lambda d:lamp(d,True)),
@@ -52,6 +64,12 @@ ITEMS={
  "revive":((140,30,50),(240,90,110),lambda d:heart(d)),
  "instanthatch":((160,110,20),(255,210,90),lambda d:(egg(d,(255,240,200),False),bolt(d))),
  "luckpotion":((20,100,60),(90,220,140),potion),
+ "extraslots":((20,60,120),(80,150,230),slots),
+ "privatebelt":((60,60,90),(130,130,170),lambda d:belt(d)),
+ "serverluck":((20,100,50),(110,220,130),serverluck),
+ "goldenbelt":((140,90,10),(255,200,60),lambda d:belt(d,True)),
+ "remotesteal":((30,30,50),(90,90,130),raven),
+ "remotestealpack":((50,30,70),(140,100,190),raven),
  "coinpack":((120,70,20),(220,160,70),bag),
 }
 for k,(c1,c2,fn) in ITEMS.items():
