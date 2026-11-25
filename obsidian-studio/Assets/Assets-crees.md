@@ -80,3 +80,6 @@ books_stack 75235784527086; branch_chandelier 81736669133938; clock_wall 9577760
 
 ## Lot 19 (gros meubles de maison, agent Sonnet) : scripts/blender_make_refonte_e.py
 bed_double 73424212171108; dining_set 104316845432310; fridge_big 131419976234083; shelf_drawers 139964774272115; desk_study 102305030833988; kitchen_run 79053277599844; kitchen_upper 111169784434252; sofa_corner 107495439971094; tv_unit_stepped 108277232894442; wardrobe_tall 117500900219054
+
+## Lot 17 (décor de carte : arbres, puits, îlot sakura, rochers, banc, parterre, agent Sonnet) : scripts/blender_make_refonte_c.py
+bench_park 71149096082627; boulder_cluster 94606784141362; flowerbed 136250950680925; log_hollow 92331613804784; tree_dead 110319726621538; tree_pine_tier 89102403219316; tree_wide 86295807080862; island_sakura 77134124755209; stump_roots 77105687594948; tree_autumn 139640609512190; tree_fork 134023676934024; well_roofed 77148661041685
