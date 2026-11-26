@@ -48,6 +48,22 @@ def slots(d):
     for i,(x,y) in enumerate(((150,150),(300,150),(150,300),(300,300))): o(d,d.rounded_rectangle,(x-55,y-55,x+55,y+55),20,fill=(230,230,245)); o(d,d.ellipse,(x-28,y-38,x+28,y+38),fill=(255,190,90),w=5)
     d.rectangle((236,235,276,275),fill=(60,200,100)); d.rectangle((246,225,266,285),fill=(60,200,100))
 def serverluck(d): clover(d); star(d,380,130,50,(255,230,70))
+
+def egg_rare(d,kind):
+    if kind=="secret":
+        o(d,d.ellipse,(150,90,362,430),fill=(12,12,24)); 
+        for i,c in enumerate(((255,60,60),(255,200,40),(60,220,90),(60,140,255),(180,80,255))): d.ellipse((190+i*0,230,322,330),outline=c,width=10-i*1) if False else None
+        o(d,d.ellipse,(110,220,402,300),fill=None,w=0) if False else None
+        for i,c in enumerate(((255,60,60),(255,200,40),(60,220,90),(60,140,255))): d.arc((110-i*8,170-i*8,402+i*8,350+i*8),20,200,fill=c,width=9)
+        star(d,400,120,50,(255,230,70)); star(d,110,380,38,(120,240,255))
+    elif kind=="exclusive":
+        o(d,d.ellipse,(150,110,362,430),fill=(240,240,240)); 
+        for (x,y,r) in ((210,220,26),(300,300,30),(250,370,20),(320,200,16)): d.ellipse((x-r,y-r,x+r,y+r),fill=(20,20,20))
+        d.polygon([(170,130),(185,60),(220,100),(256,45),(292,100),(327,60),(342,130)],fill=(25,25,30),outline=(255,255,255))
+    else:
+        for s in (-1,1): d.polygon([(256+s*60,300),(256+s*230,170),(256+s*210,260),(256+s*250,300),(256+s*190,340),(256+s*60,360)],fill=(255,255,255),outline=(30,30,40))
+        o(d,d.ellipse,(170,100,342,420),fill=(255,243,176)); d.ellipse((180,50,332,95),outline=(255,230,128),width=12)
+        star(d,256,260,40,(255,255,255))
 ITEMS={
  "lampe_renforcee":((60,60,110),(120,120,200),lambda d:lamp(d)),
  "lanterne_doree":((120,80,10),(230,170,40),lambda d:lamp(d,True)),
@@ -70,6 +86,9 @@ ITEMS={
  "goldenbelt":((140,90,10),(255,200,60),lambda d:belt(d,True)),
  "remotesteal":((30,30,50),(90,90,130),raven),
  "remotestealpack":((50,30,70),(140,100,190),raven),
+ "oeufsecret":((10,10,30),(90,40,160),lambda d:egg_rare(d,"secret")),
+ "oeufexclusif":((30,30,40),(120,120,140),lambda d:egg_rare(d,"exclusive")),
+ "oeufdivin":((150,110,10),(255,235,150),lambda d:egg_rare(d,"divine")),
  "coinpack":((120,70,20),(220,160,70),bag),
 }
 for k,(c1,c2,fn) in ITEMS.items():
