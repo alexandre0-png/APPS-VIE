@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX30"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX29"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX31"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX30"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2237,7 +2237,7 @@ Config.CALENDAR = {
 	rewards = {
 		{ egg = 1, scrolls = 1 }, { c = 8, tokens = 1 }, { egg = 5, plumes = 1 }, { c = 10, scrolls = 1 }, { scrolls = 2, plumes = 1 }, { c = 12, tokens = 1 }, { egg = 3, cosm = "ribbon" },
 		{ c = 12 }, { scrolls = 2, tokens = 1 }, { c = 25, plumes = 2, title = "cal10" }, { c = 15 }, { scrolls = 2 }, { tokens = 2, c = 15 }, { egg = 4, cosm = "cape" },
-		{ c = 20, plumes = 1 }, { scrolls = 3 }, { tokens = 2, plumes = 2, c = 25 }, { c = 25 }, { scrolls = 3, tokens = 1 }, { egg = 6, cosm = "aura" },
+		{ c = 20, plumes = 1 }, { scrolls = 3 }, { egg = 4, tokens = 2, plumes = 2 }, { c = 25 }, { scrolls = 3, tokens = 1 }, { egg = 6, cosm = "aura" },
 		{ c = 30 }, { plumes = 2, scrolls = 2 }, { c = 35, tokens = 2 }, { scrolls = 3 }, { egg = 5, title = "cal25", plumes = 3 }, { c = 40 }, { tokens = 3, scrolls = 3 },
 		{ cosm = "crown", plumes = 3, c = 60 }, { c = 60, scrolls = 4 }, { draw = true, title = "cal30", c = 120, plumes = 5 },
 	},
@@ -8961,8 +8961,363 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+-- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
+-- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
+-- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
+-- grace = jours de grâce utilisés ce cycle, catch = jetons de rattrapage payants, qc = missions réclamées comptées pour un rattrapage,
+-- dayD / dayN = jour UTC et nombre de réclamations déjà faites ce jour-là (plafond Config.CALENDAR.dayCap).
+local Calendar = {}
+
+local function int(v, lo, hi, def)
+	if type(v) ~= "number" or v ~= v or v == math.huge or v == -math.huge then
+		return def
+	end
+	v = math.floor(v)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+Calendar.int = int
+
+local function zeros(Config)
+	return string.rep("0", Config.CALENDAR.days)
+end
+
+function Calendar.newState(Config)
+	return { start = 0, cycle = 0, days = zeros(Config), grace = 0, catch = 0, qc = 0, dayD = 0, dayN = 0 }
+end
+
+-- Assainit un `cal` lu du profil (champ facultatif : absent, corrompu ou d'une autre forme = état neuf). Ne garde que des entiers bornés.
+function Calendar.sanitize(Config, saved)
+	local C = Config.CALENDAR
+	local cal = Calendar.newState(Config)
+	if type(saved) ~= "table" then
+		return cal
+	end
+	cal.start = int(saved.start, 0, 1e6, 0)
+	cal.cycle = int(saved.cycle, 0, 1e4, 0)
+	if cal.start > 0 and cal.cycle < 1 then
+		cal.cycle = 1
+	end
+	if type(saved.days) == "string" and #saved.days == C.days and not string.find(saved.days, "[^01]") then
+		cal.days = saved.days
+	end
+	cal.grace = int(saved.grace, 0, C.days, 0)
+	cal.catch = int(saved.catch, 0, C.catchupMax, 0)
+	cal.qc = int(saved.qc, 0, C.catchupQuests * 2, 0)
+	cal.dayD = int(saved.dayD, 0, 1e6, 0)
+	cal.dayN = int(saved.dayN, 0, C.dayCap, 0)
+	return cal
+end
+
+function Calendar.claimedCount(cal)
+	local _, n = string.gsub(cal.days, "1", "")
+	return n
+end
+
+-- Jour du cycle (1 à 30 pendant le cycle ; 0 = pas démarré ; > 30 = cycle terminé, à renouveler). today = jour UTC (os.time() // 86400).
+function Calendar.dayIndex(cal, today)
+	if type(today) ~= "number" or today ~= today or cal.start <= 0 then
+		return 0
+	end
+	return math.floor(today) - cal.start + 1
+end
+
+-- Cycle terminé (30 jours écoulés) : nouveau cycle commençant aujourd'hui, jours remis à zéro (les jours non réclamés sont perdus ; jetons et missions comptées restent).
+-- Retourne vrai si le cycle a été renouvelé.
+function Calendar.normalize(Config, cal, today)
+	if type(today) ~= "number" or today ~= today or cal.start <= 0 then
+		return false
+	end
+	if math.floor(today) - cal.start >= Config.CALENDAR.days then
+		cal.cycle = cal.cycle + 1
+		cal.start = math.floor(today)
+		cal.days = zeros(Config)
+		cal.grace = 0
+		cal.dayD = 0
+		cal.dayN = 0
+		return true
+	end
+	return false
+end
+
+-- Démarre le cycle 1 aujourd'hui s'il ne l'est pas (appelé seulement pour un joueur éligible). Retourne vrai si démarré maintenant.
+function Calendar.begin(Config, cal, today)
+	if cal.start > 0 or type(today) ~= "number" or today ~= today then
+		return false
+	end
+	cal.start = math.floor(today)
+	cal.cycle = math.max(1, cal.cycle + 1)
+	cal.days = zeros(Config)
+	cal.grace = 0
+	cal.dayD = 0
+	cal.dayN = 0
+	return true
+end
+
+-- Éligibilité : ancienneté du compte (jours) et temps de jeu cumulé (secondes). Valeurs incertaines : tout ce qui n'est pas un nombre fini vaut 0 (refusé).
+function Calendar.eligible(Config, ageDays, playedSeconds)
+	local C = Config.CALENDAR
+	local a = (type(ageDays) == "number" and ageDays == ageDays) and ageDays or 0
+	local p = (type(playedSeconds) == "number" and playedSeconds == playedSeconds) and playedSeconds or 0
+	if a < C.minAccountAgeDays then
+		return false, "age"
+	end
+	if p < C.minPlayMinutes * 60 then
+		return false, "played"
+	end
+	return true
+end
+
+-- Jours de grâce gagnés au jour `idx` (1 dès le jour 1, +1 tous les `graceEvery` jours) moins ceux déjà utilisés.
+function Calendar.graceEarned(Config, idx)
+	if type(idx) ~= "number" or idx ~= idx or idx < 1 then
+		return 0
+	end
+	return math.floor((math.min(idx, Config.CALENDAR.days) - 1) / Config.CALENDAR.graceEvery) + 1
+end
+
+function Calendar.graceAvail(Config, cal, idx)
+	return math.max(0, Calendar.graceEarned(Config, idx) - cal.grace)
+end
+
+-- Réclamations déjà faites aujourd'hui (UTC).
+function Calendar.todayCount(cal, today)
+	return cal.dayD == today and cal.dayN or 0
+end
+
+-- Une réclamation est-elle permise ? `day` = carte demandée, `how` = "today" (le jour en cours) ou, pour un jour manqué, "grace" / "quest" / "paid".
+-- Retourne true ou (false, code) : ineligible, day, notStarted, future, claimed, monthCap, dayCap, how, noResource.
+function Calendar.check(Config, cal, today, day, how, eligible)
+	local C = Config.CALENDAR
+	if eligible ~= true then
+		return false, "ineligible"
+	end
+	if type(day) ~= "number" or day ~= day or day % 1 ~= 0 or day < 1 or day > C.days then
+		return false, "day"
+	end
+	local idx = Calendar.dayIndex(cal, today)
+	if idx < 1 then
+		return false, "notStarted"
+	end
+	if day > idx then
+		return false, "future"
+	end
+	if string.sub(cal.days, day, day) == "1" then
+		return false, "claimed"
+	end
+	if Calendar.claimedCount(cal) >= C.monthCap then
+		return false, "monthCap"
+	end
+	if Calendar.todayCount(cal, today) >= C.dayCap then
+		return false, "dayCap"
+	end
+	if day == idx then
+		return true
+	end
+	local have
+	if how == "grace" then
+		have = Calendar.graceAvail(Config, cal, idx) > 0
+	elseif how == "quest" then
+		have = cal.qc >= C.catchupQuests
+	elseif how == "paid" then
+		have = cal.catch >= 1
+	else
+		return false, "how"
+	end
+	if not have then
+		return false, "noResource"
+	end
+	return true
+end
+
+-- Série : jours consécutifs réclamés qui se terminent au dernier jour réclamé du cycle.
+function Calendar.streak(days)
+	local last = 0
+	for i = #days, 1, -1 do
+		if string.sub(days, i, i) == "1" then
+			last = i
+			break
+		end
+	end
+	local n = 0
+	for i = last, 1, -1 do
+		if string.sub(days, i, i) == "1" then
+			n = n + 1
+		else
+			break
+		end
+	end
+	return n
+end
+
+-- Applique une réclamation DÉJÀ validée par `check` : jour marqué, ressource consommée, compteur du jour. Retourne la série.
+function Calendar.apply(Config, cal, today, day, how)
+	local idx = Calendar.dayIndex(cal, today)
+	cal.days = string.sub(cal.days, 1, day - 1) .. "1" .. string.sub(cal.days, day + 1)
+	if cal.dayD ~= today then
+		cal.dayD = today
+		cal.dayN = 0
+	end
+	cal.dayN = cal.dayN + 1
+	if day < idx then
+		if how == "grace" then
+			cal.grace = cal.grace + 1
+		elseif how == "quest" then
+			cal.qc = math.max(0, cal.qc - Config.CALENDAR.catchupQuests)
+		elseif how == "paid" then
+			cal.catch = math.max(0, cal.catch - 1)
+		end
+	end
+	return Calendar.streak(cal.days)
+end
+
+-- Une mission réclamée compte pour le rattrapage « 3 missions » (plafonné à 2 rattrapages d'avance).
+function Calendar.addQuest(Config, cal)
+	cal.qc = math.min(Config.CALENDAR.catchupQuests * 2, cal.qc + 1)
+end
+
+-- Un jeton de rattrapage payant de plus ; faux si le plafond est atteint (l'achat n'est alors pas traité : rien n'est perdu).
+function Calendar.addCatch(Config, cal)
+	if cal.catch >= Config.CALENDAR.catchupMax then
+		return false
+	end
+	cal.catch = cal.catch + 1
+	return true
+end
+
+-- Tirage du jour 30 : r dans [0, 1) -> rareté de l'œuf (table Config.CALENDAR.draw, pourcentages affichés).
+function Calendar.draw(Config, r)
+	local d = Config.CALENDAR.draw
+	local v = (type(r) == "number" and r == r) and r or 0
+	local acc = 0
+	for _, e in ipairs(d) do
+		acc = acc + e.pct / 100
+		if v < acc then
+			return e.tier
+		end
+	end
+	return d[#d].tier
+end
+
+-- Un jour dont la récompense est aléatoire (donc soumis à PolicyService quand il est obtenu par un rattrapage PAYANT).
+function Calendar.isRandom(Config, day)
+	local r = Config.CALENDAR.rewards[day]
+	return r ~= nil and r.draw == true
+end
+
+-- Récompense concrète d'un jour : { coins, egg, scrolls, plumes, tokens, cosm, title, drew }. `rnd` = tirage [0,1) (serveur), `income` = pièces / s du joueur.
+function Calendar.plan(Config, day, rnd, income)
+	local C = Config.CALENDAR
+	local r = C.rewards[day]
+	if not r then
+		return nil
+	end
+	local inc = (type(income) == "number" and income == income and income > 0) and income or 0
+	local coins = 0
+	if r.c then
+		coins = math.floor(math.max(C.coinFloor, inc * 60 * r.c))
+	end
+	local egg = r.egg
+	local drew = false
+	if r.draw then
+		egg = Calendar.draw(Config, rnd)
+		drew = true
+	end
+	return { coins = coins, egg = egg, scrolls = r.scrolls or 0, plumes = r.plumes or 0, tokens = r.tokens or 0, cosm = r.cosm, title = r.title, drew = drew }
+end
+
+-- Texte court de la récompense affichée sur une carte.
+function Calendar.rewardText(Config, day)
+	local C = Config.CALENDAR
+	local r = C.rewards[day]
+	if not r then
+		return ""
+	end
+	local parts = {}
+	if r.draw then
+		local t = {}
+		for _, e in ipairs(C.draw) do
+			t[#t + 1] = e.pct .. " % " .. Config.TIERS[e.tier].name
+		end
+		parts[#parts + 1] = "🎲 Œuf : " .. table.concat(t, " / ")
+	elseif r.egg then
+		parts[#parts + 1] = "🥚 Œuf " .. Config.TIERS[r.egg].name
+	end
+	if r.c then
+		parts[#parts + 1] = "🪙 " .. r.c .. " min de revenu"
+	end
+	if r.scrolls then
+		parts[#parts + 1] = "📜 " .. r.scrolls
+	end
+	if r.plumes then
+		parts[#parts + 1] = "🪶 " .. r.plumes
+	end
+	if r.tokens then
+		parts[#parts + 1] = "⚔️ " .. r.tokens
+	end
+	if r.cosm and C.cosmetics[r.cosm] then
+		parts[#parts + 1] = C.cosmetics[r.cosm].emoji .. " " .. C.cosmetics[r.cosm].name
+	end
+	if r.title and C.titles[r.title] then
+		parts[#parts + 1] = "🏷 " .. C.titles[r.title].name
+	end
+	return table.concat(parts, " · ")
+end
+
+-- Compte à rebours du Légendaire (jour 3), visible dès le jour 1. idx = jour du cycle (0 avant le démarrage = jour 1), got = œuf déjà réclamé.
+function Calendar.legendaryText(Config, idx, got)
+	if got then
+		return "🌟 Légendaire du jour " .. Config.CALENDAR.legendaryDay .. " : obtenu !"
+	end
+	local i = (type(idx) == "number" and idx == idx and idx >= 1) and idx or 1
+	local left = Config.CALENDAR.legendaryDay - i
+	if left > 1 then
+		return "🌟 Œuf Légendaire : plus que " .. left .. " jours !"
+	elseif left == 1 then
+		return "🌟 Œuf Légendaire : plus que 1 jour !"
+	elseif left == 0 then
+		return "🌟 Œuf Légendaire : c'est aujourd'hui !"
+	end
+	return "🌟 Œuf Légendaire manqué : rattrape le jour " .. Config.CALENDAR.legendaryDay .. " !"
+end
+
+-- Vue envoyée au client (toute décision reste au serveur). states : 30 caractères, « c » réclamé, « t » à réclamer aujourd'hui, « m » manqué (rattrapable),
+-- « f » à venir. Un jour qui n'est plus rattrapable n'existe pas : tout jour manqué du cycle reste rattrapable jusqu'à la fin du cycle.
+function Calendar.view(Config, cal, today, eligible, reason)
+	local C = Config.CALENDAR
+	local idx = Calendar.dayIndex(cal, today)
+	local started = idx >= 1 and idx <= C.days
+	local out = {}
+	for d = 1, C.days do
+		local claimed = string.sub(cal.days, d, d) == "1"
+		local st = "f"
+		if claimed then
+			st = "c"
+		elseif started and d == idx then
+			st = "t"
+		elseif started and d < idx then
+			st = "m"
+		end
+		out[#out + 1] = st
+	end
+	local shownIdx = started and idx or 1
+	local left = math.max(0, C.dayCap - Calendar.todayCount(cal, today))
+	local canToday = eligible == true and started and string.sub(cal.days, idx, idx) == "0" and left > 0 and Calendar.claimedCount(cal) < C.monthCap
+	return {
+		states = table.concat(out), idx = shownIdx, started = started, cycle = cal.cycle, claimed = Calendar.claimedCount(cal), streak = Calendar.streak(cal.days),
+		grace = started and Calendar.graceAvail(Config, cal, idx) or 0, catch = cal.catch, qc = cal.qc, left = left, eligible = eligible == true, reason = reason,
+		canToday = canToday == true, legendary = Calendar.legendaryText(Config, shownIdx, string.sub(cal.days, C.legendaryDay, C.legendaryDay) == "1"),
+	}
+end
+
+return Calendar
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX39"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX31"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX40"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX32"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13444,7 +13799,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -14332,7 +14687,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -17027,7 +17382,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -17194,7 +17549,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -17207,7 +17562,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -17726,7 +18081,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -18463,7 +18818,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -18597,7 +18952,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX56"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX55"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX40"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX57"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX56"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX41"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18621,6 +18976,7 @@ local VfxKitMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild(
 local Vfx = VfxKitMod.new(Config, Easing)
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule (règles pures, lot 6)
+local Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")) -- calendrier de 30 jours (règles pures, lot 9b : textes des cartes)
 local HenUi = require(script.Parent:WaitForChild("HenUi")) -- dialogue, ❗, plumes, berceuse, cible du faisceau
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
@@ -19220,6 +19576,7 @@ local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
+	bonus = { { "daily", "🎁 Bonus" }, { "cal", "📅 Calendrier" } }, -- lot 9b : calendrier des œufs sur 30 jours
 }
 local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau" }
 local ravenData = nil -- dernière liste de cibles reçue du serveur (lot 7)
@@ -19272,7 +19629,7 @@ function render()
 			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
 			pressFx(b)
-			if t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true then -- pastille « 1 » : l'énigme du jour attend
+			if (t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true) or (panel.name == "bonus" and ((t[1] == "cal" and type(state.cal) == "table" and state.cal.canToday == true) or (t[1] == "daily" and state.dailyReady))) then -- pastille « 1 » : l'énigme du jour, le calendrier ou le bonus attend
 				local badge = make("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, -3), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = COL.red, Text = "1", TextSize = 12, Font = FONT, TextColor3 = COL.text, ZIndex = 5 }, b)
 				corner(badge, 9)
 			end
@@ -19444,6 +19801,16 @@ function render()
 		for _, t in ipairs(list) do
 			addRow({ icon = t.unlocked and "🏷" or "🔒", title = t.unlocked and t.name or "???", titleColor = t.unlocked and COL.yellow or COL.muted, desc = t.desc })
 		end
+		if type(state.cal) == "table" then -- lot 9b : titres et cosmétiques du calendrier de 30 jours
+			for id, t in pairs(Config.CALENDAR.titles) do
+				local on = state.cal.titles and state.cal.titles[id] == true
+				addRow({ icon = on and "📅" or "🔒", title = on and t.name or "???", titleColor = on and COL.yellow or COL.muted, desc = t.desc })
+			end
+			for id, c in pairs(Config.CALENDAR.cosmetics) do
+				local on = state.cal.cosm and state.cal.cosm[id] == true
+				addRow({ icon = on and c.emoji or "🔒", title = on and c.name or "???", titleColor = on and COL.yellow or COL.muted, desc = "Cosmétique du calendrier" })
+			end
+		end
 	elseif panel.name == "dex" and panel.tab == "eggs" then
 		local n = 0
 		do
@@ -19609,6 +19976,109 @@ function render()
 			for i, e in ipairs(topData) do
 				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "🌅 " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
 			end
+		end
+	elseif panel.name == "bonus" and panel.tab == "cal" then
+		-- Lot 9b : calendrier des œufs sur 30 jours. Tout est décidé par le serveur (jour UTC, éligibilité, ressources) ; ici : cartes, barre, détail, demandes { day, how }.
+		local cal, CC = state.cal, Config.CALENDAR
+		if type(cal) ~= "table" then
+			addNote("📅 Calendrier : chargement…")
+		else
+			local legTier = Config.TIERS[CC.rewards[CC.legendaryDay].egg]
+			if not cal.eligible then
+				addNote(cal.reason == "age" and "🔒 Calendrier : il faut un compte Roblox d'au moins " .. CC.minAccountAgeDays .. " jour." or ("🔒 Calendrier : encore " .. (cal.playLeft or CC.minPlayMinutes) .. " min de jeu avant de commencer."))
+			end
+			-- barre « jour N sur 30 »
+			local barF = make("Frame", { Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = COL.bg }, scroll)
+			corner(barF, 14)
+			text(barF, { Position = UDim2.fromOffset(10, 3), Size = UDim2.new(1, -20, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 15, TextColor3 = COL.yellow, Text = "📅 Jour " .. cal.idx .. " sur " .. CC.days .. " · " .. cal.claimed .. " récompense(s) · série " .. cal.streak })
+			local barBg = make("Frame", { Position = UDim2.fromOffset(10, 28), Size = UDim2.new(1, -20, 0, 9), BackgroundColor3 = COL.panel }, barF)
+			corner(barBg, 5)
+			local barFill = make("Frame", { Size = UDim2.fromScale(math.min(1, math.max(0.02, cal.idx / CC.days)), 1), BackgroundColor3 = COL.green }, barBg)
+			corner(barFill, 5)
+			for _, m in ipairs(CC.milestones) do -- jalons : repères sur la barre
+				make("Frame", { Position = UDim2.fromScale((m - 0.5) / CC.days, 0), Size = UDim2.fromOffset(2, 9), BackgroundColor3 = COL.yellow, BorderSizePixel = 0, ZIndex = 2 }, barBg)
+			end
+			-- Légendaire du jour 3 : mis en avant (compte à rebours visible dès le jour 1)
+			local legGot = string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "c"
+			local lf = addRow({
+				icon = "🌟", iconColor = legTier.color, title = cal.legendary, titleColor = legTier.color,
+				desc = Calendar.rewardText(Config, CC.legendaryDay), btn = legGot and "✅ Obtenu" or (string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "t" and "Réclamer" or "Voir"),
+				btnColor = legGot and COL.dis or (string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "t" and COL.green or COL.yellow),
+				onClick = function()
+					panel.sel = CC.legendaryDay
+					if string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "t" then
+						RAction:FireServer("calClaim", { day = CC.legendaryDay, how = "today" })
+					else
+						render()
+					end
+				end,
+			})
+			make("UIStroke", { Color = legTier.color, Thickness = 3 }, lf)
+			-- grille des 30 cartes (5 colonnes)
+			local grid = make("Frame", { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1 }, scroll)
+			make("UIGridLayout", { CellSize = UDim2.new(0.2, -6, 0, 58), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+			local milestone = {}
+			for _, m in ipairs(CC.milestones) do
+				milestone[m] = true
+			end
+			for d = 1, CC.days do
+				local st = string.sub(cal.states, d, d)
+				local rw = CC.rewards[d]
+				local icon = rw.draw and "🎲" or (rw.egg and "🥚" or (rw.cosm and CC.cosmetics[rw.cosm].emoji or (rw.title and "🏷" or ((rw.plumes and "🪶") or (rw.tokens and "⚔️") or (rw.scrolls and "📜") or "🪙"))))
+				local col = st == "c" and COL.dis or (st == "t" and COL.green or (st == "m" and Color3.fromRGB(120, 60, 60) or COL.panel))
+				local b = make("TextButton", { LayoutOrder = d, BackgroundColor3 = col, Text = (st == "c" and "✅" or icon) .. "\nJ" .. d, Font = FONT, TextSize = 14, TextColor3 = st == "t" and COL.dark or COL.text, AutoButtonColor = true }, grid)
+				corner(b, 10)
+				pressFx(b)
+				if d == CC.legendaryDay then
+					make("UIStroke", { Color = legTier.color, Thickness = 3 }, b)
+				elseif milestone[d] then
+					make("UIStroke", { Color = COL.yellow, Thickness = 2 }, b)
+				elseif panel.sel == d then
+					make("UIStroke", { Color = COL.text, Thickness = 2 }, b)
+				end
+				b.Activated:Connect(function()
+					panel.sel = d
+					render()
+				end)
+			end
+			-- détail de la carte choisie (par défaut : le jour à réclamer, sinon le jour en cours)
+			local sel = panel.sel or cal.idx
+			sel = math.min(CC.days, math.max(1, sel))
+			local sst = string.sub(cal.states, sel, sel)
+			local random = CC.rewards[sel].draw == true
+			addRow({
+				icon = sst == "c" and "✅" or (sst == "m" and "⏳" or (sst == "t" and "🎁" or "🔜")), title = "Jour " .. sel .. (sst == "t" and " : aujourd'hui" or (sst == "m" and " : manqué" or (sst == "c" and " : réclamé" or ""))),
+				desc = Calendar.rewardText(Config, sel), btn = sst == "t" and "Réclamer" or nil, btnColor = COL.green,
+				onClick = sst == "t" and function()
+					RAction:FireServer("calClaim", { day = sel, how = "today" })
+				end or nil,
+			})
+			if sst == "m" then
+				local grace, qc, catch = cal.grace or 0, cal.qc or 0, cal.catch or 0
+				addRow({ icon = "🛡", title = "Jour de grâce (" .. grace .. " disponible)", desc = "Gratuit : 1 jour manqué pardonné toutes les " .. CC.graceEvery .. " jours.", btn = grace > 0 and "Rattraper" or "Aucun", btnColor = grace > 0 and COL.green or COL.dis,
+					onClick = grace > 0 and function()
+						RAction:FireServer("calClaim", { day = sel, how = "grace" })
+					end or nil })
+				addRow({ icon = "🎯", title = "3 missions (" .. math.min(qc, CC.catchupQuests) .. "/" .. CC.catchupQuests .. ")", desc = "Réclame " .. CC.catchupQuests .. " missions du jour : elles paient ce rattrapage.", btn = qc >= CC.catchupQuests and "Rattraper" or "…", btnColor = qc >= CC.catchupQuests and COL.green or COL.dis,
+					onClick = qc >= CC.catchupQuests and function()
+						RAction:FireServer("calClaim", { day = sel, how = "quest" })
+					end or nil })
+				local def = Config.PRODUCTS.CalendarCatchup
+				if random and state.restricted then
+					addNote("🎲 Ce jour a un tirage au sort : le rattrapage payant n'est pas proposé pour ton compte.")
+				elseif catch > 0 then
+					addRow({ icon = "📅", title = "Rattrapage (" .. catch .. ")", desc = "Utilise un rattrapage déjà acheté.", btn = "Utiliser", btnColor = COL.green, onClick = function()
+						RAction:FireServer("calClaim", { day = sel, how = "paid" })
+					end })
+				elseif def and Config.purchasable(def) then
+					addRow({ icon = def.emoji, title = def.name .. " : " .. def.robux .. " R$", desc = def.desc, btn = "Acheter", btnColor = COL.green, onClick = function()
+						MarketplaceService:PromptProductPurchase(player, def.id)
+					end })
+				else
+					addRow({ icon = "📅", title = "Rattrapage payant", desc = "Bientôt disponible.", btn = "Bientôt", btnColor = COL.dis })
+				end
+			end
+			addNote("🎒 📜 " .. (cal.scrolls or 0) .. " parchemin(s) · 🪶 " .. (cal.plumes or 0) .. " plume(s) · ⚔️ " .. (cal.ftokens or 0) .. " jeton(s) de combat. Le jour est décidé par le serveur (UTC) ; les jours manqués se rattrapent jusqu'à la fin du cycle. Un jour de grâce est offert tous les " .. CC.graceEvery .. " jours.")
 		end
 	elseif panel.name == "bonus" then
 		addRow({
@@ -20371,7 +20841,7 @@ task.spawn(function()
 				end
 			end
 			navDots.quests.Visible = claimable or (type(state.hen) == "table" and state.hen.alert == true)
-			navDots.bonus.Visible = state.dailyReady
+			navDots.bonus.Visible = state.dailyReady or (type(state.cal) == "table" and state.cal.canToday == true)
 			local achReady = false
 			for _, a in ipairs(Config.ACHIEVEMENTS) do
 				local tier = state.ach[a.id] or 0
@@ -20787,7 +21257,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX41"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX42"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -21349,7 +21819,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX42"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX43"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -21998,7 +22468,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX43"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX44"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -22124,7 +22594,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX44"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX45"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -22207,7 +22677,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -22322,7 +22792,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -22511,7 +22981,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -22667,7 +23137,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -22978,7 +23448,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -23203,7 +23673,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -23951,7 +24421,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -24351,7 +24821,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -24634,7 +25104,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -25096,7 +25566,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}
