@@ -24,6 +24,32 @@ local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule (règles pures, lot 6)
 local Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")) -- calendrier de 30 jours (règles pures, lot 9b : textes des cartes)
 local HenUi = require(script.Parent:WaitForChild("HenUi")) -- dialogue, ❗, plumes, berceuse, cible du faisceau
+-- Lot 10 : compteur « 1 sur N », écran d'éclosion (HatchPlan + HatchFx), icônes Decal publiées par le serveur. Table unique (limite de 200 variables locales).
+local L10 = {
+	Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")),
+	HatchPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HatchPlan")),
+	HatchFx = require(script.Parent:WaitForChild("HatchFx")),
+	seenTier = {}, -- raretés déjà vues dans cette session (écran non passable seulement la toute première fois, r >= 8)
+}
+-- « 1 sur N » figé par le serveur, ou « — » (pet éclos avant le lot 10, jamais recalculé).
+function L10.oddsText(o)
+	if type(o) == "number" and o == o and o >= 1 then
+		local t = L10.Odds.label(o)
+		if type(t) == "string" and t ~= "" then
+			return t
+		end
+	end
+	return "—"
+end
+-- Icône d'interface (Config.ICONS) : URL d'image publiée par le serveur (attribut du dossier ReplicatedStorage.Icons), sinon nil (l'appelant garde son emoji).
+function L10.iconUrl(key)
+	local folder = ReplicatedStorage:FindFirstChild("Icons")
+	local url = folder and folder:GetAttribute(key)
+	if type(url) == "string" and url ~= "" then
+		return url
+	end
+	return nil
+end
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
@@ -83,10 +109,12 @@ local function getSound(key)
 	if not def or def.id == "" then
 		return nil
 	end
+	local alias = Config.SOUND_ALIAS[key] and Config.SOUNDS[Config.SOUND_ALIAS[key]] -- lot 10 : ancienne clé jouée avec le son approuvé (nom et volume d'origine)
+	local soundId = (alias and alias.id ~= "") and alias.id or def.id
 	local ok, made = pcall(function()
 		local s = Instance.new("Sound")
 		s.Name = "Sfx_" .. key
-		s.SoundId = def.id
+		s.SoundId = soundId
 		s.PlaybackSpeed = def.speed or 1
 		s.Looped = def.loop == true
 		s.Parent = game:GetService("SoundService")

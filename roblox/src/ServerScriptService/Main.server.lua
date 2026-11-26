@@ -2477,7 +2477,7 @@ function beltBuy(player, prompt)
 	if egg.forUser then
 		s.welcome = "taken"
 	end
-	afterTake(s, "🥚 Œuf " .. Config.TIERS[egg.tier].name .. (egg.price > 0 and (" acheté (-" .. Config.fmt(egg.price) .. " 🪙)") or " pris") .. " ! Porte-le vite dans ta base.", egg.price > 0 and "buy" or "claim")
+	afterTake(s, "🥚 Œuf " .. Config.TIERS[egg.tier].name .. (egg.price > 0 and (" acheté (-" .. Config.fmt(egg.price) .. " 🪙)") or " pris") .. " ! Porte-le vite dans ta base.", egg.price > 0 and "belt_buy" or "claim") -- lot 10 : son approuvé du tapis
 end
 
 ---------------------------------------------------------------- Actions du client
@@ -2979,7 +2979,14 @@ do
 			return
 		end
 		local text = applyReward(s, plan)
-		notify(s.player, "📅 Jour " .. day .. (how == "today" and "" or " rattrapé") .. " : " .. text, "claim")
+		notify(s.player, "📅 Jour " .. day .. (how == "today" and "" or " rattrapé") .. " : " .. text, (function()
+			for _, m in ipairs(CAL.milestones) do
+				if m == day then
+					return "calendar_milestone"
+				end
+			end
+			return "calendar_claim"
+		end)()) -- lot 10 : sons approuvés
 		tele.log(s.player, "calendar_claim_day", day, how == "today" and "_today" or nil)
 		if how ~= "today" then
 			tele.log(s.player, "calendar_catchup", day, "_" .. how)
