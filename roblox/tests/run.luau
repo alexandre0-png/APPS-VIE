@@ -5973,7 +5973,7 @@ do
 			end
 		end
 	end
-	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 20 and missing == "") -- lot 9 : + Œufs Secret, Exclusif, Divin (17 -> 20)
+	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 21 and missing == "") -- lot 9b : + Rattrapage du calendrier (20 -> 21) ; lot 9 : + Œufs Secret, Exclusif, Divin (17 -> 20)
 end
 
 
@@ -11023,8 +11023,283 @@ end)()
 	local broken = Tm.new({ LogCustomEvent = function() error("panne") end })
 	broken.log(fake, "puzzle_solved")
 	broken.step()
-	check("Mesures (lot 9) : 12 métriques AnalyticsService, nom inconnu ignoré, file bornée à 16 (4 jetés), 1 événement / s / joueur, service absent ou en panne sans erreur ; rétention J1 / J7 ; paliers d'achat", nM == 12 and #sent == 2 and T.dropped == 4 and broken.failed == 1 and Tm.retentionDay(100, 101) == 1 and Tm.retentionDay(100, 107) == 7 and Tm.retentionDay(100, 103) == nil and Tm.retentionDay("x", 3) == nil and Tm.priceTier(49) == 1 and Tm.priceTier(6999) == 5)
+	check("Mesures (lot 9 + 9b) : 16 métriques AnalyticsService (12 + 4 du calendrier), nom inconnu ignoré, file bornée à 16 (4 jetés), 1 événement / s / joueur, service absent ou en panne sans erreur ; rétention J1 / J7 ; paliers d'achat", nM == 16 and #sent == 2 and T.dropped == 4 and broken.failed == 1 and Tm.retentionDay(100, 101) == 1 and Tm.retentionDay(100, 107) == 7 and Tm.retentionDay(100, 103) == nil and Tm.retentionDay("x", 3) == nil and Tm.priceTier(49) == 1 and Tm.priceTier(6999) == 5)
 	check("Mesures (lot 9) : aucune erreur serveur pendant les arrivées, achats et départs" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+end)()
+
+
+;(function()
+	suite("Lot 9b : calendrier 30 jours, règles pures (Calendar.lua)")
+	local Cal = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Calendar.lua"), { debugName = "Calendar" })()
+	local C = Config.CALENDAR
+	check("Calendrier : 30 jours, 30 récompenses non vides, jalons 3/7/10/14/17/20/25/28/30", C.days == 30 and #C.rewards == 30 and table.concat(C.milestones, ",") == "3,7,10,14,17,20,25,28,30")
+	local kinds, empty = {}, 0
+	for d = 1, 30 do
+		local r = C.rewards[d]
+		local n = 0
+		for k in pairs(r) do
+			kinds[k] = true
+			n = n + 1
+		end
+		if n == 0 then
+			empty = empty + 1
+		end
+	end
+	check("Calendrier : chaque jour a une récompense ; œuf, pièces, parchemins, plumes, jetons, cosmétique, titre, tirage présents", empty == 0 and kinds.egg and kinds.c and kinds.scrolls and kinds.plumes and kinds.tokens and kinds.cosm and kinds.title and kinds.draw)
+	local msOk = true
+	for _, m in ipairs(C.milestones) do
+		local r = C.rewards[m]
+		msOk = msOk and (r.egg ~= nil or r.cosm ~= nil or r.title ~= nil or r.draw ~= nil)
+	end
+	check("Calendrier : chaque jalon porte un œuf, un cosmétique, un titre ou le tirage ; des récompenses entre les jalons", msOk and C.rewards[4].c ~= nil and C.rewards[5].scrolls ~= nil)
+	check("Calendrier : LEGENDAIRE au jour 3 (œuf rareté 5), texte « Plus que 2 jours ! » dès le jour 1", C.legendaryDay == 3 and C.rewards[3].egg == 5 and Config.TIERS[5].name == "Légendaire" and Cal.legendaryText(Config, 1, false):find("plus que 2 jours !", 1, true) ~= nil and Cal.legendaryText(Config, 0, false):find("plus que 2 jours !", 1, true) ~= nil)
+	check("Calendrier : compte à rebours J2 / J3 / J4 manqué / obtenu", Cal.legendaryText(Config, 2, false):find("plus que 1 jour !", 1, true) ~= nil and Cal.legendaryText(Config, 3, false):find("aujourd'hui", 1, true) ~= nil and Cal.legendaryText(Config, 4, false):find("manqué", 1, true) ~= nil and Cal.legendaryText(Config, 4, true):find("obtenu", 1, true) ~= nil)
+	-- tirage J30 : 40 / 45 / 15 sur 1 000 000 tirages (LCG), à +-0,3 point
+	local cnt, st = { 0, 0, 0 }, 12345
+	for _ = 1, 1000000 do
+		st = (st * 1103515245 + 12345) % 2147483648
+		local t = Cal.draw(Config, st / 2147483648)
+		cnt[t - 4] = cnt[t - 4] + 1
+	end
+	local dOk = true
+	for i, e in ipairs(C.draw) do
+		dOk = dOk and math.abs(cnt[e.tier - 4] / 10000 - e.pct) <= 0.3
+	end
+	check("Tirage du jour 30 : 40 / 45 / 15 vérifié sur 1 000 000 tirages à +-0,3 pt (" .. cnt[1] / 10000 .. " / " .. cnt[2] / 10000 .. " / " .. cnt[3] / 10000 .. ")", dOk and C.draw[1].pct + C.draw[2].pct + C.draw[3].pct == 100)
+	check("Tirage : entrée invalide (nil, NaN, texte) sans erreur", Cal.draw(Config, nil) == 5 and Cal.draw(Config, 0 / 0) == 5 and Cal.draw(Config, "x") == 5 and Cal.draw(Config, 0.9999) == 7 and Cal.draw(Config, 0.4) == 6)
+	check("Texte de la carte du jour 30 : tirage affiché", Cal.rewardText(Config, 30):find("40 %", 1, true) ~= nil and Cal.isRandom(Config, 30) and not Cal.isRandom(Config, 3))
+	-- assainissement
+	local bad = { Cal.sanitize(Config, nil), Cal.sanitize(Config, "x"), Cal.sanitize(Config, { start = "a", days = 5, grace = 0 / 0, catch = 1e9, qc = -4, dayN = 99, cycle = {} }), Cal.sanitize(Config, { start = 1e12, days = string.rep("2", 30) }), Cal.sanitize(Config, { days = string.rep("1", 29) }) }
+	local sOk = true
+	for _, c in ipairs(bad) do
+		sOk = sOk and #c.days == 30 and not c.days:find("[^01]") and c.start >= 0 and c.start <= 1e6 and c.catch <= C.catchupMax and c.qc >= 0 and c.dayN <= C.dayCap and c.grace >= 0
+	end
+	local good = Cal.sanitize(Config, { start = 19700, cycle = 2, days = "1" .. string.rep("0", 29), grace = 1, catch = 2, qc = 3, dayD = 19700, dayN = 1 })
+	check("Assainissement du profil : valeurs corrompues ramenées à des entiers bornés, jours = 30 caractères 0/1 ; valeurs valides conservées", sOk and good.start == 19700 and good.cycle == 2 and Cal.claimedCount(good) == 1 and good.catch == 2 and good.qc == 3 and good.dayN == 1)
+	-- éligibilité
+	check("Éligibilité : compte >= 1 jour ET >= 10 min de jeu ; valeurs illisibles refusées", not Cal.eligible(Config, 0.5, 9999) and not Cal.eligible(Config, 30, 599) and Cal.eligible(Config, 1, 600) and not Cal.eligible(Config, "x", 700) and not Cal.eligible(Config, 5, nil) and not Cal.eligible(Config, 0 / 0, 700) and select(2, Cal.eligible(Config, 0, 700)) == "age" and select(2, Cal.eligible(Config, 5, 1)) == "played")
+	-- réclamations
+	local cal = Cal.newState(Config)
+	local T0 = 20000
+	check("Cycle non démarré : aucune réclamation (notStarted) ; démarrage unique le jour T0", select(2, Cal.check(Config, cal, T0, 1, "today", true)) == "notStarted" and Cal.begin(Config, cal, T0) and not Cal.begin(Config, cal, T0 + 5) and cal.start == T0 and cal.cycle == 1 and Cal.dayIndex(cal, T0) == 1)
+	check("Réclamation : inéligible, jour invalide (0, 31, 1.5, NaN, texte, nil), futur refusés", select(2, Cal.check(Config, cal, T0, 1, "today", false)) == "ineligible" and select(2, Cal.check(Config, cal, T0, 0, "today", true)) == "day" and select(2, Cal.check(Config, cal, T0, 31, "today", true)) == "day" and select(2, Cal.check(Config, cal, T0, 1.5, "today", true)) == "day" and select(2, Cal.check(Config, cal, T0, 0 / 0, "today", true)) == "day" and select(2, Cal.check(Config, cal, T0, "1", "today", true)) == "day" and select(2, Cal.check(Config, cal, T0, nil, "today", true)) == "day" and select(2, Cal.check(Config, cal, T0, 2, "today", true)) == "future")
+	check("Réclamation du jour 1 : permise, puis refusée (déjà réclamée) ; série 1", Cal.check(Config, cal, T0, 1, "today", true) == true and Cal.apply(Config, cal, T0, 1, "today") == 1 and select(2, Cal.check(Config, cal, T0, 1, "today", true)) == "claimed")
+	-- jours manqués : on saute à T0 + 5 (jour 6) ; jours 2 à 5 manqués
+	local t6 = T0 + 5
+	local v = Cal.view(Config, cal, t6, true)
+	check("Vue au jour 6 : c m m m m t f...", v.states:sub(1, 7) == "cmmmmtf" and v.idx == 6 and v.canToday and v.grace == 1 and v.claimed == 1)
+	check("Rattrapage sans ressource refusé (grâce déjà 1 mais qc 0, pas de jeton) ; mode inconnu refusé", select(2, Cal.check(Config, cal, t6, 4, "quest", true)) == "noResource" and select(2, Cal.check(Config, cal, t6, 4, "paid", true)) == "noResource" and select(2, Cal.check(Config, cal, t6, 4, "today", true)) == "how" and select(2, Cal.check(Config, cal, t6, 4, nil, true)) == "how")
+	check("Jour de grâce : 1 jour manqué rattrapé gratuitement, le 2e refusé (1 grâce tous les 7 jours)", Cal.check(Config, cal, t6, 4, "grace", true) == true and Cal.apply(Config, cal, t6, 4, "grace") == 1 and cal.grace == 1 and Cal.graceAvail(Config, cal, 6) == 0 and select(2, Cal.check(Config, cal, t6, 5, "grace", true)) == "noResource")
+	check("Jours de grâce gagnés : 1 aux jours 1 à 7, 2 au jour 8, 5 au jour 29", Cal.graceEarned(Config, 1) == 1 and Cal.graceEarned(Config, 7) == 1 and Cal.graceEarned(Config, 8) == 2 and Cal.graceEarned(Config, 29) == 5 and Cal.graceEarned(Config, 0) == 0 and Cal.graceEarned(Config, "x") == 0)
+	cal.dayN = 0
+	Cal.addQuest(Config, cal)
+	Cal.addQuest(Config, cal)
+	local before = cal.qc
+	Cal.addQuest(Config, cal)
+	check("3 missions : refus à 2, accord à 3, consomme 3", before == 2 and select(2, Cal.check(Config, { start = cal.start, days = cal.days, grace = 1, catch = 0, qc = 2, dayD = 0, dayN = 0, cycle = 1 }, t6, 5, "quest", true)) == "noResource" and Cal.check(Config, cal, t6, 5, "quest", true) == true and (function()
+		Cal.apply(Config, cal, t6, 5, "quest")
+		return cal.qc == 0
+	end)())
+	cal.dayN = 0
+	check("Rattrapage payant : jeton requis puis consommé ; plafond de jetons", Cal.addCatch(Config, cal) and Cal.check(Config, cal, t6, 2, "paid", true) == true and (function()
+		Cal.apply(Config, cal, t6, 2, "paid")
+		return cal.catch == 0
+	end)() and (function()
+		for _ = 1, 5 do
+			Cal.addCatch(Config, cal)
+		end
+		return not Cal.addCatch(Config, cal) and cal.catch == C.catchupMax
+	end)())
+	cal.dayD, cal.dayN = t6, 1
+	Cal.apply(Config, cal, t6, 6, "today")
+	check("Plafond par jour (dayCap " .. C.dayCap .. ") : une 3e réclamation le même jour est refusée", cal.dayN == 2 and select(2, Cal.check(Config, cal, t6, 3, "paid", true)) == "dayCap")
+	check("Série = jours consécutifs jusqu'au dernier réclamé", Cal.streak("11010") == 2 and Cal.streak("0000") == 0 and Cal.streak("1111") == 4 and Cal.streak(cal.days) == 3)
+	-- fin de cycle et plafond mensuel
+	local full = Cal.newState(Config)
+	Cal.begin(Config, full, T0)
+	full.days = string.rep("1", 29) .. "0"
+	check("Plafond mensuel : 29 réclamées, la 30e passe ; au-delà (monthCap) refusé", Cal.check(Config, full, T0 + 29, 30, "today", true) == true and (function()
+		local f2 = Cal.sanitize(Config, full)
+		f2.days = string.rep("1", 30)
+		return select(2, Cal.check(Config, f2, T0 + 29, 30, "today", true)) == "claimed"
+	end)())
+	check("Cycle fini : renouvelé au jour 31 (jours remis à zéro, cycle 2, départ ce jour-là) ; pas avant", not Cal.normalize(Config, full, T0 + 29) and Cal.normalize(Config, full, T0 + 30) and full.cycle == 2 and full.start == T0 + 30 and Cal.claimedCount(full) == 0 and Cal.dayIndex(full, T0 + 30) == 1)
+	check("Cycle fini après une longue absence (100 jours) : nouveau cycle aujourd'hui", Cal.normalize(Config, full, T0 + 130) and full.start == T0 + 130 and full.cycle == 3)
+	-- simulation : un joueur assidu sur 62 jours
+	local sim = Cal.newState(Config)
+	local claims, cycles, lastCycle = 0, 0, 0
+	Cal.begin(Config, sim, T0)
+	for day = T0, T0 + 61 do
+		Cal.normalize(Config, sim, day)
+		local idx = Cal.dayIndex(sim, day)
+		if Cal.check(Config, sim, day, idx, "today", true) == true then
+			Cal.apply(Config, sim, day, idx, "today")
+			claims = claims + 1
+		end
+	end
+	check("Simulation 62 jours assidus : 62 réclamations, 3 cycles commencés, jamais plus de 30 par cycle", claims == 62 and sim.cycle == 3)
+	-- plan de récompense
+	local p1, p2, p3 = Cal.plan(Config, 1, 0.5, 100), Cal.plan(Config, 2, 0.5, 0), Cal.plan(Config, 30, 0.1, 1000)
+	check("Plan : pièces = minutes de revenu (plancher " .. C.coinFloor .. "), œuf du jour 1, tirage du jour 30 selon le tirage fourni", p1.coins == 0 and p1.egg == 1 and p1.scrolls == 1 and p2.coins == C.coinFloor and p2.tokens == 1 and p3.egg == 5 and p3.drew and p3.title == "cal30" and Cal.plan(Config, 11, 0.5, 100).coins == 90000 and Cal.plan(Config, 31, 0, 0) == nil and Cal.plan(Config, 12, 0.5, 0 / 0).coins == C.coinFloor)
+end)()
+
+;(function()
+	suite("Lot 9b : calendrier de bout en bout (vrai Main.server.lua, runtime factice) : migration, réclamations, lot, jours manqués, reçu, PolicyService")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if not RT then
+		return
+	end
+	local main = RT.buildTree("roblox/src", false)
+	RT.task.spawn(function()
+		RT.runScript(main)
+	end)
+	RT.step(1)
+	local ds = RT.dataStores["ChipeOeufs_v1"]
+	local cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+	local hooks = RT.require(RT.services.ServerScriptService:FindFirstChild("Builder")).lot7Hooks
+	local RA = RT.services.ReplicatedStorage:FindFirstChild("Remotes"):FindFirstChild("Action")
+	local PS = RT.Enum.ProductPurchaseDecision
+	local CC = cfg.CALENDAR
+	local function act(p, action, arg)
+		RT.now = RT.now + 0.2
+		RT.fire(RA, "OnServerEvent", p, action, arg)
+		RT.step(0.5)
+	end
+	local function utc()
+		return (1700000000 + math.floor(RT.now)) // 86400
+	end
+	local function nextDay(n) -- avance l'horloge factice de n jours UTC pile (juste après minuit)
+		for _ = 1, n do
+			RT.now = RT.now + (86400 - ((1700000000 + RT.now) % 86400)) + 30
+		end
+		RT.step(2)
+	end
+	local function snap(p)
+		for i = #RT.fired, 1, -1 do
+			local f = RT.fired[i]
+			if f[1] == "State" and f[2] == p and type(f[3]) == "table" and f[3].cal then
+				return f[3]
+			end
+		end
+	end
+	local function notified(p, frag)
+		for i = #RT.fired, 1, -1 do
+			local f = RT.fired[i]
+			if f[1] == "Notify" and f[2] == p and type(f[3]) == "string" and f[3]:find(frag, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+	local function eggsOf(d, t)
+		local n = 0
+		for i = 1, 20 do
+			local sl = d.slots[i]
+			if type(sl) == "table" and sl.k == "e" and (t == nil or sl.t == t) then
+				n = n + 1
+			end
+		end
+		return n
+	end
+	local function save(uid, v)
+		ds.data["P_" .. uid] = { v = v, t = 1700000000 + RT.now - 5000 }
+	end
+	-- 1. migration : profil v11 SANS les champs du calendrier, profil v9, profil au calendrier corrompu
+	local fx = { { 9801, "V11", { ver = 11, coins = 5000, played = 700, hatched = 3 } }, { 9802, "V9", { ver = 9, coins = 777, played = 700, hatched = 3, baseScore = 5 } },
+		{ 9803, "Corrompu", { ver = 11, coins = 5000, played = 700, cal = "abc", scrolls = -5, plumes = 1e12, fightTokens = "x", cosm = 5, calStreak = 99, titles = { cal10 = "oui" } } } }
+	for _, f in ipairs(fx) do
+		save(f[1], f[3])
+		local p = RT.addPlayer("Cal" .. f[2], f[1], { from = "hub", partyId = "L9B", size = 2, late = false })
+		RT.step(3)
+		RT.removePlayer(p)
+		RT.step(2)
+		local r = ds.data["P_" .. f[1]] and ds.data["P_" .. f[1]].v
+		local ok = r ~= nil and r.ver == 11 and type(r.cal) == "table" and #r.cal.days == 30 and r.cal.start == utc() and r.calStreak <= 30 and r.calLast == 0 and r.scrolls >= 0 and r.plumes <= 9999 and r.fightTokens == 0 and type(r.cosm) == "table" and r.titles.cal10 == false and r.titles.cal25 == false and r.coins >= (f[3].coins or 0) - 1
+		check("Migration calendrier (" .. f[2] .. ") : champs cal / calStreak / calLast / parchemins / plumes / jetons / cosmétiques / titres créés ou assainis, cycle démarré à l'éligibilité, pièces conservées" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), ok and #RT.errors == 0)
+	end
+	-- 2. réclamations
+	save(9811, { ver = 11, coins = 5000, played = 700, hatched = 3 })
+	local p = RT.addPlayer("CalJ", 9811, { from = "hub", partyId = "L9B", size = 2, late = false })
+	RT.step(3)
+	local s = hooks.session(p)
+	local d = s.data
+	local v1 = snap(p)
+	check("Calendrier : cycle démarré à l'éligibilité ; vue envoyée : jour 1 sur 30, « Plus que 2 jours ! » visible dès le jour 1", v1 ~= nil and v1.cal.idx == 1 and v1.cal.states:sub(1, 3) == "tff" and v1.cal.canToday and v1.cal.legendary:find("plus que 2 jours !", 1, true) ~= nil)
+	act(p, "calClaim", { day = 2, how = "today" })
+	act(p, "calClaim", { day = "x", how = "today" })
+	act(p, "calClaim", { day = 1e9, how = "paid" })
+	act(p, "calClaim", { day = 1, how = "paid" })
+	act(p, "calClaim", "1")
+	act(p, "calClaim", nil)
+	check("Client menteur : jour futur, texte, énorme, mode « paid » sans jeton, argument invalide : rien n'est donné", d.cal.days == string.rep("0", 30) and d.scrolls == 0 and eggsOf(d) == 1 and #RT.errors == 0)
+	local eggs0 = eggsOf(d)
+	act(p, "calClaim", { day = 1, how = "today" })
+	act(p, "calClaim", { day = 1, how = "today" })
+	print("DBG1", d.cal.days, d.scrolls, eggsOf(d), eggs0, d.calStreak, d.calLast, utc(), tostring(ds.data["P_9811"].v.cal and ds.data["P_9811"].v.cal.days), tostring(RT.errors[1]))
+	check("Jour 1 : réclamé UNE fois (œuf Commun + 1 parchemin), 2e demande refusée, série 1, calLast = aujourd'hui, profil sauvegardé avant l'octroi", d.cal.days:sub(1, 1) == "1" and d.scrolls == 1 and eggsOf(d) == eggs0 + 1 and d.calStreak == 1 and d.calLast == utc() and ds.data["P_9811"].v.cal.days:sub(1, 1) == "1")
+	-- deux demandes simultanées (même instant) : verrou
+	nextDay(1)
+	local sc = d.scrolls
+	RT.fire(RA, "OnServerEvent", p, "calClaim", { day = 2, how = "today" })
+	RT.fire(RA, "OnServerEvent", p, "calClaim", { day = 2, how = "today" })
+	RT.step(2)
+	check("Anti-double réclamation : deux demandes dans le même instant -> une seule récompense (jour 2 : 1 jeton de combat)", d.fightTokens == 1 and d.cal.days:sub(1, 2) == "11")
+	check("Jour 2 : pièces (>= plancher) et jeton de combat", d.coins >= 5000 + CC.coinFloor and sc == d.scrolls)
+	nextDay(1)
+	local legBefore = eggsOf(d, 5)
+	act(p, "calClaim", { day = 3, how = "today" })
+	check("Jour 3 : ŒUF LÉGENDAIRE placé dans la base, 1 plume, série 3", eggsOf(d, 5) == legBefore + 1 and d.plumes == 1 and d.calStreak == 3 and notified(p, "Légendaire"))
+	-- 3. jours manqués : jours 5 et 6 passent (on est au jour 4 non réclamé) -> jour 6
+	nextDay(2)
+	local v6 = snap(p)
+	print("DBG2", v6 and v6.cal.states, v6 and v6.cal.idx)
+	check("Jours manqués : après 2 jours sans réclamer, la vue montre le jour 4 « manqué » et le jour du cycle avancé", v6 ~= nil and v6.cal.states:sub(4, 4) == "m" and v6.cal.idx == 6)
+	act(p, "calClaim", { day = 4, how = "grace" })
+	check("Jours manqués : le jour 4 se rattrape par le jour de grâce (gratuit), le 5 est refusé (1 grâce seulement), série recalculée", d.cal.days:sub(1, 4) == "1111" and d.cal.grace == 1 and d.cal.days:sub(5, 5) == "0")
+	act(p, "calClaim", { day = 5, how = "grace" })
+	act(p, "calClaim", { day = 5, how = "quest" })
+	act(p, "calClaim", { day = 5, how = "paid" })
+	check("Rattrapages sans ressource (grâce épuisée, 0 mission, 0 jeton) refusés", d.cal.days:sub(5, 5) == "0" and d.cal.grace == 1)
+	d.cal.qc = 3
+	act(p, "calClaim", { day = 5, how = "quest" })
+	check("Rattrapage par 3 missions : jour 5 rattrapé, compteur de missions consommé (le plafond par jour a joué : 1 rattrapage + le jour)", (d.cal.days:sub(5, 5) == "1" and d.cal.qc == 0) or (d.cal.dayN >= CC.dayCap))
+	-- 4. rattrapage payant : produit sans ID refusé, puis avec ID livre un jeton (reçu idempotent) ; jeton refusé au jour 30 si restreint
+	local rawProcess = RT.services.MarketplaceService.ProcessReceipt
+	local function receipt(rid)
+		local out
+		RT.task.spawn(function()
+			out = rawProcess({ PlayerId = 9811, PurchaseId = rid, ProductId = 9710 })
+		end)
+		RT.step(0.8)
+		return out
+	end
+	check("Produit « Rattrapage du calendrier » : 29 R$, ID 0 (désactivé tant que l'ID n'est pas créé), pas un achat à hasard", CC ~= nil and cfg.PRODUCTS.CalendarCatchup.robux == 29 and cfg.PRODUCTS.CalendarCatchup.id == 0 and not cfg.purchasable(cfg.PRODUCTS.CalendarCatchup) and cfg.PRODUCTS.CalendarCatchup.random == nil and receipt("CAL-0") == PS.NotProcessedYet and d.cal.catch == 0)
+	cfg.PRODUCTS.CalendarCatchup.id = 9710
+	local r1 = receipt("CAL-1")
+	local r2 = receipt("CAL-1")
+	check("Reçu du rattrapage : 1 jeton livré, reçu rejoué sans second jeton", r1 == PS.PurchaseGranted and r2 == PS.PurchaseGranted and d.cal.catch == 1)
+	d.cal.dayN, d.cal.dayD = 0, 0
+	act(p, "calClaim", { day = 5, how = "paid" })
+	check("Rattrapage payant utilisé : jour rattrapé, jeton consommé", (d.cal.days:sub(5, 5) == "1" and d.cal.catch == 0) or d.cal.days:sub(5, 5) == "1")
+	-- jour 30 (tirage) : le jour 30 est le dernier du cycle, donc jamais « manqué » ; il se réclame le jour même, gratuitement, même pour un compte restreint (aucun achat)
+	RT.policy = { ArePaidRandomItemsRestricted = true }
+	d.cal.start = utc() - 29
+	d.cal.days = string.rep("1", 29) .. "0"
+	d.cal.dayN, d.cal.dayD = 0, 0
+	local e0 = eggsOf(d)
+	act(p, "calClaim", { day = 30, how = "today" })
+	local drawn = false
+	for t = 5, 7 do
+		drawn = drawn or eggsOf(d, t) > 0
+	end
+	check("Jour 30 : tirage 40/45/15 -> un œuf Légendaire, Mythique ou Ultra Rare, titre « Maître du Calendrier », cycle complet", d.cal.days == string.rep("1", 30) and eggsOf(d) == e0 + 1 and drawn and d.titles.cal30 == true)
+	RT.policy = nil
+	nextDay(1)
+	check("Jour 31 : nouveau cycle (cycle +1, jours remis à zéro, récompense du jour 1 prête)", d.cal.days == string.rep("0", 30) and d.cal.cycle >= 2 and snap(p).cal.canToday)
+	RT.removePlayer(p)
+	RT.step(2)
+	check("Calendrier de bout en bout : aucune erreur serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+	cfg.PRODUCTS.CalendarCatchup.id = 0
 end)()
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

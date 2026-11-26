@@ -2233,7 +2233,7 @@ Config.CALENDAR = {
 	rewards = {
 		{ egg = 1, scrolls = 1 }, { c = 8, tokens = 1 }, { egg = 5, plumes = 1 }, { c = 10, scrolls = 1 }, { scrolls = 2, plumes = 1 }, { c = 12, tokens = 1 }, { egg = 3, cosm = "ribbon" },
 		{ c = 12 }, { scrolls = 2, tokens = 1 }, { c = 25, plumes = 2, title = "cal10" }, { c = 15 }, { scrolls = 2 }, { tokens = 2, c = 15 }, { egg = 4, cosm = "cape" },
-		{ c = 20, plumes = 1 }, { scrolls = 3 }, { tokens = 2, plumes = 2, c = 25 }, { c = 25 }, { scrolls = 3, tokens = 1 }, { egg = 6, cosm = "aura" },
+		{ c = 20, plumes = 1 }, { scrolls = 3 }, { egg = 4, tokens = 2, plumes = 2 }, { c = 25 }, { scrolls = 3, tokens = 1 }, { egg = 6, cosm = "aura" },
 		{ c = 30 }, { plumes = 2, scrolls = 2 }, { c = 35, tokens = 2 }, { scrolls = 3 }, { egg = 5, title = "cal25", plumes = 3 }, { c = 40 }, { tokens = 3, scrolls = 3 },
 		{ cosm = "crown", plumes = 3, c = 60 }, { c = 60, scrolls = 4 }, { draw = true, title = "cal30", c = 120, plumes = 5 },
 	},
