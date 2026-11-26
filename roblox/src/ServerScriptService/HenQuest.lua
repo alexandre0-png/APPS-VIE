@@ -366,7 +366,7 @@ function HenQuest.new(ctx)
 			ctx.refreshPad(s, i)
 			return true
 		end
-		s.data.coins = s.data.coins + Config.EGG_PRICE[tier] -- base pleine : l'œuf est converti en pièces (prix plein)
+		s.data.coins = s.data.coins + Config.eggCoinValue(tier) -- base pleine : l'œuf est converti en pièces (prix plein)
 		return false
 	end
 

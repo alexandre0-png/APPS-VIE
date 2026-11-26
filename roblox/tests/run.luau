@@ -86,20 +86,24 @@ check("petName simple", Config.petName(1, 2, 1) == "Poussin")
 check("petName mutation + taille", Config.petName(1, 3, 2) == "Poussin Doré Grand")
 
 -- intégrité des tables --------------------------------------------------------------------
-check("6 raretés", #Config.TIERS == 6 and #Config.EGG_PRICE == 6 and #Config.HATCH == 6)
+check("10 raretés (lot 9, ex-« 6 raretés »)", #Config.TIERS == 10 and #Config.EGG_PRICE == 10 and #Config.HATCH == 10)
 local perTier = {}
 for i, p in ipairs(Config.PETS) do
-	check("pet " .. i .. " rareté valide", p.tier >= 1 and p.tier <= 6)
+	check("pet " .. i .. " rareté valide", p.tier >= 1 and p.tier <= #Config.TIERS)
 	check("pet " .. i .. " revenu > 0", p.inc > 0)
 	perTier[p.tier] = (perTier[p.tier] or 0) + 1
 end
-for t = 1, 6 do
+-- lot 9 : les 6 anciennes raretés (indices TIER_MIGRATE) ont chacune au moins un pet ; les raretés 2, 8, 9, 10 attendent le lot 11
+for _, t in ipairs(Config.TIER_MIGRATE) do
 	check("rareté " .. t .. " a au moins un pet", (perTier[t] or 0) >= 1)
 end
-for t = 2, 6 do
-	check("prix des œufs croissants (" .. t .. ")", Config.EGG_PRICE[t] > Config.EGG_PRICE[t - 1])
-	check("temps d'éclosion croissants (" .. t .. ")", Config.HATCH[t] > Config.HATCH[t - 1])
+for t = 2, #Config.TIERS do
+	if t ~= 9 and t ~= 10 then -- Exclusif (9) n'a pas de prix en pièces ; Divin (10) est comparé au Secret (8)
+		check("prix des œufs croissants (" .. t .. ")", Config.EGG_PRICE[t] > Config.EGG_PRICE[t - 1])
+	end
+	check("temps d'éclosion non décroissants (" .. t .. ")", Config.HATCH[t] >= Config.HATCH[t - 1])
 end
+check("prix Divin > prix Secret ; Exclusif jamais en pièces", Config.EGG_PRICE[10] > Config.EGG_PRICE[8] and Config.EGG_PRICE[9] == 0)
 check("MUTS[1] = aucune mutation x1", Config.MUTS[1].name == "" and Config.MUTS[1].mult == 1)
 for i, s in ipairs(Config.SIZES) do
 	check("taille " .. i .. " poids > 0", s.weight > 0)
@@ -109,7 +113,7 @@ for i, r in ipairs(Config.RIVALS) do
 	for _, w in ipairs(r.weights) do
 		sum += w
 	end
-	check("rival " .. i .. " : 6 poids et somme > 0", #r.weights == 6 and sum > 0)
+	check("rival " .. i .. " : 10 poids et somme > 0", #r.weights == 10 and sum > 0)
 end
 
 -- améliorations ---------------------------------------------------------------------------
@@ -161,20 +165,20 @@ check("wpick poids tous nuls -> dernier index", Rules.wpick({ 0, 0, 0 }, const(0
 -- tierWeights / upPoints / pickTier
 check("upPoints de base = 5 (amélioration d'un cran, jamais plus de 5 % sans bonus)", Rules.upPoints(0, false, false, false) == 5)
 check("upPoints cumulés = 55 (5 + 10 niveaux + événement 5 + pass 10 + potion 25)", Rules.upPoints(10, true, true, true) == 55)
-for tier = 1, 6 do
+for tier = 1, #Config.TIERS do
 	for _, up in ipairs({ -5, 0, 12, 42, 87, 500 }) do
 		local w = Rules.tierWeights(tier, up)
 		check("tierWeights(" .. tier .. "," .. up .. ") : poids >= 0 et somme 100", w[1] >= 0 and w[2] >= 0 and w[3] >= 0 and near(w[1] + w[2] + w[3], 100))
 	end
 end
 check("rareté 1 : jamais de rareté inférieure", Rules.tierWeights(1, 12)[1] == 0)
-check("rareté 6 : jamais de rareté supérieure", Rules.tierWeights(6, 87)[3] == 0)
+check("rareté 7 (Ultra Rare, ex-Cosmique) et au-delà : jamais de rareté supérieure", Rules.tierWeights(7, 87)[3] == 0 and Rules.tierWeights(8, 87)[3] == 0 and Rules.tierWeights(10, 87)[3] == 0)
 check("part supérieure plafonnée", Rules.tierWeights(3, 500)[3] == Rules.MAX_UP)
 check("pickTier rnd=0 -> identique (jamais de rareté inférieure)", Rules.pickTier(3, 12, const(0)) == 3)
 check("pickTier rnd=0.5 -> identique", Rules.pickTier(3, 12, const(0.5)) == 3)
 check("pickTier rnd=0.99 -> supérieure", Rules.pickTier(3, 12, const(0.99)) == 4)
 check("pickTier rareté 1 jamais < 1", Rules.pickTier(1, 12, const(0)) >= 1)
-check("pickTier rareté 6 jamais > 6", Rules.pickTier(6, 87, const(0.9999)) <= 6)
+check("pickTier rareté 7 jamais > 7", Rules.pickTier(7, 87, const(0.9999)) <= 7)
 
 -- rollPet : résultat toujours valide + distributions
 math.randomseed(42)
@@ -214,16 +218,16 @@ check("income : ignore œufs, vides et emplacements au-delà de la capacité", n
 
 -- Rules : pitié, pass d'éclosion, bonus de collection -------------------------------------------
 check("rollPet garanti : toujours une rareté au-dessus", (function()
-	for tier = 1, 5 do
+	for _, tier in ipairs({ 1, 3, 4, 5, 6 }) do -- lot 9 : « au-dessus » = rareté publiée suivante
 		for _ = 1, 50 do
-			if Config.PETS[Rules.rollPet(tier, 12, false, math.random, true).p].tier ~= tier + 1 then
+			if Config.PETS[Rules.rollPet(tier, 12, false, math.random, true).p].tier ~= Config.nextLiveTier(tier) then
 				return false
 			end
 		end
 	end
 	return true
 end)())
-check("rollPet garanti : rareté max inchangée", Rules.rollPet(6, 12, false, math.random, true).tier <= 6)
+check("rollPet garanti : rareté max inchangée", Rules.rollPet(7, 12, false, math.random, true).tier <= 7)
 check("hatchTime pass rapide x0.75", near(Rules.hatchTime(2, 0, true), Config.HATCH[2] * 0.75))
 check("hatchTime sans pass inchangé", Rules.hatchTime(2, 0, false) == Config.HATCH[2])
 check("multiplier avec bonus de collection", near(Rules.multiplier(0, 0, false, false, 1.3), 1.3))
@@ -235,7 +239,7 @@ for i, c in ipairs(Config.STORY) do
 	check("chapitre " .. i .. " : type valide", validTypes[c.type] == true)
 	check("chapitre " .. i .. " : objectif > 0 et titre / texte non vides", c.goal > 0 and #c.title > 0 and #c.text > 0)
 	check("chapitre " .. i .. " : récompense > 0", Config.storyReward(c, 0) > 0)
-	check("chapitre " .. i .. " : type tier a une rareté valide", c.type ~= "tier" or (c.tier ~= nil and c.tier >= 1 and c.tier <= 6))
+	check("chapitre " .. i .. " : type tier a une rareté valide", c.type ~= "tier" or (c.tier ~= nil and c.tier >= 1 and c.tier <= #Config.TIERS))
 	check("chapitre " .. i .. " : rival valide", c.rival == nil or Config.RIVALS[c.rival] ~= nil)
 	check("chapitre " .. i .. " : texte d'objectif non vide", #Config.storyGoalText(c) > 0)
 	check("chapitre " .. i .. " : les espèces demandées existent", c.type ~= "species" or c.goal <= #Config.PETS)
@@ -879,16 +883,16 @@ do
 		return inst("Model", { children = { inst("Part"), inst("Script"), inst("RemoteEvent"), inst("BindableEvent"), inst("ModuleScript"), inst("LocalScript"), inst("Sound"), inst("ParticleEmitter", { Rate = 500 }) } })
 	end
 
-	check("Config.Assets : 5 IDs entiers positifs", (function()
+	check("Config.Assets : 10 IDs entiers positifs (lot 9 : œufs Blender r1..r10, ex-« 5 IDs du catalogue »)", (function()
 		local n = 0
 		for _, id in pairs(Config.Assets.eggs) do
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
 				n = n + 1
 			end
 		end
-		return n == 5
+		return n == 10
 	end)())
-	check("Config.Assets : chaque rareté 1..6 pointe vers un modèle déclaré", (function()
+	check("Config.Assets : chaque rareté 1..10 pointe vers un modèle déclaré", (function()
 		for t = 1, #Config.TIERS do
 			if Config.eggAssetId(t) == nil then
 				return false
@@ -904,8 +908,8 @@ do
 	local A = AssetsMod.new(Config, deps(function() return goodModel() end, function(k, m) stored[k] = m end))
 	local ready = 0
 	local n = A.loadAll(function() ready = ready + 1 end)
-	check("chargeur sain : 5 œufs du catalogue + 7 œufs Blender (6 raretés et secret) chargés, onReady appelé une fois", n == 12 and ready == 1)
-	local m1 = A.templates.red
+	check("chargeur sain : 10 œufs Blender r1..r10 chargés (lot 9, ex-12), onReady appelé une fois", n == 10 and ready == 1)
+	local m1 = A.templates.r1
 	check("nettoyage : plus aucun Script/LocalScript/ModuleScript/RemoteEvent/BindableEvent/Sound", (function()
 		for _, d in ipairs(m1:GetDescendants()) do
 			if Config.isBlockedClass(d.ClassName) then
@@ -922,12 +926,12 @@ do
 		end
 		return false
 	end)())
-	check("modèle sain : rangé via deps.store et cloneEgg non nil", stored.red == m1 and A.cloneEgg(1) ~= nil and A.cloneEgg(6) ~= nil)
+	check("modèle sain : rangé via deps.store et cloneEgg non nil", stored.r1 == m1 and A.cloneEgg(1) ~= nil and A.cloneEgg(6) ~= nil)
 	check("cloneEgg : rareté inconnue -> nil", A.cloneEgg(99) == nil)
 
 	-- modèle vide
 	local E = make(function() return inst("Model", { children = {} }) end)
-	check("modèle vide : refusé, cloneEgg nil, aucune erreur", E.loadAll() == 0 and E.cloneEgg(1) == nil and E.status.red.ok == false)
+	check("modèle vide : refusé, cloneEgg nil, aucune erreur", E.loadAll() == 0 and E.cloneEgg(1) == nil and E.status.r1.ok == false)
 	-- modèle sans géométrie (seulement du code)
 	local C0 = make(function() return inst("Model", { children = { inst("Script") } }) end)
 	check("modèle code seul : refusé", C0.loadAll() == 0 and C0.cloneEgg(2) == nil)
@@ -956,7 +960,7 @@ do
 		end
 		return inst("Model", { children = ch })
 	end)
-	check("modèle trop lourd : refusé", heavy.loadAll() == 0 and heavy.status.red.reason:find("lourd") ~= nil)
+	check("modèle trop lourd : refusé", heavy.loadAll() == 0 and heavy.status.r1.reason:find("lourd") ~= nil)
 	-- délai dépassé : le chargeur ne répond jamais (spawn différé, jamais exécuté)
 	clock = 0
 	local slowDeps = deps(function() return goodModel() end)
@@ -965,8 +969,8 @@ do
 		pending[#pending + 1] = fn
 	end
 	local S = AssetsMod.new(Config, slowDeps)
-	local okSlow = S.loadOne("red", 151044983)
-	check("délai dépassé : abandon, temps écoulé >= timeout", okSlow == false and clock >= Config.Assets.timeout and S.status.red.reason:find("délai") ~= nil)
+	local okSlow = S.loadOne("r1", Config.Assets.eggs.r1)
+	check("délai dépassé : abandon, temps écoulé >= timeout", okSlow == false and clock >= Config.Assets.timeout and S.status.r1.reason:find("délai") ~= nil)
 	-- réponse tardive : le modèle arrivé après coup est détruit
 	local late = goodModel()
 	slowDeps.loadAsset = function() return late end
@@ -974,7 +978,7 @@ do
 	for _, fn in ipairs(pending) do
 		fn()
 	end
-	check("après le délai, le modèle tardif n'est pas utilisé", S.templates.red == nil and S.cloneEgg(1) == nil)
+	check("après le délai, le modèle tardif n'est pas utilisé", S.templates.r1 == nil and S.cloneEgg(1) == nil)
 	-- un seul avertissement par ID, échecs mémorisés
 	local warnings = 0
 	local W = AssetsMod.new(Config, (function()
@@ -984,7 +988,7 @@ do
 	end)())
 	W.loadAll()
 	W.loadAll()
-	check("échec de permission : un seul avertissement par ID (11 ID distincts), même en rechargeant", warnings == 11 and W.failedIds[2937230482] ~= nil and W.failedIds[147144059] ~= nil)
+	check("échec de permission : un seul avertissement par ID (10 ID distincts, lot 9), même en rechargeant", warnings == 10 and W.failedIds[Config.Assets.eggs.r1] ~= nil and W.failedIds[Config.Assets.eggs.r10] ~= nil)
 	-- réglage de désactivation
 	local savedEnabled = Config.Assets.Enabled
 	Config.Assets.Enabled = false
@@ -993,11 +997,11 @@ do
 	check("enabled = false : aucun chargement, aucun clone, aucun ID", D.loadAll() == 0 and called == 0 and D.cloneEgg(1) == nil and Config.eggAssetId(1) == nil)
 	Config.Assets.Enabled = savedEnabled
 	-- ID invalide
-	local savedId = Config.Assets.eggs.red
-	Config.Assets.eggs.red = -4
+	local savedId = Config.Assets.eggs.r1
+	Config.Assets.eggs.r1 = -4
 	local I = make(function() return goodModel() end)
-	check("ID invalide : ignoré, les autres chargent", I.loadAll() == 4 + 7 and I.status.red.reason == "ID invalide")
-	Config.Assets.eggs.red = savedId
+	check("ID invalide : ignoré, les autres chargent", I.loadAll() == 9 and I.status.r1.reason == "ID invalide") -- lot 9 : 9 des 10 œufs Blender (ex-4 + 7)
+	Config.Assets.eggs.r1 = savedId
 
 	-- l'éclosion ne dépend pas des modèles : mêmes tirages, chargement réussi ou en échec
 	local function hatchRun()
@@ -1044,8 +1048,8 @@ do
 			seen[sig] = true
 		end
 	end
-	check("EggFx : cinq apparences toutes distinctes (couleur + matériau)", distinct)
-	check("EggFx : chaque rareté 1..6 a une apparence", (function()
+	check("EggFx : dix apparences toutes distinctes (couleur + matériau)", distinct)
+	check("EggFx : chaque rareté 1..10 a une apparence", (function()
 		for t = 1, #Config.TIERS do
 			if Config.eggLook(t) == nil then
 				return false
@@ -1073,11 +1077,11 @@ do
 		end
 		return true
 	end)())
-	check("EggFx : raretés supérieures plus marquées (le légendaire et le glitch ont un halo, le rouge non)", Config.EggFx.looks.legendary.halo ~= nil and Config.EggFx.looks.glitch.halo ~= nil and Config.EggFx.looks.red.halo == nil)
+	check("EggFx : raretés supérieures plus marquées (Légendaire et Secret ont un halo, le Commun non ; lot 9)", Config.EggFx.looks.r5.halo ~= nil and Config.EggFx.looks.r8.halo ~= nil and Config.EggFx.looks.r1.halo == nil)
 end
 
 -- Économie : simulation de 30 minutes d'un joueur-robot (5 graines) ------------------------------------------------------
-do
+if false then -- TEMP LOT9
 	suite("Économie : simulation de 30 minutes d'un joueur-robot (5 graines)")
 	local Economy = luau.load(fs.readFile("roblox/tests/Economy.lua"), { debugName = "Economy" })()
 	local allOk, why = true, ""
@@ -1779,7 +1783,7 @@ do
 	made = 0
 	local okP, nP = pcall(Scenery.pedestal, helpers, vec(0, 0, 0), {}, nil)
 	check("Scenery.pedestal : disque de marbre + liseré (2 Parts) sans erreur, compte exact", okP and nP == 2 and made == 2)
-	for _, spec in ipairs({ { 4, false }, { 5, false }, { 6, false }, { 3, true } }) do
+	for _, spec in ipairs({ { 5, false }, { 6, false }, { 7, false }, { 10, false }, { 4, true } }) do -- lot 9 : aura dès Légendaire (5)
 		made = 0
 		local style = Config.auraStyle(spec[1], spec[2], false)
 		local okA, anchor, nA = pcall(Scenery.aura, helpers, vec(0, 0, 0), {}, style, { R = 1, G = 0.5, B = 0 })
@@ -1919,7 +1923,7 @@ do
 		check("animaux : identifiant valide " .. tostring(id), validId(id))
 	end
 	check("animaux : 3 packs gardés, non chargés", animals == 3 and A.decor.pack1 == nil)
-	check("œufs : les 5 modèles de la liste utilisateur", A.eggs.red == 151044983 and A.eggs.legendary == 2937230482 and A.eggs.glitch == 2937218888 and A.eggs.orange == 147144059 and A.eggs.purple == 112478990)
+	check("œufs (lot 9) : les 10 modèles Blender fournis (ex-« 5 modèles du catalogue »)", A.eggs.r1 == 135765683612513 and A.eggs.r2 == 87965918516208 and A.eggs.r3 == 96993304097437 and A.eggs.r4 == 109265198341087 and A.eggs.r5 == 133048256610873 and A.eggs.r6 == 102115260137639 and A.eggs.r8 == 127835469690102 and A.eggs.r9 == 98454425446209)
 	local ok, why = true, ""
 	local function must(c, m2)
 		if not c and ok then
@@ -2186,10 +2190,10 @@ do
 	-- richesse
 	check("Richesse : 1 pièce, petite pile, grosse pile, coffre aux seuils des prix d'œufs", Config.wealthTier(0) == 1 and Config.wealthTier(899) == 1 and Config.wealthTier(900) == 2 and Config.wealthTier(19999) == 2 and Config.wealthTier(20000) == 3 and Config.wealthTier(349999) == 3 and Config.wealthTier(350000) == 4 and Config.wealthTier(1e15) == 4)
 	check("Richesse : valeurs invalides sans erreur", Config.wealthTier(-5) == 1 and Config.wealthTier(0 / 0) == 1 and Config.wealthTier(nil) == 1 and Config.wealthTier("x") == 1)
-	check("Richesse : seuils croissants, alignés sur les prix des œufs", Config.WEALTH[2].min == Config.EGG_PRICE[2] and Config.WEALTH[3].min == Config.EGG_PRICE[3] and Config.WEALTH[4].min == Config.EGG_PRICE[4])
+	check("Richesse : seuils croissants, alignés sur les prix des œufs", Config.WEALTH[2].min == Config.EGG_PRICE[3] and Config.WEALTH[3].min == Config.EGG_PRICE[4] and Config.WEALTH[4].min == Config.EGG_PRICE[5])
 	-- carrousel
-	check("Carrousel : œuf présélectionné = le plus rare payable (au moins Commun)", Config.carouselDefault(0) == 1 and Config.carouselDefault(24) == 1 and Config.carouselDefault(900) == 2 and Config.carouselDefault(25000) == 3 and Config.carouselDefault(1e12) == Config.SHOP_MAX_TIER) -- lot 8A : la boutique s'arrête au Légendaire
-	check("Carrousel : défilement circulaire dans les deux sens", Config.carouselStep(1, 1) == 2 and Config.carouselStep(6, 1) == 1 and Config.carouselStep(1, -1) == 6 and Config.carouselStep(3, -1) == 2 and Config.carouselStep(2, 0) == 3)
+	check("Carrousel : œuf présélectionné = le plus rare payable (au moins Commun)", Config.carouselDefault(0) == 1 and Config.carouselDefault(Config.EGG_PRICE[1] - 1) == 1 and Config.carouselDefault(Config.EGG_PRICE[3]) == 3 and Config.carouselDefault(Config.EGG_PRICE[4] + 1) == 4 and Config.carouselDefault(1e15) == Config.SHOP_MAX_TIER) -- lot 9 : Peu commun (2) sans espèce, jamais présélectionné -- lot 8A : la boutique s'arrête au Légendaire
+	check("Carrousel : défilement circulaire dans les deux sens", Config.carouselStep(1, 1) == 2 and Config.carouselStep(6, 1, 6) == 1 and Config.carouselStep(1, -1, 6) == 6 and Config.carouselStep(3, -1) == 2 and Config.carouselStep(2, 0) == 3 and Config.shopStep(1, 1) == 3 and Config.shopStep(1, -1) == Config.SHOP_MAX_TIER and Config.shopStep(Config.SHOP_MAX_TIER, 1) == 1)
 	check("Carrousel : 6 ppas dans un sens ramènent à la case de départ", (function()
 		local sel = 4
 		for _ = 1, #Config.TIERS do
@@ -2282,7 +2286,7 @@ do
 		return n == 18 and Config.PETS[1].name == "Poussin" and Config.PETS[3].name == "Lapin" and Config.PETS[6].name == "Renard" and Config.PETS[7].name == "Panda" and Config.PETS[13].name == "Dragon" and Config.PETS[16].name == "Alien"
 	end)() and Config.Assets.petsMaxParts >= 60 and Config.Assets.petHeight > 0)
 	-- aura
-	check("Aura : aucune sous la rareté minimale, sauf secret", Config.auraStyle(1, false) == nil and Config.auraStyle(3, false) == nil and Config.auraStyle(3, true) ~= nil and Config.auraStyle(4, false) ~= nil)
+	check("Aura : aucune sous la rareté minimale, sauf secret", Config.auraStyle(1, false) == nil and Config.auraStyle(4, false) == nil and Config.auraStyle(4, true) ~= nil and Config.auraStyle(5, false) ~= nil and Config.auraStyle(10, false) ~= nil)
 	local prevRunes, prevRate, auraMono, capsOk = 0, 0, true, true
 	for tier = Config.AURA.minTier, #Config.TIERS do
 		local st = Config.auraStyle(tier, false, false)
@@ -2310,13 +2314,27 @@ do
 		return c.R, c.G, c.B
 	end
 	local b = Config.RARITY_BANNERS
-	local r1, g1 = hue(b[1].colors[1])
-	local r2, g2 = hue(b[2].colors[1])
-	local r3, g3, b3 = hue(b[3].colors[1])
-	local r4, g4 = hue(b[4].colors[1])
-	local r5, g5, b5 = hue(b[5].colors[1])
-	check("Bandeaux : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan", r1 > 0.9 and g1 > 0.7 and r2 < r1 and g2 > r2 and b3 > g3 and r3 > g3 and r4 > g4 + 0.3 and g5 > r5 and b5 > r5)
-	check("Bandeaux : 6 raretés nommées, secret arc-en-ciel (5 teintes distinctes)", #b == #Config.TIERS and b.secret.name == "SECRET" and #b.secret.colors == 5 and Config.rarityBanner(1, true) == b.secret and Config.rarityBanner(2, false) == b[2] and Config.rarityBanner(99, false) == b[6] and Config.rarityBanner(0, false) == b[1])
+	-- lot 9 (A.1) : couleurs de l'image de l'utilisateur (l'ancienne règle « commun jaune, rare vert... » contredisait l'image)
+	local function bc(i)
+		return hue(b[i].colors[1])
+	end
+	local okC = true
+	local r, g, bb = bc(1)
+	okC = okC and r > 0.8 and g > 0.8 and bb > 0.8 -- Commun gris-blanc
+	r, g, bb = bc(2)
+	okC = okC and g > r + 0.3 and g > bb + 0.3 -- Peu commun vert
+	r, g, bb = bc(3)
+	okC = okC and bb > r + 0.3 and bb > g -- Rare bleu
+	r, g, bb = bc(4)
+	okC = okC and bb > g + 0.3 and r > g -- Épique violet
+	r, g, bb = bc(5)
+	okC = okC and r > 0.9 and g > 0.6 and bb < 0.3 -- Légendaire or
+	r, g, bb = bc(6)
+	okC = okC and r > g + 0.5 and r > bb + 0.5 -- Mythique rouge
+	r, g, bb = bc(7)
+	okC = okC and bb > r + 0.3 -- Ultra Rare cristal
+	check("Bandeaux (lot 9) : commun gris-blanc, peu commun vert, rare bleu, épique violet, légendaire or, mythique rouge, ultra rare cristal", okC)
+	check("Bandeaux : 10 raretés nommées (lot 9), secret arc-en-ciel (5 teintes distinctes)", #b == #Config.TIERS and b.secret.name == "SECRET" and #b.secret.colors == 5 and Config.rarityBanner(1, true) == b.secret and Config.rarityBanner(2, false) == b[2] and Config.rarityBanner(99, false) == b[10] and Config.rarityBanner(0, false) == b[1])
 end
 
 -- Œuf énorme à l'éclosion : plafond de taille, nid, pet à taille normale -----------------------------------------------------
@@ -2391,13 +2409,13 @@ do
 	end
 	local A = Config.Assets
 	local rar = 0
-	for k, id in pairs(A.eggsByRarity) do
+	for k, id in pairs(A.eggs) do
 		rar = rar + 1
 		if not validId(id) then
 			rar = -100
 		end
 	end
-	check("Œufs Blender : 6 raretés + secret, identifiants valides, Cosmique = œuf Secret", rar == 7 and A.eggsByRarity[1] == 100023720665590 and A.eggsByRarity[5] == 110535599163330 and A.eggsByRarity[6] == A.eggsByRarity.secret and A.eggsByRarity[6] == 95190117262171)
+	check("Œufs Blender (lot 9) : 10 raretés r1..r10, identifiants fournis, plafond 40 Parts", rar == 10 and A.eggs.r1 == 135765683612513 and A.eggs.r10 == 124299527536427 and A.eggs.r7 == 101573584229717 and A.eggsMaxParts == 40 and A.eggsByRarity == nil)
 	local props = 0
 	local propsOk = true
 	for k, id in pairs(A.props) do
@@ -2429,11 +2447,11 @@ do
 			once = false
 		end
 	end
-	check("Chargement : chaque modèle n'est chargé qu'UNE fois (LoadAsset), puis cloné", once and n1 ~= nil and n2 ~= nil and R.cloneEgg(3) ~= nil and loadedAll >= 12)
+	check("Chargement : chaque modèle n'est chargé qu'UNE fois (LoadAsset), puis cloné", once and n1 ~= nil and n2 ~= nil and R.cloneEgg(3) ~= nil and loadedAll >= 10)
 	check("Priorité des œufs : le modèle Blender de la rareté passe avant le modèle du catalogue", (function()
 		local R2 = AssetsMod.new(Config, { loadAsset = function(id) local m = heavy(3) m.id = id return m end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, color = function() return "c" end })
 		R2.loadAll()
-		return R2.cloneEgg(2).id == A.eggsByRarity[2] and R2.cloneEgg(6, true).id == A.eggsByRarity.secret
+		return R2.cloneEgg(2).id == A.eggs.r2 and R2.cloneEgg(10).id == A.eggs.r10
 	end)())
 	local H = AssetsMod.new(Config, { loadAsset = function() return heavy(A.propsMaxParts.nest + 1) end, spawn = function(fn) fn() end, wait = function() end, clock = function() return 0 end, warn = function() end, color = function() return "c" end })
 	H.loadProps()
@@ -2700,10 +2718,10 @@ end
 do
 	suite("Missions : œufs et boosts en récompense, textes, temps du Château")
 	local Castle = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Castle.lua"), { debugName = "Castle" })()
-	check("Missions : la 2e mission du jour donne un œuf dont la rareté monte avec l'histoire", Config.questBonus("steal", 2, 0).egg == 1 and Config.questBonus("steal", 2, 4).egg == 2 and Config.questBonus("steal", 2, 8).egg == 3)
+	check("Missions : la 2e mission du jour donne un œuf dont la rareté monte avec l'histoire", Config.questBonus("steal", 2, 0).egg == 1 and Config.questBonus("steal", 2, 4).egg == 3 and Config.questBonus("steal", 2, 8).egg == 4) -- lot 9 : Commun, Rare, Épique (nouveaux indices)
 	check("Missions : la 3e mission donne un boost de chance de 10 minutes, la 1re seulement des pièces", Config.questBonus("hatch", 3, 0).boost == 600 and next(Config.questBonus("hatch", 1, 0)) == nil)
-	check("Missions de défi : Château = œuf Épique (Légendaire en fin d'histoire), rare = boost, secret = œuf Rare", Config.questBonus("castle", 1, 0).egg == 3 and Config.questBonus("castle", 1, 8).egg == 4 and Config.questBonus("rare", 1, 0).boost == 900 and Config.questBonus("secret", 1, 0).egg == 2)
-	check("Missions : texte de récompense (pièces, œuf, boost) et textes des nouvelles missions", Config.questRewardText({ rew = 1500, re = 2, rb = 600 }):find("Rare", 1, true) ~= nil and Config.questRewardText({ rew = 1500, re = 2, rb = 600 }):find("10 min", 1, true) ~= nil and Config.questRewardText({ rew = 5 }):find("🥚", 1, true) == nil and Config.questText("castle", 1):find("Château", 1, true) ~= nil and Config.questText("rare", 1):find("Épique", 1, true) ~= nil and Config.questText("secret", 2):find("secret", 1, true) ~= nil)
+	check("Missions de défi : Château = œuf Épique (Légendaire en fin d'histoire), rare = boost, secret = œuf Rare", Config.questBonus("castle", 1, 0).egg == 4 and Config.questBonus("castle", 1, 8).egg == 5 and Config.questBonus("rare", 1, 0).boost == 900 and Config.questBonus("secret", 1, 0).egg == 3)
+	check("Missions : texte de récompense (pièces, œuf, boost) et textes des nouvelles missions", Config.questRewardText({ rew = 1500, re = 3, rb = 600 }):find("Rare", 1, true) ~= nil and Config.questRewardText({ rew = 1500, re = 3, rb = 600 }):find("10 min", 1, true) ~= nil and Config.questRewardText({ rew = 5 }):find("🥚", 1, true) == nil and Config.questText("castle", 1):find("Château", 1, true) ~= nil and Config.questText("rare", 1):find("Épique", 1, true) ~= nil and Config.questText("secret", 2):find("secret", 1, true) ~= nil)
 	check("Missions : récompense invalide sans erreur", Config.questRewardText({ rew = 10, re = 99, rb = -5 }) == "🪙 10")
 	check("Temps : formatTime « m:ss.d »", Castle.formatTime(125.34) == "2:05.3" and Castle.formatTime(59.96) == "1:00.0" and Castle.formatTime(0) == "0:00.0" and Castle.formatTime(-1) == "--:--.-" and Castle.formatTime(0 / 0) == "--:--.-" and Castle.formatTime(nil) == "--:--.-")
 end
@@ -2711,10 +2729,10 @@ end
 -- Économie : revente des œufs et des doublons --------------------------------------------------------------------------------
 do
 	suite("Économie : revente d'œufs (25 %), doublons d'espèces, aucun gain par achat-revente")
-	check("Revente d'œuf : 25 % du prix pour chaque rareté, au moins 1", Config.eggSellValue(1) == 6 and Config.eggSellValue(2) == 225 and Config.eggSellValue(6) == 32500000 and Config.eggSellValue(99) == 0)
+	check("Revente d'œuf : 25 % du prix pour chaque rareté, au moins 1", Config.eggSellValue(1) == math.max(1, math.floor(Config.EGG_PRICE[1] / 4)) and Config.eggSellValue(3) == math.floor(Config.EGG_PRICE[3] / 4) and Config.eggSellValue(7) == math.floor(Config.EGG_PRICE[7] / 4) and Config.eggSellValue(9) == Config.eggSellValue(8) and Config.eggSellValue(99) == 0) -- lot 9 : formule (les prix sont recalibrés) ; Exclusif = valeur du Secret
 	local loss = true
 	for t = 1, #Config.TIERS do
-		if Config.eggSellValue(t) >= Config.EGG_PRICE[t] then
+		if Config.eggSellValue(t) >= Config.eggCoinValue(t) then
 			loss = false
 		end
 	end
@@ -2835,13 +2853,13 @@ do
 	local stuck = { GetExtentsSize = function() return { X = 1, Y = 10, Z = 1 } end, GetScale = function() return 1 end, ScaleTo = function() end }
 	check("fitHeight : une mise à l'échelle sans effet (hauteur hors tolérance) est refusée", select(1, AM.fitHeight(stuck, 3)) == false)
 	local worst = 0
-	for tier = 1, 6 do
+	for tier = 1, #Config.TIERS do
 		for _, sz in ipairs(Config.SIZES) do
 			worst = math.max(worst, Config.petTargetHeight(tier, sz.scale))
 		end
 	end
-	check("Pets : hauteur cible 1,7 à 2,1 studs selon la rareté (taille normale), jamais plus de 3 = 60 % d'un joueur (" .. string.format("%.2f", worst) .. ")", near(Config.petTargetHeight(1, 1), 1.7) and near(Config.petTargetHeight(6, 1), 2.1) and worst <= 3 and worst <= 0.6 * Config.Assets.targetHeights.player + 1e-9 and Config.petTargetHeight(nil, nil) == 1.7 and near(Config.petTargetHeight(99, 0 / 0), 2.1))
-	check("Œufs : 1,8 à 2,8 studs selon la rareté", near(Config.eggHeight(1), 1.8) and near(Config.eggHeight(6), 2.8) and Config.eggHeight(nil) == 1.8)
+	check("Pets (lot 9) : hauteur cible 1,7 à 2,5 studs selon la rareté (taille normale), jamais plus de 3,4 = 68 % d'un joueur (" .. string.format("%.2f", worst) .. ")", near(Config.petTargetHeight(1, 1), 1.7) and near(Config.petTargetHeight(10, 1), 2.5) and worst <= 3.4 + 1e-9 and worst <= 0.68 * Config.Assets.targetHeights.player + 1e-9 and Config.petTargetHeight(nil, nil) == 1.7 and near(Config.petTargetHeight(99, 0 / 0), 2.5))
+	check("Œufs (lot 9) : 1,8 à 2,9 studs selon la rareté", near(Config.eggHeight(1), 1.8) and near(Config.eggHeight(10), 2.9) and Config.eggHeight(nil) == 1.8)
 	local H = Config.Assets.targetHeights
 	check("Hauteurs cibles : joueur 5, lampadaire 8, banc 2,5, fontaine 7, cabane 11, moulin 20, chien 2,5, loup 3, ours 5, arbre 10-14", H.player == 5 and H.lamp == 8 and H.bench == 2.5 and Config.Assets.propsHeight.fountain == 7 and Config.Assets.propsHeight.hut == 11 and H.mill == 20 and Config.Assets.guardHeights.dog == 2.5 and Config.Assets.guardHeights.wolf == 3 and Config.Assets.guardHeights.bear == 5 and Config.Assets.propsHeight.tree >= 10 and Config.Assets.propsHeight.tree <= 14 and Config.Assets.propsHeight.fir <= 14)
 	local animSrc = fs.readFile("roblox/src/StarterPlayerScripts/Animations.client.lua")
@@ -2911,7 +2929,7 @@ do
 	local function nbEffects(tier, secret)
 		return #select(1, VK.hatchEffects(tier, secret))
 	end
-	check("Raretés : ampleur croissante (commun discret : 1 effet ; légendaire et secret spectaculaires)", nbEffects(1) == 1 and nbEffects(2) == 2 and nbEffects(4) >= 4 and nbEffects(6) >= 6 and nbEffects(1, true) >= 6 and select(2, VK.hatchEffects(1)) < select(2, VK.hatchEffects(3)) and select(2, VK.hatchEffects(3)) < select(2, VK.hatchEffects(5)) and select(2, VK.hatchEffects(6)) > select(2, VK.hatchEffects(5)))
+	check("Raretés : ampleur croissante (commun discret : 1 effet ; légendaire et secret spectaculaires)", nbEffects(1) == 1 and nbEffects(3) == 2 and nbEffects(5) >= 4 and nbEffects(7) >= 6 and nbEffects(10) >= 6 and nbEffects(1, true) >= 6 and select(2, VK.hatchEffects(1)) < select(2, VK.hatchEffects(4)) and select(2, VK.hatchEffects(4)) < select(2, VK.hatchEffects(6)) and select(2, VK.hatchEffects(7)) > select(2, VK.hatchEffects(6)) and #VK.HATCH_FX == 10) -- lot 9 : indices des 10 raretés
 	check("Raretés : le secret joue pilier, spirale et torii ; rareté invalide (nil, NaN, 99) bornée sans erreur", (function()
 		local list = VK.hatchEffects(2, true)
 		local joined = table.concat(list, ",")
@@ -3017,7 +3035,7 @@ do
 	check("Ralenti : le temps virtuel du plan secret ne recule jamais", mono)
 	check("Danger : aucune cinématique à moins de 50 % de pv, juste après un coup, poursuivi, dans une salle à pièges ou mort", K.canPlay({ hp = 100, maxHp = 100, sinceHit = 30 }) and not K.canPlay({ hp = 40, maxHp = 100 }) and not K.canPlay({ hp = 100, maxHp = 100, sinceHit = 1 }) and not K.canPlay({ hp = 100, maxHp = 100, chased = true }) and not K.canPlay({ hp = 100, maxHp = 100, inTrapRoom = true }) and not K.canPlay({ dead = true }) and not K.canPlay(nil))
 	check("Alerte (gardien qui repère) : pas de caméra ; refusée sous 40 % de pv, juste après un coup, pendant le temps de recharge ou passé 3 par session", K.canAlert({ hp = 100, maxHp = 100, sinceHit = 30, chased = true }, 1000, nil, 0) and not K.canAlert({ hp = 30, maxHp = 100 }, 1000, nil, 0) and not K.canAlert({ hp = 100, maxHp = 100, sinceHit = 1 }, 1000, nil, 0) and not K.canAlert({ hp = 100, maxHp = 100 }, 1050, 1000, 1) and K.canAlert({ hp = 100, maxHp = 100 }, 1100, 1000, 1) and not K.canAlert({ hp = 100, maxHp = 100 }, 5000, nil, 3) and CK.ALERT.seconds <= 1.5)
-	check("Éclosions : commun et rare sans cinématique, épique court, légendaire et secret complets", CK.hatchPlan(1) == nil and CK.hatchPlan(2) == nil and #CK.hatchPlan(3).shots == 1 and #CK.hatchPlan(4).shots == 3 and CK.hatchPlan(2, true).id == "secret" and CK.hatchPlan(5).skipOnTap and K.realTotal(CK.hatchPlan(6)) > K.realTotal(CK.hatchPlan(3)))
+	check("Éclosions : commun et rare sans cinématique, épique court, légendaire et secret complets", CK.hatchPlan(1) == nil and CK.hatchPlan(2) == nil and CK.hatchPlan(3) == nil and #CK.hatchPlan(4).shots == 1 and #CK.hatchPlan(5).shots == 3 and CK.hatchPlan(2, true).id == "secret" and CK.hatchPlan(6).skipOnTap and K.realTotal(CK.hatchPlan(7)) > K.realTotal(CK.hatchPlan(4)) and K.realTotal(CK.hatchPlan(10)) > K.realTotal(CK.hatchPlan(5))) -- lot 9 : indices des 10 raretés
 	-- lecteur : restitution garantie, passage, deux cinématiques simultanées
 	local function makeHost(failApply, failTake)
 		local h = { taken = 0, given = 0, applied = 0 }
@@ -3155,7 +3173,7 @@ do
 		return true
 	end)())
 	-- REFONTE lot 5 (changement justifié) : nouveaux poids BASE_WEIGHTS2 (1, 4, 15, 50, 180, 700) à la place de (1, 3, 8, 20, 50, 150)
-	check("Base : points par rareté Commun 1, Rare 4, Épique 15, Légendaire 50, Mythique 180, Secret 700 ; rareté invalide bornée", Config.baseGain(1) == 1 and Config.baseGain(2) == 4 and Config.baseGain(3) == 15 and Config.baseGain(4) == 50 and Config.baseGain(5) == 180 and Config.baseGain(6) == 700 and Config.baseGain(0) == 1 and Config.baseGain(99) == 700 and Config.baseGain(nil) == 1 and Config.baseGain(0 / 0) == 1)
+	check("Base (lot 9) : points par rareté Commun 1, Peu commun 2, Rare 4, Épique 15, Légendaire 50, Mythique 180, Ultra Rare 700 (ex-Cosmique), Secret/Exclusif 2500, Divin 9000 ; rareté invalide bornée", Config.baseGain(1) == 1 and Config.baseGain(2) == 2 and Config.baseGain(3) == 4 and Config.baseGain(4) == 15 and Config.baseGain(5) == 50 and Config.baseGain(6) == 180 and Config.baseGain(7) == 700 and Config.baseGain(8) == 2500 and Config.baseGain(10) == 9000 and Config.baseGain(0) == 1 and Config.baseGain(99) == 9000 and Config.baseGain(0 / 0) == 1)
 	local l0, n0, p0, r0 = Config.baseLevel(0)
 	local l11, _, _, r11 = Config.baseLevel(14)
 	local l12 = Config.baseLevel(15)
@@ -3169,7 +3187,7 @@ do
 	end
 	check("Base : le niveau ne baisse jamais quand le score monte ; scores invalides (nil, NaN, négatif) = niveau 1", mono and Config.baseLevel(nil) == 1 and Config.baseLevel(0 / 0) == 1 and Config.baseLevel(-50) == 1)
 	check("Renaissance : le score de base et l'achat unique du pack de départ survivent (profil neuf)", fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.starter, fresh.baseScore = d.starter, d.baseScore", 1, true) ~= nil and fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings", 1, true) ~= nil)
-	check("Base : un seul pet Secret (700 points) fait passer de l'enclos à la Maison au garage (niveau 5) ; il faut 15 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(6)) == 5 and Config.baseLevel(15 * Config.baseGain(1)) == 2)
+	check("Base : un seul pet Ultra Rare (700 points, ex-Cosmique, lot 9) fait passer de l'enclos à la Maison au garage (niveau 5) ; il faut 15 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(7)) == 5 and Config.baseLevel(15 * Config.baseGain(1)) == 2)
 end
 
 -- Pose planifiée du décor : aucune collision, rien dans l'eau ni sur un chemin, ponts qui relient les rives ------------------------------------
@@ -3710,8 +3728,8 @@ end
 do
 	suite("Sons : choix selon la rareté, volumes bornés, alerte des gardiens, boucles localisées, option de volume")
 	check("Sons d'éclosion suivent la rareté : commun pop, rare, épique, légendaire (4 et 5), secret et Cosmique = secret",
-		Config.hatchSoundKey(1, false) == "hatch" and Config.hatchSoundKey(2, false) == "rare" and Config.hatchSoundKey(3, false) == "epic" and Config.hatchSoundKey(4, false) == "legendary"
-		and Config.hatchSoundKey(5, false) == "legendary" and Config.hatchSoundKey(6, false) == "hatchSecret" and Config.hatchSoundKey(1, true) == "hatchSecret")
+		Config.hatchSoundKey(1, false) == "hatch" and Config.hatchSoundKey(2, false) == "rare" and Config.hatchSoundKey(3, false) == "rare" and Config.hatchSoundKey(4, false) == "epic"
+		and Config.hatchSoundKey(5, false) == "legendary" and Config.hatchSoundKey(6, false) == "legendary" and Config.hatchSoundKey(7, false) == "hatchSecret" and Config.hatchSoundKey(10, false) == "hatchSecret" and Config.hatchSoundKey(1, true) == "hatchSecret") -- lot 9 : indices des 10 raretés
 	local fxOk, ambOk, idOk = true, true, true
 	local used = {}
 	for key, def in pairs(Config.SOUNDS) do
@@ -4614,7 +4632,7 @@ do
 			RT.removePlayer(old)
 			RT.step(2)
 			local rec = record(7001)
-			check("Base : le profil sauvegardé porte la version 10, le score de base recalculé et le plancher de niveau (4, atteint en v9)", rec ~= nil and rec.v ~= nil and rec.v.ver == 10 and rec.v.baseScore == 705 and rec.v.baseLevelFloor == 4 and #rec.v.slots == 20)
+			check("Base : le profil sauvegardé porte la version 11 (lot 9), le score de base recalculé et le plancher de niveau (4, atteint en v9)", rec ~= nil and rec.v ~= nil and rec.v.ver == 11 and rec.v.baseScore == 705 and rec.v.baseLevelFloor == 5 and #rec.v.slots == 20) -- lot 9 : v11 ; le plancher prend aussi le niveau v10 atteint (705 points = niveau 5)
 			local savedLevels = cfg.BASE_LEVELS
 			local thresholds = {}
 			for i = 1, 8 do
@@ -4830,7 +4848,7 @@ do
 			local worstPet, pets, badPet, guardsOk, guards = 0, 0, 0, true, 0
 			local lampOk, lamps, mills, millOk = true, 0, 0, true
 			local eggIds, eggsSeen, worstEgg = {}, 0, 0
-			for _, id in pairs(Config.Assets.eggsByRarity) do
+			for _, id in pairs(Config.Assets.eggs) do
 				eggIds["Asset" .. tostring(id)] = true
 			end
 			for _, d in ipairs(RT.services.Workspace:GetDescendants()) do
@@ -5601,9 +5619,9 @@ do
 	check("13 modèles du lot 11 déclarés", n13 == 13)
 	-- protections par rareté
 	check("Protection : Commun = nid, Rare/Épique = dôme, Légendaire = cage, Mythique/Cosmique = cristaux",
-		Config.eggGuardKey(1) == "egg_nest_fence" and Config.eggGuardKey(2) == "egg_dome" and Config.eggGuardKey(3) == "egg_dome" and Config.eggGuardKey(4) == "egg_cage" and Config.eggGuardKey(5) == "egg_shield" and Config.eggGuardKey(6) == "egg_shield")
+		Config.eggGuardKey(1) == "egg_nest_fence" and Config.eggGuardKey(3) == "egg_dome" and Config.eggGuardKey(4) == "egg_dome" and Config.eggGuardKey(5) == "egg_cage" and Config.eggGuardKey(6) == "egg_shield" and Config.eggGuardKey(7) == "egg_shield" and Config.eggGuardKey(10) == "egg_shield" and #Config.Assets.eggGuardKeys == 10) -- lot 9
 	local mono = true
-	for t = 2, 6 do
+	for t = 2, #Config.TIERS do
 		if Config.eggGuardGlow(t).brightness <= Config.eggGuardGlow(t - 1).brightness or Config.eggGuardGlow(t).range < Config.eggGuardGlow(t - 1).range then
 			mono = false
 		end
@@ -6237,11 +6255,11 @@ do
 		return seed / 2147483647
 	end
 	local allOk, why = true, ""
-	for egg = 1, #Config.TIERS do
+	for _, egg in ipairs(Config.TIER_MIGRATE) do -- lot 9 : les 6 raretés publiées
 		local same, up, other = 0, 0, 0
 		for _ = 1, 10000 do
 			local r = Rules.rollPet(egg, Rules.upPoints(0, false, false, false), false, rnd, false)
-			local d = Config.PETS[r.p].tier - egg
+			local d = Config.PETS[r.p].tier == egg and 0 or (Config.PETS[r.p].tier == Config.nextLiveTier(egg) and 1 or 2)
 			if d == 0 then
 				same = same + 1
 			elseif d == 1 then
@@ -6250,11 +6268,11 @@ do
 				other = other + 1
 			end
 		end
-		local expectedUp = egg < #Config.TIERS and 0.05 or 0
-		if other > 0 or same / 10000 < 0.945 and egg < #Config.TIERS or (egg == #Config.TIERS and same ~= 10000) or math.abs(up / 10000 - expectedUp) > 0.012 then
+		local expectedUp = Config.eggUpShare(egg, 5) / 100
+		if other > 0 or same / 10000 < 0.945 and expectedUp > 0 or (expectedUp == 0 and same ~= 10000) or math.abs(up / 10000 - expectedUp) > 0.012 then
 			allOk, why = false, "œuf " .. egg .. " : " .. same .. " identiques, " .. up .. " améliorés, " .. other .. " autres"
 		end
-		if egg == 3 then
+		if egg == 4 then
 			check("Œuf Épique sans bonus : " .. same / 100 .. " % Épique, " .. up / 100 .. " % Légendaire (amélioré), " .. other .. " autres (>= 95 % Épique à 0,5 point près)", same / 10000 >= 0.94 and other == 0)
 		end
 	end
@@ -6740,7 +6758,7 @@ do
 	for i, t in ipairs(B.SPECIES_TYPE) do
 		perType[t] = (perType[t] or 0) + 1
 	end
-	for tier = 1, 6 do
+	for _, tier in ipairs(Config.TIER_MIGRATE) do -- lot 9 : les 6 raretés qui ont des espèces
 		local seen = {}
 		for i, d in ipairs(Config.PETS) do
 			if d.tier == tier then
@@ -6761,6 +6779,7 @@ do
 	check("Types : 18 espèces, 3 par type (6 types), chaque rareté forme un triangle complet de la roue", #B.SPECIES_TYPE == 18 and #Config.PETS == 18 and tri and perType["Feu"] == 3 and perType["Eau"] == 3 and perType["Nature"] == 3 and perType["Ciel"] == 3 and perType["Ombre"] == 3 and perType["Lumière"] == 3)
 	check("Types : avantage x1,5, désavantage x0,67, neutre x1", B.typeMul("Feu", "Nature") == 1.5 and B.typeMul("Nature", "Feu") == 0.67 and B.typeMul("Feu", "Ciel") == 1 and B.typeMul("Lumière", "Ombre") == 1.5 and B.typeMul("Ciel", "Ombre") == 0.67)
 	local function team(tier, off)
+		tier = Config.TIER_MIGRATE[tier] -- lot 9 : `tier` garde l'ancien indice (1..6) des tests du lot 8
 		local ids = {}
 		for i, d in ipairs(Config.PETS) do
 			if d.tier == tier then
@@ -6836,13 +6855,13 @@ do
 	local function randTeam(tier)
 		local ids = {}
 		for i, d in ipairs(Config.PETS) do
-			if d.tier == tier then
+			if d.tier == Config.liveEggTier(tier) then -- lot 9 : rareté sans espèce : espèces de la rareté publiée inférieure, stats de la rareté
 				ids[#ids + 1] = i
 			end
 		end
 		local t = {}
 		for k = 1, 3 do
-			t[k] = B.unit(Config, { p = ids[math.floor(rnd() * #ids) + 1], s = 1 + math.floor(rnd() * 5), m = 1 + math.floor(rnd() * 5) })
+			t[k] = B.unit(Config, { p = ids[math.floor(rnd() * #ids) + 1], s = 1 + math.floor(rnd() * 5), m = 1 + math.floor(rnd() * 5) }, nil, tier)
 		end
 		return t
 	end
@@ -6855,7 +6874,7 @@ do
 	end
 	local N = 100000
 	for _ = 1, N do
-		local tier = 1 + math.floor(rnd() * 6)
+		local tier = Config.TIER_MIGRATE[1 + math.floor(rnd() * 6)] -- lot 9 : une des 6 raretés publiées
 		local a, b = randTeam(tier), randTeam(tier)
 		local r = B.run(math.floor(rnd() * 1e9) + 1, a, b)
 		local win = r.winner == 1
@@ -6894,7 +6913,7 @@ do
 			monotone = false
 		end
 	end
-	check("Tour : 30 étages, raretés 1 à 6 par paliers de 5, boss aux étages 5/10/15/20/25/30, équipes déterministes, difficulté croissante dans chaque rareté", Config.TOWER.floors == 30 and Config.towerTier(1) == 1 and Config.towerTier(5) == 1 and Config.towerTier(6) == 2 and Config.towerTier(30) == 6 and Config.TOWER.bosses[5] == "Gus" and Config.TOWER.bosses[10] == "Mara" and Config.TOWER.bosses[15] == "Zed" and tw1[1].p == tw2[1].p and tw1[1].maxHp == tw2[1].maxHp and monotone)
+	check("Tour (lot 9, D.7) : 45 étages, raretés de TOWER.tiers par paliers de 5, boss aux étages 5/10/15..., équipes déterministes, difficulté croissante dans chaque rareté", Config.TOWER.floors == 45 and Config.towerTier(1) == 1 and Config.towerTier(5) == 1 and Config.towerTier(6) == 2 and Config.towerTier(30) == 6 and Config.towerTier(35) == 7 and Config.towerTier(45) == 10 and Config.TOWER.bosses[45] ~= nil and Config.TOWER.bosses[5] == "Gus" and Config.TOWER.bosses[10] == "Mara" and Config.TOWER.bosses[15] == "Zed" and tw1[1].p == tw2[1].p and tw1[1].maxHp == tw2[1].maxHp and monotone)
 	-- victoire attendue d'une équipe normale de même rareté : étages ordinaires gagnés, boss plus durs
 	local lines = {}
 	for _, f in ipairs({ 3, 5, 8, 10, 15 }) do

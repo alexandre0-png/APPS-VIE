@@ -415,7 +415,7 @@ end
 
 local function revealPop(info)
 	local def = Config.PETS[info.p]
-	if def.tier >= 4 and tryOfferLater then
+	if Config.tierAtLeast(def.tier, "announce") and tryOfferLater then
 		tryOfferLater("rare")
 	end
 	local tier = Config.TIERS[def.tier]
@@ -424,9 +424,9 @@ local function revealPop(info)
 	popEmoji.Text = def.emoji
 	popEmoji.Rotation = -14
 	TweenService:Create(popEmoji, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
-	popRarity.Text = def.tier >= 4 and ("★ " .. string.upper(tier.name) .. " ★") or string.upper(tier.name)
+	popRarity.Text = Config.tierAtLeast(def.tier, "announce") and ("★ " .. string.upper(tier.name) .. " ★") or string.upper(tier.name)
 	popRarity.TextColor3 = tier.color
-	popRarity.TextSize = def.tier >= 4 and 28 or 20
+	popRarity.TextSize = Config.tierAtLeast(def.tier, "announce") and 28 or 20
 	popName.Text = Config.petName(info.p, info.s, info.m)
 	popName.TextColor3 = tier.color
 	popInfo.Text = tier.name .. "  ·  +" .. fmt(info.inc) .. "/s"
@@ -449,7 +449,7 @@ local function revealPop(info)
 	if Config.REVEAL.Enabled then
 		RevealFx.play(gui, st, UDim2.new(0.5, 0, 0.3, -35))
 	end
-	local big = def.tier >= 4 or info.m > 1 or info.s >= 4
+	local big = Config.tierAtLeast(def.tier, "announce") or info.m > 1 or info.s >= 4
 	if st.flash > 0 then
 		flash.BackgroundColor3 = Config.MUTS[info.m].color or st.color
 		flash.BackgroundTransparency = 1 - 0.7 * st.flash
@@ -457,9 +457,9 @@ local function revealPop(info)
 	end
 	playSound(Config.hatchSoundKey(def.tier, st.secret))
 	pcall(playHatchVfx, info, def.tier, st.secret) -- effets 3D en plus de la révélation en interface, selon la qualité
-	if def.tier >= 3 then -- rareté croissante : brillance sur le bandeau dès Épique, vignette colorée et pulsation dès Légendaire
+	if Config.tierAtLeast(def.tier, "shine") then -- rareté croissante : brillance sur le bandeau dès Épique, vignette colorée et pulsation dès Légendaire
 		shineSweep(popRarity, tier.color:Lerp(Color3.new(1, 1, 1), 0.6))
-		if def.tier >= 4 or st.secret then
+		if Config.tierAtLeast(def.tier, "announce") or st.secret then
 			vignetteFlash(st.secret and st.color or tier.color, math.min(1, 0.4 + 0.15 * def.tier))
 			pulseLighting(math.min(1.5, 0.5 + 0.2 * def.tier))
 		end
@@ -614,7 +614,7 @@ local function avgInc(tier)
 			n += 1
 		end
 	end
-	return sum / n
+	return n > 0 and sum / n or 0
 end
 
 local tabsDef = {
@@ -729,14 +729,13 @@ function render()
 			end
 			return f
 		end
-		local n = Config.SHOP_MAX_TIER -- lot 8A : Mythique et Cosmique seulement au tapis du marché
-		local prev, nxt = Config.carouselStep(sel, -1, n), Config.carouselStep(sel, 1, n)
+		local prev, nxt = Config.shopStep(sel, -1), Config.shopStep(sel, 1) -- lot 9 : seulement les raretés publiées <= SHOP_MAX_TIER
 		local leftCard, rightCard = eggCard(prev, false, 0.2), eggCard(nxt, false, 0.8)
 		eggCard(sel, true, 0.5)
 		for _, pair in ipairs({ { leftCard, -1 }, { rightCard, 1 } }) do
 			local hit = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 8 }, pair[1])
 			hit.Activated:Connect(function()
-				panel.eggSel = Config.carouselStep(sel, pair[2], n)
+				panel.eggSel = Config.shopStep(sel, pair[2])
 				render()
 			end)
 		end
@@ -748,11 +747,11 @@ function render()
 			end
 			pressFx(ab)
 			ab.Activated:Connect(function()
-				panel.eggSel = Config.carouselStep(sel, side[2], n)
+				panel.eggSel = Config.shopStep(sel, side[2])
 				render()
 			end)
 		end
-		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (sel < n and ("Un pet " .. Config.TIERS[sel + 1].name .. " est possible (pet de rareté supérieure)") or "Rareté maximale") })
+		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (Config.eggUpShare(sel, Config.UPGRADE.base) > 0 and ("Un pet " .. Config.TIERS[Config.nextLiveTier(sel)].name .. " est possible (pet de rareté supérieure)") or "Rareté fixe") })
 		info.TextYAlignment = Enum.TextYAlignment.Top
 		local buy = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(220, 52), Text = "🥚 Acheter  🪙 " .. fmt(Config.EGG_PRICE[sel]), Font = FONT, TextSize = 18, TextColor3 = COL.dark, ZIndex = 9 }, holder)
 		local buyStyle = glossy(buy, "play", 18, 3)
@@ -1662,7 +1661,7 @@ local function hatchPop(info)
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	local oneIn = type(info.oneIn) == "number" and info.oneIn > 0 and info.oneIn or nil
 	local st = Reveal.style(Config, def.tier, oneIn, false)
-	local fast = touch or Config.REVEAL.forceReduced or (def.tier <= 2 and info.s == 2 and info.m == 1)
+	local fast = touch or Config.REVEAL.forceReduced or (not Config.tierAtLeast(def.tier, "shine") and info.s == 2 and info.m == 1)
 	local plan = Reveal.slotPlan(Config, def.tier, info.s, info.m, fast)
 	plan.phoenix = def.tier >= Config.REVEAL.slot.phoenixFromTier
 	local done = false

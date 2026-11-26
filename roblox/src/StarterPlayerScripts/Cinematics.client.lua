@@ -512,7 +512,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		return
 	end
 	local def = Config.PETS[info.p]
-	if not def or not (def.tier >= 4 or info.m > 1 or info.s >= 4) then
+	if not def or not (Config.tierAtLeast(def.tier, "rareCine") or info.m > 1 or info.s >= 4) then
 		return
 	end
 	begin("firstRare", Config.cineFirstRare(Config.petName(info.p, info.s, info.m), Config.TIERS[def.tier].name, "+" .. Config.fmt(info.inc) .. "/s."), { slot = info.slot }, false)
@@ -602,7 +602,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 	if not def or not Config.cineEnabled("eclosion") or os.clock() - lastHatchCine < 20 or director.isActive() then
 		return
 	end
-	local plan = CinematicKitMod.hatchPlan(def.tier, def.tier >= 6)
+	local plan = CinematicKitMod.hatchPlan(def.tier, Config.tierAtLeast(def.tier, "fullCine"))
 	if not plan or not Kit.canPlay(dangerCtx()) then
 		return
 	end

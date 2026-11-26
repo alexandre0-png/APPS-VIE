@@ -80,23 +80,26 @@ VfxKit.QUALITY = {
 
 -- Effets (préréglages) joués pour une éclosion : ampleur croissante avec la rareté (1 Commun discret .. 5 Mythique) ; Cosmique et secret sont
 -- spectaculaires. Retourne la liste ordonnée des préréglages et un facteur d'ampleur (échelle).
+-- Lot 9 : tables indexées par rareté (1..10), sans seuil codé en dur ; les raretés migrées gardent leurs effets d'avant.
+VfxKit.HATCH_AMP = { 0.55, 0.65, 0.75, 0.95, 1.2, 1.45, 1.8, 1.9, 1.9, 2 }
+VfxKit.HATCH_FX = {
+	{ "etincelles" },
+	{ "etincelles" },
+	{ "etincelles", "onde_de_choc" },
+	{ "aura_runique", "onde_de_choc" },
+	{ "pilier_revelation", "aura_runique", "aura_ailes", "onde_de_choc" },
+	{ "pilier_revelation", "aura_runique", "aura_ailes", "spirale_montee", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+}
 function VfxKit.hatchEffects(tier, secret)
-	tier = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
-	local amp = ({ 0.55, 0.75, 0.95, 1.2, 1.45, 1.8 })[tier]
+	tier = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), #VfxKit.HATCH_FX))
 	if secret then
 		return { "pilier_revelation", "spirale_montee", "portail_torii", "aura_runique", "onde_de_choc", "etincelles" }, 2
-	elseif tier == 1 then
-		return { "etincelles" }, amp
-	elseif tier == 2 then
-		return { "etincelles", "onde_de_choc" }, amp
-	elseif tier == 3 then
-		return { "aura_runique", "onde_de_choc" }, amp
-	elseif tier == 4 then
-		return { "pilier_revelation", "aura_runique", "aura_ailes", "onde_de_choc" }, amp
-	elseif tier == 5 then
-		return { "pilier_revelation", "aura_runique", "aura_ailes", "spirale_montee", "onde_de_choc" }, amp
 	end
-	return { "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" }, amp
+	return VfxKit.HATCH_FX[tier], VfxKit.HATCH_AMP[tier]
 end
 
 -- Qualité : tactile = Bas, sinon Élevé ; `override` (« high », « medium », « low ») la remplace.

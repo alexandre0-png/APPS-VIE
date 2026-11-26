@@ -87,7 +87,8 @@ local function dressEgg(p, tier)
 		if not clone:IsA("Model") then
 			error("pas un Model")
 		end
-		local fitted, why = AssetsMod.fitHeight(clone, Config.eggHeight(tier))
+		-- lot 9 : échelle d'après la pièce `Coque` (couronne, auréole et ailes dépassent), repli sur le modèle entier
+		local fitted, why = AssetsMod.fitByPart(clone, Config.Assets.eggShellPart or "Coque", Config.eggHeight(tier))
 		if not fitted then
 			error(why)
 		end
@@ -111,6 +112,16 @@ local function dressEgg(p, tier)
 				w.Part1 = d
 				w.C0 = d.CFrame
 				w.Parent = d
+			end
+		end
+		-- lot 9 : coques de verre (Ultra Rare, Divin) forcées par le code (pièce `Coque` non nommée « Verre » dans le modèle)
+		local look = Config.eggLook(tier)
+		if look and look.glass then
+			for _, d in ipairs(clone:GetDescendants()) do
+				if d:IsA("BasePart") and AssetsMod.baseName(d.Name) == (Config.Assets.eggShellPart or "Coque") then
+					d.Material = Enum.Material.Glass
+					d.Transparency = look.glass
+				end
 			end
 		end
 		clone.Name = "Skin"
@@ -161,6 +172,148 @@ local function addHalo(p, h)
 	halo.Parent = p
 end
 
+-- Lot 9 (A.5) : détails procéduraux d'un œuf (pièces soudées, <= Config.EggFx.maxParts). L'emblème est une RUNE-ŒUF (losange creux à pointe
+-- arrondie : 4 barres + 1 bille), jamais le logo Roblox. Retourne le nombre de Parts créées.
+local function weldTo(p, part, cf)
+	part.Anchored = false
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.Massless = true
+	part.CastShadow = false
+	local w = Instance.new("Weld")
+	w.Part0 = p
+	w.Part1 = part
+	w.C0 = cf
+	w.Parent = part
+	part.Parent = p
+	return part
+end
+local function detailPart(name, size, color, material, shape)
+	local d = Instance.new("Part")
+	d.Name = name
+	d.Size = size
+	d.Color = color
+	d.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		d.Shape = shape
+	end
+	d.TopSurface = Enum.SurfaceType.Smooth
+	d.BottomSurface = Enum.SurfaceType.Smooth
+	return d
+end
+function Builder.eggDetails(p, look)
+	local n = 0
+	local R, H = p.Size.X / 2, p.Size.Y / 2
+	local function add(name, size, color, cf, material, shape)
+		if n >= Config.EggFx.maxParts then
+			return nil
+		end
+		n += 1
+		return weldTo(p, detailPart(name, size, color, material, shape), cf)
+	end
+	-- emblème : rune-œuf sur la face avant (-Z)
+	if look.emblem then
+		local z = -R * 0.98
+		for k, a in ipairs({ 35, -35, 145, -145 }) do
+			local ang = math.rad(a)
+			add("Embleme", Vector3.new(0.12, 0.5, 0.08), look.emblem, CFrame.new(math.sin(ang) * 0.18, 0.15 + math.cos(ang) * 0.22 * (k <= 2 and 1 or 0.7), z) * CFrame.Angles(0, 0, -ang), Enum.Material.Neon)
+		end
+		add("Embleme", Vector3.new(0.16, 0.16, 0.16), look.emblem, CFrame.new(0, 0.15, z), Enum.Material.Neon, Enum.PartType.Ball)
+	end
+	local d = look.details or {}
+	local function around(count, radius, y, fn)
+		for i = 1, count do
+			local a = (i - 1) / count * math.pi * 2
+			fn(i, CFrame.new(math.cos(a) * radius, y, math.sin(a) * radius) * CFrame.Angles(0, -a, 0))
+		end
+	end
+	if d.spots then
+		around(d.spots.n, R * 0.92, 0.5, function(_, cf)
+			add("Motif", Vector3.new(0.5, 0.5, 0.5), d.spots.color, cf, nil, Enum.PartType.Ball)
+		end)
+	end
+	if d.pixels then
+		around(d.pixels.n, R * 0.95, -0.3, function(i, cf)
+			add("Motif", Vector3.new(0.3, 0.3, 0.3), d.pixels.color, cf * CFrame.new(0, (i % 2) * 0.4, 0))
+		end)
+	end
+	if d.stripes or d.cracks or d.shards then
+		local sp = d.stripes or d.cracks or d.shards
+		local mat = d.cracks and Enum.Material.Neon or nil
+		around(sp.n, R * 0.97, 0.2, function(i, cf)
+			add(d.cracks and "Fissure" or "Motif", Vector3.new(0.12, 1.2, 0.08), sp.color, cf * CFrame.Angles(0, 0, math.rad(25 * (i % 2 == 0 and 1 or -1))), mat)
+		end)
+	end
+	if d.ring then
+		add("Anneau", Vector3.new(0.12, R * 2.6, R * 2.6), d.ring.color, CFrame.Angles(0, 0, math.rad(90 + d.ring.tilt)), Enum.Material.Neon, Enum.PartType.Cylinder)
+	end
+	if d.ring2 then
+		add("Anneau", Vector3.new(0.12, R * 2.6, R * 2.6), d.ring2.color, CFrame.Angles(0, math.rad(90), math.rad(90 + d.ring2.tilt)), Enum.Material.Neon, Enum.PartType.Cylinder)
+	end
+	if d.groundRing then
+		add("Anneau", Vector3.new(0.1, R * 3, R * 3), d.groundRing.color, CFrame.new(0, -H + 0.05, 0) * CFrame.Angles(0, 0, math.rad(90)), Enum.Material.Neon, Enum.PartType.Cylinder)
+	end
+	if d.crystals then
+		around(d.crystals.n, R * 1.15, -H + 0.4, function(i, cf)
+			add("Cristaux", Vector3.new(0.3, 0.7 + (i % 2) * 0.3, 0.3), d.crystals.color, cf * CFrame.Angles(math.rad(15), 0, math.rad(15)), Enum.Material.Glass)
+		end)
+	end
+	if d.crown then
+		around(5, R * 0.45, H + 0.15, function(_, cf)
+			add("Couronne", Vector3.new(0.18, 0.45, 0.18), d.crown.color, cf, Enum.Material.Metal)
+		end)
+	end
+	if d.chain then
+		for i = 1, d.chain.n do
+			local t = (i - 0.5) / d.chain.n
+			add("Chaine", Vector3.new(0.28, 0.12, 0.2), d.chain.color, CFrame.new((t - 0.5) * R * 2.1, (0.5 - t) * H * 1.6, -R * 0.9) * CFrame.Angles(0, 0, math.rad(40 + 90 * (i % 2))), Enum.Material.Metal)
+		end
+	end
+	if d.stars then
+		around(d.stars.n, R * 1.3, H * 0.6, function(_, cf)
+			add("Etoiles", Vector3.new(0.3, 0.3, 0.3), d.stars.color, cf * CFrame.Angles(math.rad(45), 0, math.rad(45)), Enum.Material.Neon)
+		end)
+	end
+	if d.wings then
+		for _, sx in ipairs({ -1, 1 }) do
+			add("Ailes", Vector3.new(1.4, 1, 0.1), d.wings.color, CFrame.new(sx * (R + 0.6), 0.3, 0.3) * CFrame.Angles(0, 0, math.rad(25 * sx)))
+		end
+	end
+	if d.halo then
+		add("Aureole", Vector3.new(0.1, R * 1.4, R * 1.4), d.halo.color, CFrame.new(0, H + 0.45, 0) * CFrame.Angles(0, 0, math.rad(90)), Enum.Material.Neon, Enum.PartType.Cylinder)
+	end
+	return n
+end
+
+-- Cubes en orbite (A.5) : soudés à un pivot invisible tagué EggHalo que le client fait tourner (Spin = tours/s x 2 pi).
+local function addOrbit(p, o, budget)
+	if budget <= 0 then
+		return 0
+	end
+	local pivot = Instance.new("Part")
+	pivot.Name = "Halo"
+	pivot.Size = Vector3.new(0.2, 0.2, 0.2)
+	pivot.Transparency = 1
+	weldTo(p, pivot, CFrame.new())
+	local hw = pivot:FindFirstChildOfClass("Weld")
+	if hw then
+		hw.Name = "HaloWeld"
+	end
+	pivot:SetAttribute("Spin", o.rps * math.pi * 2)
+	pivot:SetAttribute("Flicker", false)
+	pivot:SetAttribute("BaseT", 1)
+	CollectionService:AddTag(pivot, "EggHalo")
+	local count = math.min(o.n, budget - 1)
+	local R = p.Size.X / 2 + 0.7
+	for i = 1, count do
+		local a = (i - 1) / count * math.pi * 2
+		local c = detailPart("Orbite", Vector3.new(0.3, 0.3, 0.3), o.color, Enum.Material.Neon)
+		weldTo(pivot, c, CFrame.new(math.cos(a) * R, 0.3 * math.sin(a * 2), math.sin(a) * R))
+	end
+	return count + 1
+end
+
 local function addParticles(p, pa)
 	local e = Instance.new("ParticleEmitter")
 	e.Texture = SPARK
@@ -204,12 +357,27 @@ function Builder.egg(tier, anchored)
 		m:Destroy() -- la sphère n'est plus visible : inutile de la garder
 		l.Brightness = 1.2
 	elseif look then
-		if look.halo then
+		local used = Builder.eggDetails(p, look)
+		if look.halo and used < Config.EggFx.maxParts then
 			addHalo(p, look.halo)
+			used += 1
+		end
+		if look.orbit then
+			used += addOrbit(p, look.orbit, Config.EggFx.maxParts - used)
 		end
 		if look.particles then
 			addParticles(p, look.particles)
 		end
+		p:SetAttribute("EggParts", used)
+		if look.glass then
+			p.Transparency = look.glass
+		end
+	end
+	if look and look.orbit and p:FindFirstChild("Skin") then
+		addOrbit(p, look.orbit, Config.EggFx.maxParts) -- les effets restent dans le code, même avec le modèle Blender
+	end
+	if look and look.particles and p:FindFirstChild("Skin") then
+		addParticles(p, look.particles)
 	end
 	return p
 end
@@ -304,7 +472,7 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	-- reflets dans les yeux, joues et pieds
 	addBall("ShineL", Vector3.new(-0.46 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
 	addBall("ShineR", Vector3.new(0.38 * R, 0.34 * R, -1.0 * R), 0.13 * R, Color3.new(1, 1, 1))
-	if def.tier <= 3 then
+	if not Config.tierAtLeast(def.tier, "announce") then -- joues roses jusqu'à Épique
 		addBall("CheekL", Vector3.new(-0.72 * R, -0.05 * R, -0.68 * R), 0.26 * R, Color3.fromRGB(255, 150, 170))
 		addBall("CheekR", Vector3.new(0.72 * R, -0.05 * R, -0.68 * R), 0.26 * R, Color3.fromRGB(255, 150, 170))
 	end

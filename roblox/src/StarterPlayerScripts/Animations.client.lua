@@ -554,7 +554,7 @@ end)
 
 Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 	local def = Config.PETS[info.p]
-	if def and (def.tier >= 4 or info.m > 1 or info.s >= 4) then
+	if def and (Config.tierAtLeast(def.tier, "announce") or info.m > 1 or info.s >= 4) then
 		run("reward", function()
 			uiConfetti(Easing.REWARD.rare)
 		end)

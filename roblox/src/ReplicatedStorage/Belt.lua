@@ -15,15 +15,17 @@ function Belt.pick(weights, r)
 		total = total + math.max(w, 0)
 	end
 	local x = r * total
+	local last = #weights
 	for i, w in ipairs(weights) do
 		if w > 0 then
+			last = i
 			x = x - w
 			if x < 0 then
 				return i
 			end
 		end
 	end
-	return #weights
+	return last -- jamais une rareté de poids nul (lot 9)
 end
 
 -- Prix en pièces d'un œuf de rareté `tier` au tapis : `priceRatio` du prix de la boutique (arrondi inférieur).
@@ -97,7 +99,7 @@ function Belt.step(Config, st, now)
 	st.eggs = keep
 	local golden = Belt.goldenLeft(st, now) > 0
 	local interval = golden and C.golden.interval or C.interval
-	local weights = golden and C.weights.golden or C.weights.normal
+	local weights = Config.foldWeights(golden and C.weights.golden or C.weights.normal) -- lot 9 : raretés sans espèce reportées vers le bas
 	local guard = 0
 	while now >= st.nextSpawn and guard < 50 do
 		guard = guard + 1
@@ -144,7 +146,7 @@ function Belt.privateStep(Config, st, dt, active, r)
 		return nil
 	end
 	st.acc = 0
-	local tier = Belt.pick(Config.BELT.weights.normal, r)
+	local tier = Belt.pick(Config.foldWeights(Config.BELT.weights.normal), r)
 	st.pending[#st.pending + 1] = tier
 	return tier
 end
@@ -172,7 +174,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 	if not egg.forUser and now - (st.lastBuy[userId] or -1e9) < C.buyCooldown then
 		return false, "cooldown"
 	end
-	if egg.tier >= 4 then
+	if Config.tierAtLeast(egg.tier, "belt2s") then
 		if now - egg.born < C.legendaryDelay then
 			return false, "wait"
 		end
@@ -187,7 +189,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 	if not egg.forUser then
 		st.lastBuy[userId] = now
 	end
-	if egg.tier >= 4 then
+	if Config.tierAtLeast(egg.tier, "belt2s") then
 		st.legendaryAt[userId] = now
 	end
 	st.sold = st.sold + 1

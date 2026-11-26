@@ -31,7 +31,11 @@ local SAVE_RETRIES = 3
 -- v10 (REFONTE lot 5) : SLOT_COUNT 12 -> 20 (les 8 nouveaux emplacements sont vides), + baseLevelFloor (plancher du niveau de maison : jamais de recul),
 --   + tokens { remoteSteal }, + settings { blockFriendRavens }, puzzle étendu (step, feathers, hints, fragments) ; baseScore RECALCULÉ depuis dex avec Config.BASE_WEIGHTS2.
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
-local VERSION = 10
+-- v11 (LOT 9) : 10 raretés. Raretés d'œufs (slots, tapis privé, journal des vols, quêtes) remappées par Config.TIER_MIGRATE ; étage de la tour remappé
+--   (5 étages par rareté de Config.TOWER.tiers) ; pets : espèce inchangée, + x = 0 (XP, lot 12) ; baseScore recalculé (mêmes poids pour les raretés
+--   migrées) et plancher de niveau = niveau atteint avec les seuils v10 (jamais de recul) ; + titles { oldCosmic } (Cosmique découvert),
+--   + firstSeen / lastSeen (jours UTC, mesure de rétention). Pièces, reçus, jetons, énigme, temps de jeu, PvP : inchangés.
+local VERSION = 11
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
 local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
@@ -46,17 +50,60 @@ local function legacyLevel(score)
 	return level
 end
 -- Score de base d'après la collection : somme (nombre obtenu par espèce x poids de la rareté) avec la table de poids donnée.
-local function scoreFromDex(dex, weights)
+-- Ancien indice de rareté (1..6) d'une rareté du lot 9 (inverse de Config.TIER_MIGRATE ; une rareté nouvelle prend l'ancienne inférieure).
+local function oldTier(t)
+	local best = 1
+	for old, new in ipairs(Config.TIER_MIGRATE) do
+		if new <= t then
+			best = old
+		end
+	end
+	return best
+end
+-- `legacy` : table de poids indexée par l'ANCIENNE rareté (1..6), pour les migrations antérieures à v11.
+local function scoreFromDex(dex, weights, legacy)
 	local score = 0
 	if type(dex) == "table" then
 		for k, e in pairs(dex) do
 			local def = Config.PETS[tonumber(k) or 0]
 			if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 and e.n < 1e9 then
-				score += math.floor(e.n) * weights[math.min(math.max(def.tier, 1), #weights)]
+				local t = legacy and oldTier(def.tier) or def.tier
+				score += math.floor(e.n) * weights[math.min(math.max(t, 1), #weights)]
 			end
 		end
 	end
 	return score
+end
+-- Seuils et conditions de rareté des niveaux de maison de la v10 (lot 5) : servent à garder le niveau atteint avant le recalibrage du lot 9.
+local V10_LEVELS = { { score = 0 }, { score = 15 }, { score = 60 }, { score = 200 }, { score = 600 }, { score = 1000 }, { score = 5000, needOld = 4 }, { score = 14000, needOld = 5 } }
+local V10_WEIGHTS = { 1, 4, 15, 50, 180, 700 }
+local function v10Level(dex)
+	local score = scoreFromDex(dex, V10_WEIGHTS, true)
+	local top = 0
+	if type(dex) == "table" then
+		for k, e in pairs(dex) do
+			local def = Config.PETS[tonumber(k) or 0]
+			if def and type(e) == "table" and type(e.n) == "number" and e.n == e.n and e.n > 0 then
+				top = math.max(top, oldTier(def.tier))
+			end
+		end
+	end
+	local level = 1
+	for i = 2, #V10_LEVELS do
+		local lv = V10_LEVELS[i]
+		if score < lv.score or (lv.needOld and top < lv.needOld) then
+			break
+		end
+		level = i
+	end
+	return level
+end
+-- Remappe une ancienne rareté (1..6) ; nil si invalide.
+local function remapTier(t)
+	if type(t) == "number" and t == t and t % 1 == 0 and t >= 1 and t <= #Config.TIER_MIGRATE then
+		return Config.TIER_MIGRATE[t]
+	end
+	return nil
 end
 
 -- Studio sans accès aux API (réglage « Enable Studio Access to API Services » désactivé) : détecté à la première erreur précise,
@@ -75,6 +122,7 @@ end
 
 local Data = {}
 Data.VERSION = VERSION
+Data.oldTier = oldTier
 Data.SERVER_ID = HttpService:GenerateGUID(false)
 
 local store, board, castleBoard, pvpStore, pvpBoard
@@ -128,6 +176,9 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
+		titles = { oldCosmic = false }, -- lot 9 : titre permanent « Ancien Cosmique »
+		firstSeen = 0, -- lot 9 : jour UTC de la première connexion (mesure de rétention, aucune donnée personnelle)
+		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
 		settings = { blockFriendRavens = false }, -- réglages du joueur
@@ -162,6 +213,62 @@ end
 
 -- Migrations successives : chaque étape fait passer les données de la version n à n+1.
 local MIGRATIONS = {
+	[10] = function(saved)
+		-- v10 -> v11 (lot 9) : voir l'en-tête. Aucun pet, œuf, pièce, reçu ni jeton n'est perdu ; le niveau de maison ne baisse jamais.
+		if type(saved.slots) == "table" then
+			for i, sl in pairs(saved.slots) do
+				if type(sl) == "table" and sl.k == "e" then
+					sl.t = remapTier(sl.t) or 1
+				elseif type(sl) == "table" and sl.k == "p" then
+					sl.x = 0
+				end
+				saved.slots[i] = sl
+			end
+		end
+		if type(saved.pb) == "table" then
+			for i, t in ipairs(saved.pb) do
+				saved.pb[i] = remapTier(t) or 1
+			end
+		end
+		if type(saved.stealLog) == "table" then
+			for _, e in ipairs(saved.stealLog) do
+				if type(e) == "table" then
+					e.t = remapTier(e.t) or e.t
+				end
+			end
+		end
+		if type(saved.quests) == "table" then
+			for _, q in ipairs(saved.quests) do
+				if type(q) == "table" and type(q.re) == "number" and q.re > 0 then
+					q.re = remapTier(math.floor(q.re)) or 0
+				end
+			end
+		end
+		if type(saved.battle) == "table" and type(saved.battle.best) == "number" and saved.battle.best == saved.battle.best and saved.battle.best >= 1 then
+			local f = math.min(30, math.floor(saved.battle.best))
+			local old, pos = 1 + (f - 1) // 5, (f - 1) % 5
+			local idx = 1
+			for i, t in ipairs(Config.TOWER.tiers) do
+				if t == Config.TIER_MIGRATE[old] then
+					idx = i
+				end
+			end
+			saved.battle.best = (idx - 1) * 5 + pos + 1
+		end
+		local floorBefore = math.floor(tonumber(saved.baseLevelFloor) or 1)
+		saved.baseLevelFloor = math.max(floorBefore == floorBefore and floorBefore or 1, v10Level(saved.dex))
+		saved.baseScore = scoreFromDex(saved.dex, Config.BASE_WEIGHTS2)
+		local cosmic = false
+		if type(saved.dex) == "table" then
+			for k, e in pairs(saved.dex) do
+				local def = Config.PETS[tonumber(k) or 0]
+				if def and def.tier == Config.TIER_MIGRATE[6] and type(e) == "table" and type(e.n) == "number" and e.n > 0 then
+					cosmic = true
+				end
+			end
+		end
+		saved.titles = { oldCosmic = cosmic }
+	end,
 	[1] = function(_saved)
 		-- v1 -> v2 : les nouveaux champs reçoivent leurs valeurs par défaut dans merge(), rien à convertir.
 	end,
@@ -173,12 +280,12 @@ local MIGRATIONS = {
 		-- nouveaux poids (1, 4, 15, 50, 180, 700). Aucun pet, œuf, pièce ni reçu n'est touché ; les 8 nouveaux emplacements sont créés vides par merge().
 		local oldScore = (type(saved.baseScore) == "number" and saved.baseScore == saved.baseScore and saved.baseScore > 0) and saved.baseScore or 0
 		saved.baseLevelFloor = math.max(legacyLevel(oldScore), math.floor(tonumber(saved.baseLevelFloor) or 1))
-		saved.baseScore = scoreFromDex(saved.dex, Config.BASE_WEIGHTS2)
+		saved.baseScore = scoreFromDex(saved.dex, V10_WEIGHTS, true)
 	end,
 	[7] = function(saved)
 		-- v7 -> v8 : le score de base est reconstitué d'après la collection (nombre de pets obtenus par espèce x poids de leur rareté, ANCIENS poids :
 		-- la migration v9 -> v10 le recalcule ensuite et en tire le plancher de niveau).
-		saved.baseScore = scoreFromDex(saved.dex, LEGACY_WEIGHTS)
+		saved.baseScore = scoreFromDex(saved.dex, LEGACY_WEIGHTS, true)
 	end,
 	[6] = function(saved)
 		-- v6 -> v7 : starter vaut false (pack de départ jamais acheté).
@@ -308,6 +415,9 @@ local function merge(saved)
 	d.baseScore = math.max(0, math.floor(sane(saved.baseScore, 0)))
 	d.baseLevelFloor = math.min(#Config.BASE_LEVELS2, math.max(1, math.floor(sane(saved.baseLevelFloor, 1))))
 	d.played = math.min(1e9, sane(saved.played, 0))
+	d.titles.oldCosmic = type(saved.titles) == "table" and saved.titles.oldCosmic == true
+	d.firstSeen = math.min(1e6, math.floor(sane(saved.firstSeen, 0)))
+	d.lastSeen = math.min(1e6, math.floor(sane(saved.lastSeen, 0)))
 	d.newbieOff = saved.newbieOff == true
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.battle) == "table" then
@@ -336,7 +446,7 @@ local function merge(saved)
 				losses = math.min(1e7, math.floor(sane(pv.losses, 0))), defense = defense, day = math.floor(sane(pv.day, 0)), fights = math.min(1000, math.floor(sane(pv.fights, 0))),
 			},
 			team = team,
-			best = math.min(30, math.floor(sane(b.best, 0))),
+			best = math.min(Config.TOWER.floors, math.floor(sane(b.best, 0))),
 			day = math.floor(sane(b.day, 0)),
 			fights = math.min(1000, math.floor(sane(b.fights, 0))),
 			repeats = math.min(1000, math.floor(sane(b.repeats, 0))),
@@ -362,7 +472,11 @@ local function merge(saved)
 	if type(saved.slots) == "table" then
 		for i = 1, SLOT_COUNT do
 			local sl = saved.slots[i]
-			if type(sl) == "table" and (sl.k == "e" or sl.k == "p") then
+			local okT = type(sl) == "table" and ((sl.k == "e" and type(sl.t) == "number" and sl.t == sl.t and sl.t % 1 == 0 and sl.t >= 1 and sl.t <= #Config.TIERS) or (sl.k == "p" and Data.validPet(sl)))
+			if okT then
+				if sl.k == "p" then
+					sl.x = math.min(1e7, math.floor(sane(sl.x, 0))) -- lot 9 : XP du pet (lot 12)
+				end
 				-- champs facultatifs du lot 7b (assainis) : rv = œuf non indemnisable (volé par corbeau, tapis privé, bienvenue), rvAt = date du dernier vol par corbeau
 				sl.rv = sl.rv == true or nil
 				sl.rvAt = (type(sl.rvAt) == "number" and sl.rvAt == sl.rvAt) and math.min(4e9, math.max(0, sl.rvAt)) or nil

@@ -621,7 +621,7 @@ end
 
 for i, n in ipairs(world.nests) do
 	n.index = i
-	setNestEgg(n, wpick(n.weights or Config.RIVALS[n.rival].weights)) -- enclos sauvage : poids propres (Config.TERR.wild)
+	setNestEgg(n, wpick(Config.foldWeights(n.weights or Config.RIVALS[n.rival].weights))) -- enclos sauvage : poids propres (Config.TERR.wild)
 end
 
 ---------------------------------------------------------------- Pads d'une base
@@ -910,12 +910,12 @@ function hatch(s, i)
 	if not sl or sl.k ~= "e" then
 		return
 	end
-	local guaranteed = Config.PITY_ENABLED and sl.t < #Config.TIERS and d.pity >= Config.PITY_EVERY - 1
+	local guaranteed = Config.PITY_ENABLED and sl.t <= Config.UPGRADE.maxEggTier and d.pity >= Config.PITY_EVERY - 1
 	local p, upPoints, alienBoost = rollPet(s, sl.t, guaranteed)
 	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed)
 	if p.tier > sl.t then
 		d.pity = 0
-	elseif sl.t < #Config.TIERS then
+	elseif sl.t <= Config.UPGRADE.maxEggTier then
 		d.pity += 1
 	end
 	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
@@ -940,11 +940,11 @@ function hatch(s, i)
 	if p.m > 1 then
 		sp(s, "mut", 1)
 	end
-	if def.tier >= 3 then
+	if Config.tierAtLeast(def.tier, "shine") then
 		qp(s, "rare", 1)
 	end
 	storyRefresh(s)
-	local big = def.tier >= 4 or p.m > 1 or p.s >= 4
+	local big = Config.tierAtLeast(def.tier, "announce") or p.m > 1 or p.s >= 4
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
 	-- Rareté élevée ou tirage secret : cercle runique au sol, particules, pilier de lumière et contour lumineux du pet (Config.AURA)
@@ -963,7 +963,7 @@ function hatch(s, i)
 		end
 	end
 	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t, upgraded = p.tier > sl.t })
-	if def.tier >= 6 or p.m == 5 or p.s == 5 then
+	if Config.tierAtLeast(def.tier, "serverBanner") or p.m >= 5 or p.s == 5 then
 		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
 	end
 	sync(s)
@@ -1727,7 +1727,7 @@ local function giveEgg(s, tier)
 	local d = s.data
 	local i = freeSlot(s)
 	if not i then
-		d.coins += Config.EGG_PRICE[tier] * 0.5
+		d.coins += Config.eggCoinValue(tier) * 0.5
 		return false
 	end
 	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
@@ -2066,7 +2066,7 @@ local function slowTick(dt)
 		if not n.egg then
 			n.rt -= dt
 			if n.rt <= 0 then
-				setNestEgg(n, wpick(n.weights or Config.RIVALS[n.rival].weights))
+				setNestEgg(n, wpick(Config.foldWeights(n.weights or Config.RIVALS[n.rival].weights)))
 			end
 		end
 	end
@@ -2217,7 +2217,7 @@ local function beltAddVisual(egg, ownerName)
 		part:SetAttribute("ForUser", egg.forUser)
 	end
 	CollectionService:AddTag(part, "EggShake")
-	local rare = egg.tier >= 4
+	local rare = Config.tierAtLeast(egg.tier, "announce")
 	if rare then
 		CollectionService:AddTag(part, "BeltRare") -- annonce visuelle côté client
 	end
@@ -2485,6 +2485,9 @@ end
 function actions.buyEgg(s, tier)
 	if type(tier) ~= "number" or tier % 1 ~= 0 or tier < 1 or tier > #Config.TIERS then
 		return
+	end
+	if not Config.tierLive(tier) then -- lot 9 : rareté sans espèce publiée (Peu commun tant que le lot 11 n'est pas livré)
+		return notify(s.player, "🥚 Les œufs " .. Config.TIERS[tier].name .. " arrivent bientôt !", "refuse")
 	end
 	if tier > Config.SHOP_MAX_TIER then -- lot 8A (B.3) : Mythique et Cosmique seulement au tapis du marché
 		return notify(s.player, "🎪 Les œufs " .. Config.TIERS[tier].name .. " ne se trouvent qu'au tapis du marché !", "refuse")

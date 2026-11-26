@@ -8,7 +8,7 @@ function Rules.new(Config)
 
 	-- Plafond (en %) de la part « rareté supérieure » : garantit que le poids « identique » ne devient jamais négatif
 	-- (niveau 10 du Trèfle + événement + Pass Chance + Potion donnaient 87 % + 22 % de « plus bas » = poids négatif).
-	R.MAX_UP = 70
+	R.MAX_UP = Config.UPGRADE.maxUp or 70
 
 	-- Tirage pondéré. `rnd` retourne un nombre dans [0, 1). Les poids négatifs sont traités comme 0.
 	-- Ne retourne jamais un index de poids nul (sauf si tous les poids sont nuls : dernier index).
@@ -53,15 +53,20 @@ function Rules.new(Config)
 		return up
 	end
 
-	-- Poids { plus bas, identique, plus haut } pour un œuf de rareté `tier`.
+	-- Poids { plus bas, identique, plus haut } pour un œuf de rareté `tier`. Lot 9 : « plus haut » = rareté PUBLIÉE suivante (Config.nextLiveTier),
+	-- seulement pour un œuf <= Config.UPGRADE.maxEggTier (Mythique) : Ultra Rare, Secret, Exclusif et Divin ont une rareté fixe.
 	function R.tierWeights(tier, upPoints)
 		local down = 0 -- l'œuf annoncé fixe la rareté : jamais de rareté inférieure
-		local up = tier < #Config.TIERS and math.min(math.max(upPoints, 0), R.MAX_UP) or 0
+		local up = Config.eggUpShare(tier, math.min(math.max(type(upPoints) == "number" and upPoints or 0, 0), R.MAX_UP))
 		return { down, 100 - down - up, up }
 	end
 
 	function R.pickTier(tier, upPoints, rnd)
-		return tier + R.wpick(R.tierWeights(tier, upPoints), rnd) - 2
+		local k = R.wpick(R.tierWeights(tier, upPoints), rnd)
+		if k == 3 then
+			return Config.nextLiveTier(tier) or tier
+		end
+		return tier
 	end
 
 	function R.mutWeights(alienBoost)
@@ -87,8 +92,9 @@ function Rules.new(Config)
 	-- `guaranteed` : tirage de pitié, le pet est forcément d'une rareté au-dessus de l'œuf (sauf œuf de rareté maximale).
 	function R.rollPet(eggTier, upPoints, alienBoost, rnd, guaranteed)
 		local tier
-		if guaranteed and eggTier < #Config.TIERS then
-			tier = eggTier + 1
+		eggTier = Config.liveEggTier(eggTier) -- rareté sans espèce publiée : celle publiée juste en dessous (A.3)
+		if guaranteed and eggTier <= Config.UPGRADE.maxEggTier and Config.nextLiveTier(eggTier) then
+			tier = Config.nextLiveTier(eggTier)
 		else
 			tier = R.pickTier(eggTier, upPoints, rnd)
 		end

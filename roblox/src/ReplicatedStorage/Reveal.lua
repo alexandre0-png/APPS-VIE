@@ -10,13 +10,15 @@ function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, 
 		return 0
 	end
 	local pTier
-	if guaranteed and eggTier < #Config.TIERS then
-		pTier = def.tier == eggTier + 1 and 1 or 0
+	eggTier = Config.liveEggTier(eggTier)
+	local nxt = Config.nextLiveTier(eggTier)
+	if guaranteed and eggTier <= Config.UPGRADE.maxEggTier and nxt then
+		pTier = def.tier == nxt and 1 or 0
 	else
 		local w = Rules.tierWeights(eggTier, upPoints)
 		local total = w[1] + w[2] + w[3]
-		local idx = def.tier - eggTier + 2
-		pTier = (idx >= 1 and idx <= 3 and total > 0) and (math.max(w[idx], 0) / total) or 0
+		local idx = def.tier == eggTier and 2 or (def.tier == nxt and 3 or 0)
+		pTier = (idx >= 1 and total > 0) and (math.max(w[idx], 0) / total) or 0
 	end
 	if pTier == 0 then
 		return 0

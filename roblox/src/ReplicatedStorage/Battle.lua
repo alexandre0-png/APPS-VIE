@@ -41,18 +41,57 @@ end
 Battle.nextRnd = nextRnd
 
 local SIZE_BONUS = { 0.95, 1, 1.05, 1.10, 1.15 }
-local MUT_BONUS = { 1, 1.03, 1.05, 1.08, 1.10 }
+local MUT_BONUS = { 1, 1.03, 1.05, 1.08, 1.10, 1.12 }
+Battle.SIZE_BONUS, Battle.MUT_BONUS = SIZE_BONUS, MUT_BONUS
 
--- Unité de combat d'un pet { p = espèce, s = taille, m = mutation } ; `scale` : multiplicateur de niveau (adversaires de la tour).
-function Battle.unit(Config, pet, scale)
+-- LOT 9, REGLE DE DESIGN (2) : stats de base par rareté (1..10). Puissance = pv + 3 x attaque + 2 x vitesse (Battle.power), strictement croissante,
+-- facteur >= 1,25 entre raretés consécutives (testé). Raretés 3 à 7 (Rare .. Ultra Rare) = valeurs EXACTES de l'ancienne formule pour les anciennes
+-- raretés 2 à 6 (un pet migré garde ses stats) ; le Commun passe de 60/10/12 à 50/8/12 pour laisser la place au Peu commun (règle x1,25).
+Battle.STATS = {
+	{ hp = 50, atk = 8, spd = 12 },
+	{ hp = 68, atk = 11, spd = 12 },
+	{ hp = 87, atk = 14, spd = 14 },
+	{ hp = 126, atk = 20, spd = 16 },
+	{ hp = 183, atk = 27, spd = 18 },
+	{ hp = 265, atk = 38, spd = 20 },
+	{ hp = 385, atk = 54, spd = 22 },
+	{ hp = 490, atk = 68, spd = 24 },
+	{ hp = 620, atk = 86, spd = 26 },
+	{ hp = 785, atk = 108, spd = 28 },
+}
+Battle.POWER_GROWTH_MIN = 1.25
+function Battle.power(st)
+	return st.hp + 3 * st.atk + 2 * st.spd
+end
+-- Profils de combat au sein d'une rareté (lot 12 : attribués par espèce). `k` = répartition pv / attaque / vitesse, `power` = puissance visée
+-- relative à l'équilibré : l'écart entre le profil le plus faible et le plus fort d'une rareté est de 8 à 15 % (1,06 / 0,94 = +12,8 %), et le
+-- plus fort d'une rareté reste sous le plus faible de la suivante (testé). Rien d'achetable ne modifie ces tables.
+Battle.PROFILES = {
+	balanced = { k = { hp = 1, atk = 1, spd = 1 }, power = 1 },
+	tank = { k = { hp = 1.3, atk = 0.85, spd = 0.85 }, power = 1.05 },
+	attacker = { k = { hp = 0.85, atk = 1.3, spd = 1 }, power = 1.06 },
+	fast = { k = { hp = 0.85, atk = 0.95, spd = 1.35 }, power = 0.94 },
+}
+function Battle.profileStats(r, profile)
+	local b = Battle.STATS[r]
+	local pr = Battle.PROFILES[profile] or Battle.PROFILES.balanced
+	local raw = { hp = b.hp * pr.k.hp, atk = b.atk * pr.k.atk, spd = b.spd * pr.k.spd }
+	local f = pr.power * Battle.power(b) / Battle.power(raw)
+	return { hp = raw.hp * f, atk = raw.atk * f, spd = raw.spd * f }
+end
+
+-- Unité de combat d'un pet { p = espèce, s = taille, m = mutation } ; `scale` : multiplicateur de niveau (adversaires de la tour) ;
+-- `tierOverride` : rareté des stats (étage de la tour dont la rareté n'a pas encore d'espèce : apparence d'une rareté inférieure, stats de l'étage).
+function Battle.unit(Config, pet, scale, tierOverride)
 	local def = Config.PETS[pet.p]
 	local bonus = (SIZE_BONUS[pet.s] or 1) * (MUT_BONUS[pet.m] or 1) * (scale or 1)
-	local t = def.tier
-	local hp = math.floor(60 * 1.45 ^ (t - 1) * bonus + 0.5)
+	local t = tierOverride or def.tier
+	local st = Battle.STATS[math.min(math.max(t, 1), #Battle.STATS)]
+	local hp = math.floor(st.hp * bonus + 0.5)
 	return {
 		p = pet.p, s = pet.s, m = pet.m, tier = t,
 		type = Battle.SPECIES_TYPE[pet.p], skill = Battle.SPECIES_SKILL[pet.p],
-		maxHp = hp, hp = hp, atk = math.floor(10 * 1.4 ^ (t - 1) * bonus + 0.5), spd = 10 + 2 * t,
+		maxHp = hp, hp = hp, atk = math.floor(st.atk * bonus + 0.5), spd = st.spd,
 		cd = 0, guard = false, stun = 0, focus = 0,
 	}
 end
@@ -299,16 +338,17 @@ end
 -- Équipe adverse de l'étage `floor` de la tour (déterministe) : 3 espèces de la rareté de l'étage, taille normale, niveau Config.towerScale.
 function Battle.towerTeam(Config, floor)
 	local tier = Config.towerTier(floor)
+	local look = Config.liveEggTier(tier) -- lot 9 : rareté sans espèce publiée : espèces de la rareté inférieure, stats de l'étage
 	local ids = {}
 	for i, d in ipairs(Config.PETS) do
-		if d.tier == tier then
+		if d.tier == look then
 			ids[#ids + 1] = i
 		end
 	end
 	local scale = Config.towerScale(floor)
 	local team = {}
 	for k = 1, Config.TOWER.teamSize do
-		team[k] = Battle.unit(Config, { p = ids[(floor + k) % #ids + 1], s = 2, m = 1 }, scale)
+		team[k] = Battle.unit(Config, { p = ids[(floor + k) % #ids + 1], s = 2, m = 1 }, scale, tier)
 	end
 	return team
 end

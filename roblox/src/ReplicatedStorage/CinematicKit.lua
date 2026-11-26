@@ -38,18 +38,21 @@ CinematicKit.PLANS = {
 
 -- Plan d'éclosion selon la rareté (1..6) : plus la rareté monte, plus la caméra s'engage (orbite, zoom, secousse, ralenti, pilier de lumière côté VfxKit).
 -- Commun et Rare : AUCUNE cinématique (les effets 3D de VfxKit suffisent) ; Épique : plan court ; Légendaire et au-delà : plan complet.
+-- Lot 9 : genre de plan par rareté (1..10) : "none", "short" (Épique), "full", "big" (Mythique et au-delà).
+CinematicKit.TIER_PLAN = { "none", "none", "none", "short", "full", "big", "big", "big", "big", "big" }
 function CinematicKit.hatchPlan(tier, secret)
-	tier = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	tier = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), #CinematicKit.TIER_PLAN))
+	local kind = CinematicKit.TIER_PLAN[tier]
 	if secret then
 		return CinematicKit.PLANS.secret
-	elseif tier <= 2 then
+	elseif kind == "none" then
 		return nil
-	elseif tier == 3 then
+	elseif kind == "short" then
 		return { id = "eclosion_epique", skipOnTap = true, shots = {
 			{ anchor = "pad", pos = { 0, 8, 12 }, look = { 0, 3, 0 }, toPos = { 0, 5, 7 }, path = "dolly", fov = 70, toFov = 56, dur = 1.6, ease = "Quint", shake = 0.15 },
 		} }
 	end
-	local big = tier >= 5
+	local big = kind == "big"
 	return { id = "eclosion", skipOnTap = true, shots = {
 		{ anchor = "pad", pos = { 0, 7, 12 }, look = { 0, 3, 0 }, path = "orbit", radius = 12, toRadius = 8, angle0 = 0, angle1 = big and 2.2 or 1.6, height = 6, dur = big and 2.4 or 1.8, ease = "Sine" },
 		{ anchor = "pad", pos = { 0, 5, 8 }, look = { 0, 3.2, 0 }, path = "dolly", fov = 70, toFov = big and 44 or 52, toPos = { 0, 4, 4 }, dur = big and 1.8 or 1.2, ease = "Back", shake = big and 0.6 or 0.4, slow = { at = 0.5, to = 1, scale = 0.35 }, fx = "crack" },

@@ -63,6 +63,37 @@ function Assets.fitHeight(model, target)
 	return ok, res
 end
 
+-- Lot 9 : met un modèle à l'échelle d'après la hauteur d'UNE pièce (`partName`, nom de base sans suffixe de couleur, ex. « Coque » des œufs) :
+-- couronne, auréole ou ailes dépassent sans fausser la taille de l'œuf. Le rapport hauteur de la pièce / hauteur du modèle est mesuré AVANT la mise
+-- à l'échelle, puis Assets.fitHeight vise target / rapport (vérifié à ±10 %). Sans cette pièce : repli sur la hauteur du modèle entier.
+-- Retourne (true, hauteur du modèle) ou (false, raison).
+function Assets.partRatio(model, partName)
+	local ok, r = pcall(function()
+		local e = model:GetExtentsSize()
+		local mh = e and e.Y
+		if type(mh) ~= "number" or mh ~= mh or mh <= 0 then
+			return nil
+		end
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") and Assets.baseName(d.Name) == partName then
+				local h = d.Size.Y
+				if type(h) == "number" and h == h and h > 0 and h <= mh * 1.001 then
+					return h / mh
+				end
+			end
+		end
+		return nil
+	end)
+	return ok and r or nil
+end
+function Assets.fitByPart(model, partName, target)
+	local r = Assets.partRatio(model, partName)
+	if not r or r < 0.2 then
+		return Assets.fitHeight(model, target)
+	end
+	return Assets.fitHeight(model, target / r)
+end
+
 function Assets.new(Config, deps)
 	local A = { templates = {}, status = {}, failedIds = {}, requested = {}, placeFailures = {} } -- status[clé] = { ok, reason | parts, removed } ; failedIds[id] = raison
 	local warned = {} -- un seul avertissement par ID
@@ -451,7 +482,7 @@ function Assets.new(Config, deps)
 			for _, rarity in ipairs(rk) do
 				local id = cfg.eggsByRarity[rarity]
 				if type(id) == "number" and id > 0 and id % 1 == 0 then
-					entries[#entries + 1] = { key = "r:" .. tostring(rarity), id = id }
+					entries[#entries + 1] = { key = "r:" .. tostring(rarity), id = id, cap = cfg.eggsMaxParts }
 				else
 					A.status["r:" .. tostring(rarity)] = { ok = false, reason = "ID invalide" }
 				end
@@ -460,7 +491,7 @@ function Assets.new(Config, deps)
 		for _, key in ipairs(keys) do
 			local id = cfg.eggs[key]
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				entries[#entries + 1] = { key = key, id = id }
+				entries[#entries + 1] = { key = key, id = id, cap = cfg.eggsMaxParts } -- lot 9 : plafond propre des œufs (40)
 			else
 				A.status[key] = { ok = false, reason = "ID invalide" }
 			end
