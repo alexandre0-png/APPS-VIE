@@ -9605,7 +9605,7 @@ do
 	check7("Corbeau : bouclier post-vol de 5 min refusé tant qu'il court", select(2, why(nil, { shieldUntil = NOW + 299 })) == "victimShield" and R.postStealShield == 300 and R.victimCooldown == 1200)
 	check7("Corbeau : écart de niveau : victime plus petite d'un cran accepté, de deux refusé", why({ level = 5 }, { level = 4 }) == true and select(2, why({ level = 5 }, { level = 3 })) == "levelGap")
 	check7("Corbeau : ami bloqué refusé ; ami non bloqué et non-ami bloquant acceptés", select(2, why(nil, { friendOfThief = true, blockFriendRavens = true })) == "friendBlocked" and why(nil, { friendOfThief = true }) == true and why(nil, { blockFriendRavens = true }) == true)
-	check7("Corbeau : rareté > 4 refusée (tier), 4 acceptée, 0 refusée", select(2, why(nil, nil, { tier = 5 })) == "tier" and why(nil, nil, { tier = 4 }) == true and select(2, why(nil, nil, { tier = 0 })) == "tier")
+	check7("Corbeau : rareté > 5 refusée (tier), 5 (Légendaire, lot 9) acceptée, 0 refusée", select(2, why(nil, nil, { tier = 6 })) == "tier" and why(nil, nil, { tier = 5 }) == true and select(2, why(nil, nil, { tier = 0 })) == "tier")
 	check7("Corbeau : pas d'emplacement libre chez le voleur refusé (noSlot)", select(2, why({ freeSlot = false })) == "noSlot")
 	check7("Corbeau : plafond de " .. R.dailyMax .. " vols par jour (dailyLimit)", select(2, why({ dailyDone = 3 })) == "dailyLimit" and why({ dailyDone = 2 }) == true)
 	check7("Corbeau : un seul corbeau en vol (alreadyFlying)", select(2, why({ flying = true })) == "alreadyFlying")
@@ -9623,8 +9623,10 @@ do
 	check7("Corbeau 7b : ancienneté absente, non numérique ou NaN = refusée sans erreur (jamais de comparaison table < nombre)", select(2, RavenM.canLaunch(Config, { userId = 1, tokens = 1, level = 3, playMinutes = 60, freeSlot = true }, victim(), egg(), NOW)) == "accountAge" and select(2, why({ accountAgeDays = {} })) == "accountAge" and select(2, why(nil, { accountAgeDays = "9" })) == "accountAge" and select(2, why({ accountAgeDays = 0 / 0 })) == "accountAge")
 	check7("Corbeau 7b : un œuf volé par corbeau ne se revole pas avant " .. R.reStealSeconds .. " s (recentlyStolen), accepté ensuite ; rvAt invalide ignoré sans erreur", R.reStealSeconds == 1200 and select(2, why(nil, nil, { rvAt = NOW - 1199 })) == "recentlyStolen" and why(nil, nil, { rvAt = NOW - 1200 }) == true and why(nil, nil, { rvAt = "x" }) == true)
 	local capCoins = Config.EGG_PRICE[R.compensationCapTier]
-	check7("Indemnité 7b : plafond de " .. capCoins .. " pièces (prix d'un œuf Rare) par jour et par victime ; Épique (" .. RavenM.compensation(Config, 3) .. " non plafonné) ramené à " .. capCoins, capCoins == 900 and RavenM.indemnity(Config, 3, false, 0) == 900 and RavenM.indemnity(Config, 4, false, 0) == 900 and RavenM.indemnity(Config, 3, false, 500) == 400 and RavenM.indemnity(Config, 3, false, 900) == 0 and RavenM.indemnity(Config, 3, false, 5000) == 0)
-	check7("Indemnité 7b : un œuf non indemnisable (rv) = 0 ; un petit œuf reste exact (Commun 12, Rare 450) ; reçu invalide (nil, NaN, négatif) traité comme 0", RavenM.indemnity(Config, 3, true, 0) == 0 and RavenM.indemnity(Config, 1, false, 0) == 12 and RavenM.indemnity(Config, 2, false, 0) == 450 and RavenM.indemnity(Config, 2, false, nil) == 450 and RavenM.indemnity(Config, 2, false, -5) == 450 and RavenM.indemnity(Config, 2, false, 900) == 0 and RavenM.indemnity(Config, 2, false, 0 / 0) == 450)
+	-- lot 9 : prix recalibrés, indices des 10 raretés (Rare = 3, Épique = 4) : attentes écrites avec les formules (floor(prix x 0,5), plafond = prix d'un œuf Rare)
+	local comp4, comp3 = RavenM.compensation(Config, 4), RavenM.compensation(Config, 3)
+	check7("Indemnité 7b : plafond de " .. capCoins .. " pièces (prix d'un œuf Rare) par jour et par victime ; Épique (" .. comp4 .. ") ramené au plafond", capCoins == Config.EGG_PRICE[3] and R.compensationCapTier == 3 and comp4 >= capCoins and RavenM.indemnity(Config, 4, false, 0) == capCoins and RavenM.indemnity(Config, 5, false, 0) == capCoins and RavenM.indemnity(Config, 4, false, 1) == capCoins - 1 and RavenM.indemnity(Config, 4, false, capCoins) == 0 and RavenM.indemnity(Config, 4, false, 10 * capCoins) == 0)
+	check7("Indemnité 7b : un œuf non indemnisable (rv) = 0 ; un petit œuf reste exact (Commun, Rare : moitié du prix) ; reçu invalide (nil, NaN, négatif) traité comme 0", RavenM.indemnity(Config, 4, true, 0) == 0 and RavenM.indemnity(Config, 1, false, 0) == math.floor(Config.EGG_PRICE[1] / 2) and RavenM.indemnity(Config, 3, false, 0) == comp3 and RavenM.indemnity(Config, 3, false, nil) == comp3 and RavenM.indemnity(Config, 3, false, -5) == comp3 and RavenM.indemnity(Config, 3, false, capCoins) == 0 and RavenM.indemnity(Config, 3, false, 0 / 0) == comp3)
 	local function w(o)
 		local x = { thiefHere = true, victimHere = true, eggStill = true, eggLeft = 5, chased = false, shielded = false, thiefFreeSlot = true, now = 10, endsAt = 8 }
 		for k, v in pairs(o or {}) do
@@ -9685,7 +9687,7 @@ do
 		end
 	end
 	table.sort(names)
-	check7("Offres à hasard : exactement les 6 (" .. table.concat(names, ", ") .. ")", table.concat(names, ",") == "D.ExclusiveEgg,D.GoldenBelt,D.LuckPotion,D.ServerLuck,P.Lucky,P.PrivateBelt")
+	check7("Offres à hasard : exactement les 9 (lot 9 : + 3 œufs Robux) (" .. table.concat(names, ", ") .. ")", table.concat(names, ",") == "D.EggDivine,D.EggExclusive,D.EggSecret,D.ExclusiveEgg,D.GoldenBelt,D.LuckPotion,D.ServerLuck,P.Lucky,P.PrivateBelt")
 	local hidden, shown = true, true
 	for _, k in ipairs({ "ExclusiveEgg", "GoldenBelt", "LuckPotion", "ServerLuck" }) do
 		hidden = hidden and not Config.offerVisible(Config.PRODUCTS[k], true) and not Config.offerVisible(Config.PRODUCTS[k], nil) and Config.offerVisible(Config.PRODUCTS[k], false)
@@ -9846,7 +9848,7 @@ do
 		standInBase(A, sA)
 		standInBase(C, sC)
 		sA.data.tokens.remoteSteal = 3
-		local iB = putEgg(sB, 3, 600) -- œuf Épique chez Bob
+		local iB = putEgg(sB, 4, 600) -- œuf Épique chez Bob
 		local coinsB0 = sB.data.coins
 		local m1 = mark()
 		act(A, "ravenGo", { u = 7002, i = iB })
@@ -9885,14 +9887,14 @@ do
 		local stolenA = sA.data.stolen
 		local slotA
 		for k = 1, 20 do
-			if sA.data.slots[k] and sA.data.slots[k].k == "e" and sA.data.slots[k].t == 3 then
+			if sA.data.slots[k] and sA.data.slots[k].k == "e" and sA.data.slots[k].t == 4 then
 				slotA = k
 			end
 		end
 		local compB = Config.EGG_PRICE[Config.REMOTE_STEAL.compensationCapTier] -- lot 7b : l'indemnité d'un œuf Épique (10000) est plafonnée au prix d'un œuf Rare (900) par jour et par victime (test adapté, voir CHANGELOG 7b)
 		check7("Succès : l'œuf Épique est chez le voleur (temps restant conservé ~600 s, bouclier d'œuf), absent chez la victime, aucun vol en cours", n2 == 0 and slotA ~= nil and sB.data.slots[iB] == false and sA.data.slots[slotA].ends - tnow() > 560 and sA.data.slots[slotA].ends - tnow() <= 600 and sA.data.slots[slotA].shield > tnow())
 		check7("Succès : indemnité EXACTE de " .. compB .. " pièces à la victime, 5 min de bouclier et 20 min de délai, plafond du jour 1/3", sB.data.coins - coinsB0 >= compB and sB.data.coins - coinsB0 < compB + 5 * 120 + 1e7 and sB.data.raven.sh - tnow() > 290 and sB.data.raven.sh - tnow() <= 300 and sB.data.raven.cd - tnow() > 1190 and sA.data.raven.n == 1)
-		check7("Succès : ne compte pas dans `stolen` du classement ; jeton définitivement dépensé (2) ; textes aux deux joueurs ; journal « Qui m'a volé ? » de la victime", sA.data.stolen == stolenA and sA.data.tokens.remoteSteal == 2 and notified(B, "a emporté ton œuf Épique. Tu reçois 🪙 " .. Config.fmt(compB), m1) and notified(A, "Ton corbeau rapporte un œuf Épique", m1) and #sB.data.stealLog == 1 and sB.data.stealLog[1].n == "Ann" and sB.data.stealLog[1].t == 3 and sB.data.stealLog[1].k == "r")
+		check7("Succès : ne compte pas dans `stolen` du classement ; jeton définitivement dépensé (2) ; textes aux deux joueurs ; journal « Qui m'a volé ? » de la victime", sA.data.stolen == stolenA and sA.data.tokens.remoteSteal == 2 and notified(B, "a emporté ton œuf Épique. Tu reçois 🪙 " .. Config.fmt(compB), m1) and notified(A, "Ton corbeau rapporte un œuf Épique", m1) and #sB.data.stealLog == 1 and sB.data.stealLog[1].n == "Ann" and sB.data.stealLog[1].t == 4 and sB.data.stealLog[1].k == "r")
 		RT.step(3)
 		local _, _, birdsEnd = hooks.flights()
 		check7("Oiseau détruit à la fin du départ (aucun objet orphelin : " .. birdsEnd .. ")", birdsEnd == 0)
@@ -9901,11 +9903,11 @@ do
 		local entries = logStore and logStore.data[dayKey]
 		local okLog = false
 		for _, e in ipairs(entries or {}) do
-			okLog = okLog or (e.thief == 7001 and e.victim == 7002 and e.result == "success" and e.tier == 3)
+			okLog = okLog or (e.thief == 7001 and e.victim == 7002 and e.result == "success" and e.tier == 4) -- lot 9 : Épique = 4
 		end
 		check7("RavenLog (DataStore) : entrée voleur / victime / rareté / résultat / horodatage", okLog)
 		-- nouvelle tentative contre la même victime : bouclier et délai
-		local iB2 = putEgg(sB, 2, 600)
+		local iB2 = putEgg(sB, 3, 600)
 		RT.now = RT.now + 12
 		local m4 = mark()
 		act(A, "ravenGo", { u = 7002, i = iB2 })
@@ -9921,7 +9923,7 @@ do
 		RT.step(0.5)
 		check7("Vol physique : branché sur le journal (entrée « p ») et le bouclier post-vol de 5 min contre les corbeaux", #sB.data.stealLog == 2 and sB.data.stealLog[1].k == "p" and sB.data.stealLog[1].n == "Cyd" and sB.data.raven.sh - tnow() > 290)
 		local m5 = mark()
-		local iB3 = putEgg(sB, 2, 600)
+		local iB3 = putEgg(sB, 3, 600)
 		RT.now = RT.now + 12
 		act(A, "ravenGo", { u = 7002, i = iB3 })
 		check7("Après un vol physique, le bouclier post-vol refuse aussi le corbeau", notified(A, "protégée", m5) and select(1, hooks.flights()) == 0)
@@ -9952,7 +9954,7 @@ do
 		check7("Œuf éclos pendant le vol : vol annulé, jeton rendu, rien n'est volé", select(1, hooks.flights()) == 0 and sA.data.tokens.remoteSteal == tk0 and sB.data.slots[iB3] ~= false and sB.data.slots[iB3].k == "p")
 		-- victime qui part / voleur qui part en plein vol ------------------------------------------------------------------------------------------------
 		nreset(sB)
-		local iB4 = putEgg(sB, 3, 600)
+		local iB4 = putEgg(sB, 4, 600)
 		RT.now = RT.now + 12
 		act(A, "ravenGo", { u = 7002, i = iB4 })
 		RT.step(1)
@@ -9998,11 +10000,11 @@ do
 		standInBase(X, sX)
 		standInBase(Y, sY)
 		local cp0 = hooks.compPaid()
-		local iX = putEgg(sX, 4, 5000) -- X (complice) ACHÈTE un œuf Légendaire
+		local iX = putEgg(sX, 5, 5000) -- X (complice) ACHÈTE un œuf Légendaire
 		local mk1 = leg(Y, sY, sX, iX)
-		local iY = findEgg(sY, 4)
+		local iY = findEgg(sY, 5)
 		local cp1 = hooks.compPaid() - cp0
-		check7("Collusion 7b : B vole l'œuf Légendaire de A ; A touche l'indemnité plafonnée (" .. cp1 .. " au lieu de " .. math.floor(Config.EGG_PRICE[4] * 0.5) .. "), l'œuf arrive chez B", iY ~= nil and cp1 == Config.EGG_PRICE[2] and select(1, hooks.flights()) == 0)
+		check7("Collusion 7b : B vole l'œuf Légendaire de A ; A touche l'indemnité plafonnée (" .. cp1 .. " au lieu de " .. math.floor(Config.EGG_PRICE[5] * 0.5) .. "), l'œuf arrive chez B", iY ~= nil and cp1 == Config.EGG_PRICE[3] and select(1, hooks.flights()) == 0)
 		check7("Collusion 7b : l'œuf volé par corbeau est marqué (rv = true, date rvAt) chez le voleur, et ce marquage est SAUVEGARDÉ", iY ~= nil and sY.data.slots[iY].rv == true and type(sY.data.slots[iY].rvAt) == "number" and sY.data.slots[iY].rvAt >= tnow() - 15)
 		-- A tente de le reprendre tout de suite : refusé (20 min)
 		nreset(sX)
@@ -10018,28 +10020,28 @@ do
 		sY.data.slots[iY].ends = tnow() + 5000
 		local cpB = hooks.compPaid()
 		local mk3 = leg(X, sX, sY, iY)
-		check7("Collusion 7b : A revole l'œuf après 21 min ; B (victime) ne touche RIEN (œuf déjà volé par corbeau) : 0 pièce créée, message sans indemnité", hooks.compPaid() == cpB and notified(Y, "Pas d'indemnité", mk3) and findEgg(sX, 4) ~= nil)
-		check7("Collusion 7b : bilan de l'aller-retour A/B/A = " .. (hooks.compPaid() - cp0) .. " pièces créées (plafond " .. Config.EGG_PRICE[2] .. ")", hooks.compPaid() - cp0 <= Config.EGG_PRICE[2] and hooks.compPaid() - cp0 == cp1)
+		check7("Collusion 7b : A revole l'œuf après 21 min ; B (victime) ne touche RIEN (œuf déjà volé par corbeau) : 0 pièce créée, message sans indemnité", hooks.compPaid() == cpB and notified(Y, "Pas d'indemnité", mk3) and findEgg(sX, 5) ~= nil)
+		check7("Collusion 7b : bilan de l'aller-retour A/B/A = " .. (hooks.compPaid() - cp0) .. " pièces créées (plafond " .. Config.EGG_PRICE[3] .. ")", hooks.compPaid() - cp0 <= Config.EGG_PRICE[3] and hooks.compPaid() - cp0 == cp1)
 		-- plafond par jour et par victime : deux œufs achetés par la même victime le même jour
 		local Z, sZ = join("Zoe", 7103)
 		standInBase(Z, sZ)
 		local cpZ = hooks.compPaid()
-		local z1 = putEgg(sZ, 3, 5000)
-		local z2 = putEgg(sZ, 3, 5000)
+		local z1 = putEgg(sZ, 5, 5000)
+		local z2 = putEgg(sZ, 5, 5000)
 		leg(X, sX, sZ, z1)
 		local got1 = hooks.compPaid() - cpZ
 		leg(Y, sY, sZ, z2)
 		local got2 = hooks.compPaid() - cpZ - got1
-		check7("Plafond 7b : une même victime touche au plus " .. Config.EGG_PRICE[2] .. " pièces par jour UTC (1er œuf " .. got1 .. ", 2e œuf " .. got2 .. "), compteur sauvegardé dans le profil", got1 == Config.EGG_PRICE[2] and got2 == 0 and sZ.data.raven.ic == Config.EGG_PRICE[2] and sZ.data.raven.icDay == math.floor(tnow() / 86400))
+		check7("Plafond 7b : une même victime touche au plus " .. Config.EGG_PRICE[3] .. " pièces par jour UTC (1er œuf " .. got1 .. ", 2e œuf " .. got2 .. "), compteur sauvegardé dans le profil", got1 == Config.EGG_PRICE[3] and got2 == 0 and sZ.data.raven.ic == Config.EGG_PRICE[3] and sZ.data.raven.icDay == math.floor(tnow() / 86400))
 		RT.now = RT.now + 86400 -- le lendemain (UTC) le compteur repart de zéro
-		local z3 = putEgg(sZ, 3, 5000)
+		local z3 = putEgg(sZ, 5, 5000)
 		local cpZ3 = hooks.compPaid()
 		leg(X, sX, sZ, z3)
-		check7("Plafond 7b : le jour suivant (UTC) l'indemnité est de nouveau versée (" .. (hooks.compPaid() - cpZ3) .. ")", hooks.compPaid() - cpZ3 == Config.EGG_PRICE[2])
+		check7("Plafond 7b : le jour suivant (UTC) l'indemnité est de nouveau versée (" .. (hooks.compPaid() - cpZ3) .. ")", hooks.compPaid() - cpZ3 == Config.EGG_PRICE[3])
 		-- ancienneté de compte : voleur ET victime
 		local ageY = rawget(Y, "__props")
 		local ageX = rawget(X, "__props")
-		local iYb = putEgg(sY, 3, 5000)
+		local iYb = putEgg(sY, 5, 5000)
 		nreset(sY)
 		sY.data.slots[iYb].shield = 0
 		sX.data.tokens.remoteSteal = 3
@@ -10069,7 +10071,7 @@ do
 			ds.data["P_7110"] = { v = { ver = 10, coins = 10, slots = { { k = "e", t = 1, ends = base + 900, rv = "oui", rvAt = "x" }, { k = "e", t = 2, ends = base + 900, rv = true, rvAt = base - 30 }, { k = "e", t = 2, ends = base + 900, rvAt = 0 / 0 } }, raven = { ic = 1e12, icDay = "x", day = 0, n = 0, cd = 0, sh = 0 } }, t = base - 5000 }
 			local Pq, sPq = join("Pol", 7110)
 			local sl = sPq and sPq.data.slots
-			check7("Profil 7b : rv et rvAt sont assainis au chargement (rv = true ou absent, rvAt nombre fini ou absent), ic plafonné, icDay invalide = 0", sl ~= nil and sl[1].rv == nil and sl[1].rvAt == nil and sl[2].rv == true and sl[2].rvAt == base - 30 and sl[3].rvAt == nil and sPq.data.raven.ic == Config.EGG_PRICE[2] and sPq.data.raven.icDay == 0)
+			check7("Profil 7b : rv et rvAt sont assainis au chargement (rv = true ou absent, rvAt nombre fini ou absent), ic plafonné, icDay invalide = 0", sl ~= nil and sl[1].rv == nil and sl[1].rvAt == nil and sl[2].rv == true and sl[2].rvAt == base - 30 and sl[3].rvAt == nil and sPq.data.raven.ic == Config.EGG_PRICE[3] and sPq.data.raven.icDay == 0)
 			RT.removePlayer(Pq)
 		end
 		local Nq, sNq = join("Neo", 7111) -- profil neuf : l'œuf de départ (gratuit) est encore un œuf 2 s après l'arrivée
@@ -10223,7 +10225,7 @@ do
 			standInBase(N, sN)
 			sM.data.tokens.remoteSteal = 3
 			nreset(sN)
-			local iN = putEgg(sN, 2, 5000)
+			local iN = putEgg(sN, 3, 5000)
 			sN.data.slots[iN].shield = 0
 			RT.now = RT.now + 12
 			act(M, "ravenGo", { u = 7021, i = iN })
@@ -10498,7 +10500,7 @@ end
 			if s and s.plot then
 				local c = s.plot.spawn.CFrame
 				standAt(p, c.X, c.Z)
-				act(p, "buyEgg", 1 + (tick + k) % 4) -- remplit la base (raretés 1 à 4), les œufs éclosent pendant la charge
+				act(p, "buyEgg", ({ 1, 3, 4, 5 })[1 + (tick + k) % 4]) -- remplit la base (raretés publiées 1, 3, 4, 5 ; lot 9), les œufs éclosent pendant la charge
 				if tick % 6 == k then -- un corbeau par minute environ : le joueur k vise l'œuf d'un voisin
 					local v = sess[k % 5 + 1]
 					for i = 1, 20 do
