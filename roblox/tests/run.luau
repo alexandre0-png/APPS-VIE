@@ -11054,15 +11054,16 @@ end)()
 	check("Calendrier : chaque jalon porte un œuf, un cosmétique, un titre ou le tirage ; des récompenses entre les jalons", msOk and C.rewards[4].c ~= nil and C.rewards[5].scrolls ~= nil)
 	check("Calendrier : LEGENDAIRE au jour 3 (œuf rareté 5), texte « Plus que 2 jours ! » dès le jour 1", C.legendaryDay == 3 and C.rewards[3].egg == 5 and Config.TIERS[5].name == "Légendaire" and Cal.legendaryText(Config, 1, false):find("plus que 2 jours !", 1, true) ~= nil and Cal.legendaryText(Config, 0, false):find("plus que 2 jours !", 1, true) ~= nil)
 	check("Calendrier : compte à rebours J2 / J3 / J4 manqué / obtenu", Cal.legendaryText(Config, 2, false):find("plus que 1 jour !", 1, true) ~= nil and Cal.legendaryText(Config, 3, false):find("aujourd'hui", 1, true) ~= nil and Cal.legendaryText(Config, 4, false):find("manqué", 1, true) ~= nil and Cal.legendaryText(Config, 4, true):find("obtenu", 1, true) ~= nil)
-	-- tirage J30 : 40 / 45 / 15 (Mythique / Ultra Rare / Secret) sur 1 000 000 tirages (LCG), à +-0,3 point, avec une espèce Secret injectée
+	-- tirage J30 : 40 / 45 / 15 (Mythique / Ultra Rare / Secret) sur 1 000 000 tirages, à +-0,3 point. Générateur Park-Miller (48271, 2^31 - 1) : l'ancien LCG
+	-- (x 1103515245, mod 2^31) dépassait 2^53 et perdait des bits sous Luau (nombres flottants) mais pas sous lupa (entiers 64 bits) : 40,78 / 44,30 sous Lune, avec une espèce Secret injectée
 	;(function()
 		local cfgS = table.clone(Config)
 		cfgS.PETS = table.clone(Config.PETS)
 		cfgS.PETS[#cfgS.PETS + 1] = { tier = 8, name = "Secret de test", emoji = "?", inc = 1 }
 		local cnt, st = { 0, 0, 0 }, 12345
 		for _ = 1, 1000000 do
-			st = (st * 1103515245 + 12345) % 2147483648
-			local t = Cal.draw(cfgS, st / 2147483648)
+			st = (st * 48271) % 2147483647 -- Park-Miller : produit < 2^47, exact en flottant double (Luau/Lune) comme en entier (Lua 5.4/lupa)
+			local t = Cal.draw(cfgS, (st - 1) / 2147483646)
 			cnt[t - 5] = cnt[t - 5] + 1
 		end
 		local dOk = true
@@ -11080,8 +11081,8 @@ end)()
 		local real = Cal.tierAvailable(Config, 8)
 		local c2, st2, bad = { 0, 0, 0 }, 777, 0
 		for _ = 1, 200000 do
-			st2 = (st2 * 1103515245 + 12345) % 2147483648
-			local t = Cal.draw(cfgH, st2 / 2147483648)
+			st2 = (st2 * 48271) % 2147483647
+			local t = Cal.draw(cfgH, (st2 - 1) / 2147483646)
 			if t == 6 or t == 7 then
 				c2[t - 5] = c2[t - 5] + 1
 			else

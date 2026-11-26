@@ -142,7 +142,7 @@ local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
 -- lot 9b : Calendar (règles pures du calendrier de 30 jours) et Cal (fonctions du bloc « Lot 9b » plus bas) logent dans Lot7 : AUCUNE variable locale de plus (limite de 200 atteinte)
-local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
 local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
@@ -362,7 +362,7 @@ local function snapshot(s)
 		if sl and sl.k == "e" then
 			slots[i] = { k = "e", t = sl.t, ends = sl.ends }
 		elseif sl then
-			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m }
+			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m, o = sl.o } -- lot 10 : o absent (pet ancien) = « — » côté client
 		else
 			slots[i] = false
 		end
@@ -916,6 +916,41 @@ onAssetsLoaded = function()
 end
 
 ---------------------------------------------------------------- Éclosion
+-- Lot 10 : annonces d'un tirage d'après Odds.fx. Monde (N >= 1 000 000 ou rareté >= Secret) et ancienne règle (bandeau serveur, mutation >= Alien, Colossal) :
+-- tous les serveurs ; serveur seul : N >= 10 000 ou Ultra Rare ; panneau « 1 sur N » au-dessus du pad pendant quelques secondes dès N >= 1 000 (visible de tous).
+function Lot7.oddsAnnounce(s, i, def, p, odds, fx)
+	local text = "🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !" .. (odds and (" (" .. Lot7.Odds.label(odds) .. ")") or "")
+	if Config.tierAtLeast(def.tier, "serverBanner") or p.m >= 5 or p.s == 5 or fx.announceWorld then
+		announce(text)
+	elseif fx.announceServer then
+		for _, pl in ipairs(Players:GetPlayers()) do
+			notify(pl, text)
+		end
+	end
+	local pad = s.plot and s.plot.pads[i]
+	if fx.billboard and Config.HATCH_FX.Enabled and pad and pad.part then
+		pcall(function()
+			local bb = Instance.new("BillboardGui")
+			bb.Name = "OddsBillboard"
+			bb.Size = UDim2.fromOffset(220, 44)
+			bb.StudsOffsetWorldSpace = Vector3.new(0, 9, 0)
+			bb.AlwaysOnTop = true
+			bb.MaxDistance = 160
+			local lab = Instance.new("TextLabel")
+			lab.Size = UDim2.fromScale(1, 1)
+			lab.BackgroundTransparency = 1
+			lab.Font = Enum.Font.GothamBold
+			lab.TextScaled = true
+			lab.Text = "✦ " .. Lot7.Odds.label(odds) .. " ✦"
+			lab.TextColor3 = Config.TIERS[def.tier].color
+			lab.TextStrokeTransparency = 0
+			lab.Parent = bb
+			bb.Parent = pad.part
+			game:GetService("Debris"):AddItem(bb, Config.HATCH_FX.billboardSeconds)
+		end)
+	end
+end
+
 function hatch(s, i)
 	local d = s.data
 	local sl = d.slots[i]
@@ -937,7 +972,9 @@ function hatch(s, i)
 			firstOfTier = false
 		end
 	end
-	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
+	-- lot 10 : compteur « 1 sur N » de référence calculé UNE fois ici et figé dans le slot (jamais recalculé ; aucun bonus n'entre dans le calcul)
+	local odds = Lot7.Odds.forPet(Config, p.p, p.s, p.m)
+	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m, o = odds, ov = odds and Config.ODDS.version or nil }
 	d.hatched += 1
 	if d.hatched == 1 then
 		tele.log(s.player, "first_hatch_seconds", d.played)
@@ -974,7 +1011,8 @@ function hatch(s, i)
 	local col = Config.MUTS[p.m].color or Config.TIERS[def.tier].color
 	Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 3, 0), col, big and 90 or 25, big)
 	-- Rareté élevée ou tirage secret : cercle runique au sol, particules, pilier de lumière et contour lumineux du pet (Config.AURA)
-	local secretHit = oneIn >= Config.REVEAL.secret.oneInAtLeast
+	local oddsFx = Lot7.Odds.fx(odds, def.tier, Config) -- lot 10 : annonces sociales (serveur, monde, pilier, panneau au-dessus du pad)
+	local secretHit = oneIn >= Config.REVEAL.secret.oneInAtLeast or oddsFx.pillar
 	if Config.AURA.Enabled and (def.tier >= Config.AURA.minTier or secretHit) then
 		Builder.aura(s.plot.pads[i].part.Position, col, def.tier, secretHit)
 		local holder = s.plot.pads[i].content
@@ -988,10 +1026,8 @@ function hatch(s, i)
 			game:GetService("Debris"):AddItem(hl, Config.AURA.seconds)
 		end
 	end
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t, upgraded = p.tier > sl.t })
-	if Config.tierAtLeast(def.tier, "serverBanner") or p.m >= 5 or p.s == 5 then
-		announce("🌟 " .. s.player.DisplayName .. " vient d'obtenir " .. def.emoji .. " " .. Config.petName(p.p, p.s, p.m) .. " !")
-	end
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t, upgraded = p.tier > sl.t, o = odds, first = firstOfTier })
+	Lot7.oddsAnnounce(s, i, def, p, odds, oddsFx)
 	sync(s)
 end
 
