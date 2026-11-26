@@ -1804,7 +1804,7 @@ Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
 	weights = { normal = { 62, 26, 9, 2.6, 0.37, 0.03 }, golden = { 40, 34, 18, 6.5, 1.35, 0.15 } },
 	golden = { interval = 3, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 },
-	private = { interval = 120, pending = 3, width = 10, depth = 3 },
+	private = { interval = 120, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
@@ -1867,7 +1867,19 @@ Config.TRAVEL2 = {
 		{ name = "Lac du Moulin", to = { -245, -75 }, back = { -238, -68 }, chapter = 0 }, { name = "Lac des Saules", to = { 240, 175 }, back = { 232, 170 }, chapter = 0 } },
 }
 -- E.3 Vol à distance « Corbeau chipeur ».
-Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10 }
+Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
+	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
+-- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
+-- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
+Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 1800 }
+-- Une offre payante est-elle proposée à ce joueur ? Il faut un ID renseigné (0 = offre invisible) ET, pour les offres à hasard (`random = true`),
+-- que PolicyService ait confirmé `ArePaidRandomItemsRestricted == false` (restricted nil ou true : masquée, repli prudent).
+function Config.offerVisible(def, restricted)
+	if type(def) ~= "table" or not Config.purchasable(def) then
+		return false
+	end
+	return not (def.random == true and restricted ~= false)
+end
 Config.INTERCEPT = { enabled = false } -- interception d'un porteur : coupée par défaut (à tester en playtest)
 
 -- D. Maison évolutive : poids par rareté (migration au lot 5) et table des 8 niveaux. `model` = clé de Config.Assets.models.house ; `slots` = emplacements bonus ;
@@ -5407,6 +5419,24 @@ function Belt.welcome(Config, st, userId, hatched, now)
 	return egg
 end
 
+-- Tapis privé (pass PrivateBelt) : état { acc, pending = { raretés } }. Un œuf gratuit toutes les `interval` secondes d'ACTIVITÉ (`active` : le joueur a agi ou bougé dans
+-- Config.IDLE.seconds), `pending` œufs en attente au plus (plein : le compteur est suspendu), table STANDARD (Config.BELT.weights.normal), AUCUNE production hors ligne
+-- (ce module n'est appelé que pour un joueur présent). `r` dans [0, 1) tire la rareté. Retourne la rareté créée, ou nil.
+function Belt.privateStep(Config, st, dt, active, r)
+	local P = Config.BELT.private
+	if not active or type(dt) ~= "number" or dt ~= dt or dt <= 0 or #st.pending >= P.pending then
+		return nil
+	end
+	st.acc = st.acc + math.min(dt, 5) -- un grand dt (serveur en pause) ne rattrape pas plusieurs œufs
+	if st.acc < P.interval then
+		return nil
+	end
+	st.acc = 0
+	local tier = Belt.pick(Config.BELT.weights.normal, r)
+	st.pending[#st.pending + 1] = tier
+	return tier
+end
+
 -- Tente l'achat de l'œuf `eggId` par `userId` ; `coins` = pièces du joueur. Retourne (true, œuf) ou (false, raison).
 -- Règles : 1 achat par joueur toutes les `buyCooldown` s ; œuf Légendaire+ : prompt actif seulement `legendaryDelay` s après son apparition et 1 par joueur
 -- et par minute ; œuf de bienvenue réservé à son destinataire ; réservation atomique (le premier valide l'emporte).
@@ -5562,6 +5592,87 @@ end
 -- Issue du vol : la victime a-t-elle chassé le corbeau (touche son pad à temps, présente dans sa base) ?
 function Raven.resolve(chased)
 	return chased and "chased" or "success"
+end
+
+-- Jetons offerts par un produit (RemoteSteal 1, RemoteStealPack 3) ; 0 si le produit n'en donne pas.
+function Raven.tokensFor(Config, productName)
+	local n = Config.REMOTE_STEAL.packs[productName]
+	return type(n) == "number" and n or 0
+end
+
+-- Jetons « détenus » pour le plafond d'achat : ceux du profil PLUS celui qui est en vol (il sera rendu en cas d'échec : le compter évite de le perdre au-delà du plafond).
+function Raven.held(tokens, flying)
+	return math.max(0, tokens) + (flying and 1 or 0)
+end
+
+-- Cumul d'un bonus serveur (tapis doré, pluie de chance) : `left` secondes restantes, `add` secondes achetées, plafond `max`. Retourne (nouveau restant, accepté).
+-- Un achat qui dépasserait le plafond n'est PAS accepté (le reçu reste « pas encore traité » : aucun argent perdu).
+function Raven.stack(left, add, max)
+	left = math.max(0, left)
+	if left + add > max then
+		return left, false
+	end
+	return left + add, true
+end
+
+-- Une demande de vol en cours est-elle toujours valable ? Tout est décidé par le serveur ; `w` = { thiefHere, victimHere, eggStill, eggLeft, chased, shielded, thiefFreeSlot, now, endsAt }.
+-- Retourne (decision, raison) : "pending" (le corbeau vole encore), "chased" (jeton rendu), "success", ou "aborted" (raison : thiefGone, victimGone, eggGone, shield, noSlot ;
+-- jeton rendu partout sauf thiefGone, où le serveur le rend dans le profil du voleur avant sa sauvegarde de départ).
+function Raven.settle(w)
+	if not w.thiefHere then
+		return "aborted", "thiefGone"
+	end
+	if not w.victimHere then
+		return "aborted", "victimGone"
+	end
+	if not w.eggStill or (type(w.eggLeft) == "number" and w.eggLeft <= 0) then
+		return "aborted", "eggGone"
+	end
+	if w.chased then
+		return "chased", "chased"
+	end
+	if w.now < w.endsAt then
+		return "pending", "flying"
+	end
+	if w.shielded then
+		return "aborted", "shield" -- un autre corbeau (ou un vol) vient de protéger la victime : un seul vol à la fois la dépouille
+	end
+	if not w.thiefFreeSlot then
+		return "aborted", "noSlot"
+	end
+	return "success", "success"
+end
+
+-- Journal « Qui m'a volé ? » : insère l'entrée en tête, ne garde que `max` entrées. Retourne la liste (modifiée en place).
+function Raven.logPush(list, entry, max)
+	table.insert(list, 1, entry)
+	while #list > max do
+		table.remove(list)
+	end
+	return list
+end
+
+-- Clés du journal serveur RavenLog (une clé par jour UTC) : jour courant, et jour à effacer (plus vieux que `days` jours).
+function Raven.dayKey(now)
+	return "D" .. Raven.day(now)
+end
+function Raven.expiredKey(now, days)
+	return "D" .. (Raven.day(now) - days - 1)
+end
+
+-- Position du corbeau (x, y, z) à l'instant t (0 à 1) d'un vol de `from` vers `to` : montée en arc puis cercle au-dessus de la cible sur la fin.
+-- Pure (aucun Vector3) : le serveur en tire un CFrame. `orbit` = fraction du vol passée à tourner (0,3).
+function Raven.birdPos(from, to, t, orbit)
+	t = math.min(math.max(t, 0), 1)
+	local o = orbit or 0.3
+	local k = 1 - o
+	if t < k then
+		local u = t / k
+		local e = u * u * (3 - 2 * u)
+		return from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e + math.sin(u * math.pi) * 6, from.z + (to.z - from.z) * e
+	end
+	local a = (t - k) / o * math.pi * 2
+	return to.x + math.cos(a) * 5, to.y, to.z + math.sin(a) * 5
 end
 
 return Raven

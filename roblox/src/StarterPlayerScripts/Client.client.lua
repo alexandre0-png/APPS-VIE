@@ -27,6 +27,7 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
 local RHen = Remotes:WaitForChild("Hen")
+local RRaven = Remotes:WaitForChild("Raven") -- Corbeau chipeur (lot 7) : alerte de la victime, liste des cibles
 local fmt = Config.fmt
 
 local COL = {
@@ -621,7 +622,20 @@ local tabsDef = {
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 }
-local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
+local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau" }
+local ravenData = nil -- dernière liste de cibles reçue du serveur (lot 7)
+local function agoText(at) -- « il y a 5 min » d'après l'heure du serveur
+	local d = math.max(0, workspace:GetServerTimeNow() - (type(at) == "number" and at or 0))
+	if d < 60 then
+		return "à l'instant"
+	elseif d < 3600 then
+		return "il y a " .. math.floor(d / 60) .. " min"
+	end
+	return "il y a " .. math.floor(d / 3600) .. " h"
+end
+local function offerShown_(def, owned) -- une offre payante est-elle montrée ? (ID renseigné ; offres à hasard cachées tant que PolicyService n'a pas confirmé)
+	return owned or Config.offerVisible(def, state and state.restricted)
+end
 
 local render
 local function setTab(t)
@@ -803,6 +817,9 @@ function render()
 		list[#list + 1] = { "📚", "Bonus de collection", "+" .. math.floor((state.collection - 1) * 100 + 0.5) .. " % de revenus" }
 		if state.luckLeft and state.luckLeft > 0 then
 			list[#list + 1] = { "🧪", "Potion de chance", Config.fmtTime(state.luckLeft) .. " restantes" }
+		end
+		if state.srv and state.srv.luck and state.srv.luck > 0 then
+			list[#list + 1] = { "🌧️", "Pluie de chance du serveur", "+" .. Config.SERVER_LUCK.bonus .. " points · " .. Config.fmtTime(state.srv.luck) .. " restantes" .. (state.srv.luckBy and (" · offerte par " .. state.srv.luckBy) or "") }
 		end
 		local anyPass = false
 		for name, def in pairs(Config.PASSES) do
@@ -1009,9 +1026,17 @@ function render()
 			passNames[#passNames + 1] = name
 		end
 		table.sort(passNames)
+		if state.tokens and state.tokens > 0 or Config.offerVisible(Config.PRODUCTS.RemoteSteal, false) then
+			addRow({ icon = "🐦‍⬛", title = "Corbeau chipeur : " .. (state.tokens or 0) .. "/" .. Config.REMOTE_STEAL.tokenMax .. " jeton(s)", desc = "Envoie un corbeau chercher un œuf en incubation chez un joueur du serveur.", btn = "Ouvrir", btnColor = COL.green, onClick = function()
+				panel = { name = "raven", tab = "", confirm = false }
+				RAction:FireServer("ravenList")
+				render()
+			end })
+		end
 		for _, name in ipairs(passNames) do
 			local def = Config.PASSES[name]
 			local owned = state.passes[name]
+			if offerShown_(def, owned) then
 			addRow({
 				icon = def.emoji, title = def.name, desc = def.desc,
 				btn = owned and "✅ Actif" or (Config.purchasable(def) and "Acheter" or "Bientôt"),
@@ -1024,6 +1049,7 @@ function render()
 					end
 				end or nil,
 			})
+			end
 		end
 		if state.luckLeft and state.luckLeft > 0 then
 			addNote("🧪 Potion de chance active : " .. Config.fmtTime(state.luckLeft) .. " restantes.")
@@ -1036,19 +1062,67 @@ function render()
 		for _, name in ipairs(prodNames) do
 			local def = Config.PRODUCTS[name]
 			local used = def.once == true and state.starter == true
-			addRow({
-				icon = def.emoji, title = def.name, desc = def.desc,
-				btn = used and "✅ Acheté" or (Config.purchasable(def) and "Acheter" or "Bientôt"), btnColor = (used or not Config.purchasable(def)) and COL.dis or COL.green,
-				onClick = used and nil or function()
-					if Config.purchasable(def) then
+			local packN = Config.REMOTE_STEAL.packs[name]
+			local full = packN ~= nil and (state.tokens or 0) + packN > Config.REMOTE_STEAL.tokenMax -- plafond de jetons : l'achat serait refusé (rien n'est jamais perdu)
+			local srvLeft = (name == "GoldenBelt" and state.srv and state.srv.golden) or (name == "ServerLuck" and state.srv and state.srv.luck) or 0
+			local capLeft = name == "GoldenBelt" and Config.BELT.golden or (name == "ServerLuck" and Config.SERVER_LUCK) or nil
+			local maxed = capLeft ~= nil and srvLeft + capLeft.seconds > capLeft.maxSeconds
+			if Config.offerVisible(def, state.restricted) then
+				addRow({
+					icon = def.emoji, title = def.name, desc = def.desc .. (def.random and "\n🎲 Probabilités affichées : tapis (panneau du marché), menu Plus." or ""),
+					btn = used and "✅ Acheté" or (full and "Max" or (maxed and "Au max" or "Acheter")), btnColor = (used or full or maxed) and COL.dis or COL.green,
+					onClick = (used or full or maxed) and function()
+						toast(full and "🐦‍⬛ Tu as déjà le maximum de jetons." or "Déjà au maximum pour l'instant.")
+					end or function()
 						MarketplaceService:PromptProductPurchase(player, def.id)
-					else
-						toast(Config.UNAVAILABLE_MESSAGE)
+					end,
+				})
+			end
+		end
+	elseif panel.name == "raven" then
+		local RVc = Config.REMOTE_STEAL
+		addNote("🐦‍⬛ Jetons : " .. (state.tokens or 0) .. "/" .. RVc.tokenMax .. " · Vols restants aujourd'hui : " .. (state.ravenLeft or 0) .. "/" .. RVc.dailyMax .. ". Le corbeau vole " .. RVc.flightSeconds .. " s ; la victime peut le chasser (jeton rendu). Son nom t'est toujours montré, et le tien à elle.")
+		if not ravenData then
+			addNote("Chargement…")
+		elseif ravenData.blocked then
+			addNote(ravenData.blocked)
+		elseif #ravenData.targets == 0 then
+			addNote("Aucun joueur éligible pour l'instant (protection débutant, bouclier, œuf trop rare, trop proche de l'éclosion…).")
+		else
+			for _, tg in ipairs(ravenData.targets) do
+				addRow({ icon = "👤", title = tg.name, desc = #tg.eggs .. " œuf(s) éligible(s)", btn = panel.sel == tg.u and "Ouvert" or "Choisir", btnColor = COL.green, onClick = function()
+					panel.sel = tg.u
+					render()
+				end })
+				if panel.sel == tg.u then
+					for _, e in ipairs(tg.eggs) do
+						local t = Config.TIERS[e.t]
+						addRow({ icon = "🥚", iconColor = t.color, title = "Œuf " .. t.name, desc = "Éclôt dans " .. Config.fmtTime(e.left) .. " · emplacement " .. e.i, btn = "Envoyer 🐦‍⬛", btnColor = COL.yellow, onClick = function()
+							RAction:FireServer("ravenGo", { u = tg.u, i = e.i })
+							hidePanel()
+						end })
 					end
-				end,
-			})
+				end
+			end
 		end
 	elseif panel.name == "more" then
+		do -- lot 7 : réglage du corbeau et journal « Qui m'a volé ? »
+			local blockOn = state.settings and state.settings.blockFriendRavens == true
+			addRow({ icon = "🐦‍⬛", title = "Refuser les corbeaux de mes amis", desc = blockOn and "Activé : tes amis ne peuvent pas t'envoyer de corbeau." or "Désactivé : touche pour refuser les corbeaux de tes amis.", btn = blockOn and "Activé" or "Désactivé", btnColor = blockOn and COL.green or COL.dis, onClick = function()
+				RAction:FireServer("setBlockRavens", not blockOn)
+			end })
+			addRow({ icon = "🐦‍⬛", title = "Corbeau chipeur", desc = (state.tokens or 0) .. " jeton(s) · menu des cibles", btn = "Ouvrir", btnColor = COL.green, onClick = function()
+				panel = { name = "raven", tab = "", confirm = false }
+				RAction:FireServer("ravenList")
+				render()
+			end })
+			local log = state.stealLog or {}
+			addNote("🕵️ Qui m'a volé ? (10 derniers vols)" .. (#log == 0 and " : personne pour l'instant." or ""))
+			for _, e in ipairs(log) do
+				local t = Config.TIERS[e.t]
+				addRow({ icon = e.k == "r" and "🐦‍⬛" or "🥷", title = e.n, desc = "Œuf " .. (t and t.name or "?") .. " · " .. (e.k == "r" and "corbeau" or "vol à pied") .. " · " .. agoText(e.at) })
+			end
+		end
 		local cost = Config.rebirthCost(state.rb)
 		addRow({
 			icon = "🌅", title = "Renaissance" .. (state.rb > 0 and (" (x" .. state.rb .. ")") or ""),
@@ -1165,6 +1239,8 @@ local function openPanel(name)
 	showPanel()
 	if name == "top" then
 		RAction:FireServer("top")
+	elseif name == "raven" then
+		RAction:FireServer("ravenList")
 	end
 	render()
 end
@@ -1359,6 +1435,9 @@ local function tryOffer(ev)
 		return
 	end
 	local o = Config.boostOffer(ev, state.passes, os.clock(), offerLast, offerShown, joinedAt)
+	if o and not Config.offerVisible(Config.PASSES[o.pass], state.restricted) then
+		o = nil -- offre à hasard masquée pour ce joueur (PolicyService)
+	end
 	if not o then
 		return
 	end
@@ -1512,6 +1591,40 @@ RState.OnClientEvent:Connect(function(snap)
 	end
 	if panel then
 		renderSoon()
+	end
+end)
+-- Corbeau chipeur : carte d'alerte de la victime (compte à rebours de 8 s : « Touche l'œuf pour le chasser ») et liste des cibles du voleur.
+local ravenCard = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64), Size = UDim2.fromOffset(330, 56), TextWrapped = true, TextSize = 14, TextColor3 = COL.text, BackgroundTransparency = 0.05, BackgroundColor3 = Color3.fromRGB(60, 20, 30), Text = "", Visible = false, ZIndex = 20 })
+corner(ravenCard, 15)
+make("UIStroke", { Color = COL.red, Thickness = 2 }, ravenCard)
+local ravenToken = 0
+RRaven.OnClientEvent:Connect(function(kind, data)
+	if type(data) ~= "table" then
+		return
+	end
+	if kind == "alert" and type(data.who) == "string" and type(data.tier) == "number" and type(data.secs) == "number" then
+		ravenToken += 1
+		local token = ravenToken
+		local tier = Config.TIERS[data.tier]
+		local ends = os.clock() + data.secs
+		ravenCard.Visible = true
+		task.spawn(function()
+			while token == ravenToken and os.clock() < ends do
+				ravenCard.Text = "🐦‍⬛ Le corbeau de " .. string.sub(data.who, 1, 24) .. " vise ton œuf " .. (tier and tier.name or "") .. " !\nTouche l'œuf pour le chasser (" .. math.ceil(ends - os.clock()) .. " s)."
+				task.wait(0.2)
+			end
+			if token == ravenToken then
+				ravenCard.Visible = false
+			end
+		end)
+	elseif kind == "end" then
+		ravenToken += 1
+		ravenCard.Visible = false
+	elseif kind == "list" and type(data.targets) == "table" then
+		ravenData = data
+		if panel and panel.name == "raven" then
+			renderSoon()
+		end
 	end
 end)
 RNotify.OnClientEvent:Connect(function(msg, sfx)

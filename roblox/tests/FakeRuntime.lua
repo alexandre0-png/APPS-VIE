@@ -589,7 +589,20 @@ function Fake.runtime(opts)
 		RT.renderSteps[name] = nil
 	end
 	service("MarketplaceService")
-	rawget(services.MarketplaceService, "__props").UserOwnsGamePassAsync = function() return false end
+	rawget(services.MarketplaceService, "__props").UserOwnsGamePassAsync = function(_, uid, id)
+		return RT.ownedPasses ~= nil and RT.ownedPasses[id] == true
+	end
+	-- PolicyService (lot 7) : RT.policy = { ArePaidRandomItemsRestricted = bool } ; RT.policyFail = message d'erreur ; RT.policyDelay = secondes d'attente
+	service("PolicyService")
+	rawget(services.PolicyService, "__props").GetPolicyInfoForPlayerAsync = function()
+		if RT.policyDelay then
+			RT.task.wait(RT.policyDelay)
+		end
+		if RT.policyFail then
+			error(RT.policyFail)
+		end
+		return RT.policy or { ArePaidRandomItemsRestricted = false }
+	end
 	service("MessagingService")
 	local insert = service("InsertService")
 	RT.loadedIds = {}
@@ -885,6 +898,12 @@ function Fake.runtime(opts)
 			RT.characterLoads = (RT.characterLoads or 0) + 1
 		end
 		pr.GetFriendsOnline = function() return {} end
+		pr.IsFriendsWith = function(_, uid) -- RT.friendPairs["a:b"] = true (userIds), RT.friendFail = message d'erreur
+			if RT.friendFail then
+				error(RT.friendFail)
+			end
+			return RT.friendPairs ~= nil and (RT.friendPairs[userId .. ":" .. uid] == true or RT.friendPairs[uid .. ":" .. userId] == true)
+		end
 		RT.players[#RT.players + 1] = p
 		p.Parent = players
 		RT.fire(players, "PlayerAdded", p)

@@ -1804,7 +1804,7 @@ Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
 	weights = { normal = { 62, 26, 9, 2.6, 0.37, 0.03 }, golden = { 40, 34, 18, 6.5, 1.35, 0.15 } },
 	golden = { interval = 3, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 },
-	private = { interval = 120, pending = 3, width = 10, depth = 3 },
+	private = { interval = 120, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
@@ -1867,7 +1867,19 @@ Config.TRAVEL2 = {
 		{ name = "Lac du Moulin", to = { -245, -75 }, back = { -238, -68 }, chapter = 0 }, { name = "Lac des Saules", to = { 240, 175 }, back = { 232, 170 }, chapter = 0 } },
 }
 -- E.3 Vol à distance « Corbeau chipeur ».
-Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10 }
+Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
+	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
+-- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
+-- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
+Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 1800 }
+-- Une offre payante est-elle proposée à ce joueur ? Il faut un ID renseigné (0 = offre invisible) ET, pour les offres à hasard (`random = true`),
+-- que PolicyService ait confirmé `ArePaidRandomItemsRestricted == false` (restricted nil ou true : masquée, repli prudent).
+function Config.offerVisible(def, restricted)
+	if type(def) ~= "table" or not Config.purchasable(def) then
+		return false
+	end
+	return not (def.random == true and restricted ~= false)
+end
 Config.INTERCEPT = { enabled = false } -- interception d'un porteur : coupée par défaut (à tester en playtest)
 
 -- D. Maison évolutive : poids par rareté (migration au lot 5) et table des 8 niveaux. `model` = clé de Config.Assets.models.house ; `slots` = emplacements bonus ;
@@ -5407,6 +5419,24 @@ function Belt.welcome(Config, st, userId, hatched, now)
 	return egg
 end
 
+-- Tapis privé (pass PrivateBelt) : état { acc, pending = { raretés } }. Un œuf gratuit toutes les `interval` secondes d'ACTIVITÉ (`active` : le joueur a agi ou bougé dans
+-- Config.IDLE.seconds), `pending` œufs en attente au plus (plein : le compteur est suspendu), table STANDARD (Config.BELT.weights.normal), AUCUNE production hors ligne
+-- (ce module n'est appelé que pour un joueur présent). `r` dans [0, 1) tire la rareté. Retourne la rareté créée, ou nil.
+function Belt.privateStep(Config, st, dt, active, r)
+	local P = Config.BELT.private
+	if not active or type(dt) ~= "number" or dt ~= dt or dt <= 0 or #st.pending >= P.pending then
+		return nil
+	end
+	st.acc = st.acc + math.min(dt, 5) -- un grand dt (serveur en pause) ne rattrape pas plusieurs œufs
+	if st.acc < P.interval then
+		return nil
+	end
+	st.acc = 0
+	local tier = Belt.pick(Config.BELT.weights.normal, r)
+	st.pending[#st.pending + 1] = tier
+	return tier
+end
+
 -- Tente l'achat de l'œuf `eggId` par `userId` ; `coins` = pièces du joueur. Retourne (true, œuf) ou (false, raison).
 -- Règles : 1 achat par joueur toutes les `buyCooldown` s ; œuf Légendaire+ : prompt actif seulement `legendaryDelay` s après son apparition et 1 par joueur
 -- et par minute ; œuf de bienvenue réservé à son destinataire ; réservation atomique (le premier valide l'emporte).
@@ -5562,6 +5592,87 @@ end
 -- Issue du vol : la victime a-t-elle chassé le corbeau (touche son pad à temps, présente dans sa base) ?
 function Raven.resolve(chased)
 	return chased and "chased" or "success"
+end
+
+-- Jetons offerts par un produit (RemoteSteal 1, RemoteStealPack 3) ; 0 si le produit n'en donne pas.
+function Raven.tokensFor(Config, productName)
+	local n = Config.REMOTE_STEAL.packs[productName]
+	return type(n) == "number" and n or 0
+end
+
+-- Jetons « détenus » pour le plafond d'achat : ceux du profil PLUS celui qui est en vol (il sera rendu en cas d'échec : le compter évite de le perdre au-delà du plafond).
+function Raven.held(tokens, flying)
+	return math.max(0, tokens) + (flying and 1 or 0)
+end
+
+-- Cumul d'un bonus serveur (tapis doré, pluie de chance) : `left` secondes restantes, `add` secondes achetées, plafond `max`. Retourne (nouveau restant, accepté).
+-- Un achat qui dépasserait le plafond n'est PAS accepté (le reçu reste « pas encore traité » : aucun argent perdu).
+function Raven.stack(left, add, max)
+	left = math.max(0, left)
+	if left + add > max then
+		return left, false
+	end
+	return left + add, true
+end
+
+-- Une demande de vol en cours est-elle toujours valable ? Tout est décidé par le serveur ; `w` = { thiefHere, victimHere, eggStill, eggLeft, chased, shielded, thiefFreeSlot, now, endsAt }.
+-- Retourne (decision, raison) : "pending" (le corbeau vole encore), "chased" (jeton rendu), "success", ou "aborted" (raison : thiefGone, victimGone, eggGone, shield, noSlot ;
+-- jeton rendu partout sauf thiefGone, où le serveur le rend dans le profil du voleur avant sa sauvegarde de départ).
+function Raven.settle(w)
+	if not w.thiefHere then
+		return "aborted", "thiefGone"
+	end
+	if not w.victimHere then
+		return "aborted", "victimGone"
+	end
+	if not w.eggStill or (type(w.eggLeft) == "number" and w.eggLeft <= 0) then
+		return "aborted", "eggGone"
+	end
+	if w.chased then
+		return "chased", "chased"
+	end
+	if w.now < w.endsAt then
+		return "pending", "flying"
+	end
+	if w.shielded then
+		return "aborted", "shield" -- un autre corbeau (ou un vol) vient de protéger la victime : un seul vol à la fois la dépouille
+	end
+	if not w.thiefFreeSlot then
+		return "aborted", "noSlot"
+	end
+	return "success", "success"
+end
+
+-- Journal « Qui m'a volé ? » : insère l'entrée en tête, ne garde que `max` entrées. Retourne la liste (modifiée en place).
+function Raven.logPush(list, entry, max)
+	table.insert(list, 1, entry)
+	while #list > max do
+		table.remove(list)
+	end
+	return list
+end
+
+-- Clés du journal serveur RavenLog (une clé par jour UTC) : jour courant, et jour à effacer (plus vieux que `days` jours).
+function Raven.dayKey(now)
+	return "D" .. Raven.day(now)
+end
+function Raven.expiredKey(now, days)
+	return "D" .. (Raven.day(now) - days - 1)
+end
+
+-- Position du corbeau (x, y, z) à l'instant t (0 à 1) d'un vol de `from` vers `to` : montée en arc puis cercle au-dessus de la cible sur la fin.
+-- Pure (aucun Vector3) : le serveur en tire un CFrame. `orbit` = fraction du vol passée à tourner (0,3).
+function Raven.birdPos(from, to, t, orbit)
+	t = math.min(math.max(t, 0), 1)
+	local o = orbit or 0.3
+	local k = 1 - o
+	if t < k then
+		local u = t / k
+		local e = u * u * (3 - 2 * u)
+		return from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e + math.sin(u * math.pi) * 6, from.z + (to.z - from.z) * e
+	end
+	local a = (t - k) / o * math.pi * 2
+	return to.x + math.cos(a) * 5, to.y, to.z + math.sin(a) * 5
 end
 
 return Raven
@@ -7596,6 +7707,7 @@ local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ca
 local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
 local Traps = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Traps")) -- pièges des territoires (lot 4)
 local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule : règles pures (lot 6)
+local Raven = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Raven")) -- vol à distance « Corbeau chipeur » : règles pures (lot 7)
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local HenQuest = require(script.Parent:WaitForChild("HenQuest")) -- énigme de la Mère Poule : état, prompts, récompense (lot 6)
@@ -7616,6 +7728,7 @@ end
 local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
 local RTop = newRemote("Top")
 local RBattle = newRemote("Battle") -- serveur -> client : début, tours (événements à rejouer) et fin des combats de l'Arène des pets
+local RRaven = newRemote("Raven") -- Corbeau chipeur (lot 7) : serveur -> client seulement (alerte de la victime, liste des cibles) ; les demandes passent par Action
 local RHen = newRemote("Hen") -- serveur -> client : répliques de la Mère Poule (identifiant + paramètres), berceuse à jouer, retour des touches, plume ramassée
 
 ---------------------------------------------------------------- Monde
@@ -7707,6 +7820,7 @@ local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
+local Lot7 = { luckUntil = 0, luckBy = nil } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
 local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
@@ -7783,7 +7897,7 @@ local function income(s)
 end
 
 local function rollPet(s, eggTier, guaranteed)
-	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil)
+	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil)
 	local alien = evKey() == "alien"
 	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
 end
@@ -7956,6 +8070,13 @@ local function snapshot(s)
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 		newbie = s.newbie == true, -- protection débutant active (lot 4)
+		tokens = d.tokens.remoteSteal, -- lot 7 : jetons du Corbeau, réglage, journal « Qui m'a volé ? », offres masquées (PolicyService), bonus serveur, œufs du tapis privé
+		ravenLeft = Lot7.ravenLeft and Lot7.ravenLeft(s) or 0,
+		settings = { blockFriendRavens = d.settings.blockFriendRavens == true },
+		stealLog = d.stealLog,
+		restricted = s.restricted ~= false, -- vrai tant que PolicyService n'a pas confirmé « non restreint » (repli prudent : offres à hasard masquées)
+		srv = Lot7.serverBuffs and Lot7.serverBuffs() or { golden = 0, luck = 0 },
+		pbCount = #d.pb,
 	}
 end
 
@@ -8528,6 +8649,7 @@ function speedUpEgg(s, i, who)
 	if not sl or sl.k ~= "e" then
 		return
 	end
+	Lot7.chase(s, i) -- un corbeau vise cet œuf : le toucher (dans sa base) le chasse
 	local now = os.clock()
 	if now - s.lastTap < 0.12 then
 		return
@@ -8663,12 +8785,16 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		return
 	end
 	local kind = prompt:GetAttribute("Kind")
-	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" and kind ~= "HenTalk" and kind ~= "Feather" then
+	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" and kind ~= "HenTalk" and kind ~= "Feather" and kind ~= "PrivBelt" then
 		return
 	end
 	local s = sessions[player]
 	local root = getRoot(player)
 	if not s or not root or not alive(player) or s.stun > 0 then
+		return
+	end
+	if kind == "PrivBelt" then
+		Lot7.privTake(s, root, prompt) -- tapis privé : seul le propriétaire prend l'œuf (validé dans privTake)
 		return
 	end
 	if kind == "Rune" or kind == "RuneConfirm" or kind == "HenTalk" or kind == "Feather" then
@@ -8763,6 +8889,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		qp(s, "pvp", 1)
 		sp(s, "steal", 1, {})
 		notify(vp, "😡 " .. player.DisplayName .. " a volé ton œuf ! Rattrape-le !", "caught")
+		Lot7.onPhysicalSteal(vs, player.DisplayName, sl.t) -- journal « Qui m'a volé ? » + bouclier post-vol de 5 min contre les corbeaux
 		sync(vs)
 		afterTake(s)
 	end
@@ -9563,6 +9690,7 @@ local function slowTick(dt)
 				d.coins += inc * dt
 				qp(s, "earn", inc * dt)
 			end
+			Lot7.privStep(s, dt, active) -- tapis privé : un œuf gratuit toutes les 120 s d'activité
 			ensureQuests(s)
 			storyRefresh(s)
 			s.syncT += dt
@@ -10086,6 +10214,7 @@ function actions.rebirth(s)
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
 	fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings -- le niveau de maison, les jetons et les réglages survivent aussi
+	fresh.raven, fresh.stealLog, fresh.pb = d.raven, d.stealLog, d.pb -- plafond du jour, boucliers, journal et œufs du tapis privé survivent aussi (lot 7)
 	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
 	s.data = fresh
@@ -10539,6 +10668,577 @@ task.spawn(function() -- tour limité à 10 s : action par défaut (attaque)
 	end
 end)
 
+function actions.ravenList(s)
+	return Lot7.ravenList(s)
+end
+function actions.ravenGo(s, arg)
+	return Lot7.ravenGo(s, arg)
+end
+function actions.setBlockRavens(s, v)
+	return Lot7.setBlockRavens(s, v)
+end
+
+---------------------------------------------------------------- Lot 7 : Corbeau chipeur, tapis privé, bonus serveur, PolicyService
+-- Tout est décidé ICI, par le serveur : le client n'envoie que des intentions (ravenList, ravenGo { u, i }, setBlockRavens), jamais un contexte. Les règles pures sont dans
+-- Raven.lua (canLaunch, settle, compensation...), testées une par une ; ce bloc construit les contextes d'après les sessions et applique les décisions.
+do
+	local RV = Config.REMOTE_STEAL
+	local flights = {} -- [Player voleur] = vol en cours (un seul par voleur)
+	local bySlot = {} -- [Player victime] = { [emplacement] = vol } : un seul corbeau par œuf
+	local ravensFolder = Instance.new("Folder")
+	ravensFolder.Name = "Ravens"
+	ravensFolder.Parent = workspace
+
+	local MSG = {
+		invalid = "🐦‍⬛ Cible invalide.", self = "🐦‍⬛ Tu ne peux pas viser ta propre base.", noToken = "🐦‍⬛ Tu n'as plus de jeton de corbeau (Bonus > Corbeau chipeur).",
+		alreadyFlying = "🐦‍⬛ Ton corbeau est déjà en vol.", dailyLimit = "🐦‍⬛ Limite atteinte : " .. RV.dailyMax .. " vols à distance réussis par jour.",
+		castle = "🐦‍⬛ Pas de corbeau dans le mode Château.", newbie = "🐣 Protection débutant : pas de corbeau pour toi, ni contre toi.",
+		tooYoung = "🐦‍⬛ Le corbeau demande " .. RV.minPlayMinutes .. " min de jeu à toi et " .. RV.victimMinMinutes .. " min à ta cible.", noSlot = "🐦‍⬛ Libère un emplacement dans ta base d'abord.",
+		levelGap = "🐦‍⬛ Cette base est trop petite pour ton corbeau.", victimShield = "🛡 Cette base est protégée pour l'instant.", victimCooldown = "🛡 Cette base a déjà reçu un corbeau récemment.",
+		grace = "🛡 Ce joueur vient d'arriver : ses œufs sont protégés.", friendBlocked = "🐦‍⬛ Ce joueur refuse les corbeaux de ses amis.", notEgg = "🐦‍⬛ Il faut un œuf en incubation.",
+		tier = "🐦‍⬛ Cet œuf est trop rare pour un corbeau.", eggShield = "🛡 Cet œuf est encore protégé.", tooLate = "🐦‍⬛ Cet œuf éclôt trop bientôt.",
+		targeted = "🐦‍⬛ Un corbeau vise déjà cet œuf.", gone = "🐦‍⬛ Joueur ou œuf introuvable.", busy = "🐦‍⬛ Patiente un instant.", cooldown = "🐦‍⬛ Ton corbeau se repose : encore quelques secondes.",
+	}
+
+	local function inCastleMode(s)
+		return s.castle ~= nil or serverMode == "castle"
+	end
+	local function rollDaily(d)
+		d.raven.day, d.raven.n = Raven.rollDaily(d.raven.day, d.raven.n, os.time())
+	end
+	function Lot7.ravenLeft(s) -- vols à distance restants aujourd'hui (sans modifier le profil)
+		local _, n = Raven.rollDaily(s.data.raven.day, s.data.raven.n, os.time())
+		return math.max(0, RV.dailyMax - n)
+	end
+	function Lot7.serverBuffs()
+		return { golden = math.floor(Belt.goldenLeft(beltSt, os.clock())), luck = math.max(0, math.floor(Lot7.luckUntil - os.time())), luckBy = Lot7.luckBy, goldenBy = beltSt.goldenBy }
+	end
+
+	-- Journal serveur : print + DataStore RavenLog (en arrière-plan, jamais bloquant).
+	local function logEvent(f, result)
+		print(string.format("[Raven] %s (%d) -> %s (%d) : œuf %s, résultat %s", f.thiefName, f.thiefId, f.victimName, f.victimId, Config.TIERS[f.tier].name, result))
+		task.spawn(function()
+			local ok, err = pcall(Data.logRaven, { thief = f.thiefId, thiefName = f.thiefName, victim = f.victimId, victimName = f.victimName, tier = f.tier, result = result, at = os.time() })
+			if not ok then
+				warn("[Raven] journal : " .. tostring(err))
+			end
+		end)
+	end
+
+	-- Amitié (appel réseau, avec cache de 5 min par session). Échec = considéré ami : le refus de la victime est respecté (repli prudent).
+	local function friendsWith(s, other)
+		s.friendCache = s.friendCache or {}
+		local c = s.friendCache[other.UserId]
+		if c and os.clock() - c.t < 300 then
+			return c.v
+		end
+		local ok, res = pcall(function()
+			return s.player:IsFriendsWith(other.UserId)
+		end)
+		local v = (not ok) or res == true
+		s.friendCache[other.UserId] = { v = v, t = os.clock() }
+		return v
+	end
+
+	-- CONTEXTES de Raven.canLaunch : construits ICI d'après les sessions (aucun champ ne vient du client).
+	local function thiefCtx(s)
+		rollDaily(s.data)
+		return { userId = s.player.UserId, tokens = s.data.tokens.remoteSteal, level = s.baseLevel or 1, playMinutes = s.data.played / 60, freeSlot = freeSlot(s) ~= nil,
+			dailyDone = s.data.raven.n, flying = flights[s.player] ~= nil, newbie = isNewbie(s), inCastle = inCastleMode(s) }
+	end
+	local function victimCtx(vs, friend)
+		return { userId = vs.player.UserId, level = vs.baseLevel or 1, playMinutes = vs.data.played / 60, newbie = isNewbie(vs), inCastle = inCastleMode(vs), graceUntil = vs.graceUntil or 0,
+			shieldUntil = vs.data.raven.sh, ravenCooldownUntil = vs.data.raven.cd, friendOfThief = friend == true, blockFriendRavens = vs.data.settings.blockFriendRavens == true }
+	end
+	local function eggCtx(vs, i)
+		local sl = vs.data.slots[i]
+		if i > cap(vs) or type(sl) ~= "table" or sl.k ~= "e" then
+			return nil
+		end
+		return { tier = sl.t, incubating = true, eggShieldUntil = sl.shield or 0, endsAt = sl.ends }
+	end
+
+	function Lot7.addLog(vs, name, tier, kind)
+		Raven.logPush(vs.data.stealLog, { n = string.sub(tostring(name), 1, 24), t = tier, at = os.time(), k = kind }, RV.logMax)
+	end
+	-- Vol PHYSIQUE subi : journal et bouclier post-vol de 5 min (il protège contre les corbeaux ; le vol physique garde ses propres règles).
+	function Lot7.onPhysicalSteal(vs, thiefName, tier)
+		Lot7.addLog(vs, thiefName, tier, "p")
+		vs.data.raven.sh = math.max(vs.data.raven.sh, os.time() + RV.postStealShield)
+	end
+
+	---------------------------------------------------------------- Oiseau
+	local function lerpPos(a, b, u)
+		return a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u
+	end
+	local function placeBird(bird, x, y, z, ax, ay, az)
+		local dx, dy, dz = ax - x, ay - y, az - z
+		if dx * dx + dy * dy + dz * dz < 1e-4 then
+			bird:PivotTo(CFrame.new(x, y, z))
+		else
+			bird:PivotTo(CFrame.lookAt(Vector3.new(x, y, z), Vector3.new(ax, ay, az)))
+		end
+	end
+	local function moveBird(f, now)
+		local bird = f.bird
+		if not (bird and bird.Parent) then
+			return
+		end
+		local t = (now - f.t0) / RV.flightSeconds
+		local x, y, z = Raven.birdPos(f.from, f.to, t, 0.3)
+		local ax, ay, az = Raven.birdPos(f.from, f.to, math.min(1, t + 0.06), 0.3)
+		placeBird(bird, x, y, z, ax, ay, az)
+		f.flap = not f.flap
+		Builder.ravenFlap(bird, f.flap)
+	end
+	-- Départ après le vol (réussi : vers la base du voleur ; chassé : loin). Temporaire et borné : l'oiseau est TOUJOURS détruit à la fin.
+	local function depart(bird, from, to, secs)
+		if not bird then
+			return
+		end
+		task.spawn(function()
+			local t0, flap = os.clock(), false
+			while bird.Parent and os.clock() - t0 < secs do
+				local u = math.min(1, (os.clock() - t0) / secs)
+				local x, y, z = lerpPos(from, to, u)
+				placeBird(bird, x, y, z, to.x, to.y, to.z)
+				flap = not flap
+				Builder.ravenFlap(bird, flap)
+				task.wait(0.1)
+			end
+			pcall(function()
+				bird:Destroy()
+			end)
+		end)
+	end
+
+	---------------------------------------------------------------- Fin d'un vol
+	local function release(f)
+		flights[f.thief.player] = nil
+		local list = bySlot[f.victim.player]
+		if list then
+			list[f.slot] = nil
+			if next(list) == nil then
+				bySlot[f.victim.player] = nil
+			end
+		end
+	end
+	local function refund(f)
+		local tk = f.thief.data.tokens
+		tk.remoteSteal = math.min(RV.tokenMax, tk.remoteSteal + 1) -- le jeton en vol est compté dans le plafond d'achat : jamais perdu
+	end
+
+	local function finish(f, decision, reason)
+		release(f) -- d'abord : plus aucun état partagé ne dépend de ce vol, même si la suite lève une erreur
+		local s, vs = f.thief, f.victim
+		local bird = f.bird
+		f.bird = nil
+		local result = decision == "aborted" and ("aborted:" .. reason) or decision
+		if decision == "success" then
+			local now = os.time()
+			local rem = math.max(0, f.ref.ends - now)
+			local ti = freeSlot(s)
+			local comp = Raven.compensation(Config, f.tier)
+			-- 1. données (opérations de table seulement : rien ne peut échouer à mi-chemin)
+			s.data.slots[ti] = { k = "e", t = f.tier, ends = now + rem, shield = now + shieldTime(s) } -- temps restant conservé, bouclier d'œuf normal
+			vs.data.slots[f.slot] = false
+			vs.data.coins += comp
+			vs.data.raven.cd = now + RV.victimCooldown
+			vs.data.raven.sh = math.max(vs.data.raven.sh, now + RV.postStealShield)
+			rollDaily(s.data)
+			s.data.raven.n += 1 -- compte aux 3 vols par jour ; ne compte PAS dans `stolen` ni dans les quêtes de vol (classement)
+			Lot7.addLog(vs, f.thiefName, f.tier, "r")
+			-- 2. visuels et messages (un échec ici ne défait pas le vol)
+			local okV, errV = pcall(function()
+				local pad = vs.plot.pads[f.slot].part
+				refreshPad(vs, f.slot)
+				refreshPad(s, ti)
+				Builder.flyEgg(f.tier, pad.Position + Vector3.new(0, 2, 0), s.player.UserId)
+				local tp = s.plot.pads[ti].part.Position
+				depart(bird, f.to, { x = tp.X, y = tp.Y + 9, z = tp.Z }, 2)
+				bird = nil
+			end)
+			if not okV then
+				warn("[Raven] visuels : " .. tostring(errV))
+			end
+			if bird then
+				pcall(function()
+					bird:Destroy()
+				end)
+			end
+			local tn = Config.TIERS[f.tier].name
+			notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " a emporté ton œuf " .. tn .. ". Tu reçois 🪙 " .. Config.fmt(comp) .. " et " .. math.floor(RV.postStealShield / 60) .. " min à l'abri des corbeaux.", "caught")
+			notify(s.player, "🐦‍⬛ Ton corbeau rapporte un œuf " .. tn .. " de " .. f.victimName .. " ! (temps restant conservé)", "steal")
+		else
+			refund(f) -- chassé ou annulé : jeton rendu, sans remboursement Robux
+			if bird then
+				if decision == "chased" then
+					depart(bird, f.to, { x = f.to.x + 40, y = f.to.y + 30, z = f.to.z }, 1.5)
+				else
+					pcall(function()
+						bird:Destroy()
+					end)
+				end
+			end
+			if decision == "chased" then
+				notify(s.player, "🐦‍⬛ " .. f.victimName .. " a chassé ton corbeau. Jeton rendu.", "refuse")
+				notify(vs.player, "🐦‍⬛ Tu as chassé le corbeau de " .. f.thiefName .. " !", "claim")
+			elseif reason == "victimGone" then
+				notify(s.player, "🐦‍⬛ " .. f.victimName .. " a quitté la partie : ton corbeau rentre. Jeton rendu.")
+			elseif reason == "eggGone" then
+				notify(s.player, "🐦‍⬛ L'œuf n'est plus là (éclos ou volé) : ton corbeau rentre. Jeton rendu.")
+			elseif reason == "thiefGone" then
+				notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " est reparti.")
+			else
+				notify(s.player, "🐦‍⬛ Le vol a échoué (" .. tostring(reason) .. "). Jeton rendu.", "refuse")
+			end
+		end
+		RRaven:FireClient(vs.player, "end", { slot = f.slot, result = result })
+		if sessions[s.player] == s and not s.leaving then
+			RRaven:FireClient(s.player, "end", { slot = f.slot, result = result })
+		end
+		logEvent(f, result)
+		if sessions[s.player] == s then
+			sync(s)
+		end
+		if sessions[vs.player] == vs then
+			sync(vs)
+		end
+	end
+
+	local function worldOf(f, now)
+		local s, vs = f.thief, f.victim
+		local sl = vs.data.slots[f.slot]
+		local still = sl == f.ref and type(sl) == "table" and sl.k == "e"
+		local t = os.time()
+		return { thiefHere = sessions[s.player] == s and not s.leaving, victimHere = sessions[vs.player] == vs and not vs.leaving, eggStill = still, eggLeft = still and (sl.ends - t) or 0,
+			chased = f.chased, shielded = vs.data.raven.sh > t or vs.data.raven.cd > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt }
+	end
+
+	local function step()
+		local now = os.clock()
+		local list = {}
+		for _, f in pairs(flights) do
+			list[#list + 1] = f
+		end
+		for _, f in ipairs(list) do
+			local ok, err = pcall(function()
+				local decision, reason = Raven.settle(worldOf(f, now))
+				if decision == "pending" and now > f.endsAt + 5 then
+					decision, reason = "aborted", "timeout" -- filet de sécurité : un vol ne reste jamais bloqué
+				end
+				if decision == "pending" then
+					moveBird(f, now)
+				else
+					finish(f, decision, reason)
+				end
+			end)
+			if not ok then
+				warn("[Raven] " .. tostring(err))
+				if flights[f.thief.player] == f then
+					pcall(finish, f, "aborted", "error")
+					flights[f.thief.player] = nil
+				end
+			end
+		end
+	end
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			if next(flights) then
+				step()
+			end
+		end
+	end)
+
+	-- Départ d'un joueur : tout vol qui le concerne est annulé AVANT sa sauvegarde (le jeton du voleur lui est rendu dans son profil).
+	function Lot7.onLeave(s)
+		local list = {}
+		for _, f in pairs(flights) do
+			if f.thief == s or f.victim == s then
+				list[#list + 1] = f
+			end
+		end
+		for _, f in ipairs(list) do
+			pcall(finish, f, "aborted", f.thief == s and "thiefGone" or "victimGone")
+		end
+		flights[s.player] = nil
+		bySlot[s.player] = nil
+		s.friendCache, s.priv = nil, nil
+	end
+	function Lot7.flightCount()
+		local n, m = 0, 0
+		for _ in pairs(flights) do
+			n += 1
+		end
+		for _, l in pairs(bySlot) do
+			for _ in pairs(l) do
+				m += 1
+			end
+		end
+		return n, m, #ravensFolder:GetChildren()
+	end
+
+	-- La victime touche son œuf (dans sa base) : le corbeau est chassé.
+	function Lot7.chase(s, i)
+		local list = bySlot[s.player]
+		local f = list and list[i]
+		if not f or f.chased then
+			return
+		end
+		local root = getRoot(s.player)
+		if not root or not alive(s.player) or not inPlot(s, root) then
+			if os.clock() - (s.lastChaseMsg or -10) > 2 then
+				s.lastChaseMsg = os.clock()
+				notify(s.player, "🐦‍⬛ Reviens dans ta base pour chasser le corbeau !", "refuse")
+			end
+			return
+		end
+		f.chased = true -- résolu au prochain pas (0,1 s) par Raven.settle
+	end
+
+	---------------------------------------------------------------- Actions du client
+	-- Liste des cibles : joueurs éligibles et leurs œufs éligibles (rareté et temps restant), calculée par le serveur avec les MÊMES règles que le lancement.
+	function Lot7.ravenList(s)
+		local clock = os.clock()
+		if clock - (s.lastRavenList or -10) < RV.tryGap then
+			return
+		end
+		s.lastRavenList = clock
+		local cands = {}
+		for _, vs in pairs(sessions) do
+			if vs ~= s and not vs.leaving then
+				cands[#cands + 1] = vs
+			end
+		end
+		table.sort(cands, function(a, b)
+			return a.player.UserId < b.player.UserId
+		end)
+		local friends = {}
+		for _, vs in ipairs(cands) do
+			friends[vs] = friendsWith(s, vs.player) -- peut attendre le réseau (mis en cache) : tout est relu ensuite
+		end
+		if sessions[s.player] ~= s or s.leaving then
+			return
+		end
+		local t = thiefCtx(s)
+		local now = os.time()
+		local ideal = { userId = -1, level = t.level, playMinutes = 1e9, newbie = false, inCastle = false, graceUntil = 0, shieldUntil = 0, ravenCooldownUntil = 0, friendOfThief = false, blockFriendRavens = false }
+		local okSelf, whySelf = Raven.canLaunch(Config, t, ideal, { tier = 1, incubating = true, eggShieldUntil = 0, endsAt = math.huge }, now)
+		local targets = {}
+		for _, vs in ipairs(cands) do
+			if sessions[vs.player] == vs and not vs.leaving then
+				local vctx = victimCtx(vs, friends[vs])
+				local eggs = {}
+				for i = 1, cap(vs) do
+					local ectx = eggCtx(vs, i)
+					if ectx and not (bySlot[vs.player] and bySlot[vs.player][i]) and Raven.canLaunch(Config, t, vctx, ectx, now) then
+						eggs[#eggs + 1] = { i = i, t = ectx.tier, left = math.max(0, math.floor(ectx.endsAt - now)) }
+					end
+				end
+				if #eggs > 0 then
+					targets[#targets + 1] = { u = vs.player.UserId, name = vs.player.DisplayName, eggs = eggs }
+				end
+			end
+		end
+		RRaven:FireClient(s.player, "list", { tokens = s.data.tokens.remoteSteal, left = Lot7.ravenLeft(s), blocked = (not okSelf) and (MSG[whySelf] or MSG.invalid) or nil, targets = targets })
+	end
+
+	function Lot7.ravenGo(s, arg)
+		if type(arg) ~= "table" then
+			return
+		end
+		local uid, slot = arg.u, arg.i
+		if type(uid) ~= "number" or uid % 1 ~= 0 or not validSlot(slot) then
+			return
+		end
+		local clock = os.clock()
+		if s.ravenBusy or clock - (s.lastRavenTry or -10) < RV.tryGap then
+			return notify(s.player, MSG.busy, "refuse")
+		end
+		s.lastRavenTry = clock
+		if clock - (s.lastRavenGo or -100) < RV.launchCooldown then
+			return notify(s.player, MSG.cooldown, "refuse")
+		end
+		local vp = Players:GetPlayerByUserId(uid)
+		local vs = vp and sessions[vp]
+		if not vs or vs.leaving or vs == s then
+			return notify(s.player, vs == s and MSG.self or MSG.gone, "refuse")
+		end
+		s.ravenBusy = true
+		local friend = friendsWith(s, vp) -- seul point d'attente : tout ce qui suit est relu après lui
+		s.ravenBusy = nil
+		if sessions[s.player] ~= s or s.leaving or sessions[vp] ~= vs or vs.leaving then
+			return
+		end
+		if bySlot[vp] and bySlot[vp][slot] then
+			return notify(s.player, MSG.targeted, "refuse")
+		end
+		local ectx = eggCtx(vs, slot)
+		if not ectx then
+			return notify(s.player, MSG.notEgg, "refuse")
+		end
+		local ok, why = Raven.canLaunch(Config, thiefCtx(s), victimCtx(vs, friend), ectx, os.time())
+		if not ok then
+			return notify(s.player, MSG[why] or MSG.invalid, "refuse")
+		end
+		-- Décollage : le jeton est dépensé maintenant (rendu en cas d'échec)
+		local sl = vs.data.slots[slot]
+		s.data.tokens.remoteSteal -= 1
+		s.lastRavenGo = os.clock()
+		local pad = vs.plot.pads[slot].part
+		local plaza = Config.Map2.plaza
+		local f = {
+			thief = s, victim = vs, slot = slot, ref = sl, tier = sl.t, t0 = os.clock(), endsAt = os.clock() + RV.flightSeconds, chased = false, flap = false,
+			thiefId = s.player.UserId, victimId = vp.UserId, thiefName = s.player.DisplayName, victimName = vp.DisplayName,
+			from = { x = plaza.x, y = 30, z = plaza.z }, to = { x = pad.Position.X, y = pad.Position.Y + 12, z = pad.Position.Z },
+		}
+		local okB, bird = pcall(Builder.raven, ravensFolder)
+		f.bird = okB and bird or nil
+		flights[s.player] = f
+		bySlot[vp] = bySlot[vp] or {}
+		bySlot[vp][slot] = f
+		local tn = Config.TIERS[sl.t].name
+		RRaven:FireClient(vp, "alert", { who = f.thiefName, tier = sl.t, slot = slot, secs = RV.flightSeconds })
+		notify(vp, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " vise ton œuf " .. tn .. " ! Touche l'œuf pour le chasser (" .. RV.flightSeconds .. " s).", "caught")
+		notify(s.player, "🐦‍⬛ Ton corbeau s'envole vers l'œuf " .. tn .. " de " .. f.victimName .. " (" .. RV.flightSeconds .. " s).", "event")
+		RRaven:FireClient(s.player, "flight", { to = f.victimName, tier = sl.t, secs = RV.flightSeconds })
+		logEvent(f, "launched")
+		sync(s)
+	end
+
+	function Lot7.setBlockRavens(s, v)
+		if type(v) ~= "boolean" then
+			return
+		end
+		s.data.settings.blockFriendRavens = v
+		sync(s)
+	end
+
+	---------------------------------------------------------------- Achats : jetons, tapis doré, pluie de chance
+	-- Retourne true (livré), (false, message) = reçu NON traité (Roblox le rappellera : rien n'est perdu), ou nil si ce n'est pas un produit du lot 7.
+	function Lot7.grant(s, name)
+		local n = Raven.tokensFor(Config, name)
+		if n > 0 then
+			local held = Raven.held(s.data.tokens.remoteSteal, flights[s.player] ~= nil)
+			if not Raven.canBuy(Config, held, n) then
+				return false, "🐦‍⬛ Tu as déjà " .. held .. " jeton(s) : le maximum est " .. RV.tokenMax .. ". Utilise-en avant de finaliser cet achat (il sera livré automatiquement, rien n'est perdu)."
+			end
+			s.data.tokens.remoteSteal = Raven.addTokens(Config, s.data.tokens.remoteSteal, n)
+			notify(s.player, "🐦‍⬛ +" .. n .. " jeton(s) de corbeau (" .. s.data.tokens.remoteSteal .. "/" .. RV.tokenMax .. ").", "buy")
+			return true
+		elseif name == "GoldenBelt" then
+			local G = Config.BELT.golden
+			local left, ok = Raven.stack(Belt.goldenLeft(beltSt, os.clock()), G.seconds, G.maxSeconds)
+			if not ok then
+				return false, "🌟 Le tapis doré est déjà presque au maximum (" .. Belt.clock(left) .. "). Ton achat sera livré dès qu'il y aura de la place, rien n'est perdu."
+			end
+			goldenBeltAdd(G.seconds, s.player.DisplayName)
+			announce("🌟 " .. s.player.DisplayName .. " offre le tapis doré à tout le serveur !")
+			return true
+		elseif name == "ServerLuck" then
+			local L = Config.SERVER_LUCK
+			local left, ok = Raven.stack(math.max(0, Lot7.luckUntil - os.time()), L.seconds, L.maxSeconds)
+			if not ok then
+				return false, "🌧️ La pluie de chance est déjà presque au maximum (" .. Config.fmtTime(left) .. "). Ton achat sera livré dès qu'il y aura de la place, rien n'est perdu."
+			end
+			Lot7.luckUntil, Lot7.luckBy = os.time() + left, s.player.DisplayName
+			announce("🌧️ " .. s.player.DisplayName .. " offre une pluie de chance : +" .. L.bonus .. " points d'amélioration pour tout le serveur pendant " .. math.floor(L.seconds / 60) .. " min !")
+			return true
+		end
+		return nil
+	end
+
+	---------------------------------------------------------------- PolicyService
+	function Lot7.fetchPolicy(s)
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return game:GetService("PolicyService"):GetPolicyInfoForPlayerAsync(s.player)
+			end)
+			if sessions[s.player] ~= s then
+				return
+			end
+			if ok and type(info) == "table" then
+				s.restricted = info.ArePaidRandomItemsRestricted ~= false -- seul « false » confirme que les offres à hasard sont permises
+			elseif s.restricted == nil then
+				s.restricted = true -- échec : repli prudent (offres à hasard masquées et refusées)
+				warn("[Policy] " .. s.player.Name .. " : PolicyService indisponible, offres à hasard masquées")
+			end
+			sync(s)
+		end)
+		task.delay(8, function() -- délai dépassé : repli prudent (une réponse tardive pourra encore lever la restriction)
+			if sessions[s.player] == s and s.restricted == nil then
+				s.restricted = true
+				sync(s)
+			end
+		end)
+	end
+	function Lot7.awaitPolicy(s) -- ProcessReceipt : attend (au plus 10 s) la réponse de PolicyService avant de décider
+		local t0 = os.clock()
+		while s.restricted == nil and os.clock() - t0 < 10 and sessions[s.player] == s do
+			task.wait(0.25)
+		end
+		return s.restricted ~= false
+	end
+
+	---------------------------------------------------------------- Tapis privé (pass PrivateBelt)
+	function Lot7.privRefresh(s)
+		if s.passes.PrivateBelt == true and s.plot and not s.leaving then
+			Builder.privateBelt(s.plot, s.player.UserId, s.data.pb)
+		elseif s.plot then
+			Builder.clearPrivateBelt(s.plot)
+		end
+	end
+	-- Un pas par seconde et par joueur (slowTick) : `active` = le joueur a agi ou bougé dans Config.IDLE.seconds. Joueur hors ligne = jamais appelé : aucune production hors ligne.
+	function Lot7.privStep(s, dt, active)
+		if s.passes.PrivateBelt ~= true then
+			return
+		end
+		s.priv = s.priv or { acc = 0 }
+		s.priv.pending = s.data.pb
+		local tier = Belt.privateStep(Config, s.priv, dt, active, rnd())
+		if tier then
+			Lot7.privRefresh(s)
+			notify(s.player, "🛤️ Un œuf " .. Config.TIERS[tier].name .. " t'attend sur ton tapis privé (gratuit).", "claim")
+			sync(s)
+		end
+	end
+	function Lot7.privTake(s, root, prompt)
+		local now = os.clock()
+		if now - (s.lastPriv or -10) < 0.25 then
+			return
+		end
+		s.lastPriv = now
+		if s.passes.PrivateBelt ~= true or prompt:GetAttribute("Owner") ~= s.player.UserId then
+			return notify(s.player, "🛤️ Ce tapis n'est pas à toi.", "refuse")
+		end
+		local belt = s.plot and s.plot.privateBelt
+		local strip = belt and belt:FindFirstChild("PrivateBeltStrip")
+		if not strip or prompt.Parent ~= strip or (root.Position - strip.Position).Magnitude > 16 then
+			return
+		end
+		local tier = s.data.pb[1]
+		if not tier then
+			return
+		end
+		local i = freeSlot(s)
+		if not i then
+			return notify(s.player, "Base pleine ! Libère un emplacement pour prendre l'œuf du tapis privé.", "refuse")
+		end
+		table.remove(s.data.pb, 1)
+		s.data.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
+		refreshPad(s, i)
+		Lot7.privRefresh(s)
+		notify(s.player, "🥚 Œuf " .. Config.TIERS[tier].name .. " pris sur ton tapis privé !", "claim")
+		sync(s)
+	end
+
+	-- Crochet INTERNE pour les tests (jamais exposé aux clients) : accès aux sessions et compteurs.
+	Builder.lot7Hooks = { session = function(p)
+		return sessions[p]
+	end, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs }
+end
+
 ---------------------------------------------------------------- Game Passes
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
 	local s = sessions[player]
@@ -10547,7 +11247,15 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 	end
 	for name, def in pairs(Config.PASSES) do
 		if Config.purchasable(def) and def.id == passId then
-			s.passes[name] = true
+			if def.random == true and s.restricted ~= false then
+				warn("[Policy] " .. player.Name .. " : achat du pass « " .. name .. " » refusé (offres à hasard restreintes)") -- jamais livré à un joueur restreint
+				notify(player, "🛒 Cette offre n'est pas disponible pour ton compte.")
+			else
+				s.passes[name] = true
+				if name == "PrivateBelt" then
+					Lot7.privRefresh(s)
+				end
+			end
 		end
 	end
 	if passId == Config.PASSES.ExtraSlots.id and s.plot then
@@ -10582,7 +11290,20 @@ MarketplaceService.ProcessReceipt = function(info)
 	local granted = false
 	for name, def in pairs(Config.PRODUCTS) do
 		if Config.purchasable(def) and def.id == info.ProductId then
-			if name == "StarterPack" then
+			if def.random == true and Lot7.awaitPolicy(s) then
+				notify(player, "🛒 Cette offre n'est pas disponible pour ton compte.")
+				return Enum.ProductPurchaseDecision.NotProcessedYet -- offre à hasard refusée côté serveur (PolicyService) : rien n'est livré
+			end
+			if s.pendingReceipts[rid] or s.data.receipts[rid] then
+				return Enum.ProductPurchaseDecision.NotProcessedYet -- reçu livré pendant l'attente (appel concurrent du même reçu) : le deuxième appel ne livre rien
+			end
+			local l7ok, l7msg = Lot7.grant(s, name)
+			if l7ok == false then
+				notify(player, l7msg)
+				return Enum.ProductPurchaseDecision.NotProcessedYet
+			elseif l7ok == true then
+				-- livré par le lot 7 (jetons, tapis doré, pluie de chance) ; le reçu est enregistré plus bas
+			elseif name == "StarterPack" then
 				if s.data.starter then
 					return Enum.ProductPurchaseDecision.NotProcessedYet -- achat unique : déjà fait, rien n'est livré
 				end
@@ -10658,6 +11379,7 @@ end
 
 local function releasePlot(s)
 	setDoorBarrier(s, false)
+	Builder.clearPrivateBelt(s.plot)
 	if s.badge then
 		s.badge:Destroy()
 		s.badge = nil
@@ -10778,6 +11500,7 @@ local function onJoin(player)
 		end
 	end
 
+	Lot7.fetchPolicy(s) -- offres à hasard : masquées et refusées tant que PolicyService n'a pas confirmé qu'elles sont permises
 	s.baseLevel = levelOf(s) -- le revenu (gains hors ligne compris) dépend du niveau de maison ; la base est construite plus bas par applyBase
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
 	local away = math.clamp(os.time() - d.last, 0, Config.IDLE.offlineMaxSeconds)
@@ -10794,6 +11517,7 @@ local function onJoin(player)
 	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
+	Lot7.privRefresh(s) -- tapis privé (pass) : œufs en attente sauvegardés
 	s.welcome = "wait"
 	task.delay(Config.BELT.welcome.delay, function()
 		beltWelcome(player, s) -- œuf de bienvenue du tapis (une fois, 20 s après l'arrivée)
@@ -10890,6 +11614,7 @@ Players.PlayerRemoving:Connect(function(player)
 		return
 	end
 	s.leaving = true -- l'autosave ne doit plus reprendre le verrou de session après ce point
+	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur
 	dropCarry(s)
 	clearFollowers(s)
 	holds[player] = nil
@@ -10967,6 +11692,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Raven")) -- règles pures du Corbeau (clés du journal RavenLog)
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -11089,6 +11815,9 @@ function Data.default()
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
 		settings = { blockFriendRavens = false }, -- réglages du joueur
+		raven = { day = 0, n = 0, cd = 0, sh = 0 }, -- lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
+		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
+		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
@@ -11211,6 +11940,27 @@ local function merge(saved)
 	end
 	if type(saved.tokens) == "table" then
 		d.tokens.remoteSteal = math.min(Config.REMOTE_STEAL.tokenMax, math.floor(sane(saved.tokens.remoteSteal, 0)))
+	end
+	if type(saved.raven) == "table" then
+		local rv = saved.raven
+		d.raven.day = math.max(0, math.floor(sane(rv.day, 0)))
+		d.raven.n = math.min(Config.REMOTE_STEAL.dailyMax, math.max(0, math.floor(sane(rv.n, 0))))
+		d.raven.cd = math.min(4e9, math.max(0, sane(rv.cd, 0)))
+		d.raven.sh = math.min(4e9, math.max(0, sane(rv.sh, 0)))
+	end
+	if type(saved.stealLog) == "table" then
+		for _, e in ipairs(saved.stealLog) do
+			if type(e) == "table" and type(e.n) == "string" and type(e.t) == "number" and e.t % 1 == 0 and e.t >= 1 and e.t <= #Config.TIERS and (e.k == "p" or e.k == "r") and #d.stealLog < Config.REMOTE_STEAL.logMax then
+				d.stealLog[#d.stealLog + 1] = { n = string.sub(e.n, 1, 24), t = e.t, at = math.min(4e9, math.max(0, sane(e.at, 0))), k = e.k }
+			end
+		end
+	end
+	if type(saved.pb) == "table" then
+		for _, t in ipairs(saved.pb) do
+			if type(t) == "number" and t % 1 == 0 and t >= 1 and t <= #Config.TIERS and #d.pb < Config.BELT.private.pending then
+				d.pb[#d.pb + 1] = t
+			end
+		end
 	end
 	if type(saved.settings) == "table" then
 		d.settings.blockFriendRavens = saved.settings.blockFriendRavens == true
@@ -11414,6 +12164,46 @@ function Data.save(player, d, release)
 	end
 	saving[k] = nil
 	return success
+end
+
+---------------------------------------------------------------- Journal serveur du Corbeau (RavenLog)
+-- Une clé par jour UTC ("D<jour>") contenant au plus RAVEN_LOG_MAX entrées { thief, victim, tier, result, at } ; les clés de plus de Config.REMOTE_STEAL.logDays jours
+-- sont effacées (au mieux, une fois par serveur et par jour). Tout est dans un pcall : un échec ne bloque JAMAIS le jeu.
+local RAVEN_LOG_MAX = 400
+local ravenLogStore, ravenPruned = nil, nil
+function Data.logRaven(entry)
+	if apiBlocked or type(entry) ~= "table" then
+		return false
+	end
+	if not ravenLogStore then
+		local okS, st = pcall(function()
+			return DataStoreService:GetDataStore("RavenLog")
+		end)
+		if not okS then
+			return false
+		end
+		ravenLogStore = st
+	end
+	local now = os.time()
+	local ok, err = pcall(function()
+		ravenLogStore:UpdateAsync(Raven.dayKey(now), function(old)
+			local list = type(old) == "table" and old or {}
+			list[#list + 1] = entry
+			while #list > RAVEN_LOG_MAX do
+				table.remove(list, 1)
+			end
+			return list
+		end)
+		local day = Raven.day(now)
+		if ravenPruned ~= day then
+			ravenPruned = day
+			ravenLogStore:RemoveAsync(Raven.expiredKey(now, Config.REMOTE_STEAL.logDays))
+		end
+	end)
+	if not ok then
+		markApiBlocked(err)
+	end
+	return ok
 end
 
 ---------------------------------------------------------------- Classement global
@@ -14026,6 +14816,112 @@ function Builder.follower(petIdx, sizeIdx, mutIdx)
 	return model
 end
 
+---------------------------------------------------------------- Corbeau chipeur et tapis privé (lot 7)
+-- Corbeau du vol à distance : modèle Blender `npc.raven` s'il a été chargé (aucun ID pour l'instant : REPLI procédural), sinon 6 Parts minuscules (corps, tête, bec, 2 ailes,
+-- queue), sans collision, TEMPORAIRES (détruites à la fin du vol ; au plus un par joueur voleur). Retourne le modèle (PrimaryPart = corps) ; `Builder.ravenFlap` bat des ailes.
+function Builder.raven(parent)
+	local ok, model = pcall(function()
+		local clone = eggAssets and eggAssets.cloneModel and eggAssets.cloneModel("npc", "raven")
+		if not (clone and clone:IsA("Model")) then
+			if clone then
+				clone:Destroy()
+			end
+			return nil
+		end
+		local first
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				first = first or d
+			end
+		end
+		if not first then
+			clone:Destroy()
+			return nil
+		end
+		clone.PrimaryPart = clone.PrimaryPart or first
+		clone.Name = "Raven"
+		return clone
+	end)
+	if not (ok and model) then
+		model = Instance.new("Model")
+		model.Name = "Raven"
+		local black, grey = Color3.fromRGB(28, 28, 36), Color3.fromRGB(52, 52, 64)
+		local function bit(name, size, off, color)
+			local p = part({ Name = name, Size = size, CFrame = CFrame.new(off.X, off.Y, off.Z), Color = color, CanCollide = false, CanTouch = false, CanQuery = false }, model)
+			return p
+		end
+		local body = bit("Body", Vector3.new(1.6, 1.4, 2.6), Vector3.new(0, 0, 0), black)
+		bit("Head", Vector3.new(1.1, 1.1, 1.1), Vector3.new(0, 0.5, -1.7), black)
+		bit("Beak", Vector3.new(0.4, 0.4, 0.9), Vector3.new(0, 0.4, -2.5), Color3.fromRGB(235, 170, 50))
+		bit("WingL", Vector3.new(2.6, 0.2, 1.6), Vector3.new(-2, 0.2, 0), grey)
+		bit("WingR", Vector3.new(2.6, 0.2, 1.6), Vector3.new(2, 0.2, 0), grey)
+		bit("Tail", Vector3.new(1, 0.2, 1.4), Vector3.new(0, 0, 1.9), grey)
+		model.PrimaryPart = body
+	end
+	model:SetAttribute("Flap", false)
+	model.Parent = parent
+	return model
+end
+
+-- Bat des ailes (alterne deux poses : pas de rotation, simple décalage vertical) : appelée quelques fois par seconde par le serveur pendant le vol.
+function Builder.ravenFlap(model, up)
+	local body = model and model.PrimaryPart
+	if not body then
+		return
+	end
+	local dy = up and 0.55 or -0.2
+	for name, dx in pairs({ WingL = -2, WingR = 2 }) do
+		local w = model:FindFirstChild(name)
+		if w then
+			w.CFrame = body.CFrame * CFrame.new(dx, dy, 0)
+		end
+	end
+end
+
+-- Tapis privé d'une base (pass PrivateBelt) : un dossier « PrivateBelt » dans le modèle de la base, avec le tapis 10 x 3 (1 Part, prompt réservé au propriétaire) et un petit œuf
+-- par œuf en attente (3 au plus) : 4 Parts au maximum, détruit avec le propriétaire. `tiers` = raretés en attente. Retourne le dossier.
+function Builder.privateBelt(plot, ownerId, tiers)
+	Builder.clearPrivateBelt(plot)
+	local P = Config.BELT.private
+	local folder = Instance.new("Folder")
+	folder.Name = "PrivateBelt"
+	local belt = part({ Name = "PrivateBeltStrip", Size = Vector3.new(P.width, 0.3, P.depth), CFrame = plot.cf * CFrame.new(P.x or 0, 1.3, P.z), Color = Color3.fromRGB(46, 50, 62), Material = Enum.Material.Metal, CanCollide = false }, folder)
+	local pr = Instance.new("ProximityPrompt")
+	pr.ActionText = "Prendre l'œuf gratuit"
+	pr.ObjectText = "Tapis privé"
+	pr.HoldDuration = 0.3
+	pr.MaxActivationDistance = 10
+	pr.RequiresLineOfSight = false
+	pr.Enabled = #tiers > 0
+	pr:SetAttribute("Kind", "PrivBelt")
+	pr:SetAttribute("Owner", ownerId)
+	pr.Parent = belt
+	local label = #tiers > 0 and ("🥚 " .. #tiers .. " œuf(s) à prendre") or "🛤️ Tapis privé"
+	sign(belt, label, Color3.fromRGB(255, 235, 170), 3.5, 220)
+	for i, t in ipairs(tiers) do
+		local def = Config.TIERS[t]
+		if def then
+			local egg = ball({ Name = "PrivateEgg" .. i, Size = Vector3.new(1.9, 1.9, 1.9), CFrame = plot.cf * CFrame.new((P.x or 0) + (i - 2) * 3.4, 2.4, P.z), Color = def.color, Material = Enum.Material.SmoothPlastic, CanTouch = false, CanQuery = false }, folder)
+			sign(egg, def.name, def.color, 2, 120)
+		end
+	end
+	folder.Parent = plot.model
+	plot.privateBelt = folder
+	return folder
+end
+
+function Builder.clearPrivateBelt(plot)
+	local f = plot and plot.privateBelt
+	plot.privateBelt = nil
+	if f then
+		pcall(function()
+			f:Destroy()
+		end)
+	end
+end
+
 return Builder
 ]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
@@ -14065,7 +14961,7 @@ function Rules.new(Config)
 	end
 
 	-- Points de « rareté supérieure » (en %) selon les bonus actifs.
-	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive)
+	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive, serverLuck)
 		local up = Config.UPGRADE.base + luckLevel -- 5 % de base : UNE chance d'amélioration d'un cran (jamais de rétrogradation)
 		if luckEvent then
 			up += Config.UPGRADE.event
@@ -14075,6 +14971,9 @@ function Rules.new(Config)
 		end
 		if potionActive then
 			up += Config.LUCK_POTION_BONUS
+		end
+		if serverLuck then
+			up += Config.SERVER_LUCK.bonus -- pluie de chance offerte au serveur (lot 7) : valeur fixe, jamais cumulée avec elle-même
 		end
 		return up
 	end
@@ -15473,6 +16372,7 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
 local RTop = Remotes:WaitForChild("Top")
 local RHen = Remotes:WaitForChild("Hen")
+local RRaven = Remotes:WaitForChild("Raven") -- Corbeau chipeur (lot 7) : alerte de la victime, liste des cibles
 local fmt = Config.fmt
 
 local COL = {
@@ -16067,7 +16967,20 @@ local tabsDef = {
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 }
-local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus" }
+local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau" }
+local ravenData = nil -- dernière liste de cibles reçue du serveur (lot 7)
+local function agoText(at) -- « il y a 5 min » d'après l'heure du serveur
+	local d = math.max(0, workspace:GetServerTimeNow() - (type(at) == "number" and at or 0))
+	if d < 60 then
+		return "à l'instant"
+	elseif d < 3600 then
+		return "il y a " .. math.floor(d / 60) .. " min"
+	end
+	return "il y a " .. math.floor(d / 3600) .. " h"
+end
+local function offerShown_(def, owned) -- une offre payante est-elle montrée ? (ID renseigné ; offres à hasard cachées tant que PolicyService n'a pas confirmé)
+	return owned or Config.offerVisible(def, state and state.restricted)
+end
 
 local render
 local function setTab(t)
@@ -16249,6 +17162,9 @@ function render()
 		list[#list + 1] = { "📚", "Bonus de collection", "+" .. math.floor((state.collection - 1) * 100 + 0.5) .. " % de revenus" }
 		if state.luckLeft and state.luckLeft > 0 then
 			list[#list + 1] = { "🧪", "Potion de chance", Config.fmtTime(state.luckLeft) .. " restantes" }
+		end
+		if state.srv and state.srv.luck and state.srv.luck > 0 then
+			list[#list + 1] = { "🌧️", "Pluie de chance du serveur", "+" .. Config.SERVER_LUCK.bonus .. " points · " .. Config.fmtTime(state.srv.luck) .. " restantes" .. (state.srv.luckBy and (" · offerte par " .. state.srv.luckBy) or "") }
 		end
 		local anyPass = false
 		for name, def in pairs(Config.PASSES) do
@@ -16455,9 +17371,17 @@ function render()
 			passNames[#passNames + 1] = name
 		end
 		table.sort(passNames)
+		if state.tokens and state.tokens > 0 or Config.offerVisible(Config.PRODUCTS.RemoteSteal, false) then
+			addRow({ icon = "🐦‍⬛", title = "Corbeau chipeur : " .. (state.tokens or 0) .. "/" .. Config.REMOTE_STEAL.tokenMax .. " jeton(s)", desc = "Envoie un corbeau chercher un œuf en incubation chez un joueur du serveur.", btn = "Ouvrir", btnColor = COL.green, onClick = function()
+				panel = { name = "raven", tab = "", confirm = false }
+				RAction:FireServer("ravenList")
+				render()
+			end })
+		end
 		for _, name in ipairs(passNames) do
 			local def = Config.PASSES[name]
 			local owned = state.passes[name]
+			if offerShown_(def, owned) then
 			addRow({
 				icon = def.emoji, title = def.name, desc = def.desc,
 				btn = owned and "✅ Actif" or (Config.purchasable(def) and "Acheter" or "Bientôt"),
@@ -16470,6 +17394,7 @@ function render()
 					end
 				end or nil,
 			})
+			end
 		end
 		if state.luckLeft and state.luckLeft > 0 then
 			addNote("🧪 Potion de chance active : " .. Config.fmtTime(state.luckLeft) .. " restantes.")
@@ -16482,19 +17407,67 @@ function render()
 		for _, name in ipairs(prodNames) do
 			local def = Config.PRODUCTS[name]
 			local used = def.once == true and state.starter == true
-			addRow({
-				icon = def.emoji, title = def.name, desc = def.desc,
-				btn = used and "✅ Acheté" or (Config.purchasable(def) and "Acheter" or "Bientôt"), btnColor = (used or not Config.purchasable(def)) and COL.dis or COL.green,
-				onClick = used and nil or function()
-					if Config.purchasable(def) then
+			local packN = Config.REMOTE_STEAL.packs[name]
+			local full = packN ~= nil and (state.tokens or 0) + packN > Config.REMOTE_STEAL.tokenMax -- plafond de jetons : l'achat serait refusé (rien n'est jamais perdu)
+			local srvLeft = (name == "GoldenBelt" and state.srv and state.srv.golden) or (name == "ServerLuck" and state.srv and state.srv.luck) or 0
+			local capLeft = name == "GoldenBelt" and Config.BELT.golden or (name == "ServerLuck" and Config.SERVER_LUCK) or nil
+			local maxed = capLeft ~= nil and srvLeft + capLeft.seconds > capLeft.maxSeconds
+			if Config.offerVisible(def, state.restricted) then
+				addRow({
+					icon = def.emoji, title = def.name, desc = def.desc .. (def.random and "\n🎲 Probabilités affichées : tapis (panneau du marché), menu Plus." or ""),
+					btn = used and "✅ Acheté" or (full and "Max" or (maxed and "Au max" or "Acheter")), btnColor = (used or full or maxed) and COL.dis or COL.green,
+					onClick = (used or full or maxed) and function()
+						toast(full and "🐦‍⬛ Tu as déjà le maximum de jetons." or "Déjà au maximum pour l'instant.")
+					end or function()
 						MarketplaceService:PromptProductPurchase(player, def.id)
-					else
-						toast(Config.UNAVAILABLE_MESSAGE)
+					end,
+				})
+			end
+		end
+	elseif panel.name == "raven" then
+		local RVc = Config.REMOTE_STEAL
+		addNote("🐦‍⬛ Jetons : " .. (state.tokens or 0) .. "/" .. RVc.tokenMax .. " · Vols restants aujourd'hui : " .. (state.ravenLeft or 0) .. "/" .. RVc.dailyMax .. ". Le corbeau vole " .. RVc.flightSeconds .. " s ; la victime peut le chasser (jeton rendu). Son nom t'est toujours montré, et le tien à elle.")
+		if not ravenData then
+			addNote("Chargement…")
+		elseif ravenData.blocked then
+			addNote(ravenData.blocked)
+		elseif #ravenData.targets == 0 then
+			addNote("Aucun joueur éligible pour l'instant (protection débutant, bouclier, œuf trop rare, trop proche de l'éclosion…).")
+		else
+			for _, tg in ipairs(ravenData.targets) do
+				addRow({ icon = "👤", title = tg.name, desc = #tg.eggs .. " œuf(s) éligible(s)", btn = panel.sel == tg.u and "Ouvert" or "Choisir", btnColor = COL.green, onClick = function()
+					panel.sel = tg.u
+					render()
+				end })
+				if panel.sel == tg.u then
+					for _, e in ipairs(tg.eggs) do
+						local t = Config.TIERS[e.t]
+						addRow({ icon = "🥚", iconColor = t.color, title = "Œuf " .. t.name, desc = "Éclôt dans " .. Config.fmtTime(e.left) .. " · emplacement " .. e.i, btn = "Envoyer 🐦‍⬛", btnColor = COL.yellow, onClick = function()
+							RAction:FireServer("ravenGo", { u = tg.u, i = e.i })
+							hidePanel()
+						end })
 					end
-				end,
-			})
+				end
+			end
 		end
 	elseif panel.name == "more" then
+		do -- lot 7 : réglage du corbeau et journal « Qui m'a volé ? »
+			local blockOn = state.settings and state.settings.blockFriendRavens == true
+			addRow({ icon = "🐦‍⬛", title = "Refuser les corbeaux de mes amis", desc = blockOn and "Activé : tes amis ne peuvent pas t'envoyer de corbeau." or "Désactivé : touche pour refuser les corbeaux de tes amis.", btn = blockOn and "Activé" or "Désactivé", btnColor = blockOn and COL.green or COL.dis, onClick = function()
+				RAction:FireServer("setBlockRavens", not blockOn)
+			end })
+			addRow({ icon = "🐦‍⬛", title = "Corbeau chipeur", desc = (state.tokens or 0) .. " jeton(s) · menu des cibles", btn = "Ouvrir", btnColor = COL.green, onClick = function()
+				panel = { name = "raven", tab = "", confirm = false }
+				RAction:FireServer("ravenList")
+				render()
+			end })
+			local log = state.stealLog or {}
+			addNote("🕵️ Qui m'a volé ? (10 derniers vols)" .. (#log == 0 and " : personne pour l'instant." or ""))
+			for _, e in ipairs(log) do
+				local t = Config.TIERS[e.t]
+				addRow({ icon = e.k == "r" and "🐦‍⬛" or "🥷", title = e.n, desc = "Œuf " .. (t and t.name or "?") .. " · " .. (e.k == "r" and "corbeau" or "vol à pied") .. " · " .. agoText(e.at) })
+			end
+		end
 		local cost = Config.rebirthCost(state.rb)
 		addRow({
 			icon = "🌅", title = "Renaissance" .. (state.rb > 0 and (" (x" .. state.rb .. ")") or ""),
@@ -16611,6 +17584,8 @@ local function openPanel(name)
 	showPanel()
 	if name == "top" then
 		RAction:FireServer("top")
+	elseif name == "raven" then
+		RAction:FireServer("ravenList")
 	end
 	render()
 end
@@ -16805,6 +17780,9 @@ local function tryOffer(ev)
 		return
 	end
 	local o = Config.boostOffer(ev, state.passes, os.clock(), offerLast, offerShown, joinedAt)
+	if o and not Config.offerVisible(Config.PASSES[o.pass], state.restricted) then
+		o = nil -- offre à hasard masquée pour ce joueur (PolicyService)
+	end
 	if not o then
 		return
 	end
@@ -16958,6 +17936,40 @@ RState.OnClientEvent:Connect(function(snap)
 	end
 	if panel then
 		renderSoon()
+	end
+end)
+-- Corbeau chipeur : carte d'alerte de la victime (compte à rebours de 8 s : « Touche l'œuf pour le chasser ») et liste des cibles du voleur.
+local ravenCard = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64), Size = UDim2.fromOffset(330, 56), TextWrapped = true, TextSize = 14, TextColor3 = COL.text, BackgroundTransparency = 0.05, BackgroundColor3 = Color3.fromRGB(60, 20, 30), Text = "", Visible = false, ZIndex = 20 })
+corner(ravenCard, 15)
+make("UIStroke", { Color = COL.red, Thickness = 2 }, ravenCard)
+local ravenToken = 0
+RRaven.OnClientEvent:Connect(function(kind, data)
+	if type(data) ~= "table" then
+		return
+	end
+	if kind == "alert" and type(data.who) == "string" and type(data.tier) == "number" and type(data.secs) == "number" then
+		ravenToken += 1
+		local token = ravenToken
+		local tier = Config.TIERS[data.tier]
+		local ends = os.clock() + data.secs
+		ravenCard.Visible = true
+		task.spawn(function()
+			while token == ravenToken and os.clock() < ends do
+				ravenCard.Text = "🐦‍⬛ Le corbeau de " .. string.sub(data.who, 1, 24) .. " vise ton œuf " .. (tier and tier.name or "") .. " !\nTouche l'œuf pour le chasser (" .. math.ceil(ends - os.clock()) .. " s)."
+				task.wait(0.2)
+			end
+			if token == ravenToken then
+				ravenCard.Visible = false
+			end
+		end)
+	elseif kind == "end" then
+		ravenToken += 1
+		ravenCard.Visible = false
+	elseif kind == "list" and type(data.targets) == "table" then
+		ravenData = data
+		if panel and panel.name == "raven" then
+			renderSoon()
+		end
 	end
 end)
 RNotify.OnClientEvent:Connect(function(msg, sfx)
