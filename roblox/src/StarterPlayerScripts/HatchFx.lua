@@ -24,6 +24,10 @@ local HatchFx = {}
 HatchFx.MAX_INSTANCES = 220 -- plafond dur d'instances créées par éclosion (échafaudage, décors compris)
 HatchFx.WATCHDOG_MARGIN = 0.6
 
+-- Zoom de la caméra partagé entre éclosions qui se chevauchent : la valeur d'origine est mémorisée par le PREMIER zoom actif et restituée quand le dernier se termine
+-- (sinon une éclosion lancée pendant une autre figerait le champ de vision zoomé).
+local zoomShared = { base = nil, users = 0 }
+
 local FONT = Enum.Font.GothamBold
 local RUNES = { "ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᛁ", "ᛃ", "ᛇ", "ᛉ" }
 
@@ -108,10 +112,16 @@ function HatchFx.play(parent, plan, opts)
 
 	local function restore()
 		-- caméra
-		if cam ~= nil and baseFov ~= nil and zoomed then
-			pcall(function()
-				cam.FieldOfView = baseFov
-			end)
+		if zoomed then
+			zoomed = false
+			zoomShared.users = math.max(0, zoomShared.users - 1)
+			if zoomShared.users == 0 and cam ~= nil and zoomShared.base ~= nil then
+				local base = zoomShared.base
+				zoomShared.base = nil
+				pcall(function()
+					cam.FieldOfView = base
+				end)
+			end
 		end
 		-- teinte de l'image
 		if cc ~= nil then
@@ -353,14 +363,18 @@ function HatchFx.play(parent, plan, opts)
 		tween(band, 0.5, { Size = UDim2.fromOffset(260, 36) }, Enum.EasingStyle.Back)
 	end
 	function K.zoom(b)
-		if cam == nil or baseFov == nil or plan.camera == false then
+		if cam == nil or baseFov == nil or plan.camera == false or zoomed or zoomShared.users > 0 then
+			return -- pas de caméra, caméra immobile demandée, ou une autre éclosion zoome déjà
+		end
+		local fov = cam.FieldOfView
+		if type(fov) ~= "number" then
 			return
 		end
-		local target = baseFov / math.max(num(b.k, 1.1), 1)
-		zoomed = true
+		zoomShared.base, zoomShared.users, zoomed = fov, zoomShared.users + 1, true
+		local target = fov / math.max(num(b.k, 1.1), 1)
 		every(b.d, function(p)
 			local k = p < 0.3 and easeOut(p / 0.3) or (p > 0.8 and easeOut((1 - p) / 0.2) or 1)
-			cam.FieldOfView = baseFov + (target - baseFov) * k
+			cam.FieldOfView = fov + (target - fov) * k
 		end)
 	end
 	function K.tint(b)
