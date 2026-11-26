@@ -109,6 +109,11 @@ function Guard.nextState(st, dt, p, cfg)
 	return { state = s, timer = timer, lost = lost }, event
 end
 
+-- Alarme du nid (cour de Zed, lot 8A) : l'ours réveillé passe directement en poursuite du voleur (nouvelle table d'état).
+function Guard.charge(_st)
+	return { state = "chase", timer = 0, lost = 0 }
+end
+
 -- Dégâts : retourne (nouveaux points de vie, touché ?, invulnérabilité restante). Pendant l'invulnérabilité ou si hp <= 0 : aucun dégât.
 function Guard.applyDamage(hp, damage, iframes, cfg)
 	if iframes > 0 or hp <= 0 or damage <= 0 then

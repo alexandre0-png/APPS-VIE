@@ -1,23 +1,29 @@
--- Simulation PURE (aucun service Roblox) d'un vol dans le territoire de Zed par un joueur-robot. Sert aux tests de difficulté du lot 4 :
--- taux de réussite d'un vol chez Zed sans amélioration de vitesse (< 30 %) et avec vitesse >= 30 (> 60 %).
+-- Simulation PURE (aucun service Roblox) d'un vol dans un territoire gardé par un joueur-robot. Sert aux tests de difficulté (lots 4 et 8A) :
+-- Zed : < 30 % sans amélioration de vitesse, > 60 % avec vitesse >= 30 ; Mara : 30 à 70 % selon la vitesse ; Gus : > 85 % (clément).
 --
 -- HYPOTHÈSES (écrites noir sur blanc ; si une seule change, les chiffres changent) :
---  H1  Décor : le territoire de Zed (Config.TERR.zed), ses 3 gardiens aux postes de Config.TERR.zed.posts, patrouille de +/- patrolHalf sur l'axe X (comme
---      Builder/Main), gardien borné au disque (Guard.clampToDisc, rayon max(r - territoryMargin, dPost + patrolHalf + 0.5)).
---  H2  Gardiens : exactement la logique de Main (Guard.perceive avec Config.guardStats("zed"), Guard.nextState, délai d'alerte Config.GUARD.alertDelay,
---      poursuite à guardSpeed, coup de `damage` pv si distance < attackRange et délai attackCd, invulnérabilité iframes du joueur). Pas de vigilance (premier vol).
---  H3  Joueur-robot : arrive à l'ENTRÉE (herse) à un instant tiré au hasard dans le cycle des gardiens (phases de patrouille aléatoires), marche tout droit vers un
---      nid tiré au hasard, tient le bouton Config.stealTime(0, "zed") = 3,5 s (immobile : silencieux, mais visible ; un coup remet le maintien à zéro), puis
---      repart tout droit vers l'entrée en portant l'œuf (vitesse x Config.carryMul de sa rareté, Légendaire = rareté 4). Sa vitesse de marche est
---      Config.walkSpeed(statVitesse) (16 studs/s à 0, 24 à 30). Il ignore les gardiens (aucune esquive) mais passe la herse seulement ouverte.
---  H4  Pièges de Zed : dalles d'alarme et lanternes tournantes (Traps.playerStep) ; une alarme envoie les gardiens à l'endroit (état « perte de cible »,
---      comme Main). La herse (Traps.gateOpen) est franchie seulement quand elle est ouverte.
---  H5  Réussite = le robot sort par l'entrée avec l'œuf et des points de vie > 0 (un coup est subi, pas fatal : 100 pv, coup de 28, au plus 3 coups).
---      Échec = 0 pv (l'œuf est rendu) ou plus de 120 s.
---  H6  Les poursuivants ne quittent jamais leur disque : la poursuite s'arrête au bord du territoire (comme dans le jeu).
+--  H1  Décor : le territoire `opts.terr` (défaut "zed", Config.TERR), ses gardiens aux postes de Config.TERR[terr].posts, patrouille de +/- half sur
+--      l'axe X (comme Builder/Main), gardien borné au disque (Guard.clampToDisc, rayon max(r - territoryMargin, dPost + half + 0.5)).
+--  H2  Gardiens : exactement la logique de Main (Guard.perceive avec Config.guardStats(terr), Guard.nextState, délai d'alerte du rival, poursuite à
+--      guardSpeed, coup de `damage` pv si distance < attackRange et délai attackCd, invulnérabilité iframes du joueur). Pas de vigilance (premier vol).
+--  H3  Joueur-robot ACTIF (lot 8A) : arrive à l'ENTRÉE du territoire à un instant tiré au hasard dans le cycle des gardiens, marche tout droit vers un
+--      nid tiré au hasard, tient le bouton Config.stealTime(Doigts agiles, terr) (immobile ; un coup remet le maintien à zéro), puis repart tout droit
+--      vers l'entrée en portant l'œuf (vitesse x Config.carryMul de la rareté typique du territoire : Zed Légendaire, Mara Épique, Gus Commun). Sa
+--      vitesse de marche est Config.walkSpeed(statVitesse) (16 studs/s à 0, 24 à 30). S'il voit un gardien le POURSUIVRE à moins de 30 studs avant
+--      d'avoir l'œuf, il renonce, revient à l'entrée, attend que tous les gardiens aient repris leur patrouille puis 0 à 6 s (hasard), et retente sur
+--      un nid tiré au hasard. Il ne fait aucune autre esquive et passe la herse de Zed seulement ouverte.
+--  H4  Pièges (Traps.playerStep) : clochettes, dalles et lanternes envoient les gardiens à l'endroit (état « perte de cible », comme Main) ; boue x0,6.
+--  H5  Réussite = le robot sort par l'entrée avec l'œuf et des points de vie > 0 en moins de 120 s. Échec = 0 pv, œuf repris, ou 120 s écoulées.
+--  H6  Les poursuivants ne quittent jamais leur disque ; aucun gardien ne vise le robot à moins de GUARD.safeRadius de l'entrée (comme le jeu).
+--  H7  Règles du lot 8A (mêmes que Main) : (a) PRISE PAR UN GARDIEN (B.4) : un coup d'un gardien non clément (loup de Mara, ours de Zed) pendant que
+--      le robot porte l'œuf de ce territoire = l'œuf retourne à son nid (échec « retaken »). (b) ALARME DU NID, seulement là où
+--      Config.TERR[terr].nestAlarm existe (cour de Zed) : chiper un œuf réveille le gardien le plus proche du voleur, qui le charge `delay` s plus tard.
+--      Gus (gentle) : une prise renvoie à la base ; avant d'avoir l'œuf, c'est un échec ; avec l'œuf, il est gardé (règle de Main) : réussite.
 local Sim = {}
 
-local sqrt, cos, sin, pi = math.sqrt, math.cos, math.sin, math.pi
+local sqrt = math.sqrt
+
+local CARRY_TIER = { zed = 4, mara = 3, gusNW = 1, gusSW = 1, wild = 1 }
 
 local function newRng(seed)
 	local state = seed
@@ -27,7 +33,8 @@ local function newRng(seed)
 	end
 end
 
--- Avance le robot d'un pas. th = { x, z, phase ("idle" | "in" | "hold" | "out"), hold, moving, speedNow }. Retourne "done" quand il est ressorti par l'entrée.
+-- Avance le robot d'un pas. th = { x, z, phase ("idle" | "in" | "hold" | "out" | "flee" | "rest"), hold, wait, moving, speedNow }.
+-- Retourne "grab" à l'instant où le maintien aboutit, "done" quand il est ressorti par l'entrée avec l'œuf.
 local function thiefStep(th, env, tnow, dt, started)
 	th.moving = false
 	if not started then
@@ -36,21 +43,20 @@ local function thiefStep(th, env, tnow, dt, started)
 	if th.phase == "idle" then
 		th.phase = "in"
 	end
-	if th.phase == "rest" then -- à l'abri près de l'entrée : il attend que tous les gardiens aient repris leur poste, puis retente
-		if env.calm and env.calm() then
-			th.phase, th.hold = "in", 0
-			env.nest = env.T.nests[math.floor(env.rnd() * #env.T.nests) + 1]
+	if th.phase == "rest" then -- à l'abri près de l'entrée : attend que tous les gardiens patrouillent, puis 0 à 6 s, et retente
+		if env.calm() then
+			th.wait = th.wait or env.rnd() * 6
+			th.wait = th.wait - dt
+			if th.wait <= 0 then
+				th.wait, th.phase, th.hold = nil, "in", 0
+				env.nest = env.T.nests[math.floor(env.rnd() * #env.T.nests) + 1]
+			end
 		end
 		return nil
 	end
 	local tx, tz, speed
 	if th.phase == "flee" then
 		tx, tz, speed = env.ex, env.ez, env.walk
-		local dx0, dz0 = tx - th.x, tz - th.z
-		if sqrt(dx0 * dx0 + dz0 * dz0) < 3 then
-			th.phase = "rest"
-			return nil
-		end
 	elseif th.phase == "in" then
 		tx, tz, speed = env.nest[1], env.nest[2], env.walk
 	elseif th.phase == "hold" then
@@ -64,13 +70,16 @@ local function thiefStep(th, env, tnow, dt, started)
 		th.hold = th.hold + dt
 		if th.hold >= env.holdTime then
 			th.phase = "out"
+			return "grab"
 		end
+	elseif th.phase == "flee" and d < 3 then
+		th.phase = "rest"
 	elseif th.phase == "in" and d < 2 then
 		th.phase, th.hold = "hold", 0
 	elseif th.phase == "out" and d < 2.5 then
 		return "done"
 	else
-		local blocked = th.phase == "out" and d < 4 and not env.Traps.gateOpen(tnow, env.L.gate) -- la herse barre l'entrée
+		local blocked = th.phase == "out" and d < 4 and env.L ~= nil and env.L.gate ~= nil and not env.Traps.gateOpen(tnow, env.L.gate) -- herse baissée
 		if not blocked then
 			local mv = math.min(d, speed * dt) * env.Traps.mudMul(env.ps, tnow, env.Config.TRAPS)
 			th.x, th.z = th.x + dx / d * mv, th.z + dz / d * mv
@@ -82,7 +91,7 @@ end
 
 local function newGuards(env, rnd)
 	local T, out = env.T, {}
-	for i, p in ipairs(T.posts) do
+	for i, p in ipairs(T.posts or {}) do
 		local inner = T.r - env.Config.GUARD.territoryMargin
 		local dPost = sqrt((p[1] - T.x) ^ 2 + (p[2] - T.z) ^ 2)
 		local half = math.max(4, math.min(12, inner - dPost))
@@ -102,104 +111,76 @@ local function patrolMove(g, speed, dt)
 	g.fx, g.fz = g.dir, 0
 end
 
--- Le plan « aller, maintenir, revenir » commencé à `offset` s reste-t-il hors de vue (cône, lanternes, dalles) si les gardiens ne font que patrouiller ?
-local function planIsSafe(env, guards0, offset, tStart, dt)
-	local gs = {}
-	for i, g in ipairs(guards0) do
-		gs[i] = { x = g.x, z = g.z, dir = g.dir, cx = g.cx, half = g.half, fx = g.dir, fz = 0 }
-	end
-	local th = { x = env.ex, z = env.ez, phase = "idle", hold = 0 }
-	local ps = env.Traps.newPlayerState()
-	env.ps = ps
-	local tn = 0
-	while tn < 70 do
-		for _, g in ipairs(gs) do
-			patrolMove(g, env.stats.patrolSpeed, dt)
-		end
-		local res = thiefStep(th, env, tStart + tn, dt, tn >= offset)
-		if res == "done" then
-			return true
-		end
-		if sqrt((th.x - env.ex) ^ 2 + (th.z - env.ez) ^ 2) >= env.Config.GUARD.safeRadius and tn >= offset then
-			for _, g in ipairs(gs) do
-				if env.Guard.sees({ x = g.x, z = g.z, fx = g.fx, fz = g.fz }, { x = th.x, z = th.z }, env.stats.viewDist, env.stats.viewAngle) then
-					return false
-				end
-			end
-			for _, ev in ipairs(env.Traps.playerStep(ps, env.L, env.Config.TRAPS, tStart + tn, th.x, th.z)) do
-				if ev.kind ~= "mud" then
-					return false
-				end
-			end
-		end
-		tn = tn + dt
-	end
-	return false
-end
-
--- Un essai. Retourne true si le vol réussit. opts.observant : le robot attend (au plus opts.patience s) une fenêtre où il n'est vu de personne.
+-- Un essai. Retourne true si le vol réussit. opts : terr (défaut "zed"), fing (Doigts agiles), stats (table de compteurs, facultative).
 function Sim.trial(Config, Guard, Traps, speedStat, rnd, opts)
 	opts = opts or {}
-	local T = Config.TERR.zed
-	local stats = Config.guardStats("zed")
+	local key = opts.terr or "zed"
+	local T = Config.TERR[key]
+	local stats = Config.guardStats(key)
 	local GC = setmetatable({ alertDelay = stats.alertDelay or Config.GUARD.alertDelay }, { __index = Config.GUARD })
-	local ex, ez = Config.territoryEntry("zed")
-	local env = { Config = Config, Guard = Guard, Traps = Traps, T = T, stats = stats, L = Traps.layout(Config, "zed"), ex = ex, ez = ez,
-		nest = T.nests[math.floor(rnd() * #T.nests) + 1], walk = Config.walkSpeed(speedStat), carryMul = Config.carryMul({ 4 }), holdTime = Config.stealTime(opts.fing or 0, "zed") }
+	local ex, ez = Config.territoryEntry(key)
+	local alarm = T.nestAlarm -- H7 : nil hors de la cour de Zed
+	local env = { Config = Config, Guard = Guard, Traps = Traps, T = T, stats = stats, L = Traps.layout(Config, key), ex = ex, ez = ez, rnd = rnd,
+		nest = T.nests[math.floor(rnd() * #T.nests) + 1], walk = Config.walkSpeed(speedStat), carryMul = Config.carryMul({ CARRY_TIER[key] or 1 }),
+		holdTime = Config.stealTime(opts.fing or 0, key), ps = Traps.newPlayerState() }
 	local dt = 0.1
 	local guards = newGuards(env, rnd)
-	local tStart = rnd() * 40 -- instant du cycle des lanternes et de la herse à l'arrivée du robot
-	local startAt = 0
-	if opts.observant then
-		startAt = -1
-		local o = 0
-		while o <= (opts.patience or 30) do
-			if planIsSafe(env, guards, o, tStart, dt) then
-				startAt = o
-				break
+	env.calm = function()
+		for _, g in ipairs(guards) do
+			if g.st.state ~= "patrol" then
+				return false
 			end
-			o = o + 0.5
 		end
-		if startAt < 0 then
-			startAt = opts.patience or 30 -- aucune fenêtre : il tente sa chance
-		end
+		return true
 	end
+	local tStart = rnd() * 40 -- instant du cycle des lanternes et de la herse à l'arrivée du robot
 	local me = { x = ex, z = ez, phase = "idle", hold = 0, moving = false, speedNow = 0 }
 	local hp, inv = 100, 0
-	env.ps = Traps.newPlayerState()
+	local chargeAt = nil
+	local function count(k)
+		if opts.stats then
+			opts.stats[k] = (opts.stats[k] or 0) + 1
+		end
+	end
 	local tn = 0
-	while tn < startAt + 120 do
+	while tn < 120 do
 		local tnow = tStart + tn
-		if opts.flee and (me.phase == "in" or me.phase == "hold") then
+		if me.phase == "in" or me.phase == "hold" then -- H3 : renonce s'il est poursuivi de près avant d'avoir l'œuf
 			for _, g in ipairs(guards) do
 				if g.st.state == "chase" and ((g.x - me.x) ^ 2 + (g.z - me.z) ^ 2) < 30 * 30 then
 					me.phase, me.hold = "flee", 0
 				end
 			end
 		end
-		env.calm = function()
+		local res = thiefStep(me, env, tnow, dt, true)
+		if res == "done" then
+			count(hp == 100 and "clean" or "hurt")
+			return hp > 0
+		elseif res == "grab" and alarm then
+			chargeAt = tn + alarm.delay
+		end
+		if chargeAt and tn >= chargeAt then -- H7 (b) : le gardien le plus proche charge le voleur
+			chargeAt = nil
+			local best, bd = nil, math.huge
 			for _, g in ipairs(guards) do
-				if g.st.state ~= "patrol" then
-					return false
+				local d2 = (g.x - me.x) ^ 2 + (g.z - me.z) ^ 2
+				if d2 < bd then
+					best, bd = g, d2
 				end
 			end
-			return true
-		end
-		env.rnd = rnd
-		local res = thiefStep(me, env, tnow, dt, tn >= startAt)
-		if res == "done" then
-			if opts.stats then
-				local k = hp == 100 and "clean" or (hp == 72 and "hit1" or "hit2plus")
-				opts.stats[k] = (opts.stats[k] or 0) + 1
+			if best then
+				best.st = Guard.charge(best.st)
+				best.last = { x = me.x, z = me.z }
 			end
-			return hp > 0
 		end
-		for _, ev in ipairs(Traps.playerStep(env.ps, env.L, Config.TRAPS, tnow, me.x, me.z)) do
-			if ev.kind ~= "mud" then -- alarme : les gardiens vont à l'endroit (comme Main)
-				for _, g in ipairs(guards) do
-					if g.st.state ~= "chase" then
-						g.st = { state = "lostChase", timer = 0, lost = 0 }
-						g.last = { x = me.x, z = me.z }
+		if env.L then
+			for _, ev in ipairs(Traps.playerStep(env.ps, env.L, Config.TRAPS, tnow, me.x, me.z)) do
+				if ev.kind ~= "mud" then -- alarme : les gardiens vont à l'endroit (comme Main)
+					for _, g in ipairs(guards) do
+						if g.st.state ~= "chase" then
+							g.st = { state = "lostChase", timer = 0, lost = 0 }
+							g.last = { x = me.x, z = me.z }
+						end
 					end
 				end
 			end
@@ -244,11 +225,18 @@ function Sim.trial(Config, Guard, Traps, speedStat, rnd, opts)
 					g.x, g.z = g.x + dx / d * mv, g.z + dz / d * mv
 					g.fx, g.fz = dx / d, dz / d
 				end
-				if state == "chase" and canTarget and d < Config.GUARD.attackRange and g.cd <= 0 and inv <= 0 then
+				if state == "chase" and canTarget and d < Config.GUARD.attackRange and g.cd <= 0 and (stats.gentle or inv <= 0) then
+					g.cd = Config.GUARD.attackCd
+					if stats.gentle then -- Gus : renvoi à la base ; l'œuf porté est gardé (Main), sinon l'essai est perdu
+						count(me.phase == "out" and "gentleHome" or "gentleCaught")
+						return me.phase == "out"
+					end
 					hp = hp - stats.damage
-					inv, g.cd = Config.GUARD.iframes, Config.GUARD.attackCd
-					if not opts.holdSurvivesHit then
-						me.hold = 0 -- un coup interrompt le maintien du bouton (recul hors de portée du prompt)
+					inv = Config.GUARD.iframes
+					me.hold = 0 -- un coup interrompt le maintien du bouton (recul hors de portée du prompt)
+					if me.phase == "out" then -- H7 (a) : le gardien reprend l'œuf, qui retourne à son nid
+						count("retaken")
+						return false
 					end
 				end
 			else -- retour au poste
@@ -263,14 +251,12 @@ function Sim.trial(Config, Guard, Traps, speedStat, rnd, opts)
 			g.x, g.z = Guard.clampToDisc(g.x, g.z, T.x, T.z, g.clampR)
 		end
 		if hp <= 0 then
-			if opts.stats then
-				opts.stats.dead = (opts.stats.dead or 0) + 1
-				opts.stats["dead_" .. me.phase] = (opts.stats["dead_" .. me.phase] or 0) + 1
-			end
+			count("dead")
 			return false
 		end
 		tn = tn + dt
 	end
+	count("timeout")
 	return false
 end
 

@@ -607,7 +607,7 @@ local function setNestEgg(n, tier)
 	local pr = Instance.new("ProximityPrompt")
 	pr.ActionText = "Voler l'œuf"
 	pr.ObjectText = "Œuf " .. Config.TIERS[tier].name
-	pr.HoldDuration = Config.stealTime(0, n.terr) -- temps de vol propre au territoire (sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5)
+	pr.HoldDuration = Config.stealTime(0, n.terr) -- temps de vol propre au territoire (sauvage 0,8 / Gus 1,3 / Mara 1,9 / Zed 3,5)
 	pr.MaxActivationDistance = 10
 	pr.RequiresLineOfSight = false
 	pr:SetAttribute("Terr", n.terr)
@@ -997,6 +997,7 @@ end
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
+local pendingCharges = {} -- lot 8A : alarmes de nid en attente { player, terr, at } (cour de Zed ; traitées par guardsStep)
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
 	holds[player] = { prompt = prompt, t = os.clock() }
 	local s = sessions[player]
@@ -1176,7 +1177,15 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		sp(s, "steal", 1, { rival = n.rival })
-		afterTake(s)
+		local alarm = Config.TERR[n.terr] and Config.TERR[n.terr].nestAlarm
+		if alarm then -- alarme du nid (cour de Zed) : l'ours le plus proche chargera le voleur dans alarm.delay s (voir guardsStep)
+			if #pendingCharges < 64 then -- borne de sécurité (une entrée par vol, purgée en alarm.delay s)
+				pendingCharges[#pendingCharges + 1] = { player = player, terr = n.terr, at = os.clock() + alarm.delay }
+			end
+			afterTake(s, "🥚 Œuf chipé ! 🐻 L'ours a senti le nid se vider : file vers la sortie !")
+		else
+			afterTake(s)
+		end
 	else
 		local vp = Players:GetPlayerByUserId(prompt:GetAttribute("Owner") or 0)
 		local vs = vp and sessions[vp]
@@ -1295,6 +1304,23 @@ local function hitPlayer(s, g)
 	notify(s.player, "🐕 " .. r.name .. " t'a mordu : -" .. r.damage .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "hurt")
 	if hp <= 0 then
 		defeatAtBase(s)
+		return true
+	end
+	-- lot 8A (B.4 « prise par un gardien ») : les œufs de SON territoire portés par le joueur retournent à leur nid (Gus, clément, n'arrive pas ici)
+	local back = false
+	for i = #s.carry, 1, -1 do
+		local e = s.carry[i]
+		if e.rival and e.terr == g.terr then
+			table.remove(s.carry, i)
+			returnEgg(e)
+			back = true
+		end
+	end
+	if back then
+		rebuildCarry(s)
+		applySpeed(s)
+		sync(s)
+		notify(s.player, "↩️ " .. r.name .. " a repris l'œuf : il retourne à son nid.", "caught")
 	end
 	return true
 end
@@ -1416,6 +1442,41 @@ local function guardsStep(dt)
 		s.iframes = math.max(0, (s.iframes or 0) - dt)
 		s.sinceHit = (s.sinceHit or 99) + dt
 	end
+	local nowc = os.clock()
+	for i = #pendingCharges, 1, -1 do -- alarmes de nid échues (lot 8A) : le gardien du territoire le plus proche du voleur le charge
+		local pc = pendingCharges[i]
+		if nowc >= pc.at then
+			table.remove(pendingCharges, i)
+			local ps = sessions[pc.player]
+			local proot = ps and alive(pc.player) and getRoot(pc.player)
+			if proot then
+				local best, bd = nil, math.huge
+				for _, g in ipairs(world.guards) do
+					if g.terr == pc.terr then
+						local d = (Vector3.new(g.pos.X, 0, g.pos.Z) - Vector3.new(proot.Position.X, 0, proot.Position.Z)).Magnitude
+						if d < bd then
+							best, bd = g, d
+						end
+					end
+				end
+				if best and not safeSpot(ps, proot, best) then -- déjà à l'abri (entrée, place, base) : aucune charge
+					best.st = Guard.charge(best.st)
+					best.target, best.wps = pc.player, nil
+					best.last = Vector3.new(proot.Position.X, best.pos.Y, proot.Position.Z)
+					if best.mark then
+						best.mark.Text = "❗"
+					end
+					local key = Config.guardSoundKey(Config.Assets.guardKinds[best.rival])
+					for pl in pairs(sessions) do
+						local pr = getRoot(pl)
+						if pr and (pr.Position - best.pos).Magnitude < 60 then
+							notify(pl, "", key)
+						end
+					end
+				end
+			end
+		end
+	end
 	for _, g in ipairs(world.guards) do
 		local r = g.stats
 		local bonus = vigilanceOf(g.terr)
@@ -1512,7 +1573,7 @@ local function guardsStep(dt)
 					g.pos += look * math.min(dv.Magnitude, r.guardSpeed * dt)
 				end
 				local flat = Vector3.new(goal.X - g.pos.X, 0, goal.Z - g.pos.Z)
-				if state == "chase" and ts and flat.Magnitude < GC.attackRange and g.cd <= 0 then
+				if state == "chase" and ts and flat.Magnitude < GC.attackRange and g.cd <= 0 and troot ~= nil and not safeSpot(ts, troot, g) then -- jamais de coup dans la zone sûre (A.5, comme la simulation)
 					if hitPlayer(ts, g) then
 						g.cd = GC.attackCd
 					end

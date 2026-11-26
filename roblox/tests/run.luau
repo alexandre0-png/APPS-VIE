@@ -7635,8 +7635,8 @@ do
 	local V = Config.VIGILANCE
 
 	-- 1. temps de vol par territoire --------------------------------------------------------------------------------------------------
-	check("stealTime par territoire : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5 s", near(Config.stealTime(0, "wild"), 0.8) and near(Config.stealTime(0, "gusNW"), 1.3) and near(Config.stealTime(0, "gusSW"), 1.3) and near(Config.stealTime(0, "mara"), 2.2) and near(Config.stealTime(0, "zed"), 3.5))
-	check("stealTime : Doigts agiles x 0,85 par niveau dans chaque territoire (Zed niveau 4 = " .. string.format("%.3f", Config.stealTime(4, "zed")) .. " s)", near(Config.stealTime(4, "zed"), 3.5 * 0.85 ^ 4) and near(Config.stealTime(3, "mara"), 2.2 * 0.85 ^ 3) and near(Config.stealTime(8, "wild"), 0.8 * 0.85 ^ 8))
+	check("stealTime par territoire : sauvage 0,8 / Gus 1,3 / Mara 1,9 (lot 8A, cahier 2,2 : voir CHANGELOG) / Zed 3,5 s", near(Config.stealTime(0, "wild"), 0.8) and near(Config.stealTime(0, "gusNW"), 1.3) and near(Config.stealTime(0, "gusSW"), 1.3) and near(Config.stealTime(0, "mara"), 1.9) and near(Config.stealTime(0, "zed"), 3.5))
+	check("stealTime : Doigts agiles x 0,85 par niveau dans chaque territoire (Zed niveau 4 = " .. string.format("%.3f", Config.stealTime(4, "zed")) .. " s)", near(Config.stealTime(4, "zed"), 3.5 * 0.85 ^ 4) and near(Config.stealTime(3, "mara"), 1.9 * 0.85 ^ 3) and near(Config.stealTime(8, "wild"), 0.8 * 0.85 ^ 8))
 	check("stealTime : appel historique sans territoire inchangé (1,3 x 0,85^niveau), territoire inconnu = 1,3", near(Config.stealTime(0), 1.3) and near(Config.stealTime(5), 1.3 * 0.85 ^ 5) and near(Config.stealTime(2, "inconnu"), 1.3 * 0.85 ^ 2))
 	check("stealTime : le temps de base de chaque territoire croît avec la difficulté (sauvage < Gus < Mara < Zed)", Config.stealTime(0, "wild") < Config.stealTime(0, "gusNW") and Config.stealTime(0, "gusNW") < Config.stealTime(0, "mara") and Config.stealTime(0, "mara") < Config.stealTime(0, "zed"))
 
@@ -7808,17 +7808,37 @@ do
 	check("Porte de base : durée = BASE_LEVELS2[niveau].lock (niveau 1 : 15 s par défaut, niveau 2 : 20, niveau 8 : 60), recharge 60 s", Config.lockSeconds(1) == 15 and Config.lockSeconds(2) == 20 and Config.lockSeconds(4) == 30 and Config.lockSeconds(8) == 60 and Config.lockSeconds(99) == 15 and Config.DOOR.cooldown == 60)
 	check("Protection débutant : active sous 15 min de jeu ET sous le niveau 3 ; levée à 15 min, au niveau 3 ou par fin anticipée", Config.isNewbie(0, 1, false) and Config.isNewbie(899, 2, false) and not Config.isNewbie(900, 1, false) and not Config.isNewbie(0, 3, false) and not Config.isNewbie(10, 2, true) and Config.NEWBIE.minutes == 15 and Config.NEWBIE.untilLevel == 3 and Config.isNewbie(nil, nil, nil))
 
-	-- 10. simulation PURE d'un vol chez Zed (hypothèses H1 à H6 en tête de roblox/tests/SimSteal.lua) --------------------------------
-	local N = 300
-	local r0 = SIM.rate(Config, GU, TR, 0, N, 777)
-	local r30 = SIM.rate(Config, GU, TR, 30, N, 777)
-	local r0f5 = SIM.rate(Config, GU, TR, 0, N, 777, { fing = 5 })
-	local r30f5 = SIM.rate(Config, GU, TR, 30, N, 777, { fing = 5 })
-	print(string.format("  [lot 4] simulation du vol chez Zed (%d essais, graine fixe) : vitesse 0 = %.0f %%, vitesse 30 = %.0f %%, vitesse 0 + Doigts agiles 5 = %.0f %%, vitesse 30 + Doigts agiles 5 = %.0f %%", N, r0 * 100, r30 * 100, r0f5 * 100, r30f5 * 100))
-	check("Simulation chez Zed : sans aucune amélioration, un vol réussit rarement (" .. string.format("%.0f", r0 * 100) .. " % < 45 %)", r0 < 0.45)
-	check("Simulation chez Zed : la vitesse de marche seule ne suffit pas (" .. string.format("%.0f", r30 * 100) .. " % à vitesse 30 < 45 %) : le temps de maintien (3,5 s à portée des ours) domine", r30 < 0.45)
-	check("Simulation chez Zed : vitesse 30 + Doigts agiles niveau 5 (maintien " .. string.format("%.2f", Config.stealTime(5, "zed")) .. " s) fait réussir plus de 60 % des vols (" .. string.format("%.0f", r30f5 * 100) .. " %)", r30f5 > 0.6)
-	check("Simulation chez Zed : Doigts agiles améliore nettement le taux (" .. string.format("%.0f", r0f5 * 100) .. " % contre " .. string.format("%.0f", r0 * 100) .. " % sans)", r0f5 > r0 + 0.25)
+	-- 10. simulation PURE d'un vol (hypothèses H1 à H7 en tête de roblox/tests/SimSteal.lua) ; lot 8A : cibles LITTÉRALES du cahier pour Zed ----------
+	;(function()
+		local N = 300
+		local r0 = SIM.rate(Config, GU, TR, 0, N, 777)
+		local r30 = SIM.rate(Config, GU, TR, 30, N, 777)
+		local r40 = SIM.rate(Config, GU, TR, 40, N, 777)
+		local r0f5 = SIM.rate(Config, GU, TR, 0, N, 777, { fing = 5 })
+		local r30f5 = SIM.rate(Config, GU, TR, 30, N, 777, { fing = 5 })
+		print(string.format("  [lot 8A] simulation du vol chez Zed (%d essais, graine fixe) : vitesse 0 = %.0f %%, vitesse 30 = %.0f %%, vitesse 40 = %.0f %%, vitesse 0 + Doigts agiles 5 = %.0f %%, vitesse 30 + Doigts agiles 5 = %.0f %%", N, r0 * 100, r30 * 100, r40 * 100, r0f5 * 100, r30f5 * 100))
+		check("Simulation chez Zed : sans aucune amélioration, moins de 30 % de vols réussis (cible du cahier ; mesuré " .. string.format("%.0f", r0 * 100) .. " %)", r0 < 0.30)
+		check("Simulation chez Zed : vitesse 30 sans autre amélioration, plus de 60 % de vols réussis (cible du cahier ; mesuré " .. string.format("%.0f", r30 * 100) .. " %)", r30 > 0.60)
+		check("Simulation chez Zed : vitesse 40 aussi au-dessus de 60 % (" .. string.format("%.0f", r40 * 100) .. " %) : « vitesse >= 30 »", r40 > 0.60)
+		check("Simulation chez Zed : vitesse 30 + Doigts agiles niveau 5 (maintien " .. string.format("%.2f", Config.stealTime(5, "zed")) .. " s) fait réussir plus de 60 % des vols (" .. string.format("%.0f", r30f5 * 100) .. " %)", r30f5 > 0.6)
+		check("Simulation chez Zed : Doigts agiles améliore nettement le taux (" .. string.format("%.0f", r0f5 * 100) .. " % contre " .. string.format("%.0f", r0 * 100) .. " % sans)", r0f5 > r0 + 0.25)
+		-- lot 8A : Mara (difficulté moyenne) et Gus (clément) avec le même joueur-robot
+		local mr, mmin, mmax, mtxt = {}, 1, 0, ""
+		for _, sp in ipairs({ 0, 10, 20, 30, 40 }) do
+			mr[sp] = SIM.rate(Config, GU, TR, sp, N, 777, { terr = "mara" })
+			mmin, mmax = math.min(mmin, mr[sp]), math.max(mmax, mr[sp])
+			mtxt = mtxt .. " v" .. sp .. "=" .. string.format("%.0f", mr[sp] * 100)
+		end
+		local g0 = SIM.rate(Config, GU, TR, 0, N, 777, { terr = "gusNW" })
+		local g0b = SIM.rate(Config, GU, TR, 0, N, 777, { terr = "gusSW" })
+		print(string.format("  [lot 8A] Mara :%s %% ; Gus : nord-ouest %.0f %%, sud-ouest %.0f %% (vitesse 0)", mtxt, g0 * 100, g0b * 100))
+		check("Simulation chez Mara : entre 30 et 70 % de réussite à toutes les vitesses de 0 à 40 (" .. mtxt .. " %)", mmin >= 0.30 and mmax <= 0.70)
+		check("Simulation chez Gus : clément, plus de 85 % de réussite sans amélioration dans ses deux territoires (" .. string.format("%.0f / %.0f", g0 * 100, g0b * 100) .. " %)", g0 > 0.85 and g0b > 0.85)
+		check("Difficulté croissante sans amélioration : Gus > Mara > Zed", math.min(g0, g0b) > mr[0] and mr[0] > r0)
+		check("Alarme du nid : cour de Zed seulement (Mara, Gus et l'enclos sauvage n'en ont pas)", type(Config.TERR.zed.nestAlarm) == "table" and type(Config.TERR.zed.nestAlarm.delay) == "number" and Config.TERR.zed.nestAlarm.delay > 0 and Config.TERR.mara.nestAlarm == nil and Config.TERR.gusNW.nestAlarm == nil and Config.TERR.gusSW.nestAlarm == nil and Config.TERR.wild.nestAlarm == nil)
+		local cst = GU.charge({ state = "patrol", timer = 3, lost = 1 })
+		check("Guard.charge : passe en poursuite (nouvelle table, compteurs à zéro)", cst.state == "chase" and cst.timer == 0 and cst.lost == 0)
+	end)()
 end
 
 do
@@ -8150,6 +8170,72 @@ do
 			RT.removePlayer(z)
 			RT.step(2)
 		end
+
+		-- lot 8A : alarme du nid chez Zed (l'ours le plus proche charge ; s'il frappe le porteur, l'œuf retourne à son nid) ---------------
+		;(function()
+			local z = veteran("Zoltan", 9824, false)
+			RT.step(2)
+			local nestPr
+			for _ = 1, 40 do
+				for _, o in ipairs(nestPrompts) do
+					if not nestPr and o:GetAttribute("Terr") == "zed" and inWorkspace(o) and rawget(o, "__props").Enabled ~= false and tostring(rawget(o, "__props").ObjectText):find("Œuf", 1, true) then
+						nestPr = o
+					end
+				end
+				if nestPr then
+					break
+				end
+				RT.step(2)
+			end
+			if nestPr then
+				local nestIdx = nestPr:GetAttribute("Nest")
+				local pos = rawget(nestPr.Parent, "__props").CFrame.Position
+				standAt(z, pos.X, pos.Z)
+				RT.step(0.3)
+				local sm = #RT.fired
+				trigger(z, nestPr)
+				local took = carryOf(z) == 1 and notified(z, "a senti le nid se vider", sm)
+				for _ = 1, 40 do -- reste au nid (sans fuir) pendant 4 s
+					standAt(z, pos.X, pos.Z)
+					RT.step(0.1)
+				end
+				local home
+				for _, o in ipairs(RT.all) do
+					if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == "Nest" and o:GetAttribute("Nest") == nestIdx and inWorkspace(o) then
+						home = o
+					end
+				end
+				checkv("Alarme du nid (e2e) : œuf chipé chez Zed avec l'avertissement, puis l'ours qui charge frappe le voleur resté au nid : « a repris l'œuf », sac vide, l'œuf est de retour dans SON nid (" .. tostring(home and rawget(home, "__props").ObjectText) .. ")", took and notified(z, "a repris l'œuf", sm) and carryOf(z) == 0 and home ~= nil and tostring(rawget(home, "__props").ObjectText):find("Œuf", 1, true) ~= nil)
+				-- voleur déjà à l'abri (place du marché) quand l'alarme sonne : aucune charge, l'œuf reste dans le sac
+				local nestPr2
+				for _ = 1, 40 do
+					for _, o in ipairs(nestPrompts) do
+						if not nestPr2 and o:GetAttribute("Terr") == "zed" and inWorkspace(o) and tostring(rawget(o, "__props").ObjectText):find("Œuf", 1, true) then
+							nestPr2 = o
+						end
+					end
+					if nestPr2 then
+						break
+					end
+					RT.step(2)
+				end
+				if nestPr2 then
+					local p2 = rawget(nestPr2.Parent, "__props").CFrame.Position
+					RT.step(8) -- invulnérabilité et délais passés
+					standAt(z, p2.X, p2.Z)
+					RT.step(0.3)
+					local sm2 = #RT.fired
+					trigger(z, nestPr2)
+					standAt(z, 0, 40)
+					RT.step(3)
+					checkv("Alarme du nid (e2e) : voleur à l'abri avant la charge : l'œuf reste dans le sac, aucune reprise", carryOf(z) == 1 and not notified(z, "a repris l'œuf", sm2))
+				end
+			else
+				checkv("Alarme du nid (e2e) : un œuf est disponible chez Zed", false)
+			end
+			RT.removePlayer(z)
+			RT.step(2)
+		end)()
 
 		-- herse et lanternes animées par le serveur ------------------------------------------------------------------------------------------
 		do
