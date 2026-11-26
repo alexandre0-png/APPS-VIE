@@ -1,5 +1,7 @@
 # Lot 8B-décor : notes d'intégration (fichiers nouveaux, NON intégrés)
 
+> **INTÉGRÉ (lot 8B, 2026-11-26)** : les lignes ci-dessous ont été appliquées (Config, build_place.py, check.py, Main, Builder, Client, tests). État réel et écarts : `LOT8B_ECARTS.md`. Ce document reste comme référence technique.
+
 Branche de worktree `worktree-agent-aaac9677ed96000d0`. Partie « fichiers nouveaux » du branchement des modèles Blender de décor de carte (lots 15, 16, 17 de Assets-crees). **Rien n'a été testé dans Roblox Studio** : placement, budgets, repli et nettoyage sont vérifiés par `tests/run_decor.py` (lupa, Lua 5.x, Roblox simulé) et par l'analyse statique de `check.py`.
 
 ## Fichiers

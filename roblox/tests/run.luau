@@ -2459,7 +2459,8 @@ do
 	end
 	check("Accessoires Blender : 9 modèles (arbre, sapin, rocher, buisson, pont, cabane, barrière, fontaine, nid) avec plafond de Parts et hauteur", props == 9 and propsOk and A.props.nest == 85337440768183 and A.props.fountain == 87696152276058 and A.props.bridge == 72821096584538)
 	check("Budget mobile : pire cas des accessoires de la carte <= " .. A.propsBudgetParts .. " Parts (" .. Config.propsWorstCase() .. ")", Config.propsWorstCase() <= A.propsBudgetParts)
-	check("Budget mobile : avec le décor et les accessoires, la carte reste sous le budget total", 1200 + 600 + Config.propsWorstCase() + 12 * Config.PLOT_COUNT * A.propsMaxParts.nest <= Config.Map.totalBudgetParts)
+	check("Budget mobile : avec le décor, les accessoires, le décor de carte du lot 8B (modèles + repli) et le kiosque, la carte reste sous le budget total (" .. (1200 + 600 + Config.propsWorstCase() + 12 * Config.PLOT_COUNT * A.propsMaxParts.nest + A.decorBudgetParts + A.decorFallbackParts + A.modelsMaxParts["hub.kiosk"]) .. ")",
+		1200 + 600 + Config.propsWorstCase() + 12 * Config.PLOT_COUNT * A.propsMaxParts.nest + A.decorBudgetParts + A.decorFallbackParts + A.modelsMaxParts["hub.kiosk"] <= Config.Map.totalBudgetParts)
 	-- chargement : un seul LoadAsset par modèle, clonage, repli
 	local calls = {}
 	local function heavy(n)
@@ -11437,6 +11438,124 @@ end)()
 	RT.step(3)
 	local r = ds.data.P_9901 and ds.data.P_9901.v
 	check("Sauvegarde : o / ov écrits pour les pets récents, absents pour l'ancien", r ~= nil and type(r.slots) == "table" and r.slots[2].o == nil and r.slots[3].o == 1234 and r.slots[1] and r.slots[1].o == frozen and r.slots[1].ov == 1)
+end)()
+
+-- Lot 8B : suites des trois modules (kiosque, décor de carte, meubles), aussi lançables seules par tests/run_kiosk.py, run_decor.py, run_housedecor.py.
+-- Une table (et non trois variables locales) : limite de 200 variables locales du fichier.
+;(function()
+	local env = { check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end }
+	for _, name in ipairs({ "kiosk", "decor", "housedecor" }) do
+		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
+	end
+end)()
+
+-- Lot 8B : intégration dans le vrai Main.server.lua (runtime factice) : kiosque construit une fois, prompts validés par le serveur, remote Kiosk,
+-- décor de carte posé hors du disque du kiosque, meubles dans la maison, aucune erreur serveur.
+;(function()
+	suite("Lot 8B : intégration (vrai Main.server.lua) : kiosque, décor de carte, meubles des maisons")
+	local T = {} -- état du test dans une table (limite de 200 variables locales)
+	T.RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if not T.RT then
+		return
+	end
+	local RT = T.RT
+	local main = RT.buildTree("roblox/src", false)
+	RT.task.spawn(function()
+		RT.runScript(main)
+	end)
+	RT.step(1)
+	T.cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+	T.hooks = RT.require(RT.services.ServerScriptService:FindFirstChild("Builder")).lot7Hooks
+	local p = RT.addPlayer("K8B", 9902, { from = "hub", partyId = "K8B", size = 2, late = false })
+	RT.step(30) -- la tâche des Assets a le temps de finir (modèles refusés dans le runtime factice : replis)
+	T.world = RT.services.Workspace:FindFirstChild("World")
+	T.kiosks = 0
+	for _, c in ipairs(T.world and T.world:GetChildren() or {}) do
+		if c.Name == "Kiosk" then
+			T.kiosks = T.kiosks + 1
+		end
+	end
+	T.prompts = {}
+	for obj in pairs(RT.tags.KioskPrompt or {}) do
+		local a = obj:GetAttribute("KioskAction")
+		if a and obj.Parent and obj.Parent.Parent and obj.Parent.Parent.Parent == T.world then -- prompts du kiosque en place (les détruits sont ignorés)
+			T.prompts[a] = obj
+		end
+	end
+	check("Kiosque : construit une seule fois dans World (" .. T.kiosks .. ") malgré les deux appels (repli immédiat puis tâche des Assets), 4 prompts", T.kiosks == 1 and T.prompts.shop and T.prompts.calendar and T.prompts.odds and T.prompts.ranking)
+	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+	local K = T.cfg.Map2.kiosk
+	local function kioskFired(from)
+		for i = from, #RT.fired do
+			local f = RT.fired[i]
+			if f[1] == "Kiosk" and f[2] == p then
+				return f[3]
+			end
+		end
+		return nil
+	end
+	if root and T.prompts.odds then
+		rawget(root, "__props").Position = RT.vec(K.x + 60, 3, K.z) -- loin du kiosque : refus silencieux
+		local n0 = #RT.fired + 1
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", T.prompts.odds, p)
+		RT.step(0.7)
+		check("Kiosque : un joueur à 60 studs est refusé par le serveur (aucune réponse)", kioskFired(n0) == nil)
+		rawget(root, "__props").Position = RT.vec(K.x + 5, 3, K.z)
+		n0 = #RT.fired + 1
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", T.prompts.odds, p)
+		RT.step(0.7)
+		local od = kioskFired(n0)
+		check("Kiosque : probabilités et prix envoyés au joueur proche (lignes de texte)", type(od) == "table" and od.panel == "odds" and type(od.lines) == "table" and #od.lines > 0)
+		n0 = #RT.fired + 1
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", T.prompts.ranking, p)
+		RT.step(0.7)
+		local rk = kioskFired(n0)
+		check("Kiosque : classement de la saison (liste, temps restant, mes trophées)", type(rk) == "table" and rk.panel == "ranking" and type(rk.entries) == "table" and type(rk.secondsLeft) == "number" and type(rk.mine) == "table")
+		n0 = #RT.fired + 1
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", T.prompts.calendar, p)
+		RT.step(0.7)
+		local cl = kioskFired(n0)
+		check("Kiosque : calendrier (vue du serveur, pastille calculée)", type(cl) == "table" and cl.panel == "calendar" and type(cl.ready) == "boolean")
+		n0 = #RT.fired + 1
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", T.prompts.shop, p)
+		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", T.prompts.shop, p) -- même instant : pause par joueur
+		RT.step(0.1)
+		local nShop = 0
+		for i = n0, #RT.fired do
+			if RT.fired[i][1] == "Kiosk" and RT.fired[i][2] == p then
+				nShop = nShop + 1
+			end
+		end
+		check("Kiosque : boutique ouverte, un second appui immédiat est ignoré (pause serveur)", nShop == 1)
+	else
+		check("Kiosque : joueur et prompts disponibles pour le test", false)
+	end
+	-- décor de carte : rien dans le disque du kiosque
+	local deco = T.world and T.world:FindFirstChild("BlenderDecor")
+	T.inside, T.items = 0, 0
+	for _, c in ipairs(deco and deco:GetChildren() or {}) do
+		local okP, pv = pcall(function()
+			return c:IsA("Model") and c:GetPivot().Position or c.Position
+		end)
+		if okP and pv then
+			T.items = T.items + 1
+			if math.sqrt((pv.X - K.x) ^ 2 + (pv.Z - K.z) ^ 2) < K.r then
+				T.inside = T.inside + 1
+			end
+		end
+	end
+	check("Décor de carte : dossier World/BlenderDecor posé (" .. T.items .. " exemplaires), aucun dans le disque du kiosque", deco ~= nil and T.items > 0 and T.inside == 0)
+	-- meubles : la maison du joueur reçoit le dossier HouseDecor de son niveau
+	local s = T.hooks.session(p)
+	local house = s and s.plot and s.plot.model and s.plot.model:FindFirstChild("BaseUpgrade")
+	local hd = house and house:FindFirstChild("HouseDecor")
+	check("Meubles : la maison du joueur reçoit son décor intérieur (dossier HouseDecor, repère DecorY/DecorZ posé par Builder)", hd ~= nil and #hd:GetChildren() > 0 and type(house:GetAttribute("DecorY")) == "number" and type(house:GetAttribute("DecorZ")) == "number")
+	RT.removePlayer(p)
+	RT.step(2)
+	check("Lot 8B (intégration) : aucune erreur serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
 end)()
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

@@ -150,14 +150,15 @@ local function offsetOf(config)
 	return out
 end
 
-local function placeItem(folder, houseCF, item, config)
+local function placeItem(folder, houseModel, item, config)
 	local o = offsetOf(config)
-	local cf = houseCF * CFrame.new(o[1] + item.pos[1], o[2] + item.pos[2] + item.size[2] / 2, o[3] + item.pos[3]) * CFrame.Angles(0, math.rad(item.rot or 0), 0)
 	local template = templateOf(item.assetId, config)
-	-- templateOf peut céder la main : un autre appel a pu placer le même objet entre-temps
-	if folder:FindFirstChild(NAME_PREFIX .. item.id) then
+	-- templateOf peut céder la main : un autre appel a pu placer le même objet entre-temps, ou la maison a été démolie (reconstruction)
+	if folder:FindFirstChild(NAME_PREFIX .. item.id) or folder.Parent ~= houseModel then -- Destroy de la maison : le dossier perd son parent
 		return nil
 	end
+	-- repère relu APRÈS le chargement (lot 8B, intégration) : pendant la montée de niveau la maison attend sous le sol puis Builder.finishUpgrade la remet en place
+	local cf = houseModel:GetPivot() * CFrame.new(o[1] + item.pos[1], o[2] + item.pos[2] + item.size[2] / 2, o[3] + item.pos[3]) * CFrame.Angles(0, math.rad(item.rot or 0), 0)
 	if template ~= nil then
 		placeModel(template, item, cf, folder)
 		return "loaded"
@@ -196,10 +197,9 @@ function HouseDecor.apply(houseModel, level, config)
 		end
 	end
 	-- 2) ajout du décor manquant (cumul : les objets des niveaux précédents restent)
-	local houseCF = houseModel:GetPivot()
 	for _, item in ipairs(wanted) do
 		if not have[item.id] then
-			local how = placeItem(folder, houseCF, item, cfg)
+			local how = placeItem(folder, houseModel, item, cfg)
 			if how == "loaded" then
 				report.loaded = report.loaded + 1
 				report.placed = report.placed + 1

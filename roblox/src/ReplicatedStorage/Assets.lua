@@ -374,7 +374,7 @@ function Assets.new(Config, deps)
 	end
 
 	-- Catégorie d'une clé de statut (pour le rapport) : arbres, chemins, protections d'œufs, base, village, pets, œufs, gardiens, décor...
-	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires" }
+	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires", decor = "décor de carte", hub = "kiosque" }
 	function A.categoryOf(key)
 		local grp = key:match("^m:(%a+)%.")
 		if grp then

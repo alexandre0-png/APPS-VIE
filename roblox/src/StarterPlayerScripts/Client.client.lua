@@ -74,6 +74,7 @@ local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:
 local RTop = Remotes:WaitForChild("Top")
 local RHen = Remotes:WaitForChild("Hen")
 local RRaven = Remotes:WaitForChild("Raven") -- Corbeau chipeur (lot 7) : alerte de la victime, liste des cibles
+local RKiosk = Remotes:WaitForChild("Kiosk") -- lot 8B : kiosque central (serveur -> client : panneau à ouvrir, données des cartes)
 local fmt = Config.fmt
 
 local COL = {
@@ -739,12 +740,12 @@ local function avgInc(tier)
 end
 
 local tabsDef = {
-	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
+	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" }, { "pass", "🎟 Passe de combat" } }, -- lot 8B : onglet du passe de combat (contenu au lot 16)
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 	bonus = { { "daily", "🎁 Bonus" }, { "cal", "📅 Calendrier" } }, -- lot 9b : calendrier des œufs sur 30 jours
 }
-local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau" }
+local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau", kiosk = "Kiosque" }
 local ravenData = nil -- dernière liste de cibles reçue du serveur (lot 7)
 local function agoText(at) -- « il y a 5 min » d'après l'heure du serveur
 	local d = math.max(0, workspace:GetServerTimeNow() - (type(at) == "number" and at or 0))
@@ -888,6 +889,10 @@ function render()
 		buy.Activated:Connect(function()
 			RAction:FireServer("buyEgg", sel)
 		end)
+	elseif panel.name == "shop" and panel.tab == "pass" then
+		-- Lot 8B : emplacement du passe de combat (paliers, récompenses et achat arrivent au lot 16) : aucune action, aucun achat possible ici.
+		addRow({ icon = "🎟", title = "Passe de combat", desc = "Bientôt : des paliers de récompenses à débloquer en jouant et en combattant.", btn = "Bientôt", btnColor = COL.dis })
+		addNote("Le passe de combat arrive dans une prochaine mise à jour. Rien n'est vendu pour l'instant.")
 	elseif panel.name == "shop" then
 		for _, u in ipairs(Config.UPGRADES) do
 			local l = state.up[u.key] or 0
@@ -1144,6 +1149,17 @@ function render()
 			addNote("Classé par renaissances puis par œufs éclos.")
 			for i, e in ipairs(topData) do
 				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "🌅 " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
+			end
+		end
+	elseif panel.name == "kiosk" then
+		-- Lot 8B : carte de texte du kiosque central (probabilités et prix, classement de la saison) : lignes déjà mises en forme (voir RKiosk)
+		local info = type(panel.info) == "table" and panel.info or {}
+		titleLbl.Text = type(info.title) == "string" and info.title or titles.kiosk
+		for _, row in ipairs(type(info.rows) == "table" and info.rows or {}) do
+			if type(row) == "table" then
+				addRow({ icon = row.icon, title = row.title, desc = row.desc, titleColor = row.color })
+			elseif type(row) == "string" then
+				addNote(row)
 			end
 		end
 	elseif panel.name == "bonus" and panel.tab == "cal" then
@@ -1930,6 +1946,56 @@ RTop.OnClientEvent:Connect(function(list)
 		renderSoon()
 	end
 end)
+-- Lot 8B : kiosque central. Le serveur a déjà validé la distance et l'action ; ici : ouvrir le panneau existant (boutique, calendrier) ou une carte de texte.
+RKiosk.OnClientEvent:Connect(function(p)
+	if type(p) ~= "table" or not state then
+		return
+	end
+	if p.panel == "shop" then
+		if not (panel and panel.name == "shop") then
+			openPanel("shop")
+		end
+	elseif p.panel == "calendar" then
+		if not (panel and panel.name == "bonus") then
+			openPanel("bonus")
+		end
+		if panel and panel.tab ~= "cal" then
+			setTab("cal") -- la réclamation passe par l'action existante calClaim (RAction), validée par le serveur
+		end
+	elseif p.panel == "odds" or p.panel == "ranking" then
+		local info = { rows = {} }
+		if p.panel == "odds" then
+			info.title = "🎲 Probabilités et prix"
+			table.insert(info.rows, "Chances de chaque rareté au tapis du marché (tapis normal, entre parenthèses le tapis doré), puis prix des œufs. Les mêmes pour tous les joueurs.")
+			for _, line in ipairs(type(p.lines) == "table" and p.lines or {}) do
+				if type(line) == "string" then
+					table.insert(info.rows, "• " .. line)
+				end
+			end
+		else
+			info.title = "🏆 Classement de la saison"
+			local left = type(p.secondsLeft) == "number" and p.secondsLeft or 0
+			table.insert(info.rows, "Saison " .. tostring(p.season or "?") .. " de l'Arène · fin dans " .. Config.fmtTime(left))
+			local entries = type(p.entries) == "table" and p.entries or {}
+			if #entries == 0 then
+				table.insert(info.rows, "Aucun classement pour l'instant : sois le premier à combattre dans l'Arène !")
+			end
+			for i, e in ipairs(entries) do
+				if type(e) == "table" then
+					table.insert(info.rows, { icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = tostring(e.name or "?"), desc = "🏆 " .. fmt(tonumber(e.trophies) or 0) .. " trophées" })
+				end
+			end
+			local mine = p.mine
+			if type(mine) == "table" then
+				table.insert(info.rows, { icon = "⭐", title = "Toi", desc = "🏆 " .. fmt(tonumber(mine.trophies) or 0) .. " trophées · " .. fmt(tonumber(mine.wins) or 0) .. " V / " .. fmt(tonumber(mine.losses) or 0) .. " D", color = COL.yellow })
+			end
+		end
+		playSound("menu")
+		panel = { name = "kiosk", tab = "", confirm = false, info = info }
+		showPanel()
+		render()
+	end
+end)
 
 local shownCoins = coins()
 local function refreshStats()
@@ -2300,14 +2366,15 @@ do
 				end
 				setLoop("blade", nearBlade)
 				setLoop("ball", nearBall)
-				-- lot 10 : tapis du marché (boucle atténuée par la distance au segment du tapis, 40 studs) et étals (ambiance de kiosque, 30 studs)
+				-- lot 10 : tapis du marché (boucle atténuée par la distance au segment du tapis, 40 studs) ; lot 8B : ambiance du kiosque central (30 studs de Config.Map2.kiosk)
 				local M2 = Config.Map2
 				local nearBelt, nearKiosk = 0, 0
 				if not inCastle then
 					local bx = math.min(math.max(p.X, M2.belt.x0), M2.belt.x1)
 					nearBelt = Config.loopFade(math.sqrt((p.X - bx) ^ 2 + (p.Z - M2.belt.z) ^ 2), 40)
-					for _, st in ipairs(M2.stalls) do
-						nearKiosk = math.max(nearKiosk, Config.loopFade(math.sqrt((p.X - st.x) ^ 2 + (p.Z - st.z) ^ 2), 30))
+					local ki = M2.kiosk
+					if ki then
+						nearKiosk = Config.loopFade(math.sqrt((p.X - ki.x) ^ 2 + (p.Z - ki.z) ^ 2), 30)
 					end
 				end
 				setLoop("belt_loop", nearBelt)

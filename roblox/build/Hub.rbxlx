@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX58"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX89"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX88"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX64"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX98"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX97"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -412,7 +412,7 @@ Config.SOUNDS = {
 	plume_ramassee = { id = "rbxassetid://118620801437766", speed = 1.0, vol = 0.55 }, -- ramassage d'une plume dorée
 	poule_glousse = { id = "rbxassetid://125679862476345", speed = 1.0, vol = 0.3 }, -- la Mère Poule parle (chaque page de dialogue), volume bas
 	secret_decouvert = { id = "rbxassetid://119606421875553", speed = 1.0, vol = 0.65 }, -- énigme réussie, secret de la carte, plume cachée repérée
-	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = étals du marché.
+	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = kiosque central (lot 8B, Config.Map2.kiosk).
 	-- Les anciennes clés restent ; Config.SOUND_ALIAS redirige quelques anciennes clés vers les nouveaux sons (sans changer le nom de la clé jouée).
 	atk_ciel = { id = "rbxassetid://111809409022959", speed = 1.0, vol = 0.6 },
 	atk_eau = { id = "rbxassetid://126099928196969", speed = 1.0, vol = 0.6 },
@@ -445,7 +445,7 @@ Config.SOUNDS = {
 	hatch_r9 = { id = "rbxassetid://127058227889279", speed = 1.0, vol = 0.7 },
 	house_levelup = { id = "rbxassetid://110371127961423", speed = 1.0, vol = 0.7 },
 	jackpot_rare = { id = "rbxassetid://90004480091860", speed = 1.0, vol = 0.7 },
-	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.3, loop = true },
+	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.25, loop = true }, -- lot 8B : boucle près du kiosque central (Client, 30 studs de Config.Map2.kiosk)
 	npc_ping = { id = "rbxassetid://79333917653019", speed = 1.0, vol = 0.6 },
 	special_hit = { id = "rbxassetid://86601967046565", speed = 1.0, vol = 0.6 },
 	special_ready = { id = "rbxassetid://131456268494739", speed = 1.0, vol = 0.6 },
@@ -693,9 +693,10 @@ Config.Assets = {
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
 		eggguard = { egg_dome = 114304098897950, egg_nest_fence = 101252453233834, egg_cage = 98653120562597, egg_shield = 73837494094507 },
 		scenery = { scn_puits = 93457733638103, scn_pin_haut = 103664392312435, scn_pont_pierre = 71167399273394, scn_maison_colombages = 108434085196211, scn_tour_cloche = 117760736577913, scn_rocher_a = 109597978140541, scn_rocher_b = 91218401630144, scn_rocher_c = 126837715911422, scn_ile_sakura = 103275800553270 },
+		hub = { kiosk = 90238570290603 }, -- lot 8B : kiosque central de la place (hub_kiosk, clé J.1 hub.kiosk ; Kiosk.lua, repli procédural)
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
-	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
+	modelsMaxParts = { ["hub.kiosk"] = 220, ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
@@ -728,6 +729,9 @@ Config.Assets = {
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700,
 	decoBudgetParts = 420, -- décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ des 1200 Parts procédurales, posé après la carte
+	decorBudgetParts = 1000, -- lot 8B-décor : Parts Blender du décor de carte (lots 15 à 17, Decor.lua), coût MESURÉ, budget SÉPARÉ posé après la carte
+	decorFallbackParts = 240, -- Parts procédurales de repli de ce décor (modèle absent, refusé ou trop lourd)
+	decorOff = {}, -- { famille = true } désactive une famille de DecorData (ex. { conveyor_belt = true, hub_dome = true })
 	reliefBudgetParts = 700, -- falaises, cascades, îlots Blender : budget séparé, posé après la carte
 	-- Arbres Blender (6 variantes) : hauteur cible de chacun (studs) ; variante choisie selon la zone (Placement.treeVariant), échelle ±15 %, rotation libre.
 	treeHeights = { tree_oak_a = 10, tree_oak_b = 10, tree_birch = 10, tree_pine = 11, tree_sakura = 10, tree_round = 8 },
@@ -1991,6 +1995,7 @@ Config.Map2 = {
 	plaza = { x = 0, z = 0, r = 60 }, hall = { x = -40, z = 0, r = 18, h = 30 }, fountain = { x = 10, z = -38, r = 7 },
 	belt = { x0 = -22, x1 = 38, z = 0, width = 8, height = 2, bin = { x = 42, z = 0 } },
 	stalls = { { x = -35, z = 38 }, { x = 5, z = 42 }, { x = 40, z = 36 } },
+	kiosk = { x = 14, z = 22, r = 12 }, -- lot 8B : kiosque central (Kiosk.lua, KioskData.CENTER) ; r = rayon d'exclusion du décor (socle 7,7 + circulation), ambiance kiosk_ambience à 30 studs
 	track = { x = -60, z = -45, w = 16, d = 40 }, -- ancien Treadmill : « Piste d'entraînement » (clé `train` inchangée)
 	portalHub = { x0 = 0, x1 = 40, z = -50, count = 4, gap = 13 },
 	bigEgg = { x = 70, z = -20, r = 22, h = 16 }, hen = { x = 52, z = -28 },
@@ -2344,7 +2349,7 @@ function Config.iconFallback(key)
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2640,7 +2645,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2820,7 +2825,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3166,7 +3171,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3467,7 +3472,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4070,7 +4075,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4495,7 +4500,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4533,7 +4538,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4621,7 +4626,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4684,7 +4689,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -5092,7 +5097,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5156,7 +5161,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5497,7 +5502,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5554,7 +5559,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5666,7 +5671,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -5873,7 +5878,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6092,7 +6097,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -6468,7 +6473,7 @@ function Assets.new(Config, deps)
 	end
 
 	-- Catégorie d'une clé de statut (pour le rapport) : arbres, chemins, protections d'œufs, base, village, pets, œufs, gardiens, décor...
-	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires" }
+	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires", decor = "décor de carte", hub = "kiosque" }
 	function A.categoryOf(key)
 		local grp = key:match("^m:(%a+)%.")
 		if grp then
@@ -6896,7 +6901,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7007,7 +7012,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7211,7 +7216,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -7412,7 +7417,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -7845,7 +7850,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8074,7 +8079,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8138,7 +8143,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -8456,7 +8461,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -8781,7 +8786,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -8939,7 +8944,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9061,7 +9066,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -9447,8 +9452,393 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+-- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
+-- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
+-- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
+local KioskData = {}
+
+KioskData.ASSET_ID = 90238570290603 -- modèle Blender hub_kiosk (clé J.1 : hub.kiosk), 15,4 de large, 12,75 de haut, pieds à 0
+KioskData.ASSET_GROUP, KioskData.ASSET_KEY = "hub", "kiosk" -- Config.Assets.models.hub.kiosk (préchargé et nettoyé par le module Assets)
+KioskData.WIDTH, KioskData.HEIGHT = 15.4, 12.75
+KioskData.RADIUS = 7.7 -- demi-largeur du socle : rayon d'emprise utilisé pour contrôler les obstacles
+KioskData.GROUND_Y = 0.52 -- dessus du dallage de la place (Scenery.plaza : disque à y = 0,42, épaisseur 0,2)
+KioskData.MODEL_NAME = "Kiosk"
+KioskData.MAX_PARTS = 220 -- même plafond que Config.Assets.decorMaxParts ; au-delà le modèle est refusé (repli procédural)
+KioskData.SIZE_TOLERANCE = 0.25 -- largeur mesurée du modèle à +-25 % de WIDTH, sinon mise à l'échelle (une fois) puis refus
+
+-- Emplacement proposé (voir KIOSK_INTEGRATION_NOTES.md pour la vérification des obstacles) : sud-est du centre de la place, hors du tapis (z = 0, largeur 8),
+-- des chemins B3 / B4, de la fontaine (10, -38) et des étals (z >= 36). Le comptoir regarde la halle (-40, 0).
+KioskData.CENTER = { x = 14, z = 22 }
+KioskData.FACE = { x = -40, z = 0 }
+
+-- Les 4 interactions. `part` = nom de base de la pièce du modèle Blender (sans suffixe de couleur) ; `rel` = position locale du panneau dans le
+-- repère du repli procédural (x = droite, z = vers l'arrière ; le comptoir est à z = -R) ; `ang` = rotation locale (rad) du panneau procédural.
+local R = 6.3
+KioskData.PANELS = {
+	{ id = "shop", part = "PanneauBoutique", rel = { x = 0, z = -R }, ang = 0, action = "Ouvrir la boutique", object = "Boutique Robux", emoji = "💎", title = "BOUTIQUE", sub = "Robux et offres", color = { 255, 190, 60 } },
+	{ id = "calendar", part = "PanneauCalendrier", rel = { x = 0, z = R }, ang = 3.14159265, action = "Voir le calendrier", object = "Calendrier des œufs", emoji = "📅", title = "CALENDRIER", sub = "Une récompense par jour", color = { 120, 200, 120 } },
+	{ id = "odds", part = "PanneauProba", rel = { x = R, z = 0 }, ang = -1.5707963, action = "Voir les probabilités", object = "Probabilités et prix", emoji = "🎲", title = "PROBABILITÉS", sub = "Tapis et prix", color = { 120, 170, 255 } },
+	{ id = "ranking", part = "PanneauClassement", rel = { x = -R, z = 0 }, ang = 1.5707963, action = "Voir le classement", object = "Classement de la saison", emoji = "🏆", title = "CLASSEMENT", sub = "Saison de l'Arène", color = { 255, 150, 90 } },
+}
+KioskData.LIGHT_PART = "Lueur" -- lanterne centrale du modèle (reçoit une PointLight si le modèle n'en a pas)
+KioskData.BADGE_NAME = "PastilleCalendrier" -- pastille rouge posée au-dessus du panneau du calendrier
+
+-- Prompts : distance d'activation côté client, portée de contrôle côté serveur (plus large : latence et marche), pause entre deux demandes d'un joueur.
+KioskData.PROMPT = { hold = 0.2, distance = 11, requiresLineOfSight = false }
+KioskData.SERVER_RANGE = 20 -- studs au centre du kiosque ; la validation serveur refuse au-delà
+KioskData.COOLDOWN = 0.6 -- secondes entre deux actions acceptées d'un même joueur
+
+-- Ambiance : kiosk_ambience (son approuvé fourni par la gestion du projet). Boucle, volume bas, atténuation par distance. Config.SOUNDS.kiosk_ambience, si
+-- présent, remplace ces valeurs ; Config.SOUNDS_ENABLED = false : aucun Sound n'est créé.
+KioskData.SOUND = { key = "kiosk_ambience", id = "rbxassetid://82723287691994", vol = 0.25, minDist = 14, maxDist = 75 }
+
+KioskData.ACTIONS = { shop = true, calendar = true, odds = true, ranking = true }
+KioskData.MAX_ENTRIES = 10 -- lignes du classement renvoyées
+
+function KioskData.panel(id)
+	for _, p in ipairs(KioskData.PANELS) do
+		if p.id == id then
+			return p
+		end
+	end
+	return nil
+end
+
+-- Angle (radians, [-pi, pi]) du vecteur (x, z) dans le plan XZ, sans math.atan2 : atan(z / x) corrigé par quadrant.
+function KioskData.angle(x, z)
+	if type(x) ~= "number" or type(z) ~= "number" or x ~= x or z ~= z then
+		return 0
+	end
+	if x == 0 then
+		if z > 0 then
+			return math.pi / 2
+		elseif z < 0 then
+			return -math.pi / 2
+		end
+		return 0
+	end
+	local a = math.atan(z / x)
+	if x < 0 then
+		if z >= 0 then
+			return a + math.pi
+		end
+		return a - math.pi
+	end
+	return a
+end
+
+-- Rotation autour de Y (CFrame.Angles(0, theta, 0)) qui amène le vecteur local (lx, lz) sur la direction (ux, uz). Roblox : Y positif tourne (x, z) en
+-- (x cos + z sin, -x sin + z cos), l'angle du vecteur DIMINUE de theta. Le repli procédural a son comptoir à (0, -1) (local -Z).
+function KioskData.yawFor(lx, lz, ux, uz)
+	if type(lx) ~= "number" or type(lz) ~= "number" or lx ~= lx or lz ~= lz or math.sqrt(lx * lx + lz * lz) < 1e-6 then
+		lx, lz = 0, -1
+	end
+	local theta = KioskData.angle(lx, lz) - KioskData.angle(ux, uz)
+	while theta > math.pi do
+		theta = theta - 2 * math.pi
+	end
+	while theta < -math.pi do
+		theta = theta + 2 * math.pi
+	end
+	return theta
+end
+
+-- Position monde d'un point local (lx, lz) du kiosque de centre (cx, cz) tourné de theta (même convention que yawFor).
+function KioskData.toWorld(cx, cz, theta, lx, lz)
+	local c, s = math.cos(theta), math.sin(theta)
+	return cx + lx * c + lz * s, cz - lx * s + lz * c
+end
+
+-- Le disque (cx, cz, r) chevauche-t-il l'un des obstacles de Config.Map2 ? Retourne (false) ou (true, nom). margin = marge libre exigée (studs).
+-- Obstacles : halle, fontaine, tapis et bac, étals, piste, portails, arrivée des tapis, bord de la place, chemins (distance au segment).
+function KioskData.overlap(Map2, cx, cz, r, margin)
+	margin = margin or 0
+	local function d(ax, az)
+		return math.sqrt((cx - ax) ^ 2 + (cz - az) ^ 2)
+	end
+	local function segDist(ax, az, bx, bz)
+		local dx, dz = bx - ax, bz - az
+		local len2 = dx * dx + dz * dz
+		local t = len2 > 0 and math.max(0, math.min(1, ((cx - ax) * dx + (cz - az) * dz) / len2)) or 0
+		return math.sqrt((cx - (ax + dx * t)) ^ 2 + (cz - (az + dz * t)) ^ 2)
+	end
+	local function rect(x0, x1, z0, z1)
+		local nx, nz = math.max(x0, math.min(cx, x1)), math.max(z0, math.min(cz, z1))
+		return math.sqrt((cx - nx) ^ 2 + (cz - nz) ^ 2)
+	end
+	local pl = Map2.plaza
+	if d(pl.x, pl.z) + r + margin > pl.r then
+		return true, "bord de la place"
+	end
+	if d(Map2.hall.x, Map2.hall.z) < Map2.hall.r + r + margin then
+		return true, "halle"
+	end
+	if d(Map2.fountain.x, Map2.fountain.z) < Map2.fountain.r + r + margin then
+		return true, "fontaine"
+	end
+	local b = Map2.belt
+	if rect(b.x0, b.x1, b.z - b.width / 2, b.z + b.width / 2) < r + margin then
+		return true, "tapis"
+	end
+	if d(b.bin.x, b.bin.z) < 6 + r + margin then
+		return true, "bac du tapis"
+	end
+	for _, st in ipairs(Map2.stalls) do
+		if rect(st.x - 5.5, st.x + 5.5, st.z - 4.3, st.z + 4.3) < r + margin then
+			return true, "étal"
+		end
+	end
+	local tk = Map2.track
+	if rect(tk.x - tk.w / 2, tk.x + tk.w / 2, tk.z - tk.d / 2, tk.z + tk.d / 2) < r + margin then
+		return true, "piste d'entraînement"
+	end
+	local ph = Map2.portalHub
+	if rect(ph.x0 - 6, ph.x1 + 6, ph.z - 6, ph.z + 6) < r + margin then
+		return true, "portails"
+	end
+	if d(Map2.plazaArrival.x, Map2.plazaArrival.z) < 4 + r + margin then
+		return true, "arrivée des tapis"
+	end
+	for _, p in ipairs(Map2.paths) do
+		if p.kind == "paved" and p.pts[1][1] == 0 and p.pts[1][2] == 0 then -- routes qui partent du centre de la place (B1 à B5)
+			for k = 1, #p.pts - 1 do
+				if segDist(p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2]) < Map2.pathHalf + r + margin then
+					return true, "chemin " .. tostring(p.name)
+				end
+			end
+		end
+	end
+	return false
+end
+
+return KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+-- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
+-- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
+-- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
+-- Les modèles déjà branchés AILLEURS ne sont PAS repris ici (voir `wired`) : maisons house.l2..l7 (Config.Assets.models.house), arbres lot 11
+-- (models.trees), décor de village lot 12 (models.scenery). Les 12 modèles du lot 17 sont de NOUVELLES variétés qui s'ajoutent sans les remplacer.
+--
+-- Champs d'une famille :
+--   id        identifiant InsertService du modèle (entier > 0) ; lot = lot de Assets-crees ; cap = plafond de Parts accepté au chargement
+--   zone      règle de pose : "plazaRim" (couronne de la place du marché), "stallSide" (autour des étals), "region" (rectangle de la carte),
+--             "pathSide" (le long des chemins pavés), "pathSign" (premier point d'un chemin hors de la place, avec libellé), "lakeShore",
+--             "lakeWater", "lakeIsle", et les ANCRES "hall", "bigEgg", "arena", "belt" (superpositions d'un élément procédural existant)
+--   count     nombre d'exemplaires voulus ; height | length = taille cible en studs (length = plus grande arête horizontale) ; r = rayon d'empreinte
+--   share     part maximale du budget Blender (0..1) que la famille peut consommer ; fb = repli procédural { name, ... } ou nil (ancres : le procédural existe déjà)
+--   fbMax     nombre maximal d'exemplaires de repli procédural pour la famille
+local DecorData = {}
+
+DecorData.version = 1
+DecorData.keyPrefix = "m:decor." -- clé de statut Assets : "m:decor.<famille>" (rapport F3 : catégorie « decor »)
+
+-- Budgets (Parts). `blender` = pire cas réel des modèles posés (coût MESURÉ au chargement, pas le plafond) ; `fallback` = Parts procédurales de repli.
+-- Surchargés par Config.Assets.decorBudgetParts / decorFallbackParts. Somme <= 1240 : la carte reste sous Config.Map.totalBudgetParts (7000) (marge mesurée : 7000 - 4990 = 2010 dans le calcul de tests/run.luau).
+DecorData.budget = { blender = 1000, fallback = 240 }
+
+-- Kiosque central (autre mission) : disque réservé au centre de la place, rien n'y est posé. Surchargé par Config.Map2.kiosk ou Config.KIOSK ({ x, z, r }).
+-- Mesure du modèle hub_kiosk : socle de diamètre 15,4 -> rayon 7,7 ; marge de circulation comprise.
+DecorData.kiosk = { x = 0, z = 0, r = 12 }
+
+-- Emprises déjà posées par Builder.dressArena (bancs et lampadaires de la place, positions fixes) : { x, z, r }.
+DecorData.existing = {
+	{ -20, -28, 3 }, { 20, 24, 3 }, { -18, 26, 3 }, { 48, 18, 3 }, -- props.bench
+	{ 30, -22, 2.5 }, { -12, -42, 2.5 }, { -52, 22, 2.5 }, { 54, 8, 2.5 }, -- props.lamp
+}
+
+-- Fixtures de la place du marché (rayons d'exclusion, studs) ajoutés à ceux lus dans Config.Map2 (fontaine, halle, étals, tapis, bac, piste, portails, arrivée,
+-- enclos de la poule, Grand Œuf, arches des bases, secrets). Marge de circulation autour de chaque élément.
+DecorData.plaza = {
+	fountainMargin = 4, hallMargin = 4, stallRadius = 8.5, portalPad = 8, arrivalRadius = 7, henRadius = 6, runeRadius = 5, archRadius = 8, secretRadius = 14,
+	beltPad = { x0 = 3, x1 = 8, z0 = 14, z1 = 8 }, -- rectangle du tapis : x0 - x0pad .. bin.x + x1pad ; z : -(width/2 + z0) .. width/2 + z1 (panneau du tapis au nord)
+	trackPad = 5,
+}
+
+-- Modèles déjà branchés ailleurs (NE PAS les poser ici) : clé Config.Assets.models.<groupe>.<clé> pour chaque modèle des lots 15 à 17 concerné.
+DecorData.wired = {
+	house_lvl2 = "house.l2", house_lvl3 = "house.l3", house_lvl4 = "house.l4", house_lvl5 = "house.l5", house_lvl6 = "house.l6", house_lvl7 = "house.l7",
+}
+
+-- Libellés des panneaux (sign_base est livré SANS lettrage : le texte est ajouté par le code), par chemin de Config.Map2.paths.
+DecorData.signLabels = {
+	B1 = "🏠 Base 1", B2 = "🏠 Base 2", B3 = "🏠 Base 3", B4 = "🏠 Base 4", B5 = "🏠 Base 5",
+	Castle = "🏰 Château", Arena = "⚔️ Arène", MillLake = "🎣 Lac du Moulin",
+}
+DecorData.signPaths = { "B1", "B2", "B3", "B4", "B5", "Castle", "Arena", "MillLake" }
+
+-- Ordre de pose = priorité sur le budget (les ancres d'abord : elles remplacent des éléments déjà là).
+DecorData.order = {
+	"hub_dome", "grand_oeuf", "arena_colosseum", "conveyor_belt",
+	"stall_a", "stall_b", "flag_banner", "lantern_post", "crate_stack", "barrel_pair", "hay_bale", "well_small", "bush_round", "sign_base",
+	"island_sakura", "lily_pad", "reeds",
+	"bench_park", "flowerbed", "well_roofed", "boulder_cluster",
+	"tree_wide", "tree_autumn", "tree_fork", "tree_pine_tier", "tree_dead", "stump_roots", "log_hollow",
+}
+
+local function rect(x0, x1, z0, z1)
+	return { x0 = x0, x1 = x1, z0 = z0, z1 = z1 }
+end
+
+local F = {}
+DecorData.families = F
+
+---------------------------------------------------------------- Lot 15 : ancres (superpositions d'éléments procéduraux, repli = l'élément procédural reste)
+-- Dôme du hall : 60 x 60 x 24,4 ramené à la largeur du hall (2 r + 2) et posé sur les 8 piliers (haut 15). Masque les gradins procéduraux HallDome / HallDomeTop.
+F.hub_dome = { id = 106786001814640, lot = 15, cap = 250, zone = "hall", y0 = 15, spanPad = 2, share = 0.25, hide = { "HallDome", "HallDomeTop" }, dims = { 60, 24.4, 60 } }
+-- Grand Œuf : 13,6 x 15,7 ; hauteur du Grand Œuf de la carte (Map2.bigEgg.h), posé sur la marche du monument (y 2,1) ; masque la Part GrandNid (lumière et étincelles restent).
+F.grand_oeuf = { id = 140225439366673, lot = 15, cap = 150, zone = "bigEgg", y0 = 2.1, share = 0.15, hide = { "GrandNid" }, dims = { 13.6, 15.7, 13.6 } }
+-- Colisée : 70,8 x 21 ramené au diamètre de l'arène (2 r), devant tourné vers l'entrée ; masque ArenaWall et ArenaSteps (les murs procéduraux gardent la collision).
+F.arena_colosseum = { id = 105443469311651, lot = 15, cap = 300, zone = "arena", y0 = 0, share = 0.30, hide = { "ArenaWall", "ArenaSteps" }, dims = { 70.8, 21, 70.8 } }
+-- Tapis roulant : tuiles de 12 x 4,1 x 1,5 (long axe X) posées en `lanes` rangées sur la longueur du tapis, + conveyor_end à l'extrémité (côté bac). Hauteur du dessus
+-- <= topY (sous le centre des œufs : Main.BELT_Y = 3, œuf de 3 de haut -> dessous à 1,5). TOUT OU RIEN : si le coût total dépasse la part, le tapis procédural reste.
+-- Masque CentralBelt, BeltRail, BeltMark. Les dimensions de conveyor_end ne sont pas données par la spec : mêmes que la tuile (à vérifier dans Studio).
+F.conveyor_belt = { id = 110718997928428, lot = 15, cap = 60, zone = "belt", topY = 1.3, share = 0.25, hide = { "CentralBelt", "BeltRail", "BeltMark" }, dims = { 12, 1.5, 4.1 }, endKey = "conveyor_end" }
+F.conveyor_end = { id = 107430030694559, lot = 15, cap = 60, zone = "beltEnd", share = 0, dims = { 12, 1.5, 4.1 } }
+
+---------------------------------------------------------------- Lot 16 : accessoires de marché
+-- Étals décoratifs (sans fonction de jeu) en couronne de la place, de face vers le centre ; les 3 étals interactifs procéduraux restent intacts.
+F.stall_a = { id = 121243958605530, lot = 16, cap = 90, zone = "plazaRim", ring = { 30, 53 }, count = 1, height = 8, r = 6, gap = 2, share = 0.08, fb = { name = "stall", awning = { 214, 90, 80 } }, fbMax = 2 }
+F.stall_b = { id = 94658977878853, lot = 16, cap = 90, zone = "plazaRim", ring = { 30, 53 }, count = 1, height = 8, r = 6, gap = 2, share = 0.08, fb = { name = "stall", awning = { 90, 160, 214 } }, fbMax = 2 }
+F.flag_banner = { id = 72351168707999, lot = 16, cap = 40, zone = "plazaRim", ring = { 40, 57 }, count = 6, height = 7, r = 1.6, gap = 6, share = 0.05, fb = { name = "flag" }, fbMax = 6 }
+F.lantern_post = { id = 116378599429951, lot = 16, cap = 40, zone = "plazaRim", ring = { 30, 56 }, count = 6, height = 6.5, r = 1.4, gap = 8, share = 0.05, fb = { name = "lantern" }, fbMax = 6 }
+-- Accessoires qui s'agglutinent autour des étals (décoratifs et procéduraux) : « satellites ».
+F.crate_stack = { id = 72797022625881, lot = 16, cap = 30, zone = "stallSide", offset = { 10.5, 13 }, count = 4, height = 2.6, r = 1.8, gap = 1, share = 0.04, fb = { name = "crates" }, fbMax = 4 }
+F.barrel_pair = { id = 102360413338352, lot = 16, cap = 30, zone = "stallSide", offset = { 10.5, 13 }, count = 3, height = 2.4, r = 1.8, gap = 1, share = 0.04, fb = { name = "barrels" }, fbMax = 3 }
+F.hay_bale = { id = 99760241706274, lot = 16, cap = 20, zone = "stallSide", offset = { 10.5, 13.5 }, count = 4, height = 2.2, r = 1.6, gap = 1, share = 0.04, fb = { name = "hay" }, fbMax = 4 }
+F.well_small = { id = 140033477297106, lot = 16, cap = 60, zone = "plazaRim", ring = { 30, 50 }, count = 1, height = 4.5, r = 2.6, gap = 3, share = 0.04, fb = { name = "well" }, fbMax = 1 }
+-- lot 8B (intégration) : 3 buissons (et non 4) : avec le kiosque réel (14, 22, r 12) et le tapis Blender, la couronne n'offre que 3 places libres.
+F.bush_round = { id = 72736930746142, lot = 16, cap = 25, zone = "plazaRim", ring = { 28, 57 }, count = 3, height = 2.4, r = 1.8, gap = 3, share = 0.04, fb = { name = "bush" }, fbMax = 4 }
+-- Panneaux (livrés sans lettrage) : au premier point de chaque chemin hors de la place ; le libellé vient de `signLabels` (BillboardGui ajouté par le code).
+F.sign_base = { id = 121260374584222, lot = 16, cap = 30, zone = "pathSign", signAfter = 66, count = 8, height = 4.5, r = 1.5, gap = 3, share = 0.04, fb = { name = "sign" }, fbMax = 8 }
+-- Îlot de sakura au centre de chaque lac, à l'opposé du ponton ; nénuphars sur l'eau, roseaux sur la rive de sable.
+F.island_sakura = { id = 77134124755209, lot = 17, cap = 220, zone = "lakeIsle", length = 16, r = 9, gap = 1, count = 2, y0 = 0.3, share = 0.12, fb = { name = "isle" }, fbMax = 2 }
+F.lily_pad = { id = 108143670859973, lot = 16, cap = 12, zone = "lakeWater", length = 1.6, r = 1.2, gap = 1.5, count = 14, y0 = 0.94, share = 0.04, fb = { name = "lily" }, fbMax = 14 }
+F.reeds = { id = 83409451845816, lot = 16, cap = 20, zone = "lakeShore", height = 4, r = 1.2, gap = 3, count = 14, y0 = 0.3, share = 0.05, fb = { name = "reeds" }, fbMax = 14 }
+
+---------------------------------------------------------------- Lot 17 : décor de carte (nouvelles variétés)
+F.bench_park = { id = 71149096082627, lot = 17, cap = 40, zone = "pathSide", pathMinPlaza = 72, step = 46, offset = 4, count = 6, height = 2.5, r = 2.2, gap = 4, share = 0.05, fb = { name = "bench" }, fbMax = 6 }
+F.flowerbed = { id = 136250950680925, lot = 17, cap = 40, zone = "pathSide", pathMinPlaza = 70, step = 58, offset = 6, count = 6, height = 1.2, r = 2.6, gap = 3, share = 0.05, fb = { name = "flowerbed" }, fbMax = 6 }
+F.well_roofed = { id = 77148661041685, lot = 17, cap = 120, zone = "region", region = rect(-330, 330, -215, 215), minPlaza = 85, count = 2, height = 8, r = 3.5, gap = 6, share = 0.06, fb = { name = "well" }, fbMax = 2 }
+F.boulder_cluster = { id = 94606784141362, lot = 17, cap = 40, zone = "region", region = rect(-330, 330, -215, 215), minPlaza = 85, count = 5, length = 9, r = 5, gap = 4, share = 0.06, fb = { name = "rock" }, fbMax = 5 }
+F.tree_wide = { id = 86295807080862, lot = 17, cap = 120, zone = "region", region = rect(-330, 330, -215, 215), minPlaza = 95, count = 5, height = 11, r = 5, gap = 4, share = 0.1, fb = { name = "tree", trunk = { 110, 76, 46 }, leaf = { 84, 150, 70 }, shape = "ball" }, fbMax = 5 }
+F.tree_autumn = { id = 139640609512190, lot = 17, cap = 120, zone = "region", region = rect(-330, -90, -20, 215), minPlaza = 95, count = 5, height = 10, r = 4, gap = 4, share = 0.1, fb = { name = "tree", trunk = { 100, 70, 44 }, leaf = { 214, 120, 44 }, shape = "ball" }, fbMax = 5 }
+F.tree_fork = { id = 134023676934024, lot = 17, cap = 120, zone = "region", region = rect(90, 330, 60, 215), minPlaza = 95, count = 4, height = 10, r = 4, gap = 4, share = 0.08, fb = { name = "tree", trunk = { 96, 68, 44 }, leaf = { 96, 160, 84 }, shape = "ball" }, fbMax = 4 }
+F.tree_pine_tier = { id = 89102403219316, lot = 17, cap = 120, zone = "region", region = rect(-330, 200, -250, -215), minPlaza = 95, count = 6, height = 14, r = 3.5, gap = 3, share = 0.1, fb = { name = "tree", trunk = { 92, 64, 40 }, leaf = { 40, 110, 72 }, shape = "cone" }, fbMax = 6 }
+F.tree_dead = { id = 110319726621538, lot = 17, cap = 80, zone = "region", region = rect(150, 340, -250, -120), minPlaza = 95, count = 4, height = 9, r = 3, gap = 4, share = 0.06, fb = { name = "tree", trunk = { 84, 70, 60 }, shape = "none" }, fbMax = 4 }
+F.stump_roots = { id = 77105687594948, lot = 17, cap = 40, zone = "region", region = rect(-340, 340, -240, 240), minPlaza = 95, count = 6, height = 2.2, r = 2.6, gap = 3, share = 0.04, fb = { name = "stump" }, fbMax = 6 }
+F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", region = rect(-340, 340, -240, 240), minPlaza = 95, count = 4, length = 6, r = 3.2, gap = 3, share = 0.04, fb = { name = "log" }, fbMax = 4 }
+
+---------------------------------------------------------------- Modèles inutilisés ici (documentés)
+-- lots 18 et 19 (petits objets et gros meubles de maison) : intérieurs de maison, pas du décor de carte (autre mission).
+-- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
+
+return DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+-- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
+-- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
+--
+-- Conventions (repère de la maison, studs) :
+--   pos  = centre du BAS de l'objet : x (droite), y (hauteur au-dessus du sol, 0 = sol ou plan de travail), z (avant) ; origine = centre de la maison au sol.
+--   size = taille cible {x, y, z} ; y = hauteur. Pour un Cylinder, size = {diamètre, hauteur, diamètre}.
+--   rot  = rotation autour de l'axe Y, en degrés (0 à 359).
+--   flat = objet posé à plat (tapis) : exclu du contrôle de chevauchement.
+--   parts = BUDGET réservé à l'objet une fois le modèle chargé (estimation, à mesurer dans Studio). Somme par maison <= PARTS_BUDGET.
+--   fallback = repli procédural : UNE Part (forme simple), couleur et matière. Utilisé si LoadAsset échoue ou si les modèles sont désactivés.
+-- Limite de position : |x| et |z| restent dans REACH (plus petite maison : 52 studs, marge de 8 studs pour les murs).
+local HouseDecorData = {}
+
+HouseDecorData.LEVEL_COUNT = 8 -- = #Config.BASE_LEVELS2
+HouseDecorData.MAX_NEW_PER_LEVEL = 12 -- au plus ~12 objets nouveaux par niveau
+HouseDecorData.PARTS_BUDGET = 150 -- Parts totales par maison (tous niveaux)
+HouseDecorData.REACH = 18 -- demi-emprise utile autour du centre de la maison (studs)
+HouseDecorData.FALLBACK_PARTS = 1 -- une seule Part par repli procédural
+
+-- LEVELS[n] = objets DÉBLOQUÉS au niveau n (nouveaux à ce niveau). Le décor total d'un niveau = unlocked(n).
+HouseDecorData.LEVELS = {
+	-- 1 : Enclos de bois
+	{
+		{ id = "plant_pot_a", name = "Pot de plante A", assetId = 86148706778494, size = { 2.2, 2.4, 2.2 }, pos = { -16, 0, 2 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 178, 96, 60 }, material = "SmoothPlastic" } },
+		{ id = "rug_round", name = "Tapis rond", assetId = 90438557881098, size = { 8, 0.2, 8 }, pos = { 0, 0, 0 }, rot = 0, flat = true, parts = 4, fallback = { shape = "Cylinder", color = { 170, 60, 70 }, material = "Fabric" } },
+		{ id = "stool_side", name = "Tabouret", assetId = 134719337565962, size = { 2.2, 2.5, 2.2 }, pos = { 4, 0, 4 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 140, 95, 60 }, material = "Wood" } },
+	},
+	-- 2 : Chalet du Couvoir
+	{
+		{ id = "plant_pot_b", name = "Pot de plante B", assetId = 121510089986414, size = { 2, 2, 2 }, pos = { 17, 0, -10 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 230, 225, 215 }, material = "SmoothPlastic" } },
+		{ id = "books_stack", name = "Pile de livres", assetId = 75235784527086, size = { 3, 2, 2 }, pos = { -16, 0, -7 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 120, 70, 60 }, material = "Wood" } },
+		{ id = "coffee_table_round", name = "Table basse ronde", assetId = 112871489043894, size = { 4, 2.5, 4 }, pos = { 0, 0, 0 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 110, 75, 50 }, material = "Wood" } },
+	},
+	-- 3 : Maison-Tour (alarme)
+	{
+		{ id = "wall_lamp", name = "Applique murale", assetId = 73563604591192, size = { 1, 2, 1 }, pos = { -14, 6, -13.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 255, 220, 140 }, material = "SmoothPlastic" } },
+		{ id = "clock_wall", name = "Horloge murale", assetId = 95777609232622, size = { 2.5, 2.5, 0.5 }, pos = { 0, 8, -13.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 245, 240, 225 }, material = "SmoothPlastic" } },
+		{ id = "vase_big", name = "Grand vase", assetId = 123819297063677, size = { 2, 4, 2 }, pos = { -4, 0, -6 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 60, 120, 170 }, material = "SmoothPlastic" } },
+	},
+	-- 4 : Maison à l'auvent
+	{
+		{ id = "bed_double", name = "Lit double", assetId = 73424212171108, size = { 6, 3, 8 }, pos = { -8, 0, 6 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 140, 90, 60 }, material = "Wood" } },
+		{ id = "speaker_pair", name = "Paire d'enceintes", assetId = 120384220519044, size = { 3, 3, 2 }, pos = { 14, 0, 10 }, rot = 270, parts = 4, fallback = { shape = "Block", color = { 35, 35, 40 }, material = "Metal" } },
+		{ id = "branch_chandelier", name = "Lustre en branches", assetId = 81736669133938, size = { 5, 4, 5 }, pos = { 0, 11, 0 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 200, 170, 90 }, material = "Metal" } },
+	},
+	-- 5 : Maison au garage (chien de garde)
+	{
+		{ id = "kitchen_run", name = "Plan de cuisine", assetId = 79053277599844, size = { 8, 4, 2.5 }, pos = { -7, 0, -12.5 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 235, 235, 240 }, material = "SmoothPlastic" } },
+		{ id = "dining_set", name = "Table à manger", assetId = 104316845432310, size = { 7, 3, 5 }, pos = { 6, 0, 8 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 150, 100, 70 }, material = "Wood" } },
+		{ id = "coffee_maker", name = "Cafetière", assetId = 112911908053394, size = { 1.5, 2, 1.5 }, pos = { -9, 4, -12.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 60, 60, 65 }, material = "SmoothPlastic" } },
+		{ id = "toaster", name = "Grille-pain", assetId = 139790299453025, size = { 1.2, 1.2, 1.5 }, pos = { -5, 4, -12.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 200, 40, 40 }, material = "SmoothPlastic" } },
+	},
+	-- 6 : Villa moderne
+	{
+		{ id = "sofa_corner", name = "Canapé d'angle", assetId = 107495439971094, size = { 8, 3, 4 }, pos = { 8, 0, -3 }, rot = 180, parts = 8, fallback = { shape = "Block", color = { 90, 110, 150 }, material = "Fabric" } },
+		{ id = "tv_unit_stepped", name = "Meuble TV", assetId = 108277232894442, size = { 6, 2, 1.5 }, pos = { -15, 0, 8 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 30, 30, 35 }, material = "SmoothPlastic" } },
+		{ id = "kitchen_upper", name = "Meubles hauts de cuisine", assetId = 111169784434252, size = { 8, 3, 1.5 }, pos = { -7, 6.5, -13.5 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 235, 235, 240 }, material = "SmoothPlastic" } },
+	},
+	-- 7 : Grande villa (Lot de gros meubles de bureau et de rangement)
+	{
+		{ id = "fridge_big", name = "Grand réfrigérateur", assetId = 131419976234083, size = { 3.5, 6.5, 3 }, pos = { -15, 0, -11 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 230, 235, 240 }, material = "SmoothPlastic" } },
+		{ id = "desk_study", name = "Bureau d'étude", assetId = 102305030833988, size = { 5, 3, 2.5 }, pos = { 14, 0, 2 }, rot = 180, parts = 8, fallback = { shape = "Block", color = { 120, 85, 55 }, material = "Wood" } },
+		{ id = "shelf_drawers", name = "Étagère à tiroirs", assetId = 139964774272115, size = { 5, 4, 2 }, pos = { 15, 0, -7 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 130, 95, 65 }, material = "Wood" } },
+	},
+	-- 8 : Château doré
+	{
+		{ id = "wardrobe_tall", name = "Grande armoire", assetId = 117500900219054, size = { 5, 8, 2.5 }, pos = { 10, 0, -12.5 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 110, 80, 55 }, material = "Wood" } },
+		{ id = "oven_stove", name = "Four et plaque", assetId = 87903538253499, size = { 2.5, 3, 3 }, pos = { -15, 0, -4 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 50, 50, 55 }, material = "Metal" } },
+	},
+}
+
+-- Décor TOTAL d'un niveau (cumul des niveaux 1..n), dans l'ordre de déblocage. Niveau hors 1..LEVEL_COUNT : borné ; non-nombre : niveau 1.
+function HouseDecorData.unlocked(level)
+	local n = 1
+	if type(level) == "number" and level == level then
+		n = math.floor(level)
+	end
+	if n < 1 then
+		n = 1
+	end
+	if n > HouseDecorData.LEVEL_COUNT then
+		n = HouseDecorData.LEVEL_COUNT
+	end
+	local out = {}
+	for l = 1, n do
+		for _, item in ipairs(HouseDecorData.LEVELS[l]) do
+			out[#out + 1] = item
+		end
+	end
+	return out
+end
+
+-- Budget de Parts (somme de `parts`) du décor cumulé d'un niveau.
+function HouseDecorData.budget(level)
+	local total = 0
+	for _, item in ipairs(HouseDecorData.unlocked(level)) do
+		total = total + item.parts
+	end
+	return total
+end
+
+return HouseDecorData
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX92"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX90"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX101"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX99"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -9803,7 +10193,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -10192,7 +10582,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX95"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX94"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX93"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX104"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX103"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX102"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

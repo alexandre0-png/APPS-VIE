@@ -328,7 +328,7 @@ def _walk(node, expr, aliases, game_root):
             cur = nxt
     return cur, expr
 
-RUNTIME_CREATED = {"Remotes", "State", "Notify", "Hatch", "Action", "Top", "HubRemote", "ReplayCinematic"}
+RUNTIME_CREATED = {"Remotes", "State", "Notify", "Hatch", "Action", "Top", "HubRemote", "ReplayCinematic", "Kiosk"}
 for proj in ("default.project.json", "game.project.json", "hub.project.json"):
     try:
         data = json.load(open(os.path.join(ROOT, proj), encoding="utf-8"))

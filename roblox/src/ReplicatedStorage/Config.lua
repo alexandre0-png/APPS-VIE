@@ -408,7 +408,7 @@ Config.SOUNDS = {
 	plume_ramassee = { id = "rbxassetid://118620801437766", speed = 1.0, vol = 0.55 }, -- ramassage d'une plume dorée
 	poule_glousse = { id = "rbxassetid://125679862476345", speed = 1.0, vol = 0.3 }, -- la Mère Poule parle (chaque page de dialogue), volume bas
 	secret_decouvert = { id = "rbxassetid://119606421875553", speed = 1.0, vol = 0.65 }, -- énigme réussie, secret de la carte, plume cachée repérée
-	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = étals du marché.
+	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = kiosque central (lot 8B, Config.Map2.kiosk).
 	-- Les anciennes clés restent ; Config.SOUND_ALIAS redirige quelques anciennes clés vers les nouveaux sons (sans changer le nom de la clé jouée).
 	atk_ciel = { id = "rbxassetid://111809409022959", speed = 1.0, vol = 0.6 },
 	atk_eau = { id = "rbxassetid://126099928196969", speed = 1.0, vol = 0.6 },
@@ -441,7 +441,7 @@ Config.SOUNDS = {
 	hatch_r9 = { id = "rbxassetid://127058227889279", speed = 1.0, vol = 0.7 },
 	house_levelup = { id = "rbxassetid://110371127961423", speed = 1.0, vol = 0.7 },
 	jackpot_rare = { id = "rbxassetid://90004480091860", speed = 1.0, vol = 0.7 },
-	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.3, loop = true },
+	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.25, loop = true }, -- lot 8B : boucle près du kiosque central (Client, 30 studs de Config.Map2.kiosk)
 	npc_ping = { id = "rbxassetid://79333917653019", speed = 1.0, vol = 0.6 },
 	special_hit = { id = "rbxassetid://86601967046565", speed = 1.0, vol = 0.6 },
 	special_ready = { id = "rbxassetid://131456268494739", speed = 1.0, vol = 0.6 },
@@ -689,9 +689,10 @@ Config.Assets = {
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
 		eggguard = { egg_dome = 114304098897950, egg_nest_fence = 101252453233834, egg_cage = 98653120562597, egg_shield = 73837494094507 },
 		scenery = { scn_puits = 93457733638103, scn_pin_haut = 103664392312435, scn_pont_pierre = 71167399273394, scn_maison_colombages = 108434085196211, scn_tour_cloche = 117760736577913, scn_rocher_a = 109597978140541, scn_rocher_b = 91218401630144, scn_rocher_c = 126837715911422, scn_ile_sakura = 103275800553270 },
+		hub = { kiosk = 90238570290603 }, -- lot 8B : kiosque central de la place (hub_kiosk, clé J.1 hub.kiosk ; Kiosk.lua, repli procédural)
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
-	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
+	modelsMaxParts = { ["hub.kiosk"] = 220, ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
@@ -724,6 +725,9 @@ Config.Assets = {
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700,
 	decoBudgetParts = 420, -- décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ des 1200 Parts procédurales, posé après la carte
+	decorBudgetParts = 1000, -- lot 8B-décor : Parts Blender du décor de carte (lots 15 à 17, Decor.lua), coût MESURÉ, budget SÉPARÉ posé après la carte
+	decorFallbackParts = 240, -- Parts procédurales de repli de ce décor (modèle absent, refusé ou trop lourd)
+	decorOff = {}, -- { famille = true } désactive une famille de DecorData (ex. { conveyor_belt = true, hub_dome = true })
 	reliefBudgetParts = 700, -- falaises, cascades, îlots Blender : budget séparé, posé après la carte
 	-- Arbres Blender (6 variantes) : hauteur cible de chacun (studs) ; variante choisie selon la zone (Placement.treeVariant), échelle ±15 %, rotation libre.
 	treeHeights = { tree_oak_a = 10, tree_oak_b = 10, tree_birch = 10, tree_pine = 11, tree_sakura = 10, tree_round = 8 },
@@ -1987,6 +1991,7 @@ Config.Map2 = {
 	plaza = { x = 0, z = 0, r = 60 }, hall = { x = -40, z = 0, r = 18, h = 30 }, fountain = { x = 10, z = -38, r = 7 },
 	belt = { x0 = -22, x1 = 38, z = 0, width = 8, height = 2, bin = { x = 42, z = 0 } },
 	stalls = { { x = -35, z = 38 }, { x = 5, z = 42 }, { x = 40, z = 36 } },
+	kiosk = { x = 14, z = 22, r = 12 }, -- lot 8B : kiosque central (Kiosk.lua, KioskData.CENTER) ; r = rayon d'exclusion du décor (socle 7,7 + circulation), ambiance kiosk_ambience à 30 studs
 	track = { x = -60, z = -45, w = 16, d = 40 }, -- ancien Treadmill : « Piste d'entraînement » (clé `train` inchangée)
 	portalHub = { x0 = 0, x1 = 40, z = -50, count = 4, gap = 13 },
 	bigEgg = { x = 70, z = -20, r = 22, h = 16 }, hen = { x = 52, z = -28 },

@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX31"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX30"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX34"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX33"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -412,7 +412,7 @@ Config.SOUNDS = {
 	plume_ramassee = { id = "rbxassetid://118620801437766", speed = 1.0, vol = 0.55 }, -- ramassage d'une plume dorée
 	poule_glousse = { id = "rbxassetid://125679862476345", speed = 1.0, vol = 0.3 }, -- la Mère Poule parle (chaque page de dialogue), volume bas
 	secret_decouvert = { id = "rbxassetid://119606421875553", speed = 1.0, vol = 0.65 }, -- énigme réussie, secret de la carte, plume cachée repérée
-	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = étals du marché.
+	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = kiosque central (lot 8B, Config.Map2.kiosk).
 	-- Les anciennes clés restent ; Config.SOUND_ALIAS redirige quelques anciennes clés vers les nouveaux sons (sans changer le nom de la clé jouée).
 	atk_ciel = { id = "rbxassetid://111809409022959", speed = 1.0, vol = 0.6 },
 	atk_eau = { id = "rbxassetid://126099928196969", speed = 1.0, vol = 0.6 },
@@ -445,7 +445,7 @@ Config.SOUNDS = {
 	hatch_r9 = { id = "rbxassetid://127058227889279", speed = 1.0, vol = 0.7 },
 	house_levelup = { id = "rbxassetid://110371127961423", speed = 1.0, vol = 0.7 },
 	jackpot_rare = { id = "rbxassetid://90004480091860", speed = 1.0, vol = 0.7 },
-	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.3, loop = true },
+	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.25, loop = true }, -- lot 8B : boucle près du kiosque central (Client, 30 studs de Config.Map2.kiosk)
 	npc_ping = { id = "rbxassetid://79333917653019", speed = 1.0, vol = 0.6 },
 	special_hit = { id = "rbxassetid://86601967046565", speed = 1.0, vol = 0.6 },
 	special_ready = { id = "rbxassetid://131456268494739", speed = 1.0, vol = 0.6 },
@@ -693,9 +693,10 @@ Config.Assets = {
 		paths = { path_straight = 85121318662290, path_curve = 101412637646543, path_stones = 119316046353622 },
 		eggguard = { egg_dome = 114304098897950, egg_nest_fence = 101252453233834, egg_cage = 98653120562597, egg_shield = 73837494094507 },
 		scenery = { scn_puits = 93457733638103, scn_pin_haut = 103664392312435, scn_pont_pierre = 71167399273394, scn_maison_colombages = 108434085196211, scn_tour_cloche = 117760736577913, scn_rocher_a = 109597978140541, scn_rocher_b = 91218401630144, scn_rocher_c = 126837715911422, scn_ile_sakura = 103275800553270 },
+		hub = { kiosk = 90238570290603 }, -- lot 8B : kiosque central de la place (hub_kiosk, clé J.1 hub.kiosk ; Kiosk.lua, repli procédural)
 		pets = { Chat = 81991111371408, Chien = 90815266946917, Hamster = 130387777043821, Hibou = 95489512823854, Licorne = 119358850090330, Lion = 73493068085290, Manchot = 73235151647339, TRex = 113312935651236 },
 	},
-	modelsMaxParts = { ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
+	modelsMaxParts = { ["hub.kiosk"] = 220, ["guards.dog"] = 80, ["guards.wolf"] = 80, ["guards.bear"] = 90, ["guards.knight"] = 100, ["traps.spikes"] = 60, ["traps.blade"] = 40, ["traps.ball"] = 30,
 		["castle.wall"] = 30, ["castle.tower"] = 80, ["castle.door"] = 50, ["castle.floor"] = 20, ["props.chest"] = 40, ["props.torch"] = 20, ["props.flag"] = 20, ["props.castle"] = 220, ["props.mill"] = 120, ["props.pen"] = 40, ["props.lamp"] = 25, ["props.bench"] = 30, ["props.sign"] = 20, ["props.bridge_rail"] = 30, ["props.fence_corner"] = 10, ["props.fence_gate"] = 10, ["props.hut_small"] = 60, ["props.hut_big"] = 90,
 		["deco.flower_a"] = 6, ["deco.flower_b"] = 6, ["deco.flower_c"] = 6, ["deco.tuft"] = 4, ["deco.stone_flat"] = 4, ["deco.stone_round"] = 4, ["deco.lantern"] = 6, ["deco.sign_stars"] = 14,
 		["terrain.cliff_a"] = 14, ["terrain.cliff_b"] = 14, ["terrain.cliff_corner"] = 14, ["terrain.stairs"] = 12, ["terrain.waterfall"] = 10, ["terrain.islet"] = 12,
@@ -728,6 +729,9 @@ Config.Assets = {
 	vfxMaxParts = 30, -- plafond de Parts de chaque modèle d'effet (clé modelsMaxParts["vfx.x"] : vfxMaxParts par défaut)
 	castleBudgetParts = 1700,
 	decoBudgetParts = 420, -- décor fin (fleurs, touffes, pierres, lanternes) : budget SÉPARÉ des 1200 Parts procédurales, posé après la carte
+	decorBudgetParts = 1000, -- lot 8B-décor : Parts Blender du décor de carte (lots 15 à 17, Decor.lua), coût MESURÉ, budget SÉPARÉ posé après la carte
+	decorFallbackParts = 240, -- Parts procédurales de repli de ce décor (modèle absent, refusé ou trop lourd)
+	decorOff = {}, -- { famille = true } désactive une famille de DecorData (ex. { conveyor_belt = true, hub_dome = true })
 	reliefBudgetParts = 700, -- falaises, cascades, îlots Blender : budget séparé, posé après la carte
 	-- Arbres Blender (6 variantes) : hauteur cible de chacun (studs) ; variante choisie selon la zone (Placement.treeVariant), échelle ±15 %, rotation libre.
 	treeHeights = { tree_oak_a = 10, tree_oak_b = 10, tree_birch = 10, tree_pine = 11, tree_sakura = 10, tree_round = 8 },
@@ -1991,6 +1995,7 @@ Config.Map2 = {
 	plaza = { x = 0, z = 0, r = 60 }, hall = { x = -40, z = 0, r = 18, h = 30 }, fountain = { x = 10, z = -38, r = 7 },
 	belt = { x0 = -22, x1 = 38, z = 0, width = 8, height = 2, bin = { x = 42, z = 0 } },
 	stalls = { { x = -35, z = 38 }, { x = 5, z = 42 }, { x = 40, z = 36 } },
+	kiosk = { x = 14, z = 22, r = 12 }, -- lot 8B : kiosque central (Kiosk.lua, KioskData.CENTER) ; r = rayon d'exclusion du décor (socle 7,7 + circulation), ambiance kiosk_ambience à 30 studs
 	track = { x = -60, z = -45, w = 16, d = 40 }, -- ancien Treadmill : « Piste d'entraînement » (clé `train` inchangée)
 	portalHub = { x0 = 0, x1 = 40, z = -50, count = 4, gap = 13 },
 	bigEgg = { x = 70, z = -20, r = 22, h = 16 }, hen = { x = 52, z = -28 },
@@ -6468,7 +6473,7 @@ function Assets.new(Config, deps)
 	end
 
 	-- Catégorie d'une clé de statut (pour le rapport) : arbres, chemins, protections d'œufs, base, village, pets, œufs, gardiens, décor...
-	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires" }
+	local CATEGORY = { trees = "arbres", paths = "chemins", eggguard = "protections d'œufs", base = "base", scenery = "village", guards = "gardiens", traps = "pièges", castle = "château", ground = "sol", deco = "décor", terrain = "relief", vfx = "effets", props = "accessoires", decor = "décor de carte", hub = "kiosque" }
 	function A.categoryOf(key)
 		local grp = key:match("^m:(%a+)%.")
 		if grp then
@@ -9447,8 +9452,393 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+-- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
+-- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
+-- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
+local KioskData = {}
+
+KioskData.ASSET_ID = 90238570290603 -- modèle Blender hub_kiosk (clé J.1 : hub.kiosk), 15,4 de large, 12,75 de haut, pieds à 0
+KioskData.ASSET_GROUP, KioskData.ASSET_KEY = "hub", "kiosk" -- Config.Assets.models.hub.kiosk (préchargé et nettoyé par le module Assets)
+KioskData.WIDTH, KioskData.HEIGHT = 15.4, 12.75
+KioskData.RADIUS = 7.7 -- demi-largeur du socle : rayon d'emprise utilisé pour contrôler les obstacles
+KioskData.GROUND_Y = 0.52 -- dessus du dallage de la place (Scenery.plaza : disque à y = 0,42, épaisseur 0,2)
+KioskData.MODEL_NAME = "Kiosk"
+KioskData.MAX_PARTS = 220 -- même plafond que Config.Assets.decorMaxParts ; au-delà le modèle est refusé (repli procédural)
+KioskData.SIZE_TOLERANCE = 0.25 -- largeur mesurée du modèle à +-25 % de WIDTH, sinon mise à l'échelle (une fois) puis refus
+
+-- Emplacement proposé (voir KIOSK_INTEGRATION_NOTES.md pour la vérification des obstacles) : sud-est du centre de la place, hors du tapis (z = 0, largeur 8),
+-- des chemins B3 / B4, de la fontaine (10, -38) et des étals (z >= 36). Le comptoir regarde la halle (-40, 0).
+KioskData.CENTER = { x = 14, z = 22 }
+KioskData.FACE = { x = -40, z = 0 }
+
+-- Les 4 interactions. `part` = nom de base de la pièce du modèle Blender (sans suffixe de couleur) ; `rel` = position locale du panneau dans le
+-- repère du repli procédural (x = droite, z = vers l'arrière ; le comptoir est à z = -R) ; `ang` = rotation locale (rad) du panneau procédural.
+local R = 6.3
+KioskData.PANELS = {
+	{ id = "shop", part = "PanneauBoutique", rel = { x = 0, z = -R }, ang = 0, action = "Ouvrir la boutique", object = "Boutique Robux", emoji = "💎", title = "BOUTIQUE", sub = "Robux et offres", color = { 255, 190, 60 } },
+	{ id = "calendar", part = "PanneauCalendrier", rel = { x = 0, z = R }, ang = 3.14159265, action = "Voir le calendrier", object = "Calendrier des œufs", emoji = "📅", title = "CALENDRIER", sub = "Une récompense par jour", color = { 120, 200, 120 } },
+	{ id = "odds", part = "PanneauProba", rel = { x = R, z = 0 }, ang = -1.5707963, action = "Voir les probabilités", object = "Probabilités et prix", emoji = "🎲", title = "PROBABILITÉS", sub = "Tapis et prix", color = { 120, 170, 255 } },
+	{ id = "ranking", part = "PanneauClassement", rel = { x = -R, z = 0 }, ang = 1.5707963, action = "Voir le classement", object = "Classement de la saison", emoji = "🏆", title = "CLASSEMENT", sub = "Saison de l'Arène", color = { 255, 150, 90 } },
+}
+KioskData.LIGHT_PART = "Lueur" -- lanterne centrale du modèle (reçoit une PointLight si le modèle n'en a pas)
+KioskData.BADGE_NAME = "PastilleCalendrier" -- pastille rouge posée au-dessus du panneau du calendrier
+
+-- Prompts : distance d'activation côté client, portée de contrôle côté serveur (plus large : latence et marche), pause entre deux demandes d'un joueur.
+KioskData.PROMPT = { hold = 0.2, distance = 11, requiresLineOfSight = false }
+KioskData.SERVER_RANGE = 20 -- studs au centre du kiosque ; la validation serveur refuse au-delà
+KioskData.COOLDOWN = 0.6 -- secondes entre deux actions acceptées d'un même joueur
+
+-- Ambiance : kiosk_ambience (son approuvé fourni par la gestion du projet). Boucle, volume bas, atténuation par distance. Config.SOUNDS.kiosk_ambience, si
+-- présent, remplace ces valeurs ; Config.SOUNDS_ENABLED = false : aucun Sound n'est créé.
+KioskData.SOUND = { key = "kiosk_ambience", id = "rbxassetid://82723287691994", vol = 0.25, minDist = 14, maxDist = 75 }
+
+KioskData.ACTIONS = { shop = true, calendar = true, odds = true, ranking = true }
+KioskData.MAX_ENTRIES = 10 -- lignes du classement renvoyées
+
+function KioskData.panel(id)
+	for _, p in ipairs(KioskData.PANELS) do
+		if p.id == id then
+			return p
+		end
+	end
+	return nil
+end
+
+-- Angle (radians, [-pi, pi]) du vecteur (x, z) dans le plan XZ, sans math.atan2 : atan(z / x) corrigé par quadrant.
+function KioskData.angle(x, z)
+	if type(x) ~= "number" or type(z) ~= "number" or x ~= x or z ~= z then
+		return 0
+	end
+	if x == 0 then
+		if z > 0 then
+			return math.pi / 2
+		elseif z < 0 then
+			return -math.pi / 2
+		end
+		return 0
+	end
+	local a = math.atan(z / x)
+	if x < 0 then
+		if z >= 0 then
+			return a + math.pi
+		end
+		return a - math.pi
+	end
+	return a
+end
+
+-- Rotation autour de Y (CFrame.Angles(0, theta, 0)) qui amène le vecteur local (lx, lz) sur la direction (ux, uz). Roblox : Y positif tourne (x, z) en
+-- (x cos + z sin, -x sin + z cos), l'angle du vecteur DIMINUE de theta. Le repli procédural a son comptoir à (0, -1) (local -Z).
+function KioskData.yawFor(lx, lz, ux, uz)
+	if type(lx) ~= "number" or type(lz) ~= "number" or lx ~= lx or lz ~= lz or math.sqrt(lx * lx + lz * lz) < 1e-6 then
+		lx, lz = 0, -1
+	end
+	local theta = KioskData.angle(lx, lz) - KioskData.angle(ux, uz)
+	while theta > math.pi do
+		theta = theta - 2 * math.pi
+	end
+	while theta < -math.pi do
+		theta = theta + 2 * math.pi
+	end
+	return theta
+end
+
+-- Position monde d'un point local (lx, lz) du kiosque de centre (cx, cz) tourné de theta (même convention que yawFor).
+function KioskData.toWorld(cx, cz, theta, lx, lz)
+	local c, s = math.cos(theta), math.sin(theta)
+	return cx + lx * c + lz * s, cz - lx * s + lz * c
+end
+
+-- Le disque (cx, cz, r) chevauche-t-il l'un des obstacles de Config.Map2 ? Retourne (false) ou (true, nom). margin = marge libre exigée (studs).
+-- Obstacles : halle, fontaine, tapis et bac, étals, piste, portails, arrivée des tapis, bord de la place, chemins (distance au segment).
+function KioskData.overlap(Map2, cx, cz, r, margin)
+	margin = margin or 0
+	local function d(ax, az)
+		return math.sqrt((cx - ax) ^ 2 + (cz - az) ^ 2)
+	end
+	local function segDist(ax, az, bx, bz)
+		local dx, dz = bx - ax, bz - az
+		local len2 = dx * dx + dz * dz
+		local t = len2 > 0 and math.max(0, math.min(1, ((cx - ax) * dx + (cz - az) * dz) / len2)) or 0
+		return math.sqrt((cx - (ax + dx * t)) ^ 2 + (cz - (az + dz * t)) ^ 2)
+	end
+	local function rect(x0, x1, z0, z1)
+		local nx, nz = math.max(x0, math.min(cx, x1)), math.max(z0, math.min(cz, z1))
+		return math.sqrt((cx - nx) ^ 2 + (cz - nz) ^ 2)
+	end
+	local pl = Map2.plaza
+	if d(pl.x, pl.z) + r + margin > pl.r then
+		return true, "bord de la place"
+	end
+	if d(Map2.hall.x, Map2.hall.z) < Map2.hall.r + r + margin then
+		return true, "halle"
+	end
+	if d(Map2.fountain.x, Map2.fountain.z) < Map2.fountain.r + r + margin then
+		return true, "fontaine"
+	end
+	local b = Map2.belt
+	if rect(b.x0, b.x1, b.z - b.width / 2, b.z + b.width / 2) < r + margin then
+		return true, "tapis"
+	end
+	if d(b.bin.x, b.bin.z) < 6 + r + margin then
+		return true, "bac du tapis"
+	end
+	for _, st in ipairs(Map2.stalls) do
+		if rect(st.x - 5.5, st.x + 5.5, st.z - 4.3, st.z + 4.3) < r + margin then
+			return true, "étal"
+		end
+	end
+	local tk = Map2.track
+	if rect(tk.x - tk.w / 2, tk.x + tk.w / 2, tk.z - tk.d / 2, tk.z + tk.d / 2) < r + margin then
+		return true, "piste d'entraînement"
+	end
+	local ph = Map2.portalHub
+	if rect(ph.x0 - 6, ph.x1 + 6, ph.z - 6, ph.z + 6) < r + margin then
+		return true, "portails"
+	end
+	if d(Map2.plazaArrival.x, Map2.plazaArrival.z) < 4 + r + margin then
+		return true, "arrivée des tapis"
+	end
+	for _, p in ipairs(Map2.paths) do
+		if p.kind == "paved" and p.pts[1][1] == 0 and p.pts[1][2] == 0 then -- routes qui partent du centre de la place (B1 à B5)
+			for k = 1, #p.pts - 1 do
+				if segDist(p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2]) < Map2.pathHalf + r + margin then
+					return true, "chemin " .. tostring(p.name)
+				end
+			end
+		end
+	end
+	return false
+end
+
+return KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+-- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
+-- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
+-- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
+-- Les modèles déjà branchés AILLEURS ne sont PAS repris ici (voir `wired`) : maisons house.l2..l7 (Config.Assets.models.house), arbres lot 11
+-- (models.trees), décor de village lot 12 (models.scenery). Les 12 modèles du lot 17 sont de NOUVELLES variétés qui s'ajoutent sans les remplacer.
+--
+-- Champs d'une famille :
+--   id        identifiant InsertService du modèle (entier > 0) ; lot = lot de Assets-crees ; cap = plafond de Parts accepté au chargement
+--   zone      règle de pose : "plazaRim" (couronne de la place du marché), "stallSide" (autour des étals), "region" (rectangle de la carte),
+--             "pathSide" (le long des chemins pavés), "pathSign" (premier point d'un chemin hors de la place, avec libellé), "lakeShore",
+--             "lakeWater", "lakeIsle", et les ANCRES "hall", "bigEgg", "arena", "belt" (superpositions d'un élément procédural existant)
+--   count     nombre d'exemplaires voulus ; height | length = taille cible en studs (length = plus grande arête horizontale) ; r = rayon d'empreinte
+--   share     part maximale du budget Blender (0..1) que la famille peut consommer ; fb = repli procédural { name, ... } ou nil (ancres : le procédural existe déjà)
+--   fbMax     nombre maximal d'exemplaires de repli procédural pour la famille
+local DecorData = {}
+
+DecorData.version = 1
+DecorData.keyPrefix = "m:decor." -- clé de statut Assets : "m:decor.<famille>" (rapport F3 : catégorie « decor »)
+
+-- Budgets (Parts). `blender` = pire cas réel des modèles posés (coût MESURÉ au chargement, pas le plafond) ; `fallback` = Parts procédurales de repli.
+-- Surchargés par Config.Assets.decorBudgetParts / decorFallbackParts. Somme <= 1240 : la carte reste sous Config.Map.totalBudgetParts (7000) (marge mesurée : 7000 - 4990 = 2010 dans le calcul de tests/run.luau).
+DecorData.budget = { blender = 1000, fallback = 240 }
+
+-- Kiosque central (autre mission) : disque réservé au centre de la place, rien n'y est posé. Surchargé par Config.Map2.kiosk ou Config.KIOSK ({ x, z, r }).
+-- Mesure du modèle hub_kiosk : socle de diamètre 15,4 -> rayon 7,7 ; marge de circulation comprise.
+DecorData.kiosk = { x = 0, z = 0, r = 12 }
+
+-- Emprises déjà posées par Builder.dressArena (bancs et lampadaires de la place, positions fixes) : { x, z, r }.
+DecorData.existing = {
+	{ -20, -28, 3 }, { 20, 24, 3 }, { -18, 26, 3 }, { 48, 18, 3 }, -- props.bench
+	{ 30, -22, 2.5 }, { -12, -42, 2.5 }, { -52, 22, 2.5 }, { 54, 8, 2.5 }, -- props.lamp
+}
+
+-- Fixtures de la place du marché (rayons d'exclusion, studs) ajoutés à ceux lus dans Config.Map2 (fontaine, halle, étals, tapis, bac, piste, portails, arrivée,
+-- enclos de la poule, Grand Œuf, arches des bases, secrets). Marge de circulation autour de chaque élément.
+DecorData.plaza = {
+	fountainMargin = 4, hallMargin = 4, stallRadius = 8.5, portalPad = 8, arrivalRadius = 7, henRadius = 6, runeRadius = 5, archRadius = 8, secretRadius = 14,
+	beltPad = { x0 = 3, x1 = 8, z0 = 14, z1 = 8 }, -- rectangle du tapis : x0 - x0pad .. bin.x + x1pad ; z : -(width/2 + z0) .. width/2 + z1 (panneau du tapis au nord)
+	trackPad = 5,
+}
+
+-- Modèles déjà branchés ailleurs (NE PAS les poser ici) : clé Config.Assets.models.<groupe>.<clé> pour chaque modèle des lots 15 à 17 concerné.
+DecorData.wired = {
+	house_lvl2 = "house.l2", house_lvl3 = "house.l3", house_lvl4 = "house.l4", house_lvl5 = "house.l5", house_lvl6 = "house.l6", house_lvl7 = "house.l7",
+}
+
+-- Libellés des panneaux (sign_base est livré SANS lettrage : le texte est ajouté par le code), par chemin de Config.Map2.paths.
+DecorData.signLabels = {
+	B1 = "🏠 Base 1", B2 = "🏠 Base 2", B3 = "🏠 Base 3", B4 = "🏠 Base 4", B5 = "🏠 Base 5",
+	Castle = "🏰 Château", Arena = "⚔️ Arène", MillLake = "🎣 Lac du Moulin",
+}
+DecorData.signPaths = { "B1", "B2", "B3", "B4", "B5", "Castle", "Arena", "MillLake" }
+
+-- Ordre de pose = priorité sur le budget (les ancres d'abord : elles remplacent des éléments déjà là).
+DecorData.order = {
+	"hub_dome", "grand_oeuf", "arena_colosseum", "conveyor_belt",
+	"stall_a", "stall_b", "flag_banner", "lantern_post", "crate_stack", "barrel_pair", "hay_bale", "well_small", "bush_round", "sign_base",
+	"island_sakura", "lily_pad", "reeds",
+	"bench_park", "flowerbed", "well_roofed", "boulder_cluster",
+	"tree_wide", "tree_autumn", "tree_fork", "tree_pine_tier", "tree_dead", "stump_roots", "log_hollow",
+}
+
+local function rect(x0, x1, z0, z1)
+	return { x0 = x0, x1 = x1, z0 = z0, z1 = z1 }
+end
+
+local F = {}
+DecorData.families = F
+
+---------------------------------------------------------------- Lot 15 : ancres (superpositions d'éléments procéduraux, repli = l'élément procédural reste)
+-- Dôme du hall : 60 x 60 x 24,4 ramené à la largeur du hall (2 r + 2) et posé sur les 8 piliers (haut 15). Masque les gradins procéduraux HallDome / HallDomeTop.
+F.hub_dome = { id = 106786001814640, lot = 15, cap = 250, zone = "hall", y0 = 15, spanPad = 2, share = 0.25, hide = { "HallDome", "HallDomeTop" }, dims = { 60, 24.4, 60 } }
+-- Grand Œuf : 13,6 x 15,7 ; hauteur du Grand Œuf de la carte (Map2.bigEgg.h), posé sur la marche du monument (y 2,1) ; masque la Part GrandNid (lumière et étincelles restent).
+F.grand_oeuf = { id = 140225439366673, lot = 15, cap = 150, zone = "bigEgg", y0 = 2.1, share = 0.15, hide = { "GrandNid" }, dims = { 13.6, 15.7, 13.6 } }
+-- Colisée : 70,8 x 21 ramené au diamètre de l'arène (2 r), devant tourné vers l'entrée ; masque ArenaWall et ArenaSteps (les murs procéduraux gardent la collision).
+F.arena_colosseum = { id = 105443469311651, lot = 15, cap = 300, zone = "arena", y0 = 0, share = 0.30, hide = { "ArenaWall", "ArenaSteps" }, dims = { 70.8, 21, 70.8 } }
+-- Tapis roulant : tuiles de 12 x 4,1 x 1,5 (long axe X) posées en `lanes` rangées sur la longueur du tapis, + conveyor_end à l'extrémité (côté bac). Hauteur du dessus
+-- <= topY (sous le centre des œufs : Main.BELT_Y = 3, œuf de 3 de haut -> dessous à 1,5). TOUT OU RIEN : si le coût total dépasse la part, le tapis procédural reste.
+-- Masque CentralBelt, BeltRail, BeltMark. Les dimensions de conveyor_end ne sont pas données par la spec : mêmes que la tuile (à vérifier dans Studio).
+F.conveyor_belt = { id = 110718997928428, lot = 15, cap = 60, zone = "belt", topY = 1.3, share = 0.25, hide = { "CentralBelt", "BeltRail", "BeltMark" }, dims = { 12, 1.5, 4.1 }, endKey = "conveyor_end" }
+F.conveyor_end = { id = 107430030694559, lot = 15, cap = 60, zone = "beltEnd", share = 0, dims = { 12, 1.5, 4.1 } }
+
+---------------------------------------------------------------- Lot 16 : accessoires de marché
+-- Étals décoratifs (sans fonction de jeu) en couronne de la place, de face vers le centre ; les 3 étals interactifs procéduraux restent intacts.
+F.stall_a = { id = 121243958605530, lot = 16, cap = 90, zone = "plazaRim", ring = { 30, 53 }, count = 1, height = 8, r = 6, gap = 2, share = 0.08, fb = { name = "stall", awning = { 214, 90, 80 } }, fbMax = 2 }
+F.stall_b = { id = 94658977878853, lot = 16, cap = 90, zone = "plazaRim", ring = { 30, 53 }, count = 1, height = 8, r = 6, gap = 2, share = 0.08, fb = { name = "stall", awning = { 90, 160, 214 } }, fbMax = 2 }
+F.flag_banner = { id = 72351168707999, lot = 16, cap = 40, zone = "plazaRim", ring = { 40, 57 }, count = 6, height = 7, r = 1.6, gap = 6, share = 0.05, fb = { name = "flag" }, fbMax = 6 }
+F.lantern_post = { id = 116378599429951, lot = 16, cap = 40, zone = "plazaRim", ring = { 30, 56 }, count = 6, height = 6.5, r = 1.4, gap = 8, share = 0.05, fb = { name = "lantern" }, fbMax = 6 }
+-- Accessoires qui s'agglutinent autour des étals (décoratifs et procéduraux) : « satellites ».
+F.crate_stack = { id = 72797022625881, lot = 16, cap = 30, zone = "stallSide", offset = { 10.5, 13 }, count = 4, height = 2.6, r = 1.8, gap = 1, share = 0.04, fb = { name = "crates" }, fbMax = 4 }
+F.barrel_pair = { id = 102360413338352, lot = 16, cap = 30, zone = "stallSide", offset = { 10.5, 13 }, count = 3, height = 2.4, r = 1.8, gap = 1, share = 0.04, fb = { name = "barrels" }, fbMax = 3 }
+F.hay_bale = { id = 99760241706274, lot = 16, cap = 20, zone = "stallSide", offset = { 10.5, 13.5 }, count = 4, height = 2.2, r = 1.6, gap = 1, share = 0.04, fb = { name = "hay" }, fbMax = 4 }
+F.well_small = { id = 140033477297106, lot = 16, cap = 60, zone = "plazaRim", ring = { 30, 50 }, count = 1, height = 4.5, r = 2.6, gap = 3, share = 0.04, fb = { name = "well" }, fbMax = 1 }
+-- lot 8B (intégration) : 3 buissons (et non 4) : avec le kiosque réel (14, 22, r 12) et le tapis Blender, la couronne n'offre que 3 places libres.
+F.bush_round = { id = 72736930746142, lot = 16, cap = 25, zone = "plazaRim", ring = { 28, 57 }, count = 3, height = 2.4, r = 1.8, gap = 3, share = 0.04, fb = { name = "bush" }, fbMax = 4 }
+-- Panneaux (livrés sans lettrage) : au premier point de chaque chemin hors de la place ; le libellé vient de `signLabels` (BillboardGui ajouté par le code).
+F.sign_base = { id = 121260374584222, lot = 16, cap = 30, zone = "pathSign", signAfter = 66, count = 8, height = 4.5, r = 1.5, gap = 3, share = 0.04, fb = { name = "sign" }, fbMax = 8 }
+-- Îlot de sakura au centre de chaque lac, à l'opposé du ponton ; nénuphars sur l'eau, roseaux sur la rive de sable.
+F.island_sakura = { id = 77134124755209, lot = 17, cap = 220, zone = "lakeIsle", length = 16, r = 9, gap = 1, count = 2, y0 = 0.3, share = 0.12, fb = { name = "isle" }, fbMax = 2 }
+F.lily_pad = { id = 108143670859973, lot = 16, cap = 12, zone = "lakeWater", length = 1.6, r = 1.2, gap = 1.5, count = 14, y0 = 0.94, share = 0.04, fb = { name = "lily" }, fbMax = 14 }
+F.reeds = { id = 83409451845816, lot = 16, cap = 20, zone = "lakeShore", height = 4, r = 1.2, gap = 3, count = 14, y0 = 0.3, share = 0.05, fb = { name = "reeds" }, fbMax = 14 }
+
+---------------------------------------------------------------- Lot 17 : décor de carte (nouvelles variétés)
+F.bench_park = { id = 71149096082627, lot = 17, cap = 40, zone = "pathSide", pathMinPlaza = 72, step = 46, offset = 4, count = 6, height = 2.5, r = 2.2, gap = 4, share = 0.05, fb = { name = "bench" }, fbMax = 6 }
+F.flowerbed = { id = 136250950680925, lot = 17, cap = 40, zone = "pathSide", pathMinPlaza = 70, step = 58, offset = 6, count = 6, height = 1.2, r = 2.6, gap = 3, share = 0.05, fb = { name = "flowerbed" }, fbMax = 6 }
+F.well_roofed = { id = 77148661041685, lot = 17, cap = 120, zone = "region", region = rect(-330, 330, -215, 215), minPlaza = 85, count = 2, height = 8, r = 3.5, gap = 6, share = 0.06, fb = { name = "well" }, fbMax = 2 }
+F.boulder_cluster = { id = 94606784141362, lot = 17, cap = 40, zone = "region", region = rect(-330, 330, -215, 215), minPlaza = 85, count = 5, length = 9, r = 5, gap = 4, share = 0.06, fb = { name = "rock" }, fbMax = 5 }
+F.tree_wide = { id = 86295807080862, lot = 17, cap = 120, zone = "region", region = rect(-330, 330, -215, 215), minPlaza = 95, count = 5, height = 11, r = 5, gap = 4, share = 0.1, fb = { name = "tree", trunk = { 110, 76, 46 }, leaf = { 84, 150, 70 }, shape = "ball" }, fbMax = 5 }
+F.tree_autumn = { id = 139640609512190, lot = 17, cap = 120, zone = "region", region = rect(-330, -90, -20, 215), minPlaza = 95, count = 5, height = 10, r = 4, gap = 4, share = 0.1, fb = { name = "tree", trunk = { 100, 70, 44 }, leaf = { 214, 120, 44 }, shape = "ball" }, fbMax = 5 }
+F.tree_fork = { id = 134023676934024, lot = 17, cap = 120, zone = "region", region = rect(90, 330, 60, 215), minPlaza = 95, count = 4, height = 10, r = 4, gap = 4, share = 0.08, fb = { name = "tree", trunk = { 96, 68, 44 }, leaf = { 96, 160, 84 }, shape = "ball" }, fbMax = 4 }
+F.tree_pine_tier = { id = 89102403219316, lot = 17, cap = 120, zone = "region", region = rect(-330, 200, -250, -215), minPlaza = 95, count = 6, height = 14, r = 3.5, gap = 3, share = 0.1, fb = { name = "tree", trunk = { 92, 64, 40 }, leaf = { 40, 110, 72 }, shape = "cone" }, fbMax = 6 }
+F.tree_dead = { id = 110319726621538, lot = 17, cap = 80, zone = "region", region = rect(150, 340, -250, -120), minPlaza = 95, count = 4, height = 9, r = 3, gap = 4, share = 0.06, fb = { name = "tree", trunk = { 84, 70, 60 }, shape = "none" }, fbMax = 4 }
+F.stump_roots = { id = 77105687594948, lot = 17, cap = 40, zone = "region", region = rect(-340, 340, -240, 240), minPlaza = 95, count = 6, height = 2.2, r = 2.6, gap = 3, share = 0.04, fb = { name = "stump" }, fbMax = 6 }
+F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", region = rect(-340, 340, -240, 240), minPlaza = 95, count = 4, length = 6, r = 3.2, gap = 3, share = 0.04, fb = { name = "log" }, fbMax = 4 }
+
+---------------------------------------------------------------- Modèles inutilisés ici (documentés)
+-- lots 18 et 19 (petits objets et gros meubles de maison) : intérieurs de maison, pas du décor de carte (autre mission).
+-- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
+
+return DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+-- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
+-- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
+--
+-- Conventions (repère de la maison, studs) :
+--   pos  = centre du BAS de l'objet : x (droite), y (hauteur au-dessus du sol, 0 = sol ou plan de travail), z (avant) ; origine = centre de la maison au sol.
+--   size = taille cible {x, y, z} ; y = hauteur. Pour un Cylinder, size = {diamètre, hauteur, diamètre}.
+--   rot  = rotation autour de l'axe Y, en degrés (0 à 359).
+--   flat = objet posé à plat (tapis) : exclu du contrôle de chevauchement.
+--   parts = BUDGET réservé à l'objet une fois le modèle chargé (estimation, à mesurer dans Studio). Somme par maison <= PARTS_BUDGET.
+--   fallback = repli procédural : UNE Part (forme simple), couleur et matière. Utilisé si LoadAsset échoue ou si les modèles sont désactivés.
+-- Limite de position : |x| et |z| restent dans REACH (plus petite maison : 52 studs, marge de 8 studs pour les murs).
+local HouseDecorData = {}
+
+HouseDecorData.LEVEL_COUNT = 8 -- = #Config.BASE_LEVELS2
+HouseDecorData.MAX_NEW_PER_LEVEL = 12 -- au plus ~12 objets nouveaux par niveau
+HouseDecorData.PARTS_BUDGET = 150 -- Parts totales par maison (tous niveaux)
+HouseDecorData.REACH = 18 -- demi-emprise utile autour du centre de la maison (studs)
+HouseDecorData.FALLBACK_PARTS = 1 -- une seule Part par repli procédural
+
+-- LEVELS[n] = objets DÉBLOQUÉS au niveau n (nouveaux à ce niveau). Le décor total d'un niveau = unlocked(n).
+HouseDecorData.LEVELS = {
+	-- 1 : Enclos de bois
+	{
+		{ id = "plant_pot_a", name = "Pot de plante A", assetId = 86148706778494, size = { 2.2, 2.4, 2.2 }, pos = { -16, 0, 2 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 178, 96, 60 }, material = "SmoothPlastic" } },
+		{ id = "rug_round", name = "Tapis rond", assetId = 90438557881098, size = { 8, 0.2, 8 }, pos = { 0, 0, 0 }, rot = 0, flat = true, parts = 4, fallback = { shape = "Cylinder", color = { 170, 60, 70 }, material = "Fabric" } },
+		{ id = "stool_side", name = "Tabouret", assetId = 134719337565962, size = { 2.2, 2.5, 2.2 }, pos = { 4, 0, 4 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 140, 95, 60 }, material = "Wood" } },
+	},
+	-- 2 : Chalet du Couvoir
+	{
+		{ id = "plant_pot_b", name = "Pot de plante B", assetId = 121510089986414, size = { 2, 2, 2 }, pos = { 17, 0, -10 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 230, 225, 215 }, material = "SmoothPlastic" } },
+		{ id = "books_stack", name = "Pile de livres", assetId = 75235784527086, size = { 3, 2, 2 }, pos = { -16, 0, -7 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 120, 70, 60 }, material = "Wood" } },
+		{ id = "coffee_table_round", name = "Table basse ronde", assetId = 112871489043894, size = { 4, 2.5, 4 }, pos = { 0, 0, 0 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 110, 75, 50 }, material = "Wood" } },
+	},
+	-- 3 : Maison-Tour (alarme)
+	{
+		{ id = "wall_lamp", name = "Applique murale", assetId = 73563604591192, size = { 1, 2, 1 }, pos = { -14, 6, -13.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 255, 220, 140 }, material = "SmoothPlastic" } },
+		{ id = "clock_wall", name = "Horloge murale", assetId = 95777609232622, size = { 2.5, 2.5, 0.5 }, pos = { 0, 8, -13.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 245, 240, 225 }, material = "SmoothPlastic" } },
+		{ id = "vase_big", name = "Grand vase", assetId = 123819297063677, size = { 2, 4, 2 }, pos = { -4, 0, -6 }, rot = 0, parts = 4, fallback = { shape = "Cylinder", color = { 60, 120, 170 }, material = "SmoothPlastic" } },
+	},
+	-- 4 : Maison à l'auvent
+	{
+		{ id = "bed_double", name = "Lit double", assetId = 73424212171108, size = { 6, 3, 8 }, pos = { -8, 0, 6 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 140, 90, 60 }, material = "Wood" } },
+		{ id = "speaker_pair", name = "Paire d'enceintes", assetId = 120384220519044, size = { 3, 3, 2 }, pos = { 14, 0, 10 }, rot = 270, parts = 4, fallback = { shape = "Block", color = { 35, 35, 40 }, material = "Metal" } },
+		{ id = "branch_chandelier", name = "Lustre en branches", assetId = 81736669133938, size = { 5, 4, 5 }, pos = { 0, 11, 0 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 200, 170, 90 }, material = "Metal" } },
+	},
+	-- 5 : Maison au garage (chien de garde)
+	{
+		{ id = "kitchen_run", name = "Plan de cuisine", assetId = 79053277599844, size = { 8, 4, 2.5 }, pos = { -7, 0, -12.5 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 235, 235, 240 }, material = "SmoothPlastic" } },
+		{ id = "dining_set", name = "Table à manger", assetId = 104316845432310, size = { 7, 3, 5 }, pos = { 6, 0, 8 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 150, 100, 70 }, material = "Wood" } },
+		{ id = "coffee_maker", name = "Cafetière", assetId = 112911908053394, size = { 1.5, 2, 1.5 }, pos = { -9, 4, -12.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 60, 60, 65 }, material = "SmoothPlastic" } },
+		{ id = "toaster", name = "Grille-pain", assetId = 139790299453025, size = { 1.2, 1.2, 1.5 }, pos = { -5, 4, -12.5 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 200, 40, 40 }, material = "SmoothPlastic" } },
+	},
+	-- 6 : Villa moderne
+	{
+		{ id = "sofa_corner", name = "Canapé d'angle", assetId = 107495439971094, size = { 8, 3, 4 }, pos = { 8, 0, -3 }, rot = 180, parts = 8, fallback = { shape = "Block", color = { 90, 110, 150 }, material = "Fabric" } },
+		{ id = "tv_unit_stepped", name = "Meuble TV", assetId = 108277232894442, size = { 6, 2, 1.5 }, pos = { -15, 0, 8 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 30, 30, 35 }, material = "SmoothPlastic" } },
+		{ id = "kitchen_upper", name = "Meubles hauts de cuisine", assetId = 111169784434252, size = { 8, 3, 1.5 }, pos = { -7, 6.5, -13.5 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 235, 235, 240 }, material = "SmoothPlastic" } },
+	},
+	-- 7 : Grande villa (Lot de gros meubles de bureau et de rangement)
+	{
+		{ id = "fridge_big", name = "Grand réfrigérateur", assetId = 131419976234083, size = { 3.5, 6.5, 3 }, pos = { -15, 0, -11 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 230, 235, 240 }, material = "SmoothPlastic" } },
+		{ id = "desk_study", name = "Bureau d'étude", assetId = 102305030833988, size = { 5, 3, 2.5 }, pos = { 14, 0, 2 }, rot = 180, parts = 8, fallback = { shape = "Block", color = { 120, 85, 55 }, material = "Wood" } },
+		{ id = "shelf_drawers", name = "Étagère à tiroirs", assetId = 139964774272115, size = { 5, 4, 2 }, pos = { 15, 0, -7 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 130, 95, 65 }, material = "Wood" } },
+	},
+	-- 8 : Château doré
+	{
+		{ id = "wardrobe_tall", name = "Grande armoire", assetId = 117500900219054, size = { 5, 8, 2.5 }, pos = { 10, 0, -12.5 }, rot = 0, parts = 8, fallback = { shape = "Block", color = { 110, 80, 55 }, material = "Wood" } },
+		{ id = "oven_stove", name = "Four et plaque", assetId = 87903538253499, size = { 2.5, 3, 3 }, pos = { -15, 0, -4 }, rot = 0, parts = 4, fallback = { shape = "Block", color = { 50, 50, 55 }, material = "Metal" } },
+	},
+}
+
+-- Décor TOTAL d'un niveau (cumul des niveaux 1..n), dans l'ordre de déblocage. Niveau hors 1..LEVEL_COUNT : borné ; non-nombre : niveau 1.
+function HouseDecorData.unlocked(level)
+	local n = 1
+	if type(level) == "number" and level == level then
+		n = math.floor(level)
+	end
+	if n < 1 then
+		n = 1
+	end
+	if n > HouseDecorData.LEVEL_COUNT then
+		n = HouseDecorData.LEVEL_COUNT
+	end
+	local out = {}
+	for l = 1, n do
+		for _, item in ipairs(HouseDecorData.LEVELS[l]) do
+			out[#out + 1] = item
+		end
+	end
+	return out
+end
+
+-- Budget de Parts (somme de `parts`) du décor cumulé d'un niveau.
+function HouseDecorData.budget(level)
+	local total = 0
+	for _, item in ipairs(HouseDecorData.unlocked(level)) do
+		total = total + item.parts
+	end
+	return total
+end
+
+return HouseDecorData
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX40"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX32"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX46"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX35"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9501,6 +9891,32 @@ local RTop = newRemote("Top")
 local RBattle = newRemote("Battle") -- serveur -> client : début, tours (événements à rejouer) et fin des combats de l'Arène des pets
 local RRaven = newRemote("Raven") -- Corbeau chipeur (lot 7) : serveur -> client seulement (alerte de la victime, liste des cibles) ; les demandes passent par Action
 local RHen = newRemote("Hen") -- serveur -> client : répliques de la Mère Poule (identifiant + paramètres), berceuse à jouer, retour des touches, plume ramassée
+
+-- Lot 8B : kiosque central, décor de carte, meubles des maisons. UNE seule variable locale (limite de 200) : modules, remote, état et fonctions dans K8.
+local K8 = {
+	Kiosk = require(script.Parent:WaitForChild("Kiosk")), KioskData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("KioskData")),
+	HouseDecor = require(script.Parent:WaitForChild("HouseDecor")), HouseDecorData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HouseDecorData")),
+	remote = newRemote("Kiosk"), -- serveur -> client seulement : { panel = "shop" | "calendar" | "odds" | "ranking", ... } (Kiosk.handle) ; aucune demande client par ce remote
+	world = nil, info = nil, -- dossier World (Builder.build) ; info du kiosque construit (centre, prompts, pastille)
+	top = { at = -1e9, season = nil, list = {} }, -- cache du classement du kiosque (30 s : au plus 1 lecture DataStore par fenêtre)
+}
+-- Construit (ou reconstruit : idempotent) le kiosque dans World. assets = nil : repli procédural immédiat, sans avertissement.
+function K8.build(assets)
+	if not K8.world then
+		return
+	end
+	local ok, _, _, info = pcall(K8.Kiosk.build, K8.world, Config.Map2.kiosk, assets and { Config = Config, assets = assets, noAmbience = true }
+		or { Config = Config, quiet = true, noAmbience = true, loadAsset = function()
+			return nil
+		end })
+	if ok and type(info) == "table" then
+		local wasReady = K8.info and K8.info.ready
+		K8.info = info
+		if wasReady then
+			K8.Kiosk.setBadge(info, true) -- la pastille allumée reste allumée après la reconstruction
+		end
+	end
+end
 
 ---------------------------------------------------------------- Monde
 local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
@@ -9564,6 +9980,11 @@ task.spawn(function()
 	local gt, gp = Builder.dressGround(assets)
 	print("[Assets] sol Blender : " .. gt .. " tuile(s), " .. gp .. " Parts (budget " .. Config.Assets.groundBudgetParts .. ")")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
+	assets.loadGroup("hub") -- lot 8B : kiosque central (hub.kiosk) ; le modèle remplace le repli procédural posé au démarrage
+	K8.build(assets)
+	print("[Assets] kiosque central : " .. ((K8.info and K8.info.usedAsset) and "modèle Blender" or ("repli procédural (" .. tostring(K8.info and K8.info.reason) .. ")")))
+	local dn, du, dfb = Builder.dressDecor(assets)
+	print("[Assets] décor de carte (lots 15 à 17) : " .. dn .. " exemplaire(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decorBudgetParts .. "), " .. dfb .. " Parts de repli")
 	if onAssetsLoaded then
 		pcall(onAssetsLoaded)
 	end
@@ -9586,6 +10007,8 @@ task.spawn(function()
 end)
 
 local world = Builder.build()
+K8.world = world.folder -- dossier World (Builder.build retourne une table de résultats)
+K8.build(nil) -- lot 8B : kiosque procédural immédiat (le modèle Blender le remplace dans la tâche des Assets)
 local rng = Random.new()
 local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
@@ -10347,6 +10770,23 @@ end
 -- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : animation de montée de niveau, interface).
 -- Une vraie montée (célébration demandée, niveau supérieur à celui déjà construit) lance l'animation : l'ancienne maison reste le temps de l'effet (Config.UPGRADE_FX),
 -- les pads ne sont pas recréés (refreshLocks). `force` reconstruit sans animation (modèles Blender arrivés, renaissance).
+-- Lot 8B-meubles : meubles des lots 18 et 19 dans la maison BaseUpgrade que Builder.baseUpgrade vient de créer. Repère : attributs DecorY / DecorZ
+-- posés par Builder (centre du bâtiment au plancher, repère de plot.cf). Idempotent (HouseDecor), part avec la maison quand elle est démolie.
+function K8.houseDecor(plot, level)
+	local house = plot and plot.model and plot.model:FindFirstChild("BaseUpgrade")
+	if not house then
+		return
+	end
+	local y, z = house:GetAttribute("DecorY"), house:GetAttribute("DecorZ")
+	task.spawn(function()
+		local ok, err = pcall(K8.HouseDecor.apply, house, level, {
+			offset = { 0, type(y) == "number" and y or 1.6, type(z) == "number" and z or 0 }, data = K8.HouseDecorData, useAssets = Config.Assets.Enabled == true,
+		})
+		if not ok then
+			warn("[HouseDecor] " .. tostring(err))
+		end
+	end)
+end
 local function applyBase(s, celebrate, force)
 	local level = levelOf(s)
 	local before = s.baseLevel
@@ -10356,6 +10796,7 @@ local function applyBase(s, celebrate, force)
 	if s.plot and (built ~= level or force) then
 		Builder.baseUpgrade(s.plot, level, rose and { animate = true } or nil)
 		s.baseBuilt = level
+		K8.houseDecor(s.plot, level) -- lot 8B-meubles : décor intérieur cumulé du niveau, posé sur la nouvelle maison (hors du thread courant : LoadAsset cède la main)
 		if rose then
 			local plot = s.plot
 			task.delay(Config.UPGRADE_FX.seconds, function()
@@ -10627,6 +11068,65 @@ local function fastTravel(s, dest, prompt)
 	return true
 end
 
+-- Lot 8B : kiosque central. Classement mis en cache 30 s (Data.pvpTop lit un DataStore : quota), quel que soit le nombre de joueurs.
+function K8.topCached(season, n)
+	local c = K8.top
+	if c.season ~= season or os.clock() - c.at > 30 then
+		c.at, c.season = os.clock(), season
+		local ok, list = pcall(Data.pvpTop, season, n)
+		c.list = (ok and type(list) == "table") and list or {}
+	end
+	return c.list
+end
+-- Un prompt du kiosque : TOUT est revalidé par Kiosk.handle (liste blanche d'actions, distance mesurée ici, pause par joueur). Un refus ne répond rien.
+-- Le kiosque ne fait qu'ouvrir : réclamer le calendrier ou acheter passe par les chemins existants (RAction calClaim, achats Robux), déjà validés.
+function K8.prompt(player, prompt)
+	local res = K8.Kiosk.handle(player, prompt:GetAttribute("KioskAction"), {
+		Config = Config,
+		inRange = function(p)
+			local r = getRoot(p)
+			local info = K8.info
+			if not (r and alive(p) and info and sessions[p]) then
+				return false
+			end
+			local c = info.center
+			return math.sqrt((r.Position.X - c.X) ^ 2 + (r.Position.Z - c.Z) ^ 2) <= K8.KioskData.SERVER_RANGE
+		end,
+		calView = function(p)
+			local ss = sessions[p]
+			return ss and Lot7.Cal.snapshot and Lot7.Cal.snapshot(ss) or nil
+		end,
+		top = K8.topCached,
+		mine = function(p)
+			local ss = sessions[p]
+			local pv = ss and ss.data.battle and ss.data.battle.pvp
+			return type(pv) == "table" and { trophies = pv.trophies, wins = pv.wins, losses = pv.losses } or nil
+		end,
+	})
+	if res.ok then
+		K8.remote:FireClient(player, res.payload)
+	end
+end
+-- Pastille rouge du calendrier sur le kiosque : allumée dès qu'un joueur présent a une récompense réclamable (Calendar, via Lot7.Cal.snapshot). Toutes les 5 s.
+task.spawn(function()
+	while true do
+		task.wait(5)
+		if K8.info then
+			local any = false
+			for _, ss in pairs(sessions) do
+				local okV, view = pcall(function()
+					return Lot7.Cal.snapshot and Lot7.Cal.snapshot(ss) or nil
+				end)
+				if okV and K8.Kiosk.badgeNeeded(view) then
+					any = true
+					break
+				end
+			end
+			K8.Kiosk.setBadge(K8.info, any)
+		end
+	end
+end)
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	if CollectionService:HasTag(prompt, "BeltEgg") then
 		beltBuy(player, prompt)
@@ -10637,6 +11137,10 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		if ss then
 			fastTravel(ss, prompt:GetAttribute("Dest"), prompt)
 		end
+		return
+	end
+	if CollectionService:HasTag(prompt, "KioskPrompt") then
+		K8.prompt(player, prompt)
 		return
 	end
 	if CollectionService:HasTag(prompt, "CastleEntry") then
@@ -11727,7 +12231,7 @@ local beltFolder = Instance.new("Folder")
 beltFolder.Name = "BeltEggs"
 beltFolder.Parent = workspace
 local beltEggs = {} -- [id] = { egg = œuf logique (Belt), part, prompt }
-local beltPanelAt, beltPanelKey = 0, ""
+K8.beltPanelAt, K8.beltPanelKey = 0, "" -- panneau du tapis (lot 8B : dans K8, limite de 200 variables locales)
 local BELT_Y = 3.0 -- hauteur du centre d'un œuf posé sur le tapis
 local BELT_REACH = 14 -- distance serveur maximale joueur -> œuf (le prompt s'active à 10 ; marge pour la latence et le défilement)
 
@@ -11811,10 +12315,10 @@ local function beltPanelUpdate(now)
 	end
 	local info = Belt.panel(Config, beltSt, now)
 	local key = info.active .. "|" .. info.status
-	if key == beltPanelKey then
+	if key == K8.beltPanelKey then
 		return
 	end
-	beltPanelKey = key
+	K8.beltPanelKey = key
 	local mark = "▶ "
 	b.panel.normal.Text = (info.active == "normal" and mark or "") .. "Standard : " .. info.normal
 	b.panel.golden.Text = (info.active == "golden" and mark or "") .. "Doré : " .. info.golden
@@ -11858,8 +12362,8 @@ local function beltStep()
 			end
 		end
 	end
-	if now - beltPanelAt >= 1 then
-		beltPanelAt = now
+	if now - K8.beltPanelAt >= 1 then
+		K8.beltPanelAt = now
 		beltPanelUpdate(now)
 	end
 end
@@ -11877,7 +12381,7 @@ end)
 -- Action serveur INTERNE : ajoute des secondes de tapis doré (cumulables, plafonnées). Le produit Robux la branchera plus tard (lot 7) ; aucun ProcessReceipt ici.
 local function goldenBeltAdd(seconds, byName)
 	local left = Belt.addGolden(Config, beltSt, os.clock(), seconds, byName)
-	beltPanelKey = ""
+	K8.beltPanelKey = ""
 	return left
 end
 Builder.beltHooks = { goldenAdd = goldenBeltAdd, stats = function() -- crochet interne (tests, lot 7) : jamais exposé aux clients
@@ -13935,6 +14439,7 @@ Players.PlayerRemoving:Connect(function(player)
 			task.wait(0.1)
 		end
 	end
+	K8.Kiosk.forget(player) -- lot 8B : pause du kiosque (table à clés faibles : facultatif)
 	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
 	tele.flush(player)
 	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur
@@ -14007,7 +14512,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -14902,7 +15407,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -14915,6 +15420,7 @@ local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
 local TrapsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Traps")) -- plan des pièges des territoires (REFONTE lot 4)
+local DecorMod = require(script.Parent:WaitForChild("Decor")) -- lot 8B-décor : modèles Blender des lots 15 à 17 (repli procédural)
 PlacementMod.MapGeo = MapGeoMod
 PlacementMod.yield = function()
 	task.wait()
@@ -16016,6 +16522,7 @@ local function proceduralHouse(level, box, backZ)
 		l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 205, 70), 26, 1.4
 		l.Parent = glow
 	end
+	return zc -- lot 8B : centre du bâtiment (repère de plot.cf), repère du décor intérieur (HouseDecor)
 end
 
 function Builder.baseUpgrade(plot, level, opts)
@@ -16053,6 +16560,7 @@ function Builder.baseUpgrade(plot, level, opts)
 		end
 		-- modèle Blender : niveau 1 et 8 = base.levelN (emprise centrée, entrée -Z) ; niveaux 2 à 7 = house.lN (bâtiment à l'arrière, devant -Z)
 		local placed = false
+		local anchorY, anchorZ = 1.02, 0 -- niveau 1 et 8 (emprise centrée, dessus de la dalle) ; maisons : remplacé ci-dessous
 		do
 			local isHouse = level >= 2 and level <= 7
 			local clone = eggAssets and eggAssets.cloneModel and (isHouse and eggAssets.cloneModel("house", "l" .. level) or eggAssets.cloneModel("base", "level" .. level))
@@ -16077,6 +16585,7 @@ function Builder.baseUpgrade(plot, level, opts)
 					if isHouse then
 						cy = 1 + size2.Y / 2
 						cz = backZ - 1 - size2.Z / 2 -- le fond du modèle touche le bord arrière de la dalle
+						anchorY, anchorZ = 1.6, cz
 					end
 					clone:PivotTo(cf0 * CFrame.new(cx, cy, cz) * bbox:ToObjectSpace(clone:GetPivot()))
 					for _, d in ipairs(clone:GetDescendants()) do
@@ -16093,6 +16602,7 @@ function Builder.baseUpgrade(plot, level, opts)
 					made += Config.Assets.modelsMaxParts[(isHouse and "house.l" or "base.level") .. level] or 80
 					placed = true
 				else
+					anchorY, anchorZ = 1.02, 0
 					pcall(function()
 						clone:Destroy()
 					end)
@@ -16100,6 +16610,9 @@ function Builder.baseUpgrade(plot, level, opts)
 			end
 		end
 		if not placed then
+			if level >= 2 then
+				anchorY = 1.6 -- dessus du socle de la maison procédurale
+			end
 			if level == 1 then
 				-- enclos de bois procédural (niveau 1) : lisse et poteaux autour de la plateforme
 				local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
@@ -16114,9 +16627,12 @@ function Builder.baseUpgrade(plot, level, opts)
 					box("Post", t, 1.0, E, 0.8, 2.1, 0.8, wood2)
 				end
 			else
-				proceduralHouse(level, box, backZ)
+				anchorZ = proceduralHouse(level, box, backZ)
 			end
 		end
+		-- lot 8B-meubles : repère du décor intérieur (HouseDecor.apply, offset), dans le repère de plot.cf : centre du bâtiment au niveau du plancher
+		folder:SetAttribute("DecorY", anchorY)
+		folder:SetAttribute("DecorZ", anchorZ)
 		folder.Parent = plot.model
 		if animate then
 			folder:SetAttribute("FinalPivot", cf0)
@@ -16344,6 +16860,40 @@ function Builder.dressSigns(assets)
 		end
 	end)
 	return n
+end
+
+-- Lot 8B-décor : décor de carte des lots 15 à 17 (dôme de la halle, Grand Œuf, colisée, tapis, étals, arbres, lacs...). Decor.lua charge ses modèles par lots
+-- parallèles (Assets.loadMany, clés m:decor.<famille>), pose chaque exemplaire en modèle ou en repli procédural dans World/BlenderDecor, jamais dans le disque
+-- du kiosque (Config.Map2.kiosk). Retourne (exemplaires, Parts Blender, Parts de repli). Builder.refreshDecor reconstruit avec les modèles arrivés depuis.
+local decorHandle = nil
+function Builder.dressDecor(assets)
+	local n, used, fallback = 0, 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		decorHandle = DecorMod.build(world, MapGeoMod.new(Config), Config, { assets = assets, placement = PlacementMod.new(Config), root = world, warn = warn })
+		for _, l in ipairs(decorHandle.lines or {}) do
+			print(l)
+		end
+		n, used, fallback = #decorHandle.items, decorHandle.used or 0, decorHandle.fallbackUsed or 0
+	end)
+	return n, used, fallback
+end
+
+function Builder.refreshDecor()
+	if decorHandle then
+		pcall(function()
+			decorHandle = DecorMod.refresh(decorHandle)
+		end)
+	end
 end
 
 -- Relief en toile de fond (budget séparé reliefBudgetParts) : crête de falaises sur deux niveaux au nord de la carte (décor de fond, au-delà de la borne
@@ -17597,7 +18147,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX35"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -17764,7 +18314,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX36"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -17777,7 +18327,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX37"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX40"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -18296,7 +18846,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX38"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX41"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -19033,7 +19583,2127 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX39"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX42"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+-- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
+-- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
+-- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
+-- shop (boutique Robux existante), calendar (calendrier ; pastille rouge si une récompense est réclamable), odds (probabilités du tapis et prix), ranking (saison).
+-- Ce module est AUTONOME : il ne modifie ni Main, ni Data, ni Config. Le branchement (Main : PromptTriggered, remote « Kiosk ») est décrit dans
+-- roblox/KIOSK_INTEGRATION_NOTES.md. Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison.
+--   Kiosk.build(parent, center, config) -> Model, prompts, info
+--     center = { x, z } (nil : KioskData.CENTER) ; config = { Config = Config (requis), assets = module Assets de Main (facultatif : cloneModel("hub", "kiosk")),
+--     loadAsset = function(id) -> Model (facultatif ; sans assets ni loadAsset : InsertService:LoadAsset, dans un pcall), quiet = true (pas d'avertissement
+--     de repli), data = KioskData (facultatif, tests) }
+--   Kiosk.handle(player, action, ctx) -> { ok, id | reason, payload }  : validation serveur PURE (aucun service Roblox), voir plus bas.
+local Kiosk = {}
+
+local function loadData(cfg)
+	if type(cfg) == "table" and type(cfg.data) == "table" then
+		return cfg.data
+	end
+	return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("KioskData"))
+end
+
+local function rgb(c)
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+-- Composantes (x, y, z) d'un Vector3 (userdata dans Roblox, table dans le runtime factice), ou nil si illisibles.
+local function xyz(v)
+	local ok, x, y, z = pcall(function()
+		return v.X, v.Y, v.Z
+	end)
+	if ok and isNum(x) and isNum(y) and isNum(z) then
+		return x, y, z
+	end
+	return nil
+end
+
+-- Nom de base d'une pièce Blender : sans suffixe de couleur « __RRGGBB » ni de doublon « .001 ».
+local function baseName(name)
+	if type(name) ~= "string" then
+		return ""
+	end
+	local n = name:gsub("%.%d+$", "")
+	n = n:gsub("__%x%x%x%x%x%x$", "")
+	return n
+end
+
+local BLOCKED = { "Script", "LocalScript", "ModuleScript", "Tool", "HopperBin", "RemoteEvent", "RemoteFunction", "BindableEvent", "BindableFunction" }
+local function blockedClass(Config, className)
+	if type(Config.isBlockedClass) == "function" then
+		local ok, res = pcall(Config.isBlockedClass, className)
+		if ok then
+			return res == true
+		end
+	end
+	for _, c in ipairs(BLOCKED) do
+		if c == className then
+			return true
+		end
+	end
+	return false
+end
+
+local function destroy(inst)
+	if inst ~= nil then
+		pcall(function()
+			inst:Destroy()
+		end)
+	end
+end
+
+---------------------------------------------------------------- modèle Blender
+
+-- Charge le modèle : module Assets (déjà nettoyé et mis en cache) ou chargeur injecté ou InsertService. Retourne (modèle | nil, raison).
+local function fetchModel(cfg, D)
+	if cfg.Config.Assets and cfg.Config.Assets.Enabled == false then
+		return nil, "Assets désactivé"
+	end
+	local ok, res
+	if type(cfg.assets) == "table" and type(cfg.assets.cloneModel) == "function" then
+		ok, res = pcall(cfg.assets.cloneModel, D.ASSET_GROUP, D.ASSET_KEY)
+		if not ok then
+			return nil, "cloneModel : " .. tostring(res)
+		end
+		if res == nil then
+			return nil, "modèle hub.kiosk non préchargé"
+		end
+		return res
+	end
+	local loader = cfg.loadAsset
+	if type(loader) ~= "function" then
+		loader = function(id)
+			return game:GetService("InsertService"):LoadAsset(id)
+		end
+	end
+	ok, res = pcall(loader, D.ASSET_ID)
+	if not ok then
+		return nil, "LoadAsset : " .. tostring(res)
+	end
+	if res == nil then
+		return nil, "LoadAsset : rien reçu"
+	end
+	-- LoadAsset enveloppe le modèle dans un Model conteneur : on le déballe s'il ne contient qu'un Model
+	local okKids, kids = pcall(function()
+		return res:GetChildren()
+	end)
+	if okKids and type(kids) == "table" and #kids == 1 then
+		local okM, isModel = pcall(function()
+			return kids[1]:IsA("Model")
+		end)
+		if okM and isModel == true then
+			local inner = kids[1]
+			inner.Parent = nil
+			destroy(res)
+			return inner
+		end
+	end
+	return res
+end
+
+-- Nettoie, borne et mesure le modèle. Retourne (true, nombre de Parts) ou (false, raison). Le modèle refusé est détruit par l'appelant.
+local function vetModel(model, cfg, D)
+	local Config = cfg.Config
+	local okList, list = pcall(function()
+		return model:GetDescendants()
+	end)
+	if not okList or type(list) ~= "table" then
+		return false, "modèle illisible"
+	end
+	local blocked, parts = {}, 0
+	for _, d in ipairs(list) do
+		local okC, cls = pcall(function()
+			return d.ClassName
+		end)
+		if not okC or type(cls) ~= "string" then
+			return false, "instance corrompue"
+		end
+		if blockedClass(Config, cls) then
+			blocked[#blocked + 1] = d
+		end
+	end
+	for _, d in ipairs(blocked) do
+		destroy(d)
+	end
+	local okAfter, after = pcall(function()
+		return model:GetDescendants()
+	end)
+	if not okAfter or type(after) ~= "table" then
+		return false, "modèle illisible après nettoyage"
+	end
+	for _, d in ipairs(after) do
+		local okP, isPart = pcall(function()
+			return d:IsA("BasePart")
+		end)
+		if okP and isPart == true then
+			parts = parts + 1
+			d.Anchored = true
+		end
+	end
+	if parts < 1 then
+		return false, "aucune Part"
+	end
+	local maxParts = D.MAX_PARTS
+	if type(Config.Assets) == "table" and isNum(Config.Assets.decorMaxParts) then
+		maxParts = math.min(maxParts, math.max(Config.Assets.decorMaxParts, 1))
+	end
+	if parts > maxParts then
+		return false, "trop de Parts (" .. parts .. " > " .. maxParts .. ")"
+	end
+	-- taille : largeur mesurée à +-25 % de la largeur attendue ; une seule remise à l'échelle, puis remesure
+	local function width()
+		local okE, e = pcall(function()
+			return model:GetExtentsSize()
+		end)
+		local ex, _, ez = xyz(okE and e or nil)
+		if ex == nil then
+			return nil
+		end
+		return math.max(ex, ez)
+	end
+	local w = width()
+	if w == nil or w < 0.5 then
+		return false, "mesure impossible"
+	end
+	if math.abs(w - D.WIDTH) > D.SIZE_TOLERANCE * D.WIDTH then
+		if w < D.WIDTH / 4 or w > D.WIDTH * 4 then
+			return false, "dimensions absurdes (" .. tostring(w) .. " studs)"
+		end
+		local okS = pcall(function()
+			model:ScaleTo(model:GetScale() * D.WIDTH / w)
+		end)
+		w = okS and width() or nil
+		if w == nil or math.abs(w - D.WIDTH) > D.SIZE_TOLERANCE * D.WIDTH then
+			return false, "dimensions hors tolérance"
+		end
+	end
+	return true, parts
+end
+
+-- Retrouve les pièces nommées du modèle : { PanneauBoutique = part, ..., Lueur = part, PastilleCalendrier = part }.
+local function indexParts(model)
+	local out = {}
+	local okList, list = pcall(function()
+		return model:GetDescendants()
+	end)
+	if okList and type(list) == "table" then
+		for _, d in ipairs(list) do
+			local okP, isPart = pcall(function()
+				return d:IsA("BasePart")
+			end)
+			if okP and isPart == true then
+				local n = baseName(d.Name)
+				if out[n] == nil then
+					out[n] = d
+				end
+			end
+		end
+	end
+	return out
+end
+
+---------------------------------------------------------------- repli procédural
+
+local function mk(class, props, parent)
+	local inst = Instance.new(class)
+	for k, v in pairs(props) do
+		inst[k] = v
+	end
+	inst.Parent = parent
+	return inst
+end
+
+local function part(props, parent)
+	props.Anchored = true
+	if props.Material == nil then
+		props.Material = Enum.Material.SmoothPlastic
+	end
+	props.TopSurface, props.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+	return mk("Part", props, parent)
+end
+
+local function cylinder(props, parent, diameter, height, pos)
+	props.Shape = Enum.PartType.Cylinder
+	props.Size = Vector3.new(height, diameter, diameter)
+	props.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.pi / 2)
+	return part(props, parent)
+end
+
+-- Construit le kiosque en Parts de base dans `model` ; retourne le nombre de Parts. Repère local : comptoir (boutique) vers -Z, rotation theta.
+local function buildProcedural(model, cx, cz, theta, D)
+	local n = 0
+	local y0 = D.GROUND_Y
+	local function world(lx, lz)
+		return D.toWorld(cx, cz, theta, lx, lz)
+	end
+	local function P(props)
+		n = n + 1
+		return part(props, model)
+	end
+	n = n + 1
+	cylinder({ Name = "Socle", Color = Color3.fromRGB(176, 160, 130), Material = Enum.Material.Cobblestone }, model, D.WIDTH, 0.8, Vector3.new(cx, y0 + 0.4, cz))
+	for _, corner in ipairs({ { 5.4, 5.4 }, { -5.4, 5.4 }, { 5.4, -5.4 }, { -5.4, -5.4 } }) do
+		local wx, wz = world(corner[1], corner[2])
+		P({ Name = "Pilier", Size = Vector3.new(0.9, 8.6, 0.9), Position = Vector3.new(wx, y0 + 0.8 + 4.3, wz), Color = Color3.fromRGB(226, 214, 190), Material = Enum.Material.Marble })
+	end
+	n = n + 1
+	cylinder({ Name = "Toit", Color = Color3.fromRGB(196, 110, 80), Material = Enum.Material.Slate }, model, D.WIDTH - 1, 0.7, Vector3.new(cx, y0 + 9.5, cz))
+	n = n + 1
+	cylinder({ Name = "ToitHaut", Color = Color3.fromRGB(176, 96, 70), Material = Enum.Material.Slate }, model, 8.4, 1.3, Vector3.new(cx, y0 + 10.5, cz))
+	P({ Name = "Pointe", Shape = Enum.PartType.Ball, Size = Vector3.new(1.5, 1.5, 1.5), Position = Vector3.new(cx, y0 + 11.7, cz), Color = Color3.fromRGB(255, 214, 120), Material = Enum.Material.Metal })
+	local lueur = P({ Name = D.LIGHT_PART, Shape = Enum.PartType.Ball, Size = Vector3.new(1.7, 1.7, 1.7), Position = Vector3.new(cx, y0 + 6.2, cz), Color = Color3.fromRGB(255, 226, 150), Material = Enum.Material.Neon, CanCollide = false })
+	mk("PointLight", { Color = Color3.fromRGB(255, 226, 160), Range = 22, Brightness = 1.2 }, lueur)
+	for _, p in ipairs(D.PANELS) do
+		local wx, wz = world(p.rel.x, p.rel.z)
+		local lean = 0.8 -- le panneau est reculé de 0,8 vers le centre par rapport au comptoir
+		local ix, iz = world(p.rel.x * (1 - lean / D.RADIUS), p.rel.z * (1 - lean / D.RADIUS))
+		P({ Name = "Comptoir_" .. p.id, Size = Vector3.new(8, 2.6, 1.6), CFrame = CFrame.new(wx, y0 + 0.8 + 1.3, wz) * CFrame.Angles(0, theta + p.ang, 0), Color = Color3.fromRGB(150, 104, 62), Material = Enum.Material.WoodPlanks })
+		local board = P({ Name = p.part, Size = Vector3.new(7, 3.4, 0.4), CFrame = CFrame.new(ix, y0 + 0.8 + 4.5, iz) * CFrame.Angles(0, theta + p.ang, 0), Color = Color3.fromRGB(58, 44, 36), Material = Enum.Material.Wood })
+		local gui = mk("SurfaceGui", { Face = Enum.NormalId.Front, LightInfluence = 0, PixelsPerStud = 40 }, board)
+		mk("TextLabel", {
+			Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = p.emoji .. " " .. p.title .. "\n" .. p.sub, TextScaled = true, Font = Enum.Font.GothamBold,
+			TextColor3 = rgb(p.color), TextStrokeTransparency = 0.5, TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
+		}, gui)
+	end
+	return n
+end
+
+---------------------------------------------------------------- prompts, pastille, ambiance
+
+local function addPrompt(target, p, D)
+	local pr = Instance.new("ProximityPrompt")
+	pr.Name = "KioskPrompt_" .. p.id
+	pr.ActionText = p.action
+	pr.ObjectText = p.object
+	pr.HoldDuration = D.PROMPT.hold
+	pr.MaxActivationDistance = D.PROMPT.distance
+	pr.RequiresLineOfSight = D.PROMPT.requiresLineOfSight
+	pr:SetAttribute("KioskAction", p.id)
+	pr.Parent = target
+	pcall(function()
+		game:GetService("CollectionService"):AddTag(pr, "KioskPrompt")
+	end)
+	return pr
+end
+
+-- Son d'ambiance : boucle, volume bas, atténuation par la distance. Aucun Sound si Config.SOUNDS_ENABLED == false ou si l'id est vide.
+local function addAmbience(parent, Config, D)
+	if Config.SOUNDS_ENABLED == false then
+		return nil
+	end
+	local def = D.SOUND
+	local over = type(Config.SOUNDS) == "table" and Config.SOUNDS[D.SOUND.key] or nil
+	local id, vol = def.id, def.vol
+	if type(over) == "table" then
+		if type(over.id) == "string" then
+			id = over.id
+		end
+		if isNum(over.vol) then
+			vol = over.vol
+		end
+	end
+	if type(id) ~= "string" or id == "" or not isNum(vol) or vol <= 0 then
+		return nil
+	end
+	return mk("Sound", {
+		Name = "KioskAmbience", SoundId = id, Volume = math.min(vol, 0.5), Looped = true, RollOffMode = Enum.RollOffMode.InverseTapered,
+		RollOffMinDistance = def.minDist, RollOffMaxDistance = def.maxDist, Playing = true,
+	}, parent)
+end
+
+local function ensureBadge(model, found, D)
+	local badge = found[D.BADGE_NAME]
+	if badge == nil then
+		local anchor = found[D.panel("calendar").part]
+		local pos = Vector3.new(0, 0, 0)
+		local ax, ay, az = xyz(anchor ~= nil and anchor.Position or nil)
+		if ax ~= nil then
+			pos = Vector3.new(ax, ay + 3.2, az)
+		end
+		badge = part({ Name = D.BADGE_NAME, Shape = Enum.PartType.Ball, Size = Vector3.new(1.3, 1.3, 1.3), Position = pos, Color = Color3.fromRGB(235, 40, 40), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, model)
+	end
+	badge.Transparency = 1
+	badge:SetAttribute("Ready", false)
+	return badge
+end
+
+-- Pastille du calendrier : visible seulement quand une récompense est réclamable (calculé par l'appelant). Idempotent.
+function Kiosk.setBadge(info, ready)
+	if type(info) ~= "table" then
+		return
+	end
+	local on = ready == true
+	if info.ready == on then
+		return
+	end
+	info.ready = on
+	if info.badge ~= nil then
+		pcall(function()
+			info.badge.Transparency = on and 0 or 1
+			info.badge:SetAttribute("Ready", on)
+		end)
+	end
+	local pr = info.prompts and info.prompts.calendar
+	if pr ~= nil then
+		pcall(function()
+			pr.ObjectText = on and "Calendrier : récompense prête !" or "Calendrier des œufs"
+		end)
+	end
+end
+
+-- Une vue de Calendar.view (ou nil) justifie-t-elle la pastille ? Jour du jour réclamable, ou jour manqué rattrapable avec un jeton.
+function Kiosk.badgeNeeded(view)
+	if type(view) ~= "table" then
+		return false
+	end
+	if view.canToday == true then
+		return true
+	end
+	if view.eligible == true and isNum(view.catch) and view.catch > 0 and type(view.states) == "string" and string.find(view.states, "m", 1, true) ~= nil then
+		return true
+	end
+	return false
+end
+
+---------------------------------------------------------------- construction
+
+-- Construit (ou reconstruit : idempotent) le kiosque dans `parent`. Retourne (Model, prompts, info). Ne lève jamais d'erreur après la validation de `config`.
+function Kiosk.build(parent, center, config)
+	assert(type(config) == "table" and type(config.Config) == "table", "Kiosk.build : config.Config requis")
+	local D = loadData(config)
+	local Config = config.Config
+	local cx = type(center) == "table" and isNum(center.x) and center.x or D.CENTER.x
+	local cz = type(center) == "table" and isNum(center.z) and center.z or D.CENTER.z
+
+	-- idempotence : un kiosque déjà présent est détruit (aucune copie en double, aucune instance orpheline)
+	local okKids, kids = pcall(function()
+		return parent:GetChildren()
+	end)
+	if okKids and type(kids) == "table" then
+		for _, k in ipairs(kids) do
+			if k.Name == D.MODEL_NAME then
+				destroy(k)
+			end
+		end
+	end
+
+	local info = { center = Vector3.new(cx, D.GROUND_Y, cz), ready = false, usedAsset = false, reason = nil, parts = 0, yaw = 0 }
+	local fx, fz = D.FACE.x - cx, D.FACE.z - cz
+	local model
+	local found = {}
+
+	local okAsset, reason = pcall(function()
+		local m, why = fetchModel(config, D)
+		if m == nil then
+			error(why or "modèle absent", 0)
+		end
+		local okVet, res = vetModel(m, config, D)
+		if not okVet then
+			destroy(m)
+			error(tostring(res), 0)
+		end
+		local idx = indexParts(m)
+		-- orientation : le PanneauBoutique doit regarder la halle, d'après sa position réelle par rapport au pivot du modèle
+		local pv = m:GetPivot()
+		local lx, lz = 0, -1
+		local pb = idx[D.panel("shop").part]
+		local bx, _, bz = xyz(pb ~= nil and pb.Position or nil)
+		local px, _, pz = xyz(pv.Position)
+		if bx ~= nil and px ~= nil then
+			lx, lz = bx - px, bz - pz
+		end
+		local theta = D.yawFor(lx, lz, fx, fz)
+		m.Name = D.MODEL_NAME
+		m:PivotTo(CFrame.new(cx, D.GROUND_Y, cz) * CFrame.Angles(0, theta, 0))
+		m.Parent = parent
+		model, found, info.yaw, info.parts = m, idx, theta, res
+		info.usedAsset = true
+	end)
+	if not okAsset then
+		info.reason = tostring(reason)
+		if config.quiet ~= true then
+			pcall(function()
+				warn("[Kiosk] modèle Blender indisponible, repli procédural : " .. info.reason)
+			end)
+		end
+		if model ~= nil then
+			destroy(model)
+			model = nil
+		end
+		model = Instance.new("Model")
+		model.Name = D.MODEL_NAME
+		local theta = D.yawFor(0, -1, fx, fz)
+		info.yaw = theta
+		info.usedAsset = false
+		info.parts = buildProcedural(model, cx, cz, theta, D)
+		model.Parent = parent
+		found = indexParts(model)
+	end
+
+	-- prompts : un par panneau ; panneau absent du modèle = socle invisible à l'emplacement attendu
+	local prompts = {}
+	local c, s = math.cos(info.yaw), math.sin(info.yaw)
+	for _, p in ipairs(D.PANELS) do
+		local target = found[p.part]
+		if target == nil then
+			local wx = cx + p.rel.x * c + p.rel.z * s
+			local wz = cz - p.rel.x * s + p.rel.z * c
+			target = part({ Name = p.part, Size = Vector3.new(4, 3, 1), Position = Vector3.new(wx, D.GROUND_Y + 3.5, wz), Transparency = 1, CanCollide = false, CanQuery = false }, model)
+			found[p.part] = target
+			info.parts = info.parts + 1
+		end
+		prompts[p.id] = addPrompt(target, p, D)
+	end
+	info.prompts = prompts
+	info.badge = ensureBadge(model, found, D)
+	local lueur = found[D.LIGHT_PART]
+	if lueur == nil then
+		lueur = part({ Name = D.LIGHT_PART, Shape = Enum.PartType.Ball, Size = Vector3.new(1.5, 1.5, 1.5), Position = info.center + Vector3.new(0, 6, 0), Color = Color3.fromRGB(255, 226, 150), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, model)
+		found[D.LIGHT_PART] = lueur
+	end
+	if lueur:FindFirstChildOfClass("PointLight") == nil then
+		mk("PointLight", { Color = Color3.fromRGB(255, 226, 160), Range = 22, Brightness = 1.2 }, lueur)
+	end
+	info.light = lueur
+	if config.noAmbience ~= true then -- lot 8B (intégration) : Main passe noAmbience, l'ambiance est jouée par le client (setLoop, volume général, fondu)
+		info.sound = addAmbience(lueur, Config, D)
+	end
+	model:SetAttribute("KioskCenterX", cx)
+	model:SetAttribute("KioskCenterZ", cz)
+	info.model = model
+	return model, prompts, info
+end
+
+---------------------------------------------------------------- données affichées (pures)
+
+local function pctText(v)
+	local fmt = "%.3f"
+	if v >= 10 then
+		fmt = "%.1f"
+	elseif v >= 0.1 then
+		fmt = "%.2f"
+	end
+	local s = string.format(fmt, v)
+	s = s:gsub("%.", ",")
+	return s
+end
+
+local function weightsTotal(list)
+	local total = 0
+	if type(list) == "table" then
+		for _, w in ipairs(list) do
+			if isNum(w) and w > 0 then
+				total = total + w
+			end
+		end
+	end
+	return total
+end
+
+-- Probabilités du tapis (poids normalisés en %, tapis normal et doré) et prix des œufs en Robux / pièces (Config.PRICING). Retourne { rows, prices, lines }.
+function Kiosk.oddsData(Config)
+	local rows, lines, prices = {}, {}, {}
+	local belt = type(Config.BELT) == "table" and type(Config.BELT.weights) == "table" and Config.BELT.weights or {}
+	local nTot, gTot = weightsTotal(belt.normal), weightsTotal(belt.golden)
+	local refs = type(Config.ODDS) == "table" and type(Config.ODDS.REF) == "table" and Config.ODDS.REF or {}
+	local tiers = type(Config.TIERS) == "table" and Config.TIERS or {}
+	local fmt = type(Config.fmt) == "function" and Config.fmt or tostring
+	for i = 1, #tiers do
+		local wn = type(belt.normal) == "table" and isNum(belt.normal[i]) and belt.normal[i] or 0
+		local wg = type(belt.golden) == "table" and isNum(belt.golden[i]) and belt.golden[i] or 0
+		local normal = nTot > 0 and wn / nTot * 100 or 0
+		local golden = gTot > 0 and wg / gTot * 100 or 0
+		local name = type(tiers[i]) == "table" and tostring(tiers[i].name) or ("Rareté " .. i)
+		rows[#rows + 1] = { tier = i, name = name, normal = normal, golden = golden, ref = isNum(refs[i]) and refs[i] or nil }
+		if normal > 0 or golden > 0 then
+			lines[#lines + 1] = name .. " : " .. pctText(normal) .. " % (tapis doré " .. pctText(golden) .. " %)"
+		else
+			lines[#lines + 1] = name .. " : hors tapis"
+		end
+	end
+	if type(Config.PRICING) == "table" then
+		local keys = {}
+		for k in pairs(Config.PRICING) do
+			keys[#keys + 1] = k
+		end
+		table.sort(keys, function(a, b)
+			local ta, tb = Config.PRICING[a].tier, Config.PRICING[b].tier
+			ta, tb = isNum(ta) and ta or 0, isNum(tb) and tb or 0
+			if ta ~= tb then
+				return ta < tb
+			end
+			return tostring(a) < tostring(b)
+		end)
+		for _, k in ipairs(keys) do
+			local d = Config.PRICING[k]
+			if type(d) == "table" then
+				local tname = type(tiers[d.tier]) == "table" and tostring(tiers[d.tier].name) or "?"
+				local coins = isNum(d.coinCost) and d.coinCost or nil
+				prices[#prices + 1] = { key = k, tier = d.tier, name = tname, robux = isNum(d.robuxCost) and d.robuxCost or nil, coins = coins, coinsText = coins and fmt(coins) or "jamais en pièces", where = tostring(d.where) }
+				lines[#lines + 1] = tname .. " : " .. (isNum(d.robuxCost) and (d.robuxCost .. " R$") or "?") .. " ou " .. (coins and ("🪙 " .. fmt(coins)) or "jamais en pièces")
+			end
+		end
+	end
+	return { rows = rows, prices = prices, lines = lines, version = type(Config.ODDS) == "table" and Config.ODDS.version or nil }
+end
+
+-- Entrées de classement assainies : au plus `max`, nom texte de 24 caractères, trophées entiers bornés.
+local function cleanTop(list, max)
+	local out = {}
+	if type(list) ~= "table" then
+		return out
+	end
+	for _, e in ipairs(list) do
+		if #out >= max then
+			break
+		end
+		if type(e) == "table" and isNum(e.trophies) then
+			local name = type(e.name) == "string" and e.name or "?"
+			out[#out + 1] = { name = string.sub(name, 1, 24), trophies = math.min(100000, math.max(0, math.floor(e.trophies))) }
+		end
+	end
+	return out
+end
+
+---------------------------------------------------------------- validation serveur
+
+local lastAt = setmetatable({}, { __mode = "k" }) -- joueur -> horloge de sa dernière action acceptée (clés faibles : aucune fuite)
+
+local function refuse(reason)
+	return { ok = false, reason = reason }
+end
+
+-- À appeler à PlayerRemoving (facultatif : la table est à clés faibles).
+function Kiosk.forget(player)
+	lastAt[player] = nil
+end
+
+-- Traite une demande d'interaction. TOUT est revérifié ici, que l'action vienne d'un prompt ou d'un remote :
+--   player : le joueur (jamais lu pour ses données, seulement transmis à ctx) ; action : identifiant (chaîne) ou { id = chaîne } ;
+--   ctx = { Config (requis), inRange = function(player) -> bool (requis : distance réelle au kiosque, mesurée par le serveur),
+--           clock = function() -> secondes (facultatif, os.clock), now = function() -> heure UTC en secondes (facultatif, os.time),
+--           calView = function(player) -> Calendar.view | nil, top = function(season, count) -> { {name, trophies} }, mine = function(player) -> table | nil }.
+-- Retourne { ok = true, id, payload } ou { ok = false, reason } avec reason parmi : contexte, joueur, action, distance, pause, erreur.
+function Kiosk.handle(player, action, ctx)
+	if type(ctx) ~= "table" or type(ctx.Config) ~= "table" or type(ctx.inRange) ~= "function" then
+		return refuse("contexte")
+	end
+	if player == nil then
+		return refuse("joueur")
+	end
+	local id = action
+	if type(action) == "table" then
+		id = action.id
+	end
+	local D = loadData(ctx)
+	if type(id) ~= "string" or #id > 24 or D.ACTIONS[id] ~= true then
+		return refuse("action")
+	end
+	local okR, inRange = pcall(ctx.inRange, player)
+	if not okR or inRange ~= true then
+		return refuse("distance")
+	end
+	local clock = type(ctx.clock) == "function" and ctx.clock or os.clock
+	local t = clock()
+	if not isNum(t) then
+		return refuse("contexte")
+	end
+	local prev = lastAt[player]
+	if isNum(prev) and t - prev < D.COOLDOWN and t >= prev then
+		return refuse("pause")
+	end
+	local Config = ctx.Config
+	local okP, payload = pcall(function()
+		if id == "shop" then
+			return { panel = "shop" }
+		elseif id == "calendar" then
+			local view = type(ctx.calView) == "function" and ctx.calView(player) or nil
+			if type(view) ~= "table" then
+				view = nil
+			end
+			return { panel = "calendar", view = view, ready = Kiosk.badgeNeeded(view) }
+		elseif id == "odds" then
+			local od = Kiosk.oddsData(Config)
+			od.panel = "odds"
+			return od
+		end
+		local now = type(ctx.now) == "function" and ctx.now() or os.time()
+		now = isNum(now) and now or 0
+		local seasonSeconds = type(Config.PVP) == "table" and isNum(Config.PVP.seasonSeconds) and Config.PVP.seasonSeconds > 0 and Config.PVP.seasonSeconds or 7 * 86400
+		local season = type(Config.pvpSeason) == "function" and Config.pvpSeason(now) or math.floor(now / seasonSeconds)
+		local entries = type(ctx.top) == "function" and ctx.top(season, D.MAX_ENTRIES) or {}
+		local mine = type(ctx.mine) == "function" and ctx.mine(player) or nil
+		return { panel = "ranking", season = season, secondsLeft = math.max(0, (math.floor(now / seasonSeconds) + 1) * seasonSeconds - now), entries = cleanTop(entries, D.MAX_ENTRIES), mine = type(mine) == "table" and mine or nil }
+	end)
+	if not okP or type(payload) ~= "table" then
+		return refuse("erreur")
+	end
+	lastAt[player] = t
+	return { ok = true, id = id, payload = payload }
+end
+
+return Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX43"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+-- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
+--   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
+--   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
+--                                                en modèle Blender ou, à défaut, en repli procédural, dans un dossier « BlenderDecor » de `parent`. Retourne un handle.
+--   Decor.refresh(handle)                      : reconstruit (hook onAssetsLoaded : les modèles arrivés remplacent les replis) ; Decor.clear(handle) : nettoie.
+-- Règles : rien dans l'eau, sur un chemin, une base, un territoire, la place (sauf la couronne du marché), l'arène, le château, ni sur les objets déjà posés
+-- (Placement.plan/forest/scenery/decor passés par deps.placement) ni dans le disque du kiosque central. Budgets de Parts : DecorData.budget (modèles : coût MESURÉ ;
+-- repli : séparé). Les ANCRES (dôme du hall, Grand Œuf, colisée, tapis) superposent un modèle à un élément procédural qu'elles masquent (Transparency 1,
+-- collision conservée) SEULEMENT si le modèle est posé ; sinon l'élément procédural reste. Aucune fuite : clear() détruit le dossier et rend les transparences.
+-- Ne lève jamais d'erreur (tout sous pcall) ; compatible lupa (pas de += ni continue ni math.atan2).
+--
+-- deps (tous facultatifs) : assets (instance de Assets.new : status, loadMany, cloneModel, place), placement (Placement.new(Config, MapGeo)), data (DecorData),
+-- occupied ({ {x, z, r} }), root (racine où chercher les éléments à masquer, par défaut parent.Parent), env (surcharges Roblox : newFolder, destroy, makePart, findNamed,
+-- getTransparency, setTransparency, label, yield), warn, skipLoad (true : ne charge rien).
+local Decor = {}
+
+local FOLDER_NAME = "BlenderDecor"
+local current = setmetatable({}, { __mode = "k" }) -- parent -> handle (un seul décor par parent ; clés faibles)
+
+---------------------------------------------------------------- utilitaires purs
+local function num(v, default)
+	if type(v) == "number" and v == v and v > -math.huge and v < math.huge then
+		return v
+	end
+	return default
+end
+
+local function dist(ax, az, bx, bz)
+	return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+end
+
+-- Rotation Y (degrés) pour qu'un modèle dont l'avant est -Z regarde (dx, dz) ; même formule que Placement.facing (pas de math.atan2).
+local function facing(dx, dz)
+	local fx, fz = -dx, -dz
+	if fx == 0 and fz == 0 then
+		return 0
+	end
+	local theta
+	if fz == 0 then
+		theta = fx > 0 and math.pi / 2 or -math.pi / 2
+	else
+		theta = math.atan(fx / fz)
+		if fz < 0 then
+			theta = theta + math.pi
+		end
+	end
+	return math.deg(theta) % 360
+end
+Decor.facing = facing
+
+local function newRng(seed)
+	local s = seed
+	return function()
+		s = s * 16807 % 2147483647
+		return s / 2147483647
+	end
+end
+
+local function distToSegment(px, pz, ax, az, bx, bz)
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = len2 > 0 and math.max(0, math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2)) or 0
+	return dist(px, pz, ax + dx * t, az + dz * t)
+end
+
+local function circleRect(x, z, r, rc)
+	local ex = math.max(rc.x0 - x, 0, x - rc.x1)
+	local ez = math.max(rc.z0 - z, 0, z - rc.z1)
+	return math.sqrt(ex * ex + ez * ez) < r
+end
+
+local function validId(id)
+	return type(id) == "number" and id > 0 and id % 1 == 0
+end
+
+---------------------------------------------------------------- données
+local function loadData(deps)
+	if deps and deps.data then
+		return deps.data
+	end
+	local ok, mod = pcall(function()
+		return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DecorData"))
+	end)
+	if ok and type(mod) == "table" then
+		return mod
+	end
+	error("Decor : module DecorData introuvable")
+end
+
+local function budgets(config, data)
+	local A = config.Assets or {}
+	local b = data.budget or {}
+	return math.max(0, num(A.decorBudgetParts, num(b.blender, 0))), math.max(0, num(A.decorFallbackParts, num(b.fallback, 0)))
+end
+
+local function kioskOf(config, data)
+	local k = (config.Map2 and config.Map2.kiosk) or config.KIOSK or data.kiosk
+	if type(k) ~= "table" then
+		return { x = 0, z = 0, r = 0 }
+	end
+	return { x = num(k.x, 0), z = num(k.z, 0), r = num(k.r, 0) }
+end
+
+local function isOff(config, fam)
+	local off = config.Assets and config.Assets.decorOff
+	return type(off) == "table" and off[fam] == true
+end
+
+---------------------------------------------------------------- plan pur
+-- Emprises déjà occupées { {x, z, r} } : plan Placement (items, forêt, village, décor fin), deps.occupied, DecorData.existing.
+local function gatherOccupied(data, deps)
+	local occ = {}
+	local function add(x, z, r)
+		if type(x) == "number" and type(z) == "number" then
+			occ[#occ + 1] = { x, z, num(r, 3) }
+		end
+	end
+	local P = deps and deps.placement
+	if P then
+		pcall(function()
+			local plan = P.plan()
+			for _, it in ipairs(plan.items or {}) do
+				add(it.x, it.z, it.r)
+			end
+			for _, it in ipairs(plan.forest or {}) do
+				add(it.x, it.z, it.r)
+			end
+			for _, it in ipairs(P.scenery(plan.items) or {}) do
+				add(it.x, it.z, it.r)
+			end
+			for _, it in ipairs(P.decor(plan.items) or {}) do
+				add(it.x, it.z, it.r)
+			end
+		end)
+	end
+	if deps and type(deps.occupied) == "table" then
+		for _, o in ipairs(deps.occupied) do
+			add(o[1] or o.x, o[2] or o.z, o[3] or o.r)
+		end
+	end
+	for _, o in ipairs(data.existing or {}) do
+		add(o[1], o[2], o[3])
+	end
+	return occ
+end
+
+-- Fixtures de la place du marché : cercles { x, z, r } et rectangles { x0, x1, z0, z1 } d'exclusion.
+local function plazaFixtures(G, config, data, kiosk)
+	local M2 = config.Map2
+	local P = data.plaza or {}
+	local circles, rects = {}, {}
+	local function circ(t, r)
+		if type(t) == "table" and type(t.x) == "number" and type(t.z) == "number" then
+			circles[#circles + 1] = { t.x, t.z, r }
+		end
+	end
+	if M2.fountain then
+		circ(M2.fountain, num(M2.fountain.r, 7) + num(P.fountainMargin, 4))
+	end
+	if M2.hall then
+		circ(M2.hall, num(M2.hall.r, 18) + num(P.hallMargin, 4))
+	end
+	for _, st in ipairs(M2.stalls or {}) do
+		circ(st, num(P.stallRadius, 8.5))
+	end
+	for _, p in ipairs(G.portals or {}) do
+		circ(p.pad, num(P.portalPad, 8))
+	end
+	circ(M2.plazaArrival, num(P.arrivalRadius, 7))
+	circ(M2.hen, num(P.henRadius, 6))
+	if M2.bigEgg then
+		circ(M2.bigEgg, num(M2.bigEgg.r, 22) + 4)
+	end
+	for _, rs in ipairs(M2.runeStones or {}) do
+		circ(rs, num(P.runeRadius, 5))
+	end
+	for _, a in ipairs(G.homeArches or {}) do
+		circ(a, num(P.archRadius, 8))
+	end
+	for _, s in ipairs(config.SECRETS or {}) do
+		circ(s, num(P.secretRadius, 14))
+	end
+	for _, f in ipairs(G.featherList or {}) do
+		circ(f, 4)
+	end
+	for _, rv in ipairs((config.Decor and config.Decor.reserved) or {}) do
+		circ({ x = rv.x or rv[1], z = rv.z or rv[2] }, num(rv.r or rv[3], 6))
+	end
+	local B = M2.belt
+	if B then
+		local bp = P.beltPad or {}
+		rects[#rects + 1] = {
+			x0 = B.x0 - num(bp.x0, 3),
+			x1 = (B.bin and B.bin.x or B.x1) + num(bp.x1, 8),
+			z0 = B.z - B.width / 2 - num(bp.z0, 14),
+			z1 = B.z + B.width / 2 + num(bp.z1, 8),
+		}
+	end
+	local T = M2.track
+	if T then
+		local tp = num(P.trackPad, 5)
+		rects[#rects + 1] = { x0 = T.x - T.w / 2 - tp, x1 = T.x + T.w / 2 + tp, z0 = T.z - T.d / 2 - tp, z1 = T.z + T.d / 2 + tp }
+	end
+	return circles, rects
+end
+
+-- Plan : { slots = { {fam, x, z, y, rot, r, label, anchor, ...} }, byFam, kiosk, occupied }. Aucune création d'instance.
+function Decor.plan(G, config, data, deps)
+	deps = deps or {}
+	data = data or loadData(deps)
+	local M2 = config.Map2
+	local kiosk = kioskOf(config, data)
+	local occupied = gatherOccupied(data, deps)
+	local plazaC, plazaR = plazaFixtures(G, config, data, kiosk)
+	local pl = M2.plaza
+	local slots, byFam = {}, {}
+	local yieldFn = deps.yield
+	local tick = 0
+	local function pause()
+		tick = tick + 1
+		if yieldFn and tick % 40 == 0 then
+			yieldFn()
+		end
+	end
+
+	-- libre vis-à-vis des objets déjà posés (autres modèles, Placement), du kiosque et de nos propres exemplaires
+	local function farFree(x, z, r, gap)
+		if kiosk.r > 0 and dist(x, z, kiosk.x, kiosk.z) < kiosk.r + r then
+			return false
+		end
+		for _, o in ipairs(occupied) do
+			if dist(x, z, o[1], o[2]) < r + o[3] + 1 then
+				return false
+			end
+		end
+		for _, s in ipairs(slots) do
+			if not s.anchor and dist(x, z, s.x, s.z) < r + s.r + gap then
+				return false
+			end
+		end
+		return true
+	end
+	-- règles de MapGeo (eau, chemin, place, repère, arène, château, domaine, base, secret, plume, bord)
+	local function mapFree(x, z, r, gap)
+		pause()
+		if G.blocked(x, z, r, {}) then
+			return false
+		end
+		return farFree(x, z, r, gap)
+	end
+	-- couronne de la place du marché : dans le disque, hors fixtures, hors chemins
+	local function plazaFree(x, z, r, gap)
+		pause()
+		if dist(x, z, pl.x, pl.z) + r > pl.r - 1 then
+			return false
+		end
+		for _, c in ipairs(plazaC) do
+			if dist(x, z, c[1], c[2]) < c[3] + r then
+				return false
+			end
+		end
+		for _, rc in ipairs(plazaR) do
+			if circleRect(x, z, r + 1, rc) then
+				return false
+			end
+		end
+		if G.pathEdgeDist(x, z) < r + 1.5 then
+			return false
+		end
+		return farFree(x, z, r, gap)
+	end
+	-- obstacles propres aux lacs : pontons, cabane, chemins, ponts, bases
+	local function dockClear(x, z, r)
+		for _, dk in ipairs(G.docks or {}) do
+			if distToSegment(x, z, dk.ax, dk.az, dk.bx, dk.bz) < dk.w / 2 + r + 1.5 then
+				return false
+			end
+		end
+		return true
+	end
+	local function shoreFree(x, z, r, gap)
+		pause()
+		if not G.inBounds(x, z, 4 + r) or G.onPlateau(x, z) then
+			return false
+		end
+		if G.waterEdgeDist(x, z, false) < 0.8 then
+			return false
+		end
+		if not dockClear(x, z, r) then
+			return false
+		end
+		local cab = M2.cabin
+		if cab and math.abs(x - cab.x) < cab.w / 2 + r + 2 and math.abs(z - cab.z) < cab.d / 2 + r + 2 then
+			return false
+		end
+		if G.pathEdgeDist(x, z) < r + 1.5 then
+			return false
+		end
+		for _, b in ipairs(G.bridges or {}) do
+			if dist(x, z, b.x, b.z) < b.len / 2 + r then
+				return false
+			end
+		end
+		for i = 1, #G.bases do
+			if G.distToBase(i, x, z) < r + 4 then
+				return false
+			end
+		end
+		return farFree(x, z, r, gap)
+	end
+	local function waterFree(x, z, r, gap)
+		pause()
+		if G.waterEdgeDist(x, z, false) > -(r + 1.5) then
+			return false
+		end
+		if not dockClear(x, z, r + 2) then
+			return false
+		end
+		return farFree(x, z, r, gap)
+	end
+
+	---------------------------------------------------------------- générateurs de candidats (listes déterministes)
+	local function candPlazaRim(fam, fi)
+		local out = {}
+		local rmin, rmax = fam.ring[1], fam.ring[2]
+		for k = 1, 720 do
+			local a = math.rad((k * 137.508 + fi * 31) % 360)
+			local rad = rmin + ((k * 7) % 23) / 22 * (rmax - rmin)
+			local x, z = pl.x + math.cos(a) * rad, pl.z + math.sin(a) * rad
+			out[#out + 1] = { x = x, z = z, rot = facing(pl.x - x, pl.z - z) }
+		end
+		return out
+	end
+	local function candStallSide(fam, fi)
+		local out = {}
+		local anchors = {}
+		for _, s in ipairs(slots) do
+			if (s.fam == "stall_a" or s.fam == "stall_b") and not s.anchor then
+				anchors[#anchors + 1] = { s.x, s.z }
+			end
+		end
+		for _, st in ipairs(M2.stalls or {}) do
+			anchors[#anchors + 1] = { st.x, st.z }
+		end
+		local o1, o2 = fam.offset[1], fam.offset[2]
+		for k = 0, 35 do
+			for ai, a in ipairs(anchors) do
+				local ang = math.rad((k * 30 + fi * 17 + ai * 23) % 360)
+				local rad = o1 + ((k * 5) % 3) / 2 * (o2 - o1)
+				local x, z = a[1] + math.cos(ang) * rad, a[2] + math.sin(ang) * rad
+				out[#out + 1] = { x = x, z = z, rot = facing(a[1] - x, a[2] - z) }
+			end
+		end
+		return out
+	end
+	local function candRegion(fam, fi)
+		local out = {}
+		local rg = fam.region
+		local rnd = newRng(9000 + fi * 131)
+		local minP = num(fam.minPlaza, 0)
+		for _ = 1, 700 do
+			local x, z = rg.x0 + rnd() * (rg.x1 - rg.x0), rg.z0 + rnd() * (rg.z1 - rg.z0)
+			if dist(x, z, pl.x, pl.z) >= minP then
+				out[#out + 1] = { x = x, z = z, rot = rnd() * 360 }
+			end
+		end
+		return out
+	end
+	-- point d'un chemin à l'abscisse curviligne s, avec la normale (nx, nz) ; nil au-delà de la fin
+	local function pathPoint(pts, s)
+		local acc = 0
+		for k = 1, #pts - 1 do
+			local ax, az, bx, bz = pts[k][1], pts[k][2], pts[k + 1][1], pts[k + 1][2]
+			local len = dist(ax, az, bx, bz)
+			if len > 0 and acc + len >= s then
+				local t = (s - acc) / len
+				local dx, dz = (bx - ax) / len, (bz - az) / len
+				return ax + (bx - ax) * t, az + (bz - az) * t, -dz, dx
+			end
+			acc = acc + len
+		end
+		return nil
+	end
+	local function eachPath(fn)
+		for _, p in ipairs(M2.paths or {}) do
+			if (p.y or 0) == 0 and p.name ~= "Court" then
+				fn(p, p.kind == "dirt" and M2.dirtHalf or M2.pathHalf)
+			end
+		end
+	end
+	local function candPathSide(fam)
+		local lists = {}
+		eachPath(function(p, half)
+			local list = {}
+			local total = 0
+			for k = 1, #p.pts - 1 do
+				total = total + dist(p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2])
+			end
+			local s = 0
+			local idx = 0
+			while s < total do
+				local x, z, nx, nz = pathPoint(p.pts, s)
+				if x and dist(x, z, pl.x, pl.z) >= num(fam.pathMinPlaza, 70) then
+					idx = idx + 1
+					local lat = half + fam.offset + fam.r
+					local side = (idx % 2 == 0) and 1 or -1
+					list[#list + 1] = { x = x + nx * lat * side, z = z + nz * lat * side, rot = facing(-nx * side, -nz * side) }
+					list[#list + 1] = { x = x - nx * lat * side, z = z - nz * lat * side, rot = facing(nx * side, nz * side) }
+				end
+				s = s + fam.step
+			end
+			lists[#lists + 1] = list
+		end)
+		local out = {}
+		local k = 1
+		local more = true
+		while more do
+			more = false
+			for _, list in ipairs(lists) do
+				if list[k] then
+					out[#out + 1] = list[k]
+					more = true
+				end
+			end
+			k = k + 1
+		end
+		return out
+	end
+	local function candPathSign(fam)
+		local out = {}
+		local byName = {}
+		for _, p in ipairs(M2.paths or {}) do
+			byName[p.name] = p
+		end
+		for _, name in ipairs(data.signPaths or {}) do
+			local p = byName[name]
+			if p then
+				local half = p.kind == "dirt" and M2.dirtHalf or M2.pathHalf
+				local total = 0
+				for k = 1, #p.pts - 1 do
+					total = total + dist(p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2])
+				end
+				local s = 0
+				local found = nil
+				while s <= total do
+					local x, z = pathPoint(p.pts, s)
+					if x and dist(x, z, pl.x, pl.z) >= fam.signAfter then
+						found = s
+						break
+					end
+					s = s + 2
+				end
+				-- premier point hors de la place puis plusieurs points plus loin (au cas où le premier soit occupé) : un seul panneau par chemin est retenu
+				for _, extra in ipairs({ 0, 10, 20, 32, 46 }) do
+					if found and found + extra <= total then
+						local x, z, nx, nz = pathPoint(p.pts, found + extra)
+						local lat = half + fam.r + 2.5
+						for _, side in ipairs({ 1, -1 }) do
+							out[#out + 1] = { x = x + nx * lat * side, z = z + nz * lat * side, rot = facing(-nx * side, -nz * side), group = name, label = (data.signLabels or {})[name] or name }
+						end
+					end
+				end
+			end
+		end
+		return out
+	end
+	local function lakeRound(fam, fi, ringFn, perLake)
+		local lists = {}
+		for li, lk in ipairs(M2.lakes or {}) do
+			local list = {}
+			for k = 1, perLake do
+				local a = math.rad((k * 137.508 + li * 53 + fi * 19) % 360)
+				local rad = ringFn(lk, k)
+				list[#list + 1] = { x = lk.x + math.cos(a) * rad, z = lk.z + math.sin(a) * rad, rot = (k * 47 + li * 90) % 360, group = "lake" .. li }
+			end
+			lists[#lists + 1] = list
+		end
+		local out = {}
+		for k = 1, perLake do
+			for _, list in ipairs(lists) do
+				out[#out + 1] = list[k]
+			end
+		end
+		return out
+	end
+	local function candLakeShore(fam, fi)
+		return lakeRound(fam, fi, function(lk)
+			return lk.r + num(lk.shore, 5) * 0.55
+		end, 60)
+	end
+	local function candLakeWater(fam, fi)
+		return lakeRound(fam, fi, function(lk, k)
+			return (lk.r - 6) * (0.25 + ((k * 13) % 17) / 17 * 0.75)
+		end, 70)
+	end
+	local function candLakeIsle(fam, fi)
+		local out = {}
+		for li, lk in ipairs(M2.lakes or {}) do
+			-- à l'opposé du ponton de ce lac, puis autres directions
+			local base = 0
+			for _, dk in ipairs(G.docks or {}) do
+				if dk.lake == li then
+					local dx, dz = lk.x - dk.ax, lk.z - dk.az
+					local d = math.sqrt(dx * dx + dz * dz)
+					if d > 0 then
+						base = math.deg(math.atan(dz / (dx == 0 and 1e-9 or dx))) + (dx < 0 and 180 or 0)
+					end
+				end
+			end
+			for k = 0, 11 do
+				local a = math.rad(base + k * 30)
+				local off = lk.r * (k < 6 and 0.3 or 0.15)
+				out[#out + 1] = { x = lk.x + math.cos(a) * off, z = lk.z + math.sin(a) * off, rot = (li * 70 + k * 40) % 360, group = "lake" .. li }
+			end
+		end
+		return out
+	end
+
+	local function addSlot(fam, f, c, y)
+		local s = { fam = fam, x = c.x, z = c.z, y = y, rot = c.rot or 0, r = f.r, label = c.label, group = c.group }
+		slots[#slots + 1] = s
+		byFam[fam] = byFam[fam] or {}
+		byFam[fam][#byFam[fam] + 1] = s
+		return s
+	end
+
+	local function placeFamily(famName, f, fi, candidates, freeFn, yFn)
+		local want = num(f.count, 0)
+		local got = 0
+		local doneGroup = {}
+		for _, c in ipairs(candidates) do
+			if got >= want then
+				break
+			end
+			if not (c.group and f.zone == "pathSign" and doneGroup[c.group]) and freeFn(c.x, c.z, f.r, num(f.gap, 2)) then
+				addSlot(famName, f, c, yFn(c.x, c.z))
+				got = got + 1
+				if c.group and f.zone == "pathSign" then
+					doneGroup[c.group] = true
+				end
+			end
+		end
+	end
+
+	---------------------------------------------------------------- ancres (superposition d'un élément procédural)
+	local function anchorHall(famName, f)
+		local hl = M2.hall
+		if not hl then
+			return
+		end
+		local s = { fam = famName, x = hl.x, z = hl.z, y = num(f.y0, 0), rot = 0, r = hl.r, anchor = true, length = hl.r * 2 + num(f.spanPad, 0), hide = f.hide }
+		slots[#slots + 1] = s
+		byFam[famName] = { s }
+	end
+	local function anchorEgg(famName, f)
+		local E = M2.bigEgg
+		if not E then
+			return
+		end
+		local s = { fam = famName, x = E.x, z = E.z, y = num(f.y0, 0), rot = facing(pl.x - E.x, pl.z - E.z), r = num(E.r, 22), anchor = true, height = num(E.h, 16), hide = f.hide }
+		slots[#slots + 1] = s
+		byFam[famName] = { s }
+	end
+	local function anchorArena(famName, f)
+		local A = M2.arena
+		if not A then
+			return
+		end
+		local ex, ez = A.entry and (A.entry.x - A.x) or 0, A.entry and (A.entry.z - A.z) or 0
+		local s = { fam = famName, x = A.x, z = A.z, y = num(f.y0, 0), rot = facing(ex, ez), r = A.r, anchor = true, length = A.r * 2, hide = f.hide }
+		slots[#slots + 1] = s
+		byFam[famName] = { s }
+	end
+	-- Tapis : tuiles en `lanes` rangées + pièce de bout ; ignoré si le disque du kiosque touche le rectangle du tapis.
+	local function anchorBelt(famName, f)
+		local B = M2.belt
+		local d = f.dims
+		if not (B and d and num(d[1], 0) > 0 and num(d[2], 0) > 0 and num(d[3], 0) > 0) then
+			return
+		end
+		local len = B.x1 - B.x0
+		local rc = { x0 = B.x0, x1 = B.x1, z0 = B.z - B.width / 2, z1 = B.z + B.width / 2 }
+		if kiosk.r > 0 and circleRect(kiosk.x, kiosk.z, kiosk.r, rc) then
+			return
+		end
+		local s = num(f.topY, 1.3) / d[2]
+		local L, Wt = d[1] * s, d[3] * s
+		local lanes = math.max(1, math.floor(B.width / Wt + 0.5))
+		local n = math.max(0, math.ceil((len - L) / L - 1e-9))
+		local tiles = {}
+		for lane = 1, lanes do
+			local lz = B.z + (lane - (lanes + 1) / 2) * Wt
+			for i = 1, n do
+				local sp = (len - L) / n
+				tiles[#tiles + 1] = { fam = famName, x = B.x0 + sp * (i - 0.5), z = lz, rot = 0, length = L }
+			end
+			tiles[#tiles + 1] = { fam = f.endKey or "conveyor_end", x = B.x1 - L / 2, z = lz, rot = 0, length = L }
+		end
+		local slot = { fam = famName, x = (B.x0 + B.x1) / 2, z = B.z, y = 0, rot = 0, r = 0, anchor = true, tiles = tiles, hide = f.hide }
+		slots[#slots + 1] = slot
+		byFam[famName] = { slot }
+	end
+
+	---------------------------------------------------------------- pose des familles dans l'ordre de priorité
+	local fams = data.families or {}
+	for fi, famName in ipairs(data.order or {}) do
+		local f = fams[famName]
+		if f and not isOff(config, famName) then
+			local z = f.zone
+			if z == "hall" then
+				anchorHall(famName, f)
+			elseif z == "bigEgg" then
+				anchorEgg(famName, f)
+			elseif z == "arena" then
+				anchorArena(famName, f)
+			elseif z == "belt" then
+				anchorBelt(famName, f)
+			elseif z == "plazaRim" then
+				placeFamily(famName, f, fi, candPlazaRim(f, fi), plazaFree, function()
+					return 0
+				end)
+			elseif z == "stallSide" then
+				placeFamily(famName, f, fi, candStallSide(f, fi), plazaFree, function()
+					return 0
+				end)
+			elseif z == "region" then
+				placeFamily(famName, f, fi, candRegion(f, fi), mapFree, function(x, zz)
+					return G.groundY(x, zz)
+				end)
+			elseif z == "pathSide" then
+				placeFamily(famName, f, fi, candPathSide(f), mapFree, function(x, zz)
+					return G.groundY(x, zz)
+				end)
+			elseif z == "pathSign" then
+				placeFamily(famName, f, fi, candPathSign(f), mapFree, function(x, zz)
+					return G.groundY(x, zz)
+				end)
+			elseif z == "lakeShore" then
+				placeFamily(famName, f, fi, candLakeShore(f, fi), shoreFree, function()
+					return 0
+				end)
+			elseif z == "lakeWater" then
+				placeFamily(famName, f, fi, candLakeWater(f, fi), waterFree, function()
+					return 0
+				end)
+			elseif z == "lakeIsle" then
+				placeFamily(famName, f, fi, candLakeIsle(f, fi), waterFree, function()
+					return 0
+				end)
+			end
+		end
+	end
+	return { slots = slots, byFam = byFam, kiosk = kiosk, occupied = occupied }
+end
+
+---------------------------------------------------------------- environnement Roblox (surchargeable pour les tests)
+local function defaultEnv()
+	local E = {}
+	function E.newFolder(name, parent)
+		local f = Instance.new("Folder")
+		f.Name = name
+		f.Parent = parent
+		return f
+	end
+	function E.destroy(inst)
+		pcall(function()
+			inst:Destroy()
+		end)
+	end
+	function E.makePart(spec, parent)
+		local p = Instance.new("Part")
+		p.Name = spec.name
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Color = Color3.fromRGB(spec.color[1], spec.color[2], spec.color[3])
+		p.Material = Enum.Material[spec.material or "SmoothPlastic"]
+		local yaw = math.rad(spec.yaw or 0)
+		if spec.kind == "ball" then
+			p.Shape = Enum.PartType.Ball
+			p.Size = Vector3.new(spec.d, spec.d, spec.d)
+			p.CFrame = CFrame.new(spec.x, spec.y, spec.z)
+		elseif spec.kind == "cyl" then
+			p.Shape = Enum.PartType.Cylinder
+			p.Size = Vector3.new(spec.len, spec.d, spec.d)
+			p.CFrame = CFrame.new(spec.x, spec.y, spec.z) * CFrame.Angles(0, yaw, spec.lying and 0 or math.pi / 2)
+		else
+			p.Size = Vector3.new(spec.sx, spec.sy, spec.sz)
+			p.CFrame = CFrame.new(spec.x, spec.y, spec.z) * CFrame.Angles(0, yaw, 0)
+		end
+		if spec.light then
+			local l = Instance.new("PointLight")
+			l.Color = Color3.fromRGB(spec.light.color[1], spec.light.color[2], spec.light.color[3])
+			l.Range = spec.light.range
+			l.Brightness = spec.light.brightness
+			l.Parent = p
+		end
+		p.Parent = parent
+		return p
+	end
+	function E.findNamed(root, names, skip)
+		local out = {}
+		local ok, list = pcall(function()
+			return root:GetDescendants()
+		end)
+		if ok and type(list) == "table" then
+			for _, d in ipairs(list) do
+				if names[d.Name] and d:IsA("BasePart") and not (skip and d:IsDescendantOf(skip)) then -- jamais une pièce de nos propres modèles
+					out[#out + 1] = d
+				end
+			end
+		end
+		return out
+	end
+	function E.getTransparency(part)
+		return part.Transparency
+	end
+	function E.setTransparency(part, v)
+		pcall(function()
+			part.Transparency = v
+		end)
+	end
+	function E.label(model, text)
+		pcall(function()
+			local anchor = nil
+			for _, d in ipairs(model:GetDescendants()) do
+				if d:IsA("BasePart") then
+					anchor = anchor or d
+					if d.Position.Y > anchor.Position.Y then
+						anchor = d
+					end
+				end
+			end
+			if not anchor then
+				return
+			end
+			local g = Instance.new("BillboardGui")
+			g.Name = "DecorLabel"
+			g.Adornee = anchor
+			g.Size = UDim2.fromOffset(200, 44)
+			g.StudsOffsetWorldSpace = Vector3.new(0, 2.2, 0)
+			g.MaxDistance = 70
+			local t = Instance.new("TextLabel")
+			t.BackgroundTransparency = 1
+			t.Size = UDim2.fromScale(1, 1)
+			t.Font = Enum.Font.GothamBold
+			t.TextSize = 20
+			t.TextColor3 = Color3.fromRGB(255, 240, 200)
+			t.TextStrokeTransparency = 0.4
+			t.Text = text
+			t.Parent = g
+			g.Parent = anchor
+		end)
+	end
+	function E.yield()
+		task.wait()
+	end
+	return E
+end
+
+local function mergeEnv(over)
+	local E = defaultEnv()
+	if type(over) == "table" then
+		for k, v in pairs(over) do
+			E[k] = v
+		end
+	end
+	return E
+end
+
+---------------------------------------------------------------- replis procéduraux (Parts de base ; 1 à 5 Parts par exemplaire)
+-- Chaque repli reçoit c (c.box / c.ball / c.cyl en coordonnées locales de l'exemplaire), la famille f et ses paramètres f.fb ; retourne rien (c.n compte les Parts).
+local WOOD, WOOD2, STONE, LEAF = { 140, 100, 62 }, { 110, 76, 46 }, { 150, 146, 140 }, { 84, 150, 70 }
+local FB = {}
+
+function FB.tree(c, f)
+	local h = f.height or 10
+	local p = f.fb
+	local trunk = p.trunk or WOOD2
+	if p.shape == "none" then
+		c.cyl("DecorTrunk", 0, h * 0.45, 0, h * 0.14, h * 0.9, trunk, "Wood")
+		c.box("DecorBranch", h * 0.12, h * 0.72, 0, h * 0.34, h * 0.06, h * 0.06, trunk, "Wood")
+		return
+	end
+	c.cyl("DecorTrunk", 0, h * 0.22, 0, h * 0.13, h * 0.44, trunk, "Wood")
+	if p.shape == "cone" then
+		c.ball("DecorLeaf", 0, h * 0.5, 0, h * 0.62, p.leaf or LEAF, "Grass")
+		c.ball("DecorLeaf", 0, h * 0.8, 0, h * 0.4, p.leaf or LEAF, "Grass")
+	else
+		c.ball("DecorLeaf", 0, h * 0.62, 0, h * 0.7, p.leaf or LEAF, "Grass")
+	end
+end
+function FB.stump(c, f)
+	local h = f.height or 2
+	c.cyl("DecorStump", 0, h / 2, 0, h * 1.1, h, WOOD2, "Wood")
+end
+function FB.log(c, f)
+	local l = f.length or 6
+	c.cyl("DecorLog", 0, l * 0.13, 0, l * 0.26, l, WOOD2, "Wood", true)
+end
+function FB.rock(c, f)
+	local l = f.length or 8
+	c.ball("DecorRock", 0, l * 0.18, 0, l * 0.4, STONE, "Slate")
+	c.ball("DecorRock", l * 0.22, l * 0.12, l * 0.1, l * 0.28, { 134, 130, 124 }, "Slate")
+	c.ball("DecorRock", -l * 0.2, l * 0.1, -l * 0.12, l * 0.24, { 160, 156, 148 }, "Slate")
+end
+function FB.bench(c, f)
+	local h = f.height or 2.5
+	c.box("DecorSeat", 0, h * 0.4, 0, h * 1.9, h * 0.12, h * 0.55, WOOD, "WoodPlanks")
+	c.box("DecorBack", 0, h * 0.7, h * 0.22, h * 1.9, h * 0.4, h * 0.1, WOOD, "WoodPlanks")
+	c.box("DecorLeg", -h * 0.8, h * 0.2, 0, h * 0.12, h * 0.4, h * 0.45, WOOD2, "Wood")
+	c.box("DecorLeg", h * 0.8, h * 0.2, 0, h * 0.12, h * 0.4, h * 0.45, WOOD2, "Wood")
+end
+function FB.flowerbed(c, f)
+	local h = f.height or 1.2
+	c.box("DecorBed", 0, h * 0.25, 0, 4.4, h * 0.5, 2.4, { 120, 86, 58 }, "Wood")
+	c.ball("DecorFlower", -1.3, h * 0.7, 0, 1, { 232, 96, 120 }, "SmoothPlastic")
+	c.ball("DecorFlower", 0, h * 0.75, 0.2, 1, { 250, 220, 90 }, "SmoothPlastic")
+	c.ball("DecorFlower", 1.3, h * 0.7, 0, 1, { 170, 120, 230 }, "SmoothPlastic")
+end
+function FB.well(c, f)
+	local h = f.height or 5
+	c.cyl("DecorWellBase", 0, h * 0.2, 0, h * 0.55, h * 0.4, STONE, "Cobblestone")
+	c.box("DecorWellPost", -h * 0.22, h * 0.55, 0, h * 0.06, h * 0.7, h * 0.06, WOOD2, "Wood")
+	c.box("DecorWellPost", h * 0.22, h * 0.55, 0, h * 0.06, h * 0.7, h * 0.06, WOOD2, "Wood")
+	c.box("DecorWellRoof", 0, h * 0.95, 0, h * 0.62, h * 0.08, h * 0.5, { 160, 80, 60 }, "Wood")
+end
+function FB.lantern(c, f)
+	local h = f.height or 6.5
+	c.cyl("DecorLampPost", 0, h * 0.45, 0, h * 0.07, h * 0.9, { 58, 58, 66 }, "Metal")
+	c.ball("DecorLampGlow", 0, h * 0.95, 0, h * 0.16, { 255, 214, 130 }, "Neon", { color = { 255, 214, 140 }, range = 16, brightness = 0.8 })
+end
+function FB.stall(c, f)
+	local h = f.height or 8
+	local aw = f.fb.awning or { 214, 90, 80 }
+	c.box("DecorStallCounter", 0, h * 0.18, 0, h * 1.1, h * 0.36, h * 0.35, WOOD, "WoodPlanks")
+	c.box("DecorStallPost", -h * 0.5, h * 0.45, h * 0.32, h * 0.06, h * 0.9, h * 0.06, WOOD2, "Wood")
+	c.box("DecorStallPost", h * 0.5, h * 0.45, h * 0.32, h * 0.06, h * 0.9, h * 0.06, WOOD2, "Wood")
+	c.box("DecorStallAwning", 0, h * 0.92, 0, h * 1.25, h * 0.05, h * 0.9, aw, "Fabric")
+end
+function FB.crates(c, f)
+	local h = f.height or 2.6
+	c.box("DecorCrate", 0, h * 0.25, 0, h * 0.5, h * 0.5, h * 0.5, WOOD, "WoodPlanks")
+	c.box("DecorCrate", h * 0.4, h * 0.2, h * 0.1, h * 0.4, h * 0.4, h * 0.4, { 170, 126, 80 }, "WoodPlanks")
+	c.box("DecorCrate", h * 0.1, h * 0.65, 0, h * 0.4, h * 0.4, h * 0.4, WOOD2, "WoodPlanks")
+end
+function FB.barrels(c, f)
+	local h = f.height or 2.4
+	c.cyl("DecorBarrel", -h * 0.3, h * 0.5, 0, h * 0.6, h, WOOD2, "Wood")
+	c.cyl("DecorBarrel", h * 0.3, h * 0.5, 0, h * 0.6, h, WOOD, "Wood")
+end
+function FB.hay(c, f)
+	local h = f.height or 2.2
+	c.cyl("DecorHay", 0, h * 0.5, 0, h, h * 1.2, { 224, 190, 96 }, "Fabric", true)
+end
+function FB.bush(c, f)
+	local h = f.height or 2.4
+	c.ball("DecorBush", 0, h * 0.4, 0, h * 0.8, { 64, 130, 66 }, "Grass")
+	c.ball("DecorBush", h * 0.3, h * 0.3, h * 0.1, h * 0.6, { 76, 148, 74 }, "Grass")
+end
+function FB.sign(c, f)
+	local h = f.height or 4.5
+	c.cyl("DecorSignPost", 0, h * 0.4, 0, h * 0.08, h * 0.8, WOOD2, "Wood")
+	c.box("DecorSignBoard", 0, h * 0.78, 0, h * 0.8, h * 0.28, h * 0.05, WOOD, "WoodPlanks")
+end
+function FB.flag(c, f)
+	local h = f.height or 7
+	c.cyl("DecorFlagPole", 0, h * 0.5, 0, h * 0.04, h, { 200, 196, 188 }, "Metal")
+	c.box("DecorFlag", h * 0.14, h * 0.85, 0, h * 0.24, h * 0.22, h * 0.02, { 214, 80, 70 }, "Fabric")
+end
+function FB.reeds(c, f)
+	local h = f.height or 4
+	c.box("DecorReed", 0, h * 0.5, 0, h * 0.05, h, h * 0.05, { 120, 150, 70 }, "Grass")
+	c.box("DecorReed", h * 0.12, h * 0.4, h * 0.05, h * 0.05, h * 0.8, h * 0.05, { 110, 140, 64 }, "Grass")
+	c.box("DecorReed", -h * 0.1, h * 0.45, -h * 0.06, h * 0.05, h * 0.9, h * 0.05, { 130, 158, 76 }, "Grass")
+end
+function FB.lily(c, f)
+	local l = f.length or 1.6
+	c.cyl("DecorLily", 0, 0.05, 0, l, 0.1, { 70, 150, 80 }, "Grass")
+end
+function FB.isle(c, f)
+	local l = f.length or 16
+	c.cyl("DecorIsle", 0, 0.4, 0, l, 0.8, { 214, 190, 140 }, "Sand")
+	c.cyl("DecorIsleTrunk", 0, 2, 0, 0.9, 4, WOOD2, "Wood")
+	c.ball("DecorIsleBloom", 0, 5, 0, l * 0.5, { 244, 170, 196 }, "Grass")
+end
+
+-- Contexte de construction d'un repli : coordonnées locales -> monde (rotation Y de l'exemplaire).
+local function fallbackCtx(slot, folder, env)
+	local rot = math.rad(slot.rot or 0)
+	local cs, sn = math.cos(rot), math.sin(rot)
+	local c = { n = 0, parts = {} }
+	local function world(ox, oy, oz)
+		return slot.x + ox * cs + oz * sn, (slot.y or 0) + oy, slot.z - ox * sn + oz * cs
+	end
+	local function emit(spec)
+		local ok, p = pcall(env.makePart, spec, folder)
+		if ok then
+			c.n = c.n + 1
+			c.parts[#c.parts + 1] = p
+		end
+	end
+	function c.box(name, ox, oy, oz, sx, sy, sz, color, mat)
+		local x, y, z = world(ox, oy, oz)
+		emit({ kind = "box", name = name, x = x, y = y, z = z, yaw = slot.rot, sx = sx, sy = sy, sz = sz, color = color, material = mat })
+	end
+	function c.ball(name, ox, oy, oz, d, color, mat, light)
+		local x, y, z = world(ox, oy, oz)
+		emit({ kind = "ball", name = name, x = x, y = y, z = z, d = d, color = color, material = mat, light = light })
+	end
+	function c.cyl(name, ox, oy, oz, d, len, color, mat, lying)
+		local x, y, z = world(ox, oy, oz)
+		emit({ kind = "cyl", name = name, x = x, y = y, z = z, yaw = slot.rot, d = d, len = len, color = color, material = mat, lying = lying })
+	end
+	return c
+end
+
+-- Nombre de Parts d'un repli (mesuré en le construisant dans un contexte à blanc).
+local function fallbackCost(f)
+	local builder = f.fb and FB[f.fb.name]
+	if not builder then
+		return 0
+	end
+	local n = 0
+	local c = { n = 0 }
+	local function count()
+		n = n + 1
+	end
+	c.box, c.ball, c.cyl = count, count, count
+	builder(c, f)
+	return n
+end
+Decor.fallbackCost = fallbackCost
+
+---------------------------------------------------------------- construction
+local function key(data, famName)
+	return (data.keyPrefix or "m:decor.") .. famName
+end
+
+local function say(deps, msg)
+	if deps and deps.warn then
+		pcall(deps.warn, msg)
+	end
+end
+
+-- Charge les modèles manquants (lots parallèles, délai, un nouvel essai : Assets.loadMany). Un modèle déjà connu (chargé ou refusé) n'est pas redemandé.
+-- Retourne le nombre de modèles utilisables parmi les familles du plan.
+function Decor.load(assets, data, config, planned)
+	if not assets or not assets.loadMany or (config.Assets and config.Assets.Enabled ~= true) then
+		return 0
+	end
+	local entries, seen = {}, {}
+	local function want(famName)
+		local f = data.families[famName]
+		if f and not seen[famName] and not isOff(config, famName) then
+			seen[famName] = true
+			local k = key(data, famName)
+			if assets.status and assets.status[k] == nil then
+				if validId(f.id) then
+					entries[#entries + 1] = { key = k, id = f.id, cap = f.cap }
+				else
+					assets.status[k] = { ok = false, reason = "ID invalide" }
+				end
+			end
+		end
+	end
+	for famName, list in pairs(planned.byFam) do
+		want(famName)
+		for _, s in ipairs(list) do
+			for _, t in ipairs(s.tiles or {}) do
+				want(t.fam)
+			end
+		end
+	end
+	table.sort(entries, function(a, b)
+		return a.key < b.key
+	end)
+	local loaded = 0
+	if #entries > 0 then
+		pcall(assets.loadMany, entries)
+	end
+	for famName in pairs(seen) do
+		local st = assets.status and assets.status[key(data, famName)]
+		if st and st.ok then
+			loaded = loaded + 1
+		end
+	end
+	return loaded
+end
+
+function Decor.clear(handle)
+	if not handle or handle.cleared then
+		return
+	end
+	handle.cleared = true
+	for _, h in ipairs(handle.hidden or {}) do
+		pcall(handle.env.setTransparency, h.part, h.orig)
+	end
+	handle.hidden = {}
+	if handle.folder then
+		pcall(handle.env.destroy, handle.folder)
+		handle.folder = nil
+	end
+	handle.items = {}
+	if handle.parent and current[handle.parent] == handle then
+		current[handle.parent] = nil
+	end
+end
+
+-- Construit le décor dans parent ; retourne le handle { folder, items, used, fallbackUsed, byFamily, lines, loaded, error }. Ne lève jamais d'erreur.
+function Decor.build(parent, G, config, deps)
+	deps = deps or {}
+	local env = mergeEnv(deps.env)
+	local handle = { parent = parent, geo = G, config = config, deps = deps, env = env, items = {}, hidden = {}, byFamily = {}, lines = {}, used = 0, fallbackUsed = 0, loaded = 0 }
+	local ok, err = pcall(function()
+		local data = loadData(deps)
+		handle.data = data
+		local prev = current[parent]
+		if prev then
+			Decor.clear(prev)
+		end
+		-- reste éventuel d'un décor précédent non suivi (rechargement du module)
+		if parent and parent.FindFirstChild then
+			local old = parent:FindFirstChild(FOLDER_NAME)
+			if old then
+				env.destroy(old)
+			end
+		end
+		deps.yield = deps.yield or env.yield
+		current[parent] = handle -- annonce la construction en cours : un build ou un clear concurrent (le plan et le chargement cèdent la main) l'annule
+		local plan = Decor.plan(G, config, data, deps)
+		handle.plan = plan
+		local blenderMax, fallbackMax = budgets(config, data)
+		handle.budget = { blender = blenderMax, fallback = fallbackMax }
+		local assets = deps.assets
+		if handle.cleared then
+			return
+		end
+		if assets and not deps.skipLoad then
+			handle.loaded = Decor.load(assets, data, config, plan)
+		end
+		if handle.cleared then
+			return -- remplacé ou nettoyé pendant le chargement : rien n'est créé
+		end
+		local folder = env.newFolder(FOLDER_NAME, parent)
+		handle.folder = folder
+
+		local famUsed = {}
+		local function bump(famName, field)
+			local b = handle.byFamily[famName]
+			if not b then
+				b = { model = 0, fallback = 0, wanted = 0 }
+				handle.byFamily[famName] = b
+			end
+			b[field] = (b[field] or 0) + 1
+		end
+		local function statusOf(famName)
+			local st = assets and assets.status and assets.status[key(data, famName)]
+			if st and st.ok and type(st.parts) == "number" then
+				return st
+			end
+			return nil
+		end
+		local function share(famName)
+			local f = data.families[famName]
+			return math.floor(blenderMax * num(f and f.share, 0) + 1e-9)
+		end
+		-- pose un modèle ; retourne (nombre de Parts, clone) ou nil
+		local function putModel(famName, x, z, y, rot, height, length, label)
+			if not assets or not assets.cloneModel or not assets.place then
+				return nil
+			end
+			local clone = assets.cloneModel("decor", famName)
+			if not clone then
+				return nil
+			end
+			pcall(function()
+				clone.Name = "Decor_" .. famName
+			end)
+			local placed, count = assets.place(clone, x, z, rot, height, folder, length, y)
+			if not placed then
+				return nil
+			end
+			if label and env.label then
+				env.label(clone, label)
+			end
+			return num(count, 0), clone
+		end
+
+		for _, famName in ipairs(data.order) do
+			local f = data.families[famName]
+			local list = plan.byFam[famName]
+			if f and list then
+				for _, s in ipairs(list) do
+					handle.byFamily[famName] = handle.byFamily[famName] or { model = 0, fallback = 0, wanted = 0 }
+					handle.byFamily[famName].wanted = handle.byFamily[famName].wanted + 1
+					if s.anchor then
+						-- ancre : tout ou rien (modèle posé -> élément procédural masqué ; sinon il reste)
+						local tiles = s.tiles
+						local needs = tiles or { { fam = famName, x = s.x, z = s.z, rot = s.rot, length = s.length } }
+						local cost, allOk = 0, true
+						for _, t in ipairs(needs) do
+							local st = statusOf(t.fam)
+							if not st then
+								allOk = false
+							else
+								cost = cost + st.parts
+							end
+						end
+						if allOk and cost <= share(famName) and handle.used + cost <= blenderMax then
+							local clones, spent = {}, 0
+							for _, t in ipairs(needs) do
+								local y = s.y or 0
+								local height = nil
+								if not tiles then
+									height = s.height
+								end
+								local count, clone = putModel(t.fam, t.x, t.z, y, t.rot, height, t.length or s.length, nil)
+								if count then
+									spent = spent + count
+									clones[#clones + 1] = clone
+								else
+									allOk = false
+									break
+								end
+							end
+							if allOk then
+								handle.used = handle.used + spent
+								famUsed[famName] = (famUsed[famName] or 0) + spent
+								bump(famName, "model")
+								handle.items[#handle.items + 1] = { fam = famName, x = s.x, z = s.z, r = s.r, mode = "model", anchor = true }
+								local names = {}
+								for _, nme in ipairs(s.hide or {}) do
+									names[nme] = true
+								end
+								local root = deps.root or (parent and parent.Parent) or parent
+								for _, part in ipairs(env.findNamed(root, names, folder)) do
+									local okT, orig = pcall(env.getTransparency, part)
+									if okT and type(orig) == "number" then
+										handle.hidden[#handle.hidden + 1] = { part = part, orig = orig }
+										env.setTransparency(part, 1)
+									end
+								end
+							else
+								-- retour en arrière : aucun morceau posé ne reste, l'élément procédural est conservé
+								for _, clone in ipairs(clones) do
+									env.destroy(clone)
+								end
+								handle.lines[#handle.lines + 1] = "[Decor] ancre " .. famName .. " : pose partielle annulée, élément procédural conservé"
+							end
+						end
+					else
+						local placed = false
+						local st = statusOf(famName)
+						if st and st.parts <= share(famName) - (famUsed[famName] or 0) and handle.used + st.parts <= blenderMax then
+							local jit = 1
+							if f.zone == "region" or f.zone == "pathSide" then
+								jit = 0.9 + ((math.abs(math.sin(s.x * 12.9898 + s.z * 78.233) * 43758.5453)) % 1) * 0.2
+							end
+							local count = putModel(famName, s.x, s.z, (s.y or 0) + num(f.y0, 0), s.rot, f.height and f.height * jit or nil, f.length and f.length * jit or nil, s.label)
+							if count then
+								handle.used = handle.used + count
+								famUsed[famName] = (famUsed[famName] or 0) + count
+								bump(famName, "model")
+								handle.items[#handle.items + 1] = { fam = famName, x = s.x, z = s.z, r = s.r, mode = "model" }
+								placed = true
+							end
+						end
+						if not placed and f.fb and FB[f.fb.name] then
+							local fcost = fallbackCost(f)
+							local fb = handle.byFamily[famName]
+							if fcost > 0 and (fb.fallback or 0) < num(f.fbMax, 0) and handle.fallbackUsed + fcost <= fallbackMax then
+								local c = fallbackCtx({ x = s.x, z = s.z, y = (s.y or 0) + num(f.y0, 0), rot = s.rot }, folder, env)
+								FB[f.fb.name](c, f)
+								if s.label and c.parts[1] and env.label then
+									-- le panneau de repli porte aussi son libellé (BillboardGui sur sa dernière pièce)
+									pcall(env.label, { GetDescendants = function()
+										return c.parts
+									end }, s.label)
+								end
+								handle.fallbackUsed = handle.fallbackUsed + c.n
+								bump(famName, "fallback")
+								handle.items[#handle.items + 1] = { fam = famName, x = s.x, z = s.z, r = s.r, mode = "fallback", parts = c.n }
+							end
+						end
+					end
+				end
+			end
+		end
+		-- journal (une ligne par famille ayant des exemplaires voulus)
+		for _, famName in ipairs(data.order) do
+			local f = data.families[famName]
+			local slotsOf = plan.byFam[famName]
+			if f and num(f.count, 0) > 0 and (not slotsOf or #slotsOf < f.count) and not isOff(config, famName) then
+				handle.lines[#handle.lines + 1] = ("[Decor] %s : %d emplacement(s) libre(s) sur %d voulu(s)"):format(famName, slotsOf and #slotsOf or 0, f.count)
+			end
+			local b = handle.byFamily[famName]
+			if b then
+				handle.lines[#handle.lines + 1] = ("[Decor] %s : %d modèle(s), %d repli(s) sur %d voulu(s)"):format(famName, b.model, b.fallback, b.wanted)
+			end
+		end
+		handle.lines[#handle.lines + 1] = ("[Decor] Parts Blender %d/%d, Parts de repli %d/%d"):format(handle.used, blenderMax, handle.fallbackUsed, fallbackMax)
+	end)
+	if not ok then
+		handle.error = tostring(err)
+		say(deps, "[Decor] erreur : " .. handle.error .. " : décor partiel retiré")
+		Decor.clear(handle)
+	end
+	return handle
+end
+
+-- Reconstruit avec les mêmes arguments (hook onAssetsLoaded : les modèles arrivés remplacent les replis ; un modèle déjà connu n'est jamais redemandé).
+function Decor.refresh(handle)
+	if not handle or not handle.parent then
+		return nil
+	end
+	local deps = handle.deps or {}
+	Decor.clear(handle)
+	return Decor.build(handle.parent, handle.geo, handle.config, deps)
+end
+
+return Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX44"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+-- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
+--   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
+--   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
+--     descendre de niveau retire le décor qui n'appartient plus au niveau (nettoyage propre) ;
+--   * chargement : InsertService:LoadAsset, un seul appel par ID (cache de modèles, échec mémorisé pour la session) ;
+--     repli procédural (une Part de forme et couleur données) si l'asset échoue, si config.useAssets == false ou sans service ;
+--   * le chargement peut céder la main (LoadAsset) : appeler depuis task.spawn côté serveur, jamais dans la boucle de rendu.
+-- Aucune variable globale ; pas de += ; pas de continue ; garde de type avant toute comparaison numérique.
+local HouseDecor = {}
+
+local FOLDER_NAME = "HouseDecor" -- dossier enfant de la maison
+local ID_ATTR = "HouseDecorId" -- attribut de chaque objet placé
+local LEVEL_ATTR = "HouseDecorLevel" -- attribut du dossier : niveau appliqué
+local NAME_PREFIX = "HD_"
+
+-- Cache partagé : assetId -> modèle source (jamais placé, on clone) ou false (échec mémorisé).
+local sharedCache = {}
+
+local function getData(config)
+	if config.data ~= nil then
+		return config.data
+	end
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	return require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HouseDecorData"))
+end
+
+-- Niveau entier borné 1..count ; tout ce qui n'est pas un nombre (ou NaN) vaut 1 ; l'infini est borné comme un grand nombre.
+local function clampLevel(level, count)
+	if type(level) ~= "number" or level ~= level then
+		return 1
+	end
+	local n = math.floor(level)
+	if n < 1 then
+		return 1
+	end
+	if n > count then
+		return count
+	end
+	return n
+end
+
+local function insertServiceOf(config)
+	if config.insertService ~= nil then
+		return config.insertService or nil -- false = « pas de service » (tests, Studio hors ligne)
+	end
+	local ok, svc = pcall(function()
+		return game:GetService("InsertService")
+	end)
+	if ok then
+		return svc
+	end
+	return nil
+end
+
+-- Modèle source d'un asset : charge au plus une fois (succès ou échec mémorisés dans le cache).
+-- Retourne un Instance (Model ou BasePart) à cloner, ou nil (repli procédural).
+local function templateOf(assetId, config)
+	local cache = config.cache or sharedCache
+	local hit = cache[assetId]
+	if hit ~= nil then
+		return hit or nil
+	end
+	if config.useAssets == false then
+		return nil
+	end
+	local svc = insertServiceOf(config)
+	if svc == nil then
+		return nil
+	end
+	local ok, container = pcall(function()
+		return svc:LoadAsset(assetId)
+	end)
+	if not ok or typeof(container) ~= "Instance" then
+		cache[assetId] = false
+		return nil
+	end
+	local model = container:FindFirstChildWhichIsA("Model") or container:FindFirstChildWhichIsA("BasePart")
+	if model == nil then
+		container:Destroy()
+		cache[assetId] = false
+		return nil
+	end
+	model.Parent = nil
+	container:Destroy()
+	cache[assetId] = model
+	return model
+end
+
+-- Place un objet à partir de son modèle Blender : orientation, mise à l'échelle uniforme (tient dans la boîte `size`), centrage sur `cf`.
+local function placeModel(template, item, cf, folder)
+	local model = template:Clone()
+	if not model:IsA("Model") then
+		local wrapper = Instance.new("Model")
+		model.Parent = wrapper
+		model = wrapper
+	end
+	model.Name = NAME_PREFIX .. item.id
+	model:SetAttribute(ID_ATTR, item.id)
+	model.Parent = folder
+	model:PivotTo(cf)
+	local ext = model:GetExtentsSize()
+	if type(ext.X) == "number" and type(ext.Y) == "number" and type(ext.Z) == "number" and ext.X > 0 and ext.Y > 0 and ext.Z > 0 then
+		local k = math.min(item.size[1] / ext.X, item.size[2] / ext.Y, item.size[3] / ext.Z)
+		if k > 0 and k < math.huge then
+			model:ScaleTo(k)
+		end
+	end
+	local bbCF = model:GetBoundingBox()
+	model:PivotTo(CFrame.new(cf.Position - bbCF.Position) * model:GetPivot())
+	return model
+end
+
+-- Repli procédural : une seule Part, forme et couleur de l'objet.
+local function placeFallback(item, cf, folder)
+	local fb = item.fallback
+	local part = Instance.new("Part")
+	part.Name = NAME_PREFIX .. item.id
+	part:SetAttribute(ID_ATTR, item.id)
+	part.Anchored = true
+	part.CanCollide = item.size[2] >= 3
+	part.Material = Enum.Material[fb.material] or Enum.Material.SmoothPlastic
+	part.Color = Color3.fromRGB(fb.color[1], fb.color[2], fb.color[3])
+	if fb.shape == "Cylinder" then
+		part.Shape = Enum.PartType.Cylinder
+		part.Size = Vector3.new(item.size[2], item.size[1], item.size[3])
+		part.CFrame = cf * CFrame.Angles(0, 0, math.pi / 2)
+	else
+		part.Shape = Enum.PartType.Block
+		part.Size = Vector3.new(item.size[1], item.size[2], item.size[3])
+		part.CFrame = cf
+	end
+	part.Parent = folder
+	return part
+end
+
+-- Place un objet ; retourne "loaded", "fallback" ou nil (déjà présent après un yield : rien de créé).
+-- config.offset = { x, y, z } : origine des positions de la fiche par rapport au pivot de la maison (ex. Builder, maison procédurale :
+-- centre de la façade à (0, 1.6, zc)). Composantes non numériques = 0.
+local function offsetOf(config)
+	local o = config.offset
+	local out = { 0, 0, 0 }
+	if type(o) == "table" then
+		for i = 1, 3 do
+			if type(o[i]) == "number" and o[i] == o[i] then
+				out[i] = o[i]
+			end
+		end
+	end
+	return out
+end
+
+local function placeItem(folder, houseModel, item, config)
+	local o = offsetOf(config)
+	local template = templateOf(item.assetId, config)
+	-- templateOf peut céder la main : un autre appel a pu placer le même objet entre-temps, ou la maison a été démolie (reconstruction)
+	if folder:FindFirstChild(NAME_PREFIX .. item.id) or folder.Parent ~= houseModel then -- Destroy de la maison : le dossier perd son parent
+		return nil
+	end
+	-- repère relu APRÈS le chargement (lot 8B, intégration) : pendant la montée de niveau la maison attend sous le sol puis Builder.finishUpgrade la remet en place
+	local cf = houseModel:GetPivot() * CFrame.new(o[1] + item.pos[1], o[2] + item.pos[2] + item.size[2] / 2, o[3] + item.pos[3]) * CFrame.Angles(0, math.rad(item.rot or 0), 0)
+	if template ~= nil then
+		placeModel(template, item, cf, folder)
+		return "loaded"
+	end
+	placeFallback(item, cf, folder)
+	return "fallback"
+end
+
+-- Applique le décor du niveau `level` à `houseModel`. Retourne le rapport.
+function HouseDecor.apply(houseModel, level, config)
+	local cfg = config or {}
+	local data = getData(cfg)
+	local lv = clampLevel(level, data.LEVEL_COUNT)
+	local folder = houseModel:FindFirstChild(FOLDER_NAME)
+	if folder == nil then
+		folder = Instance.new("Folder")
+		folder.Name = FOLDER_NAME
+		folder.Parent = houseModel
+	end
+	local wanted = data.unlocked(lv)
+	local want = {}
+	for _, item in ipairs(wanted) do
+		want[item.id] = item
+	end
+	local report = { placed = 0, kept = 0, removed = 0, loaded = 0, fallback = 0, parts = data.budget(lv) }
+	-- 1) nettoyage : objets inconnus, retirés du niveau, ou en double
+	local have = {}
+	for _, child in ipairs(folder:GetChildren()) do
+		local id = child:GetAttribute(ID_ATTR)
+		if type(id) ~= "string" or want[id] == nil or have[id] then
+			child:Destroy()
+			report.removed = report.removed + 1
+		else
+			have[id] = true
+			report.kept = report.kept + 1
+		end
+	end
+	-- 2) ajout du décor manquant (cumul : les objets des niveaux précédents restent)
+	for _, item in ipairs(wanted) do
+		if not have[item.id] then
+			local how = placeItem(folder, houseModel, item, cfg)
+			if how == "loaded" then
+				report.loaded = report.loaded + 1
+				report.placed = report.placed + 1
+			elseif how == "fallback" then
+				report.fallback = report.fallback + 1
+				report.placed = report.placed + 1
+			end
+		end
+	end
+	folder:SetAttribute(LEVEL_ATTR, lv)
+	return report
+end
+
+-- Retire tout le décor de la maison (départ, reconstruction).
+function HouseDecor.clear(houseModel)
+	local folder = houseModel:FindFirstChild(FOLDER_NAME)
+	if folder ~= nil then
+		folder:Destroy()
+	end
+end
+
+-- Exposé pour les tests : vide le cache des modèles chargés.
+function HouseDecor.resetCache()
+	sharedCache = {}
+end
+
+return HouseDecor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX45"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -19167,7 +21837,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX57"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX56"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX41"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX63"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX62"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX47"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19243,6 +21913,7 @@ local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:
 local RTop = Remotes:WaitForChild("Top")
 local RHen = Remotes:WaitForChild("Hen")
 local RRaven = Remotes:WaitForChild("Raven") -- Corbeau chipeur (lot 7) : alerte de la victime, liste des cibles
+local RKiosk = Remotes:WaitForChild("Kiosk") -- lot 8B : kiosque central (serveur -> client : panneau à ouvrir, données des cartes)
 local fmt = Config.fmt
 
 local COL = {
@@ -19908,12 +22579,12 @@ local function avgInc(tier)
 end
 
 local tabsDef = {
-	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
+	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" }, { "pass", "🎟 Passe de combat" } }, -- lot 8B : onglet du passe de combat (contenu au lot 16)
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 	bonus = { { "daily", "🎁 Bonus" }, { "cal", "📅 Calendrier" } }, -- lot 9b : calendrier des œufs sur 30 jours
 }
-local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau" }
+local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau", kiosk = "Kiosque" }
 local ravenData = nil -- dernière liste de cibles reçue du serveur (lot 7)
 local function agoText(at) -- « il y a 5 min » d'après l'heure du serveur
 	local d = math.max(0, workspace:GetServerTimeNow() - (type(at) == "number" and at or 0))
@@ -20057,6 +22728,10 @@ function render()
 		buy.Activated:Connect(function()
 			RAction:FireServer("buyEgg", sel)
 		end)
+	elseif panel.name == "shop" and panel.tab == "pass" then
+		-- Lot 8B : emplacement du passe de combat (paliers, récompenses et achat arrivent au lot 16) : aucune action, aucun achat possible ici.
+		addRow({ icon = "🎟", title = "Passe de combat", desc = "Bientôt : des paliers de récompenses à débloquer en jouant et en combattant.", btn = "Bientôt", btnColor = COL.dis })
+		addNote("Le passe de combat arrive dans une prochaine mise à jour. Rien n'est vendu pour l'instant.")
 	elseif panel.name == "shop" then
 		for _, u in ipairs(Config.UPGRADES) do
 			local l = state.up[u.key] or 0
@@ -20313,6 +22988,17 @@ function render()
 			addNote("Classé par renaissances puis par œufs éclos.")
 			for i, e in ipairs(topData) do
 				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "🌅 " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
+			end
+		end
+	elseif panel.name == "kiosk" then
+		-- Lot 8B : carte de texte du kiosque central (probabilités et prix, classement de la saison) : lignes déjà mises en forme (voir RKiosk)
+		local info = type(panel.info) == "table" and panel.info or {}
+		titleLbl.Text = type(info.title) == "string" and info.title or titles.kiosk
+		for _, row in ipairs(type(info.rows) == "table" and info.rows or {}) do
+			if type(row) == "table" then
+				addRow({ icon = row.icon, title = row.title, desc = row.desc, titleColor = row.color })
+			elseif type(row) == "string" then
+				addNote(row)
 			end
 		end
 	elseif panel.name == "bonus" and panel.tab == "cal" then
@@ -21099,6 +23785,56 @@ RTop.OnClientEvent:Connect(function(list)
 		renderSoon()
 	end
 end)
+-- Lot 8B : kiosque central. Le serveur a déjà validé la distance et l'action ; ici : ouvrir le panneau existant (boutique, calendrier) ou une carte de texte.
+RKiosk.OnClientEvent:Connect(function(p)
+	if type(p) ~= "table" or not state then
+		return
+	end
+	if p.panel == "shop" then
+		if not (panel and panel.name == "shop") then
+			openPanel("shop")
+		end
+	elseif p.panel == "calendar" then
+		if not (panel and panel.name == "bonus") then
+			openPanel("bonus")
+		end
+		if panel and panel.tab ~= "cal" then
+			setTab("cal") -- la réclamation passe par l'action existante calClaim (RAction), validée par le serveur
+		end
+	elseif p.panel == "odds" or p.panel == "ranking" then
+		local info = { rows = {} }
+		if p.panel == "odds" then
+			info.title = "🎲 Probabilités et prix"
+			table.insert(info.rows, "Chances de chaque rareté au tapis du marché (tapis normal, entre parenthèses le tapis doré), puis prix des œufs. Les mêmes pour tous les joueurs.")
+			for _, line in ipairs(type(p.lines) == "table" and p.lines or {}) do
+				if type(line) == "string" then
+					table.insert(info.rows, "• " .. line)
+				end
+			end
+		else
+			info.title = "🏆 Classement de la saison"
+			local left = type(p.secondsLeft) == "number" and p.secondsLeft or 0
+			table.insert(info.rows, "Saison " .. tostring(p.season or "?") .. " de l'Arène · fin dans " .. Config.fmtTime(left))
+			local entries = type(p.entries) == "table" and p.entries or {}
+			if #entries == 0 then
+				table.insert(info.rows, "Aucun classement pour l'instant : sois le premier à combattre dans l'Arène !")
+			end
+			for i, e in ipairs(entries) do
+				if type(e) == "table" then
+					table.insert(info.rows, { icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = tostring(e.name or "?"), desc = "🏆 " .. fmt(tonumber(e.trophies) or 0) .. " trophées" })
+				end
+			end
+			local mine = p.mine
+			if type(mine) == "table" then
+				table.insert(info.rows, { icon = "⭐", title = "Toi", desc = "🏆 " .. fmt(tonumber(mine.trophies) or 0) .. " trophées · " .. fmt(tonumber(mine.wins) or 0) .. " V / " .. fmt(tonumber(mine.losses) or 0) .. " D", color = COL.yellow })
+			end
+		end
+		playSound("menu")
+		panel = { name = "kiosk", tab = "", confirm = false, info = info }
+		showPanel()
+		render()
+	end
+end)
 
 local shownCoins = coins()
 local function refreshStats()
@@ -21469,14 +24205,15 @@ do
 				end
 				setLoop("blade", nearBlade)
 				setLoop("ball", nearBall)
-				-- lot 10 : tapis du marché (boucle atténuée par la distance au segment du tapis, 40 studs) et étals (ambiance de kiosque, 30 studs)
+				-- lot 10 : tapis du marché (boucle atténuée par la distance au segment du tapis, 40 studs) ; lot 8B : ambiance du kiosque central (30 studs de Config.Map2.kiosk)
 				local M2 = Config.Map2
 				local nearBelt, nearKiosk = 0, 0
 				if not inCastle then
 					local bx = math.min(math.max(p.X, M2.belt.x0), M2.belt.x1)
 					nearBelt = Config.loopFade(math.sqrt((p.X - bx) ^ 2 + (p.Z - M2.belt.z) ^ 2), 40)
-					for _, st in ipairs(M2.stalls) do
-						nearKiosk = math.max(nearKiosk, Config.loopFade(math.sqrt((p.X - st.x) ^ 2 + (p.Z - st.z) ^ 2), 30))
+					local ki = M2.kiosk
+					if ki then
+						nearKiosk = Config.loopFade(math.sqrt((p.X - ki.x) ^ 2 + (p.Z - ki.z) ^ 2), 30)
 					end
 				end
 				setLoop("belt_loop", nearBelt)
@@ -21620,7 +24357,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX42"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX48"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -22182,7 +24919,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX43"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX49"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -22834,7 +25571,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX44"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX50"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -22960,7 +25697,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX45"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX51"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -23043,7 +25780,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -23158,7 +25895,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX47"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -23347,7 +26084,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -23503,7 +26240,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -23924,7 +26661,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -24149,7 +26886,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -24897,7 +27634,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -25297,7 +28034,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -25580,7 +28317,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -26042,7 +28779,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

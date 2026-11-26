@@ -1,5 +1,7 @@
 # Lot 8B-kiosque : notes d'intégration (NON INTÉGRÉ)
 
+> **INTÉGRÉ (lot 8B, 2026-11-26)** : les lignes ci-dessous ont été appliquées (Config, build_place.py, check.py, Main, Builder, Client, tests). État réel et écarts : `LOT8B_ECARTS.md`. Ce document reste comme référence technique.
+
 Livré : `src/ReplicatedStorage/KioskData.lua` (données pures), `src/ServerScriptService/Kiosk.lua` (construction, prompts, ambiance, validation serveur),
 `tests/kiosk.luau` + `tests/run_kiosk.py`. Aucun fichier existant modifié (Main, Data, Config, Client*, Builder, build_place.py, run.luau, run_tests.py intacts).
 Tout ce qui suit est à ajouter par la personne qui tient ces fichiers.

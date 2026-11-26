@@ -1,5 +1,7 @@
 # Lot 8B-meubles : décor intérieur des maisons (NON INTÉGRÉ)
 
+> **INTÉGRÉ (lot 8B, 2026-11-26)** : les lignes ci-dessous ont été appliquées (Config, build_place.py, check.py, Main, Builder, Client, tests). État réel et écarts : `LOT8B_ECARTS.md`. Ce document reste comme référence technique.
+
 Statut : deux modules et leurs tests existent, ils ne sont branchés nulle part. Aucun fichier existant n'a été modifié. Rien n'a été joué dans Studio.
 
 ## Fichiers ajoutés

@@ -92,7 +92,8 @@ F.crate_stack = { id = 72797022625881, lot = 16, cap = 30, zone = "stallSide", o
 F.barrel_pair = { id = 102360413338352, lot = 16, cap = 30, zone = "stallSide", offset = { 10.5, 13 }, count = 3, height = 2.4, r = 1.8, gap = 1, share = 0.04, fb = { name = "barrels" }, fbMax = 3 }
 F.hay_bale = { id = 99760241706274, lot = 16, cap = 20, zone = "stallSide", offset = { 10.5, 13.5 }, count = 4, height = 2.2, r = 1.6, gap = 1, share = 0.04, fb = { name = "hay" }, fbMax = 4 }
 F.well_small = { id = 140033477297106, lot = 16, cap = 60, zone = "plazaRim", ring = { 30, 50 }, count = 1, height = 4.5, r = 2.6, gap = 3, share = 0.04, fb = { name = "well" }, fbMax = 1 }
-F.bush_round = { id = 72736930746142, lot = 16, cap = 25, zone = "plazaRim", ring = { 28, 57 }, count = 4, height = 2.4, r = 1.8, gap = 3, share = 0.04, fb = { name = "bush" }, fbMax = 4 }
+-- lot 8B (intégration) : 3 buissons (et non 4) : avec le kiosque réel (14, 22, r 12) et le tapis Blender, la couronne n'offre que 3 places libres.
+F.bush_round = { id = 72736930746142, lot = 16, cap = 25, zone = "plazaRim", ring = { 28, 57 }, count = 3, height = 2.4, r = 1.8, gap = 3, share = 0.04, fb = { name = "bush" }, fbMax = 4 }
 -- Panneaux (livrés sans lettrage) : au premier point de chaque chemin hors de la place ; le libellé vient de `signLabels` (BillboardGui ajouté par le code).
 F.sign_base = { id = 121260374584222, lot = 16, cap = 30, zone = "pathSign", signAfter = 66, count = 8, height = 4.5, r = 1.5, gap = 3, share = 0.04, fb = { name = "sign" }, fbMax = 8 }
 -- Îlot de sakura au centre de chaque lac, à l'opposé du ponton ; nénuphars sur l'eau, roseaux sur la rive de sable.

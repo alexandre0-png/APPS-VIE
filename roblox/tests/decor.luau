@@ -193,7 +193,8 @@ return function(env)
 		end
 	end
 	check("toutes les familles à quota trouvent leurs emplacements (manque : " .. table.concat(shortfalls, ", ") .. ")", #shortfalls == 0)
-	check("ancres : dôme du hall, Grand Œuf, colisée présents ; tapis absent avec le kiosque par défaut (disque central r 12 sur le tapis : le tapis procédural reste)", plan.byFam.hub_dome ~= nil and plan.byFam.grand_oeuf ~= nil and plan.byFam.arena_colosseum ~= nil and plan.byFam.conveyor_belt == nil)
+	-- lot 8B (intégration) : Config.Map2.kiosk = (14, 22, r 12) : le disque ne touche pas le rectangle du tapis (z +-4), le tapis Blender est donc planifié
+	check("ancres : dôme du hall, Grand Œuf, colisée présents ; tapis présent avec le kiosque réel de Config.Map2 (14, 22, r 12 : hors du tapis)", plan.byFam.hub_dome ~= nil and plan.byFam.grand_oeuf ~= nil and plan.byFam.arena_colosseum ~= nil and plan.byFam.conveyor_belt ~= nil and Config.Map2.kiosk ~= nil and Config.Map2.kiosk.x == 14)
 	check("dôme : centré sur la halle, largeur = 2 r + 2, posé sur les piliers (y 15)", (function()
 		local s = plan.byFam.hub_dome[1]
 		return s.x == M2.hall.x and s.z == M2.hall.z and s.length == M2.hall.r * 2 + 2 and s.y == 15 and s.anchor == true
@@ -1082,7 +1083,7 @@ return function(env)
 			nIds = nIds + 1
 		end
 		check("pipeline réel : " .. nIds .. " identifiants chargés, un seul LoadAsset par identifiant, modèles posés (" .. placed .. ")", maxCalls == 1 and nIds >= 28 and placed > 40 and h.error == nil)
-		check("pipeline réel : statut m:decor.<famille> renseigné avec le nombre de Parts mesuré (4) et rapport Assets de catégorie « decor »", assets.status["m:decor.tree_wide"].ok == true and assets.status["m:decor.tree_wide"].parts == 4 and assets.categoryOf("m:decor.tree_wide") == "decor")
+		check("pipeline réel : statut m:decor.<famille> renseigné avec le nombre de Parts mesuré (4) et rapport Assets de catégorie « décor de carte »", assets.status["m:decor.tree_wide"].ok == true and assets.status["m:decor.tree_wide"].parts == 4 and assets.categoryOf("m:decor.tree_wide") == "décor de carte")
 		check("pipeline réel : hauteurs mises à l'échelle par Assets.place (arbre : 11 +- 20 % avec jitter, bouée 1,6 de long)", (function()
 			local m = world.parent:FindFirstChild("BlenderDecor")
 			for _, c in ipairs(m.children) do

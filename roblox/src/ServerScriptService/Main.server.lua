@@ -52,6 +52,32 @@ local RBattle = newRemote("Battle") -- serveur -> client : début, tours (évén
 local RRaven = newRemote("Raven") -- Corbeau chipeur (lot 7) : serveur -> client seulement (alerte de la victime, liste des cibles) ; les demandes passent par Action
 local RHen = newRemote("Hen") -- serveur -> client : répliques de la Mère Poule (identifiant + paramètres), berceuse à jouer, retour des touches, plume ramassée
 
+-- Lot 8B : kiosque central, décor de carte, meubles des maisons. UNE seule variable locale (limite de 200) : modules, remote, état et fonctions dans K8.
+local K8 = {
+	Kiosk = require(script.Parent:WaitForChild("Kiosk")), KioskData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("KioskData")),
+	HouseDecor = require(script.Parent:WaitForChild("HouseDecor")), HouseDecorData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HouseDecorData")),
+	remote = newRemote("Kiosk"), -- serveur -> client seulement : { panel = "shop" | "calendar" | "odds" | "ranking", ... } (Kiosk.handle) ; aucune demande client par ce remote
+	world = nil, info = nil, -- dossier World (Builder.build) ; info du kiosque construit (centre, prompts, pastille)
+	top = { at = -1e9, season = nil, list = {} }, -- cache du classement du kiosque (30 s : au plus 1 lecture DataStore par fenêtre)
+}
+-- Construit (ou reconstruit : idempotent) le kiosque dans World. assets = nil : repli procédural immédiat, sans avertissement.
+function K8.build(assets)
+	if not K8.world then
+		return
+	end
+	local ok, _, _, info = pcall(K8.Kiosk.build, K8.world, Config.Map2.kiosk, assets and { Config = Config, assets = assets, noAmbience = true }
+		or { Config = Config, quiet = true, noAmbience = true, loadAsset = function()
+			return nil
+		end })
+	if ok and type(info) == "table" then
+		local wasReady = K8.info and K8.info.ready
+		K8.info = info
+		if wasReady then
+			K8.Kiosk.setBadge(info, true) -- la pastille allumée reste allumée après la reconstruction
+		end
+	end
+end
+
 ---------------------------------------------------------------- Monde
 local onAssetsLoaded = nil -- défini après applyBase et refreshAllPads (voir plus bas), appelé par la tâche de chargement des modèles
 -- Apparence des œufs : modèles Roblox chargés en arrière-plan (jamais bloquant ; échec = apparence par défaut, voir Config.Assets).
@@ -114,6 +140,11 @@ task.spawn(function()
 	local gt, gp = Builder.dressGround(assets)
 	print("[Assets] sol Blender : " .. gt .. " tuile(s), " .. gp .. " Parts (budget " .. Config.Assets.groundBudgetParts .. ")")
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
+	assets.loadGroup("hub") -- lot 8B : kiosque central (hub.kiosk) ; le modèle remplace le repli procédural posé au démarrage
+	K8.build(assets)
+	print("[Assets] kiosque central : " .. ((K8.info and K8.info.usedAsset) and "modèle Blender" or ("repli procédural (" .. tostring(K8.info and K8.info.reason) .. ")")))
+	local dn, du, dfb = Builder.dressDecor(assets)
+	print("[Assets] décor de carte (lots 15 à 17) : " .. dn .. " exemplaire(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decorBudgetParts .. "), " .. dfb .. " Parts de repli")
 	if onAssetsLoaded then
 		pcall(onAssetsLoaded)
 	end
@@ -136,6 +167,8 @@ task.spawn(function()
 end)
 
 local world = Builder.build()
+K8.world = world.folder -- dossier World (Builder.build retourne une table de résultats)
+K8.build(nil) -- lot 8B : kiosque procédural immédiat (le modèle Blender le remplace dans la tâche des Assets)
 local rng = Random.new()
 local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
@@ -897,6 +930,23 @@ end
 -- Reconstruit l'apparence de la base au niveau courant et publie le niveau (attributs lus par le client : animation de montée de niveau, interface).
 -- Une vraie montée (célébration demandée, niveau supérieur à celui déjà construit) lance l'animation : l'ancienne maison reste le temps de l'effet (Config.UPGRADE_FX),
 -- les pads ne sont pas recréés (refreshLocks). `force` reconstruit sans animation (modèles Blender arrivés, renaissance).
+-- Lot 8B-meubles : meubles des lots 18 et 19 dans la maison BaseUpgrade que Builder.baseUpgrade vient de créer. Repère : attributs DecorY / DecorZ
+-- posés par Builder (centre du bâtiment au plancher, repère de plot.cf). Idempotent (HouseDecor), part avec la maison quand elle est démolie.
+function K8.houseDecor(plot, level)
+	local house = plot and plot.model and plot.model:FindFirstChild("BaseUpgrade")
+	if not house then
+		return
+	end
+	local y, z = house:GetAttribute("DecorY"), house:GetAttribute("DecorZ")
+	task.spawn(function()
+		local ok, err = pcall(K8.HouseDecor.apply, house, level, {
+			offset = { 0, type(y) == "number" and y or 1.6, type(z) == "number" and z or 0 }, data = K8.HouseDecorData, useAssets = Config.Assets.Enabled == true,
+		})
+		if not ok then
+			warn("[HouseDecor] " .. tostring(err))
+		end
+	end)
+end
 local function applyBase(s, celebrate, force)
 	local level = levelOf(s)
 	local before = s.baseLevel
@@ -906,6 +956,7 @@ local function applyBase(s, celebrate, force)
 	if s.plot and (built ~= level or force) then
 		Builder.baseUpgrade(s.plot, level, rose and { animate = true } or nil)
 		s.baseBuilt = level
+		K8.houseDecor(s.plot, level) -- lot 8B-meubles : décor intérieur cumulé du niveau, posé sur la nouvelle maison (hors du thread courant : LoadAsset cède la main)
 		if rose then
 			local plot = s.plot
 			task.delay(Config.UPGRADE_FX.seconds, function()
@@ -1177,6 +1228,65 @@ local function fastTravel(s, dest, prompt)
 	return true
 end
 
+-- Lot 8B : kiosque central. Classement mis en cache 30 s (Data.pvpTop lit un DataStore : quota), quel que soit le nombre de joueurs.
+function K8.topCached(season, n)
+	local c = K8.top
+	if c.season ~= season or os.clock() - c.at > 30 then
+		c.at, c.season = os.clock(), season
+		local ok, list = pcall(Data.pvpTop, season, n)
+		c.list = (ok and type(list) == "table") and list or {}
+	end
+	return c.list
+end
+-- Un prompt du kiosque : TOUT est revalidé par Kiosk.handle (liste blanche d'actions, distance mesurée ici, pause par joueur). Un refus ne répond rien.
+-- Le kiosque ne fait qu'ouvrir : réclamer le calendrier ou acheter passe par les chemins existants (RAction calClaim, achats Robux), déjà validés.
+function K8.prompt(player, prompt)
+	local res = K8.Kiosk.handle(player, prompt:GetAttribute("KioskAction"), {
+		Config = Config,
+		inRange = function(p)
+			local r = getRoot(p)
+			local info = K8.info
+			if not (r and alive(p) and info and sessions[p]) then
+				return false
+			end
+			local c = info.center
+			return math.sqrt((r.Position.X - c.X) ^ 2 + (r.Position.Z - c.Z) ^ 2) <= K8.KioskData.SERVER_RANGE
+		end,
+		calView = function(p)
+			local ss = sessions[p]
+			return ss and Lot7.Cal.snapshot and Lot7.Cal.snapshot(ss) or nil
+		end,
+		top = K8.topCached,
+		mine = function(p)
+			local ss = sessions[p]
+			local pv = ss and ss.data.battle and ss.data.battle.pvp
+			return type(pv) == "table" and { trophies = pv.trophies, wins = pv.wins, losses = pv.losses } or nil
+		end,
+	})
+	if res.ok then
+		K8.remote:FireClient(player, res.payload)
+	end
+end
+-- Pastille rouge du calendrier sur le kiosque : allumée dès qu'un joueur présent a une récompense réclamable (Calendar, via Lot7.Cal.snapshot). Toutes les 5 s.
+task.spawn(function()
+	while true do
+		task.wait(5)
+		if K8.info then
+			local any = false
+			for _, ss in pairs(sessions) do
+				local okV, view = pcall(function()
+					return Lot7.Cal.snapshot and Lot7.Cal.snapshot(ss) or nil
+				end)
+				if okV and K8.Kiosk.badgeNeeded(view) then
+					any = true
+					break
+				end
+			end
+			K8.Kiosk.setBadge(K8.info, any)
+		end
+	end
+end)
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	if CollectionService:HasTag(prompt, "BeltEgg") then
 		beltBuy(player, prompt)
@@ -1187,6 +1297,10 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		if ss then
 			fastTravel(ss, prompt:GetAttribute("Dest"), prompt)
 		end
+		return
+	end
+	if CollectionService:HasTag(prompt, "KioskPrompt") then
+		K8.prompt(player, prompt)
 		return
 	end
 	if CollectionService:HasTag(prompt, "CastleEntry") then
@@ -2277,7 +2391,7 @@ local beltFolder = Instance.new("Folder")
 beltFolder.Name = "BeltEggs"
 beltFolder.Parent = workspace
 local beltEggs = {} -- [id] = { egg = œuf logique (Belt), part, prompt }
-local beltPanelAt, beltPanelKey = 0, ""
+K8.beltPanelAt, K8.beltPanelKey = 0, "" -- panneau du tapis (lot 8B : dans K8, limite de 200 variables locales)
 local BELT_Y = 3.0 -- hauteur du centre d'un œuf posé sur le tapis
 local BELT_REACH = 14 -- distance serveur maximale joueur -> œuf (le prompt s'active à 10 ; marge pour la latence et le défilement)
 
@@ -2361,10 +2475,10 @@ local function beltPanelUpdate(now)
 	end
 	local info = Belt.panel(Config, beltSt, now)
 	local key = info.active .. "|" .. info.status
-	if key == beltPanelKey then
+	if key == K8.beltPanelKey then
 		return
 	end
-	beltPanelKey = key
+	K8.beltPanelKey = key
 	local mark = "▶ "
 	b.panel.normal.Text = (info.active == "normal" and mark or "") .. "Standard : " .. info.normal
 	b.panel.golden.Text = (info.active == "golden" and mark or "") .. "Doré : " .. info.golden
@@ -2408,8 +2522,8 @@ local function beltStep()
 			end
 		end
 	end
-	if now - beltPanelAt >= 1 then
-		beltPanelAt = now
+	if now - K8.beltPanelAt >= 1 then
+		K8.beltPanelAt = now
 		beltPanelUpdate(now)
 	end
 end
@@ -2427,7 +2541,7 @@ end)
 -- Action serveur INTERNE : ajoute des secondes de tapis doré (cumulables, plafonnées). Le produit Robux la branchera plus tard (lot 7) ; aucun ProcessReceipt ici.
 local function goldenBeltAdd(seconds, byName)
 	local left = Belt.addGolden(Config, beltSt, os.clock(), seconds, byName)
-	beltPanelKey = ""
+	K8.beltPanelKey = ""
 	return left
 end
 Builder.beltHooks = { goldenAdd = goldenBeltAdd, stats = function() -- crochet interne (tests, lot 7) : jamais exposé aux clients
@@ -4485,6 +4599,7 @@ Players.PlayerRemoving:Connect(function(player)
 			task.wait(0.1)
 		end
 	end
+	K8.Kiosk.forget(player) -- lot 8B : pause du kiosque (table à clés faibles : facultatif)
 	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
 	tele.flush(player)
 	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur

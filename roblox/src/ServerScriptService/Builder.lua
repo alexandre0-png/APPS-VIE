@@ -11,6 +11,7 @@ local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
 local TrapsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Traps")) -- plan des pièges des territoires (REFONTE lot 4)
+local DecorMod = require(script.Parent:WaitForChild("Decor")) -- lot 8B-décor : modèles Blender des lots 15 à 17 (repli procédural)
 PlacementMod.MapGeo = MapGeoMod
 PlacementMod.yield = function()
 	task.wait()
@@ -1112,6 +1113,7 @@ local function proceduralHouse(level, box, backZ)
 		l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 205, 70), 26, 1.4
 		l.Parent = glow
 	end
+	return zc -- lot 8B : centre du bâtiment (repère de plot.cf), repère du décor intérieur (HouseDecor)
 end
 
 function Builder.baseUpgrade(plot, level, opts)
@@ -1149,6 +1151,7 @@ function Builder.baseUpgrade(plot, level, opts)
 		end
 		-- modèle Blender : niveau 1 et 8 = base.levelN (emprise centrée, entrée -Z) ; niveaux 2 à 7 = house.lN (bâtiment à l'arrière, devant -Z)
 		local placed = false
+		local anchorY, anchorZ = 1.02, 0 -- niveau 1 et 8 (emprise centrée, dessus de la dalle) ; maisons : remplacé ci-dessous
 		do
 			local isHouse = level >= 2 and level <= 7
 			local clone = eggAssets and eggAssets.cloneModel and (isHouse and eggAssets.cloneModel("house", "l" .. level) or eggAssets.cloneModel("base", "level" .. level))
@@ -1173,6 +1176,7 @@ function Builder.baseUpgrade(plot, level, opts)
 					if isHouse then
 						cy = 1 + size2.Y / 2
 						cz = backZ - 1 - size2.Z / 2 -- le fond du modèle touche le bord arrière de la dalle
+						anchorY, anchorZ = 1.6, cz
 					end
 					clone:PivotTo(cf0 * CFrame.new(cx, cy, cz) * bbox:ToObjectSpace(clone:GetPivot()))
 					for _, d in ipairs(clone:GetDescendants()) do
@@ -1189,6 +1193,7 @@ function Builder.baseUpgrade(plot, level, opts)
 					made += Config.Assets.modelsMaxParts[(isHouse and "house.l" or "base.level") .. level] or 80
 					placed = true
 				else
+					anchorY, anchorZ = 1.02, 0
 					pcall(function()
 						clone:Destroy()
 					end)
@@ -1196,6 +1201,9 @@ function Builder.baseUpgrade(plot, level, opts)
 			end
 		end
 		if not placed then
+			if level >= 2 then
+				anchorY = 1.6 -- dessus du socle de la maison procédurale
+			end
 			if level == 1 then
 				-- enclos de bois procédural (niveau 1) : lisse et poteaux autour de la plateforme
 				local wood, wood2 = Color3.fromRGB(150, 104, 62), Color3.fromRGB(110, 76, 46)
@@ -1210,9 +1218,12 @@ function Builder.baseUpgrade(plot, level, opts)
 					box("Post", t, 1.0, E, 0.8, 2.1, 0.8, wood2)
 				end
 			else
-				proceduralHouse(level, box, backZ)
+				anchorZ = proceduralHouse(level, box, backZ)
 			end
 		end
+		-- lot 8B-meubles : repère du décor intérieur (HouseDecor.apply, offset), dans le repère de plot.cf : centre du bâtiment au niveau du plancher
+		folder:SetAttribute("DecorY", anchorY)
+		folder:SetAttribute("DecorZ", anchorZ)
 		folder.Parent = plot.model
 		if animate then
 			folder:SetAttribute("FinalPivot", cf0)
@@ -1440,6 +1451,40 @@ function Builder.dressSigns(assets)
 		end
 	end)
 	return n
+end
+
+-- Lot 8B-décor : décor de carte des lots 15 à 17 (dôme de la halle, Grand Œuf, colisée, tapis, étals, arbres, lacs...). Decor.lua charge ses modèles par lots
+-- parallèles (Assets.loadMany, clés m:decor.<famille>), pose chaque exemplaire en modèle ou en repli procédural dans World/BlenderDecor, jamais dans le disque
+-- du kiosque (Config.Map2.kiosk). Retourne (exemplaires, Parts Blender, Parts de repli). Builder.refreshDecor reconstruit avec les modèles arrivés depuis.
+local decorHandle = nil
+function Builder.dressDecor(assets)
+	local n, used, fallback = 0, 0, 0
+	pcall(function()
+		local world = workspace:FindFirstChild("World")
+		local waited = 0
+		while not world and waited < 30 do
+			task.wait(0.25)
+			waited = waited + 0.25
+			world = workspace:FindFirstChild("World")
+		end
+		if not world then
+			return
+		end
+		decorHandle = DecorMod.build(world, MapGeoMod.new(Config), Config, { assets = assets, placement = PlacementMod.new(Config), root = world, warn = warn })
+		for _, l in ipairs(decorHandle.lines or {}) do
+			print(l)
+		end
+		n, used, fallback = #decorHandle.items, decorHandle.used or 0, decorHandle.fallbackUsed or 0
+	end)
+	return n, used, fallback
+end
+
+function Builder.refreshDecor()
+	if decorHandle then
+		pcall(function()
+			decorHandle = DecorMod.refresh(decorHandle)
+		end)
+	end
 end
 
 -- Relief en toile de fond (budget séparé reliefBudgetParts) : crête de falaises sur deux niveaux au nord de la carte (décor de fond, au-delà de la borne

@@ -485,7 +485,9 @@ function Kiosk.build(parent, center, config)
 		mk("PointLight", { Color = Color3.fromRGB(255, 226, 160), Range = 22, Brightness = 1.2 }, lueur)
 	end
 	info.light = lueur
-	info.sound = addAmbience(lueur, Config, D)
+	if config.noAmbience ~= true then -- lot 8B (intégration) : Main passe noAmbience, l'ambiance est jouée par le client (setLoop, volume général, fondu)
+		info.sound = addAmbience(lueur, Config, D)
+	end
 	model:SetAttribute("KioskCenterX", cx)
 	model:SetAttribute("KioskCenterZ", cz)
 	info.model = model
