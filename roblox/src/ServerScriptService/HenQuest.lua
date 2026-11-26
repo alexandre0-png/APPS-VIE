@@ -240,7 +240,7 @@ function HenQuest.new(ctx)
 		s.hen.lastPick = now
 		local line, clue = Riddle.featherLine(Config, day, dir)
 		RHen:FireClient(s.player, "feather", dir, clue)
-		notify(s.player, line, "claim")
+		notify(s.player, line, "plume_ramassee")
 		if n == 4 then
 			local moved = Riddle.toRunes(p, day)
 			if moved then
@@ -382,7 +382,7 @@ function HenQuest.new(ctx)
 		d.coins = d.coins + coins
 		local msg = "🔮 Le Grand Œuf s'éveille ! +" .. Config.fmt(coins) .. " 🪙 et " .. (placed and ("un œuf " .. Config.TIERS[r.eggTier].name .. " dans ta base") or "la valeur d'un œuf (base pleine)")
 		msg = msg .. " · 🥚 Fragment du Grand Œuf " .. (r.fragments % H.fragmentsForEgg == 0 and H.fragmentsForEgg or r.fragments % H.fragmentsForEgg) .. "/" .. H.fragmentsForEgg
-		notify(s.player, msg, "rare")
+		notify(s.player, msg, "secret_decouvert") -- énigme réussie (lot 8A)
 		if r.legendary > 0 then
 			for _ = 1, r.legendary do
 				local placedL = grant(s, 4)

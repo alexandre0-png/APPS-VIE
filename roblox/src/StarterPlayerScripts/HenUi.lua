@@ -95,6 +95,9 @@ function HenUi.start(ctx)
 		local mine = token
 		local full = d.pages[d.i] or ""
 		textLbl.Text = full
+		if full ~= "" then
+			playSound("poule_glousse") -- la Mère Poule glousse à chaque ligne de dialogue (volume bas)
+		end
 		d.typing = true
 		textLbl.MaxVisibleGraphemes = 0
 		controls()
@@ -244,7 +247,7 @@ function HenUi.start(ctx)
 				end
 				if type(stone) == "number" then
 					glow(stone, note, true)
-					playSound("note" .. tostring(stone))
+					playSound("berceuse_note" .. tostring(stone))
 				end
 				task.wait(note + gap)
 			end
@@ -312,7 +315,7 @@ function HenUi.start(ctx)
 				end
 				if close and armed[dir] ~= false then
 					armed[dir] = false
-					playSound("secret") -- le « son secret » (silencieux tant qu'aucun identifiant vérifié n'est fourni dans Config.SOUNDS.secret)
+					playSound("secret_decouvert") -- une plume cachée tout près (lot 8A : son approuvé)
 				elseif not close and d > H.sparkleDistance + 20 then
 					armed[dir] = nil
 				end
@@ -423,7 +426,7 @@ function HenUi.start(ctx)
 				if type(a) == "number" then
 					glow(a, 0.5, b == true)
 					if b == true then
-						playSound("note" .. tostring(a))
+						playSound("berceuse_note" .. tostring(a))
 					else
 						playSound("refuse")
 					end

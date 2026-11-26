@@ -1024,7 +1024,7 @@ local function claimSecret(s, root, prompt)
 	s.data.coins += reward
 	Builder.burst(holder.Position, Color3.fromRGB(255, 214, 90), 24, true)
 	qp(s, "secret", 1)
-	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "claim")
+	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "secret_decouvert") -- secret de la carte (lot 8A)
 	sync(s)
 end
 

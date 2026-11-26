@@ -3681,7 +3681,7 @@ do
 		end
 	end
 	check("Sons : chaque entrée est valide (vide, intégrée rbxasset:// ou rbxassetid://N)" .. (ok and "" or " : " .. why), ok)
-	check("Sons : crochets secret et portail encore muets (aucun ID fourni), menu relié au clic, sons activés", Config.SOUNDS.secret.id == "" and Config.SOUNDS.portal.id == "" and Config.SOUNDS.menu.id ~= "" and Config.SOUNDS_ENABLED == true)
+	check("Sons : crochet portail encore muet (aucun ID fourni), ancien crochet « secret » remplacé par secret_decouvert (lot 8A), menu relié au clic, sons activés", Config.SOUNDS.secret == nil and Config.SOUNDS.secret_decouvert.id ~= "" and Config.SOUNDS.portal.id == "" and Config.SOUNDS.menu.id ~= "" and Config.SOUNDS_ENABLED == true)
 end
 
 -- Textures tuilables : configuration -------------------------------------------------------------------------------------------
@@ -3731,6 +3731,25 @@ do
 	end
 	check("Sons : les 18 identifiants approuvés sont tous branchés", idOk)
 	check("Volume : réglage général (100/60/30 % et muet), bornes et valeurs invalides", near(Config.soundVolume("hatch", 1), 0.55) and near(Config.soundVolume("hatch", 0.5), 0.275) and Config.soundVolume("hatch", 0) == 0 and near(Config.soundVolume("hatch", 5), 0.55) and near(Config.soundVolume("hatch", nil), 0.55) and Config.soundVolume("inconnu", 1) == 0 and Config.soundVolume("secret", 1) == 0 and Config.volumeLabel(1) == "100 %" and Config.volumeLabel(#Config.VOLUME_STEPS) == "Muet")
+;(function() -- lot 8A : 7 sons approuvés par Roblox (identifiants fournis par la gestion du projet), sans repli
+		local want = { berceuse_note1 = "85257974839127", berceuse_note2 = "101445210941604", berceuse_note3 = "139374738574752", berceuse_note4 = "82316993375303", plume_ramassee = "118620801437766", poule_glousse = "125679862476345", secret_decouvert = "119606421875553" }
+		local ok, bad = true, ""
+		for key, id in pairs(want) do
+			local def = Config.SOUNDS[key]
+			local good = def ~= nil and def.id == "rbxassetid://" .. id and def.speed == 1 and def.loop == nil and type(def.vol) == "number" and def.vol >= 0.2 and def.vol <= 0.7
+			if not good and ok then
+				ok, bad = false, key
+			end
+		end
+		check("Sons (lot 8A) : les 7 identifiants approuvés sont branchés tels quels (vitesse 1, sans boucle, volume 0,2 à 0,7)" .. (ok and "" or " : " .. bad), ok)
+		check("Sons (lot 8A) : la Mère Poule glousse à volume bas (0,2 à 0,4), les notes de la berceuse ont le même volume ; plus de note « claim » à 4 hauteurs", Config.SOUNDS.poule_glousse.vol >= 0.2 and Config.SOUNDS.poule_glousse.vol <= 0.4 and Config.SOUNDS.berceuse_note1.vol == Config.SOUNDS.berceuse_note4.vol and Config.SOUNDS.note1 == nil and Config.SOUNDS.note4 == nil)
+		local henUi, henQ, mainSrc = fs.readFile("roblox/src/StarterPlayerScripts/HenUi.lua"), fs.readFile("roblox/src/ServerScriptService/HenQuest.lua"), fs.readFile("roblox/src/ServerScriptService/Main.server.lua")
+		check("Sons (lot 8A) : branchements (berceuse jouée et pierre touchée = berceuse_noteN, chaque page de dialogue = poule_glousse, plume ramassée = plume_ramassee, énigme réussie et secret de la carte = secret_decouvert)",
+			select(2, henUi:gsub('playSound%("berceuse_note" %.%. tostring%(', "")) == 2 and henUi:find('playSound("poule_glousse")', 1, true) ~= nil and henUi:find('playSound("secret_decouvert")', 1, true) ~= nil
+			and henQ:find('notify(s.player, line, "plume_ramassee")', 1, true) ~= nil and henQ:find('notify(s.player, msg, "secret_decouvert")', 1, true) ~= nil and mainSrc:find('"secret_decouvert") -- secret de la carte', 1, true) ~= nil
+			and henUi:find('playSound("note"', 1, true) == nil)
+		check("Volume (lot 8A) : un son approuvé suit le réglage général (poule_glousse x 60 %)", near(Config.soundVolume("poule_glousse", 0.6), Config.SOUNDS.poule_glousse.vol * 0.6))
+	end)()
 	check("Gardiens : aboiement pour le chien, grognement pour le loup et l'ours", Config.guardSoundKey("dog") == "bark" and Config.guardSoundKey("wolf") == "growl" and Config.guardSoundKey("bear") == "growl" and Config.guardSoundKey(nil) == "growl")
 	check("Ambiance : aucune avant la carte prête, prairie dehors, château dedans", Config.ambienceKey(false, true) == nil and Config.ambienceKey(true, false) == "ambMeadow" and Config.ambienceKey(true, true) == "ambCastle")
 	check("Boucle localisée : pleine contre la source, nulle au-delà, décroissante", near(Config.loopFade(0, 30), 1) and Config.loopFade(30, 30) == 0 and Config.loopFade(45, 30) == 0 and near(Config.loopFade(15, 30), 0.5) and Config.loopFade(0 / 0, 30) == 0)
