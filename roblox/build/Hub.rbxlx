@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX49"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX75"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX74"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX57"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX87"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX86"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -36,42 +36,126 @@ function Config.Game.roleFor(placeId)
 	return "unknown" -- place non publiée (Studio) : chaque projet lance son propre code
 end
 
+-- LOT 9 (A.1) : 10 raretés. Les anciennes (1 Commun .. 6 Cosmique) sont migrées par Config.TIER_MIGRATE (Cosmique devient « Ultra Rare »).
 Config.TIERS = {
-	{ name = "Commun", color = Color3.fromRGB(170, 180, 191) },
-	{ name = "Rare", color = Color3.fromRGB(74, 163, 255) },
-	{ name = "Épique", color = Color3.fromRGB(184, 120, 255) },
-	{ name = "Légendaire", color = Color3.fromRGB(255, 176, 32) },
-	{ name = "Mythique", color = Color3.fromRGB(255, 77, 109) },
-	{ name = "Cosmique", color = Color3.fromRGB(61, 255, 208) },
+	{ name = "Commun", color = Color3.fromRGB(220, 220, 230), color2 = Color3.fromRGB(142, 147, 160) },
+	{ name = "Peu commun", color = Color3.fromRGB(60, 220, 60), color2 = Color3.fromRGB(30, 140, 40) },
+	{ name = "Rare", color = Color3.fromRGB(46, 139, 255), color2 = Color3.fromRGB(20, 80, 180) },
+	{ name = "Épique", color = Color3.fromRGB(155, 77, 255), color2 = Color3.fromRGB(74, 26, 140) },
+	{ name = "Légendaire", color = Color3.fromRGB(255, 194, 26), color2 = Color3.fromRGB(184, 134, 11), crown = true },
+	{ name = "Mythique", color = Color3.fromRGB(224, 32, 46), color2 = Color3.fromRGB(26, 16, 20), chains = true },
+	{ name = "Ultra Rare", color = Color3.fromRGB(111, 214, 255), color2 = Color3.fromRGB(42, 127, 212), facets = true },
+	{ name = "Secret", color = Color3.fromRGB(255, 120, 200), color2 = Color3.fromRGB(10, 10, 18), rainbow = true },
+	{ name = "Exclusif", color = Color3.fromRGB(242, 242, 242), color2 = Color3.fromRGB(20, 20, 20), crown = true },
+	{ name = "Divin", color = Color3.fromRGB(255, 243, 176), color2 = Color3.fromRGB(255, 255, 255), wings = true },
 }
+Config.TIER_COUNT = 10
+-- Ancien indice de rareté (profils v10 et antérieurs, 6 raretés) -> nouvel indice (lot 9).
+Config.TIER_MIGRATE = { 1, 3, 4, 5, 6, 7 }
+-- Ancien indice (1..6) d'une rareté du lot 9 (inverse de TIER_MIGRATE ; une rareté nouvelle prend l'ancienne inférieure). Sert aux migrations et aux tests.
+function Config.oldTier(t)
+	local best = 1
+	for old, new in ipairs(Config.TIER_MIGRATE) do
+		if type(t) == "number" and new <= t then
+			best = old
+		end
+	end
+	return best
+end
+-- Seuils d'effets indexés par rareté (remplacent tous les `tier >= N` codés en dur ; test grep dans tests/run.luau).
+-- shine : brillance du bandeau ; announce : annonce serveur, grande révélation ; aura : cercle runique ; pillar : pilier de lumière ;
+-- beam : faisceau de portage ; serverBanner / globalBanner : annonces (lot 10) ; rareCine : cinématique « premier rare » ; belt2s : anti-monopole du tapis ;
+-- ability : capacité animée des pets ; secret : son et effet « secret » de la rareté ; fullCine : grande cinématique d'éclosion.
+Config.TIER_GATE = { shine = 4, announce = 5, aura = 5, pillar = 6, beam = 5, serverBanner = 7, globalBanner = 8, rareCine = 5, belt2s = 5, ability = 4, secret = 7, fullCine = 7 }
+function Config.tierAtLeast(tier, gate)
+	local g = Config.TIER_GATE[gate]
+	return type(tier) == "number" and tier == tier and type(g) == "number" and tier >= g
+end
+-- Rareté « publiée » : au moins une espèce de Config.PETS (le lot 11 ajoutera les espèces des raretés 2, 8, 9, 10). Une rareté vide n'apparaît
+-- jamais : ses poids sont reportés sur la rareté publiée inférieure (A.3), un œuf donné en récompense prend la rareté publiée inférieure.
+function Config.tierLive(tier)
+	for _, p in ipairs(Config.PETS) do
+		if p.tier == tier then
+			return true
+		end
+	end
+	return false
+end
+-- Plus haute rareté publiée <= tier (1 au pire).
+function Config.liveEggTier(tier)
+	local t = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT))
+	while t > 1 and not Config.tierLive(t) do
+		t = t - 1
+	end
+	return t
+end
+-- Rareté publiée immédiatement au-dessus (amélioration d'un cran), ou nil.
+function Config.nextLiveTier(tier)
+	for t = tier + 1, Config.TIER_COUNT do
+		if Config.tierLive(t) then
+			return t
+		end
+	end
+	return nil
+end
+-- Rang d'une rareté parmi les raretés publiées (1..6 tant que seules les 18 espèces historiques existent : même rang que l'ancien indice).
+function Config.tierRank(tier)
+	local r = 0
+	for t = 1, math.min(tier, Config.TIER_COUNT) do
+		if Config.tierLive(t) then
+			r = r + 1
+		end
+	end
+	return math.max(1, r)
+end
+-- Poids effectifs d'une table de 10 poids : chaque rareté non publiée reporte son poids sur la rareté publiée inférieure.
+function Config.foldWeights(w)
+	local out = {}
+	for i = 1, Config.TIER_COUNT do
+		out[i] = 0
+	end
+	for i = 1, Config.TIER_COUNT do
+		local x = w[i] or 0
+		if x > 0 then
+			local j = Config.liveEggTier(i)
+			out[j] = out[j] + x
+		end
+	end
+	return out
+end
+-- REGLE DE DESIGN (1) : fourchette de revenu par seconde de chaque rareté (avant taille et mutation). min(r+1) >= 1,8 x max(r) (testé),
+-- toute espèce de la rareté est dans sa fourchette (testé). Les espèces du lot 11 devront s'y tenir.
+Config.INCOME_RANGE = { { 1, 2 }, { 3.6, 4.1 }, { 7.5, 15 }, { 30, 75 }, { 150, 420 }, { 800, 3000 }, { 6000, 26000 }, { 50000, 120000 }, { 220000, 300000 }, { 550000, 900000 } }
+Config.INCOME_GROWTH_MIN = 1.8
 -- Prix et durées calibrés avec la simulation tests/Economy.lua (joueur-robot) : ~15 pièces/s après 1 min, œuf Rare vers 2 min,
 -- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
 Config.START_COINS = 50
-Config.EGG_PRICE = { 25, 900, 20000, 350000, 6000000, 130000000 }
+Config.FIRST_EGG_SECONDS = 12 -- lot 9 : l'œuf de départ (gratuit) éclot en 12 s (cible : première éclosion entre 10 et 15 s)
+Config.EGG_PRICE = { 45, 99, 220, 26000, 7500000, 370000000, 70000000000, 80000000000, 0, 1800000000000 } -- lot 9 : 10 raretés recalibrées (tests/Economy.lua, tools/sim_economy.py) ; Exclusif (9) jamais en pièces
 -- Lot 8A (B.3) : la boutique vend les raretés 1 à SHOP_MAX_TIER ; Mythique et Cosmique ne s'achètent qu'au tapis du marché (rareté visible, prix x 0,6).
-Config.SHOP_MAX_TIER = 4
-Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
+Config.SHOP_MAX_TIER = 6 -- lot 9 : la boutique vend jusqu'au Mythique (sans lui, la maison stagnait entre 1 et 3 jours de jeu) ; Ultra Rare et au-delà : tapis seulement
+Config.HATCH = { 18, 20, 30, 113, 450, 450, 600, 600, 600, 900 } -- secondes (lot 9 : recalibrées ; l'œuf de départ éclot en Config.FIRST_EGG_SECONDS)
 
 -- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
 Config.PETS = {
 	{ tier = 1, emoji = "🐥", name = "Poussin", inc = 1, color = Color3.fromRGB(255, 221, 87), ears = "none", extra = "beak" },
 	{ tier = 1, emoji = "🐹", name = "Hamster", inc = 1.5, color = Color3.fromRGB(222, 184, 135), ears = "round", extra = "none" },
 	{ tier = 1, emoji = "🐰", name = "Lapin", inc = 2, color = Color3.fromRGB(245, 245, 245), ears = "long", extra = "tail" },
-	{ tier = 2, emoji = "🐱", name = "Chat", inc = 6, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
-	{ tier = 2, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
-	{ tier = 2, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
-	{ tier = 3, emoji = "🐼", name = "Panda", inc = 32, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
-	{ tier = 3, emoji = "🦉", name = "Hibou", inc = 45, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
-	{ tier = 3, emoji = "🐧", name = "Manchot", inc = 60, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
-	{ tier = 4, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
-	{ tier = 4, emoji = "🐯", name = "Tigre", inc = 230, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
-	{ tier = 4, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
-	{ tier = 5, emoji = "🐲", name = "Dragon", inc = 1100, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
-	{ tier = 5, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
-	{ tier = 5, emoji = "🐙", name = "Kraken", inc = 2300, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
-	{ tier = 6, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
-	{ tier = 6, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
-	{ tier = 6, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
+	{ tier = 3, emoji = "🐱", name = "Chat", inc = 7.5, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
+	{ tier = 3, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
+	{ tier = 3, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
+	{ tier = 4, emoji = "🐼", name = "Panda", inc = 32, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
+	{ tier = 4, emoji = "🦉", name = "Hibou", inc = 45, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
+	{ tier = 4, emoji = "🐧", name = "Manchot", inc = 60, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
+	{ tier = 5, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
+	{ tier = 5, emoji = "🐯", name = "Tigre", inc = 230, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
+	{ tier = 5, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
+	{ tier = 6, emoji = "🐲", name = "Dragon", inc = 1100, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
+	{ tier = 6, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
+	{ tier = 6, emoji = "🐙", name = "Kraken", inc = 2300, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
+	{ tier = 7, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
+	{ tier = 7, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
+	{ tier = 7, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
 }
 
 Config.SIZES = {
@@ -83,19 +167,20 @@ Config.SIZES = {
 }
 
 Config.MUTS = {
-	{ name = "", mult = 1, weight = 82 },
+	{ name = "", mult = 1, weight = 81.9 },
 	{ name = "Doré", mult = 2, weight = 9, color = Color3.fromRGB(255, 208, 0) },
 	{ name = "Néon", mult = 3, weight = 5, color = Color3.fromRGB(0, 229, 255) },
 	{ name = "Arc-en-ciel", mult = 5, weight = 2.6, rainbow = true },
 	{ name = "Alien", mult = 10, weight = 1.4, color = Color3.fromRGB(57, 255, 20) },
+	{ name = "Céleste", mult = 20, weight = 0.1, color = Color3.fromRGB(255, 243, 176), aura = true }, -- lot 9 (A.6)
 }
 
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
-	{ name = "Gus", emoji = "🤠", stars = 1, guards = 1, weights = { 60, 35, 5, 0, 0, 0 }, guardSpeed = 9.5, patrolSpeed = 4.5, viewDist = 16, viewAngle = 80, hearRadius = 7, damage = 10, alertDelay = 1.6, gentle = true, color = Color3.fromRGB(111, 191, 115) },
-	{ name = "Mara", emoji = "🧛", stars = 3, guards = 2, weights = { 0, 40, 40, 20, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
-	{ name = "Zed", emoji = "🤖", stars = 5, guards = 3, weights = { 0, 0, 30, 45, 22, 3 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
+	{ name = "Gus", emoji = "🤠", stars = 1, guards = 1, weights = { 45, 35, 17, 3, 0, 0, 0, 0, 0, 0 }, guardSpeed = 9.5, patrolSpeed = 4.5, viewDist = 16, viewAngle = 80, hearRadius = 7, damage = 10, alertDelay = 1.6, gentle = true, color = Color3.fromRGB(111, 191, 115) },
+	{ name = "Mara", emoji = "🧛", stars = 3, guards = 2, weights = { 0, 10, 35, 37, 18, 0, 0, 0, 0, 0 }, guardSpeed = 19, patrolSpeed = 10, viewDist = 28, viewAngle = 110, hearRadius = 14, damage = 20, color = Color3.fromRGB(224, 164, 59) },
+	{ name = "Zed", emoji = "🤖", stars = 5, guards = 3, weights = { 0, 0, 0, 30, 45, 22, 2.4, 0.5, 0, 0.1 }, guardSpeed = 26, patrolSpeed = 13, viewDist = 32, viewAngle = 120, hearRadius = 16, damage = 28, color = Color3.fromRGB(224, 87, 90) },
 }
 
 -- Gardiens : jamais de coup mortel d'un seul coup. Barre de vie, invulnérabilité courte après un coup, recul, régénération ; perception (vue + ouïe)
@@ -226,8 +311,16 @@ end
 
 -- Revente d'un œuf (jamais rentable : on récupère 25 % du prix, achat puis revente = perte de 75 %).
 Config.EGG_SELL_RATIO = 0.25
-function Config.eggSellValue(tier)
+-- Lot 9 : valeur en pièces d'un œuf de rareté `tier` ; l'Exclusif (jamais vendu en pièces, prix 0) vaut le prix du Secret.
+function Config.eggCoinValue(tier)
 	local price = Config.EGG_PRICE[tier]
+	if price == 0 then
+		price = Config.EGG_PRICE[tier - 1]
+	end
+	return price or 0
+end
+function Config.eggSellValue(tier)
+	local price = Config.EGG_PRICE[tier] and Config.eggCoinValue(tier)
 	return price and math.max(1, math.floor(price * Config.EGG_SELL_RATIO)) or 0
 end
 
@@ -256,8 +349,17 @@ function Config.dupesToSell(slots, cap)
 	return out, total
 end
 
+-- Lot 9 : la revente d'un pet est plafonnée à la moitié de la valeur d'un œuf de sa rareté (SELL_CAP_RATIO) : acheter un œuf Commun puis revendre
+-- le pet rapportait jusqu'à 3,6 fois le prix de l'œuf (boucle de gain). Les raretés hautes ne sont pas touchées (45 s de revenu << prix de l'œuf).
+Config.SELL_CAP_RATIO = 0.5
 function Config.sellValue(p, s, m)
-	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+	local v = math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+	local def = Config.PETS[p]
+	local capV = def and Config.eggCoinValue(def.tier) * Config.SELL_CAP_RATIO or 0
+	if capV > 0 then
+		v = math.min(v, math.max(1, math.floor(capV)))
+	end
+	return v
 end
 
 function Config.petName(p, s, m)
@@ -318,15 +420,15 @@ function Config.volumeLabel(i)
 	return v <= 0 and "Muet" or (math.floor(v * 100 + 0.5) .. " %")
 end
 
--- Clé de son d'éclosion d'après la rareté du pet (1 Commun .. 6 Cosmique) ; secret ou Cosmique = son secret.
+-- Clé de son d'éclosion d'après la rareté du pet (1..10, seuils Config.TIER_GATE) ; secret ou Ultra Rare et plus = son secret.
 function Config.hatchSoundKey(tier, secret)
-	if secret or tier >= 6 then
+	if secret or Config.tierAtLeast(tier, "secret") then
 		return "hatchSecret"
-	elseif tier >= 4 then
+	elseif Config.tierAtLeast(tier, "announce") then
 		return "legendary"
-	elseif tier == 3 then
+	elseif Config.tierAtLeast(tier, "shine") then
 		return "epic"
-	elseif tier == 2 then
+	elseif type(tier) == "number" and tier >= 2 then -- Peu commun et Rare : son « rare »
 		return "rare"
 	end
 	return "hatch"
@@ -364,23 +466,46 @@ function Config.loopFade(dist, maxDist)
 end
 
 -- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
+-- `robux` = prix (R$) de PUBLICATION.md (Secret / Exclusif / Divin : décision de l'utilisateur), utilisé pour les paliers de mesure et Config.PRICING ; à garder ÉGAL au prix réglé
+-- dans le Creator Hub (A_FAIRE_UTILISATEUR.md).
 Config.PRODUCTS = {
-	InstantHatch = { id = 3734229329, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
-	LuckPotion = { id = 3734229337, name = "Potion de chance", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 15 min.", random = true },
-	StarterPack = { id = 3734229313, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
-	ExclusiveEgg = { id = 3734229320, name = "Œuf exclusif Mythique", emoji = "🥚", desc = "Un œuf Mythique placé directement dans ta base (il faut une place libre).", random = true },
-	Revive = { id = 3734229323, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
-	ServerLuck = { id = 3736121217, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
-	GoldenBelt = { id = 3736121227, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
-	RemoteSteal = { id = 3736121232, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
-	RemoteStealPack = { id = 3736121238, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
-	CoinPack = { id = 3734229339, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
+	InstantHatch = { id = 3734229329, robux = 49, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
+	LuckPotion = { id = 3734229337, robux = 99, name = "Potion de chance", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 15 min.", random = true },
+	StarterPack = { id = 3734229313, robux = 99, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
+	ExclusiveEgg = { id = 3734229320, robux = 249, name = "Œuf Mythique", emoji = "🥚", eggTier = 6, desc = "Un œuf Mythique (rareté fixe) placé directement dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées.", random = true },
+	-- Lot 9 : œufs de rareté FIXE à très haut prix (décision de l'utilisateur). Achat refusé (NotProcessedYet, rien n'est débité) si la base est
+	-- pleine, si le compte est restreint (PolicyService) ou tant que la rareté n'a aucune espèce publiée (Config.tierLive) : l'offre reste alors masquée.
+	EggSecret = { id = 3736452048, robux = 1499, name = "Œuf Secret", emoji = "🌈", eggTier = 8, desc = "Un œuf Secret (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
+	EggExclusive = { id = 3736452061, robux = 3499, name = "Œuf Exclusif", emoji = "🖤", eggTier = 9, desc = "Un œuf Exclusif (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
+	EggDivine = { id = 3736452072, robux = 6999, name = "Œuf Divin", emoji = "😇", eggTier = 10, desc = "Un œuf Divin (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
+	Revive = { id = 3734229323, robux = 49, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
+	ServerLuck = { id = 3736121217, robux = 129, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
+	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
+	RemoteSteal = { id = 3736121232, robux = 79, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
+	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
+	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
-Config.STARTER_PACK = { coins = 20000, eggTier = 2, eggs = 3 }
-Config.EXCLUSIVE_EGG_TIER = 5
+Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
+Config.EXCLUSIVE_EGG_TIER = 6
 Config.REVIVE = { offerSeconds = 20, iframes = 4 } -- offre de relance après une défaite au château (non bloquante), invulnérabilité après la relance
-Config.COIN_PACK_MINUTES = 20
+Config.COIN_PACK_MINUTES = 20 -- lot 9 : sert aussi de taux de référence du Robux (20 min de revenu pour le prix du Sac de pièces, voir Config.PRICING)
 Config.COIN_PACK_MIN = 5000
+-- LOT 9, REGLE DE DESIGN (3) : tout ce qui s'achète aux deux est PLUS CHER et PLUS LONG en pièces. `timeRobux` = robuxCost x secondsPerRobux, le taux
+-- de référence du jeu lui-même : le Sac de pièces vend COIN_PACK_MINUTES minutes de revenu pour son prix en R$ (20 min pour 99 R$ = 12,1 s de revenu
+-- par R$). `timeToAffordCoin` = temps de jeu actif pour GAGNER `coinCost` pièces, mesuré par tests/Economy.lua (médiane de 5 graines, roster projeté du
+-- lot 11) pour 3 profils : débutant (profil neuf), milieu (après 10 h de jeu), avancé (après 100 h) ; recalculé par tools/sim_economy.py prix et
+-- vérifié par tests/run.luau : pour le débutant, 4 x timeRobux <= timeToAffordCoin <= 12 x timeRobux (chaque graine). L'Exclusif n'a pas de
+-- prix en pièces (jamais vendu en pièces) : hors règle, documenté. coinCost : prix boutique si la rareté y est vendue, sinon prix du tapis (x 0,6).
+Config.PRICING_REF = { secondsPerRobux = Config.COIN_PACK_MINUTES * 60 / Config.PRODUCTS.CoinPack.robux, minRatio = 4, maxRatio = 12 }
+Config.PRICING = {
+	ExclusiveEgg = { tier = 6, coinCost = 370000000, robuxCost = 249, where = "boutique", timeToAffordCoin = { beginner = 18440, mid = 3580, advanced = 240 } },
+	EggSecret = { tier = 8, coinCost = 48000000000, robuxCost = 1499, where = "tapis", timeToAffordCoin = { beginner = 129670, mid = 95790, advanced = 30480 } },
+	EggDivine = { tier = 10, coinCost = 1080000000000, robuxCost = 6999, where = "tapis", timeToAffordCoin = { beginner = 705120, mid = 669420, advanced = 395520 } },
+	EggExclusive = { tier = 9, coinCost = nil, robuxCost = 3499, where = "jamais en pièces", timeToAffordCoin = nil },
+}
+function Config.timeRobux(robux)
+	return robux * Config.PRICING_REF.secondsPerRobux
+end
 -- Un achat n'est proposé que si son ID Roblox a été renseigné (entier > 0). Sinon il reste désactivé, avec un message clair.
 function Config.purchasable(def)
 	return type(def.id) == "number" and def.id > 0 and def.id % 1 == 0
@@ -388,6 +513,9 @@ end
 Config.UNAVAILABLE_MESSAGE = "🛒 Cet achat n'est pas encore disponible. Reviens bientôt !"
 
 Config.LUCK_POTION_BONUS = 25
+-- Lot 9 : plafond du CUMUL des bonus (tapis doré + tapis privé + potion + pass Chance + pluie de chance). `paidUp` = points d'amélioration payants
+-- cumulés au plus (appliqué par le serveur dans Rules.upPoints) ; `gain` = gain de progression maximal mesuré par tests/Economy.lua (testé, +60 %).
+Config.BOOST_CAP = { paidUp = 30, gain = 0.6 }
 Config.LUCK_POTION_SECONDS = 900
 
 -- Revenu passif : il ne s'accumule que si le joueur est ACTIF (action ou déplacement dans les `seconds` dernières secondes). Au départ du joueur, le revenu hors ligne
@@ -426,13 +554,13 @@ end
 -- œuf ou boost ; sinon la 2e mission du jour donne un œuf (rareté selon la progression d'histoire `ch`), la 3e un boost de chance de 10 minutes.
 function Config.questBonus(t, index, ch)
 	ch = ch or 0
-	local tier = 1 + (ch >= 4 and 1 or 0) + (ch >= 8 and 1 or 0)
+	local tier = Config.TIER_MIGRATE[1 + (ch >= 4 and 1 or 0) + (ch >= 8 and 1 or 0)] -- Commun, Rare, Épique (indices du lot 9)
 	if t == "castle" then
-		return { egg = math.min(4, 3 + (ch >= 8 and 1 or 0)) }
+		return { egg = ch >= 8 and 5 or 4 }
 	elseif t == "rare" then
 		return { boost = 900 }
 	elseif t == "secret" then
-		return { egg = 2 }
+		return { egg = 3 }
 	elseif index == 2 then
 		return { egg = tier }
 	elseif index == 3 then
@@ -467,25 +595,23 @@ Config.Assets = {
 	decorMaxParts = 220, -- plafond des modèles de décor du hub (placés une seule fois)
 	maxParticleRate = 20, -- plafond des émetteurs de particules du modèle (par seconde)
 	targetHeight = 3.4, -- hauteur en studs à laquelle chaque modèle est ramené
-	eggs = {
-		red = 151044983, -- œuf rouge
-		orange = 147144059, -- œuf orange
-		purple = 112478990, -- œuf à aura violette
-		legendary = 2937230482, -- œuf légendaire
-		glitch = 2937218888, -- œuf glitch
+	eggs = { -- lot 9 : 10 œufs Blender (un par rareté), repli procédural (Config.EggFx.looks, Builder.egg)
+		r1 = 135765683612513,
+		r2 = 87965918516208,
+		r3 = 96993304097437,
+		r4 = 109265198341087,
+		r5 = 133048256610873,
+		r6 = 102115260137639,
+		r7 = 101573584229717,
+		r8 = 127835469690102,
+		r9 = 98454425446209,
+		r10 = 124299527536427,
 	},
-	-- Rareté de l'œuf (1 = Commun ... 6 = Cosmique) -> modèle.
-	-- Modèles BLENDER de l'utilisateur (approuvés) : convention de couleur `Nom__RRGGBB` lue par Assets.colorize (les couleurs du FBX sont ignorées).
-	-- Œufs par rareté de pet (1 Commun .. 5 Mythique, 6 Cosmique = œuf Secret) : prioritaires sur les modèles du catalogue, repli : catalogue puis code.
-	eggsByRarity = {
-		[1] = 100023720665590, -- OeufCommun
-		[2] = 74975545149168, -- OeufRare
-		[3] = 86639017295697, -- OeufEpique
-		[4] = 137014263068694, -- OeufLegendaire
-		[5] = 110535599163330, -- OeufMythique
-		[6] = 95190117262171, -- OeufSecret
-		secret = 95190117262171,
-	},
+	eggsMaxParts = 40, -- plafond de Parts d'un œuf Blender (cloné pour chaque œuf)
+	eggShellPart = "Coque", -- pièce dont la hauteur fixe l'échelle de l'œuf (couronne, auréole et ailes dépassent)
+	-- Lot 9 : les catalogues (red, orange...) et les 6 œufs Blender historiques (eggsByRarity) sont remplacés par les 10 œufs Blender r1..r10
+	-- (clés de eggs ci-dessus, Config.Assets.eggByTier) ; pièces nommées Coque, Embleme, Motif, Anneau, Couronne, Chaine, Cristaux, Etoiles, Ailes,
+	-- Aureole, Fissure. L'échelle se calcule sur la hauteur de la pièce `Coque` (Assets.fitByPart) ; les effets restent dans le code.
 	-- Accessoires : arbres, rochers, cabanes, pont, fontaine (place du hub), nid d'œufs (sous chaque œuf).
 	props = {
 		tree = 88144895198576, -- Arbre
@@ -557,7 +683,7 @@ Config.Assets = {
 	-- Chemins Blender (tuiles de 8 x 8, droite le long de X, virage à 90°), bordés de pierres : budget de Parts séparé, repli = pavés procéduraux.
 	pathTile = 8, pathWind = 5, pathBudgetParts = 900, pathBorderHeight = 0.6,
 	-- Protection de l'œuf d'un emplacement selon la rareté (clé de models.eggguard) et largeur cible (studs) ; halo / lumière proportionnels à la rareté.
-	eggGuardKeys = { "egg_nest_fence", "egg_dome", "egg_dome", "egg_cage", "egg_shield", "egg_shield" },
+	eggGuardKeys = { "egg_nest_fence", "egg_nest_fence", "egg_dome", "egg_dome", "egg_cage", "egg_shield", "egg_shield", "egg_shield", "egg_shield", "egg_shield" },
 	eggGuardWidth = { egg_nest_fence = 6.5, egg_dome = 4.4, egg_cage = 4.6, egg_shield = 5 },
 	eggGuardBudgetPerBase = 500, -- Parts Blender de protection par base (au-delà : nid procédural)
 	-- Décor de village (lot scn_*) : `h` = hauteur cible, `len` = plus grande arête cible (studs), `r` = rayon d'empreinte pour la planification.
@@ -569,10 +695,10 @@ Config.Assets = {
 	decoFallbackMax = 40, -- Parts procédurales de repli (fleurs) si les modèles Blender manquent -- pire cas de Parts des modèles Blender du château (murs, tours, portes, coffre, torches, drapeaux, fond)
 	-- Hauteurs cibles en studs (le joueur mesure ~5). Chaque modèle est mis à l'échelle sur SA HAUTEUR d'après GetExtentsSize puis remesuré (±10 %) ;
 	-- mesure impossible = modèle non posé (repli procédural), jamais d'échelle brute.
-	targetHeights = { player = 5, petMin = 1.7, petMax = 2.1, petHard = 3, eggMin = 1.8, eggMax = 2.8, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 2.5, wolf = 3, bear = 5, knight = 4.5, tower = 24, chest = 4, torch = 3, flag = 7 },
+	targetHeights = { player = 5, petMin = 1.7, petMax = 2.5, petHard = 3.4, eggMin = 1.8, eggMax = 2.9, lamp = 8, bench = 2.5, fountain = 7, hut = 11, mill = 20, dog = 2.5, wolf = 3, bear = 5, knight = 4.5, tower = 24, chest = 4, torch = 3, flag = 7 },
 	-- Seules ces pièces (nom de base, sans suffixe de couleur) gardent un matériau Metal ; Neon seulement pour les flammes ; tout le reste en plastique lisse.
 	metalParts = { Anneau = true, Tige = true, Serrure = true, Poignee = true, Fer = true, Cercles = true, Pics = true, Lame = true, Herse = true },
-	neonParts = { Flamme = true },
+	neonParts = { Flamme = true, Aureole = true, Fissure = true },
 	guardKinds = { "dog", "wolf", "bear" }, -- gardien de chaque domaine (Config.RIVALS) -> modèle de models.guards
 	guardHeights = { dog = 2.5, wolf = 3, bear = 5, knight = 4.5 }, -- hauteur en studs (= targetHeights)
 	propsMaxParts = { tree = 40, fir = 40, rock = 25, bush = 20, hut = 120, fence = 20, bridge = 30, fountain = 150, nest = 12 },
@@ -624,9 +750,12 @@ Config.Assets = {
 		[13] = 134284711848469, -- PetDragonnet (Dragon, Mythique)
 		[16] = 129116477413499, -- PetFantome (Alien, Cosmique : le « fantôme »)
 	},
+	-- Lot 9 : modèles des 60 nouvelles espèces (numéro C.2 -> identifiant), branchés au lot 11 ; plafond de Parts propre.
+	petsNew = {},
+	petsMaxPartsNew = 40,
 	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
 	petHeight = 3, -- (les pets Blender mesurent ~1 : mis à l'échelle sur cette hauteur) -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
-	eggByTier = { "red", "orange", "purple", "legendary", "legendary", "glitch" },
+	eggByTier = { "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10" },
 	-- Classes supprimées de tout modèle chargé (code, communication, sons, effets à effet de bord, outils, liaisons parasites).
 	blockedClasses = {
 		"Script", "LocalScript", "ModuleScript", "RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction",
@@ -637,43 +766,41 @@ Config.Assets = {
 ---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
 -- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
 -- scintille côté client). `Enabled = false` : œufs simples (couleur + sphère), utile pour alléger les téléphones modestes.
+-- Lot 9 (A.5) : 10 apparences r1..r10. `details` = pièces construites par le code (Builder.eggDetails, <= 24 Parts, emblème = rune-œuf du jeu,
+-- JAMAIS le logo Roblox) ; `orbit` = cubes en orbite (tournés par le client, tag EggHalo) ; `glass` = coque en verre (forcé aussi sur le modèle Blender).
 Config.EggFx = {
 	Enabled = true,
+	maxParts = 24,
 	looks = {
-		red = { name = "Rouge", color = Color3.fromRGB(222, 56, 56), material = "SmoothPlastic", light = Color3.fromRGB(255, 96, 96) },
-		orange = {
-			name = "Orange",
-			color = Color3.fromRGB(255, 150, 40),
-			material = "Plastic",
-			light = Color3.fromRGB(255, 170, 70),
-			particles = { color = Color3.fromRGB(255, 190, 90), rate = 3, speed = 1.5, size = 0.25, life = 1.2 },
-		},
-		purple = {
-			name = "Aura violette",
-			color = Color3.fromRGB(150, 80, 235),
-			material = "Neon",
-			light = Color3.fromRGB(180, 110, 255),
-			halo = { shape = "ball", color = Color3.fromRGB(205, 150, 255), scale = 1.4, transparency = 0.78 },
-			particles = { color = Color3.fromRGB(215, 170, 255), rate = 8, speed = 2, size = 0.3, life = 1.6 },
-		},
-		legendary = {
-			name = "Légendaire",
-			color = Color3.fromRGB(255, 205, 60),
-			material = "Metal",
-			light = Color3.fromRGB(255, 220, 110),
-			brightness = 2,
-			halo = { shape = "ring", color = Color3.fromRGB(255, 235, 140), scale = 1.55, transparency = 0.25, spin = 1.6 },
-			particles = { color = Color3.fromRGB(255, 230, 120), rate = 10, speed = 2.5, size = 0.3, life = 1.5 },
-		},
-		glitch = {
-			name = "Glitch",
-			color = Color3.fromRGB(40, 255, 230),
-			material = "Neon",
-			light = Color3.fromRGB(255, 60, 210),
-			brightness = 2,
-			halo = { shape = "ball", color = Color3.fromRGB(255, 40, 200), scale = 1.22, transparency = 0.55, flicker = true },
-			particles = { color = Color3.fromRGB(255, 70, 215), rate = 14, speed = 5, size = 0.22, life = 0.6 },
-		},
+		r1 = { name = "Commun", color = Color3.fromRGB(220, 220, 230), material = "SmoothPlastic", light = Color3.fromRGB(220, 220, 230), brightness = 0.6, emblem = Color3.fromRGB(58, 58, 66),
+			details = { spots = { n = 3, color = Color3.fromRGB(180, 184, 196) } } },
+		r2 = { name = "Peu commun", color = Color3.fromRGB(60, 220, 60), material = "SmoothPlastic", light = Color3.fromRGB(60, 220, 60), emblem = Color3.fromRGB(168, 255, 140),
+			details = { pixels = { n = 4, color = Color3.fromRGB(46, 184, 46) } }, orbit = { n = 6, color = Color3.fromRGB(60, 220, 60), rps = 0.3 } },
+		r3 = { name = "Rare", color = Color3.fromRGB(46, 139, 255), material = "SmoothPlastic", light = Color3.fromRGB(46, 139, 255), emblem = Color3.fromRGB(140, 200, 255),
+			details = { pixels = { n = 4, color = Color3.fromRGB(20, 80, 180) }, ring = { color = Color3.fromRGB(140, 200, 255), tilt = 20 } }, orbit = { n = 4, color = Color3.fromRGB(46, 139, 255), rps = 0.5 } },
+		r4 = { name = "Épique", color = Color3.fromRGB(74, 26, 140), material = "SmoothPlastic", light = Color3.fromRGB(155, 77, 255), emblem = Color3.fromRGB(200, 155, 255),
+			details = { stripes = { n = 3, color = Color3.fromRGB(155, 77, 255) }, crystals = { n = 4, color = Color3.fromRGB(200, 155, 255) } },
+			particles = { color = Color3.fromRGB(181, 124, 255), rate = 4, speed = 2, size = 0.25, life = 1.4 } },
+		r5 = { name = "Légendaire", color = Color3.fromRGB(255, 194, 26), material = "SmoothPlastic", light = Color3.fromRGB(255, 210, 74), brightness = 1.5, emblem = Color3.fromRGB(255, 240, 176),
+			details = { crown = { color = Color3.fromRGB(255, 210, 74) }, groundRing = { color = Color3.fromRGB(255, 210, 74) } },
+			halo = { shape = "ring", color = Color3.fromRGB(255, 230, 140), scale = 1.4, transparency = 0.3, spin = 1.2 },
+			particles = { color = Color3.fromRGB(255, 230, 140), rate = 6, speed = 2.5, size = 0.28, life = 1.5 } },
+		r6 = { name = "Mythique", color = Color3.fromRGB(26, 16, 20), material = "SmoothPlastic", light = Color3.fromRGB(255, 48, 32), brightness = 1.8, emblem = Color3.fromRGB(255, 96, 64),
+			details = { cracks = { n = 3, color = Color3.fromRGB(255, 48, 32) }, chain = { n = 6, color = Color3.fromRGB(58, 58, 66) } },
+			particles = { color = Color3.fromRGB(255, 112, 64), rate = 8, speed = 2.5, size = 0.3, life = 1.2 }, pulse = 1 },
+		r7 = { name = "Ultra Rare", color = Color3.fromRGB(111, 214, 255), material = "Glass", glass = 0.2, light = Color3.fromRGB(111, 214, 255), brightness = 2, emblem = Color3.fromRGB(255, 255, 255),
+			details = { crystals = { n = 6, color = Color3.fromRGB(191, 239, 255) } },
+			particles = { color = Color3.fromRGB(255, 255, 255), rate = 6, speed = 1, size = 0.22, life = 2 } },
+		r8 = { name = "Secret", color = Color3.fromRGB(10, 10, 18), material = "SmoothPlastic", light = Color3.fromRGB(255, 120, 200), brightness = 2, emblem = Color3.fromRGB(255, 255, 255), rainbow = true,
+			details = { ring = { color = Color3.fromRGB(255, 80, 80), tilt = 30 }, ring2 = { color = Color3.fromRGB(80, 170, 255), tilt = -30 }, stars = { n = 3, color = Color3.fromRGB(255, 225, 74) } },
+			halo = { shape = "ball", color = Color3.fromRGB(190, 110, 255), scale = 1.25, transparency = 0.7, flicker = true } },
+		r9 = { name = "Exclusif", color = Color3.fromRGB(242, 242, 242), material = "SmoothPlastic", light = Color3.fromRGB(255, 255, 255), brightness = 1.2, emblem = Color3.fromRGB(20, 20, 20),
+			details = { shards = { n = 3, color = Color3.fromRGB(20, 20, 20) }, crown = { color = Color3.fromRGB(20, 20, 20) }, chain = { n = 4, color = Color3.fromRGB(58, 58, 66) } },
+			orbit = { n = 4, color = Color3.fromRGB(20, 20, 20), rps = 0.25 },
+			particles = { color = Color3.fromRGB(150, 150, 150), rate = 3, speed = 0.6, size = 0.6, life = 2.5 } },
+		r10 = { name = "Divin", color = Color3.fromRGB(255, 243, 176), material = "Glass", glass = 0.15, light = Color3.fromRGB(255, 230, 128), brightness = 2, emblem = Color3.fromRGB(255, 210, 74),
+			details = { wings = { color = Color3.fromRGB(255, 255, 255) }, halo = { color = Color3.fromRGB(255, 230, 128) } }, orbit = { n = 4, color = Color3.fromRGB(255, 210, 74), rps = 0.35 },
+			particles = { color = Color3.fromRGB(255, 230, 128), rate = 8, speed = 1.5, size = 0.3, life = 1.8 } },
 	},
 }
 
@@ -771,8 +898,8 @@ end
 -- Hauteur cible d'un pet : 1,7 à 2,1 studs selon la rareté (1..6, joueur = 5), multipliée par l'échelle de sa taille, jamais plus de 3 (60 % d'un joueur).
 function Config.petTargetHeight(tier, sizeScale)
 	local H = Config.Assets.targetHeights
-	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
-	local base = H.petMin + (H.petMax - H.petMin) * (t - 1) / 5
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT)
+	local base = H.petMin + (H.petMax - H.petMin) * (t - 1) / (Config.TIER_COUNT - 1)
 	local k = (type(sizeScale) == "number" and sizeScale == sizeScale and sizeScale > 0) and sizeScale or 1
 	return math.min(base * k, H.petHard)
 end
@@ -785,15 +912,16 @@ end
 
 -- Intensité de lumière de la protection (proportionnelle à la rareté : 0,5 à 3) et portée (6 à 11 studs).
 function Config.eggGuardGlow(tier)
-	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
-	return { brightness = 0.5 + (t - 1) * 0.5, range = 6 + (t - 1), transparency = t >= 3 and 0.7 or 0.8 }
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT)
+	local k = (t - 1) / (Config.TIER_COUNT - 1)
+	return { brightness = 0.5 + k * 2.5, range = 6 + k * 5, transparency = Config.tierAtLeast(t, "shine") and 0.7 or 0.8 }
 end
 
 -- Hauteur cible d'un œuf : 1,8 à 2,8 studs selon la rareté.
 function Config.eggHeight(tier)
 	local H = Config.Assets.targetHeights
-	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
-	return H.eggMin + (H.eggMax - H.eggMin) * (t - 1) / 5
+	local t = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT)
+	return H.eggMin + (H.eggMax - H.eggMin) * (t - 1) / (Config.TIER_COUNT - 1)
 end
 
 -- Apparence (table de Config.EggFx.looks) de l'œuf de rareté `tier`, ou nil.
@@ -910,15 +1038,19 @@ Config.REVEAL = {
 	reducedFactor = 0.5,
 	tiers = {
 		{ rays = 6, rings = 1, shake = 0, flash = 0, particles = 4 },
+		{ rays = 7, rings = 1, shake = 0.05, flash = 0.08, particles = 6 },
 		{ rays = 8, rings = 1, shake = 0.1, flash = 0.15, particles = 8 },
 		{ rays = 10, rings = 2, shake = 0.25, flash = 0.3, particles = 14 },
 		{ rays = 12, rings = 2, shake = 0.5, flash = 0.5, particles = 20 },
 		{ rays = 14, rings = 3, shake = 0.8, flash = 0.7, particles = 28 },
 		{ rays = 16, rings = 3, shake = 1, flash = 0.85, particles = 36 },
+		{ rays = 16, rings = 3, shake = 1, flash = 0.9, particles = 36 },
+		{ rays = 16, rings = 3, shake = 1, flash = 0.9, particles = 36 },
+		{ rays = 16, rings = 3, shake = 1, flash = 1, particles = 36 }, -- plafond de performance RevealFx (<= 90 objets) : pas plus que l'ancien Cosmique
 	},
 	-- Écran de tirage « machine à sous » avant la révélation : 3 colonnes (rareté, taille, mutation) qui défilent puis s'arrêtent une à une.
 	-- stops = secondes d'arrêt de chaque colonne ; loops = tours complets avant l'arrêt ; fastStops = tirage banal (Commun/Rare, taille et mutation normales) ou mobile.
-	slot = { enabled = true, stops = { 1.1, 1.7, 2.3 }, fastStops = { 0.6, 0.95, 1.3 }, loops = { 3, 3, 4 }, hold = 0.55, cell = 34, phoenixFromTier = 4 },
+	slot = { enabled = true, stops = { 1.1, 1.7, 2.3 }, fastStops = { 0.6, 0.95, 1.3 }, loops = { 3, 3, 4 }, hold = 0.55, cell = 34, phoenixFromTier = 5 },
 	secret = { oneInAtLeast = 20000, color = Color3.fromRGB(255, 70, 20), rays = 16, rings = 4, shake = 1, flash = 0.95, particles = 30, label = "ŒUF SECRET" },
 }
 
@@ -956,11 +1088,11 @@ end
 
 ---------------------------------------------------------------- Paliers visuels de richesse (boutique)
 -- 1 pièce, petite pile, grosse pile, coffre : seuils alignés sur les prix des œufs (900, 20 000, 350 000).
-Config.WEALTH = {
+Config.WEALTH = { -- lot 9 : seuils = prix des œufs Rare, Épique, Légendaire (suivent l'équilibrage)
 	{ name = "Une pièce", min = 0, icon = "coin" },
-	{ name = "Petite pile", min = 900, icon = "pile" },
-	{ name = "Grosse pile", min = 20000, icon = "mound" },
-	{ name = "Coffre", min = 350000, icon = "chest" },
+	{ name = "Petite pile", min = Config.EGG_PRICE[3], icon = "pile" },
+	{ name = "Grosse pile", min = Config.EGG_PRICE[4], icon = "mound" },
+	{ name = "Coffre", min = Config.EGG_PRICE[5], icon = "chest" },
 }
 
 function Config.wealthTier(coins)
@@ -979,11 +1111,32 @@ end
 function Config.carouselDefault(coins)
 	local best = 1
 	for i, price in ipairs(Config.EGG_PRICE) do
-		if i <= Config.SHOP_MAX_TIER and coins >= price then
+		if i <= Config.SHOP_MAX_TIER and Config.tierLive(i) and coins >= price then
 			best = i
 		end
 	end
 	return best
+end
+
+-- Lot 9 : raretés vendues en boutique (publiées et <= SHOP_MAX_TIER), et pas suivant (dir = -1 ou 1) avec retour à l'autre bout.
+function Config.shopTiers()
+	local out = {}
+	for t = 1, math.min(Config.SHOP_MAX_TIER, Config.TIER_COUNT) do
+		if Config.tierLive(t) then
+			out[#out + 1] = t
+		end
+	end
+	return out
+end
+function Config.shopStep(sel, dir)
+	local list = Config.shopTiers()
+	local idx = 1
+	for i, t in ipairs(list) do
+		if t == sel then
+			idx = i
+		end
+	end
+	return list[Config.carouselStep(idx, dir, #list)]
 end
 
 -- Déplace la sélection (dir = -1 ou 1) avec retour à l'autre bout.
@@ -1127,14 +1280,18 @@ function Config.fmtOdds(n)
 end
 
 ---------------------------------------------------------------- Bandeaux de rareté, aura des raretés élevées, états des pets
--- Bandeaux (couleurs imposées par les inspirations) : commun jaune, rare vert, épique violet, légendaire rouge, mythique cyan, secret arc-en-ciel.
+-- Bandeaux (lot 9) : couleurs des 10 raretés (A.1).
 Config.RARITY_BANNERS = {
-	{ name = "COMMUN", colors = { Color3.fromRGB(255, 214, 64), Color3.fromRGB(214, 150, 10) } },
-	{ name = "RARE", colors = { Color3.fromRGB(110, 235, 110), Color3.fromRGB(30, 150, 50) } },
-	{ name = "ÉPIQUE", colors = { Color3.fromRGB(196, 120, 255), Color3.fromRGB(110, 40, 190) } },
-	{ name = "LÉGENDAIRE", colors = { Color3.fromRGB(255, 96, 96), Color3.fromRGB(170, 20, 30) } },
-	{ name = "MYTHIQUE", colors = { Color3.fromRGB(90, 240, 255), Color3.fromRGB(10, 130, 180) } },
-	{ name = "COSMIQUE", colors = { Color3.fromRGB(150, 255, 230), Color3.fromRGB(20, 150, 130) } },
+	{ name = "COMMUN", colors = { Color3.fromRGB(220, 220, 230), Color3.fromRGB(142, 147, 160) } },
+	{ name = "PEU COMMUN", colors = { Color3.fromRGB(60, 220, 60), Color3.fromRGB(30, 140, 40) } },
+	{ name = "RARE", colors = { Color3.fromRGB(46, 139, 255), Color3.fromRGB(20, 80, 180) } },
+	{ name = "ÉPIQUE", colors = { Color3.fromRGB(155, 77, 255), Color3.fromRGB(74, 26, 140) } },
+	{ name = "LÉGENDAIRE", colors = { Color3.fromRGB(255, 194, 26), Color3.fromRGB(184, 134, 11) } },
+	{ name = "MYTHIQUE", colors = { Color3.fromRGB(224, 32, 46), Color3.fromRGB(26, 16, 20) } },
+	{ name = "ULTRA RARE", colors = { Color3.fromRGB(111, 214, 255), Color3.fromRGB(42, 127, 212) } },
+	{ name = "SECRET", colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 210, 60), Color3.fromRGB(90, 235, 110), Color3.fromRGB(80, 170, 255), Color3.fromRGB(190, 110, 255) } },
+	{ name = "EXCLUSIF", colors = { Color3.fromRGB(242, 242, 242), Color3.fromRGB(20, 20, 20) } },
+	{ name = "DIVIN", colors = { Color3.fromRGB(255, 243, 176), Color3.fromRGB(255, 230, 128) } },
 	secret = { name = "SECRET", colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 210, 60), Color3.fromRGB(90, 235, 110), Color3.fromRGB(80, 170, 255), Color3.fromRGB(190, 110, 255) } },
 }
 
@@ -1142,13 +1299,14 @@ function Config.rarityBanner(tier, secret)
 	if secret then
 		return Config.RARITY_BANNERS.secret
 	end
-	return Config.RARITY_BANNERS[math.min(math.max(tier, 1), #Config.TIERS)]
+	local t = type(tier) == "number" and tier == tier and math.floor(tier) or 1
+	return Config.RARITY_BANNERS[math.min(math.max(t, 1), #Config.TIERS)]
 end
 
 -- Cercle runique au sol et aura autour du pet obtenu (rareté >= minTier ou secret). Budgets mobiles : maxRate (particules/s) et maxRunes plafonnent.
 Config.AURA = {
 	Enabled = true,
-	minTier = 4,
+	minTier = 5,
 	seconds = 6,
 	maxRate = 40,
 	maxRunes = 12,
@@ -1162,8 +1320,8 @@ function Config.auraStyle(tier, secret, reduced)
 	if not A.Enabled or (tier < A.minTier and not secret) then
 		return nil
 	end
-	local level = secret and 7 or tier
-	local st = { runes = math.min(A.maxRunes, 4 + (level - A.minTier + 1) * 2), rate = math.min(A.maxRate, 8 + (level - A.minTier + 1) * 6), pillar = level >= 5, seconds = A.seconds + (secret and 3 or 0) }
+	local level = secret and (Config.TIER_COUNT + 1) or tier
+	local st = { runes = math.min(A.maxRunes, 4 + (level - A.minTier + 1) * 2), rate = math.min(A.maxRate, 8 + (level - A.minTier + 1) * 6), pillar = secret or Config.tierAtLeast(level, "pillar"), seconds = A.seconds + (secret and 3 or 0) }
 	if reduced then
 		st.runes = math.max(4, st.runes // 2)
 		st.rate = st.rate // 2
@@ -1173,7 +1331,7 @@ function Config.auraStyle(tier, secret, reduced)
 end
 
 -- États des pets (idle, move, ability) : la capacité des pets de rareté >= abilityMinTier se déclenche toutes les ~abilityInterval s.
-Config.PET_STATES = { abilityMinTier = 3, abilityInterval = 9 }
+Config.PET_STATES = { abilityMinTier = 4, abilityInterval = 9 }
 
 ---------------------------------------------------------------- Animations (client)
 -- Chaque animation est activable séparément. `enabled = false` coupe tout. Une animation qui lève une erreur est désactivée
@@ -1472,24 +1630,24 @@ Config.STORY = {
 	{ title = "Souffle court", text = "Les chiens de garde courent vite. Entraîne-toi sur la piste d'entraînement de la place : plus tu es rapide, plus tu es libre.", type = "train", goal = 45, coins = 500, mins = 1 },
 	{ title = "Le petit cabinet", text = "Un vrai Chipeur collectionne. Découvre 3 espèces différentes : chaque série de 3 augmente tes revenus pour toujours.", type = "species", goal = 3, coins = 800, mins = 2 },
 	{ title = "La Dame Mara", text = "Le domaine de Mara s'ouvre à toi. Ses œufs sont épiques, mais son loup est plus rapide que le chien de Gus. Chipe 5 œufs chez elle.", type = "steal", goal = 5, rival = 2, coins = 2000, mins = 5 },
-	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 3, coins = 5000, mins = 8 },
+	{ title = "Éclat épique", text = "Fais éclore un pet Épique ou mieux. Les œufs plus rares donnent plus souvent des pets plus rares.", type = "tier", goal = 1, tier = 4, coins = 5000, mins = 8 },
 	{ title = "Mutation !", text = "La Citadelle de Zed est ouverte. Mais d'abord, un miracle : fais éclore un pet muté (Doré, Néon, Arc-en-ciel ou Alien).", type = "mut", goal = 1, coins = 10000, mins = 10 },
 	{ title = "Le murmure des runes", text = "Les runes du Grand Œuf s'éveillent chaque jour. Lis l'énigme de Mère Poule (Missions > Énigme), tourne les 4 runes autour du Grand Œuf (à l'est de la place), puis touche-le pour valider.", type = "puzzle", goal = 1, coins = 15000, mins = 12 },
 	{ title = "Chipeur confirmé", text = "Ta réputation grandit. Chipe 15 œufs au total, chez les rivaux ou chez d'autres Chipeurs.", type = "steal", goal = 15, coins = 25000, mins = 15 },
 	{ title = "Le Roi Zed", text = "Zed garde les meilleurs œufs, dont les Cosmiques. Son ours ne rigole pas. Chipe 8 œufs dans sa citadelle.", type = "steal", goal = 8, rival = 3, coins = 60000, mins = 20 },
-	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 5, coins = 150000, mins = 30 },
+	{ title = "Légende vivante", text = "Fais éclore un pet Mythique : l'œuf du Dragon n'est plus loin.", type = "tier", goal = 1, tier = 6, coins = 150000, mins = 30 },
 	{ title = "Le Grand Nid s'éveille", text = "Le Nid est prêt à renaître. Renais une fois pour le reconstruire, plus fort, et deviens Roi des Couvées !", type = "rebirth", goal = 1, coins = 300000, mins = 45 },
 }
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
 Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
 -- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
-Config.TOWER = { floors = 30, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse" } }
+Config.TOWER = { floors = 45, tiers = { 1, 2, 3, 4, 5, 6, 7, 8, 10 }, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse", [35] = "Reine de Cristal", [40] = "Démon enchaîné", [45] = "Séraphin" } } -- lot 9 (D.7) : 45 étages, 5 par rareté de TOWER.tiers
 -- PvP asynchrone : l'équipe de DÉFENSE enregistrée d'un autre joueur est simulée par le serveur (aucune latence réseau). Trophées, saisons d'une semaine,
 -- récompense de fin de saison selon le palier de trophées atteint ; 10 combats classés par jour. Aucun achat ne touche à la force des pets.
 Config.PVP = {
 	seasonSeconds = 7 * 86400, dailyFights = 10, winBase = 25, winMin = 10, winMax = 40, loss = 15, start = 0,
-	rewards = { { trophies = 100, coins = 5000, eggTier = 2 }, { trophies = 300, coins = 25000, eggTier = 3 }, { trophies = 600, coins = 100000, eggTier = 4, potion = true }, { trophies = 1000, coins = 400000, eggTier = 5, potion = true } },
+	rewards = { { trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true }, { trophies = 1000, coins = 400000, eggTier = 6, potion = true } },
 }
 function Config.pvpSeason(now)
 	return math.floor(now / Config.PVP.seasonSeconds)
@@ -1508,8 +1666,9 @@ function Config.pvpSeasonReward(trophies)
 	return best
 end
 
-function Config.towerTier(floor) -- rareté des adversaires : étages 1-5 Commun ... 26-30 Cosmique
-	return math.min(#Config.TIERS, 1 + (math.max(1, floor) - 1) // 5)
+function Config.towerTier(floor) -- rareté des adversaires : 5 étages par rareté de TOWER.tiers (1-5 Commun ... 41-45 Divin)
+	local T = Config.TOWER.tiers
+	return T[math.min(#T, 1 + (math.max(1, floor) - 1) // 5)]
 end
 function Config.towerScale(floor) -- 0,85 au premier étage d'une rareté, 0,97 au dernier, boss x1,2
 	local pos = (math.max(1, floor) - 1) % 5
@@ -1527,7 +1686,7 @@ function Config.towerReward(floor, income, first)
 	local boss = floor % 5 == 0
 	return {
 		coins = math.floor(math.max(floor * 600, income * floor * 45)),
-		eggTier = boss and math.min(#Config.TIERS, Config.towerTier(floor) + 1) or 0,
+		eggTier = boss and Config.liveEggTier(math.min(8, Config.nextLiveTier(Config.towerTier(floor)) or Config.towerTier(floor))) or 0, -- jamais Exclusif ni Divin
 		potion = floor % 5 == 3,
 	}
 end
@@ -1536,7 +1695,7 @@ Config.PITY_ENABLED = false -- la pitié (amélioration garantie) est coupée : 
 Config.PITY_EVERY = 12 -- (si la pitié est activée) toutes les 12 éclosions sans amélioration, la suivante l'est garantie
 -- Amélioration d'un cran de rareté (seule exception à « l'œuf annoncé = la rareté du pet ») : 5 % de base, +1 point par niveau de Trèfle, +10 avec le pass Chance,
 -- +5 en événement chance, +25 avec la potion ; signalée « AMÉLIORÉ ! » à la révélation. Plafond : Rules.MAX_UP.
-Config.UPGRADE = { base = 5, event = 5, pass = 10 }
+Config.UPGRADE = { base = 5, event = 5, pass = 10, maxEggTier = 6, maxUp = 70, needDiscovered = true } -- lot 9 : amélioration possible seulement depuis un œuf <= Mythique ; plafond 70 (= Rules.MAX_UP)
 
 function Config.rankFor(chaptersDone)
 	local best = Config.RANKS[1]
@@ -1621,7 +1780,7 @@ end
 Config.RUNES = { "🔥", "🌊", "🌿", "⭐" }
 Config.RUNE_DIRECTIONS = { "Nord", "Est", "Sud", "Ouest" }
 Config.RUNE_LOCK_SECONDS = 6 -- pause après une mauvaise combinaison (empêche d'essayer au hasard en boucle)
-Config.PUZZLE_EGG_TIER = 3 -- récompense : un œuf Épique (ou son prix en pièces si la base est pleine)
+Config.PUZZLE_EGG_TIER = 4 -- récompense : un œuf Épique (ou son prix en pièces si la base est pleine)
 Config.PUZZLE_MINS = 10 -- + pièces : max(2000, 10 minutes de revenus)
 
 local RUNE_CLUES = {
@@ -1702,20 +1861,55 @@ end
 function Config.eggOddsText()
 	local out = {}
 	for i, t in ipairs(Config.TIERS) do
-		if i < #Config.TIERS then
-			out[#out + 1] = string.format("%s : %d%% %s, %d%% %s", t.name, 100 - Config.UPGRADE.base, t.name, Config.UPGRADE.base, Config.TIERS[i + 1].name)
-		else
-			out[#out + 1] = string.format("%s : 100%% %s", t.name, t.name)
+		if Config.tierLive(i) then
+			out[#out + 1] = Config.eggContentText(i, Config.UPGRADE.base)
 		end
 	end
 	return table.concat(out, " · ") .. "."
 end
 
--- « Commun 62 % · Rare 26 % ... » pour une table de tapis (« normal » ou « golden »).
+-- A.3 : contenu affiché d'un œuf de rareté r avec `upPoints` points d'amélioration (ceux du joueur) : « Épique : 95 % Épique, 5 % Légendaire ».
+-- Exactement ce que Rules.tierWeights appliquera (amélioration vers la rareté publiée suivante, seulement si r <= UPGRADE.maxEggTier).
+function Config.eggUpShare(r, upPoints)
+	if r > Config.UPGRADE.maxEggTier or not Config.nextLiveTier(r) then
+		return 0
+	end
+	local p = type(upPoints) == "number" and upPoints == upPoints and upPoints or 0
+	return math.min(math.max(p, 0), Config.UPGRADE.maxUp)
+end
+-- Lot 9 (décision de rythme) : le PREMIER pet d'une rareté s'obtient toujours avec un œuf de cette rareté. Tant que la rareté visée par
+-- l'amélioration d'un cran n'est pas découverte (dex), la part « améliorée » est 0 (affichée telle quelle : eggContentText reçoit ces points).
+-- Sans cette règle, la chance de 5 % rendait les premiers Rare / Épique / Légendaire / Mythique imprévisibles (de x0,2 à x3 du temps visé).
+-- `topTier` nil = aucune restriction (appels historiques, tests).
+function Config.effectiveUp(eggTier, upPoints, topTier)
+	if Config.UPGRADE.needDiscovered and type(topTier) == "number" then
+		local nxt = Config.nextLiveTier(Config.liveEggTier(eggTier))
+		if nxt and nxt > topTier then
+			return 0
+		end
+	end
+	return upPoints
+end
+function Config.eggContentText(r, upPoints)
+	local t = Config.TIERS[r]
+	if not t then
+		return ""
+	end
+	local up = Config.eggUpShare(r, upPoints)
+	local nxt = Config.nextLiveTier(r)
+	if up > 0 and nxt then
+		return string.format("%s : %s%% %s, %s%% %s", t.name, tostring(100 - up), t.name, tostring(up), Config.TIERS[nxt].name)
+	end
+	return string.format("%s : 100%% %s", t.name, t.name)
+end
+
+-- « Commun 75 % · Rare 14 % ... » pour une table de tapis (« normal » ou « golden ») : poids EFFECTIFS (raretés non publiées reportées).
 function Config.beltOddsText(kind)
-	local w, out = Config.BELT.weights[kind], {}
+	local w, out = Config.foldWeights(Config.BELT.weights[kind]), {}
 	for i, t in ipairs(Config.TIERS) do
-		out[#out + 1] = string.format("%s %s%%", t.name, tostring(w[i]))
+		if w[i] > 0 then
+			out[#out + 1] = string.format("%s %s%%", t.name, tostring(math.floor(w[i] * 100 + 0.5) / 100))
+		end
 	end
 	return table.concat(out, " · ") .. "."
 end
@@ -1796,13 +1990,13 @@ Config.Map2 = {
 -- voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte un œuf du territoire, l'œuf retourne à son nid (B.4 « prise
 -- par un gardien »). La vitesse de fuite décide : simulation tests/SimSteal.lua, Zed 23 % sans amélioration, 97 % à vitesse 30 ; Mara 59 à 64 % (vitesses 0 à 30) ; Gus 88 à 100 %.
 Config.TERR = {
-	wild = { x = 75, z = -105, r = 12, rival = 0, guards = 0, hold = 0.8, respawn = { 12, 12 }, weights = { 100, 0, 0, 0, 0, 0 }, nests = { { 70, -105 }, { 75, -105 }, { 80, -105 } } },
-	gusNW = { x = -95, z = -80, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -75, -100 }, { -120, -95 }, { -95, -55 } }, posts = { { -95, -80 } } },
-	gusSW = { x = -120, z = 75, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -145, 55 }, { -115, 105 }, { -90, 60 } }, posts = { { -120, 75 } } },
-	mara = { x = 85, z = 80, r = 42, rival = 2, guards = 2, hold = 2.2, respawn = { 12, 21 }, weights = { 0, 40, 40, 20, 0, 0 }, nests = { { 65, 70 }, { 105, 65 }, { 90, 110 } }, posts = { { 72, 82 }, { 100, 82 } },
+	wild = { x = 75, z = -105, r = 12, rival = 0, guards = 0, hold = 0.8, respawn = { 12, 12 }, weights = { 100, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, nests = { { 70, -105 }, { 75, -105 }, { 80, -105 } } },
+	gusNW = { x = -95, z = -80, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 45, 35, 17, 3, 0, 0, 0, 0, 0, 0 }, nests = { { -75, -100 }, { -120, -95 }, { -95, -55 } }, posts = { { -95, -80 } } },
+	gusSW = { x = -120, z = 75, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 45, 35, 17, 3, 0, 0, 0, 0, 0, 0 }, nests = { { -145, 55 }, { -115, 105 }, { -90, 60 } }, posts = { { -120, 75 } } },
+	mara = { x = 85, z = 80, r = 42, rival = 2, guards = 2, hold = 2.2, respawn = { 12, 21 }, weights = { 0, 10, 35, 37, 18, 0, 0, 0, 0, 0 }, nests = { { 65, 70 }, { 105, 65 }, { 90, 110 } }, posts = { { 72, 82 }, { 100, 82 } },
 		traps = { bells = 3, mud = 2 }, speed = { chase = 19, patrol = 10 }, view = { 28, 110, 14 }, hit = 25,
 		nestAlarm = { delay = 0.9 } }, -- lot 8A : coup du loup 20 -> 25 pv (Mara 61 à 64 % aux vitesses 0 à 30 au lieu de 66 à 70 %)
-	zed = { x = 265, z = -170, r = 38, rival = 3, guards = 3, hold = 3.5, respawn = { 18, 32 }, weights = { 0, 0, 30, 45, 22, 3 }, nests = { { 240, -160 }, { 265, -185 }, { 290, -160 } }, posts = { { 240, -165 }, { 265, -180 }, { 290, -165 } },
+	zed = { x = 265, z = -170, r = 38, rival = 3, guards = 3, hold = 3.5, respawn = { 18, 32 }, weights = { 0, 0, 0, 30, 45, 22, 2.4, 0.5, 0, 0.1 }, nests = { { 240, -160 }, { 265, -185 }, { 290, -160 } }, posts = { { 240, -165 }, { 265, -180 }, { 290, -165 } },
 		traps = { gate = { x = 240, z = -138, open = 3, closed = 3 }, plates = 4, searchlights = 2, searchlightRev = 0.5 }, speed = { chase = 26, patrol = 13 }, view = { 32, 120, 16 }, hit = 28, freshness = 75,
 		nestAlarm = { delay = 1.2 } },
 }
@@ -1812,12 +2006,12 @@ Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +
 -- B.3 Tapis roulant central.
 Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
-	weights = { normal = { 62, 26, 9, 2.6, 0.37, 0.03 }, golden = { 40, 34, 18, 6.5, 1.35, 0.15 } },
-	golden = { interval = 3, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 },
-	private = { interval = 120, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
+	weights = { normal = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0, 0.005 }, golden = { 29.3205, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.018, 0, 0.0115 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
+	golden = { interval = 4, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
+	private = { interval = 180, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
-Config.CARRY = { weight = { 1, 1, 0.95, 0.9, 0.85, 0.8 }, floor = 0.7, beamTier = 4, beamRange = 120 }
+Config.CARRY = { weight = { 1, 1, 1, 0.95, 0.9, 0.85, 0.8, 0.78, 0.78, 0.75 }, floor = 0.7, beamTier = 5, beamRange = 120 }
 Config.NEWBIE = { minutes = 15, untilLevel = 3 }
 -- Réglages de gardien d'un territoire : le rival (Config.RIVALS) complété par les valeurs propres du territoire (Config.TERR.speed / view / hit), source
 -- unique de Main (vitesses, vue, ouïe, coup). Gus (aucune valeur propre) garde celles de son rival : clément, inchangé.
@@ -1877,8 +2071,8 @@ Config.TRAVEL2 = {
 		{ name = "Lac du Moulin", to = { -245, -75 }, back = { -238, -68 }, chapter = 0 }, { name = "Lac des Saules", to = { 240, 175 }, back = { 232, 170 }, chapter = 0 } },
 }
 -- E.3 Vol à distance « Corbeau chipeur ».
-Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
-	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 2, victimFailCooldown = 180, logQueueMax = 60, logBatch = 20, logTries = 3,
+Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 5, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
+	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 3, victimFailCooldown = 180, logQueueMax = 60, logBatch = 20, logTries = 3,
 	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7b : minAccountAgeDays = ancienneté de compte exigée du voleur ET de la victime ; reStealSeconds = un œuf volé par corbeau ne se revole pas avant 20 min ; compensationCapTier = indemnité reçue par jour UTC plafonnée au prix d'un œuf de cette rareté (Rare) ; victimFailCooldown = répit de la victime après un vol raté ou chassé (le délai de 20 min n'est posé qu'en cas de succès) ; logQueueMax / logBatch / logTries = file RavenLog bornée, écrite par lots, essais bornés. Lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
 -- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
 -- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
@@ -1889,22 +2083,25 @@ function Config.offerVisible(def, restricted)
 	if type(def) ~= "table" or not Config.purchasable(def) then
 		return false
 	end
+	if type(def.eggTier) == "number" and not Config.tierLive(def.eggTier) then -- lot 9 : jamais vendu tant que la rareté n'a aucune espèce
+		return false
+	end
 	return not (def.random == true and restricted ~= false)
 end
 Config.INTERCEPT = { enabled = false } -- interception d'un porteur : coupée par défaut (à tester en playtest)
 
 -- D. Maison évolutive : poids par rareté (migration au lot 5) et table des 8 niveaux. `model` = clé de Config.Assets.models.house ; `slots` = emplacements bonus ;
 -- `income` = bonus de revenu ; `lock` = durée de la porte de base (s) ; `needTier` = rareté qu'il faut avoir découverte.
-Config.BASE_WEIGHTS2 = { 1, 4, 15, 50, 180, 700 }
+Config.BASE_WEIGHTS2 = { 1, 2, 4, 15, 50, 180, 700, 2500, 2500, 9000 } -- lot 9 : anciennes valeurs inchangées pour les raretés migrées
 Config.BASE_LEVELS2 = {
 	{ score = 0, name = "Enclos de bois", emoji = "🪵", model = "level1", size = 52, slots = 0, income = 0, lock = 0 },
-	{ score = 15, name = "Chalet du Couvoir", emoji = "🛖", model = "l2", size = 56, slots = 1, income = 0.05, lock = 20 },
-	{ score = 60, name = "Maison-Tour", emoji = "🏡", model = "l3", size = 58, slots = 1, income = 0.10, lock = 25, alarm = true },
-	{ score = 200, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
-	{ score = 600, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
-	{ score = 1000, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
-	{ score = 5000, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 4 },
-	{ score = 14000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 5, shieldBonus = 10 },
+	{ score = 18, name = "Chalet du Couvoir", emoji = "🛖", model = "l2", size = 56, slots = 1, income = 0.05, lock = 20 },
+	{ score = 337, name = "Maison-Tour", emoji = "🏡", model = "l3", size = 58, slots = 1, income = 0.10, lock = 25, alarm = true },
+	{ score = 1234, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
+	{ score = 2008, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
+	{ score = 4135, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
+	{ score = 17029, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 5 },
+	{ score = 45562, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 6, shieldBonus = 10 },
 }
 -- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
 -- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
@@ -2021,7 +2218,7 @@ function Config.allTitles(stats)
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2317,7 +2514,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2497,7 +2694,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -2579,23 +2776,26 @@ VfxKit.QUALITY = {
 
 -- Effets (préréglages) joués pour une éclosion : ampleur croissante avec la rareté (1 Commun discret .. 5 Mythique) ; Cosmique et secret sont
 -- spectaculaires. Retourne la liste ordonnée des préréglages et un facteur d'ampleur (échelle).
+-- Lot 9 : tables indexées par rareté (1..10), sans seuil codé en dur ; les raretés migrées gardent leurs effets d'avant.
+VfxKit.HATCH_AMP = { 0.55, 0.65, 0.75, 0.95, 1.2, 1.45, 1.8, 1.9, 1.9, 2 }
+VfxKit.HATCH_FX = {
+	{ "etincelles" },
+	{ "etincelles" },
+	{ "etincelles", "onde_de_choc" },
+	{ "aura_runique", "onde_de_choc" },
+	{ "pilier_revelation", "aura_runique", "aura_ailes", "onde_de_choc" },
+	{ "pilier_revelation", "aura_runique", "aura_ailes", "spirale_montee", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+	{ "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" },
+}
 function VfxKit.hatchEffects(tier, secret)
-	tier = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
-	local amp = ({ 0.55, 0.75, 0.95, 1.2, 1.45, 1.8 })[tier]
+	tier = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), #VfxKit.HATCH_FX))
 	if secret then
 		return { "pilier_revelation", "spirale_montee", "portail_torii", "aura_runique", "onde_de_choc", "etincelles" }, 2
-	elseif tier == 1 then
-		return { "etincelles" }, amp
-	elseif tier == 2 then
-		return { "etincelles", "onde_de_choc" }, amp
-	elseif tier == 3 then
-		return { "aura_runique", "onde_de_choc" }, amp
-	elseif tier == 4 then
-		return { "pilier_revelation", "aura_runique", "aura_ailes", "onde_de_choc" }, amp
-	elseif tier == 5 then
-		return { "pilier_revelation", "aura_runique", "aura_ailes", "spirale_montee", "onde_de_choc" }, amp
 	end
-	return { "pilier_revelation", "spirale_montee", "aura_runique", "aura_ailes", "portail_torii", "onde_de_choc" }, amp
+	return VfxKit.HATCH_FX[tier], VfxKit.HATCH_AMP[tier]
 end
 
 -- Qualité : tactile = Bas, sinon Élevé ; `override` (« high », « medium », « low ») la remplace.
@@ -2840,7 +3040,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -2880,18 +3080,21 @@ CinematicKit.PLANS = {
 
 -- Plan d'éclosion selon la rareté (1..6) : plus la rareté monte, plus la caméra s'engage (orbite, zoom, secousse, ralenti, pilier de lumière côté VfxKit).
 -- Commun et Rare : AUCUNE cinématique (les effets 3D de VfxKit suffisent) ; Épique : plan court ; Légendaire et au-delà : plan complet.
+-- Lot 9 : genre de plan par rareté (1..10) : "none", "short" (Épique), "full", "big" (Mythique et au-delà).
+CinematicKit.TIER_PLAN = { "none", "none", "none", "short", "full", "big", "big", "big", "big", "big" }
 function CinematicKit.hatchPlan(tier, secret)
-	tier = math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), 6)
+	tier = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), #CinematicKit.TIER_PLAN))
+	local kind = CinematicKit.TIER_PLAN[tier]
 	if secret then
 		return CinematicKit.PLANS.secret
-	elseif tier <= 2 then
+	elseif kind == "none" then
 		return nil
-	elseif tier == 3 then
+	elseif kind == "short" then
 		return { id = "eclosion_epique", skipOnTap = true, shots = {
 			{ anchor = "pad", pos = { 0, 8, 12 }, look = { 0, 3, 0 }, toPos = { 0, 5, 7 }, path = "dolly", fov = 70, toFov = 56, dur = 1.6, ease = "Quint", shake = 0.15 },
 		} }
 	end
-	local big = tier >= 5
+	local big = kind == "big"
 	return { id = "eclosion", skipOnTap = true, shots = {
 		{ anchor = "pad", pos = { 0, 7, 12 }, look = { 0, 3, 0 }, path = "orbit", radius = 12, toRadius = 8, angle0 = 0, angle1 = big and 2.2 or 1.6, height = 6, dur = big and 2.4 or 1.8, ease = "Sine" },
 		{ anchor = "pad", pos = { 0, 5, 8 }, look = { 0, 3.2, 0 }, path = "dolly", fov = 70, toFov = big and 44 or 52, toPos = { 0, 4, 4 }, dur = big and 1.8 or 1.2, ease = "Back", shake = big and 0.6 or 0.4, slow = { at = 0.5, to = 1, scale = 0.35 }, fx = "crack" },
@@ -3138,7 +3341,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -3741,7 +3944,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4166,7 +4369,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4204,7 +4407,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4292,7 +4495,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4355,7 +4558,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -4398,18 +4601,57 @@ end
 Battle.nextRnd = nextRnd
 
 local SIZE_BONUS = { 0.95, 1, 1.05, 1.10, 1.15 }
-local MUT_BONUS = { 1, 1.03, 1.05, 1.08, 1.10 }
+local MUT_BONUS = { 1, 1.03, 1.05, 1.08, 1.10, 1.12 }
+Battle.SIZE_BONUS, Battle.MUT_BONUS = SIZE_BONUS, MUT_BONUS
 
--- Unité de combat d'un pet { p = espèce, s = taille, m = mutation } ; `scale` : multiplicateur de niveau (adversaires de la tour).
-function Battle.unit(Config, pet, scale)
+-- LOT 9, REGLE DE DESIGN (2) : stats de base par rareté (1..10). Puissance = pv + 3 x attaque + 2 x vitesse (Battle.power), strictement croissante,
+-- facteur >= 1,25 entre raretés consécutives (testé). Raretés 3 à 7 (Rare .. Ultra Rare) = valeurs EXACTES de l'ancienne formule pour les anciennes
+-- raretés 2 à 6 (un pet migré garde ses stats) ; le Commun passe de 60/10/12 à 50/8/12 pour laisser la place au Peu commun (règle x1,25).
+Battle.STATS = {
+	{ hp = 50, atk = 8, spd = 12 },
+	{ hp = 68, atk = 11, spd = 12 },
+	{ hp = 87, atk = 14, spd = 14 },
+	{ hp = 126, atk = 20, spd = 16 },
+	{ hp = 183, atk = 27, spd = 18 },
+	{ hp = 265, atk = 38, spd = 20 },
+	{ hp = 385, atk = 54, spd = 22 },
+	{ hp = 490, atk = 68, spd = 24 },
+	{ hp = 620, atk = 86, spd = 26 },
+	{ hp = 785, atk = 108, spd = 28 },
+}
+Battle.POWER_GROWTH_MIN = 1.25
+function Battle.power(st)
+	return st.hp + 3 * st.atk + 2 * st.spd
+end
+-- Profils de combat au sein d'une rareté (lot 12 : attribués par espèce). `k` = répartition pv / attaque / vitesse, `power` = puissance visée
+-- relative à l'équilibré : l'écart entre le profil le plus faible et le plus fort d'une rareté est de 8 à 15 % (1,06 / 0,94 = +12,8 %), et le
+-- plus fort d'une rareté reste sous le plus faible de la suivante (testé). Rien d'achetable ne modifie ces tables.
+Battle.PROFILES = {
+	balanced = { k = { hp = 1, atk = 1, spd = 1 }, power = 1 },
+	tank = { k = { hp = 1.3, atk = 0.85, spd = 0.85 }, power = 1.05 },
+	attacker = { k = { hp = 0.85, atk = 1.3, spd = 1 }, power = 1.06 },
+	fast = { k = { hp = 0.85, atk = 0.95, spd = 1.35 }, power = 0.94 },
+}
+function Battle.profileStats(r, profile)
+	local b = Battle.STATS[r]
+	local pr = Battle.PROFILES[profile] or Battle.PROFILES.balanced
+	local raw = { hp = b.hp * pr.k.hp, atk = b.atk * pr.k.atk, spd = b.spd * pr.k.spd }
+	local f = pr.power * Battle.power(b) / Battle.power(raw)
+	return { hp = raw.hp * f, atk = raw.atk * f, spd = raw.spd * f }
+end
+
+-- Unité de combat d'un pet { p = espèce, s = taille, m = mutation } ; `scale` : multiplicateur de niveau (adversaires de la tour) ;
+-- `tierOverride` : rareté des stats (étage de la tour dont la rareté n'a pas encore d'espèce : apparence d'une rareté inférieure, stats de l'étage).
+function Battle.unit(Config, pet, scale, tierOverride)
 	local def = Config.PETS[pet.p]
 	local bonus = (SIZE_BONUS[pet.s] or 1) * (MUT_BONUS[pet.m] or 1) * (scale or 1)
-	local t = def.tier
-	local hp = math.floor(60 * 1.45 ^ (t - 1) * bonus + 0.5)
+	local t = tierOverride or def.tier
+	local st = Battle.STATS[math.min(math.max(t, 1), #Battle.STATS)]
+	local hp = math.floor(st.hp * bonus + 0.5)
 	return {
 		p = pet.p, s = pet.s, m = pet.m, tier = t,
 		type = Battle.SPECIES_TYPE[pet.p], skill = Battle.SPECIES_SKILL[pet.p],
-		maxHp = hp, hp = hp, atk = math.floor(10 * 1.4 ^ (t - 1) * bonus + 0.5), spd = 10 + 2 * t,
+		maxHp = hp, hp = hp, atk = math.floor(st.atk * bonus + 0.5), spd = st.spd,
 		cd = 0, guard = false, stun = 0, focus = 0,
 	}
 end
@@ -4656,16 +4898,17 @@ end
 -- Équipe adverse de l'étage `floor` de la tour (déterministe) : 3 espèces de la rareté de l'étage, taille normale, niveau Config.towerScale.
 function Battle.towerTeam(Config, floor)
 	local tier = Config.towerTier(floor)
+	local look = Config.liveEggTier(tier) -- lot 9 : rareté sans espèce publiée : espèces de la rareté inférieure, stats de l'étage
 	local ids = {}
 	for i, d in ipairs(Config.PETS) do
-		if d.tier == tier then
+		if d.tier == look then
 			ids[#ids + 1] = i
 		end
 	end
 	local scale = Config.towerScale(floor)
 	local team = {}
 	for k = 1, Config.TOWER.teamSize do
-		team[k] = Battle.unit(Config, { p = ids[(floor + k) % #ids + 1], s = 2, m = 1 }, scale)
+		team[k] = Battle.unit(Config, { p = ids[(floor + k) % #ids + 1], s = 2, m = 1 }, scale, tier)
 	end
 	return team
 end
@@ -4723,7 +4966,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -4787,7 +5030,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5128,7 +5371,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5185,7 +5428,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5297,7 +5540,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -5314,15 +5557,17 @@ function Belt.pick(weights, r)
 		total = total + math.max(w, 0)
 	end
 	local x = r * total
+	local last = #weights
 	for i, w in ipairs(weights) do
 		if w > 0 then
+			last = i
 			x = x - w
 			if x < 0 then
 				return i
 			end
 		end
 	end
-	return #weights
+	return last -- jamais une rareté de poids nul (lot 9)
 end
 
 -- Prix en pièces d'un œuf de rareté `tier` au tapis : `priceRatio` du prix de la boutique (arrondi inférieur).
@@ -5396,7 +5641,7 @@ function Belt.step(Config, st, now)
 	st.eggs = keep
 	local golden = Belt.goldenLeft(st, now) > 0
 	local interval = golden and C.golden.interval or C.interval
-	local weights = golden and C.weights.golden or C.weights.normal
+	local weights = Config.foldWeights(golden and C.weights.golden or C.weights.normal) -- lot 9 : raretés sans espèce reportées vers le bas
 	local guard = 0
 	while now >= st.nextSpawn and guard < 50 do
 		guard = guard + 1
@@ -5443,7 +5688,7 @@ function Belt.privateStep(Config, st, dt, active, r)
 		return nil
 	end
 	st.acc = 0
-	local tier = Belt.pick(Config.BELT.weights.normal, r)
+	local tier = Belt.pick(Config.foldWeights(Config.BELT.weights.normal), r)
 	st.pending[#st.pending + 1] = tier
 	return tier
 end
@@ -5471,7 +5716,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 	if not egg.forUser and now - (st.lastBuy[userId] or -1e9) < C.buyCooldown then
 		return false, "cooldown"
 	end
-	if egg.tier >= 4 then
+	if Config.tierAtLeast(egg.tier, "belt2s") then
 		if now - egg.born < C.legendaryDelay then
 			return false, "wait"
 		end
@@ -5486,7 +5731,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 	if not egg.forUser then
 		st.lastBuy[userId] = now
 	end
-	if egg.tier >= 4 then
+	if Config.tierAtLeast(egg.tier, "belt2s") then
 		st.legendaryAt[userId] = now
 	end
 	st.sold = st.sold + 1
@@ -5502,7 +5747,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -5721,7 +5966,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -5784,6 +6029,37 @@ function Assets.fitHeight(model, target)
 		return height
 	end)
 	return ok, res
+end
+
+-- Lot 9 : met un modèle à l'échelle d'après la hauteur d'UNE pièce (`partName`, nom de base sans suffixe de couleur, ex. « Coque » des œufs) :
+-- couronne, auréole ou ailes dépassent sans fausser la taille de l'œuf. Le rapport hauteur de la pièce / hauteur du modèle est mesuré AVANT la mise
+-- à l'échelle, puis Assets.fitHeight vise target / rapport (vérifié à ±10 %). Sans cette pièce : repli sur la hauteur du modèle entier.
+-- Retourne (true, hauteur du modèle) ou (false, raison).
+function Assets.partRatio(model, partName)
+	local ok, r = pcall(function()
+		local e = model:GetExtentsSize()
+		local mh = e and e.Y
+		if type(mh) ~= "number" or mh ~= mh or mh <= 0 then
+			return nil
+		end
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") and Assets.baseName(d.Name) == partName then
+				local h = d.Size.Y
+				if type(h) == "number" and h == h and h > 0 and h <= mh * 1.001 then
+					return h / mh
+				end
+			end
+		end
+		return nil
+	end)
+	return ok and r or nil
+end
+function Assets.fitByPart(model, partName, target)
+	local r = Assets.partRatio(model, partName)
+	if not r or r < 0.2 then
+		return Assets.fitHeight(model, target)
+	end
+	return Assets.fitHeight(model, target / r)
 end
 
 function Assets.new(Config, deps)
@@ -6174,7 +6450,7 @@ function Assets.new(Config, deps)
 			for _, rarity in ipairs(rk) do
 				local id = cfg.eggsByRarity[rarity]
 				if type(id) == "number" and id > 0 and id % 1 == 0 then
-					entries[#entries + 1] = { key = "r:" .. tostring(rarity), id = id }
+					entries[#entries + 1] = { key = "r:" .. tostring(rarity), id = id, cap = cfg.eggsMaxParts }
 				else
 					A.status["r:" .. tostring(rarity)] = { ok = false, reason = "ID invalide" }
 				end
@@ -6183,7 +6459,7 @@ function Assets.new(Config, deps)
 		for _, key in ipairs(keys) do
 			local id = cfg.eggs[key]
 			if type(id) == "number" and id > 0 and id % 1 == 0 then
-				entries[#entries + 1] = { key = key, id = id }
+				entries[#entries + 1] = { key = key, id = id, cap = cfg.eggsMaxParts } -- lot 9 : plafond propre des œufs (40)
 			else
 				A.status[key] = { ok = false, reason = "ID invalide" }
 			end
@@ -6494,7 +6770,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -6506,13 +6782,15 @@ function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, 
 		return 0
 	end
 	local pTier
-	if guaranteed and eggTier < #Config.TIERS then
-		pTier = def.tier == eggTier + 1 and 1 or 0
+	eggTier = Config.liveEggTier(eggTier)
+	local nxt = Config.nextLiveTier(eggTier)
+	if guaranteed and eggTier <= Config.UPGRADE.maxEggTier and nxt then
+		pTier = def.tier == nxt and 1 or 0
 	else
 		local w = Rules.tierWeights(eggTier, upPoints)
 		local total = w[1] + w[2] + w[3]
-		local idx = def.tier - eggTier + 2
-		pTier = (idx >= 1 and idx <= 3 and total > 0) and (math.max(w[idx], 0) / total) or 0
+		local idx = def.tier == eggTier and 2 or (def.tier == nxt and 3 or 0)
+		pTier = (idx >= 1 and total > 0) and (math.max(w[idx], 0) / total) or 0
 	end
 	if pTier == 0 then
 		return 0
@@ -6603,7 +6881,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -6807,7 +7085,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -7008,7 +7286,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -7441,7 +7719,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -7659,17 +7937,18 @@ function Castle.formatTime(seconds)
 	return string.format("%d:%04.1f", m, rest)
 end
 
+Castle.REWARD_TIERS = { fast = 5, slow = 4 } -- lot 9 : Légendaire et Épique (indices des 10 raretés)
 -- Récompense du coffre final : œuf rare (Épique, Légendaire si temps rapide), pièces proportionnelles aux revenus.
 -- fastTime : durée de référence « rapide » (s) pour ce nombre de salles.
 function Castle.reward(timeSeconds, income, deaths)
 	local fast = 60 * Castle.ROOMS * 0.6 -- 3 min : bon temps
-	local tier = (timeSeconds <= fast and (deaths or 0) == 0) and 4 or 3
+	local tier = (timeSeconds <= fast and (deaths or 0) == 0) and Castle.REWARD_TIERS.fast or Castle.REWARD_TIERS.slow
 	local coins = math.floor(math.max(5000, income * 600 * (timeSeconds <= fast and 1.5 or 1)))
 	return { eggTier = tier, coins = coins }
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -7733,8 +8012,931 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+-- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
+--   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
+-- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
+-- bonus utilisés. Aucune fonction d'ici ne reçoit de bonus (chance, trèfle, passe, potion, événement) : un achat ne peut donc pas gonfler le chiffre.
+--   p_ref = REF[r]/100 × 1/n_r × SIZES[s].weight/ΣSIZES × MUTS[m].weight/ΣMUTS      N = 1/p_ref, arrondi
+-- API (toutes les fonctions renvoient nil / "" / false sur entrée invalide, jamais d'erreur) :
+--   Odds.value(Config, r, s, m [, nr])    -> N arrondi (nombre) ou nil. nr = nombre d'espèces de la rareté r (défaut : Odds.speciesCount)
+--   Odds.forPet(Config, petIndex, s, m [, nr]) -> idem à partir de l'indice d'espèce de Config.PETS
+--   Odds.speciesCount(Config, r)          -> nombre d'espèces publiées de rareté r (pet.published == false ou pet.hidden == true : exclu)
+--   Odds.pRef(Config, r, s, m [, nr])     -> probabilité de référence (0..1) ou nil
+--   Odds.round(n)                         -> arrondi : entier, sauf N < 10 (une décimale)
+--   Odds.short(n) / Odds.label(n)         -> « 38 494 » / « 1 sur 38 494 » (milliers séparés par une espace insécable, « 12,5 M », « 8 Md »)
+--   Odds.isSpecial(n [, Config])          -> n >= 10 000 (Config.ODDS.specialMin), seuil des effets spéciaux
+--   Odds.level(n [, Config])              -> 0 (rien) .. 5 (voir Odds.LEVELS)
+--   Odds.fx(n, r [, Config])              -> { special, level, banner, secretSound, announceServer, announceWorld, pillar, billboard }
+--   Odds.countSteps(n [, steps])          -> liste croissante de paliers 1 .. n pour le compteur animé (12 paliers par défaut, dernier = n exact)
+--   Odds.validate(Config)                 -> ok, liste de problèmes (tables de poids, REF)
+-- Pour la brancher : `local Odds = require(ReplicatedStorage.Odds)` ; serveur à l'éclosion : `slot.o = Odds.forPet(Config, petIdx, s, m)` (une seule fois,
+-- jamais recalculé) ; client : `Odds.label(slot.o)`. Pas de += ni de continue (le lanceur lupa du dépôt ne les gère pas dans ReplicatedStorage).
+local Odds = {}
+
+Odds.SEP = "\u{00A0}" -- espace insécable : rendue par toutes les polices Roblox (l'espace fine U+202F n'est pas garantie)
+Odds.MAX = 9007199254740992 -- 2^53, borne du classement OrderedDataStore
+Odds.DEFAULT_SPECIAL = 10000
+Odds.DEFAULT_BILLBOARD = 1000
+-- Seuils des niveaux d'effet : 1 = spécial (>= 10 000), 2 = bandeau « Tirage exceptionnel » (>= 100 000), 3 = son secret (>= 1 000 000),
+-- 4 = >= 100 000 000, 5 = >= 1 000 000 000.
+Odds.LEVELS = { 10000, 100000, 1000000, 100000000, 1000000000 }
+Odds.BANNER_MIN = 100000
+Odds.SECRET_SOUND_MIN = 1000000
+Odds.SERVER_ANNOUNCE_N, Odds.SERVER_ANNOUNCE_R = 10000, 7
+Odds.WORLD_ANNOUNCE_N, Odds.WORLD_ANNOUNCE_R = 1000000, 8
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+-- Somme des poids d'une liste { {weight = x}, ... } ; nil si la liste est inutilisable.
+local function sumWeights(list)
+	if type(list) ~= "table" then
+		return nil
+	end
+	local total, count = 0, 0
+	for i = 1, #list do
+		local e = list[i]
+		local w = type(e) == "table" and e.weight or nil
+		if isNum(w) and w >= 0 then
+			total = total + w
+		end
+		count = count + 1
+	end
+	if count == 0 or total <= 0 then
+		return nil
+	end
+	return total
+end
+
+local function weightAt(list, i)
+	if type(list) ~= "table" or not isNum(i) or i ~= math.floor(i) or i < 1 or i > #list then
+		return nil
+	end
+	local e = list[i]
+	local w = type(e) == "table" and e.weight or nil
+	if isNum(w) and w > 0 then
+		return w
+	end
+	return nil
+end
+
+function Odds.speciesCount(Config, r)
+	if type(Config) ~= "table" or type(Config.PETS) ~= "table" or not isNum(r) then
+		return 0
+	end
+	local n = 0
+	for i = 1, #Config.PETS do
+		local p = Config.PETS[i]
+		if type(p) == "table" and p.tier == r and p.published ~= false and p.hidden ~= true then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+function Odds.pRef(Config, r, s, m, nr)
+	local ok, res = pcall(function()
+		if type(Config) ~= "table" or not isNum(r) or r ~= math.floor(r) or r < 1 then
+			return nil
+		end
+		local odds = Config.ODDS
+		local ref = type(odds) == "table" and type(odds.REF) == "table" and odds.REF[r] or nil
+		if not isNum(ref) or ref <= 0 then
+			return nil
+		end
+		local count = nr
+		if count == nil then
+			count = Odds.speciesCount(Config, r)
+		end
+		if not isNum(count) or count < 1 then
+			return nil
+		end
+		local sw, mw = weightAt(Config.SIZES, s), weightAt(Config.MUTS, m)
+		local sTotal, mTotal = sumWeights(Config.SIZES), sumWeights(Config.MUTS)
+		if sw == nil or mw == nil or sTotal == nil or mTotal == nil then
+			return nil
+		end
+		local p = (ref / 100) * (1 / count) * (sw / sTotal) * (mw / mTotal)
+		if isNum(p) and p > 0 then
+			return p
+		end
+		return nil
+	end)
+	if ok then
+		return res
+	end
+	return nil
+end
+
+-- Arrondi du compteur : entier, sauf N < 10 (une décimale) ; jamais < 1, jamais > 2^53.
+function Odds.round(n)
+	if not isNum(n) then
+		return nil
+	end
+	if n < 1 then
+		return 1
+	end
+	if n > Odds.MAX then
+		return Odds.MAX
+	end
+	if n < 9.95 then
+		return math.floor(n * 10 + 0.5) / 10
+	end
+	return math.floor(n + 0.5)
+end
+
+function Odds.value(Config, r, s, m, nr)
+	local p = Odds.pRef(Config, r, s, m, nr)
+	if p == nil then
+		return nil
+	end
+	return Odds.round(1 / p)
+end
+
+function Odds.forPet(Config, petIndex, s, m, nr)
+	if type(Config) ~= "table" or type(Config.PETS) ~= "table" or not isNum(petIndex) then
+		return nil
+	end
+	local pet = Config.PETS[petIndex]
+	if type(pet) ~= "table" then
+		return nil
+	end
+	return Odds.value(Config, pet.tier, s, m, nr)
+end
+
+-- Groupe les milliers d'une chaîne de chiffres.
+local function group(digits)
+	local out, n = "", #digits
+	for i = 1, n do
+		out = out .. digits:sub(i, i)
+		local left = n - i
+		if left > 0 and left % 3 == 0 then
+			out = out .. Odds.SEP
+		end
+	end
+	return out
+end
+
+-- 12.5 -> « 12,5 » ; 8 -> « 8 » (une décimale seulement si elle n'est pas nulle).
+local function oneDecimal(v)
+	local t = math.floor(v * 10 + 0.5) / 10
+	if t == math.floor(t) then
+		return group(string.format("%.0f", t))
+	end
+	return (string.format("%.1f", t):gsub("%.", ","))
+end
+
+function Odds.short(n)
+	if not isNum(n) or n <= 0 then
+		return ""
+	end
+	n = Odds.round(n)
+	if n < 10 then
+		return (string.format("%.1f", n):gsub("%.", ","))
+	end
+	if n < 10000000 then
+		return group(string.format("%.0f", n))
+	end
+	if n < 1000000000 then
+		local v = n / 1000000
+		if math.floor(v * 10 + 0.5) / 10 < 1000 then
+			return oneDecimal(v) .. Odds.SEP .. "M"
+		end
+	end
+	local v = n / 1000000000
+	if v < 100 then
+		return oneDecimal(v) .. Odds.SEP .. "Md"
+	end
+	return group(string.format("%.0f", math.floor(v + 0.5))) .. Odds.SEP .. "Md"
+end
+
+function Odds.label(n)
+	local s = Odds.short(n)
+	if s == "" then
+		return ""
+	end
+	return "1 sur " .. s
+end
+
+function Odds.isSpecial(n, Config)
+	if not isNum(n) then
+		return false
+	end
+	local min = Odds.DEFAULT_SPECIAL
+	if type(Config) == "table" and type(Config.ODDS) == "table" and isNum(Config.ODDS.specialMin) and Config.ODDS.specialMin > 0 then
+		min = Config.ODDS.specialMin
+	end
+	return n >= min
+end
+
+function Odds.level(n, Config)
+	if not isNum(n) then
+		return 0
+	end
+	if not Odds.isSpecial(n, Config) then
+		return 0
+	end
+	local lvl = 1
+	for i = 2, #Odds.LEVELS do
+		if n >= Odds.LEVELS[i] then
+			lvl = i
+		end
+	end
+	return lvl
+end
+
+-- Effets et annonces liés à un tirage (B.1 et B.2). r = rareté de l'espèce (peut être nil).
+function Odds.fx(n, r, Config)
+	local num = isNum(n) and n or 0
+	local rr = isNum(r) and r or 0
+	local billboardMin = Odds.DEFAULT_BILLBOARD
+	if type(Config) == "table" and type(Config.ODDS) == "table" and isNum(Config.ODDS.billboardMin) and Config.ODDS.billboardMin > 0 then
+		billboardMin = Config.ODDS.billboardMin
+	end
+	return {
+		special = Odds.isSpecial(num, Config),
+		level = Odds.level(num, Config),
+		banner = num >= Odds.BANNER_MIN,
+		secretSound = num >= Odds.SECRET_SOUND_MIN,
+		announceServer = num >= Odds.SERVER_ANNOUNCE_N or rr >= Odds.SERVER_ANNOUNCE_R,
+		announceWorld = num >= Odds.WORLD_ANNOUNCE_N or rr >= Odds.WORLD_ANNOUNCE_R,
+		pillar = rr >= 10,
+		billboard = num >= billboardMin,
+	}
+end
+
+-- Paliers du compteur animé : de 1 à N, ralentissement final (ease out cubique), croissants, le dernier est N exact.
+function Odds.countSteps(n, steps)
+	local count = 12
+	if isNum(steps) then
+		count = math.max(1, math.min(60, math.floor(steps)))
+	end
+	local target = Odds.round(isNum(n) and n or 1) or 1
+	local out = {}
+	local prev = 1
+	for i = 1, count do
+		local t = i / count
+		local v = 1 + (target - 1) * (1 - (1 - t) ^ 3)
+		if target >= 10 then
+			v = math.floor(v + 0.5)
+		else
+			v = math.floor(v * 10 + 0.5) / 10
+		end
+		if v < prev then
+			v = prev
+		end
+		if i == count then
+			v = target
+		end
+		out[i] = v
+		prev = v
+	end
+	return out
+end
+
+-- Vérifie les tables lues dans Config : sommes de poids, REF, espèces par rareté.
+function Odds.validate(Config)
+	local problems = {}
+	if type(Config) ~= "table" then
+		return false, { "Config absente" }
+	end
+	local sTotal, mTotal = sumWeights(Config.SIZES), sumWeights(Config.MUTS)
+	if sTotal == nil then
+		problems[#problems + 1] = "Config.SIZES inutilisable"
+	elseif math.abs(sTotal - 100) > 1e-6 then
+		problems[#problems + 1] = "somme des tailles = " .. tostring(sTotal) .. " (attendu 100)"
+	end
+	if mTotal == nil then
+		problems[#problems + 1] = "Config.MUTS inutilisable"
+	elseif math.abs(mTotal - 100) > 1e-6 then
+		problems[#problems + 1] = "somme des mutations = " .. tostring(mTotal) .. " (attendu 100)"
+	end
+	local odds = Config.ODDS
+	if type(odds) ~= "table" or type(odds.REF) ~= "table" then
+		problems[#problems + 1] = "Config.ODDS.REF absente"
+	else
+		for r = 1, #odds.REF do
+			if not isNum(odds.REF[r]) or odds.REF[r] <= 0 then
+				problems[#problems + 1] = "REF[" .. r .. "] invalide"
+			end
+			if Odds.speciesCount(Config, r) < 1 then
+				problems[#problems + 1] = "aucune espèce publiée de rareté " .. r
+			end
+		end
+	end
+	return #problems == 0, problems
+end
+
+return Odds
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+-- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
+-- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
+--   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
+-- Types de prises : shake (l'œuf tremble), pop (l'œuf disparaît), burst (n éclats), rays (n rayons), ring (anneaux, mode "converge"|"expand"|"ground"|"rise"),
+-- flash (plein écran), shakeScreen, text (glyphe ou libellé : couronne, « ??? »), banner (bandeau de rareté), zoom (champ de vision), tint (teinte / désaturation
+-- de l'image 3D), black (écran noir), slot (mini machine à sous rareté/taille/mutation), crystals, frost, cracks, chains, runes, smoke, stars, wings, pillar, split.
+-- Plan complet : { r, duration, skipAfter, noSkip, camera, reduced, sound = {key, fanfare}, revealAt, beats, counter = {t, d, steps, from, to} | nil, special, exceptional,
+--   secretSound, objects (somme des n, <= 30), particles (objets hors bandeau/texte/ailes/pilier ; <= 50 % en version réduite), peakRate (objets/s au pic, <= 40), seed }.
+-- DÉCISIONS : durée de r10 ramenée de 9,0 s (spec B.3) à 8,0 s (plafond demandé) ; chaque n est ensuite ajusté pour tenir 30 objets et 40 objets/s ;
+-- la version réduite (mobile) divise chaque n de particule par deux (arrondi bas) donc <= 50 % ; bandeau, texte, ailes et pilier restent ; zoom retiré si la caméra ne doit pas bouger (œuf porté, poursuite).
+-- Brancher : `local plan = HatchPlan.plan(slot.r, slot.o, { reduced = isMobile, firstTime = firstTimeForThisRarity, still = carryingEgg })` puis HatchFx.play(gui, plan, opts).
+-- Pas de += ni de continue (lanceur lupa).
+local HatchPlan = {}
+
+HatchPlan.MAX_DURATION = 8
+HatchPlan.MAX_OBJECTS = 30
+HatchPlan.MAX_RATE = 40
+HatchPlan.SKIP_AFTER = 1.5
+HatchPlan.COUNTER_SECONDS = 0.8
+HatchPlan.COUNTER_STEPS = 12
+-- Durées par rareté (B.3 ; r10 plafonnée à 8 s).
+HatchPlan.DURATIONS = { 1.2, 1.5, 2.0, 2.8, 4.0, 5.0, 6.0, 7.0, 6.5, 8.0 }
+local EXCEPTIONAL_MIN = 100000
+local SECRET_SOUND_MIN = 1000000
+local SPECIAL_MIN = 10000
+
+-- Prises qui ne sont pas des particules : toujours conservées telles quelles en version réduite (bandeau, texte, anneau unique, ailes, pilier, éclat plein écran).
+local FIXED_KINDS = { banner = true, text = true, wings = true, pillar = true }
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+-- Clé de son (reprend Config.hatchSoundKey du lot 9 : r1-2 hatch, r3 rare, r4 epic, r5-6 legendary, r7-10 hatchSecret ; fanfare dès r8).
+function HatchPlan.soundKey(r)
+	local rr = isNum(r) and math.floor(r) or 1
+	local key = "hatch"
+	if rr >= 7 then
+		key = "hatchSecret"
+	elseif rr >= 5 then
+		key = "legendary"
+	elseif rr == 4 then
+		key = "epic"
+	elseif rr == 3 then
+		key = "rare"
+	end
+	return { key = key, fanfare = rr >= 8, divine = rr >= 10 }
+end
+
+local function beat(t, d, kind, n, extra)
+	local b = { t = t, d = d, kind = kind, n = n or 0 }
+	if extra then
+		for k, v in pairs(extra) do
+			b[k] = v
+		end
+	end
+	return b
+end
+
+-- Nombre de runes du cercle runique pour r >= 5 (B.3) : min(12, 4 + (r-4) x 2).
+function HatchPlan.runes(r)
+	return math.min(12, 4 + (r - 4) * 2)
+end
+
+-- Séquences de base (version complète, avant ajustement des plafonds). rv = instant de la révélation.
+local function build(r)
+	local B = {}
+	local rv
+	if r == 1 then
+		rv = 0.5
+		B = {
+			beat(0, 0.4, "shake", 0, { amp = 3 }),
+			beat(0.4, 0.1, "pop", 0),
+			beat(0.4, 0.15, "flash", 0, { color = "white", a = 0.7 }),
+			beat(0.4, 0.5, "rays", 6, { color = "white", len = 120 }),
+		}
+	elseif r == 2 then
+		rv = 0.55
+		B = {
+			beat(0, 0.5, "shake", 0, { amp = 4 }),
+			beat(0.5, 0.1, "pop", 0),
+			beat(0.5, 0.7, "burst", 12, { color = "main", glyph = "cube", dist = 150, arc = "crown" }),
+			beat(0.7, 0.7, "burst", 6, { color = "second", glyph = "petal", dist = 110, arc = "fall" }),
+		}
+	elseif r == 3 then
+		rv = 1.05
+		B = {
+			beat(0, 1.0, "ring", 1, { color = "main", mode = "converge", ease = "in" }),
+			beat(0.2, 0.8, "shake", 0, { amp = 5, grow = true }),
+			beat(1.0, 0.15, "flash", 0, { color = "main", a = 0.6 }),
+			beat(1.0, 0.1, "pop", 0),
+			beat(1.0, 0.8, "ring", 2, { color = "main", mode = "ground" }),
+		}
+	elseif r == 4 then
+		rv = 2.1
+		B = {
+			beat(0, 0.8, "crystals", 6, { color = "main", from = "ground" }),
+			beat(0.8, 0.25, "shakeScreen", 0, { amp = 6 }),
+			beat(0.9, 1.2, "slot", 4, { color = "main" }),
+			beat(2.0, 0.1, "pop", 0),
+			beat(2.1, 0.7, "banner", 1, { color = "main" }),
+		}
+	elseif r == 5 then
+		rv = 2.1
+		B = {
+			beat(0, 1.4, "text", 1, { glyph = "crown", color = "gold", fall = true }),
+			beat(0.6, 1.4, "shake", 0, { amp = 6, grow = true }),
+			beat(0.8, 1.2, "runes", HatchPlan.runes(5), { color = "gold" }),
+			beat(1.4, 2.4, "zoom", 0, { k = 1.15 }),
+			beat(2.0, 0.2, "flash", 0, { color = "gold", a = 0.8 }),
+			beat(2.0, 0.1, "pop", 0),
+			beat(2.0, 0.5, "split", 2, { color = "gold" }),
+			beat(2.0, 1.0, "rays", 12, { color = "gold", len = 220 }),
+			beat(2.2, 1.8, "banner", 1, { color = "gold" }),
+		}
+	elseif r == 6 then
+		rv = 2.6
+		B = {
+			beat(0.3, 2.1, "chains", 6, { color = "second", breakAt = 2.1 }),
+			beat(0.4, 1.6, "cracks", 4, { color = "red" }),
+			beat(0.5, 1.8, "shake", 0, { amp = 8, grow = true }),
+			beat(2.0, 0.6, "tint", 0, { color = "red", a = 0.5 }),
+			beat(2.4, 0.6, "shakeScreen", 0, { amp = 10 }),
+			beat(2.4, 0.1, "pop", 0),
+			beat(2.4, 1.0, "runes", HatchPlan.runes(6), { color = "red" }),
+			beat(2.7, 2.0, "banner", 1, { color = "red" }),
+		}
+	elseif r == 7 then
+		rv = 3.2
+		B = {
+			beat(0, 1.5, "crystals", 6, { color = "main", from = "around" }),
+			beat(0.8, 1.6, "frost", 3, { color = "white" }),
+			beat(1.5, 1.4, "shake", 0, { amp = 7, grow = true }),
+			beat(3.0, 0.15, "flash", 0, { color = "main", a = 0.8 }),
+			beat(3.0, 0.1, "pop", 0),
+			beat(3.0, 0.8, "burst", 8, { color = "main", glyph = "shard", dist = 190, arc = "ball" }),
+			beat(3.0, 1.5, "runes", HatchPlan.runes(7), { color = "main" }),
+			beat(3.3, 2.4, "banner", 1, { color = "main" }),
+		}
+	elseif r == 8 then
+		rv = 2.9
+		B = {
+			beat(0, 2.5, "black", 0, { a = 1, fadeOut = true }),
+			beat(0.5, 2.0, "text", 1, { glyph = "???", color = "white" }),
+			beat(2.5, 0.9, "ring", 1, { color = "rainbow", mode = "expand" }),
+			beat(2.8, 0.9, "ring", 1, { color = "rainbow", mode = "expand" }),
+			beat(2.5, 1.0, "stars", 8, { color = "rainbow" }),
+			beat(2.5, 0.15, "flash", 0, { color = "white", a = 0.9 }),
+			beat(2.5, 0.1, "pop", 0),
+			beat(2.6, 1.2, "runes", HatchPlan.runes(8), { color = "rainbow" }),
+			beat(3.0, 3.2, "banner", 1, { color = "rainbow" }),
+		}
+	elseif r == 9 then
+		rv = 2.8
+		B = {
+			beat(0, 0.8, "tint", 0, { sat = -1, hold = true, a = 0 }),
+			beat(0.5, 2.0, "text", 1, { glyph = "crown", color = "black" }),
+			beat(2.5, 0.8, "burst", 6, { color = "black", glyph = "shard", dist = 160, arc = "ball" }),
+			beat(2.5, 2.0, "smoke", 5, { color = "second" }),
+			beat(2.5, 0.4, "shakeScreen", 0, { amp = 8 }),
+			beat(2.5, 0.1, "pop", 0),
+			beat(2.6, 1.2, "runes", HatchPlan.runes(9), { color = "white" }),
+			beat(2.9, 2.2, "banner", 1, { color = "white" }),
+		}
+	else
+		rv = 3.3
+		B = {
+			beat(0, 1.8, "wings", 2, { color = "main" }),
+			beat(1.0, 1.5, "ring", 1, { color = "gold", mode = "rise" }),
+			beat(1.4, 6.0, "pillar", 1, { color = "main" }),
+			beat(2.4, 3.0, "zoom", 0, { k = 1.1 }),
+			beat(3.0, 0.2, "flash", 0, { color = "white", a = 0.9 }),
+			beat(3.0, 0.1, "pop", 0),
+			beat(3.0, 2.0, "rays", 16, { color = "main", len = 260 }),
+			beat(3.0, 2.0, "runes", HatchPlan.runes(10), { color = "gold" }),
+			beat(3.4, 4.0, "banner", 1, { color = "main" }),
+		}
+	end
+	return B, rv
+end
+
+-- Somme des objets et pic de débit (objets/s, estimé sur une grille de 0,05 s) d'une liste de prises.
+local function measure(beats, duration)
+	local total = 0
+	for i = 1, #beats do
+		total = total + beats[i].n
+	end
+	local peak = 0
+	local t = 0
+	while t <= duration do
+		local rate = 0
+		for i = 1, #beats do
+			local b = beats[i]
+			if b.n > 0 and t >= b.t and t < b.t + math.max(b.d, 0.4) then
+				rate = rate + b.n / math.max(b.d, 0.4)
+			end
+		end
+		if rate > peak then
+			peak = rate
+		end
+		t = t + 0.05
+	end
+	return total, peak
+end
+
+-- Réduit les plus gros n (un cran à la fois, ordre stable) jusqu'à respecter les plafonds d'objets et de débit. Les prises à 1 objet ne sont jamais supprimées.
+local function fit(beats, duration, maxObjects)
+	local guard = 0
+	while guard < 400 do
+		guard = guard + 1
+		local total, peak = measure(beats, duration)
+		if total <= maxObjects and peak <= HatchPlan.MAX_RATE then
+			return
+		end
+		local bestI, bestN = nil, 1
+		for i = 1, #beats do
+			if beats[i].n > bestN and not FIXED_KINDS[beats[i].kind] then
+				bestI, bestN = i, beats[i].n
+			end
+		end
+		if bestI == nil then
+			return
+		end
+		beats[bestI].n = beats[bestI].n - math.max(1, math.floor(bestN * 0.15))
+	end
+end
+
+-- Plan d'éclosion. r : rareté (1..10, borné), N : compteur « 1 sur N » (nombre, sinon ignoré).
+-- opts : reduced (version mobile), firstTime (première fois qu'une rareté >= 8 est obtenue : non passable), still (la caméra ne bouge pas).
+function HatchPlan.plan(r, N, opts)
+	local o = type(opts) == "table" and opts or {}
+	local rr = 1
+	if isNum(r) then
+		rr = math.max(1, math.min(10, math.floor(r)))
+	end
+	local duration = HatchPlan.DURATIONS[rr]
+	local beats, revealAt = build(rr)
+	if o.still == true then
+		local kept = {}
+		for i = 1, #beats do
+			if beats[i].kind ~= "zoom" then
+				kept[#kept + 1] = beats[i]
+			end
+		end
+		beats = kept
+	end
+	local num = nil
+	if isNum(N) and N >= 1 then
+		num = math.min(N, 9007199254740992)
+	end
+	local exceptional = num ~= nil and num >= EXCEPTIONAL_MIN
+	if exceptional then
+		beats[#beats + 1] = beat(revealAt + 0.2, math.min(1.6, duration - revealAt - 0.2), "text", 1, { glyph = "exceptional", color = "gold", y = "low" })
+	end
+	-- plafonds d'objets et de débit sur la version complète, puis réduction mobile (moitié, arrondi bas)
+	fit(beats, duration, HatchPlan.MAX_OBJECTS)
+	local reduced = o.reduced == true
+	if reduced then
+		for i = 1, #beats do
+			if not FIXED_KINDS[beats[i].kind] then
+				beats[i].n = math.floor(beats[i].n / 2)
+			end
+		end
+	end
+	table.sort(beats, function(a, b)
+		if a.t ~= b.t then
+			return a.t < b.t
+		end
+		return a.kind < b.kind
+	end)
+	local objects, peak = measure(beats, duration)
+	local particles = 0
+	for i = 1, #beats do
+		if not FIXED_KINDS[beats[i].kind] then
+			particles = particles + beats[i].n
+		end
+	end
+	local counter = nil
+	if num ~= nil then
+		local cd = math.min(HatchPlan.COUNTER_SECONDS, duration - revealAt)
+		counter = { t = revealAt, d = math.max(0.25, cd), steps = HatchPlan.COUNTER_STEPS, from = 1, to = num }
+	end
+	return {
+		r = rr,
+		duration = duration,
+		skipAfter = HatchPlan.SKIP_AFTER,
+		noSkip = o.firstTime == true and rr >= 8,
+		camera = o.still ~= true,
+		reduced = reduced,
+		sound = HatchPlan.soundKey(rr),
+		revealAt = revealAt,
+		beats = beats,
+		counter = counter,
+		special = num ~= nil and num >= SPECIAL_MIN,
+		exceptional = exceptional,
+		secretSound = num ~= nil and num >= SECRET_SOUND_MIN,
+		objects = objects,
+		particles = particles,
+		peakRate = peak,
+		seed = (rr * 7919 + (num and math.floor(num) % 100003 or 0)) % 2147483647,
+	}
+end
+
+-- Contrôle de cohérence d'un plan (utilisé par les tests et par HatchFx avant exécution) : retourne ok, raison.
+function HatchPlan.check(plan)
+	if type(plan) ~= "table" or type(plan.beats) ~= "table" or not isNum(plan.duration) then
+		return false, "plan invalide"
+	end
+	if plan.duration <= 0 or plan.duration > HatchPlan.MAX_DURATION then
+		return false, "durée hors bornes"
+	end
+	for i = 1, #plan.beats do
+		local b = plan.beats[i]
+		if type(b) ~= "table" or type(b.kind) ~= "string" or not isNum(b.t) or not isNum(b.d) or not isNum(b.n) then
+			return false, "prise " .. i .. " invalide"
+		end
+		if b.t < 0 or b.d < 0 or b.t + b.d > plan.duration + 1e-9 or b.n < 0 then
+			return false, "prise " .. i .. " hors de la durée"
+		end
+	end
+	return true, ""
+end
+
+return HatchPlan
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+-- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
+-- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
+-- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
+-- Entrée : IntroPlan.plan(info, opts)
+--   info = { mode = "pvp"|"duel"|"pve"|"npc"|"tower", countdown = bool (décompte 3-2-1 si le temps de tour n'a pas démarré), advantage = nombre (multiplicateur du pet actif du joueur
+--            contre le pet actif de l'adversaire, 1,5 / 1,25 / 1 / 0,8 / 0,67),
+--            me = { name, userId, wins, losses, league, trophies, pets = { { type = "Feu", odds = 38494, tier = 5 }, ... } },
+--            foe = { même forme ; name peut être un PNJ avec wins/losses fictifs } }
+--   opts = { fmtOdds = function(n) -> texte (défaut : Odds.label, injecté par l'appelant ; sinon « 1 sur N » simple) }
+-- Sortie : { duration, skipAfter, countdown, mode, left = side, right = side, vs = {t, d, ...}, arrow = {...} | nil, count = {{t, text}...}, beats }
+--   side = { name, record = "124 V / 37 D (77 %)", wins, losses, percent, league, trophies, userId, pets = { {type, odds, oddsText, tier} (3 au plus) } }
+-- Brancher : `BattleIntro.play(gui, IntroPlan.plan(info, { fmtOdds = Odds.label }), { onDone = startBattle })`.
+-- Pas de += ni de continue (lanceur lupa).
+local IntroPlan = {}
+
+IntroPlan.MAX_DURATION = 3
+IntroPlan.SKIP_AFTER = 1
+IntroPlan.SLIDE = 0.4
+IntroPlan.MAX_PETS = 3
+IntroPlan.CAP = 999999999
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function count(v)
+	if not isNum(v) or v < 0 then
+		return 0
+	end
+	return math.min(IntroPlan.CAP, math.floor(v))
+end
+
+-- Pourcentage de victoires : floor(100 x V / max(1, V + D) + 0,5).
+function IntroPlan.percent(wins, losses)
+	local w, l = count(wins), count(losses)
+	return math.floor(100 * w / math.max(1, w + l) + 0.5)
+end
+
+-- « 124 V / 37 D (77 %) »
+function IntroPlan.record(wins, losses)
+	local w, l = count(wins), count(losses)
+	return w .. " V / " .. l .. " D (" .. IntroPlan.percent(w, l) .. " %)"
+end
+
+-- Multiplicateur en français : 1,5 -> « 1,5 » ; 1,25 -> « 1,25 » ; 0,67 -> « 0,67 » ; 0,8 -> « 0,8 ».
+function IntroPlan.fmtMult(m)
+	if not isNum(m) or m <= 0 then
+		return "1"
+	end
+	local s = string.format("%.2f", m)
+	s = s:gsub("0+$", ""):gsub("%.$", "")
+	return (s:gsub("%.", ","))
+end
+
+local function cleanText(v, fallback, maxLen)
+	if type(v) ~= "string" or v == "" then
+		return fallback
+	end
+	return v:sub(1, maxLen or 24)
+end
+
+local function simpleOdds(n)
+	if not isNum(n) or n < 1 then
+		return ""
+	end
+	return "1 sur " .. string.format("%.0f", math.floor(n + 0.5))
+end
+
+local function side(raw, fmt)
+	local t = type(raw) == "table" and raw or {}
+	local w, l = count(t.wins), count(t.losses)
+	local pets = {}
+	local src = type(t.pets) == "table" and t.pets or {}
+	for i = 1, math.min(IntroPlan.MAX_PETS, #src) do
+		local p = type(src[i]) == "table" and src[i] or {}
+		local odds = isNum(p.odds) and p.odds > 0 and p.odds or nil
+		local text = ""
+		if odds then
+			local ok, res = pcall(fmt, odds)
+			text = ok and type(res) == "string" and res or simpleOdds(odds)
+		end
+		pets[i] = { type = cleanText(p.type, "", 16), odds = odds, oddsText = text, tier = isNum(p.tier) and math.max(1, math.min(10, math.floor(p.tier))) or 1 }
+	end
+	return {
+		name = cleanText(t.name, "???", 20),
+		userId = isNum(t.userId) and math.floor(t.userId) or 0,
+		wins = w,
+		losses = l,
+		percent = IntroPlan.percent(w, l),
+		record = IntroPlan.record(w, l),
+		league = cleanText(t.league, "", 16),
+		trophies = count(t.trophies),
+		pets = pets,
+	}
+end
+
+function IntroPlan.plan(info, opts)
+	local inf = type(info) == "table" and info or {}
+	local fmt = type(opts) == "table" and type(opts.fmtOdds) == "function" and opts.fmtOdds or simpleOdds
+	local countdown = inf.countdown == true
+	local duration = countdown and 3.0 or 2.2
+	local S = IntroPlan.SLIDE
+	local mult = isNum(inf.advantage) and inf.advantage or 1
+	local arrow = nil
+	if mult > 1.0001 or mult < 0.9999 then
+		arrow = { t = 1.0, d = 1.0, mult = mult, text = (mult > 1 and "Avantage ×" or "Désavantage ×") .. IntroPlan.fmtMult(mult), good = mult > 1, side = "left" }
+	end
+	local counts = {}
+	local beats = {
+		{ t = 0, d = S, kind = "slide", side = "left" },
+		{ t = 0, d = S, kind = "slide", side = "right" },
+		{ t = S, d = 0.4, kind = "pets" },
+		{ t = 0.5, d = 0.3, kind = "vs", from = 2, to = 1, shake = 0.3, volume = 0.5, sound = "fanfare" },
+	}
+	if arrow then
+		beats[#beats + 1] = { t = arrow.t, d = arrow.d, kind = "arrow" }
+	end
+	if countdown then
+		for i = 1, 3 do
+			local t = 1.6 + (i - 1) * 0.4
+			counts[i] = { t = t, text = tostring(4 - i) }
+			beats[#beats + 1] = { t = t, d = 0.4, kind = "count", text = tostring(4 - i) }
+		end
+	end
+	beats[#beats + 1] = { t = duration - 0.2, d = 0.2, kind = "exit" }
+	return {
+		duration = duration,
+		skipAfter = IntroPlan.SKIP_AFTER,
+		countdown = countdown,
+		mode = type(inf.mode) == "string" and inf.mode:sub(1, 12) or "pve",
+		left = side(inf.me, fmt),
+		right = side(inf.foe, fmt),
+		vs = beats[4],
+		arrow = arrow,
+		count = counts,
+		beats = beats,
+	}
+end
+
+-- Contrôle de cohérence (tests, BattleIntro).
+function IntroPlan.check(plan)
+	if type(plan) ~= "table" or type(plan.beats) ~= "table" or not isNum(plan.duration) then
+		return false, "plan invalide"
+	end
+	if plan.duration <= 0 or plan.duration > IntroPlan.MAX_DURATION then
+		return false, "durée hors bornes"
+	end
+	for i = 1, #plan.beats do
+		local b = plan.beats[i]
+		if type(b) ~= "table" or not isNum(b.t) or not isNum(b.d) or b.t < 0 or b.d < 0 or b.t + b.d > plan.duration + 1e-9 then
+			return false, "prise " .. i .. " hors de la durée"
+		end
+	end
+	return true, ""
+end
+
+return IntroPlan
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+-- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
+-- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
+-- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
+--   Effet = { d = durée (s), shake = secousse de l'écran (s) | nil, linger = durée de persistance au sol (s) | nil, layers = { Couche, ... } }
+--   Couche = { prim = "shoot"|"burst"|"bolt"|"column"|"ring"|"cone"|"flash"|"runes"|"decal"|"spiral"|"chainring"|"beam", n = nombre d'objets créés (>= 1),
+--              t = début (s), d = durée (s), glyph = texte | nil, size = taille px | nil, color = "main"|"white"|"dark" | nil, ... }
+-- Coût d'un effet = 1 (conteneur) + somme des n (TypeFx.cost) ; plafonds : base <= 14, spécial <= 30 (vérifiés par les tests).
+-- Noms de types : ceux de D.2 (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) ; l'ancien nom « Nature » est un alias de « Plante » (TypeFx.get).
+-- Pas de += ni de continue (lanceur lupa).
+local TypeFx = {}
+
+TypeFx.TYPES = { "Feu", "Eau", "Plante", "Glace", "Foudre", "Terre", "Ciel", "Ombre", "Lumière" }
+TypeFx.ALIASES = { Nature = "Plante" }
+TypeFx.BASIC_MAX, TypeFx.SPECIAL_MAX = 14, 30
+TypeFx.BASIC_SECONDS, TypeFx.SPECIAL_SECONDS = 0.5, 1.2
+
+local function rgb(hex)
+	return { tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16) }
+end
+
+local function L(prim, n, t, d, extra)
+	local l = { prim = prim, n = n, t = t, d = d }
+	if extra then
+		for k, v in pairs(extra) do
+			l[k] = v
+		end
+	end
+	return l
+end
+
+local function def(hex, basic, special)
+	return { hex = hex, rgb = rgb(hex), basic = basic, special = special }
+end
+
+TypeFx.DATA = {
+	Feu = def("FF6A1A",
+		{ d = 0.5, layers = { L("shoot", 1, 0, 0.35, { glyph = "●", size = 28 }), L("burst", 5, 0.3, 0.2, { glyph = "✦", dist = 40 }) } },
+		{ d = 1.2, shake = 0.4, linger = 2, layers = { L("runes", 6, 0, 1.2), L("cone", 10, 0.1, 0.8, { glyph = "●", size = 26 }), L("decal", 1, 0.6, 0.6, { color = "dark" }), L("burst", 6, 0.6, 0.5, { glyph = "✦", dist = 70 }) } }),
+	Eau = def("3C96DC",
+		{ d = 0.5, layers = { L("shoot", 4, 0, 0.35, { glyph = "💧", size = 20 }), L("burst", 4, 0.3, 0.2, { glyph = "•", dist = 36 }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 6, 0, 1.2), L("ring", 3, 0.2, 0.9), L("burst", 8, 0.5, 0.6, { glyph = "💧", dist = 80 }) } }),
+	Plante = def("5CB256",
+		{ d = 0.5, layers = { L("shoot", 3, 0, 0.4, { glyph = "🍃", size = 24, spin = true }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 6, 0, 1.2), L("column", 6, 0.2, 0.7, { glyph = "vine", size = 18 }), L("burst", 4, 0.8, 0.3, { glyph = "🍃", dist = 50 }) } }),
+	Glace = def("BFEFFF",
+		{ d = 0.5, layers = { L("shoot", 3, 0, 0.35, { glyph = "❄", size = 24, spin = true }), L("burst", 4, 0.3, 0.2, { glyph = "✧", dist = 36 }) } },
+		{ d = 1.2, shake = 0.4, linger = 2, layers = { L("runes", 6, 0, 1.2), L("column", 6, 0.2, 0.6, { glyph = "spike", size = 20 }), L("decal", 1, 0.6, 0.5, { color = "white" }), L("burst", 6, 0.7, 0.4, { glyph = "❄", dist = 70 }) } }),
+	Foudre = def("FFE14A",
+		{ d = 0.5, layers = { L("bolt", 6, 0, 0.3), L("flash", 1, 0.3, 0.1, { alpha = 0.3 }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 6, 0, 1.2), L("bolt", 6, 0.2, 0.4), L("bolt", 6, 0.55, 0.4), L("flash", 1, 0.9, 0.1, { alpha = 0.6 }) } }),
+	Terre = def("9C6B45",
+		{ d = 0.5, layers = { L("column", 4, 0, 0.4, { glyph = "rock", size = 26 }), L("burst", 4, 0.3, 0.2, { glyph = "•", dist = 34 }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 6, 0, 1.2), L("ring", 2, 0.2, 0.9), L("bolt", 4, 0.3, 0.5, { color = "dark" }), L("burst", 8, 0.5, 0.6, { glyph = "•", dist = 80 }) } }),
+	Ciel = def("DDEBFF",
+		{ d = 0.5, layers = { L("shoot", 5, 0, 0.4, { glyph = "✧", size = 22, spin = true }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 6, 0, 1.2), L("spiral", 10, 0.2, 1.0, { glyph = "☁", size = 24 }), L("burst", 4, 0.9, 0.3, { glyph = "✧", dist = 60 }) } }),
+	Ombre = def("8A3CFF",
+		{ d = 0.5, layers = { L("shoot", 3, 0, 0.4, { glyph = "●", size = 24 }), L("burst", 4, 0.3, 0.2, { glyph = "☁", dist = 40 }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 6, 0, 1.2), L("chainring", 6, 0.2, 0.9), L("burst", 6, 0.7, 0.5, { glyph = "☁", dist = 70 }) } }),
+	["Lumière"] = def("FFE680",
+		{ d = 0.5, layers = { L("beam", 1, 0, 0.4), L("burst", 3, 0.3, 0.2, { glyph = "✦", dist = 36 }) } },
+		{ d = 1.2, shake = 0.4, layers = { L("runes", 8, 0, 1.2), L("column", 1, 0.2, 0.9, { glyph = "pillar", size = 70 }), L("flash", 1, 0.3, 0.15, { alpha = 0.5 }), L("burst", 6, 0.6, 0.5, { glyph = "✦", dist = 70 }) } }),
+}
+
+-- Nom canonique d'un type (alias « Nature » -> « Plante »), ou nil.
+function TypeFx.canonical(name)
+	if type(name) ~= "string" then
+		return nil
+	end
+	local n = TypeFx.ALIASES[name] or name
+	if TypeFx.DATA[n] then
+		return n
+	end
+	return nil
+end
+
+function TypeFx.get(name)
+	local n = TypeFx.canonical(name)
+	return n and TypeFx.DATA[n] or nil
+end
+
+-- Coût (objets créés, conteneur compris) d'un effet ; reduced : moitié des objets de chaque couche (arrondi bas, au moins 1).
+function TypeFx.cost(name, special, reduced)
+	local def = TypeFx.get(name)
+	if def == nil then
+		return 0
+	end
+	local fx = special and def.special or def.basic
+	local total = 1
+	for i = 1, #fx.layers do
+		local n = fx.layers[i].n
+		if reduced then
+			n = math.max(1, math.floor(n / 2))
+		end
+		total = total + n
+	end
+	return total
+end
+
+-- Texte d'efficacité flottant (B.6) pour un multiplicateur de type : texte, couleur RGB ; nil si neutre (x1) ou invalide.
+TypeFx.EFFICACY = {
+	{ min = 1.5, text = "Super efficace !", rgb = { 70, 220, 90 } },
+	{ min = 1.2, text = "Efficace", rgb = { 150, 230, 120 } },
+	{ max = 0.7, text = "Pas très efficace…", rgb = { 230, 70, 70 } },
+	{ max = 0.95, text = "Peu efficace", rgb = { 255, 160, 50 } },
+}
+
+function TypeFx.efficacy(mult)
+	if type(mult) ~= "number" or mult ~= mult or mult <= 0 then
+		return nil
+	end
+	for i = 1, #TypeFx.EFFICACY do
+		local e = TypeFx.EFFICACY[i]
+		if (e.min ~= nil and mult >= e.min - 1e-9) or (e.max ~= nil and mult <= e.max + 1e-9) then
+			return e.text, e.rgb
+		end
+	end
+	return nil
+end
+
+return TypeFx
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX78"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX76"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX90"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX88"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -8089,7 +9291,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -8478,7 +9680,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX81"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX80"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX79"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX93"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX92"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX91"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

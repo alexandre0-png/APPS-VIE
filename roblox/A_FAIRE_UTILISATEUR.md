@@ -76,6 +76,15 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **Éclosions** : un œuf Épique donne un Épique (5 % de « AMÉLIORÉ ! » vers Légendaire).
 - [ ] **Écran machine à sous** : lisibilité des trois rouleaux sur téléphone, emoji 🪽 affiché, durée acceptable (sinon `Config.REVEAL.slot.enabled = false`).
 
+## 3quater. Lot 9 : 10 raretés, rythme recalibré, mesures (rien de tout ceci n'a été vu en jeu)
+
+- [ ] **Migration v11** : se connecter avec un compte qui a déjà joué (profil v10) dans un lieu privé AVANT de publier : mêmes pets, œufs toujours en incubation (nouvelle apparence), même niveau de maison (jamais plus bas), étage de la tour remappé (30 -> 35), titre « Ancien Cosmique » si un Cosmique avait été découvert.
+- [ ] **Œufs Blender r1..r10** : taille de chaque œuf dans son emplacement (l'échelle se fait sur la pièce `Coque`), couronne / auréole / ailes qui dépassent sans toucher les voisins, coques de verre de l'Ultra Rare et du Divin, cubes en orbite, emblème (rune-œuf) lisible ; rapport « Blender N/M » : les 10 œufs doivent être chargés (plafond 40 Parts).
+- [ ] **Rythme** : faire une première session de 25 à 30 min sans achat : maison niveau 3 atteinte, premier Épique obtenu, énigme du jour commencée (non simulée). Noter les temps réels du premier Rare (~3 min) et du premier Épique (~15 min).
+- [ ] **Boutique** : 5 œufs proposés (Commun, Rare, Épique, Légendaire, Mythique ; le Peu commun apparaîtra avec ses espèces au lot 11) ; texte « sera possible une fois cette rareté découverte ».
+- [ ] **Prix Robux** : vérifier que les prix réglés sur le Creator Hub sont ceux de `Config.PRODUCTS[*].robux` (ils servent au calcul de la règle pièces / Robux et aux paliers de mesure ; Sac de pièces 99 R$).
+- [ ] **Creator Hub > Analytics > Custom events** : après la publication, vérifier que les 12 événements arrivent (noms ci-dessous, sans aucune donnée personnelle) et créer un tableau : `first_hatch_seconds`, `tier_first_reached_rN`, `house_level_reached_lN`, `session_length`, `retention_day1`, `retention_day7`, `daily_quest_completed`, `purchase_tier_pN`, `coins_spent_egg` (événement économique), `hatch_tier_rN`, `puzzle_solved`, `tower_floor_reached`.
+
 ## 4. Créer les achats sur le Creator Hub et me donner les ID
 
 Creator Hub → ton expérience → **Monetization**. Les prix sont des suggestions (Roblox prélève 30 %). Après création, colle chaque ID dans `Config.PASSES` / `Config.PRODUCTS` (clés `Coins2x`, `Lucky`, `Fast`, `Speed`, `VipBase`, `StarterPack`, `ExclusiveEgg`, `Revive`, `InstantHatch`, `LuckPotion`, `CoinPack`) et envoie-les-moi. Une icône est prête pour les 6 premiers achats dans `roblox/publication/art/`.
@@ -88,15 +97,18 @@ Creator Hub → ton expérience → **Monetization**. Les prix sont des suggesti
 | Game Pass | Vitesse +20 % | 149 R$ | Cours 20 % plus vite, pour toujours. | (à créer) |
 | Game Pass | Base VIP | 399 R$ | Boucliers d'œufs x2 et bonus quotidien x2, pour toujours. | (à créer) |
 | Developer Product | Pack de départ | 99 R$ | Achat unique : 20 000 pièces, 3 œufs Rares et une potion de chance. | (à créer) |
-| Developer Product | Œuf exclusif Mythique | 249 R$ | Un œuf Mythique placé dans ta base (il faut une place libre, sinon l'achat est livré plus tard automatiquement). | (à créer) |
+| Developer Product | Œuf Mythique | 249 R$ | Un œuf Mythique (rareté fixe) placé dans ta base (il faut une place libre, sinon l'achat est livré plus tard automatiquement). **Lot 9 : renommer le produit existant « Œuf exclusif Mythique » en « Œuf Mythique » sur le Creator Hub** (pour ne pas le confondre avec la rareté Exclusif). | (à créer) |
 | Developer Product | Relance immédiate | 49 R$ | Au Château : repars aussitôt là où tu es tombé, pv rétablis. Le retour gratuit au début de la salle reste disponible. | (à créer) |
 | Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `product_instanthatch_512.png` |
 | Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `product_luckpotion_512.png` |
 | Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de tes revenus (minimum 5 000 pièces). | `product_coinpack_512.png` |
 | Game Pass | +4 emplacements | 249 R$ | 4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20). | créé et en vente |
-| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues. | créé et en vente |
+| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 3 min tant que tu joues. **Lot 9 : mettre à jour la description (2 min -> 3 min)**. | créé et en vente |
 | Developer Product | Pluie de chance pour tous | 129 R$ | 10 min de +5 points de chance d'amélioration pour tout le serveur. | créé et en vente |
-| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 3 s (table dorée affichée), cumulable jusqu'à 30 min. | créé et en vente |
+| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 4 s (table dorée affichée), cumulable jusqu'à 30 min. **Lot 9 : mettre à jour la description (3 s -> 4 s)**. | créé et en vente |
+| Developer Product | Œuf Secret | 1 499 R$ | Un œuf Secret (rareté fixe) placé dans ta base. Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452048) ; offre masquée tant qu'aucune espèce Secret n'existe (lot 11) |
+| Developer Product | Œuf Exclusif | 3 499 R$ | Un œuf Exclusif (rareté fixe) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452061) ; masqué jusqu'à la 1re espèce Exclusif |
+| Developer Product | Œuf Divin | 6 999 R$ | Un œuf Divin (rareté fixe) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452072) ; masqué jusqu'aux espèces Divin |
 | Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | créé et en vente |
 | Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | créé et en vente |
 

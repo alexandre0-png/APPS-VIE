@@ -55,19 +55,31 @@ Chaque ligne donne l'ID attendu et l'endroit exact où le coller. Tant qu'un ID 
 | Game Pass | Vitesse +20 % | 149 R$ | Cours 20 % plus vite, pour toujours. | `Config.PASSES.Speed.id` (ligne 122) : `____` |
 | Game Pass | Base VIP | 399 R$ | Boucliers d'œufs x2 et bonus quotidien x2, pour toujours. | `Config.PASSES.VipBase.id` (ligne 123) : `____` |
 | Developer Product | Pack de départ | 99 R$ | Achat unique : 20 000 pièces, 3 œufs Rares et une potion de chance. | `Config.PRODUCTS.StarterPack.id` (ligne 345) : `____` |
-| Developer Product | Œuf exclusif Mythique | 249 R$ | Un œuf Mythique placé dans ta base (place libre requise, sinon livré plus tard). | `Config.PRODUCTS.ExclusiveEgg.id` (ligne 346) : `____` |
+| Developer Product | Œuf Mythique | 249 R$ | Un œuf Mythique (rareté fixe) placé dans ta base (place libre requise, sinon livré plus tard). Lot 9 : ex-« Œuf exclusif Mythique », à renommer. | `Config.PRODUCTS.ExclusiveEgg.id` (ligne 346) : `____` |
 | Developer Product | Relance immédiate | 49 R$ | Au Château : repars aussitôt là où tu es tombé, pv rétablis. | `Config.PRODUCTS.Revive.id` (ligne 347) : `____` |
 | Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `Config.PRODUCTS.InstantHatch.id` (ligne 343) : `____` |
 | Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `Config.PRODUCTS.LuckPotion.id` (ligne 344) : `____` |
 | Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de revenus (minimum 5 000 pièces). | `Config.PRODUCTS.CoinPack.id` (ligne 348) : `____` |
 | Game Pass | +4 emplacements | 249 R$ | 4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20). | `Config.PASSES.ExtraSlots.id` (ligne 125) : renseigné |
-| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues. | `Config.PASSES.PrivateBelt.id` (ligne 126) : renseigné |
+| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 3 min tant que tu joues. | `Config.PASSES.PrivateBelt.id` (ligne 126) : renseigné |
 | Developer Product | Pluie de chance pour tous | 129 R$ | 10 min de +5 points de chance d'amélioration pour tout le serveur. | `Config.PRODUCTS.ServerLuck.id` (ligne 351) : renseigné |
-| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 3 s (table dorée affichée), cumulable jusqu'à 30 min. | `Config.PRODUCTS.GoldenBelt.id` (ligne 352) : renseigné |
+| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 4 s (table dorée affichée, x2 à x2,5 sur les raretés >= Rare), cumulable jusqu'à 30 min. | `Config.PRODUCTS.GoldenBelt.id` (ligne 352) : renseigné |
 | Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | `Config.PRODUCTS.RemoteSteal.id` (ligne 353) : renseigné |
 | Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | `Config.PRODUCTS.RemoteStealPack.id` (ligne 354) : renseigné |
 
 Bandeaux et icônes : `publication/art/` (icône 512 px des 6 premiers achats ; les autres sont à créer).
+
+| Developer Product | Œuf Secret | 1 499 R$ | Un œuf Secret (rareté FIXE) placé dans ta base. Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat. Masqué et refusé si PolicyService restreint, et tant qu'aucune espèce Secret n'existe (lot 11). | `Config.PRODUCTS.EggSecret.id` : 3736452048 (créé) |
+| Developer Product | Œuf Exclusif | 3 499 R$ | Un œuf Exclusif (rareté FIXE) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. Mêmes protections. | `Config.PRODUCTS.EggExclusive.id` : 3736452061 (créé) |
+| Developer Product | Œuf Divin | 6 999 R$ | Un œuf Divin (rareté FIXE) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. Mêmes protections. | `Config.PRODUCTS.EggDivine.id` : 3736452072 (créé) |
+
+**Lot 9, œufs Secret / Exclusif / Divin (décision de l'utilisateur)** : vendus en Robux à très haut prix, en rareté FIXE affichée avant l'achat, contenu (espèces, tailles, mutations) affiché, `random = true` : masqués côté client et refusés côté serveur (`NotProcessedYet`, rien n'est livré) si `ArePaidRandomItemsRestricted` ou si PolicyService ne répond pas. Reçu idempotent, œuf placé dans une place libre de la base (sinon `NotProcessedYet` : livré à la prochaine occasion). Tant que la rareté n'a aucune espèce publiée (lot 11), l'offre est masquée et le reçu refusé. Aucun avantage de combat acheté directement (les stats dépendent de la rareté, pas du moyen d'obtention). Le prix en pièces de ces raretés au tapis respecte la règle (3) ci-dessous.
+
+### Règles de design (lot 9, contraignantes, vérifiées par tests)
+
+1. **Revenu** : plus un pet est rare, plus il rapporte : fourchettes `Config.INCOME_RANGE`, min(r+1) >= 1,8 x max(r) ; taille et mutation multiplient ensuite.
+2. **Combat** : plus un pet est rare, plus il est fort : `Battle.STATS[r]`, puissance (pv + 3 x attaque + 2 x vitesse) croissante d'au moins x1,25 ; au sein d'une rareté, profils tank / attaquant / rapide / équilibré (écart 8 à 15 %).
+3. **Pièces contre Robux** : tout ce qui s'achète aux deux est plus cher et plus long en pièces : temps de gain en pièces du débutant entre 4 et 12 fois le « temps Robux » (prix en R$ x 12,1 s, taux du Sac de pièces : 20 min de revenu pour 99 R$). Œuf Mythique (boutique, 370 M pièces), Œuf Secret (tapis, 48 Md), Œuf Divin (tapis, 1 080 Md) : mesuré de x4,5 à x8,9 (`Config.PRICING`). L'Exclusif ne s'achète jamais en pièces.
 
 ## 3ter. Offres à hasard, vol à distance et fiche de classification (lot 7)
 

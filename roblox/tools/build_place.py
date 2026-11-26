@@ -22,7 +22,8 @@ def item(cls, name, source=None, children=(), extra=""):
     return f'<Item class="{cls}" referent="RBX{next(ids)}"><Properties>{props}</Properties>{kids}</Item>'
 
 SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("VfxKit", "VfxKit.lua"), ("CinematicKit", "CinematicKit.lua"), ("Placement", "Placement.lua"), ("MapGeo", "MapGeo.lua"), ("Culling", "Culling.lua"), ("AssetReportUi", "AssetReportUi.lua"), ("MiniMap", "MiniMap.lua"), ("Battle", "Battle.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
-          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Belt", "Belt.lua"), ("Raven", "Raven.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Traps", "Traps.lua"), ("Riddle", "Riddle.lua"), ("Castle", "Castle.lua"), ("Upgrade", "Upgrade.lua")]
+          ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Belt", "Belt.lua"), ("Raven", "Raven.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Traps", "Traps.lua"), ("Riddle", "Riddle.lua"), ("Castle", "Castle.lua"), ("Upgrade", "Upgrade.lua"),
+          ("Odds", "Odds.lua"), ("HatchPlan", "HatchPlan.lua"), ("IntroPlan", "IntroPlan.lua"), ("TypeFx", "TypeFx.lua")]  # lot 10 : modules posés dans la place (branchés plus tard)
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -46,7 +47,8 @@ game_tree = [
         item("ModuleScript", "Rules", read("ServerScriptService/Rules.lua")),
         item("ModuleScript", "Diag", read("ServerScriptService/Diag.lua")),
         item("ModuleScript", "HenQuest", read("ServerScriptService/HenQuest.lua")),
-        item("ModuleScript", "Scenery", read("ServerScriptService/Scenery.lua"))]),
+        item("ModuleScript", "Scenery", read("ServerScriptService/Scenery.lua")),
+        item("ModuleScript", "Telemetry", read("ServerScriptService/Telemetry.lua"))]),  # lot 9 : mesures AnalyticsService
     item("StarterPlayer", "StarterPlayer", children=[
         item("StarterPlayerScripts", "StarterPlayerScripts", children=[
             item("LocalScript", "Client", read("StarterPlayerScripts/Client.client.lua")),
@@ -58,6 +60,9 @@ game_tree = [
             item("ModuleScript", "SlotFx", read("StarterPlayerScripts/SlotFx.lua")),
             item("ModuleScript", "MiniMapUi", read("StarterPlayerScripts/MiniMapUi.lua")),
             item("ModuleScript", "BattleUi", read("StarterPlayerScripts/BattleUi.lua")),
+            item("ModuleScript", "BattleIntro", read("StarterPlayerScripts/BattleIntro.lua")),  # lot 10 (branché plus tard)
+            item("ModuleScript", "HatchFx", read("StarterPlayerScripts/HatchFx.lua")),
+            item("ModuleScript", "TypeFx", read("StarterPlayerScripts/TypeFx.lua")),
             item("ModuleScript", "BaseUpgradeFx", read("StarterPlayerScripts/BaseUpgradeFx.lua")),
             item("ModuleScript", "HenUi", read("StarterPlayerScripts/HenUi.lua")),
             item("ModuleScript", "CoinIcon", read("StarterPlayerScripts/CoinIcon.lua"))])]),
