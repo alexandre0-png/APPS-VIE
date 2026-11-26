@@ -481,7 +481,7 @@ Config.PRODUCTS = {
 	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
 	-- Lot 9b : rattrapage d'UN jour manqué du calendrier (29 R$). ID 0 = à créer dans le Creator Hub (A_FAIRE_UTILISATEUR.md) : tant que l'ID vaut 0, l'achat est désactivé
 	-- (restent les deux rattrapages gratuits : jour de grâce et 3 missions). Livre un jeton de rattrapage (profil cal.catch), jamais un tirage au sort payant.
-	CalendarCatchup = { id = 0, robux = 29, name = "Rattrapage du calendrier", emoji = "📅", desc = "Rattrape UN jour manqué du calendrier de 30 jours : tu en choisis le jour, la récompense est celle affichée sur la carte." },
+	CalendarCatchup = { id = 3736695392, robux = 29, name = "Rattrapage du calendrier", emoji = "📅", desc = "Rattrape UN jour manqué du calendrier de 30 jours : tu en choisis le jour, la récompense est celle affichée sur la carte." },
 	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
@@ -2226,8 +2226,11 @@ Config.CALENDAR = {
 	days = 30, dayCap = 2, monthCap = 30, graceEvery = 7, minAccountAgeDays = 1, minPlayMinutes = 10, catchupQuests = 3, catchupMax = 5, coinFloor = 500,
 	legendaryDay = 3, milestones = { 3, 7, 10, 14, 17, 20, 25, 28, 30 },
 	caps = { scrolls = 9999, plumes = 9999, tokens = 99 },
-	-- Tirage du jour 30 (affiché sur la carte, vérifié sur 1 000 000 tirages à +-0,3 point) : œuf de rareté fixe. Décision : 40 % Légendaire, 45 % Mythique, 15 % Ultra Rare.
-	draw = { { tier = 5, pct = 40 }, { tier = 6, pct = 45 }, { tier = 7, pct = 15 } },
+	-- Tirage du jour 30 (affiché sur la carte, vérifié sur 1 000 000 tirages à +-0,3 point) : œuf de rareté fixe. Demande utilisateur : 40 % Mythique, 45 % Ultra Rare,
+	-- 15 % Secret. Repli : une rareté sans espèce publiée (Secret avant le lot 11) donne un œuf `drawFallback` (Ultra Rare), jamais un œuf vide ; la carte affiche alors
+	-- les probabilités réelles (40 % Mythique / 60 % Ultra Rare).
+	draw = { { tier = 6, pct = 40 }, { tier = 7, pct = 45 }, { tier = 8, pct = 15 } },
+	drawFallback = 7,
 	cosmetics = { ribbon = { name = "Ruban doré", emoji = "🎀" }, cape = { name = "Cape du Couvoir", emoji = "🧣" }, aura = { name = "Aura de braise", emoji = "🔥" }, crown = { name = "Couronne de plumes", emoji = "👑" } },
 	titles = { cal10 = { name = "📅 Habitué du Couvoir", desc = "Jour 10 du calendrier" }, cal25 = { name = "📅 Fidèle du Couvoir", desc = "Jour 25 du calendrier" }, cal30 = { name = "📅 Maître du Calendrier", desc = "Les 30 jours du calendrier" } },
 	rewards = {
