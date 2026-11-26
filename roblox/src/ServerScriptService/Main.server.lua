@@ -201,6 +201,16 @@ local function freeSlot(s)
 	return nil
 end
 
+-- Une passe est-elle ACTIVE ? Les passes à hasard (Lucky, Tapis privé) exigent que PolicyService ait confirmé « non restreint » (restricted == false) : restreint ou inconnu = inactive,
+-- même si le joueur la possède (lot 7b : sinon une reconnexion la réactivait). Toute lecture d'une passe à hasard passe par ici.
+local function passOn(s, name)
+	if s.passes[name] ~= true then
+		return false
+	end
+	local def = Config.PASSES[name]
+	return not (def and def.random == true and s.restricted ~= false)
+end
+
 -- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
 	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1)
@@ -210,8 +220,12 @@ local function income(s)
 	return Rules.income(s.data.slots, cap(s), gmult(s))
 end
 
+local function luckPoints(s)
+	return Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil)
+end
+
 local function rollPet(s, eggTier, guaranteed)
-	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil)
+	local up = luckPoints(s)
 	local alien = evKey() == "alien"
 	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
 end
@@ -3477,6 +3491,16 @@ do
 	end
 
 	---------------------------------------------------------------- PolicyService
+	-- Passes à hasard : actives seulement si PolicyService a confirmé « non restreint » ET que le joueur les possède ; sinon forcées à faux (lot 7b).
+	local function applyRandomPasses(s)
+		for name, def in pairs(Config.PASSES) do
+			if def.random == true then
+				s.passes[name] = s.restricted == false and s.ownedRandom[name] == true
+			end
+		end
+		Lot7.privRefresh(s)
+		sync(s)
+	end
 	function Lot7.fetchPolicy(s)
 		task.spawn(function()
 			local ok, info = pcall(function()
@@ -3491,12 +3515,12 @@ do
 				s.restricted = true -- échec : repli prudent (offres à hasard masquées et refusées)
 				warn("[Policy] " .. s.player.Name .. " : PolicyService indisponible, offres à hasard masquées")
 			end
-			sync(s)
+			applyRandomPasses(s)
 		end)
 		task.delay(8, function() -- délai dépassé : repli prudent (une réponse tardive pourra encore lever la restriction)
 			if sessions[s.player] == s and s.restricted == nil then
 				s.restricted = true
-				sync(s)
+				applyRandomPasses(s)
 			end
 		end)
 	end
@@ -3510,7 +3534,7 @@ do
 
 	---------------------------------------------------------------- Tapis privé (pass PrivateBelt)
 	function Lot7.privRefresh(s)
-		if s.passes.PrivateBelt == true and s.plot and not s.leaving then
+		if passOn(s, "PrivateBelt") and s.plot and not s.leaving then
 			Builder.privateBelt(s.plot, s.player.UserId, s.data.pb)
 		elseif s.plot then
 			Builder.clearPrivateBelt(s.plot)
@@ -3518,7 +3542,7 @@ do
 	end
 	-- Un pas par seconde et par joueur (slowTick) : `active` = le joueur a agi ou bougé dans Config.IDLE.seconds. Joueur hors ligne = jamais appelé : aucune production hors ligne.
 	function Lot7.privStep(s, dt, active)
-		if s.passes.PrivateBelt ~= true then
+		if not passOn(s, "PrivateBelt") then
 			return
 		end
 		s.priv = s.priv or { acc = 0 }
@@ -3536,7 +3560,7 @@ do
 			return
 		end
 		s.lastPriv = now
-		if s.passes.PrivateBelt ~= true or prompt:GetAttribute("Owner") ~= s.player.UserId then
+		if not passOn(s, "PrivateBelt") or prompt:GetAttribute("Owner") ~= s.player.UserId then
 			return notify(s.player, "🛤️ Ce tapis n'est pas à toi.", "refuse")
 		end
 		local belt = s.plot and s.plot.privateBelt
@@ -3563,7 +3587,7 @@ do
 	-- Crochet INTERNE pour les tests (jamais exposé aux clients) : accès aux sessions et compteurs.
 	Builder.lot7Hooks = { session = function(p)
 		return sessions[p]
-	end, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
+	end, luckPoints = luckPoints, passOn = passOn, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
 		return Lot7.compPaid
 	end }
 end
@@ -3581,6 +3605,9 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 				notify(player, "🛒 Cette offre n'est pas disponible pour ton compte.")
 			else
 				s.passes[name] = true
+				if def.random == true then
+					s.ownedRandom[name] = true
+				end
 				if name == "PrivateBelt" then
 					Lot7.privRefresh(s)
 				end
@@ -3803,7 +3830,7 @@ local function onJoin(player)
 		species = speciesCount(d), lsRank = rankStat,
 		player = player, data = d, plot = plot, carry = {}, carryParts = {}, labels = {}, passes = {},
 		graceUntil = late and (os.time() + Config.Game.LateJoinGrace) or 0, hp = Config.GUARD.maxHp, iframes = 0, sinceHit = 99, stun = 0, lastAct = 0, lastActive = os.clock(), lastTap = 0, lastSteal = 0, lastFull = 0, noSave = noSave,
-		followers = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false, traps = {},
+		followers = {}, ownedRandom = {}, pendingReceipts = {}, holdSeen = false, flags = 0, noCheckUntil = 0, syncT = 0, leaving = false, traps = {},
 		runes = { 1, 1, 1, 1 }, lastRune = 0, runeLock = 0,
 		lsCoins = stat("Pièces"), lsSpeed = stat("Vitesse"), lsRb = stat("Renaissances"),
 	}
@@ -3825,7 +3852,11 @@ local function onJoin(player)
 			local ok, owns = pcall(function()
 				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, def.id)
 			end)
-			s.passes[name] = ok and owns == true
+			if def.random == true then
+				s.ownedRandom[name] = ok and owns == true -- passe à hasard : possédée mais INACTIVE tant que PolicyService n'a pas confirmé « non restreint » (voir fetchPolicy)
+			else
+				s.passes[name] = ok and owns == true
+			end
 		end
 	end
 

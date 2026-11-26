@@ -9975,6 +9975,45 @@ do
 		RT.removePlayer(I)
 		RT.step(1)
 		RT.policyDelay = nil
+		-- 5b. Lot 7b, défaut 2 : PolicyService contourné à la reconnexion (passes à hasard possédées d'un compte restreint ou inconnu) -----------------------
+		do
+			RT.ownedPasses = { [cfg.PASSES.Lucky.id] = true, [cfg.PASSES.PrivateBelt.id] = true }
+			local function privTicks(s0, n) -- n x 10 s d'activité : le tapis privé produirait un œuf toutes les 120 s s'il était actif
+				for _ = 1, n do
+					s0.lastActive = RT.now
+					RT.step(10, 1)
+				end
+			end
+			RT.policy = { ArePaidRandomItemsRestricted = true }
+			local J, sJ = join("Joy", 7012)
+			standInBase(J, sJ)
+			local function refUp() -- points de chance d'un joueur SANS passe (Cyd), à l'instant : l'événement « chance » et la pluie de chance du serveur changent avec le temps
+				return hooks.luckPoints(sC)
+			end
+			local baseUp = refUp()
+			check7("Reconnexion 7b : compte RESTREINT possédant Chance +10 % et Tapis privé : passes forcées inactives (passes.Lucky/PrivateBelt faux), points de chance = base (" .. baseUp .. "), aucun tapis posé", sJ.passes.Lucky ~= true and sJ.passes.PrivateBelt ~= true and hooks.luckPoints(sJ) == refUp() and sJ.plot.privateBelt == nil and not hooks.passOn(sJ, "Lucky") and not hooks.passOn(sJ, "PrivateBelt"))
+			sJ.passes.Lucky, sJ.passes.PrivateBelt = true, true -- état « hérité » : même si une passe à hasard restait vraie, la lecture serveur reteste la restriction
+			privTicks(sJ, 15)
+			check7("Reconnexion 7b : passes marquées vraies à tort : Rules.upPoints (Lucky) et privStep (Tapis privé) retestent `restricted` : base " .. hooks.luckPoints(sJ) .. ", " .. #sJ.data.pb .. " œuf privé en 150 s", hooks.luckPoints(sJ) == refUp() and #sJ.data.pb == 0)
+			RT.removePlayer(J)
+			RT.step(1)
+			RT.policy, RT.policyDelay = nil, 30 -- réponse très lente puis « non restreint »
+			local K, sK = join("Kim", 7013)
+			check7("Reconnexion 7b : réponse PolicyService en attente (inconnu) : passes à hasard inactives, points de chance = base", sK.restricted == nil or sK.restricted == true)
+			check7("Reconnexion 7b : en attente (inconnu) : passes.Lucky/PrivateBelt faux, " .. hooks.luckPoints(sK) .. " points", sK.passes.Lucky ~= true and sK.passes.PrivateBelt ~= true and hooks.luckPoints(sK) == refUp())
+			RT.step(9)
+			check7("Reconnexion 7b : délai de 8 s dépassé (restreint par repli) : toujours inactives", sK.restricted == true and sK.passes.Lucky ~= true and hooks.luckPoints(sK) == refUp())
+			RT.step(25) -- la réponse tardive « non restreint » arrive : les passes possédées s'activent
+			check7("Reconnexion 7b : réponse tardive « non restreint » : passes possédées activées (" .. hooks.luckPoints(sK) .. " points), tapis privé posé", sK.restricted == false and sK.passes.Lucky == true and hooks.luckPoints(sK) == refUp() + 10 and sK.plot.privateBelt ~= nil)
+			RT.removePlayer(K)
+			RT.step(1)
+			RT.policyDelay = nil
+			local L, sL = join("Lou", 7014)
+			check7("Reconnexion 7b : compte NON restreint confirmé : passes possédées actives (aucune régression)", sL.restricted == false and sL.passes.Lucky == true and hooks.luckPoints(sL) == refUp() + 10)
+			RT.removePlayer(L)
+			RT.step(1)
+			RT.ownedPasses = nil
+		end
 		-- 6. Fuites ---------------------------------------------------------------------------------------------------------------------------------------
 		RT.removePlayer(B2)
 		RT.removePlayer(C)

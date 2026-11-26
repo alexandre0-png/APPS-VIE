@@ -1043,6 +1043,9 @@ function render()
 				btnColor = (owned or not Config.purchasable(def)) and COL.dis or COL.green,
 				onClick = (not owned) and function()
 					if Config.purchasable(def) then
+						if not Config.offerVisible(def, state and state.restricted) then
+							return toast("Cette offre n'est pas disponible pour ton compte.") -- offre à hasard : seulement après confirmation serveur « non restreint » (état relu au clic)
+						end
 						MarketplaceService:PromptGamePassPurchase(player, def.id)
 					else
 						toast(Config.UNAVAILABLE_MESSAGE)
@@ -1074,6 +1077,9 @@ function render()
 					onClick = (used or full or maxed) and function()
 						toast(full and "🐦‍⬛ Tu as déjà le maximum de jetons." or "Déjà au maximum pour l'instant.")
 					end or function()
+						if not Config.offerVisible(def, state and state.restricted) then
+							return toast("Cette offre n'est pas disponible pour ton compte.") -- état relu au clic (offres à hasard : confirmation serveur « non restreint »)
+						end
 						MarketplaceService:PromptProductPurchase(player, def.id)
 					end,
 				})
