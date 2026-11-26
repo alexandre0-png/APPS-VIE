@@ -5,7 +5,7 @@
 -- Pur et testable : le service et l'horloge sont injectés (Telemetry.new(service, clock)).
 local Telemetry = {}
 
--- Les 12 métriques (nom de l'événement -> description). `tier_first_reached`, `hatch_tier` et `house_level_reached` portent la rareté / le niveau
+-- Les 12 métriques du lot 9 + 4 du lot 9b (calendrier) (nom de l'événement -> description). `tier_first_reached`, `hatch_tier` et `house_level_reached` portent la rareté / le niveau
 -- dans le nom (« _r5 », « _l3 ») pour être lisibles directement dans le tableau des événements personnalisés.
 Telemetry.METRICS = {
 	first_hatch_seconds = "temps de jeu cumulé (s) à la première éclosion",
@@ -20,6 +20,11 @@ Telemetry.METRICS = {
 	hatch_tier = "éclosion par rareté (_rN)",
 	puzzle_solved = "énigme du jour réussie",
 	tower_floor_reached = "nouvel étage record de la tour, valeur = étage",
+	-- Lot 9b : calendrier de 30 jours
+	calendar_claim_day = "jour du calendrier réclamé (valeur = jour 1 à 30), suffixe _today pour le jour en cours",
+	calendar_catchup = "jour manqué rattrapé (valeur = jour), suffixe _grace / _quest / _paid",
+	calendar_cycle_complete = "30 jours réclamés dans un cycle (valeur = numéro du cycle)",
+	calendar_streak = "série de jours consécutifs réclamés après une réclamation (valeur = série)",
 }
 Telemetry.QUEUE_MAX = 16
 Telemetry.GAP = 1

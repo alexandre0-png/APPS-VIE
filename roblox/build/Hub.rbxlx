@@ -483,6 +483,9 @@ Config.PRODUCTS = {
 	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
 	RemoteSteal = { id = 3736121232, robux = 79, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
 	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
+	-- Lot 9b : rattrapage d'UN jour manqué du calendrier (29 R$). ID 0 = à créer dans le Creator Hub (A_FAIRE_UTILISATEUR.md) : tant que l'ID vaut 0, l'achat est désactivé
+	-- (restent les deux rattrapages gratuits : jour de grâce et 3 missions). Livre un jeton de rattrapage (profil cal.catch), jamais un tirage au sort payant.
+	CalendarCatchup = { id = 0, robux = 29, name = "Rattrapage du calendrier", emoji = "📅", desc = "Rattrape UN jour manqué du calendrier de 30 jours : tu en choisis le jour, la récompense est celle affichée sur la carte." },
 	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
@@ -2216,6 +2219,29 @@ function Config.allTitles(stats)
 	out[#out + 1] = { id = Config.TITLE_HEN.id, name = Config.TITLE_HEN.name, desc = Config.TITLE_HEN.desc, unlocked = type(frags) == "number" and frags >= Config.HEN.fragmentsForEgg }
 	return out
 end
+
+-- LOT 9b : calendrier des œufs sur 30 jours. Le SERVEUR décide du jour (UTC) ; le client ne désigne que la carte qu'il veut réclamer. Un jour = une carte.
+--   dayCap = réclamations au plus par jour UTC (le jour en cours + 1 rattrapage) ; monthCap = récompenses au plus par cycle de 30 jours (rattrapages compris).
+--   Jour de grâce : 1 jour manqué pardonné (gratuit) toutes les `graceEvery` jours (gagné dès le jour 1, puis aux jours 8, 15, 22, 29). Rattrapage : jour de grâce,
+--   `catchupQuests` missions réclamées (compteur cal.qc), ou 1 jeton payant (CalendarCatchup, 29 R$). Éligibilité : compte Roblox de `minAccountAgeDays` jour(s) et
+--   `minPlayMinutes` min de jeu cumulées (le cycle démarre alors). Récompense d'une carte : c = minutes de revenu en pièces (au moins coinFloor), egg = rareté de l'œuf
+--   (placé dans la base : réclamation refusée si elle est pleine), scrolls (parchemins), plumes, tokens (jetons de combat), cosm (cosmétique), title (titre), draw = tirage J30.
+Config.CALENDAR = {
+	days = 30, dayCap = 2, monthCap = 30, graceEvery = 7, minAccountAgeDays = 1, minPlayMinutes = 10, catchupQuests = 3, catchupMax = 5, coinFloor = 500,
+	legendaryDay = 3, milestones = { 3, 7, 10, 14, 17, 20, 25, 28, 30 },
+	caps = { scrolls = 9999, plumes = 9999, tokens = 99 },
+	-- Tirage du jour 30 (affiché sur la carte, vérifié sur 1 000 000 tirages à +-0,3 point) : œuf de rareté fixe. Décision : 40 % Légendaire, 45 % Mythique, 15 % Ultra Rare.
+	draw = { { tier = 5, pct = 40 }, { tier = 6, pct = 45 }, { tier = 7, pct = 15 } },
+	cosmetics = { ribbon = { name = "Ruban doré", emoji = "🎀" }, cape = { name = "Cape du Couvoir", emoji = "🧣" }, aura = { name = "Aura de braise", emoji = "🔥" }, crown = { name = "Couronne de plumes", emoji = "👑" } },
+	titles = { cal10 = { name = "📅 Habitué du Couvoir", desc = "Jour 10 du calendrier" }, cal25 = { name = "📅 Fidèle du Couvoir", desc = "Jour 25 du calendrier" }, cal30 = { name = "📅 Maître du Calendrier", desc = "Les 30 jours du calendrier" } },
+	rewards = {
+		{ egg = 1, scrolls = 1 }, { c = 8, tokens = 1 }, { egg = 5, plumes = 1 }, { c = 10, scrolls = 1 }, { scrolls = 2, plumes = 1 }, { c = 12, tokens = 1 }, { egg = 3, cosm = "ribbon" },
+		{ c = 12 }, { scrolls = 2, tokens = 1 }, { c = 25, plumes = 2, title = "cal10" }, { c = 15 }, { scrolls = 2 }, { tokens = 2, c = 15 }, { egg = 4, cosm = "cape" },
+		{ c = 20, plumes = 1 }, { scrolls = 3 }, { tokens = 2, plumes = 2, c = 25 }, { c = 25 }, { scrolls = 3, tokens = 1 }, { egg = 6, cosm = "aura" },
+		{ c = 30 }, { plumes = 2, scrolls = 2 }, { c = 35, tokens = 2 }, { scrolls = 3 }, { egg = 5, title = "cal25", plumes = 3 }, { c = 40 }, { tokens = 3, scrolls = 3 },
+		{ cosm = "crown", plumes = 3, c = 60 }, { c = 60, scrolls = 4 }, { draw = true, title = "cal30", c = 120, plumes = 5 },
+	},
+}
 
 return Config
 ]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing

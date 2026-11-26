@@ -22,6 +22,7 @@ local VfxKitMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild(
 local Vfx = VfxKitMod.new(Config, Easing)
 local CoinIcon = require(script.Parent:WaitForChild("CoinIcon"))
 local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule (règles pures, lot 6)
+local Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")) -- calendrier de 30 jours (règles pures, lot 9b : textes des cartes)
 local HenUi = require(script.Parent:WaitForChild("HenUi")) -- dialogue, ❗, plumes, berceuse, cible du faisceau
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local RState, RNotify, RHatch, RAction = Remotes:WaitForChild("State"), Remotes:WaitForChild("Notify"), Remotes:WaitForChild("Hatch"), Remotes:WaitForChild("Action")
@@ -621,6 +622,7 @@ local tabsDef = {
 	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" } },
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
+	bonus = { { "daily", "🎁 Bonus" }, { "cal", "📅 Calendrier" } }, -- lot 9b : calendrier des œufs sur 30 jours
 }
 local titles = { shop = "Boutique", dex = "Collection", quests = "Missions", bonus = "Bonus", top = "Classement", more = "Plus", raven = "🐦‍⬛ Corbeau" }
 local ravenData = nil -- dernière liste de cibles reçue du serveur (lot 7)
@@ -673,7 +675,7 @@ function render()
 			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
 			pressFx(b)
-			if t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true then -- pastille « 1 » : l'énigme du jour attend
+			if (t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true) or (panel.name == "bonus" and ((t[1] == "cal" and type(state.cal) == "table" and state.cal.canToday == true) or (t[1] == "daily" and state.dailyReady))) then -- pastille « 1 » : l'énigme du jour, le calendrier ou le bonus attend
 				local badge = make("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, -3), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = COL.red, Text = "1", TextSize = 12, Font = FONT, TextColor3 = COL.text, ZIndex = 5 }, b)
 				corner(badge, 9)
 			end
@@ -845,6 +847,16 @@ function render()
 		for _, t in ipairs(list) do
 			addRow({ icon = t.unlocked and "🏷" or "🔒", title = t.unlocked and t.name or "???", titleColor = t.unlocked and COL.yellow or COL.muted, desc = t.desc })
 		end
+		if type(state.cal) == "table" then -- lot 9b : titres et cosmétiques du calendrier de 30 jours
+			for id, t in pairs(Config.CALENDAR.titles) do
+				local on = state.cal.titles and state.cal.titles[id] == true
+				addRow({ icon = on and "📅" or "🔒", title = on and t.name or "???", titleColor = on and COL.yellow or COL.muted, desc = t.desc })
+			end
+			for id, c in pairs(Config.CALENDAR.cosmetics) do
+				local on = state.cal.cosm and state.cal.cosm[id] == true
+				addRow({ icon = on and c.emoji or "🔒", title = on and c.name or "???", titleColor = on and COL.yellow or COL.muted, desc = "Cosmétique du calendrier" })
+			end
+		end
 	elseif panel.name == "dex" and panel.tab == "eggs" then
 		local n = 0
 		do
@@ -1010,6 +1022,109 @@ function render()
 			for i, e in ipairs(topData) do
 				addRow({ icon = i == 1 and "🥇" or i == 2 and "🥈" or i == 3 and "🥉" or tostring(i), title = e.name, desc = "🌅 " .. e.rb .. " renaissance(s) · 🥚 " .. fmt(e.hatched) .. " éclos" })
 			end
+		end
+	elseif panel.name == "bonus" and panel.tab == "cal" then
+		-- Lot 9b : calendrier des œufs sur 30 jours. Tout est décidé par le serveur (jour UTC, éligibilité, ressources) ; ici : cartes, barre, détail, demandes { day, how }.
+		local cal, CC = state.cal, Config.CALENDAR
+		if type(cal) ~= "table" then
+			addNote("📅 Calendrier : chargement…")
+		else
+			local legTier = Config.TIERS[CC.rewards[CC.legendaryDay].egg]
+			if not cal.eligible then
+				addNote(cal.reason == "age" and "🔒 Calendrier : il faut un compte Roblox d'au moins " .. CC.minAccountAgeDays .. " jour." or ("🔒 Calendrier : encore " .. (cal.playLeft or CC.minPlayMinutes) .. " min de jeu avant de commencer."))
+			end
+			-- barre « jour N sur 30 »
+			local barF = make("Frame", { Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = COL.bg }, scroll)
+			corner(barF, 14)
+			text(barF, { Position = UDim2.fromOffset(10, 3), Size = UDim2.new(1, -20, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 15, TextColor3 = COL.yellow, Text = "📅 Jour " .. cal.idx .. " sur " .. CC.days .. " · " .. cal.claimed .. " récompense(s) · série " .. cal.streak })
+			local barBg = make("Frame", { Position = UDim2.fromOffset(10, 28), Size = UDim2.new(1, -20, 0, 9), BackgroundColor3 = COL.panel }, barF)
+			corner(barBg, 5)
+			local barFill = make("Frame", { Size = UDim2.fromScale(math.min(1, math.max(0.02, cal.idx / CC.days)), 1), BackgroundColor3 = COL.green }, barBg)
+			corner(barFill, 5)
+			for _, m in ipairs(CC.milestones) do -- jalons : repères sur la barre
+				make("Frame", { Position = UDim2.fromScale((m - 0.5) / CC.days, 0), Size = UDim2.fromOffset(2, 9), BackgroundColor3 = COL.yellow, BorderSizePixel = 0, ZIndex = 2 }, barBg)
+			end
+			-- Légendaire du jour 3 : mis en avant (compte à rebours visible dès le jour 1)
+			local legGot = string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "c"
+			local lf = addRow({
+				icon = "🌟", iconColor = legTier.color, title = cal.legendary, titleColor = legTier.color,
+				desc = Calendar.rewardText(Config, CC.legendaryDay), btn = legGot and "✅ Obtenu" or (string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "t" and "Réclamer" or "Voir"),
+				btnColor = legGot and COL.dis or (string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "t" and COL.green or COL.yellow),
+				onClick = function()
+					panel.sel = CC.legendaryDay
+					if string.sub(cal.states, CC.legendaryDay, CC.legendaryDay) == "t" then
+						RAction:FireServer("calClaim", { day = CC.legendaryDay, how = "today" })
+					else
+						render()
+					end
+				end,
+			})
+			make("UIStroke", { Color = legTier.color, Thickness = 3 }, lf)
+			-- grille des 30 cartes (5 colonnes)
+			local grid = make("Frame", { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1 }, scroll)
+			make("UIGridLayout", { CellSize = UDim2.new(0.2, -6, 0, 58), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+			local milestone = {}
+			for _, m in ipairs(CC.milestones) do
+				milestone[m] = true
+			end
+			for d = 1, CC.days do
+				local st = string.sub(cal.states, d, d)
+				local rw = CC.rewards[d]
+				local icon = rw.draw and "🎲" or (rw.egg and "🥚" or (rw.cosm and CC.cosmetics[rw.cosm].emoji or (rw.title and "🏷" or ((rw.plumes and "🪶") or (rw.tokens and "⚔️") or (rw.scrolls and "📜") or "🪙"))))
+				local col = st == "c" and COL.dis or (st == "t" and COL.green or (st == "m" and Color3.fromRGB(120, 60, 60) or COL.panel))
+				local b = make("TextButton", { LayoutOrder = d, BackgroundColor3 = col, Text = (st == "c" and "✅" or icon) .. "\nJ" .. d, Font = FONT, TextSize = 14, TextColor3 = st == "t" and COL.dark or COL.text, AutoButtonColor = true }, grid)
+				corner(b, 10)
+				pressFx(b)
+				if d == CC.legendaryDay then
+					make("UIStroke", { Color = legTier.color, Thickness = 3 }, b)
+				elseif milestone[d] then
+					make("UIStroke", { Color = COL.yellow, Thickness = 2 }, b)
+				elseif panel.sel == d then
+					make("UIStroke", { Color = COL.text, Thickness = 2 }, b)
+				end
+				b.Activated:Connect(function()
+					panel.sel = d
+					render()
+				end)
+			end
+			-- détail de la carte choisie (par défaut : le jour à réclamer, sinon le jour en cours)
+			local sel = panel.sel or cal.idx
+			sel = math.min(CC.days, math.max(1, sel))
+			local sst = string.sub(cal.states, sel, sel)
+			local random = CC.rewards[sel].draw == true
+			addRow({
+				icon = sst == "c" and "✅" or (sst == "m" and "⏳" or (sst == "t" and "🎁" or "🔜")), title = "Jour " .. sel .. (sst == "t" and " : aujourd'hui" or (sst == "m" and " : manqué" or (sst == "c" and " : réclamé" or ""))),
+				desc = Calendar.rewardText(Config, sel), btn = sst == "t" and "Réclamer" or nil, btnColor = COL.green,
+				onClick = sst == "t" and function()
+					RAction:FireServer("calClaim", { day = sel, how = "today" })
+				end or nil,
+			})
+			if sst == "m" then
+				local grace, qc, catch = cal.grace or 0, cal.qc or 0, cal.catch or 0
+				addRow({ icon = "🛡", title = "Jour de grâce (" .. grace .. " disponible)", desc = "Gratuit : 1 jour manqué pardonné toutes les " .. CC.graceEvery .. " jours.", btn = grace > 0 and "Rattraper" or "Aucun", btnColor = grace > 0 and COL.green or COL.dis,
+					onClick = grace > 0 and function()
+						RAction:FireServer("calClaim", { day = sel, how = "grace" })
+					end or nil })
+				addRow({ icon = "🎯", title = "3 missions (" .. math.min(qc, CC.catchupQuests) .. "/" .. CC.catchupQuests .. ")", desc = "Réclame " .. CC.catchupQuests .. " missions du jour : elles paient ce rattrapage.", btn = qc >= CC.catchupQuests and "Rattraper" or "…", btnColor = qc >= CC.catchupQuests and COL.green or COL.dis,
+					onClick = qc >= CC.catchupQuests and function()
+						RAction:FireServer("calClaim", { day = sel, how = "quest" })
+					end or nil })
+				local def = Config.PRODUCTS.CalendarCatchup
+				if random and state.restricted then
+					addNote("🎲 Ce jour a un tirage au sort : le rattrapage payant n'est pas proposé pour ton compte.")
+				elseif catch > 0 then
+					addRow({ icon = "📅", title = "Rattrapage (" .. catch .. ")", desc = "Utilise un rattrapage déjà acheté.", btn = "Utiliser", btnColor = COL.green, onClick = function()
+						RAction:FireServer("calClaim", { day = sel, how = "paid" })
+					end })
+				elseif def and Config.purchasable(def) then
+					addRow({ icon = def.emoji, title = def.name .. " : " .. def.robux .. " R$", desc = def.desc, btn = "Acheter", btnColor = COL.green, onClick = function()
+						MarketplaceService:PromptProductPurchase(player, def.id)
+					end })
+				else
+					addRow({ icon = "📅", title = "Rattrapage payant", desc = "Bientôt disponible.", btn = "Bientôt", btnColor = COL.dis })
+				end
+			end
+			addNote("🎒 📜 " .. (cal.scrolls or 0) .. " parchemin(s) · 🪶 " .. (cal.plumes or 0) .. " plume(s) · ⚔️ " .. (cal.ftokens or 0) .. " jeton(s) de combat. Le jour est décidé par le serveur (UTC) ; les jours manqués se rattrapent jusqu'à la fin du cycle. Un jour de grâce est offert tous les " .. CC.graceEvery .. " jours.")
 		end
 	elseif panel.name == "bonus" then
 		addRow({
@@ -1772,7 +1887,7 @@ task.spawn(function()
 				end
 			end
 			navDots.quests.Visible = claimable or (type(state.hen) == "table" and state.hen.alert == true)
-			navDots.bonus.Visible = state.dailyReady
+			navDots.bonus.Visible = state.dailyReady or (type(state.cal) == "table" and state.cal.canToday == true)
 			local achReady = false
 			for _, a in ipairs(Config.ACHIEVEMENTS) do
 				local tier = state.ach[a.id] or 0

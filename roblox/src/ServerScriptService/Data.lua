@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Raven")) -- règles pures du Corbeau (clés du journal RavenLog)
+local Calendar = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Calendar")) -- lot 9b : règles pures du calendrier (assainissement du champ cal)
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -35,6 +36,10 @@ local SAVE_RETRIES = 3
 --   (5 étages par rareté de Config.TOWER.tiers) ; pets : espèce inchangée, + x = 0 (XP, lot 12) ; baseScore conservé (mêmes poids pour les raretés
 --   migrées) et plancher de niveau = niveau atteint avec les seuils v10 (jamais de recul) ; + titles { oldCosmic } (Cosmique découvert),
 --   + firstSeen / lastSeen (jours UTC, mesure de rétention). Pièces, reçus, jetons, énigme, temps de jeu, PvP : inchangés.
+-- LOT 9b (calendrier de 30 jours) : SANS changement de version (v11 reste v11, aucun serveur ancien ne bascule en lecture seule). Champs facultatifs assainis par merge() :
+--   cal (voir Calendar.sanitize : start, cycle, days, grace, catch, qc, dayD, dayN), calStreak (série), calLast (dernier jour UTC réclamé), scrolls (parchemins), plumes,
+--   fightTokens (jetons de combat), cosm { id = true } (cosmétiques), titles.cal10 / cal25 / cal30. Un profil v11 sans ces champs reçoit les valeurs neuves ; un profil
+--   plus ancien passe par la chaîne de migrations puis reçoit les mêmes valeurs neuves.
 local VERSION = 11
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
@@ -168,7 +173,14 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
-		titles = { oldCosmic = false }, -- lot 9 : titre permanent « Ancien Cosmique »
+		titles = { oldCosmic = false, cal10 = false, cal25 = false, cal30 = false }, -- lot 9 : titre permanent « Ancien Cosmique » ; lot 9b : titres du calendrier
+		cal = Calendar.newState(Config), -- lot 9b : calendrier de 30 jours (voir Calendar.lua)
+		calStreak = 0, -- lot 9b : série de jours consécutifs réclamés (cycle en cours)
+		calLast = 0, -- lot 9b : dernier jour UTC où une récompense du calendrier a été réclamée
+		scrolls = 0, -- lot 9b : parchemins
+		plumes = 0, -- lot 9b : plumes (monnaie du calendrier, distinctes des plumes de l'énigme)
+		fightTokens = 0, -- lot 9b : jetons de combat
+		cosm = {}, -- lot 9b : cosmétiques obtenus { id = true }
 		firstSeen = 0, -- lot 9 : jour UTC de la première connexion (mesure de rétention, aucune donnée personnelle)
 		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
@@ -408,6 +420,20 @@ local function merge(saved)
 	d.baseLevelFloor = math.min(#Config.BASE_LEVELS2, math.max(1, math.floor(sane(saved.baseLevelFloor, 1))))
 	d.played = math.min(1e9, sane(saved.played, 0))
 	d.titles.oldCosmic = type(saved.titles) == "table" and saved.titles.oldCosmic == true
+	for id in pairs(Config.CALENDAR.titles) do -- lot 9b : titres du calendrier (assainis : booléens)
+		d.titles[id] = type(saved.titles) == "table" and saved.titles[id] == true
+	end
+	d.cal = Calendar.sanitize(Config, saved.cal)
+	d.calStreak = Calendar.int(saved.calStreak, 0, Config.CALENDAR.days, 0)
+	d.calLast = Calendar.int(saved.calLast, 0, 1e6, 0)
+	d.scrolls = Calendar.int(saved.scrolls, 0, Config.CALENDAR.caps.scrolls, 0)
+	d.plumes = Calendar.int(saved.plumes, 0, Config.CALENDAR.caps.plumes, 0)
+	d.fightTokens = Calendar.int(saved.fightTokens, 0, Config.CALENDAR.caps.tokens, 0)
+	if type(saved.cosm) == "table" then
+		for id in pairs(Config.CALENDAR.cosmetics) do
+			d.cosm[id] = saved.cosm[id] == true or nil
+		end
+	end
 	d.firstSeen = math.min(1e6, math.floor(sane(saved.firstSeen, 0)))
 	d.lastSeen = math.min(1e6, math.floor(sane(saved.lastSeen, 0)))
 	d.newbieOff = saved.newbieOff == true

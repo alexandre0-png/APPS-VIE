@@ -483,6 +483,9 @@ Config.PRODUCTS = {
 	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
 	RemoteSteal = { id = 3736121232, robux = 79, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
 	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
+	-- Lot 9b : rattrapage d'UN jour manqué du calendrier (29 R$). ID 0 = à créer dans le Creator Hub (A_FAIRE_UTILISATEUR.md) : tant que l'ID vaut 0, l'achat est désactivé
+	-- (restent les deux rattrapages gratuits : jour de grâce et 3 missions). Livre un jeton de rattrapage (profil cal.catch), jamais un tirage au sort payant.
+	CalendarCatchup = { id = 0, robux = 29, name = "Rattrapage du calendrier", emoji = "📅", desc = "Rattrape UN jour manqué du calendrier de 30 jours : tu en choisis le jour, la récompense est celle affichée sur la carte." },
 	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
@@ -2216,6 +2219,29 @@ function Config.allTitles(stats)
 	out[#out + 1] = { id = Config.TITLE_HEN.id, name = Config.TITLE_HEN.name, desc = Config.TITLE_HEN.desc, unlocked = type(frags) == "number" and frags >= Config.HEN.fragmentsForEgg }
 	return out
 end
+
+-- LOT 9b : calendrier des œufs sur 30 jours. Le SERVEUR décide du jour (UTC) ; le client ne désigne que la carte qu'il veut réclamer. Un jour = une carte.
+--   dayCap = réclamations au plus par jour UTC (le jour en cours + 1 rattrapage) ; monthCap = récompenses au plus par cycle de 30 jours (rattrapages compris).
+--   Jour de grâce : 1 jour manqué pardonné (gratuit) toutes les `graceEvery` jours (gagné dès le jour 1, puis aux jours 8, 15, 22, 29). Rattrapage : jour de grâce,
+--   `catchupQuests` missions réclamées (compteur cal.qc), ou 1 jeton payant (CalendarCatchup, 29 R$). Éligibilité : compte Roblox de `minAccountAgeDays` jour(s) et
+--   `minPlayMinutes` min de jeu cumulées (le cycle démarre alors). Récompense d'une carte : c = minutes de revenu en pièces (au moins coinFloor), egg = rareté de l'œuf
+--   (placé dans la base : réclamation refusée si elle est pleine), scrolls (parchemins), plumes, tokens (jetons de combat), cosm (cosmétique), title (titre), draw = tirage J30.
+Config.CALENDAR = {
+	days = 30, dayCap = 2, monthCap = 30, graceEvery = 7, minAccountAgeDays = 1, minPlayMinutes = 10, catchupQuests = 3, catchupMax = 5, coinFloor = 500,
+	legendaryDay = 3, milestones = { 3, 7, 10, 14, 17, 20, 25, 28, 30 },
+	caps = { scrolls = 9999, plumes = 9999, tokens = 99 },
+	-- Tirage du jour 30 (affiché sur la carte, vérifié sur 1 000 000 tirages à +-0,3 point) : œuf de rareté fixe. Décision : 40 % Légendaire, 45 % Mythique, 15 % Ultra Rare.
+	draw = { { tier = 5, pct = 40 }, { tier = 6, pct = 45 }, { tier = 7, pct = 15 } },
+	cosmetics = { ribbon = { name = "Ruban doré", emoji = "🎀" }, cape = { name = "Cape du Couvoir", emoji = "🧣" }, aura = { name = "Aura de braise", emoji = "🔥" }, crown = { name = "Couronne de plumes", emoji = "👑" } },
+	titles = { cal10 = { name = "📅 Habitué du Couvoir", desc = "Jour 10 du calendrier" }, cal25 = { name = "📅 Fidèle du Couvoir", desc = "Jour 25 du calendrier" }, cal30 = { name = "📅 Maître du Calendrier", desc = "Les 30 jours du calendrier" } },
+	rewards = {
+		{ egg = 1, scrolls = 1 }, { c = 8, tokens = 1 }, { egg = 5, plumes = 1 }, { c = 10, scrolls = 1 }, { scrolls = 2, plumes = 1 }, { c = 12, tokens = 1 }, { egg = 3, cosm = "ribbon" },
+		{ c = 12 }, { scrolls = 2, tokens = 1 }, { c = 25, plumes = 2, title = "cal10" }, { c = 15 }, { scrolls = 2 }, { tokens = 2, c = 15 }, { egg = 4, cosm = "cape" },
+		{ c = 20, plumes = 1 }, { scrolls = 3 }, { tokens = 2, plumes = 2, c = 25 }, { c = 25 }, { scrolls = 3, tokens = 1 }, { egg = 6, cosm = "aura" },
+		{ c = 30 }, { plumes = 2, scrolls = 2 }, { c = 35, tokens = 2 }, { scrolls = 3 }, { egg = 5, title = "cal25", plumes = 3 }, { c = 40 }, { tokens = 3, scrolls = 3 },
+		{ cosm = "crown", plumes = 3, c = 60 }, { c = 60, scrolls = 4 }, { draw = true, title = "cal30", c = 120, plumes = 5 },
+	},
+}
 
 return Config
 ]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
@@ -9079,7 +9105,8 @@ local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
-local Lot7 = { luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+-- lot 9b : Calendar (règles pures du calendrier de 30 jours) et Cal (fonctions du bloc « Lot 9b » plus bas) logent dans Lot7 : AUCUNE variable locale de plus (limite de 200 atteinte)
+local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
 local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
@@ -9350,6 +9377,7 @@ local function snapshot(s)
 		restricted = s.restricted ~= false, -- vrai tant que PolicyService n'a pas confirmé « non restreint » (repli prudent : offres à hasard masquées)
 		srv = Lot7.serverBuffs and Lot7.serverBuffs() or { golden = 0, luck = 0 },
 		pbCount = #d.pb,
+		cal = Lot7.Cal.snapshot and Lot7.Cal.snapshot(s) or nil, -- lot 9b : vue du calendrier (le jour est décidé ICI, jamais par le client)
 	}
 end
 
@@ -11042,6 +11070,7 @@ local function slowTick(dt)
 			local d = s.data
 			d.played += dt -- temps de jeu cumulé (secondes, sauvegardé) : protection débutant
 			refreshNewbie(s)
+			Lot7.Cal.tick(s)
 			local inc = income(s)
 			local active = os.clock() - s.lastActive <= Config.IDLE.seconds
 			if (player:GetAttribute("Idle") == true) == active then
@@ -11626,6 +11655,7 @@ function actions.claimQuest(s, i)
 		return
 	end
 	q.claimed = true
+	Lot7.Calendar.addQuest(Config, s.data.cal) -- lot 9b : une mission réclamée compte pour le rattrapage « 3 missions » du calendrier
 	tele.log(s.player, "daily_quest_completed")
 	s.data.coins += q.rew
 	local extra = ""
@@ -11737,6 +11767,174 @@ function actions.daily(s)
 	d.coins += reward
 	notify(s.player, "🎁 Bonus quotidien : +" .. Config.fmt(reward) .. " 🪙 (série " .. streak .. ")", "claim")
 	sync(s)
+end
+
+---------------------------------------------------------------- Lot 9b : calendrier des œufs sur 30 jours
+-- Le serveur possède tout : jour UTC (os.time() // 86400), éligibilité, ressources de rattrapage, tirage du jour 30, œuf placé. Le client n'envoie que { day, how }.
+-- Une réclamation : verrou s.calBusy (aucune seconde réclamation pendant la sauvegarde), validation (Calendar.check), jour MARQUÉ dans le profil, sauvegarde réussie,
+-- ENFIN octroi. Sauvegarde échouée = jour démarqué, rien n'est donné. Mort du serveur entre la sauvegarde et l'octroi : récompense perdue (jamais doublée), limite documentée.
+do
+	local Calendar, CalSys, CAL = Lot7.Calendar, Lot7.Cal, Config.CALENDAR
+	local function age(player)
+		local ok, a = pcall(function()
+			return player.AccountAge
+		end)
+		return (ok and type(a) == "number" and a == a) and a or 0
+	end
+	local function eligible(s)
+		return Calendar.eligible(Config, age(s.player), s.data.played)
+	end
+	local function today()
+		return os.time() // 86400
+	end
+	local refusal = {
+		ineligible = "📅 Le calendrier n'est pas encore débloqué pour toi.", day = "📅 Jour invalide.", notStarted = "📅 Le calendrier n'a pas encore commencé.",
+		future = "📅 Ce jour n'est pas encore arrivé : reviens à la date prévue !", claimed = "📅 Récompense déjà réclamée.", monthCap = "📅 Les 30 récompenses du cycle sont déjà réclamées.",
+		dayCap = "📅 Reviens demain : une seule réclamation de rattrapage par jour.", how = "📅 Choisis comment rattraper ce jour.",
+		noResource = "📅 Il te manque de quoi rattraper ce jour (jour de grâce, 3 missions ou un rattrapage).",
+	}
+	-- Vue du calendrier pour le client : normalise le cycle (renouvelé après 30 jours) ; ne démarre jamais un cycle (voir CalSys.tick).
+	function CalSys.snapshot(s)
+		local d = s.data
+		Calendar.normalize(Config, d.cal, today())
+		local ok, why = eligible(s)
+		local v = Calendar.view(Config, d.cal, today(), ok, why)
+		v.scrolls, v.plumes, v.ftokens = d.scrolls, d.plumes, d.fightTokens
+		v.cosm, v.titles = d.cosm, { cal10 = d.titles.cal10 == true, cal25 = d.titles.cal25 == true, cal30 = d.titles.cal30 == true }
+		v.playLeft = math.max(0, math.ceil(CAL.minPlayMinutes - d.played / 60))
+		v.last = d.calLast
+		return v
+	end
+	-- Une fois par seconde et par joueur (slowTick) : démarre le cycle d'un joueur devenu éligible, renouvelle un cycle fini, prévient d'une récompense disponible.
+	function CalSys.tick(s)
+		local d = s.data
+		local day = today()
+		local changed = false
+		if d.cal.start == 0 then
+			if eligible(s) and Calendar.begin(Config, d.cal, day) then
+				changed = true
+				notify(s.player, "📅 Calendrier des œufs débloqué ! Ouvre Bonus > Calendrier : un œuf Légendaire t'attend au jour 3.", "claim")
+			end
+		elseif Calendar.normalize(Config, d.cal, day) then
+			changed = true
+			notify(s.player, "📅 Nouveau cycle de 30 jours : la récompense du jour 1 t'attend.", "claim")
+		end
+		if changed or s.calSeenDay ~= day then
+			s.calSeenDay = day
+			sync(s)
+		end
+	end
+	local function applyReward(s, plan)
+		local d = s.data
+		local bits = {}
+		if plan.coins > 0 then
+			d.coins += plan.coins
+			bits[#bits + 1] = "🪙 " .. Config.fmt(plan.coins)
+		end
+		if plan.egg then
+			local placed = giveEgg(s, plan.egg)
+			bits[#bits + 1] = "🥚 Œuf " .. Config.TIERS[plan.egg].name .. (placed and "" or " (base pleine : converti en pièces)")
+		end
+		if plan.scrolls > 0 then
+			d.scrolls = math.min(CAL.caps.scrolls, d.scrolls + plan.scrolls)
+			bits[#bits + 1] = "📜 +" .. plan.scrolls
+		end
+		if plan.plumes > 0 then
+			d.plumes = math.min(CAL.caps.plumes, d.plumes + plan.plumes)
+			bits[#bits + 1] = "🪶 +" .. plan.plumes
+		end
+		if plan.tokens > 0 then
+			d.fightTokens = math.min(CAL.caps.tokens, d.fightTokens + plan.tokens)
+			bits[#bits + 1] = "⚔️ +" .. plan.tokens
+		end
+		if plan.cosm and CAL.cosmetics[plan.cosm] then
+			d.cosm[plan.cosm] = true
+			bits[#bits + 1] = CAL.cosmetics[plan.cosm].emoji .. " " .. CAL.cosmetics[plan.cosm].name
+		end
+		if plan.title and CAL.titles[plan.title] then
+			d.titles[plan.title] = true
+			bits[#bits + 1] = "🏷 " .. CAL.titles[plan.title].name
+		end
+		return table.concat(bits, " · ")
+	end
+	function CalSys.claim(s, day, how)
+		local d = s.data
+		local cal = d.cal
+		if s.leaving or s.calBusy ~= true then
+			return
+		end
+		if how ~= "grace" and how ~= "quest" and how ~= "paid" then
+			how = "today"
+		end
+		-- un rattrapage PAYANT d'un jour au tirage aléatoire (jour 30) : seulement si PolicyService a confirmé « non restreint » (rien n'est débité ici : le jeton est déjà acheté)
+		if how == "paid" and type(day) == "number" and Calendar.isRandom(Config, day) and Lot7.awaitPolicy(s) then
+			notify(s.player, "📅 Ce rattrapage n'est pas disponible pour ton compte.")
+			return
+		end
+		if s.leaving or sessions[s.player] ~= s then
+			return
+		end
+		local now = today()
+		local okE, why = eligible(s)
+		if okE and cal.start == 0 then
+			Calendar.begin(Config, cal, now)
+		end
+		Calendar.normalize(Config, cal, now)
+		local ok, code = Calendar.check(Config, cal, now, day, how, okE)
+		if not ok then
+			if code == "ineligible" then
+				notify(s.player, why == "age" and ("📅 Il faut un compte Roblox d'au moins " .. CAL.minAccountAgeDays .. " jour pour le calendrier.") or ("📅 Encore " .. math.max(1, math.ceil(CAL.minPlayMinutes - d.played / 60)) .. " min de jeu avant de débloquer le calendrier."))
+			else
+				notify(s.player, refusal[code] or refusal.day)
+			end
+			sync(s)
+			return
+		end
+		local plan = Calendar.plan(Config, day, rng:NextNumber(), income(s))
+		if plan.egg and not freeSlot(s) then
+			notify(s.player, "📅 Libère un emplacement dans ta base : un œuf t'attend (rien n'est perdu).")
+			return
+		end
+		-- 1. jour marqué dans le profil (état d'avant gardé pour l'annuler), 2. sauvegarde, 3. octroi
+		local before = { days = cal.days, grace = cal.grace, catch = cal.catch, qc = cal.qc, dayD = cal.dayD, dayN = cal.dayN, streak = d.calStreak, last = d.calLast }
+		local streak = Calendar.apply(Config, cal, now, day, how)
+		d.calStreak, d.calLast = streak, now
+		if not s.noSave and not Data.save(s.player, d, false) then
+			cal.days, cal.grace, cal.catch, cal.qc, cal.dayD, cal.dayN = before.days, before.grace, before.catch, before.qc, before.dayD, before.dayN
+			d.calStreak, d.calLast = before.streak, before.last
+			notify(s.player, "📅 Sauvegarde impossible pour l'instant : réessaie dans un moment (rien n'a été perdu).")
+			sync(s)
+			return
+		end
+		local text = applyReward(s, plan)
+		notify(s.player, "📅 Jour " .. day .. (how == "today" and "" or " rattrapé") .. " : " .. text, "claim")
+		tele.log(s.player, "calendar_claim_day", day, how == "today" and "_today" or nil)
+		if how ~= "today" then
+			tele.log(s.player, "calendar_catchup", day, "_" .. how)
+		end
+		tele.log(s.player, "calendar_streak", streak)
+		if Calendar.claimedCount(cal) >= CAL.days then
+			tele.log(s.player, "calendar_cycle_complete", cal.cycle)
+		end
+		sync(s)
+		if not s.noSave then -- l'octroi est sauvegardé tout de suite (au mieux) : la sauvegarde automatique le reprendrait sinon dans la minute
+			task.spawn(function()
+				Data.save(s.player, d, s.leaving == true)
+			end)
+		end
+	end
+end
+
+function actions.calClaim(s, arg)
+	if type(arg) ~= "table" or s.calBusy then
+		return
+	end
+	s.calBusy = true
+	local ok, err = pcall(Lot7.Cal.claim, s, arg.day, arg.how)
+	s.calBusy = nil
+	if not ok then
+		warn("[Calendrier] " .. tostring(err))
+	end
 end
 
 RAction.OnServerEvent:Connect(function(player, action, arg)
@@ -12848,6 +13046,13 @@ MarketplaceService.ProcessReceipt = function(info)
 				end
 				giveEgg(s, def.eggTier)
 				notify(player, "🥚 " .. def.name .. " placé dans ta base !", "claim")
+			elseif name == "CalendarCatchup" then
+				-- lot 9b : un jeton de rattrapage du calendrier (plafond Config.CALENDAR.catchupMax : au-delà, rien n'est débité, le reçu sera rejoué)
+				if not Lot7.Calendar.addCatch(Config, s.data.cal) then
+					notify(player, "📅 Tu as déjà " .. Config.CALENDAR.catchupMax .. " rattrapages : utilises-en avant de finaliser cet achat (il sera livré automatiquement, rien n'est perdu).")
+					return Enum.ProductPurchaseDecision.NotProcessedYet
+				end
+				notify(player, "📅 +1 rattrapage du calendrier (" .. s.data.cal.catch .. "/" .. Config.CALENDAR.catchupMax .. ").", "buy")
 			elseif name == "InstantHatch" then
 				for i = 1, cap(s) do
 					hatch(s, i)
@@ -13161,6 +13366,12 @@ Players.PlayerRemoving:Connect(function(player)
 		return
 	end
 	s.leaving = true -- l'autosave ne doit plus reprendre le verrou de session après ce point
+	do -- lot 9b : une réclamation du calendrier en cours (sauvegarde puis octroi) se termine AVANT la sauvegarde de départ
+		local t0 = os.clock()
+		while s.calBusy and os.clock() - t0 < 15 do
+			task.wait(0.1)
+		end
+	end
 	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
 	tele.flush(player)
 	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur
@@ -13244,6 +13455,7 @@ local Players = game:GetService("Players")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Raven")) -- règles pures du Corbeau (clés du journal RavenLog)
+local Calendar = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Calendar")) -- lot 9b : règles pures du calendrier (assainissement du champ cal)
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -13270,6 +13482,10 @@ local SAVE_RETRIES = 3
 --   (5 étages par rareté de Config.TOWER.tiers) ; pets : espèce inchangée, + x = 0 (XP, lot 12) ; baseScore conservé (mêmes poids pour les raretés
 --   migrées) et plancher de niveau = niveau atteint avec les seuils v10 (jamais de recul) ; + titles { oldCosmic } (Cosmique découvert),
 --   + firstSeen / lastSeen (jours UTC, mesure de rétention). Pièces, reçus, jetons, énigme, temps de jeu, PvP : inchangés.
+-- LOT 9b (calendrier de 30 jours) : SANS changement de version (v11 reste v11, aucun serveur ancien ne bascule en lecture seule). Champs facultatifs assainis par merge() :
+--   cal (voir Calendar.sanitize : start, cycle, days, grace, catch, qc, dayD, dayN), calStreak (série), calLast (dernier jour UTC réclamé), scrolls (parchemins), plumes,
+--   fightTokens (jetons de combat), cosm { id = true } (cosmétiques), titles.cal10 / cal25 / cal30. Un profil v11 sans ces champs reçoit les valeurs neuves ; un profil
+--   plus ancien passe par la chaîne de migrations puis reçoit les mêmes valeurs neuves.
 local VERSION = 11
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
@@ -13403,7 +13619,14 @@ function Data.default()
 		ach = {}, -- id de succès -> palier déjà réclamé
 		cine = {}, -- id de cinématique -> true une fois vue ou passée
 		baseScore = 0, -- progression de la base
-		titles = { oldCosmic = false }, -- lot 9 : titre permanent « Ancien Cosmique »
+		titles = { oldCosmic = false, cal10 = false, cal25 = false, cal30 = false }, -- lot 9 : titre permanent « Ancien Cosmique » ; lot 9b : titres du calendrier
+		cal = Calendar.newState(Config), -- lot 9b : calendrier de 30 jours (voir Calendar.lua)
+		calStreak = 0, -- lot 9b : série de jours consécutifs réclamés (cycle en cours)
+		calLast = 0, -- lot 9b : dernier jour UTC où une récompense du calendrier a été réclamée
+		scrolls = 0, -- lot 9b : parchemins
+		plumes = 0, -- lot 9b : plumes (monnaie du calendrier, distinctes des plumes de l'énigme)
+		fightTokens = 0, -- lot 9b : jetons de combat
+		cosm = {}, -- lot 9b : cosmétiques obtenus { id = true }
 		firstSeen = 0, -- lot 9 : jour UTC de la première connexion (mesure de rétention, aucune donnée personnelle)
 		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
@@ -13643,6 +13866,20 @@ local function merge(saved)
 	d.baseLevelFloor = math.min(#Config.BASE_LEVELS2, math.max(1, math.floor(sane(saved.baseLevelFloor, 1))))
 	d.played = math.min(1e9, sane(saved.played, 0))
 	d.titles.oldCosmic = type(saved.titles) == "table" and saved.titles.oldCosmic == true
+	for id in pairs(Config.CALENDAR.titles) do -- lot 9b : titres du calendrier (assainis : booléens)
+		d.titles[id] = type(saved.titles) == "table" and saved.titles[id] == true
+	end
+	d.cal = Calendar.sanitize(Config, saved.cal)
+	d.calStreak = Calendar.int(saved.calStreak, 0, Config.CALENDAR.days, 0)
+	d.calLast = Calendar.int(saved.calLast, 0, 1e6, 0)
+	d.scrolls = Calendar.int(saved.scrolls, 0, Config.CALENDAR.caps.scrolls, 0)
+	d.plumes = Calendar.int(saved.plumes, 0, Config.CALENDAR.caps.plumes, 0)
+	d.fightTokens = Calendar.int(saved.fightTokens, 0, Config.CALENDAR.caps.tokens, 0)
+	if type(saved.cosm) == "table" then
+		for id in pairs(Config.CALENDAR.cosmetics) do
+			d.cosm[id] = saved.cosm[id] == true or nil
+		end
+	end
 	d.firstSeen = math.min(1e6, math.floor(sane(saved.firstSeen, 0)))
 	d.lastSeen = math.min(1e6, math.floor(sane(saved.lastSeen, 0)))
 	d.newbieOff = saved.newbieOff == true
@@ -18233,7 +18470,7 @@ return Scenery
 -- Pur et testable : le service et l'horloge sont injectés (Telemetry.new(service, clock)).
 local Telemetry = {}
 
--- Les 12 métriques (nom de l'événement -> description). `tier_first_reached`, `hatch_tier` et `house_level_reached` portent la rareté / le niveau
+-- Les 12 métriques du lot 9 + 4 du lot 9b (calendrier) (nom de l'événement -> description). `tier_first_reached`, `hatch_tier` et `house_level_reached` portent la rareté / le niveau
 -- dans le nom (« _r5 », « _l3 ») pour être lisibles directement dans le tableau des événements personnalisés.
 Telemetry.METRICS = {
 	first_hatch_seconds = "temps de jeu cumulé (s) à la première éclosion",
@@ -18248,6 +18485,11 @@ Telemetry.METRICS = {
 	hatch_tier = "éclosion par rareté (_rN)",
 	puzzle_solved = "énigme du jour réussie",
 	tower_floor_reached = "nouvel étage record de la tour, valeur = étage",
+	-- Lot 9b : calendrier de 30 jours
+	calendar_claim_day = "jour du calendrier réclamé (valeur = jour 1 à 30), suffixe _today pour le jour en cours",
+	calendar_catchup = "jour manqué rattrapé (valeur = jour), suffixe _grace / _quest / _paid",
+	calendar_cycle_complete = "30 jours réclamés dans un cycle (valeur = numéro du cycle)",
+	calendar_streak = "série de jours consécutifs réclamés après une réclamation (valeur = série)",
 }
 Telemetry.QUEUE_MAX = 16
 Telemetry.GAP = 1
