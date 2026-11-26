@@ -104,9 +104,9 @@ def render(name):
 # ================= SCENES
 if scn == "vignette":
     import random; random.seed(7)
-    sc.view_settings.exposure = -0.35
+    sc.view_settings.exposure = -0.1
     ground((0.30, 0.60, 0.16))
-    world(top=(0.42, 0.28, 0.72), hor=(1.0, 0.55, 0.45), strength=1.1, sun_col=(1.0, 0.62, 0.35), sun_e=7.0,
+    world(top=(0.42, 0.28, 0.72), hor=(1.0, 0.55, 0.45), strength=1.7, sun_col=(1.0, 0.62, 0.35), sun_e=7.0,
           sun_rot=(math.radians(-72), 0, math.radians(18)))
     CAM = (0, -34, 1.8); TGT = (0, 10, 6.5)
     load(P("out15/hub_dome.fbx"), height=28, pos=(38, 62, 0))
@@ -119,8 +119,8 @@ if scn == "vignette":
         bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(x, y, 0), segments=32, ring_count=16)
         o = bpy.context.object; o.scale = (r, r*0.8, h); bpy.ops.object.shade_smooth()
         o.data.materials.append(mat("5DBB3A", False))
-    back = [("PetDragon", -30, 9.5), ("dragondecristal", -14, 9.0), ("dragonceleste", 14, 9.5), ("seraphinlion", 30, 8.5)]
-    front = [("PetLapin", -20, -4, 5.6), ("PetRenard", -12, 1, 6.0), ("PetLicorne", 12, 1, 6.8), ("PetPanda", 20, -4, 5.6)]
+    back = [("PetDragon", -38, 10.5), ("dragondecristal", -21, 10.0), ("dragonceleste", 21, 10.5), ("seraphinlion", 38, 9.5)]
+    front = [("PetLapin", -22, -4, 5.6), ("PetRenard", -13, 1, 6.0), ("PetLicorne", 13, 1, 6.8), ("PetPanda", 22, -4, 5.6)]
     for nme, x, h in back:
         hill(x, 21, 9.5, 3.0)
         load(pet(nme.replace("pet_", "")), height=h, pos=(x, 21, 3.0), look=CAM)
@@ -134,7 +134,7 @@ if scn == "vignette":
     mp = nt.nodes.new("ShaderNodeMapping"); mp.inputs["Location"].default_value = (-1.0, -1.0, 0); mp.inputs["Scale"].default_value = (2, 2, 2); nt.links.new(tc.outputs["Generated"], mp.inputs[0]); nt.links.new(mp.outputs[0], gr.inputs[0])
     cr = nt.nodes.new("ShaderNodeValToRGB"); cr.color_ramp.elements[0].position = 0.0; cr.color_ramp.elements[0].color = (0, 0, 0, 1); cr.color_ramp.elements[1].position = 1.0; cr.color_ramp.elements[1].color = (1, 1, 1, 1)
     nt.links.new(gr.outputs["Fac"], cr.inputs["Fac"])
-    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Color"].default_value = (1.0, 0.65, 0.3, 1); em.inputs["Strength"].default_value = 1.6
+    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Color"].default_value = (1.0, 0.65, 0.3, 1); em.inputs["Strength"].default_value = 3.0
     tr = nt.nodes.new("ShaderNodeBsdfTransparent"); mx = nt.nodes.new("ShaderNodeMixShader"); out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(cr.outputs["Color"], mx.inputs[0]); nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(em.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs[0])
     gl.data.materials.append(gm); gl.visible_shadow = False
@@ -149,8 +149,8 @@ if scn == "vignette":
             bpy.context.object.scale = (1.5, 0.8, 0.15)
         o = bpy.context.object; o.rotation_euler = (random.random()*3, random.random()*3, random.random()*3)
         o.data.materials.append(mat("FFE066" if star else "FF9EC4", star))
-    camera(CAM, TGT, lens=26, fstop=5.5, focus=25)
-    area((0, -22, 9), (0, -9, 4), 700, 14, (1, 0.85, 0.8))
+    camera(CAM, TGT, lens=22, fstop=5.5, focus=25)
+    area((0, -22, 9), (0, -9, 4), 1100, 14, (1, 0.85, 0.8))
     render("vignette-1920x1080")
 elif scn == "icone":
     sc.view_settings.exposure = -0.2

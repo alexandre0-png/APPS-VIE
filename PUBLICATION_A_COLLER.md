@@ -32,7 +32,43 @@ Expérience > Paramètres > Informations de base (nom, description) ; Paramètre
 4. « À deux, on a moins peur. À peine. »
 5. « Horreur sans une goutte de sang. »
 
-## Jeu 3 : Chipe-Œufs (univers 10776613087)
+## Jeu 2 : Chipe-Œufs (univers 10776613087) : TEXTE MIS À JOUR (à coller quand les lots 9 à 16 sont publiés)
+
+**Nom** (50 caractères max) : `Chipe-Œufs : Pets & Arène 🥚`
+
+**Description courte** (~120 caractères) : `Récolte des œufs, fais éclore 78 pets rares, agrandis ta maison et combats dans l'arène !`
+
+**Description longue** (1000 caractères max) :
+
+```
+🥚 Bienvenue dans Chipe-Œufs !
+
+Récupère des œufs au marché, fais-les éclore et collectionne 78 créatures sur 10 raretés, du Commun au Divin. Chaque pet affiche sa rareté exacte (« 1 sur 38 494 »).
+
+🛒 Un tapis roulant livre des œufs au centre de la ville
+🏠 Plus tes pets sont rares, plus ta maison grandit (8 niveaux)
+🐺 Défends ton nid face aux gardiens et aux autres joueurs
+⚔️ Arène des Pets : forme une équipe de 3, 9 types, coups spéciaux, tour de 45 étages et classement
+🐔 Résous l'énigme quotidienne de la Mère Poule
+🎁 Calendrier de 30 jours : un cadeau chaque jour, un œuf Légendaire dès le jour 3
+🏰 Le Château : pièges et chevaliers, en solo ou entre amis
+👥 PNJ qui proposent échanges et combats
+
+Les probabilités de chaque œuf sont affichées dans le jeu. Les achats Robux sont facultatifs : tout s'obtient en jouant.
+```
+
+**Genres** : principal Adventure ; secondaires Fantasy, Comedy (selon ce que propose le Creator Hub). **Appareils** : Ordinateur, Téléphone, Tablette. **Joueurs max** : 5 (lieu de jeu 87012762353093) ; hub 115261336085924 = lieu de départ.
+
+**Cinq accroches**
+1. Fais éclore ton premier Divin : « 1 sur des milliers » !
+2. Plus tes pets sont rares, plus ta maison grandit.
+3. Forme ton équipe de 3 et monte les 45 étages de l'Arène.
+4. Connecte-toi 3 jours : un œuf Légendaire t'attend.
+5. Chipe l'œuf, évite le gardien, protège ton nid !
+
+(L'ancienne version du texte reste ci-dessous pour mémoire.)
+
+## ANCIENNE VERSION : Chipe-Œufs (univers 10776613087)
 
 **Nom** (50 caractères max) : `Chipe-Œufs : Vole des Œufs ! 🥚`
 
