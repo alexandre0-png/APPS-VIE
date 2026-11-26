@@ -607,7 +607,7 @@ local function setNestEgg(n, tier)
 	local pr = Instance.new("ProximityPrompt")
 	pr.ActionText = "Voler l'œuf"
 	pr.ObjectText = "Œuf " .. Config.TIERS[tier].name
-	pr.HoldDuration = Config.stealTime(0, n.terr) -- temps de vol propre au territoire (sauvage 0,8 / Gus 1,3 / Mara 1,9 / Zed 3,5)
+	pr.HoldDuration = Config.stealTime(0, n.terr) -- temps de vol propre au territoire (sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5)
 	pr.MaxActivationDistance = 10
 	pr.RequiresLineOfSight = false
 	pr:SetAttribute("Terr", n.terr)
@@ -997,7 +997,7 @@ end
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
-local pendingCharges = {} -- lot 8A : alarmes de nid en attente { player, terr, at } (cour de Zed ; traitées par guardsStep)
+local pendingCharges = {} -- lot 8A : alarmes de nid en attente { player, terr, at } (Mara et Zed ; traitées par guardsStep)
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
 	holds[player] = { prompt = prompt, t = os.clock() }
 	local s = sessions[player]
@@ -1178,11 +1178,11 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		qp(s, "steal", 1)
 		sp(s, "steal", 1, { rival = n.rival })
 		local alarm = Config.TERR[n.terr] and Config.TERR[n.terr].nestAlarm
-		if alarm then -- alarme du nid (cour de Zed) : l'ours le plus proche chargera le voleur dans alarm.delay s (voir guardsStep)
+		if alarm then -- alarme du nid (Mara, Zed) : le gardien le plus proche chargera le voleur dans alarm.delay s (voir guardsStep)
 			if #pendingCharges < 64 then -- borne de sécurité (une entrée par vol, purgée en alarm.delay s)
 				pendingCharges[#pendingCharges + 1] = { player = player, terr = n.terr, at = os.clock() + alarm.delay }
 			end
-			afterTake(s, "🥚 Œuf chipé ! 🐻 L'ours a senti le nid se vider : file vers la sortie !")
+			afterTake(s, "🥚 Œuf chipé ! " .. (n.rival == 3 and "🐻 L'ours" or "🐺 Le loup") .. " a senti le nid se vider : file vers la sortie !")
 		else
 			afterTake(s)
 		end
@@ -1306,14 +1306,17 @@ local function hitPlayer(s, g)
 		defeatAtBase(s)
 		return true
 	end
-	-- lot 8A (B.4 « prise par un gardien ») : les œufs de SON territoire portés par le joueur retournent à leur nid (Gus, clément, n'arrive pas ici)
+	-- lot 8A (B.4 « prise par un gardien ») : le gardien qui CHARGE après l'alarme du nid reprend les œufs de SON territoire (ils regagnent leur nid)
 	local back = false
-	for i = #s.carry, 1, -1 do
-		local e = s.carry[i]
-		if e.rival and e.terr == g.terr then
-			table.remove(s.carry, i)
-			returnEgg(e)
-			back = true
+	if g.charge == s.player then
+		g.charge = nil
+		for i = #s.carry, 1, -1 do
+			local e = s.carry[i]
+			if e.rival and e.terr == g.terr then
+				table.remove(s.carry, i)
+				returnEgg(e)
+				back = true
+			end
 		end
 	end
 	if back then
@@ -1461,7 +1464,7 @@ local function guardsStep(dt)
 				end
 				if best and not safeSpot(ps, proot, best) then -- déjà à l'abri (entrée, place, base) : aucune charge
 					best.st = Guard.charge(best.st)
-					best.target, best.wps = pc.player, nil
+					best.target, best.charge, best.wps = pc.player, pc.player, nil
 					best.last = Vector3.new(proot.Position.X, best.pos.Y, proot.Position.Z)
 					if best.mark then
 						best.mark.Text = "❗"
@@ -1539,6 +1542,9 @@ local function guardsStep(dt)
 			end
 			if state == "chase" or state == "patrol" or state == "return" then
 				g.target = (state == "chase") and target or nil
+			end
+			if state ~= "chase" then
+				g.charge = nil -- l'alarme du nid s'arrête avec la poursuite
 			end
 			if state == "chase" then
 				g.target = target or g.target

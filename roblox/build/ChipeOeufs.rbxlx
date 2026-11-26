@@ -1787,14 +1787,19 @@ Config.Map2 = {
 }
 
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
+-- Lot 8A : `nestAlarm` (Mara et Zed ; Gus reste clément, l'enclos sauvage n'a pas de gardien) : chiper un œuf réveille le gardien le plus proche du
+-- voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte un œuf du territoire, l'œuf retourne à son nid (B.4 « prise
+-- par un gardien »). La vitesse de fuite décide : simulation tests/SimSteal.lua, Zed 23 % sans amélioration, 97 % à vitesse 30 ; Mara 59 à 64 % (vitesses 0 à 30) ; Gus 88 à 100 %.
 Config.TERR = {
 	wild = { x = 75, z = -105, r = 12, rival = 0, guards = 0, hold = 0.8, respawn = { 12, 12 }, weights = { 100, 0, 0, 0, 0, 0 }, nests = { { 70, -105 }, { 75, -105 }, { 80, -105 } } },
 	gusNW = { x = -95, z = -80, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -75, -100 }, { -120, -95 }, { -95, -55 } }, posts = { { -95, -80 } } },
 	gusSW = { x = -120, z = 75, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -145, 55 }, { -115, 105 }, { -90, 60 } }, posts = { { -120, 75 } } },
 	mara = { x = 85, z = 80, r = 42, rival = 2, guards = 2, hold = 2.2, respawn = { 12, 21 }, weights = { 0, 40, 40, 20, 0, 0 }, nests = { { 65, 70 }, { 105, 65 }, { 90, 110 } }, posts = { { 72, 82 }, { 100, 82 } },
-		traps = { bells = 3, mud = 2 }, speed = { chase = 19, patrol = 10 }, view = { 28, 110, 14 }, hit = 20 },
+		traps = { bells = 3, mud = 2 }, speed = { chase = 19, patrol = 10 }, view = { 28, 110, 14 }, hit = 25,
+		nestAlarm = { delay = 0.9 } }, -- lot 8A : coup du loup 20 -> 25 pv (Mara 61 à 64 % aux vitesses 0 à 30 au lieu de 66 à 70 %)
 	zed = { x = 265, z = -170, r = 38, rival = 3, guards = 3, hold = 3.5, respawn = { 18, 32 }, weights = { 0, 0, 30, 45, 22, 3 }, nests = { { 240, -160 }, { 265, -185 }, { 290, -160 } }, posts = { { 240, -165 }, { 265, -180 }, { 290, -165 } },
-		traps = { gate = { x = 240, z = -138, open = 3, closed = 3 }, plates = 4, searchlights = 2, searchlightRev = 0.5 }, speed = { chase = 26, patrol = 13 }, view = { 32, 120, 16 }, hit = 28, freshness = 75 },
+		traps = { gate = { x = 240, z = -138, open = 3, closed = 3 }, plates = 4, searchlights = 2, searchlightRev = 0.5 }, speed = { chase = 26, patrol = 13 }, view = { 32, 120, 16 }, hit = 28, freshness = 75,
+		nestAlarm = { delay = 1.2 } },
 }
 Config.TERR_ORDER = { "wild", "gusNW", "gusSW", "mara", "zed" }
 Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +15 % vue et ouïe par vol réussi dans les 60 s, plafond +45 %, retour à la normale 30 s après le dernier vol
@@ -6704,6 +6709,11 @@ function Guard.nextState(st, dt, p, cfg)
 	return { state = s, timer = timer, lost = lost }, event
 end
 
+-- Alarme du nid (cour de Zed, lot 8A) : l'ours réveillé passe directement en poursuite du voleur (nouvelle table d'état).
+function Guard.charge(_st)
+	return { state = "chase", timer = 0, lost = 0 }
+end
+
 -- Dégâts : retourne (nouveaux points de vie, touché ?, invulnérabilité restante). Pendant l'invulnérabilité ou si hp <= 0 : aucun dégât.
 function Guard.applyDamage(hp, damage, iframes, cfg)
 	if iframes > 0 or hp <= 0 or damage <= 0 then
@@ -8718,6 +8728,7 @@ end
 ---------------------------------------------------------------- Vol (nids PNJ et bases des joueurs)
 -- Le serveur mesure lui-même la durée de maintien du bouton (le client ne fait qu'afficher la barre).
 local holds = {}
+local pendingCharges = {} -- lot 8A : alarmes de nid en attente { player, terr, at } (Mara et Zed ; traitées par guardsStep)
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
 	holds[player] = { prompt = prompt, t = os.clock() }
 	local s = sessions[player]
@@ -8897,7 +8908,15 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		sp(s, "steal", 1, { rival = n.rival })
-		afterTake(s)
+		local alarm = Config.TERR[n.terr] and Config.TERR[n.terr].nestAlarm
+		if alarm then -- alarme du nid (Mara, Zed) : le gardien le plus proche chargera le voleur dans alarm.delay s (voir guardsStep)
+			if #pendingCharges < 64 then -- borne de sécurité (une entrée par vol, purgée en alarm.delay s)
+				pendingCharges[#pendingCharges + 1] = { player = player, terr = n.terr, at = os.clock() + alarm.delay }
+			end
+			afterTake(s, "🥚 Œuf chipé ! " .. (n.rival == 3 and "🐻 L'ours" or "🐺 Le loup") .. " a senti le nid se vider : file vers la sortie !")
+		else
+			afterTake(s)
+		end
 	else
 		local vp = Players:GetPlayerByUserId(prompt:GetAttribute("Owner") or 0)
 		local vs = vp and sessions[vp]
@@ -9016,6 +9035,26 @@ local function hitPlayer(s, g)
 	notify(s.player, "🐕 " .. r.name .. " t'a mordu : -" .. r.damage .. " ❤️ (" .. math.floor(hp + 0.5) .. "/" .. GC.maxHp .. ")", "hurt")
 	if hp <= 0 then
 		defeatAtBase(s)
+		return true
+	end
+	-- lot 8A (B.4 « prise par un gardien ») : le gardien qui CHARGE après l'alarme du nid reprend les œufs de SON territoire (ils regagnent leur nid)
+	local back = false
+	if g.charge == s.player then
+		g.charge = nil
+		for i = #s.carry, 1, -1 do
+			local e = s.carry[i]
+			if e.rival and e.terr == g.terr then
+				table.remove(s.carry, i)
+				returnEgg(e)
+				back = true
+			end
+		end
+	end
+	if back then
+		rebuildCarry(s)
+		applySpeed(s)
+		sync(s)
+		notify(s.player, "↩️ " .. r.name .. " a repris l'œuf : il retourne à son nid.", "caught")
 	end
 	return true
 end
@@ -9137,6 +9176,41 @@ local function guardsStep(dt)
 		s.iframes = math.max(0, (s.iframes or 0) - dt)
 		s.sinceHit = (s.sinceHit or 99) + dt
 	end
+	local nowc = os.clock()
+	for i = #pendingCharges, 1, -1 do -- alarmes de nid échues (lot 8A) : le gardien du territoire le plus proche du voleur le charge
+		local pc = pendingCharges[i]
+		if nowc >= pc.at then
+			table.remove(pendingCharges, i)
+			local ps = sessions[pc.player]
+			local proot = ps and alive(pc.player) and getRoot(pc.player)
+			if proot then
+				local best, bd = nil, math.huge
+				for _, g in ipairs(world.guards) do
+					if g.terr == pc.terr then
+						local d = (Vector3.new(g.pos.X, 0, g.pos.Z) - Vector3.new(proot.Position.X, 0, proot.Position.Z)).Magnitude
+						if d < bd then
+							best, bd = g, d
+						end
+					end
+				end
+				if best and not safeSpot(ps, proot, best) then -- déjà à l'abri (entrée, place, base) : aucune charge
+					best.st = Guard.charge(best.st)
+					best.target, best.charge, best.wps = pc.player, pc.player, nil
+					best.last = Vector3.new(proot.Position.X, best.pos.Y, proot.Position.Z)
+					if best.mark then
+						best.mark.Text = "❗"
+					end
+					local key = Config.guardSoundKey(Config.Assets.guardKinds[best.rival])
+					for pl in pairs(sessions) do
+						local pr = getRoot(pl)
+						if pr and (pr.Position - best.pos).Magnitude < 60 then
+							notify(pl, "", key)
+						end
+					end
+				end
+			end
+		end
+	end
 	for _, g in ipairs(world.guards) do
 		local r = g.stats
 		local bonus = vigilanceOf(g.terr)
@@ -9200,6 +9274,9 @@ local function guardsStep(dt)
 			if state == "chase" or state == "patrol" or state == "return" then
 				g.target = (state == "chase") and target or nil
 			end
+			if state ~= "chase" then
+				g.charge = nil -- l'alarme du nid s'arrête avec la poursuite
+			end
 			if state == "chase" then
 				g.target = target or g.target
 			elseif state == "return" or state == "patrol" then
@@ -9233,7 +9310,7 @@ local function guardsStep(dt)
 					g.pos += look * math.min(dv.Magnitude, r.guardSpeed * dt)
 				end
 				local flat = Vector3.new(goal.X - g.pos.X, 0, goal.Z - g.pos.Z)
-				if state == "chase" and ts and flat.Magnitude < GC.attackRange and g.cd <= 0 then
+				if state == "chase" and ts and flat.Magnitude < GC.attackRange and g.cd <= 0 and troot ~= nil and not safeSpot(ts, troot, g) then -- jamais de coup dans la zone sûre (A.5, comme la simulation)
 					if hitPlayer(ts, g) then
 						g.cd = GC.attackCd
 					end

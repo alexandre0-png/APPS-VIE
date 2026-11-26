@@ -15,10 +15,10 @@
 --  H4  Pièges (Traps.playerStep) : clochettes, dalles et lanternes envoient les gardiens à l'endroit (état « perte de cible », comme Main) ; boue x0,6.
 --  H5  Réussite = le robot sort par l'entrée avec l'œuf et des points de vie > 0 en moins de 120 s. Échec = 0 pv, œuf repris, ou 120 s écoulées.
 --  H6  Les poursuivants ne quittent jamais leur disque ; aucun gardien ne vise le robot à moins de GUARD.safeRadius de l'entrée (comme le jeu).
---  H7  Règles du lot 8A (mêmes que Main) : (a) PRISE PAR UN GARDIEN (B.4) : un coup d'un gardien non clément (loup de Mara, ours de Zed) pendant que
---      le robot porte l'œuf de ce territoire = l'œuf retourne à son nid (échec « retaken »). (b) ALARME DU NID, seulement là où
---      Config.TERR[terr].nestAlarm existe (cour de Zed) : chiper un œuf réveille le gardien le plus proche du voleur, qui le charge `delay` s plus tard.
---      Gus (gentle) : une prise renvoie à la base ; avant d'avoir l'œuf, c'est un échec ; avec l'œuf, il est gardé (règle de Main) : réussite.
+--  H7  Règle du lot 8A (même que Main), là où Config.TERR[terr].nestAlarm existe (Mara, Zed) : chiper un œuf réveille le gardien le plus proche
+--      du voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte l'œuf, l'œuf retourne à son nid (B.4, « retaken »).
+--      Les autres coups ne coûtent que des pv (lot 4). Gus (gentle, sans alarme) : une prise renvoie à la base ; avant d'avoir l'œuf, c'est un
+--      échec ; avec l'œuf, il est gardé (règle de Main) : réussite.
 local Sim = {}
 
 local sqrt = math.sqrt
@@ -170,7 +170,7 @@ function Sim.trial(Config, Guard, Traps, speedStat, rnd, opts)
 			end
 			if best then
 				best.st = Guard.charge(best.st)
-				best.last = { x = me.x, z = me.z }
+				best.last, best.charge = { x = me.x, z = me.z }, true
 			end
 		end
 		if env.L then
@@ -201,6 +201,9 @@ function Sim.trial(Config, Guard, Traps, speedStat, rnd, opts)
 			percept.atHome = sqrt((homeX - g.x) ^ 2 + (g.pz - g.z) ^ 2) < 1
 			g.st = Guard.nextState(g.st, dt, percept, GC)
 			local state = g.st.state
+			if state ~= "chase" then
+				g.charge = false -- la charge s'arrête avec la poursuite (comme Main)
+			end
 			if state == "patrol" then
 				patrolMove(g, stats.patrolSpeed, dt)
 			elseif state == "alert" then
@@ -234,7 +237,7 @@ function Sim.trial(Config, Guard, Traps, speedStat, rnd, opts)
 					hp = hp - stats.damage
 					inv = Config.GUARD.iframes
 					me.hold = 0 -- un coup interrompt le maintien du bouton (recul hors de portée du prompt)
-					if me.phase == "out" then -- H7 (a) : le gardien reprend l'œuf, qui retourne à son nid
+					if me.phase == "out" and g.charge then -- H7 : le gardien qui charge reprend l'œuf, qui retourne à son nid
 						count("retaken")
 						return false
 					end

@@ -132,7 +132,7 @@ Config.VIP_DAILY_MUL = 2
 Config.SHIELD_BASE = 20 -- secondes de protection d'un œuf fraîchement posé (anti-vol)
 Config.SHIELD_PER_LEVEL = 10
 
--- Temps de vol (s) : base du territoire `terr` (Config.TERR[terr].hold : sauvage 0,8 / Gus 1,3 / Mara 1,9 (lot 8A) / Zed 3,5) x 0,85 ^ niveau de Doigts agiles.
+-- Temps de vol (s) : base du territoire `terr` (Config.TERR[terr].hold : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5) x 0,85 ^ niveau de Doigts agiles.
 -- Sans territoire (vol entre joueurs, appels historiques) : 1,3 s de base.
 function Config.stealTime(level, terr)
 	local base = 1.3
@@ -1783,19 +1783,19 @@ Config.Map2 = {
 }
 
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
--- Lot 8A : (1) prise par un gardien NON clément (loup, ours) = les œufs de SON territoire portés par le joueur retournent à leur nid (B.4) ; Gus reste
--- clément (renvoi à la base, cargaison gardée). (2) `nestAlarm` (cour de Zed seulement) : chiper un œuf réveille l'ours le plus proche du voleur, qui
--- le charge `delay` s plus tard : la vitesse de fuite décide (simulation tests/SimSteal.lua : 18 % sans amélioration, > 90 % à vitesse 30).
--- Mara : maintien ramené de 2,2 à 1,9 s (avec la règle de prise, 2,2 s laisse le loup arriver avant la fin du maintien : 10 % de réussite ; 1,9 s : 49 à 68 %).
+-- Lot 8A : `nestAlarm` (Mara et Zed ; Gus reste clément, l'enclos sauvage n'a pas de gardien) : chiper un œuf réveille le gardien le plus proche du
+-- voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte un œuf du territoire, l'œuf retourne à son nid (B.4 « prise
+-- par un gardien »). La vitesse de fuite décide : simulation tests/SimSteal.lua, Zed 23 % sans amélioration, 97 % à vitesse 30 ; Mara 59 à 64 % (vitesses 0 à 30) ; Gus 88 à 100 %.
 Config.TERR = {
 	wild = { x = 75, z = -105, r = 12, rival = 0, guards = 0, hold = 0.8, respawn = { 12, 12 }, weights = { 100, 0, 0, 0, 0, 0 }, nests = { { 70, -105 }, { 75, -105 }, { 80, -105 } } },
 	gusNW = { x = -95, z = -80, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -75, -100 }, { -120, -95 }, { -95, -55 } }, posts = { { -95, -80 } } },
 	gusSW = { x = -120, z = 75, r = 40, rival = 1, guards = 1, hold = 1.3, respawn = { 9, 16 }, weights = { 60, 35, 5, 0, 0, 0 }, nests = { { -145, 55 }, { -115, 105 }, { -90, 60 } }, posts = { { -120, 75 } } },
-	mara = { x = 85, z = 80, r = 42, rival = 2, guards = 2, hold = 1.9, respawn = { 12, 21 }, weights = { 0, 40, 40, 20, 0, 0 }, nests = { { 65, 70 }, { 105, 65 }, { 90, 110 } }, posts = { { 72, 82 }, { 100, 82 } },
-		traps = { bells = 3, mud = 2 }, speed = { chase = 19, patrol = 10 }, view = { 28, 110, 14 }, hit = 20 },
+	mara = { x = 85, z = 80, r = 42, rival = 2, guards = 2, hold = 2.2, respawn = { 12, 21 }, weights = { 0, 40, 40, 20, 0, 0 }, nests = { { 65, 70 }, { 105, 65 }, { 90, 110 } }, posts = { { 72, 82 }, { 100, 82 } },
+		traps = { bells = 3, mud = 2 }, speed = { chase = 19, patrol = 10 }, view = { 28, 110, 14 }, hit = 25,
+		nestAlarm = { delay = 0.9 } }, -- lot 8A : coup du loup 20 -> 25 pv (Mara 61 à 64 % aux vitesses 0 à 30 au lieu de 66 à 70 %)
 	zed = { x = 265, z = -170, r = 38, rival = 3, guards = 3, hold = 3.5, respawn = { 18, 32 }, weights = { 0, 0, 30, 45, 22, 3 }, nests = { { 240, -160 }, { 265, -185 }, { 290, -160 } }, posts = { { 240, -165 }, { 265, -180 }, { 290, -165 } },
 		traps = { gate = { x = 240, z = -138, open = 3, closed = 3 }, plates = 4, searchlights = 2, searchlightRev = 0.5 }, speed = { chase = 26, patrol = 13 }, view = { 32, 120, 16 }, hit = 28, freshness = 75,
-		nestAlarm = { delay = 1.0 } },
+		nestAlarm = { delay = 1.2 } },
 }
 Config.TERR_ORDER = { "wild", "gusNW", "gusSW", "mara", "zed" }
 Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +15 % vue et ouïe par vol réussi dans les 60 s, plafond +45 %, retour à la normale 30 s après le dernier vol

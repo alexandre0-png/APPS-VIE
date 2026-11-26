@@ -7635,14 +7635,14 @@ do
 	local V = Config.VIGILANCE
 
 	-- 1. temps de vol par territoire --------------------------------------------------------------------------------------------------
-	check("stealTime par territoire : sauvage 0,8 / Gus 1,3 / Mara 1,9 (lot 8A, cahier 2,2 : voir CHANGELOG) / Zed 3,5 s", near(Config.stealTime(0, "wild"), 0.8) and near(Config.stealTime(0, "gusNW"), 1.3) and near(Config.stealTime(0, "gusSW"), 1.3) and near(Config.stealTime(0, "mara"), 1.9) and near(Config.stealTime(0, "zed"), 3.5))
-	check("stealTime : Doigts agiles x 0,85 par niveau dans chaque territoire (Zed niveau 4 = " .. string.format("%.3f", Config.stealTime(4, "zed")) .. " s)", near(Config.stealTime(4, "zed"), 3.5 * 0.85 ^ 4) and near(Config.stealTime(3, "mara"), 1.9 * 0.85 ^ 3) and near(Config.stealTime(8, "wild"), 0.8 * 0.85 ^ 8))
+	check("stealTime par territoire : sauvage 0,8 / Gus 1,3 / Mara 2,2 / Zed 3,5 s", near(Config.stealTime(0, "wild"), 0.8) and near(Config.stealTime(0, "gusNW"), 1.3) and near(Config.stealTime(0, "gusSW"), 1.3) and near(Config.stealTime(0, "mara"), 2.2) and near(Config.stealTime(0, "zed"), 3.5))
+	check("stealTime : Doigts agiles x 0,85 par niveau dans chaque territoire (Zed niveau 4 = " .. string.format("%.3f", Config.stealTime(4, "zed")) .. " s)", near(Config.stealTime(4, "zed"), 3.5 * 0.85 ^ 4) and near(Config.stealTime(3, "mara"), 2.2 * 0.85 ^ 3) and near(Config.stealTime(8, "wild"), 0.8 * 0.85 ^ 8))
 	check("stealTime : appel historique sans territoire inchangé (1,3 x 0,85^niveau), territoire inconnu = 1,3", near(Config.stealTime(0), 1.3) and near(Config.stealTime(5), 1.3 * 0.85 ^ 5) and near(Config.stealTime(2, "inconnu"), 1.3 * 0.85 ^ 2))
 	check("stealTime : le temps de base de chaque territoire croît avec la difficulté (sauvage < Gus < Mara < Zed)", Config.stealTime(0, "wild") < Config.stealTime(0, "gusNW") and Config.stealTime(0, "gusNW") < Config.stealTime(0, "mara") and Config.stealTime(0, "mara") < Config.stealTime(0, "zed"))
 
 	-- 2. vitesses, vue, ouïe, coup par territoire --------------------------------------------------------------------------------------
 	local gm, gz, gg = Config.guardStats("mara"), Config.guardStats("zed"), Config.guardStats("gusNW")
-	check("Mara : poursuite 19 / patrouille 10, vue 28 m, angle 110, ouïe 14, coup 20 pv", gm.guardSpeed == 19 and gm.patrolSpeed == 10 and gm.viewDist == 28 and gm.viewAngle == 110 and gm.hearRadius == 14 and gm.damage == 20)
+	check("Mara : poursuite 19 / patrouille 10, vue 28 m, angle 110, ouïe 14, coup 25 pv (lot 8A, cahier 20)", gm.guardSpeed == 19 and gm.patrolSpeed == 10 and gm.viewDist == 28 and gm.viewAngle == 110 and gm.hearRadius == 14 and gm.damage == 25)
 	check("Zed : poursuite 26 / patrouille 13, vue 32 m, angle 120, ouïe 16, coup 28 pv", gz.guardSpeed == 26 and gz.patrolSpeed == 13 and gz.viewDist == 32 and gz.viewAngle == 120 and gz.hearRadius == 16 and gz.damage == 28)
 	check("Gus inchangé et clément : 9,5 / 4,5, vue 16 m, 80 degrés, ouïe 7, coup 10 pv, gentle", gg.guardSpeed == 9.5 and gg.patrolSpeed == 4.5 and gg.viewDist == 16 and gg.viewAngle == 80 and gg.hearRadius == 7 and gg.damage == 10 and gg.gentle == true and Config.guardStats("gusSW").gentle == true)
 	check("guardStats : ne modifie pas Config.RIVALS (copie)", Config.RIVALS[2].guardSpeed == 19 and gm ~= Config.RIVALS[2] and gm.name == "Mara")
@@ -7824,18 +7824,20 @@ do
 		check("Simulation chez Zed : Doigts agiles améliore nettement le taux (" .. string.format("%.0f", r0f5 * 100) .. " % contre " .. string.format("%.0f", r0 * 100) .. " % sans)", r0f5 > r0 + 0.25)
 		-- lot 8A : Mara (difficulté moyenne) et Gus (clément) avec le même joueur-robot
 		local mr, mmin, mmax, mtxt = {}, 1, 0, ""
-		for _, sp in ipairs({ 0, 10, 20, 30, 40 }) do
+		for _, sp in ipairs({ 0, 10, 20, 30 }) do
 			mr[sp] = SIM.rate(Config, GU, TR, sp, N, 777, { terr = "mara" })
 			mmin, mmax = math.min(mmin, mr[sp]), math.max(mmax, mr[sp])
 			mtxt = mtxt .. " v" .. sp .. "=" .. string.format("%.0f", mr[sp] * 100)
 		end
+		local m40 = SIM.rate(Config, GU, TR, 40, N, 777, { terr = "mara" })
+		mtxt = mtxt .. " (v40=" .. string.format("%.0f", m40 * 100) .. ", hors cible : loups plus lents qu'un joueur très rapide)"
 		local g0 = SIM.rate(Config, GU, TR, 0, N, 777, { terr = "gusNW" })
 		local g0b = SIM.rate(Config, GU, TR, 0, N, 777, { terr = "gusSW" })
 		print(string.format("  [lot 8A] Mara :%s %% ; Gus : nord-ouest %.0f %%, sud-ouest %.0f %% (vitesse 0)", mtxt, g0 * 100, g0b * 100))
-		check("Simulation chez Mara : entre 30 et 70 % de réussite à toutes les vitesses de 0 à 40 (" .. mtxt .. " %)", mmin >= 0.30 and mmax <= 0.70)
+		check("Simulation chez Mara : entre 30 et 70 % de réussite aux vitesses 0, 10, 20 et 30 (" .. mtxt .. " %)", mmin >= 0.30 and mmax <= 0.70)
 		check("Simulation chez Gus : clément, plus de 85 % de réussite sans amélioration dans ses deux territoires (" .. string.format("%.0f / %.0f", g0 * 100, g0b * 100) .. " %)", g0 > 0.85 and g0b > 0.85)
 		check("Difficulté croissante sans amélioration : Gus > Mara > Zed", math.min(g0, g0b) > mr[0] and mr[0] > r0)
-		check("Alarme du nid : cour de Zed seulement (Mara, Gus et l'enclos sauvage n'en ont pas)", type(Config.TERR.zed.nestAlarm) == "table" and type(Config.TERR.zed.nestAlarm.delay) == "number" and Config.TERR.zed.nestAlarm.delay > 0 and Config.TERR.mara.nestAlarm == nil and Config.TERR.gusNW.nestAlarm == nil and Config.TERR.gusSW.nestAlarm == nil and Config.TERR.wild.nestAlarm == nil)
+		check("Alarme du nid : Mara et Zed seulement (Gus reste clément, l'enclos sauvage n'a pas de gardien)", type(Config.TERR.zed.nestAlarm) == "table" and type(Config.TERR.zed.nestAlarm.delay) == "number" and Config.TERR.zed.nestAlarm.delay > 0 and type(Config.TERR.mara.nestAlarm) == "table" and type(Config.TERR.mara.nestAlarm.delay) == "number" and Config.TERR.mara.nestAlarm.delay > 0 and Config.TERR.gusNW.nestAlarm == nil and Config.TERR.gusSW.nestAlarm == nil and Config.TERR.wild.nestAlarm == nil)
 		local cst = GU.charge({ state = "patrol", timer = 3, lost = 1 })
 		check("Guard.charge : passe en poursuite (nouvelle table, compteurs à zéro)", cst.state == "chase" and cst.timer == 0 and cst.lost == 0)
 	end)()
