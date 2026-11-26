@@ -599,6 +599,9 @@ end)
 -- Éclosion : commun et rare sans cinématique ; épique court ; légendaire, mythique, cosmique et secret complets ; au plus une toutes les 20 s.
 Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 	local def = Config.PETS[info.p]
+	if Config.HATCH_FX and Config.HATCH_FX.Enabled and Config.HATCH_FX.replaceCine then -- lot 10 : l'écran d'éclosion HatchFx remplace ce plan (zoom géré par HatchFx)
+		return
+	end
 	if not def or not Config.cineEnabled("eclosion") or os.clock() - lastHatchCine < 20 or director.isActive() then
 		return
 	end

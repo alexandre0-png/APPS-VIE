@@ -450,7 +450,7 @@ Config.SOUNDS = {
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
 -- Lot 10 : anciennes clés jouées avec un son approuvé du lot 28 (le client lit l'identifiant de la cible ; volume de la clé d'origine). Cible sans id = son d'origine.
-Config.SOUND_ALIAS = { click = "ui_click", menu = "ui_click", refuse = "ui_error", coin = "coin_pickup", levelup = "house_levelup" }
+Config.SOUND_ALIAS = { click = "ui_click", menu = "ui_click", refuse = "ui_error", coin = "coin_pickup", levelup = "house_levelup", event = "npc_ping" }
 -- Lot 10 : clé de son d'attaque d'un type (« Lumière » -> atk_lumiere, alias « Nature » -> atk_plante) ; nil si inconnu.
 Config.ATK_SOUND = { Feu = "atk_feu", Eau = "atk_eau", Plante = "atk_plante", Nature = "atk_plante", Glace = "atk_glace", Foudre = "atk_foudre", Terre = "atk_terre", Ciel = "atk_ciel", Ombre = "atk_ombre", ["Lumière"] = "atk_lumiere" }
 -- Lot 10 : son d'éclosion approuvé d'une rareté (hatch_r1..hatch_r10), ou nil.

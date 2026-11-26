@@ -41,6 +41,25 @@ function L10.oddsText(o)
 	end
 	return "—"
 end
+-- Clé d'icône d'une récompense du calendrier (tirage, œuf de rareté, cosmétique, titre, plumes, jetons, parchemins, pièces).
+function L10.calIcon(rw)
+	if rw.draw then
+		return "r_mystere"
+	elseif rw.egg then
+		return "egg_r" .. rw.egg
+	elseif rw.cosm then
+		return "r_cosmetique_traine"
+	elseif rw.title then
+		return "r_titre"
+	elseif rw.plumes then
+		return "r_plume"
+	elseif rw.tokens then
+		return "r_jeton_combat"
+	elseif rw.scrolls then
+		return "r_parchemin_xp"
+	end
+	return (rw.c or 0) >= 40 and "r_coins_l" or ((rw.c or 0) >= 15 and "r_coins_m" or "r_coins_s")
+end
 -- Icône d'interface (Config.ICONS) : URL d'image publiée par le serveur (attribut du dossier ReplicatedStorage.Icons), sinon nil (l'appelant garde son emoji).
 function L10.iconUrl(key)
 	local folder = ReplicatedStorage:FindFirstChild("Icons")
@@ -115,7 +134,7 @@ local function getSound(key)
 		local s = Instance.new("Sound")
 		s.Name = "Sfx_" .. key
 		s.SoundId = soundId
-		s.PlaybackSpeed = def.speed or 1
+		s.PlaybackSpeed = (soundId ~= def.id) and (alias.speed or 1) or (def.speed or 1)
 		s.Looped = def.loop == true
 		s.Parent = game:GetService("SoundService")
 		return s
@@ -442,7 +461,7 @@ do
 	end
 end
 
-local function revealPop(info)
+local function revealCard(info, viaFx)
 	local def = Config.PETS[info.p]
 	if Config.tierAtLeast(def.tier, "announce") and tryOfferLater then
 		tryOfferLater("rare")
@@ -463,7 +482,8 @@ local function revealPop(info)
 	popScale.Scale = 0.2
 	-- Révélation par rareté : style calculé (Reveal.style) d'après la rareté et la probabilité réelle « 1 sur N » envoyée par le serveur.
 	local oneIn = type(info.oneIn) == "number" and info.oneIn > 0 and info.oneIn or nil
-	popOdds.Text = oneIn and Config.fmtOdds(oneIn) or ""
+	-- lot 10 : compteur de référence figé par le serveur (Odds.label, identique pour tous) ; repli sur la probabilité réelle si le serveur ne l'a pas envoyé
+	popOdds.Text = (type(info.o) == "number" and L10.oddsText(info.o)) or (oneIn and Config.fmtOdds(oneIn)) or ""
 	local reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	local st = Reveal.style(Config, def.tier, oneIn, reduced)
 	if info.upgraded == true and Config.TIERS[info.egg] then
@@ -475,7 +495,7 @@ local function revealPop(info)
 		popRarity.TextColor3 = st.color
 		popRarity.TextSize = 26
 	end
-	if Config.REVEAL.Enabled then
+	if Config.REVEAL.Enabled and not viaFx then -- lot 10 : remplacé par HatchFx quand l'écran d'éclosion a tourné
 		RevealFx.play(gui, st, UDim2.new(0.5, 0, 0.3, -35))
 	end
 	local big = Config.tierAtLeast(def.tier, "announce") or info.m > 1 or info.s >= 4
@@ -484,7 +504,9 @@ local function revealPop(info)
 		flash.BackgroundTransparency = 1 - 0.7 * st.flash
 		TweenService:Create(flash, TweenInfo.new(0.35 + 0.5 * st.flash), { BackgroundTransparency = 1 }):Play()
 	end
-	playSound(Config.hatchSoundKey(def.tier, st.secret))
+	if not viaFx then -- lot 10 : HatchFx joue hatch_r1..r10 lui-même
+		playSound(Config.hatchSoundKey(def.tier, st.secret))
+	end
 	pcall(playHatchVfx, info, def.tier, st.secret) -- effets 3D en plus de la révélation en interface, selon la qualité
 	if Config.tierAtLeast(def.tier, "shine") then -- rareté croissante : brillance sur le bandeau dès Épique, vignette colorée et pulsation dès Légendaire
 		shineSweep(popRarity, tier.color:Lerp(Color3.new(1, 1, 1), 0.6))
@@ -515,6 +537,72 @@ local function revealPop(info)
 			pop.Visible = false
 		end
 	end)
+end
+
+-- Lot 10 : sons de l'écran d'éclosion. Avant la révélation : l'œuf tremble (egg_shake) ; à la révélation : hatch_r1..r10 de la rareté, fanfare et tirage secret
+-- (N >= 1 000 000) = jackpot_rare (une seule fois par éclosion). « divine » (r10, au départ) n'ajoute rien : hatch_r10 sonne déjà à la révélation.
+function L10.hatchSound(key, r, st)
+	if not st.revealed then
+		if key == "hatch" or key == "hatchSecret" then
+			playSound("egg_shake")
+		end
+	elseif key == "fanfare" or key == "secret" then
+		if not st.jackpot then
+			st.jackpot = true
+			playSound("jackpot_rare")
+		end
+	elseif key ~= "divine" and not st.tierSound then
+		st.tierSound = true
+		playSound(Config.hatchSoundR(r))
+	end
+end
+-- Écran d'éclosion du lot 10 (HatchPlan + HatchFx) ; la carte du pet (revealCard) s'affiche à la révélation. Retourne faux si désactivé (ancienne révélation).
+function L10.hatch(info, def)
+	if not (Config.HATCH_FX.Enabled and Config.REVEAL.Enabled) then
+		return false
+	end
+	local r = def.tier
+	local o = (type(info.o) == "number" and info.o == info.o and info.o >= 1) and info.o or nil
+	local reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) -- mobile : particules / 2
+	local carry = player:GetAttribute("Carry")
+	local first = info.first == true and not L10.seenTier[r]
+	L10.seenTier[r] = true
+	local okPlan, plan = pcall(L10.HatchPlan.plan, r, o, { reduced = reduced, firstTime = first, still = type(carry) == "number" and carry > 0 })
+	if not okPlan or type(plan) ~= "table" then
+		return false
+	end
+	if type(plan.beats) == "table" then -- la machine à sous (SlotFx) a déjà tourné avant : pas de seconde machine dans l'écran d'éclosion
+		local kept = {}
+		for _, b in ipairs(plan.beats) do
+			if not (type(b) == "table" and b.kind == "slot") then
+				kept[#kept + 1] = b
+			end
+		end
+		plan.beats = kept
+	end
+	local tier = Config.TIERS[r]
+	local st = { revealed = false }
+	L10.HatchFx.play(gui, plan, {
+		colors = { main = tier.color, second = tier.color2 },
+		rarityName = tier.name,
+		petText = def.emoji,
+		fmtOdds = L10.Odds.label,
+		sound = function(key)
+			L10.hatchSound(key, r, st)
+		end,
+		onReveal = function()
+			st.revealed = true
+			revealCard(info, true)
+		end,
+	})
+	return true
+end
+local function revealPop(info)
+	local def = Config.PETS[info.p]
+	if def and L10.hatch(info, def) then
+		return
+	end
+	revealCard(info, false)
 end
 
 ---------------------------------------------------------------- Promesse d'accueil : visible tout de suite, ne bloque rien
@@ -669,6 +757,9 @@ end
 
 local render
 local function setTab(t)
+	if t == "cal" and panel.tab ~= "cal" then
+		playSound("calendar_open") -- lot 10 : son approuvé à l'ouverture du calendrier
+	end
 	panel.tab = t
 	panel.confirm = false
 	render()
@@ -1100,7 +1191,11 @@ function render()
 				local rw = CC.rewards[d]
 				local icon = rw.draw and "🎲" or (rw.egg and "🥚" or (rw.cosm and CC.cosmetics[rw.cosm].emoji or (rw.title and "🏷" or ((rw.plumes and "🪶") or (rw.tokens and "⚔️") or (rw.scrolls and "📜") or "🪙"))))
 				local col = st == "c" and COL.dis or (st == "t" and COL.green or (st == "m" and Color3.fromRGB(120, 60, 60) or COL.panel))
-				local b = make("TextButton", { LayoutOrder = d, BackgroundColor3 = col, Text = (st == "c" and "✅" or icon) .. "\nJ" .. d, Font = FONT, TextSize = 14, TextColor3 = st == "t" and COL.dark or COL.text, AutoButtonColor = true }, grid)
+				local url = st ~= "c" and L10.iconUrl(L10.calIcon(rw)) or nil -- lot 10 : icône Decal publiée par le serveur, sinon emoji
+				local b = make("TextButton", { LayoutOrder = d, BackgroundColor3 = col, Text = url and ("J" .. d) or ((st == "c" and "✅" or icon) .. "\nJ" .. d), TextYAlignment = url and Enum.TextYAlignment.Bottom or Enum.TextYAlignment.Center, Font = FONT, TextSize = 14, TextColor3 = st == "t" and COL.dark or COL.text, AutoButtonColor = true }, grid)
+				if url then
+					make("ImageLabel", { BackgroundTransparency = 1, Image = url, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3), Size = UDim2.fromOffset(32, 32), ScaleType = Enum.ScaleType.Fit }, b)
+				end
 				corner(b, 10)
 				pressFx(b)
 				if d == CC.legendaryDay then
@@ -2201,6 +2296,18 @@ do
 				end
 				setLoop("blade", nearBlade)
 				setLoop("ball", nearBall)
+				-- lot 10 : tapis du marché (boucle atténuée par la distance au segment du tapis, 40 studs) et étals (ambiance de kiosque, 30 studs)
+				local M2 = Config.Map2
+				local nearBelt, nearKiosk = 0, 0
+				if not inCastle then
+					local bx = math.min(math.max(p.X, M2.belt.x0), M2.belt.x1)
+					nearBelt = Config.loopFade(math.sqrt((p.X - bx) ^ 2 + (p.Z - M2.belt.z) ^ 2), 40)
+					for _, st in ipairs(M2.stalls) do
+						nearKiosk = math.max(nearKiosk, Config.loopFade(math.sqrt((p.X - st.x) ^ 2 + (p.Z - st.z) ^ 2), 30))
+					end
+				end
+				setLoop("belt_loop", nearBelt)
+				setLoop("kiosk_ambience", nearKiosk)
 			end)
 			if not ok then
 				failed = true

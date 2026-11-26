@@ -143,6 +143,40 @@ local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-pl
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
 -- lot 9b : Calendar (règles pures du calendrier de 30 jours) et Cal (fonctions du bloc « Lot 9b » plus bas) logent dans Lot7 : AUCUNE variable locale de plus (limite de 200 atteinte)
 local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+-- Lot 10 : 42 icônes d'interface (Config.ICONS = IDs de DÉCAL). Chargées une fois en arrière-plan (InsertService:LoadAsset sous pcall, une seule tentative par
+-- icône), URL d'image (Decal.Texture) publiée en attribut du dossier ReplicatedStorage.Icons ; échec = attribut absent, le client garde l'emoji de repli.
+task.spawn(function()
+	local folder = Instance.new("Folder")
+	folder.Name = "Icons"
+	folder.Parent = ReplicatedStorage
+	if not (Config.Assets and Config.Assets.Enabled == true) then
+		return
+	end
+	local keys = {}
+	for key in pairs(Config.ICONS) do
+		keys[#keys + 1] = key
+	end
+	table.sort(keys)
+	local loaded = 0
+	for _, key in ipairs(keys) do
+		local ok, model = pcall(function()
+			return game:GetService("InsertService"):LoadAsset(Config.ICONS[key])
+		end)
+		if ok and model then
+			pcall(function()
+				for _, d in ipairs(model:GetDescendants()) do
+					if d:IsA("Decal") and type(d.Texture) == "string" and d.Texture ~= "" then
+						folder:SetAttribute(key, d.Texture)
+						loaded += 1
+						break
+					end
+				end
+				model:Destroy()
+			end)
+		end
+	end
+	print("[Assets] icônes d'interface : " .. loaded .. "/" .. #keys)
+end)
 local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
