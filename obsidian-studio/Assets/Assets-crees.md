@@ -102,3 +102,7 @@ Renard à neuf queues : Queue (animée) + QueueB..QueueI ; tigre 3947 faces (le 
 ## Lot 24 (créatures P3, table C.2, agent Sonnet) : scripts/blender_make_pets_p3.py
 #24 pet_abeille 102790865157502; #78 pet_baleine_des_etoiles 122467490138604; #23 pet_bebe_phoque 75024864159884; #22 pet_escargot 123238807000942; #21 pet_canard 138404880551003; #35 pet_castor 120115914325977; #25 pet_coccinelle 74508157385626; #34 pet_ecureuil_etincelle 96971397368899; #20 pet_grenouille 80608097786383; #33 pet_lievre_arctique 79906688348888; #77 pet_qilin_sacre 119496911538130; #19 pet_souris 121918353604833
 Écarts : escargot Seg1..Seg6 + Tete ; baleine pas de Patte_* (nageoires = AileG/AileD) ; coccinelle sans AileG/AileD ; canard ailes = Bras_*.
+
+## Lot 25 (créatures P5, table C.2, agent Sonnet) : scripts/blender_make_pets_p5.py
+#66 pet_chimere_d_ombre 107851856102899; #74 pet_corbeau_couronne 128710572063568; #59 pet_golem_de_pierre 120688599001908; #52 pet_griffon 123941036439154; #58 pet_hydre_des_marais 98592552810541; #72 pet_loup_garou_citrouille 129301589385325; #53 pet_mammouth 96254656340357; #65 pet_oiseau_tonnerre 126200653094441; #55 pet_panthere_d_ombre 124133397709207; #54 pet_pegase 112611957470677; #73 pet_renne_etoile 91374905696445; #61 pet_serpent_foudre 81853803174670
+Hydre : TeteG/TeteD ; chimère : TeteChevre + Queue_Tete ; serpent foudre Seg1..Seg5 ; corbeau sur Perchoir ; G = +x.
