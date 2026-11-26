@@ -1,5 +1,7 @@
 # Lot 10 : notes (fichiers nouveaux, hors intégration)
 
+> **Intégré le 2026-11-26** : voir CHANGELOG.md, entrée « LOT 10 intégré » (branchements, décisions, écarts). Les sections ci-dessous décrivent les modules eux-mêmes.
+
 Partie « fichiers nouveaux » du lot 10 (spec `LOTS_9_PLUS.md`, A.1, B.1 à B.6, K). Aucun fichier du lot 9 n'est touché. L'intégration dans Reveal, Main, Data, Config et les clients se fait après le lot 9. **Rien n'a été testé dans Roblox Studio** : tout ce qui suit est vérifié par analyse statique (`luau-compile`, dump d'API officiel) et par le runtime factice (lupa).
 
 ## Fichiers
