@@ -108,8 +108,8 @@ if scn == "vignette":
     ground((0.30, 0.60, 0.16))
     world(top=(0.42, 0.28, 0.72), hor=(1.0, 0.55, 0.45), strength=1.1, sun_col=(1.0, 0.62, 0.35), sun_e=7.0,
           sun_rot=(math.radians(-72), 0, math.radians(18)))
-    CAM = (0, -42, 1.8); TGT = (0, 10, 6.5)
-    load(P("out15/hub_dome.fbx"), height=26, pos=(34, 58, 0))
+    CAM = (0, -34, 1.8); TGT = (0, 10, 6.5)
+    load(P("out15/hub_dome.fbx"), height=28, pos=(38, 62, 0))
     load(P("out15/house_lvl4.fbx"), height=14, pos=(-40, 50, 0), look=CAM)
     load(P("out15/house_lvl3.fbx"), height=12, pos=(-64, 58, 0), look=CAM)
     for x, y, f in [(-46, 40, "out17/tree_wide.fbx"), (52, 40, "out11/tree_pine.fbx"), (-12, 55, "out11/tree_round.fbx"), (66, 62, "out11/tree_oak_a.fbx")]:
@@ -119,14 +119,14 @@ if scn == "vignette":
         bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(x, y, 0), segments=32, ring_count=16)
         o = bpy.context.object; o.scale = (r, r*0.8, h); bpy.ops.object.shade_smooth()
         o.data.materials.append(mat("5DBB3A", False))
-    back = [("PetDragon", -25, 8.5), ("pet_phenix_de_feu", -8.5, 9.5), ("loupdeglace", 8.5, 8.0), ("pegase", 25, 9.5)]
-    front = [("PetLapin", -17, -3, 4.8), ("PetRenard", -8.5, 0, 5.2), ("PetLicorne", 8.5, 0, 6.2), ("PetPanda", 17, -3, 5.0)]
+    back = [("PetDragon", -30, 9.5), ("dragondecristal", -14, 9.0), ("dragonceleste", 14, 9.5), ("seraphinlion", 30, 8.5)]
+    front = [("PetLapin", -20, -4, 5.6), ("PetRenard", -12, 1, 6.0), ("PetLicorne", 12, 1, 6.8), ("PetPanda", 20, -4, 5.6)]
     for nme, x, h in back:
-        hill(x, 21, 8.5, 3.0)
+        hill(x, 21, 9.5, 3.0)
         load(pet(nme.replace("pet_", "")), height=h, pos=(x, 21, 3.0), look=CAM)
     for nme, x, y, h in front:
         load(pet(nme), height=h, pos=(x, y, 0), look=CAM)
-    load(P("out20/egg_r10.fbx"), height=11, pos=(0, -9, 0), look=CAM)
+    load(P("out20/egg_r10.fbx"), height=12.5, pos=(0, -9, 0), look=CAM)
     # halo de soleil derriere l'oeuf
     bpy.ops.mesh.primitive_plane_add(size=60, location=(0, 12, 7), rotation=(math.radians(90), 0, 0)); gl = bpy.context.object
     gm = bpy.data.materials.new("glow"); gm.use_nodes = True; nt = gm.node_tree; nt.nodes.clear()
@@ -149,7 +149,7 @@ if scn == "vignette":
             bpy.context.object.scale = (1.5, 0.8, 0.15)
         o = bpy.context.object; o.rotation_euler = (random.random()*3, random.random()*3, random.random()*3)
         o.data.materials.append(mat("FFE066" if star else "FF9EC4", star))
-    camera(CAM, TGT, lens=26, fstop=5.5, focus=33)
+    camera(CAM, TGT, lens=26, fstop=5.5, focus=25)
     area((0, -22, 9), (0, -9, 4), 700, 14, (1, 0.85, 0.8))
     render("vignette-1920x1080")
 elif scn == "icone":
