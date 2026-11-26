@@ -227,9 +227,40 @@ function Calendar.addCatch(Config, cal)
 	return true
 end
 
--- Tirage du jour 30 : r dans [0, 1) -> rareté de l'œuf (table Config.CALENDAR.draw, pourcentages affichés).
+-- Une rareté a-t-elle au moins une espèce tirable (Config.PETS, hors `published == false` / `hidden == true`) ?
+function Calendar.tierAvailable(Config, tier)
+	for _, p in ipairs(Config.PETS or {}) do
+		if p.tier == tier and p.published ~= false and p.hidden ~= true then
+			return true
+		end
+	end
+	return false
+end
+
+-- Table EFFECTIVE du tirage du jour 30 : { { tier, pct } } dans l'ordre de Config.CALENDAR.draw ; une rareté sans espèce verse son pourcentage
+-- à `drawFallback` (Ultra Rare), jamais d'œuf vide. Sert au tirage ET au texte affiché (probabilités réelles).
+function Calendar.drawTable(Config)
+	local C = Config.CALENDAR
+	local fb = C.drawFallback or C.draw[1].tier
+	local out, idx = {}, {}
+	for _, e in ipairs(C.draw) do
+		local t = e.tier
+		if not Calendar.tierAvailable(Config, t) then
+			t = fb
+		end
+		if idx[t] then
+			out[idx[t]].pct = out[idx[t]].pct + e.pct
+		else
+			out[#out + 1] = { tier = t, pct = e.pct }
+			idx[t] = #out
+		end
+	end
+	return out
+end
+
+-- Tirage du jour 30 : r dans [0, 1) -> rareté de l'œuf (table effective ci-dessus, pourcentages affichés).
 function Calendar.draw(Config, r)
-	local d = Config.CALENDAR.draw
+	local d = Calendar.drawTable(Config)
 	local v = (type(r) == "number" and r == r) and r or 0
 	local acc = 0
 	for _, e in ipairs(d) do
@@ -278,7 +309,7 @@ function Calendar.rewardText(Config, day)
 	local parts = {}
 	if r.draw then
 		local t = {}
-		for _, e in ipairs(C.draw) do
+		for _, e in ipairs(Calendar.drawTable(Config)) do
 			t[#t + 1] = e.pct .. " % " .. Config.TIERS[e.tier].name
 		end
 		parts[#parts + 1] = "🎲 Œuf : " .. table.concat(t, " / ")

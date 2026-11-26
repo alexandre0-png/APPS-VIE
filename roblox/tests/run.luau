@@ -11054,20 +11054,44 @@ end)()
 	check("Calendrier : chaque jalon porte un œuf, un cosmétique, un titre ou le tirage ; des récompenses entre les jalons", msOk and C.rewards[4].c ~= nil and C.rewards[5].scrolls ~= nil)
 	check("Calendrier : LEGENDAIRE au jour 3 (œuf rareté 5), texte « Plus que 2 jours ! » dès le jour 1", C.legendaryDay == 3 and C.rewards[3].egg == 5 and Config.TIERS[5].name == "Légendaire" and Cal.legendaryText(Config, 1, false):find("plus que 2 jours !", 1, true) ~= nil and Cal.legendaryText(Config, 0, false):find("plus que 2 jours !", 1, true) ~= nil)
 	check("Calendrier : compte à rebours J2 / J3 / J4 manqué / obtenu", Cal.legendaryText(Config, 2, false):find("plus que 1 jour !", 1, true) ~= nil and Cal.legendaryText(Config, 3, false):find("aujourd'hui", 1, true) ~= nil and Cal.legendaryText(Config, 4, false):find("manqué", 1, true) ~= nil and Cal.legendaryText(Config, 4, true):find("obtenu", 1, true) ~= nil)
-	-- tirage J30 : 40 / 45 / 15 sur 1 000 000 tirages (LCG), à +-0,3 point
-	local cnt, st = { 0, 0, 0 }, 12345
-	for _ = 1, 1000000 do
-		st = (st * 1103515245 + 12345) % 2147483648
-		local t = Cal.draw(Config, st / 2147483648)
-		cnt[t - 4] = cnt[t - 4] + 1
-	end
-	local dOk = true
-	for i, e in ipairs(C.draw) do
-		dOk = dOk and math.abs(cnt[e.tier - 4] / 10000 - e.pct) <= 0.3
-	end
-	check("Tirage du jour 30 : 40 / 45 / 15 vérifié sur 1 000 000 tirages à +-0,3 pt (" .. cnt[1] / 10000 .. " / " .. cnt[2] / 10000 .. " / " .. cnt[3] / 10000 .. ")", dOk and C.draw[1].pct + C.draw[2].pct + C.draw[3].pct == 100)
-	check("Tirage : entrée invalide (nil, NaN, texte) sans erreur", Cal.draw(Config, nil) == 5 and Cal.draw(Config, 0 / 0) == 5 and Cal.draw(Config, "x") == 5 and Cal.draw(Config, 0.9999) == 7 and Cal.draw(Config, 0.4) == 6)
-	check("Texte de la carte du jour 30 : tirage affiché", Cal.rewardText(Config, 30):find("40 %", 1, true) ~= nil and Cal.isRandom(Config, 30) and not Cal.isRandom(Config, 3))
+	-- tirage J30 : 40 / 45 / 15 (Mythique / Ultra Rare / Secret) sur 1 000 000 tirages (LCG), à +-0,3 point, avec une espèce Secret injectée
+	;(function()
+		local cfgS = table.clone(Config)
+		cfgS.PETS = table.clone(Config.PETS)
+		cfgS.PETS[#cfgS.PETS + 1] = { tier = 8, name = "Secret de test", emoji = "?", inc = 1 }
+		local cnt, st = { 0, 0, 0 }, 12345
+		for _ = 1, 1000000 do
+			st = (st * 1103515245 + 12345) % 2147483648
+			local t = Cal.draw(cfgS, st / 2147483648)
+			cnt[t - 5] = cnt[t - 5] + 1
+		end
+		local dOk = true
+		for _, e in ipairs(C.draw) do
+			dOk = dOk and math.abs(cnt[e.tier - 5] / 10000 - e.pct) <= 0.3
+		end
+		check("Tirage du jour 30 : 40 % Mythique / 45 % Ultra Rare / 15 % Secret vérifié sur 1 000 000 tirages à +-0,3 pt (" .. cnt[1] / 10000 .. " / " .. cnt[2] / 10000 .. " / " .. cnt[3] / 10000 .. ")", dOk and C.draw[1].tier == 6 and C.draw[2].tier == 7 and C.draw[3].tier == 8 and C.draw[1].pct == 40 and C.draw[2].pct == 45 and C.draw[3].pct == 15)
+		local txt = Cal.rewardText(cfgS, 30)
+		check("Texte du jour 30 avec Secret disponible : 40 % Mythique / 45 % Ultra Rare / 15 % Secret", txt:find("40 % Mythique / 45 % Ultra Rare / 15 % Secret", 1, true) ~= nil)
+		check("Tirage : entrée invalide (nil, NaN, texte) sans erreur", Cal.draw(cfgS, nil) == 6 and Cal.draw(cfgS, 0 / 0) == 6 and Cal.draw(cfgS, "x") == 6 and Cal.draw(cfgS, 0.9999) == 8 and Cal.draw(cfgS, 0.4) == 7)
+		-- repli : aucune espèce Secret publiée (Config réel avant le lot 11, ou espèce masquée) -> Ultra Rare, jamais d'œuf vide
+		local cfgH = table.clone(cfgS)
+		cfgH.PETS = table.clone(cfgS.PETS)
+		cfgH.PETS[#cfgH.PETS] = { tier = 8, name = "Secret masqué", emoji = "?", inc = 1, hidden = true }
+		local real = Cal.tierAvailable(Config, 8)
+		local c2, st2, bad = { 0, 0, 0 }, 777, 0
+		for _ = 1, 200000 do
+			st2 = (st2 * 1103515245 + 12345) % 2147483648
+			local t = Cal.draw(cfgH, st2 / 2147483648)
+			if t == 6 or t == 7 then
+				c2[t - 5] = c2[t - 5] + 1
+			else
+				bad = bad + 1
+			end
+		end
+		check("Tirage du jour 30, repli sans espèce Secret : Mythique ~40 % / Ultra Rare ~60 %, aucun œuf Secret ni vide ; texte « 40 % Mythique / 60 % Ultra Rare »", bad == 0 and math.abs(c2[1] / 2000 - 40) <= 0.5 and math.abs(c2[2] / 2000 - 60) <= 0.5 and Cal.rewardText(cfgH, 30):find("40 % Mythique / 60 % Ultra Rare", 1, true) ~= nil and Cal.draw(cfgH, 0.9999) == 7)
+		check("Tirage du jour 30 avec le Config réel : " .. (real and "Secret disponible" or "repli Ultra Rare actif (aucune espèce Secret)"), real or (Cal.draw(Config, 0.9999) == 7 and Cal.rewardText(Config, 30):find("60 % Ultra Rare", 1, true) ~= nil))
+	end)()
+	check("Texte de la carte du jour 30 : tirage affiché", Cal.rewardText(Config, 30):find("40 % Mythique", 1, true) ~= nil and Cal.isRandom(Config, 30) and not Cal.isRandom(Config, 3))
 	-- assainissement
 	local bad = { Cal.sanitize(Config, nil), Cal.sanitize(Config, "x"), Cal.sanitize(Config, { start = "a", days = 5, grace = 0 / 0, catch = 1e9, qc = -4, dayN = 99, cycle = {} }), Cal.sanitize(Config, { start = 1e12, days = string.rep("2", 30) }), Cal.sanitize(Config, { days = string.rep("1", 29) }) }
 	local sOk = true
@@ -11270,7 +11294,7 @@ end)()
 		RT.step(0.8)
 		return out
 	end
-	check("Produit « Rattrapage du calendrier » : 29 R$, ID 0 (désactivé tant que l'ID n'est pas créé), pas un achat à hasard", CC ~= nil and cfg.PRODUCTS.CalendarCatchup.robux == 29 and cfg.PRODUCTS.CalendarCatchup.id == 0 and not cfg.purchasable(cfg.PRODUCTS.CalendarCatchup) and cfg.PRODUCTS.CalendarCatchup.random == nil and receipt("CAL-0") == PS.NotProcessedYet and d.cal.catch == 0)
+	check("Produit « Rattrapage du calendrier » : 29 R$, ID 3736695392 (créé, en vente), pas un achat à hasard ; reçu d'un autre ID non traité", CC ~= nil and cfg.PRODUCTS.CalendarCatchup.robux == 29 and cfg.PRODUCTS.CalendarCatchup.id == 3736695392 and cfg.purchasable(cfg.PRODUCTS.CalendarCatchup) and cfg.PRODUCTS.CalendarCatchup.random == nil and receipt("CAL-0") == PS.NotProcessedYet and d.cal.catch == 0)
 	cfg.PRODUCTS.CalendarCatchup.id = 9710
 	local r1 = receipt("CAL-1")
 	local r2 = receipt("CAL-1")
@@ -11283,17 +11307,17 @@ end)()
 	d.cal.start = utc() - 29
 	d.cal.days = string.rep("1", 29) .. "0"
 	d.cal.dayN, d.cal.dayD = 0, 0
-	local e0 = eggsOf(d, 5) + eggsOf(d, 6) + eggsOf(d, 7)
+	local e0 = eggsOf(d, 6) + eggsOf(d, 7) + eggsOf(d, 8)
 	act(p, "calClaim", { day = 30, how = "today" })
-	local drawn = eggsOf(d, 5) + eggsOf(d, 6) + eggsOf(d, 7) == e0 + 1
-	check("Jour 30 : tirage 40/45/15 -> un œuf Légendaire, Mythique ou Ultra Rare, titre « Maître du Calendrier », cycle complet", d.cal.days == string.rep("1", 30) and drawn and d.titles.cal30 == true)
+	local drawn = eggsOf(d, 6) + eggsOf(d, 7) + eggsOf(d, 8) == e0 + 1
+	check("Jour 30 : tirage 40/45/15 -> un œuf Mythique, Ultra Rare ou Secret (repli Ultra Rare), titre « Maître du Calendrier », cycle complet", d.cal.days == string.rep("1", 30) and drawn and d.titles.cal30 == true)
 	RT.policy = nil
 	nextDay(1)
 	check("Jour 31 : nouveau cycle (cycle +1, jours remis à zéro, récompense du jour 1 prête)", d.cal.days == string.rep("0", 30) and d.cal.cycle >= 2 and snap(p).cal.canToday)
 	RT.removePlayer(p)
 	RT.step(2)
 	check("Calendrier de bout en bout : aucune erreur serveur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
-	cfg.PRODUCTS.CalendarCatchup.id = 0
+	cfg.PRODUCTS.CalendarCatchup.id = 3736695392
 end)()
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
