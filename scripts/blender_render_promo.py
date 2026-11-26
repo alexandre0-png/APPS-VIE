@@ -179,8 +179,8 @@ elif scn == "g3":
     world(strength=0.7, sun_e=2.5, sun_rot=(math.radians(55), 0, math.radians(-40)), hor=(1.0, 0.7, 0.45))
     CAM = (0, -50, 26)
     load(P("out15/arena_colosseum.fbx"), scale=1.0, pos=(0, 0, 0))
-    load(pet("dragondelave"), height=13, pos=(-7, -2, 0.5), look=(7, -2, 0.5))
-    load(pet("loupdeglace"), height=11, pos=(7, -2, 0.5), look=(-7, -2, 0.5))
+    load(pet("dragondelave"), height=12, pos=(-9.5, 3, 0.5), look=(9.5, 3, 0.5))
+    load(pet("loupdeglace"), height=10, pos=(9.5, 3, 0.5), look=(-9.5, 3, 0.5))
     
     camera(CAM, (0, -2, 6), lens=36, fstop=11, focus=60)
     area((0, -30, 30), (0, 0, 3), 2500, 25, (1, 0.9, 0.8))
