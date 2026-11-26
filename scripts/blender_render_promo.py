@@ -176,7 +176,7 @@ elif scn == "icone":
     render("icone-512")
 elif scn == "mobs":
     import random; random.seed(11)
-    sc.view_settings.exposure = 0.0
+    sc.view_settings.exposure = -0.2
     world(top=(0.05, 0.04, 0.2), hor=(0.28, 0.12, 0.38), strength=0.5, sun_col=(0.6, 0.6, 1.0), sun_e=0.8, sun_rot=(math.radians(-50), 0, math.radians(20)))
     bpy.ops.mesh.primitive_plane_add(size=600, location=(0, 0, -0.02)); fl = bpy.context.object; fl.data.materials.append(mat("2A2347", False))
     def cyl(x, y, z, r, h, col, emit=False, seg=48):
@@ -213,14 +213,15 @@ elif scn == "mobs":
     ]
     for nme, x, y, z, h, col, lf in team:
         load(pet(nme), height=h, pos=(x, y, z), look=CAM, lift=lf)
-        glow((x, y-2, z+h*0.5), col, 5000*h/10)          # eclairage de face colore
-        glow((x, y+4, z+h*0.8), col, 9000*h/10)          # rim
+        glow((x, y-2, z+h*0.5), col, (2500 if col == LIGHT else 5000)*h/10)          # eclairage de face colore
+        glow((x, y+4, z+h*0.8), col, (4500 if col == LIGHT else 9000)*h/10)          # rim
     glow((0, 13, 8), FIRE, 30000)
     area((0, -30, 25), (0, 6, 4), 2500, 30, (0.75, 0.8, 1))
     # particules
     cols = [("FFB347", True), ("7DF2FF", True), ("FFE066", True), ("B06CFF", True)]
     for i in range(120):
         a = random.uniform(0, 2*math.pi); r = random.uniform(4, 40)
+        if math.cos(a) < -0.4 and math.sin(a) > 0.2: continue
         x = math.cos(a)*r*1.3; y = 6+math.sin(a)*r*0.8; z = random.uniform(1, 30)
         cc = random.choice(cols)[0]
         if i % 3 == 0: bpy.ops.mesh.primitive_cone_add(radius1=0.35, depth=1.0, location=(x, y, z), vertices=4)
