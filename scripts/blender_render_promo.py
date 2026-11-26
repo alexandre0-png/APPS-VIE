@@ -33,7 +33,7 @@ def mat(hexs, emit):
         b.inputs["Emission Color"].default_value = c; b.inputs["Emission Strength"].default_value = 3.0
     MATS[k] = m; return m
 
-def load(path, height=None, width=None, pos=(0, 0, 0), look=None, yaw=0.0, scale=None):
+def load(path, height=None, width=None, pos=(0, 0, 0), look=None, yaw=0.0, scale=None, lift=None):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
@@ -42,7 +42,12 @@ def load(path, height=None, width=None, pos=(0, 0, 0), look=None, yaw=0.0, scale
         if o.parent is None or o.parent not in new: o.parent = root
         if o.type == "MESH":
             nm = o.name; m = re.search(r"__([0-9A-Fa-f]{6})", nm)
-            o.data.materials.clear(); o.data.materials.append(mat(m.group(1) if m else "888888", any(e in nm.lower() for e in EMIT)))
+            o.data.materials.clear(); hx = m.group(1) if m else "888888"; em_ = any(e in nm.lower() for e in EMIT)
+            if lift:
+                r_, g_, b_ = [int(hx[j:j+2], 16) for j in (0, 2, 4)]
+                if (r_*0.3+g_*0.6+b_*0.1) < 70 and not em_: hx = lift
+                if r_ > 200 and g_ < 130 and b_ < 90: em_ = True
+            o.data.materials.append(mat(hx, em_))
     bpy.context.view_layer.update()
     pts = [o.matrix_world @ Vector(c) for o in new if o.type == "MESH" for c in o.bound_box]
     h = max(p.z for p in pts) - min(p.z for p in pts); w = max(max(p.x for p in pts)-min(p.x for p in pts), 0.01)
@@ -169,6 +174,68 @@ elif scn == "icone":
     camera((0, -22, 0), (0, 0, 0.2), lens=50)
     area((-6, -14, 8), (0, 0, 0), 1200, 10, (1, 0.9, 0.8))
     render("icone-512")
+elif scn == "mobs":
+    import random; random.seed(11)
+    sc.view_settings.exposure = 0.0
+    world(top=(0.05, 0.04, 0.2), hor=(0.28, 0.12, 0.38), strength=0.5, sun_col=(0.6, 0.6, 1.0), sun_e=0.8, sun_rot=(math.radians(-50), 0, math.radians(20)))
+    bpy.ops.mesh.primitive_plane_add(size=600, location=(0, 0, -0.02)); fl = bpy.context.object; fl.data.materials.append(mat("2A2347", False))
+    def cyl(x, y, z, r, h, col, emit=False, seg=48):
+        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=h, location=(x, y, z), vertices=seg); o = bpy.context.object
+        o.data.materials.append(mat(col, emit)); return o
+    # podium 2 niveaux + cercle runique
+    cyl(0, 6, 0.5, 25, 1.0, "4A4268"); cyl(0, 10, 1.4, 15, 0.8, "5A5080")
+    for rad, col in [(28, "5CE1FF"), (32, "B06CFF")]:
+        bpy.ops.mesh.primitive_torus_add(major_radius=rad, minor_radius=0.35, location=(0, 6, 0.05), major_segments=64, minor_segments=8)
+        bpy.context.object.data.materials.append(mat(col, True))
+    for i in range(36):
+        a = i*math.pi/18; rr = 30
+        bpy.ops.mesh.primitive_cube_add(location=(rr*math.cos(a), 6+rr*math.sin(a), 0.1)); o = bpy.context.object
+        o.scale = (1.4, 0.35, 0.1) if i % 2 else (0.5, 1.3, 0.1); o.rotation_euler = (0, 0, a)
+        o.data.materials.append(mat("7DF2FF" if i % 3 else "FFB347", True))
+    # colonnes de pierre
+    for i in range(9):
+        a = math.radians(-70 + i*17.5); x = 70*math.sin(a); y = 30 + 55*math.cos(a)
+        cyl(x, y, 14, 3.2, 28, "3C3558", seg=12); cyl(x, y, 28.5, 4.2, 1.5, "4A4268", seg=12)
+    # lueurs/rim lights
+    def glow(pos, col, e=4000, size=1.0):
+        bpy.ops.object.light_add(type="POINT", location=pos); l = bpy.context.object
+        l.data.energy = e; l.data.color = col; l.data.shadow_soft_size = 1.5
+    FIRE, ICE, ELEC, SHAD, LIGHT, POIS = (1, .45, .1), (.3, .85, 1), (1, .9, .2), (.7, .3, 1), (1, .85, .45), (.4, 1, .3)
+    CAM = (0, -46, 4.5)
+    team = [  # nom, x, y, z, hauteur, couleur, lift
+        ("dragondelave", 0, 13, 2.2, 17, FIRE, "9A3418"),
+        ("phenix_de_feu", -17, 14, 2.2, 13, FIRE, None),
+        ("dragonceleste", 17, 14, 2.2, 13, LIGHT, None),
+        ("hydre_des_marais", -23, 0, 1.0, 8, POIS, None),
+        ("loupdeglace", -9, -4, 1.0, 8, ICE, None),
+        ("tigre_aile_a_runes", 9, -4, 1.0, 8, ELEC, None),
+        ("griffon", 23, 0, 1.0, 9, LIGHT, None),
+    ]
+    for nme, x, y, z, h, col, lf in team:
+        load(pet(nme), height=h, pos=(x, y, z), look=CAM, lift=lf)
+        glow((x, y-2, z+h*0.5), col, 5000*h/10)          # eclairage de face colore
+        glow((x, y+4, z+h*0.8), col, 9000*h/10)          # rim
+    glow((0, 13, 8), FIRE, 30000)
+    area((0, -30, 25), (0, 6, 4), 2500, 30, (0.75, 0.8, 1))
+    # particules
+    cols = [("FFB347", True), ("7DF2FF", True), ("FFE066", True), ("B06CFF", True)]
+    for i in range(120):
+        a = random.uniform(0, 2*math.pi); r = random.uniform(4, 40)
+        x = math.cos(a)*r*1.3; y = 6+math.sin(a)*r*0.8; z = random.uniform(1, 30)
+        cc = random.choice(cols)[0]
+        if i % 3 == 0: bpy.ops.mesh.primitive_cone_add(radius1=0.35, depth=1.0, location=(x, y, z), vertices=4)
+        else: bpy.ops.mesh.primitive_ico_sphere_add(radius=random.uniform(0.1, 0.3), subdivisions=1, location=(x, y, z))
+        o = bpy.context.object; o.rotation_euler = (random.random()*3, random.random()*3, 0); o.data.materials.append(mat(cc, True))
+    # brume au sol
+    for i in range(14):
+        x = random.uniform(-35, 35); y = random.uniform(-12, 28)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(x, y, 0.4)); o = bpy.context.object; o.scale = (9, 6, 0.9); o.visible_shadow = False
+        m_ = bpy.data.materials.new("mist"); m_.use_nodes = True; nt = m_.node_tree; nt.nodes.clear()
+        tr = nt.nodes.new("ShaderNodeBsdfTransparent"); em = nt.nodes.new("ShaderNodeEmission"); mx = nt.nodes.new("ShaderNodeMixShader"); out = nt.nodes.new("ShaderNodeOutputMaterial")
+        em.inputs["Color"].default_value = (0.55, 0.4, 0.9, 1); em.inputs["Strength"].default_value = 0.5; mx.inputs[0].default_value = 0.18
+        nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(em.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs[0]); o.data.materials.append(m_)
+    camera(CAM, (0, 6, 7.5), lens=28, fstop=6, focus=52)
+    render("mobs-1920x1080")
 elif scn == "g1":
     # podium 2 rangees de 5
     def box(loc, size, col):
