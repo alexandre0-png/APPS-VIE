@@ -197,19 +197,21 @@ function Scenery.aura(h, position, parent, style, color)
 	local n = 0
 	local anchor = h.part({ Name = "AuraAnchor", Size = Vector3.new(1, 1, 1), Position = position, Transparency = 1, CanCollide = false, CanQuery = false }, parent)
 	n += 1
-	cyl(h, { Name = "RuneRing", Color = color, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, 11, 0.15, position + Vector3.new(0, 0.2, 0))
-	cyl(h, { Name = "RuneRingInner", Color = color, Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false }, parent, 7, 0.15, position + Vector3.new(0, 0.25, 0))
+	-- lot 8A : toutes les pièces sont ENFANTS de l'ancre (le Debris de l'appelant détruit l'ancre seule : avant, anneaux, glyphes et sommet du pilier
+	-- restaient dans le Workspace à chaque éclosion Légendaire+ ; fuite trouvée par le test de charge de 10 min)
+	cyl(h, { Name = "RuneRing", Color = color, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, CanQuery = false }, anchor, 11, 0.15, position + Vector3.new(0, 0.2, 0))
+	cyl(h, { Name = "RuneRingInner", Color = color, Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false }, anchor, 7, 0.15, position + Vector3.new(0, 0.25, 0))
 	n += 2
 	for i = 1, style.runes do -- glyphes : petits blocs néon répartis sur le cercle
 		local a = i / style.runes * math.pi * 2
-		h.part({ Name = "Rune", Size = Vector3.new(0.5, 0.2, 1.1), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 4.6, 0.3, math.sin(a) * 4.6)) * CFrame.Angles(0, -a, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, parent)
+		h.part({ Name = "Rune", Size = Vector3.new(0.5, 0.2, 1.1), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 4.6, 0.3, math.sin(a) * 4.6)) * CFrame.Angles(0, -a, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, anchor)
 		n += 1
 	end
 	local em = emitter(anchor, color, style.rate, 7, 1.6, 0.5, Vector3.new(0, 2, 0))
 	em.SpreadAngle = Vector2.new(25, 25)
 	light(anchor, color, 24, 1.6)
 	if style.pillar then -- Beam : pilier de lumière
-		local top = h.part({ Name = "AuraTop", Size = Vector3.new(1, 1, 1), Position = position + Vector3.new(0, 26, 0), Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+		local top = h.part({ Name = "AuraTop", Size = Vector3.new(1, 1, 1), Position = position + Vector3.new(0, 26, 0), Transparency = 1, CanCollide = false, CanQuery = false }, anchor)
 		n += 1
 		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
 		a0.Parent = anchor

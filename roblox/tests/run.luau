@@ -10387,8 +10387,8 @@ end
 			local anc, skip = d, false
 			while anc ~= nil do
 				local nm = rawget(anc, "__props").Name
-				if nm == "BeltEggs" then
-					skip = true -- œufs du tapis : 12 au plus, comptés à part (leur nombre varie d'un instant à l'autre)
+				if nm == "BeltEggs" or (type(nm) == "string" and nm:match("^Charge%d$")) then
+					skip = true -- œufs du tapis (12 au plus, leur nombre varie) et personnages (le runtime factice ne les retire pas au départ, Roblox si)
 				end
 				anc = rawget(anc, "__props").Parent
 			end
