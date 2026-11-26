@@ -122,3 +122,32 @@ atk_ciel 111809409022959; atk_eau 126099928196969; atk_feu 81620112328213; atk_f
 event_pumpkin 73142027959966; event_springarch 100036291919800; event_xmastree 139994644133468; hub_calendar 134196650002859; hub_kiosk 90238570290603; npc_bruno 132952760984236; npc_kai 132880746039280; npc_lina 102038009896523; npc_nora 81037598191401; npc_pip 123590742152774
 Clés J.1 : npc.pip = npc_pip, npc.lina/bruno/kai/nora = npc_*, hub.calendar = hub_calendar, hub.kiosk = hub_kiosk, event.pumpkin/xmasTree/springArch = event_pumpkin/event_xmastree/event_springarch (minuscules).
 Écarts : Pip 40 pièces, 9 de large (Pip x<0 + charrette x>0, origine au centre de l'ensemble) ; Kaï = 29 pièces dont le renard blanc (Renard_corps, Renard_tete, Museau, Renard_oreille×2, Queue×9) posé à x≈-3 ; Lina porte le koala (Accessoire = corps, Koala_*) ; Bruno marteau = Accessoire + Marteau_Fer ; Nora carnet = Accessoire. Calendrier 40 pièces (30 Cases__F5EBD7 : rangée du haut = jours 1-6, rangées de 6, case 30 en bas à droite ; coffre devant, bas centre). Kiosque : diamètre 15,4 (socle), hauteur 12,75, 4 panneaux PanneauBoutique(-Y)/PanneauCalendrier(+Y)/PanneauProba(+X)/PanneauClassement(-X), lanterne Lueur au centre. Citrouille : visage en Lueur_oeil×2, Lueur_nez, Lueur_bouche. Sapin 12,2 de haut : Guirlande_Lueur×3, Etoile_Lueur. Arche 9,65 de haut, 39 pièces. Orientation : devant = -Y, G = +x, pieds à z=0.
+
+
+## Achats du lot 16 créés le 2026-11-26 (Chipe-Œufs, univers 10776613087 ; prix ≥ 799 confirmés par l'utilisateur)
+| type | clé | id | prix |
+|---|---|---|---|
+| produit | CoinPackS | 3736703557 | 19 R$ |
+| produit | EggR2 | 3736703563 | 15 R$ |
+| produit | EggR3 | 3736703571 | 25 R$ |
+| produit | LuckPotionMini | 3736703579 | 29 R$ |
+| produit | EggR4 | 3736703588 | 49 R$ |
+| produit | ArenaTickets | 3736703606 | 19 R$ |
+| produit | StreakRestore | 3736703610 | 29 R$ |
+| produit | EmoteVictory1 | 3736703619 | 39 R$ |
+| produit | EmoteVictory2 | 3736703629 | 39 R$ |
+| produit | EmoteVictory3 | 3736703634 | 39 R$ |
+| produit | EmoteVictory4 | 3736703641 | 39 R$ |
+| produit | EmoteVictory5 | 3736703649 | 39 R$ |
+| produit | EmoteVictory6 | 3736703657 | 39 R$ |
+| produit | EggR5 | 3736703667 | 99 R$ |
+| produit | DoubleLuck | 3736703673 | 149 R$ |
+| produit | SeasonPremium | 3736703683 | 399 R$ |
+| produit | SeasonPremiumPlus | 3736703689 | 799 R$ |
+| produit | EggR7 | 3736703695 | 799 R$ |
+| produit | BundleLegend | 3736703706 | 999 R$ |
+| produit | BundleRoyal | 3736703714 | 1499 R$ |
+| passe | EggBagPlus | 2099454839 | 149 R$ |
+| passe | Collector | 2099556764 | 249 R$ |
+| passe | Lucky2 | 2102045961 | 349 R$ |
+Déjà créés avant : CalendarCatchup produit 3736695392 (29 R$), EggSecret 3736452048, EggExclusive 3736452061, EggDivine 3736452072.
