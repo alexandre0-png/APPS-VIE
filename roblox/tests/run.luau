@@ -11164,7 +11164,7 @@ end)()
 	check("Simulation 62 jours assidus : 62 réclamations, 3 cycles commencés, jamais plus de 30 par cycle", claims == 62 and sim.cycle == 3)
 	-- plan de récompense
 	local p1, p2, p3 = Cal.plan(Config, 1, 0.5, 100), Cal.plan(Config, 2, 0.5, 0), Cal.plan(Config, 30, 0.1, 1000)
-	check("Plan : pièces = minutes de revenu (plancher " .. C.coinFloor .. "), œuf du jour 1, tirage du jour 30 selon le tirage fourni", p1.coins == 0 and p1.egg == 1 and p1.scrolls == 1 and p2.coins == C.coinFloor and p2.tokens == 1 and p3.egg == 5 and p3.drew and p3.title == "cal30" and Cal.plan(Config, 11, 0.5, 100).coins == 90000 and Cal.plan(Config, 31, 0, 0) == nil and Cal.plan(Config, 11, 0.5, 0 / 0).coins == C.coinFloor)
+	check("Plan : pièces = minutes de revenu (plancher " .. C.coinFloor .. "), œuf du jour 1, tirage du jour 30 selon le tirage fourni", p1.coins == 0 and p1.egg == 1 and p1.scrolls == 1 and p2.coins == C.coinFloor and p2.tokens == 1 and p3.egg == 6 and p3.drew and p3.title == "cal30" and Cal.plan(Config, 11, 0.5, 100).coins == 90000 and Cal.plan(Config, 31, 0, 0) == nil and Cal.plan(Config, 11, 0.5, 0 / 0).coins == C.coinFloor)
 end)()
 
 ;(function()

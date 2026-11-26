@@ -116,6 +116,7 @@ Creator Hub → ton expérience → **Monetization**. Les prix sont des suggesti
 | Developer Product | Œuf Divin | 6 999 R$ | Un œuf Divin (rareté fixe) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452072) ; masqué jusqu'aux espèces Divin |
 | Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | créé et en vente |
 | Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | créé et en vente |
+| Developer Product | Rattrapage du calendrier | 29 R$ | Rattrape UN jour manqué du calendrier de 30 jours. | créé et en vente (id 3736695392, rien à faire) |
 
 - [ ] Créer les 5 Game Passes et les 6 Developer Products du tableau ci-dessus (colonne « ID à renseigner » : `PUBLICATION.md` §3bis donne la ligne exacte de `Config.lua` pour chacun).
 - [ ] Copier chaque **ID** dans `roblox/src/ReplicatedStorage/Config.lua`, champ `id = 0` de la ligne correspondante (les 11 clés sont listées plus haut). Ou me donner les 11 ID et je m'en charge, puis je régénère la place.
