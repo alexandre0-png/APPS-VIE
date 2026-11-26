@@ -44,9 +44,8 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 
 ## 1quinquies. Calendrier de 30 jours (lot 9b)
 
-- [ ] **Créer le produit développeur « Rattrapage du calendrier » : 29 R$** (Creator Hub > Monetization > Developer Products), puis coller son ID dans `Config.PRODUCTS.CalendarCatchup.id` (aujourd'hui 0 = achat désactivé ; les rattrapages gratuits, jour de grâce et 3 missions, fonctionnent sans lui). Ne pas le déclarer « à hasard ».
 - [ ] **À jouer dans Studio (jamais testé en vrai)** : onglet Bonus > Calendrier (cartes lisibles sur téléphone : grille de 5 colonnes, barre de progression, carte Légendaire), pastille rouge, réclamation du jour, jour manqué et rattrapage, message d'éligibilité (compte de moins d'un jour, moins de 10 min de jeu), changement de jour UTC en cours de partie, base pleine avec un œuf à réclamer. Pour tester plusieurs jours, modifier l'heure du serveur n'est pas possible : demande-moi un mode de test si besoin.
-- [ ] Dis-moi si les récompenses (pièces, œufs Légendaire au jour 3 et 25, Mythique au jour 20, tirage du jour 30 : 40 % Légendaire / 45 % Mythique / 15 % Ultra Rare) te semblent trop généreuses ou trop avares.
+- [ ] Dis-moi si les récompenses (pièces, œufs Légendaire au jour 3 et 25, Mythique au jour 20, tirage du jour 30 : 40 % Mythique / 45 % Ultra Rare / 15 % Secret, Secret remplacé par Ultra Rare tant qu'aucune espèce Secret n'existe) te semblent trop généreuses ou trop avares.
 
 ## 1quater. Passage en public
 
