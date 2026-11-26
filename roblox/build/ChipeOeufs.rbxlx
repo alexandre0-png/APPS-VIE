@@ -1868,7 +1868,8 @@ Config.TRAVEL2 = {
 }
 -- E.3 Vol à distance « Corbeau chipeur ».
 Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
-	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
+	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 2,
+	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7b : minAccountAgeDays = ancienneté de compte exigée du voleur ET de la victime ; reStealSeconds = un œuf volé par corbeau ne se revole pas avant 20 min ; compensationCapTier = indemnité reçue par jour UTC plafonnée au prix d'un œuf de cette rareté (Rare)  : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
 -- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
 -- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
 Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 1800 }
@@ -5496,7 +5497,16 @@ return Belt
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
 
+-- Ancienneté de compte (jours) d'après une valeur d'origine incertaine : tout ce qui n'est pas un nombre fini vaut 0 (donc refusé).
+local function days(v)
+	if type(v) ~= "number" or v ~= v then
+		return 0
+	end
+	return v
+end
+
 -- Vérifie le DÉPART d'un corbeau. thief = { userId, tokens, level, playMinutes, freeSlot, dailyDone, flying, newbie, inCastle }
+-- (lot 7b : thief et victim portent aussi accountAgeDays ; egg porte rvAt = os.time() du dernier vol par corbeau, nil sinon)
 -- victim = { userId, level, playMinutes, newbie, inCastle, graceUntil, shieldUntil, ravenCooldownUntil, friendOfThief, blockFriendRavens }
 -- egg = { tier, incubating, eggShieldUntil, endsAt }, now en secondes (os.time). Retourne true ou (false, code).
 function Raven.canLaunch(Config, thief, victim, egg, now)
@@ -5525,6 +5535,9 @@ function Raven.canLaunch(Config, thief, victim, egg, now)
 	if (thief.playMinutes or 0) < R.minPlayMinutes or (victim.playMinutes or 0) < R.victimMinMinutes then
 		return false, "tooYoung"
 	end
+	if days(thief.accountAgeDays) < R.minAccountAgeDays or days(victim.accountAgeDays) < R.minAccountAgeDays then
+		return false, "accountAge"
+	end
 	if not thief.freeSlot then
 		return false, "noSlot"
 	end
@@ -5552,6 +5565,9 @@ function Raven.canLaunch(Config, thief, victim, egg, now)
 	if now < (egg.eggShieldUntil or 0) then
 		return false, "eggShield"
 	end
+	if type(egg.rvAt) == "number" and now - egg.rvAt < R.reStealSeconds then
+		return false, "recentlyStolen" -- un œuf volé par corbeau ne se revole pas tout de suite (anti-aller-retour entre comptes complices)
+	end
 	if (egg.endsAt or 0) - now <= R.minEggSecondsLeft then
 		return false, "tooLate"
 	end
@@ -5561,6 +5577,18 @@ end
 -- Indemnité de la victime : floor(prix de la boutique x ratio).
 function Raven.compensation(Config, tier)
 	return math.floor(Config.EGG_PRICE[tier] * Config.REMOTE_STEAL.compensationRatio)
+end
+
+-- Indemnité RÉELLEMENT versée (lot 7b) : 0 pour un œuf non indemnisable (`rv` : déjà volé par corbeau, issu du tapis privé ou de l'œuf de bienvenue), sinon
+-- l'indemnité normale plafonnée par ce que la victime peut encore recevoir aujourd'hui (plafond = prix d'un œuf de Config.REMOTE_STEAL.compensationCapTier).
+function Raven.indemnity(Config, tier, rv, receivedToday)
+	if rv == true then
+		return 0
+	end
+	local R = Config.REMOTE_STEAL
+	local got = (type(receivedToday) == "number" and receivedToday == receivedToday) and math.max(0, receivedToday) or 0 -- valeur incertaine : nombre fini sinon 0
+	local room = Config.EGG_PRICE[R.compensationCapTier] - got
+	return math.max(0, math.min(Raven.compensation(Config, tier), room))
 end
 
 -- Jour UTC d'un horodatage (clé du plafond quotidien).
@@ -7820,7 +7848,7 @@ local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
-local Lot7 = { luckUntil = 0, luckBy = nil } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+local Lot7 = { luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
 local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
@@ -8419,7 +8447,7 @@ local function returnEgg(e)
 		if vs then
 			local i = freeSlot(vs)
 			if i then
-				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs) }
+				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs), rv = e.rv, rvAt = e.rvAt }
 				refreshPad(vs, i)
 				notify(vs.player, "🥚 Ton œuf t'a été rendu !")
 				sync(vs)
@@ -8883,7 +8911,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		vs.data.slots[i] = false
 		refreshPad(vs, i)
 		Builder.flyEgg(sl.t, pad.Position + Vector3.new(0, 2, 0), player.UserId)
-		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId }
+		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId, rv = sl.rv, rvAt = sl.rvAt } -- rv/rvAt suivent l'œuf (lot 7b)
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		qp(s, "pvp", 1)
@@ -9618,7 +9646,7 @@ local function fastTick(dt)
 					end
 				else
 					local e = table.remove(s.carry, 1)
-					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(s) }
+					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(s), rv = (e.rv == true or (e.belt == true and e.paid == 0)) or nil, rvAt = e.rvAt } -- lot 7b : un œuf gratuit (bienvenue) ou volé par corbeau reste non indemnisable
 					refreshPad(s, i)
 					Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 2, 0), Config.TIERS[e.t].color, 12, false)
 					rebuildCarry(s)
@@ -10693,7 +10721,8 @@ do
 		invalid = "🐦‍⬛ Cible invalide.", self = "🐦‍⬛ Tu ne peux pas viser ta propre base.", noToken = "🐦‍⬛ Tu n'as plus de jeton de corbeau (Bonus > Corbeau chipeur).",
 		alreadyFlying = "🐦‍⬛ Ton corbeau est déjà en vol.", dailyLimit = "🐦‍⬛ Limite atteinte : " .. RV.dailyMax .. " vols à distance réussis par jour.",
 		castle = "🐦‍⬛ Pas de corbeau dans le mode Château.", newbie = "🐣 Protection débutant : pas de corbeau pour toi, ni contre toi.",
-		tooYoung = "🐦‍⬛ Le corbeau demande " .. RV.minPlayMinutes .. " min de jeu à toi et " .. RV.victimMinMinutes .. " min à ta cible.", noSlot = "🐦‍⬛ Libère un emplacement dans ta base d'abord.",
+		tooYoung = "🐦‍⬛ Le corbeau demande " .. RV.minPlayMinutes .. " min de jeu à toi et " .. RV.victimMinMinutes .. " min à ta cible.",
+		accountAge = "🐦‍⬛ Le corbeau demande un compte Roblox de " .. RV.minAccountAgeDays .. " jours au moins, pour toi comme pour ta cible.", recentlyStolen = "🛡 Cet œuf vient d'être volé par un corbeau : il est protégé un moment.", noSlot = "🐦‍⬛ Libère un emplacement dans ta base d'abord.",
 		levelGap = "🐦‍⬛ Cette base est trop petite pour ton corbeau.", victimShield = "🛡 Cette base est protégée pour l'instant.", victimCooldown = "🛡 Cette base a déjà reçu un corbeau récemment.",
 		grace = "🛡 Ce joueur vient d'arriver : ses œufs sont protégés.", friendBlocked = "🐦‍⬛ Ce joueur refuse les corbeaux de ses amis.", notEgg = "🐦‍⬛ Il faut un œuf en incubation.",
 		tier = "🐦‍⬛ Cet œuf est trop rare pour un corbeau.", eggShield = "🛡 Cet œuf est encore protégé.", tooLate = "🐦‍⬛ Cet œuf éclôt trop bientôt.",
@@ -10740,22 +10769,29 @@ do
 		return v
 	end
 
+	-- Ancienneté du compte en jours : valeur d'origine incertaine (propriété Roblox) -> nombre ou 0 (refusé).
+	local function ageDays(player)
+		local ok, a = pcall(function()
+			return player.AccountAge
+		end)
+		return (ok and type(a) == "number" and a == a) and a or 0
+	end
 	-- CONTEXTES de Raven.canLaunch : construits ICI d'après les sessions (aucun champ ne vient du client).
 	local function thiefCtx(s)
 		rollDaily(s.data)
 		return { userId = s.player.UserId, tokens = s.data.tokens.remoteSteal, level = s.baseLevel or 1, playMinutes = s.data.played / 60, freeSlot = freeSlot(s) ~= nil,
-			dailyDone = s.data.raven.n, flying = flights[s.player] ~= nil, newbie = isNewbie(s), inCastle = inCastleMode(s) }
+			dailyDone = s.data.raven.n, flying = flights[s.player] ~= nil, newbie = isNewbie(s), inCastle = inCastleMode(s), accountAgeDays = ageDays(s.player) }
 	end
 	local function victimCtx(vs, friend)
 		return { userId = vs.player.UserId, level = vs.baseLevel or 1, playMinutes = vs.data.played / 60, newbie = isNewbie(vs), inCastle = inCastleMode(vs), graceUntil = vs.graceUntil or 0,
-			shieldUntil = vs.data.raven.sh, ravenCooldownUntil = vs.data.raven.cd, friendOfThief = friend == true, blockFriendRavens = vs.data.settings.blockFriendRavens == true }
+			shieldUntil = vs.data.raven.sh, ravenCooldownUntil = vs.data.raven.cd, friendOfThief = friend == true, blockFriendRavens = vs.data.settings.blockFriendRavens == true, accountAgeDays = ageDays(vs.player) }
 	end
 	local function eggCtx(vs, i)
 		local sl = vs.data.slots[i]
 		if i > cap(vs) or type(sl) ~= "table" or sl.k ~= "e" then
 			return nil
 		end
-		return { tier = sl.t, incubating = true, eggShieldUntil = sl.shield or 0, endsAt = sl.ends }
+		return { tier = sl.t, incubating = true, eggShieldUntil = sl.shield or 0, endsAt = sl.ends, rvAt = type(sl.rvAt) == "number" and sl.rvAt or nil }
 	end
 
 	function Lot7.addLog(vs, name, tier, kind)
@@ -10838,11 +10874,15 @@ do
 			local now = os.time()
 			local rem = math.max(0, f.ref.ends - now)
 			local ti = freeSlot(s)
-			local comp = Raven.compensation(Config, f.tier)
+			local rvv = vs.data.raven
+			rvv.icDay, rvv.ic = Raven.rollDaily(rvv.icDay, rvv.ic, now) -- indemnités reçues aujourd'hui (jour UTC)
+			local comp = Raven.indemnity(Config, f.tier, f.ref.rv == true, rvv.ic) -- 0 si l'œuf est non indemnisable ; plafonné par jour et par victime (lot 7b)
 			-- 1. données (opérations de table seulement : rien ne peut échouer à mi-chemin)
-			s.data.slots[ti] = { k = "e", t = f.tier, ends = now + rem, shield = now + shieldTime(s) } -- temps restant conservé, bouclier d'œuf normal
+			s.data.slots[ti] = { k = "e", t = f.tier, ends = now + rem, shield = now + shieldTime(s), rv = true, rvAt = now } -- temps restant conservé, bouclier d'œuf normal ; marqué : plus jamais indemnisé, pas de revol avant 20 min
 			vs.data.slots[f.slot] = false
 			vs.data.coins += comp
+			rvv.ic += comp
+			Lot7.compPaid += comp -- compteur de session (tests, journal)
 			vs.data.raven.cd = now + RV.victimCooldown
 			vs.data.raven.sh = math.max(vs.data.raven.sh, now + RV.postStealShield)
 			rollDaily(s.data)
@@ -10867,7 +10907,7 @@ do
 				end)
 			end
 			local tn = Config.TIERS[f.tier].name
-			notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " a emporté ton œuf " .. tn .. ". Tu reçois 🪙 " .. Config.fmt(comp) .. " et " .. math.floor(RV.postStealShield / 60) .. " min à l'abri des corbeaux.", "caught")
+			notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " a emporté ton œuf " .. tn .. ". " .. (comp > 0 and ("Tu reçois 🪙 " .. Config.fmt(comp)) or "Pas d'indemnité (œuf non indemnisable ou plafond du jour atteint)") .. " et " .. math.floor(RV.postStealShield / 60) .. " min à l'abri des corbeaux.", "caught")
 			notify(s.player, "🐦‍⬛ Ton corbeau rapporte un œuf " .. tn .. " de " .. f.victimName .. " ! (temps restant conservé)", "steal")
 		else
 			refund(f) -- chassé ou annulé : jeton rendu, sans remboursement Robux
@@ -11023,7 +11063,7 @@ do
 		end
 		local t = thiefCtx(s)
 		local now = os.time()
-		local ideal = { userId = -1, level = t.level, playMinutes = 1e9, newbie = false, inCastle = false, graceUntil = 0, shieldUntil = 0, ravenCooldownUntil = 0, friendOfThief = false, blockFriendRavens = false }
+		local ideal = { userId = -1, level = t.level, playMinutes = 1e9, newbie = false, inCastle = false, graceUntil = 0, shieldUntil = 0, ravenCooldownUntil = 0, friendOfThief = false, blockFriendRavens = false, accountAgeDays = 1e9 }
 		local okSelf, whySelf = Raven.canLaunch(Config, t, ideal, { tier = 1, incubating = true, eggShieldUntil = 0, endsAt = math.huge }, now)
 		local targets = {}
 		for _, vs in ipairs(cands) do
@@ -11227,7 +11267,7 @@ do
 			return notify(s.player, "Base pleine ! Libère un emplacement pour prendre l'œuf du tapis privé.", "refuse")
 		end
 		table.remove(s.data.pb, 1)
-		s.data.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
+		s.data.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s), rv = true } -- gratuit : non indemnisable (lot 7b)
 		refreshPad(s, i)
 		Lot7.privRefresh(s)
 		notify(s.player, "🥚 Œuf " .. Config.TIERS[tier].name .. " pris sur ton tapis privé !", "claim")
@@ -11237,7 +11277,9 @@ do
 	-- Crochet INTERNE pour les tests (jamais exposé aux clients) : accès aux sessions et compteurs.
 	Builder.lot7Hooks = { session = function(p)
 		return sessions[p]
-	end, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs }
+	end, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
+		return Lot7.compPaid
+	end }
 end
 
 ---------------------------------------------------------------- Game Passes
@@ -11816,7 +11858,7 @@ function Data.default()
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
 		settings = { blockFriendRavens = false }, -- réglages du joueur
-		raven = { day = 0, n = 0, cd = 0, sh = 0 }, -- lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
+		raven = { day = 0, n = 0, cd = 0, sh = 0, ic = 0, icDay = 0 }, -- lot 7b : ic = indemnités de corbeau reçues le jour UTC icDay (plafonnées) ; lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
 		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
@@ -11832,7 +11874,7 @@ function Data.default()
 	for i = 1, SLOT_COUNT do
 		d.slots[i] = false
 	end
-	d.slots[1] = { k = "e", t = 1, ends = os.time() + 6, shield = 0 } -- œuf de départ
+	d.slots[1] = { k = "e", t = 1, ends = os.time() + 6, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
 	return d
 end
 
@@ -11948,6 +11990,8 @@ local function merge(saved)
 		d.raven.n = math.min(Config.REMOTE_STEAL.dailyMax, math.max(0, math.floor(sane(rv.n, 0))))
 		d.raven.cd = math.min(4e9, math.max(0, sane(rv.cd, 0)))
 		d.raven.sh = math.min(4e9, math.max(0, sane(rv.sh, 0)))
+		d.raven.icDay = math.max(0, math.floor(sane(rv.icDay, 0)))
+		d.raven.ic = math.min(Config.EGG_PRICE[Config.REMOTE_STEAL.compensationCapTier], math.max(0, sane(rv.ic, 0)))
 	end
 	if type(saved.stealLog) == "table" then
 		for _, e in ipairs(saved.stealLog) do
@@ -12040,6 +12084,9 @@ local function merge(saved)
 		for i = 1, SLOT_COUNT do
 			local sl = saved.slots[i]
 			if type(sl) == "table" and (sl.k == "e" or sl.k == "p") then
+				-- champs facultatifs du lot 7b (assainis) : rv = œuf non indemnisable (volé par corbeau, tapis privé, bienvenue), rvAt = date du dernier vol par corbeau
+				sl.rv = sl.rv == true or nil
+				sl.rvAt = (type(sl.rvAt) == "number" and sl.rvAt == sl.rvAt) and math.min(4e9, math.max(0, sl.rvAt)) or nil
 				d.slots[i] = sl
 			else
 				d.slots[i] = false

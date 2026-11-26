@@ -131,7 +131,7 @@ function Data.default()
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
 		settings = { blockFriendRavens = false }, -- réglages du joueur
-		raven = { day = 0, n = 0, cd = 0, sh = 0 }, -- lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
+		raven = { day = 0, n = 0, cd = 0, sh = 0, ic = 0, icDay = 0 }, -- lot 7b : ic = indemnités de corbeau reçues le jour UTC icDay (plafonnées) ; lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
 		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
@@ -147,7 +147,7 @@ function Data.default()
 	for i = 1, SLOT_COUNT do
 		d.slots[i] = false
 	end
-	d.slots[1] = { k = "e", t = 1, ends = os.time() + 6, shield = 0 } -- œuf de départ
+	d.slots[1] = { k = "e", t = 1, ends = os.time() + 6, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
 	return d
 end
 
@@ -263,6 +263,8 @@ local function merge(saved)
 		d.raven.n = math.min(Config.REMOTE_STEAL.dailyMax, math.max(0, math.floor(sane(rv.n, 0))))
 		d.raven.cd = math.min(4e9, math.max(0, sane(rv.cd, 0)))
 		d.raven.sh = math.min(4e9, math.max(0, sane(rv.sh, 0)))
+		d.raven.icDay = math.max(0, math.floor(sane(rv.icDay, 0)))
+		d.raven.ic = math.min(Config.EGG_PRICE[Config.REMOTE_STEAL.compensationCapTier], math.max(0, sane(rv.ic, 0)))
 	end
 	if type(saved.stealLog) == "table" then
 		for _, e in ipairs(saved.stealLog) do
@@ -355,6 +357,9 @@ local function merge(saved)
 		for i = 1, SLOT_COUNT do
 			local sl = saved.slots[i]
 			if type(sl) == "table" and (sl.k == "e" or sl.k == "p") then
+				-- champs facultatifs du lot 7b (assainis) : rv = œuf non indemnisable (volé par corbeau, tapis privé, bienvenue), rvAt = date du dernier vol par corbeau
+				sl.rv = sl.rv == true or nil
+				sl.rvAt = (type(sl.rvAt) == "number" and sl.rvAt == sl.rvAt) and math.min(4e9, math.max(0, sl.rvAt)) or nil
 				d.slots[i] = sl
 			else
 				d.slots[i] = false

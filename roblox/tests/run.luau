@@ -9373,14 +9373,14 @@ do
 	local R = Config.REMOTE_STEAL
 	local NOW = 1700000000
 	local function thief(o)
-		local t = { userId = 1, tokens = 1, level = 3, playMinutes = 60, freeSlot = true, dailyDone = 0, flying = false, newbie = false, inCastle = false }
+		local t = { userId = 1, tokens = 1, level = 3, playMinutes = 60, freeSlot = true, dailyDone = 0, flying = false, newbie = false, inCastle = false, accountAgeDays = 30 } -- lot 7b : accountAgeDays est exigé par canLaunch (valeur nominale ajoutée aux contextes de test)
 		for k, v in pairs(o or {}) do
 			t[k] = v
 		end
 		return t
 	end
 	local function victim(o)
-		local v = { userId = 2, level = 3, playMinutes = 60, newbie = false, inCastle = false, graceUntil = 0, shieldUntil = 0, ravenCooldownUntil = 0, friendOfThief = false, blockFriendRavens = false }
+		local v = { userId = 2, level = 3, playMinutes = 60, newbie = false, inCastle = false, graceUntil = 0, shieldUntil = 0, ravenCooldownUntil = 0, friendOfThief = false, blockFriendRavens = false, accountAgeDays = 30 }
 		for k, x in pairs(o or {}) do
 			v[k] = x
 		end
@@ -9418,6 +9418,13 @@ do
 		compOk = compOk and RavenM.compensation(Config, t) == math.floor(Config.EGG_PRICE[t] * 0.5)
 	end
 	check7("Indemnité exacte : floor(prix x 0,5) pour les " .. #Config.TIERS .. " raretés (Rare : " .. RavenM.compensation(Config, 2) .. ")", compOk and RavenM.compensation(Config, 1) == math.floor(Config.EGG_PRICE[1] / 2))
+	-- lot 7b, défaut 1 : collusion (ancienneté de compte, revol, indemnité plafonnée et non indemnisable)
+	check7("Corbeau 7b : ancienneté de compte " .. R.minAccountAgeDays .. " jours exigée du voleur ET de la victime (2 refusé, 3 accepté)", R.minAccountAgeDays == 3 and select(2, why({ accountAgeDays = 2 })) == "accountAge" and select(2, why(nil, { accountAgeDays = 2 })) == "accountAge" and why({ accountAgeDays = 3 }, { accountAgeDays = 3 }) == true)
+	check7("Corbeau 7b : ancienneté absente, non numérique ou NaN = refusée sans erreur (jamais de comparaison table < nombre)", select(2, RavenM.canLaunch(Config, { userId = 1, tokens = 1, level = 3, playMinutes = 60, freeSlot = true }, victim(), egg(), NOW)) == "accountAge" and select(2, why({ accountAgeDays = {} })) == "accountAge" and select(2, why(nil, { accountAgeDays = "9" })) == "accountAge" and select(2, why({ accountAgeDays = 0 / 0 })) == "accountAge")
+	check7("Corbeau 7b : un œuf volé par corbeau ne se revole pas avant " .. R.reStealSeconds .. " s (recentlyStolen), accepté ensuite ; rvAt invalide ignoré sans erreur", R.reStealSeconds == 1200 and select(2, why(nil, nil, { rvAt = NOW - 1199 })) == "recentlyStolen" and why(nil, nil, { rvAt = NOW - 1200 }) == true and why(nil, nil, { rvAt = "x" }) == true)
+	local capCoins = Config.EGG_PRICE[R.compensationCapTier]
+	check7("Indemnité 7b : plafond de " .. capCoins .. " pièces (prix d'un œuf Rare) par jour et par victime ; Épique (" .. RavenM.compensation(Config, 3) .. " non plafonné) ramené à " .. capCoins, capCoins == 900 and RavenM.indemnity(Config, 3, false, 0) == 900 and RavenM.indemnity(Config, 4, false, 0) == 900 and RavenM.indemnity(Config, 3, false, 500) == 400 and RavenM.indemnity(Config, 3, false, 900) == 0 and RavenM.indemnity(Config, 3, false, 5000) == 0)
+	check7("Indemnité 7b : un œuf non indemnisable (rv) = 0 ; un petit œuf reste exact (Commun 12, Rare 450) ; reçu invalide (nil, NaN, négatif) traité comme 0", RavenM.indemnity(Config, 3, true, 0) == 0 and RavenM.indemnity(Config, 1, false, 0) == 12 and RavenM.indemnity(Config, 2, false, 0) == 450 and RavenM.indemnity(Config, 2, false, nil) == 450 and RavenM.indemnity(Config, 2, false, -5) == 450 and RavenM.indemnity(Config, 2, false, 900) == 0 and RavenM.indemnity(Config, 2, false, 0 / 0) == 450)
 	local function w(o)
 		local x = { thiefHere = true, victimHere = true, eggStill = true, eggLeft = 5, chased = false, shielded = false, thiefFreeSlot = true, now = 10, endsAt = 8 }
 		for k, v in pairs(o or {}) do
@@ -9681,7 +9688,7 @@ do
 				slotA = k
 			end
 		end
-		local compB = math.floor(Config.EGG_PRICE[3] * 0.5)
+		local compB = Config.EGG_PRICE[Config.REMOTE_STEAL.compensationCapTier] -- lot 7b : l'indemnité d'un œuf Épique (10000) est plafonnée au prix d'un œuf Rare (900) par jour et par victime (test adapté, voir CHANGELOG 7b)
 		check7("Succès : l'œuf Épique est chez le voleur (temps restant conservé ~600 s, bouclier d'œuf), absent chez la victime, aucun vol en cours", n2 == 0 and slotA ~= nil and sB.data.slots[iB] == false and sA.data.slots[slotA].ends - tnow() > 560 and sA.data.slots[slotA].ends - tnow() <= 600 and sA.data.slots[slotA].shield > tnow())
 		check7("Succès : indemnité EXACTE de " .. compB .. " pièces à la victime, 5 min de bouclier et 20 min de délai, plafond du jour 1/3", sB.data.coins - coinsB0 >= compB and sB.data.coins - coinsB0 < compB + 5 * 120 + 1e7 and sB.data.raven.sh - tnow() > 290 and sB.data.raven.sh - tnow() <= 300 and sB.data.raven.cd - tnow() > 1190 and sA.data.raven.n == 1)
 		check7("Succès : ne compte pas dans `stolen` du classement ; jeton définitivement dépensé (2) ; textes aux deux joueurs ; journal « Qui m'a volé ? » de la victime", sA.data.stolen == stolenA and sA.data.tokens.remoteSteal == 2 and notified(B, "a emporté ton œuf Épique. Tu reçois 🪙 " .. Config.fmt(compB), m1) and notified(A, "Ton corbeau rapporte un œuf Épique", m1) and #sB.data.stealLog == 1 and sB.data.stealLog[1].n == "Ann" and sB.data.stealLog[1].t == 3 and sB.data.stealLog[1].k == "r")
@@ -9764,6 +9771,113 @@ do
 		RT.step(1)
 		check7("Voleur qui part en plein vol : vol annulé, jeton (" .. tkBefore .. " + 1) rendu DANS le profil sauvegardé, œuf intact chez la victime", select(1, hooks.flights()) == 0 and record(7001).v.tokens.remoteSteal == tkBefore + 1 and sB2.data.slots[iX] ~= false and sB2.data.slots[iX].k == "e")
 
+		-- 3b. Lot 7b, défaut 1 : collusion de comptes (aller-retour A/B/A), plafond par jour et par victime, ancienneté de compte --------------------------
+		local function findEgg(s0, tier)
+			for k = 1, 20 do
+				local sl = s0.data.slots[k]
+				if sl and sl.k == "e" and sl.t == tier and k ~= 1 then
+					return k
+				end
+			end
+			return nil
+		end
+		local function leg(thiefP, thiefS, victS, slot) -- un corbeau complet (8 s de vol) ; boucliers remis à zéro, œuf protégé retiré
+			nreset(victS)
+			nreset(thiefS)
+			thiefS.data.tokens.remoteSteal = 3
+			victS.data.slots[slot].shield = 0
+			RT.now = RT.now + 12
+			local mk0 = mark()
+			act(thiefP, "ravenGo", { u = victS.player.UserId, i = slot })
+			RT.step(9)
+			return mk0
+		end
+		local X, sX = join("Xan", 7101)
+		local Y, sY = join("Yan", 7102)
+		standInBase(X, sX)
+		standInBase(Y, sY)
+		local cp0 = hooks.compPaid()
+		local iX = putEgg(sX, 4, 5000) -- X (complice) ACHÈTE un œuf Légendaire
+		local mk1 = leg(Y, sY, sX, iX)
+		local iY = findEgg(sY, 4)
+		local cp1 = hooks.compPaid() - cp0
+		check7("Collusion 7b : B vole l'œuf Légendaire de A ; A touche l'indemnité plafonnée (" .. cp1 .. " au lieu de " .. math.floor(Config.EGG_PRICE[4] * 0.5) .. "), l'œuf arrive chez B", iY ~= nil and cp1 == Config.EGG_PRICE[2] and select(1, hooks.flights()) == 0)
+		check7("Collusion 7b : l'œuf volé par corbeau est marqué (rv = true, date rvAt) chez le voleur, et ce marquage est SAUVEGARDÉ", iY ~= nil and sY.data.slots[iY].rv == true and type(sY.data.slots[iY].rvAt) == "number" and sY.data.slots[iY].rvAt >= tnow() - 15)
+		-- A tente de le reprendre tout de suite : refusé (20 min)
+		nreset(sX)
+		sY.data.slots[iY].shield = 0
+		sY.data.slots[iY].ends = tnow() + 5000
+		sX.data.tokens.remoteSteal = 3
+		RT.now = RT.now + 12
+		local mk2 = mark()
+		act(X, "ravenGo", { u = 7102, i = iY })
+		check7("Collusion 7b : revoler l'œuf tout de suite est refusé (« vient d'être volé »), jeton non dépensé, aucun vol", notified(X, "vient d'être volé", mk2) and sX.data.tokens.remoteSteal == 3 and select(1, hooks.flights()) == 0)
+		-- 21 min plus tard : le revol est possible, mais l'œuf est marqué : indemnité 0
+		RT.now = RT.now + 1260
+		sY.data.slots[iY].ends = tnow() + 5000
+		local cpB = hooks.compPaid()
+		local mk3 = leg(X, sX, sY, iY)
+		check7("Collusion 7b : A revole l'œuf après 21 min ; B (victime) ne touche RIEN (œuf déjà volé par corbeau) : 0 pièce créée, message sans indemnité", hooks.compPaid() == cpB and notified(Y, "Pas d'indemnité", mk3) and findEgg(sX, 4) ~= nil)
+		check7("Collusion 7b : bilan de l'aller-retour A/B/A = " .. (hooks.compPaid() - cp0) .. " pièces créées (plafond " .. Config.EGG_PRICE[2] .. ")", hooks.compPaid() - cp0 <= Config.EGG_PRICE[2] and hooks.compPaid() - cp0 == cp1)
+		-- plafond par jour et par victime : deux œufs achetés par la même victime le même jour
+		local Z, sZ = join("Zoe", 7103)
+		standInBase(Z, sZ)
+		local cpZ = hooks.compPaid()
+		local z1 = putEgg(sZ, 3, 5000)
+		local z2 = putEgg(sZ, 3, 5000)
+		leg(X, sX, sZ, z1)
+		local got1 = hooks.compPaid() - cpZ
+		leg(Y, sY, sZ, z2)
+		local got2 = hooks.compPaid() - cpZ - got1
+		check7("Plafond 7b : une même victime touche au plus " .. Config.EGG_PRICE[2] .. " pièces par jour UTC (1er œuf " .. got1 .. ", 2e œuf " .. got2 .. "), compteur sauvegardé dans le profil", got1 == Config.EGG_PRICE[2] and got2 == 0 and sZ.data.raven.ic == Config.EGG_PRICE[2] and sZ.data.raven.icDay == math.floor(tnow() / 86400))
+		RT.now = RT.now + 86400 -- le lendemain (UTC) le compteur repart de zéro
+		local z3 = putEgg(sZ, 3, 5000)
+		local cpZ3 = hooks.compPaid()
+		leg(X, sX, sZ, z3)
+		check7("Plafond 7b : le jour suivant (UTC) l'indemnité est de nouveau versée (" .. (hooks.compPaid() - cpZ3) .. ")", hooks.compPaid() - cpZ3 == Config.EGG_PRICE[2])
+		-- ancienneté de compte : voleur ET victime
+		local ageY = rawget(Y, "__props")
+		local ageX = rawget(X, "__props")
+		local iYb = putEgg(sY, 3, 5000)
+		nreset(sY)
+		sY.data.slots[iYb].shield = 0
+		sX.data.tokens.remoteSteal = 3
+		ageY.AccountAge = 1
+		RT.now = RT.now + 12
+		local mk4 = mark()
+		act(X, "ravenGo", { u = 7102, i = iYb })
+		check7("Ancienneté 7b : victime avec un compte de 1 jour refusée (message), jeton non dépensé, aucun vol", notified(X, "compte Roblox de 3 jours", mk4) and sX.data.tokens.remoteSteal == 3 and select(1, hooks.flights()) == 0)
+		ageY.AccountAge = 365
+		ageX.AccountAge = 2
+		RT.now = RT.now + 12
+		local mk5 = mark()
+		act(X, "ravenGo", { u = 7102, i = iYb })
+		check7("Ancienneté 7b : voleur avec un compte de 2 jours refusé aussi ; la valeur inconnue (non numérique) est refusée", notified(X, "compte Roblox de 3 jours", mk5) and sX.data.tokens.remoteSteal == 3 and select(1, hooks.flights()) == 0)
+		ageX.AccountAge = "inconnu"
+		RT.now = RT.now + 12
+		local mk6 = mark()
+		act(X, "ravenGo", { u = 7102, i = iYb })
+		check7("Ancienneté 7b : AccountAge illisible = refus (jamais de comparaison table < nombre)", notified(X, "compte Roblox de 3 jours", mk6) and select(1, hooks.flights()) == 0 and #RT.errors == 0)
+		ageX.AccountAge = 365
+		RT.removePlayer(Z) -- (la partie est limitée à 5 joueurs)
+		RT.step(1)
+		-- champs facultatifs assainis dans le profil (rv, rvAt, ic, icDay)
+		do
+			local ds = RT.dataStores["ChipeOeufs_v1"]
+			local base = tnow()
+			ds.data["P_7110"] = { v = { ver = 10, coins = 10, slots = { { k = "e", t = 1, ends = base + 900, rv = "oui", rvAt = "x" }, { k = "e", t = 2, ends = base + 900, rv = true, rvAt = base - 30 }, { k = "e", t = 2, ends = base + 900, rvAt = 0 / 0 } }, raven = { ic = 1e12, icDay = "x", day = 0, n = 0, cd = 0, sh = 0 } }, t = base - 5000 }
+			local Pq, sPq = join("Pol", 7110)
+			local sl = sPq and sPq.data.slots
+			check7("Profil 7b : rv et rvAt sont assainis au chargement (rv = true ou absent, rvAt nombre fini ou absent), ic plafonné, icDay invalide = 0", sl ~= nil and sl[1].rv == nil and sl[1].rvAt == nil and sl[2].rv == true and sl[2].rvAt == base - 30 and sl[3].rvAt == nil and sPq.data.raven.ic == Config.EGG_PRICE[2] and sPq.data.raven.icDay == 0)
+			RT.removePlayer(Pq)
+		end
+		local Nq, sNq = join("Neo", 7111) -- profil neuf : l'œuf de départ (gratuit) est encore un œuf 2 s après l'arrivée
+		check7("Profil 7b : l'œuf de départ du profil neuf n'est pas indemnisable (rv)", sNq ~= nil and sNq.data.slots[1] ~= false and sNq.data.slots[1].k == "e" and sNq.data.slots[1].rv == true)
+		RT.removePlayer(Nq)
+		RT.removePlayer(X)
+		RT.removePlayer(Y)
+		RT.step(2)
+
 		-- 4. Tapis privé ---------------------------------------------------------------------------------------------------------------------------------
 		RT.ownedPasses = { [cfg.PASSES.PrivateBelt.id] = true }
 		local D, sD = join("Dan", 7004)
@@ -9793,17 +9907,20 @@ do
 		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", stripPrompt, E)
 		check7("Tapis privé : un autre joueur ne peut pas prendre l'œuf (propriétaire seulement)", #sD.data.pb == 3)
 		standAt(D, sp.X, sp.Z)
-		local before = 0
+		local before, rvBefore = 0, 0
 		for k = 1, 20 do
 			before = before + ((sD.data.slots[k] and sD.data.slots[k].k == "e") and 1 or 0)
+			rvBefore = rvBefore + ((sD.data.slots[k] and sD.data.slots[k].rv == true) and 1 or 0)
 		end
 		RT.now = RT.now + 1
 		RT.fire(RT.services.ProximityPromptService, "PromptTriggered", stripPrompt, D)
 		RT.step(0.3)
-		local after = 0
+		local after, rvAfter = 0, 0
 		for k = 1, 20 do
 			after = after + ((sD.data.slots[k] and sD.data.slots[k].k == "e") and 1 or 0)
+			rvAfter = rvAfter + ((sD.data.slots[k] and sD.data.slots[k].rv == true) and 1 or 0)
 		end
+		check7("Tapis privé 7b : l'œuf gratuit pris sur le tapis privé est marqué non indemnisable (rv), " .. rvBefore .. " -> " .. rvAfter, rvAfter == rvBefore + 1)
 		check7("Tapis privé : le propriétaire prend l'œuf (3 -> " .. #sD.data.pb .. " en attente, +1 œuf dans la base), les œufs en attente ne sont pas des emplacements volables", #sD.data.pb == 2 and after == before + 1)
 		-- départ : rien hors ligne
 		local pbSaved = #sD.data.pb

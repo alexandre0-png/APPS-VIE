@@ -883,6 +883,7 @@ function Fake.runtime(opts)
 		local p = instance("Player", name)
 		local pr = rawget(p, "__props")
 		pr.UserId, pr.DisplayName = userId, name
+		pr.AccountAge = 365 -- jours (modifiable par les tests : rawget(p, "__props").AccountAge)
 		pr.GetJoinData = function() return { TeleportData = joinData } end
 		pr.LoadCharacterAsync = function(self)
 			local char = instance("Model", name)

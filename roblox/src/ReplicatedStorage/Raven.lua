@@ -3,7 +3,16 @@
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
 
+-- Ancienneté de compte (jours) d'après une valeur d'origine incertaine : tout ce qui n'est pas un nombre fini vaut 0 (donc refusé).
+local function days(v)
+	if type(v) ~= "number" or v ~= v then
+		return 0
+	end
+	return v
+end
+
 -- Vérifie le DÉPART d'un corbeau. thief = { userId, tokens, level, playMinutes, freeSlot, dailyDone, flying, newbie, inCastle }
+-- (lot 7b : thief et victim portent aussi accountAgeDays ; egg porte rvAt = os.time() du dernier vol par corbeau, nil sinon)
 -- victim = { userId, level, playMinutes, newbie, inCastle, graceUntil, shieldUntil, ravenCooldownUntil, friendOfThief, blockFriendRavens }
 -- egg = { tier, incubating, eggShieldUntil, endsAt }, now en secondes (os.time). Retourne true ou (false, code).
 function Raven.canLaunch(Config, thief, victim, egg, now)
@@ -32,6 +41,9 @@ function Raven.canLaunch(Config, thief, victim, egg, now)
 	if (thief.playMinutes or 0) < R.minPlayMinutes or (victim.playMinutes or 0) < R.victimMinMinutes then
 		return false, "tooYoung"
 	end
+	if days(thief.accountAgeDays) < R.minAccountAgeDays or days(victim.accountAgeDays) < R.minAccountAgeDays then
+		return false, "accountAge"
+	end
 	if not thief.freeSlot then
 		return false, "noSlot"
 	end
@@ -59,6 +71,9 @@ function Raven.canLaunch(Config, thief, victim, egg, now)
 	if now < (egg.eggShieldUntil or 0) then
 		return false, "eggShield"
 	end
+	if type(egg.rvAt) == "number" and now - egg.rvAt < R.reStealSeconds then
+		return false, "recentlyStolen" -- un œuf volé par corbeau ne se revole pas tout de suite (anti-aller-retour entre comptes complices)
+	end
 	if (egg.endsAt or 0) - now <= R.minEggSecondsLeft then
 		return false, "tooLate"
 	end
@@ -68,6 +83,18 @@ end
 -- Indemnité de la victime : floor(prix de la boutique x ratio).
 function Raven.compensation(Config, tier)
 	return math.floor(Config.EGG_PRICE[tier] * Config.REMOTE_STEAL.compensationRatio)
+end
+
+-- Indemnité RÉELLEMENT versée (lot 7b) : 0 pour un œuf non indemnisable (`rv` : déjà volé par corbeau, issu du tapis privé ou de l'œuf de bienvenue), sinon
+-- l'indemnité normale plafonnée par ce que la victime peut encore recevoir aujourd'hui (plafond = prix d'un œuf de Config.REMOTE_STEAL.compensationCapTier).
+function Raven.indemnity(Config, tier, rv, receivedToday)
+	if rv == true then
+		return 0
+	end
+	local R = Config.REMOTE_STEAL
+	local got = (type(receivedToday) == "number" and receivedToday == receivedToday) and math.max(0, receivedToday) or 0 -- valeur incertaine : nombre fini sinon 0
+	local room = Config.EGG_PRICE[R.compensationCapTier] - got
+	return math.max(0, math.min(Raven.compensation(Config, tier), room))
 end
 
 -- Jour UTC d'un horodatage (clé du plafond quotidien).
