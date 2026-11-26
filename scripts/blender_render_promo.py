@@ -108,10 +108,10 @@ if scn == "vignette":
     ground((0.30, 0.60, 0.16))
     world(top=(0.42, 0.28, 0.72), hor=(1.0, 0.55, 0.45), strength=1.1, sun_col=(1.0, 0.62, 0.35), sun_e=7.0,
           sun_rot=(math.radians(-72), 0, math.radians(18)))
-    CAM = (0, -27, 1.6); TGT = (0, 10, 7.0)
-    load(P("out15/hub_dome.fbx"), height=26, pos=(24, 80, 0))
-    load(P("out15/house_lvl4.fbx"), height=14, pos=(-34, 62, 0), look=CAM)
-    load(P("out15/house_lvl3.fbx"), height=12, pos=(-62, 70, 0), look=CAM)
+    CAM = (0, -42, 1.8); TGT = (0, 10, 6.5)
+    load(P("out15/hub_dome.fbx"), height=26, pos=(34, 58, 0))
+    load(P("out15/house_lvl4.fbx"), height=14, pos=(-40, 50, 0), look=CAM)
+    load(P("out15/house_lvl3.fbx"), height=12, pos=(-64, 58, 0), look=CAM)
     for x, y, f in [(-46, 40, "out17/tree_wide.fbx"), (52, 40, "out11/tree_pine.fbx"), (-12, 55, "out11/tree_round.fbx"), (66, 62, "out11/tree_oak_a.fbx")]:
         load(P(f), height=15, pos=(x, y, 0))
     # collines
@@ -126,15 +126,15 @@ if scn == "vignette":
         load(pet(nme.replace("pet_", "")), height=h, pos=(x, 21, 3.0), look=CAM)
     for nme, x, y, h in front:
         load(pet(nme), height=h, pos=(x, y, 0), look=CAM)
-    load(P("out20/egg_r10.fbx"), height=9.5, pos=(0, -9, 0), look=CAM)
+    load(P("out20/egg_r10.fbx"), height=11, pos=(0, -9, 0), look=CAM)
     # halo de soleil derriere l'oeuf
-    bpy.ops.mesh.primitive_plane_add(size=48, location=(0, 12, 6), rotation=(math.radians(90), 0, 0)); gl = bpy.context.object
+    bpy.ops.mesh.primitive_plane_add(size=60, location=(0, 12, 7), rotation=(math.radians(90), 0, 0)); gl = bpy.context.object
     gm = bpy.data.materials.new("glow"); gm.use_nodes = True; nt = gm.node_tree; nt.nodes.clear()
     tc = nt.nodes.new("ShaderNodeTexCoord"); gr = nt.nodes.new("ShaderNodeTexGradient"); gr.gradient_type = "SPHERICAL"
-    mp = nt.nodes.new("ShaderNodeMapping"); mp.inputs["Location"].default_value = (-0.5, -0.5, 0); nt.links.new(tc.outputs["Generated"], mp.inputs[0]); nt.links.new(mp.outputs[0], gr.inputs[0])
-    cr = nt.nodes.new("ShaderNodeValToRGB"); cr.color_ramp.elements[0].position = 0.0; cr.color_ramp.elements[0].color = (1, 1, 1, 1); cr.color_ramp.elements[1].position = 0.5; cr.color_ramp.elements[1].color = (0, 0, 0, 1)
+    mp = nt.nodes.new("ShaderNodeMapping"); mp.inputs["Location"].default_value = (-1.0, -1.0, 0); mp.inputs["Scale"].default_value = (2, 2, 2); nt.links.new(tc.outputs["Generated"], mp.inputs[0]); nt.links.new(mp.outputs[0], gr.inputs[0])
+    cr = nt.nodes.new("ShaderNodeValToRGB"); cr.color_ramp.elements[0].position = 0.0; cr.color_ramp.elements[0].color = (0, 0, 0, 1); cr.color_ramp.elements[1].position = 1.0; cr.color_ramp.elements[1].color = (1, 1, 1, 1)
     nt.links.new(gr.outputs["Fac"], cr.inputs["Fac"])
-    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Color"].default_value = (1.0, 0.65, 0.3, 1); em.inputs["Strength"].default_value = 2.2
+    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Color"].default_value = (1.0, 0.65, 0.3, 1); em.inputs["Strength"].default_value = 1.6
     tr = nt.nodes.new("ShaderNodeBsdfTransparent"); mx = nt.nodes.new("ShaderNodeMixShader"); out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(cr.outputs["Color"], mx.inputs[0]); nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(em.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs[0])
     gl.data.materials.append(gm); gl.visible_shadow = False
@@ -149,7 +149,7 @@ if scn == "vignette":
             bpy.context.object.scale = (1.5, 0.8, 0.15)
         o = bpy.context.object; o.rotation_euler = (random.random()*3, random.random()*3, random.random()*3)
         o.data.materials.append(mat("FFE066" if star else "FF9EC4", star))
-    camera(CAM, TGT, lens=26, fstop=5.5, focus=19)
+    camera(CAM, TGT, lens=26, fstop=5.5, focus=33)
     area((0, -22, 9), (0, -9, 4), 700, 14, (1, 0.85, 0.8))
     render("vignette-1920x1080")
 elif scn == "icone":
