@@ -86,3 +86,7 @@ bench_park 71149096082627; boulder_cluster 94606784141362; flowerbed 13625095068
 
 ## Lot 20 (sons de l'énigme de la Mère Poule, synthétiques, en modération « Reviewing » au 25 nov, à vérifier)
 berceuse_note1 85257974839127 (do) ; berceuse_note2 101445210941604 (mi) ; berceuse_note3 139374738574752 (sol) ; berceuse_note4 82316993375303 (do aigu) ; plume_ramassee 118620801437766 ; poule_glousse 125679862476345 ; secret_decouvert 119606421875553. Générés par une variante de scripts/audio_synth.py (boîte à musique).
+
+## Lot 21 (10 œufs de rareté r1..r10, agent Sonnet) : scripts/blender_make_eggs_r.py
+egg_r1 135765683612513; egg_r10 124299527536427; egg_r2 87965918516208; egg_r3 96993304097437; egg_r4 109265198341087; egg_r5 133048256610873; egg_r6 102115260137639; egg_r7 101573584229717; egg_r9 98454425446209; egg_r8 127835469690102
+Échelle : se baser sur la hauteur de la pièce Coque (r5, r9, r10 dépassent 1 à cause de couronne/auréole ; r10 large 1,61 à cause des ailes). Coques r7/r10 non nommées Verre : le code force la transparence.
