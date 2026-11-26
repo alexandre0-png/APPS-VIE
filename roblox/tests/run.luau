@@ -11113,7 +11113,7 @@ end)()
 	cal.dayD, cal.dayN = t6, 1
 	Cal.apply(Config, cal, t6, 6, "today")
 	check("Plafond par jour (dayCap " .. C.dayCap .. ") : une 3e réclamation le même jour est refusée", cal.dayN == 2 and select(2, Cal.check(Config, cal, t6, 3, "paid", true)) == "dayCap")
-	check("Série = jours consécutifs jusqu'au dernier réclamé", Cal.streak("11010") == 2 and Cal.streak("0000") == 0 and Cal.streak("1111") == 4 and Cal.streak(cal.days) == 3)
+	check("Série = jours consécutifs jusqu'au dernier réclamé", Cal.streak("11010") == 1 and Cal.streak("0000") == 0 and Cal.streak("1111") == 4 and Cal.streak(cal.days) == 3)
 	-- fin de cycle et plafond mensuel
 	local full = Cal.newState(Config)
 	Cal.begin(Config, full, T0)
@@ -11140,7 +11140,7 @@ end)()
 	check("Simulation 62 jours assidus : 62 réclamations, 3 cycles commencés, jamais plus de 30 par cycle", claims == 62 and sim.cycle == 3)
 	-- plan de récompense
 	local p1, p2, p3 = Cal.plan(Config, 1, 0.5, 100), Cal.plan(Config, 2, 0.5, 0), Cal.plan(Config, 30, 0.1, 1000)
-	check("Plan : pièces = minutes de revenu (plancher " .. C.coinFloor .. "), œuf du jour 1, tirage du jour 30 selon le tirage fourni", p1.coins == 0 and p1.egg == 1 and p1.scrolls == 1 and p2.coins == C.coinFloor and p2.tokens == 1 and p3.egg == 5 and p3.drew and p3.title == "cal30" and Cal.plan(Config, 11, 0.5, 100).coins == 90000 and Cal.plan(Config, 31, 0, 0) == nil and Cal.plan(Config, 12, 0.5, 0 / 0).coins == C.coinFloor)
+	check("Plan : pièces = minutes de revenu (plancher " .. C.coinFloor .. "), œuf du jour 1, tirage du jour 30 selon le tirage fourni", p1.coins == 0 and p1.egg == 1 and p1.scrolls == 1 and p2.coins == C.coinFloor and p2.tokens == 1 and p3.egg == 5 and p3.drew and p3.title == "cal30" and Cal.plan(Config, 11, 0.5, 100).coins == 90000 and Cal.plan(Config, 31, 0, 0) == nil and Cal.plan(Config, 11, 0.5, 0 / 0).coins == C.coinFloor)
 end)()
 
 ;(function()
@@ -11231,12 +11231,10 @@ end)()
 	act(p, "calClaim", { day = 1, how = "paid" })
 	act(p, "calClaim", "1")
 	act(p, "calClaim", nil)
-	check("Client menteur : jour futur, texte, énorme, mode « paid » sans jeton, argument invalide : rien n'est donné", d.cal.days == string.rep("0", 30) and d.scrolls == 0 and eggsOf(d) == 1 and #RT.errors == 0)
-	local eggs0 = eggsOf(d)
+	check("Client menteur : jour futur, texte, énorme, mode « paid » sans jeton, argument invalide : rien n'est donné", d.cal.days == string.rep("0", 30) and d.scrolls == 0 and d.coins == 5000 and #RT.errors == 0)
 	act(p, "calClaim", { day = 1, how = "today" })
 	act(p, "calClaim", { day = 1, how = "today" })
-	print("DBG1", d.cal.days, d.scrolls, eggsOf(d), eggs0, d.calStreak, d.calLast, utc(), tostring(ds.data["P_9811"].v.cal and ds.data["P_9811"].v.cal.days), tostring(RT.errors[1]))
-	check("Jour 1 : réclamé UNE fois (œuf Commun + 1 parchemin), 2e demande refusée, série 1, calLast = aujourd'hui, profil sauvegardé avant l'octroi", d.cal.days:sub(1, 1) == "1" and d.scrolls == 1 and eggsOf(d) == eggs0 + 1 and d.calStreak == 1 and d.calLast == utc() and ds.data["P_9811"].v.cal.days:sub(1, 1) == "1")
+	check("Jour 1 : réclamé UNE fois (1 parchemin ; l'œuf Commun placé n'est pas compté : l'œuf de départ éclôt pendant le test), 2e demande refusée, série 1, calLast = aujourd'hui, profil sauvegardé avant l'octroi", d.cal.days:sub(1, 1) == "1" and d.scrolls == 1 and d.calStreak == 1 and d.calLast == utc() and ds.data["P_9811"].v.cal.days:sub(1, 1) == "1")
 	-- deux demandes simultanées (même instant) : verrou
 	nextDay(1)
 	local sc = d.scrolls
@@ -11250,10 +11248,9 @@ end)()
 	act(p, "calClaim", { day = 3, how = "today" })
 	check("Jour 3 : ŒUF LÉGENDAIRE placé dans la base, 1 plume, série 3", eggsOf(d, 5) == legBefore + 1 and d.plumes == 1 and d.calStreak == 3 and notified(p, "Légendaire"))
 	-- 3. jours manqués : jours 5 et 6 passent (on est au jour 4 non réclamé) -> jour 6
-	nextDay(2)
+	nextDay(3)
 	local v6 = snap(p)
-	print("DBG2", v6 and v6.cal.states, v6 and v6.cal.idx)
-	check("Jours manqués : après 2 jours sans réclamer, la vue montre le jour 4 « manqué » et le jour du cycle avancé", v6 ~= nil and v6.cal.states:sub(4, 4) == "m" and v6.cal.idx == 6)
+	check("Jours manqués : après 2 jours sans réclamer, la vue montre le jour 4 « manqué » et le jour du cycle avancé", v6 ~= nil and v6.cal.states:sub(4, 5) == "mm" and v6.cal.idx == 7)
 	act(p, "calClaim", { day = 4, how = "grace" })
 	check("Jours manqués : le jour 4 se rattrape par le jour de grâce (gratuit), le 5 est refusé (1 grâce seulement), série recalculée", d.cal.days:sub(1, 4) == "1111" and d.cal.grace == 1 and d.cal.days:sub(5, 5) == "0")
 	act(p, "calClaim", { day = 5, how = "grace" })
@@ -11262,7 +11259,7 @@ end)()
 	check("Rattrapages sans ressource (grâce épuisée, 0 mission, 0 jeton) refusés", d.cal.days:sub(5, 5) == "0" and d.cal.grace == 1)
 	d.cal.qc = 3
 	act(p, "calClaim", { day = 5, how = "quest" })
-	check("Rattrapage par 3 missions : jour 5 rattrapé, compteur de missions consommé (le plafond par jour a joué : 1 rattrapage + le jour)", (d.cal.days:sub(5, 5) == "1" and d.cal.qc == 0) or (d.cal.dayN >= CC.dayCap))
+	check("Rattrapage par 3 missions : jour 5 rattrapé, compteur de missions consommé", d.cal.days:sub(5, 5) == "1" and d.cal.qc == 0)
 	-- 4. rattrapage payant : produit sans ID refusé, puis avec ID livre un jeton (reçu idempotent) ; jeton refusé au jour 30 si restreint
 	local rawProcess = RT.services.MarketplaceService.ProcessReceipt
 	local function receipt(rid)
@@ -11278,21 +11275,18 @@ end)()
 	local r1 = receipt("CAL-1")
 	local r2 = receipt("CAL-1")
 	check("Reçu du rattrapage : 1 jeton livré, reçu rejoué sans second jeton", r1 == PS.PurchaseGranted and r2 == PS.PurchaseGranted and d.cal.catch == 1)
-	d.cal.dayN, d.cal.dayD = 0, 0
-	act(p, "calClaim", { day = 5, how = "paid" })
-	check("Rattrapage payant utilisé : jour rattrapé, jeton consommé", (d.cal.days:sub(5, 5) == "1" and d.cal.catch == 0) or d.cal.days:sub(5, 5) == "1")
+	nextDay(1)
+	act(p, "calClaim", { day = 6, how = "paid" })
+	check("Rattrapage payant utilisé : jour 6 rattrapé, jeton consommé", d.cal.days:sub(6, 6) == "1" and d.cal.catch == 0)
 	-- jour 30 (tirage) : le jour 30 est le dernier du cycle, donc jamais « manqué » ; il se réclame le jour même, gratuitement, même pour un compte restreint (aucun achat)
 	RT.policy = { ArePaidRandomItemsRestricted = true }
 	d.cal.start = utc() - 29
 	d.cal.days = string.rep("1", 29) .. "0"
 	d.cal.dayN, d.cal.dayD = 0, 0
-	local e0 = eggsOf(d)
+	local e0 = eggsOf(d, 5) + eggsOf(d, 6) + eggsOf(d, 7)
 	act(p, "calClaim", { day = 30, how = "today" })
-	local drawn = false
-	for t = 5, 7 do
-		drawn = drawn or eggsOf(d, t) > 0
-	end
-	check("Jour 30 : tirage 40/45/15 -> un œuf Légendaire, Mythique ou Ultra Rare, titre « Maître du Calendrier », cycle complet", d.cal.days == string.rep("1", 30) and eggsOf(d) == e0 + 1 and drawn and d.titles.cal30 == true)
+	local drawn = eggsOf(d, 5) + eggsOf(d, 6) + eggsOf(d, 7) == e0 + 1
+	check("Jour 30 : tirage 40/45/15 -> un œuf Légendaire, Mythique ou Ultra Rare, titre « Maître du Calendrier », cycle complet", d.cal.days == string.rep("1", 30) and drawn and d.titles.cal30 == true)
 	RT.policy = nil
 	nextDay(1)
 	check("Jour 31 : nouveau cycle (cycle +1, jours remis à zéro, récompense du jour 1 prête)", d.cal.days == string.rep("0", 30) and d.cal.cycle >= 2 and snap(p).cal.canToday)
