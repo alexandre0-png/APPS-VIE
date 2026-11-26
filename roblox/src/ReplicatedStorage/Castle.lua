@@ -216,11 +216,12 @@ function Castle.formatTime(seconds)
 	return string.format("%d:%04.1f", m, rest)
 end
 
+Castle.REWARD_TIERS = { fast = 5, slow = 4 } -- lot 9 : Légendaire et Épique (indices des 10 raretés)
 -- Récompense du coffre final : œuf rare (Épique, Légendaire si temps rapide), pièces proportionnelles aux revenus.
 -- fastTime : durée de référence « rapide » (s) pour ce nombre de salles.
 function Castle.reward(timeSeconds, income, deaths)
 	local fast = 60 * Castle.ROOMS * 0.6 -- 3 min : bon temps
-	local tier = (timeSeconds <= fast and (deaths or 0) == 0) and 4 or 3
+	local tier = (timeSeconds <= fast and (deaths or 0) == 0) and Castle.REWARD_TIERS.fast or Castle.REWARD_TIERS.slow
 	local coins = math.floor(math.max(5000, income * 600 * (timeSeconds <= fast and 1.5 or 1)))
 	return { eggTier = tier, coins = coins }
 end

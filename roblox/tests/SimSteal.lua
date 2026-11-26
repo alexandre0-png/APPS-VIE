@@ -23,7 +23,7 @@ local Sim = {}
 
 local sqrt = math.sqrt
 
-local CARRY_TIER = { zed = 4, mara = 3, gusNW = 1, gusSW = 1, wild = 1 }
+local CARRY_TIER = { zed = 5, mara = 4, gusNW = 1, gusSW = 1, wild = 1 } -- lot 9 : Légendaire (Zed) et Épique (Mara) aux nouveaux indices
 
 local function newRng(seed)
 	local state = seed

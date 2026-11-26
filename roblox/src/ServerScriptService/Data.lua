@@ -32,7 +32,7 @@ local SAVE_RETRIES = 3
 --   + tokens { remoteSteal }, + settings { blockFriendRavens }, puzzle étendu (step, feathers, hints, fragments) ; baseScore RECALCULÉ depuis dex avec Config.BASE_WEIGHTS2.
 -- v9 : + battle { team, best, day, fights, repeats } (Arène des pets : équipe, meilleur étage de la tour, compteurs du jour).
 -- v11 (LOT 9) : 10 raretés. Raretés d'œufs (slots, tapis privé, journal des vols, quêtes) remappées par Config.TIER_MIGRATE ; étage de la tour remappé
---   (5 étages par rareté de Config.TOWER.tiers) ; pets : espèce inchangée, + x = 0 (XP, lot 12) ; baseScore recalculé (mêmes poids pour les raretés
+--   (5 étages par rareté de Config.TOWER.tiers) ; pets : espèce inchangée, + x = 0 (XP, lot 12) ; baseScore conservé (mêmes poids pour les raretés
 --   migrées) et plancher de niveau = niveau atteint avec les seuils v10 (jamais de recul) ; + titles { oldCosmic } (Cosmique découvert),
 --   + firstSeen / lastSeen (jours UTC, mesure de rétention). Pièces, reçus, jetons, énigme, temps de jeu, PvP : inchangés.
 local VERSION = 11
@@ -51,15 +51,7 @@ local function legacyLevel(score)
 end
 -- Score de base d'après la collection : somme (nombre obtenu par espèce x poids de la rareté) avec la table de poids donnée.
 -- Ancien indice de rareté (1..6) d'une rareté du lot 9 (inverse de Config.TIER_MIGRATE ; une rareté nouvelle prend l'ancienne inférieure).
-local function oldTier(t)
-	local best = 1
-	for old, new in ipairs(Config.TIER_MIGRATE) do
-		if new <= t then
-			best = old
-		end
-	end
-	return best
-end
+local oldTier = Config.oldTier
 -- `legacy` : table de poids indexée par l'ANCIENNE rareté (1..6), pour les migrations antérieures à v11.
 local function scoreFromDex(dex, weights, legacy)
 	local score = 0
@@ -77,8 +69,8 @@ end
 -- Seuils et conditions de rareté des niveaux de maison de la v10 (lot 5) : servent à garder le niveau atteint avant le recalibrage du lot 9.
 local V10_LEVELS = { { score = 0 }, { score = 15 }, { score = 60 }, { score = 200 }, { score = 600 }, { score = 1000 }, { score = 5000, needOld = 4 }, { score = 14000, needOld = 5 } }
 local V10_WEIGHTS = { 1, 4, 15, 50, 180, 700 }
-local function v10Level(dex)
-	local score = scoreFromDex(dex, V10_WEIGHTS, true)
+local function v10Level(score, dex)
+	score = (type(score) == "number" and score == score and score > 0) and score or 0
 	local top = 0
 	if type(dex) == "table" then
 		for k, e in pairs(dex) do
@@ -255,9 +247,9 @@ local MIGRATIONS = {
 			end
 			saved.battle.best = (idx - 1) * 5 + pos + 1
 		end
+		-- score de maison CONSERVÉ (les poids des raretés migrées sont identiques) ; le niveau atteint avec les seuils v10 devient le plancher
 		local floorBefore = math.floor(tonumber(saved.baseLevelFloor) or 1)
-		saved.baseLevelFloor = math.max(floorBefore == floorBefore and floorBefore or 1, v10Level(saved.dex))
-		saved.baseScore = scoreFromDex(saved.dex, Config.BASE_WEIGHTS2)
+		saved.baseLevelFloor = math.max(floorBefore == floorBefore and floorBefore or 1, v10Level(saved.baseScore, saved.dex))
 		local cosmic = false
 		if type(saved.dex) == "table" then
 			for k, e in pairs(saved.dex) do

@@ -3866,12 +3866,19 @@ MarketplaceService.ProcessReceipt = function(info)
 					giveEgg(s, Config.STARTER_PACK.eggTier)
 				end
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
-			elseif name == "ExclusiveEgg" then
+			elseif type(def.eggTier) == "number" then
+				-- œufs de rareté FIXE (Mythique, et lot 9 : Secret, Exclusif, Divin) : refus SANS effet si la rareté n'a aucune espèce publiée
+				-- (offre masquée, Config.offerVisible) ou si la base est pleine ; Roblox rappellera ProcessReceipt (rien n'est débité tant que non traité)
+				if not Config.tierLive(def.eggTier) then
+					notify(player, "🥚 Cet œuf n'est pas encore disponible : ton achat sera livré plus tard.")
+					return Enum.ProductPurchaseDecision.NotProcessedYet
+				end
 				if not freeSlot(s) then
 					notify(player, "Base pleine : libère une place, ton achat sera livré automatiquement.")
 					return Enum.ProductPurchaseDecision.NotProcessedYet
 				end
-				giveEgg(s, Config.EXCLUSIVE_EGG_TIER)
+				giveEgg(s, def.eggTier)
+				notify(player, "🥚 " .. def.name .. " placé dans ta base !", "claim")
 			elseif name == "InstantHatch" then
 				for i = 1, cap(s) do
 					hatch(s, i)

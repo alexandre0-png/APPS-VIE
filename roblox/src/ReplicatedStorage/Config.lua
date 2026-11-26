@@ -48,6 +48,16 @@ Config.TIERS = {
 Config.TIER_COUNT = 10
 -- Ancien indice de rareté (profils v10 et antérieurs, 6 raretés) -> nouvel indice (lot 9).
 Config.TIER_MIGRATE = { 1, 3, 4, 5, 6, 7 }
+-- Ancien indice (1..6) d'une rareté du lot 9 (inverse de TIER_MIGRATE ; une rareté nouvelle prend l'ancienne inférieure). Sert aux migrations et aux tests.
+function Config.oldTier(t)
+	local best = 1
+	for old, new in ipairs(Config.TIER_MIGRATE) do
+		if type(t) == "number" and new <= t then
+			best = old
+		end
+	end
+	return best
+end
 -- Seuils d'effets indexés par rareté (remplacent tous les `tier >= N` codés en dur ; test grep dans tests/run.luau).
 -- shine : brillance du bandeau ; announce : annonce serveur, grande révélation ; aura : cercle runique ; pillar : pilier de lumière ;
 -- beam : faisceau de portage ; serverBanner / globalBanner : annonces (lot 10) ; rareCine : cinématique « premier rare » ; belt2s : anti-monopole du tapis ;

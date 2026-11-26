@@ -2711,7 +2711,8 @@ do
 	end)())
 	-- récompense
 	local fastR, slowR, deathR = Castle.reward(120, 100, 0), Castle.reward(400, 100, 0), Castle.reward(120, 100, 2)
-	check("Récompense : œuf Légendaire si rapide et sans défaite, sinon Épique ; pièces plus élevées si rapide", fastR.eggTier == 4 and slowR.eggTier == 3 and deathR.eggTier == 3 and fastR.coins > slowR.coins and slowR.coins >= 5000)
+	check("Récompense : œuf Légendaire si rapide et sans défaite, sinon Épique ; pièces plus élevées si rapide", fastR.eggTier == 5 and slowR.eggTier == 4 and deathR.eggTier == 4 and -- lot 9 : Légendaire 5, Épique 4
+		 fastR.coins > slowR.coins and slowR.coins >= 5000)
 end
 
 -- Missions : bonus de récompense, texte ; temps du Château ----------------------------------------------------------------
@@ -7074,7 +7075,7 @@ do
 	suite("Arène des pets PvP asynchrone : trophées, saisons, défense, adversaire, limites, anti-triche")
 	local P = Config.PVP
 	check("PvP : gain de trophées 25 de base, +1 par 10 d'écart, borné entre 10 et 40 (" .. Config.pvpGain(100, 100) .. ", " .. Config.pvpGain(0, 1000) .. ", " .. Config.pvpGain(1000, 0) .. ")", Config.pvpGain(100, 100) == 25 and Config.pvpGain(0, 1000) == 40 and Config.pvpGain(1000, 0) == 10 and Config.pvpGain(0, 100) == 35)
-	check("PvP : récompense de fin de saison = plus haut palier atteint (aucune sous 100 trophées)", Config.pvpSeasonReward(99) == nil and Config.pvpSeasonReward(100).eggTier == 2 and Config.pvpSeasonReward(650).eggTier == 4 and Config.pvpSeasonReward(99999).eggTier == 5)
+	check("PvP : récompense de fin de saison = plus haut palier atteint (aucune sous 100 trophées)", Config.pvpSeasonReward(99) == nil and Config.pvpSeasonReward(100).eggTier == 3 and Config.pvpSeasonReward(650).eggTier == 5 and Config.pvpSeasonReward(99999).eggTier == 6) -- lot 9 : Rare..Mythique aux nouveaux indices
 	check("PvP : saison hebdomadaire (même saison pendant 7 jours, la suivante après)", Config.pvpSeason(0) == Config.pvpSeason(7 * 86400 - 1) and Config.pvpSeason(7 * 86400) == Config.pvpSeason(0) + 1)
 	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
 	if RT then
@@ -7237,7 +7238,7 @@ do
 		end
 	end
 	table.sort(rnd)
-	check("PolicyService : les 6 offres à hasard sont marquées (" .. table.concat(rnd, ", ") .. ")", table.concat(rnd, ",") == "ExclusiveEgg,GoldenBelt,LuckPotion,Lucky,PrivateBelt,ServerLuck")
+	check("PolicyService : les 9 offres à hasard (lot 9) sont marquées (" .. table.concat(rnd, ", ") .. ")", table.concat(rnd, ",") == "EggDivine,EggExclusive,EggSecret,ExclusiveEgg,GoldenBelt,LuckPotion,Lucky,PrivateBelt,ServerLuck") -- lot 9 : + 3 œufs Robux de rareté fixe
 	local inc = true
 	for i = 2, #Config.BASE_LEVELS2 do
 		if Config.BASE_LEVELS2[i].score <= Config.BASE_LEVELS2[i - 1].score or Config.BASE_LEVELS2[i].size < Config.BASE_LEVELS2[i - 1].size then
@@ -7248,7 +7249,7 @@ do
 	for _, l in ipairs(Config.BASE_LEVELS2) do
 		slotsBonus = math.max(slotsBonus, 0) + 0
 	end
-	check("Maison : 8 niveaux, seuils et emprises strictement croissants, niveau 7 exige un Légendaire et 8 un Mythique", #Config.BASE_LEVELS2 == 8 and inc and Config.BASE_LEVELS2[7].needTier == 4 and Config.BASE_LEVELS2[8].needTier == 5 and Config.BASE_LEVELS2[8].size == Config.Map2.baseSizeMax)
+	check("Maison : 8 niveaux, seuils et emprises strictement croissants, niveau 7 exige un Légendaire et 8 un Mythique", #Config.BASE_LEVELS2 == 8 and inc and Config.BASE_LEVELS2[7].needTier == 5 and Config.BASE_LEVELS2[8].needTier == 6 and Config.BASE_LEVELS2[8].size == Config.Map2.baseSizeMax)
 	local total = 0
 	for _, l in ipairs(Config.BASE_LEVELS2) do
 		total = math.max(total, l.slots) -- bonus de niveau absolu (non cumulatif) : 4 au niveau 8
@@ -7320,14 +7321,14 @@ do
 	local maxGap, worst = 0, ""
 	for _, kind in ipairs({ "normal", "golden" }) do
 		local w = Config.BELT.weights[kind]
-		local counts = { 0, 0, 0, 0, 0, 0 }
+		local counts = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } -- lot 9 : 10 raretés
 		local x = 123457
 		for _ = 1, 100000 do
 			x = (x * 16807) % 2147483647
 			local t = Belt.pick(w, x / 2147483647)
 			counts[t] = counts[t] + 1
 		end
-		for i = 1, 6 do
+		for i = 1, #w do
 			local gap = math.abs(counts[i] / 1000 - w[i])
 			if gap > maxGap then
 				maxGap, worst = gap, kind .. " rareté " .. i
@@ -7422,7 +7423,7 @@ do
 	local panelN = Belt.panel(Config, st7, 0)
 	local panelG = Belt.panel(Config, stG, 30)
 	checkv("Panneau du tapis : les deux tables sont exactement celles de la config, la table active est en surbrillance, le compte à rebours du tapis doré s'affiche (" .. panelG.status .. ")",
-		panelN.normal == Config.beltOddsText("normal") and panelN.golden == Config.beltOddsText("golden") and panelN.active == "normal" and panelG.active == "golden" and panelG.status:find("9:30", 1, true) ~= nil and panelN.normal:find("Commun 62%", 1, true) ~= nil)
+		panelN.normal == Config.beltOddsText("normal") and panelN.golden == Config.beltOddsText("golden") and panelN.active == "normal" and panelG.active == "golden" and panelG.status:find("9:30", 1, true) ~= nil and panelN.normal:find("Commun " .. tostring(math.floor(Config.foldWeights(Config.BELT.weights.normal)[1] * 100 + 0.5) / 100) .. "%", 1, true) ~= nil and panelN.normal:find("Peu commun", 1, true) == nil) -- lot 9 : poids effectifs (Peu commun reporté sur Commun tant qu'il n'a pas d'espèce)
 	-- 6. œuf de bienvenue : une seule fois par joueur, gratuit, à son nom
 	local stW = Belt.new(2, 1e9)
 	local w1 = Belt.welcome(Config, stW, 42, 0, 20)
@@ -7762,15 +7763,15 @@ do
 
 	-- 4. poids du portage ---------------------------------------------------------------------------------------------------------------
 	local W = Config.CARRY.weight
-	check("Portage : poids par rareté 1,00 / 1,00 / 0,95 / 0,90 / 0,85 / 0,80, plancher 0,70", W[1] == 1 and W[2] == 1 and W[3] == 0.95 and W[4] == 0.9 and W[5] == 0.85 and W[6] == 0.8 and Config.CARRY.floor == 0.7)
+	check("Portage (lot 9, A.4) : poids par rareté 1 / 1 / 1 / 0,95 / 0,90 / 0,85 / 0,80 / 0,78 / 0,78 / 0,75, plancher 0,70", #W == 10 and W[1] == 1 and W[2] == 1 and W[3] == 1 and W[4] == 0.95 and W[5] == 0.9 and W[6] == 0.85 and W[7] == 0.8 and W[8] == 0.78 and W[10] == 0.75 and Config.CARRY.floor == 0.7)
 	local okOne = true
-	for t = 1, 6 do
+	for t = 1, #W do
 		okOne = okOne and near(Config.carryMul({ t }), W[t])
 	end
 	check("Portage : un œuf = son poids ; aucun œuf = 1", okOne and Config.carryMul({}) == 1)
-	check("Portage : plusieurs œufs = produit (Épique + Légendaire = 0,855 ; trois Légendaires = 0,729)", near(Config.carryMul({ 3, 4 }), 0.95 * 0.9) and near(Config.carryMul({ 4, 4, 4 }), 0.729))
-	check("Portage : plancher 0,70 (deux Cosmiques = 0,64 -> 0,70 ; quatre Mythiques -> 0,70)", Config.carryMul({ 6, 6 }) == 0.7 and Config.carryMul({ 5, 5, 5, 5 }) == 0.7 and Config.carryMul({ 6, 6, 6, 6, 6 }) == 0.7)
-	check("Portage : la vitesse du porteur = marche x produit (Légendaire à vitesse 0 = " .. string.format("%.1f", Config.walkSpeed(0) * Config.carryMul({ 4 })) .. ")", near(Config.walkSpeed(0) * Config.carryMul({ 4 }), 14.4) and Config.CARRY.beamTier == 4 and Config.CARRY.beamRange == 120)
+	check("Portage : plusieurs œufs = produit (Épique + Légendaire = 0,855 ; trois Légendaires = 0,729)", near(Config.carryMul({ 4, 5 }), 0.95 * 0.9) and near(Config.carryMul({ 5, 5, 5 }), 0.729)) -- lot 9 : Épique = 4, Légendaire = 5
+	check("Portage : plancher 0,70 (deux Cosmiques = 0,64 -> 0,70 ; quatre Mythiques -> 0,70)", Config.carryMul({ 7, 7 }) == 0.7 and Config.carryMul({ 6, 6, 6, 6 }) == 0.7 and Config.carryMul({ 7, 7, 7, 7, 7 }) == 0.7) -- lot 9 : Ultra Rare (ex-Cosmique) = 7, Mythique = 6
+	check("Portage : la vitesse du porteur = marche x produit (Légendaire à vitesse 0 = " .. string.format("%.1f", Config.walkSpeed(0) * Config.carryMul({ 5 })) .. ")", near(Config.walkSpeed(0) * Config.carryMul({ 5 }), 14.4) and Config.CARRY.beamTier == 5 and Config.CARRY.beamRange == 120)
 
 	-- 5. pièges : plan, budget, géométrie ---------------------------------------------------------------------------------------------
 	local Lm, Lz = TR.layout(Config, "mara"), TR.layout(Config, "zed")
@@ -7899,8 +7900,8 @@ do
 	check("Lanterne : repérer le joueur déclenche l'alarme une fois par délai de " .. C.lightCooldown .. " s", seen1 >= 1 and seen2 == 0)
 
 	-- 8. fraîcheur ------------------------------------------------------------------------------------------------------------------------
-	check("Fraîcheur : un œuf Légendaire+ pris chez Zed a 75 s ; Épique chez Zed, Légendaire chez Gus ou Mara : jamais", TR.freshDeadline(Config, 4, "zed", 100) == 175 and TR.freshDeadline(Config, 6, "zed", 0) == 75 and TR.freshDeadline(Config, 3, "zed", 100) == nil and TR.freshDeadline(Config, 4, "mara", 100) == nil and TR.freshDeadline(Config, 5, "gusNW", 100) == nil and TR.freshDeadline(Config, 4, nil, 100) == nil and Config.TERR.zed.freshness == 75)
-	local egg = { t = 4, fresh = TR.freshDeadline(Config, 4, "zed", 100) }
+	check("Fraîcheur : un œuf Légendaire+ pris chez Zed a 75 s ; Épique chez Zed, Légendaire chez Gus ou Mara : jamais", TR.freshDeadline(Config, 5, "zed", 100) == 175 and TR.freshDeadline(Config, 7, "zed", 0) == 75 and TR.freshDeadline(Config, 4, "zed", 100) == nil and TR.freshDeadline(Config, 5, "mara", 100) == nil and TR.freshDeadline(Config, 6, "gusNW", 100) == nil and TR.freshDeadline(Config, 5, nil, 100) == nil and Config.TERR.zed.freshness == 75)
+	local egg = { t = 5, fresh = TR.freshDeadline(Config, 5, "zed", 100) } -- lot 9 : Légendaire = 5
 	check("Fraîcheur : l'œuf n'est pas refroidi à 74,9 s, l'est à 75 s ; un œuf sans échéance ne se refroidit jamais", not TR.expired(egg, 174.9) and TR.expired(egg, 175) and TR.expired(egg, 900) and not TR.expired({ t = 4 }, 1e9))
 
 	-- 9. porte de base et protection débutant -----------------------------------------------------------------------------------
@@ -8496,9 +8497,9 @@ do
 	check("Capacité : décomposition exacte par niveau (4 + bonus du niveau + 4 du pass), jamais au-dessus de 20 même avec des valeurs absurdes", dec and Rules.capacity({ slots = 99 }, 8, true) == 20 and Rules.capacity(up0) == 4)
 	local legend, mythic, common
 	for idx, def in ipairs(Config.PETS) do
-		if def.tier == 4 and not legend then
+		if def.tier == 5 and not legend then -- lot 9 : Légendaire = 5, Mythique = 6
 			legend = idx
-		elseif def.tier == 5 and not mythic then
+		elseif def.tier == 6 and not mythic then
 			mythic = idx
 		elseif def.tier == 1 and not common then
 			common = idx
@@ -8510,7 +8511,7 @@ do
 	local lvC, _, _, _, needC = Config.baseLevel(99999, dexC, nil)
 	local lvL, _, _, _, needL = Config.baseLevel(99999, dexL, nil)
 	local lvM = Config.baseLevel(99999, dexM, nil)
-	check("Niveau 7 bloqué sans Légendaire découvert (plafonné au niveau 6, rareté exigée = 4), niveau 8 bloqué sans Mythique (niveau 7, rareté 5), niveau 8 avec un Mythique", lvC == 6 and needC == 4 and lvL == 7 and needL == 5 and lvM == 8)
+	check("Niveau 7 bloqué sans Légendaire découvert (plafonné au niveau 6, rareté exigée = 4), niveau 8 bloqué sans Mythique (niveau 7, rareté 5), niveau 8 avec un Mythique", lvC == 6 and needC == 5 and lvL == 7 and needL == 6 and lvM == 8) -- lot 9 : Légendaire = 5, Mythique = 6
 	check("Plancher : le niveau affiché vaut max(niveau calculé, plancher), jamais en baisse ; plancher invalide ignoré", Config.baseLevel(0, dexC, 8) == 8 and Config.baseLevel(99999, dexC, 3) == 6 and Config.baseLevel(0, nil, 0 / 0) == 1 and Config.baseLevel(0, nil, 99) == 8)
 	check("Revenu de niveau : multiplicateur 1 + bonus (niveau 1 x1, niveau 5 x1,20, niveau 8 x1,50) appliqué par Rules.levelMul", math.abs(Rules.levelMul(1) - 1) < 1e-9 and math.abs(Rules.levelMul(5) - 1.2) < 1e-9 and math.abs(Rules.levelMul(8) - 1.5) < 1e-9)
 	check("Porte de base par niveau : 15 s (niveau 1, défaut), 20, 25, 30, 35, 40, 50, 60 s au niveau 8", Config.lockSeconds(1) == 15 and Config.lockSeconds(2) == 20 and Config.lockSeconds(3) == 25 and Config.lockSeconds(4) == 30 and Config.lockSeconds(5) == 35 and Config.lockSeconds(6) == 40 and Config.lockSeconds(7) == 50 and Config.lockSeconds(8) == 60)
@@ -8567,9 +8568,9 @@ do
 		end
 		local legend, mythic
 		for idx, def in ipairs(Config.PETS) do
-			if def.tier == 4 and not legend then
+			if def.tier == 5 and not legend then -- lot 9 : Légendaire = 5, Mythique = 6
 				legend = idx
-			elseif def.tier == 5 and not mythic then
+			elseif def.tier == 6 and not mythic then
 				mythic = idx
 			end
 		end
@@ -8634,7 +8635,7 @@ do
 				for i, sl in pairs(fx.v.slots or {}) do
 					local after = rec.slots[i]
 					if type(sl) == "table" then
-						okSlots = okSlots and type(after) == "table" and after.k == sl.k and after.p == sl.p and after.t == sl.t
+						okSlots = okSlots and type(after) == "table" and after.k == sl.k and after.p == sl.p and after.t == (sl.k == "e" and Config.TIER_MIGRATE[sl.t] or sl.t) -- lot 9 : rareté d'œuf remappée
 					end
 				end
 				for i = #(fx.v.slots or {}) + 1, 20 do
@@ -8646,7 +8647,7 @@ do
 			if legacyScore == nil then
 				legacyScore = 0
 				for k, e in pairs(fx.v.dex or {}) do
-					legacyScore = legacyScore + e.n * ({ 1, 3, 8, 20, 50, 150 })[Config.PETS[tonumber(k)].tier]
+					legacyScore = legacyScore + e.n * ({ 1, 3, 8, 20, 50, 150 })[Config.oldTier(Config.PETS[tonumber(k)].tier)] -- lot 9 : ancien indice
 				end
 			end
 			local wantFloor = 1
@@ -8655,20 +8656,32 @@ do
 					wantFloor = i
 				end
 			end
+			-- lot 9 : le plancher prend aussi le niveau atteint avec les seuils v10 (score v10 = poids 1, 4, 15, 50, 180, 700 sur l'ancien indice)
+			local v10s, topOld = 0, 0
+			for k, e in pairs(fx.v.dex or {}) do
+				local o = Config.oldTier(Config.PETS[tonumber(k)].tier)
+				v10s = v10s + e.n * ({ 1, 4, 15, 50, 180, 700 })[o]
+				topOld = math.max(topOld, o)
+			end
+			for i, th in ipairs({ 0, 15, 60, 200, 600, 1000, 5000, 14000 }) do
+				if v10s >= th and (i < 7 or topOld >= i - 3) then
+					wantFloor = math.max(wantFloor, i)
+				end
+			end
 			fx.floor = wantFloor
 			local expectScore = 0
 			for k, e in pairs(fx.v.dex or {}) do
 				expectScore = expectScore + e.n * Config.baseGain(Config.PETS[tonumber(k)].tier)
 			end
-			local okRec = rec ~= nil and rec.ver == 10 and #rec.slots == 20 and rec.coins >= (fx.v.coins or 0) - 1 and rec.baseLevelFloor == fx.floor and rec.baseScore >= expectScore and type(rec.tokens) == "table" and rec.tokens.remoteSteal == 0
+			local okRec = rec ~= nil and rec.ver == 11 and #rec.slots == 20 and rec.coins >= (fx.v.coins or 0) - 1 and rec.baseLevelFloor == fx.floor and rec.baseScore >= expectScore and type(rec.tokens) == "table" and rec.tokens.remoteSteal == 0
 				and type(rec.settings) == "table" and rec.settings.blockFriendRavens == false and type(rec.puzzle) == "table" and rec.puzzle.step == 0 and rec.puzzle.feathers == 0 and rec.puzzle.hints == 0 and rec.puzzle.fragments == 0
 			for rid in pairs(fx.v.receipts or {}) do
 				okRec = okRec and rec ~= nil and rec.receipts[rid] == true
 			end
 			okRec = okRec and rec ~= nil and rec.hatched >= (fx.v.hatched or 0) and (fx.v.stolen == nil or rec.stolen == fx.v.stolen) and (fx.v.played == nil or rec.played >= fx.v.played) and (fx.v.starter == nil or rec.starter == fx.v.starter)
-				and (fx.v.battle == nil or (rec.battle.best == 7 and rec.battle.team[1] == 1))
+				and (fx.v.battle == nil or (rec.battle.best == 12 and rec.battle.team[1] == 1)) -- lot 9 : étage 7 (2e étage Rare) -> 12 (2e étage Rare de la tour à 45 étages)
 			local levelOk = lvl ~= nil and lvl >= fx.floor and lvl == Config.baseLevel(expectScore, fx.v.dex, fx.floor)
-			check("Migration " .. fx.name .. " (v" .. tostring(fx.v.ver or 1) .. " -> v10) : aucun pet, œuf, pièce, reçu ni champ perdu, 20 emplacements dont les nouveaux vides, plancher " .. fx.floor .. ", niveau affiché " .. tostring(lvl) .. " (jamais en baisse)" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), okRec and okSlots and levelOk and snap ~= nil and snap.baseLevelFloor == fx.floor and #RT.errors == 0)
+			check("Migration " .. fx.name .. " (v" .. tostring(fx.v.ver or 1) .. " -> v11) : aucun pet, œuf, pièce, reçu ni champ perdu, 20 emplacements dont les nouveaux vides, plancher " .. fx.floor .. ", niveau affiché " .. tostring(lvl) .. " (jamais en baisse)" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), okRec and okSlots and levelOk and snap ~= nil and snap.baseLevelFloor == fx.floor and #RT.errors == 0)
 			allOk = allOk and okRec
 		end
 		-- recalcul du score : v9 niveau 8 (3 300 points) -> 102 Communs x1 + 2 x4... recalculé depuis le dex, plancher 8 conservé

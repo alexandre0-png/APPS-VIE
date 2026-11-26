@@ -385,7 +385,7 @@ function HenQuest.new(ctx)
 		notify(s.player, msg, "secret_decouvert") -- énigme réussie (lot 8A)
 		if r.legendary > 0 then
 			for _ = 1, r.legendary do
-				local placedL = grant(s, 4)
+				local placedL = grant(s, 5) -- lot 9 : Légendaire = 5
 				notify(s.player, "🌟 " .. H.fragmentsForEgg .. " fragments réunis : un œuf Légendaire" .. (placedL and " t'attend dans ta base !" or " (base pleine : converti en pièces)."), "legendary")
 			end
 		end
