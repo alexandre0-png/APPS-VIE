@@ -90,3 +90,7 @@ berceuse_note1 85257974839127 (do) ; berceuse_note2 101445210941604 (mi) ; berce
 ## Lot 21 (10 œufs de rareté r1..r10, agent Sonnet) : scripts/blender_make_eggs_r.py
 egg_r1 135765683612513; egg_r10 124299527536427; egg_r2 87965918516208; egg_r3 96993304097437; egg_r4 109265198341087; egg_r5 133048256610873; egg_r6 102115260137639; egg_r7 101573584229717; egg_r9 98454425446209; egg_r8 127835469690102
 Échelle : se baser sur la hauteur de la pièce Coque (r5, r9, r10 dépassent 1 à cause de couronne/auréole ; r10 large 1,61 à cause des ailes). Coques r7/r10 non nommées Verre : le code force la transparence.
+
+## Lot 22 (créatures P1 : numéros de la table C.2, agent Sonnet) : scripts/blender_make_pets_p1.py
+#27 pet_cochon 120209362861524; #67 pet_demonenchaine 135810765401304; #70 pet_dragondecristal 83608898332171; #64 pet_dragondelave 104000037060333; #29 pet_herisson 97141542211988; #57 pet_loupdeglace 85636324524964; #28 pet_mouton 105709605466944; #68 pet_phenixsolaire 113957945777558; #26 pet_tortue 71698437334028; #76 pet_dragonceleste 106663728573110; #75 pet_seraphinlion 93690713012899; #62 pet_loupdecristaux 105118496375469
+Dragon céleste : pas de Corps ni Queue (Seg1..Seg6) ; phénix : Jambe_G/D, pas de Patte_*. Ailes en L = disques fins.

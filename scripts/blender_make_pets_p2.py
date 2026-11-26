@@ -20,7 +20,7 @@ def chauve():
     box("Corps", c, (0,0,0.46), (0.38,0.3,0.42)); box("Tete", c, (0,-0.03,0.82), (0.42,0.36,0.34))
     for k in (-1,1):
         box("Oreille", c, (k*0.15,0,1.07), (0.11,0.07,0.24)); box("AileG" if k<0 else "AileD", w, (k*0.58,0.1,0.66), (0.7,0.04,0.5), (0,k*0.2,k*0.15))
-        box("Bras_G" if k<0 else "Bras_D", c, (k*0.25,-0.05,0.5), (0.1,0.1,0.24)); box("Jambe_G" if k<0 else "Jambe_D", c, (k*0.1,0,0.1), (0.11,0.11,0.22))
+        box("Bras_G" if k<0 else "Bras_D", c, (k*0.25,-0.05,0.5), (0.1,0.1,0.24)); box("Jambe_G" if k<0 else "Jambe_D", c, (k*0.1,0,0.14), (0.11,0.11,0.3))
     eyes(0.84, -0.21, 0.1, 0.075, "FFE060", True)
 # 31 Perroquet (B, 16)
 def perroquet():
@@ -57,7 +57,7 @@ def cheval():
     b = "8B5A2B"; d = "2A1E14"
     sph("Corps", b, (0,0.15,0.5), 0.26, (0.85,1.55,0.9), seg=14, rings=9)
     for x, y, n in ((-0.14,-0.2,"Patte_AvG"),(0.14,-0.2,"Patte_AvD"),(-0.14,0.5,"Patte_ArG"),(0.14,0.5,"Patte_ArD")):
-        cyl(n, b, (x,y,0.17), 0.06, 0.3); cyl("Sabot", d, (x,y,0.035), 0.07, 0.07)
+        cyl(n, b, (x,y,0.2), 0.06, 0.4); cyl("Sabot", d, (x,y,0.035), 0.07, 0.07)
     cyl("Cou", b, (0,-0.4,0.78), 0.1, 0.36, (0.45,0,0)); sph("Tete", b, (0,-0.56,0.95), 0.17, (0.85,1.3,1), seg=12, rings=8)
     sph("Museau", b, (0,-0.7,0.89), 0.1, (0.9,1.0,0.8), seg=8, rings=5); sph("Nez", d, (0,-0.79,0.9), 0.035, seg=6, rings=4)
     for k in (-1,1):
@@ -127,14 +127,14 @@ def phenix():
 # 60 Tigre ailé à runes (L, 34)
 def tigre():
     o = "FF8C2A"; r = "FFE680"
-    sph("Corps", o, (0,0.1,0.5), 0.3, (0.8,1.3,0.85), seg=14, rings=9); sph("Ventre", "FFF0D8", (0,-0.05,0.4), 0.2, (0.8,1.0,0.6), seg=10, rings=6)
-    for x, y, n in ((-0.17,-0.25,"Patte_AvG"),(0.17,-0.25,"Patte_AvD"),(-0.17,0.45,"Patte_ArG"),(0.17,0.45,"Patte_ArD")): cyl(n, o, (x,y,0.17), 0.075, 0.32)
-    sph("Tete", o, (0,-0.42,0.78), 0.26, (1,0.95,0.92), seg=14, rings=9); sph("Museau", "FFE0B0", (0,-0.63,0.7), 0.12, (1,0.8,0.8), seg=8, rings=5); sph("Nez", "2A1A1A", (0,-0.73,0.73), 0.035, seg=6, rings=4)
+    sph("Corps", o, (0,0.1,0.5), 0.3, (0.8,1.3,0.85), seg=10, rings=6); sph("Ventre", "FFF0D8", (0,-0.05,0.4), 0.2, (0.8,1.0,0.6), seg=10, rings=6)
+    for x, y, n in ((-0.17,-0.25,"Patte_AvG"),(0.17,-0.25,"Patte_AvD"),(-0.17,0.45,"Patte_ArG"),(0.17,0.45,"Patte_ArD")): cyl(n, o, (x,y,0.2), 0.075, 0.4, v=8)
+    sph("Tete", o, (0,-0.42,0.78), 0.26, (1,0.95,0.92), seg=12, rings=7); sph("Museau", "FFE0B0", (0,-0.63,0.7), 0.12, (1,0.8,0.8), seg=8, rings=5); sph("Nez", "2A1A1A", (0,-0.73,0.73), 0.035, seg=6, rings=4)
     bar("Queue", o, (0,0.5,0.55), (0,1,0.6), 0.6, 0.07, 0.04, 7); sph("Queue_Bout", "2A1A14", (0,0.86,0.82), 0.07, seg=8, rings=5)
     sph("Criniere", "FFE0B0", (0,-0.28,0.64), 0.17, (1.2,0.7,0.9), seg=8, rings=5)
     for k in (-1,1):
         sph("Oreille", o, (k*0.19,-0.38,1.0), 0.08, (1,0.6,1), seg=8, rings=5); sph("Joue", "FFB08A", (k*0.2,-0.62,0.72), 0.05, (1,0.5,0.8), seg=6, rings=4)
-        sph("AileG" if k<0 else "AileD", "FFD98A", (k*0.34,0.15,0.9), 0.3, (0.12,0.7,1.1), seg=9, rings=6)
+        sph("AileG" if k<0 else "AileD", "FFD98A", (k*0.34,0.15,0.9), 0.3, (0.12,0.7,1.1), seg=8, rings=5)
         for y in (-0.1,0.15,0.4): sph("Lueur", r, (k*0.25,y,0.6), 0.08, (0.3,0.5,1.6), seg=8, rings=5)
     eyes(0.82, -0.655, 0.11, 0.06, "1A1A1A")
     torus("Runes", r, (0,0.05,0.04), 0.8, 0.03)
