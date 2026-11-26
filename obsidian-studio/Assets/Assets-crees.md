@@ -98,3 +98,7 @@ Dragon céleste : pas de Corps ni Queue (Seg1..Seg6) ; phénix : Jambe_G/D, pas 
 ## Lot 23 (créatures P2, table C.2, agent Sonnet) : scripts/blender_make_pets_p2.py
 #30 pet_chauve_souris 122266421105736; #37 pet_cheval 86271823819731; #36 pet_crocodile 96697303823865; #50 pet_leopard_des_neiges 112945689300548; #43 pet_ours_brun 100651114276488; #31 pet_perroquet 115221106222960; #56 pet_phenix_de_feu 86984034098211; #63 pet_renard_a_neuf_queues 129679224173562; #44 pet_requin 74168168387947; #51 pet_requin_eclair 132943289797967; #32 pet_salamandre 132980424707847; #60 pet_tigre_aile_a_runes 74511340123175
 Renard à neuf queues : Queue (animée) + QueueB..QueueI ; tigre 3947 faces (le plus lourd) ; crocodile couché ~0,95 de haut.
+
+## Lot 24 (créatures P3, table C.2, agent Sonnet) : scripts/blender_make_pets_p3.py
+#24 pet_abeille 102790865157502; #78 pet_baleine_des_etoiles 122467490138604; #23 pet_bebe_phoque 75024864159884; #22 pet_escargot 123238807000942; #21 pet_canard 138404880551003; #35 pet_castor 120115914325977; #25 pet_coccinelle 74508157385626; #34 pet_ecureuil_etincelle 96971397368899; #20 pet_grenouille 80608097786383; #33 pet_lievre_arctique 79906688348888; #77 pet_qilin_sacre 119496911538130; #19 pet_souris 121918353604833
+Écarts : escargot Seg1..Seg6 + Tete ; baleine pas de Patte_* (nageoires = AileG/AileD) ; coccinelle sans AileG/AileD ; canard ailes = Bras_*.
