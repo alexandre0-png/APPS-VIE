@@ -5422,6 +5422,13 @@ do
 				fxCount = fxCount + 1
 			end
 		end
+		local hfx = 0
+		for _, o in ipairs(RT.all) do
+			if rawget(o, "__props").Name == "HatchFx" then
+				hfx = hfx + 1
+			end
+		end
+		print("DBG2 revealfx", fxCount, "hatchfx", hfx, RT.errors[1])
 		check("Éclosion : l'effet RevealFx est créé pour chaque éclosion", fxCount >= 1)
 		local vfxFolders, vfxModels = 0, 0
 		for _, o in ipairs(RT.all) do
@@ -11413,6 +11420,7 @@ end)()
 		end
 	end
 	local expect = sl and sl.k == "p" and Odds.forPet(cfg, sl.p, sl.s, sl.m) or nil
+	print("DBG", sl and sl.k, sl and sl.o, expect, hatchO, sl and sl.ov, RT.errors[1])
 	check("Éclosion : slot.o = Odds.forPet (compteur de référence) et slot.ov = 1, même valeur envoyée au client" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])),
 		sl ~= nil and sl.k == "p" and type(sl.o) == "number" and sl.o == expect and sl.ov == cfg.ODDS.version and hatchO == sl.o and #RT.errors == 0)
 	local frozen = sl and sl.o
