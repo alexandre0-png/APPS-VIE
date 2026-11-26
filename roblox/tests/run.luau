@@ -10014,6 +10014,56 @@ do
 			RT.step(1)
 			RT.ownedPasses = nil
 		end
+		-- 5c. Lot 7b, défaut 3 : arrêt du serveur (BindToClose) : jeton en vol rendu AVANT la sauvegarde ; tapis doré / pluie de chance restitués au donateur ----------
+		;(function() -- fonction à part : la limite de 200 variables locales du bloc principal est atteinte
+			local M, sM = join("Max", 7020)
+			local N, sN = join("Nat", 7021)
+			standInBase(M, sM)
+			standInBase(N, sN)
+			sM.data.tokens.remoteSteal = 3
+			nreset(sN)
+			local iN = putEgg(sN, 2, 5000)
+			sN.data.slots[iN].shield = 0
+			RT.now = RT.now + 12
+			act(M, "ravenGo", { u = 7021, i = iN })
+			check7("Arrêt 7b : un corbeau est en vol (jeton dépensé 3 -> 2)", select(1, hooks.flights()) == 1 and sM.data.tokens.remoteSteal == 2)
+			local gB, lB = hooks.serverBuffs().golden, hooks.serverBuffs().luck
+			receipt(7020, "SB-G", "GoldenBelt")
+			receipt(7020, "SB-L", "ServerLuck")
+			local gA, lA = hooks.serverBuffs().golden, hooks.serverBuffs().luck
+			check7("Arrêt 7b : Max a offert un tapis doré (" .. gB .. " -> " .. gA .. " s) et une pluie de chance (" .. lB .. " -> " .. lA .. " s)", gA >= 500 and lA >= 500)
+			local nBefore = #RT.bindToClose
+			for _, fn in ipairs(RT.bindToClose) do
+				RT.task.spawn(fn)
+			end
+			RT.step(1)
+			local recM = record(7020)
+			check7("Arrêt 7b : BindToClose branché (" .. nBefore .. " fonction), vol annulé (aucun vol restant), jeton rendu dans la session ET dans le profil SAUVEGARDÉ (3), œuf intact chez la victime", nBefore >= 1 and select(1, hooks.flights()) == 0 and sM.data.tokens.remoteSteal == 3 and recM ~= nil and recM.v.tokens.remoteSteal == 3 and sN.data.slots[iN] ~= false and sN.data.slots[iN].k == "e")
+			check7("Arrêt 7b : fin du tapis doré et de la pluie de chance écrites dans le profil du donateur (epoch os.time, facultatif), verrou libéré", recM ~= nil and recM.v.srvBuff ~= nil and recM.v.srvBuff.g > tnow() + 400 and recM.v.srvBuff.g <= tnow() + 1800 and recM.v.srvBuff.l > tnow() + 400 and recM.v.srvBuff.l <= tnow() + 1800 and recM.lock == nil)
+			-- « un autre serveur » (nouveau runtime, mêmes DataStores) : le donateur revient, le temps restant lui est rendu UNE fois
+			local savedG, savedL = recM.v.srvBuff.g, recM.v.srvBuff.l
+			local RT2 = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+			if RT2 then
+				RT2.dataStores = RT.dataStores
+				RT2.now = RT.now
+				local main2 = RT2.buildTree("roblox/src", false)
+				RT2.task.spawn(function()
+					RT2.runScript(main2)
+				end)
+				RT2.step(1)
+				local hooks2 = RT2.require(RT2.services.ServerScriptService:FindFirstChild("Builder")).lot7Hooks
+				local g0, l0 = hooks2.serverBuffs().golden, hooks2.serverBuffs().luck
+				local M2 = RT2.addPlayer("Max", 7020, { from = "hub", partyId = "L7B", size = 5, late = false })
+				RT2.step(3)
+				local sM2 = hooks2.session(M2)
+				local g1, l1 = hooks2.serverBuffs().golden, hooks2.serverBuffs().luck
+				check7("Arrêt 7b : sur le nouveau serveur (vide : " .. g0 .. " / " .. l0 .. " s), le retour du donateur restitue le tapis doré (" .. g1 .. " s) et la pluie de chance (" .. l1 .. " s) restants", sM2 ~= nil and g0 == 0 and l0 == 0 and g1 >= savedG - (1700000000 + math.floor(RT2.now)) - 10 and g1 > 400 and l1 > 400 and l1 <= 1800 and g1 <= 1800 and sM2.data.srvBuff.g == 0 and sM2.data.srvBuff.l == 0)
+				check7("Arrêt 7b : nouveau serveur sans erreur" .. (#RT2.errors == 0 and "" or " : " .. tostring(RT2.errors[1])), #RT2.errors == 0)
+			end
+			RT.removePlayer(M)
+			RT.removePlayer(N)
+			RT.step(2)
+		end)()
 		-- 6. Fuites ---------------------------------------------------------------------------------------------------------------------------------------
 		RT.removePlayer(B2)
 		RT.removePlayer(C)

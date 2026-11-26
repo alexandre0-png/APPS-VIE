@@ -3160,6 +3160,10 @@ do
 		end
 	end
 	local function refund(f)
+		if f.refunded then
+			return -- jamais deux fois
+		end
+		f.refunded = true
 		local tk = f.thief.data.tokens
 		tk.remoteSteal = math.min(RV.tokenMax, tk.remoteSteal + 1) -- le jeton en vol est compté dans le plafond d'achat : jamais perdu
 	end
@@ -3229,6 +3233,8 @@ do
 				notify(s.player, "🐦‍⬛ L'œuf n'est plus là (éclos ou volé) : ton corbeau rentre. Jeton rendu.")
 			elseif reason == "thiefGone" then
 				notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " est reparti.")
+			elseif reason == "shutdown" then
+				notify(s.player, "🐦‍⬛ Le serveur ferme : ton corbeau rentre. Jeton rendu.")
 			else
 				notify(s.player, "🐦‍⬛ Le vol a échoué (" .. tostring(reason) .. "). Jeton rendu.", "refuse")
 			end
@@ -3305,6 +3311,21 @@ do
 		flights[s.player] = nil
 		bySlot[s.player] = nil
 		s.friendCache, s.priv = nil, nil
+	end
+	-- Fermeture du serveur (BindToClose, AVANT les sauvegardes) : tout vol en cours est annulé et son jeton rendu dans le profil, qui est sauvegardé juste après.
+	function Lot7.abortAll()
+		local list = {}
+		for _, f in pairs(flights) do
+			list[#list + 1] = f
+		end
+		for _, f in ipairs(list) do
+			local ok, err = pcall(finish, f, "aborted", "shutdown")
+			if not ok then
+				warn("[Raven] abortAll : " .. tostring(err))
+				release(f)
+				refund(f) -- repli : le jeton est rendu quoi qu'il arrive (sans effet s'il l'a déjà été)
+			end
+		end
 	end
 	function Lot7.flightCount()
 		local n, m = 0, 0
@@ -3475,6 +3496,7 @@ do
 				return false, "🌟 Le tapis doré est déjà presque au maximum (" .. Belt.clock(left) .. "). Ton achat sera livré dès qu'il y aura de la place, rien n'est perdu."
 			end
 			goldenBeltAdd(G.seconds, s.player.DisplayName)
+			Lot7.goldenById = s.player.UserId
 			announce("🌟 " .. s.player.DisplayName .. " offre le tapis doré à tout le serveur !")
 			return true
 		elseif name == "ServerLuck" then
@@ -3483,11 +3505,54 @@ do
 			if not ok then
 				return false, "🌧️ La pluie de chance est déjà presque au maximum (" .. Config.fmtTime(left) .. "). Ton achat sera livré dès qu'il y aura de la place, rien n'est perdu."
 			end
-			Lot7.luckUntil, Lot7.luckBy = os.time() + left, s.player.DisplayName
+			Lot7.luckUntil, Lot7.luckBy, Lot7.luckById = os.time() + left, s.player.DisplayName, s.player.UserId
 			announce("🌧️ " .. s.player.DisplayName .. " offre une pluie de chance : +" .. L.bonus .. " points d'amélioration pour tout le serveur pendant " .. math.floor(L.seconds / 60) .. " min !")
 			return true
 		end
 		return nil
+	end
+
+	-- Bonus serveur et fermeture du serveur : la fin du tapis doré / de la pluie de chance est écrite (os.time) dans le profil du DERNIER donateur encore présent à la fermeture
+	-- (BindToClose), puis rendue UNE fois (et effacée) à son arrivée sur un autre serveur. Un donateur déjà parti avant la fermeture n'a rien à restituer : limite documentée (CHANGELOG 7b).
+	function Lot7.persistBuffs()
+		local now = os.time()
+		local gl = math.floor(Belt.goldenLeft(beltSt, os.clock()))
+		local ll = math.floor(Lot7.luckUntil - now)
+		for player, s in pairs(sessions) do
+			if not s.noSave then
+				if gl > 30 and Lot7.goldenById == player.UserId then
+					s.data.srvBuff.g = now + gl
+				end
+				if ll > 30 and Lot7.luckById == player.UserId then
+					s.data.srvBuff.l = now + ll
+				end
+			end
+		end
+	end
+	function Lot7.restoreBuffs(s)
+		local b, now = s.data.srvBuff, os.time()
+		if type(b) ~= "table" then
+			return
+		end
+		local G, L = Config.BELT.golden, Config.SERVER_LUCK
+		local name, uid = s.player.DisplayName, s.player.UserId
+		local gLeft, lLeft = (b.g or 0) - now, (b.l or 0) - now
+		b.g, b.l = 0, 0 -- restitué une seule fois (jamais de duplication d'un serveur à l'autre)
+		if gLeft > 30 then
+			local add = math.min(gLeft, G.maxSeconds) - Belt.goldenLeft(beltSt, os.clock()) -- on ne cumule pas : le plus long des deux
+			if add > 0 then
+				goldenBeltAdd(add, name)
+				Lot7.goldenById = uid
+				announce("🌟 Le tapis doré de " .. name .. " est de retour : " .. Belt.clock(math.min(gLeft, G.maxSeconds)) .. " restantes pour tout le serveur !")
+			end
+		end
+		if lLeft > 30 then
+			local target = now + math.min(lLeft, L.maxSeconds)
+			if target > Lot7.luckUntil then
+				Lot7.luckUntil, Lot7.luckBy, Lot7.luckById = target, name, uid
+				announce("🌧️ La pluie de chance de " .. name .. " est de retour : " .. Config.fmtTime(target - now) .. " restantes pour tout le serveur !")
+			end
+		end
 	end
 
 	---------------------------------------------------------------- PolicyService
@@ -3860,6 +3925,7 @@ local function onJoin(player)
 		end
 	end
 
+	Lot7.restoreBuffs(s) -- tapis doré / pluie de chance offerts par ce joueur sur un serveur fermé depuis : le temps restant est rendu une fois
 	Lot7.fetchPolicy(s) -- offres à hasard : masquées et refusées tant que PolicyService n'a pas confirmé qu'elles sont permises
 	s.baseLevel = levelOf(s) -- le revenu (gains hors ligne compris) dépend du niveau de maison ; la base est construite plus bas par applyBase
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
@@ -4007,6 +4073,8 @@ task.spawn(function()
 end)
 
 game:BindToClose(function()
+	pcall(Lot7.abortAll) -- d'abord : tout vol de corbeau en cours est annulé et son jeton rendu dans le profil, AVANT les sauvegardes ci-dessous
+	pcall(Lot7.persistBuffs) -- fin du tapis doré / de la pluie de chance écrite dans le profil du donateur présent
 	local pending = 0
 	for uid, d in pairs(pendingSaves) do -- profils de joueurs déjà partis dont la sauvegarde a échoué
 		pending += 1

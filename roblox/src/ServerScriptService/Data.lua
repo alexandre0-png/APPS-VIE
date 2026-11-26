@@ -133,6 +133,7 @@ function Data.default()
 		settings = { blockFriendRavens = false }, -- réglages du joueur
 		raven = { day = 0, n = 0, cd = 0, sh = 0, ic = 0, icDay = 0 }, -- lot 7b : ic = indemnités de corbeau reçues le jour UTC icDay (plafonnées) ; lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
 		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
+		srvBuff = { g = 0, l = 0 }, -- lot 7b : fin (os.time) du tapis doré / de la pluie de chance offerts par ce joueur, écrite à la FERMETURE du serveur et rendue une fois à son retour
 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
@@ -265,6 +266,11 @@ local function merge(saved)
 		d.raven.sh = math.min(4e9, math.max(0, sane(rv.sh, 0)))
 		d.raven.icDay = math.max(0, math.floor(sane(rv.icDay, 0)))
 		d.raven.ic = math.min(Config.EGG_PRICE[Config.REMOTE_STEAL.compensationCapTier], math.max(0, sane(rv.ic, 0)))
+	end
+	if type(saved.srvBuff) == "table" then -- champ facultatif assaini : une fin lointaine est ramenée au plafond cumulable
+		local nowt = os.time()
+		d.srvBuff.g = math.min(nowt + Config.BELT.golden.maxSeconds, math.floor(sane(saved.srvBuff.g, 0)))
+		d.srvBuff.l = math.min(nowt + Config.SERVER_LUCK.maxSeconds, math.floor(sane(saved.srvBuff.l, 0)))
 	end
 	if type(saved.stealLog) == "table" then
 		for _, e in ipairs(saved.stealLog) do
