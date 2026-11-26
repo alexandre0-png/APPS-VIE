@@ -127,7 +127,8 @@ function Economy.run(Config, Rules, minutes, opts)
 		end
 		return last
 	end
-	local SELL_AVG = opts.sellAvg or 1
+	local SELL_AVG = opts.sellAvg or 2 -- lot 9 : 2 (le robot remplace un pet sous 2 fois la moyenne de la rareté visée ; 1 au lot 8A)
+	local hatchHappy = opts.hatchHappy ~= false
 	local avgInc, nInc = {}, {}
 	for _, def in ipairs(Config.PETS) do
 		avgInc[def.tier] = (avgInc[def.tier] or 0) + def.inc
@@ -140,11 +141,14 @@ function Economy.run(Config, Rules, minutes, opts)
 		local rk = Config.tierRank(tier) -- rang parmi les raretés publiées (= ancien indice pour les 18 espèces historiques)
 		return math.max(Config.PETS[1].inc * 6 * (rk ^ 2), SELL_AVG * (avgInc[tier] or 0))
 	end
-	local function makeRoom(tier, doSell)
+	local function makeRoom(tier, doSell, price)
 		local i = freeSlot()
 		if not i and sellPets then
 			local wi, wv = weakest()
-			if wi and wv < sellBelow(tier) then
+			-- lot 9 : le robot continue d'éclore (comme un joueur réel qui fait grandir sa maison) : il revend son pet le plus faible si ce pet rapporte
+			-- moins que le seuil, OU s'il est d'une rareté inférieure à celle de l'œuf, OU (dès Mythique) de la même rareté quand l'œuf coûte moins de 0,5 % de ses pièces
+			-- (le joueur riche continue d'éclore pour une meilleure taille ou mutation ; opts.hatchHappy, vrai par défaut)
+			if wi and (wv < sellBelow(tier) or (hatchHappy and (Config.PETS[slots[wi].p].tier < tier or (Config.PETS[slots[wi].p].tier == tier and tier >= Config.TIER_GATE.pillar and (price or math.huge) <= 0.005 * coins)))) then
 				if doSell then
 					local v = Config.sellValue(slots[wi].p, slots[wi].s, slots[wi].m)
 					coins = coins + v
@@ -164,7 +168,7 @@ function Economy.run(Config, Rules, minutes, opts)
 		end
 		return 0
 	end
-	local priv = { acc = 0, pending = 0 }
+	local priv = { acc = 0, queue = {} }
 	local horizon = minutes * 60
 	local t = 0
 	local lastIncomeGain = 0
@@ -211,20 +215,21 @@ function Economy.run(Config, Rules, minutes, opts)
 		-- dès qu'il a une place (aller-retour négligé : le tapis est dans sa base)
 		if opts.private then
 			local P = BELT.private
-			if priv.pending < P.pending then
+			if #priv.queue < P.pending then
 				priv.acc = priv.acc + dt
 				if priv.acc >= P.interval then
 					priv.acc = priv.acc - P.interval
-					priv.pending = priv.pending + 1
+					-- rareté tirée À LA CRÉATION (comme Belt.privateStep) : le robot ne peut pas « relancer » en attendant une place
+					priv.queue[#priv.queue + 1] = pickTier(opts.projected and BELT.weights.normal or Config.foldWeights(BELT.weights.normal))
 				end
 			end
-			while priv.pending > 0 do
-				local pt = pickTier(opts.projected and BELT.weights.normal or Config.foldWeights(BELT.weights.normal))
+			while #priv.queue > 0 do
+				local pt = priv.queue[1]
 				local i = makeRoom(pt, true)
 				if not i then
 					break
 				end
-				priv.pending = priv.pending - 1
+				table.remove(priv.queue, 1)
 				slots[i] = { k = "e", t = pt, ends = t + Rules.hatchTime(pt, up.inc, false) }
 				log.privateEggs = log.privateEggs + 1
 			end
@@ -247,7 +252,7 @@ function Economy.run(Config, Rules, minutes, opts)
 				local bt = pickTier(beltW)
 				local price = math.floor(Config.EGG_PRICE[bt] * BELT.priceRatio)
 				local isLeg = bt >= gateLeg
-				local wants = price > 0 and not carrying and ta >= beltBusy and price <= coins * 0.7 and makeRoom(bt, false) ~= nil and bt >= shopBest() and (not isLeg or ta - lastLegBelt >= 60)
+				local wants = price > 0 and not carrying and ta >= beltBusy and price <= coins * 0.7 and makeRoom(bt, false, price) ~= nil and bt >= shopBest() and (not isLeg or ta - lastLegBelt >= 60)
 				if wants and rnd() < beltShare then
 					coins = coins - price
 					carrying = { t = bt, at = ta + carrySeconds }
@@ -278,7 +283,7 @@ function Economy.run(Config, Rules, minutes, opts)
 				pity = pity + 1
 				log.firstHatch = log.firstHatch or t
 				local guaranteed = Config.PITY_ENABLED and pity >= Config.PITY_EVERY and sl.t <= Config.UPGRADE.maxEggTier
-				local r = Rules.rollPet(sl.t, upPts + up.luck, false, rnd, guaranteed)
+				local r = Rules.rollPet(sl.t, Config.effectiveUp(sl.t, upPts + up.luck, Config.dexTopTier(dexN)), false, rnd, guaranteed)
 				if r.tier > sl.t then
 					pity = 0
 				end
@@ -320,7 +325,7 @@ function Economy.run(Config, Rules, minutes, opts)
 			else
 				local bestT = shopBest()
 				if bestT > 0 then
-					local i = makeRoom(bestT, true)
+					local i = makeRoom(bestT, true, Config.EGG_PRICE[bestT])
 					if i then
 						coins = coins - Config.EGG_PRICE[bestT]
 						slots[i] = { k = "e", t = bestT, ends = t + Rules.hatchTime(bestT, up.inc, false) }

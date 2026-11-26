@@ -751,7 +751,7 @@ function render()
 				render()
 			end)
 		end
-		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (Config.eggUpShare(sel, Config.UPGRADE.base) > 0 and ("Un pet " .. Config.TIERS[Config.nextLiveTier(sel)].name .. " est possible (pet de rareté supérieure)") or "Rareté fixe") })
+		local info = text(holder, { Position = UDim2.fromOffset(12, 218), Size = UDim2.new(1, -24, 0, 40), TextSize = 14, TextWrapped = true, TextColor3 = COL.muted, Font = Enum.Font.Gotham, Text = "Éclot en " .. Config.fmtTime(Config.HATCH[sel] * 0.9 ^ state.up.inc) .. " · ~" .. fmt(avgInc(sel) * state.mult) .. "/s en moyenne\n" .. (Config.eggUpShare(sel, Config.effectiveUp(sel, Config.UPGRADE.base, Config.dexTopTier(state.dex))) > 0 and ("Un pet " .. Config.TIERS[Config.nextLiveTier(sel)].name .. " est possible (pet de rareté supérieure)") or (Config.eggUpShare(sel, Config.UPGRADE.base) > 0 and ("Un pet " .. Config.TIERS[Config.nextLiveTier(sel)].name .. " sera possible une fois cette rareté découverte") or "Rareté fixe")) })
 		info.TextYAlignment = Enum.TextYAlignment.Top
 		local buy = make("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(220, 52), Text = "🥚 Acheter  🪙 " .. fmt(Config.EGG_PRICE[sel]), Font = FONT, TextSize = 18, TextColor3 = COL.dark, ZIndex = 9 }, holder)
 		local buyStyle = glossy(buy, "play", 18, 3)

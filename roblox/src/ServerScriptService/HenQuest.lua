@@ -378,6 +378,9 @@ function HenQuest.new(ctx)
 		end
 		local d = s.data
 		local coins = Config.puzzleCoins(ctx.income(s))
+		if ctx.onSolved then
+			pcall(ctx.onSolved, s) -- lot 9 : mesure « énigme du jour réussie »
+		end
 		local placed = grant(s, r.eggTier)
 		d.coins = d.coins + coins
 		local msg = "🔮 Le Grand Œuf s'éveille ! +" .. Config.fmt(coins) .. " 🪙 et " .. (placed and ("un œuf " .. Config.TIERS[r.eggTier].name .. " dans ta base") or "la valeur d'un œuf (base pleine)")

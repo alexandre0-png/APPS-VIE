@@ -41,16 +41,22 @@ function Rules.new(Config)
 		if luckEvent then
 			up += Config.UPGRADE.event
 		end
+		-- lot 9 (BOOST_CAP) : les bonus PAYANTS (pass Chance, potion, pluie de chance) sont plafonnés ensemble à Config.BOOST_CAP.paidUp points
+		local paid = 0
 		if passLucky then
-			up += Config.UPGRADE.pass
+			paid += Config.UPGRADE.pass
 		end
 		if potionActive then
-			up += Config.LUCK_POTION_BONUS
+			paid += Config.LUCK_POTION_BONUS
 		end
 		if serverLuck then
-			up += Config.SERVER_LUCK.bonus -- pluie de chance offerte au serveur (lot 7) : valeur fixe, jamais cumulée avec elle-même
+			paid += Config.SERVER_LUCK.bonus -- pluie de chance offerte au serveur (lot 7) : valeur fixe, jamais cumulée avec elle-même
 		end
-		return up
+		local capPaid = Config.BOOST_CAP and Config.BOOST_CAP.paidUp
+		if type(capPaid) == "number" then
+			paid = math.min(paid, capPaid)
+		end
+		return up + paid
 	end
 
 	-- Poids { plus bas, identique, plus haut } pour un œuf de rareté `tier`. Lot 9 : « plus haut » = rareté PUBLIÉE suivante (Config.nextLiveTier),

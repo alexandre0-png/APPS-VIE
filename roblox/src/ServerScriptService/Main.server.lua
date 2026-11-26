@@ -26,6 +26,13 @@ local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local HenQuest = require(script.Parent:WaitForChild("HenQuest")) -- énigme de la Mère Poule : état, prompts, récompense (lot 6)
 local Rules = require(script.Parent:WaitForChild("Rules")).new(Config) -- règles pures (tirages, revenus), testées avec Lune
+local tele = (function() -- lot 9 : 12 métriques AnalyticsService (pcall, 1 événement / s / joueur) ; une seule variable locale (limite de 200)
+	local svc = nil
+	pcall(function()
+		svc = game:GetService("AnalyticsService")
+	end)
+	return require(script.Parent:WaitForChild("Telemetry")).new(svc)
+end)()
 
 Players.CharacterAutoLoads = false
 
@@ -225,7 +232,7 @@ local function luckPoints(s)
 end
 
 local function rollPet(s, eggTier, guaranteed)
-	local up = luckPoints(s)
+	local up = Config.effectiveUp(eggTier, luckPoints(s), Config.dexTopTier(s.data.dex)) -- lot 9 : pas d'amélioration vers une rareté jamais découverte
 	local alien = evKey() == "alien"
 	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
 end
@@ -872,6 +879,9 @@ local function applyBase(s, celebrate, force)
 			end)
 		end
 	end
+	if before ~= nil and level > before then
+		tele.log(s.player, "house_level_reached", s.data.played, "_l" .. level)
+	end
 	if s.plot and before ~= level then
 		refreshLocks(s) -- la capacité dépend du niveau : cadenas et coûts à jour, pets déjà posés intacts
 	end
@@ -918,8 +928,22 @@ function hatch(s, i)
 	elseif sl.t <= Config.UPGRADE.maxEggTier then
 		d.pity += 1
 	end
+	local firstOfTier = true -- lot 9 (mesure) : première fois que cette rareté est obtenue ?
+	for k, e in pairs(d.dex) do
+		local dd = Config.PETS[tonumber(k) or 0]
+		if dd and dd.tier == p.tier and type(e) == "table" and type(e.n) == "number" and e.n > 0 then
+			firstOfTier = false
+		end
+	end
 	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m }
 	d.hatched += 1
+	if d.hatched == 1 then
+		tele.log(s.player, "first_hatch_seconds", d.played)
+	end
+	if firstOfTier then
+		tele.log(s.player, "tier_first_reached", d.played, "_r" .. p.tier)
+	end
+	tele.log(s.player, "hatch_tier", 1, "_r" .. p.tier)
 	d.baseScore += Config.baseGain(p.tier) -- la base grandit avec chaque pet éclos, d'autant plus que le pet est rare
 	local key = tostring(p.p)
 	local dx = d.dex[key]
@@ -1936,6 +1960,9 @@ Hen = HenQuest.new({
 	Config = Config, Riddle = Riddle, Builder = Builder, world = world, sessions = sessions, RHen = RHen,
 	notify = notify, sync = sync, getRoot = getRoot, freeSlot = freeSlot, hatchTime = hatchTime, shieldTime = shieldTime, refreshPad = refreshPad,
 	income = income, story = sp, setEvent = setEvent,
+	onSolved = function(s)
+		tele.log(s.player, "puzzle_solved")
+	end,
 })
 
 ---------------------------------------------------------------- Boucles de jeu
@@ -2062,6 +2089,7 @@ end
 
 local function slowTick(dt)
 	eventStep(dt)
+	tele.step()
 	for _, n in ipairs(world.nests) do
 		if not n.egg then
 			n.rt -= dt
@@ -2502,6 +2530,7 @@ function actions.buyEgg(s, tier)
 		return notify(s.player, "Base pleine !")
 	end
 	d.coins -= price
+	tele.economy(s.player, price, d.coins, "egg_r" .. tier) -- lot 9 : pièces dépensées en œufs
 	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
 	refreshPad(s, i)
 	notify(s.player, "", "buy")
@@ -2659,6 +2688,7 @@ function actions.claimQuest(s, i)
 		return
 	end
 	q.claimed = true
+	tele.log(s.player, "daily_quest_completed")
 	s.data.coins += q.rew
 	local extra = ""
 	if (q.re or 0) > 0 and Config.TIERS[q.re] then
@@ -2899,6 +2929,7 @@ local function battleFinish(s)
 		local first = bt.floor > b.best
 		if first then
 			b.best = bt.floor
+			tele.log(s.player, "tower_floor_reached", bt.floor)
 		end
 		if first or b.repeats < TW.dailyRepeats then
 			local rw = Config.towerReward(bt.floor, income(s), first)
@@ -3908,6 +3939,7 @@ MarketplaceService.ProcessReceipt = function(info)
 				s.data.coins += math.max(Config.COIN_PACK_MIN, income(s) * Config.COIN_PACK_MINUTES * 60)
 			end
 			granted = true
+			tele.log(player, "purchase_tier", def.robux, "_p" .. tele.priceTier(def.robux))
 		end
 	end
 	if not granted then
@@ -4042,6 +4074,18 @@ local function onJoin(player)
 	player:SetAttribute("Hp", Config.GUARD.maxHp)
 	player:SetAttribute("MaxHp", Config.GUARD.maxHp)
 	sessions[player] = s
+	do -- lot 9 (mesure de rétention) : jours UTC de première et de dernière connexion, aucune donnée personnelle
+		local today = os.time() // 86400
+		if d.firstSeen == 0 then
+			d.firstSeen = today
+		end
+		local back = d.lastSeen ~= today and tele.retentionDay(d.firstSeen, today) or nil
+		if back then
+			tele.log(player, "retention_day" .. back)
+		end
+		d.lastSeen = today
+		s.joinClock = os.clock()
+	end
 	if plot and plot.spawn then
 		player:SetAttribute("BaseX", plot.spawn.Position.X) -- le client affiche la distance à la base sur la bannière de zone
 		player:SetAttribute("BaseZ", plot.spawn.Position.Z)
@@ -4179,6 +4223,8 @@ Players.PlayerRemoving:Connect(function(player)
 		return
 	end
 	s.leaving = true -- l'autosave ne doit plus reprendre le verrou de session après ce point
+	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
+	tele.flush(player)
 	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur
 	dropCarry(s)
 	clearFollowers(s)

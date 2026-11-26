@@ -127,10 +127,10 @@ Config.INCOME_GROWTH_MIN = 1.8
 -- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
 Config.START_COINS = 50
 Config.FIRST_EGG_SECONDS = 12 -- lot 9 : l'œuf de départ (gratuit) éclot en 12 s (cible : première éclosion entre 10 et 15 s)
-Config.EGG_PRICE = { 25, 300, 900, 20000, 350000, 6000000, 130000000, 1500000000, 0, 30000000000 } -- lot 9 : 10 raretés ; Exclusif (9) jamais en pièces
+Config.EGG_PRICE = { 45, 99, 220, 26000, 7500000, 370000000, 70000000000, 80000000000, 0, 1800000000000 } -- lot 9 : 10 raretés recalibrées (tests/Economy.lua, tools/sim_economy.py) ; Exclusif (9) jamais en pièces
 -- Lot 8A (B.3) : la boutique vend les raretés 1 à SHOP_MAX_TIER ; Mythique et Cosmique ne s'achètent qu'au tapis du marché (rareté visible, prix x 0,6).
-Config.SHOP_MAX_TIER = 5
-Config.HATCH = { 8, 12, 20, 45, 90, 180, 300, 420, 420, 600 } -- secondes
+Config.SHOP_MAX_TIER = 6 -- lot 9 : la boutique vend jusqu'au Mythique (sans lui, la maison stagnait entre 1 et 3 jours de jeu) ; Ultra Rare et au-delà : tapis seulement
+Config.HATCH = { 18, 20, 30, 113, 450, 450, 600, 600, 600, 900 } -- secondes (lot 9 : recalibrées ; l'œuf de départ éclot en Config.FIRST_EGG_SECONDS)
 
 -- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
 Config.PETS = {
@@ -462,28 +462,46 @@ function Config.loopFade(dist, maxDist)
 end
 
 -- Produits développeur (achats Robux ponctuels). Crée-les dans Monetization > Developer Products, colle l'ID (0 = désactivé).
+-- `robux` = prix (R$) de PUBLICATION.md (Secret / Exclusif / Divin : décision de l'utilisateur), utilisé pour les paliers de mesure et Config.PRICING ; à garder ÉGAL au prix réglé
+-- dans le Creator Hub (A_FAIRE_UTILISATEUR.md).
 Config.PRODUCTS = {
-	InstantHatch = { id = 3734229329, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
-	LuckPotion = { id = 3734229337, name = "Potion de chance", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 15 min.", random = true },
-	StarterPack = { id = 3734229313, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
-	ExclusiveEgg = { id = 3734229320, name = "Œuf Mythique", emoji = "🥚", eggTier = 6, desc = "Un œuf Mythique (rareté fixe) placé directement dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées.", random = true },
+	InstantHatch = { id = 3734229329, robux = 49, name = "Éclosion instantanée", emoji = "⚡", desc = "Fait éclore tous tes œufs tout de suite." },
+	LuckPotion = { id = 3734229337, robux = 99, name = "Potion de chance", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 15 min.", random = true },
+	StarterPack = { id = 3734229313, robux = 99, once = true, name = "Pack de départ", emoji = "🎁", desc = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
+	ExclusiveEgg = { id = 3734229320, robux = 249, name = "Œuf Mythique", emoji = "🥚", eggTier = 6, desc = "Un œuf Mythique (rareté fixe) placé directement dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées.", random = true },
 	-- Lot 9 : œufs de rareté FIXE à très haut prix (décision de l'utilisateur). Achat refusé (NotProcessedYet, rien n'est débité) si la base est
 	-- pleine, si le compte est restreint (PolicyService) ou tant que la rareté n'a aucune espèce publiée (Config.tierLive) : l'offre reste alors masquée.
 	EggSecret = { id = 3736452048, robux = 1499, name = "Œuf Secret", emoji = "🌈", eggTier = 8, desc = "Un œuf Secret (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
 	EggExclusive = { id = 3736452061, robux = 3499, name = "Œuf Exclusif", emoji = "🖤", eggTier = 9, desc = "Un œuf Exclusif (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
 	EggDivine = { id = 3736452072, robux = 6999, name = "Œuf Divin", emoji = "😇", eggTier = 10, desc = "Un œuf Divin (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
-	Revive = { id = 3734229323, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
-	ServerLuck = { id = 3736121217, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
-	GoldenBelt = { id = 3736121227, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
-	RemoteSteal = { id = 3736121232, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
-	RemoteStealPack = { id = 3736121238, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
-	CoinPack = { id = 3734229339, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
+	Revive = { id = 3734229323, robux = 49, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
+	ServerLuck = { id = 3736121217, robux = 129, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
+	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
+	RemoteSteal = { id = 3736121232, robux = 79, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
+	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
+	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
 }
 Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
 Config.EXCLUSIVE_EGG_TIER = 6
 Config.REVIVE = { offerSeconds = 20, iframes = 4 } -- offre de relance après une défaite au château (non bloquante), invulnérabilité après la relance
-Config.COIN_PACK_MINUTES = 20
+Config.COIN_PACK_MINUTES = 20 -- lot 9 : sert aussi de taux de référence du Robux (20 min de revenu pour le prix du Sac de pièces, voir Config.PRICING)
 Config.COIN_PACK_MIN = 5000
+-- LOT 9, REGLE DE DESIGN (3) : tout ce qui s'achète aux deux est PLUS CHER et PLUS LONG en pièces. `timeRobux` = robuxCost x secondsPerRobux, le taux
+-- de référence du jeu lui-même : le Sac de pièces vend COIN_PACK_MINUTES minutes de revenu pour son prix en R$ (20 min pour 99 R$ = 12,1 s de revenu
+-- par R$). `timeToAffordCoin` = temps de jeu actif pour GAGNER `coinCost` pièces, mesuré par tests/Economy.lua (médiane de 5 graines, roster projeté du
+-- lot 11) pour 3 profils : débutant (profil neuf), milieu (après 10 h de jeu), avancé (après 100 h) ; recalculé par tools/sim_economy.py prix et
+-- vérifié par tests/run.luau : pour le débutant, 4 x timeRobux <= timeToAffordCoin <= 12 x timeRobux (chaque graine). L'Exclusif n'a pas de
+-- prix en pièces (jamais vendu en pièces) : hors règle, documenté. coinCost : prix boutique si la rareté y est vendue, sinon prix du tapis (x 0,6).
+Config.PRICING_REF = { secondsPerRobux = Config.COIN_PACK_MINUTES * 60 / Config.PRODUCTS.CoinPack.robux, minRatio = 4, maxRatio = 12 }
+Config.PRICING = {
+	ExclusiveEgg = { tier = 6, coinCost = 370000000, robuxCost = 249, where = "boutique", timeToAffordCoin = { beginner = 18440, mid = 3580, advanced = 240 } },
+	EggSecret = { tier = 8, coinCost = 48000000000, robuxCost = 1499, where = "tapis", timeToAffordCoin = { beginner = 129670, mid = 95790, advanced = 30480 } },
+	EggDivine = { tier = 10, coinCost = 1080000000000, robuxCost = 6999, where = "tapis", timeToAffordCoin = { beginner = 705120, mid = 669420, advanced = 395520 } },
+	EggExclusive = { tier = 9, coinCost = nil, robuxCost = 3499, where = "jamais en pièces", timeToAffordCoin = nil },
+}
+function Config.timeRobux(robux)
+	return robux * Config.PRICING_REF.secondsPerRobux
+end
 -- Un achat n'est proposé que si son ID Roblox a été renseigné (entier > 0). Sinon il reste désactivé, avec un message clair.
 function Config.purchasable(def)
 	return type(def.id) == "number" and def.id > 0 and def.id % 1 == 0
@@ -491,6 +509,9 @@ end
 Config.UNAVAILABLE_MESSAGE = "🛒 Cet achat n'est pas encore disponible. Reviens bientôt !"
 
 Config.LUCK_POTION_BONUS = 25
+-- Lot 9 : plafond du CUMUL des bonus (tapis doré + tapis privé + potion + pass Chance + pluie de chance). `paidUp` = points d'amélioration payants
+-- cumulés au plus (appliqué par le serveur dans Rules.upPoints) ; `gain` = gain de progression maximal mesuré par tests/Economy.lua (testé, +60 %).
+Config.BOOST_CAP = { paidUp = 30, gain = 0.6 }
 Config.LUCK_POTION_SECONDS = 900
 
 -- Revenu passif : il ne s'accumule que si le joueur est ACTIF (action ou déplacement dans les `seconds` dernières secondes). Au départ du joueur, le revenu hors ligne
@@ -1670,7 +1691,7 @@ Config.PITY_ENABLED = false -- la pitié (amélioration garantie) est coupée : 
 Config.PITY_EVERY = 12 -- (si la pitié est activée) toutes les 12 éclosions sans amélioration, la suivante l'est garantie
 -- Amélioration d'un cran de rareté (seule exception à « l'œuf annoncé = la rareté du pet ») : 5 % de base, +1 point par niveau de Trèfle, +10 avec le pass Chance,
 -- +5 en événement chance, +25 avec la potion ; signalée « AMÉLIORÉ ! » à la révélation. Plafond : Rules.MAX_UP.
-Config.UPGRADE = { base = 5, event = 5, pass = 10, maxEggTier = 6, maxUp = 70 } -- lot 9 : amélioration possible seulement depuis un œuf <= Mythique ; plafond 70 (= Rules.MAX_UP)
+Config.UPGRADE = { base = 5, event = 5, pass = 10, maxEggTier = 6, maxUp = 70, needDiscovered = true } -- lot 9 : amélioration possible seulement depuis un œuf <= Mythique ; plafond 70 (= Rules.MAX_UP)
 
 function Config.rankFor(chaptersDone)
 	local best = Config.RANKS[1]
@@ -1852,6 +1873,19 @@ function Config.eggUpShare(r, upPoints)
 	local p = type(upPoints) == "number" and upPoints == upPoints and upPoints or 0
 	return math.min(math.max(p, 0), Config.UPGRADE.maxUp)
 end
+-- Lot 9 (décision de rythme) : le PREMIER pet d'une rareté s'obtient toujours avec un œuf de cette rareté. Tant que la rareté visée par
+-- l'amélioration d'un cran n'est pas découverte (dex), la part « améliorée » est 0 (affichée telle quelle : eggContentText reçoit ces points).
+-- Sans cette règle, la chance de 5 % rendait les premiers Rare / Épique / Légendaire / Mythique imprévisibles (de x0,2 à x3 du temps visé).
+-- `topTier` nil = aucune restriction (appels historiques, tests).
+function Config.effectiveUp(eggTier, upPoints, topTier)
+	if Config.UPGRADE.needDiscovered and type(topTier) == "number" then
+		local nxt = Config.nextLiveTier(Config.liveEggTier(eggTier))
+		if nxt and nxt > topTier then
+			return 0
+		end
+	end
+	return upPoints
+end
 function Config.eggContentText(r, upPoints)
 	local t = Config.TIERS[r]
 	if not t then
@@ -1968,10 +2002,9 @@ Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +
 -- B.3 Tapis roulant central.
 Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
-	weights = { normal = { 50, 25, 14, 7, 2.9, 0.85, 0.2, 0.04, 0, 0.01 }, golden = { 29.24, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.09, 0, 0.02 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
-	golden = { interval = 4, seconds = 600, maxSeconds = 1800 }, -- lot 9 : 3 s -> 4 s (le doré était trop fort : -34 % de temps au premier Mythique) welcome = { delay = 20, maxHatched = 5 },
-	private = { interval = 180, pending = 3, -- lot 9 : 120 s -> 180 s (20 œufs/h au plus)
-	 width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
+	weights = { normal = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0, 0.005 }, golden = { 29.3205, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.018, 0, 0.0115 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
+	golden = { interval = 4, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
+	private = { interval = 180, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 1, 0.95, 0.9, 0.85, 0.8, 0.78, 0.78, 0.75 }, floor = 0.7, beamTier = 5, beamRange = 120 }
@@ -2058,13 +2091,13 @@ Config.INTERCEPT = { enabled = false } -- interception d'un porteur : coupée pa
 Config.BASE_WEIGHTS2 = { 1, 2, 4, 15, 50, 180, 700, 2500, 2500, 9000 } -- lot 9 : anciennes valeurs inchangées pour les raretés migrées
 Config.BASE_LEVELS2 = {
 	{ score = 0, name = "Enclos de bois", emoji = "🪵", model = "level1", size = 52, slots = 0, income = 0, lock = 0 },
-	{ score = 15, name = "Chalet du Couvoir", emoji = "🛖", model = "l2", size = 56, slots = 1, income = 0.05, lock = 20 },
-	{ score = 60, name = "Maison-Tour", emoji = "🏡", model = "l3", size = 58, slots = 1, income = 0.10, lock = 25, alarm = true },
-	{ score = 200, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
-	{ score = 600, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
-	{ score = 1000, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
-	{ score = 5000, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 5 },
-	{ score = 14000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 6, shieldBonus = 10 },
+	{ score = 18, name = "Chalet du Couvoir", emoji = "🛖", model = "l2", size = 56, slots = 1, income = 0.05, lock = 20 },
+	{ score = 337, name = "Maison-Tour", emoji = "🏡", model = "l3", size = 58, slots = 1, income = 0.10, lock = 25, alarm = true },
+	{ score = 1234, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
+	{ score = 2008, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
+	{ score = 4135, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
+	{ score = 17029, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 5 },
+	{ score = 45562, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 6, shieldBonus = 10 },
 }
 -- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
 -- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
