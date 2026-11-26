@@ -103,41 +103,71 @@ def render(name):
 
 # ================= SCENES
 if scn == "vignette":
-    ground((0.28, 0.55, 0.14)); world(strength=1.6, sun_e=5.0, sun_rot=(math.radians(72), 0, math.radians(-60)))
-    CAM = (3, -27, 3.5); TGT = (3, 0, 4.2)
-    # fond
-    load(P("out15/hub_dome.fbx"), height=26, pos=(-4, 78, 0), yaw=0)
-    load(P("out15/house_lvl4.fbx"), height=13, pos=(34, 52, 0), look=CAM)
-    for x, y, f in [(-40, 40, "out17/tree_wide.fbx"), (-24, 34, "out11/tree_oak_a.fbx"), (46, 30, "out11/tree_pine.fbx"), (20, 38, "out11/tree_round.fbx"), (-58, 60, "out17/tree_pine_tier.fbx")]:
+    import random; random.seed(7)
+    sc.view_settings.exposure = -0.35
+    ground((0.30, 0.60, 0.16))
+    world(top=(0.42, 0.28, 0.72), hor=(1.0, 0.55, 0.45), strength=1.1, sun_col=(1.0, 0.62, 0.35), sun_e=7.0,
+          sun_rot=(math.radians(-72), 0, math.radians(18)))
+    CAM = (0, -27, 1.6); TGT = (0, 10, 7.0)
+    load(P("out15/hub_dome.fbx"), height=26, pos=(24, 80, 0))
+    load(P("out15/house_lvl4.fbx"), height=14, pos=(-34, 62, 0), look=CAM)
+    load(P("out15/house_lvl3.fbx"), height=12, pos=(-62, 70, 0), look=CAM)
+    for x, y, f in [(-46, 40, "out17/tree_wide.fbx"), (52, 40, "out11/tree_pine.fbx"), (-12, 55, "out11/tree_round.fbx"), (66, 62, "out11/tree_oak_a.fbx")]:
         load(P(f), height=15, pos=(x, y, 0))
-    # arc de creatures
-    arc = [("dragondelave", 9.5), ("phenixsolaire", 8.5), ("loupdeglace", 6.2), ("tigre_aile_a_runes", 5.6),
-           ("pegase", 7.5), ("renard_a_neuf_queues", 5.0), ("PetLapin", 4.2), ("PetPanda", 4.2)]
-    import random; random.seed(3)
-    order = ["PetLapin", "tigre_aile_a_runes", "dragondelave", "pegase", "phenixsolaire", "loupdeglace", "renard_a_neuf_queues", "PetPanda"]
-    hh = dict(arc)
-    R = 17
-    for i, nme in enumerate(order):
-        a = math.radians(-74 + i*148/7)
-        pos = (R*1.15*math.sin(a)+3, 6 + R*0.6*math.cos(a), 0)
-        load(pet(nme), height=hh[nme]*1.25, pos=pos, look=CAM)
-    load(P("out20/egg_r10.fbx"), height=5.5, pos=(3, -9, 0), look=CAM)
-    camera(CAM, TGT, lens=30, fstop=6.0, focus=26)
-    area((0, -20, 8), (0, -7, 4), 3000, 20, (1, 0.9, 0.8))
+    # collines
+    def hill(x, y, r, h):
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(x, y, 0), segments=32, ring_count=16)
+        o = bpy.context.object; o.scale = (r, r*0.8, h); bpy.ops.object.shade_smooth()
+        o.data.materials.append(mat("5DBB3A", False))
+    back = [("PetDragon", -25, 8.5), ("pet_phenix_de_feu", -8.5, 9.5), ("loupdeglace", 8.5, 8.0), ("pegase", 25, 9.5)]
+    front = [("PetLapin", -17, -3, 4.8), ("PetRenard", -8.5, 0, 5.2), ("PetLicorne", 8.5, 0, 6.2), ("PetPanda", 17, -3, 5.0)]
+    for nme, x, h in back:
+        hill(x, 21, 8.5, 3.0)
+        load(pet(nme.replace("pet_", "")), height=h, pos=(x, 21, 3.0), look=CAM)
+    for nme, x, y, h in front:
+        load(pet(nme), height=h, pos=(x, y, 0), look=CAM)
+    load(P("out20/egg_r10.fbx"), height=9.5, pos=(0, -9, 0), look=CAM)
+    # halo de soleil derriere l'oeuf
+    bpy.ops.mesh.primitive_plane_add(size=48, location=(0, 12, 6), rotation=(math.radians(90), 0, 0)); gl = bpy.context.object
+    gm = bpy.data.materials.new("glow"); gm.use_nodes = True; nt = gm.node_tree; nt.nodes.clear()
+    tc = nt.nodes.new("ShaderNodeTexCoord"); gr = nt.nodes.new("ShaderNodeTexGradient"); gr.gradient_type = "SPHERICAL"
+    mp = nt.nodes.new("ShaderNodeMapping"); mp.inputs["Location"].default_value = (-0.5, -0.5, 0); nt.links.new(tc.outputs["Generated"], mp.inputs[0]); nt.links.new(mp.outputs[0], gr.inputs[0])
+    cr = nt.nodes.new("ShaderNodeValToRGB"); cr.color_ramp.elements[0].position = 0.0; cr.color_ramp.elements[0].color = (1, 1, 1, 1); cr.color_ramp.elements[1].position = 0.5; cr.color_ramp.elements[1].color = (0, 0, 0, 1)
+    nt.links.new(gr.outputs["Fac"], cr.inputs["Fac"])
+    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Color"].default_value = (1.0, 0.65, 0.3, 1); em.inputs["Strength"].default_value = 2.2
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent"); mx = nt.nodes.new("ShaderNodeMixShader"); out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(cr.outputs["Color"], mx.inputs[0]); nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(em.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs[0])
+    gl.data.materials.append(gm); gl.visible_shadow = False
+    # particules : etoiles et petales
+    for i in range(70):
+        a = random.uniform(0, 2*math.pi); r = random.uniform(5, 26)
+        x = math.cos(a)*r*1.3; z = 2 + abs(math.sin(a))*r*0.9; y = random.uniform(-14, 10)
+        star = i % 2 == 0
+        if star: bpy.ops.mesh.primitive_ico_sphere_add(radius=random.uniform(0.18, 0.4), subdivisions=1, location=(x, y, z))
+        else:
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.3, location=(x, y, z), segments=8, ring_count=6)
+            bpy.context.object.scale = (1.5, 0.8, 0.15)
+        o = bpy.context.object; o.rotation_euler = (random.random()*3, random.random()*3, random.random()*3)
+        o.data.materials.append(mat("FFE066" if star else "FF9EC4", star))
+    camera(CAM, TGT, lens=26, fstop=5.5, focus=19)
+    area((0, -22, 9), (0, -9, 4), 700, 14, (1, 0.85, 0.8))
     render("vignette-1920x1080")
 elif scn == "icone":
-    # fond degrade
-    bpy.ops.mesh.primitive_plane_add(size=60, location=(0, 12, 0), rotation=(math.radians(90), 0, 0)); bg = bpy.context.object
+    sc.view_settings.exposure = -0.2
+    bpy.ops.mesh.primitive_plane_add(size=80, location=(0, 12, 0), rotation=(math.radians(90), 0, 0)); bg = bpy.context.object
+    bg.visible_shadow = False
     m = bpy.data.materials.new("bg"); m.use_nodes = True; nt = m.node_tree
     tc = nt.nodes.new("ShaderNodeTexCoord"); sep = nt.nodes.new("ShaderNodeSeparateXYZ"); r = nt.nodes.new("ShaderNodeValToRGB")
     nt.links.new(tc.outputs["Generated"], sep.inputs[0]); nt.links.new(sep.outputs["Y"], r.inputs["Fac"])
-    r.color_ramp.elements[0].color = (*[lin(c) for c in (1.0, 0.55, 0.2)], 1); r.color_ramp.elements[1].color = (*[lin(c) for c in (0.45, 0.2, 0.75)], 1)
-    em = nt.nodes["Principled BSDF"]; nt.links.new(r.outputs["Color"], em.inputs["Emission Color"]); em.inputs["Emission Strength"].default_value = 0.9
-    nt.links.new(r.outputs["Color"], em.inputs["Base Color"]); bg.data.materials.append(m)
-    world(top=(0.5, 0.3, 0.8), hor=(1.0, 0.7, 0.4), strength=0.8, sun_rot=(math.radians(55), 0, math.radians(-30)), sun_e=3.5)
-    load(P("out20/egg_r5.fbx"), height=9.5, pos=(0, 0, -4.9), look=(0, -30, 0))
+    r.color_ramp.elements[0].color = (*[lin(c) for c in (1.0, 0.62, 0.25)], 1); r.color_ramp.elements[1].color = (*[lin(c) for c in (0.55, 0.25, 0.85)], 1)
+    for n in list(nt.nodes):
+        if n.type == "BSDF_PRINCIPLED": nt.nodes.remove(n)
+    em = nt.nodes.new("ShaderNodeEmission"); out = nt.nodes["Material Output"]
+    nt.links.new(r.outputs["Color"], em.inputs["Color"]); nt.links.new(em.outputs[0], out.inputs["Surface"]); bg.data.materials.append(m)
+    world(top=(0.5, 0.3, 0.8), hor=(1.0, 0.7, 0.4), strength=0.6, sun_rot=(math.radians(55), 0, math.radians(-30)), sun_e=3.0)
+    load(P("out20/egg_r5.fbx"), height=12.4, pos=(0, 0, -6.3), look=(0, -30, 0))
     camera((0, -22, 0), (0, 0, 0.2), lens=50)
-    area((-6, -14, 8), (0, 0, 0), 1500, 10, (1, 0.9, 0.8))
+    area((-6, -14, 8), (0, 0, 0), 1200, 10, (1, 0.9, 0.8))
     render("icone-512")
 elif scn == "g1":
     # podium 2 rangees de 5
