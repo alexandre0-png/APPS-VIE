@@ -786,7 +786,10 @@ function Fake.runtime(opts)
 			__index = function(t, k)
 				if k == "LookVector" then return vec(0, 0, -1) end
 				if k == "Rotation" then return t end
-				if k == "PointToObjectSpace" or k == "PointToWorldSpace" or k == "VectorToWorldSpace" or k == "Lerp" or k == "ToObjectSpace" or k == "ToWorldSpace" or k == "Inverse" then
+				if k == "PointToObjectSpace" then -- lot 7 : translation seule (le runtime factice n'a pas de rotation) : sert à savoir si un point est dans une base
+					return function(self, v) return vec(v.X - self.X, v.Y - self.Y, v.Z - self.Z) end
+				end
+				if k == "PointToWorldSpace" or k == "VectorToWorldSpace" or k == "Lerp" or k == "ToObjectSpace" or k == "ToWorldSpace" or k == "Inverse" then
 					return function(self, v) return v or self end
 				end
 			end,

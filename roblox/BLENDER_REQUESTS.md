@@ -62,3 +62,7 @@ Palette limitée à respecter (une couleur par rôle, suffixes `Nom__RRGGBB`) : 
 | `props.fence_corner`, `props.fence_gate` | Barrière d'angle et portillon | 3 haut | 10 | Angle à 90° et portillon s'ouvrant sur le chemin | bois `96622C` | `Poteaux`, `Lisses` |
 | `props.hut_small`, `props.hut_big` | Petite et grande cabane | 7 et 11 haut | 60 / 90 | Toit à deux pans, porte, fenêtre, cheminée ; entrée côté -Y Blender | murs `C9A66B`, toit `B04A3C`, porte `6E4C2E` | `Murs`, `Toit`, `Porte` |
 | `base.level1` à `base.level8` (facultatif) | Enclos, cabane, chaumière, maison, manoir, fort, forteresse, château doré | 52 x 52 d'emprise, 4 à 24 haut | 40 à 140 | Les 8 apparences de la base (voir `Config.BASE_LEVELS`) ; entrée côté -Y Blender, arrière +Y, pad de 52 x 52 laissé libre | palette ci-dessus, or `FFCD46` pour le niveau 8 | `Murs`, `Toit`, `Tours` |
+
+## npc.raven (lot 7, optionnel)
+
+Corbeau du vol à distance : modèle `Config.Assets.models.npc.raven` (aucun ID pour l'instant). Repli procédural de 6 Parts déjà en place (`Builder.raven`) ; devant = -Z, moins de 30 Parts, ailes séparées.

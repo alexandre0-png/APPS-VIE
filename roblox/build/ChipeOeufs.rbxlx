@@ -10912,7 +10912,7 @@ do
 		local still = sl == f.ref and type(sl) == "table" and sl.k == "e"
 		local t = os.time()
 		return { thiefHere = sessions[s.player] == s and not s.leaving, victimHere = sessions[vs.player] == vs and not vs.leaving, eggStill = still, eggLeft = still and (sl.ends - t) or 0,
-			chased = f.chased, shielded = vs.data.raven.sh > t or vs.data.raven.cd > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt }
+			chased = f.chased, shielded = vs.data.raven.sh > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt }
 	end
 
 	local function step()
@@ -11086,6 +11086,7 @@ do
 		local sl = vs.data.slots[slot]
 		s.data.tokens.remoteSteal -= 1
 		s.lastRavenGo = os.clock()
+		vs.data.raven.cd = os.time() + RV.victimCooldown -- anti-harcèlement : un corbeau (même chassé) = 20 min de répit pour la victime (au plus 3 alertes par heure)
 		local pad = vs.plot.pads[slot].part
 		local plaza = Config.Map2.plaza
 		local f = {

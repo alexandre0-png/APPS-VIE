@@ -69,6 +69,23 @@ Chaque ligne donne l'ID attendu et l'endroit exact où le coller. Tant qu'un ID 
 
 Bandeaux et icônes : `publication/art/` (icône 512 px des 6 premiers achats ; les autres sont à créer).
 
+## 3ter. Offres à hasard, vol à distance et fiche de classification (lot 7)
+
+**Probabilités à afficher sur la fiche de chaque offre à hasard** (valeurs lues dans `Config`, jamais copiées à la main : `Config.beltOddsText`, `Config.oddsText`) :
+
+| Offre | Ce qui est tiré au sort | Probabilités |
+|---|---|---|
+| Œuf exclusif Mythique | Taille et mutation du pet (la rareté Mythique est fixe et annoncée) | Tables « taille » et « mutation » du menu Plus (`Config.oddsText()`) |
+| Tapis privé (pass) | Rareté de l'œuf gratuit (toutes les 2 min d'activité, 3 en attente au plus) | Table STANDARD du tapis : Commun 62 %, Rare 26 %, Épique 9 %, Légendaire 2,6 %, Mythique 0,37 %, Secret 0,03 % |
+| Tapis doré (produit) | Rareté des œufs du tapis pendant 10 min (3 s au lieu de 5) | Table DORÉE : 40 / 34 / 18 / 6,5 / 1,35 / 0,15 % (affichée sur le panneau du tapis, en surbrillance quand elle est active) |
+| Potion de chance, Chance +10 %, Pluie de chance pour tous | Amélioration d'UN cran de rareté à l'éclosion | Valeurs fixes affichées : base 5 %, +25 points (potion), +10 points (passe), +5 points (pluie), plafond 70 % ; jamais de rétrogradation |
+
+Aucune offre ne vend un œuf dont la rareté est tirée au sort sans que la table soit visible avant l'achat (panneau du tapis, menu Plus, description de l'offre « 🎲 Probabilités affichées »).
+
+**PolicyService** : si `ArePaidRandomItemsRestricted` est vrai (ou inconnu, ou si l'appel échoue), les 6 offres marquées `random = true` (ExclusiveEgg, PrivateBelt, GoldenBelt, LuckPotion, Lucky, ServerLuck) sont masquées dans la boutique et les cartes d'offre, et REFUSÉES côté serveur (reçu `NotProcessedYet`, pass non livré). À tester dans Studio avec un compte restreint.
+
+**Texte pour la fiche de classification (questionnaire de maturité)** : vol d'objets virtuels entre joueurs (œufs, y compris à distance via un « corbeau » payant en jetons), déjà déclaré. Le vol à distance : jeton par achat (1 ou 3), 3 vols réussis par jour au plus, protection débutant, bouclier de 5 min après tout vol, délai de 20 min par victime, indemnité de 50 % du prix de l'œuf, option « Refuser les corbeaux de mes amis », nom du voleur toujours affiché, aucun produit de protection vendu, journal « Qui m'a volé ? » et journal serveur `RavenLog` (30 jours) pour le support.
+
 ## 4. État de la qualité (constaté par lecture et tests, pas en Studio)
 
 | Domaine | Constat | Source |
