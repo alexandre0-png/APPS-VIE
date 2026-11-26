@@ -10515,6 +10515,7 @@ end
 	RT.step(5, 0.1)
 	local after = counts()
 	local nf2, ns2, nb2 = hooks.flights()
+	print("  [lot 8A] après le départ des 5 joueurs : descendants hors tapis " .. base0 .. " -> " .. after .. " ; vols " .. tostring(nf2) .. ", oiseaux " .. tostring(nb2))
 	if math.abs(after - base0) > 40 then -- diagnostic : objets en plus ou en moins par rapport à la scène sans joueur
 		local c1, lines = census(), {}
 		for k, v in pairs(c1) do
