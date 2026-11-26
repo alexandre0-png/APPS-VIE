@@ -21,6 +21,7 @@ local Castle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ca
 local Belt = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Belt"))
 local Traps = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Traps")) -- pièges des territoires (lot 4)
 local Riddle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Riddle")) -- énigme de la Mère Poule : règles pures (lot 6)
+local Raven = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Raven")) -- vol à distance « Corbeau chipeur » : règles pures (lot 7)
 local Data = require(script.Parent:WaitForChild("Data"))
 local Builder = require(script.Parent:WaitForChild("Builder"))
 local HenQuest = require(script.Parent:WaitForChild("HenQuest")) -- énigme de la Mère Poule : état, prompts, récompense (lot 6)
@@ -41,6 +42,7 @@ end
 local RState, RNotify, RHatch, RAction = newRemote("State"), newRemote("Notify"), newRemote("Hatch"), newRemote("Action")
 local RTop = newRemote("Top")
 local RBattle = newRemote("Battle") -- serveur -> client : début, tours (événements à rejouer) et fin des combats de l'Arène des pets
+local RRaven = newRemote("Raven") -- Corbeau chipeur (lot 7) : serveur -> client seulement (alerte de la victime, liste des cibles) ; les demandes passent par Action
 local RHen = newRemote("Hen") -- serveur -> client : répliques de la Mère Poule (identifiant + paramètres), berceuse à jouer, retour des touches, plume ramassée
 
 ---------------------------------------------------------------- Monde
@@ -132,6 +134,7 @@ local sessions = {} -- [Player] = session
 local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce joueur est en cours (une reconnexion attend)
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
+local Lot7 = { luckUntil = 0, luckBy = nil } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
 local Hen = nil -- énigme de la Mère Poule (HenQuest) : construite après les événements serveur, utilisée par les prompts et la synchronisation
 local castleEnter, castleFinish -- définies avec le mode Château (plus bas) ; déclarées ici car le gestionnaire de prompts les utilise
 local serverPartyId = nil -- identifiant de la partie de ce serveur (celui du premier joueur envoyé par le hub)
@@ -208,7 +211,7 @@ local function income(s)
 end
 
 local function rollPet(s, eggTier, guaranteed)
-	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil)
+	local up = Rules.upPoints(s.data.up.luck, evKey() == "luck", s.passes.Lucky == true, os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil)
 	local alien = evKey() == "alien"
 	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
 end
@@ -381,6 +384,13 @@ local function snapshot(s)
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 		newbie = s.newbie == true, -- protection débutant active (lot 4)
+		tokens = d.tokens.remoteSteal, -- lot 7 : jetons du Corbeau, réglage, journal « Qui m'a volé ? », offres masquées (PolicyService), bonus serveur, œufs du tapis privé
+		ravenLeft = Lot7.ravenLeft and Lot7.ravenLeft(s) or 0,
+		settings = { blockFriendRavens = d.settings.blockFriendRavens == true },
+		stealLog = d.stealLog,
+		restricted = s.restricted ~= false, -- vrai tant que PolicyService n'a pas confirmé « non restreint » (repli prudent : offres à hasard masquées)
+		srv = Lot7.serverBuffs and Lot7.serverBuffs() or { golden = 0, luck = 0 },
+		pbCount = #d.pb,
 	}
 end
 
@@ -953,6 +963,7 @@ function speedUpEgg(s, i, who)
 	if not sl or sl.k ~= "e" then
 		return
 	end
+	Lot7.chase(s, i) -- un corbeau vise cet œuf : le toucher (dans sa base) le chasse
 	local now = os.clock()
 	if now - s.lastTap < 0.12 then
 		return
@@ -1088,12 +1099,16 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		return
 	end
 	local kind = prompt:GetAttribute("Kind")
-	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" and kind ~= "HenTalk" and kind ~= "Feather" then
+	if kind ~= "Nest" and kind ~= "Pad" and kind ~= "Rune" and kind ~= "RuneConfirm" and kind ~= "HenTalk" and kind ~= "Feather" and kind ~= "PrivBelt" then
 		return
 	end
 	local s = sessions[player]
 	local root = getRoot(player)
 	if not s or not root or not alive(player) or s.stun > 0 then
+		return
+	end
+	if kind == "PrivBelt" then
+		Lot7.privTake(s, root, prompt) -- tapis privé : seul le propriétaire prend l'œuf (validé dans privTake)
 		return
 	end
 	if kind == "Rune" or kind == "RuneConfirm" or kind == "HenTalk" or kind == "Feather" then
@@ -1188,6 +1203,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		qp(s, "pvp", 1)
 		sp(s, "steal", 1, {})
 		notify(vp, "😡 " .. player.DisplayName .. " a volé ton œuf ! Rattrape-le !", "caught")
+		Lot7.onPhysicalSteal(vs, player.DisplayName, sl.t) -- journal « Qui m'a volé ? » + bouclier post-vol de 5 min contre les corbeaux
 		sync(vs)
 		afterTake(s)
 	end
@@ -2511,6 +2527,7 @@ function actions.rebirth(s)
 	fresh.cine = d.cine
 	fresh.secrets = d.secrets
 	fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings -- le niveau de maison, les jetons et les réglages survivent aussi
+	fresh.raven, fresh.stealLog, fresh.pb = d.raven, d.stealLog, d.pb -- plafond du jour, boucliers, journal et œufs du tapis privé survivent aussi (lot 7)
 	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
 	s.data = fresh
@@ -3083,6 +3100,7 @@ end
 
 local function releasePlot(s)
 	setDoorBarrier(s, false)
+	Builder.clearPrivateBelt(s.plot)
 	if s.badge then
 		s.badge:Destroy()
 		s.badge = nil
