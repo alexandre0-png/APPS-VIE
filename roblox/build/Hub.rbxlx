@@ -299,14 +299,17 @@ Config.SOUNDS = {
 	click = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 },
 	event = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 0.8, vol = 0.7 },
 	-- Crochets pour de nouveaux sons : id = "" (silence) tant qu'aucun identifiant vérifié n'est fourni (rbxassetid://NOMBRE). Aucun n'est inventé.
-	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
 	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
 	menu = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
-	-- Berceuse de la Mère Poule (lot 6) : 4 notes = le son « claim » (identifiant déjà vérifié) à 4 hauteurs différentes, une par pierre.
-	note1 = { id = "rbxassetid://110088134711268", speed = 0.84, vol = 0.55 },
-	note2 = { id = "rbxassetid://110088134711268", speed = 1.0, vol = 0.55 },
-	note3 = { id = "rbxassetid://110088134711268", speed = 1.26, vol = 0.55 },
-	note4 = { id = "rbxassetid://110088134711268", speed = 1.5, vol = 0.55 },
+	-- Lot 8A : sons approuvés par Roblox, fournis par la gestion du projet (ne pas modifier ces identifiants ; aucun repli).
+	-- Berceuse de la Mère Poule : 4 vraies notes, une par pierre (remplacent le son « claim » joué à 4 hauteurs).
+	berceuse_note1 = { id = "rbxassetid://85257974839127", speed = 1.0, vol = 0.55 },
+	berceuse_note2 = { id = "rbxassetid://101445210941604", speed = 1.0, vol = 0.55 },
+	berceuse_note3 = { id = "rbxassetid://139374738574752", speed = 1.0, vol = 0.55 },
+	berceuse_note4 = { id = "rbxassetid://82316993375303", speed = 1.0, vol = 0.55 },
+	plume_ramassee = { id = "rbxassetid://118620801437766", speed = 1.0, vol = 0.55 }, -- ramassage d'une plume dorée
+	poule_glousse = { id = "rbxassetid://125679862476345", speed = 1.0, vol = 0.3 }, -- la Mère Poule parle (chaque page de dialogue), volume bas
+	secret_decouvert = { id = "rbxassetid://119606421875553", speed = 1.0, vol = 0.65 }, -- énigme réussie, secret de la carte, plume cachée repérée
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
 Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet

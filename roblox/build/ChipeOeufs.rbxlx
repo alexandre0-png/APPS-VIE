@@ -299,14 +299,17 @@ Config.SOUNDS = {
 	click = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 },
 	event = { id = "rbxasset://sounds/electronicpingshort.wav", speed = 0.8, vol = 0.7 },
 	-- Crochets pour de nouveaux sons : id = "" (silence) tant qu'aucun identifiant vérifié n'est fourni (rbxassetid://NOMBRE). Aucun n'est inventé.
-	secret = { id = "", speed = 1.0, vol = 0.7 }, -- fouille d'un secret de la carte
 	portal = { id = "", speed = 1.0, vol = 0.6 }, -- entrée dans un portail du hub
 	menu = { id = "rbxassetid://123764673506668", speed = 1.0, vol = 0.4 }, -- ouverture d'un menu
-	-- Berceuse de la Mère Poule (lot 6) : 4 notes = le son « claim » (identifiant déjà vérifié) à 4 hauteurs différentes, une par pierre.
-	note1 = { id = "rbxassetid://110088134711268", speed = 0.84, vol = 0.55 },
-	note2 = { id = "rbxassetid://110088134711268", speed = 1.0, vol = 0.55 },
-	note3 = { id = "rbxassetid://110088134711268", speed = 1.26, vol = 0.55 },
-	note4 = { id = "rbxassetid://110088134711268", speed = 1.5, vol = 0.55 },
+	-- Lot 8A : sons approuvés par Roblox, fournis par la gestion du projet (ne pas modifier ces identifiants ; aucun repli).
+	-- Berceuse de la Mère Poule : 4 vraies notes, une par pierre (remplacent le son « claim » joué à 4 hauteurs).
+	berceuse_note1 = { id = "rbxassetid://85257974839127", speed = 1.0, vol = 0.55 },
+	berceuse_note2 = { id = "rbxassetid://101445210941604", speed = 1.0, vol = 0.55 },
+	berceuse_note3 = { id = "rbxassetid://139374738574752", speed = 1.0, vol = 0.55 },
+	berceuse_note4 = { id = "rbxassetid://82316993375303", speed = 1.0, vol = 0.55 },
+	plume_ramassee = { id = "rbxassetid://118620801437766", speed = 1.0, vol = 0.55 }, -- ramassage d'une plume dorée
+	poule_glousse = { id = "rbxassetid://125679862476345", speed = 1.0, vol = 0.3 }, -- la Mère Poule parle (chaque page de dialogue), volume bas
+	secret_decouvert = { id = "rbxassetid://119606421875553", speed = 1.0, vol = 0.65 }, -- énigme réussie, secret de la carte, plume cachée repérée
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
 Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet
@@ -8757,7 +8760,7 @@ local function claimSecret(s, root, prompt)
 	s.data.coins += reward
 	Builder.burst(holder.Position, Color3.fromRGB(255, 214, 90), 24, true)
 	qp(s, "secret", 1)
-	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "claim")
+	notify(s.player, sct.emoji .. " " .. sct.name .. " : +" .. Config.fmt(reward) .. " 🪙", "secret_decouvert") -- secret de la carte (lot 8A)
 	sync(s)
 end
 
@@ -15665,7 +15668,7 @@ function HenQuest.new(ctx)
 		s.hen.lastPick = now
 		local line, clue = Riddle.featherLine(Config, day, dir)
 		RHen:FireClient(s.player, "feather", dir, clue)
-		notify(s.player, line, "claim")
+		notify(s.player, line, "plume_ramassee")
 		if n == 4 then
 			local moved = Riddle.toRunes(p, day)
 			if moved then
@@ -15807,7 +15810,7 @@ function HenQuest.new(ctx)
 		d.coins = d.coins + coins
 		local msg = "🔮 Le Grand Œuf s'éveille ! +" .. Config.fmt(coins) .. " 🪙 et " .. (placed and ("un œuf " .. Config.TIERS[r.eggTier].name .. " dans ta base") or "la valeur d'un œuf (base pleine)")
 		msg = msg .. " · 🥚 Fragment du Grand Œuf " .. (r.fragments % H.fragmentsForEgg == 0 and H.fragmentsForEgg or r.fragments % H.fragmentsForEgg) .. "/" .. H.fragmentsForEgg
-		notify(s.player, msg, "rare")
+		notify(s.player, msg, "secret_decouvert") -- énigme réussie (lot 8A)
 		if r.legendary > 0 then
 			for _ = 1, r.legendary do
 				local placedL = grant(s, 4)
@@ -16138,19 +16141,21 @@ function Scenery.aura(h, position, parent, style, color)
 	local n = 0
 	local anchor = h.part({ Name = "AuraAnchor", Size = Vector3.new(1, 1, 1), Position = position, Transparency = 1, CanCollide = false, CanQuery = false }, parent)
 	n += 1
-	cyl(h, { Name = "RuneRing", Color = color, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, CanQuery = false }, parent, 11, 0.15, position + Vector3.new(0, 0.2, 0))
-	cyl(h, { Name = "RuneRingInner", Color = color, Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false }, parent, 7, 0.15, position + Vector3.new(0, 0.25, 0))
+	-- lot 8A : toutes les pièces sont ENFANTS de l'ancre (le Debris de l'appelant détruit l'ancre seule : avant, anneaux, glyphes et sommet du pilier
+	-- restaient dans le Workspace à chaque éclosion Légendaire+ ; fuite trouvée par le test de charge de 10 min)
+	cyl(h, { Name = "RuneRing", Color = color, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, CanQuery = false }, anchor, 11, 0.15, position + Vector3.new(0, 0.2, 0))
+	cyl(h, { Name = "RuneRingInner", Color = color, Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false }, anchor, 7, 0.15, position + Vector3.new(0, 0.25, 0))
 	n += 2
 	for i = 1, style.runes do -- glyphes : petits blocs néon répartis sur le cercle
 		local a = i / style.runes * math.pi * 2
-		h.part({ Name = "Rune", Size = Vector3.new(0.5, 0.2, 1.1), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 4.6, 0.3, math.sin(a) * 4.6)) * CFrame.Angles(0, -a, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, parent)
+		h.part({ Name = "Rune", Size = Vector3.new(0.5, 0.2, 1.1), CFrame = CFrame.new(position + Vector3.new(math.cos(a) * 4.6, 0.3, math.sin(a) * 4.6)) * CFrame.Angles(0, -a, 0), Color = color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, anchor)
 		n += 1
 	end
 	local em = emitter(anchor, color, style.rate, 7, 1.6, 0.5, Vector3.new(0, 2, 0))
 	em.SpreadAngle = Vector2.new(25, 25)
 	light(anchor, color, 24, 1.6)
 	if style.pillar then -- Beam : pilier de lumière
-		local top = h.part({ Name = "AuraTop", Size = Vector3.new(1, 1, 1), Position = position + Vector3.new(0, 26, 0), Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+		local top = h.part({ Name = "AuraTop", Size = Vector3.new(1, 1, 1), Position = position + Vector3.new(0, 26, 0), Transparency = 1, CanCollide = false, CanQuery = false }, anchor)
 		n += 1
 		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
 		a0.Parent = anchor
@@ -21437,6 +21442,9 @@ function HenUi.start(ctx)
 		local mine = token
 		local full = d.pages[d.i] or ""
 		textLbl.Text = full
+		if full ~= "" then
+			playSound("poule_glousse") -- la Mère Poule glousse à chaque ligne de dialogue (volume bas)
+		end
 		d.typing = true
 		textLbl.MaxVisibleGraphemes = 0
 		controls()
@@ -21586,7 +21594,7 @@ function HenUi.start(ctx)
 				end
 				if type(stone) == "number" then
 					glow(stone, note, true)
-					playSound("note" .. tostring(stone))
+					playSound("berceuse_note" .. tostring(stone))
 				end
 				task.wait(note + gap)
 			end
@@ -21654,7 +21662,7 @@ function HenUi.start(ctx)
 				end
 				if close and armed[dir] ~= false then
 					armed[dir] = false
-					playSound("secret") -- le « son secret » (silencieux tant qu'aucun identifiant vérifié n'est fourni dans Config.SOUNDS.secret)
+					playSound("secret_decouvert") -- une plume cachée tout près (lot 8A : son approuvé)
 				elseif not close and d > H.sparkleDistance + 20 then
 					armed[dir] = nil
 				end
@@ -21765,7 +21773,7 @@ function HenUi.start(ctx)
 				if type(a) == "number" then
 					glow(a, 0.5, b == true)
 					if b == true then
-						playSound("note" .. tostring(a))
+						playSound("berceuse_note" .. tostring(a))
 					else
 						playSound("refuse")
 					end
