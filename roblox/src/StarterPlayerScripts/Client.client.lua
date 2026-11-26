@@ -582,7 +582,11 @@ function L10.hatch(info, def)
 	end
 	local tier = Config.TIERS[r]
 	local st = { revealed = false }
-	L10.HatchFx.play(gui, plan, {
+	if L10.active then -- jamais deux écrans empilés (éclosion instantanée de toute la base) : le précédent se termine (sa carte est révélée)
+		pcall(L10.active.stop)
+		L10.active = nil
+	end
+	L10.active = L10.HatchFx.play(gui, plan, {
 		colors = { main = tier.color, second = tier.color2 },
 		rarityName = tier.name,
 		petText = def.emoji,
@@ -1024,7 +1028,7 @@ function render()
 				end
 				addRow({
 					icon = p.emoji, iconColor = Config.TIERS[p.tier].color, title = Config.petName(sl.p, sl.s, sl.m),
-					desc = "+" .. fmt(Config.petIncome(sl.p, sl.s, sl.m) * state.mult) .. "/s" .. (equipped and " · te suit 🐾" or ""),
+					desc = "+" .. fmt(Config.petIncome(sl.p, sl.s, sl.m) * state.mult) .. "/s · 🎲 " .. L10.oddsText(sl.o) .. (equipped and " · te suit 🐾" or ""), -- lot 10 : « — » pour un pet éclos avant le compteur
 					btn2 = "🐾", btn2Color = equipped and COL.green or COL.dis,
 					onClick2 = function()
 						RAction:FireServer("equip", i)

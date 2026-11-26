@@ -5428,8 +5428,8 @@ do
 				hfx = hfx + 1
 			end
 		end
-		print("DBG2 revealfx", fxCount, "hatchfx", hfx, RT.errors[1])
-		check("Éclosion : l'effet RevealFx est créé pour chaque éclosion", fxCount >= 1)
+		-- lot 10 (changement justifié) : l'écran d'éclosion HatchFx remplace RevealFx (gardé en repli si HatchFx est désactivé)
+		check("Éclosion : l'écran HatchFx (lot 10) est créé pour chaque éclosion (" .. hfx .. ", RevealFx " .. fxCount .. ")", hfx >= 1)
 		local vfxFolders, vfxModels = 0, 0
 		for _, o in ipairs(RT.all) do
 			local nm = rawget(o, "__props").Name
@@ -5447,7 +5447,7 @@ do
 					names[rawget(o, "__props").Name] = rawget(o, "__props")
 				end
 			end
-			check("Sons : achat (Sfx_buy), éclosion (Sfx_hatch ou rareté) et ambiance prairie (Sfx_ambMeadow) créés, un seul Sound par type" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), names.Sfx_buy ~= nil and names.Sfx_ambMeadow ~= nil and (names.Sfx_hatch ~= nil or names.Sfx_rare ~= nil or names.Sfx_epic ~= nil) and #RT.errors == 0)
+			check("Sons : achat (Sfx_buy), éclosion (Sfx_hatch ou rareté) et ambiance prairie (Sfx_ambMeadow) créés, un seul Sound par type" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), names.Sfx_buy ~= nil and names.Sfx_ambMeadow ~= nil and (names.Sfx_hatch ~= nil or names.Sfx_rare ~= nil or names.Sfx_epic ~= nil or names.Sfx_egg_shake ~= nil or names.Sfx_hatch_r1 ~= nil) and #RT.errors == 0)
 			check("Sons : volumes appliqués (achat 0,55, prairie 0,3 en boucle)", names.Sfx_buy and math.abs(names.Sfx_buy.Volume - 0.55) < 1e-6 and names.Sfx_ambMeadow and math.abs(names.Sfx_ambMeadow.Volume - 0.3) < 1e-6 and names.Sfx_ambMeadow.Looped == true)
 		end
 		-- bannière de zone : le joueur se déplace dans le domaine de Mara
@@ -5513,14 +5513,20 @@ do
 				end
 			end
 			check("Éclosion : l'écran « machine à sous » apparaît avant la révélation (" .. slotsMid .. ")" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), slotsMid >= 1 and #RT.errors == 0)
-			RT.step(3.2)
+			-- lot 10 : la carte (brillance, vignette) arrive à la révélation de l'écran HatchFx (r6 : quelques secondes) : on observe jusqu'à 10 s
 			local vignette, shine = 0, 0
-			for _, o in ipairs(RT.all) do
-				local nm = rawget(o, "__props").Name
-				if nm == "UiFxVignette" then
-					vignette += 1
-				elseif nm == "Shine" then
-					shine += 1
+			for _ = 1, 40 do
+				RT.step(0.25)
+				for _, o in ipairs(RT.all) do
+					local nm = rawget(o, "__props").Name
+					if nm == "UiFxVignette" then
+						vignette += 1
+					elseif nm == "Shine" then
+						shine += 1
+					end
+				end
+				if vignette >= 1 and shine >= 1 then
+					break
 				end
 			end
 			check("Éclosion légendaire : brillance sur le bandeau et flash de vignette créés, aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), vignette >= 1 and shine >= 1 and #RT.errors == 0)
@@ -11384,18 +11390,18 @@ end)()
 	local cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
 	local hooks = RT.require(RT.services.ServerScriptService:FindFirstChild("Builder")).lot7Hooks
 	ds.data.P_9901 = { v = { ver = 11, coins = 5000, played = 700, hatched = 3, slots = {
+		{ k = "e", t = 1, ends = 0 }, -- œuf échu (dans la capacité de la base) : éclot au premier passage de la boucle
 		{ k = "p", p = 1, s = 2, m = 1 }, -- pet d'avant le lot 10 : pas de compteur
 		{ k = "p", p = 2, s = 2, m = 1, o = 1234, ov = 1 },
 		{ k = "p", p = 3, s = 2, m = 1, o = "x", ov = 9 },
 		{ k = "p", p = 4, s = 2, m = 1, o = -5 },
-		{ k = "e", t = 1, ends = 0 },
 	} }, t = 1700000000 + RT.now - 5000 }
 	local p = RT.addPlayer("L10", 9901, { from = "hub", partyId = "L10", size = 2, late = false })
 	RT.step(3)
 	local s = hooks.session(p)
 	local d = s and s.data
 	check("Profil ancien : pet sans compteur conservé sans « o » (affiché « — »), compteur valide gardé, compteurs corrompus retirés" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])),
-		d ~= nil and d.slots[1].k == "p" and d.slots[1].p == 1 and d.slots[1].o == nil and d.slots[2].o == 1234 and d.slots[2].ov == 1 and d.slots[3].k == "p" and d.slots[3].o == nil and d.slots[3].ov == nil and d.slots[4].o == nil and #RT.errors == 0)
+		d ~= nil and d.slots[2].k == "p" and d.slots[2].p == 1 and d.slots[2].o == nil and d.slots[3].o == 1234 and d.slots[3].ov == 1 and d.slots[4].k == "p" and d.slots[4].o == nil and d.slots[4].ov == nil and d.slots[5].o == nil and #RT.errors == 0)
 	local snapSlots
 	for i = #RT.fired, 1, -1 do
 		local f = RT.fired[i]
@@ -11404,23 +11410,22 @@ end)()
 			break
 		end
 	end
-	check("Synchronisation : le client reçoit o pour le pet récent, rien pour l'ancien", snapSlots ~= nil and snapSlots[1].o == nil and snapSlots[2].o == 1234)
-	-- éclosion : l'œuf du slot 5 éclot (échéance passée), le compteur est figé une fois, envoyé avec l'éclosion
+	check("Synchronisation : le client reçoit o pour le pet récent, rien pour l'ancien", snapSlots ~= nil and snapSlots[2].o == nil and snapSlots[3].o == 1234)
+	-- éclosion : l'œuf du slot 1 éclot (échéance passée), le compteur est figé une fois, envoyé avec l'éclosion
 	for _ = 1, 10 do
-		if d.slots[5] and d.slots[5].k == "p" then
+		if d.slots[1] and d.slots[1].k == "p" then
 			break
 		end
 		RT.step(1)
 	end
-	local sl = d.slots[5]
+	local sl = d.slots[1]
 	local hatchO
 	for _, f in ipairs(RT.fired) do
-		if f[1] == "Hatch" and f[2] == p and type(f[3]) == "table" and f[3].slot == 5 then
+		if f[1] == "Hatch" and f[2] == p and type(f[3]) == "table" and f[3].slot == 1 then
 			hatchO = f[3].o
 		end
 	end
 	local expect = sl and sl.k == "p" and Odds.forPet(cfg, sl.p, sl.s, sl.m) or nil
-	print("DBG", sl and sl.k, sl and sl.o, expect, hatchO, sl and sl.ov, RT.errors[1])
 	check("Éclosion : slot.o = Odds.forPet (compteur de référence) et slot.ov = 1, même valeur envoyée au client" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])),
 		sl ~= nil and sl.k == "p" and type(sl.o) == "number" and sl.o == expect and sl.ov == cfg.ODDS.version and hatchO == sl.o and #RT.errors == 0)
 	local frozen = sl and sl.o
@@ -11431,7 +11436,7 @@ end)()
 	RT.removePlayer(p)
 	RT.step(3)
 	local r = ds.data.P_9901 and ds.data.P_9901.v
-	check("Sauvegarde : o / ov écrits pour les pets récents, absents pour l'ancien", r ~= nil and type(r.slots) == "table" and r.slots[1].o == nil and r.slots[2].o == 1234 and r.slots[5] and r.slots[5].o == frozen and r.slots[5].ov == 1)
+	check("Sauvegarde : o / ov écrits pour les pets récents, absents pour l'ancien", r ~= nil and type(r.slots) == "table" and r.slots[2].o == nil and r.slots[3].o == 1234 and r.slots[1] and r.slots[1].o == frozen and r.slots[1].ov == 1)
 end)()
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
