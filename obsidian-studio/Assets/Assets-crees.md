@@ -94,3 +94,7 @@ egg_r1 135765683612513; egg_r10 124299527536427; egg_r2 87965918516208; egg_r3 9
 ## Lot 22 (créatures P1 : numéros de la table C.2, agent Sonnet) : scripts/blender_make_pets_p1.py
 #27 pet_cochon 120209362861524; #67 pet_demonenchaine 135810765401304; #70 pet_dragondecristal 83608898332171; #64 pet_dragondelave 104000037060333; #29 pet_herisson 97141542211988; #57 pet_loupdeglace 85636324524964; #28 pet_mouton 105709605466944; #68 pet_phenixsolaire 113957945777558; #26 pet_tortue 71698437334028; #76 pet_dragonceleste 106663728573110; #75 pet_seraphinlion 93690713012899; #62 pet_loupdecristaux 105118496375469
 Dragon céleste : pas de Corps ni Queue (Seg1..Seg6) ; phénix : Jambe_G/D, pas de Patte_*. Ailes en L = disques fins.
+
+## Lot 23 (créatures P2, table C.2, agent Sonnet) : scripts/blender_make_pets_p2.py
+#30 pet_chauve_souris 122266421105736; #37 pet_cheval 86271823819731; #36 pet_crocodile 96697303823865; #50 pet_leopard_des_neiges 112945689300548; #43 pet_ours_brun 100651114276488; #31 pet_perroquet 115221106222960; #56 pet_phenix_de_feu 86984034098211; #63 pet_renard_a_neuf_queues 129679224173562; #44 pet_requin 74168168387947; #51 pet_requin_eclair 132943289797967; #32 pet_salamandre 132980424707847; #60 pet_tigre_aile_a_runes 74511340123175
+Renard à neuf queues : Queue (animée) + QueueB..QueueI ; tigre 3947 faces (le plus lourd) ; crocodile couché ~0,95 de haut.
