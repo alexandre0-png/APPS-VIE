@@ -9436,6 +9436,7 @@ do
 	check7("Vol : œuf éclos pendant le vol, victime partie, voleur parti, plus de place, victime protégée entre-temps = aborted avec la bonne raison",
 		select(2, RavenM.settle(w({ eggStill = false }))) == "eggGone" and select(2, RavenM.settle(w({ eggLeft = 0 }))) == "eggGone" and select(2, RavenM.settle(w({ victimHere = false }))) == "victimGone" and select(2, RavenM.settle(w({ thiefHere = false }))) == "thiefGone"
 			and select(2, RavenM.settle(w({ thiefFreeSlot = false }))) == "noSlot" and select(2, RavenM.settle(w({ shielded = true }))) == "shield")
+	check7("Vol 7b : château ou protection débutant d'un des deux relus en vol = aborted (castle / newbie), même si le corbeau est chassé ou arrivé", select(2, RavenM.settle(w({ now = 5, inCastle = true }))) == "castle" and select(2, RavenM.settle(w({ inCastle = true }))) == "castle" and select(2, RavenM.settle(w({ now = 5, newbie = true }))) == "newbie" and select(1, RavenM.settle(w({ now = 5, chased = true, inCastle = true }))) == "aborted" and RavenM.settle(w({ now = 5, inCastle = false, newbie = false })) == "pending")
 	check7("Vol : Raven.resolve(chassé) = échec, sinon succès", RavenM.resolve(true) == "chased" and RavenM.resolve(false) == "success")
 	-- achats
 	check7("Jetons : +1 et +3 acceptés sous le plafond " .. R.tokenMax .. ", refusés au-delà (jamais de jeton payé perdu)", RavenM.canBuy(Config, 4, 1) and RavenM.canBuy(Config, 2, 3) and not RavenM.canBuy(Config, 5, 1) and not RavenM.canBuy(Config, 3, 3) and RavenM.canBuy(Config, 0, 5))
@@ -10062,6 +10063,113 @@ do
 			end
 			RT.removePlayer(M)
 			RT.removePlayer(N)
+			RT.step(2)
+		end)()
+		-- 5d. Lot 7b, défaut 4 : débit du jeton d'abord, château / débutant relus en vol, délai de 20 min seulement en cas de succès, RavenLog borné, reçu d'un joueur qui part ------
+		;(function()
+			local P1, s1 = join("Pia", 7030)
+			local P2, s2 = join("Pol", 7031)
+			standInBase(P1, s1)
+			standInBase(P2, s2)
+			local function ready(slot) -- remet tout à zéro avant un vol : boucliers, plafond, délai, jetons, œuf non protégé et loin de l'éclosion
+				nreset(s1)
+				nreset(s2)
+				s1.data.tokens.remoteSteal = 3
+				s2.data.slots[slot].shield = 0
+				s2.data.slots[slot].ends = tnow() + 5000
+				RT.now = RT.now + 12
+			end
+			local i1 = putEgg(s2, 3, 5000)
+			-- (a) la construction du vol échoue (pad introuvable) : le jeton, déjà débité, est rendu ; rien n'est enregistré, ni délai posé
+			ready(i1)
+			local pads = s2.plot.pads[i1]
+			local keepPart = pads.part
+			pads.part = nil
+			local mkA = mark()
+			act(P1, "ravenGo", { u = 7031, i = i1 })
+			pads.part = keepPart
+			local nF, nS = hooks.flights()
+			check7("Décollage 7b : construction du vol en échec : jeton rendu (3), aucun vol ni état par œuf (" .. nF .. "/" .. nS .. "), délai de la victime non posé, message au voleur, aucune erreur", s1.data.tokens.remoteSteal == 3 and nF == 0 and nS == 0 and s2.data.raven.cd == 0 and notified(P1, "n'a pas pu décoller", mkA) and #RT.errors == 0)
+			-- (b) la victime entre au Château PENDANT le vol : abandon, jeton rendu, œuf intact, 3 min de répit seulement
+			ready(i1)
+			act(P1, "ravenGo", { u = 7031, i = i1 })
+			RT.step(2)
+			check7("Vol 7b : décollage accepté (jeton 3 -> 2, 3 min de répit à la victime : " .. (s2.data.raven.cd - tnow()) .. " s)", select(1, hooks.flights()) == 1 and s1.data.tokens.remoteSteal == 2 and s2.data.raven.cd - tnow() > 170 and s2.data.raven.cd - tnow() <= 180)
+			local mkB = mark()
+			s2.castle = { deaths = 0, maxRoom = 1, finished = true }
+			RT.step(1)
+			s2.castle = nil
+			check7("Vol 7b : la victime entre au Château en plein vol : vol abandonné, jeton rendu (3), œuf intact, message au voleur, 3 min de répit (pas 20)", select(1, hooks.flights()) == 0 and s1.data.tokens.remoteSteal == 3 and s2.data.slots[i1] ~= false and s2.data.slots[i1].k == "e" and notified(P1, "entré au Château", mkB) and s2.data.raven.cd - tnow() <= 180)
+			-- (c) protection débutant relue en vol
+			ready(i1)
+			act(P1, "ravenGo", { u = 7031, i = i1 })
+			RT.step(2)
+			local keepPlayed = s2.data.played
+			s2.data.played = 0
+			local mkC = mark()
+			RT.step(1)
+			s2.data.played = keepPlayed
+			check7("Vol 7b : la victime redevient protégée débutant en plein vol : abandon, jeton rendu, œuf intact", select(1, hooks.flights()) == 0 and s1.data.tokens.remoteSteal == 3 and s2.data.slots[i1].k == "e" and notified(P1, "Protection débutant", mkC))
+			-- (d) vol chassé : 3 min de répit ; vol réussi : 20 min
+			ready(i1)
+			act(P1, "ravenGo", { u = 7031, i = i1 })
+			RT.step(2)
+			RT.fire(s2.plot.pads[i1].content:FindFirstChild("Egg"):FindFirstChildOfClass("ClickDetector"), "MouseClick", P2)
+			RT.step(0.4)
+			check7("Délai 7b : vol CHASSÉ : jeton rendu, répit de 3 min seulement (" .. (s2.data.raven.cd - tnow()) .. " s), pas 20", select(1, hooks.flights()) == 0 and s1.data.tokens.remoteSteal == 3 and s2.data.raven.cd - tnow() > 170 and s2.data.raven.cd - tnow() <= 180)
+			ready(i1)
+			act(P1, "ravenGo", { u = 7031, i = i1 })
+			RT.step(9)
+			check7("Délai 7b : vol RÉUSSI : 20 min de répit (" .. (s2.data.raven.cd - tnow()) .. " s)", select(1, hooks.flights()) == 0 and s2.data.slots[i1] == false and s2.data.raven.cd - tnow() > 1190 and s2.data.raven.cd - tnow() <= 1200)
+			-- (e) RavenLog : essais bornés, file bornée, nettoyage séparé
+			local logStore = RT.dataStores["RavenLog"]
+			local function count(thiefId)
+				local n = 0
+				for _, e in ipairs(logStore.data["D" .. math.floor(tnow() / 86400)] or {}) do
+					n = n + (e.thief == thiefId and 1 or 0)
+				end
+				return n
+			end
+			RT.dataStoreFail, RT.dataStoreFailOnly, RT.dataStoreFailTimes = "panne", "RavenLog", 2
+			hooks.logEnqueue({ thief = 9001, thiefName = "t", victim = 1, victimName = "v", tier = 1, result = "success", at = tnow() })
+			RT.step(10)
+			RT.dataStoreFail, RT.dataStoreFailOnly, RT.dataStoreFailTimes = nil, nil, nil
+			check7("RavenLog 7b : deux échecs d'écriture puis succès : l'entrée est écrite UNE fois (essais bornés, file vide : " .. hooks.logPending() .. ")", count(9001) == 1 and hooks.logPending() == 0)
+			local dropped0 = hooks.logDropped()
+			RT.dataStoreFail, RT.dataStoreFailOnly = "panne durable", "RavenLog"
+			for k = 1, 150 do
+				hooks.logEnqueue({ thief = 9100 + k, thiefName = "t", victim = 1, victimName = "v", tier = 1, result = "success", at = tnow() })
+			end
+			local pend = hooks.logPending()
+			check7("RavenLog 7b : DataStore en panne durable : la file reste bornée (" .. pend .. " <= " .. Config.REMOTE_STEAL.logQueueMax + 1 .. " après 150 entrées), les plus anciennes sont jetées (" .. (hooks.logDropped() - dropped0) .. ")", pend <= Config.REMOTE_STEAL.logQueueMax + 1 and hooks.logDropped() - dropped0 >= 150 - Config.REMOTE_STEAL.logQueueMax - 1)
+			RT.step(60)
+			RT.dataStoreFail, RT.dataStoreFailOnly = nil, nil
+			check7("RavenLog 7b : la panne durable passée, la file est vidée (lots abandonnés après essais bornés, plus de tâche en attente : " .. hooks.logPending() .. "), aucune erreur", hooks.logPending() == 0 and hooks.logDropped() - dropped0 >= 150 - 1 and #RT.errors == 0)
+			RT.now = RT.now + 86400 + 400 -- nouveau jour (UTC) : un nettoyage des vieilles clés est dû
+			local expired = "D" .. (math.floor(tnow() / 86400) - Config.REMOTE_STEAL.logDays - 1)
+			logStore.data[expired] = { { thief = 1 } }
+			local dropped1 = hooks.logDropped()
+			RT.removeFail = "RemoveAsync refusé"
+			hooks.logEnqueue({ thief = 9200, thiefName = "t", victim = 1, victimName = "v", tier = 1, result = "success", at = tnow() })
+			RT.step(3)
+			check7("RavenLog 7b : le nettoyage (RemoveAsync) échoue : l'écriture est CONSERVÉE, une seule fois (" .. count(9200) .. "), pas jetée (lots abandonnés : " .. (hooks.logDropped() - dropped1) .. "), la vieille clé reste", count(9200) == 1 and hooks.logDropped() == dropped1 and logStore.data[expired] ~= nil and not logStore.removed[expired])
+			RT.removeFail = nil
+			RT.now = RT.now + 301
+			hooks.logEnqueue({ thief = 9201, thiefName = "t", victim = 1, victimName = "v", tier = 1, result = "success", at = tnow() })
+			RT.step(3)
+			check7("RavenLog 7b : le nettoyage est retenté plus tard (clé de plus de " .. Config.REMOTE_STEAL.logDays .. " jours effacée), sans doublon", logStore.removed[expired] == true and logStore.data[expired] == nil and count(9200) == 1 and count(9201) == 1)
+			-- (f) reçu d'un joueur en train de partir : sauvegarde AVEC libération du verrou
+			local Lv, sLv = join("Lea", 7032)
+			receipt(7032, "LV-0", "CoinPack")
+			local lockNormal = record(7032) and record(7032).lock
+			sLv.leaving = true
+			local dLv = receipt(7032, "LV-1", "CoinPack")
+			local recLv = record(7032)
+			check7("Reçu 7b : joueur normal = sauvegarde avec verrou ; joueur en train de partir (leaving) = sauvegarde SANS reprendre le verrou, reçu traité", lockNormal ~= nil and dLv == PS.PurchaseGranted and recLv ~= nil and recLv.lock == nil and recLv.v.receipts["LV-1"] ~= nil)
+			sLv.leaving = false
+			RT.removePlayer(Lv)
+			RT.removePlayer(P1)
+			RT.removePlayer(P2)
 			RT.step(2)
 		end)()
 		-- 6. Fuites ---------------------------------------------------------------------------------------------------------------------------------------

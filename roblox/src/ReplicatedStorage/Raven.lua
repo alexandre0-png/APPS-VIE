@@ -150,6 +150,7 @@ function Raven.stack(left, add, max)
 end
 
 -- Une demande de vol en cours est-elle toujours valable ? Tout est décidé par le serveur ; `w` = { thiefHere, victimHere, eggStill, eggLeft, chased, shielded, thiefFreeSlot, now, endsAt }.
+-- (lot 7b : `inCastle` et `newbie` = l'un des DEUX joueurs, relus à chaque pas.)
 -- Retourne (decision, raison) : "pending" (le corbeau vole encore), "chased" (jeton rendu), "success", ou "aborted" (raison : thiefGone, victimGone, eggGone, shield, noSlot ;
 -- jeton rendu partout sauf thiefGone, où le serveur le rend dans le profil du voleur avant sa sauvegarde de départ).
 function Raven.settle(w)
@@ -161,6 +162,12 @@ function Raven.settle(w)
 	end
 	if not w.eggStill or (type(w.eggLeft) == "number" and w.eggLeft <= 0) then
 		return "aborted", "eggGone"
+	end
+	if w.inCastle then
+		return "aborted", "castle" -- l'un des deux est entré au Château pendant le vol (relu à chaque pas) : pas de corbeau dans ce mode
+	end
+	if w.newbie then
+		return "aborted", "newbie" -- protection débutant d'un des deux (relue pendant le vol)
 	end
 	if w.chased then
 		return "chased", "chased"

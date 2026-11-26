@@ -1868,8 +1868,8 @@ Config.TRAVEL2 = {
 }
 -- E.3 Vol à distance « Corbeau chipeur ».
 Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 4, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
-	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 2,
-	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7b : minAccountAgeDays = ancienneté de compte exigée du voleur ET de la victime ; reStealSeconds = un œuf volé par corbeau ne se revole pas avant 20 min ; compensationCapTier = indemnité reçue par jour UTC plafonnée au prix d'un œuf de cette rareté (Rare)  : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
+	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 2, victimFailCooldown = 180, logQueueMax = 60, logBatch = 20, logTries = 3,
+	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7b : minAccountAgeDays = ancienneté de compte exigée du voleur ET de la victime ; reStealSeconds = un œuf volé par corbeau ne se revole pas avant 20 min ; compensationCapTier = indemnité reçue par jour UTC plafonnée au prix d'un œuf de cette rareté (Rare) ; victimFailCooldown = répit de la victime après un vol raté ou chassé (le délai de 20 min n'est posé qu'en cas de succès) ; logQueueMax / logBatch / logTries = file RavenLog bornée, écrite par lots, essais bornés. Lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
 -- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
 -- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
 Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 1800 }
@@ -5644,6 +5644,7 @@ function Raven.stack(left, add, max)
 end
 
 -- Une demande de vol en cours est-elle toujours valable ? Tout est décidé par le serveur ; `w` = { thiefHere, victimHere, eggStill, eggLeft, chased, shielded, thiefFreeSlot, now, endsAt }.
+-- (lot 7b : `inCastle` et `newbie` = l'un des DEUX joueurs, relus à chaque pas.)
 -- Retourne (decision, raison) : "pending" (le corbeau vole encore), "chased" (jeton rendu), "success", ou "aborted" (raison : thiefGone, victimGone, eggGone, shield, noSlot ;
 -- jeton rendu partout sauf thiefGone, où le serveur le rend dans le profil du voleur avant sa sauvegarde de départ).
 function Raven.settle(w)
@@ -5655,6 +5656,12 @@ function Raven.settle(w)
 	end
 	if not w.eggStill or (type(w.eggLeft) == "number" and w.eggLeft <= 0) then
 		return "aborted", "eggGone"
+	end
+	if w.inCastle then
+		return "aborted", "castle" -- l'un des deux est entré au Château pendant le vol (relu à chaque pas) : pas de corbeau dans ce mode
+	end
+	if w.newbie then
+		return "aborted", "newbie" -- protection débutant d'un des deux (relue pendant le vol)
 	end
 	if w.chased then
 		return "chased", "chased"
@@ -10757,15 +10764,46 @@ do
 		return { golden = math.floor(Belt.goldenLeft(beltSt, os.clock())), luck = math.max(0, math.floor(Lot7.luckUntil - os.time())), luckBy = Lot7.luckBy, goldenBy = beltSt.goldenBy }
 	end
 
-	-- Journal serveur : print + DataStore RavenLog (en arrière-plan, jamais bloquant).
+	-- Journal serveur : print + DataStore RavenLog (en arrière-plan, jamais bloquant). File BORNÉE (Config.REMOTE_STEAL.logQueueMax : au-delà, la plus ancienne entrée est jetée avec un
+	-- avertissement) vidée par UN seul travailleur, par lots de logBatch entrées ; Data.logRavenBatch réessaie un nombre borné de fois, un lot définitivement échoué est abandonné (journal
+	-- de secours : les warn/print serveur). Un DataStore lent ou en panne ne peut donc ni bloquer le jeu ni faire grossir la mémoire.
+	local logQueue, logWorker = {}, false
+	Lot7.logDropped = 0
+	function Lot7.logPending()
+		return #logQueue + (logWorker and 1 or 0)
+	end
+	local function pumpLog()
+		if logWorker then
+			return
+		end
+		logWorker = true
+		task.spawn(function()
+			while #logQueue > 0 do
+				local batch = {}
+				while #logQueue > 0 and #batch < RV.logBatch do
+					batch[#batch + 1] = table.remove(logQueue, 1)
+				end
+				local ok, res = pcall(Data.logRavenBatch, batch)
+				if not (ok and res) then
+					Lot7.logDropped += #batch
+					warn("[Raven] journal : lot de " .. #batch .. " entrée(s) abandonné après essais (" .. tostring(ok and res or res) .. ")")
+				end
+			end
+			logWorker = false
+		end)
+	end
+	function Lot7.logEnqueue(entry)
+		if #logQueue >= RV.logQueueMax then
+			table.remove(logQueue, 1)
+			Lot7.logDropped += 1
+			warn("[Raven] journal : file pleine (" .. RV.logQueueMax .. "), entrée la plus ancienne jetée")
+		end
+		logQueue[#logQueue + 1] = entry
+		pumpLog()
+	end
 	local function logEvent(f, result)
 		print(string.format("[Raven] %s (%d) -> %s (%d) : œuf %s, résultat %s", f.thiefName, f.thiefId, f.victimName, f.victimId, Config.TIERS[f.tier].name, result))
-		task.spawn(function()
-			local ok, err = pcall(Data.logRaven, { thief = f.thiefId, thiefName = f.thiefName, victim = f.victimId, victimName = f.victimName, tier = f.tier, result = result, at = os.time() })
-			if not ok then
-				warn("[Raven] journal : " .. tostring(err))
-			end
-		end)
+		Lot7.logEnqueue({ thief = f.thiefId, thiefName = f.thiefName, victim = f.victimId, victimName = f.victimName, tier = f.tier, result = result, at = os.time() })
 	end
 
 	-- Amitié (appel réseau, avec cache de 5 min par session). Échec = considéré ami : le refus de la victime est respecté (repli prudent).
@@ -10947,6 +10985,11 @@ do
 				notify(s.player, "🐦‍⬛ L'œuf n'est plus là (éclos ou volé) : ton corbeau rentre. Jeton rendu.")
 			elseif reason == "thiefGone" then
 				notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " est reparti.")
+			elseif reason == "castle" then
+				notify(s.player, "🐦‍⬛ Un des deux joueurs est entré au Château : ton corbeau rentre. Jeton rendu.")
+				notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " est reparti.")
+			elseif reason == "newbie" then
+				notify(s.player, "🐣 Protection débutant : ton corbeau rentre. Jeton rendu.")
 			elseif reason == "shutdown" then
 				notify(s.player, "🐦‍⬛ Le serveur ferme : ton corbeau rentre. Jeton rendu.")
 			else
@@ -10972,7 +11015,8 @@ do
 		local still = sl == f.ref and type(sl) == "table" and sl.k == "e"
 		local t = os.time()
 		return { thiefHere = sessions[s.player] == s and not s.leaving, victimHere = sessions[vs.player] == vs and not vs.leaving, eggStill = still, eggLeft = still and (sl.ends - t) or 0,
-			chased = f.chased, shielded = vs.data.raven.sh > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt }
+			chased = f.chased, shielded = vs.data.raven.sh > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt,
+			inCastle = inCastleMode(s) or inCastleMode(vs), newbie = isNewbie(s) or isNewbie(vs) } -- château et protection débutant relus à chaque pas (lot 7b)
 	end
 
 	local function step()
@@ -11157,28 +11201,48 @@ do
 		if not ok then
 			return notify(s.player, MSG[why] or MSG.invalid, "refuse")
 		end
-		-- Décollage : le jeton est dépensé maintenant (rendu en cas d'échec)
+		-- Décollage : le jeton est débité D'ABORD, avant toute construction ; si la construction échoue (erreur, pad introuvable...), il est rendu et rien n'est enregistré.
 		local sl = vs.data.slots[slot]
 		s.data.tokens.remoteSteal -= 1
+		local f, bird
+		local okF, errF = pcall(function()
+			local pad = vs.plot.pads[slot].part
+			local plaza = Config.Map2.plaza
+			f = {
+				thief = s, victim = vs, slot = slot, ref = sl, tier = sl.t, t0 = os.clock(), endsAt = os.clock() + RV.flightSeconds, chased = false, flap = false,
+				thiefId = s.player.UserId, victimId = vp.UserId, thiefName = s.player.DisplayName, victimName = vp.DisplayName,
+				from = { x = plaza.x, y = 30, z = plaza.z }, to = { x = pad.Position.X, y = pad.Position.Y + 12, z = pad.Position.Z },
+			}
+			local okB, b = pcall(Builder.raven, ravensFolder)
+			bird = okB and b or nil -- sans oiseau visible le vol reste valable
+			f.bird = bird
+		end)
+		if not okF then
+			warn("[Raven] décollage impossible, jeton rendu : " .. tostring(errF))
+			if bird then
+				pcall(function()
+					bird:Destroy()
+				end)
+			end
+			s.data.tokens.remoteSteal = math.min(RV.tokenMax, s.data.tokens.remoteSteal + 1)
+			return notify(s.player, "🐦‍⬛ Ton corbeau n'a pas pu décoller. Jeton rendu.", "refuse")
+		end
+		-- enregistrement (opérations de table seulement : ne peut pas échouer à mi-chemin)
 		s.lastRavenGo = os.clock()
-		vs.data.raven.cd = os.time() + RV.victimCooldown -- anti-harcèlement : un corbeau (même chassé) = 20 min de répit pour la victime (au plus 3 alertes par heure)
-		local pad = vs.plot.pads[slot].part
-		local plaza = Config.Map2.plaza
-		local f = {
-			thief = s, victim = vs, slot = slot, ref = sl, tier = sl.t, t0 = os.clock(), endsAt = os.clock() + RV.flightSeconds, chased = false, flap = false,
-			thiefId = s.player.UserId, victimId = vp.UserId, thiefName = s.player.DisplayName, victimName = vp.DisplayName,
-			from = { x = plaza.x, y = 30, z = plaza.z }, to = { x = pad.Position.X, y = pad.Position.Y + 12, z = pad.Position.Z },
-		}
-		local okB, bird = pcall(Builder.raven, ravensFolder)
-		f.bird = okB and bird or nil
+		vs.data.raven.cd = math.max(vs.data.raven.cd, os.time() + RV.victimFailCooldown) -- anti-harcèlement : 3 min de répit dès l'alerte ; les 20 min ne sont posées qu'en cas de SUCCÈS (finish)
 		flights[s.player] = f
 		bySlot[vp] = bySlot[vp] or {}
 		bySlot[vp][slot] = f
-		local tn = Config.TIERS[sl.t].name
-		RRaven:FireClient(vp, "alert", { who = f.thiefName, tier = sl.t, slot = slot, secs = RV.flightSeconds })
-		notify(vp, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " vise ton œuf " .. tn .. " ! Touche l'œuf pour le chasser (" .. RV.flightSeconds .. " s).", "caught")
-		notify(s.player, "🐦‍⬛ Ton corbeau s'envole vers l'œuf " .. tn .. " de " .. f.victimName .. " (" .. RV.flightSeconds .. " s).", "event")
-		RRaven:FireClient(s.player, "flight", { to = f.victimName, tier = sl.t, secs = RV.flightSeconds })
+		local okN, errN = pcall(function()
+			local tn = Config.TIERS[sl.t].name
+			RRaven:FireClient(vp, "alert", { who = f.thiefName, tier = sl.t, slot = slot, secs = RV.flightSeconds })
+			notify(vp, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " vise ton œuf " .. tn .. " ! Touche l'œuf pour le chasser (" .. RV.flightSeconds .. " s).", "caught")
+			notify(s.player, "🐦‍⬛ Ton corbeau s'envole vers l'œuf " .. tn .. " de " .. f.victimName .. " (" .. RV.flightSeconds .. " s).", "event")
+			RRaven:FireClient(s.player, "flight", { to = f.victimName, tier = sl.t, secs = RV.flightSeconds })
+		end)
+		if not okN then
+			warn("[Raven] messages de décollage : " .. tostring(errN)) -- le vol est enregistré : il se règle normalement
+		end
 		logEvent(f, "launched")
 		sync(s)
 	end
@@ -11366,6 +11430,8 @@ do
 	-- Crochet INTERNE pour les tests (jamais exposé aux clients) : accès aux sessions et compteurs.
 	Builder.lot7Hooks = { session = function(p)
 		return sessions[p]
+	end, logEnqueue = Lot7.logEnqueue, logPending = Lot7.logPending, logDropped = function()
+		return Lot7.logDropped
 	end, luckPoints = luckPoints, passOn = passOn, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
 		return Lot7.compPaid
 	end }
@@ -11410,7 +11476,7 @@ MarketplaceService.ProcessReceipt = function(info)
 	local function persist()
 		-- PurchaseGranted seulement une fois la sauvegarde réussie ; sinon Roblox rappellera ProcessReceipt (le reçu en mémoire n'est
 		-- compté « traité » qu'après une sauvegarde réussie, la livraison n'est donc jamais refaite : s.pendingReceipts).
-		if not s.noSave and not Data.save(player, s.data) then
+		if not s.noSave and not Data.save(player, s.data, s.leaving == true) then -- joueur en train de partir : libère aussi le verrou (sinon ce reçu le reprendrait après sa sauvegarde de départ)
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		s.pendingReceipts[rid] = nil
@@ -11810,7 +11876,7 @@ game:BindToClose(function()
 		end
 	end
 	local t0 = os.clock()
-	while pending > 0 and os.clock() - t0 < 25 do
+	while (pending > 0 or Lot7.logPending() > 0) and os.clock() - t0 < 25 do -- (le journal RavenLog est vidé dans la même limite de temps)
 		task.wait()
 	end
 end)
@@ -12323,9 +12389,11 @@ end
 -- Une clé par jour UTC ("D<jour>") contenant au plus RAVEN_LOG_MAX entrées { thief, victim, tier, result, at } ; les clés de plus de Config.REMOTE_STEAL.logDays jours
 -- sont effacées (au mieux, une fois par serveur et par jour). Tout est dans un pcall : un échec ne bloque JAMAIS le jeu.
 local RAVEN_LOG_MAX = 400
-local ravenLogStore, ravenPruned = nil, nil
-function Data.logRaven(entry)
-	if apiBlocked or type(entry) ~= "table" then
+local ravenLogStore, ravenPruned, ravenPruneTry = nil, nil, -1000
+-- Écrit un LOT d'entrées (liste) : UpdateAsync réessayé au plus Config.REMOTE_STEAL.logTries fois (attente 2 s, 4 s...), puis abandon (retourne false : l'appelant jette le lot et prévient).
+-- Le nettoyage des vieilles clés (RemoveAsync) est SÉPARÉ : son échec ne remet jamais en cause (ni ne duplique) une écriture réussie, et il est retenté au plus toutes les 5 min.
+function Data.logRavenBatch(entries)
+	if apiBlocked or type(entries) ~= "table" or #entries == 0 then
 		return false
 	end
 	if not ravenLogStore then
@@ -12338,25 +12406,54 @@ function Data.logRaven(entry)
 		ravenLogStore = st
 	end
 	local now = os.time()
-	local ok, err = pcall(function()
-		ravenLogStore:UpdateAsync(Raven.dayKey(now), function(old)
-			local list = type(old) == "table" and old or {}
-			list[#list + 1] = entry
-			while #list > RAVEN_LOG_MAX do
-				table.remove(list, 1)
-			end
-			return list
+	local written = false
+	for attempt = 1, Config.REMOTE_STEAL.logTries do
+		local ok, err = pcall(function()
+			ravenLogStore:UpdateAsync(Raven.dayKey(now), function(old)
+				local list = type(old) == "table" and old or {}
+				for _, e in ipairs(entries) do
+					list[#list + 1] = e
+				end
+				while #list > RAVEN_LOG_MAX do
+					table.remove(list, 1)
+				end
+				return list
+			end)
 		end)
-		local day = Raven.day(now)
-		if ravenPruned ~= day then
-			ravenPruned = day
-			ravenLogStore:RemoveAsync(Raven.expiredKey(now, Config.REMOTE_STEAL.logDays))
+		if ok then
+			written = true
+			break
 		end
-	end)
-	if not ok then
-		markApiBlocked(err)
+		if markApiBlocked(err) then
+			return false
+		end
+		warn("[RavenLog] écriture échouée (" .. attempt .. "/" .. Config.REMOTE_STEAL.logTries .. ") : " .. tostring(err))
+		if attempt < Config.REMOTE_STEAL.logTries then
+			task.wait(2 * attempt)
+		end
 	end
-	return ok
+	if not written then
+		return false
+	end
+	local day = Raven.day(now)
+	if ravenPruned ~= day and os.clock() - ravenPruneTry >= 300 then
+		ravenPruneTry = os.clock()
+		local okP, errP = pcall(function()
+			ravenLogStore:RemoveAsync(Raven.expiredKey(now, Config.REMOTE_STEAL.logDays))
+		end)
+		if okP then
+			ravenPruned = day
+		else
+			warn("[RavenLog] nettoyage des vieilles clés échoué (retenté plus tard, l'écriture est conservée) : " .. tostring(errP))
+		end
+	end
+	return true
+end
+function Data.logRaven(entry)
+	if type(entry) ~= "table" then
+		return false
+	end
+	return Data.logRavenBatch({ entry })
 end
 
 ---------------------------------------------------------------- Classement global

@@ -3043,15 +3043,46 @@ do
 		return { golden = math.floor(Belt.goldenLeft(beltSt, os.clock())), luck = math.max(0, math.floor(Lot7.luckUntil - os.time())), luckBy = Lot7.luckBy, goldenBy = beltSt.goldenBy }
 	end
 
-	-- Journal serveur : print + DataStore RavenLog (en arrière-plan, jamais bloquant).
+	-- Journal serveur : print + DataStore RavenLog (en arrière-plan, jamais bloquant). File BORNÉE (Config.REMOTE_STEAL.logQueueMax : au-delà, la plus ancienne entrée est jetée avec un
+	-- avertissement) vidée par UN seul travailleur, par lots de logBatch entrées ; Data.logRavenBatch réessaie un nombre borné de fois, un lot définitivement échoué est abandonné (journal
+	-- de secours : les warn/print serveur). Un DataStore lent ou en panne ne peut donc ni bloquer le jeu ni faire grossir la mémoire.
+	local logQueue, logWorker = {}, false
+	Lot7.logDropped = 0
+	function Lot7.logPending()
+		return #logQueue + (logWorker and 1 or 0)
+	end
+	local function pumpLog()
+		if logWorker then
+			return
+		end
+		logWorker = true
+		task.spawn(function()
+			while #logQueue > 0 do
+				local batch = {}
+				while #logQueue > 0 and #batch < RV.logBatch do
+					batch[#batch + 1] = table.remove(logQueue, 1)
+				end
+				local ok, res = pcall(Data.logRavenBatch, batch)
+				if not (ok and res) then
+					Lot7.logDropped += #batch
+					warn("[Raven] journal : lot de " .. #batch .. " entrée(s) abandonné après essais (" .. tostring(ok and res or res) .. ")")
+				end
+			end
+			logWorker = false
+		end)
+	end
+	function Lot7.logEnqueue(entry)
+		if #logQueue >= RV.logQueueMax then
+			table.remove(logQueue, 1)
+			Lot7.logDropped += 1
+			warn("[Raven] journal : file pleine (" .. RV.logQueueMax .. "), entrée la plus ancienne jetée")
+		end
+		logQueue[#logQueue + 1] = entry
+		pumpLog()
+	end
 	local function logEvent(f, result)
 		print(string.format("[Raven] %s (%d) -> %s (%d) : œuf %s, résultat %s", f.thiefName, f.thiefId, f.victimName, f.victimId, Config.TIERS[f.tier].name, result))
-		task.spawn(function()
-			local ok, err = pcall(Data.logRaven, { thief = f.thiefId, thiefName = f.thiefName, victim = f.victimId, victimName = f.victimName, tier = f.tier, result = result, at = os.time() })
-			if not ok then
-				warn("[Raven] journal : " .. tostring(err))
-			end
-		end)
+		Lot7.logEnqueue({ thief = f.thiefId, thiefName = f.thiefName, victim = f.victimId, victimName = f.victimName, tier = f.tier, result = result, at = os.time() })
 	end
 
 	-- Amitié (appel réseau, avec cache de 5 min par session). Échec = considéré ami : le refus de la victime est respecté (repli prudent).
@@ -3233,6 +3264,11 @@ do
 				notify(s.player, "🐦‍⬛ L'œuf n'est plus là (éclos ou volé) : ton corbeau rentre. Jeton rendu.")
 			elseif reason == "thiefGone" then
 				notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " est reparti.")
+			elseif reason == "castle" then
+				notify(s.player, "🐦‍⬛ Un des deux joueurs est entré au Château : ton corbeau rentre. Jeton rendu.")
+				notify(vs.player, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " est reparti.")
+			elseif reason == "newbie" then
+				notify(s.player, "🐣 Protection débutant : ton corbeau rentre. Jeton rendu.")
 			elseif reason == "shutdown" then
 				notify(s.player, "🐦‍⬛ Le serveur ferme : ton corbeau rentre. Jeton rendu.")
 			else
@@ -3258,7 +3294,8 @@ do
 		local still = sl == f.ref and type(sl) == "table" and sl.k == "e"
 		local t = os.time()
 		return { thiefHere = sessions[s.player] == s and not s.leaving, victimHere = sessions[vs.player] == vs and not vs.leaving, eggStill = still, eggLeft = still and (sl.ends - t) or 0,
-			chased = f.chased, shielded = vs.data.raven.sh > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt }
+			chased = f.chased, shielded = vs.data.raven.sh > t, thiefFreeSlot = freeSlot(s) ~= nil, now = now, endsAt = f.endsAt,
+			inCastle = inCastleMode(s) or inCastleMode(vs), newbie = isNewbie(s) or isNewbie(vs) } -- château et protection débutant relus à chaque pas (lot 7b)
 	end
 
 	local function step()
@@ -3443,28 +3480,48 @@ do
 		if not ok then
 			return notify(s.player, MSG[why] or MSG.invalid, "refuse")
 		end
-		-- Décollage : le jeton est dépensé maintenant (rendu en cas d'échec)
+		-- Décollage : le jeton est débité D'ABORD, avant toute construction ; si la construction échoue (erreur, pad introuvable...), il est rendu et rien n'est enregistré.
 		local sl = vs.data.slots[slot]
 		s.data.tokens.remoteSteal -= 1
+		local f, bird
+		local okF, errF = pcall(function()
+			local pad = vs.plot.pads[slot].part
+			local plaza = Config.Map2.plaza
+			f = {
+				thief = s, victim = vs, slot = slot, ref = sl, tier = sl.t, t0 = os.clock(), endsAt = os.clock() + RV.flightSeconds, chased = false, flap = false,
+				thiefId = s.player.UserId, victimId = vp.UserId, thiefName = s.player.DisplayName, victimName = vp.DisplayName,
+				from = { x = plaza.x, y = 30, z = plaza.z }, to = { x = pad.Position.X, y = pad.Position.Y + 12, z = pad.Position.Z },
+			}
+			local okB, b = pcall(Builder.raven, ravensFolder)
+			bird = okB and b or nil -- sans oiseau visible le vol reste valable
+			f.bird = bird
+		end)
+		if not okF then
+			warn("[Raven] décollage impossible, jeton rendu : " .. tostring(errF))
+			if bird then
+				pcall(function()
+					bird:Destroy()
+				end)
+			end
+			s.data.tokens.remoteSteal = math.min(RV.tokenMax, s.data.tokens.remoteSteal + 1)
+			return notify(s.player, "🐦‍⬛ Ton corbeau n'a pas pu décoller. Jeton rendu.", "refuse")
+		end
+		-- enregistrement (opérations de table seulement : ne peut pas échouer à mi-chemin)
 		s.lastRavenGo = os.clock()
-		vs.data.raven.cd = os.time() + RV.victimCooldown -- anti-harcèlement : un corbeau (même chassé) = 20 min de répit pour la victime (au plus 3 alertes par heure)
-		local pad = vs.plot.pads[slot].part
-		local plaza = Config.Map2.plaza
-		local f = {
-			thief = s, victim = vs, slot = slot, ref = sl, tier = sl.t, t0 = os.clock(), endsAt = os.clock() + RV.flightSeconds, chased = false, flap = false,
-			thiefId = s.player.UserId, victimId = vp.UserId, thiefName = s.player.DisplayName, victimName = vp.DisplayName,
-			from = { x = plaza.x, y = 30, z = plaza.z }, to = { x = pad.Position.X, y = pad.Position.Y + 12, z = pad.Position.Z },
-		}
-		local okB, bird = pcall(Builder.raven, ravensFolder)
-		f.bird = okB and bird or nil
+		vs.data.raven.cd = math.max(vs.data.raven.cd, os.time() + RV.victimFailCooldown) -- anti-harcèlement : 3 min de répit dès l'alerte ; les 20 min ne sont posées qu'en cas de SUCCÈS (finish)
 		flights[s.player] = f
 		bySlot[vp] = bySlot[vp] or {}
 		bySlot[vp][slot] = f
-		local tn = Config.TIERS[sl.t].name
-		RRaven:FireClient(vp, "alert", { who = f.thiefName, tier = sl.t, slot = slot, secs = RV.flightSeconds })
-		notify(vp, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " vise ton œuf " .. tn .. " ! Touche l'œuf pour le chasser (" .. RV.flightSeconds .. " s).", "caught")
-		notify(s.player, "🐦‍⬛ Ton corbeau s'envole vers l'œuf " .. tn .. " de " .. f.victimName .. " (" .. RV.flightSeconds .. " s).", "event")
-		RRaven:FireClient(s.player, "flight", { to = f.victimName, tier = sl.t, secs = RV.flightSeconds })
+		local okN, errN = pcall(function()
+			local tn = Config.TIERS[sl.t].name
+			RRaven:FireClient(vp, "alert", { who = f.thiefName, tier = sl.t, slot = slot, secs = RV.flightSeconds })
+			notify(vp, "🐦‍⬛ Le corbeau de " .. f.thiefName .. " vise ton œuf " .. tn .. " ! Touche l'œuf pour le chasser (" .. RV.flightSeconds .. " s).", "caught")
+			notify(s.player, "🐦‍⬛ Ton corbeau s'envole vers l'œuf " .. tn .. " de " .. f.victimName .. " (" .. RV.flightSeconds .. " s).", "event")
+			RRaven:FireClient(s.player, "flight", { to = f.victimName, tier = sl.t, secs = RV.flightSeconds })
+		end)
+		if not okN then
+			warn("[Raven] messages de décollage : " .. tostring(errN)) -- le vol est enregistré : il se règle normalement
+		end
 		logEvent(f, "launched")
 		sync(s)
 	end
@@ -3652,6 +3709,8 @@ do
 	-- Crochet INTERNE pour les tests (jamais exposé aux clients) : accès aux sessions et compteurs.
 	Builder.lot7Hooks = { session = function(p)
 		return sessions[p]
+	end, logEnqueue = Lot7.logEnqueue, logPending = Lot7.logPending, logDropped = function()
+		return Lot7.logDropped
 	end, luckPoints = luckPoints, passOn = passOn, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
 		return Lot7.compPaid
 	end }
@@ -3696,7 +3755,7 @@ MarketplaceService.ProcessReceipt = function(info)
 	local function persist()
 		-- PurchaseGranted seulement une fois la sauvegarde réussie ; sinon Roblox rappellera ProcessReceipt (le reçu en mémoire n'est
 		-- compté « traité » qu'après une sauvegarde réussie, la livraison n'est donc jamais refaite : s.pendingReceipts).
-		if not s.noSave and not Data.save(player, s.data) then
+		if not s.noSave and not Data.save(player, s.data, s.leaving == true) then -- joueur en train de partir : libère aussi le verrou (sinon ce reçu le reprendrait après sa sauvegarde de départ)
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		s.pendingReceipts[rid] = nil
@@ -4096,7 +4155,7 @@ game:BindToClose(function()
 		end
 	end
 	local t0 = os.clock()
-	while pending > 0 and os.clock() - t0 < 25 do
+	while (pending > 0 or Lot7.logPending() > 0) and os.clock() - t0 < 25 do -- (le journal RavenLog est vidé dans la même limite de temps)
 		task.wait()
 	end
 end)

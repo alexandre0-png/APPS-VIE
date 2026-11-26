@@ -437,8 +437,22 @@ function Fake.runtime(opts)
 
 	---------------------------------------------------------------- services simulés
 	local ds = {}
-	local function dataStore()
-		local store = { data = {} }
+	-- Pannes injectables : RT.dataStoreFail = message (toutes les écritures échouent), RT.dataStoreFailOnly = nom d'un seul DataStore, RT.dataStoreFailTimes = n premiers appels seulement,
+	-- RT.removeFail = message (RemoveAsync seulement). RemoveAsync enregistre les clés effacées dans store.removed.
+	local function failing(name)
+		if not RT.dataStoreFail or (RT.dataStoreFailOnly ~= nil and RT.dataStoreFailOnly ~= name) then
+			return false
+		end
+		if RT.dataStoreFailTimes then
+			if RT.dataStoreFailTimes <= 0 then
+				return false
+			end
+			RT.dataStoreFailTimes = RT.dataStoreFailTimes - 1
+		end
+		return true
+	end
+	local function dataStore(name)
+		local store = { data = {}, removed = {} }
 		local function copy(v)
 			if type(v) ~= "table" then
 				return v
@@ -450,7 +464,7 @@ function Fake.runtime(opts)
 			return c
 		end
 		function store.UpdateAsync(_, key, fn)
-			if RT.dataStoreFail then
+			if failing(name) then
 				error(RT.dataStoreFail)
 			end
 			local new = fn(copy(store.data[key]))
@@ -461,6 +475,13 @@ function Fake.runtime(opts)
 		end
 		function store.GetAsync(_, key)
 			return copy(store.data[key])
+		end
+		function store.RemoveAsync(_, key)
+			if RT.removeFail then
+				error(RT.removeFail)
+			end
+			store.removed[key] = true
+			store.data[key] = nil
 		end
 		function store.SetAsync(_, key, v)
 			if RT.dataStoreFail then
@@ -500,7 +521,7 @@ function Fake.runtime(opts)
 	RT.dataStores = {}
 	local dss = service("DataStoreService")
 	rawget(dss, "__props").GetDataStore = function(_, name)
-		RT.dataStores[name] = RT.dataStores[name] or dataStore()
+		RT.dataStores[name] = RT.dataStores[name] or dataStore(name)
 		return RT.dataStores[name]
 	end
 	rawget(dss, "__props").GetOrderedDataStore = function(_, name)

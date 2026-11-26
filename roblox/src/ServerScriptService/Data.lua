@@ -497,9 +497,11 @@ end
 -- Une clé par jour UTC ("D<jour>") contenant au plus RAVEN_LOG_MAX entrées { thief, victim, tier, result, at } ; les clés de plus de Config.REMOTE_STEAL.logDays jours
 -- sont effacées (au mieux, une fois par serveur et par jour). Tout est dans un pcall : un échec ne bloque JAMAIS le jeu.
 local RAVEN_LOG_MAX = 400
-local ravenLogStore, ravenPruned = nil, nil
-function Data.logRaven(entry)
-	if apiBlocked or type(entry) ~= "table" then
+local ravenLogStore, ravenPruned, ravenPruneTry = nil, nil, -1000
+-- Écrit un LOT d'entrées (liste) : UpdateAsync réessayé au plus Config.REMOTE_STEAL.logTries fois (attente 2 s, 4 s...), puis abandon (retourne false : l'appelant jette le lot et prévient).
+-- Le nettoyage des vieilles clés (RemoveAsync) est SÉPARÉ : son échec ne remet jamais en cause (ni ne duplique) une écriture réussie, et il est retenté au plus toutes les 5 min.
+function Data.logRavenBatch(entries)
+	if apiBlocked or type(entries) ~= "table" or #entries == 0 then
 		return false
 	end
 	if not ravenLogStore then
@@ -512,25 +514,54 @@ function Data.logRaven(entry)
 		ravenLogStore = st
 	end
 	local now = os.time()
-	local ok, err = pcall(function()
-		ravenLogStore:UpdateAsync(Raven.dayKey(now), function(old)
-			local list = type(old) == "table" and old or {}
-			list[#list + 1] = entry
-			while #list > RAVEN_LOG_MAX do
-				table.remove(list, 1)
-			end
-			return list
+	local written = false
+	for attempt = 1, Config.REMOTE_STEAL.logTries do
+		local ok, err = pcall(function()
+			ravenLogStore:UpdateAsync(Raven.dayKey(now), function(old)
+				local list = type(old) == "table" and old or {}
+				for _, e in ipairs(entries) do
+					list[#list + 1] = e
+				end
+				while #list > RAVEN_LOG_MAX do
+					table.remove(list, 1)
+				end
+				return list
+			end)
 		end)
-		local day = Raven.day(now)
-		if ravenPruned ~= day then
-			ravenPruned = day
-			ravenLogStore:RemoveAsync(Raven.expiredKey(now, Config.REMOTE_STEAL.logDays))
+		if ok then
+			written = true
+			break
 		end
-	end)
-	if not ok then
-		markApiBlocked(err)
+		if markApiBlocked(err) then
+			return false
+		end
+		warn("[RavenLog] écriture échouée (" .. attempt .. "/" .. Config.REMOTE_STEAL.logTries .. ") : " .. tostring(err))
+		if attempt < Config.REMOTE_STEAL.logTries then
+			task.wait(2 * attempt)
+		end
 	end
-	return ok
+	if not written then
+		return false
+	end
+	local day = Raven.day(now)
+	if ravenPruned ~= day and os.clock() - ravenPruneTry >= 300 then
+		ravenPruneTry = os.clock()
+		local okP, errP = pcall(function()
+			ravenLogStore:RemoveAsync(Raven.expiredKey(now, Config.REMOTE_STEAL.logDays))
+		end)
+		if okP then
+			ravenPruned = day
+		else
+			warn("[RavenLog] nettoyage des vieilles clés échoué (retenté plus tard, l'écriture est conservée) : " .. tostring(errP))
+		end
+	end
+	return true
+end
+function Data.logRaven(entry)
+	if type(entry) ~= "table" then
+		return false
+	end
+	return Data.logRavenBatch({ entry })
 end
 
 ---------------------------------------------------------------- Classement global
