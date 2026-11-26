@@ -191,7 +191,7 @@ function Data.default()
 	for i = 1, SLOT_COUNT do
 		d.slots[i] = false
 	end
-	d.slots[1] = { k = "e", t = 1, ends = os.time() + 6, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
+	d.slots[1] = { k = "e", t = 1, ends = os.time() + Config.FIRST_EGG_SECONDS, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
 	return d
 end
 

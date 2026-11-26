@@ -126,6 +126,7 @@ Config.INCOME_GROWTH_MIN = 1.8
 -- Prix et durées calibrés avec la simulation tests/Economy.lua (joueur-robot) : ~15 pièces/s après 1 min, œuf Rare vers 2 min,
 -- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
 Config.START_COINS = 50
+Config.FIRST_EGG_SECONDS = 12 -- lot 9 : l'œuf de départ (gratuit) éclot en 12 s (cible : première éclosion entre 10 et 15 s)
 Config.EGG_PRICE = { 25, 300, 900, 20000, 350000, 6000000, 130000000, 1500000000, 0, 30000000000 } -- lot 9 : 10 raretés ; Exclusif (9) jamais en pièces
 -- Lot 8A (B.3) : la boutique vend les raretés 1 à SHOP_MAX_TIER ; Mythique et Cosmique ne s'achètent qu'au tapis du marché (rareté visible, prix x 0,6).
 Config.SHOP_MAX_TIER = 5
@@ -344,8 +345,17 @@ function Config.dupesToSell(slots, cap)
 	return out, total
 end
 
+-- Lot 9 : la revente d'un pet est plafonnée à la moitié de la valeur d'un œuf de sa rareté (SELL_CAP_RATIO) : acheter un œuf Commun puis revendre
+-- le pet rapportait jusqu'à 3,6 fois le prix de l'œuf (boucle de gain). Les raretés hautes ne sont pas touchées (45 s de revenu << prix de l'œuf).
+Config.SELL_CAP_RATIO = 0.5
 function Config.sellValue(p, s, m)
-	return math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+	local v = math.max(1, math.floor(Config.petIncome(p, s, m) * 45 + 0.5))
+	local def = Config.PETS[p]
+	local capV = def and Config.eggCoinValue(def.tier) * Config.SELL_CAP_RATIO or 0
+	if capV > 0 then
+		v = math.min(v, math.max(1, math.floor(capV)))
+	end
+	return v
 end
 
 function Config.petName(p, s, m)
@@ -1958,9 +1968,10 @@ Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +
 -- B.3 Tapis roulant central.
 Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
-	weights = { normal = { 50, 25, 14, 7, 2.9, 0.85, 0.2, 0.04, 0, 0.01 }, golden = { 32, 26, 20, 12, 6.5, 2.5, 0.75, 0.2, 0, 0.05 } },
-	golden = { interval = 3, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 },
-	private = { interval = 120, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
+	weights = { normal = { 50, 25, 14, 7, 2.9, 0.85, 0.2, 0.04, 0, 0.01 }, golden = { 29.24, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.09, 0, 0.02 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
+	golden = { interval = 4, seconds = 600, maxSeconds = 1800 }, -- lot 9 : 3 s -> 4 s (le doré était trop fort : -34 % de temps au premier Mythique) welcome = { delay = 20, maxHatched = 5 },
+	private = { interval = 180, pending = 3, -- lot 9 : 120 s -> 180 s (20 œufs/h au plus)
+	 width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
 Config.CARRY = { weight = { 1, 1, 1, 0.95, 0.9, 0.85, 0.8, 0.78, 0.78, 0.75 }, floor = 0.7, beamTier = 5, beamRange = 120 }
