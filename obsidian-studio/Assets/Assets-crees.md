@@ -151,3 +151,5 @@ Clés J.1 : npc.pip = npc_pip, npc.lina/bruno/kai/nora = npc_*, hub.calendar = h
 | passe | Collector | 2099556764 | 249 R$ |
 | passe | Lucky2 | 2102045961 | 349 R$ |
 Déjà créés avant : CalendarCatchup produit 3736695392 (29 R$), EggSecret 3736452048, EggExclusive 3736452061, EggDivine 3736452072.
+| produit | SeasonUpgradePlus (complément) | 3736704000 | 400 R$ |
+| produit | BundleRoyalNoPass | 3736704205 | 1100 R$ (confirmé par l utilisateur) |
