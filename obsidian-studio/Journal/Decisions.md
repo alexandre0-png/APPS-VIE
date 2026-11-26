@@ -17,3 +17,4 @@ type: journal
 - Rappel : publier une version testée seulement ; en cas de doute, retour arrière sur la dernière version sûre.
 
 - 21 nov : l'utilisateur supprime le Jeu 2 (Sortir Du Grenier) et décale la numérotation : Hôpital 1, Chipe-Œufs 2, zoo 3, PvP 4. Session Grenier archivée, notes déplacées dans Archive/, expérience Roblox à supprimer par l'utilisateur (non faisable par API), branche de code conservée. Cinématiques déjà coupées (partie v34).
+- 26 nov : règles de design de l'utilisateur pour Chipe-Œufs (lots 9+) : revenu et force au combat strictement croissants avec la rareté (≥ x1,8 et ≥ x1,25 entre paliers), profils différents au sein d'une rareté (Tank/Attaque/Vitesse/Équilibré, ±8-15 %), économie pièces plus chère et 4 à 12 fois plus longue que le chemin Robux, joueur gratuit toujours en progression, œufs Secret/Exclusif/Divin jamais vendus en Robux. Envoyé à la session Jeu 2 avec tests obligatoires.
