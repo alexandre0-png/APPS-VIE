@@ -106,3 +106,7 @@ Renard à neuf queues : Queue (animée) + QueueB..QueueI ; tigre 3947 faces (le 
 ## Lot 25 (créatures P5, table C.2, agent Sonnet) : scripts/blender_make_pets_p5.py
 #66 pet_chimere_d_ombre 107851856102899; #74 pet_corbeau_couronne 128710572063568; #59 pet_golem_de_pierre 120688599001908; #52 pet_griffon 123941036439154; #58 pet_hydre_des_marais 98592552810541; #72 pet_loup_garou_citrouille 129301589385325; #53 pet_mammouth 96254656340357; #65 pet_oiseau_tonnerre 126200653094441; #55 pet_panthere_d_ombre 124133397709207; #54 pet_pegase 112611957470677; #73 pet_renne_etoile 91374905696445; #61 pet_serpent_foudre 81853803174670
 Hydre : TeteG/TeteD ; chimère : TeteChevre + Queue_Tete ; serpent foudre Seg1..Seg5 ; corbeau sur Perchoir ; G = +x.
+
+## Lot 26 (créatures P4, table C.2, agent Sonnet) : scripts/blender_make_pets_p4.py
+#41 pet_aigle 117763124286242; #42 pet_anguille_electrique 105054666892128; #47 pet_belier_ardent 122718445916817; #45 pet_cameleon 120749563740834; #49 pet_flamant_rose 91307041810112; #39 pet_koala 120710439000059; #69 pet_leviathan 85629287384641; #38 pet_loup_gris 136090732261576; #48 pet_lynx_tonnerre 71472745327628; #40 pet_morse 82672464753777; #46 pet_renne 70993023882099; #71 pet_titan_de_l_orage 124318888739447
+Anguille Seg1..Seg4 ; léviathan Seg1..Seg6 (+ Vague) ; titan Nuage socle ; flamant bec rose.
