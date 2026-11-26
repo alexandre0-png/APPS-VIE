@@ -124,6 +124,12 @@ Clés J.1 : npc.pip = npc_pip, npc.lina/bruno/kai/nora = npc_*, hub.calendar = h
 Écarts : Pip 40 pièces, 9 de large (Pip x<0 + charrette x>0, origine au centre de l'ensemble) ; Kaï = 29 pièces dont le renard blanc (Renard_corps, Renard_tete, Museau, Renard_oreille×2, Queue×9) posé à x≈-3 ; Lina porte le koala (Accessoire = corps, Koala_*) ; Bruno marteau = Accessoire + Marteau_Fer ; Nora carnet = Accessoire. Calendrier 40 pièces (30 Cases__F5EBD7 : rangée du haut = jours 1-6, rangées de 6, case 30 en bas à droite ; coffre devant, bas centre). Kiosque : diamètre 15,4 (socle), hauteur 12,75, 4 panneaux PanneauBoutique(-Y)/PanneauCalendrier(+Y)/PanneauProba(+X)/PanneauClassement(-X), lanterne Lueur au centre. Citrouille : visage en Lueur_oeil×2, Lueur_nez, Lueur_bouche. Sapin 12,2 de haut : Guirlande_Lueur×3, Etoile_Lueur. Arche 9,65 de haut, 39 pièces. Orientation : devant = -Y, G = +x, pieds à z=0.
 
 
+## Lot 30 (8 PNJ vendeurs, étals avec Etiquette et Lueur ; 8 modèles, tous APPROUVÉS ; agent Sonnet) : scripts/blender_make_vendors.py
+vendor_base 79064954843258; vendor_coins 82919202214027; vendor_combat 105059296701916; vendor_cosmetics 82243751363820; vendor_eggs 138633300069014; vendor_luck 137414127061497; vendor_packs 80912619819088; vendor_pass 72959276245033
+Clés : vendor.eggs/luck/coins/base/combat/pass/packs/cosmetics = vendor_eggs/vendor_luck/vendor_coins/vendor_base/vendor_combat/vendor_pass/vendor_packs/vendor_cosmetics (minuscules).
+Écarts : tous 6,4 de large (6,5 Gaston, 6,5 Maître), profondeur 5,3 à 5,7, hauteur 8,1 (≤ 40 pièces : eggs 39, luck 38, coins 38, base 37, combat 39, pass 40, packs 39, cosmetics 39). Origine au centre de l'étal, pieds à z=0, devant = -Y. Comptoir y -3..0 (haut à z 1,7), personnage derrière (y=+0,9, ~5 de haut, pas de jambes : cachées par le comptoir). `Etiquette` = planche crème 4×1,2, face plane à y=-3,08, centre z=6,2 (cadre Cadre_etiquette autour). `Lueur` = lanterne néon ovale posée sur la planche (z≈7,55). Cristaux = boule de cristal de Madame Chance. Maître de saison : panneau de paliers (Panneau, 6 Palier) derrière lui, étendard étoilé à gauche (x≈-3,2). Aldo : boucliers devant le comptoir (z<1,5, y≈-3,1, dépassent la façade). Modèles les plus faibles : Stylo (accessoires petits et peu lisibles à distance), Gaston (maquettes petites).
+
+
 ## Achats du lot 16 créés le 2026-11-26 (Chipe-Œufs, univers 10776613087 ; prix ≥ 799 confirmés par l'utilisateur)
 | type | clé | id | prix |
 |---|---|---|---|
