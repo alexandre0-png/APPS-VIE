@@ -697,7 +697,7 @@ function render()
 		text(wf, { Position = UDim2.fromOffset(70, 34), Size = UDim2.new(1, -80, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = Config.WEALTH[wt].name })
 	end
 	if panel.name == "shop" and panel.tab == "eggs" then
-		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n⬆ L'œuf fixe la rareté du pet ; " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran (signalée « AMÉLIORÉ ! »).")
+		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n⬆ L'œuf fixe la rareté du pet ; " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran (signalée « AMÉLIORÉ ! »).\n🎪 Mythique et Cosmique : seulement au tapis du marché (prix x " .. Config.BELT.priceRatio .. ", rareté visible).")
 		-- Carrousel d'œufs : l'œuf choisi est mis en avant, les voisins sont plus petits et sombres
 		panel.eggSel = panel.eggSel or Config.carouselDefault(coins())
 		local sel = panel.eggSel
@@ -729,7 +729,7 @@ function render()
 			end
 			return f
 		end
-		local n = #Config.TIERS
+		local n = Config.SHOP_MAX_TIER -- lot 8A : Mythique et Cosmique seulement au tapis du marché
 		local prev, nxt = Config.carouselStep(sel, -1, n), Config.carouselStep(sel, 1, n)
 		local leftCard, rightCard = eggCard(prev, false, 0.2), eggCard(nxt, false, 0.8)
 		eggCard(sel, true, 0.5)

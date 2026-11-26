@@ -44,6 +44,8 @@ Config.TIERS = {
 -- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
 Config.START_COINS = 50
 Config.EGG_PRICE = { 25, 900, 20000, 350000, 6000000, 130000000 }
+-- Lot 8A (B.3) : la boutique vend les raretés 1 à SHOP_MAX_TIER ; Mythique et Cosmique ne s'achètent qu'au tapis du marché (rareté visible, prix x 0,6).
+Config.SHOP_MAX_TIER = 4
 Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
 
 -- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
@@ -970,7 +972,7 @@ end
 function Config.carouselDefault(coins)
 	local best = 1
 	for i, price in ipairs(Config.EGG_PRICE) do
-		if coins >= price then
+		if i <= Config.SHOP_MAX_TIER and coins >= price then
 			best = i
 		end
 	end

@@ -48,6 +48,8 @@ Config.TIERS = {
 -- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
 Config.START_COINS = 50
 Config.EGG_PRICE = { 25, 900, 20000, 350000, 6000000, 130000000 }
+-- Lot 8A (B.3) : la boutique vend les raretés 1 à SHOP_MAX_TIER ; Mythique et Cosmique ne s'achètent qu'au tapis du marché (rareté visible, prix x 0,6).
+Config.SHOP_MAX_TIER = 4
 Config.HATCH = { 8, 20, 45, 90, 180, 300 } -- secondes
 
 -- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
@@ -974,7 +976,7 @@ end
 function Config.carouselDefault(coins)
 	local best = 1
 	for i, price in ipairs(Config.EGG_PRICE) do
-		if coins >= price then
+		if i <= Config.SHOP_MAX_TIER and coins >= price then
 			best = i
 		end
 	end
@@ -10217,6 +10219,9 @@ function actions.buyEgg(s, tier)
 	if type(tier) ~= "number" or tier % 1 ~= 0 or tier < 1 or tier > #Config.TIERS then
 		return
 	end
+	if tier > Config.SHOP_MAX_TIER then -- lot 8A (B.3) : Mythique et Cosmique seulement au tapis du marché
+		return notify(s.player, "🎪 Les œufs " .. Config.TIERS[tier].name .. " ne se trouvent qu'au tapis du marché !", "refuse")
+	end
 	local d = s.data
 	local price = Config.EGG_PRICE[tier]
 	if d.coins < price then
@@ -17369,7 +17374,7 @@ function render()
 		text(wf, { Position = UDim2.fromOffset(70, 34), Size = UDim2.new(1, -80, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 13, TextColor3 = COL.muted, Text = Config.WEALTH[wt].name })
 	end
 	if panel.name == "shop" and panel.tab == "eggs" then
-		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n⬆ L'œuf fixe la rareté du pet ; " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran (signalée « AMÉLIORÉ ! »).")
+		addNote("Achète un œuf : il va directement dans ta base. Voler chez les rivaux est gratuit mais risqué.\n⬆ L'œuf fixe la rareté du pet ; " .. Config.UPGRADE.base .. "% de chances d'une amélioration d'un cran (signalée « AMÉLIORÉ ! »).\n🎪 Mythique et Cosmique : seulement au tapis du marché (prix x " .. Config.BELT.priceRatio .. ", rareté visible).")
 		-- Carrousel d'œufs : l'œuf choisi est mis en avant, les voisins sont plus petits et sombres
 		panel.eggSel = panel.eggSel or Config.carouselDefault(coins())
 		local sel = panel.eggSel
@@ -17401,7 +17406,7 @@ function render()
 			end
 			return f
 		end
-		local n = #Config.TIERS
+		local n = Config.SHOP_MAX_TIER -- lot 8A : Mythique et Cosmique seulement au tapis du marché
 		local prev, nxt = Config.carouselStep(sel, -1, n), Config.carouselStep(sel, 1, n)
 		local leftCard, rightCard = eggCard(prev, false, 0.2), eggCard(nxt, false, 0.8)
 		eggCard(sel, true, 0.5)

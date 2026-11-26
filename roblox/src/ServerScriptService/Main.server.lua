@@ -2486,6 +2486,9 @@ function actions.buyEgg(s, tier)
 	if type(tier) ~= "number" or tier % 1 ~= 0 or tier < 1 or tier > #Config.TIERS then
 		return
 	end
+	if tier > Config.SHOP_MAX_TIER then -- lot 8A (B.3) : Mythique et Cosmique seulement au tapis du marché
+		return notify(s.player, "🎪 Les œufs " .. Config.TIERS[tier].name .. " ne se trouvent qu'au tapis du marché !", "refuse")
+	end
 	local d = s.data
 	local price = Config.EGG_PRICE[tier]
 	if d.coins < price then

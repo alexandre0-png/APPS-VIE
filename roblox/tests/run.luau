@@ -1148,6 +1148,67 @@ do
 	-- monnaie vendue : proportionnelle au revenu, jamais au-delà de 20 minutes de gains (plancher 5 000), pack de départ unique
 	local sold = math.max(Config.COIN_PACK_MIN, 1000 * Config.COIN_PACK_MINUTES * 60)
 	check("Économie : le sac de pièces vaut au plus " .. Config.COIN_PACK_MINUTES .. " min de revenu (plancher " .. Config.COIN_PACK_MIN .. ") et le pack de départ est unique (" .. Config.STARTER_PACK.coins .. " pièces)", sold == 1000 * Config.COIN_PACK_MINUTES * 60 and Config.PRODUCTS.StarterPack.once == true and Config.STARTER_PACK.coins < Config.EGG_PRICE[3] * 2)
+	;(function() -- lot 8A : jalons longs (tapis, maison, 20 emplacements), tapis doré et monnaie vendue (5 graines, 5 h simulées)
+		local function runAll(o)
+			local res = {}
+			for seed = 1, 5 do
+				local oo = {}
+				for k, v in pairs(o) do
+					oo[k] = v
+				end
+				oo.seed = seed
+				res[seed] = Economy.simulate(Config, Rules, 300, oo)
+			end
+			return res
+		end
+		local function stat(res, f)
+			local sum, worst, txt = 0, 0, ""
+			for seed = 1, 5 do
+				local v = f(res[seed]) or 99999
+				sum, worst = sum + v, math.max(worst, v)
+				txt = txt .. (seed > 1 and "/" or "") .. v
+			end
+			return sum / 5, worst, txt
+		end
+		local base = runAll({})
+		local myMean, myWorst, myTxt = stat(base, function(L)
+			return L.firstPetTier[5]
+		end)
+		local l8ok, beltN, l7txt = true, 0, ""
+		for seed = 1, 5 do
+			local L = base[seed]
+			l8ok = l8ok and (L.baseLevelAt[8] == nil or L.baseLevelAt[8] > 18000)
+			beltN = beltN + L.beltBought
+			l7txt = l7txt .. (seed > 1 and "/" or "") .. tostring(L.baseLevelAt[7])
+		end
+		print("  [lot 8A] économie 5 h (5 graines) : 1er Mythique " .. myTxt .. " s (moyenne " .. math.floor(myMean) .. ") ; niveau 7 " .. l7txt .. " ; niveau 8 jamais avant 5 h : " .. tostring(l8ok) .. " ; œufs du tapis achetés " .. beltN)
+		check("Économie (lot 8A) : premier pet Mythique en moins de 3 h SANS achat, 5 graines (pire cas " .. myWorst .. " s)", myWorst < 10800)
+		check("Économie (lot 8A) : maison niveau 8 (Château doré) jamais avant 5 h de jeu actif (niveau 7 atteint à " .. l7txt .. " s)", l8ok)
+		check("Économie (lot 8A) : le robot achète au tapis (" .. beltN .. " œufs en 5 x 5 h) et la boutique s'arrête au Légendaire", beltN >= 5 and Config.SHOP_MAX_TIER == 4)
+		local gold = runAll({ golden = true })
+		local gMean, _, gTxt = stat(gold, function(L)
+			return L.firstPetTier[5]
+		end)
+		print("  [lot 8A] tapis doré permanent : 1er Mythique " .. gTxt .. " s (moyenne " .. math.floor(gMean) .. ", soit -" .. math.floor((1 - gMean / myMean) * 100 + 0.5) .. " %)")
+		check("Économie (lot 8A) : le tapis doré (permanent : pire cas) réduit le temps moyen du premier Mythique de moins de 50 % (" .. math.floor(myMean) .. " -> " .. math.floor(gMean) .. " s)", gMean >= 0.5 * myMean)
+		local starter = runAll({ starter = true })
+		local sMean, _, sTxt = stat(starter, function(L)
+			return L.firstPetTier[5]
+		end)
+		local packs = runAll({ coinPackEvery = 900 })
+		local pMean, _, pTxt = stat(packs, function(L)
+			return L.firstPetTier[5]
+		end)
+		local noCastle = true
+		for seed = 1, 5 do
+			noCastle = noCastle and starter[seed].baseLevelAt[8] == nil and packs[seed].baseLevelAt[8] == nil
+		end
+		print("  [lot 8A] monnaie vendue : pack de départ -> 1er Mythique " .. sTxt .. " s ; un sac de pièces toutes les 15 min -> " .. pTxt .. " s")
+		check("Monnaie vendue (lot 8A) : le pack de départ ne divise pas le temps moyen du premier Mythique par plus de 2 (" .. math.floor(myMean) .. " -> " .. math.floor(sMean) .. " s)", sMean >= 0.5 * myMean)
+		check("Monnaie vendue (lot 8A) : même un sac de pièces toutes les 15 min (4 par heure) ne divise pas ce temps par plus de 2 (" .. math.floor(pMean) .. " s)", pMean >= 0.5 * myMean)
+		check("Monnaie vendue (lot 8A) : ni le pack de départ ni les sacs de pièces n'achètent le Château doré en 5 h (score et Mythique découvert exigés)", noCastle)
+		check("Monnaie vendue (lot 8A) : 10 œufs exclusifs Mythiques ne suffisent pas au Château doré (" .. 10 * Config.BASE_WEIGHTS[Config.EXCLUSIVE_EGG_TIER] .. " < " .. Config.BASE_LEVELS[8].score .. " points) ; la relance du château ne donne aucune pièce", 10 * Config.BASE_WEIGHTS[Config.EXCLUSIVE_EGG_TIER] < Config.BASE_LEVELS[8].score and Config.REVIVE.coins == nil and Config.PRODUCTS.Revive.coins == nil and Config.EXCLUSIVE_EGG_TIER == 5)
+	end)()
 	local a, b = Economy.simulate(Config, Rules, 5, { seed = 7 }), Economy.simulate(Config, Rules, 5, { seed = 7 })
 	check("Économie : simulation déterministe (même graine, même résultat)", a.final.coins == b.final.coins and a.final.hatched == b.final.hatched)
 end
@@ -2127,7 +2188,7 @@ do
 	check("Richesse : valeurs invalides sans erreur", Config.wealthTier(-5) == 1 and Config.wealthTier(0 / 0) == 1 and Config.wealthTier(nil) == 1 and Config.wealthTier("x") == 1)
 	check("Richesse : seuils croissants, alignés sur les prix des œufs", Config.WEALTH[2].min == Config.EGG_PRICE[2] and Config.WEALTH[3].min == Config.EGG_PRICE[3] and Config.WEALTH[4].min == Config.EGG_PRICE[4])
 	-- carrousel
-	check("Carrousel : œuf présélectionné = le plus rare payable (au moins Commun)", Config.carouselDefault(0) == 1 and Config.carouselDefault(24) == 1 and Config.carouselDefault(900) == 2 and Config.carouselDefault(25000) == 3 and Config.carouselDefault(1e12) == #Config.TIERS)
+	check("Carrousel : œuf présélectionné = le plus rare payable (au moins Commun)", Config.carouselDefault(0) == 1 and Config.carouselDefault(24) == 1 and Config.carouselDefault(900) == 2 and Config.carouselDefault(25000) == 3 and Config.carouselDefault(1e12) == Config.SHOP_MAX_TIER) -- lot 8A : la boutique s'arrête au Légendaire
 	check("Carrousel : défilement circulaire dans les deux sens", Config.carouselStep(1, 1) == 2 and Config.carouselStep(6, 1) == 1 and Config.carouselStep(1, -1) == 6 and Config.carouselStep(3, -1) == 2 and Config.carouselStep(2, 0) == 3)
 	check("Carrousel : 6 ppas dans un sens ramènent à la case de départ", (function()
 		local sel = 4
