@@ -10354,5 +10354,185 @@ do
 	end
 end
 
+-- REFONTE lot 8A : charge de 10 minutes (5 joueurs, tapis doré, corbeaux, énigme) : non-fuite d'objets et pire cas de Parts ---------------------
+;(function()
+	suite("Refonte lot 8A : 10 min simulées avec 5 joueurs, tapis doré, corbeaux et énigme (vrai Main.server.lua) : fuites et Parts")
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if not RT then
+		return
+	end
+	local main = RT.buildTree("roblox/src", false)
+	local cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+	RT.task.spawn(function()
+		RT.runScript(main)
+	end)
+	RT.step(1)
+	local ws = RT.services.Workspace
+	local hooks = RT.require(RT.services.ServerScriptService:FindFirstChild("Builder")).lot7Hooks
+	local RA = RT.services.ReplicatedStorage:FindFirstChild("Remotes"):FindFirstChild("Action")
+	local rawProcess = RT.services.MarketplaceService.ProcessReceipt
+	local PARTS = { Part = true, MeshPart = true, SpawnLocation = true, WedgePart = true, TrussPart = true, CornerWedgePart = true, UnionOperation = true }
+	local function census() -- nom de chaque objet (avec le nom de son parent) -> nombre ; sert au diagnostic d'une fuite
+		local out = {}
+		for _, d in ipairs(ws:GetDescendants()) do
+			local par = rawget(d, "__props").Parent
+			local key = d.ClassName .. ":" .. tostring(rawget(d, "__props").Name) .. " < " .. tostring(par and rawget(par, "__props").Name)
+			out[key] = (out[key] or 0) + 1
+		end
+		return out
+	end
+	local function counts()
+		local all, parts = 0, 0
+		for _, d in ipairs(ws:GetDescendants()) do
+			local anc, skip = d, false
+			while anc ~= nil do
+				local nm = rawget(anc, "__props").Name
+				if nm == "BeltEggs" then
+					skip = true -- œufs du tapis : 12 au plus, comptés à part (leur nombre varie d'un instant à l'autre)
+				end
+				anc = rawget(anc, "__props").Parent
+			end
+			if PARTS[d.ClassName] then
+				parts = parts + 1
+			end
+			if not skip then
+				all = all + 1
+			end
+		end
+		return all, parts
+	end
+	local function act(p, action, arg)
+		RT.now = RT.now + 0.2
+		RT.fire(RA, "OnServerEvent", p, action, arg)
+	end
+	local function receipt(uid, rid, product)
+		RT.task.spawn(function()
+			rawProcess({ PlayerId = uid, PurchaseId = rid, ProductId = cfg.PRODUCTS[product].id })
+		end)
+		RT.step(0.6)
+	end
+	local function standAt(p, x, z)
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			rawget(root, "__props").Position = RT.vec(x, 3, z)
+			rawget(root, "__props").CFrame = RT.cf(x, 3, z)
+		end
+	end
+	local function prompts(kind)
+		local out = {}
+		for _, o in ipairs(RT.all) do
+			if o.ClassName == "ProximityPrompt" and o:GetAttribute("Kind") == kind then
+				local cur, inWs = o, false
+				while cur ~= nil do
+					inWs = inWs or cur == ws
+					cur = rawget(cur, "__props").Parent
+				end
+				if inWs then
+					out[#out + 1] = o
+				end
+			end
+		end
+		return out
+	end
+	RT.step(20)
+	local base0, parts0 = counts()
+	local census0 = census()
+	local built = nil
+	for _, line in ipairs(RT.prints) do
+		built = tonumber(line:match("%[Builder%] carte construite : (%d+) Parts")) or built
+	end
+	local players, sess = {}, {}
+	for k = 1, 5 do
+		local p = RT.addPlayer("Charge" .. k, 8800 + k, { from = "hub", partyId = "L8A", size = 5, late = false })
+		RT.step(2)
+		local s = hooks.session(p)
+		if s then
+			s.graceUntil = 0
+			s.data.played = 7200
+			s.data.coins = 1e9
+			s.data.story = { ch = 6, prog = 0 }
+			s.data.tokens.remoteSteal = 3
+		end
+		players[k], sess[k] = p, s
+	end
+	receipt(8801, "L8A-G1", "GoldenBelt")
+	receipt(8801, "L8A-G2", "GoldenBelt")
+	receipt(8801, "L8A-G3", "GoldenBelt")
+	local goldLeft = hooks.serverBuffs().golden
+	local peakParts, peakAll, ravens, talks, picks = 0, 0, 0, 0, 0
+	for tick = 1, 60 do -- 60 x 10 s = 600 s
+		for k = 1, 5 do
+			local p, s = players[k], sess[k]
+			if s and s.plot then
+				local c = s.plot.spawn.CFrame
+				standAt(p, c.X, c.Z)
+				act(p, "buyEgg", 1 + (tick + k) % 4) -- remplit la base (raretés 1 à 4), les œufs éclosent pendant la charge
+				if tick % 6 == k then -- un corbeau par minute environ : le joueur k vise l'œuf d'un voisin
+					local v = sess[k % 5 + 1]
+					for i = 1, 20 do
+						local sl = v and v.data.slots[i]
+						if sl and sl.k == "e" then
+							sl.shield = 0
+							act(p, "ravenGo", { u = v.player.UserId, i = i })
+							ravens = ravens + 1
+							break
+						end
+					end
+				end
+			end
+		end
+		if tick % 5 == 0 then -- énigme : chaque joueur parle à la Mère Poule et ramasse une plume
+			for k = 1, 5 do
+				local hen = prompts("HenTalk")[1]
+				if hen then
+					local pos = rawget(hen.Parent, "__props").CFrame.Position
+					standAt(players[k], pos.X, pos.Z)
+					RT.fire(RT.services.ProximityPromptService, "PromptTriggered", hen, players[k])
+					talks = talks + 1
+				end
+				local fe = prompts("Feather")[k]
+				if fe then
+					local pos = rawget(fe.Parent, "__props").CFrame.Position
+					standAt(players[k], pos.X, pos.Z)
+					RT.step(0.6)
+					RT.fire(RT.services.ProximityPromptService, "PromptTriggered", fe, players[k])
+					picks = picks + 1
+				end
+			end
+		end
+		RT.step(10, 0.1)
+		local a, pc = counts()
+		peakAll, peakParts = math.max(peakAll, a), math.max(peakParts, pc)
+	end
+	local nf = hooks.flights()
+	print("  [lot 8A] charge 10 min : carte procédurale " .. tostring(built) .. " Parts ; Parts de la scène " .. parts0 .. " sans joueur, pic " .. peakParts .. " avec 5 joueurs (plafond " .. cfg.Map.totalBudgetParts .. ") ; descendants hors tapis " .. base0 .. " -> pic " .. peakAll .. " ; " .. ravens .. " corbeaux lancés, " .. talks .. " dialogues, " .. picks .. " plumes tentées")
+	check("Charge (lot 8A) : carte procédurale <= 1200 Parts (" .. tostring(built) .. ")", built ~= nil and built <= 1200)
+	check("Charge (lot 8A) : pire cas mesuré de la scène (5 joueurs, 5 maisons, bases pleines, tapis doré à 12 œufs, corbeaux) <= " .. cfg.Map.totalBudgetParts .. " Parts (pic " .. peakParts .. ")", peakParts > parts0 and peakParts <= cfg.Map.totalBudgetParts)
+	check("Charge (lot 8A) : le tapis doré a tourné pendant la charge (" .. goldLeft .. " s achetées) et des corbeaux ont été lancés (" .. ravens .. ")", goldLeft >= 1790 and ravens >= 5)
+	for k = 1, 5 do
+		RT.removePlayer(players[k])
+	end
+	RT.step(5, 0.1)
+	local after = counts()
+	local nf2, ns2, nb2 = hooks.flights()
+	if math.abs(after - base0) > 40 then -- diagnostic : objets en plus ou en moins par rapport à la scène sans joueur
+		local c1, lines = census(), {}
+		for k, v in pairs(c1) do
+			if v ~= (census0[k] or 0) then
+				lines[#lines + 1] = k .. " " .. (census0[k] or 0) .. "->" .. v
+			end
+		end
+		for k, v in pairs(census0) do
+			if c1[k] == nil then
+				lines[#lines + 1] = k .. " " .. v .. "->0"
+			end
+		end
+		table.sort(lines)
+		print("  [lot 8A] écarts : " .. table.concat(lines, " | "))
+	end
+	check("Charge (lot 8A) : après le départ des 5 joueurs, aucun objet qui fuit (descendants hors tapis " .. base0 .. " -> " .. after .. ", tolérance 40), aucun vol ni oiseau restant (" .. tostring(nf2) .. "/" .. tostring(nb2) .. ")", math.abs(after - base0) <= 40 and nf2 == 0 and (nb2 or 0) == 0 and ns2 == 0 and nf ~= nil)
+	check("Charge (lot 8A) : aucune erreur serveur pendant les 10 minutes" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
+end)()
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)
