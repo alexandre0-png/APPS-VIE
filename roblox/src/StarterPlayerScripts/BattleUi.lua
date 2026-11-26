@@ -41,7 +41,10 @@ function BattleUi.advantage(Battle, myType, foeType)
 	return m > 1 and "⬆ avantage" or (m < 1 and "⬇ désavantage" or "➡ neutre")
 end
 
-function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
+-- Lot 10 : `fx` (optionnel) = { Odds, IntroPlan, BattleIntro, TypeFx (client), TypeFxData (données), sound = fn(clé), reduced = mobile, iconUrl = fn(clé) -> url|nil }.
+-- Intro avant le premier tour (BattleIntro, passable), effet par type à chaque attaque (spécial pour une compétence ou tous les `specialEvery` coups), texte
+-- d'efficacité flottant, sons battle_start / atk_<type> / special_hit / special_ready / battle_win / battle_lose. Sans `fx` : écran du lot 8 inchangé.
+function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx)
 	local TW = Config.TOWER
 	local ok, ui = pcall(function()
 		local open = button(gui, { Name = "ArenaButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0.3, -42), Size = UDim2.fromOffset(34, 34), Text = "⚔️", BackgroundColor3 = Color3.fromRGB(255, 159, 28) })
@@ -58,6 +61,19 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 		return nil
 	end
 	local floor, team, mode = 1, {}, "team"
+	local FX = { on = type(fx) == "table" and Config.BATTLE_FX ~= nil and Config.BATTLE_FX.Enabled == true, hits = { 0, 0 } }
+	function FX.sound(key)
+		if type(fx) == "table" and type(fx.sound) == "function" and key then
+			pcall(fx.sound, key)
+		end
+	end
+	function FX.icon(parent, key, x, y, size)
+		local url = type(fx) == "table" and type(fx.iconUrl) == "function" and fx.iconUrl(key) or nil
+		if url then
+			return make("ImageLabel", { BackgroundTransparency = 1, Image = url, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(size, size), ZIndex = 34 }, parent)
+		end
+		return nil
+	end
 	local view, seconds, deadline, foeName, lastFloor = nil, 0, 0, "", 1
 	local logLines = {}
 	local widgets = {}
@@ -78,6 +94,84 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 	local function unitText(u)
 		local def = Config.PETS[u.p]
 		return Battle.TYPE_EMOJI[u.type] .. " " .. def.emoji .. " " .. def.name
+	end
+
+	-- Lot 10 : intro de combat (plan pur IntroPlan, exécuté par BattleIntro) ; sans module : son de début seulement.
+	function FX.intro(p)
+		if not (FX.on and Config.BATTLE_FX.intro and fx.IntroPlan and fx.BattleIntro and type(p.view) == "table") then
+			FX.sound("battle_start")
+			return
+		end
+		local st = getState()
+		local pv = (st and st.battle and st.battle.pvp) or {}
+		local function pets(sd)
+			local out = {}
+			for _, u in ipairs(sd.units or {}) do
+				local def = Config.PETS[u.p]
+				out[#out + 1] = { type = u.type, odds = fx.Odds and fx.Odds.forPet(Config, u.p, u.s, u.m) or nil, tier = def and def.tier or nil }
+			end
+			return out
+		end
+		local me, foe = p.view.sides[1], p.view.sides[2]
+		local mu, fu = me.units[me.active], foe.units[foe.active]
+		local plan = fx.IntroPlan.plan({
+			mode = p.pvp and "pvp" or "tower", countdown = false, advantage = (mu and fu) and Battle.typeMul(mu.type, fu.type) or 1,
+			me = { name = player.DisplayName, userId = player.UserId, wins = pv.wins, losses = pv.losses, trophies = pv.trophies, pets = pets(me) },
+			foe = { name = p.foe, pets = pets(foe) },
+		}, { fmtOdds = fx.Odds and fx.Odds.label or nil })
+		fx.BattleIntro.play(gui, plan, {
+			thumbnail = function(uid)
+				return "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=150&h=150"
+			end,
+			sound = function()
+				FX.sound("battle_start")
+			end,
+		})
+	end
+
+	-- Lot 10 : effets d'attaque par type pour les coups d'un tour (décalés de 0,6 s), texte d'efficacité sur la cible.
+	function FX.hits(events)
+		if not (FX.on and Config.BATTLE_FX.typeFx and fx.TypeFx and fx.TypeFxData) then
+			return
+		end
+		local every = Config.BATTLE_FX.specialEvery or 5
+		local k = 0
+		for _, ev in ipairs(events or {}) do
+			if type(ev) == "table" and ev.t == "hit" and (ev.side == 1 or ev.side == 2) then
+				FX.hits[ev.side] = FX.hits[ev.side] + 1
+				local special = ev.skill ~= nil or FX.hits[ev.side] % every == 0
+				local typ = Battle.SPECIES_TYPE[ev.p]
+				local data = fx.TypeFxData.get(typ)
+				local readySoon = ev.side == 1 and FX.hits[1] % every == every - 1
+				local mul = ev.mul
+				task.delay(0.6 * k, function()
+					pcall(function()
+						local ap, sz = ui.panel.AbsolutePosition, ui.panel.AbsoluteSize
+						local bodyY = ap.Y + 74
+						local mine = Vector2.new(ap.X + sz.X * 0.25, bodyY + 50)
+						local theirs = Vector2.new(ap.X + sz.X * 0.75, bodyY + 10)
+						local from, to = mine, theirs
+						if ev.side == 2 then
+							from, to = theirs, mine
+						end
+						fx.TypeFx.play(gui, data, special, {
+							from = from, to = to, reduced = fx.reduced == true, shakeFrame = ui.panel,
+							sound = function(key)
+								FX.sound(key == "special" and "special_hit" or Config.ATK_SOUND[typ])
+							end,
+						})
+						local text, rgb = fx.TypeFxData.efficacy(mul)
+						if text then
+							fx.TypeFx.floatText(gui, text, rgb, to.X, to.Y - 28)
+						end
+						if readySoon then
+							FX.sound("special_ready")
+						end
+					end)
+				end)
+				k = k + 1
+			end
+		end
 	end
 
 	local function renderTeam()
@@ -176,6 +270,14 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 		end
 		bar(0, fu, false)
 		bar(40, mu, true)
+		for _, e in ipairs({ { fu, 0 }, { mu, 40 } }) do -- lot 10 : icône de type (Decal) à droite de la barre, si elle est chargée
+			local w = FX.icon(ui.body, Config.TYPE_ICON[e[1].type], 0, e[2], 20)
+			if w then
+				w.AnchorPoint = Vector2.new(1, 0)
+				w.Position = UDim2.new(1, 0, 0, e[2])
+				add(w)
+			end
+		end
 		local log = add(label(ui.body, { Position = UDim2.fromOffset(0, 82), Size = UDim2.new(1, 0, 0, 56), TextSize = 14, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Text = table.concat(logLines, "\n"), ZIndex = 32 }))
 		local b1 = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = "⚔ Attaque", ZIndex = 32 }))
 		b1.Activated:Connect(function()
@@ -255,10 +357,13 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				ui.panel.Visible = true
 				render()
+				FX.hits = { 0, 0 }
+				pcall(FX.intro, p)
 			elseif p.k == "turn" then
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
+				pcall(FX.hits, p.events)
 				if mode == "battle" then
 					render()
 				end
@@ -281,6 +386,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle)
 					lines[#lines + 1] = "Limite de récompenses de répétition atteinte aujourd'hui."
 				end
 				showResult(table.concat(lines, "\n"))
+				FX.sound(p.win and "battle_win" or "battle_lose")
+				local trophy = FX.icon(ui.body, p.win and "ui_trophee" or "ui_victoire_defaite", 4, 4, 40)
+				if trophy then
+					add(trophy)
+				end
 			end
 		end)
 	end)

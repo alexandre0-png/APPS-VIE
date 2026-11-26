@@ -11321,5 +11321,110 @@ end)()
 	cfg.PRODUCTS.CalendarCatchup.id = 3736695392
 end)()
 
+;(function()
+	-- Lot 10 : suites des modules (Odds, HatchPlan, IntroPlan, TypeFx, HatchFx, BattleIntro), aussi lançables seules par tests/run_lot10.py
+	local lot10 = luau.load(fs.readFile("roblox/tests/lot10.luau"), { debugName = "lot10" })()
+	lot10({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end })
+end)()
+
+;(function()
+	suite("Lot 10 : intégration (Config.ODDS, sons, icônes) et non-régression du profil (slots anciens sans compteur, slot.o figé à l'éclosion)")
+	local Odds = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Odds.lua"), { debugName = "Odds" })()
+	local R = Config.ODDS.REF
+	local w = Config.BELT.weights.normal
+	local refOk = #R == Config.TIER_COUNT and Config.ODDS.version == 1 and Config.ODDS.billboardMin == 1000
+	for r = 1, #R do
+		refOk = refOk and type(R[r]) == "number" and R[r] > 0 and (r == 1 or R[r] < R[r - 1] or r == 9)
+		if w[r] > 0 then
+			refOk = refOk and math.abs(R[r] - w[r]) < 1e-9 -- même poids que la table standard du tapis (lot 9)
+		end
+	end
+	check("Config.ODDS : version 1, panneau dès 1 000, REF = poids standard du tapis du lot 9 (r1..r8, r10), r9 Exclusif (hors tapis) entre Secret et Divin, tous > 0", refOk and R[9] < R[8] and R[9] > R[10])
+	local need = { "atk_ciel", "atk_eau", "atk_feu", "atk_foudre", "atk_glace", "atk_lumiere", "atk_ombre", "atk_plante", "atk_terre", "battle_lose", "battle_start", "battle_win", "belt_buy", "belt_loop", "calendar_claim", "calendar_milestone", "calendar_open", "coin_pickup", "egg_shake", "hatch_r1", "hatch_r10", "hatch_r2", "hatch_r3", "hatch_r4", "hatch_r5", "hatch_r6", "hatch_r7", "hatch_r8", "hatch_r9", "house_levelup", "jackpot_rare", "kiosk_ambience", "npc_ping", "special_hit", "special_ready", "ui_click", "ui_error" }
+	local missing = ""
+	for _, k in ipairs(need) do
+		local d = Config.SOUNDS[k]
+		if not (d and type(d.id) == "string" and d.id:match("^rbxassetid://%d+$")) then
+			missing = missing .. " " .. k
+		end
+	end
+	check("Sons du lot 28 : les 37 clés présentes avec un rbxassetid ; boucles belt_loop / kiosk_ambience ; SOUNDS_ENABLED conservé" .. missing, missing == "" and #need == 37 and Config.SOUNDS.belt_loop.loop == true and Config.SOUNDS.kiosk_ambience.loop == true and Config.SOUNDS_ENABLED == true)
+	local aliasOk = true
+	for k, v in pairs(Config.SOUND_ALIAS) do
+		aliasOk = aliasOk and Config.SOUNDS[k] ~= nil and Config.SOUNDS[v] ~= nil
+	end
+	check("Sons : alias vers des clés existantes ; hatch_r1..r10 par rareté (bornée) ; son d'attaque des 9 types + alias Nature", aliasOk and Config.hatchSoundR(1) == "hatch_r1" and Config.hatchSoundR(10) == "hatch_r10" and Config.hatchSoundR(99) == "hatch_r10" and Config.hatchSoundR("x") == "hatch_r1" and Config.ATK_SOUND.Nature == "atk_plante" and Config.ATK_SOUND["Lumière"] == "atk_lumiere")
+	local nIcons, iconsOk = 0, true
+	for k, id in pairs(Config.ICONS) do
+		nIcons = nIcons + 1
+		iconsOk = iconsOk and type(id) == "number" and id > 0 and id % 1 == 0 and Config.iconFallback(k) ~= ""
+	end
+	check("Icônes du lot 27 : 42 IDs de Decal, chacune avec un emoji de repli", nIcons == 42 and iconsOk)
+	-- non-régression du profil : vrai Main.server.lua + Data.lua
+	local RT = newRuntime({ fs = fs, luau = luau, placeId = Config.Game.Places.game, hook = loopGuard })
+	if not RT then
+		return
+	end
+	local main = RT.buildTree("roblox/src", false)
+	RT.task.spawn(function()
+		RT.runScript(main)
+	end)
+	RT.step(1)
+	local ds = RT.dataStores["ChipeOeufs_v1"]
+	local cfg = RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config"))
+	local hooks = RT.require(RT.services.ServerScriptService:FindFirstChild("Builder")).lot7Hooks
+	ds.data.P_9901 = { v = { ver = 11, coins = 5000, played = 700, hatched = 3, slots = {
+		{ k = "p", p = 1, s = 2, m = 1 }, -- pet d'avant le lot 10 : pas de compteur
+		{ k = "p", p = 2, s = 2, m = 1, o = 1234, ov = 1 },
+		{ k = "p", p = 3, s = 2, m = 1, o = "x", ov = 9 },
+		{ k = "p", p = 4, s = 2, m = 1, o = -5 },
+		{ k = "e", t = 1, ends = 0 },
+	} }, t = 1700000000 + RT.now - 5000 }
+	local p = RT.addPlayer("L10", 9901, { from = "hub", partyId = "L10", size = 2, late = false })
+	RT.step(3)
+	local s = hooks.session(p)
+	local d = s and s.data
+	check("Profil ancien : pet sans compteur conservé sans « o » (affiché « — »), compteur valide gardé, compteurs corrompus retirés" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])),
+		d ~= nil and d.slots[1].k == "p" and d.slots[1].p == 1 and d.slots[1].o == nil and d.slots[2].o == 1234 and d.slots[2].ov == 1 and d.slots[3].k == "p" and d.slots[3].o == nil and d.slots[3].ov == nil and d.slots[4].o == nil and #RT.errors == 0)
+	local snapSlots
+	for i = #RT.fired, 1, -1 do
+		local f = RT.fired[i]
+		if f[1] == "State" and f[2] == p and type(f[3]) == "table" and type(f[3].slots) == "table" then
+			snapSlots = f[3].slots
+			break
+		end
+	end
+	check("Synchronisation : le client reçoit o pour le pet récent, rien pour l'ancien", snapSlots ~= nil and snapSlots[1].o == nil and snapSlots[2].o == 1234)
+	-- éclosion : l'œuf du slot 5 éclot (échéance passée), le compteur est figé une fois, envoyé avec l'éclosion
+	for _ = 1, 10 do
+		if d.slots[5] and d.slots[5].k == "p" then
+			break
+		end
+		RT.step(1)
+	end
+	local sl = d.slots[5]
+	local hatchO
+	for _, f in ipairs(RT.fired) do
+		if f[1] == "Hatch" and f[2] == p and type(f[3]) == "table" and f[3].slot == 5 then
+			hatchO = f[3].o
+		end
+	end
+	local expect = sl and sl.k == "p" and Odds.forPet(cfg, sl.p, sl.s, sl.m) or nil
+	check("Éclosion : slot.o = Odds.forPet (compteur de référence) et slot.ov = 1, même valeur envoyée au client" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])),
+		sl ~= nil and sl.k == "p" and type(sl.o) == "number" and sl.o == expect and sl.ov == cfg.ODDS.version and hatchO == sl.o and #RT.errors == 0)
+	local frozen = sl and sl.o
+	cfg.ODDS.REF[1] = cfg.ODDS.REF[1] * 2 -- la table change après coup : l'ancien chiffre n'est jamais recalculé
+	RT.step(2)
+	check("Compteur figé : changer REF ne réécrit pas slot.o", sl ~= nil and sl.o == frozen)
+	cfg.ODDS.REF[1] = cfg.ODDS.REF[1] / 2
+	RT.removePlayer(p)
+	RT.step(3)
+	local r = ds.data.P_9901 and ds.data.P_9901.v
+	check("Sauvegarde : o / ov écrits pour les pets récents, absents pour l'ancien", r ~= nil and type(r.slots) == "table" and r.slots[1].o == nil and r.slots[2].o == 1234 and r.slots[5] and r.slots[5].o == frozen and r.slots[5].ov == 1)
+end)()
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

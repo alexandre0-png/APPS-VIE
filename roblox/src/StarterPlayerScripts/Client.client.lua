@@ -2353,7 +2353,16 @@ pcall(function()
 		return state
 	end, function(action, arg)
 		RAction:FireServer(action, arg)
-	end, Remotes:WaitForChild("Battle"))
+	end, Remotes:WaitForChild("Battle"), { -- lot 10 : intro de combat, effets par type, sons, icônes
+		Odds = L10.Odds,
+		IntroPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("IntroPlan")),
+		BattleIntro = require(script.Parent:WaitForChild("BattleIntro")),
+		TypeFx = require(script.Parent:WaitForChild("TypeFx")),
+		TypeFxData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TypeFx")),
+		sound = playSound,
+		reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
+		iconUrl = L10.iconUrl,
+	})
 end)
 
 -- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
