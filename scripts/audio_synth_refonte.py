@@ -89,8 +89,11 @@ def finish(name, x, maxd=3.0, loop=False):
         os.remove(w)
         r = subprocess.run(["ffmpeg", "-v", "error", "-i", o, "-f", "s16le", "-ac", "1", "-ar", str(SR), "-"], capture_output=True).stdout
         return np.abs(np.frombuffer(r, np.int16) / 32768).max()
-    pk = enc(x)
-    if pk > 0.805: enc(x * 0.8 / pk * 0.995)   # le codage OGG peut depasser : on recale le pic decode a 0,8
+    sc = 1.0
+    for _ in range(5):                     # le codage OGG peut depasser : on recale le pic decode a 0,8
+        pk = enc(x * sc)
+        if 0.785 <= pk <= 0.805: break
+        sc *= 0.795 / pk
 
 C5, E5, G5, C6, E6, G6 = 72, 76, 79, 84, 88, 91
 

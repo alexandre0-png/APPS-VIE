@@ -135,7 +135,7 @@ elif scn == "icone":
     em = nt.nodes["Principled BSDF"]; nt.links.new(r.outputs["Color"], em.inputs["Emission Color"]); em.inputs["Emission Strength"].default_value = 0.9
     nt.links.new(r.outputs["Color"], em.inputs["Base Color"]); bg.data.materials.append(m)
     world(top=(0.5, 0.3, 0.8), hor=(1.0, 0.7, 0.4), strength=0.8, sun_rot=(math.radians(55), 0, math.radians(-30)), sun_e=3.5)
-    load(P("out20/egg_r5.fbx"), height=7, pos=(0, 0, -3.6), look=(0, -30, 0))
+    load(P("out20/egg_r5.fbx"), height=9.5, pos=(0, 0, -4.9), look=(0, -30, 0))
     camera((0, -22, 0), (0, 0, 0.2), lens=50)
     area((-6, -14, 8), (0, 0, 0), 1500, 10, (1, 0.9, 0.8))
     render("icone-512")
@@ -144,18 +144,18 @@ elif scn == "g1":
     def box(loc, size, col):
         bpy.ops.mesh.primitive_cube_add(location=loc); o = bpy.context.object; o.scale = size
         o.data.materials.append(mat(col, False)); return o
-    bpy.ops.mesh.primitive_plane_add(size=400, location=(0, 0, -0.01)); fl = bpy.context.object; fl.data.materials.append(mat("3B2F4F", False))
+    bpy.ops.mesh.primitive_plane_add(size=2000, location=(0, 0, -0.01)); fl = bpy.context.object; fl.data.materials.append(mat("3B2F4F", False))
     world(top=(0.2, 0.15, 0.4), hor=(0.6, 0.4, 0.6), strength=0.9, sun_rot=(math.radians(60), 0, math.radians(-30)), sun_e=3)
     sp = 4.0
-    box((0, 0.0, 0.4), (13.5, 2.8, 0.4), "E8D9B0"); box((0, 5.5, 1.2), (13.5, 2.8, 0.4), "E8D9B0")
-    box((0, 0.0, 0.1), (14.5, 3.4, 0.1), "9B7B3A"); box((0, 5.5, 0.9), (14.5, 3.4, 0.1), "9B7B3A")
+    box((0, 0.0, 0.4), (13.5, 2.8, 0.4), "E8D9B0"); box((0, 6.5, 1.2), (13.5, 2.8, 0.4), "E8D9B0")
+    box((0, 0.0, 0.1), (14.5, 3.4, 0.1), "9B7B3A"); box((0, 6.5, 0.9), (14.5, 3.4, 0.1), "9B7B3A")
     for i in range(10):
         row, col = divmod(i, 5)
-        x = (col-2)*sp; y = 5.5*row*0 + (0 if row == 0 else 5.5); z = 0.8 if row == 0 else 1.6
-        e = load(P(f"out20/egg_r{i+1}.fbx"), height=3.6, pos=(x, y, z), look=(0, -40, 0))
+        x = (col-2)*sp; y = 5.5*row*0 + (0 if row == 0 else 6.5); z = 0.8 if row == 0 else 1.6
+        e = load(P(f"out20/egg_r{i+1}.fbx"), height=3.8, pos=(x, y, z), look=(0, -40, 0))
     # rang 1 = raretes 1-5 devant, rang 2 = 6-10 derriere
     area((0, -18, 14), (0, 3, 2), 5000, 22); area((-14, -6, 8), (0, 3, 2), 1500, 8, (0.8, 0.85, 1))
-    camera((0, -26, 9.5), (0, 3.2, 2.6), lens=38, fstop=8, focus=29)
+    camera((0, -24, 15), (0, 3.2, 1.6), lens=34, fstop=8, focus=29)
     render("galerie-1")
 elif scn == "g2":
     ground((0.22, 0.46, 0.12)); world(sun_e=4.5, sun_rot=(math.radians(55), 0, math.radians(-50)))
@@ -176,12 +176,12 @@ elif scn == "g2":
     render("galerie-2")
 elif scn == "g3":
     ground((0.50, 0.42, 0.28))
-    world(sun_e=5, sun_rot=(math.radians(62), 0, math.radians(-40)), hor=(1.0, 0.7, 0.45))
-    CAM = (0, -46, 6)
-    load(P("out15/arena_colosseum.fbx"), height=40, pos=(0, 40, 0))
-    load(pet("dragondelave"), height=11, pos=(-11, -2, 0), look=(11, -1, 0))
-    load(pet("loupdeglace"), height=9, pos=(11, -1, 0), look=(-11, -2, 0))
-    for x in (-30, 30): load(P("out16/flag_banner.fbx"), height=14, pos=(x, 8, 0), look=CAM)
-    camera(CAM, (0, 4, 8), lens=34, fstop=8, focus=45)
-    area((0, -30, 20), (0, 0, 3), 6000, 25, (1, 0.9, 0.8))
+    world(strength=0.7, sun_e=2.5, sun_rot=(math.radians(55), 0, math.radians(-40)), hor=(1.0, 0.7, 0.45))
+    CAM = (0, -50, 26)
+    load(P("out15/arena_colosseum.fbx"), scale=1.0, pos=(0, 0, 0))
+    load(pet("dragondelave"), height=13, pos=(-7, -2, 0.5), look=(7, -2, 0.5))
+    load(pet("loupdeglace"), height=11, pos=(7, -2, 0.5), look=(-7, -2, 0.5))
+    
+    camera(CAM, (0, -2, 6), lens=36, fstop=11, focus=60)
+    area((0, -30, 30), (0, 0, 3), 2500, 25, (1, 0.9, 0.8))
     render("galerie-3")
