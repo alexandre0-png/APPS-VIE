@@ -66,3 +66,19 @@ Palette limitée à respecter (une couleur par rôle, suffixes `Nom__RRGGBB`) : 
 ## npc.raven (lot 7, optionnel)
 
 Corbeau du vol à distance : modèle `Config.Assets.models.npc.raven` (aucun ID pour l'instant). Repli procédural de 6 Parts déjà en place (`Builder.raven`) ; devant = -Z, moins de 30 Parts, ailes séparées.
+
+## Lot 8B-décor : décor de carte (lots 15, 16, 17 branchés par `Decor.lua`, non intégrés) : réserves et demandes
+
+Les 29 modèles des lots 15 (hors maisons déjà branchées), 16 et 17 sont chargés par `ServerScriptService/Decor.lua` (données : `ReplicatedStorage/DecorData.lua`, clés de statut `m:decor.<famille>`) avec repli procédural par famille. Aucun modèle n'est **manquant** (tous les identifiants sont utilisés), mais le nombre de Parts réel des modèles n'est pas connu (aucune mesure sans Studio) : les plafonds de `DecorData` sont des estimations (arbres 120, colisée 300, dôme 250, tapis 60...). Tout modèle plus lourd est refusé au chargement et son repli procédural prend le relais (rapport F3, catégorie « decor »).
+
+| Clé (famille de DecorData) | Modèle demandé | Taille (studs) | Pièces max | Description | Couleurs (suffixes) | Parties séparées nommées |
+|---|---|---|---|---|---|---|
+| `conveyor_belt_wide` (nouveau) | Tuile de tapis roulant de la largeur du tapis du marché | 12 long (axe X), 8 large, 1,3 haut | 20 | Remplace `conveyor_belt` (12 x 4,1 x 1,5) : une seule rangée de tuiles, sans les deux rangées côte à côte que le code doit aujourd'hui simuler. Dessus **sous 1,5** (le centre d'un œuf est à y = 3,0, l'œuf mesure ~3 de haut : `Main.BELT_Y`) ; bords latéraux ambrés | acier `343842`, rails `FFC440` | `Tapis`, `Rails` |
+| `conveyor_end` (re-livraison) | Bout de tapis (côté bac) | 12 x 1,3 x 8 | 20 | Défaut d'ombrage signalé à la livraison du lot 15 ; dimensions réelles non fournies (le code suppose les mêmes que la tuile) : donner les vraies | idem | `Tapis`, `Rails` |
+| `sign_base` (facultatif) | Panneau avec une face plane nommée | 4,5 haut | 30 | Aujourd'hui livré sans lettrage : le texte (« Base 1 », « Château »...) est ajouté par une `BillboardGui` au-dessus du modèle. Une pièce `Planche` plane permettrait un `SurfaceGui` collé au bois (meilleur rendu) | bois `96622C` | `Poteau`, `Planche` |
+| `hub_dome` (à confirmer) | Dôme du hall au bon gabarit | 36 x 36 x 15 (socle sur 8 piliers de 15 de haut) | 120 | Le modèle livré mesure 60 x 60 x 24,4 : le code le ramène à 38 de large (hall de 18 de rayon + 2) soit ~15,5 de haut ; si le dôme devait couvrir une zone de 60, dire laquelle | tuiles `B05A46`, bague `FFD678` | `Dome`, `Bague` |
+| `arena_colosseum` (à confirmer) | Orientation de l'entrée | 70,8 x 21 | 300 | Le code tourne le **devant (-Z)** vers l'entrée de l'arène (`Config.Map2.arena.entry`) : confirmer que l'ouverture du colisée est bien à l'avant, sinon fournir l'ouverture sur -Z | pierre `D2C1A0` | `Murs`, `Arcs`, `Gradins` |
+| `grand_oeuf` (facultatif) | Runes pulsables | 13,6 x 15,7 | 150 | Les pièces `Flamme_Rune*` pourraient pulser par code (comme les pierres runiques) : confirmer qu'elles sont bien des pièces séparées, une par rune | pierre `B0A890`, runes `FF9640` | `Oeuf`, `Flamme_Rune1`.. |
+| `house_lvl4`, `house_lvl5` (déjà branchés, lot 5) | Portail de garage (lvl4) ; terrasse de référence (lvl5) | idem | idem | Éléments signalés manquants à la livraison du lot 15 (pas du ressort de `Decor.lua`) | idem | idem |
+
+Non repris par `Decor.lua` : lots 18 et 19 (intérieurs de maison, autre mission). Pas de doublon fonctionnel avec le village du lot 12 : `well_roofed` (2) s'ajoute aux 2 `scn_puits`, `boulder_cluster` aux `scn_rocher_*`, `island_sakura` pose sur les lacs l'îlot que `scn_ile_sakura` n'avait jamais reçu (non placé par `Placement.VILLAGE`).
