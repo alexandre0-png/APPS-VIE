@@ -408,8 +408,57 @@ Config.SOUNDS = {
 	plume_ramassee = { id = "rbxassetid://118620801437766", speed = 1.0, vol = 0.55 }, -- ramassage d'une plume dorée
 	poule_glousse = { id = "rbxassetid://125679862476345", speed = 1.0, vol = 0.3 }, -- la Mère Poule parle (chaque page de dialogue), volume bas
 	secret_decouvert = { id = "rbxassetid://119606421875553", speed = 1.0, vol = 0.65 }, -- énigme réussie, secret de la carte, plume cachée repérée
+	-- Lot 10 : 37 sons approuvés (lot 28 de la gestion ; ne pas modifier ces identifiants). Correspondance : hatch_r1..r10 = éclosion par rareté (HatchFx),	-- atk_<type> = attaque (TypeFx), battle_* = intro et fin de combat, calendar_* = calendrier, belt_* = tapis (boucle atténuée par la distance), kiosk_ambience = étals du marché.
+	-- Les anciennes clés restent ; Config.SOUND_ALIAS redirige quelques anciennes clés vers les nouveaux sons (sans changer le nom de la clé jouée).
+	atk_ciel = { id = "rbxassetid://111809409022959", speed = 1.0, vol = 0.6 },
+	atk_eau = { id = "rbxassetid://126099928196969", speed = 1.0, vol = 0.6 },
+	atk_feu = { id = "rbxassetid://81620112328213", speed = 1.0, vol = 0.6 },
+	atk_foudre = { id = "rbxassetid://75059811348237", speed = 1.0, vol = 0.6 },
+	atk_glace = { id = "rbxassetid://77653528704078", speed = 1.0, vol = 0.6 },
+	atk_lumiere = { id = "rbxassetid://108376562226076", speed = 1.0, vol = 0.6 },
+	atk_ombre = { id = "rbxassetid://135006463398132", speed = 1.0, vol = 0.6 },
+	atk_plante = { id = "rbxassetid://111056707806818", speed = 1.0, vol = 0.6 },
+	atk_terre = { id = "rbxassetid://77231920160184", speed = 1.0, vol = 0.6 },
+	battle_lose = { id = "rbxassetid://75714072353851", speed = 1.0, vol = 0.6 },
+	battle_start = { id = "rbxassetid://133857375212321", speed = 1.0, vol = 0.7 },
+	battle_win = { id = "rbxassetid://74841129152048", speed = 1.0, vol = 0.7 },
+	belt_buy = { id = "rbxassetid://73924816898255", speed = 1.0, vol = 0.6 },
+	belt_loop = { id = "rbxassetid://127299224836728", speed = 1.0, vol = 0.3, loop = true },
+	calendar_claim = { id = "rbxassetid://97907407134977", speed = 1.0, vol = 0.6 },
+	calendar_milestone = { id = "rbxassetid://134993322632871", speed = 1.0, vol = 0.7 },
+	calendar_open = { id = "rbxassetid://119109992802741", speed = 1.0, vol = 0.6 },
+	coin_pickup = { id = "rbxassetid://95726825095665", speed = 1.0, vol = 0.6 },
+	egg_shake = { id = "rbxassetid://101268169244225", speed = 1.0, vol = 0.6 },
+	hatch_r1 = { id = "rbxassetid://120743720926374", speed = 1.0, vol = 0.7 },
+	hatch_r10 = { id = "rbxassetid://70399111166131", speed = 1.0, vol = 0.7 },
+	hatch_r2 = { id = "rbxassetid://99352802477541", speed = 1.0, vol = 0.7 },
+	hatch_r3 = { id = "rbxassetid://130524252980200", speed = 1.0, vol = 0.7 },
+	hatch_r4 = { id = "rbxassetid://74396866627910", speed = 1.0, vol = 0.7 },
+	hatch_r5 = { id = "rbxassetid://71692383904268", speed = 1.0, vol = 0.7 },
+	hatch_r6 = { id = "rbxassetid://98693421307337", speed = 1.0, vol = 0.7 },
+	hatch_r7 = { id = "rbxassetid://130739946095614", speed = 1.0, vol = 0.7 },
+	hatch_r8 = { id = "rbxassetid://83413707310170", speed = 1.0, vol = 0.7 },
+	hatch_r9 = { id = "rbxassetid://127058227889279", speed = 1.0, vol = 0.7 },
+	house_levelup = { id = "rbxassetid://110371127961423", speed = 1.0, vol = 0.7 },
+	jackpot_rare = { id = "rbxassetid://90004480091860", speed = 1.0, vol = 0.7 },
+	kiosk_ambience = { id = "rbxassetid://82723287691994", speed = 1.0, vol = 0.3, loop = true },
+	npc_ping = { id = "rbxassetid://79333917653019", speed = 1.0, vol = 0.6 },
+	special_hit = { id = "rbxassetid://86601967046565", speed = 1.0, vol = 0.6 },
+	special_ready = { id = "rbxassetid://131456268494739", speed = 1.0, vol = 0.6 },
+	ui_click = { id = "rbxassetid://127134008433069", speed = 1.0, vol = 0.4 },
+	ui_error = { id = "rbxassetid://85896764648966", speed = 1.0, vol = 0.4 },
 }
 Config.SOUNDS_ENABLED = true -- false : tout est muet
+-- Lot 10 : anciennes clés jouées avec un son approuvé du lot 28 (le client lit l'identifiant de la cible ; volume de la clé d'origine). Cible sans id = son d'origine.
+Config.SOUND_ALIAS = { click = "ui_click", menu = "ui_click", refuse = "ui_error", coin = "coin_pickup", levelup = "house_levelup" }
+-- Lot 10 : clé de son d'attaque d'un type (« Lumière » -> atk_lumiere, alias « Nature » -> atk_plante) ; nil si inconnu.
+Config.ATK_SOUND = { Feu = "atk_feu", Eau = "atk_eau", Plante = "atk_plante", Nature = "atk_plante", Glace = "atk_glace", Foudre = "atk_foudre", Terre = "atk_terre", Ciel = "atk_ciel", Ombre = "atk_ombre", ["Lumière"] = "atk_lumiere" }
+-- Lot 10 : son d'éclosion approuvé d'une rareté (hatch_r1..hatch_r10), ou nil.
+function Config.hatchSoundR(r)
+	local rr = (type(r) == "number" and r == r) and math.floor(r) or 1
+	rr = math.min(Config.TIER_COUNT, math.max(1, rr))
+	return "hatch_r" .. rr
+end
 Config.VOLUME_STEPS = { 1, 0.6, 0.3, 0 } -- réglage du volume général (menu Plus) : 100 %, 60 %, 30 %, muet
 function Config.volumeLabel(i)
 	local v = Config.VOLUME_STEPS[i] or 1
@@ -2241,5 +2290,53 @@ Config.CALENDAR = {
 		{ cosm = "crown", plumes = 3, c = 60 }, { c = 60, scrolls = 4 }, { draw = true, title = "cal30", c = 120, plumes = 5 },
 	},
 }
+
+-- LOT 10 : compteur « 1 sur N » (module Odds). REF = poids de référence par rareté (en %), alignés sur la table STANDARD du tapis (Config.BELT.weights.normal) pour
+-- r1..r8 et r10 (décision : la valeur du brief r8 = 0,04, r10 = 0,01 sous-estimait la rareté réelle du lot 9 d'un facteur 2 à 5) ; r9 Exclusif ne sort jamais du tapis
+-- (poids 0, achat seulement) : référence 0,006 (plus rare que Secret 0,008, moins que Divin 0,005), car le compteur exige un poids > 0. N figé dans le slot à l'éclosion
+-- (slot.o, slot.ov = version) : changer REF plus tard ne réécrit jamais un ancien chiffre ; un slot sans `o` (pet éclos avant le lot 10) affiche « — ».
+Config.ODDS = { version = 1, billboardMin = 1000, REF = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0.006, 0.005 } }
+-- LOT 10 : effets d'éclosion (HatchPlan + HatchFx) et de combat (IntroPlan + BattleIntro, TypeFx). replaceCine : la cinématique 3D d'éclosion (CinematicKit.hatchPlan)
+-- n'est plus jouée (HatchFx gère lui-même le zoom). Mobile : reduced (particules / 2), plafonds 220 / 120 / 80 instances (dans les modules), 30 FPS visés.
+Config.HATCH_FX = { Enabled = true, replaceCine = true, billboardSeconds = 6 }
+Config.BATTLE_FX = { Enabled = true, intro = true, typeFx = true, specialEvery = 5 }
+-- Données des effets par type (ReplicatedStorage/TypeFx, partagé) ; absent hors de Roblox (tests purs) : le client relit alors le module directement.
+do
+	local ok, mod = pcall(function()
+		return require(script.Parent:FindFirstChild("TypeFx"))
+	end)
+	Config.TYPE_FX = (ok and type(mod) == "table") and mod.DATA or nil
+end
+-- LOT 10 : 42 icônes d'interface (lot 27 de la gestion). Ce sont des IDs de DÉCAL : le serveur les charge (InsertService:LoadAsset, sous pcall), lit Decal.Texture et publie
+-- l'URL d'image en attribut du dossier ReplicatedStorage.Icons (clé = nom) ; le client affiche l'image si l'attribut existe, sinon l'emoji de repli (ICON_FALLBACK).
+Config.ICONS = {
+	egg_r1 = 127934484667125, egg_r2 = 90303465488088, egg_r3 = 133897962711845, egg_r4 = 107492649875193, egg_r5 = 81153824460002,
+	egg_r6 = 131736092140777, egg_r7 = 105851181891208, egg_r8 = 79832611035411, egg_r9 = 94571875067666, egg_r10 = 106658286798870,
+	r_boost_revenu = 93587101573522, r_boost_vitesse = 76153392233011, r_cadeau = 133203541146640, r_calendrier = 136982022925647, r_coffre = 82453934753407,
+	r_coins_l = 89651368486077, r_coins_m = 77804077779876, r_coins_s = 100037045602015, r_cosmetique_traine = 112422956807005, r_jeton_combat = 78770783652851,
+	r_mystere = 96381471224410, r_parchemin_xp = 72553197057463, r_plume = 120153496188232, r_potion_chance = 98934700828383, r_titre = 123915288580926,
+	type_ciel = 130319463265184, type_eau = 116853247438408, type_feu = 84020103140683, type_foudre = 125216098737198, type_glace = 138517138957698,
+	type_lumiere = 136542493297233, type_ombre = 97202454024141, type_plante = 110639649572139, type_terre = 112520404946573,
+	ui_bouclier = 136315741394095, ui_cadenas = 71647030149825, ui_coeur = 91429395170558, ui_epee = 116607687889590, ui_etoile = 99988006769146,
+	ui_pastille_rouge = 75154857237999, ui_trophee = 117839068590655, ui_victoire_defaite = 84125463363173,
+}
+Config.ICON_FALLBACK = {
+	r_boost_revenu = "💰", r_boost_vitesse = "👟", r_cadeau = "🎁", r_calendrier = "📅", r_coffre = "🧰", r_coins_l = "🪙", r_coins_m = "🪙", r_coins_s = "🪙",
+	r_cosmetique_traine = "🎀", r_jeton_combat = "⚔️", r_mystere = "🎲", r_parchemin_xp = "📜", r_plume = "🪶", r_potion_chance = "🧪", r_titre = "🏷️",
+	type_ciel = "☁️", type_eau = "💧", type_feu = "🔥", type_foudre = "⚡", type_glace = "❄️", type_lumiere = "✨", type_ombre = "🌑", type_plante = "🌿", type_terre = "⛰️",
+	ui_bouclier = "🛡", ui_cadenas = "🔒", ui_coeur = "❤️", ui_epee = "⚔️", ui_etoile = "⭐", ui_pastille_rouge = "🔴", ui_trophee = "🏆", ui_victoire_defaite = "🏆",
+}
+-- Clé d'icône d'un type de combat (« Lumière » -> type_lumiere, « Nature » -> type_plante) ; nil si inconnu.
+Config.TYPE_ICON = { Feu = "type_feu", Eau = "type_eau", Plante = "type_plante", Nature = "type_plante", Glace = "type_glace", Foudre = "type_foudre", Terre = "type_terre", Ciel = "type_ciel", Ombre = "type_ombre", ["Lumière"] = "type_lumiere" }
+-- Emoji de repli d'une icône (œufs : 🥚) ; "" si inconnue.
+function Config.iconFallback(key)
+	if type(key) ~= "string" then
+		return ""
+	end
+	if key:sub(1, 5) == "egg_r" then
+		return "🥚"
+	end
+	return Config.ICON_FALLBACK[key] or ""
+end
 
 return Config

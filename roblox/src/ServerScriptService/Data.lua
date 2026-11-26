@@ -494,6 +494,13 @@ local function merge(saved)
 			if okT then
 				if sl.k == "p" then
 					sl.x = math.min(1e7, math.floor(sane(sl.x, 0))) -- lot 9 : XP du pet (lot 12)
+					-- lot 10 : compteur « 1 sur N » figé à l'éclosion (o) et version de la table de référence (ov). Facultatifs : un pet plus ancien n'en a pas
+					-- (affiché « — », jamais recalculé). Valeur hors bornes ou d'un autre type = retirée.
+					if type(sl.o) == "number" and sl.o == sl.o and sl.o >= 1 and sl.o <= 9007199254740992 then
+						sl.ov = (type(sl.ov) == "number" and sl.ov == sl.ov and sl.ov % 1 == 0 and sl.ov >= 1 and sl.ov <= 1000) and sl.ov or 1
+					else
+						sl.o, sl.ov = nil, nil
+					end
 				end
 				-- champs facultatifs du lot 7b (assainis) : rv = œuf non indemnisable (volé par corbeau, tapis privé, bienvenue), rvAt = date du dernier vol par corbeau
 				sl.rv = sl.rv == true or nil
