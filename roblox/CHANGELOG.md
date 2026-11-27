@@ -10,6 +10,18 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 2. **Force en combat** : `Battle.STATS[r]`, puissance pv + 3 x attaque + 2 x vitesse strictement croissante, x1,25 au moins ; profils tank / attaquant / rapide / équilibré, écart de 8 à 15 % dans une rareté, le plus fort d'une rareté sous le plus faible de la suivante. Tests « Règle (2) ». Rien d'achetable ne touche ces stats.
 3. **Pièces contre Robux** : tout article payable aux deux est plus cher et plus long en pièces : pour le débutant, temps de gain en pièces entre 4 et 12 fois le « temps Robux » (prix en R$ x `Config.PRICING_REF.secondsPerRobux`, taux du Sac de pièces : 20 min de revenu pour 99 R$ = 12,1 s par R$) ; jamais inatteignable. Les œufs Secret (1 499 R$), Exclusif (3 499 R$) et Divin (6 999 R$) sont vendus en Robux à prix fixe et rareté FIXE, contenu affiché, `random = true`, masqués et refusés si PolicyService restreint ; aucun avantage de combat acheté. Tests « Règle (3) ».
 
+## LOT 14 intégré : classé en direct (file MemoryStore, serveur réservé « ranked ») — DÉSACTIVÉ (2026-11-27)
+
+Sauvegarde : `git tag backup/roblox-lot14-20261127` (sur 8ef9c43). Préparation de la gestion (`lots-prep/chipe-14/`, testée sur 91f6907) : `Ranked.lua`, `PvpLive.lua`, `lot14.luau`, `run_lot14.py` copiés ; patchs Config (sans rejet), Main (1 rejet : `battleQuit`), Data (3 rejets), `run.luau` (1 rejet) fusionnés à la main. **Rien n'a été joué dans Studio ni en ligne.** Écarts : `LOT14_ECARTS.md` ; revue de sécurité : `LOT14_SECURITE.md` (0 défaut critique / élevé).
+
+- **Décisions** : `Config.PVP_LIVE.enabled = false` partout (activation seulement après un test réel à 2 comptes, `A_FAIRE_UTILISATEUR.md` §1novies) ; seuil 60 joueurs simultanés (non testé en production) ; mode serveur `ranked` ; un seul joueur arrivé = match annulé sans trophée ; `ReserveServerAsync` → `(code, privateServerId)` à vérifier en Studio.
+- **Config** : `PVP_LIVE` ; le repli `Config.LEAGUES or {…}` du patch est retiré (ligues du lot 13).
+- **Data** (v13 inchangée) : `battle.live` assaini par `Ranked.sanitizeLive`.
+- **Main** (`Lot7.Live`, aucune variable locale racine de plus) : `liveQueue` (fermée = classé enregistré), `liveCancel`, `battleAct` / `battleQuit` routés (direct, puis duel, puis l'existant), boucle 1 s + `TeleportInitFailed`, `serverMode = "ranked"`, `arenaJoin`, `onLeave` avant la sauvegarde ; en file classée = occupé pour les duels ; crochet de test `lot7Hooks.live`.
+- **Client** : bouton « Combat classé » -> `liveQueue` / « Annuler la recherche » ; messages `liveQueued`, `liveCancel`, `liveFound`, `liveFallback` (repli proposé), `liveArena`, `liveVoid` ; forfait et plafond affichés en fin de combat.
+- `build_place.py` : `Ranked` (Shared), `PvpLive` (ServerScriptService) ; `run.luau` et `run_lot14.py` lancent `lot14` + `lot14_e2e` (nouveau : vrai `Main`, interface désactivée, serveur `ranked` annulé avec un seul joueur, intrus, combat à deux et forfait).
+- **Vérifications exécutées** (lupa, pas Lune ni Studio) : RESULTATS_LOT14
+
 ## LOT 13 intégré : duel local, ligues, remise de saison (2026-11-27)
 
 Sauvegarde : `git tag backup/roblox-lot13-20261127` (sur f7ff0f5). Préparation de la gestion (`lots-prep/chipe-13/`, testée sur 91f6907) appliquée : 3 patchs sans rejet, `Duel.lua` et `lot13.luau` copiés. La préparation ne branchait PAS le jeu : boucle de tours, sable, caméra, spectateurs, UI de la demande et bouton « Défier » écrits ici. **Rien n'a été joué dans Studio** : vérifié par `check.py` et les tests lupa (`lot13.luau` pur + `lot13_e2e.luau` dans le vrai `Main.server.lua` + `Data.lua`). Écarts : `LOT13_ECARTS.md` ; revue de sécurité : `LOT13_SECURITE.md` (0 défaut critique / élevé).
