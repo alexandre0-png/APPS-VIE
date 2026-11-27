@@ -141,6 +141,19 @@ return function(env)
 		return Duel.noteTurn(mm, false, true, c3) == "continue" and Duel.noteTurn(mm, false, true, c3) == "continue" and Duel.noteTurn(mm, false, true, c3) == "forfeitA"
 	end)())
 
+	suite("Lot 13 : valeurs par défaut du module = E.2")
+	local md = Duel.newMatch(1, 2)
+	Duel.noteTurn(md, false, true)
+	local sd = Duel.cleanState({}, 20000)
+	local nd = 0
+	for _ = 1, 5 do
+		if Duel.settle(sd, 9, "win", 86400 * 20000, 10).rewarded then
+			nd = nd + 1
+		end
+	end
+	check("Sans cfg : forfait au 2e tour inactif, 3 récompenses par paire, 100 studs refusé, 30 accepté", Duel.noteTurn(md, false, true) == "forfeitA" and nd == 3 and Duel.canChallenge(ctx(nil, nil, 31)) == false and Duel.canChallenge(ctx(nil, nil, 30)) == true)
+	check("cfg invalide (texte, NaN) ignorée : valeurs par défaut", Duel.canChallenge(ctx(nil, nil, 31), { range = "x" }) == false and Duel.canChallenge(ctx(nil, nil, 31), { range = 0 / 0 }) == false and Duel.canChallenge(ctx(nil, nil, 31), { range = 40 }) == true)
+
 	suite("Lot 13 : récompenses 10/jour, 3/paire, ratio V/D")
 	local DAY = 86400 * 20000
 	local st = Duel.cleanState({}, 20000)
