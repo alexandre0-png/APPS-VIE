@@ -17462,7 +17462,7 @@ local function fastTravel(s, dest, prompt)
 	if now - (s.travelAt or -99) < T.cooldown then
 		return false
 	end
-	if s.sinceHit < T.combatLock then
+	if s.sinceHit < T.combatLock or (s.battle and s.battle.duel) then -- lot 13 : pas de voyage pendant un duel (personnage figé sur le sable)
 		notify(s.player, "⚔️ Pas de voyage rapide en plein combat.")
 		return false
 	end
