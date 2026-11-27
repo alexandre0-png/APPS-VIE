@@ -10,6 +10,8 @@ local Players = game:GetService("Players")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Raven")) -- règles pures du Corbeau (clés du journal RavenLog)
 local Calendar = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Calendar")) -- lot 9b : règles pures du calendrier (assainissement du champ cal)
+local Npc = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Npc")) -- lot 15 : assainissement du champ npc
+local Rewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rewards")) -- lot 15 : grace, weekly, event, eggBag
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -40,7 +42,11 @@ local SAVE_RETRIES = 3
 --   cal (voir Calendar.sanitize : start, cycle, days, grace, catch, qc, dayD, dayN), calStreak (série), calLast (dernier jour UTC réclamé), scrolls (parchemins), plumes,
 --   fightTokens (jetons de combat), cosm { id = true } (cosmétiques), titles.cal10 / cal25 / cal30. Un profil v11 sans ces champs reçoit les valeurs neuves ; un profil
 --   plus ancien passe par la chaîne de migrations puis reçoit les mêmes valeurs neuves.
-local VERSION = 11
+-- v12 (LOT 15) : + npc (rencontres PNJ : compteurs du jour, nextAt absolu, réglage off, champion de la semaine, refus), grace (série de 7 jours : grâce de la
+--   semaine, semaines complètes, sauvetage payant), weekly (quêtes de la semaine + quête bonus du jour), event (plumes d'événement et plafonds du jour),
+--   eggBag (sac d'œufs : 10 raretés au plus), xp2Until (effet XP x2), seasonXp (XP de saison, lot 16). Migration v11 -> v12 : aucun champ existant n'est touché (les nouveaux reçoivent leurs valeurs neuves par
+--   merge(), via les sanitize des modules purs, idempotents) ; daily / streak gardent leur sens (streak = jours de suite, jour de série = streak % 7 + 1).
+local VERSION = 12
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
 local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
@@ -181,6 +187,13 @@ function Data.default()
 		plumes = 0, -- lot 9b : plumes (monnaie du calendrier, distinctes des plumes de l'énigme)
 		fightTokens = 0, -- lot 9b : jetons de combat
 		cosm = {}, -- lot 9b : cosmétiques obtenus { id = true }
+		npc = Npc.newState(), -- lot 15 : rencontres de PNJ (Npc.sanitize)
+		grace = Rewards.sanitizeGrace(nil), -- lot 15 : série de 7 jours (grâce, semaines complètes, sauvetage) ; distinct de cal.grace
+		weekly = Rewards.sanitizeWeekly(Config, nil), -- lot 15 : quêtes de la semaine (w, prog, c5, c7) et quête bonus du jour (bq)
+		event = Rewards.sanitizeEvent(Config, nil), -- lot 15 : plumes d'événement (distinctes de plumes, monnaie du calendrier)
+		eggBag = {}, -- lot 15 : sac d'œufs (raretés, 10 au plus, jamais de perte)
+		xp2Until = 0, -- lot 15 : fin (os.time) de l'effet XP x2 de la série (jour 5) ; l'XP des pets arrive au lot 12
+		seasonXp = 0, -- lot 15 : XP de saison gagnée (quêtes de la semaine 7/7) ; mise de côté pour la passe de saison (lot 16)
 		firstSeen = 0, -- lot 9 : jour UTC de la première connexion (mesure de rétention, aucune donnée personnelle)
 		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
@@ -272,6 +285,9 @@ local MIGRATIONS = {
 			end
 		end
 		saved.titles = { oldCosmic = cosmic }
+	end,
+	[11] = function(_saved)
+		-- v11 -> v12 (lot 15) : rien à convertir ; npc, grace, weekly, event et eggBag reçoivent leurs valeurs neuves (ou assainies) dans merge().
 	end,
 	[1] = function(_saved)
 		-- v1 -> v2 : les nouveaux champs reçoivent leurs valeurs par défaut dans merge(), rien à convertir.
@@ -429,6 +445,14 @@ local function merge(saved)
 	d.scrolls = Calendar.int(saved.scrolls, 0, Config.CALENDAR.caps.scrolls, 0)
 	d.plumes = Calendar.int(saved.plumes, 0, Config.CALENDAR.caps.plumes, 0)
 	d.fightTokens = Calendar.int(saved.fightTokens, 0, Config.CALENDAR.caps.tokens, 0)
+	-- lot 15 : champs assainis par les modules purs (absents, corrompus ou d'une autre forme = valeurs neuves ; relire un profil migré ne change rien)
+	d.npc = Npc.sanitize(saved.npc)
+	d.grace = Rewards.sanitizeGrace(saved.grace)
+	d.weekly = Rewards.sanitizeWeekly(Config, saved.weekly)
+	d.event = Rewards.sanitizeEvent(Config, saved.event)
+	d.eggBag = Rewards.sanitizeBag(Config, saved.eggBag)
+	d.xp2Until = math.min(4e9, math.floor(sane(saved.xp2Until, 0)))
+	d.seasonXp = math.min(1e7, math.floor(sane(saved.seasonXp, 0)))
 	if type(saved.cosm) == "table" then
 		for id in pairs(Config.CALENDAR.cosmetics) do
 			d.cosm[id] = saved.cosm[id] == true or nil

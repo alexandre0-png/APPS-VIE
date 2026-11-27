@@ -1,7 +1,7 @@
 -- ModuleScript : ReplicatedStorage/Shared/Npc
 -- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
 -- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
--- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (Lot15Data). Toute rareté passe par Config.TIERS (noms).
+-- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
 -- État de profil `npc` : day (jour UTC des compteurs), trades / fights (rencontres du jour), enc (rencontres du jour, alternance), nextAt (secondes UNIX absolues),
 -- off (« Ne plus être interpellé »), champ (semaine du dernier Champion errant), refuse / gone (refus de suite et PNJ partis pour la journée, par clé de PNJ).
 -- Style : pas de `+=`, pas de `continue`, valeurs douteuses gardées par type avant toute comparaison.

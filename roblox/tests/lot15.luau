@@ -1,7 +1,7 @@
 --!nocheck
 -- Tests du lot 15 (PNJ, série de 7 jours, calendrier, quêtes, rotation, événements, plumes, sac d'œufs).
 -- Forme : `return function(env) ... end`, env = { check, suite, luau, fs } fournis par tests/run_lot15.py (ou, plus tard, par tests/run.luau).
--- Le Config utilisé est le VRAI Config.lua (Color3 simulé) fusionné avec Lot15Data.lua, comme le fera l'intégrateur ; la variante « full » publie les 10 raretés (espèces factices)
+-- Le Config utilisé est le VRAI Config.lua (Color3 simulé) dont le bloc « LOT 15 » porte les données (ex-Lot15Data.lua) ; la variante « full » publie les 10 raretés (espèces factices)
 -- pour vérifier que toute rareté passe par Config.TIERS (par nom) et non par un indice codé en dur.
 -- Style : pas de `+=`, pas de `continue`, pas de math.atan2 (compatibilité lupa).
 return function(env)
@@ -18,11 +18,7 @@ return function(env)
 			debugName = "Config",
 			environment = { Color3 = { fromRGB = function(r, g, b) return { R = r / 255, G = g / 255, B = b / 255 } end } },
 		})
-		local C = chunk()
-		local L = load("roblox/src/ReplicatedStorage/Lot15Data.lua", "Lot15Data")
-		for k, v in pairs(L) do
-			C[k] = v
-		end
+		local C = chunk() -- les données du lot 15 sont dans Config.lua (bloc « LOT 15 »)
 		if full then
 			for t = 1, #C.TIERS do
 				if not C.tierLive(t) then
@@ -34,7 +30,7 @@ return function(env)
 	end
 	local Config = loadConfig(false)
 	local Full = loadConfig(true)
-	local L15 = load("roblox/src/ReplicatedStorage/Lot15Data.lua", "Lot15Data")
+	local L15 = Config -- données du lot 15 (bloc « LOT 15 » de Config.lua ; ancien module Lot15Data fusionné)
 
 	local function mkRng(seed)
 		local x = (seed * 1103515245 + 12345) % 2147483647 -- brassage : des graines voisines (1, 2, 3) ne donnent pas des premiers tirages voisins
@@ -1239,5 +1235,55 @@ return function(env)
 		end
 		check("3 000 actions : œufs en base + sac = œufs accordés (grand livre exact), un refus ne modifie ni œufs ni état", sound)
 		check("Sac jamais au-delà de 10, base jamais au-delà de sa capacité", #bag <= 10 and eggCount(slots, cap, {}) <= cap)
+	end
+
+	---------------------------------------------------------------- Intégration (lot 15) : données dans Config, espèce vedette exacte, produit de sauvetage
+	suite("Lot 15 : intégration des données (Config), espèce vedette x2, sauvetage payant désactivé tant que l'ID manque")
+	check("Config.EVENTS (événements serveur existants) intact, week-end chanceux et heure dorée dans Config.TIMED_EVENTS (aucune collision de nom)",
+		type(Config.EVENTS[1]) == "table" and type(Config.EVENTS[1].key) == "string" and Config.TIMED_EVENTS.weekend.upgradePoints == 5 and Config.TIMED_EVENTS.goldenHour.fromHour == 18 and Config.TIMED_EVENTS.goldenHour.toHour == 19)
+	check("Modèles du lot 29 : 5 PNJ, 3 décors d'événement, calendrier mural (IDs entiers > 0, plafond de Parts défini)", (function()
+		local n = 0
+		for k, id in pairs(Config.Assets.models.npc) do
+			n = n + ((type(id) == "number" and id > 0 and Config.Assets.modelsMaxParts["npc." .. k] ~= nil) and 1 or 0)
+		end
+		for k, id in pairs(Config.Assets.models.event) do
+			n = n + ((type(id) == "number" and id > 0 and Config.Assets.modelsMaxParts["event." .. k] ~= nil) and 1 or 0)
+		end
+		return n == 8 and Config.Assets.models.npc.pip == 123590742152774 and Config.Assets.models.npc.nora == 81037598191401 and Config.Assets.models.hub.calendar == 134196650002859 and Config.Assets.models.event.pumpkin == 73142027959966
+	end)())
+	check("Produit StreakRestore : 29 R$, désactivé tant que son ID vaut 0 (Config.purchasable)", Config.PRODUCTS.StreakRestore.robux == 29 and Config.purchasable(Config.PRODUCTS.StreakRestore) == false)
+	do
+		-- espèce vedette : P(vedette) = M / (n + M - 1) après un tirage uniforme (n espèces de la rareté), la rareté ne change jamais
+		local rot = Rewards.rotation(Config, 0)
+		local fIdx = petIdx(Config, rot.featured)
+		local tier = Config.PETS[fIdx].tier
+		local ids = {}
+		for i, p in ipairs(Config.PETS) do
+			if p.tier == tier then
+				ids[#ids + 1] = i
+			end
+		end
+		local n, M = #ids, Config.WEEKLY_ROTATION_MULT
+		local rng = mkRng(77)
+		local hits, N, sameTier = 0, 60000, true
+		for _ = 1, N do
+			local pick = ids[math.min(n, math.floor(rng() * n) + 1)]
+			local out = Rewards.featuredPick(Config, rot, pick, rng)
+			if out == fIdx then
+				hits = hits + 1
+			end
+			sameTier = sameTier and Config.PETS[out].tier == tier
+		end
+		local want = M / (n + M - 1)
+		check("Espèce vedette « " .. rot.featured .. " » : fréquence " .. string.format("%.4f", hits / N) .. " ~ " .. string.format("%.4f", want) .. " (poids x" .. M .. "), rareté inchangée", math.abs(hits / N - want) < 0.01 and sameTier)
+		local other = nil
+		for i, p in ipairs(Config.PETS) do
+			if p.tier ~= tier and not other then
+				other = i
+			end
+		end
+		check("Espèce vedette : un tirage d'une autre rareté n'est jamais modifié", Rewards.featuredPick(Config, rot, other, function()
+			return 0
+		end) == other)
 	end
 end

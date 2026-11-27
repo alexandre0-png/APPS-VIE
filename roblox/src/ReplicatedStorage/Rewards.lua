@@ -2,7 +2,7 @@
 -- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
 -- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
 -- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
--- Config attendu : TIERS, TIER_GATE, EGG_PRICE, PETS, VIP_DAILY_MUL (existants) + STREAK, EGG_BAG, QUESTS, PLUMES, EVENTS, EVENTS_CAL, WEEKLY_ROTATION*, FORBIDDEN_GIFT_TIERS (Lot15Data).
+-- Config attendu : TIERS, TIER_GATE, EGG_PRICE, PETS, VIP_DAILY_MUL (existants) + STREAK, EGG_BAG, QUESTS, PLUMES, TIMED_EVENTS, EVENTS_CAL, WEEKLY_ROTATION*, FORBIDDEN_GIFT_TIERS (bloc « LOT 15 » de Config.lua).
 -- Toute rareté est un NOM résolu par Config.TIERS : jamais d'indice codé en dur. Secret / Exclusif / Divin ne sont jamais donnés par la série ni par les quêtes.
 -- États de profil : voir roblox/LOT15_INTEGRATION_NOTES.md (grace, weekly, event, eggBag ; daily / streak existants).
 -- Style : pas de `+=`, pas de `continue`, valeurs douteuses gardées par type avant toute comparaison.
@@ -538,6 +538,30 @@ function Rewards.featuredWeight(Config, rot, petIdx, weight)
 	return weight
 end
 
+-- Espèce vedette appliquée APRÈS un tirage uniforme parmi les n espèces de la rareté obtenue (Rules.rollPet) : bascule vers l'espèce vedette avec la
+-- probabilité (M - 1) / (n + M - 1) (M = WEEKLY_ROTATION_MULT ; M = 2 : 1 / (n + 1)). Résultat : P(vedette) = M / (n + M - 1), chaque autre espèce
+-- 1 / (n + M - 1), exactement un poids x M. La rareté ne change jamais (la vedette n'est choisie que dans la rareté déjà tirée). Retourne l'indice d'espèce.
+function Rewards.featuredPick(Config, rot, petIdx, rnd)
+	local sp = Config.PETS[petIdx]
+	if not (sp and rot and type(rot.featured) == "string") or sp.name == rot.featured then
+		return petIdx
+	end
+	local featured, n = nil, 0
+	for i, p in ipairs(Config.PETS) do
+		if p.tier == sp.tier then
+			n = n + 1
+			if p.name == rot.featured then
+				featured = i
+			end
+		end
+	end
+	local M = Config.WEEKLY_ROTATION_MULT or 2
+	if featured and type(rnd) == "function" and rnd() < (M - 1) / (n + M - 1) then
+		return featured
+	end
+	return petIdx
+end
+
 -- Multiplicateur de dégâts du type « en forme » : PvE seulement.
 function Rewards.typeDamage(Config, rot, ty, pve)
 	if pve == true and rot and rot.type == ty then
@@ -553,7 +577,7 @@ function Rewards.isWeekend(Config, now)
 		return false
 	end
 	local d = Rewards.dow(math.floor(now / 86400))
-	for _, x in ipairs(Config.EVENTS.weekend.days) do
+	for _, x in ipairs(Config.TIMED_EVENTS.weekend.days) do
 		if x == d then
 			return true
 		end
@@ -566,7 +590,7 @@ function Rewards.isGoldenHour(Config, now)
 		return false
 	end
 	local h = math.floor((now % 86400) / 3600)
-	local G = Config.EVENTS.goldenHour
+	local G = Config.TIMED_EVENTS.goldenHour
 	return h >= G.fromHour and h < G.toHour
 end
 
@@ -594,11 +618,11 @@ end
 function Rewards.activeEvents(Config, now)
 	local today = isnum(now) and math.floor(now / 86400) or 0
 	local limited, key = Rewards.limitedEvent(Config, today)
-	local W = Config.EVENTS.weekend
+	local W = Config.TIMED_EVENTS.weekend
 	local weekend = Rewards.isWeekend(Config, now)
 	return {
 		weekend = weekend, upgradeBonus = weekend and W.upgradePoints or 0, beltSeconds = weekend and W.beltSeconds or W.beltDefault,
-		golden = Rewards.isGoldenHour(Config, now), goldKey = Config.EVENTS.goldenHour.key, limited = limited, limitedKey = key,
+		golden = Rewards.isGoldenHour(Config, now), goldKey = Config.TIMED_EVENTS.goldenHour.key, limited = limited, limitedKey = key,
 	}
 end
 

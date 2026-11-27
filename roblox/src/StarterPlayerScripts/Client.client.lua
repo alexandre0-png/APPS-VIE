@@ -75,6 +75,9 @@ local RTop = Remotes:WaitForChild("Top")
 local RHen = Remotes:WaitForChild("Hen")
 local RRaven = Remotes:WaitForChild("Raven") -- Corbeau chipeur (lot 7) : alerte de la victime, liste des cibles
 local RKiosk = Remotes:WaitForChild("Kiosk") -- lot 8B : kiosque central (serveur -> client : panneau à ouvrir, données des cartes)
+-- Lot 15 : PNJ (bulle ❗, approche, dialogue, écran d'échange), série de 7 jours, sac d'œufs, quêtes bonus / semaine, événements. Table unique (limite de 200
+-- variables locales). Le serveur décide de tout : ici, uniquement de l'affichage et des demandes (identifiant d'offre, booléens).
+local L15 = { RNpc = Remotes:WaitForChild("Npc"), offer = nil, model = nil, token = 0, stage = nil, pinged = {} }
 local fmt = Config.fmt
 
 local COL = {
@@ -1270,14 +1273,9 @@ function render()
 			addNote("🎒 📜 " .. (cal.scrolls or 0) .. " parchemin(s) · 🪶 " .. (cal.plumes or 0) .. " plume(s) · ⚔️ " .. (cal.ftokens or 0) .. " jeton(s) de combat. Le jour est décidé par le serveur (UTC) ; les jours manqués se rattrapent jusqu'à la fin du cycle. Un jour de grâce est offert tous les " .. CC.graceEvery .. " jours.")
 		end
 	elseif panel.name == "bonus" then
-		addRow({
-			icon = "🎁", title = "Bonus quotidien",
-			desc = state.dailyReady and ("Série " .. state.streak .. " jour(s) → 🪙 " .. fmt(state.dailyReward)) or "Reviens demain !",
-			btn = state.dailyReady and "Récupérer" or "Pris", btnColor = state.dailyReady and COL.green or COL.dis,
-			onClick = state.dailyReady and function()
-				RAction:FireServer("daily")
-			end or nil,
-		})
+		if L15.renderBonus then
+			L15.renderBonus()
+		end -- lot 15 : série de 7 jours (remplace l'ancien bonus quotidien), sac d'œufs, quête bonus, quêtes de la semaine, événements
 		local passNames = {}
 		for name in pairs(Config.PASSES) do
 			passNames[#passNames + 1] = name
@@ -1369,6 +1367,12 @@ function render()
 			end
 		end
 	elseif panel.name == "more" then
+		do -- lot 15 : réglage anti-harcèlement « Ne plus être interpellé » (sauvegardé dans le profil : npc.off)
+			local off = type(state.l15) == "table" and state.l15.npcOff == true
+			addRow({ icon = "🤫", title = "Ne plus être interpellé par les PNJ", desc = off and "Activé : Pip, Nora, Lina, Bruno et Maître Kaï ne viennent plus te voir." or "Désactivé : des PNJ viennent parfois te proposer un échange ou un combat (jamais pendant un vol).", btn = off and "Activé" or "Désactivé", btnColor = off and COL.green or COL.dis, onClick = function()
+				RAction:FireServer("npcOff", not off)
+			end })
+		end
 		do -- lot 7 : réglage du corbeau et journal « Qui m'a volé ? »
 			local blockOn = state.settings and state.settings.blockFriendRavens == true
 			addRow({ icon = "🐦‍⬛", title = "Refuser les corbeaux de mes amis", desc = blockOn and "Activé : tes amis ne peuvent pas t'envoyer de corbeau." or "Désactivé : touche pour refuser les corbeaux de tes amis.", btn = blockOn and "Activé" or "Désactivé", btnColor = blockOn and COL.green or COL.dis, onClick = function()
@@ -1890,6 +1894,361 @@ RRaven.OnClientEvent:Connect(function(kind, data)
 		end
 	end
 end)
+---------------------------------------------------------------- Lot 15 : PNJ qui interpellent le joueur, série de 7 jours, sac d'œufs, quêtes, événements
+-- Le PNJ n'existe QUE chez le joueur interpellé (modèle cloné localement depuis ReplicatedStorage.NpcTemplates, repli procédural) : il apparaît à 25 studs,
+-- marche vers le joueur, bulle « ❗ », carte de dialogue. Jamais affiché pendant une cinématique ni en portant un œuf (le serveur ne crée pas d'offre pendant un vol,
+-- une poursuite, un duel, au château). Son seul : npc_ping. Réponses : RAction « npcAnswer » { id, action, confirm2 } ; tout est revalidé par le serveur.
+do
+	local function tierName15(t)
+		return Config.TIERS[t] and Config.TIERS[t].name or "?"
+	end
+	L15.card = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -110), Size = UDim2.fromOffset(380, 156), BackgroundColor3 = COL.bg, BackgroundTransparency = 0.04, Visible = false, ZIndex = 22 }, gui)
+	corner(L15.card, 16)
+	make("UIStroke", { Color = COL.yellow, Thickness = 2 }, L15.card)
+	L15.title = text(L15.card, { Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 0, 24), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 16, TextColor3 = COL.yellow, Text = "", ZIndex = 23 })
+	L15.body = text(L15.card, { Position = UDim2.fromOffset(12, 32), Size = UDim2.new(1, -24, 0, 72), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, TextSize = 14, Font = Enum.Font.Gotham, Text = "", ZIndex = 23 })
+	L15.b1 = make("TextButton", { Position = UDim2.new(0, 12, 1, -46), Size = UDim2.new(0.5, -18, 0, 38), Font = FONT, TextSize = 14, Text = "", BackgroundColor3 = COL.green, TextColor3 = COL.dark, ZIndex = 23 }, L15.card)
+	L15.b2 = make("TextButton", { Position = UDim2.new(0.5, 6, 1, -46), Size = UDim2.new(0.5, -18, 0, 38), Font = FONT, TextSize = 14, Text = "", BackgroundColor3 = COL.dis, TextColor3 = COL.text, ZIndex = 23 }, L15.card)
+	for _, b in ipairs({ L15.b1, L15.b2 }) do
+		corner(b, 10)
+		pressFx(b)
+	end
+	-- Modèle du PNJ : Blender (publié par le serveur) ou repli procédural (corps, tête, couleur du personnage).
+	local NPC_TINT = { pip = Color3.fromRGB(196, 140, 80), nora = Color3.fromRGB(120, 110, 200), lina = Color3.fromRGB(70, 170, 90), bruno = Color3.fromRGB(150, 90, 60), kai = Color3.fromRGB(235, 235, 240) }
+	function L15.buildModel(key)
+		local folder = ReplicatedStorage:FindFirstChild("NpcTemplates")
+		local tpl = folder and folder:FindFirstChild(key)
+		local model
+		if tpl then
+			local ok, c = pcall(function()
+				return tpl:Clone()
+			end)
+			model = ok and c or nil
+		end
+		if model then
+			pcall(function()
+				local size = model:GetExtentsSize()
+				local V = Config.NPC_VIEW
+				local f = key == "pip" and (V.pipWidth / math.max(size.X, size.Z, 0.1)) or (V.height / math.max(size.Y, 0.1))
+				if f > 0.05 and f < 50 then
+					model:ScaleTo(f)
+				end
+			end)
+		else
+			model = Instance.new("Model")
+			local body = make("Part", { Name = "Body", Size = Vector3.new(2.2, 3.2, 1.4), Color = NPC_TINT[key] or COL.panel, Material = Enum.Material.SmoothPlastic, Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false }, model)
+			make("Part", { Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.new(1.8, 1.8, 1.8), Color = Color3.fromRGB(255, 220, 185), Material = Enum.Material.SmoothPlastic, Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, CFrame = body.CFrame * CFrame.new(0, 2.5, 0) }, model)
+			model.PrimaryPart = body
+		end
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+			end
+		end
+		model.Name = "Npc_" .. key
+		return model
+	end
+	local function groundAt(x, z)
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { player.Character, L15.model }
+		local hit = workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), params)
+		return hit and hit.Position.Y or 0
+	end
+	function L15.removeModel(walkAway)
+		local m = L15.model
+		L15.model = nil
+		if not m then
+			return
+		end
+		if walkAway then
+			pcall(function()
+				local cf = m:GetPivot()
+				local v = Instance.new("NumberValue")
+				v.Changed:Connect(function(a)
+					pcall(function()
+						m:PivotTo(cf * CFrame.new(0, 0, a * 14))
+					end)
+				end)
+				TweenService:Create(v, TweenInfo.new(2, Enum.EasingStyle.Linear), { Value = 1 }):Play()
+				Debris:AddItem(v, 3)
+			end)
+			Debris:AddItem(m, 2.2)
+		else
+			m:Destroy()
+		end
+	end
+	-- Pose le PNJ au point d'apparition décidé par le serveur, le fait marcher jusqu'à quelques studs du joueur, bulle « ❗ » au-dessus.
+	function L15.spawnModel(o)
+		L15.removeModel(false)
+		local ok, m = pcall(L15.buildModel, tostring(o.model))
+		if not ok or not m then
+			return
+		end
+		local size = Vector3.new(2, 6, 2)
+		pcall(function()
+			size = m:GetExtentsSize()
+		end)
+		local y = groundAt(o.x, o.z) + size.Y / 2
+		m:PivotTo(CFrame.new(o.x, y, o.z))
+		local anchor = m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
+		if anchor then
+			local bb = make("BillboardGui", { Name = "NpcBubble", Size = UDim2.fromOffset(140, 64), StudsOffsetWorldSpace = Vector3.new(0, size.Y / 2 + 1.5, 0), AlwaysOnTop = true, MaxDistance = 90 }, anchor)
+			text(bb, { Size = UDim2.new(1, 0, 0, 40), TextSize = 36, Text = "❗", TextStrokeTransparency = 0.2, TextColor3 = COL.yellow })
+			text(bb, { Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 0, 20), TextSize = 13, Text = tostring(o.name or ""), TextStrokeTransparency = 0.3 })
+		end
+		m.Parent = workspace
+		L15.model = m
+		-- marche d'approche (s'arrête à NPC_VIEW.stopAt studs du joueur, tourné vers lui)
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			local from = Vector3.new(o.x, y, o.z)
+			local to3 = Vector3.new(root.Position.X, y, root.Position.Z)
+			local dir = to3 - from
+			if dir.Magnitude > Config.NPC_VIEW.stopAt + 0.5 then
+				local goal = from + dir.Unit * (dir.Magnitude - Config.NPC_VIEW.stopAt)
+				local v = Instance.new("NumberValue")
+				v.Changed:Connect(function(a)
+					if L15.model == m then
+						pcall(function()
+							local p = from:Lerp(goal, a)
+							m:PivotTo(CFrame.lookAt(p, Vector3.new(to3.X, p.Y, to3.Z)))
+						end)
+					end
+				end)
+				TweenService:Create(v, TweenInfo.new(Config.NPC_VIEW.walkSeconds, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Value = 1 }):Play()
+				Debris:AddItem(v, Config.NPC_VIEW.walkSeconds + 1)
+			end
+		end
+	end
+	local function viewLine(list)
+		local bits = {}
+		for _, e in ipairs(list or {}) do
+			if e.kind == "coins" then
+				bits[#bits + 1] = "🪙 " .. fmt(tonumber(e.amount) or 0)
+			elseif e.kind == "egg" then
+				bits[#bits + 1] = "🥚 Œuf " .. tostring(e.name)
+			elseif e.kind == "pet" then
+				bits[#bits + 1] = tostring(e.name) .. " (" .. tierName15(e.tier) .. ((type(e.odds) == "string" and e.odds ~= "") and (", " .. e.odds) or "") .. ")"
+			end
+		end
+		return #bits > 0 and table.concat(bits, " + ") or "rien"
+	end
+	local function setButtons(t1, t2)
+		L15.b1.Text, L15.b2.Text = t1 or "", t2 or ""
+		L15.b1.Visible, L15.b2.Visible = t1 ~= nil, t2 ~= nil
+	end
+	function L15.show(stage)
+		local o = L15.offer
+		if not o then
+			L15.card.Visible = false
+			return
+		end
+		L15.stage = stage
+		L15.title.Text = tostring(o.emoji or "") .. " " .. tostring(o.name or "")
+		local btn = type(o.buttons) == "table" and o.buttons or { "Voir l'offre", "Pas maintenant" }
+		if stage == "approach" then
+			L15.body.Text = tostring(o.approach or "")
+			setButtons(tostring(btn[1]), tostring(btn[2]))
+		elseif stage == "offer" then
+			if o.kind == "trade" then
+				L15.body.Text = tostring(o.text or "") .. "\nTu donnes : " .. viewLine(o.view and o.view.give) .. "\nTu reçois : " .. viewLine(o.view and o.view.get)
+				setButtons("Accepter", "Pas maintenant")
+			else
+				L15.body.Text = tostring(o.text or "") .. "\nRien n'est perdu en cas de défaite."
+				setButtons("Combattre !", "Pas maintenant")
+			end
+		elseif stage == "confirm2" then
+			L15.body.Text = "⚠️ Tu donnes un pet Épique ou plus rare. Confirmer l'échange ?\nTu donnes : " .. viewLine(o.view and o.view.give)
+			setButtons("Oui, échanger", "Annuler")
+		end
+		L15.card.Visible = true
+	end
+	local function busyNow()
+		local cam = workspace.CurrentCamera
+		return (cam and cam.CameraType == Enum.CameraType.Scriptable) or (state ~= nil and (state.carry or 0) > 0)
+	end
+	L15.b1.Activated:Connect(function()
+		local o = L15.offer
+		if not o then
+			return
+		end
+		if L15.stage == "approach" then
+			L15.show("offer")
+		elseif L15.stage == "offer" then
+			RAction:FireServer("npcAnswer", { id = o.id, action = "accept", confirm2 = false })
+		elseif L15.stage == "confirm2" then
+			RAction:FireServer("npcAnswer", { id = o.id, action = "accept", confirm2 = true })
+		end
+	end)
+	L15.b2.Activated:Connect(function()
+		local o = L15.offer
+		if not o then
+			return
+		end
+		if L15.stage == "confirm2" then
+			L15.show("offer")
+			return
+		end
+		RAction:FireServer("npcAnswer", { id = o.id, action = "decline" })
+	end)
+	local function closeOffer(walkAway)
+		L15.token = L15.token + 1
+		L15.offer = nil
+		L15.card.Visible = false
+		L15.removeModel(walkAway)
+	end
+	L15.RNpc.OnClientEvent:Connect(function(m)
+		if type(m) ~= "table" then
+			return
+		end
+		if m.k == "offer" and type(m.id) == "string" and type(m.x) == "number" and type(m.z) == "number" then
+			closeOffer(false)
+			L15.offer = m
+			L15.token = L15.token + 1
+			local token = L15.token
+			local ends = os.clock() + (tonumber(m.seconds) or 60)
+			task.spawn(function()
+				local shown = false
+				while token == L15.token and os.clock() < ends do
+					if busyNow() then
+						L15.card.Visible = false
+					elseif not shown then
+						shown = true
+						pcall(L15.spawnModel, m)
+						playSound("npc_ping")
+						L15.show("approach")
+					elseif not L15.card.Visible and L15.offer == m then
+						L15.card.Visible = true
+					end
+					task.wait(0.3)
+				end
+				if token == L15.token then
+					closeOffer(true) -- 60 s sans réponse : le PNJ repart (le serveur retire l'offre de son côté)
+				end
+			end)
+		elseif m.k == "confirm2" and L15.offer and L15.offer.id == m.id then
+			L15.show("confirm2")
+		elseif m.k == "fight" or m.k == "clear" then
+			closeOffer(m.k == "fight")
+		elseif m.k == "said" and type(m.text) == "string" then
+			local o = L15.offer
+			local title = (o and (tostring(o.emoji or "") .. " " .. tostring(o.name or ""))) or "💬"
+			toast(title .. " : " .. string.sub(m.text, 1, 220))
+			if o and not m.ok then
+				return -- refus (pièces, place, offre changée) : la carte reste, le joueur peut répondre autrement
+			end
+			closeOffer(true)
+		end
+	end)
+
+	-- Panneau « Bonus » : série de 7 jours (réclamation par bouton, grâce, sauvetage), sac d'œufs, quête bonus, quêtes de la semaine, événements, rotation.
+	local function dayText(dd)
+		if type(dd) ~= "table" then
+			return ""
+		end
+		local bits = {}
+		for _, t in ipairs(dd.eggs or {}) do
+			bits[#bits + 1] = "🥚 " .. tierName15(t)
+		end
+		if (dd.coins or 0) > 0 then
+			bits[#bits + 1] = "🪙 " .. fmt(dd.coins)
+		end
+		if dd.luck then
+			bits[#bits + 1] = "🧪 chance " .. dd.luck .. " min"
+		end
+		if dd.boost then
+			bits[#bits + 1] = "📜 XP x2 " .. dd.boost .. " min"
+		end
+		if (dd.fragments or 0) > 0 then
+			bits[#bits + 1] = "🧩 fragment"
+		end
+		return table.concat(bits, " · ") .. (dd.mythic and " (4ᵉ semaine : Mythique !)" or "")
+	end
+	function L15.claimable(st)
+		local v = type(st) == "table" and st.l15
+		if type(v) ~= "table" then
+			return false
+		end
+		local b, w = v.bonus, v.weekly
+		return (b.unlocked and not b.claimed and b.prog >= b.goal) or (w.done >= 5 and not w.c5) or (w.done >= 7 and not w.c7)
+	end
+	function L15.renderBonus()
+		local v = state and state.l15
+		if type(v) ~= "table" then
+			addNote("🔥 Série de 7 jours : chargement…")
+			return
+		end
+		local st = v.streak
+		local claim = function()
+			RAction:FireServer("daily")
+		end
+		local desc, btn, col, onClick = dayText(v.days[st.day]), "Réclamer", COL.green, claim
+		if st.state == "done" then
+			desc, btn, col, onClick = "Reviens demain pour le jour " .. st.day .. " : " .. dayText(v.days[st.day]), "Pris", COL.dis, nil
+		elseif st.state == "grace" then
+			desc = "Un jour manqué : ton jour de grâce gratuit de la semaine est utilisé, ta série continue ! " .. desc
+		elseif st.state == "reset" then
+			desc = "3 jours manqués ou plus : la série repart du jour 1. " .. dayText(v.days[1])
+		elseif st.state == "rescue" then
+			desc, btn, col, onClick = "Ta série de " .. tostring(st.lost or st.streak) .. " jours va se perdre ! Sauve-la ci-dessous.", "À sauver", COL.red, nil
+		end
+		addRow({ icon = "🔥", title = "Série de 7 jours · jour " .. st.day .. "/7" .. ((st.streak or 0) > 0 and (" · " .. st.streak .. " jour(s) de suite") or ""), desc = desc, btn = btn, btnColor = col, btnText = st.state == "rescue" and COL.text or nil, onClick = onClick })
+		if st.state == "rescue" then
+			addRow({ icon = "🎯", title = "Sauver gratuitement", desc = "Termine les 3 missions du jour (" .. tostring(v.questsDone) .. "/3).", btn = st.canQuest and "Sauver" or "En cours", btnColor = st.canQuest and COL.green or COL.dis, onClick = st.canQuest and function()
+				RAction:FireServer("daily", { how = "quest" })
+			end or nil })
+			local def = Config.PRODUCTS.StreakRestore
+			if st.canProduct and def and Config.purchasable(def) then
+				addRow({ icon = def.emoji, title = def.name .. " : " .. def.robux .. " R$", desc = def.desc, btn = "Acheter", btnColor = COL.green, onClick = function()
+					MarketplaceService:PromptProductPurchase(player, def.id)
+				end })
+			end
+			addRow({ icon = "1️⃣", title = "Repartir du jour 1", desc = "Abandonner la série et réclamer le jour 1 : " .. dayText(v.days[1]), btn = "Repartir", btnColor = COL.yellow, onClick = function()
+				RAction:FireServer("daily", { how = "reset" })
+			end })
+		end
+		local lines = {}
+		for i, dd in ipairs(v.days) do
+			lines[#lines + 1] = (i == st.day and "▶ " or "") .. "J" .. i .. " " .. dayText(dd)
+		end
+		addNote("🔥 " .. table.concat(lines, "\n") .. "\n1 jour de grâce gratuit par semaine" .. (st.graceFree and " (disponible)" or " (déjà utilisé)") .. ". Base pleine : les œufs vont dans ton sac.")
+		addRow({ icon = "🎒", title = "Sac d'œufs : " .. v.bag .. "/" .. v.bagMax, desc = "Les œufs reçus quand ta base est pleine t'attendent ici : jamais perdus.", btn = v.bag > 0 and "Poser" or "Vide", btnColor = v.bag > 0 and COL.green or COL.dis, onClick = v.bag > 0 and function()
+			RAction:FireServer("bagPlace")
+		end or nil })
+		local b = v.bonus
+		local bReady = b.unlocked and not b.claimed and b.prog >= b.goal
+		addRow({ icon = "⭐", title = "Quête bonus : " .. tostring(b.text), desc = (b.unlocked and (b.prog .. "/" .. b.goal) or ("Termine d'abord les 3 missions du jour (" .. tostring(v.questsDone) .. "/3)")) .. " · Œuf " .. tierName15(b.egg), btn = b.claimed and "Pris" or (bReady and "Réclamer" or "En cours"), btnColor = bReady and COL.green or COL.dis, onClick = bReady and function()
+			RAction:FireServer("bonusClaim")
+		end or nil })
+		local w = v.weekly
+		addNote("📆 Quêtes de la semaine : " .. w.done .. "/7 terminées (lundi UTC = nouvelle semaine).")
+		for _, th in ipairs(w.themes) do
+			addRow({ icon = th.prog >= th.goal and "✅" or "📆", title = tostring(th.text), desc = th.prog .. "/" .. th.goal })
+		end
+		for _, rw in ipairs(Config.QUESTS.weekly.rewards) do
+			local got = (rw.need == 5 and w.c5) or (rw.need == 7 and w.c7)
+			local ready = not got and w.done >= rw.need
+			addRow({ icon = "🎁", title = rw.need .. "/7 : Œuf " .. rw.egg .. ((rw.seasonXp or 0) > 0 and (" + " .. rw.seasonXp .. " XP de saison") or ""), desc = got and "Réclamée cette semaine." or (w.done .. "/" .. rw.need), btn = got and "Pris" or (ready and "Réclamer" or "En cours"), btnColor = ready and COL.green or COL.dis, onClick = ready and function()
+				RAction:FireServer("weeklyClaim", rw.need)
+			end or nil })
+		end
+		local ev = v.ev
+		if ev.weekend then
+			addNote("🍀 Week-end chanceux : +" .. Config.TIMED_EVENTS.weekend.upgradePoints .. " points d'amélioration pour tous, un œuf sur le tapis toutes les " .. Config.TIMED_EVENTS.weekend.beltSeconds .. " s.")
+		end
+		addNote("💰 Heure dorée tous les jours de " .. Config.TIMED_EVENTS.goldenHour.fromHour .. " h à " .. Config.TIMED_EVENTS.goldenHour.toHour .. " h (UTC) : revenus x2" .. (ev.golden and " · EN COURS !" or "."))
+		if ev.limited then
+			local can = ev.exclusiveLive and ev.plumes >= ev.cost and ev.got < ev.max
+			addRow({ icon = "🪶", title = tostring(ev.limited) .. " : " .. ev.plumes .. " plumes", desc = "Œuf Exclusif = " .. ev.cost .. " plumes (" .. ev.got .. "/" .. ev.max .. " cet événement). Plumes : missions du jour, victoires PvE, connexion.", btn = ev.exclusiveLive and (can and "Échanger" or "Plumes") or "Bientôt", btnColor = can and COL.green or COL.dis, onClick = can and function()
+				RAction:FireServer("plumeBuy")
+			end or nil })
+		end
+		if type(v.rot) == "table" then
+			addNote("🗓 Cette semaine : espèce vedette « " .. tostring(v.rot.featured) .. " » (chance x2 dans son œuf) · type en forme : " .. tostring(v.rot.type) .. " (+20 % d'attaque en PvE).")
+		end
+	end
+end
 RNotify.OnClientEvent:Connect(function(msg, sfx)
 	if type(msg) == "string" and msg ~= "" then
 		toast(msg)
@@ -2080,7 +2439,7 @@ task.spawn(function()
 				end
 			end
 			navDots.quests.Visible = claimable or (type(state.hen) == "table" and state.hen.alert == true)
-			navDots.bonus.Visible = state.dailyReady or (type(state.cal) == "table" and state.cal.canToday == true)
+			navDots.bonus.Visible = state.dailyReady or (type(state.cal) == "table" and state.cal.canToday == true) or (L15.claimable ~= nil and L15.claimable(state)) -- lot 15 : quête bonus ou de la semaine à réclamer
 			local achReady = false
 			for _, a in ipairs(Config.ACHIEVEMENTS) do
 				local tier = state.ach[a.id] or 0

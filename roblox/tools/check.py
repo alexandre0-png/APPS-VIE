@@ -166,7 +166,7 @@ for f in files:
 print("[3/5] Remotes client/serveur")
 srv = open(os.path.join(SRC, "ServerScriptService", "Main.server.lua"), encoding="utf-8").read()
 cli = "\n".join(open(f, encoding="utf-8").read() for f in sorted(glob.glob(os.path.join(SRC, "StarterPlayerScripts", "*.lua"))))  # tous les scripts client
-handlers = set(re.findall(r"^function actions\.(\w+)", srv, re.M))
+handlers = set(re.findall(r"^\s*function actions\.(\w+)", srv, re.M))  # lot 15 : actions définies dans un bloc do (indentées)
 calls = set(re.findall(r'FireServer\("(\w+)"', cli))
 for a in calls - handlers:
     fail(f"le client appelle l'action « {a} » sans gestionnaire serveur")
@@ -220,8 +220,8 @@ _fr = open(os.path.join(ROOT, "tests", "FakeRuntime.lua"), encoding="utf-8").rea
 _run_script = _fr[_fr.index("function RT.runScript"):_fr.index("-- environnement des scripts")] if "function RT.runScript" in _fr else ""
 if "fs." in _run_script or "readFile(src" in _fr:
     fail("tests/FakeRuntime.lua : fs.* appelé depuis runScript (coroutine) : sous Lune, fs est asynchrone et bloque le processus ; lire les fichiers dans buildTree")
-if "task.delay(240" not in open(os.path.join(ROOT, "tests", "run.luau"), encoding="utf-8").read() or "process.exit(failed > 0 and 1 or 0)" not in open(os.path.join(ROOT, "tests", "run.luau"), encoding="utf-8").read():
-    fail("tests/run.luau : watchdog global (task.delay 240 s) ou sortie explicite manquants")
+if "task.delay(420" not in open(os.path.join(ROOT, "tests", "run.luau"), encoding="utf-8").read() or "process.exit(failed > 0 and 1 or 0)" not in open(os.path.join(ROOT, "tests", "run.luau"), encoding="utf-8").read():
+    fail("tests/run.luau : watchdog global (task.delay 420 s) ou sortie explicite manquants")
 
 print("[5b] Projets Rojo : JSON valide et chemins existants (substitut partiel de `rojo build`, non exécuté ici)")
 def _paths(node, out):

@@ -102,6 +102,17 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **FPS mobile** : 5 joueurs sur téléphone sur la place (kiosque + décor) et dans des maisons de haut niveau : 30 images/s visées ; dis-moi si ça rame (un décor se coupe par `Config.Assets.decorOff`).
 - [ ] **Rendu général** : couleurs et matériaux des modèles cohérents avec le style du jeu, aucune pièce flottante ou enterrée.
 
+## 3septies. Lot 15 : PNJ, série de 7 jours, quêtes, sac d'œufs, événements (rien de tout ceci n'a été vu en jeu)
+
+- [ ] **PNJ (30 min de jeu)** : après 8 min, environ 3 rencontres en 30 min ; le PNJ apparaît à ~25 studs sur la place ou un chemin (jamais dans un territoire ni sur une base), marche vers toi, bulle ❗, carte de dialogue en bas de l'écran ; **jamais pendant un vol, en portant un œuf, poursuivi par un gardien, au château ou pendant une cinématique** ; son `npc_ping` seul. Dis-moi si c'est gênant ou trop fréquent.
+- [ ] **Modèles des PNJ** (Pip, Lina, Bruno, Kaï, Nora) : console serveur `[Assets] PNJ publiés aux clients : N/5` ; échelle (hauteur ~6 studs, Pip et sa charrette 9 studs de large), orientation face au joueur pendant la marche (sinon ils marchent de dos : dis-le moi), repli procédural (bonhomme coloré) si 0/5.
+- [ ] **Échange avec Pip / Nora** : « Voir l'offre » montre ce que tu donnes et reçois (avec « 1 sur N »), 2ᵉ confirmation pour un pet Épique ou mieux ; les pièces et les pets sont bien retirés, l'œuf / le pet bien reçu (base, sinon sac d'œufs). **Combat contre Lina / Bruno / Kaï (lundi)** : il faut une équipe (bouton ⚔️) ; victoire = pièces (+ œuf parfois), défaite = rien de perdu.
+- [ ] **Réglage « Ne plus être interpellé »** (menu Plus) : plus aucun PNJ ; le remettre fait revenir les PNJ (après le délai normal).
+- [ ] **Série de 7 jours** (menu Bonus, remplace l'ancien bonus quotidien) : réclamation par bouton, pastille rouge sur Bonus, texte de chaque jour ; manque un jour (grâce), puis deux (écran de sauvetage : 3 missions / repartir du jour 1). Le bouton payant n'apparaît qu'après la création du produit (§4).
+- [ ] **Sac d'œufs** : base pleine, réclame la série ou le calendrier : l'œuf va dans le sac (« Sac d'œufs N/10 ») ; « Poser » le remet dans la base quand une place se libère.
+- [ ] **Calendrier mural** (près du kiosque, place du marché) : le modèle `hub.calendar` (30 cases, jour 1 en haut à gauche, coffre devant) s'affiche-t-il, à la bonne taille (7 studs de haut), tourné vers la place, sans chevaucher le kiosque ? Son prompt « Calendrier » ouvre le calendrier. Sinon dis-moi où le mettre.
+- [ ] **Événements** : week-end (samedi et dimanche UTC) : tapis toutes les 4 s ; 18 h - 19 h UTC : revenus x2 ; Halloween / Noël / printemps : décor sur la place (citrouille, sapin, arche) et plumes d'événement dans le menu Bonus.
+
 ## 4. Créer les achats sur le Creator Hub et me donner les ID
 
 Creator Hub → ton expérience → **Monetization**. Les prix sont des suggestions (Roblox prélève 30 %). Après création, colle chaque ID dans `Config.PASSES` / `Config.PRODUCTS` (clés `Coins2x`, `Lucky`, `Fast`, `Speed`, `VipBase`, `StarterPack`, `ExclusiveEgg`, `Revive`, `InstantHatch`, `LuckPotion`, `CoinPack`) et envoie-les-moi. Une icône est prête pour les 6 premiers achats dans `roblox/publication/art/`.
@@ -129,6 +140,7 @@ Creator Hub → ton expérience → **Monetization**. Les prix sont des suggesti
 | Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | créé et en vente |
 | Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | créé et en vente |
 | Developer Product | Rattrapage du calendrier | 29 R$ | Rattrape UN jour manqué du calendrier de 30 jours. | créé et en vente (id 3736695392, rien à faire) |
+| Developer Product | Sauver ma série | 29 R$ | Sauve ta série de 7 jours après 2 jours manqués (une fois par semaine). Aucun hasard. | **à créer (lot 15)** : colle l'ID dans `Config.PRODUCTS.StreakRestore.id` (tant qu'il vaut 0, le bouton est caché ; le sauvetage gratuit par les 3 missions reste disponible) |
 
 - [ ] Créer les 5 Game Passes et les 6 Developer Products du tableau ci-dessus (colonne « ID à renseigner » : `PUBLICATION.md` §3bis donne la ligne exacte de `Config.lua` pour chacun).
 - [ ] Copier chaque **ID** dans `roblox/src/ReplicatedStorage/Config.lua`, champ `id = 0` de la ligne correspondante (les 11 clés sont listées plus haut). Ou me donner les 11 ID et je m'en charge, puis je régénère la place.

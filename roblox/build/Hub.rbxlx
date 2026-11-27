@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX64"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX98"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX97"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX66"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX102"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX101"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2348,8 +2348,180 @@ function Config.iconFallback(key)
 	return Config.ICON_FALLBACK[key] or ""
 end
 
+---------------------------------------------------------------- LOT 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, rotation, événements
+-- Données reprises de Lot15Data (modules purs ReplicatedStorage/Npc et Rewards, qui les lisent dans Config). Règle : AUCUN indice de rareté codé en dur ici,
+-- toute rareté est un NOM résolu par Config.TIERS. `TIMED_EVENTS` (week-end chanceux, heure dorée) : nom distinct de Config.EVENTS (événements serveur existants).
+Config.FORBIDDEN_GIFT_TIERS = { "Secret", "Exclusif", "Divin" }
+
+---------------------------------------------------------------- F.1 Personnages
+-- role : trade | fight | champion. types : types d'équipe (TypeFx.TYPES). signature : espèce emblématique (lot 11) ; l'équipe n'utilise que des espèces
+-- EXISTANTES de Config.PETS (si la signature n'existe pas encore, elle n'est qu'affichée). model : clé d'asset (repli procédural obligatoire si l'ID est vide).
+Config.NPCS = {
+	pip = { name = "Pip le Colporteur", role = "trade", model = "npc.pip", emoji = "🧺" },
+	nora = { name = "Nora la Collectionneuse", role = "trade", model = "npc.nora", emoji = "📒" },
+	lina = { name = "Lina la Dresseuse", role = "fight", model = "npc.lina", emoji = "🌿", types = { "Plante", "Eau", "Glace" }, signature = "Koala" },
+	bruno = { name = "Bruno le Costaud", role = "fight", model = "npc.bruno", emoji = "🔨", types = { "Terre", "Feu" }, signature = "Ours brun" },
+	kai = { name = "Maître Kaï", role = "champion", model = "npc.kai", emoji = "🦊", types = { "Feu", "Eau", "Plante", "Glace", "Foudre", "Terre", "Ciel", "Ombre", "Lumière" }, signature = "Renard à neuf queues" },
+}
+
+-- F.2 (valeurs exactes de la spécification).
+Config.NPC_ENCOUNTER = { firstAfterMinutes = 8, gapMinutes = { 6, 10 }, tradesPerDay = 4, fightsPerDay = 4, weeklyChampion = 1, snoozeMinutes = 10, offerSeconds = 60, approachRange = 25 }
+
+-- F.4 / F.5 : règles chiffrées (noms de raretés, de tailles et de mutations ; jamais d'indices).
+Config.NPC_RULES = {
+	maxRefusals = 3, -- refus de suite : le PNJ ne revient plus ce jour-là
+	buyDiscountNum = 8, buyDiscountDen = 10, -- œuf contre pièces = EGG_PRICE x 0,8
+	buyMaxTier = "Légendaire", -- r <= 5
+	dupesNeeded = 3, dupesMaxTier = "Épique", -- 3 doublons de rareté r (r <= 4) -> 1 œuf r+1
+	speciesMaxTier = "Légendaire", speciesFeeNum = 2, speciesFeeDen = 10, speciesSize = "Normal", -- Nora : espèce manquante (r <= 5) contre 1 doublon + EGG_PRICE x 0,2
+	giveMaxTier = "Légendaire", -- jamais un pet de rareté >= 6
+	forbidMutFrom = "Arc-en-ciel", -- jamais un pet muté Arc-en-ciel ou mieux
+	forbidSizeFrom = "Géant", -- jamais un pet Géant ou Colossal
+	confirm2FromTier = "Épique", -- 2e confirmation si un pet de rareté >= 4 est donné
+	revealQuietTier = "Légendaire", revealQuietSeconds = 60, -- pas de PNJ dans les 60 s après une révélation de rareté >= 5
+	fightRewardMul = 0.6, cardPct = 60, champCardPct = 100, champPowerMul = 1.3, powerMin = 0.9, powerMax = 1.1,
+	fightEggCap = "Légendaire", champEgg = "Mythique", lossXp = 5, resultSeconds = 900,
+}
+
+---------------------------------------------------------------- F.3 Dialogues (textes exacts ; {variables} remplacées par Npc.say)
+Config.DIALOGUES = {
+	pip = {
+		approach = "Psst ! Hé, toi, le Chipeur ! J'ai un œuf qui n'attend que toi… On fait affaire ?",
+		offer1 = "Cet œuf {rarity} contre 🪙 {price} : c'est 20 % de moins qu'à la boutique !",
+		offer2 = "Tu as des doublons ? Donne-m'en 3 de rareté {r} et je te donne un œuf {r2}. Promis, pas d'arnaque.",
+		refuse = "Tant pis ! Je repasse plus tard, garde tes pièces au chaud.",
+		buttons = { "Voir l'offre", "Pas maintenant" },
+	},
+	nora = {
+		approach = "Oh ! Il te manque quelque chose dans ton bestiaire…",
+		offer = "Oh ! Il te manque le {species} dans ton bestiaire ? J'en ai un. Je te l'échange contre ton {dupe} et 🪙 {fee}.",
+		refuse = "Pas de souci, mon carnet est patient.",
+		buttons = { "Voir l'offre", "Pas maintenant" },
+	},
+	lina = {
+		approach = "Ton équipe a l'air prometteuse… Un petit combat ? Je ne mords pas. Mon Koala, si.",
+		win = "Bien joué ! Choisis ta récompense, tu l'as méritée.",
+		lose = "Pas cette fois ! Entraîne-toi à la tour et reviens me voir. Astuce : {tip}",
+		refuse = "Une autre fois, alors !",
+		buttons = { "Combattre", "Pas maintenant" },
+	},
+	bruno = {
+		approach = "Hé, toi ! Mon Ours brun s'ennuie. Un combat ?",
+		win = "Pas mal du tout ! Prends ta récompense.",
+		lose = "Haha ! Reviens quand tu auras plus de biceps. Astuce : {tip}",
+		refuse = "Une autre fois, alors !",
+		gone = "Bon, je vois que t'es occupé. À demain !",
+		buttons = { "Combattre", "Pas maintenant" },
+	},
+	kai = {
+		approach = "On m'a parlé de toi. Montre-moi ta meilleure équipe : si tu gagnes, la récompense est à la hauteur.",
+		win = "Impressionnant. Cet œuf est à toi, et une récompense de plus.",
+		lose = "Tu n'es pas encore prêt. Reviens lundi prochain.",
+		refuse = "Je repasserai lundi prochain.",
+		buttons = { "Relever le défi", "Pas maintenant" },
+	},
+}
+
+-- Astuces de défaite : type de l'équipe adverse -> type qui le bat. VALEURS PAR DÉFAUT : l'intégrateur peut les remplacer par une lecture de la matrice D.2 de Battle
+-- (Npc.tip accepte une table `weak` en argument).
+Config.TYPE_WEAK = { Feu = "Eau", Eau = "Foudre", Plante = "Feu", Glace = "Feu", Foudre = "Terre", Terre = "Plante", Ciel = "Foudre", Ombre = "Lumière", ["Lumière"] = "Ombre" }
+
+---------------------------------------------------------------- G.1 Série de 7 jours
+-- eggs : noms de raretés ; c : minutes de revenu (min coinFloor) ; luck = potion de chance { minutes, points } ; boost = { key, mul, minutes } ; fragments : Fragments du Grand Œuf.
+-- Jour 7 : eggsMonth = œufs à la place de `eggs` à chaque 4e semaine complète.
+Config.STREAK = {
+	coinFloor = 500, mythicEveryWeeks = 4, restoreQuests = 3, resetAfterMissed = 3,
+	days = {
+		{ eggs = { "Peu commun" }, c = 5 },
+		{ eggs = { "Rare" } },
+		{ luck = { minutes = 10, points = 25 } },
+		{ eggs = { "Épique" }, c = 10 },
+		{ eggs = { "Rare", "Rare" }, boost = { key = "xp", mul = 2, minutes = 30 } },
+		{ eggs = { "Épique", "Épique" } },
+		{ eggs = { "Légendaire" }, eggsMonth = { "Mythique" }, c = 30, fragments = 1 },
+	},
+}
+
+-- Sac d'œufs : 10 places, jamais de perte (réclamation refusée tant que base ET sac sont pleins).
+Config.EGG_BAG = { size = 10 }
+
+---------------------------------------------------------------- G.4 Quêtes bonus et hebdomadaires
+Config.QUESTS = {
+	-- Quête bonus du jour (débloquée par les 3 quêtes du jour) : une option choisie par le numéro du jour.
+	bonus = {
+		egg = "Épique", eggLate = "Légendaire", lateChapter = 6,
+		options = { { kind = "pve", goal = 2, text = "Gagne 2 combats PvE" }, { kind = "hatch", goal = 1, minTier = "Épique", text = "Fais éclore 1 œuf Épique ou mieux" } },
+	},
+	-- 7 quêtes de la semaine, une par thème. 5/7 -> Légendaire ; 7/7 -> Mythique + 300 XP de saison.
+	weekly = {
+		themes = {
+			{ key = "hatch", goal = 15, text = "Fais éclore 15 œufs" }, { key = "steal", goal = 3, text = "Chipe 3 œufs" }, { key = "pve", goal = 10, text = "Gagne 10 combats PvE" },
+			{ key = "pvp", goal = 3, text = "Gagne 3 duels" }, { key = "collect", goal = 5, text = "Découvre 5 espèces" }, { key = "riddle", goal = 3, text = "Résous 3 énigmes" },
+			{ key = "npc", goal = 3, text = "Termine 3 rencontres de PNJ" },
+		},
+		rewards = { { need = 5, egg = "Légendaire" }, { need = 7, egg = "Mythique", seasonXp = 300 } },
+	},
+	-- Nouveaux types de quêtes du jour (forme libre : l'intégrateur les adapte à Config.QUEST_TYPES).
+	newTypes = {
+		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duels", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange avec un PNJ", goals = { 1, 1, 2 } },
+		typeWin = { text = "Gagne {n} combats avec le type {type}", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
+	},
+}
+
+---------------------------------------------------------------- G.5 Événements
+-- Plumes d'événement (monnaie distincte des plumes du calendrier : champ event.p) : plafonds par jour UTC.
+Config.PLUMES = { perQuest = 10, questCapDay = 40, perPveWin = 2, pveCapDay = 20, login = 5, exclusiveCost = 150, exclusiveName = "Exclusif", maxExclusivePerEvent = 3, balanceCap = 999 }
+
+-- days : jours de la semaine UTC (0 = dimanche) ; le week-end chanceux va de samedi 00:00 à lundi 00:00 (dimanche inclus).
+Config.TIMED_EVENTS = {
+	weekend = { days = { 6, 0 }, upgradePoints = 5, beltSeconds = 4, beltDefault = 5 },
+	goldenHour = { fromHour = 18, toHour = 19, key = "gold" },
+}
+
+-- Événements limités (10 jours, 1 par mois au plus) : dates UTC « MM-JJ » (sans année : revient chaque année), species = numéro de l'espèce Exclusif (lot 11).
+-- Modifiable sans toucher à la logique.
+Config.EVENTS_CAL = {
+	{ id = "spring", name = "Printemps en fleurs", from = "03-21", to = "03-30", species = 75, decor = "event.springArch" },
+	{ id = "summer", name = "Fête de l'été", from = "07-14", to = "07-23", species = 76, decor = "event.summerGate" },
+	{ id = "halloween", name = "Nuit des citrouilles", from = "10-22", to = "10-31", species = 72, decor = "event.pumpkin" },
+	{ id = "xmas", name = "Noël au Couvoir", from = "12-16", to = "12-25", species = 73, decor = "event.xmasTree" },
+}
+
+---------------------------------------------------------------- G.4 Rotation hebdomadaire (cycle de 9 semaines, un type par semaine)
+-- featured : espèce vedette (nom de Config.PETS, poids x2 dans son œuf) ; type : type « en forme » (+20 % de dégâts PvE) ; shop : 2 cosmétiques (ids à relier au catalogue).
+Config.WEEKLY_ROTATION_EPOCH = 0 -- semaine (lundi UTC) servant d'origine du cycle
+Config.WEEKLY_ROTATION = {
+	{ type = "Feu", featured = "Renard", shop = { "trail_flame", "hat_cinder" } },
+	{ type = "Eau", featured = "Manchot", shop = { "trail_bubble", "hat_shell" } },
+	{ type = "Plante", featured = "Lapin", shop = { "trail_leaf", "hat_flower" } },
+	{ type = "Glace", featured = "Panda", shop = { "trail_snow", "hat_frost" } },
+	{ type = "Foudre", featured = "Tigre", shop = { "trail_spark", "hat_bolt" } },
+	{ type = "Terre", featured = "Chien", shop = { "trail_dust", "hat_stone" } },
+	{ type = "Ciel", featured = "Hibou", shop = { "trail_cloud", "hat_wing" } },
+	{ type = "Ombre", featured = "Chat", shop = { "trail_smoke", "hat_moon" } },
+	{ type = "Lumière", featured = "Licorne", shop = { "trail_star", "hat_halo" } },
+}
+Config.WEEKLY_ROTATION_MULT = 2 -- poids de l'espèce vedette
+Config.WEEKLY_ROTATION_DAMAGE = 1.2 -- type en forme, PvE seulement
+-- Modèles Blender du lot 29 (repli procédural obligatoire si l'ID est vide ou si le chargement échoue). PNJ : chargés par le serveur, publiés dans
+-- ReplicatedStorage.NpcTemplates, clonés par le CLIENT (seul le joueur interpellé voit son PNJ). Pip et sa charrette : 9 studs de large.
+Config.Assets.models.npc = { pip = 123590742152774, lina = 102038009896523, bruno = 132952760984236, kai = 132880746039280, nora = 81037598191401 }
+Config.Assets.models.event = { pumpkin = 73142027959966, xmasTree = 139994644133468, springArch = 100036291919800 }
+Config.Assets.models.hub.calendar = 134196650002859 -- calendrier mural de 30 cases (jour 1 en haut à gauche, coffre devant), posé près du kiosque
+for _, k in ipairs({ "npc.pip", "npc.lina", "npc.bruno", "npc.kai", "npc.nora", "event.pumpkin", "event.xmasTree", "event.springArch", "hub.calendar" }) do
+	Config.Assets.modelsMaxParts[k] = 220
+end
+-- Affichage des PNJ (client) : hauteur visée, largeur de Pip avec sa charrette, distance d'arrêt devant le joueur, durée de la marche d'approche.
+Config.NPC_VIEW = { height = 6, pipWidth = 9, stopAt = 7, walkSeconds = 3.5 }
+-- Décor d'un événement limité : clé `decor` de EVENTS_CAL -> modèle du groupe `event` (sans modèle : repli procédural). Calendrier mural : décalage depuis le kiosque.
+Config.EVENT_DECOR = { ["event.pumpkin"] = "pumpkin", ["event.xmasTree"] = "xmasTree", ["event.springArch"] = "springArch" }
+Config.EVENT_DECOR_SPOT = { x = -14, z = 30, height = 9 }
+Config.CALENDAR_BOARD = { dx = -9, dz = -6, height = 7 }
+-- Produit de sauvetage de la série (G.2) : 29 R$, une fois par semaine UTC. ID 0 = désactivé tant qu'il n'est pas créé dans le Creator Hub (A_FAIRE_UTILISATEUR.md).
+Config.PRODUCTS.StreakRestore = { id = 0, robux = 29, name = "Sauver ma série", emoji = "🔥", desc = "Sauve ta série de 7 jours après 2 jours manqués (une fois par semaine). Aucun hasard." }
+
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2645,7 +2817,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2825,7 +2997,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3171,7 +3343,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3472,7 +3644,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4075,7 +4247,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4500,7 +4672,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4538,7 +4710,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4626,7 +4798,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4689,7 +4861,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -5097,7 +5269,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5161,7 +5333,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5502,7 +5674,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5559,7 +5731,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5671,7 +5843,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -5878,7 +6050,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6097,7 +6269,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -6901,7 +7073,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7012,7 +7184,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7216,7 +7388,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -7417,7 +7589,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -7850,7 +8022,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8079,7 +8251,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8143,7 +8315,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -8461,7 +8633,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -8786,7 +8958,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -8944,7 +9116,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9066,7 +9238,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -9452,7 +9624,1602 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
+-- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
+-- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
+-- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
+-- État de profil `npc` : day (jour UTC des compteurs), trades / fights (rencontres du jour), enc (rencontres du jour, alternance), nextAt (secondes UNIX absolues),
+-- off (« Ne plus être interpellé »), champ (semaine du dernier Champion errant), refuse / gone (refus de suite et PNJ partis pour la journée, par clé de PNJ).
+-- Style : pas de `+=`, pas de `continue`, valeurs douteuses gardées par type avant toute comparaison.
+-- Inventaire fourni par le serveur à chaque appel (`inv`) : { coins, pets = { { slot, p, s, m, follower, team, defense } }, seen = { [p] = true }, typeOf = fn(p) -> type, avgLevel, teamTiers = { rareté } }.
+local Npc = {}
+
+local function isnum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function int(v, lo, hi, def)
+	if not isnum(v) then
+		return def
+	end
+	v = math.floor(v)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+Npc.int = int
+
+local function rint(rng, a, b)
+	return a + math.floor(rng() * (b - a + 1))
+end
+
+-- Indice d'une rareté d'après son NOM dans Config.TIERS (nil si absente : tout ce qui en dépend est alors refusé).
+function Npc.tierIdx(Config, name)
+	for i, t in ipairs(Config.TIERS) do
+		if t.name == name then
+			return i
+		end
+	end
+	return nil
+end
+
+local function listIdx(list, name)
+	for i, e in ipairs(list or {}) do
+		if e.name == name then
+			return i
+		end
+	end
+	return nil
+end
+
+-- Une rareté sans espèce publiée n'apparaît jamais : un œuf donné prend la rareté publiée inférieure (Config.tierLive du lot 9 si présent).
+local function liveTier(Config, t)
+	if type(Config.tierLive) ~= "function" then
+		return t
+	end
+	while t > 1 and not Config.tierLive(t) do
+		t = t - 1
+	end
+	return t
+end
+Npc.liveTier = liveTier
+
+local function forbiddenTier(Config, t)
+	local name = Config.TIERS[t] and Config.TIERS[t].name
+	for _, n in ipairs(Config.FORBIDDEN_GIFT_TIERS or {}) do
+		if n == name then
+			return true
+		end
+	end
+	return false
+end
+Npc.forbiddenTier = forbiddenTier
+
+---------------------------------------------------------------- Temps (UTC, jour = os.time() // 86400)
+-- 0 = dimanche. Le 1er janvier 1970 (jour 0) était un jeudi.
+function Npc.dow(day)
+	return (math.floor(day) + 4) % 7
+end
+
+-- Numéro de semaine (lundi UTC = début).
+function Npc.weekOf(day)
+	return math.floor((math.floor(day) + 3) / 7)
+end
+
+---------------------------------------------------------------- État du profil
+function Npc.newState()
+	return { day = 0, trades = 0, fights = 0, enc = 0, nextAt = 0, off = false, champ = 0, refuse = {}, gone = {} }
+end
+
+local function cleanMap(saved, isBool)
+	local out, n = {}, 0
+	if type(saved) == "table" then
+		for k, v in pairs(saved) do
+			if type(k) == "string" and #k <= 16 and n < 12 then
+				if isBool then
+					if v == true then
+						out[k] = true
+						n = n + 1
+					end
+				elseif isnum(v) then
+					out[k] = int(v, 0, 99, 0)
+					n = n + 1
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- Assainit un `npc` lu du profil (absent, corrompu ou d'une autre forme = état neuf ; que des entiers bornés).
+function Npc.sanitize(saved)
+	local s = Npc.newState()
+	if type(saved) ~= "table" then
+		return s
+	end
+	s.day = int(saved.day, 0, 1e6, 0)
+	s.trades = int(saved.trades, 0, 99, 0)
+	s.fights = int(saved.fights, 0, 99, 0)
+	s.enc = int(saved.enc, 0, 99, 0)
+	s.nextAt = int(saved.nextAt, 0, 4e9, 0)
+	s.off = saved.off == true
+	s.champ = int(saved.champ, 0, 1e6, 0)
+	s.refuse = cleanMap(saved.refuse, false)
+	s.gone = cleanMap(saved.gone, true)
+	return s
+end
+
+-- Remet à zéro les compteurs du jour au changement de jour UTC (nextAt, off et champ survivent : se reconnecter ne relance rien).
+function Npc.rollDay(npc, today)
+	if npc.day ~= today then
+		npc.day = today
+		npc.trades = 0
+		npc.fights = 0
+		npc.enc = 0
+		npc.refuse = {}
+		npc.gone = {}
+	end
+end
+
+---------------------------------------------------------------- Conditions de rencontre (F.2)
+-- ctx : { sessionStart, carrying, chased, inDuel, inCastle, inCinematic, flying, inTerritory, pending, lastRevealAt, lastRevealTier }.
+-- Retourne true ou (false, code) : off, pending, carrying, chased, duel, castle, cine, flying, territory, early, reveal, wait.
+function Npc.canSpawn(Config, npc, now, today, ctx)
+	local E, R = Config.NPC_ENCOUNTER, Config.NPC_RULES
+	ctx = type(ctx) == "table" and ctx or {}
+	if npc.off == true then
+		return false, "off"
+	end
+	if ctx.pending then
+		return false, "pending"
+	end
+	if ctx.carrying then
+		return false, "carrying"
+	elseif ctx.chased then
+		return false, "chased"
+	elseif ctx.inDuel then
+		return false, "duel"
+	elseif ctx.inCastle then
+		return false, "castle"
+	elseif ctx.inCinematic then
+		return false, "cine"
+	elseif ctx.flying then
+		return false, "flying"
+	elseif ctx.inTerritory then
+		return false, "territory"
+	end
+	if not isnum(now) then
+		return false, "wait"
+	end
+	local started = isnum(ctx.sessionStart) and ctx.sessionStart or now
+	if now - started < E.firstAfterMinutes * 60 then
+		return false, "early"
+	end
+	local quietTier = Npc.tierIdx(Config, R.revealQuietTier)
+	if isnum(ctx.lastRevealAt) and isnum(ctx.lastRevealTier) and quietTier and ctx.lastRevealTier >= quietTier and now - ctx.lastRevealAt < R.revealQuietSeconds then
+		return false, "reveal"
+	end
+	if now < npc.nextAt then
+		return false, "wait"
+	end
+	return true
+end
+
+---------------------------------------------------------------- Règles de pets (F.4 point 3)
+-- Nombre d'exemplaires de chaque espèce possédés (tous pets, équipés ou non).
+local function speciesCounts(inv)
+	local c = {}
+	for _, pet in ipairs(inv.pets or {}) do
+		c[pet.p] = (c[pet.p] or 0) + 1
+	end
+	return c
+end
+
+-- Un pet peut-il être DEMANDÉ par un PNJ ? (indépendamment du nombre d'exemplaires, voir `giveable`.)
+function Npc.petAllowed(Config, pet)
+	local R = Config.NPC_RULES
+	if type(pet) ~= "table" or type(pet.p) ~= "number" or Config.PETS[pet.p] == nil then
+		return false
+	end
+	if pet.follower or pet.team or pet.defense then
+		return false
+	end
+	local maxTier = Npc.tierIdx(Config, R.giveMaxTier)
+	local mutFrom = listIdx(Config.MUTS, R.forbidMutFrom)
+	local sizeFrom = listIdx(Config.SIZES, R.forbidSizeFrom)
+	if not maxTier or not mutFrom or not sizeFrom then
+		return false -- configuration incomplète : on refuse (pas de repli permissif)
+	end
+	if Config.PETS[pet.p].tier > maxTier or forbiddenTier(Config, Config.PETS[pet.p].tier) then
+		return false
+	end
+	if type(pet.m) ~= "number" or pet.m >= mutFrom or type(pet.s) ~= "number" or pet.s >= sizeFrom then
+		return false
+	end
+	return true
+end
+
+-- Pets que le joueur peut donner, groupés par rareté : giveable[r] = liste de pets (du moins précieux au plus précieux) en respectant « jamais le dernier exemplaire ».
+local function giveableByTier(Config, inv)
+	local counts = speciesCounts(inv)
+	local bySpecies = {}
+	for _, pet in ipairs(inv.pets or {}) do
+		if Npc.petAllowed(Config, pet) then
+			local l = bySpecies[pet.p]
+			if not l then
+				l = {}
+				bySpecies[pet.p] = l
+			end
+			l[#l + 1] = pet
+		end
+	end
+	local out = {}
+	for p, list in pairs(bySpecies) do
+		table.sort(list, function(a, b)
+			local va, vb = a.m * 10 + a.s, b.m * 10 + b.s
+			if va ~= vb then
+				return va < vb
+			end
+			return (a.slot or 0) < (b.slot or 0)
+		end)
+		local allowed = math.min(#list, counts[p] - 1) -- au moins un exemplaire reste (doublon = au moins 2)
+		local r = Config.PETS[p].tier
+		for i = 1, allowed do
+			out[r] = out[r] or {}
+			out[r][#out[r] + 1] = list[i]
+		end
+	end
+	for _, l in pairs(out) do
+		table.sort(l, function(a, b)
+			local va, vb = a.m * 10 + a.s, b.m * 10 + b.s
+			if va ~= vb then
+				return va < vb
+			end
+			return (a.slot or 0) < (b.slot or 0)
+		end)
+	end
+	return out
+end
+
+---------------------------------------------------------------- Valeurs d'échange exactes (F.4 point 2)
+function Npc.buyPrice(Config, r)
+	local R = Config.NPC_RULES
+	return math.floor(Config.EGG_PRICE[r] * R.buyDiscountNum / R.buyDiscountDen)
+end
+
+function Npc.speciesFee(Config, r)
+	local R = Config.NPC_RULES
+	return math.floor(Config.EGG_PRICE[r] * R.speciesFeeNum / R.speciesFeeDen)
+end
+
+---------------------------------------------------------------- Carnet d'offres (serveur, un par joueur)
+function Npc.newBook()
+	return { offers = {}, used = {}, usedOrder = {}, seq = 0, current = nil }
+end
+
+local function remember(book, id)
+	book.used[id] = true
+	book.usedOrder[#book.usedOrder + 1] = id
+	while #book.usedOrder > 64 do
+		local old = table.remove(book.usedOrder, 1)
+		book.used[old] = nil
+	end
+end
+
+local function newId(book, userId, rng)
+	book.seq = book.seq + 1
+	return string.format("%d-%d-%08x", math.floor(userId), book.seq, math.floor(rng() * 4294967296))
+end
+
+-- Retire les offres expirées (le PNJ repart sans pénalité). Retourne le nombre retiré.
+function Npc.sweep(book, now)
+	local n = 0
+	for id, o in pairs(book.offers) do
+		local limit = o.state == "accepted" and o.resultBy or o.expires
+		if now >= limit then
+			book.offers[id] = nil
+			if book.current == id then
+				book.current = nil
+			end
+			n = n + 1
+		end
+	end
+	return n
+end
+
+---------------------------------------------------------------- Construction des offres
+local function tierName(Config, t)
+	return Config.TIERS[t] and Config.TIERS[t].name or "?"
+end
+
+local function newOffer(Config, book, npcKey, kind, userId, now, rng)
+	local E = Config.NPC_ENCOUNTER
+	return {
+		id = newId(book, userId, rng), userId = math.floor(userId), npc = npcKey, kind = kind, created = now, expires = now + E.offerSeconds, state = "open",
+		take = {}, price = 0,
+	}
+end
+
+-- Pip : (A) œuf contre pièces à 80 % du prix, ou (B) 3 doublons de rareté r (r <= 4) contre 1 œuf r+1 (jamais un gain nul).
+local function makePip(Config, book, userId, inv, now, rng, give)
+	local R = Config.NPC_RULES
+	local buyMax = Npc.tierIdx(Config, R.buyMaxTier)
+	local dupMax = Npc.tierIdx(Config, R.dupesMaxTier)
+	local options = {}
+	if buyMax then
+		options[#options + 1] = "buy"
+	end
+	if dupMax then
+		for r = 1, math.min(dupMax, #Config.TIERS - 1) do
+			local gain = liveTier(Config, r + 1)
+			if gain > r and not forbiddenTier(Config, gain) and give[r] and #give[r] >= R.dupesNeeded then
+				options[#options + 1] = "dupes"
+				break
+			end
+		end
+	end
+	if #options == 0 then
+		return nil
+	end
+	local pick = options[rint(rng, 1, #options)]
+	local o = newOffer(Config, book, "pip", "trade", userId, now, rng)
+	if pick == "buy" then
+		local coins = isnum(inv.coins) and inv.coins or 0
+		local candidates = {}
+		for r = 1, buyMax do
+			local t = liveTier(Config, r)
+			if t == r and Config.EGG_PRICE[r] > 0 and Npc.buyPrice(Config, r) <= coins then
+				candidates[#candidates + 1] = r
+			end
+		end
+		local r = #candidates > 0 and candidates[rint(rng, 1, #candidates)] or liveTier(Config, 1)
+		o.sub = "buy"
+		o.price = Npc.buyPrice(Config, r)
+		o.getEgg = r
+	else
+		local choices = {}
+		for r = 1, math.min(dupMax, #Config.TIERS - 1) do
+			local gain = liveTier(Config, r + 1)
+			if gain > r and not forbiddenTier(Config, gain) and give[r] and #give[r] >= R.dupesNeeded then
+				choices[#choices + 1] = r
+			end
+		end
+		local r = choices[rint(rng, 1, #choices)]
+		o.sub = "dupes"
+		o.dupeTier = r
+		o.getEgg = liveTier(Config, r + 1)
+		for i = 1, R.dupesNeeded do
+			local pet = give[r][i]
+			o.take[#o.take + 1] = { slot = pet.slot, p = pet.p, s = pet.s, m = pet.m }
+		end
+	end
+	return o
+end
+
+-- Nora : espèce manquante (rareté <= 5, jamais vue) contre 1 doublon de même rareté + 20 % du prix de l'œuf.
+local function makeNora(Config, book, userId, inv, now, rng, give)
+	local R = Config.NPC_RULES
+	local maxTier = Npc.tierIdx(Config, R.speciesMaxTier)
+	local normal = listIdx(Config.SIZES, R.speciesSize)
+	if not maxTier or not normal then
+		return nil
+	end
+	local seen = inv.seen or {}
+	local cands = {}
+	for p, sp in ipairs(Config.PETS) do
+		local r = sp.tier
+		if r <= maxTier and not seen[p] and sp.published ~= false and sp.hidden ~= true and not forbiddenTier(Config, r) and give[r] and #give[r] >= 1 and Config.EGG_PRICE[r] > 0 then
+			cands[#cands + 1] = p
+		end
+	end
+	if #cands == 0 then
+		return nil
+	end
+	local p = cands[rint(rng, 1, #cands)]
+	local r = Config.PETS[p].tier
+	local pet = give[r][1]
+	local o = newOffer(Config, book, "nora", "trade", userId, now, rng)
+	o.sub = "species"
+	o.price = Npc.speciesFee(Config, r)
+	o.getSpecies = { p = p, s = normal, m = 1 }
+	o.take[1] = { slot = pet.slot, p = pet.p, s = pet.s, m = pet.m }
+	return o
+end
+
+-- Équipe adverse : 3 espèces EXISTANTES (types du PNJ si `inv.typeOf` est fourni, sinon toutes), niveau = niveau moyen du joueur, puissance = équipe du joueur x U(0,9 ; 1,1).
+local function makeFight(Config, book, npcKey, userId, inv, now, rng, champion)
+	local R = Config.NPC_RULES
+	local def = Config.NPCS[npcKey]
+	local o = newOffer(Config, book, npcKey, champion and "champion" or "fight", userId, now, rng)
+	local maxPlayer = 1
+	local sum, n = 0, 0
+	for _, t in ipairs(inv.teamTiers or {}) do
+		if isnum(t) then
+			maxPlayer = math.max(maxPlayer, t)
+			sum = sum + t
+			n = n + 1
+		end
+	end
+	local pool, fallback = {}, {}
+	for p, sp in ipairs(Config.PETS) do
+		if sp.published ~= false and sp.hidden ~= true and sp.tier <= maxPlayer then
+			fallback[#fallback + 1] = p
+			if type(inv.typeOf) ~= "function" or not def.types then
+				pool[#pool + 1] = p
+			else
+				local ty = inv.typeOf(p)
+				for _, want in ipairs(def.types) do
+					if ty == want then
+						pool[#pool + 1] = p
+						break
+					end
+				end
+			end
+		end
+	end
+	if #pool == 0 then
+		pool = fallback
+	end
+	if #pool == 0 then
+		for p in ipairs(Config.PETS) do
+			pool[#pool + 1] = p
+		end
+	end
+	local lvl = int(inv.avgLevel, 1, 999, 1)
+	local bag = {}
+	for _, p in ipairs(pool) do
+		bag[#bag + 1] = p
+	end
+	o.team = {}
+	for _ = 1, 3 do
+		local i = #bag > 0 and rint(rng, 1, #bag) or nil
+		local p
+		if i then
+			p = bag[i]
+			table.remove(bag, i)
+		else
+			p = pool[rint(rng, 1, #pool)]
+		end
+		o.team[#o.team + 1] = { p = p, lvl = lvl }
+	end
+	o.powerMul = (R.powerMin + rng() * (R.powerMax - R.powerMin)) * (champion and R.champPowerMul or 1)
+	o.cardPct = champion and R.champCardPct or R.cardPct
+	o.rewardMul = champion and 1 or R.fightRewardMul
+	if champion then
+		o.guaranteedEgg = liveTier(Config, Npc.tierIdx(Config, R.champEgg) or 1)
+	else
+		local cap = Npc.tierIdx(Config, R.fightEggCap) or 1
+		local avg = n > 0 and math.floor(sum / n) or 1
+		o.cardEgg = math.max(1, math.min(cap, liveTier(Config, math.max(1, avg))))
+	end
+	return o
+end
+
+---------------------------------------------------------------- Rencontre complète (spawn)
+-- Tente une rencontre : conditions F.2, alternance échange / combat (rencontre n impaire = combat), quotas du jour, Kaï le lundi (1 fois par semaine, hors quota), puis offre.
+-- Toute la mutation (compteurs, nextAt, carnet) n'a lieu qu'en cas de succès : un échec ne consomme rien. Retourne l'offre ou (nil, code).
+-- Codes en plus de canSpawn : quota (plus de PNJ ce jour), noOffer (rien à proposer).
+function Npc.encounter(Config, npc, book, userId, now, today, ctx, inv, rng)
+	local E = Config.NPC_ENCOUNTER
+	if not isnum(userId) or not isnum(today) then
+		return nil, "args"
+	end
+	Npc.rollDay(npc, today)
+	local ok, why = Npc.canSpawn(Config, npc, now, today, ctx)
+	if not ok then
+		return nil, why
+	end
+	local give = giveableByTier(Config, inv)
+	local tradeLeft = npc.trades < E.tradesPerDay
+	local fightLeft = npc.fights < E.fightsPerDay
+	local week = Npc.weekOf(today)
+	local order = {}
+	if Npc.dow(today) == 1 and npc.champ ~= week and E.weeklyChampion >= 1 and not npc.gone.kai then
+		order[#order + 1] = "champion"
+	end
+	local wantFight = (npc.enc + 1) % 2 == 1
+	local first, second = "trade", "fight"
+	if wantFight then
+		first, second = "fight", "trade"
+	end
+	if (first == "trade" and tradeLeft) or (first == "fight" and fightLeft) then
+		order[#order + 1] = first
+	end
+	if (second == "trade" and tradeLeft) or (second == "fight" and fightLeft) then
+		order[#order + 1] = second
+	end
+	if #order == 0 then
+		return nil, "quota"
+	end
+	local offer
+	for _, kind in ipairs(order) do
+		if kind == "champion" then
+			offer = makeFight(Config, book, "kai", userId, inv, now, rng, true)
+		elseif kind == "trade" then
+			if not npc.gone.nora and rng() < 0.4 then
+				offer = makeNora(Config, book, userId, inv, now, rng, give)
+			end
+			if not offer and not npc.gone.pip then
+				offer = makePip(Config, book, userId, inv, now, rng, give)
+			end
+		else
+			local names = {}
+			for key, def in pairs(Config.NPCS) do
+				if def.role == "fight" and not npc.gone[key] then
+					names[#names + 1] = key
+				end
+			end
+			table.sort(names)
+			if #names > 0 then
+				offer = makeFight(Config, book, names[rint(rng, 1, #names)], userId, inv, now, rng, false)
+			end
+		end
+		if offer then
+			break
+		end
+	end
+	if not offer then
+		return nil, "noOffer"
+	end
+	if offer.kind == "champion" then
+		npc.champ = week
+	elseif offer.kind == "fight" then
+		npc.fights = npc.fights + 1
+		npc.enc = npc.enc + 1
+	else
+		npc.trades = npc.trades + 1
+		npc.enc = npc.enc + 1
+	end
+	npc.nextAt = math.max(npc.nextAt, now + rint(rng, E.gapMinutes[1] * 60, E.gapMinutes[2] * 60))
+	book.offers[offer.id] = offer
+	book.current = offer.id
+	return offer
+end
+
+---------------------------------------------------------------- Accepter, refuser, résoudre
+local function lookup(book, id, userId, now)
+	if type(id) ~= "string" then
+		return nil, "unknown"
+	end
+	local o = book.offers[id]
+	if not o then
+		if book.used[id] then
+			return nil, "used"
+		end
+		return nil, "unknown"
+	end
+	if o.userId ~= userId then
+		return nil, "owner"
+	end
+	return o
+end
+
+-- Contrôle une offre d'échange contre l'inventaire ACTUEL du joueur (le serveur ne fait jamais confiance au moment où l'offre a été faite).
+local function revalidate(Config, o, inv)
+	local mine = {}
+	for _, pet in ipairs(inv.pets or {}) do
+		mine[pet.slot] = pet
+	end
+	local counts = speciesCounts(inv)
+	local given = {}
+	for _, t in ipairs(o.take) do
+		local pet = mine[t.slot]
+		if not pet or pet.p ~= t.p or pet.s ~= t.s or pet.m ~= t.m or not Npc.petAllowed(Config, pet) then
+			return false
+		end
+		given[pet.p] = (given[pet.p] or 0) + 1
+	end
+	for p, n in pairs(given) do
+		if counts[p] - n < 1 then
+			return false
+		end
+	end
+	return true
+end
+
+-- Accepte une offre. opts.confirm2 : seconde confirmation (obligatoire si l'offre donne un pet de rareté >= 4).
+-- Trade -> (true, effet) ; effet = { coins = -prix, take = { emplacements }, egg = rareté, species = { p, s, m }, npc, quest = "npcTrade" } à appliquer par le serveur en une fois.
+-- Combat -> (true, offre acceptée) : le résultat doit ensuite être déclaré par `Npc.resolve` (le serveur le connaît, pas le client).
+-- Refus : unknown, owner, used, expired, state, coins, changed, confirm2.
+function Npc.accept(Config, book, id, userId, now, inv, opts)
+	local o, why = lookup(book, id, userId, now)
+	if not o then
+		return false, why
+	end
+	if o.state ~= "open" then
+		return false, "state"
+	end
+	if now >= o.expires then
+		book.offers[id] = nil
+		if book.current == id then
+			book.current = nil
+		end
+		return false, "expired"
+	end
+	if o.kind == "trade" then
+		local coins = isnum(inv.coins) and inv.coins or 0
+		if o.price > coins then
+			return false, "coins"
+		end
+		if #o.take > 0 and not revalidate(Config, o, inv) then
+			return false, "changed"
+		end
+		if Npc.needsConfirm2(Config, o) and not (type(opts) == "table" and opts.confirm2 == true) then
+			return false, "confirm2"
+		end
+		book.offers[id] = nil
+		if book.current == id then
+			book.current = nil
+		end
+		remember(book, id)
+		local slots = {}
+		for _, t in ipairs(o.take) do
+			slots[#slots + 1] = t.slot
+		end
+		return true, { coins = -o.price, take = slots, egg = o.getEgg, species = o.getSpecies, npc = o.npc, quest = "npcTrade" }
+	end
+	o.state = "accepted"
+	o.resultBy = now + Config.NPC_RULES.resultSeconds
+	return true, o
+end
+
+-- Refus (« Pas maintenant ») : pas d'autre PNJ pendant 10 min ; 3 refus de suite du même PNJ : il ne revient plus ce jour-là. Un refus ne coûte rien d'autre.
+function Npc.decline(Config, npc, book, id, userId, now)
+	local o, why = lookup(book, id, userId, now)
+	if not o then
+		return false, why
+	end
+	if o.state ~= "open" then
+		return false, "state"
+	end
+	book.offers[id] = nil
+	if book.current == id then
+		book.current = nil
+	end
+	remember(book, id)
+	npc.nextAt = math.max(npc.nextAt, now + Config.NPC_ENCOUNTER.snoozeMinutes * 60)
+	npc.refuse[o.npc] = math.min(99, (npc.refuse[o.npc] or 0) + 1)
+	local gone = false
+	if npc.refuse[o.npc] >= Config.NPC_RULES.maxRefusals then
+		npc.gone[o.npc] = true
+		gone = true
+	end
+	return true, { gone = gone, npc = o.npc }
+end
+
+-- Un échange accepté remet à zéro les refus de suite du PNJ concerné.
+function Npc.noteAccepted(npc, npcKey)
+	npc.refuse[npcKey] = 0
+end
+
+-- Résultat d'un combat accepté (déclaré par le serveur, une seule fois). Victoire : cartes D.5 à `cardPct` % (Kaï : Œuf garanti + carte à 100 %), valeurs x0,6 ;
+-- défaite : rien n'est perdu, +5 XP. Retourne (true, issue) ou (false, code : unknown, owner, used, state, expired).
+function Npc.resolve(Config, book, id, userId, now, won)
+	local o, why = lookup(book, id, userId, now)
+	if not o then
+		return false, why
+	end
+	if o.state ~= "accepted" then
+		return false, "state"
+	end
+	if now >= o.resultBy then
+		book.offers[id] = nil
+		if book.current == id then
+			book.current = nil
+		end
+		return false, "expired"
+	end
+	book.offers[id] = nil
+	if book.current == id then
+		book.current = nil
+	end
+	remember(book, id)
+	local out = { won = won == true, npc = o.npc, champion = o.kind == "champion", ratio = true }
+	if won == true then
+		out.cardPct = o.cardPct
+		out.rewardMul = o.rewardMul
+		out.cardEgg = o.cardEgg
+		out.egg = o.guaranteedEgg
+		out.xp = 0
+	else
+		out.xp = Config.NPC_RULES.lossXp
+	end
+	return true, out
+end
+
+---------------------------------------------------------------- Confirmation, vue et dialogues
+-- 2e confirmation si un pet de rareté >= 4 (« Épique ») est donné.
+function Npc.needsConfirm2(Config, o)
+	local from = Npc.tierIdx(Config, Config.NPC_RULES.confirm2FromTier)
+	for _, t in ipairs(o.take or {}) do
+		local sp = Config.PETS[t.p]
+		if sp and (not from or sp.tier >= from) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Vue pour l'écran de confirmation (les deux objets côte à côte). `Odds` facultatif (module du lot 10) : compteur « 1 sur N » ; valeur de revente via Config.eggSellValue si présente.
+function Npc.view(Config, o, Odds)
+	local give, get = {}, {}
+	for _, t in ipairs(o.take or {}) do
+		local sp = Config.PETS[t.p]
+		local odds
+		if Odds and Odds.value and Odds.label and sp then
+			odds = Odds.label(Odds.value(Config, sp.tier, t.s, t.m))
+		end
+		give[#give + 1] = { kind = "pet", p = t.p, name = sp and sp.name or "?", tier = sp and sp.tier, odds = odds }
+	end
+	if o.price and o.price > 0 then
+		give[#give + 1] = { kind = "coins", amount = o.price }
+	end
+	if o.getEgg then
+		get[#get + 1] = { kind = "egg", tier = o.getEgg, name = tierName(Config, o.getEgg), sell = type(Config.eggSellValue) == "function" and Config.eggSellValue(o.getEgg) or nil }
+	end
+	if o.getSpecies then
+		local sp = Config.PETS[o.getSpecies.p]
+		local odds
+		if Odds and Odds.value and Odds.label and sp then
+			odds = Odds.label(Odds.value(Config, sp.tier, o.getSpecies.s, o.getSpecies.m))
+		end
+		get[#get + 1] = { kind = "pet", p = o.getSpecies.p, name = sp and sp.name or "?", tier = sp and sp.tier, odds = odds }
+	end
+	return { npc = o.npc, name = Config.NPCS[o.npc].name, give = give, get = get, confirm2 = Npc.needsConfirm2(Config, o), expires = o.expires }
+end
+
+-- Texte d'un dialogue : `which` = approach, offer1, offer2, offer, win, lose, refuse, gone ; {variables} remplacées par `vars`.
+function Npc.say(Config, npcKey, which, vars)
+	local d = Config.DIALOGUES[npcKey]
+	local text = d and d[which]
+	if type(text) ~= "string" then
+		return ""
+	end
+	return (string.gsub(text, "{(%w+)}", function(k)
+		local v = vars and vars[k]
+		if v == nil then
+			return "{" .. k .. "}"
+		end
+		return tostring(v)
+	end))
+end
+
+-- Astuce de défaite (types de l'équipe adverse). `weak` = { typeAdverse = typeQuiLeBat } (défaut Config.TYPE_WEAK).
+function Npc.tip(Config, o, weak)
+	weak = weak or Config.TYPE_WEAK or {}
+	local def = Config.NPCS[o.npc]
+	local ty = def and def.types and def.types[1]
+	local against = ty and weak[ty]
+	if not against then
+		return "observe bien les types de l'équipe adverse."
+	end
+	return "le type " .. ty .. " craint le type " .. against .. "."
+end
+
+-- Contrôle indépendant d'une offre : retourne la liste des violations de F.4 (vide = conforme). Sert aux 10 000 offres des tests et peut servir de garde du serveur.
+function Npc.violations(Config, o, inv, userId)
+	local R = Config.NPC_RULES
+	local bad = {}
+	local function no(msg)
+		bad[#bad + 1] = msg
+	end
+	if o.userId ~= userId then
+		no("offre non liée au userId")
+	end
+	if type(o.id) ~= "string" or o.id == "" then
+		no("identifiant absent")
+	end
+	if o.expires - o.created ~= Config.NPC_ENCOUNTER.offerSeconds then
+		no("durée de validité")
+	end
+	for k in pairs(o) do
+		local lk = string.lower(tostring(k))
+		if string.find(lk, "robux") or string.find(lk, "product") or string.find(lk, "gamepass") or string.find(lk, "target") or string.find(lk, "other") then
+			no("champ interdit : " .. tostring(k))
+		end
+	end
+	local counts = speciesCounts(inv)
+	local mine = {}
+	for _, pet in ipairs(inv.pets or {}) do
+		mine[pet.slot] = pet
+	end
+	local given = {}
+	local seenSlot = {}
+	for _, t in ipairs(o.take or {}) do
+		local pet = mine[t.slot]
+		if not pet then
+			no("pet demandé absent de l'inventaire")
+		else
+			if seenSlot[t.slot] then
+				no("même emplacement demandé deux fois")
+			end
+			seenSlot[t.slot] = true
+			local tier = Config.PETS[pet.p].tier
+			if tier > Npc.tierIdx(Config, R.giveMaxTier) then
+				no("pet de rareté trop haute demandé")
+			end
+			if pet.follower or pet.team or pet.defense then
+				no("pet équipé, d'équipe ou de défense demandé")
+			end
+			if pet.m >= listIdx(Config.MUTS, R.forbidMutFrom) then
+				no("pet muté Arc-en-ciel ou mieux demandé")
+			end
+			if pet.s >= listIdx(Config.SIZES, R.forbidSizeFrom) then
+				no("pet Géant ou Colossal demandé")
+			end
+			given[pet.p] = (given[pet.p] or 0) + 1
+		end
+	end
+	for p, n in pairs(given) do
+		if counts[p] - n < 1 then
+			no("dernier exemplaire d'une espèce demandé")
+		end
+	end
+	if o.sub == "buy" then
+		if #o.take ~= 0 then
+			no("achat d'œuf : aucun pet ne doit être demandé")
+		end
+		if o.getEgg > Npc.tierIdx(Config, R.buyMaxTier) or o.price ~= math.floor(Config.EGG_PRICE[o.getEgg] * R.buyDiscountNum / R.buyDiscountDen) then
+			no("prix ou rareté de l'achat")
+		end
+	elseif o.sub == "dupes" then
+		if #o.take ~= R.dupesNeeded then
+			no("nombre de doublons")
+		end
+		if o.dupeTier > Npc.tierIdx(Config, R.dupesMaxTier) or o.price ~= 0 or o.getEgg <= o.dupeTier then
+			no("règle des doublons")
+		end
+		for _, t in ipairs(o.take) do
+			if Config.PETS[t.p].tier ~= o.dupeTier then
+				no("doublon d'une autre rareté")
+			end
+		end
+	elseif o.sub == "species" then
+		local sp = Config.PETS[o.getSpecies.p]
+		if #o.take ~= 1 or sp.tier > Npc.tierIdx(Config, R.speciesMaxTier) or inv.seen[o.getSpecies.p] then
+			no("règle de l'espèce manquante")
+		elseif Config.PETS[o.take[1].p].tier ~= sp.tier or o.price ~= math.floor(Config.EGG_PRICE[sp.tier] * R.speciesFeeNum / R.speciesFeeDen) then
+			no("rareté ou complément de l'espèce manquante")
+		end
+	elseif o.kind == "trade" then
+		no("sous-type d'échange inconnu")
+	end
+	if o.getEgg and forbiddenTier(Config, o.getEgg) then
+		no("œuf de rareté interdite offert")
+	end
+	if o.kind == "trade" and o.price < 0 then
+		no("prix négatif")
+	end
+	return bad
+end
+
+return Npc
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
+-- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
+-- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
+-- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
+-- Config attendu : TIERS, TIER_GATE, EGG_PRICE, PETS, VIP_DAILY_MUL (existants) + STREAK, EGG_BAG, QUESTS, PLUMES, TIMED_EVENTS, EVENTS_CAL, WEEKLY_ROTATION*, FORBIDDEN_GIFT_TIERS (bloc « LOT 15 » de Config.lua).
+-- Toute rareté est un NOM résolu par Config.TIERS : jamais d'indice codé en dur. Secret / Exclusif / Divin ne sont jamais donnés par la série ni par les quêtes.
+-- États de profil : voir roblox/LOT15_INTEGRATION_NOTES.md (grace, weekly, event, eggBag ; daily / streak existants).
+-- Style : pas de `+=`, pas de `continue`, valeurs douteuses gardées par type avant toute comparaison.
+local Rewards = {}
+
+local function isnum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function int(v, lo, hi, def)
+	if not isnum(v) then
+		return def
+	end
+	v = math.floor(v)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+Rewards.int = int
+
+---------------------------------------------------------------- Raretés par nom
+function Rewards.tierIdx(Config, name)
+	for i, t in ipairs(Config.TIERS) do
+		if t.name == name then
+			return i
+		end
+	end
+	return nil
+end
+
+function Rewards.forbiddenTier(Config, t)
+	local name = Config.TIERS[t] and Config.TIERS[t].name
+	for _, n in ipairs(Config.FORBIDDEN_GIFT_TIERS or {}) do
+		if n == name then
+			return true
+		end
+	end
+	return false
+end
+
+-- Rareté PUBLIÉE la plus proche vers le bas (Config.tierLive du lot 9 si présent) : un œuf n'est jamais d'une rareté sans espèce.
+function Rewards.liveTier(Config, t)
+	if type(Config.tierLive) ~= "function" then
+		return t
+	end
+	while t > 1 and not Config.tierLive(t) do
+		t = t - 1
+	end
+	return t
+end
+
+-- Rareté d'un œuf donné par la série / les quêtes : résolue par nom, jamais interdite (nil sinon), ramenée à une rareté publiée.
+local function giftTier(Config, name)
+	local t = Rewards.tierIdx(Config, name)
+	if not t or Rewards.forbiddenTier(Config, t) then
+		return nil
+	end
+	return Rewards.liveTier(Config, t)
+end
+Rewards.giftTier = giftTier
+
+---------------------------------------------------------------- Temps UTC (jour = os.time() // 86400)
+function Rewards.dow(day)
+	return (math.floor(day) + 4) % 7 -- 0 = dimanche
+end
+
+function Rewards.weekOf(day)
+	return math.floor((math.floor(day) + 3) / 7) -- semaines commençant le lundi
+end
+
+-- Date civile (année, mois, jour) d'un numéro de jour UTC (algorithme de H. Hinnant).
+function Rewards.civil(day)
+	local z = math.floor(day) + 719468
+	local era = math.floor(z / 146097)
+	local doe = z - era * 146097
+	local yoe = math.floor((doe - math.floor(doe / 1460) + math.floor(doe / 36524) - math.floor(doe / 146096)) / 365)
+	local y = yoe + era * 400
+	local doy = doe - (365 * yoe + math.floor(yoe / 4) - math.floor(yoe / 100))
+	local mp = math.floor((5 * doy + 2) / 153)
+	local d = doy - math.floor((153 * mp + 2) / 5) + 1
+	local m = mp < 10 and mp + 3 or mp - 9
+	if m <= 2 then
+		y = y + 1
+	end
+	return y, m, d
+end
+
+-- Numéro de jour UTC d'une date civile (inverse de `civil`).
+function Rewards.daysFromCivil(y, m, d)
+	if m <= 2 then
+		y = y - 1
+	end
+	local era = math.floor(y / 400)
+	local yoe = y - era * 400
+	local mp = m > 2 and m - 3 or m + 9
+	local doy = math.floor((153 * mp + 2) / 5) + d - 1
+	local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+	return era * 146097 + doe - 719468
+end
+
+---------------------------------------------------------------- Sac d'œufs et placement (jamais de perte)
+local function slotFree(slots, i)
+	return slots[i] == nil or slots[i] == false
+end
+
+function Rewards.freeSlots(slots, cap)
+	local n = 0
+	for i = 1, cap do
+		if slotFree(slots, i) then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Assainit un sac lu du profil : liste de rarétés entières valides, au plus `size` entrées.
+function Rewards.sanitizeBag(Config, saved)
+	local out = {}
+	local size = Config.EGG_BAG.size
+	if type(saved) == "table" then
+		for _, t in ipairs(saved) do
+			if #out < size and isnum(t) then
+				local v = math.floor(t)
+				if v >= 1 and v <= #Config.TIERS then
+					out[#out + 1] = v
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- Peut-on ranger `n` œufs ? (base d'abord, puis le sac.)
+function Rewards.canStore(Config, slots, cap, bag, n)
+	return Rewards.freeSlots(slots, cap) + (Config.EGG_BAG.size - #bag) >= n
+end
+
+-- Range des œufs de façon ATOMIQUE : tout ou rien. `mkEgg(tier)` crée l'emplacement d'œuf (le serveur y met `ends`, `shield`) ; défaut { k = "e", t = tier }.
+-- Retourne (true, { "slot" | "bag", ... }) ou (false, "bagFull") sans rien modifier.
+function Rewards.storeEggs(Config, slots, cap, bag, tiers, mkEgg)
+	if not Rewards.canStore(Config, slots, cap, bag, #tiers) then
+		return false, "bagFull"
+	end
+	local where = {}
+	local nextSlot = 1
+	for _, t in ipairs(tiers) do
+		while nextSlot <= cap and not slotFree(slots, nextSlot) do
+			nextSlot = nextSlot + 1
+		end
+		if nextSlot <= cap then
+			slots[nextSlot] = mkEgg and mkEgg(t) or { k = "e", t = t }
+			where[#where + 1] = "slot"
+		else
+			bag[#bag + 1] = t
+			where[#where + 1] = "bag"
+		end
+	end
+	return true, where
+end
+
+-- Pose un œuf du sac dans la base (le plus ancien d'abord). Retourne (true, rareté, emplacement) ou (false, "empty" | "baseFull").
+function Rewards.bagTake(slots, cap, bag, mkEgg)
+	if #bag == 0 then
+		return false, "empty"
+	end
+	for i = 1, cap do
+		if slotFree(slots, i) then
+			local t = table.remove(bag, 1)
+			slots[i] = mkEgg and mkEgg(t) or { k = "e", t = t }
+			return true, t, i
+		end
+	end
+	return false, "baseFull"
+end
+
+---------------------------------------------------------------- Récompense (« grant ») : forme commune
+local function newGrant()
+	return { coins = 0, eggs = {}, fragments = 0, seasonXp = 0, plumes = 0 }
+end
+
+local function eggsFromNames(Config, names, grant)
+	for _, name in ipairs(names or {}) do
+		local t = giftTier(Config, name)
+		if t then
+			grant.eggs[#grant.eggs + 1] = t
+		end
+	end
+end
+
+-- Un grant ne contient jamais une rareté interdite (sauf `allow`, utilisé seulement pour l'Exclusif contre plumes et le calendrier). Retourne la liste des violations.
+function Rewards.grantViolations(Config, grant, allow)
+	local bad = {}
+	for _, t in ipairs(grant.eggs or {}) do
+		if type(t) ~= "number" or Config.TIERS[t] == nil then
+			bad[#bad + 1] = "rareté inconnue"
+		elseif Rewards.forbiddenTier(Config, t) and not allow then
+			bad[#bad + 1] = "rareté interdite : " .. Config.TIERS[t].name
+		end
+	end
+	return bad
+end
+
+---------------------------------------------------------------- G.1 Série de 7 jours
+-- États de profil : d.daily (dernier jour UTC réclamé), d.streak (jours de suite), d.grace = { week, used, weeks, rweek } :
+--   week / used = semaine du dernier jour de grâce consommé ; weeks = semaines de 7 jours terminées (Mythique à la 4e) ; rweek = semaine du dernier sauvetage payant.
+function Rewards.sanitizeGrace(saved)
+	local g = { week = 0, used = 0, weeks = 0, rweek = 0 }
+	if type(saved) == "table" then
+		g.week = int(saved.week, 0, 1e6, 0)
+		g.used = int(saved.used, 0, 1, 0)
+		g.weeks = int(saved.weeks, 0, 1e5, 0)
+		g.rweek = int(saved.rweek, 0, 1e6, 0)
+	end
+	return g
+end
+
+local function graceAvailable(g, today)
+	return not (g.week == Rewards.weekOf(today) and g.used >= 1)
+end
+
+-- Récompense d'un jour de la série (1 à 7). `weeks` = semaines terminées avant celle-ci ; `income` = pièces / s ; `vip` : pièces x VIP_DAILY_MUL (jamais les œufs).
+function Rewards.streakReward(Config, day, weeks, income, vip)
+	local S = Config.STREAK
+	local def = S.days[day]
+	local grant = newGrant()
+	if not def then
+		return grant
+	end
+	local month = (day == #S.days) and def.eggsMonth and ((weeks + 1) % S.mythicEveryWeeks == 0)
+	eggsFromNames(Config, month and def.eggsMonth or def.eggs, grant)
+	if def.c then
+		local inc = (isnum(income) and income > 0) and income or 0
+		local coins = math.floor(math.max(S.coinFloor, inc * 60 * def.c))
+		if vip == true then
+			coins = coins * (Config.VIP_DAILY_MUL or 1)
+		end
+		grant.coins = coins
+	end
+	grant.luck = def.luck and { minutes = def.luck.minutes, points = def.luck.points } or nil
+	grant.boost = def.boost and { key = def.boost.key, mul = def.boost.mul, minutes = def.boost.minutes } or nil
+	grant.fragments = def.fragments or 0
+	grant.mythicWeek = month == true
+	return grant
+end
+
+-- État de la série pour `today`. g = { daily, streak, grace }. ctx = { questsDone }.
+-- state : done (déjà réclamée), ready (la suite normale ou le premier jour), grace (un jour manqué pardonné automatiquement), rescue (sauvetage : quêtes gratuites ou produit),
+-- reset (3 jours manqués ou plus : retour au jour 1). day = jour de la série qui serait réclamé.
+function Rewards.streakPlan(Config, g, today, ctx)
+	local S = Config.STREAK
+	local daily = isnum(g.daily) and g.daily or 0
+	local streak = int(g.streak, 0, 1e6, 0)
+	local plan = { state = "ready", day = 1, missed = 0, streak = streak }
+	if daily == today or daily > today then
+		plan.state = "done"
+		plan.day = (streak % #S.days) + 1
+		return plan
+	end
+	if daily <= 0 then
+		return plan
+	end
+	local missed = today - daily - 1
+	plan.missed = missed
+	if missed <= 0 then
+		plan.day = (streak % #S.days) + 1
+	elseif missed == 1 and graceAvailable(g.grace, today) then
+		plan.state = "grace"
+		plan.day = (streak % #S.days) + 1
+	elseif missed < S.resetAfterMissed then
+		plan.state = "rescue"
+		plan.day = (streak % #S.days) + 1
+		local done = (type(ctx) == "table" and isnum(ctx.questsDone)) and ctx.questsDone or 0
+		plan.canQuest = done >= S.restoreQuests
+		plan.canProduct = g.grace.rweek ~= Rewards.weekOf(today)
+		plan.lost = streak
+	else
+		plan.state = "reset"
+	end
+	return plan
+end
+
+-- Réclame la série du jour (le serveur appelle ceci, jamais le client). how : nil (suite normale, ou jour de grâce automatique), "quest" (3 quêtes faites aujourd'hui),
+-- "product" (produit StreakRestore DÉJÀ vérifié par reçu), "reset" (le joueur accepte de repartir du jour 1 au lieu de sauver sa série).
+-- ctx : { income, vip, questsDone, slots, cap, bag, mkEgg }. Atomique : si l'octroi des œufs est impossible (base ET sac pleins) rien n'est modifié ("bagFull").
+-- Retourne (true, { day, grant, state, where }) ou (false, code : done, rescue, noQuest, noProduct, bagFull).
+function Rewards.streakClaim(Config, g, today, how, ctx)
+	local S = Config.STREAK
+	local plan = Rewards.streakPlan(Config, g, today, ctx)
+	if plan.state == "done" then
+		return false, "done"
+	end
+	local continues = true
+	local useGrace, useProduct = false, false
+	if plan.state == "grace" then
+		useGrace = true
+	elseif plan.state == "rescue" then
+		if how == "quest" then
+			if not plan.canQuest then
+				return false, "noQuest"
+			end
+		elseif how == "product" then
+			if not plan.canProduct then
+				return false, "noProduct"
+			end
+			useProduct = true
+		elseif how == "reset" then
+			continues = false
+		else
+			return false, "rescue"
+		end
+	elseif plan.state == "reset" then
+		continues = false
+	end
+	local day = continues and plan.day or 1
+	local streakNow = continues and (int(g.streak, 0, 1e6, 0) + 1) or 1
+	local weeks = continues and g.grace.weeks or 0
+	local grant = Rewards.streakReward(Config, day, weeks, ctx and ctx.income, ctx and ctx.vip)
+	local where
+	if ctx and ctx.slots then
+		local ok, w = Rewards.storeEggs(Config, ctx.slots, ctx.cap, ctx.bag, grant.eggs, ctx.mkEgg)
+		if not ok then
+			return false, w
+		end
+		where = w
+	end
+	g.daily = today
+	g.streak = streakNow
+	if useGrace then
+		g.grace.week = Rewards.weekOf(today)
+		g.grace.used = 1
+	end
+	if useProduct then
+		g.grace.rweek = Rewards.weekOf(today)
+	end
+	if not continues then
+		g.grace.weeks = 0
+	end
+	if day == #S.days then
+		g.grace.weeks = g.grace.weeks + 1
+	end
+	return true, { day = day, grant = grant, state = plan.state, where = where }
+end
+
+---------------------------------------------------------------- Calendrier de 30 jours (Calendar.lua, lot 9b) : enveloppe avec sac d'œufs
+-- Réutilise Calendar.check / plan / apply (module passé en paramètre) et ajoute le rangement atomique des œufs (base, puis sac). Les raretés du calendrier viennent de
+-- Config.CALENDAR (le tirage du jour 30 peut donner un Secret : règle propre au calendrier, hors des interdits de la série et des quêtes).
+-- Retourne (true, { plan, streak, where }) ou (false, code) ; codes de Calendar.check, plus bagFull.
+function Rewards.calendarClaim(Config, Calendar, cal, today, day, how, eligible, rnd, income, store)
+	local ok, why = Calendar.check(Config, cal, today, day, how, eligible)
+	if not ok then
+		return false, why
+	end
+	local plan = Calendar.plan(Config, day, rnd, income)
+	local where
+	if plan and plan.egg and store then
+		local ok2, w = Rewards.storeEggs(Config, store.slots, store.cap, store.bag, { plan.egg }, store.mkEgg)
+		if not ok2 then
+			return false, w
+		end
+		where = w
+	end
+	local streak = Calendar.apply(Config, cal, today, day, how)
+	return true, { plan = plan, streak = streak, where = where }
+end
+
+---------------------------------------------------------------- G.4 Quêtes bonus du jour
+-- weekly.bq = { d = jour UTC, prog, claimed } ; l'option du jour est choisie par le numéro du jour (même résultat à chaque appel).
+function Rewards.bonusQuest(Config, day, chapter)
+	local B = Config.QUESTS.bonus
+	local opt = B.options[(math.floor(day) % #B.options) + 1]
+	local late = isnum(chapter) and chapter >= B.lateChapter
+	local q = { kind = opt.kind, goal = opt.goal, text = opt.text, egg = giftTier(Config, late and B.eggLate or B.egg) }
+	if opt.minTier then
+		q.minTier = Rewards.tierIdx(Config, opt.minTier)
+	end
+	return q
+end
+
+local function newBonus(day)
+	return { d = day, prog = 0, claimed = false }
+end
+
+-- Progression de la quête bonus : ev = { kind = "pve" } ou { kind = "hatch", tier }. Compte seulement si les 3 quêtes du jour sont faites (`unlocked`). Retourne (progrès, terminée).
+function Rewards.bonusEvent(Config, wk, day, chapter, unlocked, ev)
+	if type(wk.bq) ~= "table" or wk.bq.d ~= day then
+		wk.bq = newBonus(day)
+	end
+	local q = Rewards.bonusQuest(Config, day, chapter)
+	if unlocked == true and type(ev) == "table" and ev.kind == q.kind and not wk.bq.claimed then
+		local ok = true
+		if q.kind == "hatch" then
+			ok = isnum(ev.tier) and q.minTier ~= nil and ev.tier >= q.minTier
+		end
+		if ok then
+			wk.bq.prog = math.min(q.goal, wk.bq.prog + 1)
+		end
+	end
+	return wk.bq.prog, wk.bq.prog >= q.goal
+end
+
+-- Réclame l'Œuf de la quête bonus (une seule fois par jour). store = { slots, cap, bag, mkEgg } facultatif. Retourne (true, grant) ou (false, code : notDone, claimed, bagFull).
+function Rewards.bonusClaim(Config, wk, day, chapter, store)
+	if type(wk.bq) ~= "table" or wk.bq.d ~= day then
+		wk.bq = newBonus(day)
+	end
+	local q = Rewards.bonusQuest(Config, day, chapter)
+	if wk.bq.claimed then
+		return false, "claimed"
+	end
+	if wk.bq.prog < q.goal then
+		return false, "notDone"
+	end
+	local grant = newGrant()
+	grant.eggs[1] = q.egg
+	if store then
+		local ok, w = Rewards.storeEggs(Config, store.slots, store.cap, store.bag, grant.eggs, store.mkEgg)
+		if not ok then
+			return false, w
+		end
+		grant.where = w
+	end
+	wk.bq.claimed = true
+	return true, grant
+end
+
+---------------------------------------------------------------- G.4 Quêtes de la semaine
+-- weekly = { w = semaine UTC, prog = { 7 entiers }, c5, c7 (récompenses réclamées), bq }.
+function Rewards.sanitizeWeekly(Config, saved)
+	local themes = Config.QUESTS.weekly.themes
+	local wk = { w = 0, prog = {}, c5 = false, c7 = false, bq = newBonus(0) }
+	for i = 1, #themes do
+		wk.prog[i] = 0
+	end
+	if type(saved) == "table" then
+		wk.w = int(saved.w, 0, 1e6, 0)
+		for i = 1, #themes do
+			wk.prog[i] = int(type(saved.prog) == "table" and saved.prog[i] or 0, 0, themes[i].goal, 0)
+		end
+		wk.c5 = saved.c5 == true
+		wk.c7 = saved.c7 == true
+		if type(saved.bq) == "table" then
+			wk.bq = { d = int(saved.bq.d, 0, 1e6, 0), prog = int(saved.bq.prog, 0, 99, 0), claimed = saved.bq.claimed == true }
+		end
+	end
+	return wk
+end
+
+-- Nouvelle semaine : progression et réclamations remises à zéro.
+function Rewards.weeklySync(Config, wk, week)
+	if wk.w ~= week then
+		local fresh = Rewards.sanitizeWeekly(Config, nil)
+		wk.w = week
+		wk.prog = fresh.prog
+		wk.c5 = false
+		wk.c7 = false
+	end
+end
+
+-- Progression d'un thème (jamais au-delà de l'objectif). Retourne la progression, ou nil si le thème n'existe pas.
+function Rewards.weeklyAdd(Config, wk, key, n)
+	for i, th in ipairs(Config.QUESTS.weekly.themes) do
+		if th.key == key then
+			local add = isnum(n) and math.max(0, math.floor(n)) or 0
+			wk.prog[i] = math.min(th.goal, wk.prog[i] + add)
+			return wk.prog[i]
+		end
+	end
+	return nil
+end
+
+function Rewards.weeklyDone(Config, wk)
+	local n = 0
+	for i, th in ipairs(Config.QUESTS.weekly.themes) do
+		if wk.prog[i] >= th.goal then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Réclame le palier 5/7 (which = 5) ou 7/7 (which = 7) : une fois chacun par semaine. Retourne (true, grant) ou (false, code : notDone, claimed, bagFull, which).
+function Rewards.weeklyClaim(Config, wk, which, store)
+	local tier
+	for _, r in ipairs(Config.QUESTS.weekly.rewards) do
+		if r.need == which then
+			tier = r
+		end
+	end
+	if not tier then
+		return false, "which"
+	end
+	local flag = which == 5 and "c5" or "c7"
+	if wk[flag] then
+		return false, "claimed"
+	end
+	if Rewards.weeklyDone(Config, wk) < tier.need then
+		return false, "notDone"
+	end
+	local grant = newGrant()
+	local t = giftTier(Config, tier.egg)
+	if t then
+		grant.eggs[1] = t
+	end
+	grant.seasonXp = tier.seasonXp or 0
+	if store then
+		local ok, w = Rewards.storeEggs(Config, store.slots, store.cap, store.bag, grant.eggs, store.mkEgg)
+		if not ok then
+			return false, w
+		end
+		grant.where = w
+	end
+	wk[flag] = true
+	return true, grant
+end
+
+---------------------------------------------------------------- Rotation hebdomadaire (cycle de 9 semaines, identique pour tous les joueurs)
+function Rewards.rotation(Config, week)
+	local list = Config.WEEKLY_ROTATION
+	local w = isnum(week) and math.floor(week) or 0
+	local epoch = Config.WEEKLY_ROTATION_EPOCH or 0
+	return list[((w - epoch) % #list) + 1], ((w - epoch) % #list) + 1
+end
+
+-- Poids d'un œuf après l'espèce vedette : x2 pour l'espèce de la semaine (nom de Config.PETS), inchangé sinon.
+function Rewards.featuredWeight(Config, rot, petIdx, weight)
+	local sp = Config.PETS[petIdx]
+	if sp and rot and sp.name == rot.featured then
+		return weight * (Config.WEEKLY_ROTATION_MULT or 2)
+	end
+	return weight
+end
+
+-- Espèce vedette appliquée APRÈS un tirage uniforme parmi les n espèces de la rareté obtenue (Rules.rollPet) : bascule vers l'espèce vedette avec la
+-- probabilité (M - 1) / (n + M - 1) (M = WEEKLY_ROTATION_MULT ; M = 2 : 1 / (n + 1)). Résultat : P(vedette) = M / (n + M - 1), chaque autre espèce
+-- 1 / (n + M - 1), exactement un poids x M. La rareté ne change jamais (la vedette n'est choisie que dans la rareté déjà tirée). Retourne l'indice d'espèce.
+function Rewards.featuredPick(Config, rot, petIdx, rnd)
+	local sp = Config.PETS[petIdx]
+	if not (sp and rot and type(rot.featured) == "string") or sp.name == rot.featured then
+		return petIdx
+	end
+	local featured, n = nil, 0
+	for i, p in ipairs(Config.PETS) do
+		if p.tier == sp.tier then
+			n = n + 1
+			if p.name == rot.featured then
+				featured = i
+			end
+		end
+	end
+	local M = Config.WEEKLY_ROTATION_MULT or 2
+	if featured and type(rnd) == "function" and rnd() < (M - 1) / (n + M - 1) then
+		return featured
+	end
+	return petIdx
+end
+
+-- Multiplicateur de dégâts du type « en forme » : PvE seulement.
+function Rewards.typeDamage(Config, rot, ty, pve)
+	if pve == true and rot and rot.type == ty then
+		return Config.WEEKLY_ROTATION_DAMAGE or 1.2
+	end
+	return 1
+end
+
+---------------------------------------------------------------- G.5 Événements
+-- Week-end chanceux : samedi 00:00 -> lundi 00:00 UTC. Heure dorée : tous les jours de fromHour à toHour UTC. `now` = secondes UNIX.
+function Rewards.isWeekend(Config, now)
+	if not isnum(now) then
+		return false
+	end
+	local d = Rewards.dow(math.floor(now / 86400))
+	for _, x in ipairs(Config.TIMED_EVENTS.weekend.days) do
+		if x == d then
+			return true
+		end
+	end
+	return false
+end
+
+function Rewards.isGoldenHour(Config, now)
+	if not isnum(now) then
+		return false
+	end
+	local h = math.floor((now % 86400) / 3600)
+	local G = Config.TIMED_EVENTS.goldenHour
+	return h >= G.fromHour and h < G.toHour
+end
+
+-- Événement limité actif ce jour-là (Config.EVENTS_CAL, dates « MM-JJ » de l'année en cours) : (entrée, clé « id.année ») ou nil.
+function Rewards.limitedEvent(Config, today)
+	if not isnum(today) then
+		return nil
+	end
+	local y = Rewards.civil(today)
+	for _, e in ipairs(Config.EVENTS_CAL) do
+		local fm, fd = string.match(e.from, "^(%d+)%-(%d+)$")
+		local tm, td = string.match(e.to, "^(%d+)%-(%d+)$")
+		if fm and tm then
+			local a = Rewards.daysFromCivil(y, tonumber(fm), tonumber(fd))
+			local b = Rewards.daysFromCivil(y, tonumber(tm), tonumber(td))
+			if today >= a and today <= b then
+				return e, e.id .. "." .. y
+			end
+		end
+	end
+	return nil
+end
+
+-- Ensemble des effets actifs à l'instant `now` (secondes UNIX).
+function Rewards.activeEvents(Config, now)
+	local today = isnum(now) and math.floor(now / 86400) or 0
+	local limited, key = Rewards.limitedEvent(Config, today)
+	local W = Config.TIMED_EVENTS.weekend
+	local weekend = Rewards.isWeekend(Config, now)
+	return {
+		weekend = weekend, upgradeBonus = weekend and W.upgradePoints or 0, beltSeconds = weekend and W.beltSeconds or W.beltDefault,
+		golden = Rewards.isGoldenHour(Config, now), goldKey = Config.TIMED_EVENTS.goldenHour.key, limited = limited, limitedKey = key,
+	}
+end
+
+---------------------------------------------------------------- Plumes d'événement
+-- event = { k = clé de l'événement en cours (« id.année »), d = jour UTC des compteurs, q / v = plumes de quêtes / de victoires PvE aujourd'hui, l = connexion déjà créditée (0/1),
+--           p = solde, x = Œufs Exclusifs obtenus pendant cet événement }.
+function Rewards.sanitizeEvent(Config, saved)
+	local P = Config.PLUMES
+	local e = { k = "", d = 0, q = 0, v = 0, l = 0, p = 0, x = 0 }
+	if type(saved) == "table" then
+		if type(saved.k) == "string" and #saved.k <= 24 then
+			e.k = saved.k
+		end
+		e.d = int(saved.d, 0, 1e6, 0)
+		e.q = int(saved.q, 0, P.questCapDay, 0)
+		e.v = int(saved.v, 0, P.pveCapDay, 0)
+		e.l = int(saved.l, 0, 1, 0)
+		e.p = int(saved.p, 0, P.balanceCap, 0)
+		e.x = int(saved.x, 0, 99, 0)
+	end
+	return e
+end
+
+-- Synchronise avec le jour et l'événement actifs (`key` nil = aucun événement). Nouveau jour : compteurs du jour à zéro. Nouvel événement : solde et achats remis à zéro
+-- (les plumes d'un événement terminé ne se reportent pas : décision documentée ; à changer en ajoutant un report ici).
+function Rewards.plumeSync(Config, ev, today, key)
+	if ev.d ~= today then
+		ev.d = today
+		ev.q = 0
+		ev.v = 0
+		ev.l = 0
+	end
+	if key and ev.k ~= key then
+		ev.k = key
+		ev.p = 0
+		ev.x = 0
+	end
+end
+
+-- Crédite des plumes avec les plafonds du jour. source : "quest" (10 par quête du jour, 40 au plus), "pve" (2 par victoire, 20 au plus), "login" (5, une fois). Retourne la quantité créditée.
+-- Sans événement actif (`ev.k == ""` ou `active == false`) : rien.
+function Rewards.plumeAdd(Config, ev, source, active)
+	local P = Config.PLUMES
+	if active ~= true or ev.k == "" then
+		return 0
+	end
+	local add = 0
+	if source == "quest" then
+		add = math.min(P.perQuest, P.questCapDay - ev.q)
+		add = math.max(0, add)
+		ev.q = ev.q + add
+	elseif source == "pve" then
+		add = math.max(0, math.min(P.perPveWin, P.pveCapDay - ev.v))
+		ev.v = ev.v + add
+	elseif source == "login" then
+		if ev.l == 0 then
+			ev.l = 1
+			add = P.login
+		end
+	end
+	local room = math.max(0, P.balanceCap - ev.p)
+	add = math.min(add, room)
+	ev.p = ev.p + add
+	return add
+end
+
+-- Œuf Exclusif contre 150 plumes (jamais plus de `maxExclusivePerEvent` par événement ; refusé tant que la rareté n'a aucune espèce publiée). store = { slots, cap, bag, mkEgg }.
+-- Retourne (true, rareté, emplacement) ou (false, code : inactive, plumes, limit, notLive, bagFull).
+function Rewards.plumeBuyExclusive(Config, ev, active, store)
+	local P = Config.PLUMES
+	if active ~= true or ev.k == "" then
+		return false, "inactive"
+	end
+	if ev.x >= P.maxExclusivePerEvent then
+		return false, "limit"
+	end
+	if ev.p < P.exclusiveCost then
+		return false, "plumes"
+	end
+	local t = Rewards.tierIdx(Config, P.exclusiveName)
+	if not t or Rewards.liveTier(Config, t) ~= t then
+		return false, "notLive"
+	end
+	local where
+	if store then
+		local ok, w = Rewards.storeEggs(Config, store.slots, store.cap, store.bag, { t }, store.mkEgg)
+		if not ok then
+			return false, w
+		end
+		where = w[1]
+	end
+	ev.p = ev.p - P.exclusiveCost
+	ev.x = ev.x + 1
+	return true, t, where
+end
+
+return Rewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
 -- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
 -- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
 -- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
@@ -9613,7 +11380,7 @@ function KioskData.overlap(Map2, cx, cz, r, margin)
 end
 
 return KioskData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
 -- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
 -- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
 -- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
@@ -9734,7 +11501,7 @@ F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", regio
 -- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
 
 return DecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
 -- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
 --
@@ -9838,7 +11605,7 @@ end
 
 return HouseDecorData
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX101"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX99"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX105"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX103"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -10193,7 +11960,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -10582,7 +12349,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX104"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX103"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX102"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX108"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX107"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX106"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

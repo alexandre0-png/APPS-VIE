@@ -60,6 +60,13 @@ local K8 = {
 	world = nil, info = nil, -- dossier World (Builder.build) ; info du kiosque construit (centre, prompts, pastille)
 	top = { at = -1e9, season = nil, list = {} }, -- cache du classement du kiosque (30 s : au plus 1 lecture DataStore par fenêtre)
 }
+-- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements. UNE seule variable locale (limite de 200) : modules,
+-- remote serveur -> client « Npc » (les demandes du client passent par Action : npcAnswer, npcOff, daily, bagPlace, bonusClaim, weeklyClaim, plumeBuy),
+-- carnets d'offres par joueur (mémoire, vidés au départ) et fonctions (bloc « Lot 15 » plus bas).
+local L15 = {
+	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
+	remote = newRemote("Npc"), books = {}, assets = nil, decorKey = nil,
+}
 -- Construit (ou reconstruit : idempotent) le kiosque dans World. assets = nil : repli procédural immédiat, sans avertissement.
 function K8.build(assets)
 	if not K8.world then
@@ -142,6 +149,13 @@ task.spawn(function()
 	print("[Assets] château Blender : " .. Builder.dressCastle(assets) .. " modèle(s) posé(s)")
 	assets.loadGroup("hub") -- lot 8B : kiosque central (hub.kiosk) ; le modèle remplace le repli procédural posé au démarrage
 	K8.build(assets)
+	assets.loadGroup("npc") -- lot 15 : PNJ (publiés aux clients, repli procédural côté client) ; décors d'événement ; calendrier mural près du kiosque
+	assets.loadGroup("event")
+	L15.assets = assets
+	if L15.publishNpc then -- (fonctions du bloc « Lot 15 », définies au chargement du script)
+		print("[Assets] PNJ publiés aux clients : " .. L15.publishNpc(assets) .. "/5 ; calendrier mural : " .. (L15.placeCalendar(assets) and "modèle Blender" or "absent (le kiosque garde son prompt)"))
+		pcall(L15.placeEventDecor, true)
+	end
 	print("[Assets] kiosque central : " .. ((K8.info and K8.info.usedAsset) and "modèle Blender" or ("repli procédural (" .. tostring(K8.info and K8.info.reason) .. ")")))
 	local dn, du, dfb = Builder.dressDecor(assets)
 	print("[Assets] décor de carte (lots 15 à 17) : " .. dn .. " exemplaire(s), " .. du .. " Parts Blender (budget " .. Config.Assets.decorBudgetParts .. "), " .. dfb .. " Parts de repli")
@@ -288,7 +302,7 @@ end
 
 -- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold", s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1)
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1)
 end
 
 local function income(s)
@@ -296,13 +310,15 @@ local function income(s)
 end
 
 local function luckPoints(s)
-	return Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil)
+	return Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil) + L15.Rewards.activeEvents(Config, os.time()).upgradeBonus -- lot 15 : week-end chanceux (+5, gratuit, pour tous)
 end
 
 local function rollPet(s, eggTier, guaranteed)
 	local up = Config.effectiveUp(eggTier, luckPoints(s), Config.dexTopTier(s.data.dex)) -- lot 9 : pas d'amélioration vers une rareté jamais découverte
 	local alien = evKey() == "alien"
-	return Rules.rollPet(eggTier, up, alien, rnd, guaranteed), up, alien
+	local pet = Rules.rollPet(eggTier, up, alien, rnd, guaranteed)
+	pet.p = L15.Rewards.featuredPick(Config, L15.Rewards.rotation(Config, L15.Rewards.weekOf(os.time() // 86400)), pet.p, rnd) -- lot 15 : espèce vedette de la semaine (poids x2)
+	return pet, up, alien
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
@@ -341,6 +357,9 @@ local function qp(s, t, n)
 		if q.t == t and q.prog < q.goal then
 			q.prog = math.min(q.goal, q.prog + n)
 		end
+	end
+	if L15.QP_WEEKLY[t] and L15.weekly then
+		L15.weekly(s, L15.QP_WEEKLY[t], n) -- lot 15 : quêtes de la semaine (éclosion, vol, collection)
 	end
 end
 
@@ -435,7 +454,7 @@ local function snapshot(s)
 		end
 	end
 	local today = os.time() // 86400
-	local nextStreak = (d.daily == today - 1) and d.streak + 1 or 1
+	local l15 = L15.view and L15.view(s) or nil -- lot 15 : série, sac, quêtes bonus et de la semaine, événements, réglage PNJ
 	return {
 		up = d.up,
 		slots = slots,
@@ -448,9 +467,9 @@ local function snapshot(s)
 		carryCap = carryCap(d),
 		passes = s.passes,
 		starter = s.data.starter == true,
-		dailyReady = d.daily ~= today,
-		dailyReward = math.floor(math.max(200, income(s) * 600) * math.min(nextStreak, 7)),
-		streak = nextStreak,
+		dailyReady = l15 ~= nil and l15.streak.state ~= "done" or d.daily ~= today, -- lot 15 : série de 7 jours (pastille rouge du menu Bonus)
+		streak = l15 ~= nil and l15.streak.day or 1,
+		l15 = l15,
 		stolen = d.stolen,
 		hatched = d.hatched,
 		cine = d.cine,
@@ -1082,6 +1101,7 @@ function hatch(s, i)
 	refreshPad(s, i, true)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
+	L15.onHatch(s, def.tier) -- lot 15 : quête bonus « éclosion Épique+ », calme des PNJ après une grande révélation
 	sp(s, "hatch", 1)
 	applyBase(s, true)
 	sp(s, "tier", 1, { tier = def.tier })
@@ -2148,6 +2168,7 @@ Hen = HenQuest.new({
 	income = income, story = sp, setEvent = setEvent,
 	onSolved = function(s)
 		tele.log(s.player, "puzzle_solved")
+		L15.weekly(s, "riddle", 1) -- lot 15 : quête de la semaine « énigmes »
 	end,
 })
 
@@ -2291,6 +2312,7 @@ local function slowTick(dt)
 			d.played += dt -- temps de jeu cumulé (secondes, sauvegardé) : protection débutant
 			refreshNewbie(s)
 			Lot7.Cal.tick(s)
+			L15.tick(s, dt) -- lot 15 : jour UTC (compteurs PNJ, semaine, plumes), rencontres de PNJ toutes les 5 s, offres expirées
 			local inc = income(s)
 			local active = os.clock() - s.lastActive <= Config.IDLE.seconds
 			if (player:GetAttribute("Idle") == true) == active then
@@ -2489,6 +2511,7 @@ end
 
 local function beltStep()
 	local now = os.clock()
+	BC.interval = L15.Rewards.activeEvents(Config, os.time()).beltSeconds -- lot 15 : week-end chanceux (4 s au lieu de 5)
 	local spawned, removed = Belt.step(Config, beltSt, now)
 	for _, e in ipairs(removed) do
 		beltRemoveVisual(e.id)
@@ -2876,6 +2899,7 @@ function actions.claimQuest(s, i)
 	end
 	q.claimed = true
 	Lot7.Calendar.addQuest(Config, s.data.cal) -- lot 9b : une mission réclamée compte pour le rattrapage « 3 missions » du calendrier
+	L15.plume(s, "quest") -- lot 15 : plumes d'événement (plafond du jour)
 	tele.log(s.player, "daily_quest_completed")
 	s.data.coins += q.rew
 	local extra = ""
@@ -2975,18 +2999,15 @@ function actions.claimAway(s)
 	RState:FireClient(s.player, snapshot(s))
 end
 
-function actions.daily(s)
-	local d = s.data
-	local today = os.time() // 86400
-	if d.daily == today then
-		return notify(s.player, "Bonus déjà récupéré aujourd'hui !")
+-- Lot 15 : série de 7 jours (remplace l'ancien bonus quotidien). arg = nil (suite normale ou jour de grâce automatique), { how = "quest" } (sauvetage gratuit :
+-- 3 missions du jour terminées) ou { how = "reset" } (repartir du jour 1). Le sauvetage payant (« product ») n'est JAMAIS accepté du client : seul le reçu
+-- StreakRestore le déclenche (ProcessReceipt).
+function actions.daily(s, arg)
+	local how = type(arg) == "table" and arg.how or nil
+	if how ~= "quest" and how ~= "reset" then
+		how = nil
 	end
-	local streak = (d.daily == today - 1) and d.streak + 1 or 1
-	local reward = math.floor(math.max(200, income(s) * 600) * math.min(streak, 7) * (s.passes.VipBase == true and Config.VIP_DAILY_MUL or 1))
-	d.daily, d.streak = today, streak
-	d.coins += reward
-	notify(s.player, "🎁 Bonus quotidien : +" .. Config.fmt(reward) .. " 🪙 (série " .. streak .. ")", "claim")
-	sync(s)
+	L15.streakClaim(s, how)
 end
 
 ---------------------------------------------------------------- Lot 9b : calendrier des œufs sur 30 jours
@@ -3052,8 +3073,13 @@ do
 			bits[#bits + 1] = "🪙 " .. Config.fmt(plan.coins)
 		end
 		if plan.egg then
-			local placed = giveEgg(s, plan.egg)
-			bits[#bits + 1] = "🥚 Œuf " .. Config.TIERS[plan.egg].name .. (placed and "" or " (base pleine : converti en pièces)")
+			-- lot 15 : base puis sac d'œufs (place vérifiée avant la sauvegarde). Si le joueur a tout rempli PENDANT la sauvegarde, repli de giveEgg (pièces) :
+			-- la récompense n'est jamais perdue ni doublée.
+			local where = L15.storeEggs(s, { plan.egg })
+			if not where then
+				giveEgg(s, plan.egg)
+			end
+			bits[#bits + 1] = "🥚 Œuf " .. Config.TIERS[plan.egg].name .. ((where and where[1] == "bag") and " (rangé dans ton sac d'œufs)" or (where and "" or " (base et sac pleins : converti en pièces)"))
 		end
 		if plan.scrolls > 0 then
 			d.scrolls = math.min(CAL.caps.scrolls, d.scrolls + plan.scrolls)
@@ -3111,8 +3137,8 @@ do
 			return
 		end
 		local plan = Calendar.plan(Config, day, rng:NextNumber(), income(s))
-		if plan.egg and not freeSlot(s) then
-			notify(s.player, "📅 Libère un emplacement dans ta base : un œuf t'attend (rien n'est perdu).")
+		if plan.egg and not L15.Rewards.canStore(Config, d.slots, cap(s), d.eggBag, 1) then -- lot 15 : base OU sac d'œufs
+			notify(s.player, "📅 Ta base et ton sac d'œufs sont pleins : libère une place, un œuf t'attend (rien n'est perdu).")
 			return
 		end
 		-- 1. jour marqué dans le profil (état d'avant gardé pour l'annuler), 2. sauvegarde, 3. octroi
@@ -3271,6 +3297,9 @@ local function battleFinish(s)
 	local st, win = bt.st, bt.st.winner == 1
 	local b = s.data.battle
 	local rewards = {}
+	if bt.npc then
+		return L15.fightEnd(s, bt, win) -- lot 15 : combat de PNJ (résultat déclaré par le serveur, une seule fois)
+	end
 	if bt.pvp then
 		local pv = pvpState(s)
 		if win then
@@ -3283,12 +3312,16 @@ local function battleFinish(s)
 			rewards.trophies = -loss
 		end
 		rewards.total = pv.trophies
+		if win then
+			L15.weekly(s, "pvp", 1) -- lot 15 : quête de la semaine « duels »
+		end
 		pvpPublishAsync(s)
 		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = 0, pvp = true, foe = bt.pvp.name, view = Battle.view(st) })
 		RState:FireClient(s.player, snapshot(s))
 		return
 	end
 	if win then
+		L15.onPve(s) -- lot 15 : quête bonus, quête de la semaine et plumes d'une victoire PvE
 		local first = bt.floor > b.best
 		if first then
 			b.best = bt.floor
@@ -3419,6 +3452,7 @@ function actions.towerStart(s, floor)
 	end
 	b.fights += 1
 	local seed = rng:NextInteger(1, 2147483000)
+	L15.boostUnits(mine) -- lot 15 : type « en forme » de la semaine (+20 % d'attaque, PvE seulement)
 	s.battle = { st = Battle.new(seed, mine, Battle.towerTeam(Config, floor)), floor = floor, deadline = os.clock() + TW.turnSeconds }
 	RBattle:FireClient(s.player, { k = "start", floor = floor, foe = Config.towerFoeName(floor), view = Battle.view(s.battle.st), seconds = TW.turnSeconds })
 end
@@ -3462,6 +3496,724 @@ task.spawn(function() -- tour limité à 10 s : action par défaut (attaque)
 		end
 	end
 end)
+
+---------------------------------------------------------------- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements
+-- Le SERVEUR décide de tout (jour UTC, rencontres, offres, résultats des combats) ; le client n'envoie que des identifiants ou des booléens (actions npcAnswer,
+-- npcOff, daily, bagPlace, bonusClaim, weeklyClaim, plumeBuy) et n'affiche que des vues. Modules purs : ReplicatedStorage/Npc et Rewards (tests/lot15.luau).
+-- Tous les œufs donnés passent par L15.storeEggs (base puis sac d'œufs, ATOMIQUE : tout ou rien, jamais de perte). Aucun Robux dans un dialogue de PNJ,
+-- aucun échange entre joueurs, aucune rareté interdite (FORBIDDEN_GIFT_TIERS) donnée par un PNJ, la série ou les quêtes.
+do
+	local Npc, Rewards = L15.Npc, L15.Rewards
+	local E = Config.NPC_ENCOUNTER
+	L15.QP_WEEKLY = { hatch = "hatch", steal = "steal", discover = "collect" } -- types de missions du jour (qp) -> thèmes de la semaine
+	local MSG = {
+		unknown = "Cette offre n'est plus valable.", used = "Cette offre n'est plus valable.", owner = "Cette offre n'est plus valable.", state = "Cette offre n'est plus valable.",
+		expired = "Trop tard : le PNJ est reparti.", coins = "Il te manque des pièces pour cette offre.", changed = "Tes pets ont changé depuis l'offre : elle est annulée.",
+		bagFull = "Ta base et ton sac d'œufs sont pleins : libère une place d'abord (rien n'est perdu).",
+	}
+	local function today()
+		return os.time() // 86400
+	end
+	local function tierName(t)
+		return Config.TIERS[t] and Config.TIERS[t].name or "?"
+	end
+	function L15.book(s)
+		local b = L15.books[s.player]
+		if not b then
+			b = Npc.newBook()
+			L15.books[s.player] = b
+		end
+		return b
+	end
+	-- Fabrique d'emplacement d'œuf (incubation et bouclier comme tous les œufs posés).
+	function L15.mkEgg(s)
+		return function(tier)
+			return { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
+		end
+	end
+	-- Range des œufs (base puis sac, tout ou rien) et rafraîchit les pads remplis. Retourne la liste « slot » / « bag » ou (nil, "bagFull") sans rien modifier.
+	function L15.storeEggs(s, tiers)
+		local d = s.data
+		local before = {}
+		for i = 1, cap(s) do
+			before[i] = not d.slots[i]
+		end
+		local ok, where = Rewards.storeEggs(Config, d.slots, cap(s), d.eggBag, tiers, L15.mkEgg(s))
+		if not ok then
+			return nil, where
+		end
+		for i = 1, cap(s) do
+			if before[i] and d.slots[i] then
+				refreshPad(s, i)
+			end
+		end
+		return where
+	end
+	local function saveSoon(s)
+		if not s.noSave then
+			task.spawn(function()
+				Data.save(s.player, s.data, s.leaving == true)
+			end)
+		end
+	end
+	-- Missions du jour TERMINÉES (progression au but), pour la quête bonus et le sauvetage gratuit de la série.
+	function L15.questsDone(s)
+		local n = 0
+		if s.data.qday == today() then
+			for _, q in ipairs(s.data.quests) do
+				if q.prog >= q.goal then
+					n = n + 1
+				end
+			end
+		end
+		return n
+	end
+	-- Synchronise le jour UTC : compteurs des PNJ, semaine des quêtes, plumes (événement en cours ; connexion créditée une fois par jour).
+	function L15.daySync(s)
+		local d, t = s.data, today()
+		Npc.rollDay(d.npc, t)
+		Rewards.weeklySync(Config, d.weekly, Rewards.weekOf(t))
+		local ev, key = Rewards.limitedEvent(Config, t)
+		Rewards.plumeSync(Config, d.event, t, key)
+		if ev and Rewards.plumeAdd(Config, d.event, "login", true) > 0 then
+			notify(s.player, "🪶 " .. ev.name .. " : +" .. Config.PLUMES.login .. " plumes d'événement (connexion du jour).", "claim")
+		end
+		return ev
+	end
+	function L15.weekly(s, key, n)
+		L15.daySync(s)
+		Rewards.weeklyAdd(Config, s.data.weekly, key, n)
+	end
+	function L15.plume(s, source)
+		local ev = L15.daySync(s)
+		local got = Rewards.plumeAdd(Config, s.data.event, source, ev ~= nil)
+		if got > 0 then
+			notify(s.player, "🪶 +" .. got .. " plumes d'événement (" .. s.data.event.p .. ")")
+		end
+	end
+	function L15.onHatch(s, tier)
+		s.revealAt, s.revealTier = os.time(), tier
+		if Config.tierAtLeast(tier, "fullCine") then
+			s.cineUntil = os.clock() + 20 -- grande cinématique d'éclosion côté client : aucun PNJ pendant ce temps
+		end
+		L15.daySync(s)
+		Rewards.bonusEvent(Config, s.data.weekly, today(), s.data.story.ch, L15.questsDone(s) >= 3, { kind = "hatch", tier = tier })
+	end
+	function L15.onPve(s)
+		L15.daySync(s)
+		Rewards.bonusEvent(Config, s.data.weekly, today(), s.data.story.ch, L15.questsDone(s) >= 3, { kind = "pve" })
+		Rewards.weeklyAdd(Config, s.data.weekly, "pve", 1)
+		L15.plume(s, "pve")
+	end
+	-- Type « en forme » de la semaine : +20 % d'attaque en PvE (tour, PNJ). Les types de Battle (Nature) suivent les noms de la rotation (Plante).
+	function L15.boostUnits(units)
+		local rot = Rewards.rotation(Config, Rewards.weekOf(today()))
+		for _, u in ipairs(units) do
+			local ty = u.type == "Nature" and "Plante" or u.type
+			local mul = Rewards.typeDamage(Config, rot, ty, true)
+			if mul ~= 1 then
+				u.atk = math.floor(u.atk * mul + 0.5)
+			end
+		end
+	end
+
+	---------------------------------------------------------------- PNJ : inventaire, contexte, emplacement, rencontre
+	function L15.inv(s)
+		local d = s.data
+		local eq, team, pets, seen, teamTiers = {}, {}, {}, {}, {}
+		for _, i in ipairs(d.equip) do
+			eq[i] = true
+		end
+		for _, i in ipairs(d.battle.team) do
+			team[i] = true
+		end
+		for i = 1, Config.SLOTS_MAX do
+			local sl = d.slots[i]
+			if sl and sl.k == "p" then
+				local def = false
+				for _, e in ipairs(d.battle.pvp.defense) do -- défense PvP = copies : tout pet identique est protégé (prudent)
+					if e.p == sl.p and e.s == sl.s and e.m == sl.m then
+						def = true
+					end
+				end
+				pets[#pets + 1] = { slot = i, p = sl.p, s = sl.s, m = sl.m, follower = eq[i] == true, team = team[i] == true, defense = def }
+				if team[i] and Config.PETS[sl.p] then
+					teamTiers[#teamTiers + 1] = Config.PETS[sl.p].tier
+				end
+			end
+		end
+		for k in pairs(d.dex) do
+			local n = tonumber(k)
+			if n then
+				seen[n] = true
+			end
+		end
+		return {
+			coins = d.coins, pets = pets, seen = seen, avgLevel = 1, teamTiers = teamTiers,
+			typeOf = function(p)
+				local ty = Battle.SPECIES_TYPE[p]
+				return ty == "Nature" and "Plante" or ty
+			end,
+		}
+	end
+	local function chased(player)
+		for _, g in ipairs(world.guards) do
+			if g.target == player and g.st and g.st.state == "chase" then
+				return true
+			end
+		end
+		return false
+	end
+	-- Point d'apparition : à approachRange studs du joueur, sur la place ou un chemin (zone « arena »), jamais dans un territoire ni sur une base, dans la carte.
+	function L15.spot(root)
+		local B = Config.Map2.bounds
+		local px, pz = root.Position.X, root.Position.Z
+		local a0 = rnd() * math.pi * 2
+		for k = 0, 7 do
+			local a = a0 + k * math.pi / 4
+			local x, z = px + math.cos(a) * E.approachRange, pz + math.sin(a) * E.approachRange
+			local ok = x > B.x0 + 10 and x < B.x1 - 10 and z > B.z0 + 10 and z < B.z1 - 10 and Config.zoneAt(x, z) == "arena"
+			for _, pl in ipairs(world.plots) do
+				if ok and pl.spawn and (Vector3.new(x, 0, z) - Vector3.new(pl.spawn.Position.X, 0, pl.spawn.Position.Z)).Magnitude < 34 then
+					ok = false
+				end
+			end
+			if ok then
+				return x, z
+			end
+		end
+		return nil
+	end
+	-- Contexte F.2 connu du serveur. « flying » = vol d'œuf en cours (appui long sur un nid ou un œuf) ; cinématique = grande éclosion récente.
+	function L15.ctx(s, root)
+		local zone = Config.zoneAt(root.Position.X, root.Position.Z)
+		return {
+			sessionStart = s.npcStart, carrying = #s.carry > 0, chased = chased(s.player), inDuel = s.battle ~= nil or s.pvpPending == true,
+			inCastle = s.castle ~= nil or serverMode == "castle", inCinematic = os.clock() < (s.cineUntil or 0), flying = holds[s.player] ~= nil,
+			inTerritory = zone ~= "arena", pending = L15.book(s).current ~= nil, lastRevealAt = s.revealAt, lastRevealTier = s.revealTier,
+		}
+	end
+	local function offerText(o)
+		if o.sub == "buy" then
+			return Npc.say(Config, "pip", "offer1", { rarity = tierName(o.getEgg), price = Config.fmt(o.price) })
+		elseif o.sub == "dupes" then
+			return Npc.say(Config, "pip", "offer2", { r = tierName(o.dupeTier), r2 = tierName(o.getEgg) })
+		elseif o.sub == "species" then
+			return Npc.say(Config, "nora", "offer", { species = Config.PETS[o.getSpecies.p].name, dupe = Config.PETS[o.take[1].p].name, fee = Config.fmt(o.price) })
+		end
+		local names = {}
+		for _, e in ipairs(o.team or {}) do
+			local def = Config.PETS[e.p]
+			names[#names + 1] = def and (def.emoji .. " " .. def.name) or "?"
+		end
+		return "Équipe adverse : " .. table.concat(names, ", ") .. (o.kind == "champion" and " · victoire = Œuf " .. tierName(o.guaranteedEgg) .. " garanti" or "")
+	end
+	-- Une tentative de rencontre (toutes les 5 s par joueur). Rien n'est consommé si elle échoue (Npc.encounter est atomique).
+	function L15.tryEncounter(s)
+		local root = getRoot(s.player)
+		if not (root and alive(s.player)) then
+			return
+		end
+		local d = s.data
+		local now = os.time()
+		local okSpawn = Npc.canSpawn(Config, d.npc, now, today(), L15.ctx(s, root))
+		if not okSpawn then
+			return
+		end
+		local x, z = L15.spot(root)
+		if not x then
+			return
+		end
+		local o = Npc.encounter(Config, d.npc, L15.book(s), s.player.UserId, now, today(), L15.ctx(s, root), L15.inv(s), rnd)
+		if not o then
+			return
+		end
+		local def = Config.NPCS[o.npc]
+		L15.remote:FireClient(s.player, {
+			k = "offer", id = o.id, npc = o.npc, kind = o.kind, name = def.name, emoji = def.emoji, model = o.npc,
+			approach = Npc.say(Config, o.npc, "approach"), text = offerText(o), buttons = Config.DIALOGUES[o.npc].buttons,
+			view = Npc.view(Config, o, Lot7.Odds), x = x, z = z, seconds = E.offerSeconds,
+		})
+		tele.log(s.player, "npc_encounter", 1, "_" .. o.npc)
+	end
+	function L15.tick(s, dt)
+		s.npcT = (s.npcT or 0) + dt
+		if s.npcT < 5 then
+			return
+		end
+		s.npcT = 0
+		L15.daySync(s)
+		Npc.sweep(L15.book(s), os.time()) -- le PNJ repart sans pénalité après 60 s (le client le fait disparaître de son côté)
+		L15.tryEncounter(s)
+	end
+
+	---------------------------------------------------------------- PNJ : réponses du joueur
+	local function said(s, npcKey, text, ok)
+		L15.remote:FireClient(s.player, { k = "said", npc = npcKey, text = text, ok = ok == true })
+	end
+	function L15.decline(s, id)
+		local ok, res = Npc.decline(Config, s.data.npc, L15.book(s), id, s.player.UserId, os.time())
+		if not ok then
+			return said(s, nil, MSG[res] or MSG.unknown, false)
+		end
+		said(s, res.npc, res.gone and (Npc.say(Config, res.npc, "gone") ~= "" and Npc.say(Config, res.npc, "gone") or "Je ne reviendrai pas aujourd'hui. À demain !") or Npc.say(Config, res.npc, "refuse"), true)
+	end
+	-- Équipe adverse : 3 espèces existantes dont la puissance totale = puissance de l'équipe du joueur x powerMul (U(0,9 ; 1,1), Kaï x1,3).
+	function L15.foes(o, mine)
+		local pp, fp = 0, 0
+		for _, u in ipairs(mine) do
+			pp = pp + Battle.power(u)
+		end
+		for _, e in ipairs(o.team) do
+			fp = fp + Battle.power(Battle.unit(Config, { p = e.p, s = 2, m = 1 }))
+		end
+		local scale = fp > 0 and math.clamp(pp * o.powerMul / fp, 0.2, 20) or 1
+		local foes = {}
+		for _, e in ipairs(o.team) do
+			foes[#foes + 1] = Battle.unit(Config, { p = e.p, s = 2, m = 1 }, scale)
+		end
+		return foes
+	end
+	function L15.accept(s, id, confirm2)
+		local d, book, now, uid = s.data, L15.book(s), os.time(), s.player.UserId
+		local o = book.offers[id]
+		if not o or o.userId ~= uid then
+			return said(s, nil, MSG.unknown, false)
+		end
+		if o.kind == "trade" then
+			local freed = 0
+			for _, t in ipairs(o.take) do
+				if t.slot <= cap(s) then
+					freed = freed + 1
+				end
+			end
+			if o.getEgg and Rewards.freeSlots(d.slots, cap(s)) + freed + (Config.EGG_BAG.size - #d.eggBag) < 1 then
+				return said(s, o.npc, MSG.bagFull, false)
+			end
+			local ok, eff = Npc.accept(Config, book, id, uid, now, L15.inv(s), { confirm2 = confirm2 })
+			if not ok then
+				if eff == "confirm2" then
+					return L15.remote:FireClient(s.player, { k = "confirm2", id = id })
+				end
+				return said(s, o.npc, MSG[eff] or MSG.unknown, false)
+			end
+			-- effet appliqué EN UNE FOIS (aucune attente entre le retrait et le don) ; l'offre est déjà retirée du carnet : aucun rejeu possible
+			d.coins = d.coins + eff.coins
+			for _, i in ipairs(eff.take) do
+				d.slots[i] = false
+			end
+			local got = {}
+			if eff.species then
+				local i = eff.take[1]
+				local sp = eff.species
+				local odds = Lot7.Odds.forPet(Config, sp.p, sp.s, sp.m)
+				d.slots[i] = { k = "p", p = sp.p, s = sp.s, m = sp.m, o = odds, ov = odds and Config.ODDS.version or nil }
+				local key = tostring(sp.p)
+				if not d.dex[key] then
+					d.dex[key] = { n = 0, b = 0 }
+					s.species = s.species + 1
+					qp(s, "discover", 1)
+				end
+				d.dex[key].n = d.dex[key].n + 1
+				d.dex[key].b = math.max(d.dex[key].b, Config.SIZES[sp.s].mult * Config.MUTS[sp.m].mult)
+				got[#got + 1] = Config.PETS[sp.p].emoji .. " " .. Config.PETS[sp.p].name
+			end
+			for _, i in ipairs(eff.take) do
+				refreshPad(s, i)
+			end
+			if eff.egg then
+				local where = L15.storeEggs(s, { eff.egg }) -- place garantie (vérifiée avant l'acceptation, les emplacements donnés sont libérés)
+				got[#got + 1] = "🥚 Œuf " .. tierName(eff.egg) .. ((where and where[1] == "bag") and " (dans ton sac d'œufs)" or "")
+			end
+			rebuildFollowers(s)
+			Npc.noteAccepted(d.npc, eff.npc)
+			L15.weekly(s, "npc", 1)
+			said(s, eff.npc, "Marché conclu ! Tu reçois : " .. table.concat(got, ", ") .. ".", true)
+			notify(s.player, "🤝 Échange avec " .. Config.NPCS[eff.npc].name .. " : " .. table.concat(got, ", "), "claim")
+			tele.log(s.player, "npc_trade", 1, "_" .. eff.npc)
+			sync(s)
+			saveSoon(s)
+			return
+		end
+		-- combat (Lina, Bruno) ou Champion errant (Kaï)
+		if s.battle or s.castle or s.pvpPending then
+			return said(s, o.npc, "Termine d'abord ce que tu fais, je t'attends !", false)
+		end
+		local mine = battleUnits(s)
+		if #mine == 0 then
+			return said(s, o.npc, "Compose d'abord ton équipe de pets (bouton ⚔️ Arène), puis reviens me voir !", false)
+		end
+		if o.kind == "champion" and not Rewards.canStore(Config, d.slots, cap(s), d.eggBag, 1) then
+			return said(s, o.npc, MSG.bagFull, false)
+		end
+		local ok, acc = Npc.accept(Config, book, id, uid, now, L15.inv(s), {})
+		if not ok then
+			return said(s, o.npc, MSG[acc] or MSG.unknown, false)
+		end
+		local foes = L15.foes(acc, mine)
+		L15.boostUnits(mine)
+		local def = Config.NPCS[acc.npc]
+		s.battle = { st = Battle.new(rng:NextInteger(1, 2147483000), mine, foes), floor = 0, npc = { id = acc.id, key = acc.npc, name = def.emoji .. " " .. def.name }, deadline = os.clock() + TW.turnSeconds }
+		L15.remote:FireClient(s.player, { k = "fight", id = acc.id })
+		RBattle:FireClient(s.player, { k = "start", floor = 0, foe = def.emoji .. " " .. def.name, npc = true, view = Battle.view(s.battle.st), seconds = TW.turnSeconds })
+	end
+	-- Fin d'un combat de PNJ (appelé par battleFinish, s.battle déjà vidé). Npc.resolve est à usage unique : la récompense ne peut pas être versée deux fois.
+	function L15.fightEnd(s, bt, win)
+		local d = s.data
+		local ok, out = Npc.resolve(Config, L15.book(s), bt.npc.id, s.player.UserId, os.time(), win)
+		local rewards = {}
+		local text = ""
+		if ok then
+			if out.won then
+				L15.onPve(s)
+				local coins = math.floor(math.max(Config.STREAK.coinFloor, income(s) * 300) * (out.rewardMul or 1))
+				d.coins = d.coins + coins
+				rewards.coins = coins
+				local eggT = out.egg
+				if not eggT and out.cardEgg and rnd() * 100 < (out.cardPct or 0) then
+					eggT = out.cardEgg
+				end
+				if eggT then
+					if L15.storeEggs(s, { eggT }) then
+						rewards.egg = eggT
+					else
+						local c2 = math.floor(Config.eggCoinValue(eggT) * 0.5)
+						d.coins = d.coins + c2
+						rewards.coins = coins + c2
+					end
+				end
+				text = Npc.say(Config, out.npc, "win")
+			else
+				for _, idx in ipairs(d.battle.team) do
+					local sl = validSlot(idx) and d.slots[idx]
+					if sl and sl.k == "p" then
+						sl.x = math.min(1e7, (sl.x or 0) + out.xp) -- défaite : rien n'est perdu, +5 XP par pet de l'équipe
+					end
+				end
+				text = Npc.say(Config, out.npc, "lose", { tip = Npc.tip(Config, { npc = out.npc }) })
+			end
+			L15.weekly(s, "npc", 1)
+			tele.log(s.player, "npc_fight", out.won and 1 or 0, "_" .. out.npc)
+		end
+		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = d.battle.best, floor = 0, npc = true, foe = bt.npc.name, view = Battle.view(bt.st) })
+		if text ~= "" then
+			said(s, bt.npc.key, text, win)
+		end
+		RState:FireClient(s.player, snapshot(s))
+		saveSoon(s)
+	end
+	function actions.npcAnswer(s, arg)
+		if type(arg) ~= "table" or type(arg.id) ~= "string" or #arg.id > 48 then
+			return
+		end
+		if arg.action == "decline" then
+			L15.decline(s, arg.id)
+		elseif arg.action == "accept" then
+			L15.accept(s, arg.id, arg.confirm2 == true)
+		end
+	end
+	-- « Ne plus être interpellé » : réglage sauvegardé ; l'activer retire aussi l'offre en cours (sans pénalité).
+	function actions.npcOff(s, v)
+		if type(v) ~= "boolean" then
+			return
+		end
+		s.data.npc.off = v
+		if v then
+			local book = L15.book(s)
+			if book.current then
+				book.offers[book.current] = nil
+				book.current = nil
+			end
+			L15.remote:FireClient(s.player, { k = "clear" })
+		end
+		notify(s.player, v and "🤫 Les PNJ ne t'interpelleront plus (réglage dans Plus)." or "👋 Les PNJ peuvent de nouveau t'interpeller.")
+		sync(s)
+	end
+
+	---------------------------------------------------------------- Série de 7 jours, sac d'œufs, quêtes bonus et de la semaine, plumes
+	local STREAK_MSG = {
+		done = "🔥 Série déjà réclamée aujourd'hui : reviens demain !", rescue = "🔥 Ta série va se perdre : choisis comment la sauver (menu Bonus).",
+		noQuest = "🔥 Termine d'abord les 3 missions du jour pour sauver ta série gratuitement.", noProduct = "🔥 Le sauvetage payant a déjà servi cette semaine.",
+		bagFull = "🔥 Ta base et ton sac d'œufs sont pleins : libère une place, ta récompense t'attend (rien n'est perdu).",
+	}
+	-- Réclame la série du jour. how : nil, "quest", "reset" (client) ou "product" (reçu StreakRestore vérifié). Retourne (true) ou (false, code).
+	function L15.streakClaim(s, how)
+		if s.streakBusy then
+			return false, "busy"
+		end
+		s.streakBusy = true
+		local d = s.data
+		local g = { daily = d.daily, streak = d.streak, grace = d.grace }
+		local ctx = { income = income(s), vip = s.passes.VipBase == true, questsDone = L15.questsDone(s), slots = d.slots, cap = cap(s), bag = d.eggBag, mkEgg = L15.mkEgg(s) }
+		local before = {}
+		for i = 1, cap(s) do
+			before[i] = not d.slots[i]
+		end
+		local ok, res = Rewards.streakClaim(Config, g, today(), how, ctx)
+		s.streakBusy = nil
+		if not ok then
+			if how ~= "product" then
+				notify(s.player, STREAK_MSG[res] or STREAK_MSG.done, "refuse")
+				sync(s)
+			end
+			return false, res
+		end
+		d.daily, d.streak = g.daily, g.streak
+		for i = 1, cap(s) do
+			if before[i] and d.slots[i] then
+				refreshPad(s, i)
+			end
+		end
+		local gr, bits = res.grant, {}
+		if gr.coins > 0 then
+			d.coins = d.coins + gr.coins
+			bits[#bits + 1] = "🪙 " .. Config.fmt(gr.coins)
+		end
+		for _, t in ipairs(gr.eggs) do
+			bits[#bits + 1] = "🥚 Œuf " .. tierName(t)
+		end
+		if gr.luck then
+			d.luckUntil = math.max(os.time(), d.luckUntil) + gr.luck.minutes * 60
+			bits[#bits + 1] = "🧪 Potion de chance " .. gr.luck.minutes .. " min"
+		end
+		if gr.boost then
+			d.xp2Until = math.max(os.time(), d.xp2Until) + gr.boost.minutes * 60
+			bits[#bits + 1] = "📜 XP x" .. gr.boost.mul .. " " .. gr.boost.minutes .. " min"
+		end
+		if gr.fragments > 0 then
+			d.puzzle.fragments = d.puzzle.fragments + gr.fragments
+			bits[#bits + 1] = "🧩 +" .. gr.fragments .. " fragment du Grand Œuf"
+		end
+		local bagged = false
+		for _, w in ipairs(res.where or {}) do
+			bagged = bagged or w == "bag"
+		end
+		notify(s.player, "🔥 Série jour " .. res.day .. "/7" .. (res.state == "grace" and " (jour de grâce utilisé)" or "") .. " : " .. table.concat(bits, " · ") .. (bagged and " (œuf rangé dans ton sac)" or ""), res.day == #Config.STREAK.days and "calendar_milestone" or "calendar_claim")
+		tele.log(s.player, "streak_claim", res.day, "_" .. tostring(res.state))
+		sync(s)
+		saveSoon(s)
+		return true
+	end
+	function actions.bagPlace(s)
+		local d = s.data
+		local ok, tier, i = Rewards.bagTake(d.slots, cap(s), d.eggBag, L15.mkEgg(s))
+		if not ok then
+			notify(s.player, tier == "empty" and "🎒 Ton sac d'œufs est vide." or "🎒 Ta base est pleine : libère un emplacement pour poser l'œuf.", "refuse")
+			return
+		end
+		refreshPad(s, i)
+		notify(s.player, "🎒 Œuf " .. tierName(tier) .. " posé dans ta base.", "claim")
+		sync(s)
+	end
+	local function eggsText(gr)
+		local bits = {}
+		for _, t in ipairs(gr.eggs) do
+			bits[#bits + 1] = "Œuf " .. tierName(t)
+		end
+		return table.concat(bits, ", ")
+	end
+	local function store(s)
+		local before = {}
+		for i = 1, cap(s) do
+			before[i] = not s.data.slots[i]
+		end
+		return { slots = s.data.slots, cap = cap(s), bag = s.data.eggBag, mkEgg = L15.mkEgg(s) }, before
+	end
+	local function refreshFilled(s, before)
+		for i = 1, cap(s) do
+			if before[i] and s.data.slots[i] then
+				refreshPad(s, i)
+			end
+		end
+	end
+	function actions.bonusClaim(s)
+		L15.daySync(s)
+		local st, before = store(s)
+		local ok, gr = Rewards.bonusClaim(Config, s.data.weekly, today(), s.data.story.ch, st)
+		if not ok then
+			notify(s.player, gr == "claimed" and "⭐ Quête bonus déjà réclamée aujourd'hui." or (gr == "bagFull" and MSG.bagFull or "⭐ Quête bonus pas encore terminée."), "refuse")
+			return
+		end
+		refreshFilled(s, before)
+		notify(s.player, "⭐ Quête bonus : " .. eggsText(gr), "claim")
+		sync(s)
+		saveSoon(s)
+	end
+	function actions.weeklyClaim(s, which)
+		if which ~= 5 and which ~= 7 then
+			return
+		end
+		L15.daySync(s)
+		local st, before = store(s)
+		local ok, gr = Rewards.weeklyClaim(Config, s.data.weekly, which, st)
+		if not ok then
+			notify(s.player, gr == "claimed" and "📆 Récompense de la semaine déjà réclamée." or (gr == "bagFull" and MSG.bagFull or "📆 Pas encore assez de quêtes de la semaine terminées."), "refuse")
+			return
+		end
+		refreshFilled(s, before)
+		s.data.seasonXp = math.min(1e7, s.data.seasonXp + (gr.seasonXp or 0)) -- XP de saison : mise de côté pour la passe de saison (lot 16)
+		notify(s.player, "📆 Quêtes de la semaine " .. which .. "/7 : " .. eggsText(gr) .. ((gr.seasonXp or 0) > 0 and (" + " .. gr.seasonXp .. " XP de saison") or ""), "claim")
+		sync(s)
+		saveSoon(s)
+	end
+	function actions.plumeBuy(s)
+		local ev = L15.daySync(s)
+		local st, before = store(s)
+		local ok, t = Rewards.plumeBuyExclusive(Config, s.data.event, ev ~= nil, st)
+		if not ok then
+			local m = { inactive = "🪶 Aucun événement en cours.", limit = "🪶 Tu as déjà obtenu le maximum d'Œufs Exclusifs de cet événement.", plumes = "🪶 Il te faut " .. Config.PLUMES.exclusiveCost .. " plumes d'événement.",
+				notLive = "🪶 L'Œuf Exclusif arrive bientôt : garde tes plumes pour cet événement.", bagFull = MSG.bagFull }
+			notify(s.player, m[t] or m.inactive, "refuse")
+			return
+		end
+		refreshFilled(s, before)
+		notify(s.player, "🪶 Œuf " .. tierName(t) .. " obtenu contre " .. Config.PLUMES.exclusiveCost .. " plumes !", "jackpot_rare")
+		sync(s)
+		saveSoon(s)
+	end
+	-- Vue envoyée au client (snapshot) : série, récompenses des 7 jours, sac, quêtes bonus et de la semaine, événements, rotation, réglage PNJ.
+	function L15.view(s)
+		local d, t = s.data, today()
+		L15.daySync(s)
+		local plan = Rewards.streakPlan(Config, { daily = d.daily, streak = d.streak, grace = d.grace }, t, { questsDone = L15.questsDone(s) })
+		local days = {}
+		for i = 1, #Config.STREAK.days do
+			local gr = Rewards.streakReward(Config, i, d.grace.weeks, income(s), s.passes.VipBase == true)
+			days[i] = { eggs = gr.eggs, coins = gr.coins, luck = gr.luck and gr.luck.minutes or nil, boost = gr.boost and gr.boost.minutes or nil, fragments = gr.fragments, mythic = gr.mythicWeek }
+		end
+		local q = Rewards.bonusQuest(Config, t, d.story.ch)
+		local bq = (type(d.weekly.bq) == "table" and d.weekly.bq.d == t) and d.weekly.bq or { prog = 0, claimed = false }
+		local themes = {}
+		for i, th in ipairs(Config.QUESTS.weekly.themes) do
+			themes[i] = { text = th.text, prog = d.weekly.prog[i], goal = th.goal }
+		end
+		local act = Rewards.activeEvents(Config, os.time())
+		local rot = Rewards.rotation(Config, Rewards.weekOf(t))
+		local exIdx = Rewards.tierIdx(Config, Config.PLUMES.exclusiveName)
+		return {
+			streak = { state = plan.state, day = plan.day, missed = plan.missed, streak = plan.streak, canQuest = plan.canQuest == true, canProduct = plan.canProduct == true and Config.purchasable(Config.PRODUCTS.StreakRestore), lost = plan.lost, weeks = d.grace.weeks, graceFree = not (d.grace.week == Rewards.weekOf(t) and d.grace.used >= 1) },
+			days = days, bag = #d.eggBag, bagMax = Config.EGG_BAG.size, questsDone = L15.questsDone(s),
+			bonus = { text = q.text, prog = math.min(bq.prog, q.goal), goal = q.goal, egg = q.egg, unlocked = L15.questsDone(s) >= 3, claimed = bq.claimed == true },
+			weekly = { themes = themes, done = Rewards.weeklyDone(Config, d.weekly), c5 = d.weekly.c5, c7 = d.weekly.c7 },
+			ev = { weekend = act.weekend, golden = act.golden, limited = act.limited and act.limited.name or nil, plumes = d.event.p, got = d.event.x, cost = Config.PLUMES.exclusiveCost, max = Config.PLUMES.maxExclusivePerEvent, exclusiveLive = exIdx ~= nil and Config.tierLive(exIdx) },
+			rot = { type = rot.type, featured = rot.featured },
+			npcOff = d.npc.off == true,
+		}
+	end
+
+	---------------------------------------------------------------- Modèles : PNJ publiés aux clients, calendrier mural, décor d'événement
+	function L15.publishNpc(assets)
+		local n = 0
+		pcall(function()
+			local folder = ReplicatedStorage:FindFirstChild("NpcTemplates") or Instance.new("Folder")
+			folder.Name = "NpcTemplates"
+			for key in pairs(Config.Assets.models.npc) do
+				local clone = assets.cloneModel("npc", key)
+				if clone then
+					local old = folder:FindFirstChild(key)
+					if old then
+						old:Destroy()
+					end
+					clone.Name = key
+					for _, dd in ipairs(clone:GetDescendants()) do
+						if dd:IsA("BasePart") then
+							dd.Anchored, dd.CanCollide, dd.CanQuery, dd.CanTouch = true, false, false, false
+						end
+					end
+					clone.Parent = folder
+					n = n + 1
+				end
+			end
+			folder.Parent = ReplicatedStorage
+		end)
+		return n
+	end
+	-- Angle (degrés) qui tourne la face avant (-Z) d'un modèle posé en (x, z) vers le point (tx, tz) (sans math.atan2).
+	local function faceDeg(x, z, tx, tz)
+		local dx, dz = x - tx, z - tz
+		local r = math.sqrt(dx * dx + dz * dz)
+		if r < 1e-3 then
+			return 0
+		end
+		local a = math.acos(math.clamp(dz / r, -1, 1))
+		return math.deg(dx < 0 and -a or a)
+	end
+	-- Calendrier mural (hub.calendar) à côté du kiosque, tourné vers la place ; prompt « Calendrier » validé par Kiosk.handle (même action que le kiosque).
+	function L15.placeCalendar(assets)
+		if not K8.world or K8.world:FindFirstChild("CalendarBoard") then
+			return false
+		end
+		local model = assets.cloneModel("hub", "calendar")
+		if not model then
+			return false
+		end
+		local K, B, P = Config.Map2.kiosk, Config.CALENDAR_BOARD, Config.Map2.plaza
+		local x, z = K.x + B.dx, K.z + B.dz
+		model.Name = "CalendarBoard"
+		if not assets.place(model, x, z, faceDeg(x, z, P.x, P.z), B.height, K8.world) then
+			return false
+		end
+		local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+		if part then
+			local pr = Instance.new("ProximityPrompt")
+			pr.Name = "KioskPrompt_calendarBoard"
+			pr.ActionText, pr.ObjectText, pr.HoldDuration, pr.MaxActivationDistance, pr.RequiresLineOfSight = "Calendrier", "📅 Calendrier des œufs", 0, 12, false
+			pr:SetAttribute("KioskAction", "calendar")
+			CollectionService:AddTag(pr, "KioskPrompt")
+			pr.Parent = part
+		end
+		return true
+	end
+	-- Décor de l'événement limité du jour (EVENTS_CAL) : modèle Blender ou repli procédural ; retiré à la fin de l'événement. force = reconstruire.
+	function L15.placeEventDecor(force)
+		if not K8.world then
+			return
+		end
+		local ev = Rewards.limitedEvent(Config, today())
+		local key = ev and ev.decor or ""
+		if L15.decorKey == key and not force then
+			return
+		end
+		L15.decorKey = key
+		local old = K8.world:FindFirstChild("EventDecor")
+		if old then
+			old:Destroy()
+		end
+		if not ev then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "EventDecor"
+		folder.Parent = K8.world
+		local spot, mk = Config.EVENT_DECOR_SPOT, Config.EVENT_DECOR[key]
+		local model = mk and L15.assets and L15.assets.cloneModel("event", mk)
+		if model and L15.assets.place(model, spot.x, spot.z, faceDeg(spot.x, spot.z, 0, 0), spot.height, folder) then
+			return
+		end
+		local ball = Instance.new("Part") -- repli procédural : une grosse boule aux couleurs de l'événement et son nom
+		ball.Name = "EventDecorFallback"
+		ball.Shape = Enum.PartType.Ball
+		ball.Size = Vector3.new(6, 6, 6)
+		ball.Anchored, ball.CanCollide = true, false
+		ball.Material = Enum.Material.SmoothPlastic
+		ball.Color = ev.id == "halloween" and Color3.fromRGB(255, 140, 30) or (ev.id == "xmas" and Color3.fromRGB(40, 160, 70) or Color3.fromRGB(255, 170, 220))
+		ball.Position = Vector3.new(spot.x, 3, spot.z)
+		ball.Parent = folder
+		local bb = Instance.new("BillboardGui")
+		bb.Size, bb.StudsOffset, bb.MaxDistance = UDim2.fromOffset(220, 40), Vector3.new(0, 5, 0), 80
+		bb.Parent = ball
+		local lbl = Instance.new("TextLabel")
+		lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextScaled, lbl.Font, lbl.TextColor3 = UDim2.fromScale(1, 1), 1, "🎉 " .. ev.name, true, Enum.Font.GothamBold, Color3.new(1, 1, 1)
+		lbl.Parent = bb
+	end
+	L15.placeEventDecor(false)
+	task.spawn(function()
+		while true do
+			task.wait(600)
+			pcall(L15.placeEventDecor, false)
+		end
+	end)
+end
 
 function actions.ravenList(s)
 	return Lot7.ravenList(s)
@@ -4280,6 +5032,13 @@ MarketplaceService.ProcessReceipt = function(info)
 					return Enum.ProductPurchaseDecision.NotProcessedYet
 				end
 				notify(player, "📅 +1 rattrapage du calendrier (" .. s.data.cal.catch .. "/" .. Config.CALENDAR.catchupMax .. ").", "buy")
+			elseif name == "StreakRestore" then
+				-- lot 15 : sauvetage payant de la série (1 fois par semaine UTC), seulement si la série est réellement à sauver ; sinon rien n'est livré (rejoué plus tard)
+				local okS, why = L15.streakClaim(s, "product")
+				if not okS then
+					notify(player, why == "bagFull" and "🔥 Base et sac d'œufs pleins : libère une place, ton achat sera livré automatiquement." or "🔥 Ta série n'a pas besoin d'être sauvée : ton achat n'est pas livré (rien n'est perdu).")
+					return Enum.ProductPurchaseDecision.NotProcessedYet
+				end
 			elseif name == "InstantHatch" then
 				for i = 1, cap(s) do
 					hatch(s, i)
@@ -4455,6 +5214,7 @@ local function onJoin(player)
 		end
 		d.lastSeen = today
 		s.joinClock = os.clock()
+		s.npcStart = os.time() -- lot 15 : 8 premières minutes de la session sans PNJ
 	end
 	if plot and plot.spawn then
 		player:SetAttribute("BaseX", plot.spawn.Position.X) -- le client affiche la distance à la base sur la bannière de zone
@@ -4600,6 +5360,7 @@ Players.PlayerRemoving:Connect(function(player)
 		end
 	end
 	K8.Kiosk.forget(player) -- lot 8B : pause du kiosque (table à clés faibles : facultatif)
+	L15.books[player] = nil -- lot 15 : carnet d'offres libéré (pas de fuite mémoire) ; les compteurs du profil restent (aucune rencontre relancée en se reconnectant)
 	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
 	tele.flush(player)
 	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur

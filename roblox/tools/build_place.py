@@ -23,7 +23,7 @@ def item(cls, name, source=None, children=(), extra=""):
 
 SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("VfxKit", "VfxKit.lua"), ("CinematicKit", "CinematicKit.lua"), ("Placement", "Placement.lua"), ("MapGeo", "MapGeo.lua"), ("Culling", "Culling.lua"), ("AssetReportUi", "AssetReportUi.lua"), ("MiniMap", "MiniMap.lua"), ("Battle", "Battle.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
           ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Belt", "Belt.lua"), ("Raven", "Raven.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Traps", "Traps.lua"), ("Riddle", "Riddle.lua"), ("Castle", "Castle.lua"), ("Upgrade", "Upgrade.lua"),
-          ("Odds", "Odds.lua"), ("HatchPlan", "HatchPlan.lua"), ("IntroPlan", "IntroPlan.lua"), ("TypeFx", "TypeFx.lua"), ("Calendar", "Calendar.lua"),
+          ("Odds", "Odds.lua"), ("HatchPlan", "HatchPlan.lua"), ("IntroPlan", "IntroPlan.lua"), ("TypeFx", "TypeFx.lua"), ("Calendar", "Calendar.lua"), ("Npc", "Npc.lua"), ("Rewards", "Rewards.lua"),
           ("KioskData", "KioskData.lua"), ("DecorData", "DecorData.lua"), ("HouseDecorData", "HouseDecorData.lua")]  # lot 8B : kiosque, décor de carte, meubles
 
 def shared():

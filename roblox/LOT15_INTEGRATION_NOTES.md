@@ -1,6 +1,8 @@
-# Lot 15 : notes d'intégration (modules purs, NON INTÉGRÉS)
+# Lot 15 : notes d'intégration (modules purs)
 
-État : 3 modules purs + tests, rien n'est branché. Fichiers touchés par ce travail : uniquement les nouveaux fichiers ci-dessous. Non testé dans Studio.
+**État au 2026-11-27 : INTÉGRÉ** (voir CHANGELOG « LOT 15 intégré », LOT15_ECARTS.md, LOT15_SECURITE.md). Les données de `Lot15Data.lua` vivent désormais dans le bloc « LOT 15 » de `Config.lua` (`EVENTS` renommé `TIMED_EVENTS`) ; le fichier a été supprimé. Le reste de ce document décrit l'état d'origine des modules (historique).
+
+État d'origine : 3 modules purs + tests, rien n'est branché. Fichiers touchés par ce travail : uniquement les nouveaux fichiers ci-dessous. Non testé dans Studio.
 
 | Fichier | Rôle |
 |---|---|
