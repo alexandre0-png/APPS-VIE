@@ -1,0 +1,36 @@
+--- a/roblox/src/ServerScriptService/Data.lua	2026-11-27 16:27:38.565112922 +0000
++++ b/roblox/src/ServerScriptService/Data.lua	2026-11-27 16:27:38.578169081 +0000
+@@ -12,6 +12,7 @@
+ local Calendar = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Calendar")) -- lot 9b : règles pures du calendrier (assainissement du champ cal)
+ local Npc = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Npc")) -- lot 15 : assainissement du champ npc
+ local Rewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rewards")) -- lot 15 : grace, weekly, event, eggBag
++local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
+ local Diag = require(script.Parent:WaitForChild("Diag"))
+ 
+ local STORE_NAME = "ChipeOeufs_v1"
+@@ -46,6 +47,8 @@
+ --   semaine, semaines complètes, sauvetage payant), weekly (quêtes de la semaine + quête bonus du jour), event (plumes d'événement et plafonds du jour),
+ --   eggBag (sac d'œufs : 10 raretés au plus), xp2Until (effet XP x2), seasonXp (XP de saison, lot 16). Migration v11 -> v12 : aucun champ existant n'est touché (les nouveaux reçoivent leurs valeurs neuves par
+ --   merge(), via les sanitize des modules purs, idempotents) ; daily / streak gardent leur sens (streak = jours de suite, jour de série = streak % 7 + 1).
++-- LOT 14 : + battle.live { day, fights, gained, w, l, recent } (classé en direct), SANS changement de version : champ facultatif assaini par Ranked.sanitizeLive
++--   (un serveur plus ancien l'ignore ; un profil sans ce champ reçoit les valeurs neuves).
+ local VERSION = 12
+ 
+ -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
+@@ -205,7 +208,7 @@
+ 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
+ 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
+ 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
+-		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
++		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, live = Ranked.sanitizeLive(nil, Config.PVP_LIVE) }, -- Arène des pets (live : lot 14)
+ 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
+ 		starter = false, -- pack de départ déjà acheté (achat unique)
+ 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
+@@ -492,6 +495,7 @@
+ 			day = math.floor(sane(b.day, 0)),
+ 			fights = math.min(1000, math.floor(sane(b.fights, 0))),
+ 			repeats = math.min(1000, math.floor(sane(b.repeats, 0))),
++			live = Ranked.sanitizeLive(b.live, Config.PVP_LIVE), -- lot 14 : classé en direct (compteurs du jour, derniers adversaires), sans changement de version
+ 		}
+ 	end
+ 	if type(saved.receipts) == "table" then

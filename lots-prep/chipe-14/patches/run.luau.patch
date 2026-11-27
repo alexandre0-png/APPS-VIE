@@ -1,0 +1,11 @@
+--- a/roblox/tests/run.luau	2026-11-27 16:27:38.567340196 +0000
++++ b/roblox/tests/run.luau	2026-11-27 16:27:38.581484433 +0000
+@@ -11565,7 +11565,7 @@
+ 		opts.hook = opts.hook or loopGuard
+ 		return newRuntime(opts)
+ 	end }
+-	for _, name in ipairs({ "lot15", "lot15_e2e" }) do
++	for _, name in ipairs({ "lot15", "lot15_e2e", "lot14" }) do -- lot14 : classé en direct (Ranked pur + PvpLive avec faux nuage)
+ 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
+ 	end
+ end)()
