@@ -1777,10 +1777,20 @@ Config.LEAGUE_SEASON = {
 	resetAbove = 300, resetFactor = 0.6,
 	rewards = {
 		{ trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true },
-		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 1000000, eggTier = 7, potion = true, title = "Champion de la saison", provisional = true },
+		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 0, eggName = "Mythique", potionSeconds = 30 * 60, title = "Champion de la saison" },
 	},
-	-- PROVISOIRE : le montant du palier 1500 (1 000 000 pièces + potion) a été inventé par la préparation (absent de la spec) ; à valider (LOT13_ECARTS.md).
+	-- Palier 1500 (décision de l'utilisateur, 2026-11-27) : 1 œuf Mythique (rareté retrouvée par son NOM dans Config.TIERS, aucun rang en dur) + potion de chance 30 min,
+	-- sans pièces. L'œuf passe par Lot7.L16.storeEgg (place libre -> sac d'œufs -> coffre de débordement : jamais perdu, un seul crédit).
 }
+-- Indice de Config.TIERS d'après le nom d'une rareté (« Mythique » -> 6 aujourd'hui) ; nil si inconnu.
+function Config.tierIndexByName(name)
+	for i, t in ipairs(Config.TIERS) do
+		if t.name == name then
+			return i
+		end
+	end
+	return nil
+end
 function Config.pvpSeason(now)
 	return math.floor(now / Config.PVP.seasonSeconds)
 end

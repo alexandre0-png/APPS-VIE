@@ -1777,10 +1777,20 @@ Config.LEAGUE_SEASON = {
 	resetAbove = 300, resetFactor = 0.6,
 	rewards = {
 		{ trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true },
-		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 1000000, eggTier = 7, potion = true, title = "Champion de la saison", provisional = true },
+		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 0, eggName = "Mythique", potionSeconds = 30 * 60, title = "Champion de la saison" },
 	},
-	-- PROVISOIRE : le montant du palier 1500 (1 000 000 pièces + potion) a été inventé par la préparation (absent de la spec) ; à valider (LOT13_ECARTS.md).
+	-- Palier 1500 (décision de l'utilisateur, 2026-11-27) : 1 œuf Mythique (rareté retrouvée par son NOM dans Config.TIERS, aucun rang en dur) + potion de chance 30 min,
+	-- sans pièces. L'œuf passe par Lot7.L16.storeEgg (place libre -> sac d'œufs -> coffre de débordement : jamais perdu, un seul crédit).
 }
+-- Indice de Config.TIERS d'après le nom d'une rareté (« Mythique » -> 6 aujourd'hui) ; nil si inconnu.
+function Config.tierIndexByName(name)
+	for i, t in ipairs(Config.TIERS) do
+		if t.name == name then
+			return i
+		end
+	end
+	return nil
+end
 function Config.pvpSeason(now)
 	return math.floor(now / Config.PVP.seasonSeconds)
 end
@@ -20192,14 +20202,27 @@ local function pvpState(s)
 	local pv = s.data.battle.pvp
 	local season = Config.pvpSeason(os.time())
 	if pv.season ~= season then
-		local rw = pv.season > 0 and L15.Duel.seasonReward(Config.LEAGUE_SEASON.rewards, pv.trophies) or nil -- lot 13 (E.4) : paliers étendus (1500 = PROVISOIRE)
+		local rw = pv.season > 0 and L15.Duel.seasonReward(Config.LEAGUE_SEASON.rewards, pv.trophies) or nil -- lot 13 (E.4) : paliers étendus (100 à 1500)
 		if rw then
-			s.data.coins += rw.coins
-			giveEgg(s, rw.eggTier)
-			if rw.potion then
-				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			local parts = {}
+			if (rw.coins or 0) > 0 then
+				s.data.coins += rw.coins
+				parts[#parts + 1] = "+" .. Config.fmt(rw.coins) .. " 🪙"
 			end
-			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or "") .. (rw.title and (" · 👑 " .. rw.title .. " " .. pv.season) or ""), "claim")
+			local eggT = rw.eggName and Config.tierIndexByName(rw.eggName) or rw.eggTier
+			if rw.eggName and eggT then -- palier 1500 : base, puis sac d'œufs, puis coffre de débordement (jamais perdu, un seul crédit)
+				local where = Lot7.L16.storeEgg(s, eggT)
+				parts[#parts + 1] = "un œuf " .. Config.TIERS[eggT].name .. (where == "bag" and " (dans ton sac d'œufs)" or (where == "overflow" and " (dans le coffre de débordement)" or ""))
+			elseif eggT and Config.TIERS[eggT] then
+				giveEgg(s, eggT)
+				parts[#parts + 1] = "un œuf " .. Config.TIERS[eggT].name
+			end
+			if rw.potion or rw.potionSeconds then
+				local secs = rw.potionSeconds or Config.LUCK_POTION_SECONDS
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + secs
+				parts[#parts + 1] = "potion de chance (" .. math.floor(secs / 60) .. " min)"
+			end
+			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> " .. table.concat(parts, " + ") .. (rw.title and (" · 👑 " .. rw.title .. " " .. pv.season) or ""), "claim")
 		end
 		pv.season, pv.trophies, pv.wins, pv.losses = season, L15.Duel.seasonReset(pv.trophies, Config.LEAGUE_SEASON.resetAbove, Config.LEAGUE_SEASON.resetFactor), 0, 0 -- lot 13 (E.4) : max(300, floor(t x 0,6)) au-delà de 300
 	end

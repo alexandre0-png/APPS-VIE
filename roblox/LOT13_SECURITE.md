@@ -15,7 +15,7 @@ Périmètre : actions `duelChallenge`, `duelAnswer`, `duelOff`, routage `battleA
 | Collusion | Deux comptes complices qui farment | 10/jour, 3/paire/jour, départ / abandon avant 3 tours = 0 pièce, partant jamais payé ; montant = 1 min de revenu (15 s au perdant), aucun trophée, aucune XP de passe ; XP de pet seulement si payé. Gain maximal par jour négligeable face au jeu normal. |
 | Téléportation | Duel utilisé pour se déplacer | Placement sur le sable puis **retour à la position d'avant** ; personnage figé ; voyage rapide refusé pendant le duel ; anti-triche de vitesse suspendu 2 s seulement à chaque placement. |
 | Départ en plein duel | Fuite mémoire, défaite évitée en quittant | `L15.duelLeave` appelé par `PlayerRemoving` avant la sauvegarde : forfait (défaite sauvegardée, testé), défis retirés (adversaires prévenus), aucune entrée restante (`book.active`, `pending`, `matches`). |
-| Remise de saison | Récompense de saison payée deux fois | Inchangé : `pv.season` mis à jour dans le même bloc que le paiement (une fois par saison). Palier 1500 **provisoire** (montant à valider). |
+| Remise de saison | Récompense de saison payée deux fois | Inchangé : `pv.season` mis à jour dans le même bloc que le paiement (une fois par saison). Palier 1500 = 1 œuf Mythique (base -> sac -> coffre de débordement, un seul crédit) + potion 30 min. |
 | Données | Profil corrompu | `battle.duel` (entiers bornés, 20 paires au plus, clés ≤ 20 caractères), `battle.pve`, `settings.duelOff` (booléen) assainis ; anciens profils relus sans perte (testé). |
 | Robux | Avantage payant | Aucun produit, pass ou boost ne touche au duel ; les stats de combat ne s'achètent pas (règle du lot 12). |
 

@@ -2,9 +2,9 @@
 
 Préparation de la gestion : `lots-prep/chipe-13/` (branche `claude/jolly-cannon-w2wx5h`, lecture seule) testée sur le lot 15 (91f6907). Appliquée sur la tête « Lot 11 + 12 intégrés » (f7ff0f5) : 3 patchs sans rejet (décalages Config +56, Data +15/+57, Main +618). **Rien n'a été joué dans Studio.**
 
-## À VALIDER (provisoire)
+## Palier 1500 (décidé par l'utilisateur)
 
-- **Palier 1500 trophées de la saison (Champion)** : 1 000 000 pièces + œuf Ultra Rare + potion + titre « Champion de la saison n ». Le montant en pièces a été **inventé par la préparation** (absent de la spec E.4) : gardé tel quel, marqué `provisional = true` dans `Config.LEAGUE_SEASON.rewards` et commenté « PROVISOIRE ». À confirmer ou corriger par l'utilisateur (une seule valeur à changer).
+- **Palier 1500 trophées de la saison (Champion)** : le montant provisoire de la préparation (1 000 000 pièces + œuf Ultra Rare + potion) est remplacé par décision de l'utilisateur par **1 œuf Mythique + potion de chance 30 min + titre « Champion de la saison n »**, sans pièces. Rareté retrouvée par son nom dans `Config.TIERS` ; œuf rangé base -> sac -> coffre de débordement (jamais perdu).
 
 ## Ce que la préparation ne branchait pas et qui a été écrit à l'intégration
 
