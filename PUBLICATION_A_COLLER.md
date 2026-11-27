@@ -52,7 +52,7 @@ Récupère des œufs au marché, fais-les éclore et collectionne 78 créatures 
 🎁 Calendrier de 30 jours : un cadeau chaque jour, un œuf Légendaire au 3e jour
 🏆 Passe de combat : une nouvelle saison tous les 2 mois, avec des récompenses gratuites et premium
 🏰 Le Château : pièges et chevaliers, en solo ou entre amis
-👥 Des PNJ proposent des échanges et des combats
+💬 Bugs ou idées : ahzmksupport@gmail.com
 
 Les probabilités de chaque œuf sont affichées avant chaque achat. Les achats Robux sont facultatifs : les œufs s'obtiennent aussi en jouant.
 ```
