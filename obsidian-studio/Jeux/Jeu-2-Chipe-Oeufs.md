@@ -38,3 +38,7 @@ statut: prive-publie
 ## Lot 9 publié (privé) — 2026-11-26
 Commit 15fb5a7 : 10 raretés, œufs r1..r10, migration profil v11, recalibrage du rythme, règles revenu/force, produits Secret/Exclusif/Divin (cachés tant que les espèces du lot 11 n'existent pas). Vérifié : Lune 2548/0, run_tests, check.py, builds Rojo. En ligne : partie v39 / hub v46 (privé).
 Écarts de rythme à corriger : maisons 4–8 pire cas hors ±25 %, niv.7 ~1 j (cible 2), planchers tapis (+15 % doré / +10 % privé) non testés, Divin 10–16 j (cible ~2 mois), Secret pire cas 4,5 j (cible ~1 sem).
+
+## Lots 9b + 10 + 8B publiés (privé) — 2026-11-27
+Commit 2aa0afb (contient 9b : calendrier 30 jours, J30 Mythique 40 / Ultra Rare 45 / Secret 15 avec repli Ultra Rare ; 10 : compteur « 1 sur N », HatchFx, BattleIntro, TypeFx, 37 sons, 42 icônes ; 8B : kiosque central, décor carte/tapis, meubles par niveau). Vérifié : Lune 2988/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v40 / hub v47 (privé). Non testé dans Studio.
+Reste : lots 15 (modules purs prêts, e30ec74), 16 (catégories boutique, vendeurs PNJ lot 30, ShopInfo, passe de combat 60 jours, mise à niveau, plus de plafonds, écarts de rythme), puis 11–14.
