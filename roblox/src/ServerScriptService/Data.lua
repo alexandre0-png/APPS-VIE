@@ -15,6 +15,7 @@ local Rewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Share
 local BattleRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BattleRewards")) -- lot 12 B : assainissement de battle.pendingPick et de boosts
 local PetXp = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PetXp")) -- lot 12 B : assainissement de trainer (et de slot.x, déjà fait plus bas)
 local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Season")).new(Config, require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SeasonData"))) -- lot 16 : migration du passe de combat
+local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -53,6 +54,8 @@ local SAVE_RETRIES = 3
 --   y est versé UNE fois puis remis à 0), + overflow { ["rareté"] = n } (coffre de débordement des œufs payés, sans limite, jamais perdu), + once { Clé = true } (achats
 --   uniques : Pack de départ, poses de victoire), + doubleUntil (fin de la Double chance), + emote (pose de victoire choisie, 0 = aucune), + arenaTk { day, n } (tickets
 --   d'arène du jour UTC). Migration v12 -> v13 : aucun champ existant touché ; le Pack de départ déjà acheté (starter) est reporté dans once.StarterPack.
+-- LOT 14 : + battle.live { day, fights, gained, w, l, recent } (classé en direct), SANS changement de version : champ facultatif assaini par Ranked.sanitizeLive
+--   (un serveur plus ancien l'ignore ; un profil sans ce champ reçoit les valeurs neuves).
 local VERSION = 13
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
@@ -220,7 +223,7 @@ function Data.default()
 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
-		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, duel = { w = 0, l = 0, day = 0, n = 0, pairs = {} }, pve = { w = 0, l = 0 } }, -- Arène des pets (lot 13 : duel, pve)
+		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, duel = { w = 0, l = 0, day = 0, n = 0, pairs = {} }, pve = { w = 0, l = 0 }, live = Ranked.sanitizeLive(nil, Config.PVP_LIVE) }, -- Arène des pets (lot 13 : duel, pve ; lot 14 : live)
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -563,6 +566,7 @@ local function merge(saved)
 			day = math.floor(sane(b.day, 0)),
 			fights = math.min(1000, math.floor(sane(b.fights, 0))),
 			repeats = math.min(1000, math.floor(sane(b.repeats, 0))),
+			live = Ranked.sanitizeLive(b.live, Config.PVP_LIVE), -- lot 14 : classé en direct (compteurs du jour, derniers adversaires), sans changement de version
 		}
 	end
 	d.battle.pendingPick = BattleRewards.sanitizePending(Config, type(saved.battle) == "table" and saved.battle.pendingPick or nil) -- lot 12 B : tirage de cartes en attente (nil = aucun) ; d.battle vient d'être reconstruit ci-dessus

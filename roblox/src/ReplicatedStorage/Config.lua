@@ -1793,6 +1793,19 @@ function Config.pvpSeasonReward(trophies)
 	end
 	return best
 end
+-- LOT 14 (E.3) : classé EN DIRECT (file MemoryStore, serveur réservé « ranked »). Règles pures : ReplicatedStorage/Shared/Ranked ; transport : PvpLive.
+-- `enabled` = interrupteur maître (false tant que le test réel à 2 comptes n'est pas fait) ; même activé, la file reste FERMÉE sous `minCCU` joueurs
+-- simultanés dans l'expérience (le bouton propose alors directement le classé asynchrone). Durées en secondes.
+Config.PVP_LIVE = {
+	enabled = false, minCCU = 60, ccuPublish = 30, ccuTtl = 75,
+	queueTtl = 90, refresh = 10, leaderTtl = 10, leaderEvery = 3, pollTicket = 2, ticketTtl = 30, matchTtl = 300, scan = 200,
+	waitArena = 25, fallbackAfter = 45, turnSeconds = 10, teleportRetries = 2, teleportRetryDelay = 3,
+	dailyFights = 15, dailyTrophyCap = 300, minTurnsForGain = 3, rematchCooldown = 3600, peerWindow = 600, recentMax = 20, peersMax = 20,
+	trophyWindow = { base = 100, step = 50, every = 10, max = 400 },
+	power = { lo = 0.75, hi = 1.33, wideAfter = 30, wideLo = 0.6, wideHi = 1.67 },
+	queueName = "PvpQueue_v1", lockName = "PvpLock_v1", ticketName = "PvpTicket_v1", matchName = "PvpMatch_v1", ccuName = "PvpCcu_v1",
+}
+-- LOT 14 (E.4) : ligues par trophées : Config.LEAGUES (lot 13, plus haut) partagé par le direct et l'asynchrone (même champ `min`, `name`).
 
 function Config.towerTier(floor) -- rareté des adversaires : 5 étages par rareté de TOWER.tiers (1-5 Commun ... 41-45 Divin)
 	local T = Config.TOWER.tiers

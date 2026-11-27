@@ -28,7 +28,7 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("ShopInfo", "ShopInfo.lua"), ("ShopData", "ShopData.lua"), ("Shop", "Shop.lua"), ("Season", "Season.lua"), ("SeasonData", "SeasonData.lua"),  # lot 16 : boutique, passe de combat
           ("Offers", "Offers.lua"), ("OffersData", "OffersData.lua"), ("SellersData", "SellersData.lua"),  # lot 16 : offres à l'écran, vendeurs PNJ
           ("Bestiary", "Bestiary.lua"), ("PetXp", "PetXp.lua"), ("BattleRewards", "BattleRewards.lua"),  # lots 11 et 12 : bestiaire, XP de pet, cartes de récompense
-          ("Duel", "Duel.lua")]  # lot 13 : duel local, ligues, remise de saison
+          ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua")]  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -55,6 +55,7 @@ game_tree = [
         item("ModuleScript", "Scenery", read("ServerScriptService/Scenery.lua")),
         item("ModuleScript", "Kiosk", read("ServerScriptService/Kiosk.lua")),  # lot 8B : kiosque central
         item("ModuleScript", "Sellers", read("ServerScriptService/Sellers.lua")),  # lot 16 : vendeurs PNJ
+        item("ModuleScript", "PvpLive", read("ServerScriptService/PvpLive.lua")),  # lot 14 : transport du classé en direct (désactivé par défaut)
         item("ModuleScript", "Decor", read("ServerScriptService/Decor.lua")),  # lot 8B : décor de carte (lots 15 à 17)
         item("ModuleScript", "HouseDecor", read("ServerScriptService/HouseDecor.lua")),  # lot 8B : meubles des maisons (lots 18 et 19)
         item("ModuleScript", "Telemetry", read("ServerScriptService/Telemetry.lua"))]),  # lot 9 : mesures AnalyticsService

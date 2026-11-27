@@ -11707,13 +11707,14 @@ end)()
 end)()
 
 -- Lot 13 : duel local et ligues (Duel.lua pur) puis bout en bout dans le vrai Main.server.lua (défis, sable, tours à deux, spectateurs, départ, saison).
--- Aussi lançables seules : python3 roblox/tests/run_lot13.py.
+-- Lot 14 : classé en direct (Ranked pur, PvpLive avec un faux nuage MemoryStore / TeleportService, puis vrai Main : interface désactivée par défaut).
+-- Aussi lançables seules : python3 roblox/tests/run_lot13.py, run_lot14.py.
 ;(function()
 	local env = { check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
 		opts.hook = opts.hook or loopGuard
 		return newRuntime(opts)
 	end }
-	for _, name in ipairs({ "lot13", "lot13_e2e" }) do
+	for _, name in ipairs({ "lot13", "lot13_e2e", "lot14", "lot14_e2e" }) do -- lot 14 : classé en direct (Ranked pur + PvpLive avec faux nuage, puis vrai Main)
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()

@@ -3258,6 +3258,29 @@ end)
 -- (« attack », « skill », « swap1 » à « swap3 ») et rejoue les événements reçus. Récompense versée UNE fois (s.battle est vidé avant le paiement).
 local Battle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Battle"))
 local TW = Config.TOWER
+-- LOT 14 : classé en direct (file MemoryStore, apparieur élu, serveur réservé « ranked »). Règles pures : Shared/Ranked ; transport : PvpLive
+-- (runtime injecté). Fermé tant que Config.PVP_LIVE.enabled = false ou que l'expérience compte moins de PVP_LIVE.minCCU joueurs simultanés.
+-- Rangé dans la table Lot7 : AUCUNE nouvelle variable locale (le bloc principal est à la limite de 200).
+Lot7.Live = (function()
+	local PvpLive = require(script.Parent:WaitForChild("PvpLive"))
+	return PvpLive.new(Config, require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranked")), Battle, PvpLive.robloxRuntime(Config, {
+		save = function(player, d)
+			local ss = sessions[player]
+			if ss and ss.noSave then
+				return true -- profil en lecture seule (version plus récente, Studio) : rien à écrire
+			end
+			return Data.save(player, d)
+		end,
+		send = function(player, msg)
+			RBattle:FireClient(player, msg)
+		end,
+		notify = notify,
+		sync = function(ss)
+			RState:FireClient(ss.player, snapshot(ss))
+		end,
+		log = warn,
+	}))
+end)()
 
 local function battleDay(s)
 	local day = os.time() // 86400
@@ -3541,6 +3564,28 @@ function actions.pvpStart(s)
 	end)
 end
 
+-- LOT 14 : file en direct. Fermée (désactivée, moins de 60 joueurs simultanés, comptage inconnu) = classé asynchrone directement.
+function actions.liveQueue(s)
+	local ok, why = Lot7.Live.enqueue(s, { busy = s.battle ~= nil or s.castle ~= nil or s.pvpPending == true or #s.carry > 0 or s.leaving == true, serverMode = serverMode, party = serverPartyId })
+	if ok then
+		return
+	elseif why == "closed" then
+		return actions.pvpStart(s)
+	elseif why == "fights" then
+		notify(s.player, "🏆 Limite de combats classés en direct atteinte pour aujourd'hui (" .. Config.PVP_LIVE.dailyFights .. ").", "refuse")
+	elseif why == "cap" then
+		notify(s.player, "🏆 Plafond de trophées du jour atteint en direct (" .. Config.PVP_LIVE.dailyTrophyCap .. ") : reviens demain ou joue en classé enregistré.", "refuse")
+	elseif why == "team" then
+		notify(s.player, "⚔️ Compose d'abord une équipe de pets.", "refuse")
+	elseif why == "busy" then
+		notify(s.player, "⚔️ Termine d'abord ce que tu fais (combat, œuf porté, château).", "refuse")
+	end
+end
+
+function actions.liveCancel(s)
+	Lot7.Live.cancel(s)
+end
+
 function actions.towerStart(s, floor)
 	if s.battle or s.castle or type(floor) ~= "number" or floor ~= floor or floor % 1 ~= 0 then
 		return
@@ -3568,6 +3613,9 @@ function actions.towerStart(s, floor)
 end
 
 function actions.battleAct(s, arg)
+	if Lot7.Live.act(s, arg) then
+		return -- lot 14 : combat classé en direct (deux joueurs)
+	end
 	local bt = s.battle
 	if bt and bt.duel then
 		return L15.duel.act(s, arg) -- lot 13 : duel local (deux joueurs)
@@ -3592,6 +3640,9 @@ function actions.battleAct(s, arg)
 end
 
 function actions.battleQuit(s)
+	if Lot7.Live.quit(s) then
+		return -- lot 14 : abandon d'un combat en direct = forfait
+	end
 	if s.battle and s.battle.duel then
 		return L15.duel.quit(s) -- lot 13 : abandon d'un duel = forfait
 	end
@@ -3634,7 +3685,7 @@ do
 		local c = root and L15.ctx and L15.ctx(s, root) or {}
 		return {
 			userId = s.player.UserId, carryingEgg = c.carrying == true or #s.carry > 0, chased = c.chased == true, inDialogue = c.pending == true,
-			inCastle = s.castle ~= nil or serverMode == "castle", newbie = isNewbie(s), busy = s.battle ~= nil or s.pvpPending == true or s.leaving == true or serverMode == "ranked",
+			inCastle = s.castle ~= nil or serverMode == "castle", newbie = isNewbie(s), busy = s.battle ~= nil or s.pvpPending == true or s.leaving == true or serverMode == "ranked" or (Lot7.Live ~= nil and Lot7.Live.queued[s.player.UserId] ~= nil), -- lot 14 : en file classée = occupé
 			flying = holds[s.player] ~= nil, inCinematic = os.clock() < (s.cineUntil or 0),
 		}
 	end
@@ -3958,6 +4009,21 @@ do
 		end
 	end)
 end
+
+task.spawn(function() -- lot 14 : file, apparieur, arène et retours, une fois par seconde (chaque appel réseau est dans un pcall côté PvpLive)
+	pcall(function()
+		TeleportService.TeleportInitFailed:Connect(function(player)
+			Lot7.Live.teleportFailed(player)
+		end)
+	end)
+	while true do
+		task.wait(1)
+		local ok, err = pcall(Lot7.Live.step, sessions)
+		if not ok then
+			warn("[PvpLive] " .. tostring(err))
+		end
+	end
+end)
 
 ---------------------------------------------------------------- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements
 -- Le SERVEUR décide de tout (jour UTC, rencontres, offres, résultats des combats) ; le client n'envoie que des identifiants ou des booléens (actions npcAnswer,
@@ -5402,6 +5468,8 @@ do
 		return Lot7.compPaid
 	end, duel = function() -- lot 13 : état des duels (tests de bout en bout seulement)
 		return L15.duel
+	end, live = function() -- lot 14 : état du classé en direct (tests de bout en bout seulement)
+		return Lot7.Live
 	end }
 end
 
@@ -6125,6 +6193,8 @@ local function onJoin(player)
 	end
 	if okJ and type(joinData) == "table" and joinData.mode == "castle" and next(sessions) == nil then
 		serverMode = "castle" -- le premier joueur détermine le mode du serveur réservé
+	elseif okJ and type(joinData) == "table" and joinData.mode == "ranked" and next(sessions) == nil then
+		serverMode = "ranked" -- lot 14 : serveur réservé d'un match classé en direct (le match est vérifié dans PvpMatch_v1, pas dans le TeleportData)
 	end
 	local late = next(sessions) ~= nil -- arrivée dans une partie déjà commencée
 	local waitedLeave = 0
@@ -6230,6 +6300,9 @@ local function onJoin(player)
 
 	ensureQuests(s)
 	pvpState(s) -- nouvelle saison : récompense de la précédente et remise à zéro douce
+	if serverMode == "ranked" then
+		Lot7.Live.arenaJoin(s, okJ and joinData or nil) -- lot 14 : joueur du match (sinon renvoyé chez lui)
+	end
 	applyBase(s, false)
 	updateSign(s)
 	refreshAllPads(s)
@@ -6348,6 +6421,7 @@ Players.PlayerRemoving:Connect(function(player)
 	L15.books[player] = nil -- lot 15 : carnet d'offres libéré (pas de fuite mémoire) ; les compteurs du profil restent (aucune rencontre relancée en se reconnectant)
 	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
 	tele.flush(player)
+	Lot7.Live.onLeave(s) -- lot 14 : retrait de la file ; combat en direct en cours = forfait écrit dans le profil AVANT la sauvegarde ci-dessous
 	Lot7.onLeave(s) -- annule tout vol de corbeau en cours (jeton rendu au voleur AVANT la sauvegarde), vide les états du joueur
 	dropCarry(s)
 	clearFollowers(s)

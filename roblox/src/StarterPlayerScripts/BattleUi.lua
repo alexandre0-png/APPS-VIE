@@ -114,6 +114,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local logLines = {}
 	local widgets = {}
 	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
+	local LV = { queued = false, note = nil } -- lot 14 : classé en direct (file d'attente ; fermée = le serveur lance directement le classé enregistré)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -281,11 +282,18 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			fire("setTeam", team)
 			fire("pvpDefense")
 		end)
-		local rk = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -106), Size = UDim2.new(0.5, -3, 0, 28), Text = "🏆 Combat classé", BackgroundColor3 = Color3.fromRGB(184, 120, 255), ZIndex = 32 }))
+		local rk = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -106), Size = UDim2.new(0.5, -3, 0, 28), Text = LV.queued and "✖ Annuler la recherche" or "🏆 Combat classé", BackgroundColor3 = LV.queued and Color3.fromRGB(255, 99, 99) or Color3.fromRGB(184, 120, 255), ZIndex = 32 }))
 		rk.Activated:Connect(function()
+			if LV.queued then -- lot 14 : annulation pendant l'attente (refusée par le serveur une fois la téléportation lancée)
+				fire("liveCancel")
+				return
+			end
 			fire("setTeam", team)
-			fire("pvpStart")
+			fire("liveQueue") -- lot 14 : file en direct si elle est ouverte, sinon le serveur lance le classé enregistré (pvpStart)
 		end)
+		if LV.note then
+			ui.info.Text = LV.note
+		end
 		local go = add(button(ui.body, { Position = UDim2.new(1, -150, 1, -34), Size = UDim2.fromOffset(150, 30), Text = "⚔️ Combattre", ZIndex = 32 }))
 		go.Activated:Connect(function()
 			lastFloor = floor
@@ -581,9 +589,62 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			elseif p.k == "duelWatch" then
 				DU.showWatch(p)
 				return
+			elseif p.k == "liveQueued" then -- lot 14 : classé en direct
+				LV.queued, LV.note = true, "🔎 Recherche d'un adversaire en ligne de ton niveau…" .. (tonumber(p.seconds) and (" (au plus " .. math.floor(p.seconds) .. " s)") or "")
+				if mode == "team" then
+					render()
+				end
+				return
+			elseif p.k == "liveCancel" then
+				LV.queued, LV.note = false, nil
+				if mode == "team" then
+					render()
+				end
+				return
+			elseif p.k == "liveFound" then
+				LV.queued, LV.note = false, "⚔️ Adversaire trouvé : " .. tostring(p.opp or "?"):sub(1, 20) .. " ! Téléportation vers l'arène…"
+				ui.panel.Visible = true
+				if mode == "team" then
+					render()
+				end
+				FX.sound("battle_start")
+				return
+			elseif p.k == "liveFallback" then
+				LV.queued, LV.note = false, nil
+				mode = "end"
+				clear()
+				ui.panel.Visible = true
+				ui.title.Text = "🏆 Combat classé"
+				ui.info.Text = ""
+				add(label(ui.body, { Size = UDim2.new(1, 0, 1, -44), TextSize = 16, TextWrapped = true, Text = "Aucun adversaire en ligne de ton niveau.\nCombattre une équipe enregistrée ?", ZIndex = 32 }))
+				local yes = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -34), Size = UDim2.new(0.5, -3, 0, 30), Text = "🏆 Oui", ZIndex = 32 }))
+				local no = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -34), Size = UDim2.new(0.5, -3, 0, 30), Text = "Non", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 32 }))
+				yes.Activated:Connect(function()
+					fire("pvpStart")
+				end)
+				no.Activated:Connect(function()
+					mode = "team"
+					render()
+				end)
+				return
+			elseif p.k == "liveArena" then
+				LV.queued, LV.note = false, nil
+				mode = "end"
+				clear()
+				ui.panel.Visible = true
+				ui.title.Text = "🏆 Arène classée"
+				ui.info.Text = ""
+				add(label(ui.body, { Size = UDim2.new(1, 0, 1, 0), TextSize = 16, TextWrapped = true, Text = "En attente de ton adversaire…" .. (tonumber(p.seconds) and ("\n(au plus " .. math.floor(p.seconds) .. " s ; s'il n'arrive pas, aucun trophée ne bouge)") or ""), ZIndex = 32 }))
+				return
+			elseif p.k == "liveVoid" then
+				LV.queued, LV.note = false, nil
+				ui.panel.Visible = true
+				showResult("⚔️ Combat annulé : aucun trophée gagné ni perdu.\nRetour à ta partie…")
+				return
 			end
 			if p.k == "start" then
 				DU.on, DU.chosen = p.duel == true, false
+				LV.queued, LV.note = false, nil
 				if p.duel then
 					DU.closeAsk()
 					pcall(DU.camera, p)
@@ -622,6 +683,14 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end
 				if p.pvp and r.trophies then
 					lines[#lines + 1] = (r.trophies >= 0 and "+" or "") .. r.trophies .. " 🏆 trophées (total " .. r.total .. ")"
+				end
+				if p.live then -- lot 14 : classé en direct
+					if r.forfeit then
+						lines[#lines + 1] = p.win and "(forfait de l'adversaire)" or "(forfait)"
+					end
+					if r.capped then
+						lines[#lines + 1] = "Plafond de trophées du jour atteint en direct."
+					end
 				end
 				if r.egg then
 					lines[#lines + 1] = "🥚 Œuf " .. Config.TIERS[r.egg].name
