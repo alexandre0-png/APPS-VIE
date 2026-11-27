@@ -15,13 +15,12 @@ local function rgb(t)
 	return Color3.fromRGB(t[1], t[2], t[3])
 end
 
-local function lighten(t, k)
-	return { math.min(255, math.floor(t[1] + (255 - t[1]) * k)), math.min(255, math.floor(t[2] + (255 - t[2]) * k)), math.min(255, math.floor(t[3] + (255 - t[3]) * k)) }
-end
-
 -- o = { gui, Config, Battle, Layout, player, payload (message « start »), view, foeName, floor, reduced, iconUrl = fn(clé) -> url|nil, specialState = fn(unité) -> état,
 --       fire = fn(action, arg), onChosen = fn() (un choix vient d'être envoyé), onFlee = fn(), safe = { l, t, r, b } (optionnel) }
 function BattleScene.create(o)
+	if type(o) ~= "table" or type(o.view) ~= "table" or type(o.view.sides) ~= "table" or type(o.view.sides[1]) ~= "table" or type(o.view.sides[2]) ~= "table" or type(o.view.sides[1].units) ~= "table" or type(o.view.sides[2].units) ~= "table" then
+		return nil, "vue invalide"
+	end
 	local L, Config, Battle = o.Layout, o.Config, o.Battle
 	local S = { alive = true, used = 0, peak = 0, conns = {}, puppets = {}, cur = {}, swapToken = { 0, 0 }, popups = 0, lastView = nil, fleeToken = 0, dimmed = false }
 	local cap = L.MAX_INSTANCES
@@ -545,7 +544,7 @@ function BattleScene.create(o)
 			local ss = o.specialState and mu and o.specialState(mu) or { text = "Spécial", ready = true }
 			setSpecialButton(L.specialButton(ss))
 			updateTray(me)
-			S.tray.Visible = false
+			S.setTray(false)
 			for side = 1, 2 do
 				local sd = view.sides[side]
 				local u = sd.units[sd.active]
@@ -741,6 +740,10 @@ function BattleScene.create(o)
 		S.tray.Visible = false
 	end
 
+	function S.setTray(v) -- le plateau remplace le journal tant qu'il est ouvert
+		S.tray.Visible = v == true and not S.dimmed
+		S.logFrame.Visible = not S.tray.Visible and not S.dimmed
+	end
 	local function act(action)
 		if not S.alive or S.dimmed then
 			return
@@ -755,11 +758,11 @@ function BattleScene.create(o)
 		S.conns[#S.conns + 1] = c
 	end
 	conn(S.btn.attack.Activated, function()
-		S.tray.Visible = false
+		S.setTray(false)
 		act("attack")
 	end)
 	conn(S.btn.special.Activated, function()
-		S.tray.Visible = false
+		S.setTray(false)
 		local mu = S.lastView and S.lastView.sides[1].units[S.lastView.sides[1].active]
 		local ss = mu and o.specialState and o.specialState(mu)
 		if ss and ss.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
@@ -772,12 +775,12 @@ function BattleScene.create(o)
 		if S.dimmed then
 			return
 		end
-		S.tray.Visible = not S.tray.Visible
+		S.setTray(not S.tray.Visible)
 	end)
 	for i, s in ipairs(S.slots) do
 		conn(s.btn.Activated, function()
 			if s.index then
-				S.tray.Visible = false
+				S.setTray(false)
 				act("swap" .. s.index)
 			end
 		end)
@@ -786,7 +789,7 @@ function BattleScene.create(o)
 		if S.dimmed then
 			return
 		end
-		S.tray.Visible = false
+		S.setTray(false)
 		if S.fleeToken > 0 then
 			S.fleeToken = 0
 			S.btn.flee.Text = "🏃 Fuir"

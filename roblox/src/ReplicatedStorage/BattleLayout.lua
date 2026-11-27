@@ -121,6 +121,7 @@ end
 -- Disposition en pixels pour une fenêtre vw x vh et une zone sûre (optionnelle). Retourne :
 --   { mode = "wide"|"narrow", vw, vh, safe, area = zone utile, foeCard, meCard, log, actions = { attack, special, swap, flee }, stage = zone libre pour les
 --     créatures, swapTray = plateau des pets de réserve (au-dessus des boutons), cardW }
+-- Le plateau de réserve (swapTray) recouvre le journal pendant qu'il est ouvert.
 -- Garanties (testées sur une matrice d'appareils) : rectangles dans la zone utile, sans superposition, boutons >= MIN_TOUCH, coin haut gauche libre (boutons
 -- natifs de Roblox : menu, discussion), carte adverse en haut à droite, carte du joueur en bas à gauche.
 function BattleLayout.rects(vw, vh, safeIn)
@@ -149,9 +150,8 @@ function BattleLayout.rects(vw, vh, safeIn)
 		out.actions.swap = rect(gx, gy + bh + gap, bw, bh)
 		out.actions.flee = rect(gx + bw + gap, gy + bh + gap, bw, bh)
 		out.meCard = rect(ax0, out.log.y - gap - meI.h, cardW, meI.h)
-		out.swapTray = rect(gx, gy - gap - bh, gw, bh) -- plateau de réserve : au-dessus des boutons, jamais sur la carte du joueur
 	else
-		local cardW = math.floor(math.min(aw, 280))
+		local cardW = math.floor(clamp(aw * 0.7, 200, 260))
 		local bw = math.floor((aw - 3 * gap) / 4)
 		local logH = 60
 		out.cardW = cardW
@@ -163,8 +163,9 @@ function BattleLayout.rects(vw, vh, safeIn)
 		out.actions.swap = rect(ax0 + 2 * (bw + gap), ay, bw, bh)
 		out.actions.flee = rect(ax0 + 3 * (bw + gap), ay, bw, bh)
 		out.meCard = rect(ax0, ay - gap - meI.h, cardW, meI.h)
-		out.swapTray = rect(ax0, out.meCard.y - gap - bh, aw, bh)
 	end
+	-- plateau de réserve (3 boutons) : il remplace le journal tant qu'il est ouvert (le journal est alors masqué) ; jamais sur les cartes ni sur les boutons
+	out.swapTray = rect(out.log.x, out.log.y + math.floor((out.log.h - bh) / 2), out.log.w, bh)
 	if wide then -- les cartes sont dans les coins : la scène occupe toute la hauteur utile (la carte du joueur peut mordre sur les 36 derniers pixels du socle)
 		out.stage = rect(0, ay0, vw, math.max(40, out.meCard.y + 36 - ay0))
 	else -- cartes empilées : la scène occupe l'espace libre entre elles
@@ -233,12 +234,12 @@ function BattleLayout.scene(vw, vh, safeIn, ground)
 	sc.center = vec(0, 2.5, 0)
 	local tanHalf = math.tan(math.rad(sc.fov / 2))
 	local aspect = r.vw / r.vh
-	local needX = spread + sc.pedestal + 0.8
+	local needX = spread + sc.pedestal + 2
 	local fitW = narrow and 1 or 0.62 -- largeur écran utilisable par les créatures (les cartes occupent les coins en disposition large)
 	local dH = needX / (tanHalf * aspect * fitW)
 	local stageFrac = r.stage.h / r.vh
 	local dV = 6.5 / (tanHalf * math.max(0.15, stageFrac))
-	local d = clamp(math.max(dH, dV), 20, 80)
+	local d = clamp(math.max(dH, dV), 20, 120)
 	local el = math.rad(sc.elevation)
 	local cy = (r.stage.y + r.stage.h / 2) / r.vh -- ordonnée écran voulue pour le centre de la scène (0 = haut)
 	local halfH = d * tanHalf

@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX49"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX48"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX50"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX49"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2411,7 +2411,7 @@ Config.ODDS = { version = 1, billboardMin = 1000, REF = { 50.037, 25, 14, 7, 2.9
 -- LOT 10 : effets d'éclosion (HatchPlan + HatchFx) et de combat (IntroPlan + BattleIntro, TypeFx). replaceCine : la cinématique 3D d'éclosion (CinematicKit.hatchPlan)
 -- n'est plus jouée (HatchFx gère lui-même le zoom). Mobile : reduced (particules / 2), plafonds 220 / 120 / 80 instances (dans les modules), 30 FPS visés.
 Config.HATCH_FX = { Enabled = true, replaceCine = true, billboardSeconds = 6 }
-Config.BATTLE_FX = { Enabled = true, intro = true, typeFx = true, specialEvery = 5 }
+Config.BATTLE_FX = { Enabled = true, intro = true, typeFx = true, specialEvery = 5, scene = true } -- scene : combat en vue face à face (BattleScene) ; false = ancien panneau compact
 -- Données des effets par type (ReplicatedStorage/TypeFx, partagé) ; absent hors de Roblox (tests purs) : le client relit alors le module directement.
 do
 	local ok, mod = pcall(function()
@@ -16873,8 +16873,454 @@ function Ranked.quotaLimit(players)
 end
 
 return Ranked
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX48"><Properties><string name="Name">BattleLayout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleLayout   (refonte de la présentation du combat, vue face à face)
+-- Module PUR (aucune instance Roblox, aucun require) : calcule la disposition de l'écran de combat à partir de la taille de la fenêtre et de la zone sûre :
+--   * rectangles en pixels (et en échelle) de la carte de l'adversaire (haut à droite), de la carte du joueur (bas à gauche), du bandeau de journal (bas),
+--     des 4 boutons d'action (bas à droite : Attaque, Spécial, Changer, Fuir), tous >= 44 px, jamais en dehors de la zone sûre, jamais superposés ;
+--   * composition interne des cartes (nom, niveau, barre de PV, texte de PV, points d'état de l'équipe, pastilles de charge du spécial) ;
+--   * scène 3D : positions des deux socles lumineux, caméra fixe en léger angle cadrée sur la zone libre entre les cartes, sable ou herbe selon le lieu ;
+--   * textes et couleurs (PV « 260/260 », points d'état, charge du spécial 0..5, couleur de barre) et signaux d'animation tirés des événements du moteur ;
+--   * plafond d'instances : estimation du coût de la scène, décor réduit pour rester sous MAX_INSTANCES (mobile : moins d'effets).
+-- Ne lit que ce que le serveur envoie déjà (vue Battle.view, événements, payload « start »). Pas de += / -= / continue, pas de math.atan2 (lanceur lupa).
+local BattleLayout = {}
+
+BattleLayout.MAX_INSTANCES = 220 -- plafond de la scène (même plafond que HatchFx) ; l'intro (120) et les effets de type (80) ont leurs propres plafonds
+BattleLayout.MIN_TOUCH = 44 -- cible tactile minimale (pixels)
+BattleLayout.MARGIN = 8
+BattleLayout.GAP = 6
+BattleLayout.MAX_DOTS = 6 -- points d'état d'équipe par camp
+BattleLayout.CHARGE_MAX = 5
+BattleLayout.WIDE_MIN_WIDTH = 520 -- en dessous : disposition étroite (téléphone en portrait)
+BattleLayout.DEFAULT_VIEWPORT = { w = 640, h = 360 }
+BattleLayout.MIN_VIEWPORT = { w = 240, h = 320 }
+
+-- Couleurs propres à Chipe-Œufs (aucune reprise d'un autre jeu).
+BattleLayout.PALETTE = {
+	sand = { ground = { 226, 196, 132 }, rim = { 168, 134, 84 }, skyTop = { 255, 206, 150 }, skyBottom = { 255, 238, 205 }, deco = { 214, 196, 160 }, ambient = { 190, 170, 140 }, light = { 255, 240, 215 } },
+	grass = { ground = { 112, 192, 94 }, rim = { 70, 140, 72 }, skyTop = { 136, 202, 255 }, skyBottom = { 218, 242, 255 }, deco = { 66, 158, 76 }, ambient = { 150, 175, 160 }, light = { 255, 252, 235 } },
+}
+BattleLayout.UI = {
+	card = { 24, 38, 46 }, cardStroke = { 244, 232, 196 }, text = { 250, 247, 238 }, muted = { 176, 196, 200 },
+	hp = { 91, 227, 125 }, hpWarn = { 255, 196, 60 }, hpLow = { 255, 99, 99 }, hpBack = { 52, 36, 44 },
+	dotOn = { 91, 227, 125 }, dotOff = { 70, 78, 84 }, pipOn = { 255, 210, 63 }, pipOff = { 62, 58, 84 },
+	attack = { 255, 159, 28 }, special = { 74, 163, 255 }, specialOff = { 110, 110, 120 }, swap = { 184, 120, 255 }, flee = { 255, 99, 99 },
+	log = { 16, 26, 32 },
+}
+-- Couleur du socle lumineux par type (le type est « Nature » ou « Plante » selon la source).
+BattleLayout.TYPE_COLOR = {
+	Feu = { 255, 122, 61 }, Eau = { 66, 170, 255 }, Nature = { 96, 214, 98 }, Plante = { 96, 214, 98 }, Glace = { 150, 228, 255 }, Foudre = { 255, 224, 64 },
+	Terre = { 196, 146, 90 }, Ciel = { 170, 190, 255 }, Ombre = { 160, 110, 210 }, ["Lumière"] = { 255, 244, 170 },
+}
+BattleLayout.NEUTRAL_COLOR = { 220, 220, 230 }
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function clamp(v, lo, hi)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+
+local function int(v, default)
+	if isNum(v) then
+		return math.floor(v)
+	end
+	return default
+end
+
+local function rect(x, y, w, h)
+	return { x = x, y = y, w = w, h = h }
+end
+
+function BattleLayout.typeColor(typ)
+	return BattleLayout.TYPE_COLOR[typ] or BattleLayout.NEUTRAL_COLOR
+end
+
+---------------------------------------------------------------- fenêtre, zone sûre
+
+-- Taille de fenêtre assainie (valeurs invalides -> 640 x 360 ; minimum 240 x 320 : sous cette taille rien ne tient de toute façon).
+function BattleLayout.viewport(vw, vh)
+	local d, m = BattleLayout.DEFAULT_VIEWPORT, BattleLayout.MIN_VIEWPORT
+	local w = isNum(vw) and vw > 0 and vw or d.w
+	local h = isNum(vh) and vh > 0 and vh or d.h
+	return math.floor(math.max(m.w, w)), math.floor(math.max(m.h, h))
+end
+
+-- Zone sûre { l, t, r, b } (pixels) assainie ; jamais plus de 25 % de la fenêtre par bord.
+function BattleLayout.safe(raw, vw, vh)
+	local s = type(raw) == "table" and raw or {}
+	return {
+		l = clamp(isNum(s.l) and s.l or 0, 0, vw * 0.25),
+		t = clamp(isNum(s.t) and s.t or 0, 0, vh * 0.25),
+		r = clamp(isNum(s.r) and s.r or 0, 0, vw * 0.25),
+		b = clamp(isNum(s.b) and s.b or 0, 0, vh * 0.25),
+	}
+end
+
+-- Composition interne d'une carte de largeur w : retourne des rectangles RELATIFS à la carte.
+--   adversaire : ligne de contexte (étage / dresseur), ligne nom + niveau, barre de PV, points d'état.
+--   joueur : ligne nom + niveau, barre de PV, texte « PV » + points d'état à droite, pastilles de charge.
+function BattleLayout.cardInner(w, isMe)
+	local pad = 8
+	local iw = math.max(40, w - 2 * pad)
+	local out = { pad = pad }
+	if isMe then
+		out.h = 82
+		out.icon = rect(pad, 6, 22, 22)
+		out.name = rect(pad + 26, 6, iw - 26 - 62, 22)
+		out.level = rect(w - pad - 60, 6, 60, 22)
+		out.bar = rect(pad, 32, iw, 12)
+		out.hp = rect(pad, 47, iw - 90, 16)
+		out.dots = rect(w - pad - 84, 49, 84, 12)
+		out.pips = rect(pad, 66, iw, 10)
+	else
+		out.h = 76
+		out.ctx = rect(pad, 4, iw, 14)
+		out.icon = rect(pad, 20, 22, 22)
+		out.name = rect(pad + 26, 20, iw - 26 - 62, 22)
+		out.level = rect(w - pad - 60, 20, 60, 22)
+		out.bar = rect(pad, 46, iw, 12)
+		out.dots = rect(pad, 62, iw, 10)
+		out.pips = nil
+	end
+	return out
+end
+
+---------------------------------------------------------------- disposition de l'écran
+
+-- Disposition en pixels pour une fenêtre vw x vh et une zone sûre (optionnelle). Retourne :
+--   { mode = "wide"|"narrow", vw, vh, safe, area = zone utile, foeCard, meCard, log, actions = { attack, special, swap, flee }, stage = zone libre pour les
+--     créatures, swapTray = plateau des pets de réserve (au-dessus des boutons), cardW }
+-- Garanties (testées sur une matrice d'appareils) : rectangles dans la zone utile, sans superposition, boutons >= MIN_TOUCH, coin haut gauche libre (boutons
+-- natifs de Roblox : menu, discussion), carte adverse en haut à droite, carte du joueur en bas à gauche.
+function BattleLayout.rects(vw, vh, safeIn)
+	vw, vh = BattleLayout.viewport(vw, vh)
+	local sf = BattleLayout.safe(safeIn, vw, vh)
+	local m, gap = BattleLayout.MARGIN, BattleLayout.GAP
+	local ax0, ay0 = sf.l + m, sf.t + m
+	local ax1, ay1 = vw - sf.r - m, vh - sf.b - m
+	local aw, ah = ax1 - ax0, ay1 - ay0
+	local wide = vw >= BattleLayout.WIDE_MIN_WIDTH and vw > vh
+	local meI = BattleLayout.cardInner(100, true)
+	local foeI = BattleLayout.cardInner(100, false)
+	local out = { mode = wide and "wide" or "narrow", vw = vw, vh = vh, safe = sf, area = rect(ax0, ay0, aw, ah), actions = {} }
+	local bh = BattleLayout.MIN_TOUCH + 4 -- boutons de 48 px de haut
+	if wide then
+		local cardW = math.floor(clamp(vw * 0.36, 200, 300))
+		local bw = math.floor(clamp(vw * 0.16, 88, 132))
+		local gw, gh = 2 * bw + gap, 2 * bh + gap
+		local logH = 56
+		out.cardW = cardW
+		out.foeCard = rect(ax1 - cardW, ay0, cardW, foeI.h)
+		out.log = rect(ax0, ay1 - logH, aw - gw - gap, logH)
+		local gx, gy = ax1 - gw, ay1 - gh
+		out.actions.attack = rect(gx, gy, bw, bh)
+		out.actions.special = rect(gx + bw + gap, gy, bw, bh)
+		out.actions.swap = rect(gx, gy + bh + gap, bw, bh)
+		out.actions.flee = rect(gx + bw + gap, gy + bh + gap, bw, bh)
+		out.meCard = rect(ax0, out.log.y - gap - meI.h, cardW, meI.h)
+		out.swapTray = rect(gx, gy - gap - bh, gw, bh) -- plateau de réserve : au-dessus des boutons, jamais sur la carte du joueur
+	else
+		local cardW = math.floor(math.min(aw, 280))
+		local bw = math.floor((aw - 3 * gap) / 4)
+		local logH = 60
+		out.cardW = cardW
+		out.foeCard = rect(ax1 - cardW, ay0, cardW, foeI.h)
+		out.log = rect(ax0, ay1 - logH, aw, logH)
+		local ay = out.log.y - gap - bh
+		out.actions.attack = rect(ax0, ay, bw, bh)
+		out.actions.special = rect(ax0 + (bw + gap), ay, bw, bh)
+		out.actions.swap = rect(ax0 + 2 * (bw + gap), ay, bw, bh)
+		out.actions.flee = rect(ax0 + 3 * (bw + gap), ay, bw, bh)
+		out.meCard = rect(ax0, ay - gap - meI.h, cardW, meI.h)
+		out.swapTray = rect(ax0, out.meCard.y - gap - bh, aw, bh)
+	end
+	if wide then -- les cartes sont dans les coins : la scène occupe toute la hauteur utile (la carte du joueur peut mordre sur les 36 derniers pixels du socle)
+		out.stage = rect(0, ay0, vw, math.max(40, out.meCard.y + 36 - ay0))
+	else -- cartes empilées : la scène occupe l'espace libre entre elles
+		local top = out.foeCard.y + out.foeCard.h
+		out.stage = rect(0, top, vw, math.max(40, out.meCard.y - top))
+	end
+	return out
+end
+
+-- Rectangle en fractions de la fenêtre : { sx, sy, sw, sh } (pour les positions et tailles en échelle).
+function BattleLayout.toScale(r, vw, vh)
+	vw, vh = BattleLayout.viewport(vw, vh)
+	return { sx = r.x / vw, sy = r.y / vh, sw = r.w / vw, sh = r.h / vh }
+end
+
+-- Deux rectangles se recouvrent-ils ? (bords qui se touchent = non)
+function BattleLayout.overlap(a, b)
+	return a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+end
+
+---------------------------------------------------------------- scène 3D (socles, caméra, décor)
+
+local function vec(x, y, z)
+	return { x = x, y = y, z = z }
+end
+
+-- Lieu du combat -> « sand » (colisée : duel, classé enregistré, classé en direct) ou « grass » (arène PvE : tour, PNJ). Inconnu -> herbe.
+function BattleLayout.mode(p)
+	local t = type(p) == "table" and p or {}
+	if t.duel == true then
+		return "duel"
+	elseif t.live == true then
+		return "live"
+	elseif t.pvp == true then
+		return "pvp"
+	elseif t.npc == true then
+		return "npc"
+	end
+	return "tower"
+end
+
+function BattleLayout.ground(modeOrPayload)
+	local mode = modeOrPayload
+	if type(modeOrPayload) == "table" then
+		mode = BattleLayout.mode(modeOrPayload)
+	end
+	if mode == "duel" or mode == "live" or mode == "pvp" or mode == "colisee" then
+		return "sand"
+	end
+	return "grass"
+end
+
+function BattleLayout.palette(ground)
+	return BattleLayout.PALETTE[ground] or BattleLayout.PALETTE.grass
+end
+
+-- Scène : socles (rayon `pedestal`), caméra fixe en léger angle (16°), champ de vision vertical 40°. La distance de la caméra est calculée pour que les deux
+-- socles et leurs créatures tiennent dans la zone libre (`stage` de rects) ; la cible est décalée pour que cette zone soit le centre visuel. Coordonnées en studs.
+function BattleLayout.scene(vw, vh, safeIn, ground)
+	local r = BattleLayout.rects(vw, vh, safeIn)
+	local narrow = r.mode == "narrow"
+	local sc = { ground = ground == "sand" and "sand" or "grass", fov = 40, pedestal = 3.2, elevation = 16 }
+	local spread, depth = narrow and 5 or 6.5, narrow and 4 or 3
+	sc.me = vec(-spread, 0, depth)
+	sc.foe = vec(spread, 0, -depth)
+	sc.center = vec(0, 2.5, 0)
+	local tanHalf = math.tan(math.rad(sc.fov / 2))
+	local aspect = r.vw / r.vh
+	local needX = spread + sc.pedestal + 0.8
+	local fitW = narrow and 1 or 0.62 -- largeur écran utilisable par les créatures (les cartes occupent les coins en disposition large)
+	local dH = needX / (tanHalf * aspect * fitW)
+	local stageFrac = r.stage.h / r.vh
+	local dV = 6.5 / (tanHalf * math.max(0.15, stageFrac))
+	local d = clamp(math.max(dH, dV), 20, 80)
+	local el = math.rad(sc.elevation)
+	local cy = (r.stage.y + r.stage.h / 2) / r.vh -- ordonnée écran voulue pour le centre de la scène (0 = haut)
+	local halfH = d * tanHalf
+	local up = (cy - 0.5) * 2 * halfH -- cible au-dessus du centre de la scène si la zone libre est sous le milieu de l'écran
+	sc.target = vec(0, sc.center.y + up, 0)
+	sc.eye = vec(0, sc.target.y + d * math.sin(el), d * math.cos(el))
+	sc.distance = d
+	sc.stage = r.stage
+	return sc
+end
+
+-- Point de l'écran (pixels, approximation pour les effets lorsque la caméra ne sait pas projeter) au-dessus de chaque socle : 1 = joueur, 2 = adversaire.
+function BattleLayout.anchor(side, vw, vh, safeIn)
+	local r = BattleLayout.rects(vw, vh, safeIn)
+	local st = r.stage
+	if side == 1 then
+		return { x = st.x + st.w * 0.3, y = st.y + st.h * 0.62 }
+	end
+	return { x = st.x + st.w * 0.7, y = st.y + st.h * 0.4 }
+end
+
+---------------------------------------------------------------- textes, couleurs, états
+
+function BattleLayout.hpFraction(u)
+	if type(u) ~= "table" or not isNum(u.hp) or not isNum(u.maxHp) or u.maxHp <= 0 then
+		return 0
+	end
+	return clamp(u.hp / u.maxHp, 0, 1)
+end
+
+-- « 260/260 » (entiers, jamais négatif, jamais au-dessus du maximum).
+function BattleLayout.hpText(u)
+	if type(u) ~= "table" then
+		return "0/0"
+	end
+	local max = math.max(0, int(u.maxHp, 0))
+	local hp = clamp(int(u.hp, 0), 0, max)
+	return hp .. "/" .. max
+end
+
+-- Vert au-dessus de 50 %, ambre jusqu'à 25 %, rouge en dessous.
+function BattleLayout.hpColor(frac)
+	local U = BattleLayout.UI
+	local f = isNum(frac) and frac or 0
+	if f > 0.5 then
+		return U.hp
+	elseif f > 0.25 then
+		return U.hpWarn
+	end
+	return U.hpLow
+end
+
+-- Niveau affiché : « Niv. 7 » (au moins 1 ; 1 si le serveur ne l'envoie pas).
+function BattleLayout.levelText(u)
+	local lv = 1
+	if type(u) == "table" and isNum(u.level) then
+		lv = clamp(math.floor(u.level), 1, 999)
+	end
+	return "Niv. " .. lv
+end
+
+-- Points d'état de l'équipe : un point par pet (plein = vivant), au plus MAX_DOTS. `active` (indice du pet au combat) est marqué pour l'affichage.
+function BattleLayout.teamDots(side)
+	local dots = {}
+	local units = type(side) == "table" and type(side.units) == "table" and side.units or {}
+	local active = type(side) == "table" and isNum(side.active) and math.floor(side.active) or 1
+	for i = 1, math.min(#units, BattleLayout.MAX_DOTS) do
+		local u = units[i]
+		local alive = type(u) == "table" and isNum(u.hp) and u.hp > 0
+		dots[i] = { alive = alive == true, active = i == active }
+	end
+	return dots
+end
+
+function BattleLayout.aliveCount(side)
+	local n = 0
+	for _, d in ipairs(BattleLayout.teamDots(side)) do
+		if d.alive then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Pastilles de charge du spécial : { true, true, false, false, false } pour 2/5 ; `ready` à 5/5.
+function BattleLayout.chargePips(charge, max)
+	local mx = isNum(max) and clamp(math.floor(max), 1, 10) or BattleLayout.CHARGE_MAX
+	local c = isNum(charge) and clamp(math.floor(charge), 0, mx) or 0
+	local pips = {}
+	for i = 1, mx do
+		pips[i] = i <= c
+	end
+	return { pips = pips, charge = c, max = mx, ready = c >= mx }
+end
+
+-- Bouton « Spécial » : texte « Spécial 3/5 », prêt ou non. `ss` = BattleUi.specialState (module existant, réutilisé : jamais dupliqué) ; sans charge (moteur du lot 8) :
+-- le texte de recharge de `ss` est conservé.
+function BattleLayout.specialButton(ss)
+	local s = type(ss) == "table" and ss or {}
+	local info = BattleLayout.chargePips(s.charge, s.max)
+	return { text = type(s.text) == "string" and s.text or ("Spécial " .. info.charge .. "/" .. info.max), ready = s.ready == true, charge = info.charge, max = info.max }
+end
+
+-- Réserve : pets du camp (hors actif) avec PV, pour le plateau « Changer » : { { index, alive, hp, maxHp, p } }.
+function BattleLayout.bench(side)
+	local out = {}
+	local units = type(side) == "table" and type(side.units) == "table" and side.units or {}
+	local active = type(side) == "table" and isNum(side.active) and math.floor(side.active) or 1
+	for i, u in ipairs(units) do
+		if i ~= active and type(u) == "table" then
+			out[#out + 1] = { index = i, alive = isNum(u.hp) and u.hp > 0, hp = clamp(int(u.hp, 0), 0, 9999999), maxHp = int(u.maxHp, 0), p = u.p }
+		end
+	end
+	return out
+end
+
+-- Signal d'animation tiré d'un événement du moteur (côté 1 = joueur, y compris en duel : la vue miroir est déjà appliquée par le serveur) :
+--   { anim = "attack"|"heal"|"guard"|"swap"|"ko"|nil, actor = 1|2, target = 1|2, popup = { text, rgb, side } | nil }
+function BattleLayout.cue(ev)
+	if type(ev) ~= "table" or (ev.side ~= 1 and ev.side ~= 2) then
+		return nil
+	end
+	local actor = ev.side
+	local foe = actor == 1 and 2 or 1
+	local U = BattleLayout.UI
+	if ev.t == "hit" then
+		local dmg = isNum(ev.dmg) and math.max(0, math.floor(ev.dmg)) or 0
+		return { anim = "attack", actor = actor, target = foe, special = ev.special == true, popup = { text = "-" .. dmg, rgb = ev.special == true and U.attack or { 255, 255, 255 }, side = foe } }
+	elseif ev.t == "heal" then
+		local amount = isNum(ev.amount) and math.max(0, math.floor(ev.amount)) or 0
+		return { anim = "heal", actor = actor, target = actor, popup = { text = "+" .. amount, rgb = U.hp, side = actor } }
+	elseif ev.t == "guard" then
+		return { anim = "guard", actor = actor, target = actor }
+	elseif ev.t == "swap" then
+		return { anim = "swap", actor = actor, target = actor }
+	elseif ev.t == "ko" then
+		return { anim = "ko", actor = actor, target = actor }
+	elseif ev.t == "splash" then
+		local dmg = isNum(ev.dmg) and math.max(0, math.floor(ev.dmg)) or 0
+		return { anim = "attack", actor = actor, target = foe, popup = { text = "-" .. dmg, rgb = { 255, 224, 64 }, side = foe } }
+	end
+	return nil
+end
+
+---------------------------------------------------------------- plafond d'instances
+
+-- Coût estimé (instances) de la scène : interface + monde. Les constantes suivent BattleScene (un test compare à la construction réelle).
+BattleLayout.COST = {
+	gui = 6, -- racine, fond de ciel, dégradé, viewport, filtre d'assombrissement, caméra
+	card = 14, -- cadre, coin, contour, bandeau de couleur, icône (texte + image), nom, niveau, barre (4), texte de PV ou contexte
+	dot = 2, -- point + coin
+	pip = 2,
+	button = 4, -- bouton, coin, contour, étiquette de charge
+	log = 5,
+	tray = 1 + 3 * 3, -- plateau de réserve : cadre + 3 boutons (bouton, coin, contour)
+	ground = 2, -- sol, anneau
+	pedestal = 2, -- socle de pierre, disque néon
+	beam = 1, -- colonne de lumière translucide (néon)
+	puppet = 13, -- créature procédurale : corps, tête, yeux, oreilles, queue, ombre, modèle
+	pillar = 1,
+	popup = 2, -- nombre flottant (étiquette + contour), au plus 4 simultanés
+}
+BattleLayout.MAX_POPUPS = 4
+
+-- Plan de la scène selon l'appareil : { pillars, beams, bob, decor, estimate }. `reduced` (mobile) : moitié du décor, ni faisceaux ni balancement.
+-- Le décor (piliers ou touffes) est réduit jusqu'à tenir sous MAX_INSTANCES, avec une marge de 20 instances pour les remplacements de créature.
+function BattleLayout.plan(opts)
+	local o = type(opts) == "table" and opts or {}
+	local reduced = o.reduced == true
+	local nMe = clamp(int(o.units1, 3), 1, BattleLayout.MAX_DOTS)
+	local nFoe = clamp(int(o.units2, 3), 1, BattleLayout.MAX_DOTS)
+	local C = BattleLayout.COST
+	local beams = not reduced
+	local decor = reduced and 6 or 12
+	local function estimate(n)
+		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.tray + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
+		if beams then
+			e = e + 2 * C.beam
+		end
+		return e
+	end
+	local budget = BattleLayout.MAX_INSTANCES - 20
+	while decor > 0 and estimate(decor) > budget do
+		decor = decor - 1
+	end
+	if estimate(decor) > budget then
+		beams = false
+	end
+	return { pillars = decor, beams = beams, bob = not reduced, decor = decor, reduced = reduced, estimate = estimate(decor), cap = BattleLayout.MAX_INSTANCES }
+end
+
+-- Positions des éléments de décor (piliers du colisée ou touffes d'herbe) en arc derrière les socles : { { x, z, h } } (studs), déterministe.
+function BattleLayout.decorSpots(n)
+	local spots = {}
+	local count = clamp(int(n, 0), 0, 24)
+	for i = 1, count do
+		local t = count == 1 and 0.5 or (i - 1) / (count - 1)
+		local ang = math.rad(200 + 140 * t) -- demi-cercle derrière
+		local R = 30
+		spots[i] = { x = math.floor(math.cos(ang) * R * 100 + 0.5) / 100, z = math.floor(math.sin(ang) * R * 100 + 0.5) / 100 - 4, h = 7 + (i % 3) * 1.5 }
+	end
+	return spots
+end
+
+return BattleLayout
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX63"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX50"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX64"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX51"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23384,7 +23830,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -24379,7 +24825,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -27162,7 +27608,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -27333,7 +27779,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -27346,7 +27792,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -27865,7 +28311,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -28602,7 +29048,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -29267,7 +29713,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -29771,7 +30217,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
 -- LOT 14 : transport du classé en direct. Toutes les décisions sont dans ReplicatedStorage/Shared/Ranked (pur) ; ce module ne fait que
 -- les appliquer avec un RUNTIME INJECTÉ (tests : faux runtime de tests/lot14.luau ; jeu : PvpLive.robloxRuntime, MemoryStore + TeleportService).
 -- Aucun yield ici en dehors des appels au runtime ; chaque appel réseau est dans un pcall (une panne MemoryStore = un tour sans effet,
@@ -30467,7 +30913,7 @@ function PvpLive.robloxRuntime(Config, hooks)
 end
 
 return PvpLive
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -31693,7 +32139,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -31922,7 +32368,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -32148,7 +32594,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX80"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX79"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX64"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX82"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX81"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX65"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35186,6 +35632,8 @@ pcall(function()
 		BattleIntro = require(script.Parent:WaitForChild("BattleIntro")),
 		TypeFx = require(script.Parent:WaitForChild("TypeFx")),
 		TypeFxData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TypeFx")),
+		BattleLayout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleLayout")), -- refonte du combat : scène face à face (disposition pure + instances)
+		BattleScene = require(script.Parent:WaitForChild("BattleScene")),
 		sound = playSound,
 		reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
 		iconUrl = L10.iconUrl,
@@ -35318,7 +35766,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX65"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX66"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -35880,7 +36328,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX66"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX67"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -36532,7 +36980,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX67"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -36658,7 +37106,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -36741,7 +37189,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -36856,7 +37304,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -37045,7 +37493,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -37201,7 +37649,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -37279,6 +37727,9 @@ function BattleUi.efficacy(mult)
 	return nil
 end
 
+-- REFONTE DU COMBAT (vue face à face) : si `fx.BattleScene` et `fx.BattleLayout` sont fournis (et `Config.BATTLE_FX.scene ~= false`), le combat s'affiche dans une scène
+-- plein écran (BattleScene : créatures sur socles lumineux, carte adverse en haut à droite, carte du joueur en bas à gauche, journal et boutons en bas) ; sinon, ou si la
+-- construction échoue, l'ancien panneau compact (lot 8) est utilisé tel quel. Remotes, payloads et protocole inchangés : ce module n'envoie que les mêmes intentions.
 -- Lot 10 : `fx` (optionnel) = { Odds, IntroPlan, BattleIntro, TypeFx (client), TypeFxData (données), sound = fn(clé), reduced = mobile, iconUrl = fn(clé) -> url|nil }.
 -- Intro avant le premier tour (BattleIntro, passable), effet par type à chaque attaque (spécial pour une compétence ou tous les `specialEvery` coups), texte
 -- d'efficacité flottant, sons battle_start / atk_<type> / special_hit / special_ready / battle_win / battle_lose. Sans `fx` : écran du lot 8 inchangé.
@@ -37286,7 +37737,8 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local TW = Config.TOWER
 	local ok, ui = pcall(function()
 		local open = button(gui, { Name = "ArenaButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0.3, -42), Size = UDim2.fromOffset(34, 34), Text = "⚔️", BackgroundColor3 = Color3.fromRGB(255, 159, 28) })
-		local panel = make("Frame", { Name = "ArenaPanel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(360, 330), BackgroundColor3 = Color3.fromRGB(28, 26, 44), Visible = false, ZIndex = 30 }, gui)
+		local panel = make("Frame", { Name = "ArenaPanel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -16, 0, 330), BackgroundColor3 = Color3.fromRGB(28, 26, 44), Visible = false, ZIndex = 30 }, gui)
+		make("UISizeConstraint", { MaxSize = Vector2.new(360, 330) }, panel) -- 360 px au plus, jamais plus large que l'écran (téléphone de 360 px : 8 px de marge de chaque côté)
 		make("UICorner", { CornerRadius = UDim.new(0, 16) }, panel)
 		make("UIStroke", { Color = Color3.fromRGB(255, 210, 63), Thickness = 3 }, panel)
 		local title = label(panel, { Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -60, 0, 26), TextSize = 18, Text = "⚔️ Arène des pets", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31 })
@@ -37318,6 +37770,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local widgets = {}
 	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
 	local LV = { queued = false, note = nil } -- lot 14 : classé en direct (file d'attente ; fermée = le serveur lance directement le classé enregistré)
+	local SC = { scene = nil, delay = 0 } -- refonte : scène face à face (nil = ancien panneau compact)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -37391,16 +37844,24 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				local mul = ev.mul
 				task.delay(0.6 * k, function()
 					pcall(function()
-						local ap, sz = ui.panel.AbsolutePosition, ui.panel.AbsoluteSize
-						local bodyY = ap.Y + 74
-						local mine = Vector2.new(ap.X + sz.X * 0.25, bodyY + 50)
-						local theirs = Vector2.new(ap.X + sz.X * 0.75, bodyY + 10)
+						local mine, theirs, shakeFrame
+						if SC.scene then -- scène face à face : positions projetées au-dessus des deux créatures
+							local mx, my = SC.scene.anchor(1)
+							local tx, ty = SC.scene.anchor(2)
+							mine, theirs, shakeFrame = Vector2.new(mx, my), Vector2.new(tx, ty), SC.scene.shake
+						else
+							local ap, sz = ui.panel.AbsolutePosition, ui.panel.AbsoluteSize
+							local bodyY = ap.Y + 74
+							mine = Vector2.new(ap.X + sz.X * 0.25, bodyY + 50)
+							theirs = Vector2.new(ap.X + sz.X * 0.75, bodyY + 10)
+							shakeFrame = ui.panel
+						end
 						local from, to = mine, theirs
 						if ev.side == 2 then
 							from, to = theirs, mine
 						end
 						fx.TypeFx.play(gui, data, special, {
-							from = from, to = to, reduced = fx.reduced == true, shakeFrame = ui.panel,
+							from = from, to = to, reduced = fx.reduced == true, shakeFrame = shakeFrame,
 							sound = function(key)
 								FX.sound(key == "special" and "special_hit" or Config.ATK_SOUND[typ])
 							end,
@@ -37589,10 +38050,74 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		return log
 	end
 
+	-- Refonte : scène de combat face à face. Le serveur n'envoie rien de plus : tout vient de la vue (Battle.view) et du message « start ».
+	local function sceneOn()
+		return type(fx) == "table" and fx.BattleScene ~= nil and fx.BattleLayout ~= nil and not (Config.BATTLE_FX and Config.BATTLE_FX.scene == false)
+	end
+	function SC.close()
+		if SC.scene then
+			pcall(SC.scene.destroy)
+			SC.scene = nil
+		end
+		pcall(function()
+			ui.open.Visible = true
+		end)
+	end
+	function SC.statusText()
+		if not view then
+			return ""
+		end
+		local me, foe = view.sides[1], view.sides[2]
+		local mu, fu = me.units[me.active], foe.units[foe.active]
+		local left = math.max(0, math.ceil(deadline - os.clock()))
+		return (mu and fu and (BattleUi.advantage(Battle, mu.type, fu.type) .. " · ") or "") .. "tour " .. tostring(view.turn) .. "/" .. Battle.MAX_TURNS .. (view.over and "" or (" · ⏱ " .. left .. " s")) .. (DU.on and (DU.chosen and " · ✅ choix envoyé, attente de l'adversaire" or " · duel : choisis ton action") or "")
+	end
+	function SC.refresh()
+		if not (SC.scene and view) then
+			return
+		end
+		local d = SC.delay
+		SC.delay = 0
+		SC.scene.update(view, { delay = d })
+		SC.scene.setContext(tostring(foeName or "") .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or ""))
+		SC.scene.setLog(logLines)
+		SC.scene.setStatus(SC.statusText())
+	end
+	function SC.open(p)
+		SC.close()
+		if not sceneOn() then
+			return false
+		end
+		local ok, sc = pcall(fx.BattleScene.create, {
+			gui = gui, Config = Config, Battle = Battle, Layout = fx.BattleLayout, player = player, payload = p, view = view, foeName = foeName, floor = lastFloor,
+			reduced = fx.reduced == true, iconUrl = fx.iconUrl,
+			specialState = function(u)
+				return BattleUi.specialState(Config, Battle, u)
+			end,
+			fire = fire,
+			onChosen = function()
+				DU.picked()
+			end,
+		})
+		if ok and sc then
+			SC.scene = sc
+			ui.panel.Visible = false
+			pcall(function()
+				ui.open.Visible = false
+			end)
+			return true
+		end
+		return false
+	end
+
 	function render()
 		clear()
 		if mode == "battle" then
-			renderBattle()
+			if SC.scene then
+				SC.refresh()
+			else
+				renderBattle()
+			end
 		elseif mode == "end" then
 			-- l'écran de résultat est construit par `finish`
 		else
@@ -37621,13 +38146,15 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local function showResult(msg, waitPick)
 		mode = "end"
 		clear()
+		ui.panel.Visible = true
 		ui.info.Text = ""
-		add(label(ui.body, { Size = UDim2.new(1, 0, 1, -44), TextSize = 16, TextWrapped = true, Text = msg, ZIndex = 32 }))
+		add(label(ui.body, { Size = UDim2.new(1, 0, 1, -52), TextSize = 16, TextWrapped = true, Text = msg, ZIndex = 32 }))
 		if waitPick then
 			return -- le serveur envoie ensuite { k = "pick" } ; « Continuer » n'apparaît qu'après le choix
 		end
-		local ok2 = add(button(ui.body, { Position = UDim2.new(0.5, -70, 1, -34), Size = UDim2.fromOffset(140, 30), Text = "Continuer", ZIndex = 32 }))
+		local ok2 = add(button(ui.body, { Position = UDim2.new(0.5, -70, 1, -46), Size = UDim2.fromOffset(140, 44), Text = "Continuer", ZIndex = 32 }))
 		ok2.Activated:Connect(function()
+			SC.close() -- refonte : la scène de combat est détruite (aucune instance ne reste)
 			mode = "team"
 			team = {}
 			logLines = {}
@@ -37819,9 +38346,9 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				ui.panel.Visible = true
 				ui.title.Text = "🏆 Combat classé"
 				ui.info.Text = ""
-				add(label(ui.body, { Size = UDim2.new(1, 0, 1, -44), TextSize = 16, TextWrapped = true, Text = "Aucun adversaire en ligne de ton niveau.\nCombattre une équipe enregistrée ?", ZIndex = 32 }))
-				local yes = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -34), Size = UDim2.new(0.5, -3, 0, 30), Text = "🏆 Oui", ZIndex = 32 }))
-				local no = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -34), Size = UDim2.new(0.5, -3, 0, 30), Text = "Non", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 32 }))
+				add(label(ui.body, { Size = UDim2.new(1, 0, 1, -52), TextSize = 16, TextWrapped = true, Text = "Aucun adversaire en ligne de ton niveau.\nCombattre une équipe enregistrée ?", ZIndex = 32 }))
+				local yes = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -46), Size = UDim2.new(0.5, -3, 0, 44), Text = "🏆 Oui", ZIndex = 32 }))
+				local no = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -46), Size = UDim2.new(0.5, -3, 0, 44), Text = "Non", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 32 }))
 				yes.Activated:Connect(function()
 					fire("pvpStart")
 				end)
@@ -37854,8 +38381,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end
 				mode, view, foeName, lastFloor, logLines, pick, lastReady = "battle", p.view, p.foe, p.floor, {}, nil, false
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
-				ui.panel.Visible = true
-				render()
+				if SC.open(p) then -- refonte : scène face à face plein écran (le panneau compact reste caché)
+					SC.refresh()
+				else
+					ui.panel.Visible = true
+					render()
+				end
 				FX.hits = { 0, 0 }
 				pcall(FX.intro, p)
 			elseif p.k == "turn" then
@@ -37863,6 +38394,10 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
+				if SC.scene then -- animations de la scène (élan, recul, nombres flottants) ; le remplacement d'une créature attend la fin des coups
+					local okc, d = pcall(SC.scene.cues, p.events)
+					SC.delay = okc and tonumber(d) or 0
+				end
 				pcall(FX.hits, p.events)
 				if mode == "battle" then
 					render()
@@ -37907,6 +38442,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				if r.limited then
 					lines[#lines + 1] = "Limite de récompenses de répétition atteinte aujourd'hui."
 				end
+				if SC.scene then -- la scène reste en fond, assombrie, derrière l'écran de résultat et les cartes de récompense
+					if type(p.view) == "table" and type(p.view.sides) == "table" then
+						pcall(SC.scene.update, p.view, { delay = 0.8 })
+					end
+					pcall(SC.scene.setDim, true)
+				end
 				showResult(table.concat(lines, "\n"), p.pick == true)
 				FX.sound(p.win and "battle_win" or "battle_lose")
 				local trophy = FX.icon(ui.body, p.win and "ui_trophee" or "ui_victoire_defaite", 4, 4, 40)
@@ -37925,6 +38466,10 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	end)
 	ui.close.Activated:Connect(function()
 		ui.panel.Visible = false
+		if SC.scene and (mode == "end" or mode == "team") then -- refonte : fermer le résultat libère la scène (jamais d'écran de combat orphelin)
+			SC.close()
+			mode = "team"
+		end
 	end)
 	task.spawn(function() -- minuteur du tour
 		while true do
@@ -37956,6 +38501,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				if DU.on and mode ~= "battle" then
 					DU.restore()
 				end
+				if mode == "battle" and SC.scene and view then
+					SC.scene.setStatus(SC.statusText())
+				elseif SC.scene and mode ~= "battle" and mode ~= "end" and mode ~= "pick" then -- plus de combat : la scène ne reste jamais seule à l'écran
+					SC.close()
+				end
 				if mode == "battle" and ui.panel.Visible and view and not view.over then
 					local left = math.max(0, math.ceil(deadline - os.clock()))
 					ui.title.Text = "⚔️ " .. foeName .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or "") .. " · ⏱ " .. left .. " s"
@@ -37967,7 +38517,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -38192,7 +38742,864 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
+-- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
+-- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
+-- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
+-- Spécial n/5, Changer, Fuir). TOUTE la disposition vient du module pur ReplicatedStorage/BattleLayout (testé) ; ici : uniquement des instances.
+-- Le client N'ENVOIE QU'UNE INTENTION (« attack », « skill », « swapN », abandon) : le serveur revalide tout, rien ne change dans le protocole.
+-- Plafond : BattleLayout.MAX_INSTANCES (220) instances vivantes pour la scène ; tout est détruit par destroy() (aucune fuite : boucles arrêtées, racine détruite).
+-- Sur mobile (`reduced`) : moitié du décor, ni colonne de lumière ni balancement. Aucune erreur ne sort d'ici (create retourne nil si la construction échoue).
+-- Pas de += ni de continue (lanceur lupa).
+local BattleScene = {}
+
+local FONT = Enum.Font.GothamBold
+
+local function rgb(t)
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+-- o = { gui, Config, Battle, Layout, player, payload (message « start »), view, foeName, floor, reduced, iconUrl = fn(clé) -> url|nil, specialState = fn(unité) -> état,
+--       fire = fn(action, arg), onChosen = fn() (un choix vient d'être envoyé), onFlee = fn(), safe = { l, t, r, b } (optionnel) }
+function BattleScene.create(o)
+	if type(o) ~= "table" or type(o.view) ~= "table" or type(o.view.sides) ~= "table" or type(o.view.sides[1]) ~= "table" or type(o.view.sides[2]) ~= "table" or type(o.view.sides[1].units) ~= "table" or type(o.view.sides[2].units) ~= "table" then
+		return nil, "vue invalide"
+	end
+	local L, Config, Battle = o.Layout, o.Config, o.Battle
+	local S = { alive = true, used = 0, peak = 0, conns = {}, puppets = {}, cur = {}, swapToken = { 0, 0 }, popups = 0, lastView = nil, fleeToken = 0, dimmed = false }
+	local cap = L.MAX_INSTANCES
+	local TweenService
+	pcall(function()
+		TweenService = game:GetService("TweenService")
+	end)
+
+	local function make(class, props, parent)
+		if S.used >= cap then
+			error("plafond d'instances")
+		end
+		S.used = S.used + 1
+		if S.used > S.peak then
+			S.peak = S.used
+		end
+		local inst = Instance.new(class)
+		for k, v in pairs(props) do
+			inst[k] = v
+		end
+		inst.Parent = parent
+		return inst
+	end
+	local function release(n)
+		S.used = math.max(0, S.used - n)
+	end
+	local function tween(inst, seconds, goal, style, dir)
+		if TweenService == nil then
+			for k, v in pairs(goal) do
+				pcall(function()
+					inst[k] = v
+				end)
+			end
+			return nil
+		end
+		local ok, tw = pcall(function()
+			local t = TweenService:Create(inst, TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), goal)
+			t:Play()
+			return t
+		end)
+		return ok and tw or nil
+	end
+	local function animate(duration, step) -- appelle step(a) de 0 à 1 puis s'arrête ; s'arrête aussi à la destruction de la scène
+		task.spawn(function()
+			local t0 = os.clock()
+			while S.alive do
+				local a = (os.clock() - t0) / duration
+				if a >= 1 then
+					pcall(step, 1)
+					return
+				end
+				pcall(step, a)
+				task.wait(0.03)
+			end
+		end)
+	end
+
+	local function viewportSize()
+		local ok, w, h = pcall(function()
+			local a = o.gui.AbsoluteSize
+			return a.X, a.Y
+		end)
+		if ok and type(w) == "number" and type(h) == "number" and w > 0 and h > 0 then
+			return w, h
+		end
+		ok, w, h = pcall(function()
+			local v = workspace.CurrentCamera.ViewportSize
+			return v.X, v.Y
+		end)
+		if ok and type(w) == "number" and type(h) == "number" and w > 0 and h > 0 then
+			return w, h
+		end
+		return nil, nil
+	end
+
+	local st0 = o.payload or {}
+	local mode = L.mode(st0)
+	local ground = L.ground(mode)
+	local pal = L.palette(ground)
+	local view0 = o.view
+	local nMe = #(view0.sides[1].units or {})
+	local nFoe = #(view0.sides[2].units or {})
+	local plan = L.plan({ reduced = o.reduced == true, units1 = nMe, units2 = nFoe })
+	S.plan, S.mode, S.ground = plan, mode, ground
+	local U = L.UI
+
+	local okBuild, err = pcall(function()
+		---------------------------------------------------------------- racine, fond, viewport
+		local root = make("Frame", { Name = "BattleScene", Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(pal.skyTop), BorderSizePixel = 0, Active = true, ZIndex = 1 }, o.gui)
+		S.root = root
+		make("UIGradient", { Rotation = 90, Color = ColorSequence.new(rgb(pal.skyTop), rgb(pal.skyBottom)) }, root)
+		local vp = make("ViewportFrame", {
+			Name = "World", BackgroundTransparency = 1, Position = UDim2.fromOffset(-5, -5), Size = UDim2.new(1, 10, 1, 10), ZIndex = 2,
+			Ambient = rgb(pal.ambient), LightColor = rgb(pal.light), LightDirection = Vector3.new(-0.4, -1, -0.6),
+		}, root)
+		S.vp = vp
+		local cam = make("Camera", { FieldOfView = 40 }, vp)
+		vp.CurrentCamera = cam
+		S.cam = cam
+		S.dim = make("Frame", { Name = "Dim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 12, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, root)
+
+		---------------------------------------------------------------- monde : sol, décor, socles
+		local function part(props)
+			props.Anchored = true
+			props.CanCollide = false
+			props.TopSurface = Enum.SurfaceType.Smooth
+			props.BottomSurface = Enum.SurfaceType.Smooth
+			return make("Part", props, vp)
+		end
+		local function flatCylinder(name, x, y, z, diameter, height, color, material, transparency)
+			return part({ Name = name, Shape = Enum.PartType.Cylinder, Size = Vector3.new(height, diameter, diameter), CFrame = CFrame.new(x, y, z) * CFrame.Angles(0, 0, math.rad(90)), Color = rgb(color), Material = material or Enum.Material.SmoothPlastic, Transparency = transparency or 0 })
+		end
+		flatCylinder("Ground", 0, -0.5, -2, 92, 1, pal.ground)
+		flatCylinder("Rim", 0, -0.9, -2, 100, 0.8, pal.rim)
+		local spots = L.decorSpots(plan.decor)
+		for i, sp in ipairs(spots) do
+			if ground == "sand" then -- colonnade du colisée
+				part({ Name = "Pillar" .. i, Size = Vector3.new(2.4, sp.h * 2, 2.4), CFrame = CFrame.new(sp.x, sp.h, sp.z), Color = rgb(pal.deco), Material = Enum.Material.Sandstone })
+			else -- haies et buissons de l'arène
+				part({ Name = "Hedge" .. i, Shape = Enum.PartType.Cylinder, Size = Vector3.new(sp.h * 0.5, 4.5, 4.5), CFrame = CFrame.new(sp.x, sp.h * 0.25, sp.z) * CFrame.Angles(0, 0, math.rad(90)), Color = rgb(pal.deco), Material = Enum.Material.Grass })
+			end
+		end
+		S.pedestals = {}
+		for side = 1, 2 do
+			local u = view0.sides[side].units[view0.sides[side].active]
+			local tcol = L.typeColor(u and u.type)
+			S.pedestals[side] = { pos = { x = 0, z = 0 }, base = nil, glow = nil, column = nil, color = tcol }
+		end
+
+		---------------------------------------------------------------- éléments d'interface (cartes, bandeau, boutons)
+		local function label(parent, props)
+			props.BackgroundTransparency = 1
+			props.Font = props.Font or FONT
+			props.TextColor3 = props.TextColor3 or rgb(U.text)
+			props.TextSize = props.TextSize or 14
+			props.ZIndex = props.ZIndex or 8
+			return make("TextLabel", props, parent)
+		end
+		local function button(name, text, color, textColor)
+			local b = make("TextButton", { Name = name, Font = FONT, TextSize = 15, TextWrapped = true, Text = text, AutoButtonColor = true, BackgroundColor3 = rgb(color), TextColor3 = textColor or Color3.fromRGB(14, 28, 18), ZIndex = 10 }, root)
+			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
+			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
+			return b
+		end
+		local function place(inst, r)
+			inst.Position = UDim2.fromOffset(r.x, r.y)
+			inst.Size = UDim2.fromOffset(r.w, r.h)
+		end
+
+		local function buildCard(isMe, name)
+			local c = { isMe = isMe, dots = {}, pips = {} }
+			c.frame = make("Frame", { Name = name, BackgroundColor3 = rgb(U.card), BackgroundTransparency = 0.06, BorderSizePixel = 0, ZIndex = 6 }, root)
+			make("UICorner", { CornerRadius = UDim.new(0, 12) }, c.frame)
+			make("UIStroke", { Color = rgb(U.cardStroke), Thickness = 2 }, c.frame)
+			c.accent = make("Frame", { Name = "Accent", BackgroundColor3 = rgb(L.NEUTRAL_COLOR), BorderSizePixel = 0, ZIndex = 7 }, c.frame)
+			c.iconText = label(c.frame, { Name = "IconText", TextSize = 18, Text = "" })
+			c.iconImage = nil
+			c.name = label(c.frame, { Name = "Name", TextSize = 16, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
+			c.level = label(c.frame, { Name = "Level", TextSize = 13, Text = "", TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = rgb(U.muted) })
+			c.barBg = make("Frame", { Name = "HpBack", BackgroundColor3 = rgb(U.hpBack), BorderSizePixel = 0, ZIndex = 7 }, c.frame)
+			make("UICorner", { CornerRadius = UDim.new(0, 6) }, c.barBg)
+			c.fill = make("Frame", { Name = "HpFill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(U.hp), BorderSizePixel = 0, ZIndex = 8 }, c.barBg)
+			make("UICorner", { CornerRadius = UDim.new(0, 6) }, c.fill)
+			if isMe then
+				c.hp = label(c.frame, { Name = "HpText", TextSize = 14, Text = "", TextXAlignment = Enum.TextXAlignment.Left })
+			else
+				c.ctx = label(c.frame, { Name = "Context", TextSize = 12, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = rgb(U.muted), TextTruncate = Enum.TextTruncate.AtEnd })
+			end
+			return c
+		end
+		S.foeCard = buildCard(false, "FoeCard")
+		S.meCard = buildCard(true, "MeCard")
+		local function ensureDots(c, n)
+			while #c.dots < math.min(n, L.MAX_DOTS) do
+				local d = make("Frame", { Name = "TeamDot", Size = UDim2.fromOffset(10, 10), BackgroundColor3 = rgb(U.dotOff), BorderSizePixel = 0, ZIndex = 8 }, c.frame)
+				make("UICorner", { CornerRadius = UDim.new(1, 0) }, d)
+				c.dots[#c.dots + 1] = d
+			end
+		end
+		ensureDots(S.foeCard, nFoe)
+		ensureDots(S.meCard, nMe)
+		for i = 1, L.CHARGE_MAX do
+			local p = make("Frame", { Name = "ChargePip", Size = UDim2.fromOffset(10, 10), BackgroundColor3 = rgb(U.pipOff), BorderSizePixel = 0, ZIndex = 8 }, S.meCard.frame)
+			make("UICorner", { CornerRadius = UDim.new(1, 0) }, p)
+			S.meCard.pips[i] = p
+		end
+
+		S.logFrame = make("Frame", { Name = "LogBar", BackgroundColor3 = rgb(U.log), BackgroundTransparency = 0.12, BorderSizePixel = 0, ZIndex = 6 }, root)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.logFrame)
+		make("UIStroke", { Color = rgb(U.cardStroke), Thickness = 1 }, S.logFrame)
+		S.status = label(S.logFrame, { Name = "Status", TextSize = 12, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(255, 226, 140), TextTruncate = Enum.TextTruncate.AtEnd })
+		S.log = label(S.logFrame, { Name = "LogText", TextSize = 13, Text = "", TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.AtEnd })
+
+		S.btn = {
+			attack = button("Attack", "⚔ Attaque", U.attack),
+			special = button("Special", "Spécial", U.special),
+			swap = button("Swap", "🔁 Changer", U.swap, Color3.fromRGB(250, 245, 255)),
+			flee = button("Flee", "🏃 Fuir", U.flee, Color3.fromRGB(40, 8, 8)),
+		}
+		S.tray = make("Frame", { Name = "SwapTray", BackgroundTransparency = 1, Visible = false, ZIndex = 11 }, root)
+		S.slots = {}
+		for i = 1, 3 do
+			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = Color3.fromRGB(250, 245, 255), ZIndex = 12 }, S.tray)
+			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
+			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
+			S.slots[i] = { btn = b, index = nil }
+		end
+
+		---------------------------------------------------------------- mise en page (appelée à la création et à chaque changement de taille)
+		local function layoutCard(c, r)
+			place(c.frame, r)
+			local inner = L.cardInner(r.w, c.isMe)
+			c.accent.Position = UDim2.fromOffset(3, 8)
+			c.accent.Size = UDim2.fromOffset(4, r.h - 16)
+			place(c.iconText, inner.icon)
+			if c.iconImage then
+				place(c.iconImage, inner.icon)
+			end
+			place(c.name, inner.name)
+			place(c.level, inner.level)
+			place(c.barBg, inner.bar)
+			if c.hp then
+				place(c.hp, inner.hp)
+			end
+			if c.ctx then
+				place(c.ctx, inner.ctx)
+			end
+			local n = #c.dots
+			for i, d in ipairs(c.dots) do
+				local x = c.isMe and (inner.dots.x + inner.dots.w - n * 14 + (i - 1) * 14) or (inner.dots.x + (i - 1) * 14)
+				d.Position = UDim2.fromOffset(x, inner.dots.y)
+			end
+			for i, p in ipairs(c.pips) do
+				p.Position = UDim2.fromOffset(inner.pips.x + (i - 1) * 14, inner.pips.y)
+			end
+		end
+		local function relayout()
+			local vw, vh = viewportSize()
+			local R = L.rects(vw, vh, o.safe)
+			S.rects = R
+			layoutCard(S.foeCard, R.foeCard)
+			layoutCard(S.meCard, R.meCard)
+			place(S.logFrame, R.log)
+			place(S.status, { x = 10, y = 3, w = R.log.w - 20, h = 16 })
+			place(S.log, { x = 10, y = 19, w = R.log.w - 20, h = R.log.h - 22 })
+			for k, b in pairs(S.btn) do
+				place(b, R.actions[k])
+			end
+			place(S.tray, R.swapTray)
+			local gap = L.GAP
+			local sw = math.floor((R.swapTray.w - 2 * gap) / 3)
+			for i, s in ipairs(S.slots) do
+				place(s.btn, { x = (i - 1) * (sw + gap), y = 0, w = sw, h = R.swapTray.h })
+			end
+			local sc = L.scene(vw, vh, o.safe, ground)
+			S.sc = sc
+			S.cam.FieldOfView = sc.fov
+			S.cam.CFrame = CFrame.lookAt(Vector3.new(sc.eye.x, sc.eye.y, sc.eye.z), Vector3.new(sc.target.x, sc.target.y, sc.target.z))
+			-- socles : créés une fois, replacés à chaque mise en page
+			for side = 1, 2 do
+				local pd = S.pedestals[side]
+				local pos = side == 1 and sc.me or sc.foe
+				pd.pos = pos
+				if pd.base == nil then
+					pd.base = flatCylinder("PedestalBase" .. side, pos.x, 0.4, pos.z, sc.pedestal * 2, 0.8, pal.deco)
+					pd.glow = flatCylinder("PedestalGlow" .. side, pos.x, 0.86, pos.z, sc.pedestal * 1.75, 0.14, pd.color, Enum.Material.Neon)
+					if plan.beams then
+						pd.column = flatCylinder("PedestalLight" .. side, pos.x, 3.4, pos.z, sc.pedestal * 1.6, 5.2, pd.color, Enum.Material.Neon, 0.85)
+					end
+				else
+					pd.base.CFrame = CFrame.new(pos.x, 0.4, pos.z) * CFrame.Angles(0, 0, math.rad(90))
+					pd.glow.CFrame = CFrame.new(pos.x, 0.86, pos.z) * CFrame.Angles(0, 0, math.rad(90))
+					if pd.column then
+						pd.column.Position = Vector3.new(pos.x, 3.4, pos.z)
+					end
+				end
+				local pz = S.puppets[side]
+				if pz and pz.model then
+					pz.base = S.faceCF(side, pz.lift)
+					pcall(function()
+						pz.model:PivotTo(pz.base)
+					end)
+				end
+			end
+		end
+
+		---------------------------------------------------------------- créatures procédurales (corps, yeux, oreilles, queue ou bec : 7 instances)
+		function S.faceCF(side, y) -- position du pivot (centre du corps, hauteur y) et regard vers l'autre socle
+			local sc = S.sc
+			local me, foe = sc.me, sc.foe
+			local from, to = me, foe
+			if side == 2 then
+				from, to = foe, me
+			end
+			return CFrame.lookAt(Vector3.new(from.x, y, from.z), Vector3.new(to.x, y, to.z))
+		end
+		local function buildPuppet(side, u)
+			local def = Config.PETS[u.p] or { color = Color3.fromRGB(200, 200, 200), ears = "round", extra = "none" }
+			local scale = 1
+			local sz = Config.SIZES and Config.SIZES[u.s]
+			if sz and type(sz.scale) == "number" then
+				scale = math.max(0.8, math.min(1.4, sz.scale))
+			end
+			local R = 1.5 * scale
+			local before = S.used
+			local model = make("Model", { Name = "Puppet" .. side }, vp)
+			local col = def.color
+			local function ball(nm, ox, oy, oz, d, c)
+				return make("Part", { Name = nm, Shape = Enum.PartType.Ball, Size = Vector3.new(d, d, d), Anchored = true, CanCollide = false, Color = c, Material = Enum.Material.SmoothPlastic, CFrame = CFrame.new(ox, oy, oz) }, model)
+			end
+			local function block(nm, ox, oy, oz, sx, sy, sz2, c, rotZ)
+				return make("Part", { Name = nm, Size = Vector3.new(sx, sy, sz2), Anchored = true, CanCollide = false, Color = c, Material = Enum.Material.SmoothPlastic, CFrame = CFrame.new(ox, oy, oz) * CFrame.Angles(0, 0, rotZ or 0) }, model)
+			end
+			local lift = 0.9 + R
+			local body = ball("Body", 0, 0, 0, 2 * R, col)
+			model.PrimaryPart = body
+			local dark = Color3.fromRGB(25, 25, 30)
+			ball("EyeL", -0.42 * R, 0.25 * R, -0.86 * R, 0.36 * R, dark)
+			ball("EyeR", 0.42 * R, 0.25 * R, -0.86 * R, 0.36 * R, dark)
+			local ears = def.ears or "round"
+			if ears == "point" then
+				block("EarL", -0.55 * R, 1.0 * R, 0, 0.5 * R, 0.9 * R, 0.2 * R, col, math.rad(15))
+				block("EarR", 0.55 * R, 1.0 * R, 0, 0.5 * R, 0.9 * R, 0.2 * R, col, math.rad(-15))
+			elseif ears == "long" then
+				block("EarL", -0.4 * R, 1.35 * R, 0, 0.35 * R, 1.4 * R, 0.2 * R, col, math.rad(8))
+				block("EarR", 0.4 * R, 1.35 * R, 0, 0.35 * R, 1.4 * R, 0.2 * R, col, math.rad(-8))
+			elseif ears == "floppy" then
+				block("EarL", -0.95 * R, 0.55 * R, 0, 0.5 * R, 0.9 * R, 0.2 * R, col, math.rad(40))
+				block("EarR", 0.95 * R, 0.55 * R, 0, 0.5 * R, 0.9 * R, 0.2 * R, col, math.rad(-40))
+			elseif ears ~= "none" then
+				ball("EarL", -0.7 * R, 0.85 * R, 0, 0.5 * R, col)
+				ball("EarR", 0.7 * R, 0.85 * R, 0, 0.5 * R, col)
+			end
+			local extra = def.extra or "none"
+			if extra == "beak" then
+				block("Beak", 0, -0.05 * R, -1.05 * R, 0.4 * R, 0.25 * R, 0.5 * R, Color3.fromRGB(255, 160, 40), 0)
+			elseif extra == "tail" then
+				ball("Tail", 0, -0.1 * R, 1.0 * R, 0.5 * R, col)
+			end
+			local base = S.faceCF(side, lift)
+			model:PivotTo(base)
+			return { model = model, body = body, base = base, lift = lift, count = S.used - before, busy = 0, color = col }
+		end
+		local function destroyPuppet(pz)
+			if pz and pz.model then
+				pcall(function()
+					pz.model:Destroy()
+				end)
+				release(pz.count or 0)
+			end
+		end
+		S.destroyPuppet = destroyPuppet
+		function S.setPuppet(side, u, animateIn)
+			local old = S.puppets[side]
+			local newp = buildPuppet(side, u)
+			S.puppets[side] = newp
+			destroyPuppet(old)
+			if animateIn then
+				newp.busy = newp.busy + 1
+				animate(0.3, function(a)
+					if newp.model then
+						newp.model:PivotTo(newp.base * CFrame.new(0, 6 * (1 - a) * (1 - a), 0))
+					end
+					if a >= 1 then
+						newp.busy = math.max(0, newp.busy - 1)
+					end
+				end)
+			end
+		end
+		S.build = buildPuppet
+
+		relayout()
+		S.relayout = relayout
+		for side = 1, 2 do
+			local sd = view0.sides[side]
+			local u = sd.units[sd.active]
+			if u then
+				S.puppets[side] = nil
+				S.setPuppet(side, u, false)
+				S.cur[side] = tostring(u.p) .. ":" .. tostring(sd.active)
+			end
+		end
+	end)
+	if not okBuild then
+		S.alive = false
+		if S.root then
+			pcall(function()
+				S.root:Destroy()
+			end)
+		end
+		return nil, err
+	end
+
+	---------------------------------------------------------------- API
+	local scene = { root = S.root, viewport = S.vp, shake = S.vp, plan = plan, mode = mode, ground = ground }
+
+	function scene.count()
+		return S.used
+	end
+	function scene.peak()
+		return S.peak
+	end
+	function scene.alive()
+		return S.alive
+	end
+
+	local function setFill(c, frac, animateIt)
+		local goal = { Size = UDim2.fromScale(frac, 1), BackgroundColor3 = rgb(L.hpColor(frac)) }
+		if animateIt then
+			tween(c.fill, 0.35, goal)
+		else
+			c.fill.Size, c.fill.BackgroundColor3 = goal.Size, goal.BackgroundColor3
+		end
+	end
+	local function setIcon(c, u)
+		local typ = u and u.type
+		c.accent.BackgroundColor3 = rgb(L.typeColor(typ))
+		local key = Config.TYPE_ICON and Config.TYPE_ICON[typ]
+		local url = key and type(o.iconUrl) == "function" and o.iconUrl(key) or nil
+		if url and c.iconImage == nil and S.used < cap then
+			c.iconImage = make("ImageLabel", { Name = "TypeIcon", BackgroundTransparency = 1, Image = url, ZIndex = 9 }, c.frame)
+			local r = S.rects and (c.isMe and S.rects.meCard or S.rects.foeCard)
+			if r then
+				local inner = L.cardInner(r.w, c.isMe)
+				place(c.iconImage, inner.icon)
+			end
+		elseif url and c.iconImage then
+			c.iconImage.Image = url
+		end
+		c.iconText.Text = c.iconImage and "" or ((Battle.TYPE_EMOJI and Battle.TYPE_EMOJI[typ]) or "")
+	end
+	local function unitName(u)
+		local def = u and Config.PETS[u.p]
+		return def and (def.emoji .. " " .. def.name) or "?"
+	end
+	local function updateCard(c, side, animateIt)
+		local u = side.units[side.active]
+		c.name.Text = unitName(u)
+		c.level.Text = L.levelText(u)
+		setFill(c, L.hpFraction(u), animateIt)
+		setIcon(c, u)
+		if c.hp then
+			c.hp.Text = L.hpText(u) .. (u and u.guard and " 🛡" or "") .. (u and type(u.stun) == "number" and u.stun > 0 and " 💫" or "") .. (u and type(u.focus) == "number" and u.focus > 0 and " ⚡" or "")
+		end
+		local dots = L.teamDots(side)
+		for i, d in ipairs(c.dots) do
+			local info = dots[i]
+			d.BackgroundColor3 = rgb(info and info.alive and U.dotOn or U.dotOff)
+			d.Size = UDim2.fromOffset(info and info.active and 11 or 10, info and info.active and 11 or 10)
+		end
+	end
+
+	function scene.setContext(text)
+		S.foeCard.ctx.Text = tostring(text or "")
+	end
+	function scene.setStatus(text)
+		S.status.Text = tostring(text or "")
+	end
+	function scene.setLog(lines)
+		S.log.Text = type(lines) == "table" and table.concat(lines, "\n") or tostring(lines or "")
+	end
+
+	local function setSpecialButton(sb)
+		local b = S.btn.special
+		b.Text = sb.text
+		b.AutoButtonColor = sb.ready
+		b.BackgroundColor3 = rgb(sb.ready and U.special or U.specialOff)
+		b.TextColor3 = sb.ready and Color3.fromRGB(14, 28, 18) or Color3.fromRGB(205, 205, 215)
+	end
+	local function setPips(c, mu)
+		local info = L.chargePips(mu and mu.charge, mu and mu.chargeMax)
+		if c.pulseTween then
+			pcall(function()
+				c.pulseTween:Cancel()
+			end)
+			c.pulseTween = nil
+		end
+		for i, p in ipairs(c.pips) do
+			p.BackgroundColor3 = rgb(info.pips[i] and U.pipOn or U.pipOff)
+			p.Size = UDim2.fromOffset(10, 10)
+		end
+		local last = c.pips[#c.pips]
+		if info.ready and last and mu and type(mu.charge) == "number" and not o.reduced then
+			c.pulseTween = tween(last, 0.45, { Size = UDim2.fromOffset(14, 14) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+		end
+	end
+	local function updateTray(sd)
+		local bench = L.bench(sd)
+		for i, s in ipairs(S.slots) do
+			local e = bench[i]
+			s.index = e and e.alive and e.index or nil
+			s.btn.Visible = e ~= nil
+			if e then
+				local def = Config.PETS[e.p]
+				local emoji = def and def.emoji or "?"
+				s.btn.Text = e.alive and ("🔁 " .. emoji .. "\n" .. e.hp) or ("💀 " .. emoji)
+				s.btn.BackgroundColor3 = rgb(e.alive and U.swap or U.specialOff)
+				s.btn.AutoButtonColor = e.alive
+			end
+		end
+		S.btn.swap.AutoButtonColor = #bench > 0
+		S.btn.swap.BackgroundColor3 = rgb(#bench > 0 and U.swap or U.specialOff)
+	end
+
+	-- Applique la vue du serveur (PV, niveaux, points d'état, charge, créatures). `info.delay` : retard (s) du remplacement d'une créature (laisse jouer les coups).
+	function scene.update(view, info)
+		if not S.alive or type(view) ~= "table" or type(view.sides) ~= "table" then
+			return
+		end
+		local delay = type(info) == "table" and type(info.delay) == "number" and info.delay or 0
+		S.lastView = view
+		local me, foe = view.sides[1], view.sides[2]
+		if not (me and foe and me.units and foe.units) then
+			return
+		end
+		pcall(function()
+			updateCard(S.foeCard, foe, true)
+			updateCard(S.meCard, me, true)
+			local mu = me.units[me.active]
+			setPips(S.meCard, mu)
+			local ss = o.specialState and mu and o.specialState(mu) or { text = "Spécial", ready = true }
+			setSpecialButton(L.specialButton(ss))
+			updateTray(me)
+			S.tray.Visible = false
+			for side = 1, 2 do
+				local sd = view.sides[side]
+				local u = sd.units[sd.active]
+				local pd = S.pedestals[side]
+				if u and pd then
+					local tcol = L.typeColor(u.type)
+					pd.glow.Color = rgb(tcol)
+					if pd.column then
+						pd.column.Color = rgb(tcol)
+					end
+				end
+				local key = u and (tostring(u.p) .. ":" .. tostring(sd.active)) or nil
+				if u and key ~= S.cur[side] then
+					S.cur[side] = key
+					S.swapToken[side] = S.swapToken[side] + 1
+					local token = S.swapToken[side]
+					local old = S.puppets[side]
+					local function swapIn()
+						if S.alive and S.swapToken[side] == token then
+							S.setPuppet(side, u, true)
+						end
+					end
+					if old and old.model and delay > 0 then
+						task.delay(delay, function()
+							if S.alive and S.swapToken[side] == token then
+								old.busy = old.busy + 1
+								animate(0.22, function(a)
+									if old.model and old.model.Parent then
+										old.model:PivotTo(old.base * CFrame.new(0, -3 * a, 0))
+									end
+									if a >= 1 then
+										swapIn()
+									end
+								end)
+							end
+						end)
+					else
+						swapIn()
+					end
+				end
+			end
+			if view.over then
+				for _, b in pairs(S.btn) do
+					b.AutoButtonColor = false
+				end
+			end
+		end)
+	end
+
+	-- Position de l'écran (coordonnées de l'interface) au-dessus d'une créature : projection par la caméra de la scène, sinon estimation pure de BattleLayout.
+	function scene.anchor(side)
+		local sc = S.sc
+		local ok, x, y = pcall(function()
+			local pos = side == 1 and sc.me or sc.foe
+			local v = S.cam:WorldToViewportPoint(Vector3.new(pos.x, 3.2, pos.z))
+			return v.X - 5, v.Y - 5
+		end)
+		if ok and type(x) == "number" and type(y) == "number" and x == x and y == y then
+			return x, y
+		end
+		local vw, vh = viewportSize()
+		local a = L.anchor(side, vw, vh, o.safe)
+		return a.x, a.y
+	end
+
+	local function popup(side, text, color)
+		if S.popups >= L.MAX_POPUPS or not S.alive then
+			return
+		end
+		S.popups = S.popups + 1
+		local x, y = scene.anchor(side)
+		local ok, lbl = pcall(function()
+			return make("TextLabel", { Name = "Popup", BackgroundTransparency = 1, Font = FONT, TextSize = 24, Text = text, TextColor3 = rgb(color), TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.fromRGB(10, 14, 18), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y - 20), Size = UDim2.fromOffset(120, 32), ZIndex = 9 }, S.root)
+		end)
+		if not ok then
+			S.popups = S.popups - 1
+			return
+		end
+		tween(lbl, 0.7, { Position = UDim2.fromOffset(x, y - 60), TextTransparency = 1, TextStrokeTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		task.delay(0.75, function()
+			pcall(function()
+				lbl:Destroy()
+			end)
+			release(1)
+			S.popups = math.max(0, S.popups - 1)
+		end)
+	end
+
+	local function lunge(side)
+		local pz = S.puppets[side]
+		if not (pz and pz.model) then
+			return
+		end
+		pz.busy = pz.busy + 1
+		animate(0.32, function(a)
+			if pz.model and pz.model.Parent then
+				pz.model:PivotTo(pz.base * CFrame.new(0, 0.6 * math.sin(math.pi * a), -3.2 * math.sin(math.pi * a)))
+			end
+			if a >= 1 then
+				pz.busy = math.max(0, pz.busy - 1)
+			end
+		end)
+	end
+	local function recoil(side)
+		local pz = S.puppets[side]
+		if not (pz and pz.model) then
+			return
+		end
+		pz.busy = pz.busy + 1
+		pcall(function()
+			pz.body.Color = Color3.fromRGB(255, 255, 255)
+		end)
+		animate(0.3, function(a)
+			if pz.model and pz.model.Parent then
+				pz.model:PivotTo(pz.base * CFrame.new(math.sin(a * 28) * 0.4 * (1 - a), 0, 0))
+			end
+			if a >= 0.35 then
+				pcall(function()
+					pz.body.Color = pz.color
+				end)
+			end
+			if a >= 1 then
+				pz.busy = math.max(0, pz.busy - 1)
+			end
+		end)
+	end
+	local function hop(side)
+		local pz = S.puppets[side]
+		if not (pz and pz.model) then
+			return
+		end
+		pz.busy = pz.busy + 1
+		animate(0.35, function(a)
+			if pz.model and pz.model.Parent then
+				pz.model:PivotTo(pz.base * CFrame.new(0, 1.2 * math.sin(math.pi * a), 0))
+			end
+			if a >= 1 then
+				pz.busy = math.max(0, pz.busy - 1)
+			end
+		end)
+	end
+
+	-- Animations des événements d'un tour : élan de l'attaquant, recul de la cible, nombre flottant ; coups décalés de 0,6 s (comme les effets de type).
+	-- Retourne la durée totale (s) pour différer le remplacement d'une créature.
+	function scene.cues(events)
+		local k = 0
+		for _, ev in ipairs(events or {}) do
+			local cue = L.cue(ev)
+			if cue then
+				local at = 0.6 * k
+				task.delay(at, function()
+					if not S.alive then
+						return
+					end
+					pcall(function()
+						if cue.anim == "attack" then
+							lunge(cue.actor)
+							task.delay(0.16, function()
+								if S.alive then
+									pcall(recoil, cue.target)
+								end
+							end)
+						elseif cue.anim == "heal" or cue.anim == "guard" then
+							hop(cue.actor)
+						end
+						if cue.popup then
+							popup(cue.popup.side, cue.popup.text, cue.popup.rgb)
+						end
+					end)
+				end)
+				if cue.anim == "attack" or cue.anim == "heal" then
+					k = k + 1
+				end
+			end
+		end
+		return 0.6 * k + 0.2
+	end
+
+	function scene.setDim(on)
+		S.dimmed = on == true
+		S.dim.Visible = true
+		if on then
+			S.dim.BackgroundTransparency = 1
+			tween(S.dim, 0.8, { BackgroundTransparency = 0.45 })
+		else
+			S.dim.BackgroundTransparency = 1
+			S.dim.Visible = false
+		end
+		for _, b in pairs(S.btn) do
+			b.Visible = not on
+		end
+		S.logFrame.Visible = not on
+		S.tray.Visible = false
+	end
+
+	local function act(action)
+		if not S.alive or S.dimmed then
+			return
+		end
+		o.fire("battleAct", action)
+		if type(o.onChosen) == "function" then
+			o.onChosen()
+		end
+	end
+	local function conn(sig, fn)
+		local c = sig:Connect(fn)
+		S.conns[#S.conns + 1] = c
+	end
+	conn(S.btn.attack.Activated, function()
+		S.tray.Visible = false
+		act("attack")
+	end)
+	conn(S.btn.special.Activated, function()
+		S.tray.Visible = false
+		local mu = S.lastView and S.lastView.sides[1].units[S.lastView.sides[1].active]
+		local ss = mu and o.specialState and o.specialState(mu)
+		if ss and ss.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
+			act("skill")
+		elseif ss then
+			scene.setStatus("Spécial pas prêt (" .. tostring(ss.charge or 0) .. "/" .. tostring(ss.max or L.CHARGE_MAX) .. ") : attaque pour charger !")
+		end
+	end)
+	conn(S.btn.swap.Activated, function()
+		if S.dimmed then
+			return
+		end
+		S.tray.Visible = not S.tray.Visible
+	end)
+	for i, s in ipairs(S.slots) do
+		conn(s.btn.Activated, function()
+			if s.index then
+				S.tray.Visible = false
+				act("swap" .. s.index)
+			end
+		end)
+	end
+	conn(S.btn.flee.Activated, function() -- deux appuis : un abandon par erreur coûte un forfait (duel, classé)
+		if S.dimmed then
+			return
+		end
+		S.tray.Visible = false
+		if S.fleeToken > 0 then
+			S.fleeToken = 0
+			S.btn.flee.Text = "🏃 Fuir"
+			if type(o.onFlee) == "function" then
+				o.onFlee()
+			else
+				o.fire("battleQuit")
+			end
+			return
+		end
+		S.fleeToken = S.fleeToken + 1
+		local token = S.fleeToken
+		S.btn.flee.Text = "Sûr ?"
+		task.delay(3, function()
+			if S.alive and S.fleeToken == token then
+				S.fleeToken = 0
+				S.btn.flee.Text = "🏃 Fuir"
+			end
+		end)
+	end)
+	pcall(function()
+		conn(o.gui:GetPropertyChangedSignal("AbsoluteSize"), function()
+			if S.alive then
+				pcall(S.relayout)
+			end
+		end)
+	end)
+
+	if plan.bob then -- balancement au repos (une seule boucle, 15 Hz) ; arrêtée à la destruction
+		task.spawn(function()
+			while S.alive do
+				task.wait(0.07)
+				local t = os.clock()
+				for side = 1, 2 do
+					local pz = S.puppets[side]
+					if pz and pz.busy == 0 and pz.model and pz.base then
+						pcall(function()
+							pz.model:PivotTo(pz.base * CFrame.new(0, math.sin(t * 2.2 + side) * 0.12, 0))
+						end)
+					end
+				end
+			end
+		end)
+	end
+
+	-- Destruction complète : boucles arrêtées, connexions coupées, racine (donc tout le monde 3D et l'interface) détruite.
+	function scene.destroy()
+		if not S.alive then
+			return
+		end
+		S.alive = false
+		for _, c in ipairs(S.conns) do
+			pcall(function()
+				c:Disconnect()
+			end)
+		end
+		S.conns = {}
+		pcall(function()
+			S.root:Destroy()
+		end)
+		S.used = 0
+		S.puppets = {}
+	end
+
+	scene.update(view0, nil)
+	return scene
+end
+
+return BattleScene
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -38940,7 +40347,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -39340,7 +40747,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -39623,7 +41030,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -40085,7 +41492,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

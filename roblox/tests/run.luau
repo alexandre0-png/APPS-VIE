@@ -11453,6 +11453,15 @@ end)()
 end)()
 
 ;(function()
+	-- Refonte du combat (vue face à face) : BattleLayout (pur), BattleScene, BattleUi branché sur la scène ; aussi lançable seule par tests/run_battlelayout.py
+	local bl = luau.load(fs.readFile("roblox/tests/battlelayout.luau"), { debugName = "battlelayout" })()
+	bl({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end })
+end)()
+
+;(function()
 	-- Lot 11 : bestiaire de 78 espèces (Bestiary, types et compétences, modèles Blender, collection, repli procédural), aussi lançable seul par tests/run_lot11.py
 	local lot11 = luau.load(fs.readFile("roblox/tests/lot11.luau"), { debugName = "lot11" })()
 	lot11({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)

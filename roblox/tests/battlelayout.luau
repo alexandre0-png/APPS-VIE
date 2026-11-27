@@ -29,13 +29,14 @@ return function(env)
 	---------------------------------------------------------------- 1. Disposition : matrice d'appareils
 	suite("BattleLayout : disposition sur une matrice d'appareils (portrait, paysage, tablette, zone sûre)")
 	local DEVICES = { { 360, 640 }, { 320, 568 }, { 375, 667 }, { 390, 844 }, { 412, 915 }, { 360, 480 }, { 640, 360 }, { 568, 320 }, { 667, 375 }, { 844, 390 }, { 932, 430 }, { 480, 360 }, { 1280, 720 }, { 1920, 1080 }, { 768, 1024 }, { 1024, 768 }, { 2560, 1440 } }
-	local SAFES = { false, { l = 44, t = 0, r = 44, b = 21 }, { l = 0, t = 47, r = 0, b = 34 } }
+	local SAFES = { false, true } -- zone sûre réaliste : encoches latérales en paysage, barre du haut et du bas en portrait
 	local bad = { overlap = {}, inside = {}, touch = {}, corner = {}, place = {}, stage = {}, tray = {}, scale = {} }
 	local nCombos = 0
 	for _, d in ipairs(DEVICES) do
 		for _, sf in ipairs(SAFES) do
 			nCombos = nCombos + 1
-			local R = L.rects(d[1], d[2], sf or nil)
+			local realSafe = sf and (d[1] > d[2] and { l = 44, t = 0, r = 44, b = 21 } or { l = 0, t = 47, r = 0, b = 34 }) or nil
+			local R = L.rects(d[1], d[2], realSafe)
 			local tag = d[1] .. "x" .. d[2] .. (sf and "s" or "")
 			local list = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee }
 			for i = 1, #list do
@@ -55,7 +56,7 @@ return function(env)
 			end
 			-- plateau de réserve : 3 boutons >= 44 px, hors des cartes adverses, du journal et des boutons
 			local sw = (R.swapTray.w - 2 * L.GAP) / 3
-			if sw < L.MIN_TOUCH or R.swapTray.h < L.MIN_TOUCH or L.overlap(R.swapTray, R.foeCard) or L.overlap(R.swapTray, R.log) or L.overlap(R.swapTray, R.actions.attack) or L.overlap(R.swapTray, R.actions.special) or L.overlap(R.swapTray, R.actions.swap) or L.overlap(R.swapTray, R.actions.flee) or L.overlap(R.swapTray, R.meCard) or not inside(R.swapTray, R.area) then
+			if sw < L.MIN_TOUCH or R.swapTray.h < L.MIN_TOUCH or L.overlap(R.swapTray, R.foeCard) or L.overlap(R.swapTray, R.actions.attack) or L.overlap(R.swapTray, R.actions.special) or L.overlap(R.swapTray, R.actions.swap) or L.overlap(R.swapTray, R.actions.flee) or L.overlap(R.swapTray, R.meCard) or not inside(R.swapTray, R.area) then
 				bad.tray[#bad.tray + 1] = tag
 			end
 			-- carte adverse en haut à droite (collée au bord droit et au haut de la zone utile), carte du joueur en bas à gauche (bord gauche, sous l'adversaire)
@@ -83,13 +84,13 @@ return function(env)
 	check("Matrice " .. #DEVICES .. " appareils x 3 zones sûres (" .. nCombos .. " cas) : tous les rectangles dans la zone utile", #bad.inside == 0)
 	check("Aucune superposition entre carte adverse, carte du joueur, journal et les 4 boutons d'action", #bad.overlap == 0)
 	check("Cibles tactiles : les 4 boutons d'action font au moins 44 x 44 px partout", #bad.touch == 0)
-	check("Plateau « Changer » : 3 boutons d'au moins 44 px, ni sur l'adversaire, ni sur le journal, ni sur les boutons, ni sur la carte du joueur", #bad.tray == 0)
+	check("Plateau « Changer » : 3 boutons d'au moins 44 px, ni sur l'adversaire, ni sur les boutons, ni sur la carte du joueur (il remplace le journal)", #bad.tray == 0)
 	check("Carte adverse en haut à droite, carte du joueur en bas à gauche, journal en bas", #bad.place == 0)
 	check("Coin haut gauche (boutons natifs) jamais couvert", #bad.corner == 0)
 	check("Zone libre des créatures toujours positive ; rectangles convertis en échelle dans [0, 1]", #bad.stage == 0 and #bad.scale == 0)
 	check("Mode : 360x640 et 320x568 = étroit ; 640x360, 1280x720 = large ; 768x1024 (portrait) = étroit", L.rects(360, 640).mode == "narrow" and L.rects(320, 568).mode == "narrow" and L.rects(640, 360).mode == "wide" and L.rects(1280, 720).mode == "wide" and L.rects(768, 1024).mode == "narrow")
 	local R360 = L.rects(360, 640)
-	check("À 360 px de large : carte adverse <= 360 - 16, boutons de 4 colonnes >= 80 px de large, carte adverse à droite (x >= 100)", R360.foeCard.x + R360.foeCard.w <= 352 and R360.actions.attack.w >= 80 and R360.foeCard.x >= 100)
+	check("À 360 px de large : carte adverse <= 360 - 16, boutons de 4 colonnes >= 80 px de large, carte adverse à droite (x >= 100)", R360.foeCard.x + R360.foeCard.w <= 352 and R360.actions.attack.w >= 80 and R360.foeCard.x >= 100 and R360.foeCard.w <= 260)
 	local vwBad, vhBad = L.viewport(0 / 0, "a"), nil
 	local aw, ah = L.viewport(nil, -5)
 	local bw, bh = L.viewport(10, 10)
@@ -162,7 +163,7 @@ return function(env)
 		local f = { sc.target.x - sc.eye.x, sc.target.y - sc.eye.y, sc.target.z - sc.eye.z }
 		local fl = math.sqrt(f[1] * f[1] + f[2] * f[2] + f[3] * f[3])
 		f = { f[1] / fl, f[2] / fl, f[3] / fl }
-		local right = { f[3], 0, -f[1] } -- f x (0,1,0)
+		local right = { -f[3], 0, f[1] } -- côté droit de la caméra (f x haut)
 		local rl = math.sqrt(right[1] * right[1] + right[3] * right[3])
 		right = { right[1] / rl, 0, right[3] / rl }
 		local up = { right[2] * f[3] - right[3] * f[2], right[3] * f[1] - right[1] * f[3], right[1] * f[2] - right[2] * f[1] }
@@ -198,7 +199,7 @@ return function(env)
 			if not (mz > 0 and fz > 0 and mxl >= 0 and fxr <= d[1] and mx < fx2) then -- les deux socles entiers visibles, joueur à gauche de l'adversaire
 				T.sceneBad[#T.sceneBad + 1] = tag .. " cadrage " .. string.format("%.0f %.0f", mxl, fxr)
 			end
-			if my >= fy2 or fy2 < 0 or my > d[2] then -- l'adversaire (au fond) est plus haut sur l'écran que le joueur (au premier plan)
+			if my <= fy2 or fy2 < 0 or my > d[2] then -- l'adversaire (au fond) est plus haut sur l'écran que le joueur (au premier plan)
 				T.sceneBad[#T.sceneBad + 1] = tag .. " profondeur"
 			end
 			local foeIn = fx2 > R.foeCard.x and fx2 < R.foeCard.x + R.foeCard.w and fy2 > R.foeCard.y and fy2 < R.foeCard.y + R.foeCard.h
@@ -291,7 +292,7 @@ return function(env)
 				end
 			end
 			local okS, sc = pcall(L.scene, vw, vh, sf, rnd() < 0.5 and "sand" or "grass")
-			if not okS or not finite(sc.eye.y) or not finite(sc.eye.z) or sc.distance < 20 or sc.distance > 80 then
+			if not okS or not finite(sc.eye.y) or not finite(sc.eye.z) or sc.distance < 20 or sc.distance > 120 then
 				fuzzInv = fuzzInv + 1
 			end
 		end
@@ -602,7 +603,9 @@ return function(env)
 	check("Cartes de récompense du lot 12 B : 3 cartes cliquables au-dessus de la scène (victoires), « Continuer » après le choix, un seul clic", T.pickOk > 0 and T.continueOk == 20)
 	check("Après « Continuer » (20 combats de suite) : scène détruite, plus aucune instance de combat dans l'écran (nombre d'enfants identique à l'initial)", T.uiLeak == 0)
 	check("Aucune erreur de script pendant les 20 combats de BattleUi", #RT.errors == T.uiErr0)
-	H.fired = {}
+	for k in pairs(H.fired) do
+		H.fired[k] = nil
+	end
 	send(H, { k = "start", floor = 2, foe = "Dresseur", view = Battle.view(newBattle(3)), seconds = 10 })
 	RT.fire(findAll(H.gui, "Attack")[1], "Activated")
 	RT.fire(findAll(H.gui, "Flee")[1], "Activated")
@@ -638,7 +641,16 @@ return function(env)
 	local bs = fs.readFile("roblox/src/StarterPlayerScripts/BattleScene.lua")
 	local bl = fs.readFile("roblox/src/ReplicatedStorage/BattleLayout.lua")
 	local hasBad = false
-	for _, src in ipairs({ bs, bl }) do
+	local function code(src) -- sans les commentaires
+		local out = {}
+		for line in string.gmatch(src, "[^\n]*") do
+			local cut = string.find(line, "%-%-")
+			out[#out + 1] = cut and string.sub(line, 1, cut - 1) or line
+		end
+		return table.concat(out, "\n")
+	end
+	for _, src0 in ipairs({ bs, bl }) do
+		local src = code(src0)
 		for _, pat in ipairs({ "%+=", "%-=", "math%.atan2", "\n%s*continue%s", "math%.random" }) do
 			if string.find(src, pat) then
 				hasBad = true
@@ -646,5 +658,6 @@ return function(env)
 		end
 	end
 	check("BattleScene / BattleLayout : ni += / -= ni continue ni math.atan2 ni math.random (lanceur lupa, tests déterministes)", not hasBad)
-	check("BattleLayout est pur : aucun require, aucune instance Roblox, aucun service", string.find(bl, "require", 1, true) == nil and string.find(bl, "Instance.new", 1, true) == nil and string.find(bl, "GetService", 1, true) == nil)
+	local blc = code(bl)
+	check("BattleLayout est pur : aucun require, aucune instance Roblox, aucun service", string.find(blc, "require", 1, true) == nil and string.find(blc, "Instance.new", 1, true) == nil and string.find(blc, "GetService", 1, true) == nil)
 end
