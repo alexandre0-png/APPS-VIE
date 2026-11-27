@@ -3036,6 +3036,8 @@ pcall(function()
 		BattleIntro = require(script.Parent:WaitForChild("BattleIntro")),
 		TypeFx = require(script.Parent:WaitForChild("TypeFx")),
 		TypeFxData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TypeFx")),
+		BattleLayout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleLayout")), -- refonte du combat : scène face à face (disposition pure + instances)
+		BattleScene = require(script.Parent:WaitForChild("BattleScene")),
 		sound = playSound,
 		reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
 		iconUrl = L10.iconUrl,

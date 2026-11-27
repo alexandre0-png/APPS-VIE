@@ -76,6 +76,9 @@ function BattleUi.efficacy(mult)
 	return nil
 end
 
+-- REFONTE DU COMBAT (vue face à face) : si `fx.BattleScene` et `fx.BattleLayout` sont fournis (et `Config.BATTLE_FX.scene ~= false`), le combat s'affiche dans une scène
+-- plein écran (BattleScene : créatures sur socles lumineux, carte adverse en haut à droite, carte du joueur en bas à gauche, journal et boutons en bas) ; sinon, ou si la
+-- construction échoue, l'ancien panneau compact (lot 8) est utilisé tel quel. Remotes, payloads et protocole inchangés : ce module n'envoie que les mêmes intentions.
 -- Lot 10 : `fx` (optionnel) = { Odds, IntroPlan, BattleIntro, TypeFx (client), TypeFxData (données), sound = fn(clé), reduced = mobile, iconUrl = fn(clé) -> url|nil }.
 -- Intro avant le premier tour (BattleIntro, passable), effet par type à chaque attaque (spécial pour une compétence ou tous les `specialEvery` coups), texte
 -- d'efficacité flottant, sons battle_start / atk_<type> / special_hit / special_ready / battle_win / battle_lose. Sans `fx` : écran du lot 8 inchangé.
@@ -83,7 +86,8 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local TW = Config.TOWER
 	local ok, ui = pcall(function()
 		local open = button(gui, { Name = "ArenaButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0.3, -42), Size = UDim2.fromOffset(34, 34), Text = "⚔️", BackgroundColor3 = Color3.fromRGB(255, 159, 28) })
-		local panel = make("Frame", { Name = "ArenaPanel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(360, 330), BackgroundColor3 = Color3.fromRGB(28, 26, 44), Visible = false, ZIndex = 30 }, gui)
+		local panel = make("Frame", { Name = "ArenaPanel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -16, 0, 330), BackgroundColor3 = Color3.fromRGB(28, 26, 44), Visible = false, ZIndex = 30 }, gui)
+		make("UISizeConstraint", { MaxSize = Vector2.new(360, 330) }, panel) -- 360 px au plus, jamais plus large que l'écran (téléphone de 360 px : 8 px de marge de chaque côté)
 		make("UICorner", { CornerRadius = UDim.new(0, 16) }, panel)
 		make("UIStroke", { Color = Color3.fromRGB(255, 210, 63), Thickness = 3 }, panel)
 		local title = label(panel, { Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -60, 0, 26), TextSize = 18, Text = "⚔️ Arène des pets", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31 })
@@ -115,6 +119,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local widgets = {}
 	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
 	local LV = { queued = false, note = nil } -- lot 14 : classé en direct (file d'attente ; fermée = le serveur lance directement le classé enregistré)
+	local SC = { scene = nil, delay = 0 } -- refonte : scène face à face (nil = ancien panneau compact)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -188,16 +193,24 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				local mul = ev.mul
 				task.delay(0.6 * k, function()
 					pcall(function()
-						local ap, sz = ui.panel.AbsolutePosition, ui.panel.AbsoluteSize
-						local bodyY = ap.Y + 74
-						local mine = Vector2.new(ap.X + sz.X * 0.25, bodyY + 50)
-						local theirs = Vector2.new(ap.X + sz.X * 0.75, bodyY + 10)
+						local mine, theirs, shakeFrame
+						if SC.scene then -- scène face à face : positions projetées au-dessus des deux créatures
+							local mx, my = SC.scene.anchor(1)
+							local tx, ty = SC.scene.anchor(2)
+							mine, theirs, shakeFrame = Vector2.new(mx, my), Vector2.new(tx, ty), SC.scene.shake
+						else
+							local ap, sz = ui.panel.AbsolutePosition, ui.panel.AbsoluteSize
+							local bodyY = ap.Y + 74
+							mine = Vector2.new(ap.X + sz.X * 0.25, bodyY + 50)
+							theirs = Vector2.new(ap.X + sz.X * 0.75, bodyY + 10)
+							shakeFrame = ui.panel
+						end
 						local from, to = mine, theirs
 						if ev.side == 2 then
 							from, to = theirs, mine
 						end
 						fx.TypeFx.play(gui, data, special, {
-							from = from, to = to, reduced = fx.reduced == true, shakeFrame = ui.panel,
+							from = from, to = to, reduced = fx.reduced == true, shakeFrame = shakeFrame,
 							sound = function(key)
 								FX.sound(key == "special" and "special_hit" or Config.ATK_SOUND[typ])
 							end,
@@ -386,10 +399,74 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		return log
 	end
 
+	-- Refonte : scène de combat face à face. Le serveur n'envoie rien de plus : tout vient de la vue (Battle.view) et du message « start ».
+	local function sceneOn()
+		return type(fx) == "table" and fx.BattleScene ~= nil and fx.BattleLayout ~= nil and not (Config.BATTLE_FX and Config.BATTLE_FX.scene == false)
+	end
+	function SC.close()
+		if SC.scene then
+			pcall(SC.scene.destroy)
+			SC.scene = nil
+		end
+		pcall(function()
+			ui.open.Visible = true
+		end)
+	end
+	function SC.statusText()
+		if not view then
+			return ""
+		end
+		local me, foe = view.sides[1], view.sides[2]
+		local mu, fu = me.units[me.active], foe.units[foe.active]
+		local left = math.max(0, math.ceil(deadline - os.clock()))
+		return (mu and fu and (BattleUi.advantage(Battle, mu.type, fu.type) .. " · ") or "") .. "tour " .. tostring(view.turn) .. "/" .. Battle.MAX_TURNS .. (view.over and "" or (" · ⏱ " .. left .. " s")) .. (DU.on and (DU.chosen and " · ✅ choix envoyé, attente de l'adversaire" or " · duel : choisis ton action") or "")
+	end
+	function SC.refresh()
+		if not (SC.scene and view) then
+			return
+		end
+		local d = SC.delay
+		SC.delay = 0
+		SC.scene.update(view, { delay = d })
+		SC.scene.setContext(tostring(foeName or "") .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or ""))
+		SC.scene.setLog(logLines)
+		SC.scene.setStatus(SC.statusText())
+	end
+	function SC.open(p)
+		SC.close()
+		if not sceneOn() then
+			return false
+		end
+		local ok, sc = pcall(fx.BattleScene.create, {
+			gui = gui, Config = Config, Battle = Battle, Layout = fx.BattleLayout, player = player, payload = p, view = view, foeName = foeName, floor = lastFloor,
+			reduced = fx.reduced == true, iconUrl = fx.iconUrl,
+			specialState = function(u)
+				return BattleUi.specialState(Config, Battle, u)
+			end,
+			fire = fire,
+			onChosen = function()
+				DU.picked()
+			end,
+		})
+		if ok and sc then
+			SC.scene = sc
+			ui.panel.Visible = false
+			pcall(function()
+				ui.open.Visible = false
+			end)
+			return true
+		end
+		return false
+	end
+
 	function render()
 		clear()
 		if mode == "battle" then
-			renderBattle()
+			if SC.scene then
+				SC.refresh()
+			else
+				renderBattle()
+			end
 		elseif mode == "end" then
 			-- l'écran de résultat est construit par `finish`
 		else
@@ -418,13 +495,15 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local function showResult(msg, waitPick)
 		mode = "end"
 		clear()
+		ui.panel.Visible = true
 		ui.info.Text = ""
-		add(label(ui.body, { Size = UDim2.new(1, 0, 1, -44), TextSize = 16, TextWrapped = true, Text = msg, ZIndex = 32 }))
+		add(label(ui.body, { Size = UDim2.new(1, 0, 1, -52), TextSize = 16, TextWrapped = true, Text = msg, ZIndex = 32 }))
 		if waitPick then
 			return -- le serveur envoie ensuite { k = "pick" } ; « Continuer » n'apparaît qu'après le choix
 		end
-		local ok2 = add(button(ui.body, { Position = UDim2.new(0.5, -70, 1, -34), Size = UDim2.fromOffset(140, 30), Text = "Continuer", ZIndex = 32 }))
+		local ok2 = add(button(ui.body, { Position = UDim2.new(0.5, -70, 1, -46), Size = UDim2.fromOffset(140, 44), Text = "Continuer", ZIndex = 32 }))
 		ok2.Activated:Connect(function()
+			SC.close() -- refonte : la scène de combat est détruite (aucune instance ne reste)
 			mode = "team"
 			team = {}
 			logLines = {}
@@ -616,9 +695,9 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				ui.panel.Visible = true
 				ui.title.Text = "🏆 Combat classé"
 				ui.info.Text = ""
-				add(label(ui.body, { Size = UDim2.new(1, 0, 1, -44), TextSize = 16, TextWrapped = true, Text = "Aucun adversaire en ligne de ton niveau.\nCombattre une équipe enregistrée ?", ZIndex = 32 }))
-				local yes = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -34), Size = UDim2.new(0.5, -3, 0, 30), Text = "🏆 Oui", ZIndex = 32 }))
-				local no = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -34), Size = UDim2.new(0.5, -3, 0, 30), Text = "Non", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 32 }))
+				add(label(ui.body, { Size = UDim2.new(1, 0, 1, -52), TextSize = 16, TextWrapped = true, Text = "Aucun adversaire en ligne de ton niveau.\nCombattre une équipe enregistrée ?", ZIndex = 32 }))
+				local yes = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -46), Size = UDim2.new(0.5, -3, 0, 44), Text = "🏆 Oui", ZIndex = 32 }))
+				local no = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -46), Size = UDim2.new(0.5, -3, 0, 44), Text = "Non", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 32 }))
 				yes.Activated:Connect(function()
 					fire("pvpStart")
 				end)
@@ -651,8 +730,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end
 				mode, view, foeName, lastFloor, logLines, pick, lastReady = "battle", p.view, p.foe, p.floor, {}, nil, false
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
-				ui.panel.Visible = true
-				render()
+				if SC.open(p) then -- refonte : scène face à face plein écran (le panneau compact reste caché)
+					SC.refresh()
+				else
+					ui.panel.Visible = true
+					render()
+				end
 				FX.hits = { 0, 0 }
 				pcall(FX.intro, p)
 			elseif p.k == "turn" then
@@ -660,6 +743,10 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
+				if SC.scene then -- animations de la scène (élan, recul, nombres flottants) ; le remplacement d'une créature attend la fin des coups
+					local okc, d = pcall(SC.scene.cues, p.events)
+					SC.delay = okc and tonumber(d) or 0
+				end
 				pcall(FX.hits, p.events)
 				if mode == "battle" then
 					render()
@@ -704,6 +791,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				if r.limited then
 					lines[#lines + 1] = "Limite de récompenses de répétition atteinte aujourd'hui."
 				end
+				if SC.scene then -- la scène reste en fond, assombrie, derrière l'écran de résultat et les cartes de récompense
+					if type(p.view) == "table" and type(p.view.sides) == "table" then
+						pcall(SC.scene.update, p.view, { delay = 0.8 })
+					end
+					pcall(SC.scene.setDim, true)
+				end
 				showResult(table.concat(lines, "\n"), p.pick == true)
 				FX.sound(p.win and "battle_win" or "battle_lose")
 				local trophy = FX.icon(ui.body, p.win and "ui_trophee" or "ui_victoire_defaite", 4, 4, 40)
@@ -722,6 +815,10 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	end)
 	ui.close.Activated:Connect(function()
 		ui.panel.Visible = false
+		if SC.scene and (mode == "end" or mode == "team") then -- refonte : fermer le résultat libère la scène (jamais d'écran de combat orphelin)
+			SC.close()
+			mode = "team"
+		end
 	end)
 	task.spawn(function() -- minuteur du tour
 		while true do
@@ -752,6 +849,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end
 				if DU.on and mode ~= "battle" then
 					DU.restore()
+				end
+				if mode == "battle" and SC.scene and view then
+					SC.scene.setStatus(SC.statusText())
+				elseif SC.scene and mode ~= "battle" and mode ~= "end" and mode ~= "pick" then -- plus de combat : la scène ne reste jamais seule à l'écran
+					SC.close()
 				end
 				if mode == "battle" and ui.panel.Visible and view and not view.over then
 					local left = math.max(0, math.ceil(deadline - os.clock()))

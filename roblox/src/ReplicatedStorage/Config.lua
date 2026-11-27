@@ -2407,7 +2407,7 @@ Config.ODDS = { version = 1, billboardMin = 1000, REF = { 50.037, 25, 14, 7, 2.9
 -- LOT 10 : effets d'éclosion (HatchPlan + HatchFx) et de combat (IntroPlan + BattleIntro, TypeFx). replaceCine : la cinématique 3D d'éclosion (CinematicKit.hatchPlan)
 -- n'est plus jouée (HatchFx gère lui-même le zoom). Mobile : reduced (particules / 2), plafonds 220 / 120 / 80 instances (dans les modules), 30 FPS visés.
 Config.HATCH_FX = { Enabled = true, replaceCine = true, billboardSeconds = 6 }
-Config.BATTLE_FX = { Enabled = true, intro = true, typeFx = true, specialEvery = 5 }
+Config.BATTLE_FX = { Enabled = true, intro = true, typeFx = true, specialEvery = 5, scene = true } -- scene : combat en vue face à face (BattleScene) ; false = ancien panneau compact
 -- Données des effets par type (ReplicatedStorage/TypeFx, partagé) ; absent hors de Roblox (tests purs) : le client relit alors le module directement.
 do
 	local ok, mod = pcall(function()

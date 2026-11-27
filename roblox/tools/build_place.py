@@ -28,7 +28,8 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("ShopInfo", "ShopInfo.lua"), ("ShopData", "ShopData.lua"), ("Shop", "Shop.lua"), ("Season", "Season.lua"), ("SeasonData", "SeasonData.lua"),  # lot 16 : boutique, passe de combat
           ("Offers", "Offers.lua"), ("OffersData", "OffersData.lua"), ("SellersData", "SellersData.lua"),  # lot 16 : offres à l'écran, vendeurs PNJ
           ("Bestiary", "Bestiary.lua"), ("PetXp", "PetXp.lua"), ("BattleRewards", "BattleRewards.lua"),  # lots 11 et 12 : bestiaire, XP de pet, cartes de récompense
-          ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua")]  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
+          ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua"),
+          ("BattleLayout", "BattleLayout.lua")]  # refonte du combat : disposition pure de la scène face à face  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -71,6 +72,7 @@ game_tree = [
             item("ModuleScript", "MiniMapUi", read("StarterPlayerScripts/MiniMapUi.lua")),
             item("ModuleScript", "BattleUi", read("StarterPlayerScripts/BattleUi.lua")),
             item("ModuleScript", "BattleIntro", read("StarterPlayerScripts/BattleIntro.lua")),  # lot 10 (branché plus tard)
+            item("ModuleScript", "BattleScene", read("StarterPlayerScripts/BattleScene.lua")),  # refonte du combat : scène face à face
             item("ModuleScript", "HatchFx", read("StarterPlayerScripts/HatchFx.lua")),
             item("ModuleScript", "TypeFx", read("StarterPlayerScripts/TypeFx.lua")),
             item("ModuleScript", "BaseUpgradeFx", read("StarterPlayerScripts/BaseUpgradeFx.lua")),
