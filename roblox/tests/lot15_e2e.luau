@@ -224,7 +224,7 @@ return function(env)
 		local res = lastFired("Npc", T.p1, n0, function(m)
 			return type(m) == "table" and m.k == "said"
 		end)
-		check("PNJ : abandon = défaite résolue par le serveur (aucune pièce, +5 XP, dialogue de défaite)" .. errs(), s.battle == nil and d.coins == coinsB and (d.slots[4].x or 0) == cfg.NPC_RULES.lossXp and res ~= nil)
+		check("PNJ : abandon = défaite résolue par le serveur (aucune pièce, +3 XP de pet (6 si « XP x2 » de la série est actif) : PetXp, source unique, 5 x 0,6 ; dialogue de défaite)" .. errs(), s.battle == nil and d.coins == coinsB and ((d.slots[4].x or 0) == 3 or (d.slots[4].x or 0) == 6) and res ~= nil)
 		act(T.p1, "npcAnswer", { id = offer.id, action = "accept" })
 		check("PNJ : rejouer l'identifiant d'une offre déjà résolue est refusé (aucun combat)", s.battle == nil)
 	end

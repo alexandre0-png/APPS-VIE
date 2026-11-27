@@ -4,6 +4,7 @@
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
 local BattleUi = {}
 
+local TweenService = game:GetService("TweenService")
 local FONT = Enum.Font.GothamBold
 
 local function make(class, props, parent)
@@ -41,6 +42,40 @@ function BattleUi.advantage(Battle, myType, foeType)
 	return m > 1 and "⬆ avantage" or (m < 1 and "⬇ désavantage" or "➡ neutre")
 end
 
+-- LOT 12 B : état du bouton Spécial et pastilles de charge. `u.charge` (0..max) vient du moteur du lot 12 (Battle.CHARGE_MAX, 5 par défaut) ; si le moteur est
+-- encore celui du lot 8 (pas de `charge`), on retombe sur la recharge `cd` : l'écran reste correct dans les deux cas. Pur (testé).
+function BattleUi.specialState(Config, Battle, u)
+	local sk = Battle.SKILLS and Battle.SKILLS[u.skill] or { name = "Spécial" }
+	local name = (Config.TYPE_SPECIAL_NAME and Config.TYPE_SPECIAL_NAME[u.type]) or (Battle.SPECIAL_NAME and Battle.SPECIAL_NAME[u.type]) or sk.name or "Spécial" -- FUSION 12A : nom du spécial par type (Battle.SPECIAL_NAME)
+	if type(u.charge) == "number" then
+		local max = Battle.CHARGE_MAX or 5
+		local c = math.max(0, math.min(max, math.floor(u.charge)))
+		local ready = c >= max and not (type(u.stun) == "number" and u.stun > 0)
+		return { charge = c, max = max, ready = ready, text = (c >= max) and ("✨ " .. name) or ("Spécial " .. c .. "/" .. max) }
+	end
+	local cd = type(u.cd) == "number" and u.cd or 0
+	return { charge = nil, max = 0, ready = cd == 0, text = cd > 0 and (name .. " (" .. cd .. ")") or ("✨ " .. name) }
+end
+
+-- Texte d'efficacité (B.6), repli local si le module TypeFx de données n'est pas fourni : texte, couleur RGB ; nil si neutre.
+BattleUi.EFFICACY = {
+	{ min = 1.5, text = "Super efficace !", rgb = { 70, 220, 90 } },
+	{ min = 1.2, text = "Efficace", rgb = { 150, 230, 120 } },
+	{ max = 0.7, text = "Pas très efficace…", rgb = { 230, 70, 70 } },
+	{ max = 0.95, text = "Peu efficace", rgb = { 255, 160, 50 } },
+}
+function BattleUi.efficacy(mult)
+	if type(mult) ~= "number" or mult ~= mult or mult <= 0 then
+		return nil
+	end
+	for _, e in ipairs(BattleUi.EFFICACY) do
+		if (e.min ~= nil and mult >= e.min - 1e-9) or (e.max ~= nil and mult <= e.max + 1e-9) then
+			return e.text, e.rgb
+		end
+	end
+	return nil
+end
+
 -- Lot 10 : `fx` (optionnel) = { Odds, IntroPlan, BattleIntro, TypeFx (client), TypeFxData (données), sound = fn(clé), reduced = mobile, iconUrl = fn(clé) -> url|nil }.
 -- Intro avant le premier tour (BattleIntro, passable), effet par type à chaque attaque (spécial pour une compétence ou tous les `specialEvery` coups), texte
 -- d'efficacité flottant, sons battle_start / atk_<type> / special_hit / special_ready / battle_win / battle_lose. Sans `fx` : écran du lot 8 inchangé.
@@ -75,6 +110,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		return nil
 	end
 	local view, seconds, deadline, foeName, lastFloor = nil, 0, 0, "", 1
+	local pick, pickDeadline, pickSent, lastReady = nil, 0, false, false -- lot 12 B : écran de choix des 3 cartes (D.5)
 	local logLines = {}
 	local widgets = {}
 	local function clear()
@@ -93,7 +129,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 
 	local function unitText(u)
 		local def = Config.PETS[u.p]
-		return Battle.TYPE_EMOJI[u.type] .. " " .. def.emoji .. " " .. def.name
+		return (Battle.TYPE_EMOJI[u.type] or "") .. " " .. def.emoji .. " " .. def.name
 	end
 
 	-- Lot 10 : intro de combat (plan pur IntroPlan, exécuté par BattleIntro) ; sans module : son de début seulement.
@@ -134,15 +170,14 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		if not (FX.on and Config.BATTLE_FX.typeFx and fx.TypeFx and fx.TypeFxData) then
 			return
 		end
-		local every = Config.BATTLE_FX.specialEvery or 5
 		local k = 0
 		for _, ev in ipairs(events or {}) do
 			if type(ev) == "table" and ev.t == "hit" and (ev.side == 1 or ev.side == 2) then
 				FX.hits[ev.side] = FX.hits[ev.side] + 1
-				local special = ev.skill ~= nil or FX.hits[ev.side] % every == 0
+				local special = ev.special == true -- FUSION 12A : le spécial est porté par l'événement du moteur (charge 5/5), plus un coup sur 5
 				local typ = Battle.SPECIES_TYPE[ev.p]
 				local data = fx.TypeFxData.get(typ)
-				local readySoon = ev.side == 1 and FX.hits[1] % every == every - 1
+				local readySoon = ev.side == 1 and ev.charge == 4 -- FUSION 12A : prêt au prochain coup
 				local mul = ev.mul
 				task.delay(0.6 * k, function()
 					pcall(function()
@@ -268,9 +303,34 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			local frac = u.maxHp > 0 and math.max(0, u.hp / u.maxHp) or 0
 			make("Frame", { Size = UDim2.fromScale(frac, 1), BackgroundColor3 = frac > 0.5 and Color3.fromRGB(91, 227, 125) or (frac > 0.25 and Color3.fromRGB(255, 210, 63) or Color3.fromRGB(255, 99, 99)), ZIndex = 33 }, bg)
 		end
+		-- lot 12 B : 5 pastilles de charge sous la barre de vie (la dernière pulse quand le spécial est prêt)
+		local function pips(y, u)
+			local st = BattleUi.specialState(Config, Battle, u)
+			if not st.charge then
+				return st
+			end
+			for i = 1, st.max do
+				local on = i <= st.charge
+				local pip = add(make("Frame", { Position = UDim2.fromOffset((i - 1) * 14, y + 35), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = on and Color3.fromRGB(255, 210, 63) or Color3.fromRGB(60, 56, 80), ZIndex = 33 }, ui.body))
+				make("UICorner", { CornerRadius = UDim.new(1, 0) }, pip)
+				make("UIStroke", { Color = Color3.fromRGB(20, 20, 30), Thickness = 1 }, pip)
+				if on and st.ready and i == st.max then
+					pcall(function()
+						TweenService:Create(pip, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Size = UDim2.fromOffset(14, 14) }):Play()
+					end)
+				end
+			end
+			return st
+		end
 		bar(0, fu, false)
-		bar(40, mu, true)
-		for _, e in ipairs({ { fu, 0 }, { mu, 40 } }) do -- lot 10 : icône de type (Decal) à droite de la barre, si elle est chargée
+		pips(0, fu)
+		bar(48, mu, true)
+		local myState = pips(48, mu)
+		if myState.ready and not lastReady then
+			FX.sound("special_ready")
+		end
+		lastReady = myState.ready
+		for _, e in ipairs({ { fu, 0 }, { mu, 48 } }) do -- lot 10 : icône de type (Decal) à droite de la barre, si elle est chargée
 			local w = FX.icon(ui.body, Config.TYPE_ICON[e[1].type], 0, e[2], 20)
 			if w then
 				w.AnchorPoint = Vector2.new(1, 0)
@@ -278,15 +338,14 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				add(w)
 			end
 		end
-		local log = add(label(ui.body, { Position = UDim2.fromOffset(0, 82), Size = UDim2.new(1, 0, 0, 56), TextSize = 14, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Text = table.concat(logLines, "\n"), ZIndex = 32 }))
+		local log = add(label(ui.body, { Position = UDim2.fromOffset(0, 96), Size = UDim2.new(1, 0, 0, 52), TextSize = 14, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Text = table.concat(logLines, "\n"), ZIndex = 32 }))
 		local b1 = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = "⚔ Attaque", ZIndex = 32 }))
 		b1.Activated:Connect(function()
 			fire("battleAct", "attack")
 		end)
-		local sk = Battle.SKILLS[mu.skill]
-		local b2 = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = mu.cd > 0 and (sk.name .. " (" .. mu.cd .. ")") or ("✨ " .. sk.name), BackgroundColor3 = mu.cd > 0 and Color3.fromRGB(110, 110, 120) or Color3.fromRGB(74, 163, 255), ZIndex = 32 }))
+		local b2 = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = myState.text, AutoButtonColor = myState.ready, BackgroundColor3 = myState.ready and Color3.fromRGB(74, 163, 255) or Color3.fromRGB(110, 110, 120), TextColor3 = myState.ready and Color3.fromRGB(10, 30, 15) or Color3.fromRGB(200, 200, 210), ZIndex = 32 }))
 		b2.Activated:Connect(function()
-			if mu.cd == 0 then
+			if myState.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
 				fire("battleAct", "skill")
 			end
 		end)
@@ -303,7 +362,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end)
 			end
 		end
-		local quit = add(button(ui.body, { Position = UDim2.new(1, -60, 0, 86), Size = UDim2.fromOffset(60, 22), Text = "Abandon", TextSize = 12, BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 33 }))
+		local quit = add(button(ui.body, { Position = UDim2.new(1, -60, 0, 96), Size = UDim2.fromOffset(60, 22), Text = "Abandon", TextSize = 12, BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 33 }))
 		quit.Activated:Connect(function()
 			fire("battleQuit")
 		end)
@@ -324,6 +383,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local function pushLog(events)
 		for _, ev in ipairs(events or {}) do
 			local t = Battle.describe(Config, ev)
+			if t ~= "" and ev.t == "hit" then -- lot 12 B : texte d'efficacité aussi dans le journal (utile sans effets visuels), sans doublon
+				local eff = BattleUi.efficacy(ev.mul)
+				if eff and not string.find(t, eff, 1, true) then
+					t = t .. " (" .. eff .. ")"
+				end
+			end
 			if t ~= "" and ev.t ~= "turn" then
 				logLines[#logLines + 1] = t
 			end
@@ -333,11 +398,14 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 	end
 
-	local function showResult(msg)
+	local function showResult(msg, waitPick)
 		mode = "end"
 		clear()
 		ui.info.Text = ""
 		add(label(ui.body, { Size = UDim2.new(1, 0, 1, -44), TextSize = 16, TextWrapped = true, Text = msg, ZIndex = 32 }))
+		if waitPick then
+			return -- le serveur envoie ensuite { k = "pick" } ; « Continuer » n'apparaît qu'après le choix
+		end
 		local ok2 = add(button(ui.body, { Position = UDim2.new(0.5, -70, 1, -34), Size = UDim2.fromOffset(140, 30), Text = "Continuer", ZIndex = 32 }))
 		ok2.Activated:Connect(function()
 			mode = "team"
@@ -347,13 +415,55 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end)
 	end
 
+	-- LOT 12 B (D.5) : écran de choix. `p` = { id, cards = { { kind, icon, title, desc, boss } x3 }, seconds } reçu du serveur (BattleRewards.view). Le client n'envoie
+	-- que { id, i } ; le serveur valide l'id et l'index, tire au sort rien, et donne la première carte si le délai est écoulé. Reconnexion : le serveur renvoie la même vue.
+	local function showPick(p)
+		mode = "pick"
+		pick, pickSent = p, false
+		pickDeadline = os.clock() + (tonumber(p.seconds) or 15)
+		clear()
+		ui.panel.Visible = true
+		ui.title.Text = "🎁 Choisis ta récompense"
+		ui.info.Text = "Une seule carte ! (sinon la première te sera donnée)"
+		local n = #p.cards
+		for i, c in ipairs(p.cards) do
+			local w = 1 / n
+			local btn = add(button(ui.body, { Position = UDim2.new((i - 1) * w, 3, 0, 0), Size = UDim2.new(w, -6, 1, -50), Text = "", BackgroundColor3 = c.boss and Color3.fromRGB(255, 210, 63) or Color3.fromRGB(70, 74, 110), ZIndex = 32 }))
+			label(btn, { Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 40), Text = tostring(c.icon or "?"), TextSize = 32, TextColor3 = Color3.new(1, 1, 1), ZIndex = 33 })
+			label(btn, { Position = UDim2.fromOffset(0, 54), Size = UDim2.new(1, 0, 0, 20), Text = tostring(c.title or ""), TextSize = 15, TextColor3 = c.boss and Color3.fromRGB(40, 30, 0) or Color3.new(1, 1, 1), ZIndex = 33 })
+			label(btn, { Position = UDim2.fromOffset(4, 78), Size = UDim2.new(1, -8, 1, -84), Text = tostring(c.desc or ""), TextSize = 12, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = c.boss and Color3.fromRGB(40, 30, 0) or Color3.fromRGB(220, 220, 235), ZIndex = 33 })
+			btn.Activated:Connect(function()
+				if pickSent or mode ~= "pick" then
+					return
+				end
+				pickSent = true
+				btn.Text = "✅"
+				fire("battlePick", { id = p.id, i = i })
+			end)
+		end
+		add(label(ui.body, { Name = "PickTimer", Position = UDim2.new(0, 0, 1, -44), Size = UDim2.new(1, 0, 0, 36), Text = "", TextSize = 14, ZIndex = 32 }))
+	end
+
+	local function showPicked(p)
+		mode = "end"
+		pick = nil
+		local lines = { "🎁 Récompense reçue !" }
+		if type(p.text) == "string" then
+			lines[#lines + 1] = p.text
+		end
+		if p.auto then
+			lines[#lines + 1] = "(choix automatique : première carte)"
+		end
+		showResult(table.concat(lines, "\n"))
+	end
+
 	RBattle.OnClientEvent:Connect(function(p)
 		pcall(function()
 			if type(p) ~= "table" then
 				return
 			end
 			if p.k == "start" then
-				mode, view, foeName, lastFloor, logLines = "battle", p.view, p.foe, p.floor, {}
+				mode, view, foeName, lastFloor, logLines, pick, lastReady = "battle", p.view, p.foe, p.floor, {}, nil, false
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				ui.panel.Visible = true
 				render()
@@ -367,6 +477,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				if mode == "battle" then
 					render()
 				end
+			elseif p.k == "pick" then
+				if type(p.cards) == "table" and #p.cards >= 1 and #p.cards <= 5 then
+					showPick(p)
+				end
+			elseif p.k == "picked" then
+				showPicked(p)
 			elseif p.k == "end" then
 				local r = p.rewards or {}
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
@@ -382,10 +498,13 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				if r.potion then
 					lines[#lines + 1] = "🧪 Potion de chance"
 				end
+				if p.pick then
+					lines[#lines + 1] = "🎁 Choisis ta récompense…"
+				end
 				if r.limited then
 					lines[#lines + 1] = "Limite de récompenses de répétition atteinte aujourd'hui."
 				end
-				showResult(table.concat(lines, "\n"))
+				showResult(table.concat(lines, "\n"), p.pick == true)
 				FX.sound(p.win and "battle_win" or "battle_lose")
 				local trophy = FX.icon(ui.body, p.win and "ui_trophee" or "ui_victoire_defaite", 4, 4, 40)
 				if trophy then
@@ -396,7 +515,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	end)
 	ui.open.Activated:Connect(function()
 		ui.panel.Visible = not ui.panel.Visible
-		if ui.panel.Visible and mode ~= "battle" and mode ~= "end" then
+		if ui.panel.Visible and mode ~= "battle" and mode ~= "end" and mode ~= "pick" then
 			mode = "team"
 			render()
 		end
@@ -408,6 +527,18 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		while true do
 			task.wait(0.5)
 			pcall(function()
+				if mode == "pick" and pick and ui.panel.Visible then
+					local left = math.max(0, math.ceil(pickDeadline - os.clock()))
+					for _, w in ipairs(widgets) do
+						if w.Name == "PickTimer" then
+							w.Text = left > 0 and ("⏱ " .. left .. " s") or "Choix automatique…"
+						end
+					end
+					if left <= 0 and os.clock() > pickDeadline + 20 then -- le serveur n'a rien renvoyé : on rend la main (la carte reste attribuée côté serveur)
+						mode, pick = "team", nil
+						render()
+					end
+				end
 				if mode == "battle" and ui.panel.Visible and view and not view.over then
 					local left = math.max(0, math.ceil(deadline - os.clock()))
 					ui.title.Text = "⚔️ " .. foeName .. " · étage " .. lastFloor .. " · ⏱ " .. left .. " s"

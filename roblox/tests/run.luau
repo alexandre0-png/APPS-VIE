@@ -5,6 +5,15 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local process = require("@lune/process")
+-- FUSION 11 + 12 : Battle lit Bestiary (types/compétences) et PetXp (niveaux) par `require` de modules frères ; ici simulés.
+local function loadBattleFused(luau, fs)
+	local color = { fromRGB = function(r, g, b) return { R = r / 255, G = g / 255, B = b / 255 } end }
+	local function mod(path, name, environment)
+		return luau.load(fs.readFile("roblox/src/ReplicatedStorage/" .. path), { debugName = name, environment = environment })()
+	end
+	local mods = { Bestiary = mod("Bestiary.lua", "Bestiary", { Color3 = color }), PetXp = mod("PetXp.lua", "PetXp") }
+	return mod("Battle.lua", "Battle", { script = { Parent = { WaitForChild = function(_, n) return n end } }, require = function(n) return mods[n] end }), mods.PetXp, mods.Bestiary
+end
 
 local chunk = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Config.lua"), {
 	debugName = "Config",
@@ -4745,6 +4754,8 @@ do
 				thresholds[i] = { score = i - 1, name = savedLevels[i].name, emoji = savedLevels[i].emoji }
 			end
 			cfg.BASE_LEVELS = thresholds -- seuils minuscules : 8 niveaux atteints en 7 éclosions
+			local roster78 = cfg.PETS
+			cfg.PETS = table.move(roster78, 1, 18, 1, {}) -- lot 11 : ce scénario suppose le roster historique (3 Communs : les doublons se revendent et libèrent les emplacements) ; avec 78 espèces peu de doublons
 			local b = join("Bati", 7002)
 			RT.step(2)
 			local levels, monotone, last = {}, true, b:GetAttribute("BaseLevel") or 0
@@ -4781,6 +4792,7 @@ do
 			local rb = record(7002)
 			check("Base : le score atteint est sauvegardé au départ du joueur (" .. tostring(rb and rb.v and rb.v.baseScore) .. ")", rb ~= nil and rb.v ~= nil and (rb.v.baseScore or 0) >= 7)
 			cfg.BASE_LEVELS = savedLevels
+			cfg.PETS = roster78
 		end
 
 		-- 2. courses entre joueurs -----------------------------------------------------------------------------------------------
@@ -5663,7 +5675,7 @@ do
 			return false
 		end
 		check("Inventaire : onglet Titres (20 titres, cases verrouillées « ??? »)", tab("Titres") and findText("titres. Ils se débloquent") ~= nil and findText("???") ~= nil)
-		check("Inventaire : onglet Index (compteur x/N, espèces non obtenues grisées)", tab("Index") and findText("INDEX") ~= nil and findText("/" .. #Config.PETS) ~= nil)
+		check("Inventaire : onglet Index (compteur x/N, espèces non obtenues grisées)", tab("Index") and findText("INDEX") ~= nil and findText("/" .. #RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config")).PETS) ~= nil) -- lot 11 : la config du serveur factice compte les 78 espèces
 		check("Inventaire : onglet Boosts (multiplicateur, passes)", tab("Boosts") and findText("Multiplicateur de revenus") ~= nil)
 		check("Inventaire : onglets Œufs et Pets sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), tab("Œufs") and tab("Pets") and #RT.errors == 0)
 		RT.actions.ChipeClose(nil, RT.env.Enum.UserInputState.Begin)
@@ -6881,10 +6893,11 @@ end
 
 do
 	suite("Arène des pets : moteur pur, types, équilibrage 100 000 combats, tour, serveur et anti-triche")
-	local B = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Battle.lua"), { debugName = "Battle" })()
+	local B, _, BestiaryMod = loadBattleFused(luau, fs)
 	-- types : 3 espèces par type, chaque rareté = un triangle complet de la roue
 	local perType, tri = {}, true
-	for i, t in ipairs(B.SPECIES_TYPE) do
+	for i = 1, 18 do -- lot 11 : Battle.SPECIES_TYPE compte 78 espèces ; la règle « 3 par type, triangle par rareté » ne vaut que pour les 18 historiques (tests/lot11.luau couvre les 78)
+		local t = B.SPECIES_TYPE[i]
 		perType[t] = (perType[t] or 0) + 1
 	end
 	for _, tier in ipairs(Config.TIER_MIGRATE) do -- lot 9 : les 6 raretés qui ont des espèces
@@ -6905,7 +6918,16 @@ do
 			tri = false
 		end
 	end
-	check("Types : 18 espèces, 3 par type (6 types), chaque rareté forme un triangle complet de la roue", #B.SPECIES_TYPE == 18 and #Config.PETS == 18 and tri and perType["Feu"] == 3 and perType["Eau"] == 3 and perType["Nature"] == 3 and perType["Ciel"] == 3 and perType["Ombre"] == 3 and perType["Lumière"] == 3)
+	-- FUSION 11 + 12 : types FINAUX du bestiaire (C.1 : 9 types, 6 changements) : plus de « 3 par type » ni de triangle par rareté sur les 18 historiques ; l'équilibre est mesuré
+	-- sur les 78 espèces (test d'équilibrage ci-dessous et tests/lot12a.luau)
+	local finalOk = #B.SPECIES_TYPE == 78 and #Config.PETS == 18
+	for i = 1, 18 do
+		local want = BestiaryMod.SPECIES_TYPE[i] == "Plante" and "Nature" or BestiaryMod.SPECIES_TYPE[i]
+		if B.SPECIES_TYPE[i] ~= want or B.typeMul(want, want) == nil then
+			finalOk = false
+		end
+	end
+	check("Types : Battle.SPECIES_TYPE = types finaux du Bestiary (78 espèces, 9 types), les 18 premières incluses", finalOk)
 	check("Types : avantage x1,5, désavantage x0,67, neutre x1", B.typeMul("Feu", "Nature") == 1.5 and B.typeMul("Nature", "Feu") == 0.67 and B.typeMul("Feu", "Ciel") == 1 and B.typeMul("Lumière", "Ombre") == 1.5 and B.typeMul("Ciel", "Ombre") == 0.67)
 	local function team(tier, off)
 		tier = Config.TIER_MIGRATE[tier] -- lot 9 : `tier` garde l'ancien indice (1..6) des tests du lot 8
@@ -6959,8 +6981,10 @@ do
 	-- validation, tour limité, égalité, compétences
 	local sv = B.new(5, team(2, 0), team(2, 1))
 	check("Moteur : actions invalides refusées (inconnue, changer pour soi-même, pet inexistant, compétence en recharge)", B.validate(sv, 1, { kind = "x" }) and B.validate(sv, 1, { kind = "swap", to = 1 }) and B.validate(sv, 1, { kind = "swap", to = 9 }) and B.validate(sv, 1, "attack") and B.validate(sv, 1, { kind = "attack" }) == nil and B.validate(sv, 1, { kind = "swap", to = 2 }) == nil)
+	sv.sides[1].units[1].charge = B.CHARGE_MAX -- LOT 12A : le spécial exige 5 de charge (plus de recharge `cd`)
+	check("Moteur : spécial prêt à 5 de charge", B.validate(sv, 1, { kind = "skill" }) == nil)
 	B.turn(sv, { kind = "skill" })
-	check("Moteur : après une compétence, elle est en recharge et refusée jusqu'à la fin du délai", sv.sides[1].units[1].cd > 0 and B.validate(sv, 1, { kind = "skill" }) ~= nil)
+	check("Moteur : après le spécial, la charge est consommée et le spécial refusé jusqu'à 5 nouveaux coups", sv.sides[1].units[1].charge < B.CHARGE_MAX and B.validate(sv, 1, { kind = "skill" }) ~= nil)
 	local stall = B.new(7, { B.unit(Config, { p = 1, s = 2, m = 1 }, 20) }, { B.unit(Config, { p = 1, s = 2, m = 1 }, 20) })
 	for _ = 1, 60 do
 		B.turn(stall, { kind = "skill" }, { kind = "skill" }) -- tours qui ne finissent pas vite
@@ -6972,6 +6996,7 @@ do
 	check("Moteur : égalité (deux camps à terre) -> le défenseur gagne", tie.over and tie.winner == 2)
 	local hs = B.new(11, { B.unit(Config, { p = 2, s = 2, m = 1 }) }, { B.unit(Config, { p = 9, s = 2, m = 1 }) })
 	hs.sides[1].units[1].hp = 40
+	hs.sides[1].units[1].charge = B.CHARGE_MAX
 	B.turn(hs, { kind = "skill" }, { kind = "attack" })
 	local u = hs.sides[1].units[1]
 	check("Moteur : le soin ne dépasse jamais les PV max (" .. u.hp .. "/" .. u.maxHp .. ")", u.hp <= u.maxHp and u.hp > 40 - 30)
@@ -6981,21 +7006,22 @@ do
 		seed = (seed * 16807) % 2147483647
 		return seed / 2147483647
 	end
+	local CfgFull = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Config.lua"), { debugName = "ConfigFull", environment = { Color3 = { fromRGB = function(r, g, b) return { R = r / 255, G = g / 255, B = b / 255 } end }, script = { Parent = { WaitForChild = function(_, n) return n end } }, require = function() return BestiaryMod end } })()
 	local function randTeam(tier)
 		local ids = {}
-		for i, d in ipairs(Config.PETS) do
-			if d.tier == Config.liveEggTier(tier) then -- lot 9 : rareté sans espèce : espèces de la rareté publiée inférieure, stats de la rareté
+		for i, d in ipairs(CfgFull.PETS) do
+			if d.tier == CfgFull.liveEggTier(tier) then -- lot 9 : rareté sans espèce : espèces de la rareté publiée inférieure, stats de la rareté
 				ids[#ids + 1] = i
 			end
 		end
 		local t = {}
 		for k = 1, 3 do
-			t[k] = B.unit(Config, { p = ids[math.floor(rnd() * #ids) + 1], s = 1 + math.floor(rnd() * 5), m = 1 + math.floor(rnd() * 5) }, nil, tier)
+			t[k] = B.unit(CfgFull, { p = ids[math.floor(rnd() * #ids) + 1], s = 1 + math.floor(rnd() * 5), m = 1 + math.floor(rnd() * 5) }, nil, tier)
 		end
 		return t
 	end
 	local sw, sn, tw, tn, aw = {}, {}, {}, {}, 0
-	for i = 1, 18 do
+	for i = 1, #CfgFull.PETS do
 		sw[i], sn[i] = 0, 0
 	end
 	for _, t in ipairs(B.TYPES) do
@@ -7003,7 +7029,7 @@ do
 	end
 	local N = 100000
 	for _ = 1, N do
-		local tier = Config.TIER_MIGRATE[1 + math.floor(rnd() * 6)] -- lot 9 : une des 6 raretés publiées
+		local tier = CfgFull.TIER_MIGRATE[1 + math.floor(rnd() * 6)] -- lot 9 : une des 6 raretés publiées
 		local a, b = randTeam(tier), randTeam(tier)
 		local r = B.run(math.floor(rnd() * 1e9) + 1, a, b)
 		local win = r.winner == 1
@@ -7024,15 +7050,17 @@ do
 		end
 	end
 	local worstS, worstT, loS, hiS = 0, 0, 1, 0
-	for i = 1, 18 do
+	for i = 1, #CfgFull.PETS do
 		local r = sw[i] / sn[i]
 		worstS = math.max(worstS, math.abs(r - 0.5))
 		loS, hiS = math.min(loS, r), math.max(hiS, r)
 	end
 	for _, t in ipairs(B.TYPES) do
-		worstT = math.max(worstT, math.abs(tw[t] / tn[t] - 0.5))
+		if tn[t] > 0 then -- LOT 12A : 9 types dans le moteur, 6 portés par les 18 espèces actuelles
+			worstT = math.max(worstT, math.abs(tw[t] / tn[t] - 0.5))
+		end
 	end
-	check("Équilibrage : " .. N .. " combats, espèces de " .. string.format("%.1f", loS * 100) .. " % à " .. string.format("%.1f", hiS * 100) .. " % de victoires, écart maximal des types " .. string.format("%.1f", worstT * 100) .. " points (aucun > 60 %)", worstS < 0.1 and worstT < 0.1 and math.abs(aw / N - 0.5) < 0.02)
+	check("Équilibrage : " .. N .. " combats, espèces de " .. string.format("%.1f", loS * 100) .. " % à " .. string.format("%.1f", hiS * 100) .. " % de victoires, écart maximal des types " .. string.format("%.1f", worstT * 100) .. " points (aucun > 60 %, espèces à moins de 12 points de 50 % : les types finaux du bestiaire ne forment plus un triangle par rareté)", worstS < 0.12 and worstT < 0.1 and math.abs(aw / N - 0.5) < 0.02)
 	-- tour des Dresseurs : étages déterministes, difficulté croissante, boss tous les 5 étages
 	local tw1, tw2 = B.towerTeam(Config, 7), B.towerTeam(Config, 7)
 	local monotone = true
@@ -7787,7 +7815,7 @@ do
 			return nil
 		end
 		local ln, lg, ls = panelLabel("Normal"), panelLabel("Golden"), panelLabel("Status")
-		checkv("Panneau du tapis (e2e) : table standard et table dorée = Config.beltOddsText, la standard en surbrillance (▶)", ln ~= nil and lg ~= nil and ln.Text == "▶ Standard : " .. Config.beltOddsText("normal") and lg.Text == "Doré : " .. Config.beltOddsText("golden"))
+		checkv("Panneau du tapis (e2e) : table standard et table dorée = Config.beltOddsText, la standard en surbrillance (▶)", ln ~= nil and lg ~= nil and ln.Text == "▶ Standard : " .. RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config")).beltOddsText("normal") and lg.Text == "Doré : " .. RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config")).beltOddsText("golden")) -- lot 11 : config du serveur factice (10 raretés publiées)
 		local idsBefore = #allBeltPrompts()
 		hooks.goldenAdd(120, "Zoé")
 		RT.step(2)
@@ -10873,7 +10901,7 @@ end)()
 	end
 	check("Règle (1) : fourchettes Config.INCOME_RANGE des 10 raretés : min(r+1) >= 1,8 x max(r), chaque espèce dans la fourchette de sa rareté ; taille et mutation multiplient ensuite (x >= 0,8)", okR and inRange and Config.SIZES[1].mult >= 0.8 and Config.MUTS[6].mult > Config.MUTS[5].mult)
 	-- (2) force : puissance strictement croissante, facteur >= 1,25 ; profils : écart 8 à 15 %, plus fort d'une rareté < plus faible de la suivante
-	local B = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Battle.lua"), { debugName = "Battle" })()
+	local B = loadBattleFused(luau, fs)
 	local okP, okProf, ptxt = true, true, ""
 	local prevMax = nil
 	for r = 1, 10 do
@@ -11065,6 +11093,8 @@ end)()
 		end
 		return n
 	end
+	local roster78 = cfg.PETS
+	cfg.PETS = table.move(roster78, 1, 18, 1, {}) -- lot 11 : ce scénario suppose la rareté Secret SANS espèce (le bestiaire en publie 5) : roster historique de 18 espèces
 	check("Œuf Secret (Robux) : aucune espèce Secret publiée -> offre masquée (Config.offerVisible) et reçu refusé (NotProcessedYet), rien livré", not cfg.offerVisible(cfg.PRODUCTS.EggSecret, false) and receipt(9910, "SEC-1", 9701) == PS.NotProcessedYet and eggsOf(8) == 0)
 	cfg.PETS[#cfg.PETS + 1] = { tier = 8, emoji = "?", name = "Test Secret", inc = 80000, color = cfg.PETS[1].color, ears = "none", extra = "none" }
 	check("Œuf Secret (Robux) : espèce publiée et compte non restreint -> offre visible ; restreint ou inconnu -> masquée", cfg.offerVisible(cfg.PRODUCTS.EggSecret, false) and not cfg.offerVisible(cfg.PRODUCTS.EggSecret, true) and not cfg.offerVisible(cfg.PRODUCTS.EggSecret, nil))
@@ -11081,6 +11111,7 @@ end)()
 	RT.policy = nil
 	RT.removePlayer(restricted)
 	table.remove(cfg.PETS)
+	cfg.PETS = roster78
 	-- mesures : 12 métriques, file bornée, 1 événement / s / joueur, service absent sans erreur
 	local Tm = RT.require(RT.services.ServerScriptService:FindFirstChild("Telemetry"))
 	local nM = 0
@@ -11415,6 +11446,21 @@ end)()
 end)()
 
 ;(function()
+	-- Lot 11 : bestiaire de 78 espèces (Bestiary, types et compétences, modèles Blender, collection, repli procédural), aussi lançable seul par tests/run_lot11.py
+	local lot11 = luau.load(fs.readFile("roblox/tests/lot11.luau"), { debugName = "lot11" })()
+	lot11({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end })
+end)()
+
+;(function()
+	-- LOT 12A : moteur de combat refait (Battle.lua), aussi lançable seul par tests/run_lot12a.py
+	local lot12a = luau.load(fs.readFile("roblox/tests/lot12a.luau"), { debugName = "lot12a" })()
+	lot12a({ check = check, suite = suite, luau = luau, fs = fs })
+end)()
+
+;(function()
 	suite("Lot 10 : intégration (Config.ODDS, sons, icônes) et non-régression du profil (slots anciens sans compteur, slot.o figé à l'éclosion)")
 	local Odds = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Odds.lua"), { debugName = "Odds" })()
 	local R = Config.ODDS.REF
@@ -11635,7 +11681,7 @@ end)()
 		opts.hook = opts.hook or loopGuard
 		return newRuntime(opts)
 	end }
-	for _, name in ipairs({ "lot15", "lot15_e2e" }) do
+	for _, name in ipairs({ "lot15", "lot15_e2e", "lot12b" }) do
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()

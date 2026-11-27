@@ -64,7 +64,10 @@ local K8 = {
 -- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements. UNE seule variable locale (limite de 200) : modules,
 -- remote serveur -> client « Npc » (les demandes du client passent par Action : npcAnswer, npcOff, daily, bagPlace, bonusClaim, weeklyClaim, plumeBuy),
 -- carnets d'offres par joueur (mémoire, vidés au départ) et fonctions (bloc « Lot 15 » plus bas).
+-- LOT 12 B : L15.BR (cartes de récompense D.5), L15.PetXp (source UNIQUE de l'XP et des niveaux de pets, D.6) et les fonctions de choix de carte sont rangés dans cette table : Luau limite une fonction à 200 variables locales.
 local L15 = {
+	BR = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleRewards")),
+	PetXp = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PetXp")),
 	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
 	remote = newRemote("Npc"), books = {}, assets = nil, decorKey = nil,
 }
@@ -291,7 +294,7 @@ local function shieldTime(s)
 end
 -- Multiplicateur de vitesse de marche (pass « Vitesse+ »), appliqué aussi à la tolérance anti-triche.
 local function speedMul(s)
-	return s.passes.Speed == true and Config.SPEED_PASS_MUL or 1
+	return (s.passes.Speed == true and Config.SPEED_PASS_MUL or 1) * (L15.BR.boostActive(s.data.boosts, "speed15", os.time()) and 1.15 or 1) -- lot 12 B : carte Effet « vitesse +15 % »
 end
 local function freeSlot(s)
 	for i = 1, cap(s) do
@@ -314,7 +317,7 @@ end
 
 -- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1)
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1) * (L15.BR.boostActive(s.data.boosts, "income2", os.time()) and 2 or 1) -- lot 12 B : carte Effet « revenus x2 »
 end
 
 local function income(s)
@@ -3329,6 +3332,60 @@ local function pvpPublishAsync(s)
 	end
 end
 
+-- LOT 12 B : cartes de récompense (D.5). Le tirage est enregistré dans le profil (battle.pendingPick) AVANT l'envoi : déconnexion ou relance ne retire pas la récompense.
+-- Délai de 15 s tenu par le SERVEUR (première carte d'office). Jamais exposé par snapshot : les cartes ne sortent que par { k = "pick" }.
+function L15.pickHooks(s)
+	return {
+		giveEgg = function(t)
+			if not freeSlot(s) then -- base pleine : NE PAS appeler giveEgg (il paierait déjà la moitié du prix) ; grant convertit au prix plein
+				return false
+			end
+			return giveEgg(s, t)
+		end,
+	}
+end
+function L15.sendPick(s)
+	local pk = s.data.battle.pendingPick
+	if not pk then
+		return
+	end
+	if L15.BR.expired(pk, os.time()) then
+		return L15.claimPick(s, nil, nil)
+	end
+	local v = L15.BR.view(Config, pk, os.time())
+	RBattle:FireClient(s.player, { k = "pick", id = v.id, cards = v.cards, seconds = v.seconds, floor = v.floor })
+	task.delay(v.seconds + 1, function()
+		local cur = s.data.battle.pendingPick
+		if s.player.Parent and sessions[s.player] == s and cur and cur.id == v.id then
+			L15.claimPick(s, nil, nil)
+		end
+	end)
+end
+function L15.claimPick(s, id, index)
+	local b = s.data.battle
+	local card, auto = L15.BR.claim(b.pendingPick, id, index, os.time())
+	if not card then
+		return -- index ou identifiant invalide : rien n'est consommé
+	end
+	b.pendingPick = nil -- vidé AVANT d'attribuer : aucun double gain
+	local out = L15.BR.grant(Config, s.data, card, L15.pickHooks(s), os.time(), L15.PetXp)
+	local _, _, desc = L15.BR.cardText(Config, card)
+	RBattle:FireClient(s.player, { k = "picked", text = desc .. (out and out.converted and " (base pleine : converti en pièces)" or ""), auto = auto })
+	RState:FireClient(s.player, snapshot(s))
+end
+-- Propose les 3 cartes à la fin d'un combat gagné (mode « first » / « repeat » / « npc »), puis les envoie.
+function L15.offerPick(s, floor, mode)
+	local b = s.data.battle
+	local pick = L15.BR.offer(Config, b.pendingPick, { floor = floor, income = income(s), mode = mode }, rng:NextInteger(1, 2147483000), os.time(), game:GetService("HttpService"):GenerateGUID(false))
+	b.pendingPick = pick
+	return pick
+end
+function actions.battlePick(s, arg) -- arg = { id, i } ; le dispatcher RAction fournit déjà la limitation de fréquence ; tout est revalidé par L15.BR.claim
+	if type(arg) == "table" and type(arg.id) == "string" and #arg.id <= 64 and type(arg.i) == "number" then
+		L15.claimPick(s, arg.id, arg.i)
+	end
+end
+
 local function battleFinish(s)
 	local bt = s.battle
 	s.battle = nil -- vidé AVANT tout paiement : aucune double récompense possible
@@ -3355,10 +3412,12 @@ local function battleFinish(s)
 			Lot7.L16.addXp(s, "pvp") -- lot 16 : XP du passe de combat (victoire PvP, validée par le serveur)
 		end
 		pvpPublishAsync(s)
+		L15.PetXp.addToTeam(s.data.slots, b.team, L15.PetXp.award("pvp", L15.PetXp.combat("pvp", win, 0), L15.PetXp.boostMul(s.data, os.time()))) -- lot 12 B : XP de pet (PvP)
 		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = 0, pvp = true, foe = bt.pvp.name, view = Battle.view(st) })
 		RState:FireClient(s.player, snapshot(s))
 		return
 	end
+	local sendAfter = false
 	if win then
 		L15.onPve(s) -- lot 15 : quête bonus, quête de la semaine et plumes d'une victoire PvE
 		local first = bt.floor > b.best
@@ -3904,6 +3963,7 @@ do
 		local ok, out = Npc.resolve(Config, L15.book(s), bt.npc.id, s.player.UserId, os.time(), win)
 		local rewards = {}
 		local text = ""
+		local pickAfter = false
 		if ok then
 			if out.won then
 				L15.onPve(s)
@@ -3925,18 +3985,22 @@ do
 				end
 				text = Npc.say(Config, out.npc, "win")
 			else
-				for _, idx in ipairs(d.battle.team) do
-					local sl = validSlot(idx) and d.slots[idx]
-					if sl and sl.k == "p" then
-						sl.x = math.min(1e7, (sl.x or 0) + out.xp) -- défaite : rien n'est perdu, +5 XP par pet de l'équipe
-					end
-				end
+				-- défaite : rien n'est perdu ; l'XP de pet (PetXp) est versée plus bas, victoire ou défaite
 				text = Npc.say(Config, out.npc, "lose", { tip = Npc.tip(Config, { npc = out.npc }) })
+			end
+			L15.PetXp.addToTeam(d.slots, d.battle.team, L15.PetXp.award("npc", L15.PetXp.combat("npc", out.won, 0), L15.PetXp.boostMul(d, os.time()))) -- lot 12 B : XP de pet (PNJ), seule source d'XP
+			if out.won then
+				L15.offerPick(s, 0, "npc") -- lot 12 B : 3 cartes (valeurs x0,6) après une victoire contre un PNJ
+				rewards.pick = true
+				pickAfter = true
 			end
 			L15.weekly(s, "npc", 1)
 			tele.log(s.player, "npc_fight", out.won and 1 or 0, "_" .. out.npc)
 		end
 		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = d.battle.best, floor = 0, npc = true, foe = bt.npc.name, view = Battle.view(bt.st) })
+		if pickAfter then
+			L15.sendPick(s)
+		end
 		if text ~= "" then
 			said(s, bt.npc.key, text, win)
 		end
@@ -5806,6 +5870,11 @@ local function onJoin(player)
 	refreshAllPads(s)
 	Lot7.privRefresh(s) -- tapis privé (pass) : œufs en attente sauvegardés
 	s.welcome = "wait"
+	task.delay(5, function() -- lot 12 B : reconnexion avec un tirage de cartes en attente : mêmes cartes, temps restant (échu : première carte d'office)
+		if player.Parent and sessions[player] == s and not s.battle then
+			L15.sendPick(s)
+		end
+	end)
 	task.delay(Config.BELT.welcome.delay, function()
 		beltWelcome(player, s) -- œuf de bienvenue du tapis (une fois, 20 s après l'arrivée)
 	end)

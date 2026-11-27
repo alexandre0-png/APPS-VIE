@@ -197,6 +197,8 @@ function Data.default()
 		weekly = Rewards.sanitizeWeekly(Config, nil), -- lot 15 : quêtes de la semaine (w, prog, c5, c7) et quête bonus du jour (bq)
 		event = Rewards.sanitizeEvent(Config, nil), -- lot 15 : plumes d'événement (distinctes de plumes, monnaie du calendrier)
 		eggBag = {}, -- lot 15 : sac d'œufs (raretés, 10 au plus, jamais de perte)
+		boosts = {}, -- lot 12 B : effets temporaires gagnés en jouant (cartes D.5) { income2, luck10, xp2, speed15 } = os.time() de fin ; battle.pendingPick (tirage de cartes en attente) est absent tant qu'il n'y en a pas
+		trainer = { xp = 0 }, -- lot 12 B : XP de Dresseur (total des XP gagnés), niveau = floor(sqrt(xp / 50)) + 1, aucun effet sur la force
 		xp2Until = 0, -- lot 15 : fin (os.time) de l'effet XP x2 de la série (jour 5) ; l'XP des pets arrive au lot 12
 		seasonXp = 0, -- lot 15 : ancienne XP de saison (versée dans season.xp par la migration v13, puis 0)
 		season = nil, -- lot 16 : passe de combat (posé par SeasonMod.migrate dans Data.default / merge)
@@ -471,6 +473,9 @@ local function merge(saved)
 	d.event = Rewards.sanitizeEvent(Config, saved.event)
 	d.eggBag = Rewards.sanitizeBag(setmetatable({ EGG_BAG = { size = Config.EGG_BAG.sizePlus } }, { __index = Config }), saved.eggBag) -- lot 16 : jusqu'à 20 œufs (passe EggBagPlus)
 	d.xp2Until = math.min(4e9, math.floor(sane(saved.xp2Until, 0)))
+	-- lot 12 B : SANS changement de version (v12 reste v12) ; absents ou corrompus = valeurs neuves, relire un profil déjà assaini ne change rien (idempotent). battle.pendingPick : voir plus bas, après la reconstruction de d.battle
+	d.boosts = BattleRewards.sanitizeBoosts(saved.boosts)
+	d.trainer = PetXp.sanitizeTrainer(saved.trainer)
 	d.seasonXp = math.min(1e7, math.floor(sane(saved.seasonXp, 0)))
 	-- lot 16 : passe de combat (Season.migrate assainit, bascule la saison, verse l'ancien seasonXp une seule fois), débordement, achats uniques, Double chance, pose, tickets
 	d.season = type(saved.season) == "table" and saved.season or nil
@@ -544,6 +549,7 @@ local function merge(saved)
 			repeats = math.min(1000, math.floor(sane(b.repeats, 0))),
 		}
 	end
+	d.battle.pendingPick = BattleRewards.sanitizePending(Config, type(saved.battle) == "table" and saved.battle.pendingPick or nil) -- lot 12 B : tirage de cartes en attente (nil = aucun) ; d.battle vient d'être reconstruit ci-dessus
 	if type(saved.receipts) == "table" then
 		d.receipts = saved.receipts
 	end
@@ -567,7 +573,7 @@ local function merge(saved)
 			local okT = type(sl) == "table" and ((sl.k == "e" and type(sl.t) == "number" and sl.t == sl.t and sl.t % 1 == 0 and sl.t >= 1 and sl.t <= #Config.TIERS) or (sl.k == "p" and Data.validPet(sl)))
 			if okT then
 				if sl.k == "p" then
-					sl.x = math.min(1e7, math.floor(sane(sl.x, 0))) -- lot 9 : XP du pet (lot 12)
+					sl.x = PetXp.sanitize(sl.x) -- lot 12 B : XP cumulée bornée au niveau 20 (avant : min(1e7, ...)) ; lot 9 : XP du pet (lot 12)
 					-- lot 10 : compteur « 1 sur N » figé à l'éclosion (o) et version de la table de référence (ov). Facultatifs : un pet plus ancien n'en a pas
 					-- (affiché « — », jamais recalculé). Valeur hors bornes ou d'un autre type = retirée.
 					if type(sl.o) == "number" and sl.o == sl.o and sl.o >= 1 and sl.o <= 9007199254740992 then

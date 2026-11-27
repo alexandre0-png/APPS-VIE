@@ -154,6 +154,29 @@ Config.PETS = {
 	{ tier = 7, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
 }
 
+-- LOT 11 : bestiaire de 78 espèces (ReplicatedStorage/Bestiary.lua). Ses 18 premières entrées doivent être identiques à la liste historique ci-dessus (nom, rareté,
+-- revenu : indices stables, testé) ; sinon, ou si le module est introuvable (tests purs qui chargent Config seul), la liste de 18 reste en place.
+Config.BESTIARY = nil
+do
+	local okLoad, Bestiary = pcall(function()
+		return require(script.Parent:WaitForChild("Bestiary", 10))
+	end)
+	if okLoad and type(Bestiary) == "table" and type(Bestiary.PETS) == "table" and #Bestiary.PETS >= #Config.PETS then
+		local same = true
+		for i, d in ipairs(Config.PETS) do
+			local b = Bestiary.PETS[i]
+			if not b or b.tier ~= d.tier or b.name ~= d.name or b.inc ~= d.inc then
+				same = false
+				break
+			end
+		end
+		if same then
+			Config.PETS = Bestiary.PETS
+			Config.BESTIARY = Bestiary
+		end
+	end
+end
+
 Config.SIZES = {
 	{ name = "Mini", mult = 0.8, weight = 20, scale = 0.8 },
 	{ name = "Normal", mult = 1, weight = 62, scale = 1 },
@@ -837,6 +860,12 @@ Config.Assets = {
 		"Sound", "Tool", "ForceField", "Explosion", "Weld", "WeldConstraint", "Motor6D", "ManualWeld", "Motor",
 	},
 }
+-- LOT 11 : modèles Blender des 60 nouvelles espèces (lots 22 à 26), indice d'espèce -> identifiant, lus dans Bestiary.ASSET_IDS (source unique). Assets.loadPets les charge avec petsMaxPartsNew.
+if Config.BESTIARY then
+	for idx, id in pairs(Config.BESTIARY.ASSET_IDS) do
+		Config.Assets.petsNew[idx] = id
+	end
+end
 
 ---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
 -- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
@@ -1715,7 +1744,11 @@ Config.STORY = {
 }
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
-Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
+Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 premières espèces)
+-- LOT 11 : au-delà des 18 espèces historiques, +5 % par tranche de 6 espèces supplémentaires, plafond +80 % (78 espèces). Identique à l'ancienne formule jusqu'à 18 espèces (jamais en baisse).
+Config.COLLECTION_BASE_COUNT = 18
+Config.COLLECTION_STEP2 = 6
+Config.COLLECTION_MAX = 0.8
 -- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
 Config.TOWER = { floors = 45, tiers = { 1, 2, 3, 4, 5, 6, 7, 8, 10 }, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse", [35] = "Reine de Cristal", [40] = "Démon enchaîné", [45] = "Séraphin" } } -- lot 9 (D.7) : 45 étages, 5 par rareté de TOWER.tiers
 -- PvP asynchrone : l'équipe de DÉFENSE enregistrée d'un autre joueur est simulée par le serveur (aucune latence réseau). Trophées, saisons d'une semaine,
@@ -1783,7 +1816,11 @@ function Config.rankFor(chaptersDone)
 end
 
 function Config.collectionBonus(speciesCount)
-	return 1 + Config.COLLECTION_BONUS * math.floor(speciesCount / Config.COLLECTION_STEP)
+	local n = type(speciesCount) == "number" and speciesCount == speciesCount and math.max(speciesCount, 0) or 0
+	local base = math.min(n, Config.COLLECTION_BASE_COUNT)
+	local extra = math.max(n - Config.COLLECTION_BASE_COUNT, 0)
+	local bonus = Config.COLLECTION_BONUS * (math.floor(base / Config.COLLECTION_STEP) + math.floor(extra / Config.COLLECTION_STEP2))
+	return 1 + math.min(bonus, Config.COLLECTION_MAX)
 end
 
 function Config.zoneUnlocked(chaptersDone, rival)
@@ -2443,7 +2480,7 @@ Config.DIALOGUES = {
 
 -- Astuces de défaite : type de l'équipe adverse -> type qui le bat. VALEURS PAR DÉFAUT : l'intégrateur peut les remplacer par une lecture de la matrice D.2 de Battle
 -- (Npc.tip accepte une table `weak` en argument).
-Config.TYPE_WEAK = { Feu = "Eau", Eau = "Foudre", Plante = "Feu", Glace = "Feu", Foudre = "Terre", Terre = "Plante", Ciel = "Foudre", Ombre = "Lumière", ["Lumière"] = "Ombre" }
+Config.TYPE_WEAK = { Feu = "Eau", Eau = "Plante", Plante = "Feu", Glace = "Foudre", Foudre = "Terre", Terre = "Glace", Ciel = "Ombre", Ombre = "Lumière", ["Lumière"] = "Ciel" } -- LOT 12A : le type qui BAT chacun (BEATS primaire de Battle.lua, x1,5) ; l'ancienne table contredisait la matrice D.2
 
 ---------------------------------------------------------------- G.1 Série de 7 jours
 -- eggs : noms de raretés ; c : minutes de revenu (min coinFloor) ; luck = potion de chance { minutes, points } ; boost = { key, mul, minutes } ; fragments : Fragments du Grand Œuf.

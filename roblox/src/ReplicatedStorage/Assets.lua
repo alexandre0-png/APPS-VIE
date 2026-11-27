@@ -536,14 +536,22 @@ function Assets.new(Config, deps)
 		for idx in pairs(cfg.pets) do
 			idxs[#idxs + 1] = idx
 		end
+		-- Lot 11 : les 60 nouvelles espèces (cfg.petsNew, plafond de Parts propre cfg.petsMaxPartsNew) ; cfg.pets garde la priorité sur un même indice.
+		local newIds = type(cfg.petsNew) == "table" and cfg.petsNew or {}
+		for idx in pairs(newIds) do
+			if cfg.pets[idx] == nil then
+				idxs[#idxs + 1] = idx
+			end
+		end
 		table.sort(idxs, function(a, b)
 			return tostring(a) < tostring(b)
 		end)
 		local entries = {}
 		for _, idx in ipairs(idxs) do
-			local id = cfg.pets[idx]
+			local isNew = cfg.pets[idx] == nil
+			local id = cfg.pets[idx] or newIds[idx]
 			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
-				entries[#entries + 1] = { key = "p:" .. idx, id = id, cap = cfg.petsMaxParts or cfg.maxParts }
+				entries[#entries + 1] = { key = "p:" .. idx, id = id, cap = isNew and (cfg.petsMaxPartsNew or cfg.petsMaxParts or cfg.maxParts) or (cfg.petsMaxParts or cfg.maxParts) }
 			else
 				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
 			end

@@ -1149,7 +1149,7 @@ function render()
 			got += 1
 		end
 		addNote("📖 INDEX " .. got .. "/" .. #Config.PETS .. " · les espèces non obtenues restent grisées (❓).")
-		addNote("📚 Bonus de collection : +" .. math.floor((state.collection - 1) * 100 + 0.5) .. "% de revenus définitifs (" .. got .. "/" .. #Config.PETS .. " espèces ; +" .. math.floor(Config.COLLECTION_BONUS * 100 + 0.5) .. "% tous les " .. Config.COLLECTION_STEP .. " espèces découvertes). Tailles et mutations rares multiplient aussi les revenus.")
+		addNote("📚 Bonus de collection : +" .. math.floor((state.collection - 1) * 100 + 0.5) .. "% de revenus définitifs (" .. got .. "/" .. #Config.PETS .. " espèces ; +" .. math.floor(Config.COLLECTION_BONUS * 100 + 0.5) .. "% tous les " .. Config.COLLECTION_STEP .. " espèces jusqu'à " .. Config.COLLECTION_BASE_COUNT .. ", puis +" .. math.floor(Config.COLLECTION_BONUS * 100 + 0.5) .. "% tous les " .. Config.COLLECTION_STEP2 .. " espèces, maximum +" .. math.floor(Config.COLLECTION_MAX * 100 + 0.5) .. "%). Tailles et mutations rares multiplient aussi les revenus.")
 		for i, p in ipairs(Config.PETS) do
 			local d = state.dex[tostring(i)]
 			local tier = Config.TIERS[p.tier]
