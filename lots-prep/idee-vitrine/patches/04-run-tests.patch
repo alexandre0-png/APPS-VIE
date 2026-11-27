@@ -1,0 +1,11 @@
+--- a/roblox/tests/run.luau
++++ b/roblox/tests/run.luau
+@@ -11701,7 +11701,7 @@
+ 		opts.hook = opts.hook or loopGuard
+ 		return newRuntime(opts)
+ 	end }
+-	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e" }) do
++	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e", "showcase" }) do
+ 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
+ 	end
+ end)()

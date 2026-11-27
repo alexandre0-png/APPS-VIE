@@ -1,0 +1,11 @@
+--- a/roblox/src/ReplicatedStorage/Config.lua
++++ b/roblox/src/ReplicatedStorage/Config.lua
+@@ -2714,6 +2714,8 @@
+ Config.EGG_BAG.sizePlus = 20
+ Config.MAX_FOLLOWERS_COLLECTOR = 4
+ -- Passe de combat : copie de SeasonData.SEASON (vérifiée par les tests) pour l'affichage ; la logique est dans ReplicatedStorage/Season.
++-- Lot 17 : onboarding « premières 5 minutes » (Onboarding.lua, champ de profil onb) ; enabled = false coupe tout (le profil n'est jamais modifié).
++Config.ONBOARDING = { enabled = true, stepSeconds = 45, minDwell = 3, earnGoal = 10, houseLevel = 2, legacyPlayedSeconds = 120 }
+ Config.SEASON = { name = "Passe de combat", start = 1796083200, days = 60, tiers = 30, graceDays = 7, dailyCap = 400 }
+ -- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
+ Config.BUILD = "1.16.0"
