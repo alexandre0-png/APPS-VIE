@@ -53,3 +53,7 @@ Reste : patch lots 11+12 (lots-prep/combined-11-12), puis lots 13 et 14 (lots-pr
 ## Lots 11 + 12 publiés (privé) — 2026-11-27
 Commit f7ff0f5 « Lot 11 + 12 intégrés » : bestiaire 78 espèces, moteur de combat PvE refait (9 types, charge, spécial, 40 tours), cartes de récompense après victoire, XP de pet niveaux 1–20. Vérifié : Lune 3923/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v43 / hub v50 (privé). Non testé dans Studio.
 Reste : lots 13 (duel local, préparé, à brancher : boucle de tours, UI duelAsk) et 14 (classé en direct, préparé, désactivé à 60 joueurs).
+
+## Lot 13 publié (privé) — 2026-11-27
+Commit 8ef9c43 « Lot 13 intégré » : duel local (défis, sable du colisée, tours à deux, spectateurs), ligues, remise de saison. Vérifié : Lune 4056/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v44 / hub v51 (privé). Non testé dans Studio.
+Reste : lot 14 (classé en direct, préparé, PvpLive.enabled = false partout). Valeur de la récompense du palier 1500 victoires à valider (1 000 000 pièces + potion, montant provisoire).
