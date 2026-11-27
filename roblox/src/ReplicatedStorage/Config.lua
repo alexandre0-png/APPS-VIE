@@ -211,6 +211,10 @@ Config.PASSES = {
 	VipBase = { id = 2094209172, name = "Base VIP", emoji = "👑", desc = "Boucliers d'œufs x2 et bonus quotidien x2." },
 	ExtraSlots = { id = 2098181699, name = "+4 emplacements", emoji = "🧺", desc = "4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20)." },
 	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
+	-- Lot 16 : passes créés par la gestion (2026-11-26)
+	EggBagPlus = { id = 2099454839, name = "Sac d'œufs +10", emoji = "🎒", desc = "Ton sac d'œufs passe de 10 à 20 places, pour toujours." },
+	Collector = { id = 2099556764, name = "Collectionneur", emoji = "📒", desc = "Un pet suiveur de plus (4 au lieu de 3), des indices de silhouette dans la collection." },
+	Lucky2 = { id = 2102045961, name = "Chance +10 % II", emoji = "🌟", desc = "+10 points de chance d'amélioration en plus de Chance +10 % (bonus payants plafonnés à 30 points, 70 au total).", random = true },
 }
 Config.SPEED_PASS_MUL = 1.2
 Config.VIP_SHIELD_MUL = 2
@@ -525,14 +529,33 @@ Config.PRODUCTS = {
 	EggDivine = { id = 3736452072, robux = 6999, name = "Œuf Divin", emoji = "😇", eggTier = 10, desc = "Un œuf Divin (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
 	Revive = { id = 3734229323, robux = 49, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
 	ServerLuck = { id = 3736121217, robux = 129, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
-	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
+	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 4 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Durées cumulables.", random = true },
 	RemoteSteal = { id = 3736121232, robux = 79, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
 	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
 	-- Lot 9b : rattrapage d'UN jour manqué du calendrier (29 R$). ID 0 = à créer dans le Creator Hub (A_FAIRE_UTILISATEUR.md) : tant que l'ID vaut 0, l'achat est désactivé
 	-- (restent les deux rattrapages gratuits : jour de grâce et 3 missions). Livre un jeton de rattrapage (profil cal.catch), jamais un tirage au sort payant.
 	CalendarCatchup = { id = 3736695392, robux = 29, name = "Rattrapage du calendrier", emoji = "📅", desc = "Rattrape UN jour manqué du calendrier de 30 jours : tu en choisis le jour, la récompense est celle affichée sur la carte." },
 	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
+	-- Lot 16 : achats créés par la gestion (2026-11-26). Champs de catalogue (id, robux, cat, random, once, season, eggTier) posés par Config.SHOP (fin du fichier).
+	CoinPackS = { name = "Petit sac de pièces", emoji = "🪙", desc = "Les revenus de 5 minutes de jeu (au moins 1 000 pièces)." },
+	EggR2 = { name = "Œuf Peu commun", emoji = "🥚", desc = "Un œuf Peu commun (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR3 = { name = "Œuf Rare", emoji = "🥚", desc = "Un œuf Rare (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR4 = { name = "Œuf Épique", emoji = "🥚", desc = "Un œuf Épique (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR5 = { name = "Œuf Légendaire", emoji = "🥚", desc = "Un œuf Légendaire (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR7 = { name = "Œuf Ultra Rare", emoji = "🥚", desc = "Un œuf Ultra Rare (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	LuckPotionMini = { name = "Potion express", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 5 min. Les durées s'ajoutent." },
+	DoubleLuck = { name = "Double chance", emoji = "🍀", desc = "30 min : tes points de chance d'amélioration comptent double (70 points au total au plus). Les durées s'ajoutent." },
+	ArenaTickets = { name = "Ticket d'arène", emoji = "🎫", desc = "5 combats de tour récompensés en plus, pour la journée UTC en cours. Aucune force n'est vendue." },
+	SeasonPremium = { name = "Passe de combat premium", emoji = "🏅", desc = "La piste premium de la saison en cours (paliers déjà atteints crédités une fois)." },
+	SeasonPremiumPlus = { name = "Passe de combat + 10 paliers", emoji = "🏅", desc = "Le passe premium de la saison et 10 paliers tout de suite." },
+	SeasonUpgradePlus = { name = "Passe de combat + (suite)", emoji = "🏅", desc = "Pour qui a déjà le premium de la saison : 10 paliers tout de suite." },
+	BundleLegend = { name = "Pack Légende", emoji = "🧰", desc = "1 œuf Ultra Rare, 3 œufs Légendaires et 60 min de Double chance." },
+	BundleRoyal = { name = "Coffre royal", emoji = "👑", desc = "2 œufs Ultra Rares, 3 œufs Mythiques et le passe de combat premium de la saison." },
+	BundleRoyalNoPass = { name = "Coffre royal sans passe", emoji = "👑", desc = "Pour qui a déjà le passe premium : 2 œufs Ultra Rares et 3 œufs Mythiques." },
 }
+for n = 1, 6 do
+	Config.PRODUCTS["EmoteVictory" .. n] = { name = "Pose de victoire " .. n, emoji = ({ "🎉", "✌️", "💃", "🏆", "⭐", "🔥" })[n], desc = "Une pose jouée par ton personnage après une victoire. Purement visuelle." }
+end
 Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
 Config.EXCLUSIVE_EGG_TIER = 6
 Config.REVIVE = { offerSeconds = 20, iframes = 4 } -- offre de relance après une défaite au château (non bloquante), invulnérabilité après la relance
@@ -2060,7 +2083,7 @@ Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +
 Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
 	weights = { normal = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0, 0.005 }, golden = { 29.3205, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.018, 0, 0.0115 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
-	golden = { interval = 4, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
+	golden = { interval = 4, seconds = 600, maxSeconds = 2592000 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
 	private = { interval = 180, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
@@ -2127,9 +2150,9 @@ Config.TRAVEL2 = {
 Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 5, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
 	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 3, victimFailCooldown = 180, logQueueMax = 60, logBatch = 20, logTries = 3,
 	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7b : minAccountAgeDays = ancienneté de compte exigée du voleur ET de la victime ; reStealSeconds = un œuf volé par corbeau ne se revole pas avant 20 min ; compensationCapTier = indemnité reçue par jour UTC plafonnée au prix d'un œuf de cette rareté (Rare) ; victimFailCooldown = répit de la victime après un vol raté ou chassé (le délai de 20 min n'est posé qu'en cas de succès) ; logQueueMax / logBatch / logTries = file RavenLog bornée, écrite par lots, essais bornés. Lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
--- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
--- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
-Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 1800 }
+-- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, durées cumulables (lot 16 : sans plafond d'achat),
+-- au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
+Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 2592000 } -- lot 16 : durées cumulables sans limite (maxSeconds = garde technique de 30 jours)
 -- Une offre payante est-elle proposée à ce joueur ? Il faut un ID renseigné (0 = offre invisible) ET, pour les offres à hasard (`random = true`),
 -- que PolicyService ait confirmé `ArePaidRandomItemsRestricted == false` (restricted nil ou true : masquée, repli prudent).
 function Config.offerVisible(def, restricted)
@@ -2513,7 +2536,112 @@ Config.NPC_VIEW = { height = 6, pipWidth = 9, stopAt = 7, walkSeconds = 3.5 }
 Config.EVENT_DECOR = { ["event.pumpkin"] = "pumpkin", ["event.xmasTree"] = "xmasTree", ["event.springArch"] = "springArch" }
 Config.EVENT_DECOR_SPOT = { x = -14, z = 30, height = 9 }
 Config.CALENDAR_BOARD = { dx = -9, dz = -6, height = 7 }
--- Produit de sauvetage de la série (G.2) : 29 R$, une fois par semaine UTC. ID 0 = désactivé tant qu'il n'est pas créé dans le Creator Hub (A_FAIRE_UTILISATEUR.md).
-Config.PRODUCTS.StreakRestore = { id = 0, robux = 29, name = "Sauver ma série", emoji = "🔥", desc = "Sauve ta série de 7 jours après 2 jours manqués (une fois par semaine). Aucun hasard." }
+-- Produit de sauvetage de la série (G.2) : 29 R$, id créé par la gestion (lot 16), sans plafond d'achat (seulement quand la série est en danger).
+Config.PRODUCTS.StreakRestore = { name = "Sauver ma série", emoji = "🔥", desc = "Sauve ta série de 7 jours quand elle est en danger (2 jours manqués). Le moyen gratuit : les 3 missions du jour. Aucun hasard." }
+
+
+---------------------------------------------------------------- LOT 16 : boutique en 8 catégories, passe de combat, offres, vendeurs, mesure
+-- Catalogue : copie EXACTE de ReplicatedStorage/ShopData.ENTRIES (vérifiée par tests/run.luau : mêmes clés, ids, prix, catégories, drapeaux). Config ne peut pas
+-- faire require (il est chargé hors de Roblox par les tests). Décision utilisateur : PLUS AUCUN PLAFOND D'ACHAT ; seuls `once` (achat unique à vie : passes,
+-- Pack de départ, chaque pose) et `season` (une fois par saison : season.premium = n) limitent. random = masqué et refusé sans PolicyService « non restreint ».
+Config.SHOP = {}
+do
+	local function P(id, robux, cat, extra)
+		local e = { kind = "product", id = id, robux = robux, cat = cat }
+		for k, v in pairs(extra or {}) do
+			e[k] = v
+		end
+		return e
+	end
+	local function G(id, robux, cat, extra)
+		local e = P(id, robux, cat, extra)
+		e.kind, e.once = "pass", true
+		return e
+	end
+	local S = Config.SHOP
+	S.EggR2 = P(3736703563, 15, "eggs", { random = true, eggTier = 2 })
+	S.EggR3 = P(3736703571, 25, "eggs", { random = true, eggTier = 3 })
+	S.EggR4 = P(3736703588, 49, "eggs", { random = true, eggTier = 4 })
+	S.EggR5 = P(3736703667, 99, "eggs", { random = true, eggTier = 5 })
+	S.ExclusiveEgg = P(3734229320, 249, "eggs", { random = true, eggTier = 6 })
+	S.EggR7 = P(3736703695, 799, "eggs", { random = true, eggTier = 7 })
+	S.EggSecret = P(3736452048, 1499, "eggs", { random = true, eggTier = 8 })
+	S.EggExclusive = P(3736452061, 3499, "eggs", { random = true, eggTier = 9 })
+	S.EggDivine = P(3736452072, 6999, "eggs", { random = true, eggTier = 10 })
+	S.LuckPotionMini = P(3736703579, 29, "luck", { random = true })
+	S.LuckPotion = P(3734229337, 99, "luck", { random = true })
+	S.GoldenBelt = P(3736121227, 99, "luck", { random = true })
+	S.ServerLuck = P(3736121217, 129, "luck", { random = true })
+	S.DoubleLuck = P(3736703673, 149, "luck", { random = true })
+	S.Lucky = G(2093447290, 149, "luck", { random = true })
+	S.Fast = G(2097173053, 149, "luck")
+	S.Speed = G(2092253306, 149, "luck")
+	S.PrivateBelt = G(2098265697, 299, "luck", { random = true })
+	S.Lucky2 = G(2102045961, 349, "luck", { random = true })
+	S.CoinPackS = P(3736703557, 19, "coins")
+	S.CoinPack = P(3734229339, 99, "coins")
+	S.Coins2x = G(2093291260, 199, "coins")
+	S.StreakRestore = P(3736703610, 29, "base")
+	S.CalendarCatchup = P(3736695392, 29, "base")
+	S.InstantHatch = P(3734229329, 49, "base")
+	S.EggBagPlus = G(2099454839, 149, "base")
+	S.ExtraSlots = G(2098181699, 249, "base")
+	S.Collector = G(2099556764, 249, "base")
+	S.VipBase = G(2094209172, 399, "base")
+	S.ArenaTickets = P(3736703606, 19, "combat")
+	S.Revive = P(3734229323, 49, "combat")
+	S.RemoteSteal = P(3736121232, 79, "combat")
+	S.RemoteStealPack = P(3736121238, 199, "combat")
+	S.SeasonPremium = P(3736703683, 399, "season", { season = true })
+	S.SeasonUpgradePlus = P(3736704000, 400, "season", { season = true })
+	S.SeasonPremiumPlus = P(3736703689, 799, "season", { season = true })
+	S.StarterPack = P(3734229313, 99, "packs", { random = true, once = true })
+	S.BundleLegend = P(3736703706, 999, "packs", { random = true })
+	S.BundleRoyalNoPass = P(3736704205, 1100, "packs", { random = true })
+	S.BundleRoyal = P(3736703714, 1499, "packs", { random = true })
+	for n, id in ipairs({ 3736703619, 3736703629, 3736703634, 3736703641, 3736703649, 3736703657 }) do
+		S["EmoteVictory" .. n] = P(id, 39, "cosmetics", { once = true })
+	end
+	-- pose des champs de catalogue dans PRODUCTS / PASSES (name, emoji, desc existants conservés)
+	for key, e in pairs(S) do
+		local bag = e.kind == "pass" and Config.PASSES or Config.PRODUCTS
+		local def = bag[key] or { name = key, emoji = "🛒", desc = "" }
+		bag[key] = def
+		for _, f in ipairs({ "id", "robux", "cat", "random", "once", "season", "eggTier" }) do
+			def[f] = e[f]
+		end
+	end
+end
+-- Les 8 catégories de la boutique, ordre FIXE (= Shop.CATEGORIES, vérifié par les tests). L'onglet « season » est le passe de combat (Season.lua).
+Config.SHOP_CATEGORIES = {
+	{ key = "eggs", title = "Œufs", icon = "egg_r3" },
+	{ key = "luck", title = "Chance & boosts", icon = "r_potion_chance" },
+	{ key = "coins", title = "Pièces", icon = "r_coins_m" },
+	{ key = "base", title = "Base & confort", icon = "ui_bouclier" },
+	{ key = "combat", title = "Combat & vol", icon = "ui_epee" },
+	{ key = "season", title = "Passe de combat", icon = "ui_trophee" },
+	{ key = "packs", title = "Packs", icon = "r_coffre" },
+	{ key = "cosmetics", title = "Cosmétiques", icon = "r_cosmetique_traine" },
+}
+-- Effets du lot 16 appliqués par le serveur (le moteur reste maître des minuteurs). Double chance : x2 puis 70 points au plus (Shop.DOUBLE_LUCK_CAP).
+Config.LOT16 = {
+	luckMiniSeconds = 300, doubleSeconds = 1800, legendDoubleSeconds = 3600, doubleCap = 70, arenaTickets = 5,
+	coinPackS = { minutes = 5, min = 1000 },
+	emotes = { "🎉", "✌️", "💃", "🏆", "⭐", "🔥" }, -- poses de victoire 1 à 6 (effet visuel joué par le client après une victoire)
+	overflowTake = 1, -- œufs repris du coffre de débordement par demande
+}
+-- Sac d'œufs : 20 places avec le passe EggBagPlus (le profil garde jusqu'à sizePlus œufs ; la place réelle dépend du passe). Collectionneur : 4 pets suiveurs.
+Config.EGG_BAG.sizePlus = 20
+Config.MAX_FOLLOWERS_COLLECTOR = 4
+-- Passe de combat : copie de SeasonData.SEASON (vérifiée par les tests) pour l'affichage ; la logique est dans ReplicatedStorage/Season.
+Config.SEASON = { name = "Passe de combat", start = 1796083200, days = 60, tiers = 30, graceDays = 7, dailyCap = 400 }
+-- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
+Config.BUILD = "1.16.0"
+-- Vendeurs PNJ du hub (modèles Blender du lot 30 de la gestion ; repli procédural si le chargement échoue). Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin.
+for key, id in pairs({ vendor_eggs = 138633300069014, vendor_luck = 137414127061497, vendor_coins = 82919202214027, vendor_base = 79064954843258,
+	vendor_combat = 105059296701916, vendor_pass = 72959276245033, vendor_packs = 80912619819088, vendor_cosmetics = 82243751363820 }) do
+	Config.Assets.models.hub[key] = id
+	Config.Assets.modelsMaxParts["hub." .. key] = 80
+end
 
 return Config

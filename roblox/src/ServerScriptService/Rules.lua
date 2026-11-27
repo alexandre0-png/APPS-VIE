@@ -36,7 +36,8 @@ function Rules.new(Config)
 	end
 
 	-- Points de « rareté supérieure » (en %) selon les bonus actifs.
-	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive, serverLuck)
+	-- lot 16 : passLucky2 = passe « Chance +10 % II » (+10, compte dans les bonus payants plafonnés). La Double chance est appliquée par le serveur APRÈS (x2, 70 au plus).
+	function R.upPoints(luckLevel, luckEvent, passLucky, potionActive, serverLuck, passLucky2)
 		local up = Config.UPGRADE.base + luckLevel -- 5 % de base : UNE chance d'amélioration d'un cran (jamais de rétrogradation)
 		if luckEvent then
 			up += Config.UPGRADE.event
@@ -44,6 +45,9 @@ function Rules.new(Config)
 		-- lot 9 (BOOST_CAP) : les bonus PAYANTS (pass Chance, potion, pluie de chance) sont plafonnés ensemble à Config.BOOST_CAP.paidUp points
 		local paid = 0
 		if passLucky then
+			paid += Config.UPGRADE.pass
+		end
+		if passLucky2 then
 			paid += Config.UPGRADE.pass
 		end
 		if potionActive then

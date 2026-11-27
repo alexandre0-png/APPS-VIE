@@ -59,6 +59,7 @@ local K8 = {
 	remote = newRemote("Kiosk"), -- serveur -> client seulement : { panel = "shop" | "calendar" | "odds" | "ranking", ... } (Kiosk.handle) ; aucune demande client par ce remote
 	world = nil, info = nil, -- dossier World (Builder.build) ; info du kiosque construit (centre, prompts, pastille)
 	top = { at = -1e9, season = nil, list = {} }, -- cache du classement du kiosque (30 s : au plus 1 lecture DataStore par fenêtre)
+	Sellers = require(script.Parent:WaitForChild("Sellers")), DecorData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DecorData")), sellers = nil, -- lot 16 : 8 vendeurs PNJ autour du kiosque
 }
 -- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements. UNE seule variable locale (limite de 200) : modules,
 -- remote serveur -> client « Npc » (les demandes du client passent par Action : npcAnswer, npcOff, daily, bagPlace, bonusClaim, weeklyClaim, plumeBuy),
@@ -82,6 +83,14 @@ function K8.build(assets)
 		if wasReady then
 			K8.Kiosk.setBadge(info, true) -- la pastille allumée reste allumée après la reconstruction
 		end
+	end
+	-- lot 16 : 8 vendeurs PNJ (un par catégorie de la boutique), reconstruits avec les modèles Blender arrivés ; repli procédural sinon
+	local okS, _, _, sinfo = pcall(K8.Sellers.build, K8.world, assets and { Config = Config, assets = assets, decor = K8.DecorData }
+		or { Config = Config, decor = K8.DecorData, loadAsset = function()
+			return nil
+		end })
+	if okS and type(sinfo) == "table" then
+		K8.sellers = sinfo
 	end
 end
 
@@ -189,7 +198,7 @@ local leavingSave = {} -- userId -> true tant que la sauvegarde de départ de ce
 local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-plan (voir saveLater)
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
 -- lot 9b : Calendar (règles pures du calendrier de 30 jours) et Cal (fonctions du bloc « Lot 9b » plus bas) logent dans Lot7 : AUCUNE variable locale de plus (limite de 200 atteinte)
-local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0 } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0, L16 = {} } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
 -- Lot 10 : 42 icônes d'interface (Config.ICONS = IDs de DÉCAL). Chargées une fois en arrière-plan (InsertService:LoadAsset sous pcall, une seule tentative par
 -- icône), URL d'image (Decal.Texture) publiée en attribut du dossier ReplicatedStorage.Icons ; échec = attribut absent, le client garde l'emoji de repli.
 task.spawn(function()
@@ -310,7 +319,8 @@ local function income(s)
 end
 
 local function luckPoints(s)
-	return Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil) + L15.Rewards.activeEvents(Config, os.time()).upgradeBonus -- lot 15 : week-end chanceux (+5, gratuit, pour tous)
+	local pts = Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil, passOn(s, "Lucky2")) + L15.Rewards.activeEvents(Config, os.time()).upgradeBonus -- lot 15 : week-end chanceux (+5, gratuit, pour tous) ; lot 16 : Chance +10 % II
+	return Lot7.L16.luckTotal(pts, os.time() < s.data.doubleUntil and s.restricted == false) -- lot 16 : Double chance (x2, 70 points au plus ; produit à hasard : seulement si PolicyService a confirmé)
 end
 
 local function rollPet(s, eggTier, guaranteed)
@@ -488,7 +498,7 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
-		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
+		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 		newbie = s.newbie == true, -- protection débutant active (lot 4)
@@ -500,6 +510,7 @@ local function snapshot(s)
 		srv = Lot7.serverBuffs and Lot7.serverBuffs() or { golden = 0, luck = 0 },
 		pbCount = #d.pb,
 		cal = Lot7.Cal.snapshot and Lot7.Cal.snapshot(s) or nil, -- lot 9b : vue du calendrier (le jour est décidé ICI, jamais par le client)
+		l16 = Lot7.L16.view and Lot7.L16.view(s) or nil, -- lot 16 : achats uniques, saison (résumé), débordement, Double chance, pose, tickets d'arène
 	}
 end
 
@@ -1082,9 +1093,17 @@ function hatch(s, i)
 	d.hatched += 1
 	if d.hatched == 1 then
 		tele.log(s.player, "first_hatch_seconds", d.played)
+		tele.event(s.player, "onboarding", "first_hatch") -- lot 16 (I.2)
+	end
+	if Lot7.L16.hatchQualifies(p.tier) then
+		Lot7.L16.addXp(s, "hatch") -- lot 16 : éclosion Épique ou mieux
 	end
 	if firstOfTier then
 		tele.log(s.player, "tier_first_reached", d.played, "_r" .. p.tier)
+		if Config.TIERS[p.tier] and Config.TIERS[p.tier].name == "Légendaire" then
+			s.l16Legend = os.time() -- lot 16 : première éclosion Légendaire (déclencheur d'offre « Double chance », valable 10 min)
+			Lot7.L16.event(s, "firstLegend")
+		end
 	end
 	tele.log(s.player, "hatch_tier", 1, "_r" .. p.tier)
 	d.baseScore += Config.baseGain(p.tier) -- la base grandit avec chaque pet éclos, d'autant plus que le pet est rare
@@ -1321,6 +1340,20 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	end
 	if CollectionService:HasTag(prompt, "KioskPrompt") then
 		K8.prompt(player, prompt)
+		return
+	end
+	if CollectionService:HasTag(prompt, "SellerPrompt") then
+		-- lot 16 : vendeur PNJ -> ouvre la boutique sur SON onglet. Tout est revalidé par Sellers.handle (liste blanche, distance mesurée ici, pause par joueur).
+		local res = K8.Sellers.handle(player, prompt:GetAttribute("SellerAction"), {
+			Config = Config,
+			inRange = function(p, id)
+				local r = getRoot(p)
+				return r ~= nil and alive(p) and sessions[p] ~= nil and K8.Sellers.inRange(K8.sellers, id, r.Position.X, r.Position.Z)
+			end,
+		})
+		if res.ok then
+			K8.remote:FireClient(player, res.payload)
+		end
 		return
 	end
 	if CollectionService:HasTag(prompt, "CastleEntry") then
@@ -2106,6 +2139,7 @@ function castleFinish(s, root, prompt)
 	s.data.coins += reward.coins
 	local placed = giveEgg(s, reward.eggTier)
 	qp(s, "castle", 1)
+	Lot7.L16.addXp(s, "pve") -- lot 16 : victoire au Château = victoire PvE
 	Data.castleSubmit(s.player, seconds)
 	notify(s.player, "🏆 Château terminé en " .. Castle.formatTime(seconds) .. " (" .. c.deaths .. " défaite(s)) : +" .. Config.fmt(reward.coins) .. " 🪙 et un œuf " .. Config.TIERS[reward.eggTier].name .. (placed and " dans ta base !" or " (base pleine : converti en pièces)."), "claim")
 	sync(s)
@@ -2883,8 +2917,8 @@ function actions.equip(s, i)
 	if at then
 		table.remove(d.equip, at)
 	else
-		if #d.equip >= Config.MAX_FOLLOWERS then
-			return notify(s.player, "Maximum " .. Config.MAX_FOLLOWERS .. " pets qui te suivent.")
+		if #d.equip >= Lot7.L16.followerMax(s) then
+			return notify(s.player, "Maximum " .. Lot7.L16.followerMax(s) .. " pets qui te suivent.")
 		end
 		d.equip[#d.equip + 1] = i
 	end
@@ -2901,6 +2935,7 @@ function actions.claimQuest(s, i)
 	Lot7.Calendar.addQuest(Config, s.data.cal) -- lot 9b : une mission réclamée compte pour le rattrapage « 3 missions » du calendrier
 	L15.plume(s, "quest") -- lot 15 : plumes d'événement (plafond du jour)
 	tele.log(s.player, "daily_quest_completed")
+	Lot7.L16.addXp(s, "daily") -- lot 16 : XP du passe de combat (quête du jour réclamée)
 	s.data.coins += q.rew
 	local extra = ""
 	if (q.re or 0) > 0 and Config.TIERS[q.re] then
@@ -3137,7 +3172,7 @@ do
 			return
 		end
 		local plan = Calendar.plan(Config, day, rng:NextNumber(), income(s))
-		if plan.egg and not L15.Rewards.canStore(Config, d.slots, cap(s), d.eggBag, 1) then -- lot 15 : base OU sac d'œufs
+		if plan.egg and not L15.Rewards.canStore(Lot7.L16.bagCfg(s), d.slots, cap(s), d.eggBag, 1) then -- lot 15 : base OU sac d'œufs
 			notify(s.player, "📅 Ta base et ton sac d'œufs sont pleins : libère une place, un œuf t'attend (rien n'est perdu).")
 			return
 		end
@@ -3314,6 +3349,7 @@ local function battleFinish(s)
 		rewards.total = pv.trophies
 		if win then
 			L15.weekly(s, "pvp", 1) -- lot 15 : quête de la semaine « duels »
+			Lot7.L16.addXp(s, "pvp") -- lot 16 : XP du passe de combat (victoire PvP, validée par le serveur)
 		end
 		pvpPublishAsync(s)
 		RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = 0, pvp = true, foe = bt.pvp.name, view = Battle.view(st) })
@@ -3441,8 +3477,9 @@ function actions.towerStart(s, floor)
 		notify(s.player, "🔒 Étage verrouillé : bats d'abord l'étage " .. (b.best + 1) .. ".", "refuse")
 		return
 	end
-	if b.fights >= TW.dailyFights then
-		notify(s.player, "⚔️ Limite de combats atteinte pour aujourd'hui (" .. TW.dailyFights .. "). Reviens demain !", "refuse")
+	if b.fights >= TW.dailyFights + Lot7.L16.arenaExtra(s) then -- lot 16 : tickets d'arène du jour (combats en plus)
+		notify(s.player, "⚔️ Limite de combats atteinte pour aujourd'hui (" .. (TW.dailyFights + Lot7.L16.arenaExtra(s)) .. "). Reviens demain !", "refuse")
+		Lot7.L16.event(s, "towerQuotaExhausted") -- lot 16 : offre contextuelle « Ticket d'arène » (si elle est permise)
 		return
 	end
 	local mine = battleUnits(s)
@@ -3538,7 +3575,7 @@ do
 		for i = 1, cap(s) do
 			before[i] = not d.slots[i]
 		end
-		local ok, where = Rewards.storeEggs(Config, d.slots, cap(s), d.eggBag, tiers, L15.mkEgg(s))
+		local ok, where = Rewards.storeEggs(Lot7.L16.bagCfg(s), d.slots, cap(s), d.eggBag, tiers, L15.mkEgg(s))
 		if not ok then
 			return nil, where
 		end
@@ -3600,6 +3637,7 @@ do
 		Rewards.bonusEvent(Config, s.data.weekly, today(), s.data.story.ch, L15.questsDone(s) >= 3, { kind = "hatch", tier = tier })
 	end
 	function L15.onPve(s)
+		Lot7.L16.addXp(s, "pve") -- lot 16 : XP du passe de combat (victoire PvE : tour, PNJ, château), décidée par le serveur
 		L15.daySync(s)
 		Rewards.bonusEvent(Config, s.data.weekly, today(), s.data.story.ch, L15.questsDone(s) >= 3, { kind = "pve" })
 		Rewards.weeklyAdd(Config, s.data.weekly, "pve", 1)
@@ -3787,7 +3825,7 @@ do
 					freed = freed + 1
 				end
 			end
-			if o.getEgg and Rewards.freeSlots(d.slots, cap(s)) + freed + (Config.EGG_BAG.size - #d.eggBag) < 1 then
+			if o.getEgg and Rewards.freeSlots(d.slots, cap(s)) + freed + (Lot7.L16.bagCfg(s).EGG_BAG.size - #d.eggBag) < 1 then
 				return said(s, o.npc, MSG.bagFull, false)
 			end
 			local ok, eff = Npc.accept(Config, book, id, uid, now, L15.inv(s), { confirm2 = confirm2 })
@@ -3843,7 +3881,7 @@ do
 		if #mine == 0 then
 			return said(s, o.npc, "Compose d'abord ton équipe de pets (bouton ⚔️ Arène), puis reviens me voir !", false)
 		end
-		if o.kind == "champion" and not Rewards.canStore(Config, d.slots, cap(s), d.eggBag, 1) then
+		if o.kind == "champion" and not Rewards.canStore(Lot7.L16.bagCfg(s), d.slots, cap(s), d.eggBag, 1) then
 			return said(s, o.npc, MSG.bagFull, false)
 		end
 		local ok, acc = Npc.accept(Config, book, id, uid, now, L15.inv(s), {})
@@ -3949,7 +3987,7 @@ do
 		for i = 1, cap(s) do
 			before[i] = not d.slots[i]
 		end
-		local ok, res = Rewards.streakClaim(Config, g, today(), how, ctx)
+		local ok, res = Rewards.streakClaim(Lot7.L16.bagCfg(s), g, today(), how, ctx)
 		s.streakBusy = nil
 		if not ok then
 			if how ~= "product" then
@@ -4029,7 +4067,7 @@ do
 	function actions.bonusClaim(s)
 		L15.daySync(s)
 		local st, before = store(s)
-		local ok, gr = Rewards.bonusClaim(Config, s.data.weekly, today(), s.data.story.ch, st)
+		local ok, gr = Rewards.bonusClaim(Lot7.L16.bagCfg(s), s.data.weekly, today(), s.data.story.ch, st)
 		if not ok then
 			notify(s.player, gr == "claimed" and "⭐ Quête bonus déjà réclamée aujourd'hui." or (gr == "bagFull" and MSG.bagFull or "⭐ Quête bonus pas encore terminée."), "refuse")
 			return
@@ -4045,21 +4083,21 @@ do
 		end
 		L15.daySync(s)
 		local st, before = store(s)
-		local ok, gr = Rewards.weeklyClaim(Config, s.data.weekly, which, st)
+		local ok, gr = Rewards.weeklyClaim(Lot7.L16.bagCfg(s), s.data.weekly, which, st)
 		if not ok then
 			notify(s.player, gr == "claimed" and "📆 Récompense de la semaine déjà réclamée." or (gr == "bagFull" and MSG.bagFull or "📆 Pas encore assez de quêtes de la semaine terminées."), "refuse")
 			return
 		end
 		refreshFilled(s, before)
-		s.data.seasonXp = math.min(1e7, s.data.seasonXp + (gr.seasonXp or 0)) -- XP de saison : mise de côté pour la passe de saison (lot 16)
-		notify(s.player, "📆 Quêtes de la semaine " .. which .. "/7 : " .. eggsText(gr) .. ((gr.seasonXp or 0) > 0 and (" + " .. gr.seasonXp .. " XP de saison") or ""), "claim")
+		local sx = (gr.seasonXp or 0) > 0 and Lot7.L16.addXp(s, "weekly") or nil -- lot 16 : quêtes de la semaine 7/7 -> XP du passe de combat (remplace l'ancien seasonXp)
+		notify(s.player, "📆 Quêtes de la semaine " .. which .. "/7 : " .. eggsText(gr) .. ((sx and sx.gained > 0) and (" + " .. sx.gained .. " XP de passe de combat") or ""), "claim")
 		sync(s)
 		saveSoon(s)
 	end
 	function actions.plumeBuy(s)
 		local ev = L15.daySync(s)
 		local st, before = store(s)
-		local ok, t = Rewards.plumeBuyExclusive(Config, s.data.event, ev ~= nil, st)
+		local ok, t = Rewards.plumeBuyExclusive(Lot7.L16.bagCfg(s), s.data.event, ev ~= nil, st)
 		if not ok then
 			local m = { inactive = "🪶 Aucun événement en cours.", limit = "🪶 Tu as déjà obtenu le maximum d'Œufs Exclusifs de cet événement.", plumes = "🪶 Il te faut " .. Config.PLUMES.exclusiveCost .. " plumes d'événement.",
 				notLive = "🪶 L'Œuf Exclusif arrive bientôt : garde tes plumes pour cet événement.", bagFull = MSG.bagFull }
@@ -4092,7 +4130,7 @@ do
 		local exIdx = Rewards.tierIdx(Config, Config.PLUMES.exclusiveName)
 		return {
 			streak = { state = plan.state, day = plan.day, missed = plan.missed, streak = plan.streak, canQuest = plan.canQuest == true, canProduct = plan.canProduct == true and Config.purchasable(Config.PRODUCTS.StreakRestore), lost = plan.lost, weeks = d.grace.weeks, graceFree = not (d.grace.week == Rewards.weekOf(t) and d.grace.used >= 1) },
-			days = days, bag = #d.eggBag, bagMax = Config.EGG_BAG.size, questsDone = L15.questsDone(s),
+			days = days, bag = #d.eggBag, bagMax = Lot7.L16.bagCfg(s).EGG_BAG.size, questsDone = L15.questsDone(s),
 			bonus = { text = q.text, prog = math.min(bq.prog, q.goal), goal = q.goal, egg = q.egg, unlocked = L15.questsDone(s) >= 3, claimed = bq.claimed == true },
 			weekly = { themes = themes, done = Rewards.weeklyDone(Config, d.weekly), c5 = d.weekly.c5, c7 = d.weekly.c7 },
 			ev = { weekend = act.weekend, golden = act.golden, limited = act.limited and act.limited.name or nil, plumes = d.event.p, got = d.event.x, cost = Config.PLUMES.exclusiveCost, max = Config.PLUMES.maxExclusivePerEvent, exclusiveLive = exIdx ~= nil and Config.tierLive(exIdx) },
@@ -4935,6 +4973,527 @@ do
 	end }
 end
 
+---------------------------------------------------------------- Lot 16 : boutique en 8 catégories, passe de combat, offres contextuelles, vendeurs, télémétrie
+-- Tout vit dans Lot7.L16 (AUCUNE variable locale de plus au niveau du script : limite de 200). Le client n'envoie que des clés ou des numéros (shopBuy, shopEv,
+-- seasonView, seasonClaim, seasonAck, overflowTake, emoteSet, offerClose) ; le serveur revalide tout : Shop.canBuy AVANT l'invite d'achat (rien n'est débité
+-- si l'achat est refusé : base et sac pleins, possédé, PolicyService, rareté sans espèce), ProcessReceipt livre UNE fois par reçu (L16.grant), la saison
+-- ne crédite que ce que Season décide (aucune valeur venue du client). Aucun produit ne touche Battle.STATS, slot.x, les boucliers ou les trophées.
+do
+	local L16 = Lot7.L16
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	local Shop = require(Shared:WaitForChild("Shop"))
+	local SD = require(Shared:WaitForChild("SeasonData"))
+	local S = require(Shared:WaitForChild("Season")).new(Config, SD)
+	local Offers = require(Shared:WaitForChild("Offers"))
+	local OffersData = require(Shared:WaitForChild("OffersData"))
+	local LC = Config.LOT16
+	L16.Shop, L16.Season = Shop, S
+	local offerState = {} -- [Player] = état des offres de la session (jamais enregistré, libéré au départ)
+	local gaps = {} -- [Player] = { [clé] = os.clock() } : pauses anti-rafale des demandes (libérées au départ)
+	local bagPlus = setmetatable({ EGG_BAG = { size = Config.EGG_BAG.sizePlus } }, { __index = Config })
+
+	-- Config vue par les règles du sac d'œufs : 20 places avec le passe EggBagPlus, 10 sinon.
+	function L16.bagCfg(s)
+		return (s and s.passes and s.passes.EggBagPlus == true) and bagPlus or Config
+	end
+	function L16.followerMax(s)
+		return s.passes.Collector == true and Config.MAX_FOLLOWERS_COLLECTOR or Config.MAX_FOLLOWERS
+	end
+	-- Points de chance : Double chance = x2 puis 70 au plus ; sans elle, 70 au plus (= Rules.MAX_UP).
+	function L16.luckTotal(points, doubled)
+		return Shop.luckTotal(points, doubled)
+	end
+	function L16.hatchQualifies(tier)
+		return S.hatchQualifies(tier)
+	end
+	-- Tickets d'arène du jour UTC en cours (combats de tour récompensés en plus).
+	function L16.arenaExtra(s)
+		local a = s.data.arenaTk
+		return (type(a) == "table" and a.day == os.time() // 86400) and a.n or 0
+	end
+	local function gap(s, key, sec)
+		local g = gaps[s.player]
+		if not g then
+			g = {}
+			gaps[s.player] = g
+		end
+		local now = os.clock()
+		if g[key] and now - g[key] < sec and now >= g[key] then
+			return false
+		end
+		g[key] = now
+		return true
+	end
+	local function restrictedFlag(s)
+		return not (s.restricted == false) -- Shop / Offers : nil ou true = restreint (repli prudent), false = autorisé
+	end
+	local function ownedPasses(s)
+		local out = {}
+		for name in pairs(Config.PASSES) do
+			out[name] = s.passes[name] == true or s.ownedRandom[name] == true
+		end
+		return out
+	end
+	-- Profil vu par Shop (forme du module pur) : base, sac, passes possédés, achats uniques, saison en cours.
+	function L16.shopProfile(s)
+		local d = s.data
+		local se, cur = S.migrate(d, os.time())
+		local once = {}
+		for k, v in pairs(d.once) do
+			once[k] = v
+		end
+		return { cap = cap(s), slots = d.slots, eggBag = d.eggBag, passes = ownedPasses(s), once = once, season = { cur = cur.n, premium = se.premium, plus = se.plus } }
+	end
+
+	---------------------------------------------------------------- Rangement des œufs : base, puis sac, puis coffre de débordement (jamais de perte)
+	function L16.storeEgg(s, tier)
+		local where = L15.storeEggs(s, { tier })
+		if where then
+			return where[1]
+		end
+		Shop.overflowAdd(s.data, tier, 1)
+		return "overflow"
+	end
+	function actions.overflowTake(s)
+		if not gap(s, "ovf", 0.3) then
+			return
+		end
+		local d = s.data
+		for t = #Config.TIERS, 1, -1 do
+			local k = tostring(t)
+			local n = d.overflow[k]
+			if type(n) == "number" and n > 0 then
+				local where = L15.storeEggs(s, { t })
+				if not where then
+					return notify(s.player, Shop.MSG_ROOM, "refuse")
+				end
+				d.overflow[k] = n > 1 and n - 1 or nil
+				notify(s.player, "📦 Œuf " .. Config.TIERS[t].name .. " sorti du coffre de débordement (" .. (where[1] == "slot" and "dans ta base" or "dans ton sac") .. ").", "claim")
+				sync(s)
+				return
+			end
+		end
+	end
+
+	---------------------------------------------------------------- Passe de combat (Season.lua décide de tout)
+	local function coinsFor(s, minutes)
+		return math.floor(math.max(Config.COIN_PACK_MIN * minutes / Config.COIN_PACK_MINUTES, income(s) * minutes * 60))
+	end
+	-- Applique les grants de Season (paliers réclamés, premium crédité). Retourne un texte court.
+	function L16.applyGrants(s, grants)
+		local d, bits = s.data, {}
+		for _, g in ipairs(grants or {}) do
+			if g.kind == "coins" and type(g.minutes) == "number" then
+				local c = coinsFor(s, g.minutes)
+				d.coins += c
+				bits[#bits + 1] = "🪙 " .. Config.fmt(c)
+			elseif g.kind == "egg" and type(g.tier) == "number" and Config.TIERS[g.tier] then
+				for _ = 1, math.max(1, math.floor(g.n or 1)) do
+					L16.storeEgg(s, g.tier)
+				end
+				bits[#bits + 1] = "🥚 " .. (g.n or 1) .. " x Œuf " .. Config.TIERS[g.tier].name
+			elseif g.kind == "token" and type(g.n) == "number" then
+				d.fightTokens = math.min(Config.CALENDAR.caps.tokens, d.fightTokens + g.n)
+				bits[#bits + 1] = "⚔️ " .. g.n .. " jeton(s) de combat"
+			elseif g.kind == "scroll" and type(g.n) == "number" then
+				d.scrolls = math.min(Config.CALENDAR.caps.scrolls, d.scrolls + g.n)
+				bits[#bits + 1] = "📜 " .. g.n .. " parchemin(s)"
+			elseif (g.kind == "cosmetic" or g.kind == "aura") and type(g.id) == "string" then
+				d.cosm[g.id] = true
+				bits[#bits + 1] = "🎀 " .. tostring(g.label or g.id)
+			elseif g.kind == "species" and type(g.name) == "string" then
+				-- espèce Exclusif FIXE de la saison : posée comme pet si une place est libre, sinon un œuf de sa rareté (débordement : jamais perdu)
+				local idx
+				for i, p in ipairs(Config.PETS) do
+					if p.name == g.name then
+						idx = i
+					end
+				end
+				local slot = freeSlot(s)
+				if idx and slot then
+					d.slots[slot] = { k = "p", p = idx, s = 1, m = 1 }
+					local key = tostring(idx)
+					d.dex[key] = d.dex[key] or { n = 0, b = 0 }
+					d.dex[key].n += 1
+					d.dex[key].b = math.max(d.dex[key].b, 1)
+					refreshPad(s, slot)
+				else
+					L16.storeEgg(s, g.tier)
+				end
+				bits[#bits + 1] = "✨ " .. g.name
+			end
+		end
+		return table.concat(bits, ", ")
+	end
+	function L16.addXp(s, source)
+		local r = S.addXp(s.data, source, os.time())
+		if source == "pve" or source == "pvp" or source == "duel" then
+			L16.victory(s)
+		end
+		if r.ok and #r.tiersUp > 0 and r.tier > 0 then
+			notify(s.player, "🏅 Passe de combat : palier " .. r.tier .. " atteint ! Récompense à réclamer (Boutique › Passe de combat).", "claim")
+			tele.event(s.player, "progression", "season", r.tier)
+		end
+		return r
+	end
+	function L16.seasonPush(s)
+		local now = os.time()
+		K8.remote:FireClient(s.player, { panel = "season", view = S.view(s.data, now), recap = S.recap(s.data, now), startsAt = Config.SEASON.start })
+	end
+	function actions.seasonView(s)
+		if gap(s, "sview", 0.5) then
+			L16.seasonPush(s)
+		end
+	end
+	local CLAIM_MSG = { bad = "Palier inconnu.", locked = "🔒 Palier pas encore atteint.", premium = "🏅 Piste premium : il faut le passe premium de cette saison.", already = "✅ Déjà réclamé.",
+		none = "Rien à réclamer sur ce palier.", expired = "⌛ La saison précédente est close : ces récompenses sont perdues.", noseason = "🏅 Le passe de combat n'a pas encore commencé." }
+	function actions.seasonClaim(s, arg)
+		if type(arg) ~= "table" or not gap(s, "sclaim", 0.25) then
+			return
+		end
+		local which = arg.prev == true and "prev" or nil
+		local now = os.time()
+		local grants, label
+		if arg.all == true then
+			local r = S.claimAll(s.data, now, which)
+			if r.claimed == 0 then
+				return notify(s.player, "Rien à réclamer pour l'instant.", "refuse")
+			end
+			grants, label = r.grants, r.claimed .. " récompense(s)"
+		else
+			local r = S.claim(s.data, arg.tier, arg.track, now, which)
+			if not r.ok then
+				return notify(s.player, CLAIM_MSG[r.reason] or CLAIM_MSG.bad, "refuse")
+			end
+			grants, label = r.grants, "palier " .. r.tier
+		end
+		notify(s.player, "🏅 Passe de combat (" .. label .. ") : " .. L16.applyGrants(s, grants), "claim")
+		sync(s)
+		L16.seasonPush(s)
+	end
+	function actions.seasonAck(s)
+		if gap(s, "sack", 0.5) then
+			S.ackRecap(s.data, os.time())
+			L16.seasonPush(s)
+		end
+	end
+
+	---------------------------------------------------------------- Poses de victoire (cosmétiques, achat unique)
+	function actions.emoteSet(s, n)
+		if type(n) ~= "number" or n ~= n or n % 1 ~= 0 or n < 0 or n > #LC.emotes then
+			return
+		end
+		if n > 0 and s.data.once["EmoteVictory" .. n] ~= true then
+			return notify(s.player, "🎭 Cette pose n'est pas à toi.", "refuse")
+		end
+		s.data.emote = n
+		sync(s)
+	end
+	function L16.victory(s)
+		local n = s.data.emote
+		if type(n) == "number" and n > 0 and s.data.once["EmoteVictory" .. n] == true then
+			s.player:SetAttribute("VictoryPose", n)
+			s.player:SetAttribute("VictoryAt", os.clock()) -- le client joue la pose (effet visuel seulement)
+		end
+		if not s.l16Win and (s.data.played or 0) < 7200 then
+			s.l16Win = true
+			tele.event(s.player, "onboarding", "first_battle_win")
+		end
+	end
+
+	---------------------------------------------------------------- Boutique : contrôles AVANT l'invite d'achat (rien n'est débité en cas de refus)
+	local WHY = {
+		unknown = "🛒 Cet achat n'existe pas.", noId = Config.UNAVAILABLE_MESSAGE, policy = "🛒 Cette offre n'est pas disponible pour ton compte.",
+		notLive = "🥚 Cet œuf n'est pas encore disponible.", owned = "✅ Tu possèdes déjà cet achat.", needPremium = "🏅 Il faut d'abord le passe de combat premium de la saison.",
+		hasPremium = "🏅 Tu as déjà le passe premium : prends la version « suite » ou « sans passe ».", faisDeLaPlace = Shop.MSG_ROOM .. " Rien n'est débité.",
+		noseason = "🏅 Le passe de combat n'a pas encore commencé (1er décembre 2026, UTC).",
+	}
+	-- Limites de RÉSERVE du moteur (pas des plafonds d'achat) : jetons de corbeau, rattrapages du calendrier ; série à sauver ; relance seulement après une défaite.
+	local function engineBlock(s, key)
+		local d = s.data
+		local pack = Config.REMOTE_STEAL.packs[key]
+		if pack and d.tokens.remoteSteal + pack > Config.REMOTE_STEAL.tokenMax then
+			return "🐦‍⬛ Tu as déjà " .. d.tokens.remoteSteal .. " jeton(s) de corbeau (" .. Config.REMOTE_STEAL.tokenMax .. " en réserve au plus) : utilise-en d'abord. Rien n'est débité."
+		end
+		if key == "CalendarCatchup" and (tonumber(d.cal.catch) or 0) >= Config.CALENDAR.catchupMax then
+			return "📅 Tu as déjà " .. Config.CALENDAR.catchupMax .. " rattrapages en réserve : utilises-en d'abord. Rien n'est débité."
+		end
+		if key == "StreakRestore" then
+			local plan = L15.Rewards.streakPlan(Config, { daily = d.daily, streak = d.streak, grace = d.grace }, os.time() // 86400, { questsDone = L15.questsDone(s) })
+			if plan.state ~= "rescue" then
+				return "🔥 Ta série n'est pas en danger : rien à sauver. Rien n'est débité."
+			end
+		end
+		if key == "Revive" and not (s.revive and s.castle and not s.castle.finished) then
+			return "💫 La relance se propose juste après une défaite au Château."
+		end
+		return nil
+	end
+	function L16.canBuy(s, key)
+		local ok, why = Shop.canBuy(L16.shopProfile(s), L16.bagCfg(s), key, restrictedFlag(s))
+		if not ok then
+			return false, WHY[why] or WHY.unknown
+		end
+		local block = engineBlock(s, key)
+		if block then
+			return false, block
+		end
+		return true
+	end
+	function actions.shopBuy(s, key)
+		if type(key) ~= "string" or #key > 40 or not gap(s, "buy", 1) then
+			return
+		end
+		local isPass = type(Config.PASSES[key]) == "table" and Config.PASSES[key].cat ~= nil
+		local def = isPass and Config.PASSES[key] or Config.PRODUCTS[key]
+		if type(def) ~= "table" or def.cat == nil then
+			return
+		end
+		local ok, msg = L16.canBuy(s, key)
+		if not ok then
+			return notify(s.player, msg, "refuse")
+		end
+		tele.event(s.player, "funnel", "prompt", s.funnel)
+		local player = s.player
+		pcall(function()
+			if isPass then
+				MarketplaceService:PromptGamePassPurchase(player, def.id)
+			else
+				MarketplaceService:PromptProductPurchase(player, def.id)
+			end
+		end)
+	end
+	-- Mesure de l'entonnoir d'achat (vue de la boutique, ouverture d'une fiche) : aucune donnée personnelle, pause par joueur.
+	function actions.shopEv(s, arg)
+		if type(arg) ~= "table" or not gap(s, "shopEv", 0.5) then
+			return
+		end
+		if arg.k == "view" then
+			s.funnel = "f" .. (os.time() % 1000000) .. "_" .. rng:NextInteger(1, 999999)
+			tele.event(s.player, "funnel", "shop_view", s.funnel)
+			if not s.l16Shop and s.data.hatched < 30 then
+				s.l16Shop = true
+				tele.event(s.player, "onboarding", "first_shop_view")
+			end
+		elseif arg.k == "card" and type(arg.key) == "string" and (Config.PRODUCTS[arg.key] or Config.PASSES[arg.key]) then
+			tele.event(s.player, "funnel", "card_open", s.funnel)
+		end
+	end
+
+	---------------------------------------------------------------- Livraison d'un reçu (appelée par ProcessReceipt, PolicyService déjà vérifié, reçu non encore traité)
+	-- Retourne true (livré), false + message (NotProcessedYet : RIEN n'a été modifié, Roblox rejouera), ou nil (produit livré par l'ancien code).
+	local SEASON_KIND = { SeasonPremium = "premium", SeasonPremiumPlus = "premiumPlus", SeasonUpgradePlus = "upgradePlus" }
+	local L16_KEYS = { StarterPack = true, CoinPack = true, CoinPackS = true, LuckPotion = true, LuckPotionMini = true, DoubleLuck = true, ArenaTickets = true, BundleLegend = true, BundleRoyal = true, BundleRoyalNoPass = true }
+	function L16.grant(s, name, def)
+		local d, now = s.data, os.time()
+		if not (L16_KEYS[name] or SEASON_KIND[name] or type(def.eggTier) == "number" or (def.once == true and def.cat == "cosmetics")) then
+			return nil
+		end
+		local eggs = Shop.eggsOf(name)
+		for _, e in ipairs(eggs) do
+			if not Config.tierLive(e.tier) then
+				return false, "🥚 Cet œuf n'est pas encore disponible : ton achat sera livré plus tard (rien n'est perdu)."
+			end
+		end
+		local withPremium = SEASON_KIND[name] ~= nil or name == "BundleRoyal" or name == "BundleRoyalNoPass"
+		if withPremium and S.currentSeason(now).n == 0 then
+			return false, "🏅 Le passe de combat n'a pas encore commencé : ton achat sera livré à son ouverture (rien n'est perdu)."
+		end
+		local bits, comp = {}, 0
+		if def.once == true and d.once[name] == true then
+			comp = def.robux -- achat unique déjà fait (course entre deux invites) : compensé en pièces, jamais un second octroi
+		else
+			for _, e in ipairs(eggs) do
+				for _ = 1, e.n do
+					L16.storeEgg(s, e.tier)
+				end
+				bits[#bits + 1] = (e.n > 1 and (e.n .. " x ") or "") .. "🥚 Œuf " .. Config.TIERS[e.tier].name
+			end
+			if SEASON_KIND[name] then
+				local r = S.buyPremium(d, SEASON_KIND[name], now)
+				if not r.ok and r.reason == "needPremium" then
+					r = S.buyPremium(d, "premiumPlus", now) -- complément payé sans premium (course) : premium + 10 paliers, l'équivalent plein
+				end
+				if r.ok then
+					bits[#bits + 1] = "🏅 " .. def.name .. (r.credited > 0 and (" (" .. r.credited .. " palier(s) crédité(s) : " .. L16.applyGrants(s, r.grants) .. ")") or "")
+				else
+					comp = def.robux -- déjà possédé cette saison (course) : compensé en pièces
+				end
+			elseif name == "BundleRoyal" or name == "BundleRoyalNoPass" then
+				local r = S.buyPremium(d, "premium", now) -- « sans passe » payé sans premium (course) : le premium est donné aussi (décision : équivalent plein)
+				if r.ok then
+					bits[#bits + 1] = "🏅 Passe de combat premium" .. (r.credited > 0 and (" (" .. L16.applyGrants(s, r.grants) .. ")") or "")
+				elseif name == "BundleRoyal" then
+					comp = Config.PRODUCTS.SeasonPremium.robux -- premium déjà possédé : la part « passe » est compensée en pièces
+				end
+			end
+			if name == "StarterPack" then
+				d.coins += Config.STARTER_PACK.coins
+				d.luckUntil = math.max(now, d.luckUntil) + Config.LUCK_POTION_SECONDS
+				bits[#bits + 1] = "🪙 " .. Config.fmt(Config.STARTER_PACK.coins) .. " et une potion de chance"
+			elseif name == "CoinPack" or name == "CoinPackS" then
+				local c = name == "CoinPack" and math.max(Config.COIN_PACK_MIN, income(s) * Config.COIN_PACK_MINUTES * 60) or math.max(LC.coinPackS.min, income(s) * LC.coinPackS.minutes * 60)
+				d.coins += math.floor(c)
+				bits[#bits + 1] = "🪙 " .. Config.fmt(c)
+			elseif name == "LuckPotion" or name == "LuckPotionMini" then
+				d.luckUntil = math.max(now, d.luckUntil) + (name == "LuckPotion" and Config.LUCK_POTION_SECONDS or LC.luckMiniSeconds)
+				bits[#bits + 1] = "🧪 " .. def.name
+			elseif name == "DoubleLuck" or name == "BundleLegend" then
+				d.doubleUntil = math.max(now, d.doubleUntil) + (name == "DoubleLuck" and LC.doubleSeconds or LC.legendDoubleSeconds) -- durées cumulables, puissance plafonnée à 70
+				bits[#bits + 1] = "🍀 Double chance"
+			elseif name == "ArenaTickets" then
+				local today = now // 86400
+				local a = d.arenaTk
+				d.arenaTk = { day = today, n = (a.day == today and a.n or 0) + LC.arenaTickets }
+				bits[#bits + 1] = "🎫 +" .. LC.arenaTickets .. " combats de tour aujourd'hui"
+			end
+			if def.once == true then
+				d.once[name] = true
+				if name == "StarterPack" then
+					d.starter = true
+				end
+				if def.cat == "cosmetics" then
+					local n = tonumber(name:match("(%d+)$"))
+					if n and d.emote == 0 then
+						d.emote = n -- première pose achetée : choisie d'office (modifiable dans le menu)
+					end
+					bits[#bits + 1] = "🎭 " .. def.name
+				end
+			end
+		end
+		if comp > 0 then
+			local coins = math.floor(math.max(Config.COIN_PACK_MIN, income(s) * Config.timeRobux(comp)))
+			d.coins += coins
+			bits[#bits + 1] = "🪙 " .. Config.fmt(coins) .. " (déjà possédé : compensé en pièces)"
+		end
+		notify(s.player, "🛒 " .. def.name .. " : " .. table.concat(bits, " · "), "buy")
+		return true
+	end
+
+	---------------------------------------------------------------- Offres contextuelles (Offers.lua : 3 par session, 300 s d'écart, jamais en action, jamais après un achat)
+	local function offerProfile(s)
+		local d = s.data
+		local owned = {}
+		for k, v in pairs(d.once) do
+			owned[k] = v
+		end
+		local best = 0
+		for k in pairs(d.dex) do
+			local p = Config.PETS[tonumber(k) or 0]
+			if p and p.tier > best then
+				best = p.tier
+			end
+		end
+		return { owned = owned, passes = ownedPasses(s), dayNumber = math.max(1, os.time() // 86400 - (d.firstSeen > 0 and d.firstSeen or os.time() // 86400) + 1), bestTier = best, hatchedTotal = d.hatched }
+	end
+	local function offerCtx(s, flags)
+		local d = s.data
+		local now = os.time()
+		local baseFull = freeSlot(s) == nil
+		local bagFull = #d.eggBag >= L16.bagCfg(s).EGG_BAG.size
+		local plan = L15.Rewards.streakPlan(Config, { daily = d.daily, streak = d.streak, grace = d.grace }, now // 86400, { questsDone = L15.questsDone(s) })
+		local b = d.battle
+		local ctx = {
+			Config = Config, data = OffersData, restricted = restrictedFlag(s),
+			baseFull = baseFull, bagFull = bagFull, streakAtRisk = plan.state == "rescue",
+			firstLegend = s.l16Legend ~= nil and now - s.l16Legend < 600,
+			towerQuotaExhausted = b.day == now // 86400 and b.fights >= Config.TOWER.dailyFights + L16.arenaExtra(s),
+			inCombat = s.battle ~= nil or s.pvpPending == true, carrying = #s.carry > 0, castleTimer = s.castle ~= nil, flying = s.flying == true,
+			calm = s.battle == nil and s.castle == nil and #s.carry == 0 and os.clock() - (s.lastSteal or 0) > 60,
+		}
+		for k, v in pairs(flags or {}) do
+			ctx[k] = v
+		end
+		return ctx
+	end
+	function L16.tryOffer(s, flags)
+		local st = offerState[s.player]
+		if not st or s.leaving then
+			return
+		end
+		local now = os.time()
+		if st.current then
+			if Offers.expired(st, now, offerCtx(s)) then
+				st.current = nil
+			else
+				return
+			end
+		end
+		local ok, o = pcall(Offers.pick, st, offerProfile(s), now, offerCtx(s, flags))
+		if ok and o then
+			Offers.onShown(st, o, now)
+			K8.remote:FireClient(s.player, { panel = "offer", offer = o })
+		end
+	end
+	function L16.event(s, flag)
+		L16.tryOffer(s, { [flag] = true })
+	end
+	function actions.offerClose(s)
+		local st = offerState[s.player]
+		if st and gap(s, "offerClose", 0.3) then
+			Offers.onClosed(st, os.time())
+		end
+	end
+	function L16.bought(s, key)
+		local st = offerState[s.player]
+		if st then
+			Offers.onBought(st, key, os.time()) -- aucune offre pendant 600 s après TOUT achat (pas de relance incitative)
+		end
+	end
+	task.spawn(function() -- moments calmes et drapeaux durables (série en danger, base pleine, quota de tour) : un essai toutes les 20 s par joueur
+		while true do
+			task.wait(20)
+			for _, ss in pairs(sessions) do
+				pcall(L16.tryOffer, ss, nil)
+			end
+		end
+	end)
+
+	---------------------------------------------------------------- Arrivée / départ / vue
+	function L16.join(s)
+		local now = os.time()
+		offerState[s.player] = Offers.newState(now)
+		S.migrate(s.data, now)
+		tele.event(s.player, "version", Config.BUILD)
+		if s.data.hatched == 0 then
+			tele.event(s.player, "onboarding", "join")
+		end
+		local rc = S.recap(s.data, now)
+		if rc and not rc.expired then
+			task.delay(10, function()
+				if sessions[s.player] == s then
+					notify(s.player, "🏅 La saison " .. rc.n .. " du passe de combat est terminée (palier " .. rc.tier .. ") : " .. (rc.unclaimedFree + rc.unclaimedPremium) .. " récompense(s) à réclamer encore " .. rc.graceDaysLeft .. " jour(s).", "claim")
+				end
+			end)
+		end
+	end
+	function L16.leave(s)
+		offerState[s.player] = nil
+		gaps[s.player] = nil
+	end
+	local function hasBit(mask, t)
+		return math.floor((tonumber(mask) or 0) / 2 ^ (t - 1)) % 2 == 1
+	end
+	function L16.view(s)
+		local d, now = s.data, os.time()
+		local se, cur = S.migrate(d, now)
+		local tier = S.tierOf(se.xp)
+		local claimable = false
+		if cur.n > 0 then
+			for t = 1, tier do
+				if (SD.FREE[t] and not hasBit(se.claimedFree, t)) or (se.premium == se.n and SD.PREMIUM_TRACK[t] and not hasBit(se.claimedPrem, t)) then
+					claimable = true
+				end
+			end
+		end
+		return {
+			once = d.once, overflow = Shop.overflowCount(d), bagMax = L16.bagCfg(s).EGG_BAG.size, emote = d.emote, followerMax = L16.followerMax(s),
+			doubleLeft = math.max(0, d.doubleUntil - now), arenaLeft = L16.arenaExtra(s), owned = ownedPasses(s),
+			season = { cur = cur.n, premium = se.premium, plus = se.plus, tier = tier, xp = se.xp, daysLeft = cur.daysLeft or 0, startsAt = Config.SEASON.start, claimable = claimable, prev = se.prev ~= nil and not se.prev.seen },
+		}
+	end
+end
+
 ---------------------------------------------------------------- Game Passes
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
 	local s = sessions[player]
@@ -4960,6 +5519,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 	if passId == Config.PASSES.ExtraSlots.id and s.plot then
 		refreshLocks(s) -- +4 emplacements : cadenas levés sans recréer les pads occupés
 	end
+	Lot7.L16.bought(s, "pass") -- lot 16 : aucune offre à l'écran juste après un achat
 	sync(s)
 end)
 
@@ -4996,35 +5556,21 @@ MarketplaceService.ProcessReceipt = function(info)
 			if s.pendingReceipts[rid] or s.data.receipts[rid] then
 				return Enum.ProductPurchaseDecision.NotProcessedYet -- reçu livré pendant l'attente (appel concurrent du même reçu) : le deuxième appel ne livre rien
 			end
-			local l7ok, l7msg = Lot7.grant(s, name)
-			if l7ok == false then
+			local l16ok, l16msg = Lot7.L16.grant(s, name, def) -- lot 16 : œufs (base, sac, débordement), packs, saison, chance, pièces, tickets, poses
+			local l7ok, l7msg
+			if l16ok == nil then
+				l7ok, l7msg = Lot7.grant(s, name)
+			end
+			if l16ok == false then
+				notify(player, l16msg)
+				return Enum.ProductPurchaseDecision.NotProcessedYet
+			elseif l16ok == true then
+				-- livré par le lot 16 ; le reçu est enregistré plus bas
+			elseif l7ok == false then
 				notify(player, l7msg)
 				return Enum.ProductPurchaseDecision.NotProcessedYet
 			elseif l7ok == true then
 				-- livré par le lot 7 (jetons, tapis doré, pluie de chance) ; le reçu est enregistré plus bas
-			elseif name == "StarterPack" then
-				if s.data.starter then
-					return Enum.ProductPurchaseDecision.NotProcessedYet -- achat unique : déjà fait, rien n'est livré
-				end
-				s.data.starter = true
-				s.data.coins += Config.STARTER_PACK.coins
-				for _ = 1, Config.STARTER_PACK.eggs do
-					giveEgg(s, Config.STARTER_PACK.eggTier)
-				end
-				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
-			elseif type(def.eggTier) == "number" then
-				-- œufs de rareté FIXE (Mythique, et lot 9 : Secret, Exclusif, Divin) : refus SANS effet si la rareté n'a aucune espèce publiée
-				-- (offre masquée, Config.offerVisible) ou si la base est pleine ; Roblox rappellera ProcessReceipt (rien n'est débité tant que non traité)
-				if not Config.tierLive(def.eggTier) then
-					notify(player, "🥚 Cet œuf n'est pas encore disponible : ton achat sera livré plus tard.")
-					return Enum.ProductPurchaseDecision.NotProcessedYet
-				end
-				if not freeSlot(s) then
-					notify(player, "Base pleine : libère une place, ton achat sera livré automatiquement.")
-					return Enum.ProductPurchaseDecision.NotProcessedYet
-				end
-				giveEgg(s, def.eggTier)
-				notify(player, "🥚 " .. def.name .. " placé dans ta base !", "claim")
 			elseif name == "CalendarCatchup" then
 				-- lot 9b : un jeton de rattrapage du calendrier (plafond Config.CALENDAR.catchupMax : au-delà, rien n'est débité, le reçu sera rejoué)
 				if not Lot7.Calendar.addCatch(Config, s.data.cal) then
@@ -5033,7 +5579,7 @@ MarketplaceService.ProcessReceipt = function(info)
 				end
 				notify(player, "📅 +1 rattrapage du calendrier (" .. s.data.cal.catch .. "/" .. Config.CALENDAR.catchupMax .. ").", "buy")
 			elseif name == "StreakRestore" then
-				-- lot 15 : sauvetage payant de la série (1 fois par semaine UTC), seulement si la série est réellement à sauver ; sinon rien n'est livré (rejoué plus tard)
+				-- lot 15 : sauvetage payant de la série (lot 16 : sans plafond d'achat), seulement si la série est réellement à sauver (vérifié aussi AVANT l'invite) ; sinon rien n'est livré (rejoué plus tard)
 				local okS, why = L15.streakClaim(s, "product")
 				if not okS then
 					notify(player, why == "bagFull" and "🔥 Base et sac d'œufs pleins : libère une place, ton achat sera livré automatiquement." or "🔥 Ta série n'a pas besoin d'être sauvée : ton achat n'est pas livré (rien n'est perdu).")
@@ -5062,13 +5608,11 @@ MarketplaceService.ProcessReceipt = function(info)
 					s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
 					notify(player, "💫 L'offre de relance avait expiré : une potion de chance t'est offerte à la place.", "claim")
 				end
-			elseif name == "LuckPotion" then
-				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
-			elseif name == "CoinPack" then
-				s.data.coins += math.max(Config.COIN_PACK_MIN, income(s) * Config.COIN_PACK_MINUTES * 60)
 			end
 			granted = true
 			tele.log(player, "purchase_tier", def.robux, "_p" .. tele.priceTier(def.robux))
+			tele.event(player, "funnel", "receipt", s.funnel) -- lot 16 (I.2) : entonnoir d'achat
+			Lot7.L16.bought(s, name) -- lot 16 : aucune offre à l'écran juste après un achat
 		end
 	end
 	if not granted then
@@ -5240,6 +5784,7 @@ local function onJoin(player)
 
 	Lot7.restoreBuffs(s) -- tapis doré / pluie de chance offerts par ce joueur sur un serveur fermé depuis : le temps restant est rendu une fois
 	Lot7.fetchPolicy(s) -- offres à hasard : masquées et refusées tant que PolicyService n'a pas confirmé qu'elles sont permises
+	Lot7.L16.join(s) -- lot 16 : passe de combat (saison à jour, récapitulatif), offres contextuelles, version publiée (télémétrie)
 	s.baseLevel = levelOf(s) -- le revenu (gains hors ligne compris) dépend du niveau de maison ; la base est construite plus bas par applyBase
 	-- gains hors-ligne (les œufs éclosent seuls grâce aux horodatages)
 	local away = math.clamp(os.time() - d.last, 0, Config.IDLE.offlineMaxSeconds)
@@ -5360,6 +5905,8 @@ Players.PlayerRemoving:Connect(function(player)
 		end
 	end
 	K8.Kiosk.forget(player) -- lot 8B : pause du kiosque (table à clés faibles : facultatif)
+	K8.Sellers.forget(player) -- lot 16 : pause des vendeurs
+	Lot7.L16.leave(s) -- lot 16 : état des offres et des pauses du joueur libéré (aucune fuite)
 	L15.books[player] = nil -- lot 15 : carnet d'offres libéré (pas de fuite mémoire) ; les compteurs du profil restent (aucune rencontre relancée en se reconnectant)
 	tele.log(player, "session_length", os.clock() - (s.joinClock or os.clock()))
 	tele.flush(player)

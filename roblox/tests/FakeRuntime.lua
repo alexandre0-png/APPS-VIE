@@ -613,6 +613,14 @@ function Fake.runtime(opts)
 	rawget(services.MarketplaceService, "__props").UserOwnsGamePassAsync = function(_, uid, id)
 		return RT.ownedPasses ~= nil and RT.ownedPasses[id] == true
 	end
+	-- lot 16 : invites d'achat lancées par le SERVEUR (après Shop.canBuy) : enregistrées dans RT.prompts = { { kind, userId, id } }
+	RT.prompts = {}
+	rawget(services.MarketplaceService, "__props").PromptProductPurchase = function(_, player, id)
+		RT.prompts[#RT.prompts + 1] = { kind = "product", userId = player and player.UserId, id = id }
+	end
+	rawget(services.MarketplaceService, "__props").PromptGamePassPurchase = function(_, player, id)
+		RT.prompts[#RT.prompts + 1] = { kind = "pass", userId = player and player.UserId, id = id }
+	end
 	-- PolicyService (lot 7) : RT.policy = { ArePaidRandomItemsRestricted = bool } ; RT.policyFail = message d'erreur ; RT.policyDelay = secondes d'attente
 	service("PolicyService")
 	rawget(services.PolicyService, "__props").GetPolicyInfoForPlayerAsync = function()

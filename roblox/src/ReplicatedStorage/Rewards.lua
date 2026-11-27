@@ -279,7 +279,7 @@ function Rewards.streakPlan(Config, g, today, ctx)
 		plan.day = (streak % #S.days) + 1
 		local done = (type(ctx) == "table" and isnum(ctx.questsDone)) and ctx.questsDone or 0
 		plan.canQuest = done >= S.restoreQuests
-		plan.canProduct = g.grace.rweek ~= Rewards.weekOf(today)
+		plan.canProduct = true -- lot 16 (décision utilisateur : plus de plafond d'achat) : le sauvetage payant n'est plus limité à 1 par semaine ; rweek reste noté (mesure)
 		plan.lost = streak
 	else
 		plan.state = "reset"

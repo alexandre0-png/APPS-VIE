@@ -31,9 +31,7 @@ I.EggR5 = egg(5, "Légendaire", UP_HEAD)
 I.ExclusiveEgg = egg(6, "Mythique", UP_HEAD .. " Ex-« Œuf exclusif Mythique » : à ne pas confondre avec la rareté Exclusif.")
 I.EggR7 = egg(7, "Ultra Rare", FIXED_HEAD)
 I.EggSecret = egg(8, "Secret", FIXED_HEAD .. " Masqué tant qu'aucune espèce Secret n'est publiée.")
-I.EggExclusive = egg(9, "Exclusif", FIXED_HEAD .. " L'espèce affichée est celle de l'événement du moment : seules la taille et la mutation sont tirées au sort. Masqué tant qu'aucune espèce Exclusif n'est publiée.", "ne donne aucune force en combat, ne protège pas du vol et rapporte moins qu'un Secret")
-I.EggExclusive.def = "Un œuf Exclusif posé dans ta base : l'espèce est celle de l'événement en cours."
-I.EggExclusive.chance = "oui, en partie : la taille et la mutation (tables affichées) ; la rareté ET l'espèce de l'événement sont fixes et affichées"
+I.EggExclusive = egg(9, "Exclusif", FIXED_HEAD .. " Pour l'instant, l'espèce est tirée au sort parmi les espèces Exclusif publiées (table affichée), comme la taille et la mutation. Masqué tant qu'aucune espèce Exclusif n'est publiée.", "ne donne aucune force en combat, ne protège pas du vol et rapporte moins qu'un Secret")
 I.EggDivine = egg(10, "Divin", FIXED_HEAD .. " Masqué tant qu'aucune espèce Divin n'est publiée.")
 
 ---------------------------------------------------------------- Chance & boosts

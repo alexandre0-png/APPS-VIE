@@ -201,6 +201,11 @@ function Shop.status(profil, config, offre, restricted)
 	if type(offre.eggTier) == "number" and type(config.tierLive) == "function" and not config.tierLive(offre.eggTier) then
 		return "hidden", "notLive"
 	end
+	-- lot 16 (intégration) : avant le début de la première saison (season.cur == 0), tout ce qui contient le passe de combat est masqué (rien à créditer)
+	local sc = season(profil).cur
+	if sc == 0 and (offre.perSeason or offre.key == "BundleRoyal" or offre.key == "BundleRoyalNoPass") then
+		return "hidden", "noseason"
+	end
 	local st, why = ownership(profil, offre.key)
 	return st, st ~= "buy" and why or nil
 end
@@ -369,9 +374,7 @@ function Shop.eggContentText(config, key, upPoints)
 			local head = e.n > 1 and string.format("%d x Œuf %s", e.n, t.name) or ("Œuf " .. t.name)
 			lines[#lines + 1] = string.format("%s, rareté fixe %s", head, t.name)
 			lines[#lines + 1] = "Contenu : " .. config.eggContentText(e.tier, up)
-			if e.tier == 9 then
-				lines[#lines + 1] = "Espèce : celle de l'événement en cours (affichée avant l'achat)."
-			else
+			do -- lot 16 : l'espèce Exclusif « de l'événement » arrive au lot 11 ; d'ici là elle est tirée au sort dans la rareté, comme les autres (fiche honnête)
 				local n = speciesCount(config, e.tier)
 				if n > 0 then
 					lines[#lines + 1] = string.format("%d espèce%s possible%s, chacune %s %% (espèce tirée au sort dans la rareté).", n, n > 1 and "s" or "", n > 1 and "s" or "", pctText(100 / n))

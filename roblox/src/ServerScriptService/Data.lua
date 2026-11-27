@@ -12,6 +12,7 @@ local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local Calendar = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Calendar")) -- lot 9b : règles pures du calendrier (assainissement du champ cal)
 local Npc = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Npc")) -- lot 15 : assainissement du champ npc
 local Rewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rewards")) -- lot 15 : grace, weekly, event, eggBag
+local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Season")).new(Config, require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SeasonData"))) -- lot 16 : migration du passe de combat
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
 local STORE_NAME = "ChipeOeufs_v1"
@@ -46,7 +47,11 @@ local SAVE_RETRIES = 3
 --   semaine, semaines complètes, sauvetage payant), weekly (quêtes de la semaine + quête bonus du jour), event (plumes d'événement et plafonds du jour),
 --   eggBag (sac d'œufs : 10 raretés au plus), xp2Until (effet XP x2), seasonXp (XP de saison, lot 16). Migration v11 -> v12 : aucun champ existant n'est touché (les nouveaux reçoivent leurs valeurs neuves par
 --   merge(), via les sanitize des modules purs, idempotents) ; daily / streak gardent leur sens (streak = jours de suite, jour de série = streak % 7 + 1).
-local VERSION = 12
+-- v13 (LOT 16) : + season (passe de combat : n, xp, day, dayXp, claimedFree, claimedPrem, premium, plus, prev ; Season.migrate, idempotent : l'ancien seasonXp du lot 15
+--   y est versé UNE fois puis remis à 0), + overflow { ["rareté"] = n } (coffre de débordement des œufs payés, sans limite, jamais perdu), + once { Clé = true } (achats
+--   uniques : Pack de départ, poses de victoire), + doubleUntil (fin de la Double chance), + emote (pose de victoire choisie, 0 = aucune), + arenaTk { day, n } (tickets
+--   d'arène du jour UTC). Migration v12 -> v13 : aucun champ existant touché ; le Pack de départ déjà acheté (starter) est reporté dans once.StarterPack.
+local VERSION = 13
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
 local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
@@ -193,7 +198,13 @@ function Data.default()
 		event = Rewards.sanitizeEvent(Config, nil), -- lot 15 : plumes d'événement (distinctes de plumes, monnaie du calendrier)
 		eggBag = {}, -- lot 15 : sac d'œufs (raretés, 10 au plus, jamais de perte)
 		xp2Until = 0, -- lot 15 : fin (os.time) de l'effet XP x2 de la série (jour 5) ; l'XP des pets arrive au lot 12
-		seasonXp = 0, -- lot 15 : XP de saison gagnée (quêtes de la semaine 7/7) ; mise de côté pour la passe de saison (lot 16)
+		seasonXp = 0, -- lot 15 : ancienne XP de saison (versée dans season.xp par la migration v13, puis 0)
+		season = nil, -- lot 16 : passe de combat (posé par SeasonMod.migrate dans Data.default / merge)
+		overflow = {}, -- lot 16 : coffre de débordement { ["rareté"] = nombre } (œufs payés arrivés quand base ET sac étaient pleins)
+		once = {}, -- lot 16 : achats uniques déjà faits { Clé = true }
+		doubleUntil = 0, -- lot 16 : fin (os.time) de la Double chance
+		emote = 0, -- lot 16 : pose de victoire choisie (1 à 6, 0 = aucune)
+		arenaTk = { day = 0, n = 0 }, -- lot 16 : tickets d'arène (combats de tour en plus) du jour UTC `day`
 		firstSeen = 0, -- lot 9 : jour UTC de la première connexion (mesure de rétention, aucune donnée personnelle)
 		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
@@ -217,6 +228,7 @@ function Data.default()
 		d.slots[i] = false
 	end
 	d.slots[1] = { k = "e", t = 1, ends = os.time() + Config.FIRST_EGG_SECONDS, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
+	SeasonMod.migrate(d, os.time()) -- lot 16 : profil neuf avec sa saison
 	return d
 end
 
@@ -316,6 +328,13 @@ local MIGRATIONS = {
 	end,
 	[4] = function(_saved)
 		-- v4 -> v5 : cine reçoit sa valeur par défaut (aucune cinématique vue : l'intro se jouera une fois).
+	end,
+	[12] = function(saved)
+		-- v12 -> v13 (lot 16) : champs neufs posés par merge() ; le Pack de départ déjà acheté devient un achat unique enregistré (once.StarterPack).
+		if saved.starter == true then
+			saved.once = type(saved.once) == "table" and saved.once or {}
+			saved.once.StarterPack = true
+		end
 	end,
 	[3] = function(saved)
 		-- v3 -> v4 : un nouveau chapitre (énigme) est inséré en position 8. Qui avait déjà réussi 8 chapitres ou plus
@@ -450,12 +469,43 @@ local function merge(saved)
 	d.grace = Rewards.sanitizeGrace(saved.grace)
 	d.weekly = Rewards.sanitizeWeekly(Config, saved.weekly)
 	d.event = Rewards.sanitizeEvent(Config, saved.event)
-	d.eggBag = Rewards.sanitizeBag(Config, saved.eggBag)
+	d.eggBag = Rewards.sanitizeBag(setmetatable({ EGG_BAG = { size = Config.EGG_BAG.sizePlus } }, { __index = Config }), saved.eggBag) -- lot 16 : jusqu'à 20 œufs (passe EggBagPlus)
 	d.xp2Until = math.min(4e9, math.floor(sane(saved.xp2Until, 0)))
 	d.seasonXp = math.min(1e7, math.floor(sane(saved.seasonXp, 0)))
+	-- lot 16 : passe de combat (Season.migrate assainit, bascule la saison, verse l'ancien seasonXp une seule fois), débordement, achats uniques, Double chance, pose, tickets
+	d.season = type(saved.season) == "table" and saved.season or nil
+	SeasonMod.migrate(d, os.time())
+	if type(saved.overflow) == "table" then
+		for t = 1, #Config.TIERS do
+			local v = saved.overflow[tostring(t)]
+			if type(v) == "number" and v == v and v >= 1 then
+				d.overflow[tostring(t)] = math.min(1e6, math.floor(v))
+			end
+		end
+	end
+	if type(saved.once) == "table" then
+		for k, def in pairs(Config.PRODUCTS) do
+			if def.once == true and saved.once[k] == true then
+				d.once[k] = true
+			end
+		end
+	end
+	if saved.starter == true then
+		d.once.StarterPack = true
+	end
+	d.doubleUntil = math.min(4e9, math.floor(sane(saved.doubleUntil, 0)))
+	d.emote = (type(saved.emote) == "number" and saved.emote % 1 == 0 and saved.emote >= 1 and saved.emote <= #Config.LOT16.emotes) and saved.emote or 0
+	if type(saved.arenaTk) == "table" then
+		d.arenaTk = { day = math.min(1e6, math.floor(sane(saved.arenaTk.day, 0))), n = math.min(1e4, math.floor(sane(saved.arenaTk.n, 0))) }
+	end
 	if type(saved.cosm) == "table" then
 		for id in pairs(Config.CALENDAR.cosmetics) do
 			d.cosm[id] = saved.cosm[id] == true or nil
+		end
+		for id, v in pairs(saved.cosm) do -- lot 16 : cosmétiques et auras du passe de combat (« s<n>_<clé> », propres à une saison)
+			if v == true and type(id) == "string" and #id <= 40 and id:match("^s%d+_[%w_]+$") then
+				d.cosm[id] = true
+			end
 		end
 	end
 	d.firstSeen = math.min(1e6, math.floor(sane(saved.firstSeen, 0)))
@@ -499,7 +549,7 @@ local function merge(saved)
 	end
 	if type(saved.equip) == "table" then
 		for _, v in ipairs(saved.equip) do
-			if type(v) == "number" and v >= 1 and v <= SLOT_COUNT and v % 1 == 0 and #d.equip < Config.MAX_FOLLOWERS then
+			if type(v) == "number" and v >= 1 and v <= SLOT_COUNT and v % 1 == 0 and #d.equip < Config.MAX_FOLLOWERS_COLLECTOR then -- lot 16 : 4 avec le passe Collectionneur (Main applique la limite réelle)
 				d.equip[#d.equip + 1] = v
 			end
 		end

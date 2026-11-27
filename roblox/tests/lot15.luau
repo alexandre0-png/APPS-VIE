@@ -830,12 +830,13 @@ return function(env)
 		local o2, w2 = Rewards.streakClaim(Full, g, D0 + 4, "quest", { questsDone = 2 })
 		check("Sauvetage refusé sans choix ou avec 2 quêtes seulement ; rien n'est modifié", o1 == false and w1 == "rescue" and o2 == false and w2 == "noQuest" and deepEq(g, before))
 		local o3, r3 = Rewards.streakClaim(Full, g, D0 + 4, "product", { questsDone = 0 })
-		check("Sauvetage par produit StreakRestore (1 fois par semaine) : la série continue (jour 5)", o3 and r3.day == 5 and g.streak == 5 and g.grace.rweek == Rewards.weekOf(D0 + 4))
+		check("Sauvetage par produit StreakRestore : la série continue (jour 5)", o3 and r3.day == 5 and g.streak == 5 and g.grace.rweek == Rewards.weekOf(D0 + 4))
 		g.daily = D0 + 4
 		local o4, w4 = Rewards.streakClaim(Full, g, D0 + 6, "product", {})
-		check("2e sauvetage payant la même semaine refusé (« noProduct »)", o4 == false and w4 == "noProduct")
-		local o5, r5 = Rewards.streakClaim(Full, g, D0 + 6, "quest", { questsDone = 3 })
-		check("Sauvetage gratuit par 3 quêtes du jour : la série continue", o5 and r5.day == 6 and g.streak == 6)
+		check("Lot 16 : 2e sauvetage payant la même semaine ACCEPTÉ (plus de plafond d'achat ; la série doit être en danger)", o4 == true and g.streak == 6)
+		g.daily = D0 + 6
+		local o5, r5 = Rewards.streakClaim(Full, g, D0 + 8, "quest", { questsDone = 3 })
+		check("Sauvetage gratuit par 3 quêtes du jour : la série continue", o5 and r5.day == 7 and g.streak == 7)
 		-- Reset à 3 jours manqués
 		local g3 = started(D0, 6)
 		local p3 = Rewards.streakPlan(Full, g3, D0 + 4, { questsDone = 3 })
@@ -1251,7 +1252,7 @@ return function(env)
 		end
 		return n == 8 and Config.Assets.models.npc.pip == 123590742152774 and Config.Assets.models.npc.nora == 81037598191401 and Config.Assets.models.hub.calendar == 134196650002859 and Config.Assets.models.event.pumpkin == 73142027959966
 	end)())
-	check("Produit StreakRestore : 29 R$, désactivé tant que son ID vaut 0 (Config.purchasable)", Config.PRODUCTS.StreakRestore.robux == 29 and Config.purchasable(Config.PRODUCTS.StreakRestore) == false)
+	check("Produit StreakRestore : 29 R$, id réel du lot 16 (3736703610), achetable", Config.PRODUCTS.StreakRestore.robux == 29 and Config.PRODUCTS.StreakRestore.id == 3736703610 and Config.purchasable(Config.PRODUCTS.StreakRestore) == true)
 	do
 		-- espèce vedette : P(vedette) = M / (n + M - 1) après un tirage uniforme (n espèces de la rareté), la rareté ne change jamais
 		local rot = Rewards.rotation(Config, 0)

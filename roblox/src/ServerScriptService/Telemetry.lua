@@ -26,6 +26,14 @@ Telemetry.METRICS = {
 	calendar_cycle_complete = "30 jours réclamés dans un cycle (valeur = numéro du cycle)",
 	calendar_streak = "série de jours consécutifs réclamés après une réclamation (valeur = série)",
 }
+-- LOT 16 (I.2) : les 6 TYPES d'événements AnalyticsService, tous sous la même file (<= 1 événement / s / joueur) :
+--   custom (LogCustomEvent, métriques ci-dessus), economy (LogEconomyEvent : pièces gagnées / dépensées, source), funnel (LogFunnelStepEvent : entonnoir d'achat
+--   vue boutique -> fiche -> invite -> reçu), onboarding (LogOnboardingFunnelStepEvent : étapes de la première session), progression (LogProgressionCompleteEvent :
+--   niveau de maison, étage, palier de saison), version (LogCustomEvent « version_<Config.BUILD> », une fois par session).
+Telemetry.KINDS = { custom = true, economy = true, funnel = true, onboarding = true, progression = true, version = true }
+Telemetry.FUNNEL = { shop_view = 1, card_open = 2, prompt = 3, receipt = 4 }
+Telemetry.ONBOARDING = { join = 1, first_hatch = 2, first_battle_win = 3, first_shop_view = 4 }
+Telemetry.PROGRESSION = { house = true, tower = true, season = true }
 Telemetry.QUEUE_MAX = 16
 Telemetry.GAP = 1
 
@@ -65,6 +73,12 @@ function Telemetry.new(service, clock)
 		local ok = pcall(function()
 			if e.kind == "economy" then
 				service:LogEconomyEvent(player, e.flow, "Coins", e.value, e.balance or 0, e.tx or "Shop", e.sku)
+			elseif e.kind == "funnel" then
+				service:LogFunnelStepEvent(player, "Shop", e.session, e.step, e.name)
+			elseif e.kind == "onboarding" then
+				service:LogOnboardingFunnelStepEvent(player, e.step, e.name)
+			elseif e.kind == "progression" then
+				service:LogProgressionCompleteEvent(player, e.path, e.value, e.name)
 			else
 				service:LogCustomEvent(player, e.name, e.value)
 			end
@@ -105,6 +119,54 @@ function Telemetry.new(service, clock)
 		end
 		q[#q + 1] = { kind = "economy", name = "coins_spent_egg", flow = "Sink", value = math.floor(amount), balance = type(balance) == "number" and math.floor(balance) or 0, sku = sku }
 		return true
+	end
+	local function push(player, e)
+		local q = T.queues[player] or {}
+		T.queues[player] = q
+		if #q >= Telemetry.QUEUE_MAX then
+			table.remove(q, 1)
+			T.dropped = T.dropped + 1
+		end
+		q[#q + 1] = e
+		return true
+	end
+	-- Lot 16 : point d'entrée unique des 6 types (kind, puis arguments propres au type). Type ou nom inconnu : ignoré (false).
+	--   custom : (name, value, suffix) ; economy : (flow "Source"|"Sink", amount, balance, tx, sku) ; funnel : (step name, session) ; onboarding : (step name) ;
+	--   progression : (path, level) ; version : (build).
+	function T.event(player, kind, a, b, c, d, e)
+		if player == nil or not Telemetry.KINDS[kind] then
+			return false
+		end
+		if kind == "custom" then
+			return T.log(player, a, b, c)
+		elseif kind == "economy" then
+			if (a ~= "Source" and a ~= "Sink") or type(b) ~= "number" or b ~= b or b <= 0 then
+				return false
+			end
+			return push(player, { kind = "economy", flow = a, value = math.floor(b), balance = type(c) == "number" and c == c and math.floor(c) or 0, tx = type(d) == "string" and d or "Gameplay", sku = type(e) == "string" and e or nil })
+		elseif kind == "funnel" then
+			local step = Telemetry.FUNNEL[a]
+			if not step then
+				return false
+			end
+			return push(player, { kind = "funnel", step = step, name = a, session = type(b) == "string" and b or nil })
+		elseif kind == "onboarding" then
+			local step = Telemetry.ONBOARDING[a]
+			if not step then
+				return false
+			end
+			return push(player, { kind = "onboarding", step = step, name = a })
+		elseif kind == "progression" then
+			if not Telemetry.PROGRESSION[a] or type(b) ~= "number" or b ~= b then
+				return false
+			end
+			return push(player, { kind = "progression", path = a, value = math.floor(b), name = a .. "_" .. math.floor(b) })
+		end
+		-- version : étiquette de la version publiée (Config.BUILD), lettres, chiffres, points et tirets seulement
+		if type(a) ~= "string" or #a == 0 or #a > 24 or a:find("[^%w%.%-]") then
+			return false
+		end
+		return push(player, { kind = "custom", name = "version_" .. a, value = 1 })
 	end
 	-- Envoie au plus un événement par joueur et par seconde.
 	function T.step()

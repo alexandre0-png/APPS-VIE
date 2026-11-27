@@ -4668,7 +4668,7 @@ do
 			RT.removePlayer(old)
 			RT.step(2)
 			local rec = record(7001)
-			check("Base : le profil sauvegardé porte la version courante (11 au lot 9, 12 au lot 15), le score de base recalculé et le plancher de niveau (4, atteint en v9)", rec ~= nil and rec.v ~= nil and rec.v.ver == 12 and rec.v.baseScore == 705 and rec.v.baseLevelFloor == 5 and #rec.v.slots == 20) -- lot 9 : v11 ; le plancher prend aussi le niveau v10 atteint (705 points = niveau 5)
+			check("Base : le profil sauvegardé porte la version courante (11 au lot 9, 12 au lot 15, 13 au lot 16), le score de base recalculé et le plancher de niveau (4, atteint en v9)", rec ~= nil and rec.v ~= nil and rec.v.ver == 13 and rec.v.baseScore == 705 and rec.v.baseLevelFloor == 5 and #rec.v.slots == 20) -- lot 9 : v11 ; le plancher prend aussi le niveau v10 atteint (705 points = niveau 5)
 			local savedLevels = cfg.BASE_LEVELS
 			local thresholds = {}
 			for i = 1, 8 do
@@ -8731,7 +8731,7 @@ do
 			for k, e in pairs(fx.v.dex or {}) do
 				expectScore = expectScore + e.n * Config.baseGain(Config.PETS[tonumber(k)].tier)
 			end
-			local okRec = rec ~= nil and rec.ver == 12 and #rec.slots == 20 and rec.coins >= (fx.v.coins or 0) - 1 and rec.baseLevelFloor == fx.floor and rec.baseScore >= expectScore and type(rec.tokens) == "table" and rec.tokens.remoteSteal == 0
+			local okRec = rec ~= nil and rec.ver == 13 and #rec.slots == 20 and rec.coins >= (fx.v.coins or 0) - 1 and rec.baseLevelFloor == fx.floor and rec.baseScore >= expectScore and type(rec.tokens) == "table" and rec.tokens.remoteSteal == 0
 				and type(rec.settings) == "table" and rec.settings.blockFriendRavens == false and type(rec.puzzle) == "table" and rec.puzzle.step == 0 and rec.puzzle.feathers == 0 and rec.puzzle.hints == 0 and rec.puzzle.fragments == 0
 			for rid in pairs(fx.v.receipts or {}) do
 				okRec = okRec and rec ~= nil and rec.receipts[rid] == true
@@ -10901,7 +10901,7 @@ end)()
 				fail[#fail + 1] = m
 			end
 		end
-		must(rec and rec.ver == 12, "version")
+		must(rec and rec.ver == 13, "version")
 		if rec then
 			local after, petsN, eggsN = 0, 0, 0
 			for i, sl in pairs(v.slots) do
@@ -11253,7 +11253,7 @@ end)()
 		RT.removePlayer(p)
 		RT.step(2)
 		local r = ds.data["P_" .. f[1]] and ds.data["P_" .. f[1]].v
-		local ok = r ~= nil and r.ver == 12 and type(r.cal) == "table" and #r.cal.days == 30 and r.cal.start == utc() and r.calStreak <= 30 and r.calLast == 0 and r.scrolls >= 0 and r.plumes <= 9999 and r.fightTokens == 0 and type(r.cosm) == "table" and r.titles.cal10 == false and r.titles.cal25 == false and r.coins >= (f[3].coins or 0) - 1
+		local ok = r ~= nil and r.ver == 13 and type(r.cal) == "table" and #r.cal.days == 30 and r.cal.start == utc() and r.calStreak <= 30 and r.calLast == 0 and r.scrolls >= 0 and r.plumes <= 9999 and r.fightTokens == 0 and type(r.cosm) == "table" and r.titles.cal10 == false and r.titles.cal25 == false and r.coins >= (f[3].coins or 0) - 1
 		check("Migration calendrier (" .. f[2] .. ") : champs cal / calStreak / calLast / parchemins / plumes / jetons / cosmétiques / titres créés ou assainis, cycle démarré à l'éligibilité, pièces conservées" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), ok and #RT.errors == 0)
 	end
 	-- 2. réclamations
