@@ -78,7 +78,7 @@ RESULTATS_PLACEHOLDER
 
 ## À tester dans Studio
 
-1. **Compte neuf** (ou profil supprimé) : rejoindre la partie. Attendu : carte jaune « Étape 1/5 · Voici ton œuf offert ! Reste près de lui. », flèche vers la base. S'éloigner de la base de 30+ studs : l'étape ne passe pas ; revenir : elle passe au bout de quelques secondes.
+1. **Compte neuf** (ou profil supprimé) : rejoindre la partie. Attendu : carte jaune « Étape 1/5 · Ton œuf offert est prêt ! Reste près de lui. », flèche vers la base. S'éloigner de la base de 30+ studs : l'étape ne passe pas ; revenir : elle passe au bout de quelques secondes.
 2. **Éclosion** (12 s) : la carte passe à « Étape 3/5 » (revenu) avec compteur x/10 ; rester actif (bouger) : en une dizaine de secondes elle passe à « Étape 4/5 » ; rester immobile longtemps : le texte d'aide « Bouge un peu » apparaît à 45 s.
 3. **Maison** : acheter et poser des œufs jusqu'au niveau 2 (Chalet du Couvoir) : « Étape 5/5 ». Lancer l'Arène étage 1 SANS équipe : refus, étape inchangée. Composer une équipe puis lancer : la carte disparaît et « 🎉 Tutoriel terminé » s'affiche.
 4. **Passer** : sur un autre compte neuf, appuyer sur « Passer › » à l'étape 1 : la carte disparaît ; quitter et revenir : elle ne revient pas.

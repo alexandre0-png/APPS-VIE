@@ -30,7 +30,7 @@ Onboarding.DEFAULTS = {
 
 -- Étapes : kind = type d'événement accepté, text = consigne, hint = aide après stepSeconds, target = cible de la flèche du client (home / arena).
 Onboarding.STEPS = {
-	{ id = "gift", kind = "tick", target = "home", text = "🥚 Voici ton œuf offert ! Reste près de lui.", hint = "🥚 Retourne dans ta base : ton œuf offert t'attend." },
+	{ id = "gift", kind = "tick", target = "home", text = "🥚 Ton œuf offert est prêt ! Reste près de lui.", hint = "🥚 Retourne dans ta base : ton œuf offert t'attend." },
 	{ id = "hatch", kind = "tick", target = "home", text = "🐣 Il va éclore : regarde bien ce que tu obtiens !", hint = "🐣 Patience : l'éclosion arrive dans quelques secondes." },
 	{
 		id = "income",
