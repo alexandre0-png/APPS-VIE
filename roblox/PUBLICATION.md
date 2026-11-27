@@ -45,6 +45,64 @@ Voir le tableau complet (noms, prix, descriptions) dans `A_FAIRE_UTILISATEUR.md`
 
 ## 3bis. Catalogue de la boutique (à créer par le propriétaire)
 
+### Catalogue complet du lot 16 (46 achats, tous créés, ids branchés ; source unique `Config.SHOP` = `ShopData.ENTRIES`, vérifiée par les tests)
+
+Boutique rangée en 8 catégories dans l'ordre fixe ci-dessous (tri par prix croissant, pastille « Possédé », fiche au clic : icône, définition, détail, probabilités si hasard, « ce que l'achat ne fait pas », bouton Acheter). **Plus aucun plafond d'achat** (décision du 2026-11-27) : seuls les achats uniques (passes, Pack de départ, chaque pose) et le passe de combat (une fois par saison) limitent. Gardes conservées : Double chance <= 70 points ; refus AVANT paiement si base + sac pleins (« fais de la place ») ; coffre de débordement après paiement (course, jamais perdu) ; un crédit par reçu ; PolicyService pour tout achat à hasard ; réserves du moteur (5 jetons de corbeau, rattrapages du calendrier) vérifiées avant l'invite.
+
+| Catégorie | Type | Nom exact | Prix | Hasard (PolicyService) | Limite | ID (Config.lua) |
+|---|---|---|---|---|---|---|
+| Œufs | Developer Product | Œuf Peu commun | 15 R$ | oui | aucune limite | `Config.PRODUCTS.EggR2.id` : 3736703563 |
+| Œufs | Developer Product | Œuf Rare | 25 R$ | oui | aucune limite | `Config.PRODUCTS.EggR3.id` : 3736703571 |
+| Œufs | Developer Product | Œuf Épique | 49 R$ | oui | aucune limite | `Config.PRODUCTS.EggR4.id` : 3736703588 |
+| Œufs | Developer Product | Œuf Légendaire | 99 R$ | oui | aucune limite | `Config.PRODUCTS.EggR5.id` : 3736703667 |
+| Œufs | Developer Product | Œuf Mythique | 249 R$ | oui | aucune limite | `Config.PRODUCTS.ExclusiveEgg.id` : 3734229320 |
+| Œufs | Developer Product | Œuf Ultra Rare | 799 R$ | oui | aucune limite | `Config.PRODUCTS.EggR7.id` : 3736703695 |
+| Œufs | Developer Product | Œuf Secret | 1499 R$ | oui | aucune limite | `Config.PRODUCTS.EggSecret.id` : 3736452048 |
+| Œufs | Developer Product | Œuf Exclusif | 3499 R$ | oui | aucune limite | `Config.PRODUCTS.EggExclusive.id` : 3736452061 |
+| Œufs | Developer Product | Œuf Divin | 6999 R$ | oui | aucune limite | `Config.PRODUCTS.EggDivine.id` : 3736452072 |
+| Chance & boosts | Developer Product | Potion express | 29 R$ | oui | aucune limite | `Config.PRODUCTS.LuckPotionMini.id` : 3736703579 |
+| Chance & boosts | Developer Product | Tapis doré | 99 R$ | oui | aucune limite | `Config.PRODUCTS.GoldenBelt.id` : 3736121227 |
+| Chance & boosts | Developer Product | Potion de chance | 99 R$ | oui | aucune limite | `Config.PRODUCTS.LuckPotion.id` : 3734229337 |
+| Chance & boosts | Developer Product | Pluie de chance pour tous | 129 R$ | oui | aucune limite | `Config.PRODUCTS.ServerLuck.id` : 3736121217 |
+| Chance & boosts | Developer Product | Double chance | 149 R$ | oui | aucune limite | `Config.PRODUCTS.DoubleLuck.id` : 3736703673 |
+| Chance & boosts | Game Pass | Éclosion rapide | 149 R$ | non | achat unique | `Config.PASSES.Fast.id` : 2097173053 |
+| Chance & boosts | Game Pass | Chance +10% | 149 R$ | oui | achat unique | `Config.PASSES.Lucky.id` : 2093447290 |
+| Chance & boosts | Game Pass | Vitesse +20 % | 149 R$ | non | achat unique | `Config.PASSES.Speed.id` : 2092253306 |
+| Chance & boosts | Game Pass | Tapis privé | 299 R$ | oui | achat unique | `Config.PASSES.PrivateBelt.id` : 2098265697 |
+| Chance & boosts | Game Pass | Chance +10 % II | 349 R$ | oui | achat unique | `Config.PASSES.Lucky2.id` : 2102045961 |
+| Pièces | Developer Product | Petit sac de pièces | 19 R$ | non | aucune limite | `Config.PRODUCTS.CoinPackS.id` : 3736703557 |
+| Pièces | Developer Product | Sac de pièces | 99 R$ | non | aucune limite | `Config.PRODUCTS.CoinPack.id` : 3734229339 |
+| Pièces | Game Pass | Revenus x2 | 199 R$ | non | achat unique | `Config.PASSES.Coins2x.id` : 2093291260 |
+| Base & confort | Developer Product | Rattrapage du calendrier | 29 R$ | non | aucune limite | `Config.PRODUCTS.CalendarCatchup.id` : 3736695392 |
+| Base & confort | Developer Product | Sauver ma série | 29 R$ | non | aucune limite | `Config.PRODUCTS.StreakRestore.id` : 3736703610 |
+| Base & confort | Developer Product | Éclosion instantanée | 49 R$ | non | aucune limite | `Config.PRODUCTS.InstantHatch.id` : 3734229329 |
+| Base & confort | Game Pass | Sac d'œufs +10 | 149 R$ | non | achat unique | `Config.PASSES.EggBagPlus.id` : 2099454839 |
+| Base & confort | Game Pass | Collectionneur | 249 R$ | non | achat unique | `Config.PASSES.Collector.id` : 2099556764 |
+| Base & confort | Game Pass | +4 emplacements | 249 R$ | non | achat unique | `Config.PASSES.ExtraSlots.id` : 2098181699 |
+| Base & confort | Game Pass | Base VIP | 399 R$ | non | achat unique | `Config.PASSES.VipBase.id` : 2094209172 |
+| Combat & vol | Developer Product | Ticket d'arène | 19 R$ | non | aucune limite | `Config.PRODUCTS.ArenaTickets.id` : 3736703606 |
+| Combat & vol | Developer Product | Relance immédiate | 49 R$ | non | aucune limite | `Config.PRODUCTS.Revive.id` : 3734229323 |
+| Combat & vol | Developer Product | Corbeau chipeur | 79 R$ | non | aucune limite | `Config.PRODUCTS.RemoteSteal.id` : 3736121232 |
+| Combat & vol | Developer Product | 3 Corbeaux chipeurs | 199 R$ | non | aucune limite | `Config.PRODUCTS.RemoteStealPack.id` : 3736121238 |
+| Passe de combat | Developer Product | Passe de combat premium | 399 R$ | non | achat unique par saison | `Config.PRODUCTS.SeasonPremium.id` : 3736703683 |
+| Passe de combat | Developer Product | Passe de combat + (suite) | 400 R$ | non | achat unique par saison | `Config.PRODUCTS.SeasonUpgradePlus.id` : 3736704000 |
+| Passe de combat | Developer Product | Passe de combat + 10 paliers | 799 R$ | non | achat unique par saison | `Config.PRODUCTS.SeasonPremiumPlus.id` : 3736703689 |
+| Packs | Developer Product | Pack de départ | 99 R$ | oui | achat unique | `Config.PRODUCTS.StarterPack.id` : 3734229313 |
+| Packs | Developer Product | Pack Légende | 999 R$ | oui | aucune limite | `Config.PRODUCTS.BundleLegend.id` : 3736703706 |
+| Packs | Developer Product | Coffre royal sans passe | 1100 R$ | oui | aucune limite | `Config.PRODUCTS.BundleRoyalNoPass.id` : 3736704205 |
+| Packs | Developer Product | Coffre royal | 1499 R$ | oui | aucune limite | `Config.PRODUCTS.BundleRoyal.id` : 3736703714 |
+| Cosmétiques | Developer Product | Pose de victoire 1 | 39 R$ | non | achat unique | `Config.PRODUCTS.EmoteVictory1.id` : 3736703619 |
+| Cosmétiques | Developer Product | Pose de victoire 2 | 39 R$ | non | achat unique | `Config.PRODUCTS.EmoteVictory2.id` : 3736703629 |
+| Cosmétiques | Developer Product | Pose de victoire 3 | 39 R$ | non | achat unique | `Config.PRODUCTS.EmoteVictory3.id` : 3736703634 |
+| Cosmétiques | Developer Product | Pose de victoire 4 | 39 R$ | non | achat unique | `Config.PRODUCTS.EmoteVictory4.id` : 3736703641 |
+| Cosmétiques | Developer Product | Pose de victoire 5 | 39 R$ | non | achat unique | `Config.PRODUCTS.EmoteVictory5.id` : 3736703649 |
+| Cosmétiques | Developer Product | Pose de victoire 6 | 39 R$ | non | achat unique | `Config.PRODUCTS.EmoteVictory6.id` : 3736703657 |
+
+Règle « mise à niveau » : avec le passe premium de la saison, « Passe de combat premium » affiche « Possédé », « + 10 paliers » et « Coffre royal » sont cachés, seuls « + (suite) » (400) et « Coffre royal sans passe » (1 100) restent. Avant le 1er décembre 2026 (début de la saison 1), tout ce qui contient le passe est caché.
+
+### Tableau historique (lots 7 à 15)
+
+
 Chaque ligne donne l'ID attendu et l'endroit exact où le coller. Tant qu'un ID vaut 0 : aucune offre n'apparaît, l'achat renvoie « 🛒 Cet achat n'est pas encore disponible » et rien ne plante (testé). Les prix sont des suggestions (Roblox prélève 30 %). Les passes ci-dessous sont celles du code ; « Chance x2 » n'existe pas : la chance est vendue en bonus fixes affichés (+10 % passe, +25 % potion) pour rester conforme aux règles Roblox sur les objets aléatoires payants.
 
 | Type | Nom exact | Prix suggéré | Description | ID à renseigner (Config.lua) |
@@ -63,7 +121,7 @@ Chaque ligne donne l'ID attendu et l'endroit exact où le coller. Tant qu'un ID 
 | Game Pass | +4 emplacements | 249 R$ | 4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20). | `Config.PASSES.ExtraSlots.id` (ligne 125) : renseigné |
 | Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 3 min tant que tu joues. | `Config.PASSES.PrivateBelt.id` (ligne 126) : renseigné |
 | Developer Product | Pluie de chance pour tous | 129 R$ | 10 min de +5 points de chance d'amélioration pour tout le serveur. | `Config.PRODUCTS.ServerLuck.id` (ligne 351) : renseigné |
-| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 4 s (table dorée affichée, x2 à x2,5 sur les raretés >= Rare), cumulable jusqu'à 30 min. | `Config.PRODUCTS.GoldenBelt.id` (ligne 352) : renseigné |
+| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 4 s (table dorée affichée, x2 à x2,5 sur les raretés >= Rare), durées cumulables (lot 16 : plus de plafond d'achat). | `Config.PRODUCTS.GoldenBelt.id` (ligne 352) : renseigné |
 | Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | `Config.PRODUCTS.RemoteSteal.id` (ligne 353) : renseigné |
 | Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | `Config.PRODUCTS.RemoteStealPack.id` (ligne 354) : renseigné |
 
@@ -73,7 +131,7 @@ Bandeaux et icônes : `publication/art/` (icône 512 px des 6 premiers achats ; 
 | Developer Product | Œuf Exclusif | 3 499 R$ | Un œuf Exclusif (rareté FIXE) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. Mêmes protections. | `Config.PRODUCTS.EggExclusive.id` : 3736452061 (créé) |
 | Developer Product | Œuf Divin | 6 999 R$ | Un œuf Divin (rareté FIXE) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. Mêmes protections. | `Config.PRODUCTS.EggDivine.id` : 3736452072 (créé) |
 | Developer Product | Rattrapage du calendrier | 29 R$ | Rattrape UN jour manqué du calendrier de 30 jours (au choix du joueur) ; livre un jeton de rattrapage, aucun tirage payant. | `Config.PRODUCTS.CalendarCatchup.id` : 3736695392 (créé, en vente) |
-| Developer Product | Sauver ma série | 29 R$ | Sauve la série de 7 jours après 2 jours manqués (une fois par semaine UTC) ; aucun hasard. Livré seulement si la série est réellement à sauver (sinon rejoué plus tard, rien n'est perdu). | `Config.PRODUCTS.StreakRestore.id` : 0 (à créer, lot 15) |
+| Developer Product | Sauver ma série | 29 R$ | Sauve la série de 7 jours quand elle est en danger (lot 16 : plus de limite d'une fois par semaine) ; aucun hasard. Proposé et livré seulement si la série est réellement à sauver. | `Config.PRODUCTS.StreakRestore.id` : 3736703610 (créé, lot 16) |
 
 **Lot 9, œufs Secret / Exclusif / Divin (décision de l'utilisateur)** : vendus en Robux à très haut prix, en rareté FIXE affichée avant l'achat, contenu (espèces, tailles, mutations) affiché, `random = true` : masqués côté client et refusés côté serveur (`NotProcessedYet`, rien n'est livré) si `ArePaidRandomItemsRestricted` ou si PolicyService ne répond pas. Reçu idempotent, œuf placé dans une place libre de la base (sinon `NotProcessedYet` : livré à la prochaine occasion). Tant que la rareté n'a aucune espèce publiée (lot 11), l'offre est masquée et le reçu refusé. Aucun avantage de combat acheté directement (les stats dépendent de la rareté, pas du moyen d'obtention). Le prix en pièces de ces raretés au tapis respecte la règle (3) ci-dessous.
 

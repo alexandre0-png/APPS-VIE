@@ -501,7 +501,7 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
-		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
+		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 		newbie = s.newbie == true, -- protection débutant active (lot 4)
@@ -3366,7 +3366,7 @@ local function battleFinish(s)
 			b.best = bt.floor
 			tele.log(s.player, "tower_floor_reached", bt.floor)
 		end
-		if first or b.repeats < TW.dailyRepeats then
+		if first or b.repeats < TW.dailyRepeats + Lot7.L16.arenaExtra(s) then -- lot 16 : les tickets d'arène ajoutent des combats RÉCOMPENSÉS
 			local rw = Config.towerReward(bt.floor, income(s), first)
 			if not first then
 				b.repeats += 1
@@ -5315,7 +5315,7 @@ do
 			if SEASON_KIND[name] then
 				local r = S.buyPremium(d, SEASON_KIND[name], now)
 				if not r.ok and r.reason == "needPremium" then
-					r = S.buyPremium(d, "premiumPlus", now) -- complément payé sans premium (course) : premium + 10 paliers, l'équivalent plein
+					r = S.buyPremium(d, "premium", now) -- complément (400) payé sans premium (invite lancée hors de la boutique) : le premium (399) est donné, jamais plus que le prix payé
 				end
 				if r.ok then
 					bits[#bits + 1] = "🏅 " .. def.name .. (r.credited > 0 and (" (" .. r.credited .. " palier(s) crédité(s) : " .. L16.applyGrants(s, r.grants) .. ")") or "")

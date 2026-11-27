@@ -4,7 +4,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
-local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ContextActionService = game:GetService("ContextActionService")
@@ -1198,7 +1197,7 @@ function render()
 			addRow({ icon = b[1], title = b[2], desc = b[3] })
 		end
 		if not anyPass then
-			addNote("Aucun pass actif. Les passes (revenus x2, chance, vitesse, VIP) sont dans l'onglet Bonus.")
+			addNote("Aucun pass actif. Les passes (revenus x2, chance, vitesse, VIP...) sont dans la Boutique (💎).")
 		end
 	elseif panel.name == "dex" and panel.tab == "titles" then
 		local list = Config.allTitles(state.stats)
