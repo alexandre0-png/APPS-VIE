@@ -127,10 +127,10 @@ Config.INCOME_GROWTH_MIN = 1.8
 -- Épique vers 5-8 min, Légendaire vers 15-20 min, Mythique après ~1 h, Cosmique après plusieurs heures ; première renaissance vers 1 h.
 Config.START_COINS = 50
 Config.FIRST_EGG_SECONDS = 12 -- lot 9 : l'œuf de départ (gratuit) éclot en 12 s (cible : première éclosion entre 10 et 15 s)
-Config.EGG_PRICE = { 45, 99, 220, 26000, 7500000, 370000000, 70000000000, 80000000000, 0, 1800000000000 } -- lot 9 : 10 raretés recalibrées (tests/Economy.lua, tools/sim_economy.py) ; Exclusif (9) jamais en pièces
+Config.EGG_PRICE = { 45, 99, 220, 26000, 7500000, 609975778, 42933105815, 75000000000, 0, 1800000000000 } -- lot 9 : 10 raretés recalibrées (tests/Economy.lua, tools/sim_economy.py) ; Exclusif (9) jamais en pièces ; lot 16 : Mythique et Ultra Rare réajustés (RYTHME_NOTES.md)
 -- Lot 8A (B.3) : la boutique vend les raretés 1 à SHOP_MAX_TIER ; Mythique et Cosmique ne s'achètent qu'au tapis du marché (rareté visible, prix x 0,6).
 Config.SHOP_MAX_TIER = 6 -- lot 9 : la boutique vend jusqu'au Mythique (sans lui, la maison stagnait entre 1 et 3 jours de jeu) ; Ultra Rare et au-delà : tapis seulement
-Config.HATCH = { 18, 20, 30, 113, 450, 450, 600, 600, 600, 900 } -- secondes (lot 9 : recalibrées ; l'œuf de départ éclot en Config.FIRST_EGG_SECONDS)
+Config.HATCH = { 18, 20, 30, 106.14, 450, 527, 560, 600, 600, 900 } -- secondes (lot 9 : recalibrées ; l'œuf de départ éclot en Config.FIRST_EGG_SECONDS ; lot 16 : Épique, Mythique, Ultra Rare)
 
 -- tier, emoji (UI), nom, revenu/s, couleur du modèle 3D, oreilles, extra
 Config.PETS = {
@@ -140,15 +140,15 @@ Config.PETS = {
 	{ tier = 3, emoji = "🐱", name = "Chat", inc = 7.5, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
 	{ tier = 3, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
 	{ tier = 3, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
-	{ tier = 4, emoji = "🐼", name = "Panda", inc = 32, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
-	{ tier = 4, emoji = "🦉", name = "Hibou", inc = 45, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
-	{ tier = 4, emoji = "🐧", name = "Manchot", inc = 60, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
+	{ tier = 4, emoji = "🐼", name = "Panda", inc = 33.727, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
+	{ tier = 4, emoji = "🦉", name = "Hibou", inc = 52.072, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
+	{ tier = 4, emoji = "🐧", name = "Manchot", inc = 56.694, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
 	{ tier = 5, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
-	{ tier = 5, emoji = "🐯", name = "Tigre", inc = 230, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
+	{ tier = 5, emoji = "🐯", name = "Tigre", inc = 287, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
 	{ tier = 5, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
-	{ tier = 6, emoji = "🐲", name = "Dragon", inc = 1100, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
+	{ tier = 6, emoji = "🐲", name = "Dragon", inc = 862, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
 	{ tier = 6, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
-	{ tier = 6, emoji = "🐙", name = "Kraken", inc = 2300, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
+	{ tier = 6, emoji = "🐙", name = "Kraken", inc = 1803, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
 	{ tier = 7, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
 	{ tier = 7, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
 	{ tier = 7, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
@@ -569,9 +569,9 @@ Config.COIN_PACK_MIN = 5000
 -- prix en pièces (jamais vendu en pièces) : hors règle, documenté. coinCost : prix boutique si la rareté y est vendue, sinon prix du tapis (x 0,6).
 Config.PRICING_REF = { secondsPerRobux = Config.COIN_PACK_MINUTES * 60 / Config.PRODUCTS.CoinPack.robux, minRatio = 4, maxRatio = 12 }
 Config.PRICING = {
-	ExclusiveEgg = { tier = 6, coinCost = 370000000, robuxCost = 249, where = "boutique", timeToAffordCoin = { beginner = 18440, mid = 3580, advanced = 240 } },
-	EggSecret = { tier = 8, coinCost = 48000000000, robuxCost = 1499, where = "tapis", timeToAffordCoin = { beginner = 129670, mid = 95790, advanced = 30480 } },
-	EggDivine = { tier = 10, coinCost = 1080000000000, robuxCost = 6999, where = "tapis", timeToAffordCoin = { beginner = 705120, mid = 669420, advanced = 395520 } },
+	ExclusiveEgg = { tier = 6, coinCost = 609975778, robuxCost = 249, where = "boutique", timeToAffordCoin = { beginner = 22750, mid = 6420, advanced = 420 } },
+	EggSecret = { tier = 8, coinCost = 45000000000, robuxCost = 1499, where = "tapis", timeToAffordCoin = { beginner = 179220, mid = 146340, advanced = 26220 } },
+	EggDivine = { tier = 10, coinCost = 1080000000000, robuxCost = 6999, where = "tapis", timeToAffordCoin = { beginner = 625440, mid = 589620, advanced = 293700 } },
 	EggExclusive = { tier = 9, coinCost = nil, robuxCost = 3499, where = "jamais en pièces", timeToAffordCoin = nil },
 }
 function Config.timeRobux(robux)
@@ -2082,7 +2082,7 @@ Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +
 -- B.3 Tapis roulant central.
 Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
-	weights = { normal = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0, 0.005 }, golden = { 29.3205, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.018, 0, 0.0115 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
+	weights = { normal = { 50.037, 25, 14, 7, 2.9, 0.85, 0.20875, 0.004, 0, 0.00025 }, golden = { 29.3205, 14.55, 31.5, 15.75, 6.5, 1.9, 0.469925, 0.009, 0, 0.000575 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
 	golden = { interval = 4, seconds = 600, maxSeconds = 2592000 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
 	private = { interval = 180, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
@@ -2173,11 +2173,11 @@ Config.BASE_LEVELS2 = {
 	{ score = 0, name = "Enclos de bois", emoji = "🪵", model = "level1", size = 52, slots = 0, income = 0, lock = 0 },
 	{ score = 18, name = "Chalet du Couvoir", emoji = "🛖", model = "l2", size = 56, slots = 1, income = 0.05, lock = 20 },
 	{ score = 337, name = "Maison-Tour", emoji = "🏡", model = "l3", size = 58, slots = 1, income = 0.10, lock = 25, alarm = true },
-	{ score = 1234, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
-	{ score = 2008, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
-	{ score = 4135, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
-	{ score = 17029, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 5 },
-	{ score = 45562, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 6, shieldBonus = 10 },
+	{ score = 1092, name = "Maison à l'auvent", emoji = "🏠", model = "l4", size = 60, slots = 2, income = 0.15, lock = 30 },
+	{ score = 1866, name = "Maison au garage", emoji = "🏘️", model = "l5", size = 64, slots = 2, income = 0.20, lock = 35, guardDog = true },
+	{ score = 4695, name = "Villa moderne", emoji = "🏢", model = "l6", size = 66, slots = 3, income = 0.30, lock = 40 },
+	{ score = 17754, name = "Grande villa", emoji = "🏰", model = "l7", size = 68, slots = 3, income = 0.40, lock = 50, needTier = 5 },
+	{ score = 64000, name = "Château doré", emoji = "👑", model = "l8", size = 72, slots = 4, income = 0.50, lock = 60, needTier = 6, shieldBonus = 10 },
 }
 -- Montée de niveau de la maison (D.4) : durée totale 4,5 s, phases ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ échange ancienne/nouvelle maison 1,5 s ④ fête 1,8 s.
 -- `hide` = profondeur (studs) où la nouvelle maison attend sous le sol ; `announceFrom` = niveau à partir duquel tout le serveur est prévenu.
@@ -2323,7 +2323,7 @@ Config.CALENDAR = {
 -- r1..r8 et r10 (décision : la valeur du brief r8 = 0,04, r10 = 0,01 sous-estimait la rareté réelle du lot 9 d'un facteur 2 à 5) ; r9 Exclusif ne sort jamais du tapis
 -- (poids 0, achat seulement) : référence 0,006 (plus rare que Secret 0,008, moins que Divin 0,005), car le compteur exige un poids > 0. N figé dans le slot à l'éclosion
 -- (slot.o, slot.ov = version) : changer REF plus tard ne réécrit jamais un ancien chiffre ; un slot sans `o` (pet éclos avant le lot 10) affiche « — ».
-Config.ODDS = { version = 1, billboardMin = 1000, REF = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0.006, 0.005 } }
+Config.ODDS = { version = 1, billboardMin = 1000, REF = { 50.037, 25, 14, 7, 2.9, 0.85, 0.20875, 0.004, 0.001, 0.00025 } }
 -- LOT 10 : effets d'éclosion (HatchPlan + HatchFx) et de combat (IntroPlan + BattleIntro, TypeFx). replaceCine : la cinématique 3D d'éclosion (CinematicKit.hatchPlan)
 -- n'est plus jouée (HatchFx gère lui-même le zoom). Mobile : reduced (particules / 2), plafonds 220 / 120 / 80 instances (dans les modules), 30 FPS visés.
 Config.HATCH_FX = { Enabled = true, replaceCine = true, billboardSeconds = 6 }

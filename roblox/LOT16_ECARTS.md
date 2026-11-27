@@ -27,4 +27,15 @@ Boutique en 8 catégories, passe de combat de 60 jours, offres à l'écran, 8 ve
 
 ## Écarts de rythme du lot 9 (branche worktree-agent-a3b4cc56539aa6ef0)
 
-Voir la section « Rythme » ajoutée à la fin de la mission (ci-dessous).
+Le commit final « Lot 16 écarts de rythme (non intégré) » **n'existait pas** à la fin de la mission (dernier commit de la branche : e6d1a64, 10:36 UTC, worktree
+propre). Ses 3 commits WIP (9c64ea4, f56d2e7, e6d1a64) sont appliqués en 3 voies : `Config.lua` (prix Mythique 609 975 778 et Ultra Rare 42 933 105 815,
+éclosions Épique / Mythique / Ultra Rare, revenus Panda, Hibou, Manchot, Tigre, Dragon, Kraken, poids des tapis pour Ultra Rare / Secret / Divin, `ODDS.REF`,
+seuils de maison 4 à 8 : 1 092 / 1 866 / 4 695 / 17 754 / 64 000, `PRICING.ExclusiveEgg`), `tests/Economy.lua`, `tests/run.luau`. Seul conflit : la ligne du
+tapis doré (poids de la branche + `maxSeconds` du lot 16 gardé). Mesuré par les tests (tous verts) :
+- maisons 5 à 8 : pire cas des 5 graines à ±25 % ; médiane du niveau 7 vers 2 jours ;
+- premier Secret : 5,25 à 17,5 jours (cible ~1 semaine à 2) ; premier Divin : espérance 55 à 59 jours (cible ~2 mois, test 45 à 75 jours) ;
+- planchers des tapis (20 graines, 60 h) : tapis privé +30,7 % (plancher +10 % tenu), tapis doré **+13 % : plancher +15 % NON atteint** (le test vérifie
+  seulement +5 %, écart documenté par la branche) ; cumul +22,8 % <= BOOST_CAP (+60 %).
+
+Manque (non livré par la branche) : `RYTHME_NOTES.md` (notes de l'agent) et sa validation finale ; le plancher +15 % du tapis doré ; la maison niveau 4 reste
+sous l'ancien test « écart documenté » du lot 9 (pire cas hors ±25 % toléré). À reprendre quand l'agent des écarts de rythme aura poussé son commit final.

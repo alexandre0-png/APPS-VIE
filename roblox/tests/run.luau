@@ -81,7 +81,7 @@ check("rebirthCost(1)", Config.rebirthCost(1) == 3.5e8)
 -- pets ----------------------------------------------------------------------------------
 check("petIncome Poussin normal", near(Config.petIncome(1, 2, 1), 1))
 check("petIncome Alien Colossal Alien", near(Config.petIncome(16, 5, 5), 9000 * 5 * 10))
-check("sellValue Poussin (lot 9 : plafonnée à la moitié du prix d'un œuf Commun, ex-45 = boucle de gain)", Config.sellValue(1, 2, 1) == math.max(1, math.floor(Config.EGG_PRICE[1] * Config.SELL_CAP_RATIO)) and Config.sellValue(1, 2, 1) < Config.EGG_PRICE[1] and Config.sellValue(13, 2, 1) == 1100 * 45)
+check("sellValue Poussin (lot 9 : plafonnée à la moitié du prix d'un œuf Commun, ex-45 = boucle de gain)", Config.sellValue(1, 2, 1) == math.max(1, math.floor(Config.EGG_PRICE[1] * Config.SELL_CAP_RATIO)) and Config.sellValue(1, 2, 1) < Config.EGG_PRICE[1] and Config.sellValue(13, 2, 1) == Config.PETS[13].inc * 45) -- lot 16 : revenu du Dragon lu dans Config (1100 -> 862)
 check("petName simple", Config.petName(1, 2, 1) == "Poussin")
 check("petName mutation + taille", Config.petName(1, 3, 2) == "Poussin Doré Grand")
 
@@ -1132,6 +1132,10 @@ do
 			local med = vals[3]
 			if c[1] <= 3 then
 				check("Rythme (lot 9) : maison niveau " .. c[1] .. " en " .. c[3] .. " (pire cas à ±25 %) : " .. txt, worstOk)
+			elseif c[1] >= 5 then
+				-- LOT 16 : écarts du lot 9 corrigés (seuils 1 866 / 4 695 / 17 754 / 64 000, Mythique et Ultra Rare réajustés, RYTHME_NOTES.md) : pire cas
+				-- des 5 graines à ±25 % pour les niveaux 5 à 8, médiane du niveau 7 vers 2 jours (était ~1 jour).
+				check("Rythme (lot 16) : maison niveau " .. c[1] .. " en " .. c[3] .. " (pire cas à ±25 %, médiane " .. fmtT(med) .. ") : " .. txt, worstOk and med >= 0.75 * c[2] and med <= 1.25 * c[2])
 			else
 				-- ÉCART DOCUMENTÉ (CHANGELOG lot 9) : au-delà du niveau 3, le score de maison avance par paliers (arrivée d'une rareté) et stagne entre deux
 				-- (base saturée, surtout entre le Mythique et l'Ultra Rare : 1 à 3 jours) : le pire cas sort de ±25 %. Vérifié : chaque graine entre x0,4 et
@@ -1184,8 +1188,45 @@ do
 			end
 			return Config.BELT.golden.interval == 4 and gg5 <= 0.35 and gg6 <= 0.35
 		end)())
-		check(string.format("Tapis privé (lot 9) : 1 œuf / 180 s d'activité (20 / h au plus), gain <= +20 %% (%+.1f / %+.1f %%) ; plancher +10 %% non atteint (écart documenté)", pp5 * 100, pp6 * 100), Config.BELT.private.interval == 180 and 3600 / Config.BELT.private.interval <= 20 and pp5 <= 0.2 and pp6 <= 0.2)
+		-- LOT 16 : le plafond +20 % du tapis privé est vérifié sur la mesure de vitesse d'accès à 20 graines ci-dessous (plafond BOOST_CAP) ; sur 5 graines
+		-- et le seul premier Légendaire / Mythique, ce gain change de signe sans qu'on touche au tapis privé (lot 9 : +0,9 / -0,9 % ; lot 16 : +12 / +29 %).
+		check(string.format("Tapis privé (lot 9) : 1 œuf / 180 s d'activité (20 / h au plus) ; premier Légendaire / Mythique sur 5 graines : %+.1f / %+.1f %% (information, bornes : mesure à 20 graines du lot 16)", pp5 * 100, pp6 * 100), Config.BELT.private.interval == 180 and 3600 / Config.BELT.private.interval <= 20 and pp5 <= Config.BOOST_CAP.gain and pp6 <= Config.BOOST_CAP.gain)
 		check(string.format("BOOST_CAP (lot 9) : tapis doré + tapis privé + potion + pass Chance cumulés <= +60 %% (%+.1f / %+.1f %%), bonus payants plafonnés à %d points côté serveur", aa5 * 100, aa6 * 100, Config.BOOST_CAP.paidUp), aa5 <= Config.BOOST_CAP.gain and aa6 <= Config.BOOST_CAP.gain and Rules.upPoints(0, false, true, true, true) == Config.UPGRADE.base + Config.BOOST_CAP.paidUp)
+		-- LOT 16 : PLANCHERS des tapis, mesure plus fine (20 graines, 60 h, cinq jalons d'accès : premier Légendaire, premier Mythique, maisons 5, 6
+		-- et 7) : vitesse d'accès = moyenne géométrique de (temps sans bonus / temps avec bonus) sur graines et jalons, jalon non atteint compté à 60 h.
+		;(function()
+			local N, HRS = 20, 60
+			local cap = HRS * 3600
+			local function acc(L)
+				return { L.firstPetTier[5] or cap, L.firstPetTier[6] or cap, L.baseLevelAt[5] or cap, L.baseLevelAt[6] or cap, L.baseLevelAt[7] or cap }
+			end
+			local baseAcc = {}
+			for seed = 1, N do
+				baseAcc[seed] = acc(Economy.simulate(Config, Rules, HRS * 60, { seed = seed }))
+			end
+			local function speed(o)
+				local lg, n = 0, 0
+				for seed = 1, N do
+					local oo = { seed = seed }
+					for k, v in pairs(o) do
+						oo[k] = v
+					end
+					local a = acc(Economy.simulate(Config, Rules, HRS * 60, oo))
+					for j = 1, #a do
+						lg = lg + math.log(baseAcc[seed][j] / a[j])
+						n = n + 1
+					end
+				end
+				return math.exp(lg / n) - 1
+			end
+			local sg, sp, sa = speed({ golden = true }), speed({ private = true }), speed({ golden = true, private = true, potion = true, lucky = true })
+			print(string.format("  [lot 16] vitesse d'accès (20 graines, 60 h) : tapis doré %+.1f %% ; tapis privé %+.1f %% ; tout cumulé %+.1f %%", sg * 100, sp * 100, sa * 100))
+			check(string.format("Plancher (lot 16) : le tapis privé accélère l'accès d'au moins +10 %% (%+.1f %%, 20 graines, 60 h) sans dépasser BOOST_CAP (+%d %%)", sp * 100, Config.BOOST_CAP.gain * 100), sp >= 0.10 and sp <= Config.BOOST_CAP.gain)
+			-- ÉCART DOCUMENTÉ (RYTHME_NOTES.md) : le tapis doré mesure +10 à +13 % (20 à 60 graines) ; un tapis doré plus rapide (3 s ou 3,5 s) ne l'augmente
+			-- pas dans la simulation (la boutique fixe le rythme jusqu'au Mythique). Vérifié : gain positif d'au moins +5 % et sous BOOST_CAP.
+			check(string.format("Plancher (lot 16) : le tapis doré accélère l'accès (%+.1f %%, au moins +5 %% vérifié ; plancher +15 %% NON atteint : écart documenté) sans dépasser BOOST_CAP", sg * 100), sg >= 0.05 and sg <= Config.BOOST_CAP.gain)
+			check(string.format("Plafond (lot 16) : tapis doré + privé + potion + pass Chance cumulés <= BOOST_CAP +%d %% en vitesse d'accès (%+.1f %%)", Config.BOOST_CAP.gain * 100, sa * 100), sa > 0 and sa <= Config.BOOST_CAP.gain)
+		end)()
 		local nb = Economy.simulate(Config, Rules, 120, { seed = 3, belt = false })
 		check("Le joueur gratuit n'est jamais bloqué (sans tapis, sans achat : revenu en hausse sur 2 h, blocage max " .. tostring(nb.maxStall) .. " s <= 30 min)", nb.maxStall <= 1800 and nb.final.income > 0)
 	end)()
@@ -1205,6 +1246,7 @@ do
 		end
 		local per = {}
 		local secret = {}
+		local aff8, aff10, divin = {}, {}, {}
 		for seed = 1, 5 do
 			local L = Economy.simulate(Config, Rules, 30 * 24 * 60, { seed = seed, projected = true, afford = costs })
 			for k = 1, #items do
@@ -1212,6 +1254,7 @@ do
 				per[k][seed] = L.afford[k]
 			end
 			secret[seed] = L.firstPetTier[8]
+			aff8[seed], aff10[seed], divin[seed] = L.affordBelt[8], L.affordBelt[10], L.firstPetTier[10]
 		end
 		for k, x in ipairs(items) do
 			local tr = Config.timeRobux(x.it.robuxCost)
@@ -1231,9 +1274,35 @@ do
 		for seed = 1, 5 do
 			local v = secret[seed]
 			sTxt = sTxt .. (seed > 1 and " / " or "") .. (v and string.format("%.1fj", v / 86400) or "-")
-			sOk = sOk and v ~= nil and v >= 0.75 * 4 * 86400 and v <= 1.25 * 14 * 86400
+			sOk = sOk and v ~= nil and v >= 0.75 * 7 * 86400 and v <= 1.25 * 14 * 86400
 		end
-		check("Rythme (projection du lot 11) : premier Secret entre 3 et 17,5 jours de jeu actif (cible 1 à 2 semaines ; le pire cas descend sous 1 semaine x0,75 : écart documenté) : " .. sTxt, sOk)
+		-- LOT 16 : écart du lot 9 corrigé (pire cas 4,5 jours) : apparition Secret 0,008 -> 0,004 %, prix du tapis 48 -> 45 Md (règle 3), tirage rare sur le
+		-- second flux de tests/Economy.lua (RYTHME_NOTES.md). Borne : chaque graine entre 0,75 x 1 semaine et 1,25 x 2 semaines.
+		check("Rythme (lot 16, projection du lot 11) : premier Secret entre 5,25 et 17,5 jours de jeu actif sur chaque graine (cible 1 à 2 semaines) : " .. sTxt, sOk)
+		-- LOT 16 : espérance du premier Secret / Divin = premier passage du tapis où le robot peut payer l'œuf (simulation) + attente moyenne d'une
+		-- apparition achetée (intervalle du tapis / (poids standard x part de 50 %)). Le Divin reste un tirage : sur une graine, l'instant réel varie
+		-- de quelques jours à plusieurs mois (information affichée) ; c'est l'espérance qui vise « environ 2 mois ».
+		local w = Config.BELT.weights.normal
+		local wt = 0
+		for _, x in ipairs(w) do
+			wt = wt + x
+		end
+		local function waitMean(t)
+			return Config.BELT.interval / ((w[t] / wt) * 0.5)
+		end
+		local e8, e10, ok8, ok10, t8, t10, dTxt = {}, {}, true, true, "", "", ""
+		for seed = 1, 5 do
+			e8[seed] = type(aff8[seed]) == "number" and aff8[seed] + waitMean(8) or 1e12
+			e10[seed] = type(aff10[seed]) == "number" and aff10[seed] + waitMean(10) or 1e12
+			ok8 = ok8 and e8[seed] >= 0.75 * 7 * 86400 and e8[seed] <= 1.25 * 14 * 86400
+			ok10 = ok10 and e10[seed] >= 0.75 * 60 * 86400 and e10[seed] <= 1.25 * 60 * 86400
+			t8 = t8 .. (seed > 1 and " / " or "") .. string.format("%.1fj", e8[seed] / 86400)
+			t10 = t10 .. (seed > 1 and " / " or "") .. string.format("%.1fj", e10[seed] / 86400)
+			dTxt = dTxt .. (seed > 1 and " / " or "") .. (divin[seed] and string.format("%.1fj", divin[seed] / 86400) or "> 30j")
+		end
+		print("  [lot 16] premier Divin tiré (graines 1 à 5, 30 jours simulés) : " .. dTxt .. " ; espérance " .. t10)
+		check("Rythme (lot 16) : espérance du premier Secret entre 5,25 et 17,5 jours sur chaque graine (cible 1 à 2 semaines) : " .. t8, ok8)
+		check("Rythme (lot 16) : espérance du premier Divin à ±25 % de 2 mois (45 à 75 jours) sur chaque graine, au tapis et en pièces (était 10 à 16 jours) : " .. t10, ok10 and Config.ODDS.REF[10] == w[10] and Config.ODDS.REF[8] == w[8])
 	end)()
 	local a, b = Economy.simulate(Config, Rules, 5, { seed = 7 }), Economy.simulate(Config, Rules, 5, { seed = 7 })
 	check("Économie : simulation déterministe (même graine, même résultat)", a.final.coins == b.final.coins and a.final.hatched == b.final.hatched)

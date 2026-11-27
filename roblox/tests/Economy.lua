@@ -57,6 +57,18 @@ function Economy.run(Config, Rules, minutes, opts)
 		seed = (seed * 16807) % 2147483647
 		return seed / 2147483647
 	end
+	-- Lot 16 : second flux (Park-Miller 48271, produit < 2^47) pour la décision « T1 » (beltShare) des œufs Secret et plus. Avec le flux unique, un
+	-- tirage Divin (rnd >= 1 - 5e-5) est TOUJOURS suivi d'un rnd > 0,16 (x 16807, sans repli modulo) : « 1 - 16807 d / M » ; sous 0,002 % de poids,
+	-- le robot n'achetait JAMAIS un œuf Divin (artefact du générateur, pas de l'économie). Le flux principal est consommé comme avant : les raretés
+	-- <= Ultra Rare gardent exactement les mêmes tirages (mesures du lot 9 inchangées sans projection).
+	local seed2 = ((opts.seed or 12345) * 7919 + 13) % 2147483647
+	if seed2 == 0 then
+		seed2 = 1
+	end
+	local function rnd2()
+		seed2 = (seed2 * 48271) % 2147483647
+		return seed2 / 2147483647
+	end
 	local up = {}
 	for _, u in ipairs(Config.UPGRADES) do
 		up[u.key] = 0
@@ -109,6 +121,8 @@ function Economy.run(Config, Rules, minutes, opts)
 	local upPts = Rules.upPoints(0, false, opts.lucky == true, opts.potion == true, false)
 	local beltBusy, lastLegBelt, carrying = 0, -1e9, nil
 	log.beltBought, log.beltLost, log.privateEggs = 0, 0, 0
+	log.affordBelt = {}
+	local RARE_BELT = { 8, 10 }
 	local function pickTier(w)
 		local tot = 0
 		for _, x in ipairs(w) do
@@ -126,6 +140,31 @@ function Economy.run(Config, Rules, minutes, opts)
 			end
 		end
 		return last
+	end
+	-- Lot 16 : tirage du tapis. Le flux principal décide comme avant si l'œuf est d'une rareté >= Ultra Rare (même probabilité totale, mêmes
+	-- tirages pour toutes les raretés inférieures) ; le partage entre Ultra Rare, Secret, Exclusif et Divin se fait sur le second flux. Avec le seul
+	-- flux principal, un Secret / Divin exige rnd >= 1 - 1e-6 et la structure de Park-Miller (16807) faisait sortir ces valeurs bien plus souvent
+	-- qu'attendu dans la suite de tirages du robot (4 graines sur 5 avaient un Divin vers 20 jours pour une attente moyenne de 58 jours).
+	local RARE_SPLIT = 7
+	local function pickBelt(w)
+		local bt = pickTier(w)
+		if bt < RARE_SPLIT then
+			return bt
+		end
+		local tot = 0
+		for i = RARE_SPLIT, #w do
+			tot = tot + w[i]
+		end
+		local r = rnd2() * tot
+		for i = RARE_SPLIT, #w do
+			if w[i] > 0 then
+				r = r - w[i]
+				if r < 0 then
+					return i
+				end
+			end
+		end
+		return bt
 	end
 	local SELL_AVG = opts.sellAvg or 2 -- lot 9 : 2 (le robot remplace un pet sous 2 fois la moyenne de la rareté visée ; 1 au lot 8A)
 	local hatchHappy = opts.hatchHappy ~= false
@@ -220,7 +259,7 @@ function Economy.run(Config, Rules, minutes, opts)
 				if priv.acc >= P.interval then
 					priv.acc = priv.acc - P.interval
 					-- rareté tirée À LA CRÉATION (comme Belt.privateStep) : le robot ne peut pas « relancer » en attendant une place
-					priv.queue[#priv.queue + 1] = pickTier(opts.projected and BELT.weights.normal or Config.foldWeights(BELT.weights.normal))
+					priv.queue[#priv.queue + 1] = pickBelt(opts.projected and BELT.weights.normal or Config.foldWeights(BELT.weights.normal))
 				end
 			end
 			while #priv.queue > 0 do
@@ -249,11 +288,22 @@ function Economy.run(Config, Rules, minutes, opts)
 					end
 					carrying = nil
 				end
-				local bt = pickTier(beltW)
+				-- lot 16 : premier passage du tapis où le robot POURRAIT acheter un œuf Secret / Divin (prix <= 70 % de ses pièces) ; sert à l'espérance
+				-- du premier Secret / Divin (tests/run.luau : ce moment + attente moyenne d'une apparition achetée, beltEvery / (poids x beltShare))
+				for _, rt in ipairs(RARE_BELT) do
+					if log.affordBelt[rt] == nil and beltW[rt] > 0 and Config.EGG_PRICE[rt] > 0 and math.floor(Config.EGG_PRICE[rt] * BELT.priceRatio) <= coins * 0.7 then
+						log.affordBelt[rt] = ta
+					end
+				end
+				local bt = pickBelt(beltW)
 				local price = math.floor(Config.EGG_PRICE[bt] * BELT.priceRatio)
 				local isLeg = bt >= gateLeg
 				local wants = price > 0 and not carrying and ta >= beltBusy and price <= coins * 0.7 and makeRoom(bt, false, price) ~= nil and bt >= shopBest() and (not isLeg or ta - lastLegBelt >= 60)
-				if wants and rnd() < beltShare then
+				local share = wants and rnd() or 1
+				if wants and bt >= 8 then
+					share = rnd2()
+				end
+				if wants and share < beltShare then
 					coins = coins - price
 					carrying = { t = bt, at = ta + carrySeconds }
 					beltBusy = ta + math.max(carrySeconds, BELT.buyCooldown)
