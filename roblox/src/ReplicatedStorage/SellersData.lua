@@ -134,6 +134,9 @@ function SellersData.priceRange(vendor, Config)
 		local available = true
 		if type(Config) == "table" then
 			available = def ~= nil and type(def.id) == "number" and def.id > 0 and def.id % 1 == 0
+			if available and type(def.eggTier) == "number" and type(Config.tierLive) == "function" and not Config.tierLive(def.eggTier) then
+				available = false -- lot 16 (intégration) : œuf d'une rareté sans espèce publiée = masqué en boutique, donc hors de la ligne de prix
+			end
 		end
 		if available and isNum(price) then
 			n = n + 1
@@ -202,8 +205,21 @@ end
 -- Place les 8 vendeurs en cercle autour du centre du kiosque (Map2.kiosk ou K.CENTER), à 14 à 22 studs, face au centre. Pur et déterministe.
 --   K = KioskData (overlap, angle, RADIUS, CENTER) ; opts = { decor = DecorData (facultatif), center = { x, z } (facultatif) }
 -- Retourne { list = { { id, x, z, r, ring, angle, faceX, faceZ } ... }, missing = { ids non placés }, center }.
+local layoutCache = setmetatable({}, { __mode = "k" }) -- lot 16 (intégration) : calcul coûteux mémorisé par carte (Main et Builder le demandent tous deux)
 function SellersData.layout(Map2, K, opts)
 	opts = opts or {}
+	local memo = type(Map2) == "table" and layoutCache[Map2] or nil
+	local ckey = tostring(K) .. "|" .. tostring(opts.decor) .. "|" .. tostring(opts.center and opts.center.x) .. "|" .. tostring(opts.center and opts.center.z)
+	if memo and memo.key == ckey then
+		return memo.value
+	end
+	local result = SellersData.computeLayout(Map2, K, opts)
+	if type(Map2) == "table" then
+		layoutCache[Map2] = { key = ckey, value = result }
+	end
+	return result
+end
+function SellersData.computeLayout(Map2, K, opts)
 	local center = opts.center or (type(Map2.kiosk) == "table" and Map2.kiosk) or K.CENTER
 	local cx, cz = center.x, center.z
 	local VR = SellersData.RADIUS

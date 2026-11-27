@@ -24,7 +24,9 @@ def item(cls, name, source=None, children=(), extra=""):
 SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema.lua"), ("VfxKit", "VfxKit.lua"), ("CinematicKit", "CinematicKit.lua"), ("Placement", "Placement.lua"), ("MapGeo", "MapGeo.lua"), ("Culling", "Culling.lua"), ("AssetReportUi", "AssetReportUi.lua"), ("MiniMap", "MiniMap.lua"), ("Battle", "Battle.lua"), ("Layout", "Layout.lua"), ("Party", "Party.lua"),
           ("Spawn", "Spawn.lua"), ("SpawnGuard", "SpawnGuard.lua"), ("Belt", "Belt.lua"), ("Raven", "Raven.lua"), ("Assets", "Assets.lua"), ("Reveal", "Reveal.lua"), ("Guard", "Guard.lua"), ("Traps", "Traps.lua"), ("Riddle", "Riddle.lua"), ("Castle", "Castle.lua"), ("Upgrade", "Upgrade.lua"),
           ("Odds", "Odds.lua"), ("HatchPlan", "HatchPlan.lua"), ("IntroPlan", "IntroPlan.lua"), ("TypeFx", "TypeFx.lua"), ("Calendar", "Calendar.lua"), ("Npc", "Npc.lua"), ("Rewards", "Rewards.lua"),
-          ("KioskData", "KioskData.lua"), ("DecorData", "DecorData.lua"), ("HouseDecorData", "HouseDecorData.lua")]  # lot 8B : kiosque, décor de carte, meubles
+          ("KioskData", "KioskData.lua"), ("DecorData", "DecorData.lua"), ("HouseDecorData", "HouseDecorData.lua"),  # lot 8B : kiosque, décor de carte, meubles
+          ("ShopInfo", "ShopInfo.lua"), ("ShopData", "ShopData.lua"), ("Shop", "Shop.lua"), ("Season", "Season.lua"), ("SeasonData", "SeasonData.lua"),  # lot 16 : boutique, passe de combat
+          ("Offers", "Offers.lua"), ("OffersData", "OffersData.lua"), ("SellersData", "SellersData.lua")]  # lot 16 : offres à l'écran, vendeurs PNJ
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -50,6 +52,7 @@ game_tree = [
         item("ModuleScript", "HenQuest", read("ServerScriptService/HenQuest.lua")),
         item("ModuleScript", "Scenery", read("ServerScriptService/Scenery.lua")),
         item("ModuleScript", "Kiosk", read("ServerScriptService/Kiosk.lua")),  # lot 8B : kiosque central
+        item("ModuleScript", "Sellers", read("ServerScriptService/Sellers.lua")),  # lot 16 : vendeurs PNJ
         item("ModuleScript", "Decor", read("ServerScriptService/Decor.lua")),  # lot 8B : décor de carte (lots 15 à 17)
         item("ModuleScript", "HouseDecor", read("ServerScriptService/HouseDecor.lua")),  # lot 8B : meubles des maisons (lots 18 et 19)
         item("ModuleScript", "Telemetry", read("ServerScriptService/Telemetry.lua"))]),  # lot 9 : mesures AnalyticsService

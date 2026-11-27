@@ -145,9 +145,18 @@ return function(env)
 	end)())
 	check("Ligne de prix sans Config : « Œufs : de 15 à 6 999 R$ »", D.priceLine(D.vendor("eggs"), nil) == "Œufs : de 15 à 6 999 R$")
 	check("fmtR : milliers et entrées invalides", D.fmtR(6999) == "6 999" and D.fmtR(15) == "15" and D.fmtR(1000000) == "1 000 000" and D.fmtR("x") == "?" and D.fmtR(nil) == "?")
-	check("Prix du Config réel : seuls les achats disponibles comptent", (function()
+	check("Prix du Config réel : seuls les achats disponibles comptent (id réel ET rareté publiée : les œufs sans espèce sont exclus)", (function()
 		local lo, hi, n = D.priceRange(D.vendor("eggs"), Config)
-		return n >= 4 and lo == 249 and hi == 6999 and D.priceLine(D.vendor("eggs"), Config) == "Œufs : de 249 à 6 999 R$"
+		local liveLo, liveHi, liveN = nil, nil, 0
+		for _, k in ipairs(D.vendor("eggs").keys) do
+			local def = Config.PRODUCTS[k]
+			if def and Config.purchasable(def) and Config.tierLive(def.eggTier) then
+				liveN = liveN + 1
+				liveLo = (liveLo == nil or def.robux < liveLo) and def.robux or liveLo
+				liveHi = (liveHi == nil or def.robux > liveHi) and def.robux or liveHi
+			end
+		end
+		return n == liveN and n >= 4 and lo == liveLo and hi == liveHi and D.priceLine(D.vendor("eggs"), Config) == "Œufs : de " .. D.fmtR(liveLo) .. " à " .. D.fmtR(liveHi) .. " R$"
 	end)())
 	check("Aucun achat ouvert : « bientôt disponible », sans urgence", (function()
 		local empty = { PRODUCTS = {}, PASSES = {} }

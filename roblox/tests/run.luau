@@ -4398,8 +4398,9 @@ do
 	check("Achats : au moment du PurchaseGranted, le reçu et le pack de départ sont DÉJÀ dans le DataStore", rec ~= nil and rec.v ~= nil and rec.v.receipts["R-1"] ~= nil and rec.v.starter == true)
 	local d3 = process({ PlayerId = 2008, PurchaseId = "R-1", ProductId = 9101 })
 	check("Achats : reçu déjà traité -> PurchaseGranted sans nouvelle livraison", d3 == PS.PurchaseGranted and p8:GetAttribute("Coins") - c1 < cfg.STARTER_PACK.coins * 0.9)
+	local c4 = p8:GetAttribute("Coins")
 	local d4 = process({ PlayerId = 2008, PurchaseId = "R-2", ProductId = 9101 })
-	check("Achats : pack de départ déjà acheté (achat unique) -> rien n'est livré", d4 == PS.NotProcessedYet)
+	check("Achats : pack de départ déjà acheté (achat unique, course) -> compensé en pièces (lot 16), jamais un second pack", d4 == PS.PurchaseGranted and p8:GetAttribute("Coins") - c4 < cfg.STARTER_PACK.coins * 0.9)
 	check("Achats : produit inconnu ou joueur absent -> NotProcessedYet", process({ PlayerId = 2008, PurchaseId = "R-3", ProductId = 777 }) == PS.NotProcessedYet and process({ PlayerId = 424242, PurchaseId = "R-4", ProductId = 9102 }) == PS.NotProcessedYet)
 	local d5 = process({ PlayerId = 2008, PurchaseId = "R-5", ProductId = 9102 })
 	check("Achats : œuf exclusif livré s'il reste une place, sinon NotProcessedYet sans livrer", d5 == PS.PurchaseGranted or d5 == PS.NotProcessedYet)
@@ -4407,7 +4408,7 @@ do
 		process({ PlayerId = 2008, PurchaseId = "F-" .. n, ProductId = 9102 })
 	end
 	local dFull = process({ PlayerId = 2008, PurchaseId = "R-FULL", ProductId = 9102 })
-	check("Achats : base pleine -> œuf exclusif NotProcessedYet (l'argent n'est pas pris sans livraison)", dFull == PS.NotProcessedYet)
+	check("Achats : base ET sac pleins APRÈS paiement (course) -> l'œuf va au coffre de débordement (lot 16), jamais perdu ni refait", dFull == PS.PurchaseGranted)
 	check("Achats : aucune erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), #RT.errors == 0)
 	RT.removePlayer(p8)
 	RT.step(1)
@@ -5987,7 +5988,7 @@ do
 			end
 		end
 	end
-	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 22 and missing == "") -- lot 15 : + Sauver ma série (21 -> 22) ; lot 9b : + Rattrapage du calendrier (20 -> 21) ; lot 9 : + Œufs Secret, Exclusif, Divin (17 -> 20)
+	check("Catalogue : " .. count .. " achats documentés (nom, ID attendu)" .. (missing == "" and "" or " : manquants" .. missing), count == 46 and missing == "") -- lot 16 : 46 achats (ShopData) ; lot 15 : + Sauver ma série (21 -> 22) ; lot 9b : + Rattrapage du calendrier (20 -> 21) ; lot 9 : + Œufs Secret, Exclusif, Divin (17 -> 20)
 end
 
 
@@ -7296,7 +7297,7 @@ do
 		end
 	end
 	table.sort(rnd)
-	check("PolicyService : les 9 offres à hasard (lot 9) sont marquées (" .. table.concat(rnd, ", ") .. ")", table.concat(rnd, ",") == "EggDivine,EggExclusive,EggSecret,ExclusiveEgg,GoldenBelt,LuckPotion,Lucky,PrivateBelt,ServerLuck") -- lot 9 : + 3 œufs Robux de rareté fixe
+	check("PolicyService : les 21 offres à hasard (lot 16) sont marquées (" .. table.concat(rnd, ", ") .. ")", table.concat(rnd, ",") == "BundleLegend,BundleRoyal,BundleRoyalNoPass,DoubleLuck,EggDivine,EggExclusive,EggR2,EggR3,EggR4,EggR5,EggR7,EggSecret,ExclusiveEgg,GoldenBelt,LuckPotion,LuckPotionMini,Lucky,Lucky2,PrivateBelt,ServerLuck,StarterPack") -- lot 9 : + 3 œufs Robux de rareté fixe ; lot 16 : catalogue ShopData (21 achats à hasard)
 	local inc = true
 	for i = 2, #Config.BASE_LEVELS2 do
 		if Config.BASE_LEVELS2[i].score <= Config.BASE_LEVELS2[i - 1].score or Config.BASE_LEVELS2[i].size < Config.BASE_LEVELS2[i - 1].size then
@@ -7469,7 +7470,7 @@ do
 	local before = Belt.addGolden(Config, st8, 0, 600, "Zoé")
 	local mid = Belt.addGolden(Config, st8, 100, 600, nil)
 	local capped = Belt.addGolden(Config, st8, 100, 99999, nil)
-	checkv("Tapis doré : cumulable (" .. before .. " puis " .. mid .. " s), plafonné à " .. Config.BELT.golden.maxSeconds .. " s (" .. capped .. "), durée négative ou invalide ignorée", before == 600 and mid == 1100 and capped == Config.BELT.golden.maxSeconds and Belt.addGolden(Config, Belt.new(1, 0), 0, -5, nil) == 0 and Belt.addGolden(Config, Belt.new(1, 0), 0, 0 / 0, nil) == 0)
+	checkv("Tapis doré : cumulable (" .. before .. " puis " .. mid .. " s, puis " .. capped .. " s : lot 16, sans plafond d'achat ; garde technique " .. Config.BELT.golden.maxSeconds .. " s), durée négative ou invalide ignorée", before == 600 and mid == 1100 and capped == 1100 + 99999 and capped <= Config.BELT.golden.maxSeconds and Belt.addGolden(Config, Belt.new(1, 0), 0, -5, nil) == 0 and Belt.addGolden(Config, Belt.new(1, 0), 0, 0 / 0, nil) == 0)
 	local stG, stN = Belt.new(9, 0), Belt.new(9, 0)
 	Belt.addGolden(Config, stG, 0, 600, nil)
 	local ng, nn = 0, 0
@@ -9709,7 +9710,7 @@ do
 	left, ok3 = RavenM.stack(left, 600, 1800)
 	local left4
 	left4, ok4 = RavenM.stack(left, 600, 1800)
-	check7("Tapis doré / pluie de chance : 3 achats cumulent 600 + 600 + 600 = 1800 s ; le 4e (plafond) est refusé sans rien changer", ok1 and ok2 and ok3 and left == 1800 and not ok4 and left4 == 1800 and Config.BELT.golden.maxSeconds == 1800 and Config.SERVER_LUCK.maxSeconds == 1800)
+	check7("Raven.stack : 3 ajouts cumulent 600 + 600 + 600 = 1800 s ; au-delà d'une borne, refus sans rien changer (lot 16 : borne de Config portée à 30 jours, plus de plafond d'achat)", ok1 and ok2 and ok3 and left == 1800 and not ok4 and left4 == 1800 and Config.BELT.golden.maxSeconds >= 86400 and Config.SERVER_LUCK.maxSeconds >= 86400)
 	check7("Pluie de chance : +5 points fixes (5 -> 10), plafond Rules.MAX_UP respecté", Rules.upPoints(0, false, false, false, true) == 10 and Rules.upPoints(0, false, false, false, false) == 5 and Rules.upPoints(60, true, true, true, true) == 5 + 60 + 5 + Config.BOOST_CAP.paidUp and -- lot 9 : bonus payants (10 + 25 + 5) plafonnés à BOOST_CAP.paidUp
 		 Rules.tierWeights(1, 500)[3] == Rules.MAX_UP)
 	-- tapis privé
@@ -9747,7 +9748,7 @@ do
 		end
 	end
 	table.sort(names)
-	check7("Offres à hasard : exactement les 9 (lot 9 : + 3 œufs Robux) (" .. table.concat(names, ", ") .. ")", table.concat(names, ",") == "D.EggDivine,D.EggExclusive,D.EggSecret,D.ExclusiveEgg,D.GoldenBelt,D.LuckPotion,D.ServerLuck,P.Lucky,P.PrivateBelt")
+	check7("Offres à hasard : exactement les 21 du catalogue (lot 16) (" .. table.concat(names, ", ") .. ")", table.concat(names, ",") == "D.BundleLegend,D.BundleRoyal,D.BundleRoyalNoPass,D.DoubleLuck,D.EggDivine,D.EggExclusive,D.EggR2,D.EggR3,D.EggR4,D.EggR5,D.EggR7,D.EggSecret,D.ExclusiveEgg,D.GoldenBelt,D.LuckPotion,D.LuckPotionMini,D.ServerLuck,D.StarterPack,P.Lucky,P.Lucky2,P.PrivateBelt")
 	local hidden, shown = true, true
 	for _, k in ipairs({ "ExclusiveEgg", "GoldenBelt", "LuckPotion", "ServerLuck" }) do
 		hidden = hidden and not Config.offerVisible(Config.PRODUCTS[k], true) and not Config.offerVisible(Config.PRODUCTS[k], nil) and Config.offerVisible(Config.PRODUCTS[k], false)
@@ -9890,7 +9891,7 @@ do
 		receipt(7001, "G-3", "GoldenBelt")
 		local gmax = hooks.serverBuffs().golden
 		local g4 = receipt(7001, "G-4", "GoldenBelt")
-		check7("Tapis doré : cumulable jusqu'à 1800 s (" .. gmax .. " s), le 4e achat est NotProcessedYet sans rien changer", gmax >= 1790 and gmax <= 1800 and g4 == PS.NotProcessedYet and hooks.serverBuffs().golden <= gmax)
+		check7("Tapis doré : cumulable (" .. gmax .. " s après 3 achats), le 4e achat est livré aussi (lot 16 : plus de plafond d'achat, durées cumulables)", gmax >= 1790 and gmax <= 1800 and g4 == PS.PurchaseGranted and hooks.serverBuffs().golden >= gmax + 590)
 		local l1 = receipt(7001, "L-1", "ServerLuck")
 		receipt(7001, "L-1", "ServerLuck")
 		local lleft = hooks.serverBuffs().luck
@@ -9898,7 +9899,7 @@ do
 		receipt(7001, "L-2", "ServerLuck")
 		receipt(7001, "L-3", "ServerLuck")
 		local lmax = hooks.serverBuffs().luck
-		check7("Pluie de chance : plafond 1800 s (" .. lmax .. " s), le 4e achat refusé sans perte", lmax >= 1795 and lmax <= 1800 and receipt(7001, "L-4", "ServerLuck") == PS.NotProcessedYet and hooks.serverBuffs().luck <= lmax)
+		check7("Pluie de chance : cumulable (" .. lmax .. " s après 3 achats), le 4e achat livré aussi (lot 16 : plus de plafond d'achat)", lmax >= 1795 and lmax <= 1800 and receipt(7001, "L-4", "ServerLuck") == PS.PurchaseGranted and hooks.serverBuffs().luck >= lmax + 590)
 
 		-- 3. Corbeau -------------------------------------------------------------------------------------------------------------------------------------
 		local B, sB = join("Bob", 7002)
@@ -11566,6 +11567,19 @@ end)()
 		return newRuntime(opts)
 	end }
 	for _, name in ipairs({ "lot15", "lot15_e2e" }) do
+		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
+	end
+end)()
+
+-- Lot 16 : modules purs (boutique Shop / ShopData / ShopInfo, passe de combat Season / SeasonData, offres Offers, vendeurs Sellers), intégration pure (catalogue de
+-- Config, PolicyService, mise à niveau, télémétrie, décor / vendeurs) puis bout en bout dans le vrai Main.server.lua et Data.lua (reçus, débordement, saison, vendeurs).
+-- Aussi lançables seules : python3 roblox/tests/run_shop.py, run_season.py, run_offers.py, run_sellers.py.
+;(function()
+	local env = { check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end }
+	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e" }) do
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()

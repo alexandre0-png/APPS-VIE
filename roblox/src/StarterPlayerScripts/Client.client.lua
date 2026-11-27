@@ -78,6 +78,11 @@ local RKiosk = Remotes:WaitForChild("Kiosk") -- lot 8B : kiosque central (serveu
 -- Lot 15 : PNJ (bulle ❗, approche, dialogue, écran d'échange), série de 7 jours, sac d'œufs, quêtes bonus / semaine, événements. Table unique (limite de 200
 -- variables locales). Le serveur décide de tout : ici, uniquement de l'affichage et des demandes (identifiant d'offre, booléens).
 local L15 = { RNpc = Remotes:WaitForChild("Npc"), offer = nil, model = nil, token = 0, stage = nil, pinged = {} }
+-- Lot 16 : boutique en 8 catégories (Shop / ShopInfo, mêmes fiches au kiosque, chez les vendeurs et dans les offres à l'écran), passe de combat (vue envoyée par le serveur).
+-- Rangé dans L15 (aucune variable locale de plus : limite de 200). Le client n'achète jamais lui-même : RAction « shopBuy » -> le serveur vérifie puis lance l'invite.
+L15.Shop = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Shop"))
+L15.ShopInfo = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("ShopInfo"))
+L15.season, L15.recap, L15.shopOffer = nil, nil, nil
 local fmt = Config.fmt
 
 local COL = {
@@ -743,7 +748,7 @@ local function avgInc(tier)
 end
 
 local tabsDef = {
-	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" }, { "pass", "🎟 Passe de combat" } }, -- lot 8B : onglet du passe de combat (contenu au lot 16)
+	shop = { { "eggs", "🥚 Œufs" }, { "up", "⬆️ Améliorations" }, { "robux", "💎 Boutique" }, { "pass", "🏅 Passe de combat" } }, -- lot 16 : boutique R$ (8 catégories) et vrai passe de combat
 	dex = { { "eggs", "🥚 Œufs" }, { "pets", "🐾 Pets" }, { "boosts", "⚡ Boosts" }, { "titles", "🏷 Titres" }, { "col", "📖 Index" }, { "ach", "🏅 Succès" } },
 	quests = { { "story", "📜 Histoire" }, { "puzzle", "🔮 Énigme" }, { "daily", "🎯 Quotidiennes" } },
 	bonus = { { "daily", "🎁 Bonus" }, { "cal", "📅 Calendrier" } }, -- lot 9b : calendrier des œufs sur 30 jours
@@ -764,9 +769,238 @@ local function offerShown_(def, owned) -- une offre payante est-elle montrée ? 
 end
 
 local render
+local openPanel -- lot 16 : déclarée ici (les fiches de la boutique ouvrent le panneau)
+---------------------------------------------------------------- Lot 16 : boutique R$ (8 catégories), fiches, passe de combat, coffre de débordement, poses
+-- Profil vu par Shop côté client (affichage seulement : le serveur refait toutes les vérifications avant l'invite d'achat).
+function L15.shopProfile()
+	local l = type(state.l16) == "table" and state.l16 or {}
+	local se = type(l.season) == "table" and l.season or {}
+	return { passes = type(l.owned) == "table" and l.owned or state.passes or {}, once = type(l.once) == "table" and l.once or {}, season = { cur = se.cur or 0, premium = se.premium, plus = se.plus } }
+end
+local function iconOf(key)
+	local info = L15.ShopInfo[key]
+	local e = info and Config.iconFallback(info.icon) or ""
+	if e == "" then
+		local def = Config.PRODUCTS[key] or Config.PASSES[key]
+		e = def and def.emoji or "🛒"
+	end
+	return e
+end
+function L15.openCard(key)
+	if not (panel and panel.name == "shop") then
+		openPanel("shop")
+	end
+	if not panel then
+		return
+	end
+	local info = L15.ShopInfo[key]
+	panel.tab, panel.cat, panel.card = "robux", info and info.cat or "eggs", key
+	RAction:FireServer("shopEv", { k = "card", key = key })
+	render()
+	scroll.CanvasPosition = Vector2.new(0, 0)
+end
+function L15.renderRobux()
+	local Shop = L15.Shop
+	local restricted = state.restricted ~= false
+	panel.cat = panel.cat or "eggs"
+	if panel.card then
+		local c = Shop.card(Config, L15.ShopInfo, L15.shopProfile(), panel.card, restricted)
+		if not c or c.state == "hidden" then
+			panel.card = nil
+		else
+			local key = c.key
+			addRow({ icon = "◀", title = "Retour : " .. (Shop.categoryTitle(panel.cat) or "Boutique"), desc = "", btn = "Retour", btnColor = COL.panel, btnText = COL.text, onClick = function()
+				panel.card = nil
+				render()
+			end })
+			addRow({ icon = iconOf(key), title = c.title, desc = c.def, btn = c.owned and "✅ Possédé" or ("Acheter · " .. c.price .. " R$"), btnColor = c.owned and COL.dis or COL.green, onClick = (not c.owned) and function()
+				RAction:FireServer("shopBuy", key) -- le serveur vérifie (place, possession, PolicyService) AVANT l'invite Roblox, qui affiche et confirme le prix
+			end or nil })
+			addNote("📋 " .. c.detail)
+			if c.odds ~= "" then
+				addNote("🎲 Probabilités (affichées avant l'achat) :\n" .. c.odds)
+			end
+			addNote("🎲 Hasard : " .. c.chance)
+			addNote("🚫 Ce que l'achat ne fait pas : " .. c.notDo .. ".")
+			addNote("🔁 " .. (c.limit == "aucune limite" and "Achat répétable." or ("Limite : " .. c.limit .. ".")) .. " Prix : " .. c.price .. " R$, confirmé par Roblox avant tout paiement.")
+			if #c.seeAlso > 0 then
+				addNote("👀 Voir aussi : " .. table.concat(c.seeAlso, ", "))
+			end
+			return
+		end
+	end
+	-- pastilles des 8 catégories (ordre fixe de Config.SHOP_CATEGORIES)
+	local chips = make("Frame", { Size = UDim2.new(1, -8, 0, 76), BackgroundTransparency = 1 }, scroll)
+	make("UIGridLayout", { CellSize = UDim2.new(0.25, -6, 0, 34), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, chips)
+	for i, cat in ipairs(Config.SHOP_CATEGORIES) do
+		local on = panel.cat == cat.key
+		local b = make("TextButton", { LayoutOrder = i, BackgroundColor3 = on and COL.yellow or COL.panel, Text = Config.iconFallback(cat.icon) .. " " .. cat.title, Font = FONT, TextScaled = true, TextColor3 = on and COL.dark or COL.muted }, chips)
+		corner(b, 12)
+		pressFx(b)
+		b.Activated:Connect(function()
+			panel.cat, panel.card = cat.key, nil
+			render()
+		end)
+	end
+	local groups = Shop.visibleOffers(L15.shopProfile(), Config, restricted, L15.ShopInfo)
+	local list
+	for _, g in ipairs(groups) do
+		if g.key == panel.cat then
+			list = g.offers
+		end
+	end
+	if panel.cat == "season" then
+		addRow({ icon = "🏅", title = "Voir le passe de combat", desc = "Paliers, récompenses gratuites et premium, XP de saison.", btn = "Ouvrir", btnColor = COL.green, onClick = function()
+			panel.tab = "pass"
+			RAction:FireServer("seasonView")
+			render()
+		end })
+	end
+	if not list or #list == 0 then
+		addNote(restricted and "Rien à afficher ici pour ton compte (certains achats à hasard ne sont pas proposés)." or "Rien à afficher ici pour l'instant.")
+		return
+	end
+	for _, o in ipairs(list) do
+		local info = L15.ShopInfo[o.key]
+		addRow({ icon = iconOf(o.key), title = (info and info.title or o.key) .. (o.random and "  🎲" or ""), desc = info and info.def or "", btn = o.owned and Shop.OWNED_LABEL or (tostring(o.price) .. " R$"), btnColor = o.owned and COL.dis or COL.yellow, onClick = function()
+			L15.openCard(o.key)
+		end })
+	end
+	addNote("🎲 = contient du hasard : les probabilités sont sur la fiche, avant l'achat. Aucun achat ne donne de force en combat ni de protection contre le vol.")
+end
+local function grantText(list)
+	local out = {}
+	for _, g in ipairs(type(list) == "table" and list or {}) do
+		if g.kind == "coins" then
+			out[#out + 1] = "🪙 " .. g.minutes .. " min de revenus"
+		elseif g.kind == "egg" then
+			out[#out + 1] = "🥚 " .. ((g.n or 1) > 1 and (g.n .. " x ") or "") .. tostring(g.name)
+		elseif g.kind == "token" then
+			out[#out + 1] = "⚔️ " .. g.n .. " jeton(s)"
+		elseif g.kind == "scroll" then
+			out[#out + 1] = "📜 " .. g.n .. " parchemin(s)"
+		elseif g.kind == "species" then
+			out[#out + 1] = "✨ " .. tostring(g.name)
+		else
+			out[#out + 1] = "🎀 " .. tostring(g.label or g.id)
+		end
+	end
+	return table.concat(out, " + ")
+end
+function L15.renderSeason()
+	local v = L15.season
+	if not v then
+		addNote("Chargement du passe de combat…")
+		return
+	end
+	local rc = L15.recap
+	if rc then
+		addRow({ icon = "📜", title = "Saison " .. rc.n .. " terminée : palier " .. rc.tier, desc = rc.expired and "Les récompenses non réclamées sont perdues." or ((rc.unclaimedFree + rc.unclaimedPremium) .. " récompense(s) à réclamer encore " .. rc.graceDaysLeft .. " jour(s)."), btn = rc.expired and "OK" or "Réclamer", btnColor = COL.green, onClick = function()
+			if not rc.expired then
+				RAction:FireServer("seasonClaim", { all = true, prev = true })
+			end
+			RAction:FireServer("seasonAck")
+		end })
+	end
+	if v.season == 0 then
+		addNote("🏅 Le passe de combat commence le 1er décembre 2026 (minuit UTC) : saisons de 60 jours, 30 paliers, piste gratuite et piste premium. L'XP gagnée d'ici là est gardée (" .. v.xp .. " XP).")
+	else
+		addNote("🏅 " .. tostring(v.name) .. " · " .. v.daysLeft .. " jour(s) restant(s) · palier " .. v.tier .. "/30 · " .. v.xp .. " XP" .. (v.tier < Config.SEASON.tiers and (" (encore " .. v.xpToNext .. " XP)") or "") .. "\nXP du jour : " .. v.dayXp .. "/" .. v.dailyCap .. " (victoire PvE 20, PvP 30, quête du jour 100, éclosion Épique+ 50 ; quêtes de la semaine 300 en plus).")
+		local any = false
+		for _, r in ipairs(v.rows) do
+			if r.reached and ((r.free and not r.freeClaimed) or (v.premium and r.premium and not r.premiumClaimed)) then
+				any = true
+			end
+		end
+		if any then
+			addRow({ icon = "🎁", title = "Tout réclamer", desc = "Toutes les récompenses des paliers atteints.", btn = "Réclamer", btnColor = COL.green, onClick = function()
+				RAction:FireServer("seasonClaim", { all = true })
+			end })
+		end
+		if not v.premium then
+			addRow({ icon = "🏅", title = "Piste premium", desc = "Voir le passe premium (fiche, contenu, prix).", btn = "Voir", btnColor = COL.yellow, onClick = function()
+				L15.openCard("SeasonPremium")
+			end })
+		end
+	end
+	for _, r in ipairs(v.rows) do
+		local t = r.tier
+		local canFree = v.season > 0 and r.reached and r.free and not r.freeClaimed
+		local canPrem = v.season > 0 and r.reached and r.premium and v.premium and not r.premiumClaimed
+		local desc = (r.free and ("Gratuit : " .. grantText(r.free) .. (r.freeClaimed and " ✅" or "")) or "Gratuit : —") .. "\nPremium : " .. (r.premium and grantText(r.premium) or "—") .. (r.premiumClaimed and " ✅" or "")
+		addRow({ icon = r.reached and "⭐" or "🔒", title = "Palier " .. t, desc = desc, btn = canFree and "Gratuit" or (canPrem and "Premium" or (r.reached and "✅" or "…")), btnColor = (canFree or canPrem) and COL.green or COL.dis, onClick = (canFree or canPrem) and function()
+			RAction:FireServer("seasonClaim", { tier = t, track = canFree and "free" or "premium" })
+		end or nil })
+	end
+end
+function L15.renderBonus16()
+	local l = type(state.l16) == "table" and state.l16 or {}
+	addRow({ icon = "💎", title = "Boutique", desc = "Œufs, chance, pièces, base, combat, passe de combat, packs, cosmétiques : fiches et probabilités.", btn = "Ouvrir", btnColor = COL.green, onClick = function()
+		openPanel("shop")
+		if panel then
+			panel.tab, panel.cat, panel.card = "robux", "eggs", nil
+			RAction:FireServer("shopEv", { k = "view" })
+			render()
+		end
+	end })
+	if (l.overflow or 0) > 0 then
+		addRow({ icon = "📦", title = "Coffre de débordement : " .. l.overflow .. " œuf(s)", desc = "Œufs payés arrivés quand ta base et ton sac étaient pleins : jamais perdus.", btn = "Sortir", btnColor = COL.green, onClick = function()
+			RAction:FireServer("overflowTake")
+		end })
+	end
+	local owned = {}
+	for n = 1, #Config.LOT16.emotes do
+		if type(l.once) == "table" and l.once["EmoteVictory" .. n] then
+			owned[#owned + 1] = n
+		end
+	end
+	if #owned > 0 then
+		local cur = l.emote or 0
+		local nextN = 0
+		for _, n in ipairs(owned) do
+			if nextN == 0 and n > cur then
+				nextN = n
+			end
+		end
+		addRow({ icon = cur > 0 and Config.LOT16.emotes[cur] or "🎭", title = "Pose de victoire : " .. (cur > 0 and ("n° " .. cur) or "aucune"), desc = "Jouée après une victoire. Purement visuelle.", btn = "Changer", btnColor = COL.yellow, onClick = function()
+			RAction:FireServer("emoteSet", nextN)
+		end })
+	end
+	if (l.doubleLeft or 0) > 0 then
+		addNote("🍀 Double chance active : " .. Config.fmtTime(l.doubleLeft) .. " (points de chance x2, 70 au plus).")
+	end
+	if (l.arenaLeft or 0) > 0 then
+		addNote("🎫 Tickets d'arène : +" .. l.arenaLeft .. " combats de tour aujourd'hui.")
+	end
+end
+-- Pose de victoire : petit effet visuel au-dessus du personnage (aucun effet sur le jeu).
+player:GetAttributeChangedSignal("VictoryAt"):Connect(function()
+	local n = player:GetAttribute("VictoryPose")
+	local char = player.Character
+	local head = char and char:FindFirstChild("Head")
+	if type(n) ~= "number" or not head then
+		return
+	end
+	local bb = make("BillboardGui", { Size = UDim2.fromOffset(90, 90), StudsOffset = Vector3.new(0, 3, 0), AlwaysOnTop = true }, head)
+	local lbl = text(bb, { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = Config.LOT16.emotes[n] or "🎉", TextScaled = true })
+	TweenService:Create(bb, TweenInfo.new(1.6, Enum.EasingStyle.Back), { StudsOffset = Vector3.new(0, 5, 0) }):Play()
+	TweenService:Create(lbl, TweenInfo.new(1.6), { TextTransparency = 1 }):Play()
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.Jump = true
+	end
+	Debris:AddItem(bb, 1.8)
+end)
+
 local function setTab(t)
 	if t == "cal" and panel.tab ~= "cal" then
 		playSound("calendar_open") -- lot 10 : son approuvé à l'ouverture du calendrier
+	end
+	if panel.name == "shop" and t == "pass" then
+		RAction:FireServer("seasonView") -- lot 16 : vue du passe de combat (serveur)
+	elseif panel.name == "shop" and t == "robux" then
+		panel.card = nil
+		RAction:FireServer("shopEv", { k = "view" }) -- lot 16 : mesure de l'entonnoir d'achat
 	end
 	panel.tab = t
 	panel.confirm = false
@@ -892,10 +1126,10 @@ function render()
 		buy.Activated:Connect(function()
 			RAction:FireServer("buyEgg", sel)
 		end)
-	elseif panel.name == "shop" and panel.tab == "pass" then
-		-- Lot 8B : emplacement du passe de combat (paliers, récompenses et achat arrivent au lot 16) : aucune action, aucun achat possible ici.
-		addRow({ icon = "🎟", title = "Passe de combat", desc = "Bientôt : des paliers de récompenses à débloquer en jouant et en combattant.", btn = "Bientôt", btnColor = COL.dis })
-		addNote("Le passe de combat arrive dans une prochaine mise à jour. Rien n'est vendu pour l'instant.")
+	elseif panel.name == "shop" and panel.tab == "robux" and L15.renderRobux then
+		L15.renderRobux() -- lot 16 : boutique R$ en 8 catégories, fiche au clic
+	elseif panel.name == "shop" and panel.tab == "pass" and L15.renderSeason then
+		L15.renderSeason() -- lot 16 : passe de combat (vue du serveur)
 	elseif panel.name == "shop" then
 		for _, u in ipairs(Config.UPGRADES) do
 			local l = state.up[u.key] or 0
@@ -922,7 +1156,7 @@ function render()
 			local tier = Config.TIERS[p.tier]
 			addRow({
 				icon = d and p.emoji or "❓", iconColor = d and tier.color or nil,
-				title = d and p.name or "???", titleColor = d and tier.color or COL.muted,
+				title = d and p.name or ((state.passes and state.passes.Collector) and ("🔍 " .. string.sub(p.name, 1, 1) .. "… (" .. #p.name .. " lettres)") or "???"), titleColor = d and tier.color or COL.muted, -- lot 16 : indice de silhouette (passe Collectionneur)
 				desc = tier.name .. (d and (" · obtenu x" .. d.n .. " · record x" .. fmt(d.b)) or ""),
 			})
 		end
@@ -1264,7 +1498,7 @@ function render()
 					end })
 				elseif def and Config.purchasable(def) then
 					addRow({ icon = def.emoji, title = def.name .. " : " .. def.robux .. " R$", desc = def.desc, btn = "Acheter", btnColor = COL.green, onClick = function()
-						MarketplaceService:PromptProductPurchase(player, def.id)
+						RAction:FireServer("shopBuy", "CalendarCatchup") -- lot 16 : le serveur vérifie avant l'invite
 					end })
 				else
 					addRow({ icon = "📅", title = "Rattrapage payant", desc = "Bientôt disponible.", btn = "Bientôt", btnColor = COL.dis })
@@ -1276,11 +1510,6 @@ function render()
 		if L15.renderBonus then
 			L15.renderBonus()
 		end -- lot 15 : série de 7 jours (remplace l'ancien bonus quotidien), sac d'œufs, quête bonus, quêtes de la semaine, événements
-		local passNames = {}
-		for name in pairs(Config.PASSES) do
-			passNames[#passNames + 1] = name
-		end
-		table.sort(passNames)
 		if state.tokens and state.tokens > 0 or Config.offerVisible(Config.PRODUCTS.RemoteSteal, false) then
 			addRow({ icon = "🐦‍⬛", title = "Corbeau chipeur : " .. (state.tokens or 0) .. "/" .. Config.REMOTE_STEAL.tokenMax .. " jeton(s)", desc = "Envoie un corbeau chercher un œuf en incubation chez un joueur du serveur.", btn = "Ouvrir", btnColor = COL.green, onClick = function()
 				panel = { name = "raven", tab = "", confirm = false }
@@ -1288,57 +1517,8 @@ function render()
 				render()
 			end })
 		end
-		for _, name in ipairs(passNames) do
-			local def = Config.PASSES[name]
-			local owned = state.passes[name]
-			if offerShown_(def, owned) then
-			addRow({
-				icon = def.emoji, title = def.name, desc = def.desc,
-				btn = owned and "✅ Actif" or (Config.purchasable(def) and "Acheter" or "Bientôt"),
-				btnColor = (owned or not Config.purchasable(def)) and COL.dis or COL.green,
-				onClick = (not owned) and function()
-					if Config.purchasable(def) then
-						if not Config.offerVisible(def, state and state.restricted) then
-							return toast("Cette offre n'est pas disponible pour ton compte.") -- offre à hasard : seulement après confirmation serveur « non restreint » (état relu au clic)
-						end
-						MarketplaceService:PromptGamePassPurchase(player, def.id)
-					else
-						toast(Config.UNAVAILABLE_MESSAGE)
-					end
-				end or nil,
-			})
-			end
-		end
-		if state.luckLeft and state.luckLeft > 0 then
-			addNote("🧪 Potion de chance active : " .. Config.fmtTime(state.luckLeft) .. " restantes.")
-		end
-		local prodNames = {}
-		for name in pairs(Config.PRODUCTS) do
-			prodNames[#prodNames + 1] = name
-		end
-		table.sort(prodNames)
-		for _, name in ipairs(prodNames) do
-			local def = Config.PRODUCTS[name]
-			local used = def.once == true and state.starter == true
-			local packN = Config.REMOTE_STEAL.packs[name]
-			local full = packN ~= nil and (state.tokens or 0) + packN > Config.REMOTE_STEAL.tokenMax -- plafond de jetons : l'achat serait refusé (rien n'est jamais perdu)
-			local srvLeft = (name == "GoldenBelt" and state.srv and state.srv.golden) or (name == "ServerLuck" and state.srv and state.srv.luck) or 0
-			local capLeft = name == "GoldenBelt" and Config.BELT.golden or (name == "ServerLuck" and Config.SERVER_LUCK) or nil
-			local maxed = capLeft ~= nil and srvLeft + capLeft.seconds > capLeft.maxSeconds
-			if Config.offerVisible(def, state.restricted) then
-				addRow({
-					icon = def.emoji, title = def.name, desc = def.desc .. (def.random and "\n🎲 Probabilités affichées : tapis (panneau du marché), menu Plus." or ""),
-					btn = used and "✅ Acheté" or (full and "Max" or (maxed and "Au max" or "Acheter")), btnColor = (used or full or maxed) and COL.dis or COL.green,
-					onClick = (used or full or maxed) and function()
-						toast(full and "🐦‍⬛ Tu as déjà le maximum de jetons." or "Déjà au maximum pour l'instant.")
-					end or function()
-						if not Config.offerVisible(def, state and state.restricted) then
-							return toast("Cette offre n'est pas disponible pour ton compte.") -- état relu au clic (offres à hasard : confirmation serveur « non restreint »)
-						end
-						MarketplaceService:PromptProductPurchase(player, def.id)
-					end,
-				})
-			end
+		if L15.renderBonus16 then
+			L15.renderBonus16() -- lot 16 : boutique R$, coffre de débordement, pose de victoire, bonus actifs
 		end
 	elseif panel.name == "raven" then
 		local RVc = Config.REMOTE_STEAL
@@ -1496,7 +1676,7 @@ local function hidePanel()
 	panelFrame.Visible = false
 end
 
-local function openPanel(name)
+function openPanel(name)
 	if panel and panel.name == name then
 		hidePanel()
 		return
@@ -1670,12 +1850,11 @@ local offerMode = "bonus" -- "bonus" (achat de boost) ou "revive" (relance au ch
 offerBtn.Activated:Connect(function()
 	hideOffer()
 	if offerMode == "revive" then
-		local def = Config.PRODUCTS.Revive
-		if Config.purchasable(def) then
-			MarketplaceService:PromptProductPurchase(player, def.id)
-		end
-	else
-		openPanel("bonus")
+		RAction:FireServer("shopBuy", "Revive") -- lot 16 : le serveur vérifie (défaite récente au Château) avant l'invite
+	elseif L15.shopOffer then
+		local key = L15.shopOffer.key
+		L15.shopOffer = nil
+		L15.openCard(key) -- lot 16 : l'offre ouvre la MÊME fiche que le kiosque
 	end
 end)
 -- Relance au château : après une défaite, carte non bloquante « Relancer maintenant » (20 s), seulement si le produit est disponible (ID renseigné).
@@ -1696,10 +1875,43 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-offerClose.Activated:Connect(hideOffer)
-local function tryOffer(ev)
-	if not state or panelFrame.Visible then
+offerClose.Activated:Connect(function()
+	if offerMode ~= "revive" and L15.shopOffer then
+		L15.shopOffer = nil
+		RAction:FireServer("offerClose") -- lot 16 : une offre fermée ne revient pas dans la session
+	end
+	hideOffer()
+end)
+-- Lot 16 : carte d'offre envoyée par le serveur (Offers.lua). Petite, sur un bord, ✕ toujours visible, aucun minuteur affiché ; rangée d'elle-même après 45 s
+-- ou dès qu'un menu s'ouvre. Un appui ouvre la fiche du kiosque (description, probabilités, ce que l'achat ne fait pas, prix).
+function L15.showOffer(o)
+	if type(o) ~= "table" or type(o.key) ~= "string" or (offerCard.Visible and offerMode == "revive") then
 		return
+	end
+	offerMode = "bonus"
+	L15.shopOffer = o
+	offerToken += 1
+	local token = offerToken
+	local def = Config.PRODUCTS[o.key] or Config.PASSES[o.key]
+	offerCard.Text = "   " .. ((def and def.emoji) or "🛒") .. " " .. tostring(o.title or "") .. " ›"
+	offerCard.Visible = not panelFrame.Visible
+	task.spawn(function()
+		local t0 = os.clock()
+		while token == offerToken and os.clock() - t0 < 45 do
+			if panelFrame.Visible then
+				offerCard.Visible = false
+			end
+			task.wait(0.5)
+		end
+		if token == offerToken then
+			offerCard.Visible = false
+			L15.shopOffer = nil
+		end
+	end)
+end
+local function tryOffer(ev)
+	if true then
+		return -- lot 16 : les offres à l'écran sont décidées par le SERVEUR (Offers.lua, carte « panel = offer ») ; l'ancienne offre locale est retirée
 	end
 	local o = Config.boostOffer(ev, state.passes, os.clock(), offerLast, offerShown, joinedAt)
 	if o and not Config.offerVisible(Config.PASSES[o.pass], state.restricted) then
@@ -2201,7 +2413,7 @@ do
 			local def = Config.PRODUCTS.StreakRestore
 			if st.canProduct and def and Config.purchasable(def) then
 				addRow({ icon = def.emoji, title = def.name .. " : " .. def.robux .. " R$", desc = def.desc, btn = "Acheter", btnColor = COL.green, onClick = function()
-					MarketplaceService:PromptProductPurchase(player, def.id)
+					RAction:FireServer("shopBuy", "StreakRestore") -- lot 16 : le serveur vérifie avant l'invite
 				end })
 			end
 			addRow({ icon = "1️⃣", title = "Repartir du jour 1", desc = "Abandonner la série et réclamer le jour 1 : " .. dayText(v.days[1]), btn = "Repartir", btnColor = COL.yellow, onClick = function()
@@ -2314,6 +2526,23 @@ RKiosk.OnClientEvent:Connect(function(p)
 		if not (panel and panel.name == "shop") then
 			openPanel("shop")
 		end
+		if panel and type(p.tab) == "string" then -- lot 16 : vendeur PNJ -> onglet de SA catégorie (« pass » = passe de combat)
+			if p.tab == "pass" then
+				panel.tab = "pass"
+				RAction:FireServer("seasonView")
+			else
+				panel.tab, panel.cat, panel.card = "robux", p.tab, nil
+				RAction:FireServer("shopEv", { k = "view" })
+			end
+			render()
+		end
+	elseif p.panel == "season" then
+		L15.season, L15.recap = type(p.view) == "table" and p.view or nil, type(p.recap) == "table" and p.recap or nil
+		if panel and panel.name == "shop" and panel.tab == "pass" then
+			renderSoon()
+		end
+	elseif p.panel == "offer" then
+		L15.showOffer(p.offer)
 	elseif p.panel == "calendar" then
 		if not (panel and panel.name == "bonus") then
 			openPanel("bonus")

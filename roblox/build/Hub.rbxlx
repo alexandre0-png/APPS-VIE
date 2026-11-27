@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX66"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX102"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX101"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX75"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX119"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX118"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -215,6 +215,10 @@ Config.PASSES = {
 	VipBase = { id = 2094209172, name = "Base VIP", emoji = "👑", desc = "Boucliers d'œufs x2 et bonus quotidien x2." },
 	ExtraSlots = { id = 2098181699, name = "+4 emplacements", emoji = "🧺", desc = "4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20)." },
 	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
+	-- Lot 16 : passes créés par la gestion (2026-11-26)
+	EggBagPlus = { id = 2099454839, name = "Sac d'œufs +10", emoji = "🎒", desc = "Ton sac d'œufs passe de 10 à 20 places, pour toujours." },
+	Collector = { id = 2099556764, name = "Collectionneur", emoji = "📒", desc = "Un pet suiveur de plus (4 au lieu de 3), des indices de silhouette dans la collection." },
+	Lucky2 = { id = 2102045961, name = "Chance +10 % II", emoji = "🌟", desc = "+10 points de chance d'amélioration en plus de Chance +10 % (bonus payants plafonnés à 30 points, 70 au total).", random = true },
 }
 Config.SPEED_PASS_MUL = 1.2
 Config.VIP_SHIELD_MUL = 2
@@ -529,14 +533,33 @@ Config.PRODUCTS = {
 	EggDivine = { id = 3736452072, robux = 6999, name = "Œuf Divin", emoji = "😇", eggTier = 10, desc = "Un œuf Divin (rareté fixe) placé dans ta base (il faut une place libre). Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat.", random = true },
 	Revive = { id = 3734229323, robux = 49, name = "Relance immédiate", emoji = "💫", desc = "Au Château : repars aussitôt là où tu es tombé, pv rétablis, sans compter la défaite. Le retour gratuit au début de la salle reste disponible." },
 	ServerLuck = { id = 3736121217, robux = 129, name = "Pluie de chance pour tous", emoji = "🌧️", desc = "10 min de +5 points de chance d'amélioration pour tout le serveur. Ton nom est remercié.", random = true },
-	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 3 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Cumulable jusqu'à 30 min.", random = true },
+	GoldenBelt = { id = 3736121227, robux = 99, name = "Tapis doré", emoji = "🌟", desc = "10 min : le tapis du marché livre un œuf toutes les 4 s au lieu de 5, avec la table « doré » (affichée). Pour tout le serveur. Durées cumulables.", random = true },
 	RemoteSteal = { id = 3736121232, robux = 79, name = "Corbeau chipeur", emoji = "🐦‍⬛", desc = "1 jeton de vol à distance. Le corbeau tente de rapporter un œuf en incubation d'un joueur du serveur. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu." },
 	RemoteStealPack = { id = 3736121238, robux = 199, name = "3 Corbeaux chipeurs", emoji = "🐦‍⬛", desc = "3 jetons de vol à distance." },
 	-- Lot 9b : rattrapage d'UN jour manqué du calendrier (29 R$). ID 0 = à créer dans le Creator Hub (A_FAIRE_UTILISATEUR.md) : tant que l'ID vaut 0, l'achat est désactivé
 	-- (restent les deux rattrapages gratuits : jour de grâce et 3 missions). Livre un jeton de rattrapage (profil cal.catch), jamais un tirage au sort payant.
 	CalendarCatchup = { id = 3736695392, robux = 29, name = "Rattrapage du calendrier", emoji = "📅", desc = "Rattrape UN jour manqué du calendrier de 30 jours : tu en choisis le jour, la récompense est celle affichée sur la carte." },
 	CoinPack = { id = 3734229339, robux = 99, name = "Sac de pièces", emoji = "👛", desc = "Offre 20 minutes de revenus (minimum 5 000 pièces)." },
+	-- Lot 16 : achats créés par la gestion (2026-11-26). Champs de catalogue (id, robux, cat, random, once, season, eggTier) posés par Config.SHOP (fin du fichier).
+	CoinPackS = { name = "Petit sac de pièces", emoji = "🪙", desc = "Les revenus de 5 minutes de jeu (au moins 1 000 pièces)." },
+	EggR2 = { name = "Œuf Peu commun", emoji = "🥚", desc = "Un œuf Peu commun (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR3 = { name = "Œuf Rare", emoji = "🥚", desc = "Un œuf Rare (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR4 = { name = "Œuf Épique", emoji = "🥚", desc = "Un œuf Épique (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR5 = { name = "Œuf Légendaire", emoji = "🥚", desc = "Un œuf Légendaire (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	EggR7 = { name = "Œuf Ultra Rare", emoji = "🥚", desc = "Un œuf Ultra Rare (rareté fixe) dans ta base ou ton sac. Espèce, taille et mutation tirées au sort : probabilités affichées." },
+	LuckPotionMini = { name = "Potion express", emoji = "🧪", desc = "+25 points de chance d'amélioration pendant 5 min. Les durées s'ajoutent." },
+	DoubleLuck = { name = "Double chance", emoji = "🍀", desc = "30 min : tes points de chance d'amélioration comptent double (70 points au total au plus). Les durées s'ajoutent." },
+	ArenaTickets = { name = "Ticket d'arène", emoji = "🎫", desc = "5 combats de tour récompensés en plus, pour la journée UTC en cours. Aucune force n'est vendue." },
+	SeasonPremium = { name = "Passe de combat premium", emoji = "🏅", desc = "La piste premium de la saison en cours (paliers déjà atteints crédités une fois)." },
+	SeasonPremiumPlus = { name = "Passe de combat + 10 paliers", emoji = "🏅", desc = "Le passe premium de la saison et 10 paliers tout de suite." },
+	SeasonUpgradePlus = { name = "Passe de combat + (suite)", emoji = "🏅", desc = "Pour qui a déjà le premium de la saison : 10 paliers tout de suite." },
+	BundleLegend = { name = "Pack Légende", emoji = "🧰", desc = "1 œuf Ultra Rare, 3 œufs Légendaires et 60 min de Double chance." },
+	BundleRoyal = { name = "Coffre royal", emoji = "👑", desc = "2 œufs Ultra Rares, 3 œufs Mythiques et le passe de combat premium de la saison." },
+	BundleRoyalNoPass = { name = "Coffre royal sans passe", emoji = "👑", desc = "Pour qui a déjà le passe premium : 2 œufs Ultra Rares et 3 œufs Mythiques." },
 }
+for n = 1, 6 do
+	Config.PRODUCTS["EmoteVictory" .. n] = { name = "Pose de victoire " .. n, emoji = ({ "🎉", "✌️", "💃", "🏆", "⭐", "🔥" })[n], desc = "Une pose jouée par ton personnage après une victoire. Purement visuelle." }
+end
 Config.STARTER_PACK = { coins = 20000, eggTier = 3, eggs = 3 }
 Config.EXCLUSIVE_EGG_TIER = 6
 Config.REVIVE = { offerSeconds = 20, iframes = 4 } -- offre de relance après une défaite au château (non bloquante), invulnérabilité après la relance
@@ -2064,7 +2087,7 @@ Config.VIGILANCE = { perSteal = 0.15, max = 0.45, window = 60, decay = 30 } -- +
 Config.BELT = {
 	speed = 3, length = 60, maxEggs = 12, interval = 5, priceRatio = 0.6, buyCooldown = 3, legendaryDelay = 2, legendaryPerMinute = 1,
 	weights = { normal = { 50.037, 25, 14, 7, 2.9, 0.85, 0.2, 0.008, 0, 0.005 }, golden = { 29.3205, 14.55, 31.5, 15.75, 6.5, 1.9, 0.45, 0.018, 0, 0.0115 } }, -- lot 9 : doré = x2 à x2,5 du standard sur les raretés >= Rare (mesuré : +15 à +35 % de progression)
-	golden = { interval = 4, seconds = 600, maxSeconds = 1800 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
+	golden = { interval = 4, seconds = 600, maxSeconds = 2592000 }, welcome = { delay = 20, maxHatched = 5 }, -- lot 9 : doré 3 s -> 4 s (trop fort : -34 % de temps au premier Mythique)
 	private = { interval = 180, pending = 3, width = 10, depth = 3, z = -13 }, -- tapis privé : au centre-avant de la base (les 20 emplacements occupent le milieu), z local de son centre
 }
 -- Portage : vitesse selon la rareté de l'œuf porté (produit pour plusieurs œufs, plancher 0,70).
@@ -2131,9 +2154,9 @@ Config.TRAVEL2 = {
 Config.REMOTE_STEAL = { tokenMax = 5, dailyMax = 3, maxTier = 5, flightSeconds = 8, victimCooldown = 1200, postStealShield = 300, compensationRatio = 0.5, levelGap = 1, minEggSecondsLeft = 10, minPlayMinutes = 30, victimMinMinutes = 15, launchCooldown = 10,
 	minAccountAgeDays = 3, reStealSeconds = 1200, compensationCapTier = 3, victimFailCooldown = 180, logQueueMax = 60, logBatch = 20, logTries = 3,
 	tryGap = 1, logMax = 10, logDays = 30, packs = { RemoteSteal = 1, RemoteStealPack = 3 } } -- lot 7b : minAccountAgeDays = ancienneté de compte exigée du voleur ET de la victime ; reStealSeconds = un œuf volé par corbeau ne se revole pas avant 20 min ; compensationCapTier = indemnité reçue par jour UTC plafonnée au prix d'un œuf de cette rareté (Rare) ; victimFailCooldown = répit de la victime après un vol raté ou chassé (le délai de 20 min n'est posé qu'en cas de succès) ; logQueueMax / logBatch / logTries = file RavenLog bornée, écrite par lots, essais bornés. Lot 7 : tryGap = 1 demande de menu / s ; journal « Qui m'a volé ? » (10 entrées) ; RavenLog gardé 30 jours ; jetons par produit
--- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, cumulable jusqu'à `maxSeconds` restantes (un achat qui dépasserait
--- le plafond n'est PAS traité : jamais d'argent perdu), au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
-Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 1800 }
+-- Pluie de chance pour tout le serveur (produit ServerLuck) : +bonus points de chance fixes pendant `seconds`, durées cumulables (lot 16 : sans plafond d'achat),
+-- au nom de l'acheteur. Plafond global Rules.MAX_UP (70 points).
+Config.SERVER_LUCK = { bonus = 5, seconds = 600, maxSeconds = 2592000 } -- lot 16 : durées cumulables sans limite (maxSeconds = garde technique de 30 jours)
 -- Une offre payante est-elle proposée à ce joueur ? Il faut un ID renseigné (0 = offre invisible) ET, pour les offres à hasard (`random = true`),
 -- que PolicyService ait confirmé `ArePaidRandomItemsRestricted == false` (restricted nil ou true : masquée, repli prudent).
 function Config.offerVisible(def, restricted)
@@ -2517,11 +2540,116 @@ Config.NPC_VIEW = { height = 6, pipWidth = 9, stopAt = 7, walkSeconds = 3.5 }
 Config.EVENT_DECOR = { ["event.pumpkin"] = "pumpkin", ["event.xmasTree"] = "xmasTree", ["event.springArch"] = "springArch" }
 Config.EVENT_DECOR_SPOT = { x = -14, z = 30, height = 9 }
 Config.CALENDAR_BOARD = { dx = -9, dz = -6, height = 7 }
--- Produit de sauvetage de la série (G.2) : 29 R$, une fois par semaine UTC. ID 0 = désactivé tant qu'il n'est pas créé dans le Creator Hub (A_FAIRE_UTILISATEUR.md).
-Config.PRODUCTS.StreakRestore = { id = 0, robux = 29, name = "Sauver ma série", emoji = "🔥", desc = "Sauve ta série de 7 jours après 2 jours manqués (une fois par semaine). Aucun hasard." }
+-- Produit de sauvetage de la série (G.2) : 29 R$, id créé par la gestion (lot 16), sans plafond d'achat (seulement quand la série est en danger).
+Config.PRODUCTS.StreakRestore = { name = "Sauver ma série", emoji = "🔥", desc = "Sauve ta série de 7 jours quand elle est en danger (2 jours manqués). Le moyen gratuit : les 3 missions du jour. Aucun hasard." }
+
+
+---------------------------------------------------------------- LOT 16 : boutique en 8 catégories, passe de combat, offres, vendeurs, mesure
+-- Catalogue : copie EXACTE de ReplicatedStorage/ShopData.ENTRIES (vérifiée par tests/run.luau : mêmes clés, ids, prix, catégories, drapeaux). Config ne peut pas
+-- faire require (il est chargé hors de Roblox par les tests). Décision utilisateur : PLUS AUCUN PLAFOND D'ACHAT ; seuls `once` (achat unique à vie : passes,
+-- Pack de départ, chaque pose) et `season` (une fois par saison : season.premium = n) limitent. random = masqué et refusé sans PolicyService « non restreint ».
+Config.SHOP = {}
+do
+	local function P(id, robux, cat, extra)
+		local e = { kind = "product", id = id, robux = robux, cat = cat }
+		for k, v in pairs(extra or {}) do
+			e[k] = v
+		end
+		return e
+	end
+	local function G(id, robux, cat, extra)
+		local e = P(id, robux, cat, extra)
+		e.kind, e.once = "pass", true
+		return e
+	end
+	local S = Config.SHOP
+	S.EggR2 = P(3736703563, 15, "eggs", { random = true, eggTier = 2 })
+	S.EggR3 = P(3736703571, 25, "eggs", { random = true, eggTier = 3 })
+	S.EggR4 = P(3736703588, 49, "eggs", { random = true, eggTier = 4 })
+	S.EggR5 = P(3736703667, 99, "eggs", { random = true, eggTier = 5 })
+	S.ExclusiveEgg = P(3734229320, 249, "eggs", { random = true, eggTier = 6 })
+	S.EggR7 = P(3736703695, 799, "eggs", { random = true, eggTier = 7 })
+	S.EggSecret = P(3736452048, 1499, "eggs", { random = true, eggTier = 8 })
+	S.EggExclusive = P(3736452061, 3499, "eggs", { random = true, eggTier = 9 })
+	S.EggDivine = P(3736452072, 6999, "eggs", { random = true, eggTier = 10 })
+	S.LuckPotionMini = P(3736703579, 29, "luck", { random = true })
+	S.LuckPotion = P(3734229337, 99, "luck", { random = true })
+	S.GoldenBelt = P(3736121227, 99, "luck", { random = true })
+	S.ServerLuck = P(3736121217, 129, "luck", { random = true })
+	S.DoubleLuck = P(3736703673, 149, "luck", { random = true })
+	S.Lucky = G(2093447290, 149, "luck", { random = true })
+	S.Fast = G(2097173053, 149, "luck")
+	S.Speed = G(2092253306, 149, "luck")
+	S.PrivateBelt = G(2098265697, 299, "luck", { random = true })
+	S.Lucky2 = G(2102045961, 349, "luck", { random = true })
+	S.CoinPackS = P(3736703557, 19, "coins")
+	S.CoinPack = P(3734229339, 99, "coins")
+	S.Coins2x = G(2093291260, 199, "coins")
+	S.StreakRestore = P(3736703610, 29, "base")
+	S.CalendarCatchup = P(3736695392, 29, "base")
+	S.InstantHatch = P(3734229329, 49, "base")
+	S.EggBagPlus = G(2099454839, 149, "base")
+	S.ExtraSlots = G(2098181699, 249, "base")
+	S.Collector = G(2099556764, 249, "base")
+	S.VipBase = G(2094209172, 399, "base")
+	S.ArenaTickets = P(3736703606, 19, "combat")
+	S.Revive = P(3734229323, 49, "combat")
+	S.RemoteSteal = P(3736121232, 79, "combat")
+	S.RemoteStealPack = P(3736121238, 199, "combat")
+	S.SeasonPremium = P(3736703683, 399, "season", { season = true })
+	S.SeasonUpgradePlus = P(3736704000, 400, "season", { season = true })
+	S.SeasonPremiumPlus = P(3736703689, 799, "season", { season = true })
+	S.StarterPack = P(3734229313, 99, "packs", { random = true, once = true })
+	S.BundleLegend = P(3736703706, 999, "packs", { random = true })
+	S.BundleRoyalNoPass = P(3736704205, 1100, "packs", { random = true })
+	S.BundleRoyal = P(3736703714, 1499, "packs", { random = true })
+	for n, id in ipairs({ 3736703619, 3736703629, 3736703634, 3736703641, 3736703649, 3736703657 }) do
+		S["EmoteVictory" .. n] = P(id, 39, "cosmetics", { once = true })
+	end
+	-- pose des champs de catalogue dans PRODUCTS / PASSES (name, emoji, desc existants conservés)
+	for key, e in pairs(S) do
+		local bag = e.kind == "pass" and Config.PASSES or Config.PRODUCTS
+		local def = bag[key] or { name = key, emoji = "🛒", desc = "" }
+		bag[key] = def
+		for _, f in ipairs({ "id", "robux", "cat", "random", "once", "season", "eggTier" }) do
+			def[f] = e[f]
+		end
+	end
+end
+-- Les 8 catégories de la boutique, ordre FIXE (= Shop.CATEGORIES, vérifié par les tests). L'onglet « season » est le passe de combat (Season.lua).
+Config.SHOP_CATEGORIES = {
+	{ key = "eggs", title = "Œufs", icon = "egg_r3" },
+	{ key = "luck", title = "Chance & boosts", icon = "r_potion_chance" },
+	{ key = "coins", title = "Pièces", icon = "r_coins_m" },
+	{ key = "base", title = "Base & confort", icon = "ui_bouclier" },
+	{ key = "combat", title = "Combat & vol", icon = "ui_epee" },
+	{ key = "season", title = "Passe de combat", icon = "ui_trophee" },
+	{ key = "packs", title = "Packs", icon = "r_coffre" },
+	{ key = "cosmetics", title = "Cosmétiques", icon = "r_cosmetique_traine" },
+}
+-- Effets du lot 16 appliqués par le serveur (le moteur reste maître des minuteurs). Double chance : x2 puis 70 points au plus (Shop.DOUBLE_LUCK_CAP).
+Config.LOT16 = {
+	luckMiniSeconds = 300, doubleSeconds = 1800, legendDoubleSeconds = 3600, doubleCap = 70, arenaTickets = 5,
+	coinPackS = { minutes = 5, min = 1000 },
+	emotes = { "🎉", "✌️", "💃", "🏆", "⭐", "🔥" }, -- poses de victoire 1 à 6 (effet visuel joué par le client après une victoire)
+	overflowTake = 1, -- œufs repris du coffre de débordement par demande
+}
+-- Sac d'œufs : 20 places avec le passe EggBagPlus (le profil garde jusqu'à sizePlus œufs ; la place réelle dépend du passe). Collectionneur : 4 pets suiveurs.
+Config.EGG_BAG.sizePlus = 20
+Config.MAX_FOLLOWERS_COLLECTOR = 4
+-- Passe de combat : copie de SeasonData.SEASON (vérifiée par les tests) pour l'affichage ; la logique est dans ReplicatedStorage/Season.
+Config.SEASON = { name = "Passe de combat", start = 1796083200, days = 60, tiers = 30, graceDays = 7, dailyCap = 400 }
+-- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
+Config.BUILD = "1.16.0"
+-- Vendeurs PNJ du hub (modèles Blender du lot 30 de la gestion ; repli procédural si le chargement échoue). Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin.
+for key, id in pairs({ vendor_eggs = 138633300069014, vendor_luck = 137414127061497, vendor_coins = 82919202214027, vendor_base = 79064954843258,
+	vendor_combat = 105059296701916, vendor_pass = 72959276245033, vendor_packs = 80912619819088, vendor_cosmetics = 82243751363820 }) do
+	Config.Assets.models.hub[key] = id
+	Config.Assets.modelsMaxParts["hub." .. key] = 80
+end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2817,7 +2945,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -2997,7 +3125,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3343,7 +3471,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3644,7 +3772,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4247,7 +4375,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4672,7 +4800,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4710,7 +4838,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4798,7 +4926,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4861,7 +4989,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
 -- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
@@ -5269,7 +5397,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5333,7 +5461,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5674,7 +5802,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5731,7 +5859,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5843,7 +5971,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -6050,7 +6178,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6269,7 +6397,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -7073,7 +7201,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7184,7 +7312,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7388,7 +7516,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -7589,7 +7717,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -8022,7 +8150,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8251,7 +8379,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8315,7 +8443,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -8633,7 +8761,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -8958,7 +9086,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -9116,7 +9244,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9238,7 +9366,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -9624,7 +9752,7 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
 -- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
 -- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
 -- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
@@ -10497,7 +10625,7 @@ function Npc.violations(Config, o, inv, userId)
 end
 
 return Npc
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
 -- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
 -- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
 -- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
@@ -10778,7 +10906,7 @@ function Rewards.streakPlan(Config, g, today, ctx)
 		plan.day = (streak % #S.days) + 1
 		local done = (type(ctx) == "table" and isnum(ctx.questsDone)) and ctx.questsDone or 0
 		plan.canQuest = done >= S.restoreQuests
-		plan.canProduct = g.grace.rweek ~= Rewards.weekOf(today)
+		plan.canProduct = true -- lot 16 (décision utilisateur : plus de plafond d'achat) : le sauvetage payant n'est plus limité à 1 par semaine ; rweek reste noté (mesure)
 		plan.lost = streak
 	else
 		plan.state = "reset"
@@ -11219,7 +11347,7 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store)
 end
 
 return Rewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
 -- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
 -- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
 -- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
@@ -11380,7 +11508,7 @@ function KioskData.overlap(Map2, cx, cz, r, margin)
 end
 
 return KioskData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
 -- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
 -- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
 -- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
@@ -11501,7 +11629,7 @@ F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", regio
 -- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
 
 return DecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
 -- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
 --
@@ -11604,8 +11732,2114 @@ function HouseDecorData.budget(level)
 end
 
 return HouseDecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
+-- Une fiche par achat, clé = clé de Config.PRODUCTS / Config.PASSES. Source : Assets/ACHATS_DEFINITIONS.md (titre <= 28 caractères, définition <= 90).
+-- Champs : cat (catégorie, voir Shop.CATEGORIES), icon (clé de Config.ICONS), title, def (définition courte), detail (durée, ce qui est aléatoire ou fixe, prérequis),
+--   notDo (« ce que l'achat ne fait PAS »), chance (texte « hasard / fixe »), limit ("achat unique" | "aucune limite" | "achat unique par saison"), also (autres catégories à renvoyer, « voir aussi »).
+-- Règles (vérifiées par tests/shop.luau) : aucun champ vide, aucune promesse (de gain, de force, de protection), aucune fausse urgence, aucune limite autre que « achat unique ».
+local I = {}
+
+local NO_POWER = "ne donne aucune force en combat et ne protège pas du vol"
+local EGG_PLACE = "Il faut une place libre dans ta base ou ton sac : sinon l'achat est refusé AVANT paiement (« fais de la place »). Si une course survient après paiement, l'œuf va dans le coffre de débordement, rien n'est perdu."
+local EGG_CHANCE = "oui : l'espèce, la taille et la mutation sont tirées au sort (table affichée avant l'achat) ; la rareté de l'œuf est FIXE et affichée"
+local PARTLY = "oui, en partie : le bonus est fixe et affiché ; ce qui sort de chaque éclosion reste aléatoire"
+
+local function egg(tier, name, detailHead, notDoText)
+	return {
+		cat = "eggs", icon = "egg_r" .. tier, title = "Œuf " .. name,
+		def = "Un œuf " .. name .. " posé dans ta base : la rareté est fixe, l'espèce est tirée au sort.",
+		detail = detailHead .. " Tailles et mutations tirées au sort (tables du menu Plus). " .. EGG_PLACE,
+		notDo = notDoText or "ne donne aucune force en combat et ne protège pas du vol ; un pet vaut pareil, acheté ou trouvé",
+		chance = EGG_CHANCE, limit = "aucune limite", also = {},
+	}
+end
+
+local UP_HEAD = "Contenu et probabilités exacts affichés avant l'achat (les bonus de chance actifs changent la part d'amélioration d'un cran, jamais de rétrogradation)."
+local FIXED_HEAD = "Rareté fixe, pas d'amélioration possible : le contenu et les probabilités exacts sont affichés avant l'achat."
+
+---------------------------------------------------------------- Œufs
+I.EggR2 = egg(2, "Peu commun", UP_HEAD)
+I.EggR3 = egg(3, "Rare", UP_HEAD)
+I.EggR4 = egg(4, "Épique", UP_HEAD)
+I.EggR5 = egg(5, "Légendaire", UP_HEAD)
+I.ExclusiveEgg = egg(6, "Mythique", UP_HEAD .. " Ex-« Œuf exclusif Mythique » : à ne pas confondre avec la rareté Exclusif.")
+I.EggR7 = egg(7, "Ultra Rare", FIXED_HEAD)
+I.EggSecret = egg(8, "Secret", FIXED_HEAD .. " Masqué tant qu'aucune espèce Secret n'est publiée.")
+I.EggExclusive = egg(9, "Exclusif", FIXED_HEAD .. " Pour l'instant, l'espèce est tirée au sort parmi les espèces Exclusif publiées (table affichée), comme la taille et la mutation. Masqué tant qu'aucune espèce Exclusif n'est publiée.", "ne donne aucune force en combat, ne protège pas du vol et rapporte moins qu'un Secret")
+I.EggDivine = egg(10, "Divin", FIXED_HEAD .. " Masqué tant qu'aucune espèce Divin n'est publiée.")
+
+---------------------------------------------------------------- Chance & boosts
+I.LuckPotionMini = {
+	cat = "luck", icon = "r_potion_chance", title = "Potion express",
+	def = "+25 points de chance d'avoir un pet de rareté au-dessus, pendant 5 minutes.",
+	detail = "Comme la Potion de chance mais seulement 5 minutes, pour un petit prix. La chance d'amélioration d'un cran passe de 5 % à 30 % pendant ce temps (70 % au maximum). Chiffres affichés avant l'achat. Les durées s'ajoutent.",
+	notDo = "ne garantit aucun pet rare et ne donne aucune force", chance = PARTLY, limit = "aucune limite", also = {},
+}
+I.LuckPotion = {
+	cat = "luck", icon = "r_potion_chance", title = "Potion de chance",
+	def = "+25 points de chance d'avoir un pet de rareté au-dessus, pendant 15 minutes.",
+	detail = "Pendant 15 min, la chance d'amélioration d'un cran passe de 5 % à 30 % (sans autre bonus). Jamais de rétrogradation. Les chiffres exacts sont affichés avant l'achat. Les durées s'ajoutent.",
+	notDo = "ne garantit aucun pet rare et ne donne aucune force", chance = PARTLY, limit = "aucune limite", also = {},
+}
+I.GoldenBelt = {
+	cat = "luck", icon = "r_mystere", title = "Tapis doré",
+	def = "10 min : le tapis du marché donne des œufs plus vite et de meilleure rareté, pour tous.",
+	detail = "Pendant 10 min, le tapis livre un œuf plus souvent, avec la table « dorée » (affichée sur le tapis et avant l'achat). Profite à tout le serveur. Durées cumulables.",
+	notDo = NO_POWER, chance = "oui : la rareté de chaque œuf du tapis est tirée au sort avec la table dorée, affichée avant l'achat et sur le tapis", limit = "aucune limite", also = { "eggs" },
+}
+I.ServerLuck = {
+	cat = "luck", icon = "r_potion_chance", title = "Pluie de chance pour tous",
+	def = "Pendant 10 min, tout le serveur gagne +5 points de chance d'amélioration.",
+	detail = "Le bonus profite à tous les joueurs du serveur, pas seulement à toi (ton nom est remercié). Il dure 10 minutes : c'est la durée du bonus, pas une pression pour acheter. Durées cumulables.",
+	notDo = "ne garantit aucun pet rare et ne donne aucune force", chance = PARTLY, limit = "aucune limite", also = {},
+}
+I.DoubleLuck = {
+	cat = "luck", icon = "r_potion_chance", title = "Double chance",
+	def = "Pendant 30 minutes, tes points de chance d'amélioration comptent double.",
+	detail = "Les points de chance (base, Trèfle, passes, potion) sont multipliés par 2 pendant 30 min. Exemple : 5 points deviennent 10, et 15 deviennent 30. Les durées s'ajoutent ; le total ne dépasse jamais 70 points de chance, affichés avant l'achat.",
+	notDo = "ne garantit aucun pet rare et ne donne aucune force", chance = PARTLY, limit = "aucune limite", also = {},
+}
+I.Lucky = {
+	cat = "luck", icon = "ui_etoile", title = "Chance +10 %",
+	def = "+10 points de chance d'avoir un pet de rareté au-dessus, pour toujours.",
+	detail = "La chance d'amélioration d'un cran passe de 5 % à 15 % (70 % au maximum avec tous les bonus). Les chiffres sont affichés avant l'achat. Jamais de rétrogradation.",
+	notDo = "ne garantit aucun pet rare et ne donne aucune force", chance = PARTLY, limit = "achat unique", also = {},
+}
+I.Fast = {
+	cat = "luck", icon = "r_boost_vitesse", title = "Éclosion rapide",
+	def = "Tes œufs éclosent 25 % plus vite, pour toujours.",
+	detail = "Réduit le temps d'éclosion de 25 %, à vie. Ne change ni la rareté ni le contenu des œufs.",
+	notDo = "ne donne aucune force en combat et ne change pas ce qui sort des œufs", chance = "non", limit = "achat unique", also = {},
+}
+I.Speed = {
+	cat = "luck", icon = "r_boost_vitesse", title = "Vitesse +20 %",
+	def = "Tu cours 20 % plus vite, pour toujours.",
+	detail = "Ta vitesse de course est multipliée par 1,2, à vie. Elle ne rend pas le vol automatique : les gardiens et les autres joueurs restent là.",
+	notDo = "ne donne pas de force en combat et ne protège pas du vol", chance = "non", limit = "achat unique", also = {},
+}
+I.PrivateBelt = {
+	cat = "luck", icon = "egg_r1", title = "Tapis privé",
+	def = "Un petit tapis dans ta base : un œuf gratuit toutes les 2 min quand tu joues.",
+	detail = "Un œuf gratuit toutes les 2 min tant que tu joues, 3 en attente au plus. La rareté de chaque œuf est tirée au sort avec la table standard du tapis, affichée avant l'achat.",
+	notDo = NO_POWER, chance = "oui : la rareté de chaque œuf gratuit est tirée au sort (table affichée) ; rien n'est promis", limit = "achat unique", also = { "eggs" },
+}
+I.Lucky2 = {
+	cat = "luck", icon = "ui_etoile", title = "Chance +10 % II",
+	def = "+10 points de chance d'avoir un pet de rareté au-dessus, en plus de Chance +10 %.",
+	detail = "S'ajoute à Chance +10 % : la chance d'amélioration de base passe de 5 % à 25 % avec les deux (70 % au maximum avec tous les bonus). Chiffres affichés avant l'achat.",
+	notDo = "ne garantit aucun pet rare et ne donne aucune force", chance = PARTLY, limit = "achat unique", also = {},
+}
+
+---------------------------------------------------------------- Pièces
+I.CoinPackS = {
+	cat = "coins", icon = "r_coins_s", title = "Petit sac de pièces",
+	def = "Reçois les revenus de 5 minutes de jeu (au moins 1 000 pièces).",
+	detail = "Une somme de pièces égale à 5 min de tes revenus, minimum 1 000. Ce sont des pièces, pas des pets.",
+	notDo = "ne donne aucun pet et aucune force", chance = "non", limit = "aucune limite", also = {},
+}
+I.CoinPack = {
+	cat = "coins", icon = "r_coins_m", title = "Sac de pièces",
+	def = "Reçois les revenus de 20 minutes de jeu (au moins 5 000 pièces).",
+	detail = "Une somme égale à 20 min de tes revenus, minimum 5 000 pièces. Ce sont des pièces, pas des pets.",
+	notDo = "ne donne aucun pet et aucune force", chance = "non", limit = "aucune limite", also = {},
+}
+I.Coins2x = {
+	cat = "coins", icon = "r_boost_revenu", title = "Revenus x2",
+	def = "Tes pets rapportent deux fois plus de pièces, pour toujours.",
+	detail = "Double tous tes revenus de pièces, à vie, une seule fois pour tout le compte.",
+	notDo = "ne donne aucune force en combat, ne donne pas de pets et ne protège pas du vol", chance = "non", limit = "achat unique", also = {},
+}
+
+---------------------------------------------------------------- Base & confort
+I.StreakRestore = {
+	cat = "base", icon = "ui_coeur", title = "Sauvetage de série",
+	def = "Rétablit ta série de connexion quand elle va se perdre.",
+	detail = "Quand un deuxième jour manqué va casser ta série, tu peux la sauver. Il existe un moyen gratuit : finir les 3 quêtes du jour. Proposé seulement quand la série est en danger.",
+	notDo = "ne donne aucun œuf supplémentaire et n'avance pas le calendrier", chance = "non", limit = "aucune limite", also = {},
+}
+I.CalendarCatchup = {
+	cat = "base", icon = "r_calendrier", title = "Rattrapage du calendrier",
+	def = "Rattrape UN jour manqué du calendrier de 30 jours, au jour de ton choix.",
+	detail = "Tu choisis le jour manqué ; la récompense est celle affichée sur la carte. Deux rattrapages gratuits existent (jour de grâce, 3 missions). Aucun tirage payant.",
+	notDo = "ne donne rien d'autre que la récompense du jour choisi", chance = "non : la récompense du jour est affichée", limit = "aucune limite", also = {},
+}
+I.InstantHatch = {
+	cat = "base", icon = "r_boost_vitesse", title = "Éclosion instantanée",
+	def = "Fait éclore tous tes œufs tout de suite, sans attendre.",
+	detail = "Tous les œufs qui incubent éclosent maintenant. Ce qui sort est tiré au sort comme d'habitude : l'achat ne change ni la rareté ni les chances.",
+	notDo = "ne change pas les chances et ne donne aucune force", chance = "oui, en partie : ce qui sort des œufs reste aléatoire (tables affichées) ; l'achat ne change pas les chances", limit = "aucune limite", also = { "eggs" },
+}
+I.EggBagPlus = {
+	cat = "base", icon = "r_cadeau", title = "Sac d'œufs +10",
+	def = "Ton sac d'œufs passe de 10 à 20 places, pour toujours.",
+	detail = "Le sac range les œufs gagnés quand ta base est pleine. Avec ce passe il garde 20 œufs au lieu de 10.",
+	notDo = "ne donne aucun œuf et ne protège pas du vol", chance = "non", limit = "achat unique", also = {},
+}
+I.ExtraSlots = {
+	cat = "base", icon = "ui_cadenas", title = "+4 emplacements",
+	def = "4 places d'œufs en plus dans ta base, pour toujours (jusqu'à 20).",
+	detail = "Ajoute 4 emplacements à ta base, à vie, pour un total de 20 au plus avec toutes les améliorations. Utile quand la base est pleine d'œufs ou de pets.",
+	notDo = "ne donne aucun pet, aucune force et ne protège pas du vol", chance = "non", limit = "achat unique", also = {},
+}
+I.Collector = {
+	cat = "base", icon = "ui_etoile", title = "Collectionneur",
+	def = "Un pet suiveur de plus (4 au lieu de 3), plus des aides pour ta collection.",
+	detail = "Ajoute un pet suiveur (3 passent à 4), des indices de silhouette dans le bestiaire et un cadre doré sur les compteurs de rareté. Rien de tout cela ne change les œufs.",
+	notDo = "ne donne aucune force en combat et ne donne aucun pet", chance = "non", limit = "achat unique", also = {},
+}
+I.VipBase = {
+	cat = "base", icon = "ui_bouclier", title = "Base VIP",
+	def = "Boucliers d'œufs x2 et bonus quotidien x2, pour toujours.",
+	detail = "Les boucliers de tes œufs durent deux fois plus longtemps, et le bonus de pièces de la série quotidienne est doublé. Un bouclier retarde le vol, il ne l'empêche pas indéfiniment.",
+	notDo = "n'arrête pas le vol pour toujours et ne donne pas de force en combat", chance = "non", limit = "achat unique", also = {},
+}
+
+---------------------------------------------------------------- Combat & vol
+I.ArenaTickets = {
+	cat = "combat", icon = "r_jeton_combat", title = "Ticket d'arène",
+	def = "5 combats de tour de plus aujourd'hui, avec récompenses.",
+	detail = "Ajoute 5 combats de tour récompensés pour la journée en cours. Les combats restent équitables : rien ne s'achète qui change les stats des pets.",
+	notDo = "ne donne aucune force en combat et ne change pas les adversaires", chance = "non", limit = "aucune limite", also = {},
+}
+I.Revive = {
+	cat = "combat", icon = "ui_coeur", title = "Relance immédiate",
+	def = "Au Château : repars tout de suite où tu es tombé, avec tes points de vie.",
+	detail = "Points de vie rétablis, 4 s d'invulnérabilité, la défaite n'est pas comptée. Le retour gratuit au début de la salle reste toujours possible. L'offre dure 20 s : c'est la durée réelle de l'écran de défaite.",
+	notDo = "ne donne aucune force permanente et ne change pas le Château", chance = "non", limit = "aucune limite", also = {},
+}
+I.RemoteSteal = {
+	cat = "combat", icon = "ui_epee", title = "Corbeau chipeur",
+	def = "1 jeton : un corbeau tente de rapporter un œuf d'un joueur du serveur.",
+	detail = "Le corbeau vise un œuf en incubation. La victime peut le chasser ; si ça échoue, ton jeton t'est rendu. Règles du vol : 3 vols réussis par jour, protection débutant, bouclier de 5 min après un vol, 20 min de délai par victime, indemnité de 50 % pour la victime. Ton nom de voleur est affiché.",
+	notDo = "ne protège de rien (aucun produit de protection n'est vendu) et ne donne aucune force", chance = "oui : la réussite du vol et l'œuf volé dépendent du jeu ; rien n'est promis", limit = "aucune limite", also = {},
+}
+I.RemoteStealPack = {
+	cat = "combat", icon = "ui_epee", title = "3 Corbeaux chipeurs",
+	def = "3 jetons de vol à distance.",
+	detail = "Trois jetons identiques au Corbeau chipeur, mêmes règles du vol (3 vols réussis par jour, bouclier de 5 min, 20 min de délai par victime, indemnité de 50 %). Un jeton est rendu si la victime chasse le corbeau.",
+	notDo = "ne protège de rien (aucun produit de protection n'est vendu) et ne donne aucune force", chance = "oui : la réussite du vol et l'œuf volé dépendent du jeu ; rien n'est promis", limit = "aucune limite", also = {},
+}
+
+---------------------------------------------------------------- Passe de combat
+I.SeasonPremium = {
+	cat = "season", icon = "ui_trophee", title = "Passe de combat premium",
+	def = "Débloque la piste premium de la saison en cours : œufs, cosmétiques, un pet exclusif.",
+	detail = "Valable pour la saison en cours de 60 jours (thème tournant Feu, Glace, Foudre, Ombre, Nature, Ciel). Les paliers déjà atteints sont crédités une seule fois ; réclamation possible 7 jours après la fin. 30 paliers, XP gagnée en combat et en quêtes. Piste premium : œufs jusqu'à Mythique, une espèce Exclusif FIXE de la saison au palier 30, cosmétiques « Saison N » qui ne reviennent pas. La piste gratuite reste gratuite.",
+	notDo = "ne donne aucune force en combat et ne vend pas de niveaux de pets", chance = "non : tout le contenu de chaque palier est affiché ; seuls les pets sortant des œufs gagnés restent tirés au sort", limit = "achat unique par saison", also = { "packs" },
+}
+I.SeasonUpgradePlus = {
+	cat = "season", icon = "ui_trophee", title = "Passe de combat + (suite)",
+	def = "Pour qui a déjà le premium : ajoute les 10 paliers immédiats (799 - 399 = 400).",
+	detail = "Seulement si tu as DÉJÀ le passe de combat premium cette saison : il ajoute les 10 paliers immédiats sans repayer le premium. Sans le premium, il est caché et refusé.",
+	notDo = "ne donne aucune force en combat", chance = "non", limit = "achat unique par saison", also = {},
+}
+I.SeasonPremiumPlus = {
+	cat = "season", icon = "ui_trophee", title = "Passe de combat + 10 paliers",
+	def = "Le passe premium plus 10 paliers de saison tout de suite.",
+	detail = "Comme le passe premium, avec en plus 10 paliers immédiats (leurs récompenses sont créditées). Pour qui possède déjà le premium, voir « Passe de combat + (suite) ».",
+	notDo = "ne donne aucune force en combat", chance = "non : récompenses de paliers affichées", limit = "achat unique par saison", also = { "packs" },
+}
+
+---------------------------------------------------------------- Packs
+I.StarterPack = {
+	cat = "packs", icon = "r_cadeau", title = "Pack de départ",
+	def = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance.",
+	detail = "Contient 20 000 pièces, 3 œufs Rares (espèce, taille, mutation tirées au sort, rareté fixe) et une Potion de chance (+25 points, 15 min). Achat unique, à vie.",
+	notDo = NO_POWER, chance = "oui : espèces, tailles et mutations des 3 œufs Rares (rareté fixe, affichée)", limit = "achat unique", also = { "eggs" },
+}
+I.BundleLegend = {
+	cat = "packs", icon = "r_coffre", title = "Pack Légende",
+	def = "1 œuf Ultra Rare, 3 œufs Légendaires et Double chance 60 minutes.",
+	detail = "Contient 1 Œuf Ultra Rare, 3 Œufs Légendaires et 60 min de Double chance (points d'amélioration x2, 70 points au total au plus). Raretés fixes et affichées ; espèces, tailles et mutations tirées au sort. Moins cher que les parties achetées séparément.",
+	notDo = NO_POWER, chance = EGG_CHANCE .. " (pour chaque œuf)", limit = "aucune limite", also = { "eggs", "luck" },
+}
+I.BundleRoyalNoPass = {
+	cat = "packs", icon = "r_coffre", title = "Coffre royal sans passe",
+	def = "Le Coffre royal pour qui a déjà le passe premium : 2 Ultra Rares, 3 Mythiques.",
+	detail = "Complément pour qui possède déjà le passe de combat premium : mêmes œufs que le Coffre royal (2 Œufs Ultra Rares, 3 Œufs Mythiques), sans repayer le passe (1 499 - 399 = 1 100). Caché et refusé sans le passe premium.",
+	notDo = NO_POWER, chance = EGG_CHANCE .. " (pour chaque œuf)", limit = "aucune limite", also = { "eggs", "season" },
+}
+I.BundleRoyal = {
+	cat = "packs", icon = "r_coffre", title = "Coffre royal",
+	def = "2 œufs Ultra Rares, 3 œufs Mythiques et le passe de combat premium.",
+	detail = "Contient 2 Œufs Ultra Rares, 3 Œufs Mythiques et le Passe de combat premium (paliers déjà atteints crédités). Pour qui a déjà le passe premium, ce coffre est remplacé par « Coffre royal sans passe ». Raretés fixes et affichées.",
+	notDo = NO_POWER, chance = EGG_CHANCE .. " (pour chaque œuf)", limit = "aucune limite", also = { "eggs", "season" },
+}
+
+---------------------------------------------------------------- Cosmétiques
+for n = 1, 6 do
+	I["EmoteVictory" .. n] = {
+		cat = "cosmetics", icon = "r_cosmetique_traine", title = "Pose de victoire " .. n,
+		def = "Une animation de victoire pour ton personnage, juste pour le style.",
+		detail = "Un geste cosmétique que tu peux jouer après une victoire. Aucun effet sur le jeu. Une fois achetée, elle est à toi pour toujours.",
+		notDo = "ne donne aucune force, aucun œuf, aucun bonus", chance = "non", limit = "achat unique", also = {},
+	}
+end
+
+return I
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
+-- Ids, prix (R$), catégories et drapeaux de TOUS les achats de la boutique. L'intégrateur appelle `ShopData.merge(Config)` à la fin de Config.lua (ou copie ces champs
+-- dans Config.PRODUCTS / Config.PASSES) : les champs existants (name, emoji, desc, eggTier...) sont conservés, id / robux / cat / random / once / season / eggTier sont posés ici.
+-- Drapeaux : random = achat masqué et refusé si PolicyService restreint ; once = achat unique à vie ; season = achat unique PAR saison (season.premium = n) ;
+-- eggTier = rareté FIXE de l'œuf vendu. Aucun plafond d'achat : seuls `once` et `season` limitent.
+local D = {}
+
+local function P(id, robux, cat, extra)
+	local e = { kind = "product", id = id, robux = robux, cat = cat }
+	for k, v in pairs(extra or {}) do
+		e[k] = v
+	end
+	return e
+end
+local function G(id, robux, cat, extra)
+	local e = P(id, robux, cat, extra)
+	e.kind = "pass"
+	e.once = true
+	return e
+end
+
+D.ENTRIES = {
+	-- Œufs
+	EggR2 = P(3736703563, 15, "eggs", { random = true, eggTier = 2 }),
+	EggR3 = P(3736703571, 25, "eggs", { random = true, eggTier = 3 }),
+	EggR4 = P(3736703588, 49, "eggs", { random = true, eggTier = 4 }),
+	EggR5 = P(3736703667, 99, "eggs", { random = true, eggTier = 5 }),
+	ExclusiveEgg = P(3734229320, 249, "eggs", { random = true, eggTier = 6 }),
+	EggR7 = P(3736703695, 799, "eggs", { random = true, eggTier = 7 }),
+	EggSecret = P(3736452048, 1499, "eggs", { random = true, eggTier = 8 }),
+	EggExclusive = P(3736452061, 3499, "eggs", { random = true, eggTier = 9 }),
+	EggDivine = P(3736452072, 6999, "eggs", { random = true, eggTier = 10 }),
+	-- Chance & boosts
+	LuckPotionMini = P(3736703579, 29, "luck", { random = true }),
+	LuckPotion = P(3734229337, 99, "luck", { random = true }),
+	GoldenBelt = P(3736121227, 99, "luck", { random = true }),
+	ServerLuck = P(3736121217, 129, "luck", { random = true }),
+	DoubleLuck = P(3736703673, 149, "luck", { random = true }),
+	Lucky = G(2093447290, 149, "luck", { random = true }),
+	Fast = G(2097173053, 149, "luck"),
+	Speed = G(2092253306, 149, "luck"),
+	PrivateBelt = G(2098265697, 299, "luck", { random = true }),
+	Lucky2 = G(2102045961, 349, "luck", { random = true }),
+	-- Pièces
+	CoinPackS = P(3736703557, 19, "coins"),
+	CoinPack = P(3734229339, 99, "coins"),
+	Coins2x = G(2093291260, 199, "coins"),
+	-- Base & confort
+	StreakRestore = P(3736703610, 29, "base"),
+	CalendarCatchup = P(3736695392, 29, "base"),
+	InstantHatch = P(3734229329, 49, "base"),
+	EggBagPlus = G(2099454839, 149, "base"),
+	ExtraSlots = G(2098181699, 249, "base"),
+	Collector = G(2099556764, 249, "base"),
+	VipBase = G(2094209172, 399, "base"),
+	-- Combat & vol
+	ArenaTickets = P(3736703606, 19, "combat"),
+	Revive = P(3734229323, 49, "combat"),
+	RemoteSteal = P(3736121232, 79, "combat"),
+	RemoteStealPack = P(3736121238, 199, "combat"),
+	-- Passe de combat (revendu à chaque saison : season = true)
+	SeasonPremium = P(3736703683, 399, "season", { season = true }),
+	SeasonUpgradePlus = P(3736704000, 400, "season", { season = true }),
+	SeasonPremiumPlus = P(3736703689, 799, "season", { season = true }),
+	-- Packs
+	StarterPack = P(3734229313, 99, "packs", { random = true, once = true }),
+	BundleLegend = P(3736703706, 999, "packs", { random = true }),
+	BundleRoyalNoPass = P(3736704205, 1100, "packs", { random = true }),
+	BundleRoyal = P(3736703714, 1499, "packs", { random = true }),
+	-- Cosmétiques
+	EmoteVictory1 = P(3736703619, 39, "cosmetics", { once = true }),
+	EmoteVictory2 = P(3736703629, 39, "cosmetics", { once = true }),
+	EmoteVictory3 = P(3736703634, 39, "cosmetics", { once = true }),
+	EmoteVictory4 = P(3736703641, 39, "cosmetics", { once = true }),
+	EmoteVictory5 = P(3736703649, 39, "cosmetics", { once = true }),
+	EmoteVictory6 = P(3736703657, 39, "cosmetics", { once = true }),
+}
+
+-- Fusionne ces données dans Config.PRODUCTS / Config.PASSES (idempotent). `info` (ShopInfo) fournit name / desc des entrées nouvelles.
+function D.merge(config, info)
+	config.PRODUCTS = config.PRODUCTS or {}
+	config.PASSES = config.PASSES or {}
+	for key, e in pairs(D.ENTRIES) do
+		local bag = e.kind == "pass" and config.PASSES or config.PRODUCTS
+		local def = bag[key] or {}
+		bag[key] = def
+		for _, f in ipairs({ "id", "robux", "cat", "random", "once", "season", "eggTier" }) do
+			def[f] = e[f]
+		end
+		if info and info[key] then
+			def.name = def.name or info[key].title
+			def.desc = def.desc or info[key].def
+		end
+	end
+	return config
+end
+
+return D
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
+-- Catégories, tri, état « Possédé », règle de mise à niveau (palier inférieur déjà possédé -> seul le complément est visible), prix effectif, visibilité
+-- (id renseigné, PolicyService, espèces publiées), contrôle de place AVANT paiement, débordement, texte des probabilités et reçus (un crédit par reçu).
+-- Décision utilisateur : PLUS DE PLAFOND D'ACHAT. Seuls les achats uniques (`once`, passes, poses) et le passe de saison (une fois par saison) sont limités.
+-- Style : pas de `+=`, pas de `continue`, pas de math.atan2 (compatibilité lupa).
+-- Profil attendu (forme minimale, le serveur adapte) :
+--   { coins, income (pièces / s), slots = {...}, cap, eggBag = { tier... }, overflow = { ["tier"] = n }, passes = { Cle = true }, once = { Cle = true },
+--     season = { cur = n, premium = n|nil, plus = n|nil, bonusTiers = n }, receipts = { [id] = true }, timers = { luck, double } (secondes), tokens = { arena, raven, streak, catchup } }
+local Shop = {}
+
+Shop.OWNED_LABEL = "Possédé"
+Shop.MSG_ROOM = "Fais de la place : ta base et ton sac d'œufs sont pleins."
+Shop.DOUBLE_LUCK_CAP = 70 -- points de chance (puissance) : seule garde conservée de H.2
+
+Shop.CATEGORIES = {
+	{ key = "eggs", title = "Œufs", icon = "egg_r3" },
+	{ key = "luck", title = "Chance & boosts", icon = "r_potion_chance" },
+	{ key = "coins", title = "Pièces", icon = "r_coins_m" },
+	{ key = "base", title = "Base & confort", icon = "ui_bouclier" },
+	{ key = "combat", title = "Combat & vol", icon = "ui_epee" },
+	{ key = "season", title = "Passe de combat", icon = "ui_trophee" },
+	{ key = "packs", title = "Packs", icon = "r_coffre" },
+	{ key = "cosmetics", title = "Cosmétiques", icon = "r_cosmetique_traine" },
+}
+local CAT_INDEX = {}
+for i, c in ipairs(Shop.CATEGORIES) do
+	CAT_INDEX[c.key] = i
+end
+function Shop.categoryTitle(key)
+	local i = CAT_INDEX[key]
+	return i and Shop.CATEGORIES[i].title or nil
+end
+
+-- Points de chance avec « Double chance » : x2 puis plafond de 70 points. Entrée invalide : 0.
+function Shop.doubleLuckCap(points)
+	if type(points) ~= "number" or points ~= points or points < 0 then
+		return 0
+	end
+	return math.min(points * 2, Shop.DOUBLE_LUCK_CAP)
+end
+-- Total de chance quelle que soit la source (jamais au-dessus de 70).
+function Shop.luckTotal(points, doubled)
+	local p = type(points) == "number" and points == points and points > 0 and points or 0
+	if doubled then
+		return Shop.doubleLuckCap(p)
+	end
+	return math.min(p, Shop.DOUBLE_LUCK_CAP)
+end
+
+---------------------------------------------------------------- Contenu des achats (données de reçu)
+-- eggs = { { tier, n } } (n œufs de rareté FIXE), coins = { minutes, min } (sac) ou nombre fixe, luck / double (secondes), server = effet pour tout le serveur.
+local function eggs(list)
+	return list
+end
+Shop.EFFECTS = {
+	StarterPack = { coins = 20000, eggs = eggs({ { 3, 3 } }), luck = { points = 25, seconds = 900 }, onceMark = true },
+	BundleLegend = { eggs = eggs({ { 7, 1 }, { 5, 3 } }), doubleSeconds = 3600 },
+	BundleRoyal = { eggs = eggs({ { 7, 2 }, { 6, 3 } }), premium = true },
+	BundleRoyalNoPass = { eggs = eggs({ { 7, 2 }, { 6, 3 } }), needsPremium = true },
+	SeasonPremium = { premium = true },
+	SeasonUpgradePlus = { plus = true, needsPremium = true },
+	SeasonPremiumPlus = { premium = true, plus = true },
+	LuckPotionMini = { luck = { points = 25, seconds = 300 } },
+	LuckPotion = { luck = { points = 25, seconds = 900 } },
+	DoubleLuck = { doubleSeconds = 1800 },
+	ServerLuck = { server = { luckPoints = 5, seconds = 600 } },
+	GoldenBelt = { server = { beltSeconds = 600 } },
+	CoinPackS = { coinPack = { minutes = 5, min = 1000 } },
+	CoinPack = { coinPack = { minutes = 20, min = 5000 } },
+	ArenaTickets = { tokens = { arena = 5 } },
+	RemoteSteal = { tokens = { raven = 1 } },
+	RemoteStealPack = { tokens = { raven = 3 } },
+	StreakRestore = { tokens = { streak = 1 } },
+	CalendarCatchup = { tokens = { catchup = 1 } },
+	InstantHatch = { instantHatch = true },
+	Revive = { revive = true },
+}
+for _, t in ipairs({ { "EggR2", 2 }, { "EggR3", 3 }, { "EggR4", 4 }, { "EggR5", 5 }, { "ExclusiveEgg", 6 }, { "EggR7", 7 }, { "EggSecret", 8 }, { "EggExclusive", 9 }, { "EggDivine", 10 } }) do
+	Shop.EFFECTS[t[1]] = { eggs = { { t[2], 1 } } }
+end
+for n = 1, 6 do
+	Shop.EFFECTS["EmoteVictory" .. n] = { onceMark = true }
+end
+
+-- Œufs contenus dans un achat : liste { tier, n } (vide si aucun).
+function Shop.eggsOf(key)
+	local fx = Shop.EFFECTS[key]
+	local out = {}
+	if fx and fx.eggs then
+		for _, e in ipairs(fx.eggs) do
+			out[#out + 1] = { tier = e[1], n = e[2] }
+		end
+	end
+	return out
+end
+
+---------------------------------------------------------------- Catalogue, possession, prix
+local function isId(id)
+	return type(id) == "number" and id == id and id > 0 and id % 1 == 0
+end
+
+-- Catalogue : toutes les entrées de Config.PRODUCTS / Config.PASSES qui portent une catégorie (ShopData.merge). Triées par catégorie puis prix croissant puis clé.
+function Shop.catalog(config)
+	local list = {}
+	for _, bagName in ipairs({ "PRODUCTS", "PASSES" }) do
+		local bag = type(config) == "table" and config[bagName]
+		if type(bag) == "table" then
+			for key, def in pairs(bag) do
+				if type(def) == "table" and CAT_INDEX[def.cat] then
+					list[#list + 1] = {
+						key = key, kind = bagName == "PASSES" and "pass" or "product", id = def.id, price = def.robux, cat = def.cat,
+						random = def.random == true, once = def.once == true, perSeason = def.season == true, eggTier = def.eggTier,
+						permanent = bagName == "PASSES" or def.once == true,
+					}
+				end
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.cat ~= b.cat then
+			return CAT_INDEX[a.cat] < CAT_INDEX[b.cat]
+		end
+		local pa, pb = type(a.price) == "number" and a.price or 0, type(b.price) == "number" and b.price or 0
+		if pa ~= pb then
+			return pa < pb
+		end
+		return a.key < b.key
+	end)
+	return list
+end
+
+local function season(profil)
+	local s = type(profil) == "table" and profil.season
+	return type(s) == "table" and s or {}
+end
+function Shop.hasPremium(profil)
+	local s = season(profil)
+	return type(s.cur) == "number" and s.premium == s.cur
+end
+function Shop.hasPlus(profil)
+	local s = season(profil)
+	return type(s.cur) == "number" and s.plus == s.cur
+end
+
+-- Possession d'un achat (passe, achat unique, passe de saison de la saison EN COURS).
+function Shop.owned(profil, offre)
+	local key = type(offre) == "table" and offre.key or offre
+	if type(profil) ~= "table" or type(key) ~= "string" then
+		return false
+	end
+	if key == "SeasonPremium" then
+		return Shop.hasPremium(profil)
+	end
+	if key == "SeasonUpgradePlus" or key == "SeasonPremiumPlus" then
+		return Shop.hasPlus(profil)
+	end
+	if type(profil.passes) == "table" and profil.passes[key] == true then
+		return true
+	end
+	return type(profil.once) == "table" and profil.once[key] == true
+end
+
+-- Règle de mise à niveau : "owned" / "buy" / "hidden" d'après la seule possession (aucun prix ici).
+local function ownership(profil, key)
+	local prem = Shop.hasPremium(profil)
+	if key == "SeasonUpgradePlus" then
+		if not prem then
+			return "hidden", "needPremium"
+		end
+		return Shop.hasPlus(profil) and "owned" or "buy"
+	elseif key == "SeasonPremiumPlus" then
+		return prem and "hidden" or "buy", "hasPremium"
+	elseif key == "BundleRoyal" then
+		return prem and "hidden" or "buy", "hasPremium"
+	elseif key == "BundleRoyalNoPass" then
+		return prem and "buy" or "hidden", "needPremium"
+	end
+	return Shop.owned(profil, key) and "owned" or "buy"
+end
+
+-- Prix effectivement facturé : `offre` (fiche du catalogue) -> R$, ou nil si l'offre n'est pas achetable (masquée par la règle de mise à niveau ou déjà possédée).
+function Shop.priceFor(profil, offre)
+	if type(offre) ~= "table" or type(offre.price) ~= "number" then
+		return nil
+	end
+	local st = ownership(profil, offre.key)
+	if st ~= "buy" then
+		return nil
+	end
+	return offre.price
+end
+
+-- État complet : "buy" | "owned" | "hidden" (+ motif). restricted : résultat de PolicyService (nil / true = restreint, false = autorisé).
+function Shop.status(profil, config, offre, restricted)
+	if type(offre) ~= "table" or not isId(offre.id) then
+		return "hidden", "noId"
+	end
+	if offre.random and restricted ~= false then
+		return "hidden", "policy"
+	end
+	if type(offre.eggTier) == "number" and type(config.tierLive) == "function" and not config.tierLive(offre.eggTier) then
+		return "hidden", "notLive"
+	end
+	-- lot 16 (intégration) : avant le début de la première saison (season.cur == 0), tout ce qui contient le passe de combat est masqué (rien à créditer)
+	local sc = season(profil).cur
+	if sc == 0 and (offre.perSeason or offre.key == "BundleRoyal" or offre.key == "BundleRoyalNoPass") then
+		return "hidden", "noseason"
+	end
+	local st, why = ownership(profil, offre.key)
+	return st, st ~= "buy" and why or nil
+end
+
+-- Offres visibles regroupées par catégorie (ordre imposé), triées par prix croissant. Chaque achat est dans EXACTEMENT une catégorie.
+-- Retourne { { key, title, icon, offers = { { key, price, owned, label, permanent, random, seeAlso = { clés de catégories } } } } } (les 8 catégories, éventuellement vides).
+function Shop.visibleOffers(profil, config, restricted, info)
+	local out = {}
+	for i, c in ipairs(Shop.CATEGORIES) do
+		out[i] = { key = c.key, title = c.title, icon = c.icon, offers = {} }
+	end
+	for _, o in ipairs(Shop.catalog(config)) do
+		local st = Shop.status(profil, config, o, restricted)
+		if st ~= "hidden" then
+			local also = info and info[o.key] and info[o.key].also or {}
+			local row = {
+				key = o.key, kind = o.kind, price = o.price, owned = st == "owned", label = st == "owned" and Shop.OWNED_LABEL or nil,
+				permanent = o.permanent, perSeason = o.perSeason, random = o.random, eggTier = o.eggTier, seeAlso = also,
+			}
+			local list = out[CAT_INDEX[o.cat]].offers
+			list[#list + 1] = row
+		end
+	end
+	return out
+end
+
+-- Contrôle serveur AVANT PromptProductPurchase : ok, motif, prix. Refuse : inconnu, masqué (id / PolicyService / rareté), possédé, mise à niveau impossible,
+-- base + sac pleins pour un achat qui contient des œufs.
+function Shop.canBuy(profil, config, key, restricted)
+	local found
+	for _, o in ipairs(Shop.catalog(config)) do
+		if o.key == key then
+			found = o
+		end
+	end
+	if not found then
+		return false, "unknown"
+	end
+	local st, why = Shop.status(profil, config, found, restricted)
+	if st == "hidden" then
+		return false, why or "hidden"
+	end
+	if st == "owned" then
+		return false, "owned"
+	end
+	if #Shop.eggsOf(key) > 0 then
+		local ok = Shop.canBuyEgg(profil, config, 1)
+		if not ok then
+			return false, "faisDeLaPlace"
+		end
+	end
+	return true, nil, Shop.priceFor(profil, found)
+end
+
+---------------------------------------------------------------- Place et débordement
+local function freeSlots(profil)
+	local n = 0
+	local cap = type(profil.cap) == "number" and profil.cap or 0
+	local slots = type(profil.slots) == "table" and profil.slots or {}
+	for i = 1, cap do
+		if slots[i] == nil or slots[i] == false then
+			n = n + 1
+		end
+	end
+	return n
+end
+local function bagRoom(profil, config)
+	local size = type(config.EGG_BAG) == "table" and config.EGG_BAG.size or 10
+	local used = type(profil.eggBag) == "table" and #profil.eggBag or 0
+	return math.max(size - used, 0)
+end
+-- Peut-on ranger `n` (1 par défaut) œufs dans la base puis le sac ? Sinon (false, "faisDeLaPlace", message) : à appeler AVANT le paiement.
+function Shop.canBuyEgg(profil, config, n)
+	local need = type(n) == "number" and n >= 1 and math.floor(n) or 1
+	if type(profil) ~= "table" then
+		return false, "faisDeLaPlace", Shop.MSG_ROOM
+	end
+	if freeSlots(profil) + bagRoom(profil, config) >= need then
+		return true
+	end
+	return false, "faisDeLaPlace", Shop.MSG_ROOM
+end
+-- Débordement après paiement (course) : coffre de débordement sans limite, jamais de perte. Clés en texte (DataStore).
+function Shop.overflowAdd(profil, tier, n)
+	local count = type(n) == "number" and n >= 1 and math.floor(n) or 1
+	if type(tier) ~= "number" or tier < 1 or tier % 1 ~= 0 then
+		return false
+	end
+	profil.overflow = profil.overflow or {}
+	local k = tostring(tier)
+	profil.overflow[k] = (profil.overflow[k] or 0) + count
+	return true
+end
+function Shop.overflowCount(profil)
+	local total = 0
+	if type(profil.overflow) == "table" then
+		for _, v in pairs(profil.overflow) do
+			if type(v) == "number" then
+				total = total + v
+			end
+		end
+	end
+	return total
+end
+
+-- Range un œuf : base, puis sac, puis débordement. Retourne "slot" | "bag" | "overflow".
+local function placeEgg(profil, config, tier)
+	profil.slots = profil.slots or {}
+	local cap = type(profil.cap) == "number" and profil.cap or 0
+	for i = 1, cap do
+		if profil.slots[i] == nil or profil.slots[i] == false then
+			profil.slots[i] = { k = "e", t = tier }
+			return "slot"
+		end
+	end
+	profil.eggBag = profil.eggBag or {}
+	if bagRoom(profil, config) > 0 then
+		profil.eggBag[#profil.eggBag + 1] = tier
+		return "bag"
+	end
+	Shop.overflowAdd(profil, tier, 1)
+	return "overflow"
+end
+
+---------------------------------------------------------------- Probabilités affichées
+local function pctText(x)
+	local r = math.floor(x * 10 + 0.5) / 10
+	if r % 1 == 0 then
+		return tostring(math.floor(r))
+	end
+	return (string.format("%.1f", r):gsub("%.", ","))
+end
+local function weightsText(list, none)
+	local total = 0
+	for _, x in ipairs(list) do
+		total = total + x.weight
+	end
+	local out = {}
+	for _, x in ipairs(list) do
+		out[#out + 1] = string.format("%s %s %%", x.name == "" and none or x.name, pctText(x.weight / total * 100))
+	end
+	return table.concat(out, ", ")
+end
+local function speciesCount(config, tier)
+	local n = 0
+	for _, p in ipairs(config.PETS) do
+		if p.tier == tier then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Texte de probabilités d'un achat qui contient des œufs (sinon ""). Rareté FIXE affichée, table de contenu (Config.eggContentText avec les points d'amélioration
+-- du joueur, `upPoints`, 5 par défaut), espèces, tailles et mutations. Les lignes sont séparées par « \n ».
+function Shop.eggContentText(config, key, upPoints)
+	local list = Shop.eggsOf(key)
+	if #list == 0 then
+		return ""
+	end
+	local up = type(upPoints) == "number" and upPoints or (config.UPGRADE and config.UPGRADE.base) or 0
+	local lines = {}
+	for _, e in ipairs(list) do
+		local t = config.TIERS[e.tier]
+		if t then
+			local head = e.n > 1 and string.format("%d x Œuf %s", e.n, t.name) or ("Œuf " .. t.name)
+			lines[#lines + 1] = string.format("%s, rareté fixe %s", head, t.name)
+			lines[#lines + 1] = "Contenu : " .. config.eggContentText(e.tier, up)
+			do -- lot 16 : l'espèce Exclusif « de l'événement » arrive au lot 11 ; d'ici là elle est tirée au sort dans la rareté, comme les autres (fiche honnête)
+				local n = speciesCount(config, e.tier)
+				if n > 0 then
+					lines[#lines + 1] = string.format("%d espèce%s possible%s, chacune %s %% (espèce tirée au sort dans la rareté).", n, n > 1 and "s" or "", n > 1 and "s" or "", pctText(100 / n))
+				end
+			end
+		end
+	end
+	lines[#lines + 1] = "Tailles : " .. weightsText(config.SIZES, "Normal") .. "."
+	lines[#lines + 1] = "Mutations : " .. weightsText(config.MUTS, "Aucune") .. "."
+	return table.concat(lines, "\n")
+end
+
+-- Fiche complète d'un achat pour l'écran (kiosque et offres à l'écran : même fiche) ; nil si inconnu.
+function Shop.card(config, info, profil, key, restricted)
+	local i = info and info[key]
+	if not i then
+		return nil
+	end
+	local offre
+	for _, o in ipairs(Shop.catalog(config)) do
+		if o.key == key then
+			offre = o
+		end
+	end
+	if not offre then
+		return nil
+	end
+	local st = Shop.status(profil, config, offre, restricted)
+	local also = {}
+	for _, c in ipairs(i.also or {}) do
+		also[#also + 1] = Shop.categoryTitle(c)
+	end
+	return {
+		key = key, title = i.title, def = i.def, detail = i.detail, notDo = i.notDo, chance = i.chance, limit = i.limit, icon = i.icon,
+		price = Shop.priceFor(profil, offre) or offre.price, state = st, owned = st == "owned", label = st == "owned" and Shop.OWNED_LABEL or nil,
+		odds = offre.random and Shop.eggContentText(config, key) or "", seeAlso = also,
+	}
+end
+
+---------------------------------------------------------------- Reçus (un crédit par reçu)
+local function rate(config)
+	local ref = type(config.PRICING_REF) == "table" and config.PRICING_REF.secondsPerRobux
+	return type(ref) == "number" and ref > 0 and ref or 12.1
+end
+-- Pièces de compensation pour `robux` R$ payés en double : revenu de (robux x secondsPerRobux) secondes, au moins le plancher du Sac de pièces.
+local function compensation(profil, config, robux)
+	local income = type(profil.income) == "number" and profil.income > 0 and profil.income or 0
+	local floorCoins = type(config.COIN_PACK_MIN) == "number" and config.COIN_PACK_MIN or 5000
+	return math.floor(math.max(floorCoins, income * robux * rate(config)))
+end
+
+local function addTokens(profil, tokens)
+	profil.tokens = profil.tokens or {}
+	for k, v in pairs(tokens) do
+		profil.tokens[k] = (profil.tokens[k] or 0) + v
+	end
+end
+local function addTimer(profil, which, seconds)
+	profil.timers = profil.timers or {}
+	profil.timers[which] = (profil.timers[which] or 0) + seconds -- durées cumulables sans limite
+end
+
+-- Octroie UN produit pour le reçu `receiptId` et retourne { ok, dup, delta } (delta = ce qui a été ajouté au profil et aux effets serveur).
+-- Idempotent : rejouer le même reçu ne crédite rien (dup = true). Inconnu : { ok = false, reason }. Les achats déjà possédés (course) sont compensés en pièces.
+function Shop.grant(profil, key, receiptId, config)
+	if type(profil) ~= "table" or type(key) ~= "string" then
+		return { ok = false, reason = "args" }
+	end
+	local rt = type(receiptId)
+	if not ((rt == "string" and #receiptId > 0) or (rt == "number" and receiptId == receiptId)) then
+		return { ok = false, reason = "receipt" }
+	end
+	local fx = Shop.EFFECTS[key]
+	if not fx then
+		return { ok = false, reason = "unknown" }
+	end
+	profil.receipts = profil.receipts or {}
+	if profil.receipts[receiptId] then
+		return { ok = true, dup = true }
+	end
+	local def = (config.PRODUCTS and config.PRODUCTS[key]) or {}
+	local price = type(def.robux) == "number" and def.robux or 0
+	local delta = { key = key }
+	local prem = Shop.hasPremium(profil)
+	local plus = Shop.hasPlus(profil)
+	local s = season(profil)
+	profil.season = type(profil.season) == "table" and profil.season or { cur = 0 }
+	local cur = type(profil.season.cur) == "number" and profil.season.cur or 0
+	local comp = 0 -- R$ payés pour quelque chose déjà possédé
+
+	-- Pièces
+	if fx.coinPack then
+		local minutes = fx.coinPack.minutes
+		if key == "CoinPack" and type(config.COIN_PACK_MINUTES) == "number" then
+			minutes = config.COIN_PACK_MINUTES
+		end
+		local income = type(profil.income) == "number" and profil.income > 0 and profil.income or 0
+		delta.coins = math.floor(math.max(fx.coinPack.min, income * minutes * 60))
+	elseif fx.coins then
+		delta.coins = fx.coins
+	end
+
+	-- Achat unique déjà possédé : compensation, pas de second octroi
+	if fx.onceMark then
+		profil.once = profil.once or {}
+		if profil.once[key] then
+			comp = price
+			delta.coins = nil
+			fx = {}
+		end
+	end
+
+	-- Passe de saison
+	if key == "SeasonPremium" and prem then
+		comp = price
+		fx = {}
+	elseif key == "SeasonUpgradePlus" and plus then
+		comp = price
+		fx = {}
+	elseif key == "SeasonPremiumPlus" then
+		if plus then
+			comp = price
+			fx = {}
+		elseif prem then
+			comp = (config.PRODUCTS.SeasonPremium and config.PRODUCTS.SeasonPremium.robux) or 399
+		end
+	elseif key == "BundleRoyal" and prem then
+		comp = (config.PRODUCTS.SeasonPremium and config.PRODUCTS.SeasonPremium.robux) or 399
+	end
+	local race = false
+	if fx.needsPremium and not prem then
+		race = true -- payé sans le premium (course) : on lui donne le premium en plus, il a payé
+	end
+
+	if fx.eggs then
+		local placed = { slot = 0, bag = 0, overflow = 0 }
+		delta.eggs = {}
+		for _, e in ipairs(fx.eggs) do
+			for _ = 1, e[2] do
+				local where = placeEgg(profil, config, e[1])
+				placed[where] = placed[where] + 1
+				delta.eggs[#delta.eggs + 1] = e[1]
+			end
+		end
+		delta.placed = placed
+	end
+	if delta.coins and delta.coins > 0 then
+		profil.coins = (type(profil.coins) == "number" and profil.coins or 0) + delta.coins
+	end
+	if fx.luck then
+		delta.luck = { points = fx.luck.points, seconds = fx.luck.seconds }
+		addTimer(profil, "luck", fx.luck.seconds)
+	end
+	if fx.doubleSeconds then
+		delta.doubleSeconds = fx.doubleSeconds
+		delta.doubleCap = Shop.DOUBLE_LUCK_CAP
+		addTimer(profil, "double", fx.doubleSeconds)
+	end
+	if fx.server then
+		delta.server = fx.server
+	end
+	if fx.tokens then
+		delta.tokens = fx.tokens
+		addTokens(profil, fx.tokens)
+	end
+	if fx.instantHatch then
+		delta.instantHatch = true
+	end
+	if fx.revive then
+		delta.revive = true
+	end
+	if fx.premium or race then
+		if not (prem and not race) then
+			profil.season.premium = cur
+			delta.premium = true
+			delta.creditReached = true -- le module de saison crédite UNE fois les paliers déjà atteints
+		end
+	end
+	if fx.plus then
+		profil.season.plus = cur
+		profil.season.premium = cur
+		profil.season.bonusTiers = (profil.season.bonusTiers or 0) + 10
+		delta.plus = true
+		delta.bonusTiers = 10
+	end
+	if race then
+		delta.upgradedFromRace = true
+	end
+	if fx.onceMark then
+		profil.once[key] = true
+		delta.once = true
+	end
+	if comp > 0 then
+		local coins = compensation(profil, config, comp)
+		profil.coins = (type(profil.coins) == "number" and profil.coins or 0) + coins
+		delta.compensation = { robux = comp, coins = coins }
+	end
+	profil.receipts[receiptId] = true
+	if s ~= nil and s.cur == nil then
+		profil.season.cur = cur
+	end
+	return { ok = true, dup = false, delta = delta }
+end
+
+-- Passe permanent (Game Pass) : pose idempotente.
+function Shop.grantPass(profil, key)
+	if type(profil) ~= "table" or type(key) ~= "string" then
+		return false
+	end
+	profil.passes = profil.passes or {}
+	local had = profil.passes[key] == true
+	profil.passes[key] = true
+	return not had
+end
+
+return Shop
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
+-- LOT 16 (G.5 + addendum B) : logique PURE de la Passe de combat (aucun service Roblox, aucun os.time : le SERVEUR passe `nowUtc` en secondes).
+-- Usage : local S = Season.new(Config, SeasonData). Config fournit TIERS (rareté par NOM) et PETS (espèce Exclusif de la saison).
+-- Champs de profil (profil.season) : { n, xp, day, dayXp, claimedFree, claimedPrem, premium, plus, prev }
+--   n = numéro de saison ; xp = XP de saison ; day/dayXp = jour UTC et XP déjà gagnée ce jour ; claimedFree/claimedPrem = masques de bits (bit t-1 = palier t réclamé) ;
+--   premium = numéro de la saison dont la piste premium est achetée (0 = non) ; plus = numéro de la saison où Premium+/complément a été utilisé (une fois par saison) ;
+--   prev = saison précédente gardée pendant la période de grâce { n, xp, claimedFree, claimedPrem, premium, seen }.
+-- Les fonctions ne font JAMAIS d'octroi : elles renvoient la liste `grants` à appliquer par le serveur (pièces en minutes de revenu, œuf par rareté, jetons, parchemins, cosmétiques, espèce).
+-- Style : pas de `+=`, pas de `continue`, valeurs douteuses gardées par type avant toute comparaison.
+local Season = {}
+
+local DAY = 86400
+
+local function isnum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function int(v, lo, hi, def)
+	if not isnum(v) then
+		return def
+	end
+	v = math.floor(v)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+
+local function hasBit(mask, t)
+	return math.floor(mask / 2 ^ (t - 1)) % 2 == 1
+end
+
+local function setBit(mask, t)
+	if hasBit(mask, t) then
+		return mask
+	end
+	return mask + 2 ^ (t - 1)
+end
+
+function Season.new(Config, SD)
+	local S = {}
+	local SEASON = SD.SEASON
+	local NT = SEASON.tiers
+	local MASK_MAX = 2 ^ NT - 1
+
+	-- XP cumulée pour atteindre le palier t : cum[t + 1]
+	local cum = { 0 }
+	for t = 1, NT do
+		cum[t + 1] = cum[t] + SD.TIER_XP[t]
+	end
+	local MAX_XP = cum[NT + 1]
+	S.MAX_XP = MAX_XP
+	S.TIERS = NT
+
+	function S.xpForTier(t)
+		t = int(t, 0, NT, 0)
+		return cum[t + 1]
+	end
+
+	function S.tierOf(xp)
+		xp = int(xp, 0, MAX_XP, 0)
+		local t = 0
+		for i = 1, NT do
+			if xp >= cum[i + 1] then
+				t = i
+			end
+		end
+		return t
+	end
+
+	local function tierIdx(name)
+		for i, t in ipairs(Config.TIERS) do
+			if t.name == name then
+				return i
+			end
+		end
+		return nil
+	end
+	S.tierIdx = tierIdx
+
+	-- L'éclosion d'une rareté (indice Config.TIERS) donne-t-elle de l'XP de saison ?
+	function S.hatchQualifies(tier)
+		local need = tierIdx(SEASON.hatchMinTier)
+		return need ~= nil and type(tier) == "number" and tier >= need
+	end
+
+	---------------------------------------------------------------- Saison courante (aucun chevauchement : fin(n) = début(n + 1))
+	local function seasonStart(n)
+		return SEASON.start + (n - 1) * SEASON.days * DAY
+	end
+	S.seasonStart = seasonStart
+
+	function S.currentSeason(nowUtc)
+		if not isnum(nowUtc) then
+			nowUtc = 0
+		end
+		if nowUtc < SEASON.start then
+			return { n = 0, startsAt = SEASON.start, endsAt = SEASON.start, daysLeft = 0, preseason = true }
+		end
+		local n = math.floor((nowUtc - SEASON.start) / (SEASON.days * DAY)) + 1
+		local startsAt = seasonStart(n)
+		local endsAt = startsAt + SEASON.days * DAY
+		local def = SD.get(n)
+		return {
+			n = n,
+			theme = def.theme,
+			name = def.name,
+			def = def,
+			startsAt = startsAt,
+			endsAt = endsAt,
+			dayIndex = math.floor((nowUtc - startsAt) / DAY) + 1,
+			daysLeft = math.ceil((endsAt - nowUtc) / DAY),
+		}
+	end
+
+	---------------------------------------------------------------- Profil : création, assainissement, bascule
+	local function sanitizeSeason(s)
+		s.n = int(s.n, 0, 1000000, 0)
+		s.xp = int(s.xp, 0, MAX_XP, 0)
+		s.day = int(s.day, 0, 1000000000, 0)
+		s.dayXp = int(s.dayXp, 0, SEASON.dailyCap, 0)
+		s.claimedFree = int(s.claimedFree, 0, MASK_MAX, 0)
+		s.claimedPrem = int(s.claimedPrem, 0, MASK_MAX, 0)
+		s.premium = int(s.premium, 0, 1000000, 0)
+		s.plus = int(s.plus, 0, 1000000, 0)
+		if type(s.prev) == "table" then
+			local p = s.prev
+			p.n = int(p.n, 1, 1000000, 1)
+			p.xp = int(p.xp, 0, MAX_XP, 0)
+			p.claimedFree = int(p.claimedFree, 0, MASK_MAX, 0)
+			p.claimedPrem = int(p.claimedPrem, 0, MASK_MAX, 0)
+			p.premium = int(p.premium, 0, 1000000, 0)
+			p.seen = p.seen == true
+		else
+			s.prev = nil
+		end
+		return s
+	end
+
+	local function freshSeason(n, xp)
+		return { n = n, xp = xp or 0, day = 0, dayXp = 0, claimedFree = 0, claimedPrem = 0, premium = 0, plus = 0 }
+	end
+
+	-- Garantit profil.season à jour pour l'instant `nowUtc` : migre un profil sans saison (l'ancien profil.seasonXp du lot 15 y est versé puis remis à 0),
+	-- bascule de saison (la précédente est gardée en `prev` pendant la grâce). Idempotent. Renvoie (season, cur).
+	function S.migrate(profil, nowUtc)
+		local cur = S.currentSeason(nowUtc)
+		local s = profil.season
+		if type(s) ~= "table" then
+			local legacy = int(profil.seasonXp, 0, MAX_XP, 0)
+			profil.seasonXp = 0
+			s = freshSeason(cur.n, legacy)
+			profil.season = s
+		else
+			sanitizeSeason(s)
+		end
+		if cur.n > 0 and s.n < cur.n then
+			if s.n == 0 then
+				s.n = cur.n -- XP gagnée avant le début de la toute première saison : conservée
+			else
+				local keep = nil
+				if s.n == cur.n - 1 and (s.xp > 0 or s.premium == s.n) then
+					keep = { n = s.n, xp = s.xp, claimedFree = s.claimedFree, claimedPrem = s.claimedPrem, premium = s.premium, seen = false }
+				end
+				local fresh = freshSeason(cur.n, 0)
+				fresh.prev = keep
+				profil.season = fresh
+				s = fresh
+			end
+		end
+		return s, cur
+	end
+
+	local function graceLeftSeconds(prevN, nowUtc)
+		return seasonStart(prevN + 1) + SEASON.graceDays * DAY - nowUtc
+	end
+
+	---------------------------------------------------------------- Récompenses (résolues)
+	local function findSpecies(name)
+		local ex = tierIdx(SEASON.exclusiveTier)
+		if not name or not ex or type(Config.PETS) ~= "table" then
+			return false, ex
+		end
+		for _, p in ipairs(Config.PETS) do
+			if p.name == name and p.tier == ex then
+				return true, ex
+			end
+		end
+		return false, ex
+	end
+
+	local function resolveEntry(n, e)
+		local k = e.k
+		if k == "coins" then
+			return { kind = "coins", minutes = e.v }
+		elseif k == "egg" then
+			local idx = tierIdx(e.name)
+			if not idx then
+				return { kind = "coins", minutes = 30, fallback = true } -- rareté inconnue : jamais une récompense perdue
+			end
+			return { kind = "egg", tier = idx, name = e.name, n = e.n or 1 }
+		elseif k == "token" then
+			return { kind = "token", n = e.v }
+		elseif k == "scroll" then
+			return { kind = "scroll", n = e.v }
+		elseif k == "cosmetic" or k == "aura" then
+			return { kind = k, id = "s" .. n .. "_" .. e.key, label = SD.cosmeticLabel(n, e.key), season = n }
+		elseif k == "species" then
+			local def = SD.get(n)
+			local name = def and def.species
+			local ok, ex = findSpecies(name)
+			if ok then
+				return { kind = "species", name = name, tier = ex, season = n }
+			end
+			return { kind = "cosmetic", id = "s" .. n .. "_trophy", label = SD.cosmeticLabel(n, "trophy"), season = n, fallback = true }
+		end
+		return { kind = "coins", minutes = 15, fallback = true }
+	end
+
+	-- Liste de grants du palier t de la piste `track` ("free" | "premium") pour la saison n (nil si aucune récompense).
+	function S.rewardFor(n, t, track)
+		local tbl = track == "premium" and SD.PREMIUM_TRACK or SD.FREE
+		local entries = tbl[t]
+		if not entries then
+			return nil
+		end
+		local out = {}
+		for _, e in ipairs(entries) do
+			out[#out + 1] = resolveEntry(n, e)
+		end
+		return out
+	end
+
+	---------------------------------------------------------------- XP
+	-- Ajoute l'XP de la source (pve, pvp, duel, daily, weekly, hatch). Plafond de SEASON.dailyCap par jour UTC pour les sources `capped`.
+	-- Renvoie { ok, gained, xp, tier, tiersUp = { paliers atteints }, capped } ou { ok = false, reason }.
+	function S.addXp(profil, source, nowUtc)
+		if type(source) ~= "string" then
+			return { ok = false, reason = "source" }
+		end
+		local def = SD.XP[source]
+		if not def then
+			return { ok = false, reason = "source" }
+		end
+		-- Avant le début de la toute première saison : l'XP est mise de côté (versée au démarrage), toujours plafonnée.
+		local s = S.migrate(profil, nowUtc)
+		local day = math.floor((isnum(nowUtc) and nowUtc or 0) / DAY)
+		if s.day ~= day then
+			s.day = day
+			s.dayXp = 0
+		end
+		local want = def.amount
+		local capped = false
+		if def.capped then
+			local room = SEASON.dailyCap - s.dayXp
+			if room < want then
+				want = math.max(0, room)
+				capped = true
+			end
+		end
+		local before = S.tierOf(s.xp)
+		local room2 = MAX_XP - s.xp
+		if room2 < want then
+			want = room2
+		end
+		s.xp = s.xp + want
+		if def.capped then
+			s.dayXp = math.min(SEASON.dailyCap, s.dayXp + want)
+		end
+		local after = S.tierOf(s.xp)
+		local up = {}
+		for t = before + 1, after do
+			up[#up + 1] = t
+		end
+		return { ok = true, gained = want, xp = s.xp, tier = after, tiersUp = up, capped = capped }
+	end
+
+	---------------------------------------------------------------- Réclamation
+	-- Réclame le palier `tier` de la piste `track` ("free" | "premium"). `which` = "prev" pour la saison précédente pendant la grâce. Idempotent : une 2e demande = reason "already".
+	-- Renvoie { ok, grants, tier, track, season } ou { ok = false, reason } (bad, locked, premium, already, none, expired, noseason).
+	function S.claim(profil, tier, track, nowUtc, which)
+		if type(tier) ~= "number" or tier ~= tier or tier % 1 ~= 0 or tier < 1 or tier > NT then
+			return { ok = false, reason = "bad" }
+		end
+		if track ~= "free" and track ~= "premium" then
+			return { ok = false, reason = "bad" }
+		end
+		local s, cur = S.migrate(profil, nowUtc)
+		local target = s
+		if which == "prev" then
+			target = s.prev
+			if not target then
+				return { ok = false, reason = "none" }
+			end
+			if graceLeftSeconds(target.n, nowUtc) <= 0 then
+				return { ok = false, reason = "expired" }
+			end
+		elseif cur.n == 0 then
+			return { ok = false, reason = "noseason" }
+		end
+		if S.tierOf(target.xp) < tier then
+			return { ok = false, reason = "locked" }
+		end
+		if track == "premium" and target.premium ~= target.n then
+			return { ok = false, reason = "premium" }
+		end
+		local field = track == "premium" and "claimedPrem" or "claimedFree"
+		if hasBit(target[field], tier) then
+			return { ok = false, reason = "already" }
+		end
+		local grants = S.rewardFor(target.n, tier, track)
+		if not grants then
+			return { ok = false, reason = "none" }
+		end
+		target[field] = setBit(target[field], tier)
+		return { ok = true, grants = grants, tier = tier, track = track, season = target.n }
+	end
+
+	-- Réclame tout ce qui est réclamable (saison courante, et précédente si which == "prev"). Renvoie la liste cumulée de grants.
+	function S.claimAll(profil, nowUtc, which)
+		local grants, count = {}, 0
+		for t = 1, NT do
+			for _, track in ipairs({ "free", "premium" }) do
+				local r = S.claim(profil, t, track, nowUtc, which)
+				if r.ok then
+					count = count + 1
+					for _, g in ipairs(r.grants) do
+						grants[#grants + 1] = g
+					end
+				end
+			end
+		end
+		return { ok = true, grants = grants, claimed = count }
+	end
+
+	---------------------------------------------------------------- Achat de la piste premium
+	-- kind : "premium" (399), "premiumPlus" (799 = premium + 10 paliers, une fois par saison), "upgradePlus" (complément 400, déjà premium : +10 paliers, une fois par saison).
+	-- Crédite UNE seule fois les récompenses premium des paliers déjà atteints (le masque claimedPrem les marque), puis les paliers suivants se réclament normalement.
+	-- Renvoie { ok, kind, grants, credited, boosted, tier } ou { ok = false, reason } (kind, noseason, owned, plusUsed, needPremium).
+	function S.buyPremium(profil, kind, nowUtc)
+		if type(kind) ~= "string" or not SD.PREMIUM[kind] then
+			return { ok = false, reason = "kind" }
+		end
+		local s, cur = S.migrate(profil, nowUtc)
+		if cur.n == 0 then
+			return { ok = false, reason = "noseason" }
+		end
+		local def = SD.PREMIUM[kind]
+		local owned = s.premium == s.n
+		if kind == "upgradePlus" then
+			if not owned then
+				return { ok = false, reason = "needPremium" }
+			end
+		elseif owned then
+			return { ok = false, reason = "owned" }
+		end
+		if def.plus and s.plus == s.n then
+			return { ok = false, reason = "plusUsed" }
+		end
+		s.premium = s.n
+		local boosted = 0
+		if def.plus then
+			s.plus = s.n
+			local t0 = S.tierOf(s.xp)
+			local t1 = math.min(NT, t0 + SEASON.plusTiers)
+			boosted = t1 - t0
+			if cum[t1 + 1] > s.xp then
+				s.xp = cum[t1 + 1]
+			end
+		end
+		local grants, credited = {}, 0
+		local reached = S.tierOf(s.xp)
+		for t = 1, reached do
+			if not hasBit(s.claimedPrem, t) then
+				local g = S.rewardFor(s.n, t, "premium")
+				if g then
+					s.claimedPrem = setBit(s.claimedPrem, t)
+					credited = credited + 1
+					for _, x in ipairs(g) do
+						grants[#grants + 1] = x
+					end
+				end
+			end
+		end
+		return { ok = true, kind = kind, grants = grants, credited = credited, boosted = boosted, tier = reached }
+	end
+
+	---------------------------------------------------------------- Fin de saison : récapitulatif et grâce
+	local function countUnclaimed(target)
+		local reached = S.tierOf(target.xp)
+		local free, prem, lost = 0, 0, {}
+		for t = 1, reached do
+			if SD.FREE[t] and not hasBit(target.claimedFree, t) then
+				free = free + 1
+				for _, g in ipairs(S.rewardFor(target.n, t, "free")) do
+					if g.kind == "cosmetic" or g.kind == "aura" then
+						lost[#lost + 1] = g.label
+					end
+				end
+			end
+			if target.premium == target.n and SD.PREMIUM_TRACK[t] and not hasBit(target.claimedPrem, t) then
+				prem = prem + 1
+				for _, g in ipairs(S.rewardFor(target.n, t, "premium")) do
+					if g.kind == "cosmetic" or g.kind == "aura" or g.kind == "species" then
+						lost[#lost + 1] = g.label or g.name
+					end
+				end
+			end
+		end
+		return free, prem, lost
+	end
+
+	-- Écran récapitulatif de la saison précédente (nil si rien à montrer). `expired` : grâce terminée, ce qui reste est perdu.
+	function S.recap(profil, nowUtc)
+		local s = S.migrate(profil, nowUtc)
+		local p = s.prev
+		if not p or p.seen then
+			return nil
+		end
+		local free, prem, lost = countUnclaimed(p)
+		local left = graceLeftSeconds(p.n, nowUtc)
+		local def = SD.get(p.n)
+		return {
+			n = p.n,
+			theme = def.theme,
+			name = def.name,
+			tier = S.tierOf(p.xp),
+			xp = p.xp,
+			premium = p.premium == p.n,
+			unclaimedFree = free,
+			unclaimedPremium = prem,
+			unclaimedCosmetics = lost,
+			expired = left <= 0,
+			graceDaysLeft = left > 0 and math.ceil(left / DAY) or 0,
+		}
+	end
+
+	-- Le joueur a vu le récapitulatif : plus de bandeau ; une saison précédente expirée est effacée.
+	function S.ackRecap(profil, nowUtc)
+		local s = S.migrate(profil, nowUtc)
+		local p = s.prev
+		if p then
+			if graceLeftSeconds(p.n, nowUtc) <= 0 then
+				s.prev = nil
+			else
+				p.seen = true
+			end
+		end
+		return true
+	end
+
+	---------------------------------------------------------------- Vue pour le client (aucun octroi)
+	function S.view(profil, nowUtc)
+		local s, cur = S.migrate(profil, nowUtc)
+		local tier = S.tierOf(s.xp)
+		local rows = {}
+		for t = 1, NT do
+			local f = S.rewardFor(s.n, t, "free")
+			local p = S.rewardFor(s.n, t, "premium")
+			rows[t] = {
+				tier = t,
+				free = f,
+				premium = p,
+				reached = t <= tier,
+				freeClaimed = hasBit(s.claimedFree, t),
+				premiumClaimed = hasBit(s.claimedPrem, t),
+			}
+		end
+		local nextNeed = tier < NT and (cum[tier + 2] - s.xp) or 0
+		return {
+			season = cur.n,
+			theme = cur.theme,
+			name = cur.name,
+			daysLeft = cur.daysLeft,
+			xp = s.xp,
+			tier = tier,
+			xpToNext = nextNeed,
+			dayXp = s.day == math.floor((isnum(nowUtc) and nowUtc or 0) / DAY) and s.dayXp or 0,
+			dailyCap = SEASON.dailyCap,
+			premium = s.premium == s.n and s.n > 0,
+			plusUsed = s.plus == s.n and s.n > 0,
+			rows = rows,
+			hasPrev = s.prev ~= nil and not s.prev.seen,
+		}
+	end
+
+	return S
+end
+
+return Season
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
+-- LOT 16 (G.5 + addendum B) : DONNÉES de la Passe de combat (aucune logique, aucun service Roblox). Les raretés sont des NOMS résolus par Config.TIERS (jamais de rang en dur).
+-- Modifiable sans toucher Season.lua : durée, date de début, XP par source, plafond/jour, XP par palier, récompenses des deux pistes, thèmes et espèces de saison.
+local D = {}
+
+-- Début de la saison 1 : date UTC FIXE (2026-12-01 00:00:00 UTC). Les saisons s'enchaînent toutes les `days` jours sans trou ni chevauchement.
+D.SEASON = {
+	start = 1796083200,
+	days = 60,
+	tiers = 30,
+	graceDays = 7, -- jours après la fin pendant lesquels les récompenses déjà gagnées restent réclamables (puis perdues)
+	dailyCap = 400, -- XP de saison maximale par jour UTC (sources plafonnées)
+	hatchMinTier = "Épique", -- éclosion donnant de l'XP : cette rareté ou mieux (nom, résolu par Config.TIERS)
+	freeEggMax = "Épique", -- plus haute rareté d'œuf de la piste gratuite (hors palier 30)
+	premiumEggMax = "Mythique", -- plus haute rareté d'œuf de la piste premium
+	freeFinalEgg = "Légendaire", -- œuf du palier 30 gratuit
+	exclusiveTier = "Exclusif", -- rareté de l'espèce de saison (donnée uniquement par la piste premium, palier 30)
+	plusTiers = 10, -- paliers offerts par Premium+ et par le complément
+}
+
+-- XP par source. `capped = false` : la source n'entre pas dans le plafond/jour (la quête de la semaine ne tombe qu'une fois par semaine).
+D.XP = {
+	pve = { amount = 20, capped = true }, -- victoire PvE
+	pvp = { amount = 30, capped = true }, -- victoire PvP
+	duel = { amount = 30, capped = true }, -- victoire en duel
+	daily = { amount = 100, capped = true }, -- quête du jour
+	weekly = { amount = 300, capped = false }, -- quêtes de la semaine (7/7)
+	hatch = { amount = 50, capped = true }, -- éclosion Épique ou mieux
+}
+
+-- Produits (Robux). Les ids de produit restent dans Config.PRODUCTS (créés par la gestion) : ici seulement le prix et l'effet.
+D.PREMIUM = {
+	premium = { robux = 399, plus = false },
+	premiumPlus = { robux = 799, plus = true }, -- premium + 10 paliers, une fois par saison
+	upgradePlus = { robux = 400, plus = true }, -- complément (déjà premium) : 10 paliers, une fois par saison
+}
+
+-- XP nécessaire pour passer de chaque palier au suivant (palier 1 = 0 -> 1). Total 16 500 XP.
+D.TIER_XP = {
+	490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+	550, 550, 550, 550, 550, 550, 550, 550, 550, 550,
+	610, 610, 610, 610, 610, 610, 610, 610, 610, 610,
+}
+
+-- Thèmes en rotation (Feu, Glace, Foudre, Ombre, Nature, Ciel) : décor, bannière, aura et espèce changent à chaque saison.
+D.THEMES = {
+	{ name = "Feu", of = "de Feu", color = { 255, 110, 40 }, decor = "braises" },
+	{ name = "Glace", of = "de Glace", color = { 140, 215, 255 }, decor = "givre" },
+	{ name = "Foudre", of = "de Foudre", color = { 255, 230, 70 }, decor = "éclairs" },
+	{ name = "Ombre", of = "d'Ombre", color = { 120, 80, 190 }, decor = "brume" },
+	{ name = "Nature", of = "de Nature", color = { 90, 200, 90 }, decor = "feuilles" },
+	{ name = "Ciel", of = "du Ciel", color = { 120, 180, 255 }, decor = "nuages" },
+}
+
+-- Espèce Exclusif FIXE de chaque saison (par NOM d'espèce : pas de hasard). Tant que l'espèce n'existe pas dans Config.PETS (rareté Exclusif), Season donne un cosmétique à la place.
+-- Au-delà de la saison 6 : à renseigner (nil = cosmétique de repli).
+D.SPECIES = { "Drake de Braise", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
+
+-- Libellés des cosmétiques (clé -> début du libellé). L'identifiant final est "s<n>_<clé>" : propre à la saison, jamais réutilisé.
+D.COSMETICS = {
+	pose = "Pose",
+	banner = "Bannière",
+	trail = "Traînée",
+	title = "Titre",
+	aura = "Aura",
+	aura2 = "Grande aura",
+	trophy = "Trophée Exclusif",
+}
+
+-- Définition d'une saison : D.SEASONS[n] (1..6 écrites ici, au-delà générées par la rotation).
+D.SEASONS = {}
+function D.get(n)
+	if type(n) ~= "number" or n ~= n or n < 1 then
+		return nil
+	end
+	n = math.floor(n)
+	local cached = D.SEASONS[n]
+	if cached then
+		return cached
+	end
+	local theme = D.THEMES[(n - 1) % #D.THEMES + 1]
+	local def = {
+		n = n,
+		theme = theme.name,
+		of = theme.of,
+		color = theme.color,
+		decor = theme.decor,
+		name = "Passe de combat : " .. theme.name .. " (Saison " .. n .. ")",
+		species = D.SPECIES[n],
+	}
+	D.SEASONS[n] = def
+	return def
+end
+for n = 1, #D.THEMES do
+	D.get(n)
+end
+
+function D.cosmeticLabel(n, key)
+	local def = D.get(n)
+	local base = D.COSMETICS[key] or key
+	if key == "trophy" then
+		return base .. " : " .. (def and def.species or "?") .. " (Saison " .. n .. ")"
+	end
+	return base .. " " .. (def and def.of or "") .. " (Saison " .. n .. ")"
+end
+
+-- Récompenses : entrées de forme { k = genre, ... }, résolues par Season (rareté par nom, cosmétique par saison). Une récompense de palier = liste d'entrées.
+--   coins = minutes de revenu (le serveur applique son plancher), egg = nom de rareté, token = jetons de combat, scroll = parchemins d'XP de pet,
+--   cosmetic/aura = clé de D.COSMETICS, species = espèce Exclusif de la saison.
+local function C(m) return { k = "coins", v = m } end
+local function E(name, n) return { k = "egg", name = name, n = n or 1 } end
+local function T(n) return { k = "token", v = n } end
+local function S(n) return { k = "scroll", v = n } end
+local function COS(key) return { k = "cosmetic", key = key } end
+local function AURA(key) return { k = "aura", key = key } end
+local function SPECIES() return { k = "species" } end
+
+-- Piste gratuite : un cadeau à chaque palier jusqu'au 20, puis 25 et 30 (Légendaire). Aucune rareté Secret / Exclusif / Divin.
+D.FREE = {
+	[1] = { C(15) }, [2] = { E("Peu commun") }, [3] = { T(1) }, [4] = { C(20) }, [5] = { E("Rare") },
+	[6] = { S(1) }, [7] = { C(25) }, [8] = { E("Rare") }, [9] = { T(1) }, [10] = { COS("pose") },
+	[11] = { C(30) }, [12] = { E("Rare") }, [13] = { S(1) }, [14] = { C(35) }, [15] = { E("Épique") },
+	[16] = { T(2) }, [17] = { C(40) }, [18] = { S(2) }, [19] = { C(45) }, [20] = { E("Épique"), AURA("aura") },
+	[25] = { C(60), T(2) }, [30] = { E("Légendaire"), COS("banner") },
+}
+
+-- Piste premium : un cadeau à chaque palier, œufs jusqu'à Mythique, espèce Exclusif de la saison au palier 30.
+D.PREMIUM_TRACK = {
+	[1] = { E("Rare") }, [2] = { C(30) }, [3] = { T(2) }, [4] = { E("Rare") }, [5] = { COS("banner") },
+	[6] = { E("Épique") }, [7] = { S(2) }, [8] = { C(50) }, [9] = { E("Épique") }, [10] = { COS("pose") },
+	[11] = { T(3) }, [12] = { E("Épique") }, [13] = { C(70) }, [14] = { S(3) }, [15] = { AURA("aura2") },
+	[16] = { E("Légendaire") }, [17] = { C(90) }, [18] = { T(3) }, [19] = { E("Épique") }, [20] = { COS("trail") },
+	[21] = { C(110) }, [22] = { E("Légendaire") }, [23] = { S(4) }, [24] = { T(4) }, [25] = { COS("title") },
+	[26] = { E("Légendaire") }, [27] = { C(150) }, [28] = { E("Mythique") }, [29] = { T(5) }, [30] = { SPECIES(), E("Mythique") },
+}
+
+return D
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
+-- LOT 16 : OFFRES CONTEXTUELLES à l'écran, logique PURE (aucun service Roblox, aucune instance, aucun hasard). Une offre à la fois, 3 par session, 300 s d'écart,
+-- jamais pendant une action, jamais juste après un achat, jamais ce que le joueur possède ou ce qui est indisponible. Le client affiche la carte (bouton Fermer toujours
+-- visible) et ouvre la MEME fiche que le kiosque ; le serveur reste seul juge de l'achat. Style : pas de `+=`, pas de `continue`, gardes de type partout.
+--   Offers.newState(joinedAt)                        -> state (un par joueur et par session ; jamais enregistré)
+--   Offers.pick(state, profil, now, ctx)             -> offre | nil     (PURE : ne modifie ni state, ni profil, ni ctx)
+--   Offers.onShown(state, offer, now) / onClosed(state, now) / onBought(state, keyOrOffer, now)
+--   Offers.shouldHide(state, ctx) / expired(state, now)
+-- profil = { owned = { [clé] = true }, passes = { [clé] = true }, dayNumber = 1.., bestTier = palier le plus haut obtenu, hatchedTotal = éclosions }
+-- ctx    = { Config (requis : PRODUCTS, PASSES, TIERS), restricted (PolicyService : doit valoir false pour les offres à hasard), calm,
+--            baseFull, bagFull, firstLegend, streakAtRisk, towerQuotaExhausted,
+--            flying, cinematic, inCombat, carrying, chased, hatching, castleTimer, menuOpen }
+-- offre  = { id, key, kind, title, text, robux, random, tier }
+local Offers = {}
+
+local function loadData(ctx)
+	if type(ctx) == "table" and type(ctx.data) == "table" then
+		return ctx.data
+	end
+	return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("OffersData"))
+end
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+function Offers.newState(joinedAt)
+	return { joinedAt = isNum(joinedAt) and joinedAt or 0, shown = 0, lastShownAt = nil, lastBuyAt = nil, seen = {}, current = nil, currentAt = nil }
+end
+
+local function limits(Config, D)
+	local o = type(Config.OFFERS) == "table" and Config.OFFERS or {}
+	return isNum(o.max) and o.max or D.MAX, isNum(o.gap) and o.gap or D.GAP, isNum(o.graceSeconds) and o.graceSeconds or D.GRACE
+end
+
+local function busy(ctx, D)
+	for _, f in ipairs(D.BUSY) do
+		if ctx[f] == true then
+			return true
+		end
+	end
+	return false
+end
+
+local function owns(profil, key)
+	if type(profil) ~= "table" then
+		return false
+	end
+	for _, field in ipairs({ "owned", "passes", "purchased" }) do
+		local set = profil[field]
+		if type(set) == "table" and set[key] then
+			return true
+		end
+	end
+	return false
+end
+
+local function defOf(Config, key, kind)
+	local list = kind == "pass" and Config.PASSES or Config.PRODUCTS
+	if type(list) == "table" and type(list[key]) == "table" then
+		return list[key]
+	end
+	return nil
+end
+
+-- Achat vendable à CE joueur : id entier > 0, rareté publiée, hasard seulement si PolicyService a confirmé « non restreint ».
+local function visible(Config, def, restricted)
+	if type(def) ~= "table" or not isNum(def.id) or def.id <= 0 or def.id % 1 ~= 0 then
+		return false
+	end
+	if isNum(def.eggTier) and type(Config.tierLive) == "function" then
+		local ok, live = pcall(Config.tierLive, def.eggTier)
+		if not ok or live ~= true then
+			return false
+		end
+	end
+	if def.random == true and restricted ~= false then
+		return false
+	end
+	return true
+end
+
+-- Rareté interdite en offre contextuelle : noms de Config.FORBIDDEN_GIFT_TIERS (Secret, Exclusif, Divin) ou au-delà du plafond de l'offre d'œuf.
+local function forbiddenTier(Config, D, t)
+	if not isNum(t) or t > D.EGG_MAX_TIER or t < D.EGG_MIN_TIER then
+		return true
+	end
+	local tier = type(Config.TIERS) == "table" and Config.TIERS[t] or nil
+	if type(tier) ~= "table" then
+		return true
+	end
+	local list = type(Config.FORBIDDEN_GIFT_TIERS) == "table" and Config.FORBIDDEN_GIFT_TIERS or { "Secret", "Exclusif", "Divin" }
+	for _, n in ipairs(list) do
+		if tier.name == n then
+			return true
+		end
+	end
+	return false
+end
+
+-- Clé de l'achat d'œuf de la rareté t : « EggR<t> » sinon le moins cher des achats dont eggTier == t.
+local function eggKeyFor(Config, t)
+	local products = type(Config.PRODUCTS) == "table" and Config.PRODUCTS or {}
+	local direct = "EggR" .. tostring(t)
+	if type(products[direct]) == "table" then
+		return direct
+	end
+	local best, bestPrice
+	for k, def in pairs(products) do
+		if type(def) == "table" and def.eggTier == t then
+			local price = isNum(def.robux) and def.robux or 1e9
+			if bestPrice == nil or price < bestPrice or (price == bestPrice and tostring(k) < tostring(best)) then
+				best, bestPrice = k, price
+			end
+		end
+	end
+	return best
+end
+
+local function make(entry, key, kind, def, title, text, tier)
+	return { id = entry.id, key = key, kind = kind, title = title, text = text, robux = isNum(def.robux) and def.robux or nil, random = def.random == true, tier = tier }
+end
+
+-- Choisit l'offre à afficher maintenant, ou nil. PURE.
+function Offers.pick(state, profil, now, ctx)
+	if type(state) ~= "table" or type(ctx) ~= "table" or type(ctx.Config) ~= "table" or not isNum(now) then
+		return nil
+	end
+	local Config = ctx.Config
+	local D = loadData(ctx)
+	if type(profil) ~= "table" then
+		profil = {}
+	end
+	local max, gap, grace = limits(Config, D)
+	if state.current ~= nil or not isNum(state.shown) or state.shown >= max then
+		return nil
+	end
+	if now - state.joinedAt < grace then
+		return nil
+	end
+	if isNum(state.lastShownAt) and now - state.lastShownAt < gap then
+		return nil
+	end
+	if isNum(state.lastBuyAt) and now - state.lastBuyAt < D.AFTER_BUY then
+		return nil
+	end
+	if busy(ctx, D) then
+		return nil
+	end
+	local day = isNum(profil.dayNumber) and profil.dayNumber or nil
+	local flags = { starterDays = day ~= nil and day <= D.STARTER_DAYS }
+	for _, entry in ipairs(D.LIST) do
+		local trigger = ctx[entry.when] == true or flags[entry.when] == true
+		if trigger and (entry.calm ~= true or ctx.calm == true) and state.seen[entry.id] ~= true and not owns(profil, entry.key) then
+			local def = defOf(Config, entry.key, entry.kind)
+			if visible(Config, def, ctx.restricted) then
+				return make(entry, entry.key, entry.kind, def, entry.title, entry.text, nil)
+			end
+		end
+	end
+	-- petite offre d'œuf adaptée au palier du joueur
+	local egg = D.EGG
+	local hatched = isNum(profil.hatchedTotal) and profil.hatchedTotal or 0
+	if ctx.calm == true and hatched >= D.EGG_MIN_HATCHED and ctx.baseFull ~= true and ctx.bagFull ~= true and state.seen[egg.id] ~= true then
+		local best = isNum(profil.bestTier) and math.floor(profil.bestTier) or 1
+		local t = math.min(D.EGG_MAX_TIER, math.max(D.EGG_MIN_TIER, best))
+		if not forbiddenTier(Config, D, t) then
+			local key = eggKeyFor(Config, t)
+			local def = key ~= nil and defOf(Config, key, "product") or nil
+			if def ~= nil and not owns(profil, key) and visible(Config, def, ctx.restricted) then
+				local tname = tostring(Config.TIERS[t].name)
+				local text = string.format(D.EGG_TEXT, tname)
+				return make(egg, key, "product", def, "Œuf " .. tname, text, t)
+			end
+		end
+	end
+	return nil
+end
+
+-- L'offre est affichée : compte une offre, ne reviendra plus dans la session, ouvre la fenêtre d'écart.
+function Offers.onShown(state, offer, now)
+	if type(state) ~= "table" or type(offer) ~= "table" or not isNum(now) then
+		return false
+	end
+	state.shown = state.shown + 1
+	state.lastShownAt = now
+	state.current = offer.id
+	state.currentAt = now
+	state.seen[offer.id] = true
+	return true
+end
+
+-- Fermeture (geste du joueur ou carte rangée) : jamais de pénalité, la même offre ne revient pas.
+function Offers.onClosed(state, now)
+	if type(state) ~= "table" then
+		return false
+	end
+	state.current = nil
+	state.currentAt = nil
+	return true
+end
+
+-- Achat de n'importe quoi (carte ou kiosque) : ferme la carte et coupe les offres pendant OffersData.AFTER_BUY.
+function Offers.onBought(state, keyOrOffer, now)
+	if type(state) ~= "table" or not isNum(now) then
+		return false
+	end
+	state.lastBuyAt = now
+	state.current = nil
+	state.currentAt = nil
+	if type(keyOrOffer) == "table" and type(keyOrOffer.id) == "string" then
+		state.seen[keyOrOffer.id] = true
+	end
+	return true
+end
+
+-- Une action démarre pendant que la carte est ouverte : il faut la ranger.
+function Offers.shouldHide(state, ctx)
+	if type(state) ~= "table" or state.current == nil or type(ctx) ~= "table" then
+		return false
+	end
+	return busy(ctx, loadData(ctx))
+end
+
+-- La carte ouverte s'est rangée d'elle-même (durée invisible, aucun compte à rebours affiché) ?
+function Offers.expired(state, now, ctx)
+	if type(state) ~= "table" or state.current == nil or not isNum(state.currentAt) or not isNum(now) then
+		return false
+	end
+	return now - state.currentAt >= loadData(ctx).TTL
+end
+
+return Offers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
+-- LOT 16 : DONNEES PURES des offres contextuelles à l'écran (une carte à la fois, fermable d'un geste). Aucune instance, aucun service Roblox.
+-- Règles (décisions utilisateur, ACHATS_DEFINITIONS « Règles communes ») : jamais de fausse urgence, aucun minuteur affiché, aucune promesse de gain,
+-- 3 offres par session, 300 s entre deux, aucune offre juste après un achat, jamais ce que le joueur possède, jamais un achat sans id ou masqué (PolicyService),
+-- jamais Secret / Exclusif / Divin en offre contextuelle.
+local OffersData = {}
+
+OffersData.MAX = 3 -- offres par session (Config.OFFERS.max l'emporte s'il existe)
+OffersData.GAP = 300 -- secondes minimales entre deux offres affichées (Config.OFFERS.gap)
+OffersData.GRACE = 90 -- aucune offre pendant les premières secondes de la session (Config.OFFERS.graceSeconds)
+OffersData.AFTER_BUY = 600 -- aucune offre pendant ce délai après TOUT achat (pas de relance incitative)
+OffersData.TTL = 45 -- secondes avant que la carte se range d'elle-même (aucun compte à rebours affiché)
+OffersData.STARTER_DAYS = 3 -- le Pack de départ n'est proposé que pendant les 3 premiers jours de jeu
+OffersData.EGG_MIN_TIER, OffersData.EGG_MAX_TIER = 2, 4 -- « petite offre d'œuf » : Peu commun à Épique (15 à 49 R$)
+OffersData.EGG_MIN_HATCHED = 5 -- (proposé) l'offre d'œuf n'apparaît qu'après 5 éclosions : pas pour un tout nouveau joueur
+OffersData.TITLE_MAX, OffersData.TEXT_MAX = 28, 90
+
+-- Contexte qui interdit toute offre (et fait ranger la carte ouverte) : vol, cinématique, combat, œuf porté, poursuite, éclosion en cours, chrono de château, menu ouvert.
+OffersData.BUSY = { "flying", "cinematic", "inCombat", "carrying", "chased", "hatching", "castleTimer", "menuOpen" }
+
+-- Offres fixes, par ordre de priorité. `when` = drapeau de ctx qui les déclenche ; `kind` = « product » (Config.PRODUCTS) ou « pass » (Config.PASSES).
+-- `calm` = n'apparaît que dans un moment calme (ctx.calm), jamais en pleine action. `random` est lu dans la définition du Config (PolicyService).
+OffersData.LIST = {
+	{ id = "baseFull", key = "ExtraSlots", kind = "pass", when = "baseFull", title = "+4 emplacements", text = "Ta base est pleine. Ajoute 4 emplacements d'œufs, pour toujours." },
+	{ id = "firstLegend", key = "DoubleLuck", kind = "product", when = "firstLegend", title = "Double chance", text = "30 min de points de chance doublés (70 points au maximum). Rien n'est garanti." },
+	{ id = "streak", key = "StreakRestore", kind = "product", when = "streakAtRisk", title = "Sauvetage de série", text = "Rétablis ta série de connexion. Il existe un moyen gratuit : les 3 quêtes du jour." },
+	{ id = "quota", key = "ArenaTickets", kind = "product", when = "towerQuotaExhausted", title = "Ticket d'arène", text = "5 combats de tour de plus aujourd'hui. Aucune force n'est vendue." },
+	{ id = "starter", key = "StarterPack", kind = "product", when = "starterDays", calm = true, title = "Pack de départ", text = "Une seule fois : 20 000 pièces, 3 œufs Rares et une potion de chance." },
+}
+
+-- Offre d'œuf adaptée au palier : cherche l'achat dont eggTier == t (clé « EggR<t> » d'abord).
+OffersData.EGG = { id = "egg", when = "eggOffer", calm = true, kind = "product", title = "Un œuf pour ta base" }
+
+OffersData.EGG_TEXT = "Un œuf de rareté fixe %s, posé dans ta base. Espèce et taille tirées au sort."
+
+-- Mots interdits dans les textes d'offre (fausse urgence, pression, promesse). Vérifié par les tests.
+OffersData.FORBIDDEN_WORDS = { "dernière chance", "dépêche", "vite", "limité", "limitée", "stock", "expire", "plus que", "maintenant ou jamais", "offre spéciale", "promo", "-50", "gratuit à vie", "tu vas obtenir", "garanti !" }
+
+return OffersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
+-- LOT 16 : DONNEES PURES des 8 vendeurs PNJ du hub (un par catégorie de la boutique du kiosque). Aucun service Roblox, aucune instance : testé hors de Roblox
+-- (tests/sellers.luau). Source unique pour ServerScriptService/Sellers (construction, prompts, validation serveur) et pour le client (onglet à ouvrir).
+-- Repères : Nord = -Z, Est = +X. Le « devant » d'un vendeur (étiquette, comptoir) regarde le kiosque central.
+-- Les vendeurs ne bougent pas et n'interpellent jamais (aucune bulle d'appel, aucun son) : ils se laissent aborder.
+local SellersData = {}
+
+SellersData.MODEL_NAME = "Sellers" -- dossier parent de tous les vendeurs (idempotence : détruit puis recréé)
+SellersData.ASSET_GROUP = "hub" -- Config.Assets.models.hub.<key> (préchargé par le module Assets, voir SELLERS notes d'intégration)
+SellersData.LABEL_PART, SellersData.LIGHT_PART = "Etiquette", "Lueur"
+SellersData.WIDTH, SellersData.DEPTH, SellersData.HEIGHT = 6.4, 5.5, 8.1 -- mesures du modèle Blender (X, profondeur, hauteur)
+SellersData.RADIUS = 4.4 -- rayon d'emprise (demi-diagonale 6,4 x 5,5 arrondie) utilisé pour contrôler les obstacles
+SellersData.GROUND_Y = 0.52 -- dessus du dallage de la place (comme KioskData.GROUND_Y)
+SellersData.MAX_PARTS = 80 -- au-delà, le modèle est refusé (repli procédural) : 8 vendeurs restent sous 640 Parts
+SellersData.SIZE_TOLERANCE = 0.25 -- largeur mesurée à +-25 % de WIDTH, sinon une mise à l'échelle puis refus
+SellersData.RING = { 16, 18, 20, 22, 14.5 } -- rayons essayés d'abord autour du kiosque (studs, spec 14 à 22) ; 14,5 = dernier recours
+-- ECART DE SPEC : le kiosque (14, 22) est cerné par le tapis, les routes B1/B3/B4/B5 et les étals : mesuré, 4 vendeurs au plus tiennent entre 14 et 22 studs.
+-- Les suivants prennent les rayons ci-dessous, du plus proche au plus lointain (toujours en cercle autour du kiosque, face au centre).
+SellersData.RING_FAR = { 24, 26, 28, 30, 32, 35, 38, 42 }
+SellersData.MARGIN = 2 -- marge libre exigée autour de chaque obstacle (studs)
+SellersData.SPACING = 1.5 -- espace libre minimal entre deux vendeurs (en plus de leurs deux rayons)
+SellersData.START_ANGLE = 20 -- degrés : angle idéal du premier vendeur autour du kiosque (les autres tous les 45 degrés)
+
+-- Prompt : distance d'activation (client) et portée de contrôle serveur (plus large : latence et marche), pause entre deux demandes d'un même joueur.
+SellersData.PROMPT = { hold = 0.15, distance = 9, requiresLineOfSight = false, action = "Parler" }
+SellersData.SERVER_RANGE = 16
+SellersData.COOLDOWN = 0.8
+
+-- Étiquette flottante lisible sur mobile : visible jusqu'à 60 studs, taille fixe en pixels.
+SellersData.BILLBOARD = { maxDistance = 60, width = 280, height = 132, offsetY = 3.4 }
+
+-- Les 8 vendeurs, dans l'ordre d'affichage des onglets de la boutique. `tab` = identifiant de l'onglet à ouvrir (= id de la catégorie) ;
+-- `asset` = id du modèle Blender (clé Config.Assets.models.hub.<key>) ; `keys` = achats (Config.PRODUCTS / Config.PASSES) de la catégorie ;
+-- `lines` = 2 exemples courts (sans prix, sans urgence). Les prix affichés sont calculés sur les achats réellement disponibles (id > 0).
+SellersData.VENDORS = {
+	{ id = "eggs", tab = "eggs", key = "vendor_eggs", asset = 138633300069014, emoji = "🥚", title = "Œufs", color = { 255, 214, 120 },
+		lines = { "Œufs de rareté fixe", "Espèce tirée au sort, probabilités affichées" },
+		keys = { "EggR2", "EggR3", "EggR4", "EggR5", "ExclusiveEgg", "EggR7", "EggSecret", "EggExclusive", "EggDivine" } },
+	{ id = "luck", tab = "luck", key = "vendor_luck", asset = 137414127061497, emoji = "🍀", title = "Chance & boosts", color = { 120, 220, 120 },
+		lines = { "Potions, tapis doré, passes de chance", "Aucun pet n'est garanti" },
+		keys = { "LuckPotionMini", "LuckPotion", "GoldenBelt", "ServerLuck", "DoubleLuck", "Lucky", "Fast", "Speed", "PrivateBelt", "Lucky2" } },
+	{ id = "coins", tab = "coins", key = "vendor_coins", asset = 82919202214027, emoji = "🪙", title = "Pièces", color = { 255, 200, 60 },
+		lines = { "Sacs de pièces", "Revenus x2 pour toujours" },
+		keys = { "CoinPackS", "CoinPack", "Coins2x" } },
+	{ id = "base", tab = "base", key = "vendor_base", asset = 79064954843258, emoji = "🏠", title = "Base & confort", color = { 150, 200, 255 },
+		lines = { "Emplacements, sac d'œufs, calendrier", "Du confort pour ta base" },
+		keys = { "StreakRestore", "CalendarCatchup", "InstantHatch", "EggBagPlus", "ExtraSlots", "Collector", "VipBase" } },
+	{ id = "combat", tab = "combat", key = "vendor_combat", asset = 105059296701916, emoji = "⚔️", title = "Combat & vol", color = { 255, 140, 110 },
+		lines = { "Tickets d'arène, relance, corbeaux", "Aucune force n'est vendue" },
+		keys = { "ArenaTickets", "Revive", "RemoteSteal", "RemoteStealPack" } },
+	{ id = "pass", tab = "pass", key = "vendor_pass", asset = 72959276245033, emoji = "🏅", title = "Passe de combat", color = { 200, 150, 255 },
+		lines = { "Piste gratuite et piste premium", "30 paliers par saison" },
+		keys = { "SeasonPremium", "SeasonUpgradePlus", "SeasonPremiumPlus" } },
+	{ id = "packs", tab = "packs", key = "vendor_packs", asset = 80912619819088, emoji = "🎁", title = "Packs", color = { 255, 170, 90 },
+		lines = { "Pack de départ, Pack Légende", "Coffre royal" },
+		keys = { "StarterPack", "BundleLegend", "BundleRoyalNoPass", "BundleRoyal" } },
+	{ id = "cosmetics", tab = "cosmetics", key = "vendor_cosmetics", asset = 82243751363820, emoji = "🎭", title = "Cosmétiques", color = { 255, 150, 200 },
+		lines = { "Poses de victoire", "Purement visuel" },
+		keys = { "EmoteVictory1", "EmoteVictory2", "EmoteVictory3", "EmoteVictory4", "EmoteVictory5", "EmoteVictory6" } },
+}
+
+-- Prix de référence (R$) de ACHATS_DEFINITIONS, utilisés seulement si Config ne porte pas de prix (passes : le code n'en porte pas) ou si aucun Config n'est fourni.
+SellersData.PRICES = {
+	EggR2 = 15, EggR3 = 25, EggR4 = 49, EggR5 = 99, ExclusiveEgg = 249, EggR7 = 799, EggSecret = 1499, EggExclusive = 3499, EggDivine = 6999,
+	LuckPotionMini = 29, LuckPotion = 99, GoldenBelt = 99, ServerLuck = 129, DoubleLuck = 149, Lucky = 149, Fast = 149, Speed = 149, PrivateBelt = 299, Lucky2 = 349,
+	CoinPackS = 19, CoinPack = 99, Coins2x = 199,
+	StreakRestore = 29, CalendarCatchup = 29, InstantHatch = 49, EggBagPlus = 149, ExtraSlots = 249, Collector = 249, VipBase = 399,
+	ArenaTickets = 19, Revive = 49, RemoteSteal = 79, RemoteStealPack = 199,
+	SeasonPremium = 399, SeasonUpgradePlus = 400, SeasonPremiumPlus = 799,
+	StarterPack = 99, BundleLegend = 999, BundleRoyalNoPass = 1100, BundleRoyal = 1499,
+	EmoteVictory1 = 39, EmoteVictory2 = 39, EmoteVictory3 = 39, EmoteVictory4 = 39, EmoteVictory5 = 39, EmoteVictory6 = 39,
+}
+
+SellersData.ACTIONS = { eggs = true, luck = true, coins = true, base = true, combat = true, pass = true, packs = true, cosmetics = true }
+
+function SellersData.vendor(id)
+	if type(id) ~= "string" then
+		return nil
+	end
+	for _, v in ipairs(SellersData.VENDORS) do
+		if v.id == id then
+			return v
+		end
+	end
+	return nil
+end
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+-- 1499 -> "1 499" (espace simple : lisible partout).
+function SellersData.fmtR(n)
+	if not isNum(n) then
+		return "?"
+	end
+	local s = tostring(math.floor(n + 0.5))
+	local out = ""
+	local count = 0
+	for i = #s, 1, -1 do
+		if count > 0 and count % 3 == 0 then
+			out = " " .. out
+		end
+		out = string.sub(s, i, i) .. out
+		count = count + 1
+	end
+	return out
+end
+
+-- Prix en R$ d'un achat : champ `robux` de la définition du Config, sinon prix de référence ci-dessus.
+local function priceOf(Config, key)
+	local def
+	if type(Config) == "table" then
+		if type(Config.PRODUCTS) == "table" and type(Config.PRODUCTS[key]) == "table" then
+			def = Config.PRODUCTS[key]
+		elseif type(Config.PASSES) == "table" and type(Config.PASSES[key]) == "table" then
+			def = Config.PASSES[key]
+		end
+	end
+	if def ~= nil and isNum(def.robux) then
+		return def.robux, def
+	end
+	return SellersData.PRICES[key], def
+end
+
+-- Plus petit et plus grand prix des achats DISPONIBLES (id > 0) de la catégorie. Sans Config : tous les prix de référence. Retourne (min, max, nombre).
+function SellersData.priceRange(vendor, Config)
+	local lo, hi, n = nil, nil, 0
+	if type(vendor) ~= "table" then
+		return nil, nil, 0
+	end
+	for _, key in ipairs(vendor.keys) do
+		local price, def = priceOf(Config, key)
+		local available = true
+		if type(Config) == "table" then
+			available = def ~= nil and type(def.id) == "number" and def.id > 0 and def.id % 1 == 0
+		end
+		if available and isNum(price) then
+			n = n + 1
+			if lo == nil or price < lo then
+				lo = price
+			end
+			if hi == nil or price > hi then
+				hi = price
+			end
+		end
+	end
+	return lo, hi, n
+end
+
+-- Ligne de prix de l'étiquette : « Œufs : de 15 à 6 999 R$ » ; un seul prix : « Pièces : 19 R$ » ; rien d'ouvert : « Bientôt disponible » (aucune urgence).
+function SellersData.priceLine(vendor, Config)
+	local lo, hi, n = SellersData.priceRange(vendor, Config)
+	if n == 0 or lo == nil then
+		return vendor.title .. " : bientôt disponible"
+	end
+	if lo == hi then
+		return vendor.title .. " : " .. SellersData.fmtR(lo) .. " R$"
+	end
+	return vendor.title .. " : de " .. SellersData.fmtR(lo) .. " à " .. SellersData.fmtR(hi) .. " R$"
+end
+
+-- Texte complet de l'étiquette (SurfaceGui de la planche) : emoji + titre.
+function SellersData.labelText(vendor)
+	return vendor.emoji .. " " .. vendor.title
+end
+
+---------------------------------------------------------------- placement (pur)
+
+local function deg2rad(d)
+	return d * math.pi / 180
+end
+
+-- Distance d'un point (cx, cz) à un rectangle { x0, x1, z0, z1 }.
+local function rectDist(cx, cz, x0, x1, z0, z1)
+	local nx, nz = math.max(x0, math.min(cx, x1)), math.max(z0, math.min(cz, z1))
+	return math.sqrt((cx - nx) ^ 2 + (cz - nz) ^ 2)
+end
+
+-- Obstacles supplémentaires du décor : bancs et lampadaires (DecorData.existing) et rectangle du tapis élargi (DecorData.plaza.beltPad). Aucun obstacle si decor = nil.
+local function decorHit(Map2, decor, x, z, r, margin)
+	if type(decor) ~= "table" then
+		return false
+	end
+	if type(decor.existing) == "table" then
+		for _, e in ipairs(decor.existing) do
+			if math.sqrt((x - e[1]) ^ 2 + (z - e[2]) ^ 2) < e[3] + r + margin then
+				return true, "décor existant"
+			end
+		end
+	end
+	local pad = type(decor.plaza) == "table" and decor.plaza.beltPad or nil
+	local b = Map2.belt
+	if type(pad) == "table" and type(b) == "table" then
+		if rectDist(x, z, b.x0 - pad.x0, b.bin.x + pad.x1, -(b.width / 2 + pad.z0), b.width / 2 + pad.z1) < r + margin then
+			return true, "emprise du tapis"
+		end
+	end
+	return false
+end
+
+-- Place les 8 vendeurs en cercle autour du centre du kiosque (Map2.kiosk ou K.CENTER), à 14 à 22 studs, face au centre. Pur et déterministe.
+--   K = KioskData (overlap, angle, RADIUS, CENTER) ; opts = { decor = DecorData (facultatif), center = { x, z } (facultatif) }
+-- Retourne { list = { { id, x, z, r, ring, angle, faceX, faceZ } ... }, missing = { ids non placés }, center }.
+function SellersData.layout(Map2, K, opts)
+	opts = opts or {}
+	local center = opts.center or (type(Map2.kiosk) == "table" and Map2.kiosk) or K.CENTER
+	local cx, cz = center.x, center.z
+	local VR = SellersData.RADIUS
+	local list, missing = {}, {}
+	local kioskR = type(K.RADIUS) == "number" and K.RADIUS or 7.7
+	-- ordre de recherche des angles : écart croissant autour de l'angle idéal (0, +2,5, -2,5, +5, -5, ...)
+	local offsets = { 0 }
+	for k = 1, 72 do
+		offsets[#offsets + 1] = k * 2.5
+		offsets[#offsets + 1] = -k * 2.5
+	end
+	for i, v in ipairs(SellersData.VENDORS) do
+		local ideal = SellersData.START_ANGLE + (i - 1) * 45
+		local placed
+		for _, rings in ipairs({ SellersData.RING, SellersData.RING_FAR }) do
+		for _, off in ipairs(offsets) do
+			for _, ring in ipairs(rings) do
+				if placed == nil then
+					local a = deg2rad(ideal + off)
+					local x, z = cx + ring * math.cos(a), cz + ring * math.sin(a)
+					local ok = ring >= kioskR + VR + SellersData.MARGIN
+					if ok then
+						local hit = K.overlap(Map2, x, z, VR, SellersData.MARGIN)
+						ok = hit == false
+					end
+					if ok then
+						ok = decorHit(Map2, opts.decor, x, z, VR, SellersData.MARGIN) == false
+					end
+					if ok then
+						for _, p in ipairs(list) do
+							if math.sqrt((x - p.x) ^ 2 + (z - p.z) ^ 2) < 2 * VR + SellersData.SPACING then
+								ok = false
+							end
+						end
+					end
+					if ok then
+						placed = { id = v.id, x = x, z = z, r = VR, ring = ring, angle = ideal + off, faceX = cx, faceZ = cz }
+					end
+				end
+			end
+		end
+		end
+		if placed ~= nil then
+			list[#list + 1] = placed
+		else
+			missing[#missing + 1] = v.id
+		end
+	end
+	return { list = list, missing = missing, center = { x = cx, z = cz } }
+end
+
+-- Emprises { x, z, r } des vendeurs placés (r = rayon + marge) : à ajouter aux exclusions du décor (Decor.lua ne lit que le disque Map2.kiosk).
+function SellersData.footprints(layout)
+	local out = {}
+	if type(layout) == "table" and type(layout.list) == "table" then
+		for _, p in ipairs(layout.list) do
+			out[#out + 1] = { x = p.x, z = p.z, r = p.r + SellersData.MARGIN }
+		end
+	end
+	return out
+end
+
+return SellersData
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX105"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX103"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX122"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX120"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -11960,7 +14194,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -12349,7 +14583,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX108"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX107"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX106"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX125"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX124"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX123"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

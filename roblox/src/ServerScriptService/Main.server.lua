@@ -85,12 +85,15 @@ function K8.build(assets)
 		end
 	end
 	-- lot 16 : 8 vendeurs PNJ (un par catégorie de la boutique), reconstruits avec les modèles Blender arrivés ; repli procédural sinon
-	local okS, _, _, sinfo = pcall(K8.Sellers.build, K8.world, assets and { Config = Config, assets = assets, decor = K8.DecorData }
+	task.wait() -- le placement (SellersData.layout, mémorisé) est un calcul assez long : on rend la main avant
+	local okS, serr, _, sinfo = pcall(K8.Sellers.build, K8.world, assets and { Config = Config, assets = assets, decor = K8.DecorData }
 		or { Config = Config, decor = K8.DecorData, loadAsset = function()
 			return nil
 		end })
 	if okS and type(sinfo) == "table" then
 		K8.sellers = sinfo
+	elseif not okS then
+		warn("[Sellers] construction impossible : " .. tostring(serr))
 	end
 end
 

@@ -1470,7 +1470,14 @@ function Builder.dressDecor(assets)
 		if not world then
 			return
 		end
-		decorHandle = DecorMod.build(world, MapGeoMod.new(Config), Config, { assets = assets, placement = PlacementMod.new(Config), root = world, warn = warn })
+		-- lot 16 : emprises des 8 vendeurs PNJ (SellersData.layout, mêmes calculs que Sellers.build) exclues du décor de carte
+		local occupied = {}
+		pcall(function()
+			local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+			local SD = require(Shared:WaitForChild("SellersData"))
+			occupied = SD.footprints(SD.layout(Config.Map2, require(Shared:WaitForChild("KioskData")), { decor = require(Shared:WaitForChild("DecorData")) }))
+		end)
+		decorHandle = DecorMod.build(world, MapGeoMod.new(Config), Config, { assets = assets, placement = PlacementMod.new(Config), root = world, warn = warn, occupied = occupied })
 		for _, l in ipairs(decorHandle.lines or {}) do
 			print(l)
 		end
