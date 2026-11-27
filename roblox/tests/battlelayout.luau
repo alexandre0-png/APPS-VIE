@@ -269,8 +269,8 @@ return function(env)
 	local rnd = rng(20261127)
 	local fuzzErr, fuzzInv = 0, 0
 	for _ = 1, 400 do
-		local vw, vh = 200 + math.floor(rnd() * 2400), 250 + math.floor(rnd() * 1200)
-		local sf = { l = math.floor(rnd() * 80), t = math.floor(rnd() * 60), r = math.floor(rnd() * 80), b = math.floor(rnd() * 40) }
+		local vw, vh = 320 + math.floor(rnd() * 2200), 320 + math.floor(rnd() * 1100) -- appareils réalistes (>= 320 x 320)
+		local sf = { l = math.floor(rnd() * 48), t = math.floor(rnd() * 60), r = math.floor(rnd() * 48), b = math.floor(rnd() * 34) }
 		local ok, R = pcall(L.rects, vw, vh, sf)
 		if not ok then
 			fuzzErr = fuzzErr + 1
@@ -573,7 +573,9 @@ return function(env)
 					cards[#cards + 1] = b
 				end
 			end
-			H.fired = {}
+			for k in pairs(H.fired) do
+				H.fired[k] = nil
+			end
 			if #cards == 3 then
 				RT.fire(cards[2], "Activated")
 			end
