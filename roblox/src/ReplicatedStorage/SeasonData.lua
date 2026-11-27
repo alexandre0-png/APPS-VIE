@@ -54,7 +54,9 @@ D.THEMES = {
 
 -- Espèce Exclusif FIXE de chaque saison (par NOM d'espèce : pas de hasard). Tant que l'espèce n'existe pas dans Config.PETS (rareté Exclusif), Season donne un cosmétique à la place.
 -- Au-delà de la saison 6 : à renseigner (nil = cosmétique de repli).
-D.SPECIES = { "Drake de Braise", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
+-- Lot 11 : la saison 1 donne « Corbeau couronné », l'espèce Exclusif du bestiaire marquée event = "saison1" ; les saisons 2 à 6 gardent leur nom prévu
+-- (espèces pas encore créées : trophée de repli, aucune récompense perdue). Halloween / Noël (Loup-garou citrouille, Renne étoilé) relèvent des événements.
+D.SPECIES = { "Corbeau couronné", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
 
 -- Libellés des cosmétiques (clé -> début du libellé). L'identifiant final est "s<n>_<clé>" : propre à la saison, jamais réutilisé.
 D.COSMETICS = {

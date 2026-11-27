@@ -325,7 +325,7 @@ local function income(s)
 end
 
 local function luckPoints(s)
-	local pts = Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil, os.time() < Lot7.luckUntil, passOn(s, "Lucky2")) + L15.Rewards.activeEvents(Config, os.time()).upgradeBonus -- lot 15 : week-end chanceux (+5, gratuit, pour tous) ; lot 16 : Chance +10 % II
+	local pts = Rules.upPoints(s.data.up.luck, evKey() == "luck", passOn(s, "Lucky"), os.time() < s.data.luckUntil or L15.BR.boostActive(s.data.boosts, "luck10", os.time()), os.time() < Lot7.luckUntil, passOn(s, "Lucky2")) + L15.Rewards.activeEvents(Config, os.time()).upgradeBonus -- lot 15 : week-end chanceux (+5, gratuit, pour tous) ; lot 16 : Chance +10 % II
 	return Lot7.L16.luckTotal(pts, os.time() < s.data.doubleUntil and s.restricted == false) -- lot 16 : Double chance (x2, 70 points au plus ; produit à hasard : seulement si PolicyService a confirmé)
 end
 
@@ -3335,14 +3335,17 @@ end
 -- LOT 12 B : cartes de récompense (D.5). Le tirage est enregistré dans le profil (battle.pendingPick) AVANT l'envoi : déconnexion ou relance ne retire pas la récompense.
 -- Délai de 15 s tenu par le SERVEUR (première carte d'office). Jamais exposé par snapshot : les cartes ne sortent que par { k = "pick" }.
 function L15.pickHooks(s)
-	return {
-		giveEgg = function(t)
-			if not freeSlot(s) then -- base pleine : NE PAS appeler giveEgg (il paierait déjà la moitié du prix) ; grant convertit au prix plein
-				return false
-			end
+	local h = { where = nil }
+	-- Carte Œuf : place libre cherchée AVANT ; base pleine -> sac d'œufs puis coffre de débordement (lot 15/16), jamais l'ancien giveEgg (demi-prix) ni de perte.
+	h.giveEgg = function(t)
+		if freeSlot(s) then
+			h.where = "slot"
 			return giveEgg(s, t)
-		end,
-	}
+		end
+		h.where = Lot7.L16.storeEgg(s, t)
+		return h.where == "bag" or h.where == "overflow" or h.where == "slot"
+	end
+	return h
 end
 function L15.sendPick(s)
 	local pk = s.data.battle.pendingPick
@@ -3368,9 +3371,11 @@ function L15.claimPick(s, id, index)
 		return -- index ou identifiant invalide : rien n'est consommé
 	end
 	b.pendingPick = nil -- vidé AVANT d'attribuer : aucun double gain
-	local out = L15.BR.grant(Config, s.data, card, L15.pickHooks(s), os.time(), L15.PetXp)
+	local hooks = L15.pickHooks(s)
+	local out = L15.BR.grant(Config, s.data, card, hooks, os.time(), L15.PetXp)
 	local _, _, desc = L15.BR.cardText(Config, card)
-	RBattle:FireClient(s.player, { k = "picked", text = desc .. (out and out.converted and " (base pleine : converti en pièces)" or ""), auto = auto })
+	local note = (out and out.converted and " (converti en pièces)") or (hooks.where == "bag" and " (base pleine : rangé dans ton sac d'œufs)") or (hooks.where == "overflow" and " (base et sac pleins : rangé dans le coffre de débordement)") or ""
+	RBattle:FireClient(s.player, { k = "picked", text = desc .. note, auto = auto })
 	RState:FireClient(s.player, snapshot(s))
 end
 -- Propose les 3 cartes à la fin d'un combat gagné (mode « first » / « repeat » / « npc »), puis les envoie.
@@ -3426,27 +3431,23 @@ local function battleFinish(s)
 			tele.log(s.player, "tower_floor_reached", bt.floor)
 		end
 		if first or b.repeats < TW.dailyRepeats + Lot7.L16.arenaExtra(s) then -- lot 16 : les tickets d'arène ajoutent des combats RÉCOMPENSÉS
-			local rw = Config.towerReward(bt.floor, income(s), first)
 			if not first then
 				b.repeats += 1
 			end
-			s.data.coins += rw.coins
-			rewards.coins = rw.coins
-			if rw.eggTier and rw.eggTier > 0 then
-				giveEgg(s, rw.eggTier)
-				rewards.egg = rw.eggTier
-			end
-			if rw.potion then
-				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
-				rewards.potion = true
-			end
 			rewards.first = first
+			rewards.pick = true -- lot 12 B : le client attend { k = "pick" } (3 cartes) et masque « Continuer » ; remplace Config.towerReward
+			L15.offerPick(s, bt.floor, first and "first" or "repeat")
+			sendAfter = true
 		else
 			rewards.limited = true
 		end
 	end
+	L15.PetXp.addToTeam(s.data.slots, b.team, L15.PetXp.award("pve", L15.PetXp.combat("pve", win, bt.floor), L15.PetXp.boostMul(s.data, os.time()))) -- lot 12 B : XP de pet (tour)
 	RBattle:FireClient(s.player, { k = "end", win = win, rewards = rewards, best = b.best, floor = bt.floor, view = Battle.view(st) })
 	RState:FireClient(s.player, snapshot(s))
+	if sendAfter then
+		L15.sendPick(s)
+	end
 end
 
 local function battleStep(s, act)
@@ -5044,7 +5045,7 @@ end
 -- Tout vit dans Lot7.L16 (AUCUNE variable locale de plus au niveau du script : limite de 200). Le client n'envoie que des clés ou des numéros (shopBuy, shopEv,
 -- seasonView, seasonClaim, seasonAck, overflowTake, emoteSet, offerClose) ; le serveur revalide tout : Shop.canBuy AVANT l'invite d'achat (rien n'est débité
 -- si l'achat est refusé : base et sac pleins, possédé, PolicyService, rareté sans espèce), ProcessReceipt livre UNE fois par reçu (L16.grant), la saison
--- ne crédite que ce que Season décide (aucune valeur venue du client). Aucun produit ne touche Battle.STATS, slot.x, les boucliers ou les trophées.
+-- ne crédite que ce que Season décide (aucune valeur venue du client). Aucun produit ne touche les stats de combat, l'XP de pet (champ x), les boucliers ou les trophées.
 do
 	local L16 = Lot7.L16
 	local Shared = ReplicatedStorage:WaitForChild("Shared")

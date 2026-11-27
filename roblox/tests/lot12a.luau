@@ -520,14 +520,15 @@ return function(env)
 		local prodOk = true
 		for name, def in pairs(Config.PRODUCTS) do
 			local blob = string.lower((def.name or "") .. " " .. (def.desc or ""))
-			if def.xp or def.petXp or blob:find("xp", 1, true) or blob:find("expérience", 1, true) or blob:find("niveau de pet", 1, true) then
+			-- « xp » cherché comme mot entier : « Potion express » (lot 16) ne parle pas d'XP
+			if def.xp or def.petXp or blob:find("%f[%w]xp%f[%W]") or blob:find("expérience", 1, true) or blob:find("niveau de pet", 1, true) then
 				prodOk = false
 				print("  (produit suspect : " .. name .. ")")
 			end
 		end
 		for name, def in pairs(Config.PASSES or {}) do
 			local blob = string.lower((def.name or "") .. " " .. (def.desc or ""))
-			if def.xp or def.petXp or blob:find("xp", 1, true) or blob:find("expérience", 1, true) then
+			if def.xp or def.petXp or blob:find("%f[%w]xp%f[%W]") or blob:find("expérience", 1, true) then
 				prodOk = false
 				print("  (passe suspect : " .. name .. ")")
 			end

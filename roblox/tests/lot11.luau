@@ -693,4 +693,113 @@ return function(env)
 	rcfg.Assets.Enabled = assetsWere
 	RT.step(1)
 	check("Builder : aucune erreur serveur après la construction des pets" .. (#RT.errors == 0 and "" or (" : " .. tostring(RT.errors[1]))), #RT.errors == 0)
+
+	---------------------------------------------------------------- 8. Intégration lot 11 x lot 16 (boutique, passe de combat, calendrier, compteur 1 sur N, éclosion)
+	suite("Lot 11 x lot 16 : offres des raretés publiées, espèce de saison, tirage du jour 30, Odds, HatchPlan")
+	local function loadPure(name, environment)
+		return loadMod("roblox/src/ReplicatedStorage/" .. name .. ".lua", name, environment)
+	end
+	local Shop = loadPure("Shop")
+	local SD = loadPure("SeasonData")
+	local Season = loadPure("Season")
+	local Cal = loadPure("Calendar")
+	local Odds = loadPure("Odds")
+	local HP = loadPure("HatchPlan")
+	local function visibleKeys(cfg)
+		local set = {}
+		for _, cat in ipairs(Shop.visibleOffers({ season = { cur = 1 } }, cfg, false, nil)) do
+			for _, o in ipairs(cat.offers) do
+				set[o.key] = true
+			end
+		end
+		return set
+	end
+	local vFull, vPlain = visibleKeys(full), visibleKeys(plain)
+	check("Boutique (78 espèces) : EggR2, EggSecret, EggExclusive, EggDivine affichés (raretés publiées par le bestiaire)", vFull.EggR2 == true and vFull.EggSecret == true and vFull.EggExclusive == true and vFull.EggDivine == true)
+	check("Boutique (18 espèces, repli) : ces 4 œufs restent masqués (rareté sans espèce publiée : rien d'invendable)", not vPlain.EggR2 and not vPlain.EggSecret and not vPlain.EggExclusive and not vPlain.EggDivine)
+	local okSecret = Shop.canBuy({ season = { cur = 1 }, cap = 10, slots = {}, eggBag = {} }, full, "EggSecret", false)
+	local okSecretPlain = Shop.canBuy({ season = { cur = 1 }, cap = 10, slots = {}, eggBag = {} }, plain, "EggSecret", false)
+	check("Shop.canBuy : œuf Secret achetable avec le bestiaire, refusé sans espèce Secret (contrôle serveur avant l'invite)", okSecret == true and okSecretPlain == false)
+	-- passe de combat : palier 30 premium de la saison 1 = espèce Exclusif du bestiaire (par NOM), saisons sans espèce = trophée de repli
+	local SFull = Season.new(full, SD)
+	local exIdx
+	for i, t in ipairs(full.TIERS) do
+		if t.name == "Exclusif" then
+			exIdx = i
+		end
+	end
+	local function speciesAt(S, n)
+		for _, g in ipairs(S.rewardFor(n, 30, "premium") or {}) do
+			if g.kind == "species" then
+				return g
+			end
+		end
+		return nil
+	end
+	local g1 = speciesAt(SFull, 1)
+	local s1def
+	for _, d in ipairs(full.PETS) do
+		if g1 and d.name == g1.name then
+			s1def = d
+		end
+	end
+	check("Passe de combat saison 1 : palier 30 premium = « Corbeau couronné » (espèce Exclusif du bestiaire, event saison1)", g1 ~= nil and g1.name == "Corbeau couronné" and g1.tier == exIdx and s1def ~= nil and s1def.tier == exIdx and s1def.event == "saison1")
+	local fb2 = SFull.rewardFor(2, 30, "premium")[1]
+	check("Passe de combat saison 2 (espèce pas encore créée) : trophée Exclusif de repli, jamais de récompense perdue", speciesAt(SFull, 2) == nil and fb2.kind == "cosmetic" and fb2.fallback == true and fb2.id == "s2_trophy")
+	local fbPlain = Season.new(plain, SD).rewardFor(1, 30, "premium")[1]
+	check("Passe de combat saison 1 sans bestiaire : trophée de repli (Config seul)", fbPlain.kind == "cosmetic" and fbPlain.fallback == true and fbPlain.id == "s1_trophy")
+	-- calendrier : le jour 30 tire vraiment du Secret (15 %) dès que le bestiaire publie des Secrets
+	local cnt, st = { 0, 0, 0 }, 4242
+	for _ = 1, 200000 do
+		st = (st * 48271) % 2147483647
+		local t = Cal.draw(full, (st - 1) / 2147483646)
+		cnt[t - 5] = cnt[t - 5] + 1
+	end
+	check("Calendrier J30 (78 espèces) : Secret disponible, 40 / 45 / 15 % à +-0,5 pt sur 200 000 tirages Park-Miller (" .. cnt[1] / 2000 .. " / " .. cnt[2] / 2000 .. " / " .. cnt[3] / 2000 .. ")",
+		Cal.tierAvailable(full, 8) and math.abs(cnt[1] / 2000 - 40) <= 0.5 and math.abs(cnt[2] / 2000 - 45) <= 0.5 and math.abs(cnt[3] / 2000 - 15) <= 0.5 and Cal.rewardText(full, 30):find("15 % Secret", 1, true) ~= nil)
+	check("Calendrier J30 sans bestiaire : repli Ultra Rare (60 %), jamais d'œuf Secret", not Cal.tierAvailable(plain, 8) and Cal.draw(plain, 0.9999) == 7 and Cal.rewardText(plain, 30):find("60 % Ultra Rare", 1, true) ~= nil)
+	-- compteur « 1 sur N » et plan d'éclosion sur les 78 espèces
+	local okV, probs = Odds.validate(full)
+	check("Odds.validate (78 espèces) : REF complète, chaque rareté publiée" .. (okV and "" or (" : " .. tostring(probs[1]))), okV and #full.ODDS.REF == #full.TIERS)
+	local oddsOk, hpOk, mono = true, true, true
+	local lastByTier = {}
+	for i, d in ipairs(full.PETS) do
+		local n = Odds.forPet(full, i, 2, 1)
+		if type(n) ~= "number" or n < 1 or n ~= n then
+			oddsOk = false
+		end
+		if lastByTier[d.tier] and lastByTier[d.tier] ~= n then
+			mono = false -- même rareté, même taille, même mutation : même N (pas de biais par espèce)
+		end
+		lastByTier[d.tier] = n
+		local plan = HP.plan(d.tier, n, {})
+		local okP = HP.check(plan)
+		if not okP then
+			hpOk = false
+		end
+	end
+	check("Odds.forPet : un N fini >= 1 pour chacune des 78 espèces, identique dans une même rareté", oddsOk and mono)
+	check("Odds : N croissant avec la rareté (Commun < Peu commun < ... < Divin, hors Exclusif jamais tiré au tapis)", (function()
+		local prev = 0
+		for t = 1, 10 do
+			if t ~= 9 then
+				local n = lastByTier[t]
+				if type(n) ~= "number" or n <= prev then
+					return false
+				end
+				prev = n
+			end
+		end
+		return true
+	end)())
+	check("HatchPlan.plan / check : plan d'éclosion valide pour les 78 espèces (rareté et N réels)", hpOk)
+	check("Config.Assets.petsNew : un modèle Blender (60) ou le repli procédural pour chaque espèce 19 à 78, plafond de 40 Parts pour les nouveaux", (function()
+		local n = 0
+		for i = 19, 78 do
+			if full.Assets.petsNew[i] ~= nil then
+				n = n + 1
+			end
+		end
+		return n == 60 and full.Assets.petsMaxPartsNew == 40
+	end)())
 end
