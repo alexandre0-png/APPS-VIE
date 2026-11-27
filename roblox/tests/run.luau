@@ -4478,7 +4478,14 @@ do
 	check("Achats : reçu déjà traité -> PurchaseGranted sans nouvelle livraison", d3 == PS.PurchaseGranted and p8:GetAttribute("Coins") - c1 < cfg.STARTER_PACK.coins * 0.9)
 	local c4 = p8:GetAttribute("Coins")
 	local d4 = process({ PlayerId = 2008, PurchaseId = "R-2", ProductId = 9101 })
-	check("Achats : pack de départ déjà acheté (achat unique, course) -> compensé en pièces (lot 16), jamais un second pack", d4 == PS.PurchaseGranted and p8:GetAttribute("Coins") - c4 < cfg.STARTER_PACK.coins * 0.9)
+	-- lot 11 : avec 78 espèces les pets de p8 rapportent plus (34/s mesuré) : la compensation (max(COIN_PACK_MIN, revenu x temps Robux du prix), lot 16) dépasse
+	-- alors 20 000 ; on vérifie donc le montant exact de la compensation et l'absence de second pack (pas ses 20 000 pièces en plus)
+	do -- bloc : aucune variable locale de plus dans la fonction (limite Luau de 200)
+		local inc4 = p8:GetAttribute("Income") or 0
+		local comp4 = math.floor(math.max(cfg.COIN_PACK_MIN, inc4 * cfg.timeRobux(cfg.PRODUCTS.StarterPack.robux)))
+		local dl4 = p8:GetAttribute("Coins") - c4
+		check("Achats : pack de départ déjà acheté (achat unique, course) -> compensé en pièces (lot 16 : " .. comp4 .. " attendu, " .. tostring(dl4) .. " reçu), jamais un second pack", d4 == PS.PurchaseGranted and dl4 >= comp4 - 1 and dl4 <= comp4 + 3 * drift + inc4 + 2 and dl4 < comp4 + cfg.STARTER_PACK.coins * 0.9)
+	end
 	check("Achats : produit inconnu ou joueur absent -> NotProcessedYet", process({ PlayerId = 2008, PurchaseId = "R-3", ProductId = 777 }) == PS.NotProcessedYet and process({ PlayerId = 424242, PurchaseId = "R-4", ProductId = 9102 }) == PS.NotProcessedYet)
 	local d5 = process({ PlayerId = 2008, PurchaseId = "R-5", ProductId = 9102 })
 	check("Achats : œuf exclusif livré s'il reste une place, sinon NotProcessedYet sans livrer", d5 == PS.PurchaseGranted or d5 == PS.NotProcessedYet)
