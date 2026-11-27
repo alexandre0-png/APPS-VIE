@@ -53,6 +53,7 @@ Les 46 achats sont créés et leurs ids branchés (rien à créer). Il reste à 
 - [ ] **Offres à l'écran** : 3 par session au plus, 5 min d'écart, jamais pendant un vol, un combat, un œuf porté ou un menu ouvert, aucune juste après un achat ; ✕ toujours visible ; un appui ouvre la même fiche que la boutique.
 - [ ] **8 vendeurs PNJ** autour du kiosque (modèles Blender du lot 30, sinon repli procédural) : orientation (étiquette tournée vers le kiosque), étiquettes lisibles à 60 studs, « Parler » ouvre la boutique sur le bon onglet. Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin (24 à 42 studs) ; aucun ne doit chevaucher le décor.
 - [ ] **Poses de victoire** : après une victoire, l'emoji de la pose monte au-dessus du personnage (effet visuel provisoire : de vraies animations Roblox restent à créer, voir `LOT16_ECARTS.md`).
+- [ ] **Rythme recalibré (écarts du lot 9)** : après quelques heures de jeu, dis-moi si les maisons 4 à 8, le premier Mythique / Ultra Rare et les prix en pièces te semblent justes (simulation : niveau 7 vers 2 jours, Secret 1 à 2 semaines, Divin vers 2 mois).
 - [ ] **Analytics** (après une publication de test) : Creator Hub > Analytics doit recevoir les 6 types d'événements (personnalisés, économie, entonnoir « Shop », onboarding, progression, `version_1.16.0`).
 
 ## 1quinquies. Calendrier de 30 jours (lot 9b)
