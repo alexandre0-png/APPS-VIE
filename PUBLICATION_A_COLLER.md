@@ -32,11 +32,45 @@ Expérience > Paramètres > Informations de base (nom, description) ; Paramètre
 4. « À deux, on a moins peur. À peine. »
 5. « Horreur sans une goutte de sang. »
 
-## Jeu 2 : Chipe-Œufs (univers 10776613087) : TEXTE MIS À JOUR (à coller quand les lots 9 à 16 sont publiés)
+## Jeu 2 : Chipe-Œufs (univers 10776613087) : TEXTE MIS À JOUR (à coller : tous les lots sont publiés en privé ; passer en public seulement après ta phrase « publie en live »)
 
 **Nom** (50 caractères max) : `Chipe-Œufs : Pets & Arène 🥚`
 
-**Description courte** (~120 caractères) : `Récolte des œufs, fais éclore 78 pets rares, agrandis ta maison et combats dans l'arène !`
+**Description courte** (moins de 100 caractères) : `Récolte des œufs, fais éclore 78 pets rares, agrandis ta maison et combats !`
+
+**Description longue** (1000 caractères max) :
+
+```
+🥚 Bienvenue dans Chipe-Œufs !
+
+Récupère des œufs au marché, fais-les éclore et collectionne 78 créatures sur 10 raretés, du Commun au Divin. Chaque pet affiche sa rareté exacte (« 1 sur 38 494 »).
+
+🛒 Un tapis roulant livre des œufs au centre de la ville, et un kiosque regroupe toutes les boutiques par catégorie
+🏠 Plus tes pets sont rares, plus ta maison grandit (8 niveaux)
+⚔️ Arène des Pets : équipe de 3, 9 types, coups spéciaux et tour de 45 étages
+🤺 Défie un autre joueur en duel, à côté du kiosque
+🎁 Calendrier de 30 jours : un cadeau chaque jour, un œuf Légendaire au 3e jour
+🏆 Passe de combat : une nouvelle saison tous les 2 mois, avec des récompenses gratuites et premium
+🏰 Le Château : pièges et chevaliers, en solo ou entre amis
+👥 Des PNJ proposent des échanges et des combats
+
+Les probabilités de chaque œuf sont affichées avant chaque achat. Les achats Robux sont facultatifs : les œufs s'obtiennent aussi en jouant.
+```
+
+**Genres** : Horreur (principal), Aventure, Énigmes. **Appareils** : ordinateur, téléphone, tablette, console (manette). **Joueurs max** : 2 par serveur.
+
+**Cinq accroches** (miniatures, annonces, vidéos) :
+1. « Tu te réveilles dans un cercueil. La maison, elle, ne dort pas. »
+2. « Une ombre entend chacun de tes pas. »
+3. « Un grenier, une cave, une clé : combien de temps tiens-tu dans le noir ? »
+4. « À deux, on a moins peur. À peine. »
+5. « Horreur sans une goutte de sang. »
+
+## Jeu 2 : Chipe-Œufs (univers 10776613087) : TEXTE MIS À JOUR (à coller : tous les lots sont publiés en privé ; passer en public seulement après ta phrase « publie en live »)
+
+**Nom** (50 caractères max) : `Chipe-Œufs : Pets & Arène 🥚`
+
+**Description courte** (moins de 100 caractères) : `Récolte des œufs, fais éclore 78 pets rares, agrandis ta maison et combats !`
 
 **Description longue** (1000 caractères max) :
 
