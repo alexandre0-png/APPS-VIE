@@ -16888,6 +16888,8 @@ BattleLayout.MAX_INSTANCES = 220 -- plafond de la scène (même plafond que Hatc
 BattleLayout.MIN_TOUCH = 44 -- cible tactile minimale (pixels)
 BattleLayout.MARGIN = 8
 BattleLayout.GAP = 6
+BattleLayout.SPEED_BUTTON = 52 -- largeur des boutons de vitesse et de saut (hauteur 48)
+BattleLayout.QUEUE_W, BattleLayout.QUEUE_H = 104, 28
 BattleLayout.MAX_DOTS = 6 -- points d'état d'équipe par camp
 BattleLayout.CHARGE_MAX = 5
 BattleLayout.WIDE_MIN_WIDTH = 520 -- en dessous : disposition étroite (téléphone en portrait)
@@ -16903,8 +16905,10 @@ BattleLayout.UI = {
 	card = { 24, 38, 46 }, cardStroke = { 244, 232, 196 }, text = { 250, 247, 238 }, muted = { 176, 196, 200 },
 	hp = { 91, 227, 125 }, hpWarn = { 255, 196, 60 }, hpLow = { 255, 99, 99 }, hpBack = { 52, 36, 44 },
 	dotOn = { 91, 227, 125 }, dotOff = { 70, 78, 84 }, pipOn = { 255, 210, 63 }, pipOff = { 62, 58, 84 },
-	attack = { 255, 159, 28 }, special = { 74, 163, 255 }, specialOff = { 110, 110, 120 }, swap = { 184, 120, 255 }, flee = { 255, 99, 99 },
-	log = { 16, 26, 32 },
+	attack = { 255, 159, 28 }, special = { 74, 163, 255 }, specialOff = { 70, 74, 86 }, swap = { 184, 120, 255 }, flee = { 255, 99, 99 },
+	log = { 16, 26, 32 }, status = { 255, 226, 140 },
+	darkText = { 14, 28, 18 }, lightText = { 244, 244, 252 }, fleeText = { 40, 8, 8 }, swapText = { 14, 20, 30 }, offText = { 220, 222, 232 },
+	meChip = { 74, 163, 255 }, foeChip = { 255, 107, 107 },
 }
 -- Couleur du socle lumineux par type (le type est « Nature » ou « Plante » selon la source).
 BattleLayout.TYPE_COLOR = {
@@ -16996,6 +17000,7 @@ end
 -- Disposition en pixels pour une fenêtre vw x vh et une zone sûre (optionnelle). Retourne :
 --   { mode = "wide"|"narrow", vw, vh, safe, area = zone utile, foeCard, meCard, log, actions = { attack, special, swap, flee }, stage = zone libre pour les
 --     créatures, swapTray = plateau des pets de réserve (au-dessus des boutons), cardW }
+-- Le plateau de réserve (swapTray) recouvre le journal pendant qu'il est ouvert.
 -- Garanties (testées sur une matrice d'appareils) : rectangles dans la zone utile, sans superposition, boutons >= MIN_TOUCH, coin haut gauche libre (boutons
 -- natifs de Roblox : menu, discussion), carte adverse en haut à droite, carte du joueur en bas à gauche.
 function BattleLayout.rects(vw, vh, safeIn)
@@ -17017,33 +17022,42 @@ function BattleLayout.rects(vw, vh, safeIn)
 		local logH = 56
 		out.cardW = cardW
 		out.foeCard = rect(ax1 - cardW, ay0, cardW, foeI.h)
-		out.log = rect(ax0, ay1 - logH, aw - gw - gap, logH)
+		out.fullLog = rect(ax0, ay1 - logH, aw - gw - gap, logH)
 		local gx, gy = ax1 - gw, ay1 - gh
+		out.log = out.fullLog
 		out.actions.attack = rect(gx, gy, bw, bh)
 		out.actions.special = rect(gx + bw + gap, gy, bw, bh)
 		out.actions.swap = rect(gx, gy + bh + gap, bw, bh)
 		out.actions.flee = rect(gx + bw + gap, gy + bh + gap, bw, bh)
-		out.meCard = rect(ax0, out.log.y - gap - meI.h, cardW, meI.h)
-		out.swapTray = rect(gx, gy - gap - bh, gw, bh) -- plateau de réserve : au-dessus des boutons, jamais sur la carte du joueur
+		out.meCard = rect(ax0, out.fullLog.y - gap - meI.h, cardW, meI.h)
 	else
-		local cardW = math.floor(math.min(aw, 280))
+		local cardW = math.floor(clamp(aw * 0.7, 200, 260))
 		local bw = math.floor((aw - 3 * gap) / 4)
 		local logH = 60
 		out.cardW = cardW
 		out.foeCard = rect(ax1 - cardW, ay0, cardW, foeI.h)
-		out.log = rect(ax0, ay1 - logH, aw, logH)
-		local ay = out.log.y - gap - bh
+		out.fullLog = rect(ax0, ay1 - logH, aw, logH)
+		out.log = out.fullLog
+		local ay = out.fullLog.y - gap - bh
 		out.actions.attack = rect(ax0, ay, bw, bh)
 		out.actions.special = rect(ax0 + (bw + gap), ay, bw, bh)
 		out.actions.swap = rect(ax0 + 2 * (bw + gap), ay, bw, bh)
 		out.actions.flee = rect(ax0 + 3 * (bw + gap), ay, bw, bh)
 		out.meCard = rect(ax0, ay - gap - meI.h, cardW, meI.h)
-		out.swapTray = rect(ax0, out.meCard.y - gap - bh, aw, bh)
 	end
+	-- plateau de réserve (3 boutons) : il remplace le journal tant qu'il est ouvert (le journal est alors masqué) ; jamais sur les cartes ni sur les boutons
+	local fl = out.fullLog
+	out.swapTray = rect(fl.x, fl.y + math.floor((fl.h - bh) / 2), fl.w, bh)
+	local sb = BattleLayout.SPEED_BUTTON
+	local by = fl.y + math.floor((fl.h - bh) / 2)
+	out.skip = rect(fl.x + fl.w - sb, by, sb, bh) -- « Passer l'animation » (visible dès le 2e combat vu)
+	out.speed = rect(fl.x + fl.w - 2 * sb - gap, by, sb, bh) -- vitesse 1x / 2x / 3x
+	out.log = rect(fl.x, fl.y, fl.w - 2 * sb - 2 * gap, fl.h)
+	out.queue = rect(out.foeCard.x + out.foeCard.w - BattleLayout.QUEUE_W, out.foeCard.y + out.foeCard.h + 4, BattleLayout.QUEUE_W, BattleLayout.QUEUE_H) -- ordre du tour : 3 pastilles sous la carte adverse
 	if wide then -- les cartes sont dans les coins : la scène occupe toute la hauteur utile (la carte du joueur peut mordre sur les 36 derniers pixels du socle)
 		out.stage = rect(0, ay0, vw, math.max(40, out.meCard.y + 36 - ay0))
 	else -- cartes empilées : la scène occupe l'espace libre entre elles
-		local top = out.foeCard.y + out.foeCard.h
+		local top = out.queue.y + out.queue.h + 4
 		out.stage = rect(0, top, vw, math.max(40, out.meCard.y - top))
 	end
 	return out
@@ -17108,12 +17122,12 @@ function BattleLayout.scene(vw, vh, safeIn, ground)
 	sc.center = vec(0, 2.5, 0)
 	local tanHalf = math.tan(math.rad(sc.fov / 2))
 	local aspect = r.vw / r.vh
-	local needX = spread + sc.pedestal + 0.8
+	local needX = spread + sc.pedestal + 2
 	local fitW = narrow and 1 or 0.62 -- largeur écran utilisable par les créatures (les cartes occupent les coins en disposition large)
 	local dH = needX / (tanHalf * aspect * fitW)
 	local stageFrac = r.stage.h / r.vh
 	local dV = 6.5 / (tanHalf * math.max(0.15, stageFrac))
-	local d = clamp(math.max(dH, dV), 20, 80)
+	local d = clamp(math.max(dH, dV), 20, 120)
 	local el = math.rad(sc.elevation)
 	local cy = (r.stage.y + r.stage.h / 2) / r.vh -- ordonnée écran voulue pour le centre de la scène (0 = haut)
 	local halfH = d * tanHalf
@@ -17230,8 +17244,29 @@ function BattleLayout.bench(side)
 	return out
 end
 
+-- Efficacité de type : texte court, icône (jamais la couleur seule), couleur du nombre de dégâts. Seuils identiques à BattleUi.EFFICACY / TypeFx.efficacy.
+--   super (x1,5 et plus) : vert + « ▲ » ; bon (x1,2) : vert clair + « ▲ » ; neutre : gris clair, aucun texte ; peu efficace (x0,95 et moins) : rouge pâle + « ▼ ».
+function BattleLayout.efficacy(mul)
+	local U = BattleLayout.UI
+	local neutral = { kind = "neutral", text = nil, icon = "", rgb = { 214, 218, 224 } }
+	if not isNum(mul) or mul <= 0 then
+		return neutral
+	end
+	if mul >= 1.5 - 1e-9 then
+		return { kind = "super", text = "Super efficace !", icon = "▲", rgb = { 96, 232, 120 } }
+	elseif mul >= 1.2 - 1e-9 then
+		return { kind = "good", text = "Efficace", icon = "▲", rgb = { 160, 236, 130 } }
+	elseif mul <= 0.7 + 1e-9 then
+		return { kind = "resist", text = "Pas très efficace…", icon = "▼", rgb = { 255, 150, 150 } }
+	elseif mul <= 0.95 + 1e-9 then
+		return { kind = "weak", text = "Peu efficace", icon = "▼", rgb = { 255, 176, 160 } }
+	end
+	return neutral
+end
+
 -- Signal d'animation tiré d'un événement du moteur (côté 1 = joueur, y compris en duel : la vue miroir est déjà appliquée par le serveur) :
---   { anim = "attack"|"heal"|"guard"|"swap"|"ko"|nil, actor = 1|2, target = 1|2, popup = { text, rgb, side } | nil }
+--   { anim = "attack"|"heal"|"guard"|"swap"|"ko"|nil, actor = 1|2, target = 1|2, message = { text, rgb, icon } | nil (type : affiché AVANT le nombre),
+--     popup = { text, rgb, side } | nil (nombre de dégâts : couleur par efficacité + icône) }
 function BattleLayout.cue(ev)
 	if type(ev) ~= "table" or (ev.side ~= 1 and ev.side ~= 2) then
 		return nil
@@ -17241,10 +17276,14 @@ function BattleLayout.cue(ev)
 	local U = BattleLayout.UI
 	if ev.t == "hit" then
 		local dmg = isNum(ev.dmg) and math.max(0, math.floor(ev.dmg)) or 0
-		return { anim = "attack", actor = actor, target = foe, special = ev.special == true, popup = { text = "-" .. dmg, rgb = ev.special == true and U.attack or { 255, 255, 255 }, side = foe } }
+		local ef = BattleLayout.efficacy(ev.mul)
+		local sp = ev.special == true
+		local msg = ef.text and { text = ef.text, rgb = ef.rgb, icon = ef.icon } or nil
+		return { anim = "attack", actor = actor, target = foe, special = sp, message = msg, kind = ef.kind,
+			popup = { text = "-" .. dmg .. (ef.icon ~= "" and (" " .. ef.icon) or "") .. (sp and " ✨" or ""), rgb = ef.rgb, side = foe } }
 	elseif ev.t == "heal" then
 		local amount = isNum(ev.amount) and math.max(0, math.floor(ev.amount)) or 0
-		return { anim = "heal", actor = actor, target = actor, popup = { text = "+" .. amount, rgb = U.hp, side = actor } }
+		return { anim = "heal", actor = actor, target = actor, popup = { text = "+" .. amount .. " ♥", rgb = U.hp, side = actor } }
 	elseif ev.t == "guard" then
 		return { anim = "guard", actor = actor, target = actor }
 	elseif ev.t == "swap" then
@@ -17253,9 +17292,154 @@ function BattleLayout.cue(ev)
 		return { anim = "ko", actor = actor, target = actor }
 	elseif ev.t == "splash" then
 		local dmg = isNum(ev.dmg) and math.max(0, math.floor(ev.dmg)) or 0
-		return { anim = "attack", actor = actor, target = foe, popup = { text = "-" .. dmg, rgb = { 255, 224, 64 }, side = foe } }
+		return { anim = "attack", actor = actor, target = foe, popup = { text = "-" .. dmg .. " ⚡", rgb = { 255, 224, 64 }, side = foe } }
 	end
 	return nil
+end
+
+---------------------------------------------------------------- animations : PV qui défilent, cadence, vitesse, ordre du tour
+
+BattleLayout.HP_ROLL_SECONDS = 0.5
+BattleLayout.MAX_ANIM = 1.2 -- aucune animation ne dépasse 1,2 s (à vitesse 1x) : jamais de temps mort
+BattleLayout.SPEEDS = { 1, 2, 3 }
+
+-- Valeur de PV affichée à l'instant a (0..1) d'un défilement de `from` vers `to` : ralentissement progressif (cubique), extrémités exactes, jamais de dépassement.
+function BattleLayout.hpRoll(from, to, a)
+	local f = isNum(from) and from or 0
+	local t = isNum(to) and to or f
+	local k = isNum(a) and clamp(a, 0, 1) or 1
+	local e = 1 - (1 - k) * (1 - k) * (1 - k)
+	return f + (t - f) * e
+end
+
+-- Entier affiché pendant le défilement (arrondi vers le bas en descente, vers le haut en montée : le chiffre n'atteint la cible qu'à la fin).
+function BattleLayout.hpRollInt(from, to, a)
+	local v = BattleLayout.hpRoll(from, to, a)
+	local f = isNum(from) and from or 0
+	local t = isNum(to) and to or f
+	if t < f then
+		return math.max(math.floor(t), math.ceil(v - 1e-9))
+	end
+	return math.min(math.floor(t), math.floor(v + 1e-9))
+end
+
+function BattleLayout.speedNext(cur)
+	local n = isNum(cur) and math.floor(cur) or 1
+	if n >= 3 then
+		return 1
+	elseif n < 1 then
+		return 1
+	end
+	return n + 1
+end
+function BattleLayout.speedLabel(speed)
+	return (isNum(speed) and clamp(math.floor(speed), 1, 3) or 1) .. "×"
+end
+
+-- Durée réelle d'une animation de base `seconds` (secondes) à la vitesse `speed` : jamais plus de MAX_ANIM, divisée par la vitesse (1x, 2x, 3x).
+function BattleLayout.animSeconds(seconds, speed)
+	local sp = isNum(speed) and clamp(speed, 1, 3) or 1
+	local base = isNum(seconds) and clamp(seconds, 0, BattleLayout.MAX_ANIM) or 0
+	return base / sp
+end
+
+-- « Passer l'animation » : jamais au premier combat vu ; proposé dès que le joueur en a déjà vu `seen` >= 1 (donc à partir du 2e).
+function BattleLayout.skipAvailable(seen)
+	return isNum(seen) and seen >= 1
+end
+
+-- Cadence d'un tour : instants (s) de chacun des `n` coups d'un tour (0,6 s d'écart à 1x), la durée totale reste <= 3 coups x 0,6 + MAX_ANIM.
+function BattleLayout.cadence(n, speed)
+	local count = isNum(n) and clamp(math.floor(n), 0, 8) or 0
+	local out = {}
+	for i = 1, count do
+		out[i] = BattleLayout.animSeconds(0.6, speed) * (i - 1)
+	end
+	return out, (count > 0 and (BattleLayout.animSeconds(0.6, speed) * (count - 1) + BattleLayout.animSeconds(BattleLayout.MAX_ANIM, speed)) or 0)
+end
+
+-- Ordre du tour : qui agit en premier d'après les événements du dernier tour (premier événement d'action), sinon d'après la vitesse des créatures actives si la
+-- vue la fournit, sinon le joueur. Retourne `n` côtés (1 = joueur, 2 = adversaire) en alternant : { 1, 2, 1 } ou { 2, 1, 2 }.
+function BattleLayout.firstActor(events, view)
+	if type(events) == "table" then
+		for _, ev in ipairs(events) do
+			if type(ev) == "table" and (ev.side == 1 or ev.side == 2) and (ev.t == "hit" or ev.t == "heal" or ev.t == "guard" or ev.t == "swap" or ev.t == "stunned" or ev.t == "discharge") then
+				return ev.side
+			end
+		end
+	end
+	if type(view) == "table" and type(view.sides) == "table" then
+		local a, b = view.sides[1], view.sides[2]
+		local ua = type(a) == "table" and type(a.units) == "table" and a.units[a.active or 1] or nil
+		local ub = type(b) == "table" and type(b.units) == "table" and b.units[b.active or 1] or nil
+		if type(ua) == "table" and type(ub) == "table" and isNum(ua.spd) and isNum(ub.spd) and ub.spd > ua.spd then
+			return 2
+		end
+	end
+	return 1
+end
+function BattleLayout.turnQueue(events, view, n)
+	local first = BattleLayout.firstActor(events, view)
+	local other = first == 1 and 2 or 1
+	local out = {}
+	for i = 1, clamp(isNum(n) and math.floor(n) or 3, 1, 6) do
+		out[i] = i % 2 == 1 and first or other
+	end
+	return out
+end
+
+---------------------------------------------------------------- fin de combat : progression, contraste
+
+-- Progression vers le palier suivant : { name, next, nextName, percent } d'après le total de trophées et la liste triée Config.LEAGUES ({ name, min }).
+function BattleLayout.leagueProgress(total, leagues)
+	local t = isNum(total) and math.max(0, math.floor(total)) or 0
+	local list = type(leagues) == "table" and leagues or {}
+	local cur, nxt
+	for _, lg in ipairs(list) do
+		if type(lg) == "table" and isNum(lg.min) then
+			if t >= lg.min then
+				cur = lg
+			elseif nxt == nil then
+				nxt = lg
+			end
+		end
+	end
+	local pct = 100
+	if nxt then
+		local base = cur and cur.min or 0
+		pct = math.floor(clamp((t - base) / math.max(1, nxt.min - base), 0, 1) * 100)
+	end
+	return { name = cur and cur.name or "", next = nxt and nxt.min or nil, nextName = nxt and nxt.name or nil, percent = pct, total = t }
+end
+
+local function lin(c)
+	local v = c / 255
+	if v <= 0.03928 then
+		return v / 12.92
+	end
+	return ((v + 0.055) / 1.055) ^ 2.4
+end
+function BattleLayout.luminance(rgb)
+	return 0.2126 * lin(rgb[1]) + 0.7152 * lin(rgb[2]) + 0.0722 * lin(rgb[3])
+end
+-- Rapport de contraste WCAG (1..21) entre deux couleurs { r, g, b }.
+function BattleLayout.contrast(a, b)
+	local la, lb = BattleLayout.luminance(a), BattleLayout.luminance(b)
+	local hi, lo = math.max(la, lb), math.min(la, lb)
+	return (hi + 0.05) / (lo + 0.05)
+end
+-- Couples (texte, fond) réellement affichés par la scène ; chacun doit atteindre 4,5:1 (testé).
+function BattleLayout.textPairs()
+	local U = BattleLayout.UI
+	return {
+		{ "nom, PV", U.text, U.card }, { "niveau, contexte", U.muted, U.card }, { "bandeau d'état", U.status, U.log }, { "journal", U.text, U.log },
+		{ "Attaque", U.darkText, U.attack }, { "Spécial prêt", U.darkText, U.special }, { "Spécial en charge", U.offText, U.specialOff },
+		{ "Changer", U.swapText, U.swap }, { "Fuir", U.fleeText, U.flee }, { "pet K.O.", U.offText, U.specialOff },
+		{ "vitesse / saut", U.darkText, { 255, 226, 140 } },
+		{ "super efficace", BattleLayout.efficacy(1.5).rgb, U.log }, { "efficace", BattleLayout.efficacy(1.25).rgb, U.log },
+		{ "peu efficace", BattleLayout.efficacy(0.8).rgb, U.log }, { "pas très efficace", BattleLayout.efficacy(0.6).rgb, U.log }, { "neutre", BattleLayout.efficacy(1).rgb, U.log },
+		{ "soin", U.hp, U.log },
+	}
 end
 
 ---------------------------------------------------------------- plafond d'instances
@@ -17274,9 +17458,11 @@ BattleLayout.COST = {
 	beam = 1, -- colonne de lumière translucide (néon)
 	puppet = 13, -- créature procédurale : corps, tête, yeux, oreilles, queue, ombre, modèle
 	pillar = 1,
-	popup = 2, -- nombre flottant (étiquette + contour), au plus 4 simultanés
+	popup = 1, -- nombre flottant ou message de type (une étiquette), au plus MAX_POPUPS simultanés
+	queue = 11, -- ordre du tour : étiquette + 3 pastilles (cadre, coin, emoji)
+	speedBtns = 6, -- vitesse et saut (bouton, coin, contour chacun)
 }
-BattleLayout.MAX_POPUPS = 4
+BattleLayout.MAX_POPUPS = 6
 
 -- Plan de la scène selon l'appareil : { pillars, beams, bob, decor, estimate }. `reduced` (mobile) : moitié du décor, ni faisceaux ni balancement.
 -- Le décor (piliers ou touffes) est réduit jusqu'à tenir sous MAX_INSTANCES, avec une marge de 20 instances pour les remplacements de créature.
@@ -17289,7 +17475,7 @@ function BattleLayout.plan(opts)
 	local beams = not reduced
 	local decor = reduced and 6 or 12
 	local function estimate(n)
-		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.tray + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
+		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.tray + C.queue + C.speedBtns + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
 		if beams then
 			e = e + 2 * C.beam
 		end
@@ -37770,7 +37956,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local widgets = {}
 	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
 	local LV = { queued = false, note = nil } -- lot 14 : classé en direct (file d'attente ; fermée = le serveur lance directement le classé enregistré)
-	local SC = { scene = nil, delay = 0 } -- refonte : scène face à face (nil = ancien panneau compact)
+	-- Réglages locaux du combat (durée de la session : vitesse 1x / 2x / 3x, nombre de combats déjà vus pour proposer « Passer l'animation » dès le 2e). `fx.prefs`
+	-- (table facultative fournie par le client) les conserve entre deux écrans ; rien n'est envoyé au serveur.
+	local PREFS = type(fx) == "table" and type(fx.prefs) == "table" and fx.prefs or {}
+	PREFS.speed, PREFS.seen = PREFS.speed or 1, PREFS.seen or 0
+	local SC = { scene = nil, delay = 0, events = nil } -- refonte : scène face à face (nil = ancien panneau compact)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -37867,7 +38057,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 							end,
 						})
 						local text, rgb = fx.TypeFxData.efficacy(mul)
-						if text then
+						if text and not SC.scene then -- en scène face à face, le message de type est affiché par la scène (avant le nombre)
 							fx.TypeFx.floatText(gui, text, rgb, to.X, to.Y - 28)
 						end
 						if readySoon then
@@ -38078,7 +38268,8 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 		local d = SC.delay
 		SC.delay = 0
-		SC.scene.update(view, { delay = d })
+		SC.scene.update(view, { delay = d, events = SC.events })
+		SC.events = nil
 		SC.scene.setContext(tostring(foeName or "") .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or ""))
 		SC.scene.setLog(logLines)
 		SC.scene.setStatus(SC.statusText())
@@ -38090,7 +38281,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 		local ok, sc = pcall(fx.BattleScene.create, {
 			gui = gui, Config = Config, Battle = Battle, Layout = fx.BattleLayout, player = player, payload = p, view = view, foeName = foeName, floor = lastFloor,
-			reduced = fx.reduced == true, iconUrl = fx.iconUrl,
+			reduced = fx.reduced == true, iconUrl = fx.iconUrl, sound = FX.sound,
+			speed = PREFS.speed, canSkip = fx.BattleLayout.skipAvailable(PREFS.seen),
+			onSpeed = function(v)
+				PREFS.speed = v
+			end,
 			specialState = function(u)
 				return BattleUi.specialState(Config, Battle, u)
 			end,
@@ -38394,6 +38589,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
+				SC.events = p.events
 				if SC.scene then -- animations de la scène (élan, recul, nombres flottants) ; le remplacement d'une créature attend la fin des coups
 					local okc, d = pcall(SC.scene.cues, p.events)
 					SC.delay = okc and tonumber(d) or 0
@@ -38409,6 +38605,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			elseif p.k == "picked" then
 				showPicked(p)
 			elseif p.k == "end" then
+				PREFS.seen = PREFS.seen + 1 -- un combat de plus vu : « Passer l'animation » est proposé dès le suivant
 				local r = p.rewards or {}
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
 				if p.duel then -- lot 13 : texte du serveur (forfait, quotas, pièces), caméra rendue
@@ -38421,6 +38618,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end
 				if p.pvp and r.trophies then
 					lines[#lines + 1] = (r.trophies >= 0 and "+" or "") .. r.trophies .. " 🏆 trophées (total " .. r.total .. ")"
+					if type(fx) == "table" and fx.BattleLayout and type(Config.LEAGUES) == "table" then -- récap : progression vers le palier suivant (calculée ici d'après le total envoyé)
+						local pr = fx.BattleLayout.leagueProgress(r.total, Config.LEAGUES)
+						if pr.name ~= "" then
+							lines[#lines + 1] = "🏅 " .. pr.name .. (pr.next and (" · prochain palier : " .. tostring(pr.nextName) .. " à " .. pr.next .. " 🏆 (" .. pr.percent .. " %)") or " · palier maximal")
+						end
+					end
 				end
 				if p.live then -- lot 14 : classé en direct
 					if r.forfeit then
@@ -38766,7 +38969,10 @@ function BattleScene.create(o)
 		return nil, "vue invalide"
 	end
 	local L, Config, Battle = o.Layout, o.Config, o.Battle
-	local S = { alive = true, used = 0, peak = 0, conns = {}, puppets = {}, cur = {}, swapToken = { 0, 0 }, popups = 0, lastView = nil, fleeToken = 0, dimmed = false }
+	local S = { alive = true, used = 0, peak = 0, conns = {}, puppets = {}, cur = {}, swapToken = { 0, 0 }, popups = 0, lastView = nil, fleeToken = 0, dimmed = false, speed = 1, skipGen = 0, seen = 0 }
+	if type(o.speed) == "number" then
+		S.speed = math.max(1, math.min(3, math.floor(o.speed)))
+	end
 	local cap = L.MAX_INSTANCES
 	local TweenService
 	pcall(function()
@@ -38807,11 +39013,18 @@ function BattleScene.create(o)
 		end)
 		return ok and tw or nil
 	end
-	local function animate(duration, step) -- appelle step(a) de 0 à 1 puis s'arrête ; s'arrête aussi à la destruction de la scène
+	-- appelle step(a) de 0 à 1 puis s'arrête ; durée bornée à 1,2 s et divisée par la vitesse (1x / 2x / 3x) ; « Passer » termine tout de suite ; s'arrête à la destruction
+	local function animate(duration, step)
+		local dur = math.max(0.02, o.Layout.animSeconds(duration, S.speed))
+		local gen = S.skipGen
 		task.spawn(function()
 			local t0 = os.clock()
 			while S.alive do
-				local a = (os.clock() - t0) / duration
+				if S.skipGen ~= gen then
+					pcall(step, 1)
+					return
+				end
+				local a = (os.clock() - t0) / dur
 				if a >= 1 then
 					pcall(step, 1)
 					return
@@ -38904,7 +39117,7 @@ function BattleScene.create(o)
 			return make("TextLabel", props, parent)
 		end
 		local function button(name, text, color, textColor)
-			local b = make("TextButton", { Name = name, Font = FONT, TextSize = 15, TextWrapped = true, Text = text, AutoButtonColor = true, BackgroundColor3 = rgb(color), TextColor3 = textColor or Color3.fromRGB(14, 28, 18), ZIndex = 10 }, root)
+			local b = make("TextButton", { Name = name, Font = FONT, TextSize = 15, TextWrapped = true, Text = text, AutoButtonColor = true, BackgroundColor3 = rgb(color), TextColor3 = textColor or rgb(U.darkText), ZIndex = 10 }, root)
 			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
 			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
 			return b
@@ -38955,22 +39168,36 @@ function BattleScene.create(o)
 		S.logFrame = make("Frame", { Name = "LogBar", BackgroundColor3 = rgb(U.log), BackgroundTransparency = 0.12, BorderSizePixel = 0, ZIndex = 6 }, root)
 		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.logFrame)
 		make("UIStroke", { Color = rgb(U.cardStroke), Thickness = 1 }, S.logFrame)
-		S.status = label(S.logFrame, { Name = "Status", TextSize = 12, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(255, 226, 140), TextTruncate = Enum.TextTruncate.AtEnd })
+		S.status = label(S.logFrame, { Name = "Status", TextSize = 12, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = rgb(U.status), TextTruncate = Enum.TextTruncate.AtEnd })
 		S.log = label(S.logFrame, { Name = "LogText", TextSize = 13, Text = "", TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.AtEnd })
 
 		S.btn = {
 			attack = button("Attack", "⚔ Attaque", U.attack),
 			special = button("Special", "Spécial", U.special),
-			swap = button("Swap", "🔁 Changer", U.swap, Color3.fromRGB(250, 245, 255)),
-			flee = button("Flee", "🏃 Fuir", U.flee, Color3.fromRGB(40, 8, 8)),
+			swap = button("Swap", "🔁 Changer", U.swap, rgb(U.swapText)),
+			flee = button("Flee", "🏃 Fuir", U.flee, rgb(U.fleeText)),
 		}
 		S.tray = make("Frame", { Name = "SwapTray", BackgroundTransparency = 1, Visible = false, ZIndex = 11 }, root)
 		S.slots = {}
 		for i = 1, 3 do
-			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = Color3.fromRGB(250, 245, 255), ZIndex = 12 }, S.tray)
+			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = rgb(U.swapText), ZIndex = 12 }, S.tray)
 			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
 			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
 			S.slots[i] = { btn = b, index = nil }
+		end
+
+		-- vitesse (1x / 2x / 3x), « Passer l'animation » (dès le 2e combat vu) et ordre du tour (3 pastilles sous la carte adverse)
+		S.btn.speed = button("Speed", o.Layout.speedLabel(S.speed), { 255, 226, 140 })
+		S.btn.skip = button("Skip", "⏭ Passer", { 255, 226, 140 })
+		S.btn.skip.TextSize = 13
+		S.btn.skip.Visible = o.canSkip == true
+		S.queueLabel = label(root, { Name = "QueueLabel", TextSize = 12, Text = "Ordre ▸", TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = rgb(U.text), ZIndex = 8 })
+		S.queue = {}
+		for i = 1, 3 do
+			local f = make("Frame", { Name = "QueueChip" .. i, BackgroundColor3 = rgb(U.card), BorderSizePixel = 0, ZIndex = 8 }, root)
+			make("UICorner", { CornerRadius = UDim.new(1, 0) }, f)
+			local e = label(f, { Name = "QueueEmoji", TextSize = 16, Text = "", Size = UDim2.fromScale(1, 1), ZIndex = 9 })
+			S.queue[i] = { frame = f, emoji = e }
 		end
 
 		---------------------------------------------------------------- mise en page (appelée à la création et à chaque changement de taille)
@@ -39010,10 +39237,18 @@ function BattleScene.create(o)
 			place(S.logFrame, R.log)
 			place(S.status, { x = 10, y = 3, w = R.log.w - 20, h = 16 })
 			place(S.log, { x = 10, y = 19, w = R.log.w - 20, h = R.log.h - 22 })
-			for k, b in pairs(S.btn) do
-				place(b, R.actions[k])
+			for _, k in ipairs({ "attack", "special", "swap", "flee" }) do
+				place(S.btn[k], R.actions[k])
 			end
 			place(S.tray, R.swapTray)
+			place(S.btn.speed, R.speed)
+			place(S.btn.skip, R.skip)
+			place(S.queueLabel, { x = R.queue.x - 62, y = R.queue.y, w = 58, h = R.queue.h })
+			for i, q in ipairs(S.queue) do
+				local d = R.queue.h
+				q.frame.Position = UDim2.fromOffset(R.queue.x + R.queue.w - 3 * d - 2 * 4 + (i - 1) * (d + 4), R.queue.y)
+				q.frame.Size = UDim2.fromOffset(d, d)
+			end
 			local gap = L.GAP
 			local sw = math.floor((R.swapTray.w - 2 * gap) / 3)
 			for i, s in ipairs(S.slots) do
@@ -39171,12 +39406,51 @@ function BattleScene.create(o)
 		return S.alive
 	end
 
-	local function setFill(c, frac, animateIt)
-		local goal = { Size = UDim2.fromScale(frac, 1), BackgroundColor3 = rgb(L.hpColor(frac)) }
-		if animateIt then
-			tween(c.fill, 0.35, goal)
+	-- PV : la barre se vide (ou se remplit) en ~0,5 s et le chiffre défile, sans saut ; une nouvelle valeur reprend là où le défilement en est
+	local function showHp(c, v, max)
+		local frac = max > 0 and math.max(0, math.min(1, v / max)) or 0
+		c.fill.Size = UDim2.fromScale(frac, 1)
+		c.fill.BackgroundColor3 = rgb(L.hpColor(frac))
+		if c.hp then
+			c.hp.Text = math.max(0, math.floor(v + 0.0001)) .. "/" .. math.floor(max) .. (c.hpExtra or "")
+		end
+	end
+	local function rollHp(c, u, instant, delay)
+		local max = u and type(u.maxHp) == "number" and u.maxHp or 0
+		local to = u and type(u.hp) == "number" and math.max(0, math.min(max, u.hp)) or 0
+		local from = c.shownHp
+		c.rollToken = (c.rollToken or 0) + 1
+		local token = c.rollToken
+		if instant or from == nil or c.shownMax ~= max then
+			c.shownHp, c.shownMax = to, max
+			showHp(c, to, max)
+			return
+		end
+		c.shownMax = max
+		if from == to then
+			showHp(c, to, max)
+			return
+		end
+		local function run()
+			if c.rollToken ~= token or not S.alive then
+				return
+			end
+			animate(L.HP_ROLL_SECONDS, function(a)
+			if c.rollToken ~= token then
+				return
+			end
+				local v = L.hpRoll(from, to, a)
+				c.shownHp = v
+				showHp(c, a >= 1 and to or L.hpRollInt(from, to, a), max)
+				if a >= 1 then
+					c.shownHp = to
+				end
+			end)
+		end
+		if type(delay) == "number" and delay > 0 then -- la barre se vide à l'impact du coup, pas avant
+			task.delay(delay, run)
 		else
-			c.fill.Size, c.fill.BackgroundColor3 = goal.Size, goal.BackgroundColor3
+			run()
 		end
 	end
 	local function setIcon(c, u)
@@ -39200,15 +39474,15 @@ function BattleScene.create(o)
 		local def = u and Config.PETS[u.p]
 		return def and (def.emoji .. " " .. def.name) or "?"
 	end
-	local function updateCard(c, side, animateIt)
+	local function updateCard(c, side, animateIt, hpDelay)
 		local u = side.units[side.active]
 		c.name.Text = unitName(u)
 		c.level.Text = L.levelText(u)
-		setFill(c, L.hpFraction(u), animateIt)
+		local key = u and (tostring(u.p) .. ":" .. tostring(side.active)) or nil
+		c.hpExtra = (u and u.guard and " 🛡" or "") .. (u and type(u.stun) == "number" and u.stun > 0 and " 💫" or "") .. (u and type(u.focus) == "number" and u.focus > 0 and " ⚡" or "")
+		rollHp(c, u, animateIt ~= true or key ~= c.unitKey, hpDelay)
+		c.unitKey = key
 		setIcon(c, u)
-		if c.hp then
-			c.hp.Text = L.hpText(u) .. (u and u.guard and " 🛡" or "") .. (u and type(u.stun) == "number" and u.stun > 0 and " 💫" or "") .. (u and type(u.focus) == "number" and u.focus > 0 and " ⚡" or "")
-		end
 		local dots = L.teamDots(side)
 		for i, d in ipairs(c.dots) do
 			local info = dots[i]
@@ -39232,7 +39506,7 @@ function BattleScene.create(o)
 		b.Text = sb.text
 		b.AutoButtonColor = sb.ready
 		b.BackgroundColor3 = rgb(sb.ready and U.special or U.specialOff)
-		b.TextColor3 = sb.ready and Color3.fromRGB(14, 28, 18) or Color3.fromRGB(205, 205, 215)
+		b.TextColor3 = sb.ready and rgb(U.darkText) or rgb(U.offText)
 	end
 	local function setPips(c, mu)
 		local info = L.chargePips(mu and mu.charge, mu and mu.chargeMax)
@@ -39281,14 +39555,17 @@ function BattleScene.create(o)
 			return
 		end
 		pcall(function()
-			updateCard(S.foeCard, foe, true)
-			updateCard(S.meCard, me, true)
+			local hit = S.hitAt or {}
+			S.hitAt = {}
+			updateCard(S.foeCard, foe, true, hit[2])
+			updateCard(S.meCard, me, true, hit[1])
+			scene.setQueue(L.turnQueue(info and info.events, view, 3), me.units[me.active], foe.units[foe.active])
 			local mu = me.units[me.active]
 			setPips(S.meCard, mu)
 			local ss = o.specialState and mu and o.specialState(mu) or { text = "Spécial", ready = true }
 			setSpecialButton(L.specialButton(ss))
 			updateTray(me)
-			S.tray.Visible = false
+			S.setTray(false)
 			for side = 1, 2 do
 				local sd = view.sides[side]
 				local u = sd.units[sd.active]
@@ -39354,21 +39631,23 @@ function BattleScene.create(o)
 		return a.x, a.y
 	end
 
-	local function popup(side, text, color)
+	-- Étiquette flottante au-dessus d'une créature (nombre de dégâts ou message de type) ; au plus MAX_POPUPS à la fois, détruite après 0,8 s au plus
+	local function popup(side, text, color, size, rise, lift)
 		if S.popups >= L.MAX_POPUPS or not S.alive then
 			return
 		end
 		S.popups = S.popups + 1
 		local x, y = scene.anchor(side)
 		local ok, lbl = pcall(function()
-			return make("TextLabel", { Name = "Popup", BackgroundTransparency = 1, Font = FONT, TextSize = 24, Text = text, TextColor3 = rgb(color), TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.fromRGB(10, 14, 18), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y - 20), Size = UDim2.fromOffset(120, 32), ZIndex = 9 }, S.root)
+			return make("TextLabel", { Name = "Popup", BackgroundTransparency = 1, Font = FONT, TextSize = size or 24, Text = text, TextColor3 = rgb(color), TextStrokeTransparency = 0.2, TextStrokeColor3 = Color3.fromRGB(10, 14, 18), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y - (lift or 14)), Size = UDim2.fromOffset(200, 32), ZIndex = 9 }, S.root)
 		end)
 		if not ok then
 			S.popups = S.popups - 1
 			return
 		end
-		tween(lbl, 0.7, { Position = UDim2.fromOffset(x, y - 60), TextTransparency = 1, TextStrokeTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		task.delay(0.75, function()
+		local dur = L.animSeconds(0.8, S.speed)
+		tween(lbl, dur, { Position = UDim2.fromOffset(x, y - (lift or 14) - (rise or 40)), TextTransparency = 1, TextStrokeTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		task.delay(dur + 0.05, function()
 			pcall(function()
 				lbl:Destroy()
 			end)
@@ -39431,31 +39710,48 @@ function BattleScene.create(o)
 		end)
 	end
 
-	-- Animations des événements d'un tour : élan de l'attaquant, recul de la cible, nombre flottant ; coups décalés de 0,6 s (comme les effets de type).
-	-- Retourne la durée totale (s) pour différer le remplacement d'une créature.
+	-- Animations des événements d'un tour, dans l'ordre : élan de l'attaquant, MESSAGE DE TYPE tout de suite (avant le résultat), puis à l'impact (0,16 s) recul de la
+	-- cible, nombre de dégâts coloré par efficacité avec icône et début du défilement des PV. Coups décalés (cadence de BattleLayout, divisée par la vitesse). « Passer »
+	-- annule ce qui n'a pas démarré. Retourne la durée totale (s) pour différer le remplacement d'une créature. Ne touche JAMAIS au serveur ni au minuteur du tour.
 	function scene.cues(events)
 		local k = 0
+		local gen = S.skipGen
+		S.hitAt = {}
+		local step = L.animSeconds(0.6, S.speed)
 		for _, ev in ipairs(events or {}) do
 			local cue = L.cue(ev)
 			if cue then
-				local at = 0.6 * k
+				local at = step * k
+				local impact = at + L.animSeconds(0.16, S.speed)
+				if cue.anim == "attack" and S.hitAt[cue.target] == nil then
+					S.hitAt[cue.target] = impact
+				end
 				task.delay(at, function()
-					if not S.alive then
+					if not S.alive or S.skipGen ~= gen then
 						return
 					end
 					pcall(function()
 						if cue.anim == "attack" then
 							lunge(cue.actor)
-							task.delay(0.16, function()
-								if S.alive then
+							if type(o.sound) == "function" then
+								pcall(o.sound, cue.special and "special_hit" or "hit")
+							end
+							if cue.message then
+								popup(cue.target, cue.message.icon .. " " .. cue.message.text, cue.message.rgb, 18, 26, 54)
+							end
+							task.delay(L.animSeconds(0.16, S.speed), function()
+								if S.alive and S.skipGen == gen then
 									pcall(recoil, cue.target)
+									if cue.popup then
+										pcall(popup, cue.popup.side, cue.popup.text, cue.popup.rgb, cue.special and 28 or 24, 40, 14)
+									end
 								end
 							end)
 						elseif cue.anim == "heal" or cue.anim == "guard" then
 							hop(cue.actor)
-						end
-						if cue.popup then
-							popup(cue.popup.side, cue.popup.text, cue.popup.rgb)
+							if cue.popup then
+								popup(cue.popup.side, cue.popup.text, cue.popup.rgb, 22, 36, 14)
+							end
 						end
 					end)
 				end)
@@ -39464,8 +39760,38 @@ function BattleScene.create(o)
 				end
 			end
 		end
-		return 0.6 * k + 0.2
+		return step * k + L.animSeconds(0.2, S.speed)
 	end
+
+	-- Ordre du tour : 3 pastilles (emoji du pet qui agit) sous la carte adverse ; la première est mise en avant.
+	function scene.setQueue(sides, mu, fu)
+		local function emoji(u)
+			local def = u and Config.PETS[u.p]
+			return def and def.emoji or "?"
+		end
+		for i, q in ipairs(S.queue) do
+			local side = sides[i]
+			q.frame.Visible = side ~= nil
+			if side then
+				q.frame.BackgroundColor3 = rgb(side == 1 and U.meChip or U.foeChip)
+				q.emoji.Text = emoji(side == 1 and mu or fu)
+				q.frame.BackgroundTransparency = i == 1 and 0 or 0.35
+			end
+		end
+	end
+
+	function scene.setSpeed(v)
+		S.speed = math.max(1, math.min(3, math.floor(v or 1)))
+		S.btn.speed.Text = L.speedLabel(S.speed)
+	end
+	function scene.skip() -- termine immédiatement les animations en cours (le jeu et le serveur ne sont pas concernés)
+		S.skipGen = S.skipGen + 1
+	end
+	function scene.setCanSkip(v)
+		S.canSkip = v == true
+		S.btn.skip.Visible = S.canSkip and not S.dimmed
+	end
+	S.canSkip = o.canSkip == true
 
 	function scene.setDim(on)
 		S.dimmed = on == true
@@ -39480,13 +39806,21 @@ function BattleScene.create(o)
 		for _, b in pairs(S.btn) do
 			b.Visible = not on
 		end
+		S.btn.skip.Visible = not on and S.canSkip
 		S.logFrame.Visible = not on
 		S.tray.Visible = false
 	end
 
+	function S.setTray(v) -- le plateau remplace le journal tant qu'il est ouvert
+		S.tray.Visible = v == true and not S.dimmed
+		S.logFrame.Visible = not S.tray.Visible and not S.dimmed
+	end
 	local function act(action)
 		if not S.alive or S.dimmed then
 			return
+		end
+		if type(o.sound) == "function" then -- un son par action (Config.SOUNDS, coupé si SOUNDS_ENABLED = false : géré par l'appelant)
+			pcall(o.sound, "click")
 		end
 		o.fire("battleAct", action)
 		if type(o.onChosen) == "function" then
@@ -39498,16 +39832,19 @@ function BattleScene.create(o)
 		S.conns[#S.conns + 1] = c
 	end
 	conn(S.btn.attack.Activated, function()
-		S.tray.Visible = false
+		S.setTray(false)
 		act("attack")
 	end)
 	conn(S.btn.special.Activated, function()
-		S.tray.Visible = false
+		S.setTray(false)
 		local mu = S.lastView and S.lastView.sides[1].units[S.lastView.sides[1].active]
 		local ss = mu and o.specialState and o.specialState(mu)
 		if ss and ss.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
 			act("skill")
 		elseif ss then
+			if type(o.sound) == "function" then
+				pcall(o.sound, "refuse")
+			end
 			scene.setStatus("Spécial pas prêt (" .. tostring(ss.charge or 0) .. "/" .. tostring(ss.max or L.CHARGE_MAX) .. ") : attaque pour charger !")
 		end
 	end)
@@ -39515,21 +39852,37 @@ function BattleScene.create(o)
 		if S.dimmed then
 			return
 		end
-		S.tray.Visible = not S.tray.Visible
+		S.setTray(not S.tray.Visible)
 	end)
 	for i, s in ipairs(S.slots) do
 		conn(s.btn.Activated, function()
 			if s.index then
-				S.tray.Visible = false
+				S.setTray(false)
 				act("swap" .. s.index)
 			end
 		end)
 	end
+	conn(S.btn.speed.Activated, function() -- 1x -> 2x -> 3x -> 1x ; mémorisé par l'appelant (réglage local)
+		local v = L.speedNext(S.speed)
+		scene.setSpeed(v)
+		if type(o.sound) == "function" then
+			pcall(o.sound, "click")
+		end
+		if type(o.onSpeed) == "function" then
+			pcall(o.onSpeed, v)
+		end
+	end)
+	conn(S.btn.skip.Activated, function() -- « Passer l'animation » : les animations en cours se terminent aussitôt
+		scene.skip()
+		if type(o.onSkip) == "function" then
+			pcall(o.onSkip)
+		end
+	end)
 	conn(S.btn.flee.Activated, function() -- deux appuis : un abandon par erreur coûte un forfait (duel, classé)
 		if S.dimmed then
 			return
 		end
-		S.tray.Visible = false
+		S.setTray(false)
 		if S.fleeToken > 0 then
 			S.fleeToken = 0
 			S.btn.flee.Text = "🏃 Fuir"

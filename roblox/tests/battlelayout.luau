@@ -38,7 +38,7 @@ return function(env)
 			local realSafe = sf and (d[1] > d[2] and { l = 44, t = 0, r = 44, b = 21 } or { l = 0, t = 47, r = 0, b = 34 }) or nil
 			local R = L.rects(d[1], d[2], realSafe)
 			local tag = d[1] .. "x" .. d[2] .. (sf and "s" or "")
-			local list = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee }
+			local list = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee, R.speed, R.skip, R.queue }
 			for i = 1, #list do
 				if not inside(list[i], R.area) then
 					bad.inside[#bad.inside + 1] = tag .. "#" .. i
@@ -49,7 +49,7 @@ return function(env)
 					end
 				end
 			end
-			for k, r in pairs(R.actions) do
+			for k, r in pairs({ attack = R.actions.attack, special = R.actions.special, swap = R.actions.swap, flee = R.actions.flee, speed = R.speed, skip = R.skip }) do
 				if r.w < L.MIN_TOUCH or r.h < L.MIN_TOUCH then
 					bad.touch[#bad.touch + 1] = tag .. k
 				end
@@ -82,8 +82,8 @@ return function(env)
 		end
 	end
 	check("Matrice " .. #DEVICES .. " appareils x 3 zones sûres (" .. nCombos .. " cas) : tous les rectangles dans la zone utile", #bad.inside == 0)
-	check("Aucune superposition entre carte adverse, carte du joueur, journal et les 4 boutons d'action", #bad.overlap == 0)
-	check("Cibles tactiles : les 4 boutons d'action font au moins 44 x 44 px partout", #bad.touch == 0)
+	check("Aucune superposition entre carte adverse, carte du joueur, journal, ordre du tour, vitesse, saut et les 4 boutons d'action", #bad.overlap == 0)
+	check("Cibles tactiles : les 4 boutons d'action, la vitesse et « Passer » font au moins 44 x 44 px partout", #bad.touch == 0)
 	check("Plateau « Changer » : 3 boutons d'au moins 44 px, ni sur l'adversaire, ni sur les boutons, ni sur la carte du joueur (il remplace le journal)", #bad.tray == 0)
 	check("Carte adverse en haut à droite, carte du joueur en bas à gauche, journal en bas", #bad.place == 0)
 	check("Coin haut gauche (boutons natifs) jamais couvert", #bad.corner == 0)
@@ -223,9 +223,65 @@ return function(env)
 	local c1 = L.cue({ t = "hit", side = 1, dmg = 12.7, mul = 1.5, p = 1 })
 	local c2 = L.cue({ t = "hit", side = 2, dmg = 5, special = true })
 	local c3 = L.cue({ t = "heal", side = 2, amount = 9 })
-	check("Coup du joueur : élan du joueur, recul de l'adversaire, nombre « -12 » sur l'adversaire ; coup adverse : sens inverse", c1.anim == "attack" and c1.actor == 1 and c1.target == 2 and c1.popup.text == "-12" and c1.popup.side == 2 and c2.actor == 2 and c2.target == 1 and c2.special and c2.popup.side == 1)
-	check("Soin : « +9 » sur le soigneur ; garde, changement, K.O. : animation sans nombre", c3.anim == "heal" and c3.popup.text == "+9" and c3.popup.side == 2 and L.cue({ t = "guard", side = 1 }).anim == "guard" and L.cue({ t = "swap", side = 2 }).anim == "swap" and L.cue({ t = "ko", side = 1 }).popup == nil)
+	check("Coup du joueur : élan du joueur, recul de l'adversaire, nombre « -12 » sur l'adversaire ; coup adverse : sens inverse", c1.anim == "attack" and c1.actor == 1 and c1.target == 2 and c1.popup.text == "-12 ▲" and c1.message.text == "Super efficace !" and c1.popup.side == 2 and c2.actor == 2 and c2.target == 1 and c2.special and c2.popup.side == 1)
+	check("Soin : « +9 » sur le soigneur ; garde, changement, K.O. : animation sans nombre", c3.anim == "heal" and c3.popup.text == "+9 ♥" and c3.popup.side == 2 and L.cue({ t = "guard", side = 1 }).anim == "guard" and L.cue({ t = "swap", side = 2 }).anim == "swap" and L.cue({ t = "ko", side = 1 }).popup == nil)
 	check("Événements invalides ou sans animation : nil sans erreur (tour, côté 3, nil, texte, dmg NaN)", L.cue({ t = "turn", n = 2 }) == nil and L.cue({ t = "hit", side = 3 }) == nil and L.cue(nil) == nil and L.cue("x") == nil and L.cue({ t = "hit", side = 1, dmg = 0 / 0 }).popup.text == "-0" and L.cue({ t = "hit", side = 1, dmg = -5 }).popup.text == "-0" and L.cue({ t = "timeout", side = 1 }) == nil)
+
+	---------------------------------------------------------------- 5b. Défilement des PV, efficacité, cadence, vitesse, ordre du tour, récap, contraste
+	suite("BattleLayout : PV qui défilent, couleurs d'efficacité (texte + icône), vitesse 1x/2x/3x, saut, ordre du tour, récap, contraste 4,5:1")
+	local rollOk, prev = true, 100
+	for i = 0, 20 do
+		local v = L.hpRoll(100, 40, i / 20)
+		if v > prev + 1e-9 or v < 40 - 1e-9 then
+			rollOk = false
+		end
+		prev = v
+	end
+	local upOk, prevU = true, 10
+	for i = 0, 20 do
+		local v = L.hpRoll(10, 90, i / 20)
+		if v < prevU - 1e-9 or v > 90 + 1e-9 then
+			upOk = false
+		end
+		prevU = v
+	end
+	check("PV : défilement monotone sans dépassement (descente 100 -> 40 et montée 10 -> 90), extrémités exactes", rollOk and upOk and L.hpRoll(100, 40, 0) == 100 and L.hpRoll(100, 40, 1) == 40 and L.hpRoll(5, 5, 0.5) == 5)
+	check("PV : chiffre entier qui défile (jamais de saut : la valeur change d'au plus la moitié de l'écart en un 1/20) et atteint la cible exactement", L.hpRollInt(100, 40, 1) == 40 and L.hpRollInt(100, 40, 0) == 100 and L.hpRollInt(100, 40, 0.5) < 100 and L.hpRollInt(100, 40, 0.5) > 40 and L.hpRollInt(10, 90, 1) == 90 and L.hpRollInt(10, 90, 0.5) < 90)
+	check("PV : entrées invalides (NaN, nil, texte, a hors 0..1) sans erreur et bornées", (finite(L.hpRoll(0 / 0, 5, 0.5)) and finite(L.hpRoll(nil, nil, nil))) and L.hpRoll(10, 0, 5) == 0 and L.hpRoll(10, 0, -3) == 10 and finite(L.hpRollInt("x", 3, 0.2)))
+	check("Durée du défilement des PV : 0,5 s ; aucune animation ne dépasse 1,2 s", L.HP_ROLL_SECONDS == 0.5 and L.MAX_ANIM == 1.2 and L.animSeconds(5, 1) == 1.2 and L.animSeconds(0.5, 1) == 0.5)
+	local es, eg, en, ew, er = L.efficacy(1.5), L.efficacy(1.25), L.efficacy(1), L.efficacy(0.8), L.efficacy(0.6)
+	check("Efficacité : super = vert + « ▲ » + texte ; peu efficace / pas très = rouge pâle + « ▼ » + texte ; neutre = gris, sans texte (jamais la couleur seule)", es.kind == "super" and es.icon == "▲" and es.text == "Super efficace !" and es.rgb[2] > es.rgb[1] and eg.text == "Efficace" and ew.icon == "▼" and ew.text == "Peu efficace" and ew.rgb[1] > ew.rgb[3] and er.text == "Pas très efficace…" and er.icon == "▼" and en.text == nil and en.icon == "" and math.abs(en.rgb[1] - en.rgb[3]) < 20)
+	check("Efficacité : mêmes textes que TypeFx.efficacy et BattleUi.efficacy ; valeurs invalides -> neutre", (function()
+		local TF = load("roblox/src/ReplicatedStorage/TypeFx.lua", "TypeFxData")
+		for _, m in ipairs({ 1.5, 2, 1.25, 1.2, 1, 0.95, 0.8, 0.7, 0.67, 0.5 }) do
+			if L.efficacy(m).text ~= TF.efficacy(m) then
+				return false
+			end
+		end
+		return L.efficacy(0 / 0).kind == "neutral" and L.efficacy(nil).kind == "neutral" and L.efficacy(-2).kind == "neutral" and L.efficacy("x").kind == "neutral"
+	end)())
+	local cs = L.cue({ t = "hit", side = 2, dmg = 7, mul = 0.67 })
+	local cn = L.cue({ t = "hit", side = 1, dmg = 7, mul = 1 })
+	check("Signal de coup : message de type séparé (affiché avant le nombre), nombre coloré avec icône ; neutre : aucun message, aucun symbole", cs.message.text == "Pas très efficace…" and cs.popup.text == "-7 ▼" and cn.message == nil and cn.popup.text == "-7" and L.cue({ t = "hit", side = 1, dmg = 3, mul = 1.5, special = true }).popup.text == "-3 ▲ ✨")
+	check("Vitesse : 1x -> 2x -> 3x -> 1x ; invalide -> 1x ; étiquette « 2× » ; durée divisée par la vitesse (3x : 0,4 s pour 1,2 s), vitesse bornée 1..3", L.speedNext(1) == 2 and L.speedNext(2) == 3 and L.speedNext(3) == 1 and L.speedNext(nil) == 2 and L.speedNext(0) == 1 and L.speedLabel(2) == "2×" and L.speedLabel(9) == "3×" and math.abs(L.animSeconds(1.2, 3) - 0.4) < 1e-9 and L.animSeconds(1, 99) == 1 / 3 and L.animSeconds(1, 0) == 1)
+	check("« Passer l'animation » : jamais au 1er combat vu (0 vu), proposé dès le 2e (1 déjà vu) ; invalide -> non", L.skipAvailable(0) == false and L.skipAvailable(1) == true and L.skipAvailable(7) == true and L.skipAvailable(nil) == false and L.skipAvailable(0 / 0) == false and L.skipAvailable(-1) == false)
+	local cad, total = L.cadence(3, 1)
+	local cad3, total3 = L.cadence(3, 3)
+	check("Cadence : 3 coups à 0 / 0,6 / 1,2 s (1x), durée totale <= 2,4 s ; à 3x trois fois plus court ; 0 coup = 0 s ; plafonné à 8 coups", cad[1] == 0 and math.abs(cad[2] - 0.6) < 1e-9 and math.abs(cad[3] - 1.2) < 1e-9 and total <= 2.4 + 1e-9 and total3 < total / 2.9 and select(2, L.cadence(0, 1)) == 0 and #L.cadence(99, 1) == 8)
+	local q1 = L.turnQueue({ { t = "turn", n = 1 }, { t = "hit", side = 2 } }, nil, 3)
+	local q2 = L.turnQueue({ { t = "heal", side = 1 } }, nil, 3)
+	local q3 = L.turnQueue(nil, { sides = { { active = 1, units = { { spd = 10 } } }, { active = 1, units = { { spd = 20 } } } } }, 3)
+	check("Ordre du tour : 3 pastilles alternées d'après qui a agi en premier (adversaire d'abord : 2,1,2) ; sinon la vitesse si connue ; sinon le joueur", #q1 == 3 and q1[1] == 2 and q1[2] == 1 and q1[3] == 2 and q2[1] == 1 and q2[2] == 2 and q3[1] == 2 and L.turnQueue(nil, nil, 3)[1] == 1 and #L.turnQueue({}, nil, 99) == 6 and #L.turnQueue(nil, nil, 0 / 0) == 3)
+	local LG = { { name = "Bronze", min = 0 }, { name = "Argent", min = 300 }, { name = "Or", min = 600 } }
+	local lp, lp2, lp3 = L.leagueProgress(450, LG), L.leagueProgress(900, LG), L.leagueProgress(-5, LG)
+	check("Progression de palier : 450 trophées = Argent, prochain Or à 600, 50 % ; au-delà du dernier palier = 100 % sans suivant ; invalide sans erreur", lp.name == "Argent" and lp.next == 600 and lp.nextName == "Or" and lp.percent == 50 and lp2.name == "Or" and lp2.next == nil and lp2.percent == 100 and lp3.name == "Bronze" and lp3.percent == 0 and L.leagueProgress(nil, nil).name == "" and L.leagueProgress(10, Config.LEAGUES).name == Config.LEAGUES[1].name)
+	local contrastBad = {}
+	for _, pr in ipairs(L.textPairs()) do
+		if L.contrast(pr[2], pr[3]) < 4.5 then
+			contrastBad[#contrastBad + 1] = pr[1] .. string.format(" %.2f", L.contrast(pr[2], pr[3]))
+		end
+	end
+	check("Accessibilité : tous les couples texte / fond de la scène atteignent 4,5:1" .. (#contrastBad > 0 and (" (insuffisants : " .. table.concat(contrastBad, ", ") .. ")") or ""), #contrastBad == 0 and #L.textPairs() >= 15 and math.abs(L.contrast({ 0, 0, 0 }, { 255, 255, 255 }) - 21) < 1e-6)
 
 	---------------------------------------------------------------- 6. Plafond d'instances
 	suite("BattleLayout : plafond d'instances (220) et effets réduits sur mobile")
@@ -275,7 +331,7 @@ return function(env)
 		if not ok then
 			fuzzErr = fuzzErr + 1
 		else
-			local list = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee }
+			local list = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee, R.speed, R.skip, R.queue }
 			for i = 1, #list do
 				if not inside(list[i], R.area) then
 					fuzzInv = fuzzInv + 1
@@ -488,6 +544,85 @@ return function(env)
 		sc.destroy()
 	end
 
+	-- vitesse, saut, défilement des PV, message de type avant le nombre, ordre du tour
+	do
+		local gui = newGui()
+		local st = newBattle(6)
+		local speeds, skips = {}, 0
+		local mk = function(canSkip, speed)
+			return BattleScene.create({
+				gui = gui, Config = Config, Battle = Battle, Layout = L, player = { DisplayName = "Moi", UserId = 1 }, payload = {}, view = Battle.view(st), foeName = "Rival", floor = 2,
+				reduced = false, specialState = function(u) return BattleUi.specialState(Config, Battle, u) end, canSkip = canSkip, speed = speed,
+				fire = function() end, onSpeed = function(v) speeds[#speeds + 1] = v end, onSkip = function() skips = skips + 1 end, sound = function() end,
+			})
+		end
+		local sc0 = mk(false, 1)
+		check("Premier combat vu : « Passer l'animation » absent (jamais imposé) ; vitesse affichée « 1× »", findAll(gui, "Skip")[1].Visible == false and findAll(gui, "Speed")[1].Text == "1×")
+		sc0.destroy()
+		local sc = mk(true, 1)
+		check("À partir du 2e combat vu : « Passer » visible ; vitesse mémorisée de l'appelant reprise (2x -> « 2× »)", findAll(gui, "Skip")[1].Visible == true)
+		sc.destroy()
+		sc = mk(true, 2)
+		check("Vitesse initiale 2x : bouton « 2× »", findAll(gui, "Speed")[1].Text == "2×")
+		RT.fire(findAll(gui, "Speed")[1], "Activated")
+		RT.fire(findAll(gui, "Speed")[1], "Activated")
+		check("Bouton de vitesse : 2x -> 3x -> 1x, chaque choix est transmis pour être mémorisé", findAll(gui, "Speed")[1].Text == "1×" and speeds[1] == 3 and speeds[2] == 1)
+		-- défilement des PV : chiffre intermédiaire, valeur finale exacte
+		local v = Battle.view(st)
+		local mu = v.sides[1].units[v.sides[1].active]
+		local from = mu.hp
+		mu.hp = math.max(1, math.floor(from / 4))
+		sc.update(v, nil)
+		RT.step(0.2)
+		local mid = tonumber(string.match(findAll(gui, "HpText")[1].Text, "^(%d+)/"))
+		check("PV du joueur : le chiffre défile (valeur intermédiaire à 0,2 s, entre " .. mu.hp .. " et " .. from .. ")", mid ~= nil and mid < from and mid > mu.hp)
+		RT.step(0.6)
+		check("PV du joueur : valeur finale exacte « " .. mu.hp .. "/" .. mu.maxHp .. " » après 0,5 s", string.match(findAll(gui, "HpText")[1].Text, "^(%d+/%d+)") == (mu.hp .. "/" .. mu.maxHp))
+		-- 3x : le défilement dure ~0,17 s ; « Passer » termine tout de suite
+		sc.setSpeed(3)
+		mu.hp = math.max(1, math.floor(mu.hp / 2))
+		sc.update(v, nil)
+		RT.step(0.25)
+		check("Vitesse 3x : le défilement des PV est terminé en 0,25 s", string.match(findAll(gui, "HpText")[1].Text, "^(%d+/%d+)") == (mu.hp .. "/" .. mu.maxHp))
+		sc.setSpeed(1)
+		local to = math.max(0, mu.hp - 5)
+		mu.hp = to
+		sc.update(v, nil)
+		sc.skip()
+		RT.step(0.05)
+		check("« Passer l'animation » : les PV affichent aussitôt la valeur finale", string.match(findAll(gui, "HpText")[1].Text, "^(%d+/%d+)") == (mu.hp .. "/" .. mu.maxHp))
+		RT.fire(findAll(gui, "Skip")[1], "Activated")
+		check("Bouton « Passer » : l'appelant est prévenu", skips == 1)
+		-- message de type AVANT le nombre de dégâts
+		local ev = { { t = "turn", n = 2 }, { t = "hit", side = 1, p = 1, dmg = 12, mul = 1.5, target = 2 } }
+		sc.cues(ev)
+		RT.step(0.05)
+		local txt = {}
+		for _, pnode in ipairs(findAll(gui, "Popup")) do
+			txt[#txt + 1] = pnode.Text
+		end
+		local early = table.concat(txt, "|")
+		RT.step(0.3)
+		txt = {}
+		for _, pnode in ipairs(findAll(gui, "Popup")) do
+			txt[#txt + 1] = pnode.Text
+		end
+		local late = table.concat(txt, "|")
+		check("Message de type « Super efficace ! » affiché tout de suite, AVANT le nombre ; le nombre « -12 ▲ » (avec icône) arrive à l'impact", string.find(early, "Super efficace", 1, true) ~= nil and string.find(early, "-12", 1, true) == nil and string.find(late, "-12 ▲", 1, true) ~= nil)
+		RT.step(2)
+		check("Les étiquettes flottantes sont détruites (aucune ne reste après 2 s)", #findAll(gui, "Popup") == 0)
+		-- ordre du tour : 3 pastilles
+		sc.update(Battle.view(st), { events = { { t = "hit", side = 2, dmg = 1, mul = 1 } } })
+		local shown = 0
+		for i = 1, 3 do
+			if findAll(gui, "QueueChip" .. i)[1].Visible == true then
+				shown = shown + 1
+			end
+		end
+		check("Ordre du tour : 3 pastilles visibles à côté de la carte adverse", shown == 3 and #findAll(gui, "QueueChip1") == 1)
+		sc.destroy()
+	end
+
 	-- construction défaillante : jamais d'erreur vers l'appelant, aucune instance orpheline
 	do
 		local gui = newGui()
@@ -544,6 +679,11 @@ return function(env)
 			payload.npc = true
 		end
 		send(H, payload)
+		if c == 1 then
+			T.skip1 = findAll(H.gui, "Skip")[1].Visible
+		elseif c == 2 then
+			T.skip2 = findAll(H.gui, "Skip")[1].Visible
+		end
 		if sceneRoots(H) == 1 and H.ui.panel.Visible == false then
 			T.panelHidden = T.panelHidden + 1
 		end
@@ -604,6 +744,17 @@ return function(env)
 	check("Fin de combat : le résultat s'affiche en panneau par-dessus la scène assombrie (20 / 20)", T.panelShownAtEnd == 20)
 	check("Cartes de récompense du lot 12 B : 3 cartes cliquables au-dessus de la scène (victoires), « Continuer » après le choix, un seul clic", T.pickOk > 0 and T.continueOk == 20)
 	check("Après « Continuer » (20 combats de suite) : scène détruite, plus aucune instance de combat dans l'écran (nombre d'enfants identique à l'initial)", T.uiLeak == 0)
+	check("« Passer l'animation » : absent au 1er combat vu, présent dès le 2e (règle de BattleLayout, jamais imposée au début)", T.skip1 == false and T.skip2 == true)
+	send(H, { k = "start", floor = 0, pvp = true, foe = "Rival", view = Battle.view(newBattle(9)), seconds = 10 })
+	send(H, { k = "end", win = true, pvp = true, rewards = { trophies = 25, total = 450 }, view = Battle.view(newBattle(9)) })
+	local recap = ""
+	for _, d in ipairs(H.ui.body:GetDescendants()) do
+		if d.ClassName == "TextLabel" and type(d.Text) == "string" and string.find(d.Text, "Victoire", 1, true) then
+			recap = d.Text
+		end
+	end
+	check("Écran récap du classé : trophées gagnés + progression vers le palier suivant (calculée d'après le total envoyé)", string.find(recap, "+25", 1, true) ~= nil and string.find(recap, "prochain palier", 1, true) ~= nil)
+	RT.fire(H.ui.close, "Activated")
 	check("Aucune erreur de script pendant les 20 combats de BattleUi", #RT.errors == T.uiErr0)
 	for k in pairs(H.fired) do
 		H.fired[k] = nil

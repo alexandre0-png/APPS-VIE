@@ -119,7 +119,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local widgets = {}
 	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
 	local LV = { queued = false, note = nil } -- lot 14 : classé en direct (file d'attente ; fermée = le serveur lance directement le classé enregistré)
-	local SC = { scene = nil, delay = 0 } -- refonte : scène face à face (nil = ancien panneau compact)
+	-- Réglages locaux du combat (durée de la session : vitesse 1x / 2x / 3x, nombre de combats déjà vus pour proposer « Passer l'animation » dès le 2e). `fx.prefs`
+	-- (table facultative fournie par le client) les conserve entre deux écrans ; rien n'est envoyé au serveur.
+	local PREFS = type(fx) == "table" and type(fx.prefs) == "table" and fx.prefs or {}
+	PREFS.speed, PREFS.seen = PREFS.speed or 1, PREFS.seen or 0
+	local SC = { scene = nil, delay = 0, events = nil } -- refonte : scène face à face (nil = ancien panneau compact)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -216,7 +220,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 							end,
 						})
 						local text, rgb = fx.TypeFxData.efficacy(mul)
-						if text then
+						if text and not SC.scene then -- en scène face à face, le message de type est affiché par la scène (avant le nombre)
 							fx.TypeFx.floatText(gui, text, rgb, to.X, to.Y - 28)
 						end
 						if readySoon then
@@ -427,7 +431,8 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 		local d = SC.delay
 		SC.delay = 0
-		SC.scene.update(view, { delay = d })
+		SC.scene.update(view, { delay = d, events = SC.events })
+		SC.events = nil
 		SC.scene.setContext(tostring(foeName or "") .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or ""))
 		SC.scene.setLog(logLines)
 		SC.scene.setStatus(SC.statusText())
@@ -439,7 +444,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 		local ok, sc = pcall(fx.BattleScene.create, {
 			gui = gui, Config = Config, Battle = Battle, Layout = fx.BattleLayout, player = player, payload = p, view = view, foeName = foeName, floor = lastFloor,
-			reduced = fx.reduced == true, iconUrl = fx.iconUrl,
+			reduced = fx.reduced == true, iconUrl = fx.iconUrl, sound = FX.sound,
+			speed = PREFS.speed, canSkip = fx.BattleLayout.skipAvailable(PREFS.seen),
+			onSpeed = function(v)
+				PREFS.speed = v
+			end,
 			specialState = function(u)
 				return BattleUi.specialState(Config, Battle, u)
 			end,
@@ -743,6 +752,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
+				SC.events = p.events
 				if SC.scene then -- animations de la scène (élan, recul, nombres flottants) ; le remplacement d'une créature attend la fin des coups
 					local okc, d = pcall(SC.scene.cues, p.events)
 					SC.delay = okc and tonumber(d) or 0
@@ -758,6 +768,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			elseif p.k == "picked" then
 				showPicked(p)
 			elseif p.k == "end" then
+				PREFS.seen = PREFS.seen + 1 -- un combat de plus vu : « Passer l'animation » est proposé dès le suivant
 				local r = p.rewards or {}
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
 				if p.duel then -- lot 13 : texte du serveur (forfait, quotas, pièces), caméra rendue
@@ -770,6 +781,12 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				end
 				if p.pvp and r.trophies then
 					lines[#lines + 1] = (r.trophies >= 0 and "+" or "") .. r.trophies .. " 🏆 trophées (total " .. r.total .. ")"
+					if type(fx) == "table" and fx.BattleLayout and type(Config.LEAGUES) == "table" then -- récap : progression vers le palier suivant (calculée ici d'après le total envoyé)
+						local pr = fx.BattleLayout.leagueProgress(r.total, Config.LEAGUES)
+						if pr.name ~= "" then
+							lines[#lines + 1] = "🏅 " .. pr.name .. (pr.next and (" · prochain palier : " .. tostring(pr.nextName) .. " à " .. pr.next .. " 🏆 (" .. pr.percent .. " %)") or " · palier maximal")
+						end
+					end
 				end
 				if p.live then -- lot 14 : classé en direct
 					if r.forfeit then

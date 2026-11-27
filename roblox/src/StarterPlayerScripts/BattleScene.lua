@@ -468,13 +468,13 @@ function BattleScene.create(o)
 			c.hp.Text = math.max(0, math.floor(v + 0.0001)) .. "/" .. math.floor(max) .. (c.hpExtra or "")
 		end
 	end
-	local function rollHp(c, u, instant)
+	local function rollHp(c, u, instant, delay)
 		local max = u and type(u.maxHp) == "number" and u.maxHp or 0
 		local to = u and type(u.hp) == "number" and math.max(0, math.min(max, u.hp)) or 0
 		local from = c.shownHp
 		c.rollToken = (c.rollToken or 0) + 1
 		local token = c.rollToken
-		if instant or from == nil or c.shownMax ~= max or S.speed >= 3 and false then
+		if instant or from == nil or c.shownMax ~= max then
 			c.shownHp, c.shownMax = to, max
 			showHp(c, to, max)
 			return
@@ -484,17 +484,27 @@ function BattleScene.create(o)
 			showHp(c, to, max)
 			return
 		end
-		animate(L.HP_ROLL_SECONDS, function(a)
+		local function run()
+			if c.rollToken ~= token or not S.alive then
+				return
+			end
+			animate(L.HP_ROLL_SECONDS, function(a)
 			if c.rollToken ~= token then
 				return
 			end
-			local v = L.hpRoll(from, to, a)
-			c.shownHp = v
-			showHp(c, a >= 1 and to or L.hpRollInt(from, to, a), max)
-			if a >= 1 then
-				c.shownHp = to
-			end
-		end)
+				local v = L.hpRoll(from, to, a)
+				c.shownHp = v
+				showHp(c, a >= 1 and to or L.hpRollInt(from, to, a), max)
+				if a >= 1 then
+					c.shownHp = to
+				end
+			end)
+		end
+		if type(delay) == "number" and delay > 0 then -- la barre se vide à l'impact du coup, pas avant
+			task.delay(delay, run)
+		else
+			run()
+		end
 	end
 	local function setIcon(c, u)
 		local typ = u and u.type
@@ -517,13 +527,13 @@ function BattleScene.create(o)
 		local def = u and Config.PETS[u.p]
 		return def and (def.emoji .. " " .. def.name) or "?"
 	end
-	local function updateCard(c, side, animateIt)
+	local function updateCard(c, side, animateIt, hpDelay)
 		local u = side.units[side.active]
 		c.name.Text = unitName(u)
 		c.level.Text = L.levelText(u)
 		local key = u and (tostring(u.p) .. ":" .. tostring(side.active)) or nil
 		c.hpExtra = (u and u.guard and " 🛡" or "") .. (u and type(u.stun) == "number" and u.stun > 0 and " 💫" or "") .. (u and type(u.focus) == "number" and u.focus > 0 and " ⚡" or "")
-		rollHp(c, u, animateIt ~= true or key ~= c.unitKey)
+		rollHp(c, u, animateIt ~= true or key ~= c.unitKey, hpDelay)
 		c.unitKey = key
 		setIcon(c, u)
 		local dots = L.teamDots(side)
@@ -598,8 +608,11 @@ function BattleScene.create(o)
 			return
 		end
 		pcall(function()
-			updateCard(S.foeCard, foe, true)
-			updateCard(S.meCard, me, true)
+			local hit = S.hitAt or {}
+			S.hitAt = {}
+			updateCard(S.foeCard, foe, true, hit[2])
+			updateCard(S.meCard, me, true, hit[1])
+			scene.setQueue(L.turnQueue(info and info.events, view, 3), me.units[me.active], foe.units[foe.active])
 			local mu = me.units[me.active]
 			setPips(S.meCard, mu)
 			local ss = o.specialState and mu and o.specialState(mu) or { text = "Spécial", ready = true }
@@ -671,21 +684,23 @@ function BattleScene.create(o)
 		return a.x, a.y
 	end
 
-	local function popup(side, text, color)
+	-- Étiquette flottante au-dessus d'une créature (nombre de dégâts ou message de type) ; au plus MAX_POPUPS à la fois, détruite après 0,8 s au plus
+	local function popup(side, text, color, size, rise, lift)
 		if S.popups >= L.MAX_POPUPS or not S.alive then
 			return
 		end
 		S.popups = S.popups + 1
 		local x, y = scene.anchor(side)
 		local ok, lbl = pcall(function()
-			return make("TextLabel", { Name = "Popup", BackgroundTransparency = 1, Font = FONT, TextSize = 24, Text = text, TextColor3 = rgb(color), TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.fromRGB(10, 14, 18), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y - 20), Size = UDim2.fromOffset(120, 32), ZIndex = 9 }, S.root)
+			return make("TextLabel", { Name = "Popup", BackgroundTransparency = 1, Font = FONT, TextSize = size or 24, Text = text, TextColor3 = rgb(color), TextStrokeTransparency = 0.2, TextStrokeColor3 = Color3.fromRGB(10, 14, 18), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y - (lift or 14)), Size = UDim2.fromOffset(200, 32), ZIndex = 9 }, S.root)
 		end)
 		if not ok then
 			S.popups = S.popups - 1
 			return
 		end
-		tween(lbl, 0.7, { Position = UDim2.fromOffset(x, y - 60), TextTransparency = 1, TextStrokeTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		task.delay(0.75, function()
+		local dur = L.animSeconds(0.8, S.speed)
+		tween(lbl, dur, { Position = UDim2.fromOffset(x, y - (lift or 14) - (rise or 40)), TextTransparency = 1, TextStrokeTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		task.delay(dur + 0.05, function()
 			pcall(function()
 				lbl:Destroy()
 			end)
@@ -748,31 +763,48 @@ function BattleScene.create(o)
 		end)
 	end
 
-	-- Animations des événements d'un tour : élan de l'attaquant, recul de la cible, nombre flottant ; coups décalés de 0,6 s (comme les effets de type).
-	-- Retourne la durée totale (s) pour différer le remplacement d'une créature.
+	-- Animations des événements d'un tour, dans l'ordre : élan de l'attaquant, MESSAGE DE TYPE tout de suite (avant le résultat), puis à l'impact (0,16 s) recul de la
+	-- cible, nombre de dégâts coloré par efficacité avec icône et début du défilement des PV. Coups décalés (cadence de BattleLayout, divisée par la vitesse). « Passer »
+	-- annule ce qui n'a pas démarré. Retourne la durée totale (s) pour différer le remplacement d'une créature. Ne touche JAMAIS au serveur ni au minuteur du tour.
 	function scene.cues(events)
 		local k = 0
+		local gen = S.skipGen
+		S.hitAt = {}
+		local step = L.animSeconds(0.6, S.speed)
 		for _, ev in ipairs(events or {}) do
 			local cue = L.cue(ev)
 			if cue then
-				local at = 0.6 * k
+				local at = step * k
+				local impact = at + L.animSeconds(0.16, S.speed)
+				if cue.anim == "attack" and S.hitAt[cue.target] == nil then
+					S.hitAt[cue.target] = impact
+				end
 				task.delay(at, function()
-					if not S.alive then
+					if not S.alive or S.skipGen ~= gen then
 						return
 					end
 					pcall(function()
 						if cue.anim == "attack" then
 							lunge(cue.actor)
-							task.delay(0.16, function()
-								if S.alive then
+							if type(o.sound) == "function" then
+								pcall(o.sound, cue.special and "special_hit" or "hit")
+							end
+							if cue.message then
+								popup(cue.target, cue.message.icon .. " " .. cue.message.text, cue.message.rgb, 18, 26, 54)
+							end
+							task.delay(L.animSeconds(0.16, S.speed), function()
+								if S.alive and S.skipGen == gen then
 									pcall(recoil, cue.target)
+									if cue.popup then
+										pcall(popup, cue.popup.side, cue.popup.text, cue.popup.rgb, cue.special and 28 or 24, 40, 14)
+									end
 								end
 							end)
 						elseif cue.anim == "heal" or cue.anim == "guard" then
 							hop(cue.actor)
-						end
-						if cue.popup then
-							popup(cue.popup.side, cue.popup.text, cue.popup.rgb)
+							if cue.popup then
+								popup(cue.popup.side, cue.popup.text, cue.popup.rgb, 22, 36, 14)
+							end
 						end
 					end)
 				end)
@@ -781,8 +813,38 @@ function BattleScene.create(o)
 				end
 			end
 		end
-		return 0.6 * k + 0.2
+		return step * k + L.animSeconds(0.2, S.speed)
 	end
+
+	-- Ordre du tour : 3 pastilles (emoji du pet qui agit) sous la carte adverse ; la première est mise en avant.
+	function scene.setQueue(sides, mu, fu)
+		local function emoji(u)
+			local def = u and Config.PETS[u.p]
+			return def and def.emoji or "?"
+		end
+		for i, q in ipairs(S.queue) do
+			local side = sides[i]
+			q.frame.Visible = side ~= nil
+			if side then
+				q.frame.BackgroundColor3 = rgb(side == 1 and U.meChip or U.foeChip)
+				q.emoji.Text = emoji(side == 1 and mu or fu)
+				q.frame.BackgroundTransparency = i == 1 and 0 or 0.35
+			end
+		end
+	end
+
+	function scene.setSpeed(v)
+		S.speed = math.max(1, math.min(3, math.floor(v or 1)))
+		S.btn.speed.Text = L.speedLabel(S.speed)
+	end
+	function scene.skip() -- termine immédiatement les animations en cours (le jeu et le serveur ne sont pas concernés)
+		S.skipGen = S.skipGen + 1
+	end
+	function scene.setCanSkip(v)
+		S.canSkip = v == true
+		S.btn.skip.Visible = S.canSkip and not S.dimmed
+	end
+	S.canSkip = o.canSkip == true
 
 	function scene.setDim(on)
 		S.dimmed = on == true
@@ -797,6 +859,7 @@ function BattleScene.create(o)
 		for _, b in pairs(S.btn) do
 			b.Visible = not on
 		end
+		S.btn.skip.Visible = not on and S.canSkip
 		S.logFrame.Visible = not on
 		S.tray.Visible = false
 	end
@@ -808,6 +871,9 @@ function BattleScene.create(o)
 	local function act(action)
 		if not S.alive or S.dimmed then
 			return
+		end
+		if type(o.sound) == "function" then -- un son par action (Config.SOUNDS, coupé si SOUNDS_ENABLED = false : géré par l'appelant)
+			pcall(o.sound, "click")
 		end
 		o.fire("battleAct", action)
 		if type(o.onChosen) == "function" then
@@ -829,6 +895,9 @@ function BattleScene.create(o)
 		if ss and ss.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
 			act("skill")
 		elseif ss then
+			if type(o.sound) == "function" then
+				pcall(o.sound, "refuse")
+			end
 			scene.setStatus("Spécial pas prêt (" .. tostring(ss.charge or 0) .. "/" .. tostring(ss.max or L.CHARGE_MAX) .. ") : attaque pour charger !")
 		end
 	end)
@@ -846,6 +915,22 @@ function BattleScene.create(o)
 			end
 		end)
 	end
+	conn(S.btn.speed.Activated, function() -- 1x -> 2x -> 3x -> 1x ; mémorisé par l'appelant (réglage local)
+		local v = L.speedNext(S.speed)
+		scene.setSpeed(v)
+		if type(o.sound) == "function" then
+			pcall(o.sound, "click")
+		end
+		if type(o.onSpeed) == "function" then
+			pcall(o.onSpeed, v)
+		end
+	end)
+	conn(S.btn.skip.Activated, function() -- « Passer l'animation » : les animations en cours se terminent aussitôt
+		scene.skip()
+		if type(o.onSkip) == "function" then
+			pcall(o.onSkip)
+		end
+	end)
 	conn(S.btn.flee.Activated, function() -- deux appuis : un abandon par erreur coûte un forfait (duel, classé)
 		if S.dimmed then
 			return
