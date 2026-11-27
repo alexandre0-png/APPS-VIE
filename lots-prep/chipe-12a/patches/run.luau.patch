@@ -1,0 +1,46 @@
+--- a/roblox/tests/run.luau	2026-11-27 00:36:24.162766782 +0000
++++ b/roblox/tests/run.luau	2026-11-27 05:50:14.377202158 +0000
+@@ -6889,8 +6889,10 @@
+ 	-- validation, tour limité, égalité, compétences
+ 	local sv = B.new(5, team(2, 0), team(2, 1))
+ 	check("Moteur : actions invalides refusées (inconnue, changer pour soi-même, pet inexistant, compétence en recharge)", B.validate(sv, 1, { kind = "x" }) and B.validate(sv, 1, { kind = "swap", to = 1 }) and B.validate(sv, 1, { kind = "swap", to = 9 }) and B.validate(sv, 1, "attack") and B.validate(sv, 1, { kind = "attack" }) == nil and B.validate(sv, 1, { kind = "swap", to = 2 }) == nil)
++	sv.sides[1].units[1].charge = B.CHARGE_MAX -- LOT 12A : le spécial exige 5 de charge (plus de recharge `cd`)
++	check("Moteur : spécial prêt à 5 de charge", B.validate(sv, 1, { kind = "skill" }) == nil)
+ 	B.turn(sv, { kind = "skill" })
+-	check("Moteur : après une compétence, elle est en recharge et refusée jusqu'à la fin du délai", sv.sides[1].units[1].cd > 0 and B.validate(sv, 1, { kind = "skill" }) ~= nil)
++	check("Moteur : après le spécial, la charge est consommée et le spécial refusé jusqu'à 5 nouveaux coups", sv.sides[1].units[1].charge < B.CHARGE_MAX and B.validate(sv, 1, { kind = "skill" }) ~= nil)
+ 	local stall = B.new(7, { B.unit(Config, { p = 1, s = 2, m = 1 }, 20) }, { B.unit(Config, { p = 1, s = 2, m = 1 }, 20) })
+ 	for _ = 1, 60 do
+ 		B.turn(stall, { kind = "skill" }, { kind = "skill" }) -- tours qui ne finissent pas vite
+@@ -6902,6 +6904,7 @@
+ 	check("Moteur : égalité (deux camps à terre) -> le défenseur gagne", tie.over and tie.winner == 2)
+ 	local hs = B.new(11, { B.unit(Config, { p = 2, s = 2, m = 1 }) }, { B.unit(Config, { p = 9, s = 2, m = 1 }) })
+ 	hs.sides[1].units[1].hp = 40
++	hs.sides[1].units[1].charge = B.CHARGE_MAX
+ 	B.turn(hs, { kind = "skill" }, { kind = "attack" })
+ 	local u = hs.sides[1].units[1]
+ 	check("Moteur : le soin ne dépasse jamais les PV max (" .. u.hp .. "/" .. u.maxHp .. ")", u.hp <= u.maxHp and u.hp > 40 - 30)
+@@ -6960,7 +6963,9 @@
+ 		loS, hiS = math.min(loS, r), math.max(hiS, r)
+ 	end
+ 	for _, t in ipairs(B.TYPES) do
+-		worstT = math.max(worstT, math.abs(tw[t] / tn[t] - 0.5))
++		if tn[t] > 0 then -- LOT 12A : 9 types dans le moteur, 6 portés par les 18 espèces actuelles
++			worstT = math.max(worstT, math.abs(tw[t] / tn[t] - 0.5))
++		end
+ 	end
+ 	check("Équilibrage : " .. N .. " combats, espèces de " .. string.format("%.1f", loS * 100) .. " % à " .. string.format("%.1f", hiS * 100) .. " % de victoires, écart maximal des types " .. string.format("%.1f", worstT * 100) .. " points (aucun > 60 %)", worstS < 0.1 and worstT < 0.1 and math.abs(aw / N - 0.5) < 0.02)
+ 	-- tour des Dresseurs : étages déterministes, difficulté croissante, boss tous les 5 étages
+@@ -11345,6 +11350,12 @@
+ end)()
+ 
+ ;(function()
++	-- LOT 12A : moteur de combat refait (Battle.lua), aussi lançable seul par tests/run_lot12a.py
++	local lot12a = luau.load(fs.readFile("roblox/tests/lot12a.luau"), { debugName = "lot12a" })()
++	lot12a({ check = check, suite = suite, luau = luau, fs = fs })
++end)()
++
++;(function()
+ 	suite("Lot 10 : intégration (Config.ODDS, sons, icônes) et non-régression du profil (slots anciens sans compteur, slot.o figé à l'éclosion)")
+ 	local Odds = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Odds.lua"), { debugName = "Odds" })()
+ 	local R = Config.ODDS.REF
