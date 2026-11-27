@@ -45,3 +45,7 @@ Reste : lots 15 (modules purs prêts, e30ec74), 16 (catégories boutique, vendeu
 
 ## Lot 15 publié (privé) — 2026-11-27
 Commit 91f6907 « Lot 15 intégré » : PNJ, série 7 jours, quêtes bonus et hebdomadaires, rotation, événements, sac d'œufs, profil v12. Vérifié : Lune 3239/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v41 / hub v48 (privé). Non testé dans Studio.
+
+## Lot 16 publié (privé) — 2026-11-27
+Commit 1387552 « Lot 16 » : boutique par 8 catégories (46 achats), vendeurs PNJ (lot 30), passe de combat 60 jours, offres contextuelles, mises à niveau, plus de plafonds d'achat sauf achats uniques, écarts de rythme du lot 9 appliqués. Vérifié : Lune 3674/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v42 / hub v49 (privé). Non testé dans Studio.
+Reste : patch lots 11+12 (lots-prep/combined-11-12), puis lots 13 et 14 (lots-prep/chipe-13, chipe-14, en préparation).
