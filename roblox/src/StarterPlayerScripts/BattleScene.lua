@@ -22,7 +22,10 @@ function BattleScene.create(o)
 		return nil, "vue invalide"
 	end
 	local L, Config, Battle = o.Layout, o.Config, o.Battle
-	local S = { alive = true, used = 0, peak = 0, conns = {}, puppets = {}, cur = {}, swapToken = { 0, 0 }, popups = 0, lastView = nil, fleeToken = 0, dimmed = false }
+	local S = { alive = true, used = 0, peak = 0, conns = {}, puppets = {}, cur = {}, swapToken = { 0, 0 }, popups = 0, lastView = nil, fleeToken = 0, dimmed = false, speed = 1, skipGen = 0, seen = 0 }
+	if type(o.speed) == "number" then
+		S.speed = math.max(1, math.min(3, math.floor(o.speed)))
+	end
 	local cap = L.MAX_INSTANCES
 	local TweenService
 	pcall(function()
@@ -63,11 +66,18 @@ function BattleScene.create(o)
 		end)
 		return ok and tw or nil
 	end
-	local function animate(duration, step) -- appelle step(a) de 0 à 1 puis s'arrête ; s'arrête aussi à la destruction de la scène
+	-- appelle step(a) de 0 à 1 puis s'arrête ; durée bornée à 1,2 s et divisée par la vitesse (1x / 2x / 3x) ; « Passer » termine tout de suite ; s'arrête à la destruction
+	local function animate(duration, step)
+		local dur = math.max(0.02, o.Layout.animSeconds(duration, S.speed))
+		local gen = S.skipGen
 		task.spawn(function()
 			local t0 = os.clock()
 			while S.alive do
-				local a = (os.clock() - t0) / duration
+				if S.skipGen ~= gen then
+					pcall(step, 1)
+					return
+				end
+				local a = (os.clock() - t0) / dur
 				if a >= 1 then
 					pcall(step, 1)
 					return
@@ -160,7 +170,7 @@ function BattleScene.create(o)
 			return make("TextLabel", props, parent)
 		end
 		local function button(name, text, color, textColor)
-			local b = make("TextButton", { Name = name, Font = FONT, TextSize = 15, TextWrapped = true, Text = text, AutoButtonColor = true, BackgroundColor3 = rgb(color), TextColor3 = textColor or Color3.fromRGB(14, 28, 18), ZIndex = 10 }, root)
+			local b = make("TextButton", { Name = name, Font = FONT, TextSize = 15, TextWrapped = true, Text = text, AutoButtonColor = true, BackgroundColor3 = rgb(color), TextColor3 = textColor or rgb(U.darkText), ZIndex = 10 }, root)
 			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
 			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
 			return b
@@ -211,22 +221,36 @@ function BattleScene.create(o)
 		S.logFrame = make("Frame", { Name = "LogBar", BackgroundColor3 = rgb(U.log), BackgroundTransparency = 0.12, BorderSizePixel = 0, ZIndex = 6 }, root)
 		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.logFrame)
 		make("UIStroke", { Color = rgb(U.cardStroke), Thickness = 1 }, S.logFrame)
-		S.status = label(S.logFrame, { Name = "Status", TextSize = 12, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(255, 226, 140), TextTruncate = Enum.TextTruncate.AtEnd })
+		S.status = label(S.logFrame, { Name = "Status", TextSize = 12, Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = rgb(U.status), TextTruncate = Enum.TextTruncate.AtEnd })
 		S.log = label(S.logFrame, { Name = "LogText", TextSize = 13, Text = "", TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.AtEnd })
 
 		S.btn = {
 			attack = button("Attack", "⚔ Attaque", U.attack),
 			special = button("Special", "Spécial", U.special),
-			swap = button("Swap", "🔁 Changer", U.swap, Color3.fromRGB(250, 245, 255)),
-			flee = button("Flee", "🏃 Fuir", U.flee, Color3.fromRGB(40, 8, 8)),
+			swap = button("Swap", "🔁 Changer", U.swap, rgb(U.swapText)),
+			flee = button("Flee", "🏃 Fuir", U.flee, rgb(U.fleeText)),
 		}
 		S.tray = make("Frame", { Name = "SwapTray", BackgroundTransparency = 1, Visible = false, ZIndex = 11 }, root)
 		S.slots = {}
 		for i = 1, 3 do
-			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = Color3.fromRGB(250, 245, 255), ZIndex = 12 }, S.tray)
+			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = rgb(U.swapText), ZIndex = 12 }, S.tray)
 			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
 			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
 			S.slots[i] = { btn = b, index = nil }
+		end
+
+		-- vitesse (1x / 2x / 3x), « Passer l'animation » (dès le 2e combat vu) et ordre du tour (3 pastilles sous la carte adverse)
+		S.btn.speed = button("Speed", o.Layout.speedLabel(S.speed), { 255, 226, 140 })
+		S.btn.skip = button("Skip", "⏭ Passer", { 255, 226, 140 })
+		S.btn.skip.TextSize = 13
+		S.btn.skip.Visible = o.canSkip == true
+		S.queueLabel = label(root, { Name = "QueueLabel", TextSize = 12, Text = "Ordre ▸", TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = rgb(U.text), ZIndex = 8 })
+		S.queue = {}
+		for i = 1, 3 do
+			local f = make("Frame", { Name = "QueueChip" .. i, BackgroundColor3 = rgb(U.card), BorderSizePixel = 0, ZIndex = 8 }, root)
+			make("UICorner", { CornerRadius = UDim.new(1, 0) }, f)
+			local e = label(f, { Name = "QueueEmoji", TextSize = 16, Text = "", Size = UDim2.fromScale(1, 1), ZIndex = 9 })
+			S.queue[i] = { frame = f, emoji = e }
 		end
 
 		---------------------------------------------------------------- mise en page (appelée à la création et à chaque changement de taille)
@@ -266,10 +290,18 @@ function BattleScene.create(o)
 			place(S.logFrame, R.log)
 			place(S.status, { x = 10, y = 3, w = R.log.w - 20, h = 16 })
 			place(S.log, { x = 10, y = 19, w = R.log.w - 20, h = R.log.h - 22 })
-			for k, b in pairs(S.btn) do
-				place(b, R.actions[k])
+			for _, k in ipairs({ "attack", "special", "swap", "flee" }) do
+				place(S.btn[k], R.actions[k])
 			end
 			place(S.tray, R.swapTray)
+			place(S.btn.speed, R.speed)
+			place(S.btn.skip, R.skip)
+			place(S.queueLabel, { x = R.queue.x - 62, y = R.queue.y, w = 58, h = R.queue.h })
+			for i, q in ipairs(S.queue) do
+				local d = R.queue.h
+				q.frame.Position = UDim2.fromOffset(R.queue.x + R.queue.w - 3 * d - 2 * 4 + (i - 1) * (d + 4), R.queue.y)
+				q.frame.Size = UDim2.fromOffset(d, d)
+			end
 			local gap = L.GAP
 			local sw = math.floor((R.swapTray.w - 2 * gap) / 3)
 			for i, s in ipairs(S.slots) do
@@ -427,13 +459,42 @@ function BattleScene.create(o)
 		return S.alive
 	end
 
-	local function setFill(c, frac, animateIt)
-		local goal = { Size = UDim2.fromScale(frac, 1), BackgroundColor3 = rgb(L.hpColor(frac)) }
-		if animateIt then
-			tween(c.fill, 0.35, goal)
-		else
-			c.fill.Size, c.fill.BackgroundColor3 = goal.Size, goal.BackgroundColor3
+	-- PV : la barre se vide (ou se remplit) en ~0,5 s et le chiffre défile, sans saut ; une nouvelle valeur reprend là où le défilement en est
+	local function showHp(c, v, max)
+		local frac = max > 0 and math.max(0, math.min(1, v / max)) or 0
+		c.fill.Size = UDim2.fromScale(frac, 1)
+		c.fill.BackgroundColor3 = rgb(L.hpColor(frac))
+		if c.hp then
+			c.hp.Text = math.max(0, math.floor(v + 0.0001)) .. "/" .. math.floor(max) .. (c.hpExtra or "")
 		end
+	end
+	local function rollHp(c, u, instant)
+		local max = u and type(u.maxHp) == "number" and u.maxHp or 0
+		local to = u and type(u.hp) == "number" and math.max(0, math.min(max, u.hp)) or 0
+		local from = c.shownHp
+		c.rollToken = (c.rollToken or 0) + 1
+		local token = c.rollToken
+		if instant or from == nil or c.shownMax ~= max or S.speed >= 3 and false then
+			c.shownHp, c.shownMax = to, max
+			showHp(c, to, max)
+			return
+		end
+		c.shownMax = max
+		if from == to then
+			showHp(c, to, max)
+			return
+		end
+		animate(L.HP_ROLL_SECONDS, function(a)
+			if c.rollToken ~= token then
+				return
+			end
+			local v = L.hpRoll(from, to, a)
+			c.shownHp = v
+			showHp(c, a >= 1 and to or L.hpRollInt(from, to, a), max)
+			if a >= 1 then
+				c.shownHp = to
+			end
+		end)
 	end
 	local function setIcon(c, u)
 		local typ = u and u.type
@@ -460,11 +521,11 @@ function BattleScene.create(o)
 		local u = side.units[side.active]
 		c.name.Text = unitName(u)
 		c.level.Text = L.levelText(u)
-		setFill(c, L.hpFraction(u), animateIt)
+		local key = u and (tostring(u.p) .. ":" .. tostring(side.active)) or nil
+		c.hpExtra = (u and u.guard and " 🛡" or "") .. (u and type(u.stun) == "number" and u.stun > 0 and " 💫" or "") .. (u and type(u.focus) == "number" and u.focus > 0 and " ⚡" or "")
+		rollHp(c, u, animateIt ~= true or key ~= c.unitKey)
+		c.unitKey = key
 		setIcon(c, u)
-		if c.hp then
-			c.hp.Text = L.hpText(u) .. (u and u.guard and " 🛡" or "") .. (u and type(u.stun) == "number" and u.stun > 0 and " 💫" or "") .. (u and type(u.focus) == "number" and u.focus > 0 and " ⚡" or "")
-		end
 		local dots = L.teamDots(side)
 		for i, d in ipairs(c.dots) do
 			local info = dots[i]
@@ -488,7 +549,7 @@ function BattleScene.create(o)
 		b.Text = sb.text
 		b.AutoButtonColor = sb.ready
 		b.BackgroundColor3 = rgb(sb.ready and U.special or U.specialOff)
-		b.TextColor3 = sb.ready and Color3.fromRGB(14, 28, 18) or Color3.fromRGB(205, 205, 215)
+		b.TextColor3 = sb.ready and rgb(U.darkText) or rgb(U.offText)
 	end
 	local function setPips(c, mu)
 		local info = L.chargePips(mu and mu.charge, mu and mu.chargeMax)
