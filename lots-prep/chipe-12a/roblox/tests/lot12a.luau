@@ -529,12 +529,12 @@ return function(env)
 	------------------------------------------------------------------------------------------------ D.6 : XP et niveaux
 	suite("Lot 12A : expérience et niveaux de pets (D.6)")
 	do
-		check("xpTo(L) = floor(40 x L^1,6) : 40, 121, 223...", B.xpTo(1) == 40 and B.xpTo(2) == math.floor(40 * 2 ^ 1.6) and B.xpTo(3) == math.floor(40 * 3 ^ 1.6) and B.xpTo(19) == math.floor(40 * 19 ^ 1.6))
+		check("xpTo(L) = floor(40 x L^1,1) : 40, 85...", B.xpTo(1) == 40 and B.xpTo(2) == math.floor(40 * 2 ^ 1.1) and B.xpTo(3) == math.floor(40 * 3 ^ 1.1) and B.xpTo(19) == math.floor(40 * 19 ^ 1.1))
 		local sum = 0
 		for L = 1, 19 do
 			sum = sum + B.xpTo(L)
 		end
-		check("XP cumulée pour le niveau 20 = " .. sum .. " avec floor(40 x L^1,6) (ÉCART : D.6 annonce « ~ 9 600 » ; XP_BASE = 11 donne ~ 9 560, voir README)", sum == B.XP_CAP and sum == 34742 and B.MAX_LEVEL == 20 and B.XP_BASE == 40 and B.XP_EXP == 1.6)
+		check("XP cumulée pour le niveau 20 = " .. sum .. " avec floor(40 x L^1,1) (décision de la gestion, D.6 annonçait ~ 9 600 ; même courbe que PetXp du lot 12 B)", sum == B.XP_CAP and sum == 9734 and B.MAX_LEVEL == 20 and B.XP_BASE == 40 and B.XP_EXP == 1.1)
 		check("levelFromXp : 0 -> 1, seuils exacts, niveau 20 au plafond, jamais 21", B.levelFromXp(0) == 1 and B.levelFromXp(39) == 1 and B.levelFromXp(40) == 2 and B.levelFromXp(B.XP_CAP - 1) == 19 and B.levelFromXp(B.XP_CAP) == 20 and B.levelFromXp(1e9) == 20 and B.levelFromXp(nil) == 1 and B.levelFromXp("x") == 1 and B.levelFromXp(-50) == 1)
 		local mono = true
 		local prev = 0

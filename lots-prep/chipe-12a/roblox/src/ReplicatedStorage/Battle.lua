@@ -129,13 +129,13 @@ function Battle.profileStats(r, profile)
 end
 
 -- ---------------------------------------------------------------- Niveaux de pets (D.6)
--- XP pour passer du niveau L au suivant : floor(40 x L^1,6) ; niveau 1..20 ; +1,5 % de pv ET d'attaque par niveau au-dessus de 1.
+-- XP pour passer du niveau L au suivant : floor(40 x L^1,1) ; niveau 1..20 ; +1,5 % de pv ET d'attaque par niveau au-dessus de 1.
 -- L'XP est stockée sur l'emplacement (`slot.x`, total cumulé). AUCUN produit payant ne donne d'XP de pet (règle de design, testée).
 Battle.MAX_LEVEL = 20
 Battle.LEVEL_STEP = 0.015
--- Constantes de la courbe (D.6 : 40 et 1,6). ATTENTION : avec ces valeurs l'XP cumulée du niveau 20 est 34 742, pas « ~ 9 600 » comme l'annonce D.6 ;
--- XP_BASE = 11 donnerait ~ 9 560 (voir README, « Écarts »). Un seul réglage à changer.
-Battle.XP_BASE, Battle.XP_EXP = 40, 1.6
+-- Constantes de la courbe : exposant 1,1 (décision de la gestion : D.6 écrivait 1,6 mais annonçait ~ 9 600 XP cumulés ; 1,6 donnait 34 742, 1,1 donne 9 734,
+-- aligné sur PetXp.lua du lot 12 B). Un seul réglage à changer.
+Battle.XP_BASE, Battle.XP_EXP = 40, 1.1
 function Battle.xpTo(level)
 	return math.floor(Battle.XP_BASE * level ^ Battle.XP_EXP)
 end
