@@ -236,7 +236,38 @@ return function(env)
 	T.dD, T.dE, T.dF = hooks.session(T.D).data, hooks.session(T.E).data, hooks.session(T.F).data
 	check("Ancien profil sans battle.duel / pve relu sans erreur (0 / 0)" .. errs(), T.dD.battle.duel.w == 0 and T.dD.battle.duel.l == 0 and T.dD.battle.pve.w == 0)
 	check("Remise de saison : 1000 -> 600, 250 inchangé, 1600 -> 960", T.dD.battle.pvp.trophies == 600 and T.dE.battle.pvp.trophies == 250 and T.dF.battle.pvp.trophies == 960 and T.dD.battle.pvp.season == T.season)
-	check("Récompense de saison : palier 1000 = 400 000 pièces ; palier 1500 (PROVISOIRE) = 1 000 000 + titre", T.dD.coins >= 400100 and T.dF.coins >= 1000100 and notified(T.F, "Champion de la saison", T.f8))
+	T.myth = cfg.tierIndexByName("Mythique")
+	T.mythCount = function(d)
+		local n = 0
+		for i = 1, cfg.SLOTS_MAX do
+			if d.slots[i] and d.slots[i].k == "e" and d.slots[i].t == T.myth then
+				n = n + 1
+			end
+		end
+		for _, t in ipairs(d.eggBag or {}) do
+			if t == T.myth then
+				n = n + 1
+			end
+		end
+		return n + ((d.overflow or {})[tostring(T.myth)] or 0)
+	end
+	T.nowT = 1700000000 + math.floor(RT.now)
+	check("Récompense de saison : palier 1000 = 400 000 pièces ; palier 1500 = 1 œuf Mythique (un seul) + potion de chance 30 min + titre, AUCUNE pièce",
+		T.dD.coins >= 400100 and T.myth ~= nil and T.mythCount(T.dF) == 1 and T.dF.coins < 1000 and T.dF.luckUntil >= T.nowT + 1800 - 10 and T.dF.luckUntil <= T.nowT + 1800 + 10 and notified(T.F, "Champion de la saison", T.f8) and notified(T.F, "Mythique", T.f8) and notified(T.F, "30 min", T.f8))
+	T.f9 = #RT.fired + 1
+	T.sF = hooks.session(T.F)
+	for i = 1, cfg.SLOTS_MAX do
+		if not T.dF.slots[i] then
+			T.dF.slots[i] = { k = "e", t = 1, ends = 1700000000 + RT.now + 1e6, shield = 0 }
+		end
+	end
+	while #T.dF.eggBag < cfg.EGG_BAG.size do
+		T.dF.eggBag[#T.dF.eggBag + 1] = 1
+	end
+	T.ov0 = T.dF.overflow[tostring(T.myth)] or 0
+	T.dF.battle.pvp.season, T.dF.battle.pvp.trophies = T.season - 1, 1600
+	act(T.F, "pvpDefense")
+	check("Palier 1500 avec base ET sac pleins : l'œuf Mythique va dans le coffre de débordement (jamais perdu, un seul crédit)" .. errs(), (T.dF.overflow[tostring(T.myth)] or 0) == T.ov0 + 1 and notified(T.F, "coffre de débordement", T.f9) and T.dF.battle.pvp.season == T.season)
 	check("Paliers PvP historiques inchangés (Config.pvpSeasonReward)", cfg.pvpSeasonReward(1600).coins == 400000)
 
 	---------------------------------------------------------------- 10. Ligue dans l'état envoyé au client, ratio PvE après la tour

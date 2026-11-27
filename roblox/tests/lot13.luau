@@ -41,6 +41,8 @@ return function(env)
 		end
 		check("Config.DUEL : valeurs de E.2 (range 30, 20 s, 120 s, 10/jour, 3/paire, tours 10 s, 2 forfaits, 1 min / 0,25 min)", ok)
 		check("Config.LEAGUE_SEASON : 5 paliers de récompense, dernier à 1500 avec titre", cfgText:match("Config%.LEAGUE_SEASON = (%b{})"):find('title = "Champion', 1, true) ~= nil)
+		local ls = cfgText:match("Config%.LEAGUE_SEASON = (%b{})")
+		check("Palier 1500 (décision utilisateur) : œuf Mythique désigné par son NOM, potion 30 min, aucune pièce, plus de montant inventé", ls:find('trophies = 1500, coins = 0, eggName = "Mythique", potionSeconds = 30 * 60', 1, true) ~= nil and ls:find("1000000", 1, true) == nil and ls:find("eggTier = 7", 1, true) == nil)
 	else
 		check("Config.lua non patché : tests de données Config ignorés (valeurs de la spec utilisées)", true)
 	end

@@ -3326,14 +3326,27 @@ local function pvpState(s)
 	local pv = s.data.battle.pvp
 	local season = Config.pvpSeason(os.time())
 	if pv.season ~= season then
-		local rw = pv.season > 0 and L15.Duel.seasonReward(Config.LEAGUE_SEASON.rewards, pv.trophies) or nil -- lot 13 (E.4) : paliers étendus (1500 = PROVISOIRE)
+		local rw = pv.season > 0 and L15.Duel.seasonReward(Config.LEAGUE_SEASON.rewards, pv.trophies) or nil -- lot 13 (E.4) : paliers étendus (100 à 1500)
 		if rw then
-			s.data.coins += rw.coins
-			giveEgg(s, rw.eggTier)
-			if rw.potion then
-				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
+			local parts = {}
+			if (rw.coins or 0) > 0 then
+				s.data.coins += rw.coins
+				parts[#parts + 1] = "+" .. Config.fmt(rw.coins) .. " 🪙"
 			end
-			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or "") .. (rw.title and (" · 👑 " .. rw.title .. " " .. pv.season) or ""), "claim")
+			local eggT = rw.eggName and Config.tierIndexByName(rw.eggName) or rw.eggTier
+			if rw.eggName and eggT then -- palier 1500 : base, puis sac d'œufs, puis coffre de débordement (jamais perdu, un seul crédit)
+				local where = Lot7.L16.storeEgg(s, eggT)
+				parts[#parts + 1] = "un œuf " .. Config.TIERS[eggT].name .. (where == "bag" and " (dans ton sac d'œufs)" or (where == "overflow" and " (dans le coffre de débordement)" or ""))
+			elseif eggT and Config.TIERS[eggT] then
+				giveEgg(s, eggT)
+				parts[#parts + 1] = "un œuf " .. Config.TIERS[eggT].name
+			end
+			if rw.potion or rw.potionSeconds then
+				local secs = rw.potionSeconds or Config.LUCK_POTION_SECONDS
+				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + secs
+				parts[#parts + 1] = "potion de chance (" .. math.floor(secs / 60) .. " min)"
+			end
+			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> " .. table.concat(parts, " + ") .. (rw.title and (" · 👑 " .. rw.title .. " " .. pv.season) or ""), "claim")
 		end
 		pv.season, pv.trophies, pv.wins, pv.losses = season, L15.Duel.seasonReset(pv.trophies, Config.LEAGUE_SEASON.resetAbove, Config.LEAGUE_SEASON.resetFactor), 0, 0 -- lot 13 (E.4) : max(300, floor(t x 0,6)) au-delà de 300
 	end
