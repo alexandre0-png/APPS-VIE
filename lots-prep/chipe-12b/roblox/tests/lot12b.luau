@@ -295,10 +295,10 @@ return function(env)
 
 	---------------------------------------------------------------- 5. PetXp
 	suite("Lot 12 B : PetXp : niveaux 1-20, +1,5 % par niveau, sources d'XP (D.6)")
-	check("xpTo(L) = floor(40 x L^1,6) : 40, 121, 223 ; nil au niveau 20 et pour un niveau invalide", PetXp.xpTo(1) == 40 and PetXp.xpTo(2) == math.floor(40 * 2 ^ 1.6) and PetXp.xpTo(19) == math.floor(40 * 19 ^ 1.6) and PetXp.xpTo(20) == nil and PetXp.xpTo(0) == nil and PetXp.xpTo(0 / 0) == nil and PetXp.xpTo("a") == nil)
+	check("xpTo(L) = floor(40 x L^1,1) : 40, 85 ; nil au niveau 20 et pour un niveau invalide", PetXp.xpTo(1) == 40 and PetXp.xpTo(2) == math.floor(40 * 2 ^ 1.1) and PetXp.xpTo(19) == math.floor(40 * 19 ^ 1.1) and PetXp.xpTo(20) == nil and PetXp.xpTo(0) == nil and PetXp.xpTo(0 / 0) == nil and PetXp.xpTo("a") == nil)
 	local cum = 0
 	for L = 1, 19 do
-		cum = cum + math.floor(40 * L ^ 1.6)
+		cum = cum + math.floor(40 * L ^ 1.1)
 	end
 	check("XP cumulée au niveau 20 = somme des xpTo(1..19) = PetXp.MAX_XP (formule de D.6 : " .. cum .. ")", PetXp.MAX_XP == cum and PetXp.CUM[20] == cum and PetXp.CUM[1] == 0)
 	check("Niveau : 0 XP = 1 ; 39 = 1 ; 40 = 2 ; MAX_XP = 20 ; au-delà = 20 (plafond)", PetXp.level(0) == 1 and PetXp.level(39) == 1 and PetXp.level(40) == 2 and PetXp.level(PetXp.MAX_XP - 1) == 19 and PetXp.level(PetXp.MAX_XP) == 20 and PetXp.level(1e12) == 20)

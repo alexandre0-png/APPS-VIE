@@ -16,13 +16,13 @@ local function isnum(v)
 	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
 end
 
--- XP à gagner pour passer du niveau L au niveau L+1 (D.6) : floor(40 x L^1,6). nil au niveau max ou pour un niveau invalide.
+-- XP à gagner pour passer du niveau L au niveau L+1 (D.6) : floor(40 x L^1,1). nil au niveau max ou pour un niveau invalide.
 function PetXp.xpTo(L)
 	if not isnum(L) or L < 1 or L >= PetXp.MAX_LEVEL then
 		return nil
 	end
 	L = math.floor(L)
-	return math.floor(40 * L ^ 1.6)
+	return math.floor(40 * L ^ 1.1)
 end
 
 -- Seuils cumulés : CUM[L] = XP totale nécessaire pour ATTEINDRE le niveau L (CUM[1] = 0).

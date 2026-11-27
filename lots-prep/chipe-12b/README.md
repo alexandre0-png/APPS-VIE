@@ -105,13 +105,13 @@ Version **inchangée** (12). Nouveaux champs facultatifs, tous assainis par `mer
 | `battle.pendingPick` | `nil` (aucun tirage) | `BattleRewards.sanitizePending` : 3 cartes de catégories distinctes, montants bornés, sinon `nil` |
 | `boosts` | `{}` | `BattleRewards.sanitizeBoosts` : clés `income2 luck10 xp2 speed15` seulement, entiers 1..4e9 |
 | `trainer` | `{ xp = 0 }` | `PetXp.sanitizeTrainer` |
-| `slot.x` (existant, 0 depuis v11) | 0 | `PetXp.sanitize` : 0..`PetXp.MAX_XP` (34 742) |
+| `slot.x` (existant, 0 depuis v11) | 0 | `PetXp.sanitize` : 0..`PetXp.MAX_XP` (9 734) |
 
 Idempotent (testé : `migrate(migrate(x)) == migrate(x)`, et relecture réelle avec le vrai `Data.lua`). Un serveur du lot 15 qui relit un profil écrit par le lot 12 B ignore ces champs (le `merge` du lot 15 reconstruit `d.battle` sans `pendingPick` : **le tirage en attente serait perdu si un ancien serveur sauvegardait ensuite** ; déployer le lot 12 B sur tous les serveurs d'un coup, ou ne pas avoir de serveurs mixtes).
 
 ## Écarts avec la spec
 
-1. **D.6 : « ≈ 9 600 XP cumulés » contredit la formule** `floor(40 x L^1,6)` : la somme des paliers 1 à 19 vaut **34 742**. J'ai gardé la formule (explicite) ; `PetXp.MAX_XP = 34742`. Avec exposant 1,1 on aurait 9 734. À trancher : changer l'exposant (une constante dans `PetXp.xpTo`) si 9 600 est la cible.
+1. **D.6 : formule retenue par la gestion** : `xpTo(L) = floor(40 x L^1,1)` (et non 1,6 : la spec écrite donnait 34 742 cumulés, alors que l'intention est ~9 600). `PetXp.MAX_XP = 9734` (niveau 20). Une seule constante dans `PetXp.xpTo`.
 2. Combat de PNJ : XP = formule PvE étage 0 x 0,6 (12 gagné / 3 perdu) : la spec donne x0,6 pour les valeurs de cartes, pas pour l'XP de combat ; hypothèse.
 3. Carte Effet « XP x2 » : stockée dans `boosts.xp2` ; l'effet de série du lot 15 (`xp2Until`) reste séparé ; `PetXp.boostMul` lit les deux (jamais cumulés : x2 au maximum).
 4. Carte Expérience : non multipliée par l'effet XP x2 (valeur fixe D.5).
