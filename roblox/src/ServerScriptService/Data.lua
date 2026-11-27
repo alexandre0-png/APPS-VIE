@@ -12,6 +12,8 @@ local Raven = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local Calendar = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Calendar")) -- lot 9b : règles pures du calendrier (assainissement du champ cal)
 local Npc = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Npc")) -- lot 15 : assainissement du champ npc
 local Rewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rewards")) -- lot 15 : grace, weekly, event, eggBag
+local BattleRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BattleRewards")) -- lot 12 B : assainissement de battle.pendingPick et de boosts
+local PetXp = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PetXp")) -- lot 12 B : assainissement de trainer (et de slot.x, déjà fait plus bas)
 local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Season")).new(Config, require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SeasonData"))) -- lot 16 : migration du passe de combat
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
