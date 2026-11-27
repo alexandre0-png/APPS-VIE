@@ -100,6 +100,75 @@ return function(env)
 	act(N, T.a, "battleAct", "attack")
 	check("liveCancel / battleAct hors combat en direct : sans effet ni erreur" .. errs(N), #N.RT.errors == 0 and T.sa.battle == nil)
 
+	---------------------------------------------------------------- 1 bis. Télémétrie : joueurs connectés simultanément (Telemetry.ccu)
+	do
+		local Tm = luau.load(fs.readFile("roblox/src/ServerScriptService/Telemetry.lua"), { debugName = "Telemetry" })()
+		local sent, clock = {}, 0
+		local svc = { LogCustomEvent = function(_, pl, name, value)
+			sent[#sent + 1] = { pl = pl, name = name, value = value, t = clock }
+		end }
+		local Tl = Tm.new(svc, function()
+			return clock
+		end)
+		local p1, p2, p3 = { id = 1 }, { id = 2 }, { id = 3 }
+		for k = 1, 20 do
+			Tl.log(p1, "hatch_tier", 1, "_r" .. (k % 10 + 1)) -- le porteur a déjà une file chargée : le débit par joueur doit tenir
+		end
+		local queued = 0
+		for t = 0, 299 do
+			clock = t
+			for _ = 1, 3 do -- appels répétés dans la même seconde : plafond
+				if Tl.ccu({ p1, p2, p3 }, t < 150 and "arena" or "ranked") then
+					queued = queued + 1
+				end
+			end
+			Tl.step()
+		end
+		local ccu, perSec, maxPerSec, names = {}, {}, 0, {}
+		for _, e in ipairs(sent) do
+			local key = tostring(e.pl.id) .. "@" .. e.t
+			perSec[key] = (perSec[key] or 0) + 1
+			if perSec[key] > maxPerSec then
+				maxPerSec = perSec[key]
+			end
+			if e.name:sub(1, 11) == "ccu_sample_" then
+				ccu[#ccu + 1] = e
+				names[e.name] = true
+			end
+		end
+		check("Télémétrie ccu : 1 échantillon / 60 s sur 300 s malgré 900 appels (5 mis en file, 5 envoyés), valeur = 3 joueurs, mode dans le nom",
+			queued == 5 and #ccu == 5 and ccu[1].value == 3 and names.ccu_sample_arena and names.ccu_sample_ranked)
+		check("Télémétrie ccu : jamais plus d'un événement par seconde et par joueur (file partagée du lot 16), porteur = un joueur présent", maxPerSec == 1 and ccu[1].pl == p1)
+		local gapOk = true
+		for i = 2, #ccu do
+			if ccu[i].t - ccu[i - 1].t < 1 then
+				gapOk = false
+			end
+		end
+		check("Télémétrie ccu : échantillons espacés, file du porteur bornée (16)", gapOk and #(Tl.queues[p1] or {}) <= Tm.QUEUE_MAX)
+		local before = 0
+		for _ in pairs(Tl.queues) do
+			before = before + 1
+		end
+		clock = 1000
+		check("Télémétrie ccu : aucun joueur = aucun échantillon et aucune file créée ; mode inconnu ramené à « arena »", Tl.ccu({}, "arena") == false and Tl.ccu(nil, "arena") == false and (function()
+			local n = 0
+			for _ in pairs(Tl.queues) do
+				n = n + 1
+			end
+			return n == before
+		end)() and Tl.ccu({ p2 }, "bidon") == true and Tl.queues[p2][#Tl.queues[p2]].name == "ccu_sample_arena")
+		Tl.flush(p1)
+		Tl.flush(p2)
+		Tl.flush(p3)
+		check("Télémétrie ccu : après le départ des joueurs (ou l'arrêt), plus aucune file ni horodatage par joueur (seul ccuAt, un nombre, reste)", next(Tl.queues) == nil and next(Tl.last) == nil and type(Tl.ccuAt) == "number")
+		check("Télémétrie ccu : hors des 16 métriques par joueur (liste séparée SERVER_METRICS)", Tm.METRICS.ccu_sample == nil and type(Tm.SERVER_METRICS.ccu_sample) == "string" and Tm.CCU_EVERY == 60)
+		local tl = N.hooks.tele()
+		local c0 = tl.ccuSent or 0
+		N.RT.step(125)
+		check("Vrai Main : échantillons de fréquentation à la cadence de 60 s (2 ou 3 en 125 s)" .. errs(N), (tl.ccuSent or 0) - c0 >= 2 and (tl.ccuSent or 0) - c0 <= 3)
+	end
+
 	---------------------------------------------------------------- 2. Serveur « ranked » : un seul joueur arrive
 	T.now0 = 1700000000
 	T.match = { id = "M-1", a = 14011, b = 14012, na = "ArenaA", nb = "ArenaB", ta = { { p = 1, s = 2, m = 1 }, { p = 2, s = 2, m = 1 } }, tb = { { p = 3, s = 2, m = 1 } }, seed = 12345, t = T.now0, exp = T.now0 + 300 }

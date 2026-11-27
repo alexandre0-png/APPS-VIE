@@ -14,6 +14,7 @@ Périmètre : actions `liveQueue`, `liveCancel`, routage `battleAct` / `battleQu
 | Pannes MemoryStore | Erreur qui remonte dans `Main`, double match | Chaque appel dans un `pcall` ; bail d'apparieur par `UpdateAsync` ; réservation d'entrée unique ; test 8 serveurs / 40 joueurs / 20 % de pannes et lectures périmées : jamais deux leaders, aucun joueur dans deux arènes. |
 | Fuites | Tables par joueur | `L.queued` purgé quand la session disparaît ; `peersSeen` purgé après 10 min ; retours gérés par `L.home` (tentatives bornées, puis expulsion propre « progression sauvegardée »). |
 | Données | Profil corrompu | `Ranked.sanitizeLive` (entiers bornés, 20 adversaires récents au plus), sans changement de version. |
+| Télémétrie `ccu_sample` | Fuite de données, dépassement du débit | Aucune donnée personnelle (nombre de joueurs et mode seulement, pas de JobId ni de nom) ; 1 échantillon / 60 s / serveur ; même file que les autres événements (≤ 1 / s / joueur, file bornée à 16) ; aucun état par joueur gardé après le départ (testé). |
 | Interaction avec le lot 13 | Duel pendant la file ou dans l'arène | Joueur en file = occupé pour les duels ; serveur `ranked` = aucun duel (testé). |
 
 ## Hypothèses à vérifier (non testables ici)

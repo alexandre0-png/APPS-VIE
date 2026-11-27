@@ -27,7 +27,8 @@ La boucle « une fois par seconde » du patch (`Lot7.Live.step` + `TeleportInitF
 - **Client** (non fourni par la préparation) : le bouton « 🏆 Combat classé » du panneau Arène envoie `liveQueue` (file fermée = classé enregistré lancé par le serveur) et devient « ✖ Annuler la recherche » pendant l'attente (`liveCancel`). Messages gérés : `liveQueued`, `liveCancel`, `liveFound` (« Adversaire trouvé… téléportation »), `liveFallback` (« Aucun adversaire en ligne de ton niveau. Combattre une équipe enregistrée ? » Oui → `pvpStart`), `liveArena` (attente de l'adversaire), `liveVoid` (« Combat annulé : aucun trophée gagné ni perdu »). Fin de combat en direct : « (forfait) » et « plafond du jour » affichés.
 - **Duel local (lot 13) × direct** : un joueur en file classée est « occupé » pour les duels ; aucun duel sur un serveur « ranked ».
 - `liveQueue` : un joueur en cours de départ est « occupé ».
-- Crochet de test `lot7Hooks.live()` (jamais exposé aux clients).
+- Crochets de test `lot7Hooks.live()` et `lot7Hooks.tele()` (jamais exposés aux clients).
+- **Télémétrie de fréquentation** (demande de la gestion) : `Telemetry.ccu` -> `ccu_sample_<mode>` (joueurs du serveur), 1 échantillon / 60 s / serveur au plus, porté par la file d'un joueur présent (≤ 1 événement / s / joueur inchangé). Le serveur n'est pas nommé dans l'événement (pas de JobId : nombre de noms d'événements borné) ; un échantillon par serveur et par minute permet de sommer la fréquentation.
 - `build_place.py` : `Ranked` dans `ReplicatedStorage.Shared`, `PvpLive` dans `ServerScriptService`.
 
 ## Écarts de la préparation avec le cahier (repris tels quels)

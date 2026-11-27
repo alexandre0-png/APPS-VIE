@@ -51,6 +51,7 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 - [ ] **Absent / départ** : un compte quitte pendant la téléportation -> l'autre attend 25 s, « Ton adversaire n'est pas arrivé », trophées inchangés ; quitter au 4e tour -> forfait (-15 pour lui, gain pour l'autre) ; quitter au 1er tour -> 0 pour l'autre.
 - [ ] **File seule** : un seul compte en file -> proposition « Combattre une équipe enregistrée ? » à 45 s ; « Annuler la recherche » pendant l'attente -> plus d'entrée `PvpQueue_v1` (Creator Dashboard > MemoryStore).
 - [ ] **Quotas MemoryStore** (Creator Dashboard) pendant le test : quelques dizaines de requêtes / min attendues, aucune limitation.
+- [ ] **Fréquentation** : après publication, regarder dans Creator Hub > Analytics les événements `ccu_sample_arena` (joueurs par serveur, 1 par minute et par serveur) : la somme sur les serveurs dit si le seuil de 60 est atteint.
 - [ ] **Seuil de 60 joueurs simultanés** : jamais testé en production ; en production, garder `minCCU = 60`. Ne passer `enabled = true` en production qu'après les points ci-dessus, et me le dire (je mettrai à jour les tests qui vérifient `false`).
 
 ## 1octies. Duel local, ligues et remise de saison (lot 13) : rien n'a été joué en vrai

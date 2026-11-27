@@ -180,6 +180,7 @@ Limites connues : rien n'a été mesuré sur un vrai téléphone ; la taille et 
 - [ ] **Enable Studio Access to API Services** activé. *Preuve : aucun avertissement « mode mémoire » dans la sortie.*
 - [ ] **Max Players = 5** sur le lieu de jeu.
 - [ ] IDs des passes et produits collés dans `Config.lua`, build régénéré (`python3 roblox/tools/build_place.py`).
+- [ ] **Mesure de fréquentation (lot 14)** : Creator Hub > Analytics > événements personnalisés : `ccu_sample_arena` (et `_castle`, `_ranked`) = joueurs connectés par serveur, 1 échantillon / minute / serveur. *Preuve : l'événement apparaît après quelques minutes de jeu publié ; sommer les serveurs pour comparer au seuil de 60.*
 - [ ] **Classé en direct (lot 14)** : `Config.PVP_LIVE.enabled` reste `false` tant que le test à 2 comptes de `A_FAIRE_UTILISATEUR.md` §1novies n'a pas réussi (le classé enregistré reste disponible). *Preuve : `grep "enabled = false, minCCU" roblox/src/ReplicatedStorage/Config.lua`.*
 - [ ] Les modèles Blender se chargent : sortie `[Assets]` sans « refusé » ; sinon ouvrir chaque modèle avec ton compte et l'ajouter à l'inventaire.
 

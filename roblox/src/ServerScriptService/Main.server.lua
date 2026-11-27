@@ -2338,6 +2338,7 @@ end
 
 local function slowTick(dt)
 	eventStep(dt)
+	tele.ccu(Players:GetPlayers(), serverMode) -- lot 14 : fréquentation du serveur, 1 échantillon / 60 s au plus (Telemetry.ccu)
 	tele.step()
 	for _, n in ipairs(world.nests) do
 		if not n.egg then
@@ -5483,6 +5484,8 @@ do
 		return L15.duel
 	end, live = function() -- lot 14 : état du classé en direct (tests de bout en bout seulement)
 		return Lot7.Live
+	end, tele = function() -- lot 14 : télémétrie (échantillons de fréquentation)
+		return tele
 	end }
 end
 

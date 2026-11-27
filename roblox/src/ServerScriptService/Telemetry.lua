@@ -36,6 +36,14 @@ Telemetry.ONBOARDING = { join = 1, first_hatch = 2, first_battle_win = 3, first_
 Telemetry.PROGRESSION = { house = true, tower = true, season = true }
 Telemetry.QUEUE_MAX = 16
 Telemetry.GAP = 1
+-- LOT 14 : métrique SERVEUR (hors des 16 métriques par joueur) : joueurs connectés simultanément, échantillonnés toutes les 60 s, AU PLUS 1 événement par
+-- minute et par serveur. Nom « ccu_sample_<mode> » (mode du serveur : arena | castle | ranked), valeur = nombre de joueurs du serveur. AnalyticsService exige un
+-- joueur porteur : l'événement entre dans la file d'UN joueur présent (même file, même débit <= 1 événement / s / joueur que le lot 16). Le serveur n'est pas
+-- nommé (pas de JobId dans le nom : cardinalité bornée) ; un échantillon par serveur et par minute suffit à sommer la fréquentation. Sert à décider de
+-- l'ouverture du classé en direct (seuil Config.PVP_LIVE.minCCU = 60, jamais mesuré en production).
+Telemetry.SERVER_METRICS = { ccu_sample = "joueurs connectés sur ce serveur (_arena / _castle / _ranked), 1 échantillon / 60 s / serveur" }
+Telemetry.CCU_EVERY = 60
+Telemetry.CCU_MODES = { arena = true, castle = true, ranked = true }
 
 function Telemetry.priceTier(robux)
 	local r = type(robux) == "number" and robux == robux and robux or 0
@@ -105,6 +113,28 @@ function Telemetry.new(service, clock)
 		end
 		local v = type(value) == "number" and value == value and value or nil
 		q[#q + 1] = { name = name .. (suffix or ""), value = v }
+		return true
+	end
+	-- Lot 14 : échantillon de fréquentation. players = liste des joueurs du serveur (le premier présent porte l'événement), mode = mode du serveur.
+	-- Retourne true si un échantillon a été mis en file (au plus une fois par CCU_EVERY secondes ; aucun joueur = rien, aucune table créée).
+	T.ccuAt = nil
+	function T.ccu(players, mode)
+		local now = clock()
+		if T.ccuAt ~= nil and now - T.ccuAt < Telemetry.CCU_EVERY then
+			return false
+		end
+		if type(players) ~= "table" or players[1] == nil then
+			return false
+		end
+		T.ccuAt = now
+		local q = T.queues[players[1]] or {}
+		T.queues[players[1]] = q
+		if #q >= Telemetry.QUEUE_MAX then
+			table.remove(q, 1)
+			T.dropped = T.dropped + 1
+		end
+		q[#q + 1] = { kind = "custom", name = "ccu_sample_" .. (Telemetry.CCU_MODES[mode] and mode or "arena"), value = #players }
+		T.ccuSent = (T.ccuSent or 0) + 1
 		return true
 	end
 	function T.economy(player, amount, balance, sku)
