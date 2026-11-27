@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX75"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX119"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX118"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX78"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX125"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX124"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -157,6 +157,29 @@ Config.PETS = {
 	{ tier = 7, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
 	{ tier = 7, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
 }
+
+-- LOT 11 : bestiaire de 78 espèces (ReplicatedStorage/Bestiary.lua). Ses 18 premières entrées doivent être identiques à la liste historique ci-dessus (nom, rareté,
+-- revenu : indices stables, testé) ; sinon, ou si le module est introuvable (tests purs qui chargent Config seul), la liste de 18 reste en place.
+Config.BESTIARY = nil
+do
+	local okLoad, Bestiary = pcall(function()
+		return require(script.Parent:WaitForChild("Bestiary", 10))
+	end)
+	if okLoad and type(Bestiary) == "table" and type(Bestiary.PETS) == "table" and #Bestiary.PETS >= #Config.PETS then
+		local same = true
+		for i, d in ipairs(Config.PETS) do
+			local b = Bestiary.PETS[i]
+			if not b or b.tier ~= d.tier or b.name ~= d.name or b.inc ~= d.inc then
+				same = false
+				break
+			end
+		end
+		if same then
+			Config.PETS = Bestiary.PETS
+			Config.BESTIARY = Bestiary
+		end
+	end
+end
 
 Config.SIZES = {
 	{ name = "Mini", mult = 0.8, weight = 20, scale = 0.8 },
@@ -841,6 +864,12 @@ Config.Assets = {
 		"Sound", "Tool", "ForceField", "Explosion", "Weld", "WeldConstraint", "Motor6D", "ManualWeld", "Motor",
 	},
 }
+-- LOT 11 : modèles Blender des 60 nouvelles espèces (lots 22 à 26), indice d'espèce -> identifiant, lus dans Bestiary.ASSET_IDS (source unique). Assets.loadPets les charge avec petsMaxPartsNew.
+if Config.BESTIARY then
+	for idx, id in pairs(Config.BESTIARY.ASSET_IDS) do
+		Config.Assets.petsNew[idx] = id
+	end
+end
 
 ---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
 -- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
@@ -1719,7 +1748,11 @@ Config.STORY = {
 }
 
 Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
-Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
+Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 premières espèces)
+-- LOT 11 : au-delà des 18 espèces historiques, +5 % par tranche de 6 espèces supplémentaires, plafond +80 % (78 espèces). Identique à l'ancienne formule jusqu'à 18 espèces (jamais en baisse).
+Config.COLLECTION_BASE_COUNT = 18
+Config.COLLECTION_STEP2 = 6
+Config.COLLECTION_MAX = 0.8
 -- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
 Config.TOWER = { floors = 45, tiers = { 1, 2, 3, 4, 5, 6, 7, 8, 10 }, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse", [35] = "Reine de Cristal", [40] = "Démon enchaîné", [45] = "Séraphin" } } -- lot 9 (D.7) : 45 étages, 5 par rareté de TOWER.tiers
 -- PvP asynchrone : l'équipe de DÉFENSE enregistrée d'un autre joueur est simulée par le serveur (aucune latence réseau). Trophées, saisons d'une semaine,
@@ -1787,7 +1820,11 @@ function Config.rankFor(chaptersDone)
 end
 
 function Config.collectionBonus(speciesCount)
-	return 1 + Config.COLLECTION_BONUS * math.floor(speciesCount / Config.COLLECTION_STEP)
+	local n = type(speciesCount) == "number" and speciesCount == speciesCount and math.max(speciesCount, 0) or 0
+	local base = math.min(n, Config.COLLECTION_BASE_COUNT)
+	local extra = math.max(n - Config.COLLECTION_BASE_COUNT, 0)
+	local bonus = Config.COLLECTION_BONUS * (math.floor(base / Config.COLLECTION_STEP) + math.floor(extra / Config.COLLECTION_STEP2))
+	return 1 + math.min(bonus, Config.COLLECTION_MAX)
 end
 
 function Config.zoneUnlocked(chaptersDone, rival)
@@ -2447,7 +2484,7 @@ Config.DIALOGUES = {
 
 -- Astuces de défaite : type de l'équipe adverse -> type qui le bat. VALEURS PAR DÉFAUT : l'intégrateur peut les remplacer par une lecture de la matrice D.2 de Battle
 -- (Npc.tip accepte une table `weak` en argument).
-Config.TYPE_WEAK = { Feu = "Eau", Eau = "Foudre", Plante = "Feu", Glace = "Feu", Foudre = "Terre", Terre = "Plante", Ciel = "Foudre", Ombre = "Lumière", ["Lumière"] = "Ombre" }
+Config.TYPE_WEAK = { Feu = "Eau", Eau = "Plante", Plante = "Feu", Glace = "Foudre", Foudre = "Terre", Terre = "Glace", Ciel = "Ombre", Ombre = "Lumière", ["Lumière"] = "Ciel" } -- LOT 12A : le type qui BAT chacun (BEATS primaire de Battle.lua, x1,5) ; l'ancienne table contredisait la matrice D.2
 
 ---------------------------------------------------------------- G.1 Série de 7 jours
 -- eggs : noms de raretés ; c : minutes de revenu (min coinFloor) ; luck = potion de chance { minutes, points } ; boost = { key, mul, minutes } ; fragments : Fragments du Grand Œuf.
@@ -2649,7 +2686,7 @@ for key, id in pairs({ vendor_eggs = 138633300069014, vendor_luck = 137414127061
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2945,7 +2982,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -3125,7 +3162,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3471,7 +3508,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3772,7 +3809,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4375,7 +4412,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4800,7 +4837,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4838,7 +4875,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4926,7 +4963,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -4989,47 +5026,118 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
--- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, compétence, changer de pet) et rejoue les événements reçus.
--- Types (6) : roue Feu > Nature > Eau > Feu et Lumière > Ombre > Ciel > Lumière (avantage x1,5, désavantage x0,67). Une compétence par espèce.
+-- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, spécial, changer de pet) et rejoue les événements reçus.
+-- Types (9) : 3 triangles primaires (BEATS, x1,5 / x0,67) : Feu > Nature > Eau > Feu, Lumière > Ombre > Ciel > Lumière, Terre > Foudre > Glace > Terre ;
+-- relations secondaires (BEATS2, x1,25 / x0,8), une sortante et une entrante par type. La clé `Nature` est conservée (affichée « Plante » : Battle.TYPE_LABEL).
+-- Spécial : CHARGE u.charge 0..5 ; chaque attaque +1 (+1 de plus si le coup est x1,25 ou mieux) ; le spécial exige 5 et consomme 5.
+-- Aucune dépendance Roblox ; pas de `+=` ni de `continue` (lanceur lupa).
 local Battle = {}
 
-Battle.TYPES = { "Feu", "Eau", "Nature", "Ciel", "Ombre", "Lumière" }
-Battle.TYPE_EMOJI = { Feu = "🔥", Eau = "💧", Nature = "🌿", Ciel = "🌪️", Ombre = "🌑", ["Lumière"] = "✨" }
-Battle.BEATS = { Feu = "Nature", Nature = "Eau", Eau = "Feu", ["Lumière"] = "Ombre", Ombre = "Ciel", Ciel = "Lumière" }
+Battle.TYPES = { "Feu", "Eau", "Nature", "Glace", "Foudre", "Terre", "Ciel", "Ombre", "Lumière" }
+Battle.TYPE_EMOJI = { Feu = "🔥", Eau = "💧", Nature = "🌿", Glace = "❄️", Foudre = "⚡", Terre = "⛰️", Ciel = "🌪️", Ombre = "🌑", ["Lumière"] = "✨" }
+Battle.TYPE_LABEL = { Feu = "Feu", Eau = "Eau", Nature = "Plante", Glace = "Glace", Foudre = "Foudre", Terre = "Terre", Ciel = "Ciel", Ombre = "Ombre", ["Lumière"] = "Lumière" }
+-- Nom du spécial par type (D.3) : l'EFFET vient de la compétence de l'espèce (Battle.SKILLS), le NOM du type de l'attaquant.
+Battle.SPECIAL_NAME = {
+	Feu = "Souffle ardent", Eau = "Raz-de-marée", Nature = "Fouet de lianes", Glace = "Blizzard", Foudre = "Arc électrique",
+	Terre = "Séisme", Ciel = "Tempête", Ombre = "Voile des ténèbres", ["Lumière"] = "Rayon sacré",
+}
+Battle.BEATS = { Feu = "Nature", Nature = "Eau", Eau = "Feu", ["Lumière"] = "Ombre", Ombre = "Ciel", Ciel = "Lumière", Terre = "Foudre", Foudre = "Glace", Glace = "Terre" }
+Battle.BEATS2 = { Feu = "Glace", Glace = "Ciel", Ciel = "Terre", Terre = "Feu", Foudre = "Eau", Eau = "Ombre", Ombre = "Nature", Nature = "Lumière", ["Lumière"] = "Foudre" }
 Battle.STRONG, Battle.WEAK = 1.5, 0.67
-Battle.MAX_TURNS = 30
+Battle.STRONG2, Battle.WEAK2 = 1.25, 0.8
+Battle.MAX_TURNS = 40
+Battle.CHARGE_MAX = 5 -- charge nécessaire au spécial
+Battle.CHARGE_BONUS_MUL = 1.25 -- un coup de cette efficacité ou mieux donne +1 de charge en plus
+-- Multiplicateur global de dégâts (les deux camps : ne change aucun rapport de force). Les STATS de D.4 étant imposées (6 à 7 coups pour mettre un pet à terre),
+-- il ramène la durée moyenne d'un combat 3 contre 3 à 8-14 tours (cible du lot 12, mesurée par tests/lot12a.luau) ; à 1 : ~18 tours.
+Battle.DAMAGE_MUL = 1.6
 
--- Type de chacune des 18 espèces (ordre de Config.PETS), 3 par type ; les 3 espèces d'une même rareté forment un TRIANGLE complet de la roue (Feu/Nature/Eau ou Lumière/Ombre/Ciel) : à rareté égale, aucune n'est favorisée.
-Battle.SPECIES_TYPE = { "Ciel", "Ombre", "Lumière", "Eau", "Nature", "Feu", "Lumière", "Ombre", "Ciel", "Feu", "Nature", "Eau", "Ciel", "Ombre", "Lumière", "Nature", "Eau", "Feu" }
--- Compétence de chaque espèce : strike (dégâts x1,8), drain (dégâts x1,1 et soin du tiers), heal (soin 30 %), guard (le prochain coup ne fait que 30 %), stun (dégâts x1 et l'ennemi passe son tour), focus (attaque +25 % pendant 3 tours).
-Battle.SPECIES_SKILL = { "focus", "heal", "guard", "stun", "strike", "drain", "heal", "stun", "guard", "drain", "strike", "heal", "strike", "focus", "stun", "drain", "heal", "guard" }
+-- FUSION LOTS 11 + 12 : modules frères optionnels, lus par `require` seulement dans Roblox (en tests, `script` n'existe pas : le pcall les ignore et les tests
+-- injectent `Battle.PetXp` / `Battle.SPECIES_*` ou fournissent un `script`/`require` simulé).
+local okB, Bestiary = pcall(function()
+	return require(script.Parent:WaitForChild("Bestiary", 10))
+end)
+if not okB or type(Bestiary) ~= "table" then
+	Bestiary = nil
+end
+local okX, PetXp = pcall(function()
+	return require(script.Parent:WaitForChild("PetXp", 10))
+end)
+if not okX or type(PetXp) ~= "table" then
+	PetXp = nil
+end
+Battle.PetXp = PetXp -- source UNIQUE de l'XP et des niveaux (exposant 1,1) ; sans elle, tous les pets sont niveau 1
+
+-- Type et spécial de chaque espèce (indice = Config.PETS) : source unique Bestiary.SPECIES_TYPE / SPECIES_SKILL (78 espèces, 9 types). Bestiary écrit « Plante » ;
+-- le moteur garde la clé `Nature` (affichée « Plante » par Battle.TYPE_LABEL), d'où la conversion. Repli sans Bestiary : les 18 espèces historiques.
+local LEGACY_TYPE = { "Ciel", "Ombre", "Lumière", "Eau", "Nature", "Feu", "Lumière", "Ombre", "Ciel", "Feu", "Nature", "Eau", "Ciel", "Ombre", "Lumière", "Nature", "Eau", "Feu" }
+local LEGACY_SKILL = { "focus", "heal", "guard", "stun", "strike", "drain", "heal", "stun", "guard", "drain", "strike", "heal", "strike", "focus", "stun", "drain", "heal", "guard" }
+Battle.SPECIES_TYPE, Battle.SPECIES_SKILL = {}, {}
+for i, t in ipairs((Bestiary and Bestiary.SPECIES_TYPE) or LEGACY_TYPE) do
+	Battle.SPECIES_TYPE[i] = (t == "Plante") and "Nature" or t
+end
+for i, k in ipairs((Bestiary and Bestiary.SPECIES_SKILL) or LEGACY_SKILL) do
+	Battle.SPECIES_SKILL[i] = k
+end
+-- Spécial « signature » des trois nouveaux types (pour les espèces du lot 11 qui n'en choisissent pas un autre).
+Battle.TYPE_SKILL = { Glace = "freeze", Foudre = "chain", Terre = "bulwark" }
 Battle.SKILLS = {
-	strike = { name = "Coup puissant", cd = 3, mul = 1.6 },
-	drain = { name = "Morsure vampire", cd = 3, mul = 1.1 },
-	heal = { name = "Soin", cd = 4, heal = 0.25 },
-	guard = { name = "Garde", cd = 3, keep = 0.3 },
-	stun = { name = "Étourdissement", cd = 5, mul = 1.0 },
-	focus = { name = "Concentration", cd = 4, boost = 1.4 },
+	strike = { name = "Coup puissant", mul = 2.5 },
+	drain = { name = "Morsure vampire", mul = 1.6, leech = 0.4 }, -- soigne 40 % des dégâts
+	heal = { name = "Soin", heal = 0.35 }, -- 35 % des pv max, retire l'étourdissement
+	guard = { name = "Garde", keep = 0.3, hits = 2 }, -- les 2 prochains coups reçus ne font que 30 %
+	stun = { name = "Étourdissement", mul = 1.2 }, -- l'ennemi passe 1 tour
+	focus = { name = "Concentration", mul = 1.4, boost = 1.4, turns = 3 }, -- puis attaque +40 % pendant 3 tours
+	freeze = { name = "Gel", mul = 1.5, drain = 2 }, -- l'ennemi perd 2 de charge
+	chain = { name = "Chaîne d'éclairs", mul = 1.6, splash = 0.35 }, -- 35 % des dégâts sur le pet suivant en réserve
+	bulwark = { name = "Rempart", mul = 1.3, keep = 0.5, hits = 1 }, -- puis le prochain coup reçu ne fait que 50 %
 }
 
--- Multiplicateur d'efficacité du type `atk` contre le type `def`.
+-- Multiplicateur d'efficacité du type `atk` contre le type `def` : 1,5 / 0,67 (primaire), 1,25 / 0,8 (secondaire), sinon 1.
 function Battle.typeMul(atk, def)
 	if Battle.BEATS[atk] == def then
 		return Battle.STRONG
 	elseif Battle.BEATS[def] == atk then
 		return Battle.WEAK
+	elseif Battle.BEATS2[atk] == def then
+		return Battle.STRONG2
+	elseif Battle.BEATS2[def] == atk then
+		return Battle.WEAK2
 	end
 	return 1
 end
 
--- Générateur déterministe (Park–Miller) : état = entier, retourne (valeur 0..1, nouvel état).
+-- Nom affiché du spécial d'une unité : nom propre au type de l'attaquant (D.3), à défaut celui de la compétence.
+function Battle.specialName(unitOrType, skill)
+	local ty = type(unitOrType) == "table" and unitOrType.type or unitOrType
+	local sk = skill or (type(unitOrType) == "table" and unitOrType.skill)
+	return Battle.SPECIAL_NAME[ty] or (Battle.SKILLS[sk] and Battle.SKILLS[sk].name) or "Spécial"
+end
+
+-- Générateur déterministe de qualité (Park-Miller « MINSTD » révisé : multiplicateur 48271, modulo 2^31 - 1). Le produit reste < 2^47, donc EXACT en
+-- double précision (un LCG 1103515245 dépasserait 2^53 et perdrait des bits). État = entier 1..2^31-2, retourne (valeur 0..1 exclu, nouvel état).
+Battle.RNG_MUL, Battle.RNG_MOD = 48271, 2147483647
 local function nextRnd(state)
-	state = (state * 16807) % 2147483647
+	state = (state * 48271) % 2147483647
 	return state / 2147483647, state
 end
 Battle.nextRnd = nextRnd
+
+-- Graine -> état initial valide (1..2^31-2) puis 4 tirages d'échauffement (des graines voisines ne donnent pas des premiers tirages voisins).
+function Battle.seedState(seed)
+	local n = tonumber(seed) or 1
+	if n ~= n or n == math.huge or n == -math.huge then
+		n = 1
+	end
+	local s = (math.floor(n) % 2147483646) + 1
+	for _ = 1, 4 do
+		local _v
+		_v, s = nextRnd(s)
+	end
+	return s
+end
 
 local SIZE_BONUS = { 0.95, 1, 1.05, 1.10, 1.15 }
 local MUT_BONUS = { 1, 1.03, 1.05, 1.08, 1.10, 1.12 }
@@ -5071,20 +5179,40 @@ function Battle.profileStats(r, profile)
 	return { hp = raw.hp * f, atk = raw.atk * f, spd = raw.spd * f }
 end
 
--- Unité de combat d'un pet { p = espèce, s = taille, m = mutation } ; `scale` : multiplicateur de niveau (adversaires de la tour) ;
--- `tierOverride` : rareté des stats (étage de la tour dont la rareté n'a pas encore d'espèce : apparence d'une rareté inférieure, stats de l'étage).
-function Battle.unit(Config, pet, scale, tierOverride)
-	local def = Config.PETS[pet.p]
-	local bonus = (SIZE_BONUS[pet.s] or 1) * (MUT_BONUS[pet.m] or 1) * (scale or 1)
-	local t = tierOverride or def.tier
-	local st = Battle.STATS[math.min(math.max(t, 1), #Battle.STATS)]
+-- ---------------------------------------------------------------- Niveaux de pets (D.6)
+-- L'XP (slot.x), les niveaux et les gains vivent dans PetXp (source unique) : Battle ne garde que le multiplicateur de stats, délégué à PetXp.statMul.
+Battle.MAX_LEVEL = 20
+Battle.LEVEL_STEP = 0.015
+function Battle.levelMul(level)
+	if Battle.PetXp then
+		return Battle.PetXp.statMul(level)
+	end
+	return 1 + Battle.LEVEL_STEP * (math.min(math.max(level or 1, 1), Battle.MAX_LEVEL) - 1)
+end
+-- Unité de combat à partir de paramètres bruts (aussi utilisée par les tests). spec = { type, skill, tier, level, scale, size, mut, p }.
+function Battle.rawUnit(spec)
+	local t = math.min(math.max(spec.tier or 1, 1), #Battle.STATS)
+	local st = Battle.STATS[t]
+	local level = math.min(math.max(math.floor(spec.level or 1), 1), Battle.MAX_LEVEL)
+	local bonus = (SIZE_BONUS[spec.size or 2] or 1) * (MUT_BONUS[spec.mut or 1] or 1) * (spec.scale or 1) * Battle.levelMul(level)
 	local hp = math.floor(st.hp * bonus + 0.5)
 	return {
-		p = pet.p, s = pet.s, m = pet.m, tier = t,
-		type = Battle.SPECIES_TYPE[pet.p], skill = Battle.SPECIES_SKILL[pet.p],
+		p = spec.p or 1, s = spec.size or 2, m = spec.mut or 1, tier = t, level = level,
+		type = spec.type, skill = spec.skill,
 		maxHp = hp, hp = hp, atk = math.floor(st.atk * bonus + 0.5), spd = st.spd,
-		cd = 0, guard = false, stun = 0, focus = 0,
+		charge = 0, guard = 0, guardKeep = 1, stun = 0, focus = 0,
 	}
+end
+
+-- Unité de combat d'un pet { p = espèce, s = taille, m = mutation, x = XP (optionnel) } ; `scale` : multiplicateur (adversaires de la tour) ;
+-- `tierOverride` : rareté des stats (étage de la tour dont la rareté n'a pas encore d'espèce : apparence d'une rareté inférieure, stats de l'étage).
+-- Niveau d'après `pet.x` (XP de l'emplacement) ; sans `x` : niveau 1 (adversaires, anciens profils).
+function Battle.unit(Config, pet, scale, tierOverride)
+	local def = Config.PETS[pet.p]
+	return Battle.rawUnit({
+		p = pet.p, size = pet.s, mut = pet.m, scale = scale, tier = tierOverride or def.tier,
+		type = Battle.SPECIES_TYPE[pet.p], skill = Battle.SPECIES_SKILL[pet.p], level = Battle.PetXp and Battle.PetXp.level(pet.x) or 1,
+	})
 end
 
 local function copyUnit(u)
@@ -5092,10 +5220,12 @@ local function copyUnit(u)
 	for k, v in pairs(u) do
 		c[k] = v
 	end
+	c.charge, c.guard, c.guardKeep, c.stun, c.focus = c.charge or 0, c.guard or 0, c.guardKeep or 1, c.stun or 0, c.focus or 0
 	return c
 end
 
 -- Nouveau combat. teamA/teamB : listes d'unités (Battle.unit). Camp A = joueur (ou attaquant), camp B = adversaire (ou défenseur).
+-- `seed` : graine injectable ; même graine + mêmes équipes + mêmes actions = même journal.
 function Battle.new(seed, teamA, teamB)
 	local function side(team)
 		local units = {}
@@ -5104,7 +5234,7 @@ function Battle.new(seed, teamA, teamB)
 		end
 		return { units = units, active = 1 }
 	end
-	return { seed = seed, rnd = (math.floor(seed) % 2147483646) + 1, turn = 0, sides = { side(teamA), side(teamB) }, over = false, winner = nil, log = {} }
+	return { seed = seed, rnd = Battle.seedState(seed), turn = 0, sides = { side(teamA), side(teamB) }, over = false, winner = nil, log = {} }
 end
 
 local function alive(u)
@@ -5126,7 +5256,7 @@ local function firstAlive(sd, from)
 	return nil
 end
 
--- Actions : { kind = "attack" } | { kind = "skill" } | { kind = "swap", to = n }. Retourne nil si valide, sinon la raison du refus.
+-- Actions : { kind = "attack" } | { kind = "skill" } (le spécial) | { kind = "swap", to = n }. Retourne nil si valide, sinon la raison du refus.
 function Battle.validate(st, sideIdx, action)
 	if type(action) ~= "table" then
 		return "action invalide"
@@ -5136,8 +5266,8 @@ function Battle.validate(st, sideIdx, action)
 	if action.kind == "attack" then
 		return nil
 	elseif action.kind == "skill" then
-		if u.cd > 0 then
-			return "compétence en recharge"
+		if u.charge < Battle.CHARGE_MAX then
+			return "spécial pas prêt (" .. u.charge .. "/" .. Battle.CHARGE_MAX .. ")"
 		end
 		return nil
 	elseif action.kind == "swap" then
@@ -5152,23 +5282,24 @@ function Battle.validate(st, sideIdx, action)
 	return "action inconnue"
 end
 
--- Action de l'IA (déterministe) : compétence si prête et utile, sinon attaque ; change de pet quand le type est très défavorable et qu'un meilleur existe.
+-- Action de l'IA (déterministe, sans tirage) : spécial dès que la charge est pleine, sauf `heal` tant que les pv > 70 % et `guard` tant que l'ennemi
+-- n'a pas 4+ de charge (il attend alors en attaquant) ; change de pet quand le type adverse est très favorable, que ce pet est blessé et qu'un meilleur existe.
 function Battle.aiAction(st, sideIdx)
 	local sd, foe = st.sides[sideIdx], activeOf(st, 3 - sideIdx)
 	local u = sd.units[sd.active]
-	if Battle.typeMul(foe.type, u.type) > 1 then
+	if Battle.typeMul(foe.type, u.type) >= Battle.STRONG and u.hp < u.maxHp * 0.6 then
 		for i, o in ipairs(sd.units) do
-			if i ~= sd.active and alive(o) and Battle.typeMul(foe.type, o.type) <= 1 and u.hp < u.maxHp * 0.6 then
+			if i ~= sd.active and alive(o) and Battle.typeMul(foe.type, o.type) <= 1 then
 				return { kind = "swap", to = i }
 			end
 		end
 	end
-	if u.cd == 0 then
+	if u.charge >= Battle.CHARGE_MAX then
 		local sk = u.skill
-		if sk == "heal" and u.hp > u.maxHp * 0.6 then
-			return { kind = "attack" }
+		local wait = (sk == "heal" and u.hp > u.maxHp * 0.7) or (sk == "guard" and foe.charge < 4)
+		if not wait then
+			return { kind = "skill" }
 		end
-		return { kind = "skill" }
 	end
 	return { kind = "attack" }
 end
@@ -5178,17 +5309,20 @@ local function emit(st, ev)
 	return ev
 end
 
--- Inflige des dégâts de `side` (attaquant) à l'unité active adverse ; retourne les dégâts.
+-- Inflige des dégâts de `side` (attaquant) à l'unité active adverse ; retourne (dégâts, multiplicateur de type).
 local function strike(st, atkSide, mul)
 	local a, d = activeOf(st, atkSide), activeOf(st, 3 - atkSide)
 	local r
 	r, st.rnd = nextRnd(st.rnd)
 	local tm = Battle.typeMul(a.type, d.type)
 	local atk = a.atk * (a.focus > 0 and Battle.SKILLS.focus.boost or 1)
-	local dmg = math.max(1, math.floor(atk * mul * tm * (0.9 + 0.2 * r) + 0.5))
-	if d.guard then
-		dmg = math.max(1, math.floor(dmg * Battle.SKILLS.guard.keep))
-		d.guard = false
+	local dmg = math.max(1, math.floor(atk * mul * tm * Battle.DAMAGE_MUL * (0.9 + 0.2 * r) + 0.5))
+	if d.guard > 0 then
+		dmg = math.max(1, math.floor(dmg * d.guardKeep))
+		d.guard = d.guard - 1
+		if d.guard == 0 then
+			d.guardKeep = 1
+		end
 	end
 	d.hp = math.max(0, d.hp - dmg)
 	return dmg, tm
@@ -5200,43 +5334,61 @@ local function perform(st, sideIdx, action)
 	if not alive(u) then
 		return
 	end
-	if u.stun > 0 then
+	if u.stun > 0 then -- un pet étourdi passe son tour et ne charge pas
 		u.stun = u.stun - 1
 		emit(st, { t = "stunned", side = sideIdx, p = u.p })
 		return
 	end
 	if action.kind == "swap" then
-		sd.active = action.to
+		sd.active = action.to -- la charge reste attachée au pet
 		emit(st, { t = "swap", side = sideIdx, to = action.to, p = sd.units[action.to].p })
 		return
 	end
 	local foe = activeOf(st, 3 - sideIdx)
-	if action.kind == "skill" and u.cd == 0 then
+	if action.kind == "skill" and u.charge >= Battle.CHARGE_MAX then
 		local sk = Battle.SKILLS[u.skill]
-		u.cd = sk.cd
+		u.charge = u.charge - Battle.CHARGE_MAX
 		if u.skill == "heal" then
 			local h = math.min(u.maxHp - u.hp, math.floor(u.maxHp * sk.heal + 0.5))
 			u.hp = u.hp + h
-			emit(st, { t = "heal", side = sideIdx, amount = h, skill = u.skill, p = u.p })
+			u.stun = 0
+			emit(st, { t = "heal", side = sideIdx, amount = h, skill = u.skill, special = true, name = Battle.specialName(u), p = u.p })
 		elseif u.skill == "guard" then
-			u.guard = true
-			emit(st, { t = "guard", side = sideIdx, skill = u.skill, p = u.p })
-		elseif u.skill == "focus" then
-			u.focus = 3
-			emit(st, { t = "buff", side = sideIdx, skill = u.skill, p = u.p })
+			u.guard, u.guardKeep = sk.hits, sk.keep
+			emit(st, { t = "guard", side = sideIdx, skill = u.skill, special = true, name = Battle.specialName(u), p = u.p })
 		else
 			local dmg, tm = strike(st, sideIdx, sk.mul)
-			emit(st, { t = "hit", side = sideIdx, dmg = dmg, mul = tm, skill = u.skill, hp = foe.hp, p = u.p, target = foe.p })
+			emit(st, { t = "hit", side = sideIdx, dmg = dmg, mul = tm, skill = u.skill, special = true, name = Battle.specialName(u), hp = foe.hp, p = u.p, target = foe.p })
 			if u.skill == "drain" then
-				local h = math.min(u.maxHp - u.hp, math.floor(dmg / 3))
+				local h = math.min(u.maxHp - u.hp, math.floor(dmg * sk.leech))
 				u.hp = u.hp + h
 			elseif u.skill == "stun" and foe.hp > 0 then
 				foe.stun = 1
+			elseif u.skill == "focus" then
+				u.focus = sk.turns + 1 -- décrémenté en fin de ce tour : 3 tours complets ensuite
+				emit(st, { t = "buff", side = sideIdx, skill = u.skill, p = u.p })
+			elseif u.skill == "freeze" and foe.hp > 0 then
+				local lost = math.min(foe.charge, sk.drain)
+				foe.charge = foe.charge - lost
+				emit(st, { t = "discharge", side = sideIdx, amount = lost, target = foe.p, charge = foe.charge })
+			elseif u.skill == "chain" then
+				local fs = st.sides[3 - sideIdx]
+				local nxt = firstAlive(fs, fs.active + 1)
+				if nxt and nxt ~= fs.active then
+					local rs = fs.units[nxt]
+					local sp = math.max(1, math.floor(dmg * sk.splash))
+					rs.hp = math.max(0, rs.hp - sp)
+					emit(st, { t = "splash", side = sideIdx, dmg = sp, to = nxt, hp = rs.hp, p = u.p, target = rs.p })
+				end
+			elseif u.skill == "bulwark" then
+				u.guard, u.guardKeep = sk.hits, sk.keep
+				emit(st, { t = "guard", side = sideIdx, skill = u.skill, p = u.p })
 			end
 		end
 	else
 		local dmg, tm = strike(st, sideIdx, 1)
-		emit(st, { t = "hit", side = sideIdx, dmg = dmg, mul = tm, hp = foe.hp, p = u.p, target = foe.p })
+		u.charge = math.min(Battle.CHARGE_MAX, u.charge + 1 + (tm >= Battle.CHARGE_BONUS_MUL and 1 or 0))
+		emit(st, { t = "hit", side = sideIdx, dmg = dmg, mul = tm, hp = foe.hp, p = u.p, target = foe.p, charge = u.charge })
 	end
 end
 
@@ -5285,7 +5437,7 @@ function Battle.turn(st, actionA, actionB)
 		actionB = { kind = "attack" }
 	end
 	emit(st, { t = "turn", n = st.turn })
-	-- les changements de pet passent en premier, puis la vitesse décide (égalité : camp A)
+	-- les changements de pet passent en premier, puis la vitesse décide (égalité : tirage)
 	local order = { 1, 2 }
 	local acts = { actionA, actionB }
 	local function prio(i)
@@ -5304,11 +5456,8 @@ function Battle.turn(st, actionA, actionB)
 		end
 	end
 	settle(st) -- même si personne n'a pu agir (deux camps déjà à terre)
-	for i = 1, 2 do -- recharges et effets qui s'estompent
+	for i = 1, 2 do -- effets qui s'estompent
 		for _, u in ipairs(st.sides[i].units) do
-			if u.cd > 0 then
-				u.cd = u.cd - 1
-			end
 			if u.focus > 0 then
 				u.focus = u.focus - 1
 			end
@@ -5362,7 +5511,7 @@ function Battle.describe(Config, ev)
 		return "— Tour " .. ev.n .. " —"
 	elseif ev.t == "hit" then
 		local eff = ev.mul > 1 and " (super efficace !)" or (ev.mul < 1 and " (peu efficace)" or "")
-		local sk = ev.skill and (Battle.SKILLS[ev.skill].name .. " ! ") or ""
+		local sk = ev.skill and ((ev.name or Battle.SKILLS[ev.skill].name) .. " ! ") or ""
 		return pre .. who .. " : " .. sk .. ev.dmg .. " dégâts" .. eff
 	elseif ev.t == "heal" then
 		return pre .. who .. " se soigne de " .. ev.amount
@@ -5372,6 +5521,10 @@ function Battle.describe(Config, ev)
 		return pre .. who .. " se concentre (attaque +40 %)"
 	elseif ev.t == "stunned" then
 		return pre .. who .. " est étourdi et passe son tour"
+	elseif ev.t == "discharge" then
+		return pre .. who .. " : l'adversaire perd " .. ev.amount .. " de charge"
+	elseif ev.t == "splash" then
+		return pre .. who .. " : l'éclair touche le pet en réserve (" .. ev.dmg .. " dégâts)"
 	elseif ev.t == "swap" then
 		return pre .. (ev.forced and "envoie " or "change pour ") .. who
 	elseif ev.t == "ko" then
@@ -5382,14 +5535,18 @@ function Battle.describe(Config, ev)
 	return ""
 end
 
--- Vue minimale d'un camp pour l'interface (aucune donnée de graine).
+-- Vue minimale d'un camp pour l'interface (aucune donnée de graine). `cd` = charge restante avant le spécial (0 = prêt) : l'ancien écran qui lit `cd` reste valable.
 function Battle.view(st)
 	local out = { turn = st.turn, over = st.over, winner = st.winner, sides = {} }
 	for i = 1, 2 do
 		local sd = st.sides[i]
 		local units = {}
 		for k, u in ipairs(sd.units) do
-			units[k] = { p = u.p, s = u.s, m = u.m, type = u.type, hp = u.hp, maxHp = u.maxHp, cd = u.cd, skill = u.skill, guard = u.guard, stun = u.stun, focus = u.focus }
+			units[k] = {
+				p = u.p, s = u.s, m = u.m, type = u.type, hp = u.hp, maxHp = u.maxHp, skill = u.skill, level = u.level,
+				charge = u.charge, chargeMax = Battle.CHARGE_MAX, cd = math.max(0, Battle.CHARGE_MAX - u.charge),
+				guard = u.guard > 0, stun = u.stun, focus = u.focus,
+			}
 		end
 		out.sides[i] = { units = units, active = sd.active }
 	end
@@ -5397,7 +5554,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5461,7 +5618,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5802,7 +5959,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -5859,7 +6016,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -5971,7 +6128,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -6178,7 +6335,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6397,7 +6554,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -6935,14 +7092,22 @@ function Assets.new(Config, deps)
 		for idx in pairs(cfg.pets) do
 			idxs[#idxs + 1] = idx
 		end
+		-- Lot 11 : les 60 nouvelles espèces (cfg.petsNew, plafond de Parts propre cfg.petsMaxPartsNew) ; cfg.pets garde la priorité sur un même indice.
+		local newIds = type(cfg.petsNew) == "table" and cfg.petsNew or {}
+		for idx in pairs(newIds) do
+			if cfg.pets[idx] == nil then
+				idxs[#idxs + 1] = idx
+			end
+		end
 		table.sort(idxs, function(a, b)
 			return tostring(a) < tostring(b)
 		end)
 		local entries = {}
 		for _, idx in ipairs(idxs) do
-			local id = cfg.pets[idx]
+			local isNew = cfg.pets[idx] == nil
+			local id = cfg.pets[idx] or newIds[idx]
 			if type(idx) == "number" and Config.PETS[idx] and type(id) == "number" and id > 0 and id % 1 == 0 then
-				entries[#entries + 1] = { key = "p:" .. idx, id = id, cap = cfg.petsMaxParts or cfg.maxParts }
+				entries[#entries + 1] = { key = "p:" .. idx, id = id, cap = isNew and (cfg.petsMaxPartsNew or cfg.petsMaxParts or cfg.maxParts) or (cfg.petsMaxParts or cfg.maxParts) }
 			else
 				A.status["p:" .. tostring(idx)] = { ok = false, reason = "entrée invalide" }
 			end
@@ -7201,7 +7366,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7312,7 +7477,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7516,7 +7681,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -7717,7 +7882,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -8150,7 +8315,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8379,7 +8544,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8443,7 +8608,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -8761,7 +8926,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -9086,7 +9251,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -9244,7 +9409,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9366,7 +9531,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -9752,7 +9917,7 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
 -- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
 -- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
 -- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
@@ -10625,7 +10790,7 @@ function Npc.violations(Config, o, inv, userId)
 end
 
 return Npc
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
 -- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
 -- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
 -- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
@@ -11347,7 +11512,7 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store)
 end
 
 return Rewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
 -- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
 -- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
 -- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
@@ -11508,7 +11673,7 @@ function KioskData.overlap(Map2, cx, cz, r, margin)
 end
 
 return KioskData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
 -- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
 -- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
 -- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
@@ -11629,7 +11794,7 @@ F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", regio
 -- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
 
 return DecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
 -- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
 --
@@ -11732,7 +11897,7 @@ function HouseDecorData.budget(level)
 end
 
 return HouseDecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
 -- Une fiche par achat, clé = clé de Config.PRODUCTS / Config.PASSES. Source : Assets/ACHATS_DEFINITIONS.md (titre <= 28 caractères, définition <= 90).
 -- Champs : cat (catégorie, voir Shop.CATEGORIES), icon (clé de Config.ICONS), title, def (définition courte), detail (durée, ce qui est aléatoire ou fixe, prérequis),
 --   notDo (« ce que l'achat ne fait PAS »), chance (texte « hasard / fixe »), limit ("achat unique" | "aucune limite" | "achat unique par saison"), also (autres catégories à renvoyer, « voir aussi »).
@@ -11977,7 +12142,7 @@ for n = 1, 6 do
 end
 
 return I
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
 -- Ids, prix (R$), catégories et drapeaux de TOUS les achats de la boutique. L'intégrateur appelle `ShopData.merge(Config)` à la fin de Config.lua (ou copie ces champs
 -- dans Config.PRODUCTS / Config.PASSES) : les champs existants (name, emoji, desc, eggTier...) sont conservés, id / robux / cat / random / once / season / eggTier sont posés ici.
 -- Drapeaux : random = achat masqué et refusé si PolicyService restreint ; once = achat unique à vie ; season = achat unique PAR saison (season.premium = n) ;
@@ -12075,7 +12240,7 @@ function D.merge(config, info)
 end
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
 -- Catégories, tri, état « Possédé », règle de mise à niveau (palier inférieur déjà possédé -> seul le complément est visible), prix effectif, visibilité
 -- (id renseigné, PolicyService, espèces publiées), contrôle de place AVANT paiement, débordement, texte des probabilités et reçus (un crédit par reçu).
 -- Décision utilisateur : PLUS DE PLAFOND D'ACHAT. Seuls les achats uniques (`once`, passes, poses) et le passe de saison (une fois par saison) sont limités.
@@ -12668,7 +12833,7 @@ function Shop.grantPass(profil, key)
 end
 
 return Shop
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
 -- LOT 16 (G.5 + addendum B) : logique PURE de la Passe de combat (aucun service Roblox, aucun os.time : le SERVEUR passe `nowUtc` en secondes).
 -- Usage : local S = Season.new(Config, SeasonData). Config fournit TIERS (rareté par NOM) et PETS (espèce Exclusif de la saison).
 -- Champs de profil (profil.season) : { n, xp, day, dayXp, claimedFree, claimedPrem, premium, plus, prev }
@@ -13160,7 +13325,7 @@ function Season.new(Config, SD)
 end
 
 return Season
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
 -- LOT 16 (G.5 + addendum B) : DONNÉES de la Passe de combat (aucune logique, aucun service Roblox). Les raretés sont des NOMS résolus par Config.TIERS (jamais de rang en dur).
 -- Modifiable sans toucher Season.lua : durée, date de début, XP par source, plafond/jour, XP par palier, récompenses des deux pistes, thèmes et espèces de saison.
 local D = {}
@@ -13216,7 +13381,9 @@ D.THEMES = {
 
 -- Espèce Exclusif FIXE de chaque saison (par NOM d'espèce : pas de hasard). Tant que l'espèce n'existe pas dans Config.PETS (rareté Exclusif), Season donne un cosmétique à la place.
 -- Au-delà de la saison 6 : à renseigner (nil = cosmétique de repli).
-D.SPECIES = { "Drake de Braise", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
+-- Lot 11 : la saison 1 donne « Corbeau couronné », l'espèce Exclusif du bestiaire marquée event = "saison1" ; les saisons 2 à 6 gardent leur nom prévu
+-- (espèces pas encore créées : trophée de repli, aucune récompense perdue). Halloween / Noël (Loup-garou citrouille, Renne étoilé) relèvent des événements.
+D.SPECIES = { "Corbeau couronné", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
 
 -- Libellés des cosmétiques (clé -> début du libellé). L'identifiant final est "s<n>_<clé>" : propre à la saison, jamais réutilisé.
 D.COSMETICS = {
@@ -13297,7 +13464,7 @@ D.PREMIUM_TRACK = {
 }
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
 -- LOT 16 : OFFRES CONTEXTUELLES à l'écran, logique PURE (aucun service Roblox, aucune instance, aucun hasard). Une offre à la fois, 3 par session, 300 s d'écart,
 -- jamais pendant une action, jamais juste après un achat, jamais ce que le joueur possède ou ce qui est indisponible. Le client affiche la carte (bouton Fermer toujours
 -- visible) et ouvre la MEME fiche que le kiosque ; le serveur reste seul juge de l'achat. Style : pas de `+=`, pas de `continue`, gardes de type partout.
@@ -13530,7 +13697,7 @@ function Offers.expired(state, now, ctx)
 end
 
 return Offers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
 -- LOT 16 : DONNEES PURES des offres contextuelles à l'écran (une carte à la fois, fermable d'un geste). Aucune instance, aucun service Roblox.
 -- Règles (décisions utilisateur, ACHATS_DEFINITIONS « Règles communes ») : jamais de fausse urgence, aucun minuteur affiché, aucune promesse de gain,
 -- 3 offres par session, 300 s entre deux, aucune offre juste après un achat, jamais ce que le joueur possède, jamais un achat sans id ou masqué (PolicyService),
@@ -13569,7 +13736,7 @@ OffersData.EGG_TEXT = "Un œuf de rareté fixe %s, posé dans ta base. Espèce e
 OffersData.FORBIDDEN_WORDS = { "dernière chance", "dépêche", "vite", "limité", "limitée", "stock", "expire", "plus que", "maintenant ou jamais", "offre spéciale", "promo", "-50", "gratuit à vie", "tu vas obtenir", "garanti !" }
 
 return OffersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
 -- LOT 16 : DONNEES PURES des 8 vendeurs PNJ du hub (un par catégorie de la boutique du kiosque). Aucun service Roblox, aucune instance : testé hors de Roblox
 -- (tests/sellers.luau). Source unique pour ServerScriptService/Sellers (construction, prompts, validation serveur) et pour le client (onglet à ouvrir).
 -- Repères : Nord = -Z, Est = +X. Le « devant » d'un vendeur (étiquette, comptoir) regarde le kiosque central.
@@ -13854,8 +14021,1713 @@ function SellersData.footprints(layout)
 end
 
 return SellersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
+-- Les 78 espèces de Chipe-Œufs. MODULE DE DONNÉES PUR : aucun service Roblox, seulement `Color3.fromRGB` (global Roblox ; simulé par les tests).
+-- Config.PETS = Bestiary.PETS (voir README « Brancher »). L'INDICE D'ESPÈCE EST STABLE POUR TOUJOURS : il est stocké dans les profils (dex, pets, défenses PvP).
+-- Les indices 1 à 18 sont les 18 espèces historiques, identiques octet pour octet à l'ancien Config.PETS (nom, revenu, couleur, repli) : ne jamais les modifier.
+--
+-- Champs d'une entrée (les 7 premiers sont ceux de l'ancien Config.PETS) :
+--   tier   : indice de rareté (1..10, Config.TIERS) ;  emoji, name : affichage ;  inc : revenu/s de base (avant taille, mutation, bonus) ;
+--   color  : couleur du corps du pet PROCÉDURAL (repli) ;  ears : none | round | long | point | floppy ;
+--   extra  : beak | tail | mane | horn | wings | tentacles | antenna | none  (anciens) ou shell | wings2 | heads3 | segments | crystals | chains | halo (lot 11) ;
+--   extra2 : second extra optionnel (même vocabulaire) ;  accent : couleur secondaire (rayures, carapace, cristaux...) ;  glow : l'accent est lumineux (Neon) ;
+--   scale  : taille propre de l'espèce pour le repli procédural (1 par défaut, 0,8 à 1,3) ;  event : espèce d'événement (R9) ;
+--   model  : nom Blender du modèle (Assets-crees.md, lots 22 à 26) ; l'identifiant est dans Bestiary.ASSET_IDS[indice].
+local Bestiary = {}
+
+Bestiary.VERSION = 1
+Bestiary.COUNT = 78
+Bestiary.LEGACY_COUNT = 18
+
+Bestiary.PETS = {
+	{ tier = 1, emoji = "🐥", name = "Poussin", inc = 1, color = Color3.fromRGB(255, 221, 87), ears = "none", extra = "beak" },
+	{ tier = 1, emoji = "🐹", name = "Hamster", inc = 1.5, color = Color3.fromRGB(222, 184, 135), ears = "round", extra = "none" },
+	{ tier = 1, emoji = "🐰", name = "Lapin", inc = 2, color = Color3.fromRGB(245, 245, 245), ears = "long", extra = "tail" },
+	{ tier = 3, emoji = "🐱", name = "Chat", inc = 7.5, color = Color3.fromRGB(150, 150, 160), ears = "point", extra = "tail" },
+	{ tier = 3, emoji = "🐶", name = "Chien", inc = 8, color = Color3.fromRGB(160, 110, 70), ears = "floppy", extra = "tail" },
+	{ tier = 3, emoji = "🦊", name = "Renard", inc = 11, color = Color3.fromRGB(240, 130, 50), ears = "point", extra = "tail" },
+	{ tier = 4, emoji = "🐼", name = "Panda", inc = 33.727, color = Color3.fromRGB(250, 250, 250), ears = "round", extra = "none" },
+	{ tier = 4, emoji = "🦉", name = "Hibou", inc = 52.072, color = Color3.fromRGB(130, 95, 60), ears = "point", extra = "beak" },
+	{ tier = 4, emoji = "🐧", name = "Manchot", inc = 56.694, color = Color3.fromRGB(40, 50, 80), ears = "none", extra = "beak" },
+	{ tier = 5, emoji = "🦁", name = "Lion", inc = 170, color = Color3.fromRGB(230, 180, 80), ears = "round", extra = "mane" },
+	{ tier = 5, emoji = "🐯", name = "Tigre", inc = 287, color = Color3.fromRGB(245, 140, 40), ears = "round", extra = "tail" },
+	{ tier = 5, emoji = "🦄", name = "Licorne", inc = 330, color = Color3.fromRGB(255, 235, 250), ears = "point", extra = "horn" },
+	{ tier = 6, emoji = "🐲", name = "Dragon", inc = 862, color = Color3.fromRGB(210, 50, 50), ears = "none", extra = "wings" },
+	{ tier = 6, emoji = "🦖", name = "T-Rex", inc = 1600, color = Color3.fromRGB(80, 170, 80), ears = "none", extra = "tail" },
+	{ tier = 6, emoji = "🐙", name = "Kraken", inc = 1803, color = Color3.fromRGB(140, 70, 190), ears = "none", extra = "tentacles" },
+	{ tier = 7, emoji = "👽", name = "Alien", inc = 9000, color = Color3.fromRGB(120, 220, 110), ears = "none", extra = "antenna" },
+	{ tier = 7, emoji = "🦑", name = "Calmar stellaire", inc = 13000, color = Color3.fromRGB(60, 190, 200), ears = "none", extra = "tentacles" },
+	{ tier = 7, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
+	{ tier = 1, emoji = "🐭", name = "Souris", inc = 1.1, color = Color3.fromRGB(158, 158, 158), ears = "round", extra = "tail", scale = 0.85, model = "pet_souris" },
+	{ tier = 1, emoji = "🐸", name = "Grenouille", inc = 1.25, color = Color3.fromRGB(92, 184, 92), ears = "none", extra = "none", scale = 0.9, model = "pet_grenouille" },
+	{ tier = 1, emoji = "🦆", name = "Canard", inc = 1.4, color = Color3.fromRGB(242, 242, 242), ears = "none", extra = "beak", accent = Color3.fromRGB(255, 170, 40), model = "pet_canard" },
+	{
+		tier = 1,
+		emoji = "🐌",
+		name = "Escargot",
+		inc = 1.6,
+		color = Color3.fromRGB(201, 166, 107),
+		ears = "none",
+		extra = "shell",
+		accent = Color3.fromRGB(139, 90, 43),
+		scale = 0.8,
+		model = "pet_escargot",
+	},
+	{ tier = 1, emoji = "🦭", name = "Bébé phoque", inc = 1.7, color = Color3.fromRGB(237, 239, 245), ears = "none", extra = "tail", model = "pet_bebe_phoque" },
+	{
+		tier = 1,
+		emoji = "🐝",
+		name = "Abeille",
+		inc = 1.8,
+		color = Color3.fromRGB(255, 210, 63),
+		ears = "none",
+		extra = "wings",
+		accent = Color3.fromRGB(30, 30, 30),
+		scale = 0.8,
+		model = "pet_abeille",
+	},
+	{
+		tier = 1,
+		emoji = "🐞",
+		name = "Coccinelle",
+		inc = 1.9,
+		color = Color3.fromRGB(214, 58, 58),
+		ears = "none",
+		extra = "shell",
+		accent = Color3.fromRGB(30, 30, 30),
+		scale = 0.8,
+		model = "pet_coccinelle",
+	},
+	{ tier = 2, emoji = "🐢", name = "Tortue", inc = 3.6, color = Color3.fromRGB(111, 143, 58), ears = "none", extra = "shell", accent = Color3.fromRGB(90, 62, 40), model = "pet_tortue" },
+	{ tier = 2, emoji = "🐷", name = "Cochon", inc = 3.65, color = Color3.fromRGB(245, 160, 180), ears = "point", extra = "tail", model = "pet_cochon" },
+	{ tier = 2, emoji = "🐑", name = "Mouton", inc = 3.7, color = Color3.fromRGB(250, 250, 250), ears = "floppy", extra = "tail", accent = Color3.fromRGB(58, 58, 66), model = "pet_mouton" },
+	{
+		tier = 2,
+		emoji = "🦔",
+		name = "Hérisson",
+		inc = 3.75,
+		color = Color3.fromRGB(139, 106, 72),
+		ears = "round",
+		extra = "crystals",
+		accent = Color3.fromRGB(90, 60, 40),
+		scale = 0.9,
+		model = "pet_herisson",
+	},
+	{ tier = 2, emoji = "🦇", name = "Chauve-souris", inc = 3.8, color = Color3.fromRGB(58, 46, 74), ears = "point", extra = "wings", scale = 0.9, model = "pet_chauve_souris" },
+	{
+		tier = 2,
+		emoji = "🦜",
+		name = "Perroquet",
+		inc = 3.85,
+		color = Color3.fromRGB(232, 58, 58),
+		ears = "none",
+		extra = "wings",
+		extra2 = "beak",
+		accent = Color3.fromRGB(46, 139, 255),
+		model = "pet_perroquet",
+	},
+	{
+		tier = 2,
+		emoji = "🦎",
+		name = "Salamandre",
+		inc = 3.9,
+		color = Color3.fromRGB(255, 122, 26),
+		ears = "none",
+		extra = "tail",
+		accent = Color3.fromRGB(30, 30, 30),
+		scale = 0.9,
+		model = "pet_salamandre",
+	},
+	{ tier = 2, emoji = "🐇", name = "Lièvre arctique", inc = 3.95, color = Color3.fromRGB(245, 248, 255), ears = "long", extra = "tail", model = "pet_lievre_arctique" },
+	{
+		tier = 2,
+		emoji = "🐿",
+		name = "Écureuil-étincelle",
+		inc = 4.0,
+		color = Color3.fromRGB(200, 116, 42),
+		ears = "point",
+		extra = "tail",
+		accent = Color3.fromRGB(255, 225, 74),
+		scale = 0.9,
+		model = "pet_ecureuil_etincelle",
+	},
+	{ tier = 2, emoji = "🦫", name = "Castor", inc = 4.1, color = Color3.fromRGB(122, 78, 42), ears = "round", extra = "tail", accent = Color3.fromRGB(58, 42, 30), model = "pet_castor" },
+	{
+		tier = 3,
+		emoji = "🐊",
+		name = "Crocodile",
+		inc = 7.8,
+		color = Color3.fromRGB(78, 122, 58),
+		ears = "none",
+		extra = "tail",
+		accent = Color3.fromRGB(201, 192, 138),
+		scale = 1.1,
+		model = "pet_crocodile",
+	},
+	{ tier = 3, emoji = "🐴", name = "Cheval", inc = 9, color = Color3.fromRGB(139, 90, 43), ears = "point", extra = "mane", accent = Color3.fromRGB(42, 30, 20), scale = 1.1, model = "pet_cheval" },
+	{ tier = 3, emoji = "🐺", name = "Loup gris", inc = 10, color = Color3.fromRGB(122, 127, 140), ears = "point", extra = "tail", accent = Color3.fromRGB(214, 214, 222), model = "pet_loup_gris" },
+	{ tier = 3, emoji = "🐨", name = "Koala", inc = 12, color = Color3.fromRGB(158, 158, 168), ears = "round", extra = "none", model = "pet_koala" },
+	{
+		tier = 3,
+		emoji = "🦦",
+		name = "Morse",
+		inc = 13,
+		color = Color3.fromRGB(139, 90, 68),
+		ears = "none",
+		extra = "tail",
+		accent = Color3.fromRGB(245, 235, 215),
+		scale = 1.1,
+		model = "pet_morse",
+	},
+	{
+		tier = 3,
+		emoji = "🦅",
+		name = "Aigle",
+		inc = 14,
+		color = Color3.fromRGB(90, 60, 40),
+		ears = "none",
+		extra = "wings",
+		extra2 = "beak",
+		accent = Color3.fromRGB(250, 250, 250),
+		model = "pet_aigle",
+	},
+	{
+		tier = 3,
+		emoji = "🐟",
+		name = "Anguille électrique",
+		inc = 15,
+		color = Color3.fromRGB(46, 74, 90),
+		ears = "none",
+		extra = "segments",
+		accent = Color3.fromRGB(255, 225, 74),
+		glow = true,
+		model = "pet_anguille_electrique",
+	},
+	{
+		tier = 4,
+		emoji = "🐻",
+		name = "Ours brun",
+		inc = 35,
+		color = Color3.fromRGB(107, 74, 46),
+		ears = "round",
+		extra = "tail",
+		accent = Color3.fromRGB(201, 162, 122),
+		scale = 1.15,
+		model = "pet_ours_brun",
+	},
+	{
+		tier = 4,
+		emoji = "🦈",
+		name = "Requin (d'eau)",
+		inc = 40,
+		color = Color3.fromRGB(90, 127, 168),
+		ears = "none",
+		extra = "tail",
+		accent = Color3.fromRGB(242, 242, 242),
+		scale = 1.1,
+		model = "pet_requin",
+	},
+	{ tier = 4, emoji = "🦎", name = "Caméléon", inc = 47, color = Color3.fromRGB(92, 178, 86), ears = "none", extra = "tail", accent = Color3.fromRGB(255, 210, 63), model = "pet_cameleon" },
+	{
+		tier = 4,
+		emoji = "🦌",
+		name = "Renne",
+		inc = 50,
+		color = Color3.fromRGB(139, 106, 72),
+		ears = "point",
+		extra = "horn",
+		accent = Color3.fromRGB(227, 213, 184),
+		scale = 1.1,
+		model = "pet_renne",
+	},
+	{
+		tier = 4,
+		emoji = "🐏",
+		name = "Bélier ardent",
+		inc = 55,
+		color = Color3.fromRGB(90, 62, 40),
+		ears = "round",
+		extra = "horn",
+		accent = Color3.fromRGB(255, 106, 26),
+		glow = true,
+		model = "pet_belier_ardent",
+	},
+	{
+		tier = 4,
+		emoji = "🐈",
+		name = "Lynx tonnerre",
+		inc = 62,
+		color = Color3.fromRGB(201, 162, 122),
+		ears = "point",
+		extra = "tail",
+		extra2 = "crystals",
+		accent = Color3.fromRGB(255, 225, 74),
+		glow = true,
+		model = "pet_lynx_tonnerre",
+	},
+	{
+		tier = 4,
+		emoji = "🦩",
+		name = "Flamant rose",
+		inc = 70,
+		color = Color3.fromRGB(255, 140, 180),
+		ears = "none",
+		extra = "beak",
+		accent = Color3.fromRGB(30, 30, 30),
+		model = "pet_flamant_rose",
+	},
+	{
+		tier = 5,
+		emoji = "🐆",
+		name = "Léopard des neiges",
+		inc = 180,
+		color = Color3.fromRGB(242, 242, 242),
+		ears = "round",
+		extra = "crystals",
+		extra2 = "tail",
+		accent = Color3.fromRGB(111, 214, 255),
+		glow = true,
+		scale = 1.05,
+		model = "pet_leopard_des_neiges",
+	},
+	{
+		tier = 5,
+		emoji = "🦈",
+		name = "Requin éclair",
+		inc = 220,
+		color = Color3.fromRGB(184, 196, 204),
+		ears = "none",
+		extra = "crystals",
+		extra2 = "tail",
+		accent = Color3.fromRGB(111, 214, 255),
+		glow = true,
+		scale = 1.1,
+		model = "pet_requin_eclair",
+	},
+	{
+		tier = 5,
+		emoji = "🦅",
+		name = "Griffon",
+		inc = 260,
+		color = Color3.fromRGB(201, 162, 122),
+		ears = "point",
+		extra = "wings",
+		extra2 = "beak",
+		accent = Color3.fromRGB(250, 250, 250),
+		scale = 1.15,
+		model = "pet_griffon",
+	},
+	{
+		tier = 5,
+		emoji = "🦣",
+		name = "Mammouth",
+		inc = 300,
+		color = Color3.fromRGB(122, 78, 42),
+		ears = "round",
+		extra = "tail",
+		accent = Color3.fromRGB(245, 235, 215),
+		scale = 1.2,
+		model = "pet_mammouth",
+	},
+	{
+		tier = 5,
+		emoji = "🐎",
+		name = "Pégase",
+		inc = 360,
+		color = Color3.fromRGB(250, 250, 250),
+		ears = "point",
+		extra = "wings",
+		extra2 = "tail",
+		accent = Color3.fromRGB(255, 230, 128),
+		scale = 1.1,
+		model = "pet_pegase",
+	},
+	{
+		tier = 5,
+		emoji = "🐈",
+		name = "Panthère d'ombre",
+		inc = 420,
+		color = Color3.fromRGB(30, 26, 40),
+		ears = "point",
+		extra = "tail",
+		accent = Color3.fromRGB(176, 77, 255),
+		scale = 1.05,
+		model = "pet_panthere_d_ombre",
+	},
+	{
+		tier = 6,
+		emoji = "🔥",
+		name = "Phénix de feu",
+		inc = 1200,
+		color = Color3.fromRGB(255, 106, 26),
+		ears = "none",
+		extra = "wings2",
+		extra2 = "beak",
+		accent = Color3.fromRGB(255, 210, 74),
+		glow = true,
+		scale = 1.1,
+		model = "pet_phenix_de_feu",
+	},
+	{
+		tier = 6,
+		emoji = "🐺",
+		name = "Loup de glace",
+		inc = 1500,
+		color = Color3.fromRGB(214, 228, 240),
+		ears = "point",
+		extra = "crystals",
+		extra2 = "tail",
+		accent = Color3.fromRGB(111, 214, 255),
+		glow = true,
+		scale = 1.1,
+		model = "pet_loup_de_glace",
+	},
+	{
+		tier = 6,
+		emoji = "🐍",
+		name = "Hydre des marais",
+		inc = 1800,
+		color = Color3.fromRGB(62, 110, 58),
+		ears = "none",
+		extra = "heads3",
+		accent = Color3.fromRGB(143, 208, 112),
+		scale = 1.1,
+		model = "pet_hydre_des_marais",
+	},
+	{
+		tier = 6,
+		emoji = "🗿",
+		name = "Golem de pierre",
+		inc = 2100,
+		color = Color3.fromRGB(142, 147, 160),
+		ears = "none",
+		extra = "crystals",
+		accent = Color3.fromRGB(127, 232, 255),
+		glow = true,
+		scale = 1.2,
+		model = "pet_golem_de_pierre",
+	},
+	{
+		tier = 6,
+		emoji = "🐯",
+		name = "Tigre ailé à runes",
+		inc = 2500,
+		color = Color3.fromRGB(255, 140, 42),
+		ears = "round",
+		extra = "wings",
+		extra2 = "halo",
+		accent = Color3.fromRGB(255, 230, 128),
+		glow = true,
+		scale = 1.15,
+		model = "pet_tigre_aile_a_runes",
+	},
+	{
+		tier = 6,
+		emoji = "🐍",
+		name = "Serpent foudre",
+		inc = 3000,
+		color = Color3.fromRGB(42, 42, 90),
+		ears = "none",
+		extra = "segments",
+		accent = Color3.fromRGB(255, 225, 74),
+		glow = true,
+		scale = 1.1,
+		model = "pet_serpent_foudre",
+	},
+	{
+		tier = 7,
+		emoji = "💎",
+		name = "Loup de cristaux",
+		inc = 10000,
+		color = Color3.fromRGB(191, 239, 255),
+		ears = "point",
+		extra = "crystals",
+		extra2 = "tail",
+		accent = Color3.fromRGB(255, 255, 255),
+		glow = true,
+		scale = 1.15,
+		model = "pet_loup_de_cristaux",
+	},
+	{
+		tier = 7,
+		emoji = "🦊",
+		name = "Renard à neuf queues",
+		inc = 14000,
+		color = Color3.fromRGB(255, 224, 122),
+		ears = "point",
+		extra = "tail",
+		extra2 = "segments",
+		accent = Color3.fromRGB(255, 255, 255),
+		scale = 1.1,
+		model = "pet_renard_a_neuf_queues",
+	},
+	{
+		tier = 7,
+		emoji = "🌋",
+		name = "Dragon de lave",
+		inc = 18000,
+		color = Color3.fromRGB(42, 26, 20),
+		ears = "none",
+		extra = "wings",
+		extra2 = "crystals",
+		accent = Color3.fromRGB(255, 48, 32),
+		glow = true,
+		scale = 1.2,
+		model = "pet_dragon_de_lave",
+	},
+	{
+		tier = 7,
+		emoji = "🌩",
+		name = "Oiseau-tonnerre",
+		inc = 22000,
+		color = Color3.fromRGB(42, 58, 106),
+		ears = "none",
+		extra = "wings2",
+		extra2 = "beak",
+		accent = Color3.fromRGB(255, 225, 74),
+		glow = true,
+		scale = 1.15,
+		model = "pet_oiseau_tonnerre",
+	},
+	{
+		tier = 7,
+		emoji = "👹",
+		name = "Chimère d'ombre",
+		inc = 26000,
+		color = Color3.fromRGB(42, 26, 58),
+		ears = "point",
+		extra = "heads3",
+		extra2 = "tail",
+		accent = Color3.fromRGB(138, 60, 255),
+		glow = true,
+		scale = 1.2,
+		model = "pet_chimere_d_ombre",
+	},
+	{
+		tier = 8,
+		emoji = "😈",
+		name = "Démon enchaîné",
+		inc = 80000,
+		color = Color3.fromRGB(30, 20, 40),
+		ears = "point",
+		extra = "chains",
+		extra2 = "horn",
+		accent = Color3.fromRGB(200, 107, 255),
+		scale = 1.2,
+		model = "pet_demon_enchaine",
+	},
+	{
+		tier = 8,
+		emoji = "☀",
+		name = "Phénix solaire",
+		inc = 90000,
+		color = Color3.fromRGB(255, 243, 176),
+		ears = "none",
+		extra = "wings2",
+		extra2 = "halo",
+		accent = Color3.fromRGB(255, 210, 74),
+		glow = true,
+		scale = 1.15,
+		model = "pet_phenix_solaire",
+	},
+	{
+		tier = 8,
+		emoji = "🌊",
+		name = "Léviathan",
+		inc = 100000,
+		color = Color3.fromRGB(26, 58, 106),
+		ears = "none",
+		extra = "segments",
+		accent = Color3.fromRGB(111, 214, 255),
+		scale = 1.25,
+		model = "pet_leviathan",
+	},
+	{
+		tier = 8,
+		emoji = "🔷",
+		name = "Dragon de cristal",
+		inc = 110000,
+		color = Color3.fromRGB(191, 239, 255),
+		ears = "none",
+		extra = "wings",
+		extra2 = "crystals",
+		accent = Color3.fromRGB(255, 255, 255),
+		glow = true,
+		scale = 1.2,
+		model = "pet_dragon_de_cristal",
+	},
+	{
+		tier = 8,
+		emoji = "⛈",
+		name = "Titan de l'orage",
+		inc = 120000,
+		color = Color3.fromRGB(58, 58, 74),
+		ears = "none",
+		extra = "crystals",
+		extra2 = "halo",
+		accent = Color3.fromRGB(255, 225, 74),
+		glow = true,
+		scale = 1.3,
+		model = "pet_titan_de_l_orage",
+	},
+	{
+		tier = 9,
+		emoji = "🎃",
+		name = "Loup-garou citrouille",
+		inc = 220000,
+		color = Color3.fromRGB(255, 122, 26),
+		ears = "point",
+		extra = "tail",
+		accent = Color3.fromRGB(30, 30, 30),
+		scale = 1.1,
+		event = "halloween",
+		model = "pet_loup_garou_citrouille",
+	},
+	{
+		tier = 9,
+		emoji = "⭐",
+		name = "Renne étoilé",
+		inc = 260000,
+		color = Color3.fromRGB(250, 250, 250),
+		ears = "point",
+		extra = "horn",
+		extra2 = "halo",
+		accent = Color3.fromRGB(255, 210, 74),
+		glow = true,
+		scale = 1.1,
+		event = "noel",
+		model = "pet_renne_etoile",
+	},
+	{
+		tier = 9,
+		emoji = "🐦",
+		name = "Corbeau couronné",
+		inc = 300000,
+		color = Color3.fromRGB(20, 20, 20),
+		ears = "none",
+		extra = "wings",
+		extra2 = "beak",
+		accent = Color3.fromRGB(242, 242, 242),
+		event = "saison1",
+		model = "pet_corbeau_couronne",
+	},
+	{
+		tier = 10,
+		emoji = "😇",
+		name = "Séraphin-lion",
+		inc = 550000,
+		color = Color3.fromRGB(255, 243, 176),
+		ears = "round",
+		extra = "wings2",
+		extra2 = "halo",
+		accent = Color3.fromRGB(255, 210, 74),
+		glow = true,
+		scale = 1.2,
+		model = "pet_seraphin_lion",
+	},
+	{
+		tier = 10,
+		emoji = "☁",
+		name = "Dragon céleste",
+		inc = 650000,
+		color = Color3.fromRGB(242, 246, 255),
+		ears = "none",
+		extra = "segments",
+		extra2 = "wings",
+		accent = Color3.fromRGB(255, 230, 128),
+		glow = true,
+		scale = 1.25,
+		model = "pet_dragon_celeste",
+	},
+	{
+		tier = 10,
+		emoji = "🏮",
+		name = "Qilin sacré",
+		inc = 750000,
+		color = Color3.fromRGB(255, 230, 128),
+		ears = "point",
+		extra = "horn",
+		extra2 = "tail",
+		accent = Color3.fromRGB(111, 214, 255),
+		glow = true,
+		scale = 1.15,
+		model = "pet_qilin_sacre",
+	},
+	{
+		tier = 10,
+		emoji = "🐋",
+		name = "Baleine des étoiles",
+		inc = 900000,
+		color = Color3.fromRGB(26, 42, 90),
+		ears = "none",
+		extra = "tail",
+		extra2 = "halo",
+		accent = Color3.fromRGB(255, 255, 255),
+		glow = true,
+		scale = 1.3,
+		model = "pet_baleine_des_etoiles",
+	},
+}
+
+-- Type et compétence FINAUX de chacune des 78 espèces (C.1 avec les 6 changements de type, puis C.2). Vocabulaire du lot 12 (9 types, compétences
+-- strike | drain | heal | guard | stun | focus | freeze | bulwark | chain). À brancher dans Battle.lua AU LOT 12 (le moteur actuel ne connaît ni Plante, Terre,
+-- Glace, Foudre, ni freeze, bulwark, chain).
+Bestiary.SPECIES_TYPE = {
+	"Ciel",
+	"Ombre",
+	"Lumière",
+	"Eau",
+	"Plante",
+	"Feu",
+	"Lumière",
+	"Ombre",
+	"Glace",
+	"Feu",
+	"Plante",
+	"Lumière",
+	"Feu",
+	"Terre",
+	"Eau",
+	"Foudre",
+	"Eau",
+	"Ciel",
+	"Terre",
+	"Eau",
+	"Eau",
+	"Plante",
+	"Glace",
+	"Foudre",
+	"Feu",
+	"Eau",
+	"Terre",
+	"Lumière",
+	"Plante",
+	"Ombre",
+	"Ciel",
+	"Feu",
+	"Glace",
+	"Foudre",
+	"Terre",
+	"Eau",
+	"Terre",
+	"Ombre",
+	"Plante",
+	"Glace",
+	"Ciel",
+	"Foudre",
+	"Terre",
+	"Eau",
+	"Plante",
+	"Glace",
+	"Feu",
+	"Foudre",
+	"Lumière",
+	"Glace",
+	"Foudre",
+	"Ciel",
+	"Terre",
+	"Lumière",
+	"Ombre",
+	"Feu",
+	"Glace",
+	"Plante",
+	"Terre",
+	"Lumière",
+	"Foudre",
+	"Glace",
+	"Lumière",
+	"Feu",
+	"Foudre",
+	"Ombre",
+	"Ombre",
+	"Lumière",
+	"Eau",
+	"Glace",
+	"Foudre",
+	"Feu",
+	"Glace",
+	"Ombre",
+	"Lumière",
+	"Ciel",
+	"Foudre",
+	"Eau",
+}
+Bestiary.SPECIES_SKILL = {
+	"focus",
+	"heal",
+	"guard",
+	"stun",
+	"strike",
+	"drain",
+	"heal",
+	"stun",
+	"freeze",
+	"drain",
+	"strike",
+	"heal",
+	"strike",
+	"bulwark",
+	"stun",
+	"chain",
+	"heal",
+	"focus",
+	"bulwark",
+	"heal",
+	"stun",
+	"guard",
+	"freeze",
+	"chain",
+	"strike",
+	"bulwark",
+	"strike",
+	"heal",
+	"drain",
+	"drain",
+	"focus",
+	"strike",
+	"freeze",
+	"chain",
+	"bulwark",
+	"drain",
+	"strike",
+	"stun",
+	"heal",
+	"bulwark",
+	"focus",
+	"chain",
+	"bulwark",
+	"strike",
+	"stun",
+	"freeze",
+	"strike",
+	"chain",
+	"heal",
+	"freeze",
+	"chain",
+	"focus",
+	"bulwark",
+	"heal",
+	"drain",
+	"drain",
+	"freeze",
+	"heal",
+	"bulwark",
+	"focus",
+	"chain",
+	"freeze",
+	"heal",
+	"strike",
+	"chain",
+	"drain",
+	"stun",
+	"heal",
+	"strike",
+	"freeze",
+	"chain",
+	"drain",
+	"heal",
+	"focus",
+	"heal",
+	"focus",
+	"chain",
+	"heal",
+}
+
+-- Vocabulaire ACTUEL de Battle.lua (6 types Feu/Eau/Nature/Ciel/Ombre/Lumière, 6 compétences) : à brancher dès le lot 11. Les 18 premières valeurs sont
+-- celles de l'ancien Battle.lua ; ensuite Plante et Terre -> Nature, Glace -> Eau, Foudre -> Ciel ; freeze -> stun, bulwark -> guard, chain -> strike.
+Bestiary.SPECIES_TYPE6 = {
+	"Ciel",
+	"Ombre",
+	"Lumière",
+	"Eau",
+	"Nature",
+	"Feu",
+	"Lumière",
+	"Ombre",
+	"Ciel",
+	"Feu",
+	"Nature",
+	"Eau",
+	"Ciel",
+	"Ombre",
+	"Lumière",
+	"Nature",
+	"Eau",
+	"Feu",
+	"Nature",
+	"Eau",
+	"Eau",
+	"Nature",
+	"Eau",
+	"Ciel",
+	"Feu",
+	"Eau",
+	"Nature",
+	"Lumière",
+	"Nature",
+	"Ombre",
+	"Ciel",
+	"Feu",
+	"Eau",
+	"Ciel",
+	"Nature",
+	"Eau",
+	"Nature",
+	"Ombre",
+	"Nature",
+	"Eau",
+	"Ciel",
+	"Ciel",
+	"Nature",
+	"Eau",
+	"Nature",
+	"Eau",
+	"Feu",
+	"Ciel",
+	"Lumière",
+	"Eau",
+	"Ciel",
+	"Ciel",
+	"Nature",
+	"Lumière",
+	"Ombre",
+	"Feu",
+	"Eau",
+	"Nature",
+	"Nature",
+	"Lumière",
+	"Ciel",
+	"Eau",
+	"Lumière",
+	"Feu",
+	"Ciel",
+	"Ombre",
+	"Ombre",
+	"Lumière",
+	"Eau",
+	"Eau",
+	"Ciel",
+	"Feu",
+	"Eau",
+	"Ombre",
+	"Lumière",
+	"Ciel",
+	"Ciel",
+	"Eau",
+}
+Bestiary.SPECIES_SKILL6 = {
+	"focus",
+	"heal",
+	"guard",
+	"stun",
+	"strike",
+	"drain",
+	"heal",
+	"stun",
+	"guard",
+	"drain",
+	"strike",
+	"heal",
+	"strike",
+	"focus",
+	"stun",
+	"drain",
+	"heal",
+	"guard",
+	"guard",
+	"heal",
+	"stun",
+	"guard",
+	"stun",
+	"strike",
+	"strike",
+	"guard",
+	"strike",
+	"heal",
+	"drain",
+	"drain",
+	"focus",
+	"strike",
+	"stun",
+	"strike",
+	"guard",
+	"drain",
+	"strike",
+	"stun",
+	"heal",
+	"guard",
+	"focus",
+	"strike",
+	"guard",
+	"strike",
+	"stun",
+	"stun",
+	"strike",
+	"strike",
+	"heal",
+	"stun",
+	"strike",
+	"focus",
+	"guard",
+	"heal",
+	"drain",
+	"drain",
+	"stun",
+	"heal",
+	"guard",
+	"focus",
+	"strike",
+	"stun",
+	"heal",
+	"strike",
+	"strike",
+	"drain",
+	"stun",
+	"heal",
+	"strike",
+	"stun",
+	"strike",
+	"drain",
+	"heal",
+	"focus",
+	"heal",
+	"focus",
+	"strike",
+	"heal",
+}
+
+Bestiary.TYPES9 = { "Feu", "Eau", "Plante", "Glace", "Foudre", "Terre", "Ciel", "Ombre", "Lumière" }
+Bestiary.SKILLS9 = { "strike", "drain", "heal", "guard", "stun", "focus", "freeze", "bulwark", "chain" }
+Bestiary.EARS = { none = true, round = true, long = true, point = true, floppy = true }
+Bestiary.EXTRAS = {
+	none = true,
+	beak = true,
+	tail = true,
+	mane = true,
+	horn = true,
+	wings = true,
+	tentacles = true,
+	antenna = true,
+	shell = true,
+	wings2 = true,
+	heads3 = true,
+	segments = true,
+	crystals = true,
+	chains = true,
+	halo = true,
+}
+
+-- Modèles Blender (lots 22 à 26, Assets-crees.md) : indice d'espèce -> identifiant. À fusionner dans Config.Assets.pets.
+Bestiary.ASSET_IDS = {
+	[19] = 121918353604833, -- pet_souris
+	[20] = 80608097786383, -- pet_grenouille
+	[21] = 138404880551003, -- pet_canard
+	[22] = 123238807000942, -- pet_escargot
+	[23] = 75024864159884, -- pet_bebe_phoque
+	[24] = 102790865157502, -- pet_abeille
+	[25] = 74508157385626, -- pet_coccinelle
+	[26] = 71698437334028, -- pet_tortue
+	[27] = 120209362861524, -- pet_cochon
+	[28] = 105709605466944, -- pet_mouton
+	[29] = 97141542211988, -- pet_herisson
+	[30] = 122266421105736, -- pet_chauve_souris
+	[31] = 115221106222960, -- pet_perroquet
+	[32] = 132980424707847, -- pet_salamandre
+	[33] = 79906688348888, -- pet_lievre_arctique
+	[34] = 96971397368899, -- pet_ecureuil_etincelle
+	[35] = 120115914325977, -- pet_castor
+	[36] = 96697303823865, -- pet_crocodile
+	[37] = 86271823819731, -- pet_cheval
+	[38] = 136090732261576, -- pet_loup_gris
+	[39] = 120710439000059, -- pet_koala
+	[40] = 82672464753777, -- pet_morse
+	[41] = 117763124286242, -- pet_aigle
+	[42] = 105054666892128, -- pet_anguille_electrique
+	[43] = 100651114276488, -- pet_ours_brun
+	[44] = 74168168387947, -- pet_requin
+	[45] = 120749563740834, -- pet_cameleon
+	[46] = 70993023882099, -- pet_renne
+	[47] = 122718445916817, -- pet_belier_ardent
+	[48] = 71472745327628, -- pet_lynx_tonnerre
+	[49] = 91307041810112, -- pet_flamant_rose
+	[50] = 112945689300548, -- pet_leopard_des_neiges
+	[51] = 132943289797967, -- pet_requin_eclair
+	[52] = 123941036439154, -- pet_griffon
+	[53] = 96254656340357, -- pet_mammouth
+	[54] = 112611957470677, -- pet_pegase
+	[55] = 124133397709207, -- pet_panthere_d_ombre
+	[56] = 86984034098211, -- pet_phenix_de_feu
+	[57] = 85636324524964, -- pet_loup_de_glace
+	[58] = 98592552810541, -- pet_hydre_des_marais
+	[59] = 120688599001908, -- pet_golem_de_pierre
+	[60] = 74511340123175, -- pet_tigre_aile_a_runes
+	[61] = 81853803174670, -- pet_serpent_foudre
+	[62] = 105118496375469, -- pet_loup_de_cristaux
+	[63] = 129679224173562, -- pet_renard_a_neuf_queues
+	[64] = 104000037060333, -- pet_dragon_de_lave
+	[65] = 126200653094441, -- pet_oiseau_tonnerre
+	[66] = 107851856102899, -- pet_chimere_d_ombre
+	[67] = 135810765401304, -- pet_demon_enchaine
+	[68] = 113957945777558, -- pet_phenix_solaire
+	[69] = 85629287384641, -- pet_leviathan
+	[70] = 83608898332171, -- pet_dragon_de_cristal
+	[71] = 124318888739447, -- pet_titan_de_l_orage
+	[72] = 129301589385325, -- pet_loup_garou_citrouille
+	[73] = 91374905696445, -- pet_renne_etoile
+	[74] = 128710572063568, -- pet_corbeau_couronne
+	[75] = 93690713012899, -- pet_seraphin_lion
+	[76] = 106663728573110, -- pet_dragon_celeste
+	[77] = 119496911538130, -- pet_qilin_sacre
+	[78] = 122467490138604, -- pet_baleine_des_etoiles
+}
+-- Correspondance inverse : nom du modèle Blender -> indice d'espèce.
+Bestiary.ASSET_SPECIES = {
+	pet_souris = 19,
+	pet_grenouille = 20,
+	pet_canard = 21,
+	pet_escargot = 22,
+	pet_bebe_phoque = 23,
+	pet_abeille = 24,
+	pet_coccinelle = 25,
+	pet_tortue = 26,
+	pet_cochon = 27,
+	pet_mouton = 28,
+	pet_herisson = 29,
+	pet_chauve_souris = 30,
+	pet_perroquet = 31,
+	pet_salamandre = 32,
+	pet_lievre_arctique = 33,
+	pet_ecureuil_etincelle = 34,
+	pet_castor = 35,
+	pet_crocodile = 36,
+	pet_cheval = 37,
+	pet_loup_gris = 38,
+	pet_koala = 39,
+	pet_morse = 40,
+	pet_aigle = 41,
+	pet_anguille_electrique = 42,
+	pet_ours_brun = 43,
+	pet_requin = 44,
+	pet_cameleon = 45,
+	pet_renne = 46,
+	pet_belier_ardent = 47,
+	pet_lynx_tonnerre = 48,
+	pet_flamant_rose = 49,
+	pet_leopard_des_neiges = 50,
+	pet_requin_eclair = 51,
+	pet_griffon = 52,
+	pet_mammouth = 53,
+	pet_pegase = 54,
+	pet_panthere_d_ombre = 55,
+	pet_phenix_de_feu = 56,
+	pet_loup_de_glace = 57,
+	pet_hydre_des_marais = 58,
+	pet_golem_de_pierre = 59,
+	pet_tigre_aile_a_runes = 60,
+	pet_serpent_foudre = 61,
+	pet_loup_de_cristaux = 62,
+	pet_renard_a_neuf_queues = 63,
+	pet_dragon_de_lave = 64,
+	pet_oiseau_tonnerre = 65,
+	pet_chimere_d_ombre = 66,
+	pet_demon_enchaine = 67,
+	pet_phenix_solaire = 68,
+	pet_leviathan = 69,
+	pet_dragon_de_cristal = 70,
+	pet_titan_de_l_orage = 71,
+	pet_loup_garou_citrouille = 72,
+	pet_renne_etoile = 73,
+	pet_corbeau_couronne = 74,
+	pet_seraphin_lion = 75,
+	pet_dragon_celeste = 76,
+	pet_qilin_sacre = 77,
+	pet_baleine_des_etoiles = 78,
+}
+
+-- Rend la liste des indices d'espèces d'une rareté (ordre croissant d'indice).
+function Bestiary.speciesOfTier(tier)
+	local out = {}
+	for i, d in ipairs(Bestiary.PETS) do
+		if d.tier == tier then
+			out[#out + 1] = i
+		end
+	end
+	return out
+end
+
+-- Description normalisée du repli procédural d'une espèce (jamais nil pour un indice valide) : sert au Builder et aux tests « chaque modèle a un repli ».
+function Bestiary.fallback(idx)
+	local d = Bestiary.PETS[idx]
+	if not d then
+		return nil
+	end
+	return { color = d.color, ears = d.ears, extra = d.extra, extra2 = d.extra2, accent = d.accent, glow = d.glow == true, scale = d.scale or 1 }
+end
+
+return Bestiary
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
+-- Expérience et niveaux des pets : module PUR (aucun service Roblox, aucun require). L'XP est stockée sur l'emplacement du pet : `slot.x` = XP CUMULÉE (entier, champ déjà
+-- créé à 0 par la migration v11 et assaini par Data.merge). Niveau 1 à 20 ; chaque niveau donne +1,5 % de pv et d'attaque (Battle.unit : stat x PetXp.statMul(niveau)).
+-- RÈGLE FERME : l'XP de pet ne s'obtient QU'EN JOUANT (combat PvE/PvP/PNJ, carte Expérience D.5). Aucun produit, aucun pass, aucun reçu ne donne d'XP de pet
+-- (PetXp.award refuse toute source hors liste blanche). L'effet « XP x2 » (série jour 5 = data.xp2Until, carte Effet = data.boosts.xp2) ne se gagne qu'en jouant.
+-- Style : pas de `+=`, pas de `continue`, valeurs douteuses gardées par type avant toute comparaison.
+local PetXp = {}
+
+PetXp.MAX_LEVEL = 20
+PetXp.PER_LEVEL = 0.015 -- +1,5 % pv / attaque par niveau au-dessus de 1
+PetXp.MAX_AWARD = 100000 -- plafond d'un gain unique (anti-valeurs absurdes)
+PetXp.TRAINER_MAX_LEVEL = 100
+PetXp.TRAINER_MAX_XP = 1e9
+
+local function isnum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+-- XP à gagner pour passer du niveau L au niveau L+1 (D.6) : floor(40 x L^1,1). nil au niveau max ou pour un niveau invalide.
+function PetXp.xpTo(L)
+	if not isnum(L) or L < 1 or L >= PetXp.MAX_LEVEL then
+		return nil
+	end
+	L = math.floor(L)
+	return math.floor(40 * L ^ 1.1)
+end
+
+-- Seuils cumulés : CUM[L] = XP totale nécessaire pour ATTEINDRE le niveau L (CUM[1] = 0).
+local CUM = { 0 }
+for L = 1, PetXp.MAX_LEVEL - 1 do
+	CUM[L + 1] = CUM[L] + PetXp.xpTo(L)
+end
+PetXp.CUM = CUM
+PetXp.MAX_XP = CUM[PetXp.MAX_LEVEL] -- XP cumulée au niveau max : l'XP stockée ne dépasse jamais cette valeur
+
+-- XP stockée saine (entier 0..MAX_XP). Idempotent.
+function PetXp.sanitize(x)
+	if not isnum(x) or x < 0 then
+		return 0
+	end
+	x = math.floor(x)
+	if x > PetXp.MAX_XP then
+		return PetXp.MAX_XP
+	end
+	return x
+end
+
+-- (niveau, XP dans le niveau, XP requise pour le suivant | nil au max).
+function PetXp.levelOf(x)
+	x = PetXp.sanitize(x)
+	local lv = 1
+	while lv < PetXp.MAX_LEVEL and x >= CUM[lv + 1] do
+		lv = lv + 1
+	end
+	if lv >= PetXp.MAX_LEVEL then
+		return lv, 0, nil
+	end
+	return lv, x - CUM[lv], PetXp.xpTo(lv)
+end
+
+function PetXp.level(x)
+	local lv = PetXp.levelOf(x)
+	return lv
+end
+
+-- Multiplicateur de pv / attaque d'un niveau : 1 + 0,015 x (niveau - 1). Niveau invalide -> 1 ; plafonné au niveau max.
+function PetXp.statMul(level)
+	if not isnum(level) then
+		return 1
+	end
+	level = math.min(PetXp.MAX_LEVEL, math.max(1, math.floor(level)))
+	return 1 + PetXp.PER_LEVEL * (level - 1)
+end
+
+-- Ajoute `amount` (entier >= 0, plafonné) à l'XP cumulée `x`. Retourne (nouvelle XP, gain réel, niveau avant, niveau après).
+function PetXp.add(x, amount)
+	x = PetXp.sanitize(x)
+	local before = PetXp.level(x)
+	local a = 0
+	if isnum(amount) and amount > 0 then
+		a = math.min(PetXp.MAX_AWARD, math.floor(amount))
+	end
+	local nx = math.min(PetXp.MAX_XP, x + a)
+	return nx, nx - x, before, PetXp.level(nx)
+end
+
+-- Vue pour l'interface : { level, into, need, frac, max }.
+function PetXp.view(x)
+	local lv, into, need = PetXp.levelOf(x)
+	return { level = lv, into = into, need = need, frac = need and (into / need) or 1, max = lv >= PetXp.MAX_LEVEL }
+end
+
+---------------------------------------------------------------- Sources d'XP (D.6)
+-- Liste blanche : on ne gagne de l'XP de pet qu'en jouant. Toute autre source (produit, pass, reçu, cadeau, don) vaut 0.
+PetXp.SOURCES = { pve = true, pvp = true, npc = true, card = true }
+PetXp.NPC_MUL = 0.6 -- D.5 : combats de PNJ, valeurs x0,6
+
+function PetXp.sourceAllowed(source)
+	return type(source) == "string" and PetXp.SOURCES[source] == true
+end
+
+-- XP de base par pet pour un combat terminé (D.6) : PvE gagné = 20 + 5 x étage, perdu = 5 ; PvP gagné 15, perdu 5 ; PNJ = formule PvE (étage 0) x 0,6.
+function PetXp.combat(kind, win, floor)
+	if kind == "pvp" then
+		return win and 15 or 5
+	end
+	if kind == "npc" then
+		return win and math.floor(20 * PetXp.NPC_MUL) or math.floor(5 * PetXp.NPC_MUL)
+	end
+	if kind ~= "pve" then
+		return 0
+	end
+	if not win then
+		return 5
+	end
+	local f = isnum(floor) and math.min(45, math.max(0, math.floor(floor))) or 0
+	return 20 + 5 * f
+end
+
+-- Multiplicateur d'XP de COMBAT : x2 si l'effet « XP x2 » est actif (série : data.xp2Until ; carte Effet : data.boosts.xp2). Jamais vendu. Les cartes Expérience ne sont pas multipliées.
+function PetXp.boostMul(data, now)
+	if type(data) ~= "table" or not isnum(now) then
+		return 1
+	end
+	if isnum(data.xp2Until) and data.xp2Until > now then
+		return 2
+	end
+	if type(data.boosts) == "table" and isnum(data.boosts.xp2) and data.boosts.xp2 > now then
+		return 2
+	end
+	return 1
+end
+
+-- Montant final d'un gain d'XP pour une source donnée : 0 pour toute source non autorisée (produit, Robux...). `mul` (>= 0) ne s'applique qu'aux combats.
+function PetXp.award(source, base, mul)
+	if not PetXp.sourceAllowed(source) or not isnum(base) or base <= 0 then
+		return 0
+	end
+	local m = (source ~= "card" and isnum(mul) and mul > 0) and mul or 1
+	return math.min(PetXp.MAX_AWARD, math.floor(base * m))
+end
+
+-- Donne `amount` d'XP à chacun des emplacements `team` (indices) de `slots` qui contiennent un pet (k == "p"). Retourne la liste { slot, gained, from, to } (niveaux).
+function PetXp.addToTeam(slots, team, amount)
+	local out = {}
+	if type(slots) ~= "table" or type(team) ~= "table" then
+		return out
+	end
+	local seen = {}
+	for _, idx in ipairs(team) do
+		local sl = isnum(idx) and slots[idx] or nil
+		if type(sl) == "table" and sl.k == "p" and not seen[idx] then
+			seen[idx] = true
+			local nx, gained, from, to = PetXp.add(sl.x, amount)
+			sl.x = nx
+			out[#out + 1] = { slot = idx, gained = gained, from = from, to = to }
+		end
+	end
+	return out
+end
+
+-- Vol / vente : un pet vendu ou volé perd son XP chez le propriétaire d'origine ; le voleur garde l'XP du pet volé (D.6). Retourne l'XP à reporter sur le nouvel emplacement.
+function PetXp.carry(slot)
+	if type(slot) == "table" and slot.k == "p" then
+		return PetXp.sanitize(slot.x)
+	end
+	return 0
+end
+
+---------------------------------------------------------------- Niveau de Dresseur (D.6)
+-- trainer = { xp } : total des XP gagnés (tous pets confondus) ; niveau = floor(sqrt(xp / 50)) + 1, max 100. Sert au matchmaking et aux titres : aucun effet sur la force.
+function PetXp.sanitizeTrainer(saved)
+	local xp = 0
+	if type(saved) == "table" and isnum(saved.xp) and saved.xp > 0 then
+		xp = math.min(PetXp.TRAINER_MAX_XP, math.floor(saved.xp))
+	end
+	return { xp = xp }
+end
+
+function PetXp.trainerLevel(xp)
+	if not isnum(xp) or xp < 0 then
+		return 1
+	end
+	return math.min(PetXp.TRAINER_MAX_LEVEL, math.floor(math.sqrt(xp / 50)) + 1)
+end
+
+function PetXp.trainerAdd(trainer, amount)
+	local t = PetXp.sanitizeTrainer(trainer)
+	if isnum(amount) and amount > 0 then
+		t.xp = math.min(PetXp.TRAINER_MAX_XP, t.xp + math.min(PetXp.MAX_AWARD, math.floor(amount)))
+	end
+	return t
+end
+
+return PetXp
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
+-- Récompense AU CHOIX après une victoire PvE (tour des Dresseurs, combats de PNJ) : module PUR (aucun service Roblox). Ne remplace pas Rewards.lua (série / calendrier du lot 15).
+-- Le SERVEUR tire 3 cartes de 3 catégories DIFFÉRENTES (poids : Pièces 30, Expérience 25, Œuf 15, Vitesse 15, Effet 15 ; aux boss, une des 3 est toujours l'Œuf), les enregistre dans
+-- `data.battle.pendingPick = { id, cards, expires, floor, mode }` puis les envoie au client ; le joueur en choisit une en 15 s, sinon la première. Se déconnecter ou relancer ne
+-- retire pas la récompense et n'en retire pas de nouvelle : BattleRewards.offer renvoie le tirage existant.
+-- Aucune carte ne donne de force payante : pièces, XP de pet (PetXp, jamais vendu), un œuf, de la vitesse de piste GAGNÉE, un boost temporaire gagné en jouant (aucun Robux).
+-- Aléa : Park-Miller (48271 mod 2^31-1) en double précision, graine INJECTABLE (le serveur passe une graine issue de Random ; les tests passent une graine fixe).
+-- Config attendu (existant) : towerTier, liveEggTier, nextLiveTier, eggCoinValue (optionnel), TIERS, fmt (optionnel). Pas de += ni de continue (lanceur lupa).
+local BattleRewards = {}
+
+BattleRewards.PICK_SECONDS = 15
+BattleRewards.CARD_COUNT = 3
+-- Poids de tirage (D.5), dans l'ordre de tirage stable.
+BattleRewards.KINDS = { "coins", "xp", "egg", "speed", "effect" }
+BattleRewards.WEIGHTS = { coins = 30, xp = 25, egg = 15, speed = 15, effect = 15 }
+-- Multiplicateurs de valeur : première victoire de l'étage x2, victoire répétée x0,5, combat de PNJ x0,6 (D.5).
+BattleRewards.MODE_MUL = { first = 2, ["repeat"] = 0.5, npc = 0.6, normal = 1 }
+BattleRewards.COINS_MIN = 500
+BattleRewards.COINS_SECONDS = 90 -- « revenus de 1,5 min »
+BattleRewards.MAX_FLOOR = 45
+-- Effets (boosts temporaires) : durée en secondes, non cumulables avec eux-mêmes (prolongent), plafond 30 min. `name` : libellé affiché.
+BattleRewards.EFFECTS = {
+	income2 = { name = "Revenus ×2", seconds = 300, order = 1 },
+	luck10 = { name = "Chance +10 points", seconds = 300, order = 2 },
+	xp2 = { name = "XP ×2", seconds = 600, order = 3 },
+	speed15 = { name = "Vitesse +15 %", seconds = 300, order = 4 },
+}
+BattleRewards.EFFECT_KEYS = { "income2", "luck10", "xp2", "speed15" }
+BattleRewards.BOOST_CAP_SECONDS = 1800
+
+local COINS_CAP, XP_CAP, SPEED_CAP = 1e15, 100000, 1000
+
+local function isnum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function int(v, lo, hi, def)
+	if not isnum(v) then
+		return def
+	end
+	v = math.floor(v)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+
+---------------------------------------------------------------- Aléa : Park-Miller 48271 mod 2^31-1
+local M = 2147483647
+local A = 48271 -- état < 2^31, produit < 2^47 : exact en double précision (pas de 1103515245)
+BattleRewards.MODULUS, BattleRewards.MULTIPLIER = M, A
+
+-- Générateur à graine injectable. Toute graine (même NaN, négative, énorme) devient un état valide 1..M-1.
+function BattleRewards.rng(seed)
+	local s = 1
+	if isnum(seed) then
+		s = math.floor(math.abs(seed)) % (M - 1)
+		if s == 0 then
+			s = 1
+		end
+	end
+	local r = {}
+	function r.next() -- flottant dans ]0 ; 1[
+		s = (s * A) % M
+		return s / M
+	end
+	function r.int(lo, hi) -- entier dans [lo ; hi]
+		return lo + math.floor(r.next() * (hi - lo + 1))
+	end
+	function r.state()
+		return s
+	end
+	return r
+end
+
+---------------------------------------------------------------- Valeurs des cartes (D.5)
+local function modeOf(ctx)
+	local m = type(ctx) == "table" and ctx.mode or nil
+	if m ~= nil and BattleRewards.MODE_MUL[m] then
+		return m
+	end
+	return "normal"
+end
+
+local function scaled(base, mul, lo)
+	return math.max(lo, math.floor(base * mul + 1e-9))
+end
+
+-- Rareté de l'étage ; l'œuf d'un BOSS est d'un cran au-dessus (règle existante, jamais au-delà de 8 : ni Exclusif ni Divin), toujours une rareté publiée.
+function BattleRewards.eggTierFor(Config, floor, boss)
+	local rt = Config.towerTier(math.max(1, floor))
+	local t = rt
+	if boss then
+		t = math.min(8, Config.nextLiveTier(rt) or rt)
+	end
+	return Config.liveEggTier(t)
+end
+
+-- ctx = { floor (0 pour un PNJ), income (revenu par seconde), mode ("first" | "repeat" | "npc" | "normal") }. Retourne une carte { kind, ... } sans état caché.
+function BattleRewards.makeCard(Config, kind, ctx, rnd)
+	local f = int(ctx.floor, 0, BattleRewards.MAX_FLOOR, 0)
+	local mul = BattleRewards.MODE_MUL[modeOf(ctx)]
+	local boss = f >= 5 and f % 5 == 0 and modeOf(ctx) ~= "npc"
+	if kind == "coins" then
+		local income = isnum(ctx.income) and math.max(0, ctx.income) or 0
+		local base = math.max(BattleRewards.COINS_MIN, income * BattleRewards.COINS_SECONDS * (1 + f / 10))
+		return { kind = "coins", amount = math.min(COINS_CAP, scaled(base, mul, 1)) }
+	elseif kind == "xp" then
+		return { kind = "xp", amount = math.min(XP_CAP, scaled(30 + 10 * f, mul, 1)) }
+	elseif kind == "egg" then
+		return { kind = "egg", tier = BattleRewards.eggTierFor(Config, f, boss) }
+	elseif kind == "speed" then
+		return { kind = "speed", amount = math.min(SPEED_CAP, scaled(2 + f // 5, mul, 1)) }
+	end
+	local key = BattleRewards.EFFECT_KEYS[rnd.int(1, #BattleRewards.EFFECT_KEYS)]
+	return { kind = "effect", key = key, seconds = BattleRewards.EFFECTS[key].seconds }
+end
+
+---------------------------------------------------------------- Tirage de 3 cartes
+-- Tirage pondéré SANS remise sur les catégories : 3 catégories distinctes. `boss` : l'Œuf est d'office l'une des 3. L'ordre final est mélangé (Fisher-Yates).
+function BattleRewards.draw(Config, ctx, seed)
+	local rnd = BattleRewards.rng(seed)
+	local f = int(ctx.floor, 0, BattleRewards.MAX_FLOOR, 0)
+	local boss = f >= 5 and f % 5 == 0 and modeOf(ctx) ~= "npc"
+	local pool, kinds = {}, {}
+	for _, k in ipairs(BattleRewards.KINDS) do
+		pool[#pool + 1] = k
+	end
+	local function take(k)
+		for i, v in ipairs(pool) do
+			if v == k then
+				table.remove(pool, i)
+				break
+			end
+		end
+		kinds[#kinds + 1] = k
+	end
+	if boss then
+		take("egg")
+	end
+	while #kinds < BattleRewards.CARD_COUNT do
+		local total = 0
+		for _, k in ipairs(pool) do
+			total = total + BattleRewards.WEIGHTS[k]
+		end
+		local roll, pick = rnd.next() * total, pool[#pool]
+		for _, k in ipairs(pool) do
+			roll = roll - BattleRewards.WEIGHTS[k]
+			if roll < 0 then
+				pick = k
+				break
+			end
+		end
+		take(pick)
+	end
+	for i = #kinds, 2, -1 do
+		local j = rnd.int(1, i)
+		kinds[i], kinds[j] = kinds[j], kinds[i]
+	end
+	local cards = {}
+	for _, k in ipairs(kinds) do
+		cards[#cards + 1] = BattleRewards.makeCard(Config, k, ctx, rnd)
+	end
+	return cards
+end
+
+---------------------------------------------------------------- pendingPick : enregistrement serveur
+-- Crée un tirage enregistrable : { id, cards, expires, floor, mode }. `id` est fourni par le serveur (compteur ou chaîne) ; `now` = os.time().
+function BattleRewards.newPick(Config, ctx, seed, now, id)
+	return {
+		id = id,
+		cards = BattleRewards.draw(Config, ctx, seed),
+		expires = (isnum(now) and now or 0) + BattleRewards.PICK_SECONDS,
+		floor = int(ctx.floor, 0, BattleRewards.MAX_FLOOR, 0),
+		mode = modeOf(ctx),
+	}
+end
+
+-- Point d'entrée serveur après une victoire : s'il existe déjà un pendingPick (assaini), il est RENDU TEL QUEL (pas de nouveau tirage : se reconnecter ou enchaîner
+-- ne fait ni perdre ni refaire la récompense). Retourne (pick, estNouveau). Le serveur doit stocker `pick` dans data.battle.pendingPick quand estNouveau.
+function BattleRewards.offer(Config, pending, ctx, seed, now, id)
+	local clean = BattleRewards.sanitizePending(Config, pending)
+	if clean then
+		return clean, false
+	end
+	return BattleRewards.newPick(Config, ctx, seed, now, id), true
+end
+
+function BattleRewards.expired(pick, now)
+	return type(pick) == "table" and isnum(pick.expires) and isnum(now) and now >= pick.expires
+end
+
+-- Choix du joueur : retourne (carte, auto). Index invalide avant expiration -> nil, "bad_index" (le serveur ignore et NE consomme pas) ; après expiration, la première carte
+-- est donnée d'office (auto = true), quel que soit l'index. id différent -> nil, "bad_id". Le serveur met data.battle.pendingPick = nil AVANT d'attribuer (pas de double gain).
+function BattleRewards.claim(pick, id, index, now)
+	if type(pick) ~= "table" or type(pick.cards) ~= "table" or #pick.cards == 0 then
+		return nil, "no_pick"
+	end
+	if id ~= nil and pick.id ~= id then
+		return nil, "bad_id"
+	end
+	if BattleRewards.expired(pick, now) then
+		return pick.cards[1], true
+	end
+	if isnum(index) and index % 1 == 0 and index >= 1 and index <= #pick.cards then
+		return pick.cards[index], false
+	end
+	return nil, "bad_index"
+end
+
+-- Secondes restantes (>= 0) pour l'affichage client ; à la reconnexion un tirage échu est résolu par claim (auto), un tirage vivant est renvoyé avec son temps restant.
+function BattleRewards.remaining(pick, now)
+	if type(pick) ~= "table" or not isnum(pick.expires) or not isnum(now) then
+		return 0
+	end
+	return math.max(0, pick.expires - now)
+end
+
+---------------------------------------------------------------- Assainissement (profil)
+local function cleanCard(Config, c)
+	if type(c) ~= "table" then
+		return nil
+	end
+	local kind = c.kind
+	if kind == "coins" and isnum(c.amount) then
+		return { kind = "coins", amount = int(c.amount, 1, COINS_CAP, 1) }
+	elseif kind == "xp" and isnum(c.amount) then
+		return { kind = "xp", amount = int(c.amount, 1, XP_CAP, 1) }
+	elseif kind == "speed" and isnum(c.amount) then
+		return { kind = "speed", amount = int(c.amount, 1, SPEED_CAP, 1) }
+	elseif kind == "egg" and isnum(c.tier) then
+		local n = type(Config.TIERS) == "table" and #Config.TIERS or 10
+		return { kind = "egg", tier = int(c.tier, 1, n, 1) }
+	elseif kind == "effect" and type(c.key) == "string" and BattleRewards.EFFECTS[c.key] then
+		return { kind = "effect", key = c.key, seconds = BattleRewards.EFFECTS[c.key].seconds }
+	end
+	return nil
+end
+
+-- Assainit un pendingPick lu dans un profil : table valide (3 cartes de catégories distinctes, expires numérique) ou nil. IDEMPOTENT : sanitize(sanitize(x)) == sanitize(x).
+function BattleRewards.sanitizePending(Config, saved)
+	if type(saved) ~= "table" or type(saved.cards) ~= "table" or not isnum(saved.expires) then
+		return nil
+	end
+	if not (type(saved.id) == "string" or isnum(saved.id)) then
+		return nil
+	end
+	local cards, seen = {}, {}
+	for _, c in ipairs(saved.cards) do
+		local cc = cleanCard(Config, c)
+		if cc and not seen[cc.kind] and #cards < BattleRewards.CARD_COUNT then
+			seen[cc.kind] = true
+			cards[#cards + 1] = cc
+		end
+	end
+	if #cards ~= BattleRewards.CARD_COUNT then
+		return nil
+	end
+	local mode = type(saved.mode) == "string" and BattleRewards.MODE_MUL[saved.mode] and saved.mode or "normal"
+	return { id = saved.id, cards = cards, expires = int(saved.expires, 0, 4e9, 0), floor = int(saved.floor, 0, BattleRewards.MAX_FLOOR, 0), mode = mode }
+end
+
+-- Boosts temporaires : { income2, luck10, xp2, speed15 } = os.time() de fin (entier). Clés inconnues supprimées, valeurs <= 0 supprimées. IDEMPOTENT.
+function BattleRewards.sanitizeBoosts(saved)
+	local out = {}
+	if type(saved) == "table" then
+		for _, key in ipairs(BattleRewards.EFFECT_KEYS) do
+			local v = saved[key]
+			if isnum(v) and v > 0 then
+				out[key] = int(v, 1, 4e9, 1)
+			end
+		end
+	end
+	return out
+end
+
+function BattleRewards.boostActive(boosts, key, now)
+	return type(boosts) == "table" and isnum(boosts[key]) and isnum(now) and boosts[key] > now
+end
+
+-- Applique (ou prolonge) un boost : jamais cumulé avec lui-même, fin plafonnée à now + 30 min. Retourne la nouvelle fin.
+function BattleRewards.applyBoost(boosts, key, seconds, now)
+	local def = BattleRewards.EFFECTS[key]
+	if type(boosts) ~= "table" or not def or not isnum(now) then
+		return nil
+	end
+	local sec = isnum(seconds) and math.max(0, math.min(BattleRewards.BOOST_CAP_SECONDS, seconds)) or def.seconds
+	local cur = isnum(boosts[key]) and boosts[key] or 0
+	local ends = math.min(now + BattleRewards.BOOST_CAP_SECONDS, math.max(now, cur) + sec)
+	boosts[key] = math.floor(ends)
+	return boosts[key]
+end
+
+---------------------------------------------------------------- Attribution (serveur)
+-- data = profil { coins, speed, boosts, slots, battle = { team } } ; hooks.giveEgg(tier) -> true si l'œuf est placé (base pleine -> false : son prix en pièces).
+-- Retourne un résumé { kind, coins?, xp?, speed?, egg?, effect?, converted?, levelUps? } pour l'écran de résultat. N'effleure JAMAIS data.rb ni un champ payant.
+function BattleRewards.grant(Config, data, card, hooks, now, PetXp)
+	local c = cleanCard(Config, card)
+	if not c or type(data) ~= "table" then
+		return nil
+	end
+	local out = { kind = c.kind }
+	if c.kind == "coins" then
+		data.coins = (isnum(data.coins) and data.coins or 0) + c.amount
+		out.coins = c.amount
+	elseif c.kind == "xp" then
+		out.xp = c.amount
+		out.pets = {}
+		if PetXp and type(data.battle) == "table" then
+			out.pets = PetXp.addToTeam(data.slots, data.battle.team, c.amount)
+		end
+	elseif c.kind == "speed" then
+		data.speed = (isnum(data.speed) and data.speed or 0) + c.amount
+		out.speed = c.amount
+	elseif c.kind == "egg" then
+		local placed = type(hooks) == "table" and type(hooks.giveEgg) == "function" and hooks.giveEgg(c.tier) == true
+		if placed then
+			out.egg = c.tier
+		else
+			local price = type(Config.eggCoinValue) == "function" and Config.eggCoinValue(c.tier) or 0
+			data.coins = (isnum(data.coins) and data.coins or 0) + price
+			out.coins, out.converted, out.egg = price, true, c.tier
+		end
+	else
+		if type(data.boosts) ~= "table" then
+			data.boosts = {}
+		end
+		out.effect = c.key
+		out.endsAt = BattleRewards.applyBoost(data.boosts, c.key, c.seconds, now)
+	end
+	return out
+end
+
+---------------------------------------------------------------- Affichage (texte sans état, utilisable par le serveur pour la vue)
+function BattleRewards.cardText(Config, card)
+	local fmt = type(Config) == "table" and type(Config.fmt) == "function" and Config.fmt or tostring
+	local c = type(card) == "table" and card or {}
+	if c.kind == "coins" then
+		return "🪙", "Pièces", "+" .. fmt(c.amount or 0) .. " 🪙"
+	elseif c.kind == "xp" then
+		return "⭐", "Expérience", "+" .. tostring(c.amount or 0) .. " XP à chaque pet de l'équipe"
+	elseif c.kind == "egg" then
+		local t = type(Config) == "table" and type(Config.TIERS) == "table" and Config.TIERS[c.tier or 0] or nil
+		return "🥚", "Œuf", "1 œuf " .. (t and t.name or "?")
+	elseif c.kind == "speed" then
+		return "👟", "Vitesse", "+" .. tostring(c.amount or 0) .. " de vitesse permanente"
+	elseif c.kind == "effect" then
+		local e = BattleRewards.EFFECTS[c.key or ""]
+		return "✨", "Effet", e and (e.name .. " · " .. math.floor(e.seconds / 60) .. " min") or "?"
+	end
+	return "?", "?", ""
+end
+
+-- Vue envoyée au client : AUCUNE donnée de tirage (graine) ; juste de quoi afficher et renvoyer l'index choisi.
+function BattleRewards.view(Config, pick, now)
+	local cards = {}
+	for i, c in ipairs(pick.cards) do
+		local icon, title, desc = BattleRewards.cardText(Config, c)
+		cards[i] = { kind = c.kind, icon = icon, title = title, desc = desc, boss = c.kind == "egg" and pick.floor % 5 == 0 and pick.floor > 0 and pick.mode ~= "npc" or nil }
+	end
+	return { id = pick.id, cards = cards, seconds = BattleRewards.remaining(pick, now), floor = pick.floor }
+end
+
+return BattleRewards
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX122"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX120"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX128"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX126"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -14210,7 +16082,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX127"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -14599,7 +16471,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX125"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX124"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX123"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX131"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX130"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX129"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")
