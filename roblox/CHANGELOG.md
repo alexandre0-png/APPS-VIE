@@ -20,6 +20,7 @@ Patch combiné de la gestion (lots 11, 12 A, 12 B, préparé sur le lot 15) appl
 - **Main** (aucune variable locale de plus : `L15.BR`, `L15.PetXp`, `L15.offerPick`, `L15.sendPick`, `L15.claimPick`) : tour et PNJ gagnés = 3 cartes (tickets d'arène du lot 16 compris), XP de pet à chaque combat (tour, PvP, PNJ), `battlePick` revalidé, boosts `income2` / `luck10` / `speed15` / `xp2`. Carte Œuf : base, sinon sac d'œufs, sinon coffre de débordement (jamais perdu, jamais l'ancien demi-prix).
 - **Lot 11 x lot 16** : œufs Peu commun / Secret / Exclusif / Divin affichés (raretés publiées) ; passe de combat saison 1 : palier 30 premium = « Corbeau couronné » (repli trophée pour les saisons sans espèce) ; calendrier J30 : Secret 15 % actif. Nouveaux tests (13) dans `lot11.luau`.
 - `build_place.py` : `Bestiary`, `PetXp`, `BattleRewards` dans `ReplicatedStorage.Shared`.
+- **Vérifications exécutées** (lupa, pas Lune ni Studio) : `run_tests.py` 3 923 réussis / 0 échec ; `run_lot11.py` 68 / 0 ; `run_lot12a.py` 89 / 0 ; `run_lot12b.py` 91 / 0 ; `check.py` « Aucun problème détecté » ; `build_place.py` régénéré (modules présents dans les deux lieux).
 
 ## LOT 16 intégré : boutique en 8 catégories, passe de combat (60 jours), offres à l'écran, 8 vendeurs PNJ, télémétrie I.2 (2026-11-27)
 
