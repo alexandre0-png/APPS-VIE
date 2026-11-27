@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX47"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX46"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX48"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX47"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1760,6 +1760,26 @@ Config.TOWER = { floors = 45, tiers = { 1, 2, 3, 4, 5, 6, 7, 8, 10 }, teamSize =
 Config.PVP = {
 	seasonSeconds = 7 * 86400, dailyFights = 10, winBase = 25, winMin = 10, winMax = 40, loss = 15, start = 0,
 	rewards = { { trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true }, { trophies = 1000, coins = 400000, eggTier = 6, potion = true } },
+}
+-- Lot 13 (E.2) : duel local amical (même serveur, sable du colisée, aucun trophée). Règles dans ReplicatedStorage/Duel.lua.
+Config.DUEL = { range = 30, requestTimeout = 20, sameTargetCooldown = 120, rewardedPerDay = 10, samePairRewardedPerDay = 3, turnSeconds = 10, afkTurnsToForfeit = 2, coinsWinMins = 1, coinsLoseMins = 0.25,
+	-- intégration lot 13 : écart des duellistes sur le sable (±10 en X), rayon des spectateurs, délai de l'intro avant le 1er tour, tours minimum pour être payé après un départ / abandon
+	sandOffset = 10, spectatorRange = 90, introSeconds = 3, earlyMinTurns = 3 }
+-- Lot 13 (E.4) : ligues (trophées min, liste triée) et saison (remise partielle ; récompenses étendues, eggTier = indice de Config.TIERS).
+Config.LEAGUES = {
+	{ id = "bronze", name = "Bronze", icon = "🥉", min = 0, color = Color3.fromRGB(205, 127, 50) },
+	{ id = "argent", name = "Argent", icon = "🥈", min = 300, color = Color3.fromRGB(200, 205, 215) },
+	{ id = "or", name = "Or", icon = "🥇", min = 600, color = Color3.fromRGB(255, 205, 60) },
+	{ id = "diamant", name = "Diamant", icon = "💎", min = 1000, color = Color3.fromRGB(110, 220, 255) },
+	{ id = "champion", name = "Champion", icon = "👑", min = 1500, color = Color3.fromRGB(255, 90, 90) },
+}
+Config.LEAGUE_SEASON = {
+	resetAbove = 300, resetFactor = 0.6,
+	rewards = {
+		{ trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true },
+		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 1000000, eggTier = 7, potion = true, title = "Champion de la saison", provisional = true },
+	},
+	-- PROVISOIRE : le montant du palier 1500 (1 000 000 pièces + potion) a été inventé par la préparation (absent de la spec) ; à valider (LOT13_ECARTS.md).
 }
 function Config.pvpSeason(now)
 	return math.floor(now / Config.PVP.seasonSeconds)
@@ -15726,8 +15746,480 @@ function BattleRewards.view(Config, pick, now)
 end
 
 return BattleRewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX46"><Properties><string name="Name">Duel</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Duel   (lot 13, E.1 E.2 E.4, B.4)
+-- Règles PURES du duel local et des ligues (aucun service Roblox, aucun require, horloge injectée, jamais d'erreur sur entrée invalide). Pas de += ni de continue (lanceur lupa).
+-- Le serveur (Main.server.lua) fait les effets (placement sur le sable, Battle.turn, notifications) ; ce module décide.
+--   Duel.canChallenge(ctx, cfg)        -> ok, raison, côté ("a" défieur | "b" défié)   [6 refus de E.2 + soi-même + occupé]
+--   Duel.newBook() / request / answer / decline / expire / finish   -> carnet des défis (délai 20 s, un seul accepté)
+--   Duel.newMatch / noteTurn            -> compteur d'inactivité : 2 tours sans action = forfait
+--   Duel.settle(duelA, duelB, ...)      -> récompenses (10/jour, 3/paire/jour), ratio V/D ; AUCUN trophée
+--   Duel.percent / record / recordFor   -> ratio « 124 V / 37 D (77 %) » (même formule que IntroPlan)
+--   Duel.league / seasonReset / seasonReward / introSide -> ligues, saison, données d'intro B.4
+local Duel = {}
+
+Duel.CAP = 10000000
+Duel.REASONS = { "self", "range", "egg", "chased", "dialogue", "castle", "newbie", "busy", "flying", "cinematic" }
+
+local DEFAULT = { range = 30, requestTimeout = 20, sameTargetCooldown = 120, rewardedPerDay = 10, samePairRewardedPerDay = 3, turnSeconds = 10, afkTurnsToForfeit = 2, coinsWinMins = 1, coinsLoseMins = 0.25, maxPendingPerTarget = 3, maxCoins = 1e12 }
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function cfgOf(cfg)
+	local c = {}
+	for k, v in pairs(DEFAULT) do
+		c[k] = v
+	end
+	if type(cfg) == "table" then
+		for k, v in pairs(cfg) do
+			if DEFAULT[k] ~= nil and isNum(v) then
+				c[k] = v
+			end
+		end
+	end
+	return c
+end
+
+local function count(v)
+	if not isNum(v) or v < 0 then
+		return 0
+	end
+	return math.min(Duel.CAP, math.floor(v))
+end
+
+-- ---------------------------------------------------------------- Ratio
+function Duel.percent(wins, losses)
+	local w, l = count(wins), count(losses)
+	return math.floor(100 * w / math.max(1, w + l) + 0.5)
+end
+
+function Duel.record(wins, losses)
+	local w, l = count(wins), count(losses)
+	return w .. " V / " .. l .. " D (" .. Duel.percent(w, l) .. " %)"
+end
+
+-- Victoires/défaites selon le mode (B.4). profile = battle (données du joueur) ; PNJ : passer { wins, losses } fixes au lieu d'un profil.
+-- pvp = battle.pvp.wins/losses + battle.live.w/l ; duel = battle.duel.w/l ; pve = battle.pve.w/l ; tower = étage atteint (V = étages franchis, D = 0).
+function Duel.recordFor(mode, battle)
+	local b = type(battle) == "table" and battle or {}
+	if mode == "duel" then
+		local d = type(b.duel) == "table" and b.duel or {}
+		return count(d.w), count(d.l)
+	elseif mode == "pvp" then
+		local p = type(b.pvp) == "table" and b.pvp or {}
+		local lv = type(b.live) == "table" and b.live or {}
+		return math.min(Duel.CAP, count(p.wins) + count(lv.w)), math.min(Duel.CAP, count(p.losses) + count(lv.l))
+	elseif mode == "pve" then
+		local d = type(b.pve) == "table" and b.pve or {}
+		return count(d.w), count(d.l)
+	elseif mode == "tower" then
+		return count(b.best), 0
+	elseif mode == "npc" then
+		return count(b.wins), count(b.losses)
+	end
+	return 0, 0
+end
+
+-- ---------------------------------------------------------------- Ligues
+-- leagues = Config.LEAGUES (liste triée par min croissant). Retourne l'entrée de la ligue (la plus haute dont min <= trophées), jamais nil si la liste est valide.
+function Duel.league(leagues, trophies)
+	local t = isNum(trophies) and math.max(0, math.floor(trophies)) or 0
+	local best, idx
+	if type(leagues) ~= "table" then
+		return nil, 0
+	end
+	for i = 1, #leagues do
+		local L = leagues[i]
+		if type(L) == "table" and isNum(L.min) and t >= L.min and (best == nil or L.min >= best.min) then
+			best, idx = L, i
+		end
+	end
+	return best, idx or 0
+end
+
+-- Texte de ligue pour l'intro (IntroPlan : 16 caractères max) : « 🥇 Or ».
+function Duel.leagueText(leagues, trophies)
+	local L = Duel.league(leagues, trophies)
+	if not L then
+		return ""
+	end
+	return ((type(L.icon) == "string" and L.icon ~= "") and (L.icon .. " ") or "") .. tostring(L.name)
+end
+
+-- Remise partielle de saison (E.4) : sous 300 inchangé ; au-delà trophées = max(300, floor(trophées x 0,6)).
+function Duel.seasonReset(trophies, from, factor)
+	local t = isNum(trophies) and math.max(0, math.floor(trophies)) or 0
+	local f = isNum(from) and from or 300
+	local k = isNum(factor) and factor or 0.6
+	if t <= f then
+		return t
+	end
+	return math.max(f, math.floor(t * k))
+end
+
+-- Meilleure récompense dont le seuil est atteint (rewards triées par trophées croissants).
+function Duel.seasonReward(rewards, trophies)
+	local t = isNum(trophies) and trophies or 0
+	local best
+	if type(rewards) ~= "table" then
+		return nil
+	end
+	for i = 1, #rewards do
+		local r = rewards[i]
+		if type(r) == "table" and isNum(r.trophies) and t >= r.trophies and (best == nil or r.trophies >= best.trophies) then
+			best = r
+		end
+	end
+	return best
+end
+
+-- Un côté de l'intro (B.4) à passer à IntroPlan.plan : { name, userId, wins, losses, league, trophies, pets }.
+function Duel.introSide(mode, battle, base, leagues)
+	local w, l = Duel.recordFor(mode, battle)
+	local b = type(base) == "table" and base or {}
+	local tr = count(b.trophies)
+	return { name = b.name, userId = b.userId, wins = w, losses = l, league = Duel.leagueText(leagues, tr), trophies = tr, pets = b.pets }
+end
+
+-- ---------------------------------------------------------------- Défi : 6 cas de refus (E.2) + soi-même + occupé
+-- ctx = { a = { userId, carryingEgg, chased, inDialogue, inCastle, newbie, busy, flying, inCinematic }, b = { même forme }, distance = studs }
+-- Intégration lot 13 : `flying` (vol d'œuf en cours) et `inCinematic` (grande éclosion) ajoutés après les 6 cas de E.2.
+-- newbie = protection débutant ACTIVE (déjà non désactivée). Retourne true | false, raison, "a"|"b".
+function Duel.canChallenge(ctx, cfg)
+	local c = cfgOf(cfg)
+	if type(ctx) ~= "table" or type(ctx.a) ~= "table" or type(ctx.b) ~= "table" then
+		return false, "busy", "a"
+	end
+	if ctx.a.userId ~= nil and ctx.a.userId == ctx.b.userId then
+		return false, "self", "a"
+	end
+	if not isNum(ctx.distance) or ctx.distance > c.range or ctx.distance < 0 then
+		return false, "range", "b"
+	end
+	local keys = { { "carryingEgg", "egg" }, { "chased", "chased" }, { "inDialogue", "dialogue" }, { "inCastle", "castle" }, { "newbie", "newbie" }, { "busy", "busy" }, { "flying", "flying" }, { "inCinematic", "cinematic" } }
+	local sides = { { "a", ctx.a }, { "b", ctx.b } }
+	for k = 1, #keys do
+		for s = 1, 2 do
+			if sides[s][2][keys[k][1]] == true then
+				return false, keys[k][2], sides[s][1]
+			end
+		end
+	end
+	return true, "", ""
+end
+
+-- ---------------------------------------------------------------- Carnet des défis
+-- book = { pending = { [challengerId] = { from, to, t } }, last = { ["from>to"] = t }, active = { [userId] = duelId }, nextId }
+function Duel.newBook()
+	return { pending = {}, last = {}, active = {}, nextId = 1 }
+end
+
+local function pendingFor(book, to)
+	local n = 0
+	for _, p in pairs(book.pending) do
+		if p.to == to then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Envoie un défi. ctx comme canChallenge (+ ctx.a.userId, ctx.b.userId nombres). Retourne true | false, raison.
+function Duel.request(book, ctx, now, cfg)
+	local c = cfgOf(cfg)
+	if type(book) ~= "table" or type(ctx) ~= "table" or type(ctx.a) ~= "table" or type(ctx.b) ~= "table" or not isNum(ctx.a.userId) or not isNum(ctx.b.userId) or not isNum(now) then
+		return false, "busy"
+	end
+	local from, to = ctx.a.userId, ctx.b.userId
+	if book.active[from] or book.active[to] then
+		return false, "busy"
+	end
+	local ok, why = Duel.canChallenge(ctx, c)
+	if not ok then
+		return false, why
+	end
+	local last = book.last[from .. ">" .. to]
+	if last and now - last < c.sameTargetCooldown then
+		return false, "cooldown"
+	end
+	local mine = book.pending[from]
+	if mine and now - mine.t < c.requestTimeout then
+		return false, "pendingOut"
+	end
+	if pendingFor(book, to) >= c.maxPendingPerTarget then
+		return false, "crowded"
+	end
+	book.pending[from] = { from = from, to = to, t = now }
+	book.last[from .. ">" .. to] = now
+	return true, ""
+end
+
+-- Le défié accepte le défi de `from`. Un seul défi accepté : tous les autres défis qui touchent l'un des deux sont annulés (retournés).
+-- Retourne true, duelId, annulés | false, raison.
+function Duel.answer(book, to, from, accept, now, cfg, ctx)
+	local c = cfgOf(cfg)
+	local p = type(book) == "table" and isNum(from) and book.pending[from] or nil
+	if not p or p.to ~= to or not isNum(now) then
+		return false, "none"
+	end
+	if now - p.t > c.requestTimeout then
+		book.pending[from] = nil
+		return false, "expired"
+	end
+	if not accept then
+		book.pending[from] = nil
+		return false, "declined"
+	end
+	if book.active[from] or book.active[to] then
+		book.pending[from] = nil
+		return false, "busy"
+	end
+	if ctx ~= nil then
+		local ok, why = Duel.canChallenge(ctx, c) -- états relus à l'acceptation
+		if not ok then
+			book.pending[from] = nil
+			return false, why
+		end
+	end
+	book.pending[from] = nil
+	local id = book.nextId
+	book.nextId = id + 1
+	book.active[from], book.active[to] = id, id
+	local cancelled = {}
+	for k, q in pairs(book.pending) do
+		if q.from == from or q.to == from or q.from == to or q.to == to then
+			cancelled[#cancelled + 1] = { from = q.from, to = q.to }
+			book.pending[k] = nil
+		end
+	end
+	return true, id, cancelled
+end
+
+function Duel.decline(book, to, from, now, cfg)
+	return Duel.answer(book, to, from, false, now, cfg)
+end
+
+-- Défis expirés (à appeler toutes les secondes) : retourne la liste { from, to } retirée.
+function Duel.expire(book, now, cfg)
+	local c = cfgOf(cfg)
+	local out = {}
+	if type(book) ~= "table" or not isNum(now) then
+		return out
+	end
+	for k, p in pairs(book.pending) do
+		if now - p.t > c.requestTimeout then
+			out[#out + 1] = { from = p.from, to = p.to }
+			book.pending[k] = nil
+		end
+	end
+	return out
+end
+
+-- Fin ou départ : libère les deux joueurs et retire leurs défis en attente (joueur qui quitte).
+function Duel.finish(book, userId)
+	if type(book) ~= "table" then
+		return
+	end
+	local id = book.active[userId]
+	if id then
+		for u, v in pairs(book.active) do
+			if v == id then
+				book.active[u] = nil
+			end
+		end
+	end
+	for k, p in pairs(book.pending) do
+		if p.from == userId or p.to == userId then
+			book.pending[k] = nil
+		end
+	end
+end
+
+-- Purge les anciennes dates de cooldown (évite la croissance de la table).
+function Duel.prune(book, now, cfg)
+	local c = cfgOf(cfg)
+	if type(book) ~= "table" or not isNum(now) then
+		return
+	end
+	for k, t in pairs(book.last) do
+		if now - t >= c.sameTargetCooldown then
+			book.last[k] = nil
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- Tours et forfait
+function Duel.newMatch(idA, idB)
+	return { a = idA, b = idB, afkA = 0, afkB = 0, turns = 0, over = false, winner = nil, reason = "" }
+end
+
+-- Enregistre un tour : actedA/actedB = le joueur a choisi une action avant la fin des 10 s. Une action remet le compteur à 0.
+-- Retourne "continue" | "forfeitA" | "forfeitB" | "cancelled" (les deux inactifs en même temps : duel annulé, ni vainqueur ni récompense).
+function Duel.noteTurn(m, actedA, actedB, cfg)
+	local c = cfgOf(cfg)
+	if type(m) ~= "table" or m.over then
+		return "continue"
+	end
+	m.turns = m.turns + 1
+	m.afkA = actedA and 0 or (m.afkA + 1)
+	m.afkB = actedB and 0 or (m.afkB + 1)
+	local fa, fb = m.afkA >= c.afkTurnsToForfeit, m.afkB >= c.afkTurnsToForfeit
+	if fa and fb then
+		m.over, m.reason = true, "cancelled"
+		return "cancelled"
+	elseif fa then
+		m.over, m.winner, m.reason = true, "b", "forfeit"
+		return "forfeitA"
+	elseif fb then
+		m.over, m.winner, m.reason = true, "a", "forfeit"
+		return "forfeitB"
+	end
+	return "continue"
+end
+
+-- ---------------------------------------------------------------- Récompenses et ratio
+-- Profil de duel assaini : { w, l, day, n, pairs = { [idAdversaire texte] = nombre } }. Les paires ne contiennent que des duels récompensés (<= rewardedPerDay clés).
+function Duel.cleanState(raw, today)
+	local d = type(raw) == "table" and raw or {}
+	local day = isNum(d.day) and math.floor(d.day) or 0
+	local out = { w = count(d.w), l = count(d.l), day = day, n = 0, pairs = {} }
+	if day == today then
+		out.n = math.min(1000, count(d.n))
+		if type(d.pairs) == "table" then
+			local k = 0
+			for key, v in pairs(d.pairs) do
+				if type(key) == "string" and isNum(v) and v >= 1 and k < 20 then
+					out.pairs[key] = math.min(1000, math.floor(v))
+					k = k + 1
+				end
+			end
+		end
+	else
+		out.day = isNum(today) and today or day
+	end
+	return out
+end
+
+function Duel.coins(incomePerSec, minutes, cfg)
+	local c = cfgOf(cfg)
+	if not isNum(incomePerSec) or incomePerSec <= 0 or not isNum(minutes) or minutes <= 0 then
+		return 0
+	end
+	return math.min(c.maxCoins, math.floor(incomePerSec * 60 * minutes))
+end
+
+-- Solde un duel pour UN joueur. state = battle.duel (modifié), oppId = userId adversaire, outcome = "win" | "loss" | "draw", now, incomePerSec.
+-- Le ratio (w/l) est toujours compté (sauf annulé) ; les pièces seulement si quota du jour (10) ET quota de la paire (3) non atteints.
+-- Retourne { rewarded, coins, reason, won }. NE TOUCHE JAMAIS aux trophées (aucun champ trophée n'existe ici).
+function Duel.settle(state, oppId, outcome, now, incomePerSec, cfg)
+	local c = cfgOf(cfg)
+	local today = isNum(now) and math.floor(now / 86400) or 0
+	local clean = Duel.cleanState(state, today)
+	if type(state) == "table" then
+		state.w, state.l, state.day, state.n, state.pairs = clean.w, clean.l, clean.day, clean.n, clean.pairs
+	else
+		state = clean
+	end
+	if outcome ~= "win" and outcome ~= "loss" then
+		return { rewarded = false, coins = 0, reason = "draw", won = false }
+	end
+	local won = outcome == "win"
+	if won then
+		state.w = math.min(Duel.CAP, state.w + 1)
+	else
+		state.l = math.min(Duel.CAP, state.l + 1)
+	end
+	local key = tostring(isNum(oppId) and math.floor(oppId) or 0)
+	local pair = state.pairs[key] or 0
+	if state.n >= c.rewardedPerDay then
+		return { rewarded = false, coins = 0, reason = "dayCap", won = won }
+	end
+	if pair >= c.samePairRewardedPerDay then
+		return { rewarded = false, coins = 0, reason = "pairCap", won = won }
+	end
+	state.n = state.n + 1
+	state.pairs[key] = pair + 1
+	return { rewarded = true, coins = Duel.coins(incomePerSec, won and c.coinsWinMins or c.coinsLoseMins, c), reason = "", won = won }
+end
+
+-- ---------------------------------------------------------------- Vues en miroir (intégration lot 13)
+-- Battle.view et les événements sont écrits du point de vue du camp 1 (le défieur) ; le défié reçoit la vue inversée (son équipe en camp 1).
+function Duel.mirrorView(v)
+	if type(v) ~= "table" or type(v.sides) ~= "table" then
+		return v
+	end
+	local out = {}
+	for k, x in pairs(v) do
+		out[k] = x
+	end
+	out.sides = { v.sides[2], v.sides[1] }
+	if v.winner == 1 or v.winner == 2 then
+		out.winner = 3 - v.winner
+	end
+	return out
+end
+
+function Duel.mirrorEvents(events)
+	local out = {}
+	if type(events) ~= "table" then
+		return out
+	end
+	for i, ev in ipairs(events) do
+		local c = {}
+		if type(ev) == "table" then
+			for k, x in pairs(ev) do
+				c[k] = x
+			end
+			if c.side == 1 or c.side == 2 then
+				c.side = 3 - c.side
+			end
+		end
+		out[i] = c
+	end
+	return out
+end
+
+-- Intention reçue du client (texte) -> action Battle, ou nil (« attack », « skill », « swap1 » à « swap3 »).
+function Duel.parseAction(arg)
+	if arg == "attack" or arg == "skill" then
+		return { kind = arg }
+	end
+	if type(arg) == "string" and #arg <= 8 then
+		local n = tonumber(arg:match("^swap(%d)$"))
+		if n then
+			return { kind = "swap", to = n }
+		end
+	end
+	return nil
+end
+
+-- Pièces réellement versées : un duel terminé par départ ou abandon avant `minTurns` tours ne paie personne (anti-collusion : un complice qui quitte
+-- tout de suite n'offre rien). Le ratio V/D et les quotas restent comptés par Duel.settle.
+function Duel.payable(res, turns, early, minTurns)
+	if type(res) ~= "table" or not res.rewarded or not isNum(res.coins) or res.coins <= 0 then
+		return 0
+	end
+	if early == true and (not isNum(turns) or turns < (isNum(minTurns) and minTurns or 3)) then
+		return 0
+	end
+	return res.coins
+end
+
+-- Aide : issue d'un match vue de chaque côté ("win"/"loss"/"draw").
+function Duel.outcomes(m)
+	if type(m) ~= "table" or not m.over or m.winner == nil then
+		return "draw", "draw"
+	end
+	if m.winner == "a" then
+		return "win", "loss"
+	end
+	return "loss", "win"
+end
+
+return Duel
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX60"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX48"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX61"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX49"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15798,6 +16290,7 @@ local L15 = {
 	BR = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleRewards")),
 	PetXp = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PetXp")),
 	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
+	Duel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Duel")), -- lot 13 : duel local, ligues, remise de saison (module pur) ; état des duels dans L15.duel (bloc « Duel local »)
 	remote = newRemote("Npc"), books = {}, assets = nil, decorKey = nil,
 }
 -- Construit (ou reconstruit : idempotent) le kiosque dans World. assets = nil : repli procédural immédiat, sans avertissement.
@@ -16233,13 +16726,14 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
-		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
+		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)),
+			duel = { w = d.battle.duel and d.battle.duel.w or 0, l = d.battle.duel and d.battle.duel.l or 0 }, pve = { w = d.battle.pve and d.battle.pve.w or 0, l = d.battle.pve and d.battle.pve.l or 0 }, league = L15.Duel.leagueText(Config.LEAGUES, d.battle.pvp.trophies) }, -- lot 13 : ratios duel / PvE, ligue
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 		newbie = s.newbie == true, -- protection débutant active (lot 4)
 		tokens = d.tokens.remoteSteal, -- lot 7 : jetons du Corbeau, réglage, journal « Qui m'a volé ? », offres masquées (PolicyService), bonus serveur, œufs du tapis privé
 		ravenLeft = Lot7.ravenLeft and Lot7.ravenLeft(s) or 0,
-		settings = { blockFriendRavens = d.settings.blockFriendRavens == true },
+		settings = { blockFriendRavens = d.settings.blockFriendRavens == true, duelOff = d.settings.duelOff == true },
 		stealLog = d.stealLog,
 		restricted = s.restricted ~= false, -- vrai tant que PolicyService n'a pas confirmé « non restreint » (repli prudent : offres à hasard masquées)
 		srv = Lot7.serverBuffs and Lot7.serverBuffs() or { golden = 0, luck = 0 },
@@ -19030,16 +19524,16 @@ local function pvpState(s)
 	local pv = s.data.battle.pvp
 	local season = Config.pvpSeason(os.time())
 	if pv.season ~= season then
-		local rw = pv.season > 0 and Config.pvpSeasonReward(pv.trophies) or nil
+		local rw = pv.season > 0 and L15.Duel.seasonReward(Config.LEAGUE_SEASON.rewards, pv.trophies) or nil -- lot 13 (E.4) : paliers étendus (1500 = PROVISOIRE)
 		if rw then
 			s.data.coins += rw.coins
 			giveEgg(s, rw.eggTier)
 			if rw.potion then
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
 			end
-			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or ""), "claim")
+			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or "") .. (rw.title and (" · 👑 " .. rw.title .. " " .. pv.season) or ""), "claim")
 		end
-		pv.season, pv.trophies, pv.wins, pv.losses = season, math.floor(pv.trophies / 4), 0, 0
+		pv.season, pv.trophies, pv.wins, pv.losses = season, L15.Duel.seasonReset(pv.trophies, Config.LEAGUE_SEASON.resetAbove, Config.LEAGUE_SEASON.resetFactor), 0, 0 -- lot 13 (E.4) : max(300, floor(t x 0,6)) au-delà de 300
 	end
 	local day = os.time() // 86400
 	if pv.day ~= day then
@@ -19126,6 +19620,14 @@ local function battleFinish(s)
 	local st, win = bt.st, bt.st.winner == 1
 	local b = s.data.battle
 	local rewards = {}
+	if not bt.pvp then -- lot 13 (B.4) : ratio PvE (tour et PNJ) affiché dans l'intro
+		b.pve = type(b.pve) == "table" and b.pve or { w = 0, l = 0 }
+		if win then
+			b.pve.w = math.min(1e7, (b.pve.w or 0) + 1)
+		else
+			b.pve.l = math.min(1e7, (b.pve.l or 0) + 1)
+		end
+	end
 	if bt.npc then
 		return L15.fightEnd(s, bt, win) -- lot 15 : combat de PNJ (résultat déclaré par le serveur, une seule fois)
 	end
@@ -19288,6 +19790,9 @@ end
 
 function actions.battleAct(s, arg)
 	local bt = s.battle
+	if bt and bt.duel then
+		return L15.duel.act(s, arg) -- lot 13 : duel local (deux joueurs)
+	end
 	if not bt or type(arg) ~= "string" then
 		return
 	end
@@ -19308,6 +19813,9 @@ function actions.battleAct(s, arg)
 end
 
 function actions.battleQuit(s)
+	if s.battle and s.battle.duel then
+		return L15.duel.quit(s) -- lot 13 : abandon d'un duel = forfait
+	end
 	if s.battle then
 		s.battle.st.over, s.battle.st.winner = true, 2 -- abandon = défaite (le combat compte dans la limite du jour)
 		battleFinish(s)
@@ -19319,12 +19827,358 @@ task.spawn(function() -- tour limité à 10 s : action par défaut (attaque)
 		task.wait(1)
 		for _, s in pairs(sessions) do
 			local bt = s.battle
-			if bt and os.clock() > bt.deadline then
+			if bt and not bt.duel and os.clock() > bt.deadline then -- lot 13 : les duels ont leur propre minuteur (L15.duel)
 				pcall(battleStep, s, { kind = "attack" })
 			end
 		end
 	end
 end)
+
+---------------------------------------------------------------- Duel local (lot 13, E.1 E.2 B.4) : défis, sable du colisée, tours à deux, spectateurs ; AUCUN trophée
+-- Règles PURES dans ReplicatedStorage/Duel.lua (tests/lot13.luau) ; ce bloc lit l'état des joueurs et applique les décisions. Une seule variable locale (D, rangée
+-- aussi dans L15.duel) : le bloc principal est proche de la limite Luau de 200 variables locales.
+-- Le client n'envoie que : duelChallenge(userId), duelAnswer({ from, accept }), duelOff(bool) et, pendant le duel, battleAct / battleQuit (routés ici).
+-- Chaque demande est revalidée par le serveur (distance, états des DEUX joueurs relus à l'acceptation, cooldown, défis en attente, équipe, réglage « refuser »).
+do
+	local D = { book = L15.Duel.newBook(), matches = {}, C = Config.DUEL }
+	L15.duel = D
+	D.REFUSE = {
+		self = "⚔️ Tu ne peux pas te défier toi-même.", range = "⚔️ Trop loin pour un duel (approche-toi).", egg = "⚔️ Pas de duel avec un œuf dans les mains.", chased = "⚔️ Pas de duel pendant une poursuite.",
+		dialogue = "⚔️ Un dialogue est en cours.", castle = "⚔️ Pas de duel en mode Château.", newbie = "⚔️ Protection débutant : désactive-la pour combattre.", busy = "⚔️ Un combat est déjà en cours.",
+		flying = "⚔️ Pas de duel pendant un vol d'œuf.", cinematic = "⚔️ Pas de duel pendant une éclosion.",
+		cooldown = "⚔️ Tu as déjà défié ce joueur : attends un peu.", pendingOut = "⚔️ Ton défi précédent est encore en attente.", crowded = "⚔️ Ce joueur a déjà plusieurs défis.",
+		expired = "⚔️ Ce défi a expiré.", none = "⚔️ Ce défi n'est plus valable.", off = "⚔️ Ce joueur refuse les duels (réglage).", team = "⚔️ Compose d'abord une équipe de pets (Arène).",
+		foeTeam = "⚔️ Ce joueur n'a pas encore d'équipe de pets.",
+	}
+	function D.flags(s)
+		local root = getRoot(s.player)
+		local c = root and L15.ctx and L15.ctx(s, root) or {}
+		return {
+			userId = s.player.UserId, carryingEgg = c.carrying == true or #s.carry > 0, chased = c.chased == true, inDialogue = c.pending == true,
+			inCastle = s.castle ~= nil or serverMode == "castle", newbie = isNewbie(s), busy = s.battle ~= nil or s.pvpPending == true or s.leaving == true or serverMode == "ranked",
+			flying = holds[s.player] ~= nil, inCinematic = os.clock() < (s.cineUntil or 0),
+		}
+	end
+	function D.ctx(s, t)
+		local r1, r2 = getRoot(s.player), getRoot(t.player)
+		if not r1 or not r2 then
+			return nil
+		end
+		return { a = D.flags(s), b = D.flags(t), distance = (r1.Position - r2.Position).Magnitude }
+	end
+	function D.find(s) -- duel en cours du joueur (id, match, côté 1 = défieur / 2 = défié)
+		for id, d in pairs(D.matches) do
+			if d.a == s then
+				return id, d, 1
+			elseif d.b == s then
+				return id, d, 2
+			end
+		end
+		return nil
+	end
+	function D.spectators(d) -- joueurs proches du colisée (hors duellistes) : reçoivent le bandeau du duel
+		local A, out = Config.Map2.arena, {}
+		for p, ss in pairs(sessions) do
+			if ss ~= d.a and ss ~= d.b then
+				local r = getRoot(p)
+				if r and (Vector3.new(r.Position.X - A.x, 0, r.Position.Z - A.z)).Magnitude <= D.C.spectatorRange then
+					out[#out + 1] = p
+				end
+			end
+		end
+		return out
+	end
+	function D.broadcast(d, msg) -- msg du point de vue du défieur (camp 1)
+		for _, p in ipairs(D.spectators(d)) do
+			RBattle:FireClient(p, msg)
+		end
+	end
+	function D.watch(d, events)
+		return { k = "duelWatch", a = d.a.player.DisplayName, b = d.b.player.DisplayName, view = Battle.view(d.st), events = events, over = d.st.over, winner = d.winnerName }
+	end
+	function D.place(s, side) -- sur le sable, face à face (±sandOffset en X), personnage figé pendant le duel
+		local root = getRoot(s.player)
+		if not root then
+			return
+		end
+		local A = Config.Map2.arena
+		local x = A.x + (side == 1 and -D.C.sandOffset or D.C.sandOffset)
+		s.duelBack = root.Position
+		root.CFrame = CFrame.lookAt(Vector3.new(x, 4, A.z), Vector3.new(A.x, 4, A.z))
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.Anchored = true
+		s.noCheckUntil, s.lastPos = os.clock() + 2, nil
+	end
+	function D.release(s) -- personnage libéré et ramené où il était avant le duel
+		local root = getRoot(s.player)
+		if root then
+			root.Anchored = false
+			if s.duelBack then
+				root.CFrame = CFrame.new(s.duelBack + Vector3.new(0, 1, 0))
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+		end
+		s.duelBack, s.noCheckUntil, s.lastPos = nil, os.clock() + 2, nil
+	end
+
+	function actions.duelOff(s, v)
+		if type(v) ~= "boolean" then
+			return
+		end
+		s.data.settings.duelOff = v
+		RState:FireClient(s.player, snapshot(s))
+	end
+
+	function actions.duelChallenge(s, arg) -- arg = userId du joueur défié
+		if type(arg) ~= "number" or arg ~= arg or arg % 1 ~= 0 then
+			return
+		end
+		local target = Players:GetPlayerByUserId(arg)
+		local t = target and sessions[target]
+		if not t then
+			return
+		end
+		if t == s then
+			notify(s.player, D.REFUSE.self, "refuse")
+			return
+		end
+		if #battleUnits(s) == 0 then
+			notify(s.player, D.REFUSE.team, "refuse")
+			return
+		end
+		if t.data.settings.duelOff == true then
+			notify(s.player, D.REFUSE.off, "refuse")
+			return
+		end
+		if #battleUnits(t) == 0 then
+			notify(s.player, D.REFUSE.foeTeam, "refuse")
+			return
+		end
+		local ctx = D.ctx(s, t)
+		if not ctx then
+			return
+		end
+		local ok, why = L15.Duel.request(D.book, ctx, os.clock(), D.C)
+		if not ok then
+			notify(s.player, D.REFUSE[why] or D.REFUSE.busy, "refuse")
+			return
+		end
+		notify(s.player, "⚔️ Défi envoyé à " .. target.DisplayName .. " (" .. D.C.requestTimeout .. " s pour répondre).", "buy")
+		RBattle:FireClient(target, { k = "duelAsk", from = s.player.DisplayName, fromId = s.player.UserId, seconds = D.C.requestTimeout })
+	end
+
+	function D.start(f, s, id)
+		local unitsA, unitsB = battleUnits(f), battleUnits(s)
+		local st = Battle.new(rng:NextInteger(1, 2147483000), unitsA, unitsB)
+		local d = { id = id, m = L15.Duel.newMatch(f.player.UserId, s.player.UserId), a = f, b = s, st = st, act = {}, deadline = os.clock() + D.C.turnSeconds + D.C.introSeconds }
+		D.matches[id] = d
+		f.battle = { duel = id, st = st, deadline = math.huge } -- s.battle occupé : tour, PvP, PNJ, équipe et nouveaux défis bloqués par les gardes existantes
+		s.battle = { duel = id, st = st, deadline = math.huge }
+		D.place(f, 1)
+		D.place(s, 2)
+		local view = Battle.view(st)
+		local function side(me, foe, mineView)
+			local w, l = L15.Duel.recordFor("duel", me.data.battle)
+			local fw, fl = L15.Duel.recordFor("duel", foe.data.battle)
+			return {
+				me = { name = me.player.DisplayName, userId = me.player.UserId, wins = w, losses = l, trophies = me.data.battle.pvp.trophies, league = L15.Duel.leagueText(Config.LEAGUES, me.data.battle.pvp.trophies) },
+				foe = { name = foe.player.DisplayName, userId = foe.player.UserId, wins = fw, losses = fl, trophies = foe.data.battle.pvp.trophies, league = L15.Duel.leagueText(Config.LEAGUES, foe.data.battle.pvp.trophies) },
+				view = mineView,
+			}
+		end
+		local ia, ib = side(f, s, view), side(s, f, L15.Duel.mirrorView(view))
+		local A = Config.Map2.arena
+		RBattle:FireClient(f.player, { k = "start", floor = 0, duel = true, foe = "⚔️ " .. s.player.DisplayName, view = ia.view, seconds = D.C.turnSeconds + D.C.introSeconds, intro = { me = ia.me, foe = ia.foe }, arena = { x = A.x, z = A.z, side = 1 } })
+		RBattle:FireClient(s.player, { k = "start", floor = 0, duel = true, foe = "⚔️ " .. f.player.DisplayName, view = ib.view, seconds = D.C.turnSeconds + D.C.introSeconds, intro = { me = ib.me, foe = ib.foe }, arena = { x = A.x, z = A.z, side = 2 } })
+		D.broadcast(d, D.watch(d, {}))
+	end
+
+	function actions.duelAnswer(s, arg) -- arg = { from = userId, accept = bool }
+		if type(arg) ~= "table" or type(arg.from) ~= "number" or arg.from ~= arg.from then
+			return
+		end
+		local fromPlayer = Players:GetPlayerByUserId(arg.from)
+		local f = fromPlayer and sessions[fromPlayer]
+		if not f or f == s then
+			L15.Duel.decline(D.book, s.player.UserId, arg.from, os.clock(), D.C)
+			return
+		end
+		local accept = arg.accept == true
+		if accept and (#battleUnits(s) == 0 or #battleUnits(f) == 0) then
+			L15.Duel.decline(D.book, s.player.UserId, arg.from, os.clock(), D.C)
+			notify(s.player, #battleUnits(s) == 0 and D.REFUSE.team or D.REFUSE.foeTeam, "refuse")
+			notify(f.player, "⚔️ Duel annulé : une équipe de pets est vide.", "refuse")
+			return
+		end
+		local ok, id, cancelled = L15.Duel.answer(D.book, s.player.UserId, arg.from, accept, os.clock(), D.C, accept and D.ctx(f, s) or nil)
+		if not ok then
+			if id == "declined" then
+				notify(f.player, "⚔️ " .. s.player.DisplayName .. " a refusé ton défi.", "refuse")
+			elseif id ~= "none" then
+				notify(f.player, D.REFUSE[id] or "⚔️ Défi annulé.", "refuse")
+				notify(s.player, D.REFUSE[id] or "⚔️ Défi annulé.", "refuse")
+			end
+			return
+		end
+		for _, c in ipairs(cancelled) do
+			local p = Players:GetPlayerByUserId(c.from)
+			if p then
+				notify(p, "⚔️ Défi annulé : ce joueur est déjà en duel.", "refuse")
+			end
+			local q = Players:GetPlayerByUserId(c.to)
+			if q then
+				RBattle:FireClient(q, { k = "duelAskEnd", fromId = c.from })
+			end
+		end
+		D.start(f, s, id)
+	end
+
+	function D.act(s, arg) -- intention d'un duelliste pour le tour en cours (une seule par tour, validée par le moteur)
+		local id, d, side = D.find(s)
+		if not id or d.st.over then
+			return
+		end
+		local act = L15.Duel.parseAction(arg)
+		if not act or Battle.validate(d.st, side, act) then
+			notify(s.player, "⚔️ Action impossible.", "refuse")
+			return
+		end
+		if d.act[side] then
+			return -- déjà choisie pour ce tour
+		end
+		d.act[side] = act
+		if d.act[1] and d.act[2] then
+			D.resolve(id)
+		end
+	end
+
+	function D.resolve(id) -- joue le tour (action manquante = attaque), compte l'inactivité, diffuse
+		local d = D.matches[id]
+		if not d then
+			return
+		end
+		local actedA, actedB = d.act[1] ~= nil, d.act[2] ~= nil
+		local events = Battle.turn(d.st, d.act[1] or { kind = "attack" }, d.act[2] or { kind = "attack" })
+		d.act = {}
+		d.deadline = os.clock() + D.C.turnSeconds
+		local verdict = L15.Duel.noteTurn(d.m, actedA, actedB, D.C)
+		local winner
+		if d.st.over then
+			winner = d.st.winner == 1 and "a" or "b"
+		elseif verdict == "forfeitA" then
+			winner = "b"
+		elseif verdict == "forfeitB" then
+			winner = "a"
+		end
+		local view = Battle.view(d.st)
+		local over = d.st.over or verdict ~= "continue"
+		RBattle:FireClient(d.a.player, { k = "turn", duel = true, events = events, view = view, seconds = (not over) and D.C.turnSeconds or nil })
+		RBattle:FireClient(d.b.player, { k = "turn", duel = true, events = L15.Duel.mirrorEvents(events), view = L15.Duel.mirrorView(view), seconds = (not over) and D.C.turnSeconds or nil })
+		if over then
+			D.finish(id, winner, verdict == "cancelled" and "cancelled" or (d.st.over and "ko" or "afk"))
+		else
+			D.broadcast(d, D.watch(d, events))
+		end
+	end
+
+	-- Fin du duel (KO, forfait d'inactivité, abandon, départ, annulation). winner = "a" | "b" | nil. Récompenses : Duel.settle (10/jour, 3/paire/jour),
+	-- pièces seulement (jamais de trophée ni de Robux) ; départ / abandon avant earlyMinTurns tours = personne n'est payé. leaver = session qui part (pas de pièces).
+	function D.finish(id, winner, reason, leaver)
+		local d = D.matches[id]
+		if not d then
+			return
+		end
+		D.matches[id] = nil -- retiré AVANT tout paiement : aucune double récompense
+		d.m.over, d.m.winner = true, winner
+		local early = reason == "leave" or reason == "quit"
+		local oa, ob = L15.Duel.outcomes(d.m)
+		d.winnerName = winner == "a" and d.a.player.DisplayName or (winner == "b" and d.b.player.DisplayName or nil)
+		for _, e in ipairs({ { d.a, d.b, oa, 1 }, { d.b, d.a, ob, 2 } }) do
+			local me, foe, outcome, side = e[1], e[2], e[3], e[4]
+			me.battle = nil
+			if sessions[me.player] == me then
+				local res = L15.Duel.settle(me.data.battle.duel, foe.player.UserId, outcome, os.time(), income(me), D.C)
+				local coins = me ~= leaver and L15.Duel.payable(res, d.m.turns, early, D.C.earlyMinTurns) or 0
+				if coins > 0 then
+					me.data.coins += coins
+					L15.PetXp.addToTeam(me.data.slots, me.data.battle.team, L15.PetXp.award("pvp", L15.PetXp.combat("pvp", res.won, 0), L15.PetXp.boostMul(me.data, os.time()))) -- XP de pet : seulement les duels payés (plafonnés)
+				end
+				if me ~= leaver then
+					D.release(me)
+					local view = Battle.view(d.st)
+					local text = reason == "cancelled" and "⚔️ Duel annulé (personne n'a joué)." or ((res.won and "⚔️ Duel gagné" or "⚔️ Duel perdu")
+						.. (reason == "afk" and " (forfait d'inactivité)" or (early and (me == (winner == "a" and d.a or d.b) and (reason == "leave" and " (l'adversaire est parti)" or " (abandon de l'adversaire)") or " (abandon)") or ""))
+						.. (coins > 0 and (" : +" .. Config.fmt(coins) .. " 🪙") or (res.reason == "dayCap" and " · limite de 10 duels récompensés atteinte aujourd'hui" or (res.reason == "pairCap" and " · déjà 3 duels récompensés contre ce joueur aujourd'hui" or " · amical : pas de récompense"))))
+					RBattle:FireClient(me.player, { k = "end", duel = true, win = res.won, rewards = { coins = coins > 0 and coins or nil, duelText = text, cancelled = reason == "cancelled" }, best = me.data.battle.best, floor = 0, foe = foe.player.DisplayName, view = side == 1 and view or L15.Duel.mirrorView(view) })
+					notify(me.player, text, res.won and "claim" or "refuse")
+					RState:FireClient(me.player, snapshot(me))
+				end
+			end
+		end
+		L15.Duel.finish(D.book, d.a.player.UserId)
+		L15.Duel.finish(D.book, d.b.player.UserId)
+		d.st.over = true
+		D.broadcast(d, D.watch(d, {}))
+	end
+
+	function D.quit(s) -- abandon = forfait
+		local id, d, side = D.find(s)
+		if id then
+			d.st.over = true
+			D.finish(id, side == 1 and "b" or "a", "quit")
+		end
+	end
+
+	function L15.duelLeave(s) -- départ d'un joueur (appelé par PlayerRemoving AVANT la sauvegarde) : forfait, défis retirés, rien ne reste en mémoire
+		local id, _, side = D.find(s)
+		if id then
+			D.finish(id, side == 1 and "b" or "a", "leave", s)
+		end
+		for _, p in pairs(D.book.pending) do
+			if p.to == s.player.UserId then
+				local q = Players:GetPlayerByUserId(p.from)
+				if q then
+					notify(q, "⚔️ Défi annulé : ce joueur est parti.", "refuse")
+				end
+			elseif p.from == s.player.UserId then
+				local q = Players:GetPlayerByUserId(p.to)
+				if q then
+					RBattle:FireClient(q, { k = "duelAskEnd", fromId = p.from })
+				end
+			end
+		end
+		L15.Duel.finish(D.book, s.player.UserId)
+		s.duelBack = nil
+	end
+
+	task.spawn(function() -- délais : défis expirés, tours de 10 s (action par défaut = attaque), purge des cooldowns
+		while true do
+			task.wait(0.5)
+			pcall(function()
+				local now = os.clock()
+				for _, e in ipairs(L15.Duel.expire(D.book, now, D.C)) do
+					local p, q = Players:GetPlayerByUserId(e.from), Players:GetPlayerByUserId(e.to)
+					if p then
+						notify(p, "⚔️ Pas de réponse : défi expiré.", "refuse")
+					end
+					if q then
+						RBattle:FireClient(q, { k = "duelAskEnd", fromId = e.from })
+					end
+				end
+				for id, d in pairs(D.matches) do
+					if now > d.deadline then
+						local ok, err = pcall(D.resolve, id)
+						if not ok then
+							warn("[Duel] " .. tostring(err))
+							D.finish(id, nil, "cancelled")
+						end
+					end
+				end
+				L15.Duel.prune(D.book, now, D.C)
+			end)
+		end
+	end)
+end
 
 ---------------------------------------------------------------- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements
 -- Le SERVEUR décide de tout (jour UTC, rencontres, offres, résultats des combats) ; le client n'envoie que des identifiants ou des booléens (actions npcAnswer,
@@ -20767,6 +21621,8 @@ do
 		return Lot7.logDropped
 	end, luckPoints = luckPoints, passOn = passOn, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
 		return Lot7.compPaid
+	end, duel = function() -- lot 13 : état des duels (tests de bout en bout seulement)
+		return L15.duel
 	end }
 end
 
@@ -21700,6 +22556,7 @@ Players.PlayerRemoving:Connect(function(player)
 		return
 	end
 	s.leaving = true -- l'autosave ne doit plus reprendre le verrou de session après ce point
+	L15.duelLeave(s) -- lot 13 : duel en cours = forfait (défaite comptée dans le profil AVANT la sauvegarde ci-dessous), défis retirés
 	do -- lot 9b : une réclamation du calendrier en cours (sauvegarde puis octroi) se termine AVANT la sauvegarde de départ
 		local t0 = os.clock()
 		while s.calBusy and os.clock() - t0 < 15 do
@@ -21782,7 +22639,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -21997,14 +22854,14 @@ function Data.default()
 		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
-		settings = { blockFriendRavens = false }, -- réglages du joueur
+		settings = { blockFriendRavens = false, duelOff = false }, -- réglages du joueur (lot 13 : duelOff = refuser automatiquement les duels)
 		raven = { day = 0, n = 0, cd = 0, sh = 0, ic = 0, icDay = 0 }, -- lot 7b : ic = indemnités de corbeau reçues le jour UTC icDay (plafonnées) ; lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
 		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
 		srvBuff = { g = 0, l = 0 }, -- lot 7b : fin (os.time) du tapis doré / de la pluie de chance offerts par ce joueur, écrite à la FERMETURE du serveur et rendue une fois à son retour
 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
-		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
+		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, duel = { w = 0, l = 0, day = 0, n = 0, pairs = {} }, pve = { w = 0, l = 0 } }, -- Arène des pets (lot 13 : duel, pve)
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -22222,6 +23079,7 @@ local function merge(saved)
 	end
 	if type(saved.settings) == "table" then
 		d.settings.blockFriendRavens = saved.settings.blockFriendRavens == true
+		d.settings.duelOff = saved.settings.duelOff == true -- lot 13 (champ facultatif, sans changement de version)
 	end
 	if type(saved.secrets) == "table" then
 		for _, sct in ipairs(Config.SECRETS) do
@@ -22328,6 +23186,19 @@ local function merge(saved)
 				season = math.floor(sane(pv.season, 0)), trophies = math.min(100000, math.floor(sane(pv.trophies, 0))), wins = math.min(1e7, math.floor(sane(pv.wins, 0))),
 				losses = math.min(1e7, math.floor(sane(pv.losses, 0))), defense = defense, day = math.floor(sane(pv.day, 0)), fights = math.min(1000, math.floor(sane(pv.fights, 0))),
 			},
+			duel = (function() -- lot 13 : duel local (ratio V/D, quotas du jour) ; mêmes bornes que Duel.cleanState
+				local du = type(b.duel) == "table" and b.duel or {}
+				local pairsOut, k = {}, 0
+				if type(du.pairs) == "table" then
+					for key, v in pairs(du.pairs) do
+						if type(key) == "string" and #key <= 20 and type(v) == "number" and v == v and v >= 1 and k < 20 then
+							pairsOut[key], k = math.min(1000, math.floor(v)), k + 1
+						end
+					end
+				end
+				return { w = math.min(1e7, math.floor(sane(du.w, 0))), l = math.min(1e7, math.floor(sane(du.l, 0))), day = math.floor(sane(du.day, 0)), n = math.min(1000, math.floor(sane(du.n, 0))), pairs = pairsOut }
+			end)(),
+			pve = { w = math.min(1e7, math.floor(sane(type(b.pve) == "table" and b.pve.w or 0, 0))), l = math.min(1e7, math.floor(sane(type(b.pve) == "table" and b.pve.l or 0, 0))) },
 			team = team,
 			best = math.min(Config.TOWER.floors, math.floor(sane(b.best, 0))),
 			day = math.floor(sane(b.day, 0)),
@@ -22759,7 +23630,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX50"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -25542,7 +26413,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -25713,7 +26584,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -25726,7 +26597,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -26245,7 +27116,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -26982,7 +27853,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -27647,7 +28518,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -28151,7 +29022,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -29377,7 +30248,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -29606,7 +30477,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -29802,7 +30673,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX77"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX76"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX61"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX78"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX77"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX62"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31356,6 +32227,25 @@ function render()
 				RAction:FireServer("npcOff", not off)
 			end })
 		end
+		do -- lot 13 : duel local (défi du joueur le plus proche, réglage « refuser automatiquement »)
+			local duelOff = state.settings and state.settings.duelOff == true
+			local near, nd = nil, (Config.DUEL and Config.DUEL.range or 30)
+			local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			for _, other in ipairs(Players:GetPlayers()) do
+				local r = other ~= player and other.Character and other.Character:FindFirstChild("HumanoidRootPart")
+				if r and myRoot and (r.Position - myRoot.Position).Magnitude <= nd then
+					near, nd = other, (r.Position - myRoot.Position).Magnitude
+				end
+			end
+			addRow({ icon = "⚔️", title = "Défier en duel", desc = near and ("Joueur le plus proche : " .. near.DisplayName .. " (amical, aucun trophée).") or "Approche-toi d'un joueur (moins de " .. (Config.DUEL and Config.DUEL.range or 30) .. " studs) ; touche aussi « Défier » au-dessus de lui.", btn = near and "Défier" or "Personne", btnColor = near and COL.yellow or COL.dis, onClick = function()
+				if near then
+					RAction:FireServer("duelChallenge", near.UserId)
+				end
+			end })
+			addRow({ icon = "🛑", title = "Refuser automatiquement les duels", desc = duelOff and "Activé : personne ne peut te défier." or "Désactivé : les joueurs proches peuvent te proposer un duel (tu choisis d'accepter).", btn = duelOff and "Activé" or "Désactivé", btnColor = duelOff and COL.green or COL.dis, onClick = function()
+				RAction:FireServer("duelOff", not duelOff)
+			end })
+		end
 		do -- lot 7 : réglage du corbeau et journal « Qui m'a volé ? »
 			local blockOn = state.settings and state.settings.blockFriendRavens == true
 			addRow({ icon = "🐦‍⬛", title = "Refuser les corbeaux de mes amis", desc = blockOn and "Activé : tes amis ne peuvent pas t'envoyer de corbeau." or "Désactivé : touche pour refuser les corbeaux de tes amis.", btn = blockOn and "Activé" or "Désactivé", btnColor = blockOn and COL.green or COL.dis, onClick = function()
@@ -32827,6 +33717,50 @@ pcall(function()
 	})
 end)
 
+-- LOT 13 : invite « Défier » (touche G) au-dessus des autres joueurs, créée LOCALEMENT (visible de ce client seul) ; elle n'envoie qu'un userId : le serveur
+-- revalide distance, états, cooldown et réglage. Touche distincte de E : ne masque jamais les invites des œufs et des nids.
+pcall(function()
+	local range = (Config.DUEL and Config.DUEL.range or 30) - 2
+	local function attach(other, char)
+		if other == player or not char then
+			return
+		end
+		local root = char:WaitForChild("HumanoidRootPart", 10)
+		if not root or root:FindFirstChild("DuelPrompt") then
+			return
+		end
+		local pr = Instance.new("ProximityPrompt")
+		pr.Name = "DuelPrompt"
+		pr.ActionText = "Défier"
+		pr.ObjectText = "⚔️ " .. other.DisplayName
+		pr.KeyboardKeyCode = Enum.KeyCode.G
+		pr.GamepadKeyCode = Enum.KeyCode.ButtonY
+		pr.HoldDuration = 0.4
+		pr.MaxActivationDistance = range
+		pr.RequiresLineOfSight = false
+		pr.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
+		pr.Triggered:Connect(function()
+			RAction:FireServer("duelChallenge", other.UserId)
+		end)
+		pr.Parent = root
+	end
+	local function track(other)
+		if other == player then
+			return
+		end
+		other.CharacterAdded:Connect(function(char)
+			task.spawn(attach, other, char)
+		end)
+		if other.Character then
+			task.spawn(attach, other, other.Character)
+		end
+	end
+	for _, other in ipairs(Players:GetPlayers()) do
+		track(other)
+	end
+	Players.PlayerAdded:Connect(track)
+end)
+
 -- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.
 do
 	local arrow = text(hudRoot, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 132), Size = UDim2.fromOffset(190, 24), TextSize = 14, TextColor3 = COL.yellow, TextStrokeTransparency = 0.4, Text = "", Visible = false })
@@ -32909,7 +33843,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX62"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX63"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -33471,7 +34405,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX63"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX64"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -34123,7 +35057,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX64"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX65"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -34249,7 +35183,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX65"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX66"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -34332,7 +35266,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -34447,7 +35381,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -34636,7 +35570,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -34792,7 +35726,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -34907,6 +35841,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local pick, pickDeadline, pickSent, lastReady = nil, 0, false, false -- lot 12 B : écran de choix des 3 cartes (D.5)
 	local logLines = {}
 	local widgets = {}
+	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -34944,10 +35879,15 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 		local me, foe = p.view.sides[1], p.view.sides[2]
 		local mu, fu = me.units[me.active], foe.units[foe.active]
+		local meInfo = { name = player.DisplayName, userId = player.UserId, wins = pv.wins, losses = pv.losses, trophies = pv.trophies, league = st and st.battle and st.battle.league or nil, pets = pets(me) }
+		local foeInfo = { name = p.foe, pets = pets(foe) }
+		if p.duel and type(p.intro) == "table" and type(p.intro.me) == "table" and type(p.intro.foe) == "table" then -- lot 13 (B.4) : ratios de duel, ligues et trophées envoyés par le serveur
+			meInfo = { name = p.intro.me.name, userId = p.intro.me.userId, wins = p.intro.me.wins, losses = p.intro.me.losses, trophies = p.intro.me.trophies, league = p.intro.me.league, pets = pets(me) }
+			foeInfo = { name = p.intro.foe.name, userId = p.intro.foe.userId, wins = p.intro.foe.wins, losses = p.intro.foe.losses, trophies = p.intro.foe.trophies, league = p.intro.foe.league, pets = pets(foe) }
+		end
 		local plan = fx.IntroPlan.plan({
-			mode = p.pvp and "pvp" or "tower", countdown = false, advantage = (mu and fu) and Battle.typeMul(mu.type, fu.type) or 1,
-			me = { name = player.DisplayName, userId = player.UserId, wins = pv.wins, losses = pv.losses, trophies = pv.trophies, pets = pets(me) },
-			foe = { name = p.foe, pets = pets(foe) },
+			mode = p.duel and "duel" or (p.pvp and "pvp" or (p.npc and "npc" or "tower")), countdown = false, advantage = (mu and fu) and Battle.typeMul(mu.type, fu.type) or 1,
+			me = meInfo, foe = foeInfo,
 		}, { fmtOdds = fx.Odds and fx.Odds.label or nil })
 		fx.BattleIntro.play(gui, plan, {
 			thumbnail = function(uid)
@@ -35086,10 +36026,10 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		if not view then
 			return
 		end
-		ui.title.Text = "⚔️ " .. foeName .. (lastFloor > 0 and (" · étage " .. lastFloor) or "")
+		ui.title.Text = "⚔️ " .. foeName .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or "")
 		local me, foe = view.sides[1], view.sides[2]
 		local mu, fu = me.units[me.active], foe.units[foe.active]
-		ui.info.Text = BattleUi.advantage(Battle, mu.type, fu.type) .. " · tour " .. view.turn .. "/" .. Battle.MAX_TURNS
+		ui.info.Text = BattleUi.advantage(Battle, mu.type, fu.type) .. " · tour " .. view.turn .. "/" .. Battle.MAX_TURNS .. (DU.on and (DU.chosen and " · ✅ choix envoyé, attente de l'adversaire" or " · duel : choisis ton action") or "")
 		local function bar(y, u, left)
 			add(label(ui.body, { Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 20), Text = unitText(u) .. "   " .. u.hp .. "/" .. u.maxHp .. (u.guard and " 🛡" or "") .. (u.stun > 0 and " 💫" or "") .. (u.focus > 0 and " ⚡" or ""), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32 }))
 			local bg = add(make("Frame", { Position = UDim2.fromOffset(0, y + 22), Size = UDim2.new(1, 0, 0, 10), BackgroundColor3 = Color3.fromRGB(50, 30, 40), ZIndex = 32 }, ui.body))
@@ -35136,11 +36076,13 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		local b1 = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = "⚔ Attaque", ZIndex = 32 }))
 		b1.Activated:Connect(function()
 			fire("battleAct", "attack")
+			DU.picked()
 		end)
 		local b2 = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = myState.text, AutoButtonColor = myState.ready, BackgroundColor3 = myState.ready and Color3.fromRGB(74, 163, 255) or Color3.fromRGB(110, 110, 120), TextColor3 = myState.ready and Color3.fromRGB(10, 30, 15) or Color3.fromRGB(200, 200, 210), ZIndex = 32 }))
 		b2.Activated:Connect(function()
 			if myState.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
 				fire("battleAct", "skill")
+				DU.picked()
 			end
 		end)
 		local k = 0
@@ -35152,6 +36094,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				sb.Activated:Connect(function()
 					if alive then
 						fire("battleAct", "swap" .. i)
+						DU.picked()
 					end
 				end)
 			end
@@ -35251,12 +36194,128 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		showResult(table.concat(lines, "\n"))
 	end
 
+	-- LOT 13 : duel local. Demande reçue (Accepter / Refuser, 20 s), caméra de duel sur le sable, bandeau des spectateurs. Le serveur revalide tout.
+	function DU.picked()
+		if DU.on and not DU.chosen then
+			DU.chosen = true
+			if mode == "battle" then
+				render()
+			end
+		end
+	end
+	function DU.camera(p)
+		local cam = workspace.CurrentCamera
+		if not cam or type(p.arena) ~= "table" or type(p.arena.x) ~= "number" or type(p.arena.z) ~= "number" then
+			return
+		end
+		DU.cam = { type = cam.CameraType, subject = cam.CameraSubject }
+		local dir = p.arena.side == 2 and -1 or 1
+		local center = Vector3.new(p.arena.x, 4, p.arena.z)
+		local eye = center + Vector3.new(-dir * 6, 16, 30)
+		cam.CameraType = Enum.CameraType.Scriptable
+		local goal = { CFrame = CFrame.lookAt(eye, center) }
+		pcall(function()
+			TweenService:Create(cam, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), goal):Play()
+		end)
+	end
+	function DU.restore()
+		local cam = workspace.CurrentCamera
+		if DU.cam and cam then
+			cam.CameraType = Enum.CameraType.Custom
+			local ch = player.Character
+			local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+			cam.CameraSubject = hum or DU.cam.subject
+		end
+		DU.cam, DU.on, DU.chosen = nil, false, false
+	end
+	function DU.closeAsk()
+		if DU.ask then
+			pcall(function()
+				DU.ask.frame:Destroy()
+			end)
+			DU.ask = nil
+		end
+	end
+	function DU.showAsk(p)
+		if type(p.fromId) ~= "number" or type(p.from) ~= "string" then
+			return
+		end
+		DU.closeAsk()
+		local fr = make("Frame", { Name = "DuelAsk", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 90), Size = UDim2.fromOffset(300, 104), BackgroundColor3 = Color3.fromRGB(28, 26, 44), ZIndex = 40 }, gui)
+		make("UICorner", { CornerRadius = UDim.new(0, 14) }, fr)
+		make("UIStroke", { Color = Color3.fromRGB(255, 159, 28), Thickness = 3 }, fr)
+		label(fr, { Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 40), TextSize = 16, TextWrapped = true, Text = "⚔️ " .. p.from:sub(1, 20) .. " te défie en duel !\nAmical : aucun trophée en jeu.", ZIndex = 41 })
+		local timer = label(fr, { Position = UDim2.fromOffset(10, 46), Size = UDim2.new(1, -20, 0, 16), TextSize = 12, TextColor3 = Color3.fromRGB(220, 220, 235), Text = "", ZIndex = 41 })
+		local yes = button(fr, { Position = UDim2.new(0, 10, 1, -36), Size = UDim2.new(0.5, -15, 0, 28), Text = "✅ Accepter", ZIndex = 41 })
+		local no = button(fr, { Position = UDim2.new(0.5, 5, 1, -36), Size = UDim2.new(0.5, -15, 0, 28), Text = "✖ Refuser", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 41 })
+		DU.ask = { frame = fr, fromId = p.fromId, deadline = os.clock() + (tonumber(p.seconds) or 20), timer = timer }
+		yes.Activated:Connect(function()
+			fire("duelAnswer", { from = p.fromId, accept = true })
+			DU.closeAsk()
+		end)
+		no.Activated:Connect(function()
+			fire("duelAnswer", { from = p.fromId, accept = false })
+			DU.closeAsk()
+		end)
+		pcall(function()
+			fr.Position = UDim2.new(0.5, 0, 0, 60)
+			TweenService:Create(fr, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 90) }):Play()
+		end)
+		FX.sound("battle_start")
+	end
+	function DU.showWatch(p) -- bandeau des spectateurs : noms, PV restants des deux équipes, tour, vainqueur
+		if type(p.view) ~= "table" or type(p.view.sides) ~= "table" then
+			return
+		end
+		if not DU.watch then
+			local fr = make("Frame", { Name = "DuelWatch", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(320, 50), BackgroundColor3 = Color3.fromRGB(28, 26, 44), BackgroundTransparency = 0.15, ZIndex = 25 }, gui)
+			make("UICorner", { CornerRadius = UDim.new(0, 12) }, fr)
+			make("UIStroke", { Color = Color3.fromRGB(255, 210, 63), Thickness = 2 }, fr)
+			local title = label(fr, { Position = UDim2.fromOffset(8, 2), Size = UDim2.new(1, -16, 0, 20), TextSize = 14, Text = "", ZIndex = 26 })
+			local bars = {}
+			for i = 1, 2 do
+				local bg = make("Frame", { Position = UDim2.new((i - 1) * 0.5, 8, 0, 28), Size = UDim2.new(0.5, -16, 0, 12), BackgroundColor3 = Color3.fromRGB(50, 30, 40), ZIndex = 26 }, fr)
+				make("UICorner", { CornerRadius = UDim.new(0, 6) }, bg)
+				bars[i] = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = i == 1 and Color3.fromRGB(74, 163, 255) or Color3.fromRGB(255, 99, 99), ZIndex = 27 }, bg)
+			end
+			DU.watch = { frame = fr, title = title, bars = bars }
+		end
+		local w = DU.watch
+		for i = 1, 2 do
+			local hp, max = 0, 0
+			for _, u in ipairs(p.view.sides[i] and p.view.sides[i].units or {}) do
+				hp, max = hp + math.max(0, tonumber(u.hp) or 0), max + math.max(0, tonumber(u.maxHp) or 0)
+			end
+			w.bars[i].Size = UDim2.fromScale(max > 0 and hp / max or 0, 1)
+		end
+		local a, b = tostring(p.a or "?"):sub(1, 16), tostring(p.b or "?"):sub(1, 16)
+		w.title.Text = p.over and ("🏆 " .. (p.winner and tostring(p.winner):sub(1, 16) .. " gagne le duel !" or "Duel terminé")) or ("⚔️ Duel au colisée : " .. a .. " 🆚 " .. b .. " · tour " .. tostring(p.view.turn or 0))
+		DU.watchAt = os.clock() + (p.over and 5 or 25)
+	end
+
 	RBattle.OnClientEvent:Connect(function(p)
 		pcall(function()
 			if type(p) ~= "table" then
 				return
 			end
+			if p.k == "duelAsk" then
+				DU.showAsk(p)
+				return
+			elseif p.k == "duelAskEnd" then
+				if DU.ask and DU.ask.fromId == p.fromId then
+					DU.closeAsk()
+				end
+				return
+			elseif p.k == "duelWatch" then
+				DU.showWatch(p)
+				return
+			end
 			if p.k == "start" then
+				DU.on, DU.chosen = p.duel == true, false
+				if p.duel then
+					DU.closeAsk()
+					pcall(DU.camera, p)
+				end
 				mode, view, foeName, lastFloor, logLines, pick, lastReady = "battle", p.view, p.foe, p.floor, {}, nil, false
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				ui.panel.Visible = true
@@ -35264,6 +36323,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				FX.hits = { 0, 0 }
 				pcall(FX.intro, p)
 			elseif p.k == "turn" then
+				DU.chosen = false
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
@@ -35280,6 +36340,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			elseif p.k == "end" then
 				local r = p.rewards or {}
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
+				if p.duel then -- lot 13 : texte du serveur (forfait, quotas, pièces), caméra rendue
+					pcall(DU.restore)
+					lines = { r.cancelled and "⚔️ Duel annulé" or (p.win and "🏆 Duel gagné !" or "💀 Duel perdu…"), type(r.duelText) == "string" and r.duelText or "" }
+					r = {}
+				end
 				if p.win and r.coins then
 					lines[#lines + 1] = "+" .. Config.fmt(r.coins) .. " 🪙" .. (r.first and " (première victoire de l'étage)" or "")
 				end
@@ -35333,9 +36398,23 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 						render()
 					end
 				end
+				if DU.ask then
+					local left = math.ceil(DU.ask.deadline - os.clock())
+					DU.ask.timer.Text = "⏱ " .. math.max(0, left) .. " s pour répondre"
+					if left < -1 then
+						DU.closeAsk()
+					end
+				end
+				if DU.watch and os.clock() > DU.watchAt then
+					DU.watch.frame:Destroy()
+					DU.watch = nil
+				end
+				if DU.on and mode ~= "battle" then
+					DU.restore()
+				end
 				if mode == "battle" and ui.panel.Visible and view and not view.over then
 					local left = math.max(0, math.ceil(deadline - os.clock()))
-					ui.title.Text = "⚔️ " .. foeName .. " · étage " .. lastFloor .. " · ⏱ " .. left .. " s"
+					ui.title.Text = "⚔️ " .. foeName .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or "") .. " · ⏱ " .. left .. " s"
 				end
 			end)
 		end
@@ -35344,7 +36423,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -35569,7 +36648,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -36317,7 +37396,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -36717,7 +37796,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -37000,7 +38079,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -37462,7 +38541,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

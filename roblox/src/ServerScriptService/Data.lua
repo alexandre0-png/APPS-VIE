@@ -213,14 +213,14 @@ function Data.default()
 		lastSeen = 0, -- lot 9 : jour UTC de la dernière connexion
 		baseLevelFloor = 1, -- plancher du niveau de maison (migration v10 : le niveau atteint en v9 ne recule jamais)
 		tokens = { remoteSteal = 0 }, -- jetons du Corbeau chipeur (vol à distance)
-		settings = { blockFriendRavens = false }, -- réglages du joueur
+		settings = { blockFriendRavens = false, duelOff = false }, -- réglages du joueur (lot 13 : duelOff = refuser automatiquement les duels)
 		raven = { day = 0, n = 0, cd = 0, sh = 0, ic = 0, icDay = 0 }, -- lot 7b : ic = indemnités de corbeau reçues le jour UTC icDay (plafonnées) ; lot 7 : vols à distance réussis ce jour UTC (day, n), fin du délai de la victime (cd) et du bouclier post-vol (sh), en os.time()
 		stealLog = {}, -- journal « Qui m'a volé ? » : 10 entrées { n = nom, t = rareté, at = os.time(), k = "p" (physique) | "r" (corbeau) }
 		srvBuff = { g = 0, l = 0 }, -- lot 7b : fin (os.time) du tapis doré / de la pluie de chance offerts par ce joueur, écrite à la FERMETURE du serveur et rendue une fois à son retour
 		pb = {}, -- œufs en attente sur le tapis privé (raretés), 3 au plus
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
-		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 } }, -- Arène des pets
+		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, duel = { w = 0, l = 0, day = 0, n = 0, pairs = {} }, pve = { w = 0, l = 0 } }, -- Arène des pets (lot 13 : duel, pve)
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -438,6 +438,7 @@ local function merge(saved)
 	end
 	if type(saved.settings) == "table" then
 		d.settings.blockFriendRavens = saved.settings.blockFriendRavens == true
+		d.settings.duelOff = saved.settings.duelOff == true -- lot 13 (champ facultatif, sans changement de version)
 	end
 	if type(saved.secrets) == "table" then
 		for _, sct in ipairs(Config.SECRETS) do
@@ -544,6 +545,19 @@ local function merge(saved)
 				season = math.floor(sane(pv.season, 0)), trophies = math.min(100000, math.floor(sane(pv.trophies, 0))), wins = math.min(1e7, math.floor(sane(pv.wins, 0))),
 				losses = math.min(1e7, math.floor(sane(pv.losses, 0))), defense = defense, day = math.floor(sane(pv.day, 0)), fights = math.min(1000, math.floor(sane(pv.fights, 0))),
 			},
+			duel = (function() -- lot 13 : duel local (ratio V/D, quotas du jour) ; mêmes bornes que Duel.cleanState
+				local du = type(b.duel) == "table" and b.duel or {}
+				local pairsOut, k = {}, 0
+				if type(du.pairs) == "table" then
+					for key, v in pairs(du.pairs) do
+						if type(key) == "string" and #key <= 20 and type(v) == "number" and v == v and v >= 1 and k < 20 then
+							pairsOut[key], k = math.min(1000, math.floor(v)), k + 1
+						end
+					end
+				end
+				return { w = math.min(1e7, math.floor(sane(du.w, 0))), l = math.min(1e7, math.floor(sane(du.l, 0))), day = math.floor(sane(du.day, 0)), n = math.min(1000, math.floor(sane(du.n, 0))), pairs = pairsOut }
+			end)(),
+			pve = { w = math.min(1e7, math.floor(sane(type(b.pve) == "table" and b.pve.w or 0, 0))), l = math.min(1e7, math.floor(sane(type(b.pve) == "table" and b.pve.l or 0, 0))) },
 			team = team,
 			best = math.min(Config.TOWER.floors, math.floor(sane(b.best, 0))),
 			day = math.floor(sane(b.day, 0)),

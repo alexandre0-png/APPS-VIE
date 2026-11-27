@@ -27,7 +27,8 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("KioskData", "KioskData.lua"), ("DecorData", "DecorData.lua"), ("HouseDecorData", "HouseDecorData.lua"),  # lot 8B : kiosque, décor de carte, meubles
           ("ShopInfo", "ShopInfo.lua"), ("ShopData", "ShopData.lua"), ("Shop", "Shop.lua"), ("Season", "Season.lua"), ("SeasonData", "SeasonData.lua"),  # lot 16 : boutique, passe de combat
           ("Offers", "Offers.lua"), ("OffersData", "OffersData.lua"), ("SellersData", "SellersData.lua"),  # lot 16 : offres à l'écran, vendeurs PNJ
-          ("Bestiary", "Bestiary.lua"), ("PetXp", "PetXp.lua"), ("BattleRewards", "BattleRewards.lua")]  # lots 11 et 12 : bestiaire, XP de pet, cartes de récompense
+          ("Bestiary", "Bestiary.lua"), ("PetXp", "PetXp.lua"), ("BattleRewards", "BattleRewards.lua"),  # lots 11 et 12 : bestiaire, XP de pet, cartes de récompense
+          ("Duel", "Duel.lua")]  # lot 13 : duel local, ligues, remise de saison
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[

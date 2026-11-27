@@ -113,6 +113,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 	local pick, pickDeadline, pickSent, lastReady = nil, 0, false, false -- lot 12 B : écran de choix des 3 cartes (D.5)
 	local logLines = {}
 	local widgets = {}
+	local DU = { on = false, cam = nil, ask = nil, watch = nil, watchAt = 0, chosen = false } -- lot 13 : duel local (caméra, demande reçue, bandeau des spectateurs)
 	local function clear()
 		for _, w in ipairs(widgets) do
 			pcall(function()
@@ -150,10 +151,15 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		end
 		local me, foe = p.view.sides[1], p.view.sides[2]
 		local mu, fu = me.units[me.active], foe.units[foe.active]
+		local meInfo = { name = player.DisplayName, userId = player.UserId, wins = pv.wins, losses = pv.losses, trophies = pv.trophies, league = st and st.battle and st.battle.league or nil, pets = pets(me) }
+		local foeInfo = { name = p.foe, pets = pets(foe) }
+		if p.duel and type(p.intro) == "table" and type(p.intro.me) == "table" and type(p.intro.foe) == "table" then -- lot 13 (B.4) : ratios de duel, ligues et trophées envoyés par le serveur
+			meInfo = { name = p.intro.me.name, userId = p.intro.me.userId, wins = p.intro.me.wins, losses = p.intro.me.losses, trophies = p.intro.me.trophies, league = p.intro.me.league, pets = pets(me) }
+			foeInfo = { name = p.intro.foe.name, userId = p.intro.foe.userId, wins = p.intro.foe.wins, losses = p.intro.foe.losses, trophies = p.intro.foe.trophies, league = p.intro.foe.league, pets = pets(foe) }
+		end
 		local plan = fx.IntroPlan.plan({
-			mode = p.pvp and "pvp" or "tower", countdown = false, advantage = (mu and fu) and Battle.typeMul(mu.type, fu.type) or 1,
-			me = { name = player.DisplayName, userId = player.UserId, wins = pv.wins, losses = pv.losses, trophies = pv.trophies, pets = pets(me) },
-			foe = { name = p.foe, pets = pets(foe) },
+			mode = p.duel and "duel" or (p.pvp and "pvp" or (p.npc and "npc" or "tower")), countdown = false, advantage = (mu and fu) and Battle.typeMul(mu.type, fu.type) or 1,
+			me = meInfo, foe = foeInfo,
 		}, { fmtOdds = fx.Odds and fx.Odds.label or nil })
 		fx.BattleIntro.play(gui, plan, {
 			thumbnail = function(uid)
@@ -292,10 +298,10 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		if not view then
 			return
 		end
-		ui.title.Text = "⚔️ " .. foeName .. (lastFloor > 0 and (" · étage " .. lastFloor) or "")
+		ui.title.Text = "⚔️ " .. foeName .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or "")
 		local me, foe = view.sides[1], view.sides[2]
 		local mu, fu = me.units[me.active], foe.units[foe.active]
-		ui.info.Text = BattleUi.advantage(Battle, mu.type, fu.type) .. " · tour " .. view.turn .. "/" .. Battle.MAX_TURNS
+		ui.info.Text = BattleUi.advantage(Battle, mu.type, fu.type) .. " · tour " .. view.turn .. "/" .. Battle.MAX_TURNS .. (DU.on and (DU.chosen and " · ✅ choix envoyé, attente de l'adversaire" or " · duel : choisis ton action") or "")
 		local function bar(y, u, left)
 			add(label(ui.body, { Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 20), Text = unitText(u) .. "   " .. u.hp .. "/" .. u.maxHp .. (u.guard and " 🛡" or "") .. (u.stun > 0 and " 💫" or "") .. (u.focus > 0 and " ⚡" or ""), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32 }))
 			local bg = add(make("Frame", { Position = UDim2.fromOffset(0, y + 22), Size = UDim2.new(1, 0, 0, 10), BackgroundColor3 = Color3.fromRGB(50, 30, 40), ZIndex = 32 }, ui.body))
@@ -342,11 +348,13 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		local b1 = add(button(ui.body, { Position = UDim2.new(0, 0, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = "⚔ Attaque", ZIndex = 32 }))
 		b1.Activated:Connect(function()
 			fire("battleAct", "attack")
+			DU.picked()
 		end)
 		local b2 = add(button(ui.body, { Position = UDim2.new(0.5, 3, 1, -66), Size = UDim2.new(0.5, -3, 0, 28), Text = myState.text, AutoButtonColor = myState.ready, BackgroundColor3 = myState.ready and Color3.fromRGB(74, 163, 255) or Color3.fromRGB(110, 110, 120), TextColor3 = myState.ready and Color3.fromRGB(10, 30, 15) or Color3.fromRGB(200, 200, 210), ZIndex = 32 }))
 		b2.Activated:Connect(function()
 			if myState.ready then -- le serveur revalide (« spécial pas prêt (x/5) ») : ce test n'est que du confort
 				fire("battleAct", "skill")
+				DU.picked()
 			end
 		end)
 		local k = 0
@@ -358,6 +366,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				sb.Activated:Connect(function()
 					if alive then
 						fire("battleAct", "swap" .. i)
+						DU.picked()
 					end
 				end)
 			end
@@ -457,12 +466,128 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		showResult(table.concat(lines, "\n"))
 	end
 
+	-- LOT 13 : duel local. Demande reçue (Accepter / Refuser, 20 s), caméra de duel sur le sable, bandeau des spectateurs. Le serveur revalide tout.
+	function DU.picked()
+		if DU.on and not DU.chosen then
+			DU.chosen = true
+			if mode == "battle" then
+				render()
+			end
+		end
+	end
+	function DU.camera(p)
+		local cam = workspace.CurrentCamera
+		if not cam or type(p.arena) ~= "table" or type(p.arena.x) ~= "number" or type(p.arena.z) ~= "number" then
+			return
+		end
+		DU.cam = { type = cam.CameraType, subject = cam.CameraSubject }
+		local dir = p.arena.side == 2 and -1 or 1
+		local center = Vector3.new(p.arena.x, 4, p.arena.z)
+		local eye = center + Vector3.new(-dir * 6, 16, 30)
+		cam.CameraType = Enum.CameraType.Scriptable
+		local goal = { CFrame = CFrame.lookAt(eye, center) }
+		pcall(function()
+			TweenService:Create(cam, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), goal):Play()
+		end)
+	end
+	function DU.restore()
+		local cam = workspace.CurrentCamera
+		if DU.cam and cam then
+			cam.CameraType = Enum.CameraType.Custom
+			local ch = player.Character
+			local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+			cam.CameraSubject = hum or DU.cam.subject
+		end
+		DU.cam, DU.on, DU.chosen = nil, false, false
+	end
+	function DU.closeAsk()
+		if DU.ask then
+			pcall(function()
+				DU.ask.frame:Destroy()
+			end)
+			DU.ask = nil
+		end
+	end
+	function DU.showAsk(p)
+		if type(p.fromId) ~= "number" or type(p.from) ~= "string" then
+			return
+		end
+		DU.closeAsk()
+		local fr = make("Frame", { Name = "DuelAsk", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 90), Size = UDim2.fromOffset(300, 104), BackgroundColor3 = Color3.fromRGB(28, 26, 44), ZIndex = 40 }, gui)
+		make("UICorner", { CornerRadius = UDim.new(0, 14) }, fr)
+		make("UIStroke", { Color = Color3.fromRGB(255, 159, 28), Thickness = 3 }, fr)
+		label(fr, { Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 40), TextSize = 16, TextWrapped = true, Text = "⚔️ " .. p.from:sub(1, 20) .. " te défie en duel !\nAmical : aucun trophée en jeu.", ZIndex = 41 })
+		local timer = label(fr, { Position = UDim2.fromOffset(10, 46), Size = UDim2.new(1, -20, 0, 16), TextSize = 12, TextColor3 = Color3.fromRGB(220, 220, 235), Text = "", ZIndex = 41 })
+		local yes = button(fr, { Position = UDim2.new(0, 10, 1, -36), Size = UDim2.new(0.5, -15, 0, 28), Text = "✅ Accepter", ZIndex = 41 })
+		local no = button(fr, { Position = UDim2.new(0.5, 5, 1, -36), Size = UDim2.new(0.5, -15, 0, 28), Text = "✖ Refuser", BackgroundColor3 = Color3.fromRGB(255, 99, 99), ZIndex = 41 })
+		DU.ask = { frame = fr, fromId = p.fromId, deadline = os.clock() + (tonumber(p.seconds) or 20), timer = timer }
+		yes.Activated:Connect(function()
+			fire("duelAnswer", { from = p.fromId, accept = true })
+			DU.closeAsk()
+		end)
+		no.Activated:Connect(function()
+			fire("duelAnswer", { from = p.fromId, accept = false })
+			DU.closeAsk()
+		end)
+		pcall(function()
+			fr.Position = UDim2.new(0.5, 0, 0, 60)
+			TweenService:Create(fr, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 90) }):Play()
+		end)
+		FX.sound("battle_start")
+	end
+	function DU.showWatch(p) -- bandeau des spectateurs : noms, PV restants des deux équipes, tour, vainqueur
+		if type(p.view) ~= "table" or type(p.view.sides) ~= "table" then
+			return
+		end
+		if not DU.watch then
+			local fr = make("Frame", { Name = "DuelWatch", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(320, 50), BackgroundColor3 = Color3.fromRGB(28, 26, 44), BackgroundTransparency = 0.15, ZIndex = 25 }, gui)
+			make("UICorner", { CornerRadius = UDim.new(0, 12) }, fr)
+			make("UIStroke", { Color = Color3.fromRGB(255, 210, 63), Thickness = 2 }, fr)
+			local title = label(fr, { Position = UDim2.fromOffset(8, 2), Size = UDim2.new(1, -16, 0, 20), TextSize = 14, Text = "", ZIndex = 26 })
+			local bars = {}
+			for i = 1, 2 do
+				local bg = make("Frame", { Position = UDim2.new((i - 1) * 0.5, 8, 0, 28), Size = UDim2.new(0.5, -16, 0, 12), BackgroundColor3 = Color3.fromRGB(50, 30, 40), ZIndex = 26 }, fr)
+				make("UICorner", { CornerRadius = UDim.new(0, 6) }, bg)
+				bars[i] = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = i == 1 and Color3.fromRGB(74, 163, 255) or Color3.fromRGB(255, 99, 99), ZIndex = 27 }, bg)
+			end
+			DU.watch = { frame = fr, title = title, bars = bars }
+		end
+		local w = DU.watch
+		for i = 1, 2 do
+			local hp, max = 0, 0
+			for _, u in ipairs(p.view.sides[i] and p.view.sides[i].units or {}) do
+				hp, max = hp + math.max(0, tonumber(u.hp) or 0), max + math.max(0, tonumber(u.maxHp) or 0)
+			end
+			w.bars[i].Size = UDim2.fromScale(max > 0 and hp / max or 0, 1)
+		end
+		local a, b = tostring(p.a or "?"):sub(1, 16), tostring(p.b or "?"):sub(1, 16)
+		w.title.Text = p.over and ("🏆 " .. (p.winner and tostring(p.winner):sub(1, 16) .. " gagne le duel !" or "Duel terminé")) or ("⚔️ Duel au colisée : " .. a .. " 🆚 " .. b .. " · tour " .. tostring(p.view.turn or 0))
+		DU.watchAt = os.clock() + (p.over and 5 or 25)
+	end
+
 	RBattle.OnClientEvent:Connect(function(p)
 		pcall(function()
 			if type(p) ~= "table" then
 				return
 			end
+			if p.k == "duelAsk" then
+				DU.showAsk(p)
+				return
+			elseif p.k == "duelAskEnd" then
+				if DU.ask and DU.ask.fromId == p.fromId then
+					DU.closeAsk()
+				end
+				return
+			elseif p.k == "duelWatch" then
+				DU.showWatch(p)
+				return
+			end
 			if p.k == "start" then
+				DU.on, DU.chosen = p.duel == true, false
+				if p.duel then
+					DU.closeAsk()
+					pcall(DU.camera, p)
+				end
 				mode, view, foeName, lastFloor, logLines, pick, lastReady = "battle", p.view, p.foe, p.floor, {}, nil, false
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				ui.panel.Visible = true
@@ -470,6 +595,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 				FX.hits = { 0, 0 }
 				pcall(FX.intro, p)
 			elseif p.k == "turn" then
+				DU.chosen = false
 				view = p.view
 				deadline = os.clock() + (p.seconds or TW.turnSeconds)
 				pushLog(p.events)
@@ -486,6 +612,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 			elseif p.k == "end" then
 				local r = p.rewards or {}
 				local lines = { p.win and "🏆 Victoire !" or "💀 Défaite…" }
+				if p.duel then -- lot 13 : texte du serveur (forfait, quotas, pièces), caméra rendue
+					pcall(DU.restore)
+					lines = { r.cancelled and "⚔️ Duel annulé" or (p.win and "🏆 Duel gagné !" or "💀 Duel perdu…"), type(r.duelText) == "string" and r.duelText or "" }
+					r = {}
+				end
 				if p.win and r.coins then
 					lines[#lines + 1] = "+" .. Config.fmt(r.coins) .. " 🪙" .. (r.first and " (première victoire de l'étage)" or "")
 				end
@@ -539,9 +670,23 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 						render()
 					end
 				end
+				if DU.ask then
+					local left = math.ceil(DU.ask.deadline - os.clock())
+					DU.ask.timer.Text = "⏱ " .. math.max(0, left) .. " s pour répondre"
+					if left < -1 then
+						DU.closeAsk()
+					end
+				end
+				if DU.watch and os.clock() > DU.watchAt then
+					DU.watch.frame:Destroy()
+					DU.watch = nil
+				end
+				if DU.on and mode ~= "battle" then
+					DU.restore()
+				end
 				if mode == "battle" and ui.panel.Visible and view and not view.over then
 					local left = math.max(0, math.ceil(deadline - os.clock()))
-					ui.title.Text = "⚔️ " .. foeName .. " · étage " .. lastFloor .. " · ⏱ " .. left .. " s"
+					ui.title.Text = "⚔️ " .. foeName .. ((lastFloor or 0) > 0 and (" · étage " .. lastFloor) or "") .. " · ⏱ " .. left .. " s"
 				end
 			end)
 		end

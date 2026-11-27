@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX78"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX125"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX124"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX79"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX127"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX126"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -1761,6 +1761,26 @@ Config.PVP = {
 	seasonSeconds = 7 * 86400, dailyFights = 10, winBase = 25, winMin = 10, winMax = 40, loss = 15, start = 0,
 	rewards = { { trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true }, { trophies = 1000, coins = 400000, eggTier = 6, potion = true } },
 }
+-- Lot 13 (E.2) : duel local amical (même serveur, sable du colisée, aucun trophée). Règles dans ReplicatedStorage/Duel.lua.
+Config.DUEL = { range = 30, requestTimeout = 20, sameTargetCooldown = 120, rewardedPerDay = 10, samePairRewardedPerDay = 3, turnSeconds = 10, afkTurnsToForfeit = 2, coinsWinMins = 1, coinsLoseMins = 0.25,
+	-- intégration lot 13 : écart des duellistes sur le sable (±10 en X), rayon des spectateurs, délai de l'intro avant le 1er tour, tours minimum pour être payé après un départ / abandon
+	sandOffset = 10, spectatorRange = 90, introSeconds = 3, earlyMinTurns = 3 }
+-- Lot 13 (E.4) : ligues (trophées min, liste triée) et saison (remise partielle ; récompenses étendues, eggTier = indice de Config.TIERS).
+Config.LEAGUES = {
+	{ id = "bronze", name = "Bronze", icon = "🥉", min = 0, color = Color3.fromRGB(205, 127, 50) },
+	{ id = "argent", name = "Argent", icon = "🥈", min = 300, color = Color3.fromRGB(200, 205, 215) },
+	{ id = "or", name = "Or", icon = "🥇", min = 600, color = Color3.fromRGB(255, 205, 60) },
+	{ id = "diamant", name = "Diamant", icon = "💎", min = 1000, color = Color3.fromRGB(110, 220, 255) },
+	{ id = "champion", name = "Champion", icon = "👑", min = 1500, color = Color3.fromRGB(255, 90, 90) },
+}
+Config.LEAGUE_SEASON = {
+	resetAbove = 300, resetFactor = 0.6,
+	rewards = {
+		{ trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true },
+		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 1000000, eggTier = 7, potion = true, title = "Champion de la saison", provisional = true },
+	},
+	-- PROVISOIRE : le montant du palier 1500 (1 000 000 pièces + potion) a été inventé par la préparation (absent de la spec) ; à valider (LOT13_ECARTS.md).
+}
 function Config.pvpSeason(now)
 	return math.floor(now / Config.PVP.seasonSeconds)
 end
@@ -2686,7 +2706,7 @@ for key, id in pairs({ vendor_eggs = 138633300069014, vendor_luck = 137414127061
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -2982,7 +3002,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -3162,7 +3182,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3508,7 +3528,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3809,7 +3829,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4412,7 +4432,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4837,7 +4857,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4875,7 +4895,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -4963,7 +4983,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -5026,7 +5046,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, spécial, changer de pet) et rejoue les événements reçus.
 -- Types (9) : 3 triangles primaires (BEATS, x1,5 / x0,67) : Feu > Nature > Eau > Feu, Lumière > Ombre > Ciel > Lumière, Terre > Foudre > Glace > Terre ;
@@ -5554,7 +5574,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5618,7 +5638,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -5959,7 +5979,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -6016,7 +6036,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -6128,7 +6148,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -6335,7 +6355,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6554,7 +6574,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -7366,7 +7386,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7477,7 +7497,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7681,7 +7701,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -7882,7 +7902,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -8315,7 +8335,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8544,7 +8564,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8608,7 +8628,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -8926,7 +8946,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -9251,7 +9271,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -9409,7 +9429,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9531,7 +9551,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -9917,7 +9937,7 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
 -- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
 -- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
 -- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
@@ -10790,7 +10810,7 @@ function Npc.violations(Config, o, inv, userId)
 end
 
 return Npc
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
 -- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
 -- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
 -- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
@@ -11512,7 +11532,7 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store)
 end
 
 return Rewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
 -- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
 -- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
 -- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
@@ -11673,7 +11693,7 @@ function KioskData.overlap(Map2, cx, cz, r, margin)
 end
 
 return KioskData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
 -- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
 -- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
 -- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
@@ -11794,7 +11814,7 @@ F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", regio
 -- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
 
 return DecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
 -- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
 --
@@ -11897,7 +11917,7 @@ function HouseDecorData.budget(level)
 end
 
 return HouseDecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
 -- Une fiche par achat, clé = clé de Config.PRODUCTS / Config.PASSES. Source : Assets/ACHATS_DEFINITIONS.md (titre <= 28 caractères, définition <= 90).
 -- Champs : cat (catégorie, voir Shop.CATEGORIES), icon (clé de Config.ICONS), title, def (définition courte), detail (durée, ce qui est aléatoire ou fixe, prérequis),
 --   notDo (« ce que l'achat ne fait PAS »), chance (texte « hasard / fixe »), limit ("achat unique" | "aucune limite" | "achat unique par saison"), also (autres catégories à renvoyer, « voir aussi »).
@@ -12142,7 +12162,7 @@ for n = 1, 6 do
 end
 
 return I
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
 -- Ids, prix (R$), catégories et drapeaux de TOUS les achats de la boutique. L'intégrateur appelle `ShopData.merge(Config)` à la fin de Config.lua (ou copie ces champs
 -- dans Config.PRODUCTS / Config.PASSES) : les champs existants (name, emoji, desc, eggTier...) sont conservés, id / robux / cat / random / once / season / eggTier sont posés ici.
 -- Drapeaux : random = achat masqué et refusé si PolicyService restreint ; once = achat unique à vie ; season = achat unique PAR saison (season.premium = n) ;
@@ -12240,7 +12260,7 @@ function D.merge(config, info)
 end
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
 -- Catégories, tri, état « Possédé », règle de mise à niveau (palier inférieur déjà possédé -> seul le complément est visible), prix effectif, visibilité
 -- (id renseigné, PolicyService, espèces publiées), contrôle de place AVANT paiement, débordement, texte des probabilités et reçus (un crédit par reçu).
 -- Décision utilisateur : PLUS DE PLAFOND D'ACHAT. Seuls les achats uniques (`once`, passes, poses) et le passe de saison (une fois par saison) sont limités.
@@ -12833,7 +12853,7 @@ function Shop.grantPass(profil, key)
 end
 
 return Shop
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
 -- LOT 16 (G.5 + addendum B) : logique PURE de la Passe de combat (aucun service Roblox, aucun os.time : le SERVEUR passe `nowUtc` en secondes).
 -- Usage : local S = Season.new(Config, SeasonData). Config fournit TIERS (rareté par NOM) et PETS (espèce Exclusif de la saison).
 -- Champs de profil (profil.season) : { n, xp, day, dayXp, claimedFree, claimedPrem, premium, plus, prev }
@@ -13325,7 +13345,7 @@ function Season.new(Config, SD)
 end
 
 return Season
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
 -- LOT 16 (G.5 + addendum B) : DONNÉES de la Passe de combat (aucune logique, aucun service Roblox). Les raretés sont des NOMS résolus par Config.TIERS (jamais de rang en dur).
 -- Modifiable sans toucher Season.lua : durée, date de début, XP par source, plafond/jour, XP par palier, récompenses des deux pistes, thèmes et espèces de saison.
 local D = {}
@@ -13464,7 +13484,7 @@ D.PREMIUM_TRACK = {
 }
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
 -- LOT 16 : OFFRES CONTEXTUELLES à l'écran, logique PURE (aucun service Roblox, aucune instance, aucun hasard). Une offre à la fois, 3 par session, 300 s d'écart,
 -- jamais pendant une action, jamais juste après un achat, jamais ce que le joueur possède ou ce qui est indisponible. Le client affiche la carte (bouton Fermer toujours
 -- visible) et ouvre la MEME fiche que le kiosque ; le serveur reste seul juge de l'achat. Style : pas de `+=`, pas de `continue`, gardes de type partout.
@@ -13697,7 +13717,7 @@ function Offers.expired(state, now, ctx)
 end
 
 return Offers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
 -- LOT 16 : DONNEES PURES des offres contextuelles à l'écran (une carte à la fois, fermable d'un geste). Aucune instance, aucun service Roblox.
 -- Règles (décisions utilisateur, ACHATS_DEFINITIONS « Règles communes ») : jamais de fausse urgence, aucun minuteur affiché, aucune promesse de gain,
 -- 3 offres par session, 300 s entre deux, aucune offre juste après un achat, jamais ce que le joueur possède, jamais un achat sans id ou masqué (PolicyService),
@@ -13736,7 +13756,7 @@ OffersData.EGG_TEXT = "Un œuf de rareté fixe %s, posé dans ta base. Espèce e
 OffersData.FORBIDDEN_WORDS = { "dernière chance", "dépêche", "vite", "limité", "limitée", "stock", "expire", "plus que", "maintenant ou jamais", "offre spéciale", "promo", "-50", "gratuit à vie", "tu vas obtenir", "garanti !" }
 
 return OffersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
 -- LOT 16 : DONNEES PURES des 8 vendeurs PNJ du hub (un par catégorie de la boutique du kiosque). Aucun service Roblox, aucune instance : testé hors de Roblox
 -- (tests/sellers.luau). Source unique pour ServerScriptService/Sellers (construction, prompts, validation serveur) et pour le client (onglet à ouvrir).
 -- Repères : Nord = -Z, Est = +X. Le « devant » d'un vendeur (étiquette, comptoir) regarde le kiosque central.
@@ -14021,7 +14041,7 @@ function SellersData.footprints(layout)
 end
 
 return SellersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
 -- Les 78 espèces de Chipe-Œufs. MODULE DE DONNÉES PUR : aucun service Roblox, seulement `Color3.fromRGB` (global Roblox ; simulé par les tests).
 -- Config.PETS = Bestiary.PETS (voir README « Brancher »). L'INDICE D'ESPÈCE EST STABLE POUR TOUJOURS : il est stocké dans les profils (dex, pets, défenses PvP).
 -- Les indices 1 à 18 sont les 18 espèces historiques, identiques octet pour octet à l'ancien Config.PETS (nom, revenu, couleur, repli) : ne jamais les modifier.
@@ -15165,7 +15185,7 @@ function Bestiary.fallback(idx)
 end
 
 return Bestiary
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
 -- Expérience et niveaux des pets : module PUR (aucun service Roblox, aucun require). L'XP est stockée sur l'emplacement du pet : `slot.x` = XP CUMULÉE (entier, champ déjà
 -- créé à 0 par la migration v11 et assaini par Data.merge). Niveau 1 à 20 ; chaque niveau donne +1,5 % de pv et d'attaque (Battle.unit : stat x PetXp.statMul(niveau)).
 -- RÈGLE FERME : l'XP de pet ne s'obtient QU'EN JOUANT (combat PvE/PvP/PNJ, carte Expérience D.5). Aucun produit, aucun pass, aucun reçu ne donne d'XP de pet
@@ -15360,7 +15380,7 @@ function PetXp.trainerAdd(trainer, amount)
 end
 
 return PetXp
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX124"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
 -- Récompense AU CHOIX après une victoire PvE (tour des Dresseurs, combats de PNJ) : module PUR (aucun service Roblox). Ne remplace pas Rewards.lua (série / calendrier du lot 15).
 -- Le SERVEUR tire 3 cartes de 3 catégories DIFFÉRENTES (poids : Pièces 30, Expérience 25, Œuf 15, Vitesse 15, Effet 15 ; aux boss, une des 3 est toujours l'Œuf), les enregistre dans
 -- `data.battle.pendingPick = { id, cards, expires, floor, mode }` puis les envoie au client ; le joueur en choisit une en 15 s, sinon la première. Se déconnecter ou relancer ne
@@ -15726,8 +15746,480 @@ function BattleRewards.view(Config, pick, now)
 end
 
 return BattleRewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX125"><Properties><string name="Name">Duel</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Duel   (lot 13, E.1 E.2 E.4, B.4)
+-- Règles PURES du duel local et des ligues (aucun service Roblox, aucun require, horloge injectée, jamais d'erreur sur entrée invalide). Pas de += ni de continue (lanceur lupa).
+-- Le serveur (Main.server.lua) fait les effets (placement sur le sable, Battle.turn, notifications) ; ce module décide.
+--   Duel.canChallenge(ctx, cfg)        -> ok, raison, côté ("a" défieur | "b" défié)   [6 refus de E.2 + soi-même + occupé]
+--   Duel.newBook() / request / answer / decline / expire / finish   -> carnet des défis (délai 20 s, un seul accepté)
+--   Duel.newMatch / noteTurn            -> compteur d'inactivité : 2 tours sans action = forfait
+--   Duel.settle(duelA, duelB, ...)      -> récompenses (10/jour, 3/paire/jour), ratio V/D ; AUCUN trophée
+--   Duel.percent / record / recordFor   -> ratio « 124 V / 37 D (77 %) » (même formule que IntroPlan)
+--   Duel.league / seasonReset / seasonReward / introSide -> ligues, saison, données d'intro B.4
+local Duel = {}
+
+Duel.CAP = 10000000
+Duel.REASONS = { "self", "range", "egg", "chased", "dialogue", "castle", "newbie", "busy", "flying", "cinematic" }
+
+local DEFAULT = { range = 30, requestTimeout = 20, sameTargetCooldown = 120, rewardedPerDay = 10, samePairRewardedPerDay = 3, turnSeconds = 10, afkTurnsToForfeit = 2, coinsWinMins = 1, coinsLoseMins = 0.25, maxPendingPerTarget = 3, maxCoins = 1e12 }
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function cfgOf(cfg)
+	local c = {}
+	for k, v in pairs(DEFAULT) do
+		c[k] = v
+	end
+	if type(cfg) == "table" then
+		for k, v in pairs(cfg) do
+			if DEFAULT[k] ~= nil and isNum(v) then
+				c[k] = v
+			end
+		end
+	end
+	return c
+end
+
+local function count(v)
+	if not isNum(v) or v < 0 then
+		return 0
+	end
+	return math.min(Duel.CAP, math.floor(v))
+end
+
+-- ---------------------------------------------------------------- Ratio
+function Duel.percent(wins, losses)
+	local w, l = count(wins), count(losses)
+	return math.floor(100 * w / math.max(1, w + l) + 0.5)
+end
+
+function Duel.record(wins, losses)
+	local w, l = count(wins), count(losses)
+	return w .. " V / " .. l .. " D (" .. Duel.percent(w, l) .. " %)"
+end
+
+-- Victoires/défaites selon le mode (B.4). profile = battle (données du joueur) ; PNJ : passer { wins, losses } fixes au lieu d'un profil.
+-- pvp = battle.pvp.wins/losses + battle.live.w/l ; duel = battle.duel.w/l ; pve = battle.pve.w/l ; tower = étage atteint (V = étages franchis, D = 0).
+function Duel.recordFor(mode, battle)
+	local b = type(battle) == "table" and battle or {}
+	if mode == "duel" then
+		local d = type(b.duel) == "table" and b.duel or {}
+		return count(d.w), count(d.l)
+	elseif mode == "pvp" then
+		local p = type(b.pvp) == "table" and b.pvp or {}
+		local lv = type(b.live) == "table" and b.live or {}
+		return math.min(Duel.CAP, count(p.wins) + count(lv.w)), math.min(Duel.CAP, count(p.losses) + count(lv.l))
+	elseif mode == "pve" then
+		local d = type(b.pve) == "table" and b.pve or {}
+		return count(d.w), count(d.l)
+	elseif mode == "tower" then
+		return count(b.best), 0
+	elseif mode == "npc" then
+		return count(b.wins), count(b.losses)
+	end
+	return 0, 0
+end
+
+-- ---------------------------------------------------------------- Ligues
+-- leagues = Config.LEAGUES (liste triée par min croissant). Retourne l'entrée de la ligue (la plus haute dont min <= trophées), jamais nil si la liste est valide.
+function Duel.league(leagues, trophies)
+	local t = isNum(trophies) and math.max(0, math.floor(trophies)) or 0
+	local best, idx
+	if type(leagues) ~= "table" then
+		return nil, 0
+	end
+	for i = 1, #leagues do
+		local L = leagues[i]
+		if type(L) == "table" and isNum(L.min) and t >= L.min and (best == nil or L.min >= best.min) then
+			best, idx = L, i
+		end
+	end
+	return best, idx or 0
+end
+
+-- Texte de ligue pour l'intro (IntroPlan : 16 caractères max) : « 🥇 Or ».
+function Duel.leagueText(leagues, trophies)
+	local L = Duel.league(leagues, trophies)
+	if not L then
+		return ""
+	end
+	return ((type(L.icon) == "string" and L.icon ~= "") and (L.icon .. " ") or "") .. tostring(L.name)
+end
+
+-- Remise partielle de saison (E.4) : sous 300 inchangé ; au-delà trophées = max(300, floor(trophées x 0,6)).
+function Duel.seasonReset(trophies, from, factor)
+	local t = isNum(trophies) and math.max(0, math.floor(trophies)) or 0
+	local f = isNum(from) and from or 300
+	local k = isNum(factor) and factor or 0.6
+	if t <= f then
+		return t
+	end
+	return math.max(f, math.floor(t * k))
+end
+
+-- Meilleure récompense dont le seuil est atteint (rewards triées par trophées croissants).
+function Duel.seasonReward(rewards, trophies)
+	local t = isNum(trophies) and trophies or 0
+	local best
+	if type(rewards) ~= "table" then
+		return nil
+	end
+	for i = 1, #rewards do
+		local r = rewards[i]
+		if type(r) == "table" and isNum(r.trophies) and t >= r.trophies and (best == nil or r.trophies >= best.trophies) then
+			best = r
+		end
+	end
+	return best
+end
+
+-- Un côté de l'intro (B.4) à passer à IntroPlan.plan : { name, userId, wins, losses, league, trophies, pets }.
+function Duel.introSide(mode, battle, base, leagues)
+	local w, l = Duel.recordFor(mode, battle)
+	local b = type(base) == "table" and base or {}
+	local tr = count(b.trophies)
+	return { name = b.name, userId = b.userId, wins = w, losses = l, league = Duel.leagueText(leagues, tr), trophies = tr, pets = b.pets }
+end
+
+-- ---------------------------------------------------------------- Défi : 6 cas de refus (E.2) + soi-même + occupé
+-- ctx = { a = { userId, carryingEgg, chased, inDialogue, inCastle, newbie, busy, flying, inCinematic }, b = { même forme }, distance = studs }
+-- Intégration lot 13 : `flying` (vol d'œuf en cours) et `inCinematic` (grande éclosion) ajoutés après les 6 cas de E.2.
+-- newbie = protection débutant ACTIVE (déjà non désactivée). Retourne true | false, raison, "a"|"b".
+function Duel.canChallenge(ctx, cfg)
+	local c = cfgOf(cfg)
+	if type(ctx) ~= "table" or type(ctx.a) ~= "table" or type(ctx.b) ~= "table" then
+		return false, "busy", "a"
+	end
+	if ctx.a.userId ~= nil and ctx.a.userId == ctx.b.userId then
+		return false, "self", "a"
+	end
+	if not isNum(ctx.distance) or ctx.distance > c.range or ctx.distance < 0 then
+		return false, "range", "b"
+	end
+	local keys = { { "carryingEgg", "egg" }, { "chased", "chased" }, { "inDialogue", "dialogue" }, { "inCastle", "castle" }, { "newbie", "newbie" }, { "busy", "busy" }, { "flying", "flying" }, { "inCinematic", "cinematic" } }
+	local sides = { { "a", ctx.a }, { "b", ctx.b } }
+	for k = 1, #keys do
+		for s = 1, 2 do
+			if sides[s][2][keys[k][1]] == true then
+				return false, keys[k][2], sides[s][1]
+			end
+		end
+	end
+	return true, "", ""
+end
+
+-- ---------------------------------------------------------------- Carnet des défis
+-- book = { pending = { [challengerId] = { from, to, t } }, last = { ["from>to"] = t }, active = { [userId] = duelId }, nextId }
+function Duel.newBook()
+	return { pending = {}, last = {}, active = {}, nextId = 1 }
+end
+
+local function pendingFor(book, to)
+	local n = 0
+	for _, p in pairs(book.pending) do
+		if p.to == to then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Envoie un défi. ctx comme canChallenge (+ ctx.a.userId, ctx.b.userId nombres). Retourne true | false, raison.
+function Duel.request(book, ctx, now, cfg)
+	local c = cfgOf(cfg)
+	if type(book) ~= "table" or type(ctx) ~= "table" or type(ctx.a) ~= "table" or type(ctx.b) ~= "table" or not isNum(ctx.a.userId) or not isNum(ctx.b.userId) or not isNum(now) then
+		return false, "busy"
+	end
+	local from, to = ctx.a.userId, ctx.b.userId
+	if book.active[from] or book.active[to] then
+		return false, "busy"
+	end
+	local ok, why = Duel.canChallenge(ctx, c)
+	if not ok then
+		return false, why
+	end
+	local last = book.last[from .. ">" .. to]
+	if last and now - last < c.sameTargetCooldown then
+		return false, "cooldown"
+	end
+	local mine = book.pending[from]
+	if mine and now - mine.t < c.requestTimeout then
+		return false, "pendingOut"
+	end
+	if pendingFor(book, to) >= c.maxPendingPerTarget then
+		return false, "crowded"
+	end
+	book.pending[from] = { from = from, to = to, t = now }
+	book.last[from .. ">" .. to] = now
+	return true, ""
+end
+
+-- Le défié accepte le défi de `from`. Un seul défi accepté : tous les autres défis qui touchent l'un des deux sont annulés (retournés).
+-- Retourne true, duelId, annulés | false, raison.
+function Duel.answer(book, to, from, accept, now, cfg, ctx)
+	local c = cfgOf(cfg)
+	local p = type(book) == "table" and isNum(from) and book.pending[from] or nil
+	if not p or p.to ~= to or not isNum(now) then
+		return false, "none"
+	end
+	if now - p.t > c.requestTimeout then
+		book.pending[from] = nil
+		return false, "expired"
+	end
+	if not accept then
+		book.pending[from] = nil
+		return false, "declined"
+	end
+	if book.active[from] or book.active[to] then
+		book.pending[from] = nil
+		return false, "busy"
+	end
+	if ctx ~= nil then
+		local ok, why = Duel.canChallenge(ctx, c) -- états relus à l'acceptation
+		if not ok then
+			book.pending[from] = nil
+			return false, why
+		end
+	end
+	book.pending[from] = nil
+	local id = book.nextId
+	book.nextId = id + 1
+	book.active[from], book.active[to] = id, id
+	local cancelled = {}
+	for k, q in pairs(book.pending) do
+		if q.from == from or q.to == from or q.from == to or q.to == to then
+			cancelled[#cancelled + 1] = { from = q.from, to = q.to }
+			book.pending[k] = nil
+		end
+	end
+	return true, id, cancelled
+end
+
+function Duel.decline(book, to, from, now, cfg)
+	return Duel.answer(book, to, from, false, now, cfg)
+end
+
+-- Défis expirés (à appeler toutes les secondes) : retourne la liste { from, to } retirée.
+function Duel.expire(book, now, cfg)
+	local c = cfgOf(cfg)
+	local out = {}
+	if type(book) ~= "table" or not isNum(now) then
+		return out
+	end
+	for k, p in pairs(book.pending) do
+		if now - p.t > c.requestTimeout then
+			out[#out + 1] = { from = p.from, to = p.to }
+			book.pending[k] = nil
+		end
+	end
+	return out
+end
+
+-- Fin ou départ : libère les deux joueurs et retire leurs défis en attente (joueur qui quitte).
+function Duel.finish(book, userId)
+	if type(book) ~= "table" then
+		return
+	end
+	local id = book.active[userId]
+	if id then
+		for u, v in pairs(book.active) do
+			if v == id then
+				book.active[u] = nil
+			end
+		end
+	end
+	for k, p in pairs(book.pending) do
+		if p.from == userId or p.to == userId then
+			book.pending[k] = nil
+		end
+	end
+end
+
+-- Purge les anciennes dates de cooldown (évite la croissance de la table).
+function Duel.prune(book, now, cfg)
+	local c = cfgOf(cfg)
+	if type(book) ~= "table" or not isNum(now) then
+		return
+	end
+	for k, t in pairs(book.last) do
+		if now - t >= c.sameTargetCooldown then
+			book.last[k] = nil
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- Tours et forfait
+function Duel.newMatch(idA, idB)
+	return { a = idA, b = idB, afkA = 0, afkB = 0, turns = 0, over = false, winner = nil, reason = "" }
+end
+
+-- Enregistre un tour : actedA/actedB = le joueur a choisi une action avant la fin des 10 s. Une action remet le compteur à 0.
+-- Retourne "continue" | "forfeitA" | "forfeitB" | "cancelled" (les deux inactifs en même temps : duel annulé, ni vainqueur ni récompense).
+function Duel.noteTurn(m, actedA, actedB, cfg)
+	local c = cfgOf(cfg)
+	if type(m) ~= "table" or m.over then
+		return "continue"
+	end
+	m.turns = m.turns + 1
+	m.afkA = actedA and 0 or (m.afkA + 1)
+	m.afkB = actedB and 0 or (m.afkB + 1)
+	local fa, fb = m.afkA >= c.afkTurnsToForfeit, m.afkB >= c.afkTurnsToForfeit
+	if fa and fb then
+		m.over, m.reason = true, "cancelled"
+		return "cancelled"
+	elseif fa then
+		m.over, m.winner, m.reason = true, "b", "forfeit"
+		return "forfeitA"
+	elseif fb then
+		m.over, m.winner, m.reason = true, "a", "forfeit"
+		return "forfeitB"
+	end
+	return "continue"
+end
+
+-- ---------------------------------------------------------------- Récompenses et ratio
+-- Profil de duel assaini : { w, l, day, n, pairs = { [idAdversaire texte] = nombre } }. Les paires ne contiennent que des duels récompensés (<= rewardedPerDay clés).
+function Duel.cleanState(raw, today)
+	local d = type(raw) == "table" and raw or {}
+	local day = isNum(d.day) and math.floor(d.day) or 0
+	local out = { w = count(d.w), l = count(d.l), day = day, n = 0, pairs = {} }
+	if day == today then
+		out.n = math.min(1000, count(d.n))
+		if type(d.pairs) == "table" then
+			local k = 0
+			for key, v in pairs(d.pairs) do
+				if type(key) == "string" and isNum(v) and v >= 1 and k < 20 then
+					out.pairs[key] = math.min(1000, math.floor(v))
+					k = k + 1
+				end
+			end
+		end
+	else
+		out.day = isNum(today) and today or day
+	end
+	return out
+end
+
+function Duel.coins(incomePerSec, minutes, cfg)
+	local c = cfgOf(cfg)
+	if not isNum(incomePerSec) or incomePerSec <= 0 or not isNum(minutes) or minutes <= 0 then
+		return 0
+	end
+	return math.min(c.maxCoins, math.floor(incomePerSec * 60 * minutes))
+end
+
+-- Solde un duel pour UN joueur. state = battle.duel (modifié), oppId = userId adversaire, outcome = "win" | "loss" | "draw", now, incomePerSec.
+-- Le ratio (w/l) est toujours compté (sauf annulé) ; les pièces seulement si quota du jour (10) ET quota de la paire (3) non atteints.
+-- Retourne { rewarded, coins, reason, won }. NE TOUCHE JAMAIS aux trophées (aucun champ trophée n'existe ici).
+function Duel.settle(state, oppId, outcome, now, incomePerSec, cfg)
+	local c = cfgOf(cfg)
+	local today = isNum(now) and math.floor(now / 86400) or 0
+	local clean = Duel.cleanState(state, today)
+	if type(state) == "table" then
+		state.w, state.l, state.day, state.n, state.pairs = clean.w, clean.l, clean.day, clean.n, clean.pairs
+	else
+		state = clean
+	end
+	if outcome ~= "win" and outcome ~= "loss" then
+		return { rewarded = false, coins = 0, reason = "draw", won = false }
+	end
+	local won = outcome == "win"
+	if won then
+		state.w = math.min(Duel.CAP, state.w + 1)
+	else
+		state.l = math.min(Duel.CAP, state.l + 1)
+	end
+	local key = tostring(isNum(oppId) and math.floor(oppId) or 0)
+	local pair = state.pairs[key] or 0
+	if state.n >= c.rewardedPerDay then
+		return { rewarded = false, coins = 0, reason = "dayCap", won = won }
+	end
+	if pair >= c.samePairRewardedPerDay then
+		return { rewarded = false, coins = 0, reason = "pairCap", won = won }
+	end
+	state.n = state.n + 1
+	state.pairs[key] = pair + 1
+	return { rewarded = true, coins = Duel.coins(incomePerSec, won and c.coinsWinMins or c.coinsLoseMins, c), reason = "", won = won }
+end
+
+-- ---------------------------------------------------------------- Vues en miroir (intégration lot 13)
+-- Battle.view et les événements sont écrits du point de vue du camp 1 (le défieur) ; le défié reçoit la vue inversée (son équipe en camp 1).
+function Duel.mirrorView(v)
+	if type(v) ~= "table" or type(v.sides) ~= "table" then
+		return v
+	end
+	local out = {}
+	for k, x in pairs(v) do
+		out[k] = x
+	end
+	out.sides = { v.sides[2], v.sides[1] }
+	if v.winner == 1 or v.winner == 2 then
+		out.winner = 3 - v.winner
+	end
+	return out
+end
+
+function Duel.mirrorEvents(events)
+	local out = {}
+	if type(events) ~= "table" then
+		return out
+	end
+	for i, ev in ipairs(events) do
+		local c = {}
+		if type(ev) == "table" then
+			for k, x in pairs(ev) do
+				c[k] = x
+			end
+			if c.side == 1 or c.side == 2 then
+				c.side = 3 - c.side
+			end
+		end
+		out[i] = c
+	end
+	return out
+end
+
+-- Intention reçue du client (texte) -> action Battle, ou nil (« attack », « skill », « swap1 » à « swap3 »).
+function Duel.parseAction(arg)
+	if arg == "attack" or arg == "skill" then
+		return { kind = arg }
+	end
+	if type(arg) == "string" and #arg <= 8 then
+		local n = tonumber(arg:match("^swap(%d)$"))
+		if n then
+			return { kind = "swap", to = n }
+		end
+	end
+	return nil
+end
+
+-- Pièces réellement versées : un duel terminé par départ ou abandon avant `minTurns` tours ne paie personne (anti-collusion : un complice qui quitte
+-- tout de suite n'offre rien). Le ratio V/D et les quotas restent comptés par Duel.settle.
+function Duel.payable(res, turns, early, minTurns)
+	if type(res) ~= "table" or not res.rewarded or not isNum(res.coins) or res.coins <= 0 then
+		return 0
+	end
+	if early == true and (not isNum(turns) or turns < (isNum(minTurns) and minTurns or 3)) then
+		return 0
+	end
+	return res.coins
+end
+
+-- Aide : issue d'un match vue de chaque côté ("win"/"loss"/"draw").
+function Duel.outcomes(m)
+	if type(m) ~= "table" or not m.over or m.winner == nil then
+		return "draw", "draw"
+	end
+	if m.winner == "a" then
+		return "win", "loss"
+	end
+	return "loss", "win"
+end
+
+return Duel
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX128"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX126"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX130"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX128"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -16082,7 +16574,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX127"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX129"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -16471,7 +16963,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX131"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX130"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX129"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX133"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX132"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX131"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

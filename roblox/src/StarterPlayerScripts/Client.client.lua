@@ -1552,6 +1552,25 @@ function render()
 				RAction:FireServer("npcOff", not off)
 			end })
 		end
+		do -- lot 13 : duel local (défi du joueur le plus proche, réglage « refuser automatiquement »)
+			local duelOff = state.settings and state.settings.duelOff == true
+			local near, nd = nil, (Config.DUEL and Config.DUEL.range or 30)
+			local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			for _, other in ipairs(Players:GetPlayers()) do
+				local r = other ~= player and other.Character and other.Character:FindFirstChild("HumanoidRootPart")
+				if r and myRoot and (r.Position - myRoot.Position).Magnitude <= nd then
+					near, nd = other, (r.Position - myRoot.Position).Magnitude
+				end
+			end
+			addRow({ icon = "⚔️", title = "Défier en duel", desc = near and ("Joueur le plus proche : " .. near.DisplayName .. " (amical, aucun trophée).") or "Approche-toi d'un joueur (moins de " .. (Config.DUEL and Config.DUEL.range or 30) .. " studs) ; touche aussi « Défier » au-dessus de lui.", btn = near and "Défier" or "Personne", btnColor = near and COL.yellow or COL.dis, onClick = function()
+				if near then
+					RAction:FireServer("duelChallenge", near.UserId)
+				end
+			end })
+			addRow({ icon = "🛑", title = "Refuser automatiquement les duels", desc = duelOff and "Activé : personne ne peut te défier." or "Désactivé : les joueurs proches peuvent te proposer un duel (tu choisis d'accepter).", btn = duelOff and "Activé" or "Désactivé", btnColor = duelOff and COL.green or COL.dis, onClick = function()
+				RAction:FireServer("duelOff", not duelOff)
+			end })
+		end
 		do -- lot 7 : réglage du corbeau et journal « Qui m'a volé ? »
 			local blockOn = state.settings and state.settings.blockFriendRavens == true
 			addRow({ icon = "🐦‍⬛", title = "Refuser les corbeaux de mes amis", desc = blockOn and "Activé : tes amis ne peuvent pas t'envoyer de corbeau." or "Désactivé : touche pour refuser les corbeaux de tes amis.", btn = blockOn and "Activé" or "Désactivé", btnColor = blockOn and COL.green or COL.dis, onClick = function()
@@ -3021,6 +3040,50 @@ pcall(function()
 		reduced = Config.REVEAL.forceReduced or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
 		iconUrl = L10.iconUrl,
 	})
+end)
+
+-- LOT 13 : invite « Défier » (touche G) au-dessus des autres joueurs, créée LOCALEMENT (visible de ce client seul) ; elle n'envoie qu'un userId : le serveur
+-- revalide distance, états, cooldown et réglage. Touche distincte de E : ne masque jamais les invites des œufs et des nids.
+pcall(function()
+	local range = (Config.DUEL and Config.DUEL.range or 30) - 2
+	local function attach(other, char)
+		if other == player or not char then
+			return
+		end
+		local root = char:WaitForChild("HumanoidRootPart", 10)
+		if not root or root:FindFirstChild("DuelPrompt") then
+			return
+		end
+		local pr = Instance.new("ProximityPrompt")
+		pr.Name = "DuelPrompt"
+		pr.ActionText = "Défier"
+		pr.ObjectText = "⚔️ " .. other.DisplayName
+		pr.KeyboardKeyCode = Enum.KeyCode.G
+		pr.GamepadKeyCode = Enum.KeyCode.ButtonY
+		pr.HoldDuration = 0.4
+		pr.MaxActivationDistance = range
+		pr.RequiresLineOfSight = false
+		pr.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
+		pr.Triggered:Connect(function()
+			RAction:FireServer("duelChallenge", other.UserId)
+		end)
+		pr.Parent = root
+	end
+	local function track(other)
+		if other == player then
+			return
+		end
+		other.CharacterAdded:Connect(function(char)
+			task.spawn(attach, other, char)
+		end)
+		if other.Character then
+			task.spawn(attach, other, other.Character)
+		end
+	end
+	for _, other in ipairs(Players:GetPlayers()) do
+		track(other)
+	end
+	Players.PlayerAdded:Connect(track)
 end)
 
 -- Boussole : flèche vers la prochaine zone (la plus avancée débloquée), avec distance et temps de marche ; masquée une fois sur place.

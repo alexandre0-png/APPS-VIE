@@ -69,6 +69,7 @@ local L15 = {
 	BR = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleRewards")),
 	PetXp = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PetXp")),
 	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
+	Duel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Duel")), -- lot 13 : duel local, ligues, remise de saison (module pur) ; état des duels dans L15.duel (bloc « Duel local »)
 	remote = newRemote("Npc"), books = {}, assets = nil, decorKey = nil,
 }
 -- Construit (ou reconstruit : idempotent) le kiosque dans World. assets = nil : repli procédural immédiat, sans avertissement.
@@ -504,13 +505,14 @@ local function snapshot(s)
 		stats = statValues(s),
 		baseScore = d.baseScore,
 		away = math.floor(d.pendingAway),
-		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)) },
+		battle = { pvp = { trophies = d.battle.pvp.trophies, season = d.battle.pvp.season, wins = d.battle.pvp.wins, losses = d.battle.pvp.losses, hasDefense = #d.battle.pvp.defense > 0, fightsLeft = math.max(0, Config.PVP.dailyFights - (d.battle.pvp.day == os.time() // 86400 and d.battle.pvp.fights or 0)) }, team = d.battle.team, best = d.battle.best, fightsLeft = math.max(0, Config.TOWER.dailyFights + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.fights or 0)), repeatsLeft = math.max(0, Config.TOWER.dailyRepeats + Lot7.L16.arenaExtra(s) - (d.battle.day == os.time() // 86400 and d.battle.repeats or 0)),
+			duel = { w = d.battle.duel and d.battle.duel.w or 0, l = d.battle.duel and d.battle.duel.l or 0 }, pve = { w = d.battle.pve and d.battle.pve.w or 0, l = d.battle.pve and d.battle.pve.l or 0 }, league = L15.Duel.leagueText(Config.LEAGUES, d.battle.pvp.trophies) }, -- lot 13 : ratios duel / PvE, ligue
 		baseLevel = s.baseLevel,
 		welcome = s.welcome, -- œuf de bienvenue du tapis : wait / offered / taken / gone / none (onboarding)
 		newbie = s.newbie == true, -- protection débutant active (lot 4)
 		tokens = d.tokens.remoteSteal, -- lot 7 : jetons du Corbeau, réglage, journal « Qui m'a volé ? », offres masquées (PolicyService), bonus serveur, œufs du tapis privé
 		ravenLeft = Lot7.ravenLeft and Lot7.ravenLeft(s) or 0,
-		settings = { blockFriendRavens = d.settings.blockFriendRavens == true },
+		settings = { blockFriendRavens = d.settings.blockFriendRavens == true, duelOff = d.settings.duelOff == true },
 		stealLog = d.stealLog,
 		restricted = s.restricted ~= false, -- vrai tant que PolicyService n'a pas confirmé « non restreint » (repli prudent : offres à hasard masquées)
 		srv = Lot7.serverBuffs and Lot7.serverBuffs() or { golden = 0, luck = 0 },
@@ -3301,16 +3303,16 @@ local function pvpState(s)
 	local pv = s.data.battle.pvp
 	local season = Config.pvpSeason(os.time())
 	if pv.season ~= season then
-		local rw = pv.season > 0 and Config.pvpSeasonReward(pv.trophies) or nil
+		local rw = pv.season > 0 and L15.Duel.seasonReward(Config.LEAGUE_SEASON.rewards, pv.trophies) or nil -- lot 13 (E.4) : paliers étendus (1500 = PROVISOIRE)
 		if rw then
 			s.data.coins += rw.coins
 			giveEgg(s, rw.eggTier)
 			if rw.potion then
 				s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + Config.LUCK_POTION_SECONDS
 			end
-			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or ""), "claim")
+			notify(s.player, "🏆 Fin de saison PvP : " .. pv.trophies .. " trophées -> +" .. Config.fmt(rw.coins) .. " 🪙 et un œuf " .. Config.TIERS[rw.eggTier].name .. (rw.potion and " + potion de chance" or "") .. (rw.title and (" · 👑 " .. rw.title .. " " .. pv.season) or ""), "claim")
 		end
-		pv.season, pv.trophies, pv.wins, pv.losses = season, math.floor(pv.trophies / 4), 0, 0
+		pv.season, pv.trophies, pv.wins, pv.losses = season, L15.Duel.seasonReset(pv.trophies, Config.LEAGUE_SEASON.resetAbove, Config.LEAGUE_SEASON.resetFactor), 0, 0 -- lot 13 (E.4) : max(300, floor(t x 0,6)) au-delà de 300
 	end
 	local day = os.time() // 86400
 	if pv.day ~= day then
@@ -3397,6 +3399,14 @@ local function battleFinish(s)
 	local st, win = bt.st, bt.st.winner == 1
 	local b = s.data.battle
 	local rewards = {}
+	if not bt.pvp then -- lot 13 (B.4) : ratio PvE (tour et PNJ) affiché dans l'intro
+		b.pve = type(b.pve) == "table" and b.pve or { w = 0, l = 0 }
+		if win then
+			b.pve.w = math.min(1e7, (b.pve.w or 0) + 1)
+		else
+			b.pve.l = math.min(1e7, (b.pve.l or 0) + 1)
+		end
+	end
 	if bt.npc then
 		return L15.fightEnd(s, bt, win) -- lot 15 : combat de PNJ (résultat déclaré par le serveur, une seule fois)
 	end
@@ -3559,6 +3569,9 @@ end
 
 function actions.battleAct(s, arg)
 	local bt = s.battle
+	if bt and bt.duel then
+		return L15.duel.act(s, arg) -- lot 13 : duel local (deux joueurs)
+	end
 	if not bt or type(arg) ~= "string" then
 		return
 	end
@@ -3579,6 +3592,9 @@ function actions.battleAct(s, arg)
 end
 
 function actions.battleQuit(s)
+	if s.battle and s.battle.duel then
+		return L15.duel.quit(s) -- lot 13 : abandon d'un duel = forfait
+	end
 	if s.battle then
 		s.battle.st.over, s.battle.st.winner = true, 2 -- abandon = défaite (le combat compte dans la limite du jour)
 		battleFinish(s)
@@ -3590,12 +3606,358 @@ task.spawn(function() -- tour limité à 10 s : action par défaut (attaque)
 		task.wait(1)
 		for _, s in pairs(sessions) do
 			local bt = s.battle
-			if bt and os.clock() > bt.deadline then
+			if bt and not bt.duel and os.clock() > bt.deadline then -- lot 13 : les duels ont leur propre minuteur (L15.duel)
 				pcall(battleStep, s, { kind = "attack" })
 			end
 		end
 	end
 end)
+
+---------------------------------------------------------------- Duel local (lot 13, E.1 E.2 B.4) : défis, sable du colisée, tours à deux, spectateurs ; AUCUN trophée
+-- Règles PURES dans ReplicatedStorage/Duel.lua (tests/lot13.luau) ; ce bloc lit l'état des joueurs et applique les décisions. Une seule variable locale (D, rangée
+-- aussi dans L15.duel) : le bloc principal est proche de la limite Luau de 200 variables locales.
+-- Le client n'envoie que : duelChallenge(userId), duelAnswer({ from, accept }), duelOff(bool) et, pendant le duel, battleAct / battleQuit (routés ici).
+-- Chaque demande est revalidée par le serveur (distance, états des DEUX joueurs relus à l'acceptation, cooldown, défis en attente, équipe, réglage « refuser »).
+do
+	local D = { book = L15.Duel.newBook(), matches = {}, C = Config.DUEL }
+	L15.duel = D
+	D.REFUSE = {
+		self = "⚔️ Tu ne peux pas te défier toi-même.", range = "⚔️ Trop loin pour un duel (approche-toi).", egg = "⚔️ Pas de duel avec un œuf dans les mains.", chased = "⚔️ Pas de duel pendant une poursuite.",
+		dialogue = "⚔️ Un dialogue est en cours.", castle = "⚔️ Pas de duel en mode Château.", newbie = "⚔️ Protection débutant : désactive-la pour combattre.", busy = "⚔️ Un combat est déjà en cours.",
+		flying = "⚔️ Pas de duel pendant un vol d'œuf.", cinematic = "⚔️ Pas de duel pendant une éclosion.",
+		cooldown = "⚔️ Tu as déjà défié ce joueur : attends un peu.", pendingOut = "⚔️ Ton défi précédent est encore en attente.", crowded = "⚔️ Ce joueur a déjà plusieurs défis.",
+		expired = "⚔️ Ce défi a expiré.", none = "⚔️ Ce défi n'est plus valable.", off = "⚔️ Ce joueur refuse les duels (réglage).", team = "⚔️ Compose d'abord une équipe de pets (Arène).",
+		foeTeam = "⚔️ Ce joueur n'a pas encore d'équipe de pets.",
+	}
+	function D.flags(s)
+		local root = getRoot(s.player)
+		local c = root and L15.ctx and L15.ctx(s, root) or {}
+		return {
+			userId = s.player.UserId, carryingEgg = c.carrying == true or #s.carry > 0, chased = c.chased == true, inDialogue = c.pending == true,
+			inCastle = s.castle ~= nil or serverMode == "castle", newbie = isNewbie(s), busy = s.battle ~= nil or s.pvpPending == true or s.leaving == true or serverMode == "ranked",
+			flying = holds[s.player] ~= nil, inCinematic = os.clock() < (s.cineUntil or 0),
+		}
+	end
+	function D.ctx(s, t)
+		local r1, r2 = getRoot(s.player), getRoot(t.player)
+		if not r1 or not r2 then
+			return nil
+		end
+		return { a = D.flags(s), b = D.flags(t), distance = (r1.Position - r2.Position).Magnitude }
+	end
+	function D.find(s) -- duel en cours du joueur (id, match, côté 1 = défieur / 2 = défié)
+		for id, d in pairs(D.matches) do
+			if d.a == s then
+				return id, d, 1
+			elseif d.b == s then
+				return id, d, 2
+			end
+		end
+		return nil
+	end
+	function D.spectators(d) -- joueurs proches du colisée (hors duellistes) : reçoivent le bandeau du duel
+		local A, out = Config.Map2.arena, {}
+		for p, ss in pairs(sessions) do
+			if ss ~= d.a and ss ~= d.b then
+				local r = getRoot(p)
+				if r and (Vector3.new(r.Position.X - A.x, 0, r.Position.Z - A.z)).Magnitude <= D.C.spectatorRange then
+					out[#out + 1] = p
+				end
+			end
+		end
+		return out
+	end
+	function D.broadcast(d, msg) -- msg du point de vue du défieur (camp 1)
+		for _, p in ipairs(D.spectators(d)) do
+			RBattle:FireClient(p, msg)
+		end
+	end
+	function D.watch(d, events)
+		return { k = "duelWatch", a = d.a.player.DisplayName, b = d.b.player.DisplayName, view = Battle.view(d.st), events = events, over = d.st.over, winner = d.winnerName }
+	end
+	function D.place(s, side) -- sur le sable, face à face (±sandOffset en X), personnage figé pendant le duel
+		local root = getRoot(s.player)
+		if not root then
+			return
+		end
+		local A = Config.Map2.arena
+		local x = A.x + (side == 1 and -D.C.sandOffset or D.C.sandOffset)
+		s.duelBack = root.Position
+		root.CFrame = CFrame.lookAt(Vector3.new(x, 4, A.z), Vector3.new(A.x, 4, A.z))
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.Anchored = true
+		s.noCheckUntil, s.lastPos = os.clock() + 2, nil
+	end
+	function D.release(s) -- personnage libéré et ramené où il était avant le duel
+		local root = getRoot(s.player)
+		if root then
+			root.Anchored = false
+			if s.duelBack then
+				root.CFrame = CFrame.new(s.duelBack + Vector3.new(0, 1, 0))
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+		end
+		s.duelBack, s.noCheckUntil, s.lastPos = nil, os.clock() + 2, nil
+	end
+
+	function actions.duelOff(s, v)
+		if type(v) ~= "boolean" then
+			return
+		end
+		s.data.settings.duelOff = v
+		RState:FireClient(s.player, snapshot(s))
+	end
+
+	function actions.duelChallenge(s, arg) -- arg = userId du joueur défié
+		if type(arg) ~= "number" or arg ~= arg or arg % 1 ~= 0 then
+			return
+		end
+		local target = Players:GetPlayerByUserId(arg)
+		local t = target and sessions[target]
+		if not t then
+			return
+		end
+		if t == s then
+			notify(s.player, D.REFUSE.self, "refuse")
+			return
+		end
+		if #battleUnits(s) == 0 then
+			notify(s.player, D.REFUSE.team, "refuse")
+			return
+		end
+		if t.data.settings.duelOff == true then
+			notify(s.player, D.REFUSE.off, "refuse")
+			return
+		end
+		if #battleUnits(t) == 0 then
+			notify(s.player, D.REFUSE.foeTeam, "refuse")
+			return
+		end
+		local ctx = D.ctx(s, t)
+		if not ctx then
+			return
+		end
+		local ok, why = L15.Duel.request(D.book, ctx, os.clock(), D.C)
+		if not ok then
+			notify(s.player, D.REFUSE[why] or D.REFUSE.busy, "refuse")
+			return
+		end
+		notify(s.player, "⚔️ Défi envoyé à " .. target.DisplayName .. " (" .. D.C.requestTimeout .. " s pour répondre).", "buy")
+		RBattle:FireClient(target, { k = "duelAsk", from = s.player.DisplayName, fromId = s.player.UserId, seconds = D.C.requestTimeout })
+	end
+
+	function D.start(f, s, id)
+		local unitsA, unitsB = battleUnits(f), battleUnits(s)
+		local st = Battle.new(rng:NextInteger(1, 2147483000), unitsA, unitsB)
+		local d = { id = id, m = L15.Duel.newMatch(f.player.UserId, s.player.UserId), a = f, b = s, st = st, act = {}, deadline = os.clock() + D.C.turnSeconds + D.C.introSeconds }
+		D.matches[id] = d
+		f.battle = { duel = id, st = st, deadline = math.huge } -- s.battle occupé : tour, PvP, PNJ, équipe et nouveaux défis bloqués par les gardes existantes
+		s.battle = { duel = id, st = st, deadline = math.huge }
+		D.place(f, 1)
+		D.place(s, 2)
+		local view = Battle.view(st)
+		local function side(me, foe, mineView)
+			local w, l = L15.Duel.recordFor("duel", me.data.battle)
+			local fw, fl = L15.Duel.recordFor("duel", foe.data.battle)
+			return {
+				me = { name = me.player.DisplayName, userId = me.player.UserId, wins = w, losses = l, trophies = me.data.battle.pvp.trophies, league = L15.Duel.leagueText(Config.LEAGUES, me.data.battle.pvp.trophies) },
+				foe = { name = foe.player.DisplayName, userId = foe.player.UserId, wins = fw, losses = fl, trophies = foe.data.battle.pvp.trophies, league = L15.Duel.leagueText(Config.LEAGUES, foe.data.battle.pvp.trophies) },
+				view = mineView,
+			}
+		end
+		local ia, ib = side(f, s, view), side(s, f, L15.Duel.mirrorView(view))
+		local A = Config.Map2.arena
+		RBattle:FireClient(f.player, { k = "start", floor = 0, duel = true, foe = "⚔️ " .. s.player.DisplayName, view = ia.view, seconds = D.C.turnSeconds + D.C.introSeconds, intro = { me = ia.me, foe = ia.foe }, arena = { x = A.x, z = A.z, side = 1 } })
+		RBattle:FireClient(s.player, { k = "start", floor = 0, duel = true, foe = "⚔️ " .. f.player.DisplayName, view = ib.view, seconds = D.C.turnSeconds + D.C.introSeconds, intro = { me = ib.me, foe = ib.foe }, arena = { x = A.x, z = A.z, side = 2 } })
+		D.broadcast(d, D.watch(d, {}))
+	end
+
+	function actions.duelAnswer(s, arg) -- arg = { from = userId, accept = bool }
+		if type(arg) ~= "table" or type(arg.from) ~= "number" or arg.from ~= arg.from then
+			return
+		end
+		local fromPlayer = Players:GetPlayerByUserId(arg.from)
+		local f = fromPlayer and sessions[fromPlayer]
+		if not f or f == s then
+			L15.Duel.decline(D.book, s.player.UserId, arg.from, os.clock(), D.C)
+			return
+		end
+		local accept = arg.accept == true
+		if accept and (#battleUnits(s) == 0 or #battleUnits(f) == 0) then
+			L15.Duel.decline(D.book, s.player.UserId, arg.from, os.clock(), D.C)
+			notify(s.player, #battleUnits(s) == 0 and D.REFUSE.team or D.REFUSE.foeTeam, "refuse")
+			notify(f.player, "⚔️ Duel annulé : une équipe de pets est vide.", "refuse")
+			return
+		end
+		local ok, id, cancelled = L15.Duel.answer(D.book, s.player.UserId, arg.from, accept, os.clock(), D.C, accept and D.ctx(f, s) or nil)
+		if not ok then
+			if id == "declined" then
+				notify(f.player, "⚔️ " .. s.player.DisplayName .. " a refusé ton défi.", "refuse")
+			elseif id ~= "none" then
+				notify(f.player, D.REFUSE[id] or "⚔️ Défi annulé.", "refuse")
+				notify(s.player, D.REFUSE[id] or "⚔️ Défi annulé.", "refuse")
+			end
+			return
+		end
+		for _, c in ipairs(cancelled) do
+			local p = Players:GetPlayerByUserId(c.from)
+			if p then
+				notify(p, "⚔️ Défi annulé : ce joueur est déjà en duel.", "refuse")
+			end
+			local q = Players:GetPlayerByUserId(c.to)
+			if q then
+				RBattle:FireClient(q, { k = "duelAskEnd", fromId = c.from })
+			end
+		end
+		D.start(f, s, id)
+	end
+
+	function D.act(s, arg) -- intention d'un duelliste pour le tour en cours (une seule par tour, validée par le moteur)
+		local id, d, side = D.find(s)
+		if not id or d.st.over then
+			return
+		end
+		local act = L15.Duel.parseAction(arg)
+		if not act or Battle.validate(d.st, side, act) then
+			notify(s.player, "⚔️ Action impossible.", "refuse")
+			return
+		end
+		if d.act[side] then
+			return -- déjà choisie pour ce tour
+		end
+		d.act[side] = act
+		if d.act[1] and d.act[2] then
+			D.resolve(id)
+		end
+	end
+
+	function D.resolve(id) -- joue le tour (action manquante = attaque), compte l'inactivité, diffuse
+		local d = D.matches[id]
+		if not d then
+			return
+		end
+		local actedA, actedB = d.act[1] ~= nil, d.act[2] ~= nil
+		local events = Battle.turn(d.st, d.act[1] or { kind = "attack" }, d.act[2] or { kind = "attack" })
+		d.act = {}
+		d.deadline = os.clock() + D.C.turnSeconds
+		local verdict = L15.Duel.noteTurn(d.m, actedA, actedB, D.C)
+		local winner
+		if d.st.over then
+			winner = d.st.winner == 1 and "a" or "b"
+		elseif verdict == "forfeitA" then
+			winner = "b"
+		elseif verdict == "forfeitB" then
+			winner = "a"
+		end
+		local view = Battle.view(d.st)
+		local over = d.st.over or verdict ~= "continue"
+		RBattle:FireClient(d.a.player, { k = "turn", duel = true, events = events, view = view, seconds = (not over) and D.C.turnSeconds or nil })
+		RBattle:FireClient(d.b.player, { k = "turn", duel = true, events = L15.Duel.mirrorEvents(events), view = L15.Duel.mirrorView(view), seconds = (not over) and D.C.turnSeconds or nil })
+		if over then
+			D.finish(id, winner, verdict == "cancelled" and "cancelled" or (d.st.over and "ko" or "afk"))
+		else
+			D.broadcast(d, D.watch(d, events))
+		end
+	end
+
+	-- Fin du duel (KO, forfait d'inactivité, abandon, départ, annulation). winner = "a" | "b" | nil. Récompenses : Duel.settle (10/jour, 3/paire/jour),
+	-- pièces seulement (jamais de trophée ni de Robux) ; départ / abandon avant earlyMinTurns tours = personne n'est payé. leaver = session qui part (pas de pièces).
+	function D.finish(id, winner, reason, leaver)
+		local d = D.matches[id]
+		if not d then
+			return
+		end
+		D.matches[id] = nil -- retiré AVANT tout paiement : aucune double récompense
+		d.m.over, d.m.winner = true, winner
+		local early = reason == "leave" or reason == "quit"
+		local oa, ob = L15.Duel.outcomes(d.m)
+		d.winnerName = winner == "a" and d.a.player.DisplayName or (winner == "b" and d.b.player.DisplayName or nil)
+		for _, e in ipairs({ { d.a, d.b, oa, 1 }, { d.b, d.a, ob, 2 } }) do
+			local me, foe, outcome, side = e[1], e[2], e[3], e[4]
+			me.battle = nil
+			if sessions[me.player] == me then
+				local res = L15.Duel.settle(me.data.battle.duel, foe.player.UserId, outcome, os.time(), income(me), D.C)
+				local coins = me ~= leaver and L15.Duel.payable(res, d.m.turns, early, D.C.earlyMinTurns) or 0
+				if coins > 0 then
+					me.data.coins += coins
+					L15.PetXp.addToTeam(me.data.slots, me.data.battle.team, L15.PetXp.award("pvp", L15.PetXp.combat("pvp", res.won, 0), L15.PetXp.boostMul(me.data, os.time()))) -- XP de pet : seulement les duels payés (plafonnés)
+				end
+				if me ~= leaver then
+					D.release(me)
+					local view = Battle.view(d.st)
+					local text = reason == "cancelled" and "⚔️ Duel annulé (personne n'a joué)." or ((res.won and "⚔️ Duel gagné" or "⚔️ Duel perdu")
+						.. (reason == "afk" and " (forfait d'inactivité)" or (early and (me == (winner == "a" and d.a or d.b) and (reason == "leave" and " (l'adversaire est parti)" or " (abandon de l'adversaire)") or " (abandon)") or ""))
+						.. (coins > 0 and (" : +" .. Config.fmt(coins) .. " 🪙") or (res.reason == "dayCap" and " · limite de 10 duels récompensés atteinte aujourd'hui" or (res.reason == "pairCap" and " · déjà 3 duels récompensés contre ce joueur aujourd'hui" or " · amical : pas de récompense"))))
+					RBattle:FireClient(me.player, { k = "end", duel = true, win = res.won, rewards = { coins = coins > 0 and coins or nil, duelText = text, cancelled = reason == "cancelled" }, best = me.data.battle.best, floor = 0, foe = foe.player.DisplayName, view = side == 1 and view or L15.Duel.mirrorView(view) })
+					notify(me.player, text, res.won and "claim" or "refuse")
+					RState:FireClient(me.player, snapshot(me))
+				end
+			end
+		end
+		L15.Duel.finish(D.book, d.a.player.UserId)
+		L15.Duel.finish(D.book, d.b.player.UserId)
+		d.st.over = true
+		D.broadcast(d, D.watch(d, {}))
+	end
+
+	function D.quit(s) -- abandon = forfait
+		local id, d, side = D.find(s)
+		if id then
+			d.st.over = true
+			D.finish(id, side == 1 and "b" or "a", "quit")
+		end
+	end
+
+	function L15.duelLeave(s) -- départ d'un joueur (appelé par PlayerRemoving AVANT la sauvegarde) : forfait, défis retirés, rien ne reste en mémoire
+		local id, _, side = D.find(s)
+		if id then
+			D.finish(id, side == 1 and "b" or "a", "leave", s)
+		end
+		for _, p in pairs(D.book.pending) do
+			if p.to == s.player.UserId then
+				local q = Players:GetPlayerByUserId(p.from)
+				if q then
+					notify(q, "⚔️ Défi annulé : ce joueur est parti.", "refuse")
+				end
+			elseif p.from == s.player.UserId then
+				local q = Players:GetPlayerByUserId(p.to)
+				if q then
+					RBattle:FireClient(q, { k = "duelAskEnd", fromId = p.from })
+				end
+			end
+		end
+		L15.Duel.finish(D.book, s.player.UserId)
+		s.duelBack = nil
+	end
+
+	task.spawn(function() -- délais : défis expirés, tours de 10 s (action par défaut = attaque), purge des cooldowns
+		while true do
+			task.wait(0.5)
+			pcall(function()
+				local now = os.clock()
+				for _, e in ipairs(L15.Duel.expire(D.book, now, D.C)) do
+					local p, q = Players:GetPlayerByUserId(e.from), Players:GetPlayerByUserId(e.to)
+					if p then
+						notify(p, "⚔️ Pas de réponse : défi expiré.", "refuse")
+					end
+					if q then
+						RBattle:FireClient(q, { k = "duelAskEnd", fromId = e.from })
+					end
+				end
+				for id, d in pairs(D.matches) do
+					if now > d.deadline then
+						local ok, err = pcall(D.resolve, id)
+						if not ok then
+							warn("[Duel] " .. tostring(err))
+							D.finish(id, nil, "cancelled")
+						end
+					end
+				end
+				L15.Duel.prune(D.book, now, D.C)
+			end)
+		end
+	end)
+end
 
 ---------------------------------------------------------------- Lot 15 : PNJ, série de 7 jours, quêtes bonus et hebdomadaires, sac d'œufs, rotation, événements
 -- Le SERVEUR décide de tout (jour UTC, rencontres, offres, résultats des combats) ; le client n'envoie que des identifiants ou des booléens (actions npcAnswer,
@@ -5038,6 +5400,8 @@ do
 		return Lot7.logDropped
 	end, luckPoints = luckPoints, passOn = passOn, flights = Lot7.flightCount, serverBuffs = Lot7.serverBuffs, compPaid = function()
 		return Lot7.compPaid
+	end, duel = function() -- lot 13 : état des duels (tests de bout en bout seulement)
+		return L15.duel
 	end }
 end
 
@@ -5971,6 +6335,7 @@ Players.PlayerRemoving:Connect(function(player)
 		return
 	end
 	s.leaving = true -- l'autosave ne doit plus reprendre le verrou de session après ce point
+	L15.duelLeave(s) -- lot 13 : duel en cours = forfait (défaite comptée dans le profil AVANT la sauvegarde ci-dessous), défis retirés
 	do -- lot 9b : une réclamation du calendrier en cours (sauvegarde puis octroi) se termine AVANT la sauvegarde de départ
 		local t0 = os.clock()
 		while s.calBusy and os.clock() - t0 < 15 do

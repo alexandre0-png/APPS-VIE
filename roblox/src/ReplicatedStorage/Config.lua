@@ -1757,6 +1757,26 @@ Config.PVP = {
 	seasonSeconds = 7 * 86400, dailyFights = 10, winBase = 25, winMin = 10, winMax = 40, loss = 15, start = 0,
 	rewards = { { trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true }, { trophies = 1000, coins = 400000, eggTier = 6, potion = true } },
 }
+-- Lot 13 (E.2) : duel local amical (même serveur, sable du colisée, aucun trophée). Règles dans ReplicatedStorage/Duel.lua.
+Config.DUEL = { range = 30, requestTimeout = 20, sameTargetCooldown = 120, rewardedPerDay = 10, samePairRewardedPerDay = 3, turnSeconds = 10, afkTurnsToForfeit = 2, coinsWinMins = 1, coinsLoseMins = 0.25,
+	-- intégration lot 13 : écart des duellistes sur le sable (±10 en X), rayon des spectateurs, délai de l'intro avant le 1er tour, tours minimum pour être payé après un départ / abandon
+	sandOffset = 10, spectatorRange = 90, introSeconds = 3, earlyMinTurns = 3 }
+-- Lot 13 (E.4) : ligues (trophées min, liste triée) et saison (remise partielle ; récompenses étendues, eggTier = indice de Config.TIERS).
+Config.LEAGUES = {
+	{ id = "bronze", name = "Bronze", icon = "🥉", min = 0, color = Color3.fromRGB(205, 127, 50) },
+	{ id = "argent", name = "Argent", icon = "🥈", min = 300, color = Color3.fromRGB(200, 205, 215) },
+	{ id = "or", name = "Or", icon = "🥇", min = 600, color = Color3.fromRGB(255, 205, 60) },
+	{ id = "diamant", name = "Diamant", icon = "💎", min = 1000, color = Color3.fromRGB(110, 220, 255) },
+	{ id = "champion", name = "Champion", icon = "👑", min = 1500, color = Color3.fromRGB(255, 90, 90) },
+}
+Config.LEAGUE_SEASON = {
+	resetAbove = 300, resetFactor = 0.6,
+	rewards = {
+		{ trophies = 100, coins = 5000, eggTier = 3 }, { trophies = 300, coins = 25000, eggTier = 4 }, { trophies = 600, coins = 100000, eggTier = 5, potion = true },
+		{ trophies = 1000, coins = 400000, eggTier = 6, potion = true }, { trophies = 1500, coins = 1000000, eggTier = 7, potion = true, title = "Champion de la saison", provisional = true },
+	},
+	-- PROVISOIRE : le montant du palier 1500 (1 000 000 pièces + potion) a été inventé par la préparation (absent de la spec) ; à valider (LOT13_ECARTS.md).
+}
 function Config.pvpSeason(now)
 	return math.floor(now / Config.PVP.seasonSeconds)
 end

@@ -11706,5 +11706,17 @@ end)()
 	end
 end)()
 
+-- Lot 13 : duel local et ligues (Duel.lua pur) puis bout en bout dans le vrai Main.server.lua (défis, sable, tours à deux, spectateurs, départ, saison).
+-- Aussi lançables seules : python3 roblox/tests/run_lot13.py.
+;(function()
+	local env = { check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end }
+	for _, name in ipairs({ "lot13", "lot13_e2e" }) do
+		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
+	end
+end)()
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)
