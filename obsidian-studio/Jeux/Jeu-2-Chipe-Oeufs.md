@@ -57,3 +57,7 @@ Reste : lots 13 (duel local, préparé, à brancher : boucle de tours, UI duelAs
 ## Lot 13 publié (privé) — 2026-11-27
 Commit 8ef9c43 « Lot 13 intégré » : duel local (défis, sable du colisée, tours à deux, spectateurs), ligues, remise de saison. Vérifié : Lune 4056/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v44 / hub v51 (privé). Non testé dans Studio.
 Reste : lot 14 (classé en direct, préparé, PvpLive.enabled = false partout). Valeur de la récompense du palier 1500 victoires à valider (1 000 000 pièces + potion, montant provisoire).
+
+## Lots 13 et 14 publiés (privé) — 2026-11-27
+Commit fa4e42b « Lot 14 intégré » (contient lot 13 + récompense palier 1500 : 1 œuf Mythique + potion 30 min, décision de la gestion). Classé en direct DÉSACTIVÉ (PvpLive.enabled = false, seuil 60 joueurs). Vérifié : Lune 4213/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v45 / hub v52 (privé). Non testé dans Studio.
+Reste : tests en Studio (plus tard), puis vignettes, textes Creator Hub.
