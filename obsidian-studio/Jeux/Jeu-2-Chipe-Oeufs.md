@@ -65,3 +65,7 @@ Reste : tests en Studio (plus tard), puis vignettes, textes Creator Hub.
 ## Commit b886bda publié (privé) — 2026-11-28
 Contient : vitrine désactivée par défaut (œufs achetés exclus), halos et bulles des œufs, effets d'éclosion lisibles, style d'interface commun, musique par zone (muette, sans pistes), interface « Évoluer » (désactivée), combat (états, écran Changer, flash du spécial, sons, Fuir à 1 appui hors duel/classé). Vérifié : Lune 4978/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v50 / hub v57 (privé). Non testé dans Studio.
 Reste (mises à jour ultérieures) : XP de fin de combat (champ serveur), ids musique approuvés, activation évolution après test Studio, style mobs (BLENDER_REQUESTS), Lune sur b886bda, tests Studio (A_FAIRE).
+
+## Image d'accroche (2026-11-28)
+Image fournie par l'utilisateur, composée avec titre et accroche : vignettes/chipe-oeufs-v4-accroche-1920x1080.png (non versionnée). Asset Decal approuvé id 134137219079568, prévu pour l'écran de chargement (ReplicatedFirst) côté session Jeu 2.
+Publication : partie v50 / hub v57 (privée). Passage en public : à faire par l'utilisateur dans le Creator Hub (visibilité Public, vignette, description).
