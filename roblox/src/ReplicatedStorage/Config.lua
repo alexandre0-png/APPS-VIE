@@ -2595,6 +2595,9 @@ Config.ICONS = {
 	ui_bouclier = 136315741394095, ui_cadenas = 71647030149825, ui_coeur = 91429395170558, ui_epee = 116607687889590, ui_etoile = 99988006769146,
 	ui_pastille_rouge = 75154857237999, ui_trophee = 117839068590655, ui_victoire_defaite = 84125463363173,
 }
+-- Écran de chargement (ReplicatedFirst/LoadingScreen) : Decal approuvé « Chipe-Oeufs accroche v2 » (1920 x 1080). ReplicatedFirst ne peut pas lire Config au démarrage :
+-- l'identifiant est répété dans ReplicatedFirst/LoadingPlan.lua (CFG.image), un test vérifie qu'ils restent identiques.
+Config.LOADING = { image = "rbxassetid://140180423430231" }
 Config.ICON_FALLBACK = {
 	r_boost_revenu = "💰", r_boost_vitesse = "👟", r_cadeau = "🎁", r_calendrier = "📅", r_coffre = "🧰", r_coins_l = "🪙", r_coins_m = "🪙", r_coins_s = "🪙",
 	r_cosmetique_traine = "🎀", r_jeton_combat = "⚔️", r_mystere = "🎲", r_parchemin_xp = "📜", r_plume = "🪶", r_potion_chance = "🧪", r_titre = "🏷️",

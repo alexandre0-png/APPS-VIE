@@ -8,6 +8,10 @@
         "StreamingEnabled": false
       }
     },
+    "ReplicatedFirst": {
+      "$className": "ReplicatedFirst",
+      "$path": "src/ReplicatedFirst"
+    },
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {

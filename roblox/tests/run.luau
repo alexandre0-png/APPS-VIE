@@ -11760,7 +11760,7 @@ end)()
 	end }
 	luau.load(fs.readFile("roblox/tests/graphics.luau"), { debugName = "graphics" })()(env)
 	-- Graphismes 4 à 6 (halos d'œufs, effets d'éclosion, style d'interface) : aussi lançables seuls (run_eggaura.py, ...).
-	for _, name in ipairs({ "eggaura", "hatchvis", "uistyle", "music" }) do
+	for _, name in ipairs({ "eggaura", "hatchvis", "uistyle", "music", "loading" }) do
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()

@@ -186,7 +186,7 @@ for f in files:
 print("[5/5] Fichiers de place à jour (jeu et hub)")
 hub_files = [f for f in files if os.sep + "Hub" + os.sep in f]
 game_files = [f for f in files if f not in hub_files]
-for name, mine, other in (("ChipeOeufs.rbxlx", game_files, hub_files), ("Hub.rbxlx", [f for f in hub_files] + [f for f in game_files if os.sep + "ReplicatedStorage" + os.sep in f], [f for f in game_files if os.sep + "ReplicatedStorage" + os.sep not in f])):
+for name, mine, other in (("ChipeOeufs.rbxlx", game_files, hub_files), ("Hub.rbxlx", [f for f in hub_files] + [f for f in game_files if os.sep + "ReplicatedStorage" + os.sep in f or os.sep + "ReplicatedFirst" + os.sep in f], [f for f in game_files if os.sep + "ReplicatedStorage" + os.sep not in f and os.sep + "ReplicatedFirst" + os.sep not in f])):
     place = os.path.join(ROOT, "build", name)
     if not os.path.exists(place):
         fail(f"build/{name} absent : lance python3 roblox/tools/build_place.py")

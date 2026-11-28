@@ -51,8 +51,14 @@ stream_on = re.search(r'Streaming = \{ Enabled = (true|false)', open(os.path.joi
 streaming = (f'<bool name="StreamingEnabled">{stream_on}</bool><int name="StreamingMinRadius">{cfg_int("MinRadius")}</int>'
              f'<int name="StreamingTargetRadius">{cfg_int("TargetRadius")}</int>')
 
+def replicated_first():  # écran de chargement : s'exécute avant tout le reste, module pur à côté du script
+    return item("ReplicatedFirst", "ReplicatedFirst", children=[
+        item("LocalScript", "LoadingScreen", read("ReplicatedFirst/LoadingScreen.client.lua")),
+        item("ModuleScript", "LoadingPlan", read("ReplicatedFirst/LoadingPlan.lua"))])
+
 game_tree = [
     item("Workspace", "Workspace", extra=streaming),
+    replicated_first(),
     shared(),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Main", read("ServerScriptService/Main.server.lua")),
@@ -94,6 +100,7 @@ game_tree = [
 
 hub_tree = [
     item("Workspace", "Workspace", extra='<bool name="StreamingEnabled">false</bool>'),
+    replicated_first(),
     shared(),
     item("ServerScriptService", "ServerScriptService", children=[
         item("Script", "Hub", read("Hub/ServerScriptService/Hub.server.lua")),

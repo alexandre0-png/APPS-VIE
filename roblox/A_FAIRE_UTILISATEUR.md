@@ -4,6 +4,10 @@ Seulement ce que je ne peux pas faire à ta place : il faut ton compte Roblox, S
 
 Les cases sont à cocher au fur et à mesure.
 
+## 0. Écran de chargement (nouveau, jamais vu dans Studio)
+
+- [ ] **À vérifier dans Studio / sur téléphone** : (1) l'image d'accroche s'affiche (le Decal 140180423430231 doit être approuvé et chargeable par la place ; sinon seul le fond bleu nuit et la barre s'affichent, sans erreur) ; (2) téléphone en portrait (titre entier, bandes bleu nuit autour) et en paysage (plein écran) ; (3) texte « Chargement des œufs… » lisible à 360 px de large ; (4) durée : au moins 2 s, jamais plus de 25 s ; (5) disparition en fondu au premier spawn du personnage, rien ne reste à l'écran ; (6) même chose dans le hub et dans la partie. Dis-moi si l'image est rognée de façon gênante sur un écran donné.
+
 ## 1. Autoriser les outils de vérification (optionnel, 2 minutes)
 
 Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisation de la session. Au choix :
