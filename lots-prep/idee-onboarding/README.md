@@ -59,7 +59,13 @@ Lignes changées (numéros de `fa4e42b`) :
 
 Voir la section « Résultats » ci-dessous (mise à jour avec les exécutions réelles).
 
-RESULTATS_PLACEHOLDER
+Sur une copie neuve de `fa4e42b` + patches + nouveaux fichiers (`patch -p1` sans rejet) :
+- `python3 roblox/tools/run_tests.py` : 4275 assertions réussies, 0 échec (code de sortie 0) (dont les 62 d'onboarding).
+- `lune run roblox/tests/run.luau` (Lune de `/tmp/claude-0/cargo-out/bin`) : « Tests Config : 4275 réussis, 0 échoués ».
+- `python3 roblox/tests/run_onboarding.py` : 62 assertions réussies, 0 échec (pure : séquence, garde-fous, migration idempotente ; intégration : vrai Main + Data, séquence réelle, Passer, rebirth, reconnexion, profils v13).
+- Mutations vérifiées (les tests échouent bien) : rebirth sans report de `onb`, hook arène retiré, proximité forcée vraie, migration remplacée par le défaut, revenu gonflé.
+- `stylua --check` sur les 2 nouveaux fichiers : propre (les 70 écarts de format du reste du code existent déjà dans `fa4e42b`, inchangés). `rojo build game.project.json` : OK. `selene` : inutilisable ici (API dump Roblox inaccessible).
+- Correction en cours de route : un test existant du client cherchait le texte « Ton œuf offert » ; le texte de l'étape 1 le conserve donc.
 
 ## Écarts avec la spec
 
