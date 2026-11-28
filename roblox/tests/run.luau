@@ -3300,7 +3300,7 @@ do
 		prev = lv
 	end
 	check("Base : le niveau ne baisse jamais quand le score monte ; scores invalides (nil, NaN, négatif) = niveau 1", mono and Config.baseLevel(nil) == 1 and Config.baseLevel(0 / 0) == 1 and Config.baseLevel(-50) == 1)
-	check("Renaissance : le score de base et l'achat unique du pack de départ survivent (profil neuf)", fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.starter, fresh.baseScore = d.starter, d.baseScore", 1, true) ~= nil and fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings", 1, true) ~= nil)
+	check("Renaissance : remise à zéro par liste blanche (pièces, améliorations, emplacements, suiveurs, gains hors ligne, horodatage) ; score de base, pack de départ, jetons, réglages et le reste survivent (bout en bout : tests/rebirth_e2e.luau)", fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find('for _, k in ipairs({ "coins", "up", "slots", "equip", "pendingAway", "last" }) do', 1, true) ~= nil and fs.readFile("roblox/src/ServerScriptService/Main.server.lua"):find("s.data = fresh", 1, true) == nil)
 	check("Base : un seul pet Ultra Rare (700 points, ex-Cosmique, lot 9) fait passer de l'enclos à la Maison-Tour (niveau 3) ; il faut 18 Communs pour la première amélioration", Config.baseLevel(Config.baseGain(7)) == 3 and Config.baseLevel(Config.BASE_LEVELS[2].score * Config.baseGain(1)) == 2) -- lot 9 : seuils recalibrés (700 points = niveau 3)
 end
 
@@ -11710,7 +11710,7 @@ end)()
 		opts.hook = opts.hook or loopGuard
 		return newRuntime(opts)
 	end }
-	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e" }) do
+	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e", "rebirth_e2e" }) do
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()

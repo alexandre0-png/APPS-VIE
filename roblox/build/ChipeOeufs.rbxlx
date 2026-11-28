@@ -20504,25 +20504,22 @@ function actions.rebirth(s)
 	if d.coins < Config.rebirthCost(d.rb) then
 		return notify(s.player, "Pas assez de pièces pour renaître.", "refuse")
 	end
+	-- Correctif : remise à zéro par LISTE BLANCHE (le profil n'est plus reconstruit). Repartent de zéro : pièces, améliorations, emplacements de la base (pets
+	-- et œufs posés ; l'œuf de départ gratuit revient), suiveurs, gains hors ligne non récupérés, horodatage des revenus. TOUT le reste survit : achats uniques
+	-- (once, starter), passe de combat (season), calendrier et séries (cal, calStreak, calLast, grace, streak), quêtes (jour, semaine, bonus), plumes d'événement,
+	-- sac d'œufs et coffre de débordement, PNJ, réglages, combat / ligues / duels (battle), jetons, parchemins, plumes, titres, cosmétiques, pose, boosts
+	-- payés ou gagnés, XP de dresseur, tickets d'arène, temps de jeu (protection débutant), reçus, succès, index, journal de vol, Corbeau, tapis privé.
 	local fresh = Data.default()
-	fresh.speed, fresh.rb, fresh.dex = d.speed, d.rb + 1, d.dex
-	fresh.daily, fresh.streak, fresh.stolen, fresh.hatched = d.daily, d.streak, d.stolen, d.hatched
-	fresh.quests, fresh.qday, fresh.receipts, fresh.luckUntil = d.quests, d.qday, d.receipts, d.luckUntil
-	fresh.story, fresh.pity = d.story, d.pity
-	fresh.battle = d.battle -- le meilleur étage de la tour survit à la renaissance (l'équipe est revalidée à chaque combat)
-	fresh.puzzle, fresh.ach = d.puzzle, d.ach
-	fresh.cine = d.cine
-	fresh.secrets = d.secrets
-	fresh.baseLevelFloor, fresh.tokens, fresh.settings = d.baseLevelFloor, d.tokens, d.settings -- le niveau de maison, les jetons et les réglages survivent aussi
-	fresh.raven, fresh.stealLog, fresh.pb = d.raven, d.stealLog, d.pb -- plafond du jour, boucliers, journal et œufs du tapis privé survivent aussi (lot 7)
-	fresh.starter, fresh.baseScore = d.starter, d.baseScore -- l'achat unique du pack de départ et la progression de la base survivent à la renaissance
 	dropCarry(s)
-	s.data = fresh
+	for _, k in ipairs({ "coins", "up", "slots", "equip", "pendingAway", "last" }) do
+		d[k] = fresh[k]
+	end
+	d.rb = d.rb + 1
 	refreshAllPads(s)
 	rebuildFollowers(s)
 	storyRefresh(s)
 	sync(s)
-	notify(s.player, string.format("🌅 Renaissance ! Revenus x%.1f", 1 + 0.5 * fresh.rb), "claim")
+	notify(s.player, string.format("🌅 Renaissance ! Revenus x%.1f", 1 + 0.5 * d.rb), "claim")
 end
 
 function actions.equip(s, i)
