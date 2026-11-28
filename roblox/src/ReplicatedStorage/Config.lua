@@ -2872,6 +2872,9 @@ Config.MAX_FOLLOWERS_COLLECTOR = 4
 -- Lot 17 : onboarding « premières 5 minutes » (Onboarding.lua, champ de profil onb) ; enabled = false coupe tout (le profil n'est jamais modifié).
 Config.ONBOARDING = { enabled = true, stepSeconds = 45, minDwell = 3, earnGoal = 10, houseLevel = 2, legacyPlayedSeconds = 120 }
 Config.SEASON = { name = "Passe de combat", start = 1796083200, days = 60, tiers = 30, graceDays = 7, dailyCap = 400 }
+-- Vitrine « pet du jour » (idée 3) : espèce de rareté >= minTier mise en vitrine chaque jour UTC ; son premier éclos du jour gagne +5 % de revenus pendant 24 h (aucun achat).
+-- Un seul bonus actif, une vitrine par joueur et par semaine ; voir ReplicatedStorage/Showcase. Mettre enabled = false coupe tout (aucun bonus, aucun appel DataStore).
+Config.SHOWCASE = { enabled = true, minTier = 6, bonusPct = 0.05, bonusSeconds = 86400, cooldownDays = 7, nameMax = 20, retries = 3, storeName = "ChipeOeufs_Showcase_v1" }
 -- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
 Config.BUILD = "1.16.0"
 -- Vendeurs PNJ du hub (modèles Blender du lot 30 de la gestion ; repli procédural si le chargement échoue). Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin.

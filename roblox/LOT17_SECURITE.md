@@ -14,3 +14,19 @@ Revue par lecture du code intégré et par les tests lupa (runtime factice, vrai
 | Mémoire | Un seul compteur de session (`s.onbT`), libéré avec la session. Tick serveur : 1 lecture de position par seconde et par joueur en tutoriel seulement. |
 
 **Bilan idée 1 : 0 défaut critique, élevé ou moyen.**
+
+## Idée 3 : vitrine du pet du jour (`Showcase.lua`, champ de profil `showcase`, DataStore `ChipeOeufs_Showcase_v1`)
+
+| Point | Constat |
+|---|---|
+| Remote | Aucun remote nouveau. La réclamation part de l'éclosion décidée par le serveur (`hatch`), jamais d'une demande client. |
+| Concurrence | `UpdateAsync` sur `Showcase_<jour>` : premier écrit gagne entre serveurs ; un échec DataStore n'accorde jamais de bonus (`error`) ; un appel en cours par joueur (`busy`) ; propriétaire mis en cache par serveur (aucun appel DataStore de plus une fois connu). `task.spawn` + `pcall` : l'éclosion n'attend jamais le DataStore. |
+| Bonus | +5 % de revenus pendant 24 h, daté (`ends`), jamais prolongé ni cumulé, une vitrine par joueur et par semaine (`cooldownDays = 7`). `sanitize` ramène une fin lointaine à 24 h et un jour futur à aujourd'hui (profil trafiqué ou horloge). |
+| Confidentialité | Le `userId` reste dans l'enregistrement serveur ; la vue publique ne donne que l'espèce et le `DisplayName` assaini (20 caractères, contrôles retirés). |
+| Profil | `showcase = { last, ends }`, SANS changement de version (v13) ; assaini à chaque lecture, idempotent, jamais réinitialisé quand il est valide. |
+| Renaissance | `showcase` n'est pas dans la liste blanche de remise à zéro (4c8bcf9) : un bonus en cours survit à la renaissance (comme les autres boosts datés), la semaine de recharge aussi (sinon renaître effacerait la limite hebdomadaire). |
+| Espèces d'événement | Correctif d'intégration : les espèces marquées `event` (A5 : Loup-garou citrouille, Renne étoilé, Corbeau couronné) sont exclues de la vitrine ; hors fenêtre elles ne sortent d'aucun œuf (vitrine impossible). Testé. |
+| Robux | Aucun produit, passe ni achat ne donne la vitrine. **Point à décider (faible)** : un œuf payé de rareté fixe (Œuf Mythique 249 R$, Secret, Exclusif, Divin) peut faire éclore l'espèce du jour, donc donner indirectement le +5 % pendant 24 h. Gain borné (un bonus par semaine, +5 %), aucune force de combat. Noté dans `A_FAIRE_UTILISATEUR.md`. |
+| Télémétrie | Aucun événement ajouté (la liste des 16 métriques par joueur est fermée et testée) ; au plus 1 notification par victoire. |
+
+**Bilan idée 3 : 0 défaut critique, élevé ou moyen ; 1 point faible à décider (œufs payés).**

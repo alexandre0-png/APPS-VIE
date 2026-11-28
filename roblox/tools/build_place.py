@@ -31,7 +31,8 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua"),
           ("BattleLayout", "BattleLayout.lua"),  # refonte du combat : disposition pure de la scène face à face
           ("Graphics", "Graphics.lua"),  # lot graphismes
-          ("Onboarding", "Onboarding.lua")]  # lot 17 : onboarding des 5 premières minutes (règles pures)  # lot graphismes : lumière unifiée, styles d'arbres, sol, LOD (planificateur pur)  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
+          ("Onboarding", "Onboarding.lua"),  # lot 17 : onboarding
+          ("Showcase", "Showcase.lua")]  # lot 17 (idée 3) : vitrine du pet du jour (règles pures, DataStore injecté)  # lot 17 : onboarding des 5 premières minutes (règles pures)  # lot graphismes : lumière unifiée, styles d'arbres, sol, LOD (planificateur pur)  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[

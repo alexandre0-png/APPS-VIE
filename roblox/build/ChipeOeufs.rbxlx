@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX52"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX51"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX53"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX52"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2876,6 +2876,9 @@ Config.MAX_FOLLOWERS_COLLECTOR = 4
 -- Lot 17 : onboarding « premières 5 minutes » (Onboarding.lua, champ de profil onb) ; enabled = false coupe tout (le profil n'est jamais modifié).
 Config.ONBOARDING = { enabled = true, stepSeconds = 45, minDwell = 3, earnGoal = 10, houseLevel = 2, legacyPlayedSeconds = 120 }
 Config.SEASON = { name = "Passe de combat", start = 1796083200, days = 60, tiers = 30, graceDays = 7, dailyCap = 400 }
+-- Vitrine « pet du jour » (idée 3) : espèce de rareté >= minTier mise en vitrine chaque jour UTC ; son premier éclos du jour gagne +5 % de revenus pendant 24 h (aucun achat).
+-- Un seul bonus actif, une vitrine par joueur et par semaine ; voir ReplicatedStorage/Showcase. Mettre enabled = false coupe tout (aucun bonus, aucun appel DataStore).
+Config.SHOWCASE = { enabled = true, minTier = 6, bonusPct = 0.05, bonusSeconds = 86400, cooldownDays = 7, nameMax = 20, retries = 3, storeName = "ChipeOeufs_Showcase_v1" }
 -- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
 Config.BUILD = "1.16.0"
 -- Vendeurs PNJ du hub (modèles Blender du lot 30 de la gestion ; repli procédural si le chargement échoue). Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin.
@@ -18574,8 +18577,270 @@ function Onboarding.new(cfgIn)
 end
 
 return Onboarding
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX51"><Properties><string name="Name">Showcase</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Showcase (idée 3 « Vitrine pet du jour »). Logique PURE, sans service Roblox : le DataStore est injecté.
+-- Chaque jour UTC, une espèce de rareté >= minTier (publiée dans Config.PETS) est mise en vitrine, de façon déterministe (même jour = même espèce partout).
+-- Le premier joueur qui fait ÉCLORE cette espèce ce jour-là la « possède » : enregistrement DEDIE par jour (UpdateAsync, premier écrit gagne), puis +5 % de
+-- revenus pendant 24 h. Garde-fous : un seul bonus actif (jamais cumulé ni prolongé), une vitrine par jour, une par semaine et par joueur, bonus perdu si le
+-- propriétaire ne se connecte pas le jour même. Gratuit : aucune monnaie payante, aucun achat. Le nom affiché est assaini ; l'identifiant (userId) reste côté serveur (publicView).
+-- Champ de profil : showcase = { last = jour UTC de la dernière vitrine possédée (0 = jamais), ends = fin du bonus en os.time() (0 = aucun) }.
+local Showcase = {}
+
+Showcase.DEFAULTS = {
+	minTier = 6, -- rareté minimale d'une espèce de vitrine (Épique)
+	bonusPct = 0.05, -- +5 % de revenus
+	bonusSeconds = 86400, -- 24 h
+	cooldownDays = 7, -- un joueur ne peut être en vitrine qu'une fois par semaine
+	nameMax = 20, -- caractères du nom affiché
+	retries = 3, -- tentatives DataStore (avec attente croissante)
+	storeName = "ChipeOeufs_Showcase_v1",
+	fallbackName = "Un dresseur",
+}
+
+local function finite(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function num(v, default)
+	if finite(v) and v >= 0 then
+		return math.floor(v)
+	end
+	return default
+end
+
+function Showcase.new(Config)
+	local cfg = {}
+	for k, v in pairs(Showcase.DEFAULTS) do
+		cfg[k] = v
+	end
+	if type(Config) == "table" and type(Config.SHOWCASE) == "table" then
+		for k, v in pairs(Config.SHOWCASE) do
+			cfg[k] = v
+		end
+	end
+	local M = { cfg = cfg, cache = { day = -1, owner = nil, view = nil }, busy = {} }
+
+	function M.dayOf(t)
+		return math.floor(t / 86400)
+	end
+
+	-- Espèces éligibles : index dans Config.PETS, rareté >= minTier, ordre croissant (stable).
+	-- Intégration (audit A5) : les espèces d'événement / de saison (champ event) sont exclues : hors de leur fenêtre elles ne sortent d'aucun œuf,
+	-- la vitrine serait alors impossible à gagner (et le choix du jour ne dépend pas de la date d'un événement : même résultat partout).
+	function M.eligible()
+		local list = {}
+		local pets = type(Config) == "table" and Config.PETS or {}
+		for i, p in ipairs(pets) do
+			if type(p) == "table" and finite(p.tier) and p.tier >= cfg.minTier and p.event == nil then
+				list[#list + 1] = i
+			end
+		end
+		return list
+	end
+
+	-- Générateur de Park-Miller sur un entier (produits < 2^53 : même résultat sous Luau et Lua 5.x).
+	local function rawIndex(day, n)
+		local x = (math.floor(day) % 2147483646) + 1
+		for _ = 1, 3 do
+			x = (x * 48271) % 2147483647
+		end
+		return x % n + 1
+	end
+
+	-- Espèce du jour (index dans Config.PETS) ou nil s'il n'y en a aucune. Jamais deux jours de suite la même (si >= 2 espèces).
+	function M.pick(day)
+		local list = M.eligible()
+		local n = #list
+		if n == 0 or not finite(day) then
+			return nil
+		end
+		local idx = rawIndex(day, n)
+		if n > 1 and idx == rawIndex(day - 1, n) then
+			idx = idx % n + 1
+		end
+		return list[idx]
+	end
+
+	-- Nom affichable : caractères de contrôle retirés, espaces réduits, tronqué proprement (UTF-8), sinon nom de secours.
+	function M.sanitizeName(name)
+		if type(name) ~= "string" then
+			return cfg.fallbackName
+		end
+		local s = string.gsub(name, "[%c]", "")
+		s = string.gsub(s, "%s+", " ")
+		s = string.match(s, "^%s*(.-)%s*$") or ""
+		if not utf8.len(s) then
+			s = string.gsub(s, "[\128-\255]", "")
+		end
+		local len = utf8.len(s)
+		if len and len > cfg.nameMax then
+			s = string.sub(s, 1, (utf8.offset(s, cfg.nameMax + 1) or (#s + 1)) - 1)
+		end
+		if s == "" then
+			return cfg.fallbackName
+		end
+		return s
+	end
+
+	-- Assainit le champ de profil (idempotent : relire un profil assaini ne change rien). Valeurs neuves si absent ou corrompu ; jamais de réinitialisation d'un champ valide.
+	function M.sanitize(saved, now)
+		local sc = type(saved) == "table" and saved or {}
+		local today = M.dayOf(now)
+		return {
+			last = math.min(num(sc.last, 0), today),
+			ends = math.min(num(sc.ends, 0), math.floor(now) + cfg.bonusSeconds), -- une fin trop lointaine (horloge ou donnée altérée) est ramenée à 24 h
+		}
+	end
+
+	function M.multiplier(sc, now)
+		if type(sc) == "table" and finite(sc.ends) and now < sc.ends and sc.ends - now <= cfg.bonusSeconds then
+			return 1 + cfg.bonusPct
+		end
+		return 1
+	end
+
+	-- Le joueur peut-il posséder la vitrine de ce jour ? (ok, raison) ; raisons : active, sameDay, cooldown.
+	function M.canOwn(sc, day, now)
+		if type(sc) ~= "table" then
+			return false, "invalid"
+		end
+		if finite(sc.ends) and now < sc.ends then
+			return false, "active"
+		end
+		local last = num(sc.last, 0)
+		if last == day then
+			return false, "sameDay"
+		end
+		if last > 0 and day - last < cfg.cooldownDays then
+			return false, "cooldown"
+		end
+		return true, nil
+	end
+
+	-- Accorde le bonus (24 h à partir de maintenant, jamais prolongé ni cumulé). Retourne true si accordé.
+	function M.grant(sc, day, now)
+		if not M.canOwn(sc, day, now) then
+			return false
+		end
+		sc.last = day
+		sc.ends = math.floor(now) + cfg.bonusSeconds
+		return true
+	end
+
+	function M.key(day)
+		return "Showcase_" .. tostring(math.floor(day))
+	end
+
+	-- Fonction de transformation de UpdateAsync : premier écrit gagne. nil = annuler (une vitrine valide existe déjà pour ce jour).
+	function M.claimTransform(rec, day, sp, userId, name)
+		if type(rec) == "table" and rec.d == day and finite(rec.u) and finite(rec.sp) then
+			return nil
+		end
+		return { v = 1, d = day, sp = sp, u = userId, n = M.sanitizeName(name) }
+	end
+
+	-- Vue publique pour l'affichage du hub : espèce et nom SEULEMENT (jamais d'identifiant).
+	function M.publicView(rec, day)
+		local sp = M.pick(day)
+		local view = { day = day, species = sp, claimed = false, name = nil }
+		if type(rec) == "table" and rec.d == day and rec.sp == sp and type(rec.n) == "string" then
+			view.claimed = true
+			view.name = M.sanitizeName(rec.n)
+		end
+		return view
+	end
+
+	local function retry(fn, pause)
+		local lastErr = nil
+		for attempt = 1, cfg.retries do
+			local ok, res = pcall(fn)
+			if ok then
+				return true, res
+			end
+			lastErr = res
+			if attempt < cfg.retries and pause then
+				pause(attempt * 2)
+			end
+		end
+		return false, lastErr
+	end
+
+	-- Réclamation à l'éclosion de l'espèce p. store = DataStore (UpdateAsync/GetAsync). player = { userId, name }.
+	-- Retourne : "notFeatured" | "blocked:<raison>" | "taken" | "busy" | "error" | "won" (le bonus est alors déjà accordé dans sc).
+	function M.tryClaim(store, sc, p, player, now, pause)
+		local day = M.dayOf(now)
+		local sp = M.pick(day)
+		if sp == nil or p ~= sp then
+			return "notFeatured"
+		end
+		local ok, why = M.canOwn(sc, day, now)
+		if not ok then
+			return "blocked:" .. tostring(why)
+		end
+		if M.cache.day == day and M.cache.owner ~= nil and M.cache.owner ~= player.userId then
+			return "taken" -- déjà connu sur ce serveur : aucun appel DataStore de plus
+		end
+		if M.busy[player.userId] then
+			return "busy"
+		end
+		M.busy[player.userId] = true
+		local done, res = retry(function()
+			return store:UpdateAsync(M.key(day), function(rec)
+				return M.claimTransform(rec, day, sp, player.userId, player.name)
+			end)
+		end, pause)
+		M.busy[player.userId] = nil
+		if not done then
+			return "error" -- aucun bonus sans confirmation du DataStore
+		end
+		-- UpdateAsync renvoie la valeur finale ; si la transformation a annulé, on relit l'enregistrement gagnant.
+		local rec = res
+		if rec == nil then
+			local got, cur = retry(function()
+				return store:GetAsync(M.key(day))
+			end, pause)
+			rec = got and cur or nil
+		end
+		if type(rec) ~= "table" or rec.d ~= day then
+			return "error"
+		end
+		M.cache = { day = day, owner = rec.u, view = M.publicView(rec, day) }
+		if rec.u ~= player.userId then
+			return "taken"
+		end
+		if not M.grant(sc, day, now) then
+			return "blocked:race" -- le profil a changé pendant l'appel (autre bonus accordé entre-temps) : rien n'est accordé
+		end
+		return "won"
+	end
+
+	-- À la connexion : si ce joueur a gagné la vitrine du jour sans que son profil l'ait enregistrée (arrêt serveur), le bonus est accordé UNE fois, ce jour-là seulement.
+	function M.onLogin(store, sc, player, now, pause)
+		local day = M.dayOf(now)
+		local done, rec = retry(function()
+			return store:GetAsync(M.key(day))
+		end, pause)
+		if not done then
+			return "error"
+		end
+		if type(rec) ~= "table" or rec.d ~= day then
+			return "none"
+		end
+		M.cache = { day = day, owner = rec.u, view = M.publicView(rec, day) }
+		if rec.u ~= player.userId then
+			return "none"
+		end
+		if M.grant(sc, day, now) then
+			return "granted"
+		end
+		return "none"
+	end
+
+	return M
+end
+
+return Showcase
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX66"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX53"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX67"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX54"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18643,6 +18908,7 @@ local K8 = {
 -- carnets d'offres par joueur (mémoire, vidés au départ) et fonctions (bloc « Lot 15 » plus bas).
 -- LOT 12 B : L15.BR (cartes de récompense D.5), L15.PetXp (source UNIQUE de l'XP et des niveaux de pets, D.6) et les fonctions de choix de carte sont rangés dans cette table : Luau limite une fonction à 200 variables locales.
 local L15 = {
+	SC = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Showcase")).new(Config), -- idée 3 : vitrine pet du jour
 	BR = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleRewards")),
 	PetXp = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PetXp")),
 	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
@@ -18896,7 +19162,7 @@ end
 
 -- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1) * (L15.BR.boostActive(s.data.boosts, "income2", os.time()) and 2 or 1) -- lot 12 B : carte Effet « revenus x2 »
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1) * (L15.BR.boostActive(s.data.boosts, "income2", os.time()) and 2 or 1) * (Config.SHOWCASE.enabled and L15.SC.multiplier(s.data.showcase, os.time()) or 1) -- lot 12 B : carte Effet « revenus x2 » ; idée 3 : vitrine du jour (+5 %, un seul bonus actif)
 end
 
 local function income(s)
@@ -19716,6 +19982,19 @@ function hatch(s, i)
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
+	if Config.SHOWCASE.enabled and p.p == L15.SC.pick(L15.SC.dayOf(os.time())) then -- idée 3 : espèce en vitrine ; le DataStore ne bloque jamais l'éclosion
+		task.spawn(function()
+			local okStore, store = pcall(function()
+				return game:GetService("DataStoreService"):GetDataStore(Config.SHOWCASE.storeName)
+			end)
+			if okStore and s.player.Parent then
+				local r = L15.SC.tryClaim(store, d.showcase, p.p, { userId = s.player.UserId, name = s.player.DisplayName }, os.time(), task.wait)
+				if r == "won" then
+					notify(s.player, "🏆 Vitrine du jour : " .. Config.PETS[p.p].name .. " ! +5 % de revenus pendant 24 h.", "claim")
+				end
+			end
+		end)
+	end
 	refreshPad(s, i, true)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
@@ -24914,6 +25193,16 @@ local function onJoin(player)
 			tele.log(player, "retention_day" .. back)
 		end
 		d.lastSeen = today
+		if Config.SHOWCASE.enabled then -- idée 3 : propriétaire de la vitrine du jour dont le bonus n'a pas été enregistré (arrêt serveur) : accordé une fois, ce jour seulement
+			task.spawn(function()
+				local okStore, store = pcall(function()
+					return game:GetService("DataStoreService"):GetDataStore(Config.SHOWCASE.storeName)
+				end)
+				if okStore and player.Parent and L15.SC.onLogin(store, d.showcase, { userId = player.UserId, name = player.DisplayName }, os.time(), task.wait) == "granted" then
+					notify(player, "🏆 Vitrine du jour : +5 % de revenus pendant 24 h.", "claim")
+				end
+			end)
+		end
 		s.joinClock = os.clock()
 		s.npcStart = os.time() -- lot 15 : 8 premières minutes de la session sans PNJ
 	end
@@ -25147,7 +25436,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -25167,6 +25456,7 @@ local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local OnbMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Onboarding")).new(Config.ONBOARDING) -- lot 17 : onboarding (champ onb)
 local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
 local Diag = require(script.Parent:WaitForChild("Diag"))
+local ShowcaseMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Showcase")).new(Config) -- idée 3 : assainissement du champ showcase
 
 local STORE_NAME = "ChipeOeufs_v1"
 local CASTLE_NAME = "ChipeOeufs_Castle_v1"
@@ -25206,6 +25496,8 @@ local SAVE_RETRIES = 3
 --   d'arène du jour UTC). Migration v12 -> v13 : aucun champ existant touché ; le Pack de départ déjà acheté (starter) est reporté dans once.StarterPack.
 -- LOT 14 : + battle.live { day, fights, gained, w, l, recent } (classé en direct), SANS changement de version : champ facultatif assaini par Ranked.sanitizeLive
 --   (un serveur plus ancien l'ignore ; un profil sans ce champ reçoit les valeurs neuves).
+-- IDEE 3 (vitrine pet du jour) : + showcase { last, ends } (jour UTC de la dernière vitrine possédée, fin du bonus +5 %), SANS changement de version : champ facultatif assaini
+--   par Showcase.sanitize (idempotent ; un profil v13 sans ce champ reçoit les valeurs neuves, un champ valide n'est jamais réinitialisé).
 local VERSION = 13
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
@@ -25374,6 +25666,7 @@ function Data.default()
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, duel = { w = 0, l = 0, day = 0, n = 0, pairs = {} }, pve = { w = 0, l = 0 }, live = Ranked.sanitizeLive(nil, Config.PVP_LIVE) }, -- Arène des pets (lot 13 : duel, pve ; lot 14 : live)
+		showcase = ShowcaseMod.sanitize(nil, os.time()), -- idée 3 : { last = 0, ends = 0 }
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -25630,6 +25923,7 @@ local function merge(saved)
 	d.event = Rewards.sanitizeEvent(Config, saved.event)
 	d.eggBag = Rewards.sanitizeBag(setmetatable({ EGG_BAG = { size = Config.EGG_BAG.sizePlus } }, { __index = Config }), saved.eggBag) -- lot 16 : jusqu'à 20 œufs (passe EggBagPlus)
 	d.xp2Until = math.min(4e9, math.floor(sane(saved.xp2Until, 0)))
+	d.showcase = ShowcaseMod.sanitize(saved.showcase, os.time()) -- idée 3 : vitrine du jour (facultatif, sans changement de version)
 	-- lot 12 B : SANS changement de version (v12 reste v12) ; absents ou corrompus = valeurs neuves, relire un profil déjà assaini ne change rien (idempotent). battle.pendingPick : voir plus bas, après la reconstruction de d.battle
 	d.boosts = BattleRewards.sanitizeBoosts(saved.boosts)
 	d.trainer = PetXp.sanitizeTrainer(saved.trainer)
@@ -26146,7 +26440,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -29052,7 +29346,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -29221,7 +29515,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -29234,7 +29528,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -29753,7 +30047,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -30497,7 +30791,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -31162,7 +31456,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -31666,7 +31960,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
 -- LOT 14 : transport du classé en direct. Toutes les décisions sont dans ReplicatedStorage/Shared/Ranked (pur) ; ce module ne fait que
 -- les appliquer avec un RUNTIME INJECTÉ (tests : faux runtime de tests/lot14.luau ; jeu : PvpLive.robloxRuntime, MemoryStore + TeleportService).
 -- Aucun yield ici en dehors des appels au runtime ; chaque appel réseau est dans un pcall (une panne MemoryStore = un tour sans effet,
@@ -32362,7 +32656,7 @@ function PvpLive.robloxRuntime(Config, hooks)
 end
 
 return PvpLive
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -33588,7 +33882,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -33817,7 +34111,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -34043,7 +34337,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX85"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX84"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX67"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX86"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX85"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37239,7 +37533,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -37801,7 +38095,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -38453,7 +38747,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX71"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.LIGHTING (zone de lumière : Config.lightingZoneAt ; modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -38599,7 +38893,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX71"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -38682,7 +38976,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
 -- Niveau de détail des effets (lot graphismes, budget mobile) : au plus Config.GRAPHICS.perf.maxPointLights PointLight de la carte sont allumées (les plus proches de la
 -- caméra, à moins de lightRange studs, choix de Graphics.selectLights) ; les émetteurs de particules, faisceaux, feux, fumées et étincelles au-delà de fxCullAt studs sont
 -- coupés et rallumés sous fxShowAt (hystérésis de Culling.decide). Rien n'est détruit ni déplacé ; seules les propriétés Enabled changent, et SEULEMENT pour les objets que ce
@@ -38794,7 +39088,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -38909,7 +39203,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -39098,7 +39392,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -39254,7 +39548,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -40139,7 +40433,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -40364,7 +40658,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
 -- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
 -- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
 -- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
@@ -41371,7 +41665,7 @@ function BattleScene.create(o)
 end
 
 return BattleScene
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -42119,7 +42413,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -42519,7 +42813,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -42802,7 +43096,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -43264,7 +43558,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

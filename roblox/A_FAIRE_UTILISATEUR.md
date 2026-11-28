@@ -46,6 +46,8 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 
 - [ ] **Tutoriel en 5 étapes** (compte neuf ou profil supprimé) : carte « Étape 1/5 · Ton œuf offert est prêt ! » ; t'éloigner de ta base bloque l'étape, revenir la valide ; éclosion → « Étape 3/5 » avec compteur x/10 ; maison niveau 2 → « Étape 5/5 » ; Arène sans équipe refusée (étape inchangée), avec équipe : « 🎉 Tutoriel terminé ». Sur un autre compte neuf, « Passer › » : la carte ne revient plus, même après reconnexion ou renaissance. Un compte avec des éclosions ne voit jamais ce tutoriel. Sur téléphone : texte lisible, « Passer » appuyable au pouce. Dis-moi si l'étape 4 (maison niveau 2) est trop longue pour un premier essai.
 
+- [ ] **Vitrine du pet du jour** (serveur publié, DataStore actif) : fais éclore l'espèce du jour (rareté Mythique ou plus, choisie chaque jour UTC, jamais une espèce d'événement) : message « 🏆 Vitrine du jour », revenus/s +5 % pendant 24 h. Deux serveurs, deux comptes qui éclosent la même espèce : un seul gagne. Le lendemain, le même compte ne peut pas regagner (une fois par semaine). **Décision à me donner** : un œuf payé (Œuf Mythique, Secret, Exclusif, Divin) peut faire gagner la vitrine (+5 % pendant 24 h, une fois par semaine) ; garder ainsi, ou réserver la vitrine aux œufs non payés ? Pas d'affichage au hub pour l'instant (le nom du gagnant n'apparaît nulle part).
+
 ## 1undecies. Audit du 28 novembre (rien n'a été vu dans Studio)
 
 - [ ] **Éclosions de chaque rareté** : dans Studio seulement, mets `Config.Debug.forceHatch = 8` (puis 9, 10...) dans `Config.lua`, fais éclore un œuf : la rareté imposée sort (Exclusif compris), animation sans erreur dans la Sortie. Remets `false` avant de publier (sans effet en ligne de toute façon).

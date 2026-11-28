@@ -66,6 +66,7 @@ local K8 = {
 -- carnets d'offres par joueur (mémoire, vidés au départ) et fonctions (bloc « Lot 15 » plus bas).
 -- LOT 12 B : L15.BR (cartes de récompense D.5), L15.PetXp (source UNIQUE de l'XP et des niveaux de pets, D.6) et les fonctions de choix de carte sont rangés dans cette table : Luau limite une fonction à 200 variables locales.
 local L15 = {
+	SC = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Showcase")).new(Config), -- idée 3 : vitrine pet du jour
 	BR = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BattleRewards")),
 	PetXp = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PetXp")),
 	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
@@ -319,7 +320,7 @@ end
 
 -- Multiplicateur de revenu : renaissances, Festin, événement, passe, collection, puis bonus de la maison évolutive (1 + 5 % à 50 %, REFONTE lot 5).
 local function gmult(s)
-	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1) * (L15.BR.boostActive(s.data.boosts, "income2", os.time()) and 2 or 1) -- lot 12 B : carte Effet « revenus x2 »
+	return Rules.multiplier(s.data.rb, s.data.up.food, evKey() == "gold" or L15.Rewards.isGoldenHour(Config, os.time()), s.passes.Coins2x == true, Config.collectionBonus(s.species or 0)) * Rules.levelMul(s.baseLevel or 1) * (L15.BR.boostActive(s.data.boosts, "income2", os.time()) and 2 or 1) * (Config.SHOWCASE.enabled and L15.SC.multiplier(s.data.showcase, os.time()) or 1) -- lot 12 B : carte Effet « revenus x2 » ; idée 3 : vitrine du jour (+5 %, un seul bonus actif)
 end
 
 local function income(s)
@@ -1139,6 +1140,19 @@ function hatch(s, i)
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
+	if Config.SHOWCASE.enabled and p.p == L15.SC.pick(L15.SC.dayOf(os.time())) then -- idée 3 : espèce en vitrine ; le DataStore ne bloque jamais l'éclosion
+		task.spawn(function()
+			local okStore, store = pcall(function()
+				return game:GetService("DataStoreService"):GetDataStore(Config.SHOWCASE.storeName)
+			end)
+			if okStore and s.player.Parent then
+				local r = L15.SC.tryClaim(store, d.showcase, p.p, { userId = s.player.UserId, name = s.player.DisplayName }, os.time(), task.wait)
+				if r == "won" then
+					notify(s.player, "🏆 Vitrine du jour : " .. Config.PETS[p.p].name .. " ! +5 % de revenus pendant 24 h.", "claim")
+				end
+			end
+		end)
+	end
 	refreshPad(s, i, true)
 	qp(s, "hatch", 1)
 	local def = Config.PETS[p.p]
@@ -6337,6 +6351,16 @@ local function onJoin(player)
 			tele.log(player, "retention_day" .. back)
 		end
 		d.lastSeen = today
+		if Config.SHOWCASE.enabled then -- idée 3 : propriétaire de la vitrine du jour dont le bonus n'a pas été enregistré (arrêt serveur) : accordé une fois, ce jour seulement
+			task.spawn(function()
+				local okStore, store = pcall(function()
+					return game:GetService("DataStoreService"):GetDataStore(Config.SHOWCASE.storeName)
+				end)
+				if okStore and player.Parent and L15.SC.onLogin(store, d.showcase, { userId = player.UserId, name = player.DisplayName }, os.time(), task.wait) == "granted" then
+					notify(player, "🏆 Vitrine du jour : +5 % de revenus pendant 24 h.", "claim")
+				end
+			end)
+		end
 		s.joinClock = os.clock()
 		s.npcStart = os.time() -- lot 15 : 8 premières minutes de la session sans PNJ
 	end

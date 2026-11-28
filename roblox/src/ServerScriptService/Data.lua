@@ -18,6 +18,7 @@ local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local OnbMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Onboarding")).new(Config.ONBOARDING) -- lot 17 : onboarding (champ onb)
 local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
 local Diag = require(script.Parent:WaitForChild("Diag"))
+local ShowcaseMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Showcase")).new(Config) -- idée 3 : assainissement du champ showcase
 
 local STORE_NAME = "ChipeOeufs_v1"
 local CASTLE_NAME = "ChipeOeufs_Castle_v1"
@@ -57,6 +58,8 @@ local SAVE_RETRIES = 3
 --   d'arène du jour UTC). Migration v12 -> v13 : aucun champ existant touché ; le Pack de départ déjà acheté (starter) est reporté dans once.StarterPack.
 -- LOT 14 : + battle.live { day, fights, gained, w, l, recent } (classé en direct), SANS changement de version : champ facultatif assaini par Ranked.sanitizeLive
 --   (un serveur plus ancien l'ignore ; un profil sans ce champ reçoit les valeurs neuves).
+-- IDEE 3 (vitrine pet du jour) : + showcase { last, ends } (jour UTC de la dernière vitrine possédée, fin du bonus +5 %), SANS changement de version : champ facultatif assaini
+--   par Showcase.sanitize (idempotent ; un profil v13 sans ce champ reçoit les valeurs neuves, un champ valide n'est jamais réinitialisé).
 local VERSION = 13
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
@@ -225,6 +228,7 @@ function Data.default()
 		played = 0, -- temps de jeu cumulé en secondes (protection débutant, lot 4 : champ facultatif assaini, sans changement de version)
 		newbieOff = false, -- fin anticipée de la protection débutant (action newbieOff)
 		battle = { team = {}, best = 0, day = 0, fights = 0, repeats = 0, pvp = { season = 0, trophies = 0, wins = 0, losses = 0, defense = {}, day = 0, fights = 0 }, duel = { w = 0, l = 0, day = 0, n = 0, pairs = {} }, pve = { w = 0, l = 0 }, live = Ranked.sanitizeLive(nil, Config.PVP_LIVE) }, -- Arène des pets (lot 13 : duel, pve ; lot 14 : live)
+		showcase = ShowcaseMod.sanitize(nil, os.time()), -- idée 3 : { last = 0, ends = 0 }
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
@@ -481,6 +485,7 @@ local function merge(saved)
 	d.event = Rewards.sanitizeEvent(Config, saved.event)
 	d.eggBag = Rewards.sanitizeBag(setmetatable({ EGG_BAG = { size = Config.EGG_BAG.sizePlus } }, { __index = Config }), saved.eggBag) -- lot 16 : jusqu'à 20 œufs (passe EggBagPlus)
 	d.xp2Until = math.min(4e9, math.floor(sane(saved.xp2Until, 0)))
+	d.showcase = ShowcaseMod.sanitize(saved.showcase, os.time()) -- idée 3 : vitrine du jour (facultatif, sans changement de version)
 	-- lot 12 B : SANS changement de version (v12 reste v12) ; absents ou corrompus = valeurs neuves, relire un profil déjà assaini ne change rien (idempotent). battle.pendingPick : voir plus bas, après la reconstruction de d.battle
 	d.boosts = BattleRewards.sanitizeBoosts(saved.boosts)
 	d.trainer = PetXp.sanitizeTrainer(saved.trainer)

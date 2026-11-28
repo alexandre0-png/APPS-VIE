@@ -10,6 +10,16 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 2. **Force en combat** : `Battle.STATS[r]`, puissance pv + 3 x attaque + 2 x vitesse strictement croissante, x1,25 au moins ; profils tank / attaquant / rapide / équilibré, écart de 8 à 15 % dans une rareté, le plus fort d'une rareté sous le plus faible de la suivante. Tests « Règle (2) ». Rien d'achetable ne touche ces stats.
 3. **Pièces contre Robux** : tout article payable aux deux est plus cher et plus long en pièces : pour le débutant, temps de gain en pièces entre 4 et 12 fois le « temps Robux » (prix en R$ x `Config.PRICING_REF.secondsPerRobux`, taux du Sac de pièces : 20 min de revenu pour 99 R$ = 12,1 s par R$) ; jamais inatteignable. Les œufs Secret (1 499 R$), Exclusif (3 499 R$) et Divin (6 999 R$) sont vendus en Robux à prix fixe et rareté FIXE, contenu affiché, `random = true`, masqués et refusés si PolicyService restreint ; aucun avantage de combat acheté. Tests « Règle (3) ».
 
+## IDÉE 3 (lot 17) : vitrine du pet du jour (2026-11-28)
+
+Préparé par la gestion (`lots-prep/idee-vitrine/`, commit 51f4e74, écrit sur `fa4e42b`), branché ici. **Rien n'a été vu dans Studio ni avec un vrai DataStore.**
+
+- **Règle** (`Showcase.lua`, pur, DataStore injecté) : chaque jour UTC, une espèce de rareté >= 6 (Park-Miller sur le jour, jamais la même deux jours de suite) ; le premier joueur qui la fait ÉCLORE (`UpdateAsync` sur `Showcase_<jour>`, DataStore `ChipeOeufs_Showcase_v1`) gagne +5 % de revenus pendant 24 h ; un seul bonus actif, une vitrine par joueur et par semaine ; bonus non enregistré (arrêt serveur) rattrapé à la connexion le même jour. `Config.SHOWCASE` (`enabled = false` coupe tout, aucun appel DataStore).
+- **Profil** : `showcase = { last, ends }`, SANS changement de version (v13), assaini et idempotent. Survit à la renaissance (hors liste blanche du correctif 4c8bcf9 : bonus daté et recharge hebdomadaire gardés).
+- **Main** : `L15.SC` (aucune nouvelle variable locale de racine), facteur dans `gmult`, réclamation en `task.spawn` après la mise à jour de l'index dans `hatch`, rattrapage dans `onJoin`.
+- **Écarts à l'intégration** : liste des suites de `run.luau` reposée à la main ; `Showcase` ajouté aux modules partagés de `build_place.py` ; **correctif** : les espèces d'événement / de saison (`event`, audit A5) sont exclues de la vitrine (hors fenêtre, elles ne sortent d'aucun œuf) ; test adapté (le Config chargé par le test n'a pas le bestiaire : exclusion vérifiée sur un Config factice). Pas d'affichage au hub (hors préparation). Pas de télémétrie (liste fermée). Point à décider : un œuf payé peut faire gagner la vitrine (`LOT17_SECURITE.md`, `A_FAIRE_UTILISATEUR.md`).
+- **Vérifications exécutées** (lupa, pas Studio ni vrai DataStore) : `run_tests.py` 4 580 / 0 (199 s) ; `check.py` sans problème ; `build_place.py` régénéré ; `run_showcase.py` 85 / 0, `run_onboarding.py` 64 / 0, `run_rebirth.py` 7 / 0, runners lot10 à lot14, battlelayout, graphics verts.
+
 ## IDÉE 1 (lot 17) : onboarding « premières 5 minutes » en 5 étapes (2026-11-28)
 
 Préparé par la gestion (branche `claude/jolly-cannon-w2wx5h`, `lots-prep/idee-onboarding/`, commit e19346d, écrit sur `fa4e42b`), branché ici. **Rien n'a été vu dans Studio.**
