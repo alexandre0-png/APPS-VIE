@@ -681,6 +681,11 @@ function Config.questText(t, n)
 	elseif t == "secret" then
 		return "Fouiller " .. n .. " secret(s) de la carte"
 	end
+	-- A11 : nouveaux types (Config.QUESTS.newTypes, textes « {n} »)
+	local nt = Config.QUESTS and Config.QUESTS.newTypes and Config.QUESTS.newTypes[t]
+	if type(nt) == "table" and type(nt.text) == "string" then
+		return (string.gsub(nt.text, "{n}", tostring(n)))
+	end
 	return t
 end
 
@@ -2621,10 +2626,10 @@ Config.QUESTS = {
 		},
 		rewards = { { need = 5, egg = "Légendaire" }, { need = 7, egg = "Mythique", seasonXp = 300 } },
 	},
-	-- Nouveaux types de quêtes du jour (forme libre : l'intégrateur les adapte à Config.QUEST_TYPES).
+	-- Nouveaux types de quêtes du jour (A11 : branchés dans QUEST_TYPES de Main ; progression : Rewards.questKinds).
 	newTypes = {
-		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duels", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange avec un PNJ", goals = { 1, 1, 2 } },
-		typeWin = { text = "Gagne {n} combats avec le type {type}", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
+		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duel(s) récompensé(s)", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange(s) avec un PNJ", goals = { 1, 1, 2 } },
+		typeWin = { text = "Gagne {n} combats PvE avec un pet du type de la semaine", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
 	},
 }
 
@@ -11467,6 +11472,63 @@ function Rewards.featuredPick(Config, rot, petIdx, rnd)
 		return featured
 	end
 	return petIdx
+end
+
+-- A11 : quêtes du jour des lots 12 à 14 (Config.QUESTS.newTypes : pve, typeWin, duel, odds, npcTrade). Les données d'événement viennent du SERVEUR seul.
+-- Objectif tiré parmi newTypes[t].goals ; r dans [0, 1). nil si t n'est pas un nouveau type.
+function Rewards.newQuestGoal(Config, t, r)
+	local nt = Config.QUESTS and Config.QUESTS.newTypes and Config.QUESTS.newTypes[t]
+	if type(nt) ~= "table" or type(nt.goals) ~= "table" or #nt.goals == 0 then
+		return nil
+	end
+	local x = isnum(r) and math.min(math.max(r, 0), 0.999999) or 0
+	return nt.goals[math.floor(x * #nt.goals) + 1]
+end
+-- L'équipe (unités de Battle, champ type ; « Nature » = « Plante » de la rotation) contient-elle le type `ty` ?
+function Rewards.teamHasType(units, ty)
+	if type(units) ~= "table" or type(ty) ~= "string" then
+		return false
+	end
+	for _, u in ipairs(units) do
+		local t = type(u) == "table" and u.type or nil
+		if t == "Nature" then
+			t = "Plante"
+		end
+		if t == ty then
+			return true
+		end
+	end
+	return false
+end
+-- Progression des quêtes du jour pour un événement serveur : liste { { t, n } } (vide si rien ne compte). Une seule entrée par type et par événement.
+--   pveWin   : info = { rewarded, units, weekType } -> pve +1 et typeWin +1 (équipe avec le type de la semaine), seulement si la victoire est RÉCOMPENSÉE
+--              (tour : premier passage ou rejouée dans la limite du jour ; PNJ : offre à usage unique) : un rejeu non récompensé ne compte pas ;
+--   duelPaid : info = { coins } -> duel +1 seulement si le duel a été payé (Duel.settle : 10 par jour, 3 par paire et par jour, pas d'abandon précoce) ;
+--   hatch    : info = { odds } -> odds +1 si le compteur de RÉFÉRENCE (Odds.forPet, aucun bonus) >= Config.ODDS.billboardMin (1 000) ;
+--   npcTrade : échange de PNJ conclu (offre retirée du carnet avant l'effet : aucun rejeu) -> npcTrade +1.
+function Rewards.questKinds(Config, kind, info)
+	local out = {}
+	info = type(info) == "table" and info or {}
+	if kind == "pveWin" then
+		if info.rewarded == true then
+			out[#out + 1] = { "pve", 1 }
+			if Rewards.teamHasType(info.units, info.weekType) then
+				out[#out + 1] = { "typeWin", 1 }
+			end
+		end
+	elseif kind == "duelPaid" then
+		if isnum(info.coins) and info.coins > 0 then
+			out[#out + 1] = { "duel", 1 }
+		end
+	elseif kind == "hatch" then
+		local min = (Config.ODDS and Config.ODDS.billboardMin) or 1000
+		if isnum(info.odds) and info.odds >= min then
+			out[#out + 1] = { "odds", 1 }
+		end
+	elseif kind == "npcTrade" then
+		out[#out + 1] = { "npcTrade", 1 }
+	end
+	return out
 end
 
 -- Multiplicateur de dégâts du type « en forme » : PvE seulement.

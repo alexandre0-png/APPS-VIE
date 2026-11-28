@@ -562,6 +562,63 @@ function Rewards.featuredPick(Config, rot, petIdx, rnd)
 	return petIdx
 end
 
+-- A11 : quêtes du jour des lots 12 à 14 (Config.QUESTS.newTypes : pve, typeWin, duel, odds, npcTrade). Les données d'événement viennent du SERVEUR seul.
+-- Objectif tiré parmi newTypes[t].goals ; r dans [0, 1). nil si t n'est pas un nouveau type.
+function Rewards.newQuestGoal(Config, t, r)
+	local nt = Config.QUESTS and Config.QUESTS.newTypes and Config.QUESTS.newTypes[t]
+	if type(nt) ~= "table" or type(nt.goals) ~= "table" or #nt.goals == 0 then
+		return nil
+	end
+	local x = isnum(r) and math.min(math.max(r, 0), 0.999999) or 0
+	return nt.goals[math.floor(x * #nt.goals) + 1]
+end
+-- L'équipe (unités de Battle, champ type ; « Nature » = « Plante » de la rotation) contient-elle le type `ty` ?
+function Rewards.teamHasType(units, ty)
+	if type(units) ~= "table" or type(ty) ~= "string" then
+		return false
+	end
+	for _, u in ipairs(units) do
+		local t = type(u) == "table" and u.type or nil
+		if t == "Nature" then
+			t = "Plante"
+		end
+		if t == ty then
+			return true
+		end
+	end
+	return false
+end
+-- Progression des quêtes du jour pour un événement serveur : liste { { t, n } } (vide si rien ne compte). Une seule entrée par type et par événement.
+--   pveWin   : info = { rewarded, units, weekType } -> pve +1 et typeWin +1 (équipe avec le type de la semaine), seulement si la victoire est RÉCOMPENSÉE
+--              (tour : premier passage ou rejouée dans la limite du jour ; PNJ : offre à usage unique) : un rejeu non récompensé ne compte pas ;
+--   duelPaid : info = { coins } -> duel +1 seulement si le duel a été payé (Duel.settle : 10 par jour, 3 par paire et par jour, pas d'abandon précoce) ;
+--   hatch    : info = { odds } -> odds +1 si le compteur de RÉFÉRENCE (Odds.forPet, aucun bonus) >= Config.ODDS.billboardMin (1 000) ;
+--   npcTrade : échange de PNJ conclu (offre retirée du carnet avant l'effet : aucun rejeu) -> npcTrade +1.
+function Rewards.questKinds(Config, kind, info)
+	local out = {}
+	info = type(info) == "table" and info or {}
+	if kind == "pveWin" then
+		if info.rewarded == true then
+			out[#out + 1] = { "pve", 1 }
+			if Rewards.teamHasType(info.units, info.weekType) then
+				out[#out + 1] = { "typeWin", 1 }
+			end
+		end
+	elseif kind == "duelPaid" then
+		if isnum(info.coins) and info.coins > 0 then
+			out[#out + 1] = { "duel", 1 }
+		end
+	elseif kind == "hatch" then
+		local min = (Config.ODDS and Config.ODDS.billboardMin) or 1000
+		if isnum(info.odds) and info.odds >= min then
+			out[#out + 1] = { "odds", 1 }
+		end
+	elseif kind == "npcTrade" then
+		out[#out + 1] = { "npcTrade", 1 }
+	end
+	return out
+end
+
 -- Multiplicateur de dégâts du type « en forme » : PvE seulement.
 function Rewards.typeDamage(Config, rot, ty, pve)
 	if pve == true and rot and rot.type == ty then

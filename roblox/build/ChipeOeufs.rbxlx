@@ -681,6 +681,11 @@ function Config.questText(t, n)
 	elseif t == "secret" then
 		return "Fouiller " .. n .. " secret(s) de la carte"
 	end
+	-- A11 : nouveaux types (Config.QUESTS.newTypes, textes « {n} »)
+	local nt = Config.QUESTS and Config.QUESTS.newTypes and Config.QUESTS.newTypes[t]
+	if type(nt) == "table" and type(nt.text) == "string" then
+		return (string.gsub(nt.text, "{n}", tostring(n)))
+	end
 	return t
 end
 
@@ -2621,10 +2626,10 @@ Config.QUESTS = {
 		},
 		rewards = { { need = 5, egg = "Légendaire" }, { need = 7, egg = "Mythique", seasonXp = 300 } },
 	},
-	-- Nouveaux types de quêtes du jour (forme libre : l'intégrateur les adapte à Config.QUEST_TYPES).
+	-- Nouveaux types de quêtes du jour (A11 : branchés dans QUEST_TYPES de Main ; progression : Rewards.questKinds).
 	newTypes = {
-		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duels", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange avec un PNJ", goals = { 1, 1, 2 } },
-		typeWin = { text = "Gagne {n} combats avec le type {type}", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
+		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duel(s) récompensé(s)", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange(s) avec un PNJ", goals = { 1, 1, 2 } },
+		typeWin = { text = "Gagne {n} combats PvE avec un pet du type de la semaine", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
 	},
 }
 
@@ -11469,6 +11474,63 @@ function Rewards.featuredPick(Config, rot, petIdx, rnd)
 	return petIdx
 end
 
+-- A11 : quêtes du jour des lots 12 à 14 (Config.QUESTS.newTypes : pve, typeWin, duel, odds, npcTrade). Les données d'événement viennent du SERVEUR seul.
+-- Objectif tiré parmi newTypes[t].goals ; r dans [0, 1). nil si t n'est pas un nouveau type.
+function Rewards.newQuestGoal(Config, t, r)
+	local nt = Config.QUESTS and Config.QUESTS.newTypes and Config.QUESTS.newTypes[t]
+	if type(nt) ~= "table" or type(nt.goals) ~= "table" or #nt.goals == 0 then
+		return nil
+	end
+	local x = isnum(r) and math.min(math.max(r, 0), 0.999999) or 0
+	return nt.goals[math.floor(x * #nt.goals) + 1]
+end
+-- L'équipe (unités de Battle, champ type ; « Nature » = « Plante » de la rotation) contient-elle le type `ty` ?
+function Rewards.teamHasType(units, ty)
+	if type(units) ~= "table" or type(ty) ~= "string" then
+		return false
+	end
+	for _, u in ipairs(units) do
+		local t = type(u) == "table" and u.type or nil
+		if t == "Nature" then
+			t = "Plante"
+		end
+		if t == ty then
+			return true
+		end
+	end
+	return false
+end
+-- Progression des quêtes du jour pour un événement serveur : liste { { t, n } } (vide si rien ne compte). Une seule entrée par type et par événement.
+--   pveWin   : info = { rewarded, units, weekType } -> pve +1 et typeWin +1 (équipe avec le type de la semaine), seulement si la victoire est RÉCOMPENSÉE
+--              (tour : premier passage ou rejouée dans la limite du jour ; PNJ : offre à usage unique) : un rejeu non récompensé ne compte pas ;
+--   duelPaid : info = { coins } -> duel +1 seulement si le duel a été payé (Duel.settle : 10 par jour, 3 par paire et par jour, pas d'abandon précoce) ;
+--   hatch    : info = { odds } -> odds +1 si le compteur de RÉFÉRENCE (Odds.forPet, aucun bonus) >= Config.ODDS.billboardMin (1 000) ;
+--   npcTrade : échange de PNJ conclu (offre retirée du carnet avant l'effet : aucun rejeu) -> npcTrade +1.
+function Rewards.questKinds(Config, kind, info)
+	local out = {}
+	info = type(info) == "table" and info or {}
+	if kind == "pveWin" then
+		if info.rewarded == true then
+			out[#out + 1] = { "pve", 1 }
+			if Rewards.teamHasType(info.units, info.weekType) then
+				out[#out + 1] = { "typeWin", 1 }
+			end
+		end
+	elseif kind == "duelPaid" then
+		if isnum(info.coins) and info.coins > 0 then
+			out[#out + 1] = { "duel", 1 }
+		end
+	elseif kind == "hatch" then
+		local min = (Config.ODDS and Config.ODDS.billboardMin) or 1000
+		if isnum(info.odds) and info.odds >= min then
+			out[#out + 1] = { "odds", 1 }
+		end
+	elseif kind == "npcTrade" then
+		out[#out + 1] = { "npcTrade", 1 }
+	end
+	return out
+end
+
 -- Multiplicateur de dégâts du type « en forme » : PvE seulement.
 function Rewards.typeDamage(Config, rot, ty, pve)
 	if pve == true and rot and rot.type == ty then
@@ -17955,7 +18017,7 @@ local function rollPet(s, eggTier, guaranteed)
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
-local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell", "castle", "rare", "secret" }
+local QUEST_TYPES = { "steal", "hatch", "earn", "train", "pvp", "discover", "sell", "castle", "rare", "secret", "duel", "typeWin", "odds", "pve", "npcTrade" } -- A11 : 5 types des lots 12 à 14
 
 local function newQuests(s)
 	local inc = math.max(income(s), 1)
@@ -17976,6 +18038,8 @@ local function newQuests(s)
 			goal = rng:NextInteger(2, 4)
 		elseif t == "castle" or t == "rare" or t == "secret" then
 			goal = 1
+		elseif L15.Rewards.newQuestGoal(Config, t, 0) then -- A11 : duel, typeWin, odds, pve, npcTrade (objectifs de Config.QUESTS.newTypes)
+			goal = L15.Rewards.newQuestGoal(Config, t, rng:NextNumber())
 		else -- pvp, discover
 			goal = rng:NextInteger(1, 2)
 		end
@@ -17993,6 +18057,13 @@ local function qp(s, t, n)
 	end
 	if L15.QP_WEEKLY[t] and L15.weekly then
 		L15.weekly(s, L15.QP_WEEKLY[t], n) -- lot 15 : quêtes de la semaine (éclosion, vol, collection)
+	end
+end
+
+-- A11 : applique la progression décidée par Rewards.questKinds (événements serveur seulement). Dans L15 : limite de 200 variables locales.
+function L15.qk(s, kind, info)
+	for _, e in ipairs(L15.Rewards.questKinds(Config, kind, info)) do
+		qp(s, e[1], e[2])
 	end
 end
 
@@ -18715,6 +18786,7 @@ function hatch(s, i)
 	-- lot 10 : compteur « 1 sur N » de référence calculé UNE fois ici et figé dans le slot (jamais recalculé ; aucun bonus n'entre dans le calcul)
 	local odds = Lot7.Odds.forPet(Config, p.p, p.s, p.m)
 	d.slots[i] = { k = "p", p = p.p, s = p.s, m = p.m, o = odds, ov = odds and Config.ODDS.version or nil }
+	L15.qk(s, "hatch", { odds = odds }) -- A11 : quête « 1 sur 1 000 ou plus rare » (compteur de référence, sans bonus)
 	d.hatched += 1
 	if d.hatched == 1 then
 		tele.log(s.player, "first_hatch_seconds", d.played)
@@ -21096,6 +21168,7 @@ local function battleFinish(s)
 				b.repeats += 1
 			end
 			rewards.first = first
+			L15.qk(s, "pveWin", { rewarded = true, units = st.sides[1].units, weekType = L15.Rewards.rotation(Config, L15.Rewards.weekOf(os.time() // 86400)).type }) -- A11 : victoire de tour RÉCOMPENSÉE
 			rewards.pick = true -- lot 12 B : le client attend { k = "pick" } (3 cartes) et masque « Continuer » ; remplace Config.towerReward
 			L15.offerPick(s, bt.floor, first and "first" or "repeat")
 			sendAfter = true
@@ -21558,6 +21631,7 @@ do
 				local res = L15.Duel.settle(me.data.battle.duel, foe.player.UserId, outcome, os.time(), income(me), D.C)
 				local coins = me ~= leaver and L15.Duel.payable(res, d.m.turns, early, D.C.earlyMinTurns) or 0
 				if coins > 0 then
+					L15.qk(me, "duelPaid", { coins = coins }) -- A11 : quête « duel » (duels payés seulement : plafonds jour et paire de Duel.settle)
 					me.data.coins += coins
 					L15.PetXp.addToTeam(me.data.slots, me.data.battle.team, L15.PetXp.award("pvp", L15.PetXp.combat("pvp", res.won, 0), L15.PetXp.boostMul(me.data, os.time()))) -- XP de pet : seulement les duels payés (plafonnés)
 				end
@@ -21985,6 +22059,7 @@ do
 			rebuildFollowers(s)
 			Npc.noteAccepted(d.npc, eff.npc)
 			L15.weekly(s, "npc", 1)
+			L15.qk(s, "npcTrade") -- A11 : échange de PNJ conclu (offre déjà retirée du carnet)
 			said(s, eff.npc, "Marché conclu ! Tu reçois : " .. table.concat(got, ", ") .. ".", true)
 			notify(s.player, "🤝 Échange avec " .. Config.NPCS[eff.npc].name .. " : " .. table.concat(got, ", "), "claim")
 			tele.log(s.player, "npc_trade", 1, "_" .. eff.npc)
@@ -22024,6 +22099,7 @@ do
 		if ok then
 			if out.won then
 				L15.onPve(s)
+				L15.qk(s, "pveWin", { rewarded = true, units = bt.st.sides[1].units, weekType = Rewards.rotation(Config, Rewards.weekOf(today())).type }) -- A11 : victoire de PNJ (Npc.resolve : une fois)
 				local coins = math.floor(math.max(Config.STREAK.coinFloor, income(s) * 300) * (out.rewardMul or 1))
 				d.coins = d.coins + coins
 				rewards.coins = coins

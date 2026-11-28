@@ -677,6 +677,11 @@ function Config.questText(t, n)
 	elseif t == "secret" then
 		return "Fouiller " .. n .. " secret(s) de la carte"
 	end
+	-- A11 : nouveaux types (Config.QUESTS.newTypes, textes « {n} »)
+	local nt = Config.QUESTS and Config.QUESTS.newTypes and Config.QUESTS.newTypes[t]
+	if type(nt) == "table" and type(nt.text) == "string" then
+		return (string.gsub(nt.text, "{n}", tostring(n)))
+	end
 	return t
 end
 
@@ -2617,10 +2622,10 @@ Config.QUESTS = {
 		},
 		rewards = { { need = 5, egg = "Légendaire" }, { need = 7, egg = "Mythique", seasonXp = 300 } },
 	},
-	-- Nouveaux types de quêtes du jour (forme libre : l'intégrateur les adapte à Config.QUEST_TYPES).
+	-- Nouveaux types de quêtes du jour (A11 : branchés dans QUEST_TYPES de Main ; progression : Rewards.questKinds).
 	newTypes = {
-		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duels", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange avec un PNJ", goals = { 1, 1, 2 } },
-		typeWin = { text = "Gagne {n} combats avec le type {type}", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
+		pve = { text = "Gagne {n} combats PvE", goals = { 2, 3, 5 } }, duel = { text = "Joue {n} duel(s) récompensé(s)", goals = { 1, 2, 3 } }, npcTrade = { text = "Fais {n} échange(s) avec un PNJ", goals = { 1, 1, 2 } },
+		typeWin = { text = "Gagne {n} combats PvE avec un pet du type de la semaine", goals = { 1, 2, 3 } }, odds = { text = "Obtiens un pet de 1 sur 1 000 ou plus rare", goals = { 1, 1, 1 } },
 	},
 }
 
