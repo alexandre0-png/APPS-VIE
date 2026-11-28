@@ -29,6 +29,7 @@ local L10 = {
 	HatchPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HatchPlan")),
 	HatchFx = require(script.Parent:WaitForChild("HatchFx")),
 	seenTier = {}, -- raretés déjà vues dans cette session (écran non passable seulement la toute première fois, r >= 8)
+	UiStyle = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiStyle")), -- graphismes 6 : style commun des panneaux (rayons, ombres, polices, palette contrastée)
 }
 -- « 1 sur N » figé par le serveur, ou « — » (pet éclos avant le lot 10, jamais recalculé).
 function L10.oddsText(o)
@@ -61,6 +62,9 @@ function L10.calIcon(rw)
 end
 -- Icône d'interface (Config.ICONS) : URL d'image publiée par le serveur (attribut du dossier ReplicatedStorage.Icons), sinon nil (l'appelant garde son emoji).
 function L10.iconUrl(key)
+	if not L10.UiStyle.icon(Config, key) then
+		return nil -- graphismes 6 : une seule famille d'icônes d'image (Config.ICONS, lot 27)
+	end
 	local folder = ReplicatedStorage:FindFirstChild("Icons")
 	local url = folder and folder:GetAttribute(key)
 	if type(url) == "string" and url ~= "" then
@@ -84,18 +88,7 @@ L15.ShopInfo = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sh
 L15.season, L15.recap, L15.shopOffer = nil, nil, nil
 local fmt = Config.fmt
 
-local COL = {
-	bg = Color3.fromRGB(15, 42, 27),
-	panel = Color3.fromRGB(29, 77, 51),
-	pill = Color3.fromRGB(10, 30, 20),
-	yellow = Color3.fromRGB(255, 210, 63),
-	text = Color3.fromRGB(244, 255, 246),
-	muted = Color3.fromRGB(159, 199, 173),
-	red = Color3.fromRGB(255, 107, 107),
-	green = Color3.fromRGB(91, 227, 125),
-	dis = Color3.fromRGB(75, 91, 81),
-	dark = Color3.fromRGB(43, 34, 0),
-}
+local COL = L10.UiStyle.palette(Color3) -- graphismes 6 : palette commune (ReplicatedStorage/UiStyle, contraste texte / fond >= 4,5:1 vérifié par test)
 local FONT = Enum.Font.GothamBold
 
 local state = nil
@@ -115,7 +108,18 @@ local function make(class, props, parent)
 	return o
 end
 local function corner(o, r)
-	make("UICorner", { CornerRadius = UDim.new(0, r or 12) }, o)
+	make("UICorner", { CornerRadius = UDim.new(0, r or L10.UiStyle.RADIUS.icon) }, o)
+end
+-- Graphismes 6 : ombre légère (bandes noires très transparentes, hors de la surface du cadre : bas, et droite pour le panneau). Ne capte aucun clic.
+function L10.shadow(o, kind)
+	local sh = L10.UiStyle.SHADOW
+	for _, st in ipairs(L10.UiStyle.shadowStrips(kind)) do
+		local band = make("Frame", {
+			Name = "Shadow", Position = UDim2.new(st.position[1], st.position[2], st.position[3], st.position[4]), Size = UDim2.new(st.size[1], st.size[2], st.size[3], st.size[4]),
+			BackgroundColor3 = Color3.fromRGB(sh.color[1], sh.color[2], sh.color[3]), BackgroundTransparency = sh.transparency, BorderSizePixel = 0, Active = false, ZIndex = 0,
+		}, o)
+		make("UICorner", { CornerRadius = UDim.new(0, math.floor(sh.offset / 2)) }, band)
+	end
 end
 -- Retour tactile : le bouton se rétrécit légèrement quand on appuie.
 -- Sons : voir Config.SOUNDS (clé -> { id, speed, vol }). Un id vide ou introuvable reste silencieux.
@@ -679,10 +683,11 @@ end
 
 ---------------------------------------------------------------- Panneaux
 local panelFrame = make("Frame", { Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.92, 0.8), BackgroundColor3 = COL.bg, Visible = false }, gui)
-corner(panelFrame, 18)
+corner(panelFrame, L10.UiStyle.RADIUS.panel)
 make("UISizeConstraint", { MaxSize = Vector2.new(560, 470) }, panelFrame)
-make("UIStroke", { Color = COL.panel, Thickness = 2 }, panelFrame)
-local titleLbl = text(panelFrame, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -70, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 22, Text = "" })
+make("UIStroke", { Color = COL.panel, Thickness = L10.UiStyle.STROKE.panel }, panelFrame)
+L10.shadow(panelFrame, "panel") -- graphismes 6 : même cadre (coins, bordure, ombre) pour tous les panneaux : boutique, calendrier, bestiaire, bonus, kiosque, menu
+local titleLbl = text(panelFrame, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -70, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, TextSize = L10.UiStyle.TEXT.title, Font = L10.UiStyle.font(Enum, "title"), Text = "" })
 local closeBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = COL.panel, Text = "✕", Font = FONT, TextSize = 16, TextColor3 = COL.text }, panelFrame)
 local closeStyle = glossy(closeBtn, "close", 12, 3)
 if closeStyle then
@@ -691,12 +696,12 @@ end
 corner(closeBtn, 17)
 pressFx(closeBtn)
 local tabsFrame = make("Frame", { Position = UDim2.fromOffset(12, 46), Size = UDim2.new(1, -24, 0, 34), BackgroundTransparency = 1 }, panelFrame)
-make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }, tabsFrame)
+make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, L10.UiStyle.SPACING.sm) }, tabsFrame)
 local scroll = make("ScrollingFrame", {
 	Position = UDim2.fromOffset(10, 86), Size = UDim2.new(1, -20, 1, -96), BackgroundTransparency = 1, BorderSizePixel = 0,
 	ScrollBarThickness = 5, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 }, panelFrame)
-make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
+make("UIListLayout", { Padding = UDim.new(0, L10.UiStyle.SPACING.sm), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
 
 local function coins()
 	return player:GetAttribute("Coins") or 0
@@ -705,32 +710,33 @@ end
 local function paintCost(btn, cost)
 	local ok = coins() >= cost
 	btn.BackgroundColor3 = ok and COL.yellow or COL.dis
-	btn.TextColor3 = ok and COL.dark or Color3.fromRGB(152, 168, 158)
+	btn.TextColor3 = ok and COL.dark or COL.disText -- graphismes 6 : texte désactivé lisible (contraste >= 4,5:1)
 end
 
 local function addRow(o)
 	local f = make("Frame", { Size = UDim2.new(1, -8, 0, 64), BackgroundColor3 = COL.panel }, scroll)
-	corner(f, 14)
+	corner(f, L10.UiStyle.RADIUS.card)
+	L10.shadow(f, "card")
 	local ic = text(f, { Position = UDim2.fromOffset(8, 9), Size = UDim2.fromOffset(46, 46), BackgroundTransparency = 0.7, BackgroundColor3 = Color3.new(0, 0, 0), Text = o.icon or "", TextSize = 28 })
-	corner(ic, 12)
+	corner(ic, L10.UiStyle.RADIUS.icon)
 	if o.iconColor then
 		make("UIStroke", { Color = o.iconColor, Thickness = 2 }, ic)
 	end
 	local rightPad = (o.btn and 130 or 20) + (o.btn2 and 50 or 0)
-	text(f, { Position = UDim2.fromOffset(62, 5), Size = UDim2.new(1, -62 - rightPad, 0, 24), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 15, Text = o.title or "", TextColor3 = o.titleColor or COL.text, TextTruncate = Enum.TextTruncate.AtEnd })
-	text(f, { Position = UDim2.fromOffset(62, 29), Size = UDim2.new(1, -62 - rightPad, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 12, Text = o.desc or "", TextColor3 = COL.muted, TextWrapped = true, Font = Enum.Font.Gotham })
+	text(f, { Position = UDim2.fromOffset(62, 5), Size = UDim2.new(1, -62 - rightPad, 0, 24), TextXAlignment = Enum.TextXAlignment.Left, TextSize = L10.UiStyle.TEXT.rowTitle, Text = o.title or "", TextColor3 = o.titleColor or COL.text, TextTruncate = Enum.TextTruncate.AtEnd })
+	text(f, { Position = UDim2.fromOffset(62, 29), Size = UDim2.new(1, -62 - rightPad, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = L10.UiStyle.TEXT.desc, Text = o.desc or "", TextColor3 = COL.muted, TextWrapped = true, Font = L10.UiStyle.font(Enum, "desc") })
 	if o.btn2 then
 		local b2 = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -126, 0.5, 0), Size = UDim2.fromOffset(42, 40), Text = o.btn2, Font = FONT, TextSize = 18, BackgroundColor3 = o.btn2Color or COL.dis, TextColor3 = COL.dark }, f)
-		corner(b2, 10)
+		corner(b2, L10.UiStyle.RADIUS.button)
 		pressFx(b2)
 		if o.onClick2 then
 			b2.Activated:Connect(o.onClick2)
 		end
 	end
 	if o.btn then
-		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(112, 40), Text = o.btn, Font = FONT, TextSize = 14, AutoButtonColor = true, BackgroundColor3 = o.btnColor or COL.yellow, TextColor3 = o.btnText or COL.dark }, f)
-		corner(b, 10)
-		glossy(b, nil, 10, 2)
+		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(112, 40), Text = o.btn, Font = FONT, TextSize = L10.UiStyle.TEXT.button, AutoButtonColor = true, BackgroundColor3 = o.btnColor or COL.yellow, TextColor3 = o.btnText or COL.dark }, f)
+		corner(b, L10.UiStyle.RADIUS.button)
+		glossy(b, nil, L10.UiStyle.RADIUS.button, L10.UiStyle.STROKE.button)
 		pressFx(b)
 		if o.cost then
 			costBtns[b] = o.cost
@@ -744,7 +750,7 @@ local function addRow(o)
 end
 
 local function addNote(msg)
-	local l = text(scroll, { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 13, TextWrapped = true, Text = msg, TextColor3 = COL.muted, Font = Enum.Font.Gotham })
+	local l = text(scroll, { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextSize = L10.UiStyle.TEXT.body, TextWrapped = true, Text = msg, TextColor3 = COL.muted, Font = L10.UiStyle.font(Enum, "desc") })
 	return l
 end
 
@@ -1045,7 +1051,7 @@ function render()
 	if tabs then
 		for _, t in ipairs(tabs) do
 			local on = panel.tab == t[1]
-			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = 14, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
+			local b = make("TextButton", { Size = UDim2.new(1 / #tabs, -6, 1, 0), BackgroundColor3 = on and COL.yellow or COL.panel, Text = t[2], Font = FONT, TextSize = L10.UiStyle.TEXT.tab, TextScaled = #tabs > 4, TextColor3 = on and COL.dark or COL.muted }, tabsFrame)
 			corner(b, 17)
 			pressFx(b)
 			if (t[1] == "puzzle" and type(state.hen) == "table" and state.hen.alert == true) or (panel.name == "bonus" and ((t[1] == "cal" and type(state.cal) == "table" and state.cal.canToday == true) or (t[1] == "daily" and state.dailyReady))) then -- pastille « 1 » : l'énigme du jour, le calendrier ou le bonus attend

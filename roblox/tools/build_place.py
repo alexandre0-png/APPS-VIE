@@ -33,6 +33,7 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("Graphics", "Graphics.lua"),  # lot graphismes
           ("Onboarding", "Onboarding.lua"),  # lot 17 : onboarding
           ("Showcase", "Showcase.lua"),  # lot 17 (idée 3) : vitrine du pet du jour
+          ("UiStyle", "UiStyle.lua"),  # graphismes 6 : style d'interface commun (pur)
           ("EggAura", "EggAura.lua"),  # lot graphismes 4 : halos d'œufs et bulles de protection (pur)
           ("Evolution", "Evolution.lua")]  # lot 17 (idée 2) : évolution des pets (règles pures)  # lot 17 (idée 3) : vitrine du pet du jour (règles pures, DataStore injecté)  # lot 17 : onboarding des 5 premières minutes (règles pures)  # lot graphismes : lumière unifiée, styles d'arbres, sol, LOD (planificateur pur)  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
