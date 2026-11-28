@@ -11759,6 +11759,10 @@ end)()
 		return newRuntime(opts)
 	end }
 	luau.load(fs.readFile("roblox/tests/graphics.luau"), { debugName = "graphics" })()(env)
+	-- Graphismes 4 à 6 (halos d'œufs, effets d'éclosion, style d'interface) : aussi lançables seuls (run_eggaura.py, ...).
+	for _, name in ipairs({ "eggaura" }) do
+		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
+	end
 end)()
 
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))

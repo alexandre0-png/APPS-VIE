@@ -730,6 +730,7 @@ local function setNestEgg(n, tier)
 	end
 	local egg = Builder.egg(tier, true)
 	egg.CFrame = CFrame.new(n.pos)
+	egg:SetAttribute("Guarded", Config.TERR[n.terr] ~= nil and (Config.TERR[n.terr].guards or 0) > 0) -- lot graphismes 4 : bulle « nid surveillé » côté client
 	egg.Parent = n.folder
 	n.eggPart = egg
 	CollectionService:AddTag(egg, "EggShake") -- animé côté client (rebond ; pas d'attribut Ends = pas de tremblement)
@@ -799,6 +800,7 @@ local function refreshPad(s, i, animate)
 		local egg = Builder.egg(sl.t, true)
 		egg.CFrame = pad.part.CFrame * CFrame.new(0, 1.9, 0)
 		egg:SetAttribute("Ends", sl.ends)
+		egg:SetAttribute("ShieldUntil", type(sl.shield) == "number" and sl.shield or 0) -- lot graphismes 4 : bulle de protection côté client tant que le bouclier dure
 		CollectionService:AddTag(egg, "EggShake")
 		egg.Parent = content
 		s.guardBudget = s.guardBudget or { used = 0 }

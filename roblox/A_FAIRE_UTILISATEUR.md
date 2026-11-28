@@ -203,6 +203,8 @@ L'expérience est créée (univers 10776613087 : hub 115261336085924 = lieu de d
 - [ ] **Arbres** : groupes crédibles, tailles et modèles variés sans répétition voisine, forêts procédurales (feuillage en ellipsoïde : vérifier que la forme `tall` s'affiche bien étirée), aucun arbre sur un chemin (`Config.GRAPHICS.trees`).
 - [ ] **LOD** : au plus 4 lumières allumées autour de toi (torches, lueurs) ; vérifier qu'aucune extinction visible ne gêne (sinon `Config.GRAPHICS.perf.maxPointLights` / `lightRange`) ; effets coupés au-delà de 150 studs.
 - [ ] **Performance** : images par seconde sur un téléphone ou l'émulateur bas de gamme, avec 5 joueurs ; Parts de la scène (attendu environ 4 300 à 4 500 sur la mesure factice, plafond 7 000).
+- [ ] **Halos d'œufs (graphismes 4)** : chaque œuf (tapis, porté, posé, nid) a une lueur de la couleur de sa rareté qui « respire » lentement ; un Commun doit rester discret, un Divin bien visible. Vérifier que le halo ne cache pas le modèle de l'œuf (sinon monter `EggAura.DEFAULTS.halo.transparencyMin`), qu'il suit bien un œuf porté en course, et qu'il n'y a pas de scintillement. Réglages : `Config.EGG_AURA` (portée 110 studs, 24 halos / 12 bulles au plus, 10 / 6 sur téléphone).
+- [ ] **Bulles de protection** : bulle bleutée (champ de force) sur un œuf de ta base tant que son bouclier dure (quelques secondes après la pose), bulle dorée sur les œufs des nids surveillés par un gardien (Gus, Mara, Zed ; pas dans l'enclos sauvage). Lisible sans gêner le vol ? Images par seconde sur téléphone avec beaucoup d'œufs à l'écran.
 
 ## 4. Achats Robux : ce qui reste à faire sur le Creator Hub
 

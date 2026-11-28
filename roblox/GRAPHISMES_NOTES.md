@@ -54,3 +54,12 @@ derrière le joueur, scintillement éventuel), la fréquence d'images sur télé
 - **Décor de carte Blender (`Decor.lua`, lots 15 à 17)** : non inclus dans les obstacles du planificateur de sol ; le décor fin et le village le sont. Un chevauchement mineur d'une touffe avec un modèle de décor reste possible.
 - **Tests de rendu** : impossibles ; remplacés par les propriétés mesurées ci-dessus.
 - Le LOD de lumières est côté client, donc non exercé par le runtime factice (seuls le sélecteur pur et la présence des garde-fous dans le script sont testés).
+
+## Graphismes 4 : halos d'œufs et bulles de protection (2026-11-28)
+
+**Rien n'a été vu dans Studio.** Côté client uniquement (`StarterPlayerScripts/EggAura.client.lua`), logique pure testée dans `ReplicatedStorage/EggAura.lua` (`tests/eggaura.luau`, `python3 roblox/tests/run_eggaura.py`).
+- Le serveur ne fait que publier des attributs : `Builder.egg` pose `Tier` et le tag `EggAura` sur chaque œuf (tapis, porté, posé, nid, vol) ; `refreshPad` pose `ShieldUntil` (bouclier du slot) ; `setNestEgg` pose `Guarded` (territoire avec gardiens : tous sauf l'enclos sauvage).
+- Halo : une Part locale néon sphérique par œuf retenu, couleur = `Config.TIERS[t].color`, transparence 0,90 (rareté 1) -> 0,60 (rareté 10), amplitude 0,03 -> 0,16, période 3,6 -> 2,4 s, taille 1,22 -> 1,70 x l'œuf. Bulle : sphère locale en `ForceField` (transparence 0,2), bleutée (bouclier) ou dorée (nid surveillé), 2 x l'œuf.
+- Budgets : **aucune PointLight** (le budget LightLod de 4 lumières allumées est inchangé) ; au plus 24 halos et 12 bulles (10 et 6 sur mobile), les plus proches de la caméra à moins de 110 studs ; sélection toutes les 0,25 s (0,5 s sur mobile), pulsation à 30 Hz (10 Hz sur mobile) ; réservoir d'objets réutilisés (au plus 24 en attente), Parts sans collision, toucher, requête ni ombre.
+- Mesures (tests) : couleur = rareté pour les 10 raretés, visibilité strictement croissante, amplitude mesurée = amplitude du style, 600 images avec œufs qui apparaissent / disparaissent : jamais plus de 24 / 12 objets vivants, plus aucun objet attaché quand les œufs disparaissent, tout détruit à la désactivation ; bout en bout : attributs posés sur les nids (surveillés et non surveillés) et sur un œuf acheté (bouclier dans le futur).
+- Écart : l'œuf garde sa PointLight d'origine (Builder.egg, avant ce lot, gérée par LightLod) ; les halos n'en ajoutent aucune.

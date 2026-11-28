@@ -354,6 +354,8 @@ function Builder.egg(tier, anchored)
 	p.CanCollide = false
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
+	p:SetAttribute("Tier", tier) -- lot graphismes 4 : halo de rareté posé côté client (EggAura.client.lua, aucune lumière de plus)
+	CollectionService:AddTag(p, "EggAura")
 	local m = Instance.new("SpecialMesh")
 	m.MeshType = Enum.MeshType.Sphere
 	m.Parent = p

@@ -33,6 +33,7 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("Graphics", "Graphics.lua"),  # lot graphismes
           ("Onboarding", "Onboarding.lua"),  # lot 17 : onboarding
           ("Showcase", "Showcase.lua"),  # lot 17 (idée 3) : vitrine du pet du jour
+          ("EggAura", "EggAura.lua"),  # lot graphismes 4 : halos d'œufs et bulles de protection (pur)
           ("Evolution", "Evolution.lua")]  # lot 17 (idée 2) : évolution des pets (règles pures)  # lot 17 (idée 3) : vitrine du pet du jour (règles pures, DataStore injecté)  # lot 17 : onboarding des 5 premières minutes (règles pures)  # lot graphismes : lumière unifiée, styles d'arbres, sol, LOD (planificateur pur)  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
 def shared():
@@ -72,6 +73,7 @@ game_tree = [
             item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua")),
             item("LocalScript", "Culling", read("StarterPlayerScripts/Culling.client.lua")),
             item("LocalScript", "LightLod", read("StarterPlayerScripts/LightLod.client.lua")),  # lot graphismes : au plus 4 PointLight allumées, effets lointains coupés
+            item("LocalScript", "EggAura", read("StarterPlayerScripts/EggAura.client.lua")),  # lot graphismes 4 : halos d'œufs, bulles de protection (aucune PointLight)
             item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua")),
             item("ModuleScript", "SlotFx", read("StarterPlayerScripts/SlotFx.lua")),
             item("ModuleScript", "MiniMapUi", read("StarterPlayerScripts/MiniMapUi.lua")),
