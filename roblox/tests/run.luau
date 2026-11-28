@@ -11751,5 +11751,15 @@ end)()
 	check("Panneau lisible sur mobile : texte principal en 20 px, retour à la ligne automatique", block:find("TextSize = i == 1 and 20 or 16", 1, true) ~= nil and block:find("TextWrapped = true", 1, true) ~= nil)
 end)()
 
+-- Lot GRAPHISMES (monde) : lumière unifiée, arbres (styles, groupes), sol (chemins, bordures, touffes, fleurs), LOD des lumières, budgets de Parts, bout en bout dans le vrai Main.
+-- Aussi lançable seul : python3 roblox/tests/run_graphics.py.
+;(function()
+	local env = { check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end }
+	luau.load(fs.readFile("roblox/tests/graphics.luau"), { debugName = "graphics" })()(env)
+end)()
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

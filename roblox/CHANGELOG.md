@@ -10,6 +10,18 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 2. **Force en combat** : `Battle.STATS[r]`, puissance pv + 3 x attaque + 2 x vitesse strictement croissante, x1,25 au moins ; profils tank / attaquant / rapide / équilibré, écart de 8 à 15 % dans une rareté, le plus fort d'une rareté sous le plus faible de la suivante. Tests « Règle (2) ». Rien d'achetable ne touche ces stats.
 3. **Pièces contre Robux** : tout article payable aux deux est plus cher et plus long en pièces : pour le débutant, temps de gain en pièces entre 4 et 12 fois le « temps Robux » (prix en R$ x `Config.PRICING_REF.secondsPerRobux`, taux du Sac de pièces : 20 min de revenu pour 99 R$ = 12,1 s par R$) ; jamais inatteignable. Les œufs Secret (1 499 R$), Exclusif (3 499 R$) et Divin (6 999 R$) sont vendus en Robux à prix fixe et rareté FIXE, contenu affiché, `random = true`, masqués et refusés si PolicyService restreint ; aucun avantage de combat acheté. Tests « Règle (3) ».
 
+## LOT GRAPHISMES (monde) : lumière unifiée, sol vivant, arbres variés, LOD, budgets (2026-11-28, intégré sur la tête 373ac7c)
+
+Écrit sur `fa4e42b` (branche de travail), intégré par cherry-pick après les lots 11 à 14, la refonte du combat et l'audit ; sauvegarde `git tag backup/roblox-2026-11-28-integ`. **Rien n'a été vu dans Studio.** Notes, mesures et écarts : `GRAPHISMES_NOTES.md`. Fichiers : `Graphics.lua` (pur), `Config.LIGHTING` / `Config.GRAPHICS` / `Config.lightingZoneAt`, `Builder` (`setupLighting`, `dressGraphics`, styles d'arbres), `Scenery.relief`, `Placement` (`treePool`, arbres par groupes), `Ambience.client`, `LightLod.client` (nouveau), `HubWorld.setupLighting(Config)`.
+
+- **Lumière** : une palette chaude, 5 zones (hub, plots, arena, castle, lobby), bloom <= 0,40, validation pure des écarts (teinte 5,8 degrés mesurés pour 8 permis).
+- **Sol** : 503 Parts au plus (dalles de chemin, bordures d'herbe, touffes, grappes de fleurs), budget séparé 700, aucune pièce sur zone bloquée, densité <= 7 par cellule de 20 x 20.
+- **Arbres** : groupes ; style = modèle x classe de taille (Blender) ou forme x taille x teinte (procédural) ; distance minimale entre styles identiques (214 et 407 studs mesurés pour 40 et 24 exigés) ; carte procédurale inchangée (1 153 Parts).
+- **LOD** : au plus 4 PointLight allumées, effets coupés au-delà de 150 studs (client).
+- **Tests** : `tests/graphics.luau` + `run_graphics.py` (54 assertions, dont un bout en bout dans le vrai Main), branché dans `run.luau`.
+- **Intégration** : conflits résolus (`run.luau` : suite du bouton contact gardée avant celle du lot ; `build_place.py` : `BattleLayout` et `Graphics` tous deux dans les modules partagés ; docs). Budget de Parts mesuré APRÈS intégration, avec les contenus des lots 8B, 11 et 12 : 4 254 sans joueur, pic 4 413 avec 5 joueurs pendant 120 s (plafond 7 000).
+- **Vérifications exécutées** (lupa, pas Studio) : `run_tests.py` 4 431 réussis / 0 échec ; `check.py` « Aucun problème détecté » ; `build_place.py` régénéré ; `run_graphics.py` 54 / 0 ; runners lot10, lot11, lot12a, lot12b, lot13, lot14, battlelayout verts.
+
 ## Audit restant : A5, A9, A11, contact, revues de sécurité, C8 (2026-11-28)
 
 Sauvegarde : `git tag backup/roblox-audit-2026-11-28` (sur cf15a4b). **Rien n'a été joué dans Studio** : tests lupa, `check.py`, `build_place.py`.

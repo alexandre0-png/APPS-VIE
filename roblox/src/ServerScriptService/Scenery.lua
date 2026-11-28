@@ -698,11 +698,18 @@ function Scenery.relief(h, parent, cfg, forest)
 		local b = h.ball({ Name = "Backdrop", Size = Vector3.new(m[3], m[3], m[3]), Position = Vector3.new(m[1], m[4] - m[3] / 2, m[2]), Color = k <= 4 and rgb(116, 128, 120) or rgb(90, 150, 82), Material = k <= 4 and Enum.Material.Slate or Enum.Material.Grass, CanCollide = false }, parent)
 		b.CastShadow = false
 	end
-	for _, t in ipairs(forest or {}) do -- arbres procéduraux : tronc et feuillage (2 Parts)
-		local s = 0.9 + ((math.floor(t.x * 7 + t.z * 3) % 5) * 0.08)
+	for i, t in ipairs(forest or {}) do -- arbres procéduraux : tronc et feuillage (2 Parts)
 		local y = t.y or 0
-		h.part({ Name = "Trunk", Size = Vector3.new(1.8 * s, 8 * s, 1.8 * s), Position = Vector3.new(t.x, y + 4 * s, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
-		h.ball({ Name = "Leaves", Size = Vector3.new(10 * s, 10 * s, 10 * s), Position = Vector3.new(t.x, y + 10.5 * s, t.z), Color = (t.z < -180 or t.grove) and rgb(54, 120, 70) or rgb(70, 146, 72), Material = Enum.Material.Grass }, parent)
+		local st = h.forestStyle and h.forestStyle[i] -- lot graphismes : { shape = { w, h, trunk, y }, scale, leaf = { r, g, b } } (Graphics.styleForest)
+		if st then
+			local sc, sh, lf = st.scale, st.shape, st.leaf
+			h.part({ Name = "Trunk", Size = Vector3.new(1.8 * sc, sh.trunk * sc, 1.8 * sc), Position = Vector3.new(t.x, y + sh.trunk * sc / 2, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
+			h.ball({ Name = "Leaves", Size = Vector3.new(sh.w * sc, sh.h * sc, sh.w * sc), Position = Vector3.new(t.x, y + sh.y * sc, t.z), Color = rgb(lf[1], lf[2], lf[3]), Material = Enum.Material.Grass }, parent)
+		else
+			local s = 0.9 + ((math.floor(t.x * 7 + t.z * 3) % 5) * 0.08)
+			h.part({ Name = "Trunk", Size = Vector3.new(1.8 * s, 8 * s, 1.8 * s), Position = Vector3.new(t.x, y + 4 * s, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
+			h.ball({ Name = "Leaves", Size = Vector3.new(10 * s, 10 * s, 10 * s), Position = Vector3.new(t.x, y + 10.5 * s, t.z), Color = (t.z < -180 or t.grove) and rgb(54, 120, 70) or rgb(70, 146, 72), Material = Enum.Material.Grass }, parent)
+		end
 		n += 2
 	end
 	return n

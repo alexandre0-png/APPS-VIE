@@ -2216,6 +2216,86 @@ Config.Map2 = {
 	neighbors = { { 1, 2, "B1B2" }, { 1, 3, "B1B3" }, { 3, 5, "B3B5" }, { 5, 4, "B5B4" } }, -- bases voisines et chemin qui les relie (B2 et B4 : par la place)
 }
 
+---------------------------------------------------------------- Lot GRAPHISMES : lumière unifiée, sol, arbres, budgets de rendu
+-- Lumière : UNE palette chaude pour toute la carte. Chaque zone (hub = village et place, plots = parcelles des joueurs, arena = colisée, castle = château,
+-- lobby = lieu Hub séparé) règle l'éclairage, l'atmosphère, le bloom léger et l'étalonnage ; seules de petites variations d'intensité et d'heure les
+-- distinguent. Couleurs = { r, g, b } (0 à 255). `limits` borne l'écart entre zones (teinte en degrés, saturation et valeur 0..1, heure, densité, brume) :
+-- Graphics.checkLighting(Config.LIGHTING) le vérifie (module pur testé). Impossible de juger le rendu sans Studio : seules ces propriétés sont mesurées.
+Config.LIGHTING = {
+	version = 1,
+	transition = 2.5, -- secondes de glissement d'une zone à l'autre (client, Ambience)
+	global = { Brightness = 2.2, ColorShift_Top = { 255, 238, 205 }, EnvironmentDiffuseScale = 0.6, EnvironmentSpecularScale = 0.4, ShadowSoftness = 0.35, GlobalShadows = true },
+	sunRays = { intensity = 0.12, spread = 0.8 },
+	zones = {
+		hub = { clock = 15.6, ambient = { 128, 118, 102 }, outdoor = { 150, 140, 122 }, tint = { 255, 248, 236 }, atmo = { 232, 222, 204 }, decay = { 255, 214, 170 }, density = 0.30, haze = 1.5, glare = 0.2,
+			bloom = { intensity = 0.28, size = 24, threshold = 0.96 }, grade = { saturation = 0.10, contrast = 0.06, brightness = 0.02 } },
+		plots = { clock = 15.9, ambient = { 132, 120, 102 }, outdoor = { 155, 142, 122 }, tint = { 255, 246, 230 }, atmo = { 236, 224, 204 }, decay = { 255, 214, 170 }, density = 0.26, haze = 1.3, glare = 0.2,
+			bloom = { intensity = 0.26, size = 24, threshold = 0.96 }, grade = { saturation = 0.12, contrast = 0.06, brightness = 0.02 } },
+		arena = { clock = 16.4, ambient = { 126, 113, 97 }, outdoor = { 150, 135, 114 }, tint = { 255, 242, 222 }, atmo = { 238, 222, 198 }, decay = { 255, 210, 160 }, density = 0.28, haze = 1.5, glare = 0.25,
+			bloom = { intensity = 0.32, size = 26, threshold = 0.95 }, grade = { saturation = 0.12, contrast = 0.08, brightness = 0.02 } },
+		castle = { clock = 17.0, ambient = { 122, 108, 92 }, outdoor = { 144, 129, 108 }, tint = { 255, 238, 216 }, atmo = { 238, 218, 192 }, decay = { 255, 204, 150 }, density = 0.34, haze = 1.8, glare = 0.25,
+			bloom = { intensity = 0.30, size = 26, threshold = 0.95 }, grade = { saturation = 0.08, contrast = 0.08, brightness = 0.0 } },
+		lobby = { clock = 17.2, ambient = { 128, 114, 98 }, outdoor = { 152, 136, 116 }, tint = { 255, 240, 222 }, atmo = { 240, 220, 196 }, decay = { 255, 206, 156 }, density = 0.32, haze = 1.6, glare = 0.25,
+			bloom = { intensity = 0.38, size = 28, threshold = 0.93 }, grade = { saturation = 0.10, contrast = 0.06, brightness = 0.02 } },
+	},
+	zoneOrder = { "hub", "plots", "arena", "castle", "lobby" },
+	-- Limites de cohérence (vérifiées par Graphics.checkLighting) : toutes les couleurs sont dans la bande chaude ; l'écart entre deux zones quelconques reste borné.
+	limits = { warmHueMin = 20, warmHueMax = 50, minSatForHue = 0.04, hueSpread = 8, satSpread = 0.08, valSpread = 0.12, clockSpread = 1.8, densitySpread = 0.10, hazeSpread = 0.6,
+		bloomMax = 0.40, gradeSatMin = 0, gradeSatMax = 0.15, densityMax = 0.4 },
+	plotsRadius = 52, arenaRadius = 70, -- rayon (studs) d'une parcelle (centre de base) et du colisée (centre de l'arène) pour la zone de lumière
+}
+
+-- Zone de lumière d'une position : "castle" (plateau du château ou cour de Zed), "arena" (colisée), "plots" (parcelles), sinon "hub". Pure.
+function Config.lightingZoneAt(x, z)
+	local M = Config.Map2
+	local c = M.castle
+	if x >= c.x0 - 8 and x <= c.x1 and z >= c.z0 and z <= c.z1 then
+		return "castle"
+	end
+	local a = M.arena
+	if math.sqrt((x - a.x) ^ 2 + (z - a.z) ^ 2) <= Config.LIGHTING.arenaRadius then
+		return "arena"
+	end
+	for _, b in ipairs(M.bases) do
+		if math.sqrt((x - b.x) ^ 2 + (z - b.z) ^ 2) <= Config.LIGHTING.plotsRadius then
+			return "plots"
+		end
+	end
+	return "hub"
+end
+
+-- Sol, arbres, performance : toutes les valeurs du lot graphismes (planificateur pur ReplicatedStorage/Shared/Graphics, posé par Builder.dressGraphics).
+Config.GRAPHICS = {
+	enabled = true,
+	budgetParts = 700, -- Parts du lot (chemins, bordures, touffes, fleurs) : budget SÉPARÉ posé après la carte (la carte procédurale garde son plafond de 1200)
+	ground = {
+		pathPatchCap = 240, edgeCap = 160, tuftCap = 110, clusterCap = 30, flowersPerCluster = { 3, 5 }, -- plafonds de Parts (grappe = 1 touffe + 3 à 5 fleurs)
+		pathPatchSpacing = 8, edgeSpacing = 13, -- pas minimal (studs) le long d'un chemin ; élargi si le plafond le demande
+		maxPerCell = 7, cell = 20, -- densité : au plus 7 pièces de sol (touffes, fleurs) par cellule de 20 x 20 studs (0,0175 / m2)
+		scatterRange = 85, -- touffes et fleurs seulement à moins de 85 studs d'un chemin ou de la place (là où le joueur regarde)
+		pathPalettePaved = { { 196, 180, 150 }, { 186, 170, 142 }, { 205, 190, 160 }, { 176, 164, 140 } },
+		pathPaletteDirt = { { 150, 118, 80 }, { 140, 110, 76 }, { 160, 128, 90 } },
+		edgePalette = { { 84, 150, 76 }, { 104, 170, 88 }, { 96, 156, 70 }, { 88, 158, 84 } },
+		tuftPalette = { { 70, 140, 66 }, { 84, 156, 72 }, { 62, 128, 62 } },
+		flowerPalette = { { 255, 120, 154 }, { 255, 210, 63 }, { 255, 255, 255 }, { 255, 170, 90 }, { 190, 150, 240 } },
+	},
+	trees = {
+		minSameDist = 40, -- distance minimale (studs) entre deux arbres Blender de MÊME style (modèle et classe de taille)
+		sizeClasses = { 0.75, 0.95, 1.15, 1.4 }, scaleJitter = 0.04,
+		procMinSameDist = 24, -- idem pour les arbres procéduraux des forêts (forme, taille, teinte)
+		procSizes = { 0.82, 1.0, 1.22 },
+		procShapes = { { name = "round", w = 10, h = 10, trunk = 8, y = 10.5 }, { name = "tall", w = 7.5, h = 12.5, trunk = 9, y = 11.8 } },
+		procLeavesMeadow = { { 70, 146, 72 }, { 88, 160, 70 }, { 62, 134, 78 } },
+		procLeavesNorth = { { 54, 120, 70 }, { 66, 134, 78 }, { 48, 112, 84 } },
+		groupSizes = { 4, 3, 5, 2 }, groupRadius = { 9, 14 }, -- arbres Blender du plan : par groupes (taille du groupe en rotation), compagnons à 9-14 studs de la graine
+	},
+	perf = {
+		maxPointLights = 4, lightRange = 90, -- au plus 4 PointLight allumées (les plus proches, à moins de 90 studs) ; les autres sont coupées côté client
+		fxCullAt = 150, fxShowAt = 130, interval = 0.5, rescan = 8, -- émetteurs, faisceaux, feux : coupés au-delà de 150 studs, rallumés sous 130
+		mobilePartsBudget = 7000,
+	},
+}
+
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
 -- Lot 8A : `nestAlarm` (Mara et Zed ; Gus reste clément, l'enclos sauvage n'a pas de gardien) : chiper un œuf réveille le gardien le plus proche du
 -- voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte un œuf du territoire, l'œuf retourne à son nid (B.4 « prise

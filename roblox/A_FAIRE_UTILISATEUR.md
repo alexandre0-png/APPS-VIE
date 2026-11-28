@@ -187,6 +187,15 @@ L'expérience est créée (univers 10776613087 : hub 115261336085924 = lieu de d
 - [ ] **Calendrier mural** (près du kiosque, place du marché) : le modèle `hub.calendar` (30 cases, jour 1 en haut à gauche, coffre devant) s'affiche-t-il, à la bonne taille (7 studs de haut), tourné vers la place, sans chevaucher le kiosque ? Son prompt « Calendrier » ouvre le calendrier. Sinon dis-moi où le mettre.
 - [ ] **Événements** : week-end (samedi et dimanche UTC) : tapis toutes les 4 s ; 18 h - 19 h UTC : revenus x2 ; Halloween / Noël / printemps : décor sur la place (citrouille, sapin, arche) et plumes d'événement dans le menu Bonus.
 
+## 3octies. Lot graphismes (monde) : lumière, sol, arbres, LOD (rien de tout ceci n'a été vu en jeu ; détails dans `GRAPHISMES_NOTES.md`)
+
+- [ ] **Transitions de lumière** : traverser village, parcelle, colisée et château : la teinte glisse-t-elle sans saut ni contradiction (tout reste chaud) ? Brume et bloom acceptables sur téléphone ? (réglages : `Config.LIGHTING.zones`, tolérances : `Config.LIGHTING.limits`, validées par `Graphics.checkLighting`). Lieu Hub : crépuscule doré plus doux qu'avant, les portails néon ressortent-ils encore (`zones.lobby.bloom`) ?
+- [ ] **Chemins** : dalles de variation (couleurs et matières voisines) sans scintillement ni z-fighting avec les pavés ni avec les tuiles Blender ; bordures d'herbe irrégulières lisibles (pas de « taches » artificielles) ; `Config.GRAPHICS.ground` pour ajuster.
+- [ ] **Touffes et fleurs** : densité perçue (trop vide, trop chargée ?), fleurs lisibles sur le vert, rien ne flotte sur les collines.
+- [ ] **Arbres** : groupes crédibles, tailles et modèles variés sans répétition voisine, forêts procédurales (feuillage en ellipsoïde : vérifier que la forme `tall` s'affiche bien étirée), aucun arbre sur un chemin (`Config.GRAPHICS.trees`).
+- [ ] **LOD** : au plus 4 lumières allumées autour de toi (torches, lueurs) ; vérifier qu'aucune extinction visible ne gêne (sinon `Config.GRAPHICS.perf.maxPointLights` / `lightRange`) ; effets coupés au-delà de 150 studs.
+- [ ] **Performance** : images par seconde sur un téléphone ou l'émulateur bas de gamme, avec 5 joueurs ; Parts de la scène (attendu environ 4 300 à 4 500 sur la mesure factice, plafond 7 000).
+
 ## 4. Achats Robux : ce qui reste à faire sur le Creator Hub
 
 Les **46 achats** (passes et produits, dont Œuf Secret 1 499 R$, Œuf Exclusif 3 499 R$, Œuf Divin 6 999 R$ et Sauver ma série 3736703610) sont créés et leurs ID sont branchés dans `ShopData.lua` : rien à créer ni à recopier. L'Œuf Exclusif n'est en vente que pendant une fenêtre d'événement ou de saison (A5) ; Secret et Divin sont en vente.

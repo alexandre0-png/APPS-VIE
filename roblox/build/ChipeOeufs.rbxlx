@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX50"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX49"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX51"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX50"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2220,6 +2220,86 @@ Config.Map2 = {
 	neighbors = { { 1, 2, "B1B2" }, { 1, 3, "B1B3" }, { 3, 5, "B3B5" }, { 5, 4, "B5B4" } }, -- bases voisines et chemin qui les relie (B2 et B4 : par la place)
 }
 
+---------------------------------------------------------------- Lot GRAPHISMES : lumière unifiée, sol, arbres, budgets de rendu
+-- Lumière : UNE palette chaude pour toute la carte. Chaque zone (hub = village et place, plots = parcelles des joueurs, arena = colisée, castle = château,
+-- lobby = lieu Hub séparé) règle l'éclairage, l'atmosphère, le bloom léger et l'étalonnage ; seules de petites variations d'intensité et d'heure les
+-- distinguent. Couleurs = { r, g, b } (0 à 255). `limits` borne l'écart entre zones (teinte en degrés, saturation et valeur 0..1, heure, densité, brume) :
+-- Graphics.checkLighting(Config.LIGHTING) le vérifie (module pur testé). Impossible de juger le rendu sans Studio : seules ces propriétés sont mesurées.
+Config.LIGHTING = {
+	version = 1,
+	transition = 2.5, -- secondes de glissement d'une zone à l'autre (client, Ambience)
+	global = { Brightness = 2.2, ColorShift_Top = { 255, 238, 205 }, EnvironmentDiffuseScale = 0.6, EnvironmentSpecularScale = 0.4, ShadowSoftness = 0.35, GlobalShadows = true },
+	sunRays = { intensity = 0.12, spread = 0.8 },
+	zones = {
+		hub = { clock = 15.6, ambient = { 128, 118, 102 }, outdoor = { 150, 140, 122 }, tint = { 255, 248, 236 }, atmo = { 232, 222, 204 }, decay = { 255, 214, 170 }, density = 0.30, haze = 1.5, glare = 0.2,
+			bloom = { intensity = 0.28, size = 24, threshold = 0.96 }, grade = { saturation = 0.10, contrast = 0.06, brightness = 0.02 } },
+		plots = { clock = 15.9, ambient = { 132, 120, 102 }, outdoor = { 155, 142, 122 }, tint = { 255, 246, 230 }, atmo = { 236, 224, 204 }, decay = { 255, 214, 170 }, density = 0.26, haze = 1.3, glare = 0.2,
+			bloom = { intensity = 0.26, size = 24, threshold = 0.96 }, grade = { saturation = 0.12, contrast = 0.06, brightness = 0.02 } },
+		arena = { clock = 16.4, ambient = { 126, 113, 97 }, outdoor = { 150, 135, 114 }, tint = { 255, 242, 222 }, atmo = { 238, 222, 198 }, decay = { 255, 210, 160 }, density = 0.28, haze = 1.5, glare = 0.25,
+			bloom = { intensity = 0.32, size = 26, threshold = 0.95 }, grade = { saturation = 0.12, contrast = 0.08, brightness = 0.02 } },
+		castle = { clock = 17.0, ambient = { 122, 108, 92 }, outdoor = { 144, 129, 108 }, tint = { 255, 238, 216 }, atmo = { 238, 218, 192 }, decay = { 255, 204, 150 }, density = 0.34, haze = 1.8, glare = 0.25,
+			bloom = { intensity = 0.30, size = 26, threshold = 0.95 }, grade = { saturation = 0.08, contrast = 0.08, brightness = 0.0 } },
+		lobby = { clock = 17.2, ambient = { 128, 114, 98 }, outdoor = { 152, 136, 116 }, tint = { 255, 240, 222 }, atmo = { 240, 220, 196 }, decay = { 255, 206, 156 }, density = 0.32, haze = 1.6, glare = 0.25,
+			bloom = { intensity = 0.38, size = 28, threshold = 0.93 }, grade = { saturation = 0.10, contrast = 0.06, brightness = 0.02 } },
+	},
+	zoneOrder = { "hub", "plots", "arena", "castle", "lobby" },
+	-- Limites de cohérence (vérifiées par Graphics.checkLighting) : toutes les couleurs sont dans la bande chaude ; l'écart entre deux zones quelconques reste borné.
+	limits = { warmHueMin = 20, warmHueMax = 50, minSatForHue = 0.04, hueSpread = 8, satSpread = 0.08, valSpread = 0.12, clockSpread = 1.8, densitySpread = 0.10, hazeSpread = 0.6,
+		bloomMax = 0.40, gradeSatMin = 0, gradeSatMax = 0.15, densityMax = 0.4 },
+	plotsRadius = 52, arenaRadius = 70, -- rayon (studs) d'une parcelle (centre de base) et du colisée (centre de l'arène) pour la zone de lumière
+}
+
+-- Zone de lumière d'une position : "castle" (plateau du château ou cour de Zed), "arena" (colisée), "plots" (parcelles), sinon "hub". Pure.
+function Config.lightingZoneAt(x, z)
+	local M = Config.Map2
+	local c = M.castle
+	if x >= c.x0 - 8 and x <= c.x1 and z >= c.z0 and z <= c.z1 then
+		return "castle"
+	end
+	local a = M.arena
+	if math.sqrt((x - a.x) ^ 2 + (z - a.z) ^ 2) <= Config.LIGHTING.arenaRadius then
+		return "arena"
+	end
+	for _, b in ipairs(M.bases) do
+		if math.sqrt((x - b.x) ^ 2 + (z - b.z) ^ 2) <= Config.LIGHTING.plotsRadius then
+			return "plots"
+		end
+	end
+	return "hub"
+end
+
+-- Sol, arbres, performance : toutes les valeurs du lot graphismes (planificateur pur ReplicatedStorage/Shared/Graphics, posé par Builder.dressGraphics).
+Config.GRAPHICS = {
+	enabled = true,
+	budgetParts = 700, -- Parts du lot (chemins, bordures, touffes, fleurs) : budget SÉPARÉ posé après la carte (la carte procédurale garde son plafond de 1200)
+	ground = {
+		pathPatchCap = 240, edgeCap = 160, tuftCap = 110, clusterCap = 30, flowersPerCluster = { 3, 5 }, -- plafonds de Parts (grappe = 1 touffe + 3 à 5 fleurs)
+		pathPatchSpacing = 8, edgeSpacing = 13, -- pas minimal (studs) le long d'un chemin ; élargi si le plafond le demande
+		maxPerCell = 7, cell = 20, -- densité : au plus 7 pièces de sol (touffes, fleurs) par cellule de 20 x 20 studs (0,0175 / m2)
+		scatterRange = 85, -- touffes et fleurs seulement à moins de 85 studs d'un chemin ou de la place (là où le joueur regarde)
+		pathPalettePaved = { { 196, 180, 150 }, { 186, 170, 142 }, { 205, 190, 160 }, { 176, 164, 140 } },
+		pathPaletteDirt = { { 150, 118, 80 }, { 140, 110, 76 }, { 160, 128, 90 } },
+		edgePalette = { { 84, 150, 76 }, { 104, 170, 88 }, { 96, 156, 70 }, { 88, 158, 84 } },
+		tuftPalette = { { 70, 140, 66 }, { 84, 156, 72 }, { 62, 128, 62 } },
+		flowerPalette = { { 255, 120, 154 }, { 255, 210, 63 }, { 255, 255, 255 }, { 255, 170, 90 }, { 190, 150, 240 } },
+	},
+	trees = {
+		minSameDist = 40, -- distance minimale (studs) entre deux arbres Blender de MÊME style (modèle et classe de taille)
+		sizeClasses = { 0.75, 0.95, 1.15, 1.4 }, scaleJitter = 0.04,
+		procMinSameDist = 24, -- idem pour les arbres procéduraux des forêts (forme, taille, teinte)
+		procSizes = { 0.82, 1.0, 1.22 },
+		procShapes = { { name = "round", w = 10, h = 10, trunk = 8, y = 10.5 }, { name = "tall", w = 7.5, h = 12.5, trunk = 9, y = 11.8 } },
+		procLeavesMeadow = { { 70, 146, 72 }, { 88, 160, 70 }, { 62, 134, 78 } },
+		procLeavesNorth = { { 54, 120, 70 }, { 66, 134, 78 }, { 48, 112, 84 } },
+		groupSizes = { 4, 3, 5, 2 }, groupRadius = { 9, 14 }, -- arbres Blender du plan : par groupes (taille du groupe en rotation), compagnons à 9-14 studs de la graine
+	},
+	perf = {
+		maxPointLights = 4, lightRange = 90, -- au plus 4 PointLight allumées (les plus proches, à moins de 90 studs) ; les autres sont coupées côté client
+		fxCullAt = 150, fxShowAt = 130, interval = 0.5, rescan = 8, -- émetteurs, faisceaux, feux : coupés au-delà de 150 studs, rallumés sous 130
+		mobilePartsBudget = 7000,
+	},
+}
+
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
 -- Lot 8A : `nestAlarm` (Mara et Zed ; Gus reste clément, l'enclos sauvage n'a pas de gardien) : chiper un œuf réveille le gardien le plus proche du
 -- voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte un œuf du territoire, l'œuf retourne à son nid (B.4 « prise
@@ -4043,6 +4123,33 @@ function Placement.treeVariant(Config, kind, x, z, k, MapGeo)
 	return ({ "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" })[(k or 0) % 4 + 1]
 end
 
+-- Modèles d'arbre possibles dans la zone de (x, z) : même découpage que treeVariant, mais en liste (lot graphismes : Graphics.assignStyles choisit dans la liste, avec
+-- une classe de taille, de sorte que deux arbres voisins ne soient jamais identiques). Les sapins restent des pins ; près des lacs et de la place : sakura et bouleau.
+function Placement.treePool(Config, kind, x, z)
+	if kind == "fir" then
+		return { "tree_pine" }
+	end
+	local M2 = Config.Map2
+	for _, lk in ipairs(M2.lakes) do
+		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 40 then
+			return { "tree_sakura", "tree_birch" }
+		end
+	end
+	if math.sqrt((x - M2.plaza.x) ^ 2 + (z - M2.plaza.z) ^ 2) < M2.plaza.r + 50 then
+		return { "tree_sakura", "tree_birch" }
+	end
+	if z < -180 then
+		return { "tree_pine" }
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2) < t.r + 25 then
+			return { "tree_pine" }
+		end
+	end
+	return { "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" }
+end
+
 -- Échelle aléatoire déterministe 1 ± jitter d'après la position (jamais de tirage libre).
 function Placement.jitter(x, z, jitter)
 	local h = math.abs(math.sin(x * 12.9898 + z * 78.233) * 43758.5453)
@@ -4354,8 +4461,11 @@ function Placement.new(Config, MapGeo)
 		end
 		shuffle(cells)
 		shuffle(forestCells)
-		local function scatter(kind, count, list)
+		-- grouped : arbres posés par GROUPES (lot graphismes) : une graine, puis jusqu'à (taille du groupe - 1) compagnons à groupRadius studs, tous soumis à fits()
+		local groupSeq = 0
+		local function scatter(kind, count, list, grouped)
 			local got = 0
+			local GT = Config.GRAPHICS and Config.GRAPHICS.trees
 			for _, c in ipairs(list) do
 				if got >= count then
 					break
@@ -4364,14 +4474,30 @@ function Placement.new(Config, MapGeo)
 				if fits(kind, x, z) then
 					add(kind, x, z, rnd() * 360)
 					got = got + 1
+					if grouped and GT then
+						groupSeq = groupSeq + 1
+						local size = GT.groupSizes[(groupSeq - 1) % #GT.groupSizes + 1]
+						local a0 = rnd() * math.pi * 2
+						for k = 1, size - 1 do
+							if got < count then
+								local a = a0 + k * (math.pi * 2 / (size - 1)) + (rnd() - 0.5) * 0.5
+								local rad = GT.groupRadius[1] + rnd() * (GT.groupRadius[2] - GT.groupRadius[1])
+								local gx, gz = x + math.cos(a) * rad, z + math.sin(a) * rad
+								if fits(kind, gx, gz) then
+									add(kind, gx, gz, rnd() * 360)
+									got = got + 1
+								end
+							end
+						end
+					end
 				end
 			end
 			return got
 		end
-		local firs = scatter("fir", plan.fir or 0, forestCells)
-		scatter("fir", (plan.fir or 0) - firs, cells)
-		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells)
-		scatter("tree", (plan.tree or 0) - trees, cells)
+		local firs = scatter("fir", plan.fir or 0, forestCells, true)
+		scatter("fir", (plan.fir or 0) - firs, cells, true)
+		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells, true)
+		scatter("tree", (plan.tree or 0) - trees, cells, true)
 		scatter("rock", plan.rock or 0, cells)
 		scatter("bush", plan.bush or 0, cells)
 		-- 3. ponts de bois (Blender) : centrés sur leur cours d'eau, axe du pont ; le pont de pierre du château (rampe) reste procédural
@@ -17687,8 +17813,525 @@ function BattleLayout.decorSpots(n)
 end
 
 return BattleLayout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX49"><Properties><string name="Name">Graphics</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Graphics
+-- Lot GRAPHISMES (monde) : logique PURE, déterministe, testée hors de Roblox. Aucun Instance, aucun tirage libre (Park-Miller 48271).
+--   Graphics.checkLighting(L)                 : cohérence des palettes de lumière entre zones (teinte, saturation, valeur, heure, densité, brume).
+--   Graphics.assignStyles(items, poolOf, d)   : style de chaque arbre, jamais deux styles identiques à moins de `d` studs si le choix le permet.
+--   Graphics.blenderStyle(key) / procStyle    : décodage d'un style d'arbre (modèle + classe de taille ; forme + taille + teinte).
+--   Graphics.groundPlan(Config, P, planItems) : variations de chemins, bordures d'herbe irrégulières, touffes et grappes de fleurs (plafonds de Parts).
+--   Graphics.selectLights(lights, cam, n, r)  : les `n` lumières les plus proches (à moins de `r`) restent allumées, les autres sont coupées (LOD).
+-- Compatible lupa : pas de += ni de continue, pas de math.atan2.
+local Graphics = {}
+
+local function dist(ax, az, bx, bz)
+	return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+end
+
+-- Pause coopérative facultative (Builder la règle sur task.wait, comme Placement.yield) : le calcul du sol cède la main tous les 25 essais ; les tests purs la laissent à nil.
+Graphics.yield = nil
+local pauseCount = 0
+local function pause()
+	pauseCount = pauseCount + 1
+	if Graphics.yield and pauseCount % 25 == 0 then
+		Graphics.yield()
+	end
+end
+
+-- Générateur déterministe Park-Miller (48271 mod 2^31-1) : les produits restent sous 2^53.
+local function newRng(seed)
+	local s = math.floor(seed) % 2147483647
+	if s <= 0 then
+		s = 1
+	end
+	return function()
+		s = (s * 48271) % 2147483647
+		return s / 2147483647
+	end
+end
+Graphics.newRng = newRng
+
+---------------------------------------------------------------- Couleurs
+-- RGB 0..255 -> teinte (degrés 0..360), saturation et valeur (0..1).
+function Graphics.rgbToHsv(r, g, b)
+	local rr, gg, bb = r / 255, g / 255, b / 255
+	local mx, mn = math.max(rr, gg, bb), math.min(rr, gg, bb)
+	local d = mx - mn
+	local h = 0
+	if d > 0 then
+		if mx == rr then
+			h = 60 * (((gg - bb) / d) % 6)
+		elseif mx == gg then
+			h = 60 * ((bb - rr) / d + 2)
+		else
+			h = 60 * ((rr - gg) / d + 4)
+		end
+	end
+	local s = mx > 0 and d / mx or 0
+	return h, s, mx
+end
+
+-- Écart angulaire de teinte (0..180).
+function Graphics.hueDelta(a, b)
+	local d = math.abs(a - b) % 360
+	return d > 180 and 360 - d or d
+end
+
+---------------------------------------------------------------- Lumière
+local COLOR_ROLES = { "ambient", "outdoor", "tint", "atmo", "decay" }
+local SCALARS = { "clock", "density", "haze", "glare" }
+
+local function isColor(c)
+	return type(c) == "table" and type(c[1]) == "number" and type(c[2]) == "number" and type(c[3]) == "number" and c[1] >= 0 and c[1] <= 255 and c[2] >= 0 and c[2] <= 255 and c[3] >= 0 and c[3] <= 255
+end
+
+-- Vérifie la cohérence des palettes de Config.LIGHTING. Retourne { ok, problems = { texte }, stats = { hue, sat, val, clock, density, haze } } où stats donne le
+-- plus grand écart mesuré entre deux zones (tous rôles confondus). Les couleurs très peu saturées (< minSatForHue) n'ont pas de teinte comparée.
+function Graphics.checkLighting(L)
+	local problems, stats = {}, { hue = 0, sat = 0, val = 0, clock = 0, density = 0, haze = 0, bloom = 0 }
+	if type(L) ~= "table" or type(L.zones) ~= "table" or type(L.limits) ~= "table" then
+		return { ok = false, problems = { "LIGHTING absent ou incomplet" }, stats = stats }
+	end
+	local lim = L.limits
+	local names = {}
+	for _, n in ipairs(L.zoneOrder or {}) do
+		names[#names + 1] = n
+	end
+	if #names < 4 then
+		problems[#problems + 1] = "au moins 4 zones attendues (hub, parcelles, arène, château)"
+	end
+	local seen = {}
+	for _, n in ipairs(names) do
+		seen[n] = true
+		local z = L.zones[n]
+		if type(z) ~= "table" then
+			problems[#problems + 1] = "zone " .. n .. " absente"
+		else
+			for _, role in ipairs(COLOR_ROLES) do
+				local c = z[role]
+				if not isColor(c) then
+					problems[#problems + 1] = n .. "." .. role .. " : couleur invalide"
+				else
+					local h, s = Graphics.rgbToHsv(c[1], c[2], c[3])
+					if s >= lim.minSatForHue and (h < lim.warmHueMin or h > lim.warmHueMax) then
+						problems[#problems + 1] = n .. "." .. role .. " : teinte " .. math.floor(h) .. " hors de la bande chaude " .. lim.warmHueMin .. "-" .. lim.warmHueMax
+					end
+				end
+			end
+			for _, k in ipairs(SCALARS) do
+				if type(z[k]) ~= "number" or z[k] ~= z[k] then
+					problems[#problems + 1] = n .. "." .. k .. " : nombre attendu"
+				end
+			end
+			if type(z.bloom) ~= "table" or type(z.bloom.intensity) ~= "number" or z.bloom.intensity > lim.bloomMax or z.bloom.intensity < 0 then
+				problems[#problems + 1] = n .. ".bloom : intensité absente ou au-delà de " .. tostring(lim.bloomMax)
+			end
+			if type(z.grade) ~= "table" or type(z.grade.saturation) ~= "number" or z.grade.saturation < lim.gradeSatMin or z.grade.saturation > lim.gradeSatMax then
+				problems[#problems + 1] = n .. ".grade : saturation hors de " .. lim.gradeSatMin .. ".." .. lim.gradeSatMax
+			end
+			if type(z.density) == "number" and z.density > lim.densityMax then
+				problems[#problems + 1] = n .. ".density : brume trop dense"
+			end
+		end
+	end
+	if #problems == 0 then
+		for i = 1, #names do
+			for j = i + 1, #names do
+				local a, b = L.zones[names[i]], L.zones[names[j]]
+				for _, role in ipairs(COLOR_ROLES) do
+					local ha, sa, va = Graphics.rgbToHsv(a[role][1], a[role][2], a[role][3])
+					local hb, sb, vb = Graphics.rgbToHsv(b[role][1], b[role][2], b[role][3])
+					if sa >= lim.minSatForHue and sb >= lim.minSatForHue then
+						stats.hue = math.max(stats.hue, Graphics.hueDelta(ha, hb))
+					end
+					stats.sat = math.max(stats.sat, math.abs(sa - sb))
+					stats.val = math.max(stats.val, math.abs(va - vb))
+				end
+				stats.clock = math.max(stats.clock, math.abs(a.clock - b.clock))
+				stats.density = math.max(stats.density, math.abs(a.density - b.density))
+				stats.haze = math.max(stats.haze, math.abs(a.haze - b.haze))
+				stats.bloom = math.max(stats.bloom, math.abs(a.bloom.intensity - b.bloom.intensity))
+			end
+		end
+		local function over(name, v, limit)
+			if v > limit then
+				problems[#problems + 1] = "écart de " .. name .. " entre zones : " .. string.format("%.3f", v) .. " > " .. limit
+			end
+		end
+		over("teinte", stats.hue, lim.hueSpread)
+		over("saturation", stats.sat, lim.satSpread)
+		over("valeur", stats.val, lim.valSpread)
+		over("heure", stats.clock, lim.clockSpread)
+		over("densité", stats.density, lim.densitySpread)
+		over("brume", stats.haze, lim.hazeSpread)
+	end
+	return { ok = #problems == 0, problems = problems, stats = stats }
+end
+
+---------------------------------------------------------------- Styles d'arbres
+-- items = { {x, z, ...} } dans l'ordre de pose ; poolOf(item, index) -> liste de clés de style. Choisit pour chaque arbre le style dont l'exemplaire le plus proche
+-- est le plus loin (égalité : style le moins employé, puis ordre du pool décalé par le rang : pas de motif répété). Retourne (clés, stats) ; stats.minSame = plus petite
+-- distance entre deux arbres de même style (math.huge si aucun), stats.violations = paires plus proches que `minDist`, stats.styles = nombre de styles employés.
+function Graphics.assignStyles(items, poolOf, minDist)
+	local keys, usage = {}, {}
+	local byKey = {}
+	for i, it in ipairs(items) do
+		local pool = poolOf(it, i)
+		local best, bestD, bestU = nil, -1, math.huge
+		local n = #pool
+		for off = 0, n - 1 do
+			local key = pool[(off + i) % n + 1]
+			local nearest = math.huge
+			for _, o in ipairs(byKey[key] or {}) do
+				local d = dist(it.x, it.z, o.x, o.z)
+				if d < nearest then
+					nearest = d
+				end
+			end
+			local u = usage[key] or 0
+			if nearest > bestD or (nearest == bestD and u < bestU) then
+				best, bestD, bestU = key, nearest, u
+			end
+		end
+		keys[i] = best
+		usage[best] = (usage[best] or 0) + 1
+		byKey[best] = byKey[best] or {}
+		byKey[best][#byKey[best] + 1] = it
+	end
+	return keys, Graphics.styleStats(items, keys, minDist)
+end
+
+-- Mesure : plus petite distance entre deux arbres de même clé, paires sous `minDist`, nombre de styles distincts.
+function Graphics.styleStats(items, keys, minDist)
+	local minSame, violations, used, count = math.huge, 0, {}, 0
+	for i = 1, #items do
+		if not used[keys[i]] then
+			used[keys[i]] = true
+			count = count + 1
+		end
+		for j = i + 1, #items do
+			if keys[i] == keys[j] then
+				local d = dist(items[i].x, items[i].z, items[j].x, items[j].z)
+				if d < minSame then
+					minSame = d
+				end
+				if d < (minDist or 0) then
+					violations = violations + 1
+				end
+			end
+		end
+	end
+	return { minSame = minSame, violations = violations, styles = count, trees = #items }
+end
+
+-- Clé de style des arbres Blender : « modèle@classe » (classe = rang dans Config.GRAPHICS.trees.sizeClasses).
+function Graphics.blenderKeys(models, classCount)
+	local out = {}
+	for _, m in ipairs(models) do
+		for c = 1, classCount do
+			out[#out + 1] = m .. "@" .. c
+		end
+	end
+	return out
+end
+
+function Graphics.blenderStyle(Config, key)
+	local model, c = tostring(key):match("^(.-)@(%d+)$")
+	local classes = Config.GRAPHICS.trees.sizeClasses
+	local scale = classes[tonumber(c) or 1] or 1
+	return { model = model, scale = scale }
+end
+
+-- Clé de style des arbres procéduraux : « forme:taille:teinte » (rangs dans Config.GRAPHICS.trees).
+function Graphics.procKeys(Config, north)
+	local T = Config.GRAPHICS.trees
+	local leaves = north and T.procLeavesNorth or T.procLeavesMeadow
+	local out = {}
+	for sh = 1, #T.procShapes do
+		for sz = 1, #T.procSizes do
+			for lf = 1, #leaves do
+				out[#out + 1] = sh .. ":" .. sz .. ":" .. lf
+			end
+		end
+	end
+	return out
+end
+
+function Graphics.procStyle(Config, key, north)
+	local T = Config.GRAPHICS.trees
+	local sh, sz, lf = tostring(key):match("^(%d+):(%d+):(%d+)$")
+	local leaves = north and T.procLeavesNorth or T.procLeavesMeadow
+	return { shape = T.procShapes[tonumber(sh) or 1], scale = T.procSizes[tonumber(sz) or 1], leaf = leaves[tonumber(lf) or 1], key = key }
+end
+
+-- Styles d'une liste d'arbres procéduraux ({x, z, grove?}) : retourne { {shape, scale, leaf, key} } dans l'ordre + statistiques. Les arbres du nord (z < -180) et
+-- des bosquets prennent la palette « nord » (plus sombre).
+function Graphics.styleForest(Config, forest)
+	local function isNorth(t)
+		return t.grove ~= nil or t.z < -180
+	end
+	local meadow, north = Graphics.procKeys(Config, false), Graphics.procKeys(Config, true)
+	local keys, stats = Graphics.assignStyles(forest, function(t)
+		return isNorth(t) and north or meadow
+	end, Config.GRAPHICS.trees.procMinSameDist)
+	-- une clé « nord » et une clé « prairie » ont la même écriture : on les sépare pour la mesure d'unicité
+	local out = {}
+	for i, t in ipairs(forest) do
+		out[i] = Graphics.procStyle(Config, keys[i], isNorth(t))
+	end
+	local tagged = {}
+	for i, t in ipairs(forest) do
+		tagged[i] = (isNorth(t) and "n" or "m") .. keys[i]
+	end
+	return out, Graphics.styleStats(forest, tagged, Config.GRAPHICS.trees.procMinSameDist)
+end
+
+---------------------------------------------------------------- LOD des lumières
+-- lights = { {x, y, z} } ; cam = {x, y, z}. Retourne un tableau booléen : vrai pour les `maxOn` lumières les plus proches (à moins de `range`), faux ailleurs.
+-- Distances invalides (nil, NaN) : lumière coupée. Ordre stable (égalité : rang).
+function Graphics.selectLights(lights, cam, maxOn, range)
+	local on = {}
+	local cand = {}
+	for i, l in ipairs(lights) do
+		on[i] = false
+		if type(l) == "table" and type(l.x) == "number" and type(l.y) == "number" and type(l.z) == "number" and type(cam) == "table" then
+			local d = math.sqrt((l.x - cam.x) ^ 2 + (l.y - cam.y) ^ 2 + (l.z - cam.z) ^ 2)
+			if d == d and d <= range then
+				cand[#cand + 1] = { i = i, d = d }
+			end
+		end
+	end
+	table.sort(cand, function(a, b)
+		if a.d ~= b.d then
+			return a.d < b.d
+		end
+		return a.i < b.i
+	end)
+	for k = 1, math.min(maxOn, #cand) do
+		on[cand[k].i] = true
+	end
+	return on
+end
+
+---------------------------------------------------------------- Sol : chemins, bordures d'herbe, touffes et fleurs
+local function pick(list, r)
+	return list[1 + math.floor(r * #list) % #list]
+end
+
+-- Plan du sol, déterministe. P = Placement.new(Config, MapGeo) (blocked, groundY, forest, pathSegments), planItems = P.plan().items (objets déjà posés).
+-- Retourne { pathPatches, edges, tufts, clusters, parts, stats } :
+--   pathPatches : { x, z, y, w, d, rot, color, material, path } — petites dalles posées SUR un chemin (variation de couleur et de matière) ;
+--   edges       : { x, z, r, color } — taches d'herbe irrégulières au bord des chemins (jamais en travers d'un autre interdit que le chemin lui-même) ;
+--   tufts       : { x, z, y, size, color } — touffes isolées ; clusters : { x, z, y, size, color, flowers = { {dx, dz, color} } } (1 touffe + fleurs).
+-- Règles : touffes et grappes sur du sol LIBRE (MapGeo.blocked == nil, hors empreintes d'arbres et d'objets), à moins de scatterRange d'un chemin ou de la place ;
+-- densité plafonnée par cellule ; au plus budgetParts Parts au total.
+function Graphics.groundPlan(Config, P, planItems)
+	local GR = Config.GRAPHICS.ground
+	local M2 = Config.Map2
+	local G = P.G
+	local B = M2.bounds
+	local out = { pathPatches = {}, edges = {}, tufts = {}, clusters = {}, stats = {} }
+	local rng = newRng(90210)
+	local forest = P.forest()
+	local blocking = {}
+	for _, it in ipairs(planItems or {}) do
+		blocking[#blocking + 1] = { it.x, it.z, it.r or 2 }
+	end
+	for _, it in ipairs(forest) do
+		blocking[#blocking + 1] = { it.x, it.z, it.r or 3.5 }
+	end
+	local function freeOfObjects(x, z, r)
+		for _, q in ipairs(blocking) do
+			if dist(x, z, q[1], q[2]) < q[3] + r + 0.5 then
+				return false
+			end
+		end
+		return true
+	end
+	local function nearBridge(x, z, r)
+		for _, b in ipairs(G.bridges) do
+			if dist(x, z, b.x, b.z) < b.len / 2 + r + 1 then
+				return true
+			end
+		end
+		return false
+	end
+	-- 1. segments de chemin au sol (même découpage que Scenery.paths : rang k du segment dans sa polyligne)
+	local segs, totalLen = {}, 0
+	for _, p in ipairs(M2.paths) do
+		if (p.y or 0) == 0 then
+			local paved = p.kind ~= "dirt"
+			local half = paved and M2.pathHalf or M2.dirtHalf
+			for k = 1, #p.pts - 1 do
+				local ax, az, bx, bz = p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2]
+				local len = dist(ax, az, bx, bz)
+				segs[#segs + 1] = { ax = ax, az = az, bx = bx, bz = bz, len = len, half = half, paved = paved, k = k, name = p.name, last = k == #p.pts - 1 }
+				totalLen = totalLen + len
+			end
+		end
+	end
+	-- 2. variations posées sur les chemins : pas élargi pour respecter le plafond
+	local spacing = math.max(GR.pathPatchSpacing, totalLen / GR.pathPatchCap)
+	local roadsideSpacing = math.max(GR.edgeSpacing, 2 * totalLen / GR.edgeCap)
+	for _, s in ipairs(segs) do
+		local dx, dz = (s.bx - s.ax) / s.len, (s.bz - s.az) / s.len
+		local nx, nz = -dz, dx
+		-- hauteur de la dalle de ce segment (Scenery.paths : dalles alternées, épaisseur de 0,2) ; joints aux sommets : on s'en écarte
+		local top = s.paved and ((s.k % 2 == 1) and 0.28 or 0.34) or ((s.k % 2 == 1) and 0.04 or 0.10)
+		local t = spacing * (0.3 + 0.5 * rng())
+		local n = 0
+		while t < s.len - s.half - 0.5 do
+			if t > s.half + 0.5 and #out.pathPatches < GR.pathPatchCap then
+				local lat = (rng() * 2 - 1) * (s.half - 2.1)
+				local x, z = s.ax + dx * t + nx * lat, s.az + dz * t + nz * lat
+				local w, d = 1.2 + rng() * 2.2, 0.9 + rng() * 1.5
+				pause()
+				local why = G.blocked(x, z, 1.2, {})
+				if (why == nil or why == "chemin") and not nearBridge(x, z, 1.2) and G.pathEdgeDist(x, z) < -0.5 then
+					n = n + 1
+					local pal = s.paved and GR.pathPalettePaved or GR.pathPaletteDirt
+					local mat = s.paved and (n % 3 == 0 and "Slate" or (n % 3 == 1 and "Cobblestone" or "Pebble")) or (n % 2 == 0 and "Ground" or "Mud")
+					out.pathPatches[#out.pathPatches + 1] = { x = x, z = z, y = top - 0.005 + (n % 3) * 0.01, w = w, d = d, rot = rng() * 180, color = pick(pal, rng()), material = mat, path = s.name }
+				end
+			end
+			t = t + spacing * (0.7 + 0.6 * rng())
+		end
+		-- bordures d'herbe irrégulières : taches de rayon variable, des deux côtés, à cheval sur le bord du chemin
+		local t2 = roadsideSpacing * (0.2 + 0.6 * rng())
+		while t2 < s.len - 1 do
+			for side = -1, 1, 2 do
+				if rng() < 0.7 and #out.edges < GR.edgeCap then
+					local off = s.half + (rng() * 2 - 0.6) * 1.2
+					local r = 0.8 + rng() * 1.2
+					local x, z = s.ax + dx * t2 + nx * off * side, s.az + dz * t2 + nz * off * side
+					pause()
+					local why = G.blocked(x, z, r, {})
+					if (why == nil or why == "chemin") and not nearBridge(x, z, r) and G.pathEdgeDist(x, z) > -0.2 and freeOfObjects(x, z, r) then
+						out.edges[#out.edges + 1] = { x = x, z = z, r = r, y = (P.groundY(x, z) or 0) + 0.03 + (#out.edges % 4) * 0.01, color = pick(GR.edgePalette, rng()) }
+					end
+				end
+			end
+			t2 = t2 + roadsideSpacing * (0.6 + 0.8 * rng())
+		end
+	end
+	-- 3. touffes isolées et grappes de fleurs : cellules mélangées près des chemins et de la place, densité plafonnée
+	local function nearAnchor(x, z)
+		pause()
+		if dist(x, z, M2.plaza.x, M2.plaza.z) < M2.plaza.r + GR.scatterRange then
+			return true
+		end
+		return G.pathEdgeDist(x, z) < GR.scatterRange
+	end
+	local cellSize = GR.cell
+	local cells = {}
+	for gx = B.x0 + cellSize / 2, B.x1 - cellSize / 2, cellSize do
+		for gz = B.z0 + cellSize / 2, B.z1 - cellSize / 2, cellSize do
+			if nearAnchor(gx, gz) then
+				cells[#cells + 1] = { gx, gz }
+			end
+		end
+	end
+	for i = #cells, 2, -1 do
+		local j = 1 + math.floor(rng() * i)
+		cells[i], cells[j] = cells[j], cells[i]
+	end
+	local perCell = {}
+	local function cellKey(x, z)
+		return math.floor((x - B.x0) / cellSize) .. ":" .. math.floor((z - B.z0) / cellSize)
+	end
+	local function room(x, z, n)
+		return (perCell[cellKey(x, z)] or 0) + n <= GR.maxPerCell
+	end
+	local function take(x, z, n)
+		local k = cellKey(x, z)
+		perCell[k] = (perCell[k] or 0) + n
+	end
+	local flowerCount = 0
+	local function partsLeft()
+		return Config.GRAPHICS.budgetParts - (#out.pathPatches + #out.edges + #out.tufts + #out.clusters + flowerCount)
+	end
+	local fl = GR.flowersPerCluster
+	for idx, c in ipairs(cells) do
+		pause()
+		local x, z = c[1] + (rng() - 0.5) * (cellSize - 4), c[2] + (rng() - 0.5) * (cellSize - 4)
+		local wantCluster = (idx % 3 == 0) and #out.clusters < GR.clusterCap
+		local wantTuft = (not wantCluster) and #out.tufts < GR.tuftCap
+		if (wantCluster or wantTuft) and nearAnchor(x, z) and G.blocked(x, z, 1.2, {}) == nil and freeOfObjects(x, z, 1.2) then
+			if wantCluster then
+				local nf = fl[1] + math.floor(rng() * (fl[2] - fl[1] + 1))
+				if room(x, z, nf + 1) and partsLeft() >= nf + 1 then
+					local flowers = {}
+					for f = 1, nf do
+						local a = (f / nf + rng() * 0.2) * math.pi * 2
+						local rr = 0.2 + rng() * 0.55
+						flowers[f] = { dx = math.cos(a) * rr, dz = math.sin(a) * rr, color = pick(GR.flowerPalette, rng()) }
+					end
+					out.clusters[#out.clusters + 1] = { x = x, z = z, y = P.groundY(x, z) or 0, size = 1.4 + rng() * 0.6, color = pick(GR.tuftPalette, rng()), flowers = flowers }
+					flowerCount = flowerCount + nf
+					take(x, z, nf + 1)
+				end
+			elseif room(x, z, 1) and partsLeft() >= 1 then
+				out.tufts[#out.tufts + 1] = { x = x, z = z, y = P.groundY(x, z) or 0, size = 0.9 + rng() * 0.9, color = pick(GR.tuftPalette, rng()) }
+				take(x, z, 1)
+			end
+		end
+	end
+	-- boucle de complément : si les cellules n'ont pas suffi à atteindre les plafonds, on retente une fois avec d'autres décalages (déterministe)
+	local maxCell = 0
+	for _, v in pairs(perCell) do
+		if v > maxCell then
+			maxCell = v
+		end
+	end
+	local parts = #out.pathPatches + #out.edges + #out.tufts + #out.clusters + flowerCount
+	out.parts = parts
+	out.stats = { parts = parts, pathPatches = #out.pathPatches, edges = #out.edges, tufts = #out.tufts, clusters = #out.clusters, flowers = flowerCount, maxPerCell = maxCell, pathLength = totalLen, cells = #cells }
+	return out
+end
+
+-- Contrôle d'une fiche de plan : retourne la liste des violations (vide = conforme). Utilisé par les tests et par le serveur (journal de démarrage).
+function Graphics.auditGround(Config, P, plan)
+	local bad = {}
+	local G = P.G
+	local GR = Config.GRAPHICS.ground
+	for i, t in ipairs(plan.tufts) do
+		local why = G.blocked(t.x, t.z, 1.2, {})
+		if why then
+			bad[#bad + 1] = "touffe " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+	end
+	for i, c in ipairs(plan.clusters) do
+		local why = G.blocked(c.x, c.z, 1.2, {})
+		if why then
+			bad[#bad + 1] = "grappe " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+	end
+	for i, e in ipairs(plan.edges) do
+		local why = G.blocked(e.x, e.z, e.r, {})
+		if why and why ~= "chemin" then
+			bad[#bad + 1] = "bordure " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+	end
+	for i, p in ipairs(plan.pathPatches) do
+		local why = G.blocked(p.x, p.z, 1.2, {})
+		if why and why ~= "chemin" then
+			bad[#bad + 1] = "dalle " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+		if G.pathEdgeDist(p.x, p.z) >= 0 then
+			bad[#bad + 1] = "dalle " .. i .. " hors du chemin"
+		end
+	end
+	if plan.parts > Config.GRAPHICS.budgetParts then
+		bad[#bad + 1] = "budget de Parts dépassé : " .. plan.parts
+	end
+	if plan.stats.maxPerCell > GR.maxPerCell then
+		bad[#bad + 1] = "densité par cellule dépassée : " .. plan.stats.maxPerCell
+	end
+	return bad
+end
+
+return Graphics
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX64"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX51"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX65"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX52"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24215,7 +24858,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -25210,7 +25853,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -25222,14 +25865,17 @@ local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shar
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
+local GraphicsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Graphics")) -- lot graphismes : lumière, styles d'arbres, sol (planificateur pur)
 local TrapsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Traps")) -- plan des pièges des territoires (REFONTE lot 4)
 local DecorMod = require(script.Parent:WaitForChild("Decor")) -- lot 8B-décor : modèles Blender des lots 15 à 17 (repli procédural)
 PlacementMod.MapGeo = MapGeoMod
 PlacementMod.yield = function()
 	task.wait()
 end
+GraphicsMod.yield = PlacementMod.yield -- le calcul du sol cède la main comme celui du décor (jamais de gel du serveur)
 
 local Builder = {}
+Builder.blenderPaths = {} -- noms des chemins dont les dalles procédurales ont été remplacées par des tuiles Blender (dressPaths)
 
 local FONT = Enum.Font.GothamBold
 local SPARK = "rbxasset://textures/particles/sparkles_main.dds"
@@ -25252,6 +25898,11 @@ local function ball(props, parent)
 	props.Shape = Enum.PartType.Ball
 	props.CanCollide = false
 	return part(props, parent)
+end
+
+-- Couleur { r, g, b } (0 à 255) des données de Config.LIGHTING / Config.GRAPHICS -> Color3.
+local function c3(c)
+	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
 local function sign(adornee, text, color, offsetY, width)
@@ -26567,7 +27218,86 @@ function Builder.dressDeco(assets)
 			end
 		end
 	end)
+	pcall(Builder.dressGraphics, assets)
 	return placed, used, fallback
+end
+
+-- Lot graphismes : sol vivant posé après la carte, budget SÉPARÉ (Config.GRAPHICS.budgetParts). Dalles de variation sur les chemins (couleurs et matières proches), taches
+-- d'herbe irrégulières le long des bords, touffes et grappes de fleurs sur du sol libre. Le plan est PUR (Graphics.groundPlan, déterministe, sans pièce sur une zone
+-- bloquée) ; ici seules les Parts sont créées, avec un compte réel qui ne dépasse jamais le budget. Retourne (Parts posées, statistiques du plan).
+function Builder.dressGraphics(_assets)
+	local created, stats = 0, nil
+	pcall(function()
+		if not Config.GRAPHICS.enabled then
+			return
+		end
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return
+		end
+		local old = world:FindFirstChild("GraphicsGround")
+		if old then
+			old:Destroy()
+		end
+		local P = PlacementMod.new(Config)
+		local okP, plan = pcall(function()
+			local items = P.plan().items
+			local blockers = {}
+			for _, it in ipairs(items) do
+				blockers[#blockers + 1] = it
+			end
+			for _, it in ipairs(P.scenery(items)) do
+				blockers[#blockers + 1] = it
+			end
+			for _, it in ipairs(P.decor(items)) do
+				blockers[#blockers + 1] = it
+			end
+			return GraphicsMod.groundPlan(Config, P, blockers)
+		end)
+		if not okP then
+			warn("[Builder] sol : plan impossible : " .. tostring(plan))
+			return
+		end
+		local cap = Config.GRAPHICS.budgetParts
+		local folder = Instance.new("Folder")
+		folder.Name = "GraphicsGround"
+		folder.Parent = world
+		local function room()
+			return created < cap
+		end
+		local function soft(p)
+			p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = false, false, false, false
+			created = created + 1
+			return p
+		end
+		for _, t in ipairs(plan.pathPatches) do
+			if room() and not Builder.blenderPaths[t.path] then
+				soft(part({ Name = "GfxPathPatch", Size = Vector3.new(t.w, 0.05, t.d), CFrame = CFrame.new(t.x, t.y, t.z) * CFrame.Angles(0, math.rad(t.rot), 0), Color = c3(t.color), Material = Enum.Material[t.material] or Enum.Material.Cobblestone }, folder))
+			end
+		end
+		for _, e in ipairs(plan.edges) do
+			if room() then
+				soft(part({ Name = "GfxEdge", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.06, e.r * 2, e.r * 2), CFrame = CFrame.new(e.x, e.y, e.z) * CFrame.Angles(0, 0, math.pi / 2), Color = c3(e.color), Material = Enum.Material.Grass }, folder))
+			end
+		end
+		for _, t in ipairs(plan.tufts) do
+			if room() then
+				soft(ball({ Name = "GfxTuft", Size = Vector3.new(t.size, t.size * 0.55, t.size), Position = Vector3.new(t.x, t.y + t.size * 0.2, t.z), Color = c3(t.color), Material = Enum.Material.Grass }, folder))
+			end
+		end
+		for _, c in ipairs(plan.clusters) do
+			if created + 1 + #c.flowers <= cap then
+				soft(ball({ Name = "GfxTuft", Size = Vector3.new(c.size, c.size * 0.55, c.size), Position = Vector3.new(c.x, c.y + c.size * 0.2, c.z), Color = c3(c.color), Material = Enum.Material.Grass }, folder))
+				for _, f in ipairs(c.flowers) do
+					soft(ball({ Name = "GfxFlower", Size = Vector3.new(0.5, 0.5, 0.5), Position = Vector3.new(c.x + f.dx, c.y + c.size * 0.45 + 0.1, c.z + f.dz), Color = c3(f.color) }, folder))
+				end
+			end
+		end
+		stats = plan.stats
+		Builder.groundStats = { created = created, plan = plan.stats }
+		print("[Assets] sol vivant : " .. created .. " Parts (budget " .. cap .. ") : " .. plan.stats.pathPatches .. " dalles, " .. plan.stats.edges .. " bordures, " .. plan.stats.tufts .. " touffes, " .. plan.stats.clusters .. " grappes de fleurs")
+	end)
+	return created, stats
 end
 
 -- Chemins sinueux Blender (tuiles droites/virages bordés de pierres, touffes sur les bords) posés sur les polylignes de Config.Map2.paths ; les pavés
@@ -26624,6 +27354,7 @@ function Builder.dressPaths(assets)
 				end
 			end
 			if placedHere > 0 and placedHere == wanted then -- tout le tracé est habillé : les dalles procédurales de ce chemin sont retirées
+				Builder.blenderPaths[path.name] = true -- lot graphismes : pas de dalles de variation sur un chemin dont les pavés sont remplacés
 				for _, d in ipairs(world:GetDescendants()) do
 					if (d.Name == "PathStone" or d.Name == "PathJoint" or d.Name == "DirtPath") and d:IsA("BasePart") then
 						for k = 1, #poly - 1 do
@@ -26941,17 +27672,20 @@ function Builder.guard(rivalIdx)
 end
 
 ---------------------------------------------------------------- Éclairage
--- Ambiance « jour doré » : soleil chaud, brume légère, bloom discret, étalonnage plus vif.
+-- Ambiance « jour doré » : toutes les valeurs viennent de Config.LIGHTING (une palette chaude pour toute la carte ; le client Ambience glisse d'une zone à l'autre).
+-- Le serveur applique la zone « hub » (village et place) : soleil chaud, brume légère, bloom discret, étalonnage doux.
 function Builder.setupLighting()
-	Lighting.ClockTime = 15.3
-	Lighting.Brightness = 2.2 -- plus doux
-	Lighting.Ambient = Color3.fromRGB(110, 112, 125)
-	Lighting.OutdoorAmbient = Color3.fromRGB(135, 140, 158)
-	Lighting.ColorShift_Top = Color3.fromRGB(255, 238, 205)
-	Lighting.EnvironmentDiffuseScale = 0.6
-	Lighting.EnvironmentSpecularScale = 0.4
-	Lighting.ShadowSoftness = 0.35
-	Lighting.GlobalShadows = true
+	local L = Config.LIGHTING
+	local z, g = L.zones.hub, L.global
+	Lighting.ClockTime = z.clock
+	Lighting.Brightness = g.Brightness
+	Lighting.Ambient = c3(z.ambient)
+	Lighting.OutdoorAmbient = c3(z.outdoor)
+	Lighting.ColorShift_Top = c3(g.ColorShift_Top)
+	Lighting.EnvironmentDiffuseScale = g.EnvironmentDiffuseScale
+	Lighting.EnvironmentSpecularScale = g.EnvironmentSpecularScale
+	Lighting.ShadowSoftness = g.ShadowSoftness
+	Lighting.GlobalShadows = g.GlobalShadows
 
 	local function effect(class, name, props)
 		local e = Lighting:FindFirstChild(name)
@@ -26971,16 +27705,16 @@ function Builder.setupLighting()
 		atm = Instance.new("Atmosphere")
 		atm.Parent = Lighting
 	end
-	atm.Density = 0.32 -- brouillard léger : les lointains se fondent dans le ciel
+	atm.Density = z.density -- brouillard léger : les lointains se fondent dans le ciel
 	atm.Offset = 0.25
-	atm.Color = Color3.fromRGB(199, 220, 255)
-	atm.Decay = Color3.fromRGB(255, 214, 170)
-	atm.Glare = 0.25
-	atm.Haze = 1.7
+	atm.Color = c3(z.atmo)
+	atm.Decay = c3(z.decay)
+	atm.Glare = z.glare
+	atm.Haze = z.haze
 
-	effect("BloomEffect", "ChipeBloom", { Intensity = 0.3, Size = 24, Threshold = 0.96 })
-	effect("SunRaysEffect", "ChipeSunRays", { Intensity = 0.15, Spread = 0.8 })
-	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.1, Contrast = 0.06, Brightness = 0.02 }) -- couleurs plus harmonieuses, moins saturées
+	effect("BloomEffect", "ChipeBloom", { Intensity = z.bloom.intensity, Size = z.bloom.size, Threshold = z.bloom.threshold })
+	effect("SunRaysEffect", "ChipeSunRays", { Intensity = L.sunRays.intensity, Spread = L.sunRays.spread })
+	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = z.grade.saturation, Contrast = z.grade.contrast, Brightness = z.grade.brightness, TintColor = c3(z.tint) })
 end
 
 ---------------------------------------------------------------- Grand Œuf de l'énigme (ancien Grand Nid ; REFONTE lot 2 : place à l'est de la place du marché)
@@ -27253,6 +27987,13 @@ function Builder.build()
 		PlacementMod.yield = nil
 		local okF, forest = pcall(P.forest)
 		PlacementMod.yield = savedYield
+		if Config.GRAPHICS.enabled and okF and forest then -- lot graphismes : forme, taille et teinte de chaque arbre procédural (mêmes Parts qu'avant)
+			local okS, styles, stats = pcall(GraphicsMod.styleForest, Config, forest)
+			if okS then
+				sceneryHelpers.forestStyle = styles
+				Builder.forestStyleStats = stats
+			end
+		end
 		return Scenery.relief(sceneryHelpers, world, Config, okF and forest or {})
 	end)
 	deco("plaza", function()
@@ -27830,7 +28571,27 @@ function Builder.dressWorld(assets)
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
 		local huts, treeIdx, fences = 0, 0, 0
-		local function put(key, x, z, rot, length, gy)
+		-- Lot graphismes : style (modèle + classe de taille) de chaque arbre, jamais deux styles identiques à moins de minSameDist studs (voir Graphics.assignStyles)
+		local styleOf = {}
+		if Config.GRAPHICS.enabled then
+			pcall(function()
+				local trees = {}
+				for _, it in ipairs(plan.items) do
+					if it.kind == "tree" or it.kind == "fir" then
+						trees[#trees + 1] = it
+					end
+				end
+				local classes = #Config.GRAPHICS.trees.sizeClasses
+				local keys, stats = GraphicsMod.assignStyles(trees, function(it)
+					return GraphicsMod.blenderKeys(PlacementMod.treePool(Config, it.kind, it.x, it.z), classes)
+				end, Config.GRAPHICS.trees.minSameDist)
+				for i, it in ipairs(trees) do
+					styleOf[it] = keys[i]
+				end
+				Builder.treeStyleStats = stats
+			end)
+		end
+		local function put(key, x, z, rot, length, gy, style)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
 			end
@@ -27850,12 +28611,17 @@ function Builder.dressWorld(assets)
 			if key == "tree" or key == "fir" then
 				treeIdx = treeIdx + 1
 				local variant = PlacementMod.treeVariant(Config, key, x, z, treeIdx)
+				local sizeMul, jitter = 1, Config.Assets.treeScaleJitter
+				if style then -- style choisi par Graphics.assignStyles (modèle de la zone, classe de taille) : remplace la variante par rang
+					local sty = GraphicsMod.blenderStyle(Config, style)
+					variant, sizeMul, jitter = sty.model, sty.scale, Config.GRAPHICS.trees.scaleJitter
+				end
 				local st = assets.status and assets.status["m:trees." .. variant]
 				local vc = st and st.ok and st.parts or Config.Assets.propsMaxParts[key]
 				if st and st.ok and total + vc <= Config.Assets.propsBudgetParts then
 					clone = assets.cloneModel("trees", variant)
 					if clone then
-						height = (Config.Assets.treeHeights[variant] or height) * PlacementMod.jitter(x, z, Config.Assets.treeScaleJitter)
+						height = (Config.Assets.treeHeights[variant] or height) * sizeMul * PlacementMod.jitter(x, z, jitter)
 					end
 				end
 			end
@@ -27870,7 +28636,7 @@ function Builder.dressWorld(assets)
 			end
 		end
 		for _, it in ipairs(plan.items) do
-			put(it.kind, it.x, it.z, it.rot, nil, it.y)
+			put(it.kind, it.x, it.z, it.rot, nil, it.y, styleOf[it])
 		end
 		for _, b in ipairs(plan.bridges) do
 			put("bridge", b.x, b.z, b.rot, b.length)
@@ -27993,7 +28759,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -28162,7 +28928,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -28175,7 +28941,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -28694,7 +29460,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -29394,11 +30160,18 @@ function Scenery.relief(h, parent, cfg, forest)
 		local b = h.ball({ Name = "Backdrop", Size = Vector3.new(m[3], m[3], m[3]), Position = Vector3.new(m[1], m[4] - m[3] / 2, m[2]), Color = k <= 4 and rgb(116, 128, 120) or rgb(90, 150, 82), Material = k <= 4 and Enum.Material.Slate or Enum.Material.Grass, CanCollide = false }, parent)
 		b.CastShadow = false
 	end
-	for _, t in ipairs(forest or {}) do -- arbres procéduraux : tronc et feuillage (2 Parts)
-		local s = 0.9 + ((math.floor(t.x * 7 + t.z * 3) % 5) * 0.08)
+	for i, t in ipairs(forest or {}) do -- arbres procéduraux : tronc et feuillage (2 Parts)
 		local y = t.y or 0
-		h.part({ Name = "Trunk", Size = Vector3.new(1.8 * s, 8 * s, 1.8 * s), Position = Vector3.new(t.x, y + 4 * s, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
-		h.ball({ Name = "Leaves", Size = Vector3.new(10 * s, 10 * s, 10 * s), Position = Vector3.new(t.x, y + 10.5 * s, t.z), Color = (t.z < -180 or t.grove) and rgb(54, 120, 70) or rgb(70, 146, 72), Material = Enum.Material.Grass }, parent)
+		local st = h.forestStyle and h.forestStyle[i] -- lot graphismes : { shape = { w, h, trunk, y }, scale, leaf = { r, g, b } } (Graphics.styleForest)
+		if st then
+			local sc, sh, lf = st.scale, st.shape, st.leaf
+			h.part({ Name = "Trunk", Size = Vector3.new(1.8 * sc, sh.trunk * sc, 1.8 * sc), Position = Vector3.new(t.x, y + sh.trunk * sc / 2, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
+			h.ball({ Name = "Leaves", Size = Vector3.new(sh.w * sc, sh.h * sc, sh.w * sc), Position = Vector3.new(t.x, y + sh.y * sc, t.z), Color = rgb(lf[1], lf[2], lf[3]), Material = Enum.Material.Grass }, parent)
+		else
+			local s = 0.9 + ((math.floor(t.x * 7 + t.z * 3) % 5) * 0.08)
+			h.part({ Name = "Trunk", Size = Vector3.new(1.8 * s, 8 * s, 1.8 * s), Position = Vector3.new(t.x, y + 4 * s, t.z), Color = rgb(110, 78, 50), Material = Enum.Material.Wood }, parent)
+			h.ball({ Name = "Leaves", Size = Vector3.new(10 * s, 10 * s, 10 * s), Position = Vector3.new(t.x, y + 10.5 * s, t.z), Color = (t.z < -180 or t.grove) and rgb(54, 120, 70) or rgb(70, 146, 72), Material = Enum.Material.Grass }, parent)
+		end
 		n += 2
 	end
 	return n
@@ -29431,7 +30204,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -30096,7 +30869,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -30600,7 +31373,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
 -- LOT 14 : transport du classé en direct. Toutes les décisions sont dans ReplicatedStorage/Shared/Ranked (pur) ; ce module ne fait que
 -- les appliquer avec un RUNTIME INJECTÉ (tests : faux runtime de tests/lot14.luau ; jeu : PvpLive.robloxRuntime, MemoryStore + TeleportService).
 -- Aucun yield ici en dehors des appels au runtime ; chaque appel réseau est dans un pcall (une panne MemoryStore = un tour sans effet,
@@ -31296,7 +32069,7 @@ function PvpLive.robloxRuntime(Config, hooks)
 end
 
 return PvpLive
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -32522,7 +33295,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -32751,7 +33524,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -32977,7 +33750,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX82"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX81"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX65"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX84"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX83"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX66"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36167,7 +36940,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX66"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX67"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -36729,7 +37502,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX67"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -37381,9 +38154,9 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
--- glissent doucement vers les réglages de Config.Map.ambience (modification locale : n'affecte que ce joueur). Coupable avec
+-- glissent doucement vers les réglages de Config.LIGHTING (zone de lumière : Config.lightingZoneAt ; modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37463,21 +38236,37 @@ local function showBanner(zone)
 	end)
 end
 local failed = false
-local TWEEN = TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local L = Config.LIGHTING
+local TWEEN = TweenInfo.new(L.transition, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local currentLight = nil
 
-local function apply(zone)
-	local a = Config.Map.ambience[zone]
-	if not a then
+local function c3(c)
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+-- Lot graphismes : l'éclairage vient de Config.LIGHTING (une palette chaude pour toute la carte : hub, parcelles, arène, château) ; la zone de lumière est
+-- Config.lightingZoneAt. Atmosphère, bloom léger et étalonnage glissent ensemble (même durée) : jamais de saut de teinte d'une zone à l'autre.
+local function apply(zoneName)
+	local z = L.zones[zoneName]
+	if not z then
 		return
 	end
-	TweenService:Create(Lighting, TWEEN, { ClockTime = a.clock, Ambient = a.ambient, OutdoorAmbient = a.outdoor }):Play()
+	TweenService:Create(Lighting, TWEEN, { ClockTime = z.clock, Ambient = c3(z.ambient), OutdoorAmbient = c3(z.outdoor) }):Play()
 	local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
 	if atmo then
-		TweenService:Create(atmo, TWEEN, { Color = a.atmo, Density = a.density, Haze = a.haze }):Play()
+		TweenService:Create(atmo, TWEEN, { Color = c3(z.atmo), Decay = c3(z.decay), Density = z.density, Haze = z.haze, Glare = z.glare }):Play()
 	end
 	local grade = Lighting:FindFirstChild("ChipeGrade")
 	if grade and grade:IsA("ColorCorrectionEffect") then
-		TweenService:Create(grade, TWEEN, { TintColor = a.tint }):Play()
+		local goal = { TintColor = c3(z.tint), Saturation = z.grade.saturation, Contrast = z.grade.contrast }
+		if not grade:GetAttribute("Pulsing") then -- la pulsation d'éclosion (Client) rend sa luminosité d'origine : on n'y touche pas pendant qu'elle joue
+			goal.Brightness = z.grade.brightness
+		end
+		TweenService:Create(grade, TWEEN, goal):Play()
+	end
+	local bloom = Lighting:FindFirstChild("ChipeBloom")
+	if bloom and bloom:IsA("BloomEffect") and not bloom:GetAttribute("Pulsing") then -- pas pendant une pulsation d'éclosion (Client)
+		TweenService:Create(bloom, TWEEN, { Intensity = z.bloom.intensity, Size = z.bloom.size, Threshold = z.bloom.threshold }):Play()
 	end
 end
 
@@ -37488,11 +38277,15 @@ task.spawn(function()
 				local char = player.Character
 				local root = char and char:FindFirstChild("HumanoidRootPart")
 				if root then
-					local zone = Config.zoneAt(root.Position.X, root.Position.Z)
+					local zoneLight = Config.lightingZoneAt(root.Position.X, root.Position.Z)
+					if zoneLight ~= currentLight then
+						currentLight = zoneLight
+						apply(zoneLight)
+					end
+					local zone = Config.zoneAt(root.Position.X, root.Position.Z) -- bannière : domaine d'un rival ou retour à l'arène
 					if zone ~= current then
 						local first = current == nil
 						current = zone
-						apply(zone)
 						if not first and Config.Animations.zoneBanner then
 							showBanner(zone)
 						end
@@ -37507,7 +38300,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -37590,7 +38383,119 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX71"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
+-- Niveau de détail des effets (lot graphismes, budget mobile) : au plus Config.GRAPHICS.perf.maxPointLights PointLight de la carte sont allumées (les plus proches de la
+-- caméra, à moins de lightRange studs, choix de Graphics.selectLights) ; les émetteurs de particules, faisceaux, feux, fumées et étincelles au-delà de fxCullAt studs sont
+-- coupés et rallumés sous fxShowAt (hystérésis de Culling.decide). Rien n'est détruit ni déplacé ; seules les propriétés Enabled changent, et SEULEMENT pour les objets que ce
+-- script a lui-même coupés (un effet éteint par le jeu n'est jamais rallumé). Local au joueur. Coupé par Config.GRAPHICS.enabled = false ; une erreur le désactive.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Graphics = require(Shared:WaitForChild("Graphics"))
+local Culling = require(Shared:WaitForChild("Culling"))
+if not Config.GRAPHICS.enabled then
+	return
+end
+local perf = Config.GRAPHICS.perf
+
+local FX = { ParticleEmitter = true, Beam = true, Fire = true, Smoke = true, Sparkles = true, Trail = true }
+local lights, fx = {}, {} -- instances suivies (au plus quelques centaines)
+local heldOff = {} -- instance -> true : coupée par ce script
+local culled = {} -- instance d'effet -> true : au-delà de fxCullAt
+local lastScan = -math.huge
+
+local function position(inst)
+	local par = inst.Parent
+	while par and not par:IsA("BasePart") and not par:IsA("Attachment") do
+		par = par.Parent
+	end
+	if par and par:IsA("Attachment") then
+		return par.WorldPosition
+	end
+	return par and par.Position or nil
+end
+
+local function rescan()
+	lastScan = os.clock()
+	local world = workspace:FindFirstChild("World")
+	lights, fx = {}, {}
+	if not world then
+		return
+	end
+	for _, d in ipairs(world:GetDescendants()) do
+		if d:IsA("PointLight") then
+			lights[#lights + 1] = d
+		elseif FX[d.ClassName] then
+			fx[#fx + 1] = d
+		end
+	end
+	for inst in pairs(heldOff) do -- objets disparus : on les oublie (pas de fuite)
+		if not inst.Parent then
+			heldOff[inst] = nil
+			culled[inst] = nil
+		end
+	end
+end
+
+local function setEnabled(inst, on)
+	if on then
+		if heldOff[inst] then
+			heldOff[inst] = nil
+			inst.Enabled = true
+		end
+	elseif inst.Enabled then
+		heldOff[inst] = true
+		inst.Enabled = false
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(perf.interval)
+		local ok = pcall(function()
+			local cam = workspace.CurrentCamera
+			if not cam then
+				return
+			end
+			if os.clock() - lastScan > perf.rescan then
+				rescan()
+			end
+			local cp = cam.CFrame.Position
+			-- lumières : les plus proches seulement (celles coupées par le jeu sont ignorées, sauf si c'est ce script qui les a coupées)
+			local pool, poolPos = {}, {}
+			for _, l in ipairs(lights) do
+				if l.Parent and (l.Enabled or heldOff[l]) then
+					local pos = position(l)
+					if pos then
+						pool[#pool + 1] = l
+						poolPos[#poolPos + 1] = { x = pos.X, y = pos.Y, z = pos.Z }
+					end
+				end
+			end
+			local on = Graphics.selectLights(poolPos, { x = cp.X, y = cp.Y, z = cp.Z }, perf.maxPointLights, perf.lightRange)
+			for i, l in ipairs(pool) do
+				setEnabled(l, on[i])
+			end
+			-- effets lointains
+			for _, e in ipairs(fx) do
+				if e.Parent and (e.Enabled or heldOff[e]) then
+					local pos = position(e)
+					if pos then
+						local d = (pos - cp).Magnitude
+						local hide = Culling.decide(d, culled[e] == true, perf.fxCullAt, perf.fxShowAt)
+						culled[e] = hide or nil
+						setEnabled(e, not hide)
+					end
+				end
+			end
+		end)
+		if not ok then
+			warn("[LightLod] désactivé pour cette session après une erreur")
+			break
+		end
+	end
+end)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -37705,7 +38610,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -37894,7 +38799,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX72"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -38050,7 +38955,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX73"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -38935,7 +39840,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -39160,7 +40065,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
 -- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
 -- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
 -- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
@@ -40167,7 +41072,7 @@ function BattleScene.create(o)
 end
 
 return BattleScene
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -40915,7 +41820,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -41315,7 +42220,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -41598,7 +42503,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -42060,7 +42965,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

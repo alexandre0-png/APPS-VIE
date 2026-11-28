@@ -10,14 +10,17 @@ local GuardMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shar
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets")) -- fonctions pures (fitHeight)
 local PlacementMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Placement")) -- pose planifiée du décor
 local MapGeoMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MapGeo")) -- géométrie de la carte 700 x 500 (REFONTE lot 2)
+local GraphicsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Graphics")) -- lot graphismes : lumière, styles d'arbres, sol (planificateur pur)
 local TrapsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Traps")) -- plan des pièges des territoires (REFONTE lot 4)
 local DecorMod = require(script.Parent:WaitForChild("Decor")) -- lot 8B-décor : modèles Blender des lots 15 à 17 (repli procédural)
 PlacementMod.MapGeo = MapGeoMod
 PlacementMod.yield = function()
 	task.wait()
 end
+GraphicsMod.yield = PlacementMod.yield -- le calcul du sol cède la main comme celui du décor (jamais de gel du serveur)
 
 local Builder = {}
+Builder.blenderPaths = {} -- noms des chemins dont les dalles procédurales ont été remplacées par des tuiles Blender (dressPaths)
 
 local FONT = Enum.Font.GothamBold
 local SPARK = "rbxasset://textures/particles/sparkles_main.dds"
@@ -40,6 +43,11 @@ local function ball(props, parent)
 	props.Shape = Enum.PartType.Ball
 	props.CanCollide = false
 	return part(props, parent)
+end
+
+-- Couleur { r, g, b } (0 à 255) des données de Config.LIGHTING / Config.GRAPHICS -> Color3.
+local function c3(c)
+	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
 local function sign(adornee, text, color, offsetY, width)
@@ -1355,7 +1363,86 @@ function Builder.dressDeco(assets)
 			end
 		end
 	end)
+	pcall(Builder.dressGraphics, assets)
 	return placed, used, fallback
+end
+
+-- Lot graphismes : sol vivant posé après la carte, budget SÉPARÉ (Config.GRAPHICS.budgetParts). Dalles de variation sur les chemins (couleurs et matières proches), taches
+-- d'herbe irrégulières le long des bords, touffes et grappes de fleurs sur du sol libre. Le plan est PUR (Graphics.groundPlan, déterministe, sans pièce sur une zone
+-- bloquée) ; ici seules les Parts sont créées, avec un compte réel qui ne dépasse jamais le budget. Retourne (Parts posées, statistiques du plan).
+function Builder.dressGraphics(_assets)
+	local created, stats = 0, nil
+	pcall(function()
+		if not Config.GRAPHICS.enabled then
+			return
+		end
+		local world = workspace:FindFirstChild("World")
+		if not world then
+			return
+		end
+		local old = world:FindFirstChild("GraphicsGround")
+		if old then
+			old:Destroy()
+		end
+		local P = PlacementMod.new(Config)
+		local okP, plan = pcall(function()
+			local items = P.plan().items
+			local blockers = {}
+			for _, it in ipairs(items) do
+				blockers[#blockers + 1] = it
+			end
+			for _, it in ipairs(P.scenery(items)) do
+				blockers[#blockers + 1] = it
+			end
+			for _, it in ipairs(P.decor(items)) do
+				blockers[#blockers + 1] = it
+			end
+			return GraphicsMod.groundPlan(Config, P, blockers)
+		end)
+		if not okP then
+			warn("[Builder] sol : plan impossible : " .. tostring(plan))
+			return
+		end
+		local cap = Config.GRAPHICS.budgetParts
+		local folder = Instance.new("Folder")
+		folder.Name = "GraphicsGround"
+		folder.Parent = world
+		local function room()
+			return created < cap
+		end
+		local function soft(p)
+			p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = false, false, false, false
+			created = created + 1
+			return p
+		end
+		for _, t in ipairs(plan.pathPatches) do
+			if room() and not Builder.blenderPaths[t.path] then
+				soft(part({ Name = "GfxPathPatch", Size = Vector3.new(t.w, 0.05, t.d), CFrame = CFrame.new(t.x, t.y, t.z) * CFrame.Angles(0, math.rad(t.rot), 0), Color = c3(t.color), Material = Enum.Material[t.material] or Enum.Material.Cobblestone }, folder))
+			end
+		end
+		for _, e in ipairs(plan.edges) do
+			if room() then
+				soft(part({ Name = "GfxEdge", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.06, e.r * 2, e.r * 2), CFrame = CFrame.new(e.x, e.y, e.z) * CFrame.Angles(0, 0, math.pi / 2), Color = c3(e.color), Material = Enum.Material.Grass }, folder))
+			end
+		end
+		for _, t in ipairs(plan.tufts) do
+			if room() then
+				soft(ball({ Name = "GfxTuft", Size = Vector3.new(t.size, t.size * 0.55, t.size), Position = Vector3.new(t.x, t.y + t.size * 0.2, t.z), Color = c3(t.color), Material = Enum.Material.Grass }, folder))
+			end
+		end
+		for _, c in ipairs(plan.clusters) do
+			if created + 1 + #c.flowers <= cap then
+				soft(ball({ Name = "GfxTuft", Size = Vector3.new(c.size, c.size * 0.55, c.size), Position = Vector3.new(c.x, c.y + c.size * 0.2, c.z), Color = c3(c.color), Material = Enum.Material.Grass }, folder))
+				for _, f in ipairs(c.flowers) do
+					soft(ball({ Name = "GfxFlower", Size = Vector3.new(0.5, 0.5, 0.5), Position = Vector3.new(c.x + f.dx, c.y + c.size * 0.45 + 0.1, c.z + f.dz), Color = c3(f.color) }, folder))
+				end
+			end
+		end
+		stats = plan.stats
+		Builder.groundStats = { created = created, plan = plan.stats }
+		print("[Assets] sol vivant : " .. created .. " Parts (budget " .. cap .. ") : " .. plan.stats.pathPatches .. " dalles, " .. plan.stats.edges .. " bordures, " .. plan.stats.tufts .. " touffes, " .. plan.stats.clusters .. " grappes de fleurs")
+	end)
+	return created, stats
 end
 
 -- Chemins sinueux Blender (tuiles droites/virages bordés de pierres, touffes sur les bords) posés sur les polylignes de Config.Map2.paths ; les pavés
@@ -1412,6 +1499,7 @@ function Builder.dressPaths(assets)
 				end
 			end
 			if placedHere > 0 and placedHere == wanted then -- tout le tracé est habillé : les dalles procédurales de ce chemin sont retirées
+				Builder.blenderPaths[path.name] = true -- lot graphismes : pas de dalles de variation sur un chemin dont les pavés sont remplacés
 				for _, d in ipairs(world:GetDescendants()) do
 					if (d.Name == "PathStone" or d.Name == "PathJoint" or d.Name == "DirtPath") and d:IsA("BasePart") then
 						for k = 1, #poly - 1 do
@@ -1729,17 +1817,20 @@ function Builder.guard(rivalIdx)
 end
 
 ---------------------------------------------------------------- Éclairage
--- Ambiance « jour doré » : soleil chaud, brume légère, bloom discret, étalonnage plus vif.
+-- Ambiance « jour doré » : toutes les valeurs viennent de Config.LIGHTING (une palette chaude pour toute la carte ; le client Ambience glisse d'une zone à l'autre).
+-- Le serveur applique la zone « hub » (village et place) : soleil chaud, brume légère, bloom discret, étalonnage doux.
 function Builder.setupLighting()
-	Lighting.ClockTime = 15.3
-	Lighting.Brightness = 2.2 -- plus doux
-	Lighting.Ambient = Color3.fromRGB(110, 112, 125)
-	Lighting.OutdoorAmbient = Color3.fromRGB(135, 140, 158)
-	Lighting.ColorShift_Top = Color3.fromRGB(255, 238, 205)
-	Lighting.EnvironmentDiffuseScale = 0.6
-	Lighting.EnvironmentSpecularScale = 0.4
-	Lighting.ShadowSoftness = 0.35
-	Lighting.GlobalShadows = true
+	local L = Config.LIGHTING
+	local z, g = L.zones.hub, L.global
+	Lighting.ClockTime = z.clock
+	Lighting.Brightness = g.Brightness
+	Lighting.Ambient = c3(z.ambient)
+	Lighting.OutdoorAmbient = c3(z.outdoor)
+	Lighting.ColorShift_Top = c3(g.ColorShift_Top)
+	Lighting.EnvironmentDiffuseScale = g.EnvironmentDiffuseScale
+	Lighting.EnvironmentSpecularScale = g.EnvironmentSpecularScale
+	Lighting.ShadowSoftness = g.ShadowSoftness
+	Lighting.GlobalShadows = g.GlobalShadows
 
 	local function effect(class, name, props)
 		local e = Lighting:FindFirstChild(name)
@@ -1759,16 +1850,16 @@ function Builder.setupLighting()
 		atm = Instance.new("Atmosphere")
 		atm.Parent = Lighting
 	end
-	atm.Density = 0.32 -- brouillard léger : les lointains se fondent dans le ciel
+	atm.Density = z.density -- brouillard léger : les lointains se fondent dans le ciel
 	atm.Offset = 0.25
-	atm.Color = Color3.fromRGB(199, 220, 255)
-	atm.Decay = Color3.fromRGB(255, 214, 170)
-	atm.Glare = 0.25
-	atm.Haze = 1.7
+	atm.Color = c3(z.atmo)
+	atm.Decay = c3(z.decay)
+	atm.Glare = z.glare
+	atm.Haze = z.haze
 
-	effect("BloomEffect", "ChipeBloom", { Intensity = 0.3, Size = 24, Threshold = 0.96 })
-	effect("SunRaysEffect", "ChipeSunRays", { Intensity = 0.15, Spread = 0.8 })
-	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = 0.1, Contrast = 0.06, Brightness = 0.02 }) -- couleurs plus harmonieuses, moins saturées
+	effect("BloomEffect", "ChipeBloom", { Intensity = z.bloom.intensity, Size = z.bloom.size, Threshold = z.bloom.threshold })
+	effect("SunRaysEffect", "ChipeSunRays", { Intensity = L.sunRays.intensity, Spread = L.sunRays.spread })
+	effect("ColorCorrectionEffect", "ChipeGrade", { Saturation = z.grade.saturation, Contrast = z.grade.contrast, Brightness = z.grade.brightness, TintColor = c3(z.tint) })
 end
 
 ---------------------------------------------------------------- Grand Œuf de l'énigme (ancien Grand Nid ; REFONTE lot 2 : place à l'est de la place du marché)
@@ -2041,6 +2132,13 @@ function Builder.build()
 		PlacementMod.yield = nil
 		local okF, forest = pcall(P.forest)
 		PlacementMod.yield = savedYield
+		if Config.GRAPHICS.enabled and okF and forest then -- lot graphismes : forme, taille et teinte de chaque arbre procédural (mêmes Parts qu'avant)
+			local okS, styles, stats = pcall(GraphicsMod.styleForest, Config, forest)
+			if okS then
+				sceneryHelpers.forestStyle = styles
+				Builder.forestStyleStats = stats
+			end
+		end
 		return Scenery.relief(sceneryHelpers, world, Config, okF and forest or {})
 	end)
 	deco("plaza", function()
@@ -2618,7 +2716,27 @@ function Builder.dressWorld(assets)
 		-- alignées, ponts centrés sur leurs rivières et plus longs qu'elles.
 		local plan = PlacementMod.new(Config).plan()
 		local huts, treeIdx, fences = 0, 0, 0
-		local function put(key, x, z, rot, length, gy)
+		-- Lot graphismes : style (modèle + classe de taille) de chaque arbre, jamais deux styles identiques à moins de minSameDist studs (voir Graphics.assignStyles)
+		local styleOf = {}
+		if Config.GRAPHICS.enabled then
+			pcall(function()
+				local trees = {}
+				for _, it in ipairs(plan.items) do
+					if it.kind == "tree" or it.kind == "fir" then
+						trees[#trees + 1] = it
+					end
+				end
+				local classes = #Config.GRAPHICS.trees.sizeClasses
+				local keys, stats = GraphicsMod.assignStyles(trees, function(it)
+					return GraphicsMod.blenderKeys(PlacementMod.treePool(Config, it.kind, it.x, it.z), classes)
+				end, Config.GRAPHICS.trees.minSameDist)
+				for i, it in ipairs(trees) do
+					styleOf[it] = keys[i]
+				end
+				Builder.treeStyleStats = stats
+			end)
+		end
+		local function put(key, x, z, rot, length, gy, style)
 			if total + (Config.Assets.propsMaxParts[key] or 0) > Config.Assets.propsBudgetParts then
 				return
 			end
@@ -2638,12 +2756,17 @@ function Builder.dressWorld(assets)
 			if key == "tree" or key == "fir" then
 				treeIdx = treeIdx + 1
 				local variant = PlacementMod.treeVariant(Config, key, x, z, treeIdx)
+				local sizeMul, jitter = 1, Config.Assets.treeScaleJitter
+				if style then -- style choisi par Graphics.assignStyles (modèle de la zone, classe de taille) : remplace la variante par rang
+					local sty = GraphicsMod.blenderStyle(Config, style)
+					variant, sizeMul, jitter = sty.model, sty.scale, Config.GRAPHICS.trees.scaleJitter
+				end
 				local st = assets.status and assets.status["m:trees." .. variant]
 				local vc = st and st.ok and st.parts or Config.Assets.propsMaxParts[key]
 				if st and st.ok and total + vc <= Config.Assets.propsBudgetParts then
 					clone = assets.cloneModel("trees", variant)
 					if clone then
-						height = (Config.Assets.treeHeights[variant] or height) * PlacementMod.jitter(x, z, Config.Assets.treeScaleJitter)
+						height = (Config.Assets.treeHeights[variant] or height) * sizeMul * PlacementMod.jitter(x, z, jitter)
 					end
 				end
 			end
@@ -2658,7 +2781,7 @@ function Builder.dressWorld(assets)
 			end
 		end
 		for _, it in ipairs(plan.items) do
-			put(it.kind, it.x, it.z, it.rot, nil, it.y)
+			put(it.kind, it.x, it.z, it.rot, nil, it.y, styleOf[it])
 		end
 		for _, b in ipairs(plan.bridges) do
 			put("bridge", b.x, b.z, b.rot, b.length)

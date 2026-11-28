@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX83"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX133"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX132"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX85"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX136"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX135"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2220,6 +2220,86 @@ Config.Map2 = {
 	neighbors = { { 1, 2, "B1B2" }, { 1, 3, "B1B3" }, { 3, 5, "B3B5" }, { 5, 4, "B5B4" } }, -- bases voisines et chemin qui les relie (B2 et B4 : par la place)
 }
 
+---------------------------------------------------------------- Lot GRAPHISMES : lumière unifiée, sol, arbres, budgets de rendu
+-- Lumière : UNE palette chaude pour toute la carte. Chaque zone (hub = village et place, plots = parcelles des joueurs, arena = colisée, castle = château,
+-- lobby = lieu Hub séparé) règle l'éclairage, l'atmosphère, le bloom léger et l'étalonnage ; seules de petites variations d'intensité et d'heure les
+-- distinguent. Couleurs = { r, g, b } (0 à 255). `limits` borne l'écart entre zones (teinte en degrés, saturation et valeur 0..1, heure, densité, brume) :
+-- Graphics.checkLighting(Config.LIGHTING) le vérifie (module pur testé). Impossible de juger le rendu sans Studio : seules ces propriétés sont mesurées.
+Config.LIGHTING = {
+	version = 1,
+	transition = 2.5, -- secondes de glissement d'une zone à l'autre (client, Ambience)
+	global = { Brightness = 2.2, ColorShift_Top = { 255, 238, 205 }, EnvironmentDiffuseScale = 0.6, EnvironmentSpecularScale = 0.4, ShadowSoftness = 0.35, GlobalShadows = true },
+	sunRays = { intensity = 0.12, spread = 0.8 },
+	zones = {
+		hub = { clock = 15.6, ambient = { 128, 118, 102 }, outdoor = { 150, 140, 122 }, tint = { 255, 248, 236 }, atmo = { 232, 222, 204 }, decay = { 255, 214, 170 }, density = 0.30, haze = 1.5, glare = 0.2,
+			bloom = { intensity = 0.28, size = 24, threshold = 0.96 }, grade = { saturation = 0.10, contrast = 0.06, brightness = 0.02 } },
+		plots = { clock = 15.9, ambient = { 132, 120, 102 }, outdoor = { 155, 142, 122 }, tint = { 255, 246, 230 }, atmo = { 236, 224, 204 }, decay = { 255, 214, 170 }, density = 0.26, haze = 1.3, glare = 0.2,
+			bloom = { intensity = 0.26, size = 24, threshold = 0.96 }, grade = { saturation = 0.12, contrast = 0.06, brightness = 0.02 } },
+		arena = { clock = 16.4, ambient = { 126, 113, 97 }, outdoor = { 150, 135, 114 }, tint = { 255, 242, 222 }, atmo = { 238, 222, 198 }, decay = { 255, 210, 160 }, density = 0.28, haze = 1.5, glare = 0.25,
+			bloom = { intensity = 0.32, size = 26, threshold = 0.95 }, grade = { saturation = 0.12, contrast = 0.08, brightness = 0.02 } },
+		castle = { clock = 17.0, ambient = { 122, 108, 92 }, outdoor = { 144, 129, 108 }, tint = { 255, 238, 216 }, atmo = { 238, 218, 192 }, decay = { 255, 204, 150 }, density = 0.34, haze = 1.8, glare = 0.25,
+			bloom = { intensity = 0.30, size = 26, threshold = 0.95 }, grade = { saturation = 0.08, contrast = 0.08, brightness = 0.0 } },
+		lobby = { clock = 17.2, ambient = { 128, 114, 98 }, outdoor = { 152, 136, 116 }, tint = { 255, 240, 222 }, atmo = { 240, 220, 196 }, decay = { 255, 206, 156 }, density = 0.32, haze = 1.6, glare = 0.25,
+			bloom = { intensity = 0.38, size = 28, threshold = 0.93 }, grade = { saturation = 0.10, contrast = 0.06, brightness = 0.02 } },
+	},
+	zoneOrder = { "hub", "plots", "arena", "castle", "lobby" },
+	-- Limites de cohérence (vérifiées par Graphics.checkLighting) : toutes les couleurs sont dans la bande chaude ; l'écart entre deux zones quelconques reste borné.
+	limits = { warmHueMin = 20, warmHueMax = 50, minSatForHue = 0.04, hueSpread = 8, satSpread = 0.08, valSpread = 0.12, clockSpread = 1.8, densitySpread = 0.10, hazeSpread = 0.6,
+		bloomMax = 0.40, gradeSatMin = 0, gradeSatMax = 0.15, densityMax = 0.4 },
+	plotsRadius = 52, arenaRadius = 70, -- rayon (studs) d'une parcelle (centre de base) et du colisée (centre de l'arène) pour la zone de lumière
+}
+
+-- Zone de lumière d'une position : "castle" (plateau du château ou cour de Zed), "arena" (colisée), "plots" (parcelles), sinon "hub". Pure.
+function Config.lightingZoneAt(x, z)
+	local M = Config.Map2
+	local c = M.castle
+	if x >= c.x0 - 8 and x <= c.x1 and z >= c.z0 and z <= c.z1 then
+		return "castle"
+	end
+	local a = M.arena
+	if math.sqrt((x - a.x) ^ 2 + (z - a.z) ^ 2) <= Config.LIGHTING.arenaRadius then
+		return "arena"
+	end
+	for _, b in ipairs(M.bases) do
+		if math.sqrt((x - b.x) ^ 2 + (z - b.z) ^ 2) <= Config.LIGHTING.plotsRadius then
+			return "plots"
+		end
+	end
+	return "hub"
+end
+
+-- Sol, arbres, performance : toutes les valeurs du lot graphismes (planificateur pur ReplicatedStorage/Shared/Graphics, posé par Builder.dressGraphics).
+Config.GRAPHICS = {
+	enabled = true,
+	budgetParts = 700, -- Parts du lot (chemins, bordures, touffes, fleurs) : budget SÉPARÉ posé après la carte (la carte procédurale garde son plafond de 1200)
+	ground = {
+		pathPatchCap = 240, edgeCap = 160, tuftCap = 110, clusterCap = 30, flowersPerCluster = { 3, 5 }, -- plafonds de Parts (grappe = 1 touffe + 3 à 5 fleurs)
+		pathPatchSpacing = 8, edgeSpacing = 13, -- pas minimal (studs) le long d'un chemin ; élargi si le plafond le demande
+		maxPerCell = 7, cell = 20, -- densité : au plus 7 pièces de sol (touffes, fleurs) par cellule de 20 x 20 studs (0,0175 / m2)
+		scatterRange = 85, -- touffes et fleurs seulement à moins de 85 studs d'un chemin ou de la place (là où le joueur regarde)
+		pathPalettePaved = { { 196, 180, 150 }, { 186, 170, 142 }, { 205, 190, 160 }, { 176, 164, 140 } },
+		pathPaletteDirt = { { 150, 118, 80 }, { 140, 110, 76 }, { 160, 128, 90 } },
+		edgePalette = { { 84, 150, 76 }, { 104, 170, 88 }, { 96, 156, 70 }, { 88, 158, 84 } },
+		tuftPalette = { { 70, 140, 66 }, { 84, 156, 72 }, { 62, 128, 62 } },
+		flowerPalette = { { 255, 120, 154 }, { 255, 210, 63 }, { 255, 255, 255 }, { 255, 170, 90 }, { 190, 150, 240 } },
+	},
+	trees = {
+		minSameDist = 40, -- distance minimale (studs) entre deux arbres Blender de MÊME style (modèle et classe de taille)
+		sizeClasses = { 0.75, 0.95, 1.15, 1.4 }, scaleJitter = 0.04,
+		procMinSameDist = 24, -- idem pour les arbres procéduraux des forêts (forme, taille, teinte)
+		procSizes = { 0.82, 1.0, 1.22 },
+		procShapes = { { name = "round", w = 10, h = 10, trunk = 8, y = 10.5 }, { name = "tall", w = 7.5, h = 12.5, trunk = 9, y = 11.8 } },
+		procLeavesMeadow = { { 70, 146, 72 }, { 88, 160, 70 }, { 62, 134, 78 } },
+		procLeavesNorth = { { 54, 120, 70 }, { 66, 134, 78 }, { 48, 112, 84 } },
+		groupSizes = { 4, 3, 5, 2 }, groupRadius = { 9, 14 }, -- arbres Blender du plan : par groupes (taille du groupe en rotation), compagnons à 9-14 studs de la graine
+	},
+	perf = {
+		maxPointLights = 4, lightRange = 90, -- au plus 4 PointLight allumées (les plus proches, à moins de 90 studs) ; les autres sont coupées côté client
+		fxCullAt = 150, fxShowAt = 130, interval = 0.5, rescan = 8, -- émetteurs, faisceaux, feux : coupés au-delà de 150 studs, rallumés sous 130
+		mobilePartsBudget = 7000,
+	},
+}
+
 -- Territoires d'obtention d'œufs (B.4) : poids de rareté à l'apparition (Commun..Cosmique), temps de vol, réapparition (s), pièges.
 -- Lot 8A : `nestAlarm` (Mara et Zed ; Gus reste clément, l'enclos sauvage n'a pas de gardien) : chiper un œuf réveille le gardien le plus proche du
 -- voleur, qui le CHARGE `delay` s plus tard ; si CE gardien le frappe pendant qu'il porte un œuf du territoire, l'œuf retourne à son nid (B.4 « prise
@@ -2804,7 +2884,7 @@ for key, id in pairs({ vendor_eggs = 138633300069014, vendor_luck = 137414127061
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -3100,7 +3180,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -3280,7 +3360,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3626,7 +3706,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -3927,7 +4007,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4041,6 +4121,33 @@ function Placement.treeVariant(Config, kind, x, z, k, MapGeo)
 		end
 	end
 	return ({ "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" })[(k or 0) % 4 + 1]
+end
+
+-- Modèles d'arbre possibles dans la zone de (x, z) : même découpage que treeVariant, mais en liste (lot graphismes : Graphics.assignStyles choisit dans la liste, avec
+-- une classe de taille, de sorte que deux arbres voisins ne soient jamais identiques). Les sapins restent des pins ; près des lacs et de la place : sakura et bouleau.
+function Placement.treePool(Config, kind, x, z)
+	if kind == "fir" then
+		return { "tree_pine" }
+	end
+	local M2 = Config.Map2
+	for _, lk in ipairs(M2.lakes) do
+		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 40 then
+			return { "tree_sakura", "tree_birch" }
+		end
+	end
+	if math.sqrt((x - M2.plaza.x) ^ 2 + (z - M2.plaza.z) ^ 2) < M2.plaza.r + 50 then
+		return { "tree_sakura", "tree_birch" }
+	end
+	if z < -180 then
+		return { "tree_pine" }
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2) < t.r + 25 then
+			return { "tree_pine" }
+		end
+	end
+	return { "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" }
 end
 
 -- Échelle aléatoire déterministe 1 ± jitter d'après la position (jamais de tirage libre).
@@ -4354,8 +4461,11 @@ function Placement.new(Config, MapGeo)
 		end
 		shuffle(cells)
 		shuffle(forestCells)
-		local function scatter(kind, count, list)
+		-- grouped : arbres posés par GROUPES (lot graphismes) : une graine, puis jusqu'à (taille du groupe - 1) compagnons à groupRadius studs, tous soumis à fits()
+		local groupSeq = 0
+		local function scatter(kind, count, list, grouped)
 			local got = 0
+			local GT = Config.GRAPHICS and Config.GRAPHICS.trees
 			for _, c in ipairs(list) do
 				if got >= count then
 					break
@@ -4364,14 +4474,30 @@ function Placement.new(Config, MapGeo)
 				if fits(kind, x, z) then
 					add(kind, x, z, rnd() * 360)
 					got = got + 1
+					if grouped and GT then
+						groupSeq = groupSeq + 1
+						local size = GT.groupSizes[(groupSeq - 1) % #GT.groupSizes + 1]
+						local a0 = rnd() * math.pi * 2
+						for k = 1, size - 1 do
+							if got < count then
+								local a = a0 + k * (math.pi * 2 / (size - 1)) + (rnd() - 0.5) * 0.5
+								local rad = GT.groupRadius[1] + rnd() * (GT.groupRadius[2] - GT.groupRadius[1])
+								local gx, gz = x + math.cos(a) * rad, z + math.sin(a) * rad
+								if fits(kind, gx, gz) then
+									add(kind, gx, gz, rnd() * 360)
+									got = got + 1
+								end
+							end
+						end
+					end
 				end
 			end
 			return got
 		end
-		local firs = scatter("fir", plan.fir or 0, forestCells)
-		scatter("fir", (plan.fir or 0) - firs, cells)
-		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells)
-		scatter("tree", (plan.tree or 0) - trees, cells)
+		local firs = scatter("fir", plan.fir or 0, forestCells, true)
+		scatter("fir", (plan.fir or 0) - firs, cells, true)
+		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells, true)
+		scatter("tree", (plan.tree or 0) - trees, cells, true)
 		scatter("rock", plan.rock or 0, cells)
 		scatter("bush", plan.bush or 0, cells)
 		-- 3. ponts de bois (Blender) : centrés sur leur cours d'eau, axe du pont ; le pont de pierre du château (rampe) reste procédural
@@ -4530,7 +4656,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -4955,7 +5081,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -4993,7 +5119,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -5081,7 +5207,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -5144,7 +5270,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, spécial, changer de pet) et rejoue les événements reçus.
 -- Types (9) : 3 triangles primaires (BEATS, x1,5 / x0,67) : Feu > Nature > Eau > Feu, Lumière > Ombre > Ciel > Lumière, Terre > Foudre > Glace > Terre ;
@@ -5672,7 +5798,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5736,7 +5862,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -6077,7 +6203,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -6134,7 +6260,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -6246,7 +6372,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -6453,7 +6579,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6672,7 +6798,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -7484,7 +7610,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7610,7 +7736,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7814,7 +7940,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -8015,7 +8141,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -8448,7 +8574,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8677,7 +8803,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8741,7 +8867,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -9059,7 +9185,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -9384,7 +9510,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -9542,7 +9668,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9664,7 +9790,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -10050,7 +10176,7 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
 -- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
 -- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
 -- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
@@ -10923,7 +11049,7 @@ function Npc.violations(Config, o, inv, userId)
 end
 
 return Npc
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
 -- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
 -- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
 -- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
@@ -11727,7 +11853,7 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store, open)
 end
 
 return Rewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
 -- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
 -- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
 -- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
@@ -11888,7 +12014,7 @@ function KioskData.overlap(Map2, cx, cz, r, margin)
 end
 
 return KioskData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
 -- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
 -- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
 -- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
@@ -12009,7 +12135,7 @@ F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", regio
 -- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
 
 return DecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
 -- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
 --
@@ -12112,7 +12238,7 @@ function HouseDecorData.budget(level)
 end
 
 return HouseDecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
 -- Une fiche par achat, clé = clé de Config.PRODUCTS / Config.PASSES. Source : Assets/ACHATS_DEFINITIONS.md (titre <= 28 caractères, définition <= 90).
 -- Champs : cat (catégorie, voir Shop.CATEGORIES), icon (clé de Config.ICONS), title, def (définition courte), detail (durée, ce qui est aléatoire ou fixe, prérequis),
 --   notDo (« ce que l'achat ne fait PAS »), chance (texte « hasard / fixe »), limit ("achat unique" | "aucune limite" | "achat unique par saison"), also (autres catégories à renvoyer, « voir aussi »).
@@ -12357,7 +12483,7 @@ for n = 1, 6 do
 end
 
 return I
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
 -- Ids, prix (R$), catégories et drapeaux de TOUS les achats de la boutique. L'intégrateur appelle `ShopData.merge(Config)` à la fin de Config.lua (ou copie ces champs
 -- dans Config.PRODUCTS / Config.PASSES) : les champs existants (name, emoji, desc, eggTier...) sont conservés, id / robux / cat / random / once / season / eggTier sont posés ici.
 -- Drapeaux : random = achat masqué et refusé si PolicyService restreint ; once = achat unique à vie ; season = achat unique PAR saison (season.premium = n) ;
@@ -12455,7 +12581,7 @@ function D.merge(config, info)
 end
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
 -- Catégories, tri, état « Possédé », règle de mise à niveau (palier inférieur déjà possédé -> seul le complément est visible), prix effectif, visibilité
 -- (id renseigné, PolicyService, espèces publiées), contrôle de place AVANT paiement, débordement, texte des probabilités et reçus (un crédit par reçu).
 -- Décision utilisateur : PLUS DE PLAFOND D'ACHAT. Seuls les achats uniques (`once`, passes, poses) et le passe de saison (une fois par saison) sont limités.
@@ -13056,7 +13182,7 @@ function Shop.grantPass(profil, key)
 end
 
 return Shop
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
 -- LOT 16 (G.5 + addendum B) : logique PURE de la Passe de combat (aucun service Roblox, aucun os.time : le SERVEUR passe `nowUtc` en secondes).
 -- Usage : local S = Season.new(Config, SeasonData). Config fournit TIERS (rareté par NOM) et PETS (espèce Exclusif de la saison).
 -- Champs de profil (profil.season) : { n, xp, day, dayXp, claimedFree, claimedPrem, premium, plus, prev }
@@ -13548,7 +13674,7 @@ function Season.new(Config, SD)
 end
 
 return Season
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX124"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
 -- LOT 16 (G.5 + addendum B) : DONNÉES de la Passe de combat (aucune logique, aucun service Roblox). Les raretés sont des NOMS résolus par Config.TIERS (jamais de rang en dur).
 -- Modifiable sans toucher Season.lua : durée, date de début, XP par source, plafond/jour, XP par palier, récompenses des deux pistes, thèmes et espèces de saison.
 local D = {}
@@ -13689,7 +13815,7 @@ D.PREMIUM_TRACK = {
 }
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX125"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
 -- LOT 16 : OFFRES CONTEXTUELLES à l'écran, logique PURE (aucun service Roblox, aucune instance, aucun hasard). Une offre à la fois, 3 par session, 300 s d'écart,
 -- jamais pendant une action, jamais juste après un achat, jamais ce que le joueur possède ou ce qui est indisponible. Le client affiche la carte (bouton Fermer toujours
 -- visible) et ouvre la MEME fiche que le kiosque ; le serveur reste seul juge de l'achat. Style : pas de `+=`, pas de `continue`, gardes de type partout.
@@ -13922,7 +14048,7 @@ function Offers.expired(state, now, ctx)
 end
 
 return Offers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX124"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX126"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
 -- LOT 16 : DONNEES PURES des offres contextuelles à l'écran (une carte à la fois, fermable d'un geste). Aucune instance, aucun service Roblox.
 -- Règles (décisions utilisateur, ACHATS_DEFINITIONS « Règles communes ») : jamais de fausse urgence, aucun minuteur affiché, aucune promesse de gain,
 -- 3 offres par session, 300 s entre deux, aucune offre juste après un achat, jamais ce que le joueur possède, jamais un achat sans id ou masqué (PolicyService),
@@ -13961,7 +14087,7 @@ OffersData.EGG_TEXT = "Un œuf de rareté fixe %s, posé dans ta base. Espèce e
 OffersData.FORBIDDEN_WORDS = { "dernière chance", "dépêche", "vite", "limité", "limitée", "stock", "expire", "plus que", "maintenant ou jamais", "offre spéciale", "promo", "-50", "gratuit à vie", "tu vas obtenir", "garanti !" }
 
 return OffersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX125"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX127"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
 -- LOT 16 : DONNEES PURES des 8 vendeurs PNJ du hub (un par catégorie de la boutique du kiosque). Aucun service Roblox, aucune instance : testé hors de Roblox
 -- (tests/sellers.luau). Source unique pour ServerScriptService/Sellers (construction, prompts, validation serveur) et pour le client (onglet à ouvrir).
 -- Repères : Nord = -Z, Est = +X. Le « devant » d'un vendeur (étiquette, comptoir) regarde le kiosque central.
@@ -14246,7 +14372,7 @@ function SellersData.footprints(layout)
 end
 
 return SellersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX126"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX128"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
 -- Les 78 espèces de Chipe-Œufs. MODULE DE DONNÉES PUR : aucun service Roblox, seulement `Color3.fromRGB` (global Roblox ; simulé par les tests).
 -- Config.PETS = Bestiary.PETS (voir README « Brancher »). L'INDICE D'ESPÈCE EST STABLE POUR TOUJOURS : il est stocké dans les profils (dex, pets, défenses PvP).
 -- Les indices 1 à 18 sont les 18 espèces historiques, identiques octet pour octet à l'ancien Config.PETS (nom, revenu, couleur, repli) : ne jamais les modifier.
@@ -15390,7 +15516,7 @@ function Bestiary.fallback(idx)
 end
 
 return Bestiary
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX127"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX129"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
 -- Expérience et niveaux des pets : module PUR (aucun service Roblox, aucun require). L'XP est stockée sur l'emplacement du pet : `slot.x` = XP CUMULÉE (entier, champ déjà
 -- créé à 0 par la migration v11 et assaini par Data.merge). Niveau 1 à 20 ; chaque niveau donne +1,5 % de pv et d'attaque (Battle.unit : stat x PetXp.statMul(niveau)).
 -- RÈGLE FERME : l'XP de pet ne s'obtient QU'EN JOUANT (combat PvE/PvP/PNJ, carte Expérience D.5). Aucun produit, aucun pass, aucun reçu ne donne d'XP de pet
@@ -15585,7 +15711,7 @@ function PetXp.trainerAdd(trainer, amount)
 end
 
 return PetXp
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX128"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX130"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
 -- Récompense AU CHOIX après une victoire PvE (tour des Dresseurs, combats de PNJ) : module PUR (aucun service Roblox). Ne remplace pas Rewards.lua (série / calendrier du lot 15).
 -- Le SERVEUR tire 3 cartes de 3 catégories DIFFÉRENTES (poids : Pièces 30, Expérience 25, Œuf 15, Vitesse 15, Effet 15 ; aux boss, une des 3 est toujours l'Œuf), les enregistre dans
 -- `data.battle.pendingPick = { id, cards, expires, floor, mode }` puis les envoie au client ; le joueur en choisit une en 15 s, sinon la première. Se déconnecter ou relancer ne
@@ -15951,7 +16077,7 @@ function BattleRewards.view(Config, pick, now)
 end
 
 return BattleRewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX129"><Properties><string name="Name">Duel</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Duel   (lot 13, E.1 E.2 E.4, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX131"><Properties><string name="Name">Duel</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Duel   (lot 13, E.1 E.2 E.4, B.4)
 -- Règles PURES du duel local et des ligues (aucun service Roblox, aucun require, horloge injectée, jamais d'erreur sur entrée invalide). Pas de += ni de continue (lanceur lupa).
 -- Le serveur (Main.server.lua) fait les effets (placement sur le sable, Battle.turn, notifications) ; ce module décide.
 --   Duel.canChallenge(ctx, cfg)        -> ok, raison, côté ("a" défieur | "b" défié)   [6 refus de E.2 + soi-même + occupé]
@@ -16423,7 +16549,7 @@ function Duel.outcomes(m)
 end
 
 return Duel
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX130"><Properties><string name="Name">Ranked</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Ranked
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX132"><Properties><string name="Name">Ranked</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Ranked
 -- LOT 14 : classé EN DIRECT (file MemoryStore, serveur réservé « ranked »). Logique PURE : aucune API Roblox, aucun yield, aucune erreur levée
 -- sur une entrée invalide (valeurs de retour). Testé par tests/lot14.luau (Lune ou lupa). Le transport (MemoryStore, TeleportService) est dans
 -- ServerScriptService/PvpLive.lua, qui n'appelle ces règles qu'à travers des fonctions de transformation (UpdateAsync) et des décisions.
@@ -17055,7 +17181,7 @@ function Ranked.quotaLimit(players)
 end
 
 return Ranked
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX131"><Properties><string name="Name">BattleLayout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleLayout   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX133"><Properties><string name="Name">BattleLayout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleLayout   (refonte de la présentation du combat, vue face à face)
 -- Module PUR (aucune instance Roblox, aucun require) : calcule la disposition de l'écran de combat à partir de la taille de la fenêtre et de la zone sûre :
 --   * rectangles en pixels (et en échelle) de la carte de l'adversaire (haut à droite), de la carte du joueur (bas à gauche), du bandeau de journal (bas),
 --     des 4 boutons d'action (bas à droite : Attaque, Spécial, Changer, Fuir), tous >= 44 px, jamais en dehors de la zone sûre, jamais superposés ;
@@ -17687,8 +17813,525 @@ function BattleLayout.decorSpots(n)
 end
 
 return BattleLayout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX134"><Properties><string name="Name">Graphics</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Graphics
+-- Lot GRAPHISMES (monde) : logique PURE, déterministe, testée hors de Roblox. Aucun Instance, aucun tirage libre (Park-Miller 48271).
+--   Graphics.checkLighting(L)                 : cohérence des palettes de lumière entre zones (teinte, saturation, valeur, heure, densité, brume).
+--   Graphics.assignStyles(items, poolOf, d)   : style de chaque arbre, jamais deux styles identiques à moins de `d` studs si le choix le permet.
+--   Graphics.blenderStyle(key) / procStyle    : décodage d'un style d'arbre (modèle + classe de taille ; forme + taille + teinte).
+--   Graphics.groundPlan(Config, P, planItems) : variations de chemins, bordures d'herbe irrégulières, touffes et grappes de fleurs (plafonds de Parts).
+--   Graphics.selectLights(lights, cam, n, r)  : les `n` lumières les plus proches (à moins de `r`) restent allumées, les autres sont coupées (LOD).
+-- Compatible lupa : pas de += ni de continue, pas de math.atan2.
+local Graphics = {}
+
+local function dist(ax, az, bx, bz)
+	return math.sqrt((ax - bx) ^ 2 + (az - bz) ^ 2)
+end
+
+-- Pause coopérative facultative (Builder la règle sur task.wait, comme Placement.yield) : le calcul du sol cède la main tous les 25 essais ; les tests purs la laissent à nil.
+Graphics.yield = nil
+local pauseCount = 0
+local function pause()
+	pauseCount = pauseCount + 1
+	if Graphics.yield and pauseCount % 25 == 0 then
+		Graphics.yield()
+	end
+end
+
+-- Générateur déterministe Park-Miller (48271 mod 2^31-1) : les produits restent sous 2^53.
+local function newRng(seed)
+	local s = math.floor(seed) % 2147483647
+	if s <= 0 then
+		s = 1
+	end
+	return function()
+		s = (s * 48271) % 2147483647
+		return s / 2147483647
+	end
+end
+Graphics.newRng = newRng
+
+---------------------------------------------------------------- Couleurs
+-- RGB 0..255 -> teinte (degrés 0..360), saturation et valeur (0..1).
+function Graphics.rgbToHsv(r, g, b)
+	local rr, gg, bb = r / 255, g / 255, b / 255
+	local mx, mn = math.max(rr, gg, bb), math.min(rr, gg, bb)
+	local d = mx - mn
+	local h = 0
+	if d > 0 then
+		if mx == rr then
+			h = 60 * (((gg - bb) / d) % 6)
+		elseif mx == gg then
+			h = 60 * ((bb - rr) / d + 2)
+		else
+			h = 60 * ((rr - gg) / d + 4)
+		end
+	end
+	local s = mx > 0 and d / mx or 0
+	return h, s, mx
+end
+
+-- Écart angulaire de teinte (0..180).
+function Graphics.hueDelta(a, b)
+	local d = math.abs(a - b) % 360
+	return d > 180 and 360 - d or d
+end
+
+---------------------------------------------------------------- Lumière
+local COLOR_ROLES = { "ambient", "outdoor", "tint", "atmo", "decay" }
+local SCALARS = { "clock", "density", "haze", "glare" }
+
+local function isColor(c)
+	return type(c) == "table" and type(c[1]) == "number" and type(c[2]) == "number" and type(c[3]) == "number" and c[1] >= 0 and c[1] <= 255 and c[2] >= 0 and c[2] <= 255 and c[3] >= 0 and c[3] <= 255
+end
+
+-- Vérifie la cohérence des palettes de Config.LIGHTING. Retourne { ok, problems = { texte }, stats = { hue, sat, val, clock, density, haze } } où stats donne le
+-- plus grand écart mesuré entre deux zones (tous rôles confondus). Les couleurs très peu saturées (< minSatForHue) n'ont pas de teinte comparée.
+function Graphics.checkLighting(L)
+	local problems, stats = {}, { hue = 0, sat = 0, val = 0, clock = 0, density = 0, haze = 0, bloom = 0 }
+	if type(L) ~= "table" or type(L.zones) ~= "table" or type(L.limits) ~= "table" then
+		return { ok = false, problems = { "LIGHTING absent ou incomplet" }, stats = stats }
+	end
+	local lim = L.limits
+	local names = {}
+	for _, n in ipairs(L.zoneOrder or {}) do
+		names[#names + 1] = n
+	end
+	if #names < 4 then
+		problems[#problems + 1] = "au moins 4 zones attendues (hub, parcelles, arène, château)"
+	end
+	local seen = {}
+	for _, n in ipairs(names) do
+		seen[n] = true
+		local z = L.zones[n]
+		if type(z) ~= "table" then
+			problems[#problems + 1] = "zone " .. n .. " absente"
+		else
+			for _, role in ipairs(COLOR_ROLES) do
+				local c = z[role]
+				if not isColor(c) then
+					problems[#problems + 1] = n .. "." .. role .. " : couleur invalide"
+				else
+					local h, s = Graphics.rgbToHsv(c[1], c[2], c[3])
+					if s >= lim.minSatForHue and (h < lim.warmHueMin or h > lim.warmHueMax) then
+						problems[#problems + 1] = n .. "." .. role .. " : teinte " .. math.floor(h) .. " hors de la bande chaude " .. lim.warmHueMin .. "-" .. lim.warmHueMax
+					end
+				end
+			end
+			for _, k in ipairs(SCALARS) do
+				if type(z[k]) ~= "number" or z[k] ~= z[k] then
+					problems[#problems + 1] = n .. "." .. k .. " : nombre attendu"
+				end
+			end
+			if type(z.bloom) ~= "table" or type(z.bloom.intensity) ~= "number" or z.bloom.intensity > lim.bloomMax or z.bloom.intensity < 0 then
+				problems[#problems + 1] = n .. ".bloom : intensité absente ou au-delà de " .. tostring(lim.bloomMax)
+			end
+			if type(z.grade) ~= "table" or type(z.grade.saturation) ~= "number" or z.grade.saturation < lim.gradeSatMin or z.grade.saturation > lim.gradeSatMax then
+				problems[#problems + 1] = n .. ".grade : saturation hors de " .. lim.gradeSatMin .. ".." .. lim.gradeSatMax
+			end
+			if type(z.density) == "number" and z.density > lim.densityMax then
+				problems[#problems + 1] = n .. ".density : brume trop dense"
+			end
+		end
+	end
+	if #problems == 0 then
+		for i = 1, #names do
+			for j = i + 1, #names do
+				local a, b = L.zones[names[i]], L.zones[names[j]]
+				for _, role in ipairs(COLOR_ROLES) do
+					local ha, sa, va = Graphics.rgbToHsv(a[role][1], a[role][2], a[role][3])
+					local hb, sb, vb = Graphics.rgbToHsv(b[role][1], b[role][2], b[role][3])
+					if sa >= lim.minSatForHue and sb >= lim.minSatForHue then
+						stats.hue = math.max(stats.hue, Graphics.hueDelta(ha, hb))
+					end
+					stats.sat = math.max(stats.sat, math.abs(sa - sb))
+					stats.val = math.max(stats.val, math.abs(va - vb))
+				end
+				stats.clock = math.max(stats.clock, math.abs(a.clock - b.clock))
+				stats.density = math.max(stats.density, math.abs(a.density - b.density))
+				stats.haze = math.max(stats.haze, math.abs(a.haze - b.haze))
+				stats.bloom = math.max(stats.bloom, math.abs(a.bloom.intensity - b.bloom.intensity))
+			end
+		end
+		local function over(name, v, limit)
+			if v > limit then
+				problems[#problems + 1] = "écart de " .. name .. " entre zones : " .. string.format("%.3f", v) .. " > " .. limit
+			end
+		end
+		over("teinte", stats.hue, lim.hueSpread)
+		over("saturation", stats.sat, lim.satSpread)
+		over("valeur", stats.val, lim.valSpread)
+		over("heure", stats.clock, lim.clockSpread)
+		over("densité", stats.density, lim.densitySpread)
+		over("brume", stats.haze, lim.hazeSpread)
+	end
+	return { ok = #problems == 0, problems = problems, stats = stats }
+end
+
+---------------------------------------------------------------- Styles d'arbres
+-- items = { {x, z, ...} } dans l'ordre de pose ; poolOf(item, index) -> liste de clés de style. Choisit pour chaque arbre le style dont l'exemplaire le plus proche
+-- est le plus loin (égalité : style le moins employé, puis ordre du pool décalé par le rang : pas de motif répété). Retourne (clés, stats) ; stats.minSame = plus petite
+-- distance entre deux arbres de même style (math.huge si aucun), stats.violations = paires plus proches que `minDist`, stats.styles = nombre de styles employés.
+function Graphics.assignStyles(items, poolOf, minDist)
+	local keys, usage = {}, {}
+	local byKey = {}
+	for i, it in ipairs(items) do
+		local pool = poolOf(it, i)
+		local best, bestD, bestU = nil, -1, math.huge
+		local n = #pool
+		for off = 0, n - 1 do
+			local key = pool[(off + i) % n + 1]
+			local nearest = math.huge
+			for _, o in ipairs(byKey[key] or {}) do
+				local d = dist(it.x, it.z, o.x, o.z)
+				if d < nearest then
+					nearest = d
+				end
+			end
+			local u = usage[key] or 0
+			if nearest > bestD or (nearest == bestD and u < bestU) then
+				best, bestD, bestU = key, nearest, u
+			end
+		end
+		keys[i] = best
+		usage[best] = (usage[best] or 0) + 1
+		byKey[best] = byKey[best] or {}
+		byKey[best][#byKey[best] + 1] = it
+	end
+	return keys, Graphics.styleStats(items, keys, minDist)
+end
+
+-- Mesure : plus petite distance entre deux arbres de même clé, paires sous `minDist`, nombre de styles distincts.
+function Graphics.styleStats(items, keys, minDist)
+	local minSame, violations, used, count = math.huge, 0, {}, 0
+	for i = 1, #items do
+		if not used[keys[i]] then
+			used[keys[i]] = true
+			count = count + 1
+		end
+		for j = i + 1, #items do
+			if keys[i] == keys[j] then
+				local d = dist(items[i].x, items[i].z, items[j].x, items[j].z)
+				if d < minSame then
+					minSame = d
+				end
+				if d < (minDist or 0) then
+					violations = violations + 1
+				end
+			end
+		end
+	end
+	return { minSame = minSame, violations = violations, styles = count, trees = #items }
+end
+
+-- Clé de style des arbres Blender : « modèle@classe » (classe = rang dans Config.GRAPHICS.trees.sizeClasses).
+function Graphics.blenderKeys(models, classCount)
+	local out = {}
+	for _, m in ipairs(models) do
+		for c = 1, classCount do
+			out[#out + 1] = m .. "@" .. c
+		end
+	end
+	return out
+end
+
+function Graphics.blenderStyle(Config, key)
+	local model, c = tostring(key):match("^(.-)@(%d+)$")
+	local classes = Config.GRAPHICS.trees.sizeClasses
+	local scale = classes[tonumber(c) or 1] or 1
+	return { model = model, scale = scale }
+end
+
+-- Clé de style des arbres procéduraux : « forme:taille:teinte » (rangs dans Config.GRAPHICS.trees).
+function Graphics.procKeys(Config, north)
+	local T = Config.GRAPHICS.trees
+	local leaves = north and T.procLeavesNorth or T.procLeavesMeadow
+	local out = {}
+	for sh = 1, #T.procShapes do
+		for sz = 1, #T.procSizes do
+			for lf = 1, #leaves do
+				out[#out + 1] = sh .. ":" .. sz .. ":" .. lf
+			end
+		end
+	end
+	return out
+end
+
+function Graphics.procStyle(Config, key, north)
+	local T = Config.GRAPHICS.trees
+	local sh, sz, lf = tostring(key):match("^(%d+):(%d+):(%d+)$")
+	local leaves = north and T.procLeavesNorth or T.procLeavesMeadow
+	return { shape = T.procShapes[tonumber(sh) or 1], scale = T.procSizes[tonumber(sz) or 1], leaf = leaves[tonumber(lf) or 1], key = key }
+end
+
+-- Styles d'une liste d'arbres procéduraux ({x, z, grove?}) : retourne { {shape, scale, leaf, key} } dans l'ordre + statistiques. Les arbres du nord (z < -180) et
+-- des bosquets prennent la palette « nord » (plus sombre).
+function Graphics.styleForest(Config, forest)
+	local function isNorth(t)
+		return t.grove ~= nil or t.z < -180
+	end
+	local meadow, north = Graphics.procKeys(Config, false), Graphics.procKeys(Config, true)
+	local keys, stats = Graphics.assignStyles(forest, function(t)
+		return isNorth(t) and north or meadow
+	end, Config.GRAPHICS.trees.procMinSameDist)
+	-- une clé « nord » et une clé « prairie » ont la même écriture : on les sépare pour la mesure d'unicité
+	local out = {}
+	for i, t in ipairs(forest) do
+		out[i] = Graphics.procStyle(Config, keys[i], isNorth(t))
+	end
+	local tagged = {}
+	for i, t in ipairs(forest) do
+		tagged[i] = (isNorth(t) and "n" or "m") .. keys[i]
+	end
+	return out, Graphics.styleStats(forest, tagged, Config.GRAPHICS.trees.procMinSameDist)
+end
+
+---------------------------------------------------------------- LOD des lumières
+-- lights = { {x, y, z} } ; cam = {x, y, z}. Retourne un tableau booléen : vrai pour les `maxOn` lumières les plus proches (à moins de `range`), faux ailleurs.
+-- Distances invalides (nil, NaN) : lumière coupée. Ordre stable (égalité : rang).
+function Graphics.selectLights(lights, cam, maxOn, range)
+	local on = {}
+	local cand = {}
+	for i, l in ipairs(lights) do
+		on[i] = false
+		if type(l) == "table" and type(l.x) == "number" and type(l.y) == "number" and type(l.z) == "number" and type(cam) == "table" then
+			local d = math.sqrt((l.x - cam.x) ^ 2 + (l.y - cam.y) ^ 2 + (l.z - cam.z) ^ 2)
+			if d == d and d <= range then
+				cand[#cand + 1] = { i = i, d = d }
+			end
+		end
+	end
+	table.sort(cand, function(a, b)
+		if a.d ~= b.d then
+			return a.d < b.d
+		end
+		return a.i < b.i
+	end)
+	for k = 1, math.min(maxOn, #cand) do
+		on[cand[k].i] = true
+	end
+	return on
+end
+
+---------------------------------------------------------------- Sol : chemins, bordures d'herbe, touffes et fleurs
+local function pick(list, r)
+	return list[1 + math.floor(r * #list) % #list]
+end
+
+-- Plan du sol, déterministe. P = Placement.new(Config, MapGeo) (blocked, groundY, forest, pathSegments), planItems = P.plan().items (objets déjà posés).
+-- Retourne { pathPatches, edges, tufts, clusters, parts, stats } :
+--   pathPatches : { x, z, y, w, d, rot, color, material, path } — petites dalles posées SUR un chemin (variation de couleur et de matière) ;
+--   edges       : { x, z, r, color } — taches d'herbe irrégulières au bord des chemins (jamais en travers d'un autre interdit que le chemin lui-même) ;
+--   tufts       : { x, z, y, size, color } — touffes isolées ; clusters : { x, z, y, size, color, flowers = { {dx, dz, color} } } (1 touffe + fleurs).
+-- Règles : touffes et grappes sur du sol LIBRE (MapGeo.blocked == nil, hors empreintes d'arbres et d'objets), à moins de scatterRange d'un chemin ou de la place ;
+-- densité plafonnée par cellule ; au plus budgetParts Parts au total.
+function Graphics.groundPlan(Config, P, planItems)
+	local GR = Config.GRAPHICS.ground
+	local M2 = Config.Map2
+	local G = P.G
+	local B = M2.bounds
+	local out = { pathPatches = {}, edges = {}, tufts = {}, clusters = {}, stats = {} }
+	local rng = newRng(90210)
+	local forest = P.forest()
+	local blocking = {}
+	for _, it in ipairs(planItems or {}) do
+		blocking[#blocking + 1] = { it.x, it.z, it.r or 2 }
+	end
+	for _, it in ipairs(forest) do
+		blocking[#blocking + 1] = { it.x, it.z, it.r or 3.5 }
+	end
+	local function freeOfObjects(x, z, r)
+		for _, q in ipairs(blocking) do
+			if dist(x, z, q[1], q[2]) < q[3] + r + 0.5 then
+				return false
+			end
+		end
+		return true
+	end
+	local function nearBridge(x, z, r)
+		for _, b in ipairs(G.bridges) do
+			if dist(x, z, b.x, b.z) < b.len / 2 + r + 1 then
+				return true
+			end
+		end
+		return false
+	end
+	-- 1. segments de chemin au sol (même découpage que Scenery.paths : rang k du segment dans sa polyligne)
+	local segs, totalLen = {}, 0
+	for _, p in ipairs(M2.paths) do
+		if (p.y or 0) == 0 then
+			local paved = p.kind ~= "dirt"
+			local half = paved and M2.pathHalf or M2.dirtHalf
+			for k = 1, #p.pts - 1 do
+				local ax, az, bx, bz = p.pts[k][1], p.pts[k][2], p.pts[k + 1][1], p.pts[k + 1][2]
+				local len = dist(ax, az, bx, bz)
+				segs[#segs + 1] = { ax = ax, az = az, bx = bx, bz = bz, len = len, half = half, paved = paved, k = k, name = p.name, last = k == #p.pts - 1 }
+				totalLen = totalLen + len
+			end
+		end
+	end
+	-- 2. variations posées sur les chemins : pas élargi pour respecter le plafond
+	local spacing = math.max(GR.pathPatchSpacing, totalLen / GR.pathPatchCap)
+	local roadsideSpacing = math.max(GR.edgeSpacing, 2 * totalLen / GR.edgeCap)
+	for _, s in ipairs(segs) do
+		local dx, dz = (s.bx - s.ax) / s.len, (s.bz - s.az) / s.len
+		local nx, nz = -dz, dx
+		-- hauteur de la dalle de ce segment (Scenery.paths : dalles alternées, épaisseur de 0,2) ; joints aux sommets : on s'en écarte
+		local top = s.paved and ((s.k % 2 == 1) and 0.28 or 0.34) or ((s.k % 2 == 1) and 0.04 or 0.10)
+		local t = spacing * (0.3 + 0.5 * rng())
+		local n = 0
+		while t < s.len - s.half - 0.5 do
+			if t > s.half + 0.5 and #out.pathPatches < GR.pathPatchCap then
+				local lat = (rng() * 2 - 1) * (s.half - 2.1)
+				local x, z = s.ax + dx * t + nx * lat, s.az + dz * t + nz * lat
+				local w, d = 1.2 + rng() * 2.2, 0.9 + rng() * 1.5
+				pause()
+				local why = G.blocked(x, z, 1.2, {})
+				if (why == nil or why == "chemin") and not nearBridge(x, z, 1.2) and G.pathEdgeDist(x, z) < -0.5 then
+					n = n + 1
+					local pal = s.paved and GR.pathPalettePaved or GR.pathPaletteDirt
+					local mat = s.paved and (n % 3 == 0 and "Slate" or (n % 3 == 1 and "Cobblestone" or "Pebble")) or (n % 2 == 0 and "Ground" or "Mud")
+					out.pathPatches[#out.pathPatches + 1] = { x = x, z = z, y = top - 0.005 + (n % 3) * 0.01, w = w, d = d, rot = rng() * 180, color = pick(pal, rng()), material = mat, path = s.name }
+				end
+			end
+			t = t + spacing * (0.7 + 0.6 * rng())
+		end
+		-- bordures d'herbe irrégulières : taches de rayon variable, des deux côtés, à cheval sur le bord du chemin
+		local t2 = roadsideSpacing * (0.2 + 0.6 * rng())
+		while t2 < s.len - 1 do
+			for side = -1, 1, 2 do
+				if rng() < 0.7 and #out.edges < GR.edgeCap then
+					local off = s.half + (rng() * 2 - 0.6) * 1.2
+					local r = 0.8 + rng() * 1.2
+					local x, z = s.ax + dx * t2 + nx * off * side, s.az + dz * t2 + nz * off * side
+					pause()
+					local why = G.blocked(x, z, r, {})
+					if (why == nil or why == "chemin") and not nearBridge(x, z, r) and G.pathEdgeDist(x, z) > -0.2 and freeOfObjects(x, z, r) then
+						out.edges[#out.edges + 1] = { x = x, z = z, r = r, y = (P.groundY(x, z) or 0) + 0.03 + (#out.edges % 4) * 0.01, color = pick(GR.edgePalette, rng()) }
+					end
+				end
+			end
+			t2 = t2 + roadsideSpacing * (0.6 + 0.8 * rng())
+		end
+	end
+	-- 3. touffes isolées et grappes de fleurs : cellules mélangées près des chemins et de la place, densité plafonnée
+	local function nearAnchor(x, z)
+		pause()
+		if dist(x, z, M2.plaza.x, M2.plaza.z) < M2.plaza.r + GR.scatterRange then
+			return true
+		end
+		return G.pathEdgeDist(x, z) < GR.scatterRange
+	end
+	local cellSize = GR.cell
+	local cells = {}
+	for gx = B.x0 + cellSize / 2, B.x1 - cellSize / 2, cellSize do
+		for gz = B.z0 + cellSize / 2, B.z1 - cellSize / 2, cellSize do
+			if nearAnchor(gx, gz) then
+				cells[#cells + 1] = { gx, gz }
+			end
+		end
+	end
+	for i = #cells, 2, -1 do
+		local j = 1 + math.floor(rng() * i)
+		cells[i], cells[j] = cells[j], cells[i]
+	end
+	local perCell = {}
+	local function cellKey(x, z)
+		return math.floor((x - B.x0) / cellSize) .. ":" .. math.floor((z - B.z0) / cellSize)
+	end
+	local function room(x, z, n)
+		return (perCell[cellKey(x, z)] or 0) + n <= GR.maxPerCell
+	end
+	local function take(x, z, n)
+		local k = cellKey(x, z)
+		perCell[k] = (perCell[k] or 0) + n
+	end
+	local flowerCount = 0
+	local function partsLeft()
+		return Config.GRAPHICS.budgetParts - (#out.pathPatches + #out.edges + #out.tufts + #out.clusters + flowerCount)
+	end
+	local fl = GR.flowersPerCluster
+	for idx, c in ipairs(cells) do
+		pause()
+		local x, z = c[1] + (rng() - 0.5) * (cellSize - 4), c[2] + (rng() - 0.5) * (cellSize - 4)
+		local wantCluster = (idx % 3 == 0) and #out.clusters < GR.clusterCap
+		local wantTuft = (not wantCluster) and #out.tufts < GR.tuftCap
+		if (wantCluster or wantTuft) and nearAnchor(x, z) and G.blocked(x, z, 1.2, {}) == nil and freeOfObjects(x, z, 1.2) then
+			if wantCluster then
+				local nf = fl[1] + math.floor(rng() * (fl[2] - fl[1] + 1))
+				if room(x, z, nf + 1) and partsLeft() >= nf + 1 then
+					local flowers = {}
+					for f = 1, nf do
+						local a = (f / nf + rng() * 0.2) * math.pi * 2
+						local rr = 0.2 + rng() * 0.55
+						flowers[f] = { dx = math.cos(a) * rr, dz = math.sin(a) * rr, color = pick(GR.flowerPalette, rng()) }
+					end
+					out.clusters[#out.clusters + 1] = { x = x, z = z, y = P.groundY(x, z) or 0, size = 1.4 + rng() * 0.6, color = pick(GR.tuftPalette, rng()), flowers = flowers }
+					flowerCount = flowerCount + nf
+					take(x, z, nf + 1)
+				end
+			elseif room(x, z, 1) and partsLeft() >= 1 then
+				out.tufts[#out.tufts + 1] = { x = x, z = z, y = P.groundY(x, z) or 0, size = 0.9 + rng() * 0.9, color = pick(GR.tuftPalette, rng()) }
+				take(x, z, 1)
+			end
+		end
+	end
+	-- boucle de complément : si les cellules n'ont pas suffi à atteindre les plafonds, on retente une fois avec d'autres décalages (déterministe)
+	local maxCell = 0
+	for _, v in pairs(perCell) do
+		if v > maxCell then
+			maxCell = v
+		end
+	end
+	local parts = #out.pathPatches + #out.edges + #out.tufts + #out.clusters + flowerCount
+	out.parts = parts
+	out.stats = { parts = parts, pathPatches = #out.pathPatches, edges = #out.edges, tufts = #out.tufts, clusters = #out.clusters, flowers = flowerCount, maxPerCell = maxCell, pathLength = totalLen, cells = #cells }
+	return out
+end
+
+-- Contrôle d'une fiche de plan : retourne la liste des violations (vide = conforme). Utilisé par les tests et par le serveur (journal de démarrage).
+function Graphics.auditGround(Config, P, plan)
+	local bad = {}
+	local G = P.G
+	local GR = Config.GRAPHICS.ground
+	for i, t in ipairs(plan.tufts) do
+		local why = G.blocked(t.x, t.z, 1.2, {})
+		if why then
+			bad[#bad + 1] = "touffe " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+	end
+	for i, c in ipairs(plan.clusters) do
+		local why = G.blocked(c.x, c.z, 1.2, {})
+		if why then
+			bad[#bad + 1] = "grappe " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+	end
+	for i, e in ipairs(plan.edges) do
+		local why = G.blocked(e.x, e.z, e.r, {})
+		if why and why ~= "chemin" then
+			bad[#bad + 1] = "bordure " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+	end
+	for i, p in ipairs(plan.pathPatches) do
+		local why = G.blocked(p.x, p.z, 1.2, {})
+		if why and why ~= "chemin" then
+			bad[#bad + 1] = "dalle " .. i .. " sur zone bloquée (" .. why .. ")"
+		end
+		if G.pathEdgeDist(p.x, p.z) >= 0 then
+			bad[#bad + 1] = "dalle " .. i .. " hors du chemin"
+		end
+	end
+	if plan.parts > Config.GRAPHICS.budgetParts then
+		bad[#bad + 1] = "budget de Parts dépassé : " .. plan.parts
+	end
+	if plan.stats.maxPerCell > GR.maxPerCell then
+		bad[#bad + 1] = "densité par cellule dépassée : " .. plan.stats.maxPerCell
+	end
+	return bad
+end
+
+return Graphics
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX136"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX134"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX139"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX137"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -18043,7 +18686,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX135"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX138"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -18130,25 +18773,32 @@ local function lamp(pos, parent)
 	return { post = post, head = head, x = pos.X, z = pos.Z }
 end
 
-function HubWorld.setupLighting()
-	Lighting.ClockTime = 17.6 -- crépuscule doré : les portails néon ressortent
-	Lighting.Brightness = 2.2
-	Lighting.Ambient = Color3.fromRGB(110, 100, 130)
-	Lighting.OutdoorAmbient = Color3.fromRGB(140, 125, 150)
-	Lighting.ColorShift_Top = Color3.fromRGB(255, 200, 150)
+-- Lot graphismes : le lieu Hub partage la palette chaude de Config.LIGHTING (zone « lobby » : un peu plus tard dans la journée, bloom un peu plus fort pour les portails).
+-- Sans Config.LIGHTING (appel ancien), les réglages d'origine servent de repli.
+function HubWorld.setupLighting(Config)
+	local L = Config and Config.LIGHTING
+	local z = L and L.zones and L.zones.lobby
+	local function c3(c)
+		return Color3.fromRGB(c[1], c[2], c[3])
+	end
+	Lighting.ClockTime = z and z.clock or 17.6
+	Lighting.Brightness = L and L.global.Brightness or 2.2
+	Lighting.Ambient = z and c3(z.ambient) or Color3.fromRGB(110, 100, 130)
+	Lighting.OutdoorAmbient = z and c3(z.outdoor) or Color3.fromRGB(140, 125, 150)
+	Lighting.ColorShift_Top = L and c3(L.global.ColorShift_Top) or Color3.fromRGB(255, 200, 150)
 	Lighting.GlobalShadows = true
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
-	atm.Density = 0.32
+	atm.Density = z and z.density or 0.32
 	atm.Offset = 0.25
-	atm.Color = Color3.fromRGB(255, 205, 170)
-	atm.Decay = Color3.fromRGB(180, 120, 160)
-	atm.Haze = 1.6
+	atm.Color = z and c3(z.atmo) or Color3.fromRGB(255, 205, 170)
+	atm.Decay = z and c3(z.decay) or Color3.fromRGB(180, 120, 160)
+	atm.Haze = z and z.haze or 1.6
 	atm.Parent = Lighting
 	local bloom = Lighting:FindFirstChild("HubBloom") or Instance.new("BloomEffect")
 	bloom.Name = "HubBloom"
-	bloom.Intensity = 0.5
-	bloom.Size = 30
-	bloom.Threshold = 0.9
+	bloom.Intensity = z and z.bloom.intensity or 0.5
+	bloom.Size = z and z.bloom.size or 30
+	bloom.Threshold = z and z.bloom.threshold or 0.9
 	bloom.Parent = Lighting
 end
 
@@ -18190,7 +18840,7 @@ function HubWorld.build(Config)
 	local world = Instance.new("Folder")
 	world.Name = "HubWorld"
 	world.Parent = workspace
-	HubWorld.setupLighting()
+	HubWorld.setupLighting(Config)
 	local rng = Random.new(11)
 
 	cylinder({ Name = "Ground", Height = 2, Diameter = 420, Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(88, 150, 84), Material = Enum.Material.Grass }, world)
@@ -18432,7 +19082,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX139"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX138"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX137"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX142"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX141"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX140"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

@@ -15,6 +15,8 @@
 | Playtest Roblox Studio (2 joueurs) | voir `publication/LISTING.md` §5 | **Non fait.** Tout ce qui touche au rendu, au réseau, aux DataStore et aux achats n'a été que relu. |
 
 ## Relu seulement (à confirmer dans Studio)
+- Lot graphismes (lumière unifiée, sol, arbres, LOD) : `python3 roblox/tests/run_graphics.py` (54 assertions : palettes, styles d'arbres, plan du sol, budgets, bout en bout dans le vrai Main) **exécuté avec lupa** ; aucun rendu vu. Le LOD client (`LightLod.client.lua`) n'est pas exécuté par le runtime factice.
+
 
 - Révélation, carrousel, style glossy, icônes de richesse, bannières : exécutés de bout en bout (client et serveur) dans le runtime factice et comptés (objets créés = coût annoncé), mais l'aspect réel, les tailles à l'écran et la fluidité sur téléphone ne sont pas vus.
 

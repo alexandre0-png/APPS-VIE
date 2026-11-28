@@ -85,25 +85,32 @@ local function lamp(pos, parent)
 	return { post = post, head = head, x = pos.X, z = pos.Z }
 end
 
-function HubWorld.setupLighting()
-	Lighting.ClockTime = 17.6 -- crépuscule doré : les portails néon ressortent
-	Lighting.Brightness = 2.2
-	Lighting.Ambient = Color3.fromRGB(110, 100, 130)
-	Lighting.OutdoorAmbient = Color3.fromRGB(140, 125, 150)
-	Lighting.ColorShift_Top = Color3.fromRGB(255, 200, 150)
+-- Lot graphismes : le lieu Hub partage la palette chaude de Config.LIGHTING (zone « lobby » : un peu plus tard dans la journée, bloom un peu plus fort pour les portails).
+-- Sans Config.LIGHTING (appel ancien), les réglages d'origine servent de repli.
+function HubWorld.setupLighting(Config)
+	local L = Config and Config.LIGHTING
+	local z = L and L.zones and L.zones.lobby
+	local function c3(c)
+		return Color3.fromRGB(c[1], c[2], c[3])
+	end
+	Lighting.ClockTime = z and z.clock or 17.6
+	Lighting.Brightness = L and L.global.Brightness or 2.2
+	Lighting.Ambient = z and c3(z.ambient) or Color3.fromRGB(110, 100, 130)
+	Lighting.OutdoorAmbient = z and c3(z.outdoor) or Color3.fromRGB(140, 125, 150)
+	Lighting.ColorShift_Top = L and c3(L.global.ColorShift_Top) or Color3.fromRGB(255, 200, 150)
 	Lighting.GlobalShadows = true
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
-	atm.Density = 0.32
+	atm.Density = z and z.density or 0.32
 	atm.Offset = 0.25
-	atm.Color = Color3.fromRGB(255, 205, 170)
-	atm.Decay = Color3.fromRGB(180, 120, 160)
-	atm.Haze = 1.6
+	atm.Color = z and c3(z.atmo) or Color3.fromRGB(255, 205, 170)
+	atm.Decay = z and c3(z.decay) or Color3.fromRGB(180, 120, 160)
+	atm.Haze = z and z.haze or 1.6
 	atm.Parent = Lighting
 	local bloom = Lighting:FindFirstChild("HubBloom") or Instance.new("BloomEffect")
 	bloom.Name = "HubBloom"
-	bloom.Intensity = 0.5
-	bloom.Size = 30
-	bloom.Threshold = 0.9
+	bloom.Intensity = z and z.bloom.intensity or 0.5
+	bloom.Size = z and z.bloom.size or 30
+	bloom.Threshold = z and z.bloom.threshold or 0.9
 	bloom.Parent = Lighting
 end
 
@@ -145,7 +152,7 @@ function HubWorld.build(Config)
 	local world = Instance.new("Folder")
 	world.Name = "HubWorld"
 	world.Parent = workspace
-	HubWorld.setupLighting()
+	HubWorld.setupLighting(Config)
 	local rng = Random.new(11)
 
 	cylinder({ Name = "Ground", Height = 2, Diameter = 420, Position = Vector3.new(0, -1, 0), Color = Color3.fromRGB(88, 150, 84), Material = Enum.Material.Grass }, world)

@@ -29,7 +29,8 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("Offers", "Offers.lua"), ("OffersData", "OffersData.lua"), ("SellersData", "SellersData.lua"),  # lot 16 : offres à l'écran, vendeurs PNJ
           ("Bestiary", "Bestiary.lua"), ("PetXp", "PetXp.lua"), ("BattleRewards", "BattleRewards.lua"),  # lots 11 et 12 : bestiaire, XP de pet, cartes de récompense
           ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua"),
-          ("BattleLayout", "BattleLayout.lua")]  # refonte du combat : disposition pure de la scène face à face  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
+          ("BattleLayout", "BattleLayout.lua"),  # refonte du combat : disposition pure de la scène face à face
+          ("Graphics", "Graphics.lua")]  # lot graphismes : lumière unifiée, styles d'arbres, sol, LOD (planificateur pur)  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
 def shared():
     return item("ReplicatedStorage", "ReplicatedStorage", children=[
@@ -67,6 +68,7 @@ game_tree = [
             item("LocalScript", "Cinematics", read("StarterPlayerScripts/Cinematics.client.lua")),
             item("LocalScript", "Ambience", read("StarterPlayerScripts/Ambience.client.lua")),
             item("LocalScript", "Culling", read("StarterPlayerScripts/Culling.client.lua")),
+            item("LocalScript", "LightLod", read("StarterPlayerScripts/LightLod.client.lua")),  # lot graphismes : au plus 4 PointLight allumées, effets lointains coupés
             item("ModuleScript", "RevealFx", read("StarterPlayerScripts/RevealFx.lua")),
             item("ModuleScript", "SlotFx", read("StarterPlayerScripts/SlotFx.lua")),
             item("ModuleScript", "MiniMapUi", read("StarterPlayerScripts/MiniMapUi.lua")),

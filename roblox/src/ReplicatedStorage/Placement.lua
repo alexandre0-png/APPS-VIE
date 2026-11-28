@@ -114,6 +114,33 @@ function Placement.treeVariant(Config, kind, x, z, k, MapGeo)
 	return ({ "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" })[(k or 0) % 4 + 1]
 end
 
+-- Modèles d'arbre possibles dans la zone de (x, z) : même découpage que treeVariant, mais en liste (lot graphismes : Graphics.assignStyles choisit dans la liste, avec
+-- une classe de taille, de sorte que deux arbres voisins ne soient jamais identiques). Les sapins restent des pins ; près des lacs et de la place : sakura et bouleau.
+function Placement.treePool(Config, kind, x, z)
+	if kind == "fir" then
+		return { "tree_pine" }
+	end
+	local M2 = Config.Map2
+	for _, lk in ipairs(M2.lakes) do
+		if math.sqrt((x - lk.x) ^ 2 + (z - lk.z) ^ 2) < lk.r + 40 then
+			return { "tree_sakura", "tree_birch" }
+		end
+	end
+	if math.sqrt((x - M2.plaza.x) ^ 2 + (z - M2.plaza.z) ^ 2) < M2.plaza.r + 50 then
+		return { "tree_sakura", "tree_birch" }
+	end
+	if z < -180 then
+		return { "tree_pine" }
+	end
+	for _, key in ipairs(Config.TERR_ORDER) do
+		local t = Config.TERR[key]
+		if math.sqrt((x - t.x) ^ 2 + (z - t.z) ^ 2) < t.r + 25 then
+			return { "tree_pine" }
+		end
+	end
+	return { "tree_oak_a", "tree_oak_b", "tree_birch", "tree_round" }
+end
+
 -- Échelle aléatoire déterministe 1 ± jitter d'après la position (jamais de tirage libre).
 function Placement.jitter(x, z, jitter)
 	local h = math.abs(math.sin(x * 12.9898 + z * 78.233) * 43758.5453)
@@ -425,8 +452,11 @@ function Placement.new(Config, MapGeo)
 		end
 		shuffle(cells)
 		shuffle(forestCells)
-		local function scatter(kind, count, list)
+		-- grouped : arbres posés par GROUPES (lot graphismes) : une graine, puis jusqu'à (taille du groupe - 1) compagnons à groupRadius studs, tous soumis à fits()
+		local groupSeq = 0
+		local function scatter(kind, count, list, grouped)
 			local got = 0
+			local GT = Config.GRAPHICS and Config.GRAPHICS.trees
 			for _, c in ipairs(list) do
 				if got >= count then
 					break
@@ -435,14 +465,30 @@ function Placement.new(Config, MapGeo)
 				if fits(kind, x, z) then
 					add(kind, x, z, rnd() * 360)
 					got = got + 1
+					if grouped and GT then
+						groupSeq = groupSeq + 1
+						local size = GT.groupSizes[(groupSeq - 1) % #GT.groupSizes + 1]
+						local a0 = rnd() * math.pi * 2
+						for k = 1, size - 1 do
+							if got < count then
+								local a = a0 + k * (math.pi * 2 / (size - 1)) + (rnd() - 0.5) * 0.5
+								local rad = GT.groupRadius[1] + rnd() * (GT.groupRadius[2] - GT.groupRadius[1])
+								local gx, gz = x + math.cos(a) * rad, z + math.sin(a) * rad
+								if fits(kind, gx, gz) then
+									add(kind, gx, gz, rnd() * 360)
+									got = got + 1
+								end
+							end
+						end
+					end
 				end
 			end
 			return got
 		end
-		local firs = scatter("fir", plan.fir or 0, forestCells)
-		scatter("fir", (plan.fir or 0) - firs, cells)
-		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells)
-		scatter("tree", (plan.tree or 0) - trees, cells)
+		local firs = scatter("fir", plan.fir or 0, forestCells, true)
+		scatter("fir", (plan.fir or 0) - firs, cells, true)
+		local trees = scatter("tree", math.ceil((plan.tree or 0) / 2), forestCells, true)
+		scatter("tree", (plan.tree or 0) - trees, cells, true)
 		scatter("rock", plan.rock or 0, cells)
 		scatter("bush", plan.bush or 0, cells)
 		-- 3. ponts de bois (Blender) : centrés sur leur cours d'eau, axe du pont ; le pont de pierre du château (rampe) reste procédural
