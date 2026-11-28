@@ -876,7 +876,7 @@ local function returnEgg(e)
 		if vs then
 			local i = freeSlot(vs)
 			if i then
-				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs), rv = e.rv, rvAt = e.rvAt }
+				vs.data.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(vs), rv = e.rv, rvAt = e.rvAt, og = e.og } -- vitrine : l'origine suit l'œuf
 				refreshPad(vs, i)
 				notify(vs.player, "🥚 Ton œuf t'a été rendu !")
 				sync(vs)
@@ -1142,13 +1142,13 @@ function hatch(s, i)
 	end
 	dx.n += 1
 	dx.b = math.max(dx.b, Config.SIZES[p.s].mult * Config.MUTS[p.m].mult)
-	if Config.SHOWCASE.enabled and p.p == L15.SC.pick(L15.SC.dayOf(os.time())) then -- idée 3 : espèce en vitrine ; le DataStore ne bloque jamais l'éclosion
+	if Config.SHOWCASE.enabled and L15.SC.originOk(sl.og) and L15.SC.featured(p.p, os.time()) then -- idée 3 : espèce en vitrine, œuf GAGNÉ (origine figée sl.og) ; le DataStore ne bloque jamais l'éclosion
 		task.spawn(function()
 			local okStore, store = pcall(function()
 				return game:GetService("DataStoreService"):GetDataStore(Config.SHOWCASE.storeName)
 			end)
 			if okStore and s.player.Parent then
-				local r = L15.SC.tryClaim(store, d.showcase, p.p, { userId = s.player.UserId, name = s.player.DisplayName }, os.time(), task.wait)
+				local r = L15.SC.tryClaim(store, d.showcase, p.p, { userId = s.player.UserId, name = s.player.DisplayName, og = sl.og }, os.time(), task.wait)
 				if r == "won" then
 					notify(s.player, "🏆 Vitrine du jour : " .. Config.PETS[p.p].name .. " ! +5 % de revenus pendant 24 h.", "claim")
 				end
@@ -1473,7 +1473,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		Builder.flyEgg(t, n.pos, player.UserId)
 		Builder.burst(n.pos, Config.TIERS[t].color, 14, false)
 		n.rt = rng:NextNumber(9, 16) * (1 + (n.rival - 1) * 0.3)
-		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival, terr = n.terr, nest = n.index, fresh = Traps.freshDeadline(Config, t, n.terr, os.clock()) }
+		s.carry[#s.carry + 1] = { t = t, rem = hatchTime(s, t), rival = n.rival, terr = n.terr, nest = n.index, fresh = Traps.freshDeadline(Config, t, n.terr, os.clock()), og = "g" } -- vitrine : œuf de nid = gagné en jouant
 		recordSteal(n.terr) -- vigilance : les gardiens de ce territoire voient et entendent plus loin pendant un moment
 		s.data.stolen += 1
 		qp(s, "steal", 1)
@@ -1521,7 +1521,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		vs.data.slots[i] = false
 		refreshPad(vs, i)
 		Builder.flyEgg(sl.t, pad.Position + Vector3.new(0, 2, 0), player.UserId)
-		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId, rv = sl.rv, rvAt = sl.rvAt } -- rv/rvAt suivent l'œuf (lot 7b)
+		s.carry[#s.carry + 1] = { t = sl.t, rem = math.max(0, sl.ends - os.time()), from = vp.UserId, rv = sl.rv, rvAt = sl.rvAt, og = sl.og } -- rv/rvAt suivent l'œuf (lot 7b) ; og aussi (vitrine : un œuf payé volé reste payé)
 		s.data.stolen += 1
 		qp(s, "steal", 1)
 		qp(s, "pvp", 1)
@@ -2024,14 +2024,15 @@ function castleEnter(s)
 end
 
 -- Donne un œuf dans un emplacement libre (protégé quelques secondes) ; base pleine : l'équivalent de la moitié du prix en pièces. Retourne true si l'œuf est placé.
-local function giveEgg(s, tier)
+-- og = origine de l'œuf (vitrine : "g" gagné en jouant ; absent = inconnu, jamais compté).
+local function giveEgg(s, tier, og)
 	local d = s.data
 	local i = freeSlot(s)
 	if not i then
 		d.coins += Config.eggCoinValue(tier) * 0.5
 		return false
 	end
-	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s), og = og }
 	refreshPad(s, i)
 	return true
 end
@@ -2175,7 +2176,7 @@ function castleFinish(s, root, prompt)
 	local seconds = os.clock() - c.t0
 	local reward = Castle.reward(seconds, income(s), c.deaths)
 	s.data.coins += reward.coins
-	local placed = giveEgg(s, reward.eggTier)
+	local placed = giveEgg(s, reward.eggTier, "g") -- vitrine : coffre du Château = gagné en jouant
 	qp(s, "castle", 1)
 	Lot7.L16.addXp(s, "pve") -- lot 16 : victoire au Château = victoire PvE
 	Data.castleSubmit(s.player, seconds)
@@ -2319,7 +2320,7 @@ local function fastTick(dt)
 					end
 				else
 					local e = table.remove(s.carry, 1)
-					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(s), rv = (e.rv == true or (e.belt == true and e.paid == 0)) or nil, rvAt = e.rvAt } -- lot 7b : un œuf gratuit (bienvenue) ou volé par corbeau reste non indemnisable
+					d.slots[i] = { k = "e", t = e.t, ends = os.time() + e.rem, shield = os.time() + shieldTime(s), rv = (e.rv == true or (e.belt == true and e.paid == 0)) or nil, rvAt = e.rvAt, og = e.og } -- vitrine : origine figée portée par l'œuf ; lot 7b : un œuf gratuit (bienvenue) ou volé par corbeau reste non indemnisable
 					refreshPad(s, i)
 					Builder.burst(s.plot.pads[i].part.Position + Vector3.new(0, 2, 0), Config.TIERS[e.t].color, 12, false)
 					rebuildCarry(s)
@@ -2719,7 +2720,7 @@ function beltBuy(player, prompt)
 	s.data.coins -= egg.price
 	beltRemoveVisual(egg.id)
 	Builder.burst(v.part.CFrame.Position, Config.TIERS[egg.tier].color, 10, false)
-	s.carry[#s.carry + 1] = { t = egg.tier, rem = hatchTime(s, egg.tier), belt = true, paid = egg.price }
+	s.carry[#s.carry + 1] = { t = egg.tier, rem = hatchTime(s, egg.tier), belt = true, paid = egg.price, og = "g" } -- vitrine : œuf du tapis = gagné en jouant
 	if egg.forUser then
 		s.welcome = "taken"
 	end
@@ -2854,7 +2855,7 @@ function actions.buyEgg(s, tier)
 	end
 	d.coins -= price
 	tele.economy(s.player, price, d.coins, "egg_r" .. tier) -- lot 9 : pièces dépensées en œufs
-	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
+	d.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s), og = "c" } -- vitrine : boutique en pièces
 	refreshPad(s, i)
 	notify(s.player, "", "buy")
 	sync(s)
@@ -3072,7 +3073,7 @@ function actions.claimQuest(s, i)
 	s.data.coins += q.rew
 	local extra = ""
 	if (q.re or 0) > 0 and Config.TIERS[q.re] then
-		extra = extra .. (giveEgg(s, q.re) and (" + œuf " .. Config.TIERS[q.re].name) or " (base pleine : œuf converti en pièces)")
+		extra = extra .. (giveEgg(s, q.re, "g") and (" + œuf " .. Config.TIERS[q.re].name) or " (base pleine : œuf converti en pièces)")
 	end
 	if (q.rb or 0) > 0 then
 		s.data.luckUntil = math.max(os.time(), s.data.luckUntil) + q.rb
@@ -3233,7 +3234,7 @@ do
 			sync(s)
 		end
 	end
-	local function applyReward(s, plan)
+	local function applyReward(s, plan, og) -- og : origine des œufs (vitrine) : "r" pour un rattrapage payant, "g" sinon
 		local d = s.data
 		local bits = {}
 		if plan.coins > 0 then
@@ -3243,9 +3244,9 @@ do
 		if plan.egg then
 			-- lot 15 : base puis sac d'œufs (place vérifiée avant la sauvegarde). Si le joueur a tout rempli PENDANT la sauvegarde, repli de giveEgg (pièces) :
 			-- la récompense n'est jamais perdue ni doublée.
-			local where = L15.storeEggs(s, { plan.egg })
+			local where = L15.storeEggs(s, { plan.egg }, og)
 			if not where then
-				giveEgg(s, plan.egg)
+				giveEgg(s, plan.egg, og)
 			end
 			bits[#bits + 1] = "🥚 Œuf " .. Config.TIERS[plan.egg].name .. ((where and where[1] == "bag") and " (rangé dans ton sac d'œufs)" or (where and "" or " (base et sac pleins : converti en pièces)"))
 		end
@@ -3320,7 +3321,7 @@ do
 			sync(s)
 			return
 		end
-		local text = applyReward(s, plan)
+		local text = applyReward(s, plan, how == "paid" and "r" or "g") -- vitrine : un jour rattrapé avec un jeton PAYANT (CalendarCatchup) ne compte jamais
 		notify(s.player, "📅 Jour " .. day .. (how == "today" and "" or " rattrapé") .. " : " .. text, (function()
 			for _, m in ipairs(CAL.milestones) do
 				if m == day then
@@ -3463,10 +3464,10 @@ local function pvpState(s)
 			end
 			local eggT = rw.eggName and Config.tierIndexByName(rw.eggName) or rw.eggTier
 			if rw.eggName and eggT then -- palier 1500 : base, puis sac d'œufs, puis coffre de débordement (jamais perdu, un seul crédit)
-				local where = Lot7.L16.storeEgg(s, eggT)
+				local where = Lot7.L16.storeEgg(s, eggT, "g")
 				parts[#parts + 1] = "un œuf " .. Config.TIERS[eggT].name .. (where == "bag" and " (dans ton sac d'œufs)" or (where == "overflow" and " (dans le coffre de débordement)" or ""))
 			elseif eggT and Config.TIERS[eggT] then
-				giveEgg(s, eggT)
+				giveEgg(s, eggT, "g")
 				parts[#parts + 1] = "un œuf " .. Config.TIERS[eggT].name
 			end
 			if rw.potion or rw.potionSeconds then
@@ -3506,9 +3507,9 @@ function L15.pickHooks(s)
 	h.giveEgg = function(t)
 		if freeSlot(s) then
 			h.where = "slot"
-			return giveEgg(s, t)
+			return giveEgg(s, t, "g") -- vitrine : carte Œuf d'un combat = gagnée en jouant
 		end
-		h.where = Lot7.L16.storeEgg(s, t)
+		h.where = Lot7.L16.storeEgg(s, t, "g")
 		return h.where == "bag" or h.where == "overflow" or h.where == "slot"
 	end
 	return h
@@ -4198,19 +4199,20 @@ do
 		return b
 	end
 	-- Fabrique d'emplacement d'œuf (incubation et bouclier comme tous les œufs posés).
-	function L15.mkEgg(s)
+	-- og = origine figée des œufs posés (vitrine) : "g" gagné en jouant, "r" payé ; absent = inconnu (sac d'œufs, coffre de débordement : jamais compté).
+	function L15.mkEgg(s, og)
 		return function(tier)
-			return { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s) }
+			return { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s), og = og }
 		end
 	end
 	-- Range des œufs (base puis sac, tout ou rien) et rafraîchit les pads remplis. Retourne la liste « slot » / « bag » ou (nil, "bagFull") sans rien modifier.
-	function L15.storeEggs(s, tiers)
+	function L15.storeEggs(s, tiers, og)
 		local d = s.data
 		local before = {}
 		for i = 1, cap(s) do
 			before[i] = not d.slots[i]
 		end
-		local ok, where = Rewards.storeEggs(Lot7.L16.bagCfg(s), d.slots, cap(s), d.eggBag, tiers, L15.mkEgg(s))
+		local ok, where = Rewards.storeEggs(Lot7.L16.bagCfg(s), d.slots, cap(s), d.eggBag, tiers, L15.mkEgg(s, og))
 		if not ok then
 			return nil, where
 		end
@@ -4550,7 +4552,7 @@ do
 					eggT = out.cardEgg
 				end
 				if eggT then
-					if L15.storeEggs(s, { eggT }) then
+					if L15.storeEggs(s, { eggT }, "g") then -- vitrine : victoire PvE = gagné en jouant
 						rewards.egg = eggT
 					else
 						local c2 = math.floor(Config.eggCoinValue(eggT) * 0.5)
@@ -4624,7 +4626,7 @@ do
 		s.streakBusy = true
 		local d = s.data
 		local g = { daily = d.daily, streak = d.streak, grace = d.grace }
-		local ctx = { income = income(s), vip = s.passes.VipBase == true, questsDone = L15.questsDone(s), slots = d.slots, cap = cap(s), bag = d.eggBag, mkEgg = L15.mkEgg(s) }
+		local ctx = { income = income(s), vip = s.passes.VipBase == true, questsDone = L15.questsDone(s), slots = d.slots, cap = cap(s), bag = d.eggBag, mkEgg = L15.mkEgg(s, how == "product" and "r" or "g") } -- vitrine : série sauvée par le produit payant StreakRestore = "r"
 		local before = {}
 		for i = 1, cap(s) do
 			before[i] = not d.slots[i]
@@ -4692,12 +4694,12 @@ do
 		end
 		return table.concat(bits, ", ")
 	end
-	local function store(s)
+	local function store(s, og) -- og : origine des œufs posés (vitrine) ; quêtes bonus / de la semaine et plumes d'événement = "g"
 		local before = {}
 		for i = 1, cap(s) do
 			before[i] = not s.data.slots[i]
 		end
-		return { slots = s.data.slots, cap = cap(s), bag = s.data.eggBag, mkEgg = L15.mkEgg(s) }, before
+		return { slots = s.data.slots, cap = cap(s), bag = s.data.eggBag, mkEgg = L15.mkEgg(s, og) }, before
 	end
 	local function refreshFilled(s, before)
 		for i = 1, cap(s) do
@@ -4708,7 +4710,7 @@ do
 	end
 	function actions.bonusClaim(s)
 		L15.daySync(s)
-		local st, before = store(s)
+		local st, before = store(s, "g")
 		local ok, gr = Rewards.bonusClaim(Lot7.L16.bagCfg(s), s.data.weekly, today(), s.data.story.ch, st)
 		if not ok then
 			notify(s.player, gr == "claimed" and "⭐ Quête bonus déjà réclamée aujourd'hui." or (gr == "bagFull" and MSG.bagFull or "⭐ Quête bonus pas encore terminée."), "refuse")
@@ -4724,7 +4726,7 @@ do
 			return
 		end
 		L15.daySync(s)
-		local st, before = store(s)
+		local st, before = store(s, "g")
 		local ok, gr = Rewards.weeklyClaim(Lot7.L16.bagCfg(s), s.data.weekly, which, st)
 		if not ok then
 			notify(s.player, gr == "claimed" and "📆 Récompense de la semaine déjà réclamée." or (gr == "bagFull" and MSG.bagFull or "📆 Pas encore assez de quêtes de la semaine terminées."), "refuse")
@@ -4738,7 +4740,7 @@ do
 	end
 	function actions.plumeBuy(s)
 		local ev = L15.daySync(s)
-		local st, before = store(s)
+		local st, before = store(s, "g")
 		local ok, t = Rewards.plumeBuyExclusive(Lot7.L16.bagCfg(s), s.data.event, ev ~= nil, st, Lot7.L16.openEv(os.time()))
 		if not ok then
 			local m = { inactive = "🪶 Aucun événement en cours.", limit = "🪶 Tu as déjà obtenu le maximum d'Œufs Exclusifs de cet événement.", plumes = "🪶 Il te faut " .. Config.PLUMES.exclusiveCost .. " plumes d'événement.",
@@ -5112,7 +5114,7 @@ do
 			rvv.icDay, rvv.ic = Raven.rollDaily(rvv.icDay, rvv.ic, now) -- indemnités reçues aujourd'hui (jour UTC)
 			local comp = Raven.indemnity(Config, f.tier, f.ref.rv == true, rvv.ic) -- 0 si l'œuf est non indemnisable ; plafonné par jour et par victime (lot 7b)
 			-- 1. données (opérations de table seulement : rien ne peut échouer à mi-chemin)
-			s.data.slots[ti] = { k = "e", t = f.tier, ends = now + rem, shield = now + shieldTime(s), rv = true, rvAt = now } -- temps restant conservé, bouclier d'œuf normal ; marqué : plus jamais indemnisé, pas de revol avant 20 min
+			s.data.slots[ti] = { k = "e", t = f.tier, ends = now + rem, shield = now + shieldTime(s), rv = true, rvAt = now, og = f.ref.og } -- temps restant conservé, bouclier d'œuf normal ; marqué : plus jamais indemnisé, pas de revol avant 20 min
 			vs.data.slots[f.slot] = false
 			vs.data.coins += comp
 			rvv.ic += comp
@@ -5598,7 +5600,7 @@ do
 			return notify(s.player, "Base pleine ! Libère un emplacement pour prendre l'œuf du tapis privé.", "refuse")
 		end
 		table.remove(s.data.pb, 1)
-		s.data.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s), rv = true } -- gratuit : non indemnisable (lot 7b)
+		s.data.slots[i] = { k = "e", t = tier, ends = os.time() + hatchTime(s, tier), shield = os.time() + shieldTime(s), rv = true, og = "r" } -- gratuit : non indemnisable (lot 7b) ; vitrine : tapis privé = passe payant ("r")
 		refreshPad(s, i)
 		Lot7.privRefresh(s)
 		notify(s.player, "🥚 Œuf " .. Config.TIERS[tier].name .. " pris sur ton tapis privé !", "claim")
@@ -5618,6 +5620,8 @@ do
 		return Lot7.Live
 	end, tele = function() -- lot 14 : télémétrie (échantillons de fréquentation)
 		return tele
+	end, showcase = function() -- vitrine : module de la vitrine du serveur (tests de bout en bout seulement : espion de tryClaim)
+		return L15.SC
 	end }
 end
 
@@ -5698,8 +5702,8 @@ do
 	end
 
 	---------------------------------------------------------------- Rangement des œufs : base, puis sac, puis coffre de débordement (jamais de perte)
-	function L16.storeEgg(s, tier)
-		local where = L15.storeEggs(s, { tier })
+	function L16.storeEgg(s, tier, og) -- og (vitrine) : origine posée seulement si l'œuf va dans la base ; sac et coffre de débordement la perdent (inconnue = exclue)
+		local where = L15.storeEggs(s, { tier }, og)
 		if where then
 			return where[1]
 		end

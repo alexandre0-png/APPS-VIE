@@ -4,6 +4,9 @@
 -- revenus pendant 24 h. Garde-fous : un seul bonus actif (jamais cumulé ni prolongé), une vitrine par jour, une par semaine et par joueur, bonus perdu si le
 -- propriétaire ne se connecte pas le jour même. Gratuit : aucune monnaie payante, aucun achat. Le nom affiché est assaini ; l'identifiant (userId) reste côté serveur (publicView).
 -- Champ de profil : showcase = { last = jour UTC de la dernière vitrine possédée (0 = jamais), ends = fin du bonus en os.time() (0 = aucun) }.
+-- Décision utilisateur (2026-11-28) : un œuf ACHETÉ ne peut jamais faire gagner la vitrine. Chaque œuf porte une origine figée à l'octroi (slot.og, voir
+-- Showcase.ORIGINS) ; seules les origines listées dans cfg.origins comptent. Origine absente (ancien slot, sac d'œufs, coffre de débordement, boutique payante,
+-- offres, packs) = inconnue = exclue. tryClaim refuse toute éclosion dont l'origine n'est pas admise (« notEarned ») AVANT tout appel DataStore.
 local Showcase = {}
 
 Showcase.DEFAULTS = {
@@ -15,7 +18,15 @@ Showcase.DEFAULTS = {
 	retries = 3, -- tentatives DataStore (avec attente croissante)
 	storeName = "ChipeOeufs_Showcase_v1",
 	fallbackName = "Un dresseur",
+	origins = { g = true, c = true }, -- origines admises : g = gagné en jouant (tapis, nids, calendrier, PNJ, quêtes, château, combats), c = boutique en pièces
 }
+
+-- Origines d'un œuf (champ slot.og, posé par le serveur au moment de l'octroi, jamais par le client). Absent = inconnu (exclu).
+Showcase.ORIGINS = { g = "gagné en jouant", c = "acheté en pièces", r = "payé (argent réel : produit, passe ou rattrapage payant)" }
+
+function Showcase.validOrigin(og)
+	return type(og) == "string" and Showcase.ORIGINS[og] ~= nil
+end
 
 local function finite(v)
 	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
@@ -39,6 +50,11 @@ function Showcase.new(Config)
 		end
 	end
 	local M = { cfg = cfg, cache = { day = -1, owner = nil, view = nil }, busy = {} }
+
+	-- L'origine d'un œuf permet-elle de gagner la vitrine ? (jamais un œuf payé ni d'origine inconnue)
+	function M.originOk(og)
+		return og ~= "r" and Showcase.validOrigin(og) and type(cfg.origins) == "table" and cfg.origins[og] == true
+	end
 
 	function M.dayOf(t)
 		return math.floor(t / 86400)
@@ -79,6 +95,15 @@ function Showcase.new(Config)
 			idx = idx % n + 1
 		end
 		return list[idx]
+	end
+
+	-- L'espèce p est-elle en vitrine à l'instant now ?
+	function M.featured(p, now)
+		if not finite(now) then
+			return false
+		end
+		local sp = M.pick(M.dayOf(now))
+		return sp ~= nil and p == sp
 	end
 
 	-- Nom affichable : caractères de contrôle retirés, espaces réduits, tronqué proprement (UTF-8), sinon nom de secours.
@@ -185,9 +210,12 @@ function Showcase.new(Config)
 		return false, lastErr
 	end
 
-	-- Réclamation à l'éclosion de l'espèce p. store = DataStore (UpdateAsync/GetAsync). player = { userId, name }.
-	-- Retourne : "notFeatured" | "blocked:<raison>" | "taken" | "busy" | "error" | "won" (le bonus est alors déjà accordé dans sc).
+	-- Réclamation à l'éclosion de l'espèce p. store = DataStore (UpdateAsync/GetAsync). player = { userId, name, og } (og = origine figée de l'œuf éclos).
+	-- Retourne : "notEarned" (œuf acheté ou d'origine inconnue : aucun appel DataStore) | "notFeatured" | "blocked:<raison>" | "taken" | "busy" | "error" | "won" (le bonus est alors déjà accordé dans sc).
 	function M.tryClaim(store, sc, p, player, now, pause)
+		if type(player) ~= "table" or not M.originOk(player.og) then
+			return "notEarned"
+		end
 		local day = M.dayOf(now)
 		local sp = M.pick(day)
 		if sp == nil or p ~= sp then

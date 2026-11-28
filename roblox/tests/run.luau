@@ -11710,7 +11710,7 @@ end)()
 		opts.hook = opts.hook or loopGuard
 		return newRuntime(opts)
 	end }
-	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e", "rebirth_e2e", "quests_e2e", "onboarding", "showcase" }) do -- lot 17 : onboarding (aussi : python3 roblox/tests/run_onboarding.py)
+	for _, name in ipairs({ "shop", "season", "offers", "sellers", "lot16", "lot16_e2e", "rebirth_e2e", "quests_e2e", "onboarding", "showcase", "showcase_origin" }) do -- lot 17 : onboarding (aussi : python3 roblox/tests/run_onboarding.py)
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()

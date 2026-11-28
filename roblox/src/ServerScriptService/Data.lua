@@ -247,7 +247,7 @@ function Data.default()
 	for i = 1, SLOT_COUNT do
 		d.slots[i] = false
 	end
-	d.slots[1] = { k = "e", t = 1, ends = os.time() + Config.FIRST_EGG_SECONDS, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
+	d.slots[1] = { k = "e", t = 1, ends = os.time() + Config.FIRST_EGG_SECONDS, shield = 0, rv = true, og = "g" } -- œuf de départ (gratuit : non indemnisable)
 	SeasonMod.migrate(d, os.time()) -- lot 16 : profil neuf avec sa saison
 	d.onb = OnbMod.default() -- lot 17 : onboarding démarré (merge() le remplace par la migration du profil sauvegardé)
 	return d
@@ -627,6 +627,9 @@ local function merge(saved)
 				end
 				-- champs facultatifs du lot 7b (assainis) : rv = œuf non indemnisable (volé par corbeau, tapis privé, bienvenue), rvAt = date du dernier vol par corbeau
 				sl.rv = sl.rv == true or nil
+				-- vitrine (décision utilisateur 2026-11-28) : og = origine figée d'un œuf ("g" gagné, "c" pièces, "r" payé). Absente ou invalide = inconnue (exclue) ;
+				-- retirée d'un pet. Idempotent, sans changement de version (un ancien slot reste « inconnu », jamais promu).
+				sl.og = (sl.k == "e" and (sl.og == "g" or sl.og == "c" or sl.og == "r")) and sl.og or nil
 				sl.rvAt = (type(sl.rvAt) == "number" and sl.rvAt == sl.rvAt) and math.min(4e9, math.max(0, sl.rvAt)) or nil
 				d.slots[i] = sl
 			else

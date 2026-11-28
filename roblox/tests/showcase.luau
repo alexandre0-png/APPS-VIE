@@ -49,8 +49,8 @@ return function(env)
 	---------------------------------------------------------------- 1. Config et sélection
 	suite("Vitrine : Config.SHOWCASE et espèces éligibles")
 	check(
-		"Config.SHOWCASE existe, activé, +5 %, 24 h, 7 jours",
-		type(Config.SHOWCASE) == "table" and Config.SHOWCASE.enabled == true and Config.SHOWCASE.bonusPct == 0.05 and Config.SHOWCASE.bonusSeconds == 86400 and Config.SHOWCASE.cooldownDays == 7
+		"Config.SHOWCASE existe, désactivé par défaut (décision utilisateur 2026-11-28), +5 %, 24 h, 7 jours",
+		type(Config.SHOWCASE) == "table" and Config.SHOWCASE.enabled == false and Config.SHOWCASE.bonusPct == 0.05 and Config.SHOWCASE.bonusSeconds == 86400 and Config.SHOWCASE.cooldownDays == 7
 	)
 	check(
 		"aucun champ Robux / produit / prix dans Config.SHOWCASE",
@@ -249,7 +249,7 @@ return function(env)
 	end
 	local st = fakeStore()
 	local a, b = Mod.new(Config), Mod.new(Config) -- deux « serveurs » distincts partageant le même DataStore
-	local pa, pb = { userId = 111, name = "Alice" }, { userId = 222, name = "Bob" }
+	local pa, pb = { userId = 111, name = "Alice", og = "g" }, { userId = 222, name = "Bob", og = "g" } -- og : œufs gagnés en jouant (un œuf payé est refusé : showcase_origin.luau)
 	local sa, sb = SC.sanitize(nil, T0), SC.sanitize(nil, T0)
 	check("mauvaise espèce : notFeatured, aucun appel DataStore", a.tryClaim(st, sa, other, pa, T0, noWait) == "notFeatured" and st.calls == 0)
 	check("Alice gagne", a.tryClaim(st, sa, sp, pa, T0, noWait) == "won")

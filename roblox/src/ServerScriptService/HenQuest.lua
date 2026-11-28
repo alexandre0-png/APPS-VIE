@@ -362,7 +362,7 @@ function HenQuest.new(ctx)
 	local function grant(s, tier)
 		local i = ctx.freeSlot(s)
 		if i then
-			s.data.slots[i] = { k = "e", t = tier, ends = os.time() + ctx.hatchTime(s, tier), shield = os.time() + ctx.shieldTime(s) }
+			s.data.slots[i] = { k = "e", t = tier, ends = os.time() + ctx.hatchTime(s, tier), shield = os.time() + ctx.shieldTime(s), og = "g" } -- vitrine : récompense de la Mère Poule = gagnée en jouant
 			ctx.refreshPad(s, i)
 			return true
 		end
