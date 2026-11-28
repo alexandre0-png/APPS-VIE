@@ -210,6 +210,11 @@ function HatchFx.play(parent, plan, opts)
 		return cc
 	end
 
+	-- graphismes 5 : taille (px) des objets de particules = max(défaut historique, b.size du plan : HatchPlan.particleSize, >= 18 px)
+	local function px(b, default)
+		return math.max(default, num(b.size, 0))
+	end
+
 	-- ------------------------------------------------------------------ prises
 	local K = {}
 	function K.shake(b)
@@ -236,16 +241,23 @@ function HatchFx.play(parent, plan, opts)
 			end
 			local col = colorOf(b.color, i, b.n)
 			local o
+			local sz = px(b, 16)
 			if b.glyph == "cube" or b.glyph == "shard" then
+				local w = b.glyph == "cube" and sz or math.max(8, math.floor(sz * 0.45))
+				local h = b.glyph == "cube" and sz or math.max(24, math.floor(sz * 1.3))
 				o = make("Frame", {
-					AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(b.glyph == "cube" and 16 or 8, b.glyph == "cube" and 16 or 24), BackgroundColor3 = col,
+					Name = "Particle", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(w, h), BackgroundColor3 = col,
 					Rotation = (i * 37) % 90, BorderSizePixel = 0, ZIndex = 4,
 				}, box)
 			else
+				local g = px(b, 22)
 				o = make("TextLabel", {
-					AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, Text = b.glyph == "petal" and "✿" or "✦", TextScaled = true,
+					Name = "Particle", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(g, g), BackgroundTransparency = 1, Text = b.glyph == "petal" and "✿" or "✦", TextScaled = true,
 					TextColor3 = col, Font = FONT, ZIndex = 4,
 				}, box)
+				if b.color == "gold" then
+					make("UIStroke", { Color = Color3.fromRGB(120, 70, 0), Thickness = 1, Transparency = 0.3 }, o) -- contour : l'or reste lisible sur fond clair
+				end
 			end
 			local dx, dy = math.cos(a) * dist, math.sin(a) * dist
 			if b.arc == "fall" then
@@ -499,7 +511,7 @@ function HatchFx.play(parent, plan, opts)
 		for i = 1, b.n do
 			local a = (i / b.n) * math.pi * 2
 			local r = make("TextLabel", {
-				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.cos(a) * 130, 80 + math.sin(a) * 34), Size = UDim2.fromOffset(24, 24), BackgroundTransparency = 1,
+				Name = "Particle", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.cos(a) * 130, 80 + math.sin(a) * 34), Size = UDim2.fromOffset(px(b, 24), px(b, 24)), BackgroundTransparency = 1,
 				Text = RUNES[(i - 1) % #RUNES + 1], TextScaled = true, Font = FONT, TextColor3 = colorOf(b.color, i, b.n), TextTransparency = 1, ZIndex = 2,
 			}, box)
 			tween(r, 0.3, { TextTransparency = 0.1 })
@@ -523,7 +535,7 @@ function HatchFx.play(parent, plan, opts)
 		for i = 1, b.n do
 			local a = (i / b.n) * math.pi * 2 + 0.4
 			local s = make("TextLabel", {
-				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(26, 26), BackgroundTransparency = 1, Text = "★", TextScaled = true, Font = FONT,
+				Name = "Particle", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(px(b, 26), px(b, 26)), BackgroundTransparency = 1, Text = "★", TextScaled = true, Font = FONT,
 				TextColor3 = colorOf(b.color, i, b.n), ZIndex = 4,
 			}, box)
 			tween(s, b.d, { Position = UDim2.fromOffset(math.cos(a) * (120 + (i % 3) * 40), math.sin(a) * (90 + (i % 3) * 30)), TextTransparency = 1 })

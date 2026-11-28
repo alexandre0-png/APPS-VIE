@@ -10,6 +10,13 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 2. **Force en combat** : `Battle.STATS[r]`, puissance pv + 3 x attaque + 2 x vitesse strictement croissante, x1,25 au moins ; profils tank / attaquant / rapide / équilibré, écart de 8 à 15 % dans une rareté, le plus fort d'une rareté sous le plus faible de la suivante. Tests « Règle (2) ». Rien d'achetable ne touche ces stats.
 3. **Pièces contre Robux** : tout article payable aux deux est plus cher et plus long en pièces : pour le débutant, temps de gain en pièces entre 4 et 12 fois le « temps Robux » (prix en R$ x `Config.PRICING_REF.secondsPerRobux`, taux du Sac de pièces : 20 min de revenu pour 99 R$ = 12,1 s par R$) ; jamais inatteignable. Les œufs Secret (1 499 R$), Exclusif (3 499 R$) et Divin (6 999 R$) sont vendus en Robux à prix fixe et rareté FIXE, contenu affiché, `random = true`, masqués et refusés si PolicyService restreint ; aucun avantage de combat acheté. Tests « Règle (3) ».
 
+## GRAPHISMES 5 : effets d'éclosion lisibles (2026-11-28)
+**Rien n'a été vu dans Studio** (propriétés mesurées seulement).
+- `HatchPlan.lua` : particules strictement croissantes avec la rareté (version complète : 8, 11, 13, 15, 17, 19, 21, 22, 23, 25 ; version mobile non décroissante, toujours la moitié), pluie dorée dès Légendaire (au moins 5 particules `gold`, >= 25 % de l'effet ; aucune avant), taille minimale des objets (`particleSize` : 18 px pour Commun, +2 px par rareté, 36 px pour Divin), durée minimale de chaque prise de particules 0,6 s. Plafonds inchangés : 30 objets, 40 objets/s, 8 s ; 220 instances par éclosion (HatchFx), 120 (intro), 80 (effet de type).
+- `HatchFx.lua` : lit `b.size` (éclats, étincelles, runes, étoiles ; défauts historiques en plancher), objets nommés `Particle` (mesurables), contour sombre fin sur les étincelles dorées.
+- Écarts : cercle runique de r6 à r9 ramené à 6 à 10 runes (au lieu de 8 à 12) et quelques prises allégées (r7 cristaux, r8 étoiles, r9 éclats noirs) pour laisser la place à l'or sans dépasser 30 objets ; r3 et r4 gagnent une gerbe d'étincelles (r3 n'avait que 3 objets).
+- Tests : `tests/hatchvis.luau` (13 assertions ; `run_hatchvis.py`), branché dans `run.luau`.
+
 ## GRAPHISMES 4 : halos d'œufs et bulles de protection (2026-11-28)
 **Rien n'a été vu dans Studio** (propriétés mesurées seulement, voir `GRAPHISMES_NOTES.md`).
 - `ReplicatedStorage/EggAura.lua` (pur) : style du halo par rareté (couleur `Config.TIERS`, visibilité croissante, pulsation lente 3,6 -> 2,4 s), bulle (bouclier / gardien), plafonds desktop / mobile, sélection des plus proches, réservoir sans fuite. `StarterPlayerScripts/EggAura.client.lua` : applique (Parts locales néon / ForceField, aucune lumière). `Config.EGG_AURA`.

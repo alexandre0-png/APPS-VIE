@@ -19,6 +19,13 @@ HatchPlan.MAX_RATE = 40
 HatchPlan.SKIP_AFTER = 1.5
 HatchPlan.COUNTER_SECONDS = 0.8
 HatchPlan.COUNTER_STEPS = 12
+-- Graphismes 5 (lisibilité, 2026-11-28) : chaque prise de particules dure au moins MIN_PARTICLE_SECONDS et ses objets mesurent au moins MIN_PARTICLE_PX
+-- (taille croissante avec la rareté : HatchPlan.particleSize) ; le nombre de particules croît strictement avec la rareté (version complète) et, dès
+-- Légendaire (GOLD_FROM), une pluie dorée d'au moins GOLD_MIN particules (couleur "gold") accompagne la révélation.
+HatchPlan.MIN_PARTICLE_SECONDS = 0.6
+HatchPlan.MIN_PARTICLE_PX = 18
+HatchPlan.GOLD_FROM = 5
+HatchPlan.GOLD_MIN = 5
 -- Durées par rareté (B.3 ; r10 plafonnée à 8 s).
 HatchPlan.DURATIONS = { 1.2, 1.5, 2.0, 2.8, 4.0, 5.0, 6.0, 7.0, 6.5, 8.0 }
 local EXCEPTIONAL_MIN = 100000
@@ -73,15 +80,15 @@ local function build(r)
 			beat(0, 0.4, "shake", 0, { amp = 3 }),
 			beat(0.4, 0.1, "pop", 0),
 			beat(0.4, 0.15, "flash", 0, { color = "white", a = 0.7 }),
-			beat(0.4, 0.5, "rays", 6, { color = "white", len = 120 }),
+			beat(0.4, 0.7, "rays", 8, { color = "white", len = 120 }),
 		}
 	elseif r == 2 then
 		rv = 0.55
 		B = {
 			beat(0, 0.5, "shake", 0, { amp = 4 }),
 			beat(0.5, 0.1, "pop", 0),
-			beat(0.5, 0.7, "burst", 12, { color = "main", glyph = "cube", dist = 150, arc = "crown" }),
-			beat(0.7, 0.7, "burst", 6, { color = "second", glyph = "petal", dist = 110, arc = "fall" }),
+			beat(0.5, 0.7, "burst", 7, { color = "main", glyph = "cube", dist = 150, arc = "crown" }),
+			beat(0.7, 0.7, "burst", 4, { color = "second", glyph = "petal", dist = 110, arc = "fall" }),
 		}
 	elseif r == 3 then
 		rv = 1.05
@@ -91,6 +98,7 @@ local function build(r)
 			beat(1.0, 0.15, "flash", 0, { color = "main", a = 0.6 }),
 			beat(1.0, 0.1, "pop", 0),
 			beat(1.0, 0.8, "ring", 2, { color = "main", mode = "ground" }),
+			beat(1.0, 0.8, "burst", 10, { color = "main", glyph = "spark", dist = 140, arc = "ball" }),
 		}
 	elseif r == 4 then
 		rv = 2.1
@@ -99,6 +107,7 @@ local function build(r)
 			beat(0.8, 0.25, "shakeScreen", 0, { amp = 6 }),
 			beat(0.9, 1.2, "slot", 4, { color = "main" }),
 			beat(2.0, 0.1, "pop", 0),
+			beat(2.05, 0.7, "burst", 5, { color = "main", glyph = "spark", dist = 160, arc = "ball" }),
 			beat(2.1, 0.7, "banner", 1, { color = "main" }),
 		}
 	elseif r == 5 then
@@ -111,30 +120,31 @@ local function build(r)
 			beat(2.0, 0.2, "flash", 0, { color = "gold", a = 0.8 }),
 			beat(2.0, 0.1, "pop", 0),
 			beat(2.0, 0.5, "split", 2, { color = "gold" }),
-			beat(2.0, 1.0, "rays", 12, { color = "gold", len = 220 }),
+			beat(2.0, 1.0, "rays", 9, { color = "gold", len = 220 }),
 			beat(2.2, 1.8, "banner", 1, { color = "gold" }),
 		}
 	elseif r == 6 then
 		rv = 2.6
 		B = {
-			beat(0.3, 2.1, "chains", 6, { color = "second", breakAt = 2.1 }),
-			beat(0.4, 1.6, "cracks", 4, { color = "red" }),
+			beat(0.3, 2.1, "chains", 5, { color = "second", breakAt = 2.1 }),
+			beat(0.4, 1.6, "cracks", 3, { color = "red" }),
 			beat(0.5, 1.8, "shake", 0, { amp = 8, grow = true }),
 			beat(2.0, 0.6, "tint", 0, { color = "red", a = 0.5 }),
 			beat(2.4, 0.6, "shakeScreen", 0, { amp = 10 }),
 			beat(2.4, 0.1, "pop", 0),
-			beat(2.4, 1.0, "runes", HatchPlan.runes(6), { color = "red" }),
+			beat(2.4, 1.0, "runes", 6, { color = "red" }),
+			beat(2.4, 1.0, "burst", 5, { color = "gold", glyph = "spark", dist = 180, arc = "ball" }),
 			beat(2.7, 2.0, "banner", 1, { color = "red" }),
 		}
 	elseif r == 7 then
 		rv = 3.2
 		B = {
-			beat(0, 1.5, "crystals", 6, { color = "main", from = "around" }),
-			beat(0.8, 1.6, "frost", 3, { color = "white" }),
+			beat(0, 1.5, "crystals", 3, { color = "main", from = "around" }),
+			beat(0.8, 1.6, "frost", 2, { color = "white" }),
 			beat(1.5, 1.4, "shake", 0, { amp = 7, grow = true }),
 			beat(3.0, 0.15, "flash", 0, { color = "main", a = 0.8 }),
 			beat(3.0, 0.1, "pop", 0),
-			beat(3.0, 0.8, "burst", 8, { color = "main", glyph = "shard", dist = 190, arc = "ball" }),
+			beat(3.0, 0.8, "burst", 6, { color = "gold", glyph = "shard", dist = 190, arc = "ball" }),
 			beat(3.0, 1.5, "runes", HatchPlan.runes(7), { color = "main" }),
 			beat(3.3, 2.4, "banner", 1, { color = "main" }),
 		}
@@ -145,10 +155,11 @@ local function build(r)
 			beat(0.5, 2.0, "text", 1, { glyph = "???", color = "white" }),
 			beat(2.5, 0.9, "ring", 1, { color = "rainbow", mode = "expand" }),
 			beat(2.8, 0.9, "ring", 1, { color = "rainbow", mode = "expand" }),
-			beat(2.5, 1.0, "stars", 8, { color = "rainbow" }),
+			beat(2.5, 1.0, "stars", 6, { color = "rainbow" }),
+			beat(2.6, 1.0, "burst", 6, { color = "gold", glyph = "spark", dist = 200, arc = "ball" }),
 			beat(2.5, 0.15, "flash", 0, { color = "white", a = 0.9 }),
 			beat(2.5, 0.1, "pop", 0),
-			beat(2.6, 1.2, "runes", HatchPlan.runes(8), { color = "rainbow" }),
+			beat(2.6, 1.2, "runes", 8, { color = "rainbow" }),
 			beat(3.0, 3.2, "banner", 1, { color = "rainbow" }),
 		}
 	elseif r == 9 then
@@ -156,11 +167,12 @@ local function build(r)
 		B = {
 			beat(0, 0.8, "tint", 0, { sat = -1, hold = true, a = 0 }),
 			beat(0.5, 2.0, "text", 1, { glyph = "crown", color = "black" }),
-			beat(2.5, 0.8, "burst", 6, { color = "black", glyph = "shard", dist = 160, arc = "ball" }),
-			beat(2.5, 2.0, "smoke", 5, { color = "second" }),
+			beat(2.5, 0.8, "burst", 3, { color = "black", glyph = "shard", dist = 160, arc = "ball" }),
+			beat(2.6, 1.0, "burst", 6, { color = "gold", glyph = "spark", dist = 190, arc = "ball" }),
+			beat(2.5, 2.0, "smoke", 4, { color = "second" }),
 			beat(2.5, 0.4, "shakeScreen", 0, { amp = 8 }),
 			beat(2.5, 0.1, "pop", 0),
-			beat(2.6, 1.2, "runes", HatchPlan.runes(9), { color = "white" }),
+			beat(2.6, 1.2, "runes", 10, { color = "white" }),
 			beat(2.9, 2.2, "banner", 1, { color = "white" }),
 		}
 	else
@@ -172,12 +184,32 @@ local function build(r)
 			beat(2.4, 3.0, "zoom", 0, { k = 1.1 }),
 			beat(3.0, 0.2, "flash", 0, { color = "white", a = 0.9 }),
 			beat(3.0, 0.1, "pop", 0),
-			beat(3.0, 2.0, "rays", 16, { color = "main", len = 260 }),
+			beat(3.0, 2.0, "rays", 12, { color = "main", len = 260 }),
 			beat(3.0, 2.0, "runes", HatchPlan.runes(10), { color = "gold" }),
 			beat(3.4, 4.0, "banner", 1, { color = "main" }),
 		}
 	end
 	return B, rv
+end
+
+-- Taille (px) des objets de particules d'une rareté : MIN_PARTICLE_PX (Commun) + 2 px par rareté (36 px pour Divin).
+function HatchPlan.particleSize(r)
+	local rr = isNum(r) and math.max(1, math.min(10, math.floor(r))) or 1
+	return HatchPlan.MIN_PARTICLE_PX + 2 * (rr - 1)
+end
+
+-- Particules dorées d'un plan (prises de couleur "gold", hors bandeau / texte / ailes / pilier).
+function HatchPlan.goldParticles(plan)
+	local n = 0
+	if type(plan) == "table" and type(plan.beats) == "table" then
+		for i = 1, #plan.beats do
+			local b = plan.beats[i]
+			if type(b) == "table" and b.color == "gold" and not FIXED_KINDS[b.kind] and isNum(b.n) then
+				n = n + b.n
+			end
+		end
+	end
+	return n
 end
 
 -- Somme des objets et pic de débit (objets/s, estimé sur une grille de 0,05 s) d'une liste de prises.
@@ -252,6 +284,15 @@ function HatchPlan.plan(r, N, opts)
 	local exceptional = num ~= nil and num >= EXCEPTIONAL_MIN
 	if exceptional then
 		beats[#beats + 1] = beat(revealAt + 0.2, math.min(1.6, duration - revealAt - 0.2), "text", 1, { glyph = "exceptional", color = "gold", y = "low" })
+	end
+	-- graphismes 5 : durée minimale de chaque prise de particules (bornée à la fin de l'animation) et taille minimale de ses objets
+	local px = HatchPlan.particleSize(rr)
+	for i = 1, #beats do
+		local b = beats[i]
+		if b.n > 0 and not FIXED_KINDS[b.kind] then
+			b.d = math.min(math.max(b.d, HatchPlan.MIN_PARTICLE_SECONDS), duration - b.t)
+			b.size = math.max(isNum(b.size) and b.size or 0, px)
+		end
 	end
 	-- plafonds d'objets et de débit sur la version complète, puis réduction mobile (moitié, arrondi bas)
 	fit(beats, duration, HatchPlan.MAX_OBJECTS)
