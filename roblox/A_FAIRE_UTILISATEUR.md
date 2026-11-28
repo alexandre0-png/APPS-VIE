@@ -42,6 +42,14 @@ Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisat
 
 - [ ] **Monétisation, corbeau et tapis privé (refonte, lot 7), à jouer dans Studio (jamais testés en vrai)** : (1) à 3 comptes (deux amis + un inconnu) : menu « 🐦‍⬛ Corbeau » (liste des cibles, œufs, jetons), alerte de la victime (carte rouge + son, compte à rebours 8 s), « toucher l'œuf » dans sa base chasse le corbeau (jeton rendu), hors de sa base non, succès = œuf chez le voleur + indemnité + 5 min de bouclier, journal « Qui m'a volé ? » (Plus), réglage « Refuser les corbeaux de mes amis » ; relever combien de corbeaux chaque joueur reçoit par heure (doit rester <= 3) ; (2) l'oiseau procédural (taille, trajet, ailes) ; (3) achats en test purchase : 1 et 3 jetons (refus net au-delà de 5), tapis doré et pluie de chance (cumul, refus au-delà de 30 min), pass Tapis privé (tapis 10 x 3 devant les emplacements, un œuf toutes les 2 min tant que tu bouges, 3 en attente) ; (4) un compte dont les **offres à hasard sont restreintes** (PolicyService) : les 6 offres doivent disparaître de la boutique et des cartes ; (5) les probabilités de `PUBLICATION.md` §3ter sont à recopier sur la fiche de chaque offre à hasard ; (6) lot 7b : avec deux comptes complices (ancienneté >= 3 jours), vérifier qu'un aller-retour de corbeau ne rapporte pas de pièces (indemnité plafonnée à 900 par jour, 0 pour un œuf déjà volé), qu'un compte de moins de 3 jours est refusé, que fermer le serveur (arrêt depuis Creator Hub) rend le jeton d'un corbeau en vol ; (7) relire le questionnaire de maturité (vol d'objets virtuels déjà déclaré, texte prêt dans `PUBLICATION.md` §3ter).
 
+## 1undecies. Audit du 28 novembre (rien n'a été vu dans Studio)
+
+- [ ] **Éclosions de chaque rareté** : dans Studio seulement, mets `Config.Debug.forceHatch = 8` (puis 9, 10...) dans `Config.lua`, fais éclore un œuf : la rareté imposée sort (Exclusif compris), animation sans erreur dans la Sortie. Remets `false` avant de publier (sans effet en ligne de toute façon).
+- [ ] **Œuf Exclusif** : hors événement et hors saison, il doit être absent de la boutique ; pendant la saison 1 (à partir du 1er décembre) il apparaît avec « 1 espèce possible » (Corbeau couronné).
+- [ ] **Renaissance** : après une renaissance, tes passes, poses, Pack de départ, passe de combat, calendrier, sac d'œufs et coffre de débordement sont toujours là (seuls pièces, pets posés, œufs posés et améliorations repartent de zéro).
+- [ ] **Quêtes du jour** : les nouvelles missions (duels récompensés, combats PvE, type de la semaine, « 1 sur 1 000 », échange de PNJ) s'affichent avec un texte lisible et avancent.
+- [ ] **Bugs et idées** (menu Plus) : sur téléphone, le panneau affiche l'adresse ahzmksupport@gmail.com lisiblement. À toi de vérifier que l'affichage d'une adresse e-mail dans le jeu est conforme aux règles Roblox pour ton public (en cas de doute, dis-le-moi et je le retire ou le remplace par un renvoi vers la page du groupe).
+
 ## 1decies. Refonte du combat en vue face à face (rien n'a été vu dans Studio)
 
 - [ ] **Lisibilité à 360 px de large** (émulateur téléphone portrait 360 x 640 et paysage 640 x 360) : cartes (adversaire en haut à droite, joueur en bas à gauche), journal, 4 boutons d'action, vitesse / « Passer », texte jamais coupé, cibles tactiles confortables (>= 44 px calculés, à sentir au doigt) ; zone sûre (encoche) respectée.
@@ -113,17 +121,18 @@ Les 46 achats sont créés et leurs ids branchés (rien à créer). Il reste à 
 
 ## 1quater. Passage en public
 
+- [ ] Avant le passage en public : me demander de repasser `Config.Debug.AssetReport` à `false` (le petit « Blender N/M » et le rapport F3 sont visibles de tous les joueurs ; utile seulement pour tes tests).
 - [ ] Suivre la liste de `roblox/PUBLICATION.md` §5 (fiche, descriptions, accroches, vérifications dans l'ordre, lancement progressif privé puis amis puis public).
 - [ ] Au premier playtest, me dire si les modèles Blender (gardiens, pièges, herses, pales, bancs, lampadaires, chevaliers, sol) ont la bonne taille et le bon sens : devant supposé = -Z, pics dessinés sortis.
 
 - [ ] Au premier playtest, regarder les effets 3D et cinématiques (`roblox/ANIMATIONS.md`) : taille et lisibilité des effets, position des caméras (éclosion, château, survol du hub), gêne éventuelle ; chaque famille se coupe par un drapeau (`Config.Animations.vfx3d`, `Config.Cinematics.*`).
 
-## 2. Ouvrir la place dans Studio et publier
+## 2. Publier les mises à jour (l'expérience existe déjà)
 
-- [ ] Studio : **File > Open from File** → `roblox/build/ChipeOeufs.rbxlx`.
-- [ ] Te connecter, puis **File > Publish to Roblox As…** → *Create new experience*. Titre : `Chipe-Œufs : Vole des Œufs ! 🥚`. Description, genre et appareils : copier depuis `roblox/publication/LISTING.md` §1.
-- [ ] **Home > Game Settings > Security** : activer **Enable Studio Access to API Services**.
-- [ ] **Game Settings** : **Max Players = 10** ; **Avatar = R15**.
+L'expérience est créée (univers 10776613087 : hub 115261336085924 = lieu de départ, partie 87012762353093) ; je n'ai aucun accès à ton compte, la publication reste à toi.
+
+- [ ] À chaque lot validé : Studio, **File > Open from File** -> `roblox/build/Hub.rbxlx` puis **File > Publish to Roblox As…** -> le lieu **115261336085924** ; même chose avec `roblox/build/ChipeOeufs.rbxlx` -> le lieu **87012762353093** (`PUBLICATION.md` §5).
+- [ ] Ne publie pas un commit marqué « WIP … non vérifié : ne pas publier ».
 
 ## 3. Playtest dans Studio (indispensable avant de passer en public)
 
@@ -178,39 +187,14 @@ Les 46 achats sont créés et leurs ids branchés (rien à créer). Il reste à 
 - [ ] **Calendrier mural** (près du kiosque, place du marché) : le modèle `hub.calendar` (30 cases, jour 1 en haut à gauche, coffre devant) s'affiche-t-il, à la bonne taille (7 studs de haut), tourné vers la place, sans chevaucher le kiosque ? Son prompt « Calendrier » ouvre le calendrier. Sinon dis-moi où le mettre.
 - [ ] **Événements** : week-end (samedi et dimanche UTC) : tapis toutes les 4 s ; 18 h - 19 h UTC : revenus x2 ; Halloween / Noël / printemps : décor sur la place (citrouille, sapin, arche) et plumes d'événement dans le menu Bonus.
 
-## 4. Créer les achats sur le Creator Hub et me donner les ID
+## 4. Achats Robux : ce qui reste à faire sur le Creator Hub
 
-Creator Hub → ton expérience → **Monetization**. Les prix sont des suggestions (Roblox prélève 30 %). Après création, colle chaque ID dans `Config.PASSES` / `Config.PRODUCTS` (clés `Coins2x`, `Lucky`, `Fast`, `Speed`, `VipBase`, `StarterPack`, `ExclusiveEgg`, `Revive`, `InstantHatch`, `LuckPotion`, `CoinPack`) et envoie-les-moi. Une icône est prête pour les 6 premiers achats dans `roblox/publication/art/`.
+Les **46 achats** (passes et produits, dont Œuf Secret 1 499 R$, Œuf Exclusif 3 499 R$, Œuf Divin 6 999 R$ et Sauver ma série 3736703610) sont créés et leurs ID sont branchés dans `ShopData.lua` : rien à créer ni à recopier. L'Œuf Exclusif n'est en vente que pendant une fenêtre d'événement ou de saison (A5) ; Secret et Divin sont en vente.
 
-| Type | Nom exact | Prix | Description | Icône |
-|---|---|---|---|---|
-| Game Pass | Revenus x2 | 199 R$ | Double tous tes revenus de pièces, pour toujours. | `pass_coins2x_512.png` |
-| Game Pass | Chance +10% | 149 R$ | Augmente de 10 points tes chances d'obtenir un pet de rareté supérieure. | `pass_lucky_512.png` |
-| Game Pass | Éclosion rapide | 149 R$ | Les œufs éclosent 25 % plus vite, pour toujours. | `pass_fast_512.png` |
-| Game Pass | Vitesse +20 % | 149 R$ | Cours 20 % plus vite, pour toujours. | (à créer) |
-| Game Pass | Base VIP | 399 R$ | Boucliers d'œufs x2 et bonus quotidien x2, pour toujours. | (à créer) |
-| Developer Product | Pack de départ | 99 R$ | Achat unique : 20 000 pièces, 3 œufs Rares et une potion de chance. | (à créer) |
-| Developer Product | Œuf Mythique | 249 R$ | Un œuf Mythique (rareté fixe) placé dans ta base (il faut une place libre, sinon l'achat est livré plus tard automatiquement). **Lot 9 : renommer le produit existant « Œuf exclusif Mythique » en « Œuf Mythique » sur le Creator Hub** (pour ne pas le confondre avec la rareté Exclusif). | (à créer) |
-| Developer Product | Relance immédiate | 49 R$ | Au Château : repars aussitôt là où tu es tombé, pv rétablis. Le retour gratuit au début de la salle reste disponible. | (à créer) |
-| Developer Product | Éclosion instantanée | 49 R$ | Fait éclore tous tes œufs tout de suite. | `product_instanthatch_512.png` |
-| Developer Product | Potion de chance | 99 R$ | +25 points de chances d'obtenir un pet supérieur pendant 15 minutes. | `product_luckpotion_512.png` |
-| Developer Product | Sac de pièces | 99 R$ | Offre 20 minutes de tes revenus (minimum 5 000 pièces). | `product_coinpack_512.png` |
-| Game Pass | +4 emplacements | 249 R$ | 4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20). | créé et en vente |
-| Game Pass | Tapis privé | 299 R$ | Un petit tapis au milieu de ta base : un œuf gratuit toutes les 3 min tant que tu joues. **Lot 9 : mettre à jour la description (2 min -> 3 min)**. | créé et en vente |
-| Developer Product | Pluie de chance pour tous | 129 R$ | 10 min de +5 points de chance d'amélioration pour tout le serveur. | créé et en vente |
-| Developer Product | Tapis doré | 99 R$ | 10 min : le tapis du marché livre un œuf toutes les 4 s (table dorée affichée), cumulable jusqu'à 30 min. **Lot 9 : mettre à jour la description (3 s -> 4 s)**. | créé et en vente |
-| Developer Product | Œuf Secret | 1 499 R$ | Un œuf Secret (rareté fixe) placé dans ta base. Espèce, taille et mutation tirées au sort : probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452048) ; offre masquée tant qu'aucune espèce Secret n'existe (lot 11) |
-| Developer Product | Œuf Exclusif | 3 499 R$ | Un œuf Exclusif (rareté fixe) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452061) ; masqué jusqu'à la 1re espèce Exclusif |
-| Developer Product | Œuf Divin | 6 999 R$ | Un œuf Divin (rareté fixe) placé dans ta base. Probabilités affichées avant l'achat. Aucun bonus de combat. | créé (3736452072) ; masqué jusqu'aux espèces Divin |
-| Developer Product | Corbeau chipeur | 79 R$ | 1 jeton de vol à distance (rendu si la victime chasse le corbeau). | créé et en vente |
-| Developer Product | 3 Corbeaux chipeurs | 199 R$ | 3 jetons de vol à distance. | créé et en vente |
-| Developer Product | Rattrapage du calendrier | 29 R$ | Rattrape UN jour manqué du calendrier de 30 jours. | créé et en vente (id 3736695392, rien à faire) |
-| Developer Product | Sauver ma série | 29 R$ | Sauve ta série de 7 jours après 2 jours manqués (une fois par semaine). Aucun hasard. | **à créer (lot 15)** : colle l'ID dans `Config.PRODUCTS.StreakRestore.id` (tant qu'il vaut 0, le bouton est caché ; le sauvetage gratuit par les 3 missions reste disponible) |
-
-- [ ] Créer les 5 Game Passes et les 6 Developer Products du tableau ci-dessus (colonne « ID à renseigner » : `PUBLICATION.md` §3bis donne la ligne exacte de `Config.lua` pour chacun).
-- [ ] Copier chaque **ID** dans `roblox/src/ReplicatedStorage/Config.lua`, champ `id = 0` de la ligne correspondante (les 11 clés sont listées plus haut). Ou me donner les 11 ID et je m'en charge, puis je régénère la place.
-- [ ] Tester chaque achat avec le **test purchase** de Studio.
-- [ ] **Décision à prendre** : lire la politique Roblox sur les « Paid Random Items » avant d'activer **Chance +10%**, **Potion de chance** et **Éclosion instantanée** (elles touchent à des tirages aléatoires payés). Les probabilités sont déjà affichées dans le jeu (menu Plus). Prudence : ne lancer d'abord que Revenus x2, Éclosion rapide et Sac de pièces (laisser les autres à `id = 0`).
+- [ ] **Renommer** le produit 3734229320 (« Œuf exclusif Mythique ») en **« Œuf Mythique »** sur le Creator Hub (le jeu l'affiche déjà ainsi ; la clé interne `ExclusiveEgg` ne change pas, les achats ne cassent pas).
+- [ ] **Descriptions à mettre à jour** sur le Creator Hub : Tapis privé (passe 2098265697) « un œuf gratuit toutes les **3 min** » ; Tapis doré (produit 3736121227) « un œuf toutes les **4 s** pendant 10 min ».
+- [ ] Tester quelques achats avec le **test purchase** de Studio (un œuf, un passe, un pack, le rattrapage du calendrier).
+- [ ] **Décision à confirmer par écrit** (politique Roblox « Paid Random Items ») : toutes les offres à hasard sont en vente, probabilités affichées avant l'achat et masquées pour les comptes restreints par PolicyService. Confirme que cela te convient, ou dis-moi lesquelles remettre à `id = 0` avant le passage en public.
 
 ## 5. Téléverser les images
 
